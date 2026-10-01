@@ -20,8 +20,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Models;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Models;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 

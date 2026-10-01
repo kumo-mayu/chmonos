@@ -10,7 +10,7 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 // Never extracts archive members, imports Unity packages, or runs embedded code.
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 var outputPath = Path.GetFullPath(args.Length > 0 ? args[0] : "research/pdf-probe-results.json");
-var allowedOutput = Path.GetFullPath("D:/work/ClaudeCode/booth-asset-manager/research/");
+var allowedOutput = Path.GetFullPath("D:/work/ClaudeCode/chmonos/research/");
 if (!outputPath.StartsWith(allowedOutput, StringComparison.OrdinalIgnoreCase))
     throw new ArgumentException("Output must be under the workspace research directory.");
 var results = new List<object>();

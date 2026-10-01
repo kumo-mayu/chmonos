@@ -6,11 +6,11 @@
 
 | 置き場 | 中身 |
 |---|---|
-| `BoothAssetManager.App/` | 画面（WPF）。`Views/`・`ViewModels/`・`Controls/`（`SuggestBox`・`ColumnsPanel` など共通の部品）・`Services/` |
-| `BoothAssetManager.Core/` | 画面に依存しない本体。`Booth/`（通信のゲート）・`Commands/`（`UiCommand`）・`Models/`・`Storage/`・`Scanning/`（取り込み）・`Resolution/`（商品IDの特定）・`Search/`・`Services/`・`Images/` |
-| `BoothAssetManager.Core.Tests/` | 既定のテスト一式（通信しない） |
-| `BoothAssetManager.App.Tests/` | 画面の側（ViewModel・App の Services）の試験。窓を出さず、一時フォルダの保存先と作り物の BOOTH で組む。書き方は `docs/dev/app-tests.md` |
-| `BoothAssetManager.Cli/` | データ層を実データで試す足場。配布物ではない |
+| `Chmonos.App/` | 画面（WPF）。`Views/`・`ViewModels/`・`Controls/`（`SuggestBox`・`ColumnsPanel` など共通の部品）・`Services/` |
+| `Chmonos.Core/` | 画面に依存しない本体。`Booth/`（通信のゲート）・`Commands/`（`UiCommand`）・`Models/`・`Storage/`・`Scanning/`（取り込み）・`Resolution/`（商品IDの特定）・`Search/`・`Services/`・`Images/` |
+| `Chmonos.Core.Tests/` | 既定のテスト一式（通信しない） |
+| `Chmonos.App.Tests/` | 画面の側（ViewModel・App の Services）の試験。窓を出さず、一時フォルダの保存先と作り物の BOOTH で組む。書き方は `docs/dev/app-tests.md` |
+| `Chmonos.Cli/` | データ層を実データで試す足場。配布物ではない |
 | `BoothZipInspector/`・`BoothIdResolver/`（と `.Tests`） | zip の手掛かり読み・商品IDの特定のライブラリ（本体が使う） |
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
@@ -68,6 +68,7 @@
 | [import-concurrency.md](history/import-concurrency.md) | 取り込み中もアプリを使える（優先度・持ち主・印・⑦） |
 | [booth-machine-gate-2026-09-30.md](history/booth-machine-gate-2026-09-30.md) | BOOTH への問い合わせの門を PC で1つにした経緯（選んだ仕組み・2つのプロセスで測った間・一時展開の置き場所を保存先ごとに） |
 | [dotnet10-2026-09-30.md](history/dotnet10-2026-09-30.md) | .NET 9 から .NET 10 へ上げた記録（上げた物・絵と木の比べ・配る物の大きさ・速さとメモリ・互換性の表・確かめていない事） |
+| [rename-chmonos-2026-10-01.md](history/rename-chmonos-2026-10-01.md) | コード・実行ファイル・リポジトリ・写しの置き場の名前を Chmonos に揃えた記録（変えた物・残した物・確かめ） |
 | [private-items.md](history/private-items.md) | 非公開商品の取り込み（38問） |
 | [user-images.md](history/user-images.md) | 自分で足す画像 |
 | [modifications.md](history/modifications.md) | 改変の記録と改変の画面の刷新 |

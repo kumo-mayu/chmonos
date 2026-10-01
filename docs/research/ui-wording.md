@@ -29,7 +29,7 @@ C#の `AppTag*` → `UserTag*`（541箇所）。
 
 **移行は付けていない。** 古い `appTags` を持つJSONを読んでも、そのタグは復元されない。
 これは「既存のデータが無い状態から作り直す」と決めた上での判断。
-作業前の実データは `%LOCALAPPDATA%\BoothAssetManager-backup-20260909-181217` に控えてある。
+作業前の実データは `%LOCALAPPDATA%\Chmonos-sandboxes\backup-20260909-181217` に控えてある。
 
 これより前の設計文書（`docs/history/` の grill の文書）は書かれた時点の記録なので `appTag` のまま。
 

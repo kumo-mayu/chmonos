@@ -29,10 +29,10 @@
 // 結果の TSV には正解の商品名とファイル名が入る。友人のデータで測るときは、リポジトリの外に置く。
 
 using System.Text.Json;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Resolution;
-using BoothAssetManager.Core.Search;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Models;
+using Chmonos.Core.Resolution;
+using Chmonos.Core.Search;
+using Chmonos.Core.Storage;
 using ResolveAccuracyProbe;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;

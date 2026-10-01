@@ -11,7 +11,7 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $probeExe = Join-Path $PSScriptRoot '..\bin\Release\net10.0-windows\StartupProbe.exe'
 if (-not (Test-Path $probeExe)) { throw "見張りが無い: dotnet build experiments/StartupProbe -c Release" }
 . (Join-Path $repo '.claude\skills\ui-check\scripts\ui-kit.ps1')
-$others = @(Get-Process BoothAssetManager.App -ErrorAction SilentlyContinue)
+$others = @(Get-Process Chmonos.App -ErrorAction SilentlyContinue)
 if ($others.Count -and -not $Force) { return "busy: $(@(Get-ChmonosRunning | ForEach-Object { $_.Key }) -join ',') / $($others.Count) 本" }
 # PowerShell は $null を空文字にして渡すので、消すときは [NullString]::Value。
 # 前の回の設定が空文字で残ると、子に「空の値」として渡り、別の条件で測ってしまう（2026-10-01 に一度これで測り直した）

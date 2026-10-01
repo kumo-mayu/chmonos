@@ -1,6 +1,6 @@
 # 画面の速さ・固まり・メモリを測る道具（ui-kit.ps1 を読んだ後にドットで読み込む）：
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\perf-measure\scripts\perf-kit.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-kit.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\perf-measure\scripts\perf-kit.ps1"
 #
 # 前は作業用フォルダに置いていて、別の担当が同じ名前の自分の道具で上書きした（parallel-fix スキル）。
 # 固まりを外から測る見張り（probe.exe）も担当ごとに作り直していたので、ここへ寄せた（2026-09-30）。

@@ -11,8 +11,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.App.Views;
+using Chmonos.App.ViewModels;
+using Chmonos.App.Views;
 
 namespace PeerProbe;
 
@@ -23,7 +23,7 @@ public static class FocusWalk
 
     public static void Run()
     {
-        var app = new BoothAssetManager.App.App();
+        var app = new Chmonos.App.App();
         app.InitializeComponent();
 
         Walk("商品ページの札（対応アバター・共通素体・説明文の候補）", AvatarsPanel(), stops: 12, enterAt: ["ItemAvatarChip", "ItemAvatarReject", "ItemBaseMentionDismiss"]);
@@ -36,7 +36,7 @@ public static class FocusWalk
         // 設定の除外したファイルは、見える分だけ行を作る一覧にした（2026-10-01）。作られていない行へも Tab で進めるか（流れて次の行ができるか）。
         // 画面の上の欄から数えると長いので、欄の三角から始める
         Walk("設定の除外したファイル（見える分だけ作る一覧・40行）", SettingsExcluded(rows: 40), stops: 44, enterAt: ["Settings.ExcludedRestore"],
-            start: root => FindById(root, "Settings.ExcludedExpander") is { } expander ? FindChild<BoothAssetManager.App.Controls.ExpandToggle>(expander) : null);
+            start: root => FindById(root, "Settings.ExcludedExpander") is { } expander ? FindChild<Chmonos.App.Controls.ExpandToggle>(expander) : null);
     }
 
     private static FrameworkElement SettingsExcluded(int rows)
@@ -102,7 +102,7 @@ public static class FocusWalk
                 <UserControl.Resources>
                     <ResourceDictionary>
                         <ResourceDictionary.MergedDictionaries>
-                            <ResourceDictionary Source="pack://application:,,,/BoothAssetManager.App;component/Views/ItemCardResources.xaml" />
+                            <ResourceDictionary Source="pack://application:,,,/Chmonos;component/Views/ItemCardResources.xaml" />
                         </ResourceDictionary.MergedDictionaries>
                     </ResourceDictionary>
                 </UserControl.Resources>
@@ -193,7 +193,7 @@ public static class FocusWalk
             rows.Add(row);
         }
 
-        return new BoothAssetManager.App.Controls.ContentItemsControl { ItemsSource = rows, ItemTemplate = template, Width = 700, Focusable = false };
+        return new Chmonos.App.Controls.ContentItemsControl { ItemsSource = rows, ItemTemplate = template, Width = 700, Focusable = false };
     }
 
     private static object Row(string name, params (string Key, string Label)[] commands)

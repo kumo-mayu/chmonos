@@ -24,11 +24,11 @@
 // BOOTH へは行かない（つながらない相手を渡す。呼ばれたら落とす）。
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Images;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Services;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Images;
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
+using Chmonos.Core.Storage;
 
 // bash から呼ぶと既定の文字コード（CP932）で出て読めないので、UTF-8 で書く
 Console.OutputEncoding = System.Text.Encoding.UTF8;

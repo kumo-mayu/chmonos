@@ -33,9 +33,9 @@ public static class Program
         "xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' " +
         "xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' " +
         "xmlns:s='clr-namespace:System;assembly=System.Runtime' " +
-        "xmlns:controls='clr-namespace:BoothAssetManager.App.Controls;assembly=BoothAssetManager.App' " +
-        "xmlns:views='clr-namespace:BoothAssetManager.App.Views;assembly=BoothAssetManager.App' " +
-        "xmlns:vm='clr-namespace:BoothAssetManager.App.ViewModels;assembly=BoothAssetManager.App' " +
+        "xmlns:controls='clr-namespace:Chmonos.App.Controls;assembly=Chmonos' " +
+        "xmlns:views='clr-namespace:Chmonos.App.Views;assembly=Chmonos' " +
+        "xmlns:vm='clr-namespace:Chmonos.App.ViewModels;assembly=Chmonos' " +
         "xmlns:probe='clr-namespace:PeerProbe;assembly=PeerProbe'";
 
     [STAThread]
@@ -92,9 +92,9 @@ public static class Program
         }
 
         // アプリの資源（色・ボタンの見た目）だけを読み込む。OnStartup は Run しなくても呼ばれるが、App が本体のプロセスでないと見て進めない（App.IsLaunchedAsApp）
-        var app = new BoothAssetManager.App.App();
+        var app = new Chmonos.App.App();
         app.InitializeComponent(); Console.WriteLine("  [色の表] 読み込み直後: " + app.Resources.MergedDictionaries[0].Source + " Text=" + app.TryFindResource("Text"));
-        EventManager.RegisterClassHandler(typeof(ListViewItem), BoothAssetManager.App.Controls.ItemListView.RowInvokedEvent,
+        EventManager.RegisterClassHandler(typeof(ListViewItem), Chmonos.App.Controls.ItemListView.RowInvokedEvent,
             new RoutedEventHandler((sender, _) => ProbeLog.Lines.Add("行に「押す」が届いた: " + System.Windows.Automation.AutomationProperties.GetName((DependencyObject)sender))));
 
         foreach (var file in Directory.GetFiles(dir, "*.probe.txt").OrderBy(f => f))

@@ -1,4 +1,4 @@
-# 画面の側の試験（BoothAssetManager.App.Tests）
+# 画面の側の試験（Chmonos.App.Tests）
 
 ViewModel と App の Services の試験。**窓を出さずに、アプリと同じ組み立てを一時フォルダの保存先で作って確かめる。**
 App のコードを直す前に読む。決めた経緯は `docs/history/app-tests-2026-09-30.md`。
@@ -72,7 +72,7 @@ public Task 壊れたzipだけを出すと_壊れたzipを持つ商品だけが�
 一式は約10秒（2026-09-30・287件）。保存先を作る試験は1件 20〜40ms。1秒かかる試験は、時計で進む物を待っている
 （今は4件が1.0秒：ナビの件数を数え直す間隔 `MainViewModel.CountsInterval` の1秒を、`SettleAsync` が待っている）。
 
-## 重くしない（本体の試験 `BoothAssetManager.Core.Tests` も同じ）
+## 重くしない（本体の試験 `Chmonos.Core.Tests` も同じ）
 
 `dotnet test` 全体で約16秒（本体 約2,300件が13秒・画面の側が10秒で、並んで走る）。前は95秒かかっていて、原因は2つだけだった（2026-09-30 に測った）。
 

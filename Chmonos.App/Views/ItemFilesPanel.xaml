@@ -1,0 +1,480 @@
+<UserControl x:Class="Chmonos.App.Views.ItemFilesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:controls="clr-namespace:Chmonos.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む三角はタグの管理と同じ物（操作感を揃える） -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+
+        <!--
+            ファイル・フォルダの名前。押すとエクスプローラで開く（ユーザ指示 2026-09-19）。
+            押せることが分かるよう、乗せると色と下線が付く。場所は乗せたときに出す
+        -->
+        <Style x:Key="FileNameLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock x:Name="Label" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontSize="12.5"
+                                   Foreground="{TemplateBinding Foreground}" TextTrimming="CharacterEllipsis" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Label" Property="TextDecorations" Value="Underline" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            この商品から外したファイルは、行を消さずに薄くして残す（ユーザ判断 2026-09-12）。
+            薄くするのは名前と保存場所だけ。「この商品に戻す」まで薄いと押せないように見える
+        -->
+        <Style x:Key="DetachedDim" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!--
+            ファイルの行の中身は、入り切らなければ次の段へ送る（FileRowFlow）。前は名前と札を1つの枠に入れて枠ごと薄くしていたが、
+            枠に入れると枠ごとしか送れない。薄くする決まりを1つずつに付ける（名前・容量・リンクは元の見た目を継ぐ）
+        -->
+        <Style x:Key="FileNameLinkDim" TargetType="Button" BasedOn="{StaticResource FileNameLink}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="MonoDim" TargetType="TextBlock" BasedOn="{StaticResource Mono}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="TextDim" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!--
+            ファイル・フォルダの行の左の並び（名前・札・容量・リンク・「開く ▾」）。
+            横に並べるだけ（StackPanel）だと、狭い幅で右の「この商品から外す」の下へ潜って、「見つかりません」の札が丸ごと見えなかった
+            （中身の幅 1280 の窓。ユーザ判断 2026-09-30）。入り切らない物は次の段へ送る。名前は1つで幅を超えるときだけ「…」で切れる。
+            1段の高さは小さいボタン（27）に上下 2 の間を足した 31 に揃え、外で上下 2 を引く——1段のときの行の高さは前と同じ 27 のまま、
+            右のボタンと同じ高さで並ぶ。段ごとの高さを中身任せにすると、名前だけの段が低くなり、右のボタンと中心がずれる。
+            部品どうしの間は、それぞれの右に持たせる（左に持たせると、送った段の頭が間の分だけ字下げされる）
+        -->
+        <Style x:Key="FileRowFlow" TargetType="WrapPanel">
+            <Setter Property="ItemHeight" Value="31" />
+            <Setter Property="Margin" Value="0,-2,10,-2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            保存場所の文字。薄くするのは文字だけで、横の「エクスプローラで開く」は薄くしない
+            （外したファイルでも開ける。薄いと押せないように見えた・ユーザ指摘）。
+            行の中はパスの文字列が DataContext なので、外したかどうかはファイルの行（一覧の持ち主）から引く
+        -->
+        <Style x:Key="DetachedDimPath" TargetType="TextBlock" BasedOn="{StaticResource Mono}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.IsDetached, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                             Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <!--
+        手元のファイル（フォルダ・ファイル・保存場所・Unityへ送れるもの）の欄。
+        商品ページと編集画面で同じ部品を使う（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
+        DataContext は ItemViewModel（編集画面では、今開いている商品の分）
+    -->
+                    <!-- ローカルファイル -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <!-- 畳める（ユーザ指示 2026-09-19）。件数と容量は畳んでも見出しに出す -->
+                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                      IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
+                                                      AutomationProperties.AutomationId="ItemFilesToggle"
+                                                      Subject="ローカルファイル"
+                                                      ToolTip="ローカルファイルの欄を開く・折りたたむ" />
+                                        <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding FileSummary}" Style="{StaticResource Mono}" FontSize="11"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                            <StackPanel Visibility="{Binding IsFilesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <!-- フォルダとして所有しているもの。zipが残っていない展開済みの配布物 -->
+                            <controls:ContentItemsControl ItemsSource="{Binding LocalFolders}"
+                                          Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <!-- ファイルの行と同じ並び。右の間は外の枠が持つ -->
+                                                    <WrapPanel Style="{StaticResource FileRowFlow}" Margin="0,-2">
+                                                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="0,0,7,0">
+                                                            <TextBlock Text="フォルダ" FontSize="10" Foreground="{DynamicResource AccentText}" />
+                                                        </Border>
+                                                        <!-- 名前を押すとエクスプローラで開く。場所は乗せたときに出す（ユーザ指示 2026-09-19） -->
+                                                        <Button Content="{Binding Name}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                ToolTip="{Binding PathToolTip}"
+                                                                Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                AutomationProperties.AutomationId="ItemFolderName"
+                                                                CommandParameter="{Binding Path}" />
+                                                        <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
+                                                                   Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                        <!-- 開く操作は名前のすぐ横に（ファイルの行と同じ形。ユーザ判断 2026-09-19） -->
+                                                        <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,8,0"
+                                                                VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                AutomationProperties.AutomationId="ItemFolderOpenMenu"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
+                                                                ToolTip="このフォルダの開き方を選びます">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding Path}"
+                                                                              AutomationProperties.AutomationId="ItemFolderOpenMenu.Explorer"
+                                                                              Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                        </Button>
+                                                        <!--
+                                                            見つからないファイル。直し方を言う（動線の点検 D7）。取り込みで読み直せば
+                                                            置き場所を付け直す仕組みはあるのに、札が「見つかりません」だけで伝わっていなかった
+                                                        -->
+                                                        <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                            <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                        </Border>
+                                                        <TextBlock Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                            <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">取り込みを開く</Hyperlink>
+                                                        </TextBlock>
+                                                    </WrapPanel>
+                                                    <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,7,0,0"
+                                                            Visibility="{Binding HasArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding ArchiveNoticeText}" FontSize="11.5"
+                                                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                                    <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
+                                                    <Button Content="登録を外す" Style="{StaticResource SmallButton}"
+                                                            AutomationProperties.AutomationId="ItemFolderUnregister"
+                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}の登録を外す}"
+                                                            Command="{Binding DataContext.UnregisterFolderCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding Path}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+
+                            <controls:ContentItemsControl ItemsSource="{Binding LocalFiles}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
+                                            <StackPanel>
+                                              <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <WrapPanel Grid.Column="0" Style="{StaticResource FileRowFlow}">
+                                                    <!--
+                                                        名前を押すとエクスプローラで開く（1つめの場所）。場所は乗せたときに出す
+                                                        （ユーザ指示 2026-09-19：名前の下に場所の行が続き、同じ名前が2回並んで読みにくかった）。
+                                                        見つからないファイルは開く先が無いので押せない（理由はツールチップ）
+                                                    -->
+                                                    <Button Content="{Binding FileName}" Style="{StaticResource FileNameLinkDim}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            IsEnabled="{Binding CanReveal}"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding PathToolTip}"
+                                                            AutomationProperties.AutomationId="ItemFileName"
+                                                            Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding FirstPath}" />
+                                                    <!--
+                                                        取り込みで zip として開けなかった物（ユーザ判断 2026-09-30）。ダウンロード元の記録から商品が決まると未確定を通らないので、
+                                                        前は中身の一覧が空なだけで、「一時的に展開して開く」を押して初めて分かった。未確定の行と同じ札・同じ色・同じ吹き出し。
+                                                        直さないと使えない物なので、名前のすぐ横に置く。無い物には出さない（「見つかりません」だけを言う）
+                                                    -->
+                                                    <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            ToolTip="zipを開けませんでした。ダウンロードし直してください。"
+                                                            Visibility="{Binding ShowsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}" />
+                                                    </Border>
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            ToolTip="この商品から外したファイルです。所持や容量には数えません。"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="外したファイル" FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                    </Border>
+                                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding HasVariationLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="{DynamicResource AccentText}" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource MonoDim}" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding DuplicateNote}" FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                    </Border>
+                                                    <!--
+                                                        見つからないファイル（取り込みで読み直したら、記録の場所がどれも無かった）。直し方を言う（動線の点検 D7）。
+                                                        以前はファイルの行には札が無く、置き場所の欄が空になるだけだった
+                                                    -->
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                        <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                    </Border>
+                                                    <TextBlock Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center" Style="{StaticResource TextDim}"
+                                                               Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                        <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">取り込みを開く</Hyperlink>
+                                                    </TextBlock>
+                                                    <!--
+                                                        つながっていないドライブの上にしか場所が無いファイル。取り込みがそこのパスを残すのと同じく、
+                                                        無くなったとは言わない。次の一手は取り込みではなく、つなぐこと（フォルダの表示と同じ語）
+                                                    -->
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding IsOnDetachedDrive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            ToolTip="ドライブをつなぐと開けます。">
+                                                        <TextBlock Text="取り外しているドライブ" FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                    </Border>
+                                                    <!--
+                                                        開く操作は名前のすぐ横に、1つのボタンにまとめる（ユーザ判断 2026-09-19：右端に並ぶと、名前を読んでから
+                                                        押すまでに視線が画面の幅ぶん往復した）。外したファイルでも開けるので、薄くしない（薄いと押せないように見えた・ユーザ指摘）。
+                                                        見つからないファイルは開く先が無いので出さない
+                                                    -->
+                                                    <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,0,0"
+                                                            VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                            Visibility="{Binding CanReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            AutomationProperties.AutomationId="ItemFileOpenMenu"
+                                                            AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を開く}"
+                                                            ToolTip="このファイルの開き方を選びます">
+                                                        <Button.ContextMenu>
+                                                            <ContextMenu>
+                                                                <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding FirstPath}"
+                                                                          AutomationProperties.AutomationId="ItemFileOpenMenu.Explorer"
+                                                                          ToolTip="このファイルのある場所を開きます。zipは展開せずに中を開きます。"
+                                                                          Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                <!--
+                                                                    unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れにくい（#56）。
+                                                                    一時フォルダに展開して開き、アプリを閉じると消す。「一時的に」は、元の zip の横に広げると読まれないように
+                                                                    （ユーザ指示 2026-09-19）
+                                                                -->
+                                                                <MenuItem Header="一時的に展開して開く" CommandParameter="{Binding}"
+                                                                          AutomationProperties.AutomationId="ItemFileOpenMenu.Unpack"
+                                                                          ToolTip="一時フォルダに展開して開きます。展開した分はアプリを閉じると消えます。"
+                                                                          Visibility="{Binding CanUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                          Command="{Binding PlacementTarget.Tag.UnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                            </ContextMenu>
+                                                        </Button.ContextMenu>
+                                                    </Button>
+                                                </WrapPanel>
+
+                                                <!--
+                                                    間違って紐付いたファイルを直す入口。1商品に複数ファイルがあり得るので、
+                                                    商品単位ではなくファイル単位に置く（zipだけが誤りのことがある）
+                                                -->
+                                                <!--
+                                                    商品の中身を変える操作だけは右端に離す（開く・送るの隣で押し間違えないように）。
+                                                    左が2段になっても名前の段に並ぶよう、上に置く（1段のときは左と同じ高さなので、前と同じ位置）
+                                                -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                                    <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
+                                                            AutomationProperties.AutomationId="ItemFileDetach"
+                                                            AutomationProperties.Name="{Binding FileName, StringFormat={}{0}をこの商品から外す}"
+                                                            ToolTip="未確定に戻します。ファイルは削除せず、あとで元に戻せます。"
+                                                            Visibility="{Binding IsAttached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.DetachFileCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="この商品に戻す" Style="{StaticResource SmallButton}"
+                                                            AutomationProperties.AutomationId="ItemFileReattach"
+                                                            AutomationProperties.Name="{Binding FileName, StringFormat={}{0}をこの商品に戻す}"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding ReattachTip}"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.ReattachFileCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                              </Grid>
+
+                                                <!--
+                                                    同じ中身が別の場所にもあるときだけ、2つめ以降の場所を行にして開けるようにする
+                                                    （1つめは名前を押せば開く。ツールチップは押せないので、ほかの場所の入口が要る）
+                                                -->
+                                                <TextBlock Text="同じ中身がある、ほかの場所" Style="{StaticResource Caption}" Margin="10,8,0,4"
+                                                           Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <controls:ContentItemsControl ItemsSource="{Binding OtherPaths}" Margin="10,0,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <!-- ボタンは場所のすぐ横に（右端に寄せない。ユーザ判断 2026-09-19） -->
+                                                            <Border BorderBrush="{DynamicResource Divider}" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding}" Style="{StaticResource DetachedDimPath}" FontSize="11" MaxWidth="640"
+                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"
+                                                                               ToolTip="{Binding}" />
+                                                                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
+                                                                            AutomationProperties.AutomationId="ItemFileOtherPathOpen"
+                                                                            AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
+                                                                            Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </controls:ContentItemsControl>
+
+                                                <!--
+                                                    Unityへ送れるもの
+
+                                                    **zipを展開せずに送れる。**渡すのは
+                                                    `<zip>\<中のパス>` という仮想パスで、解決はWindowsがやる。
+                                                    詳しくは docs/history/unity-handoff.md
+
+                                                    **1つでも一覧に出す。**zipの名前と中の名前は
+                                                    しばしば違うので、何が入るのかは見せた方がよい
+                                                -->
+                                                <StackPanel Margin="10,4,0,0"
+                                                            Visibility="{Binding HasUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding UnityPackageNote}" Style="{StaticResource Caption}"
+                                                               Margin="10,0,0,5" TextWrapping="Wrap"
+                                                               Visibility="{Binding HasManyUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <controls:ContentItemsControl ItemsSource="{Binding UnityPackageRows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="{DynamicResource AccentBorder}" BorderThickness="2,0,0,0"
+                                                                        Padding="10,3" Margin="0,0,0,4">
+                                                                    <!--
+                                                                        名前のすぐ横に「Unity ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した。「Unityへ送る」は選択も入るので「Unity」に改めた）。
+                                                                        **送り方は2つに分けたまま選ばせる。**送る前に「記録しますか」と聞くと、記録を使っていない人の邪魔になる。
+                                                                        分ければ選んだ人だけが記録の話に入る
+                                                                    -->
+                                                                    <StackPanel VerticalAlignment="Center">
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5" MaxWidth="560"
+                                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                                            <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                                                    VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    AutomationProperties.AutomationId="ItemPackageUnityMenu"
+                                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}"
+                                                                                    ToolTip="開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。">
+                                                                                <Button.ContextMenu>
+                                                                                    <ContextMenu>
+                                                                                        <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
+                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.Send"
+                                                                                                  ToolTip="開いているUnityへ送ります。送る内容はUnity側で確認できます。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                        <MenuItem Header="改変に追加して送る" CommandParameter="{Binding Entry}"
+                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.SendWithRecord"
+                                                                                                  ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                        <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
+                                                                                        <MenuItem Header="Unityで選択" CommandParameter="{Binding Entry}"
+                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.Select"
+                                                                                                  ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                    </ContextMenu>
+                                                                                </Button.ContextMenu>
+                                                                            </Button>
+                                                                        </StackPanel>
+                                                                        <!--
+                                                                            Unityのどこに入るか。**取り込んだ後に何という名前で
+                                                                            入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
+                                                                        -->
+                                                                        <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
+                                                                                   FontSize="10.5" Foreground="{DynamicResource TextMuted}"
+                                                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                                                   ToolTip="{Binding DestinationText}"
+                                                                                   Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </controls:ContentItemsControl>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,10,18,14"
+                                       Text="同じ中身のファイルは1件として数え、容量も1回だけ数えます。" />
+                            <!-- どこへ送るかは押す前に見えていること。開いていないと何も起きない -->
+                            <TextBlock Text="{Binding UnityTargetText}" Style="{StaticResource Caption}"
+                                       AutomationProperties.AutomationId="ItemUnityTargetText"
+                                       TextWrapping="Wrap" Margin="18,0,18,14"
+                                       Visibility="{Binding HasAnyUnityPackage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!--
+                                積んだことはUnity側の反応では分からないので、ここで言う。
+                                送っている最中の進み具合も同じ行に出し、その間だけ「中止」を添える（E7・E10）
+                            -->
+                            <DockPanel Margin="18,0,18,14"
+                                       Visibility="{Binding HasUnityRecordNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding StopUnityCommand}"
+                                        AutomationProperties.AutomationId="ItemUnityStop"
+                                        AutomationProperties.Name="Unityへ送るのを中止"
+                                        Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        ToolTip="送るのを中止します。残った取り込み画面は「Cancel」で閉じてください。" />
+                                <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
+                                           AutomationProperties.AutomationId="ItemUnityNotice"
+                                           TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Accent}" />
+                            </DockPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+</UserControl>

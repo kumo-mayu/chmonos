@@ -105,7 +105,7 @@ internal sealed class Stage : IDisposable
         VisualTreeHelper.SetRootDpi(_root, new DpiScale(scale, scale));
 
         // 絵を読む大きさ（カードの絵は画素で読む）。主の窓が置かれたモニターの拡大率として渡している値
-        BoothAssetManager.App.Services.DisplayScale.SetMonitor(scale);
+        Chmonos.App.Services.DisplayScale.SetMonitor(scale);
 
         // 倍率が変わっても並べ直しは自動では起きない（窓口の側の拡大率の知らせを経ていないため）
         InvalidateAll(_root);

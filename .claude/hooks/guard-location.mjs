@@ -1,7 +1,7 @@
 // 本番の location.json（%LOCALAPPDATA%\Chmonos\location.json）を守る。CLAUDE.md「本番のデータを触らない」。
 // 本番の location.json はユーザが普段使う friendtest を指していて、書き換えるとユーザの作業場所が変わってしまう。
 // 決め事だけでは長い会話で抜けることがあるので、書き込みの手前で止める。
-// 写しの保存先は BoothAssetManager-<名前> なので、この形には当たらない
+// 写しの保存先は Chmonos-sandboxes\<名前> なので、この形には当たらない
 import fs from "fs";
 
 const target = /(^|[\\/])chmonos[\\/]+location\.json/i;

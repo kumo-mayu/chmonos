@@ -14,8 +14,8 @@
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Models;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Models;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 

@@ -14,10 +14,10 @@
 //
 // BOOTHへの問い合わせは BoothClient を通すので、必ず1本ずつ・1.5秒空けて出る。
 
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Resolution;
-using BoothAssetManager.Core.Search;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Models;
+using Chmonos.Core.Resolution;
+using Chmonos.Core.Search;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 

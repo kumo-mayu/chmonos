@@ -4,9 +4,9 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
-using BoothAssetManager.App.Services;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.Core.Models;
+using Chmonos.App.Services;
+using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 
 namespace ViewShot;
 
@@ -268,7 +268,7 @@ internal static class Program
         // アプリの資源（色の表・標準の部品の見た目・App.xaml の既定）を読む。起動の処理は走らない——
         // WPF は Run を呼ばなくても、コンストラクタで積んだ OnStartup を下の Dispatcher.Run で走らせるが、
         // App の側が「アプリ本体として起動されたときだけ進める」と分けている（App.IsLaunchedAsApp）
-        var app = new BoothAssetManager.App.App();
+        var app = new Chmonos.App.App();
         app.InitializeComponent();
 
         // 窓を作って捨てるたびに「最後の窓が閉じた」で終わりにされないように
@@ -432,7 +432,7 @@ internal static class Program
 
     private static IEnumerable<string> ReadAppLog()
     {
-        var log = BoothAssetManager.Core.Storage.AppPaths.Default.LogFile;
+        var log = Chmonos.Core.Storage.AppPaths.Default.LogFile;
         string[] lines;
         try
         {

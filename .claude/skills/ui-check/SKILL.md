@@ -60,14 +60,14 @@ dotnet run --project tools/ViewShot -- diff $env:TEMP\chmonos-shots\before $env:
 **台本を作業用フォルダに書き直す前に、下の部品を探す。**無ければ `scripts/` に足す（作業用フォルダに置くと、次の人がまた書く）。
 
 ```powershell
-. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"   # 起動・探す・押す・待つ・撮る・足跡・写し
-. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-ops.ps1"   # 商品を開く・取り込む・結果を読む・色・連続で撮る
+. "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-kit.ps1"   # 起動・探す・押す・待つ・撮る・足跡・写し
+. "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-ops.ps1"   # 商品を開く・取り込む・結果を読む・色・連続で撮る
 Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び出しごとに新しくなるので、毎回）
 ```
 
 1. ビルド（`dotnet build`）。自分のアプリが実行ファイルを掴んでいたら、先に `Stop-ChmonosApp`。
    ユーザが「画面はまだ使わないで」と言っていたら、閉じずに脇へビルドして `Start-ChmonosApp -Exe` で起動する
-   （`dotnet build BoothAssetManager.App -o <作業用フォルダ>\buildcheck`）。
+   （`dotnet build Chmonos.App -o <作業用フォルダ>\buildcheck`）。
 2. `Save-ProductionBaseline`
 3. 写しを選ぶ（[sandboxes.md](sandboxes.md)）。書き込む確かめなら、先に `Backup-ChmonosSandbox -Store <写し>`。
 4. `Start-ChmonosApp -Store <写し>`（本番と friendtest は断る）

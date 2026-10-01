@@ -16,7 +16,7 @@
 
 | 関数 | 何をするか | 並行 |
 |---|---|---|
-| `Start-ChmonosApp -Store x [-Exe <別の版>] [-AllowNew] [-NoTrace] [-IsolateTemp] [-SettleSeconds 6]` | `CHMONOS_HOME` を付けて起動。短い名前は `%LOCALAPPDATA%\BoothAssetManager-<名前>`。**本番と friendtest は断る。**同じ写しが開いていれば断る。ほかのアプリが開いているときは、裏の取得を切った写しだけ | ○ |
+| `Start-ChmonosApp -Store x [-Exe <別の版>] [-AllowNew] [-NoTrace] [-IsolateTemp] [-SettleSeconds 6]` | `CHMONOS_HOME` を付けて起動。短い名前は `%LOCALAPPDATA%\Chmonos-sandboxes\<名前>`。**本番と friendtest は断る。**同じ写しが開いていれば断る。ほかのアプリが開いているときは、裏の取得を切った写しだけ | ○ |
 | `Use-ChmonosStore x` | このシェルの相手を決める（並行のときは、読み込んだ直後に毎回） | ○ |
 | `Stop-ChmonosApp [-Store x]` | この道具で起動したアプリを閉じる。複数開いていて相手を決めていなければ、閉じずにそう返す | ○ |
 | `Get-ChmonosApp [-Store]` / `Get-ChmonosRoot [-Store]` | プロセス／主の窓の要素 | ○ |

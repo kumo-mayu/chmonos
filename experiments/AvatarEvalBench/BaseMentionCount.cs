@@ -1,5 +1,5 @@
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Services;
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace AvatarEvalBench;
 

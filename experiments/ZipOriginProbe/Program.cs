@@ -16,11 +16,11 @@
 // 使い方: ZipOriginProbe (--unresolved <json> | --scan <フォルダ>) [--search] [--compare]
 
 using System.Text.Json;
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Resolution;
-using BoothAssetManager.Core.Scanning;
-using BoothAssetManager.Core.Search;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Models;
+using Chmonos.Core.Resolution;
+using Chmonos.Core.Scanning;
+using Chmonos.Core.Search;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 

@@ -3,17 +3,17 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
-using BoothAssetManager.App;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Storage;
+using Chmonos.App;
+using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
+using Chmonos.Core.Storage;
 
 namespace ViewShot;
 
 /// <summary>
 /// 場面が使う道具。**アプリのサービス一式・主画面の ViewModel・窓の中身を組む所は、ここ1か所にまとめる。**
 ///
-/// アプリ側の試験（BoothAssetManager.App.Tests）にも ViewModel を試験から組む助けができる。
+/// アプリ側の試験（Chmonos.App.Tests）にも ViewModel を試験から組む助けができる。
 /// できたら、ここの <see cref="StartAsync"/> の中身をそちらへ寄せる（場面は <see cref="SceneContext"/> しか見ていないので、場面は書き直さなくてよい）。
 /// </summary>
 internal sealed class SceneContext

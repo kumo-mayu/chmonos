@@ -6,7 +6,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace BoothAssetManager.App;
+namespace Chmonos.App;
 
 internal static class BootMarks
 {

@@ -1,7 +1,7 @@
 # 写しの保存先（サンドボックス）
 
-どれも `%LOCALAPPDATA%\` の下。フォルダ名は改名前（`BoothAssetManager-`）のまま。場所は `CHMONOS_HOME` で渡すだけなので名前は関係ない。
-`Start-ChmonosApp -Store <-の後ろ>` で起動する（例：`-Store tagcheck`）。
+どれも `%LOCALAPPDATA%\` の下。2026-10-01 に `%LOCALAPPDATA%\BoothAssetManager-<名前>` から `%LOCALAPPDATA%\Chmonos-sandboxes\<名前>` へ移した。場所は `CHMONOS_HOME` で渡す。
+`Start-ChmonosApp -Store <名前>` で起動する（例：`-Store tagcheck`）。
 
 ## 画面ごとの既定
 
@@ -59,7 +59,7 @@
 は第三者のもの。
 画像はどこへも送らず、文書・コミット・ログには数と傾向だけ書く（CLAUDE.md の「友人のデータは第三者のもの」）。
 
-写しの中に `location.json` が残っている物がある（`ui` `d1check` `heavycheck` `unitypkg` `volcheck` `stress-realcat`。どれも、もう無い `BoothAssetManager-first` を指す）。
+写しの中に `location.json` が残っている物がある（`ui` `d1check` `heavycheck` `unitypkg` `volcheck` `stress-realcat`。どれも、もう無い `Chmonos-sandboxes\first` を指す）。
 **`CHMONOS_HOME` を付けて起動する限り、読まれない**（アプリは環境変数を先に見る。`location.json` は既定の場所 `%LOCALAPPDATA%\Chmonos` の物しか読まない。`StoreLocation.Resolve`）。
 
 ## 台本から作る写し

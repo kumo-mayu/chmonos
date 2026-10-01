@@ -1,6 +1,6 @@
 // 検索の条件の部品は型で見た目を選ぶので、作り物ではなく本物の条件を載せる（値を当てる関数は空でよい）
 using System.Collections.ObjectModel;
-using BoothAssetManager.App.ViewModels;
+using Chmonos.App.ViewModels;
 
 namespace PeerProbe;
 

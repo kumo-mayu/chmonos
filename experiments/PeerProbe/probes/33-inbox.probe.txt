@@ -1,4 +1,4 @@
-<StackPanel __NS__><StackPanel.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="pack://application:,,,/BoothAssetManager.App;component/Views/ManageResources.xaml" /></ResourceDictionary.MergedDictionaries></ResourceDictionary></StackPanel.Resources><views:InboxView /></StackPanel>
+<StackPanel __NS__><StackPanel.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="pack://application:,,,/Chmonos;component/Views/ManageResources.xaml" /></ResourceDictionary.MergedDictionaries></ResourceDictionary></StackPanel.Resources><views:InboxView /></StackPanel>
 ---data---
 {
  "Lines": []

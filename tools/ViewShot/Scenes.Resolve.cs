@@ -1,6 +1,6 @@
 using System.Windows.Controls;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.App.Views;
+using Chmonos.App.ViewModels;
+using Chmonos.App.Views;
 
 namespace ViewShot;
 

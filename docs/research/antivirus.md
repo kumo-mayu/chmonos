@@ -18,11 +18,11 @@
 
 ### 取り込みを始めた直後にしていること（コードで確かめた）
 
-- booth.pm へ商品の JSON・ページを、1.5秒おきに問い合わせる（名乗りは報告の時点では `Mozilla/5.0 (...) BoothAssetManager/0.1 (personal library manager)`。**今は直した**。下の「打った手」）
+- booth.pm へ商品の JSON・ページを、1.5秒おきに問い合わせる（名乗りは報告の時点では `Mozilla/5.0 (...) Chmonos/0.1 (personal library manager)`。**今は直した**。下の「打った手」）
 - 取ってきた説明の部分（BOOTH のページの短い説明と見出し付きの節）を `items/{商品ID}.h2.html` として保存する
   （報告の時点では手を加えずそのまま繋いでいた。**今は動く物を削ってから保存する**。下の「打った手」）
 - booth.pximg.net から画像を取り、webp に直して保存する
-- 保存先は既定で `%LOCALAPPDATA%\BoothAssetManager`（保護されたフォルダではない）。初回の画面で別の場所を選べる
+- 保存先は既定で `%LOCALAPPDATA%\Chmonos`（保護されたフォルダではない）。初回の画面で別の場所を選べる
 
 ### 見込みの順
 
@@ -61,7 +61,7 @@
 | 利用者が選んだフォルダを丸ごと読み、大きな zip の中身を読んでハッシュを取る | 取り込み・監視フォルダ | 大量の読み取り。ランサムウェア対策は主に書き込みを見るので可能性は低い |
 | 展開済みフォルダをごみ箱へ送る（確認あり）、保存先の引っ越しでコピーしてから元を消す | `UnpackedFolderRemover`・`StoreMover` | Windows の「コントロールされたフォルダー アクセス」がドキュメント等にかかっていると、**書き込みや削除が止められ、通知が出る** |
 | クリップボードを読む | 画像や URL を貼り付けたときだけ | 利用者の操作のときだけ |
-| BOOTH に1.5秒おきに問い合わせ続ける（裏で期限の来た商品・欠けた画像を取り直す）、名乗りが `Mozilla/5.0 …` で始まる | `BoothClient` | ブラウザを名乗って自動で取りに行く形は、ネットワークを見る型のソフトに「スクレイパー」と見られ得る（中身には `BoothAssetManager/0.1 (personal library manager)` と書いている） |
+| BOOTH に1.5秒おきに問い合わせ続ける（裏で期限の来た商品・欠けた画像を取り直す）、名乗りが `Mozilla/5.0 …` で始まる | `BoothClient` | ブラウザを名乗って自動で取りに行く形は、ネットワークを見る型のソフトに「スクレイパー」と見られ得る（中身には `Chmonos/0.1 (personal library manager)` と書いている） |
 
 ## C. やっていないこと（念のため）
 
@@ -82,10 +82,10 @@ A なら 1〜3 のうち「落とした・展開した・起動した」で出�
 
 | 手 | 効きそうな候補 | 確かめたこと |
 |---|---|---|
-| 名乗りを `BoothAssetManager/0.1 (personal library manager)` だけにした（`BoothClient.UserAgent`） | 見込み4・B の最後 | 新しい名乗りで商品1件の JSON とページを取り、どちらも普通に返った（BOOTH に弾かれない） |
+| 名乗りを `Chmonos/0.1 (personal library manager)` だけにした（`BoothClient.UserAgent`） | 見込み4・B の最後 | 新しい名乗りで商品1件の JSON とページを取り、どちらも普通に返った（BOOTH に弾かれない） |
 | 保存する説明から、script・style・埋め込み（iframe・object・embed）・フォーム・svg、`on…` の属性・style 属性、http・https・相対以外の URL（`javascript:`・`data:`）を削る（`H2SectionExtractor.RemoveActiveContent`）。文章・リンク・画像は残す | 見込み2 | 実物のページから作った説明が、保存済みの物と一字一句同じだった（今のデータでは何も変わらない）。検出が読む素のテキストの URL も残る |
 
-| 使わない実行ファイル3つを配布物から外した。BoothIdResolver・BoothZipInspector はライブラリにし、コマンドの入口を `experiments/BoothIdResolverCli`・`experiments/BoothZipInspectorCli` へ移した。createdump.exe は publish の最後で落とす（アプリの csproj の `DropCreatedump`） | A の2つ目 | 配布物の exe が4つから `BoothAssetManager.App.exe` の1つになった。配布物のアプリが空の保存先で起動することを確かめた |
+| 使わない実行ファイル3つを配布物から外した。BoothIdResolver・BoothZipInspector はライブラリにし、コマンドの入口を `experiments/BoothIdResolverCli`・`experiments/BoothZipInspectorCli` へ移した。createdump.exe は publish の最後で落とす（アプリの csproj の `DropCreatedump`） | A の2つ目 | 配布物の exe が4つから `Chmonos.exe` の1つになった。配布物のアプリが空の保存先で起動することを確かめた |
 
 既に保存してある説明は書き直さない。数えた178件に削る物が無かったため。
 

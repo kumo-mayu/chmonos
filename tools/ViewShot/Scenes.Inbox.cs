@@ -1,5 +1,5 @@
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.Core.Models;
+using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 
 namespace ViewShot;
 

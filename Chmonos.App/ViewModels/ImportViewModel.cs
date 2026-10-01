@@ -1,0 +1,1635 @@
+using System.IO;
+using System.Collections.ObjectModel;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Commands;
+using Chmonos.Core.Scanning;
+using Chmonos.Core.Services;
+
+namespace Chmonos.App.ViewModels;
+
+public sealed class UnpackedFolderRow : ViewModelBase
+{
+    private bool _isSelected;
+
+    public required UnpackedFolder Folder { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string ArchiveName { get; init; }
+
+    public required string SizeText { get; init; }
+
+    public int FileCount { get; init; }
+
+    /// <summary>削除対象に選ばれているか。既定はオフ（消す方を明示的に選ばせる）。</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetField(ref _isSelected, value);
+    }
+}
+
+/// <summary>
+/// 取り込み画面。フォルダを選ぶ（またはドロップする）と3フェーズを走らせる。
+/// 進捗はバックエンドからUIスレッド以外で届くので、必ず <see cref="ViewModelBase.RunOnUiThread"/> を通す。
+/// </summary>
+public sealed class ImportViewModel : ViewModelBase
+{
+    private readonly AppServiceContainer _services;
+    private readonly MainViewModel _main;
+    private CancellationTokenSource? _cancellation;
+
+    /// <summary>実行中の作業集合。走らせている最中に足せるので、ここを握っておく。</summary>
+    private ImportWorkSet? _work;
+
+    /// <summary>
+    /// 立ち上げの途中（<see cref="_work"/> が入るまで）。2本目を止めるのに要る——
+    /// その間に確認の窓と設定の保存を挟むので、待っている間に画面のメッセージが回る。
+    /// </summary>
+    private bool _starting;
+
+    /// <summary>
+    /// 立ち上げの途中に来た「始める／積む」。立ち上がったら今の一覧を積み直す（値は展開先について尋ねてよいか）。
+    /// </summary>
+    private bool? _stackAfterStart;
+
+    private bool _isRunning;
+    private string? _stackNotice;
+    private string _phaseText = string.Empty;
+    private string _detailText = string.Empty;
+    private int _current;
+    private int _total;
+    private ImportSummary? _summary;
+    private string? _errorText;
+    private bool _isThrottled;
+
+    public ImportViewModel(AppServiceContainer services, MainViewModel main)
+    {
+        _services = services;
+        _main = main;
+
+        // **対象は空から始める**（ユーザ判断 2026-09-21・G3）。
+        // 前は履歴を全部「取り込み対象」に積んでいたので、1本落としたつもりでも
+        // 過去に指したフォルダ全部が走り、起動時の自動取り込みは説明と逆に履歴を全部舐めていた（G1）。
+        // 履歴は別の一覧として出し、そこから1件ずつ対象に積む
+        SyncFolderLists();
+
+        // 前回が途中で終わっていれば知らせる。中断は黙って起きるので、
+        // 閉じた時に何件残っていたかをユーザは覚えていない
+        var previous = services.Store.ImportState.Load();
+        if (previous.HasProgress)
+        {
+            // 「もう一度押すと続きから進みます」とだけ書いていたが、取り込み対象は次の起動で空に戻るので、
+            // 指していた「取り込みを開始」は押せない状態だった。押せるボタンを横に置く（2026-09-22）
+            _interruptedText = previous.Text + "。";
+        }
+
+        // 実行中でも足せる。「1ファイルだけ後から見つかった」は普通に起きるので、
+        // 終わるのを待たせない。押した先は同じ取り込みで、2本目は起こさない
+        AddFolderCommand = new RelayCommand(AddFolder);
+        RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => parameter is string);
+        // 右クリックから、そのフォルダをエクスプローラで開く（ユーザ指示 2026-09-20・M2）
+        RevealFolderCommand = new RelayCommand(
+            parameter => ExplorerReveal.RevealAsync(parameter as string).Forget(), parameter => parameter is string);
+        StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0 && !IsRemovingUnpacked);
+        CancelCommand = new RelayCommand(Cancel, () => IsRunning);
+        SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
+        RemoveUnpackedCommand = new RelayCommand(
+            () => RemoveUnpackedAsync().Forget(),
+            () => !IsRunning && !IsRemovingUnpacked && HasUnpackedSelection);
+        RemoveWatchedCommand = new RelayCommand(parameter => RemoveWatchedAsync(parameter as string).Forget(), parameter => parameter is string);
+        TakeWatchedNewCommand = new RelayCommand(() => _main.TakeWatchedNew());
+        OpenResolveCommand = new RelayCommand(() => _main.ShowResolve());
+        ShowAddedCommand = new RelayCommand(() => ShowAddedAsync().Forget());
+        ShowBrokenZipCommand = new RelayCommand(() => ShowBrokenZipAsync().Forget());
+    }
+
+    /// <summary>今回の取り込み対象。落とした物・選んだ物・履歴から積んだ物・監視の新着。</summary>
+    public ObservableCollection<string> Folders { get; } = [];
+
+    /// <summary>
+    /// 取り込み元の履歴（<c>settings.ImportFolders</c>）。**何を読んだかを確かめるための一覧**で、
+    /// 対象ではない（ユーザ判断 2026-09-21・G3/G4）。ファイルも積むが、監視の対象にはしない。
+    /// </summary>
+    public ObservableCollection<string> History { get; } = [];
+
+    public bool HasHistory => History.Count > 0;
+
+    public string HistoryEmptyText => "まだ何も取り込んでいません。取り込んだフォルダとファイルがここに残ります。";
+
+    private RelayCommand? _takeFromHistory;
+    private RelayCommand? _forgetHistory;
+
+    /// <summary>履歴の1件を、今回の対象に積む。</summary>
+    public RelayCommand TakeFromHistoryCommand => _takeFromHistory ??= new RelayCommand(
+        parameter =>
+        {
+            if (parameter is string path && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                Folders.Add(path);
+                OnPropertyChanged(nameof(HasFolders));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        },
+        parameter => parameter is string);
+
+    private RelayCommand? _findMissing;
+    private string _missingSearchText = string.Empty;
+    private bool _isFindingMissing;
+
+    /// <summary>探した結果の1行。押しても何も起きなかったときこそ要る（I1）。</summary>
+    public string MissingSearchText
+    {
+        get => _missingSearchText;
+        private set => SetField(ref _missingSearchText, value);
+    }
+
+    /// <summary>
+    /// 見つからないファイルを、監視フォルダの中から**中身で**探して結び直す（ユーザ判断 2026-09-21・G17）。
+    /// ファイルを移した・名前を変えただけなら、これで元に戻る。
+    /// </summary>
+    public RelayCommand FindMissingFilesCommand => _findMissing ??= new RelayCommand(
+        () => FindMissingFilesAsync().Forget(),
+        () => !_isFindingMissing);
+
+    private async Task FindMissingFilesAsync()
+    {
+        _isFindingMissing = true;
+        MissingSearchText = "見つからないファイルを調べています…";
+        RelayCommand.RaiseCanExecuteChanged();
+
+        try
+        {
+            var progress = new Progress<(int Hashed, string? Detail)>(report => RunOnUiThread(() =>
+                MissingSearchText = $"中身を確かめています… {report.Hashed} 件（{report.Detail}）"));
+
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FindMissingFiles(progress));
+            MissingSearchText = result switch
+            {
+                Core.Commands.CommandResult.MissingFilesSearched { Result.MissingBefore: 0 } =>
+                    "見つからないファイルはありませんでした。",
+                Core.Commands.CommandResult.MissingFilesSearched found => Describe(found.Result),
+                Core.Commands.CommandResult.Failed failed => failed.Message,
+                _ => string.Empty,
+            };
+
+            // 結び直した商品の新しい場所を、検索の写しにも入れる（点検 2026-09-30 の C：検索の「ファイルの場所」（path:）が
+            // 起動し直すまで古い場所で絞り、札の「見つかりません」も残っていた）。結果はどの商品かを持たず、
+            // 何件になるかも分からないので、取り込みの後と同じく全体を読み直す
+            if (result is Core.Commands.CommandResult.MissingFilesSearched { Result.Relinked: > 0 })
+            {
+                await _main.ReloadLibraryAsync();
+            }
+        }
+        finally
+        {
+            _isFindingMissing = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+
+        static string Describe(Core.Services.MissingFileSearchResult result)
+        {
+            var parts = new List<string>
+            {
+                result.Relinked > 0
+                    ? $"{result.Relinked} 件を新しい場所に紐付け直しました"
+                    : "紐付け直せたものはありませんでした",
+            };
+
+            if (result.StillMissing > 0)
+            {
+                parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした。"
+                    + "移した先を監視フォルダに追加してから、もう一度押してください");
+            }
+
+            if (result.Unreachable.Count > 0)
+            {
+                parts.Add($"{result.Unreachable.Count} 個のフォルダはつながっていないため探せませんでした");
+            }
+
+            return string.Join("。", parts) + "。";
+        }
+    }
+
+    /// <summary>履歴から消す。フォルダとファイルには触らない。</summary>
+    public RelayCommand ForgetHistoryCommand => _forgetHistory ??= new RelayCommand(
+        parameter =>
+        {
+            if (parameter is string path)
+            {
+                History.Remove(path);
+                OnPropertyChanged(nameof(HasHistory));
+                ChangeFolderListsAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
+                // 戻すと設定の末尾に足され、保存の後に一覧が設定の並びへ揃う
+                _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す",
+                    () => ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])));
+            }
+        },
+        parameter => parameter is string);
+
+    /// <summary>通信と作業の様子。使っていない間の取得を、この画面にも出すため。</summary>
+    public BoothActivityViewModel Activity => _main.BoothActivity;
+
+    public bool HasFolders => Folders.Count > 0;
+
+    /// <summary>
+    /// 対象が空のときに出す文。**次にやることを書く。**
+    ///
+    /// ボタンは既に押せない状態になっているが、それだけだと
+    /// 「何を入れればここが埋まるのか」が画面から分からない。
+    /// </summary>
+    public string FoldersEmptyText =>
+        "まだ何も入っていません。上の枠にフォルダかファイルをドロップするか、「フォルダを選択」で選んでください。";
+
+    public ObservableCollection<UnpackedFolderRow> UnpackedFolders { get; } = [];
+
+    public RelayCommand AddFolderCommand { get; }
+
+    public RelayCommand RemoveFolderCommand { get; }
+
+    /// <summary>右クリックの「エクスプローラで開く」（取り込み元・監視フォルダ）。</summary>
+    public RelayCommand RevealFolderCommand { get; }
+
+    public RelayCommand StartCommand { get; }
+
+    public RelayCommand CancelCommand { get; }
+
+    public RelayCommand SelectAllUnpackedCommand { get; }
+
+    public RelayCommand RemoveUnpackedCommand { get; }
+
+    public bool IsRunning
+    {
+        get => _isRunning;
+        private set
+        {
+            if (SetField(ref _isRunning, value))
+            {
+                OnPropertyChanged(nameof(IsIdle));
+                OnPropertyChanged(nameof(StartText));
+                OnPropertyChanged(nameof(HasUnresolvedResult));
+                OnPropertyChanged(nameof(HasAddedResult));
+                OnPropertyChanged(nameof(HasBrokenOnItemsResult));
+                NoteBusyChanged();
+            }
+        }
+    }
+
+    private bool _isRemovingUnpacked;
+
+    /// <summary>
+    /// 展開先フォルダを消している最中（ユーザ判断 2026-09-21・N7）。
+    ///
+    /// **取り込みと同じ旗で兼ねない。**兼ねていたので、削除の後始末が「取り込み中」の状態まで倒し、
+    /// ボタンの名前も「今の取り込みに積む」に変わっていた。
+    /// 優先は取り込み——走査中のフォルダを消されると取りこぼすので、取り込み中は削除を押せない。
+    /// 削除は人が押す一度きりの操作なので、待たせても困らない。
+    /// </summary>
+    public bool IsRemovingUnpacked
+    {
+        get => _isRemovingUnpacked;
+        private set
+        {
+            if (SetField(ref _isRemovingUnpacked, value))
+            {
+                NoteBusyChanged();
+            }
+        }
+    }
+
+    /// <summary>どちらかが走っている間は、保存先の引越しを塞ぐ（書き込みが元の場所へ行く）。</summary>
+    private void NoteBusyChanged()
+    {
+        _main.IsImporting = IsRunning || IsRemovingUnpacked;
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    public bool IsIdle => !IsRunning;
+
+    /// <summary>
+    /// 実行中は「積む」になる。押した先が別の取り込みではなく**今の取り込み**である
+    /// ことが、文言だけで分かるようにする。
+    /// </summary>
+    public string StartText => IsRunning ? "今の取り込みに追加" : "取り込みを開始";
+
+    private string? _interruptedText;
+
+    /// <summary>
+    /// 前回が途中で終わっていたことの記録。
+    ///
+    /// 出すのは、**中断が黙って起きる**から。閉じた時に何件残っていたかを
+    /// ユーザは覚えていないので、次に開いたときに思い出せる材料を置く。
+    /// </summary>
+    public string? InterruptedText
+    {
+        get => _interruptedText;
+        private set
+        {
+            if (SetField(ref _interruptedText, value))
+            {
+                OnPropertyChanged(nameof(HasInterrupted));
+            }
+        }
+    }
+
+    public bool HasInterrupted => !string.IsNullOrEmpty(InterruptedText);
+
+    private RelayCommand? _resume;
+    private RelayCommand? _discardInterrupted;
+
+    /// <summary>
+    /// 前回の続きから進む。**対象を積むところまでやる。**
+    ///
+    /// 前は「もう一度押すと続きから進みます」と書いてあるだけだったが、取り込み対象は
+    /// 次の起動で空に戻る（履歴とは別物）ので、指している「取り込みを開始」は押せない状態だった。
+    /// 案内が押せないボタンを指していた（ユーザ指摘 2026-09-22）。
+    /// 積むのは前回の対象だけ（<see cref="Core.Scanning.ImportState.Targets"/>）——
+    /// 履歴を全部積むと、そのとき対象にしていなかったフォルダまで走査してしまう。
+    /// BOOTH の不調で取れなかった商品のファイルも積む（最後まで走った回はそれだけ・#10）。
+    /// </summary>
+    public RelayCommand ResumeCommand => _resume ??= new RelayCommand(
+        () =>
+        {
+            foreach (var path in _services.Store.ImportState.Load().ResumeTargets)
+            {
+                if (!Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    Folders.Add(path);
+                }
+            }
+
+            OnPropertyChanged(nameof(HasFolders));
+            RelayCommand.RaiseCanExecuteChanged();
+
+            if (Folders.Count > 0)
+            {
+                StartOrStackAsync().Forget();
+            }
+        },
+        () => !IsRunning);
+
+    /// <summary>
+    /// 続きを進めないことにする。記録だけ消す（**取れた分は消さない**）。
+    ///
+    /// 解消するまで出し続ける決まりなので、続ける気の無い人（取り込み元を消した・
+    /// 間違って落としたフォルダだった）に逃げ道が要る（ユーザ判断 2026-09-22）。
+    /// </summary>
+    /// <remarks>
+    /// **取り返しがつかないので、押す前に聞く**（D4・D9）。捨てた記録は戻せない。
+    /// やり直すには、同じフォルダを取り込み対象に積み直して始めればよい（取れた商品は飛ばして続きを取る）ことも書く。
+    /// 帯を消すのは書き終わってから。前は書くのを待たずに帯の出し入れを読み直していたので、
+    /// 古い記録を読んで帯が消えないことがあった。
+    /// </remarks>
+    public RelayCommand DiscardInterruptedCommand => _discardInterrupted ??= new RelayCommand(
+        () => DiscardInterruptedAsync().Forget());
+
+    /// <summary>「続きを捨てる」の説明（ボタンのツールチップ）。窓と同じことを短く言う。</summary>
+    public static string DiscardInterruptedTip =>
+        "続きの記録を捨てます。元に戻せませんが、取り込めた商品は残ります。";
+
+    private async Task DiscardInterruptedAsync()
+    {
+        var answer = Services.Notice.Show(
+            "前回の取り込みの続きの記録を捨てますか。\n\n"
+            + "取り込めた商品とファイルはそのまま残ります。まだ取得していない商品情報と画像は取得しません。"
+            // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う。
+            // ネットにつながらず取れなかった物も載る（2026-09-29）ので、原因は言わない
+            + "取得できなかった商品の記録も消えます。\n\n"
+            + "記録は元に戻せません。続きは、同じフォルダをもう一度取り込むと始められます。",
+            "取り込みの続きを捨てる",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DiscardInterruptedImport());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("取り込みの続きを捨てる", exception);
+            Services.Notice.Show(
+                "続きの記録を捨てられませんでした。保存先が読み取り専用になっているか、別のアプリが開いていることがあります。\n"
+                + "少し待ってからもう一度押してください。",
+                "取り込みの続きを捨てる",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        RunOnUiThread(() =>
+        {
+            InterruptedText = null;
+            _main.NoteInterruptedImportChanged();
+        });
+    }
+
+    /// <summary>積んだ結果。押しても何も起きなかったときこそ要る。</summary>
+    public string? StackNotice
+    {
+        get => _stackNotice;
+        private set
+        {
+            if (SetField(ref _stackNotice, value))
+            {
+                OnPropertyChanged(nameof(HasStackNotice));
+            }
+        }
+    }
+
+    public bool HasStackNotice => !string.IsNullOrEmpty(StackNotice);
+
+    private RelayCommand? _fetchMissing;
+
+    /// <summary>
+    /// 起動時と同じ「足りない情報の取得」（残った画像・アバターの画像・期限の来た商品）を今始める（ユーザ判断 2026-09-28）。
+    /// 進み具合は常設の1行に出る。走っている最中は二重に始めない
+    /// </summary>
+    public RelayCommand FetchMissingCommand => _fetchMissing ??= new RelayCommand(() =>
+        StackNotice = _main.StartBacklogNow()
+            ? "足りない情報の取得を始めました。進み具合は左下に表示されます。"
+            : "足りない情報の取得は、もう進めています。");
+
+    public string PhaseText
+    {
+        get => _phaseText;
+        private set => SetField(ref _phaseText, value);
+    }
+
+    public string DetailText
+    {
+        get => _detailText;
+        private set => SetField(ref _detailText, value);
+    }
+
+    private string _stepText = string.Empty;
+
+    /// <summary>段の中の小さな段。件数の前に出して、何を数えているかを読めるようにする。</summary>
+    public string StepText
+    {
+        get => _stepText;
+        private set => SetField(ref _stepText, value);
+    }
+
+    /// <summary>
+    /// 起動したときに監視フォルダの新着を自動で取り込むか（#38 の設定）。監視対象の説明を出し分ける（U7）。
+    /// 以前は設定に関係なく「見つけても勝手には取り込みません」と出していて、入にした人には嘘になっていた。
+    /// </summary>
+    public bool ImportsOnLaunch => _services.Settings.StartImportOnLaunch;
+
+    /// <summary>監視対象の説明の「設定」から、設定画面へ移る。</summary>
+    public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
+
+    /// <summary>
+    /// 取り込みの結果から次の画面へ（動線の点検 D1）。以前は「未確定で確かめてください」と文で言うだけで、
+    /// そこへ飛ぶ道が無く、ナビから探し直していた
+    /// </summary>
+    public RelayCommand OpenResolveCommand { get; }
+
+    /// <summary>取り込んだ物を検索で見る。最近取り込んだ順に並べて開く。</summary>
+    public RelayCommand ShowAddedCommand { get; }
+
+    /// <summary>商品が決まらなかったファイルが残ったか。取り込み中は出さない（まだ増える）。</summary>
+    public bool HasUnresolvedResult => !IsRunning && Summary is { } summary
+        && (summary.UnresolvedFiles > 0 || summary.NotFound > 0);
+
+    /// <summary>新しく商品が増えたか。取り込み中は出さない。</summary>
+    public bool HasAddedResult => !IsRunning && Summary is { ItemsAdded: > 0 };
+
+    /// <summary>
+    /// 壊れた zip を持つ商品を検索で見る（ユーザ判断 2026-09-30）。未確定の側の「未確定を開く」と同じ作法で、
+    /// 結果の文が言う物を並べた画面へ飛ぶ。前は商品の名前を1つ言うだけで、残りは商品ページを開かないと分からなかった
+    /// </summary>
+    public RelayCommand ShowBrokenZipCommand { get; }
+
+    /// <summary>商品に結び付いた壊れた zip が見つかったか。取り込み中は出さない（まだ増える）。文を出す条件と揃える。</summary>
+    public bool HasBrokenOnItemsResult => !IsRunning && Summary is { } summary
+        && BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames).Length > 0;
+
+    private async Task ShowBrokenZipAsync()
+    {
+        // 壊れた zip の印は取り込みが商品の記録に書いた物で、検索の一覧を読み直すまで入らない（ShowAddedAsync と同じ）
+        await _main.ReloadLibraryAsync();
+        _main.Search.ShowOnlyBrokenZip();
+        _main.ShowSearch();
+    }
+
+    private async Task ShowAddedAsync()
+    {
+        // 取り込みで増えた分は、検索の一覧を読み直すまで入らない（「押すと反映」の1行）。読み直してから並べる
+        await _main.ReloadLibraryAsync();
+        _main.Search.ShowRecentlyAddedFirst();
+        _main.ShowSearch();
+    }
+
+    /// <summary>画面を開いたときに呼ぶ。設定画面で変えた値を説明に映す。</summary>
+    public void NoteShown()
+    {
+        OnPropertyChanged(nameof(ImportsOnLaunch));
+
+        // 設定画面で取り込み元や監視を足し引きして戻ってきたときに、一覧を今の設定に合わせる
+        SyncFolderLists();
+    }
+
+    /// <summary>
+    /// 履歴と監視の一覧を、今の設定から並べ直す。
+    ///
+    /// この画面はアプリの間1つを持ち回すので、前は起動時に1回だけ読んだ写しのまま、
+    /// 設定画面で足し引きした物が出てこなかった（その写しで丸ごと書き戻して、設定画面の変更を消してもいた）。
+    /// </summary>
+    private void SyncFolderLists()
+    {
+        Replace(History, _services.Settings.ImportFolders ?? []);
+        Replace(Watched, _services.Settings.WatchedFolders ?? []);
+        OnPropertyChanged(nameof(HasHistory));
+        OnPropertyChanged(nameof(HasWatched));
+
+        static void Replace(ObservableCollection<string> list, IReadOnlyList<string> fresh)
+        {
+            if (list.SequenceEqual(fresh))
+            {
+                return;
+            }
+
+            list.Clear();
+            foreach (var path in fresh)
+            {
+                list.Add(path);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 取り込み元・監視を1件ずつ足し引きする（<see cref="Core.Services.FolderListChange"/>）。
+    /// 錠の中で今の設定に当て、書けた設定で一覧を並べ直す（別の所が同時に足した物も出る）。
+    /// </summary>
+    private async Task ChangeFolderListsAsync(Func<Core.Models.AppSettings, Core.Models.AppSettings> change)
+    {
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(change));
+        RunOnUiThread(SyncFolderLists);
+    }
+
+    public int Current
+    {
+        get => _current;
+        private set
+        {
+            if (SetField(ref _current, value))
+            {
+                OnPropertyChanged(nameof(ProgressText));
+            }
+        }
+    }
+
+    public int Total
+    {
+        get => _total;
+        private set
+        {
+            if (SetField(ref _total, value))
+            {
+                OnPropertyChanged(nameof(ProgressText));
+                OnPropertyChanged(nameof(HasTotal));
+            }
+        }
+    }
+
+    public bool HasTotal => Total > 0;
+
+    public string ProgressText => Total > 0 ? $"{Current} / {Total}" : Current.ToString();
+
+    // ---- 残り時間の見込み（U1） ----
+    //
+    // 取り込みの時間のほとんどはBOOTHへの問い合わせの間隔（1.5秒以上）を待つ時間なので、
+    // 「残りの問い合わせの数 × 1件あたりの実測」で出す。数は取り込み（ImportWorkSet）が持っている。
+    // 少なくとも3つに分けて出す（ユーザ判断）：今の段の残り／編集できるようになるまで（③の終わり）／画像を取り終わるまで
+
+    /// <summary>1件あたりの時間をならす件数。減速や一時の遅れ1回で見込みが跳ねないように。</summary>
+    private const int MeasuredWindow = 20;
+
+    /// <summary>③の中で問い合わせる小さな段。AvatarService が出す名前と揃える。</summary>
+    private const string DetectionCheckingStep = "見つかった商品を確かめています";
+
+    private readonly Queue<double> _requestSeconds = new();
+    private DateTime _lastRequestReportAt;
+    private ImportPhase? _lastRequestPhase;
+    private string _etaPhaseText = string.Empty;
+    private string _etaEditableText = string.Empty;
+    private string _etaImagesText = string.Empty;
+
+    public string EtaPhaseText
+    {
+        get => _etaPhaseText;
+        private set => SetField(ref _etaPhaseText, value);
+    }
+
+    public string EtaEditableText
+    {
+        get => _etaEditableText;
+        private set => SetField(ref _etaEditableText, value);
+    }
+
+    public string EtaImagesText
+    {
+        get => _etaImagesText;
+        private set => SetField(ref _etaImagesText, value);
+    }
+
+    public bool HasEstimate => EtaPhaseText.Length > 0 || EtaEditableText.Length > 0;
+
+    /// <summary>
+    /// 1件あたりの時間。①②④⑥の実測（間隔＋応答）をならしたもの。
+    /// 測れるまでは間隔だけで数えるので、最初の数件は少なめに出る
+    /// </summary>
+    private double SecondsPerRequest => _requestSeconds.Count > 0
+        ? _requestSeconds.Average()
+        : _services.Settings.FetchIntervalMs / 1000.0;
+
+    private void UpdateEstimate(ImportProgress report)
+    {
+        // 1件に1回だけ問い合わせる段で測る。⑤は1件で何枚も取り、③の確認は手元で済む商品が混ざるので使わない
+        var measurable = report.Phase is ImportPhase.FetchingJson or ImportPhase.FetchingHtml
+            or ImportPhase.FetchingThumbnails or ImportPhase.FetchingShopIcons;
+        var now = DateTime.UtcNow;
+
+        if (measurable)
+        {
+            if (_lastRequestPhase == report.Phase)
+            {
+                // 1分を超える間はスリープや長い減速の後なので、1件あたりには混ぜない
+                var seconds = (now - _lastRequestReportAt).TotalSeconds;
+                if (seconds is > 0 and < 60)
+                {
+                    _requestSeconds.Enqueue(seconds);
+                    while (_requestSeconds.Count > MeasuredWindow)
+                    {
+                        _requestSeconds.Dequeue();
+                    }
+                }
+            }
+
+            _lastRequestPhase = report.Phase;
+            _lastRequestReportAt = now;
+        }
+        else
+        {
+            _lastRequestPhase = null;
+        }
+
+        // 走査と解決は手元の作業で、この後の問い合わせの数もまだ分からない
+        if (_work is not { } work || report.Phase is ImportPhase.Scanning or ImportPhase.Resolving)
+        {
+            ClearEstimate();
+            return;
+        }
+
+        var (json, pages, thumbnails, gallery, icons) = work.RequestsLeft;
+
+        // ③の確認は、手元に持っている商品なら問い合わせずに済む。全部を問い合わせとして数えるので多めに出る
+        var checking = report.Phase == ImportPhase.Detecting && report.Step == DetectionCheckingStep
+            ? Math.Max(0, report.Total - report.Current)
+            : 0;
+        var perRequest = SecondsPerRequest;
+
+        // **段の残りは、その段の数だけで出す。**以前は画像を④⑤⑥まとめた1つの数で出していたので、
+        // ④サムネイルの最中に④⑤⑥全部の時間が出ていた（ユーザ指摘 2026-09-21）
+        var phaseLeft = report.Phase switch
+        {
+            ImportPhase.FetchingJson => json,
+            ImportPhase.FetchingHtml => pages,
+            ImportPhase.Detecting => checking,
+            ImportPhase.FetchingThumbnails => thumbnails,
+            ImportPhase.FetchingGallery => gallery,
+            _ => icons,
+        };
+        EtaPhaseText = $"この段の残り {Duration(phaseLeft * perRequest)}";
+
+        // **①②の間は「編集できるまで」を時間で出さない。**③で何件問い合わせるかが③に入るまで分からず、
+        // 出していた数字には③の分が1件も入っていなかった。**分からない物に数字を付けない**
+        // （ユーザ指示 2026-09-21：「「編集できるまで」という文言が嘘なのが良くない」）。
+        // 代わりに「いつ分かるか」を出す——これは①②の残りそのもので、正確に言える
+        var beforeDetection = report.Phase is ImportPhase.FetchingJson or ImportPhase.FetchingHtml;
+        var untilKnown = (json + pages) * perRequest;
+        EtaEditableText = work.AwaitingDetectionCount == 0 && json == 0
+            ? "新しい商品はもう編集できます"
+            : !beforeDetection
+                ? $"編集できるまで {Duration(checking * perRequest)}"
+                : untilKnown < 60
+                    ? "編集できるまでの時間は、まもなく分かります"
+                    : $"編集できるまでの時間は、あと {Duration(untilKnown)} で分かります";
+
+        // 画像の数は②が終われば分かる（FetchAsync でそこで数えている）。①②の間はまだ 0 なので、
+        // 数字を出すと「編集できるまで」と同じ数字がもう1本並ぶだけになる。ここも分かる時期を書く
+        EtaImagesText = !_services.Settings.SaveImages
+            ? "画像は保存しない設定です"
+            : beforeDetection
+                ? "画像の残りは、商品ページを取り終わると分かります"
+                : $"画像を取り終わるまで {Duration((checking + thumbnails + gallery + icons) * perRequest)}";
+
+        OnPropertyChanged(nameof(HasEstimate));
+    }
+
+    private void ClearEstimate()
+    {
+        EtaPhaseText = string.Empty;
+        EtaEditableText = string.Empty;
+        EtaImagesText = string.Empty;
+        OnPropertyChanged(nameof(HasEstimate));
+    }
+
+    /// <summary>「約 12 分」「約 1 時間 5 分」。秒まで出すと毎回変わって読めない。</summary>
+    internal static string Duration(double seconds)
+    {
+        if (seconds < 60)
+        {
+            return "1分以内";
+        }
+
+        var minutes = (int)Math.Ceiling(seconds / 60);
+        return minutes < 60 ? $"約 {minutes} 分" : $"約 {minutes / 60} 時間 {minutes % 60} 分";
+    }
+
+    public ImportSummary? Summary
+    {
+        get => _summary;
+
+        // 試験が結果を入れて、結果の文と並びを確かめる（入れるのは取り込みの終わりだけ。画面は読むだけ）
+        internal set
+        {
+            if (SetField(ref _summary, value))
+            {
+                OnPropertyChanged(nameof(HasSummary));
+                OnPropertyChanged(nameof(NotFoundText));
+                OnPropertyChanged(nameof(HasNotFound));
+                OnPropertyChanged(nameof(UnreadableText));
+                OnPropertyChanged(nameof(UnreadableLines));
+                OnPropertyChanged(nameof(HasUnreadable));
+                OnPropertyChanged(nameof(HasUnresolvedResult));
+                OnPropertyChanged(nameof(HasAddedResult));
+                OnPropertyChanged(nameof(HasBrokenOnItemsResult));
+            }
+        }
+    }
+
+    public bool HasSummary => Summary is not null;
+
+    public string? ErrorText
+    {
+        get => _errorText;
+        private set
+        {
+            if (SetField(ref _errorText, value))
+            {
+                OnPropertyChanged(nameof(HasError));
+            }
+        }
+    }
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorText);
+
+    /// <summary>
+    /// BOOTHから429を受けて取得間隔を広げている状態か。
+    /// 黙って遅くなると原因が分からないので、遅い理由を画面に出す。
+    /// </summary>
+    public bool IsThrottled
+    {
+        get => _isThrottled;
+        private set
+        {
+            if (SetField(ref _isThrottled, value))
+            {
+                OnPropertyChanged(nameof(ThrottleText));
+            }
+        }
+    }
+
+    public string ThrottleText =>
+        $"BOOTHの指示で、取得間隔を {_services.Client.CurrentIntervalMs / 1000.0:0.#} 秒に広げています。";
+
+    public bool HasUnpackedFolders => UnpackedFolders.Count > 0;
+
+    public int SelectedUnpackedCount => UnpackedFolders.Count(row => row.IsSelected);
+
+    public bool HasUnpackedSelection => SelectedUnpackedCount > 0;
+
+    public string UnpackedSelectionText => SelectedUnpackedCount == 0
+        ? "削除するフォルダを選んでください。"
+        : $"{SelectedUnpackedCount} フォルダ / {Core.Models.DisplayText.Size(UnpackedFolders.Where(row => row.IsSelected).Sum(row => row.Folder.TotalBytes))} を削除します。";
+
+    /// <summary>削除の結果。何を消して何を消さなかったかを残す。</summary>
+    public ObservableCollection<string> RemovalResults { get; } = [];
+
+    public bool HasRemovalResults => RemovalResults.Count > 0;
+
+    /// <summary>
+    /// ドロップされたパスを受け取る。
+    ///
+    /// ファイルはそのファイルだけを対象にする。親フォルダへ広げると、
+    /// ダウンロードフォルダの1件を落としただけでフォルダ全体が対象になってしまう。
+    /// </summary>
+    /// <param name="startImmediately">
+    /// 足したらそのまま取り込みを始めるか（#38）。落としたとき・起動時の自動開始で true。
+    /// 「フォルダを足す」で選んだときは false——続けて他も足してから始めたいことがある。
+    /// </param>
+    /// <param name="offerWatch">
+    /// フォルダを足したら監視対象に入れるか聞くか。フォルダビューの「このフォルダのアイテムを取り込む」では聞かない
+    /// （監視は隣の切り替えで決めるので、同じことを2か所で聞かない）。
+    /// </param>
+    /// <param name="askAboutUnpacked">
+    /// 展開先のファイルを指していたときに人へ尋ねてよいか。**自動で始めたときは尋ねない**（G2）。
+    /// </param>
+    public void AddDroppedPaths(
+        IEnumerable<string> paths,
+        bool startImmediately = false,
+        bool offerWatch = true,
+        bool askAboutUnpacked = true)
+        => AddDroppedPathsAsync(paths.ToList(), startImmediately, offerWatch, askAboutUnpacked).Forget();
+
+    /// <summary>
+    /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落とされた物・監視の新着は外付けやネットワークにもあり、
+    /// 確かめるだけで数秒かかることがある。見終わってから画面のスレッドで一覧に足す。
+    /// </summary>
+    private async Task AddDroppedPathsAsync(
+        IReadOnlyList<string> paths,
+        bool startImmediately,
+        bool offerWatch,
+        bool askAboutUnpacked = true)
+    {
+        var kinds = await Task.Run(() => paths
+            .Select(path => (Path: path, IsFolder: Core.Services.DiskCheck.FolderExists(path), IsFile: Core.Services.DiskCheck.FileExists(path)))
+            .ToList());
+        var addedFolders = new List<string>();
+
+        // 落とした物が1つも無かった（見終わるまでに動かした・ドライブが外れた）。積める物が無いので始めない。
+        // 帯は「始めています…」「積みました」と先に出ているので、始まらなかったことと次の一手に替える。
+        // 前は何も起きないまま帯が「始めています…」で止まっていた。
+        // 一覧に前からある物だけで始めることもしない（落とした物の取り込みを頼まれたのであって、全部ではない）
+        if (!kinds.Any(kind => kind.IsFolder || kind.IsFile))
+        {
+            _main.NoteImportNotStarted(
+                "取り込みを始められませんでした。ドロップしたファイルやフォルダが見つかりません。場所を確かめて、もう一度ドロップしてください。");
+            return;
+        }
+
+        foreach (var (path, isFolder, isFile) in kinds)
+        {
+            if ((isFolder || isFile) && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                Folders.Add(path);
+
+                // 画面の一覧ではなく今の設定で見る（設定画面で足した監視を、まだこの画面が知らないことがある）
+                if (isFolder && !_services.Settings.WatchedFolders.Any(watched => Core.Services.PathText.Same(watched, path)))
+                {
+                    addedFolders.Add(path);
+                }
+            }
+        }
+
+        OnPropertyChanged(nameof(HasFolders));
+        RelayCommand.RaiseCanExecuteChanged();
+
+        if (offerWatch && addedFolders.Count > 0)
+        {
+            OfferToWatchAsync(addedFolders).Forget();
+        }
+
+        // 走っていれば今の取り込みに積む。2本目は起こさない（StartOrStackAsync の決まり）
+        if (startImmediately && Folders.Count > 0)
+        {
+            StartOrStackAsync(askAboutUnpacked).Forget();
+        }
+    }
+
+    /// <summary>
+    /// 足したフォルダを監視対象に入れるか聞く。
+    ///
+    /// 聞くのは<b>フォルダのときだけ</b>。ファイル1件を落としたのは
+    /// 「これを取り込んで」であって「ここを見ておいて」ではない。
+    ///
+    /// 複数まとめて聞くのは、5つ落として5回聞かれると読まずに押されるため。
+    /// </summary>
+    private async Task OfferToWatchAsync(IReadOnlyList<string> folders)
+    {
+        var names = string.Join("\n", folders.Select(folder => "・" + folder));
+
+        var answer = Services.Notice.Show(
+            $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n"
+            + "入れておくと、次に開いたときに新しいファイルが増えていないかを見ます。\n"
+            + "見つかっても勝手には取り込まず、件数を表示するだけです。",
+            "監視対象に入れますか",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.No);
+
+        if (answer != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        foreach (var folder in folders)
+        {
+            await SetWatchedAsync(folder, watch: true);
+        }
+    }
+
+    /// <summary>起動時に見つかった新しいファイルを出すために見る。</summary>
+    public MainViewModel Main => _main;
+
+    /// <summary>監視対象。取り込み対象（今回積んだもの）とは別で、起動をまたいで残る。</summary>
+    public ObservableCollection<string> Watched { get; } = [];
+
+    public bool HasWatched => Watched.Count > 0;
+
+    public RelayCommand RemoveWatchedCommand { get; }
+
+    /// <summary>見つかったぶんを取り込み対象へ積む。ここを押して初めて通信が始まる。</summary>
+    public RelayCommand TakeWatchedNewCommand { get; }
+
+    private async Task RemoveWatchedAsync(string? folder)
+    {
+        if (folder is null)
+        {
+            return;
+        }
+
+        await SetWatchedAsync(folder, watch: false);
+        _main.NoteFolderRemoved($"「{folder}」の監視をやめました。", "監視を再開", () => SetWatchedAsync(folder, watch: true));
+    }
+
+    /// <summary>
+    /// 監視対象に足す・外す。取り込み画面とフォルダビューの両方がここを通る（ユーザ指摘 2026-09-14：フォルダビューで足せるのに外せなかった）。
+    ///
+    /// **この画面の一覧（写し）を丸ごと書かない。**錠の中で、今の設定に1件だけ足し引きする。前は写しを丸ごと書いていたので、
+    /// フォルダビューが別に足した物を、ここで何かを外した瞬間に消していた（技術的負債 1-1 の取り込み元と同じ事故）
+    /// </summary>
+    public async Task SetWatchedAsync(string folder, bool watch)
+    {
+        var existing = Watched.FirstOrDefault(candidate => string.Equals(candidate, folder, StringComparison.OrdinalIgnoreCase));
+        if (watch && existing is null)
+        {
+            Watched.Add(folder);
+        }
+        else if (!watch && existing is not null)
+        {
+            Watched.Remove(existing);
+        }
+
+        OnPropertyChanged(nameof(HasWatched));
+        await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.SetWatched(settings, folder, watch));
+    }
+
+    private void AddFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "取り込むフォルダを選択",
+            Multiselect = true,
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        AddDroppedPaths(dialog.FolderNames);
+    }
+
+    private void RemoveFolder(object? parameter)
+    {
+        if (parameter is not string folder)
+        {
+            return;
+        }
+
+        Folders.Remove(folder);
+        OnPropertyChanged(nameof(HasFolders));
+        RelayCommand.RaiseCanExecuteChanged();
+
+        // 実行中なら、まだ順番が来ていないものは取り下げられる。
+        // 「積んだ直後に取り消したい」はこれで済むので、取り消し操作を別に作らない
+        if (_work is { } running)
+        {
+            StackNotice = running.Remove(folder)
+                ? "今の取り込みから取り下げました。"
+                : "スキャン済みなので、今の取り込みからは外せません。止めるには中断してください。";
+        }
+    }
+
+    private void Cancel() => _cancellation?.Cancel();
+
+    private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(UnpackedFolderRow.IsSelected))
+        {
+            RaiseSelectionChanged();
+        }
+    }
+
+    private void RaiseSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedUnpackedCount));
+        OnPropertyChanged(nameof(HasUnpackedSelection));
+        OnPropertyChanged(nameof(UnpackedSelectionText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    private void SelectAllUnpacked()
+    {
+        // 全部入っているなら全解除。押すたびに切り替える
+        var selectAll = UnpackedFolders.Any(row => !row.IsSelected);
+        foreach (var row in UnpackedFolders)
+        {
+            row.IsSelected = selectAll;
+        }
+    }
+
+    /// <summary>
+    /// 選択された展開先フォルダを削除する。取り返しがつかない操作なので、必ず確認を挟む。
+    /// 実際に消すのはごみ箱送りで、展開元のzipが残っていることはCore側で再確認している。
+    /// </summary>
+    private async Task RemoveUnpackedAsync()
+    {
+        var targets = UnpackedFolders.Where(row => row.IsSelected).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var names = string.Join("\n", targets.Take(10).Select(row => $"・{row.Name}（{row.SizeText}）"));
+        if (targets.Count > 10)
+        {
+            names += $"\n…ほか {targets.Count - 10} フォルダ";
+        }
+
+        var answer = Services.Notice.Show(
+            $"次の {targets.Count} フォルダをごみ箱へ移動します。\n\n{names}\n\n"
+            + "いずれも展開元のアーカイブが手元に残っているものです。削除しますか？",
+            "展開先フォルダの削除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsRemovingUnpacked = true;
+        RemovalResults.Clear();
+
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(
+                new UiCommand.RemoveUnpackedFolders(targets.Select(row => row.Folder).ToList()));
+
+            if (result is CommandResult.UnpackedFoldersRemoved removed)
+            {
+                var freed = removed.Results.Where(entry => entry.Removed).Sum(entry => entry.FreedBytes);
+                var removedCount = removed.Results.Count(entry => entry.Removed);
+                RemovalResults.Add($"{removedCount} フォルダを削除し、{Core.Models.DisplayText.Size(freed)} 空きました。");
+
+                foreach (var entry in removed.Results.Where(entry => !entry.Removed))
+                {
+                    RemovalResults.Add($"削除しませんでした: {Path.GetFileName(entry.Path)} — {entry.Reason}");
+                }
+
+                // 消えたものだけ一覧から外す。残ったものは理由と一緒に見えたままにする
+                foreach (var row in targets.Where(row =>
+                    removed.Results.Any(entry => entry.Removed && entry.Path == row.Folder.Path)))
+                {
+                    row.PropertyChanged -= OnUnpackedRowChanged;
+                    UnpackedFolders.Remove(row);
+                }
+            }
+            else if (result is CommandResult.Failed failed)
+            {
+                RemovalResults.Add(failed.Message);
+            }
+        }
+        finally
+        {
+            IsRemovingUnpacked = false;
+            OnPropertyChanged(nameof(HasUnpackedFolders));
+            OnPropertyChanged(nameof(HasRemovalResults));
+            RaiseSelectionChanged();
+        }
+    }
+
+    /// <summary>
+    /// 対象フォルダを設定に残す。ファイルが欠落したときの再スキャン範囲も兼ねるので、
+    /// 起動のたびに選び直させない。
+    /// </summary>
+    private async Task SaveFoldersAsync()
+    {
+        // **今回の対象を履歴へ足す**（ユーザ判断 2026-09-21・G4）。
+        // 前は「対象＝履歴」で、対象に積んだ物がそのまま次の起動の対象になっていた。
+        // 履歴は「何を読んだか」を確かめるための記録なので、ファイルも残す（監視の対象にはしない）
+        //
+        // 足すのは今回の対象だけで、この画面の履歴の写しでは書かない（技術的負債 1-1 の再発：
+        // 写しで丸ごと書いていたので、設定画面で足した取り込み元を取り込むたびに消していた）
+        var paths = Folders.ToList();
+        await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, paths));
+    }
+
+    /// <summary>
+    /// 自動で始めた取り込みが展開先のファイルを指していたことを、要確認に出す（G2）。
+    /// 窓で尋ねる代わりなので、**そのまま取り込んだこと**と、**後から差し替えられること**を書く。
+    /// </summary>
+    private Task NoteUnpackedFoundAsync(int count)
+        => _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddNotification(
+            new Core.Models.NotificationRecord
+            {
+                Id = "unpacked-imported",
+                Kind = Core.Models.NotificationKind.UnpackedFilesImported,
+                Title = "展開したフォルダの中のファイルを取り込みました",
+                Detail = $"zipを展開したフォルダの中のファイルを {count} 件取り込みました。"
+                    + "元のzipで取り込み直すときは、そのzipを取り込んでから「展開先フォルダの削除」で片付けてください。",
+                CreatedAt = DateTimeOffset.Now,
+            }));
+
+    /// <summary>
+    /// 指定されたファイルのうち、アーカイブの展開先の中にあるものを元のzipへ差し替える。
+    ///
+    /// 展開先が残っていると、そのファイルが配布物そのものなのか展開したものなのかを
+    /// ファイル単体からは区別できない。zipが手元にあるならそちらの方が配布単位と一致するが、
+    /// 意図してその1ファイルを指したのかもしれないので、どちらを使うかは尋ねる。
+    /// 1件ずつ聞くと数が多いときに煩わしいので、その取り込み全体の方針として1回だけ聞く。
+    /// </summary>
+    /// <param name="ask">
+    /// 人に尋ねてよいか（ユーザ判断 2026-09-21・G2）。**自動で始めたときは尋ねない**——
+    /// 起動直後に、押してもいないのに応答待ちの窓が黙って出ていた。
+    /// 尋ねないときは指定されたファイルをそのまま取り込み、**要確認に出して後から差し替えられる**ようにする。
+    /// </param>
+    private List<string> ResolveUnpackedTargets(bool ask = true)
+    {
+        var targets = Folders.ToList();
+        var origins = UnpackedFileResolver.FindOrigins(targets);
+        if (origins.Count == 0)
+        {
+            return targets;
+        }
+
+        if (!ask)
+        {
+            // 自動で始めたときは尋ねず、そのまま取り込んで要確認に出す（G2）
+            NoteUnpackedFoundAsync(origins.Count).Forget();
+            return targets;
+        }
+
+        var sample = string.Join("\n", origins.Take(5)
+            .Select(origin => $"・{Path.GetFileName(origin.FilePath)} → {Path.GetFileName(origin.ArchivePath)}"));
+        if (origins.Count > 5)
+        {
+            sample += $"\n…ほか {origins.Count - 5} 件";
+        }
+
+        var answer = Services.Notice.Show(
+            $"指定されたファイルのうち {origins.Count} 件が、zipを展開したフォルダの中にあります。\n\n{sample}\n\n"
+            + "元のzipの方を取り込みますか？\n"
+            + "「はい」でzipに差し替え、「いいえ」で指定されたファイルをそのまま取り込みます。",
+            "展開先のファイル",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Yes);
+
+        if (answer != System.Windows.MessageBoxResult.Yes)
+        {
+            return targets;
+        }
+
+        foreach (var origin in origins)
+        {
+            var index = targets.FindIndex(path => string.Equals(path, origin.FilePath, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                continue;
+            }
+
+            // 同じzipが複数のファイルから指された場合は1つにまとめる
+            if (targets.Contains(origin.ArchivePath, StringComparer.OrdinalIgnoreCase))
+            {
+                targets.RemoveAt(index);
+            }
+            else
+            {
+                targets[index] = origin.ArchivePath;
+            }
+        }
+
+        return targets;
+    }
+
+    /// <summary>
+    /// 走っていなければ始める。走っていれば**今の取り込みに積む**。
+    ///
+    /// 2本目を起こさないのは、取得の順序（画像より先にJSON）が2本では保てず、
+    /// どちらの進捗を出すのかも決められなくなるため。
+    /// </summary>
+    private async Task StartOrStackAsync(bool ask = true)
+    {
+        if (_work is not { } running)
+        {
+            // **立ち上げている最中の2度目を止める。**`_work` が入るのは、展開先の確認の窓と
+            // 設定の保存を挟んだ後。その間は画面のメッセージが回るので、2度目の押下が同じ道へ入れた。
+            // 通り抜けると取り込みが2本走り、先に終わった方の後始末が中断の口を捨てるので、
+            // 走っている方を止められなくなる
+            if (_starting)
+            {
+                // 捨てずに、立ち上がったところで積む。前は黙って弾いていたので、この間に落とした物は
+                // 一覧には載るのに今回の取り込みに入らず、帯は「終わりました」と言っていた
+                _stackAfterStart = ask || _stackAfterStart == true;
+                return;
+            }
+
+            _starting = true;
+            try
+            {
+                await RunAsync(ask);
+            }
+            finally
+            {
+                _starting = false;
+            }
+
+            return;
+        }
+
+        var added = running.Add(ResolveUnpackedTargets(ask));
+        await SaveFoldersAsync();
+
+        StackNotice = added == 0
+            ? "追加するものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
+            : $"{added} 件を今の取り込みに追加しました。順番が来たらスキャンします。";
+    }
+
+    private async Task RunAsync(bool ask = true)
+    {
+        var targets = ResolveUnpackedTargets(ask);
+
+        await SaveFoldersAsync();
+
+        StackNotice = null;
+
+        // 走らせ直したので、前回の中断はもう伝えることが無い
+        InterruptedText = null;
+
+        IsRunning = true;
+        Summary = null;
+        ErrorText = null;
+        UnpackedFolders.Clear();
+        Current = 0;
+        Total = 0;
+        PhaseText = "準備中…";
+
+        _cancellation = new CancellationTokenSource();
+        _work = new ImportWorkSet(targets);
+        if (_stackAfterStart is { } stackAsk)
+        {
+            _stackAfterStart = null;
+            _work.Add(ResolveUnpackedTargets(stackAsk));
+        }
+
+        _main.AttachImportWork(_work);
+        _requestSeconds.Clear();
+        _lastRequestPhase = null;
+        ClearEstimate();
+
+        // 最新だけを1秒に10回まで出す（LatestProgress に理由）。走査はファイル1つごとに知らせてくるので、
+        // 全部を画面のスレッドへ積むと、1回ごとに下の欄を10前後知らせ直し、通信の帯も描き直していた
+        var progress = new Services.LatestProgress<ImportProgress>(report =>
+        {
+            // 何を待っているのかと、待たなくてよいことの両方が1行で分かるようにする。
+            // ④以降は「取得できたものから使える」が要点で、そこを書かないと
+            // 全部終わるまで待つものだと読まれてしまう。
+            // サムネイルの段に「編集できます」と書いていたが、編集できるのは③が終わった時点で、サムネイルは待たない。
+            // 段の名前から「編集できるまでにサムネイルの時間も要る」と読まれた（ユーザ判断 2026-09-27）
+            PhaseText = report.Phase switch
+            {
+                ImportPhase.Scanning => "1. ファイルをスキャン",
+                ImportPhase.Resolving => "2. 商品IDを解決",
+                ImportPhase.FetchingJson => "3. 商品の情報を取得",
+                ImportPhase.FetchingHtml => "4. 商品ページを取得",
+                // リンクだけでなくタグ・種類の名前も見ているので「タグ」を入れる（ユーザ判断）
+                ImportPhase.Detecting => "5. 商品ページとタグから対応アバターを検出",
+                ImportPhase.FetchingThumbnails => "6. サムネイルを取得。取得できたものから一覧に表示されます",
+                ImportPhase.FetchingGallery => "7. ギャラリーを取得",
+                _ => "8. ショップのアイコンを取得",
+            };
+            Current = report.Current;
+            Total = report.Total;
+            StepText = report.Step ?? string.Empty;
+            UpdateEstimate(report);
+
+            // 常設の1行にも同じ段と件数を出す（ユーザ指示）。取り込み画面の段の名前は長いので短い呼び名で
+            _main.BoothActivity.ReportWork(WorkSource.Import, LineLabelOf(report.Phase), report.Current, report.Total);
+
+            // 検出で確かめている商品は、問い合わせるまで名前が分からない。空にすると止まって見える
+            DetailText = report.Detail
+                ?? (report.Phase == ImportPhase.Detecting && report.Step is not null ? "名前を確かめています" : string.Empty);
+
+            // ①で商品ができた時点で一覧へ出す（U8）。以前は1枚目が取れるまで待っていたが、
+            // 画像を自動で取るようになり、名前・ショップ・タグで探せる方が先に要る。絵の無いカードは
+            // 「画像を取得中」と出す。読んでいる途中の一覧だけは動かさない（U10）。
+            // ③待ちの商品を編集に出すかどうかも、ここで知らせ直す
+            _main.NoteImportProgress();
+
+            // 減速は取得の合間に起きるので、進捗が届くたびに見る
+            IsThrottled = _services.Client.IsThrottled;
+            if (IsThrottled)
+            {
+                OnPropertyChanged(nameof(ThrottleText));
+            }
+        },
+        ProgressInterval,
+        System.Windows.Threading.Dispatcher.CurrentDispatcher);
+
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(
+                new UiCommand.ScanFolders(_work),
+                progress,
+                _cancellation.Token);
+
+            // 残っている最新の1件を出し切ってから「完了」などで上書きする（後から届いて上書きし返さないように）
+            progress.Complete();
+            Core.Services.UiTrace.Write("速さ", $"取り込みの進み具合：届いた {progress.ReportedCount} 回のうち画面で反映した {progress.AppliedCount} 回");
+
+            if (result is CommandResult.Imported imported)
+            {
+                Summary = imported.Summary;
+                foreach (var folder in imported.Summary.UnpackedFolders.OrderByDescending(entry => entry.TotalBytes))
+                {
+                    var row = new UnpackedFolderRow
+                    {
+                        Folder = folder,
+                        Name = Path.GetFileName(folder.Path),
+                        ArchiveName = Path.GetFileName(folder.ArchivePath),
+                        FileCount = folder.FileCount,
+                        SizeText = Core.Models.DisplayText.Size(folder.TotalBytes),
+                    };
+                    row.PropertyChanged += OnUnpackedRowChanged;
+                    UnpackedFolders.Add(row);
+                }
+
+                OnPropertyChanged(nameof(HasUnpackedFolders));
+                RaiseSelectionChanged();
+
+                AvatarSummaryText = DescribeDetection(imported.Summary);
+
+                PhaseText = "完了";
+                DetailText = string.Empty;
+                await _main.ReloadLibraryAsync();
+
+                // 新しく見つかったアバターの1枚目を続けて取る（次の起動まで待たせない）
+                _main.StartAvatarImageSync();
+            }
+            else if (result is CommandResult.Failed failed)
+            {
+                ErrorText = failed.Message;
+                PhaseText = "失敗";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            progress.Complete();
+            PhaseText = "中断しました";
+            DetailText = "再実行すると続きから進みます。";
+        }
+        finally
+        {
+            progress.Complete();
+            _cancellation?.Dispose();
+            _cancellation = null;
+            _work = null;
+            ClearEstimate();
+            IsRunning = false;
+            _main.BoothActivity.EndWork(WorkSource.Import);
+        }
+    }
+
+    /// <summary>
+    /// 進み具合を画面へ出す間隔の下限。人の目で追えるのは1秒に数回までで、①②は1件1.5秒なので件数の表示は遅れない。
+    /// 走査（ファイル1つごと）の間だけ、途中の値が捨てられる
+    /// </summary>
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>常設の1行に出す段の呼び名。取り込み画面の段の名前を1行に収まるよう短くしたもの。</summary>
+    private static string LineLabelOf(ImportPhase phase) => phase switch
+    {
+        ImportPhase.Scanning => "取り込み：ファイルをスキャン中",
+        ImportPhase.Resolving => "取り込み：商品IDを解決中",
+        ImportPhase.FetchingJson => "取り込み：商品の情報を取得中",
+        ImportPhase.FetchingHtml => "取り込み：商品ページを取得中",
+        ImportPhase.Detecting => "取り込み：対応アバターを検出中",
+        ImportPhase.FetchingThumbnails or ImportPhase.FetchingGallery => "取り込み：画像を取得中",
+        _ => "取り込み：ショップのアイコンを取得中",
+    };
+
+    /// <summary>
+    /// 検出（③）の結果を1行にする。検出そのものは取り込みの1段として
+    /// パイプラインの中で走るので、ここでは受け取ったまとめを読むだけ。
+    /// </summary>
+    internal static string DescribeDetection(ImportSummary summary)
+    {
+        if (summary.AvatarDetectError is { } error)
+        {
+            // 取り込みは済んでいる。検出はやり直せるので、その道を言う
+            return $"対応アバターの検出は途中で止まりました。{error}アバターの管理の「対応アバターを検出する」からやり直せます。";
+        }
+
+        // 走らなかったのに「見つかりませんでした」と言っていた（自動で走っていないと受け取られた）
+        if (!summary.AvatarDetectRan)
+        {
+            return "BOOTHから新しく取得した商品が無いため、対応アバターの検出はしていません。";
+        }
+
+        return summary.AvatarItemsUpdated == 0
+            ? "対応アバターは見つかりませんでした。"
+            : $"対応アバターを {summary.AvatarsFound} 体検出し、{summary.AvatarItemsUpdated} 件の商品に記録しました。";
+    }
+
+    private string _avatarSummaryText = string.Empty;
+
+    /// <summary>取り込みの後に走らせた検出の結果。</summary>
+    public string AvatarSummaryText
+    {
+        get => _avatarSummaryText;
+        private set
+        {
+            if (SetField(ref _avatarSummaryText, value))
+            {
+                OnPropertyChanged(nameof(HasAvatarSummary));
+            }
+        }
+    }
+
+    public bool HasAvatarSummary => AvatarSummaryText.Length > 0;
+
+    /// <summary>
+    /// BOOTHに無かったファイルの1行。
+    ///
+    /// タイルを増やさないのは、**普段0の数字が常設で並ぶ**のを避けるため
+    /// （ナビのバッジで「0件のときは出さない」と決めたのと同じ理由）。
+    /// 1行なら、次にやること（未確定を見る）も一緒に言える。
+    /// </summary>
+    /// <remarks>
+    /// BOOTH の不調（タイムアウト・5xx・読めない応答）で取れなかった商品もここに並べる（ユーザ判断 2026-09-23・#10）。
+    /// 前は数えるだけで画面のどこにも出ず、そのファイルは商品にも未確定にも入らないまま黙って消えたように見えた。
+    /// 取れなかった物は「続きから」の記録に残してあるので、次の手（待ってから下の帯の「続きから進む」）まで書く。
+    /// どちらも BOOTH 側の事情で取れなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
+    ///
+    /// 応答の無い失敗が続いて途中で止めた回は、「BOOTHの不調」「少し待ってから」とは言わない（ユーザ判断 2026-09-29）。
+    /// つながっていないなら待っても直らないので、事象と次の一手（つないでから押す）を言う。
+    /// 件数は付けない——②（説明文）で止めた回は①が済んでいて、取れなかった数に入らない。
+    /// BOOTH が 5xx を返し続けて止めた回は、つなぎ直しても直らないので、時間をおくことを言う（ユーザ判断 2026-09-29）。
+    /// </remarks>
+    public string NotFoundText => Summary is { } summary
+        ? string.Join(
+            string.Empty,
+            summary.NotFound > 0
+                ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。下の「未確定を開く」から確かめてください。"
+                : string.Empty,
+            summary.Stopped switch
+            {
+                BoothOutageKind.Offline =>
+                    "途中で止めました。ネットにつながっていないようです。つながってから、下の帯の「続きから進む」を押してください。",
+                BoothOutageKind.ServerDown =>
+                    "途中で止めました。BOOTHが不調のようです。時間をおいて、下の帯の「続きから進む」を押してください。",
+                _ => summary.TemporaryFailures > 0
+                    ? $"{summary.TemporaryFailures} 件はBOOTHの不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
+                    : string.Empty,
+            })
+        : string.Empty;
+
+    public bool HasNotFound => NotFoundText.Length > 0;
+
+    /// <summary>
+    /// 権限などで読めなかったファイルの1行（E4・ユーザ判断 2026-09-20）。
+    ///
+    /// **1件ずつは言わない。**走査の途中で何千件も出うるので、数と、次にやること（場所を確かめる）だけを出す。
+    /// 0 のときは何も出さない（普段0の数字を常設で並べない。「BOOTHに無かったもの」と同じ扱い）。
+    /// </summary>
+    /// <remarks>
+    /// OneDrive の「オンラインのみ」で読まなかったファイルもここに並べる（ユーザ判断 2026-09-23）。
+    /// 読むとダウンロードが始まるので勝手には読まないが、黙って飛ばすと取り込んだつもりの物が入っていない。
+    /// 直し方が「閉じる」ではなく「手元に置く」なので、文は分けて次の手を書く。
+    /// どちらも手元のファイルが読めなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
+    ///
+    /// 壊れていて開けない zip もここに並べる（大容量の確かめ 問題4・ユーザ判断 2026-09-30）。上の2つは取り込めていない物、
+    /// こちらは未確定か商品に入っていて開けない物で、直し方が「ダウンロードし直す」。どれも手元のファイルが読めなかった話なので枠は同じにし、
+    /// 次の手が違うので行を分ける（前は1行につないでいて、2種類が重なると、どの次の手がどの件の話か読みにくかった）。
+    /// </remarks>
+    public string UnreadableText => string.Join("\n", UnreadableLines.Select(line => line.Text));
+
+    /// <summary>
+    /// 読めなかった物の文を、1文ずつ。画面は文の間に空きを置いて並べる（画面の確かめ 2026-09-30：
+    /// 改行でつないだ1つの文字の部品だと、折り返した行と次の文が同じ行間で並び、切れ目が分からなかった）
+    /// </summary>
+    /// <remarks>
+    /// 文ごとに、何の文かの ID を持たせる（読み上げには出ない。確かめの道具が読む）。前はどの文も同じ ID で、
+    /// 読めなかった文と壊れた zip の文を、文の中身を読まないと見分けられなかった（2026-09-30）
+    /// </remarks>
+    public IReadOnlyList<ImportResultLine> UnreadableLines => Summary is { } summary
+        ? new[]
+            {
+                new ImportResultLine(ImportResultLine.Unreadable, UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable)),
+                new ImportResultLine(
+                    ImportResultLine.OnlineOnly,
+                    summary.FilesOnlineOnly > 0
+                        ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
+                            + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
+                        : string.Empty),
+                new ImportResultLine(ImportResultLine.BrokenZip, BrokenArchiveText(summary.FilesBrokenArchive)),
+                new ImportResultLine(
+                    ImportResultLine.BrokenZipOnItems,
+                    BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames)),
+            }.Where(line => line.Text.Length > 0).ToList()
+        : [];
+
+    /// <summary>
+    /// 未確定にある、壊れていて開けない zip の1文。どれかは未確定の行の札「壊れたzip」で分かるので、そこへ案内する
+    /// （同じ結果の欄の「未確定を開く」は、未確定が1件でもあれば出ている）。
+    /// 商品に結び付いた分は未確定に無く、案内する先が違うので行を分ける（<see cref="BrokenArchiveOnItemsText"/>）。
+    /// 2行が並んでも合計と読まれないよう、どこにあるかを文の頭で言う
+    /// </summary>
+    internal static string BrokenArchiveText(int files) => files > 0
+        ? $"未確定に、壊れていて開けないzipが {files} 件あります。下の「未確定を開く」で確かめて、ダウンロードし直してください。"
+        : string.Empty;
+
+    /// <summary>
+    /// 商品に結び付いた、壊れていて開けない zip の1文（ユーザ判断 2026-09-30）。
+    /// どの商品かは、すぐ下のボタンが開く検索（条件「壊れたzip」）で並ぶので、そこへ案内する（未確定の側の文と同じ作法）。
+    /// 商品が1つのときだけ名前も言う——押さなくても分かる。2つ以上では言わない。
+    /// 前は「「商品名」など m 件の商品に」と1つだけ名前を言っていたが、並べる画面ができたので、どれを言うかに意味が無くなった
+    /// </summary>
+    internal static string BrokenArchiveOnItemsText(int files, IReadOnlyList<string> itemNames)
+    {
+        if (files <= 0 || itemNames.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        const string NextStep = "下の「壊れたzipがある商品を検索で開く」で確かめて、ダウンロードし直してください。";
+        return itemNames.Count == 1
+            ? $"「{ShortItemName(itemNames[0])}」に、壊れていて開けないzipが {files} 件あります。{NextStep}"
+            : $"{itemNames.Count} 件の商品に、壊れていて開けないzipが {files} 件あります。{NextStep}";
+    }
+
+    /// <summary>
+    /// 文の中に入れる商品名。BOOTH の商品名は100字を超える物があり、そのまま入れると一文80字の決まりを名前だけで越える。
+    /// 名前のほかの部分が25字ほどなので、30字で切る（どの商品かは頭の30字で分かる）
+    /// </summary>
+    private static string ShortItemName(string name)
+    {
+        const int Max = 30;
+        var text = new System.Globalization.StringInfo(name.Trim());
+        return text.LengthInTextElements <= Max ? text.String : text.SubstringByTextElements(0, Max) + "…";
+    }
+
+    public bool HasUnreadable => UnreadableText.Length > 0;
+
+    /// <summary>
+    /// 読めなかったファイルとフォルダの1文（大容量の確かめ #5・2026-09-30）。
+    /// フォルダは中に何件あったか読めないので、ファイルの数に足さず「フォルダが n 件」と並べる。
+    ///
+    /// **原因を並べず、次にやることだけを言う**（ユーザ判断 2026-09-30）。前は「別のアプリが開いている、ネットワーク越しで
+    /// つながっていない、権限が無い、のいずれかです。」を真ん中に挟んでいたが、多くの人には要らない話で文が重かった。
+    /// いちばん多い原因（ほかのアプリで開いている）だけを確かめる事として残す。フォルダの中を読めないのは権限かつながりで、
+    /// この句は当たらないので、フォルダだけのときは外す
+    /// </summary>
+    internal static string UnreadableFilesText(int files, int folders) => (files, folders) switch
+    {
+        (> 0, > 0) => $"読めなかったファイルが {files} 件、フォルダが {folders} 件あり、取り込めていません。" + UnreadableFilesNext,
+        (> 0, _) => $"読めなかったファイルが {files} 件あり、取り込めていません。" + UnreadableFilesNext,
+        (_, > 0) => $"読めなかったフォルダが {folders} 件あり、取り込めていません。"
+            + "エクスプローラで開けるかを確かめてから、もう一度取り込んでください。",
+        _ => string.Empty,
+    };
+
+    private const string UnreadableFilesNext =
+        "ほかのアプリで開いていないか、エクスプローラで開けるかを確かめてから、もう一度取り込んでください。";
+
+}
+
+/// <summary>取り込みの結果の欄に並べる1文。<paramref name="Id"/> は UI Automation の ID（何の文か）。</summary>
+public sealed record ImportResultLine(string Id, string Text)
+{
+    /// <summary>読めなかったファイル・フォルダ（取り込めていない）。</summary>
+    public const string Unreadable = "ImportUnreadableLine";
+
+    /// <summary>OneDrive の「オンラインのみ」で読まなかったファイル。</summary>
+    public const string OnlineOnly = "ImportOnlineOnlyLine";
+
+    /// <summary>未確定にある、壊れていて開けない zip。</summary>
+    public const string BrokenZip = "ImportBrokenZipLine";
+
+    /// <summary>商品に結び付いた、壊れていて開けない zip。</summary>
+    public const string BrokenZipOnItems = "ImportBrokenZipOnItemsLine";
+
+    public override string ToString() => Text;
+}

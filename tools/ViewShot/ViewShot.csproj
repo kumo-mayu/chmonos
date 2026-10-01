@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\BoothAssetManager.App\BoothAssetManager.App.csproj" />
+    <ProjectReference Include="..\..\Chmonos.App\Chmonos.App.csproj" />
   </ItemGroup>
 
 </Project>

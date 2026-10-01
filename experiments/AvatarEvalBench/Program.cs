@@ -3,14 +3,14 @@
 // 対応アバター検出の「現行」と「修正案」を、正解付きの試験データに当てて比べる台。
 //
 // 試験データは第三者（テストに協力してくれた友人）のライブラリなので、**リポジトリの外**に置く。
-// 既定は %LOCALAPPDATA%\BoothAssetManager-eval（store\ に写し、labels.json に正解）。
+// 既定は %LOCALAPPDATA%\Chmonos-sandboxes\eval（store\ に写し、labels.json に正解）。
 //
 // 正解は「商品×アバター」の組ごとに 対応／参考／違う／不明。
 //   適合率 = 対応と数えた組のうち、正解が「対応」だった割合（参考・違う・未ラベルは誤り、不明は数えない）
 //   再現率 = 正解が「対応」の組のうち、対応と数えられた割合
 // 「対応と数える」は、検索の対応アバター絞り込みに出るかどうか。要確認を数えるかも案ごとに違う。
 //
-// 案は IVariant を足すだけで並ぶ。本体（BoothAssetManager.Core）は読むだけで書き換えない。
+// 案は IVariant を足すだけで並ぶ。本体（Chmonos.Core）は読むだけで書き換えない。
 //
 // 使い方:
 //   dotnet run --project experiments/AvatarEvalBench -- [評価フォルダ] [--store <写しのフォルダ名>] [--show <案の名前の一部>] [--limit N]
@@ -19,9 +19,9 @@
 // 汚れ（自分の正式名に出ない別名・読めない表示名）を直した版で、同じ正解で測れる。
 //
 // 評価フォルダは2つある（どちらもリポジトリの外）：
-//   BoothAssetManager-eval   … 207件（2026-09-11）。settings.json の見出しが既定に語を足す前の物なので、
+//   eval   … 207件（2026-09-11）。settings.json の見出しが既定に語を足す前の物なので、
 //                              今の規則を測るときは --default-headings を付ける
-//   BoothAssetManager-eval2  … 同じ友人のライブラリの後の版（2026-09-29）。前の正解を引き継ぎ、増えた商品に正解を足した
+//   eval2  … 同じ友人のライブラリの後の版（2026-09-29）。前の正解を引き継ぎ、増えた商品に正解を足した
 // --manual <file>：手付けの対応アバター（商品ID → アバターIDの一覧）への見落とし率も出す（既定は評価フォルダの manual.json）
 // --only <案の名前の一部>：その案だけ走らせる。--pred <file>：--show の案が対応と数えた組を書き出す
 // --head-infer-clothing：写しの +Head を兄弟に広げる形にして測る。--relabel <file>：正解の一部を重ねて測る
@@ -30,9 +30,9 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AvatarEvalBench;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Services;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
+using Chmonos.Core.Storage;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
@@ -43,7 +43,7 @@ var optionValues = args.Select((arg, index) => (arg, index))
     .ToHashSet();
 var evalDir = args.Where((arg, index) => !arg.StartsWith("--") && !optionValues.Contains(index)).FirstOrDefault()
     ?? Environment.GetEnvironmentVariable("BOOTH_EVAL_DIR")
-    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BoothAssetManager-eval");
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Chmonos-sandboxes", "eval");
 var showIndex = Array.IndexOf(args, "--show");
 var show = showIndex >= 0 && showIndex + 1 < args.Length ? args[showIndex + 1] : null;
 var limitIndex = Array.IndexOf(args, "--limit");

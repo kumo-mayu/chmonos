@@ -1,0 +1,618 @@
+<UserControl x:Class="Chmonos.App.Views.ItemView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:controls="clr-namespace:Chmonos.App.Controls" xmlns:views="clr-namespace:Chmonos.App.Views"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む三角はタグの管理・ローカルファイルと同じ物（操作感を揃える） -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+        <!--
+            h2の見出しを押せるようにするだけのボタン。
+
+            **テンプレートごと置き換える。**暗黙の `Button` スタイルは
+            中央揃えと枠線を持っていて、setter では外せない
+            （ギャラリーの矢印で同じ罠を踏んでいる）。
+            見出しは左揃えのまま、押せることだけを足したい。
+        -->
+        <Style x:Key="SectionHeaderButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Face" Background="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Face" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <DockPanel Background="{DynamicResource Bg}">
+
+        <!-- 上部バー -->
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- フォルダビューに組み込んだときは戻るを隠す（ShowsBack） -->
+                    <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Margin="0,0,10,0" MaxWidth="320" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 取り込みの③がまだで、直す操作を塞いでいる理由（U8・U10）。塞いだことを黙らない -->
+                    <TextBlock Text="{Binding EditLockText}" FontSize="11.5" Foreground="{DynamicResource Warn}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" MaxWidth="520" TextWrapping="Wrap"
+                               Visibility="{Binding IsEditLocked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 外部で更新を知ったときに、次回更新予定を待たずに取り直せるようにする -->
+                    <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,0,8,0"
+                            AutomationProperties.AutomationId="ItemRefresh"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
+                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0"
+                            AutomationProperties.AutomationId="ItemEdit"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />
+                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}"
+                            AutomationProperties.AutomationId="ItemOpenBooth"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--
+            **横にも送れるようにする。**左の列が660px固定なので、窓が狭いと
+            右の列（商品名・ID・種類・対応アバター・ローカルファイル）が
+            幅0まで潰れて**到達できなくなる**（900pxで実測）。
+            横スクロールを出せば、狭くても必ず届く。
+
+            右の列にも下限を置いて、潰れる前にスクロールが出るようにしてある
+
+
+            Tag は「結び付けが届いたか」の目印（ItemView.xaml.cs の ApplyRestore）。作りたての画面では、
+            最初の配置の時点で結び付けがまだ届いていないので、流した位置を戻すのをそこまで待つ
+        -->
+        <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
+                      Tag="{Binding}">
+            <!--
+                **幅を窓に合わせる。**横に送れるScrollViewerは中身を「幅は無限」
+                として測るので、WrapPanel（BOOTHのタグ）は折り返さず、
+                `TextWrapping` を付けた商品名も1行ぶんの幅を要求する。
+                その結果、窓が十分広くても右の列が窓の外まで伸びていた
+                （タグ10個の商品で実測 約2900px）。
+
+                下限（1060 = 660 + 320 + 余白と内側の余白）を割ったときだけ横スクロールが出る。
+                余白を外の枠に持たせるのは、`Margin` だと幅に上積みされて
+                いつでも横スクロールが出てしまうため
+            -->
+            <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth・LeftColumnWidth） -->
+            <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
+                    Width="{Binding ViewportWidth, ElementName=Body}">
+            <!-- 覚えた左の幅は窓が狭いと頭打ちにする（右の最小 320 を割らないように。PaneGrid） -->
+            <controls:PaneGrid Pane="{Binding LeftPane}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding LeftPane.Width, Mode=TwoWay}"
+                                      MinWidth="{Binding LeftPane.MinWidth}" MaxWidth="{Binding LeftPane.MaxWidth}" />
+                    <ColumnDefinition Width="*" MinWidth="320" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 左の列の幅を変える境目（ユーザ判断 2026-09-14）。列の間の余白（右20）の中に置く。フォルダビューに組み込んだときも出す（ユーザ指示 2026-09-14） -->
+                <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Margin="0,0,7,0" Panel.ZIndex="2"
+                                       ResetCommand="{Binding LeftPane.ResetCommand}"
+                                       Visibility="{Binding LeftPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                <!-- 左：ギャラリーと説明 -->
+                <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                    <views:ItemGalleryPanel />
+
+                    <!-- 説明文。欄ごと畳める（ユーザ指示 2026-09-14）。畳んだかどうかは商品を移っても保つ -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
+                        <Grid>
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="ItemDescriptionExpander" AutomationProperties.Name="商品説明">
+                            <Expander.Header>
+                                <TextBlock Text="商品説明" FontWeight="Bold" VerticalAlignment="Center" />
+                            </Expander.Header>
+                        <StackPanel Margin="0,12,0,0">
+
+                            <!--
+                                説明文とh2は選択可能にし、含まれるURLはリンクにする。
+                                対応アバターのURLがh2に並ぶことがあり、そこから直接飛べると早い。
+                            -->
+                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,0,0,14"
+                                         controls:SelectableText.Text="{Binding Description}"
+                                         controls:SelectableText.Navigator="{Binding}"
+                                         Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!--
+                                見出しの行は、画面に見えている分までを最初の配置で作り、画面の外の分は後から1行ずつ足す
+                                （ProgressiveItems に理由。見出し21個の商品で、開くのに約340ms かかっていた）。
+                                全部が在ることを当てにする処理は、先に足し切る（画面内検索。MainWindow.Find.cs）
+                            -->
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Sections}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,16">
+                                            <!--
+                                                見出しそのものを押して畳む。畳む用のボタンを別に置くと
+                                                見出しの横に小さな的が並んで狙いにくい
+                                            -->
+                                            <!-- 中身が文字の並びなので、ボタンに名前が付かなかった。見出しの文を名前にする -->
+                                            <Button Style="{StaticResource SectionHeaderButton}"
+                                                    AutomationProperties.AutomationId="ItemSectionHeader"
+                                                    AutomationProperties.Name="{Binding Heading}"
+                                                    Command="{Binding DataContext.ToggleSectionCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Border BorderBrush="{DynamicResource Accent}" BorderThickness="3,0,0,0" Padding="9,0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Heading}" FontWeight="Bold"
+                                                                   FontSize="14" TextWrapping="Wrap" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Marker}"
+                                                                   Foreground="{DynamicResource TextMuted}"
+                                                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                            </Button>
+                                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
+                                                         controls:SelectableText.Text="{Binding Text}"
+                                                         controls:SelectableText.Navigator="{Binding DataContext,
+                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                         Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+                        </StackPanel>
+                        </Expander>
+
+                        <!--
+                            説明は長いことがある（1商品で画面6枚ぶん流れるものがある）。見出しだけ見て目当てを探せるように、
+                            見出しごとにまとめて畳める。欄を開いているときだけ出す（欄の見出しの右に重ねる）
+                        -->
+                        <Button Content="{Binding ToggleAllSectionsText}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                AutomationProperties.AutomationId="ItemToggleAllSections"
+                                Command="{Binding ToggleAllSectionsCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasSections}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsDescriptionExpanded}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- 動画の欄。編集画面と同じ部品 -->
+                    <views:ItemVideosPanel />
+                </StackPanel>
+
+                <!-- 右：情報 -->
+                <StackPanel Grid.Column="1">
+                    <Border Style="{StaticResource Card}" Padding="20,18">
+                        <StackPanel>
+                            <!--
+                                自分で付けたuserTagを先頭に置き、BOOTHのタグをすぐ下に続ける。
+                                同じ「タグ」なのに離れていると見比べられない。
+                            -->
+                            <TextBlock Text="ユーザータグ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
+                            <!--
+                                この画面の繰り返しの一覧は ContentItemsControl（素の ItemsControl は、行を型の名前で読ませ、
+                                値の等しい行を1つにまとめて、2つめ以降の中のボタンを読み上げ・自動操作から隠す）
+                            -->
+                            <controls:ContentItemsControl ItemsSource="{Binding UserTags}"
+                                          Visibility="{Binding HasUserTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                BorderThickness="1" CornerRadius="6" Padding="10,3" Margin="0,0,6,6">
+                                            <TextBlock Text="{Binding Top}" FontSize="12" Foreground="{DynamicResource AccentText}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+                            <TextBlock Text="未設定。編集画面で付けられます。">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasUserTags}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!--
+                                BOOTHのタグは畳める（ユーザ指示 2026-09-12：数百ある商品がある）。
+                                畳んだかどうかは編集画面と共通で、商品を移っても保つ。件数は見出しに出す
+                            -->
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,14,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="ItemBoothTagsExpander" AutomationProperties.Name="BOOTHのタグ">
+                                <Expander.Header>
+                                    <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
+                                </Expander.Header>
+                                <!--
+                                    畳んでいる間は作らず、多い商品は最初の一部と「残り n 件を表示」だけ（ユーザ判断 2026-09-12・開くのが遅かった）。
+                                    札と切り替えの見た目は App.xaml（型で選ぶ）。作った札は隠すだけで捨てない
+                                -->
+                                <controls:ContentItemsControl ItemsSource="{Binding TagTiles}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </controls:ContentItemsControl>
+                            </Expander>
+
+                            <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,14" />
+
+                            <!--
+                                お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。以前は右＝U21）。編集画面も同じ位置。
+                                見た目と説明は検索のカードの星に合わせる
+                            -->
+                            <DockPanel>
+                                <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す（編集画面の星と同じ形） -->
+                                <controls:PressableBorder DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,0,6,0" Padding="0,0,2,0"
+                                        Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                        Command="{Binding ToggleFavoriteCommand}"
+                                        AutomationProperties.AutomationId="ItemFavorite"
+                                        AutomationProperties.Name="{Binding FavoriteTip}">
+                                    <Border.InputBindings>
+                                        <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleFavoriteCommand}" />
+                                    </Border.InputBindings>
+                                    <TextBlock Text="{Binding FavoriteGlyph}" FontSize="22">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource Star}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </controls:PressableBorder>
+                                <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
+                            </DockPanel>
+
+                            <!--
+                                ユーザが付けた名前であることは隠さない。
+                                BOOTHの名前も取れているなら並べて出す（どちらで覚えていても辿り着けるように）
+                            -->
+                            <TextBlock Text="{Binding UserNameNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Visibility="{Binding HasUserName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!-- 作者名からはアプリ内のショップ画面へ。外部BOOTHには飛ばさない -->
+                            <TextBlock Margin="0,8,0,0" ToolTip="このショップの商品を見る">
+                                <!-- 中身が文字の部品（TextBlock）なので、名前を付けないと空白1文字で読まれる -->
+                                <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}"
+                                           AutomationProperties.AutomationId="ItemShopLink"
+                                           AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
+                                           Foreground="{DynamicResource Accent}">
+                                    <TextBlock Text="{Binding ShopName}" FontSize="13" />
+                                </Hyperlink>
+                            </TextBlock>
+
+                            <!-- 観測と入力の区別を隠さない -->
+                            <TextBlock Text="{Binding UserShopNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding HasUserShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <!-- IDそのものを押せるようにする。統合先の指定に要るので、
+                                     手で書き写させない。UI要素は増やさない -->
+                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" ToolTip="{Binding IdCopyTip}">
+                                    <!-- 名前は中の文字（「ID 1234567」）のまま。確かめの道具が「今どの商品のページか」を読む場所なので、ID を付ける -->
+                                    <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                               AutomationProperties.AutomationId="ItemIdCopy"
+                                               Foreground="{DynamicResource TextMuted}">
+                                        <Run Text="{Binding IdText, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
+
+                                <!-- IDのすぐ隣に置く。「このIDを変えたい」と思った場所にある -->
+                                <Button Content="IDを変える" Style="{StaticResource SmallButton}" Margin="0,0,14,0"
+                                        AutomationProperties.AutomationId="ItemChangeId"
+                                        Padding="7,1" FontSize="10.5" VerticalAlignment="Center"
+                                        Command="{Binding ChangeIdCommand}"
+                                        ToolTip="この商品の中身を別のIDの商品へ移します。移す前に確認できます。" />
+
+                                <TextBlock Text="{Binding PublishedText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
+                                <TextBlock Text="{Binding WishText}" Style="{StaticResource Mono}" FontSize="11" />
+                            </StackPanel>
+
+                            <!--
+                                登録時に言うだけでは半年後に理由を思い出せないので、常設で1行出す。
+                                「BOOTHから取り直す」も押せなくしてあり、理由は同じ文をツールチップに置いている
+                            -->
+                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,12,0,0"
+                                    Visibility="{Binding IsLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding LocalOnlyNotice}" TextWrapping="Wrap"
+                                           FontSize="12" Foreground="{DynamicResource Warn}" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 種類（BOOTHのvariation） -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <!-- 畳める（ユーザ判断 2026-09-27）。件数は畳んでも見出しに出す -->
+                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                      IsChecked="{Binding IsVariationsExpanded, Mode=TwoWay}"
+                                                      AutomationProperties.AutomationId="ItemVariationsToggle"
+                                                      AutomationProperties.Name="{Binding VariationsToggleName}"
+                                                      ToolTip="バリエーションの欄を開く・折りたたむ" />
+                                        <TextBlock Text="バリエーション" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding VariationsCountText, Mode=OneWay}" Style="{StaticResource Mono}" FontSize="11"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                            <controls:ContentItemsControl ItemsSource="{Binding Variations}"
+                                          Visibility="{Binding IsVariationsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
+                                            <Grid>
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" />
+                                                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                                Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{DynamicResource TextFaint}" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding PriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                                <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
+                                                        BorderThickness="1" CornerRadius="6" Padding="10,4"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                        Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="購入済み" FontSize="12" Foreground="{DynamicResource Good}" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <views:ItemAvatarsPanel />
+
+                    <!--
+                        属性
+
+                        **空でも枠を出す。**消してしまうと、付けられること自体が
+                        画面から分からない。ユーザータグと同じ扱いに揃えた
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="属性" FontWeight="Bold" Margin="0,0,0,12" />
+                            <TextBlock Text="未設定。編集画面で付けられます。" Style="{StaticResource Caption}"
+                                       Visibility="{Binding HasAttributes, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                            <controls:ContentItemsControl ItemsSource="{Binding Attributes}"
+                                          Visibility="{Binding HasAttributes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,9">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="76" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="38" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextAlignment="Right" Margin="0,0,10,0" />
+                                            <Border Grid.Column="1" Height="8" CornerRadius="4" Background="{DynamicResource BarTrack}">
+                                                <Border Height="8" CornerRadius="4" Background="{DynamicResource Accent}"
+                                                        Width="{Binding BarWidth}" HorizontalAlignment="Left" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text="{Binding Value}" Style="{StaticResource Mono}"
+                                                       FontSize="11" TextAlignment="Right" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!--
+                        メモ
+
+                        **空でも枠を出す。**「メモが出ていない」という指摘の原因が
+                        これだった。書いていないと丸ごと消えるので、
+                        書ける場所があること自体が画面から分からなかった
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,8">
+                                <!-- 押さずに残る欄なので、保存できたかを出す（I10） -->
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding MemoSaveText}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding HasMemoSaveText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
+                            </DockPanel>
+
+                            <!-- ここで書ける。押さなくても残る（I9。ほかのメモと同じ作法） -->
+                            <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="ItemMemo" AutomationProperties.Name="メモ"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="240"
+                                     VerticalScrollBarVisibility="Auto" Padding="10,8"
+                                     Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="押さなくても保存されます。" Style="{StaticResource Caption}" Margin="0,5,0,0"
+                                       Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!-- 編集画面の中に入れているときは、右の欄で書くので読むだけ -->
+                            <StackPanel Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="未設定。右の欄で書けます。" Style="{StaticResource Caption}"
+                                           Visibility="{Binding HasMemo, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}" BorderThickness="1"
+                                        CornerRadius="6" Padding="12,10"
+                                        Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <RichTextBox Style="{StaticResource SelectableBody}"
+                                                 controls:SelectableText.Text="{Binding Memo}"
+                                                 controls:SelectableText.Navigator="{Binding}" />
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <views:ItemFilesPanel />
+
+                    <!--
+                        この商品について記録していること
+
+                        **持っているのに出していない値があった。**非表示・販売終了・
+                        アバターの検出日時は、どれも人が設定したか観測した結果なのに
+                        画面のどこにも出ていなかった。件数が合わないときに
+                        確かめる先が無いのは困る。
+
+                        横一列だと入り切らないので `WrapPanel` にした。
+                        `StackPanel Orientation="Horizontal"` は折り返さず、
+                        窓を狭めると右端が黙って切れる
+                    -->
+                    <!--
+                        この商品を使った改変
+
+                        **改変から辿れば分かる情報を商品ページで隠さない。**
+                        「持っているのに出していない」を直した直後なので、
+                        同じ指摘を作らない。
+
+                        **見せる場所と足す場所を同じにする**（ユーザ指摘）
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,14">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,12">
+                                <TextBlock Text="この商品を使った改変" FontWeight="Bold"
+                                           VerticalAlignment="Center" />
+                                <Button Content="改変に追加" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="ItemAddToModification"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding AddToModificationCommand}"
+                                        ToolTip="送らずに記録だけ残します。どの改変かはこのあと選べます。" />
+                            </Grid>
+
+                            <TextBlock Text="{Binding UsedInModificationsEmptyText}"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                            <controls:ContentItemsControl ItemsSource="{Binding UsedInModifications}"
+                                          Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:UsedInModificationRowViewModel}">
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12.5"
+                                                               MaxWidth="440" HorizontalAlignment="Left"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                               MaxWidth="440" HorizontalAlignment="Left"
+                                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+
+                                                <Button Grid.Column="1" Content="開く" Style="{StaticResource SmallButton}"
+                                                        AutomationProperties.AutomationId="ItemUsedInModificationOpen"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.OpenModificationCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,14">
+                        <StackPanel>
+                            <TextBlock Text="記録していること" FontWeight="Bold" Margin="0,0,0,12" />
+                            <WrapPanel>
+                                <StackPanel Margin="0,0,28,10">
+                                    <TextBlock Text="入手日" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding AcquiredText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,28,10">
+                                    <TextBlock Text="最終取得" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding LastFetchedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,28,10">
+                                    <TextBlock Text="次回更新予定" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding NextFetchText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,28,10">
+                                    <TextBlock Text="アバター検出" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding AvatarsDetectedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,28,10">
+                                    <TextBlock Text="BOOTHでの販売" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding DelistedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,28,10">
+                                    <TextBlock Text="検索から除く" Style="{StaticResource SectionLabel}" />
+                                    <!--
+                                        状態の横で切り替える（ユーザ判断 2026-09-27・動線の洗い出し C5）。前は戻すのに設定の一覧まで行く必要があった。
+                                        状態の文字と2つのボタンは分かりにくかったので、隣の「更新通知」と同じチェック1つにした（ユーザ判断 2026-09-28）。
+                                        一方向に結ぶのは、書き込みを持ち主を宣言する道（ToggleHiddenCommand）だけに通すため。
+                                        押した瞬間はチェックだけが先に動き、保存し終えたら IsHidden の知らせで今の値に合わせ直す
+                                    -->
+                                    <CheckBox IsChecked="{Binding IsHidden, Mode=OneWay}" Command="{Binding ToggleHiddenCommand}" Margin="0,4,0,0"
+                                              ToolTip="検索とショップに表示しなくなります。" AutomationProperties.Name="検索から除く"
+                                              AutomationProperties.AutomationId="ItemHidden" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Text="更新通知" Style="{StaticResource SectionLabel}" />
+                                    <CheckBox IsChecked="{Binding NotifyOnUpdate, Mode=OneWay}" IsEnabled="False" Margin="0,4,0,0"
+                                              AutomationProperties.AutomationId="ItemNotifyOnUpdate" AutomationProperties.Name="更新通知" />
+                                </StackPanel>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </controls:PaneGrid>
+            </Border>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

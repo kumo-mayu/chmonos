@@ -6,7 +6,7 @@
     使うときに ui-check スキルの New-ChmonosSandbox -Recipe がビルドして呼ぶ。
   -->
   <ItemGroup>
-    <ProjectReference Include="..\..\BoothAssetManager.Core\BoothAssetManager.Core.csproj" />
+    <ProjectReference Include="..\..\Chmonos.Core\Chmonos.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

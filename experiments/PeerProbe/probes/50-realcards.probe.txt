@@ -2,7 +2,7 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/BoothAssetManager.App;component/Views/ItemCardResources.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Chmonos;component/Views/ItemCardResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>

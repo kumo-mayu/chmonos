@@ -1,11 +1,11 @@
 # 脇のビルド用の作業ツリー（git worktree add --detach <置き場> <コミット>）に、起動の区切りの印を入れる。
 # master と、ブランチに乗っている作業ツリーには入れない（計測だけの物で、アプリには残さない）。
-# 入れた後は dotnet build <ツリー>\BoothAssetManager.App -c Release -o <出力> でビルドし、rounds.ps1 -Marks で測る
+# 入れた後は dotnet build <ツリー>\Chmonos.App -c Release -o <出力> でビルドし、rounds.ps1 -Marks で測る
 param([Parameter(Mandatory)][string]$Tree)
 $ErrorActionPreference = 'Stop'
 $branch = git -C $Tree branch --show-current
 if ($branch) { throw "ブランチ（$branch）に乗っている作業ツリーには入れない。git worktree add --detach で脇に作る" }
-$app = Join-Path $Tree 'BoothAssetManager.App'
+$app = Join-Path $Tree 'Chmonos.App'
 Copy-Item (Join-Path $PSScriptRoot '..\AppPatch\BootMarks.cs'), (Join-Path $PSScriptRoot '..\AppPatch\BootJit.cs') $app
 $f = Join-Path $app 'App.xaml.cs'
 $t = [IO.File]::ReadAllText($f)

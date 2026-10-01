@@ -1,7 +1,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Storage;
 
 namespace ViewShot;
 

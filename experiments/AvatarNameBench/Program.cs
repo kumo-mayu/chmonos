@@ -6,12 +6,12 @@
 // 使い方: dotnet run --project experiments/AvatarNameBench [試験データのフォルダ]
 using System.Text;
 using System.Text.Json;
-using BoothAssetManager.Core.Services;
+using Chmonos.Core.Services;
 
 Console.OutputEncoding = Encoding.UTF8;
 var dir = args.Length > 0
     ? args[0]
-    : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BoothAssetManager-eval");
+    : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Chmonos-sandboxes", "eval");
 
 var raw = Load(Path.Combine(dir, "store", "avatar-registry.json"));
 var clean = Load(Path.Combine(dir, "store-clean", "avatar-registry.json")).ToDictionary(entry => entry.Id);

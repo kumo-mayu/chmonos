@@ -1,11 +1,11 @@
 using System.Text;
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Commands;
-using BoothAssetManager.Core.Images;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Scanning;
-using BoothAssetManager.Core.Services;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Commands;
+using Chmonos.Core.Images;
+using Chmonos.Core.Models;
+using Chmonos.Core.Scanning;
+using Chmonos.Core.Services;
+using Chmonos.Core.Storage;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -46,7 +46,7 @@ var step = args[1];
 var rest = args.Skip(2).ToArray();
 
 var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-string[] forbidden = [Path.Combine(local, "Chmonos"), Path.Combine(local, "BoothAssetManager"), Path.Combine(local, "BoothAssetManager-friendtest")];
+string[] forbidden = [Path.Combine(local, "Chmonos"), Path.Combine(local, "Chmonos"), Path.Combine(local, "Chmonos-friendtest"), Path.Combine(local, "Chmonos-sandboxes", "friendtest")];
 if (forbidden.Any(path => string.Equals(path, root, StringComparison.OrdinalIgnoreCase)))
 {
     Console.Error.WriteLine($"ここには書かない（本番・friendtest）: {root}");

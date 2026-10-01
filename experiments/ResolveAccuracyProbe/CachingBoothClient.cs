@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using BoothAssetManager.Core.Booth;
+using Chmonos.Core.Booth;
 
 namespace ResolveAccuracyProbe;
 
@@ -100,7 +100,7 @@ sealed class CachingBoothClient : IBoothClient
         }
 
         _http ??= new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        _inner ??= new BoothClient(_http, new BoothAssetManager.Core.Models.AppSettings());
+        _inner ??= new BoothClient(_http, new Chmonos.Core.Models.AppSettings());
 
         NetworkRequests++;
         var result = await fetch(_inner);

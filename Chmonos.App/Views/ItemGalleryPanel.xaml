@@ -1,0 +1,324 @@
+<UserControl x:Class="Chmonos.App.Views.ItemGalleryPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:controls="clr-namespace:Chmonos.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <!--
+        商品の画像の欄（大きい絵・矢印・右クリックの操作・一覧・足す枠・取得の案内）。
+        商品ページと編集画面で同じ部品を使う（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
+        DataContext は ItemViewModel（編集画面では、今開いている商品の分）か ModificationViewModel（改変の写真・ユーザ指示 2026-09-13）。
+        どちらも IGalleryHost と、同じ名前の値・コマンドを持つ。商品にしか無い物（サムネイルの指名・役割・取得の案内）は、改変では false の値で隠す
+    -->
+                    <Border Style="{StaticResource Card}" ClipToBounds="True">
+                        <StackPanel>
+                            <Grid Height="420" Background="{DynamicResource ImageBack}">
+                                <!--
+                                    絵を送る矢印。**普段は出さない。**
+                                    常に置いておくと絵の上に黒い箱が居座るので、
+                                    マウスが絵の上に来たときだけ現れる。
+                                    白い矢印にしているのは、絵の明暗どちらでも読めるようにするため
+                                    （薄い黒の下敷きを添えて、明るい絵でも消えないようにしている）。
+                                -->
+                                <Grid.Resources>
+                                    <Style x:Key="GalleryArrow" TargetType="Button">
+                                        <!--
+                                            **見えている面がそのまま押せる。**
+                                            出る範囲と押せる範囲がずれていると、見えているのに
+                                            外して絵を押すことになる。帯そのものをボタンにする。
+
+                                            **テンプレートごと置き換える。**暗黙の Button スタイルは
+                                            独自のホバー色（水色）を持っていて、Background を
+                                            上書きしても効かない。カウンタまで塗り潰されてしまう。
+                                        -->
+                                        <Setter Property="Width" Value="90" />
+                                        <Setter Property="FontSize" Value="26" />
+                                        <Setter Property="Foreground" Value="{DynamicResource OnImage}" />
+                                        <Setter Property="VerticalAlignment" Value="Stretch" />
+                                        <Setter Property="Cursor" Value="Hand" />
+
+                                        <!--
+                                            右クリックのメニューは絵に付いている。ボタンが絵の左右を
+                                            覆うので、繋いでおかないとその範囲だけメニューが出なくなる
+                                        -->
+                                        <Setter Property="ContextMenu"
+                                                Value="{Binding ContextMenu, RelativeSource={RelativeSource AncestorType=Grid}}" />
+
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <!-- 普段は透明。乗ったときだけ薄く敷いて矢印を出す -->
+                                                    <Border x:Name="Face" Background="Transparent">
+                                                        <TextBlock x:Name="Glyph"
+                                                                   Text="{TemplateBinding Content}"
+                                                                   Foreground="{TemplateBinding Foreground}"
+                                                                   FontSize="{TemplateBinding FontSize}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Opacity="0">
+                                                            <!--
+                                                                帯を濃くすれば白い字は読めるが、絵まで沈む。
+                                                                字にだけ影を付ければ、明るい絵でも輪郭が残る
+                                                            -->
+                                                            <TextBlock.Effect>
+                                                                <DropShadowEffect Color="{DynamicResource GlyphShadowColor}" BlurRadius="6"
+                                                                                  ShadowDepth="0" Opacity="0.7" />
+                                                            </TextBlock.Effect>
+                                                        </TextBlock>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource ImageHoverShade}" />
+                                                            <Setter TargetName="Glyph" Property="Opacity" Value="1" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Grid.Resources>
+
+                                <!--
+                                    操作は全部この右クリックに集める。
+                                    サムネイルは68×54しかなく、そこにボタンを乗せると絵が見えなくなる。
+                                -->
+                                <Grid.ContextMenu>
+                                    <ContextMenu>
+                                        <!-- 並べ替えは自分で足した画像だけ。BOOTHの並びは観測した事実 -->
+                                        <MenuItem Header="前へ移動" Command="{Binding MoveImageBackCommand}"
+                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <MenuItem Header="後ろへ移動" Command="{Binding MoveImageForwardCommand}"
+                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <Separator Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                        <!-- サムネイルの指名と役割は商品の画像だけ（改変の写真には無い・ShowsImageRoles） -->
+                                        <MenuItem Header="この画像をサムネイルにする" Command="{Binding PinThumbnailCommand}"
+                                                  Visibility="{Binding ShowsPinThumbnail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <MenuItem Header="サムネイルの指名を外す" Command="{Binding UnpinThumbnailCommand}"
+                                                  Visibility="{Binding ShowsUnpinThumbnail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                        <Separator Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                        <!--
+                                            画像の役割。3つで固定。
+
+                                            付けていなければ出どころから決まる（BOOTHの画像は
+                                            「BOOTH」、自分で足した画像は「その他」）。
+                                            「改変例」は自動では付かない——どれが改変後の姿かは
+                                            人にしか分からない。
+
+                                            設定で「サムネイルに出す画像」に役割を選ぶと、
+                                            一覧のサムネイルがその役割の画像に切り替わる
+                                        -->
+                                        <MenuItem Header="{Binding CurrentRoleHeader}"
+                                                  Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <MenuItem Header="BOOTH" IsCheckable="True"
+                                                      IsChecked="{Binding CurrentIsRoleBooth, Mode=OneWay}"
+                                                      Command="{Binding SetRoleBoothCommand}" />
+                                            <MenuItem Header="改変例" IsCheckable="True"
+                                                      IsChecked="{Binding CurrentIsRoleModified, Mode=OneWay}"
+                                                      Command="{Binding SetRoleModifiedCommand}" />
+                                            <MenuItem Header="その他" IsCheckable="True"
+                                                      IsChecked="{Binding CurrentIsRoleOther, Mode=OneWay}"
+                                                      Command="{Binding SetRoleOtherCommand}" />
+                                        </MenuItem>
+
+                                        <!-- 消せるのは自分で足した分だけ。BOOTHの画像は取り直せば戻る -->
+                                        <!-- 取り返しがつかないので、そうと分かる顔にする（V4）。取り返しの話もここに書く -->
+                                        <MenuItem Header="この画像を削除" Command="{Binding RemoveImageCommand}"
+                                                  Style="{StaticResource DangerMenuItem}"
+                                                  ToolTip="ファイルごと消します。元に戻せません（押すと確かめます）。"
+                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <Separator />
+                                        <MenuItem Header="画像を追加…" Command="{Binding AddImageCommand}" />
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+
+                                <Image Source="{Binding SelectedImage}" Stretch="Uniform" />
+
+                                <!--
+                                    1枚も無いとき、大きい絵の所で無いと分かるようにする（ユーザ指示 2026-09-14：何なのか分からない黒い丸はストレス）。
+                                    文言は持ち主（商品・改変）が決める。画像があれば空で、何も描かない
+                                -->
+                                <TextBlock Text="{Binding GalleryEmptyText}" Foreground="{DynamicResource TextMuted}" FontSize="13"
+                                           TextWrapping="Wrap" TextAlignment="Center" LineHeight="20"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" MaxWidth="380"
+                                           IsHitTestVisible="False" />
+
+                                <Border Background="{DynamicResource ImageScrim}" CornerRadius="9" Padding="8,2"
+                                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+                                    <TextBlock Text="{Binding GalleryCounter}" Foreground="{DynamicResource OnImage}" FontSize="11"
+                                               AutomationProperties.AutomationId="GalleryCounter" />
+                                    <!-- 2枚以上のときだけ出す（0枚は文字の無い黒い丸、1枚は「1 / 1」が常に出ていた・U11 と同じ決まり） -->
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding GalleryCounter}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+
+                                <!-- いまサムネイルに使っている1枚。検索カードに出る絵がどれか分かるように -->
+                                <Border Background="{DynamicResource AccentOverlay}" CornerRadius="9" Padding="8,2"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
+                                        Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="サムネイル" Foreground="{DynamicResource OnAccent}" FontSize="11" />
+                                </Border>
+
+                                <!--
+                                    見る絵を送る。並べ替えではない（そちらは右クリック）。左右キーでも送れる。
+
+                                    透明な Border で包んで**近くの当たり判定**にしている。
+                                    絵の真ん中にマウスがあるだけで出すと、絵を見ているときに邪魔になる。
+                                -->
+                                <Button Content="‹" Command="{Binding PreviousImageCommand}"
+                                        Style="{StaticResource GalleryArrow}"
+                                        HorizontalAlignment="Left"
+                                        Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        AutomationProperties.AutomationId="GalleryPrevious" AutomationProperties.Name="前の画像"
+                                        ToolTip="前の画像（←）" />
+
+                                <Button Content="›" Command="{Binding NextImageCommand}"
+                                        Style="{StaticResource GalleryArrow}"
+                                        HorizontalAlignment="Right"
+                                        Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        AutomationProperties.AutomationId="GalleryNext" AutomationProperties.Name="次の画像"
+                                        ToolTip="次の画像（→）" />
+                            </Grid>
+
+                            <controls:ContentItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <!-- 末尾の「足す」枠。折り返しても末尾に付いてくるよう同じ並びに混ぜている -->
+                                            <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
+                                                    Content="＋" FontSize="18" Cursor="Hand"
+                                                    AutomationProperties.AutomationId="GalleryAdd" AutomationProperties.Name="画像を追加"
+                                                    Background="{DynamicResource SurfaceAlt}"
+                                                    ToolTip="{Binding DataContext.AddImageTip, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Visibility="{Binding IsAddTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    Command="{Binding DataContext.AddImageCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+
+                                            <!--
+                                                乗せて少し止めると切り替わる（設定 GallerySwitchOnHover / GalleryHoverDelayMs）。
+                                                クリックなら待たずに即座に切り替わる。
+                                            -->
+                                            <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
+                                                    Background="{DynamicResource ThumbBack}" Cursor="Hand"
+                                                    Visibility="{Binding IsImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    MouseEnter="OnThumbnailMouseEnter"
+                                                    MouseLeave="OnThumbnailMouseLeave"
+                                                    AutomationProperties.AutomationId="GalleryTile" AutomationProperties.Name="{Binding ShowName}"
+                                                    Command="{Binding DataContext.SelectImageCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+                                                        <Setter Property="Opacity" Value="0.72" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                                                <Setter Property="Opacity" Value="1" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <Grid>
+                                                    <Image Source="{Binding Image}" Stretch="Uniform" />
+
+                                                    <!-- BOOTH側から消えた画像は控えめに示す -->
+                                                    <Border Background="{DynamicResource ImageScrimLight}"
+                                                            Visibility="{Binding IsOrphaned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="削除済" Foreground="{DynamicResource OnImage}" FontSize="9"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                                    </Border>
+
+                                                    <!--
+                                                        自分で足した分。**絵にはかぶせない。**
+                                                        「削除済」の全面かぶせは「もう無い」を表すもので、
+                                                        自分の絵は劣化していないので同じ見せ方にはできない。
+
+                                                        角の小さな札にする。★（サムネイル）と対になり、
+                                                        絵がいちばん見える。
+                                                    -->
+                                                    <Border Background="{DynamicResource GoodFill}" CornerRadius="0,4,0,0"
+                                                            Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                            Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="自分" Foreground="{DynamicResource OnAccent}" FontSize="8.5" />
+                                                    </Border>
+
+                                                    <!--
+                                                        人が付けた役割。「改変例」だけ出す。
+
+                                                        BOOTHとその他は出どころから決まる既定なので、
+                                                        出すと全タイルが札で埋まる。空いている右下に置くので
+                                                        「自分」（左下）と★（右上）とも重ならない
+                                                    -->
+                                                    <Border Background="{DynamicResource AccentFill}" CornerRadius="4,0,0,0"
+                                                            Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                            Visibility="{Binding HasRoleLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding RoleLabel}" Foreground="{DynamicResource OnAccent}" FontSize="8.5" />
+                                                    </Border>
+
+                                                    <!-- サムネイルに指名した1枚 -->
+                                                    <Border Background="{DynamicResource AccentFill}" CornerRadius="0,0,0,4"
+                                                            Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                            Visibility="{Binding IsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="★" Foreground="{DynamicResource OnAccent}" FontSize="9" />
+                                                    </Border>
+                                                </Grid>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </controls:ContentItemsControl>
+
+                            <TextBlock Text="{Binding UserImageText}" Style="{StaticResource Caption}" Margin="12,0,12,4"
+                                       Visibility="{Binding HasUserImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+
+                            <TextBlock Text="{Binding OrphanedImageText}" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding HasOrphanedImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!--
+                                まだ取っていない画像があるときだけ出す。自動で「見えたものを優先」に
+                                しないのは、勢いよくスクロールされると順番待ちが「もう見ていないもの」で
+                                埋まるため。押した意思の方が、見えたという事実より確か。
+                            -->
+                            <StackPanel Orientation="Horizontal" Margin="12,0,12,12"
+                                        Visibility="{Binding HasMissingImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding MissingImageText}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Content="この商品の画像取得を優先" FontSize="12"
+                                        AutomationProperties.AutomationId="GalleryFetchImages"
+                                        Command="{Binding FetchImagesCommand}" />
+                            </StackPanel>
+
+                            <TextBlock Text="取得しています…" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding IsFetchingImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!--
+                                取れなかった枚数は出す。ギャラリーの枚数がBOOTHと合わない理由が、
+                                それ以外に説明できないため。商品を取り直せば印は消え、この行も消える。
+                            -->
+                            <TextBlock Text="{Binding UnavailableImageText}" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding HasUnavailableImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <TextBlock Text="{Binding ImageFetchNotice}" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding HasImageFetchNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </StackPanel>
+                    </Border>
+</UserControl>

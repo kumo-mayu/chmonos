@@ -123,7 +123,7 @@
 - 大きな画面のクラスは関心ごとの `partial` のファイルに分けてある（`SearchViewModel.History.cs` など）。**クラスとしては1つのまま**（状態は分けていない）。画面に並べる行の型は `*Rows.cs`。
 - 画面に依らない決まりは Core へ切り出して試験を付ける（`ItemOrder`・`UnresolvedMerge`・`VolumeTable` など）。
   切り出しの候補：検索の `Matches`、改変の画面の左の一覧の組み立て、編集画面の種類分けの推し当て。
-- **画面の側（ViewModel）にも試験を付ける**（`BoothAssetManager.App.Tests`・ユーザ判断 2026-09-30。前は「画面側の試験は作らない」だった）。
+- **画面の側（ViewModel）にも試験を付ける**（`Chmonos.App.Tests`・ユーザ判断 2026-09-30。前は「画面側の試験は作らない」だった）。
   文言やボタンの出し分けのような計算で決まる物を、起動して撮らずに確かめる。ViewModel の中の値から決まる文は `internal static` の関数にし、
   画面を通す試験は一時フォルダの保存先で主画面ごと組む（`docs/dev/app-tests.md`）。
 - 別の画面を組み込む形（フォルダビューに商品ページ・未確定、改変の画面に改変の詳細）は `IsEmbedded` で戻るや境目を隠す。
@@ -147,7 +147,7 @@
 
 ## 試験とビルド
 
-- `dotnet build`・`dotnet test`（本体 `BoothAssetManager.Core.Tests` が2,200件超、画面の側 `BoothAssetManager.App.Tests` が約280件）。
+- `dotnet build`・`dotnet test`（本体 `Chmonos.Core.Tests` が2,200件超、画面の側 `Chmonos.App.Tests` が約280件）。
   **通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。画面の側の試験は、通信の出口を作り物に差し替えて組む。
   待ちを差し替えた `BoothClient`（`TestWait.None`）は PC で1つの門に入らない（本物の門を書き換えない・その PC でアプリが動いているかで結果が変わらない）。
   待ちを差し替えない組み立て（アプリ・コマンドライン・評価台・道具）は必ず入る。**通信の出口が本物のまま待ちだけを差し替える組み立ては `AppServiceContainer` が断る。**

@@ -6,7 +6,7 @@
 //   dotnet run -c Release --project experiments/ScanCacheBench -- <作業フォルダ> find <件数> <商品の数> <監視フォルダのファイル数> [回数]
 //   dotnet run -c Release --project experiments/ScanCacheBench -- <作業フォルダ> make <件数> <自分で作った写し>
 //
-// make   ：アプリで測るときの台。自分で作った写し（名前が BoothAssetManager-scn… の物だけ）の控えに作り物を足す
+// make   ：アプリで測るときの台。自分で作った写し（Chmonos-sandboxes\scn… の物だけ）の控えに作り物を足す
 // load   ：JsonFileStore.Load() 1回の時間と割り当て。1回目（JIT が乗る）と2回目以降を分けて出す
 // update ：画面のスレッドの代わりの「1本で順に回すスレッド」から UpdateAsync を呼び、そのスレッドが続けて塞がった時間を出す
 // find   ：同じスレッドから MissingFileFinder.FindAsync を丸ごと呼ぶ（見つからないファイルが1件ある形）
@@ -15,10 +15,10 @@
 // 通信もしない。1件あたりの大きさはパスの長さで変わるので、短い形（英数 約50字）と長い形（日本語まじり 約75字）を選べる。
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Scanning;
-using BoothAssetManager.Core.Services;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Models;
+using Chmonos.Core.Scanning;
+using Chmonos.Core.Services;
+using Chmonos.Core.Storage;
 
 // bash から呼ぶと既定の文字コード（CP932）で出て読めないので、UTF-8 で書く
 Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -113,16 +113,18 @@ static string Ms((double Min, double Median, double Max) spread)
 static string Mb(long bytes) => $"{bytes / 1024.0 / 1024.0:0.00} MB";
 
 // 自分で作った写しの控えに、作り物を足す（アプリで測るときの台を作る）。今ある控えは残す。
-// 写しの名前が「BoothAssetManager-scn」で始まる物にしか書かない（本番・ほかの担当の写しを書き換えないように）
+// 写しの名前が「scn」「mis」で始まる物（%LOCALAPPDATA%\Chmonos-sandboxes\scn…）にしか書かない（本番・ほかの担当の写しを書き換えないように）
 static void Make(int count, string storeRoot)
 {
     // scn は測った担当、mis は直した担当が台本から作った写しの名前（直した後に、同じ台で測り直した）
     var name = Path.GetFileName(storeRoot);
-    if (!(name.StartsWith("BoothAssetManager-scn", StringComparison.OrdinalIgnoreCase)
-            || name.StartsWith("BoothAssetManager-mis", StringComparison.OrdinalIgnoreCase))
+    var parent = Path.GetFileName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(storeRoot)) ?? string.Empty);
+    if (!string.Equals(parent, "Chmonos-sandboxes", StringComparison.OrdinalIgnoreCase)
+        || !(name.StartsWith("scn", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("mis", StringComparison.OrdinalIgnoreCase))
         || !File.Exists(Path.Combine(storeRoot, "settings.json")))
     {
-        throw new InvalidOperationException($"ここには書かない: {storeRoot}（自分で作った写し BoothAssetManager-scn…・-mis… だけ）");
+        throw new InvalidOperationException($"ここには書かない: {storeRoot}（自分で作った写し Chmonos-sandboxes\\scn…・mis… だけ）");
     }
 
     var paths = new AppPaths(storeRoot);

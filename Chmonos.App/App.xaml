@@ -1,0 +1,306 @@
+<Application x:Class="Chmonos.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <Application.Resources>
+      <ResourceDictionary>
+        <!--
+            色の表。鍵は明るい表と暗い表で同じで、起動時と設定を変えたときに AppTheme がこの1つ（Light.xaml）を差し替える。
+            画面は色を直に書かず、DynamicResource で鍵を指す（docs/spec/ui-colors.md）
+        -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="Themes/Light.xaml" />
+            <!-- 標準の部品（チェックボックス・プルダウン・メニュー・吹き出し・スクロールバーなど）を色の表の鍵で描く -->
+            <ResourceDictionary Source="Themes/Controls.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+
+        <!--
+            商品カードの大きさ。起動時と一覧の右下のスライダーを動かしたときに CardMetrics が書き換える
+            （ユーザ判断 2026-09-15）。ここの値は「中」＝前からの大きさ。カードは DynamicResource で読む
+        -->
+        <!--
+            文章と入力が主の画面（設定・取り込み・改変の画面の右・未確定の右・要確認）の最大幅（ユーザ判断 2026-09-23）。
+            行が長すぎると読みにくいので止め、余った幅は左右に分けて中央に寄せる（2560px の窓で右に大きな空きが出ていた）。
+            960 は画面ごとにばらばらだった値（860〜1000）の間で、商品ページの左の列の既定（660）＋右の最小（320）とほぼ同じ幅
+        -->
+        <sys:Double x:Key="ReadingMaxWidth">960</sys:Double>
+        <sys:Double x:Key="CardWidth">228</sys:Double>
+        <sys:Double x:Key="CardHeight">336</sys:Double>
+        <sys:Double x:Key="CardImageHeight">200</sys:Double>
+        <sys:Double x:Key="CardSlotWidth">242</sys:Double>
+
+        <!--
+            表示の大きさ（設定・Ctrl＋＋／Ctrl＋－・ユーザ指示 2026-09-29）。起動時と変えたときに AppZoom が書き換える。
+            主の窓の中身はこれで丸ごと縮尺する。吹き出しとメニューは別の窓（ポップアップ）で、
+            主の窓の縮尺が届かないので、Themes/Controls.xaml の既定の見た目で同じ倍率を当てる。
+            ComboBox の一覧・入力欄の候補・日付の選択のように、窓の中に置いたポップアップは置いた場所の縮尺を WPF が引き継ぐので当てない（当てると2重になる）
+        -->
+        <ScaleTransform x:Key="AppZoomTransform" ScaleX="1" ScaleY="1" />
+
+        <!--
+            畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
+            どちらか一方の画面ではなくここに置く。24×24の座標系。
+        -->
+        <PathGeometry x:Key="IconCollapse" Figures="M14,7 L9,12 L14,17" />
+        <PathGeometry x:Key="IconExpand" Figures="M10,7 L15,12 L10,17" />
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        </Style>
+
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <Style x:Key="Mono" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+        </Style>
+
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <!--
+            選択できる本文。見た目はTextBlockに寄せ、枠も背景も出さない。
+            スクロールを内側で持たせない（Disabled）ことで、中身の高さに合わせて伸び、
+            ページ全体のスクロールもそのまま効く。
+        -->
+        <Style x:Key="SelectableBody" TargetType="RichTextBox">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="IsDocumentEnabled" Value="True" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="-2,0,0,0" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBody}" />
+            <Setter Property="Cursor" Value="IBeam" />
+            <!-- 本文なのでTabの行き先にはしない（選択とリンクはマウスで足りる） -->
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+
+        <Style TargetType="Hyperlink">
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+            <Setter Property="TextDecorations" Value="Underline" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <!-- 角丸・枠線つきのカード -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <!--
+                                ボタンの文字はボタンの Foreground に従わせる。アプリ全体の暗黙の TextBlock スタイル（色 Text）が
+                                ボタンの作る文字にも効き、重要なボタンの白が濃い色に上書きされていた（ユーザ指摘 2026-09-14「青地に黒文字」）。
+                                ContentPresenter の中に置くと、それが作る文字だけに効く
+                            -->
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                            <!--
+                                無効の表現は薄さだけに頼らない。0.45まで落とすと何のボタンか読めなくなる。
+                                文字と枠の色を弱めたうえで、透過は控えめにする。
+                            -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.75" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Border}" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{DynamicResource AccentFill}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+            <!-- 白文字を色地に載せると細い字画が沈むので、少し太らせる -->
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <!--
+                乗せたときは青を濃くする。土台のボタンは乗せると地を薄い灰にするので、そのままだと青が消えて
+                白い文字が読めなくなっていた（ユーザ指摘 2026-09-14）。文字の決まり・押せないときの見た目は土台と同じ
+            -->
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentHover}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentHover}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.75" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Border}" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            狭い場所に置く小さいボタン。
+            既定のボタンは Padding 14,0 を ContentPresenter の Margin にしているので、
+            幅を固定すると左右28px分だけ文字の使える幅が減って途中で切れる。
+            こちらは余白を詰め、幅は内容任せ（固定しない）で使う。
+        -->
+        <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="FontSize" Value="11.5" />
+        </Style>
+
+        <!--
+            **取り返しのつかない操作のボタン**（ユーザ判断 2026-09-20・V4）。
+            赤系にするのは改変の「削除」だけで、同じ強さの操作が普通の顔で並んでいた。
+            色は「見つからない」と同じ異常の色（`Bad`）に揃える
+        -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerBorder}" />
+        </Style>
+
+        <!--
+            キーボードで止まった所の印（札・行・小さな ×）。カードの印（ItemCardResources の CardFocusVisual）と同じく、選んだ色の枠を飾りの層に描く。
+            既定の点線は、色の付いた札や薄い地の行の上で見分けにくい。枠の太さを部品の側で変えると中身がずれる
+        -->
+        <Style x:Key="ChipFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="12" Margin="-2" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- 行は外へはみ出すと隣の行に掛かるので、内側に描く -->
+        <Style x:Key="RowFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SmallFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="1.5" CornerRadius="4" Margin="-1" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            乗せたときだけ出すボタン（札の ×）。**その札にキーボードのフォーカスがあるときにも出す**（ユーザ判断 2026-09-30）。
+            前は乗せたときだけ Visibility を出していたので、キーボードからは届かず、読み上げ・自動操作の既定の見方にも出なかった。
+            隠すのは見た目だけにする（透明にして、マウスを通す）。Hidden だとフォーカスを受けられず、Tab で × に止まれない。
+            透明な間にマウスで押せると、見えないボタンで札が消えるので、出ているときだけマウスを受ける。
+            条件の「札」は、いちばん近い Border（PressableBorder も含む）。中の × やボタンにフォーカスが移っても、札の中にある間は消えない
+        -->
+        <Style x:Key="RevealOnHoverOrFocusButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource SmallFocusVisual}" />
+            <Style.Triggers>
+                <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="IsHitTestVisible" Value="True" />
+                </DataTrigger>
+                <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="IsHitTestVisible" Value="True" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 右クリックの中の、取り返しのつかない項目（V4）。ボタンと同じ色にする -->
+        <Style x:Key="DangerMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+        </Style>
+
+        <!--
+            札の並び（BOOTHのタグ・対応アバター）に混ぜる札。商品ページと編集画面で同じ見た目にするのでここに置く。
+            作った札は隠すだけで捨てない（ChipStrip・ユーザ判断 2026-09-12）ので、見えるかどうかは札の IsShown で決める
+        -->
+        <DataTemplate DataType="{x:Type vm:TagTile}">
+            <Border BorderBrush="{DynamicResource ChipBorder}" BorderThickness="1" CornerRadius="12"
+                    Padding="10,3" Margin="0,0,6,6" Background="{DynamicResource ChipBack}"
+                    Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="{DynamicResource ChipText}" />
+            </Border>
+        </DataTemplate>
+        <!-- 「残り n を表示」⇔「最初の 40 だけにする」（ユーザ指示：可逆にする）。1枚のまま文字だけ変わる -->
+        <DataTemplate DataType="{x:Type vm:ChipToggle}">
+            <Button Content="{Binding Text}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                    Command="{Binding Command}" ToolTip="{Binding Hint}"
+                    Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </DataTemplate>
+      </ResourceDictionary>
+    </Application.Resources>
+</Application>

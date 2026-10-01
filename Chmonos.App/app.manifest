@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  モニターごとの拡大率に合わせて描き直す（Per-Monitor V2・ユーザ指示 2026-09-29）。
+
+  宣言が無いと、Windows はアプリを「起動したモニターの拡大率で1度だけ描くもの」として扱う。
+  拡大率の違うモニターへ窓を移すと、Windows が描いた絵を引き伸ばすので、文字も絵もぼやけていた。
+  PerMonitorV2 を宣言すると、WPF が移った先の拡大率で描き直す（窓の枠・メニュー・小窓も含む）。
+
+  dpiAwareness は Windows 10 1607 以降が読む。並べた順に試し、知らない値は飛ばす
+  （1703 より前は PerMonitorV2 を知らないので PerMonitor になる）。
+  dpiAware は dpiAwareness を読まない古い Windows 向け（true/pm = モニターごと）。
+-->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="Chmonos" />
+
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <!-- 管理者の権限は要らない。保存先は利用者の手元（%LOCALAPPDATA% か選んだ場所）だけ -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / 11。.NET 10 はこれより前の Windows では動かない -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>

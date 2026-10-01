@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| 保存先 | `%LOCALAPPDATA%\BoothAssetManager-bigcheck`（`importtest` の写し。監視・取り込み元を空にし、使っていない間の取得を切った） |
+| 保存先 | `%LOCALAPPDATA%\Chmonos-sandboxes\bigcheck`（`importtest` の写し。監視・取り込み元を空にし、使っていない間の取得を切った） |
 | アプリ | **Release** で別のフォルダへビルドした物（`ui-check` の既定は Debug。下の「測り方の注意」） |
 | 作り物 | `%LOCALAPPDATA%\Chmonos-bigfiles\`（合計 約9.5GB。終わった後に消した）。名前は全部作り物で、商品 ID の手掛かりは無い |
 | 固まり | 別のプロセスから窓へ `WM_NULL` を送り続け、返りが 33ms を超えた回を数えた（UI Automation を使わない計測の道具） |
@@ -136,7 +136,7 @@ BOOTH への問い合わせ：どの場面でも起きていない。アプリ�
 
 ## 測り方の注意
 
-- `ui-check` の既定の起動（Debug）では、同じ2万件の取り込みが **84.5秒**（Release は 12.2秒）。取り込みの速さを画面越しに測るときは Release で測る（`dotnet build BoothAssetManager.App -c Release -o <作業用フォルダ>` して、ui-kit の `$ChmonosExe` をそこへ向けた）。
+- `ui-check` の既定の起動（Debug）では、同じ2万件の取り込みが **84.5秒**（Release は 12.2秒）。取り込みの速さを画面越しに測るときは Release で測る（`dotnet build Chmonos.App -c Release -o <作業用フォルダ>` して、ui-kit の `$ChmonosExe` をそこへ向けた）。
 - UI Automation で画面の文字を全部読む（`Get-ChmonosTexts`）と、見えている要素の分だけアプリ側に部品ができてメモリが増える。7万件の一覧を出した後に読むと数字が変わるので、メモリと固まりを測る間は読まない。
 - 固まりを測る `WM_NULL` の待ちは上限を長く取る。30秒で打ち切っていたら、7万件の件は「30秒」としか出なかった。
 
@@ -357,7 +357,7 @@ GC のヒープ 246MB のうち、生きているのは 27MB。死んでいる�
   試験 `UnresolvedReferrerReimportTests`：化けた値（U+FFFD 入り）を保存した記録と、値の無い記録が、取り込み直しで今の読み方の値になる（ハッシュの計算 0・控えから 1）。`ImportPipeline.cs` は直していない。
   書き直されるのは、走査した取り込み元の中で見つかった記録だけ。取り込んでいない取り込み元・外している外付けの記録は前のまま残る。
 - **読むときの救済は足していない**。名前の化けた値の記録は、取り込み直すまで元zipではなくフォルダで束ねられる（途中のフォルダだけが化けた値は、前と同じく元zipで束ねる）。
-- **古い記録の数**（読むだけ。`%LOCALAPPDATA%` の `BoothAssetManager-*`・`Chmonos*` にある `unresolved.json` 30本）：
+- **古い記録の数**（読むだけ。`%LOCALAPPDATA%` の `Chmonos-sandboxes\*`・`Chmonos*` にある `unresolved.json` 30本）：
   `zoneReferrerUrl` に U+FFFD を含む記録は **0 件**。NUL の入った記録も 0 件。そもそも `zoneReferrerUrl`・`zoneHostUrl` を持つ記録が、どの保存先にも1件も無かった
   （未確定のある保存先は 14・合わせて 1,087 件。411・333・327 件の3つのほかは 1〜4 件）。本番の保存先は未確定 0 件、本番が指している写しは 1 件（値なし）。
   **前の読み直しなら元zipが取れた記録も 0 件**：1,087 件のうち 1,071 件は zip 自身（場所から決まる）、残り 16 件は zip 以外で、この機械にあって印を持つ物が 16 件、その印が元zipの場所を指す物は 0 件。

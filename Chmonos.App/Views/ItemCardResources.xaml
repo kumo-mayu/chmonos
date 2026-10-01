@@ -1,0 +1,823 @@
+<!--
+    商品のカード（検索画面と同じ見た目と操作）。検索画面とフォルダビューの右側で使い回す（ユーザ指示 2026-09-14：
+    フォルダビューの右側は検索画面同等の UI で、リンクなども同じ）。操作は入れ物の画面（IItemCardHost）へ返す。
+-->
+<ResourceDictionary x:Class="Chmonos.App.Views.ItemCardResources"
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+                    xmlns:controls="clr-namespace:Chmonos.App.Controls">
+    <!--
+        カードの右クリックのメニュー（U12）。以前はカード1枚ごとにメニューと項目6つを作っていた。
+        開くのは一度に1つなので、1つを全カードで使い回す。項目は開いたカード（PlacementTarget）を見る
+    -->
+    <ContextMenu x:Key="CardMenu">
+        <!--
+            行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1）。
+            塞いだ理由はツールチップで出す（ShowOnDisabled。押せないまま何も言わないのは決め事違反）
+        -->
+        <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}"
+                  ToolTip="{Binding OpenBoothTip}" ToolTipService.ShowOnDisabled="True"
+                  Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <MenuItem Header="ショップを開く" CommandParameter="{Binding}"
+                  ToolTip="{Binding OpenShopTip}" ToolTipService.ShowOnDisabled="True"
+                  Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <!-- 人に商品を教えるときに要る。落とす／貼るの逆向き -->
+        <MenuItem Header="リンクをコピー" CommandParameter="{Binding}"
+                  ToolTip="{Binding CopyLinkTip}" ToolTipService.ShowOnDisabled="True"
+                  Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <MenuItem Header="編集に入る" CommandParameter="{Binding}"
+                  Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <Separator />
+        <!--
+            商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
+            一時展開が見えなかった）。ファイルや unitypackage が2つ以上あれば、押した後にどれにするかを選ばせる（「…」はその印）
+        -->
+        <MenuItem Header="開く">
+            <MenuItem Header="エクスプローラで開く…" CommandParameter="{Binding}"
+                      ToolTip="手元のファイルの場所を開きます。2つ以上あれば、どれを開くか選べます。"
+                      Command="{Binding PlacementTarget.Tag.RevealCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+            <MenuItem Header="一時的に展開して開く…" CommandParameter="{Binding}"
+                      ToolTip="zipを一時フォルダに展開して開きます。展開したものはアプリを閉じると消えます。"
+                      Command="{Binding PlacementTarget.Tag.CardUnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        </MenuItem>
+        <MenuItem Header="Unity">
+            <MenuItem Header="Unityへ送る…" CommandParameter="{Binding}"
+                      ToolTip="開いているUnityへ送ります。2つ以上あれば選べます。"
+                      Command="{Binding PlacementTarget.Tag.CardSendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+            <MenuItem Header="改変に追加して送る…" CommandParameter="{Binding}"
+                      ToolTip="送ったうえで、どの改変に使ったかを残します。"
+                      Command="{Binding PlacementTarget.Tag.CardSendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+            <MenuItem Header="Unityで選択…" CommandParameter="{Binding}"
+                      ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
+                      Command="{Binding PlacementTarget.Tag.CardSelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        </MenuItem>
+        <Separator />
+        <!-- 設定画面から戻せるので、確認は挟まない -->
+        <MenuItem Header="非表示にする" CommandParameter="{Binding}"
+                  Command="{Binding PlacementTarget.Tag.HideItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+    </ContextMenu>
+
+    <!-- 乗せたとき（か選択中）にだけ作る部品。出し方の条件は、それぞれ以前のまま -->
+    <DataTemplate x:Key="CardOverlay">
+        <Grid>
+            <controls:ContentItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Bottom"
+                          Margin="6,0,6,5" IsHitTestVisible="False"
+                          Visibility="{Binding HasMultipleImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Height="3" CornerRadius="2" Margin="1,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{DynamicResource ImageDotIdle}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource ImageDotActive}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </controls:ContentItemsControl>
+
+            <!-- 区切りを絞っている場合でも、全体で何枚あるかが分かるようにする -->
+            <Border Background="{DynamicResource ImageScrim}" CornerRadius="9" Padding="7,1"
+                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8">
+                <TextBlock Text="{Binding CounterText}" FontSize="10" Foreground="{DynamicResource OnImage}" />
+                <!-- 画像が1枚だと文字が空になり、余白だけの黒い丸が出ていた（U11）。空なら出さない -->
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHovering}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding CounterText}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+
+            <!--
+                まとめて編集へ送るための選択。
+                マウスが乗っているか、既に選んでいるときだけ出す。
+            -->
+            <Border Background="{DynamicResource ImagePill}" BorderBrush="{DynamicResource BorderStrong}"
+                    BorderThickness="1" CornerRadius="5" Padding="7"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7">
+                <!-- カード全体でも切り替わるが、状態を示す印としても要る -->
+                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                          AutomationProperties.AutomationId="ItemCardSelect"
+                          AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}">
+                    <CheckBox.LayoutTransform>
+                        <ScaleTransform ScaleX="1.3" ScaleY="1.3" />
+                    </CheckBox.LayoutTransform>
+                </CheckBox>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHovering}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <!-- 選択中は全カードに出して、今どの操作をしているのかを示す -->
+                            <DataTrigger Binding="{Binding IsSelectionMode}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+
+            <!-- 選択中のとき、商品ページへの出口をここに置く -->
+            <!-- 押せる枠は Border のままだと読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
+            <controls:PressableBorder Background="{DynamicResource ImagePill}" BorderBrush="{DynamicResource BorderStrong}"
+                    BorderThickness="1" CornerRadius="5" Padding="8,4" Cursor="Hand"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="7"
+                    MouseLeftButtonUp="OnOpenItemClick" Invoked="OnOpenItemInvoked"
+                    AutomationProperties.AutomationId="ItemCardOpen"
+                    AutomationProperties.Name="{Binding Name, StringFormat='{}{0}の中を見る'}">
+                <TextBlock Text="中を見る" FontSize="11" Foreground="{DynamicResource Accent}" />
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsSelectionMode}" Value="True" />
+                                    <Condition Binding="{Binding IsHovering}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </controls:PressableBorder>
+        </Grid>
+    </DataTemplate>
+
+    <!--
+        乗せた部品の入れ物。ふだんは畳んでおき、乗せたときか選択中にだけ出す。
+        畳んだ入れ物は測られないので、中の部品（区切り・枚数・チェック・中を見る）は出すまで作られない
+    -->
+    <Style x:Key="CardOverlayHost" TargetType="ContentControl">
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsHovering}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsSelectionMode}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
+        キーボードで止まったカードの印。既定の点線は角丸の白いカードの上で見分けにくいので、選んだ色の枠を外側に出す
+        （枠の太さを変えると中身がずれるので、飾りの層に描く FocusVisualStyle にする）
+    -->
+    <!--
+        「更新あり」の札。ほかの札（未編集・所持）と同じ形で、押せる所だけが違う。
+        暗黙の Button スタイルは中央揃えと枠を持っていて setter では外せないので、テンプレートごと置き換える（docs/dev/wpf.md）
+    -->
+    <Style x:Key="UpdateBadgeButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Frame" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                            BorderThickness="1" CornerRadius="9" Padding="7,1">
+                        <TextBlock Text="更新あり" FontSize="10" Foreground="{DynamicResource Accent}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CardFocusVisual">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="9" Margin="-2" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+                            <DataTemplate x:Key="ItemCardTemplate">
+                              <!--
+                                  カードの中身は DeferredCardHost が、画面のスレッドが空いたときに4枚ずつ作る（U12・4回目・ユーザ判断）。
+                                  まとめて作ると流すたびに画面が固まっていた。作るまでは白いカードの枠だけを出す。
+                                  大きさと間隔はこの外側で決め、中身がまだ無くても行の高さと並びが崩れないようにする
+                              -->
+                              <Grid Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}" Margin="0,0,14,14">
+                                <Border Style="{StaticResource Card}" />
+                                <controls:DeferredCardHost>
+                                  <controls:DeferredCardHost.RealTemplate>
+                            <DataTemplate>
+                                <!-- 高さを揃えて、行の下端が不揃いにならないようにする -->
+                                <!--
+                                    Tag に検索画面を入れておく。ContextMenu は視覚ツリーの外に出るので、
+                                    PlacementTarget 経由でないと画面側のコマンドに届かない。
+                                -->
+                                <!--
+                                    カードは Border なので、名前を付けないと確かめから掴めない（商品名の文字も見えなかった。2026-09-20）。
+                                    付けるのは AutomationProperties なので、画面の見た目は変わらない
+                                -->
+                                <!--
+                                    Tab で止まり、Enter・Space で押したのと同じことをする（点検 2026-09-23：キーボードだけでは
+                                    検索→商品ページ→戻るが進められなかった）。右クリックのメニューは Shift+F10・アプリケーションキーで出る
+                                -->
+                                <controls:ItemCardBorder Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
+                                        Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
+                                        Focusable="True" KeyDown="OnCardKeyDown" Invoked="OnCardInvoked" Loaded="OnCardLoaded" FocusVisualStyle="{StaticResource CardFocusVisual}"
+                                        ClipToBounds="True"
+                                        AutomationProperties.AutomationId="ItemCard"
+                                        AutomationProperties.Name="{Binding Name}"
+                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        ContextMenu="{StaticResource CardMenu}">
+                                    <Grid>
+                                    <DockPanel>
+                                        <!--
+                                            マウスの横位置でギャラリー画像を切り替える（BOOTHのサイトと同じ操作感）。
+                                            正方形の画像が多いので、枠は正方形寄りにして Uniform で全体を見せる（切り取らない）。
+                                        -->
+                                        <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="{DynamicResource ImageBack}" Cursor="Hand"
+                                              MouseMove="OnThumbnailMouseMove" MouseLeave="OnThumbnailMouseLeave">
+                                            <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                            <!-- 取り込みの途中で絵がまだ無いカード（U8）。灰色の枠だけだと壊れて見える -->
+                                            <TextBlock Text="画像を取得中" Style="{StaticResource Caption}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                       Visibility="{Binding IsImagePending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                            <!--
+                                                乗せたとき（か選択中）にだけ出す部品。**畳んでいても作られていた**ので、
+                                                出すときに初めて作る（U12）。畳んだ要素は測られず、型も当てられない
+                                            -->
+                                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource CardOverlay}"
+                                                            Style="{StaticResource CardOverlayHost}" />
+
+                                        </Grid>
+                                        <!--
+                                            下段は必ず下端に置く。カードの高さを固定しているので位置が揃う。
+                                            状態はここに集める。サムネイルに重ねると写真によっては読めない。
+                                        -->
+                                        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
+                                                Margin="11,0,11,11" Padding="0,6,0,0">
+                                            <Grid>
+                                                <!-- 未所持のときは左下の襷が同じことを言うので、重ねて出さない -->
+                                                <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
+                                                            Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="見つからない" FontSize="10" Foreground="{DynamicResource Bad}" />
+                                                    </Border>
+                                                    <!-- 要確認に未読の更新がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27） -->
+                                                    <Button Style="{StaticResource UpdateBadgeButton}" Margin="4,0,0,0"
+                                                            Command="{Binding ShowUpdateCommand}"
+                                                            AutomationProperties.AutomationId="ItemCardUpdate"
+                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
+                                                            ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
+                                                            Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
+                                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"
+                                                            Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
+                                                    </Border>
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            ToolTip="まだユーザータグを付けていません"
+                                                            Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                    </Border>
+                                                    <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <!--
+                                            名前とショップ名の欄。お気に入りの星はこの欄の右下の角に置く（U22・ユーザ指示）。
+                                            下の段の真ん中に置いていた頃（#70）は、左右の容量や状態の札が商品ごとに出たり消えたりして
+                                            星の見え方がずれた。この欄の高さはカードの高さで決まるので、角の位置は全カードで同じになる
+                                        -->
+                                        <Grid Margin="11,10,11,0">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
+                                                           TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <!-- 未所持の襷（左下）と重ならないよう、そのときだけ右へ寄せる（ユーザ指摘 2026-09-20） -->
+                                                <WrapPanel>
+                                                    <WrapPanel.Style>
+                                                        <Style TargetType="WrapPanel">
+                                                            <Setter Property="Margin" Value="0,8,0,0" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOwned}" Value="False">
+                                                                    <Setter Property="Margin" Value="46,8,0,0" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </WrapPanel.Style>
+                                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
+                                                            Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <!-- userTagが長くても2行に折り返さないよう、幅で切る。右下の星に重ならない幅にする -->
+                                                        <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="{DynamicResource AccentText}"
+                                                                   MaxWidth="130" TextTrimming="CharacterEllipsis" />
+                                                    </Border>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                            <!-- 背景を塗るのは、星の字の隙間でも押せるようにするため -->
+                                            <!--
+                                                星は文字を載せた Border なので、読み上げ・自動操作からは在ることも分からなかった
+                                                （確かめでは文字の座標を取って実際のマウスで押していた。2026-09-30）。
+                                                どの商品の星かが分かる名前で、押せるボタンとして出す
+                                            -->
+                                            <controls:PressableBorder HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,2" Padding="4,0"
+                                                    Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                                    MouseLeftButtonUp="OnFavoriteClick" Invoked="OnFavoriteInvoked"
+                                                    AutomationProperties.AutomationId="ItemCardFavorite">
+                                                <AutomationProperties.Name>
+                                                    <MultiBinding StringFormat="{}{0}を{1}">
+                                                        <Binding Path="Name" />
+                                                        <Binding Path="FavoriteTip" />
+                                                    </MultiBinding>
+                                                </AutomationProperties.Name>
+                                                <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Star}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </controls:PressableBorder>
+                                        </Grid>
+                                    </DockPanel>
+
+                                    <!--
+                                        未所持の襷（ユーザ指示：左下の隅にバックスラッシュの形で掛ける）。
+                                        **掛かる場所には札を置かない**（ユーザ指摘 2026-09-20：ユーザタグの札と重なっていた）。
+                                        未所持のときだけ、下のユーザタグの札を襷のぶん右へ寄せる。
+                                        所持が大半なので、所持の側に札を付けても「無い」ことに気付けなかった（友人の要望 #42）。
+                                        カードの角で切れるよう、カード自体の ClipToBounds に任せる。押した操作はカードへ通す
+                                    -->
+                                    <Border Width="150" Height="22" Background="{DynamicResource BadFill}"
+                                            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-45,0,0,19"
+                                            RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"
+                                            Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                        <Border.RenderTransform>
+                                            <RotateTransform Angle="45" />
+                                        </Border.RenderTransform>
+                                        <TextBlock Text="未所持" Foreground="{DynamicResource OnAccent}" FontSize="11" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    </Grid>
+                                </controls:ItemCardBorder>
+                            </DataTemplate>
+                                  </controls:DeferredCardHost.RealTemplate>
+                                </controls:DeferredCardHost>
+                              </Grid>
+                            </DataTemplate>
+
+    <!-- ===== リスト（ユーザ指示 2026-09-14：カードの代わりに1行ずつ並べる。列の幅はドラッグで変え、その画面の一覧で共通） ===== -->
+
+    <!-- カード／リストの切り替えの1区画（置き場所は下の ItemViewModeSwitch） -->
+    <Style x:Key="ItemViewModeSegment" TargetType="RadioButton">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource Text}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Root" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
+                        <!-- 選んだ側の白字は、アプリ全体の暗黙の TextBlock の色に負けて黒く出ていた（ユーザ指摘 2026-09-14）。
+                             重要なボタン（App.xaml）と同じく、中の文字に親の色を渡す -->
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentFill}" />
+                            <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        選んでいる間だけ出す、まとめて操作の帯（検索画面から移した。中身は変えていない）。
+        検索画面とフォルダビューの右側で共通（ユーザ指示 2026-09-14：フォルダも検索と同等にする）。下端に重ねて出す
+    -->
+    <DataTemplate x:Key="ItemSelectionBar">
+        <Border Background="{DynamicResource AccentSoft}"
+                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,10">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
+                               AutomationProperties.AutomationId="SelectionBar.Text"
+                               Foreground="{DynamicResource AccentText}" VerticalAlignment="Center"
+                               Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!--
+                        Unityへ送っている最中の進み具合（#69）。取り込み画面は Unity 側に出る。
+                        1件だけ送るとき（カードの右クリック）もここに出す（E10）
+                    -->
+                    <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Margin="14,0,0,0"
+                               AutomationProperties.AutomationId="SelectionBar.UnityQueueText"
+                               Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
+                               Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 送っている間だけ出す（E7）。いちばん長い待ちは、人が Unity の取り込み画面を見ている時間 -->
+                    <Button Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding StopUnityCommand}"
+                            AutomationProperties.AutomationId="SelectionBarUnityStop"
+                            AutomationProperties.Name="Unityへ送るのを中止"
+                            Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
+                    <Button Content="すべて選択" Style="{StaticResource SmallButton}"
+                            AutomationProperties.AutomationId="SelectionBar.SelectAll"
+                            Command="{Binding SelectAllCommand}"
+                            ToolTip="今表示されている商品をすべて選びます。" />
+                    <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.Clear"
+                            Command="{Binding ClearSelectionCommand}" />
+                    <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
+                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.AddToFavorites"
+                            AutomationProperties.Name="選んだ商品をお気に入りに入れる"
+                            Command="{Binding AddSelectionToFavoritesCommand}"
+                            ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
+                    <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.AddToModification"
+                            Command="{Binding AddSelectionToModificationCommand}"
+                            ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
+                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.SendToUnity"
+                            Command="{Binding SendSelectionToUnityCommand}"
+                            ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
+                    <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.Edit"
+                            Command="{Binding SendSelectionToEditCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+    <!--
+        切り替え。点いているかは入れ物の画面の IsCardMode・IsListMode を読むだけ（OneWay）で、押したときだけコマンドで変える。
+        両方向に結ぶと、画面を作る・組み直すときに WPF が片方を外した拍子に「外れた」が書き戻され、
+        押していないのにカードへ戻って覚えてしまうことがあった（2026-09-14・起動し直すと検索がカードで始まった）
+    -->
+    <!--
+        置き場所は一覧の上の帯（検索・ショップ・フォルダ）か見出しの行（改変）。一覧の右下に浮かせていたときは
+        影を付けていたが、狭い窓でカードの上に重なったので帯へ移した（点検 2026-09-23）。帯の中では影は要らない
+    -->
+    <DataTemplate x:Key="ItemViewModeSwitch">
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6">
+            <StackPanel Orientation="Horizontal">
+                <controls:CommandRadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=OneWay}"
+                             AutomationProperties.AutomationId="ItemViewMode.Cards"
+                             Command="{Binding ShowCardsCommand}" ToolTip="絵の大きなカードで並べます">
+                    <controls:CommandRadioButton.Tag>
+                        <CornerRadius>5,0,0,5</CornerRadius>
+                    </controls:CommandRadioButton.Tag>
+                </controls:CommandRadioButton>
+                <Border Width="1" Background="{DynamicResource BorderStrong}" />
+                <controls:CommandRadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=OneWay}"
+                             AutomationProperties.AutomationId="ItemViewMode.List"
+                             Command="{Binding ShowListCommand}" ToolTip="1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます">
+                    <controls:CommandRadioButton.Tag>
+                        <CornerRadius>0,5,5,0</CornerRadius>
+                    </controls:CommandRadioButton.Tag>
+                </controls:CommandRadioButton>
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
+    <!--
+        一覧の右下の大きさのスライダー（ユーザ判断 2026-09-29）。カードで出しているときはカードの大きさ、
+        リストで出しているときは行の高さ（行の頭の絵も一緒に変わる）。値はアプリに1つで、どの画面で動かしても同じ（ItemViewSize）。
+        一覧の下の細い帯に置く——一覧の上に浮かせると、狭い窓でカードに重なった（切り替えのボタンで点検 2026-09-23 に踏んだ）。
+        両端の小さい四角と大きい四角で、どちらへ動かすと大きくなるかを見せる
+    -->
+    <DataTemplate x:Key="ItemSizeBar">
+        <Border Padding="18,3,24,5">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Rectangle Width="8" Height="8" RadiusX="1.5" RadiusY="1.5" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2"
+                           VerticalAlignment="Center" />
+                <Slider Width="140" Margin="8,0" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                        Minimum="{x:Static vm:ItemViewSize.MinCardWidth}" Maximum="{x:Static vm:ItemViewSize.MaxCardWidth}"
+                        SmallChange="4" LargeChange="20"
+                        Value="{Binding CardWidth, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}"
+                        ToolTip="カードの大きさ" AutomationProperties.Name="カードの大きさ" AutomationProperties.AutomationId="ItemCardSize"
+                        Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Slider Width="140" Margin="8,0" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                        Minimum="{x:Static vm:ItemViewSize.MinListRowHeight}" Maximum="{x:Static vm:ItemViewSize.MaxListRowHeight}"
+                        SmallChange="2" LargeChange="8"
+                        Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}"
+                        ToolTip="行の高さ" AutomationProperties.Name="リストの行の高さ" AutomationProperties.AutomationId="ItemListRowHeight"
+                        Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Rectangle Width="14" Height="14" RadiusX="2" RadiusY="2" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
+    <!--
+        リストの行。押す・右クリック・中クリックはカードと同じ（入れ物の画面は Tag から引く）。
+        フォルダの行（フォルダビュー）は押すとそのフォルダへ移り、右クリックのメニューは出さない
+    -->
+    <!--
+        行の見た目は自前にする（ユーザ指摘 2026-09-14：既定の乗せたときの青い枠と塗りが強すぎた）。
+        行の境目に細い線を引き、乗せたときは薄い灰、選んだ行（まとめて操作）は薄い青
+    -->
+    <Style x:Key="ItemListRowStyle" TargetType="ListViewItem"><Setter Property="AutomationProperties.AutomationId" Value="ItemListRow" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29）。絵がこの高さに合わせて大きさを変える -->
+        <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
+        <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="Row" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                            Padding="0,5">
+                        <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
+                                              VerticalAlignment="Stretch" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource AccentSoft}" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <EventSetter Event="MouseLeftButtonUp" Handler="OnListRowClick" />
+        <EventSetter Event="MouseDown" Handler="OnCardMouseDown" />
+        <!-- 行に止まって Enter・Space で押したのと同じこと（カードと揃える） -->
+        <EventSetter Event="KeyDown" Handler="OnListRowKeyDown" />
+        <!-- 読み上げ・自動操作の「押す」（ItemListView）。Enter と同じ処理にする -->
+        <EventSetter Event="controls:ItemListView.RowInvoked" Handler="OnListRowInvoked" />
+        <!-- キーで開いて戻ってきたら、開いた行に止まり直す（OnCardLoaded） -->
+        <EventSetter Event="Loaded" Handler="OnCardLoaded" />
+        <!-- 読み上げに型の名前（…ItemCardViewModel）が出ていた。商品・フォルダの名前で名乗る -->
+        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                <Setter Property="ContextMenu" Value="{x:Null}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
+        列の境目の細い縦線（ユーザ指摘 2026-09-14：要素の間に何も無くて境目が分からない。表まではしない）。
+        名前・ショップ・状態の中身を包み、左に線と余白を置く
+    -->
+    <Style x:Key="ItemListCellFrame" TargetType="Border">
+        <!--
+            GridView は列の中身の左右に既定で6pxずつ余白を置く。そのままだと縦線が見出しの境目より6px右にずれ、
+            中央に置いた物も中心が合わない（ユーザ指摘 2026-09-14：星・絵・チェックが左に寄って見える、星が切れる）。
+            各列の中身はこの余白を打ち消し、列の幅いっぱいに置く（ItemListCellFill も同じ）
+        -->
+        <Setter Property="Margin" Value="-6,0" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+        <Setter Property="BorderThickness" Value="1,0,0,0" />
+        <Setter Property="Padding" Value="10,0,6,0" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <!-- 行の高さの下限は行（ItemListRowStyle）が持つ。ここに40が残ると、スライダーで小さくしても行が縮まない -->
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- 区切りの線を持たない列（選ぶ・絵）の中身。列の幅いっぱいに広げ、中の物を列の中央に置く（ItemListCellFrame の注記） -->
+    <Style x:Key="ItemListCellFill" TargetType="Grid">
+        <Setter Property="Margin" Value="-6,0" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- 選ぶ（まとめて編集・お気に入り・改変に足す・Unityへ送る）。カードの左上のチェックと同じ -->
+    <DataTemplate x:Key="ItemListSelectCell">
+        <!-- 選ぶ列を持たない画面（ショップ画面）では列の幅が 0 になるが、チェックははみ出して絵に重なって見えた。丸ごと隠す -->
+        <Grid Style="{StaticResource ItemListCellFill}"
+              Visibility="{Binding DataContext.ListColumns.HasSelect, RelativeSource={RelativeSource AncestorType=ListView}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
+                      AutomationProperties.AutomationId="ItemListSelect"
+                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}"
+                      ToolTip="選ぶと、下の帯からまとめて操作できます" />
+        </Grid>
+    </DataTemplate>
+
+    <!--
+        絵。乗せると大きな絵を出す（カードと同じ1枚）。大きさは行の高さ（一覧の右下のスライダー・ユーザ判断 2026-09-29）に合わせ、
+        絵の列の境目をドラッグしても行の高さが変わる（ユーザ指示 2026-09-14：絵の欄を大きくしたら縦の幅も変える）。
+        絵はカードと同じ大きさで読む（いちばん大きい行でもぼやけない）
+    -->
+    <DataTemplate x:Key="ItemListIconCell">
+        <Grid Style="{StaticResource ItemListCellFill}">
+        <Grid Width="{Binding DataContext.ListColumns.IconSize, RelativeSource={RelativeSource AncestorType=ListView}}"
+              Height="{Binding DataContext.ListColumns.IconSize, RelativeSource={RelativeSource AncestorType=ListView}}"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border CornerRadius="4" Background="{DynamicResource ImageBack}" ClipToBounds="True" ToolTipService.InitialShowDelay="250"
+                    ToolTipService.Placement="Right"
+                    Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                <Border.ToolTip>
+                    <ToolTip Padding="4">
+                        <Image Source="{Binding Thumbnail}" Width="220" Height="220" Stretch="Uniform" />
+                    </ToolTip>
+                </Border.ToolTip>
+            </Border>
+            <!--
+                フォルダの行。乗せると名前・場所・件数を出す（ユーザ指摘 2026-09-14：フォルダのアイコンにホバーが無い。
+                商品の行は絵に乗せると大きな絵が出るので、同じ出し方でフォルダの中身を言う）
+            -->
+            <Border Background="Transparent" ToolTipService.InitialShowDelay="250" ToolTipService.Placement="Right"
+                    Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2" Fill="{DynamicResource FolderIconFill}"
+                      Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border.ToolTip>
+                    <ToolTip Padding="10,8">
+                        <StackPanel MaxWidth="380">
+                            <TextBlock Text="フォルダ" Style="{StaticResource SectionLabel}" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </ToolTip>
+                </Border.ToolTip>
+            </Border>
+        </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!-- お気に入りの星。行のクリックへは流さない（OnFavoriteClick）。絵との間にも区切りを置く（ユーザ指示 2026-09-14） -->
+    <DataTemplate x:Key="ItemListFavCell">
+        <Border Style="{StaticResource ItemListCellFrame}" Padding="0">
+        <controls:PressableBorder Background="Transparent" Cursor="Hand" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="2"
+                ToolTip="{Binding FavoriteTip}" MouseLeftButtonUp="OnFavoriteClick" Invoked="OnFavoriteInvoked"
+                AutomationProperties.AutomationId="ItemListFavorite"
+                Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+            <AutomationProperties.Name>
+                <MultiBinding StringFormat="{}{0}を{1}">
+                    <Binding Path="Name" />
+                    <Binding Path="FavoriteTip" />
+                </MultiBinding>
+            </AutomationProperties.Name>
+            <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource Star}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </controls:PressableBorder>
+        </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ItemListNameCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip="{Binding Name}" />
+        </Border>
+    </DataTemplate>
+
+    <!-- ショップ。フォルダの行は場所 -->
+    <DataTemplate x:Key="ItemListShopCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+        <Grid VerticalAlignment="Center">
+            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                       Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+            <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="10.5" Foreground="{DynamicResource TextMuted}"
+                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"
+                       Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </Grid>
+        </Border>
+    </DataTemplate>
+
+    <!-- 札。カードの下の段と同じ物（未所持はカードの襷の代わりに札で）。フォルダの行は数 -->
+    <DataTemplate x:Key="ItemListChipsCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+        <Grid VerticalAlignment="Center">
+            <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
+                        Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="見つからない" FontSize="10" Foreground="{DynamicResource Bad}" />
+                </Border>
+                <Button Style="{StaticResource UpdateBadgeButton}" Margin="0,1,4,1"
+                        Command="{Binding ShowUpdateCommand}"
+                        AutomationProperties.AutomationId="ItemListUpdate"
+                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
+                        ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
+                        Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"
+                        Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
+                </Border>
+                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだユーザータグを付けていません"
+                        Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
+                </Border>
+                <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
+                </Border>
+                <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="手元にファイルがありません"
+                        Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未所持" FontSize="10" Foreground="{DynamicResource Bad}" />
+                </Border>
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
+                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
+                        CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
+                        ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
+                        Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未確定あり" FontSize="10" Foreground="{DynamicResource Warn}" />
+                </Border>
+            </StackPanel>
+        </Grid>
+        </Border>
+    </DataTemplate>
+
+    <!--
+        リストの列。幅は入れ物の画面の ListColumns に結び、見出しの境目のドラッグで全部の行が同じ幅で変わる。
+        1つの GridView は1つの一覧にしか付けられないので、使うたびに作る（x:Shared="False"）
+    -->
+    <GridView x:Key="ItemListGridView" x:Shared="False" AllowsColumnReorder="False">
+        <GridViewColumn Width="{Binding ListColumns.SelectWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListSelectCell}" />
+        <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListIconCell}" />
+        <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListFavCell}" />
+        <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListNameCell}" />
+        <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}"
+                        CellTemplate="{StaticResource ItemListShopCell}" />
+        <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListChipsCell}" />
+    </GridView>
+</ResourceDictionary>

@@ -1,10 +1,10 @@
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.App.Views;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Services;
+using Chmonos.App.ViewModels;
+using Chmonos.App.Views;
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace ViewShot;
 

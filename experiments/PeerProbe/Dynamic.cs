@@ -29,7 +29,7 @@ public static class Dynamic
         {
             var label = useContent ? "ContentItemsControl" : "素の ItemsControl";
             var rows = new ObservableCollection<object> { new RowVm("初めの1"), new RowVm("初めの2") };
-            ItemsControl list = useContent ? new BoothAssetManager.App.Controls.ContentItemsControl() : new ItemsControl();
+            ItemsControl list = useContent ? new Chmonos.App.Controls.ContentItemsControl() : new ItemsControl();
             list.ItemTemplate = (DataTemplate)XamlReader.Parse(Template);
             list.ItemsSource = rows;
             var host = new StackPanel();

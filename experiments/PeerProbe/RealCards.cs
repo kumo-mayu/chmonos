@@ -3,9 +3,9 @@
 using System.Collections.ObjectModel;
 using System.Dynamic;
 using System.IO;
-using BoothAssetManager.App.Services;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.Core.Models;
+using Chmonos.App.Services;
+using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 
 namespace PeerProbe;
 

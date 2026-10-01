@@ -33,9 +33,9 @@ function walk(dir, out = []) {
   return out;
 }
 
-const files = ['BoothAssetManager.App', 'BoothAssetManager.Core'].flatMap((d) => walk(path.join(repo, d)));
+const files = ['Chmonos.App', 'Chmonos.Core'].flatMap((d) => walk(path.join(repo, d)));
 const jp = (s) => /[぀-ヿ一-鿿]/.test(s);
-const rel = (f) => path.relative(repo, f).split(path.sep).join('/').replace(/^BoothAssetManager\./, '');
+const rel = (f) => path.relative(repo, f).split(path.sep).join('/').replace(/^Chmonos\./, '');
 
 // 吹き出しに結ばれた ViewModel の名前（ToolTip="{Binding OpenHint}" の OpenHint）。
 // C# の側ではこの名前の中の文字列を吹き出しとして扱う。Name・Path のような

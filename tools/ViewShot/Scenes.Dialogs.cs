@@ -113,7 +113,7 @@ internal static partial class Scenes
             // 三角の畳む欄の見た目は、管理の画面の資源に置いてある
             var manage = new ResourceDictionary
             {
-                Source = new Uri("pack://application:,,,/BoothAssetManager.App;component/Views/ManageResources.xaml"),
+                Source = new Uri("pack://application:,,,/Chmonos;component/Views/ManageResources.xaml"),
             };
             Row("畳む欄の見出し（三角の Expander）", new Expander { Header = Name, Style = (Style)manage["TriangleExpander"] });
 

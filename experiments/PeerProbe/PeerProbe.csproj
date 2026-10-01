@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\BoothAssetManager.App\BoothAssetManager.App.csproj" />
+    <ProjectReference Include="..\..\Chmonos.App\Chmonos.App.csproj" />
   </ItemGroup>
 
   <!-- 場面のファイル。実行ファイルの横へ写して、どこから呼んでも読めるようにする -->

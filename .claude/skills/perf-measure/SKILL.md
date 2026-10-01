@@ -19,8 +19,8 @@ description: Chmonos の画面の速さ・固まり・メモリを測って、�
 `scripts/perf-kit.ps1`（`ui-check` の `ui-kit.ps1` を読んだ後にドットで読み込む）。前は作業用フォルダに置いていて、担当ごとに書き直していた。
 
 ```powershell
-. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
-. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\perf-measure\scripts\perf-kit.ps1"
+. "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-kit.ps1"
+. "D:\work\ClaudeCode\chmonos\.claude\skills\perf-measure\scripts\perf-kit.ps1"
 ```
 
 | 関数 | 何をするか |

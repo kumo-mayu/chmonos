@@ -2,7 +2,8 @@
 
 BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**まだ公開していない。**
 名前は **Chmonos**（2026-09-14 に「BOOTH Asset Manager」から改名。`docs/research/booth-terms.md` §4）。
-画面の名前・BOOTH へ送るアプリ名（User-Agent）・保存先・環境変数は新しい名前。コードの名前空間・実行ファイル名・リポジトリ名・写しのフォルダ名はまだ古い名前（公開の直前に変える）。
+コードの名前空間（`Chmonos.App`・`Chmonos.Core`）・実行ファイル名（`Chmonos.exe`）・リポジトリ名（`chmonos`）・写しの置き場（`%LOCALAPPDATA%Chmonos-sandboxes<名前>`）も 2026-10-01 に新しい名前へ揃えた。
+`BoothIdResolver`・`BoothZipInspector` は役目の名前なので残している。`docs/history/` の中は書かれた時点の古い名前のまま。
 
 このファイルは守ってほしい決め事。話題ごとの今の決め事は `docs/spec/`（入口は `docs/README.md`）にあり、**作業の前にその話題の spec を読む。**
 App・Core のコードを触るときは、画面と文言の決め事（`.claude/rules/screen-and-wording.md`）も読み込まれる。
@@ -37,7 +38,7 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 
 ### 3. 本番のデータを触らない
 
-本番の保存先は `%LOCALAPPDATA%\Chmonos`。本番の `location.json` は友人のデータの写し（`BoothAssetManager-friendtest`）を指している
+本番の保存先は `%LOCALAPPDATA%\Chmonos`。本番の `location.json` は友人のデータの写し（`Chmonos-sandboxes\friendtest`）を指している
 （ユーザが普段の作業に使う）。`location.json` は書き換えない（`.claude/hooks/guard-location.mjs` が書き込みを止め、シェルで触れるときは確認を求める）。
 
 - 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番と friendtest では起動を断る）。
@@ -131,10 +132,10 @@ dotnet test
 
 テストは本体で約2,300件、ほかに zip の読み取りと ID の特定の一式がある。全部で約16秒（2026-09-30。ビルドは別）。通信するテストを既定の一式に入れない
 （BOOTHへ実際に問い合わせる確認は `experiments/` の実行ファイルで行う）。時計・実マシンのプロセス（Unity が動いているか）に結果が左右されるテストも書かない。
-作業の途中は、関係する試験だけを回してよい（`dotnet test BoothAssetManager.Core.Tests --filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
+作業の途中は、関係する試験だけを回してよい（`dotnet test Chmonos.Core.Tests --filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
 30秒を超えるようになったら、重い試験を探して直す（探し方と、重くしない書き方は `docs/dev/app-tests.md`「重くしない」）。
 
-画面の側（ViewModel）にも試験の一式がある（`BoothAssetManager.App.Tests`。書き方は `docs/dev/app-tests.md`）。
+画面の側（ViewModel）にも試験の一式がある（`Chmonos.App.Tests`。書き方は `docs/dev/app-tests.md`）。
 **計算で決まる物（文言・ボタンや札の出し分け・一覧に何が並ぶか・押したら何が書かれるか）は試験で確かめ、起動して撮らない。**
 App を直したら、その出し分けの試験も足す。画面で見るのは、配置・色・折り返し・操作の手触りだけ。
 

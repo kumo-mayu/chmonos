@@ -1,7 +1,7 @@
-using BoothAssetManager.App.Controls;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.App.Views;
-using BoothAssetManager.Core.Models;
+using Chmonos.App.Controls;
+using Chmonos.App.ViewModels;
+using Chmonos.App.Views;
+using Chmonos.Core.Models;
 
 namespace ViewShot;
 

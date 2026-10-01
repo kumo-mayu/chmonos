@@ -20,7 +20,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-using BoothAssetManager.Core.Search;
+using Chmonos.Core.Search;
 
 Console.OutputEncoding = Encoding.UTF8;
 var itemsDir = args[0];

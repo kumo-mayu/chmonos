@@ -1,0 +1,47 @@
+<Window x:Class="Chmonos.App.Views.NoticeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        AutomationProperties.AutomationId="ChmonosNotice"
+        Background="{DynamicResource Surface}">
+    <!--
+        知らせと確認の窓（Services.Notice。Windows の MessageBox の代わり）。
+        MessageBox は Windows が描くので、暗い表の間も白いまま残っていた（ユーザ指示 2026-09-29）。
+        形は MessageBox に寄せる：上に印と本文、下の帯に右寄せのボタン。ボタンの並び・既定・Esc の答えは Core の NoticeLayout が決める。
+
+        本文は選んでコピーできる読むだけの入力欄（MessageBox は Ctrl+C で本文を写せた。窓の Ctrl+C は全体を写す）。
+        長い本文は本文だけを縦に送り、ボタンの帯は常に見えるようにする（DialogFit が窓を画面の高さで頭打ちにする）
+    -->
+    <DockPanel x:Name="Root" MinWidth="340">
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceAlt}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="16,12">
+            <StackPanel x:Name="ButtonRow" Orientation="Horizontal" HorizontalAlignment="Right" />
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Focusable="False" IsTabStop="False">
+            <Grid Margin="22,20,24,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 印（情報・質問・警告・エラー）。字体に頼らず形で描く。色は表の鍵を裏のコードで当てる -->
+                <Grid x:Name="Mark" Width="30" Height="30" Margin="0,0,14,0" VerticalAlignment="Top" Visibility="Collapsed">
+                    <Ellipse x:Name="MarkCircle" />
+                    <Path x:Name="MarkTriangle" Data="M15,1.5 L29,28 L1,28 Z" Stretch="None" Visibility="Collapsed" />
+                    <Path x:Name="MarkGlyph" Stretch="None" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          StrokeLineJoin="Round" />
+                </Grid>
+
+                <TextBox AutomationProperties.AutomationId="NoticeBody" AutomationProperties.Name="メッセージ" x:Name="Body" Grid.Column="1" MaxWidth="460" VerticalAlignment="Center"
+                         IsReadOnly="True" IsReadOnlyCaretVisible="False" TextWrapping="Wrap"
+                         BorderThickness="0" Background="Transparent" Padding="0" Margin="-2,0,0,0"
+                         Foreground="{DynamicResource Text}"
+                         FontFamily="Yu Gothic UI, Meiryo, Segoe UI" FontSize="13"
+                         IsTabStop="False" />
+            </Grid>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -9,9 +9,9 @@
   **友人のライブラリの写し（friendtest）**を開く。人に見せる画面に第三者の商品名と絵が出るので、見せるときは自分のデータで開く。
   PowerShell で次のどちらか：
   - 自分の本番の写し（商品15件）：
-    `$env:CHMONOS_HOME="$env:LOCALAPPDATA\BoothAssetManager-ui"; & "D:\work\ClaudeCode\booth-asset-manager\BoothAssetManager.App\bin\Release\net9.0-windows\BoothAssetManager.App.exe"`
+    `$env:CHMONOS_HOME="$env:LOCALAPPDATA\Chmonos-sandboxes\ui"; & "D:\work\ClaudeCode\chmonos\Chmonos.App\bin\Release\net9.0-windows\Chmonos.exe"`
   - 作り物の2000件（重さを見せるとき。タグ・属性・知らせ1000件・改変300件入り）：上の `-ui` を `-stress-manage` に替える
-  - Release は最後に `dotnet build BoothAssetManager.App -c Release` をしてから使う（Debug より速い）
+  - Release は最後に `dotnet build Chmonos.App -c Release` をしてから使う（Debug より速い）
 - **BOOTH への問い合わせは1件ずつ1.5秒以上**空ける作り。取り込み・取り直し・検出は件数ぶん待つ。見せるときは数件で。
   写しでも、起動すると期限の来た商品の確認（⑦）が裏で問い合わせる（左下の常設の1行に「商品の更新を確認中 n/N」）
 - **Unity** の連携を見せるなら、先に Unity でプロジェクトを開いておく（開いていないと「まだ開かれていません」と出るだけ）

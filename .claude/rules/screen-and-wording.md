@@ -1,7 +1,7 @@
 ---
 paths:
-  - "BoothAssetManager.App/**"
-  - "BoothAssetManager.Core/**/*.cs"
+  - "Chmonos.App/**"
+  - "Chmonos.Core/**/*.cs"
 ---
 
 # 画面と文言の決め事

@@ -1,0 +1,279 @@
+<UserControl x:Class="Chmonos.App.Views.ShopsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:controls="clr-namespace:Chmonos.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ShopsViewModel}">
+    <DockPanel Background="{DynamicResource Bg}">
+
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <!-- 右の操作に幅を先に渡し、左の説明は残りに収める（操作が増えて重なっていた・2026-09-16） -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <TextBlock DockPanel.Dock="Left" Text="ショップ" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                    <!-- 数え方を隠さない。件数の意味が変わってしまう。狭いときは「…」で詰め、全文はツールチップで読む -->
+                    <TextBlock Text="非表示を除き、ファイルを持つ商品を数えています。※ はファイルの日付です。"
+                               ToolTip="非表示を除き、ファイルを持つ商品を数えています。※ はファイルの日付です。"
+                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- ★だけ（ユーザ指示 2026-09-16）。星はカードの右上でも付けられる -->
+                    <CheckBox IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              AutomationProperties.Name="星を付けたショップだけ" ToolTip="星を付けたショップだけを表示します。">
+                        <TextBlock FontSize="12.5" Foreground="{DynamicResource Text}">
+                            <Run Text="★" Foreground="{DynamicResource Star}" /><Run Text=" だけ" />
+                        </TextBlock>
+                    </CheckBox>
+                    <!--
+                        透かしにも今の対象を出す（打つ前にも、何で探すかが読める）。
+                        書き方は検索画面と同じ（ユーザ判断 2026-09-28）。欄が狭く見本の行を置けないので、吹き出しで示す。
+                        言い方は検索画面の見本の行に揃える
+                    -->
+                    <Grid VerticalAlignment="Center">
+                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" MaxLength="500"
+                                 Width="200" Padding="9,5" BorderBrush="{DynamicResource BorderStrong}"
+                                 AutomationProperties.Name="ショップを探す"
+                                 ToolTip="スペースで両方、-で除く、&quot;&quot;でひとまとまり、ORでどちらか" />
+                        <TextBlock Text="{Binding SearchPlaceholder}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                   IsHitTestVisible="False">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding FilterText}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <!--
+                        探す対象（ユーザ指示 2026-09-16：ショップ名とメモ）。最後の1つは外せない。
+                        **今の対象をボタンそのものに書く**（ユーザ指示「対象がどちらかが常にわかるようにする必要がある」）
+                    -->
+                    <Menu Background="Transparent" VerticalAlignment="Center" Margin="4,0,0,0">
+                        <MenuItem Header="{Binding TargetsText}" Height="30" Padding="8,0"
+                                  AutomationProperties.Name="{Binding TargetsText}"
+                                  ToolTip="打った文字を、ショップ名（とサブドメイン）とメモのどちらで探すかを選びます。">
+                            <MenuItem Header="ショップ名" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding SearchNames, Mode=TwoWay}" />
+                            <MenuItem Header="メモ" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding SearchMemos, Mode=TwoWay}" />
+                        </MenuItem>
+                    </Menu>
+                    <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
+                    <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,7,0" />
+                    <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
+                              AutomationProperties.Name="表示順"
+                              DisplayMemberPath="Label" Width="170" VerticalAlignment="Center" />
+                    <Button Content="読み直す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            Command="{Binding RefreshCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- アイコンは裏で1件ずつ取りに行く。待たせずに、進み具合だけ見せる -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AccentSoft}"
+                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,0,0,1" Padding="20,7"
+                Visibility="{Binding HasIconStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="{Binding IconStatus}" FontSize="11.5" Foreground="{DynamicResource Accent}" />
+        </Border>
+
+        <Grid SizeChanged="OnListSizeChanged">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding EmptyText}" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
+                <TextBlock Text="「取り込み」で商品を読み込むと、ショップごとにまとまります。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+            </StackPanel>
+
+            <!--
+                行を仮想化の単位にする（検索画面と同じ）。WPFには仮想化するWrapPanelが無いので、
+                列数をViewModel側で幅から決めて行に切り、その行をListBoxに並べる。
+                画面外の行のカードは作られないので、アイコンの読み込みも走らない
+            -->
+            <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
+            <controls:CardRowsListBox x:Name="ShopList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+                     Padding="18" HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
+                     VirtualizingPanel.ScrollUnit="Pixel">
+                <controls:CardRowsListBox.ItemContainerStyle>
+                    <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="Focusable" Value="False" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </controls:CardRowsListBox.ItemContainerStyle>
+                <controls:CardRowsListBox.ItemTemplate>
+                    <DataTemplate>
+                <!-- 中のカードが自動操作・読み上げから見えるように CardRowItems に並べる（素の ItemsControl だと中身が1つも見えない） -->
+                <controls:CardRowItems ItemsSource="{Binding Cards}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <!--
+                              カードのどこを押しても開く。前は枠をクリックしたときだけ開く作りで、キーボード・読み上げ・自動操作からは開けなかった
+                              （2026-09-16 の確かめで見つけた）。見た目は同じまま、ボタンにする。
+                              **アプリ全体のボタンの既定の見た目（高さ32・余白・文字の大きさ・背景）を当てない**——
+                              当てると高さ32でカードが切られ、中身が1つも見えなくなった（ユーザ指摘 2026-09-16「ショップ一覧の構築に失敗していそう」）
+                          -->
+                          <Grid Margin="0,0,14,14">
+                          <Button AutomationProperties.AutomationId="ShopCard" Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand"
+                                  AutomationProperties.Name="{Binding Name}">
+                            <!-- 右クリック（ユーザ指示 2026-09-20・M2）。押したときと同じ2つの行き先を出す -->
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem AutomationProperties.AutomationId="ShopCardMenu.Open" Header="ショップを開く" Command="{Binding OpenCommand}"
+                                              ToolTip="このショップの商品を、アプリの中のショップ画面で開きます。" />
+                                    <MenuItem AutomationProperties.AutomationId="ShopCardMenu.OpenBooth" Header="BOOTHのショップページを開く" Command="{Binding OpenBoothCommand}"
+                                              ToolTip="BOOTHのショップページをブラウザで開きます。アプリの外へ出ます。"
+                                              ToolTipService.ShowOnDisabled="True" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Border Style="{StaticResource Card}" Width="304">
+                                <StackPanel Margin="16">
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- アイコンが届くまでは頭文字のタイルで代える -->
+                                        <Border Width="56" Height="56" CornerRadius="8" ClipToBounds="True"
+                                                Background="{Binding InitialBrush}">
+                                            <Grid>
+                                                <TextBlock Text="{Binding Initial}" FontSize="18" FontWeight="Bold"
+                                                           Foreground="{DynamicResource TileText}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Visibility="{Binding ShowInitial, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                                                       Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </Grid>
+                                        </Border>
+                                        <!--
+                                            幅はカードの内側に収め、右上に重ねた星のぶんを空ける（304 − 余白16×2 − アイコン56 − 間11 = 205、星に約20）。
+                                            前は220で右端が約15px切れていた（2026-09-16）
+                                        -->
+                                        <StackPanel Margin="11,0,0,0" VerticalAlignment="Center" Width="184">
+                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding DomainText}" Style="{StaticResource Mono}"
+                                                       FontSize="10.5" Foreground="{DynamicResource TextFaint}"
+                                                       TextTrimming="CharacterEllipsis" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,13,0,11" />
+
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel Margin="0,0,20,0">
+                                                <TextBlock Text="所持" Style="{StaticResource SectionLabel}" />
+                                                <TextBlock Text="{Binding OwnedText}" Style="{StaticResource Mono}"
+                                                           FontSize="15" FontWeight="Bold" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="支出" Style="{StaticResource SectionLabel}" />
+                                                <TextBlock Text="{Binding SpentText}" Style="{StaticResource Mono}"
+                                                           FontSize="15" FontWeight="Bold" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel HorizontalAlignment="Right">
+                                            <TextBlock Text="最終購入" Style="{StaticResource SectionLabel}"
+                                                       HorizontalAlignment="Right" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0" HorizontalAlignment="Right"
+                                                        ToolTip="{Binding LastAcquiredTooltip}">
+                                                <TextBlock Text="{Binding LastAcquiredText}" Style="{StaticResource Mono}"
+                                                           FontSize="11.5" />
+                                                <!-- ファイルの日付で代えたものは、手入力と同じ顔で出さない -->
+                                                <TextBlock Text="※" FontSize="10" Foreground="{DynamicResource TextFaint}"
+                                                           Margin="3,0,0,0" VerticalAlignment="Center"
+                                                           Visibility="{Binding LastAcquiredIsFallback, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <TextBlock Text="{Binding UnownedText}" Style="{StaticResource Caption}" Margin="0,9,0,0"
+                                               Visibility="{Binding HasUnowned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                            BorderThickness="1" CornerRadius="6" Padding="9,7" Margin="0,9,0,0"
+                                            Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="{Binding UpdateText}" FontSize="11" Foreground="{DynamicResource Accent}" />
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                          </Button>
+                          <!--
+                              星（ユーザ指示 2026-09-16：一覧でも付けられるように）。カードを開くボタンの中に入れず、上に重ねる
+                              （ボタンの中にボタンを入れると、押したときにどちらが動くかが部品の作りに左右される）。
+                              既定のボタンの見た目は当てない（高さ32などが当たると形が崩れる）
+                          -->
+                          <Button Style="{x:Null}" Command="{Binding ToggleFavoriteCommand}" Cursor="Hand"
+                                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,10,0"
+                                  ToolTip="{Binding FavoriteTip}" AutomationProperties.AutomationId="ShopCardFavorite">
+                              <!-- カードごとに並ぶので、どのショップの星かを名前に入れる（商品のカードの星と同じ言い方） -->
+                              <AutomationProperties.Name>
+                                  <MultiBinding StringFormat="{}{0}を{1}">
+                                      <Binding Path="Name" />
+                                      <Binding Path="FavoriteTip" />
+                                  </MultiBinding>
+                              </AutomationProperties.Name>
+                              <Button.Template>
+                                  <ControlTemplate TargetType="Button">
+                                      <Border Background="Transparent" Padding="4,0">
+                                          <ContentPresenter />
+                                      </Border>
+                                  </ControlTemplate>
+                              </Button.Template>
+                              <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17">
+                                  <TextBlock.Style>
+                                      <Style TargetType="TextBlock">
+                                          <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                          <Style.Triggers>
+                                              <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                  <Setter Property="Foreground" Value="{DynamicResource Star}" />
+                                              </DataTrigger>
+                                          </Style.Triggers>
+                                      </Style>
+                                  </TextBlock.Style>
+                              </TextBlock>
+                          </Button>
+                          </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </controls:CardRowItems>
+                    </DataTemplate>
+                </controls:CardRowsListBox.ItemTemplate>
+            </controls:CardRowsListBox>
+        </Grid>
+    </DockPanel>
+</UserControl>

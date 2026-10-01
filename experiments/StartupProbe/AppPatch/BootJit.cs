@@ -6,7 +6,7 @@ using System.Diagnostics.Tracing;
 using System.IO;
 using System.Text;
 
-namespace BoothAssetManager.App;
+namespace Chmonos.App;
 
 internal sealed class BootJit : EventListener
 {

@@ -11,7 +11,7 @@ for ($r = 1; $r -le $Rounds; $r++) {
   foreach ($vv in $Variants) {
     $v, $exe = $vv -split '=', 2
     # 速さの数字は、ほかのアプリが動いていると動く。重なったら測らずに止める
-    if (@(Get-Process BoothAssetManager.App -ErrorAction SilentlyContinue).Count) { "ほかのアプリが開いている。止める"; return }
+    if (@(Get-Process Chmonos.App -ErrorAction SilentlyContinue).Count) { "ほかのアプリが開いている。止める"; return }
     [void](Start-ChmonosApp -Store $Store -Exe $exe -NoTrace -IsolateTemp -SettleSeconds 3)
     Use-ChmonosStore $Store
     $p = Get-ChmonosApp

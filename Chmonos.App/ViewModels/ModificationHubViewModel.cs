@@ -1,0 +1,819 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
+using System.Windows.Media.Imaging;
+using Chmonos.App.Services;
+using Chmonos.Core.Commands;
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
+
+namespace Chmonos.App.ViewModels;
+
+/// <summary>
+/// 改変の画面。左で「Unityプロジェクト」「アバター」「改変」の見方を切り替えて探し、右に押したもののビューを出す。
+/// </summary>
+public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWrites, ILeavingScreen
+{
+    /// <summary>最後に使った見方。ナビから開き直したときに同じ見方で始める（アプリを閉じるまで）。</summary>
+    private static ModificationHubLevel s_lastLevel = ModificationHubLevel.Project;
+
+    private static readonly CompareInfo Compare = CultureInfo.CurrentCulture.CompareInfo;
+
+    /// <summary>探すときは大文字小文字・かなの種類・全角半角を区別しない（「くうた」で「クウタ」に当てる）。</summary>
+    private const CompareOptions Loose =
+        CompareOptions.IgnoreCase | CompareOptions.IgnoreKanaType | CompareOptions.IgnoreWidth;
+
+    private readonly AppServiceContainer _services;
+    private PaneColumn? _listPane;
+
+    /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "modifications.list");
+    private readonly MainViewModel _main;
+    private readonly ThumbnailLoader _thumbnails;
+
+    private ModificationHubLevel _level;
+    private string _query = string.Empty;
+    private object? _detail;
+    private string _status = string.Empty;
+    private bool _isLoading = true;
+    private ModificationHubSelection? _pendingSelection;
+    private bool _isRefreshing;
+    private UnityTools _tools = UnityTools.Unknown;
+
+    private IReadOnlyList<ModificationRecord> _records = [];
+    private IReadOnlyList<UnityProjectCandidate> _projects = [];
+    private Dictionary<string, AvatarSummary> _avatars = new(StringComparer.Ordinal);
+    private Dictionary<string, ItemRecord> _items = new(StringComparer.Ordinal);
+
+    /// <summary>使ったものの商品ごとの1枚目の場所。読み込みのときに裏で引く（<see cref="ModificationRowBuilder.ThumbnailPathsOf"/>）。</summary>
+    private Dictionary<string, string?> _thumbnailPaths = new(StringComparer.Ordinal);
+
+    public ModificationHubViewModel(
+        AppServiceContainer services,
+        MainViewModel main,
+        ThumbnailLoader thumbnails,
+        ModificationHubLevel? level = null,
+        ModificationHubSelection? selection = null)
+    {
+        _services = services;
+        _main = main;
+        _thumbnails = thumbnails;
+        _level = level ?? s_lastLevel;
+        _pendingSelection = selection;
+
+        OpenVccCommand = new RelayCommand(OpenVcc);
+        OpenAlcomCommand = new RelayCommand(OpenAlcom);
+        OpenProjectCommand = new RelayCommand(parameter => OpenProject(PathOf(parameter)));
+        OpenProjectFolderCommand = new RelayCommand(parameter => ExplorerReveal.RevealAsync(PathOf(parameter)).Forget());
+        ShowProjectCommand = new RelayCommand(parameter => ShowProject(PathOf(parameter)));
+        ShowModificationCommand = new RelayCommand(parameter =>
+        {
+            if (RecordOf(parameter) is { } record)
+            {
+                ShowModification(record);
+            }
+        });
+        ShowAvatarCommand = new RelayCommand(parameter =>
+        {
+            if (AvatarIdOf(parameter) is { } id)
+            {
+                ShowAvatar(id);
+            }
+        });
+        ShowMemberCommand = new RelayCommand(
+            parameter => ShowMember(parameter as HubMemberRow),
+            parameter => parameter is HubMemberRow);
+        SelectInUnityCommand = new RelayCommand(
+            parameter => SelectInUnityAsync(parameter as HubMemberRow ?? (parameter as HubItemDetail)?.Row).Forget(),
+            parameter => parameter is HubMemberRow or HubItemDetail);
+        OpenAvatarManageCommand = new RelayCommand(parameter =>
+        {
+            if (AvatarIdOf(parameter) is { } id)
+            {
+                _main.ShowAvatar(id);
+            }
+        });
+        StartCreateCommand = new RelayCommand(parameter =>
+        {
+            if (AvatarIdOf(parameter) is { } id)
+            {
+                ShowAvatar(id);
+                Status = "右の「新しい改変」に名前を入れて、「改変を作る」を押してください。";
+            }
+        });
+        CreateModificationCommand = new RelayCommand(
+            () => CreateModificationAsync().Forget(),
+            () => Detail is HubAvatarDetail avatar && avatar.NameInput.Trim().Length > 0);
+        OpenItemPageCommand = new RelayCommand(parameter => OpenItemPageAsync(parameter as string).Forget());
+
+        LoadAsync().Forget();
+    }
+
+    // ---- 見方 ----
+
+    public ModificationHubLevel Level
+    {
+        get => _level;
+        private set
+        {
+            if (SetField(ref _level, value))
+            {
+                s_lastLevel = value;
+                OnPropertyChanged(nameof(IsProjectLevel));
+                OnPropertyChanged(nameof(IsAvatarLevel));
+                OnPropertyChanged(nameof(IsModificationLevel));
+                OnPropertyChanged(nameof(QueryPlaceholder));
+                Rebuild();
+            }
+        }
+    }
+
+    public bool IsProjectLevel
+    {
+        get => Level == ModificationHubLevel.Project;
+        set
+        {
+            if (value)
+            {
+                Level = ModificationHubLevel.Project;
+            }
+        }
+    }
+
+    public bool IsAvatarLevel
+    {
+        get => Level == ModificationHubLevel.Avatar;
+        set
+        {
+            if (value)
+            {
+                Level = ModificationHubLevel.Avatar;
+            }
+        }
+    }
+
+    public bool IsModificationLevel
+    {
+        get => Level == ModificationHubLevel.Modification;
+        set
+        {
+            if (value)
+            {
+                Level = ModificationHubLevel.Modification;
+            }
+        }
+    }
+
+    // ---- 探す ----
+
+    public string Query
+    {
+        get => _query;
+        set
+        {
+            if (SetField(ref _query, value))
+            {
+                OnPropertyChanged(nameof(HasQuery));
+                Rebuild();
+            }
+        }
+    }
+
+    public bool HasQuery => Query.Length > 0;
+
+    public string QueryPlaceholder => Level switch
+    {
+        ModificationHubLevel.Project => "プロジェクト名・改変名から探す",
+        ModificationHubLevel.Avatar => "アバター名・改変名から探す",
+        _ => "改変名・アバター名・プロジェクト名から探す",
+    };
+
+    /// <summary>左の一覧。見方によって、見出しがプロジェクト・アバター・改変になる。</summary>
+    public ObservableCollection<object> Groups { get; } = [];
+
+    /// <summary>
+    /// 画面に並べる平らな行（見出し・改変・使ったものを1本に並べて仮想化する。<see cref="HubLineBuilder"/>）。
+    /// 入れ子のまま並べていた頃は、改変300件で見方を切り替えると約8秒固まった（2026-09-24）
+    /// </summary>
+    public RangeObservableCollection<object> Lines { get; } = [];
+
+    private readonly HubLineBuilder _lineBuilder = new();
+
+    public bool IsEmpty => Groups.Count == 0;
+
+    /// <summary>空のときに次にやることを書く。</summary>
+    public string EmptyText => _loadFailure ?? (_isLoading
+        ? "読み込んでいます…"
+        : Query.Trim().Length > 0
+            ? $"「{Query.Trim()}」に当てはまるものはありません。"
+            : Level switch
+            {
+                ModificationHubLevel.Project => ProjectEmptyText(Tools),
+                ModificationHubLevel.Avatar =>
+                    "持っているアバターがまだありません。アバターの管理で検出するか、アバターの商品を取り込むと出ます。",
+                _ => "改変はまだありません。「アバター」の見方で、アバターの行の「改変を作る」から作れます。",
+            });
+
+    // ---- 右側 ----
+
+    /// <summary>右に組み込んだ物（改変の画面・商品ページ）の待っている保存も拾う。</summary>
+    public Task FlushPendingWritesAsync()
+        => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 離れたら読み込み（開いたとき・窓が手前に戻ったとき）を取り消す（既知 P8）。
+    /// この画面は開くたびに作り直すので、離れた後の一覧は誰も見ない。書き込み（右の改変の入力）は上の保存で先に書き切る
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
+    public void OnLeaving()
+    {
+        _leaving.Cancel();
+
+        // 右に組み込んだ改変の画面は主画面からは見えないので、自分が伝える
+        (Detail as ILeavingScreen)?.OnLeaving();
+    }
+
+    /// <summary>右側に出しているもの。プロジェクト・アバター・改変・使ったもののどれか。</summary>
+    public object? Detail
+    {
+        get => _detail;
+        private set
+        {
+            if (SetField(ref _detail, value))
+            {
+                OnPropertyChanged(nameof(HasDetail));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasDetail => Detail is not null;
+
+    /// <summary>右側に出しているものを、開き直せる形で。</summary>
+    public ModificationHubSelection? Selection => Detail switch
+    {
+        HubProjectDetail project => new(ModificationHubSelectionKind.Project, project.Path),
+        HubAvatarDetail avatar => new(ModificationHubSelectionKind.Avatar, avatar.AvatarItemId),
+        ModificationViewModel modification => new(ModificationHubSelectionKind.Modification, modification.Record.Id),
+        HubItemDetail item => new(ModificationHubSelectionKind.Member, item.Row.Record.Id, item.Row.Index),
+        _ => null,
+    };
+
+    public string Status
+    {
+        get => _status;
+        private set
+        {
+            if (SetField(ref _status, value))
+            {
+                OnPropertyChanged(nameof(HasStatus));
+            }
+        }
+    }
+
+    public bool HasStatus => Status.Length > 0;
+
+    /// <summary>
+    /// Unityプロジェクトの見方で一覧が空のとき。**Hub・VCC が見つからないのか、あるがプロジェクトが無いのかを言い分ける**
+    /// （ユーザ判断 2026-09-13）。前は同じ文で、入れれば済むのか作れば済むのか分からなかった
+    /// </summary>
+    /// <remarks>
+    /// ALCOM は VCC と同じ一覧を書く（alcom.md §2-2）ので、ALCOM だけの PC でも一覧はあるものとして言う（ユーザ判断 2026-09-29）。
+    /// 一覧の名前は手元にある方で呼び、作る先は両方あれば「VCCかALCOM」
+    /// </remarks>
+    internal static string ProjectEmptyText(UnityTools tools)
+    {
+        var hasManager = tools.HasVcc || tools.HasAlcom;
+        var list = tools.HasVcc ? "VCC" : "ALCOM";
+        var maker = tools.HasVcc && tools.HasAlcom ? "VCCかALCOM" : list;
+        return (tools.HasHub, hasManager) switch
+        {
+            (false, false) =>
+                "Unity HubもVCCもALCOMも見つかりませんでした。どれかを入れてプロジェクトを作るか開くと、ここに並びます。",
+            (true, false) =>
+                "Unity Hubの一覧にプロジェクトがありません（VCCとALCOMは見つかりませんでした）。Hubでプロジェクトを作るか開くと、ここに並びます。",
+            (false, true) =>
+                $"{list}の一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。{maker}でプロジェクトを作るか開くと、ここに並びます。",
+            _ => $"Unity Hubと{list}の一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
+        };
+    }
+
+    // ---- Unity Hub・VCC・ALCOM ----
+
+    /// <summary>
+    /// どちらも無いときの吹き出し。VCC だけを勧めると、ALCOM を使う人に遠回りをさせる
+    /// （ALCOM は VCC と同じ一覧を書くので、どちらを入れてもここに並ぶ。alcom.md §2-2）
+    /// </summary>
+    private const string ProjectManagerMissingText = "VCCかALCOMを入れると、ここから開けます。";
+
+    /// <summary>
+    /// Unity Hub・VCC・ALCOM が手元にあるか。窓が手前に戻るたびに調べ直す。
+    /// 同じ値でもボタンは知らせ直す——両方あるときにどちらを出すかは設定で変わり、設定の画面から戻ってきたときに合わせたい
+    /// </summary>
+    public UnityTools Tools
+    {
+        get => _tools;
+        private set
+        {
+            _tools = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowVccButton));
+            OnPropertyChanged(nameof(CanOpenVcc));
+            OnPropertyChanged(nameof(VccHint));
+            OnPropertyChanged(nameof(ShowAlcomButton));
+            OnPropertyChanged(nameof(EmptyText));
+        }
+    }
+
+    /// <summary>出すのは「VCCを開く」「ALCOMを開く」のどちらか1つ。両方あるときは設定の方（ユーザ指示 2026-09-29）。</summary>
+    private ProjectManagerButtons Buttons => Tools.Buttons(_services.Settings.ProjectManager);
+
+    public bool ShowVccButton => Buttons.ShowVcc;
+
+    /// <summary>VCC が見つからなければ「VCCを開く」は押せない状態で出す（押してから見つからないと言わない・ユーザ判断 2026-09-13）。</summary>
+    public bool CanOpenVcc => Buttons.CanOpenVcc;
+
+    public string VccHint => Tools.HasVcc
+        ? "VRChat Creator Companionを起動するか、手前に表示します。"
+        : ProjectManagerMissingText;
+
+    public bool ShowAlcomButton => Buttons.ShowAlcom;
+
+    public string AlcomHint => "ALCOMを起動するか、手前に表示します。";
+
+    // ---- 操作 ----
+
+    public RelayCommand OpenVccCommand { get; }
+
+    public RelayCommand OpenAlcomCommand { get; }
+
+    public RelayCommand OpenProjectCommand { get; }
+
+    public RelayCommand OpenProjectFolderCommand { get; }
+
+    public RelayCommand ShowProjectCommand { get; }
+
+    public RelayCommand ShowModificationCommand { get; }
+
+    public RelayCommand ShowAvatarCommand { get; }
+
+    public RelayCommand ShowMemberCommand { get; }
+
+    /// <summary>
+    /// 使ったもの1件を Unity で示す。入っていればプロジェクトタブの検索欄に入り先のフォルダ名を入れ、
+    /// 入っていなければ取り込むか聞く（ユーザ仕様 2026-09-13）。
+    /// </summary>
+    public RelayCommand SelectInUnityCommand { get; }
+
+    public RelayCommand OpenAvatarManageCommand { get; }
+
+    /// <summary>アバターの行の「改変を作る」。右にそのアバターを出し、名前を入れてもらう。</summary>
+    public RelayCommand StartCreateCommand { get; }
+
+    public RelayCommand CreateModificationCommand { get; }
+
+    public RelayCommand OpenItemPageCommand { get; }
+
+    /// <summary>窓が手前に戻ったとき。記録・アバター・プロジェクト（開いているかの印も）・Hub と VCC の有無を読み直す。</summary>
+    public void NoteWindowActivated() => RefreshAllAsync().Forget();
+
+    // ---- 読み込み ----
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            await LoadCoreAsync(_leaving.Token);
+        }
+        catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
+        {
+            // 画面を離れた（取り消した読み込みを失敗としてログに残さない）
+        }
+        catch (Exception exception)
+        {
+            // 読み込み中を下ろさないと「読み込んでいます…」のまま戻らなかった（統計・アバターの画面と同じ直し・N6）。
+            // 一覧は空なので、空の表示の代わりに失敗を出す（「改変はまだありません」と言うと、無くしたように見える）
+            Core.Diagnostics.AppLog.Error("改変の一覧の読み込み", exception);
+            _loadFailure = $"改変の一覧を読み込めませんでした。{Core.Services.FailureText.Cause(exception)}";
+            _isLoading = false;
+            OnPropertyChanged(nameof(EmptyText));
+        }
+    }
+
+    /// <summary>読み込みに失敗したときの文。空の表示の代わりに出す。</summary>
+    private string? _loadFailure;
+
+    private async Task LoadCoreAsync(CancellationToken token)
+    {
+        _isLoading = true;
+        OnPropertyChanged(nameof(EmptyText));
+
+        var modifications = _services.Modifications.LoadAllAsync(token);
+        var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
+        var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
+        var tools = Task.Run(() => _services.DetectUnityTools(), token);
+        await Task.WhenAll(modifications, avatars, projects, tools);
+        token.ThrowIfCancellationRequested();
+        Tools = tools.Result;
+
+        // 商品は検索画面が持っている写しから引く（全商品の JSON を読み直さない。ショップ一覧と同じ扱い）
+        var snapshot = _main.Search.SnapshotItems();
+        if (snapshot.Count == 0)
+        {
+            snapshot = (await _services.Store.Items.LoadAllAsync(cancellationToken: token)).Items;
+        }
+
+        _items = snapshot
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        _avatars = avatars.Result
+            .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        _records = modifications.Result.Modifications;
+        _projects = await WithLinkedProjectsAsync(projects.Result);
+
+        // 使ったものの行の絵の場所は、行を組む前に裏でまとめて引く（行を組むのは画面のスレッドで、検索の1文字ごとにも組み直す）
+        var used = _records
+            .SelectMany(record => record.Members)
+            .Select(member => _items.GetValueOrDefault(member.ItemId))
+            .OfType<ItemRecord>()
+            .DistinctBy(item => item.Id)
+            .ToList();
+        _thumbnailPaths = await Task.Run(() => ModificationRowBuilder.ThumbnailPathsOf(_services, _thumbnails, used), token);
+
+        if (modifications.Result.FailedIds.Count > 0)
+        {
+            Status = $"読めなかった改変の記録が {modifications.Result.FailedIds.Count} 件あります"
+                + "。保存先のmodificationsフォルダのJSONが壊れている可能性があります。";
+        }
+
+        _isLoading = false;
+        Rebuild();
+
+        if (_pendingSelection is { } selection)
+        {
+            _pendingSelection = null;
+            Restore(selection);
+        }
+    }
+
+    /// <summary>
+    /// Hub と VCC の一覧に、改変から紐付けたのに一覧に無いプロジェクトを足す。
+    /// **一覧に無くても出す。**紐付けた改変がそのプロジェクトの下から消えると、無くしたように見える
+    /// </summary>
+    private async Task<IReadOnlyList<UnityProjectCandidate>> WithLinkedProjectsAsync(IReadOnlyList<UnityProjectCandidate> found)
+    {
+        var missing = _records
+            .Select(record => record.UnityProject)
+            .OfType<string>()
+            .Where(path => !found.Any(candidate => ModificationService.SamePath(candidate.Path, path)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (missing.Count == 0)
+        {
+            return found;
+        }
+
+        var extra = await Task.Run(() => missing.Select(path => UnityProjects.Describe(path, UnityProjectSource.None)).ToList());
+        return [.. found, .. extra];
+    }
+
+    private async Task RefreshRecordsAsync()
+    {
+        var loaded = await _services.Modifications.LoadAllAsync();
+        _records = loaded.Modifications;
+        _projects = await WithLinkedProjectsAsync(_projects.Where(candidate => candidate.Source != UnityProjectSource.None).ToList());
+        Rebuild();
+    }
+
+    /// <summary>
+    /// 窓が手前に戻ったときに、記録・アバター・プロジェクト・Hub と VCC の有無を読み直す。
+    ///
+    /// **「読み直す」のボタンの代わり**（ユーザ判断 2026-09-13）。ボタンでしか拾えなかったのは、アプリの外で改変の JSON や
+    /// アバターの登録簿が書き換わったときだけで、それを直しに行けば窓は必ず一度離れる。Unity Hub や VCC でプロジェクトを
+    /// 作ったり、Hub や VCC を入れたりして戻ってきたときも、ここで拾う。
+    /// 右に出しているものは作り直さない（改変の入力中や、新しい改変の名前の入力中を消さない）。プロジェクトだけは「開いている」の印を出し直す
+    /// </summary>
+    private async Task RefreshAllAsync()
+    {
+        if (_isLoading || _isRefreshing)
+        {
+            return;
+        }
+
+        // 最初の読み込みが失敗していれば、商品の写しも無いので、差分ではなく最初から読み直す
+        if (_loadFailure is not null)
+        {
+            _loadFailure = null;
+            await LoadAsync();
+            return;
+        }
+
+        _isRefreshing = true;
+        var token = _leaving.Token;
+        try
+        {
+            var modifications = _services.Modifications.LoadAllAsync(token);
+            var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
+            var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
+            var tools = Task.Run(() => _services.DetectUnityTools(), token);
+            await Task.WhenAll(modifications, avatars, projects, tools);
+            token.ThrowIfCancellationRequested();
+
+            _records = modifications.Result.Modifications;
+            _avatars = avatars.Result
+                .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            _projects = await WithLinkedProjectsAsync(projects.Result);
+            Tools = tools.Result;
+            Rebuild();
+
+            if (Detail is HubProjectDetail project)
+            {
+                ShowProject(project.Path);
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // 画面を離れた
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+
+    // ---- 右側に出す ----
+
+    private void Restore(ModificationHubSelection selection)
+    {
+        switch (selection.Kind)
+        {
+            case ModificationHubSelectionKind.Project:
+                ShowProject(selection.Key);
+                break;
+            case ModificationHubSelectionKind.Avatar:
+                ShowAvatar(selection.Key);
+                break;
+            case ModificationHubSelectionKind.Modification:
+                // 外で消されていたら、黙って空にせず理由を出す（空表示には次にやることを書く）
+                if (FindRecord(selection.Key) is { } record)
+                {
+                    ShowModification(record);
+                }
+                else
+                {
+                    Status = "開いていた改変は、もうありません。左の一覧から選び直してください。";
+                }
+
+                break;
+            case ModificationHubSelectionKind.Member:
+                if (FindRecord(selection.Key) is { } owner && selection.Index < owner.Members.Count)
+                {
+                    ShowMember(MemberRow(owner, owner.Members[selection.Index], selection.Index));
+                }
+                else
+                {
+                    Status = "開いていた「使ったもの」は、もうありません。左の一覧から選び直してください。";
+                }
+
+                break;
+        }
+    }
+
+    private ModificationRecord? FindRecord(string id)
+        => _records.FirstOrDefault(record => string.Equals(record.Id, id, StringComparison.Ordinal));
+
+    private void ShowProject(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var candidate = _projects.FirstOrDefault(entry => ModificationService.SamePath(entry.Path, path))
+            ?? UnityProjects.Describe(path, UnityProjectSource.None);
+
+        Detail = new HubProjectDetail
+        {
+            Candidate = candidate,
+            Modifications = RecordsOf(candidate.Path).Select(record => ModRow(record, ModificationHubLevel.Project, false)).ToList(),
+        };
+    }
+
+    private void ShowModification(ModificationRecord record)
+    {
+        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true };
+
+        // 開いた直後の読み込みでも Changed が来る。そのときは一覧を組み直さない（開くたびに一覧が動かないように）
+        var first = true;
+        modification.Changed += () =>
+        {
+            if (first)
+            {
+                first = false;
+                return;
+            }
+
+            RefreshRecordsAsync().Forget();
+        };
+        modification.Deleted += () =>
+        {
+            Detail = null;
+            Status = $"改変「{modification.Record.Name}」を消しました。";
+            RefreshRecordsAsync().Forget();
+        };
+
+        Detail = modification;
+    }
+
+    private void ShowAvatar(string id)
+    {
+        _avatars.TryGetValue(id, out var summary);
+        Detail = new HubAvatarDetail
+        {
+            AvatarItemId = id,
+            Name = AvatarNameOf(id),
+            BoothName = summary?.Entry.BoothName ?? string.Empty,
+            IsOwned = summary?.IsOwned == true,
+            BaseText = summary?.Entry.BaseName is { Length: > 0 } baseName ? $"共通素体：{baseName}" : string.Empty,
+            HasItem = _items.ContainsKey(id),
+            IconPath = AvatarIconPath(id),
+            Thumbnails = _thumbnails,
+            Modifications = _records
+                .Where(record => string.Equals(record.AvatarItemId, id, StringComparison.Ordinal))
+                .OrderByDescending(record => record.UpdatedAt)
+                .Select(record => ModRow(record, ModificationHubLevel.Avatar, false))
+                .ToList(),
+        };
+    }
+
+    private void ShowMember(HubMemberRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        _items.TryGetValue(row.ItemId, out var item);
+
+        // 手元にある商品は、ほかの画面と同じ商品ページを組み込む（ユーザ指示 2026-09-14）。
+        // 取り直した・ファイルを外したなど、商品ページが自分を作り直すときは右側だけ作り直す（主画面ごと差し替えない）
+        //
+        // **右がまだこのページで、この画面がまだ出ているときだけ差し替える**（フォルダビューと同じ）。
+        // 取り直しは BOOTH の順番を待つので、待つ間に別の行を選べる・別の画面へ移れる。
+        // 前は確かめずに差し替えていたので、別の行を選んだ後でも前の商品へ引き戻していた。
+        // 外れていたら下の帯で知らせる（手元の控えは、次にこの行を選んだときのために見えていなくても直す）
+        var page = item is null ? null : new ItemViewModel(item, _services, _main, _thumbnails)
+        {
+            IsEmbedded = true,
+            EmbeddedPaneKey = "modifications.item.left",
+        };
+
+        if (page is not null)
+        {
+            page.IsShownByOwner = () => ReferenceEquals(_main.CurrentViewModel, this)
+                && Detail is HubItemDetail { Page: var shown } && ReferenceEquals(shown, page);
+            page.Replaced = updated =>
+            {
+                var wasShown = page.IsShownByOwner();
+                if (updated is not null)
+                {
+                    _items[updated.Id] = updated;
+                }
+
+                if (wasShown)
+                {
+                    ShowMember(row);
+                }
+            };
+        }
+
+        var detail = new HubItemDetail
+        {
+            Row = row,
+            Item = item,
+            Page = page,
+            VariationText = ModificationViewModel.VariationLabel(row.Member, item),
+            ThumbnailPath = row.ThumbnailPath,
+            Thumbnails = _thumbnails,
+            UsedIn = _records
+                .Where(record => record.UsedMembers.Any(member => string.Equals(member.ItemId, row.ItemId, StringComparison.Ordinal)))
+                .OrderByDescending(record => record.UpdatedAt)
+                .Select(record => ModRow(record, ModificationHubLevel.Modification, false))
+                .ToList(),
+        };
+
+        Detail = detail;
+        FillDestinationAsync(detail, item).Forget();
+    }
+
+    /// <summary>Unity のどこに入るか。unitypackage を解くのは重い（大きな物は1件0.2秒ほど）ので裏で読む。</summary>
+    private async Task FillDestinationAsync(HubItemDetail detail, ItemRecord? item)
+    {
+        // 在るかを見るのも zip の中の一覧も画面のスレッドの外で（前は画面のスレッドで zip を開いていた）
+        var places = item is null ? [] : await Task.Run(() => ModificationViewModel.PlacesFor(item, detail.Row.Member));
+        if (places.Count == 0)
+        {
+            detail.DestinationText = "Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。";
+            return;
+        }
+
+        var roots = await Task.Run(() => UnityHandoff.DestinationRoots(places, new UnityPackageReads()));
+        detail.DestinationText = roots.Count == 0 ? "Unityのどこに入るかを読めませんでした。" : UnityHandoff.DescribeDestinations(roots);
+    }
+
+    // ---- 作る・開く ----
+
+    private async Task CreateModificationAsync()
+    {
+        if (Detail is not HubAvatarDetail avatar)
+        {
+            return;
+        }
+
+        var name = avatar.NameInput.Trim();
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        // **同じ名前を許すが、黙って2つ並べない**（アバターの管理と同じ）
+        if (await _services.Modifications.HasSameNameAsync(avatar.AvatarItemId, name))
+        {
+            var answer = Services.Notice.Show(
+                $"「{name}」という改変が既にあります。\n\n"
+                + "同じ名前でも作れます。一覧では作った日付で見分けられます。",
+                "同じ名前の改変があります",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Cancel);
+
+            if (answer != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.CreateModification(avatar.AvatarItemId, name));
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        Status = $"改変「{name}」を作りました。";
+        await RefreshRecordsAsync();
+
+        // 作った直後は使ったものもプロジェクトも空なので、そのまま右に開いて続きを入れてもらう
+        if (result is CommandResult.ModificationCreated created)
+        {
+            ShowModification(created.Record);
+        }
+    }
+
+    private async Task OpenItemPageAsync(string? itemId)
+    {
+        if (itemId is null)
+        {
+            return;
+        }
+
+        if ((_items.GetValueOrDefault(itemId) ?? await _services.Store.Items.LoadAsync(itemId)) is { } item)
+        {
+            _main.ShowItem(item);
+        }
+    }
+
+    // ---- ボタンの引数を読む ----
+
+    private static string? PathOf(object? parameter) => parameter switch
+    {
+        string path => path,
+        HubProjectGroup group => group.Path,
+        HubProjectDetail detail => detail.Path,
+        HubModificationRow row => row.ProjectPath,
+        _ => null,
+    };
+
+    private static ModificationRecord? RecordOf(object? parameter) => parameter switch
+    {
+        HubModificationRow row => row.Record,
+        HubMemberRow member => member.Record,
+        HubItemDetail detail => detail.Row.Record,
+        ModificationRecord record => record,
+        _ => null,
+    };
+
+    private static string? AvatarIdOf(object? parameter) => parameter switch
+    {
+        string id => id,
+        HubAvatarGroup group => group.AvatarItemId,
+        HubAvatarDetail detail => detail.AvatarItemId,
+        HubModificationRow row => row.AvatarItemId,
+        _ => null,
+    };
+}

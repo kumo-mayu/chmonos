@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    試験（Chmonos.App.Tests）から、ViewModel の中の計算（internal static の文言・出し分け）と、
+    試験用の組み立ての入口（AppServiceContainer の引数付きの方・Notice.Intercept）を見せる
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Chmonos.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chmonos.Core\Chmonos.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      窓を出さずに画面を描く台（tools/ViewShot）が、画面の内側の型（知らせの窓の口・一時展開の様子）を組めるようにする。
+      台のためにそれぞれを public にすると、アプリの外へ見せる形が台の都合で決まってしまう
+    -->
+    <InternalsVisibleTo Include="ViewShot" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- 配る exe の名前。名前空間は Chmonos.App のまま（試験と道具が組み立ての名前で参照する所は Chmonos に揃えてある） -->
+    <AssemblyName>Chmonos</AssemblyName>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- モニターごとの拡大率を宣言する（中身の理由は app.manifest）。1ファイルの publish でも exe に埋め込まれる -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!--
+    自己完結で publish すると、.NET はプロセスのメモリを書き出す道具 createdump.exe を同梱する。
+    アプリはこれを使わない。用途の分からない exe、とくにメモリを書き出す道具は
+    セキュリティソフトに怪しまれやすいので、配布物から落とす（#46、2026-09-11 ユーザ判断）
+  -->
+  <Target Name="DropCreatedump" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'createdump.exe'" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <!--
+      配る物にライセンスの文を同梱する。同梱している辞書は CC BY-SA 4.0 で、
+      出典はアプリの設定画面にも出しているが、**渡した先で読める形の文も一緒に置く**
+      （渡すこと自体が配布なので、受け取った人が何の条件の物かを辿れるようにしておく）。
+      ExcludeFromSingleFile を付けるのは、付けないと1ファイルにまとめたとき exe の中へ
+      吸い込まれて読めなくなるため（辞書と同じ。Chmonos.Core.csproj の assets と揃える）
+    -->
+    <None Include="..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\NOTICE" Link="NOTICE" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      第2世代の空きが多くなったら、GCに詰め直させる（0〜9、大きいほど早めに詰める）。
+      2000件の保存先では起動直後に第2世代の37%が空きのまま握られていた（#71）。
+      裏で動くGCは詰め直しをしないので、放っておくと穴ごと持ち続ける。
+    -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
+
+</Project>

@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Windows;
-using BoothAssetManager.App.ViewModels;
-using BoothAssetManager.App.Views;
-using BoothAssetManager.Core.Scanning;
-using BoothAssetManager.Core.Services;
+using Chmonos.App.ViewModels;
+using Chmonos.App.Views;
+using Chmonos.Core.Scanning;
+using Chmonos.Core.Services;
 
 namespace ViewShot;
 

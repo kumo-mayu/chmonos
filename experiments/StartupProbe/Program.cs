@@ -1,4 +1,4 @@
-// 起動の速さを外から測る見張り。Start-ChmonosApp より先に走らせ、新しく出た BoothAssetManager.App を見つけて、
+// 起動の速さを外から測る見張り。Start-ChmonosApp より先に走らせ、新しく出た Chmonos.App を見つけて、
 // 主の窓へ WM_NULL を送り続ける。「1.5 秒続けて 33ms 以内に返る」ようになった時刻（最後の 33ms 超えの返りの終わり）を、
 // プロセスの開始から数える。前の担当（docs/history/dotnet10-2026-09-30.md）と同じ決まり。
 // 落ち着いた時点のスレッドごとの CPU 時間（名前付き）も控える
@@ -31,13 +31,13 @@ static class P
     static int Main(string[] args)
     {
         string outPath = args[0]; string label = args[1];
-        var ignore = new HashSet<int>(Process.GetProcessesByName("BoothAssetManager.App").Select(p => p.Id));
+        var ignore = new HashSet<int>(Process.GetProcessesByName("Chmonos").Select(p => p.Id));
         var wait = Stopwatch.StartNew();
         Process? proc = null;
         while (proc == null)
         {
             if (wait.Elapsed.TotalSeconds > 60) { Console.Error.WriteLine("起動が見えなかった"); return 2; }
-            proc = Process.GetProcessesByName("BoothAssetManager.App").FirstOrDefault(p => !ignore.Contains(p.Id));
+            proc = Process.GetProcessesByName("Chmonos").FirstOrDefault(p => !ignore.Contains(p.Id));
             if (proc == null) Thread.Sleep(2);
         }
         var start = proc.StartTime.ToUniversalTime();
@@ -84,7 +84,7 @@ static class P
             ["settled"] = Math.Round(settled), ["longCount"] = longCount, ["longSum"] = Math.Round(longSum), ["longMax"] = Math.Round(longMax),
             ["cpuTotal"] = Math.Round(proc.TotalProcessorTime.TotalMilliseconds), ["cpuUi"] = Math.Round(ui), ["cpuTcw"] = Math.Round(tcw),
             ["wsMB"] = proc.WorkingSet64 / 1048576, ["privMB"] = proc.PrivateMemorySize64 / 1048576,
-            ["others"] = Process.GetProcessesByName("BoothAssetManager.App").Count(p => p.Id != proc.Id),
+            ["others"] = Process.GetProcessesByName("Chmonos").Count(p => p.Id != proc.Id),
             ["threads"] = threads,
         };
         File.AppendAllText(outPath, JsonSerializer.Serialize(rec) + "\n", new UTF8Encoding(false));

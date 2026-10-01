@@ -1,6 +1,6 @@
 # 確かめでよく使う操作（ui-kit.ps1 を読んだ後にドットで読み込む）：
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-ops.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-kit.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-ops.ps1"
 #
 # なぜ要るか：商品を開く・取り込んで待つ・結果を読む・色を変える、を担当ごとに作業用フォルダへ書き直していた（2026-09-30）。
 # どれも UI Automation と窓へのメッセージだけで動く（実入力を使わない）ので、ほかの担当と並行で使える。

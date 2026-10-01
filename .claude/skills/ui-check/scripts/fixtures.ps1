@@ -1,5 +1,5 @@
 # 確かめ用の作り物のファイルを作る道具。ui-kit.ps1 が無くても動く（アプリを相手にしないので）：
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\fixtures.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\fixtures.ps1"
 #
 # なぜ要るか：大きな zip・件数の多い zip・壊れた zip・読めないフォルダを、担当ごとに作業用フォルダへ書き直していた
 # （2026-09-30。同じ台本が6人分あった）。ここに1つ置き、引数で大きさと件数を変える。

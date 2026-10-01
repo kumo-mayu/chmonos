@@ -1,6 +1,6 @@
 # Unity を相手にする確かめの道具（取り込み画面・プロジェクトの窓）。ui-kit と同じく、呼び出しごとにドットで読み込む：
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\unity-kit.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-kit.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\unity-kit.ps1"
 #
 # **Unity を実際に動かす確かめは、ユーザが「試して」と言ったときだけ**（CLAUDE.md）。使ってよいプロジェクトは
 # `D:\work\vrchat\VRChatProjects\cleanTest - コピー`（ユーザ 2026-09-19）。

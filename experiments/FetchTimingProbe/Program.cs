@@ -18,8 +18,8 @@
 //   商品IDは保存先の items から読むだけで、画面にも控えにも出さない（第三者のデータのため）。
 
 using System.Diagnostics;
-using BoothAssetManager.Core.Booth;
-using BoothAssetManager.Core.Models;
+using Chmonos.Core.Booth;
+using Chmonos.Core.Models;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 

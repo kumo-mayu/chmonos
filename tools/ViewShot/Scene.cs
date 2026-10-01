@@ -1,5 +1,5 @@
 using System.Windows;
-using BoothAssetManager.Core.Models;
+using Chmonos.Core.Models;
 
 namespace ViewShot;
 

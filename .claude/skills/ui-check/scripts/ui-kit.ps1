@@ -1,5 +1,5 @@
 # Chmonos の画面を確かめる道具。ツールの呼び出しごとにドットで読み込む（シェルの状態は呼び出しをまたいで残らない）：
-#   . "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
+#   . "D:\work\ClaudeCode\chmonos\.claude\skills\ui-check\scripts\ui-kit.ps1"
 #
 # CLAUDE.md の決め事 4・5 をここで守らせる：
 # - 本番（%LOCALAPPDATA%\Chmonos）と friendtest（ユーザの作業用の写し）では起動しない
@@ -48,13 +48,16 @@ public static class ChmonosWin {
 $ChmonosRepo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 # 実行ファイル名は改名の③（公開の直前）で変わる。そのときはここだけ直す。
 # フォルダ名の net10.0-windows は .NET の版で、版を上げると変わる（同じ道は sandbox-recipes.ps1 の SandboxGen にもある）
-$ChmonosExe = Join-Path $ChmonosRepo 'BoothAssetManager.App\bin\Debug\net10.0-windows\BoothAssetManager.App.exe'
+$ChmonosExe = Join-Path $ChmonosRepo 'Chmonos.App\bin\Debug\net10.0-windows\Chmonos.exe'
 $ChmonosProcessName = [IO.Path]::GetFileNameWithoutExtension($ChmonosExe)
 $ChmonosProduction = Join-Path $env:LOCALAPPDATA 'Chmonos'
+# 写しの置き場（2026-10-01 に %LOCALAPPDATA%\Chmonos-sandboxes\<名前> から移した）
+$ChmonosSandboxRoot = Join-Path $env:LOCALAPPDATA 'Chmonos-sandboxes'
 $ChmonosForbidden = @(
   $ChmonosProduction,
   (Join-Path $env:LOCALAPPDATA 'BoothAssetManager'),            # 改名前の本番の名前。残っていたら本番の中身かもしれない
-  (Join-Path $env:LOCALAPPDATA 'BoothAssetManager-friendtest')  # ユーザが普段開く写し。確かめは -friendcheck で
+  (Join-Path $env:LOCALAPPDATA 'BoothAssetManager-friendtest'),  # 改名前の置き場。残っていたら普段開く写しかもしれない
+  (Join-Path $env:LOCALAPPDATA 'Chmonos-sandboxes\friendtest')  # ユーザが普段開く写し。確かめは -friendcheck で
 )
 $ChmonosShotDir = Join-Path $env:TEMP 'chmonos-shots'
 # 起動したアプリの控え。**写しごとに1つ**（chmonos-ui-check\<写しの名前>.json）。
@@ -74,9 +77,9 @@ $TS_ = [System.Windows.Automation.TreeScope]
 
 # ---- 保存先 ----
 
-# 'ui' のような短い名前は %LOCALAPPDATA%\BoothAssetManager-ui と読む（サンドボックスの名前は改名前のまま）
+# 'ui' のような短い名前は %LOCALAPPDATA%\Chmonos-sandboxes\ui と読む
 function Resolve-ChmonosStore([string]$Store) {
-  $p = if ([IO.Path]::IsPathRooted($Store)) { $Store } else { Join-Path $env:LOCALAPPDATA "BoothAssetManager-$Store" }
+  $p = if ([IO.Path]::IsPathRooted($Store)) { $Store } else { Join-Path $ChmonosSandboxRoot $Store }
   [IO.Path]::GetFullPath($p).TrimEnd('\')
 }
 
@@ -245,11 +248,11 @@ function Get-ChmonosSandboxBackups {
 
 # ---- 起動と終了 ----
 
-# 控えのファイルの名前に使う、写しの短い名前。%LOCALAPPDATA%\BoothAssetManager-<名前> なら <名前>。
+# 控えのファイルの名前に使う、写しの短い名前。%LOCALAPPDATA%\Chmonos-sandboxes\<名前> なら <名前>。
 # ほかの場所の保存先は、同じ末尾の名前がぶつからないように、パスから出した8桁を足す
 function Get-ChmonosStoreKey([string]$Root) {
   $leaf = Split-Path $Root -Leaf
-  if ((Split-Path $Root -Parent) -ieq $env:LOCALAPPDATA.TrimEnd('\') -and $leaf -like 'BoothAssetManager-*') { return $leaf.Substring('BoothAssetManager-'.Length) }
+  if ((Split-Path $Root -Parent) -ieq $ChmonosSandboxRoot.TrimEnd('\')) { return $leaf }
   $sha = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($Root.ToLowerInvariant()))
   ($leaf -replace '[^\w\-.]', '_') + '-' + [Convert]::ToHexString($sha).Substring(0, 8).ToLowerInvariant()
 }

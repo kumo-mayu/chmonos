@@ -2,9 +2,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
-using BoothAssetManager.Core.Images;
-using BoothAssetManager.Core.Models;
-using BoothAssetManager.Core.Storage;
+using Chmonos.Core.Images;
+using Chmonos.Core.Models;
+using Chmonos.Core.Storage;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
