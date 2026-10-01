@@ -81,6 +81,12 @@ public sealed record UiState
     public bool ShopBannerHidden { get; init; }
 
     /// <summary>
+    /// フォルダビューの木で、商品のファイルの行を商品名で出すか（ユーザ判断 2026-10-01：ファイル名の所を商品名にする切り替え）。
+    /// 既定はファイル名（今までと同じ見た目から始まる。エクスプローラに近い形が先に決まっていた）
+    /// </summary>
+    public bool FolderRowsShowItemName { get; init; }
+
+    /// <summary>
     /// 「この新着はもう知らせなくてよい」と言われたときの、新着の顔つき（ユーザ判断 2026-09-21・G16）。
     ///
     /// 監視フォルダに取り込むつもりの無いファイルがあると、起動のたびに同じ件数を知らされ続け、

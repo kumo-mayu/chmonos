@@ -23,6 +23,7 @@ internal static partial class Scenes
         .. Modifications,
         .. Search,
         .. CardLists,
+        .. FolderTree,
         .. Inbox,
         .. Dialogs,
         .. Settings,

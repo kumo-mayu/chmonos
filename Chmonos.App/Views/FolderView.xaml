@@ -83,8 +83,8 @@
         -->
         <Style x:Key="FolderTreeRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
-            <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。フォルダ・ファイルの名前を読ませる -->
-            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。見えている名前（商品名で出していれば商品名）を読ませる -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
             <Setter Property="AutomationProperties.AutomationId" Value="FolderTreeRow" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsItemFile}" Value="True">
@@ -138,14 +138,14 @@
             <WrapPanel>
                 <TextBlock Text="{Binding MissingText}" FontSize="10.5" Foreground="{DynamicResource Warn}" Margin="0,0,8,0"
                            Visibility="{Binding HasMissingText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource FolderLink}" Margin="0,0,8,0"
+                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource FolderLink}" Margin="0,0,8,0"
                         Visibility="{Binding HasOthers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.ShowOtherCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="同じ中身のファイルが置いてある、もう1つの場所へ移ります">
                     <TextBlock Text="{Binding OthersText}" FontSize="10.5" Foreground="{DynamicResource Accent}" TextDecorations="Underline" />
                 </Button>
                 <!-- zip の横の展開したフォルダ（ユーザ判断：zip の下に薄く出す） -->
-                <Button AutomationProperties.AutomationId="FolderRowRevealExtracted" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の展開したフォルダを開く}" Style="{StaticResource FolderLink}"
+                <Button AutomationProperties.AutomationId="FolderRowRevealExtracted" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の展開したフォルダを開く}" Style="{StaticResource FolderLink}"
                         Visibility="{Binding HasExtracted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.RevealExtractedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="横にある、このzipを展開したフォルダをエクスプローラで開きます">
@@ -186,8 +186,9 @@
                     </Border.ToolTip>
                 </Border>
 
+                <!-- 名前は切り替えで商品名になる（Title）。そのときは2行目に元のファイル名（SubText） -->
                 <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
+                    <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="{DynamicResource Text}"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
                     <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -240,7 +241,43 @@
                 BorderThickness="0,0,1,0">
             <DockPanel>
                 <!-- 今どの画面にいるかを、ほかの画面の上の帯と同じく太字の名前で出す（ユーザ指示 2026-09-14） -->
-                <TextBlock DockPanel.Dock="Top" Text="フォルダ" FontWeight="Bold" Margin="14,16,14,0" />
+                <!--
+                    木のファイルの行を、ファイル名で出すか商品名で出すかの切り替え（ユーザ判断 2026-10-01）。右の一覧のカード／リストと同じ繋がったボタンで、
+                    画面の名前の行の右に置く（絞り込みの欄の下に足すと、木が下がる）。名前の行の高さに収めるため、切り替えだけ少し低くする
+                -->
+                <DockPanel DockPanel.Dock="Top" Margin="14,16,14,0">
+                    <!-- 上下を負の余白で名前の行の高さに収め、下の絞り込みの欄と木を1画素も動かさない -->
+                    <Border DockPanel.Dock="Right" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
+                            BorderThickness="1" CornerRadius="6" IsEnabled="{Binding CanChooseRowNames}" Margin="0,-4,0,-4" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <controls:CommandRadioButton Content="ファイル名" Style="{StaticResource ItemViewModeSegment}" Height="22" Padding="10,0"
+                                                         IsChecked="{Binding ShowsFileNames, Mode=OneWay}" AutomationProperties.AutomationId="FolderRowNames.File"
+                                                         Command="{Binding ShowFileNamesCommand}" ToolTip="ファイルの行を、ディスク上のファイル名で表示します">
+                                <controls:CommandRadioButton.Tag>
+                                    <CornerRadius>5,0,0,5</CornerRadius>
+                                </controls:CommandRadioButton.Tag>
+                            </controls:CommandRadioButton>
+                            <Border Width="1" Background="{DynamicResource BorderStrong}" />
+                            <controls:CommandRadioButton Content="商品名" Style="{StaticResource ItemViewModeSegment}" Height="22" Padding="10,0"
+                                                         IsChecked="{Binding ShowsItemNames, Mode=OneWay}" AutomationProperties.AutomationId="FolderRowNames.Item"
+                                                         Command="{Binding ShowItemNamesCommand}" ToolTip="ファイルの行を商品名で表示します。ファイル名はその下に表示されます">
+                                <controls:CommandRadioButton.Tag>
+                                    <CornerRadius>0,5,5,0</CornerRadius>
+                                </controls:CommandRadioButton.Tag>
+                            </controls:CommandRadioButton>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="フォルダ" FontWeight="Bold" VerticalAlignment="Center" />
+                </DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="14,10,14,8">
                     <Grid>
                         <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged, Delay=250}" Height="30"
