@@ -82,7 +82,7 @@
                                    TextWrapping="Wrap" Margin="18,12,18,0"
                                    Visibility="{Binding HasFolders, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <controls:ContentItemsControl ItemsSource="{Binding Folders}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Folders}" controls:ArrowGroup.IsEnabled="True">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
@@ -195,7 +195,7 @@
                                    Text="まだ監視しているフォルダはありません。フォルダを上の枠にドロップすると、監視するかどうかを聞きます。"
                                    Visibility="{Binding HasWatched, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <controls:ContentItemsControl ItemsSource="{Binding Watched}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Watched}" controls:ArrowGroup.IsEnabled="True">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
@@ -246,7 +246,7 @@
                                    TextWrapping="Wrap" Margin="18,12,18,14"
                                    Visibility="{Binding HasHistory, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <controls:ContentItemsControl ItemsSource="{Binding History}">
+                        <controls:ContentItemsControl ItemsSource="{Binding History}" controls:ArrowGroup.IsEnabled="True">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"

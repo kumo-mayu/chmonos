@@ -756,7 +756,7 @@
                                              Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
                             </StackPanel>
 
-                            <controls:ContentItemsControl ItemsSource="{Binding Candidates}">
+                            <controls:ContentItemsControl ItemsSource="{Binding Candidates}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"

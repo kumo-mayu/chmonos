@@ -74,4 +74,13 @@ internal sealed record ShotOptions
 
     /// <summary>描かずに、読み上げ・自動操作の窓口の木を書き出す（<see cref="PeerTree"/>）。</summary>
     public bool Peers { get; init; }
+
+    /// <summary>描かずに、Tab で一周して止まった所を書き出す（<see cref="TabWalk"/>）。</summary>
+    public bool Tabs { get; init; }
+
+    /// <summary>tabs で、Tab で一周する代わりに送るキーの順（Tab・ShiftTab・Right・Down・Home・End・Enter など）。</summary>
+    public IReadOnlyList<string> Keys { get; init; } = [];
+
+    /// <summary>tabs で、最初にフォーカスを置く部品の AutomationId（無ければ先頭の止まり先）。</summary>
+    public string? From { get; init; }
 }

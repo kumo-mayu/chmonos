@@ -340,6 +340,13 @@ public partial class MainWindow : Window
             return false;
         }
 
+        // 並び（対応アバターの札・ローカルファイルの行など）の中の左右は、並びの中を移るキー（ユーザ判断 2026-10-01）。
+        // 窓がここで先に受けると、札に止まって → を押しても絵が送られるだけで、札から動けない
+        if (Controls.ArrowGroup.OwnsArrows(System.Windows.Input.Keyboard.FocusedElement as DependencyObject))
+        {
+            return false;
+        }
+
         var command = e.Key == System.Windows.Input.Key.Left ? previous : next;
 
         if (!command.CanExecute(null))
