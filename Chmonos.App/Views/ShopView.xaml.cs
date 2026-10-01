@@ -97,14 +97,14 @@ public partial class ShopView : UserControl
     // 離れている間に見方を切り替えても（ショップ画面として覚えている）同じ商品を探し当てられる
     private static string? KeyOf(object entry) => entry switch
     {
-        CardRow { Cards.Count: > 0 } row => row.Cards[0].Item.Id,
+        CardRow row when row.Cards.OfType<ItemCardViewModel>().FirstOrDefault() is { } first => first.Item.Id,
         ItemCardViewModel card => card.Item.Id,
         _ => null,
     };
 
     private static IEnumerable<string> KeysOf(object entry) => entry switch
     {
-        CardRow row => row.Cards.Select(card => card.Item.Id),
+        CardRow row => row.Cards.OfType<ItemCardViewModel>().Select(card => card.Item.Id),
         ItemCardViewModel card => [card.Item.Id],
         _ => [],
     };

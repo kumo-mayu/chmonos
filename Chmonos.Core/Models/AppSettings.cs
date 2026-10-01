@@ -23,6 +23,12 @@ public sealed record AppSettings
     public bool PlaceNewConditionNearSameKind { get; init; }
 
     /// <summary>
+    /// 検索をカテゴリ・ショップ・公開日で並べたとき、まとまりの境目に区切りの札を入れるか（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。
+    /// 既定は入れる。札は商品ではないので、件数・選ぶ・まとめて操作には入らない
+    /// </summary>
+    public bool ShowSortDividers { get; init; } = true;
+
+    /// <summary>
     /// 商品カードの幅（DIP）。一覧の右下のスライダーで変え、カードを並べる画面すべてで共有する（ユーザ判断 2026-09-29）。
     /// 前の設定の「サムネイルの大きさ（小・中・大）」を置き換えた。228 はその「中」で、ずっと使ってきた大きさ。
     /// 範囲の外の値（手で書き換えた JSON）は、使う側（<c>CardMetrics</c>）が範囲に収めて読む

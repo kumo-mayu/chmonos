@@ -57,8 +57,13 @@ public sealed class ItemListView : ListView
     private sealed class RowPeer(object item, ListViewAutomationPeer list, ItemListView owner)
         : GridViewItemAutomationPeer(item, list), IInvokeProvider
     {
-        public override object? GetPattern(PatternInterface patternInterface) =>
-            patternInterface == PatternInterface.Invoke ? this : base.GetPattern(patternInterface);
+        // 並べ替えの区切りの札の行は押す物でも選ぶ物でもない（商品ではない）ので、「押す」「選ぶ」を持たせない
+        public override object? GetPattern(PatternInterface patternInterface) => patternInterface switch
+        {
+            PatternInterface.Invoke or PatternInterface.SelectionItem when Item is ViewModels.SortDivider => null,
+            PatternInterface.Invoke => this,
+            _ => base.GetPattern(patternInterface),
+        };
 
         void IInvokeProvider.Invoke()
         {

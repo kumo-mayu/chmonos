@@ -127,6 +127,11 @@
                                   AutomationProperties.AutomationId="Settings.PlaceNewConditionNearSameKind"
                                   ToolTip="オフのときは、いちばん下に追加します。"
                                   IsChecked="{Binding PlaceNewConditionNearSameKind, Mode=TwoWay}" />
+                        <!-- 検索の並べ替えの区切りの札（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。既定は入れる -->
+                        <CheckBox Content="並べ替えたとき、まとまりごとに区切りを表示" Style="{StaticResource SettingCheck}"
+                                  AutomationProperties.AutomationId="Settings.ShowSortDividers"
+                                  ToolTip="カテゴリ・ショップ・公開日で並べたとき、まとまりの境目に名前と件数を入れます。"
+                                  IsChecked="{Binding ShowSortDividers, Mode=TwoWay}" />
 
                         <!--
                             検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。

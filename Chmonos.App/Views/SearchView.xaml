@@ -1288,8 +1288,8 @@
                     リスト（ユーザ指示 2026-09-14）。1行ずつ、絵・星・名前・ショップ・札を並べる。
                     列の幅は見出しの境目をドラッグで変え、全部の行で共通（ListColumns）。行の操作はカードと同じ
                 -->
-                <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
-                          ItemContainerStyle="{StaticResource ItemListRowStyle}"
+                <controls:ItemListView ItemsSource="{Binding DisplayItems}" View="{StaticResource ItemListGridView}"
+                          ItemContainerStyleSelector="{StaticResource ItemListRowStyles}"
                           ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                           BorderThickness="0" Background="Transparent" Margin="18,4,18,18"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -1323,7 +1323,7 @@
                     </controls:CardRowsListBox.ItemContainerStyle>
                     <controls:CardRowsListBox.ItemTemplate>
                         <DataTemplate>
-                            <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                            <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplateSelector="{StaticResource CardSlotTemplate}" Focusable="False">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />

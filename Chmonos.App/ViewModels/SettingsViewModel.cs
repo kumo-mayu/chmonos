@@ -156,6 +156,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _showAdult = settings.ShowAdult;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
+        _showSortDividers = settings.ShowSortDividers;
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
@@ -441,6 +442,15 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get => _placeNewConditionNearSameKind;
         set { if (SetField(ref _placeNewConditionNearSameKind, value)) { Save(); } }
+    }
+
+    private bool _showSortDividers;
+
+    /// <summary>検索の並べ替えの区切りの札。今出ている一覧が変わるので、保存したら組み直す（R-18 の表示と同じ）。</summary>
+    public bool ShowSortDividers
+    {
+        get => _showSortDividers;
+        set { if (SetField(ref _showSortDividers, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
     private ThumbnailRole _thumbnailRole;
@@ -1088,6 +1098,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowAdult = ShowAdult,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
+            ShowSortDividers = ShowSortDividers,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
