@@ -203,7 +203,7 @@
                             <TextBlock Text="プロジェクトの管理に使うアプリ" Style="{StaticResource RowLabel}" Width="220" />
                             <ComboBox Width="160" ItemsSource="{Binding ProjectManagers}"
                                       DisplayMemberPath="Label" SelectedValuePath="Value"
-                                      SelectedValue="{Binding ProjectManager, Mode=TwoWay}"
+                                      SelectedValue="{Binding ProjectManagerShown, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ProjectManager"
                                       AutomationProperties.Name="プロジェクトの管理に使うアプリ">
                                 <ComboBox.ItemContainerStyle>

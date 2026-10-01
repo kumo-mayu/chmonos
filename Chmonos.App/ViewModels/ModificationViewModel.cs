@@ -226,7 +226,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             parameter => parameter is ModificationMemberRowViewModel);
         AddMemberCommand = new RelayCommand(parameter => AddMemberAsync(parameter as string).Forget());
         OpenAvatarCommand = new RelayCommand(() => _main.ShowAvatar(AvatarItemId));
-        OpenProjectCommand = new RelayCommand(() => OpenProject(), () => HasProject);
+        OpenProjectCommand = new RelayCommand(() => OpenProjectAsync().Forget(), () => HasProject);
         LinkProjectCommand = new RelayCommand(
             parameter => LinkProjectAsync(parameter as UnityProjectRowViewModel).Forget(),
             parameter => parameter is UnityProjectRowViewModel);
@@ -1186,10 +1186,17 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public string ProjectEmptyText =>
         "Unityプロジェクトを紐付けると、ここから開けます。作業中のプロジェクトがあれば下に表示されます。";
 
-    /// <summary>候補が1つも無いときに出す文。</summary>
-    public string ProjectCandidatesEmptyText =>
-        "Unity Hubと、VCCかALCOMの一覧を見ましたが、プロジェクトが見つかりませんでした。"
-        + "一度Unityで開いたプロジェクトなら出ます。";
+    /// <summary>
+    /// Unity Hub・VCC・ALCOM が手元にあるか。候補と一緒に読み直す（入れて戻ってきて「読み直す」を押したときに合わせる）。
+    /// 前は入っているかを見ずに「Unity Hubと、VCCかALCOMの一覧を見ましたが」と言い、入っていない物まで見たかのように言っていた
+    /// </summary>
+    private UnityTools _tools = UnityTools.Unknown;
+
+    /// <summary>候補が1つも無いときに出す文。改変の画面の Unityプロジェクトの見方が空のときと同じことを言う。</summary>
+    public string ProjectCandidatesEmptyText => UnityToolsText.ProjectsEmpty(_tools, _services.Settings.ProjectManager);
+
+    /// <summary>「紐付ける先」の「読み直す」の吹き出し。</summary>
+    public string RefreshProjectsHint => UnityToolsText.RefreshHint(_tools, _services.Settings.ProjectManager);
 
     public bool HasProjectCandidates => ProjectCandidates.Count > 0;
 
@@ -1301,7 +1308,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     private async Task LoadProjectsAsync()
     {
-        var found = await Task.Run(() => _services.DiscoverUnityProjects());
+        // レジストリとファイルを見るので、どちらも画面のスレッドの外で調べる
+        var projects = Task.Run(() => _services.DiscoverUnityProjects());
+        var tools = Task.Run(() => _services.DetectUnityTools());
+        var found = await projects;
+        _tools = await tools;
+        OnPropertyChanged(nameof(ProjectCandidatesEmptyText));
+        OnPropertyChanged(nameof(RefreshProjectsHint));
 
         ProjectCandidates.Clear();
         foreach (var candidate in found)
@@ -1357,7 +1370,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var canRelink = ProjectCandidates.Any(candidate => ModificationService.SamePath(candidate.Candidate.Path, oldPath));
         var how = canRelink
             ? $"戻すときは、下の「紐付ける先」から「{oldName}」をもう一度選んでください。"
-            : $"「{oldName}」に紐付け直すには、先にUnity HubかVRChat Creator Companionにプロジェクトを追加してください。";
+            : $"「{oldName}」に紐付け直すには、{UnityToolsText.AddProjectFirst(_tools, _services.Settings.ProjectManager)}";
         var what = row is null
             ? $"Unityプロジェクト「{oldName}」の紐付けを外します。"
             : $"Unityプロジェクトの紐付けを「{oldName}」から「{row.Name}」に替えます。";
@@ -1381,7 +1394,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// **3通りに言い分ける。**開いていたら手前に出るだけなので、
     /// 何も起きなかったように見えないように結果を出す。
     /// </summary>
-    private void OpenProject()
+    private async Task OpenProjectAsync()
     {
         var name = ProjectName;
 
@@ -1389,7 +1402,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var result = UnityLaunch.OpenProject(Record.UnityProject);
         Status = result == UnityOpenResult.Missing
             ? $"「{name}」が見つかりません。移したのなら、下の一覧から指し直せます。"
-            : UnityOpenText.For(result, name);
+            : await UnityOpenText.ForAsync(_services, result, name);
     }
 
     /// <summary>記録に残した種類の番号を、人が読める名前に直す。</summary>

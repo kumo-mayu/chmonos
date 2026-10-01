@@ -30,14 +30,14 @@ public sealed partial class ModificationHubViewModel
     };
 
     /// <summary>プロジェクトを開く。**結果を必ず言う**（開いていたら手前に出るだけで、何も起きなかったように見える）。</summary>
-    private void OpenProject(string? path)
+    private async Task OpenProjectAsync(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
             return;
         }
 
-        Status = UnityOpenText.For(UnityLaunch.OpenProject(path), ProjectNameOf(path));
+        Status = await UnityOpenText.ForAsync(_services, UnityLaunch.OpenProject(path), ProjectNameOf(path));
     }
 
     /// <summary>

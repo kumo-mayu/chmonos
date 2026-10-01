@@ -337,7 +337,12 @@
                                     Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="開いている" FontSize="10" Foreground="{DynamicResource Good}" />
                             </Border>
-                            <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,0,8,0" />
+                            <!--
+                                折り返す：紐付けていない改変の見出しでは案内の文が入り、左の欄の幅（幅900で約300）に収まらず、
+                                「…」も無く右端で切れていた。WrapPanel は子に自分の幅を渡すので、長いときだけ2行になる
+                            -->
+                            <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,0,8,0"
+                                       TextWrapping="Wrap" />
                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
                         </WrapPanel>
                     </StackPanel>

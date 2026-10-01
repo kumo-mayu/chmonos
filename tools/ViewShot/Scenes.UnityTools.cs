@@ -136,6 +136,14 @@ internal static partial class Scenes
             await SceneContext.UntilAsync(() => settings.ProjectManagerNote.Length > 0, "VCC・ALCOM を調べ終わる");
             await context.SettleAsync();
 
+            // 見つからない方を選んでいると欄は「vcc:// に合わせる」を見せるが、保存した設定は書き換えない。
+            // 欄の結び付け（TwoWay）が見せた値を書き戻して保存してしまわないかを、本物の ComboBox で確かめる
+            if (choice is { } saved && context.Services.Settings.ProjectManager != saved)
+            {
+                throw new InvalidOperationException(
+                    $"設定が書き換わった：{saved} → {context.Services.Settings.ProjectManager}");
+            }
+
             // 行の下の説明の文も入るよう、行の四角の周りを広めに取る
             return new Shot(root)
             {
