@@ -93,5 +93,65 @@ internal static partial class Scenes
         {
             Height = 560,
         },
+
+        new Scene("resolve-many-contents", "未確定：中身7万件の zip の行を選んだ右の欄（中身の一覧は見える行だけ作る。選ぶ・離れる・戻るの時間と作った行の数を書き出す）", async context =>
+        {
+            // 大容量の確かめ（2026-09-30）で、中身7万件の zip の行を選ぶと約49秒止まり、メモリが約1GBまで上がって戻らなかった。
+            // 一覧を仮想化して直した（00f242f）。アプリを起動せずに同じ数で効いているかを確かめられるよう、時間と作った行を書き出す
+            const int count = 70_000;
+            var contents = Enumerable.Range(0, count)
+                .Select(i => $"Assets/Fake/Folder{i / 100:000}/texture_{i:00000}.png")
+                .ToArray();
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\中身の多い作り物.zip"), contents: contents),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip"), contents: ["readme.txt"]),
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 2, "未確定の一覧が並ぶ");
+            var big = screen.Files.First(row => row.File.Contents.Count == count);
+            var small = screen.Files.First(row => row.File.Contents.Count == 1);
+
+            screen.Selected = small;
+            await context.SettleAsync();
+            var before = Memory();
+
+            // 選ぶ・離れる・戻る。止まりは画面のスレッドで組み終わるまで（UpdateLayout）の時間で見る
+            var choose = Lap(big);
+            var made = Look.All<Chmonos.App.Controls.ContentItemsControl>(root).Sum(list => Look.All<TextBlock>(list).Count());
+            var leave = Lap(small);
+            var back = Lap(big);
+            await context.SettleAsync();
+            var after = Memory();
+
+            Console.WriteLine(
+                $"  中身 {count:N0} 件：選ぶ {choose} ms・離れる {leave} ms・戻る {back} ms・作った行 {made}・"
+                + $"GC のヒープ {before.Heap} → {after.Heap} MB・作業セット {before.WorkingSet} → {after.WorkingSet} MB");
+
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+
+            long Lap(UnresolvedRow row)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                screen.Selected = row;
+                root.UpdateLayout();
+                return clock.ElapsedMilliseconds;
+            }
+
+            static (long Heap, long WorkingSet) Memory()
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                using var process = System.Diagnostics.Process.GetCurrentProcess();
+                return (GC.GetTotalMemory(forceFullCollection: true) / 1_048_576, process.WorkingSet64 / 1_048_576);
+            }
+        }),
     ];
 }

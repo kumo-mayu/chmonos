@@ -166,6 +166,27 @@ public class ImportStackingTests : IDisposable
         Assert.Equal(6, unresolved.Count);
     }
 
+    /// <summary>
+    /// 監視の新着1本・zip のドロップのように**ファイル1本だけ**を取り込んでも、同じフォルダのほかの未確定は消さない。
+    /// 大容量の確かめ E（2026-09-30）では、フォルダを取り込んだときと同じく、これらの道でも前の未確定が落ちていた。
+    /// 走査したのはそのファイルだけなので、隣のファイルは見ていない物として残す
+    /// </summary>
+    [Fact]
+    public async Task KeepsUnresolvedFilesBesideASingleFileImportedLater()
+    {
+        var folder = CreateFolder("watched", 3);
+        await _pipeline.RunAsync(new ImportWorkSet([folder]));
+
+        var arrived = Path.Combine(folder, "arrived.zip");
+        File.WriteAllText(arrived, "arrived");
+        var summary = await _pipeline.RunAsync(new ImportWorkSet([arrived]));
+
+        Assert.Equal(1, summary.FilesScanned);
+        var unresolved = new DataStore(new AppPaths(Path.Combine(_root, "library"))).Unresolved.Load();
+        Assert.Equal(4, unresolved.Count);
+        Assert.Contains(unresolved, file => file.Paths.Contains(arrived, StringComparer.OrdinalIgnoreCase));
+    }
+
     /// <summary>今回走査したフォルダの中で無くなった物は、片付いたとして今のとおり落とす。</summary>
     [Fact]
     public async Task DropsUnresolvedFilesThatAreGoneFromAFolderScannedAgain()
