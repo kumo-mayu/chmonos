@@ -316,7 +316,7 @@ public sealed partial class MainViewModel
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
         ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
         ShopsViewModel shops => ShopsEntry(shops.CaptureListAnchor()),
-        FolderViewModel folders => FolderEntry(folders.SelectedKey),
+        FolderViewModel folders => FolderEntry(folders.SelectedRef),
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
         ResolveViewModel => new HistoryEntry("未確定", ShowResolve),
@@ -352,7 +352,7 @@ public sealed partial class MainViewModel
     private HistoryEntry HubEntry(ModificationHubLevel level, ModificationHubSelection? selection)
         => new("改変", () => ShowModifications(level, selection));
 
-    private HistoryEntry FolderEntry(string? key) => new("フォルダ", () => ShowFolders(key));
+    private HistoryEntry FolderEntry(FolderRowRef? row) => new("フォルダ", () => ShowFolders(row));
 
     /// <summary>
     /// 編集画面の中で商品を移るとき、今の商品を履歴に積む（ユーザ指示 2026-09-12：
