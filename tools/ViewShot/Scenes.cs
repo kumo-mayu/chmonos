@@ -25,6 +25,7 @@ internal static partial class Scenes
         .. Inbox,
         .. Dialogs,
         .. Settings,
+        .. UnityToolScenes,
         .. Parts,
     ];
 
