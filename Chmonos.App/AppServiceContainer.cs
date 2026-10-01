@@ -149,6 +149,12 @@ public sealed class AppServiceContainer : IDisposable
     /// </summary>
     internal Func<Services.UnityTools> DetectUnityTools { get; set; } = Services.UnityTools.Detect;
 
+    /// <summary>
+    /// ファイルを選んだ状態でエクスプローラを開く（書き出したバックアップの「エクスプローラで開く」）。
+    /// 試験で本物のエクスプローラを開くと使う人の画面に出るので、試験は渡された道を控えるだけの物に差し替える
+    /// </summary>
+    internal Func<string, Task> RevealInFolder { get; set; } = ViewModels.ExplorerReveal.SelectAsync;
+
     /// <summary>Unity Hub・VCC の一覧から Unity のプロジェクトを集める。実マシンの一覧を読むので、試験は差し替える。</summary>
     internal Func<IReadOnlyList<UnityProjectCandidate>> DiscoverUnityProjects { get; set; } = () => UnityProjects.Discover();
 

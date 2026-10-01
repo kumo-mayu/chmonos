@@ -47,6 +47,32 @@ public static class Shell
     public static Task<bool> TryRevealAsync(string? path)
         => string.IsNullOrWhiteSpace(path) ? Task.FromResult(false) : Task.Run(() => RevealCore(path));
 
+    /// <summary>
+    /// ファイルを含んでいるフォルダを開き、そのファイルを選んだ状態にする。zip でも中には入らない
+    /// （<see cref="TryRevealAsync"/> は zip の中を見せる。書き出したバックアップの zip は「どこにできたか」を見せたいので、こちら）。
+    /// ファイルが消えていれば親フォルダを開く。どちらも無ければ false。
+    /// </summary>
+    public static Task<bool> TrySelectAsync(string? path)
+        => string.IsNullOrWhiteSpace(path) ? Task.FromResult(false) : Task.Run(() => SelectCore(path));
+
+    private static bool SelectCore(string path)
+    {
+        if (File.Exists(path))
+        {
+            OpenInExplorer($"/select,\"{path}\"");
+            return true;
+        }
+
+        var directory = Path.GetDirectoryName(path);
+        if (Directory.Exists(directory))
+        {
+            OpenInExplorer($"\"{directory}\"");
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool RevealCore(string path)
     {
         if (Directory.Exists(path))

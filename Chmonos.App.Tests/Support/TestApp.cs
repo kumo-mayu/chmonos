@@ -49,6 +49,13 @@ internal sealed class TestApp
             DetectUnityTools = () => Tools,
             DiscoverUnityProjects = () => UnityProjects,
         };
+
+        // 本物のエクスプローラを開かない（使う人の画面に出る）。渡された道を控え、試験がそれを見る
+        Services.RevealInFolder = path =>
+        {
+            Revealed.Add(path);
+            return Task.CompletedTask;
+        };
     }
 
     /// <summary>試験1つ分の一時フォルダ。保存先は <c>store</c>、取り込むファイルは <see cref="NewFile"/> で <c>files</c> に作る。</summary>
@@ -66,6 +73,9 @@ internal sealed class TestApp
 
     /// <summary>Unity Hub・VCC の一覧にあるプロジェクト（作り物）。既定は空。</summary>
     public IReadOnlyList<UnityProjectCandidate> UnityProjects { get; set; } = [];
+
+    /// <summary>エクスプローラで選んだ状態で開くはずだった道（開きはしない）。</summary>
+    public List<string> Revealed { get; } = [];
 
     /// <summary>出すはずだった知らせ・確認の窓（窓は出ない）。文言を確かめるのに使う。</summary>
     public List<NoticeRequest> Notices { get; } = [];

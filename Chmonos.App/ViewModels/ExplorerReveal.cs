@@ -25,6 +25,27 @@ internal static class ExplorerReveal
             return;
         }
 
+        NotFound(path);
+    }
+
+    /// <summary>ファイルを選んだ状態で、含んでいるフォルダを開く（zip でも中に入らない）。無ければ窓で知らせる。</summary>
+    public static async Task SelectAsync(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (await Shell.TrySelectAsync(path))
+        {
+            return;
+        }
+
+        NotFound(path);
+    }
+
+    private static void NotFound(string path)
+    {
         // ドライブの根（E:\）は名前が空になるので、道のまま言う
         var name = Path.GetFileName(path.TrimEnd('\\', '/'));
         Notice.Show(
