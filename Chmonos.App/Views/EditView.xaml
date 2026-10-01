@@ -264,8 +264,10 @@
                             -->
                             <DockPanel Margin="0,6,0,0">
                                 <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す -->
+                                <!-- Tab で止まり、Enter・Space で入れる・外す（点検 2026-10-01：商品ページの星と同じく、キーボードからは届かなかった） -->
                                 <controls:PressableBorder DockPanel.Dock="Left" DataContext="{Binding ItemPage}" VerticalAlignment="Top"
                                         Margin="0,0,6,0" Padding="0,0,2,0"
+                                        Focusable="True" FocusVisualStyle="{StaticResource SmallFocusVisual}"
                                         Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
                                         Command="{Binding ToggleFavoriteCommand}"
                                         AutomationProperties.AutomationId="EditFavorite"
@@ -569,7 +571,11 @@
                                             </Grid>
 
                                             <!-- 付けたサブだけを並べる -->
-                                            <controls:ContentItemsControl ItemsSource="{Binding Subs}" Margin="0,8,0,0"
+                                            <!--
+                                                付けた小分類の札の並び。✕ に Tab で止まる（点検 2026-10-01：キーボードからは外せなかった）。
+                                                札の並びなので Tab で1回だけ入り、中は矢印で ✕ から ✕ へ移る（ArrowGroup。商品ページの対応アバターと同じ）
+                                            -->
+                                            <controls:ContentItemsControl ItemsSource="{Binding Subs}" Margin="0,8,0,0" controls:ArrowGroup.IsEnabled="True"
                                                           Visibility="{Binding HasSubs, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -585,6 +591,7 @@
                                                                     「押せるボタン」として出す（余白・手の形は枠へ移した。見た目と押せる範囲は同じ）
                                                                 -->
                                                                 <controls:PressableBorder Margin="7,0,0,0" Cursor="Hand" VerticalAlignment="Center"
+                                                                        Focusable="True" FocusVisualStyle="{StaticResource SmallFocusVisual}"
                                                                         Command="{Binding DataContext.RemoveSubCommand,
                                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                         CommandParameter="{Binding}"
@@ -909,7 +916,8 @@
                                                     </DockPanel>
 
                                                     <!-- この種類に付けたファイル。✕で外す（買った種類が1つで自動で見せている札には✕を出さない） -->
-                                                    <controls:ContentItemsControl ItemsSource="{Binding LinkedFiles}" Margin="0,6,0,0"
+                                                    <!-- ✕ に Tab で止まる。並びなので Tab で1回だけ入り、中は矢印で移る（上の小分類の札と同じ） -->
+                                                    <controls:ContentItemsControl ItemsSource="{Binding LinkedFiles}" Margin="0,6,0,0" controls:ArrowGroup.IsEnabled="True"
                                                                   Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -923,6 +931,7 @@
                                                                                    MaxWidth="360" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                                                         <!-- 押せる ✕ を「押せるボタン」として出す（上の小分類の ✕ と同じ。見た目と押せる範囲は同じ） -->
                                                                         <controls:PressableBorder Margin="7,0,0,0" Cursor="Hand" VerticalAlignment="Center" ToolTip="このバリエーションから外す"
+                                                                                Focusable="True" FocusVisualStyle="{StaticResource SmallFocusVisual}"
                                                                                 Command="{Binding UnlinkCommand}"
                                                                                 AutomationProperties.AutomationId="EditLinkedFileUnlink"
                                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}をこのバリエーションから外す}"

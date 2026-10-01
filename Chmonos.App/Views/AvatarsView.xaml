@@ -959,18 +959,27 @@
                                     <TextBlock Text="この素体を使っているアバター" FontSize="13" FontWeight="Bold" />
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
                                                Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に表示されます。押すとそのアバターを開きます。" />
-                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0">
+                                    <!--
+                                        行は押せる枠（PressableBorder）にし、一覧は並び（ArrowGroup）にする（点検 2026-10-01）。
+                                        前は素の枠にマウスの押し方だけを付けていて、キーボードと読み上げからは開けなかった
+                                    -->
+                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0" controls:ArrowGroup.IsEnabled="True">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">
-                                                <Border Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
-                                                        ToolTip="このアバターを開きます">
+                                                <controls:PressableBorder Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
+                                                        ToolTip="このアバターを開きます"
+                                                        Focusable="True" FocusVisualStyle="{StaticResource RowFocusVisual}"
+                                                        Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        AutomationProperties.AutomationId="AvatarBaseMemberRow"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}">
                                                     <Border.InputBindings>
                                                         <MouseBinding MouseAction="LeftClick"
                                                                       Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                       CommandParameter="{Binding}" />
                                                     </Border.InputBindings>
                                                     <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" />
-                                                </Border>
+                                                </controls:PressableBorder>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </controls:ContentItemsControl>

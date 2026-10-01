@@ -257,9 +257,11 @@
                                 <Grid DataContext="{Binding Group}">
                                     <!--
                                         見出しごと畳めるようにする（ユーザ指示 2026-09-18）。見出しのどこを押しても開閉できるよう、
-                                        ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）
+                                        ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）。
+                                        キーボードでも止まる（点検 2026-10-01：止まらない物にしてあり、キーボードからは畳めなかった）。
+                                        一覧は並び（ArrowGroup）なので、↑↓ で行と見出しを渡り、Enter・Space で開閉する
                                     -->
-                                    <controls:ExpandToggle AutomationProperties.AutomationId="InboxGroupToggle" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
+                                    <controls:ExpandToggle AutomationProperties.AutomationId="InboxGroupToggle" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" FocusVisualStyle="{StaticResource RowFocusVisual}"
                                                   Subject="{Binding KindText}"
                                                   HorizontalContentAlignment="Stretch" Padding="0">
                                         <ToggleButton.Template>
