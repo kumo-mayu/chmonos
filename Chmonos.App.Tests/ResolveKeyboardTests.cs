@@ -47,8 +47,8 @@ public class ResolveKeyboardTests
     {
         app.Booth.HasItem("1000001", "作り物の衣装");
         var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip");
-        var focusRequests = 0;
-        resolve.ItemIdFocusRequested += () => focusRequests++;
+        var focusRequests = new List<ItemIdFocusReason>();
+        resolve.ItemIdFocusRequested += focusRequests.Add;
 
         await TypeAndEnterAsync(app, resolve, "1000001");
         Assert.Equal("作り物の衣装", resolve.Preview!.Name);
@@ -64,7 +64,8 @@ public class ResolveKeyboardTests
         Assert.Equal("second.zip", resolve.Selected!.FileName);
         Assert.Equal(string.Empty, resolve.ItemIdInput);
         Assert.False(resolve.HasPreview);
-        Assert.Equal(1, focusRequests);
+        Assert.NotEmpty(focusRequests);
+        Assert.All(focusRequests, reason => Assert.Equal(ItemIdFocusReason.Settled, reason));
     });
 
     [Fact]
@@ -72,8 +73,8 @@ public class ResolveKeyboardTests
     {
         app.Booth.HasItem("1000001", "作り物の衣装");
         var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip");
-        var focusRequests = 0;
-        resolve.ItemIdFocusRequested += () => focusRequests++;
+        var focusRequests = new List<ItemIdFocusReason>();
+        resolve.ItemIdFocusRequested += focusRequests.Add;
 
         resolve.ItemIdInput = "1000001";
         Assert.True(main.RunShortcut(ShortcutAction.SaveAndNext));
@@ -82,7 +83,7 @@ public class ResolveKeyboardTests
         Assert.Null(await app.Store.Items.LoadAsync("1000001"));
         Assert.Single(resolve.Files);
         Assert.Equal("先に商品IDを確認してください。", resolve.StatusText);
-        Assert.Equal(1, focusRequests);
+        Assert.Equal([ItemIdFocusReason.NeedsPreview], focusRequests);
 
         // 確定のキーは確かめも走らせない（BOOTH へ行くのは Enter・「このIDで確認」だけ）
         Assert.Empty(app.Booth.Requests);
@@ -177,6 +178,57 @@ public class ResolveKeyboardTests
 
         Assert.Equal(answer, resolve.StatusText);
         Assert.Single(resolve.Files);
+    });
+
+    [Fact]
+    public Task 読み取れなかった後に打ち直して確定のキーを押すと_前の文ではなく確認を促す() => TestApp.Run(async app =>
+    {
+        var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip");
+        await TypeAndEnterAsync(app, resolve, "abc");
+        Assert.StartsWith("商品IDが読み取れませんでした。", resolve.StatusText);
+
+        resolve.ItemIdInput = "12345";
+        Assert.True(main.RunShortcut(ShortcutAction.SaveAndNext));
+
+        Assert.Equal("先に商品IDを確認してください。", resolve.StatusText);
+        Assert.Empty(app.Booth.Requests);
+    });
+
+    [Fact]
+    public Task BOOTHに無い商品として登録しても_除外しても_次の行の欄へ戻す知らせが出る() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        var focusRequests = new List<ItemIdFocusReason>();
+        resolve.ItemIdFocusRequested += focusRequests.Add;
+        app.Answer = _ => System.Windows.MessageBoxResult.OK;
+
+        resolve.LocalNameInput = "作り物の商品";
+        resolve.RegisterLocalCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(2, resolve.Files.Count);
+        Assert.Contains(ItemIdFocusReason.Settled, focusRequests);
+
+        focusRequests.Clear();
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Single(resolve.Files);
+        Assert.Contains(ItemIdFocusReason.Settled, focusRequests);
+        Assert.Empty(app.Booth.Requests);
+    });
+
+    [Fact]
+    public Task 最後の1件を片付けたら_欄へ戻す知らせは出ない() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip");
+        var focusRequests = new List<ItemIdFocusReason>();
+        resolve.ItemIdFocusRequested += focusRequests.Add;
+        app.Answer = _ => System.Windows.MessageBoxResult.OK;
+
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Empty(resolve.Files);
+        Assert.Empty(focusRequests);
     });
 
     [Fact]

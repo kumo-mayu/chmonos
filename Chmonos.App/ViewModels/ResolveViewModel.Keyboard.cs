@@ -14,10 +14,19 @@ namespace Chmonos.App.ViewModels;
 public sealed partial class ResolveViewModel
 {
     /// <summary>
-    /// 商品IDの欄へフォーカスを戻してほしいとき（確定した後・確かめていないIDで確定のキーを押したとき）。
-    /// 確定すると次の行が選ばれて欄は空になるので、そのまま次のIDを打てるようにする。
+    /// 商品IDの欄へフォーカスを戻してほしいとき（片付けて次の行へ移った後・確かめていないIDで確定のキーを押したとき）。
+    /// 片付けると次の行が選ばれて欄は空になるので、そのまま次のIDを打てるようにする。
+    /// 確定・BOOTHに無い商品・除外のどれも同じ（押したボタンは終わるまで押せなくなり、フォーカスが入れ物へ落ちていた。実機で確かめた）。
     /// </summary>
-    public event Action? ItemIdFocusRequested;
+    public event Action<ItemIdFocusReason>? ItemIdFocusRequested;
+
+    private void RequestItemIdFocus(ItemIdFocusReason reason)
+    {
+        if (HasSelection)
+        {
+            ItemIdFocusRequested?.Invoke(reason);
+        }
+    }
 
     /// <summary>
     /// 「このIDで確定する」の吹き出し。確定のショートカットがあることだけを言う（割り当てが無ければ出さない）。
@@ -47,16 +56,18 @@ public sealed partial class ResolveViewModel
             return true;
         }
 
-        if (Preview is not { } preview || ParseItemIdInput(ItemIdInput) != preview.Id)
+        var typed = ParseItemIdInput(ItemIdInput);
+        if (Preview is not { } preview || typed != preview.Id)
         {
-            // BOOTHに無かった・読み取れなかったなど、確かめた結果の文が出ていればそれを残す（次の一手はそちらに書いてある）
-            if (Preview is not null || !HasStatus)
+            // 欄のIDを確かめて「BOOTHに無い」と答えが出ていれば、その文を残す（そのIDのまま登録する道がそこに出ている）。
+            // ほかの文は前に打ったIDの物かもしれないので置き換える（実機で、読み取れなかった文が打ち直した後も残った）
+            if (typed is null || typed != NotOnBoothItemId)
             {
                 StatusText = "先に商品IDを確認してください。";
                 OnPropertyChanged(nameof(HasStatus));
             }
 
-            ItemIdFocusRequested?.Invoke();
+            RequestItemIdFocus(ItemIdFocusReason.NeedsPreview);
             return true;
         }
 
@@ -75,4 +86,14 @@ public sealed partial class ResolveViewModel
     private string? ParseItemIdInput(string text)
         => Core.Services.BoothItemId.Parse(text)
             ?? (_itemNames.ContainsKey(text.Trim()) ? text.Trim() : null);
+}
+
+/// <summary>商品IDの欄へフォーカスを戻す訳。画面は訳で、左の一覧にいる人を動かすかを決める。</summary>
+public enum ItemIdFocusReason
+{
+    /// <summary>片付けて次の行へ移った。左の一覧・検索欄で操作していたなら、そこに残す（一覧の右クリックで除外したときなど）。</summary>
+    Settled,
+
+    /// <summary>確かめていないIDで確定のキーを押した。次にするのは欄での確認なので、どこにいても欄へ移す。</summary>
+    NeedsPreview,
 }

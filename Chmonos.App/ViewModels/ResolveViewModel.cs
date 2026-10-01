@@ -255,6 +255,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         _main.RefreshBadges();
 
         Selected = Files.FirstOrDefault();
+        RequestItemIdFocus(ItemIdFocusReason.Settled);
     }
 
     public RangeObservableCollection<UnresolvedRow> Files { get; } = [];
@@ -996,12 +997,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 OnPropertyChanged(nameof(HasStatus));
                 HideCoveredContents(settled);
             }
-
-            // 次の行の商品IDをそのまま打てるように欄へ戻す。押したボタンは押せなくなり、フォーカスの行き場が無くなる
-            if (HasSelection)
-            {
-                ItemIdFocusRequested?.Invoke();
-            }
         }
         finally
         {
@@ -1205,6 +1200,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             HideCoveredContents(settledRow is null ? [] : [settledRow]);
         }
+
+        RequestItemIdFocus(ItemIdFocusReason.Settled);
     }
 
     /// <summary>確定したものを対象に編集の画面へ移る。ID確定と入力を分ける設計の受け渡し口。</summary>
