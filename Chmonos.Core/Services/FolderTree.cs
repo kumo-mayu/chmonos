@@ -219,17 +219,48 @@ public static class FolderTree
     /// <param name="folder">今の場所のパス（木に出したもの）。</param>
     /// <param name="map">記録のパスを今の場所に読み替える。木と同じ物を渡す。</param>
     public static bool IsUnder(ItemRecord item, string folder, Func<string, string>? map = null)
-    {
-        var target = Normalize(folder);
+        => IsUnderPrefix(item, UnderPrefix(folder), map);
 
-        return item.Local.OwnedFiles.SelectMany(file => file.Paths)
-            .Concat(item.Local.LocalFolders.Select(f => f.Path))
-            .Any(path =>
+    /// <summary>
+    /// <see cref="IsUnderPrefix"/> に渡す、フォルダの比べる形。検索の絞り込みでは、絞り込みの1回で1回だけ作る
+    /// （商品ごとに作り直すと、ファイルの場所の条件が照らす重さの上位に来ていた・`docs/research/search-modules-2026-10-01.md` §9）。
+    /// </summary>
+    public static string UnderPrefix(string folder) => Normalize(folder) + Separator;
+
+    /// <summary><see cref="IsUnder"/> と同じ判定。フォルダは <see cref="UnderPrefix"/> で畳んだ形で受ける。</summary>
+    public static bool IsUnderPrefix(ItemRecord item, string prefix, Func<string, string>? map = null)
+    {
+        foreach (var file in item.Local.LocalFiles)
+        {
+            if (file.Detached)
             {
-                var slashed = path.Replace('/', Separator);
-                var normalized = Normalize(map?.Invoke(slashed) ?? slashed);
-                return normalized.StartsWith(target + Separator, StringComparison.Ordinal);
-            });
+                continue;
+            }
+
+            foreach (var path in file.Paths)
+            {
+                if (Under(path))
+                {
+                    return true;
+                }
+            }
+        }
+
+        foreach (var folder in item.Local.LocalFolders)
+        {
+            if (Under(folder.Path))
+            {
+                return true;
+            }
+        }
+
+        return false;
+
+        bool Under(string path)
+        {
+            var slashed = path.Replace('/', Separator);
+            return Normalize(map?.Invoke(slashed) ?? slashed).StartsWith(prefix, StringComparison.Ordinal);
+        }
     }
 }
 

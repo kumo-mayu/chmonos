@@ -17,6 +17,12 @@ public sealed record AppSettings
     public bool ShowHiddenCountInSearch { get; init; }
 
     /// <summary>
+    /// 検索の絞り込みで、追加する条件を同じ種類の条件のすぐ下に置くか（ユーザ判断 2026-10-01）。既定はオフ（いちばん下に追加）。
+    /// 入れると、同じ種類の一番上の塊の最後の直後に入る（「同じ種類の条件を隣に並べる」で集まる位置と同じ）。
+    /// </summary>
+    public bool PlaceNewConditionNearSameKind { get; init; }
+
+    /// <summary>
     /// 商品カードの幅（DIP）。一覧の右下のスライダーで変え、カードを並べる画面すべてで共有する（ユーザ判断 2026-09-29）。
     /// 前の設定の「サムネイルの大きさ（小・中・大）」を置き換えた。228 はその「中」で、ずっと使ってきた大きさ。
     /// 範囲の外の値（手で書き換えた JSON）は、使う側（<c>CardMetrics</c>）が範囲に収めて読む

@@ -129,12 +129,26 @@ public sealed partial class SearchViewModel
         RestoreTextOptions(entry.Targets, entry.CaseSensitive, entry.WidthSensitive, !entry.KanaInsensitive);
         _searchAlternates = entry.SearchAlternates;
 
+        // 同じ種類の n 番目の状態は、パネルの同じ種類の n 番目の条件へ当てる。足りなければ足す（足す位置は人が足すときと同じ）。
+        // 前は種類で1つを取り出して当てていたので、同じ種類の2つ目の状態が1つ目を上書きしていた
+        var used = new Dictionary<SearchModuleKind, int>();
         foreach (var state in entry.Modules)
         {
-            if (Enum.TryParse<SearchModuleKind>(state.Kind, out var kind))
+            if (!Enum.TryParse<SearchModuleKind>(state.Kind, out var kind))
             {
-                AddModule(kind, apply: false).Load(state);
+                continue;
             }
+
+            var nth = used.GetValueOrDefault(kind);
+            used[kind] = nth + 1;
+            if (nth > 0 && !SearchModuleCatalog.Of(kind).AllowsMany)
+            {
+                // 1つまでの種類が2つ書かれている（手で直した JSON）。2つ目は飛ばす
+                continue;
+            }
+
+            var module = Modules.Where(candidate => candidate.Kind == kind).ElementAtOrDefault(nth) ?? AddModule(kind, apply: false);
+            module.Load(state);
         }
 
         // 履歴に残るのは「入手日が新しい順」のような1つの言い方。項目と向きに分けた今も、

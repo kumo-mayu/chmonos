@@ -118,15 +118,63 @@
             <Setter Property="Content" Value="{StaticResource IconChevronUp}" />
             <Setter Property="ToolTip" Value="この条件を折りたたみます。条件は効いたままです。" />
             <!-- 条件の数だけ並ぶので、どの条件のボタンかを名前に入れる -->
-            <Setter Property="AutomationProperties.Name" Value="{Binding Label, StringFormat={}{0}の条件を折りたたむ}" />
-            <Setter Property="AutomationProperties.AutomationId" Value="{Binding Kind, StringFormat='SearchModule.{0}.Collapse'}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding SpokenLabel, StringFormat={}{0}の条件を折りたたむ}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="{Binding IdKey, StringFormat='SearchModule.{0}.Collapse'}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
                     <Setter Property="Content" Value="{StaticResource IconChevronDown}" />
                     <Setter Property="ToolTip" Value="この条件を開く" />
-                    <Setter Property="AutomationProperties.Name" Value="{Binding Label, StringFormat={}{0}の条件を開く}" />
+                    <Setter Property="AutomationProperties.Name" Value="{Binding SpokenLabel, StringFormat={}{0}の条件を開く}" />
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+
+        <!--
+            条件の見出しの「…」（2026-10-01）。押すと条件のメニュー（右クリックと同じ物）を開く。
+            乗せた・枠の中に止まったときだけ出す（RevealOnHoverOrFocusButton。隠している間も場所は取る＝出たときに見出しが動かない）
+        -->
+        <Style x:Key="ModuleMenuButton" TargetType="Button" BasedOn="{StaticResource RevealOnHoverOrFocusButton}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ToolTip" Value="この条件の操作" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="Transparent" CornerRadius="5">
+                            <TextBlock Text="…" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextMuted}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 除いている条件の札「除く」（2026-10-01）。字と枠は Danger、地は Surface（新しい色を足さない・D11） -->
+        <Style x:Key="ExcludedTag" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource ChipFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource DangerBorder}"
+                                BorderThickness="1" CornerRadius="9" Padding="7,0,7,1">
+                            <TextBlock Text="{TemplateBinding Content}" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DangerText}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- 入力が残る欄を消す × （ユーザ指示 2026-09-16：消せることが分かるように） -->
@@ -205,20 +253,50 @@
             </DockPanel>
 
             <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                <Border DockPanel.Dock="Top" Height="52" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+                <!--
+                    パネルの見出しの行。右クリック（と「絞り込み」の右の「…」・Shift+F10）でパネルのメニューを開く（2026-10-01）。
+                    「…」は「条件をクリア」から離して「絞り込み」の文字の右隣に置く（見出しの行は押し間違えを避けて空けてある・U3・D13）
+                -->
+                <Border DockPanel.Dock="Top" Height="52" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                        Background="{DynamicResource Surface}">
+                    <Border.ContextMenu>
+                        <ContextMenu AutomationProperties.AutomationId="SearchFilterMenuList" AutomationProperties.Name="絞り込みの操作">
+                            <MenuItem Header="同じ種類の条件を隣に並べる" AutomationProperties.Name="同じ種類の条件を隣に並べる"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.GroupKinds"
+                                      Command="{Binding GroupModulesCommand}"
+                                      ToolTip="同じ種類の条件はもう隣に並んでいます。" ToolTipService.ShowOnDisabled="True">
+                                <MenuItem.Style>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <!-- 吹き出しは押せないときの理由だけ。押せるときは見出しの文字で足りる -->
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="True">
+                                                <Setter Property="ToolTip" Value="{x:Null}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </MenuItem.Style>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Border.ContextMenu>
                     <!-- 右の余白は、境の線に半分はみ出したつまみ（13px）から「条件をクリア」をはっきり離すため -->
                     <Grid Margin="16,0,40,0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Style="{StaticResource ModuleMenuButton}" Margin="4,0,0,0" Click="OnModuleMenuClick"
+                                ToolTip="絞り込みの操作"
+                                AutomationProperties.AutomationId="SearchFilterMenu"
+                                AutomationProperties.Name="絞り込みの操作" />
                         <!-- 押す前の条件は検索の履歴に積むので、押し間違えても履歴から戻せる（U3・ユーザ判断） -->
                         <!--
                             文字に押す動きを付けただけでは、キーボードと読み上げ・自動操作から押せない
                             （実際に押せていなかった）。見た目は同じまま、ボタンにする
                         -->
-                        <Button Grid.Column="1" Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
+                        <Button x:Name="ClearFiltersButton" Grid.Column="3" Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
                                 Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}"
                                 FontSize="12" VerticalAlignment="Center" Padding="4,2"
                                 AutomationProperties.AutomationId="SearchClearFilters"
@@ -231,14 +309,14 @@
                     <StackPanel Margin="16,12">
                         <!--
                             条件はモジュールで足していく（ユーザ案 2026-09-15）。見出しはメニューの分け方で、同じ条件が
-                            2つの見出しに出ることがある。足してある条件はどの見出しの下でもグレーになる（一度しか足せない）
+                            2つの見出しに出ることがある。1つまでの種類（三項・範囲・日付・ショップ・最近）は、足してあればどの見出しの下でもグレーになる
                         -->
                         <Menu Background="Transparent" HorizontalAlignment="Left">
                             <MenuItem Header="＋ 条件を追加 ▾" ItemsSource="{Binding ModuleMenu}" Height="30" Padding="10,0"
                                       FontSize="12.5" Foreground="{DynamicResource Accent}"
                                       AutomationProperties.AutomationId="SearchAddModule"
                                       AutomationProperties.Name="条件を追加"
-                                      ToolTip="絞り込みに使う条件を追加します。追加済みの条件は選べません。">
+                                      ToolTip="絞り込みに使う条件を追加します。1つしか置けない条件は、追加済みなら選べません。">
                                 <MenuItem.ItemContainerStyle>
                                     <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                                         <Setter Property="Header" Value="{Binding Title}" />
@@ -303,7 +381,7 @@
                                    Visibility="{Binding HasModules, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                         <!-- 順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ -->
-                        <controls:ContentItemsControl ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False"
+                        <controls:ContentItemsControl x:Name="ModulesList" ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False"
                                                       AllowDrop="True" DragOver="OnModulesDragOver"
                                                       DragLeave="OnModulesDragLeave" Drop="OnModulesDrop">
                             <ItemsControl.Resources>
@@ -334,13 +412,44 @@
                                         <!-- 中の部品の名前は条件をまたいで同じになる（下限・上限など）。条件の種類を ID に入れて探せるようにする -->
                                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                                                   DisplayMemberPath="Display" Height="28" FontSize="12.5"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Choice'}"
-                                                  AutomationProperties.Name="{Binding Label}" />
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
+                                                  AutomationProperties.Name="{Binding SpokenLabel}" />
                                         <CheckBox IsChecked="{Binding Flag, Mode=TwoWay}" Margin="0,7,0,0"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Flag'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
                                                   AutomationProperties.Name="{Binding FlagLabel}"
                                                   Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                        </CheckBox>
+                                    </StackPanel>
+                                </DataTemplate>
+
+                                <!--
+                                    編集状況（2026-10-01。前の「未編集」）。三項に、どの項目を見るかのトグルを足した形。
+                                    項目の件数は他の条件のもとでその項目が未入力の商品の数。最後の1つは外せない（全部切ると何も選ばない）
+                                -->
+                                <DataTemplate DataType="{x:Type vm:UneditedModule}">
+                                    <StackPanel>
+                                        <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                                  DisplayMemberPath="Display" Height="28" FontSize="12.5"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
+                                                  AutomationProperties.Name="{Binding SpokenLabel}" />
+                                        <TextBlock Text="見る項目" Style="{StaticResource Caption}" Margin="0,8,0,3" />
+                                        <controls:ContentItemsControl ItemsSource="{Binding Fields}" Focusable="False">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:EditFieldToggle}">
+                                                    <CheckBox IsChecked="{Binding IsOn, Mode=TwoWay}" Margin="0,0,0,3"
+                                                              AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                              AutomationProperties.Name="{Binding Label}">
+                                                        <TextBlock Text="{Binding Display}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
+                                        <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                  AutomationProperties.Name="{Binding MatchAllLabel}"
+                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding MatchAllLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>
@@ -369,8 +478,8 @@
                                                              CommitCommand="{Binding AddCommand}"
                                                              Placeholder="{Binding Placeholder}"
                                                              IconSelector="{Binding IconSelector}"
-                                                             AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Input'}"
-                                                             AutomationProperties.Name="{Binding Placeholder}"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
+                                                             AutomationProperties.Name="{Binding InputName}"
                                                              Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                    Visibility="{Binding HasSuggestions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -385,7 +494,7 @@
                                             入れると、お気に入りのショップを全部選んだのと同じに働く。件数は他の条件を当てたうえでの数
                                         -->
                                         <CheckBox IsChecked="{Binding IncludeOn, Mode=TwoWay}" Margin="0,4,0,0"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.IncludeFavoriteShops'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeFavoriteShops'}"
                                                   AutomationProperties.Name="お気に入りのショップの商品を含める"
                                                   ToolTip="お気に入りのショップをすべて選んだのと同じに絞ります。"
                                                   Visibility="{Binding HasInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -394,14 +503,14 @@
                                             </TextBlock>
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MatchAll'}"
-                                                  AutomationProperties.Name="{Binding Label, StringFormat={}{0}のすべてに当てはまる商品だけ}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                  AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}のすべてに当てはまる商品だけ}"
                                                   ToolTip="切っているときは、どれか1つに当てはまる商品（OR）を表示します。"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding Flag, Mode=TwoWay}" Margin="0,4,0,0"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Flag'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
                                                   AutomationProperties.Name="{Binding FlagLabel}"
                                                   Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
@@ -417,14 +526,14 @@
                                                   Visibility="{Binding HasGroups, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                           <TextBlock Text="表示するもの" Style="{StaticResource Caption}" Margin="0,0,0,3" />
                                           <CheckBox IsChecked="{Binding ShowMatched, Mode=TwoWay}"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ShowMatched'}"
-                                                    AutomationProperties.Name="対応している商品を表示"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ShowMatched'}"
+                                                    AutomationProperties.Name="{Binding NameSuffix, StringFormat={}対応している商品を表示{0}}"
                                                     ToolTip="選んだアバターに対応している商品を表示します。">
                                               <TextBlock Text="{Binding MatchedLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                           </CheckBox>
                                           <CheckBox IsChecked="{Binding ShowUnspecified, Mode=TwoWay}" Margin="0,3,0,0"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ShowUnspecified'}"
-                                                    AutomationProperties.Name="対応の指定が無い商品を表示"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ShowUnspecified'}"
+                                                    AutomationProperties.Name="{Binding NameSuffix, StringFormat={}対応の指定が無い商品を表示{0}}"
                                                     ToolTip="対応アバターが書かれていない商品も表示します。">
                                               <TextBlock Text="{Binding UnspecifiedLabel}" FontSize="12" TextWrapping="Wrap"
                                                          Foreground="{DynamicResource Text}" />
@@ -438,7 +547,7 @@
                                     <StackPanel>
                                         <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source, Mode=TwoWay}"
                                                   DisplayMemberPath="Label" Height="28" FontSize="12.5" Margin="0,0,0,6"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Source'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Source'}"
                                                   AutomationProperties.Name="何の数で絞るか"
                                                   Visibility="{Binding HasSources, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <!--
@@ -446,7 +555,7 @@
                                             目盛と照合から外す。何円以上を何個外しているかを数で出す
                                         -->
                                         <CheckBox IsChecked="{Binding IgnoreOutliers, Mode=TwoWay}" Margin="0,0,0,6"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.IgnoreOutliers'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IgnoreOutliers'}"
                                                   AutomationProperties.Name="外れ値を無視"
                                                   ToolTip="極端に高い価格を、目盛と絞り込みから外します。商品は外しません。"
                                                   Visibility="{Binding SupportsOutliers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -485,27 +594,27 @@
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MinEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
                                                       ToolTip="チェックを外すと、下限で絞りません。"
-                                                      AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MinEnabled'}"
-                                                      AutomationProperties.Name="{Binding Label, StringFormat={}{0}の下限を効かせる}" />
+                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MinEnabled'}"
+                                                      AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の下限を効かせる}" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False" LargeChange="10"
                                                     IsEnabled="{Binding MinEnabled}" ToolTip="{Binding MinHint}"
                                                     ToolTipService.ShowOnDisabled="True"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MinSlider'}"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の下限}" />
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MinSlider'}"
+                                                    AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の下限}" />
                                         </DockPanel>
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MaxEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
                                                       ToolTip="チェックを外すと、上限で絞りません。"
-                                                      AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MaxEnabled'}"
-                                                      AutomationProperties.Name="{Binding Label, StringFormat={}{0}の上限を効かせる}" />
+                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MaxEnabled'}"
+                                                      AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の上限を効かせる}" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False" LargeChange="10"
                                                     IsEnabled="{Binding MaxEnabled}" ToolTip="{Binding MaxHint}"
                                                     ToolTipService.ShowOnDisabled="True"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MaxSlider'}"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の上限}" />
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MaxSlider'}"
+                                                    AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の上限}" />
                                         </DockPanel>
                                         <DockPanel LastChildFill="False" Margin="24,2,0,0">
                                             <TextBlock DockPanel.Dock="Left" Text="{Binding MinimumLabel}" Style="{StaticResource Caption}" />
@@ -514,22 +623,22 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <TextBox Text="{Binding MinText, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="62" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="{Binding Label, StringFormat={}{0}の下限}"
-                                                     AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Min'}"
+                                                     IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の下限}"
+                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Min'}"
                                                      ToolTipService.ShowOnDisabled="True" ToolTip="{Binding MinHint}" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMinCommand}"
-                                                    ToolTip="下限を消す" AutomationProperties.Name="{Binding Label, StringFormat={}{0}の下限を消す}"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ClearMin'}"
+                                                    ToolTip="下限を消す" AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の下限を消す}"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ClearMin'}"
                                                     Visibility="{Binding HasMin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBlock Text="〜" VerticalAlignment="Center" Margin="4,0" Style="{StaticResource Caption}" />
                                             <TextBox Text="{Binding MaxText, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="62" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="{Binding Label, StringFormat={}{0}の上限}"
-                                                     AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Max'}"
+                                                     IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の上限}"
+                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Max'}"
                                                      ToolTipService.ShowOnDisabled="True" ToolTip="{Binding MaxHint}" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMaxCommand}"
-                                                    ToolTip="上限を消す" AutomationProperties.Name="{Binding Label, StringFormat={}{0}の上限を消す}"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ClearMax'}"
+                                                    ToolTip="上限を消す" AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の上限を消す}"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ClearMax'}"
                                                     Visibility="{Binding HasMax, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Margin="4,0,0,0"
                                                        Style="{StaticResource Caption}" />
@@ -551,14 +660,14 @@
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding SinceEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
                                                       ToolTip="チェックを外すと、始まりの日で絞りません。"
-                                                      AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.SinceEnabled'}"
-                                                      AutomationProperties.Name="{Binding Label, StringFormat={}{0}の始まりの日を効かせる}" />
+                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.SinceEnabled'}"
+                                                      AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の始まりの日を効かせる}" />
                                             <ToggleButton x:Name="SinceCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding SinceEnabled}"
                                                           ToolTipService.ShowOnDisabled="True"
                                                           Margin="4,0,0,0" ToolTip="{Binding SinceHint}"
-                                                          AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.SinceCalendar'}"
-                                                          AutomationProperties.Name="{Binding Label, StringFormat={}{0}の開始の日をカレンダーで選ぶ}">
+                                                          AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.SinceCalendar'}"
+                                                          AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の開始の日をカレンダーで選ぶ}">
                                                 <!-- 字形のアイコンは字体が無いと四角になる。ほかの画面と同じく線で描く -->
                                                 <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{DynamicResource TextMuted}"
                                                       StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
@@ -567,13 +676,13 @@
                                                        Style="{StaticResource Caption}" />
                                             <Button DockPanel.Dock="Right" Style="{StaticResource ClearFieldButton}"
                                                     Command="{Binding ClearSinceCommand}" ToolTip="開始の日を消す"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ClearSince'}"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の開始の日を消す}"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ClearSince'}"
+                                                    AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の開始の日を消す}"
                                                     Visibility="{Binding HasSince, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBox Text="{Binding SinceText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding SinceEnabled}" AutomationProperties.Name="{Binding Label, StringFormat={}{0}の開始の日}"
-                                                     AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Since'}"
+                                                     IsEnabled="{Binding SinceEnabled}" AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の開始の日}"
+                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Since'}"
                                                      ToolTipService.ShowOnDisabled="True" ToolTip="{Binding SinceHint}" />
                                         </DockPanel>
                                         <Popup IsOpen="{Binding IsChecked, ElementName=SinceCalendarButton}" StaysOpen="False"
@@ -586,14 +695,14 @@
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding TillEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
                                                       ToolTip="チェックを外すと、終わりの日で絞りません。"
-                                                      AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.TillEnabled'}"
-                                                      AutomationProperties.Name="{Binding Label, StringFormat={}{0}の終わりの日を効かせる}" />
+                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.TillEnabled'}"
+                                                      AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の終わりの日を効かせる}" />
                                             <ToggleButton x:Name="TillCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding TillEnabled}"
                                                           ToolTipService.ShowOnDisabled="True"
                                                           Margin="4,0,0,0" ToolTip="{Binding TillHint}"
-                                                          AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.TillCalendar'}"
-                                                          AutomationProperties.Name="{Binding Label, StringFormat={}{0}の終わりの日をカレンダーで選ぶ}">
+                                                          AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.TillCalendar'}"
+                                                          AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の終わりの日をカレンダーで選ぶ}">
                                                 <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{DynamicResource TextMuted}"
                                                       StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
                                             </ToggleButton>
@@ -601,13 +710,13 @@
                                                        Style="{StaticResource Caption}" />
                                             <Button DockPanel.Dock="Right" Style="{StaticResource ClearFieldButton}"
                                                     Command="{Binding ClearTillCommand}" ToolTip="終わりの日を消す"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ClearTill'}"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の終わりの日を消す}"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ClearTill'}"
+                                                    AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の終わりの日を消す}"
                                                     Visibility="{Binding HasTill, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBox Text="{Binding TillText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding TillEnabled}" AutomationProperties.Name="{Binding Label, StringFormat={}{0}の終わりの日}"
-                                                     AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Till'}"
+                                                     IsEnabled="{Binding TillEnabled}" AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の終わりの日}"
+                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Till'}"
                                                      ToolTipService.ShowOnDisabled="True" ToolTip="{Binding TillHint}" />
                                         </DockPanel>
                                         <Popup IsOpen="{Binding IsChecked, ElementName=TillCalendarButton}" StaysOpen="False"
@@ -628,8 +737,8 @@
                                     <StackPanel>
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding AddCommand}" Placeholder="大分類を選んで追加"
-                                                             AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Input'}"
-                                                             AutomationProperties.Name="大分類を選んで追加"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
+                                                             AutomationProperties.Name="{Binding NameSuffix, StringFormat={}大分類を選んで追加{0}}"
                                                              Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="ユーザータグがまだ登録されていません。編集画面から追加できます。" Style="{StaticResource Caption}"
                                                    TextWrapping="Wrap"
@@ -674,8 +783,8 @@
                                             </ItemsControl.ItemTemplate>
                                         </controls:ContentItemsControl>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MatchAll'}"
-                                                  AutomationProperties.Name="すべての大分類に当てはまる商品だけ"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                  AutomationProperties.Name="{Binding NameSuffix, StringFormat={}すべての大分類に当てはまる商品だけ{0}}"
                                                   ToolTip="切っているときは、どれか1つの大分類に当てはまる商品（OR）を表示します。"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="すべての大分類に当てはまる商品だけ（AND）" FontSize="12" Foreground="{DynamicResource Text}" />
@@ -688,7 +797,7 @@
                                     <StackPanel>
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding AddCommand}" Placeholder="属性を選んで追加"
-                                                             AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Input'}"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
                                                              AutomationProperties.Name="属性を選んで追加"
                                                              Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="属性がまだ登録されていません。編集画面から追加できます。" Style="{StaticResource Caption}"
@@ -727,7 +836,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </controls:ContentItemsControl>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
                                                   AutomationProperties.Name="すべての属性に当てはまる商品だけ"
                                                   ToolTip="切っているときは、どれか1つの属性に当てはまる商品（OR）を表示します。"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -743,16 +852,16 @@
                                     <StackPanel>
                                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                                                   DisplayMemberPath="Label" Height="28" FontSize="12.5"
-                                                  AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Choice'}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
                                                   AutomationProperties.Name="何の記録で絞るか" />
                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                             <TextBox Text="{Binding DaysText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
                                                      Width="64" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Days'}"
+                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Days'}"
                                                      AutomationProperties.Name="日数" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearDaysCommand}"
                                                     ToolTip="日数を消す" AutomationProperties.Name="日数を消す"
-                                                    AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.ClearDays'}"
+                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ClearDays'}"
                                                     Visibility="{Binding HasDays, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBlock Text="日以内" VerticalAlignment="Center" Margin="4,0,0,0" Style="{StaticResource Caption}" />
                                         </StackPanel>
@@ -770,37 +879,92 @@
                                         <!-- 落とし先の線。Adorner ではなく行のプロパティで出す（タグ・属性の並べ替えと同じ作り） -->
                                         <Border Height="2" Margin="0,0,0,2" Background="{DynamicResource Accent}"
                                                 Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <!--
+                                            条件の枠。右クリック（と見出しの「…」・Shift+F10）で条件のメニューを開く（2026-10-01）。
+                                            入力欄・候補の欄の上では、その欄のメニュー（切り取り・貼り付け）が先に出る。
+                                            「…」は乗せた・枠の中に止まったときだけ出る（RevealOnHoverOrFocusButton。いちばん近い Border＝この枠で見る・D8）
+                                        -->
                                         <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
                                                 Padding="10,8" Background="{DynamicResource Surface}">
+                                            <Border.ContextMenu>
+                                                <ContextMenu AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MenuList'}"
+                                                             AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の操作}">
+                                                    <!-- 除くを持つ種類だけ（三項・最近・編集状況には出さない・D10） -->
+                                                    <MenuItem Header="当てはまる商品を除く" AutomationProperties.Name="当てはまる商品を除く" IsCheckable="True" IsChecked="{Binding IsExcluded, Mode=TwoWay}"
+                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Exclude'}"
+                                                              Visibility="{Binding SupportsExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <Separator Visibility="{Binding SupportsExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <MenuItem Header="{Binding CollapseMenuText}" Command="{Binding ToggleCollapseCommand}"
+                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Collapse'}"
+                                                              AutomationProperties.Name="{Binding CollapseMenuText}" />
+                                                    <MenuItem Header="上へ移動" AutomationProperties.Name="上へ移動" Command="{Binding MoveUpCommand}"
+                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.MoveUp'}" />
+                                                    <MenuItem Header="下へ移動" AutomationProperties.Name="下へ移動" Command="{Binding MoveDownCommand}"
+                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.MoveDown'}" />
+                                                    <Separator />
+                                                    <MenuItem Header="この条件を外す" AutomationProperties.Name="この条件を外す" Command="{Binding RemoveCommand}"
+                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Remove'}" />
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
                                             <StackPanel>
-                                                <DockPanel LastChildFill="True">
+                                                <!--
+                                                    見出し。Tab はチェック → 札「除く」→「…」→ ⌃ → × の順（左から右。前は × が先に止まっていた）。
+                                                    チェックと札は左寄せの DockPanel に入れる：札を見出しの文字のすぐ右に置き、幅が足りないときは
+                                                    札を残して文字の方を切る。札を先に置く（右寄せの子は先に並べる）ので、Tab の順は番号で決める
+                                                -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
                                                     <!--
                                                         つまんで動かす所。カードのどこでも掴めるようにすると、
                                                         スライダを動かすたびに並べ替えが始まってしまう
                                                     -->
-                                                    <TextBlock DockPanel.Dock="Left" Text="⋮⋮" FontSize="11" Margin="0,0,6,0"
+                                                    <TextBlock Grid.Column="0" Text="⋮⋮" FontSize="11" Margin="0,0,6,0"
                                                                Cursor="SizeAll" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextFaint}"
                                                                ToolTip="ドラッグで順番を変えられます"
-                                                               AutomationProperties.Name="{Binding Label, StringFormat={}{0}の順番を変える}"
+                                                               AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の順番を変える}"
                                                                PreviewMouseLeftButtonDown="OnModuleHandlePress"
                                                                MouseMove="OnModuleHandleMove" />
-                                                    <Button DockPanel.Dock="Right" Content="×" FontSize="13" Padding="4,0" Cursor="Hand"
+                                                    <DockPanel Grid.Column="1" HorizontalAlignment="Left" LastChildFill="True"
+                                                               KeyboardNavigation.TabNavigation="Local">
+                                                        <!--
+                                                            除いているときの札（2026-10-01）。押すと除くのをやめる。色は字と枠を Danger、地は Surface（D11。
+                                                            結果を大きく減らす向きの印で、未選択の Warn・選んだ値の Accent と見分けられる）
+                                                        -->
+                                                        <Button DockPanel.Dock="Right" Content="除く" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                KeyboardNavigation.TabIndex="1" Cursor="Hand"
+                                                                Style="{StaticResource ExcludedTag}" ToolTip="{Binding ExcludedHint}"
+                                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Excluded'}"
+                                                                AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}を除くのをやめる}"
+                                                                Command="{Binding ToggleExcludeCommand}" Click="OnExcludedTagClick"
+                                                                Visibility="{Binding IsExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <CheckBox x:Name="ModuleEnabled" IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
+                                                                  KeyboardNavigation.TabIndex="0"
+                                                                  ToolTip="切ると、値を残したままこの条件を効かせません"
+                                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Enabled'}"
+                                                                  AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の条件を効かせる}">
+                                                            <TextBlock Text="{Binding Label}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource Text}" ToolTip="{Binding Hint}" />
+                                                        </CheckBox>
+                                                    </DockPanel>
+                                                    <Button x:Name="ModuleMenu" Grid.Column="2" Style="{StaticResource ModuleMenuButton}" Click="OnModuleMenuClick"
+                                                            AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu'}"
+                                                            AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の操作}" />
+                                                    <Button Grid.Column="3" Style="{StaticResource ModuleCollapseToggle}"
+                                                            Command="{Binding ToggleCollapseCommand}" Margin="0,0,2,0" />
+                                                    <Button Grid.Column="4" Content="×" FontSize="13" Padding="4,0" Cursor="Hand"
                                                             Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
                                                             Foreground="{DynamicResource TextMuted}" ToolTip="この条件を外す"
-                                                            AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Remove'}"
-                                                            AutomationProperties.Name="{Binding Label, StringFormat={}{0}の条件を外す}"
+                                                            AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Remove'}"
+                                                            AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の条件を外す}"
                                                             Command="{Binding RemoveCommand}" />
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource ModuleCollapseToggle}"
-                                                            Command="{Binding ToggleCollapseCommand}" Margin="0,0,2,0" />
-                                                    <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
-                                                              ToolTip="切ると、値を残したままこの条件を効かせません"
-                                                              AutomationProperties.AutomationId="{Binding Kind, StringFormat='SearchModule.{0}.Enabled'}"
-                                                              AutomationProperties.Name="{Binding Label, StringFormat={}{0}の条件を効かせる}">
-                                                        <TextBlock Text="{Binding Label}" FontSize="12.5" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource Text}" ToolTip="{Binding Hint}" />
-                                                    </CheckBox>
-                                                </DockPanel>
+                                                </Grid>
                                                 <!-- 畳んでも条件は効いたままなので、何で絞っているかを1行で出す -->
                                                 <TextBlock Text="{Binding CollapsedSummary}" Style="{StaticResource Caption}"
                                                            TextWrapping="Wrap" Margin="18,4,0,0"
@@ -808,7 +972,7 @@
                                                 <TextBlock Text="{Binding DisabledReason}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                            Margin="0,6,0,0"
                                                            Visibility="{Binding HasDisabledReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <ContentControl Content="{Binding}" Focusable="False" Margin="0,7,0,0"
+                                                <ContentControl x:Name="ModuleBody" Content="{Binding}" Focusable="False" Margin="0,7,0,0"
                                                                 Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                     <ContentControl.Style>
                                                         <Style TargetType="ContentControl">

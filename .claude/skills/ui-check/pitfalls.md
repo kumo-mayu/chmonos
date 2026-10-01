@@ -59,6 +59,11 @@ Get-ChmonosTrace -Saved tagcheck -Kind 命令          # 前の起動の分（�
   検索の「＋ 条件を追加」は2段（見出しの下に条件）で、下の段は見出しを開くまで出ない（同じ関数が見出しを順に開いて探す）
 - **木を丸ごとなめると、その間アプリの画面のスレッドが止まる**（`Get-ChmonosIds`・ID に `*` を使った `Get-ChmonosById`・`Get-ChmonosTexts`）。
   速さと固まりを測っている間は呼ばない（見張りの「固まり」に道具の分が乗る）
+- **検索の条件は同じ種類を複数置ける**（候補から積む条件とユーザータグ・2026-10-01）。1つ目の ID は前のまま（`SearchModule.Category.Input`）、
+  2つ目から種類の所に番号が付く（`SearchModule.Category-2.Input`。名前も「カテゴリ（2つ目）で絞り込む」）。番号は上からの位置で、並べ替えると振り直る。
+  `SearchModule.Category.*` を `*` で探すと2つ目は入らない（`SearchModule.Category-*.*` も足す）。`SearchModule.Avatar*` は `AvatarUnconfirmed` も拾う。
+  条件の「…」（`SearchModule.<種類>.Menu`）は乗せるか枠の中に止まるまで透明だが、木には出ていて「押す」でメニューが開く。
+  条件の「除く」はメニューの行 `.Menu.Exclude`（入・切）、除いている間だけ見出しに札 `.Excluded`（押すと除くのをやめる）
 - 検索に条件が残っていると、`id:` で探しても商品が出ない（前の確かめの「壊れたzip：ある」など）。`Open-ChmonosItem` は条件をクリアして探し直し、戻りにそう書く
 
 ## 実入力（mouse_event）

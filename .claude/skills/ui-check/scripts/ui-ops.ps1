@@ -180,11 +180,14 @@ function Restore-ChmonosTheme {
 #   -Kind … 条件の種類（SearchModuleKind の名前：Path・BrokenZip・Price・Owned…）。**こちらを使う**（文言を変えても壊れない）
 #   -Like … 条件の名前（例 '*ファイルの場所*'）。種類が分からないとき
 # 条件は見出し（BOOTHの情報・商品の情報…）の下にぶら下がっている。見出しを1つずつ開いて探す（Invoke-ChmonosMenuById）。
-# 頼っている ID：メニュー SearchAddModule・項目 SearchAddModule.<種類>。足した条件の部品は SearchModule.<種類>.<部品>
+# 頼っている ID：メニュー SearchAddModule・項目 SearchAddModule.<種類>。足した条件の部品は SearchModule.<種類>.<部品>（同じ種類の2つ目から SearchModule.<種類>-2.<部品>）
 function Add-ChmonosSearchCondition {
   param([string]$Kind, [string]$Like, [double]$TimeoutSeconds = 10)
   if (-not $Kind -and -not $Like) { throw '-Kind か -Like を指定する' }
   $item = if ($Kind) { "SearchAddModule.$Kind" } else { 'SearchAddModule.*' }
+  # 同じ種類を複数置ける条件がある（2026-10-01）。2つ目を足すと1つ目の × が既にあるので、× が出るのを待つだけでは即座に抜ける。
+  # 足す前の条件の数（× の数）を数え、増えたのを待つ。2つ目からの ID は SearchModule.<種類>-2.<部品>
+  $before = @(Get-ChmonosById -Id 'SearchModule.*.Remove')
   $r = Invoke-ChmonosMenuById -Menu SearchAddModule -Item $item -ItemLike $Like -TimeoutSeconds $TimeoutSeconds
   if ($r -like 'メニューが無い*') { return '「条件を追加」が無い（検索の画面を開いてから）' }
   if ($r -like '押せない*（無効）') { return "もう足してある（選べない）: $($r -replace '^押せない: ', '' -replace '（無効）$', '')" }
@@ -193,8 +196,14 @@ function Add-ChmonosSearchCondition {
   $added = $r -replace '^押した: ', '' -replace '\(Invoke\)$', ''
   # 足した条件の欄が出るまで待つ（出る前に中の部品を探すと「無い」になる）
   $kindName = ($added -split '「')[0] -replace '^SearchAddModule\.', ''
-  [void](Wait-ChmonosById -Id "SearchModule.$kindName.Remove" -TimeoutSeconds 3)
-  "条件を足した: $added"
+  # 種類の名前が別の種類の頭になる物がある（Avatar と AvatarUnconfirmed）ので、「種類」と「種類-番号」を分けて数える
+  $countKind = { @(Get-ChmonosById -Id "SearchModule.$kindName.Remove").Count + @(Get-ChmonosById -Id "SearchModule.$kindName-*.Remove").Count }
+  $had = @($before | Where-Object { $_.Current.AutomationId -eq "SearchModule.$kindName.Remove" -or $_.Current.AutomationId -like "SearchModule.$kindName-*.Remove" }).Count
+  [void](Wait-ChmonosCondition -TimeoutSeconds 3 -Until { (& $countKind) -gt $had })
+  $count = & $countKind
+  if ($count -le 1) { return "条件を足した: $added（部品は SearchModule.$kindName.<部品>）" }
+  # 足す位置は設定で一番下か同じ種類のすぐ下。番号は上から振るので、足した物が何番目かは並びで決まる
+  "条件を足した: $added（この種類は $count 個。2つ目からの部品は SearchModule.$kindName-<上から何番目か>.<部品>）"
 }
 
 # 候補付きの入力欄（SuggestBox）に字を入れ、出た候補の1つを選んで決める。**実入力（実クリック）を使う**：

@@ -155,6 +155,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _showSubTagsInList = settings.ShowSubTagsInList;
         _showAdult = settings.ShowAdult;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
+        _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
@@ -431,6 +432,15 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get => _showHiddenCountInSearch;
         set { if (SetField(ref _showHiddenCountInSearch, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
+    private bool _placeNewConditionNearSameKind;
+
+    /// <summary>検索で追加する条件を、同じ種類の条件のすぐ下に置くか。検索は足すたびに今の値を読むので、知らせは要らない。</summary>
+    public bool PlaceNewConditionNearSameKind
+    {
+        get => _placeNewConditionNearSameKind;
+        set { if (SetField(ref _placeNewConditionNearSameKind, value)) { Save(); } }
     }
 
     private ThumbnailRole _thumbnailRole;
@@ -1077,6 +1087,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowSubTagsInList = ShowSubTagsInList,
             ShowAdult = ShowAdult,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
+            PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,

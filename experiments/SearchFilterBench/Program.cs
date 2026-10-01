@@ -277,7 +277,7 @@ internal static class Samples
     [
         ("所持：所持している", SearchModuleKind.Owned, S() with { Choice = "owned" }),
         ("お気に入り：お気に入りのみ", SearchModuleKind.Favorite, S() with { Choice = "favorite" }),
-        ("未編集：未編集のみ", SearchModuleKind.Unedited, S() with { Choice = "unedited" }),
+        ("編集状況：未入力のみ（ユーザータグ）", SearchModuleKind.Unedited, S() with { Choice = "unedited" }),
         ("R-18：R-18以外のみ", SearchModuleKind.Adult, S() with { Choice = "general" }),
         ("販売終了：販売終了のみ", SearchModuleKind.EndOfSale, S() with { Choice = "ended" }),
         ("有料・無料：有料のみ", SearchModuleKind.FreePaid, S() with { Choice = "paid" }),
@@ -342,7 +342,7 @@ internal sealed class Pipeline
 
         foreach (var module in _active)
         {
-            if (!ReferenceEquals(module, except) && !module.Matches(item, _context))
+            if (!ReferenceEquals(module, except) && !module.Passes(item, _context))
             {
                 return false;
             }
@@ -382,7 +382,7 @@ internal sealed class Pipeline
             var which = -1;
             for (var index = 0; index < _active.Count && fails < 2; index++)
             {
-                if (!_active[index].Matches(item, _context))
+                if (!_active[index].Passes(item, _context))
                 {
                     fails++;
                     which = index;
@@ -407,6 +407,21 @@ internal sealed class Pipeline
         }
 
         return pass.Count;
+    }
+
+    /// <summary>
+    /// アプリの今の作り（2026-10-01 に入れた案b・c）：<see cref="SearchFilterPass"/> で結果と件数の材料を1回で作り、件数を数える。
+    /// 絞り込みと件数の両方の分を含む。
+    /// </summary>
+    public int AppPass()
+    {
+        var pass = SearchFilterPass.Run(_world.Items, _modules, item => PassesBase(item) && MatchesQuery(item), _context);
+        foreach (var module in _modules)
+        {
+            module.RefreshCounts(pass.OthersFor(module), _context);
+        }
+
+        return pass.Matches.Count;
     }
 }
 
@@ -587,7 +602,9 @@ internal static class Bench
             ("3", Set3), ("6", Set6), ("10", Set10), ("15", [.. Set10, .. extra[..5]]), ("20", [.. Set10, .. extra]),
         };
 
-        Console.WriteLine("条件の数 | 結果の件数 | 絞り込み ms | 件数（今の作り）ms | 件数（案b：外れを2つまで数える）ms | 案bの短縮");
+        // 「アプリの1回」は絞り込みと件数を合わせた時間（SearchFilterPass）。比べる相手は「絞り込み＋件数（今の作りの数え方）」。
+        // 条件の部品はアプリの物なので、案c（照らす前の準備）はどの列にも効いている。案c の前の数は 2026-10-01 の案の文書 §9
+        Console.WriteLine("条件の数 | 結果の件数 | 絞り込み ms | 件数（条件ごとに照らし直す）ms | 件数（案b の写し）ms | アプリの1回（絞り込み＋件数）ms");
         foreach (var (label, names) in sets)
         {
             var modules = names.Select(name => world.Module(Samples.Of(name).Kind, Samples.Of(name).State)).ToList();
@@ -598,16 +615,19 @@ internal static class Bench
             var snapshot = Snapshot(modules);
             var mask = Measure(() => pipeline.CountsByMask());
             var same = Snapshot(modules) == snapshot ? "" : "（件数が食い違う）";
-            Console.WriteLine($"{label} | {result} | {filter.Median:F2} | {now.Median:F2}（{now.Min:F2}〜{now.Max:F2}） | {mask.Median:F2}（{mask.Min:F2}〜{mask.Max:F2}） | {now.Median / mask.Median:F1}倍{same}");
+            var app = Measure(() => pipeline.AppPass());
+            var sameApp = Snapshot(modules) == snapshot && pipeline.AppPass() == result ? "" : "（アプリの1回と食い違う）";
+            Console.WriteLine($"{label} | {result} | {filter.Median:F2} | {now.Median:F2}（{now.Min:F2}〜{now.Max:F2}） | {mask.Median:F2}{same} | {app.Median:F2}（{app.Min:F2}〜{app.Max:F2}）{sameApp}");
         }
 
-        // 文字列を入れたとき（文字列は条件の後に照らす）
+        // 文字列を入れたとき（今の作りは文字列を条件の後に照らす。アプリの1回は先に照らす）
         var withText = Set6.Select(name => world.Module(Samples.Of(name).Kind, Samples.Of(name).State)).ToList();
         var textPipeline = new Pipeline(world, withText, query: "ドレス");
         var textFilter = Measure(() => textPipeline.Filter());
         var textNow = Measure(textPipeline.CountsNow);
         var textMask = Measure(() => textPipeline.CountsByMask());
-        Console.WriteLine($"6＋文字列「ドレス」 | {textPipeline.Filter()} | {textFilter.Median:F2} | {textNow.Median:F2} | {textMask.Median:F2} | {textNow.Median / textMask.Median:F1}倍");
+        var textApp = Measure(() => textPipeline.AppPass());
+        Console.WriteLine($"6＋文字列「ドレス」 | {textPipeline.Filter()} | {textFilter.Median:F2} | {textNow.Median:F2} | {textMask.Median:F2} | {textApp.Median:F2}");
     }
 
     /// <summary>件数を写し取って、2つの数え方で同じになるかを見る。</summary>

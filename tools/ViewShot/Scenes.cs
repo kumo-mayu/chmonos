@@ -22,6 +22,7 @@ internal static partial class Scenes
         .. Bands,
         .. Modifications,
         .. Search,
+        .. SearchFilters,
         .. CardLists,
         .. FolderTree,
         .. Inbox,

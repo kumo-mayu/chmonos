@@ -56,6 +56,7 @@ public partial class SearchView : UserControl
         };
 
         _settleTimer.Tick += (_, _) => SettleFastScrolling();
+        DataContextChanged += HookModuleFocus;
 
         // 落ち着き待ちの間に画面を移ると、時計が鳴る頃には DataContext が外れていて解除が素通りしていた。
         // 印は絵の読み手（ThumbnailLoader）に共有なので、残るとほかの画面の絵まで粗いまま止まる。離れるときに下ろす

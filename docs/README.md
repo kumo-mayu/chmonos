@@ -41,7 +41,8 @@
 | [background-and-network.md](spec/background-and-network.md) | BOOTH への通信の決め事、優先度、起動時の裏の作業、失敗の書き残し（`logs/app.log`） |
 | [id-resolution.md](spec/id-resolution.md) | 商品IDの手掛かり、ファイル名からの自動検索、未確定の画面、「この商品から外す」 |
 | [private-items.md](spec/private-items.md) | BOOTH に無い商品（仮ID `local-`）、人が入れる名前・カテゴリ・ショップ、「IDを変更」 |
-| [search.md](spec/search.md) | 絞り込み、文字列の構文、表記をまたぐ辞書、結果のカード |
+| [search.md](spec/search.md) | 文字列の構文、表記をまたぐ辞書、結果のカード（絞り込みは下） |
+| [search-filters.md](spec/search-filters.md) | 検索の絞り込み：条件の種類と意味・同じ種類を複数・「除く」・見出しのメニュー・編集状況・照らし方と選択肢の件数・入口と履歴 |
 | [item-page.md](spec/item-page.md) | 商品ページ、画像（自分で足す・サムネイルの指名）、手元のファイル、購入記録、編集画面 |
 | [avatars.md](spec/avatars.md) | 対応アバターの検出、登録簿、共通素体、相性の3段階、所有アバター |
 | [modifications.md](spec/modifications.md) | 改変の記録（構成物・画像・Unity プロジェクト）、改変の画面、「Unityで選択」 |
@@ -78,6 +79,7 @@
 | [ui-wording-2026-09-24.md](history/ui-wording-2026-09-24.md) | 画面の文言の AI らしさの点検（型と件数・元になった決め事・手本）と、書き方の決まり・用語表・点検の道具を作り直した理由 |
 | [app-tests-2026-09-30.md](history/app-tests-2026-09-30.md) | 画面の側の試験の一式を作った経緯（なぜ・どう組んだか・途中で踏んだ物・書いていて見つけた食い違い） |
 | [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
+| [search-modules-2026-10-01.md](history/search-modules-2026-10-01.md) | 検索の条件を同じ種類で複数・「除く」・編集状況にした記録（ユーザ判断・実装で決めた所・照らす重さの前後） |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
 | [zip-inspector-readme.md](history/zip-inspector-readme.md) | その試作（BoothZipInspector・BoothIdResolver）の使い方。元は直下の README（2026-09-18 に移した） |
 | [author-memos/](history/author-memos/) | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`。2026-09-07〜08）。grill-1・grill-2 はこれを前提に決め事を確定させた。2026-09-24 に直下から移した（中身は変えていない） |
@@ -94,7 +96,7 @@
 | [large-files-2026-09-30.md](research/large-files-2026-09-30.md) | 大容量のファイル（大きな zip・中身の多い zip・重い unitypackage・大量のファイル）での固まりとメモリ |
 | [item-page-open-2026-09-30.md](research/item-page-open-2026-09-30.md) | 商品ページを開く速さ（説明の長さと UI Automation の相手で変わる内訳・履歴と足跡の書き込みを画面のスレッドの外へ・説明を後で作る試作と View を持ち回す試作の数字） |
 | [startup-dotnet10-2026-10-01.md](research/startup-dotnet10-2026-10-01.md) | .NET 10 で起動が遅くなった所（JIT が 1 関数あたり約 1.4 倍）と、縮める手（事前翻訳・PGO・段階の翻訳）の効き目 |
-| [search-modules-2026-10-01.md](research/search-modules-2026-10-01.md) | 検索の条件の案（未実装）：同じ種類を複数・「除く」・未編集を項目ごとに・同じ種類を隣に並べる。条件ごとの照らす重さ・照らす順・選択肢の件数の計測 |
+| [search-modules-2026-10-01.md](research/search-modules-2026-10-01.md) | 検索の条件の案（2026-10-01 に実装。変えた所は §12）：同じ種類を複数・「除く」・未編集を項目ごとに・同じ種類を隣に並べる。条件ごとの照らす重さ・照らす順・選択肢の件数の計測 |
 | [antivirus.md](research/antivirus.md) | セキュリティソフトに怪しまれない作り |
 | [youtube-terms.md](research/youtube-terms.md) | YouTube の絵とタイトルを手元に置いてよいか（絵は置かない・題は30日） |
 | [booth-terms.md](research/booth-terms.md) | BOOTH・pixiv の規約とアプリの通信・名前（通信は許される範囲・名前は公開前に見直す） |
