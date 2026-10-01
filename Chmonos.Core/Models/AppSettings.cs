@@ -23,10 +23,17 @@ public sealed record AppSettings
     public bool PlaceNewConditionNearSameKind { get; init; }
 
     /// <summary>
-    /// 検索をカテゴリ・ショップ・公開日で並べたとき、まとまりの境目に区切りの札を入れるか（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。
+    /// 検索をカテゴリ・ショップ・公開日・入手日で並べたとき、まとまりの境目に区切りの札を入れるか（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。
     /// 既定は入れる。札は商品ではないので、件数・選ぶ・まとめて操作には入らない
     /// </summary>
     public bool ShowSortDividers { get; init; } = true;
+
+    /// <summary>
+    /// 入手日で並べたときも年月の札を入れるか（ユーザ判断 2026-10-01「これは設定から消せるようにします」）。
+    /// 入手日は既定の並べ替えなので、普段の一覧に札が並ぶのを好まない人がいる。既定は入れる。
+    /// <see cref="ShowSortDividers"/> が切れていれば、こちらの値によらず出さない（親に従う子の設定）
+    /// </summary>
+    public bool ShowAcquiredSortDividers { get; init; } = true;
 
     /// <summary>
     /// 商品カードの幅（DIP）。一覧の右下のスライダーで変え、カードを並べる画面すべてで共有する（ユーザ判断 2026-09-29）。

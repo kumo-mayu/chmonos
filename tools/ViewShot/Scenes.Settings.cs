@@ -19,6 +19,8 @@ internal static partial class Scenes
         SettingsExcluded("settings-excluded-few-open", "設定の「隠したもの」：除外したファイルが 3 件・欄を開いた形", count: 3, open: true),
         SettingsExcluded("settings-excluded-many-open", "設定の「隠したもの」：除外したファイルが 5,000 件・欄を開いた形（一覧の中だけが流れる）", count: 5000, open: true),
         SettingsLongPaths(),
+        SettingsSortDividers("settings-sort-dividers-on", "設定の「一覧と検索」：区切りの設定が入（入手日の子のチェックは押せる）", parent: true),
+        SettingsSortDividers("settings-sort-dividers-off", "設定の「一覧と検索」：区切りの設定が切（入手日の子のチェックは押せず薄い）", parent: false),
         SettingsStore("settings-store-blocked", "設定の保存先：ほかの長い作業（対応アバターの検出）の間は、場所を変える・書き出し・戻すが押せず、理由の1行が出る", main =>
             main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", new CancellationTokenSource())),
         SettingsStore("settings-backup-exported", "設定の保存先：設定の画面で書き出しが終わった（上の1行に結果・書き出しの横にエクスプローラで開く）", main =>
@@ -70,6 +72,23 @@ internal static partial class Scenes
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象フォルダ")) };
+        });
+
+    /// <summary>
+    /// 並べ替えの区切りの親と、入手日の子のチェック（ユーザ判断 2026-10-01）。子は親の文字の頭に揃えて下がり、親が切れていれば薄い
+    /// </summary>
+    private static Scene SettingsSortDividers(string name, string title, bool parent)
+        => new(name, title, async context =>
+        {
+            var main = await context.StartAsync(settings => settings with { ShowSortDividers = parent });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "一覧と検索")) };
         });
 
     private static Scene SettingsExcluded(string name, string title, int count, bool open)

@@ -103,4 +103,26 @@ public sealed class ItemGroupsTests
         Assert.Equal(("month:2026-09", "2026年9月", (string?)null), ItemGroups.MonthOf(2026, 9, "公開日なし"));
         Assert.Equal(("month-none", "公開日なし", (string?)null), ItemGroups.MonthOf(null, null, "公開日なし"));
     }
+
+    [Theory]
+    [InlineData(true, "2026年9月 2|2026年8月 1|2025年9月 1|入手日なし 2")]
+    [InlineData(false, "2025年9月 1|2026年8月 1|2026年9月 2|入手日なし 2")]
+    public void 入手日順は並べ替えと同じ入手日で年月に切り_入手日の無い商品は向きによらず最後の1つ(bool descending, string expected)
+    {
+        static ItemRecord On(string id, int? year, int month = 1, int day = 1)
+        {
+            var item = Item(id);
+            return item with { Local = item.Local with { AcquiredAt = year is { } y ? new DateOnly(y, month, day) : null } };
+        }
+
+        ItemRecord[] items =
+        [
+            On("a", 2026, 9, 3), On("b", null), On("c", 2026, 8, 31), On("d", 2025, 9, 15), On("e", 2026, 9, 1), On("f", null),
+        ];
+
+        var groups = ItemGroups.Split(ItemOrder.ByAcquired(items, descending).ToList(), ItemGroups.AcquiredOf);
+
+        Assert.Equal(expected, string.Join("|", groups.Select(group => $"{group.Label} {group.Count}")));
+        Assert.Equal(ItemGroups.NoAcquired, groups[^1].Label);
+    }
 }

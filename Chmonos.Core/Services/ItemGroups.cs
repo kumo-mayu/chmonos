@@ -25,6 +25,12 @@ public static class ItemGroups
     /// <summary>カテゴリの無い商品の札の名前。</summary>
     public const string NoCategory = "カテゴリなし";
 
+    /// <summary>入手日の無い商品の札の名前。</summary>
+    public const string NoAcquired = "入手日なし";
+
+    /// <summary>公開日の取れていない商品の札の名前。</summary>
+    public const string NoPublished = "公開日なし";
+
     /// <summary>隣どうしで鍵が変わった所で切る。</summary>
     public static IReadOnlyList<ItemGroup> Split<T>(IReadOnlyList<T> ordered, Func<T, (string Key, string Label, string? Parent)> groupOf)
     {
@@ -90,4 +96,15 @@ public static class ItemGroups
         => year is { } y && month is { } m
             ? ($"month:{y:D4}-{m:D2}", $"{y}年{m}月", null)
             : ("month-none", none, null);
+
+    /// <summary>
+    /// 入手日の年と月。並べ替え（<see cref="ItemOrder.ByAcquired"/>）と同じ <see cref="LocalBlock.AcquiredAt"/> を見る。
+    /// 別の値（購入の記録の日など）で切ると、並びの上では続いているのに札が2枚出る
+    /// </summary>
+    public static (string Key, string Label, string? Parent) AcquiredOf(ItemRecord item)
+        => MonthOf(item.Local.AcquiredAt?.Year, item.Local.AcquiredAt?.Month, NoAcquired);
+
+    /// <summary>BOOTH の公開日の年と月。並べ替え（<see cref="ItemOrder.ByPublished"/>）と同じ値を見る。</summary>
+    public static (string Key, string Label, string? Parent) PublishedOf(ItemRecord item)
+        => MonthOf(item.Booth.PublishedAt?.Year, item.Booth.PublishedAt?.Month, NoPublished);
 }
