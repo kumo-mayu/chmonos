@@ -123,7 +123,16 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 書き出し・戻す・移動は主画面が持つ（画面を移って戻っても、進み具合と押せない状態を失わない。公開前の点検 2026-10-01）。
         // 走っていればその1行を、離れている間に終わっていればその知らせを、この画面の1行に出す
         _main.StoreJobEnded += OnStoreJobEnded;
-        _status = _main.StoreJob != StoreJobKind.None ? _main.StoreJobText : _main.TakeStoreJobNotice();
+        if (_main.StoreJob != StoreJobKind.None)
+        {
+            _status = _main.StoreJobText;
+        }
+        else
+        {
+            var notice = _main.TakeStoreJobNotice();
+            _status = notice.Text;
+            _exportedZip = notice.ExportedZip;
+        }
 
         // 取り込み元の数は、読み込み・追加・外す・外したのを戻すのどれでも変わる。1か所で見出しの数を合わせる
         Folders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FoldersCountText));
@@ -132,8 +141,12 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         OpenRootCommand = new RelayCommand(OpenRoot);
         ChangeRootCommand = new RelayCommand(() => ChangeRootAsync().Forget(), () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
-        // 門は1つなので、移動とも重ねない（重ねた方は門の前で待つだけで、押した顔をして進まない）
-        ExportBackupCommand = new RelayCommand(() => ExportBackupAsync().Forget(), () => _main.StoreJob == StoreJobKind.None);
+        // 門は1つなので、移動とも重ねない（重ねた方は門の前で待つだけで、押した顔をして進まない）。
+        // ほかの長い作業（対応アバターの検出・候補の検索）とも重ねない。帯は1本しか持てない（ユーザ判断 2026-10-01）
+        ExportBackupCommand = new RelayCommand(
+            () => ExportBackupAsync().Forget(),
+            () => _main.StoreJob == StoreJobKind.None && !_main.IsLongJobRunning);
+        RevealExportedZipCommand = new RelayCommand(() => _main.RevealExportedZip(_exportedZip), () => HasExportedZip);
         RestoreBackupCommand = new RelayCommand(() => RestoreBackupAsync().Forget(), () => _main.StoreJob == StoreJobKind.None && CanChangeRoot);
         ClearSearchHistoryCommand = new RelayCommand(ClearSearchHistory);
 
@@ -193,9 +206,18 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Status = _main.StoreJobText;
         }
+        else if (args.PropertyName == nameof(MainViewModel.LongJobBlockedNote))
+        {
+            OnPropertyChanged(nameof(CanChangeRoot));
+            OnPropertyChanged(nameof(RootLockedNote));
+        }
     }
 
-    private void OnStoreJobEnded(string result) => Status = result;
+    private void OnStoreJobEnded(StoreJobOutcome result)
+    {
+        Status = result.Text;
+        SetExportedZip(result.ExportedZip);
+    }
 
     /// <summary>離れたら主画面の知らせを外す（外さないと、開いた回数ぶん生き残って同じ知らせが走る）。</summary>
     public void OnLeaving()
@@ -353,11 +375,37 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             if (SetField(ref _status, value))
             {
                 OnPropertyChanged(nameof(HasStatus));
+
+                // 1行が別の知らせに替わったら「エクスプローラで開く」も引っ込める（今の文と関係の無い口を残さない）
+                SetExportedZip(null);
             }
         }
     }
 
     public bool HasStatus => Status.Length > 0;
+
+    private string? _exportedZip;
+
+    /// <summary>
+    /// 1行の知らせの横に「エクスプローラで開く」を出すか（書き出しに成功した知らせを出している間だけ）。
+    /// 設定の画面にいない間に終わったときの帯と同じ口を持たせる：どこで知らせを見ても、次にすることへ同じ1押しで行ける
+    /// </summary>
+    public bool HasExportedZip => _exportedZip is not null;
+
+    /// <summary>書き出した zip を選んだ状態でエクスプローラを開く（帯の「エクスプローラで開く」と同じ）。</summary>
+    public RelayCommand RevealExportedZipCommand { get; }
+
+    private void SetExportedZip(string? zip)
+    {
+        if (_exportedZip == zip)
+        {
+            return;
+        }
+
+        _exportedZip = zip;
+        OnPropertyChanged(nameof(HasExportedZip));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
     // ---- 表示 ----
 
@@ -1190,7 +1238,9 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             && !_main.IsImporting
             // 書き出し・戻しと重ねない（E8）。どちらも保存先の場所を書くので、後に押した方が勝って案内と食い違っていた
             && !IsBackingUp
-            && !IsMovingStore;
+            && !IsMovingStore
+            // ほかの長い作業とも重ねない（帯は1本。移動は帯を使う。ユーザ判断 2026-10-01）。「戻す」もこれを見る
+            && !_main.IsLongJobRunning;
 
     /// <summary>
     /// 押せない理由。**押せる顔をして効かないより、押せなくして理由を出す。**
@@ -1200,6 +1250,14 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get
         {
+            // ほかの長い作業（検出・候補の検索）で、場所を変える・書き出し・戻すがまとめて押せない間。
+            // 3つのボタンごとに吹き出しを付けるより、この1行で言う方が読まれる（ui-empty-and-errors「まとまりごと押せなくなるとき」）。
+            // 走り終われば消える一時の理由なので、ずっと続く理由（環境変数）より先に出す（環境変数のときも書き出しは普段押せる）
+            if (_main.IsLongJobRunning && _main.StoreJob == StoreJobKind.None)
+            {
+                return _main.LongJobBlockedNote;
+            }
+
             if (Core.Storage.StoreLocation.Resolve().Source == Core.Storage.StoreRootSource.Environment)
             {
                 return $"環境変数{Core.Storage.AppPaths.RootVariable}で保存先が指定されているため、ここからは変えられません。";
@@ -1228,13 +1286,24 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)
     {
-        _main.BeginStoreJob(StoreJobKind.Move, replace ? "置き換えています…" : "引っ越しています…");
-
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C3）。
         // 運んでいる間は書き込みの門を持つので、止める手立てが無いと全部の保存が無期限に待たされる。
         // 途中で止めても元には手を付けていないので、保存先を古いままにすれば何も失われない
         using var stop = new CancellationTokenSource();
-        _main.BeginLongJob("移動が終わるまで、保存は待たされます。見ることはできます。", stop);
+        var job = _main.BeginLongJob("保存先を移動しています", "移動が終わるまで、保存は待たされます。見ることはできます。", stop);
+        if (job is null)
+        {
+            // 押せなくしてあるが、場所を選ぶ窓を出している間に別の作業が始まり得る。何も運んでいない
+            return new Core.Storage.StoreMoveResult
+            {
+                Succeeded = false,
+                Copied = 0,
+                Bytes = 0,
+                Error = _main.LongJobBlockedNote,
+            };
+        }
+
+        _main.BeginStoreJob(StoreJobKind.Move, replace ? "置き換えています…" : "引っ越しています…");
 
         try
         {
@@ -1262,7 +1331,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
         finally
         {
-            _main.EndLongJob();
+            job.Dispose();
 
             // 結果は呼び手が窓で返す（失敗の窓・開き直しの窓）ので、1行の知らせは出さない
             _main.EndStoreJob(string.Empty);
@@ -1492,11 +1561,18 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        _main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+        // 保存先の窓と画像を含めるかの窓を出している間に、別の長い作業が始まり得る（帯は1本。始めない）
         using var stop = new CancellationTokenSource();
-        _main.BeginLongJob("書き出しが終わるまで、保存は待たされます。見ることはできます。", stop);
+        var job = _main.BeginLongJob("バックアップを書き出しています", "書き出しが終わるまで、保存は待たされます。見ることはできます。", stop);
+        if (job is null)
+        {
+            Status = _main.LongJobBlockedNote;
+            return;
+        }
 
-        var outcome = string.Empty;
+        _main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+
+        var outcome = StoreJobOutcome.None;
         try
         {
             // 何件中何件目かを出す（E8）。前は「書き出しています…」だけで、進んでいるのか止まっているのか読めなかった
@@ -1511,22 +1587,24 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 new Core.Commands.UiCommand.ExportBackup(_services.Paths.Root, zipPath, withImages, progress),
                 cancellationToken: stop.Token);
 
+            // 成功したときだけ zip の場所を持たせる（知らせに「エクスプローラで開く」が出る）。失敗・中止では zip が無い
             outcome = result switch
             {
-                Core.Commands.CommandResult.BackupExported { Result: var exported } =>
+                Core.Commands.CommandResult.BackupExported { Result: var exported } => new StoreJobOutcome(
                     $"バックアップに {exported.Files:N0} ファイル（{Core.Models.DisplayText.Size(exported.Bytes)}）を書き出しました。"
                     + (exported.SkippedLocked > 0 ? $" 開けなかった {exported.SkippedLocked} ファイルは入れていません。" : string.Empty),
-                Core.Commands.CommandResult.Failed failed => failed.Message,
-                _ => string.Empty,
+                    zipPath),
+                Core.Commands.CommandResult.Failed failed => new StoreJobOutcome(failed.Message),
+                _ => StoreJobOutcome.None,
             };
         }
         catch (OperationCanceledException)
         {
-            outcome = "バックアップの書き出しを中止しました。zipは作っていません。";
+            outcome = new StoreJobOutcome("バックアップの書き出しを中止しました。zipは作っていません。");
         }
         finally
         {
-            _main.EndLongJob();
+            job.Dispose();
             _main.EndStoreJob(outcome);
         }
     }
@@ -1584,16 +1662,41 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        await RestoreBackupToAsync(open.FileName, destination);
+    }
+
+    /// <summary>
+    /// 選んだ zip を選んだ空の場所へ戻す（窓で聞き終えた後の本体）。試験は失敗する道だけをここから呼ぶ
+    /// （戻せると保存先の場所を書き換えて開き直すので、試験からは成功させない）。
+    ///
+    /// **戻す間も保存は止まる**（書き込みの門を持ち、戻し終えたら開き直すまで放さない）。前は帯が無く、
+    /// 設定の画面の1行にしか進み具合が出なかった（ユーザ判断 2026-10-01）。書き出しと同じ帯を出すが「中止」は付けない：
+    /// 途中で止めると戻す先が半端に展開されたまま残り、それを片付ける決まりがまだ無い
+    /// </summary>
+    internal async Task RestoreBackupToAsync(string zipPath, string destination)
+    {
+        var job = _main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop: null);
+        if (job is null)
+        {
+            // 押せなくしてあるが、zip と場所を選ぶ窓を出している間に別の作業が始まり得る
+            Status = _main.LongJobBlockedNote;
+            return;
+        }
+
         // 状態は主画面に持たせる（画面を移って戻っても、進み具合と押せない状態を失わない。公開前の点検 2026-10-01）
         _main.BeginStoreJob(StoreJobKind.Restore, "バックアップから戻しています…");
         var outcome = string.Empty;
         try
         {
-            var progress = new Progress<Core.Storage.BackupProgress>(
-                report => _main.ReportStoreJob($"バックアップから戻しています… {report.Done:N0}/{report.Total:N0}"));
+            var progress = new Progress<Core.Storage.BackupProgress>(report =>
+            {
+                var text = $"バックアップから戻しています… {report.Done:N0}/{report.Total:N0}";
+                _main.ReportStoreJob(text);
+                _main.ReportLongJob(text);
+            });
 
             var result = await _services.Commands.ExecuteAsync(
-                new Core.Commands.UiCommand.RestoreBackup(open.FileName, destination, progress));
+                new Core.Commands.UiCommand.RestoreBackup(zipPath, destination, progress));
 
             if (result is Core.Commands.CommandResult.Failed failed)
             {
@@ -1603,6 +1706,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
             var files = (result as Core.Commands.CommandResult.BackupRestored)?.Files ?? 0;
             StoreLocation.Save(destination);
+            job.Dispose();
             _main.EndStoreJob(string.Empty);
             RestartIntoNewRoot(
                 $"バックアップの {files:N0} ファイルを「{destination}」に戻しました。\n\n"
@@ -1612,6 +1716,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
         finally
         {
+            job.Dispose();
+
             // 戻せたときは上で閉じてある（開き直しの窓が返事）。失敗・例外のときだけここで閉じる
             if (_main.StoreJob == StoreJobKind.Restore)
             {

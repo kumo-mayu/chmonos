@@ -298,7 +298,7 @@
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <Button Content="{Binding DetectButtonText}" Style="{StaticResource PrimaryButton}"
                             Command="{Binding DetectCommand}"
-                            ToolTip="説明文などから読み取ります。カテゴリ不明の商品はBOOTHに問い合わせます。" />
+                            ToolTip="{Binding DetectHint}" ToolTipService.ShowOnDisabled="True" />
                 </StackPanel>
             </Grid>
         </Border>

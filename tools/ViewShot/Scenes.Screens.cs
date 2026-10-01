@@ -186,16 +186,34 @@ internal static partial class Scenes
         StoreJobBand("band-backup-running", "下の帯：バックアップの書き出し中（長い作業の帯と中止）", main =>
         {
             main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
-            main.BeginLongJob("書き出しが終わるまで、保存は待たされます。見ることはできます。", new CancellationTokenSource());
+            main.BeginLongJob("バックアップを書き出しています", "書き出しが終わるまで、保存は待たされます。見ることはできます。", new CancellationTokenSource());
             main.ReportLongJob("バックアップを書き出しています… 1,234/5,678");
             return main.LongJobText;
         }),
 
-        StoreJobBand("band-backup-done", "下の帯：設定の画面を離れている間に書き出しが終わった知らせ", main =>
+        // 書き出せたときだけ「エクスプローラで開く」が出る（ユーザ判断 2026-10-01）
+        StoreJobBand("band-backup-done", "下の帯：設定の画面を離れている間に書き出しが終わった知らせ（エクスプローラで開く・設定を開く・×）", main =>
         {
             main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
-            main.EndStoreJob("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。");
+            main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
             return main.StoreJobNoticeText;
+        }),
+
+        StoreJobBand("band-backup-failed", "下の帯：設定の画面を離れている間に書き出しが失敗した知らせ（エクスプローラで開くは出ない）", main =>
+        {
+            main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+            main.EndStoreJob(
+                $"バックアップを書き出せませんでした。{Chmonos.Core.Services.FailureText.Cause(new UnauthorizedAccessException())}");
+            return main.StoreJobNoticeText;
+        }),
+
+        // 戻すは止めると戻す先が半端に残るので「中止」を出さない（ユーザ判断 2026-10-01）
+        StoreJobBand("band-restore-running", "下の帯：バックアップから戻している間（中止は出ない）", main =>
+        {
+            main.BeginStoreJob(StoreJobKind.Restore, "バックアップから戻しています…");
+            main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop: null);
+            main.ReportLongJob("バックアップから戻しています… 1,234/5,678");
+            return main.LongJobText;
         }),
     ];
 

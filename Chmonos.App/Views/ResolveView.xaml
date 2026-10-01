@@ -498,7 +498,7 @@
                                 <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
                                 <Button Content="自動検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
                                         AutomationProperties.AutomationId="ResolvePropose"
-                                        ToolTip="このファイル名でBOOTHを検索し、下の「候補」に表示します。"
+                                        ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
                                         Command="{Binding ProposeCommand}" />
                             </Grid>
 

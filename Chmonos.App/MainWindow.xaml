@@ -535,10 +535,11 @@
             </Border>
 
             <!--
-                分単位で掛かる作業（対応アバターの検出・未確定の候補を検索）の帯。
+                分単位で掛かる作業（対応アバターの検出・未確定の候補を検索・保存先の移動・バックアップの書き出しと戻す）の帯。
                 **どの画面でも進み具合と「中止」を出す**（ユーザ判断 2026-09-21・C1/C2）。
                 始めた画面にしか止める手立てが無いと、画面を移った時点で止められなくなる。
-                この間できなくなることも1行で言う（黙って押せなくしない）
+                この間できなくなることも1行で言う（黙って押せなくしない）。帯は1本で、走っている間はほかの長い作業を始められない（2026-10-01）。
+                バックアップから戻すは途中で止めると戻す先が半端に残るので「中止」を出さない
             -->
             <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
                     BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
@@ -547,6 +548,7 @@
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopLongJobCommand}"
+                            Visibility="{Binding CanStopLongJob, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             AutomationProperties.AutomationId="LongJobStop"
                             AutomationProperties.Name="作業を中止"
                             ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
@@ -718,7 +720,9 @@
 
             <!--
                 バックアップの書き出し・戻すが、設定の画面を離れている間に終わった知らせ（公開前の点検 2026-10-01）。
-                前は捨てた設定の画面に書かれ、どこにも出なかった。取り込みの帯と同じ形で、結果と設定の画面への入口を出す。押すか閉じるまで残す
+                前は捨てた設定の画面に書かれ、どこにも出なかった。取り込みの帯と同じ形で、結果と設定の画面への入口を出す。押すか閉じるまで残す。
+                書き出せたときだけ「エクスプローラで開く」も出す（書き出した後にすることは、たいてい zip を別の場所へ移すこと。ユーザ判断 2026-10-01）。
+                zip の中ではなく、zip を選んだ状態で開く
             -->
             <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
@@ -730,6 +734,11 @@
                             ToolTip="この知らせを閉じます。" />
                     <Button DockPanel.Dock="Right" Content="設定を開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                             Command="{Binding ShowSettingsCommand}" AutomationProperties.AutomationId="StoreJobNoticeOpen" />
+                    <Button DockPanel.Dock="Right" Content="エクスプローラで開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Margin="0,0,6,0"
+                            Command="{Binding RevealStoreJobZipCommand}" AutomationProperties.AutomationId="StoreJobNoticeReveal"
+                            Visibility="{Binding HasStoreJobNoticeZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="書き出したzipを選んだ状態で、エクスプローラを開きます。" />
                     <TextBlock Text="{Binding StoreJobNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                AutomationProperties.AutomationId="StoreJobNoticeText"
                                TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding StoreJobNoticeText}" />

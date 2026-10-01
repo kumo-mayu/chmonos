@@ -19,7 +19,34 @@ internal static partial class Scenes
         SettingsExcluded("settings-excluded-few-open", "設定の「隠したもの」：除外したファイルが 3 件・欄を開いた形", count: 3, open: true),
         SettingsExcluded("settings-excluded-many-open", "設定の「隠したもの」：除外したファイルが 5,000 件・欄を開いた形（一覧の中だけが流れる）", count: 5000, open: true),
         SettingsLongPaths(),
+        SettingsStore("settings-store-blocked", "設定の保存先：ほかの長い作業（対応アバターの検出）の間は、場所を変える・書き出し・戻すが押せず、理由の1行が出る", main =>
+            main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", new CancellationTokenSource())),
+        SettingsStore("settings-backup-exported", "設定の保存先：設定の画面で書き出しが終わった（上の1行に結果・書き出しの横にエクスプローラで開く）", main =>
+        {
+            main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+            main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
+        }),
     ];
+
+    /// <summary>設定の画面を開いてから、主画面に状態を入れ、上の1行と「データの保存先」の欄を描く。</summary>
+    private static Scene SettingsStore(string name, string title, Action<MainViewModel> arrange)
+        => new(name, title, async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+
+            arrange(main);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<SettingsView>(root), FocusMargin = 0 };
+        })
+        {
+            Height = SettingsHeight,
+        };
 
     /// <summary>
     /// 取り込み元と監視対象に、1行に収まらない長いパスと短いパスを並べる（公開前の点検 2026-10-01）。
