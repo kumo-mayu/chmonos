@@ -80,9 +80,25 @@ public static class BackupArchive
         // 先に数える（E8）。件数が分からないと進み具合を出せない。列挙をもう一度回すだけで、中身は読まない
         var targets = Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories).ToList();
 
-        using (var stream = File.Create(temporary))
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false, Encoding.UTF8))
+        try
         {
+            WriteArchive();
+        }
+        catch
+        {
+            // 中止・失敗のときは書きかけを残さない（公開前の点検 2026-10-01）。
+            // 残すと、書き出し先のフォルダに開けない .tmp が残り、何が書けたのかが分からなくなる
+            TryDelete(temporary);
+            throw;
+        }
+
+        File.Move(temporary, zipFull, overwrite: true);
+        return new BackupResult(files, bytes, skipped);
+
+        void WriteArchive()
+        {
+            using var stream = File.Create(temporary);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false, Encoding.UTF8);
             var seen = 0;
             foreach (var path in targets)
             {
@@ -122,9 +138,18 @@ public static class BackupArchive
             using var infoStream = archive.CreateEntry(InfoFileName).Open();
             JsonSerializer.Serialize(infoStream, info, JsonStore.Options);
         }
+    }
 
-        File.Move(temporary, zipFull, overwrite: true);
-        return new BackupResult(files, bytes, skipped);
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 消せなくても、元の失敗の方を伝える（名前が .tmp なので、戻すときにバックアップと取り違えない）
+        }
     }
 
     /// <summary>このアプリのバックアップに見えるか。商品か設定のどちらかが入っていれば、そう見る。</summary>

@@ -50,6 +50,33 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.Equal(3, result.Files);
     }
 
+    /// <summary>
+    /// 途中で中止したら、書きかけの zip も .tmp も残さず、保存先にも手を付けない（公開前の点検 2026-10-01）。
+    /// 1ファイル書いた所で止める（進み具合の知らせはその場で呼ばれる。Progress&lt;T&gt; と違って画面へ回さない）
+    /// </summary>
+    [Fact]
+    public void 途中で中止すると_書きかけを残さず_保存先も変えない()
+    {
+        var zip = Path.Combine(_dir, "out", "stopped.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(zip)!);
+        var before = Directory.EnumerateFiles(Store, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => path, File.ReadAllText);
+        using var stop = new CancellationTokenSource();
+
+        Assert.ThrowsAny<OperationCanceledException>(() => BackupArchive.Export(
+            Store, zip, includeImages: true, new StopAfterFirst(stop), stop.Token));
+
+        Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(zip)!));
+        var after = Directory.EnumerateFiles(Store, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => path, File.ReadAllText);
+        Assert.Equal(before, after);
+    }
+
+    private sealed class StopAfterFirst(CancellationTokenSource stop) : IProgress<BackupProgress>
+    {
+        public void Report(BackupProgress value) => stop.Cancel();
+    }
+
     [Fact]
     public void 画像は選んだときだけ入れる()
     {
