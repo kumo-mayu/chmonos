@@ -167,6 +167,16 @@ public sealed partial class ResolveViewModel
             return;
         }
 
+        // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C2）。
+        // BOOTH内検索＋候補3件のJSON＋（当たらなければ）別語での引き直しで分単位かかるのに、
+        // 押した後まったく止められなかった（配管は通っていて、入口だけ抜けていた）
+        using var stop = new CancellationTokenSource();
+        var job = _main.BeginLongJob("候補を検索しています", "この間、BOOTHへの他の問い合わせは順番待ちになります", stop);
+        if (job is null)
+        {
+            return;
+        }
+
         CandidatesFocusRequested?.Invoke();
 
         // 検索は分単位かかり、その間も左の一覧は選び直せる。結果は始めた対象の分として覚え、
@@ -190,12 +200,6 @@ public sealed partial class ResolveViewModel
             SearchTotal = report.Total;
             _main.ReportLongJob($"候補を検索中　{report.Phase}　{report.Current} / {report.Total}");
         }));
-
-        // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C2）。
-        // BOOTH内検索＋候補3件のJSON＋（当たらなければ）別語での引き直しで分単位かかるのに、
-        // 押した後まったく止められなかった（配管は通っていて、入口だけ抜けていた）
-        using var stop = new CancellationTokenSource();
-        _main.BeginLongJob("この間、BOOTHへの他の問い合わせは順番待ちになります", stop);
 
         try
         {
@@ -227,7 +231,7 @@ public sealed partial class ResolveViewModel
         }
         finally
         {
-            _main.EndLongJob();
+            job.Dispose();
             IsBusy = false;
             IsSearching = false;
             SearchPhase = string.Empty;

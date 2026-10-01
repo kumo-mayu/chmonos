@@ -32,7 +32,23 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     {
         _leaving.Cancel();
         ReflectSettledInSearch();
+
+        // 主画面はアプリと同じ寿命、この画面は開くたびに作り直す。外さないと捨てた画面が知らせを受け続ける
+        _main.PropertyChanged -= OnMainChanged;
     }
+
+    private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(MainViewModel.LongJobBlockedNote))
+        {
+            OnPropertyChanged(nameof(ProposeHint));
+        }
+    }
+
+    /// <summary>「自動検索」の吹き出し。長い作業が走っていて押せない間は、その理由に差し替える（黙って押せなくしない）。</summary>
+    public string ProposeHint => _main.IsLongJobRunning
+        ? _main.LongJobBlockedNote
+        : "このファイル名でBOOTHを検索し、下の「候補」に表示します。";
 
     /// <summary>
     /// 登録の後で1件だけ読んで検索の写しに足せなかった商品（読み直しの途中に足した分が上書きされたなど）の保険。
@@ -99,7 +115,10 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 候補を出す・候補を確認する・ブラウザで開くは読み取りだけなので、
         // 確定を待っている間も次のファイルを調べられる
         // （確定処理は開始時に対象を控えるので、途中でプレビューが変わっても安全）
-        ProposeCommand = new RelayCommand(() => ProposeAsync().Forget(), () => HasSelection);
+        // ほかの長い作業（検出・書き出し・移動・別のファイルの検索）が走っている間は押せない。帯は1本しか持てず、
+        // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
+        ProposeCommand = new RelayCommand(() => ProposeAsync().Forget(), () => HasSelection && !_main.IsLongJobRunning);
+        _main.PropertyChanged += OnMainChanged;
         // 取得中は押せないようにする。他のボタンには入っていて、ここだけ抜けていた
         PreviewCommand = new RelayCommand(() => PreviewAsync(ItemIdInput).Forget(), () => CanPreview && !IsBusy);
         UseCandidateCommand = new RelayCommand(parameter => UseCandidateAsync(parameter).Forget(), parameter => parameter is CandidateRow);

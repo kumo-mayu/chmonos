@@ -246,7 +246,21 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// </summary>
     private readonly CancellationTokenSource _leaving = new();
 
-    public void OnLeaving() => _leaving.Cancel();
+    public void OnLeaving()
+    {
+        _leaving.Cancel();
+
+        // 主画面はアプリと同じ寿命、この画面は開くたびに作り直す。外さないと捨てた画面が知らせを受け続ける
+        _main.PropertyChanged -= OnMainChanged;
+    }
+
+    private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(MainViewModel.LongJobBlockedNote))
+        {
+            OnPropertyChanged(nameof(DetectHint));
+        }
+    }
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
@@ -306,7 +320,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         _main = main;
         _openWith = selectItemId;
 
-        DetectCommand = new RelayCommand(() => DetectAsync().Forget(), () => !IsDetecting);
+        // ほかの長い作業（書き出し・移動・候補の検索など）が走っている間は押せない。帯は1本しか持てないので、
+        // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
+        DetectCommand = new RelayCommand(() => DetectAsync().Forget(), () => !IsDetecting && !_main.IsLongJobRunning);
+        _main.PropertyChanged += OnMainChanged;
         ClearQueryCommand = new RelayCommand(() => Query = string.Empty);
         SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
 
@@ -557,11 +574,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             {
                 RelayCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged(nameof(DetectButtonText));
+                OnPropertyChanged(nameof(DetectHint));
             }
         }
     }
 
     public string DetectButtonText => IsDetecting ? "検出しています…" : "対応アバターを検出する";
+
+    /// <summary>
+    /// 検出のボタンの吹き出し。ほかの長い作業で押せない間は、その理由に差し替える（黙って押せなくしない）。
+    /// 自分が検出している間はボタンの文が「検出しています…」になるので、普段の説明のまま。
+    /// </summary>
+    public string DetectHint => !IsDetecting && _main.IsLongJobRunning
+        ? _main.LongJobBlockedNote
+        : "説明文などから読み取ります。カテゴリ不明の商品はBOOTHに問い合わせます。";
 
     public string Status
     {
@@ -1324,13 +1350,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     private async Task DetectAsync()
     {
-        IsDetecting = true;
-        Status = "手元の説明文とタグを読んでいます…";
-
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C1）。
         // 止める手立てが一切無く、友人データの初回で約37分ぶら下がっていた
         using var stop = new CancellationTokenSource();
-        _main.BeginLongJob("この間、アバターの編集と取り込みの検出は待たされます", stop);
+        var job = _main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", stop);
+        if (job is null)
+        {
+            return;
+        }
+
+        IsDetecting = true;
+        Status = "手元の説明文とタグを読んでいます…";
 
         try
         {
@@ -1407,7 +1437,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
         finally
         {
-            _main.EndLongJob();
+            job.Dispose();
             IsDetecting = false;
         }
     }

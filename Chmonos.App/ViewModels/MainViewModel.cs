@@ -218,9 +218,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private RelayCommand? _stopUnity;
 
-    // ---- 長い作業（対応アバターの検出・未確定の候補を検索）----
+    // ---- 長い作業（対応アバターの検出・未確定の候補を検索・保存先の移動・バックアップの書き出しと戻す）----
 
-    private CancellationTokenSource? _longJob;
+    private LongJobLease? _longJob;
     private string _longJobText = string.Empty;
     private string _longJobNote = string.Empty;
     private RelayCommand? _stopLongJob;
@@ -230,6 +230,10 @@ public sealed partial class MainViewModel : ViewModelBase
     ///
     /// **始めた画面にしか止める手立てが無いと、画面を移った時点で止められなくなる。**
     /// Unity へ送るときの帯と同じ形で、どの画面でも進み具合と「中止」を出す。
+    ///
+    /// **帯は1本しか持てない**（ユーザ判断 2026-10-01）。前は検出の最中に書き出しや候補の検索を始められ、
+    /// 後から始めた方が帯と「中止」の宛先を上書きし、先に終わった方が帯ごと消していた（走っている作業が見えず、止められなくなる）。
+    /// 走っている間はほかの長い作業を始める口をすべて押せなくし、理由に <see cref="LongJobBlockedNote"/> を出す
     /// </summary>
     public bool IsLongJobRunning => _longJob is not null;
 
@@ -247,30 +251,81 @@ public sealed partial class MainViewModel : ViewModelBase
         private set => SetField(ref _longJobNote, value);
     }
 
-    public RelayCommand StopLongJobCommand => _stopLongJob ??= new RelayCommand(
-        () => _longJob?.Cancel(),
-        () => IsLongJobRunning);
+    /// <summary>
+    /// 帯に「中止」を出すか。バックアップから戻すは止める口を持たない
+    /// （途中で止めると、戻す先が半端に展開されたまま残る。片付ける決まりがまだ無い）。
+    /// </summary>
+    public bool CanStopLongJob => _longJob?.Stop is not null;
 
-    /// <summary>長い作業を始める。止める口を預かり、帯を出す。</summary>
-    public void BeginLongJob(string note, CancellationTokenSource stop)
+    /// <summary>
+    /// ほかの長い作業を始める口が押せない理由（走っていなければ空）。どの画面の口も同じ文にする。
+    /// 止められる作業なら止める道を、止められない作業（戻す）なら終わった後に起きることを言う。
+    /// </summary>
+    public string LongJobBlockedNote => _longJob switch
     {
-        _longJob = stop;
+        null => string.Empty,
+        { Stop: null } job => $"{job.Doing}。終わったら開き直します。",
+        { } job => $"{job.Doing}。終わるか、下の帯で中止してからお試しください。",
+    };
+
+    public RelayCommand StopLongJobCommand => _stopLongJob ??= new RelayCommand(
+        () => _longJob?.Stop?.Cancel(),
+        () => CanStopLongJob);
+
+    /// <summary>
+    /// 長い作業を始める。止める口を預かり、帯を出す。**ほかの長い作業が走っていれば始めずに null を返す**
+    /// （押す口は押せなくしてあるが、押してから始めるまでに窓を挟む物があり、その間に別の作業が始まり得る）。
+    /// 返した物を Dispose すると帯を畳む。始めた本人の分だけを畳む（後から来た物が先の作業の帯を消さない）。
+    /// </summary>
+    /// <param name="doing">何をしているか（「対応アバターを検出しています」）。ほかの口の押せない理由に使う。</param>
+    /// <param name="note">この間できなくなること（帯に出す）。</param>
+    /// <param name="stop">止める口。null なら帯に「中止」を出さない。</param>
+    public IDisposable? BeginLongJob(string doing, string note, CancellationTokenSource? stop)
+    {
+        if (_longJob is not null)
+        {
+            return null;
+        }
+
+        _longJob = new LongJobLease(this, doing, stop);
         LongJobNote = note;
         LongJobText = string.Empty;
-        OnPropertyChanged(nameof(IsLongJobRunning));
-        RelayCommand.RaiseCanExecuteChanged();
+        RaiseLongJob();
+        return _longJob;
     }
 
     /// <summary>進み具合を帯へ流す（始めた画面の表示とは別に、どの画面でも見えるように）。</summary>
     public void ReportLongJob(string text) => LongJobText = text;
 
-    public void EndLongJob()
+    private void EndLongJob(LongJobLease job)
     {
+        if (!ReferenceEquals(_longJob, job))
+        {
+            return;
+        }
+
         _longJob = null;
         LongJobText = string.Empty;
         LongJobNote = string.Empty;
+        RaiseLongJob();
+    }
+
+    private void RaiseLongJob()
+    {
         OnPropertyChanged(nameof(IsLongJobRunning));
+        OnPropertyChanged(nameof(CanStopLongJob));
+        OnPropertyChanged(nameof(LongJobBlockedNote));
         RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>走っている長い作業1本。Dispose で帯を畳む（2回呼んでも、後から始めた別の作業の帯は消さない）。</summary>
+    private sealed class LongJobLease(MainViewModel owner, string doing, CancellationTokenSource? stop) : IDisposable
+    {
+        public string Doing { get; } = doing;
+
+        public CancellationTokenSource? Stop { get; } = stop;
+
+        public void Dispose() => owner.EndLongJob(this);
     }
 
     public SearchViewModel Search { get; }

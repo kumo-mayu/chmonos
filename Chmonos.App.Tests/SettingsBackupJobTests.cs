@@ -93,6 +93,69 @@ public class SettingsBackupJobTests
         Assert.False(main.HasStoreJobNotice);
     });
 
+    /// <summary>
+    /// 書き出せたら、帯にも設定の画面にも「エクスプローラで開く」を出す（ユーザ判断 2026-10-01）。開くのは zip の中ではなく、zip を選んだ状態。
+    /// 試験は本物のエクスプローラを開かず、渡された道を控える（<see cref="TestApp.Revealed"/>）
+    /// </summary>
+    [Fact]
+    public Task 書き出せたら_帯のエクスプローラで開くが書き出したzipを渡し_設定を開いた後もその1行の間だけ出る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var settings = OpenSettings(main);
+        var zip = ZipPath(app);
+
+        Task export;
+        using (await StoreWriteGate.HoldAsync())
+        {
+            export = settings.ExportBackupToAsync(zip, withImages: false);
+            main.ShowSearchCommand.Execute(null);
+            Assert.False(main.HasStoreJobNoticeZip);
+        }
+
+        await export;
+
+        Assert.True(main.HasStoreJobNoticeZip);
+        Assert.True(main.RevealStoreJobZipCommand.CanExecute(null));
+        main.RevealStoreJobZipCommand.Execute(null);
+        Assert.Equal([zip], app.Revealed);
+
+        // 開いた後も知らせは残す（結果は読める）。設定を開くと、その1行の横へ移る
+        Assert.True(main.HasStoreJobNotice);
+        var reopened = OpenSettings(main);
+        Assert.False(main.HasStoreJobNoticeZip);
+        Assert.True(reopened.HasExportedZip);
+        reopened.RevealExportedZipCommand.Execute(null);
+        Assert.Equal([zip, zip], app.Revealed);
+
+        // 1行が別の知らせに替わったら引っ込める（次の書き出しを始めた）
+        File.Delete(zip);
+        using (await StoreWriteGate.HoldAsync())
+        {
+            export = reopened.ExportBackupToAsync(zip, withImages: false);
+            Assert.False(reopened.HasExportedZip);
+            Assert.False(reopened.RevealExportedZipCommand.CanExecute(null));
+        }
+
+        await export;
+        Assert.True(reopened.HasExportedZip);
+    });
+
+    [Fact]
+    public Task 設定の画面にいる間に書き出せたら_その1行の横にエクスプローラで開くが出る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var settings = OpenSettings(main);
+        var zip = ZipPath(app);
+
+        await settings.ExportBackupToAsync(zip, withImages: false);
+
+        Assert.StartsWith("バックアップに ", settings.Status);
+        Assert.True(settings.HasExportedZip);
+        Assert.False(main.HasStoreJobNotice);
+        settings.RevealExportedZipCommand.Execute(null);
+        Assert.Equal([zip], app.Revealed);
+    });
+
     [Fact]
     public Task 帯の中止で止めると_zipを残さず_保存先の中身も変わらない() => TestApp.Run(async app =>
     {
@@ -118,6 +181,10 @@ public class SettingsBackupJobTests
         Assert.False(main.IsLongJobRunning);
         Assert.Equal(StoreJobKind.None, main.StoreJob);
         Assert.Equal("バックアップの書き出しを中止しました。zipは作っていません。", main.StoreJobNoticeText);
+
+        // zip が無いので「エクスプローラで開く」は出さない
+        Assert.False(main.HasStoreJobNoticeZip);
+        Assert.False(main.RevealStoreJobZipCommand.CanExecute(null));
         Assert.True(OpenSettings(main).ExportBackupCommand.CanExecute(null));
     });
 
