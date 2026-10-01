@@ -422,9 +422,33 @@ public abstract class SearchModule : ReorderableRow
     /// 打った字を数・日付に読み直す・条件の並びを作り直すなど、商品ごとにやり直していた準備をここで済ませる。
     /// 照らす中身は変えない（結果は同じ）。
     /// </summary>
-    public virtual void Prepare(SearchModuleContext context)
+    public void Prepare(SearchModuleContext context)
+    {
+        PrepareCore(context);
+        _prepared = true;
+    }
+
+    /// <summary>用意する物を持つ条件が上書きする。</summary>
+    protected virtual void PrepareCore(SearchModuleContext context)
     {
     }
+
+    /// <summary>
+    /// 用意した物を使う前に呼ぶ。絞り込みは毎回 <see cref="Prepare"/> を通すので、ここで用意するのは
+    /// それを通らずに照らしたとき（値を変えた直後に直に照らす試験など）だけ。
+    /// </summary>
+    protected void EnsurePrepared(SearchModuleContext context)
+    {
+        if (!_prepared)
+        {
+            Prepare(context);
+        }
+    }
+
+    /// <summary>値が変わったので、用意した物を捨てる（次に照らすときに用意し直す）。</summary>
+    protected void Unprepare() => _prepared = false;
+
+    private bool _prepared;
 
     /// <summary>効いている条件の1行（結果の上と、畳んだパネルと、検索の履歴に出す）。</summary>
     public string SummaryText
@@ -486,6 +510,7 @@ public abstract class SearchModule : ReorderableRow
     {
         _isEnabled = state.Enabled;
         _isCollapsed = state.Collapsed;
+        Unprepare();
 
         // 除くを持たない種類に書かれていても読まない（三項に除くは無い）
         _isExcluded = SupportsExclude && state.Exclude;
@@ -515,6 +540,7 @@ public abstract class SearchModule : ReorderableRow
     protected void NotifyChanged()
     {
         _changedSoon.Cancel();
+        Unprepare();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
         Changed?.Invoke();
@@ -528,6 +554,7 @@ public abstract class SearchModule : ReorderableRow
     {
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
+        Unprepare();
         _changedSoon.Request();
     }
 
@@ -710,6 +737,9 @@ public sealed class ListChip : ViewModelBase
 
     public string Key { get; }
 
+    /// <summary>照らすときの鍵（条件が畳んだ形を覚える。<see cref="ListModule"/> の matchKey）。</summary>
+    internal string? MatchKey { get; set; }
+
     public string Text
     {
         get => _text;
@@ -774,9 +804,11 @@ public sealed class ListModule : SearchModule
         bool flagDefault = false,
         Func<ItemRecord, SearchModuleContext, bool>? isUnspecified = null,
         string? includeLabel = null,
-        Func<ItemRecord, SearchModuleContext, bool>? includeMatches = null)
+        Func<ItemRecord, SearchModuleContext, bool>? includeMatches = null,
+        Func<string, string>? matchKey = null)
         : base(kind)
     {
+        _matchKey = matchKey;
         _includeLabel = includeLabel;
         _includeMatches = includeMatches;
         AllowsAnd = allowsAnd;
@@ -1010,11 +1042,19 @@ public sealed class ListModule : SearchModule
         return MatchesChips(item, context);
     }
 
+    /// <summary>
+    /// 照らすときに <c>matches</c> へ渡す鍵。畳む決まり（<c>matchKey</c>）があれば、チップごとに1回だけ畳んで覚える（案c）。
+    /// 鍵はチップを作ったときから変わらないので、覚えた物が古くなることはない。
+    /// </summary>
+    private string MatchKey(ListChip chip) => chip.MatchKey ??= _matchKey?.Invoke(chip.Key) ?? chip.Key;
+
+    private readonly Func<string, string>? _matchKey;
+
     private bool MatchesChips(ItemRecord item, SearchModuleContext context)
         => Chips.Count == 0
             || (_matchAll && AllowsAnd
-                ? Chips.All(chip => _matches(item, context, chip.Key, _flag))
-                : Chips.Any(chip => _matches(item, context, chip.Key, _flag)));
+                ? Chips.All(chip => _matches(item, context, MatchKey(chip), _flag))
+                : Chips.Any(chip => _matches(item, context, MatchKey(chip), _flag)));
 
     public override bool SupportsExclude => true;
 
@@ -1058,7 +1098,7 @@ public sealed class ListModule : SearchModule
         foreach (var chip in Chips)
         {
             chip.Count = items.Count(item => (_isUnspecified is null || !_isUnspecified(item, context))
-                && _matches(item, context, chip.Key, _flag));
+                && _matches(item, context, MatchKey(chip), _flag));
         }
 
         if (_includeMatches is not null)
@@ -1498,6 +1538,8 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     public void RefreshBounds()
     {
+        // 右端（空欄の上限が指す数）と外れ値の境が変わりうる
+        Unprepare();
         var all = (AllValuesOf?.Invoke(_source?.Key) ?? []).ToList();
 
         // 外れ値の境は、外す前の数の全部から決める（元を変えれば取り直す）
@@ -1574,9 +1616,26 @@ public sealed class RangeModule : SearchModule
             return true;
         }
 
-        var (min, max) = (Min, Max);
-        return KnownValues(item).Any(value => (min is null || value >= min) && (max is null || value <= max));
+        EnsurePrepared(context);
+        var (min, max) = (_preparedMin, _preparedMax);
+        foreach (var value in KnownValues(item))
+        {
+            if ((min is null || value >= min) && (max is null || value <= max))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    /// <summary>
+    /// 欄の字を数に読むのは絞り込みの1回で1回だけ（案c）。前は商品ごとに全角を畳んで読み直していた。
+    /// </summary>
+    protected override void PrepareCore(SearchModuleContext context) => (_preparedMin, _preparedMax) = (Min, Max);
+
+    private int? _preparedMin;
+    private int? _preparedMax;
 
     /// <summary>
     /// 数が分かっていて、**どの数も**範囲に入らない商品（ユーザ判断 2026-10-01）。
@@ -1767,6 +1826,8 @@ public sealed class DateModule : SearchModule
     /// </summary>
     public void RefreshBounds()
     {
+        // 空欄の境が指す日（手元の端）が変わりうる
+        Unprepare();
         var dates = (AllDatesOf?.Invoke() ?? []).ToList();
         _dataSince = dates.Count == 0 ? null : dates.Min();
         _dataTill = dates.Count == 0 ? null : dates.Max();
@@ -1852,7 +1913,8 @@ public sealed class DateModule : SearchModule
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
     {
-        if (!HasCondition)
+        EnsurePrepared(context);
+        if (_preparedSince is null && _preparedTill is null)
         {
             return true;
         }
@@ -1863,14 +1925,26 @@ public sealed class DateModule : SearchModule
             return false;
         }
 
-        return (Since is not { } since || date >= since) && (Till is not { } till || date <= till);
+        return (_preparedSince is not { } since || date >= since) && (_preparedTill is not { } till || date <= till);
     }
+
+    /// <summary>
+    /// 境の日付を読むのは絞り込みの1回で1回だけ（案c）。前は商品ごとに4回読み直していて（条件があるかを見る分と照らす分）、
+    /// 公開日の条件が照らす重さのいちばん上に来ていた（1件 900ns のうち読み直しが大半）。
+    /// </summary>
+    protected override void PrepareCore(SearchModuleContext context) => (_preparedSince, _preparedTill) = (Since, Till);
+
+    private DateOnly? _preparedSince;
+    private DateOnly? _preparedTill;
 
     public override bool SupportsExclude => true;
 
     /// <summary>日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。</summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
-        => !HasCondition || (_value(item) is not null && !Matches(item, context));
+    {
+        EnsurePrepared(context);
+        return (_preparedSince is null && _preparedTill is null) || (_value(item) is not null && !Matches(item, context));
+    }
 
     protected override string SummaryJoiner => " ";
 
@@ -2213,7 +2287,18 @@ public sealed class UserTagModule : SearchModule
     protected override bool HasCondition => Rows.Count > 0;
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
-        => UserTagCondition.MatchesAll(Conditions(), _matchAll, item.Local.UserTags);
+    {
+        EnsurePrepared(context);
+        return UserTagCondition.MatchesAll(_preparedConditions, _matchAll, item.Local.UserTags);
+    }
+
+    /// <summary>
+    /// 条件の並びを作るのは絞り込みの1回で1回だけ（案c）。前は商品ごとに枠の数だけ条件を作り直していた。
+    /// 小分類のチップを足し外しすると枠の Changed から <see cref="SearchModule.NotifyChanged"/> が来て捨てられる。
+    /// </summary>
+    protected override void PrepareCore(SearchModuleContext context) => _preparedConditions = Conditions();
+
+    private List<UserTagCondition> _preparedConditions = [];
 
     private List<UserTagCondition> Conditions() => Rows.Select(row => row.Condition).ToList();
 
@@ -2265,6 +2350,8 @@ public sealed class UserTagModule : SearchModule
             Suggestions.Add(top);
         }
 
+        // 枠の足し外しはどれもここを通る。用意した条件の並びを捨てる
+        Unprepare();
         OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(IsMasterEmpty));
         OnPropertyChanged(nameof(ShowsMatchMode));

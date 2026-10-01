@@ -74,12 +74,17 @@ public sealed partial class SearchViewModel
         _allowsHidden = Modules.Any(module => module.Kind == SearchModuleKind.Hidden && module.IsEnabled);
         _hiddenCount = _allowsHidden ? 0 : _allItems.Count(item => item.Local.IsHidden);
         _moduleContext = CreateModuleContext();
-        _activeModules = Modules.Where(module => module.IsActive).ToList();
 
-        return SortItems(_allItems.Where(item => Matches(item)))
+        // 結果と選択肢の件数の材料を、全商品を1回なめて同時に作る（案b）
+        _filterPass = SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), _moduleContext);
+
+        return SortItems(_filterPass.Matches)
             .Select(item => _cards[item.Id])
             .ToList();
     }
+
+    /// <summary>最後の絞り込みの1回。選択肢の件数はこれから数える。</summary>
+    private SearchFilterPass? _filterPass;
 
     /// <summary>広げて探したときに使った別表記。0件でなければ空。</summary>
     private Core.Services.SearchNode? _widenedNode;
@@ -242,39 +247,20 @@ public sealed partial class SearchViewModel
     private bool PassesBase(ItemRecord item)
         => (_allowsHidden || !item.Local.IsHidden) && (_services.Settings.ShowAdult || !item.Booth.IsAdult);
 
-    /// <param name="except">この条件だけ当てない。選択肢の件数を数えるときに指定する。</param>
-    private bool Matches(ItemRecord item, SearchModule? except = null)
-    {
-        if (!PassesBase(item))
-        {
-            return false;
-        }
-
-        var context = _moduleContext ??= CreateModuleContext();
-        foreach (var module in _activeModules)
-        {
-            if (!ReferenceEquals(module, except) && !module.Passes(item, context))
-            {
-                return false;
-            }
-        }
-
-        return MatchesQuery(item);
-    }
-
     /// <summary>
     /// 選択肢の横に出す件数を数え直す。
     ///
     /// 数えるのは「今の他の条件を適用した後」の件数。全体の件数だと、押してから0件と分かる。
     /// ただし自分の条件は自分を除いて数える。含めて数えると、選んだ瞬間に同じ条件の他の選択肢が全部0件になる。
+    /// 相手の商品は絞り込みの1回（<see cref="SearchFilterPass"/>）が作ってある。
     /// </summary>
     private void RefreshFacetCounts()
     {
         var context = _moduleContext ??= CreateModuleContext();
+        var pass = _filterPass ??= SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), context);
         foreach (var module in Modules)
         {
-            var others = _allItems.Where(item => Matches(item, module)).ToList();
-            module.RefreshCounts(others, context);
+            module.RefreshCounts(pass.OthersFor(module), context);
         }
     }
 

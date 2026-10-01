@@ -19,7 +19,6 @@ public sealed partial class SearchViewModel
     private int _moduleSaveToken;
     private bool _loadingModifications;
     private SearchModuleContext? _moduleContext;
-    private List<SearchModule> _activeModules = [];
 
     /// <summary>追加してある条件。並びは追加した順。</summary>
     public ObservableCollection<SearchModule> Modules { get; } = [];
@@ -538,10 +537,12 @@ public sealed partial class SearchViewModel
             "Unityプロジェクトを紐付けた改変がまだありません。",
             (item, context, key, _) => context.Modifications.InProject(key, item.Id)),
 
-        // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる
+        // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
+        // フォルダは比べる形に1回だけ畳み（matchKey）、照らすときは畳んだ形を受ける
         SearchModuleKind.Path => new ListModule(kind, allowsAnd: true, "フォルダの名前で絞り込む",
             "手元にファイルのある商品がまだありません。",
-            (item, context, key, _) => FolderTree.IsUnder(item, key, context.PathMap)),
+            (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
+            matchKey: FolderTree.UnderPrefix),
 
         SearchModuleKind.Recent => new RecentModule(),
 
@@ -573,8 +574,11 @@ public sealed partial class SearchViewModel
         }
     }
 
-    /// <summary>所持＝ファイルかフォルダを1つ以上持つ。</summary>
-    private static bool IsOwned(ItemRecord item) => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
+    /// <summary>
+    /// 所持＝ファイルかフォルダを1つ以上持つ。外していないファイルがあるかだけを見る（<c>OwnedFiles</c> は呼ぶたびに並びを作るので、
+    /// 照らすたびに作ると所持の条件が5倍重かった・案c）。
+    /// </summary>
+    private static bool IsOwned(ItemRecord item) => item.Local.LocalFolders.Count > 0 || item.Local.LocalFiles.Any(file => !file.Detached);
 
     /// <summary>
     /// 価格の条件で照らす数。既定は自分が払った額（ユーザ判断 Q2）。BOOTH の価格は種類ごとにあり、どれか1つでも範囲に入れば当たり。
