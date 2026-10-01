@@ -60,10 +60,22 @@
                                Margin="14,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}"
-                           HorizontalAlignment="Right" VerticalAlignment="Center" MaxWidth="480"
-                           TextTrimming="CharacterEllipsis"
-                           Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}"
+                               VerticalAlignment="Center" MaxWidth="480"
+                               TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!--
+                        書き出せた知らせの横に、帯と同じ「エクスプローラで開く」を出す（ユーザ判断 2026-10-01：案B）。
+                        前は書き出しのボタンの左に置いていて、同じ欄の保存先の行の「エクスプローラで開く」と縦に並び、
+                        どちらが何を開くのか名前で区別できなかった。知らせの横なら、下の帯と同じ並びになる
+                    -->
+                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            AutomationProperties.AutomationId="Settings.RevealExportedZip"
+                            Command="{Binding RevealExportedZipCommand}"
+                            Visibility="{Binding HasExportedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="書き出したzipを選んだ状態で、エクスプローラを開きます。" />
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -664,15 +676,6 @@
                         <Grid Margin="0,0,0,14">
                             <TextBlock Text="バックアップ" Style="{StaticResource RowLabel}" VerticalAlignment="Center" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <!--
-                                    書き出せた知らせを上の1行に出している間だけ、帯と同じ「エクスプローラで開く」を出す（ユーザ判断 2026-10-01）。
-                                    上の1行の横ではなくここに置くのは、場所を変えた後の「今すぐ再起動」と同じく、続きの操作を押したボタンのそばに置く決まりのため
-                                -->
-                                <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
-                                        AutomationProperties.AutomationId="Settings.RevealExportedZip"
-                                        Command="{Binding RevealExportedZipCommand}"
-                                        Visibility="{Binding HasExportedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="書き出したzipを選んだ状態で、エクスプローラを開きます。" />
                                 <Button Content="バックアップを書き出す…" Style="{StaticResource SmallButton}"
                                         Command="{Binding ExportBackupCommand}"
                                         ToolTip="保存先の中身を1つのzipにまとめます。画像を含めるかは押したときに選べます。" />
