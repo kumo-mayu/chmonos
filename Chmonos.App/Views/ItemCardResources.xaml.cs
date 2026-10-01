@@ -347,6 +347,13 @@ public partial class ItemCardResources : ResourceDictionary
     {
         if (MenuTarget(sender) is { } target)
         {
+            // キー（Shift+F10 のメニューを Enter）で開いたなら、戻ったらこのカードに止まり直す。マウスで押したならしない（カードのクリックと同じ）
+            _returnTo = null;
+            if (InputManager.Current.MostRecentInputDevice is KeyboardDevice)
+            {
+                RememberForReturn(sender);
+            }
+
             target.Host.OpenItem(target.Card);
         }
     }

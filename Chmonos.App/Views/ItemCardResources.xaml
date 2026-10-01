@@ -277,8 +277,12 @@
                                                 乗せたとき（か選択中）にだけ出す部品。**畳んでいても作られていた**ので、
                                                 出すときに初めて作る（U12）。畳んだ要素は測られず、型も当てられない
                                             -->
+                                            <!--
+                                                入れ物は止まらない（点検 2026-10-01）。ContentControl は既定でフォーカスを受けるので、選んでいる最中は
+                                                全部のカードに名前の無い止まりが1つずつ増え、カードの並びの → がそこへ移ってフォーカスが見えなくなった
+                                            -->
                                             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource CardOverlay}"
-                                                            Style="{StaticResource CardOverlayHost}" />
+                                                            Style="{StaticResource CardOverlayHost}" Focusable="False" />
 
                                         </Grid>
                                         <!--
