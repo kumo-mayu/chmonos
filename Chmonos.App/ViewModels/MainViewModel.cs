@@ -365,10 +365,10 @@ public sealed partial class MainViewModel : ViewModelBase
 
     /// <summary>
     /// フォルダビュー（ユーザ仕様 2026-09-13）。記録は他の画面でも変わるので、開くたびに作る。
-    /// 行の鍵を渡すと、その行を選んで開く（戻るで戻ったとき）。
+    /// 行の控えを渡すと、その行を選んで開く（戻るで戻ったとき）。
     /// </summary>
-    public void ShowFolders(string? selectKey = null)
-        => CurrentViewModel = new FolderViewModel(_services, this, Thumbnails, selectKey);
+    public void ShowFolders(FolderRowRef? select = null)
+        => CurrentViewModel = new FolderViewModel(_services, this, Thumbnails, select);
 
     /// <summary>このフォルダの下にファイルを持つ商品だけで検索する（フォルダビューからの導線）。</summary>
     public void ShowItemsInFolder(string path)

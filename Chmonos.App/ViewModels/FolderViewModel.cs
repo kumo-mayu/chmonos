@@ -153,6 +153,12 @@ internal sealed class FolderViewVolume
     public required FolderViewNode Summary { get; init; }
 }
 
+/// <summary>
+/// 選んでいた行を指す控え（戻るで戻ったときに選び直す）。
+/// 同じファイルを2つの商品が持つと、場所の鍵が同じ行が商品ごとに並ぶので、鍵だけでは1つ目の行に戻ってしまう。商品も合わせて持つ。
+/// </summary>
+public sealed record FolderRowRef(string Key, string? ItemId);
+
 /// <summary>左の一覧の1行。**見えている行だけを平らに並べる**（1つのフォルダに1000本あっても、仮想化した一覧で重くしない）。</summary>
 public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 {
@@ -385,15 +391,15 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     private string _filter = string.Empty;
     private string _status = string.Empty;
     private bool _isLoading = true;
-    private string? _pendingSelect;
+    private FolderRowRef? _pendingSelect;
     private int _lastResolveCount = -1;
 
-    public FolderViewModel(AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails, string? selectKey = null)
+    public FolderViewModel(AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails, FolderRowRef? select = null)
     {
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
-        _pendingSelect = selectKey;
+        _pendingSelect = select;
 
         ToggleCommand = new RelayCommand(parameter => Toggle(parameter as FolderViewRow));
         ShowOtherCommand = new RelayCommand(parameter => ShowOther(parameter as FolderViewRow));
@@ -459,8 +465,8 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     private bool _replacingRows;
 
-    /// <summary>戻るで戻ったときに、同じ行を選び直すための鍵。</summary>
-    public string? SelectedKey => _selected?.Key;
+    /// <summary>戻るで戻ったときに、同じ行を選び直すための控え（場所と商品の組）。</summary>
+    public FolderRowRef? SelectedRef => _selected is null ? null : new FolderRowRef(_selected.Key, _selected.Entry?.Item?.Id);
 
     /// <summary>
     /// 右に組み込んだ物（商品ページなど）の待っている保存も拾う。
@@ -764,9 +770,13 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         if (_pendingSelect is { } pending)
         {
             _pendingSelect = null;
-            ExpandTo(pending.StartsWith("e:", StringComparison.Ordinal) ? pending[2..] : pending[(pending.IndexOf(':') + 1)..]);
+            var key = pending.Key;
+            ExpandTo(key.StartsWith("e:", StringComparison.Ordinal) ? key[2..] : key[(key.IndexOf(':') + 1)..]);
             Rebuild();
-            Selected = Rows.FirstOrDefault(row => row.Key == pending);
+
+            // 作り直したときの選び直し（Rebuild）と同じく、場所と商品の組で探す。その商品の行が無くなっていれば場所だけで
+            Selected = Rows.FirstOrDefault(row => row.Key == key && row.Entry?.Item?.Id == pending.ItemId)
+                ?? Rows.FirstOrDefault(row => row.Key == key);
         }
         else
         {

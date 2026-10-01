@@ -143,16 +143,22 @@
             <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
                     CornerRadius="6" Padding="14,10" Margin="0,4,0,0"
                     Visibility="{Binding HasUnresolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <DockPanel>
-                    <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <Button Content="未確定として開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                <!--
+                    文とボタンは SplitRowPanel で並べる。DockPanel で右にボタンを寄せていたときは、ボタンが先に幅を取り、
+                    文に残る幅が0近くまで減って1文字ずつ縦に折り返された（幅 900・1100。2026-10-01）。
+                    文に残る幅が MinLeftWidth を割るときはボタンを下の段へ送る。1280 の窓（文に約180）では今までどおり横に並ぶ
+                -->
+                <controls:SplitRowPanel Gap="12" MinLeftWidth="160">
+                    <TextBlock Text="{Binding UnresolvedText}" FontSize="12" TextWrapping="Wrap" />
+                    <!-- 下の段でさらに折り返したときだけボタンの上下に間を空ける（1段のときの高さと位置は変えない） -->
+                    <WrapPanel Margin="0,0,0,-6">
+                        <Button Content="未確定として開く" Style="{StaticResource SmallButton}" Margin="0,0,8,6"
                                 Command="{Binding Owner.OpenUnresolvedCommand}" CommandParameter="{Binding}"
                                 ToolTip="この下の未確定だけを右に表示します。そこで確定できます。" />
-                        <Button Content="{Binding ExcludeText}" Style="{StaticResource SmallButton}"
+                        <Button Content="{Binding ExcludeText}" Style="{StaticResource SmallButton}" Margin="0,0,0,6"
                                 Command="{Binding Owner.ExcludeUnresolvedCommand}" CommandParameter="{Binding}" />
                     </WrapPanel>
-                    <TextBlock Text="{Binding UnresolvedText}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
-                </DockPanel>
+                </controls:SplitRowPanel>
             </Border>
 
             <!-- 文字で探す（絞り込みは付けない・ユーザ指示）。探すときは、この下の全部から -->
