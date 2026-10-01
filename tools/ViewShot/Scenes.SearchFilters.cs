@@ -51,6 +51,15 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
+
+        new Scene("search-edit-status", "検索の絞り込み：編集状況（未入力のみ・項目2つ・件数付き・すべての印）", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context);
+            var status = (UneditedModule)AddModule(search, SearchModuleKind.Unedited);
+            status.Fields.First(toggle => toggle.Field == Chmonos.Core.Services.EditField.Memo).IsOn = true;
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
     ];
 
     /// <summary>BOOTHタグ（衣装）→ スキ数 → BOOTHタグ（夏を除く）の並びを作る。</summary>

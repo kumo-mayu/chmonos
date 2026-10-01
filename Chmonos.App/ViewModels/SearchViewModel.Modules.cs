@@ -629,15 +629,9 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
-        // 未編集＝ユーザタグが0件（ユーザ判断 Q6）。取り込みの③がまだの商品は数えない（編集画面に出てこないため・U8・U10）
-        SearchModuleKind.Unedited => new ChoiceModule(kind,
-            [new("unedited", "未編集のみ"), new("edited", "編集済みのみ"), new("both", "両方")],
-            "both", (item, key, _) => key switch
-            {
-                "unedited" => item.Local.UserTags.Count == 0 && _main?.IsAwaitingDetection(item.Id) != true,
-                "edited" => item.Local.UserTags.Count > 0,
-                _ => true,
-            }),
+        // 編集状況（前の「未編集」・ユーザ判断 2026-10-01）。既定はユーザータグが0件（前の決め Q6 と同じ）。
+        // 取り込みの③がまだの商品は「未入力のみ」に数えない（編集画面に出てこないため・U8・U10）
+        SearchModuleKind.Unedited => new UneditedModule(item => _main?.IsAwaitingDetection(item.Id) == true),
 
         SearchModuleKind.Modification => new ListModule(kind, allowsAnd: true, "改変の名前かアバター名で絞り込む",
             "改変がまだありません。アバターの管理から作れます。",

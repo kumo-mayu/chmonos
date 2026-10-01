@@ -277,7 +277,7 @@ internal static class Samples
     [
         ("所持：所持している", SearchModuleKind.Owned, S() with { Choice = "owned" }),
         ("お気に入り：お気に入りのみ", SearchModuleKind.Favorite, S() with { Choice = "favorite" }),
-        ("未編集：未編集のみ", SearchModuleKind.Unedited, S() with { Choice = "unedited" }),
+        ("編集状況：未入力のみ（ユーザータグ）", SearchModuleKind.Unedited, S() with { Choice = "unedited" }),
         ("R-18：R-18以外のみ", SearchModuleKind.Adult, S() with { Choice = "general" }),
         ("販売終了：販売終了のみ", SearchModuleKind.EndOfSale, S() with { Choice = "ended" }),
         ("有料・無料：有料のみ", SearchModuleKind.FreePaid, S() with { Choice = "paid" }),
