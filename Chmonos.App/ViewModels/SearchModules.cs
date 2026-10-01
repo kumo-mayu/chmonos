@@ -274,8 +274,10 @@ public abstract class SearchModule : ReorderableRow
 
     private bool _isEnabled = true;
     private bool _isCollapsed;
+    private bool _isExcluded;
     private string? _disabledReason;
     private RelayCommand? _toggleCollapse;
+    private RelayCommand? _toggleExclude;
     private readonly Debounced _changedSoon;
 
     protected SearchModule(SearchModuleKind kind)
@@ -361,15 +363,111 @@ public abstract class SearchModule : ReorderableRow
 
     protected abstract bool HasCondition { get; }
 
+    /// <summary>
+    /// 「除く」を持つか（ユーザ判断 2026-10-01）。三項は「ある／ない」を選べるので持たない。最近も持たない（D10）。
+    /// </summary>
+    public virtual bool SupportsExclude => false;
+
+    /// <summary>
+    /// 当てはまる商品を**除く**か（ユーザ判断 2026-10-01・案1）。除くは「除かないときに当てはまる物、以外」。
+    /// AND／OR・対応アバターのチェックなどの設定は、除くときもそのまま効く（その設定で当てはまる物を外す）。
+    /// </summary>
+    public bool IsExcluded
+    {
+        get => _isExcluded;
+        set
+        {
+            if (SupportsExclude && SetField(ref _isExcluded, value))
+            {
+                OnPropertyChanged(nameof(SummaryText));
+                NotifyChanged();
+            }
+        }
+    }
+
+    public RelayCommand ToggleExcludeCommand => _toggleExclude ??= new RelayCommand(() => IsExcluded = !IsExcluded);
+
+    /// <summary>通知だけ出して除くを切り替える（「条件をクリア」・履歴を当てるとき。絞り直しは呼ぶ側）。</summary>
+    public void SetExcludedQuietly(bool value)
+    {
+        if (!SupportsExclude || _isExcluded == value)
+        {
+            return;
+        }
+
+        _isExcluded = value;
+        OnPropertyChanged(nameof(IsExcluded));
+        OnPropertyChanged(nameof(SummaryText));
+        OnPropertyChanged(nameof(CollapsedSummary));
+    }
+
+    /// <summary>除かないときに当てはまるか（値と AND／OR などの設定どおりに照らす）。</summary>
     public abstract bool Matches(ItemRecord item, SearchModuleContext context);
 
+    /// <summary>
+    /// 絞り込みで通すか。**照らす口はここ1つ**（除くかどうかで分ける所を1か所にする）。
+    /// </summary>
+    public bool Passes(ItemRecord item, SearchModuleContext context)
+        => _isExcluded ? MatchesExcluded(item, context) : Matches(item, context);
+
+    /// <summary>
+    /// 除くときに通すか。既定は「除かないときに当てはまる物、以外」。
+    /// 範囲・日付・属性は**値の分からない商品を、除くときも外す**ように上書きする（ユーザ判断 2026-10-01。
+    /// 値の分からない商品は「範囲の外」とは言えない。除かないときも外れているので、除いたら出てくると食い違う）。
+    /// </summary>
+    protected virtual bool MatchesExcluded(ItemRecord item, SearchModuleContext context) => !Matches(item, context);
+
+    /// <summary>
+    /// 絞り込みの1回の始めに1回だけ呼ぶ（照らす重さの案c・`docs/research/search-modules-2026-10-01.md` §9）。
+    /// 打った字を数・日付に読み直す・条件の並びを作り直すなど、商品ごとにやり直していた準備をここで済ませる。
+    /// 照らす中身は変えない（結果は同じ）。
+    /// </summary>
+    public virtual void Prepare(SearchModuleContext context)
+    {
+    }
+
     /// <summary>効いている条件の1行（結果の上と、畳んだパネルと、検索の履歴に出す）。</summary>
-    public abstract string SummaryText { get; }
+    public string SummaryText
+    {
+        get
+        {
+            var body = SummaryBody;
+
+            // 除くときは頭に「除く：」を付け、条件名の後は空白で続ける（コロンを重ねない・D1）
+            if (_isExcluded)
+            {
+                return body.Length == 0 ? $"除く：{SummaryHead}" : $"除く：{SummaryHead} {body}";
+            }
+
+            return body.Length == 0 ? SummaryHead : $"{SummaryHead}{SummaryJoiner}{body}";
+        }
+    }
+
+    /// <summary>要約の頭（条件名。数の元のように条件名に添える物も含める）。</summary>
+    protected virtual string SummaryHead => Label;
+
+    /// <summary>要約の中身（選んだ値など）。空なら頭だけ。</summary>
+    protected abstract string SummaryBody { get; }
+
+    /// <summary>頭と中身の間。値を並べる条件は「：」、範囲と日付は空白で続ける。</summary>
+    protected virtual string SummaryJoiner => "：";
+
+    /// <summary>
+    /// 選んだ値を要約に並べる。どれか（OR）は「・」で、すべて（AND）は「・」で並べた後に「のすべて」（ユーザ判断 2026-10-01）。
+    /// 前は AND を「A かつ B」と書いていたが、除くときに「除く：BOOTHタグ A・B」と OR と同じに読めないよう、
+    /// 除くとき・除かないときの両方を「A・B のすべて」に揃えた。1つしか無ければ結びは書かない（結果が同じ）。
+    /// </summary>
+    protected static string JoinValues(IEnumerable<string> values, bool all)
+    {
+        var list = values.ToList();
+        var joined = string.Join("・", list);
+        return all && list.Count > 1 ? $"{joined} のすべて" : joined;
+    }
 
     /// <summary>何も絞らない値に戻す（「条件をクリア」）。通知だけ出し、絞り直しは呼ぶ側がまとめて行う。</summary>
     public abstract void Clear();
 
-        /// <summary>選択肢の横に出す件数を数え直す。<paramref name="items"/> はこのモジュールを除いた他の条件を当てた後の商品。</summary>
+    /// <summary>選択肢の横に出す件数を数え直す。<paramref name="items"/> はこのモジュールを除いた他の条件を当てた後の商品。</summary>
     public virtual void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
     {
     }
@@ -380,6 +478,7 @@ public abstract class SearchModule : ReorderableRow
             Kind = Kind.ToString(),
             Enabled = IsEnabled,
             Collapsed = IsCollapsed,
+            Exclude = _isExcluded,
             Summary = IsActive ? SummaryText : null,
         });
 
@@ -387,11 +486,16 @@ public abstract class SearchModule : ReorderableRow
     {
         _isEnabled = state.Enabled;
         _isCollapsed = state.Collapsed;
+
+        // 除くを持たない種類に書かれていても読まない（三項に除くは無い）
+        _isExcluded = SupportsExclude && state.Exclude;
         Read(state);
         OnPropertyChanged(nameof(IsEnabled));
         OnPropertyChanged(nameof(IsCollapsed));
         OnPropertyChanged(nameof(IsExpanded));
+        OnPropertyChanged(nameof(IsExcluded));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
 
@@ -544,8 +648,8 @@ public sealed class ChoiceModule : SearchModule
 
     public override bool Matches(ItemRecord item, SearchModuleContext context) => _matches(item, _selected.Key, _flag);
 
-    public override string SummaryText
-        => $"{Label}：{_selected.Label}" + (HasFlag && _flag ? $"・{FlagLabel}" : string.Empty);
+    protected override string SummaryBody
+        => _selected.Label + (HasFlag && _flag ? $"・{FlagLabel}" : string.Empty);
 
     public override void Clear()
     {
@@ -912,18 +1016,20 @@ public sealed class ListModule : SearchModule
                 ? Chips.All(chip => _matches(item, context, chip.Key, _flag))
                 : Chips.Any(chip => _matches(item, context, chip.Key, _flag)));
 
-    public override string SummaryText
+    public override bool SupportsExclude => true;
+
+    protected override string SummaryBody
     {
         get
         {
             if (HasGroups && !_showMatched)
             {
-                return $"{Label}：対応の指定が無い商品だけ";
+                return "対応の指定が無い商品だけ";
             }
 
             var values = Chips.Select(chip => chip.Text)
                 .Concat(HasInclude && _includeOn ? [_includeLabel!] : Array.Empty<string>());
-            return $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", values)}"
+            return JoinValues(values, _matchAll && AllowsAnd)
                 + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
                 + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty);
         }
@@ -1459,6 +1565,8 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     protected override bool HasCondition => _minEnabled || _maxEnabled;
 
+    public override bool SupportsExclude => true;
+
     public override bool Matches(ItemRecord item, SearchModuleContext context)
     {
         if (!HasCondition)
@@ -1467,22 +1575,37 @@ public sealed class RangeModule : SearchModule
         }
 
         var (min, max) = (Min, Max);
-        var values = _values(item, _source?.Key);
-        if (IgnoresOutliersNow)
-        {
-            // 外れ値の数だけを外す。商品は他の種類の価格で照らす
-            var fence = _outlierFence!.Value;
-            values = values.Where(value => value < fence).ToList();
-        }
-
-        return values.Any(value => (min is null || value >= min) && (max is null || value <= max));
+        return KnownValues(item).Any(value => (min is null || value >= min) && (max is null || value <= max));
     }
 
-    public override string SummaryText
+    /// <summary>
+    /// 数が分かっていて、**どの数も**範囲に入らない商品（ユーザ判断 2026-10-01）。
+    /// 数の分からない商品（値段を入れていない・外れ値を外したら1つも残らない）は、除くときも外す。
+    /// </summary>
+    protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
+        => !HasCondition || (KnownValues(item).Count > 0 && !Matches(item, context));
+
+    /// <summary>照らす数。外れ値を外していれば、その数だけを外す（商品は他の種類の価格で照らす）。</summary>
+    private IReadOnlyList<int> KnownValues(ItemRecord item)
+    {
+        var values = _values(item, _source?.Key);
+        if (!IgnoresOutliersNow)
+        {
+            return values;
+        }
+
+        var fence = _outlierFence!.Value;
+        return values.Where(value => value < fence).ToList();
+    }
+
+    protected override string SummaryHead => $"{Label}{(HasSources ? $"（{_source?.Label}）" : string.Empty)}";
+
+    protected override string SummaryJoiner => " ";
+
+    protected override string SummaryBody
     {
         get
         {
-            var head = $"{Label}{(HasSources ? $"（{_source?.Label}）" : string.Empty)}";
             var parts = new[]
             {
                 Min is { } min ? $"{min.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上" : null,
@@ -1490,7 +1613,7 @@ public sealed class RangeModule : SearchModule
             }.OfType<string>().ToList();
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
-            return parts.Count == 0 ? head + outliers : $"{head} {string.Join(" ", parts)}{outliers}";
+            return string.Join(" ", parts) + outliers;
         }
     }
 
@@ -1743,7 +1866,15 @@ public sealed class DateModule : SearchModule
         return (Since is not { } since || date >= since) && (Till is not { } till || date <= till);
     }
 
-    public override string SummaryText
+    public override bool SupportsExclude => true;
+
+    /// <summary>日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。</summary>
+    protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
+        => !HasCondition || (_value(item) is not null && !Matches(item, context));
+
+    protected override string SummaryJoiner => " ";
+
+    protected override string SummaryBody
     {
         get
         {
@@ -1751,9 +1882,9 @@ public sealed class DateModule : SearchModule
             {
                 Since is { } since ? $"{since:yyyy-MM-dd}から" : null,
                 Till is { } till ? $"{till:yyyy-MM-dd}まで" : null,
-            }.OfType<string>().ToList();
+            }.OfType<string>();
 
-            return parts.Count == 0 ? Label : $"{Label} {string.Join(" ", parts)}";
+            return string.Join(" ", parts);
         }
     }
 
@@ -1922,8 +2053,16 @@ public sealed class AttributeModule : SearchModule
     public override bool Matches(ItemRecord item, SearchModuleContext context)
         => Rows.Count == 0 || (_matchAll ? Rows.All(row => row.Matches(item)) : Rows.Any(row => row.Matches(item)));
 
-    public override string SummaryText
-        => $"{Label}：{string.Join(_matchAll ? " かつ " : "・", Rows.Select(row => $"{row.Name} {row.Min}〜{row.Max}"))}";
+    public override bool SupportsExclude => true;
+
+    /// <summary>
+    /// 選んだ属性が**全部**評価済みで、当てはまらない商品（D2）。1行のときの「値が分かっていて範囲の外」を、そのまま全部の行に広げた形。
+    /// 評価していない属性が1つでもあれば、除くときも外す。
+    /// </summary>
+    protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
+        => Rows.Count == 0 || (Rows.All(row => item.Local.Attributes.ContainsKey(row.Name)) && !Matches(item, context));
+
+    protected override string SummaryBody => JoinValues(Rows.Select(row => $"{row.Name} {row.Min}〜{row.Max}"), _matchAll);
 
     public override void Clear()
     {
@@ -2078,8 +2217,10 @@ public sealed class UserTagModule : SearchModule
 
     private List<UserTagCondition> Conditions() => Rows.Select(row => row.Condition).ToList();
 
-    public override string SummaryText
-        => $"{Label}：{string.Join(_matchAll ? " かつ " : "・", Rows.Select(row => row.SummaryText))}";
+    /// <summary>除くときも、大分類どうし・枠の中の小分類の AND／OR はそのまま効かせ、その反対を取る（D3・ユーザ判断 2026-10-01 の案1）。</summary>
+    public override bool SupportsExclude => true;
+
+    protected override string SummaryBody => JoinValues(Rows.Select(row => row.SummaryText), _matchAll);
 
     public override void Clear()
     {
@@ -2199,7 +2340,7 @@ public sealed class UserTagTopRow : ViewModelBase
     public string SummaryText
         => Chips.Count == 0
             ? Top
-            : $"{Top}（{string.Join(_matchAll ? " かつ " : "・", Chips.Select(chip => chip.Text))}）";
+            : $"{Top}（{string.Join("・", Chips.Select(chip => chip.Text))}{(_matchAll && Chips.Count > 1 ? " のすべて" : string.Empty)}）";
 
     /// <summary>この大分類の小分類の一覧を入れる。一覧から消えた小分類のチップは外す。</summary>
     public void SetSubs(IEnumerable<string> subs)
@@ -2395,7 +2536,9 @@ public sealed class RecentModule : SearchModule
     public override bool Matches(ItemRecord item, SearchModuleContext context)
         => !HasCondition || RecentActivity.IsWithin(context.Recent.Of(item.Id, SelectedKind), Days ?? 0, context.Now);
 
-    public override string SummaryText => $"最近{_selected.Label.Split('（')[0]} {Days}日以内";
+    protected override string SummaryHead => $"最近{_selected.Label.Split('（')[0]} {Days}日以内";
+
+    protected override string SummaryBody => string.Empty;
 
     public override void Clear()
     {

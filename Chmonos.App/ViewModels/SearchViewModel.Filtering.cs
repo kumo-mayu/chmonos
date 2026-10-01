@@ -19,6 +19,8 @@ public sealed partial class SearchViewModel
 
         foreach (var module in Modules)
         {
+            // 除くも外す（足したときの姿に戻す・D6）。残すと、ほかの画面からの入口で入れた値が「除く」で効いてしまう
+            module.SetExcludedQuietly(false);
             module.Clear();
         }
 
@@ -251,7 +253,7 @@ public sealed partial class SearchViewModel
         var context = _moduleContext ??= CreateModuleContext();
         foreach (var module in _activeModules)
         {
-            if (!ReferenceEquals(module, except) && !module.Matches(item, context))
+            if (!ReferenceEquals(module, except) && !module.Passes(item, context))
             {
                 return false;
             }

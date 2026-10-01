@@ -80,6 +80,18 @@ public sealed record SearchModuleState
     /// </summary>
     public IReadOnlyList<UserTagCondition> UserTags { get; init; } = [];
 
+    /// <summary>
+    /// 当てはまる商品を**除く**か（ユーザ判断 2026-10-01・`docs/research/search-modules-2026-10-01.md`）。
+    /// 除くを持たない種類（三項・最近・編集状況）では読まない。前の版で書いた状態はこの欄を持たないので、除かない姿で読まれる。
+    /// </summary>
+    public bool Exclude { get; init; }
+
+    /// <summary>
+    /// 編集状況の条件で見る項目（<c>userTags</c>・<c>attributes</c>・<c>purchases</c>・<c>acquiredAt</c>・<c>memo</c>）。
+    /// 空なら既定（ユーザータグ）。知らない名前は読まない。
+    /// </summary>
+    public IReadOnlyList<string> Fields { get; init; } = [];
+
     /// <summary>一覧に出す1行（検索の履歴の要約に使う・見るだけ）。</summary>
     public string? Summary { get; init; }
 
@@ -100,7 +112,10 @@ public sealed record SearchModuleState
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
             text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
-            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0').Append(Separator);
+            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0');
+
+            // 除くかどうかで結果が逆になるので、指紋に入れる（同じ値の「含む」と「除く」を履歴の1件にまとめない）
+            text.Append(Exclude ? '1' : '0').Append(Separator);
             text.Append(string.Join((char)0x1E, Items.OrderBy(item => item, StringComparer.Ordinal))).Append(Separator);
             text.Append(Choice).Append(Separator).Append(Min).Append(Separator).Append(Max).Append(Separator);
             text.Append(string.Join(
@@ -114,6 +129,10 @@ public sealed record SearchModuleState
                 UserTags.OrderBy(tag => tag.Top, StringComparer.Ordinal).Select(tag =>
                     $"{tag.Top}:{(tag.MatchAll ? '1' : '0')}{(tag.NoSub ? '1' : '0')}:"
                     + string.Join((char)0x1C, tag.Subs.OrderBy(sub => sub, StringComparer.Ordinal)))));
+            text.Append(Separator);
+
+            // 項目は選んだ順が結果を変えないので、並べ替えてから比べる
+            text.Append(string.Join((char)0x1E, Fields.OrderBy(name => name, StringComparer.Ordinal)));
             return text.ToString();
         }
     }
