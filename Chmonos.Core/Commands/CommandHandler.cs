@@ -723,7 +723,7 @@ public sealed class CommandHandler
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
                     Diagnostics.AppLog.Error("バックアップの書き出し", exception);
-                    return new CommandResult.Failed($"書き出せませんでした。{Services.FailureText.Cause(exception)}");
+                    return new CommandResult.Failed($"バックアップを書き出せませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
             case UiCommand.RestoreBackup restore:
@@ -743,7 +743,7 @@ public sealed class CommandHandler
                 catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
                 {
                     Diagnostics.AppLog.Error("バックアップから戻す", exception);
-                    return new CommandResult.Failed($"戻せませんでした。{Services.FailureText.Cause(exception)}");
+                    return new CommandResult.Failed($"バックアップから戻せませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
             case UiCommand.MoveStore move:

@@ -139,7 +139,41 @@ internal static partial class Scenes
 
         Unpacking("band-unpacking-two", "下の帯：一時展開の進み具合（2本を並べて展開・名前は出さない）", main =>
             Backdoor.ShowUnpacking(main, 2, string.Empty, 310_000_000, 3_900_000_000, stopping: false)),
+
+        // 公開前の点検 2026-10-01：書き出しの間は保存が止まるのに帯が無く、終わった知らせも設定の画面の外には出なかった
+        StoreJobBand("band-backup-running", "下の帯：バックアップの書き出し中（長い作業の帯と中止）", main =>
+        {
+            main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+            main.BeginLongJob("書き出しが終わるまで、保存は待たされます。見ることはできます。", new CancellationTokenSource());
+            main.ReportLongJob("バックアップを書き出しています… 1,234/5,678");
+            return main.LongJobText;
+        }),
+
+        StoreJobBand("band-backup-done", "下の帯：設定の画面を離れている間に書き出しが終わった知らせ", main =>
+        {
+            main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+            main.EndStoreJob("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。");
+            return main.StoreJobNoticeText;
+        }),
     ];
+
+    /// <param name="show">帯を出し、帯の中の文を返す（その文の外の枠で切り出す）。</param>
+    private static Scene StoreJobBand(string name, string title, Func<MainViewModel, string> show)
+        => new(name, title, async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var text = show(main);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, text)), FocusMargin = 24 };
+        })
+        {
+            Height = 600,
+        };
 
     private static Scene Unpacking(string name, string title, Action<MainViewModel> show)
         => new(name, title, async context =>
