@@ -234,10 +234,11 @@ public sealed partial class SearchViewModel
     /// </summary>
     private void RebuildRows()
     {
-        // リストで出しているときは、同じ並び（_matches）をそのまま渡す
+        // リストで出しているときは、同じ並び（商品と並べ替えの区切りの札）をそのまま渡す
         OnPropertyChanged(nameof(ListItems));
+        OnPropertyChanged(nameof(DisplayItems));
 
-        CardRowLayout.Apply(Rows, _matches, _columns, () => new CardRow(), row => row.Cards);
+        CardRowLayout.Apply(Rows, DisplayItems, _columns, () => new CardRow(), row => row.Cards);
     }
 
     /// <summary>

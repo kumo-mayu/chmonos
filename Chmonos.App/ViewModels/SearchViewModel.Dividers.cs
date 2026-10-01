@@ -1,0 +1,109 @@
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
+
+namespace Chmonos.App.ViewModels;
+
+/// <summary>
+/// 検索画面：並べ替えの区切りの札（ユーザ判断 2026-10-01「7は付けよう。イメージは図書館やビデオショップの分類の為の偽アイテムだ」）。
+///
+/// まとまりのある順（カテゴリ・ショップ・公開日）で並べているとき、まとまりの最初の商品の前に札（<see cref="SortDivider"/>）を入れる。
+/// 札は画面に出す並び（<see cref="_shown"/>）にだけ混ぜ、件数・選ぶ・まとめて操作は商品だけの並び（<see cref="_matches"/>）のまま。
+/// </summary>
+public sealed partial class SearchViewModel
+{
+    /// <summary>画面に出す並び（商品と札）。札を出さない並べ替えでは <see cref="_matches"/> と同じ物。</summary>
+    private IReadOnlyList<object> _shown = [];
+
+    /// <summary>
+    /// <see cref="_shown"/> を作ったときの <see cref="_matches"/>。列数が変わっただけ（幅・カードの大きさ）なら、札を数え直さない。
+    /// 並べ替え・絞り込み・設定の切り替えは、どれも <see cref="_matches"/> を作り直すので、同じ物かで見分けられる
+    /// </summary>
+    private List<ItemCardViewModel>? _shownFrom;
+
+    /// <summary>札を鍵ごとに使い回す（<see cref="SortDivider"/> の注記）。</summary>
+    private Dictionary<string, SortDivider> _dividers = new(StringComparer.Ordinal);
+
+    /// <summary>リストに出す並び（商品と札）。カードの段と同じ並び。</summary>
+    public IReadOnlyList<object> DisplayItems
+    {
+        get
+        {
+            EnsureShown();
+            return _shown;
+        }
+    }
+
+    /// <summary>今出している札（試験・確かめ用）。</summary>
+    internal IEnumerable<SortDivider> ShownDividers => DisplayItems.OfType<SortDivider>();
+
+    private void EnsureShown()
+    {
+        if (ReferenceEquals(_shownFrom, _matches))
+        {
+            return;
+        }
+
+        _shownFrom = _matches;
+        _shown = WithDividers(_matches);
+    }
+
+    /// <summary>
+    /// 札を入れた並び。札を出さない並べ替え・設定で切っているときは、商品の並びをそのまま返す。
+    /// まとまりが1つしか無くても札は出す（「全部が同じショップ」と分かるのも札の役目）。
+    /// </summary>
+    private IReadOnlyList<object> WithDividers(List<ItemCardViewModel> matches)
+    {
+        if (!_services.Settings.ShowSortDividers || matches.Count == 0 || GroupingOf(_sort.Kind) is not { } grouping)
+        {
+            _dividers.Clear();
+            return matches;
+        }
+
+        var groups = ItemGroups.Split(matches, card => grouping.GroupOf(card.Item));
+        var shown = new List<object>(matches.Count + groups.Count);
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        var kept = new Dictionary<string, SortDivider>(StringComparer.Ordinal);
+
+        foreach (var group in groups)
+        {
+            // 並べ替えと切り方が食い違って同じ鍵が2回来たら、2枚目は別の札にする（同じ物が並びに2回入ると、段の組み方が見分けられない）
+            var key = used.Add(group.Key) ? group.Key : $"{group.Key}#{group.Start}";
+            var cacheKey = $"{grouping.Kind}|{key}";
+            if (!_dividers.TryGetValue(cacheKey, out var divider) || divider.Label != group.Label || divider.Parent != group.Parent)
+            {
+                divider = new SortDivider(key, grouping.Kind, group.Label, group.Parent);
+            }
+
+            kept[cacheKey] = divider;
+            divider.Count = group.Count;
+            shown.Add(divider);
+            for (var index = group.Start; index < group.Start + group.Count; index++)
+            {
+                shown.Add(matches[index]);
+            }
+        }
+
+        // 今の並びにある札だけを持ち越す（絞り込みで消えたまとまり・前の並べ替えの札を溜めない）
+        _dividers = kept;
+        return shown;
+    }
+
+    /// <summary>
+    /// どの並べ替えで札を出すか（仮決め 2026-10-01。spec の「並べ替えの区切り」）。
+    /// - カテゴリ・ショップ：頼まれた2つ（同じ値の商品が続く）
+    /// - 公開日：年と月。新作の棚のように「いつ頃の物か」で区切る
+    /// - 入手日は既定の並べ替えで、入れると開いたときの一覧が毎回変わるので、判断を仰ぐまで出さない
+    /// - 数の項目（価格・払った額・スキ数・容量・属性）は帯の切り方を決めないと区切れない。名前は読みが推定で、頭の字の境が誤る。
+    ///   「最近」の足跡は「今日・今週」のように時計で切ることになる。どれも出さない
+    /// </summary>
+    private ItemGrouping? GroupingOf(SortKind kind) => kind switch
+    {
+        SortKind.Category => new ItemGrouping("カテゴリ", item => ItemGroups.CategoryOf(item, _services.Categories)),
+        SortKind.Shop => new ItemGrouping("ショップ", ItemGroups.ShopOf),
+        SortKind.PublishedAt => new ItemGrouping("公開日", item => ItemGroups.MonthOf(
+            item.Booth.PublishedAt?.Year, item.Booth.PublishedAt?.Month, "公開日なし")),
+        _ => null,
+    };
+
+    private sealed record ItemGrouping(string Kind, Func<ItemRecord, (string Key, string Label, string? Parent)> GroupOf);
+}

@@ -18,6 +18,7 @@ public sealed partial class SearchViewModel
             {
                 OnPropertyChanged(nameof(IsCardMode));
                 OnPropertyChanged(nameof(ListItems));
+                OnPropertyChanged(nameof(DisplayItems));
                 ItemListMode.Save(_services, "search", value);
             }
         }

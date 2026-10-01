@@ -6,7 +6,8 @@
                     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
-                    xmlns:controls="clr-namespace:Chmonos.App.Controls">
+                    xmlns:controls="clr-namespace:Chmonos.App.Controls"
+                    xmlns:views="clr-namespace:Chmonos.App.Views">
     <!--
         カードの右クリックのメニュー（U12）。以前はカード1枚ごとにメニューと項目6つを作っていた。
         開くのは一度に1つなので、1つを全カードで使い回す。項目は開いたカード（PlacementTarget）を見る
@@ -421,6 +422,39 @@
                               </Grid>
                             </DataTemplate>
 
+    <!--
+        並べ替えの区切りの札（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。カードと同じ升に入り、まとまりの最初の商品の前に立つ。
+        商品ではないので、押す・選ぶ・右クリック・キーボードの止まりを持たない（SortDivider の注記）。
+        部品が少ないので、カードのように後から作らない（DeferredCardHost を通さない）。大きさと間隔はカードと同じ
+    -->
+    <DataTemplate x:Key="SortDividerCardTemplate" DataType="{x:Type vm:SortDivider}">
+        <controls:SortDividerBorder Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}" Margin="0,0,14,14"
+                                    Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                    BorderThickness="1" CornerRadius="8" ClipToBounds="True"
+                                    AutomationProperties.AutomationId="SortDivider"
+                                    AutomationProperties.Name="{Binding AutomationName}">
+            <DockPanel>
+                <!-- 左の太い帯で、商品のカードと見分ける（棚の仕切りの見出しの縁） -->
+                <Border DockPanel.Dock="Left" Width="6" Background="{DynamicResource Accent}" CornerRadius="7,0,0,7" />
+                <!-- 件数は下に置く（カードの下段と同じ位置） -->
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding CountText}" FontSize="13" Foreground="{DynamicResource AccentText}"
+                           Margin="14,0,12,14" />
+                <StackPanel Margin="14,14,12,0">
+                    <TextBlock Text="{Binding Kind}" Style="{StaticResource SectionLabel}" />
+                    <TextBlock Text="{Binding Parent}" Style="{StaticResource Caption}" Margin="0,10,0,0" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasParent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <TextBlock Text="{Binding Label}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
+                               Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="108"
+                               ToolTip="{Binding Label}" />
+                </StackPanel>
+            </DockPanel>
+        </controls:SortDividerBorder>
+    </DataTemplate>
+
+    <!-- カードの升：商品はカード、札は札（段の ItemTemplateSelector に当てる） -->
+    <views:CardSlotTemplateSelector x:Key="CardSlotTemplate"
+                                    Card="{StaticResource ItemCardTemplate}" Divider="{StaticResource SortDividerCardTemplate}" />
+
     <!-- ===== リスト（ユーザ指示 2026-09-14：カードの代わりに1行ずつ並べる。列の幅はドラッグで変え、その画面の一覧で共通） ===== -->
 
     <!-- カード／リストの切り替えの1区画（置き場所は下の ItemViewModeSwitch） -->
@@ -633,6 +667,44 @@
             </DataTrigger>
         </Style.Triggers>
     </Style>
+
+    <!--
+        リストの並べ替えの区切りの札（カードの札と同じ物を行の形で）。列をまたぐ1本の行で、高さは商品の行と同じ（スライダーで変わる）。
+        押す・右クリック・キーボードの止まりを持たない（Focusable を切ると、↑↓ は札を飛ばして隣の商品の行へ移る）
+    -->
+    <Style x:Key="ItemListDividerRowStyle" TargetType="ListViewItem">
+        <Setter Property="AutomationProperties.AutomationId" Value="SortDividerRow" />
+        <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,0,0,1">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Left" Width="4" Background="{DynamicResource Accent}" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,12,0">
+                                <TextBlock Text="{Binding Kind}" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Parent, StringFormat={}{0} /}" Style="{StaticResource Caption}" FontSize="12.5"
+                                           Margin="14,0,0,0" VerticalAlignment="Center"
+                                           Visibility="{Binding HasParent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <TextBlock Text="{Binding Label}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
+                                           Margin="6,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding CountText}" FontSize="12.5" Foreground="{DynamicResource AccentText}"
+                                           Margin="14,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- リストの行の見た目：商品は ItemListRowStyle、札は ItemListDividerRowStyle（一覧の ItemContainerStyleSelector に当てる） -->
+    <views:ItemListRowStyleSelector x:Key="ItemListRowStyles"
+                                    Row="{StaticResource ItemListRowStyle}" Divider="{StaticResource ItemListDividerRowStyle}" />
 
     <!--
         列の境目の細い縦線（ユーザ指摘 2026-09-14：要素の間に何も無くて境目が分からない。表まではしない）。

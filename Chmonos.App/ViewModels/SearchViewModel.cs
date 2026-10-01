@@ -9,13 +9,13 @@ namespace Chmonos.App.ViewModels;
 /// <summary>
 /// 結果一覧の1行。仮想化の単位。
 ///
-/// 中身は足し引きできる一覧にしてある。列数が変わるたびに行を全部作り直していた頃は、
+/// 中身は商品のカード（ItemCardViewModel）と、検索の並べ替えの区切りの札（SortDivider）。足し引きできる一覧にしてある。列数が変わるたびに行を全部作り直していた頃は、
 /// ナビや絞り込みを畳むと見えている行のカードの見た目が全部作り直され、画面が 146〜380ms 固まった（U28）。
 /// 並びの合っているカードには触らず、ずれた所だけを抜き差しする（<c>SearchViewModel.RebuildRows</c>）。
 /// </summary>
 public sealed class CardRow
 {
-    public ObservableCollection<ItemCardViewModel> Cards { get; } = [];
+    public ObservableCollection<object> Cards { get; } = [];
 }
 
 /// <summary>
