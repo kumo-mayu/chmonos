@@ -44,31 +44,74 @@ internal sealed class FakeBooth : HttpMessageHandler
         }
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    private TaskCompletionSource? _held;
+
+    /// <summary>
+    /// 答えを止める。次に <see cref="Release"/> を呼ぶまで、来た問い合わせは答えずに待たせる
+    /// （「BOOTH が答えていない間」の画面の守りを確かめるため）。
+    /// </summary>
+    public void Hold()
+    {
+        lock (_gate)
+        {
+            _held ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+    }
+
+    /// <summary>止めていた答えを返し始める。</summary>
+    public void Release()
+    {
+        TaskCompletionSource? held;
+        lock (_gate)
+        {
+            held = _held;
+            _held = null;
+        }
+
+        held?.TrySetResult();
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        // 来た順は止めている間も残す（答える前に「問い合わせが来た」を確かめられるように）
+        Task? waiting;
+        lock (_gate)
+        {
+            _requests.Add(request.RequestUri!.ToString());
+            waiting = _held?.Task;
+        }
+
+        if (waiting is not null)
+        {
+            await waiting.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return Answer(request);
+    }
+
+    private HttpResponseMessage Answer(HttpRequestMessage request)
     {
         var url = request.RequestUri!.ToString();
         lock (_gate)
         {
-            _requests.Add(url);
-
             foreach (var (itemId, json) in _itemJson)
             {
                 if (url.EndsWith($"/items/{itemId}.json", StringComparison.Ordinal))
                 {
-                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) });
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
                 }
 
                 // 商品ページ（説明文の取得）。中身は空でよい
                 if (url.EndsWith($"/items/{itemId}", StringComparison.Ordinal))
                 {
-                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    return new HttpResponseMessage(HttpStatusCode.OK)
                     {
                         Content = new StringContent("<html><body></body></html>"),
-                    });
+                    };
                 }
             }
         }
 
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        return new HttpResponseMessage(HttpStatusCode.NotFound);
     }
 }

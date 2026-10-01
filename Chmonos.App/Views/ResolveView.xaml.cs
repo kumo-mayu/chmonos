@@ -17,6 +17,7 @@ public partial class ResolveView : UserControl
             {
                 _model.DecisionFocusRequested -= OnDecisionFocusRequested;
                 _model.CandidatesFocusRequested -= OnCandidatesFocusRequested;
+                _model.ItemIdFocusRequested -= OnItemIdFocusRequested;
                 _model.PropertyChanged -= OnModelPropertyChanged;
             }
 
@@ -25,6 +26,7 @@ public partial class ResolveView : UserControl
             {
                 _model.DecisionFocusRequested += OnDecisionFocusRequested;
                 _model.CandidatesFocusRequested += OnCandidatesFocusRequested;
+                _model.ItemIdFocusRequested += OnItemIdFocusRequested;
                 _model.PropertyChanged += OnModelPropertyChanged;
             }
         };
@@ -92,7 +94,23 @@ public partial class ResolveView : UserControl
         {
             Dispatcher.BeginInvoke(() => FilesList.ScrollIntoView(selected), System.Windows.Threading.DispatcherPriority.Loaded);
         }
+
+        // 押したボタンは終わるまで押せなくなり、キーボードのフォーカスが入れ物（右側の ScrollViewer）へ落ちる
+        // （実機で、「この名前で登録する」を Enter で押した後、フォーカスが名前の無い入れ物に止まっていた）。
+        // 片付けた後は知らせ（ItemIdFocusRequested）で欄へ戻すが、失敗して同じ行に残ったときも、落ちたままにしない
+        if (e.PropertyName == nameof(ResolveViewModel.IsBusy) && _model is { IsBusy: false, HasSelection: true })
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (IsFocusLost())
+                {
+                    FocusItemIdBox();
+                }
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
     }
+
+    private static bool IsFocusLost() => System.Windows.Input.Keyboard.FocusedElement is null or Window or ScrollViewer;
 
     /// <summary>
     /// 右クリックした行を先に選ぶ（ユーザ指示 2026-09-20・M2）。
@@ -112,4 +130,30 @@ public partial class ResolveView : UserControl
 
     /// <summary>「候補」の欄を画面に入れる。自動検索のボタンは上にあり、進み具合と結果は下の候補の欄に出る（ユーザ指示 2026-09-29）。</summary>
     private void OnCandidatesFocusRequested() => CandidatesCard.BringIntoView();
+
+    /// <summary>
+    /// 商品IDの欄へフォーカスを戻す（キーボードだけで1件ずつ片付ける。ユーザ判断 2026-10-01）。
+    /// 片付けた直後は次の行を選び直して右側を描き直している最中なので、描き終えてから移す。
+    /// 片付けて移るときは、左の一覧・検索欄（一覧の右クリックで除外したなど）と、この画面の外（フォルダビューの木）にいる人は動かさない。
+    /// </summary>
+    private void OnItemIdFocusRequested(ItemIdFocusReason reason)
+        => Dispatcher.BeginInvoke(() =>
+        {
+            if (reason == ItemIdFocusReason.Settled && !IsFocusLost()
+                && (!IsKeyboardFocusWithin || FilesList.IsKeyboardFocusWithin || FilterBox.IsKeyboardFocusWithin))
+            {
+                return;
+            }
+
+            FocusItemIdBox();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+
+    private void FocusItemIdBox()
+    {
+        if (ItemIdBox.IsVisible && ItemIdBox.IsEnabled)
+        {
+            ItemIdBox.Focus();
+            ItemIdBox.SelectAll();
+        }
+    }
 }
