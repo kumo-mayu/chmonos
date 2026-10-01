@@ -795,7 +795,8 @@
                 <ScrollViewer x:Name="ScreenScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" CanContentScroll="True"
                               Focusable="False">
                     <controls:ViewportFitHost>
-                        <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" />
+                        <!-- 画面の入れ物。止まっても何も起きないので Tab で止まらない（点検 2026-10-01：どの画面でもナビの後に名前の無い止まりが1つ入っていた） -->
+                        <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" Focusable="False" />
                     </controls:ViewportFitHost>
                 </ScrollViewer>
                 <Border x:Name="FindBar" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"

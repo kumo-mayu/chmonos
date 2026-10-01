@@ -374,7 +374,7 @@
                                                              Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                    Visibility="{Binding HasSuggestions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                        <controls:ContentItemsControl ItemsSource="{Binding Chips}" Margin="0,6,0,0" Focusable="False"
+                                        <controls:ContentItemsControl ItemsSource="{Binding Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,6,0,0" Focusable="False"
                                                                       ItemTemplate="{StaticResource SearchChipTemplate}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -656,7 +656,7 @@
                                                                                  CommitCommand="{Binding AddCommand}" Placeholder="小分類を選んで追加"
                                                                                  AutomationProperties.Name="{Binding Top, StringFormat={}{0}の小分類を選んで追加}"
                                                                                  Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                            <controls:ContentItemsControl ItemsSource="{Binding Chips}" Margin="0,5,0,0" Focusable="False"
+                                                            <controls:ContentItemsControl ItemsSource="{Binding Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,5,0,0" Focusable="False"
                                                                                           ItemTemplate="{StaticResource SearchChipTemplate}">
                                                                 <ItemsControl.ItemsPanel>
                                                                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -871,7 +871,7 @@
                 <Grid>
                 <ScrollViewer x:Name="HistoryStrip" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                               PreviewMouseWheel="OnHistoryMouseWheel" ScrollChanged="OnHistoryScrollChanged">
-                    <controls:ContentItemsControl ItemsSource="{Binding History}">
+                    <controls:ContentItemsControl ItemsSource="{Binding History}" controls:ArrowGroup.IsEnabled="True">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>

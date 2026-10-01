@@ -74,7 +74,7 @@
                                     絞る欄と入力欄が上下に2つ並んで分かりにくかった（ユーザ指摘）。
                                     「＋ 追加」は画像の一覧の「足す」枠と同じく、並びの末尾に混ぜて折り返しても最後に付いてくる
                                 -->
-                                <controls:ContentItemsControl ItemsSource="{Binding AvatarTiles}" Margin="0,10,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding AvatarTiles}" Margin="0,10,0,0" controls:ArrowGroup.IsEnabled="True">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel />
@@ -152,7 +152,7 @@
                                             出品者が書き漏らしている場合や、検出が拾えなかった場合の補い
                                         -->
                                         <DataTemplate DataType="{x:Type vm:AvatarAddTile}">
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,6">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,6" controls:ArrowGroup.IsOutside="True">
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
                                                             AutomationProperties.AutomationId="ItemAvatarAdd" AutomationProperties.Name="対応アバターを追加"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
@@ -187,7 +187,7 @@
                                     </ItemsControl.Resources>
                                 </controls:ContentItemsControl>
 
-                                <controls:ContentItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0"
+                                <controls:ContentItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0" controls:ArrowGroup.IsEnabled="True"
                                               Visibility="{Binding HasAvatarBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -224,7 +224,7 @@
                                 <StackPanel Margin="0,4,0,0"
                                             Visibility="{Binding HasBaseMentions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <TextBlock Text="説明文にある共通素体" Style="{StaticResource Caption}" Margin="0,0,0,4" />
-                                    <controls:ContentItemsControl ItemsSource="{Binding BaseMentions}">
+                                    <controls:ContentItemsControl ItemsSource="{Binding BaseMentions}" controls:ArrowGroup.IsEnabled="True">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />
@@ -266,7 +266,7 @@
                                           AutomationProperties.AutomationId="ItemRejectedAvatarsExpander"
                                           IsExpanded="{Binding IsRejectedAvatarsExpanded, Mode=TwoWay}"
                                           Visibility="{Binding HasRejectedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <controls:ContentItemsControl ItemsSource="{Binding RejectedAvatars}" Margin="4,6,0,0">
+                                    <controls:ContentItemsControl ItemsSource="{Binding RejectedAvatars}" Margin="4,6,0,0" controls:ArrowGroup.IsEnabled="True">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />

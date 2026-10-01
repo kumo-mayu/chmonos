@@ -27,15 +27,29 @@ internal sealed class Stage : IDisposable
     private readonly Border _frame;
     private double _scale = 1.0;
 
-    public Stage()
+    /// <param name="focusable">
+    /// キーボードのフォーカスを受けられる窓口にする（<c>tabs</c>）。メッセージ専用の窓はフォーカスを受けられず、WPF もフォーカスを移さない。
+    /// 代わりに、出さない（WS_VISIBLE の無い）ポップアップの窓を画面の外に作る。出さないので前面にもタスクバーにも出ない
+    /// </param>
+    public Stage(bool focusable = false)
     {
-        _source = new HwndSource(new HwndSourceParameters("ViewShot")
-        {
-            WindowStyle = 0,
-            ParentWindow = MessageOnlyParent,
-            Width = 1,
-            Height = 1,
-        });
+        _source = new HwndSource(focusable
+            ? new HwndSourceParameters("ViewShot")
+            {
+                WindowStyle = unchecked((int)0x80000000), // WS_POPUP だけ
+                ExtendedWindowStyle = 0x00000080, // WS_EX_TOOLWINDOW。フォーカスを受けるので NOACTIVATE は付けない
+                PositionX = -30000,
+                PositionY = -30000,
+                Width = 1,
+                Height = 1,
+            }
+            : new HwndSourceParameters("ViewShot")
+            {
+                WindowStyle = 0,
+                ParentWindow = MessageOnlyParent,
+                Width = 1,
+                Height = 1,
+            });
 
         // 描く範囲の地。主の窓の地（Bg）と同じ鍵を指すので、色の表を差し替えると一緒に変わる
         _frame = new Border();
@@ -48,6 +62,9 @@ internal sealed class Stage : IDisposable
     }
 
     public FrameworkElement? Content => _frame.Child as FrameworkElement;
+
+    /// <summary>窓口の窓（tabs で、このスレッドの中のフォーカスを移す先）。</summary>
+    public IntPtr Handle => _source.Handle;
 
     /// <summary>描く物を載せる。幅・高さが null なら中身に合わせる（小窓）。</summary>
     public void Show(FrameworkElement content, double? width, double? height)

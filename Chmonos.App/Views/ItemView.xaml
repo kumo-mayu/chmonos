@@ -146,7 +146,7 @@
                                 （ProgressiveItems に理由。見出し21個の商品で、開くのに約340ms かかっていた）。
                                 全部が在ることを当てにする処理は、先に足し切る（画面内検索。MainWindow.Find.cs）
                             -->
-                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Sections}">
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Sections}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,16">
@@ -283,7 +283,9 @@
                             -->
                             <DockPanel>
                                 <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す（編集画面の星と同じ形） -->
+                                <!-- Tab で止まり、Enter・Space で入れる・外す（点検 2026-10-01：読み上げ・自動操作の「押す」は届くのに、キーボードからは届かなかった） -->
                                 <controls:PressableBorder DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,0,6,0" Padding="0,0,2,0"
+                                        Focusable="True" FocusVisualStyle="{StaticResource SmallFocusVisual}"
                                         Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
                                         Command="{Binding ToggleFavoriteCommand}"
                                         AutomationProperties.AutomationId="ItemFavorite"
@@ -372,7 +374,9 @@
                             <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal">
+                                        <!-- 丸い三角の型（TagToggle）は管理の画面の行の中では止まらない物なので、ここで止まるようにする（点検 2026-10-01） -->
                                         <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                      Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                                       IsChecked="{Binding IsVariationsExpanded, Mode=TwoWay}"
                                                       AutomationProperties.AutomationId="ItemVariationsToggle"
                                                       AutomationProperties.Name="{Binding VariationsToggleName}"

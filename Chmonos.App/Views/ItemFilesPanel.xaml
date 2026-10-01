@@ -119,7 +119,9 @@
                             <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal">
+                                        <!-- 丸い三角の型（TagToggle）は止まらない物なので、ここで止まるようにする（バリエーションの三角と同じ。点検 2026-10-01） -->
                                         <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                      Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                                       IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
                                                       AutomationProperties.AutomationId="ItemFilesToggle"
                                                       Subject="ローカルファイル"
@@ -132,7 +134,7 @@
                             </Border>
                             <StackPanel Visibility="{Binding IsFilesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <!-- フォルダとして所有しているもの。zipが残っていない展開済みの配布物 -->
-                            <controls:ContentItemsControl ItemsSource="{Binding LocalFolders}"
+                            <controls:ContentItemsControl ItemsSource="{Binding LocalFolders}" controls:ArrowGroup.IsEnabled="True"
                                           Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -211,7 +213,7 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
 
-                            <controls:ContentItemsControl ItemsSource="{Binding LocalFiles}">
+                            <controls:ContentItemsControl ItemsSource="{Binding LocalFiles}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
