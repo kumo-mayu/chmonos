@@ -207,7 +207,8 @@ internal static class ItemUnityActions
     /// 相手は送り先と同じ、いま開いている Unity。**入っていなければ言うだけで、取り込みには進まない**——
     /// 「示す」つもりで押した物が「取り込む」話にすり替わると意図と違う（動線の洗い出し A1 と同じ種類）。入れるなら「Unityへ送る」を選ぶ
     /// </summary>
-    public static async Task SelectAsync(ItemRecord item, UnityPackageEntry package, NoticeSink notify)
+    public static async Task SelectAsync(
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify)
     {
         const string title = "Unityで選択";
 
@@ -226,8 +227,11 @@ internal static class ItemUnityActions
 
         if (await ProjectPathOf(editor) is not { } projectPath)
         {
+            // 引けなかった理由は、入っている物の一覧の名前で言う（入っていない物まで見たかのように言わない）。
+            // レジストリを見るので、言うときだけ裏で調べる
+            var tools = await Task.Run(() => services.DetectUnityTools());
             notify($"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の中を調べられません。"
-                + "Unity HubにもVRChat Creator Companionにも無いプロジェクトです。", failed: true);
+                + UnityToolsText.NotListed(tools, services.Settings.ProjectManager), failed: true);
             return;
         }
 

@@ -152,7 +152,7 @@ public class SmallTextTests
     [InlineData(UnityOpenResult.Missing, "「SampleProject」のフォルダが見つかりません。")]
     public void プロジェクトを開いた結果を_必ず言う(UnityOpenResult result, string expected)
         // 開いていたら手前に出るだけで、何も言わないと何も起きなかったように見える
-        => Assert.Equal(expected, UnityOpenText.For(result, "SampleProject"));
+        => Assert.Equal(expected, UnityOpenText.For(result, "SampleProject", hasHub: true));
 
     // ---- 商品ページのフォルダの行 ----
 

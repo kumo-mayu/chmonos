@@ -55,7 +55,7 @@ public sealed partial class ItemViewModel
     {
         if (parameter is Core.Services.UnityPackageEntry package)
         {
-            await ItemUnityActions.SelectAsync(Item, package, Notices.LineOrWindow("Unityで選択", text => UnityRecordNotice = text));
+            await ItemUnityActions.SelectAsync(_services, Item, package, Notices.LineOrWindow("Unityで選択", text => UnityRecordNotice = text));
         }
     }
 

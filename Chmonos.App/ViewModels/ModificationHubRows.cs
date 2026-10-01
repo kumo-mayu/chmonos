@@ -287,14 +287,6 @@ public sealed class HubProjectDetail
 
     public string VersionText => Candidate.Version is { } version ? $"Unity {version}" : "バージョンが読めません";
 
-    public string SourceText => Candidate.Source switch
-    {
-        UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity HubとVCCの一覧",
-        UnityProjectSource.Hub => "Unity Hubの一覧",
-        UnityProjectSource.Vcc => "VCCの一覧",
-        _ => "改変から紐付けたもの",
-    };
-
     public string OpenText => IsOpen ? "開いています" : "閉じています";
 
     public string LastWriteText => Candidate.LastWrite is { } time ? $"最後に触った日 {time.ToLocalTime():yyyy-MM-dd}" : string.Empty;
@@ -306,14 +298,11 @@ public sealed class HubProjectDetail
 
     public string VersionValue => Candidate.Version ?? "読めません";
 
-    /// <summary>どこで見つけたか（Unity Hub・VCC の一覧）。どちらにも無いのは、改変から紐付けたものだけ。</summary>
-    public string SourceValue => Candidate.Source switch
-    {
-        UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity Hub・VCC",
-        UnityProjectSource.Hub => "Unity Hub",
-        UnityProjectSource.Vcc => "VCC",
-        _ => "改変から紐付けたもの",
-    };
+    /// <summary>
+    /// どこで見つけたか（Unity Hub・VCC の一覧）。どちらにも無いのは、改変から紐付けたものだけ。
+    /// VCC の一覧は手元にある方の名前で呼ぶ（ALCOM だけの PC で「VCC」と出さない）ので、組むときに渡す（<see cref="UnityToolsText.SourceValue"/>）。
+    /// </summary>
+    public required string SourceValue { get; init; }
 
     public string LastWriteValue => Candidate.LastWrite is { } time ? $"{time.ToLocalTime():yyyy-MM-dd}" : string.Empty;
 

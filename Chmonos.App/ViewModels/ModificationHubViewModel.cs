@@ -63,7 +63,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
         OpenVccCommand = new RelayCommand(OpenVcc);
         OpenAlcomCommand = new RelayCommand(OpenAlcom);
-        OpenProjectCommand = new RelayCommand(parameter => OpenProject(PathOf(parameter)));
+        OpenProjectCommand = new RelayCommand(parameter => OpenProjectAsync(PathOf(parameter)).Forget());
         OpenProjectFolderCommand = new RelayCommand(parameter => ExplorerReveal.RevealAsync(PathOf(parameter)).Forget());
         ShowProjectCommand = new RelayCommand(parameter => ShowProject(PathOf(parameter)));
         ShowModificationCommand = new RelayCommand(parameter =>
@@ -208,7 +208,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             ? $"「{Query.Trim()}」に当てはまるものはありません。"
             : Level switch
             {
-                ModificationHubLevel.Project => ProjectEmptyText(Tools),
+                ModificationHubLevel.Project => UnityToolsText.ProjectsEmpty(Tools, _services.Settings.ProjectManager),
                 ModificationHubLevel.Avatar =>
                     "持っているアバターがまだありません。アバターの管理で検出するか、アバターの商品を取り込むと出ます。",
                 _ => "改変はまだありません。「アバター」の見方で、アバターの行の「改変を作る」から作れます。",
@@ -273,31 +273,6 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     }
 
     public bool HasStatus => Status.Length > 0;
-
-    /// <summary>
-    /// Unityプロジェクトの見方で一覧が空のとき。**Hub・VCC が見つからないのか、あるがプロジェクトが無いのかを言い分ける**
-    /// （ユーザ判断 2026-09-13）。前は同じ文で、入れれば済むのか作れば済むのか分からなかった
-    /// </summary>
-    /// <remarks>
-    /// ALCOM は VCC と同じ一覧を書く（alcom.md §2-2）ので、ALCOM だけの PC でも一覧はあるものとして言う（ユーザ判断 2026-09-29）。
-    /// 一覧の名前は手元にある方で呼び、作る先は両方あれば「VCCかALCOM」
-    /// </remarks>
-    internal static string ProjectEmptyText(UnityTools tools)
-    {
-        var hasManager = tools.HasVcc || tools.HasAlcom;
-        var list = tools.HasVcc ? "VCC" : "ALCOM";
-        var maker = tools.HasVcc && tools.HasAlcom ? "VCCかALCOM" : list;
-        return (tools.HasHub, hasManager) switch
-        {
-            (false, false) =>
-                "Unity HubもVCCもALCOMも見つかりませんでした。どれかを入れてプロジェクトを作るか開くと、ここに並びます。",
-            (true, false) =>
-                "Unity Hubの一覧にプロジェクトがありません（VCCとALCOMは見つかりませんでした）。Hubでプロジェクトを作るか開くと、ここに並びます。",
-            (false, true) =>
-                $"{list}の一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。{maker}でプロジェクトを作るか開くと、ここに並びます。",
-            _ => $"Unity Hubと{list}の一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
-        };
-    }
 
     // ---- Unity Hub・VCC・ALCOM ----
 
@@ -600,6 +575,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         Detail = new HubProjectDetail
         {
             Candidate = candidate,
+            SourceValue = UnityToolsText.SourceValue(candidate.Source, Tools, _services.Settings.ProjectManager),
             Modifications = RecordsOf(candidate.Path).Select(record => ModRow(record, ModificationHubLevel.Project, false)).ToList(),
         };
     }

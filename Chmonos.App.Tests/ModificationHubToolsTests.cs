@@ -16,51 +16,54 @@ public class ModificationHubToolsTests
     private static UnityTools Tools(bool hub = false, bool vcc = false, bool alcom = false, bool linkOpensAlcom = false)
         => new(hub, vcc, alcom, linkOpensAlcom);
 
+    /// <summary>空の文は改変の右側の「紐付ける先」と同じ所（<see cref="UnityToolsText"/>）で作る。設定は既定の「vcc:// に合わせる」。</summary>
+    private static string Empty(UnityTools tools) => UnityToolsText.ProjectsEmpty(tools, ProjectManagerChoice.VccLink);
+
     // ---- 空のときの文 ----
 
     [Fact]
     public void どれも無ければ_どれかを入れるよう言う()
         => Assert.Equal(
             "Unity HubもVCCもALCOMも見つかりませんでした。どれかを入れてプロジェクトを作るか開くと、ここに並びます。",
-            ModificationHubViewModel.ProjectEmptyText(Tools()));
+            Empty(Tools()));
 
     [Fact]
     public void Hubだけなら_Hubで作るよう言う()
         => Assert.Equal(
-            "Unity Hubの一覧にプロジェクトがありません（VCCとALCOMは見つかりませんでした）。Hubでプロジェクトを作るか開くと、ここに並びます。",
-            ModificationHubViewModel.ProjectEmptyText(Tools(hub: true)));
+            "Unity Hubの一覧にプロジェクトがありません。Hubでプロジェクトを作るか開くと、ここに並びます。",
+            Empty(Tools(hub: true)));
 
     [Fact]
     public void VCCだけなら_VCCの一覧と言う()
         => Assert.Equal(
-            "VCCの一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。VCCでプロジェクトを作るか開くと、ここに並びます。",
-            ModificationHubViewModel.ProjectEmptyText(Tools(vcc: true)));
+            "VCCの一覧にプロジェクトがありません。VCCでプロジェクトを作るか開くと、ここに並びます。",
+            Empty(Tools(vcc: true)));
 
     [Fact]
     public void ALCOMだけなら_一覧をALCOMの名前で呼ぶ()
         // ALCOM は VCC と同じ一覧を書くので、ALCOM だけの PC でも一覧はあるものとして言う（ユーザ判断 2026-09-29）
         => Assert.Equal(
-            "ALCOMの一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。ALCOMでプロジェクトを作るか開くと、ここに並びます。",
-            ModificationHubViewModel.ProjectEmptyText(Tools(alcom: true)));
+            "ALCOMの一覧にプロジェクトがありません。ALCOMでプロジェクトを作るか開くと、ここに並びます。",
+            Empty(Tools(alcom: true)));
 
     [Fact]
     public void VCCとALCOMの両方なら_作る先は両方を言う()
         => Assert.Equal(
-            "VCCの一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。VCCかALCOMでプロジェクトを作るか開くと、ここに並びます。",
-            ModificationHubViewModel.ProjectEmptyText(Tools(vcc: true, alcom: true)));
+            "VCCの一覧にプロジェクトがありません。VCCかALCOMでプロジェクトを作るか開くと、ここに並びます。",
+            Empty(Tools(vcc: true, alcom: true)));
 
     [Theory]
     [InlineData(true, false, "Unity HubとVCCの一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。")]
     [InlineData(false, true, "Unity HubとALCOMの一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。")]
     [InlineData(true, true, "Unity HubとVCCの一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。")]
     public void Hubと管理のアプリがあれば_両方の一覧を言う(bool vcc, bool alcom, string expected)
-        => Assert.Equal(expected, ModificationHubViewModel.ProjectEmptyText(Tools(hub: true, vcc: vcc, alcom: alcom)));
+        => Assert.Equal(expected, Empty(Tools(hub: true, vcc: vcc, alcom: alcom)));
 
     [Fact]
     public void 調べる前は_見つからないと言い出さない()
     {
         // 調べ終わる前に「見つかりません」と出すと、入っている人の画面で一瞬うそを言う
-        var text = ModificationHubViewModel.ProjectEmptyText(UnityTools.Unknown);
+        var text = Empty(UnityTools.Unknown);
 
         Assert.DoesNotContain("見つかりません", text);
     }
@@ -74,7 +77,7 @@ public class ModificationHubToolsTests
         var hub = await OpenHubAsync(app, ModificationHubLevel.Project);
 
         Assert.True(hub.IsEmpty);
-        Assert.Equal(ModificationHubViewModel.ProjectEmptyText(app.Tools), hub.EmptyText);
+        Assert.Equal(Empty(app.Tools), hub.EmptyText);
         Assert.StartsWith("ALCOMの一覧に", hub.EmptyText);
     });
 

@@ -637,7 +637,7 @@
                                 <Button Content="読み直す" Style="{StaticResource SmallButton}"
                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                         Command="{Binding RefreshProjectsCommand}"
-                                        ToolTip="Unity HubとVCCの一覧を読み直します。" />
+                                        ToolTip="{Binding RefreshProjectsHint}" />
                             </Grid>
 
                             <TextBlock Text="{Binding ProjectCandidatesEmptyText}" Style="{StaticResource Caption}"

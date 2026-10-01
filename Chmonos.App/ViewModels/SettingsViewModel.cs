@@ -412,7 +412,32 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             if (SetField(ref _projectManager, value))
             {
                 OnPropertyChanged(nameof(ProjectManagerNote));
+                OnPropertyChanged(nameof(ProjectManagerShown));
                 Save();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 欄に出す選択肢。**選んでいた方が見つからないときは「vcc:// に合わせる」を出す**（公開前の点検 2026-10-01・ユーザ判断）。
+    /// </summary>
+    /// <remarks>
+    /// VCC を選んだまま VCC を消すと、欄は押せない「VCC」を選んだ形のまま、下の説明は「ALCOMを開きます」と食い違っていた。
+    /// 改変の画面は見つかった方に倒す（<see cref="Chmonos.Core.Services.ProjectManagerApps.Buttons"/>）ので、欄もその形で見せる。
+    /// **保存した設定は書き換えない**——入れ直して戻ってきたら、選んでいた方に戻る。
+    /// 見せている値と同じ値が欄から返ってきたとき（見せ方を変えたことへの欄の応え）は、選び直しではないので保存しない
+    /// </remarks>
+    public ProjectManagerChoice ProjectManagerShown
+    {
+        get => ProjectManagers.FirstOrDefault(option => option.Value == _projectManager) is { IsAvailable: false }
+            && _projectManagerTools is not null
+                ? ProjectManagerChoice.VccLink
+                : _projectManager;
+        set
+        {
+            if (value != ProjectManagerShown)
+            {
+                ProjectManager = value;
             }
         }
     }
@@ -445,6 +470,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         ProjectManagers[1].IsAvailable = tools.HasVcc;
         ProjectManagers[2].IsAvailable = tools.HasAlcom;
         OnPropertyChanged(nameof(ProjectManagerNote));
+        OnPropertyChanged(nameof(ProjectManagerShown));
     }
 
     private bool _gallerySwitchOnHover;
