@@ -5,7 +5,7 @@ namespace ViewShot;
 
 /// <summary>
 /// 検索の並べ替えの区切りの札（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。
-/// カテゴリ順・ショップ順で、まとまりの最初の商品の前に、カードと同じ升（リストでは同じ高さの行）で札が入る。
+/// カテゴリ順・ショップ順・入手日順（年月）で、まとまりの最初の商品の前に、カードと同じ升（リストでは同じ高さの行）で札が入る。
 /// 幅を変えて（--width 900,1280）札が段のどこに来ても崩れないかを見る
 /// </summary>
 internal static partial class Scenes
@@ -18,7 +18,37 @@ internal static partial class Scenes
         SortScene("search-sort-shop-list", "検索：ショップ順のリスト（札は列をまたぐ1行）", SortKind.Shop, list: true),
         // 比べる相手：札を出さない並べ替え（名前順）のリスト。札の行が列の幅や横の流しを変えていないかを見る
         SortScene("search-sort-name-list", "検索：名前順のリスト（札なし。札の入ったリストと比べる）", SortKind.Name, list: true),
+        AcquiredScene("search-sort-acquired", "検索：入手日順のカード（年月の札・年の違う同じ月・入手日なしの札）", list: false),
+        AcquiredScene("search-sort-acquired-list", "検索：入手日順のリスト（年月の札は列をまたぐ1行）", list: true),
     ];
+
+    /// <summary>
+    /// 入手日順（既定の並べ替え）の札。10件：2026年9月4・2026年8月1・2025年12月2・2025年9月1・入手日なし2。
+    /// 2026年9月と2025年9月で、同じ月でも年が違えば別の札になることを見る
+    /// </summary>
+    private static Scene AcquiredScene(string name, string description, bool list) => new(name, description, async context =>
+    {
+        DateOnly?[] dates =
+        [
+            new(2026, 9, 28), new(2026, 9, 20), new(2026, 9, 3), new(2026, 9, 1), new(2026, 8, 15),
+            new(2025, 12, 24), new(2025, 12, 1), new(2025, 9, 10), null, null,
+        ];
+        await SeedLibraryAsync(context, count: dates.Length, (index, item) =>
+            item with { Local = item.Local with { AcquiredAt = dates[index] } });
+
+        var main = await context.StartAsync();
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+        await SceneContext.UntilAsync(() => main.Search.TotalCount == dates.Length, "商品を読み終える");
+
+        // 「お気に入りのみ」の条件を外す（SortScene の注記）。外すと「最近追加した順」になるので、入手日順へ戻す
+        main.Search.ShowRecentlyAddedFirst();
+        main.Search.SortField = main.Search.SortFields.First(field => field.Kind == SortKind.AcquiredAt);
+        main.Search.IsListMode = list;
+        await SceneContext.UntilAsync(() => main.Search.Rows.Sum(row => row.Cards.OfType<ItemCardViewModel>().Count()) == dates.Length, "商品が並ぶ");
+        await context.SettleAsync();
+        return new Shot(root);
+    });
 
     /// <summary>
     /// 10件：衣装4・装飾品2・とても長い名前のカテゴリ1（表に無い）・カテゴリなし3。ショップは2つと、ショップの無い商品1件
