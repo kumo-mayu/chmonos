@@ -276,7 +276,7 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="これまでに取り込んだフォルダとファイルです。取り込むのは、取り込み画面で「対象に追加」を押したものだけです。" />
 
-                        <controls:ContentItemsControl ItemsSource="{Binding Folders}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Folders}" controls:ArrowGroup.IsEnabled="True">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ImportFolderRow}">
                                     <Grid Margin="0,0,0,6">
@@ -316,7 +316,7 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="起動したときに、この中に新しいファイルが増えていないかを確認します。" />
 
-                        <controls:ContentItemsControl ItemsSource="{Binding Watched}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Watched}" controls:ArrowGroup.IsEnabled="True">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ImportFolderRow}">
                                     <Grid Margin="0,0,0,6">
@@ -488,7 +488,7 @@
                             <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                        <controls:ContentItemsControl ItemsSource="{Binding Hidden}" Margin="0,0,0,10"
+                        <controls:ContentItemsControl ItemsSource="{Binding Hidden}" controls:ArrowGroup.IsEnabled="True" Margin="0,0,0,10"
                                       Visibility="{Binding HasHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">
@@ -543,6 +543,7 @@
                         <controls:ContentItemsControl ItemsSource="{Binding Excluded}" MaxHeight="360"
                                       AutomationProperties.AutomationId="Settings.ExcludedList"
                                       AutomationProperties.Name="管理対象から除外したファイル"
+                                      controls:ArrowGroup.IsEnabled="True"
                                       VirtualizingPanel.IsVirtualizing="True"
                                       VirtualizingPanel.VirtualizationMode="Recycling"
                                       VirtualizingPanel.ScrollUnit="Pixel"
@@ -592,7 +593,7 @@
                             <TextBlock Text="{Binding DetachedText}" Style="{StaticResource Mono}" FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                        <controls:ContentItemsControl ItemsSource="{Binding Detached}"
+                        <controls:ContentItemsControl ItemsSource="{Binding Detached}" controls:ArrowGroup.IsEnabled="True"
                                       Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">

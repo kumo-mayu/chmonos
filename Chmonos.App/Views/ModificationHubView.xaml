@@ -806,7 +806,7 @@
                     改変300件で見方を切り替えると約8秒固まった）。字下げ・縦線・行の間は行ごとの余白で描き分け、
                     見た目は入れ子の頃と同じ（数字は HubLineBuilder）。左右の 12 は行ごと、下の 12 は最後の行（HubEndLine）
                 -->
-                <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False"
+                <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
                                               VirtualizingPanel.IsVirtualizing="True"
                                               VirtualizingPanel.VirtualizationMode="Recycling"
                                               VirtualizingPanel.ScrollUnit="Pixel"

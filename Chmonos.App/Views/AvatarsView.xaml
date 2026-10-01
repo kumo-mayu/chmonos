@@ -692,7 +692,7 @@
                                     <StackPanel Margin="0,6,0,0">
                                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620" HorizontalAlignment="Left"
                                                    Text="対応アバターの検出に使います。明らかに間違っているものだけ削除してください。括弧内は最後の検出で見つかった商品数です。" />
-                                    <controls:ContentItemsControl ItemsSource="{Binding Aliases}">
+                                    <controls:ContentItemsControl ItemsSource="{Binding Aliases}" controls:ArrowGroup.IsEnabled="True">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />
@@ -735,7 +735,7 @@
                                         <StackPanel Margin="0,10,0,0"
                                                     Visibility="{Binding HasRejectedAliases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="検出に使わない呼び方" Style="{StaticResource Caption}" Margin="0,0,0,5" />
-                                            <controls:ContentItemsControl ItemsSource="{Binding RejectedAliases}">
+                                            <controls:ContentItemsControl ItemsSource="{Binding RejectedAliases}" controls:ArrowGroup.IsEnabled="True">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
                                                         <WrapPanel />

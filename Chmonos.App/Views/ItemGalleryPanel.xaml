@@ -192,7 +192,8 @@
                                         ToolTip="次の画像（→）" />
                             </Grid>
 
-                            <controls:ContentItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">
+                            <!-- 小さな絵の並びは Tab で1回だけ入り、中は矢印で移る（ArrowGroup。末尾の「足す」枠は別に止まる） -->
+                            <controls:ContentItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />
@@ -205,6 +206,7 @@
                                             <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
                                                     Content="＋" FontSize="18" Cursor="Hand"
                                                     AutomationProperties.AutomationId="GalleryAdd" AutomationProperties.Name="画像を追加"
+                                                    controls:ArrowGroup.IsOutside="True"
                                                     Background="{DynamicResource SurfaceAlt}"
                                                     ToolTip="{Binding DataContext.AddImageTip, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     Visibility="{Binding IsAddTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
