@@ -1147,7 +1147,7 @@ function Get-ProductionState {
     # items/ には説明の HTML も同じ数だけあるので *.json で数える
     ItemJson      = @(Get-ChildItem (Join-Path $ChmonosProduction 'items') -Filter *.json -File -ErrorAction SilentlyContinue).Count
     LocationJson  = if (Test-Path $loc) { (Get-Content $loc -Raw).Trim() } else { '(無い)' }
-    # location.json が指す先（利用者が普段使う本当の保存先）も見る。前は %LOCALAPPDATA%Chmonos しか見ておらず、
+    # location.json が指す先（利用者が普段使う本当の保存先）も見る。前は %LOCALAPPDATA%\Chmonos しか見ておらず、
     # 道具が指す先を開いて書いたのに「本番は変わっていない」と答えていた（2026-09-30）
     TargetRoot          = $target
     TargetSettingsWrite = if ($target -and (Test-Path $targetSettings)) { (Get-Item $targetSettings).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '(無い)' }
