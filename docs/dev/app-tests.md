@@ -63,7 +63,9 @@ public Task 壊れたzipだけを出すと_壊れたzipを持つ商品だけが�
 
 ## 仕組み（`Support/`）
 
-- `UiThread`：STA のスレッド1本と素の `Application`。`await` の続きが同じスレッドへ戻る。試験は並べて走らせない（`AssemblyInfo.cs`）
+- `UiThread`：STA のスレッド1本と `App`（資源だけ読む。起動の処理は走らない）。`await` の続きが同じスレッドへ戻る。試験は並べて走らせない（`AssemblyInfo.cs`）。
+  アプリの部品の型（`Themes/Controls.xaml`・`App.xaml`）が効くので、部品を組んで描かれた物を見る試験が書ける（`NameUnderscoreTests`：名前の「_」が消えないこと）。
+  **部品は `Grid` に載せて並べる**——単独で `Measure` しても、一覧・選ぶ欄・メニューは型が組まれず木が空になる
 - `TestApp`：`AppServiceContainer` の引数付きの入口（保存先・通信の出口・待ちを渡す）で組む。
   一時フォルダは `%TEMP%\chmonos-app-test-<プロセス番号>\` の下。試験の終わり・一式の終わり・次の一式の始めの3段で消す
 - 本体の側の口：`AppServiceContainer`（引数付きの入口・`DetectUnityTools`・`DiscoverUnityProjects`）、`Notice.Intercept`、`FireAndForget.Pending`。

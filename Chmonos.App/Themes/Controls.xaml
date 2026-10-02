@@ -22,6 +22,28 @@
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
     </Style>
 
+    <!--
+        Label。WPF の既定の型は、中身が文字のとき最初の「_」をアクセスキーの印として食べる（「tag_name_01」が「tagname_01」と描かれる）。
+        今は画面で使っていないが、名前を載せる部品に使うと消えるので、先に外しておく（NameUnderscoreTests。2026-10-02 メモ1-④）
+    -->
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{DynamicResource Text}" />
+        <Setter Property="Padding" Value="5" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Label">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter RecognizesAccessKey="False"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===== 吹き出し ===== -->
     <!--
         表示の大きさ（AppZoom）。吹き出しとメニューは別の窓（ポップアップ）で、主の窓の縮尺が届かないので、

@@ -207,10 +207,12 @@ public class AutomationNameTests
         var invoked = new List<object>();
         list.RowInvoked += invoked.Add;
 
-        // 行の部品を作らせる（窓には載せない）
-        list.Measure(new Size(200, 100));
-        list.Arrange(new Rect(0, 0, 200, 100));
-        list.UpdateLayout();
+        // 行の部品を作らせる（窓には載せない）。入れ物に載せる：アプリの型が入った状態では、一覧を単独で並べても型が組まれず行ができない
+        var host = new System.Windows.Controls.Grid();
+        host.Children.Add(list);
+        host.Measure(new Size(200, 100));
+        host.Arrange(new Rect(0, 0, 200, 100));
+        host.UpdateLayout();
 
         var rows = UIElementAutomationPeer.CreatePeerForElement(list).GetChildren()
             .Where(peer => peer.GetAutomationControlType() == AutomationControlType.ListItem)

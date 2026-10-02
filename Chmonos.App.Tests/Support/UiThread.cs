@@ -14,8 +14,10 @@ namespace Chmonos.App.Tests.Support;
 /// **なぜスレッドプールでそのまま走らせないか：**画面のスレッドが無いと <c>await</c> の続きがばらばらのスレッドへ戻り、
 /// アプリでは1本のスレッドでしか触らない一覧を、2本から同時に書き換えることになる（たまにだけ落ちる試験になる）。
 ///
-/// 作る <c>Application</c> は素の物で、アプリ本体の <c>App</c> ではない（<c>App</c> は起動の処理と窓を持つ）。
-/// 色の表・型の資源は入っていないので、**画面の部品（View・XAML）はここでは作れない**。
+/// 作る <c>Application</c> はアプリの <c>App</c> で、資源（色の表・標準の部品の型・既定の文字の見た目）だけを読む。
+/// 起動の処理と窓は走らない（<c>App.IsLaunchedAsApp</c> が偽）。部品の型を読み込んだ状態を試験できる（名前の「_」が消えないことの試験）。
+/// ViewModel の試験は資源を使わないので、色の表を持っていても結果は変わらない。
+/// **画面（View）の組み立ては、データの入った ViewModel とその保存先が要るので、ここでは作らず ViewShot で見る**。
 /// </summary>
 internal static class UiThread
 {
@@ -35,7 +37,8 @@ internal static class UiThread
         var ready = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
-            _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            app.InitializeComponent();
             var dispatcher = Dispatcher.CurrentDispatcher;
 
             // 画面のスレッドへ投げた仕事（BeginInvoke・タイマー）の中で落ちると、受ける人がいないのでプロセスごと終わる。
