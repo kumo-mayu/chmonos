@@ -71,6 +71,13 @@ internal static partial class Scenes
             };
         });
 
+        // ショップの札のアイコン（メモ2-⑤）：作り物ショップにだけ置き、ほかのショップの札は何も出さない形を並べて見る
+        if (kind == SortKind.Shop)
+        {
+            var icon = context.Seed.Paths.ShopIconFile(FakeShopSubdomain, "https://example.invalid/shop-icon.png");
+            Fake.Image(System.IO.Path.GetDirectoryName(icon)!, System.IO.Path.GetFileName(icon), seed: "shop-icon", width: 128, height: 128);
+        }
+
         var main = await context.StartAsync();
         var root = context.MainWindow();
         await context.PresentAsync(root);

@@ -86,6 +86,7 @@ public sealed partial class SearchViewModel
         }
 
         var groups = ItemGroups.Split(matches, card => grouping.GroupOf(card.Item));
+        _shopIcons = null;
         var shown = new List<object>(matches.Count + groups.Count);
         var used = new HashSet<string>(StringComparer.Ordinal);
         var kept = new Dictionary<string, SortDivider>(StringComparer.Ordinal);
@@ -95,9 +96,19 @@ public sealed partial class SearchViewModel
             // 並べ替えと切り方が食い違って同じ鍵が2回来たら、2枚目は別の札にする（同じ物が並びに2回入ると、段の組み方が見分けられない）
             var key = used.Add(group.Key) ? group.Key : $"{group.Key}#{group.Start}";
             var cacheKey = $"{grouping.Kind}|{key}";
-            if (!_dividers.TryGetValue(cacheKey, out var divider) || divider.Label != group.Label || divider.Parent != group.Parent)
+            var shop = grouping.Kind == ShopKind ? ShopOfGroup(matches[group.Start].Item) : null;
+            if (!_dividers.TryGetValue(cacheKey, out var divider) || divider.Label != group.Label || divider.Parent != group.Parent
+                || divider.IconPath != shop?.IconPath)
             {
-                divider = new SortDivider(key, grouping.Kind, group.Label, group.Parent);
+                divider = shop is null
+                    ? new SortDivider(key, grouping.Kind, group.Label, group.Parent)
+                    : new SortDivider(key, grouping.Kind, group.Label, group.Parent)
+                    {
+                        IconPath = shop.IconPath,
+                        Thumbnails = _thumbnails,
+                        OpenShopCommand = new RelayCommand(() => _main?.ShowShopAsync(shop.Subdomain).Forget()),
+                        OpenInBoothCommand = shop.BoothUrl is { } url ? new RelayCommand(() => Services.Shell.OpenUrl(url)) : null,
+                    };
             }
 
             kept[cacheKey] = divider;
@@ -126,11 +137,41 @@ public sealed partial class SearchViewModel
     private ItemGrouping? GroupingOf(SortKind kind) => kind switch
     {
         SortKind.Category => new ItemGrouping("カテゴリ", item => ItemGroups.CategoryOf(item, _services.Categories)),
-        SortKind.Shop => new ItemGrouping("ショップ", ItemGroups.ShopOf),
+        SortKind.Shop => new ItemGrouping(ShopKind, ItemGroups.ShopOf),
         SortKind.PublishedAt => new ItemGrouping("公開日", ItemGroups.PublishedOf),
         SortKind.AcquiredAt when _services.Settings.ShowAcquiredSortDividers => new ItemGrouping("入手日", ItemGroups.AcquiredOf),
         _ => null,
     };
+
+    private const string ShopKind = "ショップ";
+
+    /// <summary>
+    /// ショップの札に付けるショップ（メモ2-⑤）。まとまりの最初の商品から取る（同じショップ名でまとめているので、どの商品でも同じ店）。
+    /// ショップの分からない商品（「ショップなし」）は null で、札は今までどおり押せない。
+    /// アイコンの置き場は札を作り直すときに1回だけ列挙する（店ごとに列挙すると店の数だけ置き場をなめる・<see cref="Core.Storage.ShopIconIndex"/>）。
+    /// </summary>
+    private DividerShop? ShopOfGroup(ItemRecord item)
+    {
+        if (item.ShopSubdomain is not { Length: > 0 } subdomain)
+        {
+            return null;
+        }
+
+        _shopIcons ??= _services.Paths.ReadShopIconIndex();
+
+        // 手元だけのショップ（local-）には BOOTH のページが無い。BOOTH のショップなら、鍵を出した側（人が入れたショップが先）の URL か、
+        // サブドメインから作る（ShopSubdomain と同じ順に見ないと、人が直したショップの札で取れた側の店を開く）
+        var known = item.Local.Shop is { } local ? local.Url : item.Booth.Shop?.Url;
+        var url = Core.Models.LocalShopKey.IsLocal(subdomain)
+            ? null
+            : known is { Length: > 0 } ? known : $"https://{subdomain}.booth.pm/";
+        return new DividerShop(subdomain, _shopIcons.FindIcon(subdomain), url);
+    }
+
+    /// <summary>札を作り直す1回の間だけ持つ、アイコンの置き場の表。</summary>
+    private Core.Storage.ShopIconIndex? _shopIcons;
+
+    private sealed record DividerShop(string Subdomain, string? IconPath, string? BoothUrl);
 
     private sealed record ItemGrouping(string Kind, Func<ItemRecord, (string Key, string Label, string? Parent)> GroupOf);
 }
