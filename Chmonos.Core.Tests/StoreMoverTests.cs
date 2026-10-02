@@ -147,6 +147,68 @@ public class StoreMoverTests : IDisposable
     }
 
     /// <summary>
+    /// 途中で止めたら、運ぶ先に書いた物を消す（2026-10-01）。残すと、次に同じ場所を選んだときに既にあるライブラリに見え、
+    /// 「選んだ場所のデータを使う」で半分しか無いライブラリへ切り替えられた（作り物の2GBで確かめた）。
+    /// </summary>
+    [Fact]
+    public void RemovesThePartialCopyWhenStoppedMidway()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var progress = new SyncProgress(_ => cancellation.Cancel());
+
+        var result = StoreMover.Move(Source, Destination, progress, cancellation.Token);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(1, result.Copied);
+        Assert.Null(result.LeftoverAt);
+        Assert.False(Directory.Exists(Destination));
+        Assert.False(StoreLocation.LooksLikeStore(Destination));
+
+        // 元は無傷で、同じ場所へ運び直せる
+        Assert.True(StoreMover.Move(Source, Destination).Succeeded);
+    }
+
+    /// <summary>選んだ空のフォルダは消さずに残す（人が作って選んだフォルダなので）。中は空に戻す。</summary>
+    [Fact]
+    public void KeepsTheChosenEmptyFolderWhenStoppedMidway()
+    {
+        Directory.CreateDirectory(Destination);
+        using var cancellation = new CancellationTokenSource();
+        var progress = new SyncProgress(report =>
+        {
+            if (report.Copied == 2)
+            {
+                cancellation.Cancel();
+            }
+        });
+
+        var result = StoreMover.Move(Source, Destination, progress, cancellation.Token);
+
+        Assert.False(result.Succeeded);
+        Assert.True(Directory.Exists(Destination));
+        Assert.True(StoreLocation.IsEmpty(Destination));
+    }
+
+    /// <summary>置き換えを途中で止めても、退けた元のライブラリには触れない。消すのは運んだ物だけ。</summary>
+    [Fact]
+    public void KeepsTheParkedLibraryWhenAReplaceIsStoppedMidway()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "items"));
+        File.WriteAllText(Path.Combine(Destination, "settings.json"), "{ \"old\": true }");
+        File.WriteAllText(Path.Combine(Destination, "items", "999.json"), "{ \"id\": \"999\" }");
+        using var cancellation = new CancellationTokenSource();
+        var progress = new SyncProgress(_ => cancellation.Cancel());
+
+        var result = StoreMover.Replace(Source, Destination, progress, cancellation.Token);
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.LeftoverAt);
+        Assert.Equal([Path.GetFileName(result.ParkedAt!)], Directory.EnumerateFileSystemEntries(Destination).Select(Path.GetFileName));
+        Assert.Contains("old", File.ReadAllText(Path.Combine(result.ParkedAt!, "settings.json")));
+        Assert.True(File.Exists(Path.Combine(result.ParkedAt!, "items", "999.json")));
+    }
+
+    /// <summary>
     /// 置き換えでも、選んだ場所にあったものは消さずに退ける。
     /// 消してからコピーすると、途中で失敗したときに両方失う。
     /// </summary>

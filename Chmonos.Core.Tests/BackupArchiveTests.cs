@@ -122,6 +122,41 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.Throws<IOException>(() => BackupArchive.Restore(zip, Store));
     }
 
+    /// <summary>
+    /// 戻すが途中で止まったら、展開した物を消す（2026-10-01）。残すと展開先が空でなくなり、
+    /// 同じ場所へ戻し直すと断られた（作り物の2GBで、半分で止めると 44,014 ファイルが残った）。
+    /// </summary>
+    [Fact]
+    public void 戻すが途中で止まると_展開した物を消し_同じ場所へ戻し直せる()
+    {
+        var zip = Path.Combine(_dir, "backup.zip");
+        BackupArchive.Export(Store, zip, includeImages: true);
+        var destination = Path.Combine(_dir, "restored");
+        using var stop = new CancellationTokenSource();
+
+        Assert.ThrowsAny<OperationCanceledException>(() => BackupArchive.Restore(zip, destination, new StopAfterFirst(stop), stop.Token));
+
+        // 作った展開先ごと消える
+        Assert.False(Directory.Exists(destination));
+        Assert.Equal(3, BackupArchive.Restore(zip, destination));
+    }
+
+    /// <summary>選んだ空のフォルダは消さずに、空に戻す（人が作って選んだフォルダなので）。</summary>
+    [Fact]
+    public void 選んだ空のフォルダへ戻すのが途中で止まると_フォルダは残して空に戻す()
+    {
+        var zip = Path.Combine(_dir, "backup.zip");
+        BackupArchive.Export(Store, zip, includeImages: true);
+        var destination = Path.Combine(_dir, "chosen");
+        Directory.CreateDirectory(destination);
+        using var stop = new CancellationTokenSource();
+
+        Assert.ThrowsAny<OperationCanceledException>(() => BackupArchive.Restore(zip, destination, new StopAfterFirst(stop), stop.Token));
+
+        Assert.True(Directory.Exists(destination));
+        Assert.True(StoreLocation.IsEmpty(destination));
+    }
+
     [Fact]
     public void このアプリのバックアップでないzipは戻さない()
     {

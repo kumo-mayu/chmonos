@@ -20,6 +20,11 @@ public sealed record StoreMoveResult
 
     /// <summary>置き換えたとき、元々あったライブラリを退けた場所。消していないので後から戻せる。</summary>
     public string? ParkedAt { get; init; }
+
+    /// <summary>
+    /// 失敗・中断したとき、運ぶ先に途中のコピーを消しきれずに残した場所。消せた（または何も書いていない）なら null。
+    /// </summary>
+    public string? LeftoverAt { get; init; }
 }
 
 /// <summary>ライブラリの姿。どちらを残すか決めてもらうために出す。</summary>
@@ -142,6 +147,11 @@ public static class StoreMover
         var copied = 0;
         var bytes = 0L;
 
+        // 止めた・失敗したときに消すため、書いたファイルを控える。
+        // 運ぶ先は空か、置き換えで元の物を退けた後なので、消すのはここで書いた物だけになる
+        var written = new List<string>();
+        var createdDestination = !Directory.Exists(destination);
+
         try
         {
             Directory.CreateDirectory(destination);
@@ -154,6 +164,9 @@ public static class StoreMover
                 var target = Path.Combine(destination, relative);
 
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+
+                // コピーの途中で落ちると書きかけが残るので、書く前に控える
+                written.Add(target);
                 File.Copy(file, target, overwrite: true);
 
                 copied++;
@@ -175,6 +188,7 @@ public static class StoreMover
                 Copied = copied,
                 Bytes = bytes,
                 Error = exception is OperationCanceledException ? "中断しました。" : Services.FailureText.Cause(exception),
+                LeftoverAt = RemoveCopies(destination, written, createdDestination),
             };
         }
 
@@ -188,6 +202,7 @@ public static class StoreMover
                 Copied = copied,
                 Bytes = bytes,
                 Error = $"コピーの確認に失敗しました：{mismatch}",
+                LeftoverAt = RemoveCopies(destination, written, createdDestination),
             };
         }
 
@@ -198,6 +213,74 @@ public static class StoreMover
             Bytes = bytes,
             SourceRemoved = TryRemoveSource(source, files),
         };
+    }
+
+    /// <summary>
+    /// 止めた・失敗した引越しの途中のコピーを消す（ユーザ判断 2026-10-01）。
+    /// 残すと、次に同じ場所を選んだときに「既にあるライブラリ」に見え、「選んだ場所のデータを使う」で
+    /// 半分しか無いライブラリへ切り替えられた（作り物の2GBで確かめた。docs/research/store-transfer-2026-10-01.md）。
+    /// 消すのは書いたファイルと、それで空になったフォルダだけ。置き換えで退けた物（_置き換え前-…）には触れない。
+    /// </summary>
+    /// <returns>消しきれずに残した場所。全部消せたら null。</returns>
+    private static string? RemoveCopies(string destination, IReadOnlyList<string> written, bool createdDestination)
+    {
+        var allRemoved = true;
+        foreach (var file in written)
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                allRemoved = false;
+            }
+        }
+
+        // 書いたファイルの親を、深い方から畳む。中に別の物があれば残る（空のときだけ消す）
+        var folders = written
+            .Select(Path.GetDirectoryName)
+            .OfType<string>()
+            .SelectMany(folder => Ancestors(folder, destination))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(folder => folder.Length);
+        foreach (var folder in folders)
+        {
+            TryRemoveEmptyFolder(folder);
+        }
+
+        if (createdDestination)
+        {
+            TryRemoveEmptyFolder(destination);
+        }
+
+        return allRemoved ? null : destination;
+
+        static IEnumerable<string> Ancestors(string folder, string root)
+        {
+            var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            for (var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+                 current.Length > stop.Length && IsSameOrInside(current, stop);
+                 current = Path.GetDirectoryName(current)!)
+            {
+                yield return current;
+            }
+        }
+
+        static void TryRemoveEmptyFolder(string folder)
+        {
+            try
+            {
+                if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+                {
+                    Directory.Delete(folder);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 空のフォルダが残るだけ。ライブラリには見えないので、引越しの結果には響かない
+            }
+        }
     }
 
     private static StoreMoveResult Refused(string error)

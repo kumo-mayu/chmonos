@@ -222,4 +222,15 @@ public class SettingsBackupJobTests
             .ToDictionary(
                 path => path,
                 path => Path.GetFileName(path) == "app.lock" ? "（錠）" : Convert.ToBase64String(File.ReadAllBytes(path)));
+
+    /// <summary>途中のコピーを消しきれなかったときだけ、失敗の文に残った場所を添える（2026-10-01）。</summary>
+    [Fact]
+    public void 引越しの失敗の文は_途中のコピーが残ったときだけ場所を添える()
+    {
+        var cleaned = new StoreMoveResult { Succeeded = false, Copied = 1, Bytes = 1, Error = "中断しました。" };
+        var left = cleaned with { LeftoverAt = @"D:\作り物\移動先" };
+
+        Assert.Equal(string.Empty, SettingsViewModel.LeftoverNote(cleaned));
+        Assert.Contains(@"「D:\作り物\移動先」", SettingsViewModel.LeftoverNote(left));
+    }
 }

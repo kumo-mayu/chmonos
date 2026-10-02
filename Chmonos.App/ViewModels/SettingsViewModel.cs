@@ -1320,6 +1320,15 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// `UiCommand` を通すのは、運んでいる間の書き込みを止めるため（`StoreWriteGate`）。
     /// 進み具合は「n/N」で出す。止めている間も読む操作（画面を見る・検索する）はできる。
     /// </summary>
+    /// <summary>
+    /// 途中のコピーは引越しの側で消す（2026-10-01）。消しきれなかったときだけ、どこに残ったかを添える。
+    /// 残った物は、次に同じ場所を選ぶと既にあるライブラリに見えるので、知らせずに置けない
+    /// </summary>
+    internal static string LeftoverNote(Core.Storage.StoreMoveResult result)
+        => result.LeftoverAt is null
+            ? string.Empty
+            : $"\n\n移動先「{result.LeftoverAt}」に、途中までコピーした物が残っています。不要なら削除してください。";
+
     private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)
     {
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C3）。
@@ -1441,6 +1450,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 Services.Notice.Show(
                     $"置き換えられませんでした。\n\n{replaced.Error}\n\n"
                     + "保存先は元のままです。データは失われていません。"
+                    + LeftoverNote(replaced)
                     + (replaced.ParkedAt is null
                         ? string.Empty
                         : $"\n\n選んだ場所のデータは「{replaced.ParkedAt}」に移動したままです。"),
@@ -1504,7 +1514,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 _services.ReacquireInstanceLock();
                 Services.Notice.Show(
                     $"引越しできませんでした。\n\n{result.Error}\n\n"
-                    + "保存先は元のままです。データは失われていません。",
+                    + "保存先は元のままです。データは失われていません。"
+                    + LeftoverNote(result),
                     "引越しに失敗しました",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);

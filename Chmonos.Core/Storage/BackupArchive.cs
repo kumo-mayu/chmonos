@@ -189,33 +189,79 @@ public static class BackupArchive
             throw new IOException($"展開先が空ではありません：{destinationRoot}");
         }
 
+        var createdDestination = !Directory.Exists(destinationRoot);
         Directory.CreateDirectory(destinationRoot);
-        var destinationFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(destinationRoot)) + Path.DirectorySeparatorChar;
-        var files = 0;
 
-        using var archive = ZipFile.OpenRead(zipPath);
-        var total = archive.Entries.Count;
-        foreach (var entry in archive.Entries)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (string.Equals(entry.FullName, InfoFileName, StringComparison.OrdinalIgnoreCase) || entry.FullName.EndsWith('/'))
-            {
-                continue;
-            }
-
-            var target = Path.GetFullPath(Path.Combine(destinationFull, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
-            if (!target.StartsWith(destinationFull, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            entry.ExtractToFile(target, overwrite: false);
-            files++;
-            progress?.Report(new BackupProgress(files, total, Path.GetFileName(target)));
+            return Extract();
+        }
+        catch
+        {
+            // 失敗・中止のときは展開した物を消す（ユーザ判断 2026-10-01）。
+            // 残すと展開先が空でなくなり、同じ場所へ戻し直すと「空ではありません」で断られ、
+            // 手で片付けるまで使えない。展開先は上で空と確かめてあるので、中身は全部ここで書いた物
+            ClearExtracted(destinationRoot, createdDestination);
+            throw;
         }
 
-        return files;
+        int Extract()
+        {
+            var destinationFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(destinationRoot)) + Path.DirectorySeparatorChar;
+            var files = 0;
+
+            using var archive = ZipFile.OpenRead(zipPath);
+            var total = archive.Entries.Count;
+            foreach (var entry in archive.Entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (string.Equals(entry.FullName, InfoFileName, StringComparison.OrdinalIgnoreCase) || entry.FullName.EndsWith('/'))
+                {
+                    continue;
+                }
+
+                var target = Path.GetFullPath(Path.Combine(destinationFull, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+                if (!target.StartsWith(destinationFull, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                entry.ExtractToFile(target, overwrite: false);
+                files++;
+                progress?.Report(new BackupProgress(files, total, Path.GetFileName(target)));
+            }
+
+            return files;
+        }
+    }
+
+    /// <summary>展開先の中身を全部消す。展開先は始める前に空と確かめてあるので、中身はどれも展開した物。</summary>
+    private static void ClearExtracted(string destinationRoot, bool createdDestination)
+    {
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(destinationRoot, "*", SearchOption.AllDirectories).ToList())
+            {
+                File.Delete(file);
+            }
+
+            foreach (var folder in Directory.EnumerateDirectories(destinationRoot, "*", SearchOption.AllDirectories)
+                         .OrderByDescending(path => path.Length).ToList())
+            {
+                Directory.Delete(folder);
+            }
+
+            if (createdDestination)
+            {
+                Directory.Delete(destinationRoot);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 消しきれなければ残る。元の失敗の方を伝える（こちらはログにだけ残す）
+            Diagnostics.AppLog.Error("戻すの途中の物を消す", exception);
+        }
     }
 }
