@@ -172,6 +172,41 @@ public class ItemPageChangesTests
         Assert.Equal(["older", "newer"], changes.NotificationIds);
     }
 
+    /// <summary>
+    /// 保存側と同じ重ね方（<see cref="ChangeStack"/>）でまとめる（ユーザ判断 2026-10-02「重ねましょう」）。
+    /// 前は前後を並べるだけで、上がって戻った価格に「前の値：¥ 500」の印が付き、足して消した行も「足した」と出ていた
+    /// </summary>
+    [Fact]
+    public void 未読が2件で_戻った欄と打ち消し合った行には印を付けない()
+    {
+        static NotificationLine Line(NotificationLineKind kind, string text) => new() { Kind = kind, Text = text };
+
+        var older = Updated(ItemId,
+            Diff(BoothChanges.PriceField, "¥ 500", "¥ 600"),
+            new NotificationDiff
+            {
+                Field = "更新履歴",
+                Before = "v1.0",
+                After = "v1.0",
+                Lines = [Line(NotificationLineKind.Added, "v1.1 予告"), Line(NotificationLineKind.Added, "v1.1 公開")],
+            }) with { Id = "older" };
+        var newer = Updated(ItemId,
+            Diff(BoothChanges.PriceField, "¥ 600", "¥ 500"),
+            new NotificationDiff
+            {
+                Field = "更新履歴",
+                Before = "v1.0",
+                After = "v1.0",
+                Lines = [Line(NotificationLineKind.Removed, "v1.1 予告")],
+            }) with { Id = "newer", CreatedAt = older.CreatedAt.AddDays(1) };
+
+        var changes = ItemChanges.From([newer, older], ["更新履歴"]);
+
+        Assert.False(changes.Variations.IsMarked);
+        var line = Assert.Single(changes.SectionLines["更新履歴"].Lines);
+        Assert.Equal((NotificationLineKind.Added, "v1.1 公開"), (line.Kind, line.Text));
+    }
+
     [Fact]
     public void 知らせが無ければ_何も付けない()
     {
@@ -238,6 +273,41 @@ public class ItemPageChangesTests
         var reopened = new ItemViewModel(item, app.Services, main, main.Thumbnails);
         await app.SettleAsync();
         Assert.False(reopened.HasUnreadChanges);
+    });
+
+    /// <summary>
+    /// 未読のうちに2回変わった商品は、重ねた1件の知らせ（<see cref="ChangeStack"/>）になる。
+    /// ナビの数は1つ、印は最初の前の値で付き、要確認の行の日時の吹き出しは最初と最後を並べる
+    /// </summary>
+    [Fact]
+    public Task 重ねた知らせは_ナビで1件と数え_最初の前の値で印を付ける() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(ItemId, "作り物の衣装 改2");
+        await app.AddItemAsync(item);
+
+        var first = Updated(ItemId, Diff(BoothChanges.NameField, "作り物の衣装", "作り物の衣装 改"));
+        var stacked = ChangeStack.Stack(first.Diffs, [Diff(BoothChanges.NameField, "作り物の衣装 改", "作り物の衣装 改2")]);
+        var record = first with
+        {
+            Diffs = stacked,
+            Detail = BoothChanges.Summarize(stacked),
+            UpdatedAt = first.CreatedAt.AddDays(2),
+        };
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(record);
+            return list;
+        });
+
+        var main = await app.StartAsync();
+        await UiThread.Until(() => main.UnreadCount == 1, "重ねた知らせは1件と数える");
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => page.HasUnreadChanges, "知らせを読んで印が付く");
+        Assert.Equal("前の値：作り物の衣装", Assert.Single(page.NameChange.Marks).Tip);
+
+        var row = new NotificationRow { Record = record, KindText = "更新" };
+        Assert.Equal("2026-10-01 12:00 〜 2026-10-03 12:00", row.CreatedTip);
     });
 
     [Fact]
