@@ -502,14 +502,39 @@
                                             <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <!-- 絵に乗せると大きめの絵の吹き出し。使ったものの行（ModificationHubView）と同じ形 -->
+                                                    <Border Grid.Column="0" AutomationProperties.AutomationId="ModificationCandidateImage"
+                                                            Width="34" Height="34" CornerRadius="4" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                            Background="{DynamicResource SurfaceAlt}" ClipToBounds="True"
+                                                            ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
+                                                        <Border.ToolTip>
+                                                            <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
+                                                                <StackPanel Width="180">
+                                                                    <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True"
+                                                                            Margin="0,0,0,8"
+                                                                            Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                                                    </Border>
+                                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                                               Foreground="{DynamicResource Text}" />
+                                                                </StackPanel>
+                                                            </ToolTip>
+                                                        </Border.ToolTip>
+                                                        <Grid>
+                                                            <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{DynamicResource TextMuted}"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
-                                                    <Button AutomationProperties.AutomationId="ModificationCandidateAdd" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を追加}" Grid.Column="1" Content="追加" Style="{StaticResource SmallButton}"
+                                                    <Button AutomationProperties.AutomationId="ModificationCandidateAdd" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を追加}" Grid.Column="2" Content="追加" Style="{StaticResource SmallButton}"
                                                             VerticalAlignment="Center"
                                                             ToolTip="「使ったもの」の最後に追加します。あとで並べ替えたり外したりできます。"
                                                             Command="{Binding DataContext.AddCandidateCommand,

@@ -325,6 +325,48 @@ internal static partial class Scenes
             Width = 900,
             Height = 400,
         },
+
+        // 結果の行は、絵と頭文字と大きな絵の吹き出しを持つ（メモ15-③）。調べる処理は走らせず（zip の中身が要る）、行を直に足す
+        new Scene("modification-project-found", "改変の詳細：プロジェクトの中を調べた結果の一覧（絵のある行・長い名前・絵の無い行）", async context =>
+        {
+            var selected = await SeedModificationsAsync(context);
+            var rows = new List<(ItemRecord Item, int Present, int Total)>
+            {
+                (await context.Fake.ItemAsync("9900301", "作り物の靴セット", images: 1), 12, 12),
+                (await context.Fake.ItemAsync("9900302", "作り物の長い名前の商品：冬のコートと帽子とマフラーと手袋とブーツのセット（色違い3種・差分つき）", images: 1), 3, 40),
+                (await context.Fake.ItemAsync("9900303", "絵の無い作り物の小物", images: 0), 5, 5),
+            };
+            var main = await context.StartAsync();
+            main.ShowModifications(
+                ModificationHubLevel.Modification,
+                new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
+            foreach (var (item, present, total) in rows)
+            {
+                var image = item.Booth.Images.Count > 0
+                    ? System.IO.Path.Combine(context.Seed.Paths.ItemImagesDir(item.Id), Chmonos.Core.Images.ImagePipeline.FileNameFor(item.Booth.Images[0].OriginalUrl))
+                    : null;
+                detail.FoundInProject.Add(new ProjectCandidateRowViewModel
+                {
+                    ItemId = item.Id, Name = item.DisplayName, Present = present, Total = total,
+                    ThumbnailPath = image, Thumbnails = main.Thumbnails,
+                });
+            }
+
+            Backdoor.ShowProjectFindText(detail, $"このプロジェクトに入っている手元の商品が {rows.Count} 件ありました。この改変に使ったものなら「追加」を押してください。");
+            await context.SettleAsync();
+            Look.Named<ScrollViewer>(Look.View<ModificationView>(root)!, "Body")!.ScrollToEnd();
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ModificationView>(root), FocusMargin = 0 };
+        })
+        {
+            Width = 900,
+            Height = 900,
+        },
     ];
 
     /// <summary>アバター1体・衣装1つ・改変3つ（長い名前・プロジェクト無しを含む）。長い名前の改変の ID を返す。</summary>
