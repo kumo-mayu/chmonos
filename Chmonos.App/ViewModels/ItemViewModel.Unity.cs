@@ -47,7 +47,9 @@ public sealed partial class ItemViewModel
     {
         if (parameter is Core.Services.UnityPackageEntry package)
         {
-            ItemUnityActions.SendAsync(_services, Item, package, SendUi).Forget();
+            // 止めたときの「送るのを中止しました。」は欄の下の1行へ（人が押した結果なので窓にしない）
+            ItemUnityActions.SendAsync(
+                _services, Item, package, SendUi, Notices.LineOrWindow("Unityへ送る", text => UnityRecordNotice = text)).Forget();
         }
     }
 

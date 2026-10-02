@@ -15,8 +15,52 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
 {
     public required AvatarSummary Summary { get; init; }
 
+    private ItemRecord? _item;
+
     /// <summary>この行の商品（アバターは商品でもある）。右クリックをカードと同じにするために持つ（M2）。手元に無ければ null。</summary>
-    public ItemRecord? Item { get; init; }
+    public ItemRecord? Item
+    {
+        get => _item;
+        init => _item = value;
+    }
+
+    /// <summary>
+    /// 検索がまだ商品を読み終えていないか。読み終えるまでは、商品を引けなくても「手元にありません」と言い切らない
+    /// （起動直後に開くと、持っているアバターまで手元に無いと出ていた。2026-10-02）
+    /// </summary>
+    public bool IsItemPending { get; private set; }
+
+    /// <summary>名前だけの札に「この名前の商品は手元にありません」を添えるか。</summary>
+    public bool ShowsMissingNote => !IsItemPending;
+
+    /// <summary>
+    /// 検索の読み込みが済んだときに、この行の商品を引き直す。**行を作った時点の写しに頼らない**——
+    /// 画面を開いたのが検索の読み込みより先だと、持っているアバターまで名前だけの札のまま残っていた（2026-10-02）。
+    /// 手元に有る／無いが変わったときだけカードを作り直す（取り込み中は10秒ごとに読み直すので、毎回全行のカードを作り直さない）
+    /// </summary>
+    public void RefreshItem(ItemRecord? item, bool pending)
+    {
+        if (IsItemPending != pending)
+        {
+            IsItemPending = pending;
+            OnPropertyChanged(nameof(IsItemPending));
+            OnPropertyChanged(nameof(ShowsMissingNote));
+        }
+
+        if ((_item is null) == (item is null))
+        {
+            return;
+        }
+
+        _item = item;
+        _card = null;
+        OnPropertyChanged(nameof(Item));
+        OnPropertyChanged(nameof(Card));
+        OnPropertyChanged(nameof(HasCard));
+
+        // 頭の絵も、持っているアバターは商品の1枚目から探す（持っていないときは控えの1枚）
+        RefreshImages();
+    }
 
     /// <summary>カードを作るのに要る物（画像の置き場と設定）。</summary>
     public AppServiceContainer? Services { get; init; }
@@ -252,6 +296,40 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         // 主画面はアプリと同じ寿命、この画面は開くたびに作り直す。外さないと捨てた画面が知らせを受け続ける
         _main.PropertyChanged -= OnMainChanged;
+        _main.Search.PropertyChanged -= OnSearchChanged;
+    }
+
+    /// <summary>
+    /// 検索がまだ商品を一度も読み終えていないか。読み直しの最中は前に読んだ商品を引けるので、待つのは最初の1回だけ
+    /// （検索は作られた時点で読み始め、読み終えるまで <see cref="SearchViewModel.IsLoading"/> が立っている）
+    /// </summary>
+    private bool ItemsPending => _main.Search.IsLoading && _main.Search.TotalCount == 0;
+
+    /// <summary>
+    /// 検索の読み込みが済んだら、行の商品と右の欄の所有を引き直す（2026-10-02）。
+    /// 行は開いた時点の検索の写しで商品を引いていて、検索より先に開くと、持っているアバターまで
+    /// 「この名前の商品は手元にありません」の札になり、右の欄も「所有していない」と出ていた
+    /// </summary>
+    private void OnSearchChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(SearchViewModel.IsLoading))
+        {
+            return;
+        }
+
+        var pending = ItemsPending;
+        foreach (var row in _all)
+        {
+            row.RefreshItem(_main.Search.FindItem(row.ItemId), pending);
+        }
+
+        foreach (var name in new[]
+                 {
+                     nameof(IsOwnedByFile), nameof(ShowsOwnedToggle), nameof(SelectedOwnedText), nameof(CanOpenItem),
+                 })
+        {
+            OnPropertyChanged(name);
+        }
     }
 
     private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -324,6 +402,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
         DetectCommand = new RelayCommand(() => DetectAsync().Forget(), () => !IsDetecting && !_main.IsLongJobRunning);
         _main.PropertyChanged += OnMainChanged;
+        _main.Search.PropertyChanged += OnSearchChanged;
         ClearQueryCommand = new RelayCommand(() => Query = string.Empty);
         SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
 
@@ -1145,6 +1224,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         ? string.Empty
         : IsOwnedByFile ? "所有している（ファイルあり）"
         : Selected.Summary.Entry.IsOwnedManually ? "所有している（手動で指定）"
+        // 検索が商品を読み終えるまでは、ファイルで持っているかが分からない。分からないうちに言い切らない
+        : ItemsPending ? "所有しているか確かめています…"
         : "所有していない";
 
     public string OwnedButtonText => Selected?.Summary.Entry.IsOwnedManually == true
@@ -1287,6 +1368,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             {
                 Summary = summary,
                 Thumbnails = _main.Thumbnails,
+                // 検索がまだ読み終えていなければ引けない。読み終えたら引き直す（OnSearchChanged）
                 Item = _main.Search.FindItem(summary.Entry.ItemId),
                 // 一覧は1つだけ選ぶ物（右に詳細を出す）。カードの選ぶ箱を出すと何枚でも印が付き、選んでも何もできなかった（メモ9-⑤）
                 CardFactory = () => _main.Search.CardFor(summary.Entry.ItemId) is { } card ? WithoutSelection(card) : null,
@@ -1294,6 +1376,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 IconPathFactory = () => AvatarImageSync.IconPath(
                     _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId)),
             }).ToList();
+
+            var pending = ItemsPending;
+            foreach (var row in _all)
+            {
+                row.RefreshItem(row.Item, pending);
+            }
 
             // 素体の設定を変えると読み直すので、選んでいた素体を名前で戻す
             var selectedBaseName = SelectedBase?.Name;

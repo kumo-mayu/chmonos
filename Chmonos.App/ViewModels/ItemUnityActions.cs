@@ -42,9 +42,12 @@ internal static class ItemUnityActions
     private static async Task<string?> ProjectPathOf(OpenUnityEditor editor)
         => editor.ProjectPath ?? await Task.Run(() => UnityEditors.PathOf(editor));
 
-    /// <summary>1件を、選んだ Unity に送る（送る前に何をどこへ送るかを確かめる）。</summary>
+    /// <summary>
+    /// 1件を、選んだ Unity に送る（送る前に何をどこへ送るかを確かめる）。
+    /// </summary>
+    /// <param name="notify">人が止めたときに言う先（商品ページは欄の下の1行）。無ければ知らせの窓で言う。</param>
     public static async Task SendAsync(
-        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, UnitySendUi? ui = null)
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, UnitySendUi? ui = null, NoticeSink? notify = null)
     {
         const string title = "Unityへ送る";
 
@@ -64,16 +67,44 @@ internal static class ItemUnityActions
 
         if (answer == System.Windows.MessageBoxResult.OK)
         {
-            await SendOneAsync(services, item, editor, package, title, ui);
+            await SendPickedAsync(services, item, editor, package, title, ui, notify);
         }
     }
 
     /// <summary>
+    /// 送り先と送る物が決まった後の「Unityへ送る」。送って、人が止めたときだけここで言う
+    /// （本当に送れなかったときは <see cref="SendOneAsync"/> が警告の窓で言う。うまくいったときは Unity の取り込み画面が出るので言わない。D7）。
+    /// </summary>
+    internal static async Task SendPickedAsync(
+        AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
+        string title, UnitySendUi? ui, NoticeSink? notify)
+    {
+        if (await SendOneAsync(services, item, editor, package, title, ui) is { Stopped: { } stopped })
+        {
+            // 止めたのは人なので、失敗の顔（⚠）で出さない。まとめて送るときと同じ文で言う。
+            // 取り込み画面が残ったときは閉じ方も要るので、黙りはしない
+            if (notify is not null)
+            {
+                notify(stopped);
+            }
+            else
+            {
+                FrontNotice.Show(stopped, title);
+            }
+        }
+    }
+
+    /// <summary>1件を送った結果。<paramref name="Stopped"/> は人が止めたときの言い方（止めていなければ null）。</summary>
+    internal readonly record struct SendResult(bool Sent, string? Stopped);
+
+    /// <summary>
     /// 1件を、選んだ Unity の窓へ名指しで送る（U14）。検索の複数選択・改変と同じ道（1件だけの列）。
     /// 取り込みの終わりをログで見るので、Cancel されたかも分かる。
+    ///
+    /// **本当に送れなかったときだけ、ここで警告の窓を出す。**人が「中止」を押したときに
+    /// 「送れませんでした」と出すと、失敗に読めた（2026-10-02）。止めたときの言い方は呼ぶ側が決める
     /// </summary>
-    /// <returns>取り込み画面を出せたか。</returns>
-    private static async Task<bool> SendOneAsync(
+    internal static async Task<SendResult> SendOneAsync(
         AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
         string title, UnitySendUi? ui)
     {
@@ -92,12 +123,17 @@ internal static class ItemUnityActions
 
         var outcome = outcomes.FirstOrDefault();
 
+        if (outcome is { Opened: false } && UnityImportQueue.IsStopped(outcome.Problem))
+        {
+            return new SendResult(false, outcome.Problem);
+        }
+
         if (outcome is null || !outcome.Opened)
         {
             FrontNotice.Show(
                 $"「{package.Name}」をUnityへ送れませんでした。\n\n{outcome?.Problem ?? "理由が分かりませんでした。"}",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-            return false;
+            return new SendResult(false, null);
         }
 
         // 「使った」の足跡。Unityへ送ったことが一番強い証拠（ユーザ判断）。
@@ -107,8 +143,20 @@ internal static class ItemUnityActions
             services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
         }
 
-        return true;
+        return new SendResult(true, null);
     }
+
+    /// <summary>
+    /// 改変に足した後、送った結果をどう言うか。記録は送る前に済んでいるので、どの場合も「追加しました」は言う。
+    /// 人が止めたときは失敗にしない（窓の ⚠ で「送れませんでした」と出ると、失敗に読めた。2026-10-02）
+    /// </summary>
+    internal static (string Text, bool Failed) AfterRecordText(string recordName, SendResult sent)
+        => sent switch
+        {
+            { Sent: true } => ($"「{recordName}」に追加して、Unityへ送りました。", false),
+            { Stopped: { } stopped } => ($"「{recordName}」に追加しました。{stopped}", false),
+            _ => ($"「{recordName}」に追加しました。Unityへは送れませんでした。", true),
+        };
 
     /// <summary>
     /// 改変に足して送る。
@@ -160,12 +208,8 @@ internal static class ItemUnityActions
         }
 
         // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
-        var sent = await SendOneAsync(services, item, editor, package, title, ui);
-        notify(
-            sent
-            ? $"「{record.Name}」に追加して、Unityへ送りました。"
-            : $"「{record.Name}」に追加しました。Unityへは送れませんでした。",
-            failed: !sent);
+        var (text, failed) = AfterRecordText(record.Name, await SendOneAsync(services, item, editor, package, title, ui));
+        notify(text, failed);
         return record;
     }
 

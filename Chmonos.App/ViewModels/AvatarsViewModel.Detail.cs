@@ -9,7 +9,8 @@ public sealed partial class AvatarsViewModel
     public bool IsOwnedByFile => Selected is { } row && _main.Search.OwnedItemIds().Contains(row.ItemId);
 
     /// <summary>手動の所有の切り替えを出すか。取り込んだファイルで持っていないときだけ（本体を取り込んでいない・BOOTH外で入手した）。</summary>
-    public bool ShowsOwnedToggle => Selected is not null && !IsOwnedByFile;
+    // 検索が商品を読み終えるまでは出さない（ファイルで持っているかが分からないうちに、手動の指定を勧めない）
+    public bool ShowsOwnedToggle => Selected is not null && !IsOwnedByFile && !ItemsPending;
 
     // ---- 共通素体 ----
 
