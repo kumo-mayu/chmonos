@@ -215,7 +215,7 @@ public sealed record AppSettings
 
     /// <summary>
     /// ショートカットの割り当て（#43）。設定画面で変えられる（ユーザ判断）。
-    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+Shift+→、前へ＝Ctrl+Shift+←、検索欄へ＝Ctrl+F、戻る＝Alt+←。
+    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+N、前へ＝Ctrl+P、画面の中を探す＝Ctrl+F、戻る＝Alt+←。
     /// </summary>
     public ShortcutSettings Shortcuts { get; init; } = new();
 
@@ -354,19 +354,18 @@ public sealed record ShortcutSettings
     public string SaveAndNext { get; init; } = "Ctrl+Enter";
 
     /// <summary>
-    /// 編集画面の「スキップ」。**文字の欄の中でも働く**（ユーザ判断 2026-09-20・B11）。
-    /// 以前の Ctrl+→ は文字の欄では1語ずつ動く操作で、編集画面はほぼ常に欄の中にいるため一度も効かなかった。
-    /// Ctrl+Shift+→ は欄では1語ずつ選ぶ操作だが、選ぶのは Shift+→ とマウスで足りるので、こちらを譲ってもらう。
+    /// 編集画面の「スキップ」。Ctrl+N＝次（ユーザ判断 2026-10-02）。**文字の欄の中でも働く**——編集画面はほぼ常に欄の中にいる（B11）。
+    /// 前の Ctrl+Shift+→ は欄の「1語ずつ選ぶ」を取り上げ、前へと Shift の要る・要らないが揃わなかった。
+    /// Ctrl+N は文字の欄で使う操作が無く、このアプリには「新規」も無いのでぶつからない
     /// </summary>
-    public string Skip { get; init; } = "Ctrl+Shift+Right";
+    public string Skip { get; init; } = "Ctrl+N";
 
     /// <summary>
-    /// 編集画面の「← 前へ」（ユーザ判断 2026-09-28）。**スキップと違い、文字の欄の中では働かない。**
-    /// 欄の中の Ctrl+Shift+← は1語ずつ選ぶ操作で、スキップと両方を取ると欄で語を選ぶ手が矢印キーから消える。
-    /// 前へ戻るのは入力を終えてからで足りる、とユーザが決めた。
-    /// 前の版の settings.json にはこの項目が無い。読むと既定が入る
+    /// 編集画面の「← 前へ」。Ctrl+P＝前（ユーザ判断 2026-10-02）。スキップと同じく**文字の欄の中でも働く**。
+    /// 前の Ctrl+Shift+← は欄の「1語ずつ選ぶ」に譲って欄の外だけで効かせていた（2026-09-28）が、文字の操作とぶつからないキーに移したので譲る物が無い。
+    /// このアプリに「印刷」は無い。Microsoft IME の変換中の Ctrl+P（全角英数）は IME が先に受ける
     /// </summary>
-    public string Previous { get; init; } = "Ctrl+Shift+Left";
+    public string Previous { get; init; } = "Ctrl+P";
 
     /// <summary>画面の中の文字を探す帯を出す（どの画面でも同じ・B2）。</summary>
     public string FindInPage { get; init; } = "Ctrl+F";

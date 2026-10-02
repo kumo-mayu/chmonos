@@ -20,6 +20,8 @@ internal static partial class Scenes
         .. ItemPages,
         .. ItemChangeScenes,
         .. Edit,
+        EditDescription(),
+        .. Nav,
         .. Bands,
         .. Modifications,
         .. AvatarScenes,
