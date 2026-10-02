@@ -241,9 +241,21 @@ public static class JsonStore
     /// （試験で確かめた）。<c>File.Replace</c>（ReplaceFile）は本体を削除の共有つきで開いた読み手を妨げず、
     /// 読み手は開いた時点の中身を読み切れる。本体が無ければ置き換える物が無いので Move で置く。
     /// </summary>
+    /// <remarks>
+    /// **まず名前が途切れない改名（<see cref="AtomicReplace"/>）で据える**（2026-10-02）。<c>File.Replace</c> の間は、
+    /// ほかの読み手から本体が一瞬「無い」・開けない形に見え、錠を取らない読み（全件の読み込み・均しの頭の読み）が
+    /// 商品を取りこぼしたり、一覧を空として受けたりしていた。改名が使えないファイルシステムでは今までの置き換えで続ける。
+    /// </remarks>
     private static void MoveOver(string temporaryPath, string path)
-        => MoveOver(temporaryPath, path, static (temporary, target)
+    {
+        if (AtomicReplace.TryReplace(temporaryPath, path))
+        {
+            return;
+        }
+
+        MoveOver(temporaryPath, path, static (temporary, target)
             => File.Replace(temporary, target, destinationBackupFileName: null, ignoreMetadataErrors: true));
+    }
 
     /// <summary>置き換えの道具を差し替えられる形（1176・1177 は実のディスクでは起こせないので、試験で作る）。</summary>
     internal static void MoveOver(string temporaryPath, string path, Action<string, string> replace)
