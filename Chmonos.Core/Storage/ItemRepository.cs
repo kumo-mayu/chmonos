@@ -182,6 +182,9 @@ public sealed class ItemRepository
     private KeyedGate<string>.Handle LockFor(string itemId)
         => _itemLocks.For(itemId);
 
+    /// <summary>その商品の錠を持っている・待っている人の数（試験で、書き手が錠の前まで来たかを見る）。</summary>
+    internal int LockUsers(string itemId) => _itemLocks.UsersOf(itemId);
+
     /// <summary>
     /// <c>local</c> のうち、<paramref name="owns"/> で名指しした項目だけを書く。
     ///

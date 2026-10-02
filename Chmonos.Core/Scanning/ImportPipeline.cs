@@ -1559,20 +1559,23 @@ public sealed class ImportPipeline : IImportPipeline
                 // **「新しい」と判断した時点と書く時点がずれている**（ユーザ判断 2026-09-21・L13）。
                 // BOOTH から取る数秒〜数分の間に、未確定の「このIDで登録」が同じ商品を作ることがあり、
                 // 丸ごと書くと人が入れた名前・購入記録が消えていた。
-                // `ChangeItemIdAsync` と同じく**書く直前に読み直し**、あれば取ってきた `booth` だけを重ねる
-                if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } appeared)
-                {
-                    await _store.Items.SaveLocalAsync(
-                        itemId,
-                        appeared.Local with { LocalFiles = LocalFileMerger.Merge(appeared.Local.LocalFiles, discovered) },
-                        LocalOwners.Import,
-                        item.Booth,
-                        cancellationToken);
-                }
-                else
-                {
-                    await _store.Items.SaveAsync(item, cancellationToken);
-                }
+                // **在るかを商品の錠の中で見て**、あれば取ってきた `booth` と見つけたファイルだけを今の値に重ねる。
+                // 前は錠の外で読み直し、無ければ丸ごと保存していたので、見てから書くまでの間に人の保存が同じ商品を作ると、
+                // 人が入れた名前・メモ・購入記録を消していた（2026-10-02。CreateWhileSomeoneSavesTests）
+                var created = false;
+                await _store.Items.CreateOrChangeLocalAsync(
+                    itemId,
+                    () =>
+                    {
+                        created = true;
+                        return item;
+                    },
+                    current => created
+                        ? current
+                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, discovered) },
+                    LocalOwners.Import,
+                    cancellationToken,
+                    item.Booth);
 
                 // 「追加」の足跡。**itemのJSONには書かない**（足跡で埋めないため）。
                 // 既にある商品には打てないので、そちらは「不明」のまま残る——

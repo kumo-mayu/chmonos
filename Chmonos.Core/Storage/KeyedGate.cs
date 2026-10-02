@@ -20,6 +20,17 @@ internal sealed class KeyedGate<TKey>
         _entries = new Dictionary<TKey, Entry>(comparer);
     }
 
+    /// <summary>
+    /// その鍵の錠を持っている・待っている人の数（試験で、相手が錠の前まで来たかを見る。時計で待たずに重なりを作るため）。
+    /// </summary>
+    public int UsersOf(TKey key)
+    {
+        lock (_sync)
+        {
+            return _entries.TryGetValue(key, out var entry) ? entry.Users : 0;
+        }
+    }
+
     /// <summary>今表にある錠の数（試験で、捨てられたかを見る）。</summary>
     public int Count
     {
