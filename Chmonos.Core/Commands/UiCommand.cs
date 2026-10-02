@@ -33,8 +33,16 @@ public abstract record UiCommand
     /// <summary>
     /// 未確定ファイルを「BOOTHに無い商品」として登録する。
     /// 仮IDを与えるので、BOOTHへは問い合わせない。
+    /// 複数のファイルを1つの商品にまとめるときも1回の命令で渡す（ユーザ指示 2026-10-02：選んだ物をまとめて仮IDで登録したい）。
+    /// 仮IDは先頭のファイルから決まる。1件ずつ命令を重ねると、途中で失敗したときに半分だけ登録された商品が残る
     /// </summary>
-    public record RegisterLocalItem(string Hash, string DisplayName) : UiCommand;
+    public record RegisterLocalItem(IReadOnlyList<string> Hashes, string DisplayName) : UiCommand
+    {
+        public RegisterLocalItem(string hash, string displayName)
+            : this([hash], displayName)
+        {
+        }
+    }
 
     /// <summary>
     /// 未確定ファイルを、BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。

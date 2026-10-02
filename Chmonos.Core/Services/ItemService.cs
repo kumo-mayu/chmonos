@@ -133,9 +133,10 @@ public interface IItemService
     /// 未確定のファイルを「BOOTHに無い商品」として登録する。
     /// 仮ID（<see cref="LocalItemId"/>）を与えるので、BOOTHへは一切問い合わせない。
     /// </summary>
-    /// <returns>作った商品のID。対象のファイルが無ければ null。</returns>
+    /// <param name="hashes">1つの商品にまとめるファイル。仮IDは未確定に見つかった最初のファイルから決まる。</param>
+    /// <returns>作った商品のID。対象のファイルが1つも無ければ null。</returns>
     Task<string?> RegisterLocalItemAsync(
-        string hash,
+        IReadOnlyList<string> hashes,
         string displayName,
         CancellationToken cancellationToken = default);
 
@@ -1682,8 +1683,15 @@ public sealed class ItemService : IItemService
         };
     }
 
-    public async Task<string?> RegisterLocalItemAsync(
+    /// <summary>1件だけを登録する（試験と道具の書きやすさのため）。</summary>
+    public Task<string?> RegisterLocalItemAsync(
         string hash,
+        string displayName,
+        CancellationToken cancellationToken = default)
+        => RegisterLocalItemAsync([hash], displayName, cancellationToken);
+
+    public async Task<string?> RegisterLocalItemAsync(
+        IReadOnlyList<string> hashes,
         string displayName,
         CancellationToken cancellationToken = default)
     {
@@ -1697,15 +1705,26 @@ public sealed class ItemService : IItemService
         await _store.Unresolved.TryUpdateAwaitingAsync(
             async current =>
             {
-                var target = current.FirstOrDefault(
-                    file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
-                if (target is null)
+                // 渡された順に並べる（仮IDは先頭のファイルから決まり、画面が押す前に見せたIDと合わせる）。
+                // 未確定から既に消えたファイルは飛ばす（同じ中身が先に片付いた・別の画面で登録した）
+                var order = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var hash in hashes)
+                {
+                    order.TryAdd(hash, order.Count);
+                }
+
+                var targets = current
+                    .Where(file => order.ContainsKey(file.Hash))
+                    .DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(file => order[file.Hash])
+                    .ToList();
+                if (targets.Count == 0)
                 {
                     return null;
                 }
 
-                var id = LocalItemId.For(target.Hash);
-                var record = FromUnresolved(target);
+                var id = LocalItemId.For(targets[0].Hash);
+                var records = targets.Select(FromUnresolved).ToList();
 
                 // 同じファイルを2回登録しようとした場合（未確定に二重に載っていた等）。
                 // 仮IDはハッシュから決まるので、同じ商品に行き着く
@@ -1720,14 +1739,14 @@ public sealed class ItemService : IItemService
                             Local = new LocalBlock
                             {
                                 DisplayName = displayName.Trim(),
-                                LocalFiles = [record],
+                                LocalFiles = records,
                             },
                         },
                         cancellationToken);
                 }
                 else
                 {
-                    var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, [record]);
+                    var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, records);
                     await _store.Items.SaveLocalAsync(
                         id,
                         existing.Local with { DisplayName = displayName.Trim(), LocalFiles = merged },
@@ -1736,7 +1755,8 @@ public sealed class ItemService : IItemService
                 }
 
                 itemId = id;
-                current.RemoveAll(file => string.Equals(file.Hash, target.Hash, StringComparison.OrdinalIgnoreCase));
+                var registered = targets.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                current.RemoveAll(file => registered.Contains(file.Hash));
                 return current;
             },
             cancellationToken);

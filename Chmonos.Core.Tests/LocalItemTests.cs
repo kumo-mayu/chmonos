@@ -98,6 +98,50 @@ public class LocalItemTests : IDisposable
     }
 
     /// <summary>
+    /// 選んだ複数のファイルを1回で1つの商品にする（ユーザ指示 2026-10-02）。仮IDは渡した先頭のファイルから決まり、
+    /// 未確定に無いファイル（先に片付いた物）は飛ばし、ほかの未確定は残す。
+    /// </summary>
+    [Fact]
+    public async Task RegistersSeveralFilesAsOneItemInTheGivenOrder()
+    {
+        UnresolvedFile Make(string hash, string name) => new()
+        {
+            Hash = hash,
+            Paths = [Path.Combine(_root, name)],
+            SizeBytes = 10,
+            ModifiedAtUtc = DateTimeOffset.UtcNow,
+            FirstSeenAt = DateTimeOffset.UtcNow,
+        };
+        await _store.Unresolved.SaveAsync(
+        [
+            Make("aaaa000000000001", "body.zip"),
+            Make("bbbb000000000002", "extra.psd"),
+            Make("cccc000000000003", "other.zip"),
+        ]);
+
+        var itemId = await _service.RegisterLocalItemAsync(
+            ["bbbb000000000002", "ffff000000000009", "aaaa000000000001"], "まとめた衣装");
+
+        Assert.Equal(LocalItemId.For("bbbb000000000002"), itemId);
+        var item = await _store.Items.LoadAsync(itemId!);
+        Assert.Equal("まとめた衣装", item!.Local.DisplayName);
+        Assert.Equal(
+            ["bbbb000000000002", "aaaa000000000001"],
+            item.Local.LocalFiles.Select(file => file.Hash).ToArray());
+        Assert.Equal("cccc000000000003", Assert.Single(_store.Unresolved.Load()).Hash);
+    }
+
+    [Fact]
+    public async Task RegistersNothingWhenNoneOfTheFilesAreUnresolved()
+    {
+        await SeedUnresolvedAsync();
+
+        Assert.Null(await _service.RegisterLocalItemAsync(["ffff000000000009"], "謎の衣装"));
+        Assert.Single(_store.Unresolved.Load());
+        Assert.Empty(_store.Items.EnumerateItemIds());
+    }
+
+    /// <summary>
     /// 未確定の候補からこの商品を確かめるとき、題は付けた名前で出す。
     /// BOOTH の側の名前は無いので、そこだけを見ると仮の ID（local-…）が題になっていた。
     /// </summary>

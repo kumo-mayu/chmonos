@@ -288,6 +288,10 @@ public sealed partial class ResolveViewModel
             await NoteSettledAsync(Preview.Id);
 
             await ReloadAsync();
+
+            // ほかの片付け方（RemoveRows・AfterSettled）と同じく、ナビの未確定の数をその場で数え直す。
+            // ここは一覧を読み直すだけで行を外す道を通らないので、呼ばないと次に数え直すまで古い数が残っていた
+            _main.RefreshBadges();
             StatusText = $"「{RegisterTargetName}」を登録しました。配下の未確定は一覧から外れます。";
             OnPropertyChanged(nameof(HasStatus));
         }

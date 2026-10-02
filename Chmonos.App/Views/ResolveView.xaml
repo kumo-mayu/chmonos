@@ -144,7 +144,11 @@
             </StackPanel>
         </StackPanel>
 
-        <Grid>
+        <!--
+            右の欄には最小の幅を付け、覚えた一覧の幅は窓が狭いと頭打ちにする（PaneGrid。ほかの画面と同じ・ui-rules）。
+            前は右の欄に最小が無く、表示を大きくした狭い窓で右の欄が約130pxまで潰れ、見出しとボタンが重なって切れた（ユーザ 2026-10-02 メモ12）
+        -->
+        <controls:PaneGrid Pane="{Binding ListPane}">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Visible" />
@@ -158,7 +162,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                                   MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
             <!-- 左の一覧の幅を変える境目（ユーザ判断 2026-09-14）。組み込んだときは一覧が無いので出さない -->
@@ -492,15 +496,21 @@
                         <StackPanel>
                             <!--
                                 自動検索はファイルの情報を見てすぐ押す物なので、候補の欄（決める欄の下）ではなくここに置く（ユーザ指示 2026-09-29）。
-                                押すと候補の欄まで画面を送る（進み具合と結果はそこに出る）
+                                押すと候補の欄まで画面を送る（進み具合と結果はそこに出る）。
+                                「商品IDを決める」と「候補」の見出しにも同じボタンを置いている（ユーザ指示 2026-10-02）
                             -->
-                            <Grid Margin="0,0,0,10">
-                                <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                                <Button Content="自動検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                            <!--
+                                見出しと右のボタンは SplitRowPanel で並べ、入り切らなければボタンを次の行の右端へ送る。
+                                前は1つの Grid に重ねて右寄せしていたので、右の欄が狭いとボタンが見出しの上に乗って読めなかった（ユーザ 2026-10-02 メモ12）。
+                                見出しは縮めずに送る（MinLeftWidth を見出しより広くする。縮めると見出しが2行に割れてボタンの横に残る）
+                            -->
+                            <controls:SplitRowPanel Margin="0,0,0,10" Gap="10" MinLeftWidth="1000">
+                                <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <Button Content="自動検索" Style="{StaticResource SmallButton}"
                                         AutomationProperties.AutomationId="ResolvePropose"
                                         ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
                                         Command="{Binding ProposeCommand}" />
-                            </Grid>
+                            </controls:SplitRowPanel>
 
                             <!--
                                 壊れていて開けない zip。中身の一覧が出ないだけでは壊れていると分からないので、欄の先頭で言う（ユーザ判断 2026-09-30）。
@@ -515,9 +525,10 @@
 
                             <!-- 中身を見て判断したいときのために、場所を開ける（以前の動線の記録 C3） -->
                             <!-- ファイル名は BOOTH やブラウザの検索に貼りたい（ユーザ指示 2026-09-29）。一覧の右クリックにも同じ物がある -->
-                            <Grid>
+                            <!-- 上の見出しと同じく、狭いときはボタンを次の行へ送る。ボタンの並びも入り切らなければ折り返す -->
+                            <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
                                 <TextBlock Text="保存場所" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <WrapPanel>
                                     <TextBlock Text="{Binding CopyNote}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                Visibility="{Binding HasCopyNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <Button Content="ファイル名をコピー" Style="{StaticResource SmallButton}"
@@ -526,8 +537,8 @@
                                     <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                             AutomationProperties.AutomationId="ResolveReveal"
                                             Command="{Binding RevealCommand}" />
-                                </StackPanel>
-                            </Grid>
+                                </WrapPanel>
+                            </controls:SplitRowPanel>
                             <controls:ContentItemsControl ItemsSource="{Binding SelectedPaths}" Margin="0,5,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -612,7 +623,17 @@
                     <!-- 決定 -->
                     <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
-                            <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
+                            <!--
+                                自動検索はここと候補の欄にも置く（ユーザ指示 2026-10-02：「商品IDを決める」と候補に重なってあってよい）。
+                                IDを決めようとしてここまで来た人が、上の「分かっていること」へ戻らずに押せるように。動きは見出しの横の物と同じ
+                            -->
+                            <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
+                                <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <Button Content="自動検索" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="ResolveProposeInDecision"
+                                        ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
+                                        Command="{Binding ProposeCommand}" />
+                            </controls:SplitRowPanel>
                             <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをドロップしてください。下に表示された商品を確かめてから確定します。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
                             <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す。IDを入れる前（落とす前）から分かるよう欄の上に置く（ユーザ判断 2026-09-17） -->
@@ -714,15 +735,23 @@
                                     Visibility="{Binding HasChecked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AccentText}" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}"
+                                    <!--
+                                        3つ並べると幅900で収まらないので折り返す。「BOOTHに無い商品として登録…」は名前と画像を入れる「その他」の欄へ送るだけ
+                                        （選んだ物をまとめて仮IDで登録できなかった。ユーザ指示 2026-10-02）
+                                    -->
+                                    <WrapPanel Margin="0,9,0,0">
+                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" Margin="0,0,9,7"
                                                 AutomationProperties.AutomationId="ResolveAssignChecked" />
-                                        <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
+                                        <Button Content="{Binding ExcludeCheckedText}" Margin="0,0,9,7"
                                                 AutomationProperties.AutomationId="ResolveExcludeChecked"
                                                 Command="{Binding ExcludeCheckedCommand}" />
-                                    </StackPanel>
+                                        <Button Content="{Binding LocalCheckedText}" Margin="0,0,9,7"
+                                                AutomationProperties.AutomationId="ResolveLocalChecked"
+                                                ToolTip="下の「BOOTHに無い商品として登録する」で名前を決めて登録します。"
+                                                Command="{Binding GoToLocalCommand}" />
+                                    </WrapPanel>
                                     <TextBlock Text="まとめて確定するには、先に上で商品IDを確認してください。"
-                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,1,0,0"
                                                Visibility="{Binding HasPreview, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
@@ -732,13 +761,19 @@
                     <!-- 候補 -->
                     <Border Style="{StaticResource Card}" x:Name="CandidatesCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
-                            <Grid Margin="0,0,0,10">
-                                <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                                <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
-                                        AutomationProperties.AutomationId="ResolveSearchInBrowser"
-                                        ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
-                                        Command="{Binding OpenBoothCommand}" />
-                            </Grid>
+                            <controls:SplitRowPanel Margin="0,0,0,10" Gap="10" MinLeftWidth="1000">
+                                <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <WrapPanel>
+                                    <Button Content="自動検索" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
+                                            AutomationProperties.AutomationId="ResolveProposeInCandidates"
+                                            ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
+                                            Command="{Binding ProposeCommand}" />
+                                    <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}"
+                                            AutomationProperties.AutomationId="ResolveSearchInBrowser"
+                                            ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
+                                            Command="{Binding OpenBoothCommand}" />
+                                </WrapPanel>
+                            </controls:SplitRowPanel>
 
                             <TextBlock Text="{Binding SearchTargetText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,0,0,10" />
@@ -854,7 +889,7 @@
                                 除外は「これはBOOTH商品ではない」に使う語なので、
                                 入れると統計からも検索からも消えてしまう。
                             -->
-                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                            <Border x:Name="LocalCard" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0"
                                     AllowDrop="True" PreviewDragOver="OnLocalBoxPreviewDragOver" PreviewDrop="OnLocalBoxPreviewDrop">
                                 <StackPanel>
@@ -863,7 +898,7 @@
                                                Text="非公開・削除済みで商品IDが分からないもの。名前を付けて手元の商品として登録します。" />
 
                                     <!-- 上の商品IDの欄と同じ高さと余白にする（素のままだと細く、文字が枠に付く。ユーザ判断 2026-09-30） -->
-                                    <TextBox Margin="0,10,0,0" Height="32" VerticalContentAlignment="Center" Padding="8,0"
+                                    <TextBox x:Name="LocalNameBox" Margin="0,10,0,0" Height="32" VerticalContentAlignment="Center" Padding="8,0"
                                              AutomationProperties.AutomationId="ResolveLocalName" AutomationProperties.Name="登録する名前"
                                              Text="{Binding LocalNameInput, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -906,13 +941,17 @@
                                         この枠に画像を落としても添えられる（View の OnLocalBoxDrop。画像以外はウィンドウの振り分けに任せる）。
                                         登録の後に足すのは商品ページの「＋」
                                     -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                        <Button Content="この名前で登録する" Command="{Binding RegisterLocalCommand}"
+                                    <!--
+                                        選んでいるときは登録のボタンが「選択した n 件をこの名前で登録する」と長くなり、狭い窓で「画像を選ぶ」が枠の外へ切れたので折り返す。
+                                        折り返したときの上下の間をボタンの下の余白で取り、1行のときの高さは前と同じにする（下の余白を負の値で打ち消す）
+                                    -->
+                                    <WrapPanel Margin="0,10,0,-6">
+                                        <Button Content="{Binding RegisterLocalText}" Command="{Binding RegisterLocalCommand}" Margin="0,0,7,6"
                                                 AutomationProperties.AutomationId="ResolveRegisterLocal" />
-                                        <Button Content="画像を選ぶ" Margin="7,0,0,0"
+                                        <Button Content="画像を選ぶ" Margin="0,0,7,6"
                                                 ToolTip="登録と一緒に追加する画像を選びます。この枠にドロップしても追加できます。"
                                                 Command="{Binding ChooseLocalImagesCommand}" />
-                                    </StackPanel>
+                                    </WrapPanel>
                                     <StackPanel Margin="0,8,0,0"
                                                 Visibility="{Binding HasLocalImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="{Binding LocalImagesText}" Style="{StaticResource Caption}" />
@@ -938,7 +977,7 @@
                                                     Visibility="{Binding IsRegisteringLocal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <TextBlock Text="元のzipが未確定にあるため、zipで登録してください。1件だけ扱うときは「このファイルだけを扱う」をオンにします。"
                                                Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{DynamicResource Warn}" Margin="0,6,0,0"
-                                               Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                               Visibility="{Binding IsLocalBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
 
@@ -957,7 +996,7 @@
                     </Border>
                 </StackPanel>
             </ScrollViewer>
-        </Grid>
+        </controls:PaneGrid>
 
         </Grid>
     </DockPanel>

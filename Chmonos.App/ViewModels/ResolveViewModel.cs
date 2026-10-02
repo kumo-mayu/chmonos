@@ -127,9 +127,11 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         UseLocalNameCommand = new RelayCommand(
             parameter => { if (parameter is string name) { LocalNameInput = name; } },
             parameter => parameter is string);
+        // 選んでいるときは選んだ全部が対象（元のzipが未確定にある中身が混ざっていれば、押したときに理由を言って止める。まとめて確定と同じ）
         RegisterLocalCommand = new RelayCommand(
             () => RegisterLocalAsync().Forget(),
-            () => HasSelection && !IsBusy && !IsBlockedByListedZip && !string.IsNullOrWhiteSpace(LocalNameInput));
+            () => (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
+        GoToLocalCommand = new RelayCommand(GoToLocal, () => HasChecked && !IsBusy);
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
         OpenLastSettledCommand = new RelayCommand(() => OpenLastSettledAsync().Forget(), () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
@@ -277,6 +279,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public RelayCommand RegisterLocalCommand { get; }
 
+    /// <summary>まとめての操作の欄から「BOOTHに無い商品として登録する」の欄へ送る。</summary>
+    public RelayCommand GoToLocalCommand { get; }
+
     /// <summary>
     /// 名前の候補。**自動では入れず、押したら入る。**（Q6）
     ///
@@ -364,9 +369,14 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
     }
 
-    /// <summary>登録したときに付く仮ID。押す前に見せる（何が起きるかを隠さない）。</summary>
+    /// <summary>
+    /// 登録したときに付く仮ID。押す前に見せる（何が起きるかを隠さない）。
+    /// 選んでいるときは選んだ1件目から決まる（登録の命令は先頭のファイルで仮IDを決め、対象は一覧の順に1件目から並ぶ）
+    /// </summary>
     public string LocalIdPreview
-        => Selected is null ? string.Empty : LocalItemId.For(Selected.File.Hash);
+        => (Files.FirstOrDefault(row => row.IsSelected) ?? Selected) is { } row
+            ? LocalItemId.For(row.File.Hash)
+            : string.Empty;
 
     public bool CanPreview => ItemIdInput.Trim().Length > 0;
 
@@ -815,11 +825,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         ClearLocalImages();
 
         // 名前は下書きを入れておく。そのままでも通る形にしておかないと、
-        // 「登録できる」と言いながら毎回入力を強いることになる。
-        // 元zipが分かれば、中の1ファイルの名前（cloth.psd など）より商品名に近い
-        LocalNameInput = Selected is null
-            ? string.Empty
-            : Chmonos.Core.Resolution.FileNameQuery.ToNameDraft(Selected.Origin?.ArchiveName ?? Selected.FileName);
+        // 「登録できる」と言いながら毎回入力を強いることになる（決まりは LocalNameDraft）
+        ResetLocalNameDraft();
 
         Candidates.Clear();
         LocalNameSuggestions.Clear();
@@ -1018,15 +1025,33 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     /// </summary>
     private async Task RegisterLocalAsync()
     {
-        if (Selected is null || string.IsNullOrWhiteSpace(LocalNameInput))
+        if ((Selected is null && !HasChecked) || string.IsNullOrWhiteSpace(LocalNameInput))
         {
             return;
         }
 
-        // zipの中身の束を立てていれば、その全件を同じ仮の商品にする（1zip＝1商品）
-        var targets = ActiveRows;
+        // 選んでいればその全部、zipの中身の束を立てていればその全件を、同じ仮の商品にする（1zip＝1商品）
+        var fromChecked = HasChecked;
+        var (found, blocked) = LocalTargets();
+        if (blocked is not null)
+        {
+            StatusText = blocked;
+            OnPropertyChanged(nameof(HasStatus));
+            return;
+        }
+
+        // 仮IDは先頭のファイルから決まる。押す前に見せたID（LocalIdPreview：選んだ1件目か、今選んでいる行）と合わせる
+        var lead = fromChecked ? found.FirstOrDefault() : Selected;
+        var targets = lead is null ? found.ToList() : [lead, .. found.Where(row => !ReferenceEquals(row, lead))];
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
         var name = LocalNameInput.Trim();
-        var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
+        var what = fromChecked
+            ? $"選択した {targets.Count} 件"
+            : targets.Count == 1 ? targets[0].FileName : GroupSubject;
 
         // 添えた画像は押した時点の分。登録の後は選び直しで消えるので、先に控える
         var images = LocalImages.ToList();
@@ -1046,11 +1071,15 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
 
         IsBusy = true;
-        StartRegistering(RegisteringArea.Local, targets.Count);
+
+        // 1回の命令で全部を登録するので、進み具合の件数は出さない（途中の数が無い）
+        StartRegistering(RegisteringArea.Local, 1);
         try
         {
+            // 全部を1回の命令で渡す。前は1件目で商品を作り、残りを1件ずつ確定の命令で足していたので、
+            // 途中で失敗すると半分だけ登録された商品が残り、件数ぶん未確定の記録を読み書きしていた
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.RegisterLocalItem(targets[0].File.Hash, name));
+                new UiCommand.RegisterLocalItem([.. targets.Select(row => row.File.Hash)], name));
             StepRegistering(1);
 
             if (result is CommandResult.Failed failed)
@@ -1068,15 +1097,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 ? $"画像 {imagesFailed} 枚を追加できませんでした。商品ページの「＋」から追加してください。"
                 : string.Empty;
 
-            if (targets.Count == 1 || result is not CommandResult.ItemSaved created)
+            // 確定と同じ扱いで溜める。まとめて編集へ送れば、支払額もそのまま入れられる。
+            // 検索の写しへ足すのは画像を入れた後（カードに入れた画像を出す）
+            if (result is CommandResult.ItemSaved saved)
             {
-                // 確定と同じ扱いで溜める。まとめて編集へ送れば、支払額もそのまま入れられる。
-                // 検索の写しへ足すのは画像を入れた後（カードに入れた画像を出す）
-                if (result is CommandResult.ItemSaved saved)
-                {
-                    await NoteSettledAsync(saved.ItemId);
-                }
+                await NoteSettledAsync(saved.ItemId);
+            }
 
+            // 選んでいる行1件だけなら、1件ずつ片付けるときと同じく次の行へ移る（AfterSettled は選んでいる行を外す）
+            if (!fromChecked && targets.Count == 1)
+            {
                 AfterSettled();
 
                 // 次の行を選ぶと知らせは消えるので、選び直した後に出す
@@ -1089,27 +1119,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 return;
             }
 
-            // 残りの中身は、できた仮の商品に加える（BOOTHへは行かない）
-            var settled = new List<UnresolvedRow> { targets[0] };
-            var done = 1;
-            foreach (var row in targets.Skip(1))
-            {
-                var assigned = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, created.ItemId));
-                StepRegistering(++done);
-                if (assigned is not CommandResult.Failed)
-                {
-                    settled.Add(row);
-                }
-            }
-
-            // 残りの中身まで加えた後の商品を写しへ足す（大きさ・ファイルの数がカードに合う）
-            await NoteSettledAsync(created.ItemId);
-            RemoveRows(settled);
-            StatusText = (settled.Count == targets.Count
-                ? $"{settled.Count} 件を登録しました。"
-                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。") + imagesNote;
+            // 対象は全部一覧から外す。命令は未確定に残っている物を全部登録し、未確定に無かった物（同じ中身が先に片付いた）は
+            // もう記録に無いので、行を残しても登録も除外もできない
+            RemoveRows(targets);
+            StatusText = $"{targets.Count} 件を登録しました。" + imagesNote;
             OnPropertyChanged(nameof(HasStatus));
-            HideCoveredContents(settled);
+            HideCoveredContents(targets);
         }
         finally
         {

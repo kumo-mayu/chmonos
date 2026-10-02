@@ -339,7 +339,7 @@ public sealed class CommandHandler
 
             case UiCommand.RegisterLocalItem local:
                 var localId = await _items.RegisterLocalItemAsync(
-                    local.Hash, local.DisplayName, cancellationToken);
+                    local.Hashes, local.DisplayName, cancellationToken);
                 if (localId is not null)
                 {
                     FillUnityPackagesInBackground(localId);

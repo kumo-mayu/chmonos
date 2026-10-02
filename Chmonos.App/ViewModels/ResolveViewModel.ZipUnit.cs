@@ -249,6 +249,7 @@ public sealed partial class ResolveViewModel
 
         OnPropertyChanged(nameof(CanChooseSingleFile));
         OnPropertyChanged(nameof(IsBlockedByListedZip));
+        OnPropertyChanged(nameof(IsLocalBlockedByListedZip));
         OnPropertyChanged(nameof(AssignOutcomeText));
         RelayCommand.RaiseCanExecuteChanged();
     }
