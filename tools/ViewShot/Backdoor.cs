@@ -43,6 +43,10 @@ internal static class Backdoor
     public static void ShowModificationStatus(ModificationViewModel modification, string text)
         => SetProperty(modification, nameof(ModificationViewModel.Status), text);
 
+    /// <summary>「プロジェクトの中を調べる」の結果の1行（調べる処理は zip の中身が要るので走らせない）。</summary>
+    public static void ShowProjectFindText(ModificationViewModel modification, string text)
+        => SetProperty(modification, nameof(ModificationViewModel.ProjectFindText), text);
+
     /// <summary>知らせと確認の窓を、出さずに作る（アプリは <c>Services.Notice</c> からしか作らず、作るとすぐ出す）。</summary>
     public static Window NewNotice(
         string text, string caption, MessageBoxButton button, MessageBoxImage icon, MessageBoxResult defaultResult = MessageBoxResult.None)

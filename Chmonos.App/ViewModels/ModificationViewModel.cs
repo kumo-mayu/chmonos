@@ -122,7 +122,7 @@ public sealed class UnityProjectRowViewModel
 }
 
 /// <summary>紐付けたプロジェクトに入っている、手元の商品1件（#72）。</summary>
-public sealed class ProjectCandidateRowViewModel
+public sealed class ProjectCandidateRowViewModel : ViewModelBase
 {
     public required string ItemId { get; init; }
 
@@ -139,6 +139,24 @@ public sealed class ProjectCandidateRowViewModel
     public string Detail => Present == Total
         ? $"{Total} 個のファイルがすべてプロジェクトにあります"
         : $"{Total} 個のファイルのうち {Present} 個がプロジェクトにあります";
+
+    public string? ThumbnailPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>使ったものの行と同じ。出すのは34DIPの枠だけなので頭の絵の大きさで、裏で読み、届いたら描き直す。</summary>
+    public BitmapSource? Thumbnail => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForIcon(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        : null;
+
+    /// <summary>吹き出しの大きめの絵。**吹き出しが開いたときに初めて読む**（行ごとに全部読むとメモリを食う）。</summary>
+    public BitmapSource? HoverImage => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => ThumbnailPath is not null;
+
+    public string Initial => AvatarText.InitialOf(Name);
 }
 
 /// <summary>
@@ -455,6 +473,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 return UnityProjectMatcher.Match(project, paths);
             }, token);
 
+            // 1枚目の場所はフォルダを見るので、画面のスレッドの外で引く（結果に出る商品だけ）
+            var shown = matches.Select(match => match.ItemId).ToHashSet(StringComparer.Ordinal);
+            var thumbnailPaths = await Task.Run(() => ModificationRowBuilder.ThumbnailPathsOf(
+                _services, _thumbnails, items.Where(item => shown.Contains(item.Id))), token);
             var members = Record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
             // 同じ ID が2件あると ToDictionary が投げ、照合の結果が黙って出なくなる（改変の一覧・アバターの画面と同じ備え。点検 2026-09-28）
             var names = items.GroupBy(item => item.Id, StringComparer.Ordinal)
@@ -467,6 +489,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                     Name = names[match.ItemId],
                     Present = match.Present,
                     Total = match.Total,
+                    ThumbnailPath = thumbnailPaths.GetValueOrDefault(match.ItemId),
+                    Thumbnails = _thumbnails,
                 });
             }
 
