@@ -435,6 +435,10 @@
                             </Grid>
                         </DockPanel>
 
+                        <!-- アバターの一覧の右下の大きさのスライダー（検索と同じ。メモ10-④ 2026-10-02）。素体を見ているときは出さない -->
+                        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False"
+                                        Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
                         <!--
                             一覧は1つのListBoxにまとめ、所有／未所有はグループ見出しで分ける。
                             ListBoxを2つ縦に積んでScrollViewerへ入れると高さが無限になり、描画が壊れる。

@@ -104,7 +104,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         _services = services;
         _main = main;
 
-        AddCommand = new RelayCommand(parameter => AddAsync(parameter as string).Forget());
+        AddCommand = new RelayCommand(() => AddAsync(NewName).Forget());
         AskRenameCommand = new RelayCommand(() => AskRenameAsync().Forget(), () => Selected is not null);
         DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
 
@@ -206,22 +206,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         _main.RefreshMasters();
     }
 
-    /// <summary>ドラッグしたら「手で並べた順」にする（タグの管理と同じ）。</summary>
-    private void SwitchToManual()
-    {
-        if (_sort == TagSortMode.Manual)
-        {
-            return;
-        }
-
-        _sort = TagSortMode.Manual;
-        _main.SaveUiStateAsync(state => state with { AttributeSort = "manual" }).Forget();
-
-        foreach (var name in new[] { nameof(Sort), nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
-        {
-            OnPropertyChanged(name);
-        }
-    }
 
     /// <summary>
     /// この属性を持つ商品（ユーザ指示 2026-09-19：タグの管理の小分類の中身と揃える）。
@@ -625,6 +609,18 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// <summary>戻る（V2・V3）。ナビから入っても直前の画面へ戻れる。</summary>
     public MainViewModel Main => _main;
 
+    private string _newName = string.Empty;
+
+    /// <summary>
+    /// 属性を足す欄。**候補を付けない、ふつうの入力欄**（メモ10-① 2026-10-02。「入力欄には候補を付ける」の例外）。
+    /// 新しく名付ける欄なので、今ある名前を候補に並べても重複を誘うだけだった。今ある名前なら足さずに「既にあります」と言う
+    /// </summary>
+    public string NewName
+    {
+        get => _newName;
+        set => SetField(ref _newName, value ?? string.Empty);
+    }
+
     public RelayCommand AddCommand { get; }
 
     /// <summary>名前を変える窓を出す（タグの管理と同じ窓。既にある名前を選ぶと統合）。</summary>
@@ -854,7 +850,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         {
             Rows.Clear();
             foreach (var row in _all.Where(row => filter is null
-                || filter.MatchesName(row.Name)
+                || filter.MatchesNameOrMemo(row.Name, row.Memo)
                 || items.Any(item => ValueOf(item, row.Name) is not null && filter.Matches(item))))
             {
                 Rows.Add(row);
@@ -906,6 +902,12 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// </summary>
     public async Task MoveAsync(AttributeMasterRow moved, AttributeMasterRow target, bool after)
     {
+        // 「候補の並べ替え」のときだけ動かす（メモ10-⑤ 2026-10-02。並べ方を勝手に切り替えない）
+        if (!SortsManually)
+        {
+            return;
+        }
+
         var order = _all.Select(row => row.Name).ToList();
 
         var from = order.IndexOf(moved.Name);
@@ -925,7 +927,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
         order.Insert(to, moved.Name);
 
-        SwitchToManual();
         await _services.Commands.ExecuteAsync(new UiCommand.ReorderAttributes(order));
         await ReloadAsync();
         _main.RefreshMasters();
@@ -960,6 +961,9 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
         await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(trimmed));
         StatusText = $"「{trimmed}」を追加しました。";
+
+        // 足せたら欄を空ける（続けて足せるように）。既にあったときは打った名前を残す（直して足し直せる）
+        NewName = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
         Selected = _all.FirstOrDefault(row =>

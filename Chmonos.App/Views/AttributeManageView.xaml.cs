@@ -44,9 +44,18 @@ public partial class AttributeManageView : UserControl
     }
 
     private void OnRowsPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        => _reorder.OnPreviewMouseLeftButtonDown(sender, e);
+        => RunIfManual(() => _reorder.OnPreviewMouseLeftButtonDown(sender, e));
 
-    private void OnRowsMouseMove(object sender, MouseEventArgs e) => _reorder.OnMouseMove(sender, e);
+    private void OnRowsMouseMove(object sender, MouseEventArgs e) => RunIfManual(() => _reorder.OnMouseMove(sender, e));
+
+    /// <summary>「候補の並べ替え」のときだけ、行をつかんで動かせる（メモ10-⑤ 2026-10-02）。ほかの並べ方ではつかみも出さない。</summary>
+    private void RunIfManual(Action grab)
+    {
+        if (Model?.SortsManually == true)
+        {
+            grab();
+        }
+    }
 
     private void OnRowsDragOver(object sender, System.Windows.DragEventArgs e) => _reorder.OnDragOver(sender, e);
 

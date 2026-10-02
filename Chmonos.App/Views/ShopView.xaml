@@ -265,8 +265,8 @@
                     <TextBox MaxLength="10000" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
                              TextWrapping="Wrap" MinHeight="40" MaxHeight="120" VerticalScrollBarVisibility="Auto"
                              FontSize="12.5" Padding="6,4" AutomationProperties.Name="ショップのメモ" />
-                    <!-- 使い道を決めつけない（ユーザ指示 2026-09-16） -->
-                    <TextBlock Text="このショップについてのメモ"
+                    <!-- 使い道を決めつけない（ユーザ指示 2026-09-16。メモ10-② 2026-10-02：用途の説明は無くし「メモ」だけにした） -->
+                    <TextBlock Text="メモ"
                                Margin="10,6,0,0" IsHitTestVisible="False">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">

@@ -47,4 +47,20 @@ public sealed class ItemTextFilter
             _node,
             SearchHaystack.FromValues(new Dictionary<SearchField, string[]> { [SearchField.Name] = [name] }),
             SearchOptions.Default);
+
+    /// <summary>
+    /// 小分類・属性の名前に加えて、その小分類・属性自身のメモも探す（メモ10-③ 2026-10-02）。
+    /// 商品名とメモを同じ検索で引く検索画面に合わせた。名前とメモは別の欄として持つので、
+    /// <c>-語</c> は「名前にもメモにも無い」を意味し、<c>name:</c>・<c>memo:</c> の前置きも効く
+    /// </summary>
+    public bool MatchesNameOrMemo(string name, string? memo)
+    {
+        var values = new Dictionary<SearchField, string[]> { [SearchField.Name] = [name] };
+        if (!string.IsNullOrWhiteSpace(memo))
+        {
+            values[SearchField.Memo] = [memo];
+        }
+
+        return SearchQuery.Matches(_node, SearchHaystack.FromValues(values), SearchOptions.Default);
+    }
 }

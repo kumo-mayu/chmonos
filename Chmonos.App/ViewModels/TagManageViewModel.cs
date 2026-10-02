@@ -477,7 +477,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         Subs.CollectionChanged += (_, _) => RequestLines();
         RequestLines();
 
-        AddTopCommand = new RelayCommand(parameter => AddTopAsync(parameter as string).Forget());
+        AddTopCommand = new RelayCommand(() => AddTopAsync(NewTopName).Forget());
         AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
         RenameTopCommand = new RelayCommand(() => AskRenameTopAsync().Forget(), () => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
@@ -616,12 +616,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// <summary>改名の寄せ先候補。既存を選べば統合、無い語を入れれば単なる改名になる。</summary>
     public ObservableCollection<string> OtherTopNames { get; } = [];
 
-    /// <summary>
-    /// マスタにある全トップレベル。マスタに無い分類の寄せ先はこちらを候補にする。
-    /// 右側で何を選んでいるかとは無関係なので、<see cref="OtherTopNames"/> は使えない。
-    /// </summary>
-    public ObservableCollection<string> AllTopNames { get; } = [];
-
     /// <summary>サブレベルの改名の寄せ先候補。同じトップの中だけを候補にする。</summary>
     public ObservableCollection<string> SubNames { get; } = [];
 
@@ -630,6 +624,18 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// 出し方・見た目はどの画面でも同じにする（履歴が無いときだけ出さない）。
     /// </summary>
     public MainViewModel Main => _main;
+
+    private string _newTopName = string.Empty;
+
+    /// <summary>
+    /// 大分類を足す欄。**候補を付けない、ふつうの入力欄**（メモ10-① 2026-10-02。「入力欄には候補を付ける」の例外）。
+    /// 新しく名付ける欄なので、今ある名前を候補に並べても重複を誘うだけだった。今ある名前なら足さずに「既にあります」と言う
+    /// </summary>
+    public string NewTopName
+    {
+        get => _newTopName;
+        set => SetField(ref _newTopName, value ?? string.Empty);
+    }
 
     public RelayCommand AddTopCommand { get; }
 
@@ -882,12 +888,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
                 }).ToList();
 
                 _subCounts = counts;
-
-                AllTopNames.Clear();
-                foreach (var top in _allTops)
-                {
-                    AllTopNames.Add(top.Name);
-                }
 
                 Orphans.Clear();
                 foreach (var orphan in orphans)
@@ -1184,7 +1184,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         {
             // 小分類の名前で当たったら、中の商品は全部出す（ユーザ指示 2026-09-19：
             // 名前で探した人は、その小分類の中身を見たい。商品名でさらに削ると探した物が隠れる）
-            var nameHit = filter.MatchesName(row.Name);
+            // メモも探す（メモ10-③ 2026-10-02）。入力中の文もそのまま照らす（保存を待たない）
+            var nameHit = filter.MatchesNameOrMemo(row.Name, row.MemoDraft);
 
             var matched = all
                 .Where(item => item.Local.UserTags.Any(tag =>
@@ -1284,6 +1285,9 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
         await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(trimmed));
         StatusText = $"「{trimmed}」を追加しました。";
+
+        // 足せたら欄を空ける（続けて足せるように）。既にあったときは打った名前を残す（直して足し直せる）
+        NewTopName = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
         Selected = _allTops.FirstOrDefault(row =>
@@ -1520,12 +1524,16 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// 絞り込み中は見えている分しか動かせないため、隠れている行の位置は保つ。
     /// </summary>
     /// <summary>
-    /// ドラッグで置き換える。置いた並びを残したいので、並べ方は「手で並べた順」に切り替える
-    /// （名前順のままだと、次の読み直しで元に戻って「動かなかった」ように見える）
+    /// ドラッグで置き換える。**「候補の並べ替え」のときだけ**動かす（メモ10-⑤ 2026-10-02）。
+    /// 名前順・件数順のままだと次の読み直しで元に戻り「動かなかった」ように見えるが、
+    /// 並べ方を勝手に切り替えるのも望まれなかったので、つかみを出さず・落としても動かさない
     /// </summary>
     public async Task MoveTopAsync(TagTopRow moved, TagTopRow target, bool after)
     {
-        SwitchToManual();
+        if (!SortsManually)
+        {
+            return;
+        }
 
         var order = _allTops.Select(row => row.Name).ToList();
         if (!Reorder(order, moved.Name, target.Name, after))
@@ -1542,7 +1550,10 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     public async Task MoveSubAsync(TagSubRow moved, TagSubRow target, bool after)
     {
-        SwitchToManual();
+        if (!SortsManually)
+        {
+            return;
+        }
 
         var order = Subs.Select(row => row.Name).ToList();
         if (!Reorder(order, moved.Name, target.Name, after))
@@ -1553,23 +1564,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         await _services.Commands.ExecuteAsync(new UiCommand.ReorderUserTags(order, moved.Top));
         await ReloadAsync();
         _main.RefreshMasters();
-    }
-
-    /// <summary>ドラッグしたら「手で並べた順」にする。並べ方の選択も覚え直す。</summary>
-    private void SwitchToManual()
-    {
-        if (_sort == TagSortMode.Manual)
-        {
-            return;
-        }
-
-        _sort = TagSortMode.Manual;
-        _main.SaveUiStateAsync(state => state with { TagSort = "manual" }).Forget();
-
-        foreach (var name in new[] { nameof(Sort), nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
-        {
-            OnPropertyChanged(name);
-        }
     }
 
     /// <summary>抜いてから差し込む。落とす先の index は抜いた後で数え直す。</summary>

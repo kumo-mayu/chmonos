@@ -79,6 +79,26 @@ public sealed class ItemTextFilterTests
     }
 
     [Fact]
+    public void 名前に無くてもメモに当たれば当たる()
+    {
+        var filter = ItemTextFilter.Create("季節")!;
+
+        Assert.True(filter.MatchesNameOrMemo("リボン", "季節の物を入れる"));
+        Assert.False(filter.MatchesNameOrMemo("リボン", "別の話"));
+        Assert.False(filter.MatchesNameOrMemo("リボン", null));
+        Assert.False(filter.MatchesName("リボン"));
+    }
+
+    [Fact]
+    public void メモにも除く書き方が効く()
+    {
+        var filter = ItemTextFilter.Create("リボン -黒")!;
+
+        Assert.True(filter.MatchesNameOrMemo("リボン", "白い物"));
+        Assert.False(filter.MatchesNameOrMemo("リボン", "黒い物"));
+    }
+
+    [Fact]
     public void 全角と半角を気にしない()
         => Assert.True(ItemTextFilter.Create("ＲＩＢＢＯＮ")!.Matches(Item("ribbon")));
 }
