@@ -197,7 +197,7 @@ public class ResolveLocalCheckedTests
     // ---- 自動検索のボタン（ユーザ指示 2026-10-02：「商品IDを決める」と候補にも重なってあってよい）----
 
     [Fact]
-    public void 自動検索のボタンは_分かっていること_商品IDを決める_候補の3か所にあり_どれも同じ命令()
+    public void 自動検索のボタンは_商品IDを決める_候補の2か所にあり_分かっていることには無い()
     {
         // 置き場所は XAML の作りで決まる。部品を組んで測るにはアプリの見た目の資源が要るので、原文を読む（ItemPageTagsTests と同じ）。見た目は ViewShot の絵で見る
         var xaml = XDocument.Load(ResolveViewPath());
@@ -206,7 +206,7 @@ public class ResolveLocalCheckedTests
         var propose = xaml.Descendants()
             .Where(element => element.Name.LocalName == "Button" && (string?)element.Attribute("Command") == "{Binding ProposeCommand}")
             .ToList();
-        Assert.Equal(3, propose.Count);
+        Assert.Equal(2, propose.Count);
         Assert.All(propose, button => Assert.Equal("自動検索", (string?)button.Attribute("Content")));
 
         string? CardOf(XElement button) => button.Ancestors()
@@ -215,7 +215,8 @@ public class ResolveLocalCheckedTests
 
         Assert.Contains("DecisionCard", propose.Select(CardOf));
         Assert.Contains("CandidatesCard", propose.Select(CardOf));
-        Assert.Contains(propose, button => (string?)button.Attribute("AutomationProperties.AutomationId") == "ResolvePropose" && CardOf(button) is null);
+        // 分かっていることの見出しの横からは外した（ユーザ判断 2026-10-02）
+        Assert.All(propose, button => Assert.NotNull(CardOf(button)));
     }
 
     [Fact]
@@ -224,7 +225,7 @@ public class ResolveLocalCheckedTests
         // 前は見出しとボタンを1つの Grid に重ねて右寄せしていて、狭い窓でボタンが見出しの上に乗った（ユーザ 2026-10-02 メモ12）。
         // 送るかどうかは幅で決まるので絵（ViewShot の resolve-unpacked-folder・幅700/900）で見る。ここでは重ねる作りに戻っていないことを見る
         var xaml = XDocument.Load(ResolveViewPath());
-        string[] ids = ["ResolvePropose", "ResolveProposeInDecision", "ResolveProposeInCandidates", "ResolveCopyFileName", "ResolveReveal", "ResolveSearchInBrowser"];
+        string[] ids = ["ResolveProposeInDecision", "ResolveProposeInCandidates", "ResolveCopyFileName", "ResolveReveal", "ResolveSearchInBrowser"];
         foreach (var id in ids)
         {
             var button = Assert.Single(xaml.Descendants(), element => (string?)element.Attribute("AutomationProperties.AutomationId") == id);

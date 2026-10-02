@@ -495,22 +495,10 @@
                     <Border Style="{StaticResource Card}" Padding="18,16">
                         <StackPanel>
                             <!--
-                                自動検索はファイルの情報を見てすぐ押す物なので、候補の欄（決める欄の下）ではなくここに置く（ユーザ指示 2026-09-29）。
-                                押すと候補の欄まで画面を送る（進み具合と結果はそこに出る）。
-                                「商品IDを決める」と「候補」の見出しにも同じボタンを置いている（ユーザ指示 2026-10-02）
+                                自動検索はここには置かない（ユーザ判断 2026-10-02「わかっていることからは消してよいでしょう」）。
+                                「商品IDを決める」と「候補」の見出しに置いてあり、3つ並ぶと多かった
                             -->
-                            <!--
-                                見出しと右のボタンは SplitRowPanel で並べ、入り切らなければボタンを次の行の右端へ送る。
-                                前は1つの Grid に重ねて右寄せしていたので、右の欄が狭いとボタンが見出しの上に乗って読めなかった（ユーザ 2026-10-02 メモ12）。
-                                見出しは縮めずに送る（MinLeftWidth を見出しより広くする。縮めると見出しが2行に割れてボタンの横に残る）
-                            -->
-                            <controls:SplitRowPanel Margin="0,0,0,10" Gap="10" MinLeftWidth="1000">
-                                <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <Button Content="自動検索" Style="{StaticResource SmallButton}"
-                                        AutomationProperties.AutomationId="ResolvePropose"
-                                        ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
-                                        Command="{Binding ProposeCommand}" />
-                            </controls:SplitRowPanel>
+                            <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
 
                             <!--
                                 壊れていて開けない zip。中身の一覧が出ないだけでは壊れていると分からないので、欄の先頭で言う（ユーザ判断 2026-09-30）。
