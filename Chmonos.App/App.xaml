@@ -59,6 +59,25 @@
             <Setter Property="FontSize" Value="11" />
         </Style>
 
+        <!--
+            何も無いときの文（空の表示）。欄の幅で折り返して中央に置く。折り返しを指定しない TextBlock は1行ぶんの幅を要求するので、
+            窓が狭いと欄の外へ両側にはみ出して切れた（2026-10-02 メモ6-④：要確認で幅500のとき両端が切れた）。
+            MaxWidth は広い窓で行が長くなりすぎないための上限で、欄が狭いときは欄の幅が先に効く
+        -->
+        <Style x:Key="EmptyTitle" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="MaxWidth" Value="520" />
+        </Style>
+        <Style x:Key="EmptyNote" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="MaxWidth" Value="520" />
+        </Style>
+
         <Style x:Key="Mono" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
             <Setter Property="FontSize" Value="12" />
