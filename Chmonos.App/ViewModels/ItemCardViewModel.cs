@@ -141,6 +141,7 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// </summary>
     public bool CanSelect { get; set; } = true;
 
+    /// <summary>選んだか外したか。選んでいるカードの「更新あり」の札が変わったときにも知らせる（まとめ操作の出し分けが変わる）。</summary>
     public event Action? SelectionChanged;
 
     public required string Name { get; init; }
@@ -173,6 +174,13 @@ public sealed class ItemCardViewModel : ViewModelBase
             if (SetField(ref _hasUpdate, value))
             {
                 OnPropertyChanged(nameof(CanMarkUpdateRead));
+
+                // 選んだ物の中に未読の更新があるかで、まとめ操作の「既読にする」を出し分ける。
+                // 選んだカードの札が変わったら（ほかの画面で既読にした・知らせが届いた）、選んだ物が変わったのと同じに数え直させる
+                if (_isSelected)
+                {
+                    SelectionChanged?.Invoke();
+                }
             }
         }
     }

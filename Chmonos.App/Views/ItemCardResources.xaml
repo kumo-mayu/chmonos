@@ -60,6 +60,13 @@
         -->
         <MenuItem Header="既読にする" Command="{Binding MarkUpdateReadCommand}" AutomationProperties.AutomationId="CardMenu.MarkUpdateRead"
                   Visibility="{Binding CanMarkUpdateRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+        <!--
+            選んでいる最中は、選んだ物のうち未読の更新がある商品をまとめて既読にする（帯の「既読にする」と同じ。ユーザ判断 2026-10-02）。
+            選んだ物に未読の更新がある画面（入れ物が HasSelectedUpdates を持つ検索・フォルダの右・ショップの中）でだけ出す
+        -->
+        <MenuItem Header="選んだ商品を既読にする" AutomationProperties.AutomationId="CardMenu.MarkSelectionRead"
+                  Command="{Binding PlacementTarget.Tag.MarkSelectionReadCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                  Visibility="{Binding PlacementTarget.Tag.HasSelectedUpdates, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
@@ -528,8 +535,13 @@
     -->
     <DataTemplate x:Key="ItemSelectionBar">
         <Border Background="{DynamicResource AccentSoft}"
-                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,10">
-            <Grid>
+                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,8">
+            <!--
+                幅が足りなければボタンの塊を次の行へ送り、塊の中でも折り返す（検索の結果の上の帯と同じ SplitRowPanel）。
+                前は左の文と右のボタンを同じ升に重ねて置き、900 幅の窓でボタンが左の「n 件を選択中」に乗って両端が切れた。
+                ボタンの上下の 2 は折り返したときの行の間。その分、帯の上下の余白を 10 → 8 にして1行のときの高さを変えない
+            -->
+            <controls:SplitRowPanel MinLeftWidth="90" Gap="12">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
                                AutomationProperties.AutomationId="SelectionBar.Text"
@@ -552,35 +564,47 @@
                             Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             ToolTip="送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <WrapPanel HorizontalAlignment="Right"
+                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <!--
+                        選んだ物のうち未読の更新がある商品をまとめて既読にする（ユーザ判断 2026-10-02「4は入れましょう」）。
+                        選んだ物に未読の更新が無ければ出さない（カードの右クリックの「既読にする」と同じ出し方。更新のある商品は少なく、
+                        いつも押せないボタンを並べると帯が狭い窓で詰まる）。出し入れで他のボタンが動かないよう、右寄せの並びの左端に置く。
+                        帯を使う画面（検索・フォルダの右・ショップの中）の入れ物が HasSelectedUpdates を持つ
+                    -->
+                    <Button Content="既読にする" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
+                            AutomationProperties.AutomationId="SelectionBar.MarkRead"
+                            AutomationProperties.Name="選んだ商品を既読にする"
+                            Command="{Binding MarkSelectionReadCommand}"
+                            ToolTip="選んだ商品の更新の知らせを既読にします。"
+                            Visibility="{Binding HasSelectedUpdates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
-                    <Button Content="すべて選択" Style="{StaticResource SmallButton}"
+                    <Button Content="すべて選択" Style="{StaticResource SmallButton}" Margin="0,2"
                             AutomationProperties.AutomationId="SelectionBar.SelectAll"
                             Command="{Binding SelectAllCommand}"
                             ToolTip="今表示されている商品をすべて選びます。" />
-                    <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                    <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,2,0,2"
                             AutomationProperties.AutomationId="SelectionBar.Clear"
                             Command="{Binding ClearSelectionCommand}" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
-                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,2,0,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToFavorites"
                             AutomationProperties.Name="選んだ商品をお気に入りに入れる"
                             Command="{Binding AddSelectionToFavoritesCommand}"
                             ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
-                    <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                    <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,2,0,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToModification"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
-                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,2,0,2"
                             AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
-                    <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
+                    <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,2,0,2"
                             AutomationProperties.AutomationId="SelectionBar.Edit"
                             Command="{Binding SendSelectionToEditCommand}" />
-                </StackPanel>
-            </Grid>
+                </WrapPanel>
+            </controls:SplitRowPanel>
         </Border>
     </DataTemplate>
 
