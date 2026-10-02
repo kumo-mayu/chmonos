@@ -67,9 +67,9 @@
 - [x] 未確定：除外を戻すと、ナビの未確定の数も変わる。数は「ファイルの数」ではなく「登録する回数」（試験：BulkExcludeTests の戻したらナビの未確定の数も戻る、UnresolvedUnitCounterTests）
 - [x] 未確定：登録を押した後、終わるまで「登録しています…」（試験：ImportAndResolveFlowTests の商品IDで確定を押した後…、ResolveActionTests）
 - [x] 未確定：BOOTH で見つからなかった商品IDのまま登録でき、画像も一緒に入れられる（試験：ImportAndResolveFlowTests の BOOTHで見つからなかった商品IDは…・BOOTHに無い商品として登録するとき_選んだ画像も…ほか、UnpublishedItemTests）
-- [ ] 未確定：ファイル名をコピーできる。「自動検索」が、ファイルの情報の見出しの横にある。結果は閉じるまで覚えている（結果の記憶は試験済み：ImportAndResolveFlowTests の自動検索の結果は…。コピーと見出しの横の位置は人が見る）
+- [x] 未確定：ファイル名をコピーできる。「自動検索」が、ファイルの情報の見出しの横にある。結果は閉じるまで覚えている（結果の記憶は試験済み：ImportAndResolveFlowTests の自動検索の結果は…。コピーと見出しの横の位置は人が見る）（2026-10-02 ユーザが実機で確認OK）
 - [ ] 未確定：元zipが無いフォルダは「その他」に短い説明とフォルダ登録（フォルダ登録の動きは試験済み：ImportAndResolveFlowTests の元zipが無い展開物は…。「その他」の枠の見た目は人が見る）
-- [ ] 未確定：束の間の線がくっきりした 1px
+- [x] 未確定：束の間の線がくっきりした 1px（2026-10-02 ユーザが実機で確認OK）
 - [x] 未確定：中身の多い zip の行を選んでも固まらない（試験：ResolveManyContentsTests。7万件の行を本物の画面に選ばせ、作られる行数と時間を見る）
 - [x] 「見つからないファイルを探す」の間も画面が固まらない。移したファイルが、同じ中身を持つ商品へ結び直される（試験：MissingFileFinderOffThreadTests・MissingFileFinderTests、ImportAndResolveFlowTests の見つからないファイルを探すと…）
 
