@@ -326,8 +326,13 @@ public partial class ItemCardResources : ResourceDictionary
     }
 
     /// <summary>右クリックのメニューの項目から、押されたカードと、カードを並べている画面を取り出す（メニューは画面の木の外に出る）。</summary>
+    /// <remarks>
+    /// 行（アバター・改変のリストなど <see cref="IHasItemCard"/>）から開いたメニューは、行の持つカードを宛先にする
+    /// （メモ9-④ 2026-10-02：アバターのカードの右クリックにお気に入りが無く、星のある検索のカードとできることが分かれていた）
+    /// </remarks>
     private static (ItemCardViewModel Card, IItemCardHost Host)? MenuTarget(object sender)
-        => sender is MenuItem { DataContext: ItemCardViewModel card } item
+        => sender is MenuItem item
+            && (item.DataContext as ItemCardViewModel ?? (item.DataContext as IHasItemCard)?.Card) is { } card
             && ItemsControl.ItemsControlFromItemContainer(item) is ContextMenu { PlacementTarget: { } target }
             && HostOf(target) is { } host
                 ? (card, host)

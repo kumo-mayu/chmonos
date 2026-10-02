@@ -28,10 +28,18 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Margin="2,3">
-                                <!-- アバターの候補の頭の絵（U18）。見えた行だけで読む -->
+                                <!--
+                                    アバターの候補の頭の絵（U18）。見えた行だけで読む。
+                                    絵の無い候補（配布商品を結んでいない共通素体・絵をまだ取っていないアバター）は頭文字を出す
+                                    （メモ3-① 2026-10-02：空の四角が並んで、読み込みに失敗したように見えた。タグの管理の小さな絵と同じ出し方）
+                                -->
                                 <Border Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4" ClipToBounds="True"
                                         Background="{DynamicResource SurfaceAlt}" Visibility="{Binding IconVisibility}">
-                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                    <Grid>
+                                        <TextBlock Text="{Binding Initial}" FontSize="11" Foreground="{DynamicResource TextMuted}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                    </Grid>
                                 </Border>
                                 <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" />
                                 <!-- 候補に無い語は「新規追加」であることを明示する -->
