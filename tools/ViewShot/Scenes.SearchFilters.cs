@@ -64,13 +64,17 @@ internal static partial class Scenes
 
         UpdatedScene("search-updated", "検索：条件「更新あり」で絞った結果（未読の更新がある2件のカードの札「更新あり」）", list: false),
         UpdatedScene("search-updated-list", "検索：条件「更新あり」で絞ったリスト（行の札「更新あり」）", list: true),
+        UpdatedScene("search-selected-updated", "検索：未読の更新がある1件を含む3件を選んだ下の帯（「既読にする」が出る）", list: false, select: true),
+        UpdatedScene("search-selected-quiet", "検索：未読の更新が無い2件だけを選んだ下の帯（「既読にする」は出ない）", list: false, select: true, quiet: true),
     ];
 
     /// <summary>
     /// 未読の更新がある商品（2026-10-02）：条件「更新あり」（足したときの「更新ありのみ」）で絞った結果と、カード・行の札「更新あり」。
     /// 8件のうち2件に未読の更新、1件に既読の更新を置く（既読の物には札が出ない）
     /// </summary>
-    private static Scene UpdatedScene(string name, string description, bool list) => new(name, description, async context =>
+    /// <param name="select">条件で絞らず、カードを選んで下の帯を出す（2026-10-02 のまとめて既読にする）。</param>
+    /// <param name="quiet">選ぶのを未読の更新が無い商品だけにする。</param>
+    private static Scene UpdatedScene(string name, string description, bool list, bool select = false, bool quiet = false) => new(name, description, async context =>
     {
         await SeedLibraryAsync(context, count: 8);
         NotificationRecord Updated(string id, string itemId, bool isRead = false) => new()
@@ -94,7 +98,19 @@ internal static partial class Scenes
             module.RemoveCommand!.Execute(null);
         }
 
-        var updated = (ChoiceModule)AddModule(main.Search, SearchModuleKind.Updated);
+        if (select)
+        {
+            string[] picks = quiet ? ["9900302", "9900304"] : ["9900301", "9900302", "9900304"];
+            foreach (var card in main.Search.ListItems.Where(card => picks.Contains(card.Item.Id)))
+            {
+                card.IsSelected = true;
+            }
+        }
+        else
+        {
+            AddModule(main.Search, SearchModuleKind.Updated);
+        }
+
         main.Search.IsListMode = list;
         await context.SettleAsync();
         return new Shot(root);

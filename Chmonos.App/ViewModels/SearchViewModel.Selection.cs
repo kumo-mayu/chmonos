@@ -138,10 +138,21 @@ public sealed partial class SearchViewModel
 
     public string SelectionText => $"{SelectedCount} 件を選択中";
 
+    /// <summary>選んだ物に未読の更新があるか。無ければ帯と右クリックの「既読にする」を出さない（カードの右クリックの「既読にする」と同じ出し方）。</summary>
+    public bool HasSelectedUpdates => _cards.Values.Any(card => card.IsSelected && card.HasUpdate);
+
+    /// <summary>選んだ物のうち未読の更新がある商品を、まとめて既読にする（ユーザ判断 2026-10-02「4は入れましょう」）。</summary>
+    public RelayCommand MarkSelectionReadCommand => _markSelectionRead ??= new RelayCommand(
+        () => MarkUpdatesReadAsync(SelectedCards().Where(card => card.HasUpdate).ToList()).Forget(),
+        () => HasSelectedUpdates);
+
+    private RelayCommand? _markSelectionRead;
+
     private void OnCardSelectionChanged()
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasSelectedUpdates));
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
 

@@ -138,28 +138,67 @@ public sealed partial class SearchViewModel
     /// 右クリックの「既読にする」：この商品の未読の更新の知らせを既読にする（商品ページの「既読にする」・要確認と同じ命令）。
     /// 保存を待ってから札を下ろし、ナビの要確認の数を数え直す。ショップの画面のカードからも呼ぶ（<paramref name="card"/> の札を下ろす）
     /// </summary>
-    public async Task MarkUpdatesReadAsync(ItemCardViewModel card)
+    public Task MarkUpdatesReadAsync(ItemCardViewModel card) => MarkUpdatesReadAsync([card]);
+
+    /// <summary>既読にする命令を出した回数。まとめて既読にしたときに1回の命令で済ませたかを、試験で見る（命令の入口には数える口が無い）。</summary>
+    internal int MarkReadCommandCount { get; private set; }
+
+    /// <summary>
+    /// 選んだカードの「既読にする」（ユーザ判断 2026-10-02「4は入れましょう」）。渡したカードの商品の未読の更新の知らせを、
+    /// **1回の命令でまとめて**既読にする。1件ずつ命令にすると、知らせのファイルを件数の回数だけ書き直し、
+    /// 途中で失敗したときに半分だけ既読になる。札・条件「更新あり」の結果・ナビの要確認の数は1件のときと同じ道で合わせる
+    /// </summary>
+    public async Task MarkUpdatesReadAsync(IReadOnlyList<ItemCardViewModel> cards)
     {
-        var itemId = card.Item.Id;
-        var ids = _unreadUpdates.TryGetValue(itemId, out var known)
-            ? known
-            : UnreadUpdatesOf(await Task.Run(_services.Notifications.Load)).GetValueOrDefault(itemId) ?? [];
-        if (ids.Count == 0)
+        if (cards.Count == 0)
         {
-            card.HasUpdate = false;
             return;
         }
 
-        if (await _services.Commands.ExecuteAsync(new UiCommand.MarkNotificationsRead(ids)) is CommandResult.Failed failed)
+        // 表に無い商品（ショップの画面のカードは、検索がまだ知らせを読んでいないことがある）は、ファイルを1回だけ読んで引く
+        Dictionary<string, IReadOnlyList<string>>? loaded = null;
+        if (cards.Any(card => !_unreadUpdates.ContainsKey(card.Item.Id)))
+        {
+            loaded = UnreadUpdatesOf(await Task.Run(_services.Notifications.Load));
+        }
+
+        var ids = cards
+            .Select(card => card.Item.Id)
+            .Distinct(StringComparer.Ordinal)
+            .SelectMany(itemId => _unreadUpdates.TryGetValue(itemId, out var known)
+                ? known
+                : loaded?.GetValueOrDefault(itemId) ?? [])
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (ids.Count > 0)
+        {
+            MarkReadCommandCount++;
+        }
+
+        if (ids.Count > 0
+            && await _services.Commands.ExecuteAsync(new UiCommand.MarkNotificationsRead(ids)) is CommandResult.Failed failed)
         {
             Services.Notice.Show(failed.Message, "既読にする",
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
             return;
         }
 
-        card.HasUpdate = false;
+        foreach (var card in cards)
+        {
+            card.HasUpdate = false;
+        }
+
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
         var rest = new Dictionary<string, IReadOnlyList<string>>(_unreadUpdates, StringComparer.Ordinal);
-        rest.Remove(itemId);
+        foreach (var card in cards)
+        {
+            rest.Remove(card.Item.Id);
+        }
+
         _unreadStamp = NotificationsStamp();
         SetUnreadUpdates(rest);
         _main?.RefreshBadges();

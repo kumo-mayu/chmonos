@@ -382,6 +382,15 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
             _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text).Forget(),
         () => !IsSendingToUnity);
 
+    /// <summary>選んだ物に未読の更新があるか（検索の画面と同じ出し方）。</summary>
+    public bool HasSelectedUpdates => _cards.Values.Any(card => card.IsSelected && card.HasUpdate);
+
+    /// <summary>選んだ物のうち未読の更新がある商品を、まとめて既読にする（検索の画面と同じ道。1回の命令にまとめる）。</summary>
+    public RelayCommand MarkSelectionReadCommand => _markSelectionRead ??= new RelayCommand(
+        () => _main.Search.MarkUpdatesReadAsync(SelectedCards().Where(card => card.HasUpdate).ToList()).Forget(),
+        () => HasSelectedUpdates);
+
+    private RelayCommand? _markSelectionRead;
     private RelayCommand? _selectAll;
     private RelayCommand? _clearSelection;
     private RelayCommand? _sendToEdit;
@@ -460,6 +469,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasSelectedUpdates));
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
 

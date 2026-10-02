@@ -815,6 +815,16 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     public string SelectionText => $"{SelectedCount} 件を選択中";
 
+    /// <summary>選んだ物に未読の更新があるか（検索の画面と同じ出し方）。</summary>
+    public bool HasSelectedUpdates => _all.Any(card => card.IsSelected && card.HasUpdate);
+
+    /// <summary>選んだ物のうち未読の更新がある商品を、まとめて既読にする（検索の画面と同じ道。1回の命令にまとめる）。</summary>
+    public RelayCommand MarkSelectionReadCommand => _markSelectionRead ??= new RelayCommand(
+        () => _main.Search.MarkUpdatesReadAsync(SelectedCards().Where(card => card.HasUpdate).ToList()).Forget(),
+        () => HasSelectedUpdates);
+
+    private RelayCommand? _markSelectionRead;
+
     /// <summary>選んだカード。見えている並びを先に、「所持しているものだけ」で隠れた物を後に（検索画面と同じ）。</summary>
     private List<ItemCardViewModel> SelectedCards()
     {
@@ -845,6 +855,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasSelectedUpdates));
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
 
