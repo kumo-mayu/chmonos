@@ -46,6 +46,18 @@ public abstract class ReorderableRow : ViewModelBase
         DropAfter = false;
     }
 
+    private bool _isNameMatch;
+
+    /// <summary>
+    /// 左の欄に打った名前と同じ名前の行（前後の空白・大文字小文字は問わない）。一覧で強調する。
+    /// 同じ名前があると追加の行は出ないので、「もうある」と一覧の側で分かるようにする
+    /// </summary>
+    public bool IsNameMatch
+    {
+        get => _isNameMatch;
+        set => SetField(ref _isNameMatch, value);
+    }
+
     /// <summary>
     /// 一緒に並べ替えられる相手。既定は自分と同じ型（タグのトップとサブは別の並びなので、混ざらない）。
     /// 型が違っても1つの並びに混ざるもの（検索の絞り込みの条件）は、これを揃える。
@@ -477,7 +489,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         Subs.CollectionChanged += (_, _) => RequestLines();
         RequestLines();
 
-        AddTopCommand = new RelayCommand(() => AddTopAsync(NewTopName).Forget());
+        AddTopCommand = new RelayCommand(() => AddTopAsync(FilterText).Forget());
+        SubmitFilterCommand = new RelayCommand(() => SubmitFilterAsync().Forget());
         AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
         RenameTopCommand = new RelayCommand(() => AskRenameTopAsync().Forget(), () => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
@@ -625,19 +638,13 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// </summary>
     public MainViewModel Main => _main;
 
-    private string _newTopName = string.Empty;
+    public RelayCommand AddTopCommand { get; }
 
     /// <summary>
-    /// 大分類を足す欄。**候補を付けない、ふつうの入力欄**（メモ10-① 2026-10-02。「入力欄には候補を付ける」の例外）。
-    /// 新しく名付ける欄なので、今ある名前を候補に並べても重複を誘うだけだった。今ある名前なら足さずに「既にあります」と言う
+    /// 欄で Enter。打った名前の大分類が無ければ足し、あればそれを選ぶ。
+    /// 左の欄は検索と追加の1本（ユーザ指示 2026-10-02）。候補は並べず、足せるときだけ欄の下に「追加」の1行を出す
     /// </summary>
-    public string NewTopName
-    {
-        get => _newTopName;
-        set => SetField(ref _newTopName, value ?? string.Empty);
-    }
-
-    public RelayCommand AddTopCommand { get; }
+    public RelayCommand SubmitFilterCommand { get; }
 
     public RelayCommand AddSubCommand { get; }
 
@@ -791,12 +798,31 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         get => _filterText;
         set
         {
-            if (SetField(ref _filterText, value))
+            if (SetField(ref _filterText, value ?? string.Empty))
             {
                 RebuildTops();
             }
         }
     }
+
+    /// <summary>
+    /// 欄に打った名前の大分類が既にあれば、その行。空白と大文字小文字は問わない（足すときの「既にあります」と同じ照らし方）
+    /// </summary>
+    private TagTopRow? TypedExisting
+    {
+        get
+        {
+            var typed = NameText.Normalize(_filterText);
+            return typed.Length == 0
+                ? null
+                : _allTops.FirstOrDefault(row => string.Equals(row.Name, typed, StringComparison.CurrentCultureIgnoreCase));
+        }
+    }
+
+    /// <summary>欄の下に「追加」の行を出すか。打った名前と同じ大分類が無いときだけ（あるときは一覧で強調する）</summary>
+    public bool CanAddTyped => NameText.Normalize(_filterText).Length > 0 && TypedExisting is null;
+
+    public string AddTopRowText => CanAddTyped ? $"「{NameText.Normalize(_filterText)}」を大分類に追加" : string.Empty;
 
     public string MemoDraft
     {
@@ -829,7 +855,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     public string EmptyText => HasFilter
         ? "探している言葉に当てはまる大分類がありません。言葉を変えるか、絞り込みを消してください。"
-        : "大分類はまだありません。上の「大分類を追加」に名前を入れるか、商品の編集画面でユーザータグを付けると、ここに並びます。";
+        : "大分類はまだありません。上の欄に名前を入れて追加するか、商品の編集画面でユーザータグを付けると、ここに並びます。";
 
     public int TopCount => _allTops.Count;
 
@@ -948,17 +974,26 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             _rebuildingList = false;
         }
 
+        var typedExisting = TypedExisting;
+        foreach (var row in _allTops)
+        {
+            row.IsNameMatch = ReferenceEquals(row, typedExisting);
+        }
+
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(HasFilter));
         OnPropertyChanged(nameof(FilterResultText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(CanAddTyped));
+        OnPropertyChanged(nameof(AddTopRowText));
     }
 
-    private static bool MatchesFilter(
+    private bool MatchesFilter(
         TagTopRow row, ItemTextFilter filter, UserTagMaster master, IReadOnlyList<ItemRecord> items)
     {
-        if (filter.MatchesName(row.Name))
+        // 入力中のメモも照らす（保存を待たない）。選んでいる大分類の下書きは、行の Memo にまだ入っていない
+        if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
         {
             return true;
         }
@@ -966,7 +1001,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var top = master.Tops.FirstOrDefault(entry =>
             string.Equals(entry.Name, row.Name, StringComparison.CurrentCultureIgnoreCase));
 
-        if (top is not null && top.Subs.Any(sub => filter.MatchesName(sub.Name)))
+        if (top is not null && top.Subs.Any(sub => filter.MatchesNameOrMemo(sub.Name, sub.Memo)))
         {
             return true;
         }
@@ -1255,6 +1290,18 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         return row;
     }
 
+    private async Task SubmitFilterAsync()
+    {
+        var existing = TypedExisting;
+        if (existing is not null)
+        {
+            Selected = existing;
+            return;
+        }
+
+        await AddTopAsync(FilterText);
+    }
+
     private async Task AddTopAsync(string? name)
     {
         // 改行やタブは空白に寄せて1行にする（I13）
@@ -1286,8 +1333,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(trimmed));
         StatusText = $"「{trimmed}」を追加しました。";
 
-        // 足せたら欄を空ける（続けて足せるように）。既にあったときは打った名前を残す（直して足し直せる）
-        NewTopName = string.Empty;
+        // 足せたら欄を空ける（続けて足せるように）。空にすると絞り込みも外れ、足した大分類が一覧に並ぶ
+        FilterText = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
         Selected = _allTops.FirstOrDefault(row =>

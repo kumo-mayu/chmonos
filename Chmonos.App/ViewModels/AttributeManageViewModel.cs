@@ -104,7 +104,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         _services = services;
         _main = main;
 
-        AddCommand = new RelayCommand(() => AddAsync(NewName).Forget());
+        AddCommand = new RelayCommand(() => AddAsync(FilterText).Forget());
+        SubmitFilterCommand = new RelayCommand(() => SubmitFilterAsync().Forget());
         AskRenameCommand = new RelayCommand(() => AskRenameAsync().Forget(), () => Selected is not null);
         DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
 
@@ -609,19 +610,13 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// <summary>戻る（V2・V3）。ナビから入っても直前の画面へ戻れる。</summary>
     public MainViewModel Main => _main;
 
-    private string _newName = string.Empty;
+    public RelayCommand AddCommand { get; }
 
     /// <summary>
-    /// 属性を足す欄。**候補を付けない、ふつうの入力欄**（メモ10-① 2026-10-02。「入力欄には候補を付ける」の例外）。
-    /// 新しく名付ける欄なので、今ある名前を候補に並べても重複を誘うだけだった。今ある名前なら足さずに「既にあります」と言う
+    /// 欄で Enter。打った名前の属性が無ければ足し、あればそれを選ぶ。
+    /// 左の欄は検索と追加の1本（ユーザ指示 2026-10-02）。候補は並べず、足せるときだけ欄の下に「追加」の1行を出す
     /// </summary>
-    public string NewName
-    {
-        get => _newName;
-        set => SetField(ref _newName, value ?? string.Empty);
-    }
-
-    public RelayCommand AddCommand { get; }
+    public RelayCommand SubmitFilterCommand { get; }
 
     /// <summary>名前を変える窓を出す（タグの管理と同じ窓。既にある名前を選ぶと統合）。</summary>
     public RelayCommand AskRenameCommand { get; }
@@ -729,12 +724,29 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         get => _filterText;
         set
         {
-            if (SetField(ref _filterText, value))
+            if (SetField(ref _filterText, value ?? string.Empty))
             {
                 Rebuild();
             }
         }
     }
+
+    /// <summary>欄に打った名前の属性が既にあれば、その行。空白と大文字小文字は問わない（足すときの「既にあります」と同じ照らし方）</summary>
+    private AttributeMasterRow? TypedExisting
+    {
+        get
+        {
+            var typed = NameText.Normalize(_filterText);
+            return typed.Length == 0
+                ? null
+                : _all.FirstOrDefault(row => string.Equals(row.Name, typed, StringComparison.CurrentCultureIgnoreCase));
+        }
+    }
+
+    /// <summary>欄の下に「追加」の行を出すか。打った名前と同じ属性が無いときだけ（あるときは一覧で強調する）</summary>
+    public bool CanAddTyped => NameText.Normalize(_filterText).Length > 0 && TypedExisting is null;
+
+    public string AddRowText => CanAddTyped ? $"「{NameText.Normalize(_filterText)}」を属性に追加" : string.Empty;
 
     public string MemoDraft
     {
@@ -766,7 +778,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
     public string EmptyText => HasFilter
         ? "探している言葉に当てはまる属性がありません。言葉を変えるか、絞り込みを消してください。"
-        : "属性はまだありません。上の「属性を追加」に名前を入れると、編集画面でその評価を付けられるようになります。";
+        : "属性はまだありません。上の欄に名前を入れて追加すると、編集画面でその評価を付けられるようになります。";
 
     public string HeaderText => $"属性 {_all.Count} 件";
 
@@ -850,7 +862,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         {
             Rows.Clear();
             foreach (var row in _all.Where(row => filter is null
-                || filter.MatchesNameOrMemo(row.Name, row.Memo)
+                || filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo)
                 || items.Any(item => ValueOf(item, row.Name) is not null && filter.Matches(item))))
             {
                 Rows.Add(row);
@@ -861,11 +873,19 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             _rebuildingList = false;
         }
 
+        var typedExisting = TypedExisting;
+        foreach (var row in _all)
+        {
+            row.IsNameMatch = ReferenceEquals(row, typedExisting);
+        }
+
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(HasFilter));
         OnPropertyChanged(nameof(FilterResultText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(CanAddTyped));
+        OnPropertyChanged(nameof(AddRowText));
     }
 
     public bool HasFilter => _filterText.Trim().Length > 0;
@@ -932,6 +952,18 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         _main.RefreshMasters();
     }
 
+    private async Task SubmitFilterAsync()
+    {
+        var existing = TypedExisting;
+        if (existing is not null)
+        {
+            Selected = existing;
+            return;
+        }
+
+        await AddAsync(FilterText);
+    }
+
     private async Task AddAsync(string? name)
     {
         // 改行やタブは空白に寄せて1行にする（I13）
@@ -962,8 +994,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(trimmed));
         StatusText = $"「{trimmed}」を追加しました。";
 
-        // 足せたら欄を空ける（続けて足せるように）。既にあったときは打った名前を残す（直して足し直せる）
-        NewName = string.Empty;
+        // 足せたら欄を空ける（続けて足せるように）。空にすると絞り込みも外れ、足した属性が一覧に並ぶ
+        FilterText = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
         Selected = _all.FirstOrDefault(row =>

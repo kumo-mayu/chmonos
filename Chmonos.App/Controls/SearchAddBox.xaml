@@ -1,0 +1,42 @@
+<UserControl x:Class="Chmonos.App.Controls.SearchAddBox"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        検索と追加を1本にした欄（ユーザ指示 2026-10-02：タグ・属性の管理の左）。
+        形は編集画面のユーザータグの欄（SuggestBox）に合わせた：高さ30・薄い字の案内。
+        候補は並べない。打った名前が無いときだけ、欄のすぐ下に「追加」の1行を出す
+    -->
+    <StackPanel>
+        <Grid>
+            <TextBox x:Name="Input" Height="30" VerticalContentAlignment="Center" Padding="8,0" MaxLength="500"
+                     BorderBrush="{DynamicResource BorderStrong}"
+                     Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                     TextChanged="OnTextChanged" PreviewKeyDown="OnInputKeyDown" />
+            <TextBlock x:Name="Watermark" IsHitTestVisible="False" VerticalAlignment="Center"
+                       Margin="10,0,0,0" Foreground="{DynamicResource TextFaint}" FontSize="12.5" />
+        </Grid>
+
+        <!-- 押せる行。Tab でも届き、Enter・Space で押せる -->
+        <Button x:Name="AddRow" Margin="0,6,0,0" Padding="10,6" HorizontalContentAlignment="Left"
+                Visibility="Collapsed" Click="OnAddClick" Cursor="Hand"
+                FocusVisualStyle="{DynamicResource SmallFocusVisual}">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                            BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                   FontSize="12.5" Foreground="{DynamicResource AccentText}" TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </StackPanel>
+</UserControl>

@@ -165,38 +165,22 @@
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14" >
-                        <TextBlock Text="ユーザータグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
-                        <TextBox MaxLength="500" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                 AutomationProperties.Name="ユーザータグを検索"
-                                 Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
-                                 ToolTip="小分類の名前と、商品名・ショップ名・メモでも探します。" />
+                        <TextBlock Text="大分類を検索・追加" Style="{StaticResource Caption}" Margin="2,0,0,4" />
+                        <!--
+                            検索と追加は1本の欄（ユーザ指示 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。
+                            打つと一覧が絞られ、同じ名前の大分類が無いときだけ、欄の下に「追加」の行が出る。候補は並べない
+                        -->
+                        <controls:SearchAddBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                               Placeholder="検索、または追加（例：衣装）"
+                                               AddRowText="{Binding AddTopRowText}" AddCommand="{Binding AddTopCommand}"
+                                               SubmitCommand="{Binding SubmitFilterCommand}"
+                                               AutomationProperties.Name="大分類を検索・追加"
+                                               AutomationProperties.AutomationId="TagFilterInput"
+                                               ToolTip="大分類・小分類の名前とメモ、付いた商品の名前・ショップ名・メモを探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-                        <!--
-                            大分類を足す欄。**候補は付けない**（メモ10-① 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。
-                            新しく名付ける欄で、今ある名前を候補に並べても重複を誘うだけだった。
-                            Enter か「追加」で足し、今ある名前なら「既にあります」と言う
-                        -->
-                        <DockPanel Margin="0,12,0,0">
-                            <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                    AutomationProperties.AutomationId="TagAddTopButton"
-                                    Command="{Binding AddTopCommand}" />
-                            <Grid>
-                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewTopName, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.AutomationId="TagAddTopInput"
-                                         AutomationProperties.Name="大分類を追加">
-                                    <TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding AddTopCommand}" />
-                                    </TextBox.InputBindings>
-                                </TextBox>
-                                <TextBlock Text="大分類を追加（例：衣装）" Margin="11,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                           Visibility="{Binding NewTopName, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
-                            </Grid>
-                        </DockPanel>
 
                         <!--
                             並べ方は並べる一覧のすぐ上に、つながったボタンで置く（ユーザ指示 2026-09-19：頭の右端では
@@ -276,7 +260,19 @@
                                     <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0"
                                                Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <StackPanel Margin="0,0,50,0">
-                                        <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap" />
+                                        <!-- 欄に打った名前と同じ大分類は、名前を太くして強調する（追加の行は出ない） -->
+                                        <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNameMatch}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <TextBlock Text="{Binding SubCountText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}" FontSize="11.5"
