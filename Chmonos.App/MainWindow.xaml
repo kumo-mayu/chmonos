@@ -326,12 +326,21 @@
         <!-- ナビゲーション -->
         <Border x:Name="NavRail" Grid.Column="0" Background="{DynamicResource Rail}">
             <!--
-                窓が低いと下の「設定」が窓の外に出て押せなかった（点検 2026-09-23・高さ700px）。溢れたときだけ縦に送る。
-                高さが足りている間は、送る入れ物が中身を窓の高さまで伸ばすので「設定」は下端に付いたまま
+                窓が低いと下の「設定」が窓の外に出て押せなかった（点検 2026-09-23・高さ700px）。
+                「設定」（と BOOTH の形式の知らせ）は送る入れ物の外で下端に固定し、残りの項目だけを溢れたときに縦に送る。
+                送る入れ物はスクロールバーを見せない（ユーザ指摘 2026-10-02 メモ6：畳んだ 56px の列ではバーの幅がそのまま中身をつぶした）。
+                ホイールと、Tab で移った先を見せる送り（BringIntoView）はバーが無くても効く
             -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Top" Margin="0,16,0,0">
+            <!-- 行で分ける（DockPanel の下端に先に書くと、Tab の順で「設定」がナビの先頭に来る） -->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+            <ScrollViewer x:Name="NavScroller" Grid.Row="0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <StackPanel Margin="0,16,0,0">
                     <!--
                         畳んだ幅ではタイトルが入らないので、同じ高さにアプリの印を置く。
                         場所ごと消すと、畳むボタンと下のアイコンが開閉のたびに上へ詰まってずれた（U2）。
@@ -466,18 +475,14 @@
                             views:Nav.Label="属性の管理" views:Nav.Icon="{StaticResource IconAttributes}"
                             views:Nav.IsActive="{Binding IsAttributeManageActive}" />
                 </StackPanel>
-
-                <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" Margin="10,0,10,14"
-                        Command="{Binding ShowSettingsCommand}" AutomationProperties.AutomationId="Nav.Settings"
-                        views:Nav.Label="設定" views:Nav.Icon="{StaticResource IconSettings}"
-                        views:Nav.IsActive="{Binding IsSettingsActive}" />
+            </ScrollViewer>
 
                 <!--
                     BOOTHから取れる情報の形が変わった疑い（ユーザ判断 2026-09-18）。商品1件ごとの話と
                     同列に並べると埋もれるので、要確認の束ではなくここに出す。アプリ全体の話なので設定の上。
-                    **DockPanel の Bottom は先に書いた物が下に付く**ので、設定より後ろに置く
+                    設定と同じく送らずに見せておく
                 -->
-                <Button DockPanel.Dock="Bottom" Margin="10,0,10,10" Padding="9,8" FontSize="11.5"
+                <Button Grid.Row="1" Margin="10,0,10,10" Padding="9,8" FontSize="11.5"
                         Height="Auto" HorizontalContentAlignment="Left" Cursor="Hand"
                         Background="{DynamicResource RailNoticeBack}" BorderBrush="{DynamicResource RailNoticeFrame}"
                         Foreground="{DynamicResource RailNoticeText}"
@@ -503,8 +508,12 @@
                         </Grid>
                     </DockPanel>
                 </Button>
-            </DockPanel>
-            </ScrollViewer>
+
+                <Button Grid.Row="2" Style="{StaticResource NavButton}" Margin="10,0,10,14"
+                        Command="{Binding ShowSettingsCommand}" AutomationProperties.AutomationId="Nav.Settings"
+                        views:Nav.Label="設定" views:Nav.Icon="{StaticResource IconSettings}"
+                        views:Nav.IsActive="{Binding IsSettingsActive}" />
+            </Grid>
         </Border>
 
         <DockPanel Grid.Column="1">
