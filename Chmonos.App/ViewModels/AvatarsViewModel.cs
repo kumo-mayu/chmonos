@@ -1353,7 +1353,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C1）。
         // 止める手立てが一切無く、友人データの初回で約37分ぶら下がっていた
         using var stop = new CancellationTokenSource();
-        var job = _main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", stop);
+        var job = _main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", stop,
+            "検出をやめます。分かった分は書き込んであります。");
         if (job is null)
         {
             return;

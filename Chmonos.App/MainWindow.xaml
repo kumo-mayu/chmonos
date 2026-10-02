@@ -552,7 +552,7 @@
                             Visibility="{Binding CanStopLongJob, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             AutomationProperties.AutomationId="LongJobStop"
                             AutomationProperties.Name="作業を中止"
-                            ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
+                            ToolTip="{Binding LongJobStopHint}" />
                     <!-- 棒の地は一時展開の帯と同じ理由で帯の線の色にする（既定の地は薄い青の帯の上でほぼ同じ色） -->
                     <ProgressBar Background="{DynamicResource AccentBorder}" DockPanel.Dock="Left" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center"
                                  Minimum="0" Maximum="1"

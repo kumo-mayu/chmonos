@@ -290,7 +290,8 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <param name="doing">何をしているか（「対応アバターを検出しています」）。ほかの口の押せない理由に使う。</param>
     /// <param name="note">この間できなくなること（帯に出す）。</param>
     /// <param name="stop">止める口。null なら帯に「中止」を出さない。</param>
-    public IDisposable? BeginLongJob(string doing, string note, CancellationTokenSource? stop)
+    /// <param name="stopHint">「中止」の吹き出し。止めたときに何が残るかは作業ごとに違うので、作業の側が言う。</param>
+    public IDisposable? BeginLongJob(string doing, string note, CancellationTokenSource? stop, string stopHint = DefaultStopHint)
     {
         if (_longJob is not null)
         {
@@ -298,6 +299,7 @@ public sealed partial class MainViewModel : ViewModelBase
         }
 
         _longJob = new LongJobLease(this, doing, stop);
+        LongJobStopHint = stopHint;
         LongJobNote = note;
         LongJobText = string.Empty;
         SetLongJobCounts(0, 0);
@@ -342,6 +344,20 @@ public sealed partial class MainViewModel : ViewModelBase
         SetLongJobCounts(0, 0);
         RaiseLongJob();
     }
+
+    private const string DefaultStopHint = "この作業をやめます。";
+
+    /// <summary>
+    /// 「中止」の吹き出し（ユーザ判断 2026-10-02「A」）。前はどの作業も「そこまでに書き込んだ分はそのまま残ります」で、
+    /// 止めると書いた物を消す書き出し・戻すと食い違っていた。
+    /// </summary>
+    public string LongJobStopHint
+    {
+        get => _longJobStopHint;
+        private set => SetField(ref _longJobStopHint, value);
+    }
+
+    private string _longJobStopHint = DefaultStopHint;
 
     private void RaiseLongJob()
     {

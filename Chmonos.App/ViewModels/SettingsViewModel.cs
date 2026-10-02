@@ -1335,7 +1335,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 運んでいる間は書き込みの門を持つので、止める手立てが無いと全部の保存が無期限に待たされる。
         // 途中で止めても元には手を付けていないので、保存先を古いままにすれば何も失われない
         using var stop = new CancellationTokenSource();
-        var job = _main.BeginLongJob("保存先を移動しています", "移動が終わるまで、保存は待たされます。見ることはできます。", stop);
+        var job = _main.BeginLongJob("保存先を移動しています", "移動が終わるまで、保存は待たされます。見ることはできます。", stop,
+            "移動をやめます。保存先は今のままです。");
         if (job is null)
         {
             // 押せなくしてあるが、場所を選ぶ窓を出している間に別の作業が始まり得る。何も運んでいない
@@ -1610,7 +1611,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         // 保存先の窓と画像を含めるかの窓を出している間に、別の長い作業が始まり得る（帯は1本。始めない）
         using var stop = new CancellationTokenSource();
-        var job = _main.BeginLongJob("バックアップを書き出しています", "書き出しが終わるまで、保存は待たされます。見ることはできます。", stop);
+        var job = _main.BeginLongJob("バックアップを書き出しています", "書き出しが終わるまで、保存は待たされます。見ることはできます。", stop,
+            "書き出しをやめます。zipは作りません。");
         if (job is null)
         {
             Status = _main.LongJobBlockedNote;
@@ -1724,7 +1726,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     internal async Task RestoreBackupToAsync(string zipPath, string destination)
     {
         using var stop = new CancellationTokenSource();
-        var job = _main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop);
+        var job = _main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop,
+            "戻すのをやめます。保存先は今のままです。");
         if (job is null)
         {
             // 押せなくしてあるが、zip と場所を選ぶ窓を出している間に別の作業が始まり得る

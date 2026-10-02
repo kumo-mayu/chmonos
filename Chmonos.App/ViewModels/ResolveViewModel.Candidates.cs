@@ -171,7 +171,8 @@ public sealed partial class ResolveViewModel
         // BOOTH内検索＋候補3件のJSON＋（当たらなければ）別語での引き直しで分単位かかるのに、
         // 押した後まったく止められなかった（配管は通っていて、入口だけ抜けていた）
         using var stop = new CancellationTokenSource();
-        var job = _main.BeginLongJob("候補を検索しています", "この間、BOOTHへの他の問い合わせは順番待ちになります", stop);
+        var job = _main.BeginLongJob("候補を検索しています", "この間、BOOTHへの他の問い合わせは順番待ちになります", stop,
+            "候補の検索をやめます。もう一度押すとやり直せます。");
         if (job is null)
         {
             return;

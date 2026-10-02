@@ -122,6 +122,24 @@ public class LongJobTests
     /// 戻すの帯。窓で聞く所は試験で出せないので、聞き終えた後の本体を呼ぶ。
     /// **成功させない**（戻せると保存先の場所を書き換えて開き直す）。無い zip を渡し、門を持っている間に帯を見てから失敗させる
     /// </summary>
+    /// <summary>中止の吹き出しは始めた作業が言う。言わない作業は止めたときの扱いを決めつけない一言にする。</summary>
+    [Fact]
+    public Task 中止の吹き出しは作業ごとで_言わない作業は決めつけない一言() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        using var stop = new CancellationTokenSource();
+
+        using (main.BeginLongJob("候補を検索しています", "この間、BOOTHへの他の問い合わせは順番待ちになります", stop, "候補の検索をやめます。もう一度押すとやり直せます。"))
+        {
+            Assert.Equal("候補の検索をやめます。もう一度押すとやり直せます。", main.LongJobStopHint);
+        }
+
+        using (main.BeginLongJob("作り物の作業をしています", "作り物", stop))
+        {
+            Assert.Equal("この作業をやめます。", main.LongJobStopHint);
+        }
+    });
+
     [Fact]
     public Task 戻している間は帯と中止を出し_ほかの口の理由は中止の道を言う() => TestApp.Run(async app =>
     {
@@ -140,6 +158,9 @@ public class LongJobTests
             Assert.True(main.CanStopLongJob);
             Assert.True(main.StopLongJobCommand.CanExecute(null));
             Assert.Equal("戻し終えるまで、保存は待たされます。終わったら開き直します。", main.LongJobNote);
+
+            // 中止の吹き出しは作業ごと（止めると展開した物を消すので「書いた分は残る」とは言わない。2026-10-02）
+            Assert.Equal("戻すのをやめます。保存先は今のままです。", main.LongJobStopHint);
             Assert.Equal("バックアップから戻しています。終わるか、下の帯で中止してからお試しください。", main.LongJobBlockedNote);
             Assert.Equal(StoreJobKind.Restore, main.StoreJob);
             Assert.False(settings.ExportBackupCommand.CanExecute(null));
