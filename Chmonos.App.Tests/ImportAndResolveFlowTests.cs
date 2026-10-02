@@ -455,5 +455,8 @@ public class ImportAndResolveFlowTests
         Assert.Equal(unpacked, Assert.Single(item!.Local.LocalFolders).Path);
         Assert.Empty(resolve.Files);
         Assert.Empty(app.Store.Unresolved.Load());
+
+        // ナビの未確定の数も、ほかの片付け方と同じく登録の直後に減る（前はフォルダの登録だけ古い数が残っていた）
+        await UiThread.Until(() => main.UnresolvedCount == 0, "ナビの未確定の数が合う");
     });
 }
