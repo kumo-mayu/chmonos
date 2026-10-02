@@ -399,7 +399,7 @@
 
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
                               Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                            <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                  AutomationProperties.Name="名前・ID・呼び方で探す"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->

@@ -49,7 +49,7 @@
                         言い方は検索画面の見本の行に揃える
                     -->
                     <Grid VerticalAlignment="Center">
-                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" MaxLength="500"
+                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}" MaxLength="500"
                                  Width="200" Padding="9,5" BorderBrush="{DynamicResource BorderStrong}"
                                  AutomationProperties.Name="ショップを探す"
                                  ToolTip="スペースで両方、-で除く、&quot;&quot;でひとまとまり、ORでどちらか" />
