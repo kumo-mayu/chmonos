@@ -165,7 +165,7 @@
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14" >
                         <TextBlock Text="ユーザータグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
-                        <TextBox MaxLength="500" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox MaxLength="500" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                  AutomationProperties.Name="ユーザータグを検索"
                                  Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                  ToolTip="小分類の名前と、商品名・ショップ名・メモでも探します。" />
@@ -471,7 +471,7 @@
                                 -->
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                 <Grid Width="360">
-                                    <TextBox MaxLength="500" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                                    <TextBox MaxLength="500" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                              AutomationProperties.Name="この大分類の中を小分類名・商品で探す"
                                              Padding="9,6" BorderBrush="{DynamicResource BorderStrong}" />
                                     <TextBlock Text="この大分類の中を小分類名・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"

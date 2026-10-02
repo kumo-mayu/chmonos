@@ -35,6 +35,27 @@ public partial class ShopView : UserControl
         }
     }
 
+    /// <summary>縮めた行の高さ（ShopView.xaml の縮めた行の Height と揃える）。</summary>
+    private const double CompactHeaderHeight = 52;
+
+    /// <summary>
+    /// 商品の一覧が流れた。上の段を縮める・戻すは ViewModel が決める（メモ7-⑤）。
+    /// 見るのは今出ている一覧そのものの ScrollViewer だけ——リストの見出しの行も自分の ScrollViewer を持ち、
+    /// 縦の位置がいつも0なので、それを拾うと縮めた直後に戻してしまう
+    /// </summary>
+    private void OnListScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (DataContext is not ShopViewModel shop
+            || e.OriginalSource is not ScrollViewer scroll
+            || !ReferenceEquals(scroll.TemplatedParent, VisibleList(shop)))
+        {
+            return;
+        }
+
+        // 縮めると、上の段（バナー・見出し・メモ）が縮めた行1本になる。その差だけ一覧が広がる
+        shop.NoteListScrolled(scroll.VerticalOffset, scroll.ScrollableHeight, ShopHeader.ActualHeight - CompactHeaderHeight);
+    }
+
     // ---- 戻ったときの一覧の位置（ユーザ判断 2026-09-28） ----
     // 同じ型の画面が続くと View は使い回されるので、Loaded ではなく DataContext の付け替えで結び直す
 

@@ -175,7 +175,7 @@
                       <StackPanel>
                         <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->
                         <Grid Margin="0,0,0,8">
-                            <TextBox x:Name="FilterBox" AutomationProperties.AutomationId="ResolveFilter" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                            <TextBox x:Name="FilterBox" AutomationProperties.AutomationId="ResolveFilter" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}" Padding="9,5,26,5"
                                      BorderBrush="{DynamicResource BorderStrong}" AutomationProperties.Name="未確定を探す" />
                             <TextBlock Text="ファイル名・フォルダ・zipの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False">
