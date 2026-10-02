@@ -290,6 +290,36 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     public string DescriptionPreview => _item?.Booth.Description ?? string.Empty;
 
+    private const string DescriptionHeightKey = "edit.description";
+    private RelayCommand? _resetDescriptionHeightCommand;
+
+    /// <summary>
+    /// 商品説明の欄の高さの上限（ユーザ指摘 2026-10-02 メモ4：決め打ちの 360 では、説明を読みたい人と入力を見たい人で合わない）。
+    /// 欄の下の縁のつまみで変え、画面の幅と同じく ui-state.json に覚える。上限なので、短い説明は今までどおり中身の高さで止まる
+    /// </summary>
+    public double DescriptionHeight
+    {
+        get => _services.PaneWidths.Get(DescriptionHeightKey);
+        set
+        {
+            _services.PaneWidths.Set(DescriptionHeightKey, value);
+
+            // 範囲の外まで引かれたら、範囲の端へ戻して見せる
+            OnPropertyChanged();
+        }
+    }
+
+    public double DescriptionMinHeight => PaneWidths.All[DescriptionHeightKey].Min;
+
+    public double DescriptionMaxHeight => PaneWidths.All[DescriptionHeightKey].Max;
+
+    /// <summary>既定の高さに戻す（つまみのダブルクリック。画面の境目と同じ作法）。</summary>
+    public RelayCommand ResetDescriptionHeightCommand => _resetDescriptionHeightCommand ??= new RelayCommand(() =>
+    {
+        _services.PaneWidths.Reset(DescriptionHeightKey);
+        OnPropertyChanged(nameof(DescriptionHeight));
+    });
+
     public IReadOnlyList<string> BoothTags => _item?.Booth.Tags ?? [];
 
     /// <summary>BOOTHのタグの見出しに添える件数。畳んでいても何件あるかは分かるように。</summary>
