@@ -63,7 +63,7 @@
 - [x] 読めないフォルダを、取り込みの結果に数える（試験：FolderScannerTests の ReportsAFolderItCannotList、ImportWriteBackTests の CountsAFolderThatCouldNotBeListed、ImportResultTextTests）
 - [x] 壊れて開けない zip に、未確定の行と取り込みの結果で印（試験：BrokenArchiveImportTests、ResolveCandidateTests の壊れたzipの札、ImportResultTextTests）
 - [x] BOOTH の URL を落として登録する間、下の帯に「商品を登録しています…」（試験：ImportAndResolveFlowTests の BOOTHのURLを落として登録する間…・続けて2つ落とすと…）
-- [ ] 未確定：Ctrl+Enter で確定し、次の行の商品IDの欄へ戻る。登録・除外の後もフォーカスが次の行へ（確定・次の行・欄へ戻す知らせは試験済み：ResolveKeyboardTests。欄に実際にカーソルが入るところだけ、人が見る）
+- [x] 未確定：Ctrl+Enter で確定し、次の行の商品IDの欄へ戻る。登録・除外の後もフォーカスが次の行へ（確定・次の行・欄へ戻す知らせは試験済み：ResolveKeyboardTests。欄に実際にカーソルが入るところだけ、人が見る）（2026-10-02 ユーザが実機で確認OK）
 - [x] 未確定：除外を戻すと、ナビの未確定の数も変わる。数は「ファイルの数」ではなく「登録する回数」（試験：BulkExcludeTests の戻したらナビの未確定の数も戻る、UnresolvedUnitCounterTests）
 - [x] 未確定：登録を押した後、終わるまで「登録しています…」（試験：ImportAndResolveFlowTests の商品IDで確定を押した後…、ResolveActionTests）
 - [x] 未確定：BOOTH で見つからなかった商品IDのまま登録でき、画像も一緒に入れられる（試験：ImportAndResolveFlowTests の BOOTHで見つからなかった商品IDは…・BOOTHに無い商品として登録するとき_選んだ画像も…ほか、UnpublishedItemTests）
