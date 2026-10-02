@@ -89,10 +89,10 @@ public class DueRefreshTests : IDisposable
             => Task.FromResult(true);
 
         public Task<string?> RegisterLocalItemAsync(
-            string hash,
+            IReadOnlyList<string> hashes,
             string displayName,
             CancellationToken cancellationToken = default)
-            => Task.FromResult<string?>(LocalItemId.For(hash));
+            => Task.FromResult<string?>(LocalItemId.For(hashes[0]));
 
         public Task<string?> AddUserImageAsync(
             string itemId,
