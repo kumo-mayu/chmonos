@@ -91,4 +91,34 @@ public sealed class NotificationDiff
     public string? Before { get; init; }
 
     public string? After { get; init; }
+
+    /// <summary>
+    /// 説明文の見出しの、変わった行だけ（行単位の差。メモ13-②）。<see cref="Before"/>・<see cref="After"/> は頭の抜き出しなので、
+    /// 見出しの後ろの方が変わると前後が同じに見えていた。前の本文は保存しないので、知らせを作る瞬間にしか作れない。
+    /// 短い値の欄（商品名・価格・数）と、この形より前に作った知らせでは null（空と同じ扱い）
+    /// </summary>
+    public IReadOnlyList<NotificationLine>? Lines { get; init; }
+
+    /// <summary>
+    /// 足した行のうち、上限（<see cref="Services.LineDiff.MaxLines"/>）を超えて残さなかった数。残した行からは数え直せないので書く。超えていなければ null
+    /// </summary>
+    public int? MoreAdded { get; init; }
+
+    /// <summary>消した行のうち、上限を超えて残さなかった数（商品ページは消えた行だけを数えて出すので、足した行と分けて持つ）。</summary>
+    public int? MoreRemoved { get; init; }
+}
+
+/// <summary>変わった行が、後の本文に足された物か、前の本文から消えた物か。</summary>
+public enum NotificationLineKind
+{
+    Added,
+    Removed,
+}
+
+/// <summary>変わった行1つ（<c>{"kind": "added", "text": "…"}</c>）。</summary>
+public sealed class NotificationLine
+{
+    public required NotificationLineKind Kind { get; init; }
+
+    public required string Text { get; init; }
 }
