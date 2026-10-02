@@ -37,6 +37,13 @@
                         </TextBlock>
                     </CheckBox>
                     <!--
+                        カードに「更新のあった商品が n 件」の札が出ているショップだけ（2026-10-02 のメモ7）。言い方はショップの中のチェックと同じ。
+                        札が1枚も無いときは出さない（押しても必ず0件になる）
+                    -->
+                    <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              Foreground="{DynamicResource Text}"
+                              Visibility="{Binding HasUpdatedShops, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!--
                         透かしにも今の対象を出す（打つ前にも、何で探すかが読める）。
                         書き方は検索画面と同じ（ユーザ判断 2026-09-28）。欄が狭く見本の行を置けないので、吹き出しで示す。
                         言い方は検索画面の見本の行に揃える
