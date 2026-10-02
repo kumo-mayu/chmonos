@@ -1727,12 +1727,16 @@ public sealed class ItemService : IItemService
                 var records = targets.Select(FromUnresolved).ToList();
 
                 // 同じファイルを2回登録しようとした場合（未確定に二重に載っていた等）。
-                // 仮IDはハッシュから決まるので、同じ商品に行き着く
-                var existing = await _store.Items.LoadAsync(id, cancellationToken);
-                if (existing is null)
-                {
-                    await _store.Items.SaveAsync(
-                        new ItemRecord
+                // 仮IDはハッシュから決まるので、同じ商品に行き着く。
+                // **在るかは商品の錠の中で見る。**前は錠の外で見て、無ければ丸ごと保存していたので、見てから書くまでの間に
+                // 人の保存が同じ商品を作ると、人が入れたメモ・購入記録を消していた（2026-10-02。CreateWhileSomeoneSavesTests）
+                var created = false;
+                await _store.Items.CreateOrChangeLocalAsync(
+                    id,
+                    () =>
+                    {
+                        created = true;
+                        return new ItemRecord
                         {
                             Id = id,
                             Booth = new BoothBlock(),
@@ -1741,18 +1745,17 @@ public sealed class ItemService : IItemService
                                 DisplayName = displayName.Trim(),
                                 LocalFiles = records,
                             },
+                        };
+                    },
+                    current => created
+                        ? current
+                        : current with
+                        {
+                            DisplayName = displayName.Trim(),
+                            LocalFiles = LocalFileMerger.Merge(current.LocalFiles, records),
                         },
-                        cancellationToken);
-                }
-                else
-                {
-                    var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, records);
-                    await _store.Items.SaveLocalAsync(
-                        id,
-                        existing.Local with { DisplayName = displayName.Trim(), LocalFiles = merged },
-                        [LocalField.DisplayName, LocalField.LocalFiles],
-                        cancellationToken: cancellationToken);
-                }
+                    [LocalField.DisplayName, LocalField.LocalFiles],
+                    cancellationToken);
 
                 itemId = id;
                 var registered = targets.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);

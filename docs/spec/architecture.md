@@ -22,7 +22,7 @@
 | 何を | どう書く | 持ち主 |
 |---|---|---|
 | 商品の `local` | `ItemRepository.SaveLocalAsync(itemId, local, owns, booth?)`：`owns` に名指しした項目だけを、直前に読み直した最新へ重ねる。存在しなければ書かずに飛ばす | `LocalOwners` に宣言（編集画面・対応アバター・取り込み・検出・再取得・ファイルの種類・星・画像…） |
-| 新しい商品 | `Items.SaveAsync`（丸ごと）は**新しく作るときだけ** | — |
+| 新しい商品 | 在るかを見てから作る所は `CreateOrChangeLocalAsync`（**在るかを商品の錠の中で見る**。在れば今の値に重ねる）。取り込みの①・未確定の登録もこれ（2026-10-02。前は錠の外で見て、その間に人が作った商品を丸ごと上書きしていた）。`Items.SaveAsync`（丸ごと）は**新しく作るときだけ** | 取り込み・未確定の画面 |
 | 設定 | `UiCommand.ChangeSettings(変え方の関数)` → 錠の中でディスクの今の設定に当てる。持つのは `SettingsService.Current` だけで、画面は写しを持たない。一覧（取り込み元・監視）は `FolderListChange` で1件ずつ足し引きし、画面の一覧で丸ごと書かない | 設定画面・取り込み元を足す所など |
 | 画面の状態 | `UiCommand.ChangeUiState`（`ui-state.json`。ナビ・絞り込み欄・積んだ条件・窓の位置・画面の幅） | 各画面 |
 | 検索の履歴 | `UiCommand.ChangeSearchHistory` | 検索・設定 |
