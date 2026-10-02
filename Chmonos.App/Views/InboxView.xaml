@@ -173,16 +173,17 @@
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+        <!-- 狭いと見出し・件数・チェックが重なっていたので、入り切らないとき右の操作を次の段へ送る（SplitRowPanel。2026-10-02 メモ6-④） -->
+        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
-            <Grid Margin="20,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="要確認" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
-                    <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+            <controls:SplitRowPanel Margin="20,8" MinLeftWidth="320" Gap="8" VerticalAlignment="Center">
+                <DockPanel VerticalAlignment="Center" MinHeight="35">
+                    <TextBlock DockPanel.Dock="Left" Text="要確認" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="確認しても消えません" Style="{StaticResource Caption}"
-                               VerticalAlignment="Center" Margin="14,0,0,0" />
-                </StackPanel>
+                               VerticalAlignment="Center" Margin="14,0,0,0" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <CheckBox Content="未読のみ" IsChecked="{Binding UnreadOnly, Mode=TwoWay}"
@@ -191,7 +192,7 @@
                     <Button Content="すべて既読にする" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding MarkAllReadCommand}" />
                 </StackPanel>
-            </Grid>
+            </controls:SplitRowPanel>
         </Border>
 
         <!-- 空表示は一覧に重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->

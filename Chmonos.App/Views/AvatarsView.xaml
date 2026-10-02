@@ -314,24 +314,23 @@
             <!-- まだ1体も無いとき。数字ではなく次にやることを出す -->
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="{Binding EmptyTitle}" Foreground="{DynamicResource TextMuted}"
-                           HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource EmptyTitle}" />
 
                 <!-- 探して0件と、そもそも1体も無いのを言い分ける（E2） -->
                 <StackPanel HorizontalAlignment="Center"
                             Visibility="{Binding IsFilteredEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center"
+                    <TextBlock Style="{StaticResource EmptyNote}" Margin="0,8,0,0"
                                Text="打ち込んだ言葉に当てはまるアバターがありません。言葉を変えるか、絞り込みを消してください。" />
                     <Button Content="絞り込みを消す" Style="{StaticResource SmallButton}" Margin="0,10,0,0" HorizontalAlignment="Center"
                             Command="{Binding ClearQueryCommand}" />
                 </StackPanel>
-                <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center"
+                <TextBlock Style="{StaticResource EmptyNote}" Margin="0,8,0,0"
                            Text="「対応アバターを検出する」を押すと、取り込んだ商品の説明文などから読み取ります。"
                            Visibility="{Binding CanDetectFromItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <!-- 商品が0件だと検出しても何も見つからないので、先に取り込みへ（ユーザ判断 2026-09-17） -->
                 <StackPanel HorizontalAlignment="Center"
                             Visibility="{Binding HasNoItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center"
+                    <TextBlock Style="{StaticResource EmptyNote}" Margin="0,8,0,0"
                                Text="対応アバターは、取り込んだ商品の説明文やタグから見つけます。まず商品を取り込んでください。" />
                     <Button Content="取り込みを開く" Style="{StaticResource SmallButton}" Margin="0,10,0,0" HorizontalAlignment="Center"
                             Command="{Binding ShowImportCommand}" />
