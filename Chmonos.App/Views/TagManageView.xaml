@@ -57,7 +57,8 @@
                             （ユーザ指示 2026-09-19：消すと名前の頭が行ごとにずれた）
                         -->
                         <!-- 行の左の余白（20）の中に出すので、名前とメモの位置は変わらない -->
-                        <TextBlock Style="{StaticResource ReorderGrip}" Margin="-16,0,4,0" />
+                        <TextBlock Style="{StaticResource ReorderGrip}" Margin="-16,0,4,0"
+                                   Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center"
                                       Margin="0,0,7,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                       IsEnabled="{Binding IsUsed}"
@@ -79,7 +80,7 @@
                                  AutomationProperties.Name="{Binding Name, StringFormat={}{0}のメモ}"
                                  Padding="8,5" FontSize="11.5"
                                  BorderBrush="{DynamicResource Border}" />
-                        <TextBlock Text="何をここに入れるかのメモ" Margin="10,0,0,0"
+                        <TextBlock Text="メモ" Margin="10,0,0,0"
                                    IsHitTestVisible="False" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFaint}" FontSize="11.5"
                                    Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
@@ -175,13 +176,27 @@
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                         <!--
-                            候補には**既にある大分類**を出す（ユーザ判断 2026-09-20・I7）。
-                            候補付きの見た目なのに候補の元を結んでおらず、一度も候補が出ない欄だった
-                            （既にある名前を打っても、押すまで気付けなかった）
+                            大分類を足す欄。**候補は付けない**（メモ10-① 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。
+                            新しく名付ける欄で、今ある名前を候補に並べても重複を誘うだけだった。
+                            Enter か「追加」で足し、今ある名前なら「既にあります」と言う
                         -->
-                        <controls:SuggestBox CommitCommand="{Binding AddTopCommand}" Margin="0,12,0,0"
-                                             Source="{Binding AllTopNames}" MaxLength="60"
-                                             Placeholder="大分類を追加（例：衣装）" AutomationProperties.Name="大分類を追加" />
+                        <DockPanel Margin="0,12,0,0">
+                            <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                    AutomationProperties.AutomationId="TagAddTopButton"
+                                    Command="{Binding AddTopCommand}" />
+                            <Grid>
+                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewTopName, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="TagAddTopInput"
+                                         AutomationProperties.Name="大分類を追加">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding AddTopCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                                <TextBlock Text="大分類を追加（例：衣装）" Margin="11,0,0,0" IsHitTestVisible="False"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
+                                           Visibility="{Binding NewTopName, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                            </Grid>
+                        </DockPanel>
 
                         <!--
                             並べ方は並べる一覧のすぐ上に、つながったボタンで置く（ユーザ指示 2026-09-19：頭の右端では
@@ -258,7 +273,8 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="28,13,16,13">
-                                    <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0" />
+                                    <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0"
+                                               Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <StackPanel Margin="0,0,50,0">
                                         <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding SubCountText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
@@ -284,7 +300,10 @@
                 前は商品の数だけ Tab が止まり、下の「編集画面に最初から並べる」へ行くのに商品の数だけ押した。
                 頭・見出し・下の枠は入力欄とボタンのある所なので、並びの外（ArrowGroup.IsOutside）にして今までどおり1つずつ止まる
             -->
-            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
+            <DockPanel Grid.Column="1">
+            <!-- 右下の大きさのスライダー（検索と同じ。メモ10-④ 2026-10-02）。商品のカードを並べる所には全部置く -->
+            <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
+            <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
                                           VirtualizingPanel.IsVirtualizing="True"
                                           VirtualizingPanel.VirtualizationMode="Recycling"
                                           VirtualizingPanel.ScrollUnit="Pixel"
@@ -436,7 +455,7 @@
                                 <Border Height="1" Background="{DynamicResource Border}" Margin="0,16" />
 
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
-                                <TextBlock Text="何をここに入れるかの基準。分け方に迷ったときに読み返す場所です。打ち終えると保存されます。"
+                                <TextBlock Text="打ち終えると保存されます。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
                                 <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                          AutomationProperties.Name="メモ"
@@ -472,9 +491,10 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                 <Grid Width="360">
                                     <TextBox MaxLength="500" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                             AutomationProperties.Name="この大分類の中を小分類名・商品で探す"
+                                             AutomationProperties.Name="この大分類の中を小分類・商品で探す"
+                                             ToolTip="小分類の名前・メモと、商品名・ショップ名・メモでも探します。"
                                              Padding="9,6" BorderBrush="{DynamicResource BorderStrong}" />
-                                    <TextBlock Text="この大分類の中を小分類名・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
+                                    <TextBlock Text="この大分類の中を小分類・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
                                                VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                                Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                 </Grid>
@@ -673,6 +693,7 @@
                     </DataTemplate>
                 </ItemsControl.Resources>
             </controls:ContentItemsControl>
+            </DockPanel>
         </controls:PaneGrid>
     </DockPanel>
 </UserControl>

@@ -66,16 +66,30 @@
                         <TextBox MaxLength="500" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                  AutomationProperties.Name="属性を検索"
                                  Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
-                                 ToolTip="この属性を持つ商品の商品名・ショップ名・メモでも探します。" />
+                                 ToolTip="属性の名前・メモと、この属性を持つ商品の商品名・ショップ名・メモでも探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                        <!-- 候補には既にある属性を出す（I7。候補の元を結んでいない欄だった） -->
-                        <controls:SuggestBox CommitCommand="{Binding AddCommand}" Margin="0,12,0,0"
-                                             Source="{Binding AllNames}" MaxLength="60"
-                                             Placeholder="属性を追加（例：かっこいい）" AutomationProperties.Name="属性を追加" />
+                        <!-- 属性を足す欄。候補は付けない（メモ10-① 2026-10-02。大分類を足す欄と同じ） -->
+                        <DockPanel Margin="0,12,0,0">
+                            <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                    AutomationProperties.AutomationId="AttributeAddButton"
+                                    Command="{Binding AddCommand}" />
+                            <Grid>
+                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="AttributeAddInput"
+                                         AutomationProperties.Name="属性を追加">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding AddCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                                <TextBlock Text="属性を追加（例：かっこいい）" Margin="11,0,0,0" IsHitTestVisible="False"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
+                                           Visibility="{Binding NewName, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                            </Grid>
+                        </DockPanel>
 
                         <!-- 並べ方は一覧のすぐ上に、つながったボタンで（タグの管理と同じ。ユーザ指示 2026-09-19） -->
                         <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
@@ -148,7 +162,8 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="28,13,16,13">
-                                    <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0" />
+                                    <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0"
+                                               Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <StackPanel Margin="0,0,50,0">
                                         <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding AverageText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
@@ -173,7 +188,10 @@
                 前は商品の数だけ Tab が止まり、下の「編集画面に最初から並べる」へ行くのに商品の数だけ押した。
                 頭・見出し・下の枠は入力欄とボタンのある所なので、並びの外（ArrowGroup.IsOutside）にして今までどおり1つずつ止まる
             -->
-            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
+            <DockPanel Grid.Column="1">
+            <!-- 右下の大きさのスライダー（検索と同じ。メモ10-④ 2026-10-02） -->
+            <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
+            <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
                                           VirtualizingPanel.IsVirtualizing="True"
                                           VirtualizingPanel.VirtualizationMode="Recycling"
                                           VirtualizingPanel.ScrollUnit="Pixel"
@@ -284,7 +302,7 @@
                             <Border Height="1" Background="{DynamicResource Border}" Margin="0,16" />
 
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
-                            <TextBlock Text="どのくらいで何%にするかの基準を書いておきます。打ち終えると保存されます。"
+                            <TextBlock Text="打ち終えると保存されます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
                             <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.Name="メモ"
@@ -447,6 +465,7 @@
                     </DataTemplate>
                 </ItemsControl.Resources>
             </controls:ContentItemsControl>
+            </DockPanel>
         </controls:PaneGrid>
     </DockPanel>
 </UserControl>
