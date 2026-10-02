@@ -38,4 +38,25 @@ public class PathEllipsisTests
     [Fact]
     public void 区切りの無い名前は後ろを省く()
         => Assert.Equal("とても長…", Fit("とても長い名前のファイル", 5));
+
+    /// <summary>
+    /// 省いたときの全文の吹き出しは、欄と同じ字体で出す（2026-10-01：吹き出しの既定の日本語の字体では「\」が「¥」に見えた）。
+    /// </summary>
+    [Fact]
+    public Task 省いたときの吹き出しは_欄と同じ字体で全文を出す() => Support.UiThread.Run(() =>
+    {
+        const string full = @"C:\Users\作り物\AppData\Local\とても長いフォルダの名前\さらに長いフォルダの名前\Chmonos";
+        var line = new PathLine { FontFamily = new System.Windows.Media.FontFamily("Consolas"), Path = full };
+
+        line.Measure(new System.Windows.Size(120, 30));
+        line.Arrange(new System.Windows.Rect(0, 0, 120, 30));
+        line.UpdateLayout();
+
+        Assert.Contains(PathEllipsis.Mark, line.Text);
+        // 吹き出しの型は中の字に日本語の字体を書式で当てるので、吹き出しではなく中の字に字体を直に持たせる
+        var tip = Assert.IsType<System.Windows.Controls.TextBlock>(line.ToolTip);
+        Assert.Equal(full, tip.Text);
+        Assert.Equal(line.FontFamily, tip.FontFamily);
+        Assert.Equal(System.Windows.BaseValueSource.Local, System.Windows.DependencyPropertyHelper.GetValueSource(tip, System.Windows.Controls.TextBlock.FontFamilyProperty).BaseValueSource);
+    });
 }

@@ -49,10 +49,26 @@ public sealed class PathLine : TextBlock
         var shown = room <= 0 ? full : PathEllipsis.Fit(full, candidate => Measure(candidate) <= room);
 
         Text = shown;
-        ToolTip = shown == full ? null : full;
+        ToolTip = shown == full ? null : FullPathTip(full);
 
         // 読み上げ・自動操作には、省いた文ではなく全文を渡す
         AutomationProperties.SetName(this, full);
+    }
+
+    /// <summary>
+    /// 全文の吹き出しは、欄と同じ字体で出す（ユーザ判断 2026-10-01）。吹き出しの既定の字体は日本語の字体で、
+    /// パスの区切りの「\」を「¥」の形で描くので、欄では「\」なのに吹き出しでは「¥」に見えていた。
+    /// 吹き出しの型（Themes/Controls.xaml）は中の字に日本語の字体を書式で当てるので、吹き出しに字体を渡しても効かない
+    /// （実機で確かめた）。中の字に字体を直に持たせる。色と大きさは型の書式のまま
+    /// </summary>
+    private TextBlock FullPathTip(string full)
+    {
+        if (ToolTip is TextBlock tip && tip.Text == full && Equals(tip.FontFamily, FontFamily))
+        {
+            return tip;
+        }
+
+        return new TextBlock { Text = full, FontFamily = FontFamily };
     }
 
     /// <summary>
