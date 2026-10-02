@@ -245,8 +245,8 @@
                 </controls:CardRowsListBox.ItemTemplate>
             </controls:CardRowsListBox>
 
-            <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap" MaxWidth="520"
-                       HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0" TextAlignment="Center"
+            <TextBlock Text="{Binding EmptyText}" Style="{StaticResource EmptyNote}"
+                       VerticalAlignment="Top" Margin="24,40,24,0"
                        Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </Grid>
     </DockPanel>

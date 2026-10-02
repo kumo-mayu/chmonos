@@ -31,6 +31,7 @@ internal static partial class Scenes
         .. Settings,
         .. FirstRun,
         .. UnityToolScenes,
+        .. Empties,
         .. Parts,
     ];
 
