@@ -156,6 +156,34 @@
             </Setter>
         </Style>
 
+        <!--
+            パネルの見出しの「…」（メモ2-③ 2026-10-02）。**いつも見せる**：条件の「…」と同じ隠す型にしていたので、
+            見出しの行に乗せるか止まるまで出ず、メニューがあることが分からなかった。
+            条件の「…」（薄い字・枠なし・隠れる）と見分けられるよう、本文の濃さの字と枠を付ける
+        -->
+        <Style x:Key="PanelMenuButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource SmallFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
+                                BorderThickness="1" CornerRadius="5">
+                            <TextBlock Text="…" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 除いている条件の札「除く」（2026-10-01）。字と枠は Danger、地は Surface（新しい色を足さない・D11） -->
         <Style x:Key="ExcludedTag" TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{StaticResource ChipFocusVisual}" />
@@ -215,7 +243,7 @@
         <Border Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,13,-13,0"
                 Width="26" Height="26" CornerRadius="13" Panel.ZIndex="2"
                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1">
-            <Button Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Button x:Name="FilterPanelToggle" Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource PanelToggle}">
                         <Setter Property="Content" Value="{StaticResource IconCollapse}" />
@@ -280,6 +308,17 @@
                                     </Style>
                                 </MenuItem.Style>
                             </MenuItem>
+                            <!--
+                                見出しの行のボタンと同じ操作を置く（メモ2-③ 2026-10-02）。「条件をクリア」のボタンは今の場所にも残す。
+                                畳むと「…」が消えるので、畳んだ後は開け閉めのつまみに止まる（OnCollapsePanelMenuClick）
+                            -->
+                            <MenuItem Header="条件をクリア" AutomationProperties.Name="条件をクリア"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.Clear"
+                                      Command="{Binding ClearFiltersCommand}" />
+                            <Separator />
+                            <MenuItem Header="絞り込みを折りたたむ" AutomationProperties.Name="絞り込みを折りたたむ"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.Collapse"
+                                      Command="{Binding ToggleFilterPanelCommand}" Click="OnCollapsePanelMenuClick" />
                         </ContextMenu>
                     </Border.ContextMenu>
                     <!-- 右の余白は、境の線に半分はみ出したつまみ（13px）から「条件をクリア」をはっきり離すため -->
@@ -291,7 +330,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Style="{StaticResource ModuleMenuButton}" Margin="4,0,0,0" Click="OnModuleMenuClick"
+                        <Button Grid.Column="1" Style="{StaticResource PanelMenuButton}" Margin="6,0,0,0" Click="OnModuleMenuClick"
                                 ToolTip="絞り込みの操作"
                                 AutomationProperties.AutomationId="SearchFilterMenu"
                                 AutomationProperties.Name="絞り込みの操作" />
