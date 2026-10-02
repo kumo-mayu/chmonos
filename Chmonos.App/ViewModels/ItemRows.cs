@@ -117,6 +117,21 @@ public sealed class SectionRow(Core.Models.H2Section section) : ViewModelBase
 
     public string Text { get; } = section.Text;
 
+    /// <summary>
+    /// 更新の知らせの差と突き合わせる名前。見出しの原文は装飾記号付きなので、知らせを作る側（<c>BoothChanges</c>）と同じく
+    /// 正規化した見出しで引き、空なら「説明文」
+    /// </summary>
+    public string Key { get; } = section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : Core.Services.BoothChanges.DescriptionField;
+
+    private ChangeSlot _change = ChangeSlot.Empty;
+
+    /// <summary>未読の更新で変わった見出しの印（メモ7-①）。「既読にする」で外す。</summary>
+    public ChangeSlot Change
+    {
+        get => _change;
+        set => SetField(ref _change, value);
+    }
+
     /// <summary>既定は開いた状態（ユーザ指示）。畳んだ状態で出すと、あることに気付けない。</summary>
     public bool IsOpen
     {
@@ -428,6 +443,9 @@ public sealed class AvatarRow : ChipTile
 public static class SectionFolds
 {
     public static bool BoothTagsExpanded { get; set; } = true;
+
+    /// <summary>商品ページのユーザータグ（メモ3-③・ユーザ判断 2026-10-02：BOOTHのタグと揃えて畳めるようにする）。</summary>
+    public static bool UserTagsExpanded { get; set; } = true;
 
     public static bool AvatarsExpanded { get; set; } = true;
 

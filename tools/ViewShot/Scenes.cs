@@ -18,6 +18,7 @@ internal static partial class Scenes
         .. Import,
         .. Item,
         .. ItemPages,
+        .. ItemChangeScenes,
         .. Edit,
         .. Bands,
         .. Modifications,

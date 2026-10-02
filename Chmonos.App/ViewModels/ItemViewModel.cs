@@ -145,6 +145,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
         // 改変はファイルを読むので待たない。空で描いてから埋まる
         LoadModificationsAsync().Forget();
+
+        // 変わった所の印（メモ7-①）。知らせのファイルを読むので待たない。編集画面の中では出さない（入力の場で、既読の操作を混ぜない）
+        LoadChangesAsync().Forget();
     }
 
     public ItemRecord Item { get; private set; }
@@ -913,6 +916,40 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public IReadOnlyList<UserTagAssignment> UserTags => Item.Local.UserTags;
 
     public bool HasUserTags => Item.Local.UserTags.Count > 0;
+
+    private IReadOnlyList<string>? _userTagChips;
+
+    /// <summary>
+    /// ユーザータグの札（メモ3-③・ユーザ判断 2026-10-02「商品ページでは既定で全て出す」）。前は大分類だけで、小分類は持っていても出していなかった。
+    /// 札は「大分類 / 小分類」の1枚にし、小分類の無い大分類は大分類だけ（おすすめで決めた。1枚の札だけで、どの大分類の小分類かが読める）
+    /// </summary>
+    public IReadOnlyList<string> UserTagChips => _userTagChips ??= UserTagLabels(Item.Local.UserTags);
+
+    internal static IReadOnlyList<string> UserTagLabels(IEnumerable<UserTagAssignment> tags)
+        => tags.SelectMany(tag => (tag.Subs ?? []).Count == 0
+                ? [tag.Top]
+                : tag.Subs!.Select(sub => $"{tag.Top} / {sub}"))
+            .ToList();
+
+    /// <summary>見出しに添える札の数。畳んでいても何枚あるかは分かるように（BOOTHのタグと同じ）。</summary>
+    public string UserTagsCountText => $"（{UserTagChips.Count}）";
+
+    /// <summary>
+    /// ユーザータグの欄を開いているか（メモ3-③：BOOTHのタグと揃えて畳める。既定は開く）。
+    /// 開け閉めは BOOTH のタグと同じく、商品ページと編集画面で共通にし、商品を移っても保つ（<see cref="SectionFolds"/>）
+    /// </summary>
+    public bool IsUserTagsExpanded
+    {
+        get => SectionFolds.UserTagsExpanded;
+        set
+        {
+            if (SectionFolds.UserTagsExpanded != value)
+            {
+                SectionFolds.UserTagsExpanded = value;
+                OnPropertyChanged(nameof(IsUserTagsExpanded));
+            }
+        }
+    }
 
     /// <summary>
     /// 商品説明のh2セクション。
