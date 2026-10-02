@@ -38,43 +38,129 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!--
+            BOOTH の商品ページで変わった欄の印（メモ7-①）。色は種類で分ける：変わった＝橙・足された＝緑・消えた＝赤・価格＝青。
+            線は欄の左の余白（カードの内側の余白）に置き、印が付いても外れても中身の位置は動かさない（-12 = 線3 + 間9）
+        -->
+        <Style x:Key="ChangeEdge" TargetType="Border">
+            <Setter Property="BorderThickness" Value="3,0,0,0" />
+            <Setter Property="Padding" Value="9,0,0,0" />
+            <Setter Property="Margin" Value="-12,0,0,0" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Tag.Edge, RelativeSource={RelativeSource Self}}" Value="{x:Static vm:ChangeTone.Changed}">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Warn}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tag.Edge, RelativeSource={RelativeSource Self}}" Value="{x:Static vm:ChangeTone.Added}">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tag.Edge, RelativeSource={RelativeSource Self}}" Value="{x:Static vm:ChangeTone.Removed}">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tag.Edge, RelativeSource={RelativeSource Self}}" Value="{x:Static vm:ChangeTone.Price}">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 札。文字も種類で変える（色だけに頼らない）。前の値は乗せると出す（ユーザ判断 2026-10-02） -->
+        <DataTemplate DataType="{x:Type vm:ChangeMark}">
+            <Border x:Name="Face" BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                    Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                    ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Label}" AutomationProperties.HelpText="{Binding Tip}">
+                <TextBlock x:Name="Word" Text="{Binding Label}" FontSize="10.5" Foreground="{DynamicResource Warn}" />
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Added}">
+                    <Setter TargetName="Face" Property="Background" Value="{DynamicResource GoodSoft}" />
+                    <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource GoodBorder}" />
+                    <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource Good}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Removed}">
+                    <Setter TargetName="Face" Property="Background" Value="{DynamicResource BadSoft}" />
+                    <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+                    <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource Bad}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Price}">
+                    <Setter TargetName="Face" Property="Background" Value="{DynamicResource AccentSoft}" />
+                    <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
+                    <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource AccentText}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 欄に付く札の並び（ChangeSlot.Marks）。印の無い欄では何も出さない -->
+        <ItemsPanelTemplate x:Key="ChangeMarksPanel">
+            <StackPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{DynamicResource Bg}">
 
         <!-- 上部バー -->
-        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+        <!--
+            左（戻る・カテゴリ）と右（状態の文・ボタン3つ）を1行に並べ、入り切らなければ右の塊を次の段へ送る（メモ6-③）。
+            前は Grid に右寄せで重ねて置いていて、フォルダビューに組み込んだ狭い欄（右の欄が約360px以下）では
+            ボタンの列が左へはみ出してカテゴリの文字の上に重なり、幅900では「商品情報を取り直す」の左も欠けていた。
+            右の塊だけでも幅を超える欄では、右の塊の中でボタンを折り返す。高さは中身に合わせ、1行のときは前と同じ52
+        -->
+        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
-            <Grid Margin="20,0">
+            <controls:SplitRowPanel Margin="20,7" Gap="12" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- フォルダビューに組み込んだときは戻るを隠す（ShowsBack） -->
                     <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent"
                             Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0"
                             Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                    <!-- 狭い欄では「…」で切る（全文は乗せると出す） -->
+                    <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding CategoryText}" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                               Margin="0,0,10,0" MaxWidth="320" TextTrimming="CharacterEllipsis"
+                               Margin="0,2,10,2" MaxWidth="320" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 取り込みの③がまだで、直す操作を塞いでいる理由（U8・U10）。塞いだことを黙らない -->
                     <TextBlock Text="{Binding EditLockText}" FontSize="11.5" Foreground="{DynamicResource Warn}"
-                               VerticalAlignment="Center" Margin="0,0,12,0" MaxWidth="520" TextWrapping="Wrap"
+                               VerticalAlignment="Center" Margin="0,2,12,2" MaxWidth="520" TextWrapping="Wrap"
                                Visibility="{Binding IsEditLocked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 外部で更新を知ったときに、次回更新予定を待たずに取り直せるようにする -->
-                    <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,0,8,0"
+                    <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,2,8,2"
                             AutomationProperties.AutomationId="ItemRefresh"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
-                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0"
+                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,2,8,2"
                             AutomationProperties.AutomationId="ItemEdit"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />
-                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}"
+                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,2,0,2"
                             AutomationProperties.AutomationId="ItemOpenBooth"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
-                </StackPanel>
-            </Grid>
+                </WrapPanel>
+            </controls:SplitRowPanel>
+        </Border>
+
+        <!--
+            BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
+            ページに対応する欄の無い変化（消えた見出しなど）は、ここに1行で並べる。
+            流す本文の外に置くのは、下へ流しても「既読にする」に届くように
+        -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="3,0,0,0" Margin="20,8" Padding="10,2,0,2">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="既読にする" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            AutomationProperties.AutomationId="ItemMarkChangesRead"
+                            Command="{Binding MarkChangesReadCommand}"
+                            ToolTip="印を消して、要確認の知らせも既読にします。" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="BOOTHの商品ページで変わったところに印を付けています。" FontSize="12.5" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding OtherChangesText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                   Visibility="{Binding HasOtherChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
         </Border>
 
         <!--
@@ -120,7 +206,17 @@
 
                 <!-- 左：ギャラリーと説明 -->
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                    <views:ItemGalleryPanel />
+                    <!--
+                        画像の欄の印（メモ7-①）。画像の欄は改変の画面と共有の部品なので、印は外から重ねる。
+                        札は大きい絵の左上（枚数の札の下）、線は欄の左の縁
+                    -->
+                    <Grid>
+                        <views:ItemGalleryPanel />
+                        <Border Style="{StaticResource ChangeEdge}" Tag="{Binding GalleryChange}" Margin="0,10,0,10" Padding="0"
+                                HorizontalAlignment="Left" IsHitTestVisible="False" />
+                        <controls:ContentItemsControl ItemsSource="{Binding GalleryChange.Marks}" ItemsPanel="{StaticResource ChangeMarksPanel}"
+                                                      HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4,38,0,0" />
+                    </Grid>
 
                     <!-- 説明文。欄ごと畳める（ユーザ指示 2026-09-14）。畳んだかどうかは商品を移っても保つ -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
@@ -128,7 +224,12 @@
                         <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}"
                                   AutomationProperties.AutomationId="ItemDescriptionExpander" AutomationProperties.Name="商品説明">
                             <Expander.Header>
-                                <TextBlock Text="商品説明" FontWeight="Bold" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="商品説明" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <!-- 見出しごとの印は欄を畳むと隠れるので、欄の見出しにも出す（メモ7-①） -->
+                                    <controls:ContentItemsControl ItemsSource="{Binding DescriptionChange.Marks}" ItemsPanel="{StaticResource ChangeMarksPanel}"
+                                                                  VerticalAlignment="Center" Focusable="False" />
+                                </StackPanel>
                             </Expander.Header>
                         <StackPanel Margin="0,12,0,0">
 
@@ -161,15 +262,33 @@
                                                     Command="{Binding DataContext.ToggleSectionCommand,
                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
-                                                <Border BorderBrush="{DynamicResource Accent}" BorderThickness="3,0,0,0" Padding="9,0">
+                                                <!-- 変わった見出しは、左の線を変化の種類の色にし、札を添える（メモ7-①） -->
+                                                <Border BorderThickness="3,0,0,0" Padding="9,0">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Change.Edge}" Value="{x:Static vm:ChangeTone.Changed}">
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource Warn}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Change.Edge}" Value="{x:Static vm:ChangeTone.Added}">
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0" Text="{Binding Heading}" FontWeight="Bold"
                                                                    FontSize="14" TextWrapping="Wrap" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding Marker}"
+                                                        <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Change.Marks}"
+                                                                                      ItemsPanel="{StaticResource ChangeMarksPanel}"
+                                                                                      VerticalAlignment="Top" Focusable="False" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding Marker}"
                                                                    Foreground="{DynamicResource TextMuted}"
                                                                    Margin="8,0,0,0" VerticalAlignment="Center" />
                                                     </Grid>
@@ -220,68 +339,18 @@
                     <Border Style="{StaticResource Card}" Padding="20,18">
                         <StackPanel>
                             <!--
-                                自分で付けたuserTagを先頭に置き、BOOTHのタグをすぐ下に続ける。
-                                同じ「タグ」なのに離れていると見比べられない。
+                                並びは「商品名（星と一緒）→ ユーザータグ → BOOTHのタグ」（メモ3-③・ユーザ判断 2026-10-02「タグは商品名の下にあるべき」）。
+                                前はタグが枠の先頭で、商品名はその下だった。ショップ・IDは商品名の続きとして名前の直下に残す
                             -->
-                            <TextBlock Text="ユーザータグ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
-                            <!--
-                                この画面の繰り返しの一覧は ContentItemsControl（素の ItemsControl は、行を型の名前で読ませ、
-                                値の等しい行を1つにまとめて、2つめ以降の中のボタンを読み上げ・自動操作から隠す）
-                            -->
-                            <controls:ContentItemsControl ItemsSource="{Binding UserTags}"
-                                          Visibility="{Binding HasUserTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                                BorderThickness="1" CornerRadius="6" Padding="10,3" Margin="0,0,6,6">
-                                            <TextBlock Text="{Binding Top}" FontSize="12" Foreground="{DynamicResource AccentText}" />
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </controls:ContentItemsControl>
-                            <TextBlock Text="未設定。編集画面で付けられます。">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasUserTags}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <!--
-                                BOOTHのタグは畳める（ユーザ指示 2026-09-12：数百ある商品がある）。
-                                畳んだかどうかは編集画面と共通で、商品を移っても保つ。件数は見出しに出す
-                            -->
-                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,14,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}"
-                                      AutomationProperties.AutomationId="ItemBoothTagsExpander" AutomationProperties.Name="BOOTHのタグ">
-                                <Expander.Header>
-                                    <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
-                                </Expander.Header>
-                                <!--
-                                    畳んでいる間は作らず、多い商品は最初の一部と「残り n 件を表示」だけ（ユーザ判断 2026-09-12・開くのが遅かった）。
-                                    札と切り替えの見た目は App.xaml（型で選ぶ）。作った札は隠すだけで捨てない
-                                -->
-                                <controls:ContentItemsControl ItemsSource="{Binding TagTiles}" Margin="0,8,0,0">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                </controls:ContentItemsControl>
-                            </Expander>
-
-                            <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,14" />
-
                             <!--
                                 お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。以前は右＝U21）。編集画面も同じ位置。
                                 見た目と説明は検索のカードの星に合わせる
                             -->
+                            <!-- 商品名が変わったときの印（メモ7-①） -->
+                            <Border Style="{StaticResource ChangeEdge}" Tag="{Binding NameChange}">
                             <DockPanel>
+                                <controls:ContentItemsControl DockPanel.Dock="Right" ItemsSource="{Binding NameChange.Marks}" ItemsPanel="{StaticResource ChangeMarksPanel}"
+                                                              VerticalAlignment="Top" Margin="0,6,0,0" Focusable="False" />
                                 <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す（編集画面の星と同じ形） -->
                                 <!-- Tab で止まり、Enter・Space で入れる・外す（点検 2026-10-01：読み上げ・自動操作の「押す」は届くのに、キーボードからは届かなかった） -->
                                 <controls:PressableBorder DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,0,6,0" Padding="0,0,2,0"
@@ -308,6 +377,7 @@
                                 </controls:PressableBorder>
                                 <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
                             </DockPanel>
+                            </Border>
 
                             <!--
                                 ユーザが付けた名前であることは隠さない。
@@ -364,6 +434,63 @@
                                 <TextBlock Text="{Binding LocalOnlyNotice}" TextWrapping="Wrap"
                                            FontSize="12" Foreground="{DynamicResource Warn}" />
                             </Border>
+
+                            <Border Height="1" Background="{DynamicResource Divider}" Margin="0,14,0,12" />
+
+                            <!--
+                                ユーザータグ。自分で付けたタグを先に置き、BOOTHのタグをすぐ下に続ける（同じ「タグ」なのに離れていると見比べられない）。
+                                小分類まで全部出し、BOOTHのタグと同じ三角で畳める（メモ3-③・ユーザ判断 2026-10-02。既定は開く）。
+                                開け閉めは BOOTH のタグと同じく、商品を移っても保つ
+                            -->
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsUserTagsExpanded, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="ItemUserTagsExpander" AutomationProperties.Name="ユーザータグ">
+                                <Expander.Header>
+                                    <TextBlock Style="{StaticResource SectionLabel}"><Run Text="ユーザータグ" /><Run Text="{Binding UserTagsCountText, Mode=OneWay}" /></TextBlock>
+                                </Expander.Header>
+                                <StackPanel Margin="0,8,0,0">
+                                    <!--
+                                        この画面の繰り返しの一覧は ContentItemsControl（素の ItemsControl は、行を型の名前で読ませ、
+                                        値の等しい行を1つにまとめて、2つめ以降の中のボタンを読み上げ・自動操作から隠す）
+                                    -->
+                                    <controls:ContentItemsControl ItemsSource="{Binding UserTagChips}"
+                                                  Visibility="{Binding HasUserTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                        BorderThickness="1" CornerRadius="6" Padding="10,3" Margin="0,0,6,6">
+                                                    <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource AccentText}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+                                    <TextBlock Text="未設定。編集画面で付けられます。"
+                                               Visibility="{Binding HasUserTags, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
+                                               Style="{StaticResource Caption}" />
+                                </StackPanel>
+                            </Expander>
+
+                            <!--
+                                BOOTHのタグは畳める（ユーザ指示 2026-09-12：数百ある商品がある）。
+                                畳んだかどうかは編集画面と共通で、商品を移っても保つ。件数は見出しに出す
+                            -->
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,14,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="ItemBoothTagsExpander" AutomationProperties.Name="BOOTHのタグ">
+                                <Expander.Header>
+                                    <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
+                                </Expander.Header>
+                                <!--
+                                    畳んでいる間は作らず、多い商品は最初の一部と「残り n 件を表示」だけ（ユーザ判断 2026-09-12・開くのが遅かった）。
+                                    札と切り替えの見た目は App.xaml（型で選ぶ）。作った札は隠すだけで捨てない
+                                -->
+                                <controls:ContentItemsControl ItemsSource="{Binding TagTiles}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </controls:ContentItemsControl>
+                            </Expander>
                         </StackPanel>
                     </Border>
 
@@ -372,6 +499,8 @@
                         <StackPanel>
                             <!-- 畳める（ユーザ判断 2026-09-27）。件数は畳んでも見出しに出す -->
                             <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
+                                <!-- 価格・バリエーションの数が変わったときの印（メモ7-①）。値段が出ているのはこの欄の行だけなので、価格もここ -->
+                                <Border Style="{StaticResource ChangeEdge}" Tag="{Binding VariationsChange}">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal">
                                         <!-- 丸い三角の型（TagToggle）は管理の画面の行の中では止まらない物なので、ここで止まるようにする（点検 2026-10-01） -->
@@ -382,10 +511,13 @@
                                                       AutomationProperties.Name="{Binding VariationsToggleName}"
                                                       ToolTip="バリエーションの欄を開く・折りたたむ" />
                                         <TextBlock Text="バリエーション" FontWeight="Bold" VerticalAlignment="Center" />
+                                        <controls:ContentItemsControl ItemsSource="{Binding VariationsChange.Marks}" ItemsPanel="{StaticResource ChangeMarksPanel}"
+                                                                      VerticalAlignment="Center" Focusable="False" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding VariationsCountText, Mode=OneWay}" Style="{StaticResource Mono}" FontSize="11"
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
+                                </Border>
                             </Border>
                             <controls:ContentItemsControl ItemsSource="{Binding Variations}"
                                           Visibility="{Binding IsVariationsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -590,10 +722,17 @@
                                     <TextBlock Text="アバター検出" Style="{StaticResource SectionLabel}" />
                                     <TextBlock Text="{Binding AvatarsDetectedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
                                 </StackPanel>
-                                <StackPanel Margin="0,0,28,10">
-                                    <TextBlock Text="BOOTHでの販売" Style="{StaticResource SectionLabel}" />
-                                    <TextBlock Text="{Binding DelistedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
-                                </StackPanel>
+                                <!-- 販売終了・販売再開の印（メモ7-①）。線は左の余白に置くので、印が付いても並びは動かない -->
+                                <Border Style="{StaticResource ChangeEdge}" Tag="{Binding SaleChange}" Margin="-12,0,28,10">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="BOOTHでの販売" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                                            <controls:ContentItemsControl ItemsSource="{Binding SaleChange.Marks}" ItemsPanel="{StaticResource ChangeMarksPanel}"
+                                                                          VerticalAlignment="Center" Focusable="False" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding DelistedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Border>
                                 <StackPanel Margin="0,0,28,10">
                                     <TextBlock Text="検索から除く" Style="{StaticResource SectionLabel}" />
                                     <!--

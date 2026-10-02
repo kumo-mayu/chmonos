@@ -15,6 +15,14 @@ public static class BoothChanges
     /// <summary>説明文の中身を出すときの長さ。1行に収めたいので、これを超えたら切って「…」を付ける。</summary>
     private const int ExcerptLength = 70;
 
+    // 差の欄の名前。商品ページが「どの欄に印を付けるか」をこの名前で引くので、文字を1か所に置く（メモ7-①）
+    public const string SaleField = "販売状況";
+    public const string NameField = "商品名";
+    public const string PriceField = "価格";
+    public const string VariationsField = "バリエーション";
+    public const string ImagesField = "画像";
+    public const string DescriptionField = "説明文";
+
     /// <summary>
     /// 変わったところを並べる。何も変わっていなければ空。
     ///
@@ -32,29 +40,29 @@ public static class BoothChanges
         // 販売終了は「もう買えない」なので、いちばん知りたい
         if (!before.IsEndOfSale && after.IsEndOfSale)
         {
-            diffs.Add(new NotificationDiff { Field = "販売状況", Before = "販売中", After = "販売終了" });
+            diffs.Add(new NotificationDiff { Field = SaleField, Before = "販売中", After = "販売終了" });
         }
         else if (before.IsEndOfSale && !after.IsEndOfSale)
         {
-            diffs.Add(new NotificationDiff { Field = "販売状況", Before = "販売終了", After = "販売中" });
+            diffs.Add(new NotificationDiff { Field = SaleField, Before = "販売終了", After = "販売中" });
         }
 
         if (!string.Equals(before.Name, after.Name, StringComparison.Ordinal))
         {
-            diffs.Add(new NotificationDiff { Field = "商品名", Before = before.Name, After = after.Name });
+            diffs.Add(new NotificationDiff { Field = NameField, Before = before.Name, After = after.Name });
         }
 
         // 価格は整形済みの文字列（"¥ 2,500"）。そのまま見せる方が読みやすい
         if (!string.Equals(before.PriceText, after.PriceText, StringComparison.Ordinal))
         {
-            diffs.Add(new NotificationDiff { Field = "価格", Before = before.PriceText, After = after.PriceText });
+            diffs.Add(new NotificationDiff { Field = PriceField, Before = before.PriceText, After = after.PriceText });
         }
 
         if (before.Variations.Count != after.Variations.Count)
         {
             diffs.Add(new NotificationDiff
             {
-                Field = "バリエーション",
+                Field = VariationsField,
                 Before = $"{before.Variations.Count} 件",
                 After = $"{after.Variations.Count} 件",
             });
@@ -64,7 +72,7 @@ public static class BoothChanges
         {
             diffs.Add(new NotificationDiff
             {
-                Field = "画像",
+                Field = ImagesField,
                 Before = $"{before.Images.Count} 枚",
                 After = $"{after.Images.Count} 枚",
             });
@@ -92,7 +100,7 @@ public static class BoothChanges
             {
                 yield return new NotificationDiff
                 {
-                    Field = "説明文",
+                    Field = DescriptionField,
                     Before = Excerpt(beforeText),
                     After = Excerpt(afterText),
                 };
@@ -144,7 +152,7 @@ public static class BoothChanges
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var section in sections)
         {
-            var heading = section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : "説明文";
+            var heading = section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : DescriptionField;
             var text = Normalize(section.Text);
             map[heading] = map.TryGetValue(heading, out var existing) ? $"{existing}\n{text}" : text;
         }

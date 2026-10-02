@@ -56,6 +56,13 @@ internal sealed class TestApp
             Revealed.Add(path);
             return Task.CompletedTask;
         };
+
+        // 本物のクリップボードを書き換えない（使う人が写していた物が消える）。写した文字を控える
+        Services.CopyText = text =>
+        {
+            Copied.Add(text);
+            return true;
+        };
     }
 
     /// <summary>試験1つ分の一時フォルダ。保存先は <c>store</c>、取り込むファイルは <see cref="NewFile"/> で <c>files</c> に作る。</summary>
@@ -76,6 +83,9 @@ internal sealed class TestApp
 
     /// <summary>エクスプローラで選んだ状態で開くはずだった道（開きはしない）。</summary>
     public List<string> Revealed { get; } = [];
+
+    /// <summary>クリップボードへ写すはずだった文字（写しはしない）。</summary>
+    public List<string> Copied { get; } = [];
 
     /// <summary>出すはずだった知らせ・確認の窓（窓は出ない）。文言を確かめるのに使う。</summary>
     public List<NoticeRequest> Notices { get; } = [];

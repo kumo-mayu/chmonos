@@ -39,9 +39,17 @@
             カードの中の押せる物（星・選ぶ箱・「更新あり」）と同じ操作（点検 2026-10-01）。カードの一覧は Tab で1回だけ入り、中は矢印で
             カードからカードへ移る（ArrowGroup）。中の物を矢印の止まりにすると、隣のカードへ移るのに最大4回押すことになるので、ここに置く。
             カードそのもの（ItemCardViewModel）にだけ出す。行から取り出す一覧（改変・アバター・フォルダの行・編集の小さな絵）は値が無く、畳む
+            （行のお気に入りは次の項目。行の Card を公開している一覧だけに出る）
         -->
         <MenuItem Header="{Binding FavoriteTip}" Click="OnMenuFavoriteClick" AutomationProperties.AutomationId="CardMenu.Favorite"
                   Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
+        <!--
+            カードを持つ行（アバターの一覧のリストとカード・改変のリスト）のお気に入り（メモ9-④ 2026-10-02）。
+            星は商品の印なので、カードと同じ道（入れ物の画面の ToggleFavoriteAsync）で行の商品のカードに当てる。
+            手元に商品の無い行（名前が挙がっただけのアバター）はカードが無く、畳む。「選ぶ」は行には出さない（アバターの一覧は1つだけ選ぶ）
+        -->
+        <MenuItem Header="{Binding Card.FavoriteTip}" Click="OnMenuFavoriteClick" AutomationProperties.AutomationId="CardMenu.RowFavorite"
+                  Visibility="{Binding Card.FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
         <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
                   Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
         <MenuItem Header="更新の知らせを開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
@@ -154,6 +162,10 @@
                             <!-- 選択中は全カードに出して、今どの操作をしているのかを示す -->
                             <DataTrigger Binding="{Binding IsSelectionMode}" Value="True">
                                 <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <!-- 選んでも送る先の無い画面（アバターの管理）では出さない（メモ9-⑤）。後に書いて上の2つより勝たせる -->
+                            <DataTrigger Binding="{Binding CanSelect}" Value="False">
+                                <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

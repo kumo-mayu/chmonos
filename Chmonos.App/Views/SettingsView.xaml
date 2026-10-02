@@ -250,7 +250,7 @@
 
                         <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="欄を選んでキーを押すと割り当てられます。Backspaceで外せます。入力欄では、矢印・Home・Endなど文字の入力に使うキーの割り当ては働きません。" />
+                                   Text="欄を選んでキーを押すと割り当てられます。Backspaceで外せます。入力欄の中では、文字の入力やカーソルの移動に使うキーの割り当ては働きません。" />
                         <controls:ContentItemsControl ItemsSource="{Binding ShortcutRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

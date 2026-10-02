@@ -127,9 +127,9 @@
                     </Style.Triggers>
                 </Style>
             </StackPanel.Style>
-            <TextBlock Text="未確定のファイルはありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
+            <TextBlock Text="未確定のファイルはありません" Style="{StaticResource EmptyTitle}" />
             <TextBlock Text="取り込みで情報を読み取れなかったファイルがここに並びます。"
-                       Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                       Style="{StaticResource EmptyNote}" Margin="0,6,0,0" />
             <!-- 次の一手（ユーザ判断 2026-09-17：空になったときに何をすればよいかが弱かった） -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                 <!-- 外して空になった直後にも戻せるように（組み込んだ画面で1件だけを外すと、ここしか見えない） -->
@@ -175,7 +175,7 @@
                       <StackPanel>
                         <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->
                         <Grid Margin="0,0,0,8">
-                            <TextBox x:Name="FilterBox" AutomationProperties.AutomationId="ResolveFilter" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                            <TextBox x:Name="FilterBox" AutomationProperties.AutomationId="ResolveFilter" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}" Padding="9,5,26,5"
                                      BorderBrush="{DynamicResource BorderStrong}" AutomationProperties.Name="未確定を探す" />
                             <TextBlock Text="ファイル名・フォルダ・zipの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False">

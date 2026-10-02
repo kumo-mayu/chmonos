@@ -27,6 +27,9 @@ public partial class App : Application
 
         // 部品の型に掛ける決まりは、部品を1つも作らないうちに入れる。道具がこの型を資源の入れ物として作ったときも同じ名前で読めるよう、本体かどうかによらず入れる
         Services.AutomationNames.Register();
+
+        // Shift＋ホイールの横送りも型に掛ける決まり。道具で描く画面も同じ動きになる
+        Controls.HorizontalWheel.Register();
     }
 
     private AppServiceContainer? _services;
@@ -83,6 +86,9 @@ public partial class App : Application
         // サービス一式を作る前なので、設定は色の1欄だけを読む（書かない）。前はここで Windows に合わせるだけで、
         // 「既に起動しています」の窓が設定の色と違う色で出ていた（ユーザ判断 2026-09-30）
         ViewModels.AppTheme.Start();
+
+        // 横ホイール（チルト）はスレッドのメッセージを見る。道具や試験のメッセージには掛けない
+        Controls.HorizontalWheel.ListenForTilt();
 
         if (!EnsureStoreReachable())
         {

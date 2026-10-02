@@ -205,12 +205,14 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
     private static bool s_searchNames = true;
     private static bool s_searchMemos = true;
     private static bool s_favoritesOnly;
+    private static bool s_updatedOnly;
     private static string? s_sortLabel;
 
     private string _filterText = s_filterText;
     private bool _searchNames = s_searchNames;
     private bool _searchMemos = s_searchMemos;
     private bool _favoritesOnly = s_favoritesOnly;
+    private bool _updatedOnly = s_updatedOnly;
     private ShopSortOption _sort;
 
     public ShopsViewModel(AppServiceContainer services, MainViewModel main, Services.ThumbnailLoader thumbnails)
@@ -333,6 +335,29 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
     }
 
     /// <summary>
+    /// 未読の更新がある商品を持つショップだけを出す（2026-10-02 のメモ7「ショップ一覧でも変更のあったものだけを使えるべき」）。
+    /// 数え方はカードの「更新のあった商品が n 件」と同じ（<see cref="ShopSummary.UpdatedCount"/>）なので、
+    /// 絞った後に並ぶのは、その札が出ているカードだけになる。ショップの中の同じチェックと意味を揃えてある
+    /// </summary>
+    public bool UpdatedOnly
+    {
+        get => _updatedOnly;
+        set
+        {
+            if (SetField(ref _updatedOnly, value))
+            {
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 更新のある商品を持つショップが1つでもあるか。無ければチェックを出さない——押しても必ず0件になる絞り込みは置く意味が無い
+    /// （ショップの中の「更新があるものだけ」と同じ）。
+    /// </summary>
+    public bool HasUpdatedShops { get; private set; }
+
+    /// <summary>
     /// 今の探す対象を、対象のボタンそのものに書く（ユーザ指示 2026-09-16「対象がどちらかが常にわかるようにする必要がある」）。
     /// メニューを開かないと分からない形だと、メモで探しているつもりで名前だけを探していても気付けない。
     /// </summary>
@@ -397,7 +422,9 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
         ? "ショップがありません"
         : _favoritesOnly && !_all.Any(card => card.IsFavorite)
             ? "星を付けたショップがまだありません。「★だけ」を外し、カードの☆を押すと付けられます。"
-            : "該当するショップがありません。検索語を短くするか、「★だけ」や探す対象を見直してください。";
+            : _updatedOnly
+                ? "該当するショップがありません。検索語を短くするか、「更新があるものだけ」を外してください。"
+                : "該当するショップがありません。検索語を短くするか、「★だけ」や探す対象を見直してください。";
 
     /// <summary>一覧の幅から列数を決める（WPFには仮想化するWrapPanelが無いので、行に切って並べる）。</summary>
     public void SetViewportWidth(double width)
@@ -445,6 +472,17 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
                         () => Services.Shell.OpenUrl(shop.Url!), () => !string.IsNullOrEmpty(shop.Url));
                     return card;
                 }).ToList();
+
+                // 知らせを読むと更新は0件になり得る。チェックを隠したまま絞りが効いて空になるのを避け、外しておく
+                // （アプリを閉じるまで覚えている絞りが、前に開いたときの物でも同じ）
+                HasUpdatedShops = _all.Any(card => card.HasUpdate);
+                if (!HasUpdatedShops && _updatedOnly)
+                {
+                    _updatedOnly = false;
+                    OnPropertyChanged(nameof(UpdatedOnly));
+                }
+
+                OnPropertyChanged(nameof(HasUpdatedShops));
 
                 Rebuild();
                 OnPropertyChanged(nameof(HeaderText));
@@ -546,6 +584,7 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
         s_searchNames = _searchNames;
         s_searchMemos = _searchMemos;
         s_favoritesOnly = _favoritesOnly;
+        s_updatedOnly = _updatedOnly;
         s_sortLabel = _sort.Label;
 
         // 検索画面と同じ書き方（-・"…"・OR・括弧）で読む（ユーザ判断 2026-09-28）
@@ -553,6 +592,7 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
 
         var matches = _all.Where(card =>
             (!_favoritesOnly || card.IsFavorite)
+            && (!_updatedOnly || card.HasUpdate)
             && ShopSearch.Matches(query, card.Haystack, _searchNames, _searchMemos));
 
         var sorted = _sort.Descending

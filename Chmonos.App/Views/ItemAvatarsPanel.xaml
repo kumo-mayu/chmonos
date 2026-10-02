@@ -49,7 +49,7 @@
                                     <Grid Width="260">
                                         <TextBox x:Name="AvatarFilterBox" Padding="6,3"
                                                  AutomationProperties.Name="{Binding AvatarFilterPlaceholder}"
-                                                 Text="{Binding AvatarFilter, UpdateSourceTrigger=PropertyChanged}" />
+                                                 Text="{Binding AvatarFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
                                         <TextBlock Text="{Binding AvatarFilterPlaceholder}" IsHitTestVisible="False"
                                                    Margin="10,0,0,0" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextFaint}">

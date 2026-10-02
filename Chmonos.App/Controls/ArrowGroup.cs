@@ -344,7 +344,7 @@ public static class ArrowGroup
                 return;
             }
 
-            // 修飾キー付きの矢印（Alt+← の戻る・Ctrl+Shift+→ のスキップ）は画面の物
+            // 修飾キー付きの矢印（Alt+← の戻る・設定で割り当てた Ctrl+Shift+矢印）は画面の物
             if (e.Handled || Keyboard.Modifiers != ModifierKeys.None)
             {
                 return;

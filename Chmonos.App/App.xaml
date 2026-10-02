@@ -40,11 +40,23 @@
         <ScaleTransform x:Key="AppZoomTransform" ScaleX="1" ScaleY="1" />
 
         <!--
-            畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
-            どちらか一方の画面ではなくここに置く。24×24の座標系。
+            畳む・開くの山形。検索の絞り込みパネルのつまみで使う（ナビは下のサイドバーの印に替えた。2026-10-02）。
+            24×24の座標系。
         -->
         <PathGeometry x:Key="IconCollapse" Figures="M14,7 L9,12 L14,17" />
         <PathGeometry x:Key="IconExpand" Figures="M10,7 L15,12 L10,17" />
+
+        <!--
+            ナビを畳む・開くの印（ユーザ指摘 2026-10-02 メモ8）。左に縦の帯の付いた四角＝サイドバーの印。
+            山形（上の IconCollapse／IconExpand）は左右の矢印に見え、畳んだナビで真上の「戻る ←」と並んで紛らわしかった。
+            左右の矢印は画面の履歴（戻る・進む）だけに使う。
+            今の状態を描く：開いているときは広い帯に項目の線、畳んでいるときは細い帯だけ（畳んだナビの姿と同じ）。
+            24×24の座標系・線だけで描く（ナビのほかの印と同じ）
+        -->
+        <PathGeometry x:Key="IconSidebarOpen"
+                      Figures="M5,4 H19 A2,2 0 0 1 21,6 V18 A2,2 0 0 1 19,20 H5 A2,2 0 0 1 3,18 V6 A2,2 0 0 1 5,4 Z M10,4 V20 M5.8,8.5 H7.4 M5.8,12 H7.4" />
+        <PathGeometry x:Key="IconSidebarClosed"
+                      Figures="M5,4 H19 A2,2 0 0 1 21,6 V18 A2,2 0 0 1 19,20 H5 A2,2 0 0 1 3,18 V6 A2,2 0 0 1 5,4 Z M7.5,4 V20" />
 
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Text}" />
@@ -57,6 +69,25 @@
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <!--
+            何も無いときの文（空の表示）。欄の幅で折り返して中央に置く。折り返しを指定しない TextBlock は1行ぶんの幅を要求するので、
+            窓が狭いと欄の外へ両側にはみ出して切れた（2026-10-02 メモ6-④：要確認で幅500のとき両端が切れた）。
+            MaxWidth は広い窓で行が長くなりすぎないための上限で、欄が狭いときは欄の幅が先に効く
+        -->
+        <Style x:Key="EmptyTitle" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="MaxWidth" Value="520" />
+        </Style>
+        <Style x:Key="EmptyNote" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="MaxWidth" Value="520" />
         </Style>
 
         <Style x:Key="Mono" TargetType="TextBlock">

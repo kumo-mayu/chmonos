@@ -93,6 +93,15 @@
             </Style.Triggers>
         </Style>
 
+        <!-- 2行目：小さいまま、商品名のときだけ本文の色（灰色の小さい字は読み飛ばされる。2026-10-02 メモ6） -->
+        <Style x:Key="FolderRowSubText" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SubTextIsItemName}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- 薄く出す行（取り外したドライブ・見つからないファイル） -->
         <Style x:Key="FolderRowText" TargetType="StackPanel">
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -190,7 +199,7 @@
                 <StackPanel Style="{StaticResource FolderRowText}">
                     <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="{DynamicResource Text}"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
-                    <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                    <TextBlock Text="{Binding SubText}" Style="{StaticResource FolderRowSubText}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileNotes}" Focusable="False" />
                 </StackPanel>
@@ -333,7 +342,7 @@
         <!-- 右：選んだ物の詳細 -->
         <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False" />
         <TextBlock Grid.Column="1" Text="左の木から、フォルダかファイルを選ぶと、ここに表示されます。"
-                   Style="{StaticResource Caption}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Style="{StaticResource EmptyNote}" VerticalAlignment="Center" Margin="24,0"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
     </controls:PaneGrid>
 </UserControl>

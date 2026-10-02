@@ -34,6 +34,10 @@ public sealed class CardRowsListBox : ListBox
         // 並びに任せるので Continue にする（Once のままだと、並びが選んだ止まり先ではなく、一覧が覚えた物へ入る）
         KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Continue);
         ArrowGroup.SetIsEnabled(this, true);
+
+        // マウスで押したカードは、一部だけ見えていても流さない（2026-10-02 のメモ7）。矢印で移ったときは流す。
+        // カードを並べる一覧はどれもこの部品なので、画面ごとに書かずにここで付ける
+        NoScrollOnClick.SetIsEnabled(this, true);
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);

@@ -52,6 +52,13 @@
         </Border>
 
         <!--
+            上の段（バナー・見出しと集計・メモ）。商品の一覧を流し始めたら「アイコン・名前・星・集計」の1行に縮め、
+            一番上まで戻すと元に戻す（2026-10-02 のメモ7-⑤：縦に長く、一覧が狭かった）。縮めるかは ShopViewModel.NoteListScrolled が決め、
+            縮めると一覧が広がる高さは、この入れ物の高さから縮めた行の高さを引いて渡す（ShopView.xaml.cs）
+        -->
+        <StackPanel DockPanel.Dock="Top" x:Name="ShopHeader">
+        <StackPanel Visibility="{Binding ShowFullHeader, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+        <!--
             バナー。置いていないショップもあるので、無ければ帯ごと出さない。
             切り取らずに全体を出す（作者が作った絵なので、勝手に一部だけ見せない）。
             大きさはBOOTHの見せ方（960x320）に合わせ、縦横比が違うバナーは
@@ -168,13 +175,90 @@
                 </StackPanel>
             </Grid>
         </Border>
+        </StackPanel>
+
+        <!--
+            縮めた行。高さは決め打ち（ShopView.xaml.cs の CompactHeaderHeight と揃える）——縮めたときに一覧がどれだけ広がるかを、
+            縮める前に求めるため（隠している間は高さが測れない）
+        -->
+        <Border Height="52" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding IsHeaderCompact, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Grid Margin="24,0" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7" ClipToBounds="True"
+                        Background="{DynamicResource AccentSoft}">
+                    <Grid>
+                        <TextBlock Text="{Binding Initial}" FontSize="14" FontWeight="Bold"
+                                   Foreground="{DynamicResource AccentSoftText}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="{Binding ShowInitial, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                               Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </Grid>
+                </Border>
+                <!-- 名前が長いときは名前だけを詰め、星は名前のすぐ右に残す（左寄せの DockPanel は中身の幅までしか広がらない） -->
+                <DockPanel Grid.Column="1" HorizontalAlignment="Left" Margin="12,0,16,0" VerticalAlignment="Center">
+                    <Button DockPanel.Dock="Right" Command="{Binding ToggleFavoriteCommand}" Margin="6,0,0,0" Cursor="Hand"
+                            VerticalAlignment="Center" ToolTip="{Binding FavoriteTip}"
+                            AutomationProperties.AutomationId="ShopCompactFavorite">
+                        <AutomationProperties.Name>
+                            <MultiBinding StringFormat="{}{0}を{1}">
+                                <Binding Path="Name" />
+                                <Binding Path="FavoriteTip" />
+                            </MultiBinding>
+                        </AutomationProperties.Name>
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent" Padding="2,0">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource Star}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                </DockPanel>
+                <!-- 集計は元の段と同じ4つを、見出しを小さくして1行に -->
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12.5">
+                    <Run Text="所持" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                    <Run Text="{Binding OwnedText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
+                    <Run Text="購入総額" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                    <Run Text="{Binding SpentText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
+                    <Run Text="容量" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                    <Run Text="{Binding SizeText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
+                    <Run Text="最終購入" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                    <Run Text="{Binding LastAcquiredText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" />
+                </TextBlock>
+                <Button Grid.Column="3" Content="メモ" Style="{StaticResource SmallButton}" Margin="16,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding ToggleMemoCommand}" ToolTip="{Binding MemoToggleName}"
+                        AutomationProperties.Name="{Binding MemoToggleName}" AutomationProperties.AutomationId="ShopCompactMemo" />
+            </Grid>
+        </Border>
 
         <!--
             ショップのメモ（ユーザ判断 2026-09-16）。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識。
             止まってから書く（打つたびには書かない）
         -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
-                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12">
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12"
+                Visibility="{Binding ShowMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
                 <Grid>
@@ -198,6 +282,7 @@
                 </Grid>
             </DockPanel>
         </Border>
+        </StackPanel>
 
         <!--
             件数（左）と「所持しているものだけ」・カード／リスト（右）。入り切らなければ右を次の行へ送る（検索の結果の上の帯と同じ部品）。
@@ -235,7 +320,8 @@
         <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
                         Visibility="{Binding ShowsSelectionBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-        <Grid SizeChanged="OnListSizeChanged">
+        <!-- 一覧が流れたら上の段を縮める・戻す（カードとリストのどちらの一覧でも。メモ7-⑤） -->
+        <Grid SizeChanged="OnListSizeChanged" ScrollViewer.ScrollChanged="OnListScrollChanged">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <TextBlock Text="表示する商品がありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
