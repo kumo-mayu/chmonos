@@ -1367,7 +1367,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             var progress = new Progress<AvatarDetectProgress>(report =>
             {
                 Status = $"{report.Phase}　{report.Done} / {report.Total}";
-                _main.ReportLongJob($"対応アバターを検出中　{report.Phase}　{report.Done} / {report.Total}");
+                _main.ReportLongJob($"対応アバターを検出中　{report.Phase}　{report.Done} / {report.Total}", report.Done, report.Total);
             });
 
             // **UiCommand を通す。**直接呼ぶと CommandHandler の優先度の包みの外に

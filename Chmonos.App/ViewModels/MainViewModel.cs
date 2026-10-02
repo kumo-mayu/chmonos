@@ -223,6 +223,8 @@ public sealed partial class MainViewModel : ViewModelBase
     private LongJobLease? _longJob;
     private string _longJobText = string.Empty;
     private string _longJobNote = string.Empty;
+    private int _longJobDone;
+    private int _longJobTotal;
     private RelayCommand? _stopLongJob;
 
     /// <summary>
@@ -244,6 +246,14 @@ public sealed partial class MainViewModel : ViewModelBase
         private set => SetField(ref _longJobText, value);
     }
 
+    /// <summary>件数が分かっているか。分かるまで（数え始めの間）は、長さの無い流れる棒で出す（一時展開の帯と同じ）。</summary>
+    public bool HasLongJobProgress => _longJobTotal > 0;
+
+    /// <summary>進み具合の割合（0〜1）。件数が分かるまでは 0。</summary>
+    public double LongJobProgress => _longJobTotal > 0
+        ? Math.Clamp((double)_longJobDone / _longJobTotal, 0, 1)
+        : 0;
+
     /// <summary>この間できなくなる作業。**黙って押せなくしない**（ユーザ指示 2026-09-21・C1）。</summary>
     public string LongJobNote
     {
@@ -252,14 +262,14 @@ public sealed partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 帯に「中止」を出すか。バックアップから戻すは止める口を持たない
-    /// （途中で止めると、戻す先が半端に展開されたまま残る。片付ける決まりがまだ無い）。
+    /// 帯に「中止」を出すか。止める口を預けた作業だけ出す。
+    /// バックアップから戻すも止められる（止めた・失敗したときは Core が展開した物を消すので、戻す先は空に戻る。2026-10-02）。
     /// </summary>
     public bool CanStopLongJob => _longJob?.Stop is not null;
 
     /// <summary>
     /// ほかの長い作業を始める口が押せない理由（走っていなければ空）。どの画面の口も同じ文にする。
-    /// 止められる作業なら止める道を、止められない作業（戻す）なら終わった後に起きることを言う。
+    /// 止められる作業なら止める道を、止める口の無い作業なら終わった後に起きることを言う。
     /// </summary>
     public string LongJobBlockedNote => _longJob switch
     {
@@ -290,12 +300,34 @@ public sealed partial class MainViewModel : ViewModelBase
         _longJob = new LongJobLease(this, doing, stop);
         LongJobNote = note;
         LongJobText = string.Empty;
+        SetLongJobCounts(0, 0);
         RaiseLongJob();
         return _longJob;
     }
 
     /// <summary>進み具合を帯へ流す（始めた画面の表示とは別に、どの画面でも見えるように）。</summary>
-    public void ReportLongJob(string text) => LongJobText = text;
+    /// <param name="text">進み具合の1行。</param>
+    /// <param name="done">済んだ件数。</param>
+    /// <param name="total">全体の件数。0 なら分かっていない（棒は流れる）。</param>
+    public void ReportLongJob(string text, int done = 0, int total = 0)
+    {
+        // 畳んだ後に裏から遅れて届いた分で、終わった作業の棒が帯に残らないようにする
+        if (_longJob is null)
+        {
+            return;
+        }
+
+        SetLongJobCounts(done, total);
+        LongJobText = text;
+    }
+
+    private void SetLongJobCounts(int done, int total)
+    {
+        _longJobDone = done;
+        _longJobTotal = total;
+        OnPropertyChanged(nameof(HasLongJobProgress));
+        OnPropertyChanged(nameof(LongJobProgress));
+    }
 
     private void EndLongJob(LongJobLease job)
     {
@@ -307,6 +339,7 @@ public sealed partial class MainViewModel : ViewModelBase
         _longJob = null;
         LongJobText = string.Empty;
         LongJobNote = string.Empty;
+        SetLongJobCounts(0, 0);
         RaiseLongJob();
     }
 
