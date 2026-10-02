@@ -545,8 +545,8 @@
                             入力欄は長く流れるので、上から見始めたときも下まで入れたときも手の届く所に置く
                         -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,14">
-                            <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
-                            <Button Content="スキップ" Command="{Binding SkipCommand}" />
+                            <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" ToolTip="{Binding BackTip}" />
+                            <Button Content="スキップ" Command="{Binding SkipCommand}" ToolTip="{Binding SkipTip}" />
                         </StackPanel>
 
                         <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
@@ -1021,8 +1021,8 @@
                         <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <!-- 下まで入力してから前の商品を見直すことがある（ユーザ指示）。並びは上のバーと同じ -->
-                                <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
-                                <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                                <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" ToolTip="{Binding BackTip}" />
+                                <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" ToolTip="{Binding SkipTip}" />
                                 <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding SaveAndNextCommand}" />
                             </StackPanel>

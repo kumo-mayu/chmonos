@@ -28,8 +28,8 @@ public sealed class SettingsNormalizeTests
         var shortcuts = new AppSettings().Shortcuts;
 
         Assert.Equal("Ctrl+Enter", shortcuts.SaveAndNext);
-        Assert.Equal("Ctrl+Shift+Right", shortcuts.Skip);
-        Assert.Equal("Ctrl+Shift+Left", shortcuts.Previous);
+        Assert.Equal("Ctrl+N", shortcuts.Skip);
+        Assert.Equal("Ctrl+P", shortcuts.Previous);
         Assert.Equal("Ctrl+F", shortcuts.FindInPage);
         Assert.Equal("Alt+Left", shortcuts.Back);
     }
@@ -42,7 +42,7 @@ public sealed class SettingsNormalizeTests
 
         var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json, Chmonos.Core.Storage.JsonStore.Options)!;
 
-        Assert.Equal("Ctrl+Shift+Left", settings.Shortcuts.Previous);
+        Assert.Equal("Ctrl+P", settings.Shortcuts.Previous);
     }
 
     [Fact]

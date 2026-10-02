@@ -171,8 +171,30 @@ public static class Shortcuts
     }
 
     /// <summary>
-    /// 文字の欄でカーソルを動かすキー。文字の欄にいるときは、この割り当ては働かせない。
-    /// ただし Alt＋矢印と Ctrl+Shift＋矢印だけは欄の中でも横取りする（<c>MainWindow.xaml.cs</c>。前へは除く）。
+    /// 文字の欄にいるとき、このキーを欄に譲るか（割り当てがあっても働かせない）。
+    ///
+    /// 譲るのは文字を打つキー（Ctrl も Alt も無い）と、カーソルを動かすキーの素・Shift（選ぶ）・Ctrl（1語ずつ）付き。
+    /// **Alt＋矢印（戻る・進む）と Ctrl+Shift＋矢印は欄の中でも横取りする**——譲ると、入力欄だらけの編集画面では一度も効かない
+    /// （Alt＋← は 2026-09-12、Ctrl+Shift＋→ は B11）。代償は欄の「1語ずつ選ぶ」で、Shift＋矢印とマウスで足りる。
+    /// 操作によって譲る・譲らないを分けない（2026-10-02 まで前へだけは欄に譲っていたが、既定を Ctrl+P に移して分ける理由が無くなった）。
+    /// Ctrl＋文字（スキップの Ctrl+N・前への Ctrl+P）は欄で使う操作が無いので、譲らない
+    /// </summary>
+    public static bool YieldsToText(Key key, ModifierKeys modifiers)
+    {
+        var control = (modifiers & ModifierKeys.Control) != 0;
+        var shift = (modifiers & ModifierKeys.Shift) != 0;
+        var alt = (modifiers & ModifierKeys.Alt) != 0;
+        if (!control && !alt)
+        {
+            return true;
+        }
+
+        var appTakesArrow = (alt && !control) || (control && shift);
+        return IsTextEditingKey(key) && !appTakesArrow;
+    }
+
+    /// <summary>
+    /// 文字の欄でカーソルを動かすキー。文字の欄にいるときは、この割り当ては働かせない（<see cref="YieldsToText"/>）。
     /// </summary>
     public static bool IsTextEditingKey(Key key)
         => key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End

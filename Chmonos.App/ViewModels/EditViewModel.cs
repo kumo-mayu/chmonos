@@ -290,6 +290,21 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     public string DescriptionPreview => _item?.Booth.Description ?? string.Empty;
 
+    /// <summary>
+    /// 「スキップ」の吹き出し。今の割り当てのキーを添える（ユーザ判断 2026-10-02：キーが画面のどこにも出ていなかった）。
+    /// 設定で変えたら追う——設定の画面から戻ると画面は作り直され、そのとき読み直す
+    /// </summary>
+    public string SkipTip => WithKey("入力を書きかけのまま、次の商品へ進みます", ShortcutAction.Skip);
+
+    /// <summary>「← 前へ」の吹き出し。</summary>
+    public string BackTip => WithKey("前の商品へ戻ります", ShortcutAction.Previous);
+
+    private string WithKey(string text, ShortcutAction action)
+    {
+        var gesture = Shortcuts.GestureOf(_main.Shortcuts, action);
+        return Shortcuts.Parse(gesture) is null ? text + "。" : $"{text}（{Shortcuts.Display(gesture)}）";
+    }
+
     private const string DescriptionHeightKey = "edit.description";
     private RelayCommand? _resetDescriptionHeightCommand;
 
