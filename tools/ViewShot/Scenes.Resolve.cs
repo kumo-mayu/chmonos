@@ -94,6 +94,63 @@ internal static partial class Scenes
             Height = 560,
         },
 
+        new Scene("resolve-unpacked-folder", "未確定：元zipの無い展開物（長いフォルダ名）を選んだ右の欄（上の帯・見出しの横のボタン・その他のフォルダのまま登録）", async context =>
+        {
+            // 展開物の根は、中身がそのフォルダしか無い親まで遡る。取り込み元に別の物も置き、根を展開したフォルダで止める
+            const string folder = @"展開物だけ\とても長い名前の衣装セット_v2.1_フルパッケージ版_PSD付き";
+            var package = Fake.PlainFile(folder + @"\outfit\outfit.unitypackage");
+            var texture = Fake.PlainFile(folder + @"\outfit\texture\outfit_body_main_texture_4k.png");
+            Fake.PlainFile(@"展開物だけ\ほかの物\readme.txt");
+            var importFolder = Fake.Folder("展開物だけ");
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(package, size: 8_100_000),
+                Fake.Unresolved(texture, size: 31_000_000),
+            ]);
+
+            var main = await context.StartAsync(settings => settings with { ImportFolders = [importFolder] });
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 2, "未確定の一覧が並ぶ");
+            screen.Selected = screen.Files.First(row => row.IsArchiveContent);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            // 右の欄を下の「その他」まで1枚に収める
+            Height = 1900,
+        },
+
+        new Scene("resolve-checked-local", "未確定：「このフォルダを選択」で選んだときの右の欄（まとめ操作の3つのボタン・その他の「選択した n 件をこの名前で登録する」）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.PlainFile(@"選んで登録\ribbon_set\ribbon_body.psd"), size: 120_000_000),
+                Fake.Unresolved(Fake.PlainFile(@"選んで登録\ribbon_set\ribbon_extra.psd"), size: 40_000_000),
+                Fake.Unresolved(Fake.PlainFile(@"選んで登録\ribbon_set\ribbon_icon.png"), size: 900_000),
+                Fake.Unresolved(Fake.Zip(@"選んで登録\hair_ribbon_v1.0.zip"), contents: ["readme.txt"]),
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 4, "未確定の一覧が並ぶ");
+            screen.SelectFolderCommand.Execute(screen.Files.First(row => row.FileName == "ribbon_body.psd").GroupKey);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1900,
+        },
+
         new Scene("resolve-many-contents", "未確定：中身7万件の zip の行を選んだ右の欄（中身の一覧は見える行だけ作る。選ぶ・離れる・戻るの時間と作った行の数を書き出す）", async context =>
         {
             // 大容量の確かめ（2026-09-30）で、中身7万件の zip の行を選ぶと約49秒止まり、メモリが約1GBまで上がって戻らなかった。

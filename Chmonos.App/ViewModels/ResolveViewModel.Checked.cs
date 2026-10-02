@@ -21,6 +21,23 @@ public sealed partial class ResolveViewModel
 
     public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理対象から除外する";
 
+    /// <summary>
+    /// まとめての操作の欄から「BOOTHに無い商品」の欄へ送るボタン（ユーザ指示 2026-10-02：選んでも仮IDでまとめて登録できなかった）。
+    /// 名前と画像は1件のときと同じ欄で入れるので、ここでは登録せず欄へ送る（入力が要るので末尾に「…」）。
+    /// 「BOOTHに無い商品として登録」と書くと幅900の窓で枠からはみ出したので、欄の「仮のID（local-…）として登録します」に合わせて短くした
+    /// </summary>
+    public string LocalCheckedText => $"選択した {CheckedCount} 件を仮のIDで登録…";
+
+    /// <summary>「その他」の登録ボタン。選んでいるときは選んだ全部を1つの商品にするので、1件のつもりで押さないよう件数を言う。</summary>
+    public string RegisterLocalText => HasChecked
+        ? $"選択した {CheckedCount} 件をこの名前で登録する"
+        : "この名前で登録する";
+
+    /// <summary>「BOOTHに無い商品」の欄へ画面を送り、名前の欄に入る（View が受ける）。</summary>
+    public event Action? LocalNameFocusRequested;
+
+    private void GoToLocal() => LocalNameFocusRequested?.Invoke();
+
     private void OnCheckedChanged()
     {
         OnPropertyChanged(nameof(CheckedCount));
@@ -28,8 +45,66 @@ public sealed partial class ResolveViewModel
         OnPropertyChanged(nameof(CheckedText));
         OnPropertyChanged(nameof(AssignCheckedText));
         OnPropertyChanged(nameof(ExcludeCheckedText));
+        OnPropertyChanged(nameof(LocalCheckedText));
+        OnPropertyChanged(nameof(RegisterLocalText));
+        OnPropertyChanged(nameof(LocalIdPreview));
+        OnPropertyChanged(nameof(IsLocalBlockedByListedZip));
+
+        // 名前は人が書き換えていなければ、選んだ物に合わせて下書きし直す（書いた名前は消さない）
+        if (LocalNameInput == _localNameDraft)
+        {
+            ResetLocalNameDraft();
+        }
+
         RelayCommand.RaiseCanExecuteChanged();
     }
+
+    /// <summary>
+    /// 「BOOTHに無い商品として登録する」の対象。選んでいればその全部（zipの中身はzipの単位まで広げ、元のzipが未確定にあれば止める。
+    /// まとめて確定と同じ）、でなければ束か選んだ1件。
+    /// </summary>
+    private (IReadOnlyList<UnresolvedRow> Targets, string? Blocked) LocalTargets()
+        => HasChecked
+            ? ExpandToZipUnits(Files.Where(row => row.IsSelected).ToList())
+            : (ActiveRows, null);
+
+    /// <summary>押した人が下書きから書き換えたかを見分けるため、最後に入れた下書きを覚えておく。</summary>
+    private string _localNameDraft = string.Empty;
+
+    private void ResetLocalNameDraft()
+    {
+        _localNameDraft = LocalNameDraft();
+        LocalNameInput = _localNameDraft;
+    }
+
+    /// <summary>
+    /// 名前の下書き。1件のときは元zipが分かればその名前、無ければファイル名（中の1ファイルの名前 cloth.psd などより商品名に近い）。
+    /// 選んでいるときは1件目に同じ決まりを当てる。ただし zip が無いフォルダの束だけを選んでいれば、そのフォルダの名前
+    /// （展開したフォルダの名前が商品名で、中のファイルの名前は texture.png などになりやすい）
+    /// </summary>
+    private string LocalNameDraft()
+    {
+        var checkedRows = Files.Where(row => row.IsSelected).ToList();
+        if (checkedRows.Count == 0)
+        {
+            return Selected is null ? string.Empty : NameDraftOf(Selected);
+        }
+
+        var first = checkedRows[0];
+        if (first.IsArchiveContent
+            && checkedRows.All(row => string.Equals(row.GroupKey, first.GroupKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Chmonos.Core.Resolution.FileNameQuery.ToNameDraft(Path.GetFileName(first.GroupKey));
+        }
+
+        return NameDraftOf(first);
+    }
+
+    private static string NameDraftOf(UnresolvedRow row)
+        => Chmonos.Core.Resolution.FileNameQuery.ToNameDraft(row.Origin?.ArchiveName ?? row.FileName);
+
+    /// <summary>元のzipが未確定にあるので1件の登録を止めている、と「その他」で言うか。選んでいる物を登録するときは、押したときに確かめる。</summary>
+    public bool IsLocalBlockedByListedZip => !HasChecked && IsBlockedByListedZip;
 
     /// <summary>
     /// 同じフォルダのものをまとめて選ぶ。
