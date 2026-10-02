@@ -62,34 +62,19 @@
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14">
-                        <TextBlock Text="属性を検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
-                        <TextBox MaxLength="500" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                 AutomationProperties.Name="属性を検索"
-                                 Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
-                                 ToolTip="属性の名前・メモと、この属性を持つ商品の商品名・ショップ名・メモでも探します。" />
+                        <TextBlock Text="属性を検索・追加" Style="{StaticResource Caption}" Margin="2,0,0,4" />
+                        <!-- 検索と追加は1本の欄（ユーザ指示 2026-10-02）。同じ名前の属性が無いときだけ、欄の下に「追加」の行が出る。候補は並べない -->
+                        <controls:SearchAddBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                               Placeholder="検索、または追加（例：かっこいい）"
+                                               AddRowText="{Binding AddRowText}" AddCommand="{Binding AddCommand}"
+                                               SubmitCommand="{Binding SubmitFilterCommand}"
+                                               AutomationProperties.Name="属性を検索・追加"
+                                               AutomationProperties.AutomationId="AttributeFilterInput"
+                                               ToolTip="属性の名前とメモ、付いた商品の名前・ショップ名・メモを探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-                        <!-- 属性を足す欄。候補は付けない（メモ10-① 2026-10-02。大分類を足す欄と同じ） -->
-                        <DockPanel Margin="0,12,0,0">
-                            <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                    AutomationProperties.AutomationId="AttributeAddButton"
-                                    Command="{Binding AddCommand}" />
-                            <Grid>
-                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.AutomationId="AttributeAddInput"
-                                         AutomationProperties.Name="属性を追加">
-                                    <TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding AddCommand}" />
-                                    </TextBox.InputBindings>
-                                </TextBox>
-                                <TextBlock Text="属性を追加（例：かっこいい）" Margin="11,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                           Visibility="{Binding NewName, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
-                            </Grid>
-                        </DockPanel>
 
                         <!-- 並べ方は一覧のすぐ上に、つながったボタンで（タグの管理と同じ。ユーザ指示 2026-09-19） -->
                         <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
@@ -165,7 +150,19 @@
                                     <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0"
                                                Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <StackPanel Margin="0,0,50,0">
-                                        <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap" />
+                                        <!-- 欄に打った名前と同じ属性は、名前を太くして強調する（追加の行は出ない） -->
+                                        <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNameMatch}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <TextBlock Text="{Binding AverageText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}" FontSize="11.5"

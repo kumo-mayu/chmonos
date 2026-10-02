@@ -16,9 +16,7 @@ public class FilterFieldDelayTests
     [Theory]
     [InlineData("SearchView.xaml", "QueryText")]
     [InlineData("ShopsView.xaml", "FilterText")]
-    [InlineData("TagManageView.xaml", "FilterText")]
     [InlineData("TagManageView.xaml", "ItemFilter")]
-    [InlineData("AttributeManageView.xaml", "FilterText")]
     [InlineData("AttributeManageView.xaml", "ItemFilter")]
     [InlineData("AvatarsView.xaml", "Query")]
     [InlineData("ItemAvatarsPanel.xaml", "AvatarFilter")]
@@ -30,6 +28,22 @@ public class FilterFieldDelayTests
 
         var binding = Assert.Single(bindings);
         Assert.Contains("Delay=200", binding);
+    }
+
+    /// <summary>
+    /// タグ・属性の管理の左は、検索と追加を1本にした欄（<c>SearchAddBox</c>）。絞り込みの遅らせは部品の中の結び付けに書き、
+    /// 画面の側は部品の Text へ FilterText をそのまま結ぶ
+    /// </summary>
+    [Theory]
+    [InlineData("TagManageView.xaml")]
+    [InlineData("AttributeManageView.xaml")]
+    public void 管理の左の検索と追加の欄は_部品の中で200ms待ってから絞る(string view)
+    {
+        var screen = File.ReadAllText(Path.Combine(ViewsFolder(), view));
+        Assert.Matches(@"<controls:SearchAddBox Text=""\{Binding FilterText, UpdateSourceTrigger=PropertyChanged\}""", screen);
+
+        var box = File.ReadAllText(Path.Combine(ViewsFolder(), "..", "Controls", "SearchAddBox.xaml"));
+        Assert.Contains("UpdateSourceTrigger=PropertyChanged, Delay=200", box);
     }
 
     /// <summary>その名前の値に、打つたびに書き戻す結び付け（UpdateSourceTrigger=PropertyChanged）。</summary>

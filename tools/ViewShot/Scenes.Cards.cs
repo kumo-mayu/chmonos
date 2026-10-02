@@ -67,6 +67,39 @@ internal static partial class Scenes
             var root = await OpenTagManageAsync(context, cards: false);
             return new Shot(root);
         }),
+
+        // 左の欄は検索と追加を1本にした形（2026-10-02）。打った名前が無ければ欄の下に追加の行が出て、あれば出ずに一覧で強調される
+        new Scene("tag-manage-typed-new", "タグの管理：左の欄に、まだ無い名前（既存の名前の一部）を打った所。欄の下に追加の行", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            context.Screen<TagManageViewModel>().FilterText = "衣";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("tag-manage-typed-existing", "タグの管理：左の欄に、今ある大分類の名前を打った所。追加の行は無く、一覧で強調", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            context.Screen<TagManageViewModel>().FilterText = "衣装";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("attribute-manage-typed-new", "属性の管理：左の欄に、まだ無い名前を打った所。欄の下に追加の行", async context =>
+        {
+            var root = await OpenAttributeManageAsync(context, cards: false);
+            context.Screen<AttributeManageViewModel>().FilterText = "かわい";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("attribute-manage-typed-existing", "属性の管理：左の欄に、今ある属性の名前を打った所。追加の行は無く、一覧で強調", async context =>
+        {
+            var root = await OpenAttributeManageAsync(context, cards: false);
+            context.Screen<AttributeManageViewModel>().FilterText = "かわいさ";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
     ];
 
     private static async Task<(MainViewModel Main, System.Windows.FrameworkElement Root)> OpenLibraryAsync(SceneContext context)
