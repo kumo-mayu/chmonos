@@ -22,6 +22,7 @@ internal static partial class Scenes
         .. Edit,
         .. Bands,
         .. Modifications,
+        .. AvatarScenes,
         .. Search,
         .. SearchFilters,
         .. SortDividers,

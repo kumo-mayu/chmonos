@@ -155,6 +155,12 @@ public sealed class AppServiceContainer : IDisposable
     /// </summary>
     internal Func<string, Task> RevealInFolder { get; set; } = ViewModels.ExplorerReveal.SelectAsync;
 
+    /// <summary>
+    /// 文字をクリップボードへ写す。書けたら true。試験で本物のクリップボードを書き換えると、使う人が写していた物が消えるので、
+    /// 試験は写した文字を控えるだけの物に差し替える（アバターの ID のコピー。2026-10-02）
+    /// </summary>
+    internal Func<string, bool> CopyText { get; set; } = Services.ClipboardText.TrySet;
+
     /// <summary>Unity Hub・VCC の一覧から Unity のプロジェクトを集める。実マシンの一覧を読むので、試験は差し替える。</summary>
     internal Func<IReadOnlyList<UnityProjectCandidate>> DiscoverUnityProjects { get; set; } = () => UnityProjects.Discover();
 

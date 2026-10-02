@@ -43,6 +43,9 @@ public sealed class Suggestion
 
     public Visibility IconVisibility => IconFactory is null || IsNew ? Visibility.Collapsed : Visibility.Visible;
 
+    /// <summary>絵の無い候補の頭に出す頭文字（飾り記号を飛ばす。アバターの一覧と同じ）。絵があれば絵の下に隠れる。</summary>
+    public string Initial => Chmonos.Core.Services.AvatarText.InitialOf(Display);
+
     // 候補の行の読み上げ名は、この文字列から作られる。無いと型の名前（…Controls.Suggestion）が読まれていた（点検 2026-09-23）
     public override string ToString() => IsNew ? $"{Display}（新規）" : Display;
 }

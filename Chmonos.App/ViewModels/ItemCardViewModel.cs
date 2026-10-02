@@ -135,6 +135,12 @@ public sealed class ItemCardViewModel : ViewModelBase
         set => SetField(ref _isSelectionMode, value);
     }
 
+    /// <summary>
+    /// 選ぶ箱を出すか。選んだカードをまとめて送る先の無い画面（アバターの管理）では出さない
+    /// （メモ9-⑤ 2026-10-02：アバターのカードに乗せると選ぶ箱が出て、何枚でも印が付けられたが、選んでも何もできなかった）
+    /// </summary>
+    public bool CanSelect { get; set; } = true;
+
     public event Action? SelectionChanged;
 
     public required string Name { get; init; }

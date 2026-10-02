@@ -679,12 +679,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     // アバターを選ばずに、一覧の上の欄から素体だけを足せるようにする
 
     private RelayCommand? _addBaseCommand;
+    private string _newBaseName = string.Empty;
 
-    /// <summary>足す欄の候補。一覧の素体・消した素体・初期辞書の素体（<see cref="AvatarService.BaseNameCandidates"/>）。</summary>
-    public ObservableCollection<string> BaseNameCandidates { get; } = [];
+    /// <summary>
+    /// 足す欄。**候補を付けない、ふつうの入力欄**（メモ9-⑥ 2026-10-02。「入力欄には候補を付ける」の例外）。
+    /// 新しい素体を名付ける欄なので、今ある名前を候補に並べても重複を誘うだけだった。今ある名前と同じなら足さずに「既にあります」と言う
+    /// </summary>
+    public string NewBaseName
+    {
+        get => _newBaseName;
+        set => SetField(ref _newBaseName, value ?? string.Empty);
+    }
 
-    /// <summary>一覧の上の欄から共通素体を足す。候補を選んでも、新しい名前を打って Enter でも、ここへ来る。</summary>
-    public RelayCommand AddBaseCommand => _addBaseCommand ??= new RelayCommand(parameter => AddBaseAsync(parameter as string).Forget());
+    /// <summary>一覧の上の欄から共通素体を足す。Enter でも「追加」でも、ここへ来る。</summary>
+    public RelayCommand AddBaseCommand => _addBaseCommand ??= new RelayCommand(() => AddBaseAsync(NewBaseName).Forget());
 
     private async Task AddBaseAsync(string? input)
     {
@@ -701,6 +709,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         if (Core.Services.NameText.IsTooLong(name))
         {
             Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
+            return;
+        }
+
+        // 一覧にある名前なら書かずに、その素体を選んで見せる（大文字小文字を変えて打っても同じ素体）
+        if (Bases.FirstOrDefault(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase)) is { } existing)
+        {
+            Status = $"共通素体「{existing.Name}」は既にあります。";
+            SelectedBase = existing;
             return;
         }
 
@@ -722,6 +738,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             AvatarBaseAddOutcome.Restored => $"削除していた共通素体「{name}」を戻しました。",
             _ => $"共通素体「{name}」は既にあります。",
         };
+
+        // 足せたら欄を空ける（続けて別の素体を足せるように）。既にあったときは打った名前を残す（直して足し直せる）
+        if (outcome != AvatarBaseAddOutcome.AlreadyThere)
+        {
+            NewBaseName = string.Empty;
+        }
 
         await LoadAsync();
 
@@ -912,7 +934,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private readonly Dictionary<string, string> _writtenMemos = new(StringComparer.Ordinal);
 
     /// <summary>名前・呼び方・素体の打ちかけ（ユーザ判断 2026-09-20・I5）。</summary>
-    private readonly record struct AvatarDraft(string Name, string Alias, string Base);
+    /// <remarks>null の欄は打ちかけが無い（保存してある値を出す）。</remarks>
+    private readonly record struct AvatarDraft(string? Name, string? Alias, string? Base);
 
     /// <summary>
     /// **打ちかけは行を選び直しても残す**（I5）。前は黙って消えていて、
@@ -930,10 +953,23 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             {
                 FlushMemo();
 
-                // 離れる前に打ちかけを控える（I5）
+                // 離れる前に打ちかけを控える（I5）。**保存してある値と同じ欄は打ちかけではない**ので控えない。
+                // 書き込みの後の読み直しでも、同じアバターの古い行から新しい行へ選び直す。そこで欄を丸ごと控えると、
+                // 「BOOTHの名前に戻す」の後に戻す前の名前が打ちかけとして残り、名前の欄が開いたままになった（メモ9-③ 2026-10-02）
                 if (_selected is { } leaving)
                 {
-                    _drafts[leaving.ItemId] = new AvatarDraft(NameInput, AliasInput, BaseInput);
+                    var draft = new AvatarDraft(
+                        NameInput == leaving.Name ? null : NameInput,
+                        AliasInput.Length == 0 ? null : AliasInput,
+                        BaseInput == (leaving.Summary.Entry.BaseName ?? string.Empty) ? null : BaseInput);
+                    if (draft == default)
+                    {
+                        _drafts.Remove(leaving.ItemId);
+                    }
+                    else
+                    {
+                        _drafts[leaving.ItemId] = draft;
+                    }
                 }
             }
 
@@ -1069,6 +1105,28 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     public string SelectedName => Selected?.Name ?? string.Empty;
 
     public string SelectedIdText => Selected is null ? string.Empty : $"ID {Selected.ItemId}";
+
+    /// <summary>ID の吹き出し。商品ページの ID と同じ文（同じ物を押すと同じことが起きる）。</summary>
+    public string IdCopyTip => "クリックすると商品IDをコピーします";
+
+    private RelayCommand? _copyIdCommand;
+
+    /// <summary>
+    /// 選んだアバターの商品IDを写す（メモ9-② 2026-10-02：商品ページと同じく、ID を押すとコピーできるべき）。
+    /// **IDそのものだけを写す**——「ID 12345」ごと写しても貼れない。言い方は商品ページの <c>CopyId</c> と同じ
+    /// </summary>
+    public RelayCommand CopyIdCommand => _copyIdCommand ??= new RelayCommand(() =>
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+        Status = _services.CopyText(row.ItemId)
+            ? $"{row.ItemId} をコピーしました。"
+            : "コピーできませんでした。もう一度押してください。";
+    });
 
     /// <summary>BOOTHの正式名。表示名を短くしている分、元の名前も読めるようにする。</summary>
     public string SelectedBoothName => Selected?.BoothName ?? string.Empty;
@@ -1217,8 +1275,6 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         var avatars = await Task.Run(() => _services.Avatars.LoadAsync(token), token);
         var bases = await Task.Run(() => _services.Avatars.LoadBasesAsync(token), token);
-        // 読むだけなので UiCommand を通さない（手元の JSON を読む・ユーザ判断 2026-09-14）
-        var baseCandidates = await Task.Run(() => AvatarService.BaseNameCandidates(_services.Store.Avatars.Load()), token);
 
         RunOnUiThread(() =>
         {
@@ -1232,7 +1288,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 Summary = summary,
                 Thumbnails = _main.Thumbnails,
                 Item = _main.Search.FindItem(summary.Entry.ItemId),
-                CardFactory = () => _main.Search.CardFor(summary.Entry.ItemId),
+                // 一覧は1つだけ選ぶ物（右に詳細を出す）。カードの選ぶ箱を出すと何枚でも印が付き、選んでも何もできなかった（メモ9-⑤）
+                CardFactory = () => _main.Search.CardFor(summary.Entry.ItemId) is { } card ? WithoutSelection(card) : null,
                 Services = _services,
                 IconPathFactory = () => AvatarImageSync.IconPath(
                     _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId)),
@@ -1269,12 +1326,6 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 BaseNames.Add(name);
             }
 
-            BaseNameCandidates.Clear();
-            foreach (var candidate in baseCandidates)
-            {
-                BaseNameCandidates.Add(candidate);
-            }
-
             // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す
             _selectedBase = null;
             SelectedBase = Bases.FirstOrDefault(row => row.Name == selectedBaseName) ?? Bases.FirstOrDefault();
@@ -1282,6 +1333,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             IsLoading = false;
             Rebuild();
         });
+    }
+
+    private static ItemCardViewModel WithoutSelection(ItemCardViewModel card)
+    {
+        card.CanSelect = false;
+        return card;
     }
 
     private const string OwnedGroup = "所有しているアバター";

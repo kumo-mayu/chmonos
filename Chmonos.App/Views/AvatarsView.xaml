@@ -25,8 +25,17 @@
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarRow" />
         </Style>
-        <!-- 共通素体の一覧の行。見た目は既定の行のまま、名前と ID だけ足す -->
+        <!--
+            共通素体の一覧の行の右クリック（メモ9-⑦ 2026-10-02）。右の欄の「削除」と同じ道で、同じ確認の窓
+            （何件が書き換わるかと、元に戻せないこと）を出してから消す。開くのは一度に1つなので、1つを全行で使い回す
+        -->
+        <ContextMenu x:Key="AvatarBaseRowMenu">
+            <MenuItem Header="削除" Command="{Binding DeleteCommand}" AutomationProperties.AutomationId="AvatarBaseRowMenu.Delete"
+                      ToolTip="この共通素体を削除します。元に戻せません。" />
+        </ContextMenu>
+        <!-- 共通素体の一覧の行。見た目は既定の行のまま、名前と ID と右クリックだけ足す -->
         <Style x:Key="AvatarBaseRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+            <Setter Property="ContextMenu" Value="{StaticResource AvatarBaseRowMenu}" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarBaseRow" />
         </Style>
@@ -63,57 +72,51 @@
         </DataTemplate>
 
         <!--
-            一覧の1件の見た目。リスト（詰まった行）とカード（検索と同じ）を選べる（ユーザ指示 2026-09-20・M4）。
-            選ぶ・右に詳細を出すはどちらでも同じに効く（同じ一覧のまま、中身の絵だけを替えている）
+            一覧の1件のカードの見た目。リスト（詰まった行・AvatarRow）とカード（検索と同じ）を選べる（ユーザ指示 2026-09-20・M4）。
+            **見せ分けは一覧に渡す型そのものを替える**（下の一覧の Style。メモ9-① 2026-10-02）。前は1つの型にリストとカードの両方を持ち、
+            先祖の画面をたどって片方を隠していた。使い回した行や、まだ画面の木に付いていない行では先祖をたどれず、
+            リストにしてもカードの出たままの行が混ざった。型を替えると一覧は行を全部作り直すので、前の見せ方の行は残らない。
+
+            カードでも、リストに出ている情報を落とさない（ユーザ指摘 2026-09-20）。
+            対応数は右上の札に、素体名はその札のツールチップに（素体名は長く、カードの幅に収まらない）。
+            「アバターとして扱わない」印は、リストと同じ薄さで示す
         -->
-        <DataTemplate x:Key="AvatarRowOrCard" DataType="{x:Type vm:AvatarRowViewModel}">
-            <Grid>
-                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" Focusable="False"
-                                Visibility="{Binding DataContext.IsListMode, RelativeSource={RelativeSource AncestorType=UserControl},
-                                             Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        <DataTemplate x:Key="AvatarCard" DataType="{x:Type vm:AvatarRowViewModel}">
+            <Grid Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}">
+                <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
+                                Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <!--
-                    カードでも、リストに出ている情報を落とさない（ユーザ指摘 2026-09-20）。
-                    対応数は右上の札に、素体名はその札のツールチップに（素体名は長く、カードの幅に収まらない）。
-                    「アバターとして扱わない」印は、リストと同じ薄さで示す
+                    名前が挙がっただけで手元に商品が無いアバターの札。商品のカードを当てると、
+                    中の結び付け先が全部外れて札が全部出てしまう（「所持」と「未所持」が同時に出ていた）。
+                    出せる情報（絵か頭文字・名前・素体）だけをカードと同じ大きさで並べる
                 -->
-                <Grid Visibility="{Binding DataContext.IsCardMode, RelativeSource={RelativeSource AncestorType=UserControl},
-                                   Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                      Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}">
-                    <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
-                                    Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <!--
-                        名前が挙がっただけで手元に商品が無いアバターの札。商品のカードを当てると、
-                        中の結び付け先が全部外れて札が全部出てしまう（「所持」と「未所持」が同時に出ていた）。
-                        出せる情報（絵か頭文字・名前・素体）だけをカードと同じ大きさで並べる
-                    -->
-                    <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
-                            Margin="0,0,14,14" HorizontalAlignment="Left" VerticalAlignment="Top"
-                            Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                        <DockPanel>
-                            <StackPanel DockPanel.Dock="Bottom" Margin="11,0,11,11">
-                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
-                                           TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,4,0,0"
-                                           TextTrimming="CharacterEllipsis"
-                                           Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                <TextBlock Text="この名前の商品は手元にありません" Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                           Foreground="{DynamicResource TextFaint}" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <Grid Background="{DynamicResource ImageBack}">
-                                <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="{DynamicResource PlaceholderGlyph}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <Image Source="{Binding Icon}" Stretch="Uniform"
-                                       Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            </Grid>
-                        </DockPanel>
-                    </Border>
-                    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
-                            Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                            BorderThickness="1" CornerRadius="4" Padding="6,1"
-                            ToolTip="{Binding BaseText}" ToolTipService.ShowOnDisabled="True">
-                        <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11" />
-                    </Border>
-                </Grid>
+                <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
+                        Margin="0,0,14,14" HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Bottom" Margin="11,0,11,11">
+                            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
+                                       TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="この名前の商品は手元にありません" Style="{StaticResource Caption}" Margin="0,6,0,0"
+                                       Foreground="{DynamicResource TextFaint}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Grid Background="{DynamicResource ImageBack}">
+                            <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="{DynamicResource PlaceholderGlyph}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{Binding Icon}" Stretch="Uniform"
+                                   Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </Grid>
+                    </DockPanel>
+                </Border>
+                <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
+                        Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                        BorderThickness="1" CornerRadius="4" Padding="6,1"
+                        ToolTip="{Binding BaseText}" ToolTipService.ShowOnDisabled="True">
+                    <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11" />
+                </Border>
             </Grid>
         </DataTemplate>
 
@@ -410,13 +413,28 @@
 
                         <!--
                             共通素体を手で足す欄（ユーザ判断 2026-09-28）。一覧には検出で見つかった素体しか並ばず、足す口が無かった。
-                            候補は今ある名前から出し、候補に無い名前は「（新規）」の行で選ばせる（入力欄の決まり）
+                            **候補は付けない**（メモ9-⑥ 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。新しい素体を名付ける欄で、
+                            今ある名前を候補に並べても重複を誘うだけだった。Enter か「追加」で足し、今ある名前なら「既にあります」と言う
                         -->
-                        <controls:SuggestBox DockPanel.Dock="Top" Margin="14,12,14,0"
-                                             Source="{Binding BaseNameCandidates}" CommitCommand="{Binding AddBaseCommand}"
-                                             MaxLength="60" Placeholder="追加する共通素体の名前"
-                                             AutomationProperties.Name="共通素体を追加"
-                                             Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <DockPanel DockPanel.Dock="Top" Margin="14,12,14,0"
+                                   Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                    AutomationProperties.AutomationId="AvatarBaseAdd"
+                                    Command="{Binding AddBaseCommand}" />
+                            <Grid>
+                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewBaseName, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="AvatarBaseAddInput"
+                                         AutomationProperties.Name="追加する共通素体の名前">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding AddBaseCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                                <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す（上の検索の欄と同じ） -->
+                                <TextBlock Text="追加する共通素体の名前" Margin="11,0,0,0" IsHitTestVisible="False"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
+                                           Visibility="{Binding NewBaseName, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                            </Grid>
+                        </DockPanel>
 
                         <!--
                             一覧は1つのListBoxにまとめ、所有／未所有はグループ見出しで分ける。
@@ -432,12 +450,22 @@
                                      SelectionChanged="AvatarList_SelectionChanged"
                                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                                      VirtualizingPanel.VirtualizationMode="Recycling"
-                                     ItemTemplate="{StaticResource AvatarRowOrCard}"
                                      ItemContainerStyle="{StaticResource AvatarRowStyle}" Tag="{Binding}"
                                      BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
                                      HorizontalContentAlignment="Stretch"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                <!-- リストかカードかは、渡す型そのものを替える（メモ9-①。AvatarCard の上の説明） -->
+                                <ListBox.Style>
+                                    <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+                                        <Setter Property="ItemTemplate" Value="{StaticResource AvatarCard}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsListMode}" Value="True">
+                                                <Setter Property="ItemTemplate" Value="{StaticResource AvatarRow}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.Style>
                                 <!--
                                     見出しごとに畳める（ユーザ指示）。400体の中で見たいのは所有している数体と、
                                     見直すときの「扱わないもの」なので、残りを畳んでおけるようにする。
@@ -569,8 +597,17 @@
                                                    HorizontalAlignment="Left"
                                                    Visibility="{Binding HasSelectedBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <StackPanel Orientation="Horizontal" Margin="6,6,0,0">
-                                            <TextBlock Text="{Binding SelectedIdText}" Style="{StaticResource Mono}"
-                                                       FontSize="11.5" Foreground="{DynamicResource TextFaint}" />
+                                            <!--
+                                                ID そのものを押すとコピー（メモ9-②）。商品ページの ID と同じ作り（Hyperlink・下線なし・同じ吹き出し）。
+                                                色も商品ページに揃える（前の TextFaint より1段濃い TextMuted。押せる物を薄すぎる色で出さない）
+                                            -->
+                                            <TextBlock Style="{StaticResource Mono}" FontSize="11.5" ToolTip="{Binding IdCopyTip}">
+                                                <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                                           AutomationProperties.AutomationId="AvatarIdCopy"
+                                                           Foreground="{DynamicResource TextMuted}">
+                                                    <Run Text="{Binding SelectedIdText, Mode=OneWay}" />
+                                                </Hyperlink>
+                                            </TextBlock>
                                             <TextBlock Text="{Binding SelectedCategoryText}" Style="{StaticResource Caption}"
                                                        Margin="14,0,0,0" />
                                             <TextBlock Text="{Binding SelectedCheckedText}" Style="{StaticResource Caption}"
