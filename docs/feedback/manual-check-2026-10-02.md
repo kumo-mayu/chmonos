@@ -57,21 +57,61 @@
 
 ## 5. 取り込み・未確定【取り込みの確かめは作り物の写しで。言えば作る】
 
-- [ ] 別のフォルダを取り込んでも、前に取り込んだフォルダの未確定が消えない
-- [ ] 走査の途中で閉じても、次の起動で「続きから」を言う。起動時の自動取り込みで、前回途中の続きも始まる
-- [ ] ネットにつながらないとき、3件で見切って「続きから」に残す
-- [ ] 読めないフォルダを、取り込みの結果に数える
-- [ ] 壊れて開けない zip に、未確定の行と取り込みの結果で印
-- [ ] BOOTH の URL を落として登録する間、下の帯に「商品を登録しています…」
-- [ ] 未確定：Ctrl+Enter で確定し、次の行の商品IDの欄へ戻る。登録・除外の後もフォーカスが次の行へ
-- [ ] 未確定：除外を戻すと、ナビの未確定の数も変わる。数は「ファイルの数」ではなく「登録する回数」
-- [ ] 未確定：登録を押した後、終わるまで「登録しています…」
-- [ ] 未確定：BOOTH で見つからなかった商品IDのまま登録でき、画像も一緒に入れられる
-- [ ] 未確定：ファイル名をコピーできる。「自動検索」が、ファイルの情報の見出しの横にある。結果は閉じるまで覚えている
-- [ ] 未確定：元zipが無いフォルダは「その他」に短い説明とフォルダ登録
+- [x] 別のフォルダを取り込んでも、前に取り込んだフォルダの未確定が消えない（試験：ImportStackingTests の KeepsUnresolvedFilesOfAFolderImportedEarlier ほか、UnresolvedMergeTests）
+- [x] 走査の途中で閉じても、次の起動で「続きから」を言う。起動時の自動取り込みで、前回途中の続きも始まる（試験：ImportStateTests の RemembersTheTargetsWhenClosedWhileScanning、LaunchImportTargetsTests、ImportAndResolveFlowTests の前回途中・起動時に自動で取り込む3件）
+- [x] ネットにつながらないとき、3件で見切って「続きから」に残す（試験：ImportOfflineTests の StopsAskingAfterThreeUnreachableItemsInARow・KeepsWhatItStoppedOnForResuming、ImportResultTextTests）
+- [x] 読めないフォルダを、取り込みの結果に数える（試験：FolderScannerTests の ReportsAFolderItCannotList、ImportWriteBackTests の CountsAFolderThatCouldNotBeListed、ImportResultTextTests）
+- [x] 壊れて開けない zip に、未確定の行と取り込みの結果で印（試験：BrokenArchiveImportTests、ResolveCandidateTests の壊れたzipの札、ImportResultTextTests）
+- [x] BOOTH の URL を落として登録する間、下の帯に「商品を登録しています…」（試験：ImportAndResolveFlowTests の BOOTHのURLを落として登録する間…・続けて2つ落とすと…）
+- [ ] 未確定：Ctrl+Enter で確定し、次の行の商品IDの欄へ戻る。登録・除外の後もフォーカスが次の行へ（確定・次の行・欄へ戻す知らせは試験済み：ResolveKeyboardTests。欄に実際にカーソルが入るところだけ、人が見る）
+- [x] 未確定：除外を戻すと、ナビの未確定の数も変わる。数は「ファイルの数」ではなく「登録する回数」（試験：BulkExcludeTests の戻したらナビの未確定の数も戻る、UnresolvedUnitCounterTests）
+- [x] 未確定：登録を押した後、終わるまで「登録しています…」（試験：ImportAndResolveFlowTests の商品IDで確定を押した後…、ResolveActionTests）
+- [x] 未確定：BOOTH で見つからなかった商品IDのまま登録でき、画像も一緒に入れられる（試験：ImportAndResolveFlowTests の BOOTHで見つからなかった商品IDは…・BOOTHに無い商品として登録するとき_選んだ画像も…ほか、UnpublishedItemTests）
+- [ ] 未確定：ファイル名をコピーできる。「自動検索」が、ファイルの情報の見出しの横にある。結果は閉じるまで覚えている（結果の記憶は試験済み：ImportAndResolveFlowTests の自動検索の結果は…。コピーと見出しの横の位置は人が見る）
+- [ ] 未確定：元zipが無いフォルダは「その他」に短い説明とフォルダ登録（フォルダ登録の動きは試験済み：ImportAndResolveFlowTests の元zipが無い展開物は…。「その他」の枠の見た目は人が見る）
 - [ ] 未確定：束の間の線がくっきりした 1px
-- [ ] 未確定：中身の多い zip の行を選んでも固まらない
-- [ ] 「見つからないファイルを探す」の間も画面が固まらない。移したファイルが、同じ中身を持つ商品へ結び直される
+- [x] 未確定：中身の多い zip の行を選んでも固まらない（試験：ResolveManyContentsTests。7万件の行を本物の画面に選ばせ、作られる行数と時間を見る）
+- [x] 「見つからないファイルを探す」の間も画面が固まらない。移したファイルが、同じ中身を持つ商品へ結び直される（試験：MissingFileFinderOffThreadTests・MissingFileFinderTests、ImportAndResolveFlowTests の見つからないファイルを探すと…）
+
+### 試験で確かめた結果（2026-10-02）
+
+| # | 項目 | 判定 | 試験 | 人が見る物 |
+|---|---|---|---|---|
+| 1 | 別のフォルダを取り込んでも前の未確定が消えない | 既存の試験で保証 | `ImportStackingTests`（KeepsUnresolvedFilesOfAFolderImportedEarlier・KeepsUnresolvedFilesBesideASingleFileImportedLater・DropsUnresolvedFilesThatAreGoneFromAFolderScannedAgain）、`UnresolvedMergeTests` | なし |
+| 2 | 走査の途中で閉じると「続きから」。起動時の自動取り込みで続きも始まる | 試験を足して保証 | 既存：`ImportStateTests.RemembersTheTargetsWhenClosedWhileScanning`、`LaunchImportTargetsTests`。足した：`ImportAndResolveFlowTests`（前回途中で閉じた取り込みが残っていると…／起動時に自動で取り込む設定なら…／起動時に自動で取り込む設定でなければ…） | なし（「閉じる」は取り消しで再現。実際に窓を閉じる手触りは見ていない） |
+| 3 | ネットにつながらないとき3件で見切って「続きから」に残す | 既存の試験で保証 | `ImportOfflineTests`（StopsAskingAfterThreeUnreachableItemsInARow・KeepsWhatItStoppedOnForResuming・CountsAgainAfterAnItemIsFetched ほか）、`ImportResultTextTests` | なし |
+| 4 | 読めないフォルダを取り込みの結果に数える | 既存の試験で保証 | `FolderScannerTests.ReportsAFolderItCannotList`、`ImportWriteBackTests.CountsAFolderThatCouldNotBeListed`、`ImportResultTextTests`（読めなかった…） | なし |
+| 5 | 壊れて開けない zip に、未確定の行と取り込みの結果で印 | 既存の試験で保証 | `BrokenArchiveImportTests`、`ResolveCandidateTests.壊れたzipの札は…`、`ImportResultTextTests`（壊れたzip） | なし（札・文の色や配置は見ていない） |
+| 6 | URL を落として登録する間、下の帯に「商品を登録しています…」 | 試験を足して保証 | `ImportAndResolveFlowTests`（BOOTHのURLを落として登録する間は…／続けて2つ落とすと…）。BOOTH の返事を止めて、待つ間の帯と、終わって消えることを見る | なし（帯の見た目は見ていない） |
+| 7 | Ctrl+Enter で確定し次の行の商品IDの欄へ戻る。登録・除外の後もフォーカスが次の行へ | 一部だけ保証 | `ResolveKeyboardTests`（確定のキーの受け方・次の行が選ばれる・欄へ戻す知らせが出る／出ない）、`ShortcutsTests`（Ctrl+Enter の割り当て） | 欄に実際にカーソルが入るところ。下の「人が見る物」の7 |
+| 8 | 除外を戻すとナビの数も変わる。数は「登録する回数」 | 既存の試験で保証 | `BulkExcludeTests`（戻したらナビの未確定の数も戻る）、`ResolveActionTests`、`UnresolvedUnitCounterTests`（数は未確定の画面の行から数えた登録する回数と同じ） | なし |
+| 9 | 登録を押した後、終わるまで「登録しています…」 | 試験を足して保証 | `ImportAndResolveFlowTests.商品IDで確定を押した後…`（BOOTH の返事を止めて、帯の状態を見る）。取り込み側の1件ずつの数は `ResolveActionTests` ほか | なし（帯の見た目は見ていない） |
+| 10 | BOOTH で見つからなかった商品IDのまま登録でき、画像も一緒に入れられる | 試験を足して保証 | `ImportAndResolveFlowTests`（BOOTHで見つからなかった商品IDは…／読み取れなかったIDには…出さない／BOOTHに無い商品として登録するとき_選んだ画像も…／添えた画像が読めなくても…／画像の拡張子でないファイルは…）、既存：`UnpublishedItemTests`、`UserImageTests` | 見つからなかったIDのまま登録する道で画像を添える口は無い（画像を添えられるのは「BOOTHに無い商品として登録する」の側だけ。仕様どおり） |
+| 11 | ファイル名をコピー。「自動検索」が見出しの横。結果は閉じるまで覚える | 一部だけ保証 | 足した：`ImportAndResolveFlowTests.自動検索の結果は…覚えている` | コピーと位置。下の「人が見る物」の11 |
+| 12 | 元zipが無いフォルダは「その他」に短い説明とフォルダ登録 | 一部だけ保証 | 足した：`ImportAndResolveFlowTests.元zipが無い展開物は…`（枠の出る条件・対象フォルダ・登録後に配下の未確定が片付く）、既存：`ResolveRowsTests`、`FolderRegistrationTests` | 「その他」の枠の見た目と文。下の12 |
+| 13 | 束の間の線がくっきりした 1px | 人が見る | なし（1px の線のくっきり具合は、描かれた画素でしか分からない） | 下の13 |
+| 14 | 中身の多い zip の行を選んでも固まらない | 試験を足して保証 | `ResolveManyContentsTests`（本物の `ResolveView` に中身7万件の zip を選ばせ、作られる行を数える。仮想化を外すと落ちることを確かめた） | 実際の窓での手触りは、試したいときに下の14 |
+| 15 | 見つからないファイルを探す間固まらない。移したファイルが同じ中身の商品へ結び直される | 試験を足して保証 | 既存：`MissingFileFinderOffThreadTests`（探す処理が丸ごと呼んだスレッドの外で走る）、`MissingFileFinderTests`（結び直し）。足した：`ImportAndResolveFlowTests`（見つからないファイルを探すと…／探しても無かった物は…） | なし |
+
+#### 試験では保証できなかった物と、人が見るときの見方
+
+- **7 フォーカス**：ViewModel は「次の行の欄へ戻して」と知らせるところまで（試験済み）。その知らせを受けて欄に実際にカーソルを入れるのは画面（`ResolveView.xaml.cs`）で、窓が無いと確かめられない。
+  `importcheck`（`movecheck` 台本の写し。未確定6件）で未確定を開く。行を選び、「BOOTHに無い商品として登録する」の名前に何か入れて Ctrl+Enter ではなく**登録ボタン**を押す（BOOTH へ問い合わせない）。次の行が選ばれ、**商品IDの欄で文字カーソルが点滅している**か。除外でも同じ。
+  Ctrl+Enter の確定そのものは BOOTH へ問い合わせる（写しでも）ので、1件だけ実在のIDで。
+- **11 コピーと位置**：「ファイル名をコピー」は `ResolveViewModel.CopyFileName` が本物のクリップボード（`ClipboardText.TrySet`）へ直に書く作りで、試験の差し替え口（`TestApp.Copied`・`Services.CopyText`）を通らない。試験で押すと使う人のクリップボードを書き換えてしまうので、押す試験を足さなかった。
+  `importcheck` で未確定の行を選び、「ファイル名をコピー」を押して、メモ帳に貼って**フォルダを含まない名前だけ**が入るか。「自動検索」のボタンが「このファイルについて分かっていること」の**同じ行の右端**にあるか（見出しの下に落ちていないか）。
+  自動検索は BOOTH へ問い合わせる（1本ずつ）。結果の記憶は試験済みなので、押さずに位置だけ見てもよい。
+- **12 「その他」の枠**：枠が出る条件（目印のあるフォルダで元zipが無い）と登録の動きは試験済み。枠の中の説明文・ボタンの並び・余白は画像でしか見られない。
+  `importcheck` の未確定のうち展開元の記録が無く `.unitypackage`・`.url` を含むフォルダの行があればそれを選ぶ。台本の未確定が「元zipの記録の付いたフォルダ」だけで該当しない場合は、`bigcheck`（unitypackage 入りの zip が入る）か、作り物のフォルダを足した写しが要る（私が作る）。
+- **13 束の間の線**：1px の線が描かれた画素でくっきり1本になるか（にじんで2px に見えないか）は、画像でしか見られない。`importcheck` の未確定を開き、束（ばらのファイル／展開元の記録の付いたフォルダ）の間の線を見る。画面の拡大率を 100% と 125% の両方で見ると差が出やすい。
+- **14 手触り（任意）**：試験は作られる行数（300 行以内）と時間（10 秒以内）で固まりを見分ける。実際の窓で試すなら `bigcheck -Full`（7万件の zip が入る）の未確定でその zip の行を選び、すぐ右の欄が出て、スクロールが引っかからないか。
+  作るのに2分半かかり、10 GB 近いファイルを置くので、気になるときだけでよい。
+
+#### 試験を足して分かったこと
+
+- **壊れている疑い（直していない）**：未確定で「フォルダのまま商品として登録」すると、一覧は空になり保存先の未確定も空になるが、**ナビの未確定の数が古いまま残る**（試験で、登録の後に0.5秒待って settle しても 1 のままだった）。
+  ほかの片付け方（確定・除外・BOOTHに無い商品として登録・除外を戻す）は片付いた直後に `_main.RefreshBadges()` を呼んでいるが、`RegisterFolderAsync`（`ResolveViewModel.ArchiveContent.cs`）は `NoteSettledAsync` と `ReloadAsync` だけで呼んでいない。画面を移るまで数が減らない可能性。直すかはユーザの判断。
+  同じ道の「元zipで登録」「フォルダのまま」の2か所のボタンは同じ `RegisterFolderAsync` を通る。
 
 ## 6. フォルダビュー
 
