@@ -184,6 +184,17 @@
             </Setter>
         </Style>
 
+        <!-- 条件の枠に止まったときの印（メモ1-③ 2026-10-02）。枠の角に合わせ、内側に描く（外へはみ出すと隣の枠との間の線に見える） -->
+        <Style x:Key="ModuleFrameFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="6" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 除いている条件の札「除く」（2026-10-01）。字と枠は Danger、地は Surface（新しい色を足さない・D11） -->
         <Style x:Key="ExcludedTag" TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{StaticResource ChipFocusVisual}" />
@@ -423,8 +434,13 @@
                                    TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding HasModules, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <!-- 順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ -->
+                        <!--
+                            順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ。
+                            キーボードでは並び全体が1つの止まり（FrameList・メモ1-③ 2026-10-02）：Tab で前にいた条件の枠に止まり、
+                            ↑↓ で枠の間を移り、Enter か Tab で枠の中へ入る。中から出るのは Esc（枠へ）か、最後の部品からの Tab（並びの後ろへ）
+                        -->
                         <controls:ContentItemsControl x:Name="ModulesList" ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False"
+                                                      controls:FrameList.IsEnabled="True"
                                                       AllowDrop="True" DragOver="OnModulesDragOver"
                                                       DragLeave="OnModulesDragLeave" Drop="OnModulesDrop">
                             <ItemsControl.Resources>
@@ -954,9 +970,12 @@
                                             入力欄・候補の欄の上では、その欄のメニュー（切り取り・貼り付け）が先に出る。
                                             「…」は乗せた・枠の中に止まったときだけ出る（RevealOnHoverOrFocusButton。いちばん近い Border＝この枠で見る・D8）
                                         -->
-                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                                                Padding="10,8" Background="{DynamicResource Surface}">
-                                            <Border.ContextMenu>
+                                        <controls:FocusFrame BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                                                Padding="10,8" Background="{DynamicResource Surface}"
+                                                FocusVisualStyle="{StaticResource ModuleFrameFocusVisual}"
+                                                AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の条件}"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Frame'}">
+                                            <controls:FocusFrame.ContextMenu>
                                                 <ContextMenu AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MenuList'}"
                                                              AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の操作}">
                                                     <!-- 除くを持つ種類だけ（三項・最近・編集状況には出さない・D10） -->
@@ -975,7 +994,7 @@
                                                     <MenuItem Header="この条件を外す" AutomationProperties.Name="この条件を外す" Command="{Binding RemoveCommand}"
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Remove'}" />
                                                 </ContextMenu>
-                                            </Border.ContextMenu>
+                                            </controls:FocusFrame.ContextMenu>
                                             <StackPanel>
                                                 <!--
                                                     見出し。Tab はチェック → 札「除く」→「…」→ ⌃ → × の順（左から右。前は × が先に止まっていた）。
@@ -1059,7 +1078,7 @@
                                                     </ContentControl.Style>
                                                 </ContentControl>
                                             </StackPanel>
-                                        </Border>
+                                        </controls:FocusFrame>
                                         <Border Height="2" Margin="0,2,0,0" Background="{DynamicResource Accent}"
                                                 Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
