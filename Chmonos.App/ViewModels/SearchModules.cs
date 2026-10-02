@@ -2838,12 +2838,19 @@ public sealed class UneditedModule : SearchModule
                 OnPropertyChanged(nameof(MatchAllLabel));
                 OnPropertyChanged(nameof(MatchAnyLabel));
                 OnPropertyChanged(nameof(ShowsMatchMode));
+                OnPropertyChanged(nameof(CanEditFields));
                 NotifyChanged();
             }
         }
     }
 
     public string SelectedKey => _selected.Key;
+
+    /// <summary>
+    /// 項目のチェックとつなぎ方を押せるか。「両方」は何も絞らないので、項目を変えても結果が変わらない（メモ2-④ 2026-10-02）。
+    /// 押せなくするだけで値は残す（未入力のみ・入力済みのみに戻すと、そのまま効く）。
+    /// </summary>
+    public bool CanEditFields => _selected.Key != NeutralKey;
 
     /// <summary>見る項目のトグル（画面の並び）。</summary>
     public IReadOnlyList<EditFieldToggle> Fields { get; }
@@ -2860,6 +2867,14 @@ public sealed class UneditedModule : SearchModule
         get => _matchAll;
         set
         {
+            if (!CanEditFields)
+            {
+                // 押せない間に来た値は受けず、画面の印を今の値に戻す
+                OnPropertyChanged(nameof(MatchAll));
+                OnPropertyChanged(nameof(MatchAny));
+                return;
+            }
+
             if (SetField(ref _matchAll, value))
             {
                 OnPropertyChanged(nameof(MatchAny));
@@ -2886,8 +2901,11 @@ public sealed class UneditedModule : SearchModule
         }
     }
 
-    /// <summary>2つ以上入れていて、両方でないときだけ出す（1つなら結果が変わらない）。</summary>
-    public bool ShowsMatchMode => _fields.Count > 1 && _selected.Key != NeutralKey;
+    /// <summary>
+    /// 2つ以上入れているときだけ出す（1つなら結果が変わらない）。「両方」の間も出したまま押せなくする（<see cref="CanEditFields"/>）——
+    /// 隠すと、項目のチェックは薄く残るのにつなぎ方だけ消え、選び直すたびに欄の高さが変わる。
+    /// </summary>
+    public bool ShowsMatchMode => _fields.Count > 1;
 
     /// <summary>「すべて」で結ばない方の文。未入力のみ＝どれかが未入力、入力済みのみ＝その反対なので、すべて入力済み。</summary>
     public string MatchAnyLabel => _selected.Key == FilledKey ? "すべて入力済み" : "どれかが未入力";
@@ -2938,6 +2956,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
+        OnPropertyChanged(nameof(CanEditFields));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -2950,6 +2969,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
         OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanEditFields));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -2982,6 +3002,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
+        OnPropertyChanged(nameof(CanEditFields));
     }
 
     /// <summary>
@@ -2990,7 +3011,8 @@ public sealed class UneditedModule : SearchModule
     /// </summary>
     internal void Toggle(EditField field, bool on)
     {
-        if (on == _fields.Contains(field) || (!on && _fields.Count == 1))
+        // 「両方」の間は押せない（CanEditFields）。画面は押せなくしているので、ここへ来るのは読み上げ・自動操作から
+        if (on == _fields.Contains(field) || (!on && _fields.Count == 1) || !CanEditFields)
         {
             Fields.First(toggle => toggle.Field == field).RaiseIsOn();
             return;

@@ -437,6 +437,20 @@
                                                   DisplayMemberPath="Display" Height="28" FontSize="12.5"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
                                                   AutomationProperties.Name="{Binding SpokenLabel}" />
+                                        <!--
+                                            「両方」の間は項目とつなぎ方を押せず薄くする（メモ2-④ 2026-10-02。値は残す）。
+                                            薄さは対応アバターの「指定が無い商品だけ」のときと同じ 0.45
+                                        -->
+                                        <StackPanel IsEnabled="{Binding CanEditFields}">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CanEditFields}" Value="False">
+                                                        <Setter Property="Opacity" Value="0.45" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
                                         <TextBlock Text="見る項目" Style="{StaticResource Caption}" Margin="0,8,0,3" />
                                         <controls:ContentItemsControl ItemsSource="{Binding Fields}" Focusable="False">
                                             <ItemsControl.ItemTemplate>
@@ -467,6 +481,7 @@
                                                 <TextBlock Text="{Binding MatchAllLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                             </RadioButton>
                                         </WrapPanel>
+                                        </StackPanel>
                                     </StackPanel>
                                 </DataTemplate>
 
