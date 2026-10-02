@@ -22,6 +22,13 @@ public partial class SearchView
     private void OnModuleMenuClick(object sender, RoutedEventArgs e)
         => OpenMenuBelow(sender as FrameworkElement);
 
+    /// <summary>
+    /// パネルのメニューの「絞り込みを折りたたむ」（メモ2-③）。畳むと見出しの行ごと「…」が消え、止まり先が窓へ落ちるので、
+    /// 開け閉めのつまみに止まり直す（次の Enter で開き直せる）。
+    /// </summary>
+    private void OnCollapsePanelMenuClick(object sender, RoutedEventArgs e)
+        => Dispatcher.BeginInvoke(DispatcherPriority.Input, () => FilterPanelToggle?.Focus());
+
     private static void OpenMenuBelow(FrameworkElement? button)
     {
         if (button is null || FindOwnerMenu(button) is not { } menu)

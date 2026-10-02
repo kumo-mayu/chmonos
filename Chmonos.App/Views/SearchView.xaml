@@ -156,6 +156,45 @@
             </Setter>
         </Style>
 
+        <!--
+            パネルの見出しの「…」（メモ2-③ 2026-10-02）。**いつも見せる**：条件の「…」と同じ隠す型にしていたので、
+            見出しの行に乗せるか止まるまで出ず、メニューがあることが分からなかった。
+            条件の「…」（薄い字・枠なし・隠れる）と見分けられるよう、本文の濃さの字と枠を付ける
+        -->
+        <Style x:Key="PanelMenuButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource SmallFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
+                                BorderThickness="1" CornerRadius="5">
+                            <TextBlock Text="…" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 条件の枠に止まったときの印（メモ1-③ 2026-10-02）。枠の角に合わせ、内側に描く（外へはみ出すと隣の枠との間の線に見える） -->
+        <Style x:Key="ModuleFrameFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="6" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 除いている条件の札「除く」（2026-10-01）。字と枠は Danger、地は Surface（新しい色を足さない・D11） -->
         <Style x:Key="ExcludedTag" TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{StaticResource ChipFocusVisual}" />
@@ -198,8 +237,12 @@
             <ColumnDefinition Width="*" MinWidth="360" />
         </Grid.ColumnDefinitions>
 
-        <!-- 絞り込み欄の幅を変える境目（ユーザ判断 2026-09-14）。畳んでいる間は出さない。開け閉めのつまみ（ZIndex 1）より下に置く -->
-        <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="0"
+        <!--
+            絞り込み欄の幅を変える境目（ユーザ判断 2026-09-14）。畳んでいる間は出さない。
+            欄の地（下の Border・ZIndex 0）より上、開け閉めのつまみ（ZIndex 2）より下に置く。
+            ZIndex 0 で欄より前に書いていたため、後ろの欄の地が境目に重なって掴めなかった（メモ1-① 2026-10-02）
+        -->
+        <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="1"
                                ResetCommand="{Binding FilterPane.ResetCommand}"
                                Visibility="{Binding FilterPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -209,9 +252,9 @@
             開いても畳んでも同じ高さに残るので、開け閉めでつまみの場所が変わらない
         -->
         <Border Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,13,-13,0"
-                Width="26" Height="26" CornerRadius="13" Panel.ZIndex="1"
+                Width="26" Height="26" CornerRadius="13" Panel.ZIndex="2"
                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1">
-            <Button Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Button x:Name="FilterPanelToggle" Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource PanelToggle}">
                         <Setter Property="Content" Value="{StaticResource IconCollapse}" />
@@ -276,6 +319,17 @@
                                     </Style>
                                 </MenuItem.Style>
                             </MenuItem>
+                            <!--
+                                見出しの行のボタンと同じ操作を置く（メモ2-③ 2026-10-02）。「条件をクリア」のボタンは今の場所にも残す。
+                                畳むと「…」が消えるので、畳んだ後は開け閉めのつまみに止まる（OnCollapsePanelMenuClick）
+                            -->
+                            <MenuItem Header="条件をクリア" AutomationProperties.Name="条件をクリア"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.Clear"
+                                      Command="{Binding ClearFiltersCommand}" />
+                            <Separator />
+                            <MenuItem Header="絞り込みを折りたたむ" AutomationProperties.Name="絞り込みを折りたたむ"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.Collapse"
+                                      Command="{Binding ToggleFilterPanelCommand}" Click="OnCollapsePanelMenuClick" />
                         </ContextMenu>
                     </Border.ContextMenu>
                     <!-- 右の余白は、境の線に半分はみ出したつまみ（13px）から「条件をクリア」をはっきり離すため -->
@@ -287,7 +341,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Style="{StaticResource ModuleMenuButton}" Margin="4,0,0,0" Click="OnModuleMenuClick"
+                        <Button Grid.Column="1" Style="{StaticResource PanelMenuButton}" Margin="6,0,0,0" Click="OnModuleMenuClick"
                                 ToolTip="絞り込みの操作"
                                 AutomationProperties.AutomationId="SearchFilterMenu"
                                 AutomationProperties.Name="絞り込みの操作" />
@@ -380,8 +434,13 @@
                                    TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding HasModules, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <!-- 順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ -->
+                        <!--
+                            順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ。
+                            キーボードでは並び全体が1つの止まり（FrameList・メモ1-③ 2026-10-02）：Tab で前にいた条件の枠に止まり、
+                            ↑↓ で枠の間を移り、Enter か Tab で枠の中へ入る。中から出るのは Esc（枠へ）か、最後の部品からの Tab（並びの後ろへ）
+                        -->
                         <controls:ContentItemsControl x:Name="ModulesList" ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False"
+                                                      controls:FrameList.IsEnabled="True"
                                                       AllowDrop="True" DragOver="OnModulesDragOver"
                                                       DragLeave="OnModulesDragLeave" Drop="OnModulesDrop">
                             <ItemsControl.Resources>
@@ -433,6 +492,20 @@
                                                   DisplayMemberPath="Display" Height="28" FontSize="12.5"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
                                                   AutomationProperties.Name="{Binding SpokenLabel}" />
+                                        <!--
+                                            「両方」の間は項目とつなぎ方を押せず薄くする（メモ2-④ 2026-10-02。値は残す）。
+                                            薄さは対応アバターの「指定が無い商品だけ」のときと同じ 0.45
+                                        -->
+                                        <StackPanel IsEnabled="{Binding CanEditFields}">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CanEditFields}" Value="False">
+                                                        <Setter Property="Opacity" Value="0.45" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
                                         <TextBlock Text="見る項目" Style="{StaticResource Caption}" Margin="0,8,0,3" />
                                         <controls:ContentItemsControl ItemsSource="{Binding Fields}" Focusable="False">
                                             <ItemsControl.ItemTemplate>
@@ -463,6 +536,7 @@
                                                 <TextBlock Text="{Binding MatchAllLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                             </RadioButton>
                                         </WrapPanel>
+                                        </StackPanel>
                                     </StackPanel>
                                 </DataTemplate>
 
@@ -896,9 +970,12 @@
                                             入力欄・候補の欄の上では、その欄のメニュー（切り取り・貼り付け）が先に出る。
                                             「…」は乗せた・枠の中に止まったときだけ出る（RevealOnHoverOrFocusButton。いちばん近い Border＝この枠で見る・D8）
                                         -->
-                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                                                Padding="10,8" Background="{DynamicResource Surface}">
-                                            <Border.ContextMenu>
+                                        <controls:FocusFrame BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                                                Padding="10,8" Background="{DynamicResource Surface}"
+                                                FocusVisualStyle="{StaticResource ModuleFrameFocusVisual}"
+                                                AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の条件}"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Frame'}">
+                                            <controls:FocusFrame.ContextMenu>
                                                 <ContextMenu AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MenuList'}"
                                                              AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の操作}">
                                                     <!-- 除くを持つ種類だけ（三項・最近・編集状況には出さない・D10） -->
@@ -917,7 +994,7 @@
                                                     <MenuItem Header="この条件を外す" AutomationProperties.Name="この条件を外す" Command="{Binding RemoveCommand}"
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Remove'}" />
                                                 </ContextMenu>
-                                            </Border.ContextMenu>
+                                            </controls:FocusFrame.ContextMenu>
                                             <StackPanel>
                                                 <!--
                                                     見出し。Tab はチェック → 札「除く」→「…」→ ⌃ → × の順（左から右。前は × が先に止まっていた）。
@@ -1001,7 +1078,7 @@
                                                     </ContentControl.Style>
                                                 </ContentControl>
                                             </StackPanel>
-                                        </Border>
+                                        </controls:FocusFrame>
                                         <Border Height="2" Margin="0,2,0,0" Background="{DynamicResource Accent}"
                                                 Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
@@ -1300,7 +1377,7 @@
                     リスト（ユーザ指示 2026-09-14）。1行ずつ、絵・星・名前・ショップ・札を並べる。
                     列の幅は見出しの境目をドラッグで変え、全部の行で共通（ListColumns）。行の操作はカードと同じ
                 -->
-                <controls:ItemListView ItemsSource="{Binding DisplayItems}" View="{StaticResource ItemListGridView}"
+                <controls:ItemListView ItemsSource="{Binding ListViewItems}" View="{StaticResource ItemListGridView}"
                           ItemContainerStyleSelector="{StaticResource ItemListRowStyles}"
                           ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                           BorderThickness="0" Background="Transparent" Margin="18,4,18,18"

@@ -174,6 +174,7 @@ public sealed partial class SearchViewModel
         var card = ToCard(item);
         card.SelectionChanged += OnCardSelectionChanged;
         _cards[item.Id] = card;
+        ApplyUpdate(card);
 
         ApplyFilters();
         OnPropertyChanged(nameof(NeedsEditCount));
@@ -206,6 +207,7 @@ public sealed partial class SearchViewModel
         var card = ToCard(item);
         card.SelectionChanged += OnCardSelectionChanged;
         _cards[item.Id] = card;
+        ApplyUpdate(card);
 
         // 新しいショップ・カテゴリ・BOOTHタグを絞り込みの候補に出す（読み直しと同じく全件から組み直す）
         BuildFacets();

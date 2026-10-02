@@ -207,10 +207,22 @@ public sealed partial class SearchViewModel
     /// 畳むと条件そのものが見えなくなるので、数だけでも残さないと
     /// 「なぜか商品が少ない」の原因を探す場所が無くなる。
     /// </summary>
-    public int ActiveFilterCount => FilterParts().Count;
+    public int ActiveFilterCount => Modules.Count(module => module.IsActive);
 
-    /// <summary>効いている条件を1つずつ文にする。要約にも件数にも同じものを使う。</summary>
-    private List<string> FilterParts() => Modules.Where(module => module.IsActive).Select(module => module.SummaryText).ToList();
+    /// <summary>
+    /// 効いている条件を照らす単位（<see cref="SearchFilterPass"/> のまとまり）ごとに文にする。
+    /// 和集合でつなぐ同じ種類（範囲・日付）の除かない物は「・」で1つにまとめる（「・」はどれか。メモ2-② 2026-10-02）——
+    /// 「 / 」で並べると、ほかの条件と同じく全部に当てはまる物に読める。除く物はそれぞれ「除く：」で続ける。
+    /// </summary>
+    private List<string> FilterParts()
+        => SearchFilterPass.Units(Modules.Where(module => module.IsActive))
+            .SelectMany(unit =>
+            {
+                var included = unit.Members.Where(module => !module.IsExcluded).Select(module => module.SummaryText).ToList();
+                var excluded = unit.Members.Where(module => module.IsExcluded).Select(module => module.SummaryText);
+                return (included.Count == 0 ? [] : new[] { string.Join("・", included) }).Concat(excluded);
+            })
+            .ToList();
 
     public bool HasActiveFilters => ActiveFilterCount > 0;
 
@@ -237,6 +249,7 @@ public sealed partial class SearchViewModel
         // リストで出しているときは、同じ並び（商品と並べ替えの区切りの札）をそのまま渡す
         OnPropertyChanged(nameof(ListItems));
         OnPropertyChanged(nameof(DisplayItems));
+        OnPropertyChanged(nameof(ListViewItems));
 
         CardRowLayout.Apply(Rows, DisplayItems, _columns, () => new CardRow(), row => row.Cards);
     }

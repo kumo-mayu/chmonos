@@ -54,6 +54,12 @@
                   Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
         <MenuItem Header="更新の知らせを開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
                   Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+        <!--
+            この商品の未読の更新の知らせを既読にする（ユーザ指示 2026-10-02。商品ページの「既読にする」と同じ命令）。
+            未読の更新があり、既読にする道を渡した画面（検索・フォルダの右の欄・ショップ）のカードとリストの行にだけ出す
+        -->
+        <MenuItem Header="既読にする" Command="{Binding MarkUpdateReadCommand}" AutomationProperties.AutomationId="CardMenu.MarkUpdateRead"
+                  Visibility="{Binding CanMarkUpdateRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
@@ -436,7 +442,8 @@
 
     <!--
         並べ替えの区切りの札（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。カードと同じ升に入り、まとまりの最初の商品の前に立つ。
-        商品ではないので、押す・選ぶ・右クリック・キーボードの止まりを持たない（SortDivider の注記）。
+        商品ではないので、選ぶ・キーボードの止まりを持たない（SortDivider の注記）。ショップの札だけ、ショップのアイコンを出し、
+        押す・中クリック・右クリックでショップを開く（メモ2-⑤ 2026-10-02。マウスとメニューは SortDividerBorder が持つ）。
         部品が少ないので、カードのように後から作らない（DeferredCardHost を通さない）。大きさと間隔はカードと同じ
     -->
     <DataTemplate x:Key="SortDividerCardTemplate" DataType="{x:Type vm:SortDivider}">
@@ -455,6 +462,15 @@
                     <TextBlock Text="{Binding Kind}" Style="{StaticResource SectionLabel}" />
                     <TextBlock Text="{Binding Parent}" Style="{StaticResource Caption}" Margin="0,10,0,0" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasParent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- ショップのアイコン。無いショップでは何も出さない（頭文字のタイルなどの代わりの絵は出さない・メモ2-⑤） -->
+                    <Border Width="44" Height="44" CornerRadius="8" Margin="0,10,0,2" HorizontalAlignment="Left" ClipToBounds="True"
+                            Background="{DynamicResource Surface}"
+                            Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Border.Clip>
+                            <RectangleGeometry Rect="0,0,44,44" RadiusX="8" RadiusY="8" />
+                        </Border.Clip>
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                    </Border>
                     <TextBlock Text="{Binding Label}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
                                Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="108"
                                ToolTip="{Binding Label}" />
@@ -682,7 +698,8 @@
 
     <!--
         リストの並べ替えの区切りの札（カードの札と同じ物を行の形で）。列をまたぐ1本の行で、高さは商品の行と同じ（スライダーで変わる）。
-        押す・右クリック・キーボードの止まりを持たない（Focusable を切ると、↑↓ は札を飛ばして隣の商品の行へ移る）
+        キーボードの止まりを持たない（Focusable を切ると、↑↓ は札を飛ばして隣の商品の行へ移る）。
+        ショップの札だけ、アイコンを出し、押す・中クリック・右クリックでショップを開く（カードの札と同じ SortDividerBorder・メモ2-⑤）
     -->
     <Style x:Key="ItemListDividerRowStyle" TargetType="ListViewItem">
         <Setter Property="AutomationProperties.AutomationId" Value="SortDividerRow" />
@@ -694,7 +711,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListViewItem">
-                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,0,0,1">
+                    <controls:SortDividerBorder Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,0,0,1"
+                                                AutomationProperties.Name="{Binding AutomationName}">
                         <DockPanel>
                             <Border DockPanel.Dock="Left" Width="4" Background="{DynamicResource Accent}" />
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,12,0">
@@ -702,13 +720,21 @@
                                 <TextBlock Text="{Binding Parent, StringFormat={}{0} /}" Style="{StaticResource Caption}" FontSize="12.5"
                                            Margin="14,0,0,0" VerticalAlignment="Center"
                                            Visibility="{Binding HasParent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <!-- ショップのアイコン（無ければ何も出さない） -->
+                                <Border Width="22" Height="22" Margin="14,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Border.Clip>
+                                        <RectangleGeometry Rect="0,0,22,22" RadiusX="5" RadiusY="5" />
+                                    </Border.Clip>
+                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                </Border>
                                 <TextBlock Text="{Binding Label}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
                                            Margin="6,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding CountText}" FontSize="12.5" Foreground="{DynamicResource AccentText}"
                                            Margin="14,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                         </DockPanel>
-                    </Border>
+                    </controls:SortDividerBorder>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

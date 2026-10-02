@@ -94,6 +94,29 @@ public class SearchEditStatusTests
     });
 
     [Fact]
+    public Task 両方の間は項目とつなぎ方を押せず_値は残って_戻すとそのまま効く() => UiThread.Run(() =>
+    {
+        // メモ2-④ 2026-10-02：両方は何も絞らないので、項目を変えても意味が無い
+        var module = Module("unedited", matchAll: true, "userTags", "memo");
+        module.Selected = module.Options.First(option => option.Key == "both");
+
+        Assert.False(module.CanEditFields);
+        Assert.True(module.ShowsMatchMode);
+
+        module.Fields.First(toggle => toggle.Field == EditField.Attributes).IsOn = true;
+        module.Fields.First(toggle => toggle.Field == EditField.Memo).IsOn = false;
+        module.MatchAny = true;
+
+        Assert.Equal([EditField.UserTags, EditField.Memo], module.SelectedFields);
+        Assert.True(module.MatchAll);
+
+        module.Selected = module.Options.First(option => option.Key == "unedited");
+
+        Assert.True(module.CanEditFields);
+        Assert.Equal(["1"], Passing(module));
+    });
+
+    [Fact]
     public Task 項目の最後の1つは外せない() => UiThread.Run(() =>
     {
         var module = Module("unedited", matchAll: false, "userTags", "memo");

@@ -573,6 +573,17 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
+        // 要確認に未読の更新がある商品（ユーザ指示 2026-10-02）。カードの札「更新あり」と同じ表（SearchViewModel.Updates）を見る。
+        // 既読にすると外れる（表が変わったら絞り直す）
+        SearchModuleKind.Updated => new ChoiceModule(kind,
+            [new("updated", "更新ありのみ"), new("other", "更新あり以外のみ"), new("both", "両方")],
+            "both", (item, key, _) => key switch
+            {
+                "updated" => HasUnreadUpdate(item.Id),
+                "other" => !HasUnreadUpdate(item.Id),
+                _ => true,
+            }),
+
         // 純三項：「何も絞らない」選択肢を持たない。切るときは条件の切り替えで
         SearchModuleKind.Gift => new ChoiceModule(kind,
             [new("received", "ギフトされた"), new("given", "ギフトした"), new("other", "その他（自分で入手・記録なし）")],

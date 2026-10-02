@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 
 namespace ViewShot;
 
@@ -60,7 +61,44 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
+
+        UpdatedScene("search-updated", "検索：条件「更新あり」で絞った結果（未読の更新がある2件のカードの札「更新あり」）", list: false),
+        UpdatedScene("search-updated-list", "検索：条件「更新あり」で絞ったリスト（行の札「更新あり」）", list: true),
     ];
+
+    /// <summary>
+    /// 未読の更新がある商品（2026-10-02）：条件「更新あり」（足したときの「更新ありのみ」）で絞った結果と、カード・行の札「更新あり」。
+    /// 8件のうち2件に未読の更新、1件に既読の更新を置く（既読の物には札が出ない）
+    /// </summary>
+    private static Scene UpdatedScene(string name, string description, bool list) => new(name, description, async context =>
+    {
+        await SeedLibraryAsync(context, count: 8);
+        NotificationRecord Updated(string id, string itemId, bool isRead = false) => new()
+        {
+            Id = id,
+            Kind = NotificationKind.ItemUpdated,
+            Title = "作り物の更新",
+            Detail = string.Empty,
+            ItemId = itemId,
+            IsRead = isRead,
+            CreatedAt = new DateTimeOffset(2026, 10, 2, 12, 0, 0, TimeSpan.FromHours(9)),
+        };
+        await context.Seed.Notifications.SaveAsync([Updated("n1", "9900301"), Updated("n2", "9900303"), Updated("n3", "9900304", isRead: true)]);
+
+        var main = await context.StartAsync();
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+        await SceneContext.UntilAsync(() => main.Search.TotalCount == 8, "商品を読み終える");
+        foreach (var module in main.Search.Modules.ToList())
+        {
+            module.RemoveCommand!.Execute(null);
+        }
+
+        var updated = (ChoiceModule)AddModule(main.Search, SearchModuleKind.Updated);
+        main.Search.IsListMode = list;
+        await context.SettleAsync();
+        return new Shot(root);
+    });
 
     /// <summary>BOOTHタグ（衣装）→ スキ数 → BOOTHタグ（夏を除く）の並びを作る。</summary>
     private static Task ManyAsync(SearchViewModel search)

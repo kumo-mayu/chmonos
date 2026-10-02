@@ -41,15 +41,24 @@ public enum SearchModuleKind
 
     /// <summary>壊れていて開けない zip を持つか（ユーザ判断 2026-09-30）。</summary>
     BrokenZip,
+
+    /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。</summary>
+    Updated,
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
 /// <param name="AllowsMany">
 /// 同じ種類を複数置けるか（ユーザ判断 2026-10-01）。値を選んで積む条件だけ。条件どうしは AND なので、
-/// 「(A か B) かつ (C か D)」や「A を含み B を除く」が組める。1商品に1つのショップ・三項・範囲・日付・最近は1つまで
+/// 「(A か B) かつ (C か D)」や「A を含み B を除く」が組める。1商品に1つのショップ・三項・属性・最近は1つまで
 /// （2つ置いても組める物が増えない）。メニューのグレーと、足すときに既にある物を返すかの決まりは、どちらもこれを見る。
+/// スキ数・価格・公開日・入手日も複数置ける（ユーザ判断 2026-10-02・メモ2-②。<paramref name="OrSameKind"/>）。
 /// </param>
-public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false);
+/// <param name="OrSameKind">
+/// 同じ種類の条件どうしを**どれかに当てはまる物（和集合）**でつなぐか（ユーザ判断 2026-10-02・メモ2-②「0-400&amp;1000-2000ならそれぞれに当てはまるものの和集合」）。
+/// 範囲（スキ数・価格）と日付（公開日・入手日）だけ。1つの範囲で2つの帯は指せないので、AND でつなぐと2つ目を置く意味が無い。
+/// 除くを付けた物は和集合に入れず、除かない物の和集合からそれぞれ引く（<see cref="SearchFilterPass"/>）。ほかの種類との間は今までどおり AND。
+/// </param>
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false, bool OrSameKind = false);
 
 /// <summary>
 /// 条件の並びの決まり（純粋な関数・試験あり）。足す位置と「同じ種類の条件を隣に並べる」（ユーザ判断 2026-10-01・案の §5）。
@@ -144,10 +153,10 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れたカテゴリを含む）で絞ります。", AllowsMany: true),
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
-        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。"),
-        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。"),
+        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", AllowsMany: true, OrSameKind: true),
+        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品で絞ります。非公開・削除された商品は、既定では表示しません。"),
-        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。"),
+        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
         new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰ったもので、自分でも買ったものは両方に表示されます。"),
@@ -156,7 +165,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
-        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。"),
+        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したかどうかで絞ります。"),
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
@@ -165,6 +174,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
+        new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、要確認でまだ読んでいない商品で絞ります。"),
     ];
 
     /// <summary>
@@ -181,7 +191,8 @@ public static class SearchModuleCatalog
         [
             [SearchModuleKind.Category, SearchModuleKind.BoothTag, SearchModuleKind.Avatar, SearchModuleKind.Adult],
             [SearchModuleKind.Shop, SearchModuleKind.Price],
-            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.WishList],
+            // 更新ありは販売終了のすぐ後：どちらも BOOTH の側で商品に起きた変化
+            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.Updated, SearchModuleKind.WishList],
         ]),
         new(ItemInfo,
         [
@@ -2838,12 +2849,19 @@ public sealed class UneditedModule : SearchModule
                 OnPropertyChanged(nameof(MatchAllLabel));
                 OnPropertyChanged(nameof(MatchAnyLabel));
                 OnPropertyChanged(nameof(ShowsMatchMode));
+                OnPropertyChanged(nameof(CanEditFields));
                 NotifyChanged();
             }
         }
     }
 
     public string SelectedKey => _selected.Key;
+
+    /// <summary>
+    /// 項目のチェックとつなぎ方を押せるか。「両方」は何も絞らないので、項目を変えても結果が変わらない（メモ2-④ 2026-10-02）。
+    /// 押せなくするだけで値は残す（未入力のみ・入力済みのみに戻すと、そのまま効く）。
+    /// </summary>
+    public bool CanEditFields => _selected.Key != NeutralKey;
 
     /// <summary>見る項目のトグル（画面の並び）。</summary>
     public IReadOnlyList<EditFieldToggle> Fields { get; }
@@ -2860,6 +2878,14 @@ public sealed class UneditedModule : SearchModule
         get => _matchAll;
         set
         {
+            if (!CanEditFields)
+            {
+                // 押せない間に来た値は受けず、画面の印を今の値に戻す
+                OnPropertyChanged(nameof(MatchAll));
+                OnPropertyChanged(nameof(MatchAny));
+                return;
+            }
+
             if (SetField(ref _matchAll, value))
             {
                 OnPropertyChanged(nameof(MatchAny));
@@ -2886,8 +2912,11 @@ public sealed class UneditedModule : SearchModule
         }
     }
 
-    /// <summary>2つ以上入れていて、両方でないときだけ出す（1つなら結果が変わらない）。</summary>
-    public bool ShowsMatchMode => _fields.Count > 1 && _selected.Key != NeutralKey;
+    /// <summary>
+    /// 2つ以上入れているときだけ出す（1つなら結果が変わらない）。「両方」の間も出したまま押せなくする（<see cref="CanEditFields"/>）——
+    /// 隠すと、項目のチェックは薄く残るのにつなぎ方だけ消え、選び直すたびに欄の高さが変わる。
+    /// </summary>
+    public bool ShowsMatchMode => _fields.Count > 1;
 
     /// <summary>「すべて」で結ばない方の文。未入力のみ＝どれかが未入力、入力済みのみ＝その反対なので、すべて入力済み。</summary>
     public string MatchAnyLabel => _selected.Key == FilledKey ? "すべて入力済み" : "どれかが未入力";
@@ -2938,6 +2967,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
+        OnPropertyChanged(nameof(CanEditFields));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -2950,6 +2980,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
         OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanEditFields));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -2982,6 +3013,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
+        OnPropertyChanged(nameof(CanEditFields));
     }
 
     /// <summary>
@@ -2990,7 +3022,8 @@ public sealed class UneditedModule : SearchModule
     /// </summary>
     internal void Toggle(EditField field, bool on)
     {
-        if (on == _fields.Contains(field) || (!on && _fields.Count == 1))
+        // 「両方」の間は押せない（CanEditFields）。画面は押せなくしているので、ここへ来るのは読み上げ・自動操作から
+        if (on == _fields.Contains(field) || (!on && _fields.Count == 1) || !CanEditFields)
         {
             Fields.First(toggle => toggle.Field == field).RaiseIsOn();
             return;
