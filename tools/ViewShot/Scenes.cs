@@ -19,6 +19,8 @@ internal static partial class Scenes
         .. Item,
         .. ItemPages,
         .. Edit,
+        EditDescription(),
+        .. Nav,
         .. Bands,
         .. Modifications,
         .. Search,
