@@ -10,7 +10,7 @@ namespace Chmonos.App.Tests;
 ///
 /// 前は検出の最中に書き出しや候補の検索を始められ、後から始めた方が帯と「中止」の宛先を上書きし、
 /// 先に終わった方が帯ごと消していた。走っている間はほかの長い作業を始める口をすべて押せなくし、押せない理由を出す。
-/// バックアップから戻すにも帯を出すが、途中で止めると戻す先が半端に残るので「中止」は出さない
+/// バックアップから戻すにも帯と「中止」を出す（止めると Core が戻す先へ展開した物を消す。2026-10-02）
 /// </summary>
 public class LongJobTests
 {
@@ -123,7 +123,7 @@ public class LongJobTests
     /// **成功させない**（戻せると保存先の場所を書き換えて開き直す）。無い zip を渡し、門を持っている間に帯を見てから失敗させる
     /// </summary>
     [Fact]
-    public Task 戻している間は帯を出し_中止は出さず_ほかの口の理由は開き直すことを言う() => TestApp.Run(async app =>
+    public Task 戻している間は帯と中止を出し_ほかの口の理由は中止の道を言う() => TestApp.Run(async app =>
     {
         app.AllowLoggedFailures = true;
         var main = await app.StartAsync();
@@ -137,10 +137,10 @@ public class LongJobTests
             restore = settings.RestoreBackupToAsync(Path.Combine(app.Root, "missing.zip"), destination);
 
             Assert.True(main.IsLongJobRunning);
-            Assert.False(main.CanStopLongJob);
-            Assert.False(main.StopLongJobCommand.CanExecute(null));
+            Assert.True(main.CanStopLongJob);
+            Assert.True(main.StopLongJobCommand.CanExecute(null));
             Assert.Equal("戻し終えるまで、保存は待たされます。終わったら開き直します。", main.LongJobNote);
-            Assert.Equal("バックアップから戻しています。終わったら開き直します。", main.LongJobBlockedNote);
+            Assert.Equal("バックアップから戻しています。終わるか、下の帯で中止してからお試しください。", main.LongJobBlockedNote);
             Assert.Equal(StoreJobKind.Restore, main.StoreJob);
             Assert.False(settings.ExportBackupCommand.CanExecute(null));
         }

@@ -183,11 +183,20 @@ internal static partial class Scenes
             Backdoor.ShowUnpacking(main, 2, string.Empty, 310_000_000, 3_900_000_000, stopping: false)),
 
         // 公開前の点検 2026-10-01：書き出しの間は保存が止まるのに帯が無く、終わった知らせも設定の画面の外には出なかった
-        StoreJobBand("band-backup-running", "下の帯：バックアップの書き出し中（長い作業の帯と中止）", main =>
+        StoreJobBand("band-backup-running", "下の帯：バックアップの書き出し中（長い作業の帯・進み具合の棒と中止）", main =>
         {
             main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
             main.BeginLongJob("バックアップを書き出しています", "書き出しが終わるまで、保存は待たされます。見ることはできます。", new CancellationTokenSource());
-            main.ReportLongJob("バックアップを書き出しています… 1,234/5,678");
+            main.ReportLongJob("バックアップを書き出しています… 1,234/5,678", 1_234, 5_678);
+            return main.LongJobText;
+        }),
+
+        // 件数が分かるまでは流れる棒（一時展開の帯と同じ。2026-10-02）
+        StoreJobBand("band-backup-counting", "下の帯：バックアップの書き出し中・件数がまだ分からない（流れる棒）", main =>
+        {
+            main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+            main.BeginLongJob("バックアップを書き出しています", "書き出しが終わるまで、保存は待たされます。見ることはできます。", new CancellationTokenSource());
+            main.ReportLongJob("バックアップを書き出しています… 0/0");
             return main.LongJobText;
         }),
 
@@ -207,12 +216,12 @@ internal static partial class Scenes
             return main.StoreJobNoticeText;
         }),
 
-        // 戻すは止めると戻す先が半端に残るので「中止」を出さない（ユーザ判断 2026-10-01）
-        StoreJobBand("band-restore-running", "下の帯：バックアップから戻している間（中止は出ない）", main =>
+        // 戻すにも「中止」を出す（止めると Core が戻す先の展開物を消す。ユーザ判断 2026-10-02）
+        StoreJobBand("band-restore-running", "下の帯：バックアップから戻している間（進み具合の棒と中止）", main =>
         {
             main.BeginStoreJob(StoreJobKind.Restore, "バックアップから戻しています…");
-            main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop: null);
-            main.ReportLongJob("バックアップから戻しています… 1,234/5,678");
+            main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", new CancellationTokenSource());
+            main.ReportLongJob("バックアップから戻しています… 1,234/5,678", 1_234, 5_678);
             return main.LongJobText;
         }),
     ];

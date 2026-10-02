@@ -1357,7 +1357,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 var text = (replace ? "置き換えています… " : "引っ越しています… ")
                     + $"{report.Copied:N0}/{report.Total:N0}";
                 _main.ReportStoreJob(text);
-                _main.ReportLongJob(text);
+                _main.ReportLongJob(text, report.Copied, report.Total);
             });
 
             var result = await _services.Commands.ExecuteAsync(
@@ -1627,7 +1627,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             {
                 var text = $"バックアップを書き出しています… {report.Done:N0}/{report.Total:N0}";
                 _main.ReportStoreJob(text);
-                _main.ReportLongJob(text);
+                _main.ReportLongJob(text, report.Done, report.Total);
             });
 
             var result = await _services.Commands.ExecuteAsync(
@@ -1717,12 +1717,14 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// （戻せると保存先の場所を書き換えて開き直すので、試験からは成功させない）。
     ///
     /// **戻す間も保存は止まる**（書き込みの門を持ち、戻し終えたら開き直すまで放さない）。前は帯が無く、
-    /// 設定の画面の1行にしか進み具合が出なかった（ユーザ判断 2026-10-01）。書き出しと同じ帯を出すが「中止」は付けない：
-    /// 途中で止めると戻す先が半端に展開されたまま残り、それを片付ける決まりがまだ無い
+    /// 設定の画面の1行にしか進み具合が出なかった（ユーザ判断 2026-10-01）。書き出しと同じ帯を出し、「中止」も付ける
+    /// （ユーザ判断 2026-10-02）。止めた・失敗したときは Core が戻す先へ展開した物を消すので、戻す先は空に戻り、
+    /// 保存先の場所は書き換えず、書き込みの門も開く（門を閉じたまま返すのは成功のときだけ）
     /// </summary>
     internal async Task RestoreBackupToAsync(string zipPath, string destination)
     {
-        var job = _main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop: null);
+        using var stop = new CancellationTokenSource();
+        var job = _main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", stop);
         if (job is null)
         {
             // 押せなくしてあるが、zip と場所を選ぶ窓を出している間に別の作業が始まり得る
@@ -1739,11 +1741,12 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             {
                 var text = $"バックアップから戻しています… {report.Done:N0}/{report.Total:N0}";
                 _main.ReportStoreJob(text);
-                _main.ReportLongJob(text);
+                _main.ReportLongJob(text, report.Done, report.Total);
             });
 
             var result = await _services.Commands.ExecuteAsync(
-                new Core.Commands.UiCommand.RestoreBackup(zipPath, destination, progress));
+                new Core.Commands.UiCommand.RestoreBackup(zipPath, destination, progress),
+                cancellationToken: stop.Token);
 
             if (result is Core.Commands.CommandResult.Failed failed)
             {
@@ -1760,6 +1763,10 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 + $"今までのデータは「{_services.Paths.Root}」に残っています。\n\n"
                 + "戻した場所で開き直します。",
                 "バックアップから戻しました");
+        }
+        catch (OperationCanceledException)
+        {
+            outcome = "バックアップから戻すのを中止しました。戻す先は空のままです。";
         }
         finally
         {

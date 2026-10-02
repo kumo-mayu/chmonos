@@ -539,7 +539,8 @@
                 **どの画面でも進み具合と「中止」を出す**（ユーザ判断 2026-09-21・C1/C2）。
                 始めた画面にしか止める手立てが無いと、画面を移った時点で止められなくなる。
                 この間できなくなることも1行で言う（黙って押せなくしない）。帯は1本で、走っている間はほかの長い作業を始められない（2026-10-01）。
-                バックアップから戻すは途中で止めると戻す先が半端に残るので「中止」を出さない
+                進み具合の棒は一時展開の帯と同じ見た目で、件数が分かるまでは流れる棒にする（2026-10-02）。
+                バックアップから戻すも「中止」を出す（止めると Core が戻す先へ展開した物を消す。2026-10-02）
             -->
             <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
                     BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
@@ -552,6 +553,12 @@
                             AutomationProperties.AutomationId="LongJobStop"
                             AutomationProperties.Name="作業を中止"
                             ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
+                    <!-- 棒の地は一時展開の帯と同じ理由で帯の線の色にする（既定の地は薄い青の帯の上でほぼ同じ色） -->
+                    <ProgressBar Background="{DynamicResource AccentBorder}" DockPanel.Dock="Left" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                                 Minimum="0" Maximum="1"
+                                 AutomationProperties.AutomationId="LongJobProgress"
+                                 Value="{Binding LongJobProgress, Mode=OneWay}"
+                                 IsIndeterminate="{Binding HasLongJobProgress, Converter={x:Static vm:InverseBoolConverter.Instance}}" />
                     <TextBlock DockPanel.Dock="Right" Text="{Binding LongJobNote}" Style="{StaticResource Caption}"
                                AutomationProperties.AutomationId="LongJobNote"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"

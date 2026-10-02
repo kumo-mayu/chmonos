@@ -198,7 +198,7 @@ public sealed partial class ResolveViewModel
             SearchPhase = report.Phase;
             SearchCurrent = report.Current;
             SearchTotal = report.Total;
-            _main.ReportLongJob($"候補を検索中　{report.Phase}　{report.Current} / {report.Total}");
+            _main.ReportLongJob($"候補を検索中　{report.Phase}　{report.Current} / {report.Total}", report.Current, report.Total);
         }));
 
         try
