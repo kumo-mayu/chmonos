@@ -419,9 +419,9 @@ public class ItemRefreshTests : IDisposable
         Assert.Empty(_store.Notifications.Load());
     }
 
-    /// <summary>同じ商品の未読は溜めずに差し替える。溜めても読む手間が増えるだけ。</summary>
+    /// <summary>同じ商品の未読は別の知らせとして溜めず、1件に重ねる。溜めても読む手間が増えるだけ。</summary>
     [Fact]
-    public async Task ReplacesTheUnreadEntryInsteadOfPilingThemUp()
+    public async Task KeepsOneUnreadEntryInsteadOfPilingThemUp()
     {
         await SaveItemAsync(new LocalBlock { NotifyOnUpdate = true });
 
@@ -437,6 +437,76 @@ public class ItemRefreshTests : IDisposable
         await _service.RefreshAsync(ItemId);
 
         Assert.Single(_store.Notifications.Load());
+    }
+
+    /// <summary>
+    /// 取り直す前の記録を、今の商品JSONと同じにしておく（1回取り直して、出た知らせを捨てる）。
+    /// 試験の記録は名前しか持たないので、そのままだと価格・種類・説明文も「変わった」になり、1つの欄の動きが見えない
+    /// </summary>
+    private async Task SyncWithBoothAsync()
+    {
+        await SaveItemAsync(new LocalBlock { NotifyOnUpdate = true });
+        await _service.RefreshAsync(ItemId);
+        await _store.Notifications.UpdateAsync(_ => []);
+    }
+
+    /// <summary>
+    /// 未読のうちに次の変化が来たら、前の知らせに重ねる（ユーザ判断 2026-10-02「重ねましょう」）。
+    /// 前は差し替えていて、1回目の差（商品名が変わった）が消えていた。作った日時は最初のまま、重ねた日時を足す
+    /// </summary>
+    [Fact]
+    public async Task StacksAChangeOntoTheUnreadEntryKeepingTheFirstChange()
+    {
+        await SyncWithBoothAsync();
+        _itemJsonBody = ItemJson.Replace("真・アバターペンシステム", "新しい名前");
+        await _service.RefreshAsync(ItemId);
+        var first = Assert.Single(_store.Notifications.Load());
+
+        // 2回目は価格だけが変わる（商品名は1回目の後と同じ）
+        _itemJsonBody = _itemJsonBody.Replace("¥ 2,500", "¥ 3,000");
+        await _service.RefreshAsync(ItemId);
+
+        var entry = Assert.Single(_store.Notifications.Load());
+        Assert.Equal(first.CreatedAt, entry.CreatedAt);
+        Assert.NotNull(entry.UpdatedAt);
+        Assert.Equal([BoothChanges.NameField, BoothChanges.PriceField], entry.Diffs.Select(diff => diff.Field));
+        Assert.Equal(("真・アバターペンシステム", "新しい名前"), (entry.Diffs[0].Before, entry.Diffs[0].After));
+        Assert.Equal(("¥ 2,500", "¥ 3,000"), (entry.Diffs[1].Before, entry.Diffs[1].After));
+        Assert.Equal("商品名 真・アバターペンシステム → 新しい名前 / 価格 ¥ 2,500 → ¥ 3,000", entry.Detail);
+    }
+
+    /// <summary>既読にした後の変化は、今までどおり新しい知らせになる（読んだ物に足すと、新しく変わったことに気付けない）。</summary>
+    [Fact]
+    public async Task StartsANewEntryOnceTheOldOneWasRead()
+    {
+        await SyncWithBoothAsync();
+        _itemJsonBody = ItemJson.Replace("真・アバターペンシステム", "新しい名前");
+        await _service.RefreshAsync(ItemId);
+        await _store.Notifications.UpdateAsync(list => list.Select(entry => entry with { IsRead = true }).ToList());
+
+        _itemJsonBody = _itemJsonBody.Replace("¥ 2,500", "¥ 3,000");
+        await _service.RefreshAsync(ItemId);
+
+        var notifications = _store.Notifications.Load();
+        Assert.Equal(2, notifications.Count);
+        var fresh = Assert.Single(notifications, entry => !entry.IsRead);
+        Assert.Equal(BoothChanges.PriceField, Assert.Single(fresh.Diffs).Field);
+        Assert.Null(fresh.UpdatedAt);
+    }
+
+    /// <summary>未読のうちに全部が元へ戻ったら（価格が上がって戻った）、知らせることが無いので知らせごと消す。</summary>
+    [Fact]
+    public async Task DropsTheUnreadEntryWhenEverythingWentBack()
+    {
+        await SyncWithBoothAsync();
+        _itemJsonBody = ItemJson.Replace("¥ 2,500", "¥ 3,000");
+        await _service.RefreshAsync(ItemId);
+        Assert.Single(_store.Notifications.Load());
+
+        _itemJsonBody = ItemJson;
+        await _service.RefreshAsync(ItemId);
+
+        Assert.Empty(_store.Notifications.Load());
     }
 
     /// <summary>

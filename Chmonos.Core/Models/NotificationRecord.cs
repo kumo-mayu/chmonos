@@ -67,6 +67,16 @@ public sealed record NotificationRecord
 
     public required DateTimeOffset CreatedAt { get; init; }
 
+    /// <summary>
+    /// 未読のうちに次の変化を重ねた日時（<see cref="Services.ChangeStack"/>。ユーザ判断 2026-10-02）。重ねていなければ null。
+    /// <see cref="CreatedAt"/> は最初の変化の日時のまま残す。何日にわたって変わったかが読めるように
+    /// </summary>
+    public DateTimeOffset? UpdatedAt { get; init; }
+
+    /// <summary>最後に変わった日時。要確認の並びと「何分前」はこれで見る（重ねる前は差し替えで作った日時が新しくなっていたので、並びはそれに合わせる）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTimeOffset LastChangedAt => UpdatedAt ?? CreatedAt;
+
     public bool IsRead { get; init; }
 
     /// <summary>

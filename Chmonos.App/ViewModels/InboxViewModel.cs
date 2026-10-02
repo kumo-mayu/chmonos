@@ -108,26 +108,29 @@ public sealed class NotificationRow : ViewModelBase
     public RelayCommand? ActionCommand { get; set; }
 
     /// <summary>
-    /// 受信箱なので、いつ起きたかは「どれくらい前か」で読む（ユーザ指示 2026-09-18）。
+    /// 受信箱なので、いつ起きたかは「どれくらい前か」で読む（ユーザ指示 2026-09-18）。重ねた知らせは最後に変わった日時で言う。
     /// 正確な日時はツールチップ（<see cref="CreatedTip"/>）に置く
     /// </summary>
     public string CreatedText
     {
         get
         {
-            var span = DateTimeOffset.Now - Record.CreatedAt;
+            var span = DateTimeOffset.Now - Record.LastChangedAt;
             return span switch
             {
                 { TotalMinutes: < 1 } => "たった今",
                 { TotalHours: < 1 } => $"{(int)span.TotalMinutes}分前",
                 { TotalDays: < 1 } => $"{(int)span.TotalHours}時間前",
                 { TotalDays: < 7 } => $"{(int)span.TotalDays}日前",
-                _ => Record.CreatedAt.ToString("yyyy-MM-dd"),
+                _ => Record.LastChangedAt.ToString("yyyy-MM-dd"),
             };
         }
     }
 
-    public string CreatedTip => Record.CreatedAt.ToString("yyyy-MM-dd HH:mm");
+    /// <summary>未読のうちに変化を重ねた知らせは、最初と最後の日時を並べる（何日にわたって変わったかが読めるように）。</summary>
+    public string CreatedTip => Record.UpdatedAt is { } updated
+        ? $"{Record.CreatedAt:yyyy-MM-dd HH:mm} 〜 {updated:yyyy-MM-dd HH:mm}"
+        : Record.CreatedAt.ToString("yyyy-MM-dd HH:mm");
 
     public bool IsRead
     {
@@ -440,7 +443,7 @@ public sealed class InboxViewModel : ViewModelBase
         }
 
         _all = records
-            .OrderByDescending(record => record.CreatedAt)
+            .OrderByDescending(record => record.LastChangedAt)
             .Select(CreateRow)
             .ToList();
 
@@ -753,7 +756,7 @@ public sealed class InboxViewModel : ViewModelBase
             // 重要が混ざっている種類を先に、その次は新しい知らせがある種類から（ユーザ判断 2026-09-18）。
             // 種類の宣言順では、何から読めばよいかが伝わらなかった
             .OrderByDescending(group => group.Any(row => row.IsStrong && !row.IsRead))
-            .ThenByDescending(group => group.Max(row => row.Record.CreatedAt))
+            .ThenByDescending(group => group.Max(row => row.Record.LastChangedAt))
             .ThenBy(group => group.Key))
         {
             var built = Groups.FirstOrDefault(existing => existing.Kind == group.Key);

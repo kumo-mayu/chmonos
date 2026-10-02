@@ -199,39 +199,13 @@ internal sealed class ItemChanges
     }
 
     /// <summary>
-    /// 同じ商品の未読は、新しい知らせが古い方を差し替える作り（<c>ItemService.NoteChangesAsync</c>）なので普通は1件。
-    /// 手で直した JSON などで2件以上あっても、欄ごとに「いちばん古い前」と「いちばん新しい後」にまとめる。
-    /// 変わった行は古い順に続ける（どちらの知らせの行も、今の本文の上で探して印を付ける）
+    /// 同じ商品の未読は、新しい変化が前の知らせに重なる作り（<c>ItemService.NoteChangesAsync</c>・<see cref="ChangeStack"/>）なので普通は1件。
+    /// 手で直した JSON などで2件以上あっても、古い順に同じ重ね方で1つにする（保存側と画面で見え方が食い違わないように）
     /// </summary>
-    private static IEnumerable<NotificationDiff> Merge(IReadOnlyList<NotificationRecord> ordered)
-    {
-        var merged = new Dictionary<string, NotificationDiff>(StringComparer.Ordinal);
-        var order = new List<string>();
-        foreach (var diff in ordered.SelectMany(record => record.Diffs ?? []))
-        {
-            if (merged.TryGetValue(diff.Field, out var first))
-            {
-                merged[diff.Field] = new NotificationDiff
-                {
-                    Field = diff.Field,
-                    Before = first.Before,
-                    After = diff.After,
-                    Lines = first.Lines is null && diff.Lines is null ? null : [.. first.Lines ?? [], .. diff.Lines ?? []],
-                    MoreAdded = Sum(first.MoreAdded, diff.MoreAdded),
-                    MoreRemoved = Sum(first.MoreRemoved, diff.MoreRemoved),
-                };
-            }
-            else
-            {
-                merged[diff.Field] = diff;
-                order.Add(diff.Field);
-            }
-        }
-
-        return order.Select(field => merged[field]);
-    }
-
-    private static int? Sum(int? first, int? second) => first is null && second is null ? null : (first ?? 0) + (second ?? 0);
+    private static IReadOnlyList<NotificationDiff> Merge(IReadOnlyList<NotificationRecord> ordered)
+        => ordered.Skip(1).Aggregate(
+            ordered[0].Diffs ?? [],
+            (accumulated, record) => ChangeStack.Stack(accumulated, record.Diffs ?? []));
 
     private static ChangeSlot Slot(List<ChangeMark> marks) => marks.Count == 0 ? ChangeSlot.Empty : new ChangeSlot(marks);
 
