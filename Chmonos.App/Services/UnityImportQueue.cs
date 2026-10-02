@@ -243,11 +243,14 @@ public static class UnityImportQueue
         string? stop = null;
         var windowPending = false;
 
-        // 送り先のプロジェクトの場所。「既に全部入っているか」を調べるのに使う（引けなければ調べない）
-        var project = await Task.Run(() => UnityEditors.PathOf(processId), cancellationToken);
+        string? project = null;
 
         try
         {
+            // 送り先のプロジェクトの場所。「既に全部入っているか」を調べるのに使う（引けなければ調べない）。
+            // **止める口の内側で引く**（メモ3-②の試験で見つけた）。帯の「中止」は送り始めた瞬間から出ているので、
+            // ここで止めると、外に置いていた頃は中止が呼んだ側へ例外のまま抜け、「残りは理由を付けて返す」約束が破れていた
+            project = await Task.Run(() => UnityEditors.PathOf(processId), cancellationToken);
             await RunLoopAsync();
         }
         catch (OperationCanceledException)
