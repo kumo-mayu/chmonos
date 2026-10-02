@@ -53,6 +53,21 @@ public static class SelectableText
             typeof(SelectableText),
             new PropertyMetadata(null, OnNavigatorChanged));
 
+    /// <summary>
+    /// 地を付ける行の番号（本文を改行で分けたときの番号）。商品ページで、BOOTH の更新で足された行を本文の上で示す（メモ13-②）。
+    /// 空なら今までと同じ1つの段落で組む
+    /// </summary>
+    public static readonly DependencyProperty MarkedLinesProperty =
+        DependencyProperty.RegisterAttached(
+            "MarkedLines",
+            typeof(IReadOnlySet<int>),
+            typeof(SelectableText),
+            new PropertyMetadata(null, OnTextChanged));
+
+    public static void SetMarkedLines(DependencyObject element, IReadOnlySet<int>? value) => element.SetValue(MarkedLinesProperty, value);
+
+    public static IReadOnlySet<int>? GetMarkedLines(DependencyObject element) => (IReadOnlySet<int>?)element.GetValue(MarkedLinesProperty);
+
     public static void SetText(DependencyObject element, string? value) => element.SetValue(TextProperty, value);
 
     public static string? GetText(DependencyObject element) => (string?)element.GetValue(TextProperty);
@@ -84,7 +99,7 @@ public static class SelectableText
         box.PreviewMouseWheel -= ForwardMouseWheel;
         box.PreviewMouseWheel += ForwardMouseWheel;
 
-        box.Document = Build(GetText(box), GetNavigator(box));
+        box.Document = Build(GetText(box), GetNavigator(box), GetMarkedLines(box));
     }
 
     private static void ForwardMouseWheel(object sender, MouseWheelEventArgs args)
@@ -102,7 +117,7 @@ public static class SelectableText
         });
     }
 
-    private static FlowDocument Build(string? text, IInAppLinkNavigator? navigator)
+    internal static FlowDocument Build(string? text, IInAppLinkNavigator? navigator, IReadOnlySet<int>? marked = null)
     {
         var document = new FlowDocument
         {
@@ -119,17 +134,41 @@ public static class SelectableText
         }
 
         var lines = text.Replace("\r\n", "\n").Split('\n');
+        var paragraphMarked = false;
         for (var index = 0; index < lines.Length; index++)
         {
-            if (index > 0)
+            // 印の有る行と無い行の境で段落を分ける。地と左の線は段落に付けると行の幅いっぱいに引ける（Run の地は文字の幅だけ）
+            var isMarked = marked?.Contains(index) == true;
+            var startsParagraph = index == 0 || isMarked != paragraphMarked;
+            if (index > 0 && startsParagraph)
+            {
+                paragraph = new Paragraph { Margin = new Thickness(0) };
+                document.Blocks.Add(paragraph);
+            }
+            else if (index > 0)
             {
                 paragraph.Inlines.Add(new LineBreak());
             }
 
+            if (isMarked && startsParagraph)
+            {
+                MarkAdded(paragraph);
+            }
+
+            paragraphMarked = isMarked;
             AppendLine(paragraph, lines[index], navigator);
         }
 
         return document;
+    }
+
+    /// <summary>足された行の段落。色は商品ページの「追加」の印と同じ鍵（明暗で差し替わるよう鍵で指す）。</summary>
+    private static void MarkAdded(Paragraph paragraph)
+    {
+        paragraph.SetResourceReference(TextElement.BackgroundProperty, "GoodSoft");
+        paragraph.SetResourceReference(Block.BorderBrushProperty, "Good");
+        paragraph.BorderThickness = new Thickness(3, 0, 0, 0);
+        paragraph.Padding = new Thickness(6, 0, 0, 0);
     }
 
     private static void AppendLine(Paragraph paragraph, string line, IInAppLinkNavigator? navigator)

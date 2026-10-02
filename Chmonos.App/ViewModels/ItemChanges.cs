@@ -76,6 +76,12 @@ internal sealed class ItemChanges
     /// <summary>説明文の見出しごとの印（鍵は正規化した見出し）。</summary>
     public IReadOnlyDictionary<string, ChangeSlot> Sections { get; private init; } = new Dictionary<string, ChangeSlot>();
 
+    /// <summary>説明文の見出しごとの、変わった行（鍵は正規化した見出し。メモ13-②）。行を持たない知らせの見出しは入らない。</summary>
+    public IReadOnlyDictionary<string, ChangedLines> SectionLines { get; private init; } = new Dictionary<string, ChangedLines>();
+
+    /// <summary>見出しの無い商品の説明文の、変わった行。</summary>
+    public ChangedLines DescriptionLines { get; private init; } = ChangedLines.None;
+
     /// <summary>ページに対応する欄の無い変化（「ほかに変わったところ：」の後に並べる語）。</summary>
     public IReadOnlyList<string> Others { get; private init; } = [];
 
@@ -108,6 +114,8 @@ internal sealed class ItemChanges
         var sale = new List<ChangeMark>();
         var description = new List<ChangeMark>();
         var sections = new Dictionary<string, ChangeSlot>(StringComparer.Ordinal);
+        var sectionLines = new Dictionary<string, ChangedLines>(StringComparer.Ordinal);
+        var descriptionLines = ChangedLines.None;
         var changedHeadings = new List<string>();
         var others = new List<string>();
 
@@ -140,6 +148,7 @@ internal sealed class ItemChanges
                 // 見出しの無い商品は説明文の全体で比べている。見出しの名前が「説明文」になる商品（見出しが空）は、見出しの方で引く
                 case BoothChanges.DescriptionField when !keys.Contains(diff.Field):
                     description.Add(Mark(ChangeTone.Changed, "変更", diff));
+                    descriptionLines = ChangedLines.From(diff);
                     break;
 
                 default:
@@ -149,6 +158,10 @@ internal sealed class ItemChanges
                             ? Mark(ChangeTone.Added, "追加", diff)
                             : Mark(ChangeTone.Changed, "変更", diff)]);
                         changedHeadings.Add(diff.Field);
+                        if (ChangedLines.From(diff) is { HasAny: true } lines)
+                        {
+                            sectionLines[diff.Field] = lines;
+                        }
                     }
                     else
                     {
@@ -178,6 +191,8 @@ internal sealed class ItemChanges
             Sale = Slot(sale),
             Description = Slot(description),
             Sections = sections,
+            SectionLines = sectionLines,
+            DescriptionLines = descriptionLines,
             Others = others,
             NotificationIds = ordered.Select(record => record.Id).Distinct().ToList(),
         };
@@ -185,7 +200,8 @@ internal sealed class ItemChanges
 
     /// <summary>
     /// 同じ商品の未読は、新しい知らせが古い方を差し替える作り（<c>ItemService.NoteChangesAsync</c>）なので普通は1件。
-    /// 手で直した JSON などで2件以上あっても、欄ごとに「いちばん古い前」と「いちばん新しい後」にまとめる
+    /// 手で直した JSON などで2件以上あっても、欄ごとに「いちばん古い前」と「いちばん新しい後」にまとめる。
+    /// 変わった行は古い順に続ける（どちらの知らせの行も、今の本文の上で探して印を付ける）
     /// </summary>
     private static IEnumerable<NotificationDiff> Merge(IReadOnlyList<NotificationRecord> ordered)
     {
@@ -195,7 +211,15 @@ internal sealed class ItemChanges
         {
             if (merged.TryGetValue(diff.Field, out var first))
             {
-                merged[diff.Field] = new NotificationDiff { Field = diff.Field, Before = first.Before, After = diff.After };
+                merged[diff.Field] = new NotificationDiff
+                {
+                    Field = diff.Field,
+                    Before = first.Before,
+                    After = diff.After,
+                    Lines = first.Lines is null && diff.Lines is null ? null : [.. first.Lines ?? [], .. diff.Lines ?? []],
+                    MoreAdded = Sum(first.MoreAdded, diff.MoreAdded),
+                    MoreRemoved = Sum(first.MoreRemoved, diff.MoreRemoved),
+                };
             }
             else
             {
@@ -206,6 +230,8 @@ internal sealed class ItemChanges
 
         return order.Select(field => merged[field]);
     }
+
+    private static int? Sum(int? first, int? second) => first is null && second is null ? null : (first ?? 0) + (second ?? 0);
 
     private static ChangeSlot Slot(List<ChangeMark> marks) => marks.Count == 0 ? ChangeSlot.Empty : new ChangeSlot(marks);
 

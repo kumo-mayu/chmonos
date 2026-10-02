@@ -26,7 +26,17 @@ public sealed class NotificationRow : ViewModelBase
     /// 変わったところ1つ。**前の値も出す**（ユーザ指示 2026-09-18：価格・文言・バリエーション数は
     /// 「変化」なので、後の値だけでは何が起きたか分からない）。前が無いもの（足された見出しなど）は後だけ
     /// </summary>
-    public sealed record DiffRow(string Field, string Text);
+    /// <remarks>
+    /// 説明文の見出しの変更は、変わった行（<see cref="Lines"/>）を持つときはその行を出し、頭の抜き出し（<see cref="Text"/>）は出さない（メモ13-②）。
+    /// 抜き出しは前後とも頭の70字なので、見出しの後ろの方が変わると「同じ → 同じ」に見えていた
+    /// </remarks>
+    public sealed record DiffRow(string Field, string Text)
+    {
+        public IReadOnlyList<ChangedLineRow> Lines { get; init; } = [];
+
+        /// <summary>札に入り切らなかった行の数（「ほか n 行」）。無ければ空。</summary>
+        public string MoreText { get; init; } = string.Empty;
+    }
 
     /// <summary>
     /// 行の中身。**どの種別も同じ札で出す**（ユーザ指示 2026-09-18：商品ページの変更だけが札で、
@@ -45,13 +55,7 @@ public sealed class NotificationRow : ViewModelBase
     {
         if (Record.Diffs.Count > 0)
         {
-            return Record.Diffs
-                .Select(diff => new DiffRow(
-                    diff.Field,
-                    diff.Before is { Length: > 0 } before
-                        ? $"{before} → {diff.After ?? "（無し）"}"
-                        : diff.After ?? string.Empty))
-                .ToList();
+            return Record.Diffs.Select(ToCard).ToList();
         }
 
         if (Detail.Length == 0)
@@ -64,6 +68,22 @@ public sealed class NotificationRow : ViewModelBase
         return separator > 0
             ? [new DiffRow(Detail[..separator], Detail[(separator + 1)..])]
             : [new DiffRow(string.Empty, Detail)];
+    }
+
+    private static DiffRow ToCard(NotificationDiff diff)
+    {
+        var lines = ChangedLines.From(diff);
+        if (lines.HasAny)
+        {
+            var (rows, more) = lines.ForCard();
+            return new DiffRow(diff.Field, string.Empty) { Lines = rows, MoreText = more };
+        }
+
+        return new DiffRow(
+            diff.Field,
+            diff.Before is { Length: > 0 } before
+                ? $"{before} → {diff.After ?? "（無し）"}"
+                : diff.After ?? string.Empty);
     }
 
     public bool HasCards => Cards.Count > 0;

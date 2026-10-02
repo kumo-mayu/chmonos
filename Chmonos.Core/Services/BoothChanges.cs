@@ -98,12 +98,10 @@ public static class BoothChanges
             var afterText = Normalize(after.Description);
             if (!string.Equals(beforeText, afterText, StringComparison.Ordinal))
             {
-                yield return new NotificationDiff
-                {
-                    Field = DescriptionField,
-                    Before = Excerpt(beforeText),
-                    After = Excerpt(afterText),
-                };
+                yield return WithLines(
+                    new NotificationDiff { Field = DescriptionField, Before = Excerpt(beforeText), After = Excerpt(afterText) },
+                    before.Description,
+                    after.Description);
             }
 
             yield break;
@@ -121,11 +119,14 @@ public static class BoothChanges
         {
             if (!beforeSections.TryGetValue(heading, out var previous))
             {
-                yield return new NotificationDiff { Field = heading, After = Excerpt(text) };
+                yield return WithLines(new NotificationDiff { Field = heading, After = Excerpt(Normalize(text)) }, null, text);
             }
-            else if (!string.Equals(previous, text, StringComparison.Ordinal))
+            else if (!string.Equals(Normalize(previous), Normalize(text), StringComparison.Ordinal))
             {
-                yield return new NotificationDiff { Field = heading, Before = Excerpt(previous), After = Excerpt(text) };
+                yield return WithLines(
+                    new NotificationDiff { Field = heading, Before = Excerpt(Normalize(previous)), After = Excerpt(Normalize(text)) },
+                    previous,
+                    text);
             }
         }
 
@@ -134,7 +135,7 @@ public static class BoothChanges
         {
             if (!afterSections.ContainsKey(heading))
             {
-                yield return new NotificationDiff { Field = heading, Before = Excerpt(text) };
+                yield return WithLines(new NotificationDiff { Field = heading, Before = Excerpt(Normalize(text)) }, text, null);
             }
         }
     }
@@ -146,18 +147,56 @@ public static class BoothChanges
     public static bool HasStrongChange(IReadOnlyList<NotificationDiff> diffs)
         => diffs.Any(diff => Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field));
 
-    /// <summary>見出しの原文は装飾記号付きなので、正規化した見出しで突き合わせる（同じ見出しが2つあれば後ろを足す）。</summary>
+    /// <summary>
+    /// 見出しの原文は装飾記号付きなので、正規化した見出しで突き合わせる（同じ見出しが2つあれば後ろを足す）。
+    /// 本文は改行を残したまま持つ（行の差を作るため）。変わったかは空白を詰めてから比べる
+    /// </summary>
     private static Dictionary<string, string> Group(IReadOnlyList<H2Section> sections)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var section in sections)
         {
             var heading = section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : DescriptionField;
-            var text = Normalize(section.Text);
+            var text = section.Text ?? string.Empty;
             map[heading] = map.TryGetValue(heading, out var existing) ? $"{existing}\n{text}" : text;
         }
 
         return map;
+    }
+
+    /// <summary>
+    /// 変わった行（<see cref="LineDiff"/>）を添える。上限を超えた分は数だけ残す。
+    /// 頭の抜き出し（Before・After）も残す：要確認の1行の要約（<see cref="Summarize"/>）と、商品ページの「前の値」の吹き出しが使う
+    /// </summary>
+    private static NotificationDiff WithLines(NotificationDiff diff, string? before, string? after)
+    {
+        var lines = LineDiff.Compare(before, after);
+        if (lines.Count == 0)
+        {
+            return diff;
+        }
+
+        // 上限は種類ごと。並びは保ったまま、それぞれ先頭から残す
+        var kept = new List<NotificationLine>();
+        var (added, removed) = (0, 0);
+        foreach (var line in lines)
+        {
+            var count = line.Kind == NotificationLineKind.Added ? ++added : ++removed;
+            if (count <= LineDiff.MaxLines)
+            {
+                kept.Add(line);
+            }
+        }
+
+        return new NotificationDiff
+        {
+            Field = diff.Field,
+            Before = diff.Before,
+            After = diff.After,
+            Lines = kept,
+            MoreAdded = added > LineDiff.MaxLines ? added - LineDiff.MaxLines : null,
+            MoreRemoved = removed > LineDiff.MaxLines ? removed - LineDiff.MaxLines : null,
+        };
     }
 
     private static string Normalize(string? text)

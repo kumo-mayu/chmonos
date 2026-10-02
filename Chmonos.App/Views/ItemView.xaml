@@ -237,7 +237,16 @@
                                 説明文とh2は選択可能にし、含まれるURLはリンクにする。
                                 対応アバターのURLがh2に並ぶことがあり、そこから直接飛べると早い。
                             -->
+                            <!-- 見出しの無い商品の説明文の、消えた行と足した行（メモ13-②。見出しのある商品は見出しごとに出す） -->
+                            <StackPanel Margin="10,0,0,8"
+                                        Visibility="{Binding DescriptionLines.HasRemoved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl ItemsSource="{Binding DescriptionLines.Removed}" Focusable="False"
+                                              ItemTemplate="{StaticResource ChangedLineTemplate}" />
+                                <TextBlock Text="{Binding DescriptionLines.RemovedMoreText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                           Visibility="{Binding DescriptionLines.RemovedMoreText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                            </StackPanel>
                             <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,0,0,14"
+                                         controls:SelectableText.MarkedLines="{Binding DescriptionLines.AddedLines}"
                                          controls:SelectableText.Text="{Binding Description}"
                                          controls:SelectableText.Navigator="{Binding}"
                                          Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -294,7 +303,33 @@
                                                     </Grid>
                                                 </Border>
                                             </Button>
+                                            <!--
+                                                消えた行は本文に無いので、見出しのすぐ下に小さく並べる（メモ13-②）。
+                                                畳んだ見出しでは出さない（見出しの札だけで、変わったことは分かる）
+                                            -->
+                                            <StackPanel Margin="12,6,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsOpen}" Value="True" />
+                                                                    <Condition Binding="{Binding Lines.HasRemoved}" Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <ItemsControl ItemsSource="{Binding Lines.Removed}" Focusable="False"
+                                                              ItemTemplate="{StaticResource ChangedLineTemplate}" />
+                                                <TextBlock Text="{Binding Lines.RemovedMoreText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                           Visibility="{Binding Lines.RemovedMoreText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                            </StackPanel>
+                                            <!-- 足した行は本文の上で地と左の線を付ける（メモ13-②） -->
                                             <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
+                                                         controls:SelectableText.MarkedLines="{Binding Lines.AddedLines}"
                                                          controls:SelectableText.Text="{Binding Text}"
                                                          controls:SelectableText.Navigator="{Binding DataContext,
                                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"

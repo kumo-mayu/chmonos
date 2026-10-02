@@ -29,6 +29,9 @@ public sealed partial class ItemViewModel
 
     public ChangeSlot DescriptionChange => _changes.Description;
 
+    /// <summary>見出しの無い商品の説明文の、変わった行の印（メモ13-②）。見出しのある商品は見出しごと（<see cref="SectionRow.Lines"/>）。</summary>
+    public ChangedLineMarks DescriptionLines { get; private set; } = ChangedLineMarks.None;
+
     /// <summary>ページに対応する欄の無い変化の1行（消えた見出しなど）。無ければ空。</summary>
     public string OtherChangesText => _changes.OthersText;
 
@@ -56,9 +59,15 @@ public sealed partial class ItemViewModel
         foreach (var section in Sections)
         {
             section.Change = changes.Sections.TryGetValue(section.Key, out var slot) ? slot : ChangeSlot.Empty;
+            section.Lines = changes.SectionLines.TryGetValue(section.Key, out var lines)
+                ? ChangedLineMarks.For(lines, section.Text)
+                : ChangedLineMarks.None;
         }
 
+        DescriptionLines = ChangedLineMarks.For(changes.DescriptionLines, Description);
+
         OnPropertyChanged(nameof(HasUnreadChanges));
+        OnPropertyChanged(nameof(DescriptionLines));
         OnPropertyChanged(nameof(NameChange));
         OnPropertyChanged(nameof(VariationsChange));
         OnPropertyChanged(nameof(GalleryChange));
