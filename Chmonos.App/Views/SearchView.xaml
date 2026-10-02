@@ -437,7 +437,7 @@
                         <!--
                             順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ。
                             キーボードでは並び全体が1つの止まり（FrameList・メモ1-③ 2026-10-02）：Tab で前にいた条件の枠に止まり、
-                            ↑↓ で枠の間を移り、Enter か Tab で枠の中へ入る。中から出るのは Esc（枠へ）か、最後の部品からの Tab（並びの後ろへ）
+                            ↑↓ で枠の間を移り、Enter で枠の中へ入る（枠の上の Tab は並びの後ろへ抜ける）。中から出るのは Esc（枠へ）か、最後の部品からの Tab（並びの後ろへ）
                         -->
                         <controls:ContentItemsControl x:Name="ModulesList" ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False"
                                                       controls:FrameList.IsEnabled="True"

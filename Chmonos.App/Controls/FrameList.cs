@@ -8,12 +8,14 @@ using System.Windows.Threading;
 namespace Chmonos.App.Controls;
 
 /// <summary>
-/// 枠の並び（検索の条件）を、Tab では1回だけ止まる塊にし、枠の間は ↑↓ で移り、Enter（か Tab）で枠の中へ入れるようにする
+/// 枠の並び（検索の条件）を、Tab では1回だけ止まる塊にし、枠の間は ↑↓ で移り、Enter で枠の中へ入れるようにする
 /// （ユーザ判断 2026-10-02・メモ1-③「tab移動で検索モジュールが大量だと使いにくいかも」→「条件の並びを1つの止まりにする」）。
 /// 一覧（<see cref="ItemsControl"/>）に <c>controls:FrameList.IsEnabled="True"</c> を付け、項目の枠を <see cref="FocusFrame"/> にする。
 ///
 /// - 外から Tab で入ると、前にいた枠（初めてなら Tab で先頭・Shift+Tab で末尾の枠）に止まる
-/// - 枠の上：↑↓ で隣の枠、Home・End で端の枠（端では止まる）。Enter か Tab で枠の中の最初の部品へ。Shift+Tab で並びの前へ出る
+/// - 枠の上：↑↓ で隣の枠、Home・End で端の枠（端では止まる）。Enter で枠の中の最初の部品へ。Tab で並びの後ろへ、Shift+Tab で並びの前へ出る
+///   （初めは枠の上の Tab も中へ入れていた。並びを素通りしたいときに中へ入って条件1つ分を送ることになるので、
+///   中へは Enter だけにした。ユーザ判断 2026-10-02「3はそのように直してくれ」）
 /// - 枠の中：Tab・Shift+Tab は今までどおり部品から部品へ（中の部品の順は変えない）。Shift+Tab で最初の部品から戻ると枠に止まる。
 ///   **最後の部品から Tab で並びの後ろへ出る**（次の枠へは入らない）。Esc で枠へ戻る（中の部品が Esc を使ったとき＝候補を閉じたときは戻らない）
 ///
@@ -68,6 +70,21 @@ public static class FrameList
             list.ClearValue(StateProperty);
         }
     }
+
+    /// <summary>枠の上で押したキーが何をするか（ここだけは計算で決まるので、試験で確かめる）。</summary>
+    internal static FrameKey OnFrame(Key key, ModifierKeys modifiers) => (key, modifiers) switch
+    {
+        (Key.Tab, ModifierKeys.Shift) => FrameKey.ExitBefore,
+
+        // 枠の上の Tab は並びの後ろへ抜ける。中へは Enter だけで入る（ユーザ判断 2026-10-02「3はそのように直してくれ」）
+        (Key.Tab, ModifierKeys.None) => FrameKey.ExitAfter,
+        (Key.Enter, ModifierKeys.None) => FrameKey.Enter,
+        (Key.Down, ModifierKeys.None) => FrameKey.Next,
+        (Key.Up, ModifierKeys.None) => FrameKey.Previous,
+        (Key.Home, ModifierKeys.None) => FrameKey.First,
+        (Key.End, ModifierKeys.None) => FrameKey.Last,
+        _ => FrameKey.None,
+    };
 
     private static List<FocusFrame> Frames(ItemsControl list)
     {
@@ -209,26 +226,27 @@ public static class FrameList
                 return;
             }
 
-            var modifiers = Keyboard.Modifiers;
-            switch (e.Key)
+            switch (OnFrame(e.Key, Keyboard.Modifiers))
             {
-                case Key.Tab when modifiers == ModifierKeys.Shift:
+                case FrameKey.ExitBefore:
                     ExitBefore();
                     break;
-                case Key.Tab when modifiers == ModifierKeys.None:
-                case Key.Enter when modifiers == ModifierKeys.None:
+                case FrameKey.ExitAfter:
+                    ExitAfter();
+                    break;
+                case FrameKey.Enter:
                     Enter(frame);
                     break;
-                case Key.Down when modifiers == ModifierKeys.None:
+                case FrameKey.Next:
                     Step(frame, +1);
                     break;
-                case Key.Up when modifiers == ModifierKeys.None:
+                case FrameKey.Previous:
                     Step(frame, -1);
                     break;
-                case Key.Home when modifiers == ModifierKeys.None:
+                case FrameKey.First:
                     Land(Frames(list).FirstOrDefault());
                     break;
-                case Key.End when modifiers == ModifierKeys.None:
+                case FrameKey.Last:
                     Land(Frames(list).LastOrDefault());
                     break;
                 default:
@@ -384,4 +402,32 @@ public sealed class FocusFrame : Border
 
         protected override bool IsKeyboardFocusableCore() => owner.Focusable;
     }
+}
+
+/// <summary>枠の上のキーの行き先（<see cref="FrameList.OnFrame"/>）。</summary>
+internal enum FrameKey
+{
+    /// <summary>枠では受けない（部品の既定のまま）。</summary>
+    None,
+
+    /// <summary>並びの前へ出る。</summary>
+    ExitBefore,
+
+    /// <summary>並びの後ろへ出る。</summary>
+    ExitAfter,
+
+    /// <summary>枠の中の最初の部品へ入る。</summary>
+    Enter,
+
+    /// <summary>次の枠へ。</summary>
+    Next,
+
+    /// <summary>前の枠へ。</summary>
+    Previous,
+
+    /// <summary>先頭の枠へ。</summary>
+    First,
+
+    /// <summary>末尾の枠へ。</summary>
+    Last,
 }

@@ -112,7 +112,7 @@ internal static class TabWalk
                     PressTab(source);
                     break;
                 case "ShiftTab":
-                    Next(Keyboard.FocusedElement, FocusNavigationDirection.Previous);
+                    PressShiftTab(source);
                     break;
                 default:
                     // PreviewKeyDown を送ると、受けられなかったときは入力の口が KeyDown に進めて送る（実際のキーと同じ）
@@ -131,7 +131,7 @@ internal static class TabWalk
     /// <summary>
     /// Tab をキーの知らせとして送る（並びの ArrowGroup は、見える分だけ作る一覧の中で Tab を受けて行き先を作らせる。
     /// 「次へ進む」を直に呼ぶと、その受け口を通らない）。WPF の Tab の移動もキーの知らせで動く。
-    /// フォーカスが動かなかったときだけ「次へ進む」を直に呼ぶ（一周の終わりなど）。Shift は実際のキーの状態を読むので作れず、ShiftTab は直に呼ぶ
+    /// フォーカスが動かなかったときだけ「次へ進む」を直に呼ぶ（一周の終わりなど）。ShiftTab は <see cref="PressShiftTab"/>
     /// </summary>
     private static void PressTab(HwndSource source)
     {
@@ -143,6 +143,46 @@ internal static class TabWalk
             Next(before, FocusNavigationDirection.Next);
         }
     }
+
+    /// <summary>
+    /// Shift+Tab もキーの知らせとして送る。WPF は Shift の状態をこのスレッドのキーの表（GetKeyState）から読むので、
+    /// 送る間だけ表の Shift を押した印にして戻す（表はこのスレッドだけの物で、実際のキーもほかのアプリも触らない）。
+    /// 前は「前へ戻る」を直に呼んでいて、検索の条件の枠の上の Shift+Tab（FrameList が受けて並びの前へ出す）を確かめられなかった
+    /// </summary>
+    private static void PressShiftTab(HwndSource source)
+    {
+        const int Shift = 0x10;
+        const int LeftShift = 0xA0;
+        var before = Keyboard.FocusedElement;
+        var saved = new byte[256];
+        GetKeyboardState(saved);
+        var pressed = (byte[])saved.Clone();
+        pressed[Shift] |= 0x80;
+        pressed[LeftShift] |= 0x80;
+        SetKeyboardState(pressed);
+        try
+        {
+            InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+            InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyUpEvent });
+        }
+        finally
+        {
+            SetKeyboardState(saved);
+        }
+
+        if (ReferenceEquals(Keyboard.FocusedElement, before))
+        {
+            Next(before, FocusNavigationDirection.Previous);
+        }
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetKeyboardState(byte[] state);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetKeyboardState(byte[] state);
 
     private static bool Next(IInputElement? focused, FocusNavigationDirection direction) => focused switch
     {

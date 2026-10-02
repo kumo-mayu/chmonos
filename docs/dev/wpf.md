@@ -137,7 +137,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   矢印は自分で受ける（`PreviewKeyDown`）。**窓の `PreviewKeyDown` は一覧より先に来る**ので、窓で矢印に役を持たせている所（商品ページの絵送り）は `ArrowGroup.OwnsArrows` を見て譲る
 - **見える分だけ作る一覧（`Recycling`）の止まり先は、部品ではなく行（項目）で覚える。**部品は流すと別の行に使い回される。作られていない行へは `VirtualizingStackPanel.BringIndexIntoViewPublic` で流して作らせる
 - **フォーカスのあった行が一覧から消えると、フォーカスは窓そのもの（根）へ落ちる。**次の Tab は画面の先頭から始まる。消えた知らせ（`CollectionChanged`）を受けて、次の行へ止まり直す（`ArrowGroup`）
-- **画面の通しの Tab の順は `ViewShot tabs <場面>`**（アプリの組み立てごと載る場面を、フォーカスを受けられる見えない窓に載せて一周する。`--from <ID> --keys Tab,Right,Down,Enter` で順にキーを送る。Tab もキーの知らせとして送るので、並びの Tab の受け口を通る。ShiftTab だけは「前へ戻る」を直に呼ぶ）。
+- **画面の通しの Tab の順は `ViewShot tabs <場面>`**（アプリの組み立てごと載る場面を、フォーカスを受けられる見えない窓に載せて一周する。`--from <ID> --keys Tab,Right,Down,Enter` で順にキーを送る。Tab・ShiftTab もキーの知らせとして送るので、並びの Tab の受け口を通る。ShiftTab の間だけこのスレッドのキーの表の Shift を押した印にする（実際のキーは押さない））。
   ViewShot の舞台はメッセージ専用の窓でフォーカスを取れないので、tabs のときだけ出さないポップアップの窓に載せる
 - **キーボードのフォーカスと Tab の順も、起動せずに確かめられる**（`experiments/PeerProbe -- focus`）。見えない窓に `SetFocus` すると、このスレッドの中だけでフォーカスが移り（ほかのアプリの前面の窓は変わらない）、
   `MoveFocus(Next)` が Tab キーと同じ決まりで次へ進む。Enter は `InputManager.ProcessInput` に渡す（実際のキーは押さない）。窓には `WS_EX_NOACTIVATE` を付けない（付けるとフォーカスを受けない）
