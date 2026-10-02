@@ -259,6 +259,61 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     private static bool s_foldersExpanded = true;
 
+    // 節の開け閉め（ユーザ判断 2026-10-02：案A）。既定は全部開き、設定の画面は開くたびに作り直されるので、
+    // アプリを閉じるまでここに持つ（ファイルには書かない。取り込み元の履歴と同じ）。
+    // 節ごとに名前を付けて持つ（節は画面の側で独立に畳むため）
+    private static readonly Dictionary<string, bool> s_sectionOpen = [];
+
+    private static bool SectionOpen(string key) => !s_sectionOpen.TryGetValue(key, out var open) || open;
+
+    private void SetSectionOpen(string key, bool value, string property)
+    {
+        if (SectionOpen(key) != value)
+        {
+            s_sectionOpen[key] = value;
+            OnPropertyChanged(property);
+        }
+    }
+
+    /// <summary>試験用。アプリを閉じて開き直した状態（全部開く）に戻す。</summary>
+    internal static void ResetSectionsForTest() => s_sectionOpen.Clear();
+
+    public bool SectionDisplayOpen
+    {
+        get => SectionOpen(nameof(SectionDisplayOpen));
+        set => SetSectionOpen(nameof(SectionDisplayOpen), value, nameof(SectionDisplayOpen));
+    }
+
+    public bool SectionOperationOpen
+    {
+        get => SectionOpen(nameof(SectionOperationOpen));
+        set => SetSectionOpen(nameof(SectionOperationOpen), value, nameof(SectionOperationOpen));
+    }
+
+    public bool SectionImportFetchOpen
+    {
+        get => SectionOpen(nameof(SectionImportFetchOpen));
+        set => SetSectionOpen(nameof(SectionImportFetchOpen), value, nameof(SectionImportFetchOpen));
+    }
+
+    public bool SectionHiddenOpen
+    {
+        get => SectionOpen(nameof(SectionHiddenOpen));
+        set => SetSectionOpen(nameof(SectionHiddenOpen), value, nameof(SectionHiddenOpen));
+    }
+
+    public bool SectionDataOpen
+    {
+        get => SectionOpen(nameof(SectionDataOpen));
+        set => SetSectionOpen(nameof(SectionDataOpen), value, nameof(SectionDataOpen));
+    }
+
+    public bool SectionAboutOpen
+    {
+        get => SectionOpen(nameof(SectionAboutOpen));
+        set => SetSectionOpen(nameof(SectionAboutOpen), value, nameof(SectionAboutOpen));
+    }
+
     /// <summary>見出しの右に出す数。畳んでいても何件あるかは分かるように。</summary>
     public string FoldersCountText => $"{Folders.Count} 件";
 
@@ -664,14 +719,14 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     /// <summary>
     /// 範囲の外を打たれたら、**丸めたことを言う**（ユーザ判断 2026-09-20・I11）。
-    /// 前は黙って丸めていて、500 と打っても 365 で保存され、出るのは「保存しました。」だけだった。
+    /// 前は黙って丸めていて、500 と打っても 365 で保存され、何も言われなかった。
     /// </summary>
     private int Clamped(int value, int min, int max, string what, string unit)
     {
         var clamped = Math.Clamp(value, min, max);
         if (clamped != value)
         {
-            // 保存が終わってから出す（先に入れると「保存しました。」で消える）
+            // 保存が終わってからも同じ文を出し直す（保存の側が、知らせの無い成功で空にするため）
             _clampNote = $"{what}に入れられるのは {min}〜{max}{unit}です。{clamped}{unit}にしました。";
             Status = _clampNote;
         }
@@ -1152,8 +1207,10 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(change));
 
-            // 範囲の外を打たれたときは、丸めたことを出す（I11）。「保存しました。」で上書きしない
-            Status = _clampNote.Length > 0 ? _clampNote : "保存しました。";
+            // 保存できたことは言わない（ユーザ判断 2026-10-02：変えるたびに出ても、保存されるのは当然で意味が無い）。
+            // 出すのは、範囲の外を打たれて丸めたこと（I11）と、保存に失敗したこと（下）だけ。
+            // 前の失敗の知らせは、保存し直せたので消える
+            Status = _clampNote;
             _clampNote = string.Empty;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
