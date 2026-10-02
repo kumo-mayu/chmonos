@@ -328,7 +328,8 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     {
         if (!_cards.TryGetValue(item.Id, out var card))
         {
-            card = _main.Search.CreateCard(item);
+            // 右の欄のカードにも「更新あり」の札と「既読にする」を出す（ユーザ判断 2026-10-02「検索にも出しましょう」）
+            card = _main.Search.CreateCardWithUpdates(item);
             card.SelectionChanged += OnCardSelectionChanged;
             card.IsSelectionMode = HasSelection;
             _cards[item.Id] = card;

@@ -156,14 +156,54 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// <summary>取り込みの③（対応アバターの検出）がまだ。「未編集」の代わりに「取り込み中」と出す（U8・U10）。</summary>
     public bool IsAwaitingDetection { get; init; }
 
+    private bool _hasUpdate;
+    private RelayCommand? _markUpdateRead;
+
     /// <summary>
-    /// 要確認に未読の「商品の更新」がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27：
-    /// ショップの一覧に「更新のあった商品が1件」と出ても、ショップの中でどれか分からなかった）
+    /// 要確認に未読の「商品の更新」がある。入れるのはショップの画面（ユーザ判断 2026-09-27：
+    /// ショップの一覧に「更新のあった商品が1件」と出ても、ショップの中でどれか分からなかった）と、
+    /// 検索の画面・フォルダビューの右の欄（ユーザ判断 2026-10-02「検索にも出しましょう」）。ほかの画面のカードには入れない。
+    /// 既読にすると下ろす（カードは作り直さずに使い回すので、変えられるようにしてある）
     /// </summary>
-    public bool HasUpdate { get; init; }
+    public bool HasUpdate
+    {
+        get => _hasUpdate;
+        set
+        {
+            if (SetField(ref _hasUpdate, value))
+            {
+                OnPropertyChanged(nameof(CanMarkUpdateRead));
+            }
+        }
+    }
 
     /// <summary>「更新あり」を押したとき。<see cref="HasUpdate"/> を入れる画面だけが渡す</summary>
-    public RelayCommand? ShowUpdateCommand { get; init; }
+    public RelayCommand? ShowUpdateCommand
+    {
+        get => _showUpdate;
+        set => SetField(ref _showUpdate, value);
+    }
+
+    private RelayCommand? _showUpdate;
+
+    /// <summary>
+    /// 右クリックの「既読にする」（ユーザ指示 2026-10-02）。この商品の未読の更新の知らせを既読にする（商品ページの「既読にする」と同じ命令）。
+    /// <see cref="HasUpdate"/> を入れる画面だけが渡す
+    /// </summary>
+    public RelayCommand? MarkUpdateReadCommand
+    {
+        get => _markUpdateRead;
+        set
+        {
+            if (SetField(ref _markUpdateRead, value))
+            {
+                OnPropertyChanged(nameof(CanMarkUpdateRead));
+            }
+        }
+    }
+
+    /// <summary>右クリックに「既読にする」を出すか（未読の更新があり、既読にする道を渡されている）。</summary>
+    public bool CanMarkUpdateRead => _hasUpdate && _markUpdateRead is not null;
 
     private bool _isImagePending;
 

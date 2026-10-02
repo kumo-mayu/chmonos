@@ -1112,6 +1112,10 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         NeedsEditCount = Search.NeedsEditCount;
 
+        // 要確認の数が変わる所（既読にした・知らせが増えた）は、カードの「更新あり」と条件「更新あり」も変わる。
+        // 知らせのファイルが前と同じなら読まない（検索の側で日時と大きさを比べる）
+        Search.NoteNotificationsMaybeChanged();
+
         if (_countsQueued)
         {
             // 後でまとめて読む分がもう待っている。その読みが今の頼みも拾う

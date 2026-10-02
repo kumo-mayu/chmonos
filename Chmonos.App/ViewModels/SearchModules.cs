@@ -41,6 +41,9 @@ public enum SearchModuleKind
 
     /// <summary>壊れていて開けない zip を持つか（ユーザ判断 2026-09-30）。</summary>
     BrokenZip,
+
+    /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。</summary>
+    Updated,
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
@@ -171,6 +174,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
+        new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、要確認でまだ読んでいない商品で絞ります。"),
     ];
 
     /// <summary>
@@ -187,7 +191,8 @@ public static class SearchModuleCatalog
         [
             [SearchModuleKind.Category, SearchModuleKind.BoothTag, SearchModuleKind.Avatar, SearchModuleKind.Adult],
             [SearchModuleKind.Shop, SearchModuleKind.Price],
-            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.WishList],
+            // 更新ありは販売終了のすぐ後：どちらも BOOTH の側で商品に起きた変化
+            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.Updated, SearchModuleKind.WishList],
         ]),
         new(ItemInfo,
         [

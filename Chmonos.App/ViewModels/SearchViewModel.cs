@@ -452,7 +452,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
             var previousStamps = _imageStamps;
             var previousPresence = _imagePresence;
-            var (sorted, built, prints, imagePending, stamps, presenceMemo) = await Task.Run(() =>
+            var (sorted, built, prints, imagePending, stamps, presenceMemo, unread) = await Task.Run(() =>
             {
                 // 外付けのドライブ文字が変わっていないかを読み直す（通し番号を読むので、ここで）。
                 // 表は書かない：控えるのは取り込みとフォルダビューを開いた時（ユーザ判断 2026-09-14）
@@ -511,7 +511,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                         id => Core.Images.ImageFolderPresence.HasAnyImage(_services.Paths.ItemImagesDir(id)));
                 }
 
-                return (sortedItems, haystacks, fingerprints, pending, imageStamps, presence);
+                // 未読の更新の知らせ（カードの札・条件「更新あり」）も同じ時点で読む
+                return (sortedItems, haystacks, fingerprints, pending, imageStamps, presence, ReadUnreadUpdates());
             });
 
             var noted = _notedSinceLoad;
@@ -580,6 +581,10 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 Core.Services.UiTrace.Write("速さ", $"検索の読み直し：{_allItems.Count} 件のうちカードを作った {_allItems.Count - reused} 件");
 
                 OnCardSelectionChanged();
+
+                _unreadUpdates = unread.Unread;
+                _unreadStamp = unread.Stamp;
+                ApplyUpdatesToCards();
 
                 // カテゴリ（自分で入れた分類を含む）・タグ・アバターなどの候補は、全商品から組み直す
                 BuildFacets();

@@ -963,6 +963,12 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             foreach (var card in _all)
             {
                 card.SelectionChanged += OnCardSelectionChanged;
+
+                // 右クリックの「既読にする」（ユーザ指示 2026-10-02）。検索・フォルダのカードと同じ道（検索の画面が既読にして札を下ろす）
+                if (card.HasUpdate)
+                {
+                    card.MarkUpdateReadCommand = new RelayCommand(() => _main.Search.MarkUpdatesReadAsync(card).Forget());
+                }
             }
 
             // 知らせを読むと更新は0件になり得る。チェックを隠したまま絞りが効いて空になるのを避け、外しておく

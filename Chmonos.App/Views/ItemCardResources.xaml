@@ -54,6 +54,12 @@
                   Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
         <MenuItem Header="更新の知らせを開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
                   Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+        <!--
+            この商品の未読の更新の知らせを既読にする（ユーザ指示 2026-10-02。商品ページの「既読にする」と同じ命令）。
+            未読の更新があり、既読にする道を渡した画面（検索・フォルダの右の欄・ショップ）のカードとリストの行にだけ出す
+        -->
+        <MenuItem Header="既読にする" Command="{Binding MarkUpdateReadCommand}" AutomationProperties.AutomationId="CardMenu.MarkUpdateRead"
+                  Visibility="{Binding CanMarkUpdateRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
