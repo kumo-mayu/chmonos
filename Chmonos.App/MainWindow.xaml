@@ -397,12 +397,12 @@
                     <Button Command="{Binding ToggleNavCommand}" Margin="10,0,10,2" AutomationProperties.AutomationId="Nav.Toggle">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
-                                <Setter Property="views:Nav.Icon" Value="{StaticResource IconCollapse}" />
+                                <Setter Property="views:Nav.Icon" Value="{StaticResource IconSidebarOpen}" />
                                 <Setter Property="views:Nav.Label" Value="ナビを折りたたむ" />
                                 <Style.Triggers>
                                     <!-- 畳んでいるときは、押すと戻る側の意味になる -->
                                     <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
-                                        <Setter Property="views:Nav.Icon" Value="{StaticResource IconExpand}" />
+                                        <Setter Property="views:Nav.Icon" Value="{StaticResource IconSidebarClosed}" />
                                         <Setter Property="views:Nav.Label" Value="ナビを開く" />
                                     </DataTrigger>
                                 </Style.Triggers>
