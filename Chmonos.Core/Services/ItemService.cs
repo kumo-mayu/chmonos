@@ -315,23 +315,60 @@ public sealed class ItemService : IItemService
             return;
         }
 
-        // 同じ商品の未読が既にあれば差し替える。溜めても読む手間が増えるだけ
+        // 同じ商品の未読が既にあれば、そこへ重ねる（ユーザ判断 2026-10-02「重ねましょう」）。
+        // 前は差し替えていて、既読にする前に2回変わると1回目の差が消えていた。
+        // 別の知らせとして溜めず1件にするのは、要確認の行・商品ページの印・ナビの数・「既読にする」が
+        // どれも「商品1件に未読1件」で数えているから。読む方も、最初の前と最後の後が分かれば足りる。
+        // 錠の中で今の一覧に当てる（読んでから書くまでに人が既読にしていたら、その知らせには重ねない）
         var id = $"item-updated:{existing.Id}";
+        var now = DateTimeOffset.Now;
         await _store.Notifications.UpdateAsync(
             notifications =>
             {
-                notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
-                notifications.Add(new NotificationRecord
+                var unread = notifications
+                    .Where(entry => entry.Id == id && !entry.IsRead && !entry.IsResolved)
+                    .OrderBy(entry => entry.CreatedAt)
+                    .ToList();
+
+                if (unread.Count == 0)
                 {
-                    Id = id,
-                    Kind = NotificationKind.ItemUpdated,
-                    ItemId = existing.Id,
-                    Title = booth.Name ?? existing.Id,
-                    Detail = BoothChanges.Summarize(diffs),
-                    Diffs = diffs,
-                    CreatedAt = DateTimeOffset.Now,
-                    IsStrong = BoothChanges.HasStrongChange(diffs),
-                });
+                    notifications.Add(new NotificationRecord
+                    {
+                        Id = id,
+                        Kind = NotificationKind.ItemUpdated,
+                        ItemId = existing.Id,
+                        Title = booth.Name ?? existing.Id,
+                        Detail = BoothChanges.Summarize(diffs),
+                        Diffs = diffs,
+                        CreatedAt = now,
+                        IsStrong = BoothChanges.HasStrongChange(diffs),
+                    });
+
+                    return notifications;
+                }
+
+                // 手で直した JSON などで未読が2件以上あっても、古い順に重ねて1件にまとめる
+                var stacked = unread.Skip(1).Aggregate(
+                    unread[0].Diffs ?? [],
+                    (accumulated, entry) => ChangeStack.Stack(accumulated, entry.Diffs ?? []));
+                stacked = ChangeStack.Stack(stacked, diffs);
+
+                // 記録は値で比べると同じ中身の別の行も拾うので、置き場所は参照で探す
+                var at = notifications.FindIndex(entry => ReferenceEquals(entry, unread[0]));
+                notifications.RemoveAll(entry => unread.Any(target => ReferenceEquals(target, entry)));
+
+                // 戻って元と同じになった（価格が上がって戻った、など）なら、知らせることが無いので消す
+                if (stacked.Count > 0)
+                {
+                    notifications.Insert(Math.Min(at, notifications.Count), unread[0] with
+                    {
+                        Title = booth.Name ?? existing.Id,
+                        Detail = BoothChanges.Summarize(stacked),
+                        Diffs = stacked,
+                        UpdatedAt = now,
+                        IsStrong = BoothChanges.HasStrongChange(stacked),
+                    });
+                }
 
                 return notifications;
             },
