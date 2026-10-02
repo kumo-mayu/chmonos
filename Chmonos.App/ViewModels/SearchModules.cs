@@ -46,10 +46,16 @@ public enum SearchModuleKind
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
 /// <param name="AllowsMany">
 /// 同じ種類を複数置けるか（ユーザ判断 2026-10-01）。値を選んで積む条件だけ。条件どうしは AND なので、
-/// 「(A か B) かつ (C か D)」や「A を含み B を除く」が組める。1商品に1つのショップ・三項・範囲・日付・最近は1つまで
+/// 「(A か B) かつ (C か D)」や「A を含み B を除く」が組める。1商品に1つのショップ・三項・属性・最近は1つまで
 /// （2つ置いても組める物が増えない）。メニューのグレーと、足すときに既にある物を返すかの決まりは、どちらもこれを見る。
+/// スキ数・価格・公開日・入手日も複数置ける（ユーザ判断 2026-10-02・メモ2-②。<paramref name="OrSameKind"/>）。
 /// </param>
-public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false);
+/// <param name="OrSameKind">
+/// 同じ種類の条件どうしを**どれかに当てはまる物（和集合）**でつなぐか（ユーザ判断 2026-10-02・メモ2-②「0-400&amp;1000-2000ならそれぞれに当てはまるものの和集合」）。
+/// 範囲（スキ数・価格）と日付（公開日・入手日）だけ。1つの範囲で2つの帯は指せないので、AND でつなぐと2つ目を置く意味が無い。
+/// 除くを付けた物は和集合に入れず、除かない物の和集合からそれぞれ引く（<see cref="SearchFilterPass"/>）。ほかの種類との間は今までどおり AND。
+/// </param>
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false, bool OrSameKind = false);
 
 /// <summary>
 /// 条件の並びの決まり（純粋な関数・試験あり）。足す位置と「同じ種類の条件を隣に並べる」（ユーザ判断 2026-10-01・案の §5）。
@@ -144,10 +150,10 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れたカテゴリを含む）で絞ります。", AllowsMany: true),
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
-        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。"),
-        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。"),
+        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", AllowsMany: true, OrSameKind: true),
+        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品で絞ります。非公開・削除された商品は、既定では表示しません。"),
-        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。"),
+        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
         new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰ったもので、自分でも買ったものは両方に表示されます。"),
@@ -156,7 +162,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
-        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。"),
+        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したかどうかで絞ります。"),
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
