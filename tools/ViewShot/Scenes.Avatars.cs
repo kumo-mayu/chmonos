@@ -150,15 +150,22 @@ internal static partial class Scenes
         });
 
         var main = await context.StartAsync();
-        // 検索の写しを読み終える前に開くと、行を作る時点で商品を引けず、持っているアバターまで名前だけの札になる
-        // （回すたびに絵が変わった。2026-10-02 にこの台で見つけた。アプリでも起動直後に開くと起きうる）
-        await SceneContext.UntilAsync(() => main.Search.TotalCount == 3, "商品を読み終える");
+        // 検索が商品を読み終えるのを待たずに開く（起動直後に開くのと同じ）。前は行を作る時点で商品を引けず、
+        // 持っているアバターまで名前だけの札になって、回すたびに絵が変わった（2026-10-02 にこの台で見つけた）。
+        // 今は検索が読み終えたら行が商品を引き直すので、待たなくても同じ絵になる
         main.ShowAvatarsCommand.Execute(null);
         var root = context.MainWindow();
         await context.PresentAsync(root);
         var avatars = context.Screen<AvatarsViewModel>();
         await SceneContext.UntilAsync(() => !avatars.IsLoading && avatars.Rows.Count == entries.Count, "アバターが並ぶ");
+        await SceneContext.UntilAsync(() => !main.Search.IsLoading && main.Search.TotalCount == 3, "商品を読み終える");
         await context.SettleAsync();
+
+        var withoutCard = avatars.Rows.Where(row => row.IsOwned && !row.HasCard).Select(row => row.Name).ToList();
+        if (withoutCard.Count > 0)
+        {
+            throw new InvalidOperationException($"持っているアバターが名前だけの札のまま：{string.Join("、", withoutCard)}");
+        }
         return (avatars, root);
     }
 
