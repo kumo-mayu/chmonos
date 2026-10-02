@@ -70,7 +70,8 @@ Check("止めると失敗として返る", !r3.Succeeded);
 Check("止めても元は無傷", Same(original, Manifest(movedD)));
 var leftover = Directory.Exists(halfC) ? Directory.EnumerateFiles(halfC, "*", SearchOption.AllDirectories).Count() : 0;
 Console.WriteLine($"  止めた後に運ぶ先に残ったファイル：{leftover:N0}（返った文：{r3.Error}）");
-var summary = StoreMover.Summarize(halfC);
+Check("止めた後、運ぶ先に何も残らない（2026-10-02 の直し）", leftover == 0 && r3.LeftoverAt is null && !Directory.Exists(halfC));
+var summary = Directory.Exists(halfC) ? StoreMover.Summarize(halfC).ToString() : "（運ぶ先のフォルダごと無い）";
 Console.WriteLine($"  残った先の見え方（次に同じ先を選んだとき）：{summary}");
 var r3b = await MoveAsync("止めた先へもう一度運ぶ（D→C）", movedD, halfC);
 Console.WriteLine($"  もう一度運ぶ：成功={r3b.Succeeded} 文={r3b.Error}");
@@ -132,6 +133,7 @@ catch (OperationCanceledException)
 
 var restoreLeft = Directory.Exists(restoreCancel) ? Directory.EnumerateFiles(restoreCancel, "*", SearchOption.AllDirectories).Count() : 0;
 Console.WriteLine($"  中止={restoreCanceled} 残ったファイル：{restoreLeft:N0}");
+Check("戻すを止めた後、展開先に何も残らない（2026-10-02 の直し）", restoreCanceled && restoreLeft == 0 && !Directory.Exists(restoreCancel));
 
 Console.WriteLine();
 Console.WriteLine(failures.Count == 0 ? "すべて期待どおり" : $"期待と違った：{string.Join(" / ", failures)}");
