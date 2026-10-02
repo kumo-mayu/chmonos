@@ -197,6 +197,12 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
     public bool HasSubText => SubText.Length > 0;
 
     /// <summary>
+    /// 2行目が商品名か。ファイル名で出しているとき、2行目の商品名は「どの商品か」を知らせる字なので、小さな灰色の補足にすると
+    /// 読み飛ばされる（ユーザ指摘 2026-10-02 メモ6）。本文の色で出す。商品名で出しているときの2行目（元のファイル名）は補足なので灰色のまま
+    /// </summary>
+    public bool SubTextIsItemName => Entry?.Item is not null && !ShowsItemNameNow;
+
+    /// <summary>
     /// 商品名で出すか。**行を作り直さずに知らせ直す**——作り直すと一覧が丸ごと入れ替わり、流した位置・キーボードの止まり・
     /// 選んだ行が動く（同じファイルを2つの商品が持つと鍵が同じ行が2つあり、選び直しで別の商品の行へ移った）
     /// </summary>
@@ -216,6 +222,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
                 OnPropertyChanged(nameof(Title));
                 OnPropertyChanged(nameof(SubText));
                 OnPropertyChanged(nameof(HasSubText));
+                OnPropertyChanged(nameof(SubTextIsItemName));
             }
         }
     }

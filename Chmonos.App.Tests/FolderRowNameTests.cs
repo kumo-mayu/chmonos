@@ -92,6 +92,30 @@ public class FolderRowNameTests
     });
 
     [Fact]
+    public Task 二行目が商品名のときだけ_本文の色で出す印が立つ() => TestApp.Run(async app =>
+    {
+        // ファイル名で出しているとき、2行目の商品名は灰色の小さな字だと読み飛ばされる（メモ6-①）。
+        // 商品名で出しているときの2行目（元のファイル名）と、未確定・フォルダの2行目は補足なので灰色のまま
+        var (_, folders) = await OpenAsync(app);
+
+        var dress = Row(folders, "dress_v2.zip");
+        var hairFolder = folders.Rows.Single(row => row.Kind == FolderViewRowKind.ItemFolder);
+        var stray = Row(folders, "unknown.zip");
+        Assert.True(dress.SubTextIsItemName);
+        Assert.True(hairFolder.SubTextIsItemName);
+        Assert.False(stray.SubTextIsItemName);
+        Assert.All(folders.Rows.Where(row => row.IsFolderLike), row => Assert.False(row.SubTextIsItemName));
+
+        var changed = new List<string?>();
+        dress.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+        folders.ShowItemNamesCommand.Execute(null);
+
+        Assert.False(dress.SubTextIsItemName);
+        Assert.False(hairFolder.SubTextIsItemName);
+        Assert.Contains(nameof(FolderViewRow.SubTextIsItemName), changed);
+    });
+
+    [Fact]
     public Task 二つの商品が持つファイルは_商品ごとの行にそれぞれの商品名を出す() => TestApp.Run(async app =>
     {
         var (_, folders) = await OpenAsync(app);
