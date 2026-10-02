@@ -32,12 +32,14 @@ using SixLabors.ImageSharp.PixelFormats;
 //   attach <パスの一部> <商品の番号>   未確定のファイルを、作り物の商品（1 始まり）に紐付ける
 //   settings <鍵>=<値>…               設定を変える（importFolders・watchedFolders は ; で区切る）
 //   manage                             管理の画面の台にする（タグ・属性・知らせ・改変を、今ある商品に大量に入れる）
+//   changes                            商品ページの変化の知らせ（変わった行・名前・価格・販売終了）を、商品7件に作る
+//                                      （アプリの取り直し＝ItemService.RefreshAsync に、台本どおりの JSON と HTML を返して作る）
 //   show                               今の数を出す（商品・未確定・取り込み元）
 
 Console.OutputEncoding = Encoding.UTF8;
 if (args.Length < 2)
 {
-    Console.Error.WriteLine("使い方: SandboxGen <保存先> <init|items|scan|register|attach|settings|show> [引数…]");
+    Console.Error.WriteLine("使い方: SandboxGen <保存先> <init|items|scan|register|attach|settings|manage|changes|show> [引数…]");
     return 2;
 }
 
@@ -93,6 +95,7 @@ var code = step switch
     "attach" => await AttachAsync(rest[0], int.Parse(rest[1])),
     "settings" => await ChangeSettingsAsync(rest),
     "manage" => await FillManageAsync(),
+    "changes" => await ChangesAsync(),
     "show" => await ShowAsync(),
     _ => Unknown(step),
 };
@@ -493,6 +496,68 @@ async Task<int> FillManageAsync()
     return 0;
 }
 
+// 商品ページの変化の知らせを作る。知らせの中身（変わった行・名前・価格・販売終了）を実機で見るための台。
+//
+// **知らせは ItemService.RefreshAsync が作る**（NoteChangesAsync は private で、BoothChanges.Describe の結果から組む）。
+// 知らせを手で組むと、行の差の作り方（LineDiff）が変わったときに写しだけ古い形で残るので、
+// つながらない相手に「前の版」「今の版」の商品JSONとHTMLを返させ、アプリの取り直しをそのまま通す。
+// まず全商品を前の版へ取り直し、知らせを空にしてから、今の版へ取り直す（前の版へ寄せるときの知らせを残さない）
+async Task<int> ChangesAsync()
+{
+    var scripts = ChangeScriptData.Scripts;
+    var ids = store.Items.EnumerateItemIds().Where(id => !LocalItemId.IsLocal(id)).OrderBy(id => id, StringComparer.Ordinal).Take(scripts.Length).ToList();
+    if (ids.Count < scripts.Length)
+    {
+        Console.Error.WriteLine($"商品が足りない: {ids.Count} 件（{scripts.Length} 件要る。先に items）");
+        return 2;
+    }
+
+    var service = new ItemService(store, client, images, Settings);
+    // 色・価格・分類などの土台は、商品を足した直後の姿。版ごとに足す物だけ重ねる
+    var bases = new Dictionary<string, ItemRecord>();
+    for (var n = 0; n < ids.Count; n++)
+    {
+        bases[ids[n]] = (await store.Items.LoadAsync(ids[n]))!;
+        await RefreshAsAsync(service, bases[ids[n]], scripts[n][0]);
+    }
+
+    await store.Notifications.SaveAsync(new List<NotificationRecord>());
+    for (var n = 0; n < ids.Count; n++)
+    {
+        // 2版目以降は続けて取り直す（同じ商品に2回続けて変わった場合。未読の知らせの重ね方を見る）
+        for (var version = 1; version < scripts[n].Length; version++)
+        {
+            await RefreshAsAsync(service, bases[ids[n]], scripts[n][version]);
+        }
+    }
+
+    // 取り直しは次の予定日を普段の間隔で置く。作り物の番号は BOOTH に無いので、来ない先へ戻す
+    foreach (var id in ids)
+    {
+        var item = (await store.Items.LoadAsync(id))!;
+        await store.Items.SaveLocalAsync(
+            id, item.Local with { NextFetchDueAt = new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero) }, LocalOwners.Fetch);
+    }
+
+    var notes = store.Notifications.Load();
+    var updated = notes.Where(note => note.Kind == NotificationKind.ItemUpdated).ToList();
+    var withLines = updated.Where(note => note.Diffs.Any(diff => diff.Lines is { Count: > 0 })).ToList();
+    Console.WriteLine($"変化の知らせを作った: 知らせ {notes.Count} 件（商品の更新 {updated.Count}）・変わった行を持つ {withLines.Count} 件"
+        + $"・足した行 {withLines.Sum(note => note.Diffs.Sum(diff => diff.Lines?.Count(line => line.Kind == NotificationLineKind.Added) ?? 0))}"
+        + $"・消した行 {withLines.Sum(note => note.Diffs.Sum(diff => diff.Lines?.Count(line => line.Kind == NotificationLineKind.Removed) ?? 0))}");
+    return 0;
+}
+
+async Task RefreshAsAsync(ItemService service, ItemRecord baseItem, ChangeVersion version)
+{
+    client.Script[baseItem.Id] = (version.ToJson(baseItem), version.ToHtml());
+    var outcome = await service.RefreshAsync(baseItem.Id);
+    if (outcome != RefreshOutcome.Updated)
+    {
+        throw new InvalidOperationException($"取り直せなかった: {baseItem.Id} → {outcome}");
+    }
+}
+
 async Task<int> ShowAsync()
 {
     // アプリと同じ読み方で全部読む（読めない物があればここで分かる）
@@ -519,6 +584,9 @@ internal sealed class OfflineClient : IBoothClient
 
     public int Calls => _calls;
 
+    /// <summary>商品の番号ごとに、返す商品JSONとHTML（changes の手順だけが置く。台本に無い商品は断る）。</summary>
+    public Dictionary<string, (string Json, string Html)> Script { get; } = [];
+
 #pragma warning disable CS0067 // 取得をしないので、知らせる物が無い
     public event Action<BoothActivity>? ActivityChanged;
 #pragma warning restore CS0067
@@ -533,9 +601,11 @@ internal sealed class OfflineClient : IBoothClient
         return Task.FromResult(BoothFetchResult<T>.Unreachable("写しを組む道具は BOOTH へ問い合わせない"));
     }
 
-    public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default) => Refuse<string>();
+    public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
+        => Script.TryGetValue(itemId, out var scripted) ? Task.FromResult(BoothFetchResult<string>.Success(scripted.Json)) : Refuse<string>();
 
-    public Task<BoothFetchResult<string>> GetItemHtmlAsync(string itemId, CancellationToken cancellationToken = default) => Refuse<string>();
+    public Task<BoothFetchResult<string>> GetItemHtmlAsync(string itemId, CancellationToken cancellationToken = default)
+        => Script.TryGetValue(itemId, out var scripted) ? Task.FromResult(BoothFetchResult<string>.Success(scripted.Html)) : Refuse<string>();
 
     public Task<BoothFetchResult<byte[]>> GetBinaryAsync(string url, CancellationToken cancellationToken = default) => Refuse<byte[]>();
 
