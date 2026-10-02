@@ -152,16 +152,21 @@ internal static class ItemSelectionActions
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
             var shown = UnityQueueOutcome.Describe(outcomes);
             setQueueText(string.Empty);
+
+            // 止めただけ（送れなかった物が全部、人が止めた分）なら失敗ではない。警告の印にすると失敗に読める
+            // （1件だけ送るのを止めたときと同じ扱い。ユーザ判断 2026-10-02「おすすめで良い」）
+            var onlyStopped = failed.All(outcome => Services.UnityImportQueue.IsStopped(outcome.Problem));
+
             // 送っている間は Unity が手前にいるので、主の窓を戻してから言う
             // 止めたときは、1件ずつ理由を並べない（全部同じ理由なので読む物が増えるだけ。E7）
             FrontNotice.Show(
-                failed.Count == 0 || failed.All(outcome => Services.UnityImportQueue.IsStopped(outcome.Problem))
+                onlyStopped
                     ? shown
                     : $"{shown}{failed.Count} 件は送れませんでした：\n\n"
                         + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)),
                 title,
                 System.Windows.MessageBoxButton.OK,
-                failed.Count == 0 ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+                onlyStopped ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
         }
         finally
         {
