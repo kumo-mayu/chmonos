@@ -125,6 +125,14 @@
         </Border>
 
         <!--
+            大きさのスライダーは検索と同じ部品で、検索などと同じく画面の右下に固定する（ユーザ判断 2026-09-29・2026-10-02）。
+            流れる入れ物の中に置くと、使ったものの一覧の大きさが変わるたびに一緒に動いて、手を置いた所から逃げていた。
+            下から積むので、流れる入れ物より先に書く
+        -->
+        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False"
+                        Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+        <!--
             **横にも送れるようにする。**商品ページで踏んだのと同じ理由——
             左の列が固定幅なので、窓が狭いと右の列が幅0まで潰れて到達できなくなる
         -->
@@ -464,10 +472,6 @@
                                     </ListView.View>
                                 </ListView>
                             </Grid>
-                            <!-- 大きさのスライダーは検索と同じ部品（カードとリストの切り替えのある画面すべてに置く・ユーザ判断 2026-09-29） -->
-                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False"
-                                            Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
                             <!-- 手で足す入口。手元にある商品だけを候補に出す -->
                             <controls:SuggestBox Source="{Binding ItemSuggestions}" AllowNew="False"
                                                  CommitCommand="{Binding AddMemberCommand}"
@@ -571,9 +575,7 @@
                                 VRChat の blueprint ID（ユーザ指示 2026-09-19：改変の名前の下に）。
                                 VRChat の OSC に /avatar/change で送ると、このアバターに着替えられる
                             -->
-                            <TextBlock Text="VRChatのblueprint ID" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
-                            <TextBlock Text="アップロードしたアバターのID（avtr_…）。入れておくと、VRChatをこのアバターに着替えられます。打ち終えると保存されます。"
-                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <TextBlock Text="VRChatのblueprint ID" Style="{StaticResource SectionLabel}" Margin="0,16,0,8" />
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="VRChatで着替える" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                         VerticalAlignment="Center" Command="{Binding ChangeAvatarCommand}"
@@ -583,6 +585,8 @@
                                          AutomationProperties.Name="VRChatのblueprint ID"
                                          Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
                             </DockPanel>
+                            <TextBlock Text="アップロードしたアバターのID（avtr_…）。入れておくと、VRChatをこのアバターに着替えられます。打ち終えると保存されます。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             <TextBlock Text="{Binding BlueprintHint}" FontSize="11" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0"
                                        Visibility="{Binding HasBlueprintHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
