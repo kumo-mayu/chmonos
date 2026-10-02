@@ -268,6 +268,57 @@ public class JsonStoreTests : IDisposable
         Assert.False(File.Exists(temporary));
     }
 
+    /// <summary>
+    /// 置き換えている間も、ほかの読み手からは本体が在り続け、開けて、旧か新のどちらかが読める（2026-10-02）。
+    ///
+    /// <c>File.Replace</c> の間は本体が一瞬「無い」・共有違反に見え、錠を取らない読みが商品を取りこぼし、一覧を空として受けていた
+    /// （まれに落ちていた「見つからないファイルを探す」「未確定の登録と均し」の試験の原因）。
+    /// 前の置き換えでは、この回数で読み手の失敗が必ず数百回出た。名前が途切れない改名なら0回になる。
+    /// 時計には頼らず、書き手が決まった回数を書き終えるまで読み続ける。
+    /// </summary>
+    [Fact]
+    public async Task ReadersNeverSeeTheFileMissingWhileItIsReplaced()
+    {
+        Directory.CreateDirectory(_directory);
+        JsonStore.Write(FilePath, new List<int> { 0 });
+        var done = 0;
+        var failures = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        var readers = Enumerable.Range(0, 2).Select(_ => Task.Run(() =>
+        {
+            while (Volatile.Read(ref done) == 0)
+            {
+                try
+                {
+                    if (JsonStore.Read<List<int>>(FilePath) is not [_])
+                    {
+                        failures.Enqueue("無い・中身が違う");
+                    }
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    failures.Enqueue(exception.GetType().Name);
+                }
+            }
+        })).ToList();
+
+        try
+        {
+            for (var round = 1; round <= 300; round++)
+            {
+                await JsonStore.WriteAsync(FilePath, new List<int> { round });
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref done, 1);
+            await Task.WhenAll(readers);
+        }
+
+        Assert.Empty(failures);
+        Assert.Equal([300], JsonStore.Read<List<int>>(FilePath)!);
+    }
+
     /// <summary>それ以外の失敗は今までどおり投げる（据え直しで隠さない）。</summary>
     [Fact]
     public void OtherReplaceFailuresStillThrow()
