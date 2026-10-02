@@ -100,22 +100,27 @@
 
     <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+        <!--
+            狭いと説明文が右の選択欄の下に潜っていたので、入り切らないときは選択欄を次の段へ送る（SplitRowPanel。2026-10-02 メモ6-④）。
+            MinLeftWidth は説明文が省略されずに読める幅。これより左が狭くなる幅では送る
+        -->
+        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
-            <Grid Margin="24,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="統計" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+            <controls:SplitRowPanel Margin="24,8" MinLeftWidth="480" Gap="8" VerticalAlignment="Center">
+                <DockPanel VerticalAlignment="Center" MinHeight="35">
+                    <TextBlock Text="統計" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left" />
                     <!-- 何を数えているかを最初に断る。件数の意味を取り違えると読み方が全部ずれる -->
                     <TextBlock Text="ファイルを持っている商品だけを集計しています。非表示とR-18も含みます。"
-                               Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
+                               Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
 
                 <ComboBox HorizontalAlignment="Right" VerticalAlignment="Center" Width="150"
                           AutomationProperties.Name="集計する期間"
                       ItemsSource="{x:Static vm:StatsViewModel.Ranges}"
                           SelectedItem="{Binding Range, Mode=TwoWay}"
                           DisplayMemberPath="Label" />
-            </Grid>
+            </controls:SplitRowPanel>
         </Border>
 
         <Grid>
