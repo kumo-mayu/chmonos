@@ -54,6 +54,20 @@ public sealed class SplitRowPanel : Panel
         set => SetValue(SendsLeftDownProperty, value);
     }
 
+    public static readonly DependencyProperty AlignsTopProperty = DependencyProperty.Register(
+        nameof(AlignsTop), typeof(bool), typeof(SplitRowPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+    /// <summary>
+    /// 1行のとき、左右を上端に揃える（既定は上下の中央）。左が数行に折り返す文のとき（要確認の束の見出し：名前と説明）、
+    /// 右の件数が説明の真ん中に浮くと、名前の行と並ばずに読みにくい
+    /// </summary>
+    public bool AlignsTop
+    {
+        get => (bool)GetValue(AlignsTopProperty);
+        set => SetValue(AlignsTopProperty, value);
+    }
+
     /// <summary>今、2行に分けて置いているか（試験と、場面の確かめで読む）。</summary>
     internal bool IsStacked => _stacked;
 
@@ -138,8 +152,13 @@ public sealed class SplitRowPanel : Panel
         }
 
         var leftWidth = Math.Max(0, finalSize.Width - Gap - rightSize.Width);
-        left.Arrange(new Rect(0, (finalSize.Height - left.DesiredSize.Height) / 2, leftWidth, left.DesiredSize.Height));
-        right.Arrange(new Rect(finalSize.Width - rightSize.Width, (finalSize.Height - rightSize.Height) / 2, rightSize.Width, rightSize.Height));
+        var topAligned = AlignsTop;
+        left.Arrange(new Rect(0, topAligned ? 0 : (finalSize.Height - left.DesiredSize.Height) / 2, leftWidth, left.DesiredSize.Height));
+        right.Arrange(new Rect(
+            finalSize.Width - rightSize.Width,
+            topAligned ? 0 : (finalSize.Height - rightSize.Height) / 2,
+            rightSize.Width,
+            rightSize.Height));
         return finalSize;
     }
 }

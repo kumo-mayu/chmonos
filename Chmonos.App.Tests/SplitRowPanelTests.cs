@@ -66,6 +66,45 @@ public class SplitRowPanelTests
         Assert.Equal(new Rect(203, 21, 100, 32), LayoutInformation.GetLayoutSlot(right));
     });
 
+    // 要確認の束の見出し（メモ13-①）：左＝折り返す説明、右＝件数の札（300×24）。前は右の 400 を常に空けていて、狭い窓で説明だけが細くなった
+    private static (SplitRowPanel Panel, TextBlock Left, Border Right) BuildInboxHead(double width)
+    {
+        var left = new TextBlock { Text = new string('説', 60), TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        var right = new Border { Width = 300, Height = 24 };
+        var panel = new SplitRowPanel { Gap = 16, MinLeftWidth = 320, AlignsTop = true };
+        panel.Children.Add(left);
+        panel.Children.Add(right);
+        panel.Measure(new Size(width, double.PositiveInfinity));
+        panel.Arrange(new Rect(0, 0, width, panel.DesiredSize.Height));
+        return (panel, left, right);
+    }
+
+    [Fact]
+    public Task 束の見出しは_入り切る幅では件数を右上に置き_説明は残りの幅で折り返す() => UiThread.Run(() =>
+    {
+        var (panel, left, right) = BuildInboxHead(width: 700);
+
+        Assert.False(panel.IsStacked);
+
+        // 説明が2行以上に折り返して背が高くても、件数は名前の行と並ぶよう上端に置く
+        Assert.True(left.DesiredSize.Height > right.Height);
+        Assert.Equal(new Rect(400, 0, 300, 24), LayoutInformation.GetLayoutSlot(right));
+        Assert.Equal(0, LayoutInformation.GetLayoutSlot(left).Top);
+        Assert.Equal(384, LayoutInformation.GetLayoutSlot(left).Width);
+    });
+
+    [Fact]
+    public Task 束の見出しは_狭い幅では件数を次の段へ送り_説明は幅いっぱいを使う() => UiThread.Run(() =>
+    {
+        var (panel, left, right) = BuildInboxHead(width: 600);
+
+        // 320＋16＋300 は 600 に入らない
+        Assert.True(panel.IsStacked);
+        Assert.Equal(600, LayoutInformation.GetLayoutSlot(left).Width);
+        Assert.Equal(300, LayoutInformation.GetLayoutSlot(right).Left);
+        Assert.True(LayoutInformation.GetLayoutSlot(right).Top >= left.DesiredSize.Height);
+    });
+
     [Fact]
     public Task 右の塊を隠しているときは_左だけを行の幅いっぱいに置く() => UiThread.Run(() =>
     {

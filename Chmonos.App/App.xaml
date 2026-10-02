@@ -72,6 +72,31 @@
         </Style>
 
         <!--
+            変わった行1つ（ChangedLineRow。メモ13-②）。要確認の札と商品ページの「消えた行」で同じ形にする。
+            色は商品ページの変わった所の印と同じ鍵（足した＝Good・消した＝Bad）で、色だけに頼らず札の文字も分ける
+        -->
+        <DataTemplate x:Key="ChangedLineTemplate" DataType="{x:Type vm:ChangedLineRow}">
+            <Grid Margin="0,2,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Face" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,1,7,0" VerticalAlignment="Top"
+                        Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}">
+                    <TextBlock x:Name="Word" Text="{Binding Label}" FontSize="10" Foreground="{DynamicResource Good}" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11.5" TextWrapping="Wrap" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsAdded}" Value="False">
+                    <Setter TargetName="Face" Property="Background" Value="{DynamicResource BadSoft}" />
+                    <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+                    <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource Bad}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!--
             何も無いときの文（空の表示）。欄の幅で折り返して中央に置く。折り返しを指定しない TextBlock は1行ぶんの幅を要求するので、
             窓が狭いと欄の外へ両側にはみ出して切れた（2026-10-02 メモ6-④：要確認で幅500のとき両端が切れた）。
             MaxWidth は広い窓で行が長くなりすぎないための上限で、欄が狭いときは欄の幅が先に効く

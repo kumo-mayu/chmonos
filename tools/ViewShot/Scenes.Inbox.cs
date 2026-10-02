@@ -59,6 +59,73 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 説明文の見出しの変更を、変わった行だけで出す（メモ13-②）。行の多い見出しは「ほか n 行」、行を持たない前の形の知らせは頭の抜き出しのまま
+        new Scene("inbox-lines", "要確認：説明文の見出しの変更を、足した行・消した行で出した所（行の多い見出し・前の形の知らせ・価格と並べて）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900502", "作り物の衣装セット");
+            static NotificationLine Line(bool added, string text)
+                => new() { Kind = added ? NotificationLineKind.Added : NotificationLineKind.Removed, Text = text };
+            await context.Seed.Notifications.SaveAsync(
+            [
+                new NotificationRecord
+                {
+                    Id = "viewshot-lines-1",
+                    Kind = NotificationKind.ItemUpdated,
+                    ItemId = item.Id,
+                    Title = "「作り物の衣装セット」が更新されました",
+                    Detail = "作り物の知らせ",
+                    IsStrong = true,
+                    Diffs =
+                    [
+                        new NotificationDiff { Field = "価格", Before = "¥ 1,500", After = "¥ 1,800" },
+                        new NotificationDiff
+                        {
+                            Field = "更新履歴",
+                            Before = "v1.0 公開しました v1.1 袖の形を直しました",
+                            After = "v1.0 公開しました v1.1 袖の形を直しました",
+                            Lines = [Line(false, "v1.2 予定：テクスチャを足します"), Line(true, "v1.2 テクスチャを2色足しました（2026-10-01）")],
+                        },
+                        new NotificationDiff
+                        {
+                            Field = "同梱物",
+                            After = "unitypackage",
+                            Lines =
+                            [
+                                Line(true, "unitypackage（本体）"),
+                                Line(true, "テクスチャ（PNG・2048px）"),
+                                Line(true, "着せ替え用のプレハブ"),
+                                Line(true, "説明書（PDF）"),
+                                Line(true, "おまけの小物"),
+                                Line(true, "差分のテクスチャ"),
+                            ],
+                            MoreAdded = 3,
+                        },
+                    ],
+                    CreatedAt = new DateTimeOffset(2026, 10, 1, 21, 0, 0, TimeSpan.FromHours(9)),
+                },
+                new NotificationRecord
+                {
+                    Id = "viewshot-lines-2",
+                    Kind = NotificationKind.ItemUpdated,
+                    ItemId = item.Id,
+                    Title = "「作り物の衣装セット」が更新されました（前の形の知らせ）",
+                    Detail = "作り物の知らせ",
+                    Diffs = [new NotificationDiff { Field = "注意事項", Before = "作り物の注意書きです。", After = "作り物の注意書きです。" }],
+                    CreatedAt = new DateTimeOffset(2026, 9, 30, 21, 0, 0, TimeSpan.FromHours(9)),
+                },
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            await SceneContext.UntilAsync(() => inbox.Lines.OfType<InboxRowLine>().Count() == 2, "知らせの行が2つ並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 行の名前と ID を付けたときに、木（peers）と見た目の前後を比べるために足した（2026-09-30）
         new Scene("stats", "統計：作り物の商品8件（よく買っているショップ・ディスク使用量の内訳の行）", async context =>
         {

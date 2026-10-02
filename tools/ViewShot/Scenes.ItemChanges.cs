@@ -39,7 +39,13 @@ internal static partial class Scenes
 
         new Scene("item-page-changes", "商品ページ：BOOTHで変わった所の印（商品名・価格と数・画像・販売終了・見出しの変更と追加・消えた見出し）", async context =>
         {
-            var item = await SeedTaggedItemAsync(context, "9900603", delisted: true);
+            // 見出しの本文は複数行にし、変わった行（メモ13-②）を本文の上の地と、見出しの下の消えた行で見る
+            var item = await SeedTaggedItemAsync(context, "9900603", delisted: true, sections:
+            [
+                new H2Section { Heading = "★更新履歴★", Text = "v1.0 公開しました\nv1.1 袖の形を直しました\nv1.2 テクスチャを2色足しました" },
+                new H2Section { Heading = "同梱物", Text = "unitypackage\nテクスチャ（PNG）" },
+                new H2Section { Heading = "注意事項", Text = "作り物の注意書きです。\n改変は自由です。" },
+            ]);
             await context.Seed.Notifications.SaveAsync(
             [
                 new NotificationRecord
@@ -56,9 +62,39 @@ internal static partial class Scenes
                         new NotificationDiff { Field = BoothChanges.PriceField, Before = "¥ 1,200", After = "¥ 1,500" },
                         new NotificationDiff { Field = BoothChanges.VariationsField, Before = "2 件", After = "3 件" },
                         new NotificationDiff { Field = BoothChanges.ImagesField, Before = "4 枚", After = "3 枚" },
-                        new NotificationDiff { Field = "更新履歴", Before = "v1.0 公開", After = "v1.1 袖の形を直しました" },
-                        new NotificationDiff { Field = "同梱物", After = "unitypackage・テクスチャ" },
-                        new NotificationDiff { Field = "旧版について", Before = "旧版は配布を終えました" },
+                        new NotificationDiff
+                        {
+                            Field = "更新履歴",
+                            Before = "v1.0 公開しました v1.1 袖の形を直した",
+                            After = "v1.0 公開しました v1.1 袖の形を直しました v1.2 テクスチャを2色足しました",
+                            Lines =
+                            [
+                                Line(false, "v1.1 袖の形を直した"),
+                                Line(true, "v1.1 袖の形を直しました"),
+                                Line(true, "v1.2 テクスチャを2色足しました"),
+                            ],
+                        },
+                        new NotificationDiff
+                        {
+                            Field = "同梱物",
+                            After = "unitypackage テクスチャ（PNG）",
+                            Lines = [Line(true, "unitypackage"), Line(true, "テクスチャ（PNG）")],
+                        },
+                        new NotificationDiff
+                        {
+                            Field = "注意事項",
+                            Before = "作り物の注意書きです。 再配布は禁止です。",
+                            After = "作り物の注意書きです。 改変は自由です。",
+                            Lines =
+                            [
+                                Line(false, "再配布は禁止です。"),
+                                Line(false, "旧版の利用は自己責任でお願いします。"),
+                                Line(false, "問い合わせはメッセージからどうぞ。"),
+                                Line(true, "改変は自由です。"),
+                            ],
+                            MoreRemoved = 2,
+                        },
+                        new NotificationDiff { Field = "旧版について", Before = "旧版は配布を終えました", Lines = [Line(false, "旧版は配布を終えました")] },
                     ],
                     CreatedAt = new DateTimeOffset(2026, 10, 1, 21, 0, 0, TimeSpan.FromHours(9)),
                 },
@@ -74,8 +110,12 @@ internal static partial class Scenes
         },
     ];
 
+    private static NotificationLine Line(bool added, string text)
+        => new() { Kind = added ? NotificationLineKind.Added : NotificationLineKind.Removed, Text = text };
+
     /// <summary>ユーザータグ（小分類あり・なし）・BOOTHのタグ・見出し3つ・バリエーション3つの商品。主画面を組む前に呼ぶ。</summary>
-    private static Task<ItemRecord> SeedTaggedItemAsync(SceneContext context, string id, bool delisted = false)
+    private static Task<ItemRecord> SeedTaggedItemAsync(
+        SceneContext context, string id, bool delisted = false, IReadOnlyList<H2Section>? sections = null)
         => context.Fake.ItemAsync(
             id,
             "作り物の衣装セット 改",
@@ -84,7 +124,7 @@ internal static partial class Scenes
                 Booth = record.Booth with
                 {
                     Description = "場面を描くための作り物の商品です。",
-                    H2Sections =
+                    H2Sections = sections ??
                     [
                         new H2Section { Heading = "★更新履歴★", Text = "v1.1 袖の形を直しました" },
                         new H2Section { Heading = "同梱物", Text = "unitypackage・テクスチャ" },

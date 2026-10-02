@@ -132,6 +132,18 @@ public sealed class SectionRow(Core.Models.H2Section section) : ViewModelBase
         set => SetField(ref _change, value);
     }
 
+    private ChangedLineMarks _lines = ChangedLineMarks.None;
+
+    /// <summary>
+    /// 本文の中の変わった行（メモ13-②・ユーザ指示 2026-10-02「項目だけではどこが変更されたのか、要確認画面と往復しないと分からない」）。
+    /// 足した行は本文の上で地を付け、消えた行は本文に無いので見出しのすぐ下に並べる。「既読にする」で外す
+    /// </summary>
+    public ChangedLineMarks Lines
+    {
+        get => _lines;
+        set => SetField(ref _lines, value);
+    }
+
     /// <summary>既定は開いた状態（ユーザ指示）。畳んだ状態で出すと、あることに気付けない。</summary>
     public bool IsOpen
     {

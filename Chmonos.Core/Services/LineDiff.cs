@@ -67,9 +67,13 @@ public static class LineDiff
         => (text ?? string.Empty)
             .Replace("\r\n", "\n")
             .Split('\n')
-            .Select(line => string.Join(' ', line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)))
+            .Select(NormalizeLine)
             .Where(line => line.Length > 0)
             .ToList();
+
+    /// <summary>1行の空白を詰める。画面が今の本文の行と差の行を突き合わせるときも、同じ詰め方で比べる。</summary>
+    public static string NormalizeLine(string line)
+        => string.Join(' ', line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>いちばん長く共通する並び（LCS）で突き合わせ、残った行を足した・消したに分ける。</summary>
     private static List<NotificationLine> Align(List<string> old, List<string> current)

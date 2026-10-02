@@ -116,7 +116,14 @@
                                                 <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium"
                                                            Visibility="{Binding Field, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 <TextBlock Text="{Binding Text}" Style="{StaticResource Caption}"
-                                                           TextWrapping="Wrap" Margin="0,3,0,0" />
+                                                           TextWrapping="Wrap" Margin="0,3,0,0"
+                                                           Visibility="{Binding Text, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                <!-- 説明文の見出しは、変わった行だけを出す（メモ13-②）。札の色と文字は商品ページの印と同じ -->
+                                                <ItemsControl ItemsSource="{Binding Lines}" Focusable="False" Margin="0,4,0,0"
+                                                              ItemTemplate="{StaticResource ChangedLineTemplate}"
+                                                              Visibility="{Binding Lines.Count, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}" />
+                                                <TextBlock Text="{Binding MoreText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                           Visibility="{Binding MoreText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -278,9 +285,14 @@
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </ToggleButton.Template>
-                                        <Grid>
+                                        <!--
+                                            名前と説明（左）と件数（右）を1行に並べ、入り切らなければ件数を次の段へ送る（メモ13-①）。
+                                            前は右の 400px を件数のために常に空けていて、窓を狭くすると説明の欄だけが細くなり改行だらけになった。
+                                            左が説明を折り返さずに要る幅は MinLeftWidth まで（説明は折り返せるので、その長さだけで件数を送らない）
+                                        -->
+                                        <controls:SplitRowPanel MinLeftWidth="320" Gap="16" AlignsTop="True">
                                             <!-- 横に並べる StackPanel だと幅が無限になり、説明文が折り返さずに右で切れていた（幅 900 で見つけた） -->
-                                            <DockPanel Margin="0,0,400,0">
+                                            <DockPanel>
                                                 <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
                                                       Width="6" Height="9" Stretch="Fill" VerticalAlignment="Top" Margin="0,4,10,0"
                                                       Visibility="{Binding IsExpanded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -328,7 +340,7 @@
                                                         ToolTip="この種別の未読を、まとめて既読にします。"
                                                         Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </StackPanel>
-                                        </Grid>
+                                        </controls:SplitRowPanel>
                                     </controls:ExpandToggle>
                                 </Grid>
                             </Border>
