@@ -237,6 +237,7 @@ public sealed partial class SearchViewModel
         // リストで出しているときは、同じ並び（商品と並べ替えの区切りの札）をそのまま渡す
         OnPropertyChanged(nameof(ListItems));
         OnPropertyChanged(nameof(DisplayItems));
+        OnPropertyChanged(nameof(ListViewItems));
 
         CardRowLayout.Apply(Rows, DisplayItems, _columns, () => new CardRow(), row => row.Cards);
     }

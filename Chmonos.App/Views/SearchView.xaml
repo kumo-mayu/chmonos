@@ -198,8 +198,12 @@
             <ColumnDefinition Width="*" MinWidth="360" />
         </Grid.ColumnDefinitions>
 
-        <!-- 絞り込み欄の幅を変える境目（ユーザ判断 2026-09-14）。畳んでいる間は出さない。開け閉めのつまみ（ZIndex 1）より下に置く -->
-        <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="0"
+        <!--
+            絞り込み欄の幅を変える境目（ユーザ判断 2026-09-14）。畳んでいる間は出さない。
+            欄の地（下の Border・ZIndex 0）より上、開け閉めのつまみ（ZIndex 2）より下に置く。
+            ZIndex 0 で欄より前に書いていたため、後ろの欄の地が境目に重なって掴めなかった（メモ1-① 2026-10-02）
+        -->
+        <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="1"
                                ResetCommand="{Binding FilterPane.ResetCommand}"
                                Visibility="{Binding FilterPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -209,7 +213,7 @@
             開いても畳んでも同じ高さに残るので、開け閉めでつまみの場所が変わらない
         -->
         <Border Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,13,-13,0"
-                Width="26" Height="26" CornerRadius="13" Panel.ZIndex="1"
+                Width="26" Height="26" CornerRadius="13" Panel.ZIndex="2"
                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1">
             <Button Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Button.Style>
@@ -1300,7 +1304,7 @@
                     リスト（ユーザ指示 2026-09-14）。1行ずつ、絵・星・名前・ショップ・札を並べる。
                     列の幅は見出しの境目をドラッグで変え、全部の行で共通（ListColumns）。行の操作はカードと同じ
                 -->
-                <controls:ItemListView ItemsSource="{Binding DisplayItems}" View="{StaticResource ItemListGridView}"
+                <controls:ItemListView ItemsSource="{Binding ListViewItems}" View="{StaticResource ItemListGridView}"
                           ItemContainerStyleSelector="{StaticResource ItemListRowStyles}"
                           ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                           BorderThickness="0" Background="Transparent" Margin="18,4,18,18"

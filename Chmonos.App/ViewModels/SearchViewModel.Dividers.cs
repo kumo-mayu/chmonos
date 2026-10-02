@@ -44,7 +44,33 @@ public sealed partial class SearchViewModel
         }
 
         _shownFrom = _matches;
-        _shown = WithDividers(_matches);
+        var next = WithDividers(_matches);
+
+        // 並びが前と同じなら前の入れ物のまま渡す（メモ2-① 2026-10-02）。何も絞っていない条件を消した・切ったときのように
+        // 結果が変わらない絞り直しで、リストに新しい並びを渡すと、行を全部組み直していた（作り物の200件で約90ms）。
+        // 札は鍵ごとに使い回しているので、同じ物かは参照で比べられる
+        if (!SameSequence(_shown, next))
+        {
+            _shown = next;
+        }
+    }
+
+    private static bool SameSequence(IReadOnlyList<object> before, IReadOnlyList<object> after)
+    {
+        if (before.Count != after.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < before.Count; index++)
+        {
+            if (!ReferenceEquals(before[index], after[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -19,6 +19,7 @@ public sealed partial class SearchViewModel
                 OnPropertyChanged(nameof(IsCardMode));
                 OnPropertyChanged(nameof(ListItems));
                 OnPropertyChanged(nameof(DisplayItems));
+                OnPropertyChanged(nameof(ListViewItems));
                 ItemListMode.Save(_services, "search", value);
             }
         }
@@ -42,4 +43,11 @@ public sealed partial class SearchViewModel
 
     /// <summary>リストに並べる物。カードと同じ物を同じ並びで（カードの ViewModel を使い回すので、星や選択も同じ）。</summary>
     public IReadOnlyList<ItemCardViewModel> ListItems => _matches;
+
+    /// <summary>
+    /// 画面のリスト（<c>ItemListView</c>）に渡す並び。**カードで出している間は空を渡す**（メモ2-① 2026-10-02）。
+    /// 隠れたリストにも絞り込みのたびに新しい並びを渡していて、その組み直しが絞り直し1回に約90ms 乗っていた
+    /// （作り物の200件・カード表示で、条件を1つ消すと画面まで約190ms のうち。`docs/research/search-modules-2026-10-01.md` §13）。
+    /// </summary>
+    public IReadOnlyList<object> ListViewItems => _isListMode ? DisplayItems : [];
 }
