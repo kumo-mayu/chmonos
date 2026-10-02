@@ -1423,15 +1423,18 @@
                     </controls:CardRowsListBox.ItemTemplate>
                 </controls:CardRowsListBox>
 
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                <!--
+                    空の文の型（EmptyTitle・EmptyNote。ui-empty-and-errors.md）。見出しは折り返しを指定しておらず、
+                    説明は折り返しても中央に揃わなかった。左右の 24 は、折り返した文が欄の縁に付かないため（フォルダの右の欄と同じ）
+                -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24,0"
                             Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="該当するものがありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
+                    <TextBlock Text="該当するものがありません" Style="{StaticResource EmptyTitle}" />
                     <!--
                         絞り込んで0件なのか、そもそも何も入っていないのかで、次にやることが違う。
                         「取り込んでください」は、条件で絞った結果が0件のときには的外れになる。
                     -->
-                    <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource Caption}"
-                               HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource EmptyNote}" Margin="0,6,0,0" />
                     <!-- 0件でも自動では広げない（ユーザ判断 2026-09-16）。広げるかはここで選ばせる -->
                     <Button Content="別表記でも検索する" Style="{StaticResource SmallButton}" HorizontalAlignment="Center"
                             Margin="0,10,0,0" Command="{Binding WidenCommand}"
