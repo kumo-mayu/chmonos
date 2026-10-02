@@ -88,7 +88,8 @@ public Task 壊れたzipだけを出すと_壊れたzipを持つ商品だけが�
   `new JapaneseDictionary(同梱の辞書, 新しい控え)` を試験ごとに書かない。控えを書き換える・壊す試験だけが、自分の一時フォルダに自分の控えを作る
   （作り物の小さい辞書で足りるなら、そちらを使う。`DictionaryFailureTests`）
 - **読むのに時間がかかる物を足すときも同じ**：組んだ後に書き換えない物なら、静的な遅延初期化で1回だけ作る。書き換える物は使い回さない
-- 「n 秒後に起きる」を実際に待たない。待つ長さを渡せる口（`delay`）か、今やる道（`Debounced.RunNowAsync`）で確かめる
+- 「n 秒後に起きる」を実際に待たない。待つ長さを渡せる口（`delay`）か、今やる道（`Debounced.RunNowAsync`）で確かめる。
+  ナビの数え直しをまとめる1秒（`MainViewModel.CountsInterval`）は `TestApp` が 0 にしている（2026-10-02。数を待つ試験が1件 約1.02秒になり、一式が37秒まで延びた。直して16秒）
 
 **探し方**：`dotnet test --no-build --logger trx --results-directory <一時フォルダ>` で試験ごとの時間が出る（`UnitTestResult` の `duration`）。
 クラスごとに足して重い順に見る。**1件の時間が1.5秒の倍数なら BOOTH の待ち、数秒で辞書を引いているなら組み直し。**

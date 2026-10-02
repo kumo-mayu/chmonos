@@ -1138,7 +1138,11 @@ public sealed partial class MainViewModel : ViewModelBase
     /// ①で③待ちが増え③で減るので、1件につき2回ほど頼まれる。その2回を1回にまとめるのに1.5秒の間隔より短く、
     /// バッジの数が遅れても人が気付かない長さとして1秒にした。間が空いていれば頼まれてすぐ読む（遅らせるのは続けて来た分だけ）。
     /// </summary>
-    private static readonly TimeSpan CountsInterval = TimeSpan.FromSeconds(1);
+    /// <remarks>
+    /// 試験は 0 にする（<c>TestApp</c>）。ナビの数を待つ試験が、まとめるための1秒を毎回実際に待っていて、
+    /// 画面の側の一式が30秒を超えた（2026-10-02。1件 約1.02秒の試験が20件ほど並んだ）。まとめる決まりそのものは変えない
+    /// </remarks>
+    internal TimeSpan CountsInterval { get; set; } = TimeSpan.FromSeconds(1);
 
     private DateTime _lastCountsAt = DateTime.MinValue;
 

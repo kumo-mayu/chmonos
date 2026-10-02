@@ -118,7 +118,8 @@ internal sealed class TestApp
     {
         if (_main is null)
         {
-            _main = new MainViewModel(Services);
+            // ナビの数え直しをまとめる1秒を、試験では待たない（数を待つ試験が1件ごとに1秒延びていた）
+            _main = new MainViewModel(Services) { CountsInterval = TimeSpan.Zero };
             await SettleAsync();
         }
 
