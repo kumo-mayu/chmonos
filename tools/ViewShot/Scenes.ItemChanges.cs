@@ -60,7 +60,39 @@ internal static partial class Scenes
         {
         },
 
-        new Scene("item-page-changes-read", "商品ページ：既読にした後（帯は同じ高さで「既読にしました」、消えた行・見出し・バリエーションは隠れる）", async context =>
+        new Scene("item-page-changes-goto", "商品ページ：商品説明と見出しを畳んだまま、上の帯の「説明文：注意事項」を押した所（開いてから測って、見出しが上端に来る）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900606");
+            var root = await OpenItemAsync(context, item);
+            var page = context.Screen<ItemViewModel>();
+            var description = page.IsDescriptionExpanded;
+            page.IsDescriptionExpanded = false;
+            foreach (var section in page.Sections)
+            {
+                section.IsOpen = false;
+            }
+
+            await context.SettleAsync();
+            page.GoToChangeCommand.Execute(page.ChangeTargets.Single(target => target.Label == "説明文：注意事項"));
+            await context.SettleAsync();
+            Chmonos.App.ViewModels.SectionFolds.DescriptionExpanded = description;
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-changes-read-scrolled", "商品ページ：「同梱物」まで流した所で既読にした後（上で消えた行の分だけ戻し、同梱物の見出しが上端に残る）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900607");
+            var root = await OpenItemAsync(context, item);
+            var page = context.Screen<ItemViewModel>();
+            page.GoToChangeCommand.Execute(page.ChangeTargets.Single(target => target.Label == "説明文：同梱物"));
+            await context.SettleAsync();
+            page.MarkChangesReadCommand.Execute(null);
+            await SceneContext.UntilAsync(() => page.IsChangesRead, "既読にして帯が「既読にしました」になる");
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-changes-read","商品ページ：既読にした後（帯は同じ高さで「既読にしました」、消えた行・見出し・バリエーションは隠れる）", async context =>
         {
             var item = await SeedChangedItemAsync(context, "9900605");
             var root = await OpenItemAsync(context, item);
