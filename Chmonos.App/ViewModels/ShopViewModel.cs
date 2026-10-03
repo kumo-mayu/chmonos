@@ -79,7 +79,6 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         _isFavorite = note?.IsFavorite == true;
         _memo = note?.Memo ?? string.Empty;
         ToggleFavoriteCommand = new RelayCommand(() => ToggleFavoriteAsync().Forget());
-        ToggleMemoCommand = new RelayCommand(() => IsMemoOpen = !IsMemoOpen);
 
         // 打つたびに書かず、止まってから1回（画面を離れても待ちは残るので、書き漏れない）
         _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
@@ -106,9 +105,6 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public string FavoriteTip => _isFavorite ? "お気に入りのショップから外す" : "お気に入りのショップにする";
 
     public RelayCommand ToggleFavoriteCommand { get; }
-
-    /// <summary>縮めた行の「メモ」：メモの欄を開く・閉じる。</summary>
-    public RelayCommand ToggleMemoCommand { get; }
 
     /// <summary>
     /// ショップのメモ。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識を1か所に書く
@@ -199,6 +195,22 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
     }
 
+    /// <summary>
+    /// 一覧の並びが変わる直前。View が見ている所を控え、変えた後に同じ商品を同じ高さに戻す
+    /// （変わったあとでは、見ていた一覧がもう隠れていて、位置を読めない）。値が変わらないときは上げない。
+    /// 引数は、見方・絞りが変わるか（カード／リスト・所持・更新あり。中身の長さが大きく変わるので、流せる長さを縮めない）、
+    /// それとも列数だけが変わるか（窓の幅・カードの大きさ。長さは自然に決まる）
+    /// </summary>
+    public event Action<bool>? ListAboutToChange;
+
+    private void NoteListAboutToChange(bool changes, bool viewChanges = true)
+    {
+        if (changes)
+        {
+            ListAboutToChange?.Invoke(viewChanges);
+        }
+    }
+
     /// <summary>預かった位置を1回だけ渡す（組み直すたびに引き戻さないように）。</summary>
     public ListAnchor? TakePendingAnchor()
     {
@@ -228,6 +240,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             return;
         }
 
+        // 一覧を読み終える前（開いた直後は1列で組まれる）は、見ている所が無いので控えない
+        NoteListAboutToChange(IsListReady, viewChanges: false);
         _columns = columns;
         FillRows();
     }
@@ -516,130 +530,42 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
     }
 
-    // ---- 上の段を縮める（2026-10-02 のメモ7-⑤「ショップ画面の上側の結構な縦幅がバナー・名前、メモで占有されている」） ----
-    // 商品の一覧を流し始めたら、バナー・見出しと集計・メモの段を「アイコン・名前・星・集計」の1行に縮め、一番上まで戻すと元に戻す。
-    // きっかけは流した量で自動（おすすめで決めた。三角で畳む案より操作が要らない）。メモは縮めた行の「メモ」から開ける
+    // ---- 上の段と商品の一覧は1つのスクロール（2026-10-03 のメモ24） ----
+    // 前は商品の一覧だけが流れ、上の段（バナー・見出し・メモ）は流した量に合わせて別に詰めていた（メモ7-⑤・メモ19）。
+    // 一覧と上の段が別々に動いて見えるので、全体を1つのスクロールにした。名前の段が流れ去ったら、
+    // 「アイコン・名前・星・集計」の1行を上に**重ねて**出す。重ねるので、出入りで中身は動かない
+
+    /// <summary>1行の見出しの高さ（ShopView.xaml の CompactBar の Height と揃える）。「商品」の行が止まる高さにもなる。</summary>
+    internal const double CompactHeaderHeight = 52;
 
     private bool _isHeaderCompact;
-    private bool _isMemoOpen;
 
-    /// <summary>上の段を1行に縮めているか。一覧の流れの位置から決める（<see cref="NoteListScrolled"/>）。</summary>
+    /// <summary>名前の段が流れ去って、1行の見出しを重ねているか。</summary>
     public bool IsHeaderCompact
     {
         get => _isHeaderCompact;
-        private set
-        {
-            if (!SetField(ref _isHeaderCompact, value))
-            {
-                return;
-            }
-
-            // 元の段に戻したらメモは元の場所に出るので、縮めた行で開いた分は閉じておく（次に縮めたときは閉じた形から）
-            if (!value)
-            {
-                _isMemoOpen = false;
-                OnPropertyChanged(nameof(IsMemoOpen));
-            }
-
-            OnPropertyChanged(nameof(ShowFullHeader));
-            OnPropertyChanged(nameof(ShowMemo));
-            OnPropertyChanged(nameof(MemoToggleName));
-        }
+        private set => SetField(ref _isHeaderCompact, value);
     }
 
-    /// <summary>バナーと、見出しと集計の大きな段を出すか。</summary>
-    public bool ShowFullHeader => !_isHeaderCompact;
-
-    /// <summary>縮めた行の「メモ」で、メモの欄を開いているか。</summary>
-    public bool IsMemoOpen
-    {
-        get => _isMemoOpen;
-        set
-        {
-            if (SetField(ref _isMemoOpen, value))
-            {
-                OnPropertyChanged(nameof(ShowMemo));
-                OnPropertyChanged(nameof(MemoToggleName));
-            }
-        }
-    }
-
-    /// <summary>メモの欄を出すか。元の段では常に、縮めた行では「メモ」で開いたときだけ。</summary>
-    public bool ShowMemo => !_isHeaderCompact || _isMemoOpen;
-
-    /// <summary>縮めた行の「メモ」の、押すと起きること（読み上げの名前・吹き出し）。開閉の部品の言い方に揃える。</summary>
-    public string MemoToggleName => _isMemoOpen ? "ショップのメモを折りたたむ" : "ショップのメモを開く";
+    /// <summary>全体が流れた。1行の見出しを出すかを決める。</summary>
+    /// <param name="offset">流れの位置（一番上が0）。</param>
+    /// <param name="nameBottom">名前の段の下端（流す中身の上からの位置）。</param>
+    public void NoteScrolled(double offset, double nameBottom) => IsHeaderCompact = ShowsCompactHeader(offset, nameBottom);
 
     /// <summary>
-    /// 商品の一覧が流れた。流れの位置で上の段を縮める・戻す。
+    /// 1行の見出しを出すか：名前の段の下端が上端に着いたとき。名前の段が見えている間は同じ物が2つ並ぶので出さない。
+    /// 段の下端がまだ測れていない間（0以下）は出さない。端数（拡大率・画素の丸め）は0.5まで一番上として扱う
     /// </summary>
-    /// <param name="offset">一覧の縦の流れの位置（一番上が0）。</param>
-    /// <param name="scrollable">今の一覧で流せる量（中身の高さ − 見えている高さ）。</param>
-    /// <param name="maxShrink">上の段を縮め切る（1行にする）までに詰める高さ。元の段の高さ − 縮めた行の高さ。</param>
-    public void NoteListScrolled(double offset, double scrollable, double maxShrink)
-    {
-        if (_isHeaderCompact)
-        {
-            // 縮め切った後は一番上へ戻すまで動かさない（縮めた行は決め打ちの高さなので、ここで高さが段で変わることもない）
-            IsHeaderCompact = NextHeaderCompact(true, offset, scrollable, maxShrink);
-            if (!_isHeaderCompact)
-            {
-                HeaderShrink = 0;
-            }
-
-            return;
-        }
-
-        var shrink = NextHeaderShrink(HeaderShrink, offset, scrollable, maxShrink);
-        HeaderShrink = shrink;
-        // 詰め切った高さ＝縮めた行の高さなので、1行に切り替わる瞬間も全体の高さは変わらない
-        IsHeaderCompact = maxShrink > 0 && shrink >= maxShrink - 0.5;
-    }
-
-    private double _headerShrink;
-
-    /// <summary>上の段を詰めた高さ（元の段の上から切り落とす量。0 なら元の段）。View が段の高さに当てる。</summary>
-    public double HeaderShrink
-    {
-        get => _headerShrink;
-        private set => SetField(ref _headerShrink, value);
-    }
+    internal static bool ShowsCompactHeader(double offset, double nameBottom) => nameBottom > 0 && offset >= nameBottom - 0.5;
 
     /// <summary>
-    /// 詰める高さ。流した量と同じだけ詰め（手に付いてくる。時間では動かさない）、元の段の上（バナー → 見出し → メモの順）から切り落とす。
-    /// **詰めた量は減らさない**（一番上まで戻したときだけ0）：詰めると一覧が広がり流せる量が減るので、流れの位置で量を決め直すと
-    /// 位置が押し戻されて詰めたり開いたりを繰り返す。上限は「詰めた後も流せる量が1残る」まで（短い一覧で押し戻されない）
+    /// 「このショップの商品」の行をどれだけ下へずらすか。行が上端（1行の見出しのすぐ下）に着くまでは0、着いたら流した分だけ下げて止める。
+    /// 着く前から下げると、見出しの上で行が先に動いて見える
     /// </summary>
-    /// <param name="current">今詰めている高さ。</param>
-    /// <param name="scrollable">今の一覧で流せる量。詰めた分だけ減っているので、元の量は current を足して求める。</param>
-    internal static double NextHeaderShrink(double current, double offset, double scrollable, double maxShrink)
-    {
-        if (offset < 1)
-        {
-            return 0;
-        }
-
-        var original = scrollable + current;
-        var target = Math.Min(Math.Min(offset, maxShrink), Math.Max(0, original - 1));
-        return Math.Min(Math.Max(current, target), Math.Max(0, maxShrink));
-    }
-
-    /// <summary>
-    /// 縮めるか。**縮めた後も流れが一番上に戻らないときだけ縮める。**
-    /// 縮めると一覧の見える高さが増え、流せる量がその分減る。減った後に流せる量が残らないと、一覧は一番上へ押し戻され、
-    /// 一番上なので元に戻し、戻すとまた流せるので縮める……と、少し流しただけで段が開いたり閉じたりを繰り返す（がたつく）。
-    /// 戻すのは一番上まで流したときだけ（途中で戻すと、戻した分だけ一覧が下へずれる）。
-    /// </summary>
-    internal static bool NextHeaderCompact(bool compact, double offset, double scrollable, double collapseGain)
-    {
-        // 流れの位置は端数を持つことがある（拡大率・画素の丸め）。1未満は一番上として扱う
-        if (offset < 1)
-        {
-            return false;
-        }
-
-        return compact || scrollable - collapseGain >= 1;
-    }
+    /// <param name="offset">流れの位置。</param>
+    /// <param name="rowTop">行が本来いる位置（流す中身の上から）。</param>
+    /// <param name="pinTop">止める高さ（1行の見出しの高さ）。</param>
+    internal static double StickyShift(double offset, double rowTop, double pinTop) => Math.Max(0, offset + pinTop - rowTop);
 
     /// <summary>場所を空けている間に出す文言。何を待っているのか、何が無かったのかを書く。</summary>
     public string BannerPlaceholderText => IsBannerPending
@@ -660,6 +586,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         get => _ownedOnly;
         set
         {
+            NoteListAboutToChange(_ownedOnly != value);
             if (SetField(ref _ownedOnly, value))
             {
                 Rebuild();
@@ -676,6 +603,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         get => _updatedOnly;
         set
         {
+            NoteListAboutToChange(_updatedOnly != value);
             if (SetField(ref _updatedOnly, value))
             {
                 Rebuild();
@@ -771,6 +699,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         get => _isListMode;
         set
         {
+            NoteListAboutToChange(_isListMode != value);
             if (SetField(ref _isListMode, value))
             {
                 OnPropertyChanged(nameof(IsCardMode));

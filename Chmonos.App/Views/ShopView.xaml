@@ -51,14 +51,24 @@
             </Grid>
         </Border>
 
+
+        <!-- 右下の大きさのスライダー（検索と同じ・ユーザ判断 2026-09-29）。下から積むので、まとめて操作の帯より先に書く -->
+        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
+
+        <!-- 選んでいる間と、Unity へ送っている間に出す、まとめて操作の帯（検索・フォルダビューと同じ。動線の点検 C1） -->
+        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
+                        Visibility="{Binding ShowsSelectionBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
         <!--
-            上の段（バナー・見出しと集計・メモ）。商品の一覧を流し始めたら「アイコン・名前・星・集計」の1行に縮め、
-            一番上まで戻すと元に戻す（2026-10-02 のメモ7-⑤：縦に長く、一覧が狭かった）。縮めるかは ShopViewModel.NoteListScrolled が決め、
-            流した量に合わせて上（バナー → 見出し → メモの順）から少しずつ切り落とし、詰め切ったら1行にする。詰める高さは ShopViewModel.HeaderShrink、当てるのは ShopView.xaml.cs
+            上の段（バナー・見出しと集計・メモ）と商品の一覧は1つのスクロール（ユーザ判断 2026-10-03、メモ24）。
+            前は一覧だけが流れ、上の段は別に詰めていて、別々に動いて見えた。一番上の「← 検索に戻る」の帯は動かさない。
+            名前の段が流れ去ったら1行の見出し（CompactBar）を上に重ね、「このショップの商品」の行（StickyRow）はその下で止める
         -->
-        <Border x:Name="ShopHeaderClip" DockPanel.Dock="Top" ClipToBounds="True">
-        <StackPanel x:Name="ShopHeader" VerticalAlignment="Top" SizeChanged="OnHeaderSizeChanged">
-        <StackPanel Visibility="{Binding ShowFullHeader, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+        <Grid SizeChanged="OnShopAreaSizeChanged">
+        <controls:InsetScrollViewer x:Name="ShopScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                    CanContentScroll="False" ScrollChanged="OnShopScrollChanged">
+        <StackPanel x:Name="ScrollBody" SizeChanged="OnScrollBodySizeChanged">
+        <StackPanel x:Name="ShopHeader">
         <!--
             バナー。置いていないショップもあるので、無ければ帯ごと出さない。
             切り取らずに全体を出す（作者が作った絵なので、勝手に一部だけ見せない）。
@@ -94,7 +104,7 @@
         </Border>
 
         <!-- ショップの見出しと集計 -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
+        <Border x:Name="NameBorder" DockPanel.Dock="Top" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,20">
                 <StackPanel Orientation="Horizontal">
@@ -176,19 +186,149 @@
                 </StackPanel>
             </Grid>
         </Border>
+
+        <!--
+            ショップのメモ（ユーザ判断 2026-09-16）。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識。
+            止まってから書く（打つたびには書かない）
+        -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
+                <Grid>
+                    <TextBox MaxLength="10000" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                             TextWrapping="Wrap" MinHeight="40" MaxHeight="120" VerticalScrollBarVisibility="Auto"
+                             FontSize="12.5" Padding="6,4" AutomationProperties.Name="ショップのメモ" />
+                    <!-- 使い道を決めつけない（ユーザ指示 2026-09-16。メモ10-② 2026-10-02：用途の説明は無くし「メモ」だけにした） -->
+                    <TextBlock Text="メモ"
+                               Margin="10,6,0,0" IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Memo}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </DockPanel>
+        </Border>
         </StackPanel>
 
         <!--
-            縮めた行。高さは決め打ち（ShopView.xaml.cs の CompactHeaderHeight と揃える）——縮めたときに一覧がどれだけ広がるかを、
-            縮める前に求めるため（隠している間は高さが測れない）
+            件数（左）と「所持しているものだけ」・カード／リスト（右）。入り切らなければ右を次の行へ送る（検索の結果の上の帯と同じ部品）。
+            切り替えは一覧の右下に浮かせていたが、狭い窓でカードの上に重なった（点検 2026-09-23）。
+            流していくと上端（1行の見出しのすぐ下）で止まり、商品の上に重なって残る（ユーザ判断 2026-10-03）。止まっている間だけ下に細い線を引く
         -->
-        <Border Height="52" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+        <Border x:Name="StickyRow" Background="{DynamicResource Bg}" Panel.ZIndex="1"
+                BorderBrush="Transparent" BorderThickness="0,0,0,1" Padding="24,14,24,8"
+                controls:InsetScrollViewer.IsPinned="True" SizeChanged="OnStickyRowSizeChanged">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="StickyShift" />
+            </Border.RenderTransform>
+            <controls:SplitRowPanel MinLeftWidth="240">
+                <DockPanel VerticalAlignment="Center">
+                    <TextBlock DockPanel.Dock="Left" Text="このショップの商品" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11.5"
+                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                    <!-- 全商品ではないことを書いておく。件数の意味が変わってしまう。狭いときは省略して縮む -->
+                    <TextBlock Text="BOOTHの全商品ではなく、ローカルに情報があるものだけです。" TextTrimming="CharacterEllipsis"
+                               ToolTip="BOOTHの全商品ではなく、ローカルに情報があるものだけです。"
+                               Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox Content="所持しているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
+                              VerticalAlignment="Center" Foreground="{DynamicResource Text}" />
+                    <!-- 「更新あり」の札の付いた商品だけ。札が1枚も無い店では出さない（押しても必ず0件になる） -->
+                    <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}"
+                              VerticalAlignment="Center" Foreground="{DynamicResource Text}" Margin="14,0,0,0"
+                              Visibility="{Binding HasUpdatedItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                                    Margin="16,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </controls:SplitRowPanel>
+        </Border>
+
+        <!-- 商品の一覧（カード・リスト）。仮想化はしない（1つのショップの商品は多くない）。余りの高さは持たず、中身の高さで伸びる -->
+        <Grid x:Name="ListHost">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,60"
+                        Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="表示する商品がありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
+                <!-- なぜ無いのかと戻し方（動線の点検 D8）。空表示には次にやることを書く -->
+                <TextBlock Text="{Binding EmptyReasonText}" Style="{StaticResource Caption}" HorizontalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" Margin="0,6,0,0" />
+                <Button Content="設定を開く" Style="{StaticResource SmallButton}" HorizontalAlignment="Center" Margin="0,10,0,0"
+                        Command="{Binding ShowSettingsCommand}"
+                        Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </StackPanel>
+
+            <!-- リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える） -->
+            <controls:ItemListView x:Name="ItemList" ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+                      ItemContainerStyle="{StaticResource ItemListRowStyle}"
+                      BorderThickness="0" Background="Transparent" Margin="24,2,24,18"
+                      ScrollViewer.VerticalScrollBarVisibility="Disabled" controls:ForwardWheel.IsEnabled="True"
+                      VirtualizingPanel.IsVirtualizing="False"
+                      Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+            <!--
+                行を仮想化の単位にする（検索画面と同じ）。列数はViewModel側で幅から決める。
+                画面外の行のカードは作られないので、サムネイルの読み込みも走らない
+            -->
+            <!-- カードの行の一覧。Tab で1回だけ入り、中は矢印でカードからカードへ移る（CardRowsListBox が並び ArrowGroup になる。ユーザ判断 2026-10-01） -->
+            <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
+            <controls:CardRowsListBox x:Name="CardList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+                     Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                     Padding="24,6,24,24" HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled" controls:ForwardWheel.IsEnabled="True"
+                     VirtualizingPanel.IsVirtualizing="False">
+                <controls:CardRowsListBox.ItemContainerStyle>
+                    <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="Focusable" Value="False" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </controls:CardRowsListBox.ItemContainerStyle>
+                <controls:CardRowsListBox.ItemTemplate>
+                    <DataTemplate>
+                        <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </controls:CardRowItems>
+                    </DataTemplate>
+                </controls:CardRowsListBox.ItemTemplate>
+            </controls:CardRowsListBox>
+        </Grid>
+        </StackPanel>
+        </controls:InsetScrollViewer>
+
+        <!--
+            1行の見出し。名前の段が流れ去ったら、スクロールの上に重ねて出す（ユーザ判断 2026-10-03）。重ねるので、出入りで中身は動かない。
+            高さは決め打ち（ShopViewModel.CompactHeaderHeight と揃える）——「このショップの商品」の行が、このすぐ下で止まる。
+            右はスクロールバーの幅だけ空ける（バーを隠さない。ShopView.xaml.cs）
+        -->
+        <Border x:Name="CompactBar" Height="52" VerticalAlignment="Top" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding IsHeaderCompact, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Grid Margin="24,0" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7" ClipToBounds="True"
@@ -247,143 +387,8 @@
                     <Run Text="最終購入" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
                     <Run Text="{Binding LastAcquiredText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" />
                 </TextBlock>
-                <Button Grid.Column="3" Content="メモ" Style="{StaticResource SmallButton}" Margin="16,0,0,0" VerticalAlignment="Center"
-                        Command="{Binding ToggleMemoCommand}" ToolTip="{Binding MemoToggleName}"
-                        AutomationProperties.Name="{Binding MemoToggleName}" AutomationProperties.AutomationId="ShopCompactMemo" />
             </Grid>
         </Border>
-
-        <!--
-            ショップのメモ（ユーザ判断 2026-09-16）。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識。
-            止まってから書く（打つたびには書かない）
-        -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
-                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12"
-                Visibility="{Binding ShowMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
-                <Grid>
-                    <TextBox MaxLength="10000" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
-                             TextWrapping="Wrap" MinHeight="40" MaxHeight="120" VerticalScrollBarVisibility="Auto"
-                             FontSize="12.5" Padding="6,4" AutomationProperties.Name="ショップのメモ" />
-                    <!-- 使い道を決めつけない（ユーザ指示 2026-09-16。メモ10-② 2026-10-02：用途の説明は無くし「メモ」だけにした） -->
-                    <TextBlock Text="メモ"
-                               Margin="10,6,0,0" IsHitTestVisible="False">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Memo}" Value="">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Grid>
-            </DockPanel>
-        </Border>
-        </StackPanel>
-        </Border>
-
-        <!--
-            件数（左）と「所持しているものだけ」・カード／リスト（右）。入り切らなければ右を次の行へ送る（検索の結果の上の帯と同じ部品）。
-            切り替えは一覧の右下に浮かせていたが、狭い窓でカードの上に重なった（点検 2026-09-23）
-        -->
-        <Border DockPanel.Dock="Top" Padding="24,14,24,0">
-            <controls:SplitRowPanel MinLeftWidth="240">
-                <DockPanel VerticalAlignment="Center">
-                    <TextBlock DockPanel.Dock="Left" Text="このショップの商品" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                    <TextBlock DockPanel.Dock="Left" Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11.5"
-                               Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <!-- 全商品ではないことを書いておく。件数の意味が変わってしまう。狭いときは省略して縮む -->
-                    <TextBlock Text="BOOTHの全商品ではなく、ローカルに情報があるものだけです。" TextTrimming="CharacterEllipsis"
-                               ToolTip="BOOTHの全商品ではなく、ローカルに情報があるものだけです。"
-                               Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" />
-                </DockPanel>
-
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <CheckBox Content="所持しているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
-                              VerticalAlignment="Center" Foreground="{DynamicResource Text}" />
-                    <!-- 「更新あり」の札の付いた商品だけ。札が1枚も無い店では出さない（押しても必ず0件になる） -->
-                    <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}"
-                              VerticalAlignment="Center" Foreground="{DynamicResource Text}" Margin="14,0,0,0"
-                              Visibility="{Binding HasUpdatedItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
-                                    Margin="16,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
-            </controls:SplitRowPanel>
-        </Border>
-
-        <!-- 右下の大きさのスライダー（検索と同じ・ユーザ判断 2026-09-29）。下から積むので、まとめて操作の帯より先に書く -->
-        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
-
-        <!-- 選んでいる間と、Unity へ送っている間に出す、まとめて操作の帯（検索・フォルダビューと同じ。動線の点検 C1） -->
-        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
-                        Visibility="{Binding ShowsSelectionBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-        <!-- 一覧が流れたら上の段を縮める・戻す（カードとリストのどちらの一覧でも。メモ7-⑤） -->
-        <Grid SizeChanged="OnListSizeChanged" ScrollViewer.ScrollChanged="OnListScrollChanged">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                        Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="表示する商品がありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
-                <!-- なぜ無いのかと戻し方（動線の点検 D8）。空表示には次にやることを書く -->
-                <TextBlock Text="{Binding EmptyReasonText}" Style="{StaticResource Caption}" HorizontalAlignment="Center"
-                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" Margin="0,6,0,0" />
-                <Button Content="設定を開く" Style="{StaticResource SmallButton}" HorizontalAlignment="Center" Margin="0,10,0,0"
-                        Command="{Binding ShowSettingsCommand}"
-                        Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-            </StackPanel>
-
-            <!-- リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える） -->
-            <controls:ItemListView x:Name="ItemList" ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
-                      ItemContainerStyle="{StaticResource ItemListRowStyle}"
-                      BorderThickness="0" Background="Transparent" Margin="24,10,24,18"
-                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                      VirtualizingPanel.ScrollUnit="Pixel"
-                      Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-            <!--
-                行を仮想化の単位にする（検索画面と同じ）。列数はViewModel側で幅から決める。
-                画面外の行のカードは作られないので、サムネイルの読み込みも走らない
-            -->
-            <!-- カードの行の一覧。Tab で1回だけ入り、中は矢印でカードからカードへ移る（CardRowsListBox が並び ArrowGroup になる。ユーザ判断 2026-10-01） -->
-            <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
-            <controls:CardRowsListBox x:Name="CardList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
-                     Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                     Padding="24,14,24,24" HorizontalContentAlignment="Stretch"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     VirtualizingPanel.IsVirtualizing="True"
-                     VirtualizingPanel.VirtualizationMode="Recycling"
-                     VirtualizingPanel.ScrollUnit="Pixel">
-                <controls:CardRowsListBox.ItemContainerStyle>
-                    <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0" />
-                        <Setter Property="Focusable" Value="False" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <ContentPresenter />
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </controls:CardRowsListBox.ItemContainerStyle>
-                <controls:CardRowsListBox.ItemTemplate>
-                    <DataTemplate>
-                        <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </controls:CardRowItems>
-                    </DataTemplate>
-                </controls:CardRowsListBox.ItemTemplate>
-            </controls:CardRowsListBox>
         </Grid>
     </DockPanel>
 </UserControl>

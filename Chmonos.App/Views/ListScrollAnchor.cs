@@ -14,9 +14,15 @@ internal static class ListScrollAnchor
     /// <summary>今の位置を読む。先頭にいるとき・まだ組めていないときは null（戻すときも先頭のままでよい）。</summary>
     /// <param name="keyOf">一覧の項目（行・カード）から鍵を引く。行なら先頭のカードの鍵。</param>
     public static ListAnchor? Capture(ItemsControl list, Func<object, string?> keyOf)
+        => FindDescendant<ScrollViewer>(list) is { } viewer ? Capture(viewer, list, keyOf) : null;
+
+    /// <summary>
+    /// 一覧を外の ScrollViewer の中に置いているとき（ショップの中：1本のスクロール）の読み出し。
+    /// 一覧は仮想化しない（全部の項目の入れ物がある）ので、位置は外の ScrollViewer の上端からのずれで持つ
+    /// </summary>
+    public static ListAnchor? Capture(ScrollViewer viewer, ItemsControl list, Func<object, string?> keyOf)
     {
-        if (!list.IsVisible || FindDescendant<ScrollViewer>(list) is not { } viewer || viewer.VerticalOffset <= 0
-            || FindItemsHost(list) is not { } host)
+        if (!list.IsVisible || viewer.VerticalOffset <= 0 || FindItemsHost(list) is not { } host)
         {
             return null;
         }
@@ -97,6 +103,38 @@ internal static class ListScrollAnchor
             var y = container.TranslatePoint(new Point(0, 0), viewer).Y;
             viewer.ScrollToVerticalOffset(viewer.VerticalOffset + y - anchor.Offset);
         }
+    }
+
+    /// <summary>
+    /// 外の ScrollViewer の中の、仮想化していない一覧の戻し。項目の入れ物は全部あるので、実際の位置を測って寄せる。
+    /// 項目が無ければ false（呼んだ側が、どこに置くかを決める）
+    /// </summary>
+    public static bool Restore(ScrollViewer viewer, ItemsControl list, ListAnchor anchor, Func<object, IEnumerable<string>> keysOf)
+    {
+        var index = -1;
+        for (var i = 0; i < list.Items.Count; i++)
+        {
+            if (keysOf(list.Items[i]).Contains(anchor.Key, StringComparer.Ordinal))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index < 0)
+        {
+            return false;
+        }
+
+        list.UpdateLayout();
+        if (list.ItemContainerGenerator.ContainerFromIndex(index) is not FrameworkElement container)
+        {
+            return false;
+        }
+
+        var y = container.TranslatePoint(new Point(0, 0), viewer).Y;
+        viewer.ScrollToVerticalOffset(viewer.VerticalOffset + y - anchor.Offset);
+        return true;
     }
 
     private static Panel? FindItemsHost(ItemsControl list)
