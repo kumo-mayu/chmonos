@@ -1063,6 +1063,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>足す商品の候補。手元にある商品の名前。</summary>
     public ObservableCollection<string> ItemSuggestions { get; } = [];
 
+    /// <summary>候補の表示名 → 商品ID。同じ表示名の別の商品を、名前の先頭一致で取り違えないための引き表。</summary>
+    private Dictionary<string, string> _suggestionIds = new(StringComparer.CurrentCultureIgnoreCase);
+
     // ---- アバター ----
 
     public string AvatarText { get; private set; } = string.Empty;
@@ -1468,11 +1471,43 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        foreach (var item in loaded
-            .Where(item => item.IsDownloaded)
-            .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture))
+        // 足した商品とアバター自身は出さない（足せても意味が無く、足した物を選び直させるだけになる）
+        var excluded = Record.Members.Select(member => member.ItemId).Append(Record.AvatarItemId)
+            .ToHashSet(StringComparer.Ordinal);
+        var candidates = loaded
+            .Where(item => item.IsDownloaded && !excluded.Contains(item.Id))
+            .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
+            .ToList();
+
+        // 同じ表示名の商品が複数あるときは、ショップ名（それでも重なれば商品ID）で見分ける
+        var duplicated = candidates.GroupBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group)
+            .ToHashSet();
+        var ids = new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
+        var labels = new List<string>();
+        foreach (var item in candidates)
         {
-            ItemSuggestions.Add(item.DisplayName);
+            var label = item.DisplayName;
+            if (duplicated.Contains(item))
+            {
+                label = item.Booth.Shop?.Name is { Length: > 0 } shop ? $"{label}（{shop.Trim()}）" : label;
+                if (ids.ContainsKey(label))
+                {
+                    label = $"{label}（{item.Id}）";
+                }
+            }
+
+            if (ids.TryAdd(label, item.Id))
+            {
+                labels.Add(label);
+            }
+        }
+
+        _suggestionIds = ids;
+        foreach (var label in labels)
+        {
+            ItemSuggestions.Add(label);
         }
     }
 
@@ -1571,10 +1606,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        // 名前は候補（検索の写し）から選ぶので、引くのも同じ写しから（押すたびに全件を読み直していた）
-        var loaded = await _main.Search.ItemsAsync();
-        var item = loaded.FirstOrDefault(candidate =>
-            string.Equals(candidate.DisplayName, name.Trim(), StringComparison.CurrentCultureIgnoreCase));
+        // 名前は候補から選ぶので、引くのも候補の引き表から。商品名だけで探すと、同じ名前の別の商品を足し得る。
+        // 候補に無い名前（足した物・アバター自身・手元に無い物）は足さない
+        var item = _suggestionIds.TryGetValue(name.Trim(), out var itemId)
+            ? await _services.Store.Items.LoadAsync(itemId)
+            : null;
 
         if (item is null)
         {

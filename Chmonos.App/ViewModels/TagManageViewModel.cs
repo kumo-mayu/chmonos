@@ -521,7 +521,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
         AddTopCommand = new RelayCommand(() => AddTopAsync(FilterText).Forget());
         SubmitFilterCommand = new RelayCommand(() => SubmitFilterAsync().Forget());
-        AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
+        AddSubCommand = new RelayCommand(() => AddSubAsync(NewSubText).Forget(), () => Selected is not null);
         RenameTopCommand = new RelayCommand(() => AskRenameTopAsync().Forget(), () => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
         NestTopCommand = new RelayCommand(() => NestTopAsync().Forget());
@@ -733,6 +733,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             OnPropertyChanged(nameof(NestTopToolTip));
             RebuildSubs();
             RebuildOtherNames();
+            AddSubNoticeText = string.Empty;
             RelayCommand.RaiseCanExecuteChanged();
         }
     }
@@ -1076,6 +1077,34 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     private bool _isAddingSub;
     private string _itemFilter = string.Empty;
+    private string _newSubText = string.Empty;
+    private string _addSubNoticeText = string.Empty;
+
+    /// <summary>
+    /// 小分類を足す欄の文字。大分類・属性を足す欄と同じふつうの欄にした（メモ25 C）：
+    /// 今ある小分類を候補に出すと、選んでも「既にあります」で断られるだけだった（今ある名前を並べても重複を誘うだけ）
+    /// </summary>
+    public string NewSubText
+    {
+        get => _newSubText;
+        set
+        {
+            if (SetField(ref _newSubText, value ?? string.Empty))
+            {
+                // 打ち直したら前の「既にあります」は古い
+                AddSubNoticeText = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 小分類を足す欄のすぐ下の「既にあります」。欄の側が1行分の場所を常に取ってあるので、出ても消えても下は動かない
+    /// </summary>
+    public string AddSubNoticeText
+    {
+        get => _addSubNoticeText;
+        private set => SetField(ref _addSubNoticeText, value);
+    }
 
     /// <summary>小分類を足す欄を出しているか（普段は隠す。ユーザ指示 2026-09-18：入力欄が並ぶと読みづらい）。</summary>
     public bool IsAddingSub
@@ -1426,12 +1455,16 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
         if (Subs.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
         {
-            StatusText = $"「{Selected.Name}」には「{trimmed}」が既にあります。";
+            // 押した所で言う（右上の状態の1行ではなく、欄のすぐ下）
+            AddSubNoticeText = $"「{trimmed}」は既にあります。";
             return;
         }
 
         await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(Selected.Name, trimmed));
         StatusText = $"「{Selected.Name}」に「{trimmed}」を追加しました。";
+
+        // 足せたら欄を空ける（続けて足せるように）
+        NewSubText = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
     }

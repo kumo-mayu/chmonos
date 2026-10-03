@@ -27,7 +27,11 @@ public static class ModificationPicking
 
         string NameOf(AvatarRegistryEntry entry) => names[entry.ItemId];
 
-        var avatarNames = registry.Entries
+        // 候補はアバターだけ。重なる名前にショップ名を付ける Map は、アバターでない物も含む全件で
+        // 作ったまま（アバターの管理画面・商品ページと同じ名前を出すため）
+        var avatarEntries = registry.Entries.Where(Core.Services.AvatarService.IsAvatar).ToList();
+
+        var avatarNames = avatarEntries
             .Select(NameOf)
             .Where(text => text.Length > 0)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
@@ -52,7 +56,7 @@ public static class ModificationPicking
             contextText,
             rows,
             avatarNames,
-            text => registry.Entries.FirstOrDefault(entry =>
+            text => avatarEntries.FirstOrDefault(entry =>
                 string.Equals(NameOf(entry), text, StringComparison.CurrentCultureIgnoreCase))?.ItemId)
         {
             ExistingLabel = existingLabel,

@@ -358,7 +358,9 @@ public sealed partial class ItemViewModel
         // 対応アバターの候補。既に宣言されているものは出さない
         var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
         var avatarSuggestions = registry.Entries
-            .Where(entry => AvatarService.IsAvatar(entry) && !declared.Contains(entry.ItemId))
+            // その商品自身（アバターのとき）は、自分の対応アバターにはならない
+            .Where(entry => AvatarService.IsAvatar(entry) && !declared.Contains(entry.ItemId)
+                && !string.Equals(entry.ItemId, Item.Id, StringComparison.Ordinal))
             .Select(entry => names[entry.ItemId]);
 
         // 共通素体も同じ欄から付ける（ユーザ判断 2026-09-28：素体は外す・戻すしかできず、付ける口が無かった）。
@@ -489,7 +491,7 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        if (FindAvatarByName(name) is not { } match)
+        if (FindAvatarByName(name) is not { } match || string.Equals(match.ItemId, Item.Id, StringComparison.Ordinal))
         {
             return;
         }

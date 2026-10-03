@@ -74,6 +74,31 @@ public class ManageNoticeAndReasonTests
     });
 
     [Fact]
+    public Task 小分類の追加を同じ名前で押すと_欄の下に既にありますを出し_右上の状態の文は変えない_足せたら欄を空ける() => TestApp.Run(async app =>
+    {
+        var tags = await OpenTagsAsync(app);
+        tags.Selected = tags.Tops.First(row => row.Name == "作り物の甲");
+        var before = tags.StatusText;
+
+        tags.NewSubText = "小の一";
+        tags.AddSubCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal("「小の一」は既にあります。", tags.AddSubNoticeText);
+        Assert.Equal(before, tags.StatusText);
+        Assert.Equal(2, app.Store.UserTags.Load().Tops.First(top => top.Name == "作り物の甲").Subs.Count);
+
+        // 打ち直すと消える
+        tags.NewSubText = "小の四";
+        Assert.Equal(string.Empty, tags.AddSubNoticeText);
+
+        tags.AddSubCommand.Execute(null);
+        await UiThread.Until(() => tags.NewSubText.Length == 0, "足せたら欄が空く");
+        Assert.Equal(3, app.Store.UserTags.Load().Tops.First(top => top.Name == "作り物の甲").Subs.Count);
+        Assert.Equal(string.Empty, tags.AddSubNoticeText);
+    });
+
+    [Fact]
     public Task 大分類の検索は_付けた商品の名前では当たらない() => TestApp.Run(async app =>
     {
         var tags = await OpenTagsAsync(app);

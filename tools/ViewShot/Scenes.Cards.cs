@@ -95,6 +95,18 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 小分類を足す欄はふつうの欄と「追加」（候補なし。メモ25 C）。同じ名前なら欄の下に「既にあります」
+        new Scene("tag-manage-sub-existing", "タグの管理：小分類を足す欄を開き、今ある小分類の名前で「追加」を押した所。欄の下に「既にあります」", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            var screen = context.Screen<TagManageViewModel>();
+            screen.IsAddingSub = true;
+            screen.NewSubText = "冬";
+            screen.AddSubCommand.Execute(null);
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 小分類の名前で当たった大分類は、名前の下に「小分類「冬」」が出る。開いた右の小分類は、当たった物が強調される（メモ21-②）
         new Scene("tag-manage-match-reason", "タグの管理：左の欄に小分類の名前を打った所。当たった大分類の名前の下に理由・開いた右の小分類が強調", async context =>
         {
