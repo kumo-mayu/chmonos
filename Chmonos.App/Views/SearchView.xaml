@@ -640,13 +640,17 @@
                                             外れ値を無視（価格だけ・ユーザ判断 2026-09-16）。支援用のバリエーションや販売を止めるための高値は値段ではなく目印なので、
                                             目盛と照合から外す。何円以上を何個外しているかを数で出す
                                         -->
+                                        <!--
+                                            払った額を見ているときは押せなくして薄くする（メモ16-③）。払った額は自分で入れた数で、外れ値は無い。
+                                            値は残す（BOOTHの価格に切り替えれば、また効く）。文字の色は自分で決めず、チェックの色に従わせて薄くなるようにする
+                                        -->
                                         <CheckBox IsChecked="{Binding IgnoreOutliers, Mode=TwoWay}" Margin="0,0,0,6"
+                                                  IsEnabled="{Binding OutliersApply}"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IgnoreOutliers'}"
                                                   AutomationProperties.Name="外れ値を無視"
                                                   ToolTip="極端に高い価格を、目盛と絞り込みから外します。商品は外しません。"
                                                   Visibility="{Binding SupportsOutliers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="{Binding OutlierLabel}" FontSize="12" TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="{Binding OutlierLabel}" FontSize="12" TextWrapping="Wrap" />
                                         </CheckBox>
                                         <!--
                                             目盛を出す（ユーザ指示 2026-09-16：目盛が無いと指定しづらい）。

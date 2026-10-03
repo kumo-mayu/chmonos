@@ -1465,8 +1465,17 @@ public sealed class RangeModule : SearchModule
 
     /// <summary>何を外しているかを数で言う（境の数と、外れ値の数）。</summary>
     public string OutlierLabel => _outlierFence is { } fence && _outlierCount > 0
-        ? $"外れ値を無視（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上の{_outlierCount}個）"
+        ? $"外れ値を無視（ほかの大半の商品より桁違いに高い{_outlierCount}個・{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上）"
         : "外れ値を無視";
+
+    /// <summary>外れ値を外す数の元を、外れ値の無い物（価格の払った額）にしているキー。その元では外れ値を探さない。</summary>
+    public string? NoOutlierSource { get; init; }
+
+    /// <summary>
+    /// 今の元で「外れ値を無視」が効くか。払った額は自分で入れた数で、外れ値は無いので効かない（押せなくして薄くする。ユーザ判断 2026-10-03・メモ16-③）。
+    /// <see cref="IgnoreOutliers"/> の値は残す
+    /// </summary>
+    public bool OutliersApply => SupportsOutliers && (NoOutlierSource is null || _source?.Key != NoOutlierSource);
 
     private bool IgnoresOutliersNow => SupportsOutliers && _ignoreOutliers && _outlierFence is not null;
 
@@ -1693,7 +1702,8 @@ public sealed class RangeModule : SearchModule
         var all = (AllValuesOf?.Invoke(_source?.Key) ?? []).ToList();
 
         // 外れ値の境は、外す前の数の全部から決める（元を変えれば取り直す）
-        _outlierFence = SupportsOutliers ? Outliers.UpperFence(all) : null;
+        _outlierFence = OutliersApply ? Outliers.UpperFence(all) : null;
+        OnPropertyChanged(nameof(OutliersApply));
         _outlierCount = _outlierFence is { } fence ? all.Count(value => value >= fence) : 0;
         var values = IgnoresOutliersNow ? all.Where(value => value < _outlierFence!.Value).ToList() : all;
         OnPropertyChanged(nameof(OutlierLabel));
