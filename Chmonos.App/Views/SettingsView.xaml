@@ -262,10 +262,6 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
 
-                            <!-- 取り込みの自動開始（#38）。既定はユーザ判断：落としたら入、起動時は切 -->
-                            <CheckBox Content="ファイルやフォルダをドロップしたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}"
-                                      IsChecked="{Binding StartImportOnDrop, Mode=TwoWay}"
-                                      ToolTip="取り込みの最中にドロップした分は、今の取り込みに追加します。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="編集" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <CheckBox Content="編集が終わったら検索に戻る" Style="{StaticResource SettingCheck}"
@@ -310,6 +306,11 @@
                             <CheckBox Content="起動したとき、監視フォルダの新しいファイルと前回の続きを取り込む" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
                                       ToolTip="前回の続きは、下の帯の「続きから進む」と同じものです。" />
+
+                            <!-- 取り込みの自動開始（#38）。既定はユーザ判断：落としたら入、起動時は切 -->
+                            <CheckBox Content="ファイルやフォルダをドロップしたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding StartImportOnDrop, Mode=TwoWay}"
+                                      ToolTip="取り込みの最中にドロップした分は、今の取り込みに追加します。" />
 
                             <!--
                                 取り込み元の履歴は取り込むたびに増え、全部を縦に並べると膨大になる（ユーザ判断 2026-09-28：畳めるようにする）。
