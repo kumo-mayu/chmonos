@@ -303,4 +303,11 @@ public class ListHelperTests
     public void カードの幅は_決めた範囲に収める(double width, double expected)
         // 手で直した設定（範囲の外・数でない値）でも、一覧が割れない幅にする
         => Assert.Equal(expected, CardMetrics.Clamp(width));
+
+    [Theory]
+    [InlineData(160, 48)]
+    [InlineData(228, 68)]
+    [InlineData(360, 108)]
+    public void ショップの札のアイコンは_カードの幅に合わせて伸び縮みする(double width, double expected)
+        => Assert.Equal(expected, CardMetrics.ShopIconSizeFor(width));
 }

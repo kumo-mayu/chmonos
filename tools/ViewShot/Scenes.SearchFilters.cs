@@ -36,6 +36,9 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
+        PriceOutlierScene("search-price-outliers-paid", "検索の絞り込み：価格（払った額）。「外れ値を無視」は押せず薄い", booth: false),
+        PriceOutlierScene("search-price-outliers-booth", "検索の絞り込み：価格（BOOTHの価格）。「外れ値を無視」の文と、外した数・境", booth: true),
+
         new Scene("search-many", "検索の絞り込み：同じ種類の条件が2つ（片方は除く）で、間に別の種類が挟まった並び", async context =>
         {
             var (search, root) = await StartFiltersAsync(context);
@@ -140,6 +143,38 @@ internal static partial class Scenes
         exclude.IsExcluded = true;
         return Task.CompletedTask;
     }
+
+    /// <summary>8件のうち1件にだけ止め値の種類（99,999円）を足し、価格の条件を足す（メモ16-③）。</summary>
+    private static Scene PriceOutlierScene(string name, string description, bool booth) => new(name, description, async context =>
+    {
+        await SeedLibraryAsync(context, count: 24, (index, item) => item with
+        {
+            Booth = item.Booth with
+            {
+                Variations = index == 0
+                    ? [new BoothVariation { Id = 1, Price = 1000 }, new BoothVariation { Id = 2, Price = 99999 }]
+                    : [new BoothVariation { Id = 1, Price = 1000 + (index * 20) }],
+            },
+        });
+
+        var main = await context.StartAsync();
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+        await SceneContext.UntilAsync(() => main.Search.TotalCount == 24, "商品を読み終える");
+        foreach (var module in main.Search.Modules.ToList())
+        {
+            module.RemoveCommand!.Execute(null);
+        }
+
+        var price = (RangeModule)AddModule(main.Search, SearchModuleKind.Price);
+        if (booth)
+        {
+            price.Source = price.Sources.First(option => option.Key == "booth");
+        }
+
+        await context.SettleAsync();
+        return FiltersShot(root);
+    });
 
     /// <summary>作り物の8件に BOOTH タグとスキ数を散らして検索を開き、既定の条件を外して空から始める。</summary>
     private static async Task<(SearchViewModel Search, FrameworkElement Root)> StartFiltersAsync(SceneContext context)

@@ -478,13 +478,19 @@
                     <TextBlock Text="{Binding Parent}" Style="{StaticResource Caption}" Margin="0,10,0,0" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasParent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- ショップのアイコン。無いショップでは何も出さない（頭文字のタイルなどの代わりの絵は出さない・メモ2-⑤） -->
-                    <Border Width="44" Height="44" CornerRadius="8" Margin="0,10,0,2" HorizontalAlignment="Left" ClipToBounds="True"
+                    <!--
+                        大きさはカードの大きさに合わせて変わる（CardShopIconSize。メモ16-④）。丸めた角は、大きさの決まった切り抜きではなく
+                        絵の背景（ImageBrush）で出す（大きさが変わっても角の丸みと絵が揃う）
+                    -->
+                    <Border Width="{DynamicResource CardShopIconSize}" Height="{DynamicResource CardShopIconSize}" CornerRadius="10"
+                            Margin="0,10,0,2" HorizontalAlignment="Left"
                             Background="{DynamicResource Surface}"
                             Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <Border.Clip>
-                            <RectangleGeometry Rect="0,0,44,44" RadiusX="8" RadiusY="8" />
-                        </Border.Clip>
-                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                        <Border CornerRadius="10">
+                            <Border.Background>
+                                <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill" />
+                            </Border.Background>
+                        </Border>
                     </Border>
                     <TextBlock Text="{Binding Label}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
                                Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="108"
@@ -572,6 +578,10 @@
                             Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             ToolTip="送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。" />
                 </StackPanel>
+                <!--
+                    ボタンの間は、どれも**右の余白**で取る（左の余白で取ると、折り返した行の先頭のボタンだけ左へ余白ぶん引っ込み、
+                    段ごとに左端がずれた。幅900で 530／540px・メモ「選択の帯の左端のずれ」）
+                -->
                 <WrapPanel HorizontalAlignment="Right"
                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!--
@@ -587,28 +597,28 @@
                             ToolTip="選んだ商品の更新の知らせを既読にします。"
                             Visibility="{Binding HasSelectedUpdates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
-                    <Button Content="すべて選択" Style="{StaticResource SmallButton}" Margin="0,2"
+                    <Button Content="すべて選択" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.SelectAll"
                             Command="{Binding SelectAllCommand}"
                             ToolTip="今表示されている商品をすべて選びます。" />
-                    <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,2,0,2"
+                    <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
                             AutomationProperties.AutomationId="SelectionBar.Clear"
                             Command="{Binding ClearSelectionCommand}" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
-                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,2,0,2"
+                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToFavorites"
                             AutomationProperties.Name="選んだ商品をお気に入りに入れる"
                             Command="{Binding AddSelectionToFavoritesCommand}"
                             ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
-                    <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,2,0,2"
+                    <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToModification"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
-                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,2,0,2"
+                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
                             AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
-                    <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,2,0,2"
+                    <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="0,2"
                             AutomationProperties.AutomationId="SelectionBar.Edit"
                             Command="{Binding SendSelectionToEditCommand}" />
                 </WrapPanel>

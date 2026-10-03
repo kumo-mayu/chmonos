@@ -18,6 +18,12 @@ internal static partial class Scenes
         SortScene("search-sort-shop-list", "検索：ショップ順のリスト（札は列をまたぐ1行）", SortKind.Shop, list: true),
         // 比べる相手：札を出さない並べ替え（名前順）のリスト。札の行が列の幅や横の流しを変えていないかを見る
         SortScene("search-sort-name-list", "検索：名前順のリスト（札なし。札の入ったリストと比べる）", SortKind.Name, list: true),
+        // メモ16-④：ショップの札のアイコンが、カードの大きさのスライダーの両端でも収まるか
+        SortScene("search-sort-shop-small", "検索：ショップ順のカード、カードの大きさが最小（160）", SortKind.Shop, list: false, cardWidth: Chmonos.App.Services.CardMetrics.MinWidth),
+        SortScene("search-sort-shop-large", "検索：ショップ順のカード、カードの大きさが最大（360）", SortKind.Shop, list: false, cardWidth: Chmonos.App.Services.CardMetrics.MaxWidth),
+        // メモ16-①：Tab で入った先（先頭のカード）の印が、一覧の端で切れずに見えるか
+        SortScene("search-sort-shop-focus", "検索：ショップ順のカード、Tab で入った先（先頭のカード）にフォーカスの枠を足す", SortKind.Shop, list: false, markFocus: true),
+        SortScene("search-sort-name-focus", "検索：名前順のカード（札なし）、Tab で入った先にフォーカスの枠を足す", SortKind.Name, list: false, markFocus: true),
         AcquiredScene("search-sort-acquired", "検索：入手日順のカード（年月の札・年の違う同じ月・入手日なしの札）", list: false),
         AcquiredScene("search-sort-acquired-list", "検索：入手日順のリスト（年月の札は列をまたぐ1行）", list: true),
     ];
@@ -54,7 +60,7 @@ internal static partial class Scenes
     /// <summary>
     /// 10件：衣装4・装飾品2・とても長い名前のカテゴリ1（表に無い）・カテゴリなし3。ショップは2つと、ショップの無い商品1件
     /// </summary>
-    private static Scene SortScene(string name, string description, SortKind kind, bool list) => new(name, description, async context =>
+    private static Scene SortScene(string name, string description, SortKind kind, bool list, bool markFocus = false, double? cardWidth = null) => new(name, description, async context =>
     {
         string?[] categories = ["3D衣装", "3D衣装", "3D装飾品", null, null, "3D衣装", "作り物のとても長い名前のカテゴリで札の中で折り返す分け方", "3D装飾品", "3D衣装", null];
         await SeedLibraryAsync(context, count: categories.Length, (index, item) =>
@@ -88,7 +94,26 @@ internal static partial class Scenes
         main.Search.SortField = main.Search.SortFields.First(field => field.Kind == kind);
         main.Search.IsListMode = list;
         await SceneContext.UntilAsync(() => main.Search.Rows.Sum(row => row.Cards.OfType<ItemCardViewModel>().Count()) == categories.Length, "商品が並ぶ");
+        if (cardWidth is { } width)
+        {
+            // 共通のスライダーの値（場面ごとに別の処理で描くので、元へは戻さない）
+            Chmonos.App.Services.CardMetrics.Apply(width);
+        }
+
         await context.SettleAsync();
+        if (markFocus)
+        {
+            // 窓の無い舞台はキーボードのフォーカスを受けられない。WPF の印と同じく装飾の層へ、カードの印の型を載せて見る
+            // 先頭と、2段目・右端の列のカードに足す（段や一覧の端で切られる所が違うため）
+            var cards = Look.All<Chmonos.App.Controls.ItemCardBorder>(root)
+                .Where(card => System.Windows.Automation.AutomationProperties.GetAutomationId(card) == "ItemCard").ToList();
+            foreach (var card in cards.Where((_, index) => index is 0 or 1 or 4))
+            {
+                FocusPreview.Show(card, "CardFocusVisual");
+            }
+            await context.SettleAsync();
+        }
+
         return new Shot(root);
     });
 }

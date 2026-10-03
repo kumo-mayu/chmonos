@@ -518,6 +518,9 @@ public sealed partial class SearchViewModel
 
             // 支援用のバリエーションや、販売を止めるためのあり得ない高値を外せるようにする（ユーザ判断 2026-09-16）
             SupportsOutliers = true,
+
+            // 払った額は自分で入れた数なので外れ値は無い（ユーザ判断 2026-10-03・メモ16-③）
+            NoOutlierSource = PaidSource,
         },
 
         SearchModuleKind.EndOfSale => new ChoiceModule(kind,
