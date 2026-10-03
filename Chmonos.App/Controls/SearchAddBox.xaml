@@ -3,40 +3,27 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
         検索と追加を1本にした欄（ユーザ指示 2026-10-02：タグ・属性の管理の左）。
-        形は編集画面のユーザータグの欄（SuggestBox）に合わせた：高さ30・薄い字の案内。
-        候補は並べない。打った名前が無いときだけ、欄のすぐ下に「追加」の1行を出す
+        形は共通素体を足す欄（アバターの画面）に合わせた：欄の右に「追加」ボタン（メモ21-① 2026-10-03）。
+        候補は並べない。同じ名前があって足せなかったときの「既にあります」は、欄のすぐ下に出す。
+        **その1行分の場所は常に取っておく**——出入りのたびに下の一覧が押し下げられて跳ねていた（ユーザ注意 2026-10-03）
     -->
     <StackPanel>
-        <Grid>
-            <TextBox x:Name="Input" Height="30" VerticalContentAlignment="Center" Padding="8,0" MaxLength="500"
-                     BorderBrush="{DynamicResource BorderStrong}"
-                     Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                     TextChanged="OnTextChanged" PreviewKeyDown="OnInputKeyDown" />
-            <TextBlock x:Name="Watermark" IsHitTestVisible="False" VerticalAlignment="Center"
-                       Margin="10,0,0,0" Foreground="{DynamicResource TextFaint}" FontSize="12.5" />
-        </Grid>
+        <DockPanel>
+            <Button x:Name="AddButton" DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}"
+                    Margin="6,0,0,0" Height="30" Click="OnAddClick" IsEnabled="False"
+                    AutomationProperties.AutomationId="SearchAddBoxAdd" />
+            <Grid>
+                <TextBox x:Name="Input" Height="30" VerticalContentAlignment="Center" Padding="8,0" MaxLength="500"
+                         BorderBrush="{DynamicResource BorderStrong}"
+                         Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                         TextChanged="OnTextChanged" PreviewKeyDown="OnInputKeyDown" />
+                <TextBlock x:Name="Watermark" IsHitTestVisible="False" VerticalAlignment="Center"
+                           Margin="10,0,0,0" Foreground="{DynamicResource TextFaint}" FontSize="12.5" />
+            </Grid>
+        </DockPanel>
 
-        <!-- 押せる行。Tab でも届き、Enter・Space で押せる -->
-        <Button x:Name="AddRow" Margin="0,6,0,0" Padding="10,6" HorizontalContentAlignment="Left"
-                Visibility="Collapsed" Click="OnAddClick" Cursor="Hand"
-                FocusVisualStyle="{DynamicResource SmallFocusVisual}">
-            <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Root" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                            BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                        <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
-                                   FontSize="12.5" Foreground="{DynamicResource AccentText}" TextTrimming="CharacterEllipsis" />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Button.Template>
-        </Button>
+        <!-- 「既にあります」。空でも高さは残す（Collapsed にしない） -->
+        <TextBlock x:Name="Notice" Height="16" Margin="2,4,0,0" FontSize="11" TextTrimming="CharacterEllipsis"
+                   Foreground="{DynamicResource Warn}" />
     </StackPanel>
 </UserControl>

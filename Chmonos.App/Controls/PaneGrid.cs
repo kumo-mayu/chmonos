@@ -24,6 +24,21 @@ public sealed class PaneGrid : Grid
         nameof(Pane), typeof(PaneColumn), typeof(PaneGrid),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
+    /// <summary>
+    /// 反対側に残したい幅。列の最小（MinWidth）より広く残したいときに書く。窓を狭めたとき、この幅を残すまでこちらの列を縮める
+    /// （反対側が自分で横に送る画面で、送らずに済む幅を先に確保するため。反対側の列の MinWidth をこの幅にすると、
+    /// 全体が入れ物より広くなって外側の入れ物ごと横に送られてしまうので、最小とは別に持つ）。0 なら列の最小だけを見る。
+    /// </summary>
+    public static readonly DependencyProperty OppositeWidthProperty = DependencyProperty.Register(
+        nameof(OppositeWidth), typeof(double), typeof(PaneGrid),
+        new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public double OppositeWidth
+    {
+        get => (double)GetValue(OppositeWidthProperty);
+        set => SetValue(OppositeWidthProperty, value);
+    }
+
     public PaneColumn? Pane
     {
         get => (PaneColumn?)GetValue(PaneProperty);
@@ -79,6 +94,8 @@ public sealed class PaneGrid : Grid
                     reserve += column.MinWidth;
                 }
             }
+
+            reserve = Math.Max(reserve, OppositeWidth);
 
             // 幅が変わると列の Width が結び先から書き換わり、この Grid の測り直しがもう一度来る。
             // 同じ幅なら Fit は何もしないので、2回目で落ち着く

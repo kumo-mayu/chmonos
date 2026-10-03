@@ -707,7 +707,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <controls:PaneGrid Background="{DynamicResource Bg}" Pane="{Binding ListPane}">
+    <controls:PaneGrid Background="{DynamicResource Bg}" Pane="{Binding ListPane}" OppositeWidth="{Binding DetailWidthWanted}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />

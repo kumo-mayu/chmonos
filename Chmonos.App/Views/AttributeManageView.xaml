@@ -63,14 +63,14 @@
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14">
                         <TextBlock Text="属性を検索・追加" Style="{StaticResource Caption}" Margin="2,0,0,4" />
-                        <!-- 検索と追加は1本の欄（ユーザ指示 2026-10-02）。同じ名前の属性が無いときだけ、欄の下に「追加」の行が出る。候補は並べない -->
+                        <!-- 検索と追加は1本の欄（ユーザ指示 2026-10-02）。欄の右に「追加」。同じ名前なら欄の下に「既にあります」。候補は並べない -->
                         <controls:SearchAddBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                                Placeholder="検索、または追加（例：かっこいい）"
-                                               AddRowText="{Binding AddRowText}" AddCommand="{Binding AddCommand}"
+                                               NoticeText="{Binding AddNoticeText}" AddCommand="{Binding AddCommand}"
                                                SubmitCommand="{Binding SubmitFilterCommand}"
                                                AutomationProperties.Name="属性を検索・追加"
                                                AutomationProperties.AutomationId="AttributeFilterInput"
-                                               ToolTip="属性の名前とメモ、付いた商品の名前・ショップ名・メモを探します。" />
+                                               ToolTip="属性の名前とメモを探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
                                    TextWrapping="Wrap"
@@ -150,7 +150,7 @@
                                     <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0"
                                                Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <StackPanel Margin="0,0,50,0">
-                                        <!-- 欄に打った名前と同じ属性は、名前を太くして強調する（追加の行は出ない） -->
+                                        <!-- 欄に打った名前と同じ属性は、名前を太くして強調する（「追加」を押すと欄の下に「既にあります」） -->
                                         <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -163,7 +163,11 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <TextBlock Text="{Binding AverageText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                        <!-- 平均の文に続けて、メモで当たった理由を同じ1行に出す（行の高さは変えない。メモ21-②） -->
+                                        <TextBlock Style="{StaticResource Caption}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding AverageText, Mode=OneWay}" /><Run Text="{Binding MatchReasonText, Mode=OneWay}"
+                                                 Foreground="{DynamicResource AccentText}" />
+                                        </TextBlock>
                                     </StackPanel>
                                     <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}" FontSize="11.5"
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
