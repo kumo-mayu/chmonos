@@ -197,10 +197,11 @@
                     </ItemsControl>
                     <Button x:Name="MoreChangesButton" Grid.Column="2" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
                             AutomationProperties.AutomationId="ItemMoreChanges"
-                            Content="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList}" ContentStringFormat="ほか {0} 件 ▾"
                             Visibility="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}"
                             ToolTip="変わったところをすべて表示します。"
                             Click="OnMoreChangesClick">
+                        <!-- 数を文にするのは中の TextBlock で。ボタンの型が中身を直に出すので、ContentStringFormat は効かず「1」だけが出た -->
+                        <TextBlock Text="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, StringFormat=ほか {0} 件 ▾}" />
                         <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding ChangeTargets}">
                                 <ContextMenu.ItemContainerStyle>
