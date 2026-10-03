@@ -30,6 +30,9 @@ public partial class App : Application
 
         // Shift＋ホイールの横送りも型に掛ける決まり。道具で描く画面も同じ動きになる
         Controls.HorizontalWheel.Register();
+
+        // フォーカスを受けた部品を流すとき、外側に出す印が流れの縁で欠けないよう少し余分に流す
+        Controls.FocusScrollMargin.Register();
     }
 
     private AppServiceContainer? _services;
