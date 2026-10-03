@@ -313,9 +313,8 @@
                 <Border x:Name="Fade" Background="{DynamicResource Rail}">
                     <Border.OpacityMask>
                         <LinearGradientBrush x:Name="FadeMask" StartPoint="0,0" EndPoint="0,1">
-                            <GradientStop Color="#FF000000" Offset="0" />
-                            <GradientStop Color="#E6000000" Offset="0.45" />
-                            <GradientStop Color="#00000000" Offset="1" />
+                            <GradientStop Color="{x:Static Colors.Black}" Offset="0" />
+                            <GradientStop Color="Transparent" Offset="1" />
                         </LinearGradientBrush>
                     </Border.OpacityMask>
                 </Border>
@@ -336,9 +335,8 @@
                     <Setter TargetName="Fade" Property="OpacityMask">
                         <Setter.Value>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                <GradientStop Color="#00000000" Offset="0" />
-                                <GradientStop Color="#E6000000" Offset="0.55" />
-                                <GradientStop Color="#FF000000" Offset="1" />
+                                <GradientStop Color="Transparent" Offset="0" />
+                                <GradientStop Color="{x:Static Colors.Black}" Offset="1" />
                             </LinearGradientBrush>
                         </Setter.Value>
                     </Setter>
