@@ -15,9 +15,12 @@ internal static partial class Scenes
     [
         NavScene("nav-low-open", "ナビ：低い窓（高さ 600）で開いた所（下の「設定」まで届くか・送る印）", collapsed: false),
         NavScene("nav-low-collapsed", "ナビ：低い窓（高さ 600）で畳んだ所（スクロールバーで中身がつぶれないか・開く印と戻るの矢印）", collapsed: true),
+        NavScene("nav-low-mid", "ナビ：低い窓で途中まで送った所（上と下の両方に続きがある印）", collapsed: false, scrollTo: 40),
+        NavScene("nav-low-end", "ナビ：低い窓で一番下まで送った所（下の印が消え、上の印だけ残る）", collapsed: false, scrollTo: 10000),
+        NavScene("nav-low-collapsed-mid", "ナビ：低い窓で畳んで途中まで送った所（畳んだ幅でも同じ印）", collapsed: true, scrollTo: 40),
     ];
 
-    private static Scene NavScene(string name, string title, bool collapsed)
+    private static Scene NavScene(string name, string title, bool collapsed, double scrollTo = 0)
         => new(name, title, async context =>
         {
             await SeedLibraryAsync(context, count: 3);
@@ -35,6 +38,14 @@ internal static partial class Scenes
             }
 
             await context.SettleAsync();
+
+            if (scrollTo > 0)
+            {
+                var scroller = Look.Named<ScrollViewer>(root, "NavScroller") ?? throw new InvalidOperationException("ナビの送る入れ物が見つかりません。");
+                scroller.ScrollToVerticalOffset(scrollTo);
+                await context.SettleAsync();
+                Console.WriteLine($"  ナビの送り {scroller.VerticalOffset} / {scroller.ScrollableHeight}");
+            }
 
             // ナビの列だけを切り出す（本文は描くたびに変わる物が無く、見る所でもない）
             return new Shot(root)
