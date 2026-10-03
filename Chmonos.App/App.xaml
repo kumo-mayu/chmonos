@@ -30,6 +30,7 @@
         <sys:Double x:Key="CardHeight">336</sys:Double>
         <sys:Double x:Key="CardImageHeight">200</sys:Double>
         <sys:Double x:Key="CardSlotWidth">242</sys:Double>
+        <sys:Double x:Key="CardShopIconSize">68</sys:Double>
 
         <!--
             表示の大きさ（設定・Ctrl＋＋／Ctrl＋－・ユーザ指示 2026-09-29）。起動時と変えたときに AppZoom が書き換える。

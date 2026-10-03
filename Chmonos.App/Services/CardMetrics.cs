@@ -46,6 +46,15 @@ public static class CardMetrics
 
     public static double Height => ImageHeight + TextAreaHeight;
 
+    /// <summary>
+    /// ショップ順の札のアイコンの一辺（メモ16-④）。幅の3割で、カードの大きさに合わせて伸び縮みする。
+    /// 前は44の固定で、既定の幅（228）の札では小さかった。3割にしたのは、いちばん狭い幅（160）でもショップ名が
+    /// 折り返せる高さが残る大きさのため（札の高さ268に対して、アイコン48・種類と件数の行・名前3行が入る）
+    /// </summary>
+    public static double ShopIconSize => ShopIconSizeFor(Width);
+
+    internal static double ShopIconSizeFor(double width) => Math.Round(width * 0.3);
+
     /// <summary>列の割りに使う1枚ぶんの幅。</summary>
     public static double SlotWidth => Width + Gap;
 
@@ -88,6 +97,7 @@ public static class CardMetrics
             app.Resources["CardHeight"] = Height;
             app.Resources["CardImageHeight"] = ImageHeight;
             app.Resources["CardSlotWidth"] = SlotWidth;
+            app.Resources["CardShopIconSize"] = ShopIconSize;
         }
 
         if (changed)
