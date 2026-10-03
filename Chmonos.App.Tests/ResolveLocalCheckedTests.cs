@@ -48,10 +48,9 @@ public class ResolveLocalCheckedTests
 
         resolve.SelectFolderCommand.Execute(body.GroupKey);
 
-        // 選んだときのまとめ操作に「BOOTHに無い商品」への道があり、その他のボタンも件数を言う
+        // 選んだ物が今の対象になり、上の帯が件数を言う（その他の「この名前で登録する」はこの対象に効く。メモ22）
         Assert.Equal(2, resolve.CheckedCount);
-        Assert.Equal("選択した 2 件を仮のIDで登録…", resolve.LocalCheckedText);
-        Assert.Equal("選択した 2 件をこの名前で登録する", resolve.RegisterLocalText);
+        Assert.Equal("選択した 2 件", resolve.TargetText);
         Assert.True(resolve.RegisterLocalCommand.CanExecute(null));
 
         // 仮IDは選んだ1件目から決まり、押す前に見せたIDと登録したIDが合う
@@ -78,7 +77,7 @@ public class ResolveLocalCheckedTests
         Assert.Equal("shoes.zip", Assert.Single(resolve.Files).FileName);
         Assert.Equal("shoes.zip", Path.GetFileName(Assert.Single(app.Store.Unresolved.Load()).Paths[0]));
         Assert.False(resolve.HasChecked);
-        Assert.Equal("2 件を登録しました。", resolve.StatusText);
+        Assert.Equal("2 件を登録しました。", resolve.ListNoticeText);
         await UiThread.Until(() => main.UnresolvedCount == 1, "ナビの未確定の数が合う");
     });
 
@@ -108,8 +107,7 @@ public class ResolveLocalCheckedTests
         resolve.Selected = gift;
 
         Assert.False(resolve.HasChecked);
-        Assert.Equal("この名前で登録する", resolve.RegisterLocalText);
-        Assert.False(resolve.GoToLocalCommand.CanExecute(null));
+        Assert.Equal("gift.zip", resolve.TargetText);
 
         resolve.LocalNameInput = "作り物の贈り物";
         app.Answer = _ => MessageBoxResult.OK;
@@ -139,23 +137,6 @@ public class ResolveLocalCheckedTests
         resolve.LocalNameInput = "手で付けた名前";
         RowOf(resolve, "socks.zip").IsSelected = true;
         Assert.Equal("手で付けた名前", resolve.LocalNameInput);
-    });
-
-    [Fact]
-    public Task まとめ操作のBOOTHに無い商品のボタンは_名前を入れる欄へ送るだけで登録しない() => TestApp.Run(async app =>
-    {
-        var (_, resolve) = await OpenResolveAsync(app, @"pack\a.psd", @"pack\b.psd");
-        var asked = 0;
-        resolve.LocalNameFocusRequested += () => asked++;
-
-        resolve.SelectFolderCommand.Execute(RowOf(resolve, "a.psd").GroupKey);
-        Assert.True(resolve.GoToLocalCommand.CanExecute(null));
-        resolve.GoToLocalCommand.Execute(null);
-        await app.SettleAsync();
-
-        Assert.Equal(1, asked);
-        Assert.Empty(app.Notices);
-        Assert.Equal(2, resolve.Files.Count);
     });
 
     [Fact]
@@ -235,18 +216,6 @@ public class ResolveLocalCheckedTests
         var paneGrid = Assert.Single(xaml.Descendants(), element => element.Name.LocalName == "PaneGrid");
         Assert.Contains(paneGrid.Descendants(), element => element.Name.LocalName == "ColumnDefinition"
             && (string?)element.Attribute("Width") == "*" && (string?)element.Attribute("MinWidth") == "360");
-    }
-
-    [Fact]
-    public void 選んだときのまとめ操作に_BOOTHに無い商品への道がある()
-    {
-        var xaml = XDocument.Load(ResolveViewPath());
-        var button = Assert.Single(xaml.Descendants(), element => element.Name.LocalName == "Button"
-            && (string?)element.Attribute("Command") == "{Binding GoToLocalCommand}");
-
-        // まとめて確定・除外と同じ枠（選んでいるときだけ出る枠）に並ぶ
-        Assert.Contains(button.ElementsBeforeSelf(), sibling => (string?)sibling.Attribute("Command") == "{Binding AssignCheckedCommand}");
-        Assert.Equal("{Binding LocalCheckedText}", (string?)button.Attribute("Content"));
     }
 
     [Fact]

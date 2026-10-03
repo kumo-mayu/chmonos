@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows.Controls;
 using Chmonos.App.ViewModels;
 using Chmonos.App.Views;
@@ -210,5 +211,122 @@ internal static partial class Scenes
                 return (GC.GetTotalMemory(forceFullCollection: true) / 1_048_576, process.WorkingSet64 / 1_048_576);
             }
         }),
+
+        // 右の欄の組み立ての案（メモ22）を、対象の4つの状態で見比べるための場面。案の枝だけに置く
+        new Scene("resolve-target-single", "未確定：対象が1件（zip 1つ）のときの右の欄", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage", "readme.txt"),
+                    contents: ["hair_ribbon.unitypackage", "readme.txt"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\accessory_pack.zip", "ring.unitypackage"), contents: ["ring.unitypackage"]),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 2);
+            screen.Selected = screen.Files.First(row => row.FileName == "hair_ribbon_v1.0.zip");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-images", "未確定：BOOTHに無い商品に画像を2枚添えたときのギャラリー（枠と＋の枠）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage"), contents: ["hair_ribbon.unitypackage"]),
+            ]);
+            var pictures = Path.Combine(Isolation.FilesRoot, "画像");
+            Fake.Image(pictures, "front.png", "front");
+            Fake.Image(pictures, "back.png", "back");
+            var (root, screen) = await OpenResolveAsync(context, 1);
+            screen.Selected = screen.Files[0];
+            screen.AddLocalImages([Path.Combine(pictures, "front.png"), Path.Combine(pictures, "back.png")]);
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-bundle", "未確定：元zipを展開した中身（束 3 件・元のzipも一覧にある）の1行を選んだ右の欄", async context =>
+        {
+            var zip = Fake.Zip(@"ダウンロード\costume_set_v2.zip", "costume.unitypackage", "costume_4k.psd", "readme.txt");
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(zip, contents: ["costume.unitypackage", "costume_4k.psd", "readme.txt"]),
+                Fake.Unresolved(Fake.PlainFile(@"展開\costume_set_v2\costume.unitypackage"), originZip: zip),
+                Fake.Unresolved(Fake.PlainFile(@"展開\costume_set_v2\costume_4k.psd"), size: 310_000_000, originZip: zip),
+                Fake.Unresolved(Fake.PlainFile(@"展開\costume_set_v2\readme.txt"), size: 2_400, originZip: zip),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 4);
+            screen.Selected = screen.Files.First(row => row.FileName == "costume.unitypackage");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-checked", "未確定：一覧で3件にチェックを入れたときの右の欄", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.PlainFile(@"選んで登録\ribbon_body.psd"), size: 120_000_000),
+                Fake.Unresolved(Fake.PlainFile(@"選んで登録\ribbon_extra.psd"), size: 40_000_000),
+                Fake.Unresolved(Fake.PlainFile(@"選んで登録\ribbon_icon.png"), size: 900_000),
+                Fake.Unresolved(Fake.Zip(@"選んで登録\hair_ribbon_v1.0.zip"), contents: ["readme.txt"]),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 4);
+            foreach (var row in screen.Files.Where(row => row.FileName.StartsWith("ribbon_", StringComparison.Ordinal)))
+            {
+                row.IsSelected = true;
+            }
+
+            screen.Selected = screen.Files.First(row => row.FileName == "ribbon_body.psd");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-folder", "未確定：zipが無い展開物のフォルダ（2件）の1行を選んだ右の欄", async context =>
+        {
+            const string folder = @"展開物だけ\衣装セット_v2.1_PSD付き";
+            var package = Fake.PlainFile(folder + @"\outfit\outfit.unitypackage");
+            var texture = Fake.PlainFile(folder + @"\outfit\texture\outfit_body_main_texture_4k.png");
+            Fake.PlainFile(@"展開物だけ\ほかの物\readme.txt");
+            var importFolder = Fake.Folder("展開物だけ");
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(package, size: 8_100_000),
+                Fake.Unresolved(texture, size: 31_000_000),
+            ]);
+
+            var main = await context.StartAsync(settings => settings with { ImportFolders = [importFolder] });
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 2, "未確定の一覧が並ぶ");
+            screen.Selected = screen.Files.First(row => row.IsArchiveContent);
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
     ];
+
+    private static async Task<(System.Windows.FrameworkElement Root, ResolveViewModel Screen)> OpenResolveAsync(SceneContext context, int count)
+    {
+        var main = await context.StartAsync();
+        main.ShowResolveCommand.Execute(null);
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+        var screen = context.Screen<ResolveViewModel>();
+        await SceneContext.UntilAsync(() => screen.Files.Count == count, "未確定の一覧が並ぶ");
+        return (root, screen);
+    }
 }

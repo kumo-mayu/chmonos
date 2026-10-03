@@ -108,10 +108,9 @@ public sealed partial class ResolveViewModel
             // 残りの中身まで加えた後の商品を写しへ足す
             await NoteSettledAsync(itemId);
             RemoveRows(settled);
-            StatusText = settled.Count == targets.Count
+            ListNoticeText = settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"
                 : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。";
-            OnPropertyChanged(nameof(HasStatus));
             HideCoveredContents(settled);
         }
         finally

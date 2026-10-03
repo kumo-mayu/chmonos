@@ -122,16 +122,17 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 取得中は押せないようにする。他のボタンには入っていて、ここだけ抜けていた
         PreviewCommand = new RelayCommand(() => PreviewAsync(ItemIdInput).Forget(), () => CanPreview && !IsBusy);
         UseCandidateCommand = new RelayCommand(parameter => UseCandidateAsync(parameter).Forget(), parameter => parameter is CandidateRow);
-        AssignCommand = new RelayCommand(() => AssignAsync().Forget(), () => HasPreview && HasSelection && !IsBusy && !IsBlockedByListedZip);
-        ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => HasSelection && !IsBusy);
+        // どれも今の対象に効く（ResolveViewModel.Target.cs）。チェックした物は、元のzipが未確定にある中身が混ざっていれば押したときに理由を言って止める
+        AssignCommand = new RelayCommand(() => AssignAsync().Forget(), () => HasPreview && (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy);
+        ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => (HasSelection || HasChecked) && !IsBusy);
+        // 行の右クリックは、右クリックした行（束）に効く。チェックした物に効かせると、右クリックした行とは別の物が外れる
+        ExcludeRowCommand = new RelayCommand(() => ExcludeAsync(useChecked: false).Forget(), () => HasSelection && !IsBusy);
         UseLocalNameCommand = new RelayCommand(
             parameter => { if (parameter is string name) { LocalNameInput = name; } },
             parameter => parameter is string);
-        // 選んでいるときは選んだ全部が対象（元のzipが未確定にある中身が混ざっていれば、押したときに理由を言って止める。まとめて確定と同じ）
         RegisterLocalCommand = new RelayCommand(
             () => RegisterLocalAsync().Forget(),
             () => (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
-        GoToLocalCommand = new RelayCommand(GoToLocal, () => HasChecked && !IsBusy);
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
         OpenLastSettledCommand = new RelayCommand(() => OpenLastSettledAsync().Forget(), () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
@@ -150,8 +151,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OpenImportCommand = new RelayCommand(_main.ShowImport);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
-        ExcludeCheckedCommand = new RelayCommand(() => ExcludeCheckedAsync().Forget(), () => HasChecked && !IsBusy);
-        AssignCheckedCommand = new RelayCommand(() => AssignCheckedAsync().Forget(), () => HasChecked && HasPreview && !IsBusy);
 
         ReloadAsync().Forget();
     }
@@ -200,7 +199,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 FilesView.Refresh();
                 OnPropertyChanged(nameof(HasFilterText));
-                OnPropertyChanged(nameof(ActiveGroupText));
+                OnPropertyChanged(nameof(TargetToolTip));
 
                 // 選んでいた行が隠れると一覧の選択が外れ、右側（まとめて操作する枠を含む）が消えて何もできなくなった。
                 // 見えている先頭の行を選ぶ（画面で確かめて見つけた 2026-09-17）
@@ -228,10 +227,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public RelayCommand RegisterFolderCommand { get; }
 
     public RelayCommand ClearChecksCommand { get; }
-
-    public RelayCommand ExcludeCheckedCommand { get; }
-
-    public RelayCommand AssignCheckedCommand { get; }
 
     private void RemoveRows(IReadOnlyList<UnresolvedRow> rows)
     {
@@ -277,10 +272,10 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public RelayCommand ExcludeCommand { get; }
 
-    public RelayCommand RegisterLocalCommand { get; }
+    /// <summary>一覧の行の右クリックの「管理対象から除外する」。チェックに関わらず、その行（束）に効く。</summary>
+    public RelayCommand ExcludeRowCommand { get; }
 
-    /// <summary>まとめての操作の欄から「BOOTHに無い商品として登録する」の欄へ送る。</summary>
-    public RelayCommand GoToLocalCommand { get; }
+    public RelayCommand RegisterLocalCommand { get; }
 
     /// <summary>
     /// 名前の候補。**自動では入れず、押したら入る。**（Q6）
@@ -432,13 +427,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public string AssignOutcomeText => Preview is null
         ? string.Empty
         : IsPreviewOwned
-            ? $"確定すると：{OutcomeSubject}が、既にある商品に加わります"
-            : $"確定すると：この商品を新しく登録して、{OutcomeSubject}を紐付けます";
+            ? $"登録すると：{OutcomeSubject}が、既にある商品に加わります"
+            : $"登録すると：この商品を新しく作って、{OutcomeSubject}を紐付けます";
 
-    /// <summary>束を選んでいるときは件数まで言う。1件のつもりで押して全件が動くことが無いように。</summary>
-    private string OutcomeSubject => ActiveGroup is null
-        ? "このファイル"
-        : GroupSubject;
+    /// <summary>束や選んだ物のときは件数まで言う。1件のつもりで押して全件が動くことが無いように。対象は帯にも出ているが、押す直前のここでも言う</summary>
+    private string OutcomeSubject => HasChecked
+        ? $"選択した {CheckedCount} 件"
+        : ActiveGroup is null ? "このファイル" : GroupSubject;
 
     /// <summary>束を言う言い方。zipの中身かフォルダのファイルかで分ける。</summary>
     private string GroupSubject => ActiveRows.FirstOrDefault()?.HasOrigin == true
@@ -529,9 +524,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             return;
         }
 
-        StatusText = $"元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipをドロップしてください。";
-        OnPropertyChanged(nameof(HasStatus));
-        DecisionFocusRequested?.Invoke();
+        // 押した帯の中で答える（前は「商品IDを決める」の欄へ画面を送っていた。押した所から離れた所へ飛ぶ作りはやめた。メモ22）
+        OriginZipNote = $"元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipをドロップしてください。";
     }
 
     private bool _isLoaded;
@@ -821,6 +815,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Preview = null;
         NotOnBoothItemId = null;
         StatusText = string.Empty;
+        OriginZipNote = string.Empty;
+        LocalStatusText = string.Empty;
+        FolderStatusText = string.Empty;
         CopyNote = string.Empty;
         ClearLocalImages();
 
@@ -949,17 +946,48 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
     }
 
+    /// <summary>
+    /// 「このIDで登録」。今の対象（選んだ物・束・1件）を、確かめた商品のファイルにする。
+    /// 1件ずつの登録を順に掛ける（2件目以降は既にある商品へ加わるだけで、BOOTHへは行かない）。
+    /// 選んだ物は1件のつもりで押していないかを窓で聞く（1件と束は、帯と「登録すると：」の行で件数を見て押す。キーで1件ずつ片付ける流れを止めない）
+    /// </summary>
     private async Task AssignAsync()
     {
-        if (Selected is null || Preview is null)
+        if (Preview is null || (Selected is null && !HasChecked))
         {
             return;
         }
 
-        // 元zipの束を選んでいればその全件。1件ずつの確定を順に掛ける
-        // （2件目以降は既にある商品へ加わるだけで、BOOTHへは行かない）
-        var targets = ActiveRows;
+        var fromChecked = HasChecked;
+        var (targets, blocked) = RegisterTargets();
+        if (blocked is not null)
+        {
+            StatusText = blocked;
+            OnPropertyChanged(nameof(HasStatus));
+            return;
+        }
+
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
         var itemId = Preview.Id;
+        if (fromChecked)
+        {
+            var answer = Services.Notice.Show(
+                $"{TargetSubject(targets, fromChecked)} を「{Preview.Name}」（ID {itemId}）のファイルとして登録します。\n\n"
+                + "同じ商品のファイルであることを確認してください。",
+                "このIDで登録",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Cancel);
+
+            if (answer != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
+        }
 
         IsBusy = true;
         StartRegistering(RegisteringArea.Decision, targets.Count);
@@ -991,17 +1019,17 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             // 確定したものはここで溜めて、最後にまとめて編集へ送る
             await NoteSettledAsync(itemId);
 
-            if (targets.Count == 1)
+            if (!fromChecked && targets.Count == 1)
             {
                 AfterSettled();
             }
             else
             {
+                // 行ごと消えるので、結果は一覧の見出しの近くに出す（押した欄は次の行の物に変わる）
                 RemoveRows(settled);
-                StatusText = settled.Count == targets.Count
-                    ? $"{settled.Count} 件を確定しました。"
-                    : $"{settled.Count} / {targets.Count} 件を確定しました。残りは失敗しました。{failure}";
-                OnPropertyChanged(nameof(HasStatus));
+                ListNoticeText = settled.Count == targets.Count
+                    ? $"{settled.Count} 件を登録しました。"
+                    : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。{failure}";
                 HideCoveredContents(settled);
             }
         }
@@ -1030,13 +1058,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             return;
         }
 
-        // 選んでいればその全部、zipの中身の束を立てていればその全件を、同じ仮の商品にする（1zip＝1商品）
+        // 今の対象を、同じ仮の商品にする（選んだzipの中身はzipの単位まで広げる。1zip＝1商品）
         var fromChecked = HasChecked;
-        var (found, blocked) = LocalTargets();
+        var (found, blocked) = RegisterTargets();
         if (blocked is not null)
         {
-            StatusText = blocked;
-            OnPropertyChanged(nameof(HasStatus));
+            LocalStatusText = blocked;
             return;
         }
 
@@ -1084,8 +1111,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
             if (result is CommandResult.Failed failed)
             {
-                StatusText = failed.Message;
-                OnPropertyChanged(nameof(HasStatus));
+                LocalStatusText = failed.Message;
                 return;
             }
 
@@ -1109,11 +1135,10 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 AfterSettled();
 
-                // 次の行を選ぶと知らせは消えるので、選び直した後に出す
+                // 登録した行はもう無いので、一覧の見出しの近くに出す
                 if (imagesNote.Length > 0)
                 {
-                    StatusText = imagesNote;
-                    OnPropertyChanged(nameof(HasStatus));
+                    ListNoticeText = imagesNote;
                 }
 
                 return;
@@ -1122,8 +1147,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             // 対象は全部一覧から外す。命令は未確定に残っている物を全部登録し、未確定に無かった物（同じ中身が先に片付いた）は
             // もう記録に無いので、行を残しても登録も除外もできない
             RemoveRows(targets);
-            StatusText = $"{targets.Count} 件を登録しました。" + imagesNote;
-            OnPropertyChanged(nameof(HasStatus));
+            ListNoticeText = $"{targets.Count} 件を登録しました。" + imagesNote;
             HideCoveredContents(targets);
         }
         finally
@@ -1133,8 +1157,17 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
     }
 
-    private async Task ExcludeAsync()
+    /// <summary>
+    /// 今の対象を管理対象から除外する。選んだ物は、名前を並べて聞き、選んだ物だけを外す（zipの単位へ広げない。ResolveViewModel.Target.cs）。
+    /// </summary>
+    private async Task ExcludeAsync(bool useChecked = true)
     {
+        if (useChecked && HasChecked)
+        {
+            await ExcludeRowsAsync(CheckedRows, "管理対象から除外する");
+            return;
+        }
+
         var targets = ActiveRows;
         if (targets.Count == 0)
         {
@@ -1169,8 +1202,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             else
             {
                 RemoveRows(targets);
-                StatusText = $"{targets.Count} 件を管理対象から除外しました。";
-                OnPropertyChanged(nameof(HasStatus));
+                ListNoticeText = $"{targets.Count} 件を管理対象から除外しました。";
             }
         }
         finally

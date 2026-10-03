@@ -7,7 +7,7 @@ namespace Chmonos.App.Tests;
 
 /// <summary>
 /// 未確定の画面をキーボードだけで1件ずつ片付ける（ユーザ判断 2026-10-01「8は直そう」）。
-/// 欄の Enter は「このIDで確認」（欄の KeyBinding が <see cref="ResolveViewModel.PreviewCommand"/> を呼ぶ）、
+/// 欄の Enter は「情報を確認」（欄の KeyBinding が <see cref="ResolveViewModel.PreviewCommand"/> を呼ぶ）、
 /// 確定は編集画面の「保存して次へ」と同じショートカット（既定 Ctrl+Enter。主の窓が <see cref="MainViewModel.RunShortcut"/> へ渡す）。
 /// BOOTH は作り物（<see cref="FakeBooth"/>）が答える。
 /// </summary>
@@ -85,7 +85,7 @@ public class ResolveKeyboardTests
         Assert.Equal("先に商品IDを確認してください。", resolve.StatusText);
         Assert.Equal([ItemIdFocusReason.NeedsPreview], focusRequests);
 
-        // 確定のキーは確かめも走らせない（BOOTH へ行くのは Enter・「このIDで確認」だけ）
+        // 確定のキーは確かめも走らせない（BOOTH へ行くのは Enter・「情報を確認」だけ）
         Assert.Empty(app.Booth.Requests);
     });
 
@@ -241,10 +241,10 @@ public class ResolveKeyboardTests
     });
 
     [Fact]
-    public Task 確定のボタンの吹き出しは_今の割り当てのキーを言い_割り当てが無ければ出さない() => TestApp.Run(async app =>
+    public Task 登録のボタンの吹き出しは_今の割り当てのキーを言い_割り当てが無ければ出さない() => TestApp.Run(async app =>
     {
         var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip");
-        Assert.Equal("Ctrl + Enter でも確定できます。", resolve.AssignKeyHint);
+        Assert.Equal("Ctrl + Enter でも登録できます。", resolve.AssignKeyHint);
 
         await app.ChangeSettingsAsync(settings => settings with { Shortcuts = settings.Shortcuts with { SaveAndNext = string.Empty } });
         Assert.Null(resolve.AssignKeyHint);
@@ -252,5 +252,5 @@ public class ResolveKeyboardTests
 
     [Fact]
     public void 設定の行は_編集画面と未確定の両方で使うことを言う()
-        => Assert.Equal("編集画面で保存して次へ・未確定で確定", Shortcuts.ActionLabel(ShortcutAction.SaveAndNext));
+        => Assert.Equal("編集画面で保存して次へ・未確定で登録", Shortcuts.ActionLabel(ShortcutAction.SaveAndNext));
 }

@@ -29,16 +29,16 @@ public sealed partial class ResolveViewModel
     }
 
     /// <summary>
-    /// 「このIDで確定する」の吹き出し。確定のショートカットがあることだけを言う（割り当てが無ければ出さない）。
+    /// 「このIDで登録」の吹き出し。登録のショートカットがあることだけを言う（割り当てが無ければ出さない）。
     /// 設定で変えたキーを出すため、決め打ちにしない。
     /// </summary>
     public string? AssignKeyHint
         => Shortcuts.Parse(Shortcuts.GestureOf(_main.Shortcuts, ShortcutAction.SaveAndNext)) is null
             ? null
-            : $"{Shortcuts.Display(Shortcuts.GestureOf(_main.Shortcuts, ShortcutAction.SaveAndNext))} でも確定できます。";
+            : $"{Shortcuts.Display(Shortcuts.GestureOf(_main.Shortcuts, ShortcutAction.SaveAndNext))} でも登録できます。";
 
     /// <summary>
-    /// 確定のショートカット。守りは「このIDで確定する」のボタンと同じ（確かめた商品がある・取得や登録の最中でない・元zipで止めていない）に、
+    /// 登録のショートカット。守りは「このIDで登録」のボタンと同じ（確かめた商品がある・取得や登録の最中でない・元zipで止めていない）に、
     /// **欄の文字が確かめた商品と同じであること**を足す。ボタンは下に出ている商品を見て押すが、キーは欄に打った直後に押せるので、
     /// 打ち直して確かめていないIDのまま、前に確かめた商品へ結んでしまう。
     /// 未確定の画面でファイルを選んでいれば、何もしなかったときもキーを受け取ったことにする（欄へ流しても何も起きない）。
@@ -51,7 +51,7 @@ public sealed partial class ResolveViewModel
         }
 
         // 取得・登録の最中は押せない（ボタンと同じ）。答えが届く前の2回目を確定にしない
-        if (IsBusy || IsBlockedByListedZip)
+        if (IsBusy || IsTargetBlocked)
         {
             return true;
         }
