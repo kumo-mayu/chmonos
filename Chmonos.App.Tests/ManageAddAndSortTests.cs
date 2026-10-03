@@ -44,13 +44,11 @@ public class ManageAddAndSortTests
     // ---- 検索と追加を1本にした欄 ----
 
     [Fact]
-    public Task 大分類の欄は_打った名前が無ければ追加の行を出し_押すと足して選び欄を空ける() => TestApp.Run(async app =>
+    public Task 大分類の欄は_追加を押すと足して選び欄を空ける() => TestApp.Run(async app =>
     {
         var tags = await OpenTagsAsync(app, TwoTops());
 
         tags.FilterText = "作り物の丙";
-        Assert.True(tags.CanAddTyped);
-        Assert.Equal("「作り物の丙」を大分類に追加", tags.AddTopRowText);
 
         tags.AddTopCommand.Execute(null);
         await UiThread.Until(() => tags.TopCount == 3, "足した大分類が並ぶ");
@@ -58,11 +56,10 @@ public class ManageAddAndSortTests
         Assert.Equal("「作り物の丙」を追加しました。", tags.StatusText);
         Assert.Equal(string.Empty, tags.FilterText);
         Assert.Equal("作り物の丙", tags.Selected?.Name);
-        Assert.False(tags.CanAddTyped);
     });
 
     [Fact]
-    public Task 大分類の欄は_同じ名前が有れば追加の行を出さず_その行を強調しEnterで選ぶ() => TestApp.Run(async app =>
+    public Task 大分類の欄は_同じ名前が有れば_その行を強調しEnterで選ぶ() => TestApp.Run(async app =>
     {
         var tags = await OpenTagsAsync(app, TwoTops());
         tags.Selected = tags.Tops.Single(row => row.Name == "作り物の甲");
@@ -70,8 +67,6 @@ public class ManageAddAndSortTests
         // 前後の空白は除いて照らす
         tags.FilterText = "  作り物の乙 ";
 
-        Assert.False(tags.CanAddTyped);
-        Assert.Equal(string.Empty, tags.AddTopRowText);
         Assert.True(tags.Tops.Single(row => row.Name == "作り物の乙").IsNameMatch);
 
         tags.SubmitFilterCommand.Execute(null);
@@ -87,7 +82,6 @@ public class ManageAddAndSortTests
         var tags = await OpenTagsAsync(app, TwoTops());
 
         tags.FilterText = "   ";
-        Assert.False(tags.CanAddTyped);
 
         tags.FilterText = "作り物の丙";
         tags.SubmitFilterCommand.Execute(null);
@@ -124,13 +118,11 @@ public class ManageAddAndSortTests
     });
 
     [Fact]
-    public Task 属性の欄も_打った名前が無ければ追加の行を出し_押すと足して選び欄を空ける() => TestApp.Run(async app =>
+    public Task 属性の欄も_追加を押すと足して選び欄を空ける() => TestApp.Run(async app =>
     {
         var attributes = await OpenAttributesAsync(app, new AttributeMaster { Attributes = [new AttributeDefinition { Name = "作り物の甲" }] });
 
         attributes.FilterText = "作り物の乙";
-        Assert.True(attributes.CanAddTyped);
-        Assert.Equal("「作り物の乙」を属性に追加", attributes.AddRowText);
 
         attributes.AddCommand.Execute(null);
         await UiThread.Until(() => attributes.Rows.Count == 2, "足した属性が並ぶ");
@@ -141,7 +133,7 @@ public class ManageAddAndSortTests
     });
 
     [Fact]
-    public Task 属性の欄も_同じ名前が有れば追加の行を出さず_その行を強調しEnterで選ぶ() => TestApp.Run(async app =>
+    public Task 属性の欄も_同じ名前が有れば_その行を強調しEnterで選ぶ() => TestApp.Run(async app =>
     {
         var attributes = await OpenAttributesAsync(app, new AttributeMaster
         {
@@ -151,7 +143,6 @@ public class ManageAddAndSortTests
 
         attributes.FilterText = "作り物の乙";
 
-        Assert.False(attributes.CanAddTyped);
         Assert.True(attributes.Rows.Single(row => row.Name == "作り物の乙").IsNameMatch);
 
         attributes.SubmitFilterCommand.Execute(null);

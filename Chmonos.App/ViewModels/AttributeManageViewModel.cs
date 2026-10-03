@@ -726,6 +726,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         {
             if (SetField(ref _filterText, value ?? string.Empty))
             {
+                // 打ち直したら前の「既にあります」は古い（消えるだけで、欄の下の場所は空けたまま）
+                AddNoticeText = string.Empty;
                 Rebuild();
             }
         }
@@ -743,10 +745,17 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         }
     }
 
-    /// <summary>欄の下に「追加」の行を出すか。打った名前と同じ属性が無いときだけ（あるときは一覧で強調する）</summary>
-    public bool CanAddTyped => NameText.Normalize(_filterText).Length > 0 && TypedExisting is null;
+    private string _addNoticeText = string.Empty;
 
-    public string AddRowText => CanAddTyped ? $"「{NameText.Normalize(_filterText)}」を属性に追加" : string.Empty;
+    /// <summary>
+    /// 欄のすぐ下の「既にあります」。「追加」を押して同じ名前があったときだけ入る（画面の右上の状態の1行ではなく、押した所で言う）。
+    /// 欄の側が1行分の場所を常に取ってあるので、出ても消えても下の一覧は動かない
+    /// </summary>
+    public string AddNoticeText
+    {
+        get => _addNoticeText;
+        private set => SetField(ref _addNoticeText, value);
+    }
 
     public string MemoDraft
     {
@@ -854,18 +863,26 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     private void Rebuild()
     {
         var filter = ItemTextFilter.Create(_filterText);
-        var items = filter is null ? [] : _main.Search.SnapshotItems();
 
         // 作り直す間は、一覧が書き戻す「選択なし」を受けない（タグの管理と同じ。探すたびに右が空になっていた）
         _rebuildingList = true;
         try
         {
             Rows.Clear();
-            foreach (var row in _all.Where(row => filter is null
-                || filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo)
-                || items.Any(item => ValueOf(item, row.Name) is not null && filter.Matches(item))))
+
+            // 探すのは名前とメモだけ。付けた商品の名前では当てない（タグの管理と同じ。メモ21-② 2026-10-03）
+            foreach (var row in _all)
             {
-                Rows.Add(row);
+                row.MatchReason = string.Empty;
+                if (filter is null || filter.MatchesNameOrMemo(row.Name, null))
+                {
+                    Rows.Add(row);
+                }
+                else if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
+                {
+                    row.MatchReason = "メモ";
+                    Rows.Add(row);
+                }
             }
         }
         finally
@@ -884,8 +901,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         OnPropertyChanged(nameof(FilterResultText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
-        OnPropertyChanged(nameof(CanAddTyped));
-        OnPropertyChanged(nameof(AddRowText));
     }
 
     public bool HasFilter => _filterText.Trim().Length > 0;
@@ -985,7 +1000,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         // 既にある名前は足されない。**足していないのに「追加しました」と言わない**（I2）
         if (_all.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
         {
-            StatusText = $"「{trimmed}」は既にあります。";
+            AddNoticeText = $"「{trimmed}」は既にあります。";
             Selected = _all.FirstOrDefault(row =>
                 string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
             return;

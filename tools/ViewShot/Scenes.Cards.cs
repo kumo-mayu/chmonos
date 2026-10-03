@@ -68,8 +68,8 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        // 左の欄は検索と追加を1本にした形（2026-10-02）。打った名前が無ければ欄の下に追加の行が出て、あれば出ずに一覧で強調される
-        new Scene("tag-manage-typed-new", "タグの管理：左の欄に、まだ無い名前（既存の名前の一部）を打った所。欄の下に追加の行", async context =>
+        // 左の欄は検索と追加を1本にした形（2026-10-02）。右に「追加」ボタン。同じ名前なら一覧で強調し、「追加」を押すと欄の下に「既にあります」（2026-10-03）
+        new Scene("tag-manage-typed-new", "タグの管理：左の欄に、まだ無い名前（既存の名前の一部）を打った所。欄の右に「追加」", async context =>
         {
             var root = await OpenTagManageAsync(context, cards: false);
             context.Screen<TagManageViewModel>().FilterText = "衣";
@@ -86,15 +86,25 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("tag-manage-typed-existing","タグの管理：左の欄に、今ある大分類の名前を打った所。追加の行は無く、一覧で強調", async context =>
+        new Scene("tag-manage-typed-existing","タグの管理：左の欄に、今ある大分類の名前を打って「追加」を押した所。欄の下に「既にあります」・一覧で強調", async context =>
         {
             var root = await OpenTagManageAsync(context, cards: false);
             context.Screen<TagManageViewModel>().FilterText = "衣装";
+            context.Screen<TagManageViewModel>().AddTopCommand.Execute(null);
             await context.SettleAsync();
             return new Shot(root);
         }),
 
-        new Scene("attribute-manage-typed-new", "属性の管理：左の欄に、まだ無い名前を打った所。欄の下に追加の行", async context =>
+        // 小分類の名前で当たった大分類は、名前の下に「小分類「冬」」が出る。開いた右の小分類は、当たった物が強調される（メモ21-②）
+        new Scene("tag-manage-match-reason", "タグの管理：左の欄に小分類の名前を打った所。当たった大分類の名前の下に理由・開いた右の小分類が強調", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            context.Screen<TagManageViewModel>().FilterText = "冬";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("attribute-manage-typed-new", "属性の管理：左の欄に、まだ無い名前を打った所。欄の右に「追加」", async context =>
         {
             var root = await OpenAttributeManageAsync(context, cards: false);
             context.Screen<AttributeManageViewModel>().FilterText = "かわい";
@@ -102,10 +112,11 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("attribute-manage-typed-existing", "属性の管理：左の欄に、今ある属性の名前を打った所。追加の行は無く、一覧で強調", async context =>
+        new Scene("attribute-manage-typed-existing", "属性の管理：左の欄に、今ある属性の名前を打って「追加」を押した所。欄の下に「既にあります」・一覧で強調", async context =>
         {
             var root = await OpenAttributeManageAsync(context, cards: false);
             context.Screen<AttributeManageViewModel>().FilterText = "かわいさ";
+            context.Screen<AttributeManageViewModel>().AddCommand.Execute(null);
             await context.SettleAsync();
             return new Shot(root);
         }),

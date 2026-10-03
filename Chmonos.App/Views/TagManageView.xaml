@@ -66,7 +66,19 @@
                                       AutomationProperties.AutomationId="TagSubToggle"
                                       Subject="{Binding Name, StringFormat={}{0}の商品}"
                                       ToolTip="{Binding ExpandToolTip}" />
-                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" />
+                        <!-- 左の欄の語に当たった小分類は、名前を強調する（メモ21-②：何で当たったかが分かるように） -->
+                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFilterMatch}" Value="True">
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                            <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}"
                                    FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
@@ -168,15 +180,15 @@
                         <TextBlock Text="大分類を検索・追加" Style="{StaticResource Caption}" Margin="2,0,0,4" />
                         <!--
                             検索と追加は1本の欄（ユーザ指示 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。
-                            打つと一覧が絞られ、同じ名前の大分類が無いときだけ、欄の下に「追加」の行が出る。候補は並べない
+                            打つと一覧が絞られ、欄の右に「追加」。同じ名前なら欄の下に「既にあります」。候補は並べない
                         -->
                         <controls:SearchAddBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                                Placeholder="検索、または追加（例：衣装）"
-                                               AddRowText="{Binding AddTopRowText}" AddCommand="{Binding AddTopCommand}"
+                                               NoticeText="{Binding AddNoticeText}" AddCommand="{Binding AddTopCommand}"
                                                SubmitCommand="{Binding SubmitFilterCommand}"
                                                AutomationProperties.Name="大分類を検索・追加"
                                                AutomationProperties.AutomationId="TagFilterInput"
-                                               ToolTip="大分類・小分類の名前とメモ、付いた商品の名前・ショップ名・メモを探します。" />
+                                               ToolTip="大分類・小分類の名前とメモを探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
                                    TextWrapping="Wrap"
@@ -260,7 +272,7 @@
                                     <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0"
                                                Visibility="{Binding DataContext.SortsManually, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <StackPanel Margin="0,0,50,0">
-                                        <!-- 欄に打った名前と同じ大分類は、名前を太くして強調する（追加の行は出ない） -->
+                                        <!-- 欄に打った名前と同じ大分類は、名前を太くして強調する（「追加」を押すと欄の下に「既にあります」） -->
                                         <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -273,7 +285,14 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <TextBlock Text="{Binding SubCountText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                        <!--
+                                            小分類の件数に続けて、名前以外で当たった理由を出す（メモ21-②）。行を足さず同じ1行の中で変えるので、
+                                            打つたびに行の高さは変わらない。長ければ「…」で切る（折り返すと行が伸びる）
+                                        -->
+                                        <TextBlock Style="{StaticResource Caption}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding SubCountText, Mode=OneWay}" /><Run Text="{Binding MatchReasonText, Mode=OneWay}"
+                                                 Foreground="{DynamicResource AccentText}" />
+                                        </TextBlock>
                                     </StackPanel>
                                     <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}" FontSize="11.5"
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />

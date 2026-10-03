@@ -50,13 +50,34 @@ public abstract class ReorderableRow : ViewModelBase
 
     /// <summary>
     /// 左の欄に打った名前と同じ名前の行（前後の空白・大文字小文字は問わない）。一覧で強調する。
-    /// 同じ名前があると追加の行は出ないので、「もうある」と一覧の側で分かるようにする
+    /// 同じ名前があるとき、「もうある」と一覧の側でも分かるようにする
     /// </summary>
     public bool IsNameMatch
     {
         get => _isNameMatch;
         set => SetField(ref _isNameMatch, value);
     }
+
+    private string _matchReason = string.Empty;
+
+    /// <summary>
+    /// 左の欄で探しているとき、名前以外で当たった理由（「メモ」「小分類「〇〇」」）。名前で当たった行は空。
+    /// 名前の下の1行（小分類の件数）に続けて出す。行の数は増やさない（打つたびに一覧が伸び縮みして揺れないように）
+    /// </summary>
+    public string MatchReason
+    {
+        get => _matchReason;
+        set
+        {
+            if (SetField(ref _matchReason, value))
+            {
+                OnPropertyChanged(nameof(MatchReasonText));
+            }
+        }
+    }
+
+    /// <summary>件数の文の後ろに続ける形（「・メモ」）。理由が無ければ空。</summary>
+    public string MatchReasonText => _matchReason.Length == 0 ? string.Empty : "・" + _matchReason;
 
     /// <summary>
     /// 一緒に並べ替えられる相手。既定は自分と同じ型（タグのトップとサブは別の並びなので、混ざらない）。
@@ -97,6 +118,15 @@ public sealed class TagSubRow : ReorderableRow
     public required string Name { get; init; }
 
     public required string Top { get; init; }
+
+    private bool _isFilterMatch;
+
+    /// <summary>左の欄で探している語に、この小分類の名前かメモが当たった。開いた大分類の中で強調する（何で当たったか分かるように）。</summary>
+    public bool IsFilterMatch
+    {
+        get => _isFilterMatch;
+        set => SetField(ref _isFilterMatch, value);
+    }
 
     /// <summary>保存したら書き換える（次に保存するとき、変わった行だけを書くため）。</summary>
     public string? Memo { get; set; }
@@ -800,6 +830,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         {
             if (SetField(ref _filterText, value ?? string.Empty))
             {
+                // 打ち直したら前の「既にあります」は古い（消えるだけで、欄の下の場所は空けたまま）
+                AddNoticeText = string.Empty;
                 RebuildTops();
             }
         }
@@ -819,10 +851,17 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         }
     }
 
-    /// <summary>欄の下に「追加」の行を出すか。打った名前と同じ大分類が無いときだけ（あるときは一覧で強調する）</summary>
-    public bool CanAddTyped => NameText.Normalize(_filterText).Length > 0 && TypedExisting is null;
+    private string _addNoticeText = string.Empty;
 
-    public string AddTopRowText => CanAddTyped ? $"「{NameText.Normalize(_filterText)}」を大分類に追加" : string.Empty;
+    /// <summary>
+    /// 欄のすぐ下の「既にあります」。「追加」を押して同じ名前があったときだけ入る（画面の右上の状態の1行ではなく、押した所で言う）。
+    /// 欄の側が1行分の場所を常に取ってあるので、出ても消えても下の一覧は動かない
+    /// </summary>
+    public string AddNoticeText
+    {
+        get => _addNoticeText;
+        private set => SetField(ref _addNoticeText, value);
+    }
 
     public string MemoDraft
     {
@@ -948,15 +987,15 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         new Dictionary<string, UserTagUsage>(StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>
-    /// 探すのは大分類の名前だけでなく、**小分類の名前と商品名**も（ユーザ指示 2026-09-18）。
-    /// どこに入れたか忘れた分類は、中の商品名からしか辿れないことがある
+    /// 探すのは大分類・小分類の**名前とメモだけ**。付けた商品の名前では当てない（メモ21-② 2026-10-03：
+    /// 商品で当たる道があると、分類の名前を探したつもりが「なぜこの大分類が出たか」が分からなかった）。
+    /// 名前以外で当たった行には、何で当たったかを名前の下に出す（<see cref="TagTopRow.MatchReason"/>）
     /// </summary>
     private void RebuildTops()
     {
         // 書き方は検索画面と同じ（ユーザ指示 2026-09-19）。大分類・小分類の名前にも同じ式を当てる
         var filter = ItemTextFilter.Create(_filterText);
         var master = filter is null ? null : _filterMaster ?? _services.Store.UserTags.Load();
-        var items = filter is null ? [] : _main.Search.SnapshotItems();
 
         // 作り直す間は、一覧が書き戻す「選択なし」を受けない。受けると、探すたびに右が空になっていた。
         // 当たりから外れても右は今見ている物のまま残す（見ている物が勝手に消えると、何を探していたか分からなくなる）
@@ -964,10 +1003,18 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         try
         {
             Tops.Clear();
-            foreach (var row in _allTops.Where(row => filter is null || MatchesFilter(row, filter, master!, items)))
+            foreach (var row in _allTops)
             {
-                Tops.Add(row);
+                var reason = string.Empty;
+                row.MatchReason = string.Empty;
+                if (filter is null || MatchesFilter(row, filter, master!, out reason))
+                {
+                    row.MatchReason = reason;
+                    Tops.Add(row);
+                }
             }
+
+            MarkSubMatches();
         }
         finally
         {
@@ -985,31 +1032,46 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         OnPropertyChanged(nameof(FilterResultText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
-        OnPropertyChanged(nameof(CanAddTyped));
-        OnPropertyChanged(nameof(AddTopRowText));
     }
 
-    private bool MatchesFilter(
-        TagTopRow row, ItemTextFilter filter, UserTagMaster master, IReadOnlyList<ItemRecord> items)
+    private bool MatchesFilter(TagTopRow row, ItemTextFilter filter, UserTagMaster master, out string reason)
     {
+        reason = string.Empty;
+
+        // 名前で当たったときは理由を出さない（名前は行に出ている）
+        if (filter.MatchesNameOrMemo(row.Name, null))
+        {
+            return true;
+        }
+
         // 入力中のメモも照らす（保存を待たない）。選んでいる大分類の下書きは、行の Memo にまだ入っていない
         if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
         {
+            reason = "メモ";
             return true;
         }
 
         var top = master.Tops.FirstOrDefault(entry =>
             string.Equals(entry.Name, row.Name, StringComparison.CurrentCultureIgnoreCase));
 
-        if (top is not null && top.Subs.Any(sub => filter.MatchesNameOrMemo(sub.Name, sub.Memo)))
+        var hits = top?.Subs.Where(sub => filter.MatchesNameOrMemo(sub.Name, sub.Memo)).ToList() ?? [];
+        if (hits.Count == 0)
         {
-            return true;
+            return false;
         }
 
-        // 商品でも引く。探している物がどの分類に入っているか分からないときの逃げ道
-        return items.Any(item =>
-            item.Local.UserTags.Any(tag => string.Equals(tag.Top, row.Name, StringComparison.CurrentCultureIgnoreCase))
-            && filter.Matches(item));
+        reason = hits.Count == 1 ? $"小分類「{hits[0].Name}」" : $"小分類「{hits[0].Name}」ほか {hits.Count - 1} 件";
+        return true;
+    }
+
+    /// <summary>右に開いている大分類の小分類のうち、左の欄の語に当たった物を印す（開いたときに、当たった小分類が分かるように）。</summary>
+    private void MarkSubMatches()
+    {
+        var filter = ItemTextFilter.Create(_filterText);
+        foreach (var sub in Subs)
+        {
+            sub.IsFilterMatch = filter is not null && filter.MatchesNameOrMemo(sub.Name, sub.MemoDraft);
+        }
     }
 
     private bool _isAddingSub;
@@ -1181,6 +1243,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         }
 
         ApplyItemFilter();
+        MarkSubMatches();
         OnPropertyChanged(nameof(HasSubs));
         OnPropertyChanged(nameof(ToggleAllText));
     }
@@ -1324,7 +1387,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         // 既にある名前は足されない。**足していないのに「追加しました」と言わない**（I2）
         if (_allTops.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
         {
-            StatusText = $"「{trimmed}」は既にあります。";
+            AddNoticeText = $"「{trimmed}」は既にあります。";
             Selected = _allTops.FirstOrDefault(row =>
                 string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
             return;
