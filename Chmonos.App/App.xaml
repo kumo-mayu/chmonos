@@ -307,13 +307,15 @@
         -->
         <!--
             キーボードで止まったカードの印（商品のカード・ショップのカード・フォルダのカード）。既定の点線は角丸の白いカードの上で見分けにくいので、
-            選んだ色の枠を外側に出す（ItemCardResources から移した。ショップ一覧・フォルダのカードは商品のカードの資源を読まない）
+            選んだ色の枠を出す（ItemCardResources から移した。ショップ一覧・フォルダのカードは商品のカードの資源を読まない）。
+            枠はカードの内側に重ねる（メモ16-①）。外側に出す形（Margin -2）では、カードの上端・左端が段の端と同じ位置なので、
+            段の枠で切られて右と下の辺しか見えず、Tab で入った先が分からなかった
         -->
         <Style x:Key="CardFocusVisual">
             <Setter Property="Control.Template">
                 <Setter.Value>
                     <ControlTemplate>
-                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="9" Margin="-2" />
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="9" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
