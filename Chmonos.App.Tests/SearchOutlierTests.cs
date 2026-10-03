@@ -32,7 +32,7 @@ public class SearchOutlierTests
         module.Source = module.Sources[1];
 
         Assert.True(module.OutliersApply);
-        Assert.Equal("外れ値を無視（ほかの大半の商品より桁違いに高い1個・5,000円以上）", module.OutlierLabel);
+        Assert.Equal("外れ値を無視（桁違いに高い1個・5,000円以上）", module.OutlierLabel);
         Assert.Equal(1000, (int)module.SliderMaximum);
     }
 

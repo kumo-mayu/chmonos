@@ -1465,7 +1465,7 @@ public sealed class RangeModule : SearchModule
 
     /// <summary>何を外しているかを数で言う（境の数と、外れ値の数）。</summary>
     public string OutlierLabel => _outlierFence is { } fence && _outlierCount > 0
-        ? $"外れ値を無視（ほかの大半の商品より桁違いに高い{_outlierCount}個・{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上）"
+        ? $"外れ値を無視（桁違いに高い{_outlierCount}個・{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上）"
         : "外れ値を無視";
 
     /// <summary>外れ値を外す数の元を、外れ値の無い物（価格の払った額）にしているキー。その元では外れ値を探さない。</summary>
