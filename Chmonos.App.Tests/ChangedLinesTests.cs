@@ -202,13 +202,14 @@ public class ChangedLinesTests
     [Fact]
     public void 重ねた知らせで_直前の行が後で消えていたら_その消えた行のすぐ後ろ()
     {
-        // 1回目に「B」が消え（直前は A）、2回目に「A」が消えた（直前は無し）。B は A の後ろに並ぶ
-        var stacked = ChangeStack.StackLines([Removed("B", "A")], [Removed("A")]);
+        // 1回目に「B」が消え（直前は A）、2回目に「A」が消えた（直前は C）。B は今の本文に無い A の後ろ＝C の後ろに並ぶ
+        // （手掛かりの無い物の置き方＝先頭とは違う所になる）
+        var stacked = ChangeStack.StackLines([Removed("B", "A")], [Removed("A", "C")]);
         var lines = ChangedLines.From(new NotificationDiff { Field = "注意事項", Before = "x", After = "y", Lines = stacked });
 
-        var marks = ChangedLineMarks.For(lines, "C");
+        var marks = ChangedLineMarks.For(lines, "C\nD");
 
-        Assert.Equal("0:A | 0:B", Spots(marks));
+        Assert.Equal("1:A | 1:B", Spots(marks));
     }
 
     [Fact]
@@ -226,7 +227,7 @@ public class ChangedLinesTests
     }
 
     [Fact]
-    public void 本文の文書は_足した行と消えた行を種類ごとの段落にし_消えた行を元の位置に置く() => UiThread.Run(() =>
+    public Task 本文の文書は_足した行と消えた行を種類ごとの段落にし_消えた行を元の位置に置く() => UiThread.Run(() =>
     {
         var lines = ChangedLines.From(new NotificationDiff
         {
