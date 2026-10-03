@@ -73,7 +73,7 @@
         </Style>
 
         <!--
-            変わった行1つ（ChangedLineRow。メモ13-②）。要確認の札と商品ページの「消えた行」で同じ形にする。
+            変わった行1つ（ChangedLineRow。メモ13-②）。要確認の札の行（商品ページは本文の上の帯で示す。メモ17）。
             色は商品ページの変わった所の印と同じ鍵（足した＝Good・消した＝Bad）で、色だけに頼らず札の文字も分ける
         -->
         <DataTemplate x:Key="ChangedLineTemplate" DataType="{x:Type vm:ChangedLineRow}">

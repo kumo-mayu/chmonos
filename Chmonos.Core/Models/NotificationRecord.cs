@@ -116,6 +116,12 @@ public sealed class NotificationDiff
 
     /// <summary>消した行のうち、上限を超えて残さなかった数（商品ページは消えた行だけを数えて出すので、足した行と分けて持つ）。</summary>
     public int? MoreRemoved { get; init; }
+
+    /// <summary>
+    /// 消えた見出しが、前のページでどの見出しのすぐ後ろにあったか（正規化した見出し。先頭なら null）。消えた見出しにだけ書く。
+    /// 商品ページは消えた見出しを元の位置に並べる（メモ17）。行の <see cref="NotificationLine.Follows"/> と同じく名前で持つ
+    /// </summary>
+    public string? Follows { get; init; }
 }
 
 /// <summary>変わった行が、後の本文に足された物か、前の本文から消えた物か。</summary>
@@ -131,4 +137,13 @@ public sealed class NotificationLine
     public required NotificationLineKind Kind { get; init; }
 
     public required string Text { get; init; }
+
+    /// <summary>
+    /// 消えた行が、今の本文でどの行のすぐ後ろにあったか（その行の文。本文の先頭にあったなら null）。消えた行にだけ書く。
+    ///
+    /// 商品ページは消えた行を元の位置に並べる（メモ17・ユーザ指示 2026-10-03）。差は変わった行しか持たず、
+    /// 前の本文は保存しないので、位置は知らせを作る瞬間にしか分からない。番号ではなく文で持つのは、
+    /// 未読のうちに次の変化を重ねる（<see cref="Services.ChangeStack"/>）と途中の本文の番号がずれるため
+    /// </summary>
+    public string? Follows { get; init; }
 }

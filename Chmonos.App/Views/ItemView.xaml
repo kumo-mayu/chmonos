@@ -143,23 +143,84 @@
 
         <!--
             BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
-            ページに対応する欄の無い変化（消えた見出しなど）は、ここに1行で並べる。
-            流す本文の外に置くのは、下へ流しても「既読にする」に届くように
+            流す本文の外に置くのは、下へ流しても「既読にする」に届くように。
+            変わった所を並べ、押すとそこまで流す（メモ17⑤）。**帯の高さは1行に決める**：並びは折り返さず、入り切らない分は
+            「ほか n 件」の一覧へ回す（OneLinePanel）。既読にした後も、このページを開いている間は同じ高さで残す
+            （帯が伸び縮み・消えると、その分だけ本文が一気に動く。ユーザ指示 2026-10-03）
         -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="3,0,0,0" Margin="20,8" Padding="10,2,0,2">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="既読にする" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="BOOTHで変わったところ：" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,8,0"
+                               Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <TextBlock Grid.Column="0" Grid.ColumnSpan="2" Text="既読にしました。" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Visibility="{Binding IsChangesRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <ItemsControl x:Name="ChangeTargetList" Grid.Column="1" ItemsSource="{Binding ChangeTargets}" Focusable="False"
+                                  VerticalAlignment="Center" ClipToBounds="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:OneLinePanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <!-- 左の短い線は、その所の印と同じ種類の色（変わった＝橙・足された＝緑・消えた＝赤・価格＝青） -->
+                            <DataTemplate DataType="{x:Type vm:ChangeTarget}">
+                                <Button Style="{StaticResource SmallButton}" Height="24" Padding="7,0"
+                                        AutomationProperties.AutomationId="ItemChangeTarget" AutomationProperties.Name="{Binding Label}"
+                                        Command="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Rectangle x:Name="Edge" Width="3" Height="12" Margin="0,0,6,0" Fill="{DynamicResource Warn}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Added}">
+                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Good}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Removed}">
+                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Price}">
+                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Accent}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button x:Name="MoreChangesButton" Grid.Column="2" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
+                            AutomationProperties.AutomationId="ItemMoreChanges"
+                            Content="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList}" ContentStringFormat="ほか {0} 件 ▾"
+                            Visibility="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}"
+                            ToolTip="変わったところをすべて表示します。"
+                            Click="OnMoreChangesClick">
+                        <Button.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding ChangeTargets}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <Setter Property="Header" Value="{Binding Label}" />
+                                        <Setter Property="Command" Value="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                    <!-- 帯がある間にいちばんやってほしいことなので主のボタン（メモ17④）。押した後も同じ幅で残し、押せなくする -->
+                    <Button Grid.Column="3" Content="既読にする" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
                             AutomationProperties.AutomationId="ItemMarkChangesRead"
                             Command="{Binding MarkChangesReadCommand}"
+                            Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             ToolTip="印を消して、要確認の知らせも既読にします。" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="BOOTHの商品ページで変わったところに印を付けています。" FontSize="12.5" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding OtherChangesText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
-                                   Visibility="{Binding HasOtherChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    </StackPanel>
-                </DockPanel>
+                </Grid>
             </Border>
         </Border>
 
@@ -205,12 +266,12 @@
                                        Visibility="{Binding LeftPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <!-- 左：ギャラリーと説明 -->
-                <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                <StackPanel x:Name="LeftColumn" Grid.Column="0" Margin="0,0,20,0">
                     <!--
                         画像の欄の印（メモ7-①）。画像の欄は改変の画面と共有の部品なので、印は外から重ねる。
                         札は大きい絵の左上（枚数の札の下）、線は欄の左の縁
                     -->
-                    <Grid>
+                    <Grid x:Name="GalleryAnchor">
                         <views:ItemGalleryPanel />
                         <Border Style="{StaticResource ChangeEdge}" Tag="{Binding GalleryChange}" Margin="0,10,0,10" Padding="0"
                                 HorizontalAlignment="Left" IsHitTestVisible="False" />
@@ -237,29 +298,41 @@
                                 説明文とh2は選択可能にし、含まれるURLはリンクにする。
                                 対応アバターのURLがh2に並ぶことがあり、そこから直接飛べると早い。
                             -->
-                            <!-- 見出しの無い商品の説明文の、消えた行と足した行（メモ13-②。見出しのある商品は見出しごとに出す） -->
-                            <StackPanel Margin="10,0,0,8"
-                                        Visibility="{Binding DescriptionLines.HasRemoved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl ItemsSource="{Binding DescriptionLines.Removed}" Focusable="False"
-                                              ItemTemplate="{StaticResource ChangedLineTemplate}" />
-                                <TextBlock Text="{Binding DescriptionLines.RemovedMoreText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                            <!--
+                                見出しの無い商品の説明文。足した行と消えた行を本文の上の帯で示す（メモ13-②・メモ17。消えた行は元の位置に差し込む）。
+                                見出しのある商品は見出しごとに出す
+                            -->
+                            <StackPanel x:Name="DescriptionAnchor">
+                                <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,0,0,14"
+                                             controls:SelectableText.MarkedLines="{Binding DescriptionLines}"
+                                             controls:SelectableText.Text="{Binding Description}"
+                                             controls:SelectableText.Navigator="{Binding}"
+                                             Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <TextBlock Text="{Binding DescriptionLines.RemovedMoreText}" Style="{StaticResource Caption}" Margin="0,-8,0,14"
+                                           Tag="{x:Static controls:SelectableText.RemovedLineTag}"
                                            Visibility="{Binding DescriptionLines.RemovedMoreText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                             </StackPanel>
-                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,0,0,14"
-                                         controls:SelectableText.MarkedLines="{Binding DescriptionLines.AddedLines}"
-                                         controls:SelectableText.Text="{Binding Description}"
-                                         controls:SelectableText.Navigator="{Binding}"
-                                         Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <!--
                                 見出しの行は、画面に見えている分までを最初の配置で作り、画面の外の分は後から1行ずつ足す
                                 （ProgressiveItems に理由。見出し21個の商品で、開くのに約340ms かかっていた）。
                                 全部が在ることを当てにする処理は、先に足し切る（画面内検索。MainWindow.Find.cs）
                             -->
-                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Sections}" controls:ArrowGroup.IsEnabled="True">
+                            <controls:ContentItemsControl x:Name="SectionList" controls:ProgressiveItems.Source="{Binding Sections}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <StackPanel Margin="0,0,0,16">
+                                        <!-- 消えた見出しの行は「既読にする」で隠す。隠す前に、見ている所より上で消える高さを画面が測る（Tag で見分ける） -->
+                                        <StackPanel Margin="0,0,0,16"
+                                                    Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsRemoved}" Value="True">
+                                                            <Setter Property="Tag" Value="{x:Static controls:SelectableText.RemovedLineTag}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <!--
                                                 見出しそのものを押して畳む。畳む用のボタンを別に置くと
                                                 見出しの横に小さな的が並んで狙いにくい
@@ -271,7 +344,10 @@
                                                     Command="{Binding DataContext.ToggleSectionCommand,
                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
-                                                <!-- 変わった見出しは、左の線を変化の種類の色にし、札を添える（メモ7-①） -->
+                                                <!--
+                                                    変わった見出しは、左の線を変化の種類の色にし、札を添える（メモ7-①）。
+                                                    見出しごと足された・消えた物は、見出しの行から本文の行と同じ帯（地と左の線）を付ける（メモ17②）
+                                                -->
                                                 <Border BorderThickness="3,0,0,0" Padding="9,0">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -282,6 +358,19 @@
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Change.Edge}" Value="{x:Static vm:ChangeTone.Added}">
                                                                     <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Change.Edge}" Value="{x:Static vm:ChangeTone.Removed}">
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Band}" Value="{x:Static vm:ChangeTone.Added}">
+                                                                    <Setter Property="Background" Value="{DynamicResource AddedBand}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                                                                    <Setter Property="ToolTip" Value="BOOTHで追加された見出しです。" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Band}" Value="{x:Static vm:ChangeTone.Removed}">
+                                                                    <Setter Property="Background" Value="{DynamicResource RemovedBand}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
+                                                                    <Setter Property="ToolTip" Value="BOOTHで削除された見出しです。" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -303,37 +392,30 @@
                                                     </Grid>
                                                 </Border>
                                             </Button>
-                                            <!--
-                                                消えた行は本文に無いので、見出しのすぐ下に小さく並べる（メモ13-②）。
-                                                畳んだ見出しでは出さない（見出しの札だけで、変わったことは分かる）
-                                            -->
-                                            <StackPanel Margin="12,6,0,0">
-                                                <StackPanel.Style>
-                                                    <Style TargetType="StackPanel">
+                                            <!-- 足した行と消えた行は本文の上の帯で示す（メモ13-②・メモ17①。消えた行は元の位置に差し込む） -->
+                                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
+                                                         controls:SelectableText.MarkedLines="{Binding Lines}"
+                                                         controls:SelectableText.Text="{Binding Text}"
+                                                         controls:SelectableText.Navigator="{Binding DataContext,
+                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                         Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <TextBlock Text="{Binding Lines.RemovedMoreText}" Margin="0,4,0,0"
+                                                       Tag="{x:Static controls:SelectableText.RemovedLineTag}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                                         <Setter Property="Visibility" Value="Collapsed" />
                                                         <Style.Triggers>
                                                             <MultiDataTrigger>
                                                                 <MultiDataTrigger.Conditions>
                                                                     <Condition Binding="{Binding IsOpen}" Value="True" />
-                                                                    <Condition Binding="{Binding Lines.HasRemoved}" Value="True" />
+                                                                    <Condition Binding="{Binding Lines.HasRemovedMore}" Value="True" />
                                                                 </MultiDataTrigger.Conditions>
                                                                 <Setter Property="Visibility" Value="Visible" />
                                                             </MultiDataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </StackPanel.Style>
-                                                <ItemsControl ItemsSource="{Binding Lines.Removed}" Focusable="False"
-                                                              ItemTemplate="{StaticResource ChangedLineTemplate}" />
-                                                <TextBlock Text="{Binding Lines.RemovedMoreText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
-                                                           Visibility="{Binding Lines.RemovedMoreText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                            </StackPanel>
-                                            <!-- 足した行は本文の上で地と左の線を付ける（メモ13-②） -->
-                                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
-                                                         controls:SelectableText.MarkedLines="{Binding Lines.AddedLines}"
-                                                         controls:SelectableText.Text="{Binding Text}"
-                                                         controls:SelectableText.Navigator="{Binding DataContext,
-                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                         Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -381,8 +463,28 @@
                                 お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。以前は右＝U21）。編集画面も同じ位置。
                                 見た目と説明は検索のカードの星に合わせる
                             -->
-                            <!-- 商品名が変わったときの印（メモ7-①） -->
-                            <Border Style="{StaticResource ChangeEdge}" Tag="{Binding NameChange}">
+                            <!--
+                                商品名が変わったときの印（メモ7-①）。前の名前を赤の帯、今の名前を緑の帯で上下に並べる（メモ17⑥。
+                                本文の行の帯と同じ「消えた → 足した」の順）。札と、乗せると前の値が出る吹き出しは残す
+                            -->
+                            <StackPanel x:Name="NameAnchor">
+                            <Border BorderBrush="{DynamicResource Bad}" Background="{DynamicResource RemovedBand}" BorderThickness="3,0,0,0"
+                                    Margin="-12,0,0,4" Padding="9,2" ToolTip="前の商品名です。"
+                                    Visibility="{Binding HasPreviousName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding PreviousName}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextBody}"
+                                           AutomationProperties.HelpText="前の商品名" />
+                            </Border>
+                            <Border Tag="{Binding NameChange}">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource ChangeEdge}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasPreviousName}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource AddedBand}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                             <DockPanel>
                                 <controls:ContentItemsControl DockPanel.Dock="Right" ItemsSource="{Binding NameChange.Marks}" ItemsPanel="{StaticResource ChangeMarksPanel}"
                                                               VerticalAlignment="Top" Margin="0,6,0,0" Focusable="False" />
@@ -413,6 +515,7 @@
                                 <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
                             </DockPanel>
                             </Border>
+                            </StackPanel>
 
                             <!--
                                 ユーザが付けた名前であることは隠さない。
@@ -530,7 +633,7 @@
                     </Border>
 
                     <!-- 種類（BOOTHのvariation） -->
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                    <Border x:Name="VariationsAnchor" Style="{StaticResource Card}" Margin="0,14,0,0">
                         <StackPanel>
                             <!-- 畳める（ユーザ判断 2026-09-27）。件数は畳んでも見出しに出す -->
                             <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
@@ -557,9 +660,16 @@
                             <controls:ContentItemsControl ItemsSource="{Binding Variations}"
                                           Visibility="{Binding IsVariationsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
+                                    <!--
+                                        BOOTH の更新で足された・消えたバリエーションは、行に本文の行と同じ帯（地と左の線）を付ける（メモ17⑥）。
+                                        消えたバリエーションは元の位置に行として残す（ユーザ判断 2026-10-03）
+                                    -->
+                                    <DataTemplate DataType="{x:Type vm:VariationRow}">
+                                        <Border x:Name="Row" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" ToolTip="{Binding BandTip}"
+                                                ToolTipService.IsEnabled="False">
                                             <Grid>
+                                            <Rectangle x:Name="Edge" Width="3" HorizontalAlignment="Left" Fill="Transparent" />
+                                            <Grid Margin="18,12">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Name}" FontSize="13" />
@@ -569,7 +679,8 @@
                                                             <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{DynamicResource TextFaint}" />
                                                         </Border>
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding PriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0" />
+                                                    <TextBlock Text="{Binding PriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
+                                                               Visibility="{Binding PriceText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 </StackPanel>
                                                 <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
                                                         BorderThickness="1" CornerRadius="6" Padding="10,4"
@@ -578,7 +689,20 @@
                                                     <TextBlock Text="購入済み" FontSize="12" Foreground="{DynamicResource Good}" />
                                                 </Border>
                                             </Grid>
+                                            </Grid>
                                         </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Band}" Value="{x:Static vm:ChangeTone.Added}">
+                                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource AddedBand}" />
+                                                <Setter TargetName="Row" Property="ToolTipService.IsEnabled" Value="True" />
+                                                <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Good}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Band}" Value="{x:Static vm:ChangeTone.Removed}">
+                                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource RemovedBand}" />
+                                                <Setter TargetName="Row" Property="ToolTipService.IsEnabled" Value="True" />
+                                                <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
@@ -758,7 +882,7 @@
                                     <TextBlock Text="{Binding AvatarsDetectedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
                                 </StackPanel>
                                 <!-- 販売終了・販売再開の印（メモ7-①）。線は左の余白に置くので、印が付いても並びは動かない -->
-                                <Border Style="{StaticResource ChangeEdge}" Tag="{Binding SaleChange}" Margin="-12,0,28,10">
+                                <Border x:Name="SaleAnchor" Style="{StaticResource ChangeEdge}" Tag="{Binding SaleChange}" Margin="-12,0,28,10">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="BOOTHでの販売" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />

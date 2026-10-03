@@ -49,7 +49,7 @@ public sealed class ChangeSlot
 ///
 /// **欄の名前で引く**：差の欄の名前は <see cref="BoothChanges"/> が決める（商品名・価格・バリエーション・画像・販売状況・説明文、
 /// それ以外は説明文の見出し）。見出しは正規化した名前で突き合わせる（<see cref="BoothChanges"/> と同じ）。
-/// ページに無い欄（消えた見出しなど）は、ページの上の1行「ほかに変わったところ」にまとめる。
+/// 消えた見出しは元の位置に見出しごと並べる（<see cref="RemovedSections"/>。メモ17）。
 /// 印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）ので、ここは知らせを読むだけで何も書かない
 /// </summary>
 internal sealed class ItemChanges
@@ -82,7 +82,19 @@ internal sealed class ItemChanges
     /// <summary>見出しの無い商品の説明文の、変わった行。</summary>
     public ChangedLines DescriptionLines { get; private init; } = ChangedLines.None;
 
-    /// <summary>ページに対応する欄の無い変化（「ほかに変わったところ：」の後に並べる語）。</summary>
+    /// <summary>前の商品名（最初の前の値）。変わっていなければ null。前の名前の行を赤の帯で並べる（メモ17）。</summary>
+    public string? NameBefore { get; private init; }
+
+    /// <summary>足された・消えたバリエーションの名前（メモ17）。行を持たない前の形の知らせでは空。</summary>
+    public ChangedLines VariationLines { get; private init; } = ChangedLines.None;
+
+    /// <summary>今のページに無い、消えた見出し（元の位置に並べる。メモ17）。</summary>
+    public IReadOnlyList<RemovedSection> RemovedSections { get; private init; } = [];
+
+    /// <summary>
+    /// ページに見せる欄の無い変化（今のページに無いのに「変わった」とある見出し。ページを取り直す前の知らせなど）。
+    /// 上の帯の並びに、押せない語として出す
+    /// </summary>
     public IReadOnlyList<string> Others { get; private init; } = [];
 
     /// <summary>既読にする知らせ。</summary>
@@ -116,7 +128,10 @@ internal sealed class ItemChanges
         var sections = new Dictionary<string, ChangeSlot>(StringComparer.Ordinal);
         var sectionLines = new Dictionary<string, ChangedLines>(StringComparer.Ordinal);
         var descriptionLines = ChangedLines.None;
+        var variationLines = ChangedLines.None;
+        string? nameBefore = null;
         var changedHeadings = new List<string>();
+        var removedSections = new List<RemovedSection>();
         var others = new List<string>();
 
         foreach (var diff in Merge(ordered))
@@ -125,6 +140,7 @@ internal sealed class ItemChanges
             {
                 case BoothChanges.NameField:
                     name.Add(Mark(ChangeTone.Changed, "変更", diff));
+                    nameBefore = diff.Before;
                     break;
 
                 case BoothChanges.PriceField:
@@ -133,6 +149,7 @@ internal sealed class ItemChanges
 
                 case BoothChanges.VariationsField:
                     variations.Add(CountMark(diff));
+                    variationLines = ChangedLines.From(diff);
                     break;
 
                 case BoothChanges.ImagesField:
@@ -163,10 +180,19 @@ internal sealed class ItemChanges
                             sectionLines[diff.Field] = lines;
                         }
                     }
+                    else if (diff.After is null)
+                    {
+                        // 今のページに無い見出し＝消えた見出し。前は上の帯の1行にまとめていたが、元の位置に見出しごと赤の帯で並べる（メモ17）
+                        removedSections.Add(new RemovedSection(
+                            diff.Field,
+                            diff.Follows,
+                            ChangedLines.From(diff),
+                            Mark(ChangeTone.Removed, "削除", diff)));
+                        changedHeadings.Add(diff.Field);
+                    }
                     else
                     {
-                        // 今のページに無い見出し＝消えた見出し。見せる欄が無いので1行にまとめる
-                        others.Add(diff.After is null ? $"消えた見出し「{diff.Field}」" : $"見出し「{diff.Field}」");
+                        others.Add($"見出し「{diff.Field}」");
                     }
 
                     break;
@@ -193,6 +219,9 @@ internal sealed class ItemChanges
             Sections = sections,
             SectionLines = sectionLines,
             DescriptionLines = descriptionLines,
+            NameBefore = nameBefore,
+            VariationLines = variationLines,
+            RemovedSections = removedSections,
             Others = others,
             NotificationIds = ordered.Select(record => record.Id).Distinct().ToList(),
         };
@@ -235,6 +264,7 @@ internal sealed class ItemChanges
         return int.TryParse(digits, out var value) ? value : 0;
     }
 
-    /// <summary>ページの上の1行。無ければ空。</summary>
-    public string OthersText => Others.Count == 0 ? string.Empty : $"ほかに変わったところ：{string.Join("、", Others)}";
 }
+
+/// <summary>消えた見出し1つ（<paramref name="Key"/> は正規化した見出し、<paramref name="Follows"/> は前のページで直前にあった見出し）。</summary>
+internal sealed record RemovedSection(string Key, string? Follows, ChangedLines Lines, ChangeMark Mark);

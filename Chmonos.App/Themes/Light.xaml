@@ -68,6 +68,13 @@
     <SolidColorBrush x:Key="BadSoft" Color="#fbeaea" />
     <SolidColorBrush x:Key="BadBorder" Color="#eec9c9" />
     <SolidColorBrush x:Key="BadFill" Color="#a33c3c" />
+    <!--
+        商品ページの変わった行の帯の地（メモ17）。札の地（GoodSoft・BadSoft）より薄くする：
+        帯は本文の行ごと・見出しごとに付くので、札の地のままだと帯が多い商品で色が強すぎた。
+        何の帯かは左の線（Good・Bad）の色で見せ、地は面の色に寄せる（札の地と面の色の間の6割ほど）
+    -->
+    <SolidColorBrush x:Key="AddedBand" Color="#f0f7f3" />
+    <SolidColorBrush x:Key="RemovedBand" Color="#fdf2f2" />
     <!-- 取り返しのつかない操作のボタンと右クリックの項目（V4） -->
     <SolidColorBrush x:Key="DangerText" Color="#9a3232" />
     <SolidColorBrush x:Key="DangerBorder" Color="#e2bcbc" />

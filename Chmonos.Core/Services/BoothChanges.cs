@@ -58,14 +58,23 @@ public static class BoothChanges
             diffs.Add(new NotificationDiff { Field = PriceField, Before = before.PriceText, After = after.PriceText });
         }
 
-        if (before.Variations.Count != after.Variations.Count)
+        // どのバリエーションが足された・消えたかを名前の行で持つ（メモ17・ユーザ指示 2026-10-03「どれが追加されたのか一発でわかるように」）。
+        // 前は数だけを比べていて、1つ消えて1つ足されると数が同じで知らせが出ず、出ても「2 件 → 3 件」ではどれか分からなかった。
+        // 並べ替えだけは知らせない（名前の顔ぶれが同じなら、人が気にする変化ではない）
+        var beforeNames = VariationNames(before);
+        var afterNames = VariationNames(after);
+        if (before.Variations.Count != after.Variations.Count
+            || !beforeNames.Order(StringComparer.Ordinal).SequenceEqual(afterNames.Order(StringComparer.Ordinal), StringComparer.Ordinal))
         {
-            diffs.Add(new NotificationDiff
-            {
-                Field = VariationsField,
-                Before = $"{before.Variations.Count} 件",
-                After = $"{after.Variations.Count} 件",
-            });
+            diffs.Add(WithLines(
+                new NotificationDiff
+                {
+                    Field = VariationsField,
+                    Before = $"{before.Variations.Count} 件",
+                    After = $"{after.Variations.Count} 件",
+                },
+                string.Join('\n', beforeNames),
+                string.Join('\n', afterNames)));
         }
 
         if (before.Images.Count != after.Images.Count)
@@ -130,13 +139,20 @@ public static class BoothChanges
             }
         }
 
-        // 消えた見出し。before に見出しがあるのは、前回HTMLが取れていたということ
+        // 消えた見出し。before に見出しがあるのは、前回HTMLが取れていたということ。
+        // 商品ページが元の位置に並べられるよう、前のページで直前にあった見出しを添える（メモ17）
+        string? previousHeading = null;
         foreach (var (heading, text) in beforeSections)
         {
             if (!afterSections.ContainsKey(heading))
             {
-                yield return WithLines(new NotificationDiff { Field = heading, Before = Excerpt(Normalize(text)) }, text, null);
+                yield return WithLines(
+                    new NotificationDiff { Field = heading, Before = Excerpt(Normalize(text)), Follows = previousHeading },
+                    text,
+                    null);
             }
+
+            previousHeading = heading;
         }
     }
 
@@ -196,8 +212,13 @@ public static class BoothChanges
             Lines = kept,
             MoreAdded = added > LineDiff.MaxLines ? added - LineDiff.MaxLines : null,
             MoreRemoved = removed > LineDiff.MaxLines ? removed - LineDiff.MaxLines : null,
+            Follows = diff.Follows,
         };
     }
+
+    /// <summary>バリエーションの名前を BOOTH の並びのまま。名前の無いバリエーション（単一の商品）は行にならない（空の行は差に数えない）。</summary>
+    private static List<string> VariationNames(BoothBlock block)
+        => block.Variations.Select(variation => LineDiff.NormalizeLine(variation.Name ?? string.Empty)).ToList();
 
     private static string Normalize(string? text)
         => string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

@@ -90,7 +90,7 @@ public sealed class GalleryImage : ViewModelBase
     }
 }
 
-public sealed class VariationRow
+public sealed record VariationRow
 {
     public required string Name { get; init; }
 
@@ -100,6 +100,25 @@ public sealed class VariationRow
 
     /// <summary>BOOTH側に現存しない購入記録か。</summary>
     public bool IsGone { get; init; }
+
+    /// <summary>
+    /// 知らせの差と突き合わせる名前（BOOTH の名前を差と同じ形に詰めた物。名前の無いバリエーションは空）。
+    /// 画面に出す名前（<see cref="Name"/>）は名前の無い物を言い換えているので、突き合わせには使わない
+    /// </summary>
+    public string Key { get; init; } = string.Empty;
+
+    /// <summary>BOOTH の更新で足された（緑の帯）・消えた（赤の帯）バリエーションか（メモ17）。変わっていなければ null。</summary>
+    public ChangeTone? Band { get; init; }
+
+    /// <summary>BOOTH で消えたことを知らせるためだけに差し込んだ行（今の商品にも買った記録にも無い）。欄の件数には数えない。</summary>
+    public bool IsNoticeOnly { get; init; }
+
+    public string BandTip => Band switch
+    {
+        ChangeTone.Added => "BOOTHで追加されたバリエーションです。",
+        ChangeTone.Removed => "BOOTHで削除されたバリエーションです。",
+        _ => string.Empty,
+    };
 }
 
 /// <summary>フォルダとして所有している1件。中身は個別に記録していない。</summary>
@@ -109,19 +128,66 @@ public sealed class VariationRow
 /// **開閉は画面の状態なので Core には置かない。**`H2Section` は観測した中身で、
 /// 畳んでいるかどうかは見る人の都合。
 /// </summary>
-public sealed class SectionRow(Core.Models.H2Section section) : ViewModelBase
+public sealed class SectionRow : ViewModelBase
 {
     private bool _isOpen = true;
 
-    public string Heading { get; } = section.Heading;
+    public SectionRow(Core.Models.H2Section section)
+        : this(
+            section.Heading,
+            section.Text,
+            section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : Core.Services.BoothChanges.DescriptionField,
+            isRemoved: false)
+    {
+    }
 
-    public string Text { get; } = section.Text;
+    private SectionRow(string heading, string text, string key, bool isRemoved)
+    {
+        Heading = heading;
+        Text = text;
+        Key = key;
+        IsRemoved = isRemoved;
+    }
+
+    /// <summary>
+    /// BOOTH で消えた見出し（メモ17：元の位置に見出しごと赤の帯で並べる）。前のページは保存していないので、
+    /// 見出しは知らせの正規化した名前、本文は知らせに残した消えた行だけ（<see cref="Lines"/>）
+    /// </summary>
+    public static SectionRow ForRemoved(string key) => new(key, string.Empty, key, isRemoved: true);
+
+    public string Heading { get; }
+
+    public string Text { get; }
 
     /// <summary>
     /// 更新の知らせの差と突き合わせる名前。見出しの原文は装飾記号付きなので、知らせを作る側（<c>BoothChanges</c>）と同じく
     /// 正規化した見出しで引き、空なら「説明文」
     /// </summary>
-    public string Key { get; } = section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : Core.Services.BoothChanges.DescriptionField;
+    public string Key { get; }
+
+    /// <summary>BOOTH で消えた見出しの行か（<see cref="ForRemoved"/>）。</summary>
+    public bool IsRemoved { get; }
+
+    private bool _isShown = true;
+
+    /// <summary>出しているか。消えた見出しは「既読にする」で隠す（一覧を作り直すと見ている所が動くので、行は残して畳む）。</summary>
+    public bool IsShown
+    {
+        get => _isShown;
+        set => SetField(ref _isShown, value);
+    }
+
+    private ChangeTone? _band;
+
+    /// <summary>
+    /// 見出しごと足された（緑）・消えた（赤）ときの、見出しの行の帯（メモ17・ユーザ指示 2026-10-03「見出しごと足されたり消えたりが
+    /// 表示上わかりにくいので見出しから色を付けよう」）。本文の行の帯と同じ色で、見出しから本文までひと続きに見せる
+    /// </summary>
+    public ChangeTone? Band
+    {
+        get => _band;
+        set => SetField(ref _band, value);
+    }
 
     private ChangeSlot _change = ChangeSlot.Empty;
 
@@ -136,7 +202,7 @@ public sealed class SectionRow(Core.Models.H2Section section) : ViewModelBase
 
     /// <summary>
     /// 本文の中の変わった行（メモ13-②・ユーザ指示 2026-10-02「項目だけではどこが変更されたのか、要確認画面と往復しないと分からない」）。
-    /// 足した行は本文の上で地を付け、消えた行は本文に無いので見出しのすぐ下に並べる。「既読にする」で外す
+    /// 足した行も消えた行も本文の上の帯で示し、消えた行は元の位置に差し込む（メモ17）。「既読にする」で外す
     /// </summary>
     public ChangedLineMarks Lines
     {

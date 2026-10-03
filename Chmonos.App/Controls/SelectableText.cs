@@ -54,19 +54,22 @@ public static class SelectableText
             new PropertyMetadata(null, OnNavigatorChanged));
 
     /// <summary>
-    /// 地を付ける行の番号（本文を改行で分けたときの番号）。商品ページで、BOOTH の更新で足された行を本文の上で示す（メモ13-②）。
-    /// 空なら今までと同じ1つの段落で組む
+    /// 帯を付ける行（<see cref="ILineMarks"/>）。商品ページで、BOOTH の更新で足された行と消えた行を本文の上で示す（メモ13-②・メモ17）。
+    /// 無ければ今までと同じ1つの段落で組む
     /// </summary>
     public static readonly DependencyProperty MarkedLinesProperty =
         DependencyProperty.RegisterAttached(
             "MarkedLines",
-            typeof(IReadOnlySet<int>),
+            typeof(ILineMarks),
             typeof(SelectableText),
             new PropertyMetadata(null, OnTextChanged));
 
-    public static void SetMarkedLines(DependencyObject element, IReadOnlySet<int>? value) => element.SetValue(MarkedLinesProperty, value);
+    /// <summary>消えた行の段落に付ける印（<see cref="System.Windows.FrameworkContentElement.Tag"/>）。既読にするときに、画面が消える高さを測る。</summary>
+    public static readonly object RemovedLineTag = new();
 
-    public static IReadOnlySet<int>? GetMarkedLines(DependencyObject element) => (IReadOnlySet<int>?)element.GetValue(MarkedLinesProperty);
+    public static void SetMarkedLines(DependencyObject element, ILineMarks? value) => element.SetValue(MarkedLinesProperty, value);
+
+    public static ILineMarks? GetMarkedLines(DependencyObject element) => (ILineMarks?)element.GetValue(MarkedLinesProperty);
 
     public static void SetText(DependencyObject element, string? value) => element.SetValue(TextProperty, value);
 
@@ -117,7 +120,15 @@ public static class SelectableText
         });
     }
 
-    internal static FlowDocument Build(string? text, IInAppLinkNavigator? navigator, IReadOnlySet<int>? marked = null)
+    /// <summary>行の種類。同じ種類の行が続く間は1つの段落にまとめる。</summary>
+    private enum LineKind
+    {
+        Plain,
+        Added,
+        Removed,
+    }
+
+    internal static FlowDocument Build(string? text, IInAppLinkNavigator? navigator, ILineMarks? marks = null)
     {
         var document = new FlowDocument
         {
@@ -125,50 +136,76 @@ public static class SelectableText
             LineHeight = 21,
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
         };
-        var paragraph = new Paragraph { Margin = new Thickness(0) };
-        document.Blocks.Add(paragraph);
 
-        if (string.IsNullOrEmpty(text))
+        // 見出しごと消えた物は本文が無く、消えた行だけを並べる
+        var lines = string.IsNullOrEmpty(text) ? [] : text.Replace("\r\n", "\n").Split('\n');
+        var removed = marks?.RemovedLines ?? [];
+        if (lines.Length == 0 && removed.Count == 0)
         {
+            document.Blocks.Add(new Paragraph { Margin = new Thickness(0) });
             return document;
         }
 
-        var lines = text.Replace("\r\n", "\n").Split('\n');
-        var paragraphMarked = false;
-        for (var index = 0; index < lines.Length; index++)
+        Paragraph? paragraph = null;
+        var paragraphKind = LineKind.Plain;
+        void Append(string line, LineKind kind)
         {
-            // 印の有る行と無い行の境で段落を分ける。地と左の線は段落に付けると行の幅いっぱいに引ける（Run の地は文字の幅だけ）
-            var isMarked = marked?.Contains(index) == true;
-            var startsParagraph = index == 0 || isMarked != paragraphMarked;
-            if (index > 0 && startsParagraph)
+            // 種類の境で段落を分ける。地と左の線は段落に付けると行の幅いっぱいに引ける（Run の地は文字の幅だけ）
+            if (paragraph is null || kind != paragraphKind)
             {
                 paragraph = new Paragraph { Margin = new Thickness(0) };
                 document.Blocks.Add(paragraph);
+                paragraphKind = kind;
+                Mark(paragraph, kind);
             }
-            else if (index > 0)
+            else
             {
                 paragraph.Inlines.Add(new LineBreak());
             }
 
-            if (isMarked && startsParagraph)
+            AppendLine(paragraph, line, navigator);
+        }
+
+        var next = 0;
+        for (var index = 0; index <= lines.Length; index++)
+        {
+            // 消えた行は元の位置（その行の前）へ差し込む（メモ17）
+            while (next < removed.Count && removed[next].Before <= index)
             {
-                MarkAdded(paragraph);
+                Append(removed[next++].Text, LineKind.Removed);
             }
 
-            paragraphMarked = isMarked;
-            AppendLine(paragraph, lines[index], navigator);
+            if (index < lines.Length)
+            {
+                Append(lines[index], marks?.AddedLines.Contains(index) == true ? LineKind.Added : LineKind.Plain);
+            }
         }
 
         return document;
     }
 
-    /// <summary>足された行の段落。色は商品ページの「追加」の印と同じ鍵（明暗で差し替わるよう鍵で指す）。</summary>
-    private static void MarkAdded(Paragraph paragraph)
+    /// <summary>
+    /// 足された行・消えた行の段落に帯（地と左の線）を付ける。色は商品ページの印と同じ系統（足した＝緑・消えた＝赤）で、
+    /// 地は帯の専用の薄い色（帯が多い商品で色が強すぎないように。メモ17）。明暗で差し替わるよう鍵で指す。
+    /// 色だけに頼らないよう、乗せると何の帯かを言う
+    /// </summary>
+    private static void Mark(Paragraph paragraph, LineKind kind)
     {
-        paragraph.SetResourceReference(TextElement.BackgroundProperty, "GoodSoft");
-        paragraph.SetResourceReference(Block.BorderBrushProperty, "Good");
+        if (kind == LineKind.Plain)
+        {
+            return;
+        }
+
+        var added = kind == LineKind.Added;
+        paragraph.SetResourceReference(TextElement.BackgroundProperty, added ? "AddedBand" : "RemovedBand");
+        paragraph.SetResourceReference(Block.BorderBrushProperty, added ? "Good" : "Bad");
         paragraph.BorderThickness = new Thickness(3, 0, 0, 0);
         paragraph.Padding = new Thickness(6, 0, 0, 0);
+        paragraph.ToolTip = added ? "BOOTHで追加された行です。" : "BOOTHで削除された行です。";
+        if (!added)
+        {
+            paragraph.Tag = RemovedLineTag;
+        }
     }
 
     private static void AppendLine(Paragraph paragraph, string line, IInAppLinkNavigator? navigator)

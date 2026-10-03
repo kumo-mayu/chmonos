@@ -64,10 +64,15 @@ public partial class ItemView : UserControl
         if (previous is not null)
         {
             previous.ScrollReader = null;
+            previous.ChangeRevealRequested -= RevealChange;
+            previous.ChangesClearing -= KeepPlaceWhileClearing;
         }
 
         if (next is not null)
         {
+            next.ChangeRevealRequested += RevealChange;
+            next.ChangesClearing += KeepPlaceWhileClearing;
+
             // 戻している途中で離れたら、着くはずだった位置を答える（まだ並んでいない・右の列が届いていない間に戻る・進むを続けて押したとき）
             next.ScrollReader = () => _restoreTarget ?? Body.VerticalOffset;
         }
@@ -220,6 +225,136 @@ public partial class ItemView : UserControl
         {
             CancelRestore();
         }
+    }
+
+    // ---- BOOTH で変わった所（メモ17） ----
+
+    /// <summary>上の帯の「ほか n 件」：入り切らなかった分も含めて、変わった所を全部並べる。</summary>
+    private void OnMoreChangesClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { ContextMenu: { } menu } button)
+        {
+            menu.DataContext = button.DataContext;
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// 変わった所まで流す。畳んだ欄は ViewModel が開いてあるので、**並べ直してから位置を測る**
+    /// （開く前・並ぶ前に測ると、開いて伸びた分だけ行き先がずれる。ユーザ指示 2026-10-03）。
+    /// 説明の見出しは画面の外の分を後から足すので（ProgressiveItems）、行き先が在るように先に足し切る
+    /// </summary>
+    private void RevealChange(ChangeTarget target)
+    {
+        CancelRestore();
+        ProgressiveItems.FeedAllNow(Body);
+        Body.UpdateLayout();
+
+        // 開いた欄の中に、足している途中の一覧ができていることがある（畳んでいた説明の見出し）
+        if (ProgressiveItems.FeedAllNow(Body))
+        {
+            Body.UpdateLayout();
+        }
+
+        FrameworkElement? element = target.Place switch
+        {
+            ChangePlace.Name => NameAnchor,
+            ChangePlace.Variations => VariationsAnchor,
+            ChangePlace.Gallery => GalleryAnchor,
+            ChangePlace.Sale => SaleAnchor,
+            ChangePlace.Description => DescriptionAnchor,
+            ChangePlace.Section when target.Section is { } section => SectionList.ItemContainerGenerator.ContainerFromItem(section) as FrameworkElement,
+            _ => null,
+        };
+
+        if (element is null || !element.IsVisible)
+        {
+            return;
+        }
+
+        // 行き先の少し上（見出しの帯の線が上端に貼り付かないように）
+        var top = element.TransformToAncestor(Body).Transform(new Point(0, 0)).Y + Body.VerticalOffset;
+        Body.ScrollToVerticalOffset(Math.Max(0, top - 12));
+    }
+
+    /// <summary>既読にする前に測った、見ている所より上で消える帯の高さ。</summary>
+    private double _clearShift;
+
+    /// <summary>
+    /// 既読にして帯を外すと、消えた行・消えた見出し・消えたバリエーションが無くなり、その分だけ下の物が上へ詰まる。
+    /// 見ている所より上で消える分だけ流した位置を戻し、**見ている所を動かさない**（ユーザ指示 2026-10-03）。
+    /// 測るのは左の列（説明文）：消えた物の大半はここにあり、左右の列は高さが別々なので、両方を同時に保つことはできない
+    /// </summary>
+    private void KeepPlaceWhileClearing()
+    {
+        _clearShift = RemovedHeightAbove(LeftColumn);
+        if (_clearShift > 0)
+        {
+            // 外した後の配置の回の終わりに当てる（描く前にもう一度配置が回るので、詰まった姿が1コマ出ることが無い）
+            Body.LayoutUpdated += ApplyClearShift;
+        }
+    }
+
+    private void ApplyClearShift(object? sender, EventArgs e)
+    {
+        Body.LayoutUpdated -= ApplyClearShift;
+        Body.ScrollToVerticalOffset(Math.Max(0, Body.VerticalOffset - _clearShift));
+        _clearShift = 0;
+    }
+
+    /// <summary>
+    /// <paramref name="scope"/> の中で、消える帯（<see cref="SelectableText.RemovedLineTag"/> の付いた部品と本文の段落）のうち、
+    /// 見えている所の上端より上にある高さの合計。
+    /// </summary>
+    private double RemovedHeightAbove(DependencyObject scope)
+    {
+        var total = 0.0;
+        void Add(double top, double bottom)
+        {
+            if (top < 0)
+            {
+                total += Math.Min(bottom, 0) - top;
+            }
+        }
+
+        void Visit(DependencyObject node)
+        {
+            if (node is FrameworkElement { IsVisible: false })
+            {
+                return;
+            }
+
+            if (node is FrameworkElement element && ReferenceEquals(element.Tag, SelectableText.RemovedLineTag))
+            {
+                var top = element.TransformToAncestor(Body).Transform(new Point(0, 0)).Y;
+                Add(top, top + element.ActualHeight);
+                return;
+            }
+
+            if (node is RichTextBox box)
+            {
+                var origin = box.TransformToAncestor(Body).Transform(new Point(0, 0)).Y;
+                foreach (var paragraph in box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>()
+                             .Where(paragraph => ReferenceEquals(paragraph.Tag, SelectableText.RemovedLineTag)))
+                {
+                    var first = paragraph.ContentStart.GetCharacterRect(System.Windows.Documents.LogicalDirection.Forward);
+                    var last = paragraph.ContentEnd.GetCharacterRect(System.Windows.Documents.LogicalDirection.Backward);
+                    Add(origin + first.Top, origin + last.Bottom);
+                }
+
+                return;
+            }
+
+            for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(node); index++)
+            {
+                Visit(System.Windows.Media.VisualTreeHelper.GetChild(node, index));
+            }
+        }
+
+        Visit(scope);
+        return total;
     }
 
     private void CancelRestore()

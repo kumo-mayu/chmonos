@@ -170,6 +170,83 @@ public class LineDiffTests
         Assert.Null(back[1].Lines);
     }
 
+    // ---- 消えた行の位置（メモ17：商品ページは消えた行を元の位置に並べる） ----
+
+    [Fact]
+    public void RemembersTheLineARemovedLineFollowed()
+    {
+        var lines = LineDiff.Compare("注意書き\n旧版は配布を終えました\n連絡先\n末尾の行", "注意書き\n連絡先\n足した行");
+
+        Assert.Equal("-旧版は配布を終えました | -末尾の行 | +足した行", Show(lines));
+        Assert.Equal("注意書き", lines[0].Follows);
+        Assert.Equal("連絡先", lines[1].Follows);
+        Assert.Null(lines[2].Follows);
+    }
+
+    [Fact]
+    public void ARemovedFirstLineFollowsNothing()
+    {
+        var removed = Assert.Single(LineDiff.Compare("消した先頭\n残る行", "残る行"));
+
+        Assert.Null(removed.Follows);
+    }
+
+    [Fact]
+    public void ARemovedLineAfterAnAddedLineFollowsTheAddedLine()
+    {
+        // 足した行の後ろで消えた行は、足した行の後ろに並ぶ（今の本文にある行なら、足した行でも位置の手掛かりになる）
+        var lines = LineDiff.Compare("A\n消した\nB", "A\n足した\nB\n");
+
+        Assert.Equal("-消した | +足した", Show(lines));
+        Assert.Equal("A", lines[0].Follows);
+    }
+
+    [Fact]
+    public void WritesTheFollowedLineIntoReadableJson()
+    {
+        var json = JsonSerializer.Serialize(LineDiff.Compare("A\n消した", "A"), JsonStore.Options);
+
+        Assert.Contains("\"follows\": \"A\"", json);
+    }
+
+    [Fact]
+    public void BoothChangesRemembersWhereARemovedSectionWas()
+    {
+        var diffs = BoothChanges.Describe(
+            Block([Section("使い方", "本文"), Section("旧版について", "配布終了"), Section("注意", "本文")]),
+            Block([Section("使い方", "本文"), Section("注意", "本文")]));
+
+        Assert.Equal("使い方", Assert.Single(diffs).Follows);
+
+        var first = BoothChanges.Describe(
+            Block([Section("先頭", "配布終了"), Section("注意", "本文")]),
+            Block([Section("注意", "本文")]));
+        Assert.Null(Assert.Single(first).Follows);
+    }
+
+    /// <summary>どのバリエーションが足された・消えたかを名前の行で持つ（メモ17）。数が同じ入れ替えも知らせる。</summary>
+    [Fact]
+    public void BoothChangesKeepsTheNamesOfAddedAndRemovedVariations()
+    {
+        var swapped = Assert.Single(BoothChanges.Describe(
+            Block([]) with { Variations = [Variation(1, "フルセット"), Variation(2, "旧色")] },
+            Block([]) with { Variations = [Variation(1, "フルセット"), Variation(3, "新色")] }));
+
+        Assert.Equal(BoothChanges.VariationsField, swapped.Field);
+        Assert.Equal("-旧色 | +新色", Show(swapped.Lines!));
+        Assert.Equal("フルセット", swapped.Lines![0].Follows);
+        Assert.Equal(("2 件", "2 件"), (swapped.Before, swapped.After));
+
+        // 並べ替えだけは知らせない
+        Assert.Empty(BoothChanges.Describe(
+            Block([]) with { Variations = [Variation(1, "A"), Variation(2, "B")] },
+            Block([]) with { Variations = [Variation(2, "B"), Variation(1, "A")] }));
+    }
+
+    private static BoothVariation Variation(long id, string name) => new() { Id = id, Name = name };
+
+    private static H2Section Section(string heading, string text) => new() { Heading = heading, Text = text };
+
     private static BoothBlock Block(IReadOnlyList<H2Section> sections, string? description = "説明", string name = "商品")
         => new()
         {

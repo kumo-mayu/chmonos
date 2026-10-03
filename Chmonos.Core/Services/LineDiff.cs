@@ -57,9 +57,11 @@ public static class LineDiff
             return [];
         }
 
+        // 消えた行の位置は「今の本文で直前にある行」で持つ。頭で外した同じ行があれば、その最後の行が真ん中の手前に来る
+        var previous = head > 0 ? current[head - 1] : null;
         return (long)oldMiddle.Count * currentMiddle.Count <= MaxTableCells
-            ? Align(oldMiddle, currentMiddle)
-            : Unmatched(oldMiddle, currentMiddle);
+            ? Align(oldMiddle, currentMiddle, previous)
+            : Unmatched(oldMiddle, currentMiddle, previous);
     }
 
     /// <summary>本文を行に分ける。行の中の空白は1つに詰める（<see cref="BoothChanges"/> が本文を比べるときと同じ詰め方）。</summary>
@@ -76,7 +78,8 @@ public static class LineDiff
         => string.Join(' ', line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>いちばん長く共通する並び（LCS）で突き合わせ、残った行を足した・消したに分ける。</summary>
-    private static List<NotificationLine> Align(List<string> old, List<string> current)
+    /// <param name="previous">真ん中の手前にある今の本文の行（頭で外した最後の行）。無ければ null。</param>
+    private static List<NotificationLine> Align(List<string> old, List<string> current, string? previous)
     {
         // lengths[i, j]：old[i..] と current[j..] の共通する並びの長さ。後ろから埋めると、前から辿って差を出せる
         var lengths = new int[old.Count + 1, current.Count + 1];
@@ -96,16 +99,18 @@ public static class LineDiff
         {
             if (oi < old.Count && ci < current.Count && old[oi] == current[ci])
             {
+                previous = current[ci];
                 oi++;
                 ci++;
             }
             else if (ci >= current.Count || (oi < old.Count && lengths[oi + 1, ci] >= lengths[oi, ci + 1]))
             {
                 // 消した行を先に出す。書き換えた行は「消した → 足した」の順に並び、前後を見比べやすい
-                result.Add(Removed(old[oi++]));
+                result.Add(Removed(old[oi++], previous));
             }
             else
             {
+                previous = current[ci];
                 result.Add(Added(current[ci++]));
             }
         }
@@ -113,11 +118,14 @@ public static class LineDiff
         return result;
     }
 
-    /// <summary>並びを見ずに、相手に無い行を拾う（同じ行が何回あるかは数える）。長すぎる本文のときだけ使う。</summary>
-    private static List<NotificationLine> Unmatched(List<string> old, List<string> current)
+    /// <summary>
+    /// 並びを見ずに、相手に無い行を拾う（同じ行が何回あるかは数える）。長すぎる本文のときだけ使う。
+    /// 並びを見ないので本文の中の位置は分からず、消えた行は変わった所の手前（頭で外した最後の行の後ろ）に置く
+    /// </summary>
+    private static List<NotificationLine> Unmatched(List<string> old, List<string> current, string? previous)
     {
         var result = new List<NotificationLine>();
-        result.AddRange(Missing(old, current).Select(Removed));
+        result.AddRange(Missing(old, current).Select(line => Removed(line, previous)));
         result.AddRange(Missing(current, old).Select(Added));
         return result;
     }
@@ -142,7 +150,12 @@ public static class LineDiff
 
     private static NotificationLine Added(string text) => new() { Kind = NotificationLineKind.Added, Text = Clip(text) };
 
-    private static NotificationLine Removed(string text) => new() { Kind = NotificationLineKind.Removed, Text = Clip(text) };
+    private static NotificationLine Removed(string text, string? follows) => new()
+    {
+        Kind = NotificationLineKind.Removed,
+        Text = Clip(text),
+        Follows = follows is null ? null : Clip(follows),
+    };
 
     private static string Clip(string text) => text.Length <= MaxLineLength ? text : text[..MaxLineLength] + "…";
 }
