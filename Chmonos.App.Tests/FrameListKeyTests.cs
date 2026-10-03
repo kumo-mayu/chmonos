@@ -38,6 +38,27 @@ public class FrameListKeyTests
         Assert.Equal(FrameKey.Last, FrameList.OnFrame(Key.End, ModifierKeys.None));
     }
 
+    [Theory]
+    [InlineData(4, 3, false, 0)] // 最後の部品から Tab：最初へ戻る
+    [InlineData(4, 0, true, 3)] // 最初の部品から Shift+Tab：最後へ戻る
+    [InlineData(1, 0, false, 0)] // 部品が1つ：そこに止まる
+    [InlineData(1, 0, true, 0)]
+    public void 枠の中の端の部品からのTabは反対の端へ戻る(int count, int index, bool backward, int expected)
+    {
+        Assert.Equal(expected, FrameList.WrapTarget(count, index, backward));
+    }
+
+    [Theory]
+    [InlineData(4, 1, false)]
+    [InlineData(4, 2, true)]
+    [InlineData(4, 0, false)] // 先頭からの Tab は WPF に任せる
+    [InlineData(4, 3, true)]
+    [InlineData(0, 0, false)]
+    public void 枠の中の端でなければ戻さずWPFに任せる(int count, int index, bool backward)
+    {
+        Assert.Null(FrameList.WrapTarget(count, index, backward));
+    }
+
     [Fact]
     public void 修飾キー付きは枠では受けない()
     {

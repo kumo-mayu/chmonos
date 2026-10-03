@@ -16,8 +16,9 @@ namespace Chmonos.App.Controls;
 /// - 枠の上：↑↓ で隣の枠、Home・End で端の枠（端では止まる）。Enter で枠の中の最初の部品へ。Tab で並びの後ろへ、Shift+Tab で並びの前へ出る
 ///   （初めは枠の上の Tab も中へ入れていた。並びを素通りしたいときに中へ入って条件1つ分を送ることになるので、
 ///   中へは Enter だけにした。ユーザ判断 2026-10-02「3はそのように直してくれ」）
-/// - 枠の中：Tab・Shift+Tab は今までどおり部品から部品へ（中の部品の順は変えない）。Shift+Tab で最初の部品から戻ると枠に止まる。
-///   **最後の部品から Tab で並びの後ろへ出る**（次の枠へは入らない）。Esc で枠へ戻る（中の部品が Esc を使ったとき＝候補を閉じたときは戻らない）
+/// - 枠の中：Tab・Shift+Tab は枠の中の部品だけを巡る。最後の部品から Tab で最初の部品へ、最初の部品から Shift+Tab で最後の部品へ戻り、枠の外へは出ない
+///   （ユーザ判断 2026-10-03・メモ16-②。前は最後の部品から並びの後ろへ出ていて、入力欄の中で矢印が文字に吸われる分、Tab で意図せず別の所へ抜けた）。
+///   外へは Esc で枠へ戻ってから（中の部品が Esc を使ったとき＝候補を閉じたときは戻らない）
 ///
 /// カードの一覧などの「並び」（<see cref="ArrowGroup"/>）を使わないのは、並びは中の止まり先を全部1段に並べて矢印で渡る作りで、
 /// 枠の中に入力欄・選ぶ欄・スライダーがある条件では、矢印がその部品の物（文字を動かす・選び直す・値を動かす）と食い合うため
@@ -85,6 +86,60 @@ public static class FrameList
         (Key.End, ModifierKeys.None) => FrameKey.Last,
         _ => FrameKey.None,
     };
+
+    /// <summary>
+    /// 枠の中で Tab を押したとき、反対の端へ戻す先（番号）。端でなければ null（WPF の次へ進む動きのまま）。
+    /// 部品が1つだけなら、その部品に止まったままにする（外へ出ない）
+    /// </summary>
+    internal static int? WrapTarget(int count, int index, bool backward)
+        => count <= 0 ? null
+            : backward ? (index == 0 ? count - 1 : null)
+            : (index == count - 1 ? 0 : null);
+
+    /// <summary>
+    /// 枠の中で Tab が止まる部品（文書の順）。WPF と同じく、同じ組（GroupName）のラジオボタンは選ばれている1つ
+    /// （どれも選ばれていなければ最初の1つ）だけが止まり先なので、残りは数えない——数えると、端の部品が実際には Tab で届かない物になる
+    /// </summary>
+    private static List<UIElement> TabStopsIn(FocusFrame frame)
+    {
+        var stops = new List<UIElement>();
+        CollectStops(frame, stops);
+
+        var groups = stops.OfType<RadioButton>().Where(radio => !string.IsNullOrEmpty(radio.GroupName)).GroupBy(radio => radio.GroupName);
+        foreach (var group in groups)
+        {
+            var keep = group.FirstOrDefault(radio => radio.IsChecked == true) ?? group.First();
+            stops.RemoveAll(stop => stop is RadioButton radio && ReferenceEquals(radio.GroupName, group.Key) && !ReferenceEquals(radio, keep));
+        }
+
+        return stops;
+    }
+
+    private static void CollectStops(DependencyObject parent, List<UIElement> stops)
+    {
+        // 並び順は WPF と同じく、同じ親の子どうしを TabIndex（無ければ最後）で安定に並べた順
+        // （検索の条件の見出しは、チェックを札「除く」より先にするため TabIndex を付けている）
+        var children = new List<DependencyObject>();
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            children.Add(VisualTreeHelper.GetChild(parent, index));
+        }
+
+        foreach (var child in children.OrderBy(child => child is UIElement ordered ? KeyboardNavigation.GetTabIndex(ordered) : int.MaxValue))
+        {
+            if (child is UIElement { IsVisible: false })
+            {
+                continue;
+            }
+
+            if (child is UIElement { Focusable: true, IsEnabled: true } element && KeyboardNavigation.GetIsTabStop(element))
+            {
+                stops.Add(element);
+            }
+
+            CollectStops(child, stops);
+        }
+    }
 
     private static List<FocusFrame> Frames(ItemsControl list)
     {
@@ -221,6 +276,14 @@ public static class FrameList
 
         public void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Tab && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift
+                && Keyboard.FocusedElement is DependencyObject inside && FrameOf(inside) is { } own && !ReferenceEquals(inside, own)
+                && CycleInside(own, inside, backward: Keyboard.Modifiers == ModifierKeys.Shift))
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (e.OriginalSource is not FocusFrame frame || !ReferenceEquals(Keyboard.FocusedElement, frame))
             {
                 return;
@@ -270,7 +333,7 @@ public static class FrameList
         }
 
         /// <summary>
-        /// Tab で止まり先が移った後に、向きを決め直す。外から入ったら前の枠へ、枠の中の最後の部品から出て次の枠へ入ったら並びの後ろへ。
+        /// Tab で止まり先が移った後に、向きを決め直す。外から入ったら前の枠へ。
         /// Tab が押されているときだけ見る（マウスで押した・コードが止めた所は動かさない。足した条件の入力欄に止まるなど）
         /// </summary>
         public void OnGotFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -279,15 +342,12 @@ public static class FrameList
             var landed = FrameOf(now);
             var before = e.OldFocus as DependencyObject;
             var tabbing = !_moving && _tabbing;
-            var from = FrameOf(before);
 
-            // 外から Tab で入った／枠の中の最後の部品から Tab で次の枠へ入った：どちらもこの後で止まり先を移し直す
+            // 外から Tab で入った：この後で止まり先を移し直す
             var tabbedIn = tabbing && !IsWithin(list, before);
-            var tabbedOut = tabbing && !_tabBackward && !tabbedIn && from is not null
-                            && !ReferenceEquals(before, from) && !ReferenceEquals(landed, from);
 
             // 止まった枠を覚える。移し直す途中の止まり先は覚えない（覚えると前の枠を忘れる）
-            if (landed is not null && !tabbedIn && !tabbedOut)
+            if (landed is not null && !tabbedIn)
             {
                 _item = landed.DataContext;
             }
@@ -303,11 +363,31 @@ public static class FrameList
                     MoveSoon(target);
                 }
             }
-            else if (tabbedOut)
+        }
+
+        /// <summary>
+        /// 枠の中の端の部品から Tab／Shift+Tab を押したとき、枠の外へ出ず反対の端へ戻す（メモ16-②）。端でなければ何もせず、WPF に任せる。
+        /// 候補を開いている選ぶ欄の中の Tab は、その欄の物なので触らない
+        /// </summary>
+        private bool CycleInside(FocusFrame frame, DependencyObject focused, bool backward)
+        {
+            var stops = TabStopsIn(frame);
+            var at = stops.FindLastIndex(stop => IsWithin(stop, focused));            if (at < 0 || stops[at] is ComboBox { IsDropDownOpen: true } || WrapTarget(stops.Count, at, backward) is not { } target)
             {
-                // 枠の中の最後の部品から Tab：次の枠へは入らず、並びの後ろへ出る
-                Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Input, ExitAfter);
+                return false;
             }
+
+            _moving = true;
+            try
+            {
+                stops[target].Focus();
+            }
+            finally
+            {
+                _moving = false;
+            }
+
+            return true;
         }
 
         private void Enter(FocusFrame frame)
