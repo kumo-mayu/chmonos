@@ -556,22 +556,28 @@
                                                 伸び縮みは欄の側の Style で持つ。ボタンの側から名前で欄を指すと、開いたまま
                                                 別の画面へ移ったときに合図だけが流れて欄が見つからず、例外で画面の切り替えが止まった（2026-09-19）
                                             -->
-                                            <controls:SuggestBox Margin="2,0,10,0"
-                                                                 IsFrameless="True"
-                                                                 CommitCommand="{Binding AddSubCommand}"
-                                                                 Source="{Binding DataContext.SubNames, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                 MaxLength="60"
-                                                                 Placeholder="小分類の名前" VerticalAlignment="Center">
-                                                <controls:SuggestBox.Style>
-                                                    <Style TargetType="controls:SuggestBox">
+                                            <!-- 今ある小分類は候補に出さない（メモ25 C。選んでも「既にあります」で断られるだけだった）。ふつうの欄と「追加」 -->
+                                            <TextBox Margin="2,0,0,0" BorderThickness="0" Background="Transparent"
+                                                     Padding="4,0" VerticalContentAlignment="Center" VerticalAlignment="Center"
+                                                     MaxLength="60"
+                                                     Text="{Binding NewSubText, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="小分類の名前"
+                                                     AutomationProperties.AutomationId="TagAddSubInput">
+                                                <TextBox.InputBindings>
+                                                    <KeyBinding Key="Return" Command="{Binding AddSubCommand}" />
+                                                </TextBox.InputBindings>
+                                                <TextBox.Style>
+                                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                                                         <Setter Property="Width" Value="0" />
+                                                        <Setter Property="Visibility" Value="Hidden" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsAddingSub}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
                                                                 <DataTrigger.EnterActions>
                                                                     <BeginStoryboard>
                                                                         <Storyboard>
                                                                             <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                                                             To="260" Duration="0:0:0.14" />
+                                                                                             To="150" Duration="0:0:0.14" />
                                                                         </Storyboard>
                                                                     </BeginStoryboard>
                                                                 </DataTrigger.EnterActions>
@@ -586,8 +592,12 @@
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </controls:SuggestBox.Style>
-                                            </controls:SuggestBox>
+                                                </TextBox.Style>
+                                            </TextBox>
+                                            <Button Content="追加" Style="{StaticResource SmallButton}" Height="24" Margin="2,0,4,0"
+                                                    Command="{Binding AddSubCommand}"
+                                                    AutomationProperties.AutomationId="TagAddSubButton"
+                                                    Visibility="{Binding IsAddingSub, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
                                     </Border>
 
@@ -601,7 +611,15 @@
                                             ToolTip="中身のある小分類を、まとめて開くか折りたたみます。" />
                                 </StackPanel>
 
-                                <controls:SearchSyntaxHint Margin="2,6,0,0" />
+                                <!--
+                                    小分類を足す欄の下の「既にあります」。丸い欄の左端（検索欄の幅360＋余白10）にそろえる。
+                                    1行分の場所は常に取る（Collapsed にしない）——出入りで下が跳ねる
+                                -->
+                                <TextBlock Text="{Binding AddSubNoticeText}" Height="16" Margin="370,4,0,0" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Warn}"
+                                           AutomationProperties.AutomationId="TagAddSubNotice" />
+
+                                <controls:SearchSyntaxHint Margin="2,2,0,0" />
                                 <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,4,0,0"
                                            Visibility="{Binding HasItemFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
