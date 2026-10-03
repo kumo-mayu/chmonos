@@ -485,14 +485,15 @@
                             -->
                             <StackPanel Margin="0,16,0,0"
                                         Visibility="{Binding HasProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <Grid>
+                                <!-- 入り切らなければボタンを次の段へ送る（見出しがボタンに押されて末尾が切れていた。2026-10-03） -->
+                                <controls:SplitRowPanel Gap="12">
                                     <TextBlock Text="紐付けたプロジェクトの中から探す" FontSize="12.5" FontWeight="SemiBold"
                                                VerticalAlignment="Center" />
                                     <Button Content="プロジェクトの中を調べる" Style="{StaticResource SmallButton}"
                                             HorizontalAlignment="Right" VerticalAlignment="Center"
                                             Command="{Binding FindInProjectCommand}"
                                             ToolTip="プロジェクトのファイルを手元の商品と比べます。プロジェクトは書き換えません。" />
-                                </Grid>
+                                </controls:SplitRowPanel>
                                 <TextBlock Text="{Binding ProjectFindText}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" Margin="0,6,0,0"
                                            Visibility="{Binding HasProjectFindText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -635,9 +636,9 @@
                             <StackPanel Visibility="{Binding HasProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="{Binding ProjectName}" FontSize="13" FontWeight="Bold"
                                            TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding ProjectPath}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,2,0,0" MaxWidth="380"
-                                           HorizontalAlignment="Left" />
+                                <!-- パスは等幅の英字の字体で出す（日本語の字体では区切りの「\」が「¥」に見える）。長ければ間を省いて吹き出しで全文 -->
+                                <controls:PathLine Path="{Binding ProjectPath}" Style="{StaticResource Mono}" FontSize="11"
+                                                   Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0" />
 
                                 <!-- 消えていても黙って外さない。指し直す導線を残す -->
                                 <Border Background="{DynamicResource WarnSoft}"

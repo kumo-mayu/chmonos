@@ -243,12 +243,23 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             if (SetField(ref _detail, value))
             {
                 OnPropertyChanged(nameof(HasDetail));
+                OnPropertyChanged(nameof(DetailWidthWanted));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
     }
 
     public bool HasDetail => Detail is not null;
+
+    /// <summary>
+    /// 右に出す物が横に送らずに済む幅。改変の詳細は左の最小＋右の最小＋余白（720）を要り、右の欄の最小（360）のままだと
+    /// 幅 1280 の窓でも一覧を縮めず、詳細が横に送られて右の列が切れていた（2026-10-03）。
+    /// 一覧はこの幅を残すまで縮む（それでも足りない窓では、詳細が自分で横に送る）。ほかの物は右の欄の最小で足りる
+    /// </summary>
+    public double DetailWidthWanted => Detail is ModificationViewModel modification ? WidthWanted(modification.BodyMinWidth) : 0;
+
+    /// <summary>詳細の本文の下限に、常に出している縦のスクロールバーの幅を足す（バーの分だけ本文の入れ物が狭くなるため）。</summary>
+    internal static double WidthWanted(double bodyMinWidth) => bodyMinWidth + System.Windows.SystemParameters.VerticalScrollBarWidth;
 
     /// <summary>右側に出しているものを、開き直せる形で。</summary>
     public ModificationHubSelection? Selection => Detail switch
