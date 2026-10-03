@@ -88,4 +88,37 @@ public class EditDescriptionHeightTests
         grip.Resize(60);
         Assert.Equal(130, grip.Length);
     });
+
+    [Fact]
+    public Task つまみが外側の見える範囲の下へ出たら_出た分だけ外側を流す() => UiThread.Run(() =>
+    {
+        var box = new Border { Height = 200 };
+        var grip = new HeightGrip { Target = box };
+        var scroller = new ScrollViewer
+        {
+            Height = 300,
+            Width = 300,
+            Content = new StackPanel { Children = { box, grip } },
+        };
+        Layout(scroller);
+
+        // 収まっているうちは流さない
+        grip.FollowIntoView();
+        Assert.Equal(0, scroller.VerticalOffset);
+
+        // 欄を伸ばして、つまみ（欄の下 8）の下端が 508 になる。見える高さ 300 を 208 越えた
+        box.Height = 500;
+        Layout(scroller);
+        grip.FollowIntoView();
+        Layout(scroller);
+        Assert.Equal(208, scroller.VerticalOffset);
+        Assert.Equal(0, HeightGrip.OverflowBelow(300, 300));
+    });
+
+    private static void Layout(FrameworkElement root)
+    {
+        root.Measure(new Size(300, 300));
+        root.Arrange(new Rect(0, 0, 300, 300));
+        root.UpdateLayout();
+    }
 }
