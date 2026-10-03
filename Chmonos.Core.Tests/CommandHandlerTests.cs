@@ -309,6 +309,54 @@ public class CommandHandlerTests
         Assert.Equal("5813187", Assert.IsType<CommandResult.ItemSaved>(result).ItemId);
     }
 
+    /// <summary>
+    /// 確定の後に裏へ投げる検出は、走っている間「済んでいない裏の作業」に数える（2026-10-03）。
+    /// 数えずに投げていたので、App の試験が「投げた作業が全部済んだ」と見て保存先を消した後も検出が走り続け、
+    /// 一時ファイルごと消されて落ち、その失敗が次の試験のログに混ざっていた
+    /// </summary>
+    [Fact]
+    public async Task CountsTheDetectionAfterAssignmentAsPendingBackgroundWork()
+    {
+        var avatars = new HeldAvatarService();
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatars: avatars);
+
+        Assert.IsType<CommandResult.ItemSaved>(await handler.ExecuteAsync(new UiCommand.AssignItemId("AAAA", "5813187")));
+        await avatars.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.True(Chmonos.Core.Diagnostics.BackgroundWork.Pending > 0);
+
+        avatars.Release.SetResult();
+        await avatars.Finished.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>検出が呼ばれたら、放されるまで返らない。</summary>
+    private sealed class HeldAvatarService : IAvatarService
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task RequestDetectAsync(CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            await Release.Task;
+            Finished.TrySetResult();
+        }
+
+        public Task<AvatarDetectResult> DetectAsync(
+            IProgress<AvatarDetectProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AvatarSummary>> LoadAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AvatarSummary>>([]);
+
+        public Task<IReadOnlyList<AvatarBaseSummary>> LoadBasesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AvatarBaseSummary>>([]);
+    }
+
     [Fact]
     public async Task ReportsFailureWhenAssignmentIsRejected()
     {

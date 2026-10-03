@@ -125,20 +125,7 @@ public sealed class CoalescedRun
         }
 
         Interlocked.Exchange(ref _requested, 1);
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await RequestAsync(token);
-            }
-            catch (OperationCanceledException)
-            {
-                // 任せた人も中断していた
-            }
-            catch (Exception exception)
-            {
-                Diagnostics.AppLog.Error("まとめた依頼の続き", exception);
-            }
-        });
+        // 任せた人も中断していたなら黙って終わる（BackgroundWork は中断を失敗として残さない）
+        Diagnostics.BackgroundWork.Run("まとめた依頼の続き", () => RequestAsync(token));
     }
 }
