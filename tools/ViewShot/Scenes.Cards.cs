@@ -77,7 +77,16 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("tag-manage-typed-existing", "タグの管理：左の欄に、今ある大分類の名前を打った所。追加の行は無く、一覧で強調", async context =>
+        // 並べ替えのつかみ（六点）は「候補の並べ替え」のときだけ出す（2026-10-02）。名前順の絵（tag-manage-typed-new など）と見比べる
+        new Scene("tag-manage-manual", "タグの管理：表示順を「候補の並べ替え」にした所。左の一覧の行に並べ替えのつかみが出る", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            context.Screen<TagManageViewModel>().Sort = TagSortMode.Manual;
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("tag-manage-typed-existing","タグの管理：左の欄に、今ある大分類の名前を打った所。追加の行は無く、一覧で強調", async context =>
         {
             var root = await OpenTagManageAsync(context, cards: false);
             context.Screen<TagManageViewModel>().FilterText = "衣装";

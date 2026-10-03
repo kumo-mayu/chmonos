@@ -62,6 +62,16 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
+        new Scene("search-edit-status-both", "検索の絞り込み：編集状況を「両方」にした所（項目のチェックとつなぎ方が薄くなって押せない）", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context);
+            var status = (UneditedModule)AddModule(search, SearchModuleKind.Unedited);
+            status.Fields.First(toggle => toggle.Field == Chmonos.Core.Services.EditField.Memo).IsOn = true;
+            status.Selected = status.Options.First(option => option.Key == "both");
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
         UpdatedScene("search-updated", "検索：条件「更新あり」で絞った結果（未読の更新がある2件のカードの札「更新あり」）", list: false),
         UpdatedScene("search-updated-list", "検索：条件「更新あり」で絞ったリスト（行の札「更新あり」）", list: true),
         UpdatedScene("search-selected-updated", "検索：未読の更新がある1件を含む3件を選んだ下の帯（「既読にする」が出る）", list: false, select: true),
