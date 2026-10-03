@@ -433,7 +433,8 @@ public sealed partial class SearchViewModel
             .Select(group => group.Name)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
         foreach (var baseName in registry.BaseGroups.Where(group => !group.Rejected).Select(group => group.Name)
-            .Concat(registry.Entries.Select(entry => entry.BaseName))
+            // アバターでない記録（「アバターとして扱わない」にした物）に残った素体名は拾わない
+            .Concat(registry.Entries.Where(AvatarService.IsAvatar).Select(entry => entry.BaseName))
             .Where(name => !string.IsNullOrWhiteSpace(name) && !deleted.Contains(name!))
             .Select(name => name!)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
