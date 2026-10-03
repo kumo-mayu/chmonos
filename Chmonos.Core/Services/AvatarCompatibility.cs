@@ -83,6 +83,16 @@ public sealed class AvatarCompatibilityIndex
 
         foreach (var entry in registry.Entries)
         {
+            // アバターでないと分かっている物は、手で付けた素体名があっても一員に数えない（ユーザ判断 2026-10-03「1で良い」）。
+            // 素体名は「アバターとして扱わない」にしても JSON に残るので、見ずに数えると、素体に対応した衣装の
+            // 「素体経由で対応」にアバターでない物が並んだ。素体名は消さずに残し、扱いを戻せばまた一員になる。
+            // カテゴリがまだ分からない記録（BOOTH から取っていないアバター）は判定が偽になるが、外すと
+            // 用意した素体名や手で付けた所属が効かなくなるので、分かっている物だけを外す
+            if (IsKnownNotAvatar(entry))
+            {
+                continue;
+            }
+
             var baseName = !string.IsNullOrWhiteSpace(entry.BaseName)
                 ? entry.BaseName!
                 : AvatarService.IsAvatar(entry) ? AvatarBaseKeys.InferBaseOf(entry, lookup) : null;
@@ -105,6 +115,11 @@ public sealed class AvatarCompatibilityIndex
 
         return index;
     }
+
+    /// <summary>「アバターとして扱わない」にした物と、カテゴリが分かっていてアバターと判定されない物。</summary>
+    internal static bool IsKnownNotAvatar(AvatarRegistryEntry entry)
+        => entry.AvatarOverride == false
+            || (!string.IsNullOrWhiteSpace(entry.Category) && !AvatarService.IsAvatar(entry));
 
     /// <summary>この素体グループに属するアバター。</summary>
     public IReadOnlyList<string> MembersOf(string baseName)

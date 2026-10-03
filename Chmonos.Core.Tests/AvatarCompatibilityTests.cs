@@ -270,3 +270,58 @@ public class AvatarBaseSeedTests
         Assert.Equal(AvatarMatch.ViaBase, index.MatchFor(changed, "tbody"));
     }
 }
+
+/// <summary>
+/// 手で付けた素体名が残っていても、アバターでないと分かっている物は素体の一員に数えない（2026-10-03・ユーザ判断「1で良い」）。
+/// </summary>
+public class AvatarBaseMembershipTests
+{
+    [Fact]
+    public void アバターとして扱わないにした物は_素体名が残っていても一員に数えない()
+    {
+        var index = AvatarCompatibilityIndex.Build(WithExtra(new AvatarRegistryEntry
+        {
+            ItemId = "texture", DisplayName = "作り物のテクスチャ", BaseName = "まめふれんず", AvatarOverride = false,
+        }));
+
+        Assert.DoesNotContain("texture", index.MembersOf("まめふれんず"));
+        Assert.Equal(AvatarMatch.Unknown, index.MatchFor(AvatarCompatibilityTests.Declaring("kipfel"), "texture"));
+    }
+
+    [Fact]
+    public void カテゴリがアバターでないと分かっている物も_一員に数えない()
+    {
+        var index = AvatarCompatibilityIndex.Build(WithExtra(new AvatarRegistryEntry
+        {
+            ItemId = "shader", DisplayName = "作り物のシェーダー", BaseName = "まめふれんず", Category = "3Dモデル（その他）",
+        }));
+
+        Assert.DoesNotContain("shader", index.MembersOf("まめふれんず"));
+    }
+
+    /// <summary>カテゴリをまだ取っていない記録は、用意した素体名や手で付けた所属を今までどおり効かせる。</summary>
+    [Fact]
+    public void カテゴリがまだ分からない記録は_手で付けた素体名で一員に数える()
+    {
+        var index = AvatarCompatibilityIndex.Build(AvatarCompatibilityTests.Registry());
+
+        Assert.Contains("mamehinata", index.MembersOf("まめふれんず"));
+    }
+
+    [Fact]
+    public void 扱いをアバターに戻せば_また一員に数える()
+    {
+        var index = AvatarCompatibilityIndex.Build(WithExtra(new AvatarRegistryEntry
+        {
+            ItemId = "texture", DisplayName = "作り物のテクスチャ", BaseName = "まめふれんず", AvatarOverride = true,
+        }));
+
+        Assert.Contains("texture", index.MembersOf("まめふれんず"));
+    }
+
+    private static AvatarRegistry WithExtra(AvatarRegistryEntry extra)
+    {
+        var registry = AvatarCompatibilityTests.Registry();
+        return new AvatarRegistry { Entries = [.. registry.Entries, extra], BaseGroups = registry.BaseGroups };
+    }
+}
