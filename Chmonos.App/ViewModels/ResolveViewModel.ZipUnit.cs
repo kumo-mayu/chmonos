@@ -251,6 +251,7 @@ public sealed partial class ResolveViewModel
         OnPropertyChanged(nameof(IsBlockedByListedZip));
         OnPropertyChanged(nameof(IsLocalBlockedByListedZip));
         OnPropertyChanged(nameof(AssignOutcomeText));
+        RaiseTargetChanged();
         RelayCommand.RaiseCanExecuteChanged();
     }
 

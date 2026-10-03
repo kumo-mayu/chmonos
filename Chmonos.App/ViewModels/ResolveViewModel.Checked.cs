@@ -56,6 +56,7 @@ public sealed partial class ResolveViewModel
             ResetLocalNameDraft();
         }
 
+        RaiseTargetChanged();
         RelayCommand.RaiseCanExecuteChanged();
     }
 
