@@ -8,47 +8,21 @@ using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
-/// <summary>未確定画面：チェックした物へのまとめた操作（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
+/// <summary>未確定画面：チェックした物（選んだ物）。選んでいる間は、今の対象がチェックした全部になる（ResolveViewModel.Target.cs）</summary>
 public sealed partial class ResolveViewModel
 {
     public int CheckedCount => Files.Count(row => row.IsSelected);
 
     public bool HasChecked => CheckedCount > 0;
 
-    public string CheckedText => $"{CheckedCount} 件を選択中";
-
-    public string AssignCheckedText => $"選択した {CheckedCount} 件をこのIDで確定";
-
-    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理対象から除外する";
-
-    /// <summary>
-    /// まとめての操作の欄から「BOOTHに無い商品」の欄へ送るボタン（ユーザ指示 2026-10-02：選んでも仮IDでまとめて登録できなかった）。
-    /// 名前と画像は1件のときと同じ欄で入れるので、ここでは登録せず欄へ送る（入力が要るので末尾に「…」）。
-    /// 「BOOTHに無い商品として登録」と書くと幅900の窓で枠からはみ出したので、欄の「仮のID（local-…）として登録します」に合わせて短くした
-    /// </summary>
-    public string LocalCheckedText => $"選択した {CheckedCount} 件を仮のIDで登録…";
-
-    /// <summary>「その他」の登録ボタン。選んでいるときは選んだ全部を1つの商品にするので、1件のつもりで押さないよう件数を言う。</summary>
-    public string RegisterLocalText => HasChecked
-        ? $"選択した {CheckedCount} 件をこの名前で登録する"
-        : "この名前で登録する";
-
-    /// <summary>「BOOTHに無い商品」の欄へ画面を送り、名前の欄に入る（View が受ける）。</summary>
-    public event Action? LocalNameFocusRequested;
-
-    private void GoToLocal() => LocalNameFocusRequested?.Invoke();
+    private List<UnresolvedRow> CheckedRows => Files.Where(row => row.IsSelected).ToList();
 
     private void OnCheckedChanged()
     {
         OnPropertyChanged(nameof(CheckedCount));
         OnPropertyChanged(nameof(HasChecked));
-        OnPropertyChanged(nameof(CheckedText));
-        OnPropertyChanged(nameof(AssignCheckedText));
-        OnPropertyChanged(nameof(ExcludeCheckedText));
-        OnPropertyChanged(nameof(LocalCheckedText));
-        OnPropertyChanged(nameof(RegisterLocalText));
         OnPropertyChanged(nameof(LocalIdPreview));
-        OnPropertyChanged(nameof(IsLocalBlockedByListedZip));
+        OnPropertyChanged(nameof(AssignOutcomeText));
 
         // 名前は人が書き換えていなければ、選んだ物に合わせて下書きし直す（書いた名前は消さない）
         if (LocalNameInput == _localNameDraft)
@@ -59,15 +33,6 @@ public sealed partial class ResolveViewModel
         RaiseTargetChanged();
         RelayCommand.RaiseCanExecuteChanged();
     }
-
-    /// <summary>
-    /// 「BOOTHに無い商品として登録する」の対象。選んでいればその全部（zipの中身はzipの単位まで広げ、元のzipが未確定にあれば止める。
-    /// まとめて確定と同じ）、でなければ束か選んだ1件。
-    /// </summary>
-    private (IReadOnlyList<UnresolvedRow> Targets, string? Blocked) LocalTargets()
-        => HasChecked
-            ? ExpandToZipUnits(Files.Where(row => row.IsSelected).ToList())
-            : (ActiveRows, null);
 
     /// <summary>押した人が下書きから書き換えたかを見分けるため、最後に入れた下書きを覚えておく。</summary>
     private string _localNameDraft = string.Empty;
@@ -103,9 +68,6 @@ public sealed partial class ResolveViewModel
 
     private static string NameDraftOf(UnresolvedRow row)
         => Chmonos.Core.Resolution.FileNameQuery.ToNameDraft(row.Origin?.ArchiveName ?? row.FileName);
-
-    /// <summary>元のzipが未確定にあるので1件の登録を止めている、と「その他」で言うか。選んでいる物を登録するときは、押したときに確かめる。</summary>
-    public bool IsLocalBlockedByListedZip => !HasChecked && IsBlockedByListedZip;
 
     /// <summary>
     /// 同じフォルダのものをまとめて選ぶ。
@@ -144,8 +106,8 @@ public sealed partial class ResolveViewModel
             if (SetField(ref _activeGroup, value))
             {
                 OnPropertyChanged(nameof(HasActiveGroup));
-                OnPropertyChanged(nameof(ActiveGroupText));
                 OnPropertyChanged(nameof(AssignOutcomeText));
+                RaiseTargetChanged();
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -153,14 +115,7 @@ public sealed partial class ResolveViewModel
 
     public bool HasActiveGroup => ActiveGroup is not null;
 
-    public string ActiveGroupText => ActiveGroup is null
-        ? string.Empty
-        : (ActiveRows.FirstOrDefault()?.HasOrigin == true
-            ? $"元zip「{ActiveGroup}」を展開した中身 {ActiveRows.Count} 件をまとめて扱っています"
-            : $"フォルダ「{Path.GetFileName(ActiveGroup)}」のファイル {ActiveRows.Count} 件をまとめて扱っています")
-          + (ActiveRows.Count(row => !MatchesFilter(row)) is var hidden && hidden > 0 ? $"（うち {hidden} 件は検索で隠れています）" : string.Empty);
-
-    /// <summary>確定・管理対象から除外するの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
+    /// <summary>選んでいないときの対象。束を立てていればその全件、でなければ選んだ1件。</summary>
     private IReadOnlyList<UnresolvedRow> ActiveRows => ActiveGroup is { } key
         ? Files.Where(row => string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList()
         : Selected is null ? [] : [Selected];
@@ -201,8 +156,6 @@ public sealed partial class ResolveViewModel
             row.IsSelected = false;
         }
     }
-
-    private Task<bool> ExcludeCheckedAsync() => ExcludeRowsAsync(Files.Where(row => row.IsSelected).ToList(), "まとめて管理対象から除外する");
 
     /// <summary>
     /// 元のzipが残っている中身を「元zipとして扱う」：元のzipの行を選ぶ。そのままzipで登録すれば、中身は一覧から消える。
@@ -265,87 +218,11 @@ public sealed partial class ResolveViewModel
 
             RemoveRows(targets);
             RememberExcluded(targets);
-            StatusText = $"{targets.Count} 件を管理対象から除外しました。";
+            ListNoticeText = $"{targets.Count} 件を管理対象から除外しました。";
             return true;
         }
         finally
         {
-            IsBusy = false;
-            OnPropertyChanged(nameof(HasStatus));
-        }
-    }
-
-    /// <summary>
-    /// 選んだ複数のファイルを同じ商品IDへ確定する。
-    /// 1商品に複数のファイル（本体zipと差分、psdなど）が付くことは普通にある。
-    /// 2件目以降はローカルのitemへ追加されるだけで、BOOTHへは行かない。
-    /// </summary>
-    private async Task AssignCheckedAsync()
-    {
-        if (Preview is null)
-        {
-            return;
-        }
-
-        // zipを展開した中身は、元のzipの単位に揃える（元のzipが未確定にあれば止め、無ければ同じzipの中身全件まで広げる）
-        var (targets, blocked) = ExpandToZipUnits(Files.Where(row => row.IsSelected).ToList());
-        if (blocked is not null)
-        {
-            StatusText = blocked;
-            OnPropertyChanged(nameof(HasStatus));
-            return;
-        }
-
-        if (targets.Count == 0)
-        {
-            return;
-        }
-
-        var answer = Services.Notice.Show(
-            $"{targets.Count} 件を「{Preview.Name}」（ID {Preview.Id}）のファイルとして確定します。\n\n"
-            + "同じ商品のファイルであることを確認してください。",
-            "まとめて確定",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Cancel);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
-        {
-            return;
-        }
-
-        IsBusy = true;
-        StartRegistering(RegisteringArea.Decision, targets.Count);
-        try
-        {
-            var settled = new List<UnresolvedRow>();
-            var done = 0;
-            foreach (var row in targets)
-            {
-                var result = await _services.Commands.ExecuteAsync(
-                    new UiCommand.AssignItemId(row.File.Hash, Preview.Id));
-                StepRegistering(++done);
-
-                if (result is not CommandResult.Failed)
-                {
-                    settled.Add(row);
-                }
-            }
-
-            if (settled.Count > 0)
-            {
-                await NoteSettledAsync(Preview.Id);
-            }
-
-            RemoveRows(settled);
-            StatusText = settled.Count == targets.Count
-                ? $"{settled.Count} 件を確定しました。"
-                : $"{settled.Count} / {targets.Count} 件を確定しました。残りは失敗しました。";
-            HideCoveredContents(settled);
-        }
-        finally
-        {
-            EndRegistering();
             IsBusy = false;
             OnPropertyChanged(nameof(HasStatus));
         }

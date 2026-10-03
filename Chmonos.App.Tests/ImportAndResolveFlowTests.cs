@@ -313,7 +313,7 @@ public class ImportAndResolveFlowTests
         var item = await app.Store.Items.LoadAsync(LocalItemId.For(hash));
         Assert.NotNull(item);
         Assert.Single(item!.Local.UserImages);
-        Assert.Equal("画像 1 枚を追加できませんでした。商品ページの「＋」から追加してください。", resolve.StatusText);
+        Assert.Equal("画像 1 枚を追加できませんでした。商品ページの「＋」から追加してください。", resolve.ListNoticeText);
     });
 
     [Fact]
@@ -440,10 +440,10 @@ public class ImportAndResolveFlowTests
         Assert.Equal($"対象：{unpacked}（未確定 2 件）", resolve.RegisterTargetSummary);
         Assert.Equal("「outfit_v1」を商品として登録", resolve.RegisterFolderText);
 
-        // 先に商品IDを確かめていないと、登録せずに確かめる欄へ案内する
+        // 先に商品IDを確かめていないと、登録せずに押したボタンの横で確かめる欄へ案内する（画面は送らない）
         resolve.RegisterFolderOfCommand.Execute(row.GroupKey);
         await app.SettleAsync();
-        Assert.Equal("先に「商品IDを決める」で商品IDを確認してください。", resolve.StatusText);
+        Assert.Equal("先に「商品IDを決める」で商品IDを確認してください。", resolve.FolderStatusText);
         Assert.Empty(app.Notices);
 
         await PreviewAsync(app, resolve, "1000001");

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows.Controls;
 using Chmonos.App.ViewModels;
 using Chmonos.App.Views;
@@ -222,6 +223,25 @@ internal static partial class Scenes
             ]);
             var (root, screen) = await OpenResolveAsync(context, 2);
             screen.Selected = screen.Files.First(row => row.FileName == "hair_ribbon_v1.0.zip");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-images", "未確定：BOOTHに無い商品に画像を2枚添えたときのギャラリー（枠と＋の枠）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage"), contents: ["hair_ribbon.unitypackage"]),
+            ]);
+            var pictures = Path.Combine(Isolation.FilesRoot, "画像");
+            Fake.Image(pictures, "front.png", "front");
+            Fake.Image(pictures, "back.png", "back");
+            var (root, screen) = await OpenResolveAsync(context, 1);
+            screen.Selected = screen.Files[0];
+            screen.AddLocalImages([Path.Combine(pictures, "front.png"), Path.Combine(pictures, "back.png")]);
             await context.SettleAsync();
             return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
         })

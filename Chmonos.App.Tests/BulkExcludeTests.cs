@@ -96,7 +96,7 @@ public class BulkExcludeTests
         var excludedWrites = app.Store.Excluded.WriteCount;
         var unresolvedWrites = app.Store.Unresolved.WriteCount;
 
-        resolve.ExcludeCheckedCommand.Execute(null);
+        resolve.ExcludeCommand.Execute(null);
         await app.SettleAsync();
 
         Assert.Equal(excludedWrites + 2, app.Store.Excluded.WriteCount);
@@ -114,7 +114,7 @@ public class BulkExcludeTests
         Assert.Equal(["first.zip", "fourth.zip", "second.zip", "third.zip"], Names(app.Store.Unresolved.Load()));
         Assert.False(resolve.HasUndoExclude);
         Assert.Equal(4, resolve.Files.Count);
-        Assert.Equal("3 件を未確定に戻しました。", resolve.StatusText);
+        Assert.Equal("3 件を未確定に戻しました。", resolve.ListNoticeText);
 
         // 戻したときもナビの数を合わせる。前は一覧だけ読み直し、次に画面を移るまで減ったままの数が残っていた
         await UiThread.Until(() => main.UnresolvedCount == 4, "戻したらナビの未確定の数も戻る");

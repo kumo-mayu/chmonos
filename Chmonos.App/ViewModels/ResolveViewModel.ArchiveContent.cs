@@ -69,9 +69,8 @@ public sealed partial class ResolveViewModel
 
         if (!HasPreview)
         {
-            StatusText = "先に「商品IDを決める」で商品IDを確認してください。";
-            OnPropertyChanged(nameof(HasStatus));
-            DecisionFocusRequested?.Invoke();
+            // 押したボタンの横で言う（前は「商品IDを決める」の欄へ画面を送っていた。押した所から飛ぶ作りはやめた。メモ22）
+            FolderStatusText = "先に「商品IDを決める」で商品IDを確認してください。";
             return;
         }
 
@@ -278,8 +277,7 @@ public sealed partial class ResolveViewModel
 
             if (result is CommandResult.Failed failed)
             {
-                StatusText = failed.Message;
-                OnPropertyChanged(nameof(HasStatus));
+                FolderStatusText = failed.Message;
                 return;
             }
 
@@ -292,8 +290,8 @@ public sealed partial class ResolveViewModel
             // ほかの片付け方（RemoveRows・AfterSettled）と同じく、ナビの未確定の数をその場で数え直す。
             // ここは一覧を読み直すだけで行を外す道を通らないので、呼ばないと次に数え直すまで古い数が残っていた
             _main.RefreshBadges();
-            StatusText = $"「{RegisterTargetName}」を登録しました。配下の未確定は一覧から外れます。";
-            OnPropertyChanged(nameof(HasStatus));
+            // 配下の行ごと消えるので、一覧の見出しの近くに出す
+            ListNoticeText = $"「{RegisterTargetName}」を登録しました。配下の未確定は一覧から外れます。";
         }
         finally
         {

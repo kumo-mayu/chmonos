@@ -28,7 +28,7 @@ public static class Shortcuts
     public static string ActionLabel(ShortcutAction action) => action switch
     {
         // 未確定の画面の確定も同じキー（ユーザ判断 2026-10-01。どちらも「この1件を決めて次へ」）。設定の行で両方が分かるように書く
-        ShortcutAction.SaveAndNext => "編集画面で保存して次へ・未確定で確定",
+        ShortcutAction.SaveAndNext => "編集画面で保存して次へ・未確定で登録",
         ShortcutAction.Skip => "編集画面でスキップ",
         ShortcutAction.Previous => "編集画面で前へ",
         ShortcutAction.FindInPage => "画面の中を探す",

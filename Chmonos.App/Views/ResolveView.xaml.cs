@@ -17,7 +17,6 @@ public partial class ResolveView : UserControl
             {
                 _model.DecisionFocusRequested -= OnDecisionFocusRequested;
                 _model.CandidatesFocusRequested -= OnCandidatesFocusRequested;
-                _model.LocalNameFocusRequested -= OnLocalNameFocusRequested;
                 _model.ItemIdFocusRequested -= OnItemIdFocusRequested;
                 _model.PropertyChanged -= OnModelPropertyChanged;
             }
@@ -27,7 +26,6 @@ public partial class ResolveView : UserControl
             {
                 _model.DecisionFocusRequested += OnDecisionFocusRequested;
                 _model.CandidatesFocusRequested += OnCandidatesFocusRequested;
-                _model.LocalNameFocusRequested += OnLocalNameFocusRequested;
                 _model.ItemIdFocusRequested += OnItemIdFocusRequested;
                 _model.PropertyChanged += OnModelPropertyChanged;
             }
@@ -132,17 +130,6 @@ public partial class ResolveView : UserControl
 
     /// <summary>「候補」の欄を画面に入れる。自動検索のボタンは上にあり、進み具合と結果は下の候補の欄に出る（ユーザ指示 2026-09-29）。</summary>
     private void OnCandidatesFocusRequested() => CandidatesCard.BringIntoView();
-
-    /// <summary>
-    /// 「BOOTHに無い商品として登録する」の枠を画面に入れ、名前の欄に入る（ユーザ指示 2026-10-02）。
-    /// まとめての操作の欄は上の「商品IDを決める」にあり、名前と画像を入れる枠は下の「その他」にあるので、押した後にどこで続けるかを見せる
-    /// </summary>
-    private void OnLocalNameFocusRequested()
-    {
-        LocalCard.BringIntoView();
-        LocalNameBox.Focus();
-        LocalNameBox.SelectAll();
-    }
 
     /// <summary>
     /// 商品IDの欄へフォーカスを戻す（キーボードだけで1件ずつ片付ける。ユーザ判断 2026-10-01）。

@@ -69,6 +69,13 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!--
+                    行ごと消える操作（まとめての登録・除外・戻す・フォルダのまま登録）の結果。押した所が消えるので、一覧の見出しの近くのここに出す
+                    （docs/feedback/notice-placement-2026-10-03.md「未確定」）。帯の高さは決まっているので、出ても下は動かない
+                -->
+                <TextBlock Text="{Binding ListNoticeText}" ToolTip="{Binding ListNoticeText}" Style="{StaticResource Caption}"
+                           VerticalAlignment="Center" Margin="0,0,12,0" MaxWidth="320" TextTrimming="CharacterEllipsis"
+                           AutomationProperties.AutomationId="ResolveListNotice" />
                 <!-- 外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった）。次に外すまで出す -->
                 <Button Content="{Binding UndoExcludeText}" Style="{StaticResource SmallButton}" Margin="0,0,12,0" VerticalAlignment="Center"
                         Command="{Binding UndoExcludeCommand}" ToolTip="直前に管理対象から除外したファイルを、未確定に戻します。"
@@ -242,7 +249,7 @@
                                           AutomationProperties.AutomationId="ResolveRowMenu.Exclude"
                                           ToolTip="未確定の一覧から外します。設定の「隠したもの」から戻せます。"
                                           ToolTipService.ShowOnDisabled="True"
-                                          Command="{Binding PlacementTarget.DataContext.ExcludeCommand,
+                                          Command="{Binding PlacementTarget.DataContext.ExcludeRowCommand,
                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                             </ContextMenu>
                         </ListBox.ContextMenu>
@@ -468,40 +475,66 @@
             <DockPanel Grid.Column="1"
                        Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <!--
-                案1（メモ22）：今の対象を、送っても動かない上の帯に1か所だけ出して切り替える。下の確定・登録・除外のボタンは
-                どれもこの対象に効くので、ボタンの名前に対象を入れない
+                今の対象（メモ22・ユーザ判断 2026-10-03「案1」）。送っても動かない上の帯の1か所で見せて切り替える。
+                下の「このIDで登録」「この名前で登録する」「除外する」はどれもこの対象に効くので、ボタンの名前に対象を入れない。
+                帯の高さは変えない（ユーザ 2026-10-03：上で物が出入りして下が一瞬で大きくずれる動きは避ける）。3行とも1行に切って吹き出しで全部を読ませ、
+                3行目は出す物が無くても1行分を取っておく
             -->
             <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
-                    BorderThickness="0,0,0,1" Padding="20,12">
-                <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
-                    <StackPanel Orientation="Horizontal">
+                    BorderThickness="0,0,0,1" Padding="20,10" AutomationProperties.AutomationId="ResolveTargetBand">
+                <Grid MaxWidth="{StaticResource ReadingMaxWidth}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="22" />
+                        <RowDefinition Height="32" />
+                        <RowDefinition Height="20" />
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0">
                         <TextBlock Text="対象" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock Text="{Binding TargetText}" FontWeight="Bold" FontSize="13.5" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <WrapPanel Margin="0,9,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,10,0"
-                                    Visibility="{Binding HasUnitChoice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <RadioButton Style="{StaticResource SegmentFirst}" GroupName="ResolveTarget" Padding="12,0"
-                                         Content="{Binding UnitChoiceText}" IsChecked="{Binding IsUnitTarget, Mode=TwoWay}" />
-                            <RadioButton Style="{StaticResource SegmentLast}" GroupName="ResolveTarget" Padding="12,0"
-                                         Content="このファイルだけ" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}" />
-                        </StackPanel>
-                        <Button Content="元zipとして扱う" Style="{StaticResource SmallButton}" Margin="0,0,10,0"
+                        <TextBlock Text="{Binding TargetText}" ToolTip="{Binding TargetToolTip}" FontWeight="Bold" FontSize="13.5"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="ResolveTargetText" />
+                    </DockPanel>
+                    <!-- 元zipとして扱うは、押すと一覧の zip の行へ選び替わる。対象の切り替え（この行の中の対）と性質が違うので右端に離す（ユーザ判断 2026-10-03） -->
+                    <DockPanel Grid.Row="1" VerticalAlignment="Center" LastChildFill="True">
+                        <Button DockPanel.Dock="Right" Content="元zipとして扱う" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                AutomationProperties.AutomationId="ResolveTargetOriginZip"
                                 ToolTip="一覧の元のzipを選びます。zipを登録すると、中身は一覧から消えます。"
-                                Command="{Binding PickOriginZipCommand}"
+                                Command="{Binding UseOriginZipCommand}"
                                 Visibility="{Binding HasOriginZipChoice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="0,0,10,0"
-                                ToolTip="チェックを外して、選んでいる1件に戻します。"
-                                Command="{Binding ClearChecksCommand}"
-                                Visibility="{Binding IsCheckedTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        <TextBlock Text="一覧でチェックを入れると、まとめて扱えます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                   Visibility="{Binding IsSingleRowTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    </WrapPanel>
-                    <TextBlock Text="元のzipが未確定にあります。元zipとして扱って登録してください。" Style="{StaticResource Caption}"
-                               Foreground="{DynamicResource Warn}" TextWrapping="Wrap" Margin="0,7,0,0"
-                               Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding HasUnitChoice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <RadioButton Style="{StaticResource SegmentFirst}" GroupName="ResolveTarget" Padding="12,0"
+                                             AutomationProperties.AutomationId="ResolveTargetUnit"
+                                             Content="{Binding UnitChoiceText}" IsChecked="{Binding IsUnitTarget, Mode=TwoWay}" />
+                                <RadioButton Style="{StaticResource SegmentLast}" GroupName="ResolveTarget" Padding="12,0"
+                                             AutomationProperties.AutomationId="ResolveTargetSingle"
+                                             Content="このファイルだけ" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
+                                             ToolTip="1つのzipに複数の商品があるときに使います。" />
+                            </StackPanel>
+                            <Button Content="選択を解除" Style="{StaticResource SmallButton}"
+                                    AutomationProperties.AutomationId="ResolveTargetClearChecks"
+                                    ToolTip="チェックを外して、選んでいる1件に戻します。"
+                                    Command="{Binding ClearChecksCommand}"
+                                    Visibility="{Binding IsCheckedTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="一覧でチェックを入れると、まとめて扱えます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding IsSingleRowTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Grid.Row="2" Text="{Binding BandNoticeText}" ToolTip="{Binding BandNoticeText}" VerticalAlignment="Bottom"
+                               TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="ResolveTargetNotice">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBandNoticeWarning}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
             </Border>
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                 <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
@@ -631,9 +664,8 @@
                                         ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
                                         Command="{Binding ProposeCommand}" />
                             </controls:SplitRowPanel>
-                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをドロップしてください。下に表示された商品を確かめてから確定します。"
+                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをドロップしてください。下に表示された商品を確かめてから登録します。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
-                            <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す。IDを入れる前（落とす前）から分かるよう欄の上に置く（ユーザ判断 2026-09-17） -->
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -644,14 +676,15 @@
                                          AutomationProperties.AutomationId="ResolveItemId" AutomationProperties.Name="商品IDかURL"
                                          Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0">
                                     <!--
-                                        Enter で「このIDで確認」まで進む（I12）。確定は Enter では走らせない（取り返しがつかない）。
-                                        確定のキーは編集画面の「保存して次へ」と同じ割り当て（既定 Ctrl+Enter。MainViewModel.RunShortcut → AssignByShortcut）
+                                        Enter で「情報を確認」まで進む（I12）。登録は Enter では走らせない（取り返しがつかない）。
+                                        登録のキーは編集画面の「保存して次へ」と同じ割り当て（既定 Ctrl+Enter。MainViewModel.RunShortcut → AssignByShortcut）
                                     -->
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Enter" Command="{Binding PreviewCommand}" />
                                     </TextBox.InputBindings>
                                 </TextBox>
-                                <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}"
+                                <!-- 「このIDで確認」は「このIDで確定」と近すぎた（ユーザ 2026-10-03）。確かめるのは商品の情報 -->
+                                <Button Grid.Column="1" Content="情報を確認" Command="{Binding PreviewCommand}"
                                         AutomationProperties.AutomationId="ResolvePreview" />
                             </Grid>
 
@@ -678,9 +711,12 @@
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
-                                       AutomationProperties.AutomationId="ResolveStatusText"
-                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!--
+                                欄とボタン（情報を確認・このIDで登録）の誤りと途中経過。出ていない間も1行分を取っておき、出る・消えるで下が跳ねないようにする
+                                （ユーザ 2026-10-03。docs/feedback/notice-placement-2026-10-03.md）
+                            -->
+                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0" MinHeight="16"
+                                       AutomationProperties.AutomationId="ResolveStatusText" />
 
                             <!--
                                 BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。仮IDで登録すると再び公開されても情報を取れない。
@@ -708,9 +744,9 @@
                                        Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-                                <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
+                                <Button Content="このIDで登録" Style="{StaticResource PrimaryButton}"
                                         AutomationProperties.AutomationId="ResolveAssign" ToolTip="{Binding AssignKeyHint}"
-                                        Command="{Binding AssignTargetCommand}" />
+                                        Command="{Binding AssignCommand}" />
                             </StackPanel>
                             <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                             Visibility="{Binding IsRegisteringInDecision, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -816,7 +852,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="その他" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="商品IDで確定できないときに使います。" Style="{StaticResource Caption}"
+                            <TextBlock Text="商品IDで登録できないときに使います。" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,5,0,0" />
 
                             <Border x:Name="LocalCard" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
@@ -862,11 +898,19 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Grid Width="96" Height="96" Margin="0,0,8,8">
-                                                        <Border CornerRadius="6" BorderBrush="{DynamicResource Border}" BorderThickness="1" ClipToBounds="True">
-                                                            <Image Source="{Binding Path}" Stretch="UniformToFill" />
+                                                    <Grid Width="96" Height="96" Margin="0,0,8,8" ToolTip="{Binding Name}">
+                                                        <!-- 読めない形式（WebP など）は名前を出す。絵が読めれば上に重なって隠れる -->
+                                                        <Border CornerRadius="6" BorderBrush="{DynamicResource Border}" BorderThickness="1" Background="{DynamicResource Surface}">
+                                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                                       Margin="6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                        </Border>
+                                                        <Border CornerRadius="6" ClipToBounds="True" Margin="1">
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                                                         </Border>
                                                         <Button Style="{StaticResource ClearFieldButton}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                                Background="{DynamicResource ImagePill}" Margin="0,3,3,0"
+                                                                AutomationProperties.AutomationId="ResolveLocalImageRemove"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
                                                                 ToolTip="この画像を外します。"
                                                                 Command="{Binding DataContext.RemoveLocalImageCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -876,19 +920,27 @@
                                             </ItemsControl.ItemTemplate>
                                         </controls:ContentItemsControl>
                                         <Button Width="96" Height="96" Margin="0,0,8,8" Cursor="Hand"
-                                                AutomationProperties.Name="画像を追加"
+                                                AutomationProperties.AutomationId="ResolveLocalImageAdd" AutomationProperties.Name="画像を追加"
                                                 ToolTip="画像を選びます。ここにドロップしても追加できます。"
                                                 Command="{Binding ChooseLocalImagesCommand}">
                                             <Button.Template>
                                                 <ControlTemplate TargetType="Button">
                                                     <Grid Background="Transparent">
-                                                        <Rectangle RadiusX="6" RadiusY="6" Stroke="{DynamicResource BorderStrong}"
+                                                        <Rectangle x:Name="Frame" RadiusX="6" RadiusY="6" Stroke="{DynamicResource BorderStrong}"
                                                                    StrokeDashArray="4 3" StrokeThickness="1.2" />
                                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                                             <TextBlock Text="＋" FontSize="22" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
                                                             <TextBlock Text="画像を追加" FontSize="11" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0" />
                                                         </StackPanel>
                                                     </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Frame" Property="Stroke" Value="{DynamicResource Accent}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Opacity" Value="0.5" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
                                                 </ControlTemplate>
                                             </Button.Template>
                                         </Button>
@@ -900,8 +952,14 @@
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
                                                Foreground="{DynamicResource Warn}"
                                                Text="BOOTHから情報を取り直さないので、名前も画像も自動では増えません。" />
-                                    <Button Content="この名前で登録する" Command="{Binding RegisterLocalCommand}" Margin="0,10,0,0" HorizontalAlignment="Left"
-                                            AutomationProperties.AutomationId="ResolveRegisterLocal" />
+                                    <!-- 誤りはボタンの右に出す。下に出すと、出る・消えるで下の欄が跳ねる（ユーザ 2026-10-03） -->
+                                    <DockPanel Margin="0,10,0,0">
+                                        <Button DockPanel.Dock="Left" Content="この名前で登録する" Command="{Binding RegisterLocalCommand}" VerticalAlignment="Top"
+                                                AutomationProperties.AutomationId="ResolveRegisterLocal" />
+                                        <TextBlock Text="{Binding LocalStatusText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0,0,0"
+                                                   AutomationProperties.AutomationId="ResolveLocalStatusText" />
+                                    </DockPanel>
                                     <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                                     Visibility="{Binding IsRegisteringLocal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
@@ -918,9 +976,20 @@
                                                Text="zipをダウンロードし直せないときは、フォルダのまま登録します。先に商品IDを決めてください。" />
                                     <TextBlock Text="{Binding RegisterTargetSummary}" Style="{StaticResource Mono}" FontSize="11"
                                                TextWrapping="Wrap" Margin="0,6,0,0" />
-                                    <Button Content="{Binding RegisterFolderText}" Margin="0,10,0,0" HorizontalAlignment="Left"
-                                            AutomationProperties.AutomationId="ResolveRegisterFolder"
-                                            Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}" />
+                                    <!--
+                                        ボタンの名前にフォルダの名前が入るので、長いと欄からはみ出して切れていた（幅900。担当PREと確かめで見つけた）。
+                                        名前は欄の幅で「…」に切り、全部は吹き出しで読む。誤りはボタンの右に出す
+                                    -->
+                                    <DockPanel Margin="0,10,0,0">
+                                        <Button DockPanel.Dock="Left" VerticalAlignment="Top" ToolTip="{Binding RegisterFolderText}"
+                                                AutomationProperties.AutomationId="ResolveRegisterFolder" AutomationProperties.Name="{Binding RegisterFolderText}"
+                                                Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}">
+                                            <TextBlock Text="{Binding RegisterFolderText}" TextTrimming="CharacterEllipsis" />
+                                        </Button>
+                                        <TextBlock Text="{Binding FolderStatusText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0,0,0"
+                                                   AutomationProperties.AutomationId="ResolveFolderStatusText" />
+                                    </DockPanel>
                                     <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                                     Visibility="{Binding IsRegisteringFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
@@ -935,7 +1004,7 @@
                                                Text="ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
                                     <Button Content="除外する" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             AutomationProperties.AutomationId="ResolveExclude"
-                                            Command="{Binding ExcludeTargetCommand}" />
+                                            Command="{Binding ExcludeCommand}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>

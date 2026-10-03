@@ -114,8 +114,47 @@ public sealed partial class ResolveViewModel
     }
 }
 
-/// <summary>添える画像1枚。名前だけを見せ、× で外す。</summary>
+/// <summary>
+/// 添える画像1枚。ギャラリーの枠に小さく見せ、× で外す（メモ22：名前の一覧だと画像を足せる欄に見えなかった）。
+/// </summary>
 public sealed record LocalImageRow(string Path)
 {
     public string Name => System.IO.Path.GetFileName(Path);
+
+    private System.Windows.Media.ImageSource? _thumbnail;
+    private bool _triedThumbnail;
+
+    /// <summary>
+    /// 枠の大きさ（96DIP）の2倍で読む。添えるのは登録の前の数枚だけなので、その場で読む。
+    /// 原寸で読むと、数千万画素の画像1枚で百MB単位を持つ（docs/dev/wpf.md「絵のメモリ」）。読めなければ null で、枠には名前を出す
+    /// </summary>
+    public System.Windows.Media.ImageSource? Thumbnail
+    {
+        get
+        {
+            if (!_triedThumbnail)
+            {
+                _triedThumbnail = true;
+                try
+                {
+                    var image = new System.Windows.Media.Imaging.BitmapImage();
+                    image.BeginInit();
+                    image.UriSource = new Uri(Path);
+                    image.DecodePixelWidth = 192;
+                    image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    image.CreateOptions = System.Windows.Media.Imaging.BitmapCreateOptions.IgnoreColorProfile;
+                    image.EndInit();
+                    image.Freeze();
+                    _thumbnail = image;
+                }
+                catch (Exception exception) when (exception is IOException or NotSupportedException or UriFormatException
+                    or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+                {
+                    _thumbnail = null;
+                }
+            }
+
+            return _thumbnail;
+        }
+    }
 }

@@ -153,8 +153,8 @@ public sealed partial class ResolveViewModel
 
         var first = files[0].Hash;
         Selected = Files.FirstOrDefault(row => string.Equals(row.File.Hash, first, StringComparison.OrdinalIgnoreCase)) ?? Selected;
-        StatusText = $"{files.Count} 件を未確定に戻しました。";
-        OnPropertyChanged(nameof(HasStatus));
+        // 「戻す」は一覧の見出しの近くにあるので、結果もそこに出す
+        ListNoticeText = $"{files.Count} 件を未確定に戻しました。";
     }
 
     /// <summary>選んだファイルの場所をエクスプローラで開く（画面をまたいで同じ開き方）。</summary>
@@ -223,9 +223,8 @@ public sealed partial class ResolveViewModel
     /// <summary>元のzipが未確定にあるので、中身の登録を止めているか。</summary>
     public bool IsBlockedByListedZip => Selected is { IsExpandedContent: true } row && !SingleFileOnly && IsZipListed(row);
 
-    public string BlockedByZipText =>
-        "元のzipが未確定にあります。「元zipで登録」でzipを登録してください（フォルダのまま登録もできます）。"
-        + "1件だけを扱うときは「このファイルだけを扱う」を入れてください。";
+    /// <summary>帯の3行目に出す、登録できない理由と次の一手。切り替えは同じ帯にある。</summary>
+    public string BlockedByZipText => "元のzipが未確定にあります。元zipとして扱うか、このファイルだけにしてください。";
 
     /// <summary>
     /// 選んだ行とトグルから、登録の単位を決め直す。元のzipが一覧に無い中身なら同じzipの中身全件を束として立てる。
@@ -249,7 +248,6 @@ public sealed partial class ResolveViewModel
 
         OnPropertyChanged(nameof(CanChooseSingleFile));
         OnPropertyChanged(nameof(IsBlockedByListedZip));
-        OnPropertyChanged(nameof(IsLocalBlockedByListedZip));
         OnPropertyChanged(nameof(AssignOutcomeText));
         RaiseTargetChanged();
         RelayCommand.RaiseCanExecuteChanged();
@@ -263,7 +261,7 @@ public sealed partial class ResolveViewModel
     {
         if (checkedRows.Any(row => row.IsExpandedContent && IsZipListed(row)))
         {
-            return (checkedRows, "元のzipが未確定にある中身が含まれています。「元zipで登録」でzipを登録してください。");
+            return (checkedRows, "元のzipが未確定にある中身が含まれています。zipの行を選んで登録してください。");
         }
 
         // zipの中身は同じzipの中身全件、zipが無いフォルダのファイルは同じフォルダのファイル全件まで広げる
