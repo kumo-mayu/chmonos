@@ -128,7 +128,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             () => SetRoleAsync(Core.Models.ImageRole.Other).Forget(),
             () => CurrentImage is { IsImage: true } && !IsEditLocked);
 
-        Sections = item.Booth.H2Sections.Select(section => new SectionRow(section)).ToList();
+        _pageSections = item.Booth.H2Sections.Select(section => new SectionRow(section)).ToList();
+        Sections = _pageSections;
 
         BuildGallery();
         BuildVariations();
@@ -146,8 +147,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // 改変はファイルを読むので待たない。空で描いてから埋まる
         LoadModificationsAsync().Forget();
 
-        // 変わった所の印（メモ7-①）。知らせのファイルを読むので待たない。編集画面の中では出さない（入力の場で、既読の操作を混ぜない）
-        LoadChangesAsync().Forget();
+        // 変わった所の印（メモ7-①）。開く時点で当てる（後から当てると上の帯が後から現れて本文を押し下げる。メモ17）。
+        // 編集画面の中では出さない（入力の場で、既読の操作を混ぜない）
+        LoadChanges();
     }
 
     public ItemRecord Item { get; private set; }
@@ -797,7 +799,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     internal static string ToggleName(string section, bool expanded) => expanded ? $"{section}を折りたたむ" : $"{section}を開く";
 
     /// <summary>見出しの右に出す数。畳んでいても何件あるかは分かるように。</summary>
-    public string VariationsCountText => $"{Variations.Count} 件";
+    public string VariationsCountText => $"{Variations.Count(row => !row.IsNoticeOnly)} 件";
 
     public ObservableCollection<LocalFileRow> LocalFiles { get; } = [];
 
@@ -958,6 +960,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// セクションごとに畳める。既定は全部開いた状態。
     /// </summary>
     public IReadOnlyList<SectionRow> Sections { get; private set; } = [];
+
+    /// <summary>今のページの見出し（<see cref="Sections"/> から BOOTH で消えた見出しの行を除いた物）。</summary>
+    private readonly IReadOnlyList<SectionRow> _pageSections;
 
     /// <summary>
     /// 1つずつ押さずにまとめて畳む／開く。

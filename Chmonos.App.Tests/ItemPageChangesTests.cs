@@ -56,7 +56,7 @@ public class ItemPageChangesTests
         Assert.False(changes.Gallery.IsMarked);
         Assert.Null(changes.Gallery.Edge);
         Assert.False(changes.Description.IsMarked);
-        Assert.Equal(string.Empty, changes.OthersText);
+        Assert.Empty(changes.Others);
     }
 
     [Fact]
@@ -130,18 +130,27 @@ public class ItemPageChangesTests
         Assert.Empty(changes.Sections);
     }
 
+    /// <summary>
+    /// 消えた見出しは、前は上の帯の1行「ほかに変わったところ」にまとめていた。元の位置に見出しごと赤の帯で並べる（メモ17②）。
+    /// 今のページに無いのに「変わった」とある見出し（ページを取り直す前の知らせ）だけは、見せる欄が無いので上の帯の押せない語にする
+    /// </summary>
     [Fact]
-    public void ページに無い見出しは_ほかに変わったところの1行にまとめる()
+    public void 消えた見出しは元の位置へ並べる物として渡し_ページに無い変わった見出しだけを押せない語にする()
     {
-        // 消えた見出しは、もうページに出ていないので印を付ける欄が無い
         var changes = ItemChanges.From(
-            [Updated(ItemId, Diff("旧版について", "旧版は配布を終えました", null), Diff("おまけ", "前", "後"))],
+            [Updated(ItemId,
+                new NotificationDiff { Field = "旧版について", Before = "旧版は配布を終えました", Follows = "更新履歴" },
+                Diff("おまけ", "前", "後"))],
             ["更新履歴"]);
 
-        Assert.Equal(["消えた見出し「旧版について」", "見出し「おまけ」"], changes.Others);
-        Assert.Equal("ほかに変わったところ：消えた見出し「旧版について」、見出し「おまけ」", changes.OthersText);
+        var section = Assert.Single(changes.RemovedSections);
+        Assert.Equal(("旧版について", "更新履歴"), (section.Key, section.Follows));
+        Assert.Equal((ChangeTone.Removed, "削除", "前の値：旧版は配布を終えました"), (section.Mark.Tone, section.Mark.Label, section.Mark.Tip));
+        Assert.Equal(["見出し「おまけ」"], changes.Others);
         Assert.Empty(changes.Sections);
-        Assert.False(changes.Description.IsMarked);
+
+        // 欄を畳むと見えないので、商品説明の見出しにもまとめて出す
+        Assert.Equal("変わった見出し：旧版について", Assert.Single(changes.Description.Marks).Tip);
     }
 
     [Fact]
@@ -234,7 +243,13 @@ public class ItemPageChangesTests
             list.Add(Updated(ItemId,
                 Diff(BoothChanges.NameField, "作り物の衣装", "作り物の衣装 改"),
                 Diff(history.NormalizedHeading, "v1.0 公開", "v1.1 公開"),
-                Diff("旧版について", "旧版は配布を終えました", null)));
+                new NotificationDiff
+                {
+                    Field = "旧版について",
+                    Before = "旧版は配布を終えました",
+                    Follows = history.NormalizedHeading,
+                    Lines = [new NotificationLine { Kind = NotificationLineKind.Removed, Text = "旧版は配布を終えました" }],
+                }));
             list.Add(Updated("1000002", Diff(BoothChanges.PriceField, "¥ 500", "¥ 800")));
             return list;
         });
@@ -242,26 +257,42 @@ public class ItemPageChangesTests
         var main = await app.StartAsync();
         await UiThread.Until(() => main.UnreadCount == 2, "要確認の未読が2件と数えられる");
 
+        // 開いた時点で印が付いている（後から付くと、上の帯が後から現れて本文を押し下げる。メモ17）
         var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
-        await UiThread.Until(() => page.HasUnreadChanges, "知らせを読んで印が付く");
+        Assert.True(page.HasUnreadChanges);
+        Assert.True(page.ShowsChangesBar);
 
         Assert.Equal("変更", Assert.Single(page.NameChange.Marks).Label);
+        Assert.Equal("作り物の衣装", page.PreviousName);
         Assert.False(page.VariationsChange.IsMarked);
         Assert.Equal("変更", Assert.Single(page.Sections[0].Change.Marks).Label);
-        Assert.False(page.Sections[1].Change.IsMarked);
         Assert.True(page.DescriptionChange.IsMarked);
-        Assert.True(page.HasOtherChanges);
-        Assert.Equal("ほかに変わったところ：消えた見出し「旧版について」", page.OtherChangesText);
+
+        // 消えた見出しは、前のページで直前にあった見出しの後ろに、見出しごと赤の帯で並ぶ
+        Assert.Equal(["更新履歴", "旧版について", "注意事項"], page.Sections.Select(section => section.Key));
+        var removed = page.Sections[1];
+        Assert.True(removed.IsRemoved);
+        Assert.Equal(ChangeTone.Removed, removed.Band);
+        Assert.Equal("削除", Assert.Single(removed.Change.Marks).Label);
+        Assert.Equal("旧版は配布を終えました", Assert.Single(removed.Lines.RemovedLines).Text);
+        Assert.False(page.Sections[2].Change.IsMarked);
         Assert.True(page.MarkChangesReadCommand.CanExecute(null));
 
         page.MarkChangesReadCommand.Execute(null);
         await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると印が消える");
 
         Assert.False(page.NameChange.IsMarked);
+        Assert.False(page.HasPreviousName);
         Assert.False(page.Sections[0].Change.IsMarked);
         Assert.False(page.DescriptionChange.IsMarked);
-        Assert.False(page.HasOtherChanges);
+        Assert.Empty(page.ChangeTargets);
         Assert.False(page.MarkChangesReadCommand.CanExecute(null));
+
+        // 消えた見出しの行は一覧から抜かずに隠す（一覧を作り直すと見ている所が動く）。帯は「既読にしました」として同じ高さで残す
+        Assert.False(removed.IsShown);
+        Assert.Same(removed, page.Sections[1]);
+        Assert.True(page.ShowsChangesBar);
+        Assert.True(page.IsChangesRead);
 
         // この商品の知らせだけが既読になり、ナビの要確認の数も合わせて減る
         await UiThread.Until(() => main.UnreadCount == 1, "ナビの要確認の数が1つ減る");
@@ -273,6 +304,8 @@ public class ItemPageChangesTests
         var reopened = new ItemViewModel(item, app.Services, main, main.Thumbnails);
         await app.SettleAsync();
         Assert.False(reopened.HasUnreadChanges);
+        Assert.False(reopened.ShowsChangesBar);
+        Assert.Equal(["更新履歴", "注意事項"], reopened.Sections.Select(section => section.Key));
     });
 
     /// <summary>
@@ -350,5 +383,210 @@ public class ItemPageChangesTests
 
         Assert.False(page.HasUnreadChanges);
         Assert.False(page.NameChange.IsMarked);
+    });
+
+    // ---- 上の帯の並び（メモ17⑤：変わった所を並べ、押すとそこまで流す） ----
+
+    [Fact]
+    public void 上の帯には_変わった所をページの上から並べ_種類の色を持たせる()
+    {
+        var changes = ItemChanges.From(
+            [Updated(ItemId,
+                Diff(BoothChanges.ImagesField, "3 枚", "4 枚"),
+                Diff(BoothChanges.NameField, "前", "後"),
+                Diff(BoothChanges.PriceField, "¥ 500", "¥ 800"),
+                Diff(BoothChanges.SaleField, "販売中", "販売終了"),
+                Diff("注意事項", "前", "後"),
+                Diff("おまけ", "前", "後"))],
+            ["更新履歴", "注意事項"]);
+        var sections = new[] { "★更新履歴★", "注意事項" }
+            .Select(heading => new SectionRow(new H2Section { Heading = heading, Text = "本文" }))
+            .ToList();
+        sections[1].Change = changes.Sections["注意事項"];
+
+        var targets = ItemViewModel.Targets(changes, sections);
+
+        Assert.Equal(
+            ["商品名", "価格", "販売状況", "画像", "説明文：注意事項", "見出し「おまけ」"],
+            targets.Select(target => target.Label));
+        Assert.Equal(
+            [ChangeTone.Changed, ChangeTone.Price, ChangeTone.Removed, ChangeTone.Added, ChangeTone.Changed, ChangeTone.Changed],
+            targets.Select(target => target.Tone));
+        Assert.Same(sections[1], targets[4].Section);
+
+        // ページに見せる欄の無い物は押せない
+        Assert.Equal([true, true, true, true, true, false], targets.Select(target => target.CanGo));
+    }
+
+    [Fact]
+    public void 上の帯の見出しの名前は_長ければ切る()
+    {
+        var heading = new string('長', 30);
+        var changes = ItemChanges.From([Updated(ItemId, Diff(heading, "前", "後"))], [heading]);
+        var section = new SectionRow(new H2Section { Heading = heading, Text = "本文" }) { Change = changes.Sections[heading] };
+
+        Assert.Equal($"説明文：{new string('長', 16)}…", Assert.Single(ItemViewModel.Targets(changes, [section])).Label);
+    }
+
+    [Fact]
+    public Task 押すと_畳んだ欄を開いてから_画面に流すよう頼む() => TestApp.Run(async app =>
+    {
+        var notes = new H2Section { Heading = "注意事項", Text = "作り物の注意" };
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with { Booth = item.Booth with { H2Sections = [notes] } };
+        await app.AddItemAsync(item);
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(Updated(ItemId, Diff("注意事項", "前の注意", "作り物の注意"), Diff(BoothChanges.VariationsField, "1 件", "2 件")));
+            return list;
+        });
+        var main = await app.StartAsync();
+
+        var description = SectionFolds.DescriptionExpanded;
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        var variations = page.IsVariationsExpanded;
+        try
+        {
+            page.IsDescriptionExpanded = false;
+            page.IsVariationsExpanded = false;
+            page.Sections[0].IsOpen = false;
+            var asked = new List<ChangeTarget>();
+            page.ChangeRevealRequested += target =>
+            {
+                // 頼まれた時点で、行き先の欄はもう開いている（画面は開いた後に位置を測る）
+                Assert.True(page.IsDescriptionExpanded);
+                Assert.True(page.Sections[0].IsOpen);
+                asked.Add(target);
+            };
+
+            var section = page.ChangeTargets.Single(target => target.Place == ChangePlace.Section);
+            Assert.True(page.GoToChangeCommand.CanExecute(section));
+            page.GoToChangeCommand.Execute(section);
+
+            Assert.Equal([section], asked);
+            Assert.Equal("すべて折りたたむ", page.ToggleAllSectionsText);
+            Assert.False(page.IsVariationsExpanded);
+
+            page.GoToChangeCommand.Execute(page.ChangeTargets.Single(target => target.Place == ChangePlace.Variations));
+            Assert.True(page.IsVariationsExpanded);
+            Assert.Equal(2, asked.Count);
+        }
+        finally
+        {
+            SectionFolds.DescriptionExpanded = description;
+            page.IsVariationsExpanded = variations;
+        }
+    });
+
+    // ---- 帯（メモ17⑥：バリエーション・見出しごと） ----
+
+    [Fact]
+    public Task 消えたバリエーションは元の位置に赤の帯の行で残し_足したバリエーションは緑の帯() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with
+        {
+            Booth = item.Booth with
+            {
+                Variations =
+                [
+                    new BoothVariation { Id = 1, Name = "フルセット", Price = 1500 },
+                    new BoothVariation { Id = 3, Name = "新色", Price = 800 },
+                    new BoothVariation { Id = 4, Name = "テクスチャのみ", Price = 300 },
+                ],
+            },
+        };
+        await app.AddItemAsync(item);
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(Updated(ItemId, new NotificationDiff
+            {
+                Field = BoothChanges.VariationsField,
+                Before = "3 件",
+                After = "3 件",
+                Lines =
+                [
+                    new NotificationLine { Kind = NotificationLineKind.Removed, Text = "旧色", Follows = "フルセット" },
+                    new NotificationLine { Kind = NotificationLineKind.Added, Text = "新色" },
+                ],
+            }));
+            return list;
+        });
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+
+        Assert.Equal(
+            ["フルセット:", "旧色:Removed", "新色:Added", "テクスチャのみ:"],
+            page.Variations.Select(row => $"{row.Name}:{row.Band}"));
+        Assert.Equal("BOOTHで削除されたバリエーションです。", page.Variations[1].BandTip);
+        Assert.Equal(string.Empty, page.Variations[1].PriceText);
+        Assert.Equal("バリエーション", page.ChangeTargets.Single().Label);
+
+        // 知らせるために差し込んだ行は、欄の件数に数えない
+        Assert.Equal("3 件", page.VariationsCountText);
+
+        page.MarkChangesReadCommand.Execute(null);
+        await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると帯が消える");
+
+        Assert.Equal(["フルセット:", "新色:", "テクスチャのみ:"], page.Variations.Select(row => $"{row.Name}:{row.Band}"));
+        Assert.Equal("3 件", page.VariationsCountText);
+    });
+
+    [Fact]
+    public void 買っていて現存しない行があれば_その行に赤の帯を付け_同じバリエーションを2行に出さない()
+    {
+        var rows = new List<VariationRow>
+        {
+            new() { Name = "フルセット", PriceText = "¥1,500", Key = "フルセット" },
+            new() { Name = "旧色", PriceText = "¥800 で購入", IsPurchased = true, IsGone = true, Key = "旧色" },
+        };
+        var lines = ChangedLines.From(new NotificationDiff
+        {
+            Field = BoothChanges.VariationsField,
+            Before = "2 件",
+            After = "1 件",
+            Lines = [new NotificationLine { Kind = NotificationLineKind.Removed, Text = "旧色", Follows = "フルセット" }],
+        });
+
+        var result = ItemViewModel.WithBands(rows, boothCount: 1, lines);
+
+        Assert.Equal(["フルセット:", "旧色:Removed"], result.Select(row => $"{row.Name}:{row.Band}"));
+        Assert.True(result[1].IsPurchased);
+    }
+
+    [Fact]
+    public Task 見出しごと足された見出しは_見出しの行から緑の帯() => TestApp.Run(async app =>
+    {
+        var added = new H2Section { Heading = "同梱物", Text = "unitypackage\nテクスチャ" };
+        var notes = new H2Section { Heading = "注意事項", Text = "作り物の注意" };
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with { Booth = item.Booth with { H2Sections = [added, notes] } };
+        await app.AddItemAsync(item);
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(Updated(ItemId, new NotificationDiff
+            {
+                Field = "同梱物",
+                After = "unitypackage テクスチャ",
+                Lines =
+                [
+                    new NotificationLine { Kind = NotificationLineKind.Added, Text = "unitypackage" },
+                    new NotificationLine { Kind = NotificationLineKind.Added, Text = "テクスチャ" },
+                ],
+            }));
+            return list;
+        });
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+
+        Assert.Equal(ChangeTone.Added, page.Sections[0].Band);
+        Assert.Equal([0, 1], page.Sections[0].Lines.AddedLines.Order());
+        Assert.Null(page.Sections[1].Band);
+
+        page.MarkChangesReadCommand.Execute(null);
+        await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると帯が消える");
+        Assert.Null(page.Sections[0].Band);
     });
 }

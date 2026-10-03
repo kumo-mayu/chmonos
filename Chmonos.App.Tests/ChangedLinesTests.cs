@@ -16,7 +16,11 @@ public class ChangedLinesTests
 
     private static NotificationLine Added(string text) => new() { Kind = NotificationLineKind.Added, Text = text };
 
-    private static NotificationLine Removed(string text) => new() { Kind = NotificationLineKind.Removed, Text = text };
+    private static NotificationLine Removed(string text, string? follows = null)
+        => new() { Kind = NotificationLineKind.Removed, Text = text, Follows = follows };
+
+    /// <summary>消えた行を「差し込む位置:文」で並べる。</summary>
+    private static string Spots(ChangedLineMarks marks) => string.Join(" | ", marks.RemovedLines.Select(line => $"{line.Before}:{line.Text}"));
 
     private static NotificationRecord Updated(string itemId, params NotificationDiff[] diffs) => new()
     {
@@ -99,7 +103,7 @@ public class ChangedLinesTests
         var marks = ChangedLineMarks.For(lines, "v1.0 公開\n\nv1.1 直しました\r\n v1.2　　足しました ");
 
         Assert.Equal([3], marks.AddedLines.Order());
-        Assert.Equal("削除:旧い行", Show(marks.Removed));
+        Assert.Equal("0:旧い行", Spots(marks));
         Assert.Equal(string.Empty, marks.RemovedMoreText);
     }
 
@@ -138,26 +142,113 @@ public class ChangedLinesTests
     }
 
     [Fact]
-    public void 消えた行は_3行で切って_残さなかった数も足して_ほか_n_行()
+    public void 消えた行は知らせに残した分を全部並べ_残さなかった数だけを1行で言う()
     {
         var lines = ChangedLines.From(new NotificationDiff
         {
             Field = "注意事項",
             Before = "x",
             After = "y",
-            Lines = [Removed("1"), Added("足した"), Removed("2"), Removed("3"), Removed("4")],
+            Lines = [Removed("1"), Added("足した"), Removed("2", "足した"), Removed("3", "足した"), Removed("4", "足した")],
             MoreAdded = 5,
             MoreRemoved = 2,
         });
 
         var marks = ChangedLineMarks.For(lines, "足した");
 
-        Assert.Equal("削除:1 | 削除:2 | 削除:3", Show(marks.Removed));
+        Assert.Equal("0:1 | 1:2 | 1:3 | 1:4", Spots(marks));
 
         // 足した行の残さなかった数は数えない（本文の上で見えている）
-        Assert.Equal("ほか 3 行", marks.RemovedMoreText);
-        Assert.True(marks.HasRemoved);
+        Assert.Equal("ほかに消えた行が 2 行あります。", marks.RemovedMoreText);
+        Assert.True(marks.HasRemovedMore);
     }
+
+    // ---- 消えた行の位置（メモ17：札ではなく帯で、元の位置に並べる） ----
+
+    [Fact]
+    public void 消えた行は_今の本文で直前にあった行のすぐ後ろへ差し込む()
+    {
+        var lines = ChangedLines.From(new NotificationDiff
+        {
+            Field = "注意事項",
+            Before = "x",
+            After = "y",
+            Lines = [Removed("先頭で消えた"), Removed("再配布は禁止です。", "作り物の注意書きです。"), Removed("末尾で消えた", "改変は自由です。")],
+        });
+
+        // 番号は本文を改行で分けたときの番号（空の行も数える）。差し込むのは「その番号の行の前」
+        var marks = ChangedLineMarks.For(lines, "作り物の注意書きです。\n\n改変は自由です。");
+
+        Assert.Equal("0:先頭で消えた | 1:再配布は禁止です。 | 3:末尾で消えた", Spots(marks));
+    }
+
+    [Fact]
+    public void 同じ文の行が2つあれば_前に置いた所から先を先に探す()
+    {
+        var lines = ChangedLines.From(new NotificationDiff
+        {
+            Field = "更新履歴",
+            Before = "x",
+            After = "y",
+            Lines = [Added("v1.1"), Removed("旧い注記", "---")],
+        });
+
+        // 足した行（v1.1）より後ろの「---」の後ろ。前の「---」に付くと、差の順と食い違う
+        var marks = ChangedLineMarks.For(lines, "---\nv1.0\n---\nv1.1\n---\n末尾");
+
+        Assert.Equal("5:旧い注記", Spots(marks));
+    }
+
+    [Fact]
+    public void 重ねた知らせで_直前の行が後で消えていたら_その消えた行のすぐ後ろ()
+    {
+        // 1回目に「B」が消え（直前は A）、2回目に「A」が消えた（直前は無し）。B は A の後ろに並ぶ
+        var stacked = ChangeStack.StackLines([Removed("B", "A")], [Removed("A")]);
+        var lines = ChangedLines.From(new NotificationDiff { Field = "注意事項", Before = "x", After = "y", Lines = stacked });
+
+        var marks = ChangedLineMarks.For(lines, "C");
+
+        Assert.Equal("0:A | 0:B", Spots(marks));
+    }
+
+    [Fact]
+    public void 見出しごと消えた物は_本文が無く_消えた行を並びの順に全部並べる()
+    {
+        var lines = ChangedLines.From(new NotificationDiff
+        {
+            Field = "旧版について",
+            Before = "旧版は配布を終えました",
+            Lines = [Removed("旧版は配布を終えました"), Removed("問い合わせは受けません", "旧版は配布を終えました")],
+        });
+
+        Assert.True(lines.WholeRemoved);
+        Assert.Equal("0:旧版は配布を終えました | 0:問い合わせは受けません", Spots(ChangedLineMarks.For(lines, null)));
+    }
+
+    [Fact]
+    public void 本文の文書は_足した行と消えた行を種類ごとの段落にし_消えた行を元の位置に置く() => UiThread.Run(() =>
+    {
+        var lines = ChangedLines.From(new NotificationDiff
+        {
+            Field = "注意事項",
+            Before = "x",
+            After = "y",
+            Lines = [Removed("消えた1", "残る"), Removed("消えた2", "残る"), Added("足した")],
+        });
+        var marks = ChangedLineMarks.For(lines, "残る\n足した\n最後");
+
+        var document = Chmonos.App.Controls.SelectableText.Build("残る\n足した\n最後", null, marks);
+        var paragraphs = document.Blocks.OfType<System.Windows.Documents.Paragraph>().ToList();
+
+        Assert.Equal(
+            ["残る", "消えた1\n消えた2", "足した", "最後"],
+            paragraphs.Select(paragraph => new System.Windows.Documents.TextRange(paragraph.ContentStart, paragraph.ContentEnd).Text.Replace("\r\n", "\n")));
+
+        // 消えた行の段落だけに、既読にするときに画面が高さを測る印が付く
+        Assert.Equal([false, true, false, false], paragraphs.Select(paragraph => ReferenceEquals(paragraph.Tag, Chmonos.App.Controls.SelectableText.RemovedLineTag)));
+        Assert.Equal(new System.Windows.Thickness(3, 0, 0, 0), paragraphs[2].BorderThickness);
+        Assert.Equal(new System.Windows.Thickness(0), paragraphs[0].BorderThickness);
+    });
 
     [Fact]
     public void 行を持たない知らせでは_本文に何も付けない()
@@ -166,7 +257,7 @@ public class ChangedLinesTests
 
         Assert.Same(ChangedLineMarks.None, marks);
         Assert.Empty(marks.AddedLines);
-        Assert.False(marks.HasRemoved);
+        Assert.Empty(marks.RemovedLines);
     }
 
     // ---- 商品ページを通して ----
@@ -186,7 +277,7 @@ public class ChangedLinesTests
                 Field = history.NormalizedHeading,
                 Before = "v1.0 公開 v1.1 予定",
                 After = "v1.0 公開 v1.1 直しました",
-                Lines = [Removed("v1.1 予定"), Added("v1.1 直しました")],
+                Lines = [Removed("v1.1 予定", "v1.0 公開"), Added("v1.1 直しました")],
             }));
             return list;
         });
@@ -196,7 +287,7 @@ public class ChangedLinesTests
         await UiThread.Until(() => page.HasUnreadChanges, "知らせを読んで印が付く");
 
         Assert.Equal([1], page.Sections[0].Lines.AddedLines);
-        Assert.Equal("削除:v1.1 予定", Show(page.Sections[0].Lines.Removed));
+        Assert.Equal("1:v1.1 予定", Spots(page.Sections[0].Lines));
         Assert.Same(ChangedLineMarks.None, page.Sections[1].Lines);
 
         page.MarkChangesReadCommand.Execute(null);
@@ -229,7 +320,7 @@ public class ChangedLinesTests
         await UiThread.Until(() => page.HasUnreadChanges, "知らせを読んで印が付く");
 
         Assert.Equal([2], page.DescriptionLines.AddedLines);
-        Assert.False(page.DescriptionLines.HasRemoved);
+        Assert.Empty(page.DescriptionLines.RemovedLines);
 
         page.MarkChangesReadCommand.Execute(null);
         await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると印が消える");

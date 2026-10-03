@@ -19,6 +19,16 @@ public sealed partial class ItemViewModel
 {
     private void BuildVariations()
     {
+        foreach (var row in VariationRows())
+        {
+            Variations.Add(row);
+        }
+    }
+
+    private List<VariationRow> VariationRows()
+    {
+        var rows = new List<VariationRow>();
+
         // 同じ版を複数回買っていることがあるので、版ごとにまとめて回数も出す
         // ToLookup は null の鍵を持てる（ToDictionary は持てない）。
         // 「どのバリエーションも指していない」記録がここに入る
@@ -27,11 +37,12 @@ public sealed partial class ItemViewModel
         foreach (var variation in Item.Booth.Variations)
         {
             var group = ordered[variation.Id].ToList();
-            Variations.Add(new VariationRow
+            rows.Add(new VariationRow
             {
                 Name = DisplayText.VariationName(variation.Name),
                 PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
                 IsPurchased = group.Count > 0,
+                Key = LineDiff.NormalizeLine(variation.Name ?? string.Empty),
             });
         }
 
@@ -42,7 +53,7 @@ public sealed partial class ItemViewModel
         foreach (var group in ordered.Where(entry => !currentIds.Contains(entry.Key)))
         {
             var purchases = group.ToList();
-            Variations.Add(new VariationRow
+            rows.Add(new VariationRow
             {
                 Name = purchases[0].NameSnapshot ?? DisplayText.VariationLabel(group.Key),
                 PriceText = PurchaseText(purchases),
@@ -50,8 +61,71 @@ public sealed partial class ItemViewModel
 
                 // 指していない記録は「消えた」わけではない。指す先が無いだけ
                 IsGone = group.Key is not null,
+                Key = group.Key is null ? string.Empty : LineDiff.NormalizeLine(purchases[0].NameSnapshot ?? string.Empty),
             });
         }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// 足された・消えたバリエーションに帯を付ける（メモ17・ユーザ判断 2026-10-03「消えたバリエーションは元の位置に行として残し、赤の帯」）。
+    /// 足された物は名前で今の行に当てる。消えた物は、買っていて「BOOTHに現存しない」行が既にあればその行に帯を付け
+    /// （同じバリエーションを2行に出さない）、無ければ前にあった位置へ行を差し込む（<see cref="ChangedLines.Place{T}"/>）
+    /// </summary>
+    /// <param name="boothCount">先頭から何行が BOOTH にあるバリエーションか（<see cref="VariationRows"/> は BOOTH の並び → 買った記録だけの行の順）。</param>
+    internal static List<VariationRow> WithBands(List<VariationRow> rows, int boothCount, ChangedLines lines)
+    {
+        if (!lines.HasAny)
+        {
+            return rows;
+        }
+
+        var result = rows.ToList();
+        var next = 0;
+        foreach (var added in lines.Lines.Where(line => line.Kind == NotificationLineKind.Added))
+        {
+            for (var index = next; index < result.Count; index++)
+            {
+                if (!result[index].IsGone && result[index].Band is null && ChangedLines.Matches(result[index].Key, added.Text))
+                {
+                    result[index] = result[index] with { Band = ChangeTone.Added };
+                    next = index + 1;
+                    break;
+                }
+            }
+        }
+
+        var inserts = new List<(string Text, string? Follows, VariationRow Row)>();
+        foreach (var removed in lines.Lines.Where(line => line.Kind == NotificationLineKind.Removed))
+        {
+            var gone = result.FindIndex(row => row.IsGone && row.Band is null && ChangedLines.Matches(row.Key, removed.Text));
+            if (gone >= 0)
+            {
+                result[gone] = result[gone] with { Band = ChangeTone.Removed };
+                continue;
+            }
+
+            inserts.Add((removed.Text, removed.Follows, new VariationRow
+            {
+                Name = removed.Text,
+                PriceText = string.Empty,
+                Key = removed.Text,
+                Band = ChangeTone.Removed,
+                IsNoticeOnly = true,
+            }));
+        }
+
+        // 位置は BOOTH にある行（先頭の boothCount 行）の並びで決める。買った記録だけの行は下にまとめて出しているので、並びの手掛かりにしない。
+        // 後ろから差し込むと、前の差し込み位置がずれない（同じ位置の物は差の順のまま並ぶ）
+        var current = result.Take(boothCount).Select(row => row.Key).ToList();
+        var placed = ChangedLines.Place(current, inserts);
+        for (var index = placed.Count - 1; index >= 0; index--)
+        {
+            result.Insert(Math.Min(placed[index].Before, current.Count), placed[index].Item);
+        }
+
+        return result;
     }
 
     /// <summary>

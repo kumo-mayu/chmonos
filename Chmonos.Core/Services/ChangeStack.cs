@@ -51,6 +51,7 @@ public static class ChangeStack
                 After = second.After,
                 MoreAdded = Sum(first.MoreAdded, second.MoreAdded),
                 MoreRemoved = Sum(first.MoreRemoved, second.MoreRemoved),
+                Follows = first.Follows ?? second.Follows,
             };
         }
 
@@ -76,6 +77,7 @@ public static class ChangeStack
             Lines = kept,
             MoreAdded = Sum(Sum(first.MoreAdded, second.MoreAdded), Over(added)),
             MoreRemoved = Sum(Sum(first.MoreRemoved, second.MoreRemoved), Over(removed)),
+            Follows = first.Follows ?? second.Follows,
         };
     }
 
