@@ -33,10 +33,10 @@ public sealed class DeferredCardHost : ContentControl
         Focusable = false;
         IsTabStop = false;
 
-        // 画面を移って戻ってきたときも、まだ作っていなければ並び直す
+        // 画面を移って戻ってきたときも、まだ作っていなければ並び直す。控えている間（見えている所から遠い行。ViewportHold）は並ばない
         Loaded += (_, _) =>
         {
-            if (!_realized)
+            if (!_realized && !ViewportHold.GetIsHeld(this))
             {
                 CardBuildQueue.Enqueue(this);
             }
@@ -77,6 +77,30 @@ public sealed class DeferredCardHost : ContentControl
         }
 
         return made;
+    }
+
+    /// <summary>
+    /// 控えの印（<see cref="ViewportHold"/>）が変わった。外れたら作る順番に並び、付いたら中身を捨てて白い枠だけに戻す
+    /// （仮想化した一覧が、流れ去った行の入れ物を使い回すのと同じ量に保つ）。キーボードで止まっているカードは捨てない
+    /// </summary>
+    internal void OnHeldChanged(bool held)
+    {
+        if (!held)
+        {
+            if (!_realized && IsLoaded)
+            {
+                CardBuildQueue.Enqueue(this);
+            }
+
+            return;
+        }
+
+        if (_realized && !IsKeyboardFocusWithin)
+        {
+            _realized = false;
+            Content = null;
+            ContentTemplate = null;
+        }
     }
 
     internal void Realize()
@@ -132,8 +156,8 @@ internal static class CardBuildQueue
         {
             var host = Pending.Dequeue();
 
-            // 作る前に流れて外れた枠は作らない
-            if (host.IsRealized || !host.IsLoaded)
+            // 作る前に流れて外れた枠・控えに戻った枠は作らない
+            if (host.IsRealized || !host.IsLoaded || ViewportHold.GetIsHeld(host))
             {
                 continue;
             }

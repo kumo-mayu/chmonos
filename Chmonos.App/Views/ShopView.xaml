@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Chmonos.App.Views.ShopView"
+<UserControl x:Class="Chmonos.App.Views.ShopView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
@@ -253,7 +253,11 @@
             </controls:SplitRowPanel>
         </Border>
 
-        <!-- 商品の一覧（カード・リスト）。仮想化はしない（1つのショップの商品は多くない）。余りの高さは持たず、中身の高さで伸びる -->
+        <!--
+            商品の一覧（カード・リスト）。外のスクロールの中にあるので WPF の仮想化は効かない。余りの高さは持たず、中身の高さで伸びる。
+            行の入れ物は全部作るが、中身（カード・リストの列）は見えている辺りの行だけ作る（ViewportHold。一覧に「控え」の印を付けて継がせ、
+            見えている辺りの行だけ外す）。300件の店で全部作ると、開いて落ち着くまで約2.5秒・メモリが約120MB多くかかった
+        -->
         <Grid x:Name="ListHost">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,60"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -266,12 +270,15 @@
                         Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
 
-            <!-- リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える） -->
-            <controls:ItemListView x:Name="ItemList" ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+            <!--
+                リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える）。
+                商品（ItemsSource）はリストが出たときに渡し、隠れている間に商品が替わったら外す（ShopView.xaml.cs の UpdateListSource）。仮想化しない一覧は、隠れていても項目が来るたびに全部の行を作った
+            -->
+            <controls:ItemListView x:Name="ItemList" View="{StaticResource ItemListGridView}"
                       ItemContainerStyle="{StaticResource ItemListRowStyle}"
                       BorderThickness="0" Background="Transparent" Margin="24,2,24,18"
                       ScrollViewer.VerticalScrollBarVisibility="Disabled" controls:ForwardWheel.IsEnabled="True"
-                      VirtualizingPanel.IsVirtualizing="False"
+                      VirtualizingPanel.IsVirtualizing="False" controls:ViewportHold.IsHeld="True"
                       Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <!--
@@ -285,7 +292,7 @@
                      Padding="24,6,24,24" HorizontalContentAlignment="Stretch"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Disabled" controls:ForwardWheel.IsEnabled="True"
-                     VirtualizingPanel.IsVirtualizing="False">
+                     VirtualizingPanel.IsVirtualizing="False" controls:ViewportHold.IsHeld="True">
                 <controls:CardRowsListBox.ItemContainerStyle>
                     <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
                     <Style TargetType="ListBoxItem">
@@ -303,13 +310,27 @@
                 </controls:CardRowsListBox.ItemContainerStyle>
                 <controls:CardRowsListBox.ItemTemplate>
                     <DataTemplate>
-                        <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </controls:CardRowItems>
+                        <Grid>
+                            <!-- 段の高さ（カードの高さと下の間隔）は、カードを作っていない間も保つ。作る・捨てるで下の段が動かないように -->
+                            <Border Height="{DynamicResource CardHeight}" Margin="0,0,0,14" />
+                            <!-- 見えている所から遠い段は、カードの枠も作らない（ViewportHold。隠した一覧は測られず、中の項目も作られない） -->
+                            <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <controls:CardRowItems.Style>
+                                    <Style TargetType="controls:CardRowItems">
+                                        <Style.Triggers>
+                                            <Trigger Property="controls:ViewportHold.IsHeld" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:CardRowItems.Style>
+                            </controls:CardRowItems>
+                        </Grid>
                     </DataTemplate>
                 </controls:CardRowsListBox.ItemTemplate>
             </controls:CardRowsListBox>
