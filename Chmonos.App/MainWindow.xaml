@@ -304,6 +304,48 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <!--
+            ナビの「上（下）にまだ項目がある」帯。地の色で上から（下から）透けて消え、真ん中に矢印を置く。
+            ナビの項目の上に重ねるので、見えても消えても項目の位置は動かない。乗せたときだけ矢印を明るくする
+        -->
+        <ControlTemplate x:Key="NavMoreTemplate" TargetType="Button">
+            <Grid Background="Transparent" Cursor="Hand">
+                <Border x:Name="Fade" Background="{DynamicResource Rail}">
+                    <Border.OpacityMask>
+                        <LinearGradientBrush x:Name="FadeMask" StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="{x:Static Colors.Black}" Offset="0" />
+                            <GradientStop Color="Transparent" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.OpacityMask>
+                </Border>
+                <Path x:Name="Chevron" Data="M0,0 L5,5 L10,0" Stroke="{DynamicResource RailMuted}" StrokeThickness="1.6"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0" RenderTransformOrigin="0.5,0.5" />
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="Tag" Value="Up">
+                    <Setter TargetName="Chevron" Property="RenderTransform">
+                        <Setter.Value>
+                            <ScaleTransform ScaleY="-1" />
+                        </Setter.Value>
+                    </Setter>
+                    <Setter TargetName="Chevron" Property="Margin" Value="0,0,0,2" />
+                </Trigger>
+                <Trigger Property="Tag" Value="Down">
+                    <Setter TargetName="Fade" Property="OpacityMask">
+                        <Setter.Value>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="Transparent" Offset="0" />
+                                <GradientStop Color="{x:Static Colors.Black}" Offset="1" />
+                            </LinearGradientBrush>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Chevron" Property="Stroke" Value="{DynamicResource RailTextActive}" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
         <PathGeometry x:Key="IconApp" Figures="M4,8 L12,4 L20,8 V16 L12,20 L4,16 Z M4,8 L12,12 L20,8 M12,12 V20" />
     </Window.Resources>
 
@@ -339,7 +381,10 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-            <ScrollViewer x:Name="NavScroller" Grid.Row="0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <!-- 送る入れ物と、上下に続きがある印を重ねる入れ物。印は重ねるだけで、出入りで項目を押し動かさない（ユーザ指示 2026-10-03） -->
+            <Grid Grid.Row="0">
+            <ScrollViewer x:Name="NavScroller" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                          ScrollChanged="OnNavScrollChanged">
                 <StackPanel Margin="0,16,0,0">
                     <!--
                         畳んだ幅ではタイトルが入らないので、同じ高さにアプリの印を置く。
@@ -476,6 +521,21 @@
                             views:Nav.IsActive="{Binding IsAttributeManageActive}" />
                 </StackPanel>
             </ScrollViewer>
+
+            <!--
+                項目が入り切らないとき、まだ隠れている向きに出す帯（押すとその向きへ送る）。
+                ナビの地の色から透けて消える帯の上に矢印を置き、項目の上に重ねる。畳んだ幅でも同じ。
+                見える・見えないは NavScroller の送りの位置から決める（MainWindow.xaml.cs の NavScrollHint）
+            -->
+            <Button x:Name="NavMoreAbove" VerticalAlignment="Top" Height="26" Visibility="Collapsed" Focusable="False"
+                    Template="{StaticResource NavMoreTemplate}" Tag="Up" Click="OnNavMoreClick"
+                    AutomationProperties.AutomationId="Nav.MoreAbove" AutomationProperties.Name="上の項目を見る"
+                    ToolTip="上にまだ項目があります。押すと上へ送ります。" />
+            <Button x:Name="NavMoreBelow" VerticalAlignment="Bottom" Height="26" Visibility="Collapsed" Focusable="False"
+                    Template="{StaticResource NavMoreTemplate}" Tag="Down" Click="OnNavMoreClick"
+                    AutomationProperties.AutomationId="Nav.MoreBelow" AutomationProperties.Name="下の項目を見る"
+                    ToolTip="下にまだ項目があります。押すと下へ送ります。" />
+            </Grid>
 
                 <!--
                     BOOTHから取れる情報の形が変わった疑い（ユーザ判断 2026-09-18）。商品1件ごとの話と

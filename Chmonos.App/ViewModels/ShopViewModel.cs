@@ -575,9 +575,54 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     /// </summary>
     /// <param name="offset">一覧の縦の流れの位置（一番上が0）。</param>
     /// <param name="scrollable">今の一覧で流せる量（中身の高さ − 見えている高さ）。</param>
-    /// <param name="collapseGain">縮めると一覧の見える高さがどれだけ増えるか。</param>
-    public void NoteListScrolled(double offset, double scrollable, double collapseGain)
-        => IsHeaderCompact = NextHeaderCompact(_isHeaderCompact, offset, scrollable, collapseGain);
+    /// <param name="maxShrink">上の段を縮め切る（1行にする）までに詰める高さ。元の段の高さ − 縮めた行の高さ。</param>
+    public void NoteListScrolled(double offset, double scrollable, double maxShrink)
+    {
+        if (_isHeaderCompact)
+        {
+            // 縮め切った後は一番上へ戻すまで動かさない（縮めた行は決め打ちの高さなので、ここで高さが段で変わることもない）
+            IsHeaderCompact = NextHeaderCompact(true, offset, scrollable, maxShrink);
+            if (!_isHeaderCompact)
+            {
+                HeaderShrink = 0;
+            }
+
+            return;
+        }
+
+        var shrink = NextHeaderShrink(HeaderShrink, offset, scrollable, maxShrink);
+        HeaderShrink = shrink;
+        // 詰め切った高さ＝縮めた行の高さなので、1行に切り替わる瞬間も全体の高さは変わらない
+        IsHeaderCompact = maxShrink > 0 && shrink >= maxShrink - 0.5;
+    }
+
+    private double _headerShrink;
+
+    /// <summary>上の段を詰めた高さ（元の段の上から切り落とす量。0 なら元の段）。View が段の高さに当てる。</summary>
+    public double HeaderShrink
+    {
+        get => _headerShrink;
+        private set => SetField(ref _headerShrink, value);
+    }
+
+    /// <summary>
+    /// 詰める高さ。流した量と同じだけ詰め（手に付いてくる。時間では動かさない）、元の段の上（バナー → 見出し → メモの順）から切り落とす。
+    /// **詰めた量は減らさない**（一番上まで戻したときだけ0）：詰めると一覧が広がり流せる量が減るので、流れの位置で量を決め直すと
+    /// 位置が押し戻されて詰めたり開いたりを繰り返す。上限は「詰めた後も流せる量が1残る」まで（短い一覧で押し戻されない）
+    /// </summary>
+    /// <param name="current">今詰めている高さ。</param>
+    /// <param name="scrollable">今の一覧で流せる量。詰めた分だけ減っているので、元の量は current を足して求める。</param>
+    internal static double NextHeaderShrink(double current, double offset, double scrollable, double maxShrink)
+    {
+        if (offset < 1)
+        {
+            return 0;
+        }
+
+        var original = scrollable + current;
+        var target = Math.Min(Math.Min(offset, maxShrink), Math.Max(0, original - 1));
+        return Math.Min(Math.Max(current, target), Math.Max(0, maxShrink));
+    }
 
     /// <summary>
     /// 縮めるか。**縮めた後も流れが一番上に戻らないときだけ縮める。**
@@ -690,6 +735,23 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
 
     public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
+
+
+
+    /// <summary>右クリックの「改変に追加…」。選んでいる最中に選んだ物の上で押したら、選んだ全部（帯の「改変に追加…」と同じ）。</summary>
+
+
+    public RelayCommand CardAddToModificationCommand => _cardAddToModification ??= new RelayCommand(
+
+
+        parameter => ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(SearchViewModel.AsCard(parameter), SelectedCards())).Forget(),
+
+
+        parameter => SearchViewModel.AsCard(parameter) is not null);
+
+
+
+    private RelayCommand? _cardAddToModification;
 
 
     public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;

@@ -134,6 +134,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             package => ItemUnityActions.SelectAsync(_services, AsCard(parameter)!.Item, package,
                 (text, failed) => Tell("Unityで選択", text, failed))).Forget());
         HideItemCommand = new RelayCommand(parameter => HideItemAsync(AsCard(parameter)).Forget());
+        CardAddToModificationCommand = new RelayCommand(
+            parameter => AddCardsToModificationAsync(AsCard(parameter)).Forget(), parameter => AsCard(parameter) is not null);
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
         _isListMode = ItemListMode.IsList(services, "search");

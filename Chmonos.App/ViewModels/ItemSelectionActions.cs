@@ -175,6 +175,20 @@ internal static class ItemSelectionActions
     }
 
     /// <summary>
+    /// 右クリックで押したカードに対して操作する物。選んでいる最中に、選んだ物の上で押したら選んだ全部（帯の操作と同じ）、
+    /// 選んでいない物の上なら押した1件だけ（選んだ物には触らない）。
+    /// </summary>
+    internal static IReadOnlyList<ItemCardViewModel> CardsForMenu(ItemCardViewModel? pressed, IReadOnlyList<ItemCardViewModel> selected)
+    {
+        if (pressed is null)
+        {
+            return [];
+        }
+
+        return pressed.IsSelected && selected.Contains(pressed) ? selected : [pressed];
+    }
+
+    /// <summary>
     /// 選んだ物を1つの改変に足す。どの改変かは商品ページの「改変に足す」と同じ画面で1回だけ選ぶ。
     ///
     /// **既にその改変に入っている商品は重ねて足さない。**まとめて足すときは、

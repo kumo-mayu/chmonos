@@ -54,9 +54,10 @@
         <!--
             上の段（バナー・見出しと集計・メモ）。商品の一覧を流し始めたら「アイコン・名前・星・集計」の1行に縮め、
             一番上まで戻すと元に戻す（2026-10-02 のメモ7-⑤：縦に長く、一覧が狭かった）。縮めるかは ShopViewModel.NoteListScrolled が決め、
-            縮めると一覧が広がる高さは、この入れ物の高さから縮めた行の高さを引いて渡す（ShopView.xaml.cs）
+            流した量に合わせて上（バナー → 見出し → メモの順）から少しずつ切り落とし、詰め切ったら1行にする。詰める高さは ShopViewModel.HeaderShrink、当てるのは ShopView.xaml.cs
         -->
-        <StackPanel DockPanel.Dock="Top" x:Name="ShopHeader">
+        <Border x:Name="ShopHeaderClip" DockPanel.Dock="Top" ClipToBounds="True">
+        <StackPanel x:Name="ShopHeader" VerticalAlignment="Top" SizeChanged="OnHeaderSizeChanged">
         <StackPanel Visibility="{Binding ShowFullHeader, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
         <!--
             バナー。置いていないショップもあるので、無ければ帯ごと出さない。
@@ -283,6 +284,7 @@
             </DockPanel>
         </Border>
         </StackPanel>
+        </Border>
 
         <!--
             件数（左）と「所持しているものだけ」・カード／リスト（右）。入り切らなければ右を次の行へ送る（検索の結果の上の帯と同じ部品）。
@@ -338,6 +340,7 @@
                       ItemContainerStyle="{StaticResource ItemListRowStyle}"
                       BorderThickness="0" Background="Transparent" Margin="24,10,24,18"
                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                      VirtualizingPanel.ScrollUnit="Pixel"
                       Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <!--

@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Chmonos.App.Controls;
 
@@ -47,7 +48,15 @@ public sealed class HeightGrip : Thumb
         Highlight(false);
 
         DragStarted += (_, _) => BeginResize();
-        DragDelta += (_, e) => Resize(e.VerticalChange);
+        DragDelta += (_, e) =>
+        {
+            Resize(e.VerticalChange);
+            if (e.VerticalChange > 0)
+            {
+                // 伸ばしたぶんの配置が済んでから、つまみの位置を測る
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FollowIntoView);
+            }
+        };
         DragCompleted += (_, _) => Highlight(IsMouseOver);
     }
 
@@ -92,6 +101,43 @@ public sealed class HeightGrip : Thumb
     {
         _dragged += change;
         Length = Math.Round(Math.Clamp(_dragged, MinLength, Math.Max(MinLength, MaxLength)));
+    }
+
+    /// <summary>
+    /// 伸ばしてつまみが外側の流れる入れ物の見える範囲の下へ出たら、出た分だけ外側を流す（メモ18）。
+    /// 流さないと、つまみが見えなくなって引き続けられない。縮めるときは呼ばない（欄が縮むと外側の範囲の方が縮み、位置が勝手に戻る）
+    /// </summary>
+    internal void FollowIntoView()
+    {
+        var scroller = FindAncestor<ScrollViewer>(this);
+        if (scroller is null)
+        {
+            return;
+        }
+
+        var bottom = TransformToAncestor(scroller).Transform(new Point(0, ActualHeight)).Y;
+        var excess = OverflowBelow(bottom, scroller.ViewportHeight);
+        if (excess > 0)
+        {
+            scroller.ScrollToVerticalOffset(scroller.VerticalOffset + excess);
+        }
+    }
+
+    /// <summary>つまみの下端（見える範囲の上端から測る）が、見える高さを越えた量。越えていなければ 0。</summary>
+    internal static double OverflowBelow(double gripBottom, double viewportHeight) =>
+        Math.Max(0, gripBottom - viewportHeight);
+
+    private static T? FindAncestor<T>(DependencyObject from) where T : DependencyObject
+    {
+        for (var node = VisualTreeHelper.GetParent(from); node is not null; node = VisualTreeHelper.GetParent(node))
+        {
+            if (node is T found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>ドラッグを始めた。今の欄の高さから数える（試験からも呼ぶ）。</summary>

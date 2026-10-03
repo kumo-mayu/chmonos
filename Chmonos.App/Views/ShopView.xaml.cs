@@ -52,8 +52,47 @@ public partial class ShopView : UserControl
             return;
         }
 
-        // 縮めると、上の段（バナー・見出し・メモ）が縮めた行1本になる。その差だけ一覧が広がる
-        shop.NoteListScrolled(scroll.VerticalOffset, scroll.ScrollableHeight, ShopHeader.ActualHeight - CompactHeaderHeight);
+        // 詰め切ると、上の段（バナー・見出し・メモ）が縮めた行1本になる。詰める高さの上限はその差
+        if (!shop.IsHeaderCompact)
+        {
+            _fullHeaderHeight = ShopHeader.ActualHeight;
+        }
+
+        shop.NoteListScrolled(scroll.VerticalOffset, scroll.ScrollableHeight, _fullHeaderHeight - CompactHeaderHeight);
+        ApplyHeaderShrink(shop);
+    }
+
+    // 元の段の高さ。縮めた行に切り替えた後は測れないので、切り替える前の値を持つ
+    private double _fullHeaderHeight;
+
+    private void OnHeaderSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is ShopViewModel shop)
+        {
+            if (!shop.IsHeaderCompact)
+            {
+                _fullHeaderHeight = e.NewSize.Height;
+            }
+
+            ApplyHeaderShrink(shop);
+        }
+    }
+
+    /// <summary>
+    /// 詰めた高さを段に当てる。入れ物の高さを詰めた分だけ低くし、中身は上へずらして下端をそろえる（上から切り落ちる）。
+    /// 縮めた行に替わった後は元の高さに任せる
+    /// </summary>
+    private void ApplyHeaderShrink(ShopViewModel shop)
+    {
+        if (shop.IsHeaderCompact || shop.HeaderShrink <= 0 || _fullHeaderHeight <= 0)
+        {
+            ShopHeaderClip.ClearValue(HeightProperty);
+            ShopHeader.Margin = new Thickness(0);
+            return;
+        }
+
+        ShopHeaderClip.Height = Math.Max(0, _fullHeaderHeight - shop.HeaderShrink);
+        ShopHeader.Margin = new Thickness(0, -shop.HeaderShrink, 0, 0);
     }
 
     // ---- 戻ったときの一覧の位置（ユーザ判断 2026-09-28） ----

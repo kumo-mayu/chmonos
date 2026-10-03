@@ -1593,6 +1593,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
 
+
+    /// <summary>右クリックの「改変に追加…」。選びはこの画面に無いので、押した1件だけ（検索の画面と同じ命令）。</summary>
+
+    public RelayCommand CardAddToModificationCommand => _main.Search.CardAddToModificationCommand;
+
     public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
 
     public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
