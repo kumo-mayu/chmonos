@@ -26,6 +26,17 @@ public sealed partial class SearchViewModel
 
     public RelayCommand HideItemCommand { get; }
 
+    /// <summary>右クリックの「改変に追加…」。選んでいる最中に選んだ物の上で押したら選んだ全部、そうでなければ押した1件。</summary>
+    public RelayCommand CardAddToModificationCommand { get; }
+
+    private async Task AddCardsToModificationAsync(ItemCardViewModel? card)
+    {
+        if (await ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(card, SelectedCards())))
+        {
+            NoteModificationsChanged();
+        }
+    }
+
     /// <summary>
     /// 検索のカードと同じ中身のカードを作る（フォルダビューの右側で使う・ユーザ指示 2026-09-14「検索画面同等の UI」）。
     /// 札（所持・未編集・取り込み中・見つからない）の決め方を1か所に保つ

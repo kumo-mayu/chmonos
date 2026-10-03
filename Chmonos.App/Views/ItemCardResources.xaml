@@ -36,6 +36,14 @@
         <MenuItem Header="編集に入る" CommandParameter="{Binding}"
                   Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <!--
+            送らずに改変へ足すだけの口（商品ページの「改変に追加」・選んだ帯の「改変に追加…」と同じ窓。ユーザ指示 2026-10-03）。
+            手元のファイルが無くても足せる（商品ページの「改変に追加」も同じ）ので、出し分けない。
+            選んでいる最中に選んだ物の上で押したら選んだ全部
+        -->
+        <MenuItem Header="改変に追加…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.AddToModification"
+                  ToolTip="どの改変に追加するかを選んで、記録だけ残します。選んでいる最中は、選んだ商品をまとめて追加します。"
+                  Command="{Binding PlacementTarget.Tag.CardAddToModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <!--
             カードの中の押せる物（星・選ぶ箱・「更新あり」）と同じ操作（点検 2026-10-01）。カードの一覧は Tab で1回だけ入り、中は矢印で
             カードからカードへ移る（ArrowGroup）。中の物を矢印の止まりにすると、隣のカードへ移るのに最大4回押すことになるので、ここに置く。
             カードそのもの（ItemCardViewModel）にだけ出す。行から取り出す一覧（改変・アバター・フォルダの行・編集の小さな絵）は値が無く、畳む

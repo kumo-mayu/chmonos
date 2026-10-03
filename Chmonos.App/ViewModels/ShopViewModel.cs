@@ -737,6 +737,23 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
 
 
+
+    /// <summary>右クリックの「改変に追加…」。選んでいる最中に選んだ物の上で押したら、選んだ全部（帯の「改変に追加…」と同じ）。</summary>
+
+
+    public RelayCommand CardAddToModificationCommand => _cardAddToModification ??= new RelayCommand(
+
+
+        parameter => ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(SearchViewModel.AsCard(parameter), SelectedCards())).Forget(),
+
+
+        parameter => SearchViewModel.AsCard(parameter) is not null);
+
+
+
+    private RelayCommand? _cardAddToModification;
+
+
     public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
 
     public RelayCommand HideItemCommand { get; }
