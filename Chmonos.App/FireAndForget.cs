@@ -20,9 +20,11 @@ public static class FireAndForget
     /// <summary>
     /// 投げて、まだ済んでいない作業の数。**数えるだけで、アプリの動きには使わない。**
     /// 試験が「投げっぱなしの読み込み・保存が済んだ」を待つのに使う（2026-09-30）。待たずに試験を終えると、
-    /// 前の試験の作業が次の試験の最中に落ちて、次の試験のログに混ざった
+    /// 前の試験の作業が次の試験の最中に落ちて、次の試験のログに混ざった。
+    /// **Core が裏へ投げた作業（<see cref="BackgroundWork"/>）も足す。**足していなかった間は、確定の後の検出が
+    /// 試験の保存先を消した後も走り続け、一時ファイルを消されて落ちていた（2026-10-03）
     /// </summary>
-    internal static int Pending => Volatile.Read(ref s_pending);
+    internal static int Pending => Volatile.Read(ref s_pending) + BackgroundWork.Pending;
 
     public static void Forget(
         this Task task,

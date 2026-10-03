@@ -308,19 +308,13 @@ public sealed class CommandHandler
                     // ここで待たせると #27 で直した待ちが戻る。検出は1本ずつなので重ならない
                     if (_avatars is { } avatars)
                     {
-                        _ = Task.Run(async () =>
+                        // 落ちても、次の取り込みかアバター画面のボタンで拾われる（失敗はログに残る）
+                        Diagnostics.BackgroundWork.Run("手で紐付けた後の対応アバターの検出", async () =>
                         {
                             using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.Detection);
-                            try
-                            {
-                                // まとめて確定したときは1回にまとめる（N4）
-                                await avatars.RequestDetectAsync();
-                            }
-                            catch (Exception exception) when (exception is not OperationCanceledException)
-                            {
-                                // 拾えなくても、次の取り込みかアバター画面のボタンで拾われる
-                                Diagnostics.AppLog.Error("手で紐付けた後の対応アバターの検出", exception);
-                            }
+
+                            // まとめて確定したときは1回にまとめる（N4）
+                            await avatars.RequestDetectAsync();
                         });
                     }
 
@@ -1024,19 +1018,7 @@ public sealed class CommandHandler
             return;
         }
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await catalog.FillItemAsync(itemId);
-            }
-            catch (Exception exception)
-            {
-                // 待つ者のいない裏の作業なので、ここで受け止めない例外は誰にも見られずに消える（`Forget()` と同じ決まり）。
-                // 壊れた zip の読み取りは IO と JSON 以外の例外（InvalidDataException など）も投げる
-                Diagnostics.AppLog.Error("ファイルを付けた後の unitypackage の読み込み", exception);
-            }
-        });
+        Diagnostics.BackgroundWork.Run("ファイルを付けた後の unitypackage の読み込み", () => catalog.FillItemAsync(itemId));
     }
 
     private async Task<CommandResult> RunModificationAsync(

@@ -110,6 +110,30 @@ public class UiThreadTests
         Assert.Equal(before, FireAndForget.Pending);
     });
 
+    /// <summary>
+    /// Core が裏へ投げた作業（確定の後の検出など）も、Settle は済むまで待つ（2026-10-03）。
+    /// 待たずに試験を終えると、後片付けが保存先を消した後も作業が走り続け、一時ファイルを消されて落ち、
+    /// その失敗が次の試験のログに混ざって、関係の無い試験が落ちていた
+    /// </summary>
+    [Fact]
+    public Task Coreが裏へ投げた作業も_Settleで済むまで待てる() => UiThread.Run(async () =>
+    {
+        var done = false;
+        var gate = new TaskCompletionSource();
+
+        Chmonos.Core.Diagnostics.BackgroundWork.Run("試験の裏の作業", async () =>
+        {
+            await gate.Task;
+            done = true;
+        });
+        Assert.True(FireAndForget.Pending > 0);
+
+        gate.SetResult();
+        await UiThread.Settle();
+
+        Assert.True(done);
+    });
+
     // ---- 画面のスレッドのタイマーに乗る部品 ----
 
     [Fact]
