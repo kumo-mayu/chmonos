@@ -558,6 +558,16 @@ public static class ArrowGroup
 
             if (list.ItemContainerGenerator.ContainerFromIndex(index) is UIElement container)
             {
+                // 外のスクロールの中の一覧（ShopView）は、見えている所から遠い段の中身を作っていない（ViewportHold）。End で末尾へ飛ぶときなど。
+                // 先にその段まで流してから控えを外す。流さずに外すだけだと、次の並べ直しで「遠い段」としてまた控えに戻される
+                if (ViewportHold.GetIsHeld(container) && container is FrameworkElement held)
+                {
+                    held.BringIntoView();
+                    list.UpdateLayout();
+                    ViewportHold.Release(container);
+                    list.UpdateLayout();
+                }
+
                 // カードの中身は画面が空いたときに後から作る。流して入ったばかりの段は、まだ白い枠だけで止まれる物が無い
                 if (DeferredCardHost.RealizeWithin(container))
                 {
@@ -742,8 +752,11 @@ public static class ArrowGroup
         /// 行を見える分だけ作る一覧か。上下は隣の行へ番号で、左右は行の中だけで移る（画面の外の行は部品が無く、場所で探せない）。
         /// 全部の行を作る一覧（札の並び・ローカルファイルの行）は、上下も見えている場所で近い物へ移る——
         /// ファイルの行の中に「ほかの場所」「Unityへ送れるもの」の行が入れ子に並ぶので、番号で隣の行へ飛ぶと、その下の行へ降りられない
+        /// 外のスクロールの中で、見えている辺りの行だけ中身を作る一覧（<see cref="ViewportHold"/>。ショップの中）も、行を見える分だけ作る一覧と同じに扱う。
+        /// 全部の行を作る一覧の扱いにすると、End が作ってある中の最後のカードで止まった
         /// </summary>
-        private bool IsRowList => ItemsHost() is VirtualizingStackPanel { Orientation: Orientation.Vertical } && VirtualizingPanel.GetIsVirtualizing(list);
+        private bool IsRowList => (ItemsHost() is VirtualizingStackPanel { Orientation: Orientation.Vertical } && VirtualizingPanel.GetIsVirtualizing(list))
+            || ViewportHold.GetIsHeld(list);
 
         private Rect BoundsOf(UIElement element)
             => element.IsDescendantOf(list)

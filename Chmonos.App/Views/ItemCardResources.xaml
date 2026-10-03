@@ -735,6 +735,20 @@
             <DataTrigger Binding="{Binding IsFolder}" Value="True">
                 <Setter Property="ContextMenu" Value="{x:Null}" />
             </DataTrigger>
+            <!--
+                見えている所から遠い行は、列を作らず線だけの型にする（ショップの中：一覧を外のスクロールに置き、仮想化が効かない。ViewportHold）。
+                型を替えると前の型の部品（列・絵）は捨てられる。隠すだけでは、一度作った列と絵が残り、端まで流すと全部の行の分を持った。
+                行の高さは下限（MinHeight）で決まるので、型を替えても変わらない
+            -->
+            <Trigger Property="controls:ViewportHold.IsHeld" Value="True">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
         </Style.Triggers>
     </Style>
 

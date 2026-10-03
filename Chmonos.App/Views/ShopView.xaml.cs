@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,6 +16,15 @@ public partial class ShopView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+
+        // 一覧の行の中身は、見えている辺りだけ作る（ViewportHold）。行ができた・入れ替わった・見方が替わったら、並べ終えた所で当て直す
+        _hold = new Controls.ViewportHold(ShopScroll, ScrollBody);
+        foreach (var list in new ItemsControl[] { CardList, ItemList })
+        {
+            list.ItemContainerGenerator.StatusChanged += (_, _) => ScheduleHoldUpdate();
+            list.ItemContainerGenerator.ItemsChanged += (_, _) => ScheduleHoldUpdate();
+            list.IsVisibleChanged += (_, _) => ScheduleHoldUpdate();
+        }
 
         // 1行の見出しの上のホイールも、全体を流す（見出しは流す中身の外に重ねてあるので、そのままでは受け手が無い）
         CompactBar.MouseWheel += (_, e) =>
@@ -49,11 +59,78 @@ public partial class ShopView : UserControl
         }
     }
 
+    // ---- 行の中身を見えている辺りだけ作る ----
+
+    private readonly Controls.ViewportHold _hold;
+    private bool _holdPending;
+
+    /// <summary>行の位置は並べ終えてからしか測れない。次の並べ終わり（描く前）に1回当てる。</summary>
+    private void ScheduleHoldUpdate()
+    {
+        if (_holdPending)
+        {
+            return;
+        }
+
+        _holdPending = true;
+        LayoutUpdated += OnLayoutUpdatedForHold;
+    }
+
+    private void OnLayoutUpdatedForHold(object? sender, EventArgs e)
+    {
+        LayoutUpdated -= OnLayoutUpdatedForHold;
+        _holdPending = false;
+        UpdateHold();
+    }
+
+    /// <summary>出ている方の一覧の、見えている辺りの控えを外し、遠い行を控えに戻す。</summary>
+    private void UpdateHold()
+    {
+        if (DataContext is ShopViewModel shop)
+        {
+            _hold.Update(VisibleList(shop));
+        }
+    }
+
+    /// <summary>
+    /// リストの商品は、リストが出ているときに渡す（結び付けにせず、ここで渡す）。仮想化しない一覧は、一度並べられた後は隠れていても、
+    /// 項目が来るたびに全部の行を作る（カードで開いた300件の店で、出ていないリストの行を150作っていた。開いた最初の配置ではまだ隠れていない）。
+    /// 隠れている間に商品が替わったら（開いた直後の読み込み・絞り）外し、次に出たときに渡し直す。
+    /// 替わらない間は渡したままにして、カード⇄リストの切り替えのたびに行を作り直さない
+    /// </summary>
+    private void UpdateListSource()
+    {
+        if (DataContext is not ShopViewModel shop)
+        {
+            ItemList.ItemsSource = null;
+        }
+        else if (shop.IsListMode)
+        {
+            if (!ReferenceEquals(ItemList.ItemsSource, shop.ListItems))
+            {
+                ItemList.ItemsSource = shop.ListItems;
+            }
+        }
+        else if (ItemList.ItemsSource is not null && !ReferenceEquals(ItemList.ItemsSource, shop.ListItems))
+        {
+            ItemList.ItemsSource = null;
+        }
+    }
+
+    private void OnShopPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ShopViewModel.ListItems) or nameof(ShopViewModel.IsListMode))
+        {
+            UpdateListSource();
+        }
+    }
+
     // ---- 1行の見出しと、止める行（全体が流れたときに合わせる） ----
 
     private void OnShopScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         UpdatePinned();
+        UpdateHold();
 
         // 流せる長さを残していた分は、人が流して「縮めても飛ばない」所へ来たら手放す
         if (!_restoring && !_carryPending && e.VerticalChange != 0)
@@ -62,7 +139,11 @@ public partial class ShopView : UserControl
         }
     }
 
-    private void OnScrollBodySizeChanged(object sender, SizeChangedEventArgs e) => UpdatePinned();
+    private void OnScrollBodySizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdatePinned();
+        ScheduleHoldUpdate();
+    }
 
     private void OnStickyRowSizeChanged(object sender, SizeChangedEventArgs e) => UpdatePinned();
 
@@ -213,6 +294,7 @@ public partial class ShopView : UserControl
         {
             old.ListReady -= OnListReady;
             old.ListAboutToChange -= OnListAboutToChange;
+            old.PropertyChanged -= OnShopPropertyChanged;
             old.AnchorReader = null;
         }
 
@@ -221,6 +303,10 @@ public partial class ShopView : UserControl
             shop.AnchorReader = () => ListScrollAnchor.Capture(ShopScroll, VisibleList(shop), KeyOf);
             shop.ListReady += OnListReady;
             shop.ListAboutToChange += OnListAboutToChange;
+            shop.PropertyChanged += OnShopPropertyChanged;
+
+            // 前の店のリストの行を持ち越さない
+            UpdateListSource();
 
             // 裏の読み込みが View より先に済むことがある（商品の少ない店だと一瞬）
             if (shop.IsListReady)
