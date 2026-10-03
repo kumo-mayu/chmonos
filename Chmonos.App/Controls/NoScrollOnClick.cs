@@ -89,6 +89,18 @@ public static class NoScrollOnClick
             return;
         }
 
+        if (ShouldSuppress(target))
+        {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// この部品の「見える所まで流して」を止めるか。印の付いた一覧の中で、マウスのボタンを押している間だけ止める。
+    /// 一覧を囲む別の流し方（ショップの1本のスクロール）が、自分でも流す前に同じ判断をするために開けてある
+    /// </summary>
+    internal static bool ShouldSuppress(DependencyObject target)
+    {
         for (DependencyObject? current = target; current is not null; current = ParentOf(current))
         {
             if (!GetIsEnabled(current))
@@ -96,14 +108,11 @@ public static class NoScrollOnClick
                 continue;
             }
 
-            if ((bool)current.GetValue(IsPressingProperty) && IsAnyButtonDown())
-            {
-                e.Handled = true;
-            }
-
             // 一番近い印の一覧で決める（一覧の中に一覧があっても、外の印では決めない）
-            return;
+            return (bool)current.GetValue(IsPressingProperty) && IsAnyButtonDown();
         }
+
+        return false;
     }
 
     private static DependencyObject? ParentOf(DependencyObject element)

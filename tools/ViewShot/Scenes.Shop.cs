@@ -8,8 +8,8 @@ using Chmonos.Core.Models;
 namespace ViewShot;
 
 /// <summary>
-/// ショップの一覧の「更新があるものだけ」と、ショップの中の上の段（元の段・流して縮めた行・縮めた行でメモを開いた所）。
-/// 2026-10-02 のメモ7-③・⑤ を直すときに足した。
+/// ショップの一覧の「更新があるものだけ」と、ショップの中の1本のスクロール（一番上・名前の段が半分・流れ去った後・一番下を、カードとリストで）。
+/// 2026-10-02 のメモ7-③ を直すときに足し、2026-10-03 のメモ24（上の段と一覧を1つのスクロールにする）で作り直した。
 ///
 /// ショップの中は、バナーを手元に置いておく（置いていないと開いたときに BOOTH へ取りに行き、台は通信を止めてあるので失敗が続いて落ち着かない）。
 /// </summary>
@@ -60,56 +60,135 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("shop-header", "ショップの中：一番上（バナー・見出しと集計・メモの元の段）", async context =>
+        // ショップの中は上の段と商品の一覧が1つのスクロール（メモ24）。流した位置を変えた絵を、カードとリストの両方で撮る
+        new Scene("shop-header", "ショップの中：一番上（カード。バナー・見出しと集計・メモ・「このショップの商品」の行）", async context =>
         {
-            var (_, root) = await OpenShopAsync(context);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Top, list: false);
             return new Shot(root);
         }),
 
-        new Scene("shop-header-shrink-40", "ショップの中：カードの一覧を 40 流した所（バナーを少し詰めた）", async context =>
+        new Scene("shop-scroll-half", "ショップの中：カードで、名前の段が半分流れた所（1行の見出しはまだ出ない）", async context =>
         {
-            var (shop, root) = await OpenShopAsync(context);
-            await ScrollShopListAsync(context, shop, root, 40, list: false);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.NameHalf, list: false);
             return new Shot(root);
         }),
 
-        new Scene("shop-header-shrink-250", "ショップの中：カードの一覧を 250 流した所（バナーを詰め切り、見出しを詰めている途中）", async context =>
+        new Scene("shop-scroll-past", "ショップの中：カードで、名前の段が流れ去った後（1行の見出しが重なり、「商品」の行がそのすぐ下で止まる）", async context =>
         {
-            var (shop, root) = await OpenShopAsync(context);
-            await ScrollShopListAsync(context, shop, root, 250, list: false);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: false);
             return new Shot(root);
         }),
 
-        new Scene("shop-header-compact", "ショップの中：カードの一覧を流して、上の段を1行に詰め切った所", async context =>
+        new Scene("shop-scroll-bottom", "ショップの中：カードで、一番下まで流した所", async context =>
         {
-            var (shop, root) = await OpenShopAsync(context, count: 60);
-            await ScrollShopListAsync(context, shop, root, 600, list: false, expectCompact: true);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Bottom, list: false);
             return new Shot(root);
         }),
 
-        new Scene("shop-header-compact-list", "ショップの中：リストの表示でも、流すと上の段が詰まって1行になる", async context =>
+        new Scene("shop-list-top", "ショップの中：リストで、一番上", async context =>
         {
-            var (shop, root) = await OpenShopAsync(context, count: 60);
-            await ScrollShopListAsync(context, shop, root, 600, list: true, expectCompact: true);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Top, list: true);
             return new Shot(root);
         }),
 
-        new Scene("shop-header-shrink-list-100", "ショップの中：リストの表示を 100 流した所（詰めている途中）", async context =>
+        new Scene("shop-list-half", "ショップの中：リストで、名前の段が半分流れた所", async context =>
         {
-            var (shop, root) = await OpenShopAsync(context);
-            await ScrollShopListAsync(context, shop, root, 100, list: true);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.NameHalf, list: true);
             return new Shot(root);
         }),
 
-        new Scene("shop-header-compact-memo", "ショップの中：縮めた行の「メモ」でメモの欄を開いた所", async context =>
+        new Scene("shop-list-past", "ショップの中：リストで、名前の段が流れ去った後", async context =>
         {
-            var (shop, root) = await OpenShopAsync(context, count: 60);
-            await ScrollShopListAsync(context, shop, root, 600, list: false, expectCompact: true);
-            shop.ToggleMemoCommand.Execute(null);
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: true);
+            return new Shot(root);
+        }),
+
+        new Scene("shop-list-bottom", "ショップの中：リストで、一番下まで流した所", async context =>
+        {
+            var (shop, root) = await OpenShopAsync(context, count: 24);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Bottom, list: true);
+            return new Shot(root);
+        }),
+
+        new Scene("shop-switch-keeps", "ショップの中：カードで流した後にリストへ切り替えても、見ていた商品が同じ高さに残る（前後の位置を書き出す）", async context =>
+        {
+            var (shop, root) = await OpenShopAsync(context, count: 40);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: false);
+            var view = Look.View<ShopView>(root) ?? throw new InvalidOperationException("ショップ画面が見つかりません。");
+            var scroll = Look.Named<InsetScrollViewer>(view, "ShopScroll") ?? throw new InvalidOperationException("ShopScroll が見つかりません。");
+            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + 300);
             await context.SettleAsync();
+            Console.WriteLine($"  切り替える前：流れの位置 {scroll.VerticalOffset:F1}・先頭の商品 {TopItem(view, shop)}");
+            shop.IsListMode = true;
+            await context.SettleAsync();
+            Console.WriteLine($"  リストへ：流れの位置 {scroll.VerticalOffset:F1}・先頭の商品 {TopItem(view, shop)}");
+            shop.OwnedOnly = true;
+            await context.SettleAsync();
+            Console.WriteLine($"  所持のみ：流れの位置 {scroll.VerticalOffset:F1}・先頭の商品 {TopItem(view, shop)}");
+            shop.OwnedOnly = false;
+            shop.IsListMode = false;
+            await context.SettleAsync();
+            Console.WriteLine($"  カードへ戻す：流れの位置 {scroll.VerticalOffset:F1}・先頭の商品 {TopItem(view, shop)}");
             return new Shot(root);
         }),
-    ];
+
+        new Scene("shop-focus-reveal", "ショップの中：重なった帯の下に隠れたカードへ移ると、帯の下に出るまで流れる（位置を書き出す）", async context =>
+        {
+            var (shop, root) = await OpenShopAsync(context, count: 40);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: false);
+            var view = Look.View<ShopView>(root) ?? throw new InvalidOperationException("ショップ画面が見つかりません。");
+            var scroll = Look.Named<InsetScrollViewer>(view, "ShopScroll")!;
+            var cards = new List<ItemCardBorder>();
+            CollectCards(view, cards);
+
+            // 帯（1行の見出し52＋止めた行）の下へ、先頭のカードを50だけ潜り込ませてから、そのカードへ移る
+            var inset = scroll.TopInset;
+            var target = cards.Where(card => card.TranslatePoint(new System.Windows.Point(0, 0), scroll).Y > inset)
+                .OrderBy(card => card.TranslatePoint(new System.Windows.Point(0, 0), scroll).Y).First();
+            var y0 = target.TranslatePoint(new System.Windows.Point(0, 0), scroll).Y;
+            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + y0 - (inset - 50));
+            await context.SettleAsync();            var before = target.TranslatePoint(new System.Windows.Point(0, 0), scroll).Y;
+            target.BringIntoView();
+            await context.SettleAsync();
+            var after = target.TranslatePoint(new System.Windows.Point(0, 0), scroll).Y;
+            Console.WriteLine($"  帯の高さ {inset:F0}・流す前のカードの上端（窓の上から）{before:F0}・流した後 {after:F0}（帯の下＝{inset:F0} 以上なら出ている）");
+            return new Shot(root);
+        }),
+        new Scene("shop-300", "ショップの中：300件（開く時間を書き出す）", async context =>
+        {
+            var (shop, root) = await OpenShopAsync(context, count: 300);
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            Console.WriteLine($"  メモリ（プライベート）{System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / 1048576} MB");
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: false);
+            var view = Look.View<ShopView>(root) ?? throw new InvalidOperationException("ショップ画面が見つかりません。");
+            var scroll = Look.Named<InsetScrollViewer>(view, "ShopScroll") ?? throw new InvalidOperationException("ShopScroll が見つかりません。");
+            // 流した後の並べ直し（配置）だけを測る。描く時間は含まない
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            for (var step = 0; step < 20; step++)
+            {
+                scroll.ScrollToVerticalOffset(scroll.VerticalOffset + 400);
+                scroll.UpdateLayout();
+            }
+
+            Console.WriteLine($"  400px ずつ20回流す：配置は1回あたり {timer.Elapsed.TotalMilliseconds / 20.0:F1} ms（流れの位置 {scroll.VerticalOffset:F0} / {scroll.ScrollableHeight:F0}）");
+            await context.SettleAsync();
+            timer.Restart();
+            shop.IsListMode = true;
+            await context.SettleAsync();
+            Console.WriteLine($"  カード→リスト：{timer.ElapsedMilliseconds} ms");
+            timer.Restart();
+            shop.IsListMode = false;
+            await context.SettleAsync();
+            Console.WriteLine($"  リスト→カード：{timer.ElapsedMilliseconds} ms");
+            return new Shot(root);
+        }),    ];
 
     /// <summary>未読の「商品の更新」の知らせを1件置く（カードに「更新あり」、ショップ一覧に「更新のあった商品が 1 件」が出る）。</summary>
     private static Task SeedUpdateAsync(SceneContext context, string itemId) => context.Seed.Notifications.SaveAsync(
@@ -141,35 +220,91 @@ internal static partial class Scenes
         await context.PresentAsync(root);
         await SceneContext.UntilAsync(() => main.Search.TotalCount == count, "商品を読み終える");
 
+        var open = System.Diagnostics.Stopwatch.StartNew();
         await main.ShowShopAsync(FakeShopSubdomain);
         var shop = context.Screen<ShopViewModel>();
         await SceneContext.UntilAsync(() => shop.IsListReady && shop.HasBanner, "商品とバナーが並ぶ");
         await context.SettleAsync();
+        if (count >= 100)
+        {
+            Console.WriteLine($"  {count}件：ショップ画面を開いてから、商品とバナーが並んで落ち着くまで {open.ElapsedMilliseconds} ms");
+        }
+
         return (shop, root);
     }
 
+    private static void CollectCards(System.Windows.DependencyObject parent, List<ItemCardBorder> into)
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is ItemCardBorder card)
+            {
+                into.Add(card);
+            }
+
+            CollectCards(child, into);
+        }
+    }
+
+    private enum ShopScrollPlace { Top, NameHalf, Past, Bottom }
+
     /// <summary>
-    /// 商品の一覧（カードかリスト）を <paramref name="offset"/> まで流す。詰めた後に流れの位置が飛ばない
-    /// （一番上へ押し戻されて元の段に戻る、を繰り返さない）ことも確かめる。
+    /// 全体のスクロールを流す。一番上・名前の段が半分・名前の段が流れ去った後・一番下。
+    /// 流した後の1行の見出し・止めた行の状態も書き出す
     /// </summary>
-    private static async Task ScrollShopListAsync(
-        SceneContext context, ShopViewModel shop, System.Windows.FrameworkElement root, double offset, bool list, bool expectCompact = false)
+    private static async Task ScrollShopAsync(
+        SceneContext context, ShopViewModel shop, System.Windows.FrameworkElement root, ShopScrollPlace place, bool list)
     {
         var view = Look.View<ShopView>(root) ?? throw new InvalidOperationException("ショップ画面が見つかりません。");
         shop.IsListMode = list;
         await context.SettleAsync();
-        System.Windows.Controls.ItemsControl items = list
-            ? Look.Named<ItemListView>(view, "ItemList") ?? throw new InvalidOperationException("リストが見つかりません。")
-            : Look.Named<CardRowsListBox>(view, "CardList") ?? throw new InvalidOperationException("商品のカードの一覧が見つかりません。");
-        var scroll = ContentItemsControl.FindScrollViewer(items) ?? throw new InvalidOperationException("一覧の ScrollViewer が見つかりません。");
-        scroll.ScrollToVerticalOffset(offset);
-        await SceneContext.UntilAsync(() => shop.HeaderShrink > 0, "上の段が詰まる");
-        await context.SettleAsync();
-        Console.WriteLine($"  流れの位置 {scroll.VerticalOffset}（流した量 {offset}）・詰めた高さ {shop.HeaderShrink}・1行か {shop.IsHeaderCompact}");
-
-        if (expectCompact && !shop.IsHeaderCompact)
+        var scroll = Look.Named<InsetScrollViewer>(view, "ShopScroll") ?? throw new InvalidOperationException("ShopScroll が見つかりません。");
+        var name = Look.Named<System.Windows.Controls.Border>(view, "NameBorder") ?? throw new InvalidOperationException("NameBorder が見つかりません。");
+        var body = Look.Named<System.Windows.Controls.StackPanel>(view, "ScrollBody") ?? throw new InvalidOperationException("ScrollBody が見つかりません。");
+        var nameBottom = name.TransformToAncestor(body).Transform(new System.Windows.Point(0, name.ActualHeight)).Y;
+        var offset = place switch
         {
-            throw new InvalidOperationException($"詰め切るはずが詰め切れていない（詰めた高さ {shop.HeaderShrink}・流れの位置 {scroll.VerticalOffset}）。");
+            ShopScrollPlace.Top => 0,
+            ShopScrollPlace.NameHalf => nameBottom - (name.ActualHeight / 2),
+            ShopScrollPlace.Past => nameBottom + 200,
+            _ => scroll.ScrollableHeight,
+        };
+        scroll.ScrollToVerticalOffset(offset);
+        await context.SettleAsync();
+        Console.WriteLine($"  流れの位置 {scroll.VerticalOffset:F1} / 流せる量 {scroll.ScrollableHeight:F1}・名前の段の下端 {nameBottom:F1}・1行の見出し {shop.IsHeaderCompact}");
+    }
+
+    /// <summary>先頭に見えている商品の ID（行の先頭のカードか、リストの行）。窓の外の入れ物は数えない。</summary>
+    private static string TopItem(ShopView view, ShopViewModel shop)
+    {
+        var scroll = Look.Named<InsetScrollViewer>(view, "ShopScroll")!;
+        System.Windows.Controls.ItemsControl list = shop.IsListMode
+            ? Look.Named<ItemListView>(view, "ItemList")!
+            : Look.Named<CardRowsListBox>(view, "CardList")!;
+        var best = double.MaxValue;
+        var key = "?";
+        var inset = 0;
+        for (var index = 0; index < list.Items.Count; index++)
+        {
+            if (list.ItemContainerGenerator.ContainerFromIndex(index) is not System.Windows.FrameworkElement container)
+            {
+                continue;
+            }
+
+            var y = container.TranslatePoint(new System.Windows.Point(0, 0), scroll).Y;
+            if (y + container.ActualHeight > inset && y < best)
+            {
+                best = y;
+                key = list.Items[index] switch
+                {
+                    CardRow row => row.Cards.OfType<ItemCardViewModel>().FirstOrDefault()?.Item.Id ?? "?",
+                    ItemCardViewModel card => card.Item.Id,
+                    _ => "?",
+                } + $"（上から {y:F0}）";
+            }
         }
+
+        return key;
     }
 }

@@ -1,5 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Chmonos.App.ViewModels;
 
@@ -12,6 +15,17 @@ public partial class ShopView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+
+        // 1行の見出しの上のホイールも、全体を流す（見出しは流す中身の外に重ねてあるので、そのままでは受け手が無い）
+        CompactBar.MouseWheel += (_, e) =>
+        {
+            ShopScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+            {
+                RoutedEvent = MouseWheelEvent,
+                Source = CompactBar,
+            });
+            e.Handled = true;
+        };
 
         // カードの大きさ（一覧の右下のスライダー）が変わったら列を割り直す。一覧の幅は変わらないので SizeChanged は来ない。
         // 知らせは静的なので、出ている間だけ聞く（離れた画面を掴んだままにしない）
@@ -26,8 +40,8 @@ public partial class ShopView : UserControl
 
     private void OnCardSizeChanged() => (DataContext as ShopViewModel)?.RelayoutForCardSize();
 
-    /// <summary>一覧の幅が変わったら列数を決め直す（行を仮想化の単位にしているため）。</summary>
-    private void OnListSizeChanged(object sender, SizeChangedEventArgs e)
+    /// <summary>一覧の幅が変わったら列数を決め直す（行を仮想化の単位にしているため）。幅は全体を流す入れ物の幅（スクロールバーを含む）。</summary>
+    private void OnShopAreaSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (DataContext is ShopViewModel shop)
         {
@@ -35,64 +49,159 @@ public partial class ShopView : UserControl
         }
     }
 
-    /// <summary>縮めた行の高さ（ShopView.xaml の縮めた行の Height と揃える）。</summary>
-    private const double CompactHeaderHeight = 52;
+    // ---- 1行の見出しと、止める行（全体が流れたときに合わせる） ----
+
+    private void OnShopScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        UpdatePinned();
+
+        // 流せる長さを残していた分は、人が流して「縮めても飛ばない」所へ来たら手放す
+        if (!_restoring && !_carryPending && e.VerticalChange != 0)
+        {
+            ReleaseKeptLength();
+        }
+    }
+
+    private void OnScrollBodySizeChanged(object sender, SizeChangedEventArgs e) => UpdatePinned();
+
+    private void OnStickyRowSizeChanged(object sender, SizeChangedEventArgs e) => UpdatePinned();
+
+    private bool _stuck;
 
     /// <summary>
-    /// 商品の一覧が流れた。上の段を縮める・戻すは ViewModel が決める（メモ7-⑤）。
-    /// 見るのは今出ている一覧そのものの ScrollViewer だけ——リストの見出しの行も自分の ScrollViewer を持ち、
-    /// 縦の位置がいつも0なので、それを拾うと縮めた直後に戻してしまう
+    /// 1行の見出しを出すか・「このショップの商品」の行をどれだけ下げるかを、今の流れの位置から当てる。
+    /// どちらも<b>重ねるだけ</b>で、流す中身の大きさは変えない——出入りで中身が動くと、見ていた所が跳ねる
     /// </summary>
-    private void OnListScrollChanged(object sender, ScrollChangedEventArgs e)
+    private void UpdatePinned()
     {
-        if (DataContext is not ShopViewModel shop
-            || e.OriginalSource is not ScrollViewer scroll
-            || !ReferenceEquals(scroll.TemplatedParent, VisibleList(shop)))
+        if (DataContext is not ShopViewModel shop)
         {
             return;
         }
 
-        // 詰め切ると、上の段（バナー・見出し・メモ）が縮めた行1本になる。詰める高さの上限はその差
-        if (!shop.IsHeaderCompact)
+        var offset = ShopScroll.VerticalOffset;
+
+        // 名前の段の下端は、流す中身の上からの位置（流れの位置に左右されない）。まだ並んでいない間は測れない
+        double nameBottom;
+        try
         {
-            _fullHeaderHeight = ShopHeader.ActualHeight;
+            nameBottom = NameBorder.TransformToAncestor(ScrollBody).Transform(new Point(0, NameBorder.ActualHeight)).Y;
+        }
+        catch (InvalidOperationException)
+        {
+            return;
         }
 
-        shop.NoteListScrolled(scroll.VerticalOffset, scroll.ScrollableHeight, _fullHeaderHeight - CompactHeaderHeight);
-        ApplyHeaderShrink(shop);
+        shop.NoteScrolled(offset, nameBottom);
+
+        // 行が本来いる位置は、並べ終えた枠で見る（下げた分を含めない）
+        var rowTop = LayoutInformation.GetLayoutSlot(StickyRow).Top;
+        var shift = ShopViewModel.StickyShift(offset, rowTop, ShopViewModel.CompactHeaderHeight);
+        StickyShift.Y = shift;
+
+        // 止まっている間だけ、下の商品との境の線を引く。流れてくる商品が行の下に隠れて、境が分からなくなるため
+        var stuck = shift > 0;
+        if (stuck != _stuck)
+        {
+            _stuck = stuck;
+            if (stuck)
+            {
+                StickyRow.SetResourceReference(Border.BorderBrushProperty, "Border");
+            }
+            else
+            {
+                StickyRow.BorderBrush = Brushes.Transparent;
+            }
+        }
+
+        // 見出しの右は、スクロールバーの幅だけ空ける
+        CompactBar.Margin = new Thickness(0, 0, Math.Max(0, ShopScroll.ActualWidth - ShopScroll.ViewportWidth), 0);
+
+        // 矢印キーで移ったカードを、重なった帯の下まで流す（InsetScrollViewer）
+        ShopScroll.TopInset = (shop.IsHeaderCompact ? ShopViewModel.CompactHeaderHeight : 0) + (stuck ? StickyRow.ActualHeight : 0);
     }
 
-    // 元の段の高さ。縮めた行に切り替えた後は測れないので、切り替える前の値を持つ
-    private double _fullHeaderHeight;
+    // ---- 見方・絞り・列数が変わっても、見ていた商品を同じ高さに残す（ユーザ判断 2026-10-03：画面を跳ねさせない） ----
+    // 一覧は全体のスクロールの中に1つだけ置いているので、カード⇄リスト（高さがまるで違う）や絞りで中身の高さが変わると、
+    // 流れの位置はそのままでも見ている物が別の物へ飛ぶ。変える直前に先頭に見えていた商品とそのずれを控え、
+    // 並べ直した後（描く前）に同じ高さへ戻す。中身が縮んで流せる長さが足りなくなると戻せないので、見方・絞りが変わるときは
+    // 一覧の入れ物の高さを今のまま残しておく（人が流して、縮めても飛ばない所へ来たら手放す）
 
-    private void OnHeaderSizeChanged(object sender, SizeChangedEventArgs e)
+    private ListAnchor? _carry;
+    private double _carryOffset;
+    private bool _carryPending;
+    private bool _restoring;
+
+    private void OnListAboutToChange(bool viewChanges)
     {
-        if (DataContext is ShopViewModel shop)
+        if (_carryPending || DataContext is not ShopViewModel shop)
         {
-            if (!shop.IsHeaderCompact)
+            // 続けて変わるときは、最初に控えた物を使う（2回目に読むと、1回目で跳ねた後の位置を控えてしまう）
+            return;
+        }
+
+        _carry = ListScrollAnchor.Capture(ShopScroll, VisibleList(shop), KeyOf);
+        _carryOffset = ShopScroll.VerticalOffset;
+        if (viewChanges && _carryOffset > 0 && ListHost.ActualHeight > ListHost.MinHeight)
+        {
+            ListHost.MinHeight = ListHost.ActualHeight;
+        }
+
+        // 並べ直しは描く直前に済む。それより先（DataBind）に戻せば、跳ねた1コマが画面に出ない
+        _carryPending = true;
+        Dispatcher.InvokeAsync(RestoreCarry, DispatcherPriority.DataBind);
+    }
+
+    private void RestoreCarry()
+    {
+        _carryPending = false;
+        if (DataContext is not ShopViewModel shop)
+        {
+            return;
+        }
+
+        _restoring = true;
+        try
+        {
+            ShopScroll.UpdateLayout();
+            if (_carry is not { } anchor)
             {
-                _fullHeaderHeight = e.NewSize.Height;
+                ShopScroll.ScrollToVerticalOffset(_carryOffset);
+            }
+            else if (!ListScrollAnchor.Restore(ShopScroll, VisibleList(shop), anchor, KeysOf))
+            {
+                // 見ていた商品が絞りで無くなった。商品の先頭（止めた行のすぐ下）へ。上の段が見えているときはそのまま
+                var listTop = LayoutInformation.GetLayoutSlot(StickyRow).Top - ShopViewModel.CompactHeaderHeight;
+                ShopScroll.ScrollToVerticalOffset(Math.Min(_carryOffset, Math.Max(0, listTop)));
             }
 
-            ApplyHeaderShrink(shop);
+            // 流れた知らせ（ScrollChanged）は次の配置で来る。戻している間のうちに出し切る
+            ShopScroll.UpdateLayout();
+        }
+        finally
+        {
+            _restoring = false;
+            _carry = null;
         }
     }
 
     /// <summary>
-    /// 詰めた高さを段に当てる。入れ物の高さを詰めた分だけ低くし、中身は上へずらして下端をそろえる（上から切り落ちる）。
-    /// 縮めた行に替わった後は元の高さに任せる
+    /// 残していた一覧の高さを手放す。手放すと自然な高さまで縮み、流れの位置がその外にあると押し戻されて跳ねる。
+    /// 今の位置が自然な高さの中に収まるときだけ手放す
     /// </summary>
-    private void ApplyHeaderShrink(ShopViewModel shop)
+    private void ReleaseKeptLength()
     {
-        if (shop.IsHeaderCompact || shop.HeaderShrink <= 0 || _fullHeaderHeight <= 0)
+        if (ListHost.MinHeight <= 0)
         {
-            ShopHeaderClip.ClearValue(HeightProperty);
-            ShopHeader.Margin = new Thickness(0);
             return;
         }
 
-        ShopHeaderClip.Height = Math.Max(0, _fullHeaderHeight - shop.HeaderShrink);
-        ShopHeader.Margin = new Thickness(0, -shop.HeaderShrink, 0, 0);
+        var natural = ListHost.Children.OfType<UIElement>().Select(child => child.DesiredSize.Height).DefaultIfEmpty(0).Max();
+        var bodyNatural = ScrollBody.ActualHeight - ListHost.ActualHeight + natural;
+        if (ShopScroll.VerticalOffset + ShopScroll.ViewportHeight <= bodyNatural + 0.5)
+        {
+            ListHost.ClearValue(MinHeightProperty);
+        }
     }
 
     // ---- 戻ったときの一覧の位置（ユーザ判断 2026-09-28） ----
@@ -103,13 +212,15 @@ public partial class ShopView : UserControl
         if (e.OldValue is ShopViewModel old)
         {
             old.ListReady -= OnListReady;
+            old.ListAboutToChange -= OnListAboutToChange;
             old.AnchorReader = null;
         }
 
         if (e.NewValue is ShopViewModel shop)
         {
-            shop.AnchorReader = () => ListScrollAnchor.Capture(VisibleList(shop), KeyOf);
+            shop.AnchorReader = () => ListScrollAnchor.Capture(ShopScroll, VisibleList(shop), KeyOf);
             shop.ListReady += OnListReady;
+            shop.ListAboutToChange += OnListAboutToChange;
 
             // 裏の読み込みが View より先に済むことがある（商品の少ない店だと一瞬）
             if (shop.IsListReady)
@@ -149,7 +260,16 @@ public partial class ShopView : UserControl
     {
         if (DataContext is ShopViewModel { IsListReady: true } shop && shop.TakePendingAnchor() is { } anchor)
         {
-            ListScrollAnchor.Restore(VisibleList(shop), anchor, KeysOf);
+            _restoring = true;
+            try
+            {
+                ListScrollAnchor.Restore(ShopScroll, VisibleList(shop), anchor, KeysOf);
+                ShopScroll.UpdateLayout();
+            }
+            finally
+            {
+                _restoring = false;
+            }
         }
     }
 
