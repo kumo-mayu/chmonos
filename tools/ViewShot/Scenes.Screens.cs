@@ -304,7 +304,28 @@ internal static partial class Scenes
             Width = 900,
         },
 
-        new Scene("modification-selected-status", "改変の画面：右の欄の上の帯に知らせの文が出ている所（日付と知らせが下の段へ送られる）・窓の最小の幅", async context =>
+        // 右の欄の上から下までを1枚で見る（blueprint ID の欄の並び・大きさのスライダーの位置）。窓を縦に長くして描く
+        new Scene("modification-selected-tall", "改変の画面：改変を選んだ右の欄の全部（縦に長い窓。blueprint ID の欄・大きさのスライダー）", async context =>
+        {
+            var selected = await SeedModificationsAsync(context);
+            var main = await context.StartAsync();
+            main.ShowModifications(
+                ModificationHubLevel.Modification,
+                new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            await context.SettleAsync();
+
+            return new Shot(root);
+        })
+        {
+            Width = 1280,
+            Height = 2000,
+        },
+
+        new Scene("modification-selected-status","改変の画面：右の欄の上の帯に知らせの文が出ている所（日付と知らせが下の段へ送られる）・窓の最小の幅", async context =>
         {
             var selected = await SeedModificationsAsync(context);
             var main = await context.StartAsync();
