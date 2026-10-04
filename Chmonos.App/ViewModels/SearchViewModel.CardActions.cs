@@ -113,11 +113,11 @@ public sealed partial class SearchViewModel
     /// 手元のファイルをエクスプローラで開く。**2つ以上あれば選ばせる**（ユーザ指示 2026-09-19：
     /// 前は最初の1件を黙って開いていて、別のファイルが開いても気付けなかった）
     /// </summary>
-    private static void Reveal(ItemCardViewModel? card)
+    private void Reveal(ItemCardViewModel? card)
     {
         if (card is not null)
         {
-            ItemFileActions.RevealAsync(card.Item).Forget();
+            ItemFileActions.RevealAsync(_services, card.Item, NoteItemChanged).Forget();
         }
     }
 

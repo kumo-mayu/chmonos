@@ -856,6 +856,11 @@ public sealed class CommandHandler
                     return new CommandResult.Failed($"展開できませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
+            case UiCommand.NoteFilePresence notePresence:
+                return await _items.NoteFilePresenceAsync(notePresence.ItemId, notePresence.Sightings, cancellationToken)
+                    ? new CommandResult.ItemSaved(notePresence.ItemId)
+                    : new CommandResult.Done();
+
             case UiCommand.SetFileVariations setVariations:
                 return await _items.SetFileVariationsAsync(
                         setVariations.ItemId, setVariations.VariationByHash, cancellationToken)

@@ -84,8 +84,20 @@ internal static class ItemFileActions
         UnpackingChanged?.Invoke();
     }
 
+    /// <summary>
+    /// 使おうとして見たファイルの在る・無いを記録へ（見つからなくなった日時。ユーザ判断 2026-10-04）。
+    /// 書いたら <paramref name="changed"/> で読み直した商品を渡す（検索の写しへ知らせる）。
+    /// </summary>
+    private static async Task NotePresenceAsync(AppServiceContainer services, ItemRecord item, Action<ItemRecord>? changed)
+    {
+        if (await FilePresenceNotes.LookAndNoteAsync(services, item, item.Local.LocalFiles) is { } reloaded)
+        {
+            changed?.Invoke(reloaded);
+        }
+    }
+
     /// <summary>手元にある物（ファイルとフォルダ）を、選んでエクスプローラで開く。</summary>
-    public static async Task RevealAsync(ItemRecord item)
+    public static async Task RevealAsync(AppServiceContainer services, ItemRecord item, Action<ItemRecord>? changed = null)
     {
         const string title = "エクスプローラで開く";
 
@@ -98,6 +110,9 @@ internal static class ItemFileActions
                 .Where(folder => DiskCheck.FolderExists(folder.Path))
                 .Select(folder => new Target(folder.Path, new ListChoiceItem($"{Path.GetFileName(folder.Path.TrimEnd('\\', '/'))}（フォルダ）", folder.Path))))
             .ToList());
+
+        // 窓を出す前に書く（窓の間に検索の印が古いまま残らないように）
+        await NotePresenceAsync(services, item, changed);
 
         if (targets.Count == 0)
         {
@@ -116,7 +131,7 @@ internal static class ItemFileActions
     }
 
     /// <summary>手元にある zip を、選んで一時フォルダへ展開して開く。</summary>
-    public static async Task UnpackAsync(AppServiceContainer services, ItemRecord item)
+    public static async Task UnpackAsync(AppServiceContainer services, ItemRecord item, Action<ItemRecord>? changed = null)
     {
         const string title = "一時的に展開して開く";
 
@@ -126,6 +141,8 @@ internal static class ItemFileActions
             .OfType<string>()
             .Select(path => new Target(path, new ListChoiceItem(Path.GetFileName(path), Path.GetDirectoryName(path))))
             .ToList());
+
+        await NotePresenceAsync(services, item, changed);
 
         if (zips.Count == 0)
         {

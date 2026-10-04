@@ -247,4 +247,18 @@ public sealed record LocalFileRecord
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool ArchiveBroken { get; init; }
+
+    /// <summary>
+    /// 記録のどの場所にも無いと見た日時（ユーザ判断 2026-10-04）。また見つかったら消す。無い間は最初に見た日時のまま。
+    /// フォルダの <see cref="LocalFolderRecord.MissingSince"/> に倣う。
+    /// </summary>
+    /// <remarks>
+    /// 前は「無い」が記録に残るのが、取り込みがその商品のファイルを扱って場所を外したとき（<c>LocalFileMerger</c>）だけで、
+    /// 手で zip を消しても、カードの印・検索の条件・統計に出ず、その場でディスクを見る商品ページとだけ食い違っていた。
+    /// 書くのは、取り込みのたびに記録の場所を全部見たとき（<c>ImportPipeline</c>）と、使おうとして無いと分かったとき（商品ページ・開く・送る）。
+    /// どちらも <see cref="Services.FileMissingMarks"/> の1つの決まりで当てる。場所はこの欄のために外さない（覚えている場所を消さない）。
+    /// つながっていないドライブの上にしか場所が無いときは書かない（無くなったのではなく、今は見えないだけ）。
+    /// 計算では出せない（ディスクを見た結果）ので JSON に書く。無ければ書き出さない。
+    /// </remarks>
+    public DateTimeOffset? MissingSince { get; init; }
 }

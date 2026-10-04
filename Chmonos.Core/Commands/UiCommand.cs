@@ -404,6 +404,12 @@ public abstract record UiCommand
     /// </summary>
     public record SetFileVariations(string ItemId, IReadOnlyDictionary<string, long?> VariationByHash) : UiCommand;
 
+    /// <summary>
+    /// 使おうとして見たファイルの在る・無いを、記録の「見つからなくなった日時」に当てる（商品ページ・開く・Unityへ送る。ユーザ判断 2026-10-04）。
+    /// 書いたら <see cref="CommandResult.ItemSaved"/>、変える物が無ければ <see cref="CommandResult.Done"/>。
+    /// </summary>
+    public record NoteFilePresence(string ItemId, IReadOnlyList<Services.FileSighting> Sightings) : UiCommand;
+
     /// <summary>保存先を1つの zip に書き出す（#61）。</summary>
     public record ExportBackup(
         string Root,

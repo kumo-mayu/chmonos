@@ -49,7 +49,7 @@ public sealed partial class ItemViewModel
         {
             // 止めたときの「送るのを中止しました。」は欄の下の1行へ（人が押した結果なので窓にしない）
             ItemUnityActions.SendAsync(
-                _services, Item, package, SendUi, Notices.LineOrWindow("Unityへ送る", text => UnityRecordNotice = text)).Forget();
+                _services, Item, package, SendUi, Notices.LineOrWindow("Unityへ送る", text => UnityRecordNotice = text), OnPresenceNoted).Forget();
         }
     }
 
@@ -66,7 +66,7 @@ public sealed partial class ItemViewModel
         if (parameter is Core.Services.UnityPackageEntry package)
         {
             await ItemUnityActions.SendWithRecordAsync(
-                _services, Item, package, Notices.LineOrWindow("改変に追加して送る", text => UnityRecordNotice = text), SendUi);
+                _services, Item, package, Notices.LineOrWindow("改変に追加して送る", text => UnityRecordNotice = text), SendUi, OnPresenceNoted);
         }
     }
 

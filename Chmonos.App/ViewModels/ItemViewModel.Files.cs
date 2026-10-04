@@ -211,20 +211,67 @@ public sealed partial class ItemViewModel
     /// 記録の場所に無いファイルに「見つかりません」を付ける（点検 2026-09-30 の B）。
     /// 前は記録のパスが空のときだけ出していたが、取り込みは移したファイルのパスをすぐには落とさないので、
     /// 移した後も普通の行と［開く ▾］が出ていた。**在るかは画面のスレッドの外で見る**（外付け・ネットワークで待たされないように）。
-    /// 改変の画面の「プロジェクトが見つかりません」と同じく、読み込みのときに1回確かめて覚える
+    /// 改変の画面の「プロジェクトが見つかりません」と同じく、読み込みのときに1回確かめて覚える。
+    ///
+    /// **見た結果は記録にも書く**（見つからなくなった日時。ユーザ判断 2026-10-04）。前は書かなかったので、
+    /// ここで「見つかりません」と出ている商品が、カードの印・検索の条件・統計には出ていなかった。
     /// </summary>
     private async Task MarkMissingFilesAsync()
     {
-        var rows = LocalFiles.Where(row => row.Paths.Count > 0).ToList();
-        if (rows.Count == 0)
+        var files = Item.Local.LocalFiles.ToList();
+        if (files.Count == 0)
         {
             return;
         }
 
-        var presence = await Task.Run(() => rows.Select(row => LocalFilePresence.Of(row.Paths)).ToList());
-        for (var i = 0; i < rows.Count; i++)
+        var sightings = await FilePresenceNotes.LookAsync(files);
+        var byHash = new Dictionary<string, FileSighting>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sighting in sightings)
         {
-            rows[i].Presence = presence[i];
+            byHash.TryAdd(sighting.Hash, sighting);
+        }
+
+        // 場所の無い行は組むときから「見つかりません」なので、場所のある行にだけ当てる
+        foreach (var row in LocalFiles.Where(row => row.Paths.Count > 0))
+        {
+            if (byHash.TryGetValue(row.Hash, out var sighting))
+            {
+                row.Presence = sighting.Presence;
+            }
+        }
+
+        await NotePresenceAsync(sightings);
+    }
+
+    /// <summary>
+    /// 見た在る・無いを記録へ（<see cref="FilePresenceNotes"/>）。書いたら、検索の写しにも知らせる
+    /// （知らせないと、戻ってもカードの印と条件が古いまま）。
+    /// </summary>
+    private async Task NotePresenceAsync(IReadOnlyList<FileSighting> sightings)
+    {
+        if (await FilePresenceNotes.NoteAsync(_services, Item, sightings) is { } reloaded)
+        {
+            OnPresenceNoted(reloaded);
+        }
+    }
+
+    /// <summary>
+    /// 見つからなくなった日時を書いた後。持っている写しを差し替え、検索へ知らせる。
+    /// 行は作り直さない（在る・無いの札は見た結果でもう付いている。作り直すとまた見に行く）
+    /// </summary>
+    private void OnPresenceNoted(ItemRecord reloaded)
+    {
+        Item = reloaded;
+        _main.Search.NoteItemChanged(reloaded);
+    }
+
+    /// <summary>開く・展開するで無かったとき、その行のファイルを見直して記録へ（行を出した後で消した・外付けを外した）。</summary>
+    private async Task NotePresenceOfAsync(Func<LocalFileRecord, bool> which)
+    {
+        var files = Item.Local.LocalFiles.Where(which).ToList();
+        if (files.Count > 0)
+        {
+            await NotePresenceAsync(await FilePresenceNotes.LookAsync(files));
         }
     }
 
@@ -398,6 +445,7 @@ public sealed partial class ItemViewModel
             if (row is not null)
             {
                 TellNotFound(row.FileName, "一時的に展開して開く");
+                await NotePresenceOfAsync(file => string.Equals(file.Hash, row.Hash, StringComparison.OrdinalIgnoreCase));
             }
 
             return;
@@ -419,13 +467,17 @@ public sealed partial class ItemViewModel
         }
     }
 
-    private static async Task OpenInExplorerAsync(string path)
+    private async Task OpenInExplorerAsync(string path)
     {
         // 行を出した後で外付けを外すと、記録の場所も親フォルダも無く、押しても黙って何も起きなかった
         if (!await Shell.TryRevealAsync(path))
         {
             TellNotFound(Path.GetFileName(path.TrimEnd('\\', '/')), "エクスプローラで開く");
         }
+
+        // 開けても、近くのフォルダを開いただけでファイルは無いことがある（Shell.TryRevealAsync は親を開く）。
+        // その場所を持つファイルを見直して記録へ。フォルダの行の場所はファイルに当たらないので何もしない
+        await NotePresenceOfAsync(file => file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase));
     }
 
     /// <summary>開く先が無いときの知らせ。カードの右クリック（<see cref="ItemFileActions"/>）と同じ窓・同じ言い方にそろえる</summary>

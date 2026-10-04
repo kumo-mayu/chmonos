@@ -44,12 +44,30 @@ public static class LocalFileMerger
         var merged = new List<LocalFileRecord>();
         foreach (var record in byHash.Values)
         {
-            var paths = record.Paths.Where(path => exists(path) || unreachable(path)).ToList();
+            var paths = new List<string>(record.Paths.Count);
+            var found = false;
+            foreach (var path in record.Paths)
+            {
+                if (exists(path))
+                {
+                    paths.Add(path);
+                    found = true;
+                }
+                else if (unreachable(path))
+                {
+                    paths.Add(path);
+                }
+            }
 
             // どのパスにも実体が無くなったレコードも残す。
             // 「ファイルが見つからない」として扱い、再スキャンでの復旧やBOOTHからの再取得へ繋げるため。
             // 場所だけを差し替える（欄を1つずつ写すと、記録に欄を足したときにここで落ちる）
-            merged.Add(paths.Count == record.Paths.Count ? record : record with { Paths = paths });
+            var next = paths.Count == record.Paths.Count ? record : record with { Paths = paths };
+
+            // 在る場所が1つでもあれば、見つからなくなった日時は消す（移した先を取り込んだ・同じ中身を別の所に置いた。
+            // ユーザ判断 2026-10-04）。無くなった側は日時を付けない——ここは時計を持たず、日時は記録の場所を全部見る所
+            // （FileMissingMarks）が付ける。場所が空になった物は、日時が無くても印と条件に当たる（ItemRecord.HasMissingFile）
+            merged.Add(found && next.MissingSince is not null ? next with { MissingSince = null } : next);
         }
 
         return merged;
@@ -83,6 +101,9 @@ public static class LocalFileMerger
             // 見つけた方が開いていない（ほかのアプリが開いていた・開かずに場所だけ足した。中身の一覧が空）ときは
             // 壊れていないと分かったわけではないので、今の印を残す
             ArchiveBroken = discovered.ArchiveBroken || (current.ArchiveBroken && discovered.Contents.Count == 0),
+
+            // 見つかったかは上（Merge）で場所を見て決める。ここで落とすと、つながっていないドライブの上の場所しか無い物まで消える
+            MissingSince = current.MissingSince,
         };
     }
 }

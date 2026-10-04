@@ -146,6 +146,12 @@ public interface IItemService
         IReadOnlyDictionary<string, long?> variationByHash,
         CancellationToken cancellationToken = default);
 
+    /// <summary>使おうとして見た在る・無いを、ファイルの「見つからなくなった日時」に当てる。書いたら true。</summary>
+    Task<bool> NoteFilePresenceAsync(
+        string itemId,
+        IReadOnlyCollection<FileSighting> sightings,
+        CancellationToken cancellationToken = default);
+
     Task<DetachOutcome> DetachFileAsync(
         string itemId,
         string hash,
@@ -1810,6 +1816,29 @@ public sealed class ItemService : IItemService
             cancellationToken);
 
         return written || found;
+    }
+
+    /// <summary>
+    /// 使おうとして見た在る・無い（商品ページ・開く・Unityへ送る）を、ファイルの「見つからなくなった日時」に当てる（ユーザ判断 2026-10-04）。
+    ///
+    /// 前は商品ページだけがその場でディスクを見て「見つかりません」を出し、記録は書かなかったので、
+    /// 同じ商品がカードの印・検索の条件・統計には出ず、画面どうしで食い違っていた。
+    /// **書くのは日時だけ**で、場所・種類・メモなど人が入れた値には触れない。商品の錠の中で今の一覧に当て、
+    /// 見たときと場所が変わったファイルには当てない（<see cref="FileMissingMarks.Apply"/>）。変わる物が無ければ書かない。
+    /// </summary>
+    public async Task<bool> NoteFilePresenceAsync(
+        string itemId,
+        IReadOnlyCollection<FileSighting> sightings,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.Now;
+        return await _store.Items.ChangeLocalAsync(
+            itemId,
+            local => FileMissingMarks.Apply(local.LocalFiles, sightings, now) is { } files
+                ? local with { LocalFiles = files }
+                : null,
+            LocalOwners.FilePresence,
+            cancellationToken);
     }
 
     /// <summary>

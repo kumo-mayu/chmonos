@@ -41,6 +41,8 @@ public class CommandHandlerTests
 
         public Task<bool> SetFileVariationsAsync(string itemId, IReadOnlyDictionary<string, long?> variationByHash, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
+        public Task<bool> NoteFilePresenceAsync(string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
         public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(0);

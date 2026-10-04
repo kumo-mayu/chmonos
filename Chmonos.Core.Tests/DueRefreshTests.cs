@@ -153,6 +153,10 @@ public class DueRefreshTests : IDisposable
             string itemId, IReadOnlyDictionary<string, long?> variationByHash, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
 
+        public Task<bool> NoteFilePresenceAsync(
+            string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
         public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
