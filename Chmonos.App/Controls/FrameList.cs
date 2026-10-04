@@ -11,6 +11,7 @@ namespace Chmonos.App.Controls;
 /// 枠の並び（検索の条件）を、Tab では1回だけ止まる塊にし、枠の間は ↑↓ で移り、Enter で枠の中へ入れるようにする
 /// （ユーザ判断 2026-10-02・メモ1-③「tab移動で検索モジュールが大量だと使いにくいかも」→「条件の並びを1つの止まりにする」）。
 /// 一覧（<see cref="ItemsControl"/>）に <c>controls:FrameList.IsEnabled="True"</c> を付け、項目の枠を <see cref="FocusFrame"/> にする。
+/// 保存した検索の行（2026-10-04）も同じ並びで、枠に操作（<see cref="FocusFrame.Command"/>）を付けると Enter は中へ入らずそれを押す。
 ///
 /// - 外から Tab で入ると、前にいた枠（初めてなら Tab で先頭・Shift+Tab で末尾の枠）に止まる
 /// - 枠の上：↑↓ で隣の枠、Home・End で端の枠（端では止まる）。Enter で枠の中の最初の部品へ。Tab で並びの後ろへ、Shift+Tab で並びの前へ出る
@@ -86,6 +87,26 @@ public static class FrameList
         (Key.End, ModifierKeys.None) => FrameKey.Last,
         _ => FrameKey.None,
     };
+
+    /// <summary>
+    /// 枠の上の Enter：枠に押す操作（<see cref="FocusFrame.Command"/>）が付いていればそれを押し、true を返す（中へは入らない）。
+    /// 保存した検索の行は、中に Tab で止まる部品を持たず行そのものが「呼び出す」なので、Enter で中へ入る先が無い。
+    /// 付いていなければ false（呼び手が枠の中へ入る。検索の条件の枠）
+    /// </summary>
+    internal static bool PressCommand(FocusFrame frame)
+    {
+        if (frame.Command is not { } command)
+        {
+            return false;
+        }
+
+        if (command.CanExecute(null))
+        {
+            command.Execute(null);
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// 枠の中で Tab を押したとき、反対の端へ戻す先（番号）。端でなければ null（WPF の次へ進む動きのまま）。
@@ -298,7 +319,11 @@ public static class FrameList
                     ExitAfter();
                     break;
                 case FrameKey.Enter:
-                    Enter(frame);
+                    if (!PressCommand(frame))
+                    {
+                        Enter(frame);
+                    }
+
                     break;
                 case FrameKey.Next:
                     Step(frame, +1);
@@ -470,6 +495,19 @@ public sealed class FocusFrame : Border
     public FocusFrame()
     {
         Focusable = true;
+    }
+
+    public static readonly DependencyProperty CommandProperty = DependencyProperty.Register(
+        nameof(Command), typeof(System.Windows.Input.ICommand), typeof(FocusFrame), new PropertyMetadata(null));
+
+    /// <summary>
+    /// 枠の上の Enter で押す操作。null なら Enter で枠の中へ入る（検索の条件の枠）。
+    /// 保存した検索の行のように、中に Tab で止まる部品を持たず行そのものが「呼び出す」ボタンの枠に付ける
+    /// </summary>
+    public System.Windows.Input.ICommand? Command
+    {
+        get => (System.Windows.Input.ICommand?)GetValue(CommandProperty);
+        set => SetValue(CommandProperty, value);
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);

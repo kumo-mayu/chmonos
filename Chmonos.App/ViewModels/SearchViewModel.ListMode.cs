@@ -21,6 +21,7 @@ public sealed partial class SearchViewModel
                 OnPropertyChanged(nameof(DisplayItems));
                 OnPropertyChanged(nameof(ListViewItems));
                 ItemListMode.Save(_services, "search", value);
+                RefreshSavedCurrent();
             }
         }
     }

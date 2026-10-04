@@ -1,0 +1,34 @@
+<Window x:Class="Chmonos.App.Views.SavedSearchNameDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:SavedSearchNameDialogViewModel}"
+        Title="{Binding Title}"
+        Width="440" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Surface}">
+    <StackPanel Margin="22,20">
+        <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
+
+        <TextBlock Text="名前" Style="{StaticResource SectionLabel}" Margin="0,16,0,6" />
+        <!-- 新しく名付ける欄なので候補は付けない。今ある名前と同じなら欄の下に「既にあります」 -->
+        <TextBox x:Name="NameBox" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Height="30" Padding="6,4"
+                 MaxLength="{x:Static vm:SavedSearchNameDialogViewModel.MaxNameLength}"
+                 AutomationProperties.AutomationId="SavedSearchName" AutomationProperties.Name="名前" />
+        <TextBlock Text="既にあります" Style="{StaticResource FieldWarning}" Margin="0,4,0,0"
+                   Visibility="{Binding IsTaken, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+        <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="{Binding CommitText}" Style="{StaticResource PrimaryButton}" Click="OnCommit"
+                    IsDefault="True" IsEnabled="{Binding CanCommit}"
+                    AutomationProperties.AutomationId="SavedSearchCommit" />
+            <Button Content="キャンセル" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                    IsCancel="True" Click="OnCancel" />
+        </StackPanel>
+    </StackPanel>
+</Window>

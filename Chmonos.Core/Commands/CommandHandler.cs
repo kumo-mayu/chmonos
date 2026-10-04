@@ -238,6 +238,11 @@ public sealed class CommandHandler
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                         .ChangeSearchHistoryAsync(history.Change, cancellationToken));
 
+            case UiCommand.ChangeSavedSearches saved:
+                return new CommandResult.SavedSearchesChanged(
+                    await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                        .ChangeSavedSearchesAsync(saved.Change, cancellationToken));
+
             case UiCommand.ChangeShopNote shopNote:
             {
                 var store = _shopNotes ?? throw new InvalidOperationException("ショップの星とメモの保存先が渡されていません。");

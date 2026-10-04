@@ -3,6 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace Chmonos.Core.Models;
 
+/// <summary>結果の出し方。JSON には "card" / "list" と書く。</summary>
+public enum ResultView
+{
+    Card,
+    List,
+}
+
 /// <summary>属性の幅1つ。0〜100で持つ（画面のスライダと同じ単位）。</summary>
 public sealed record AttributeRange(string Name, int Min, int Max)
 {
@@ -58,7 +65,14 @@ public sealed record SearchHistoryEntry
     /// <summary>表示順。既定なら null。</summary>
     public string? Sort { get; init; }
 
-    /// <summary>最後に使った時刻。並びと、古いものを落とす判断に使う。</summary>
+    /// <summary>
+    /// 結果をカードかリストのどちらで出すか。**保存した検索だけが持つ**（ユーザ判断 2026-10-03「カードかリストかも保存しましょう」）。
+    /// 履歴は持たない（null で書かない）——履歴を押すたびに表示の形まで切り替わると、条件を戻したいだけのときに邪魔になる。
+    /// 指紋には入れない（履歴の同じ条件を見分ける決まりを変えない）。保存した検索と今の検索が同じかは、指紋とこれの両方で見る
+    /// </summary>
+    public ResultView? View { get; init; }
+
+    /// <summary>最後に使った時刻。並びと、古いものを落とす判断に使う。保存した検索では、保存・上書きした時刻。</summary>
     public DateTimeOffset UsedAt { get; init; }
 
     /// <summary>

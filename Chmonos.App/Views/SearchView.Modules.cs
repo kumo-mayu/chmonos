@@ -160,6 +160,7 @@ public partial class SearchView
         {
             _focusSource.ModuleFocusRequested -= OnModuleFocusRequested;
             _focusSource.ModuleAdded -= OnModuleAdded;
+            _focusSource.SavedRowFocusRequested -= OnSavedRowFocusRequested;
         }
 
         _focusSource = e.NewValue as SearchViewModel;
@@ -167,6 +168,7 @@ public partial class SearchView
         {
             _focusSource.ModuleFocusRequested += OnModuleFocusRequested;
             _focusSource.ModuleAdded += OnModuleAdded;
+            _focusSource.SavedRowFocusRequested += OnSavedRowFocusRequested;
         }
     }
 

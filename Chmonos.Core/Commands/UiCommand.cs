@@ -146,6 +146,9 @@ public abstract record UiCommand
     /// <summary>検索の履歴を変える（積む・消す・全部消す）。変え方を関数で渡し、錠の中で今の履歴に当てる。</summary>
     public record ChangeSearchHistory(Func<Services.SearchHistoryList, Services.SearchHistoryList> Change) : UiCommand;
 
+    /// <summary>保存した検索を変える（保存・上書き・名前の変更・削除・並べ替え）。変え方を関数で渡し、錠の中で今の並びに当てる。</summary>
+    public record ChangeSavedSearches(Func<Services.SavedSearchList, Services.SavedSearchList> Change) : UiCommand;
+
     /// <summary>
     /// ショップの星・メモを変える（shops.json・ユーザ判断 2026-09-16）。変え方を関数で渡し、錠の中で今の値に当てる。
     /// <paramref name="NameHint"/> は見分け用の名前の控え、<paramref name="Uuid"/> はサブドメインが変わったときの手がかり。
@@ -523,6 +526,9 @@ public abstract record CommandResult
 
     /// <summary>検索の履歴を書いた。書いた後の履歴を持つ。</summary>
     public record SearchHistoryChanged(Services.SearchHistoryList History) : CommandResult;
+
+    /// <summary>保存した検索を書いた。書いた後の並びを持つ。</summary>
+    public record SavedSearchesChanged(Services.SavedSearchList Saved) : CommandResult;
 
     /// <summary>ショップの星・メモを変えた結果（書いた後の全店ぶん）。</summary>
     public record ShopNotesChanged(IReadOnlyList<Models.ShopNoteRecord> Notes) : CommandResult;

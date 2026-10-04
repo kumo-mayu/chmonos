@@ -28,6 +28,7 @@ internal static partial class Scenes
         .. AvatarScenes,
         .. Search,
         .. SearchFilters,
+        .. SavedSearchScenes,
         .. SortDividers,
         .. CardLists,
         .. ShopScenes,

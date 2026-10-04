@@ -120,7 +120,15 @@ public sealed partial class SearchViewModel
     /// **まず全部の値を戻してから当てる。**今の条件の上に重ねると、
     /// 履歴に無い条件が残って「押したのに違う結果」になる。履歴にある条件がパネルに無ければ足す。
     /// </summary>
-    private void ApplyHistory(Core.Models.SearchHistoryEntry entry)
+    private void ApplyHistory(Core.Models.SearchHistoryEntry entry) => ApplySearch(entry, replaceSort: false, view: null);
+
+    /// <summary>
+    /// 記録した検索に戻す（履歴・画面の履歴の控え・保存した検索の共通）。
+    /// <paramref name="replaceSort"/> は表示順も置き換えるか：保存した検索は表示順も保存した物なので、既定の順（記録では null）にも戻す。
+    /// 履歴は今までどおり、記録に表示順が無ければ今の順のまま。<paramref name="view"/> はカードかリストか（null なら変えない）。
+    /// 返り値は、記録の表示順が今の項目に見つかったか（消した属性で並べていた、などで見つからなければ false）
+    /// </summary>
+    private bool ApplySearch(Core.Models.SearchHistoryEntry entry, bool replaceSort, Core.Models.ResultView? view)
     {
         ClearFilters(apply: false);
 
@@ -153,6 +161,7 @@ public sealed partial class SearchViewModel
 
         // 履歴に残るのは「入手日が新しい順」のような1つの言い方。項目と向きに分けた今も、
         // その言い方から戻せるように、項目ごとの言い方と突き合わせる（M5）
+        var sortFound = entry.Sort is null;
         if (entry.Sort is not null)
         {
             foreach (var field in SortFields)
@@ -163,9 +172,16 @@ public sealed partial class SearchViewModel
                     {
                         _sortField = field;
                         _sort = field.ToOption(descending);
+                        sortFound = true;
                     }
                 }
             }
+        }
+
+        if (replaceSort && (entry.Sort is null || !sortFound) && SortFields.Count > 0)
+        {
+            _sortField = SortFields.FirstOrDefault(field => field.Kind == DefaultSort.Kind && field.AttributeName is null) ?? SortFields[0];
+            _sort = _sortField.ToOption(DefaultSort.Descending);
         }
 
         foreach (var name in new[] { nameof(QueryText), nameof(SearchAlternates), nameof(Sort), nameof(SortField), nameof(SortsDescending), nameof(SortsAscending), nameof(AscendingLabel), nameof(DescendingLabel) })
@@ -173,8 +189,15 @@ public sealed partial class SearchViewModel
             OnPropertyChanged(name);
         }
 
+        // カードかリストかは絞り直しの前に替える（替えた後の並びを1回で組む）
+        if (view is { } wanted)
+        {
+            IsListMode = wanted == Core.Models.ResultView.List;
+        }
+
         RefreshModuleMenu();
         SaveModulesLater();
         ApplyFilters();
+        return sortFound;
     }
 }

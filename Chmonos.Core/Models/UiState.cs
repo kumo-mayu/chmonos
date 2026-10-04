@@ -47,6 +47,12 @@ public sealed record UiState
     public bool FilterPanelCollapsed { get; init; }
 
     /// <summary>
+    /// 絞り込み欄の上の「保存した検索」の節を畳んでいるか（ユーザ判断 2026-10-04・案A3「節は畳める（畳んだ状態は覚える）」）。
+    /// 使わない人には条件の並びを押し下げるだけの節なので、畳んだまま次も始める
+    /// </summary>
+    public bool SavedSearchesCollapsed { get; init; }
+
+    /// <summary>
     /// 検索の絞り込みに追加しているモジュールと、その値（ユーザ案 2026-09-15）。
     ///
     /// **値まで覚える**（ユーザ判断 2026-09-16。前は「なぜか商品が少ない」状態で始まるのを避けて種類だけ覚えていたが、

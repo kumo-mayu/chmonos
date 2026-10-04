@@ -65,6 +65,9 @@ public sealed partial class SearchViewModel
         OnPropertyChanged(nameof(ActiveFilterCount));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(EmptyHint));
+
+        // 条件・文字・表示順が変わると、今の検索と同じ保存した検索も変わる
+        RefreshSavedCurrent();
     }
 
     /// <summary>今の条件で全商品を照らし、並べる。照らす材料（改変・足跡・素体の索引）はこの1回で使い回す。</summary>

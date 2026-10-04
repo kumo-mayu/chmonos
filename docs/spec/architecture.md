@@ -27,6 +27,7 @@
 | 編集の続き | `UiCommand` の編集キュー5種 → `JsonFileStore.UpdateAsync`。積み直し・消すも**錠の中**（2026-10-04。錠の外の丸ごと書きが、位置・保存した印の書き戻しで消えていた） | 編集画面 |
 | 画面の状態 | `UiCommand.ChangeUiState`（`ui-state.json`。ナビ・絞り込み欄・積んだ条件・窓の位置・画面の幅） | 各画面 |
 | 検索の履歴 | `UiCommand.ChangeSearchHistory` | 検索・設定 |
+| 保存した検索 | `UiCommand.ChangeSavedSearches`（保存・上書き・名前の変更・削除・並べ替え） | 検索 |
 | 未確定・除外・登録簿 | `JsonFileStore.UpdateAsync`（錠の中で読んで直して書く）。1件ずつ足し引きする。未確定の1件を BOOTH へ行かずに商品にする道は、錠を持ったまま「探す → 商品を保存 → 外す」（`TryUpdateAwaitingAsync`） | 取り込み・未確定の画面・アバター |
 
 - 同じ項目に書き手が2人いるときは、マージの規則を持つ（対応アバター：`Manual` を残す）か、同じ式で計算し直す（`Purchases.ExistsOnBooth` は書く側が毎回 `Booth.Variations` から）。
