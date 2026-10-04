@@ -223,6 +223,23 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public bool HasRefreshStatus => RefreshStatus.Length > 0;
 
+    // 操作の結果の知らせは、押した欄の下へ出す（2026-10-03 のユーザの方針）。
+    // 上の段の RefreshStatus は「取り直す」の結果だけ（ボタンと同じ段なので今のまま）
+    /// <summary>IDのコピー・IDを変えるの結果（IDの行の下）。</summary>
+    public AreaNotice IdNotice { get; } = new();
+
+    /// <summary>外したファイルを戻すの失敗（ファイルの欄の下）。</summary>
+    public AreaNotice FilesNotice { get; } = new();
+
+    /// <summary>共通素体を足す・対応アバターの保存の失敗（対応アバターの欄の下）。</summary>
+    public AreaNotice AvatarsNotice { get; } = new();
+
+    /// <summary>画像の追加・動かす・サムネイル・削除の結果（ギャラリーの下）。</summary>
+    public AreaNotice GalleryNotice { get; } = new();
+
+    /// <summary>「検索から除く」の保存の失敗（そのチェックの下）。</summary>
+    public AreaNotice VisibilityNotice { get; } = new();
+
     private async Task RefreshAsync()
     {
         IsRefreshing = true;
@@ -615,7 +632,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         var result = await _services.Commands.ExecuteAsync(new UiCommand.ReattachFile(Item.Id, row.Hash));
         if (result is CommandResult.Failed failed)
         {
-            RefreshStatus = failed.Message;
+            FilesNotice.Warn(failed.Message);
             return;
         }
 
@@ -662,7 +679,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
         if (result is CommandResult.Failed failed)
         {
-            RefreshStatus = failed.Message;
+            IdNotice.Warn(failed.Message);
             return;
         }
 
@@ -1142,7 +1159,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         _isTogglingHidden = true;
         try
         {
-            await SaveLocalAsync(Item.Local with { IsHidden = !Item.Local.IsHidden }, LocalOwners.Visibility);
+            await SaveLocalAsync(Item.Local with { IsHidden = !Item.Local.IsHidden }, LocalOwners.Visibility, VisibilityNotice);
         }
         finally
         {
@@ -1182,14 +1199,16 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 保存の直前に読み直したものが残る。開いている間に検出や取り込みが書いたものを、
     /// 古い写しで潰さないため。
     /// </summary>
-    private async Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns)
+    private async Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns, AreaNotice? notice = null)
     {
+        // 失敗は、その欄の下へ出す。呼び手が渡さなければ対応アバターの欄（呼び手の大半）
+        var failureNotice = notice ?? AvatarsNotice;
         try
         {
             var result = await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(Item.Id, local, owns));
             if (result is CommandResult.Failed failed)
             {
-                RefreshStatus = failed.Message;
+                failureNotice.Warn(failed.Message);
             }
         }
         catch (Exception exception)
@@ -1198,7 +1217,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             // 対応アバターを消した・足したのに何も起きなかったように見えた（b94dd15 と同じ直し）。
             // 書けなくても下で読み直す：見た目を保存した値に合わせる
             Core.Diagnostics.AppLog.Error("商品ページの保存", exception);
-            RefreshStatus = $"保存できませんでした。{Core.Services.FailureText.Cause(exception)}";
+            failureNotice.Warn($"保存できませんでした。{Core.Services.FailureText.Cause(exception)}");
         }
 
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
@@ -1249,9 +1268,14 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     private void CopyId()
     {
         // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
-        RefreshStatus = Services.ClipboardText.TrySet(Item.Id)
-            ? $"{Item.Id} をコピーしました。"
-            : "コピーできませんでした。もう一度押してください。";
+        if (Services.ClipboardText.TrySet(Item.Id))
+        {
+            IdNotice.Show($"{Item.Id} をコピーしました。");
+        }
+        else
+        {
+            IdNotice.Warn("コピーできませんでした。もう一度押してください。");
+        }
     }
 
     private void OpenBooth()

@@ -233,14 +233,14 @@ public sealed partial class ItemViewModel
                 var result = await _services.Commands.ExecuteAsync(new UiCommand.AddBase(mention.Name));
                 if (result is CommandResult.Failed failed)
                 {
-                    RefreshStatus = failed.Message;
+                    AvatarsNotice.Warn(failed.Message);
                     return;
                 }
             }
             catch (Exception exception)
             {
                 Core.Diagnostics.AppLog.Error("商品ページ：説明文の共通素体を一覧に追加", exception);
-                RefreshStatus = $"共通素体を追加できませんでした。{Core.Services.FailureText.Cause(exception)}";
+                AvatarsNotice.Warn($"共通素体を追加できませんでした。{Core.Services.FailureText.Cause(exception)}");
                 return;
             }
         }

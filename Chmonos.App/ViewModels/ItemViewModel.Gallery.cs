@@ -393,7 +393,7 @@ public sealed partial class ItemViewModel
 
         if (result is CommandResult.Failed failed)
         {
-            RefreshStatus = failed.Message;
+            GalleryNotice.Warn(failed.Message);
             return;
         }
 
@@ -413,13 +413,13 @@ public sealed partial class ItemViewModel
 
         if (result is CommandResult.Failed failed)
         {
-            RefreshStatus = failed.Message;
+            GalleryNotice.Warn(failed.Message);
             return;
         }
 
-        RefreshStatus = pin
+        GalleryNotice.Show(pin
             ? "この画像をサムネイルにしました。"
-            : "サムネイルの指名を外しました。";
+            : "サムネイルの指名を外しました。");
 
         await ReloadImagesAsync(current.FileName);
 
@@ -459,7 +459,7 @@ public sealed partial class ItemViewModel
 
         if (result is CommandResult.Failed failed)
         {
-            RefreshStatus = failed.Message;
+            GalleryNotice.Warn(failed.Message);
             return;
         }
 
@@ -501,7 +501,7 @@ public sealed partial class ItemViewModel
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                RefreshStatus = $"{System.IO.Path.GetFileName(path)} を読めませんでした。";
+                GalleryNotice.Warn($"{System.IO.Path.GetFileName(path)} を読めませんでした。");
                 continue;
             }
 
@@ -512,13 +512,13 @@ public sealed partial class ItemViewModel
             }
             else
             {
-                RefreshStatus = $"{System.IO.Path.GetFileName(path)} は画像として読めませんでした。";
+                GalleryNotice.Warn($"{System.IO.Path.GetFileName(path)} は画像として読めませんでした。");
             }
         }
 
         if (added > 0)
         {
-            RefreshStatus = $"画像を {added} 枚追加しました。";
+            GalleryNotice.Show($"画像を {added} 枚追加しました。");
             await ReloadImagesAsync(last);
         }
     }

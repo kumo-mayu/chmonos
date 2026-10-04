@@ -143,9 +143,9 @@
                                     1枚も無いとき、大きい絵の所で無いと分かるようにする（ユーザ指示 2026-09-14：何なのか分からない黒い丸はストレス）。
                                     文言は持ち主（商品・改変）が決める。画像があれば空で、何も描かない
                                 -->
-                                <TextBlock Text="{Binding GalleryEmptyText}" Foreground="{DynamicResource TextMuted}" FontSize="13"
-                                           TextWrapping="Wrap" TextAlignment="Center" LineHeight="20"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" MaxWidth="380"
+                                <TextBlock Text="{Binding GalleryEmptyText}" Style="{StaticResource EmptyTitle}" FontSize="13"
+                                           LineHeight="20"
+                                           VerticalAlignment="Center" Margin="24" MaxWidth="380"
                                            IsHitTestVisible="False" />
 
                                 <Border Background="{DynamicResource ImageScrim}" CornerRadius="9" Padding="8,2"
@@ -321,6 +321,12 @@
 
                             <TextBlock Text="{Binding ImageFetchNotice}" Style="{StaticResource Caption}" Margin="12,0,12,12"
                                        Visibility="{Binding HasImageFetchNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!--
+                                画像の追加・動かす・サムネイル・削除の結果。ギャラリーの下に1行の場所を常に取る（出入りで下が動かないように）。
+                                持たない持ち主（改変の写真）では場所も取らない
+                            -->
+                            <controls:AreaNoticeLine DataContext="{Binding GalleryNotice, FallbackValue={x:Null}}" Margin="12,0,12,8" />
                         </StackPanel>
                     </Border>
 </UserControl>

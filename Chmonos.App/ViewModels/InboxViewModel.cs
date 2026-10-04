@@ -103,6 +103,12 @@ public sealed class NotificationRow : ViewModelBase
     /// <summary>押す前に、何がどうなるかを言う（取り返しが付くかも書く）。</summary>
     public string ActionTip { get; init; } = string.Empty;
 
+    /// <summary>
+    /// 行のボタン（zipで登録しなおす・商品情報を取り直す）の途中経過と失敗。押した行の近くに出す（2026-10-03 のユーザの方針）。
+    /// 終わると一覧を読み直して行を作り直すので、入れ物は知らせのID単位で持ち主（<see cref="InboxViewModel"/>）が渡す
+    /// </summary>
+    public AreaNotice ActionNotice { get; init; } = new();
+
     public bool HasAction => ActionText.Length > 0;
 
     public RelayCommand? ActionCommand { get; set; }
@@ -387,6 +393,26 @@ public sealed class InboxViewModel : ViewModelBase
     public bool HasStatus => StatusText.Length > 0;
 
     /// <summary>
+    /// 行のボタンが成功した結果（行が片付くので、行の近くには出せない）。一覧の見出しのすぐ下の1行。
+    /// 画面を開いたときの検出の結果（<see cref="StatusText"/>）とは別の入れ物：あちらは今の置き場に残す
+    /// </summary>
+    public AreaNotice ListNotice { get; } = new();
+
+    /// <summary>行の知らせの入れ物。一覧を読み直すと行は作り直されるので、知らせのID単位で持ち越す。</summary>
+    private readonly Dictionary<string, AreaNotice> _rowNotices = [];
+
+    private AreaNotice RowNoticeFor(string id)
+    {
+        if (!_rowNotices.TryGetValue(id, out var notice))
+        {
+            notice = new AreaNotice();
+            _rowNotices[id] = notice;
+        }
+
+        return notice;
+    }
+
+    /// <summary>
     /// 開くたびに、マスタに無い分類を参照しているitemを探し直してから読む。
     /// マスタのJSONは手で書き換えられるので、その食い違いはここでしか気付けない。
     /// </summary>
@@ -490,6 +516,7 @@ public sealed class InboxViewModel : ViewModelBase
             IsRead = record.IsRead,
             ActionText = ActionLabel(record),
             ActionTip = ActionTip(record),
+            ActionNotice = RowNoticeFor(record.Id),
         };
 
         row.ReadChanged += OnRowReadChanged;
@@ -539,16 +566,16 @@ public sealed class InboxViewModel : ViewModelBase
                     // zipを付けるところまでやる（ユーザ判断 2026-09-18）。大きいzipはハッシュに数秒かかるので、
                     // 待つ間の2度押しで同じzipを2回読ませない（「商品情報を取り直す」と同じ守り・40b3863）
                     _isRefreshing = true;
-                    StatusText = "zipを読んで登録しています…";
+                    row.ActionNotice.Show("zipを読んで登録しています…");
                     try
                     {
-                        await SwapFolderForArchiveAsync(itemId, path);
+                        await SwapFolderForArchiveAsync(itemId, path, row.ActionNotice);
                     }
                     catch (Exception exception)
                     {
                         // 受けないと「zipを読んで登録しています…」のまま残り、止まったように見えた
                         Core.Diagnostics.AppLog.Error("要確認からのzipでの登録しなおし", exception);
-                        StatusText = $"登録しなおせませんでした。{Core.Services.FailureText.Cause(exception)}";
+                        row.ActionNotice.Warn($"登録しなおせませんでした。{Core.Services.FailureText.Cause(exception)}");
                     }
                     finally
                     {
@@ -565,15 +592,23 @@ public sealed class InboxViewModel : ViewModelBase
                 {
                     // 取り直しは1.5秒の間隔を空けて並ぶので数秒かかる。待つ間の2度押しで同じ商品を2回取りに行かせない
                     _isRefreshing = true;
-                    StatusText = "商品情報を取り直しています…";
+                    row.ActionNotice.Show("商品情報を取り直しています…");
                     try
                     {
                         var result = await _services.Commands.ExecuteAsync(new UiCommand.RefreshItem(target));
 
-                        // 前は結果を見ずに「取り直しました」と出していたので、商品ページが消えていても成功に見えた
-                        StatusText = result is CommandResult.Failed failed
-                            ? failed.Message
-                            : "BOOTHの商品ページから情報を取り直しました。";
+                        // 前は結果を見ずに「取り直しました」と出していたので、商品ページが消えていても成功に見えた。
+                        // 失敗は行が残るので行の近くへ、成功は行が片付くので一覧の見出しの近くへ
+                        if (result is CommandResult.Failed failed)
+                        {
+                            row.ActionNotice.Warn(failed.Message);
+                        }
+                        else
+                        {
+                            row.ActionNotice.Clear();
+                            ListNotice.Show("BOOTHの商品ページから情報を取り直しました。");
+                        }
+
                         await NoteItemChangedAsync(target);
                         await ReloadAsync();
                     }
@@ -581,7 +616,7 @@ public sealed class InboxViewModel : ViewModelBase
                     {
                         // 受けないと「取り直しています…」のまま残り、止まったように見えた
                         Core.Diagnostics.AppLog.Error("要確認からの商品情報の取り直し", exception);
-                        StatusText = $"取り直せませんでした。{Core.Services.FailureText.Cause(exception)}";
+                        row.ActionNotice.Warn($"取り直せませんでした。{Core.Services.FailureText.Cause(exception)}");
                     }
                     finally
                     {
@@ -605,26 +640,42 @@ public sealed class InboxViewModel : ViewModelBase
         }
     }
 
-    private async Task SwapFolderForArchiveAsync(string itemId, string path)
+    private async Task SwapFolderForArchiveAsync(string itemId, string path, AreaNotice rowNotice)
     {
         var outcome = await _services.Commands.ExecuteAsync(new UiCommand.SwapFolderForArchive(itemId, path));
 
-        StatusText = outcome is CommandResult.ArchiveSwapped { Outcome: { } swapped }
-            ? swapped.Result switch
+        // 登録できたら行が片付くので、結果は一覧の見出しの近くへ。できなかったときは行が残るので、押した行の近くへ
+        if (outcome is CommandResult.ArchiveSwapped { Outcome: { } swapped })
+        {
+            switch (swapped.Result)
             {
-                Core.Services.ArchiveSwapResult.Registered =>
-                    $"「{swapped.ArchiveName}」で登録し直しました。展開したフォルダのファイルは削除していません。",
-                Core.Services.ArchiveSwapResult.AlreadyRegistered =>
-                    $"「{swapped.ArchiveName}」は登録済みなので、展開したフォルダの登録だけ外しました。"
-                    + "ファイルは削除していません。",
-                Core.Services.ArchiveSwapResult.ArchiveMissing =>
-                    "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。"
-                    + "登録はそのままにしてあります。",
-                Core.Services.ArchiveSwapResult.ArchiveUnreadable =>
-                    "zipを読めませんでした。ほかのアプリが開いている可能性があります。登録はそのままです。",
-                _ => "この商品は見つかりませんでした。",
+                case Core.Services.ArchiveSwapResult.Registered:
+                    rowNotice.Clear();
+                    ListNotice.Show($"「{swapped.ArchiveName}」で登録し直しました。展開したフォルダのファイルは削除していません。");
+                    break;
+                case Core.Services.ArchiveSwapResult.AlreadyRegistered:
+                    rowNotice.Clear();
+                    ListNotice.Show(
+                        $"「{swapped.ArchiveName}」は登録済みなので、展開したフォルダの登録だけ外しました。"
+                        + "ファイルは削除していません。");
+                    break;
+                case Core.Services.ArchiveSwapResult.ArchiveMissing:
+                    rowNotice.Warn(
+                        "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。"
+                        + "登録はそのままにしてあります。");
+                    break;
+                case Core.Services.ArchiveSwapResult.ArchiveUnreadable:
+                    rowNotice.Warn("zipを読めませんでした。ほかのアプリが開いている可能性があります。登録はそのままです。");
+                    break;
+                default:
+                    rowNotice.Warn("この商品は見つかりませんでした。");
+                    break;
             }
-            : "登録しなおせませんでした。";
+        }
+        else
+        {
+            rowNotice.Warn("登録しなおせませんでした。");
+        }
 
         await NoteItemChangedAsync(itemId);
         await ReloadAsync();
@@ -726,7 +777,8 @@ public sealed class InboxViewModel : ViewModelBase
         // 商品IDを付け替えたり商品を消しても通知は書き換えないので、宛先が無いことがある。
         // 黙って何も起きないと壊れたように見えるので言う（ユーザ判断 2026-09-18）。
         // 宛先が無い通知は、もう手当てのしようがないので解消済みにする
-        StatusText = "この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。この知らせは解消済みにしました。";
+        // 宛先の無い知らせは解消済みにして一覧から消えるので、行の近くではなく一覧の見出しの近くへ
+        ListNotice.Warn("この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。この知らせは解消済みにしました。");
 
         // 知らせのファイルは画面のスレッドで読まない
         var ids = await Task.Run(() => _services.Notifications.Load()

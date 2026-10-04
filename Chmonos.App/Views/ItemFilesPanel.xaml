@@ -133,6 +133,8 @@
                                 </Grid>
                             </Border>
                             <StackPanel Visibility="{Binding IsFilesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <!-- 外したファイルを戻すの失敗。1行ぶんの場所は常に取る（出入りで下の行が動かないように） -->
+                            <controls:AreaNoticeLine DataContext="{Binding FilesNotice}" Margin="16,0,16,0" />
                             <!-- フォルダとして所有しているもの。zipが残っていない展開済みの配布物 -->
                             <controls:ContentItemsControl ItemsSource="{Binding LocalFolders}" controls:ArrowGroup.IsEnabled="True"
                                           Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
