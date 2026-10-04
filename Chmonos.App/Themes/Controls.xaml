@@ -358,6 +358,14 @@
 
     <!-- ===== チェックボックスとラジオボタン ===== -->
     <Style TargetType="CheckBox">
+        <!--
+            中身に TextBlock を直に置いた形（<CheckBox><TextBlock .../></CheckBox>）は、型の中の ContentPresenter.Resources を通らず（論理の親は CheckBox）、
+            App.xaml の TextBlock の既定の型が Foreground を固定してしまい、押せないときの薄い色が文字に届かない（メモ27-①）。
+            型の Resources に置けば論理の子にも届くので、文字の色はチェックの色に従わせる
+        -->
+        <Style.Resources>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource FollowOwnerForeground}" />
+        </Style.Resources>
         <Setter Property="Foreground" Value="{DynamicResource Text}" />
         <Setter Property="Background" Value="{DynamicResource CheckBack}" />
         <Setter Property="BorderBrush" Value="{DynamicResource CheckBorder}" />
@@ -416,6 +424,10 @@
     </Style>
 
     <Style TargetType="RadioButton">
+        <!-- チェックと同じ理由（直に置いた TextBlock の文字も、押せないとき薄くなるように。メモ27-①） -->
+        <Style.Resources>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource FollowOwnerForeground}" />
+        </Style.Resources>
         <Setter Property="Foreground" Value="{DynamicResource Text}" />
         <Setter Property="Background" Value="{DynamicResource CheckBack}" />
         <Setter Property="BorderBrush" Value="{DynamicResource CheckBorder}" />
