@@ -112,6 +112,8 @@ WPF の既定（Aero2）は色を型の中に直に持つので、色の表の�
 - 部品の中の文字は部品の `Foreground` に従う（`FollowOwnerForeground`）。アプリ全体の TextBlock の既定（色 `Text`）が勝って、
   押せない項目・危ない項目の色が出ていなかった。**テンプレートの中の文字には、外のスタイルの資源が届かない**（アプリ全体の既定を拾う）。
   文字の見た目は、そのテンプレートの中身（`ContentPresenter.Resources`）に置く（カレンダーの日付で、前後の月が薄くならず大きさも膨らんでいた）
+- **チェックとラジオの中に TextBlock を直に置いた形は、型の `Style.Resources` にも同じ型を置く**（2026-10-04・メモ27-①）。直に置いた文字の論理の親は部品で、
+  型の中の `ContentPresenter.Resources` を通らず、アプリ全体の TextBlock の既定が色を固定して、押せないのに文字が濃いまま見えていた（試験 `DisabledToggleTextTests`）
 - **知らせと確認の窓**は自前の窓（`Views/NoticeWindow`。2026-09-29）で、面・文字・印を表の鍵で描く。印は情報・質問が `AccentFill`、警告が `Warn`、エラーが `BadFill`。
   決まりは [ui-dialogs.md](ui-dialogs.md)「知らせの窓」
 - **白いまま残る物**：ファイルとフォルダを選ぶ窓（Windows が描く）

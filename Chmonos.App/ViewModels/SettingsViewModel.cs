@@ -45,6 +45,9 @@ public sealed class FieldNotes : INotifyPropertyChanged
 {
     private readonly Dictionary<string, string> _texts = [];
 
+    /// <summary>今、知らせを持っている欄の名前（まとめて消すとき）。</summary>
+    public IReadOnlyList<string> Fields => [.. _texts.Keys];
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public string this[string field]
@@ -189,32 +192,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         var settings = services.Settings;
         _suppressSave = true;
-        _showSubTagsInList = settings.ShowSubTagsInList;
-        _showAdult = settings.ShowAdult;
-        _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
-        _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
-        _showSortDividers = settings.ShowSortDividers;
-        _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
-        _thumbnailRole = settings.ThumbnailRole;
-        _gallerySwitchOnHover = settings.GallerySwitchOnHover;
-        _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
-        _showEditQueueStrip = settings.ShowEditQueueStrip;
-        _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;
-        _resumeFetchInBackground = settings.ResumeFetchInBackground;
-        _saveImages = settings.SaveImages;
-        _refreshIntervalDays = settings.RefreshIntervalDays;
-        _notificationRetentionCount = settings.NotificationRetentionCount;
-        _searchHistoryCount = settings.SearchHistoryCount;
-        _fetchIntervalMs = settings.FetchIntervalMs;
-        _imageMaxEdgePixels = settings.ImageMaxEdgePixels;
-        _imageQuality = settings.ImageQuality;
-        _modificationImageMaxEdgePixels = settings.ModificationImageMaxEdgePixels;
-        _saveModificationImagesAtOriginalSize = settings.SaveModificationImagesAtOriginalSize;
-        _shopBannerRecheckDays = settings.ShopBannerRecheckDays;
-        _avatarDetectRecheckDays = settings.AvatarDetectRecheckDays;
-        _startImportOnDrop = settings.StartImportOnDrop;
-        _startImportOnLaunch = settings.StartImportOnLaunch;
-        _projectManager = settings.ProjectManager;
+        ApplyFields(settings);
 
         foreach (var action in Enum.GetValues<Services.ShortcutAction>())
         {

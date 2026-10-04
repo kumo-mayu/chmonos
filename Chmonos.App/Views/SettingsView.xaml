@@ -857,6 +857,24 @@
                                            VerticalAlignment="Center" />
                             </StackPanel>
 
+                            <!--
+                                すべての設定を既定に戻す（メモ29・ユーザ判断 2026-10-04）。設定の節ではなくデータの節に置く：
+                                節はどれも「その節の項目」で、全体を戻すボタンはどの節の中にも収まらない。
+                                保存先・バックアップの行と同じ「名前と右のボタン」の形にして、押し間違えにくい末尾に置く。
+                                取り込み元・監視するフォルダ・非表示・保存先は戻さない（押す前の確かめの窓で言う）
+                            -->
+                            <Grid Margin="0,16,0,0">
+                                <TextBlock Text="設定" Style="{StaticResource RowLabel}" VerticalAlignment="Center" />
+                                <Button Content="すべての設定を既定に戻す" Style="{StaticResource DangerButton}"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.AutomationId="Settings.ResetAllSettings"
+                                        Command="{Binding ResetAllSettingsCommand}"
+                                        ToolTip="取り込み元・監視するフォルダ・非表示にしたもの・保存先以外の設定を、既定に戻します。元に戻せません。" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource FieldNotice}" Margin="0,4,0,0" HorizontalAlignment="Right"
+                                       AutomationProperties.AutomationId="Settings.ResetNote"
+                                       Text="{Binding ResetNote}" />
+
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
                                        Text="中身はすべて普通のJSONです。アプリを介さずに開いて読んだり直したりできます。" />
                         </StackPanel>

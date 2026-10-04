@@ -28,9 +28,53 @@ internal static partial class Scenes
             main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
             main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
         }),
+        SettingsReset("settings-reset-all", "設定の「データ」：すべての設定を既定に戻すボタン（確かめの窓は「キャンセル」で閉じた。窓の文は結果に出る）", done: false),
+        SettingsReset("settings-reset-all-done", "設定：すべての設定を既定に戻した後（値が既定へ戻り、ボタンの下に結果の1行が出る）", done: true),
         SettingsNotes("settings-notes-before", "設定：操作の知らせが出る前（出る場所は前もって空けてある）", shown: false),
         SettingsNotes("settings-notes-after", "設定：知らせが出た後（欄の下・ボタンの下・見出しの横。ほかの物は動かない）", shown: true),
     ];
+
+    /// <summary>
+    /// 設定をいくつか既定から変えておき、「すべての設定を既定に戻す」を押す。確かめの窓は台が答える（done なら OK、そうでなければキャンセル）
+    /// </summary>
+    private static Scene SettingsReset(string name, string title, bool done)
+        => new(name, title, async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+
+            settings.ShowAdult = false;
+            settings.RefreshIntervalDays = 30;
+            settings.FetchIntervalMs = 9000;
+            settings.SaveImages = false;
+            settings.AssignShortcut(settings.ShortcutRows[0], "Ctrl+Shift+F9");
+            await context.SettleAsync();
+
+            var before = Chmonos.App.Services.Notice.Intercept;
+            Chmonos.App.Services.Notice.Intercept = request =>
+            {
+                context.Notices.Add($"「{request.Caption}」{request.Text}");
+                return done ? System.Windows.MessageBoxResult.OK : System.Windows.MessageBoxResult.Cancel;
+            };
+            settings.ResetAllSettingsCommand.Execute(null);
+            if (done)
+            {
+                await SceneContext.UntilAsync(() => settings.ResetNote.Length > 0, "既定に戻し終わる");
+            }
+
+            Chmonos.App.Services.Notice.Intercept = before;
+            await context.SettleAsync();
+            Console.WriteLine($"  外れ値：表示 {settings.ShowAdult}・取り直す間隔 {settings.RefreshIntervalDays} 日・通信の間隔 {settings.FetchIntervalMs} ms・画像を保存 {settings.SaveImages}・取り込み元 {settings.Folders.Count} 件");
+
+            return new Shot(root) { Focus = () => Look.View<SettingsView>(root), FocusMargin = 0 };
+        })
+        {
+            Height = SettingsHeight,
+        };
 
     /// <summary>
     /// 操作の結果の知らせを、欄・ボタン・見出しの近くへ出す前と後（2026-10-04）。2枚を比べて、下の物が動かないことを見る。
