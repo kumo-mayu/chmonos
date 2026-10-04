@@ -999,7 +999,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             var done = 0;
             foreach (var row in targets)
             {
-                var result = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId));
+                var result = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId, RequestsLeftProgress));
                 StepRegistering(++done);
                 if (result is CommandResult.Failed failed)
                 {

@@ -39,9 +39,58 @@ public sealed partial class ResolveViewModel
     public bool IsRegisteringFolder => _registeringArea == RegisteringArea.Folder;
 
     /// <summary>2件以上なら件数まで言う。束を登録すると1件ずつ順に掛けるので、止まっていないことが分かるように。</summary>
-    public string RegisteringText => _registeringTotal > 1
-        ? $"登録しています… {_registeringDone} / {_registeringTotal} 件"
-        : "登録しています…";
+    public string RegisteringText
+    {
+        get
+        {
+            var text = _registeringTotal > 1
+                ? $"登録しています… {_registeringDone} / {_registeringTotal} 件"
+                : "登録しています…";
+            return RequestsLeftText(_registeringRequestsLeft, _services.Settings.FetchIntervalMs) is { Length: > 0 } left
+                ? $"{text}　{left}"
+                : text;
+        }
+    }
+
+    /// <summary>
+    /// 手元に無い商品をBOOTHから取るときの、問い合わせの残りの数。まだ分からない・問い合わせが要らないときは null。
+    /// 商品JSON・商品ページ・画像・ショップのアイコンの数で、1つずつ間隔を空けて問い合わせる（メモ34）。
+    /// 同じIDで束ねた2件目からは手元の商品に足すだけなので、1件ごとに null へ戻す。
+    /// </summary>
+    private int? _registeringRequestsLeft;
+
+    /// <summary>
+    /// 「BOOTHへ あと 14 件・約 1 分」。目安は、残りの数 × 問い合わせの間隔。
+    /// 応答に掛かる時間は含めないので、実際は少し長い（取り込みの見込みも、測れるまでは間隔だけで出す）。
+    /// 0件のとき・分からないときは空。
+    /// </summary>
+    internal static string RequestsLeftText(int? left, int intervalMs)
+        => left is > 0
+            ? $"BOOTHへあと {left} 件・{ImportViewModel.Duration(left.Value * intervalMs / 1000.0)}"
+            : string.Empty;
+
+    /// <summary>問い合わせの残りを受ける。裏から届くので、画面のスレッドへ戻して反映する。</summary>
+    private IProgress<int> RequestsLeftProgress
+        => _requestsLeftProgress ??= new InlineProgress(left => RunOnUiThread(() => SetRequestsLeft(left)));
+
+    private IProgress<int>? _requestsLeftProgress;
+
+    internal void SetRequestsLeft(int? left)
+    {
+        // 終わった後に遅れて届いた分で、消した目安が戻らないようにする
+        if (_registeringArea == RegisteringArea.None)
+        {
+            return;
+        }
+
+        _registeringRequestsLeft = left;
+        OnPropertyChanged(nameof(RegisteringText));
+    }
+
+    private sealed class InlineProgress(Action<int> report) : IProgress<int>
+    {
+        public void Report(int value) => report(value);
+    }
 
     /// <summary>件数が分かるときだけ実際の進み具合を出し、1件なら動いていることだけ示す（自動検索の帯と同じ）。</summary>
     public bool HasRegisteringTotal => _registeringTotal > 1;
@@ -55,12 +104,14 @@ public sealed partial class ResolveViewModel
         _registeringArea = area;
         _registeringTotal = total;
         _registeringDone = 0;
+        _registeringRequestsLeft = null;
         NotifyRegistering();
     }
 
     private void StepRegistering(int done)
     {
         _registeringDone = done;
+        _registeringRequestsLeft = null;
         NotifyRegistering();
     }
 

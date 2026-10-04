@@ -58,6 +58,25 @@ internal static class Backdoor
         return (Window)constructor.Invoke([null, text, caption, layout, icon]);
     }
 
+    /// <summary>
+    /// 未確定の「商品IDを決める」の欄で登録している最中の帯。実際に登録するには BOOTH の返事を止める作り物が要るので、控えを直に入れる。
+    /// <paramref name="left"/> は BOOTH への問い合わせの残り（目安の時間は本体が間隔から出す）。
+    /// </summary>
+    public static void ShowRegisteringInDecision(ResolveViewModel resolve, int done, int total, int? left)
+    {
+        var area = target(resolve, "_registeringArea").FieldType;
+        SetField(resolve, "_registeringArea", Enum.Parse(area, "Decision"));
+        SetField(resolve, "_registeringDone", done);
+        SetField(resolve, "_registeringTotal", total);
+        SetField(resolve, "_registeringRequestsLeft", left);
+        var notify = typeof(ResolveViewModel).GetMethod("NotifyRegistering", Hidden)
+            ?? throw Missing(typeof(ResolveViewModel), "NotifyRegistering()");
+        notify.Invoke(resolve, null);
+
+        static FieldInfo target(object owner, string name)
+            => owner.GetType().GetField(name, Hidden) ?? throw Missing(owner.GetType(), $"欄 {name}");
+    }
+
     private static void SetProperty(object target, string name, object? value)
     {
         var setter = target.GetType().GetProperty(name, Hidden)?.GetSetMethod(nonPublic: true)

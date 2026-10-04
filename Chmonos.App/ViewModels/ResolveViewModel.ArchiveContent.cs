@@ -273,7 +273,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.RegisterFolder(Preview.Id, folder));
+                new UiCommand.RegisterFolder(Preview.Id, folder, RequestsLeftProgress));
 
             if (result is CommandResult.Failed failed)
             {

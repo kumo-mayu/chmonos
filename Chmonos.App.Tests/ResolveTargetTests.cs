@@ -173,13 +173,13 @@ public class ResolveTargetTests
         Assert.False(resolve.IsBandNoticeWarning);
         Assert.False(resolve.HasOriginZipChoice);
         Assert.True(resolve.IsOriginZipUnlisted);
-        Assert.Equal("展開元のzip「costume_set.zip」は未確定にありません。", resolve.BandNoticeText);
+        Assert.Equal("展開元のzip「costume_set.zip」は発見できませんでした。", resolve.BandNoticeText);
         var sent = 0;
         resolve.DecisionFocusRequested += () => sent++;
 
         resolve.UseOriginZipCommand.Execute(null);
 
-        Assert.Equal("展開元のzip「costume_set.zip」は未確定にありません。", resolve.BandNoticeText);
+        Assert.Equal("展開元のzip「costume_set.zip」は発見できませんでした。", resolve.BandNoticeText);
         Assert.True(resolve.IsBandNoticeWarning);
         Assert.Equal(string.Empty, resolve.StatusText);
         Assert.Equal(0, sent);

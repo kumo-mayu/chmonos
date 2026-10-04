@@ -52,7 +52,7 @@ public interface IItemService
 
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
-    Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
+    Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
 
     Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
@@ -62,7 +62,7 @@ public interface IItemService
         string folderPath,
         CancellationToken cancellationToken = default);
 
-    Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
+    Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
 
     /// <summary>
     /// 未確定のファイルを、BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。
@@ -604,14 +604,15 @@ public sealed class ItemService : IItemService
     public async Task<bool> RegisterFolderAsync(
         string itemId,
         string folderPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<int>? requestsLeft = null)
     {
         if (!Directory.Exists(folderPath))
         {
             return false;
         }
 
-        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken)).Item is null)
+        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken, requestsLeft)).Item is null)
         {
             return false;
         }
@@ -698,14 +699,20 @@ public sealed class ItemService : IItemService
     /// BOOTHから取って新しいitemを作る。**仮IDでは何もしない**——
     /// 存在しないIDなので、通信するだけ無駄になる。
     /// </summary>
+    /// <param name="requestsLeft">
+    /// BOOTH への問い合わせの残りの数を流す（メモ34）。商品JSON・商品ページ・画像・ショップのアイコンで、
+    /// 画像の枚数はJSONを読むまで分からないので、始めは JSON と商品ページの2つだけ数え、分かった所で数え直す。
+    /// 数え方は問い合わせる物だけ（画像の側は <see cref="ImagePipeline.SyncAsync(string, IReadOnlyList{BoothImage}, BoothOutageWatch?, CancellationToken, IProgress{int}?)"/>）。
+    /// </param>
     private async Task<(ItemRecord? Item, Booth.BoothFetchStatus Status)> FetchNewItemAsync(
-        string itemId, CancellationToken cancellationToken)
+        string itemId, CancellationToken cancellationToken, IProgress<int>? requestsLeft = null)
     {
         if (LocalItemId.IsLocal(itemId))
         {
             return (null, Booth.BoothFetchStatus.NotFound);
         }
 
+        requestsLeft?.Report(2);
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
@@ -713,6 +720,7 @@ public sealed class ItemService : IItemService
             return (null, jsonResult.Status);
         }
 
+        requestsLeft?.Report(1);
         var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
         var extraction = htmlResult.IsSuccess && htmlResult.Value is not null
             ? H2SectionExtractor.Extract(htmlResult.Value)
@@ -763,13 +771,18 @@ public sealed class ItemService : IItemService
             await _store.Items.SaveDescriptionHtmlAsync(itemId, extraction.DescriptionHtml, cancellationToken);
         }
 
-        await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
+        // ショップのアイコンは、画像の後に1枚問い合わせる（まだ手元に無いときだけ）
+        var iconLeft = item.Booth.Shop is { } iconShop && _images.NeedsShopIcon(iconShop.Subdomain, iconShop.ThumbnailUrl) ? 1 : 0;
+        await _images.SyncAsync(
+            itemId, item.Booth.Images, null, cancellationToken,
+            requestsLeft is null ? null : new ShiftedProgress(requestsLeft, iconLeft));
 
         if (item.Booth.Shop is { } shop)
         {
             await _images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
         }
 
+        requestsLeft?.Report(0);
         return (item, Booth.BoothFetchStatus.Success);
     }
 
@@ -1019,7 +1032,7 @@ public sealed class ItemService : IItemService
         ArchiveBroken = target.ArchiveBroken,
     };
 
-    public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
+    public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
     {
         // 登録の命令は画面のスレッドから来る。記録は裏で読む（FromUnresolved の3つの道とも同じ）
         var unresolved = await _store.Unresolved.LoadAsync(cancellationToken);
@@ -1031,7 +1044,7 @@ public sealed class ItemService : IItemService
 
         var record = FromUnresolved(target);
 
-        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken)).Item is null)
+        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken, requestsLeft)).Item is null)
         {
             return false;
         }
@@ -2130,6 +2143,12 @@ public sealed class ItemService : IItemService
         return DateTimeOffset.Now.AddDays(days + offset);
     }
 
+}
+
+/// <summary>画像の残りに、後に続く問い合わせ（ショップのアイコン）の数を足して流す。</summary>
+internal sealed class ShiftedProgress(IProgress<int> inner, int offset) : IProgress<int>
+{
+    public void Report(int value) => inner.Report(value + offset);
 }
 
 public enum RefreshOutcome

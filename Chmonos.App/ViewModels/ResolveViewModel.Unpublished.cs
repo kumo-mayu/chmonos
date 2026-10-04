@@ -97,7 +97,7 @@ public sealed partial class ResolveViewModel
             var done = 1;
             foreach (var row in targets.Skip(1))
             {
-                var assigned = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId));
+                var assigned = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId, RequestsLeftProgress));
                 StepRegistering(++done);
                 if (assigned is not CommandResult.Failed)
                 {

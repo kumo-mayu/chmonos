@@ -27,8 +27,11 @@ public abstract record UiCommand
         }
     }
 
-    /// <summary>未確定ファイルに商品IDを与えて確定させる。</summary>
-    public record AssignItemId(string Hash, string ItemId) : UiCommand;
+    /// <summary>
+    /// 未確定ファイルに商品IDを与えて確定させる。
+    /// <paramref name="RequestsLeft"/> は、手元に無い商品を取るときの BOOTH への問い合わせの残りの数（画面が目安の時間を出す。問い合わせの間隔と順番は変わらない）。
+    /// </summary>
+    public record AssignItemId(string Hash, string ItemId, IProgress<int>? RequestsLeft = null) : UiCommand;
 
     /// <summary>
     /// 未確定ファイルを「BOOTHに無い商品」として登録する。
@@ -362,7 +365,7 @@ public abstract record UiCommand
     public record DetectAvatars(IProgress<Services.AvatarDetectProgress>? Progress = null) : UiCommand;
 
     /// <summary>フォルダを商品に紐付ける。zipが手元に無く展開したものだけが残っている場合に使う。</summary>
-    public record RegisterFolder(string ItemId, string FolderPath) : UiCommand;
+    public record RegisterFolder(string ItemId, string FolderPath, IProgress<int>? RequestsLeft = null) : UiCommand;
 
     /// <summary>フォルダの紐付けを解除する。zipを後から手に入れたときに使う。ファイルには触らない。</summary>
     public record UnregisterFolder(string ItemId, string FolderPath) : UiCommand;
