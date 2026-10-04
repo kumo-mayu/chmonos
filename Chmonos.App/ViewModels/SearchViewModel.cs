@@ -228,7 +228,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// 検索のカードは貸さない：カードの選ぶ箱を押すと検索の選択に数えられ、検索の全カードが「押すと選択の切り替え」に
     /// 変わる（よその画面で押しても商品ページへ行かなくなる）。カードの ViewModel は部品を持たないので、作る代償は小さい
     /// </summary>
-    public ItemCardViewModel? CardFor(string itemId) => FindItem(itemId) is { } item ? ToCard(item) : null;
+    public ItemCardViewModel? CardFor(string itemId) => FindItem(itemId) is { } item ? ToCard(item, _plainCardInfo) : null;
 
     /// <summary>
     /// そのファイルを持っている（外していない）別の商品。商品ページの灰色の行で、

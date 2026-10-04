@@ -98,6 +98,11 @@
     <SolidColorBrush x:Key="TileText" Color="#4a5160" />
     <SolidColorBrush x:Key="OnImage" Color="#ffffff" />
     <SolidColorBrush x:Key="ImageScrim" Color="#99000000" />
+    <!-- カードの絵の上に重ねる中身（乗せたとき・キーボードで止まったとき）。絵の色に負けないよう濃く、どちらの表でも同じ -->
+    <SolidColorBrush x:Key="PeekBack" Color="#e8181c22" />
+    <SolidColorBrush x:Key="PeekLabel" Color="#b8ffffff" />
+    <SolidColorBrush x:Key="PeekTrack" Color="#40ffffff" />
+    <SolidColorBrush x:Key="PeekBar" Color="#8ab8ff" />
     <SolidColorBrush x:Key="ImageScrimLight" Color="#66000000" />
     <SolidColorBrush x:Key="ImageHoverShade" Color="#2b000000" />
     <SolidColorBrush x:Key="ImageDotIdle" Color="#66ffffff" />

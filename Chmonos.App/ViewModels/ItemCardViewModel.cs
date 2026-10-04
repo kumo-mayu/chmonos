@@ -228,18 +228,118 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool HasMissingFile { get; init; }
 
-    public string UserTagText { get; init; } = string.Empty;
-
     /// <summary>
-    /// カードの下に出すユーザタグの1行。小分類を出すときは「大分類：小分類・小分類」にする（ユーザ判断 2026-09-16）——
+    /// ユーザタグを1行に並べた物（乗せたときの重ね）。小分類を出すときは「大分類：小分類・小分類」にする（ユーザ判断 2026-09-16）——
     /// 小分類だけだと、どの大分類の下の物かがカードから分からない。
     /// </summary>
     public static string UserTagLine(IEnumerable<UserTagAssignment> tags, bool withSubs)
-        => string.Join(" / ", tags.Select(tag => withSubs && tag.Subs.Count > 0
-            ? $"{tag.Top}：{string.Join("・", tag.Subs)}"
-            : tag.Top));
+        => string.Join(" / ", tags.Select(tag => CardInfo.TagText(tag, withSubs)));
 
-    public bool HasUserTag => UserTagText.Length > 0;
+    // ---- 名前の下の札と1行・乗せたときの重ね・リストの列（ユーザ判断 2026-10-04：案A と案C） ----
+
+    /// <summary>どの属性をどの順で出すか。画面が1つを持ち、全部のカードが同じ物を指す。無ければ札を出さない。</summary>
+    public CardInfoContext? InfoContext { get; init; }
+
+    private CardInfo? _wideInfo;
+    private CardInfo? _narrowInfo;
+    private int _infoVersion = -1;
+
+    /// <summary>
+    /// 札を組み直す印。画面が設定・並べ替えの変わったときに <see cref="NoteInfoChanged"/> で上げ、
+    /// カードの札（幅と一緒に結んでいる）とリストの列が読み直す
+    /// </summary>
+    public int InfoVersion => InfoContext?.Version ?? 0;
+
+    /// <summary>
+    /// カードの札と1行。カードの幅で変わる（<see cref="CardInfo.NarrowBelow"/>）。作るのは描くカードだけで、
+    /// 一度作ったら印が変わるまで持つ（流して戻るたびに作り直さない）
+    /// </summary>
+    public CardInfo InfoFor(bool narrow)
+    {
+        var context = InfoContext;
+        if (context is null)
+        {
+            return EmptyInfo;
+        }
+
+        if (_infoVersion != context.Version)
+        {
+            _infoVersion = context.Version;
+            _wideInfo = null;
+            _narrowInfo = null;
+        }
+
+        return narrow
+            ? _narrowInfo ??= CardInfo.Build(Item, context.Options, narrow: true, IsOwned)
+            : _wideInfo ??= CardInfo.Build(Item, context.Options, narrow: false, IsOwned);
+    }
+
+    private static readonly CardInfo EmptyInfo = new();
+
+    /// <summary>リストの列の中身（幅で変えない）。</summary>
+    public CardInfo ListInfo => InfoFor(narrow: false);
+
+    /// <summary>出す属性の決め方が変わった。描いているカードと行だけが読み直す（ほかは誰も聞いていない）。</summary>
+    public void NoteInfoChanged()
+    {
+        OnPropertyChanged(nameof(InfoVersion));
+        OnPropertyChanged(nameof(ListInfo));
+        if (_isPeeking)
+        {
+            UpdatePeeking(rebuild: true);
+        }
+    }
+
+    private bool _pointerOnText;
+    private bool _hasKeyboardFocus;
+    private bool _isPeeking;
+
+    /// <summary>
+    /// 絵の上に中身を重ねて出すか（案C）。名前の欄に乗せたとき・キーボードで止まったときに出す。
+    /// **絵に乗せている間は出さない**——絵はなぞって送る所（BOOTH と同じ操作感）で、重ねると送った絵が見えない
+    /// </summary>
+    public bool IsPeeking => _isPeeking;
+
+    private CardPeek? _peek;
+
+    /// <summary>重ねる中身。出すときに作る（絵の枠の高さに収まる数だけ棒を出すので、その時の大きさで）。</summary>
+    public CardPeek Peek => _peek ?? EmptyPeek;
+
+    private static readonly CardPeek EmptyPeek = new();
+
+    /// <summary>名前の欄にマウスが乗った・離れた（View が知らせる）。</summary>
+    public void SetPointerOnText(bool on)
+    {
+        _pointerOnText = on;
+        UpdatePeeking();
+    }
+
+    /// <summary>カードにキーボードで止まった・離れた（View が知らせる）。</summary>
+    public void SetKeyboardFocus(bool on)
+    {
+        _hasKeyboardFocus = on;
+        UpdatePeeking();
+    }
+
+    private void UpdatePeeking(bool rebuild = false)
+    {
+        var wanted = (_pointerOnText || _hasKeyboardFocus) && !_isHovering && InfoContext is not null;
+        if (wanted && (!_isPeeking || rebuild))
+        {
+            // 出す中身が何も無い商品（タグも評価も額も対応も無い）は、空の黒い板だけになるので重ねない
+            _peek = CardPeek.Build(Item, InfoContext!.Options, Services.CardMetrics.ImageHeight, Services.CardMetrics.Width);
+            wanted = !_peek.IsEmpty;
+            OnPropertyChanged(nameof(Peek));
+        }
+
+        if (wanted == _isPeeking)
+        {
+            return;
+        }
+
+        _isPeeking = wanted;
+        OnPropertyChanged(nameof(IsPeeking));
+    }
 
     /// <summary>
     /// 表示中の画像。値を持たず、読むたびにキャッシュへ問い合わせる。
@@ -350,7 +450,13 @@ public sealed class ItemCardViewModel : ViewModelBase
     public bool IsHovering
     {
         get => _isHovering;
-        private set => SetField(ref _isHovering, value);
+        private set
+        {
+            if (SetField(ref _isHovering, value))
+            {
+                UpdatePeeking();
+            }
+        }
     }
 
     /// <summary>

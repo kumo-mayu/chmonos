@@ -22,8 +22,12 @@ public static class CardMetrics
 
     public const double DefaultWidth = 228;
 
-    /// <summary>絵の下の文字と札の欄（今までの 336 − 200）。大きさを変えても文字の量は変わらないので固定。</summary>
-    private const double TextAreaHeight = 136;
+    /// <summary>
+    /// 絵の下の文字と札の欄。大きさを変えても文字の量は変わらないので固定。
+    /// 前は 136（336 − 200）で、ユーザータグの札1段だった。札をユーザータグ・属性の2段と払った額・対応の1行にした（2026-10-04・案A）
+    /// ので 22 足す。値の無い商品でも同じ高さにし、一覧の段を揃える
+    /// </summary>
+    private const double TextAreaHeight = 158;
 
     /// <summary>
     /// 絵の枠の高さは幅からこれを引いた値。前の3段（180→150・228→200・300→270）がほぼこの差で、
@@ -49,7 +53,7 @@ public static class CardMetrics
     /// <summary>
     /// ショップ順の札のアイコンの一辺（メモ16-④）。幅の3割で、カードの大きさに合わせて伸び縮みする。
     /// 前は44の固定で、既定の幅（228）の札では小さかった。3割にしたのは、いちばん狭い幅（160）でもショップ名が
-    /// 折り返せる高さが残る大きさのため（札の高さ268に対して、アイコン48・種類と件数の行・名前3行が入る）
+    /// 折り返せる高さが残る大きさのため（札の高さ290に対して、アイコン48・種類と件数の行・名前3行が入る）
     /// </summary>
     public static double ShopIconSize => ShopIconSizeFor(Width);
 

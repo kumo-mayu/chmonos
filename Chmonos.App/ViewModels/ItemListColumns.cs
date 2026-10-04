@@ -110,6 +110,32 @@ public sealed class ItemListColumns : ViewModelBase
         set => Set("chips", value);
     }
 
+    // ---- 検索だけの列（ユーザ判断 2026-10-04・案C：ユーザータグ・属性・払った額・対応）。ほかの画面は列ごと持たない（SearchItemListGridView） ----
+
+    public double TagsWidth
+    {
+        get => Get("tags");
+        set => Set("tags", value);
+    }
+
+    public double AttributesWidth
+    {
+        get => Get("attrs");
+        set => Set("attrs", value);
+    }
+
+    public double PaidWidth
+    {
+        get => Get("paid");
+        set => Set("paid", value);
+    }
+
+    public double AvatarsWidth
+    {
+        get => Get("avatars");
+        set => Set("avatars", value);
+    }
+
     private double Get(string column) => _widths.Get($"{_screen}.col.{column}");
 
     private void Set(string column, double value, [System.Runtime.CompilerServices.CallerMemberName] string? property = null)

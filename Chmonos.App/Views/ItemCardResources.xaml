@@ -279,6 +279,58 @@
     </Style>
 
 
+    <!--
+        乗せたとき・キーボードで止まったときに絵の上に重ねる中身（案C・CardPeek）。行の高さは決め打ち——
+        絵の枠に入る棒の数を ViewModel の側で数えている（CardPeek の定数と揃える）。入らない分は「ほか n 件」
+    -->
+    <DataTemplate x:Key="CardPeekTemplate">
+        <Border Background="{DynamicResource PeekBack}" Padding="10,8">
+            <StackPanel>
+                <StackPanel Visibility="{Binding HasTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="ユーザータグ" FontSize="10" Height="14" Foreground="{DynamicResource PeekLabel}" />
+                    <TextBlock Text="{Binding TagsText}" FontSize="11" Foreground="{DynamicResource OnImage}" TextWrapping="Wrap"
+                               LineHeight="15" LineStackingStrategy="BlockLineHeight" MaxHeight="30" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Margin="0,6,0,0" Visibility="{Binding HasBars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="属性" FontSize="10" Height="14" Foreground="{DynamicResource PeekLabel}" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Bars}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Height="15">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="26" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Name}" FontSize="10.5" Foreground="{DynamicResource OnImage}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <Border Grid.Column="1" Width="{Binding TrackWidth}" Height="5" CornerRadius="2.5" Background="{DynamicResource PeekTrack}" VerticalAlignment="Center">
+                                        <Border Width="{Binding BarWidth}" HorizontalAlignment="Left" CornerRadius="2.5" Background="{DynamicResource PeekBar}" />
+                                    </Border>
+                                    <TextBlock Grid.Column="2" Text="{Binding ValueText}" FontSize="10" Foreground="{DynamicResource OnImage}"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </controls:ContentItemsControl>
+                    <TextBlock Text="{Binding MoreText}" FontSize="10" Height="15" Foreground="{DynamicResource PeekLabel}"
+                               Visibility="{Binding HasMore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="15" Margin="0,6,0,0"
+                            Visibility="{Binding HasMeta, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock FontSize="10.5" Margin="0,0,12,0" VerticalAlignment="Center"
+                               Visibility="{Binding HasPaid, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Run Text="払った額" Foreground="{DynamicResource PeekLabel}" /><Run Text=" " /><Run Text="{Binding PaidText, Mode=OneWay}" Foreground="{DynamicResource OnImage}" />
+                    </TextBlock>
+                    <TextBlock FontSize="10.5" VerticalAlignment="Center"
+                               Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Run Text="対応" Foreground="{DynamicResource PeekLabel}" /><Run Text=" " /><Run Text="{Binding AvatarText, Mode=OneWay}" Foreground="{DynamicResource OnImage}" />
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
                             <DataTemplate x:Key="ItemCardTemplate">
                               <!--
                                   カードの中身は DeferredCardHost が、画面のスレッドが空いたときに4枚ずつ作る（U12・4回目・ユーザ判断）。
@@ -306,6 +358,7 @@
                                 <controls:ItemCardBorder Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
                                         Focusable="True" KeyDown="OnCardKeyDown" Invoked="OnCardInvoked" Loaded="OnCardLoaded" FocusVisualStyle="{StaticResource CardFocusVisual}"
+                                        MouseEnter="OnCardMouseEnter" MouseLeave="OnCardMouseLeave" GotKeyboardFocus="OnCardFocusChanged" LostKeyboardFocus="OnCardFocusChanged"
                                         ClipToBounds="True"
                                         AutomationProperties.AutomationId="ItemCard"
                                         AutomationProperties.Name="{Binding Name}"
@@ -333,6 +386,15 @@
                                                 入れ物は止まらない（点検 2026-10-01）。ContentControl は既定でフォーカスを受けるので、選んでいる最中は
                                                 全部のカードに名前の無い止まりが1つずつ増え、カードの並びの → がそこへ移ってフォーカスが見えなくなった
                                             -->
+                                            <!--
+                                                乗せたとき（名前の欄）・キーボードで止まったときだけ、絵の上にタグ・属性・額・対応を重ねる（ユーザ判断 2026-10-04：案C）。
+                                                畳んでいる間は型を当てないので、数千枚のカードに重ねの部品は作られない（出すときに初めて作る）。
+                                                選ぶ印と「中を見る」（下の CardOverlay）はこの上に出す
+                                            -->
+                                            <ContentControl Content="{Binding Peek}" ContentTemplate="{StaticResource CardPeekTemplate}"
+                                                            Focusable="False" IsHitTestVisible="False"
+                                                            Visibility="{Binding IsPeeking, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
                                             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource CardOverlay}"
                                                             Style="{StaticResource CardOverlayHost}" Focusable="False" />
 
@@ -395,26 +457,21 @@
                                                            TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                                            TextTrimming="CharacterEllipsis" />
-                                                <!-- 未所持の襷（左下）と重ならないよう、そのときだけ右へ寄せる（ユーザ指摘 2026-09-20） -->
-                                                <WrapPanel>
-                                                    <WrapPanel.Style>
-                                                        <Style TargetType="WrapPanel">
-                                                            <Setter Property="Margin" Value="0,8,0,0" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsOwned}" Value="False">
-                                                                    <Setter Property="Margin" Value="46,8,0,0" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </WrapPanel.Style>
-                                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
-                                                            Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <!-- userTagが長くても2行に折り返さないよう、幅で切る。右下の星に重ならない幅にする -->
-                                                        <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="{DynamicResource AccentText}"
-                                                                   MaxWidth="130" TextTrimming="CharacterEllipsis" />
-                                                    </Border>
-                                                </WrapPanel>
+                                                <!--
+                                                    ユーザータグ・属性の札と、払った額・対応の数の1行（ユーザ判断 2026-10-04：案A）。
+                                                    中身はカードの幅で変わる（200 未満は札1枚・短い1行）ので、幅と組み直しの印に結んで CardInfo を受ける。
+                                                    札の段は高さを決め打ちにし、値の無い商品でも名前の欄の高さを変えない（一覧の段が揃う）。
+                                                    札は一覧の ItemsControl にせず決まった数の枠にする——カードは数千枚並ぶので、1枚の部品の数を増やさない
+                                                -->
+                                                <controls:CardInfoStrip Margin="0,6,0,0">
+                                                    <controls:CardInfoStrip.Info>
+                                                        <MultiBinding Converter="{x:Static vm:CardInfoForWidthConverter.Instance}">
+                                                            <Binding />
+                                                            <Binding Path="InfoVersion" />
+                                                            <Binding Path="Width" RelativeSource="{RelativeSource AncestorType=controls:ItemCardBorder}" />
+                                                        </MultiBinding>
+                                                    </controls:CardInfoStrip.Info>
+                                                </controls:CardInfoStrip>
                                             </StackPanel>
                                             <!-- 背景を塗るのは、星の字の隙間でも押せるようにするため -->
                                             <!--
@@ -1004,6 +1061,33 @@
     </DataTemplate>
 
     <!--
+        検索のリストだけの列（ユーザ判断 2026-10-04・案C）：ユーザータグ・属性（設定で選んだ物）・払った額・対応の数。
+        中身はカードの札と同じ CardInfo（幅で変えない ListInfo）。切れた分は吹き出しで全文
+    -->
+    <DataTemplate x:Key="ItemListTagsCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+            <TextBlock Text="{Binding ListInfo.TagsLine}" FontSize="11.5" Foreground="{DynamicResource AccentText}" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip="{Binding ListInfo.TagsLine}" ToolTipService.IsEnabled="{Binding ListInfo.HasTag1}" />
+        </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="ItemListAttributesCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+            <TextBlock Text="{Binding ListInfo.AttributesLine}" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip="{Binding ListInfo.AttributesLine}" ToolTipService.IsEnabled="{Binding ListInfo.HasAttribute1}" />
+        </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="ItemListPaidCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+            <TextBlock Text="{Binding ListInfo.PaidText}" FontSize="11.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="ItemListAvatarsCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
+            <TextBlock Text="{Binding ListInfo.AvatarText}" FontSize="11.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Border>
+    </DataTemplate>
+
+    <!--
         リストの列。幅は入れ物の画面の ListColumns に結び、見出しの境目のドラッグで全部の行が同じ幅で変わる。
         1つの GridView は1つの一覧にしか付けられないので、使うたびに作る（x:Shared="False"）
     -->
@@ -1012,6 +1096,24 @@
         <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListIconCell}" />
         <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListFavCell}" />
         <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListNameCell}" />
+        <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}"
+                        CellTemplate="{StaticResource ItemListShopCell}" />
+        <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListChipsCell}" />
+    </GridView>
+
+    <!--
+        検索のリストの列。ほかの画面（フォルダ・ショップ）の列は変えない——足した4列はカードを作らずに中身を比べるための物で、
+        狭い右の欄（フォルダ）では横に送るだけになる。足した列は名前の直後に置く（幅 1280 の窓で送らずに見える所）
+    -->
+    <GridView x:Key="SearchItemListGridView" x:Shared="False" AllowsColumnReorder="False">
+        <GridViewColumn Width="{Binding ListColumns.SelectWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListSelectCell}" />
+        <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListIconCell}" />
+        <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListFavCell}" />
+        <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListNameCell}" />
+        <GridViewColumn Header="ユーザータグ" Width="{Binding ListColumns.TagsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListTagsCell}" />
+        <GridViewColumn Header="属性" Width="{Binding ListColumns.AttributesWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListAttributesCell}" />
+        <GridViewColumn Header="払った額" Width="{Binding ListColumns.PaidWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListPaidCell}" />
+        <GridViewColumn Header="対応" Width="{Binding ListColumns.AvatarsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListAvatarsCell}" />
         <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}"
                         CellTemplate="{StaticResource ItemListShopCell}" />
         <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListChipsCell}" />

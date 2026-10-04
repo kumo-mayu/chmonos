@@ -46,7 +46,7 @@ public sealed partial class SearchViewModel
     /// そのまま作るとその後に付けた星などが古いまま出る（ユーザ指摘 2026-09-14）
     /// </remarks>
     public ItemCardViewModel CreateCard(ItemRecord item)
-        => ToCard(_allItems.Find(current => current.Id == item.Id) ?? item);
+        => ToCard(_allItems.Find(current => current.Id == item.Id) ?? item, _plainCardInfo);
 
     /// <summary>
     /// 右クリックのメニューが渡してきた行を、カードとして受け取る。

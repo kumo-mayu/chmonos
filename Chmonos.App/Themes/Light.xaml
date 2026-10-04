@@ -139,6 +139,11 @@
     <!-- 絵の上の件数の丸 -->
     <SolidColorBrush x:Key="ImageScrim" Color="#99000000" />
     <!-- 絵の上の「削除済」 -->
+    <!-- カードの絵の上に重ねる中身（乗せたとき・キーボードで止まったとき）。絵の色に負けないよう濃く、どちらの表でも同じ -->
+    <SolidColorBrush x:Key="PeekBack" Color="#e8181c22" />
+    <SolidColorBrush x:Key="PeekLabel" Color="#b8ffffff" />
+    <SolidColorBrush x:Key="PeekTrack" Color="#40ffffff" />
+    <SolidColorBrush x:Key="PeekBar" Color="#8ab8ff" />
     <SolidColorBrush x:Key="ImageScrimLight" Color="#66000000" />
     <!-- 絵の左右の送る帯に乗せたとき -->
     <SolidColorBrush x:Key="ImageHoverShade" Color="#2b000000" />

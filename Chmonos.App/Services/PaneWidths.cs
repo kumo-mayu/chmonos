@@ -52,7 +52,13 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         // 画面ごと（検索・フォルダビュー）に覚える。名前は長い物が多いので広く、札は「見つからない・未編集・所持」が並ぶ幅
         ["search.col.select"] = new(36, 28, 60),
         ["search.col.fav"] = new(36, 28, 60),
-        ["search.col.name"] = new(460, 160, 1000),
+        // 検索だけはユーザータグ・属性・払った額・対応の列も持つ（ユーザ判断 2026-10-04・案C）。足した列が幅 1280 の窓で
+        // 横に送らずに見えるよう、名前を 460 → 280 に詰め、足した列を名前の直後に置く（ショップと状態は後ろへ）
+        ["search.col.name"] = new(280, 160, 1000),
+        ["search.col.tags"] = new(160, 80, 500),
+        ["search.col.attrs"] = new(160, 80, 500),
+        ["search.col.paid"] = new(76, 56, 160),
+        ["search.col.avatars"] = new(56, 44, 120),
         ["search.col.shop"] = new(200, 80, 500),
         ["search.col.chips"] = new(220, 100, 420),
         ["folder.col.select"] = new(36, 28, 60),

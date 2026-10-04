@@ -35,6 +35,8 @@ public sealed partial class SearchViewModel
 
     private void ApplyFilters()
     {
+        RefreshCardInfo();
+
         // 足跡は1回だけ読んで、この絞り込みの間は使い回す。
         // 1商品ごとに読み直すと、件数に比例してファイルを開くことになる
         _recentTimes = NeedsRecent() ? LoadRecentTimes() : null;
@@ -386,13 +388,15 @@ public sealed partial class SearchViewModel
         };
     }
 
-    internal ItemCardViewModel ToCard(ItemRecord item)
+    /// <param name="info">札の決め方。検索の一覧のカード（既定）は並べ替えの属性を先に出し、ほかの画面へ渡すカードは <see cref="_plainCardInfo"/>。</param>
+    internal ItemCardViewModel ToCard(ItemRecord item, CardInfoContext? info = null)
         => ToCard(
             item,
             _main?.IsImporting == true
                 && _services.Settings.SaveImages
                 && item.Booth.Images.Count > 0
-                && !_thumbnails.ListFiles(_services.Paths.ItemImagesDir(item.Id)).Any());
+                && !_thumbnails.ListFiles(_services.Paths.ItemImagesDir(item.Id)).Any(),
+            info);
 
     /// <summary>
     /// 読み直しで前のカードをそのまま使えるか。記録が同じでも、カードは記録の外の値
@@ -401,11 +405,10 @@ public sealed partial class SearchViewModel
     private bool CardStillFits(ItemCardViewModel card, ItemRecord item, bool imagePending)
         => card.IsAwaitingDetection == (_main?.IsAwaitingDetection(item.Id) == true)
            && card.IsImagePending == imagePending
-           && card.ThumbnailRole == _services.Settings.ThumbnailRole
-           && card.UserTagText == ItemCardViewModel.UserTagLine(item.Local.UserTags, _services.Settings.ShowSubTagsInList);
+           && card.ThumbnailRole == _services.Settings.ThumbnailRole;
 
     /// <param name="imagePending">取り込みの途中で、絵がまだ1枚も無いか。フォルダを見るのは呼び手（読み直しは裏でまとめて見る）。</param>
-    private ItemCardViewModel ToCard(ItemRecord item, bool imagePending)
+    private ItemCardViewModel ToCard(ItemRecord item, bool imagePending, CardInfoContext? info = null)
     {
         // 取り込みの③がまだの商品は「未編集」ではなく「取り込み中」と出す（U8・U10）
         var awaiting = _main?.IsAwaitingDetection(item.Id) == true;
@@ -426,7 +429,37 @@ public sealed partial class SearchViewModel
             // 画像を保存しない設定では絵は来ないので、「取得中」と言うと嘘になる
             IsImagePending = imagePending,
             HasMissingFile = item.HasMissingFile,
-            UserTagText = ItemCardViewModel.UserTagLine(item.Local.UserTags, _services.Settings.ShowSubTagsInList),
+            InfoContext = info ?? _cardInfo,
         };
+    }
+
+    /// <summary>
+    /// 検索の一覧のカードの札の決め方（並べ替えに属性を使っているときは、その属性を先に出す）。
+    /// カードは使い回すので、カードごとに写さず1つを指させ、変わったら知らせる
+    /// </summary>
+    private readonly CardInfoContext _cardInfo = new();
+
+    /// <summary>ほかの画面（フォルダの右・アバター・タグと属性の管理など）へ渡すカードの札の決め方。検索の並べ替えは持ち込まない。</summary>
+    private readonly CardInfoContext _plainCardInfo = new();
+
+    /// <summary>ほかの画面が自分で作るカード（ショップの中）に渡す札の決め方。</summary>
+    internal CardInfoContext PlainCardInfo => _plainCardInfo;
+
+    /// <summary>
+    /// 札の決め方を今の設定・属性の並び・並べ替えに合わせる。絞り込みのたびに呼ぶ（並べ替え・読み直し・設定の後はどれも絞り込み直す）。
+    /// 前と同じなら何もしない（打つたびに数千枚へ知らせない）
+    /// </summary>
+    private void RefreshCardInfo()
+    {
+        var settings = _services.Settings;
+        var sortAttribute = _sort.Kind == SortKind.Attribute ? _sort.AttributeName : null;
+        _plainCardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, null, settings.ShowSubTagsInList));
+        if (_cardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, sortAttribute, settings.ShowSubTagsInList)))
+        {
+            foreach (var card in _cards.Values)
+            {
+                card.NoteInfoChanged();
+            }
+        }
     }
 }
