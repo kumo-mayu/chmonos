@@ -9,7 +9,7 @@ description: 変更を仕上げる（ビルド・テスト・文書の更新・�
 
 ```powershell
 dotnet build 2>&1 | Select-Object -Last 4          # 警告 0・エラー 0 を見る
-dotnet test --nologo 2>&1 | Select-String '合計:|失敗 '   # 3つの一式（本体・zip の読み取り・ID の特定）の件数と失敗
+dotnet test --nologo 2>&1 | Select-String '合計:|失敗 '   # 4つの一式（Core・App・zip の読み取り・ID の特定）の件数と失敗
 ```
 
 出力を丸ごと出さない（文脈を食う）。失敗したときだけ `Select-String 'error|失敗|Failed'` で該当の行を見る。
