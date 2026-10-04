@@ -110,6 +110,40 @@ public class SearchMissingFileTests
         Assert.Equal(["1000002"], ShownIds(main.Search));
     });
 
+    /// <summary>
+    /// 取り込みが「無い」と見て記録したフォルダ（<see cref="LocalFolderRecord.MissingSince"/>・ユーザ判断 2026-10-04）も、印と条件に当たる。
+    /// 決めるのは記録だけ——記録に無ければ、ディスクにそのフォルダが無くても数えない（打つたびにディスクを見に行かない）。
+    /// </summary>
+    [Fact]
+    public Task 見つからなくなったと記録したフォルダも_印と条件に当たる() => TestApp.Run(async app =>
+    {
+        static ItemRecord WithFolder(string id, string name, DateTimeOffset? missingSince)
+        {
+            var item = Make.Item(id, name).WithFiles();
+            return item with
+            {
+                Local = item.Local with
+                {
+                    LocalFolders = [new LocalFolderRecord { Path = $@"D:\folders\{id}", MissingSince = missingSince }],
+                },
+            };
+        }
+
+        await app.AddItemAsync(WithFolder("1000011", "無くなったフォルダの商品", DateTimeOffset.UnixEpoch));
+        await app.AddItemAsync(WithFolder("1000012", "フォルダの商品", null));
+        var search = (await app.StartAsync()).Search;
+        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.MissingFile);
+
+        Pick(module, "both");
+        Assert.Equal(["1000011"], search.ListItems.Where(card => card.HasMissingFile).Select(card => card.Item.Id));
+
+        Pick(module, "missing");
+        Assert.Equal(["1000011"], ShownIds(search));
+
+        Pick(module, "none");
+        Assert.Equal(["1000012"], ShownIds(search));
+    });
+
     [Fact]
     public void 条件は壊れたzipのすぐ後に出る()
     {

@@ -775,17 +775,35 @@ public sealed class ImportPipeline : IImportPipeline
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
             var measured = new Dictionary<string, (int Count, long Bytes)>(StringComparer.OrdinalIgnoreCase);
+
+            // 「無い」と見たフォルダと、また見つかったフォルダ（LocalFolderRecord.MissingSince・ユーザ判断 2026-10-04）
+            var missingNow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenAgain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var changed = false;
 
             foreach (var folder in item.Local.LocalFolders)
             {
                 if (!Directory.Exists(folder.Path))
                 {
-                    // 見つからないものは登録として残すが、スキャンの除外には使わない
+                    // 見つからないものは登録として残すが、スキャンの除外には使わない。
+                    // 無いことは記録に残す。ただしドライブごと見えない（外付けを外している）ときは「無い」と書かない
+                    // （ファイルの取り込みが外付けの上の場所を残すのと同じ。LocalFileMerger）
+                    if (folder.MissingSince is null && !UnresolvedMerge.IsOnMissingVolume(folder.Path))
+                    {
+                        missingNow.Add(folder.Path);
+                        changed = true;
+                    }
+
                     continue;
                 }
 
                 paths.Add(folder.Path);
+                if (folder.MissingSince is not null)
+                {
+                    seenAgain.Add(folder.Path);
+                    changed = true;
+                }
+
                 if (!remeasure)
                 {
                     continue;
@@ -810,7 +828,9 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 // 全件を先に読んでから、フォルダを1つずつ測って回る。測るのに時間がかかるので、
                 // 書く頃には写しが古い。**測った値を今の一覧に当てる**（古い写しで丸ごと書き戻すと、
-                // 測っている間に人がフォルダを外した・ファイルに種類を付けた操作が消える）
+                // 測っている間に人がフォルダを外した・ファイルに種類を付けた操作が消える）。
+                // 見つからなくなった日時も同じく今の値に当てる（無い間は最初に見た日時を残す）
+                var now = DateTimeOffset.Now;
                 await _store.Items.ChangeLocalAsync(
                     item.Id,
                     current => current with
@@ -821,9 +841,14 @@ public sealed class ImportPipeline : IImportPipeline
                                 {
                                     FileCount = size.Count,
                                     TotalBytes = size.Bytes,
-                                    LastSeenAt = DateTimeOffset.Now,
+                                    LastSeenAt = now,
+                                    MissingSince = null,
                                 }
-                                : folder)],
+                                : seenAgain.Contains(folder.Path)
+                                    ? folder with { LastSeenAt = now, MissingSince = null }
+                                    : missingNow.Contains(folder.Path) && folder.MissingSince is null
+                                        ? folder with { MissingSince = now }
+                                        : folder)],
                     },
                     LocalOwners.Import,
                     cancellationToken);

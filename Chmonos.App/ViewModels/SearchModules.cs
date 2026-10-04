@@ -177,7 +177,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
-        new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルがある商品で絞ります。"),
+        new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルやフォルダがある商品で絞ります。"),
         new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、要確認でまだ読んでいない商品で絞ります。"),
     ];
 
