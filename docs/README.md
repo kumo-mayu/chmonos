@@ -50,12 +50,15 @@
 | [unity.md](spec/unity.md) | Unity への受け渡し（窓を名指しして送る・連続送り・入り先・プロジェクトタブ・VCC） |
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |
 | [ui-rules.md](spec/ui-rules.md) | ナビ、並べ替えの出し方、窓と画面の状態、画面の幅、ドロップ、キー |
+| [notifications.md](spec/notifications.md) | 通知の画面（旧「要確認」）：束8つ・行・既読と解消済み・形式の変化の帯 |
+| [shops.md](spec/shops.md) | ショップの中：バナーの畳み・1本のスクロール・1行の見出しとメモ・一覧の仮想化・戻る進むでの位置の戻し |
 | [ui-colors.md](spec/ui-colors.md) | 色の表（明るい・暗い）の鍵と役割、色を直に書かない決まり、表示の色の切り替え、暗い表のコントラスト、標準の部品の見た目 |
 | [ui-writing.md](spec/ui-writing.md) | 画面の文言の書き方（1つの文言に載せるもの・長さ・要素ごとの型・正確さを落とさない） |
 | [ui-terms.md](spec/ui-terms.md) | 画面の用語表（内部の言葉・同じ操作の動詞・使わない語・揃える表記・まだ決めていない揺れ）。`tools/wording.mjs` が読む |
 | [ui-dialogs.md](spec/ui-dialogs.md) | 別の窓（ダイアログ）の Enter・Esc、ボタンの並びと名前、取り返しの一文、確認と失敗のアイコン |
-| [ui-input.md](spec/ui-input.md) | 候補の付け方、Enter で決める範囲、名前の変え方、メモの保存、編集画面の保存の分かれ方 |
-| [ui-empty-and-errors.md](spec/ui-empty-and-errors.md) | 空の表示の3通りの書き分け、押せない理由の表示、知らせずに捨てない失敗、エラーの型、利用者に見せない文 |
+| [ui-input.md](spec/ui-input.md) | 候補の付け方、Enter で決める範囲、名前の変え方、メモの保存、編集画面の保存の分かれ方、右クリックのメニュー、読み上げの名前 |
+| [ui-keyboard.md](spec/ui-keyboard.md) | キーの割り当て（Ctrl+F・Ctrl+Enter・Alt+矢印など）、キーボードだけで進める決まり（並び・止まり直し・条件の2段の止まり・乗せたときだけ出すボタン） |
+| [ui-empty-and-errors.md](spec/ui-empty-and-errors.md) | 空の表示の3通りの書き分け、押せない理由の表示、知らせずに捨てない失敗、エラーの型、利用者に見せない文、知らせの置き場の共通の決まり |
 | [tags.md](spec/tags.md) | タグの管理・属性の管理（大分類／小分類、名前の変更・統合・削除、並べ方、小分類の中を探す、メモ） |
 
 ## history（経緯）
