@@ -26,13 +26,13 @@ public class SearchOutlierTests
     }
 
     [Fact]
-    public void BOOTHの価格では外れ値を数と境で言う()
+    public void BOOTHの価格では外れ値の境だけを言う()
     {
         var module = Price("paid");
         module.Source = module.Sources[1];
 
         Assert.True(module.OutliersApply);
-        Assert.Equal("外れ値を無視（桁違いに高い1個・5,000円以上）", module.OutlierLabel);
+        Assert.Equal("外れ値を無視（5,000円以上を異常値として弾く）", module.OutlierLabel);
         Assert.Equal(1000, (int)module.SliderMaximum);
     }
 
@@ -61,6 +61,16 @@ public class SearchOutlierTests
         Assert.Contains(nameof(RangeModule.OutliersApply), changed);
         Assert.True(module.OutliersApply);
         Assert.Equal(1000, (int)module.SliderMaximum);
+    }
+
+    [Fact]
+    public void 外れ値が無くても境の値の説明を出す()
+    {
+        var module = Price(null);
+        module.AllValuesOf = _ => [.. Enumerable.Repeat(1000, 20)];
+        module.RefreshBounds();
+
+        Assert.Equal("外れ値を無視（5,000円以上を異常値として弾く）", module.OutlierLabel);
     }
 
     [Fact]

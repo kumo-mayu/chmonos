@@ -77,14 +77,7 @@
         <MenuItem Header="既読にする" Command="{Binding MarkUpdateReadCommand}" AutomationProperties.AutomationId="CardMenu.MarkUpdateRead"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=MarkUpdateRead}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=MarkUpdateRead}" />
-        <!--
-            選んでいる最中は、選んだ物のうち未読の更新がある商品をまとめて既読にする（帯の「既読にする」と同じ。ユーザ判断 2026-10-02）。
-            選んだ物に未読の更新がある画面（入れ物が HasSelectedUpdates を持つ検索・フォルダの右・ショップの中）でだけ押せる
-        -->
-        <MenuItem Header="選んだ商品を既読にする" AutomationProperties.AutomationId="CardMenu.MarkSelectionRead"
-                  Command="{Binding PlacementTarget.Tag.MarkSelectionReadCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                  IsEnabled="{Binding PlacementTarget.Tag.HasSelectedUpdates, RelativeSource={RelativeSource AncestorType=ContextMenu}, FallbackValue=False}"
-                  ToolTip="選んだ商品に未読の更新の通知があるときに押せます" />
+        <!-- 選んだ商品をまとめて既読にするのは、複数選んだときの下の帯の「既読にする」だけ（メモ33-①：右クリックには置かない） -->
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
