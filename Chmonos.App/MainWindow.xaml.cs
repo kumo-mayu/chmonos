@@ -333,18 +333,16 @@ public partial class MainWindow : Window
             return false;
         }
 
-        // スライダー（編集画面の属性）の左右は値を動かすキー。横取りすると、止まっても値が動かなかった（点検 2026-09-23）
-        if (System.Windows.Input.Keyboard.FocusedElement
-            is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox or System.Windows.Controls.Slider)
+        // 入力欄・スライダー・並びの中では、その部品の左右（カーソル・値・並びの中を移る）。リンクの上では何もしない（メモ27-③）。
+        // 窓がここで先に受けるので、決め事は1か所（GalleryArrows）に置き、試験で確かめる
+        switch (Services.GalleryArrows.For(System.Windows.Input.Keyboard.FocusedElement))
         {
-            return false;
-        }
+            case Services.GalleryArrow.Yield:
+                return false;
 
-        // 並び（対応アバターの札・ローカルファイルの行など）の中の左右は、並びの中を移るキー（ユーザ判断 2026-10-01）。
-        // 窓がここで先に受けると、札に止まって → を押しても絵が送られるだけで、札から動けない
-        if (Controls.ArrowGroup.OwnsArrows(System.Windows.Input.Keyboard.FocusedElement as DependencyObject))
-        {
-            return false;
+            case Services.GalleryArrow.Swallow:
+                e.Handled = true;
+                return true;
         }
 
         var command = e.Key == System.Windows.Input.Key.Left ? previous : next;
@@ -352,7 +350,8 @@ public partial class MainWindow : Window
         if (!command.CanExecute(null))
         {
             // 端では何もしないが、受け取ったことにする。
-            // 他の場所へ左右が流れて画面が動くのを防ぐ
+            // 他の場所へ左右が流れて画面が動くのを防ぐ（前は受けた印を立てておらず、近い部品へ移っていた）
+            e.Handled = true;
             return true;
         }
 
