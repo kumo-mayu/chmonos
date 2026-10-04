@@ -54,8 +54,16 @@ public sealed partial class ResolveViewModel
         set => SingleFileOnly = !value;
     }
 
-    /// <summary>元のzipが今もディスクにある中身を選んでいる。帯の右端の「元zipとして扱う」を出す。</summary>
-    public bool HasOriginZipChoice => !HasChecked && Selected is { HasOriginZip: true, IsExpandedContent: true };
+    /// <summary>
+    /// 元のzipが今もディスクにあり、未確定の一覧にも載っている中身を選んでいる。帯の右端の「元zipとして扱う」を出す。
+    /// 一覧に無いと押しても選ぶ先が無いので、ボタンは出さず帯の文で言う（<see cref="IsOriginZipUnlisted"/>。ユーザ 2026-10-04 メモ30）。
+    /// </summary>
+    public bool HasOriginZipChoice => !HasChecked && Selected is { HasOriginZip: true, IsExpandedContent: true } row && IsZipListed(row);
+
+    /// <summary>元のzipはディスクにあるが、未確定の一覧に無い中身を選んでいる（既に商品に結び付いている・取り込んでいない）。</summary>
+    public bool IsOriginZipUnlisted => !HasChecked && Selected is { HasOriginZip: true, IsExpandedContent: true } row && !IsZipListed(row);
+
+    private static string OriginZipUnlistedText(string archiveName) => $"展開元のzip「{archiveName}」は未確定にありません。";
 
     public bool IsCheckedTarget => HasChecked;
 
@@ -132,7 +140,9 @@ public sealed partial class ResolveViewModel
         ? OriginZipNote
         : IsTargetBlocked
             ? BlockedByZipText
-            : IsEmbedded ? ListNoticeText : string.Empty;
+            : IsOriginZipUnlisted && Selected?.Origin is { } origin
+                ? OriginZipUnlistedText(origin.ArchiveName)
+                : IsEmbedded ? ListNoticeText : string.Empty;
 
     /// <summary>帯の3行目を注意の色で出すか（登録できない理由・元のzipが無い）。一覧の結果はふつうの色。</summary>
     public bool IsBandNoticeWarning => OriginZipNote.Length > 0 || IsTargetBlocked;
@@ -160,7 +170,7 @@ public sealed partial class ResolveViewModel
         foreach (var name in new[]
         {
             nameof(TargetText), nameof(TargetToolTip), nameof(HasUnitChoice), nameof(UnitChoiceText), nameof(IsUnitTarget),
-            nameof(HasOriginZipChoice), nameof(IsCheckedTarget), nameof(IsSingleRowTarget), nameof(IsTargetBlocked),
+            nameof(HasOriginZipChoice), nameof(IsOriginZipUnlisted), nameof(IsCheckedTarget), nameof(IsSingleRowTarget), nameof(IsTargetBlocked),
             nameof(BandNoticeText), nameof(IsBandNoticeWarning), nameof(AssignOutcomeText),
         })
         {

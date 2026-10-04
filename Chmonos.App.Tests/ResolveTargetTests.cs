@@ -163,19 +163,20 @@ public class ResolveTargetTests
             Unresolved(app.NewFile(@"unpacked\costume_set\costume.unitypackage"), zip),
             Unresolved(app.NewFile(@"unpacked\costume_set\costume.psd"), zip));
         resolve.Selected = Row(resolve, "costume.psd");
+
+        // ボタンは出さない（押しても選ぶ先が無い）。帯の文で言う
+        Assert.False(resolve.HasOriginZipChoice);
+        Assert.True(resolve.IsOriginZipUnlisted);
+        Assert.Equal("展開元のzip「costume_set.zip」は未確定にありません。", resolve.BandNoticeText);
         var sent = 0;
         resolve.DecisionFocusRequested += () => sent++;
 
         resolve.UseOriginZipCommand.Execute(null);
 
-        Assert.Equal("元のzip「costume_set.zip」は未確定にありません。取り込み画面にzipをドロップしてください。", resolve.BandNoticeText);
+        Assert.Equal("展開元のzip「costume_set.zip」は未確定にありません。", resolve.BandNoticeText);
         Assert.True(resolve.IsBandNoticeWarning);
         Assert.Equal(string.Empty, resolve.StatusText);
         Assert.Equal(0, sent);
-
-        // 選び直すと消える
-        resolve.Selected = Row(resolve, "costume.unitypackage");
-        Assert.Equal(string.Empty, resolve.BandNoticeText);
     });
 
     // ---- 各ボタンが今の対象に効く ----
