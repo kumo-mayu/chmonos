@@ -268,7 +268,26 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("resolve-target-checked", "未確定：一覧で3件にチェックを入れたときの右の欄", async context =>
+        new Scene("resolve-target-origin-unlisted", "未確定：元zipはディスクにあるが未確定の一覧に無い中身（束 3 件）。左の見出し・1行にも帯にも「元zipとして扱う」を出さず、帯は文だけ（ふつうの色）", async context =>
+        {
+            var zip = Fake.Zip(@"ダウンロード\costume_set_v2.zip", "costume.unitypackage", "costume_4k.psd", "readme.txt");
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.PlainFile(@"展開\costume_set_v2\costume.unitypackage"), originZip: zip),
+                Fake.Unresolved(Fake.PlainFile(@"展開\costume_set_v2\costume_4k.psd"), size: 310_000_000, originZip: zip),
+                Fake.Unresolved(Fake.PlainFile(@"展開\costume_set_v2\readme.txt"), size: 2_400, originZip: zip),
+                Fake.Unresolved(Fake.PlainFile(@"展開\single\one.unitypackage"), originZip: Fake.Zip(@"ダウンロード\single.zip", "one.unitypackage")),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 4);
+            screen.Selected = screen.Files.First(row => row.FileName == "costume.unitypackage");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-checked","未確定：一覧で3件にチェックを入れたときの右の欄", async context =>
         {
             await context.Seed.Unresolved.SaveAsync(
             [

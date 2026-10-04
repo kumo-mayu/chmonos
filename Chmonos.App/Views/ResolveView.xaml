@@ -324,7 +324,7 @@
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
                                                                             ToolTip="元のzipを選びます。zipを登録すると、中身は一覧から消えます。"
-                                                                            Visibility="{Binding Items[0].HasOriginZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                            Visibility="{Binding Items[0].CanTreatAsOriginZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
                                                                     <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="8,0,0,0"
@@ -454,7 +454,7 @@
                                                     <Style.Triggers>
                                                         <MultiDataTrigger>
                                                             <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding HasOriginZip}" Value="True" />
+                                                                <Condition Binding="{Binding CanTreatAsOriginZip}" Value="True" />
                                                                 <Condition Binding="{Binding DataContext.ItemCount, RelativeSource={RelativeSource AncestorType=GroupItem}}" Value="1" />
                                                             </MultiDataTrigger.Conditions>
                                                             <Setter Property="Visibility" Value="Visible" />

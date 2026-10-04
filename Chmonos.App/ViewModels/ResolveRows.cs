@@ -68,6 +68,27 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>展開した中身で、元のzipが今もディスクにあるか（zip自身の行は false）。あれば「元zipで登録」を出す。</summary>
     public bool HasOriginZip { get; init; }
 
+    private bool _isOriginZipListed;
+
+    /// <summary>
+    /// 元のzipの行が今の未確定の一覧にあるか。画面の側が一覧の増減のたびに引き直す（行は一覧を知らない）。
+    /// 一覧に無いと「元zipとして扱う」を押しても選ぶ先が無い。
+    /// </summary>
+    public bool IsOriginZipListed
+    {
+        get => _isOriginZipListed;
+        set
+        {
+            if (SetField(ref _isOriginZipListed, value))
+            {
+                OnPropertyChanged(nameof(CanTreatAsOriginZip));
+            }
+        }
+    }
+
+    /// <summary>左の一覧の「元zipとして扱う」を出すか。元のzipがディスクにあり、かつ未確定の一覧にもある。</summary>
+    public bool CanTreatAsOriginZip => HasOriginZip && _isOriginZipListed;
+
     /// <summary>zipを展開した中身（zip自身ではない）か。束にならず1行で出るときに「展開元」を添える。</summary>
     public bool IsExpandedContent => HasOrigin && !IsOriginArchive;
 

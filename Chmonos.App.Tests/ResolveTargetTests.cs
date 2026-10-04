@@ -135,6 +135,8 @@ public class ResolveTargetTests
         resolve.Selected = Row(resolve, "costume.psd");
         await PreviewAsync(app, resolve, "1000001");
 
+        // 左の一覧の「元zipとして扱う」も、元のzipが一覧にあるときだけ出す
+        Assert.True(Row(resolve, "costume.psd").CanTreatAsOriginZip);
         Assert.True(resolve.HasOriginZipChoice);
         Assert.True(resolve.IsTargetBlocked);
         Assert.Equal(resolve.BlockedByZipText, resolve.BandNoticeText);
@@ -165,6 +167,10 @@ public class ResolveTargetTests
         resolve.Selected = Row(resolve, "costume.psd");
 
         // ボタンは出さない（押しても選ぶ先が無い）。帯の文で言う
+        Assert.False(Row(resolve, "costume.psd").CanTreatAsOriginZip);
+        Assert.False(Row(resolve, "costume.unitypackage").CanTreatAsOriginZip);
+        // 一覧に無い旨の常時の文は注意の色にしない（押した答えの警告だけが注意の色）
+        Assert.False(resolve.IsBandNoticeWarning);
         Assert.False(resolve.HasOriginZipChoice);
         Assert.True(resolve.IsOriginZipUnlisted);
         Assert.Equal("展開元のzip「costume_set.zip」は未確定にありません。", resolve.BandNoticeText);

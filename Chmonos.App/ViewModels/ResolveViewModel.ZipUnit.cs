@@ -215,6 +215,17 @@ public sealed partial class ResolveViewModel
     /// </summary>
     public bool CanChooseSingleFile => Selected is { IsExpandedContent: true } or { IsArchiveContent: true };
 
+    /// <summary>各行に「元のzipが一覧にあるか」を持たせ直す。一覧が変わるたびに呼ぶ（束ごとに何十行もあり、行ごとに探すと重い）。</summary>
+    private void RefreshOriginZipListed()
+    {
+        var zipPaths = new HashSet<string>(
+            Files.Where(row => row.IsOriginArchive).Select(row => row.File.Paths[0]), StringComparer.OrdinalIgnoreCase);
+        foreach (var row in Files)
+        {
+            row.IsOriginZipListed = row.Origin is { } origin && zipPaths.Contains(origin.ArchivePath);
+        }
+    }
+
     private bool IsZipListed(UnresolvedRow row)
         => row.Origin is { } origin
            && Files.Any(other => other.IsOriginArchive
