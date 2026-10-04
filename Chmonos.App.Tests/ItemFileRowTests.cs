@@ -208,6 +208,71 @@ public class ItemFileRowTests
         Assert.False(row.CanReattach);
         Assert.Equal("「作り物の髪型」に紐付けてあるので戻せません。先にそちらから外してください。", row.ReattachTip);
     });
+    // ---- 「開く ▾」「Unity ▾」は出したまま、押せないときは理由を言う（ユーザ判断 2026-10-04）----
+
+    [Theory]
+    [InlineData(FilePresence.Present, true, "このファイルの開き方を選びます", "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。")]
+    [InlineData(FilePresence.Missing, false, "ファイルが見つかりません。", "ファイルが見つかりません。")]
+    [InlineData(FilePresence.OnDetachedDrive, false, "ドライブをつなぐと開けます。", "ドライブをつなぐと送れます。")]
+    public void 開くとUnityのボタンは_在るときだけ押せ_押せないときは理由を言う(
+        FilePresence presence, bool enabled, string openTip, string unityTip)
+    {
+        var row = Row([@"D:\files\sample.zip"], presence);
+        var package = new UnityPackageRow { Entry = new UnityPackageEntry(@"D:\files\sample.zip", "a.unitypackage", 1), FileRow = row };
+
+        Assert.Equal(enabled, row.CanReveal);
+        Assert.Equal(openTip, row.OpenMenuTip);
+        Assert.Equal(enabled, package.FileRow.CanReveal);
+        Assert.Equal(unityTip, package.FileRow.UnityMenuTip);
+    }
+
+    [Fact]
+    public void 場所が1つも無いファイルの開くは_押せず_見つからないと言う()
+    {
+        var row = Row([]);
+
+        Assert.False(row.CanReveal);
+        Assert.Equal("ファイルが見つかりません。", row.OpenMenuTip);
+    }
+
+    [Fact]
+    public void 在るかが後から分かると_開くの吹き出しも変わったと知らせる()
+    {
+        // 在るかは行を出した後で裏で確かめて付ける。知らせないと、押せないのに「開き方を選びます」が残る
+        var row = Row([@"D:\files\sample.zip"]);
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        row.Presence = FilePresence.Missing;
+
+        Assert.Contains(nameof(LocalFileRow.CanReveal), changed);
+        Assert.Contains(nameof(LocalFileRow.OpenMenuTip), changed);
+        Assert.Contains(nameof(LocalFileRow.UnityMenuTip), changed);
+    }
+
+    /// <summary>
+    /// 「開く ▾」は押せないときも消さない（行の形がいつも同じ）。押せるかは IsEnabled、理由は押せなくても出る吹き出し。
+    /// 部品を組んで測るには商品ページの見た目の資源が要るので、原文を読む（見た目は ViewShot の item-files-states）。
+    /// </summary>
+    [Theory]
+    [InlineData("ItemFileOpenMenu", "{Binding CanReveal}", "{Binding OpenMenuTip}")]
+    [InlineData("ItemPackageUnityMenu", "{Binding FileRow.CanReveal}", "{Binding FileRow.UnityMenuTip}")]
+    public void 開くとUnityのボタンは_隠さずに押せなくし_押せなくても吹き出しを出す(string automationId, string enabled, string tip)
+    {
+        var panel = System.Xml.Linq.XDocument.Load(FilesPanelPath());
+        var button = Assert.Single(panel.Descendants(), element =>
+            element.Name.LocalName == "Button"
+            && element.Attributes().Any(attribute => attribute.Name.LocalName == "AutomationProperties.AutomationId" && attribute.Value == automationId));
+
+        Assert.Null(button.Attribute("Visibility"));
+        Assert.Equal(enabled, button.Attribute("IsEnabled")?.Value);
+        Assert.Equal(tip, button.Attribute("ToolTip")?.Value);
+        Assert.Equal("True", button.Attributes().SingleOrDefault(attribute => attribute.Name.LocalName == "ToolTipService.ShowOnDisabled")?.Value);
+    }
+
+    private static string FilesPanelPath([System.Runtime.CompilerServices.CallerFilePath] string here = "")
+        => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(here)!, "..", "Chmonos.App", "Views", "ItemFilesPanel.xaml");
+
     // ---- 後から読んで付ける物 ----
 
     [Fact]

@@ -279,6 +279,12 @@ public sealed class UnityPackageRow : ViewModelBase
 
     public required Core.Services.UnityPackageEntry Entry { get; init; }
 
+    /// <summary>
+    /// この包みが入っているファイルの行。「Unity ▾」が押せるか・吹き出しは、ファイルが在るかで決まる
+    /// （中の一覧は記録から出るので、ファイルが見つからなくても包みの行は並ぶ）。
+    /// </summary>
+    public required LocalFileRow FileRow { get; init; }
+
     public string Name => Entry.Name;
 
     /// <summary>「Assets/〇〇 に入ります」。中を最後まで読むので、画面を出してから裏で埋まる。</summary>
@@ -339,6 +345,8 @@ public sealed class LocalFileRow : ViewModelBase
                 OnPropertyChanged(nameof(IsMissing));
                 OnPropertyChanged(nameof(IsOnDetachedDrive));
                 OnPropertyChanged(nameof(CanReveal));
+                OnPropertyChanged(nameof(OpenMenuTip));
+                OnPropertyChanged(nameof(UnityMenuTip));
                 OnPropertyChanged(nameof(PathToolTip));
                 OnPropertyChanged(nameof(ShowsBrokenArchive));
             }
@@ -364,6 +372,18 @@ public sealed class LocalFileRow : ViewModelBase
     public string? FirstPath => Paths.Count > 0 ? Paths[0] : null;
 
     public bool CanReveal => Paths.Count > 0 && Presence == Core.Services.FilePresence.Present;
+
+    // 「開く ▾」「Unity ▾」は押せないときも出したまま薄くし、吹き出しで理由を言う（ユーザ判断 2026-10-04。右クリックのメニューと同じ形）。
+    // 前はボタンごと消していて、見つからないファイルの行だけ形が変わり、なぜ無いのか分からなかった。
+    // 押せる条件は名前のリンクと同じ CanReveal（在る場所が1つ以上ある）
+
+    /// <summary>「開く ▾」の吹き出し。押せないときはその理由。</summary>
+    public string OpenMenuTip => CanReveal ? "このファイルの開き方を選びます" : IsOnDetachedDrive ? "ドライブをつなぐと開けます。" : "ファイルが見つかりません。";
+
+    /// <summary>この行の包みの「Unity ▾」の吹き出し。押せないときはその理由。</summary>
+    public string UnityMenuTip => CanReveal
+        ? "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。"
+        : IsOnDetachedDrive ? "ドライブをつなぐと送れます。" : "ファイルが見つかりません。";
 
     /// <summary>
     /// 名前に乗せたときに出す場所（ユーザ指示 2026-09-19：名前の下に場所の行が続くと、同じ名前が2回並んで読みにくい）。

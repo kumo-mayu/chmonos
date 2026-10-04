@@ -175,7 +175,7 @@ public sealed partial class ItemViewModel
                 ReattachTip = owner is null
                     ? "このファイルをこの商品に戻します。未確定からは消えます。"
                     : $"「{owner.DisplayName}」に紐付けてあるので戻せません。先にそちらから外してください。",
-                UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
+                UnityPackageRows = [],
             });
         }
 
@@ -274,7 +274,7 @@ public sealed partial class ItemViewModel
         var known = new Dictionary<UnityPackageRow, IReadOnlyList<string>>();
         for (var i = 0; i < rows.Count; i++)
         {
-            var packageRows = found[i].Select(place => (Place: place, Row: new UnityPackageRow { Entry = place.Entry })).ToList();
+            var packageRows = found[i].Select(place => (Place: place, Row: new UnityPackageRow { Entry = place.Entry, FileRow = rows[i] })).ToList();
             foreach (var (place, row) in packageRows)
             {
                 if (place.Roots is { } roots)
