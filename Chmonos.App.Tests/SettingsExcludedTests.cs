@@ -141,7 +141,8 @@ public class SettingsExcludedTests
         await app.SettleAsync();
         await UiThread.Until(() => settings.Excluded.Count == 2, "解除した行が消える");
 
-        Assert.Equal("除外を解除しました。次の取り込みでまた未確定として出てきます。", settings.Status);
+        Assert.Equal("除外を解除しました。次の取り込みでまた未確定として出てきます。", settings.ExcludedNote);
+        Assert.False(settings.HasStatus);
         Assert.Equal("2 件", settings.ExcludedText);
         Assert.Equal(["CCCC", "AAAA"], settings.Excluded.Select(row => row.Key));
 

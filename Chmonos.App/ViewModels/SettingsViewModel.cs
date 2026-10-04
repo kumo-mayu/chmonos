@@ -1,5 +1,6 @@
 using Chmonos.Core.Storage;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
@@ -36,6 +37,32 @@ public sealed class ProjectManagerOption : ViewModelBase
     public override string ToString() => Label;
 }
 
+/// <summary>
+/// 欄ごとの知らせ。欄の数だけプロパティを並べずに済むよう、欄の名前で引く（XAML は <c>Notes[欄の名前]</c> で束ねる）。
+/// 空は「知らせなし」（欄の下の1行は前もって場所を取ってあるので、出入りで下の物は動かない）。
+/// </summary>
+public sealed class FieldNotes : INotifyPropertyChanged
+{
+    private readonly Dictionary<string, string> _texts = [];
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string this[string field]
+    {
+        get => _texts.TryGetValue(field, out var text) ? text : string.Empty;
+        set
+        {
+            if (this[field] == value)
+            {
+                return;
+            }
+
+            _texts[field] = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
+        }
+    }
+}
+
 /// <summary>取り込み元フォルダの1行。</summary>
 /// <summary>ショートカット1件の割り当て（#43）。</summary>
 public sealed class ShortcutRow : ViewModelBase
@@ -51,6 +78,15 @@ public sealed class ShortcutRow : ViewModelBase
     public string DisplayText => Chmonos.App.Services.Shortcuts.Display(Gesture);
 
     public RelayCommand? ResetCommand { get; set; }
+
+    /// <summary>同じキーの別の行から割り当てを外したことを、この行の横に出す。</summary>
+    public string Note
+    {
+        get => _note;
+        set => SetField(ref _note, value);
+    }
+
+    private string _note = string.Empty;
 
     public void SetGesture(string gesture)
     {
@@ -106,6 +142,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     private bool _isLoading = true;
     private bool _suppressSave;
     private string _status = string.Empty;
+    private string _dataStatus = string.Empty;
     private StorageUsage? _usage;
 
     public SettingsViewModel(AppServiceContainer services, MainViewModel main)
@@ -125,12 +162,12 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _main.StoreJobEnded += OnStoreJobEnded;
         if (_main.StoreJob != StoreJobKind.None)
         {
-            _status = _main.StoreJobText;
+            _dataStatus = _main.StoreJobText;
         }
         else
         {
             var notice = _main.TakeStoreJobNotice();
-            _status = notice.Text;
+            _dataStatus = notice.Text;
             _exportedZip = notice.ExportedZip;
         }
 
@@ -207,7 +244,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
         else if (args.PropertyName == nameof(MainViewModel.StoreJobText) && _main.StoreJob != StoreJobKind.None)
         {
-            Status = _main.StoreJobText;
+            DataStatus = _main.StoreJobText;
         }
         else if (args.PropertyName == nameof(MainViewModel.LongJobBlockedNote))
         {
@@ -218,7 +255,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     private void OnStoreJobEnded(StoreJobOutcome result)
     {
-        Status = result.Text;
+        DataStatus = result.Text;
         SetExportedZip(result.ExportedZip);
     }
 
@@ -353,13 +390,26 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     public void AssignShortcut(ShortcutRow row, string gesture)
     {
+        // 前の知らせは今の操作と関係が無いので、どの行のも消す
+        foreach (var entry in ShortcutRows)
+        {
+            entry.Note = string.Empty;
+        }
+
         if (gesture.Length > 0)
         {
+            // 知らせは、いま割り当てた行の横に出す（外された行は離れた所にあり、目が向いていない）
+            var removed = new List<string>();
             foreach (var other in ShortcutRows.Where(entry => !ReferenceEquals(entry, row)
                          && string.Equals(entry.Gesture, gesture, StringComparison.OrdinalIgnoreCase)))
             {
                 other.SetGesture(string.Empty);
-                Status = $"同じキーだったので、「{other.Label}」の割り当てを外しました。";
+                removed.Add($"「{other.Label}」");
+            }
+
+            if (removed.Count > 0)
+            {
+                row.Note = $"同じキーだったので、{string.Join("", removed)}の割り当てを外しました。";
             }
         }
 
@@ -425,6 +475,10 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         private set => SetField(ref _isLoading, value);
     }
 
+    /// <summary>
+    /// 保存できなかったことだけを出す上の段の知らせ（どの欄の保存かは決まらないので、ここに残す。
+    /// notice-placement-2026-10-03.md）。ほかの操作の結果は、押した欄・ボタンの下に出す。
+    /// </summary>
     public string Status
     {
         get => _status;
@@ -433,14 +487,65 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             if (SetField(ref _status, value))
             {
                 OnPropertyChanged(nameof(HasStatus));
+            }
+        }
+    }
 
+    public bool HasStatus => Status.Length > 0;
+
+    /// <summary>
+    /// データの欄のボタン（書き出す・戻す・場所を変える・エクスプローラで開く）の下の1行。
+    /// 途中経過と結果、別の作業中で押せなかったこと、フォルダを開けなかったことをここへ出す。
+    /// </summary>
+    public string DataStatus
+    {
+        get => _dataStatus;
+        private set
+        {
+            if (SetField(ref _dataStatus, value))
+            {
                 // 1行が別の知らせに替わったら「エクスプローラで開く」も引っ込める（今の文と関係の無い口を残さない）
                 SetExportedZip(null);
             }
         }
     }
 
-    public bool HasStatus => Status.Length > 0;
+    /// <summary>「すべて元の幅に戻す」の下の知らせ。</summary>
+    public string PaneWidthNote
+    {
+        get => _paneWidthNote;
+        private set => SetField(ref _paneWidthNote, value);
+    }
+
+    private string _paneWidthNote = string.Empty;
+
+    /// <summary>数の欄の範囲を丸めた知らせ（欄の名前で引く。欄のすぐ下に出す）。</summary>
+    public FieldNotes Notes { get; } = new();
+
+    // 押した所ごと消える操作の結果は、その一覧の見出しの近くに出す（決まった事2）
+    public string HiddenNote
+    {
+        get => _hiddenNote;
+        private set => SetField(ref _hiddenNote, value);
+    }
+
+    private string _hiddenNote = string.Empty;
+
+    public string ExcludedNote
+    {
+        get => _excludedNote;
+        private set => SetField(ref _excludedNote, value);
+    }
+
+    private string _excludedNote = string.Empty;
+
+    public string DetachedNote
+    {
+        get => _detachedNote;
+        private set => SetField(ref _detachedNote, value);
+    }
+
+    private string _detachedNote = string.Empty;
 
     private string? _exportedZip;
 
@@ -721,20 +826,17 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// 範囲の外を打たれたら、**丸めたことを言う**（ユーザ判断 2026-09-20・I11）。
     /// 前は黙って丸めていて、500 と打っても 365 で保存され、何も言われなかった。
     /// </summary>
-    private int Clamped(int value, int min, int max, string what, string unit)
+    private int Clamped(int value, int min, int max, string what, string unit, string field)
     {
         var clamped = Math.Clamp(value, min, max);
-        if (clamped != value)
-        {
-            // 保存が終わってからも同じ文を出し直す（保存の側が、知らせの無い成功で空にするため）
-            _clampNote = $"{what}に入れられるのは {min}〜{max}{unit}です。{clamped}{unit}にしました。";
-            Status = _clampNote;
-        }
+
+        // 範囲の中の値を打ち直したら、前の知らせは消す（欄のすぐ下に残ったままだと、今の値のことに読める）
+        Notes[field] = clamped != value
+            ? $"{what}に入れられるのは {min}〜{max}{unit}です。{clamped}{unit}にしました。"
+            : string.Empty;
 
         return clamped;
     }
-
-    private string _clampNote = string.Empty;
 
     private int _refreshIntervalDays;
     public int RefreshIntervalDays
@@ -742,7 +844,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _refreshIntervalDays;
         set
         {
-            var clamped = Clamped(value, 1, 365, "商品情報を取り直す間隔", " 日");
+            var clamped = Clamped(value, 1, 365, "商品情報を取り直す間隔", " 日", nameof(RefreshIntervalDays));
             if (SetField(ref _refreshIntervalDays, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -754,7 +856,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _notificationRetentionCount;
         set
         {
-            var clamped = Clamped(value, 20, 5000, "要確認に残す件数", " 件");
+            var clamped = Clamped(value, 20, 5000, "要確認に残す件数", " 件", nameof(NotificationRetentionCount));
             if (SetField(ref _notificationRetentionCount, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -774,7 +876,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _searchHistoryCount;
         set
         {
-            var clamped = Clamped(value, 1, Core.Services.SearchHistory.MaxLimit, "検索の履歴を残す件数", " 件");
+            var clamped = Clamped(value, 1, Core.Services.SearchHistory.MaxLimit, "検索の履歴を残す件数", " 件", nameof(SearchHistoryCount));
             if (SetField(ref _searchHistoryCount, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -827,7 +929,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _shopBannerRecheckDays;
         set
         {
-            var clamped = Clamped(value, 1, 365, "ショップのバナーを確かめ直す間隔", " 日");
+            var clamped = Clamped(value, 1, 365, "ショップのバナーを確かめ直す間隔", " 日", nameof(ShopBannerRecheckDays));
             if (SetField(ref _shopBannerRecheckDays, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -839,7 +941,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _avatarDetectRecheckDays;
         set
         {
-            var clamped = Clamped(value, 1, 365, "対応アバターを検出し直す間隔", " 日");
+            var clamped = Clamped(value, 1, 365, "対応アバターを検出し直す間隔", " 日", nameof(AvatarDetectRecheckDays));
             if (SetField(ref _avatarDetectRecheckDays, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -854,7 +956,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 下限は約束の1.5秒（AppSettings.MinFetchIntervalMs）。短く打っても1500に戻す
         set
         {
-            var clamped = Clamped(value, AppSettings.MinFetchIntervalMs, 10000, "BOOTHへ問い合わせる間隔", " ミリ秒");
+            var clamped = Clamped(value, AppSettings.MinFetchIntervalMs, 10000, "BOOTHへ問い合わせる間隔", " ミリ秒", nameof(FetchIntervalMs));
             if (SetField(ref _fetchIntervalMs, clamped))
             {
                 Save();
@@ -873,7 +975,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _imageMaxEdgePixels;
         set
         {
-            var clamped = Clamped(value, 128, 2048, "画像の長辺", " px");
+            var clamped = Clamped(value, 128, 2048, "画像の長辺", " px", nameof(ImageMaxEdgePixels));
             if (SetField(ref _imageMaxEdgePixels, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -885,7 +987,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _imageQuality;
         set
         {
-            var clamped = Clamped(value, 40, 100, "画像の品質", string.Empty);
+            var clamped = Clamped(value, 40, 100, "画像の品質", string.Empty, nameof(ImageQuality));
             if (SetField(ref _imageQuality, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }
@@ -904,7 +1006,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _modificationImageMaxEdgePixels;
         set
         {
-            var clamped = Clamped(value, 128, 4096, "改変の写真の長辺", " px");
+            var clamped = Clamped(value, 128, 4096, "改変の写真の長辺", " px", nameof(ModificationImageMaxEdgePixels));
             if (SetField(ref _modificationImageMaxEdgePixels, clamped))
             {
                 Save();
@@ -1208,10 +1310,9 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(change));
 
             // 保存できたことは言わない（ユーザ判断 2026-10-02：変えるたびに出ても、保存されるのは当然で意味が無い）。
-            // 出すのは、範囲の外を打たれて丸めたこと（I11）と、保存に失敗したこと（下）だけ。
+            // 出すのは、範囲の外を打たれて丸めたこと（I11。その欄の下）と、保存に失敗したこと（下）だけ。
             // 前の失敗の知らせは、保存し直せたので消える
-            Status = _clampNote;
-            _clampNote = string.Empty;
+            Status = string.Empty;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -1286,13 +1387,13 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     public RelayCommand ResetPaneWidthsCommand => _resetPaneWidthsCommand ??= new RelayCommand(() =>
     {
         _services.PaneWidths.ResetAll();
-        Status = "画面の幅をすべて元に戻しました。";
+        PaneWidthNote = "画面の幅をすべて元に戻しました。";
     });
 
     private async Task UnhideAsync(string itemId)
     {
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UnhideItem(itemId));
-        Status = "非表示を解除しました。検索に戻ります。";
+        HiddenNote = "非表示を解除しました。検索に戻ります。";
         await LoadAsync();
         _main.Search.ReloadAsync().Forget();
     }
@@ -1304,14 +1405,14 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     private async Task ForgetDetachedAsync(string hash, string itemId)
     {
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetDetached(hash, itemId));
-        Status = "外した記録を消しました。次の取り込みで、読み取った情報が指すならまたその商品に紐付きます。";
+        DetachedNote = "外した記録を消しました。次の取り込みで、読み取った情報が指すならまたその商品に紐付きます。";
         await LoadAsync();
     }
 
     private async Task RestoreAsync(string hash)
     {
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RestoreExcluded(hash));
-        Status = "除外を解除しました。次の取り込みでまた未確定として出てきます。";
+        ExcludedNote = "除外を解除しました。次の取り込みでまた未確定として出てきます。";
         await LoadAsync();
     }
 
@@ -1672,7 +1773,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             "書き出しをやめます。zipは作りません。");
         if (job is null)
         {
-            Status = _main.LongJobBlockedNote;
+            DataStatus = _main.LongJobBlockedNote;
             return;
         }
 
@@ -1788,7 +1889,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         if (job is null)
         {
             // 押せなくしてあるが、zip と場所を選ぶ窓を出している間に別の作業が始まり得る
-            Status = _main.LongJobBlockedNote;
+            DataStatus = _main.LongJobBlockedNote;
             return;
         }
 
@@ -1950,7 +2051,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Status = "フォルダを開けませんでした。";
+            DataStatus = "フォルダを開けませんでした。";
         }
     }
 
