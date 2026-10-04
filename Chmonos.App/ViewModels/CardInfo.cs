@@ -9,14 +9,14 @@ namespace Chmonos.App.ViewModels;
 /// カードの札と1行・乗せたときの重ね・リストの列に、どの属性をどの順で出すか（ユーザ判断 2026-10-04）。
 /// </summary>
 /// <param name="ChipAttributes">
-/// カードの札とリストの「属性」の列に出す順。設定で選んだ属性（選んでいなければ属性の管理の並び）で、
-/// 並べ替えに属性を使っているときはその属性を先頭に出す。
+/// カードの札とリストの「属性」の列に**出してよい属性**（設定で選んだ属性。選んでいなければ属性の管理の全部）。
+/// 出す順はここでは決めず、その商品に付いている順（<see cref="CardInfo.RatedInOrder"/>）。
 /// </param>
-/// <param name="AllAttributes">乗せたときの重ねに出す順。<paramref name="ChipAttributes"/> の後に、残りを属性の管理の並びで。</param>
+/// <param name="SortAttribute">並べ替えに使っている属性。出してよい属性に含まれなくても、付いていれば先頭に出す。</param>
 /// <param name="WithSubs">ユーザータグの札に小分類も出すか（設定「一覧のカードに小分類のタグも表示」）。</param>
-public sealed record CardInfoOptions(IReadOnlyList<string> ChipAttributes, IReadOnlyList<string> AllAttributes, bool WithSubs)
+public sealed record CardInfoOptions(IReadOnlyList<string> ChipAttributes, string? SortAttribute, bool WithSubs)
 {
-    public static CardInfoOptions Empty { get; } = new([], [], false);
+    public static CardInfoOptions Empty { get; } = new([], null, false);
 
     /// <summary>
     /// 設定と属性の管理の並びから組む。
@@ -26,32 +26,18 @@ public sealed record CardInfoOptions(IReadOnlyList<string> ChipAttributes, IRead
     /// <param name="sortAttribute">並べ替えに使っている属性。並べた値がカードで見えないと、なぜその順なのかが読めないので先に出す。</param>
     public static CardInfoOptions Build(IReadOnlyList<string>? chosen, IReadOnlyList<string> masterOrder, string? sortAttribute, bool withSubs)
     {
-        var chips = new List<string>();
-        if (!string.IsNullOrEmpty(sortAttribute))
-        {
-            chips.Add(sortAttribute);
-        }
-
-        foreach (var name in chosen is { Count: > 0 } ? chosen : masterOrder)
-        {
-            if (!chips.Contains(name, StringComparer.Ordinal))
-            {
-                chips.Add(name);
-            }
-        }
-
-        var all = new List<string>(chips);
-        all.AddRange(masterOrder.Where(name => !chips.Contains(name, StringComparer.Ordinal)));
-        return new CardInfoOptions(chips, all, withSubs);
+        // 出してよい属性の集まりだけを持つ。順は商品ごとに付いている順なので、設定で選んだ順・管理の並びは使わない
+        var allowed = (chosen is { Count: > 0 } ? chosen : masterOrder).Distinct(StringComparer.Ordinal).ToList();
+        return new CardInfoOptions(allowed, string.IsNullOrEmpty(sortAttribute) ? null : sortAttribute, withSubs);
     }
 
     public bool Equals(CardInfoOptions? other)
         => other is not null
            && WithSubs == other.WithSubs
-           && ChipAttributes.SequenceEqual(other.ChipAttributes, StringComparer.Ordinal)
-           && AllAttributes.SequenceEqual(other.AllAttributes, StringComparer.Ordinal);
+           && string.Equals(SortAttribute, other.SortAttribute, StringComparison.Ordinal)
+           && ChipAttributes.SequenceEqual(other.ChipAttributes, StringComparer.Ordinal);
 
-    public override int GetHashCode() => HashCode.Combine(WithSubs, ChipAttributes.Count, AllAttributes.Count);
+    public override int GetHashCode() => HashCode.Combine(WithSubs, SortAttribute, ChipAttributes.Count);
 }
 
 /// <summary>
@@ -155,7 +141,7 @@ public sealed record CardInfo
         var chipCount = narrow ? 1 : 2;
 
         var tags = item.Local.UserTags.Select(tag => TagText(tag, options.WithSubs)).ToList();
-        var rated = RatedInOrder(item, options.ChipAttributes).ToList();
+        var rated = RatedInOrder(item, options).ToList();
 
         var paid = PaidTextOf(item);
         var avatars = AvatarCountOf(item);
@@ -190,12 +176,23 @@ public sealed record CardInfo
     internal static string TagText(UserTagAssignment tag, bool withSubs)
         => withSubs && tag.Subs.Count > 0 ? $"{tag.Top}：{string.Join("・", tag.Subs)}" : tag.Top;
 
-    /// <summary>並べた順のうち、評価してある属性だけ。評価していない属性は札を空けない。</summary>
-    internal static IEnumerable<CardAttributeChip> RatedInOrder(ItemRecord item, IEnumerable<string> order)
+    /// <summary>
+    /// 札・リストの列に出す属性。出してよい属性のうち評価してある物を、**その商品に付いている順**で（ユーザ判断 2026-10-04。
+    /// 設定で選んだ順や管理の並びでは、商品ごとの評価の流れが読めない）。並べ替えの属性は付いていれば先頭。
+    /// 評価していない属性は札を空けない。付いている順は商品の JSON の並び
+    /// </summary>
+    internal static IEnumerable<CardAttributeChip> RatedInOrder(ItemRecord item, CardInfoOptions options)
     {
-        foreach (var name in order)
+        var primary = options.SortAttribute;
+        if (primary is not null && item.Local.Attributes.TryGetValue(primary, out var first))
         {
-            if (item.Local.Attributes.TryGetValue(name, out var value))
+            yield return new CardAttributeChip(primary, first);
+        }
+
+        foreach (var (name, value) in item.Local.Attributes)
+        {
+            if (!string.Equals(name, primary, StringComparison.Ordinal)
+                && options.ChipAttributes.Contains(name, StringComparer.Ordinal))
             {
                 yield return new CardAttributeChip(name, value);
             }
@@ -266,11 +263,14 @@ public sealed record CardPeek
     {
         var track = cardWidth < CardInfo.NarrowBelow ? NarrowTrackWidth : TrackWidth;
         var tags = ItemCardViewModel.UserTagLine(item.Local.UserTags, withSubs: true);
-        var order = options.AllAttributes
-            .Concat(item.Local.Attributes.Keys
-                .Where(name => !options.AllAttributes.Contains(name, StringComparer.Ordinal))
-                .Order(StringComparer.CurrentCulture));
-        var bars = CardInfo.RatedInOrder(item, order).Select(chip => new CardAttributeBar(chip.Name, chip.Value, track)).ToList();
+        // 札と同じ順で先に出し、札に出さない属性（設定で選んでいない物）は後ろに、同じく付いている順で
+        var chips = CardInfo.RatedInOrder(item, options).ToList();
+        var bars = chips
+            .Concat(item.Local.Attributes
+                .Where(entry => !chips.Any(chip => chip.Name == entry.Key))
+                .Select(entry => new CardAttributeChip(entry.Key, entry.Value)))
+            .Select(chip => new CardAttributeBar(chip.Name, chip.Value, track))
+            .ToList();
         var paid = CardInfo.PaidTextOf(item);
         var avatars = CardInfo.AvatarCountOf(item);
 

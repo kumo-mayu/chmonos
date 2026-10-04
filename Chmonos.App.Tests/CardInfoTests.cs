@@ -165,30 +165,47 @@ public class CardInfoTests
         var options = Defaults();
 
         Assert.Equal(Master, options.ChipAttributes);
-        Assert.Equal(Master, options.AllAttributes);
     }
 
     [Fact]
-    public void 設定で選んだ属性を選んだ順に出し_重ねでは残りを管理の並びで後ろに出す()
+    public void 設定で選んだ属性のうち_その商品に付いている順に出す_選んだ順ではない()
     {
         var options = Defaults(chosen: ["軽さ", "かわいい"]);
 
-        Assert.Equal(["軽さ", "かわいい"], options.ChipAttributes);
-        Assert.Equal(["軽さ", "かわいい", "かっこいい", "質感"], options.AllAttributes);
-
         var item = Rated(attributes: new Dictionary<string, int> { ["かわいい"] = 10, ["質感"] = 90, ["軽さ"] = 50 });
         var info = CardInfo.Build(item, options, narrow: false, owned: true);
-        Assert.Equal("軽さ", info.Attribute1?.Name);
-        Assert.Equal("かわいい", info.Attribute2?.Name);
-        Assert.Equal("軽さ 50　かわいい 10", info.AttributesLine);
+        Assert.Equal("かわいい", info.Attribute1?.Name);
+        Assert.Equal("軽さ", info.Attribute2?.Name);
+        Assert.Equal("かわいい 10　軽さ 50", info.AttributesLine);
+    }
+
+    [Fact]
+    public void 選んでいないときも_候補は管理の全部で_出す順は商品に付いている順()
+    {
+        var item = Rated(attributes: new Dictionary<string, int> { ["軽さ"] = 50, ["質感"] = 90, ["かわいい"] = 10 });
+
+        var info = CardInfo.Build(item, Defaults(), narrow: false, owned: true);
+
+        Assert.Equal("軽さ 50　質感 90　かわいい 10", info.AttributesLine);
     }
 
     [Fact]
     public void 並べ替えに使っている属性を先に出す_選んでいない属性でも()
     {
-        Assert.Equal(["質感", "かわいい", "かっこいい", "軽さ"], Defaults(sortAttribute: "質感").ChipAttributes);
-        Assert.Equal(["質感", "軽さ"], Defaults(sortAttribute: "質感", chosen: ["軽さ"]).ChipAttributes);
-        Assert.Equal(["軽さ", "かわいい"], Defaults(sortAttribute: "軽さ", chosen: ["軽さ", "かわいい"]).ChipAttributes);
+        var item = Rated(attributes: new Dictionary<string, int> { ["軽さ"] = 50, ["質感"] = 90, ["かわいい"] = 10 });
+
+        Assert.Equal("質感 90　軽さ 50　かわいい 10", CardInfo.Build(item, Defaults(sortAttribute: "質感"), narrow: false, owned: true).AttributesLine);
+        Assert.Equal("質感 90　軽さ 50", CardInfo.Build(item, Defaults(sortAttribute: "質感", chosen: ["軽さ"]), narrow: false, owned: true).AttributesLine);
+    }
+
+    [Fact]
+    public void 重ねの棒も札と同じ順で_札に出さない属性は後ろに付いている順で出す()
+    {
+        var item = Rated(attributes: new Dictionary<string, int> { ["質感"] = 3, ["軽さ"] = 4, ["かわいい"] = 1 });
+
+        var peek = CardPeek.Build(item, Defaults(chosen: ["かわいい", "軽さ"]), imageHeight: 400, cardWidth: 228);
+
+        Assert.Equal(["軽さ", "かわいい", "質感"], peek.Bars.Select(bar => bar.Name));
     }
 
     [Fact]
@@ -318,7 +335,7 @@ public class CardInfoTests
 
         Assert.Equal(["軽さ"], app.Services.Settings.CardAttributes);
         Assert.DoesNotContain("軽さ", settings.CardAttributeCandidates);
-        Assert.Equal("選んだ順に、評価した属性を2つまでカードに表示します。", settings.CardAttributesNote);
+        Assert.Equal("選んだ属性のうち、商品に付いている順に2つまでカードに表示します。", settings.CardAttributesNote);
         await UiThread.Until(() => main.Search.ListItems.Single().ListInfo.Attribute1?.Name == "軽さ", "札が選んだ属性になる");
         Assert.Null(main.Search.ListItems.Single().ListInfo.Attribute2);
 

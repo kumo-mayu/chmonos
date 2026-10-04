@@ -553,8 +553,22 @@ public sealed class CommandHandler
                     return MissingService("属性の編集");
                 }
 
-                return new CommandResult.AttributesRewritten(await _attributes.RenameAsync(
-                    renameAttribute.OldName, renameAttribute.NewName, renameAttribute.Keep, cancellationToken));
+                var renamed = await _attributes.RenameAsync(
+                    renameAttribute.OldName, renameAttribute.NewName, renameAttribute.Keep, cancellationToken);
+
+                // 設定で選んだ属性の名前も付いていかせる（設定の書き込みの錠の中で今の値に当てる）。
+                // 統合のときは、残る側の綴り（マスタにある名前）へ寄せる
+                var trimmed = renameAttribute.NewName.Trim();
+                if (_settings is not null && trimmed.Length > 0)
+                {
+                    var kept = renamed.Master.Attributes
+                        .Select(definition => definition.Name)
+                        .FirstOrDefault(name => string.Equals(name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? trimmed;
+                    await _settings.UpdateAsync(
+                        current => current.WithCardAttributeRenamed(renameAttribute.OldName, kept), cancellationToken);
+                }
+
+                return new CommandResult.AttributesRewritten(renamed);
 
             case UiCommand.DeleteAttribute deleteAttribute:
                 if (_attributes is null)
@@ -562,8 +576,13 @@ public sealed class CommandHandler
                     return MissingService("属性の編集");
                 }
 
-                return new CommandResult.AttributesRewritten(
-                    await _attributes.DeleteAsync(deleteAttribute.Name, cancellationToken));
+                var deleted = await _attributes.DeleteAsync(deleteAttribute.Name, cancellationToken);
+                if (_settings is not null)
+                {
+                    await _settings.UpdateAsync(current => current.WithCardAttributeRemoved(deleteAttribute.Name), cancellationToken);
+                }
+
+                return new CommandResult.AttributesRewritten(deleted);
 
             case UiCommand.SetAttributeMemo attributeMemo:
                 if (_attributes is null)
