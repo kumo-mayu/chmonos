@@ -27,7 +27,7 @@ internal static partial class Scenes
         var folders = context.Screen<FolderViewModel>();
         if (show && folders.Detail is FolderViewDetail detail)
         {
-            detail.WatchNote.Notice("監視をやめました。取り込んだものはそのまま残ります。");
+            detail.WatchNote.Show("監視をやめました。取り込んだものはそのまま残ります。");
             await context.SettleAsync();
         }
 

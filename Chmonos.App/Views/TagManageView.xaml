@@ -220,8 +220,8 @@
                             一覧の見出しの近くの知らせ：行ごと消える操作（大分類の削除・統合・小分類にした）と、一覧に無いユーザータグの直しの結果。
                             右の欄は選んだ大分類で入れ替わるので、変わらないこの欄で言う。1行分の場所は常に取る（出入りで下の一覧が跳ねない）
                         -->
-                        <TextBlock Text="{Binding ListNotice.Text}" Tag="{Binding ListNotice.IsWarning}"
-                                   Style="{StaticResource ManageNoticeLine}" Margin="2,6,0,0"
+                        <TextBlock DataContext="{Binding ListNotice}" Text="{Binding Text}"
+                                   Style="{StaticResource AreaNoticeText}" Margin="2,6,0,0"
                                    AutomationProperties.AutomationId="TagListNotice" />
                     </StackPanel>
 
@@ -466,8 +466,8 @@
                                                     ToolTip="{Binding ShowItemsToolTip}" />
                                         </StackPanel>
                                         <!-- 名前の変更の結果は名前の近く。1行分の場所は常に取る -->
-                                        <TextBlock Text="{Binding NameNotice.Text}" Tag="{Binding NameNotice.IsWarning}"
-                                                   Style="{StaticResource ManageNoticeLine}" Margin="0,4,0,0"
+                                        <TextBlock DataContext="{Binding NameNotice}" Text="{Binding Text}"
+                                                   Style="{StaticResource AreaNoticeText}" Margin="0,4,0,0"
                                                    AutomationProperties.AutomationId="TagNameNotice" />
                                     </StackPanel>
                                     <!-- 大分類の削除は小分類も商品の付け替えも伴うので、色で重さを出す（ユーザ指摘 2026-09-18） -->
@@ -509,8 +509,8 @@
                                            Style="{StaticResource Caption}" Margin="0,4,0,0" />
 
                                 <!-- 小分類の削除・統合・名前の変更・移したの結果は見出しの近く。1行分の場所は常に取る -->
-                                <TextBlock Text="{Binding SubNotice.Text}" Tag="{Binding SubNotice.IsWarning}"
-                                           Style="{StaticResource ManageNoticeLine}" Margin="0,2,0,0"
+                                <TextBlock DataContext="{Binding SubNotice}" Text="{Binding Text}"
+                                           Style="{StaticResource AreaNoticeText}" Margin="0,2,0,0"
                                            AutomationProperties.AutomationId="TagSubNotice" />
 
                                 <!--
@@ -637,8 +637,8 @@
                                     小分類を足す欄の下の「既にあります」。丸い欄の左端（検索欄の幅360＋余白10）にそろえる。
                                     1行分の場所は常に取る（Collapsed にしない）——出入りで下が跳ねる
                                 -->
-                                <TextBlock Text="{Binding AddSubNoticeText}" Tag="{Binding AddSubNoticeIsWarning}"
-                                           Style="{StaticResource ManageNoticeLine}" Margin="370,4,0,0"
+                                <TextBlock DataContext="{Binding AddSubNotice}" Text="{Binding Text}"
+                                           Style="{StaticResource AreaNoticeText}" Margin="370,4,0,0"
                                            AutomationProperties.AutomationId="TagAddSubNotice" />
 
                                 <controls:SearchSyntaxHint Margin="2,2,0,0" />

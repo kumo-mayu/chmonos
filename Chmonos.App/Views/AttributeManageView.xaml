@@ -99,8 +99,8 @@
                             一覧の見出しの近くの知らせ：行ごと消える操作（属性の削除・統合）と、一覧に無い属性の直しの結果（タグの管理と揃える）。
                             1行分の場所は常に取る（出入りで下の一覧が跳ねない）
                         -->
-                        <TextBlock Text="{Binding ListNotice.Text}" Tag="{Binding ListNotice.IsWarning}"
-                                   Style="{StaticResource ManageNoticeLine}" Margin="2,6,0,0"
+                        <TextBlock DataContext="{Binding ListNotice}" Text="{Binding Text}"
+                                   Style="{StaticResource AreaNoticeText}" Margin="2,6,0,0"
                                    AutomationProperties.AutomationId="AttributeListNotice" />
                     </StackPanel>
 
@@ -300,8 +300,8 @@
                                                 ToolTip="{Binding ShowItemsToolTip}" />
                                     </StackPanel>
                                     <!-- 名前の変更の結果は名前の近く。1行分の場所は常に取る（タグの管理と揃える） -->
-                                    <TextBlock Text="{Binding NameNotice.Text}" Tag="{Binding NameNotice.IsWarning}"
-                                               Style="{StaticResource ManageNoticeLine}" Margin="0,4,0,0"
+                                    <TextBlock DataContext="{Binding NameNotice}" Text="{Binding Text}"
+                                               Style="{StaticResource AreaNoticeText}" Margin="0,4,0,0"
                                                AutomationProperties.AutomationId="AttributeNameNotice" />
                                 </StackPanel>
                                 <Button Content="この属性を削除" Style="{StaticResource DangerButton}"
@@ -470,8 +470,8 @@
                         <Button Content="{Binding ToggleDefaultText}" Style="{StaticResource SmallButton}"
                                 HorizontalAlignment="Left" Command="{Binding ToggleDefaultCommand}" />
                         <!-- 切り替えの結果はそのボタンの下。1行分の場所は常に取る -->
-                        <TextBlock Text="{Binding DefaultNotice.Text}" Tag="{Binding DefaultNotice.IsWarning}"
-                                   Style="{StaticResource ManageNoticeLine}" Margin="0,6,0,0"
+                        <TextBlock DataContext="{Binding DefaultNotice}" Text="{Binding Text}"
+                                   Style="{StaticResource AreaNoticeText}" Margin="0,6,0,0"
                                    AutomationProperties.AutomationId="AttributeDefaultNotice" />
                     </StackPanel>
                 </Border>

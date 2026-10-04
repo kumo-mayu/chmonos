@@ -1523,7 +1523,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         }
         else
         {
-            detail.WatchNote.Notice("監視をやめました。取り込んだものはそのまま残ります。");
+            detail.WatchNote.Show("監視をやめました。取り込んだものはそのまま残ります。");
         }
     }
 

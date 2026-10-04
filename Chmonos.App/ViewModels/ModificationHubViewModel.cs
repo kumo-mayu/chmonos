@@ -255,7 +255,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     // ---- 押した所の下の知らせ ----
 
     /// <summary>VCC・ALCOM のボタンの下の知らせ。</summary>
-    public HubNoticeSlot ToolNotice { get; } = new();
+    public AreaNotice ToolNotice { get; } = new();
 
     private (string Key, string Text, bool Warning)? _notice;
 

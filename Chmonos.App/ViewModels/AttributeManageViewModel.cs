@@ -825,11 +825,11 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// 一覧の見出しの近く（行ごと消える操作と、一覧に無い属性の直し）は <see cref="ListNotice"/>。
     /// メモの自動保存の成功は出さない（欄が残るので足りる。設定と同じ）
     /// </summary>
-    public ManageNotice NameNotice { get; } = new();
+    public AreaNotice NameNotice { get; } = new();
 
-    public ManageNotice DefaultNotice { get; } = new();
+    public AreaNotice DefaultNotice { get; } = new();
 
-    public ManageNotice ListNotice { get; } = new();
+    public AreaNotice ListNotice { get; } = new();
 
     public async Task ReloadAsync()
     {
@@ -1120,7 +1120,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         // 名前が変わると選び直しで名前の近くの知らせが消えるので、選び直した後に出す
         if (done is not null)
         {
-            notice.Done(done);
+            notice.Show(done);
         }
 
         await _main.ReloadLibraryAsync();
@@ -1151,7 +1151,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         var result = await RewriteAttributesAsync(new UiCommand.DeleteAttribute(Selected.Name), "削除できませんでした。", ListNotice);
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            ListNotice.Done($"削除し、{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました。");
+            ListNotice.Show($"削除し、{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました。");
         }
 
         Selected = null;
@@ -1168,7 +1168,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// 前は押しても何も起きなかったように見えた。「できなかった」の結果も受けずに捨てていた。
     /// 例外でも読み直しは続ける——途中まで書き換えた商品があり得るので、今の数を見せる
     /// </summary>
-    private async Task<CommandResult?> RewriteAttributesAsync(UiCommand command, string failedText, ManageNotice failureNotice)
+    private async Task<CommandResult?> RewriteAttributesAsync(UiCommand command, string failedText, AreaNotice failureNotice)
     {
         try
         {
@@ -1250,13 +1250,13 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             ? $"「{Selected.Name}」を編集画面に最初から並べます。値は動かしたときだけ付きます。"
             : $"「{Selected.Name}」を最初から並べるのをやめました。付けた評価はそのまま残ります。";
         await ReloadAsync();
-        DefaultNotice.Done(said);
+        DefaultNotice.Show(said);
     }
 
     private async Task AddOrphanToMasterAsync(OrphanAttributeRow row)
     {
         await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(row.Name));
-        ListNotice.Done($"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
+        ListNotice.Show($"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
         await ReloadAsync();
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();
@@ -1290,7 +1290,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAttribute(row.Name, name, keep));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            ListNotice.Done($"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
+            ListNotice.Show($"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
 
         await ReloadAsync();
@@ -1310,7 +1310,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(row.Name));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            ListNotice.Done($"「{row.Name}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。");
+            ListNotice.Show($"「{row.Name}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。");
         }
 
         await ReloadAsync();

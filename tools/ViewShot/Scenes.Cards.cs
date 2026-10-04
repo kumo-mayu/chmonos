@@ -49,9 +49,9 @@ internal static partial class Scenes
         {
             var root = await OpenTagManageAsync(context, cards: false);
             var screen = context.Screen<TagManageViewModel>();
-            screen.NameNotice.Done("「衣装」に変更し、6 件の商品を書き換えました。");
+            screen.NameNotice.Show("「衣装」に変更し、6 件の商品を書き換えました。");
             screen.SubNotice.Warn("「冬」を削除できませんでした。もう一度試してください。");
-            screen.ListNotice.Done("「作り物」を削除し、3 件の商品から外しました。");
+            screen.ListNotice.Show("「作り物」を削除し、3 件の商品から外しました。");
             await context.SettleAsync();
             return new Shot(root);
         }),
@@ -70,9 +70,9 @@ internal static partial class Scenes
         {
             var root = await OpenAttributeManageAsync(context, cards: false);
             var screen = context.Screen<AttributeManageViewModel>();
-            screen.NameNotice.Done("「かわいさ」に変更し、6 件の商品を書き換えました。");
-            screen.DefaultNotice.Done("「かわいさ」を編集画面に最初から並べます。値は動かしたときだけ付きます。");
-            screen.ListNotice.Done("削除し、3 件の商品から評価を外しました。");
+            screen.NameNotice.Show("「かわいさ」に変更し、6 件の商品を書き換えました。");
+            screen.DefaultNotice.Show("「かわいさ」を編集画面に最初から並べます。値は動かしたときだけ付きます。");
+            screen.ListNotice.Show("削除し、3 件の商品から評価を外しました。");
             await context.SettleAsync();
             return new Shot(root);
         }),

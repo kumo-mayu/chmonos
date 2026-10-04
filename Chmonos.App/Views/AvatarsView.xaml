@@ -174,18 +174,6 @@
             <Setter Property="Padding" Value="12,4" />
         </Style>
 
-        <!--
-            欄やボタンのすぐ下の知らせ（NoticeSlot）。済んだことは FieldNotice、打ち直しが要ることは FieldWarning の色
-            （App.xaml。1行ぶんの高さを前もって取るので、出入りで下が跳ねない）
-        -->
-        <Style x:Key="SlotNotice" TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                    <Setter Property="Foreground" Value="{DynamicResource Warn}" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-
         <!-- 名前の欄の確定。窓の確定と同じ色で、横の「キャンセル」と同じ高さにする -->
         <Style x:Key="InlinePrimaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
             <Setter Property="Height" Value="27" />
@@ -230,7 +218,7 @@
                             <Button Content="キャンセル" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding CancelRenameCommand}" />
                         </StackPanel>
-                        <TextBlock DataContext="{Binding NameNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="6,2,0,0" />
+                        <TextBlock DataContext="{Binding NameNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0" />
                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                             <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
@@ -274,7 +262,7 @@
                             <Button AutomationProperties.AutomationId="AvatarBaseSetItemId" Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
                         </StackPanel>
-                        <TextBlock DataContext="{Binding ItemIdNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,4,0,0" />
+                        <TextBlock DataContext="{Binding ItemIdNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0" />
                         <!-- 説明が無く何のことか分からず、実例も無いので隠す（ユーザ判断 2026-09-17）。仕組み（inferClothing）は残す -->
                         <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}" Visibility="Collapsed"
                                   Command="{Binding ToggleInferCommand}" Margin="0,12,0,0"
@@ -460,7 +448,7 @@
                             </Grid>
                         </DockPanel>
 
-                        <TextBlock DockPanel.Dock="Top" DataContext="{Binding AddBaseNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="16,4,14,0"
+                        <TextBlock DockPanel.Dock="Top" DataContext="{Binding AddBaseNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="16,4,14,0"
                                    AutomationProperties.AutomationId="AvatarBaseAddNote"
                                    Visibility="{Binding DataContext.IsBaseMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -624,7 +612,7 @@
                                             <Button Content="キャンセル" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding CancelRenameCommand}" />
                                         </StackPanel>
-                                        <TextBlock DataContext="{Binding AvatarNameNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="6,2,0,0"
+                                        <TextBlock DataContext="{Binding AvatarNameNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0"
                                                    AutomationProperties.AutomationId="AvatarNameNote" />
                                         <TextBlock Text="{Binding SelectedBoothName}" Style="{StaticResource Caption}"
                                                    Margin="6,2,0,0" TextWrapping="Wrap" MaxWidth="620"
@@ -651,7 +639,7 @@
                                                     Command="{Binding RecheckCommand}"
                                                     ToolTip="BOOTHから取り直します。商品のファイルはダウンロードしません。" />
                                         </StackPanel>
-                                        <TextBlock DataContext="{Binding IdNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="6,2,0,0"
+                                        <TextBlock DataContext="{Binding IdNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0"
                                                    AutomationProperties.AutomationId="AvatarIdNote" />
 
                                         <!--
@@ -721,7 +709,7 @@
                                             Command="{Binding ToggleOwnedCommand}"
                                             Visibility="{Binding ShowsOwnedToggle, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                             ToolTip="取り込んでいないアバターも、所有として扱えます。" />
-                                    <TextBlock DataContext="{Binding OwnedNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}"
+                                    <TextBlock DataContext="{Binding OwnedNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
                                                Margin="10,0,0,0" VerticalAlignment="Center" MaxWidth="320" />
                                 </StackPanel>
 
@@ -749,7 +737,7 @@
                                     <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
                                 </StackPanel>
-                                <TextBlock DataContext="{Binding BaseFieldNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,4,0,0"
+                                <TextBlock DataContext="{Binding BaseFieldNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarBaseFieldNote" />
                                 <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                            Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -809,7 +797,7 @@
                                         <Button Content="呼び方を追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                 Command="{Binding AddAliasCommand}" />
                                     </StackPanel>
-                                    <TextBlock DataContext="{Binding AliasNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,4,0,0"
+                                    <TextBlock DataContext="{Binding AliasNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                                AutomationProperties.AutomationId="AvatarAliasNote" />
                                         <StackPanel Margin="0,10,0,0"
                                                     Visibility="{Binding HasRejectedAliases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -871,7 +859,7 @@
                                     <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding CreateModificationCommand}" />
                                 </StackPanel>
-                                <TextBlock DataContext="{Binding ModificationNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,4,0,0"
+                                <TextBlock DataContext="{Binding ModificationNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarModificationNote" />
 
                                 <TextBlock Text="{Binding ModificationEmptyText}" Style="{StaticResource Caption}"
@@ -994,7 +982,7 @@
                                          AutomationProperties.Name="メモ"
                                              ToolTip="素体は同じだが体型が違う、といった検出では分からないことを残せます。" />
                                 </StackPanel>
-                                <TextBlock DataContext="{Binding MemoNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,4,0,0"
+                                <TextBlock DataContext="{Binding MemoNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarMemoNote" />
 
                                 <!--
@@ -1014,7 +1002,7 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="3" DataContext="{Binding JudgementNote}" Text="{Binding Text}" Style="{StaticResource SlotNotice}"
+                                    <TextBlock Grid.Column="3" DataContext="{Binding JudgementNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
                                                Margin="10,0,0,0" VerticalAlignment="Center" />
                                     <controls:CommandRadioButton Grid.Column="0" Content="自動の判定に任せる" GroupName="AvatarJudgement" Style="{StaticResource SegmentFirst}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"

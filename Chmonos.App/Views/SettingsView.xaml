@@ -242,6 +242,10 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid Margin="0,0,0,8">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
@@ -260,11 +264,14 @@
                                                     AutomationProperties.AutomationId="Settings.ShortcutReset"
                                                     AutomationProperties.Name="{Binding Label, StringFormat={}{0}を既定に戻す}"
                                                     VerticalAlignment="Center" Command="{Binding ResetCommand}" />
-                                            <!-- 同じキーの行から割り当てを外したことを、割り当てた行の横に出す。行の高さは変わらない -->
-                                            <TextBlock Grid.Column="3" Style="{StaticResource FieldWarning}" Margin="12,0,0,0"
-                                                       VerticalAlignment="Center"
+                                            <!--
+                                                同じキーの行から割り当てを外したことを、割り当てた行の下に出す（ユーザ判断 2026-10-04：幅900で行の横だと切れる）。
+                                                行の多い一覧なので、出ていない間は場所を取らず、出た行だけ広がる
+                                            -->
+                                            <TextBlock Grid.Row="1" Grid.ColumnSpan="4" Style="{StaticResource FieldWarning}" Margin="222,0,0,0"
                                                        AutomationProperties.AutomationId="Settings.ShortcutNote"
-                                                       Text="{Binding Note}" />
+                                                       Text="{Binding Note}"
+                                                       Visibility="{Binding Note, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

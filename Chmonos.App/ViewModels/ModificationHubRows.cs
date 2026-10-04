@@ -50,49 +50,12 @@ internal static class HubExpansion
     public static void Set(string key, bool value) => States[key] = value;
 }
 
-/// <summary>
-/// 押したボタンや行のすぐ下に出す知らせの1つ分（<c>FieldNotice</c>／<c>FieldWarning</c> が表す）。
-/// 画面の1行（<c>Status</c>）に出していた操作の結果を、押した所の近くへ移すために、行や右の詳細ごとに持つ。
-/// </summary>
-public sealed class HubNoticeSlot : ViewModelBase
-{
-    private string _text = string.Empty;
-    private bool _isWarning;
-
-    public string Text
-    {
-        get => _text;
-        private set
-        {
-            if (SetField(ref _text, value))
-            {
-                OnPropertyChanged(nameof(HasText));
-            }
-        }
-    }
-
-    /// <summary>打ち直しや別の操作が要る知らせか（<c>FieldWarning</c> の色で出す）。</summary>
-    public bool IsWarning
-    {
-        get => _isWarning;
-        private set => SetField(ref _isWarning, value);
-    }
-
-    public bool HasText => _text.Length > 0;
-
-    public void Set(string text, bool warning)
-    {
-        IsWarning = warning;
-        Text = text;
-    }
-}
-
 /// <summary>知らせを出せる行や詳細。<see cref="NoticeKey"/> が同じ物には同じ知らせを出す（一覧の行と右の詳細が同じ操作の相手のとき）。</summary>
 public interface IHubNoticeTarget
 {
     string NoticeKey { get; }
 
-    HubNoticeSlot Notice { get; }
+    AreaNotice Notice { get; }
 }
 
 /// <summary>畳める行。</summary>
@@ -140,7 +103,7 @@ public sealed class HubMemberRow : ViewModelBase, IHubNoticeTarget
 {
     public string NoticeKey => $"member:{Record.Id}:{Index}";
 
-    public HubNoticeSlot Notice { get; } = new();
+    public AreaNotice Notice { get; } = new();
 
     public required ModificationRecord Record { get; init; }
 
@@ -247,7 +210,7 @@ public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOp
 {
     public string NoticeKey => $"project:{Path}";
 
-    public HubNoticeSlot Notice { get; } = new();
+    public AreaNotice Notice { get; } = new();
 
     public UnityProjectCandidate? Candidate { get; init; }
 
@@ -323,7 +286,7 @@ public sealed class HubProjectDetail : IHubNoticeTarget
 {
     public string NoticeKey => $"project:{Path}";
 
-    public HubNoticeSlot Notice { get; } = new();
+    public AreaNotice Notice { get; } = new();
 
     public required UnityProjectCandidate Candidate { get; init; }
 
@@ -378,7 +341,7 @@ public sealed class HubAvatarDetail : ViewModelBase, IHubNoticeTarget
 {
     public string NoticeKey => $"avatar:{AvatarItemId}";
 
-    public HubNoticeSlot Notice { get; } = new();
+    public AreaNotice Notice { get; } = new();
 
     public required string AvatarItemId { get; init; }
 
@@ -445,7 +408,7 @@ public sealed class HubItemDetail : ViewModelBase, IHubNoticeTarget
 {
     public string NoticeKey => Row.NoticeKey;
 
-    public HubNoticeSlot Notice => Row.Notice;
+    public AreaNotice Notice => Row.Notice;
 
     public required HubMemberRow Row { get; init; }
 

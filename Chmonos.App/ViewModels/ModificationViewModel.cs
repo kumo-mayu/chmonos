@@ -1342,25 +1342,25 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     // 押した所ごと消えるので、その一覧の見出しの近く（MembersNotice・GalleryNotice）に出す
 
     /// <summary>名前の欄の下。保存できなかったときだけ。</summary>
-    public HubNoticeSlot NameNotice { get; } = new();
+    public AreaNotice NameNotice { get; } = new();
 
     /// <summary>メモの欄の下。保存できなかったときだけ。</summary>
-    public HubNoticeSlot MemoNotice { get; } = new();
+    public AreaNotice MemoNotice { get; } = new();
 
     /// <summary>blueprint ID の欄と「VRChatで着替える」の下。</summary>
-    public HubNoticeSlot BlueprintNotice { get; } = new();
+    public AreaNotice BlueprintNotice { get; } = new();
 
     /// <summary>Unityプロジェクトの紐付け・開くの下。</summary>
-    public HubNoticeSlot ProjectNotice { get; } = new();
+    public AreaNotice ProjectNotice { get; } = new();
 
     /// <summary>使ったものを足す欄（名前で足す・プロジェクトの候補）の下。</summary>
-    public HubNoticeSlot AddNotice { get; } = new();
+    public AreaNotice AddNotice { get; } = new();
 
     /// <summary>使ったものの一覧の見出しの近く（外す・戻す・削除・Unityで選択・Unityへ送る）。</summary>
-    public HubNoticeSlot MembersNotice { get; } = new();
+    public AreaNotice MembersNotice { get; } = new();
 
     /// <summary>写真のギャラリーの近く（追加・貼り付け・削除）。</summary>
-    public HubNoticeSlot GalleryNotice { get; } = new();
+    public AreaNotice GalleryNotice { get; } = new();
 
     public string CreatedText => $"作成 {Record.CreatedAt:yyyy-MM-dd}";
 
