@@ -328,3 +328,4 @@
 | ResolveAccuracyProbe・QueryVariantProbe（自動検索の当たりを測る） | 同上。上位3件に正解が出る割合を測る | 道具 | #45・#59 |
 | ZipOriginProbe（未確定を元zipで束ねたときの束の数と検索を測る） | 同上 | 道具 | docs/research/id-resolution.md §6-1 |
 | ThesaurusBridgeProbe（類義語辞書に今の表記の橋渡しを重ねたときの広がりを測る） | 同上。曖昧検索を採るかの材料 | 道具 | docs/research/fuzzy-search.md §8 |
+| アバターの画面とフォルダの画面の操作の知らせを、押した欄・ボタンのすぐ下へ移す（NoticeSlot） | 右上にぽつんと出る文は知らせに向かない（2026-10-03のユーザ判断）。検出の長い結果は上の段の下に折り返して出す | 画面 | docs/spec/avatars.md・docs/feedback/notice-placement-2026-10-03.md |

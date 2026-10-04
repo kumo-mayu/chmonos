@@ -15,7 +15,24 @@ internal static partial class Scenes
             => FolderTreeAsync(context, itemNames: false)),
         new Scene("folder-tree-itemnames", "フォルダビュー：木を商品名で出した所。ファイル名は2行目、未確定はファイル名のまま", context
             => FolderTreeAsync(context, itemNames: true)),
+
+        // 監視をやめたときの知らせ（2026-10-04 担当NA）。出る前と出た後で、下の未確定の枠が動かないことを見る
+        new Scene("folder-notice-off", "フォルダビュー：監視の行の下の知らせが出ていない右の欄", context => FolderNoticeAsync(context, show: false)),
+        new Scene("folder-notice-on", "フォルダビュー：監視をやめた知らせが出た右の欄", context => FolderNoticeAsync(context, show: true)),
     ];
+
+    private static async Task<Shot> FolderNoticeAsync(SceneContext context, bool show)
+    {
+        var shot = await FolderTreeAsync(context, itemNames: false);
+        var folders = context.Screen<FolderViewModel>();
+        if (show && folders.Detail is FolderViewDetail detail)
+        {
+            detail.WatchNote.Notice("監視をやめました。取り込んだものはそのまま残ります。");
+            await context.SettleAsync();
+        }
+
+        return shot;
+    }
 
     private static async Task<Shot> FolderTreeAsync(SceneContext context, bool itemNames)
     {

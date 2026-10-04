@@ -195,9 +195,16 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
             if (SetField(ref _nameInput, value))
             {
                 OnPropertyChanged(nameof(HasNameChange));
+                NameNote.Clear();
             }
         }
     }
+
+    /// <summary>名前の欄のすぐ下の知らせ。行ごとに持つので、別の素体を選べば消える（2026-10-04）</summary>
+    public NoticeSlot NameNote { get; } = new();
+
+    /// <summary>素体の商品の欄のすぐ下の知らせ</summary>
+    public NoticeSlot ItemIdNote { get; } = new();
 
     /// <summary>欄を今の名前から変えたか。「名前を変える」はそのときだけ押せる（アバターと同じ作法）。</summary>
     public bool HasNameChange => NameInput.Trim().Length > 0 && NameInput.Trim() != Name;
@@ -250,7 +257,13 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
     public string ItemIdInput
     {
         get => _itemIdInput;
-        set => SetField(ref _itemIdInput, value);
+        set
+        {
+            if (SetField(ref _itemIdInput, value))
+            {
+                ItemIdNote.Clear();
+            }
+        }
     }
 
     public RelayCommand? ToggleInferCommand { get; set; }
@@ -556,6 +569,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             if (SetField(ref _modificationNameInput, value))
             {
+                ModificationNote.Clear();
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -620,13 +634,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             }
         }
 
-        if (await WriteAsync(new UiCommand.CreateModification(row.ItemId, name), "改変を作れませんでした。") is null)
+        if (await WriteAsync(new UiCommand.CreateModification(row.ItemId, name), "改変を作れませんでした。", ModificationNote.Warn) is null)
         {
             return;
         }
 
         ModificationNameInput = string.Empty;
-        Status = $"改変「{name}」を作りました。";
+        ModificationNote.Notice($"改変「{name}」を作りました。");
         await LoadModificationsAsync();
     }
 
@@ -767,7 +781,81 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     public string NewBaseName
     {
         get => _newBaseName;
-        set => SetField(ref _newBaseName, value ?? string.Empty);
+        set
+        {
+            if (SetField(ref _newBaseName, value ?? string.Empty))
+            {
+                AddBaseNote.Clear();
+            }
+        }
+    }
+
+    /// <summary>共通素体を足す欄のすぐ下の知らせ（既にあります・入れてください）</summary>
+    public NoticeSlot AddBaseNote { get; } = new();
+
+    /// <summary>名前の欄（右の詳細）のすぐ下の知らせ</summary>
+    public NoticeSlot AvatarNameNote { get; } = new();
+
+    /// <summary>IDの行（IDのコピー・商品情報を取り直す）のすぐ下の知らせ</summary>
+    public NoticeSlot IdNote { get; } = new();
+
+    /// <summary>共通素体の欄のすぐ下の知らせ</summary>
+    public NoticeSlot BaseFieldNote { get; } = new();
+
+    /// <summary>呼び方の欄のすぐ下の知らせ</summary>
+    public NoticeSlot AliasNote { get; } = new();
+
+    /// <summary>新しい改変の欄のすぐ下の知らせ</summary>
+    public NoticeSlot ModificationNote { get; } = new();
+
+    /// <summary>メモの欄のすぐ下の知らせ。保存できたときは出さない（自動で残す欄は、できたことを知らせない）</summary>
+    public NoticeSlot MemoNote { get; } = new();
+
+    /// <summary>所有の切り替えボタンの右の知らせ。書けなかったときだけ出る</summary>
+    public NoticeSlot OwnedNote { get; } = new();
+
+    /// <summary>アバターかどうかの切り替えの右の知らせ。書けなかったときだけ出る</summary>
+    public NoticeSlot JudgementNote { get; } = new();
+
+    /// <summary>別のアバターへ移ったら、前のアバターの欄の知らせは消す（別のアバターの欄に残ると、何の知らせか分からない）</summary>
+    private void ClearAvatarNotes()
+    {
+        AvatarNameNote.Clear();
+        IdNote.Clear();
+        BaseFieldNote.Clear();
+        AliasNote.Clear();
+        ModificationNote.Clear();
+        MemoNote.Clear();
+        OwnedNote.Clear();
+        JudgementNote.Clear();
+    }
+
+    /// <summary>上の段へ出す。書き込みの共通口（WriteAsync）に出し先として渡す。画面全体の状態と、押した所ごと消える操作の結果だけが使う</summary>
+    private void ShowInHeader(string text) => Status = text;
+
+    private AvatarBaseRowViewModel? BaseRow(string name) => Bases.FirstOrDefault(row => row.Name == name);
+
+    /// <summary>
+    /// 素体の詳細の欄の知らせを、その素体の行に出す。その素体を右に出していないとき（統合で行が無くなった・読み直しで選びが移った）は、
+    /// 見えない所へ出すと知らせが消えたように見えるので上の段へ出す
+    /// </summary>
+    private void ShowOnBase(string baseName, Func<AvatarBaseRowViewModel, NoticeSlot> slot, string text, bool warn)
+    {
+        if (BaseRow(baseName) is { } row && ReferenceEquals(row, SelectedBase))
+        {
+            if (warn)
+            {
+                slot(row).Warn(text);
+            }
+            else
+            {
+                slot(row).Notice(text);
+            }
+
+            return;
+        }
+
+        Status = text;
     }
 
     /// <summary>一覧の上の欄から共通素体を足す。Enter でも「追加」でも、ここへ来る。</summary>
@@ -781,25 +869,25 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 空のまま押したときに黙って終わらない（I1）
         if (name.Length == 0)
         {
-            Status = "共通素体の名前を入れてから押してください。";
+            AddBaseNote.Warn("共通素体の名前を入れてから押してください。");
             return;
         }
 
         if (Core.Services.NameText.IsTooLong(name))
         {
-            Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
+            AddBaseNote.Warn(Core.Services.NameText.TooLongMessage("共通素体の名前"));
             return;
         }
 
         // 一覧にある名前なら書かずに、その素体を選んで見せる（大文字小文字を変えて打っても同じ素体）
         if (Bases.FirstOrDefault(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase)) is { } existing)
         {
-            Status = $"共通素体「{existing.Name}」は既にあります。";
+            AddBaseNote.Warn($"共通素体「{existing.Name}」は既にあります。");
             SelectedBase = existing;
             return;
         }
 
-        var result = await WriteAsync(new UiCommand.AddBase(name), "共通素体を追加できませんでした。");
+        var result = await WriteAsync(new UiCommand.AddBase(name), "共通素体を追加できませんでした。", AddBaseNote.Warn);
         if (result is null)
         {
             return;
@@ -810,18 +898,23 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             : AvatarBaseAddOutcome.AlreadyThere;
         NoteRegistryChanged();
 
-        // 足していないのに「追加しました」と言わない（I2）。もうある素体は、選んで見せる
-        Status = outcome switch
-        {
-            AvatarBaseAddOutcome.Added => $"共通素体「{name}」を追加しました。",
-            AvatarBaseAddOutcome.Restored => $"削除していた共通素体「{name}」を戻しました。",
-            _ => $"共通素体「{name}」は既にあります。",
-        };
-
-        // 足せたら欄を空ける（続けて別の素体を足せるように）。既にあったときは打った名前を残す（直して足し直せる）
+        // 足せたら欄を空ける（続けて別の素体を足せるように）。既にあったときは打った名前を残す（直して足し直せる）。
+        // 欄を空けると知らせも消えるので、知らせは空けた後に出す
         if (outcome != AvatarBaseAddOutcome.AlreadyThere)
         {
             NewBaseName = string.Empty;
+        }
+
+        // 足していないのに「追加しました」と言わない（I2）。もうある素体は、選んで見せる。
+        // 足せたときは、欄が空き、素体が選ばれて右に出るので、知らせは出さない
+        switch (outcome)
+        {
+            case AvatarBaseAddOutcome.Restored:
+                AddBaseNote.Notice($"削除していた共通素体「{name}」を戻しました。");
+                break;
+            case AvatarBaseAddOutcome.AlreadyThere:
+                AddBaseNote.Warn($"共通素体「{name}」は既にあります。");
+                break;
         }
 
         await LoadAsync();
@@ -907,6 +1000,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 OnPropertyChanged(nameof(NewBaseHint));
                 OnPropertyChanged(nameof(HasNewBaseHint));
                 OnPropertyChanged(nameof(HasBaseInput));
+                BaseFieldNote.Clear();
             }
         }
     }
@@ -914,7 +1008,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     public string AliasInput
     {
         get => _aliasInput;
-        set => SetField(ref _aliasInput, value);
+        set
+        {
+            if (SetField(ref _aliasInput, value))
+            {
+                AliasNote.Clear();
+            }
+        }
     }
 
     /// <summary>表示名の編集欄。BOOTHの正式名は別に残す。</summary>
@@ -926,6 +1026,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             if (SetField(ref _nameInput, value))
             {
                 OnPropertyChanged(nameof(HasNameChange));
+                AvatarNameNote.Clear();
             }
         }
     }
@@ -1031,6 +1132,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             if (!ReferenceEquals(value, _selected))
             {
                 FlushMemo();
+
+                // 読み直しで同じアバターの新しい行へ選び直すときは残す（書いた直後の知らせが消える）
+                if (_selected?.ItemId != value?.ItemId)
+                {
+                    ClearAvatarNotes();
+                }
 
                 // 離れる前に打ちかけを控える（I5）。**保存してある値と同じ欄は打ちかけではない**ので控えない。
                 // 書き込みの後の読み直しでも、同じアバターの古い行から新しい行へ選び直す。そこで欄を丸ごと控えると、
@@ -1202,9 +1309,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
-        Status = _services.CopyText(row.ItemId)
-            ? $"{row.ItemId} をコピーしました。"
-            : "コピーできませんでした。もう一度押してください。";
+        if (_services.CopyText(row.ItemId))
+        {
+            IdNote.Notice($"{row.ItemId} をコピーしました。");
+        }
+        else
+        {
+            IdNote.Warn("コピーできませんでした。もう一度押してください。");
+        }
     });
 
     /// <summary>BOOTHの正式名。表示名を短くしている分、元の名前も読めるようにする。</summary>
@@ -1598,17 +1710,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 空のまま押したときに黙って終わらない（I1）
         if (string.IsNullOrWhiteSpace(BaseInput))
         {
-            Status = "共通素体の名前を入れてから押してください。";
+            BaseFieldNote.Warn("共通素体の名前を入れてから押してください。");
             return;
         }
 
         if (Core.Services.NameText.IsTooLong(BaseInput))
         {
-            Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
+            BaseFieldNote.Warn(Core.Services.NameText.TooLongMessage("共通素体の名前"));
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarBase(Selected.ItemId, BaseInput), "素体を保存できませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetAvatarBase(Selected.ItemId, BaseInput), "素体を保存できませんでした。", BaseFieldNote.Warn) is null)
         {
             return;
         }
@@ -1625,7 +1737,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarBase(Selected.ItemId, null), "素体を外せませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetAvatarBase(Selected.ItemId, null), "素体を外せませんでした。", BaseFieldNote.Warn) is null)
         {
             return;
         }
@@ -1643,37 +1755,41 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         var trimmed = input.Trim();
 
+        // 読み直すと行が作り直されるので、書けなかった知らせは今の行に、書けた知らせは読み直した後の行に出す
+        Action<string> warn = text => ShowOnBase(name, row => row.ItemIdNote, text, warn: true);
+
         if (trimmed.Length == 0)
         {
-            if (await WriteAsync(new UiCommand.SetBaseItemId(name, null), "紐付けを外せませんでした。") is null)
+            if (await WriteAsync(new UiCommand.SetBaseItemId(name, null), "紐付けを外せませんでした。", warn) is null)
             {
                 return;
             }
 
-            Status = $"「{name}」の配布商品との紐付けを外しました。";
             await LoadAsync();
+            ShowOnBase(name, row => row.ItemIdNote, "配布商品との紐付けを外しました。", warn: false);
             return;
         }
 
         var itemId = Core.Services.BoothItemId.Parse(trimmed);
         if (itemId is null)
         {
-            Status = "商品IDが読み取れませんでした。数字か、BOOTHの商品ページのURLを入れてください。";
+            warn("商品IDが読み取れませんでした。数字か、BOOTHの商品ページのURLを入れてください。");
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetBaseItemId(name, itemId), "紐付けできませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetBaseItemId(name, itemId), "紐付けできませんでした。", warn) is null)
         {
             return;
         }
 
-        Status = $"「{name}」を商品 {itemId} に紐付けました。";
         await LoadAsync();
+        ShowOnBase(name, row => row.ItemIdNote, $"商品 {itemId} に紐付けました。", warn: false);
     }
 
     private async Task ToggleInferAsync(string name, bool infer)
     {
-        if (await WriteAsync(new UiCommand.SetBaseInferClothing(name, infer), "切り替えを保存できませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetBaseInferClothing(name, infer), "切り替えを保存できませんでした。",
+                text => ShowOnBase(name, row => row.ItemIdNote, text, warn: true)) is null)
         {
             // 切り替えの見た目は押した時点で動くので、書いた値に戻す
             await LoadAsync();
@@ -1682,10 +1798,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         // 衣装の互換を広げるかは素体の索引が見る。検索の絞り込みに今の値を効かせる
         NoteRegistryChanged();
-        Status = infer
-            ? $"「{name}」の一致から衣装の互換を広げます。"
-            : $"「{name}」の一致では衣装の互換を広げません。";
         await LoadAsync();
+        ShowOnBase(name, row => row.ItemIdNote, infer
+            ? "この素体の一致から衣装の互換を広げます。"
+            : "この素体の一致では衣装の互換を広げません。", warn: false);
     }
 
     /// <summary>
@@ -1699,13 +1815,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 空のまま押したときに黙って終わらない（I1）
         if (newName.Length == 0)
         {
-            Status = "新しい素体の名前を入れてから押してください。";
+            ShowOnBase(oldName, row => row.NameNote, "新しい素体の名前を入れてから押してください。", warn: true);
             return;
         }
 
         if (Core.Services.NameText.IsTooLong(newName))
         {
-            Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
+            ShowOnBase(oldName, row => row.NameNote, Core.Services.NameText.TooLongMessage("共通素体の名前"), warn: true);
             return;
         }
 
@@ -1732,11 +1848,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         var result = await WriteAsync(
             new UiCommand.RenameBase(oldName, newName),
-            mergeInto is null ? "素体の名前を変更できませんでした。" : "素体を統合できませんでした。");
+            mergeInto is null ? "素体の名前を変更できませんでした。" : "素体を統合できませんでした。",
+            text => ShowOnBase(oldName, row => row.NameNote, text, warn: true));
+        var resultText = string.Empty;
         if (result is not null)
         {
             var updated = result is CommandResult.Counted renamed ? renamed.Count : 0;
-            Status = mergeInto is null
+            resultText = mergeInto is null
                 ? $"「{oldName}」を「{newName}」に変え、商品 {updated} 件を書き換えました。"
                 : $"「{oldName}」を「{mergeInto}」に統合し、商品 {updated} 件を書き換えました。";
         }
@@ -1744,6 +1862,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 書けなかったときも読み直す。途中まで書き換えた商品があり得るので、今の状態を見せる
         await LoadAsync();
         await NoteItemsRewrittenAsync();
+
+        if (resultText.Length > 0)
+        {
+            // 読み直すと選びが先頭の素体へ移る。結果を名前の欄の下に出すので、名前を変えた（統合先の）素体を選び直す
+            if (BaseRow(mergeInto ?? newName) is { } target)
+            {
+                SelectedBase = target;
+            }
+
+            ShowOnBase(mergeInto ?? newName, row => row.NameNote, resultText, warn: false);
+        }
     }
 
     /// <summary>
@@ -1793,7 +1922,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     private async Task DeleteBaseAsync(string name)
     {
-        if (await WriteAsync(new UiCommand.DeleteBase(name), "素体を削除できませんでした。") is { } result)
+        // 素体の削除は、管理の欄ごと別の素体に切り替わる。消えた欄の下には出せないので、上の段に残す
+        if (await WriteAsync(new UiCommand.DeleteBase(name), "素体を削除できませんでした。", ShowInHeader) is { } result)
         {
             var updated = result is CommandResult.Counted deleted ? deleted.Count : 0;
             Status = $"「{name}」を削除し、商品 {updated} 件を書き換えました。";
@@ -1830,7 +1960,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarName(Selected.ItemId, string.Empty), "名前を戻せませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetAvatarName(Selected.ItemId, string.Empty), "名前を戻せませんでした。", AvatarNameNote.Warn) is null)
         {
             return;
         }
@@ -1851,13 +1981,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         var newName = Core.Services.NameText.Normalize(NameInput);
         if (newName.Length == 0)
         {
-            Status = "名前を入れてから押してください。";
+            AvatarNameNote.Warn("名前を入れてから押してください。");
             return;
         }
 
         if (Core.Services.NameText.IsTooLong(newName))
         {
-            Status = Core.Services.NameText.TooLongMessage("アバターの名前");
+            AvatarNameNote.Warn(Core.Services.NameText.TooLongMessage("アバターの名前"));
             return;
         }
 
@@ -1869,7 +1999,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         // 書けなかったときは打った名前の欄を開いたまま残す（もう一度押せば書ける）
-        if (await WriteAsync(new UiCommand.SetAvatarName(Selected.ItemId, newName), "名前を保存できませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetAvatarName(Selected.ItemId, newName), "名前を保存できませんでした。", AvatarNameNote.Warn) is null)
         {
             return;
         }
@@ -1902,12 +2032,21 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         _memoItemId = null;
         var memo = _memoInput;
         _writtenMemos[itemId] = memo;
-        if (await WriteAsync(new UiCommand.SetAvatarMemo(itemId, memo), "メモを保存できませんでした。") is null)
-        {
-            return;
-        }
 
-        Status = memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
+        // 保存できたときは何も出さない（自動で残す欄）。書けなかったときは、別のアバターへ移った後だと欄の下に出しても
+        // 別のアバターのメモに見えるので、上の段へ出す
+        await WriteAsync(new UiCommand.SetAvatarMemo(itemId, memo), "メモを保存できませんでした。",
+            text =>
+            {
+                if (Selected?.ItemId == itemId)
+                {
+                    MemoNote.Warn(text);
+                }
+                else
+                {
+                    Status = text;
+                }
+            });
     }
 
     private async Task AddAliasAsync()
@@ -1919,20 +2058,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         if (Core.Services.NameText.IsTooLong(AliasInput))
         {
-            Status = Core.Services.NameText.TooLongMessage("呼び方");
+            AliasNote.Warn(Core.Services.NameText.TooLongMessage("呼び方"));
             return;
         }
 
         // 1文字だと当たりが広すぎるので受けない。黙って終わらず、そう言う（I1）
         if (AliasInput.Trim().Length < 2)
         {
-            Status = AliasInput.Trim().Length == 0
+            AliasNote.Warn(AliasInput.Trim().Length == 0
                 ? "呼び方を入れてから押してください。"
-                : "呼び方は2文字以上で入れてください。";
+                : "呼び方は2文字以上で入れてください。");
             return;
         }
 
-        if (await WriteAsync(new UiCommand.AddAvatarAlias(Selected.ItemId, AliasInput), "呼び方を追加できませんでした。") is null)
+        if (await WriteAsync(new UiCommand.AddAvatarAlias(Selected.ItemId, AliasInput), "呼び方を追加できませんでした。", AliasNote.Warn) is null)
         {
             return;
         }
@@ -1951,7 +2090,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         // 表示は「くうた（3）」の形なので、括弧より前を名前として扱う
         var text = display.Split('（')[0];
-        if (await WriteAsync(new UiCommand.RemoveAvatarAlias(Selected.ItemId, text), "呼び方を削除できませんでした。") is null)
+        if (await WriteAsync(new UiCommand.RemoveAvatarAlias(Selected.ItemId, text), "呼び方を削除できませんでした。", AliasNote.Warn) is null)
         {
             return;
         }
@@ -1967,7 +2106,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         var next = !Selected.Summary.Entry.IsOwnedManually;
-        if (await WriteAsync(new UiCommand.SetAvatarOwned(Selected.ItemId, next), "所有を保存できませんでした。") is null)
+        if (await WriteAsync(new UiCommand.SetAvatarOwned(Selected.ItemId, next), "所有を保存できませんでした。", OwnedNote.Warn) is null)
         {
             // 切り替えの見た目は押した時点で動くので、書いた値に戻す
             await LoadAsync();
@@ -1999,7 +2138,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarOverride(Selected.ItemId, value), "扱いを保存できませんでした。") is not null)
+        if (await WriteAsync(new UiCommand.SetAvatarOverride(Selected.ItemId, value), "扱いを保存できませんでした。", JudgementNote.Warn) is not null)
         {
             // アバターとして扱うかで、検索の対応アバターの候補に出るかが変わる
             NoteRegistryChanged();
@@ -2009,19 +2148,21 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     }
 
     /// <summary>
-    /// 書き込みの命令を送り、書けなかったら状態の文に出す。書けたら結果を、書けなかったら null を返す。
+    /// 書き込みの命令を送り、書けなかったら呼び手の渡した出し先（<paramref name="show"/>）に出す。書けたら結果を、書けなかったら null を返す。
+    /// 出し先は押した欄・ボタンのすぐ下の知らせ（<see cref="NoticeSlot.Warn"/>）か、画面全体の知らせなら <see cref="ShowInHeader"/>。
+    /// 前は一律で上の段に出していたので、押した所から遠く、幅が狭いと切れた（2026-10-03 の方針）
     ///
     /// 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
     /// 前は押しても何も起きなかったように見えた（タグ・属性の管理と同じ直し・b94dd15）。素体の改名は多数の商品を書くので、途中で止まることもある
     /// </summary>
-    private async Task<CommandResult?> WriteAsync(UiCommand command, string failedText)
+    private async Task<CommandResult?> WriteAsync(UiCommand command, string failedText, Action<string> show)
     {
         try
         {
             var result = await _services.Commands.ExecuteAsync(command);
             if (result is CommandResult.Failed failed)
             {
-                Status = failed.Message;
+                show(failed.Message);
                 return null;
             }
 
@@ -2030,7 +2171,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         catch (Exception exception)
         {
             Core.Diagnostics.AppLog.Error("アバターの画面：書き込み", exception);
-            Status = failedText + Core.Services.FailureText.Cause(exception);
+            show(failedText + Core.Services.FailureText.Cause(exception));
             return null;
         }
     }
@@ -2063,17 +2204,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         _isRechecking = true;
-        Status = "BOOTHに問い合わせています…";
+        IdNote.Notice("BOOTHに問い合わせています…");
         try
         {
             var result = await _services.Commands.ExecuteAsync(new UiCommand.RecheckAvatar(Selected.ItemId));
             if (result is CommandResult.Failed failed)
             {
-                Status = failed.Message;
+                IdNote.Warn(failed.Message);
             }
             else
             {
-                Status = "確認し直しました。";
+                IdNote.Notice("確認し直しました。");
 
                 // BOOTHの名前や非公開の印が変わると、検索の対応アバターの候補の名前も変わる
                 NoteRegistryChanged();
@@ -2085,7 +2226,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             // 受けないと「問い合わせています…」のまま残り、止まったように見えた
             Core.Diagnostics.AppLog.Error("アバターの画面：確認し直す", exception);
-            Status = $"確認し直せませんでした。{Core.Services.FailureText.Cause(exception)}";
+            IdNote.Warn($"確認し直せませんでした。{Core.Services.FailureText.Cause(exception)}");
         }
         finally
         {

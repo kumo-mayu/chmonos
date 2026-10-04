@@ -1506,9 +1506,17 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         var watch = !detail.IsWatched;
         await _main.Import.SetWatchedAsync(detail.Path, watch);
         detail.IsWatched = watch;
-        Status = watch
-            ? $"「{detail.Path}」を監視しています。次に起動したとき、この中に新しいファイルが増えていないかを見ます。"
-            : $"「{detail.Path}」の監視をやめました。取り込んだものはそのまま残ります。";
+
+        // 監視に入れたときは何も出さない。同じ行の「監視：監視中」が答えで、起動時に見ることはボタンの吹き出しにある
+        // （2026-10-04：下の帯に長い文を出していた）。やめたときだけ、消えたと誤解しやすい「取り込んだもの」の行方を、ボタンのすぐ下に出す
+        if (watch)
+        {
+            detail.WatchNote.Clear();
+        }
+        else
+        {
+            detail.WatchNote.Notice("監視をやめました。取り込んだものはそのまま残ります。");
+        }
     }
 
     /// <summary>その下の未確定を全部（子のフォルダも含む）管理対象から除外する（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>
