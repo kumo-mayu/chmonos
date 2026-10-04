@@ -88,4 +88,148 @@ public static class SavedSearches
         (list[at], list[to]) = (list[to], list[at]);
         return list;
     }
+
+    // ---- 名前の変更・統合に付いていく（ユーザ判断 2026-10-04） ----
+    // 保存した検索の条件はタグ・属性・共通素体を名前の文字で指す。名前を変えても条件が古い名前のままだと、呼び出したとき0件になる。
+    // **消したときは何もしない**（残した古い名前が条件の欄に見え、0件の理由が読める。「今は無い値はそのまま条件に入れる」と同じ）。
+    // 並びと名前は触らず、条件の中の名前だけを書き換える。モジュールの要約（Summary）は見るだけの控えで、呼び出すと作り直されるので触らない
+
+    private const string UserTagKind = "UserTag";
+    private const string AttributeKind = "Attribute";
+    private const string AvatarKind = "Avatar";
+    private const string BaseKeyPrefix = "base:";
+
+    private static IReadOnlyList<SearchHistoryEntry> RewriteModules(
+        IEnumerable<SearchHistoryEntry> entries,
+        string kind,
+        Func<SearchModuleState, SearchModuleState> rewrite)
+        => entries
+            .Select(entry => entry.Modules.Any(module => module.Kind == kind)
+                ? entry with { Modules = entry.Modules.Select(module => module.Kind == kind ? rewrite(module) : module).ToList() }
+                : entry)
+            .ToList();
+
+    private static bool SameTag(string? left, string? right)
+        => string.Equals(left, right, StringComparison.CurrentCultureIgnoreCase);
+
+    /// <summary>
+    /// 大分類の名前の変更・統合。統合で同じ大分類の条件が2つになったら、小分類を合わせて1つにする
+    /// （「小分類なし」はどちらかが持っていれば持つ。小分類の結び方は、もとから寄せ先の名前だった側のものを残す）
+    /// </summary>
+    public static IReadOnlyList<SearchHistoryEntry> RenameUserTagTop(IEnumerable<SearchHistoryEntry> entries, string oldName, string newName)
+    {
+        var target = newName.Trim();
+        if (target.Length == 0)
+        {
+            return entries.ToList();
+        }
+
+        var caseOnly = SameTag(oldName, target);
+        return RewriteModules(entries, UserTagKind, module =>
+        {
+            var merged = new List<UserTagCondition>();
+            foreach (var condition in module.UserTags)
+            {
+                var wasOld = SameTag(condition.Top, oldName);
+                var renamed = wasOld ? condition with { Top = target } : condition;
+                var at = merged.FindIndex(other => SameTag(other.Top, renamed.Top));
+                if (at < 0)
+                {
+                    merged.Add(renamed);
+                    continue;
+                }
+
+                var existing = merged[at];
+                merged[at] = (wasOld && !caseOnly ? existing : renamed) with
+                {
+                    Top = target,
+                    Subs = existing.Subs.Concat(renamed.Subs).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList(),
+                    NoSub = existing.NoSub || renamed.NoSub,
+                };
+            }
+
+            return module with { UserTags = merged };
+        });
+    }
+
+    /// <summary>小分類の名前の変更・統合（同じ大分類の条件の中だけ）。統合で同じ名前が並んだら1つにする</summary>
+    public static IReadOnlyList<SearchHistoryEntry> RenameUserTagSub(IEnumerable<SearchHistoryEntry> entries, string top, string oldName, string newName)
+    {
+        var target = newName.Trim();
+        if (target.Length == 0)
+        {
+            return entries.ToList();
+        }
+
+        return RewriteModules(entries, UserTagKind, module => module with
+        {
+            UserTags = module.UserTags.Select(condition => SameTag(condition.Top, top)
+                ? condition with
+                {
+                    Subs = condition.Subs.Select(sub => SameTag(sub, oldName) ? target : sub)
+                        .Distinct(StringComparer.CurrentCultureIgnoreCase).ToList(),
+                }
+                : condition).ToList(),
+        });
+    }
+
+    /// <summary>
+    /// 属性の名前の変更・統合。幅の条件と、その属性で並べた表示順（「質感 が高い順」）の両方を寄せる。
+    /// 統合で両方の幅を持っていたら、寄せ先の幅を残す（商品側の統合の既定「寄せ先の値を残す」と同じ向き）
+    /// </summary>
+    public static IReadOnlyList<SearchHistoryEntry> RenameAttribute(IEnumerable<SearchHistoryEntry> entries, string oldName, string newName)
+    {
+        var target = newName.Trim();
+        if (target.Length == 0)
+        {
+            return entries.ToList();
+        }
+
+        var caseOnly = SameTag(oldName, target);
+        var renamed = RewriteModules(entries, AttributeKind, module =>
+        {
+            var hasTarget = module.Ranges.Any(range => SameTag(range.Name, target));
+            return module with
+            {
+                Ranges = module.Ranges
+                    .Where(range => caseOnly || !SameTag(range.Name, oldName) || !hasTarget)
+                    .Select(range => SameTag(range.Name, oldName) ? range with { Name = target } : range)
+                    .ToList(),
+            };
+        });
+
+        return renamed.Select(entry => entry with { Sort = RenameSort(entry.Sort, oldName, target) }).ToList();
+    }
+
+    private static string? RenameSort(string? sort, string oldName, string target)
+    {
+        foreach (var suffix in new[] { " が高い順", " が低い順" })
+        {
+            if (sort == oldName + suffix)
+            {
+                return target + suffix;
+            }
+        }
+
+        return sort;
+    }
+
+    /// <summary>共通素体の名前の変更・統合。対応アバターの条件の中の「base:名前」の鍵を寄せる</summary>
+    public static IReadOnlyList<SearchHistoryEntry> RenameBase(IEnumerable<SearchHistoryEntry> entries, string oldName, string newName)
+    {
+        var target = newName.Trim();
+        if (target.Length == 0)
+        {
+            return entries.ToList();
+        }
+
+        return RewriteModules(entries, AvatarKind, module => module with
+        {
+            Items = module.Items
+                .Select(key => key.StartsWith(BaseKeyPrefix, StringComparison.Ordinal) && SameTag(key[BaseKeyPrefix.Length..], oldName)
+                    ? BaseKeyPrefix + target
+                    : key)
+                .Distinct(StringComparer.Ordinal).ToList(),
+        });
+    }
 }

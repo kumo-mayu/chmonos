@@ -91,6 +91,23 @@ public sealed class CommandHandler
     /// 意味の取れない文（「〜手段が設定されていません。」）を画面に出すのではなく、**不具合として落とす。**
     /// 同じファイルの「〜が渡されていません。」（設定の保存先など）と扱いを揃えた。
     /// </summary>
+    /// <summary>
+    /// 名前の変更・統合の命令の中で、保存した検索の条件の名前も同じ名前へ寄せる（錠の中で今の並びに当てる）。
+    /// 設定の保存先が渡されていない組み立て（一部の試験）では何もしない
+    /// </summary>
+    private async Task FollowRenameInSavedSearchesAsync(
+        Func<IReadOnlyList<Models.SearchHistoryEntry>, IReadOnlyList<Models.SearchHistoryEntry>> rewrite,
+        CancellationToken cancellationToken)
+    {
+        if (_settings is null)
+        {
+            return;
+        }
+
+        await _settings.ChangeSavedSearchesAsync(
+            list => new Services.SavedSearchList { Entries = rewrite(list.Entries) }, cancellationToken);
+    }
+
     private static CommandResult MissingService(string what)
         => throw new InvalidOperationException($"{what}が組み立てのときに渡されていません（アプリの不具合）。");
 
@@ -157,9 +174,23 @@ public sealed class CommandHandler
                 or UiCommand.SetAvatarOverride or UiCommand.SetAvatarBase or UiCommand.SetBaseInferClothing
                 or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase or UiCommand.AddBase
                 or UiCommand.AddAvatarAlias or UiCommand.RemoveAvatarAlias or UiCommand.RecheckAvatar:
-                return _avatarEditor is null
-                    ? MissingService("アバターの登録簿の編集")
-                    : await EditAvatarRegistryAsync(_avatarEditor, command, cancellationToken);
+            {
+                if (_avatarEditor is null)
+                {
+                    return MissingService("アバターの登録簿の編集");
+                }
+
+                var edited = await EditAvatarRegistryAsync(_avatarEditor, command, cancellationToken);
+
+                // 共通素体の名前を変える・統合すると、保存した検索の「base:名前」の条件も付いていかせる
+                if (command is UiCommand.RenameBase renameBase && renameBase.NewName.Trim().Length > 0 && edited is not CommandResult.Failed)
+                {
+                    await FollowRenameInSavedSearchesAsync(
+                        entries => Services.SavedSearches.RenameBase(entries, renameBase.OldName, renameBase.NewName), cancellationToken);
+                }
+
+                return edited;
+            }
 
             case UiCommand.StartEditSession or UiCommand.AdvanceEditSession or UiCommand.NoteEditSaved
                 or UiCommand.ReplaceEditSessionItemId or UiCommand.ClearEditSession:
@@ -495,9 +526,30 @@ public sealed class CommandHandler
                     return MissingService("ユーザータグの編集");
                 }
 
-                return new CommandResult.UserTagsRewritten(rename.Sub is null
+                var renamedTag = rename.Sub is null
                     ? await _userTags.RenameTopAsync(rename.Top, rename.NewName, cancellationToken)
-                    : await _userTags.RenameSubAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken));
+                    : await _userTags.RenameSubAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken);
+
+                // 保存した検索の条件の名前も付いていかせる。統合のときは、残る側の綴り（マスタにある名前）へ寄せる
+                var tagTarget = rename.NewName.Trim();
+                if (tagTarget.Length > 0)
+                {
+                    var tops = renamedTag.Master.Tops;
+                    var topSpelling = rename.Sub is null
+                        ? tops.FirstOrDefault(top => string.Equals(top.Name, tagTarget, StringComparison.CurrentCultureIgnoreCase))?.Name ?? tagTarget
+                        : tagTarget;
+                    var subSpelling = rename.Sub is null
+                        ? tagTarget
+                        : tops.FirstOrDefault(top => string.Equals(top.Name, rename.Top, StringComparison.CurrentCultureIgnoreCase))
+                            ?.Subs.FirstOrDefault(sub => string.Equals(sub.Name, tagTarget, StringComparison.CurrentCultureIgnoreCase))?.Name ?? tagTarget;
+                    await FollowRenameInSavedSearchesAsync(
+                        entries => rename.Sub is null
+                            ? Services.SavedSearches.RenameUserTagTop(entries, rename.Top, topSpelling)
+                            : Services.SavedSearches.RenameUserTagSub(entries, rename.Top, rename.Sub, subSpelling),
+                        cancellationToken);
+                }
+
+                return new CommandResult.UserTagsRewritten(renamedTag);
 
             case UiCommand.DeleteUserTag delete:
                 if (_userTags is null)
@@ -566,6 +618,8 @@ public sealed class CommandHandler
                         .FirstOrDefault(name => string.Equals(name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? trimmed;
                     await _settings.UpdateAsync(
                         current => current.WithCardAttributeRenamed(renameAttribute.OldName, kept), cancellationToken);
+                    await FollowRenameInSavedSearchesAsync(
+                        entries => Services.SavedSearches.RenameAttribute(entries, renameAttribute.OldName, kept), cancellationToken);
                 }
 
                 return new CommandResult.AttributesRewritten(renamed);
