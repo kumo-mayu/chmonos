@@ -47,7 +47,8 @@ internal static class ItemUnityActions
     /// </summary>
     /// <param name="notify">人が止めたときに言う先（商品ページは欄の下の1行）。無ければ知らせの窓で言う。</param>
     public static async Task SendAsync(
-        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, UnitySendUi? ui = null, NoticeSink? notify = null)
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, UnitySendUi? ui = null, NoticeSink? notify = null,
+        Action<ItemRecord>? presenceChanged = null)
     {
         const string title = "Unityへ送る";
 
@@ -67,7 +68,7 @@ internal static class ItemUnityActions
 
         if (answer == System.Windows.MessageBoxResult.OK)
         {
-            await SendPickedAsync(services, item, editor, package, title, ui, notify);
+            await SendPickedAsync(services, item, editor, package, title, ui, notify, presenceChanged);
         }
     }
 
@@ -77,9 +78,9 @@ internal static class ItemUnityActions
     /// </summary>
     internal static async Task SendPickedAsync(
         AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
-        string title, UnitySendUi? ui, NoticeSink? notify)
+        string title, UnitySendUi? ui, NoticeSink? notify, Action<ItemRecord>? presenceChanged = null)
     {
-        if (await SendOneAsync(services, item, editor, package, title, ui) is { Stopped: { } stopped })
+        if (await SendOneAsync(services, item, editor, package, title, ui, presenceChanged) is { Stopped: { } stopped })
         {
             // 止めたのは人なので、失敗の顔（⚠）で出さない。まとめて送るときと同じ文で言う。
             // 取り込み画面が残ったときは閉じ方も要るので、黙りはしない
@@ -106,7 +107,7 @@ internal static class ItemUnityActions
     /// </summary>
     internal static async Task<SendResult> SendOneAsync(
         AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
-        string title, UnitySendUi? ui)
+        string title, UnitySendUi? ui, Action<ItemRecord>? presenceChanged = null)
     {
         // 1件でも進み具合を出す（E10）。出す先を持っている画面だけが渡す
         ui?.Begin($"「{package.Name}」をUnityへ送っています…");
@@ -130,6 +131,16 @@ internal static class ItemUnityActions
 
         if (outcome is null || !outcome.Opened)
         {
+            // 送れなかった理由が「zip が無い」なら記録へ（見つからなくなった日時。ユーザ判断 2026-10-04）。
+            // 理由の文では見分けず、そのファイルを見直す（在れば何も書かない）。窓の前に書く（窓の間も検索の印が合うように）
+            var files = item.Local.LocalFiles
+                .Where(file => string.Equals(file.Hash, package.ZipHash, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (await FilePresenceNotes.LookAndNoteAsync(services, item, files) is { } reloaded)
+            {
+                presenceChanged?.Invoke(reloaded);
+            }
+
             FrontNotice.Show(
                 $"「{package.Name}」をUnityへ送れませんでした。\n\n{outcome?.Problem ?? "理由が分かりませんでした。"}",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
@@ -166,7 +177,8 @@ internal static class ItemUnityActions
     /// </summary>
     /// <returns>足した改変（足せなかった・やめたら null）。</returns>
     public static async Task<ModificationRecord?> SendWithRecordAsync(
-        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify, UnitySendUi? ui = null)
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify, UnitySendUi? ui = null,
+        Action<ItemRecord>? presenceChanged = null)
     {
         const string title = "改変に追加して送る";
 
@@ -217,7 +229,7 @@ internal static class ItemUnityActions
         }
 
         // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
-        var (text, failed) = AfterRecordText(record.Name, await SendOneAsync(services, item, editor, package, title, ui));
+        var (text, failed) = AfterRecordText(record.Name, await SendOneAsync(services, item, editor, package, title, ui, presenceChanged));
         notify(text, failed);
         return record;
     }

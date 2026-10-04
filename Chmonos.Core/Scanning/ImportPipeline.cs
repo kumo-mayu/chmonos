@@ -316,6 +316,7 @@ public sealed class ImportPipeline : IImportPipeline
         // 周回の外で取る画像の列（④1枚目 ⑤残り ⑥ショップのアイコン）。周回をまたいで持ち越す
         var images = new ImageQueue();
         var measuredFolders = false;
+        var sweptFiles = false;
 
         while (true)
         {
@@ -372,6 +373,16 @@ public sealed class ImportPipeline : IImportPipeline
             await SaveScanCacheAsync(scanCache, cancellationToken);
             await DropReplacedPathsAsync(resolution.Replaced, cancellationToken);
             await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
+
+            // 記録しているファイルの場所を全部見て、見つからなくなった日時を付け外しする（ユーザ判断 2026-10-04）。
+            // 取り込み1回につき最初の周回だけ（登録したフォルダの測り直しと同じ）。走査で見つけた移し先を結び直した後に見るのは、
+            // 移しただけの物に一度「無い」と書いてすぐ消す書き込みを省くため
+            if (!sweptFiles)
+            {
+                sweptFiles = true;
+                await NoteMissingFilesAsync(cancellationToken);
+            }
+
             foreach (var (itemId, hash) in resolution.BrokenOwned)
             {
                 totals.NoteBrokenOnItem(itemId, hash);
@@ -892,6 +903,51 @@ public sealed class ImportPipeline : IImportPipeline
         }
 
         return (new RegisteredFolderSet(paths), owned, owners, recordedAt, DetachedIndex.From(loaded.Items));
+    }
+
+    /// <summary>
+    /// 記録しているファイルの場所を全部見て、見つからなくなった日時（<see cref="LocalFileRecord.MissingSince"/>）を付け外しする
+    /// （ユーザ判断 2026-10-04。フォルダの <see cref="LocalFolderRecord.MissingSince"/> と同じく取り込みのたびに見る）。
+    /// </summary>
+    /// <remarks>
+    /// 前は取り込みがその商品のファイルを扱ったときにしか「無い」が記録に残らず、手で zip を消してもカードの印・検索の条件・統計に出なかった。
+    /// **場所は外さない**（覚えている場所を黙って消さない。外すのは今までどおり、その商品を扱った取り込み＝<see cref="LocalFileMerger"/> だけ）。
+    /// 在るかはドライブごとにまとめて見る（<see cref="FilePresenceProbe"/>。つながっていないドライブの上は見に行かず、書かない）。
+    /// 外したファイルも見る（記録は事実なので。印と条件は外したファイルを数えない）。
+    /// 書くのは商品ごとの錠の中で今の値に当て、見ている間に場所が変わったファイルには当てない（<see cref="FileMissingMarks.Apply"/>）。
+    /// </remarks>
+    private async Task NoteMissingFilesAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var probe = new FilePresenceProbe();
+        var now = DateTimeOffset.Now;
+
+        foreach (var item in loaded.Items)
+        {
+            if (item.Local.LocalFiles.Count == 0)
+            {
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var sightings = item.Local.LocalFiles
+                .Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file.Paths)))
+                .ToList();
+
+            // 変わる物が無ければ錠も取らない（数千件のうち、ほとんどは前回と同じ）
+            if (!FileMissingMarks.Differs(item.Local.LocalFiles, sightings))
+            {
+                continue;
+            }
+
+            await _store.Items.ChangeLocalAsync(
+                item.Id,
+                current => FileMissingMarks.Apply(current.LocalFiles, sightings, now) is { } files
+                    ? current with { LocalFiles = files }
+                    : null,
+                LocalOwners.Import,
+                cancellationToken);
+        }
     }
 
     /// <summary>そのハッシュを持つ商品と、その商品が記録している場所・開けなかった印。</summary>

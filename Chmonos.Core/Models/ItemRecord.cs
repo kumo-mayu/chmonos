@@ -91,12 +91,14 @@ public sealed record ItemRecord
     ///
     /// 外したファイルは数えない（<see cref="HasBrokenArchive"/> と同じ）。**記録だけで決め、ディスクは見ない**：
     /// パスが空になるのは、取り込みがディスクに無い場所を全部外したとき（「見つからないファイルを探す」は中身で探して場所を足す）。
+    /// 場所が残っていても、取り込みか使おうとした画面が「どこにも無い」と見て書いた <see cref="LocalFileRecord.MissingSince"/> も数える
+    /// （ユーザ判断 2026-10-04。前は手で消したファイルが、取り込みがその商品を扱うまで数えられず、商品ページとだけ食い違っていた）。
     /// フォルダ登録（<see cref="LocalBlock.LocalFolders"/>）は、取り込みが「無い」と見たときに書く
     /// <see cref="LocalFolderRecord.MissingSince"/> を数える（ユーザ判断 2026-10-04。前は記録に「無い」状態が無く、数えていなかった）。
     /// </summary>
     [JsonIgnore]
     public bool HasMissingFile
-        => Local.LocalFiles.Any(file => !file.Detached && file.Paths.Count == 0)
+        => Local.LocalFiles.Any(file => !file.Detached && (file.Paths.Count == 0 || file.MissingSince is not null))
         || Local.LocalFolders.Any(folder => folder.MissingSince is not null);
 
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>

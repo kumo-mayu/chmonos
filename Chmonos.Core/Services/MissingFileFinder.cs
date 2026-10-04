@@ -223,18 +223,33 @@ public sealed class MissingFileFinder
         var file = current.LocalFiles.FirstOrDefault(entry =>
             string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase));
 
-        if (file is null || file.Detached || file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        if (file is null || file.Detached)
         {
             return null;
         }
 
-        var paths = file.Paths.Where(entry => !gone.Contains(entry, StringComparer.OrdinalIgnoreCase)).ToList();
-        paths.Add(path);
+        // 見つけた場所に在るのだから、見つからなくなった日時は消す（ユーザ判断 2026-10-04）。
+        // その間に取り込みが同じ場所を足していても、日時が残っていれば消す
+        LocalFileRecord next;
+        if (file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            if (file.MissingSince is null)
+            {
+                return null;
+            }
+
+            next = file with { MissingSince = null };
+        }
+        else
+        {
+            var paths = file.Paths.Where(entry => !gone.Contains(entry, StringComparer.OrdinalIgnoreCase)).ToList();
+            paths.Add(path);
+            next = file with { Paths = paths, MissingSince = null };
+        }
 
         return current with
         {
-            LocalFiles = [.. current.LocalFiles.Select(entry =>
-                ReferenceEquals(entry, file) ? entry with { Paths = paths } : entry)],
+            LocalFiles = [.. current.LocalFiles.Select(entry => ReferenceEquals(entry, file) ? next : entry)],
         };
     }
 

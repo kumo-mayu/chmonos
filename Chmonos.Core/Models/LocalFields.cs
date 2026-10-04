@@ -211,6 +211,15 @@ public static class LocalOwners
     /// </summary>
     public static readonly IReadOnlyCollection<LocalField> ItemPageMemo = [LocalField.Memo];
 
+    /// <summary>
+    /// 使おうとしてファイルが見つからない・見つかったと分かったとき（商品ページ・開く・Unityへ送る）の「見つからなくなった日時」。
+    ///
+    /// **取り込みと持ち主が2人になる**（<see cref="FileVariations"/> と同じ）。日時はファイル1件の中の項目で、項目単位では分けられない。
+    /// 壊れないのは、<c>ItemService.NoteFilePresenceAsync</c> が商品の錠の中で今の一覧の日時だけを書き換え、
+    /// 見たときと場所が変わったファイルには当てないから（<see cref="Services.FileMissingMarks"/>）。
+    /// </summary>
+    public static readonly IReadOnlyCollection<LocalField> FilePresence = [LocalField.LocalFiles];
+
     /// <summary>取り込み。手元のファイルとフォルダだけ。</summary>
     public static readonly IReadOnlyCollection<LocalField> Import =
     [
