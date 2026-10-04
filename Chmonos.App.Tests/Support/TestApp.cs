@@ -50,6 +50,9 @@ internal sealed class TestApp
             DiscoverUnityProjects = () => UnityProjects,
         };
 
+        // 幅・高さを書くまでの 0.4 秒を、試験では待たない（変える試験が1件ごとに 0.4 秒延びていた）
+        Services.PaneWidths.SaveDelay = TimeSpan.Zero;
+
         // 本物のエクスプローラを開かない（使う人の画面に出る）。渡された道を控え、試験がそれを見る
         Services.RevealInFolder = path =>
         {

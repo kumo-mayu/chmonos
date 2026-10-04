@@ -83,6 +83,12 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
     private Dictionary<string, double>? _current;
     private int _version;
 
+    /// <summary>
+    /// 変わってから書くまでの待ち。ドラッグの間は幅が刻々と変わるので、止まってから1回だけ書く。
+    /// 試験は 0 にする（幅・高さを変える試験が1件ごとに実際に 0.4 秒待ち、App の試験一式を数秒延ばしていた。2026-10-05）
+    /// </summary>
+    internal TimeSpan SaveDelay { get; set; } = TimeSpan.FromMilliseconds(400);
+
     public double Get(string key)
     {
         var pane = All[key];
@@ -151,7 +157,7 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
 
     private async Task SaveLaterAsync(int version)
     {
-        await Task.Delay(400);
+        await Task.Delay(SaveDelay);
         if (version != Volatile.Read(ref _version))
         {
             return;
