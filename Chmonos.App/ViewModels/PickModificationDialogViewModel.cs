@@ -10,6 +10,17 @@ public sealed class PickModificationRowViewModel
 
     public required string AvatarText { get; init; }
 
+    /// <summary>紐付けた Unity プロジェクトの名前（場所の最後の部分）。紐付けていなければ空。</summary>
+    public string ProjectName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 探す欄の語が、名前以外のどこに当たったか（「アバター：〇〇」「プロジェクト：〇〇」）。名前は行に出ているので言わない。
+    /// 探していない間・名前だけに当たったときは空。絞り込みのたびに VM が書き直し、行は作り直されるので通知は要らない
+    /// </summary>
+    public string MatchNote { get; internal set; } = string.Empty;
+
+    public bool HasMatchNote => MatchNote.Length > 0;
+
     public string Name => Record.Name;
 
     /// <summary>どのアバターの、何が何件入っているか。同じ名前を見分けるために出す。</summary>
@@ -46,6 +57,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         Title = title;
         HeadingText = headingText;
         ContextText = contextText;
+        _allRows = rows;
         Rows = new ObservableCollection<PickModificationRowViewModel>(rows);
         AvatarNames = avatarNames;
         ResolveAvatar = resolveAvatar;
@@ -54,6 +66,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
             parameter => Pick(parameter as PickModificationRowViewModel),
             parameter => parameter is PickModificationRowViewModel);
         PickAvatarCommand = new RelayCommand(parameter => PickAvatar(parameter as string));
+        ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty);
 
         // 候補が無いときは、作る話から始める（選ぶものが無い画面を見せない）
         _makingNew = rows.Count == 0;
@@ -77,9 +90,111 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     public bool HasFiles => Files is { HasChoices: true };
 
+    private readonly IReadOnlyList<PickModificationRowViewModel> _allRows;
+    private string _filterText = string.Empty;
+
+    /// <summary>探す欄の中身（今ある改変の一覧を絞る）。</summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            if (SetField(ref _filterText, value ?? string.Empty))
+            {
+                ApplyFilter();
+                OnPropertyChanged(nameof(HasFilterText));
+            }
+        }
+    }
+
+    public bool HasFilterText => FilterText.Length > 0;
+
+    public RelayCommand ClearFilterCommand { get; }
+
+    /// <summary>今見えている改変（探す欄で絞った後）。</summary>
     public ObservableCollection<PickModificationRowViewModel> Rows { get; }
 
-    public bool HasRows => Rows.Count > 0;
+    /// <summary>今ある改変が1件でもあるか。**絞った結果ではない**（探す欄と見出しを出すかの元。絞って0件でも欄は消さない）。</summary>
+    public bool HasRows => _allRows.Count > 0;
+
+    /// <summary>探したが1件も当たらなかったか。</summary>
+    public bool HasNoMatch => HasFilterText && Rows.Count == 0;
+
+    /// <summary>
+    /// 探す語を空白で区切り、**全部の語が**、改変の名前・アバターの名前・Unity プロジェクトの名前のどれかに入っている改変だけを残す。
+    /// 大文字小文字・かなの種類・全角半角は区別しない（ほかの画面の探す欄と同じ）。
+    /// 選んでいた改変が外れたら選びを解く（見えない物を「追加」できてしまわないように）
+    /// </summary>
+    private void ApplyFilter()
+    {
+        var words = FilterText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var shown = new List<PickModificationRowViewModel>();
+        foreach (var row in _allRows)
+        {
+            if (Matches(row, words, out var note))
+            {
+                row.MatchNote = note;
+                shown.Add(row);
+            }
+        }
+
+        Rows.Clear();
+        foreach (var row in shown)
+        {
+            Rows.Add(row);
+        }
+
+        if (Picked is not null && !shown.Contains(Picked))
+        {
+            Picked = null;
+        }
+
+        OnPropertyChanged(nameof(HasNoMatch));
+    }
+
+    private static readonly System.Globalization.CompareInfo Compare = System.Globalization.CultureInfo.InvariantCulture.CompareInfo;
+
+    private const System.Globalization.CompareOptions Loose = System.Globalization.CompareOptions.IgnoreCase
+        | System.Globalization.CompareOptions.IgnoreKanaType | System.Globalization.CompareOptions.IgnoreWidth;
+
+    private static bool Contains(string text, string word) => text.Length > 0 && Compare.IndexOf(text, word, Loose) >= 0;
+
+    /// <summary>語が全部当たるか。名前以外（アバター・プロジェクト）に当たった物は <paramref name="note"/> に書く。</summary>
+    internal static bool Matches(PickModificationRowViewModel row, string[] words, out string note)
+    {
+        note = string.Empty;
+        var avatarHit = false;
+        var projectHit = false;
+        foreach (var word in words)
+        {
+            var avatar = Contains(row.AvatarText, word);
+            var project = Contains(row.ProjectName, word);
+            if (!Contains(row.Name, word) && !avatar && !project)
+            {
+                return false;
+            }
+
+            avatarHit |= avatar;
+            projectHit |= project;
+        }
+
+        var notes = new List<string>();
+        if (avatarHit)
+        {
+            notes.Add($"アバター：{row.AvatarText}");
+        }
+
+        if (projectHit)
+        {
+            notes.Add($"プロジェクト：{row.ProjectName}");
+        }
+
+        note = string.Join("　", notes);
+        return true;
+    }
+
+    /// <summary>アバターの候補の頭に出す絵。名前から読む（持っていれば商品の1枚目・無ければ控え）。絵が無ければ頭文字が出る。</summary>
+    public Func<string, System.Windows.Media.ImageSource?>? AvatarIconSelector { get; init; }
 
     public IReadOnlyList<string> AvatarNames { get; }
 

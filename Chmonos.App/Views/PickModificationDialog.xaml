@@ -12,6 +12,19 @@
         Width="480" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Surface}">
+    <Window.Resources>
+        <!-- 探す欄の ×（検索画面・未確定の画面の ClearFieldButton と同じ見た目。暗黙のボタンの見た目を当てないため明示する） -->
+        <Style x:Key="ClearFieldButton" TargetType="Button">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
     <StackPanel Margin="22,20">
 
         <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
@@ -36,8 +49,37 @@
                          IsChecked="{Binding PickingExisting, Mode=TwoWay}"
                          Foreground="{DynamicResource Text}" />
 
+            <!-- 今ある改変を探す（メモ41）。改変・アバター・Unity プロジェクトの名前で絞り、当たった理由は行に出す -->
+            <Grid Margin="20,8,0,0">
+                <TextBox x:Name="FilterBox" AutomationProperties.AutomationId="PickModificationFilter"
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                         BorderBrush="{DynamicResource BorderStrong}" AutomationProperties.Name="今ある改変を探す" />
+                <TextBlock Text="改変・アバター・プロジェクトの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
+                           IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FilterText}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <!-- 打った文字を消す（検索画面と同じ ×） -->
+                <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                        Style="{StaticResource ClearFieldButton}" Command="{Binding ClearFilterCommand}"
+                        ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                        Visibility="{Binding HasFilterText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </Grid>
+
+            <TextBlock Text="当たる改変がありません。" Style="{StaticResource Caption}" Margin="20,8,0,0"
+                       Visibility="{Binding HasNoMatch, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
             <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                    Margin="20,8,0,0" Padding="4,2">
+                    Margin="20,8,0,0" Padding="4,2"
+                    Visibility="{Binding HasNoMatch, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <controls:ContentItemsControl ItemsSource="{Binding Rows}" MaxHeight="200">
                     <ItemsControl.Template>
                         <ControlTemplate TargetType="ItemsControl">
@@ -62,6 +104,12 @@
                                         <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
                                                    MaxWidth="280" HorizontalAlignment="Left"
                                                    Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                        <!-- 名前以外で当たったとき、何で当たったか -->
+                                        <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}"
+                                                   Foreground="{DynamicResource AccentText}"
+                                                   MaxWidth="280" HorizontalAlignment="Left"
+                                                   Margin="0,2,0,0" TextWrapping="Wrap"
+                                                   Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
 
                                     <Button AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name, StringFormat={}{0}に追加}" Grid.Column="1" Content="これに追加" Style="{StaticResource SmallButton}"
@@ -92,7 +140,7 @@
             <StackPanel>
                 <TextBlock Text="どのアバターの改変か" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
                 <!-- 選んだ名前は欄にそのまま出す（ユーザ指摘 2026-09-19）。下の1行は選んでいない間だけ -->
-                <controls:SuggestBox Source="{Binding AvatarNames}" PrimaryCount="{Binding OwnedAvatarCount}" CommitCommand="{Binding PickAvatarCommand}"
+                <controls:SuggestBox Source="{Binding AvatarNames}" PrimaryCount="{Binding OwnedAvatarCount}" IconSelector="{Binding AvatarIconSelector}" CommitCommand="{Binding PickAvatarCommand}"
                                      AllowNew="False" KeepsCommittedText="True"
                                      Text="{Binding NewAvatarQuery, Mode=TwoWay}"
                                      Placeholder="アバターの名前で探す" />

@@ -1,3 +1,4 @@
+using System.Windows.Media;
 using Chmonos.App.Services;
 using Chmonos.Core.Models;
 
@@ -13,10 +14,13 @@ public static class ModificationPicking
 {
     /// <summary>持っている商品のID（ファイルかフォルダを1つ以上持つ。所持の定義）。アバターの候補を「持っている」で分けるのに使う。</summary>
     public static async Task<IReadOnlySet<string>> LoadOwnedItemIdsAsync(AppServiceContainer services)
+        => (await LoadOwnedItemsAsync(services)).Keys.ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>持っている商品（上と同じ定義）をIDで引けるように。アバターの候補の頭の絵が、持っていれば商品の1枚目を使うため。</summary>
+    public static async Task<IReadOnlyDictionary<string, ItemRecord>> LoadOwnedItemsAsync(AppServiceContainer services)
         => (await services.Store.Items.LoadAllAsync()).Items
             .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
-            .Select(item => item.Id)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToDictionary(item => item.Id, StringComparer.Ordinal);
 
     /// <summary>ダイアログの中身を組む。呼ぶ場面ごとに文言だけ変える。</summary>
     public static PickModificationDialogViewModel BuildDialog(
@@ -29,8 +33,11 @@ public static class ModificationPicking
         string commitLabel,
         string emptyText,
         MemberFilePickViewModel? files = null,
-        IReadOnlySet<string>? ownedItemIds = null)
+        IReadOnlySet<string>? ownedItemIds = null,
+        IReadOnlyDictionary<string, ItemRecord>? ownedItems = null)
     {
+        // 持っている商品の一覧（絵のため）を渡されれば、持っているかの判定もそこから取る
+        ownedItemIds ??= ownedItems?.Keys.ToHashSet(StringComparer.Ordinal);
         var registry = services.Store.Avatars.Load();
         var names = Core.Services.AvatarNames.Map(registry.Entries);
 
@@ -64,8 +71,30 @@ public static class ModificationPicking
                     is { } found
                         ? NameOf(found)
                         : record.AvatarItemId,
+                ProjectName = ModificationHubViewModel.ProjectNameOf(record.UnityProject),
             })
             .ToList();
+
+        // 候補の名前から絵を引く。重なる名前は1つにまとめてあるので、持っている方（商品の1枚目がある方）を先に当てる
+        var iconIds = new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var entry in avatarEntries.OrderByDescending(IsOwned))
+        {
+            iconIds.TryAdd(NameOf(entry), entry.ItemId);
+        }
+
+        // 絵は窓を開いている間だけ要る小さな物なので、窓専用の読み込み器を、候補の絵が最初に要るときに作る
+        ThumbnailLoader? loader = null;
+        ImageSource? IconOf(string name)
+        {
+            if (!iconIds.TryGetValue(name, out var id)
+                || Core.Services.AvatarImageSync.IconPath(services.Paths, id, ownedItems?.GetValueOrDefault(id)) is not { } path)
+            {
+                return null;
+            }
+
+            loader ??= new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
+            return loader.LoadForTile(path);
+        }
 
         return new PickModificationDialogViewModel(
             title,
@@ -81,6 +110,7 @@ public static class ModificationPicking
             EmptyText = emptyText,
             Files = files is { HasChoices: true } ? files : null,
             OwnedAvatarCount = ownedNames.Count,
+            AvatarIconSelector = IconOf,
         };
     }
 

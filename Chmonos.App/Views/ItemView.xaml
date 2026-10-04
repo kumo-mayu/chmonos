@@ -677,9 +677,9 @@
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding PriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
                                                                Visibility="{Binding PriceText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                                    <!-- 買った行の BOOTH の値段の変化（メモ27-⑤）。上の行は払った額なので分けて出す -->
-                                                    <TextBlock Text="{Binding PriceChangeText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,2,0,0"
-                                                               Visibility="{Binding PriceChangeText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                    <!-- 買った行の BOOTH の今の値段（変わっていれば「¥前 → ¥今」。メモ27-⑤・39）。上の行は払った額なので分けて出す -->
+                                                    <TextBlock Text="{Binding BoothPriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,2,0,0"
+                                                               Visibility="{Binding BoothPriceText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 </StackPanel>
                                                 <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
                                                         BorderThickness="1" CornerRadius="6" Padding="10,4"

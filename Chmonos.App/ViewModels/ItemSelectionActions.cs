@@ -217,7 +217,7 @@ internal static class ItemSelectionActions
             commitLabel: "追加",
             emptyText: "改変がまだありません。新しく作って、そこに追加できます。",
             files,
-            ownedItemIds: await ModificationPicking.LoadOwnedItemIdsAsync(services));
+            ownedItems: await ModificationPicking.LoadOwnedItemsAsync(services));
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
