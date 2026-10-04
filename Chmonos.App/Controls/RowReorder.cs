@@ -28,12 +28,19 @@ public sealed class RowReorder
     private Point _pressedAt;
     private ReorderableRow? _pressedRow;
 
+    // 最後の DragOver の欄・点・運んでいる行。端で流れて点の下の行が替わったら、これで落とし先の線を付け直す
+    // （点を止めたまま流れている間は DragOver が描画と揃わずに来るので、それを待つと線が遅れて跳ぶ）
+    private Visual? _overSender;
+    private Point _overPoint;
+    private ReorderableRow? _overDragged;
+
     /// <param name="scroller">端で流す欄。渡さなければ、つかんだ点の下から辿って決める（<see cref="DragEdgeScroll.FindScroller"/>）。並びが欄の外の流し枠の中にあるときに渡す</param>
     public RowReorder(FrameworkElement scope, Func<IEnumerable<ReorderableRow>> rows, Func<ScrollViewer?>? scroller = null)
     {
         _scope = scope;
         _rows = rows;
         _scroller = scroller;
+        _edgeScroll.Scrolled += () => ShowIndicatorAtLastPoint();
     }
 
     /// <summary>並べ替えが確定したとき。<c>after</c> は落とし先の行の後ろかどうか。</summary>
@@ -60,7 +67,7 @@ public sealed class RowReorder
 
         var row = _pressedRow;
         _pressedRow = null;
-        _edgeScroll.Reset();
+        StopDrag();
 
         try
         {
@@ -68,6 +75,8 @@ public sealed class RowReorder
         }
         finally
         {
+            // 離した・Esc で取り消した・窓の外で離した、のどれでもここへ戻る。流れを確実に止める
+            StopDrag();
             ClearIndicators();
         }
     }
@@ -89,31 +98,43 @@ public sealed class RowReorder
 
         ScrollAtEdge(sender, e);
 
-        var target = Resolve(sender, e, out var after);
+        _overSender = sender as Visual;
+        _overPoint = e.GetPosition((IInputElement)sender);
+        _overDragged = Dragged(e);
 
-        ClearIndicators();
-
-        if (target is null)
-        {
-            e.Effects = DragDropEffects.None;
-        }
-        else
-        {
-            e.Effects = DragDropEffects.Move;
-            target.DropBefore = !after;
-            target.DropAfter = after;
-        }
-
+        var target = ShowIndicatorAtLastPoint();
+        e.Effects = target is null ? DragDropEffects.None : DragDropEffects.Move;
         e.Handled = true;
     }
 
+    /// <summary>
+    /// DragLeave は、欄の中で点の下の部品（行）が替わるたびにも来る（WPF は替わった回に DragOver の代わりに
+    /// DragLeave と DragEnter を出し、それが欄まで上がる。dotnet/wpf の DragDrop.cs OleDragOver）。
+    /// 端で流していると行が次々に点の下を通るので、そこで止めるとコマごとに流れが途切れる（メモ42）。
+    /// 本当に欄の外へ出たときだけ止める
+    /// </summary>
     public void OnDragLeave(object sender, DragEventArgs e)
     {
-        _edgeScroll.Reset();
+        if (sender is FrameworkElement element
+            && StillInside(e.KeyStates, e.GetPosition(element), element.ActualWidth, element.ActualHeight))
+        {
+            return;
+        }
+
+        StopDrag();
         ClearIndicators();
     }
 
-    /// <summary>つかんだ点が欄の上下の端なら流す（メモ32-③）。流したあとの行の位置は、次の DragOver の当たり判定で決まる。</summary>
+    /// <summary>
+    /// 欄の中の部品が替わっただけか。窓の外へ出たときの DragLeave は、キーの状態を空・点を (0,0) で渡す（dotnet/wpf の OleDragLeave）ので、
+    /// 左のボタンを押した印が無ければ外とみなす
+    /// </summary>
+    /// <param name="point">欄の左上から数えた点</param>
+    internal static bool StillInside(DragDropKeyStates keys, Point point, double width, double height)
+        => (keys & DragDropKeyStates.LeftMouseButton) != 0
+            && point.X >= 0 && point.Y >= 0 && point.X < width && point.Y < height;
+
+    /// <summary>つかんだ点が欄の上下の端なら流す（メモ32-③）。流すのは描画の1コマごと（<see cref="DragEdgeScroll"/>）。</summary>
     private void ScrollAtEdge(object sender, DragEventArgs e)
     {
         var hit = sender is Visual visual ? VisualTreeHelper.HitTest(visual, e.GetPosition((IInputElement)sender))?.VisualHit : null;
@@ -121,9 +142,16 @@ public sealed class RowReorder
         _edgeScroll.Update(scroller, scroller is null ? 0 : e.GetPosition(scroller).Y);
     }
 
+    private void StopDrag()
+    {
+        _edgeScroll.Stop();
+        _overSender = null;
+        _overDragged = null;
+    }
+
     public void OnDrop(object sender, DragEventArgs e)
     {
-        _edgeScroll.Reset();
+        StopDrag();
         ClearIndicators();
 
         if (!IsRowDrag(e))
@@ -131,7 +159,7 @@ public sealed class RowReorder
             return;
         }
 
-        var target = Resolve(sender, e, out var after);
+        var target = Resolve(sender as Visual, e.GetPosition((IInputElement)sender), Dragged(e), out var after);
         var moved = Dragged(e);
 
         if (target is not null && moved is not null)
@@ -142,21 +170,40 @@ public sealed class RowReorder
         e.Handled = true;
     }
 
+    /// <summary>最後の DragOver の点の下の行に落とし先の線を付ける。付けた行を返す。</summary>
+    private ReorderableRow? ShowIndicatorAtLastPoint()
+    {
+        var target = Resolve(_overSender, _overPoint, _overDragged, out var after);
+
+        // 全部を消してから付けると、同じ行の線が1回の中で消えて付き直し、行ごとに並べ直しが起きる。付ける行は触らない
+        foreach (var row in _rows())
+        {
+            if (!ReferenceEquals(row, target))
+            {
+                row.ClearDropIndicator();
+            }
+        }
+
+        if (target is not null)
+        {
+            target.DropBefore = !after;
+            target.DropAfter = after;
+        }
+
+        return target;
+    }
+
     /// <summary>
     /// 落とす先の行と、その上か下かを返す。行の下半分なら「後ろ」。
     /// 同じ並びのものどうしでしか動かせない（<see cref="ReorderableRow.ReorderGroup"/>。タグのトップとサブは別の並び）。
     /// </summary>
-    private ReorderableRow? Resolve(object sender, DragEventArgs e, out bool after)
+    /// <param name="point">sender の左上から数えた点</param>
+    private static ReorderableRow? Resolve(Visual? sender, Point point, ReorderableRow? dragged, out bool after)
     {
         after = false;
 
-        var element = sender as IInputElement;
-        var hit = element is null
-            ? null
-            : VisualTreeHelper.HitTest((Visual)sender, e.GetPosition(element))?.VisualHit;
-
+        var hit = sender is null ? null : VisualTreeHelper.HitTest(sender, point)?.VisualHit;
         var target = RowUnder(hit);
-        var dragged = Dragged(e);
 
         if (target is null
             || dragged is null
@@ -166,9 +213,9 @@ public sealed class RowReorder
             return null;
         }
 
-        if (Container(hit) is FrameworkElement container)
+        if (Container(hit) is FrameworkElement container && sender is not null)
         {
-            after = e.GetPosition(container).Y > container.ActualHeight / 2;
+            after = sender.TransformToDescendant(container)?.Transform(point).Y > container.ActualHeight / 2;
         }
 
         return target;

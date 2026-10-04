@@ -100,16 +100,186 @@ public class ManageDragAndPickCandidatesTests
         Assert.Same(wrapper, DragEdgeScroll.FindScroller(plain, holder));
     });
 
-    [Fact]
-    public Task 流す時計は_最初の1回では動かさない() => UiThread.Run(() =>
-    {
-        var viewer = Tall();
-        var edge = new DragEdgeScroll();
+    // ----- 描画の1コマごとに流す（メモ42 2026-10-05） -----
 
-        // 押し直した直後の1回目は経過時間が無いので動かない（間の時間で飛ばない）
-        Assert.Equal(0, edge.Update(viewer, 0));
-        Assert.Equal(0, viewer.VerticalOffset);
+    /// <summary>手で進める時計。DragOver の来た時刻を測るのに使う（描画の時刻は Tick に直に渡す）</summary>
+    private sealed class ManualClock
+    {
+        public double Seconds { get; set; }
+    }
+
+    private const double Frame = 1.0 / 60;
+
+    /// <summary>下の端（帯の一番外）に点を置いて流し始める。最初のコマは時刻を置くだけ</summary>
+    private static (DragEdgeScroll Edge, ManualClock Clock) StartAtBottom(ScrollViewer viewer)
+    {
+        var clock = new ManualClock();
+        var edge = new DragEdgeScroll(() => clock.Seconds);
+        edge.Update(viewer, viewer.ViewportHeight);
+        Assert.Equal(0, edge.Tick(0));
+        return (edge, clock);
+    }
+
+    /// <summary>コマを count 回進め、流れた合計を返す（コマの間に配置を回す。実際の画面では描画の前に配置が済んでいる）</summary>
+    private static double RunFrames(DragEdgeScroll edge, ScrollViewer viewer, ManualClock clock, ref double time, int count)
+    {
+        var total = 0.0;
+        for (var i = 0; i < count; i++)
+        {
+            time += Frame;
+            clock.Seconds = time;
+            edge.Update(viewer, viewer.ViewportHeight); // 点は端のまま（DragOver が来続ける）
+            total += edge.Tick(time);
+            viewer.UpdateLayout();
+        }
+
+        return total;
+    }
+
+    [Fact]
+    public Task DragOverが1回しか来なくても_描画のコマごとに流れ続ける() => UiThread.Run(() =>
+    {
+        // 前は DragOver が来たときだけ流していて、マウスを止めると DragOver の間（約50ms）だけ止まり、まとめて跳んだ
+        var viewer = Tall(5000);
+        var clock = new ManualClock();
+        var edge = new DragEdgeScroll(() => clock.Seconds);
+        try
+        {
+            edge.Update(viewer, viewer.ViewportHeight);
+            edge.Tick(0);
+            var moves = new List<double>();
+            for (var i = 1; i <= 30; i++)
+            {
+                moves.Add(edge.Tick(i * Frame));
+                viewer.UpdateLayout();
+            }
+
+            // 上げ（0.3秒 = 18コマ）の後のコマは、どれも動いている
+            Assert.All(moves.Skip(18), move => Assert.True(move > 0, $"止まったコマがある：{string.Join(",", moves)}"));
+            Assert.True(edge.IsRunning);
+        }
+        finally
+        {
+            edge.Stop();
+        }
     });
+
+    [Fact]
+    public Task 上げ終えた後は_1コマに経過時間と速さを掛けた分だけ流れる() => UiThread.Run(() =>
+    {
+        var viewer = Tall(10000);
+        var (edge, clock) = StartAtBottom(viewer);
+        try
+        {
+            var time = 0.0;
+            RunFrames(edge, viewer, clock, ref time, (int)(DragEdgeScroll.RampUpSeconds / Frame) + 1);
+
+            var moved = RunFrames(edge, viewer, clock, ref time, 30);
+
+            // 画面の画素に丸めて端数を持ち越すので、合計は1画素の内で合う
+            Assert.InRange(moved, DragEdgeScroll.MaxSpeed * 30 * Frame - 1, DragEdgeScroll.MaxSpeed * 30 * Frame + 1);
+        }
+        finally
+        {
+            edge.Stop();
+        }
+    });
+
+    [Fact]
+    public Task 流れ始めは遅く_上げの時間で最速に届く() => UiThread.Run(() =>
+    {
+        Assert.Equal(0, DragEdgeScroll.RampUp(0));
+        Assert.Equal(0.5, DragEdgeScroll.RampUp(DragEdgeScroll.RampUpSeconds / 2), 6);
+        Assert.Equal(1, DragEdgeScroll.RampUp(DragEdgeScroll.RampUpSeconds));
+        Assert.Equal(1, DragEdgeScroll.RampUp(10));
+
+        // 端の行をつかんだ直後の6コマ（0.1秒）は、最速の6コマ分（70px）よりずっと少ない
+        var viewer = Tall(10000);
+        var (edge, clock) = StartAtBottom(viewer);
+        try
+        {
+            var time = 0.0;
+            var first = RunFrames(edge, viewer, clock, ref time, 6);
+            Assert.InRange(first, 0, DragEdgeScroll.MaxSpeed * 6 * Frame / 2);
+        }
+        finally
+        {
+            edge.Stop();
+        }
+    });
+
+    [Fact]
+    public Task コマの間が空いても_一気に飛ばない() => UiThread.Run(() =>
+    {
+        var viewer = Tall(10000);
+        var (edge, clock) = StartAtBottom(viewer);
+        try
+        {
+            var time = 0.0;
+            RunFrames(edge, viewer, clock, ref time, 30);
+
+            // ほかの処理で描画が0.5秒止まった後の1コマ
+            time += 0.5;
+            clock.Seconds = time;
+            var moved = edge.Tick(time);
+            Assert.InRange(moved, 1, DragEdgeScroll.MaxSpeed * DragEdgeScroll.MaxFrameSeconds + 1);
+
+            // 同じコマに2回来ても、2回目は流さない
+            Assert.Equal(0, edge.Tick(time));
+        }
+        finally
+        {
+            edge.Stop();
+        }
+    });
+
+    [Fact]
+    public Task 点が帯の外へ出る_止める_DragOverが来なくなる_のどれでも止まる() => UiThread.Run(() =>
+    {
+        var viewer = Tall(10000);
+
+        // 帯の外（真ん中）へ動いた
+        var (edge, clock) = StartAtBottom(viewer);
+        edge.Update(viewer, viewer.ViewportHeight / 2);
+        Assert.False(edge.IsRunning);
+        Assert.Equal(0, edge.Tick(1));
+
+        // 止めた（離した・欄の外へ出た）
+        (edge, clock) = StartAtBottom(viewer);
+        edge.Stop();
+        Assert.False(edge.IsRunning);
+        Assert.Equal(0, edge.Tick(1));
+
+        // DragOver が来なくなった（窓の外へ出て、DragLeave で止め損ねた）
+        (edge, clock) = StartAtBottom(viewer);
+        clock.Seconds = DragEdgeScroll.StaleSeconds + 0.1;
+        Assert.Equal(0, edge.Tick(DragEdgeScroll.StaleSeconds + 0.1));
+        Assert.False(edge.IsRunning);
+    });
+
+    [Fact]
+    public void 流す量は画面の画素に丸め_端数は次へ持ち越して合計を変えない()
+    {
+        var carry = 0.0;
+        var total = 0.0;
+        for (var i = 0; i < 60; i++)
+        {
+            var step = DragEdgeScroll.SnapToPixels(700 * Frame, ref carry, pixelsPerDip: 1.25);
+            // 125% の画面の1画素は 0.8 DIP。その整数倍だけ動かす
+            Assert.Equal(Math.Round(step * 1.25), step * 1.25, 6);
+            total += step;
+        }
+
+        Assert.InRange(total, 700 - 0.8, 700);
+    }
+
+    [Theory]
+    [InlineData(DragDropKeyStates.LeftMouseButton, 50, 100, true)]   // 欄の中で、点の下の行が替わっただけ
+    [InlineData(DragDropKeyStates.LeftMouseButton, 50, 400, false)]  // 欄の下へ出た
+    [InlineData(DragDropKeyStates.LeftMouseButton, 50, -1, false)]   // 欄の上へ出た
+    [InlineData(DragDropKeyStates.None, 50, 100, false)]             // 窓の外へ出た（WPF はキーを空・点を (0,0) で渡す）
+    public void 欄の中で行が替わっただけのDragLeaveでは止めない(DragDropKeyStates keys, double x, double y, bool inside)
+        => Assert.Equal(inside, RowReorder.StillInside(keys, new Point(x, y), width: 200, height: 300));
 
     // ----- 候補を「持っている」で分ける（SuggestBox.Arrange・改変を選ぶ窓） -----
 
