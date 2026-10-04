@@ -172,6 +172,12 @@
                                         ToolTip="{Binding ActionTip}"
                                         Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
+                                <!--
+                                    押した行のボタンの途中経過と失敗。ボタンは指した間だけ出るので、離れても読めるよう外に置く。
+                                    同じ段なので行の高さは変わらない。長い文は1行で切り、全部は吹き出しで読む
+                                -->
+                                <controls:AreaNoticeLine DataContext="{Binding ActionNotice}" Margin="12,0,0,0" MaxWidth="420"
+                                                         VerticalAlignment="Center" />
                             </StackPanel>
                         </StackPanel>
                     </Grid>
@@ -254,8 +260,15 @@
                     <ItemsControl.Resources>
                         <!-- 先頭の1行：状況の文（この画面そのものに結ぶ） -->
                         <DataTemplate DataType="{x:Type vm:InboxViewModel}">
-                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <StackPanel>
+                                <!--
+                                    行のボタンが成功した結果（行が片付く）は、一覧の見出しのすぐ下に1行。出ていない間も場所を取る（出入りで一覧が動かないように）。
+                                    行のボタンの途中経過と失敗は、押した行の中。画面を開いたときの検出の結果は、下の今の置き場に残す
+                                -->
+                                <controls:AreaNoticeLine DataContext="{Binding ListNotice}" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                           Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </StackPanel>
                         </DataTemplate>
 
                         <!-- 束の見出し。束の枠の上側（畳んだ束・中身の無い束では枠を閉じる） -->
