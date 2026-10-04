@@ -29,7 +29,7 @@ public sealed partial class SettingsViewModel
     private void ResetAllSettings()
     {
         var answer = Services.Notice.Show(
-            "表示・操作・ショートカット・取り込みの動き・画像・通信の間隔の設定を、すべて既定に戻します。\n\n"
+            "表示・画面の幅・操作・ショートカット・取り込みの動き・画像・通信の間隔の設定を、すべて既定に戻します。\n\n"
             + "取り込み元・監視するフォルダ・非表示にしたもの・保存先は、そのままです。\n"
             + "元には戻せません。",
             "設定を既定に戻す",

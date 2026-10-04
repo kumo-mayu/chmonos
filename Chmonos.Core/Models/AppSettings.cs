@@ -253,6 +253,8 @@ public sealed record AppSettings
     /// 残すのは取り込み元（<see cref="ImportFolders"/>）と監視するフォルダ（<see cref="WatchedFolders"/>）。
     /// アバター検出の見出し語（<see cref="AvatarSupportHeadings"/>・<see cref="AvatarIgnoredHeadings"/>）も残す（ユーザ判断 2026-10-04「ユーザの環境特有の調整です」）。
     /// 画面からは変えられず、手で書き足した語は使う人が調べて決めた物。画面のボタンで黙って消すと、何が消えたか気付けない。
+    /// **画面に出していない欄は、どれも同じ理由で残す**（settings.json を手で書いて調整する値。担当AUD の点検 2026-10-04）。
+    /// 画面に出していない欄を足したら、ここにも足す（試験 <c>AppSettingsResetTests</c> が、画面の欄と残す欄の一覧を固定している）。
     /// 非表示・除外・外した記録は別のファイル、保存先は location.json にあり、ここには無い（なので触れない）。
     /// **既定の側から組む**（<c>new AppSettings()</c> に残す物だけ写す）。欄を足したら黙って既定に戻る側に倒れる。
     /// 環境に特有の欄を足したときは、ここに名指しで足す（試験 <c>AppSettingsResetTests</c> が、残す欄の一覧を固定している）
@@ -263,6 +265,15 @@ public sealed record AppSettings
         WatchedFolders = WatchedFolders,
         AvatarSupportHeadings = AvatarSupportHeadings,
         AvatarIgnoredHeadings = AvatarIgnoredHeadings,
+        GalleryHoverDelayMs = GalleryHoverDelayMs,
+        ReturnToSearchDelaySeconds = ReturnToSearchDelaySeconds,
+        RefreshJitterDays = RefreshJitterDays,
+        NotFoundThreshold = NotFoundThreshold,
+        DelistedRecheckDays = DelistedRecheckDays,
+        FetchIntervalMaxMs = FetchIntervalMaxMs,
+        MaxRetryAfterWaitSeconds = MaxRetryAfterWaitSeconds,
+        ShopBannerMaxEdgePixels = ShopBannerMaxEdgePixels,
+        ThumbnailCacheBudgetMb = ThumbnailCacheBudgetMb,
     };
 
     /// <summary>

@@ -6,7 +6,17 @@ namespace Chmonos.Core.Tests;
 public class AppSettingsResetTests
 {
     private static readonly string[] Kept = [nameof(AppSettings.ImportFolders), nameof(AppSettings.WatchedFolders),
-        nameof(AppSettings.AvatarSupportHeadings), nameof(AppSettings.AvatarIgnoredHeadings)];
+        nameof(AppSettings.AvatarSupportHeadings), nameof(AppSettings.AvatarIgnoredHeadings),
+        // 画面に出していない欄（settings.json を手で書いて調整する値）
+        nameof(AppSettings.GalleryHoverDelayMs),
+        nameof(AppSettings.ReturnToSearchDelaySeconds),
+        nameof(AppSettings.RefreshJitterDays),
+        nameof(AppSettings.NotFoundThreshold),
+        nameof(AppSettings.DelistedRecheckDays),
+        nameof(AppSettings.FetchIntervalMaxMs),
+        nameof(AppSettings.MaxRetryAfterWaitSeconds),
+        nameof(AppSettings.ShopBannerMaxEdgePixels),
+        nameof(AppSettings.ThumbnailCacheBudgetMb)];
 
     private static AppSettings Customized() => new()
     {
@@ -31,6 +41,8 @@ public class AppSettingsResetTests
         SearchHistoryCount = 3,
         AvatarSupportHeadings = ["作り物の見出し"],
         AvatarIgnoredHeadings = ["作り物の読まない見出し"],
+        ThumbnailCacheBudgetMb = 64,
+        FetchIntervalMaxMs = 60000,
         Shortcuts = new ShortcutSettings { SaveAndNext = "Ctrl+S", Back = "" },
     };
 
@@ -44,6 +56,8 @@ public class AppSettingsResetTests
         Assert.Equal(["D:\\作り物\\監視"], reset.WatchedFolders);
         Assert.Equal(["作り物の見出し"], reset.AvatarSupportHeadings);
         Assert.Equal(["作り物の読まない見出し"], reset.AvatarIgnoredHeadings);
+        Assert.Equal(64, reset.ThumbnailCacheBudgetMb);
+        Assert.Equal(60000, reset.FetchIntervalMaxMs);
 
         foreach (var property in typeof(AppSettings).GetProperties().Where(p => !Kept.Contains(p.Name)))
         {
