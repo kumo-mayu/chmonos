@@ -313,6 +313,11 @@ public sealed partial class ItemViewModel
 
     public bool ShowsImageRoles => true;
 
+    // 右クリックの「サムネイルにする」「指名を外す」を押せないときの理由（項目は出したまま押せなくする・ユーザ判断 2026-10-04）
+    public string PinDisabledTip => CurrentImage is null ? "画像がありません" : "この画像はもう指名しています";
+
+    public string UnpinDisabledTip => CurrentImage is null ? "画像がありません" : "この画像は指名していません";
+
     public string AddImageTip => "この商品に画像を追加";
 
     // ---- 画像の役割 ----
@@ -605,7 +610,7 @@ public sealed partial class ItemViewModel
             nameof(SelectedImage), nameof(GalleryCounter), nameof(GalleryEmptyText), nameof(CurrentImage),
             nameof(CanGoPreviousImage), nameof(CanGoNextImage),
             nameof(CurrentIsUserAdded), nameof(CurrentIsPinned),
-            nameof(ShowsPinThumbnail), nameof(ShowsUnpinThumbnail),
+            nameof(ShowsPinThumbnail), nameof(ShowsUnpinThumbnail), nameof(PinDisabledTip), nameof(UnpinDisabledTip),
             nameof(CurrentRoleHeader), nameof(CurrentIsRoleBooth),
             nameof(CurrentIsRoleModified), nameof(CurrentIsRoleOther),
             nameof(CanMoveImageBack), nameof(CanMoveImageForward),

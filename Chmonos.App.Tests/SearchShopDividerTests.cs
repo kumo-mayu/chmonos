@@ -89,7 +89,7 @@ public class SearchShopDividerTests
     });
 
     [Fact]
-    public Task 右クリックのメニューはショップを開くとBOOTHで開く_手元だけのショップはBOOTHの行が無い() => UiThread.Run(() =>
+    public Task 右クリックのメニューはショップを開くとBOOTHで開く_手元だけのショップはBOOTHの行を押せなくして理由を言う() => UiThread.Run(() =>
     {
         var booth = new SortDivider("shop:a", "ショップ", "作り物の店", null)
         {
@@ -99,7 +99,12 @@ public class SearchShopDividerTests
         var local = new SortDivider("shop:b", "ショップ", "手元の店", null) { OpenShopCommand = new RelayCommand(() => { }) };
 
         Assert.Equal(["ショップを開く", "BOOTHで開く"], SortDividerBorder.BuildMenu(booth).Items.OfType<MenuItem>().Select(item => (string)item.Header));
-        Assert.Equal(["ショップを開く"], SortDividerBorder.BuildMenu(local).Items.OfType<MenuItem>().Select(item => (string)item.Header));
+        var localItems = SortDividerBorder.BuildMenu(local).Items.OfType<MenuItem>().ToList();
+        Assert.Equal(["ショップを開く", "BOOTHで開く"], localItems.Select(item => (string)item.Header));
+        Assert.True(localItems[0].IsEnabled);
+        Assert.False(localItems[1].IsEnabled);
+        Assert.Equal("BOOTHに無いショップなので開けません", localItems[1].ToolTip);
+        Assert.True(SortDividerBorder.BuildMenu(booth).Items.OfType<MenuItem>().All(item => item.IsEnabled));
     });
 
     [Fact]

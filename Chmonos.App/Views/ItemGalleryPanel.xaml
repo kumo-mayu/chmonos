@@ -88,19 +88,25 @@
                                 <Grid.ContextMenu>
                                     <ContextMenu>
                                         <!-- 並べ替えは自分で足した画像だけ。BOOTHの並びは観測した事実 -->
+                                        <!-- 項目は出したまま、押せないときだけ理由を言う（右クリックの決まり・ユーザ判断 2026-10-04） -->
                                         <MenuItem Header="前へ移動" Command="{Binding MoveImageBackCommand}"
-                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                  controls:MenuTips.Disabled="自分で足した画像の並びの中でだけ動かせます" />
                                         <MenuItem Header="後ろへ移動" Command="{Binding MoveImageForwardCommand}"
-                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        <Separator Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                  controls:MenuTips.Disabled="自分で足した画像の並びの中でだけ動かせます" />
+                                        <Separator />
 
-                                        <!-- サムネイルの指名と役割は商品の画像だけ（改変の写真には無い・ShowsImageRoles） -->
+                                        <!--
+                                            サムネイルの指名と役割は商品の画像だけ（改変の写真には無い・ShowsImageRoles）。
+                                            指名する／外すは、今の画像の指名の有無でどちらか一方だけ押せる
+                                        -->
                                         <MenuItem Header="この画像をサムネイルにする" Command="{Binding PinThumbnailCommand}"
-                                                  Visibility="{Binding ShowsPinThumbnail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                  IsEnabled="{Binding ShowsPinThumbnail}"
+                                                  controls:MenuTips.Disabled="{Binding PinDisabledTip}" />
                                         <MenuItem Header="サムネイルの指名を外す" Command="{Binding UnpinThumbnailCommand}"
-                                                  Visibility="{Binding ShowsUnpinThumbnail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                  IsEnabled="{Binding ShowsUnpinThumbnail}"
+                                                  controls:MenuTips.Disabled="{Binding UnpinDisabledTip}" />
 
-                                        <Separator Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <Separator />
 
                                         <!--
                                             画像の役割。3つで固定。
@@ -114,7 +120,8 @@
                                             一覧のサムネイルがその役割の画像に切り替わる
                                         -->
                                         <MenuItem Header="{Binding CurrentRoleHeader}"
-                                                  Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                  IsEnabled="{Binding ShowsImageRoles}"
+                                                  controls:MenuTips.Disabled="改変の写真には使えません">
                                             <MenuItem Header="BOOTH" IsCheckable="True"
                                                       IsChecked="{Binding CurrentIsRoleBooth, Mode=OneWay}"
                                                       Command="{Binding SetRoleBoothCommand}" />
@@ -130,8 +137,8 @@
                                         <!-- 取り返しがつかないので、そうと分かる顔にする（V4）。取り返しの話もここに書く -->
                                         <MenuItem Header="この画像を削除" Command="{Binding RemoveImageCommand}"
                                                   Style="{StaticResource DangerMenuItem}"
-                                                  ToolTip="ファイルごと消します。元に戻せません（押すと確かめます）。"
-                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                  controls:MenuTips.Enabled="ファイルごと消します。元に戻せません（押すと確かめます）。"
+                                                  controls:MenuTips.Disabled="自分で足した画像だけ消せます" />
                                         <Separator />
                                         <MenuItem Header="画像を追加…" Command="{Binding AddImageCommand}" />
                                     </ContextMenu>
