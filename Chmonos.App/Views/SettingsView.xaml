@@ -501,7 +501,7 @@
                                        AutomationProperties.AutomationId="Settings.Note.AvatarDetectRecheckDays"
                                        Text="{Binding Notes[AvatarDetectRecheckDays]}" />
 
-                            <CheckBox Content="取り込んだ商品の更新を既定で知らせる" Style="{StaticResource SettingCheck}"
+                            <CheckBox Content="取り込んだ商品の更新を既定で通知する" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding NotifyOnUpdateByDefault, Mode=TwoWay}" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
