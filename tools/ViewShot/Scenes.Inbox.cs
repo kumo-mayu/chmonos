@@ -9,7 +9,7 @@ internal static partial class Scenes
     // フォーカスの枠は、この台では描けない（止まった所は experiments/PeerProbe -- focus で見る）
     private static IEnumerable<Scene> Inbox =>
     [
-        new Scene("inbox-rows", "要確認：束が2つ（更新・参照切れ）。未読と既読の行・重要の印・変わったところの札", async context =>
+        new Scene("inbox-rows", "通知：束が2つ（更新・参照切れ）。未読と既読の行・重要の印・変わったところの札", async context =>
         {
             var item = await context.Fake.ItemAsync("9900501", "作り物の衣装セット");
             var day = new DateTimeOffset(2026, 9, 20, 21, 0, 0, TimeSpan.FromHours(9));
@@ -60,7 +60,7 @@ internal static partial class Scenes
         }),
 
         // 行のボタンの結果を、行の中と一覧の見出しの下へ移した（2026-10-04）。出る前（inbox-rows）と並べて、行が動かないことを見る
-        new Scene("inbox-notices", "要確認：行のボタンの途中経過・失敗が行の中に、成功が一覧の見出しの下に出た所", async context =>
+        new Scene("inbox-notices", "通知：行のボタンの途中経過・失敗が行の中に、成功が一覧の見出しの下に出た所", async context =>
         {
             var item = await context.Fake.ItemAsync("9900501", "作り物の衣装セット");
             var day = new DateTimeOffset(2026, 9, 20, 21, 0, 0, TimeSpan.FromHours(9));
@@ -101,7 +101,7 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("inbox-notices-none", "要確認：行の知らせも見出しの下の知らせも出ていない所（inbox-notices の見本）", async context =>
+        new Scene("inbox-notices-none", "通知：行の知らせも見出しの下の知らせも出ていない所（inbox-notices の見本）", async context =>
         {
             var item = await context.Fake.ItemAsync("9900501", "作り物の衣装セット");
             var day = new DateTimeOffset(2026, 9, 20, 21, 0, 0, TimeSpan.FromHours(9));
@@ -139,7 +139,7 @@ internal static partial class Scenes
         }),
 
         // 説明文の見出しの変更を、変わった行だけで出す（メモ13-②）。行の多い見出しは「ほか n 行」、行を持たない前の形の知らせは頭の抜き出しのまま
-        new Scene("inbox-lines", "要確認：説明文の見出しの変更を、足した行・消した行で出した所（行の多い見出し・前の形の知らせ・価格と並べて）", async context =>
+        new Scene("inbox-lines", "通知：説明文の見出しの変更を、足した行・消した行で出した所（行の多い見出し・前の形の知らせ・価格と並べて）", async context =>
         {
             var item = await context.Fake.ItemAsync("9900502", "作り物の衣装セット");
             static NotificationLine Line(bool added, string text)

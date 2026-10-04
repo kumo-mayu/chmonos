@@ -182,7 +182,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
         new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルやフォルダがある商品で絞ります。"),
         new(SearchModuleKind.NotOnBooth, "BOOTHに無い商品", "BOOTHに無い商品として登録した商品か、BOOTHの商品かで絞ります。"),
-        new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、要確認でまだ読んでいない商品で絞ります。"),
+        new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、通知でまだ読んでいない商品で絞ります。"),
     ];
 
     /// <summary>

@@ -5,7 +5,7 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 要確認の行のボタンの結果が、失敗なら押した行の知らせ、成功（行が片付く）なら一覧の見出しの下の知らせへ出ること
+/// 通知の行のボタンの結果が、失敗なら押した行の知らせ、成功（行が片付く）なら一覧の見出しの下の知らせへ出ること
 /// （2026-10-03 のユーザの方針）。行は一覧を読み直すたびに作り直されるので、知らせは作り直した行にも残る。
 /// </summary>
 public class InboxNoticePlacementTests
@@ -34,7 +34,7 @@ public class InboxNoticePlacementTests
         var main = await app.StartAsync();
         var inbox = new InboxViewModel(app.Services, main);
         await app.SettleAsync();
-        await UiThread.Until(() => inbox.Groups.Count == 1, "要確認の束が並ぶ");
+        await UiThread.Until(() => inbox.Groups.Count == 1, "通知の束が並ぶ");
         return (inbox, inbox.Groups[0].Rows[0]);
     }
 

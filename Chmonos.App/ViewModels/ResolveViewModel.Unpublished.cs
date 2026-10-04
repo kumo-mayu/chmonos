@@ -59,7 +59,7 @@ public sealed partial class ResolveViewModel
         var answer = Services.Notice.Show(
             $"{what} を商品ID {itemId} として登録します。\n\n"
             + $"BOOTHで公開されていない商品として、名前「{name}」で登録します。名前は編集画面で変えられます。\n\n"
-            + "BOOTHで公開されたら情報を取得し、要確認でお知らせします。",
+            + "BOOTHで公開されたら情報を取得し、通知に表示します。",
             "このIDのまま登録する",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

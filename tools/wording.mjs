@@ -189,7 +189,7 @@ const screens = [
   ['未確定', /Resolve/],
   ['商品ページ', /Item(View|ViewModel|Files|Rows|Card|Selection|Unity|File)/],
   ['統計', /Stats/],
-  ['要確認', /Inbox|Notification/],
+  ['通知', /Inbox|Notification/],
   ['フォルダ', /Folder/],
   ['ショップ', /Shop/],
   ['主画面・共通', /MainWindow|MainViewModel|ChoiceDialog|ListChoice|Notices|App\.xaml/],

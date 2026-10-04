@@ -505,9 +505,9 @@
                                       IsChecked="{Binding NotifyOnUpdateByDefault, Mode=TwoWay}" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
-                                <TextBlock Text="要確認に残す件数" Style="{StaticResource RowLabel}" Width="220" />
+                                <TextBlock Text="通知に残す件数" Style="{StaticResource RowLabel}" Width="220" />
                                 <TextBox Style="{StaticResource NumberBox}"
-                                         AutomationProperties.AutomationId="Settings.NotificationRetentionCount" AutomationProperties.Name="要確認に残す件数"
+                                         AutomationProperties.AutomationId="Settings.NotificationRetentionCount" AutomationProperties.Name="通知に残す件数"
                                          Text="{Binding NotificationRetentionCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                                 <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                                 <TextBlock Text="（20〜5000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />

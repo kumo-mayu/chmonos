@@ -84,7 +84,7 @@ internal static class CardMenuState
             "CopyLink" => card.CopyLinkTip,
             "OpenShop" => card.OpenShopTip,
             "ShowUpdate" or "MarkUpdateRead" => target is ItemCardViewModel { HasUpdate: false }
-                ? "未読の更新の知らせはありません"
+                ? "未読の更新の通知はありません"
                 : "この画面では使えません",
             _ when NeedsFiles(key) => NoFilesTip,
             _ => null,

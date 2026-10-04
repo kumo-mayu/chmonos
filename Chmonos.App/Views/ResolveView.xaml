@@ -727,7 +727,7 @@
                                     Visibility="{Binding HasNotOnBoothItemId, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                               Text="このIDのまま登録できます。BOOTHで公開されたら情報を取得し、要確認でお知らせします。" />
+                                               Text="このIDのまま登録できます。BOOTHで公開されたら情報を取得し、通知に表示します。" />
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0">
                                         <Run Text="名前：" /><Run Text="{Binding UnpublishedNameDraft, Mode=OneWay}" />
                                     </TextBlock>

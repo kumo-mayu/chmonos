@@ -320,7 +320,7 @@ public sealed partial class MainViewModel
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
         ResolveViewModel => new HistoryEntry("未確定", ShowResolve),
-        InboxViewModel => new HistoryEntry("要確認", ShowInbox),
+        InboxViewModel => new HistoryEntry("通知", ShowInbox),
         TagManageViewModel => new HistoryEntry("タグの管理", ShowTagManage),
         AttributeManageViewModel => new HistoryEntry("属性の管理", ShowAttributeManage),
         SettingsViewModel => new HistoryEntry("設定", ShowSettings),

@@ -835,7 +835,7 @@ public sealed class CommandHandler
             case UiCommand.SetNotificationRead setRead:
                 if (_notifications is null)
                 {
-                    return MissingService("要確認の保存");
+                    return MissingService("通知の保存");
                 }
 
                 await _notifications.SetReadAsync(setRead.Id, setRead.IsRead, cancellationToken);
@@ -844,7 +844,7 @@ public sealed class CommandHandler
             case UiCommand.AddNotification add:
                 if (_notifications is null)
                 {
-                    return MissingService("要確認の保存");
+                    return MissingService("通知の保存");
                 }
 
                 await _notifications.AddAsync(add.Record, cancellationToken);
@@ -863,7 +863,7 @@ public sealed class CommandHandler
             case UiCommand.DetectOrphanReferences:
                 if (_notifications is null)
                 {
-                    return MissingService("要確認の保存");
+                    return MissingService("通知の保存");
                 }
 
                 return new CommandResult.Counted(await _notifications.DetectOrphanReferencesAsync(cancellationToken));
@@ -889,7 +889,7 @@ public sealed class CommandHandler
             case UiCommand.MarkAllNotificationsRead:
                 if (_notifications is null)
                 {
-                    return MissingService("要確認の保存");
+                    return MissingService("通知の保存");
                 }
 
                 await _notifications.MarkAllReadAsync(cancellationToken);
@@ -898,7 +898,7 @@ public sealed class CommandHandler
             case UiCommand.MarkNotificationsRead markSome:
                 if (_notifications is null)
                 {
-                    return MissingService("要確認の保存");
+                    return MissingService("通知の保存");
                 }
 
                 await _notifications.MarkReadAsync(markSome.Ids, cancellationToken);
@@ -907,7 +907,7 @@ public sealed class CommandHandler
             case UiCommand.ResolveNotifications resolve:
                 if (_notifications is null)
                 {
-                    return MissingService("要確認の保存");
+                    return MissingService("通知の保存");
                 }
 
                 await _notifications.ResolveAsync(resolve.Ids, cancellationToken);

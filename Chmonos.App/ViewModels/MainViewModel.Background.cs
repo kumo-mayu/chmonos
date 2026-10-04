@@ -90,7 +90,7 @@ public sealed partial class MainViewModel
                 // 足すときは上限を見ていないので、ここで1回だけ落とす（ユーザ判断 2026-09-18）。
                 // どちらも要確認の一覧を**書く**ので、他の段と同じく門と受け止めを通す——
                 // 直に await していたため、ここで転ぶと残りの段（残った画像・アバターの画像・期限）が丸ごと走らなかった
-                await RunBackgroundStageAsync("要確認の整理", () => _services.Notifications.PruneAsync(token));
+                await RunBackgroundStageAsync("通知の整理", () => _services.Notifications.PruneAsync(token));
 
                 // BOOTH側の作りが変わっていないか（説明文の見出しが読めているか）を見て、ナビの帯を出し入れする
                 await RunBackgroundStageAsync(

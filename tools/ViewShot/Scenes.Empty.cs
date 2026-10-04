@@ -13,7 +13,7 @@ internal static partial class Scenes
     [
         EmptyScreen("shops", "ショップ一覧", main => main.ShowShops()),
         EmptyScreen("stats", "統計", main => main.ShowStats()),
-        EmptyScreen("inbox", "要確認", main => main.ShowInbox()),
+        EmptyScreen("inbox", "通知", main => main.ShowInbox()),
         EmptyScreen("folder", "フォルダビュー", main => main.ShowFolders()),
         EmptyScreen("tag-manage", "タグの管理", main => main.ShowTagManage()),
         EmptyScreen("attribute-manage", "属性の管理", main => main.ShowAttributeManage()),
