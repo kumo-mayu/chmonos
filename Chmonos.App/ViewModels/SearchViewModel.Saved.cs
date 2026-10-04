@@ -6,16 +6,16 @@ using Chmonos.Core.Services;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>
-/// 検索画面：保存した検索（ユーザ判断 2026-10-03・10-04 案A3）。
+/// 検索画面：保存した検索（ユーザ判断 2026-10-03）。画面での呼び名は「保存した条件」（2026-10-05・メモ36）。
 ///
 /// 今の検索の打った文字・条件・表示順・カードかリストかを名前を付けて残し、呼び出すと今の検索を**置き換える**。
-/// 置き場は絞り込み欄のいちばん上の畳める節。並びは人が決め、履歴のように古い物から押し出さない。
+/// 置き場は「条件を追加」の隣のボタンから開く一覧（2026-10-04 の畳める節から変えた）。並びは人が決め、履歴のように古い物から押し出さない。
 /// 書き込みは全部 <see cref="Core.Commands.UiCommand.ChangeSavedSearches"/>（変え方を関数で渡し、錠の中で今の並びに当てる）
 /// </summary>
 public sealed partial class SearchViewModel
 {
     /// <summary>
-    /// 探す欄を出し、節の中だけを流し始める件数。5件までは全部が見え、6件目から節の高さを5件ぶんで止める
+    /// 探す欄を出し、一覧の中だけを流し始める件数。5件までは全部が見え、6件目から一覧の高さを5件ぶんで止める
     /// （ユーザ判断 2026-10-04「多いときは探す欄を出し、5件ほどの高さで節の中だけを流す」）
     /// </summary>
     public const int SavedSearchVisibleRows = 5;
@@ -25,10 +25,9 @@ public sealed partial class SearchViewModel
 
     private IReadOnlyList<SearchHistoryEntry> _saved = [];
     private string _savedFilter = string.Empty;
-    private bool _isSavedSectionCollapsed;
     private string? _currentSavedName;
 
-    /// <summary>節に並べる行（探す欄で絞った後）。</summary>
+    /// <summary>一覧に並べる行（探す欄で絞った後）。</summary>
     public ObservableCollection<SavedSearchRow> SavedRows { get; } = [];
 
     public int SavedSearchCount => _saved.Count;
@@ -37,7 +36,7 @@ public sealed partial class SearchViewModel
 
     public bool ShowsSavedFilter => _saved.Count > SavedSearchVisibleRows;
 
-    /// <summary>探す欄の文字。名前と要約のどちらかに含む行だけを出す（節の中だけを絞る。検索の結果は変えない）</summary>
+    /// <summary>探す欄の文字。名前と要約のどちらかに含む行だけを出す（一覧の中だけを絞る。検索の結果は変えない）</summary>
     public string SavedFilter
     {
         get => _savedFilter;
@@ -53,54 +52,21 @@ public sealed partial class SearchViewModel
     /// <summary>探して1件も当たらないとき（並べる物はあるのに行が空）。</summary>
     public bool ShowsSavedFilterEmpty => HasSavedSearches && SavedRows.Count == 0;
 
-    public bool IsSavedSectionCollapsed
-    {
-        get => _isSavedSectionCollapsed;
-        private set
-        {
-            if (SetField(ref _isSavedSectionCollapsed, value))
-            {
-                OnPropertyChanged(nameof(IsSavedSectionExpanded));
-                OnPropertyChanged(nameof(ShowsCollapsedCurrent));
-            }
-        }
-    }
+    /// <summary>今の検索と同じ保存した検索があるか（閉じているボタンの末尾に点を出す。行の地の色が見えないため）。</summary>
+    public bool ShowsCurrentSaved => _currentSavedName is not null;
 
-    public bool IsSavedSectionExpanded => !_isSavedSectionCollapsed;
-
-    /// <summary>畳んだ節の見出しに、今の検索と同じ保存した検索の名前を出すか（畳むと行の地の色が見えないため）。</summary>
-    public bool ShowsCollapsedCurrent => _isSavedSectionCollapsed && _currentSavedName is not null;
-
-    /// <summary>今の検索と同じ保存した検索の名前。無ければ null。畳んだ節の見出しにも出す</summary>
+    /// <summary>今の検索と同じ保存した検索の名前。無ければ null。ボタンの読み上げにも出す</summary>
     public string? CurrentSavedName => _currentSavedName;
 
-    /// <summary>畳んだ節の見出しの右に出す件数（開いているときは行が見えるので出さない）。</summary>
+    /// <summary>一覧の見出しの右に出す件数。</summary>
     public string SavedCountText => _saved.Count == 0 ? string.Empty : _saved.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
-
-    public RelayCommand ToggleSavedSectionCommand => _toggleSaved ??= new RelayCommand(ToggleSavedSection);
 
     public RelayCommand SaveCurrentSearchCommand => _saveCurrent ??= new RelayCommand(AskSaveCurrent);
 
-    private RelayCommand? _toggleSaved;
     private RelayCommand? _saveCurrent;
 
-    /// <summary>保存した検索を読んで節に出す。画面を開くときに1回（読むだけなので命令を通さない）。</summary>
-    public void RestoreSavedSearches()
-    {
-        _isSavedSectionCollapsed = _services.UiState.SavedSearchesCollapsed;
-        OnPropertyChanged(nameof(IsSavedSectionCollapsed));
-        OnPropertyChanged(nameof(IsSavedSectionExpanded));
-        OnPropertyChanged(nameof(ShowsCollapsedCurrent));
-        LoadSaved(_services.Store.SavedSearches.Load().Entries);
-    }
-
-    private void ToggleSavedSection()
-    {
-        IsSavedSectionCollapsed = !IsSavedSectionCollapsed;
-        var collapsed = IsSavedSectionCollapsed;
-        _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
-            state => state with { SavedSearchesCollapsed = collapsed })).Forget();
-    }
+    /// <summary>保存した検索を読んで一覧に出す。画面を開くときに1回（読むだけなので命令を通さない）。</summary>
+    public void RestoreSavedSearches() => LoadSaved(_services.Store.SavedSearches.Load().Entries);
 
     /// <summary>今の検索を、保存した検索の1件の形にする（名前は呼ぶ側が付ける）。</summary>
     private SearchHistoryEntry CurrentSaved(string? name) => CurrentSearch() with
@@ -165,12 +131,6 @@ public sealed partial class SearchViewModel
 
         var entry = CurrentSaved(trimmed) with { UsedAt = DateTimeOffset.Now };
         await ChangeSavedAsync(list => SavedSearches.Add(list, entry));
-
-        // 節を畳んでいると、保存できたかが見えない。保存した行が見えるように開く
-        if (IsSavedSectionCollapsed)
-        {
-            ToggleSavedSection();
-        }
     }
 
     /// <summary>
@@ -179,8 +139,8 @@ public sealed partial class SearchViewModel
     public async Task OverwriteSavedAsync(string name)
     {
         var answer = Services.Notice.Show(
-            $"「{name}」を今の検索で上書きします。\n上書きすると、前の内容には戻せません。",
-            "保存した検索を上書き",
+            $"「{name}」の条件を上書きします。\n上書きすると、前の内容には戻せません。",
+            "条件を上書き",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question,
             MessageBoxResult.Cancel);
@@ -210,8 +170,8 @@ public sealed partial class SearchViewModel
     public async Task DeleteSavedAsync(string name)
     {
         var answer = Services.Notice.Show(
-            $"保存した検索「{name}」を削除します。\n削除すると元に戻せません。",
-            "保存した検索を削除",
+            $"保存した条件「{name}」を削除します。\n削除すると元に戻せません。",
+            "保存した条件を削除",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question,
             MessageBoxResult.Cancel);
@@ -235,6 +195,9 @@ public sealed partial class SearchViewModel
     /// 止まっていた行が消えて止まり先が窓へ落ちる（`ui-input.md`「止まっていた行が消えたら」）
     /// </summary>
     public event Action<string>? SavedRowFocusRequested;
+
+    /// <summary>保存した条件を呼び出した（画面が一覧を閉じる）。</summary>
+    public event Action? SavedApplied;
 
     private async Task ChangeSavedAsync(
         Func<IReadOnlyList<SearchHistoryEntry>, IReadOnlyList<SearchHistoryEntry>> change,
@@ -263,12 +226,14 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ApplySaved(SearchHistoryEntry entry)
     {
+        // 一覧は呼び出したら閉じる（メニューから選んだのと同じ）。知らせの窓が出る前に閉じる
+        SavedApplied?.Invoke();
         var sortFound = ApplySearch(entry, replaceSort: true, view: entry.View ?? ResultView.Card);
         if (!sortFound)
         {
             Services.Notice.Show(
                 $"表示順「{entry.Sort}」は今は選べないため、{DefaultSort.Label}で並べています。",
-                "保存した検索",
+                "保存した条件",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -341,7 +306,7 @@ public sealed partial class SearchViewModel
         {
             _currentSavedName = current;
             OnPropertyChanged(nameof(CurrentSavedName));
-            OnPropertyChanged(nameof(ShowsCollapsedCurrent));
+            OnPropertyChanged(nameof(ShowsCurrentSaved));
         }
     }
 
@@ -349,7 +314,7 @@ public sealed partial class SearchViewModel
     internal void RenameSavedFromMenu(string name) => AskRenameSaved(name);
 }
 
-/// <summary>保存した検索の節の1行。</summary>
+/// <summary>保存した条件の一覧の1行。</summary>
 public sealed class SavedSearchRow : ViewModelBase
 {
     private bool _isCurrent;

@@ -253,7 +253,7 @@
                                        AutomationProperties.AutomationId="Settings.Note.SearchHistoryCount"
                                        Text="{Binding Notes[SearchHistoryCount]}" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
-                                       Text="商品を開いたときに1件残ります。同じ条件は重ねて残しません。" />
+                                       Text="商品を開いたときに1件残ります。同じ条件は連続して保存されません。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="商品ページと編集" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <CheckBox Content="ギャラリーをマウスを乗せたまま切り替える" Style="{StaticResource SettingCheck}"

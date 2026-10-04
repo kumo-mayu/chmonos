@@ -34,7 +34,7 @@ public sealed class SavedSearchNameDialogViewModel : ViewModelBase
 
     /// <summary>何が起きるか（保存）・取り返しがつくか（名前の変更・D4）。</summary>
     public string Note => For == Purpose.Save
-        ? "打った文字・条件・表示順・カードかリストかを保存します。"
+        ? "条件、検索文字列、表示順などが保存されます。"
         : "名前は同じ手順で戻せます。";
 
     public string Name
