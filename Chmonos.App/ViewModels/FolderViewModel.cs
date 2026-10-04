@@ -512,11 +512,19 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
                 // 今の右側にしか届かないので、先に差し替えた未確定で登録した商品（仮IDを含む）が検索に出なかった
                 leaving?.OnLeaving();
                 OnPropertyChanged(nameof(HasDetail));
+                OnPropertyChanged(nameof(DetailWidthWanted));
             }
         }
     }
 
     public bool HasDetail => Detail is not null;
+
+    /// <summary>
+    /// 右に出す物が横に送らずに済む幅。右に組み込んだ商品ページは左の最小＋右の最小＋余白を要り、右の欄の最小（360）のままだと
+    /// 幅 1280 の窓でも木を縮めず、商品ページが横に送られていた（2026-10-04 に絵で確かめた）。改変の画面と同じ計算
+    /// （<see cref="ModificationHubViewModel.DetailWidthWanted"/>）。ほかの物は右の欄の最小で足りる
+    /// </summary>
+    public double DetailWidthWanted => Detail is ItemViewModel page ? ModificationHubViewModel.WidthWanted(page.BodyMinWidth) : 0;
 
     // ---- 絞り込み（ユーザ判断：木全体を名前で絞る＋商品を出すか・管理対象・未確定の切り替え） ----
 
