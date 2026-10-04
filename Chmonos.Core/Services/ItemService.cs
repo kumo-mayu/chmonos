@@ -1770,47 +1770,46 @@ public sealed class ItemService : IItemService
     /// <summary>
     /// ファイルがどの種類のものかを付け直す（#40）。
     ///
-    /// **読み直した一覧の種類だけを書き換える。**LocalFiles は取り込みも書くので、
+    /// **商品の錠の中で、今の一覧の種類だけを書き換える。**LocalFiles は取り込みも書くので、
     /// 画面が開いた時点の写しを渡すと、その間に足されたファイルやパスが消える。
-    /// ここで読み直してから書けば、失うのは読んでから書くまでの一瞬だけになる。
+    /// 前は錠の外で読み直して一覧ごと書いていて、読んでから書くまでの間に取り込みが足したファイルが消えていた
+    /// （2026-10-04 に試験で再現）。変え方を渡して錠の中で当てれば、その一瞬も無くなる。
     /// </summary>
     public async Task<bool> SetFileVariationsAsync(
         string itemId,
         IReadOnlyDictionary<string, long?> variationByHash,
         CancellationToken cancellationToken = default)
     {
-        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (item is null)
-        {
-            return false;
-        }
-
         // ハッシュは大文字で持っているが、呼び出し側の表記に左右されないようにする
         var wanted = new Dictionary<string, long?>(variationByHash, StringComparer.OrdinalIgnoreCase);
-        var changed = false;
-        var files = item.Local.LocalFiles
-            .Select(file =>
-            {
-                if (!wanted.TryGetValue(file.Hash, out var variationId) || file.VariationId == variationId)
-                {
-                    return file;
-                }
 
-                changed = true;
-                return file with { VariationId = variationId };
-            })
-            .ToList();
-
-        if (!changed)
-        {
-            return true;
-        }
-
-        return await _store.Items.SaveLocalAsync(
+        // 書かなかったのが「商品が無い」か「変える物が無い」かを分ける（後者は成功として返す）
+        var found = false;
+        var written = await _store.Items.ChangeLocalAsync(
             itemId,
-            item.Local with { LocalFiles = files },
+            local =>
+            {
+                found = true;
+                var changed = false;
+                var files = local.LocalFiles
+                    .Select(file =>
+                    {
+                        if (!wanted.TryGetValue(file.Hash, out var variationId) || file.VariationId == variationId)
+                        {
+                            return file;
+                        }
+
+                        changed = true;
+                        return file with { VariationId = variationId };
+                    })
+                    .ToList();
+
+                return changed ? local with { LocalFiles = files } : null;
+            },
             LocalOwners.FileVariations,
-            cancellationToken: cancellationToken);
+            cancellationToken);
+
+        return written || found;
     }
 
     /// <summary>

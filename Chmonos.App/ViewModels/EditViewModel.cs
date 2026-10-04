@@ -712,10 +712,10 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             index = 0;
         }
 
+        // 順番と位置は1回で書く。2回に分けると、間で落ちたときに位置が先頭に戻る
         if (kept.Count != session.ItemIds.Count || saved.Count > 0)
         {
-            await _services.Commands.ExecuteAsync(new UiCommand.StartEditSession(kept));
-            await _services.Commands.ExecuteAsync(new UiCommand.AdvanceEditSession(index));
+            await _services.Commands.ExecuteAsync(new UiCommand.StartEditSession(kept, index));
         }
 
         _queue = kept;

@@ -192,8 +192,8 @@ public static class LocalOwners
     /// ファイルに種類を付ける操作（編集画面の「購入した種類」の横）。
     ///
     /// **取り込みと持ち主が2人になる。**種類はファイル1件の中の項目で、項目単位では分けられない。
-    /// 壊れないのは、<c>ItemService.SetFileVariationsAsync</c> が保存の直前に読み直した一覧の
-    /// 種類だけを書き換えて渡すから（パスや件数は読み直した値のまま）。
+    /// 壊れないのは、<c>ItemService.SetFileVariationsAsync</c> が商品の錠の中で今の一覧の
+    /// 種類だけを書き換えるから（パスや件数は今の値のまま。<c>ChangeLocalAsync</c>）。
     /// 編集画面の保存（<see cref="EditScreen"/>）に LocalFiles を足さないのは、
     /// 開いた時点の写しで取り込みが足したファイルを消してしまうため。
     /// </summary>

@@ -11,7 +11,7 @@ public interface IEditService
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default);
 
-    Task<EditSession> StartSessionAsync(IReadOnlyList<string> itemIds, CancellationToken cancellationToken = default);
+    Task<EditSession> StartSessionAsync(IReadOnlyList<string> itemIds, int index = 0, CancellationToken cancellationToken = default);
 
     Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default);
 
@@ -56,20 +56,25 @@ public sealed class EditService : IEditService
         CancellationToken cancellationToken = default)
         => _store.Items.SaveLocalAsync(itemId, local, owns, cancellationToken: cancellationToken);
 
-    public async Task<EditSession> StartSessionAsync(
+    /// <summary>
+    /// 順番を積み直す。今の記録は使わない（保存した印も空に戻す）が、**書くのは錠の中**にする。
+    ///
+    /// 丸ごと書くので錠は要らないように見えるが、錠の外で書くと、位置・保存した印・IDの付け替えが
+    /// 古い記録を読んだ後に割り込み、その書き手が後から古い順番を書き戻して、積み直した順番が消える（2026-10-04 に試験で再現）。
+    /// 入り直して順番を詰めたときは <paramref name="index"/> も一緒に渡す。順番と位置を2回に分けて書くと、間で落ちたときに位置が先頭に戻る。
+    /// </summary>
+    public Task<EditSession> StartSessionAsync(
         IReadOnlyList<string> itemIds,
+        int index = 0,
         CancellationToken cancellationToken = default)
-    {
-        var session = new EditSession
-        {
-            ItemIds = itemIds,
-            Index = 0,
-            StartedAt = DateTimeOffset.Now,
-        };
-
-        await _store.EditSession.SaveAsync(session, cancellationToken);
-        return session;
-    }
+        => _store.EditSession.UpdateAsync(
+            _ => new EditSession
+            {
+                ItemIds = itemIds,
+                Index = index,
+                StartedAt = DateTimeOffset.Now,
+            },
+            cancellationToken);
 
     /// <summary>
     /// 位置だけを進める。1件ごとに書くので、落ちても直前まで戻る。
@@ -137,8 +142,12 @@ public sealed class EditService : IEditService
         return written;
     }
 
+    /// <summary>
+    /// 終えた順番を捨てる。積み直しと同じ理由で錠の中で書く——錠の外で消すと、古い記録を読んだ書き手が後から書き戻し、
+    /// 終えたはずの順番が次に入ったときに続きとして出る。
+    /// </summary>
     public Task ClearSessionAsync(CancellationToken cancellationToken = default)
-        => _store.EditSession.SaveAsync(new EditSession(), cancellationToken);
+        => _store.EditSession.UpdateAsync(_ => new EditSession(), cancellationToken);
 
     /// <summary>
     /// userTagをマスタへ足す。既にあれば足さない（同じ名前が2つ並ぶとitem側の参照が曖昧になる）。

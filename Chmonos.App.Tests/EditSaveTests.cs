@@ -108,6 +108,81 @@ public class EditSaveTests
     });
 
     [Fact]
+    public Task 保存して次へを押すと_続きの記録に保存した印と進めた位置が残る() => TestApp.Run(async app =>
+    {
+        var (_, edit) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), Make.Item("1000002", "作り物の髪型"), Make.Item("1000003", "作り物の靴"));
+        var first = edit.CurrentItemId!;
+
+        edit.AddTagCommand.Execute("衣装");
+        await app.SettleAsync();
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+
+        var session = app.Store.EditSession.Load();
+        Assert.Equal(3, session.ItemIds.Count);
+        Assert.Equal(1, session.Index);
+        Assert.Equal([first], session.SavedItemIds);
+    });
+
+    /// <summary>
+    /// 入り直したときは、保存した商品を外して詰めた順番と位置を1回で書く（前は2回に分けて書いていた）。
+    /// </summary>
+    [Fact]
+    public Task 離れて入り直すと_保存した商品を外し_続きの位置から開く() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), Make.Item("1000002", "作り物の髪型"), Make.Item("1000003", "作り物の靴"));
+        var first = edit.CurrentItemId!;
+
+        edit.AddTagCommand.Execute("衣装");
+        await app.SettleAsync();
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+        var skipped = edit.CurrentItemId!;
+        edit.SkipCommand.Execute(null);
+        await app.SettleAsync();
+        var third = edit.CurrentItemId!;
+
+        main.ShowSearchCommand.Execute(null);
+        await app.SettleAsync();
+        main.ShowEditCommand.Execute(null);
+        await app.SettleAsync();
+
+        var again = Assert.IsType<EditViewModel>(main.CurrentViewModel);
+        Assert.Equal(third, again.CurrentItemId);
+        Assert.Equal("2 / 2 件", again.StepText);
+
+        var session = app.Store.EditSession.Load();
+        Assert.Equal([skipped, third], session.ItemIds);
+        Assert.Equal(1, session.Index);
+        Assert.Empty(session.SavedItemIds);
+        Assert.DoesNotContain(first, session.ItemIds);
+    });
+
+    [Fact]
+    public Task スキップした商品の打ちかけは_前へで戻ると残っていて_保存先には書かれない() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), Make.Item("1000002", "作り物の髪型"));
+        var first = edit.CurrentItemId!;
+
+        edit.Memo = "あとで決める";
+        edit.SkipCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.NotEqual(first, edit.CurrentItemId);
+        Assert.True(main.Drafts.Contains(first));
+
+        edit.BackCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal(first, edit.CurrentItemId);
+        Assert.Equal("あとで決める", edit.Memo);
+        Assert.NotEqual("あとで決める", (await app.Store.Items.LoadAsync(first))!.Local.Memo);
+        Assert.Equal(0, app.Store.EditSession.Load().Index);
+    });
+
+    [Fact]
     public Task 同じ大分類は_表記の大文字小文字が違っても2回は付かない() => TestApp.Run(async app =>
     {
         var (_, edit) = await OpenEditAsync(app, Make.Item("1000001", "作り物の衣装"));
