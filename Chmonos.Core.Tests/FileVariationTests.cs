@@ -126,6 +126,46 @@ public class FileVariationTests : IDisposable
         Assert.Equal("自分で書いたメモ", saved.Local.Memo);
     }
 
+    /// <summary>
+    /// 種類を付ける間に取り込みがファイルを足しても、足したファイルは消えない。
+    /// 錠の外で読んだ一覧に種類を当てて一覧ごと書いていたので、読んでから書くまでの間に足されたファイルが消えていた。
+    /// </summary>
+    [Fact]
+    public async Task 種類を付ける途中で取り込みが足したファイルが残る()
+    {
+        await SaveItemAsync(File("AAAA"));
+
+        // 取り込みが商品の錠を持ったまま、ファイルを足しかけている
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var import = Task.Run(() => _store.Items.ChangeLocalAsync(
+            ItemId,
+            local =>
+            {
+                entered.Set();
+                release.Wait();
+                return local with { LocalFiles = [.. local.LocalFiles, File("BBBB")] };
+            },
+            LocalOwners.Import));
+        entered.Wait();
+
+        var set = _service.SetFileVariationsAsync(ItemId, new Dictionary<string, long?> { ["AAAA"] = 10 });
+
+        // 種類を付ける側が錠を待つまで（＝読むなら読み終えるまで）進めてから、取り込みを書かせる
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (_store.Items.LockUsers(ItemId) < 2 && !set.IsCompleted && waited.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            await Task.Delay(5);
+        }
+
+        release.Set();
+        await Task.WhenAll(import, set);
+
+        var files = (await _store.Items.LoadAsync(ItemId))!.Local.LocalFiles;
+        Assert.Equal(["AAAA", "BBBB"], files.Select(file => file.Hash));
+        Assert.Equal(10, files.Single(file => file.Hash == "AAAA").VariationId);
+    }
+
     [Fact]
     public async Task 無い商品ではfalse()
         => Assert.False(await _service.SetFileVariationsAsync("999", new Dictionary<string, long?> { ["AAAA"] = 1 }));

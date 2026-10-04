@@ -99,7 +99,11 @@ public abstract record UiCommand
 
     // ---- 編集キューの位置（edit-session.json） ----
 
-    public record StartEditSession(IReadOnlyList<string> ItemIds) : UiCommand;
+    /// <summary>
+    /// 順番を積み直す。保存した印は空に戻る。入り直して順番を詰めたときは位置も一緒に渡す
+    /// （順番と位置を2回に分けて書くと、間で落ちたときに位置が先頭に戻る）。
+    /// </summary>
+    public record StartEditSession(IReadOnlyList<string> ItemIds, int Index = 0) : UiCommand;
 
     public record AdvanceEditSession(int Index) : UiCommand;
 

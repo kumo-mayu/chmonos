@@ -992,7 +992,7 @@ public sealed class CommandHandler
         switch (command)
         {
             case UiCommand.StartEditSession start:
-                await edit.StartSessionAsync(start.ItemIds, cancellationToken);
+                await edit.StartSessionAsync(start.ItemIds, start.Index, cancellationToken);
                 break;
             case UiCommand.AdvanceEditSession advance:
                 await edit.AdvanceSessionAsync(advance.Index, cancellationToken);

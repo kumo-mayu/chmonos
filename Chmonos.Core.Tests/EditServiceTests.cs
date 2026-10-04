@@ -354,6 +354,84 @@ public class EditServiceTests : IDisposable
         Assert.Equal(saved.ItemIds, (await replace).ItemIds);
     }
 
+    /// <summary>
+    /// 積み直しも錠の中で書く。錠の外で丸ごと書いていたので、位置・保存した印・IDの付け替えが
+    /// 古い記録を読んだ後に積み直すと、その書き手が後から古い順番を書き戻し、積み直した順番が消えていた。
+    /// </summary>
+    [Fact]
+    public async Task 位置を書いている途中に積み直しても_積み直した順番が残る()
+    {
+        await _service.StartSessionAsync(["1", "2", "3"]);
+
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var advance = Task.Run(() => _store.EditSession.UpdateAsync(session =>
+        {
+            entered.Set();
+            release.Wait();
+            return session with { Index = 2 };
+        }));
+        entered.Wait();
+
+        var start = _service.StartSessionAsync(["7", "8"]);
+        await Task.WhenAny(start, Task.Delay(300));
+        release.Set();
+        await Task.WhenAll(advance, start);
+
+        var saved = _store.EditSession.Load();
+        Assert.Equal(["7", "8"], saved.ItemIds);
+        Assert.Equal(0, saved.Index);
+    }
+
+    /// <summary>
+    /// 終えて消すのも錠の中で書く。錠の外で消していたので、古い記録を読んだ書き手が後から書き戻し、
+    /// 終えたはずの順番が次に入ったときに続きとして出ていた。
+    /// </summary>
+    [Fact]
+    public async Task 保存した印を書いている途中に終えても_順番は消えたまま()
+    {
+        await _service.StartSessionAsync(["1", "2"]);
+
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var note = Task.Run(() => _store.EditSession.UpdateAsync(session =>
+        {
+            entered.Set();
+            release.Wait();
+            return session with { SavedItemIds = ["2"], Index = 2 };
+        }));
+        entered.Wait();
+
+        var clear = _service.ClearSessionAsync();
+        await Task.WhenAny(clear, Task.Delay(300));
+        release.Set();
+        await Task.WhenAll(note, clear);
+
+        var saved = _store.EditSession.Load();
+        Assert.Empty(saved.ItemIds);
+        Assert.Empty(saved.SavedItemIds);
+    }
+
+    /// <summary>
+    /// 入り直して順番を詰めたときは、順番と位置を1回で書く。2回に分けていたので、
+    /// 間で落ちると位置が先頭に戻り、間に入った書き手からは位置の無い順番が見えた。
+    /// </summary>
+    [Fact]
+    public async Task 積み直すときに位置も一緒に書ける()
+    {
+        await _service.StartSessionAsync(["1", "2", "3"]);
+        await _service.NoteSavedAsync("1");
+
+        var written = await _service.StartSessionAsync(["2", "3"], index: 1);
+
+        var saved = _store.EditSession.Load();
+        Assert.Equal(["2", "3"], saved.ItemIds);
+        Assert.Equal(1, saved.Index);
+        Assert.Empty(saved.SavedItemIds);
+        Assert.Equal(saved.ItemIds, written.ItemIds);
+        Assert.Equal(1, written.Index);
+    }
+
     /// <summary>順番に無いIDなら書かずに今の記録を返す。</summary>
     [Fact]
     public async Task ReplacingAnIdThatIsNotQueuedWritesNothing()
