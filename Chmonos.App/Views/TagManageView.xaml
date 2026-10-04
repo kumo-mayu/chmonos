@@ -248,6 +248,33 @@
                                 <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
                                 <Setter Property="AutomationProperties.AutomationId" Value="TagTopRow" />
                                 <Setter Property="Padding" Value="0" />
+                                <!--
+                                    右クリックのメニュー（メモ35）。右の欄の見出しと同じ命令を使うので、開く前にこの行を選ぶ（SelectOnContextMenu）。
+                                    項目は全部出し、できない物は押せなくして理由を言う（2026-10-04）。ページの ViewModel は Tag で渡す
+                                -->
+                                <Setter Property="controls:SelectOnContextMenu.IsEnabled" Value="True" />
+                                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                            <MenuItem AutomationProperties.AutomationId="TagTopMenu.Rename" Header="名前を変更"
+                                                      Command="{Binding RenameTopCommand}"
+                                                      controls:MenuTips.Enabled="名前を変えます。既にある名前を選ぶと統合します。" />
+                                            <MenuItem AutomationProperties.AutomationId="TagTopMenu.Nest" Header="別の大分類の小分類にする"
+                                                      Command="{Binding NestTopCommand}" IsEnabled="{Binding CanNestTop}"
+                                                      controls:MenuTips.Enabled="{Binding NestTopToolTip}"
+                                                      controls:MenuTips.Disabled="{Binding NestTopToolTip}" />
+                                            <MenuItem AutomationProperties.AutomationId="TagTopMenu.ShowItems" Header="検索で開く"
+                                                      Command="{Binding ShowItemsCommand}" IsEnabled="{Binding SelectedIsUsed}"
+                                                      controls:MenuTips.Enabled="{Binding ShowItemsToolTip}"
+                                                      controls:MenuTips.Disabled="{Binding ShowItemsToolTip}" />
+                                            <Separator />
+                                            <MenuItem AutomationProperties.AutomationId="TagTopMenu.Delete" Header="この大分類を削除"
+                                                      Command="{Binding DeleteTopCommand}"
+                                                      controls:MenuTips.Enabled="確かめてから削除します。小分類も一緒に消えます。" />
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">

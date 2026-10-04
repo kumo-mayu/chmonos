@@ -127,6 +127,26 @@
                                 <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
                                 <Setter Property="AutomationProperties.AutomationId" Value="AttributeRow" />
                                 <Setter Property="Padding" Value="0" />
+                                <!-- 右クリックのメニュー（メモ35）。タグの管理の左の一覧と同じ作り（TagManageView のコメント） -->
+                                <Setter Property="controls:SelectOnContextMenu.IsEnabled" Value="True" />
+                                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                            <MenuItem AutomationProperties.AutomationId="AttributeMenu.Rename" Header="名前を変更"
+                                                      Command="{Binding AskRenameCommand}"
+                                                      controls:MenuTips.Enabled="名前を変えます。既にある名前を選ぶと統合します。" />
+                                            <MenuItem AutomationProperties.AutomationId="AttributeMenu.ShowItems" Header="検索で開く"
+                                                      Command="{Binding ShowItemsCommand}" IsEnabled="{Binding SelectedIsUsed}"
+                                                      controls:MenuTips.Enabled="{Binding ShowItemsToolTip}"
+                                                      controls:MenuTips.Disabled="{Binding ShowItemsToolTip}" />
+                                            <Separator />
+                                            <MenuItem AutomationProperties.AutomationId="AttributeMenu.Delete" Header="この属性を削除"
+                                                      Command="{Binding DeleteCommand}"
+                                                      controls:MenuTips.Enabled="確かめてから削除します。商品の評価も消えます。" />
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
