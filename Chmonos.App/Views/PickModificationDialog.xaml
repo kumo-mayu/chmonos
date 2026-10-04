@@ -12,6 +12,19 @@
         Width="480" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Surface}">
+    <Window.Resources>
+        <!-- 探す欄の ×（検索画面・未確定の画面の ClearFieldButton と同じ見た目。暗黙のボタンの見た目を当てないため明示する） -->
+        <Style x:Key="ClearFieldButton" TargetType="Button">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
     <StackPanel Margin="22,20">
 
         <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
@@ -95,7 +108,7 @@
                                         <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}"
                                                    Foreground="{DynamicResource AccentText}"
                                                    MaxWidth="280" HorizontalAlignment="Left"
-                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                   Margin="0,2,0,0" TextWrapping="Wrap"
                                                    Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
 

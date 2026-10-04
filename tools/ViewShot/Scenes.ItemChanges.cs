@@ -235,6 +235,14 @@ internal static partial class Scenes
                         new UserTagAssignment { Top = "衣装", Subs = ["コート", "マフラー"] },
                     ],
                     IsDelisted = delisted,
+
+                    // 買った行は払った額と BOOTH の今の価格を並べる（メモ39）。フルセットは値上がり（払った額 ¥1,200・今 ¥1,500）、
+                    // テクスチャのみは同じ額
+                    Purchases =
+                    [
+                        new Purchase { VariationId = 1, NameSnapshot = "フルセット", Price = 1200 },
+                        new Purchase { VariationId = 3, NameSnapshot = "テクスチャのみ", Price = 300 },
+                    ],
                 },
             },
             images: 3);

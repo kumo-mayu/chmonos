@@ -74,6 +74,49 @@ internal static partial class Scenes
             Width = null,
             Height = null,
         },
+
+        // メモ41：今ある改変を探す欄。「作り物」で、プロジェクト名・アバター名に当たった行は何で当たったかが出る
+        new Scene("pick-modification-search-dialog", "改変に追加の窓：今ある改変を探す欄（「作り物」で絞った所。アバター・プロジェクトで当たった理由が行に出る）", context =>
+        {
+            static PickModificationRowViewModel Row(string id, string avatar, string name, string? project, int members) => new()
+            {
+                Record = new ModificationRecord
+                {
+                    Id = id,
+                    AvatarItemId = "9900001",
+                    Name = name,
+                    UnityProject = project,
+                    Members = [.. Enumerable.Range(0, members).Select(index => new ModificationMember { ItemId = $"99001{index:00}" })],
+                },
+                AvatarText = avatar,
+                ProjectName = ModificationHubViewModel.ProjectNameOf(project),
+            };
+
+            var model = new PickModificationDialogViewModel(
+                "改変に追加",
+                "「作り物の衣装」を改変に追加します。",
+                string.Empty,
+                [
+                    Row("mod-1", "作り物のアバター「ミナト」", "普段着", @"D:\Unity\作り物プロジェクト", 3),
+                    Row("mod-2", "作り物のアバター「ミナト」", "制服", null, 0),
+                    Row("mod-3", "別のアバター", "作り物の水着", @"D:\Unity\Sandbox", 1),
+                    Row("mod-4", "別のアバター", "冬服", @"D:\Unity\作り物プロジェクト", 2),
+                ],
+                [],
+                _ => null)
+            {
+                ExistingLabel = "今ある改変に追加",
+                CommitLabel = "追加",
+                EmptyText = "改変がまだありません。",
+                FilterText = "作り物",
+            };
+            var window = new PickModificationDialog(model);
+            return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
     ];
 
     private static ItemRecord TwoPackageItem(string id, string name) => FileItem(id, name,
