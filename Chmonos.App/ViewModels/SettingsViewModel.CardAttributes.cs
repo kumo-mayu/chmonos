@@ -14,7 +14,7 @@ public sealed class CardAttributeChoice
 /// <summary>
 /// 設定：一覧と検索の「カードに表示する属性」（ユーザ判断 2026-10-04：出す属性は設定で選ぶ。既定は属性の管理の並びの上から）。
 /// 候補を全部並べてチェックさせる形にはしない（属性の数に比例して縦に伸びる・<c>.claude/rules/screen-and-wording.md</c>）。
-/// 候補付きの欄から1つずつ足し、札の × で外す。足した順に出す
+/// 候補付きの欄から1つずつ足し、札の × で外す。出す順は設定で選んだ順ではなく、商品に付いている順
 /// </summary>
 public sealed partial class SettingsViewModel
 {
@@ -27,7 +27,7 @@ public sealed partial class SettingsViewModel
 
     /// <summary>選んでいないときは、何が出るのかを言う（空の欄だけだと、何も出ないように読める）。</summary>
     public string CardAttributesNote => CardAttributes.Count > 0
-        ? "選んだ順に、評価した属性を2つまでカードに表示します。"
+        ? "選んだ属性のうち、商品に付いている順に2つまでカードに表示します。"
         : "選んでいないときは、属性の管理の並びの上から表示します。";
 
     private RelayCommand? _addCardAttribute;

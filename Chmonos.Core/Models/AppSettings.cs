@@ -45,6 +45,33 @@ public sealed record AppSettings
     public IReadOnlyList<string> CardAttributes { get; init; } = [];
 
     /// <summary>
+    /// 属性の管理で名前を変えた・統合したときの、<see cref="CardAttributes"/> の書き換え（ユーザ判断 2026-10-04）。
+    /// 名前が付いてこないと、設定で選んだ属性が黙って札から消える。統合先がもう選ばれていれば1つにする。
+    /// 属性の名前は大文字小文字を区別せずに同じ物と見る（属性の管理と同じ）。
+    /// </summary>
+    public AppSettings WithCardAttributeRenamed(string oldName, string newName)
+    {
+        var names = new List<string>();
+        foreach (var name in CardAttributes ?? [])
+        {
+            var next = string.Equals(name, oldName, StringComparison.CurrentCultureIgnoreCase) ? newName : name;
+            if (!names.Contains(next, StringComparer.CurrentCultureIgnoreCase))
+            {
+                names.Add(next);
+            }
+        }
+
+        return this with { CardAttributes = names };
+    }
+
+    /// <summary>属性を消したとき、<see cref="CardAttributes"/> からも外す。</summary>
+    public AppSettings WithCardAttributeRemoved(string name)
+        => this with
+        {
+            CardAttributes = (CardAttributes ?? []).Where(entry => !string.Equals(entry, name, StringComparison.CurrentCultureIgnoreCase)).ToList(),
+        };
+
+    /// <summary>
     /// 商品カードの幅（DIP）。一覧の右下のスライダーで変え、カードを並べる画面すべてで共有する（ユーザ判断 2026-09-29）。
     /// 前の設定の「サムネイルの大きさ（小・中・大）」を置き換えた。228 はその「中」で、ずっと使ってきた大きさ。
     /// 範囲の外の値（手で書き換えた JSON）は、使う側（<c>CardMetrics</c>）が範囲に収めて読む
