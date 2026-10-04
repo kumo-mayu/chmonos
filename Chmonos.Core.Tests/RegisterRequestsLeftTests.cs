@@ -14,7 +14,7 @@ namespace Chmonos.Core.Tests;
 /// </summary>
 public class RegisterRequestsLeftTests : IDisposable
 {
-    private const string ItemId = "5927710";
+    private const string ItemId = "9912345";
 
     private readonly string _root;
     private readonly DataStore _store;
