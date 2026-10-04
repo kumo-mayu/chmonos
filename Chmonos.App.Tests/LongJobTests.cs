@@ -76,7 +76,7 @@ public class LongJobTests
 
         Assert.Equal(StoreJobKind.None, main.StoreJob);
         Assert.Equal("この間、アバターの編集と取り込みの検出は待たされます", main.LongJobNote);
-        Assert.Equal(DetectingNote, settings.Status);
+        Assert.Equal(DetectingNote, settings.DataStatus);
         Assert.False(File.Exists(zip));
 
         job.Dispose();
@@ -170,7 +170,7 @@ public class LongJobTests
 
         Assert.False(main.IsLongJobRunning);
         Assert.Equal(StoreJobKind.None, main.StoreJob);
-        Assert.StartsWith("バックアップから戻せませんでした。", settings.Status);
+        Assert.StartsWith("バックアップから戻せませんでした。", settings.DataStatus);
         Assert.False(settings.HasExportedZip);
     });
 }

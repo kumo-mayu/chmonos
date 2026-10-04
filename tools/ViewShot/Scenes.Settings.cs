@@ -23,12 +23,53 @@ internal static partial class Scenes
         SettingsSortDividers("settings-sort-dividers-off", "設定の「一覧と検索」：区切りの設定が切（入手日の子のチェックは押せず薄い）", parent: false),
         SettingsStore("settings-store-blocked", "設定の保存先：ほかの長い作業（対応アバターの検出）の間は、場所を変える・書き出し・戻すが押せず、理由の1行が出る", main =>
             main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", new CancellationTokenSource())),
-        SettingsStore("settings-backup-exported", "設定の保存先：設定の画面で書き出しが終わった（上の1行に結果・書き出しの横にエクスプローラで開く）", main =>
+        SettingsStore("settings-backup-exported", "設定の保存先：設定の画面で書き出しが終わった（データの欄のボタンの下に結果・横にエクスプローラで開く）", main =>
         {
             main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
             main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
         }),
+        SettingsNotes("settings-notes-before", "設定：操作の知らせが出る前（出る場所は前もって空けてある）", shown: false),
+        SettingsNotes("settings-notes-after", "設定：知らせが出た後（欄の下・ボタンの下・見出しの横。ほかの物は動かない）", shown: true),
     ];
+
+    /// <summary>
+    /// 操作の結果の知らせを、欄・ボタン・見出しの近くへ出す前と後（2026-10-04）。2枚を比べて、下の物が動かないことを見る。
+    /// 後の方は、数の欄を範囲の外に打ち、ショートカットを重ね、幅を戻し、除外を1件解除し、書き出しの結果を出す
+    /// </summary>
+    private static Scene SettingsNotes(string name, string title, bool shown)
+        => new(name, title, async context =>
+        {
+            await SeedExcludedAsync(context, 3);
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            settings.IsExcludedExpanded = true;
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.ExcludedText == "3 件", "設定を読み終わる");
+
+            if (shown)
+            {
+                settings.RefreshIntervalDays = 1000;
+                settings.NotificationRetentionCount = 1;
+                settings.FetchIntervalMs = 1;
+                settings.ImageMaxEdgePixels = 99999;
+                settings.SearchHistoryCount = 500;
+                settings.ResetPaneWidthsCommand.Execute(null);
+                settings.AssignShortcut(settings.ShortcutRows[0], "Ctrl+Shift+F9");
+                settings.AssignShortcut(settings.ShortcutRows[1], "Ctrl+Shift+F9");
+                settings.Excluded[0].RestoreCommand!.Execute(null);
+                main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
+                main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
+                await SceneContext.UntilAsync(() => settings.ExcludedText == "2 件", "除外が1件減る");
+            }
+
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<SettingsView>(root), FocusMargin = 0 };
+        })
+        {
+            Height = SettingsHeight,
+        };
 
     /// <summary>設定の画面を開いてから、主画面に状態を入れ、上の1行と「データの保存先」の欄を描く。</summary>
     private static Scene SettingsStore(string name, string title, Action<MainViewModel> arrange)

@@ -49,7 +49,7 @@ public class SettingsBackupJobTests
 
             Assert.NotSame(settings, reopened);
             Assert.True(reopened.IsBackingUp);
-            Assert.StartsWith("バックアップを書き出しています", reopened.Status);
+            Assert.StartsWith("バックアップを書き出しています", reopened.DataStatus);
             Assert.False(reopened.ExportBackupCommand.CanExecute(null));
             Assert.False(reopened.RestoreBackupCommand.CanExecute(null));
             Assert.False(reopened.CanChangeRoot);
@@ -60,8 +60,8 @@ public class SettingsBackupJobTests
 
         Assert.False(settings.IsBackingUp);
         Assert.False(main.IsLongJobRunning);
-        Assert.StartsWith("バックアップに ", settings.Status);
-        Assert.EndsWith("を書き出しました。", settings.Status);
+        Assert.StartsWith("バックアップに ", settings.DataStatus);
+        Assert.EndsWith("を書き出しました。", settings.DataStatus);
         Assert.True(settings.ExportBackupCommand.CanExecute(null));
         Assert.False(main.HasStoreJobNotice);
         Assert.True(File.Exists(zip));
@@ -89,7 +89,7 @@ public class SettingsBackupJobTests
 
         var reopened = OpenSettings(main);
 
-        Assert.Equal(notice, reopened.Status);
+        Assert.Equal(notice, reopened.DataStatus);
         Assert.False(main.HasStoreJobNotice);
     });
 
@@ -149,7 +149,7 @@ public class SettingsBackupJobTests
 
         await settings.ExportBackupToAsync(zip, withImages: false);
 
-        Assert.StartsWith("バックアップに ", settings.Status);
+        Assert.StartsWith("バックアップに ", settings.DataStatus);
         Assert.True(settings.HasExportedZip);
         Assert.False(main.HasStoreJobNotice);
         settings.RevealExportedZipCommand.Execute(null);
@@ -204,7 +204,7 @@ public class SettingsBackupJobTests
 
             var settings = OpenSettings(main);
 
-            Assert.Equal(line, settings.Status);
+            Assert.Equal(line, settings.DataStatus);
             Assert.Equal(kind == StoreJobKind.Move, settings.IsMovingStore);
             Assert.Equal(kind == StoreJobKind.Restore, settings.IsBackingUp);
             Assert.False(settings.ExportBackupCommand.CanExecute(null));
