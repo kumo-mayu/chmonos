@@ -42,19 +42,59 @@ public class CardInfoTests
     // ---- 札の数と幅 ----
 
     [Fact]
-    public void ユーザータグは札2枚まで出し_残りは数で言う()
+    public void ユーザータグは付いている順に全部持ち_何枚並べるかは描くときに幅で決める()
     {
         var item = Rated(tags: [Tag("衣装"), Tag("髪"), Tag("小物")]);
 
         var info = CardInfo.Build(item, Defaults(), narrow: false, owned: true);
 
-        Assert.Equal("衣装", info.Tag1);
-        Assert.Equal("髪", info.Tag2);
-        Assert.Equal("+1", info.TagMore);
+        Assert.Equal(["衣装", "髪", "小物"], info.Tags);
+        Assert.Equal(3, info.TagTotal);
     }
 
     [Fact]
-    public void 幅200未満のカードでは札を1枚にし_1行も短くする()
+    public void 札は測る上限までを持ち_付いている数は別に持つ()
+    {
+        var item = Rated(tags: [.. Enumerable.Range(0, 12).Select(n => Tag($"タグ{n}"))]);
+
+        var info = CardInfo.Build(item, Defaults(), narrow: false, owned: true);
+
+        Assert.Equal(CardInfo.MaxChips, info.Tags.Count);
+        Assert.Equal(12, info.TagTotal);
+    }
+
+    [Fact]
+    public void 札の枚数はカードの幅に入るだけで_入らない分は残りの数の札のぶんを空ける()
+    {
+        // 札の幅 50・間 4・「+n」の札 20。幅 200 なら 3枚（158）＋「+n」（182）まで。4枚は 212 で超える
+        double[] widths = [50, 50, 50, 50, 50];
+        Func<int, double> more = _ => 20;
+
+        Assert.Equal(3, Chmonos.App.Controls.CardInfoStrip.FitCount(widths, 5, 200, 4, more));
+        // 全部入るなら残りの札は出さない：5枚（4間で 266）が入る幅
+        Assert.Equal(5, Chmonos.App.Controls.CardInfoStrip.FitCount(widths, 5, 270, 4, more));
+        // 広いほど増える（狭い 160 では 2枚）
+        Assert.Equal(2, Chmonos.App.Controls.CardInfoStrip.FitCount(widths, 5, 160, 4, more));
+        // 属性の段は「+n」を出さないので、同じ幅 200 で 3枚入る（4枚だと 212）
+        Assert.Equal(3, Chmonos.App.Controls.CardInfoStrip.FitCount(widths, 5, 200, 4, null));
+        // 1枚も入らなくても1枚は出す。札が無ければ0
+        Assert.Equal(1, Chmonos.App.Controls.CardInfoStrip.FitCount(widths, 5, 10, 4, more));
+        Assert.Equal(0, Chmonos.App.Controls.CardInfoStrip.FitCount([], 0, 200, 4, more));
+    }
+
+    [Fact]
+    public Task 札に乗せてから重ねを出すまでの待ちは_ギャラリーの待ちと同じ設定の値() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Rated(tags: [Tag("衣装")]));
+        await app.ChangeSettingsAsync(settings => settings with { GalleryHoverDelayMs = 320 });
+        var card = (await app.StartAsync()).Search.ListItems.Single();
+        await app.SettleAsync();
+
+        Assert.Equal(320, card.PeekDelayMs);
+    });
+
+    [Fact]
+    public void 幅200未満のカードでは1行だけ短くし_札は変えない()
     {
         var item = Rated(
             attributes: new Dictionary<string, int> { ["かわいい"] = 66, ["質感"] = 42 },
@@ -66,28 +106,25 @@ public class CardInfoTests
         var narrow = CardInfo.Build(item, Defaults(), narrow: true, owned: true);
 
         Assert.Equal("¥3,000・対応 24体", wide.MetaLine);
-        Assert.Equal("質感", wide.Attribute2?.Name);
-        Assert.Null(narrow.Tag2);
-        Assert.Equal("+2", narrow.TagMore);
-        Assert.Null(narrow.Attribute2);
-        Assert.Equal("かわいい", narrow.Attribute1?.Name);
         Assert.Equal("¥3,000・24体", narrow.MetaLine);
+        // 札は幅で減らさない（何枚並べるかは描くときに決める）
+        Assert.Equal(wide.Tags, narrow.Tags);
+        Assert.Equal(wide.Attributes, narrow.Attributes);
     }
 
     [Fact]
-    public Task カードの札は結んだ幅で組み_200ちょうどは2枚_199は1枚() => TestApp.Run(async app =>
+    public Task カードの1行は結んだ幅で組み_200ちょうどは対応と書き_199は短くする() => TestApp.Run(async app =>
     {
         await app.Store.Attributes.SaveAsync(new AttributeMaster { Attributes = Master.Select(name => new AttributeDefinition { Name = name }).ToList() });
-        await app.AddItemAsync(Rated(tags: [Tag("衣装"), Tag("髪")]));
+        await app.AddItemAsync(Rated(tags: [Tag("衣装"), Tag("髪")], avatars: 3));
         var card = (await app.StartAsync()).Search.ListItems.Single();
         var converter = CardInfoForWidthConverter.Instance;
 
         var at200 = (CardInfo?)converter.Convert([card, card.InfoVersion, 200.0], typeof(object), null!, System.Globalization.CultureInfo.InvariantCulture);
         var at199 = (CardInfo?)converter.Convert([card, card.InfoVersion, 199.0], typeof(object), null!, System.Globalization.CultureInfo.InvariantCulture);
 
-        Assert.Equal("髪", at200?.Tag2);
-        Assert.Null(at199?.Tag2);
-        Assert.Equal("+1", at199?.TagMore);
+        Assert.Equal("対応 3体", at200?.MetaLine);
+        Assert.Equal("3体", at199?.MetaLine);
     });
     [Fact]
     public void 評価していない属性は札を空けず_次の評価した属性を出す()
@@ -97,7 +134,7 @@ public class CardInfoTests
         var info = CardInfo.Build(item, Defaults(), narrow: false, owned: true);
 
         Assert.Equal(new CardAttributeChip("質感", 42), info.Attribute1);
-        Assert.Equal(new CardAttributeChip("軽さ", 7), info.Attribute2);
+        Assert.Equal(new CardAttributeChip("軽さ", 7), info.Attributes[1]);
         Assert.Equal("質感 42　軽さ 7", info.AttributesLine);
     }
 
@@ -107,7 +144,6 @@ public class CardInfoTests
         var info = CardInfo.Build(Rated(), Defaults(), narrow: false, owned: true);
 
         Assert.False(info.HasTag1);
-        Assert.False(info.HasTagMore);
         Assert.False(info.HasAttribute1);
         Assert.Equal(string.Empty, info.MetaLine);
         Assert.Equal(string.Empty, info.PaidText);
@@ -175,7 +211,7 @@ public class CardInfoTests
         var item = Rated(attributes: new Dictionary<string, int> { ["かわいい"] = 10, ["質感"] = 90, ["軽さ"] = 50 });
         var info = CardInfo.Build(item, options, narrow: false, owned: true);
         Assert.Equal("かわいい", info.Attribute1?.Name);
-        Assert.Equal("軽さ", info.Attribute2?.Name);
+        Assert.Equal("軽さ", info.Attributes[1].Name);
         Assert.Equal("かわいい 10　軽さ 50", info.AttributesLine);
     }
 
@@ -257,7 +293,7 @@ public class CardInfoTests
         await app.AddItemAsync(Rated(attributes: new Dictionary<string, int> { ["質感"] = 40 }));
         var card = (await app.StartAsync()).Search.ListItems.Single();
 
-        card.SetPointerOnText(true);
+        card.SetPointerOnChips(true);
         Assert.True(card.IsPeeking);
         Assert.Equal("質感", card.Peek.Bars.Single().Name);
 
@@ -267,7 +303,7 @@ public class CardInfoTests
         card.ResetImage();
         Assert.True(card.IsPeeking);
 
-        card.SetPointerOnText(false);
+        card.SetPointerOnChips(false);
         Assert.False(card.IsPeeking);
         card.SetKeyboardFocus(true);
         Assert.True(card.IsPeeking);
@@ -281,7 +317,7 @@ public class CardInfoTests
         await app.AddItemAsync(Rated());
         var card = (await app.StartAsync()).Search.ListItems.Single();
 
-        card.SetPointerOnText(true);
+        card.SetPointerOnChips(true);
 
         Assert.False(card.IsPeeking);
     });
@@ -335,9 +371,9 @@ public class CardInfoTests
 
         Assert.Equal(["軽さ"], app.Services.Settings.CardAttributes);
         Assert.DoesNotContain("軽さ", settings.CardAttributeCandidates);
-        Assert.Equal("選んだ属性のうち、商品に付いている順に2つまでカードに表示します。", settings.CardAttributesNote);
+        Assert.Equal("選んだ属性のうち、商品に付いている順に、カードの幅に入るだけ表示します。", settings.CardAttributesNote);
         await UiThread.Until(() => main.Search.ListItems.Single().ListInfo.Attribute1?.Name == "軽さ", "札が選んだ属性になる");
-        Assert.Null(main.Search.ListItems.Single().ListInfo.Attribute2);
+        Assert.Single(main.Search.ListItems.Single().ListInfo.Attributes);
 
         settings.RemoveCardAttribute("軽さ");
         await app.SettleAsync();

@@ -27,7 +27,7 @@ public sealed partial class SettingsViewModel
 
     /// <summary>選んでいないときは、何が出るのかを言う（空の欄だけだと、何も出ないように読める）。</summary>
     public string CardAttributesNote => CardAttributes.Count > 0
-        ? "選んだ属性のうち、商品に付いている順に2つまでカードに表示します。"
+        ? "選んだ属性のうち、商品に付いている順に、カードの幅に入るだけ表示します。"
         : "選んでいないときは、属性の管理の並びの上から表示します。";
 
     private RelayCommand? _addCardAttribute;

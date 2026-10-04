@@ -49,6 +49,9 @@ public sealed class CardInfoContext
 {
     public CardInfoOptions Options { get; private set; } = CardInfoOptions.Empty;
 
+    /// <summary>札に乗せてから重ねを出すまでの待ち。設定のギャラリーの待ちと同じ値（画面が合わせる）。作り置きの札には効かないので、変わっても知らせない。</summary>
+    public int PeekDelayMs { get; set; }
+
     /// <summary>替わった回数。カードはこれで作り置きの札が古いかを見る。</summary>
     public int Version { get; private set; }
 
@@ -84,24 +87,30 @@ public sealed record CardAttributeBar(string Name, int Value, double TrackWidth)
 }
 
 /// <summary>
-/// カードの名前の下に出す札と1行（案A）と、リストの列（案C）の中身。カードの幅で中身が変わる（幅200未満は札1枚・短い1行）。
-/// **値の無い札は出さない**（評価していない属性・ユーザータグの無い商品）。札の欄の高さはカードの側で固定し、値が無くても一覧の段は揃う
+/// カードの名前の下に出す札と1行（案A）と、リストの列（案C）の中身。幅200未満のカードでは1行が短くなる。
+/// **値の無い札は出さない**（評価していない属性・ユーザータグの無い商品）。札の欄の高さはカードの側で固定し、値が無くても一覧の段は揃う。
+/// 札を何枚並べるかは、ここでは決めない（<see cref="Controls.CardInfoStrip"/> が描くときに、カードの幅に入るだけ並べる。メモ37-③）
 /// </summary>
 public sealed record CardInfo
 {
-    /// <summary>この幅（DIP）より狭いカードでは札を1枚に減らす。札が2枚並ぶと、狭いカードでは2枚目が切れて読めない。</summary>
+    /// <summary>この幅（DIP）より狭いカードでは、1行の「対応 24体」を「24体」に縮める。</summary>
     public const double NarrowBelow = 200;
 
-    public string? Tag1 { get; init; }
+    /// <summary>札として測る・並べる数の上限。商品に何十個付いていても、描くたびに全部を測らない（残りは「+n」の数に入る）。</summary>
+    public const int MaxChips = 8;
 
-    public string? Tag2 { get; init; }
+    /// <summary>ユーザータグの札の文字（付いている順。<see cref="MaxChips"/> まで）。</summary>
+    public IReadOnlyList<string> Tags { get; init; } = [];
 
-    /// <summary>出しきれなかったユーザータグの数（「+2」）。無ければ空。</summary>
-    public string TagMore { get; init; } = string.Empty;
+    /// <summary>ユーザータグの付いている数（札に出す分と出さない分の合計。「+n」の n を描くときに引く）。</summary>
+    public int TagTotal { get; init; }
 
-    public CardAttributeChip? Attribute1 { get; init; }
+    /// <summary>属性の札（付いている順。<see cref="MaxChips"/> まで）。</summary>
+    public IReadOnlyList<CardAttributeChip> Attributes { get; init; } = [];
 
-    public CardAttributeChip? Attribute2 { get; init; }
+    public string? Tag1 => Tags.Count > 0 ? Tags[0] : null;
+
+    public CardAttributeChip? Attribute1 => Attributes.Count > 0 ? Attributes[0] : null;
 
     /// <summary>「¥3,000・対応 24体」。分からない物は書かない（額を入れていない・対応アバターが無い）。</summary>
     public string MetaLine { get; init; } = string.Empty;
@@ -111,13 +120,7 @@ public sealed record CardInfo
 
     public bool HasTag1 => Tag1 is not null;
 
-    public bool HasTag2 => Tag2 is not null;
-
-    public bool HasTagMore => TagMore.Length > 0;
-
     public bool HasAttribute1 => Attribute1 is not null;
-
-    public bool HasAttribute2 => Attribute2 is not null;
 
     // ---- リストの列（幅で変えない） ----
 
@@ -138,8 +141,6 @@ public sealed record CardInfo
 
     public static CardInfo Build(ItemRecord item, CardInfoOptions options, bool narrow, bool owned)
     {
-        var chipCount = narrow ? 1 : 2;
-
         var tags = item.Local.UserTags.Select(tag => TagText(tag, options.WithSubs)).ToList();
         var rated = RatedInOrder(item, options).ToList();
 
@@ -158,11 +159,9 @@ public sealed record CardInfo
 
         return new CardInfo
         {
-            Tag1 = tags.Count > 0 ? tags[0] : null,
-            Tag2 = chipCount > 1 && tags.Count > 1 ? tags[1] : null,
-            TagMore = tags.Count > chipCount ? $"+{tags.Count - chipCount}" : string.Empty,
-            Attribute1 = rated.Count > 0 ? rated[0] : null,
-            Attribute2 = chipCount > 1 && rated.Count > 1 ? rated[1] : null,
+            Tags = tags.Take(MaxChips).ToList(),
+            TagTotal = tags.Count,
+            Attributes = rated.Take(MaxChips).ToList(),
             MetaLine = string.Join("・", meta),
             MetaMargin = owned ? new Thickness(0, 4, 0, 0) : new Thickness(SashInset, 4, 0, 0),
             TagsLine = string.Join("　", tags),

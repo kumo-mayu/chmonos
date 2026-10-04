@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Views;
@@ -51,24 +52,52 @@ public partial class ItemCardResources : ResourceDictionary
     }
 
     /// <summary>
-    /// カードに乗った・離れた。絵の上に中身を重ねるかは ViewModel が決める（絵に乗っている間はなぞって送るので重ねない）。
+    /// 札に乗った・離れた。絵の上に中身を重ねるかは ViewModel が決める（絵に乗っている間はなぞって送るので重ねない）。
     /// 乗ったことを ViewModel に持たせるのは、描く台と試験から同じ姿を作れるようにするため
     /// </summary>
-    private void OnCardMouseEnter(object sender, MouseEventArgs e)
+    private void OnChipsMouseEnter(object sender, MouseEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: ItemCardViewModel card })
+        if (sender is not FrameworkElement { DataContext: ItemCardViewModel card })
         {
-            card.SetPointerOnText(true);
+            return;
         }
+
+        // 掃くように動かしている間は乗るたびに数え直すので、止まるまで出ない（ギャラリーの乗せて切り替えと同じ作法。メモ37-②）。
+        // マウスは1つなので、待ちの時計は全カードで1つを使い回す
+        _peekTimer.Stop();
+        _peekCard = card;
+        if (card.PeekDelayMs <= 0)
+        {
+            card.SetPointerOnChips(true);
+            return;
+        }
+
+        _peekTimer.Interval = TimeSpan.FromMilliseconds(card.PeekDelayMs);
+        _peekTimer.Start();
     }
 
-    private void OnCardMouseLeave(object sender, MouseEventArgs e)
+    private void OnChipsMouseLeave(object sender, MouseEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: ItemCardViewModel card })
+        if (sender is not FrameworkElement { DataContext: ItemCardViewModel card })
         {
-            card.SetPointerOnText(false);
+            return;
         }
+
+        // 待っている最中に離れたら取り消す。出ていれば、離れたらすぐ下ろす
+        _peekTimer.Stop();
+        _peekCard = null;
+        card.SetPointerOnChips(false);
     }
+
+    private static readonly DispatcherTimer _peekTimer = new();
+
+    private static ItemCardViewModel? _peekCard;
+
+    static ItemCardResources() => _peekTimer.Tick += (_, _) =>
+    {
+        _peekTimer.Stop();
+        _peekCard?.SetPointerOnChips(true);
+    };
 
     /// <summary>キーボードでカードに止まった・離れた。止まっている間は乗せたときと同じ中身を重ねる（ユーザ判断 2026-10-04）。</summary>
     private void OnCardFocusChanged(object sender, KeyboardFocusChangedEventArgs e)

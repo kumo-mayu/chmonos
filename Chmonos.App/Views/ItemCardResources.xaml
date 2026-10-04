@@ -77,14 +77,7 @@
         <MenuItem Header="既読にする" Command="{Binding MarkUpdateReadCommand}" AutomationProperties.AutomationId="CardMenu.MarkUpdateRead"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=MarkUpdateRead}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=MarkUpdateRead}" />
-        <!--
-            選んでいる最中は、選んだ物のうち未読の更新がある商品をまとめて既読にする（帯の「既読にする」と同じ。ユーザ判断 2026-10-02）。
-            選んだ物に未読の更新がある画面（入れ物が HasSelectedUpdates を持つ検索・フォルダの右・ショップの中）でだけ押せる
-        -->
-        <MenuItem Header="選んだ商品を既読にする" AutomationProperties.AutomationId="CardMenu.MarkSelectionRead"
-                  Command="{Binding PlacementTarget.Tag.MarkSelectionReadCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                  IsEnabled="{Binding PlacementTarget.Tag.HasSelectedUpdates, RelativeSource={RelativeSource AncestorType=ContextMenu}, FallbackValue=False}"
-                  ToolTip="選んだ商品に未読の更新の通知があるときに押せます" />
+        <!-- 選んだ商品をまとめて既読にするのは、複数選んだときの下の帯の「既読にする」だけ（メモ33-①：右クリックには置かない） -->
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
@@ -358,7 +351,7 @@
                                 <controls:ItemCardBorder Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
                                         Focusable="True" KeyDown="OnCardKeyDown" Invoked="OnCardInvoked" Loaded="OnCardLoaded" FocusVisualStyle="{StaticResource CardFocusVisual}"
-                                        MouseEnter="OnCardMouseEnter" MouseLeave="OnCardMouseLeave" GotKeyboardFocus="OnCardFocusChanged" LostKeyboardFocus="OnCardFocusChanged"
+                                        GotKeyboardFocus="OnCardFocusChanged" LostKeyboardFocus="OnCardFocusChanged"
                                         ClipToBounds="True"
                                         AutomationProperties.AutomationId="ItemCard"
                                         AutomationProperties.Name="{Binding Name}"
@@ -453,8 +446,9 @@
                                         -->
                                         <Grid Margin="11,10,11,0">
                                             <StackPanel>
+                                                <!-- 高さは2行ぶんで固定（メモ37-①）。1行の名前だと下の札と1行が上へ詰まり、名前が2行の商品とずれた -->
                                                 <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
-                                                           TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
+                                                           TextWrapping="Wrap" Height="36" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <!--
@@ -463,7 +457,7 @@
                                                     札の段は高さを決め打ちにし、値の無い商品でも名前の欄の高さを変えない（一覧の段が揃う）。
                                                     札は一覧の ItemsControl にせず決まった数の枠にする——カードは数千枚並ぶので、1枚の部品の数を増やさない
                                                 -->
-                                                <controls:CardInfoStrip Margin="0,6,0,0">
+                                                <controls:CardInfoStrip Margin="0,6,0,0" MouseEnter="OnChipsMouseEnter" MouseLeave="OnChipsMouseLeave">
                                                     <controls:CardInfoStrip.Info>
                                                         <MultiBinding Converter="{x:Static vm:CardInfoForWidthConverter.Instance}">
                                                             <Binding />

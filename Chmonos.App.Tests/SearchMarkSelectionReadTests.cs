@@ -5,8 +5,8 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 選んだ商品をまとめて既読にする（ユーザ判断 2026-10-02「4は入れましょう」）。帯の「既読にする」と、選んでいる最中の右クリックの
-/// 「選んだ商品を既読にする」は同じ命令（<c>MarkSelectionReadCommand</c>）で、選んだ物のうち未読の更新がある商品の知らせを1回の命令で既読にする。
+/// 選んだ商品をまとめて既読にする（ユーザ判断 2026-10-02「4は入れましょう」）。帯の「既読にする」（右クリックには置かない。メモ33-①）は
+/// 命令（<c>MarkSelectionReadCommand</c>）で、選んだ物のうち未読の更新がある商品の知らせを1回の命令で既読にする。
 /// </summary>
 public class SearchMarkSelectionReadTests
 {
