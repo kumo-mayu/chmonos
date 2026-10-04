@@ -50,6 +50,51 @@ internal static class HubExpansion
     public static void Set(string key, bool value) => States[key] = value;
 }
 
+/// <summary>
+/// 押したボタンや行のすぐ下に出す知らせの1つ分（<c>FieldNotice</c>／<c>FieldWarning</c> が表す）。
+/// 画面の1行（<c>Status</c>）に出していた操作の結果を、押した所の近くへ移すために、行や右の詳細ごとに持つ。
+/// </summary>
+public sealed class HubNoticeSlot : ViewModelBase
+{
+    private string _text = string.Empty;
+    private bool _isWarning;
+
+    public string Text
+    {
+        get => _text;
+        private set
+        {
+            if (SetField(ref _text, value))
+            {
+                OnPropertyChanged(nameof(HasText));
+            }
+        }
+    }
+
+    /// <summary>打ち直しや別の操作が要る知らせか（<c>FieldWarning</c> の色で出す）。</summary>
+    public bool IsWarning
+    {
+        get => _isWarning;
+        private set => SetField(ref _isWarning, value);
+    }
+
+    public bool HasText => _text.Length > 0;
+
+    public void Set(string text, bool warning)
+    {
+        IsWarning = warning;
+        Text = text;
+    }
+}
+
+/// <summary>知らせを出せる行や詳細。<see cref="NoticeKey"/> が同じ物には同じ知らせを出す（一覧の行と右の詳細が同じ操作の相手のとき）。</summary>
+public interface IHubNoticeTarget
+{
+    string NoticeKey { get; }
+
+    HubNoticeSlot Notice { get; }
+}
+
 /// <summary>畳める行。</summary>
 public abstract class HubExpandable : ViewModelBase
 {
@@ -91,8 +136,12 @@ public abstract class HubExpandable : ViewModelBase
 /// 改変に使ったもの1件。**ファイル単位**（ユーザ指摘 2026-09-13）——Unityへ送って足した分は、
 /// どの zip のどの unitypackage かまで記録にある。手で足した分は分からないまま出す（推定で埋めない）。
 /// </summary>
-public sealed class HubMemberRow : ViewModelBase
+public sealed class HubMemberRow : ViewModelBase, IHubNoticeTarget
 {
+    public string NoticeKey => $"member:{Record.Id}:{Index}";
+
+    public HubNoticeSlot Notice { get; } = new();
+
     public required ModificationRecord Record { get; init; }
 
     /// <summary>改変の中の位置。同じ商品を別の版で2回足せるので、位置で指す。</summary>
@@ -194,8 +243,12 @@ public sealed class HubModificationRow(string key, bool openByDefault, bool forc
 
 /// <summary>プロジェクトの見方の見出し1つ。紐付けていない改変も1つの見出しにまとめる（Candidate が null）。</summary>
 public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOpen)
-    : HubExpandable(key, openByDefault, forceOpen)
+    : HubExpandable(key, openByDefault, forceOpen), IHubNoticeTarget
 {
+    public string NoticeKey => $"project:{Path}";
+
+    public HubNoticeSlot Notice { get; } = new();
+
     public UnityProjectCandidate? Candidate { get; init; }
 
     public bool IsProject => Candidate is not null;
@@ -266,8 +319,12 @@ public sealed class HubAvatarGroup(string key, bool openByDefault, bool forceOpe
 }
 
 /// <summary>右側：Unityプロジェクト。</summary>
-public sealed class HubProjectDetail
+public sealed class HubProjectDetail : IHubNoticeTarget
 {
+    public string NoticeKey => $"project:{Path}";
+
+    public HubNoticeSlot Notice { get; } = new();
+
     public required UnityProjectCandidate Candidate { get; init; }
 
     public string Name => Candidate.Name;
@@ -317,8 +374,12 @@ public sealed class HubProjectDetail
 }
 
 /// <summary>右側：アバター。改変に関係する所だけ（名前・所有・改変・作る）。ほかの設定はアバターの管理へ。</summary>
-public sealed class HubAvatarDetail : ViewModelBase
+public sealed class HubAvatarDetail : ViewModelBase, IHubNoticeTarget
 {
+    public string NoticeKey => $"avatar:{AvatarItemId}";
+
+    public HubNoticeSlot Notice { get; } = new();
+
     public required string AvatarItemId { get; init; }
 
     public required string Name { get; init; }
@@ -380,8 +441,12 @@ public sealed class HubAvatarDetail : ViewModelBase
 /// 3つの見方すべて）、この改変に固有の物（使ったファイル・Unity のどこに入るか・「Unityで選択」・この商品を使った改変）は上の帯に出す。
 /// 手元に無い商品は商品ページが無いので、これまでの要約を出す
 /// </summary>
-public sealed class HubItemDetail : ViewModelBase
+public sealed class HubItemDetail : ViewModelBase, IHubNoticeTarget
 {
+    public string NoticeKey => Row.NoticeKey;
+
+    public HubNoticeSlot Notice => Row.Notice;
+
     public required HubMemberRow Row { get; init; }
 
     public ItemRecord? Item { get; init; }

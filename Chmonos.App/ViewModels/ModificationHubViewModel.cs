@@ -98,7 +98,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             if (AvatarIdOf(parameter) is { } id)
             {
                 ShowAvatar(id);
-                Status = "右の「新しい改変」に名前を入れて、「改変を作る」を押してください。";
+                ShowNotice($"avatar:{id}", "名前を入れて、「改変を作る」を押してください。");
             }
         });
         CreateModificationCommand = new RelayCommand(
@@ -245,18 +245,79 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 OnPropertyChanged(nameof(HasDetail));
                 OnPropertyChanged(nameof(DetailWidthWanted));
                 RelayCommand.RaiseCanExecuteChanged();
+                ApplyNotice();
             }
         }
     }
 
     public bool HasDetail => Detail is not null;
 
+    // ---- 押した所の下の知らせ ----
+
+    /// <summary>VCC・ALCOM のボタンの下の知らせ。</summary>
+    public HubNoticeSlot ToolNotice { get; } = new();
+
+    private (string Key, string Text, bool Warning)? _notice;
+
+    /// <summary>
+    /// 操作の結果を、押したボタンや行（<paramref name="key"/> が同じ行と詳細）のすぐ下に出す。
+    /// 一度に出すのは1つ。一覧を作り直しても、右の詳細を開き直しても、同じ行へ出し直す（<see cref="ApplyNotice"/>）
+    /// </summary>
+    private void ShowNotice(string key, string text, bool warning = false)
+    {
+        _notice = (key, text, warning);
+        ApplyNotice();
+    }
+
+    private void ApplyNotice()
+    {
+        foreach (var target in NoticeTargets())
+        {
+            if (_notice is { } notice && notice.Key == target.NoticeKey)
+            {
+                target.Notice.Set(notice.Text, notice.Warning);
+            }
+            else if (target.Notice.HasText)
+            {
+                target.Notice.Set(string.Empty, false);
+            }
+        }
+    }
+
+    private IEnumerable<IHubNoticeTarget> NoticeTargets()
+    {
+        foreach (var line in Lines)
+        {
+            switch (line)
+            {
+                case HubProjectLine project:
+                    yield return project.Group;
+                    break;
+                case HubMemberLine member:
+                    yield return member.Row;
+                    break;
+            }
+        }
+
+        if (Detail is IHubNoticeTarget detail)
+        {
+            yield return detail;
+        }
+    }
+
     /// <summary>
     /// 右に出す物が横に送らずに済む幅。改変の詳細は左の最小＋右の最小＋余白（720）を要り、右の欄の最小（360）のままだと
     /// 幅 1280 の窓でも一覧を縮めず、詳細が横に送られて右の列が切れていた（2026-10-03）。
     /// 一覧はこの幅を残すまで縮む（それでも足りない窓では、詳細が自分で横に送る）。ほかの物は右の欄の最小で足りる
     /// </summary>
-    public double DetailWidthWanted => Detail is ModificationViewModel modification ? WidthWanted(modification.BodyMinWidth) : 0;
+    public double DetailWidthWanted => Detail switch
+    {
+        ModificationViewModel modification => WidthWanted(modification.BodyMinWidth),
+
+        // 組み込んだ商品ページも同じ形（左の最小＋右の最小＋余白）。幅 1280 で横に送られていた（2026-10-04 に絵で確かめた）
+        HubItemDetail { Page: { } page } => WidthWanted(page.BodyMinWidth),
+        _ => 0,
+    };
 
     /// <summary>詳細の本文の下限に、常に出している縦のスクロールバーの幅を足す（バーの分だけ本文の入れ物が狭くなるため）。</summary>
     internal static double WidthWanted(double bodyMinWidth) => bodyMinWidth + System.Windows.SystemParameters.VerticalScrollBarWidth;
@@ -748,11 +809,11 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         var result = await _services.Commands.ExecuteAsync(new UiCommand.CreateModification(avatar.AvatarItemId, name));
         if (result is CommandResult.Failed failed)
         {
-            Status = failed.Message;
+            ShowNotice($"avatar:{avatar.AvatarItemId}", failed.Message, warning: true);
             return;
         }
 
-        Status = $"改変「{name}」を作りました。";
+        // 作れたことは言わない：右に作った改変がそのまま開き、左の一覧にも並ぶので、見れば分かる（D7）
         await RefreshRecordsAsync();
 
         // 作った直後は使ったものもプロジェクトも空なので、そのまま右に開いて続きを入れてもらう
