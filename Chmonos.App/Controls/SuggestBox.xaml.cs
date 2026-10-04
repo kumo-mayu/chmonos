@@ -18,6 +18,11 @@ public sealed class Suggestion
 
     public bool IsNew { get; init; }
 
+    /// <summary>この行の上に区切り線を引く（先に並べる群と、その下の群の境目）。</summary>
+    public bool HasDividerAbove { get; init; }
+
+    public Visibility DividerVisibility => HasDividerAbove ? Visibility.Visible : Visibility.Collapsed;
+
     public Visibility NewBadgeVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>頭に出す小さな絵を作るもの（U18）。無ければ絵の欄ごと出さない。</summary>
@@ -97,6 +102,19 @@ public partial class SuggestBox : UserControl
     {
         get => (Func<string, ImageSource?>?)GetValue(IconSelectorProperty);
         set => SetValue(IconSelectorProperty, value);
+    }
+
+    /// <summary>
+    /// 先頭から数えてこの件数までの候補を「先に出す群」とし、残りとの間に区切り線を引く（持っているアバター → ほかのアバター。メモ32-②）。
+    /// 0 以下なら群は分けない。絞り込んでも群の順は崩さず、各群の中で前方一致を先に並べる
+    /// </summary>
+    public static readonly DependencyProperty PrimaryCountProperty =
+        DependencyProperty.Register(nameof(PrimaryCount), typeof(int), typeof(SuggestBox), new PropertyMetadata(0));
+
+    public int PrimaryCount
+    {
+        get => (int)GetValue(PrimaryCountProperty);
+        set => SetValue(PrimaryCountProperty, value);
     }
 
     /// <summary>
@@ -326,6 +344,30 @@ public partial class SuggestBox : UserControl
         }
     }
 
+    /// <summary>
+    /// 候補の並べ方。前方一致を先に、部分一致を後に（探している語が上に来る）。
+    /// 先に出す群（先頭から primaryCount 件）があるときは、群を先にして、各群の中でその並びにする。
+    /// 区切り線は、先の群と後の群の両方に候補が残っているときだけ、後の群の先頭の上に引く
+    /// </summary>
+    public static IReadOnlyList<(string Entry, bool DividerAbove)> Arrange(IReadOnlyList<string> all, string text, int primaryCount)
+    {
+        var tagged = all
+            .Select((entry, index) => (Entry: entry, Group: primaryCount > 0 && index >= primaryCount ? 1 : 0))
+            .Where(pair => text.Length == 0 || pair.Entry.Contains(text, StringComparison.CurrentCultureIgnoreCase));
+
+        var ordered = text.Length == 0
+            ? tagged.OrderBy(pair => pair.Group).ToList()
+            : tagged.OrderBy(pair => pair.Group)
+                .ThenByDescending(pair => pair.Entry.StartsWith(text, StringComparison.CurrentCultureIgnoreCase))
+                .ThenBy(pair => pair.Entry, StringComparer.CurrentCulture)
+                .ToList();
+
+        var firstOther = ordered.FindIndex(pair => pair.Group == 1);
+        return ordered
+            .Select((pair, index) => (pair.Entry, DividerAbove: index == firstOther && firstOther > 0))
+            .ToList();
+    }
+
     private void Refresh()
     {
         if (!IsKeyboardFocusWithin)
@@ -339,16 +381,8 @@ public partial class SuggestBox : UserControl
             .Select(entry => entry!)
             .ToList()) ?? [];
 
-        // 前方一致を先に、部分一致を後に。探している語が上に来るようにする
-        var matches = text.Length == 0
-            ? all
-            : all.Where(entry => entry.Contains(text, StringComparison.CurrentCultureIgnoreCase))
-                .OrderByDescending(entry => entry.StartsWith(text, StringComparison.CurrentCultureIgnoreCase))
-                .ThenBy(entry => entry, StringComparer.CurrentCulture)
-                .ToList();
-
-        var items = matches
-            .Select(entry => new Suggestion { Value = entry, Display = entry, IconFactory = IconSelector })
+        var items = Arrange(all, text, PrimaryCount)
+            .Select(pair => new Suggestion { Value = pair.Entry, Display = pair.Entry, IconFactory = IconSelector, HasDividerAbove = pair.DividerAbove })
             .ToList();
 
         var exists = all.Any(entry => string.Equals(entry, text, StringComparison.CurrentCultureIgnoreCase));

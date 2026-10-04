@@ -83,6 +83,9 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     public IReadOnlyList<string> AvatarNames { get; }
 
+    /// <summary>候補の先頭から数えて、持っているアバターの件数。ここまでと残りの間に区切り線を引く（メモ32-②）。init で渡さなければ分けない。</summary>
+    public int OwnedAvatarCount { get; init; }
+
     /// <summary>アバターの名前から商品IDを引く。呼ぶ側が登録簿を持っている。</summary>
     private Func<string, string?> ResolveAvatar { get; }
 
