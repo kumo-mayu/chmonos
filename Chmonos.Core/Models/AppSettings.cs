@@ -249,6 +249,19 @@ public sealed record AppSettings
     }
 
     /// <summary>
+    /// 「すべての設定を既定に戻す」（メモ29・ユーザ判断 2026-10-04）。**使う人の環境に特有の物だけ残し、それ以外は既定に戻す。**
+    /// 残すのは取り込み元（<see cref="ImportFolders"/>）と監視するフォルダ（<see cref="WatchedFolders"/>）。
+    /// 非表示・除外・外した記録は別のファイル、保存先は location.json にあり、ここには無い（なので触れない）。
+    /// **既定の側から組む**（<c>new AppSettings()</c> に残す物だけ写す）。欄を足したら黙って既定に戻る側に倒れる。
+    /// 環境に特有の欄を足したときは、ここに名指しで足す（試験 <c>AppSettingsResetTests</c> が、残す欄の一覧を固定している）
+    /// </summary>
+    public AppSettings ResetToDefaults() => new()
+    {
+        ImportFolders = ImportFolders,
+        WatchedFolders = WatchedFolders,
+    };
+
+    /// <summary>
     /// ショートカットの割り当て（#43）。設定画面で変えられる（ユーザ判断）。
     /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+N、前へ＝Ctrl+P、画面の中を探す＝Ctrl+F、戻る＝Alt+←。
     /// </summary>

@@ -117,9 +117,34 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         {
             if (SetField(ref _memo, value ?? string.Empty))
             {
+                OnPropertyChanged(nameof(MemoFirstLine));
+                OnPropertyChanged(nameof(HasMemoLine));
                 _saveMemo.Request();
             }
         }
+    }
+
+    /// <summary>
+    /// 1行の見出しに出すメモの先頭1行（メモ28）。先頭が空行でも、字のある最初の行を出す
+    /// （空行から書き始めたメモで、見出しが空に見えないように）。切るのは画面（「…」）
+    /// </summary>
+    public string MemoFirstLine => FirstLineOf(_memo);
+
+    /// <summary>メモがあるときだけ、1行の見出しに出す。無いときは何も出さない（1行の高さは変わらない）。</summary>
+    public bool HasMemoLine => MemoFirstLine.Length > 0;
+
+    internal static string FirstLineOf(string? memo)
+    {
+        foreach (var line in (memo ?? string.Empty).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length > 0)
+            {
+                return trimmed;
+            }
+        }
+
+        return string.Empty;
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
