@@ -66,7 +66,7 @@
                         <!-- 検索と追加は1本の欄（ユーザ指示 2026-10-02）。欄の右に「追加」。同じ名前なら欄の下に「既にあります」。候補は並べない -->
                         <controls:SearchAddBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                                Placeholder="検索、または追加（例：かっこいい）"
-                                               NoticeText="{Binding AddNoticeText}" AddCommand="{Binding AddCommand}"
+                                               NoticeText="{Binding AddNoticeText}" NoticeIsWarning="{Binding AddNoticeIsWarning}" AddCommand="{Binding AddCommand}"
                                                SubmitCommand="{Binding SubmitFilterCommand}"
                                                AutomationProperties.Name="属性を検索・追加"
                                                AutomationProperties.AutomationId="AttributeFilterInput"
@@ -94,6 +94,14 @@
                                          IsChecked="{Binding SortsManually, Mode=TwoWay}"
                                          ToolTip="検索と編集の候補に表示する順です。行をドラッグして並べ替えます。" />
                         </Grid>
+
+                        <!--
+                            一覧の見出しの近くの知らせ：行ごと消える操作（属性の削除・統合）と、一覧に無い属性の直しの結果（タグの管理と揃える）。
+                            1行分の場所は常に取る（出入りで下の一覧が跳ねない）
+                        -->
+                        <TextBlock Text="{Binding ListNotice.Text}" Tag="{Binding ListNotice.IsWarning}"
+                                   Style="{StaticResource ManageNoticeLine}" Margin="2,6,0,0"
+                                   AutomationProperties.AutomationId="AttributeListNotice" />
                     </StackPanel>
 
                     <!-- 並びは検索の候補にも編集の候補にも出るので、ドラッグで変えられる -->
@@ -217,9 +225,6 @@
                 <!-- 使える幅いっぱいを使う（タグの管理と揃える。ユーザ指示 2026-09-19） -->
                 <StackPanel HorizontalAlignment="Stretch" controls:ArrowGroup.IsOutside="True">
 
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
-                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
                     <!-- マスタに無い名前をitemが参照したまま。要確認は知らせるだけで、直せるのはここ -->
                     <Border Style="{StaticResource Card}" Margin="0,0,0,16"
                             Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
@@ -294,6 +299,10 @@
                                                 ToolTipService.ShowOnDisabled="True"
                                                 ToolTip="{Binding ShowItemsToolTip}" />
                                     </StackPanel>
+                                    <!-- 名前の変更の結果は名前の近く。1行分の場所は常に取る（タグの管理と揃える） -->
+                                    <TextBlock Text="{Binding NameNotice.Text}" Tag="{Binding NameNotice.IsWarning}"
+                                               Style="{StaticResource ManageNoticeLine}" Margin="0,4,0,0"
+                                               AutomationProperties.AutomationId="AttributeNameNotice" />
                                 </StackPanel>
                                 <Button Content="この属性を削除" Style="{StaticResource DangerButton}"
                                         HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -460,6 +469,10 @@
                                    TextWrapping="Wrap" Margin="0,5,0,7" />
                         <Button Content="{Binding ToggleDefaultText}" Style="{StaticResource SmallButton}"
                                 HorizontalAlignment="Left" Command="{Binding ToggleDefaultCommand}" />
+                        <!-- 切り替えの結果はそのボタンの下。1行分の場所は常に取る -->
+                        <TextBlock Text="{Binding DefaultNotice.Text}" Tag="{Binding DefaultNotice.IsWarning}"
+                                   Style="{StaticResource ManageNoticeLine}" Margin="0,6,0,0"
+                                   AutomationProperties.AutomationId="AttributeDefaultNotice" />
                     </StackPanel>
                 </Border>
                         </StackPanel>

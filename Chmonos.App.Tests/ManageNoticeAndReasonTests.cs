@@ -34,17 +34,18 @@ public class ManageNoticeAndReasonTests
     }
 
     [Fact]
-    public Task 大分類の追加を同じ名前で押すと_欄の下に既にありますを出し_右上の状態の文は変えない() => TestApp.Run(async app =>
+    public Task 大分類の追加を同じ名前で押すと_欄の下に既にありますを出し_一覧の見出しの近くの知らせは変えない() => TestApp.Run(async app =>
     {
         var tags = await OpenTagsAsync(app);
-        var before = tags.StatusText;
+        var listBefore = tags.ListNotice.Text;
 
         tags.FilterText = "作り物の甲";
         tags.AddTopCommand.Execute(null);
         await app.SettleAsync();
 
         Assert.Equal("「作り物の甲」は既にあります。", tags.AddNoticeText);
-        Assert.Equal(before, tags.StatusText);
+        Assert.Equal(listBefore, tags.ListNotice.Text);
+        Assert.True(tags.AddNoticeIsWarning);
         Assert.Equal("作り物の甲", tags.Selected?.Name);
         Assert.Equal(2, app.Store.UserTags.Load().Tops.Count);
 
@@ -74,18 +75,19 @@ public class ManageNoticeAndReasonTests
     });
 
     [Fact]
-    public Task 小分類の追加を同じ名前で押すと_欄の下に既にありますを出し_右上の状態の文は変えない_足せたら欄を空ける() => TestApp.Run(async app =>
+    public Task 小分類の追加を同じ名前で押すと_欄の下に既にありますを出し_一覧の見出しの近くの知らせは変えない_足せたら欄を空ける() => TestApp.Run(async app =>
     {
         var tags = await OpenTagsAsync(app);
         tags.Selected = tags.Tops.First(row => row.Name == "作り物の甲");
-        var before = tags.StatusText;
+        var listBefore = tags.ListNotice.Text;
 
         tags.NewSubText = "小の一";
         tags.AddSubCommand.Execute(null);
         await app.SettleAsync();
 
         Assert.Equal("「小の一」は既にあります。", tags.AddSubNoticeText);
-        Assert.Equal(before, tags.StatusText);
+        Assert.Equal(listBefore, tags.ListNotice.Text);
+        Assert.True(tags.AddSubNoticeIsWarning);
         Assert.Equal(2, app.Store.UserTags.Load().Tops.First(top => top.Name == "作り物の甲").Subs.Count);
 
         // 打ち直すと消える

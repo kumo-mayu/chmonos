@@ -283,4 +283,17 @@
         <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
         <Setter Property="ToolTip" Value="ドラッグで順番を変えられます" />
     </Style>
+
+    <!--
+        タグ・属性の管理の、操作の結果の1行（ManageNotice を結ぶ）。共通の型 FieldNotice（App.xaml）に、
+        打ち直しや別の操作が要る物だけ警告の色を足す。済んだことと失敗を同じ行で言い分けるので、色は ViewModel の側の印で決める
+        （Tag にその印を結ぶ）。出ていない間も1行分の高さを取り、出入りで下が跳ねない
+    -->
+    <Style x:Key="ManageNoticeLine" TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

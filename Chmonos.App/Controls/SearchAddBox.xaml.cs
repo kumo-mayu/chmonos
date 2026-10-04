@@ -26,6 +26,10 @@ public partial class SearchAddBox : UserControl
         DependencyProperty.Register(nameof(NoticeText), typeof(string), typeof(SearchAddBox),
             new PropertyMetadata(string.Empty, (d, e) => ((SearchAddBox)d).Notice.Text = e.NewValue as string ?? string.Empty));
 
+    /// <summary>欄の下の知らせが、打ち直しや別の操作の要る物か（警告の色）。足せたことを言うときは false にする。</summary>
+    public static readonly DependencyProperty NoticeIsWarningProperty =
+        DependencyProperty.Register(nameof(NoticeIsWarning), typeof(bool), typeof(SearchAddBox), new PropertyMetadata(true));
+
     /// <summary>「追加」を押したとき。</summary>
     public static readonly DependencyProperty AddCommandProperty =
         DependencyProperty.Register(nameof(AddCommand), typeof(ICommand), typeof(SearchAddBox));
@@ -55,6 +59,12 @@ public partial class SearchAddBox : UserControl
     {
         get => (string)GetValue(NoticeTextProperty);
         set => SetValue(NoticeTextProperty, value);
+    }
+
+    public bool NoticeIsWarning
+    {
+        get => (bool)GetValue(NoticeIsWarningProperty);
+        set => SetValue(NoticeIsWarningProperty, value);
     }
 
     public ICommand? AddCommand
