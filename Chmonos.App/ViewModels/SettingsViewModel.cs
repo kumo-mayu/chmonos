@@ -135,7 +135,7 @@ public sealed class RestorableRow
 /// 起動時にサービスへ渡している値は、次の起動から効く。どれがそうなのかは
 /// 画面に書いておく（黙って効かないのがいちばん困る）。
 /// </summary>
-public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
+public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -224,6 +224,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         _suppressSave = false;
 
+        LoadCardAttributes(settings);
         LoadAsync().Forget();
         DetectProjectManagersAsync().Forget();
     }

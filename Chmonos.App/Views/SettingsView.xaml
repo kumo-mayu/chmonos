@@ -169,6 +169,46 @@
 
                             <CheckBox Content="一覧のカードに小分類のタグも表示" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
+                            <!--
+                                カードの札とリストの「属性」の列に出す属性（ユーザ判断 2026-10-04：設定で選ぶ。既定は属性の管理の並びの上から）。
+                                候補を全部並べてチェックさせる形にはしない（属性の数だけ縦に伸びる）。候補付きの欄から1つずつ足し、札の × で外す
+                            -->
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="カードに表示する属性" Style="{StaticResource RowLabel}" Width="220" VerticalAlignment="Top" Margin="0,5,0,0" />
+                                <StackPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding CardAttributes}" Focusable="False" MaxWidth="460" HorizontalAlignment="Left"
+                                                                  Visibility="{Binding HasCardAttributes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                        BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,6">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
+                                                        <Button Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
+                                                                Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentText}"
+                                                                ToolTip="カードに表示しないようにします"
+                                                                AutomationProperties.AutomationId="Settings.CardAttributeRemove"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}をカードに表示しない}"
+                                                                Command="{Binding RemoveCommand}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+                                    <controls:SuggestBox Width="220" HorizontalAlignment="Left" AllowNew="False" Placeholder="属性を追加"
+                                                         Source="{Binding CardAttributeCandidates}" CommitCommand="{Binding AddCardAttributeCommand}"
+                                                         AutomationProperties.AutomationId="Settings.CardAttributeAdd"
+                                                         AutomationProperties.Name="カードに表示する属性を追加" />
+                                </StackPanel>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,8"
+                                       AutomationProperties.AutomationId="Settings.CardAttributesNote"
+                                       Text="{Binding CardAttributesNote}" />
                             <CheckBox Content="非表示にしている件数を検索結果に表示" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowHiddenCountInSearch, Mode=TwoWay}" />
                             <!-- 検索の並べ替えの区切りの札（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。既定は入れる -->

@@ -954,7 +954,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 SizeText = entry.IsOwned ? Core.Models.DisplayText.Size(entry.SizeBytes) : "未取得",
                 IsOwned = entry.IsOwned,
                 NeedsEdit = entry.Item.Local.UserTags.Count == 0,
-                UserTagText = ItemCardViewModel.UserTagLine(entry.Item.Local.UserTags, _services.Settings.ShowSubTagsInList),
+                InfoContext = _main.Search.PlainCardInfo,
                 HasUpdate = updatedIds.Contains(entry.Item.Id),
                 ShowUpdateCommand = updatedIds.Contains(entry.Item.Id)
                     ? new RelayCommand(() => _main.ShowInboxFor(entry.Item.Id))

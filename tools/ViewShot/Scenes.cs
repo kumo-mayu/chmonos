@@ -31,6 +31,7 @@ internal static partial class Scenes
         .. SavedSearchScenes,
         .. SortDividers,
         .. CardLists,
+        .. CardInfo,
         .. ShopScenes,
         .. FolderTree,
         .. Inbox,

@@ -51,6 +51,35 @@ public partial class ItemCardResources : ResourceDictionary
     }
 
     /// <summary>
+    /// カードに乗った・離れた。絵の上に中身を重ねるかは ViewModel が決める（絵に乗っている間はなぞって送るので重ねない）。
+    /// 乗ったことを ViewModel に持たせるのは、描く台と試験から同じ姿を作れるようにするため
+    /// </summary>
+    private void OnCardMouseEnter(object sender, MouseEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card })
+        {
+            card.SetPointerOnText(true);
+        }
+    }
+
+    private void OnCardMouseLeave(object sender, MouseEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card })
+        {
+            card.SetPointerOnText(false);
+        }
+    }
+
+    /// <summary>キーボードでカードに止まった・離れた。止まっている間は乗せたときと同じ中身を重ねる（ユーザ判断 2026-10-04）。</summary>
+    private void OnCardFocusChanged(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card } element)
+        {
+            card.SetKeyboardFocus(element.IsKeyboardFocused);
+        }
+    }
+
+    /// <summary>
     /// カードのクリック。
     ///
     /// 何も選んでいないときは商品ページへ移る（普段の主操作）。
