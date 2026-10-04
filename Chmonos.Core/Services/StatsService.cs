@@ -479,8 +479,7 @@ public sealed class StatsService : IStatsService
             {
                 UnresolvedCount = unresolvedCount,
                 NeedsUserTagCount = items.Count(item => item.Local.UserTags.Count == 0),
-                MissingFileCount = items.Count(item =>
-                    item.Local.OwnedFiles.Any(file => file.Paths.Count == 0)),
+                MissingFileCount = items.Count(item => item.HasMissingFile),
             },
         };
 

@@ -75,6 +75,15 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
+        new Scene("search-missing-file", "検索の絞り込み：条件「見つからないファイル」（見つからないファイルがある）と、絞った結果のカードの印", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context, missing: index => index is 1 or 4);
+            var module = (ChoiceModule)AddModule(search, SearchModuleKind.MissingFile);
+            module.Selected = module.Options.First(option => option.Key == "missing");
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
         UpdatedScene("search-updated", "検索：条件「更新あり」で絞った結果（未読の更新がある2件のカードの札「更新あり」）", list: false),
         UpdatedScene("search-updated-list", "検索：条件「更新あり」で絞ったリスト（行の札「更新あり」）", list: true),
         UpdatedScene("search-selected-updated", "検索：未読の更新がある1件を含む3件を選んだ下の帯（「既読にする」が出る）", list: false, select: true),
@@ -177,9 +186,12 @@ internal static partial class Scenes
     });
 
     /// <summary>作り物の8件に BOOTH タグとスキ数を散らして検索を開き、既定の条件を外して空から始める。</summary>
-    private static async Task<(SearchViewModel Search, FrameworkElement Root)> StartFiltersAsync(SceneContext context)
+    private static async Task<(SearchViewModel Search, FrameworkElement Root)> StartFiltersAsync(SceneContext context, Func<int, bool>? missing = null)
     {
-        await SeedLibraryAsync(context, count: 8, (index, item) => item with
+        // 置き場が無いファイル：記録にはあるが場所の一覧が空（カードの印「見つかりません」と条件「見つからないファイル」が数える物）
+        await SeedLibraryAsync(context, count: 8, (index, item) => (missing?.Invoke(index) == true
+            ? item with { Local = item.Local with { LocalFiles = [.. item.Local.LocalFiles.Select(file => file with { Paths = [] })] } }
+            : item) with
         {
             Booth = item.Booth with
             {

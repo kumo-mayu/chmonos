@@ -84,6 +84,18 @@ public sealed record ItemRecord
     [JsonIgnore]
     public bool HasBrokenArchive => Local.LocalFiles.Any(file => file is { Detached: false, ArchiveBroken: true });
 
+    /// <summary>
+    /// 記録の上では持っているが、置き場がどこにも無いファイルがあるか（カードとリストの印「見つかりません」・
+    /// 検索の条件「見つからないファイル」・統計の件数。ユーザ判断 2026-10-04）。
+    /// 3か所が別々に同じ式を書くと、数が食い違って「印はあるのに絞ると出ない」になるので、ここ1か所で決める。
+    ///
+    /// 外したファイルは数えない（<see cref="HasBrokenArchive"/> と同じ）。**記録だけで決め、ディスクは見ない**：
+    /// パスが空になるのは、取り込みか「見つからないファイルを探す」が、在らず結び先の無い物を空にしたとき。
+    /// フォルダ登録（<see cref="LocalBlock.LocalFolders"/>）は記録に「無い」状態が無く、数えるにはディスクを叩く要があるので数えていない。
+    /// </summary>
+    [JsonIgnore]
+    public bool HasMissingFile => Local.LocalFiles.Any(file => !file.Detached && file.Paths.Count == 0);
+
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>
     [JsonIgnore]
     public long LogicalSizeBytes => Local.OwnedFiles.Sum(file => file.SizeBytes);
