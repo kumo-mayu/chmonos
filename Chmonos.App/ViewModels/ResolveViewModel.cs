@@ -106,6 +106,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         _scope = scope;
 
         FilesView = System.Windows.Data.CollectionViewSource.GetDefaultView(Files);
+        Files.CollectionChanged += (_, _) => RefreshOriginZipListed();
         FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(
             nameof(UnresolvedRow.GroupKey), null, StringComparison.OrdinalIgnoreCase));
         FilesView.Filter = row => row is UnresolvedRow file && MatchesFilter(file);
