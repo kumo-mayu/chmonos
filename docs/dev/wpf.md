@@ -98,6 +98,31 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - **UI Automation の相手がいると、配置のたびに木の更新が乗る**（商品ページを開く1回で 50〜90ms）。読み上げでなくても、常駐のソフトが相手になる。
   速さを測るときは、相手がいるかで数字が変わる（`docs/research/item-page-open-2026-09-30.md`）
 
+## ドラッグ中に端で流す（`Controls/DragEdgeScroll`。メモ42 2026-10-05 に調べた）
+
+**一般的な形：入力（DragOver）は点の位置を覚えるだけ、流すのは描画の1コマごとに「前のコマからの経過時間×速さ」。**
+入力の来る間隔は描画と揃わず、止めると間が空くので、入力のたびに流すと止まっては跳ぶ（DragOver のときだけ流していた版は、台で DragOver を50msごとにすると、60Hz の約66コマ中48〜50コマが止まり、1コマで最大44px跳んだ）。
+
+- **DragOver の来方**：OLE の `DoDragDrop` が、マウスが動くたびと、止めていても周期で呼ぶ（[IDropTarget::DragOver](https://learn.microsoft.com/en-us/windows/win32/api/oleidl/nf-oleidl-idroptarget-dragover)「called frequently」）。
+  止めたときの間隔は文書に無く、この PC では測っていない（本物のドラッグはマウスを掴むので、ユーザが使っている間は起こさない）。OLE 自身の端で流す既定は帯 11px・待ち 50ms・間隔 50ms（`DD_DEFSCROLLINSET`・`DD_DEFSCROLLDELAY`・`DD_DEFSCROLLINTERVAL`）
+- **WPF は点の下の部品が替わった回に、DragOver の代わりに DragLeave（前の部品）と DragEnter（次の部品）を出す**（[dotnet/wpf DragDrop.cs](https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/PresentationCore/System/Windows/DragDrop.cs) `OleDragOver`）。
+  DragLeave は欄まで上がるので、欄の DragLeave で止めると、流れて行が点の下を通るたびに止まる（台で速さが狙いの約45〜75%に落ちた）。
+  窓の外へ出たときの DragLeave は、キーの状態を空・点を (0,0) で渡す（同 `OleDragLeave`）。止めるのは「左のボタンの印があり、点が欄の外」のときだけ（`RowReorder.StillInside`）
+- **描画の時計**：[`CompositionTarget.Rendering`](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/graphics-multimedia/how-to-render-on-a-per-frame-interval-using-compositiontarget) は1コマに1回、配置の後・描画の前に来る。ここで位置を変えると、同じコマの描画の前にもう1度配置が回る。
+  回数は PC と負荷で変わるので、量は経過時間から出す。中身が変わると1コマに2回来ることがあり、描く予定の時刻（`RenderingEventArgs.RenderingTime`）が同じなら2回目は飛ばす。要らなくなったら外す（付けている間は毎コマ描き直す）
+- **`DispatcherTimer` は使わない**：[決めた時刻より前には来ないが、ちょうどには来ない](https://learn.microsoft.com/en-us/dotnet/api/system.windows.threading.dispatchertimer)（ほかの仕事の後に回る）。描画とも揃わない
+- **`ScrollToVerticalOffset` は次の配置で効き、それまで `VerticalOffset` は前の値を返す**。配置を挟まずに続けて流すと前の分が消える（台で 10px を4回 → 10px）。1コマに1回だけ流す
+- **ピクセル単位で流す**：[`CanContentScroll=True`](https://learn.microsoft.com/en-us/dotnet/api/system.windows.controls.scrollviewer.cancontentscroll) の一覧は既定で行単位（位置が行の番号）で、少しずつ流せない。
+  `VirtualizingPanel.ScrollUnit="Pixel"` にする（仮想化は保ったまま）。流す量は画面の画素の整数倍に丸め、端数は次のコマへ持ち越す（文字の滲みがコマごとに揺れない）
+- **ほかの作り**：Chromium（[AutoscrollController](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/page/autoscroll_controller.cc)）はドラッグで端に来てから 0.2秒待ち、描画の1コマごとに流す。
+  Android の [AutoScrollHelper](https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/core/core/src/main/java/androidx/core/widget/AutoScrollHelper.java) は帯を欄の20%・最速まで0.5秒かけて上げ、1コマごとに「前のコマからの経過時間×速さ」。
+  [ItemTouchHelper](https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/recyclerview/recyclerview/src/main/java/androidx/recyclerview/widget/ItemTouchHelper.java) は端に留まった時間でも加速する（2秒で頭打ち）。
+  よく使われる WPF の部品 [gong-wpf-dragdrop](https://github.com/punker76/gong-wpf-dragdrop) は DragOver のたびに1行（`LineDown`）流すだけで、止めると間が空く——これが前の版と同じ形
+- 端に近いほど速い・端の外では最速で頭打ち、はどの作りにもある。このアプリは帯 48px・最速 700px/秒・上げ 0.3秒（Chromium の待ちと Android の上げの間。待つだけの間は「効かない」に見えるので置かない）。
+  台で測る：`ViewShot shot drag-edge-scroll-measure`（DragOver を時計で真似て、一覧の位置の移り変わりを 60Hz の格子で拾い直す）。
+  上の台の数字（コマ数・px・速さ）は、同じ PC で VRChat が動いていたかもしれない間に取った物で、測り直していない。前後の差の向きは、時間に左右されない2つ
+  （配置を挟まない4回が10px・行の替わり目の DragLeave）からも同じ
+
 ## UI Automation（読み上げ・自動操作）
 
 付け方の決まりは `docs/spec/ui-input.md`「読み上げの名前」。ここは踏んだ形（2026-09-30。どれも見えない窓に載せて、UI Automation の側から木を書き出して確かめた）。
