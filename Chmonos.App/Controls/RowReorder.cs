@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Chmonos.App.ViewModels;
@@ -21,14 +22,18 @@ public sealed class RowReorder
 
     private readonly FrameworkElement _scope;
     private readonly Func<IEnumerable<ReorderableRow>> _rows;
+    private readonly Func<ScrollViewer?>? _scroller;
+    private readonly DragEdgeScroll _edgeScroll = new();
 
     private Point _pressedAt;
     private ReorderableRow? _pressedRow;
 
-    public RowReorder(FrameworkElement scope, Func<IEnumerable<ReorderableRow>> rows)
+    /// <param name="scroller">端で流す欄。渡さなければ、つかんだ点の下から辿って決める（<see cref="DragEdgeScroll.FindScroller"/>）。並びが欄の外の流し枠の中にあるときに渡す</param>
+    public RowReorder(FrameworkElement scope, Func<IEnumerable<ReorderableRow>> rows, Func<ScrollViewer?>? scroller = null)
     {
         _scope = scope;
         _rows = rows;
+        _scroller = scroller;
     }
 
     /// <summary>並べ替えが確定したとき。<c>after</c> は落とし先の行の後ろかどうか。</summary>
@@ -55,6 +60,7 @@ public sealed class RowReorder
 
         var row = _pressedRow;
         _pressedRow = null;
+        _edgeScroll.Reset();
 
         try
         {
@@ -81,6 +87,8 @@ public sealed class RowReorder
             return;
         }
 
+        ScrollAtEdge(sender, e);
+
         var target = Resolve(sender, e, out var after);
 
         ClearIndicators();
@@ -99,10 +107,23 @@ public sealed class RowReorder
         e.Handled = true;
     }
 
-    public void OnDragLeave(object sender, DragEventArgs e) => ClearIndicators();
+    public void OnDragLeave(object sender, DragEventArgs e)
+    {
+        _edgeScroll.Reset();
+        ClearIndicators();
+    }
+
+    /// <summary>つかんだ点が欄の上下の端なら流す（メモ32-③）。流したあとの行の位置は、次の DragOver の当たり判定で決まる。</summary>
+    private void ScrollAtEdge(object sender, DragEventArgs e)
+    {
+        var hit = sender is Visual visual ? VisualTreeHelper.HitTest(visual, e.GetPosition((IInputElement)sender))?.VisualHit : null;
+        var scroller = _scroller?.Invoke() ?? DragEdgeScroll.FindScroller(hit ?? sender as DependencyObject, (DependencyObject)sender);
+        _edgeScroll.Update(scroller, scroller is null ? 0 : e.GetPosition(scroller).Y);
+    }
 
     public void OnDrop(object sender, DragEventArgs e)
     {
+        _edgeScroll.Reset();
         ClearIndicators();
 
         if (!IsRowDrag(e))
