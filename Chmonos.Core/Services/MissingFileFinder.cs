@@ -7,10 +7,10 @@ namespace Chmonos.Core.Services;
 /// <summary>見つからないファイルを探した結果。</summary>
 public sealed record MissingFileSearchResult
 {
-    /// <summary>探す前に見つからなかったファイルの数（同じ中身は1件と数える）。</summary>
+    /// <summary>探す前に見つからなかったファイルの数（同じ中身は1件と数える）。場所が空のファイルも入る。</summary>
     public required int MissingBefore { get; init; }
 
-    /// <summary>場所を付け替えられた数。</summary>
+    /// <summary>場所を付け替えられた数（場所が空だったファイルに場所を足した数も入る）。</summary>
     public required int Relinked { get; init; }
 
     /// <summary>探しても出てこなかった数。</summary>
@@ -70,13 +70,18 @@ public sealed class MissingFileFinder
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
         // 中身（ハッシュ）→ その中身を持っているはずの商品と、今そこに無いパス
+        //
+        // **場所が空の物も探す**（ユーザ判断 2026-10-04）。取り込みはディスクに無いと見た場所を記録から外すので
+        // （LocalFileMerger）、全部外れたファイルは「無い場所」を持たない。前は無い場所を持つ物だけを探していたので、
+        // 検索の条件「見つからないファイル」とカードの印（ItemRecord.HasMissingFile）が数える物が、ここでは探されなかった。
+        // 空の物は差し替える古い場所が無いので、見つけた場所を足す（gone が空の Replace）
         var missing = new Dictionary<string, MissingEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in loaded.Items)
         {
             foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached))
             {
                 var gone = file.Paths.Where(path => !DiskCheck.FileExists(path)).ToList();
-                if (gone.Count == 0)
+                if (gone.Count == 0 && file.Paths.Count > 0)
                 {
                     continue;
                 }
@@ -204,13 +209,21 @@ public sealed class MissingFileFinder
         };
     }
 
-    /// <summary>無くなったパスを、見つけた場所に差し替える（同じ場所が2つ並ばないようにする）。</summary>
+    /// <summary>
+    /// 無くなったパスを、見つけた場所に差し替える（同じ場所が2つ並ばないようにする）。
+    /// <paramref name="gone"/> が空（場所が空だったファイル）なら、見つけた場所を足すだけになる。
+    /// </summary>
+    /// <remarks>
+    /// 錠の中の今の値に当てる。読んでから錠を取るまでに取り込みが同じファイルへ別の場所を足していても、
+    /// その場所は消さずに並べる（どちらも同じ中身が実際に在る場所）。その間に人がファイルを外したなら触らない
+    /// （探すのは外していないファイルだけ、という決まりを書く時にも当てる）。
+    /// </remarks>
     private static LocalBlock? Replace(LocalBlock current, string hash, IReadOnlyList<string> gone, string path)
     {
         var file = current.LocalFiles.FirstOrDefault(entry =>
             string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase));
 
-        if (file is null || file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        if (file is null || file.Detached || file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase))
         {
             return null;
         }

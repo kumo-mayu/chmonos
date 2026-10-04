@@ -408,6 +408,38 @@ public class ImportAndResolveFlowTests
             main.Import.MissingSearchText);
     });
 
+    /// <summary>
+    /// 取り込みが場所を全部外したファイル（場所が空）も中身で探す（ユーザ判断 2026-10-04）。
+    /// 見つかれば場所が入り、検索の条件「見つからないファイルがある」から外れる。結果の文は付け替えと同じ数え方。
+    /// </summary>
+    [Fact]
+    public Task 見つからないファイルを探すと_場所が空のファイルにも場所が入り_検索の条件から外れる() => TestApp.Run(async app =>
+    {
+        var moved = app.NewFile(@"watched\sub\costume_v2.zip", [9, 8, 7, 6]);
+        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装").WithFiles(new LocalFileRecord
+        {
+            Hash = await FileHasher.ComputeSha256Async(moved),
+            Paths = [],
+            SizeBytes = 4,
+        }));
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [Path.GetDirectoryName(Path.GetDirectoryName(moved))!] });
+        var main = await app.StartAsync();
+        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
+        module.Selected = module.Options.Single(option => option.Key == "missing");
+        Assert.Equal(["1000001"], main.Search.ListItems.Select(card => card.Item.Id));
+
+        main.Import.FindMissingFilesCommand.Execute(null);
+        await UiThread.Until(
+            () => main.Import.MissingSearchText.StartsWith("1 件を新しい場所に紐付け直しました", StringComparison.Ordinal),
+            "探した結果が出る");
+        await app.SettleAsync();
+
+        Assert.Equal("1 件を新しい場所に紐付け直しました。", main.Import.MissingSearchText);
+        var item = await app.Store.Items.LoadAsync("1000001");
+        Assert.Equal([moved], Assert.Single(item!.Local.LocalFiles).Paths);
+        await UiThread.Until(() => main.Search.ListItems.Count == 0, "条件「見つからないファイルがある」から外れる");
+    });
+
     // ---- 未確定：元zipが無いフォルダ。フォルダのまま商品として登録できる（5-12）----
 
     [Fact]
