@@ -95,6 +95,7 @@ public class SettingsResetAllTests
         Assert.Equal(MessageBoxResult.Cancel, notice.DefaultResult);
         Assert.Contains("すべて既定に戻します", notice.Text);
         Assert.Contains("取り込み元・監視するフォルダ", notice.Text);
+        Assert.Contains("画面にない細かな調整", notice.Text);
         Assert.Contains("そのままです。\n\nこの操作は元に戻せません。", notice.Text);
     });
 }

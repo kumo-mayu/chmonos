@@ -4,7 +4,8 @@ namespace Chmonos.App.ViewModels;
 
 /// <summary>
 /// 設定：「すべての設定を既定に戻す」（メモ29・ユーザ判断 2026-10-04）。
-/// 戻さないのは、使う人の環境に特有の物（取り込み元・監視するフォルダ。非表示・除外・外した記録と保存先は設定の外にある）。
+/// 戻さないのは、使う人の環境に特有の物（取り込み元・監視するフォルダ）と、画面に出していない欄
+/// （アバター検出の見出し語・通信の細かな値など。手で書いて調整する値）。非表示・除外・外した記録と保存先は設定の外にある。
 /// 何を戻し何を残すかは <see cref="AppSettings.ResetToDefaults"/> が決める
 /// </summary>
 public sealed partial class SettingsViewModel
@@ -30,7 +31,7 @@ public sealed partial class SettingsViewModel
     {
         var answer = Services.Notice.Show(
             "表示・画面の幅・操作・ショートカット・取り込みの動き・画像・通信の間隔の設定を、すべて既定に戻します。\n\n"
-            + "取り込み元・監視するフォルダ・非表示にしたもの・保存先は、そのままです。\n\n"
+            + "取り込み元・監視するフォルダ・非表示にしたもの・保存先と、画面にない細かな調整は、そのままです。\n\n"
             + "この操作は元に戻せません。",
             "設定を既定に戻す",
             System.Windows.MessageBoxButton.OKCancel,
