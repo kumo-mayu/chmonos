@@ -39,7 +39,36 @@ internal static partial class Scenes
             Height = TallHeight,
         },
 
-        new Scene("item-page-long-end", "商品ページ：説明の長い商品。最後まで流した所（最後の見出しと動画の欄）", async context =>
+        // 操作の結果の知らせを欄の下へ移した（2026-10-04）。出る前と出た後の2枚を diff で比べ、下の物が動かないことを見る
+        // （1行ぶんの場所は出ていない間も取ってある）
+        new Scene("item-page-notices-none", "商品ページ：欄の下の知らせが出ていない所（出た後の見本）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            return new Shot(root);
+        })
+        {
+            Height = TallHeight,
+        },
+
+        new Scene("item-page-notices-shown", "商品ページ：IDの下・ファイルの欄・対応アバターの欄・ギャラリーの下に知らせが出た所", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            var page = context.Screen<ItemViewModel>();
+            page.IdNotice.Show($"{item.Id} をコピーしました。");
+            page.FilesNotice.Warn("ファイルを戻せませんでした。もう一度お試しください。");
+            page.AvatarsNotice.Warn("共通素体を追加できませんでした。ほかのアプリが開いている可能性があります。");
+            page.GalleryNotice.Warn("作り物の絵.png は画像として読めませんでした。");
+            page.VisibilityNotice.Warn("保存できませんでした。ほかのアプリが開いている可能性があります。");
+            await context.SettleAsync();
+            return new Shot(root);
+        })
+        {
+            Height = TallHeight,
+        },
+
+        new Scene("item-page-long-end","商品ページ：説明の長い商品。最後まで流した所（最後の見出しと動画の欄）", async context =>
         {
             var (item, _) = await SeedLongItemAsync(context);
             var root = await OpenItemAsync(context, item);
