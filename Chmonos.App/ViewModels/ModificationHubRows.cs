@@ -558,7 +558,7 @@ internal sealed class ModificationRowBuilder(
             Index = index,
             Member = member,
             Name = item?.DisplayName ?? member.ItemId,
-            FileText = FileTextOf(member),
+            FileText = FileTextOf(member, item),
 
             // 手元に無くても記録は残す。そのとき使ったのは事実
             IsMissing = item is null || !item.IsDownloaded,
@@ -568,12 +568,20 @@ internal sealed class ModificationRowBuilder(
     }
 
     /// <summary>
-    /// どのファイルか。**空欄の意味を言い分ける**（改変の画面と同じ）。Unityへ送って足した分は unitypackage の名前、
-    /// 手で足した分は分からないと言う。
+    /// どのファイルか。**空欄の意味を言い分ける**（改変の詳細と同じ）。unitypackage を記録していればその名前、
+    /// ファイルだけならそのファイルの名前、記録が無ければ分からないと言う。
+    ///
+    /// Unityへ送って入った記録と、手で足すときに窓で選んだ記録は**言い分けない**（メモ26-②）：どちらも人が選んだファイルで、
+    /// 送るときも同じに使う。見て知りたいのは「どのファイルか」で、名前を出せばどちらも同じ見せ方になる。
+    /// 外したファイルの名前も引く（記録は過去の事実。手元の一覧から外しても、そのとき使ったファイルの名前は要る）
     /// </summary>
-    public static string FileTextOf(ModificationMember member) => member.Package is { } package
+    public static string FileTextOf(ModificationMember member, ItemRecord? item) => member.Package is { } package
         ? Path.GetFileName(package)
-        : member.IsFromUnity ? "Unityへ送った記録あり" : "どのファイルを使ったかは分かりません";
+        : member.FileHash is { } hash
+            ? item?.Local.LocalFiles.FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))?.Paths.FirstOrDefault() is { } path
+                ? Path.GetFileName(path)
+                : "使ったファイルの記録あり"
+            : "どのファイルを使ったかは分かりません";
 
     public string? AvatarIconPath(string id)
         => AvatarImageSync.IconPath(services.Paths, id, items.GetValueOrDefault(id));

@@ -198,13 +198,38 @@
                                                     Margin="0,0,10,0" VerticalAlignment="Center"
                                                     Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <!--
+                                        見せる順（メモ26-①）。依存される物が上に来て、使ったと思っている衣装が下に沈むので逆にも見せる。
+                                        見せる順だけで、記録と送る順は入れた順のまま。カード／リストと同じ形で、点いているかは読むだけ（OneWay）
+                                    -->
+                                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6"
+                                            Margin="0,0,10,0" VerticalAlignment="Center"
+                                            Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <controls:CommandRadioButton Content="入れた順" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsInsertOrder, Mode=OneWay}"
+                                                         AutomationProperties.AutomationId="MemberOrder.Insert"
+                                                         Command="{Binding ShowInsertOrderCommand}" ToolTip="最初に入れたものを上に並べます">
+                                                <controls:CommandRadioButton.Tag>
+                                                    <CornerRadius>5,0,0,5</CornerRadius>
+                                                </controls:CommandRadioButton.Tag>
+                                            </controls:CommandRadioButton>
+                                            <Border Width="1" Background="{DynamicResource BorderStrong}" />
+                                            <controls:CommandRadioButton Content="逆の順" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsReversed, Mode=OneWay}"
+                                                         AutomationProperties.AutomationId="MemberOrder.Reverse"
+                                                         Command="{Binding ShowReverseOrderCommand}" ToolTip="最後に入れたものを上に並べます">
+                                                <controls:CommandRadioButton.Tag>
+                                                    <CornerRadius>0,5,5,0</CornerRadius>
+                                                </controls:CommandRadioButton.Tag>
+                                            </controls:CommandRadioButton>
+                                        </StackPanel>
+                                    </Border>
+                                    <!--
                                         並びの順（＝導入の順）に Unity へ1件ずつ送る（#69・ユーザ判断）。
                                         改変を作り直すとき、記録した順に入れ直せば同じものが組める
                                     -->
                                     <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
-                                            ToolTip="上から順に1件ずつ、Unityの取り込み画面を表示します。" />
+                                            ToolTip="入れた順に1件ずつ、Unityの取り込み画面を表示します。" />
                                 </WrapPanel>
                             </controls:SplitRowPanel>
                             <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
@@ -219,7 +244,7 @@
                                            TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                       Text="上から順に入れた記録です。依存するものが先に来るように並べ替えられます。" />
+                                       Text="{Binding MembersOrderText}" />
                             <!-- 外す・戻す・削除・Unityで選択の結果。外した行は並びの中で形が変わり、削除した行は消えるので、一覧の見出しの近くに出す -->
                             <TextBlock DataContext="{Binding MembersNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,0,0,8" />
 

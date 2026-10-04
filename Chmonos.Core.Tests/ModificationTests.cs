@@ -64,7 +64,7 @@ public sealed class ModificationMemberTests
     {
         var member = new ModificationMember { ItemId = "1", FileHash = "9F2C" };
 
-        Assert.True(member.IsFromUnity);
+        Assert.True(member.HasFile);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class ModificationMemberTests
         // 「どのファイルを使ったかは分からない」が正しい。推定で埋めない
         var member = new ModificationMember { ItemId = "1" };
 
-        Assert.False(member.IsFromUnity);
+        Assert.False(member.HasFile);
         Assert.Null(member.FileHash);
         Assert.Null(member.Package);
     }
@@ -149,8 +149,8 @@ public sealed class ModificationRepositoryTests : IDisposable
 
         // 並びが導入の順。依存物が先
         Assert.Equal(["5901276", "4897493"], loaded.Members.Select(member => member.ItemId));
-        Assert.True(loaded.Members[0].IsFromUnity);
-        Assert.False(loaded.Members[1].IsFromUnity);
+        Assert.True(loaded.Members[0].HasFile);
+        Assert.False(loaded.Members[1].HasFile);
         Assert.Equal(4821046, loaded.Members[1].VariationId);
     }
 

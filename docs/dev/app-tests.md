@@ -69,7 +69,7 @@ public Task 壊れたzipだけを出すと_壊れたzipを持つ商品だけが�
   **部品は `Grid` に載せて並べる**——単独で `Measure` しても、一覧・選ぶ欄・メニューは型が組まれず木が空になる
 - `TestApp`：`AppServiceContainer` の引数付きの入口（保存先・通信の出口・待ちを渡す）で組む。
   一時フォルダは `%TEMP%\chmonos-app-test-<プロセス番号>\` の下。試験の終わり・一式の終わり・次の一式の始めの3段で消す
-- 本体の側の口：`AppServiceContainer`（引数付きの入口・`DetectUnityTools`・`DiscoverUnityProjects`）、`Notice.Intercept`、`FireAndForget.Pending`。
+- 本体の側の口：`AppServiceContainer`（引数付きの入口・`DetectUnityTools`・`DiscoverUnityProjects`）、`Notice.Intercept`、`MemberFilePickViewModel.Intercept`（手で改変に足すときの使ったファイルの窓。答えは `app.PickFiles`）、`FireAndForget.Pending`。
   どれも既定はアプリの動きのままで、試験だけが差し替える
 
 一式は約10秒（2026-09-30・287件）。保存先を作る試験は1件 20〜40ms。1秒かかる試験は、時計で進む物を待っている

@@ -26,20 +26,25 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
     /// <summary>手元にある商品なら名前。無ければIDのまま。</summary>
     public required string Name { get; init; }
 
-    /// <summary>導入の順。1から数える（人が読む番号）。</summary>
+    /// <summary>
+    /// 導入の順。1から数える（人が読む番号）。
+    /// **逆の順で見せているときも入れた順の番号のまま**（メモ26-①）：番号は「何番目に入れたか」で、
+    /// 送る順と同じ数を指していないと読み違える
+    /// </summary>
     public string OrderText => $"{Index + 1}";
 
     /// <summary>
-    /// 使ったファイルの状態。
-    ///
-    /// **空欄の意味を言い分ける。**Unityへ送って足した分はどのzipを使ったかが
-    /// 残っているが、手で足した分は分からない。**推定で埋めない。**
+    /// 使ったファイルの状態（<see cref="ModificationRowBuilder.FileTextOf"/>。改変の画面の行と同じ）。
+    /// **空欄の意味を言い分ける。推定で埋めない。**
     /// </summary>
-    public string SourceText => Member.IsFromUnity
-        ? Member.Package is { } package ? Path.GetFileName(package) : "Unityへ送った記録あり"
-        : "どのファイルを使ったかは分かりません";
+    public required string SourceText { get; init; }
 
-    public bool IsFromUnity => Member.IsFromUnity;
+    public bool HasFile => Member.HasFile;
+
+    /// <summary>
+    /// 入れた順の逆に見せているか（メモ26-①）。矢印は見えている向きで動かすので、逆のときは記録の上で反対へ動く。
+    /// </summary>
+    public bool Reversed { get; init; }
 
     /// <summary>手元にまだあるか。無くても記録は残す（そのとき使ったのは事実）。</summary>
     public required bool IsMissing { get; init; }
@@ -68,15 +73,37 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
 
     public bool IsUsed => !Member.Detached;
 
-    // **端では矢印を押せなくする。**押せるのに何も起きないボタンは嘘になる
-    public bool CanMoveBack => Index > 0;
+    // **端では矢印を押せなくする。**押せるのに何も起きないボタンは嘘になる。
+    // 前・後ろは見えている並びの向き（逆の順なら、見えている前＝記録の後ろ）
+    public bool CanMoveBack => Reversed ? Index < Total - 1 : Index > 0;
 
-    public bool CanMoveForward => Index < Total - 1;
+    public bool CanMoveForward => Reversed ? Index > 0 : Index < Total - 1;
+
+    /// <summary>見せる向きだけを変えた写し（カードは使い回す）。</summary>
+    internal ModificationMemberRowViewModel WithReversed(bool reversed) => new()
+    {
+        Index = Index,
+        Total = Total,
+        Member = Member,
+        Name = Name,
+        SourceText = SourceText,
+        IsMissing = IsMissing,
+        VariationText = VariationText,
+        Card = Card,
+        Reversed = reversed,
+    };
+
+    /// <summary>見えている前へ動かすとき、記録の並びの上で動かす向き。</summary>
+    public int BackDelta => Reversed ? 1 : -1;
 
     // 押せない理由も出す（`ui-rules.md`・E11）。同じ並びの中で、理由の出るボタンと出ないボタンが混ざっていた
-    public string MoveBackHint => CanMoveBack ? "前へ移動します。先に送られます。" : "いちばん前にあります。";
+    public string MoveBackHint => CanMoveBack
+        ? Reversed ? "前へ移動します。後に送られます。" : "前へ移動します。先に送られます。"
+        : "いちばん前にあります。";
 
-    public string MoveForwardHint => CanMoveForward ? "後ろへ移動します。後に送られます。" : "いちばん後ろにあります。";
+    public string MoveForwardHint => CanMoveForward
+        ? Reversed ? "後ろへ移動します。先に送られます。" : "後ろへ移動します。後に送られます。"
+        : "いちばん後ろにあります。";
 }
 
 /// <summary>改変に貼った写真1枚。</summary>
@@ -203,6 +230,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         // 使ったものは検索と同じカード・リストで出す（ユーザ指示 2026-09-14）。どちらで出すかと列の幅は、この画面で覚える
         ListColumns = new ItemListColumns(services.PaneWidths, "modification", hasSelect: false, shopHeader: "使ったファイル");
         _isListMode = ItemListMode.IsList(services, "modification");
+        _isReversed = services.UiState.ModificationMembersReversed;
+        ShowInsertOrderCommand = new RelayCommand(() => SetReversed(false));
+        ShowReverseOrderCommand = new RelayCommand(() => SetReversed(true));
         ShowCardsCommand = new RelayCommand(() => SetListMode(false));
         ShowListCommand = new RelayCommand(() => SetListMode(true));
 
@@ -232,10 +262,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             parameter => DeleteMemberAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         MoveMemberBackCommand = new RelayCommand(
-            parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, -1).Forget(),
+            parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: true).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         MoveMemberForwardCommand = new RelayCommand(
-            parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, 1).Forget(),
+            parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: false).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         OpenItemCommand = new RelayCommand(
             parameter => OpenItemAsync(parameter as ModificationMemberRowViewModel).Forget(),
@@ -251,8 +281,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         OpenProjectFolderCommand = new RelayCommand(
             () => ExplorerReveal.RevealAsync(Record.UnityProject).Forget(), () => HasProject);
         SendAllToUnityCommand = new RelayCommand(
-            // 外した行は送らない（今は使っていない物）
-            () => SendToUnityAsync(Members.Where(row => row.IsUsed).ToList(), "使ったものを順にUnityへ送る").Forget(),
+            // 外した行は送らない（今は使っていない物）。**入れた順に送る**——逆の順で見せていても、見えている順では送らない（メモ26-①）
+            () => SendToUnityAsync(RowsToSendAll(), "使ったものを順にUnityへ送る").Forget(),
             () => HasMembers && !IsSendingToUnity);
 
         // 1件ごとの「Unity ▾」（ユーザ指示 2026-09-14：「開く」がエクスプローラなのか Unity なのか分かりにくい。インポートと選択の2択にする）
@@ -656,7 +686,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var confirm = Services.Notice.Show(
                 where + "\n\n"
-                + $"unitypackage {fixedCount} 件を上から順に送ります。"
+                + $"unitypackage {fixedCount} 件を入れた順に送ります。"
                 + "Unityの取り込み画面で「Import」か「Cancel」を押すと、次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
@@ -763,8 +793,56 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
     }
 
-    /// <summary>使ったもの。**並びが導入の順。**</summary>
+    /// <summary>使ったもの。**見せている順**（入れた順か、その逆。メモ26-①）。記録の並びは <see cref="RowsInRecordOrder"/>。</summary>
     public ObservableCollection<ModificationMemberRowViewModel> Members { get; } = [];
+
+    /// <summary>入れた順（記録の並び）の行。送る・数えるのはこちら——見せている順で送ると、依存物より先に本体が入る。</summary>
+    internal IReadOnlyList<ModificationMemberRowViewModel> RowsInRecordOrder() => [.. Members.OrderBy(row => row.Index)];
+
+    /// <summary>「使ったものを順にUnityへ送る」で送る行（入れた順・外した行を除く）。</summary>
+    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => [.. RowsInRecordOrder().Where(row => row.IsUsed)];
+
+    // ---- 使ったものを見せる順（メモ26-①・ユーザ判断 2026-10-04） ----
+    //
+    // 依存される物（シェーダー・ライブラリ）が上に来て、人が「使った」と思っている衣装が下に沈むので、逆の順でも見せる。
+    // **見せる順だけ**を変え、記録の並び・番号・「順にUnityへ送る」の順は入れた順のまま。どちらで見せるかはアプリを閉じても覚える（全部の改変で同じ）
+
+    private bool _isReversed;
+
+    public bool IsReversed => _isReversed;
+
+    public bool IsInsertOrder => !_isReversed;
+
+    public RelayCommand ShowInsertOrderCommand { get; }
+
+    public RelayCommand ShowReverseOrderCommand { get; }
+
+    /// <summary>並びの上の説明。逆の順のときは、送る順が見えている順と違うことを言う。</summary>
+    public string MembersOrderText => _isReversed
+        ? "入れた順の逆に並べています。Unityへは入れた順に送ります。"
+        : "上から順に入れた記録です。依存するものが先に来るように並べ替えられます。";
+
+    private void SetReversed(bool reversed)
+    {
+        if (_isReversed == reversed)
+        {
+            return;
+        }
+
+        _isReversed = reversed;
+        OnPropertyChanged(nameof(IsReversed));
+        OnPropertyChanged(nameof(IsInsertOrder));
+        OnPropertyChanged(nameof(MembersOrderText));
+        _services.Commands.ExecuteAsync(new UiCommand.ChangeUiState(state => state with { ModificationMembersReversed = reversed })).Forget();
+
+        // 並べ直すだけなので読み直さない（読み直すとプロジェクトの候補まで探し直す）。矢印の向きが変わるので行は作り直す
+        var rows = RowsInRecordOrder().Select(row => row.WithReversed(reversed)).ToList();
+        Members.Clear();
+        foreach (var row in reversed ? Enumerable.Reverse(rows) : rows)
+        {
+            Members.Add(row);
+        }
+    }
 
     // ---- 使ったものの見せ方（検索と同じカード・リスト・ユーザ指示 2026-09-14） ----
     //
@@ -1309,18 +1387,20 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             ?? entry?.BoothName
             ?? Record.AvatarItemId;
 
-        Members.Clear();
+        var rows = new List<ModificationMemberRowViewModel>();
         for (var index = 0; index < Record.Members.Count; index++)
         {
             var member = Record.Members[index];
             var item = await _services.Store.Items.LoadAsync(member.ItemId);
 
-            Members.Add(new ModificationMemberRowViewModel
+            rows.Add(new ModificationMemberRowViewModel
             {
                 Index = index,
                 Total = Record.Members.Count,
                 Member = member,
                 Name = item?.DisplayName ?? member.ItemId,
+                SourceText = ModificationRowBuilder.FileTextOf(member, item),
+                Reversed = IsReversed,
 
                 // 手元に無くても記録は残す。そのとき使ったのは事実
                 IsMissing = item is null || !item.IsDownloaded,
@@ -1329,6 +1409,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
                 Card = item is null ? null : _main.Search.CreateCard(item),
             });
+        }
+
+        Members.Clear();
+        foreach (var row in IsReversed ? Enumerable.Reverse(rows) : rows)
+        {
+            Members.Add(row);
         }
 
         Images.Clear();
@@ -1634,8 +1720,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>
     /// 名前から商品を引いて足す。
     ///
-    /// **手で足した分は「どのファイルを使ったか」が空のまま。**
-    /// 商品ページから送れば埋まるので、そこは推定で埋めない。
+    /// **どのファイルを使ったかは窓で人が選ぶ**（メモ26-②・ユーザ判断 2026-10-04）。選ばなければ空のまま。
+    /// 選べるファイルが無い商品は聞かずに足す（選ぶ物が無い窓を出さない）。**窓を出さずに黙って入れることはしない**（推定で埋めない）
     /// </summary>
     private async Task AddMemberAsync(string? name)
     {
@@ -1656,9 +1742,15 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
+        var files = new MemberFilePickViewModel([item]);
+        if (files.HasChoices && !MemberFilePickViewModel.Ask(files, "使ったものを追加", $"「{item.DisplayName}」をこの改変に追加します。"))
+        {
+            return;
+        }
+
         var result = await _services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
             Record.Id,
-            new ModificationMember { ItemId = item.Id }));
+            files.MemberFor(item.Id, DateTimeOffset.Now)));
 
         AddNotice.Set(
             result is CommandResult.Failed failed ? failed.Message : $"「{item.DisplayName}」を追加しました。",
@@ -1703,7 +1795,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         var answer = Services.Notice.Show(
             $"「{row.Name}」をこの改変から完全に削除します。\n\n"
-            + (row.IsFromUnity
+            + (row.HasFile
                 ? $"使ったファイル（{row.SourceText}）の記録も消えます。\n\n"
                 : string.Empty)
             + "この操作は元に戻せません。",
@@ -1724,7 +1816,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await ReloadAsync();
     }
 
-    private async Task MoveMemberAsync(ModificationMemberRowViewModel? row, int delta)
+    /// <param name="back">見えている並びの前へ動かすか。逆の順で見せているときは、記録の上では後ろへ動く。</param>
+    private async Task MoveMemberAsync(ModificationMemberRowViewModel? row, bool back)
     {
         if (row is null)
         {
@@ -1732,7 +1825,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         await _services.Commands.ExecuteAsync(
-            new UiCommand.MoveModificationMember(Record.Id, row.Member, delta));
+            new UiCommand.MoveModificationMember(Record.Id, row.Member, back ? row.BackDelta : -row.BackDelta));
 
         await ReloadAsync();
     }

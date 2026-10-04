@@ -202,7 +202,15 @@ internal static class ItemUnityActions
         // **記録してから送る。**送るのは Unity 側の取り込み画面を待つので時間がかかり、
         // 途中で窓を閉じられることもある。先に記録を確定させておく方が失うものが少ない
         var owner = item.Local.OwnedFiles.FirstOrDefault(file => file.Hash == package.ZipHash);
-        if (await CommitPickedAsync(services, item, model, title, projectPath, owner, package.EntryPath) is not { } record)
+        var member = new ModificationMember
+        {
+            ItemId = item.Id,
+            VariationId = owner?.VariationId,
+            FileHash = owner?.Hash,
+            Package = package.EntryPath,
+            AddedAt = DateTimeOffset.Now,
+        };
+        if (await CommitPickedAsync(services, model, title, projectPath, member) is not { } record)
         {
             return null;
         }
@@ -215,34 +223,22 @@ internal static class ItemUnityActions
 
     /// <summary>
     /// ダイアログの答えを記録に落とす。作る側なら先に作る。作れなかったときは理由を出して null を返す。
-    /// どのファイル（バリエーション・unitypackage）を使ったかは、送ったときだけ分かる（送らないなら null のまま。**推定で埋めない**）
+    /// どのファイル（バリエーション・unitypackage）を使ったかは、送ったときか、手で足す窓で人が選んだときだけ入る
+    /// （<paramref name="member"/> を作る呼び手が決める。**推定で埋めない**）
     /// </summary>
     public static async Task<ModificationRecord?> CommitPickedAsync(
         AppServiceContainer services,
-        ItemRecord item,
         PickModificationDialogViewModel model,
         string title,
         string? project,
-        LocalFileRecord? owner,
-        string? package)
+        ModificationMember member)
     {
         if (await ModificationPicking.ResolvePickedAsync(services, model, title, project) is not { } record)
         {
             return null;
         }
 
-        await services.Commands.ExecuteAsync(
-            new Core.Commands.UiCommand.AddModificationMember(
-                record.Id,
-                new ModificationMember
-                {
-                    ItemId = item.Id,
-                    VariationId = owner?.VariationId,
-                    FileHash = owner?.Hash,
-                    Package = package,
-                    AddedAt = DateTimeOffset.Now,
-                }));
-
+        await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(record.Id, member));
         return record;
     }
 

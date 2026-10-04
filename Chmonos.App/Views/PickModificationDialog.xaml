@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
         xmlns:controls="clr-namespace:Chmonos.App.Controls"
+        xmlns:views="clr-namespace:Chmonos.App.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -19,6 +20,14 @@
         <TextBlock Text="{Binding ContextText}" Style="{StaticResource Caption}"
                    TextWrapping="Wrap" Margin="0,3,0,0"
                    Visibility="{Binding HasContext, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+        <!--
+            手で足すときの使ったファイル（メモ26-②）。何を足すか（ファイル）→ どこへ足すか（改変）の順に上から置く。
+            選ばなくても「追加」は押せる。送って足すときは送る物で決まるので出さない
+        -->
+        <views:MemberFilePicker DataContext="{Binding Files}" Margin="0,16,0,0"
+                                Visibility="{Binding DataContext.HasFiles, RelativeSource={RelativeSource AncestorType=Window},
+                                             Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <!-- どの改変に積むか。1件のときも選ばせる（新しく作るのが答えのことがある） -->
         <StackPanel Margin="0,18,0,0"

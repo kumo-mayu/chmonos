@@ -102,9 +102,15 @@ public class SmallTextTests
         var sentWithoutName = new ModificationMember { ItemId = "1000001", FileHash = Make.HashOf("a") };
         var byHand = new ModificationMember { ItemId = "1000001" };
 
-        Assert.Equal("Costume_v1.unitypackage", ModificationRowBuilder.FileTextOf(sent));
-        Assert.Equal("Unityへ送った記録あり", ModificationRowBuilder.FileTextOf(sentWithoutName));
-        Assert.Equal("どのファイルを使ったかは分かりません", ModificationRowBuilder.FileTextOf(byHand));
+        var item = Make.Item("1000001", "作り物の衣装").WithFiles(Make.File(@"D:\files\a.zip"));
+        var pickedFile = new ModificationMember { ItemId = "1000001", FileHash = Make.HashOf(@"D:\files\a.zip") };
+
+        Assert.Equal("Costume_v1.unitypackage", ModificationRowBuilder.FileTextOf(sent, item));
+        // ファイルだけ記録した行（unitypackage の無いファイルを窓で選んだ・メモ26-②）は、手元のファイルの名前を出す
+        Assert.Equal("a.zip", ModificationRowBuilder.FileTextOf(pickedFile, item));
+        // 名前を引けないとき（手元の一覧に無い）は、記録があることだけ言う。送ったか選んだかは言い分けない
+        Assert.Equal("使ったファイルの記録あり", ModificationRowBuilder.FileTextOf(sentWithoutName, item));
+        Assert.Equal("どのファイルを使ったかは分かりません", ModificationRowBuilder.FileTextOf(byHand, item));
     }
 
     [Fact]

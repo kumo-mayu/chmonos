@@ -375,7 +375,7 @@ public static class UnityHandoff
     /// 中身の一覧（<see cref="Models.LocalFileRecord.Contents"/>）にある unitypackage の zip の中の場所（zip の中の順）。
     /// zip を開いて数える <see cref="FindPackages"/> と同じ数で切る（切らないと、多すぎる zip は要約も控えも永久にそろわないと見える）。
     /// </summary>
-    internal static IReadOnlyList<string> PackageEntriesIn(Models.LocalFileRecord file)
+    public static IReadOnlyList<string> PackageEntriesIn(Models.LocalFileRecord file)
         => file.Contents
             .Where(name => name.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)

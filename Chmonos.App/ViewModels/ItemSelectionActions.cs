@@ -204,16 +204,19 @@ internal static class ItemSelectionActions
             return false;
         }
 
+        // 使ったファイルは、改変を選ぶ同じ窓で商品ごとに選ぶ（メモ26-②）。商品ごとに窓を出すと、数十件で数十回聞かれる。
+        // 選ばなければ空のまま。**推定で埋めない**
+        var files = new MemberFilePickViewModel(cards.Select(card => card.Item));
         var model = ModificationPicking.BuildDialog(
             services,
             title,
-            $"選んだ {cards.Count} 件を改変に追加します。",
-            // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
-            "使ったファイルは記録されません。記録するには、商品ページからUnityへ送ってください。",
+            cards.Count == 1 ? $"「{cards[0].Item.DisplayName}」を改変に追加します。" : $"選んだ {cards.Count} 件を改変に追加します。",
+            ModificationPicking.FilesContextText(files, "記録するには、商品ページからUnityへ送ってください。"),
             (await services.Modifications.LoadAllAsync()).Modifications,
             existingLabel: "今ある改変に追加",
             commitLabel: "追加",
-            emptyText: "改変がまだありません。新しく作って、そこに追加できます。");
+            emptyText: "改変がまだありません。新しく作って、そこに追加できます。",
+            files);
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
@@ -225,16 +228,7 @@ internal static class ItemSelectionActions
             return false;
         }
 
-        var present = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
-        var added = 0;
-        foreach (var card in cards.Where(card => !present.Contains(card.Item.Id)))
-        {
-            await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(
-                record.Id,
-                new ModificationMember { ItemId = card.Item.Id, AddedAt = DateTimeOffset.Now }));
-            added++;
-        }
-
+        var added = await AddPickedAsync(services, record, cards.Select(card => card.Item).ToList(), files);
         var skipped = cards.Count - added;
         Services.Notice.Show(
             skipped == 0
@@ -244,5 +238,24 @@ internal static class ItemSelectionActions
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
         return true;
+    }
+
+    /// <summary>
+    /// 窓で決めた改変に、選んだ商品を足す（窓の後ろ半分。試験はここを呼ぶ）。使ったファイルは窓で選んだ物（<paramref name="files"/>）。
+    /// 既に入っている商品は重ねて足さない。足した数を返す
+    /// </summary>
+    internal static async Task<int> AddPickedAsync(
+        AppServiceContainer services, ModificationRecord record, IReadOnlyList<ItemRecord> items, MemberFilePickViewModel files)
+    {
+        var present = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+        var added = 0;
+        foreach (var item in items.Where(item => present.Add(item.Id)))
+        {
+            await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(
+                record.Id, files.MemberFor(item.Id, DateTimeOffset.Now)));
+            added++;
+        }
+
+        return added;
     }
 }
