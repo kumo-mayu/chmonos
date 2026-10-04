@@ -24,6 +24,7 @@ internal static partial class Scenes
         .. Nav,
         .. Bands,
         .. Modifications,
+        .. ModificationMembers,
         .. AvatarScenes,
         .. Search,
         .. SearchFilters,

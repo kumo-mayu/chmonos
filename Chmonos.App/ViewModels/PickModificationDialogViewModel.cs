@@ -69,6 +69,14 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     public bool HasContext => ContextText.Length > 0;
 
+    /// <summary>
+    /// 手で足すときの「使ったファイル」（メモ26-②）。送って足すとき（送る物で決まる）と、選べるファイルが無いときは null。
+    /// 選ばなくても押せる（飛ばせる）ので、押せるかには関わらない
+    /// </summary>
+    public MemberFilePickViewModel? Files { get; init; }
+
+    public bool HasFiles => Files is { HasChoices: true };
+
     public ObservableCollection<PickModificationRowViewModel> Rows { get; }
 
     public bool HasRows => Rows.Count > 0;

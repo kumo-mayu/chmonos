@@ -3,12 +3,15 @@ using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Views;
 
-public partial class PickModificationDialog : Window
+public partial class PickMemberFilesDialog : Window
 {
-    public PickModificationDialog(PickModificationDialogViewModel model)
+    public PickMemberFilesDialog(MemberFilePickViewModel model, string title, string headingText)
     {
         InitializeComponent();
-        DataContext = model;
+        Title = title;
+        TitleText.Text = title;
+        HeadingText.Text = headingText;
+        Picker.DataContext = model;
         // 主の窓が無い所（窓を出さずに描く台）では、最初に作った窓＝自分が主の窓になるので、持ち主にしない
         if (Application.Current?.MainWindow is { } main && main != this)
         {

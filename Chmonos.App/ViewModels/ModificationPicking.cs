@@ -20,7 +20,8 @@ public static class ModificationPicking
         IReadOnlyList<ModificationRecord> records,
         string existingLabel,
         string commitLabel,
-        string emptyText)
+        string emptyText,
+        MemberFilePickViewModel? files = null)
     {
         var registry = services.Store.Avatars.Load();
         var names = Core.Services.AvatarNames.Map(registry.Entries);
@@ -62,8 +63,18 @@ public static class ModificationPicking
             ExistingLabel = existingLabel,
             CommitLabel = commitLabel,
             EmptyText = emptyText,
+            Files = files is { HasChoices: true } ? files : null,
         };
     }
+
+    /// <summary>
+    /// 手で足すときの窓の前提の1行。選べるファイルがあれば選べることを、無ければ記録されないことと記録の仕方を言う。
+    /// </summary>
+    /// <param name="howToRecord">選べるファイルが無いときの、記録の仕方（呼ぶ場所で道が違う）。</param>
+    public static string FilesContextText(MemberFilePickViewModel files, string howToRecord)
+        => files.HasChoices
+            ? "使ったファイルを選ぶと記録します。選ばなくても追加できます。"
+            : "使ったファイルは記録されません。" + howToRecord;
 
     /// <summary>
     /// 選ばれた改変を返す。「新しく作る」なら作ってから返す。

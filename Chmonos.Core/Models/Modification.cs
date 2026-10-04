@@ -23,8 +23,8 @@ public sealed record ModificationMember
     /// 1年後に組み直すとき <c>v1.01</c> と <c>v1.06</c> は別物なので、
     /// 商品IDだけでは再現できない。
     ///
-    /// **手で足した分は null。**推定で埋めない——
-    /// 「どのファイルを使ったかは分からない」が正しい。
+    /// **手で足して、窓で選ばなかった分は null。**推定で埋めない——
+    /// 「どのファイルを使ったかは分からない」が正しい（メモ26-②：手で足すときは窓で人が選べる。選んだ物だけが入る）。
     /// </summary>
     public string? FileHash { get; init; }
 
@@ -32,7 +32,7 @@ public sealed record ModificationMember
     /// zip内のどの <c>.unitypackage</c> か。
     ///
     /// 1つのzipに2つ入っているものが実データで2件あり、どちらも片方が依存物だった。
-    /// これが無いと**どちらを入れたのか**が再現できない。手で足した分は null。
+    /// これが無いと**どちらを入れたのか**が再現できない。手で足して選ばなかった分と、unitypackage の無いファイルを選んだ分は null。
     /// </summary>
     public string? Package { get; init; }
 
@@ -47,9 +47,12 @@ public sealed record ModificationMember
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Detached { get; init; }
 
-    /// <summary>Unityへ送ったときに自動で入った分か。空欄の意味を画面で言い分けるために見る。</summary>
+    /// <summary>
+    /// どのファイルを使ったかの記録があるか。空欄の意味を画面で言い分けるために見る。
+    /// Unityへ送って入った分も、手で足すときに窓で選んだ分も同じに扱う（どちらも人が選んだファイルで、送るときも同じに使う。メモ26-②）
+    /// </summary>
     [JsonIgnore]
-    public bool IsFromUnity => FileHash is not null;
+    public bool HasFile => FileHash is not null;
 }
 
 /// <summary>改変に貼った画像1枚。商品の <see cref="UserImage"/> と同じ持ち方。</summary>

@@ -102,6 +102,15 @@ internal sealed class TestApp
     };
 
     /// <summary>
+    /// 手で改変に足すときの「使ったファイル」の窓への答え（窓は出ない）。既定は、窓が最初に選んでいた物のまま「追加」。
+    /// 選び直す試験は、ここで <see cref="MemberFileChoice.Selected"/> を変えてから true を返す
+    /// </summary>
+    public Func<MemberFilePickViewModel, bool> PickFiles { get; set; } = _ => true;
+
+    /// <summary>出すはずだった「使ったファイル」の窓（窓は出ない）。</summary>
+    public List<MemberFilePickViewModel> FilePicks { get; } = [];
+
+    /// <summary>
     /// ログに「失敗」が残っても試験を落とさない。投げっぱなしの仕事（<c>Forget()</c>）の失敗はログにしか出ないので、
     /// 既定では残っていたら落とす。失敗する道そのものを確かめる試験だけが true にする
     /// </summary>
@@ -171,6 +180,11 @@ internal sealed class TestApp
         {
             app.Notices.Add(request);
             return app.Answer(request);
+        };
+        MemberFilePickViewModel.Intercept = model =>
+        {
+            app.FilePicks.Add(model);
+            return app.PickFiles(model);
         };
 
         // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
@@ -316,6 +330,7 @@ internal sealed class TestApp
         {
             // アプリ全体に効く静的な状態を、次の試験へ持ち越さない
             Notice.Intercept = null;
+            MemberFilePickViewModel.Intercept = null;
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();

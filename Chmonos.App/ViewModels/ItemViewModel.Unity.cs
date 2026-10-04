@@ -80,23 +80,25 @@ public sealed partial class ItemViewModel
     {
         const string title = "改変に追加";
 
+        // 使ったファイルは窓で人が選ぶ（メモ26-②）。選ばなければ空のまま。**推定で埋めない**
+        var files = new MemberFilePickViewModel([Item]);
         var model = ModificationPicking.BuildDialog(
             _services,
             title,
             $"「{Item.DisplayName}」を改変に追加します。",
-            // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
-            "使ったファイルは記録されません。記録するには「改変に追加して送る」を使ってください。",
+            ModificationPicking.FilesContextText(files, "記録するには「改変に追加して送る」を使ってください。"),
             (await _services.Modifications.LoadAllAsync()).Modifications,
             existingLabel: "今ある改変に追加",
             commitLabel: "追加",
-            emptyText: "改変がまだありません。新しく作って、そこに追加できます。");
+            emptyText: "改変がまだありません。新しく作って、そこに追加できます。",
+            files);
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
             return;
         }
 
-        if (await ItemUnityActions.CommitPickedAsync(_services, Item, model, title, project: null, owner: null, package: null)
+        if (await ItemUnityActions.CommitPickedAsync(_services, model, title, project: null, files.MemberFor(Item.Id, DateTimeOffset.Now))
             is not { } record)
         {
             return;
