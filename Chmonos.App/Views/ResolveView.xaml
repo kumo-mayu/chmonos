@@ -484,13 +484,13 @@
                     BorderThickness="0,0,0,1" Padding="20,10" AutomationProperties.AutomationId="ResolveTargetBand">
                 <Grid MaxWidth="{StaticResource ReadingMaxWidth}">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="22" />
+                        <RowDefinition Height="26" />
                         <RowDefinition Height="32" />
                         <RowDefinition Height="20" />
                     </Grid.RowDefinitions>
                     <DockPanel Grid.Row="0">
                         <TextBlock Text="対象" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock Text="{Binding TargetText}" ToolTip="{Binding TargetToolTip}" FontWeight="Bold" FontSize="13.5"
+                        <TextBlock Text="{Binding TargetText}" ToolTip="{Binding TargetToolTip}" FontWeight="Bold" FontSize="15.5"
                                    TextTrimming="CharacterEllipsis" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center"
                                    AutomationProperties.AutomationId="ResolveTargetText" />
                     </DockPanel>
@@ -970,10 +970,10 @@
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0"
                                     Visibility="{Binding CanChooseSingleFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
-                                    <TextBlock Text="フォルダのまま登録する" FontWeight="Bold" FontSize="12.5" />
+                                    <TextBlock Text="zipの代わりにフォルダを登録する" FontWeight="Bold" FontSize="12.5" />
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
                                                ToolTip="{Binding Selected.ContentReason}"
-                                               Text="zipをダウンロードし直せないときは、フォルダのまま登録します。先に商品IDを決めてください。" />
+                                               Text="展開したフォルダを、そのまま商品のファイルとして登録します。zipをダウンロードし直せないときに使います。" />
                                     <TextBlock Text="{Binding RegisterTargetSummary}" Style="{StaticResource Mono}" FontSize="11"
                                                TextWrapping="Wrap" Margin="0,6,0,0" />
                                     <!--

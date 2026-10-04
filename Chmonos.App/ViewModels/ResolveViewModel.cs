@@ -525,7 +525,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
 
         // 押した帯の中で答える（前は「商品IDを決める」の欄へ画面を送っていた。押した所から離れた所へ飛ぶ作りはやめた。メモ22）
-        OriginZipNote = $"元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipをドロップしてください。";
+        OriginZipNote = OriginZipUnlistedText(origin.ArchiveName);
     }
 
     private bool _isLoaded;

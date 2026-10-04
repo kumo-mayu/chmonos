@@ -45,6 +45,9 @@ public enum SearchModuleKind
     /// <summary>記録の上では持っているが、置き場がどこにも無いファイルがあるか（ユーザ判断 2026-10-04。カードの印「見つかりません」と同じ数え方）。</summary>
     MissingFile,
 
+    /// <summary>仮のIDで登録した「BOOTHに無い商品」か（ユーザ指示 2026-10-04 メモ31。判定は <see cref="Chmonos.Core.Models.ItemRecord.IsLocalOnly"/> と同じ）。</summary>
+    NotOnBooth,
+
     /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。</summary>
     Updated,
 }
@@ -178,6 +181,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
         new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルやフォルダがある商品で絞ります。"),
+        new(SearchModuleKind.NotOnBooth, "BOOTHに無い商品", "BOOTHに無い商品として登録した商品か、BOOTHの商品かで絞ります。"),
         new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、要確認でまだ読んでいない商品で絞ります。"),
     ];
 
@@ -202,7 +206,7 @@ public static class SearchModuleCatalog
         [
             [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Avatar, SearchModuleKind.Adult],
             // 壊れたzip は所持のすぐ後：所持が「手元にファイルがあるか」、壊れたzip が「そのファイルが開けるか」、見つからないファイルが「記録のファイルが置き場に在るか」
-            [SearchModuleKind.Owned, SearchModuleKind.BrokenZip, SearchModuleKind.MissingFile, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
+            [SearchModuleKind.Owned, SearchModuleKind.BrokenZip, SearchModuleKind.MissingFile, SearchModuleKind.NotOnBooth, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
             [SearchModuleKind.Favorite, SearchModuleKind.Unedited, SearchModuleKind.AvatarUnconfirmed, SearchModuleKind.Hidden],
             [SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.Path],
         ]),
