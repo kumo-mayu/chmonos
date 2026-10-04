@@ -7,7 +7,7 @@
 > **コード**：`App/ViewModels/SearchViewModel.Saved.cs`（一覧・保存・呼び出し）・`SavedSearchNameDialogViewModel`・`Views/SavedSearchNameDialog`・`Views/SearchView.xaml`（`SavedSearchesButton`・`SavedSearchPopup`）・`SearchView.Saved.cs`（開閉・キーボード）、
 > `Core/Services/SavedSearches.cs`（足す・上書き・名前の変更・削除・並べ替えの規則）・`Core/Models/SearchHistoryEntry`（1件の形）・`Controls/FrameList`（`FocusFrame.Command`）
 >
-> **経緯**：`docs/feedback/open.md`「今後の予定：今の検索条件に名前を付けて保存し、後から呼び出す」（2026-10-03 のメモ）、案の絵は担当SVD の案の枝 `mock/svd-saved-search-card-info`（master に入れない）。検索の履歴は [search-filters.md](search-filters.md)
+> **経緯**：`docs/feedback/open.md`「今後の予定：今の検索条件に名前を付けて保存し、後から呼び出す」（2026-10-03 のメモ）、案の絵は担当SVD の案の枝 `mock/svd-saved-search-card-info`（master に入れない）。検索の履歴は [search-filters.md](search-filters.md)。置き場を畳める節からボタンの一覧へ移した経緯は `docs/history/saved-search-button-2026-10-05.md`（メモ36）
 
 ## 保存する物
 
