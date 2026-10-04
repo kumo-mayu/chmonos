@@ -42,6 +42,9 @@ public sealed partial class ItemViewModel
                 Name = DisplayText.VariationName(variation.Name),
                 PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
                 IsPurchased = group.Count > 0,
+
+                // 払った額と BOOTH の今の値段は別の物（値上げ・値下げ・セールで開く）。買った行は両方を並べる
+                BoothPriceText = group.Count > 0 ? $"BOOTHの価格 ¥{variation.Price:N0}" : string.Empty,
                 VariationId = variation.Id,
                 Key = LineDiff.NormalizeLine(variation.Name ?? string.Empty),
             });
@@ -146,7 +149,7 @@ public sealed partial class ItemViewModel
                 {
                     Band = ChangeTone.Price,
                     PriceText = row.IsPurchased ? row.PriceText : BoothChanges.PriceStep(price),
-                    PriceChangeText = row.IsPurchased ? $"BOOTHの価格 {BoothChanges.PriceStep(price)}" : string.Empty,
+                    BoothPriceText = row.IsPurchased ? $"BOOTHの価格 {BoothChanges.PriceStep(price)}" : string.Empty,
                 }
                 : row)
             .ToList();

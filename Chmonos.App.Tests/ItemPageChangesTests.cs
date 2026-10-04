@@ -637,7 +637,7 @@ public class ItemPageChangesTests
 
         Assert.Equal(
             ["通常版:|¥500|", "支援版:Price|¥1,000 → ¥1,500|", "おまけ付き:Price|¥1,800 で買った|BOOTHの価格 ¥1,800 → ¥2,000"],
-            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.PriceChangeText}"));
+            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.BoothPriceText}"));
         Assert.Equal("BOOTHで価格が変更されたバリエーションです。", page.Variations[1].BandTip);
         Assert.Equal("価格", page.ChangeTargets.Single().Label);
 
@@ -645,8 +645,41 @@ public class ItemPageChangesTests
         await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると帯が消える");
 
         Assert.Equal(
-            ["通常版:|¥500|", "支援版:|¥1,500|", "おまけ付き:|¥1,800 で買った|"],
-            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.PriceChangeText}"));
+            ["通常版:|¥500|", "支援版:|¥1,500|", "おまけ付き:|¥1,800 で買った|BOOTHの価格 ¥2,000"],
+            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.BoothPriceText}"));
+    });
+
+    [Fact]
+    public Task 買ったバリエーションは_払った額とBOOTHの今の価格を両方出し_買っていない行と消えた行は1つだけ出す() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with
+        {
+            Booth = item.Booth with
+            {
+                Variations =
+                [
+                    new BoothVariation { Id = 1, Name = "通常版", Price = 500 },
+                    new BoothVariation { Id = 2, Name = "支援版", Price = 1500 },
+                ],
+            },
+            Local = item.Local with
+            {
+                Purchases =
+                [
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Price = 300 },
+                    new Purchase { VariationId = 9, NameSnapshot = "旧色", Price = 800 },
+                ],
+            },
+        };
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+
+        Assert.Equal(
+            ["通常版|¥300 で買った|BOOTHの価格 ¥500", "支援版|¥1,500|", "旧色|¥800 で買った|"],
+            page.Variations.Select(row => $"{row.Name}|{row.PriceText}|{row.BoothPriceText}"));
     });
 
     [Fact]

@@ -102,10 +102,10 @@ public sealed record VariationRow
     public long? VariationId { get; init; }
 
     /// <summary>
-    /// 買った行の、BOOTH の値段の変化（「BOOTHの価格 ¥1,000 → ¥1,500」。メモ27-⑤）。買った行の値段の欄は払った額なので、BOOTH の値段は別の行に出す。
-    /// 買っていない行は値段の欄そのものを「¥1,000 → ¥1,500」にするので、ここは空
+    /// 買った行の、BOOTH の今の値段（「BOOTHの価格 ¥1,500」。変わっていれば「BOOTHの価格 ¥1,000 → ¥1,500」。メモ27-⑤・39）。
+    /// 買った行の値段の欄は払った額なので、BOOTH の値段は別の行に並べる。買っていない行は値段が1つだけで、値段の欄そのものに出すので、ここは空
     /// </summary>
-    public string PriceChangeText { get; init; } = string.Empty;
+    public string BoothPriceText { get; init; } = string.Empty;
 
     /// <summary>BOOTH側に現存しない購入記録か。</summary>
     public bool IsGone { get; init; }
