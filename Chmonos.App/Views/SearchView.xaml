@@ -982,11 +982,12 @@
                                             <controls:FocusFrame.ContextMenu>
                                                 <ContextMenu AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MenuList'}"
                                                              AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の操作}">
-                                                    <!-- 除くを持つ種類だけ（三項・最近・編集状況には出さない・D10） -->
+                                                    <!-- 除くを持つ種類だけ押せる（三項・最近・編集状況は押せない・D10）。項目は出したまま理由を言う（右クリックの決まり・2026-10-04） -->
                                                     <MenuItem Header="当てはまる商品を除く" AutomationProperties.Name="当てはまる商品を除く" IsCheckable="True" IsChecked="{Binding IsExcluded, Mode=TwoWay}"
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Exclude'}"
-                                                              Visibility="{Binding SupportsExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <Separator Visibility="{Binding SupportsExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                              IsEnabled="{Binding SupportsExclude}"
+                                                              controls:MenuTips.Disabled="この条件では「除く」を使えません" />
+                                                    <Separator />
                                                     <MenuItem Header="{Binding CollapseMenuText}" Command="{Binding ToggleCollapseCommand}"
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Collapse'}"
                                                               AutomationProperties.Name="{Binding CollapseMenuText}" />

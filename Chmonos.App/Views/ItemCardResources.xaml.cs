@@ -306,6 +306,21 @@ public partial class ItemCardResources : ResourceDictionary
         }
     }
 
+    /// <summary>
+    /// 開くたびに、項目の「押せるか」と吹き出しを今の値で組み直す。メニューは全カードで1つを使い回し、
+    /// 項目の状態は宛先の中身（ファイルの有無・更新の知らせ・お気に入り）から決めるが、その変わった知らせは受けない。
+    /// 同じ商品に2回続けて開くと宛先が同じ物のままで、WPF は束縛を引き直さず、前の状態が残る。宛先を外して付け直して引き直させる
+    /// </summary>
+    private void OnCardMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu menu)
+        {
+            // 宛先は押した物から引き継ぐ値（自分では持たない）。付け直すときも、外して引き継ぎに戻す（値を書き込むと次のカードでも残る）
+            menu.DataContext = null;
+            menu.ClearValue(FrameworkElement.DataContextProperty);
+        }
+    }
+
     /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>
     private void OnFavoriteClick(object sender, MouseButtonEventArgs e)
     {

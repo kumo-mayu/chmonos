@@ -329,8 +329,9 @@
                                                                 -->
                                                                 <MenuItem Header="一時的に展開して開く" CommandParameter="{Binding}"
                                                                           AutomationProperties.AutomationId="ItemFileOpenMenu.Unpack"
-                                                                          ToolTip="一時フォルダに展開して開きます。展開した分はアプリを閉じると消えます。"
-                                                                          Visibility="{Binding CanUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                          controls:MenuTips.Enabled="一時フォルダに展開して開きます。展開した分はアプリを閉じると消えます。"
+                                                                          controls:MenuTips.Disabled="手元にあるzipだけ展開できます"
+                                                                          IsEnabled="{Binding CanUnpack}"
                                                                           Command="{Binding PlacementTarget.Tag.UnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                             </ContextMenu>
                                                         </Button.ContextMenu>

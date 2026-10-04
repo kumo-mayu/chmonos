@@ -293,7 +293,14 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Padding" Value="6,2,6,2" />
         <Setter Property="Template" Value="{StaticResource MenuSubmenuItem}" />
+        <!-- 右クリックのメニューは、できない操作も出したまま押せなくして理由を吹き出しで言う（ユーザ判断 2026-10-04）。押せない項目にも吹き出しを出す -->
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+        <!-- 押せるときと押せないときで吹き出しを分けたい項目は、ToolTip でなく controls:MenuTips.Enabled / Disabled に書く（直に ToolTip を書いた項目はそちらが勝つ） -->
+        <Setter Property="ToolTip" Value="{Binding (controls:MenuTips.Enabled), RelativeSource={RelativeSource Self}}" />
         <Style.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="ToolTip" Value="{Binding (controls:MenuTips.Disabled), RelativeSource={RelativeSource Self}}" />
+            </Trigger>
             <Trigger Property="Role" Value="TopLevelHeader">
                 <Setter Property="Template" Value="{StaticResource MenuTopLevelHeader}" />
                 <Setter Property="Grid.IsSharedSizeScope" Value="True" />

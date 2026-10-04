@@ -932,6 +932,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public bool ShowsImageRoles => false;
 
+    // 右クリックの項目は出したまま押せなくして理由を言う（ユーザ判断 2026-10-04）
+    public string PinDisabledTip => "改変の写真には使えません";
+
+    public string UnpinDisabledTip => "改変の写真には使えません";
+
     public string AddImageTip => "この改変に写真を追加します。ドロップやCtrl+Vでも追加できます。";
 
     // 商品の画像にだけある案内（BOOTH からの取得・削除された画像・自分で足した枚数）は出さない

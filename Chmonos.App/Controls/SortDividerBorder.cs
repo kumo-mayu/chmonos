@@ -48,17 +48,21 @@ public sealed class SortDividerBorder : Border
 
     /// <summary>
     /// 右クリックのメニュー。文言は商品のカードの右クリックに揃える（「ショップを開く」はアプリのショップの画面、「BOOTHで開く」は BOOTH のページ）。
-    /// BOOTH にページの無い手元だけのショップでは、BOOTH の行を出さない。
+    /// BOOTH にページの無い手元だけのショップでも、BOOTH の行は出したまま押せなくして理由を言う（項目をいつも同じに並べる。ユーザ判断 2026-10-04）。
     /// </summary>
     internal static ContextMenu BuildMenu(SortDivider divider)
     {
         var menu = new ContextMenu();
         System.Windows.Automation.AutomationProperties.SetName(menu, $"{divider.Label}の操作");
         menu.Items.Add(Item("ショップを開く", "SortDivider.Menu.OpenShop", divider.OpenShopCommand));
-        if (divider.OpenInBoothCommand is { } booth)
+        var booth = Item("BOOTHで開く", "SortDivider.Menu.OpenInBooth", divider.OpenInBoothCommand);
+        if (divider.OpenInBoothCommand is null)
         {
-            menu.Items.Add(Item("BOOTHで開く", "SortDivider.Menu.OpenInBooth", booth));
+            booth.IsEnabled = false;
+            booth.ToolTip = "BOOTHに無いショップなので開けません";
         }
+
+        menu.Items.Add(booth);
 
         return menu;
 

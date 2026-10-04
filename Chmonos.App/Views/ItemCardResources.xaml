@@ -12,96 +12,114 @@
         カードの右クリックのメニュー（U12）。以前はカード1枚ごとにメニューと項目6つを作っていた。
         開くのは一度に1つなので、1つを全カードで使い回す。項目は開いたカード（PlacementTarget）を見る
     -->
-    <ContextMenu x:Key="CardMenu">
+    <ContextMenu x:Key="CardMenu" Opened="OnCardMenuOpened">
+        <!--
+            **項目はどの画面・どの商品でも全部出し、要る物（商品の JSON・手元のファイル）が無いときは押せなくして、吹き出しで理由を言う**
+            （ユーザ判断 2026-10-04・メモ20-①。並びがいつも同じになり、無い項目の理由も分かる）。
+            押せるかと吹き出しの文は CardMenuState に集めてある（IsEnabled と ToolTip を同じ名前で引く）。吹き出しは ShowOnDisabled を
+            全 MenuItem の既定にしてある（Themes/Controls.xaml）
+        -->
         <!--
             選んでいる最中はカードを押すと選択の切り替えになるので、商品ページへの出口（カードの「中を見る」）をここにも置く。
             「中を見る」は乗せたときだけ出るので、キーボード（Shift+F10）からはここしか無い
         -->
         <MenuItem Header="商品ページを開く" Click="OnMenuOpenItemClick" AutomationProperties.AutomationId="CardMenu.OpenItem"
-                  Visibility="{Binding IsSelectionMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
-        <!--
-            行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1）。
-            塞いだ理由はツールチップで出す（ShowOnDisabled。押せないまま何も言わないのは決め事違反）
-        -->
-        <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}"
-                  ToolTip="{Binding OpenBoothTip}" ToolTipService.ShowOnDisabled="True"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenItem}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenItem}" />
+        <!-- 行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1） -->
+        <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.OpenBooth"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenBooth}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenBooth}"
                   Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-        <MenuItem Header="ショップを開く" CommandParameter="{Binding}"
-                  ToolTip="{Binding OpenShopTip}" ToolTipService.ShowOnDisabled="True"
+        <MenuItem Header="ショップを開く" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.OpenShop"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenShop}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenShop}"
                   Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <!-- 人に商品を教えるときに要る。落とす／貼るの逆向き -->
-        <MenuItem Header="リンクをコピー" CommandParameter="{Binding}"
-                  ToolTip="{Binding CopyLinkTip}" ToolTipService.ShowOnDisabled="True"
+        <MenuItem Header="リンクをコピー" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.CopyLink"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=CopyLink}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=CopyLink}"
                   Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-        <MenuItem Header="編集に入る" CommandParameter="{Binding}"
+        <MenuItem Header="編集に入る" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Edit"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Edit}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Edit}"
                   Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <!--
             送らずに改変へ足すだけの口（商品ページの「改変に追加」・選んだ帯の「改変に追加…」と同じ窓。ユーザ指示 2026-10-03）。
-            手元のファイルが無くても足せる（商品ページの「改変に追加」も同じ）ので、出し分けない。
+            使った記録を残すだけなので、手元のファイルは要らない（商品ページの「改変に追加」も同じ）。
             選んでいる最中に選んだ物の上で押したら選んだ全部
         -->
         <MenuItem Header="改変に追加…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.AddToModification"
-                  ToolTip="どの改変に追加するかを選んで、記録だけ残します。選んでいる最中は、選んだ商品をまとめて追加します。"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=AddToModification}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=AddToModification}"
                   Command="{Binding PlacementTarget.Tag.CardAddToModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <!--
-            カードの中の押せる物（星・選ぶ箱・「更新あり」）と同じ操作（点検 2026-10-01）。カードの一覧は Tab で1回だけ入り、中は矢印で
-            カードからカードへ移る（ArrowGroup）。中の物を矢印の止まりにすると、隣のカードへ移るのに最大4回押すことになるので、ここに置く。
-            カードそのもの（ItemCardViewModel）にだけ出す。行から取り出す一覧（改変・アバター・フォルダの行・編集の小さな絵）は値が無く、畳む
-            （行のお気に入りは次の項目。行の Card を公開している一覧だけに出る）
+            お気に入り（星と同じ操作。カードの一覧は Tab で1回だけ入り、中は矢印でカードからカードへ移る（ArrowGroup）ので、
+            中の物を矢印の止まりにすると隣のカードへ移るのに最大4回押すことになる。点検 2026-10-01）。
+            カードそのものも、カードを持つ行（アバター・改変のリストなど。メモ9-④ 2026-10-02）も同じ道（入れ物の画面の ToggleFavoriteAsync）。
+            商品が手元に無い行（名前が挙がっただけのアバター）では出したまま押せない（メモ20-①）
         -->
-        <MenuItem Header="{Binding FavoriteTip}" Click="OnMenuFavoriteClick" AutomationProperties.AutomationId="CardMenu.Favorite"
-                  Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
-        <!--
-            カードを持つ行（アバターの一覧のリストとカード・改変のリスト）のお気に入り（メモ9-④ 2026-10-02）。
-            星は商品の印なので、カードと同じ道（入れ物の画面の ToggleFavoriteAsync）で行の商品のカードに当てる。
-            手元に商品の無い行（名前が挙がっただけのアバター）はカードが無く、畳む。「選ぶ」は行には出さない（アバターの一覧は1つだけ選ぶ）
-        -->
-        <MenuItem Header="{Binding Card.FavoriteTip}" Click="OnMenuFavoriteClick" AutomationProperties.AutomationId="CardMenu.RowFavorite"
-                  Visibility="{Binding Card.FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
+        <MenuItem Header="{Binding Converter={x:Static vm:CardMenuFavoriteHeaderConverter.Instance}}" Click="OnMenuFavoriteClick"
+                  AutomationProperties.AutomationId="CardMenu.Favorite"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Favorite}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Favorite}" />
+        <!-- 行の一覧（アバターは1つだけ選ぶ）には選ぶ箱が無いので、出したまま押せない -->
         <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
-                  Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Select}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Select}" />
         <MenuItem Header="更新の知らせを開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
-                  Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=ShowUpdate}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=ShowUpdate}" />
         <!--
             この商品の未読の更新の知らせを既読にする（ユーザ指示 2026-10-02。商品ページの「既読にする」と同じ命令）。
-            未読の更新があり、既読にする道を渡した画面（検索・フォルダの右の欄・ショップ）のカードとリストの行にだけ出す
+            未読の更新があり、既読にする道を渡した画面（検索・フォルダの右の欄・ショップ）のカードでだけ押せる
         -->
         <MenuItem Header="既読にする" Command="{Binding MarkUpdateReadCommand}" AutomationProperties.AutomationId="CardMenu.MarkUpdateRead"
-                  Visibility="{Binding CanMarkUpdateRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=MarkUpdateRead}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=MarkUpdateRead}" />
         <!--
             選んでいる最中は、選んだ物のうち未読の更新がある商品をまとめて既読にする（帯の「既読にする」と同じ。ユーザ判断 2026-10-02）。
-            選んだ物に未読の更新がある画面（入れ物が HasSelectedUpdates を持つ検索・フォルダの右・ショップの中）でだけ出す
+            選んだ物に未読の更新がある画面（入れ物が HasSelectedUpdates を持つ検索・フォルダの右・ショップの中）でだけ押せる
         -->
         <MenuItem Header="選んだ商品を既読にする" AutomationProperties.AutomationId="CardMenu.MarkSelectionRead"
                   Command="{Binding PlacementTarget.Tag.MarkSelectionReadCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                  Visibility="{Binding PlacementTarget.Tag.HasSelectedUpdates, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                  IsEnabled="{Binding PlacementTarget.Tag.HasSelectedUpdates, RelativeSource={RelativeSource AncestorType=ContextMenu}, FallbackValue=False}"
+                  ToolTip="選んだ商品に未読の更新の知らせがあるときに押せます" />
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
-            一時展開が見えなかった）。ファイルや unitypackage が2つ以上あれば、押した後にどれにするかを選ばせる（「…」はその印）
+            一時展開が見えなかった）。ファイルや unitypackage が2つ以上あれば、押した後にどれにするかを選ばせる（「…」はその印）。
+            どれも手元のファイルが要る
         -->
         <MenuItem Header="開く">
-            <MenuItem Header="エクスプローラで開く…" CommandParameter="{Binding}"
-                      ToolTip="手元のファイルの場所を開きます。2つ以上あれば、どれを開くか選べます。"
+            <MenuItem Header="エクスプローラで開く…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Reveal"
+                      IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Reveal}"
+                      ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Reveal}"
                       Command="{Binding PlacementTarget.Tag.RevealCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-            <MenuItem Header="一時的に展開して開く…" CommandParameter="{Binding}"
-                      ToolTip="zipを一時フォルダに展開して開きます。展開したものはアプリを閉じると消えます。"
+            <MenuItem Header="一時的に展開して開く…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Unpack"
+                      IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Unpack}"
+                      ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Unpack}"
                       Command="{Binding PlacementTarget.Tag.CardUnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </MenuItem>
         <MenuItem Header="Unity">
-            <MenuItem Header="Unityへ送る…" CommandParameter="{Binding}"
-                      ToolTip="開いているUnityへ送ります。2つ以上あれば選べます。"
+            <MenuItem Header="Unityへ送る…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.SendToUnity"
+                      IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=SendToUnity}"
+                      ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=SendToUnity}"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-            <MenuItem Header="改変に追加して送る…" CommandParameter="{Binding}"
-                      ToolTip="送ったうえで、どの改変に使ったかを残します。"
+            <MenuItem Header="改変に追加して送る…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.SendToUnityWithRecord"
+                      IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=SendToUnityWithRecord}"
+                      ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=SendToUnityWithRecord}"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-            <MenuItem Header="Unityで選択…" CommandParameter="{Binding}"
-                      ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
+            <MenuItem Header="Unityで選択…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.SelectInUnity"
+                      IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=SelectInUnity}"
+                      ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=SelectInUnity}"
                       Command="{Binding PlacementTarget.Tag.CardSelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </MenuItem>
         <Separator />
         <!-- 設定画面から戻せるので、確認は挟まない -->
-        <MenuItem Header="非表示にする" CommandParameter="{Binding}"
+        <MenuItem Header="非表示にする" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Hide"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Hide}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Hide}"
                   Command="{Binding PlacementTarget.Tag.HideItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
     </ContextMenu>
 
