@@ -139,7 +139,7 @@
                 </Border>
             </WrapPanel>
             <!-- 監視をやめたときの知らせ。1行ぶんの高さを前もって取り、出入りで下の未確定の枠が動かないようにする -->
-            <TextBlock DataContext="{Binding WatchNote}" Text="{Binding Text}" Style="{StaticResource FieldNotice}" Margin="2,-4,0,0"
+            <TextBlock DataContext="{Binding WatchNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,-4,0,0"
                        AutomationProperties.AutomationId="FolderWatchNote" />
 
             <!-- 未確定（ユーザ指示：未確定のフォルダには「管理対象から除外する」ボタンなども付ける） -->

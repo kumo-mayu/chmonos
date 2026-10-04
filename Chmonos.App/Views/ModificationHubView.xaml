@@ -128,18 +128,6 @@
             中のボタン（Unityで選択・Unityを開く・アバター・プロジェクト・三角）は自分で受け止めるので、ここまで上がってこない。
             押せることは、乗せたときの色と手の形で見せる
         -->
-        <!--
-            押したボタンや行の下の知らせ。DataContext は <see cref="HubNoticeSlot"/>（Text・IsWarning）。
-            打ち直しや別の操作が要る知らせ（IsWarning）は FieldWarning と同じ色にする
-        -->
-        <Style x:Key="HubFieldNotice" TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                    <Setter Property="Foreground" Value="{DynamicResource Warn}" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-
         <Style x:Key="HubPressableRow" TargetType="Border">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="CornerRadius" Value="6" />
@@ -177,7 +165,7 @@
                     「Unityで選択」の結果は、行の下に出す。一覧の行は数が多いので、出ていない間は場所を取らない
                     （出るときだけ、この行の下が1行ぶん下がる。押したボタンは動かない）
                 -->
-                <TextBlock DockPanel.Dock="Bottom" DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}"
+                <TextBlock DockPanel.Dock="Bottom" DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
                            Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Button AutomationProperties.AutomationId="ModificationsMemberSelectInUnity" AutomationProperties.Name="{Binding Name, StringFormat={}{0}をUnityで選択}" DockPanel.Dock="Right" Content="Unityで選択" Style="{StaticResource SmallButton}"
                         VerticalAlignment="Center" Margin="6,0,0,0"
@@ -364,7 +352,7 @@
                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
                         </WrapPanel>
                         <!-- 「Unityを開く」の結果。出ていない間は場所を取らない（行の下が1度だけ下がる） -->
-                        <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}"
+                        <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
                                    Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </StackPanel>
                 </DockPanel>
@@ -546,7 +534,7 @@
                                 Command="{Binding DataContext.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}" />
                     </WrapPanel>
-                    <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}" />
+                    <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
 
                     <Border Style="{StaticResource Card}" Margin="0,4,0,0" Padding="18,16">
                         <StackPanel>
@@ -621,7 +609,7 @@
                                              AutomationProperties.Name="新しい改変の名前"
                                          VerticalContentAlignment="Center" Padding="7,0" />
                             </DockPanel>
-                            <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}" />
+                            <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
                             <TextBlock Text="「普段着」「制服」のように、着せ替え1つにつき1つ作ります。同じアバターに何個でも作れます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
@@ -651,7 +639,7 @@
                             </TextBlock>
                         </DockPanel>
                         <!-- 「Unityで選択」の結果。出ていない間も1行を取り、上の帯が出入りで伸び縮みしない -->
-                        <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}" />
+                        <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
                         <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
                                    Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
@@ -696,7 +684,7 @@
                                         Command="{Binding DataContext.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}" />
                             </WrapPanel>
-                            <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}" />
+                            <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
                             <TextBlock Text="{Binding ProjectText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Margin="0,6,0,0" />
                         </StackPanel>
@@ -812,7 +800,7 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock DataContext="{Binding ToolNotice}" Text="{Binding Text}" Style="{StaticResource HubFieldNotice}" />
+                        <TextBlock DataContext="{Binding ToolNotice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
                     </Border>
 
                     <!-- 「読み直す」のボタンは置かない。窓が手前に戻るたびに読み直す（ユーザ判断 2026-09-13） -->

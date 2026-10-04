@@ -144,7 +144,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     }
 
     /// <summary>監視の行のすぐ下の知らせ。この詳細は選び直すたびに作るので、別のフォルダを選べば消える</summary>
-    public NoticeSlot WatchNote { get; } = new();
+    public AreaNotice WatchNote { get; } = new();
 
     public string WatchStateText => IsWatched ? "監視中" : "監視していません";
 

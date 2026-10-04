@@ -127,10 +127,10 @@ internal static partial class Scenes
         if (show)
         {
             avatars.AvatarNameNote.Warn("名前を入れてから押してください。");
-            avatars.IdNote.Notice("9900301 をコピーしました。");
+            avatars.IdNote.Show("9900301 をコピーしました。");
             avatars.BaseFieldNote.Warn("共通素体の名前を入れてから押してください。");
             avatars.AliasNote.Warn("呼び方は2文字以上で入れてください。");
-            avatars.ModificationNote.Notice("改変「普段着」を作りました。");
+            avatars.ModificationNote.Show("改変「普段着」を作りました。");
             avatars.MemoNote.Warn("メモを保存できませんでした。ほかのアプリが記録を開いているか、保存先に書けないようです。");
             avatars.OwnedNote.Warn("所有を保存できませんでした。");
             avatars.JudgementNote.Warn("扱いを保存できませんでした。");

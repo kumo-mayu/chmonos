@@ -741,7 +741,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             OnPropertyChanged(nameof(NestTopToolTip));
             RebuildSubs();
             RebuildOtherNames();
-            AddSubNoticeText = string.Empty;
+            AddSubNotice.Clear();
             RelayCommand.RaiseCanExecuteChanged();
         }
     }
@@ -822,7 +822,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var result = await RewriteTagsAsync(new UiCommand.NestUserTagTop(source.Name, into), "小分類にできませんでした。", ListNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            ListNotice.Done($"「{source.Name}」を「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
+            ListNotice.Show($"「{source.Name}」を「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
 
         await ReloadAsync();
@@ -925,16 +925,16 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     /// <summary>
     /// 操作の結果の知らせは、押した所の近くに出す（`notice-placement-2026-10-03.md`）。右の欄の先頭の1行にまとめて出していたのをやめた。
-    /// 欄の下（足す欄の誤りと「既にあります」）は AddNoticeText・AddSubNoticeText、
+    /// 欄の下（足す欄の誤りと「既にあります」）は AddNoticeText・<see cref="AddSubNotice"/>、
     /// 名前の近くは <see cref="NameNotice"/>、小分類の見出しの近くは <see cref="SubNotice"/>、
     /// 一覧の見出しの近く（行ごと消える操作と、一覧に無いタグの直し）は <see cref="ListNotice"/>。
     /// メモの自動保存の成功は出さない（欄が残るので足りる。設定と同じ）
     /// </summary>
-    public ManageNotice NameNotice { get; } = new();
+    public AreaNotice NameNotice { get; } = new();
 
-    public ManageNotice SubNotice { get; } = new();
+    public AreaNotice SubNotice { get; } = new();
 
-    public ManageNotice ListNotice { get; } = new();
+    public AreaNotice ListNotice { get; } = new();
 
     public bool IsBusy
     {
@@ -1099,7 +1099,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     private bool _isAddingSub;
     private string _itemFilter = string.Empty;
     private string _newSubText = string.Empty;
-    private string _addSubNoticeText = string.Empty;
 
     /// <summary>
     /// 小分類を足す欄の文字。大分類・属性を足す欄と同じふつうの欄にした（メモ25 C）：
@@ -1113,7 +1112,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             if (SetField(ref _newSubText, value ?? string.Empty))
             {
                 // 打ち直したら前の「既にあります」は古い
-                AddSubNoticeText = string.Empty;
+                AddSubNotice.Clear();
             }
         }
     }
@@ -1121,25 +1120,14 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// <summary>
     /// 小分類を足す欄のすぐ下の1行（大分類の側の <see cref="AddNoticeText"/> と同じ）。欄の側が1行分の場所を常に取ってあるので、出ても消えても下は動かない
     /// </summary>
-    public string AddSubNoticeText
-    {
-        get => _addSubNoticeText;
-        private set => SetField(ref _addSubNoticeText, value);
-    }
+    public AreaNotice AddSubNotice { get; } = new();
 
-    private bool _addSubNoticeIsWarning = true;
+    /// <summary>試験が文と色を読む口（画面は <see cref="AddSubNotice"/> を結ぶ）</summary>
+    internal string AddSubNoticeText => AddSubNotice.Text;
 
-    public bool AddSubNoticeIsWarning
-    {
-        get => _addSubNoticeIsWarning;
-        private set => SetField(ref _addSubNoticeIsWarning, value);
-    }
+    internal bool AddSubNoticeIsWarning => AddSubNotice.IsWarning;
 
-    private void SayAddSub(string text, bool warning)
-    {
-        AddSubNoticeIsWarning = warning;
-        AddSubNoticeText = text;
-    }
+    private void SayAddSub(string text, bool warning) => AddSubNotice.Set(text, warning);
 
     /// <summary>小分類を足す欄を出しているか（普段は隠す。ユーザ指示 2026-09-18：入力欄が並ぶと読みづらい）。</summary>
     public bool IsAddingSub
@@ -1554,7 +1542,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         // 名前が変わると選び直しで名前の近くの知らせが消えるので、選び直した後に出す
         if (done is not null)
         {
-            notice.Done(done);
+            notice.Show(done);
         }
 
         await _main.ReloadLibraryAsync();
@@ -1585,7 +1573,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(Selected.Name), "削除できませんでした。", ListNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            ListNotice.Done(rewritten.Result.ItemsLeftUntagged > 0
+            ListNotice.Show(rewritten.Result.ItemsLeftUntagged > 0
                 ? $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。"
                     + $"{rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になり、未編集に戻りました。"
                 : $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。");
@@ -1651,7 +1639,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var result = await RewriteTagsAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target), "名前を変更できませんでした。", SubNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            SubNotice.Done(merging
+            SubNotice.Show(merging
                 ? $"「{target}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。"
                 : $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
@@ -1676,7 +1664,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(row.Top, row.Name), "削除できませんでした。", SubNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            SubNotice.Done($"「{row.Name}」を削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。");
+            SubNotice.Show($"「{row.Name}」を削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。");
         }
 
         await ReloadAsync();
@@ -1691,7 +1679,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// 前は押しても何も起きなかったように見えた。「できなかった」の結果も受けずに捨てていた。
     /// 例外でも読み直しは続ける——途中まで書き換えた商品があり得るので、今の数を見せる
     /// </summary>
-    private async Task<CommandResult?> RewriteTagsAsync(UiCommand command, string failedText, ManageNotice failureNotice)
+    private async Task<CommandResult?> RewriteTagsAsync(UiCommand command, string failedText, AreaNotice failureNotice)
     {
         try
         {
@@ -1826,7 +1814,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
                 parts.Add($"{rewritten.Result.ItemsSourceTopRemoved} 件から「{row.Top}」を外しました");
             }
 
-            SubNotice.Done($"「{to}」の下へ移しました（{string.Join("、", parts)}）。");
+            SubNotice.Show($"「{to}」の下へ移しました（{string.Join("、", parts)}）。");
         }
 
         await ReloadAsync();
@@ -2040,7 +2028,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             ? new UiCommand.AddUserTag(row.Top, row.Sub)
             : new UiCommand.AddUserTag(row.Top));
 
-        ListNotice.Done($"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
+        ListNotice.Show($"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }
@@ -2067,7 +2055,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            ListNotice.Done($"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
+            ListNotice.Show($"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
 
         await ReloadAsync();
@@ -2093,7 +2081,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             : new UiCommand.DeleteUserTag(row.Top));
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            ListNotice.Done(rewritten.Result.ItemsLeftUntagged > 0
+            ListNotice.Show(rewritten.Result.ItemsLeftUntagged > 0
                 ? $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。"
                     + $"{rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になり、未編集に戻りました。"
                 : $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。");

@@ -81,7 +81,12 @@
 
 ## 共通の型（2026-10-04）
 
-欄やボタンのすぐ下の知らせは `App.xaml` の `FieldNotice`（済んだこと）と `FieldWarning`（打ち直しや別の操作が要ること）を使う。
+知らせ1行の中身は **AreaNotice**（ViewModels/AreaNotice.cs。文・IsWarning・Show／Warn／Set／Clear）1つだけ。出し先ごとに1つ持つ。
+見た目は App.xaml の **AreaNoticeText**（<TextBlock DataContext="{Binding X}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />。部品は Controls/AreaNoticeLine）。
+画面ごとに中身の型・見た目の型を足さない（2026-10-04 に担当ごとに作った NoticeSlot・HubNoticeSlot・ManageNotice・SlotNotice・HubFieldNotice・ManageNoticeLine を、2026-10-04 のうちにまとめて消した）。
+改変の IHubNoticeTarget（鍵が同じ行と詳細に同じ知らせを出す）は、この型の上に残してある。
+
+AreaNoticeText の下は App.xaml の FieldNotice（済んだこと）と FieldWarning（打ち直しや別の操作が要ること）。文字列で持つ物（設定・SearchAddBox）は、この2つを直に使う。
 どちらも出ていない間も1行（高さ16）を取り、長い文は1行で切って全部は吹き出しで読む。画面ごとに別の作りにしない。
 
 ## 担当から上がった小さな判断（2026-10-04・ユーザ「承知した」）

@@ -201,10 +201,10 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
     }
 
     /// <summary>名前の欄のすぐ下の知らせ。行ごとに持つので、別の素体を選べば消える（2026-10-04）</summary>
-    public NoticeSlot NameNote { get; } = new();
+    public AreaNotice NameNote { get; } = new();
 
     /// <summary>素体の商品の欄のすぐ下の知らせ</summary>
-    public NoticeSlot ItemIdNote { get; } = new();
+    public AreaNotice ItemIdNote { get; } = new();
 
     /// <summary>欄を今の名前から変えたか。「名前を変える」はそのときだけ押せる（アバターと同じ作法）。</summary>
     public bool HasNameChange => NameInput.Trim().Length > 0 && NameInput.Trim() != Name;
@@ -640,7 +640,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         ModificationNameInput = string.Empty;
-        ModificationNote.Notice($"改変「{name}」を作りました。");
+        ModificationNote.Show($"改変「{name}」を作りました。");
         await LoadModificationsAsync();
     }
 
@@ -791,31 +791,31 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     }
 
     /// <summary>共通素体を足す欄のすぐ下の知らせ（既にあります・入れてください）</summary>
-    public NoticeSlot AddBaseNote { get; } = new();
+    public AreaNotice AddBaseNote { get; } = new();
 
     /// <summary>名前の欄（右の詳細）のすぐ下の知らせ</summary>
-    public NoticeSlot AvatarNameNote { get; } = new();
+    public AreaNotice AvatarNameNote { get; } = new();
 
     /// <summary>IDの行（IDのコピー・商品情報を取り直す）のすぐ下の知らせ</summary>
-    public NoticeSlot IdNote { get; } = new();
+    public AreaNotice IdNote { get; } = new();
 
     /// <summary>共通素体の欄のすぐ下の知らせ</summary>
-    public NoticeSlot BaseFieldNote { get; } = new();
+    public AreaNotice BaseFieldNote { get; } = new();
 
     /// <summary>呼び方の欄のすぐ下の知らせ</summary>
-    public NoticeSlot AliasNote { get; } = new();
+    public AreaNotice AliasNote { get; } = new();
 
     /// <summary>新しい改変の欄のすぐ下の知らせ</summary>
-    public NoticeSlot ModificationNote { get; } = new();
+    public AreaNotice ModificationNote { get; } = new();
 
     /// <summary>メモの欄のすぐ下の知らせ。保存できたときは出さない（自動で残す欄は、できたことを知らせない）</summary>
-    public NoticeSlot MemoNote { get; } = new();
+    public AreaNotice MemoNote { get; } = new();
 
     /// <summary>所有の切り替えボタンの右の知らせ。書けなかったときだけ出る</summary>
-    public NoticeSlot OwnedNote { get; } = new();
+    public AreaNotice OwnedNote { get; } = new();
 
     /// <summary>アバターかどうかの切り替えの右の知らせ。書けなかったときだけ出る</summary>
-    public NoticeSlot JudgementNote { get; } = new();
+    public AreaNotice JudgementNote { get; } = new();
 
     /// <summary>別のアバターへ移ったら、前のアバターの欄の知らせは消す（別のアバターの欄に残ると、何の知らせか分からない）</summary>
     private void ClearAvatarNotes()
@@ -839,7 +839,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// 素体の詳細の欄の知らせを、その素体の行に出す。その素体を右に出していないとき（統合で行が無くなった・読み直しで選びが移った）は、
     /// 見えない所へ出すと知らせが消えたように見えるので上の段へ出す
     /// </summary>
-    private void ShowOnBase(string baseName, Func<AvatarBaseRowViewModel, NoticeSlot> slot, string text, bool warn)
+    private void ShowOnBase(string baseName, Func<AvatarBaseRowViewModel, AreaNotice> slot, string text, bool warn)
     {
         if (BaseRow(baseName) is { } row && ReferenceEquals(row, SelectedBase))
         {
@@ -849,7 +849,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             }
             else
             {
-                slot(row).Notice(text);
+                slot(row).Show(text);
             }
 
             return;
@@ -910,7 +910,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         switch (outcome)
         {
             case AvatarBaseAddOutcome.Restored:
-                AddBaseNote.Notice($"削除していた共通素体「{name}」を戻しました。");
+                AddBaseNote.Show($"削除していた共通素体「{name}」を戻しました。");
                 break;
             case AvatarBaseAddOutcome.AlreadyThere:
                 AddBaseNote.Warn($"共通素体「{name}」は既にあります。");
@@ -1311,7 +1311,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
         if (_services.CopyText(row.ItemId))
         {
-            IdNote.Notice($"{row.ItemId} をコピーしました。");
+            IdNote.Show($"{row.ItemId} をコピーしました。");
         }
         else
         {
@@ -2149,7 +2149,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     /// <summary>
     /// 書き込みの命令を送り、書けなかったら呼び手の渡した出し先（<paramref name="show"/>）に出す。書けたら結果を、書けなかったら null を返す。
-    /// 出し先は押した欄・ボタンのすぐ下の知らせ（<see cref="NoticeSlot.Warn"/>）か、画面全体の知らせなら <see cref="ShowInHeader"/>。
+    /// 出し先は押した欄・ボタンのすぐ下の知らせ（<see cref="AreaNotice.Warn"/>）か、画面全体の知らせなら <see cref="ShowInHeader"/>。
     /// 前は一律で上の段に出していたので、押した所から遠く、幅が狭いと切れた（2026-10-03 の方針）
     ///
     /// 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
@@ -2204,7 +2204,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         _isRechecking = true;
-        IdNote.Notice("BOOTHに問い合わせています…");
+        IdNote.Show("BOOTHに問い合わせています…");
         try
         {
             var result = await _services.Commands.ExecuteAsync(new UiCommand.RecheckAvatar(Selected.ItemId));
@@ -2214,7 +2214,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             }
             else
             {
-                IdNote.Notice("確認し直しました。");
+                IdNote.Show("確認し直しました。");
 
                 // BOOTHの名前や非公開の印が変わると、検索の対応アバターの候補の名前も変わる
                 NoteRegistryChanged();

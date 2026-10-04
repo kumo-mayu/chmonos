@@ -137,6 +137,18 @@
             <Setter Property="Foreground" Value="{DynamicResource Warn}" />
         </Style>
 
+        <!--
+            AreaNotice（ViewModels/AreaNotice.cs）を DataContext に結んで出す1行。注意か済んだことかで FieldWarning／FieldNotice の色を切り替える。
+            画面ごとに同じ作りの型を足さず、これを使う（<TextBlock DataContext="{Binding X}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />）
+        -->
+        <Style x:Key="AreaNoticeText" TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="Mono" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
             <Setter Property="FontSize" Value="12" />

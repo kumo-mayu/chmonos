@@ -3,20 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
         欄やボタンのすぐ下の知らせ1行。DataContext に AreaNotice を渡して使う（<controls:AreaNoticeLine DataContext="{Binding IdNotice}" />）。
-        型は App.xaml の FieldNotice／FieldWarning（出ていない間も1行ぶんの高さを取り、長い文は1行で切って吹き出しで全部読む）。
+        型は App.xaml の AreaNoticeText（FieldNotice／FieldWarning の色を IsWarning で切り替える）。
         渡す物が無い持ち主（改変の写真の欄など、同じ部品を使う別の画面）では、場所も取らない
     -->
-    <TextBlock Text="{Binding Text}">
-        <TextBlock.Style>
-            <Style TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                        <Setter Property="Foreground" Value="{DynamicResource Warn}" />
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </TextBlock.Style>
-    </TextBlock>
+    <TextBlock Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
     <UserControl.Style>
         <Style TargetType="UserControl">
             <Style.Triggers>
