@@ -17,7 +17,7 @@
 | `items/{id}.h2.html` | 表示用の説明HTML（商品ページを開いたときだけ読む） | 取り込み・再取得 |
 | `images/{id}/{URLのハッシュ}.webp` | 画像（長辺384・WebP）。`{ハッシュ}.missing` は404で取れなかった印 | 画像の取得 |
 | `settings.json` | 設定（設定画面で選ぶ物） | `UiCommand.ChangeSettings` だけ |
-| `ui-state.json` | 画面が覚えている状態（ナビ・絞り込み欄と保存した検索の節の畳み方・積んだ条件・窓の位置・画面の幅 `paneWidths`） | `UiCommand.ChangeUiState` だけ |
+| `ui-state.json` | 画面が覚えている状態（ナビ・絞り込み欄の畳み方・積んだ条件・窓の位置・画面の幅 `paneWidths`） | `UiCommand.ChangeUiState` だけ |
 | `unresolved.json` | 商品が決まっていないファイル | 取り込み（`UnresolvedMerge`）と未確定の画面の操作（錠つき） |
 | `excluded.json` | 管理から外したファイル（パスとハッシュ両方） | 錠つき（書き換えは画面のスレッドの外。外すのは `UiCommand.ExcludeFiles` で何件でも1回） |
 | `avatar-registry.json` | アバターと共通素体の登録簿 | 錠つき |

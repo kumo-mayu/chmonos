@@ -7,8 +7,8 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 保存した検索（ユーザ判断 2026-10-03・10-04 案A3）：保存・呼び出しで置き換わる・上書き・名前の変更・削除・並べ替え・
-/// 今の検索と同じ行の印・節を畳んだ状態・JSON の読み書き。
+/// 保存した検索（ユーザ判断 2026-10-03・10-05）：保存・呼び出しで置き換わる・上書き・名前の変更・削除・並べ替え・
+/// 今の検索と同じ行の印・JSON の読み書き。
 /// </summary>
 public class SavedSearchTests
 {
@@ -248,7 +248,7 @@ public class SavedSearchTests
         Assert.Equal("夏 / カテゴリ：衣装", search.SavedNamePrefill());
 
         var dialog = new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Save, search.SavedNamePrefill(), ["夏の衣装"]);
-        Assert.Equal("打った文字・条件・表示順・カードかリストかを保存します。", dialog.Note);
+        Assert.Equal("条件、検索文字列、表示順などが保存されます。", dialog.Note);
         Assert.True(dialog.CanCommit);
         dialog.Name = " 夏の衣装 ";
         Assert.True(dialog.IsTaken);
@@ -282,24 +282,36 @@ public class SavedSearchTests
     });
 
     [Fact]
-    public Task 節を畳むと覚え_畳んだ見出しに今の検索の名前を出す() => TestApp.Run(async app =>
+    public Task 今の検索と同じ物があるとき_ボタンの印が出て_呼び出すと一覧を閉じる合図が出る() => TestApp.Run(async app =>
     {
         var search = await StartAsync(app);
         search.QueryText = "夏";
+        Assert.False(search.ShowsCurrentSaved);
         await search.SaveCurrentSearchAsync("夏");
-        Assert.False(search.ShowsCollapsedCurrent);
+        Assert.True(search.ShowsCurrentSaved);
 
-        search.ToggleSavedSectionCommand.Execute(null);
-        await app.SettleAsync();
-
-        Assert.True(search.IsSavedSectionCollapsed);
-        Assert.True(search.ShowsCollapsedCurrent);
-        Assert.True(app.Services.UiState.SavedSearchesCollapsed);
-
-        // 畳んだまま保存すると、保存できたかが見えるように開く
         search.QueryText = "冬";
-        await search.SaveCurrentSearchAsync("冬");
-        Assert.False(search.IsSavedSectionCollapsed);
+        Assert.False(search.ShowsCurrentSaved);
+
+        var closed = 0;
+        search.SavedApplied += () => closed++;
+        Row(search, "夏").ApplyCommand.Execute(null);
+        Assert.Equal(1, closed);
+        Assert.True(search.ShowsCurrentSaved);
+    });
+
+    [Fact]
+    public Task 上書きの確認の窓は_条件を上書きと言う() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        search.QueryText = "夏";
+        await search.SaveCurrentSearchAsync("A");
+        search.QueryText = "冬";
+        await search.OverwriteSavedAsync("A");
+
+        var notice = Assert.Single(app.Notices);
+        Assert.Equal("条件を上書き", notice.Caption);
+        Assert.Contains("条件を上書きします", notice.Text);
     });
 
     [Fact]

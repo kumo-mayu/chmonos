@@ -43,7 +43,7 @@
 | [private-items.md](spec/private-items.md) | BOOTH に無い商品（仮ID `local-`）、人が入れる名前・カテゴリ・ショップ、「IDを変更」 |
 | [search.md](spec/search.md) | 文字列の構文、表記をまたぐ辞書、結果のカード（絞り込みは下） |
 | [search-filters.md](spec/search-filters.md) | 検索の絞り込み：条件の種類と意味・同じ種類を複数・「除く」・見出しのメニュー・編集状況・照らし方と選択肢の件数・入口と履歴 |
-| [search-saved.md](spec/search-saved.md) | 保存した検索：保存する物・絞り込み欄の上の節・保存の小窓・呼び出して置き換える決まり・キーボード |
+| [search-saved.md](spec/search-saved.md) | 保存した検索：保存する物・「条件を追加」の隣のボタンから開く一覧・保存の小窓・呼び出して置き換える決まり・キーボード |
 | [item-page.md](spec/item-page.md) | 商品ページ、画像（自分で足す・サムネイルの指名）、手元のファイル、購入記録、編集画面 |
 | [avatars.md](spec/avatars.md) | 対応アバターの検出、登録簿、共通素体、相性の3段階、所有アバター |
 | [modifications.md](spec/modifications.md) | 改変の記録（構成物・画像・Unity プロジェクト）、改変の画面、「Unityで選択」 |
