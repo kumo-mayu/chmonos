@@ -216,6 +216,11 @@ public sealed class ImportPipeline : IImportPipeline
     /// <summary>ドライブ文字と通し番号の組を控える。渡されなければ控えない。</summary>
     private readonly Services.VolumeTable? _volumes;
 
+    /// <summary>
+    /// 見つからなくなった日時の見回り。アプリでは起動時の見回りと同じ1つを渡し、重ならないようにする（ユーザ判断 2026-10-05）。
+    /// </summary>
+    private readonly Services.MissingMarksSweep _missingMarks;
+
     public ImportPipeline(
         DataStore store,
         IBoothClient client,
@@ -235,7 +240,8 @@ public sealed class ImportPipeline : IImportPipeline
         Func<AppSettings> currentSettings,
         Services.IAvatarService? avatars = null,
         Services.UnityPackageCatalog? unityPackages = null,
-        Services.VolumeTable? volumes = null)
+        Services.VolumeTable? volumes = null,
+        Services.MissingMarksSweep? missingMarks = null)
     {
         _store = store;
         _client = client;
@@ -244,6 +250,7 @@ public sealed class ImportPipeline : IImportPipeline
         _avatars = avatars;
         _unityPackages = unityPackages;
         _volumes = volumes;
+        _missingMarks = missingMarks ?? new Services.MissingMarksSweep(store);
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
@@ -783,6 +790,9 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
+        // 起動時の見回り（MissingMarksSweep）と番を合わせる。同じフォルダを同時に見て、同じ商品を二度書かないように（ユーザ判断 2026-10-05）
+        using var sweeping = await _missingMarks.EnterAsync(cancellationToken);
+
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
             var measured = new Dictionary<string, (int Count, long Bytes)>(StringComparer.OrdinalIgnoreCase);
@@ -840,13 +850,14 @@ public sealed class ImportPipeline : IImportPipeline
                 // 全件を先に読んでから、フォルダを1つずつ測って回る。測るのに時間がかかるので、
                 // 書く頃には写しが古い。**測った値を今の一覧に当てる**（古い写しで丸ごと書き戻すと、
                 // 測っている間に人がフォルダを外した・ファイルに種類を付けた操作が消える）。
-                // 見つからなくなった日時も同じく今の値に当てる（無い間は最初に見た日時を残す）
+                // 見つからなくなった日時も同じく今の値に当てる（無い間は最初に見た日時を残す。決まりは起動時の見回りと同じ FileMissingMarks.MarkedFolder）。
+                // 今の値で変わる物が無ければ書かない（起動時の見回りが先に同じ答えを書いていれば、二度書かない）
                 var now = DateTimeOffset.Now;
                 await _store.Items.ChangeLocalAsync(
                     item.Id,
-                    current => current with
+                    current =>
                     {
-                        LocalFolders = [.. current.LocalFolders.Select(folder =>
+                        var folders = current.LocalFolders.Select(folder =>
                             measured.TryGetValue(folder.Path, out var size)
                                 ? folder with
                                 {
@@ -856,10 +867,14 @@ public sealed class ImportPipeline : IImportPipeline
                                     MissingSince = null,
                                 }
                                 : seenAgain.Contains(folder.Path)
-                                    ? folder with { LastSeenAt = now, MissingSince = null }
-                                    : missingNow.Contains(folder.Path) && folder.MissingSince is null
-                                        ? folder with { MissingSince = now }
-                                        : folder)],
+                                    ? FileMissingMarks.MarkedFolder(folder, FilePresence.Present, now)
+                                    : missingNow.Contains(folder.Path)
+                                        ? FileMissingMarks.MarkedFolder(folder, FilePresence.Missing, now)
+                                        : folder).ToList();
+
+                        return folders.Where((folder, index) => !ReferenceEquals(folder, current.LocalFolders[index])).Any()
+                            ? current with { LocalFolders = folders }
+                            : null;
                     },
                     LocalOwners.Import,
                     cancellationToken);
@@ -915,40 +930,10 @@ public sealed class ImportPipeline : IImportPipeline
     /// 在るかはドライブごとにまとめて見る（<see cref="FilePresenceProbe"/>。つながっていないドライブの上は見に行かず、書かない）。
     /// 外したファイルも見る（記録は事実なので。印と条件は外したファイルを数えない）。
     /// 書くのは商品ごとの錠の中で今の値に当て、見ている間に場所が変わったファイルには当てない（<see cref="FileMissingMarks.Apply"/>）。
+    /// 見回りそのものは起動時の見回りと同じ <see cref="MissingMarksSweep"/>（1本ずつ回るので、起動時の見回りと重ならない）。
     /// </remarks>
-    private async Task NoteMissingFilesAsync(CancellationToken cancellationToken)
-    {
-        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        var probe = new FilePresenceProbe();
-        var now = DateTimeOffset.Now;
-
-        foreach (var item in loaded.Items)
-        {
-            if (item.Local.LocalFiles.Count == 0)
-            {
-                continue;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            var sightings = item.Local.LocalFiles
-                .Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file.Paths)))
-                .ToList();
-
-            // 変わる物が無ければ錠も取らない（数千件のうち、ほとんどは前回と同じ）
-            if (!FileMissingMarks.Differs(item.Local.LocalFiles, sightings))
-            {
-                continue;
-            }
-
-            await _store.Items.ChangeLocalAsync(
-                item.Id,
-                current => FileMissingMarks.Apply(current.LocalFiles, sightings, now) is { } files
-                    ? current with { LocalFiles = files }
-                    : null,
-                LocalOwners.Import,
-                cancellationToken);
-        }
-    }
+    private Task NoteMissingFilesAsync(CancellationToken cancellationToken)
+        => _missingMarks.NoteFilesAsync(cancellationToken);
 
     /// <summary>そのハッシュを持つ商品と、その商品が記録している場所・開けなかった印。</summary>
     private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths, bool ArchiveBroken);

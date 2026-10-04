@@ -171,6 +171,9 @@ public partial class App : Application
         // 書きかけの片付けは、窓を出してから裏で（保存先の全体を再帰でたどるので、窓が出るまでの待ちに乗せない）
         _services.SweepStaleTemporaryFilesLater();
 
+        // 見つからなくなった日時の見回りも、窓を出してから裏で（全件を読み、記録の場所を全部見るので。ユーザ判断 2026-10-05）
+        main.StartMissingMarksSweep();
+
         // Unity で最後に選んでいたプロジェクトタブを覚え始める（「Unityで選択」の既定・ユーザ判断）。
         // 画面のスレッドで付ける——知らせはこのスレッドのメッセージとして届く
         Services.UnityFocusWatch.Start();

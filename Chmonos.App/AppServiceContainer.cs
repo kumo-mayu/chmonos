@@ -100,7 +100,9 @@ public sealed class AppServiceContainer : IDisposable
 
         // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）
         Volumes = new VolumeTable(Store, new Services.VolumeReader());
-        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes);
+        // 見つからなくなった日時の見回りは、取り込みと起動時の見回りで1つを分け合う（1本ずつ回して重ならないように。ユーザ判断 2026-10-05）
+        MissingMarks = new MissingMarksSweep(Store);
+        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes, MissingMarks);
         Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
         AvatarImages = new AvatarImageSync(Store, Client, Images);
@@ -222,6 +224,9 @@ public sealed class AppServiceContainer : IDisposable
         }).Forget();
 
     public DataStore Store { get; }
+
+    /// <summary>記録しているファイルとフォルダの場所を見て、見つからなくなった日時を付け外しする（取り込みと起動時の見回り）。</summary>
+    public MissingMarksSweep MissingMarks { get; }
 
     /// <summary>
     /// アバターの登録簿・ユーザタグ・属性の一覧の、ファイルが変わっていなければ読み直さない写し（<see cref="Services.StoreFileCache{T}"/>）。
