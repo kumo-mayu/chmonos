@@ -1110,6 +1110,38 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public bool NotifyOnUpdate => Item.Local.NotifyOnUpdate;
 
+    private RelayCommand? _toggleNotify;
+
+    private bool _isTogglingNotify;
+
+    /// <summary>
+    /// 「更新通知」のチェックで切り替える（ユーザ判断 2026-10-04・メモ27-④「商品ページから更新通知は変更できて良い」）。
+    /// 前は見せるだけで、変えるには編集画面を開く必要があった。書くのは編集画面と同じ命令で、持ち主はこの項目だけ。
+    /// 押した結果の知らせは出さない（チェックの状態で分かる）
+    /// </summary>
+    public RelayCommand ToggleNotifyCommand => _toggleNotify ??= new RelayCommand(() => ToggleNotifyAsync().Forget());
+
+    private async Task ToggleNotifyAsync()
+    {
+        // 「検索から除く」と同じ：反転の値は保存し終えた後の Item から作るので、保存中の2回目は受けず、見た目だけ今の値に戻す
+        if (_isTogglingNotify)
+        {
+            OnPropertyChanged(nameof(NotifyOnUpdate));
+            return;
+        }
+
+        _isTogglingNotify = true;
+        try
+        {
+            await SaveLocalAsync(Item.Local with { NotifyOnUpdate = !Item.Local.NotifyOnUpdate }, LocalOwners.UpdateNotice);
+        }
+        finally
+        {
+            _isTogglingNotify = false;
+            OnPropertyChanged(nameof(NotifyOnUpdate));
+        }
+    }
+
     /// <summary>
     /// 検索とショップの件数から除いているか。
     ///

@@ -916,7 +916,12 @@
                                 </StackPanel>
                                 <StackPanel Margin="0,0,0,10">
                                     <TextBlock Text="更新通知" Style="{StaticResource SectionLabel}" />
-                                    <CheckBox IsChecked="{Binding NotifyOnUpdate, Mode=OneWay}" IsEnabled="False" Margin="0,4,0,0"
+                                    <!--
+                                        押して切り替える（ユーザ判断 2026-10-04・メモ27-④）。前は見せるだけで押せなかった。
+                                        結び方は隣の「検索から除く」と同じ（一方向に結び、書き込みは命令を通し、保存し終えたら今の値に合わせ直す）
+                                    -->
+                                    <CheckBox IsChecked="{Binding NotifyOnUpdate, Mode=OneWay}" Command="{Binding ToggleNotifyCommand}" Margin="0,4,0,0"
+                                              ToolTip="BOOTHで内容が変わったら要確認に表示します。"
                                               AutomationProperties.AutomationId="ItemNotifyOnUpdate" AutomationProperties.Name="更新通知" />
                                 </StackPanel>
                             </WrapPanel>
