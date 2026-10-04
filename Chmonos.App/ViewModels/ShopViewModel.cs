@@ -135,16 +135,26 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     internal static string FirstLineOf(string? memo)
     {
+        string? first = null;
         foreach (var line in (memo ?? string.Empty).Split('\n'))
         {
             var trimmed = line.Trim();
-            if (trimmed.Length > 0)
+            if (trimmed.Length == 0)
             {
-                return trimmed;
+                continue;
             }
+
+            if (first is null)
+            {
+                first = trimmed;
+                continue;
+            }
+
+            // 1行に収まって切れていなくても「…」を付ける。続きがあると見出しだけで分かるように（メモ40）
+            return first + "…";
         }
 
-        return string.Empty;
+        return first ?? string.Empty;
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>

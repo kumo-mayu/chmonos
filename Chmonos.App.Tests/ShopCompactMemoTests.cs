@@ -12,10 +12,12 @@ public class ShopCompactMemoTests
     [InlineData("", "")]
     [InlineData("   \n  \n", "")]
     [InlineData("利用規約：改変可", "利用規約：改変可")]
-    [InlineData("1行目\n2行目", "1行目")]
-    [InlineData("1行目\r\n2行目", "1行目")]
+    // 2行以上あるときは、1行に収まって切れていなくても「…」を付ける（メモ40）。空行だけの続きは数えない
+    [InlineData("1行目\n2行目", "1行目…")]
+    [InlineData("1行目\r\n2行目", "1行目…")]
+    [InlineData("1行目\n\n  \n", "1行目")]
     // 空行から書き始めたメモでも、見出しが空に見えない
-    [InlineData("\n\n  最初の字のある行  \n次", "最初の字のある行")]
+    [InlineData("\n\n  最初の字のある行  \n次", "最初の字のある行…")]
     public void メモの先頭の1行は_字のある最初の行を前後の空白なしで返す(string? memo, string expected)
     {
         Assert.Equal(expected, ShopViewModel.FirstLineOf(memo));
@@ -37,7 +39,7 @@ public class ShopCompactMemoTests
         shop.Memo = "作り物のメモ\n2行目";
 
         Assert.True(shop.HasMemoLine);
-        Assert.Equal("作り物のメモ", shop.MemoFirstLine);
+        Assert.Equal("作り物のメモ…", shop.MemoFirstLine);
         Assert.Contains(nameof(ShopViewModel.MemoFirstLine), changed);
         Assert.Contains(nameof(ShopViewModel.HasMemoLine), changed);
 
