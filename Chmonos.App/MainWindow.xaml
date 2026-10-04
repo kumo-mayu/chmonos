@@ -507,7 +507,7 @@
                         件数のバッジが付くのはここだけなので、先頭に置いて目に入るようにする
                     -->
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}" AutomationProperties.AutomationId="Nav.Inbox"
-                            views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
+                            views:Nav.Label="通知" views:Nav.Icon="{StaticResource IconInbox}"
                             views:Nav.IsActive="{Binding IsInboxActive}"
                             views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="{DynamicResource UnreadFill}" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}" AutomationProperties.AutomationId="Nav.Avatars"

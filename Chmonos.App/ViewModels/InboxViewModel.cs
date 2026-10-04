@@ -365,7 +365,7 @@ public sealed class InboxViewModel : ViewModelBase
     public bool IsEmpty => Groups.Count == 0;
 
     public string EmptyText => _all.Count == 0
-        ? "要確認はありません"
+        ? "通知はありません"
         : "未読はありません";
 
     /// <summary>既定は未読のみ。溜まった既読に埋もれると「新しく起きたこと」が読めない。</summary>
@@ -581,7 +581,7 @@ public sealed class InboxViewModel : ViewModelBase
                     catch (Exception exception)
                     {
                         // 受けないと「zipを読んで登録しています…」のまま残り、止まったように見えた
-                        Core.Diagnostics.AppLog.Error("要確認からのzipでの登録しなおし", exception);
+                        Core.Diagnostics.AppLog.Error("通知からのzipでの登録しなおし", exception);
                         row.ActionNotice.Warn($"登録しなおせませんでした。{Core.Services.FailureText.Cause(exception)}");
                     }
                     finally
@@ -622,7 +622,7 @@ public sealed class InboxViewModel : ViewModelBase
                     catch (Exception exception)
                     {
                         // 受けないと「取り直しています…」のまま残り、止まったように見えた
-                        Core.Diagnostics.AppLog.Error("要確認からの商品情報の取り直し", exception);
+                        Core.Diagnostics.AppLog.Error("通知からの商品情報の取り直し", exception);
                         row.ActionNotice.Warn($"取り直せませんでした。{Core.Services.FailureText.Cause(exception)}");
                     }
                     finally
@@ -785,7 +785,7 @@ public sealed class InboxViewModel : ViewModelBase
         // 黙って何も起きないと壊れたように見えるので言う（ユーザ判断 2026-09-18）。
         // 宛先が無い通知は、もう手当てのしようがないので解消済みにする
         // 宛先の無い知らせは解消済みにして一覧から消えるので、行の近くではなく一覧の見出しの近くへ
-        ListNotice.Warn("この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。この知らせは解消済みにしました。");
+        ListNotice.Warn("この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。この通知は解消済みにしました。");
 
         // 知らせのファイルは画面のスレッドで読まない
         var ids = await Task.Run(() => _services.Notifications.Load()

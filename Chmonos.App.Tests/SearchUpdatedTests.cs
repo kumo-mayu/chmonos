@@ -6,7 +6,7 @@ namespace Chmonos.App.Tests;
 
 /// <summary>
 /// 未読の「商品の更新」を検索・フォルダのカードに出す・条件「更新あり」・右クリックの「既読にする」（ユーザ判断・指示 2026-10-02）。
-/// 数え方はショップの画面の「更新あり」と同じ（要確認に未読で、片付けていない商品の更新）。
+/// 数え方はショップの画面の「更新あり」と同じ（通知に未読で、片付けていない商品の更新）。
 /// </summary>
 public class SearchUpdatedTests
 {
@@ -65,12 +65,12 @@ public class SearchUpdatedTests
     });
 
     [Fact]
-    public Task 既読にすると_知らせが既読になり_札が下りてナビの要確認の数も減る() => TestApp.Run(async app =>
+    public Task 既読にすると_知らせが既読になり_札が下りてナビの通知の数も減る() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
         var search = main.Search;
         var folderCard = search.CreateCardWithUpdates(search.FindItem("1000001")!);
-        await UiThread.Until(() => main.UnreadCount == 2, "ナビの要確認の数を読む");
+        await UiThread.Until(() => main.UnreadCount == 2, "ナビの通知の数を読む");
 
         Card(search, "1000001").MarkUpdateReadCommand!.Execute(null);
         await UiThread.Until(() => !Card(search, "1000001").HasUpdate, "札が下りる");
@@ -79,7 +79,7 @@ public class SearchUpdatedTests
         Assert.All(app.Store.Notifications.Load().Where(record => record.ItemId == "1000001"), record => Assert.True(record.IsRead));
         Assert.False(folderCard.HasUpdate);
         Assert.False(Card(search, "1000001").CanMarkUpdateRead);
-        await UiThread.Until(() => main.UnreadCount == 0, "ナビの要確認の数が減る");
+        await UiThread.Until(() => main.UnreadCount == 0, "ナビの通知の数が減る");
     });
 
     [Fact]
@@ -104,7 +104,7 @@ public class SearchUpdatedTests
         var main = await StartAsync(app);
         var card = Card(main.Search, "1000001");
 
-        // 要確認・商品ページの「既読にする」と同じ命令で、検索を通さずに既読にする
+        // 通知・商品ページの「既読にする」と同じ命令で、検索を通さずに既読にする
         await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.MarkNotificationsRead(["n1", "n2"]));
         main.RefreshBadges();
 

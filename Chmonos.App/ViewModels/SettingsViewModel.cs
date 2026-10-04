@@ -835,7 +835,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         get => _notificationRetentionCount;
         set
         {
-            var clamped = Clamped(value, 20, 5000, "要確認に残す件数", " 件", nameof(NotificationRetentionCount));
+            var clamped = Clamped(value, 20, 5000, "通知に残す件数", " 件", nameof(NotificationRetentionCount));
             if (SetField(ref _notificationRetentionCount, clamped)) { Save(); }
             else if (clamped != value) { OnPropertyChanged(); }
         }

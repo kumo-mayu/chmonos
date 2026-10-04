@@ -66,7 +66,7 @@ public class SplitRowPanelTests
         Assert.Equal(new Rect(203, 21, 100, 32), LayoutInformation.GetLayoutSlot(right));
     });
 
-    // 要確認の束の見出し（メモ13-①）：左＝折り返す説明、右＝件数の札（300×24）。前は右の 400 を常に空けていて、狭い窓で説明だけが細くなった
+    // 通知の束の見出し（メモ13-①）：左＝折り返す説明、右＝件数の札（300×24）。前は右の 400 を常に空けていて、狭い窓で説明だけが細くなった
     private static (SplitRowPanel Panel, TextBlock Left, Border Right) BuildInboxHead(double width)
     {
         var left = new TextBlock { Text = new string('説', 60), TextWrapping = TextWrapping.Wrap, FontSize = 12 };

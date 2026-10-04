@@ -7,7 +7,7 @@ namespace Chmonos.App.Tests;
 
 /// <summary>
 /// 説明文の見出しの変更を、変わった行で見せる（メモ13-②・ユーザ指示 2026-10-02）。
-/// 要確認の札は変わった行を並べ、商品ページは本文の足した行に地を付け、消えた行を見出しの下に並べる。
+/// 通知の札は変わった行を並べ、商品ページは本文の足した行に地を付け、消えた行を見出しの下に並べる。
 /// 頭の抜き出しだけでは、見出しの後ろの方が変わったときに「同じ → 同じ」に見えていた。
 /// </summary>
 public class ChangedLinesTests
@@ -37,10 +37,10 @@ public class ChangedLinesTests
 
     private static string Show(IEnumerable<ChangedLineRow> rows) => string.Join(" | ", rows.Select(row => $"{row.Label}:{row.Text}"));
 
-    // ---- 要確認の札 ----
+    // ---- 通知の札 ----
 
     [Fact]
-    public void 要確認の札は_変わった行を並べ_頭の抜き出しは出さない()
+    public void 通知の札は_変わった行を並べ_頭の抜き出しは出さない()
     {
         var card = Assert.Single(Row(new NotificationDiff
         {

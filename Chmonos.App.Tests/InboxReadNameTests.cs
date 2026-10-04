@@ -4,7 +4,7 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 要確認の行の既読の丸の、読み上げ・自動操作の名前。丸は行ごとに並ぶので、どの行の物かと、今押すと起きることを言う
+/// 通知の行の既読の丸の、読み上げ・自動操作の名前。丸は行ごとに並ぶので、どの行の物かと、今押すと起きることを言う
 /// （ユーザ判断 2026-09-30。Tab で止まれるようにしたので、止まったときに何の丸かが読まれる）。
 /// Tab で止まること・Enter と Space で切り替わることは <c>experiments/PeerProbe -- focus</c> で確かめる。
 /// </summary>

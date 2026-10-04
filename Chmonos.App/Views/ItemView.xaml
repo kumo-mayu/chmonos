@@ -220,7 +220,7 @@
                             AutomationProperties.AutomationId="ItemMarkChangesRead"
                             Command="{Binding MarkChangesReadCommand}"
                             Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                            ToolTip="印を消して、要確認の知らせも既読にします。" />
+                            ToolTip="印を消して、通知も既読にします。" />
                 </Grid>
             </Border>
         </Border>
@@ -926,7 +926,7 @@
                                         結び方は隣の「検索から除く」と同じ（一方向に結び、書き込みは命令を通し、保存し終えたら今の値に合わせ直す）
                                     -->
                                     <CheckBox IsChecked="{Binding NotifyOnUpdate, Mode=OneWay}" Command="{Binding ToggleNotifyCommand}" Margin="0,4,0,0"
-                                              ToolTip="BOOTHで内容が変わったら要確認に表示します。"
+                                              ToolTip="BOOTHで内容が変わったら通知に表示します。"
                                               AutomationProperties.AutomationId="ItemNotifyOnUpdate" AutomationProperties.Name="更新通知" />
                                 </StackPanel>
                             </WrapPanel>

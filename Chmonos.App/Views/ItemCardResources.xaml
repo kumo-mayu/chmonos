@@ -67,7 +67,7 @@
         <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Select}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Select}" />
-        <MenuItem Header="更新の知らせを開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
+        <MenuItem Header="更新の通知を開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=ShowUpdate}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=ShowUpdate}" />
         <!--
@@ -84,7 +84,7 @@
         <MenuItem Header="選んだ商品を既読にする" AutomationProperties.AutomationId="CardMenu.MarkSelectionRead"
                   Command="{Binding PlacementTarget.Tag.MarkSelectionReadCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                   IsEnabled="{Binding PlacementTarget.Tag.HasSelectedUpdates, RelativeSource={RelativeSource AncestorType=ContextMenu}, FallbackValue=False}"
-                  ToolTip="選んだ商品に未読の更新の知らせがあるときに押せます" />
+                  ToolTip="選んだ商品に未読の更新の通知があるときに押せます" />
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
@@ -422,7 +422,7 @@
                                                             Command="{Binding ShowUpdateCommand}"
                                                             AutomationProperties.AutomationId="ItemCardUpdate"
                                                             AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
-                                                            ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
+                                                            ToolTip="通知に更新があります。押すとその通知を開きます。"
                                                             Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
                                                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
@@ -669,7 +669,7 @@
                             AutomationProperties.AutomationId="SelectionBar.MarkRead"
                             AutomationProperties.Name="選んだ商品を既読にする"
                             Command="{Binding MarkSelectionReadCommand}"
-                            ToolTip="選んだ商品の更新の知らせを既読にします。"
+                            ToolTip="選んだ商品の更新の通知を既読にします。"
                             Visibility="{Binding HasSelectedUpdates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
                     <Button Content="すべて選択" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
@@ -1020,7 +1020,7 @@
                         Command="{Binding ShowUpdateCommand}"
                         AutomationProperties.AutomationId="ItemListUpdate"
                         AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
-                        ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
+                        ToolTip="通知に更新があります。押すとその通知を開きます。"
                         Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                         BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"

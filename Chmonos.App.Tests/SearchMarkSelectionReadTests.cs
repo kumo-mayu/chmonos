@@ -55,7 +55,7 @@ public class SearchMarkSelectionReadTests
         var search = main.Search;
         SearchModuleMenuTests.Add(search, SearchModuleKind.Updated);
         Assert.Equal(["1000001", "1000002"], search.ListItems.Select(card => card.Item.Id).Order());
-        await UiThread.Until(() => main.UnreadCount == 3, "ナビの要確認の数を読む");
+        await UiThread.Until(() => main.UnreadCount == 3, "ナビの通知の数を読む");
 
         Card(search, "1000001").IsSelected = true;
         Card(search, "1000002").IsSelected = true;
@@ -71,7 +71,7 @@ public class SearchMarkSelectionReadTests
         Assert.All(app.Store.Notifications.Load(), record => Assert.True(record.IsRead));
         Assert.False(search.HasSelectedUpdates);
         Assert.Empty(search.ListItems);
-        await UiThread.Until(() => main.UnreadCount == 0, "ナビの要確認の数が減る");
+        await UiThread.Until(() => main.UnreadCount == 0, "ナビの通知の数が減る");
     });
 
     [Fact]

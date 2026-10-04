@@ -9,7 +9,7 @@ namespace Chmonos.App.Tests;
 /// 商品ページの「BOOTHで変わった所」の印（メモ7-①・ユーザ判断 2026-10-02：「既読にする」を押すまで印を残す）。
 ///
 /// 未読の更新の知らせの差（欄の名前・前・後）から、どの欄にどの種類の印を付けるかを決める。
-/// 前は要確認・ショップの「変更あり」から開いても、ページのどこが変わったのか分からなかった。
+/// 前は通知・ショップの「変更あり」から開いても、ページのどこが変わったのか分からなかった。
 /// </summary>
 public class ItemPageChangesTests
 {
@@ -228,7 +228,7 @@ public class ItemPageChangesTests
     // ---- 商品ページを通して ----
 
     [Fact]
-    public Task 商品ページは_未読の更新の欄に印を付け_既読にするで印を消し_要確認の数も減る() => TestApp.Run(async app =>
+    public Task 商品ページは_未読の更新の欄に印を付け_既読にするで印を消し_通知の数も減る() => TestApp.Run(async app =>
     {
         var history = new H2Section { Heading = "★更新履歴★", Text = "v1.1 公開" };
         var notes = new H2Section { Heading = "注意事項", Text = "作り物の注意" };
@@ -255,7 +255,7 @@ public class ItemPageChangesTests
         });
 
         var main = await app.StartAsync();
-        await UiThread.Until(() => main.UnreadCount == 2, "要確認の未読が2件と数えられる");
+        await UiThread.Until(() => main.UnreadCount == 2, "通知の未読が2件と数えられる");
 
         // 開いた時点で印が付いている（後から付くと、上の帯が後から現れて本文を押し下げる。メモ17）
         var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
@@ -294,8 +294,8 @@ public class ItemPageChangesTests
         Assert.True(page.ShowsChangesBar);
         Assert.True(page.IsChangesRead);
 
-        // この商品の知らせだけが既読になり、ナビの要確認の数も合わせて減る
-        await UiThread.Until(() => main.UnreadCount == 1, "ナビの要確認の数が1つ減る");
+        // この商品の知らせだけが既読になり、ナビの通知の数も合わせて減る
+        await UiThread.Until(() => main.UnreadCount == 1, "ナビの通知の数が1つ減る");
         var saved = app.Services.Notifications.Load();
         Assert.True(saved.Single(record => record.ItemId == ItemId).IsRead);
         Assert.False(saved.Single(record => record.ItemId == "1000002").IsRead);
@@ -310,7 +310,7 @@ public class ItemPageChangesTests
 
     /// <summary>
     /// 未読のうちに2回変わった商品は、重ねた1件の知らせ（<see cref="ChangeStack"/>）になる。
-    /// ナビの数は1つ、印は最初の前の値で付き、要確認の行の日時の吹き出しは最初と最後を並べる
+    /// ナビの数は1つ、印は最初の前の値で付き、通知の行の日時の吹き出しは最初と最後を並べる
     /// </summary>
     [Fact]
     public Task 重ねた知らせは_ナビで1件と数え_最初の前の値で印を付ける() => TestApp.Run(async app =>
@@ -650,7 +650,7 @@ public class ItemPageChangesTests
     });
 
     [Fact]
-    public void 要確認の札は_値段の変わったバリエーションを商品ページと同じ形で1行ずつ出す()
+    public void 通知の札は_値段の変わったバリエーションを商品ページと同じ形で1行ずつ出す()
     {
         var row = new NotificationRow
         {
