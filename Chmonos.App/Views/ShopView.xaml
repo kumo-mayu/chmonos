@@ -364,7 +364,16 @@
                     </Grid>
                 </Border>
                 <!-- 名前が長いときは名前だけを詰め、星は名前のすぐ右に残す（左寄せの DockPanel は中身の幅までしか広がらない） -->
-                <DockPanel Grid.Column="1" HorizontalAlignment="Left" Margin="12,0,16,0" VerticalAlignment="Center">
+                <!--
+                    名前の右が空いているので、メモがあるときだけ先頭1行を薄く出す（メモ28）。名前を先に取り、残りがメモ。
+                    入り切らなければ「…」で切り、乗せると全文を出す。メモが無いときは何も出さない（高さは決め打ちなので変わらない）
+                -->
+                <Grid Grid.Column="1" Margin="12,0,16,0" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
                     <Button DockPanel.Dock="Right" Command="{Binding ToggleFavoriteCommand}" Margin="6,0,0,0" Cursor="Hand"
                             VerticalAlignment="Center" ToolTip="{Binding FavoriteTip}"
                             AutomationProperties.AutomationId="ShopCompactFavorite">
@@ -397,6 +406,17 @@
                     <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                 </DockPanel>
+                <TextBlock Grid.Column="1" x:Name="CompactMemo" Text="{Binding MemoFirstLine}" Margin="14,0,0,0" FontSize="12.5"
+                           Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding HasMemoLine, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                           AutomationProperties.AutomationId="ShopCompactMemo">
+                    <TextBlock.ToolTip>
+                        <ToolTip>
+                            <TextBlock Text="{Binding Memo}" TextWrapping="Wrap" MaxWidth="420" />
+                        </ToolTip>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+                </Grid>
                 <!-- 集計は元の段と同じ4つを、見出しを小さくして1行に -->
                 <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12.5">
                     <Run Text="所持" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />

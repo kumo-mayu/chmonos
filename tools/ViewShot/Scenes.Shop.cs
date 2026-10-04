@@ -82,6 +82,22 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 1行の見出しのメモ（メモ28）：無いときは何も出さず、長いときは「…」で切る
+        new Scene("shop-compact-memo-none", "ショップの中：名前の段が流れ去った後、メモが無い（1行の見出しにメモの行は出ない）", async context =>
+        {
+            var (shop, root) = await OpenShopAsync(context, count: 24, memo: null);
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: false);
+            return new Shot(root);
+        }),
+
+        new Scene("shop-compact-memo-long", "ショップの中：名前の段が流れ去った後、メモが長い（先頭の1行が「…」で切れる。2行目以降は出ない）", async context =>
+        {
+            var (shop, root) = await OpenShopAsync(context, count: 24, memo:
+                "利用規約：改変可・再配布不可・商用利用は作者への連絡が必要で、連絡先は作り物の窓口の問い合わせフォームのみ。作り物の長い長い注意書きが続く。\n2行目は出ない。");
+            await ScrollShopAsync(context, shop, root, ShopScrollPlace.Past, list: false);
+            return new Shot(root);
+        }),
+
         new Scene("shop-scroll-bottom", "ショップの中：カードで、一番下まで流した所", async context =>
         {
             var (shop, root) = await OpenShopAsync(context, count: 24);
@@ -205,14 +221,15 @@ internal static partial class Scenes
     ]);
 
     /// <summary>16件（既定。流せる量が短い一覧）または多めの件数とバナーとメモを置き、作り物の店のショップ画面を開く。</summary>
-    private static async Task<(ShopViewModel Shop, System.Windows.FrameworkElement Root)> OpenShopAsync(SceneContext context, int count = 16)
+    private static async Task<(ShopViewModel Shop, System.Windows.FrameworkElement Root)> OpenShopAsync(
+        SceneContext context, int count = 16, string? memo = "利用規約：改変可・再配布不可。問い合わせは作り物の窓口へ。")
     {
         await SeedLibraryAsync(context, count: count);
         var banner = context.Seed.Paths.ShopBannerFile(FakeShopSubdomain);
         Fake.Image(Path.GetDirectoryName(banner)!, Path.GetFileName(banner), seed: "banner", width: 960, height: 320);
         await context.Seed.ShopNotes.SaveAsync(
         [
-            new ShopNoteRecord { Subdomain = FakeShopSubdomain, NameHint = "作り物ショップ", IsFavorite = true, Memo = "利用規約：改変可・再配布不可。問い合わせは作り物の窓口へ。" },
+            new ShopNoteRecord { Subdomain = FakeShopSubdomain, NameHint = "作り物ショップ", IsFavorite = true, Memo = memo },
         ]);
 
         var main = await context.StartAsync();
