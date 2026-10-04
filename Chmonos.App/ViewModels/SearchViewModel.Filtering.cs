@@ -407,8 +407,6 @@ public sealed partial class SearchViewModel
     /// <param name="imagePending">取り込みの途中で、絵がまだ1枚も無いか。フォルダを見るのは呼び手（読み直しは裏でまとめて見る）。</param>
     private ItemCardViewModel ToCard(ItemRecord item, bool imagePending)
     {
-        var missing = item.Local.OwnedFiles.Any(file => file.Paths.Count == 0);
-
         // 取り込みの③がまだの商品は「未編集」ではなく「取り込み中」と出す（U8・U10）
         var awaiting = _main?.IsAwaitingDetection(item.Id) == true;
 
@@ -427,7 +425,7 @@ public sealed partial class SearchViewModel
             // 取り込みの途中で、絵がまだ1枚も無い。灰色の枠だけだと壊れて見える（U8）
             // 画像を保存しない設定では絵は来ないので、「取得中」と言うと嘘になる
             IsImagePending = imagePending,
-            HasMissingFile = missing,
+            HasMissingFile = item.HasMissingFile,
             UserTagText = ItemCardViewModel.UserTagLine(item.Local.UserTags, _services.Settings.ShowSubTagsInList),
         };
     }

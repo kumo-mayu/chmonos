@@ -577,6 +577,16 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
+        // 記録の上では持っているが置き場が無いファイル（ユーザ判断 2026-10-04）。カードの印と同じ式（ItemRecord.HasMissingFile）
+        SearchModuleKind.MissingFile => new ChoiceModule(kind,
+            [new(MissingFileKey, "見つからないファイルがある"), new("none", "見つからないファイルは無い"), new("both", "両方")],
+            "both", (item, key, _) => key switch
+            {
+                MissingFileKey => item.HasMissingFile,
+                "none" => !item.HasMissingFile,
+                _ => true,
+            }),
+
         // 要確認に未読の更新がある商品（ユーザ指示 2026-10-02）。カードの札「更新あり」と同じ表（SearchViewModel.Updates）を見る。
         // 既読にすると外れる（表が変わったら絞り直す）
         SearchModuleKind.Updated => new ChoiceModule(kind,
@@ -674,6 +684,9 @@ public sealed partial class SearchViewModel
 
     /// <summary>条件「壊れたzip」の「ある」の鍵。取り込みの結果から入る口（<see cref="ShowOnlyBrokenZip"/>）と同じ物を指す。</summary>
     private const string BrokenZipKey = "broken";
+
+    /// <summary>条件「見つからないファイル」の「ある」の鍵。</summary>
+    private const string MissingFileKey = "missing";
 
     private const string PaidSource = "paid";
     private const string BoothSource = "booth";
