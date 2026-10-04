@@ -76,4 +76,6 @@
   （`RenameUserTag`・`RenameAttribute`・`RenameBase`。規則は `SavedSearches.RenameUserTagTop`／`RenameUserTagSub`／`RenameAttribute`／`RenameBase`）。
 - 統合は、残る側の綴り（マスタにある名前）へ寄せ、同じ条件が2つになれば1つにする（大分類は小分類を合わせる。属性の幅は寄せ先のものを残す）。
 - **消したときは今のまま残す**（0件の理由が条件の欄に見える。上の「今は無い値はそのまま条件に入れる」）。
-- 対象外：検索の履歴（`search-history.json`）、小分類の移動・大分類を小分類にする命令（名前は変わらず場所が変わる）。
+- 場所が変わる命令にも付いていく（ユーザ判断 2026-10-05）。`MoveUserTagSub`（小分類を別の大分類へ）は「元の大分類の小分類 x」を「移動先の小分類 x」へ、`NestUserTagTop`（大分類を小分類に）は「大分類 X」を「入れ先の小分類 X」へ書き換える（`SavedSearches.MoveUserTagSub`／`NestUserTagTop`）。
+  移動先に条件が既にあれば小分類を足して1つにする。ただし移動先が小分類を絞っていない条件（その大分類の全部）には足さない（足すと狭まる）。元の条件は、移した x を抜いて小分類が残らなければ消す（残すと「全部」へ広がる）。断られた・移せなかったときは触らない。
+- 対象外：検索の履歴（`search-history.json`）。

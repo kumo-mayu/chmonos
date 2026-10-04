@@ -585,8 +585,23 @@ public sealed class CommandHandler
                     return MissingService("ユーザータグの編集");
                 }
 
-                return new CommandResult.UserTagsRewritten(await _userTags.MoveSubAsync(
-                    move.FromTop, move.Sub, move.ToTop, move.DropEmptySourceTop, cancellationToken));
+                var movedResult = await _userTags.MoveSubAsync(
+                    move.FromTop, move.Sub, move.ToTop, move.DropEmptySourceTop, cancellationToken);
+
+                // 保存した検索の条件も付いていかせる（名前の変更と同じ。残る側の綴りはマスタの名前）。移せなかったときは触らない
+                if (movedResult.WasMoved)
+                {
+                    var toTopMaster = movedResult.Master.Tops.FirstOrDefault(
+                        top => string.Equals(top.Name, move.ToTop, StringComparison.CurrentCultureIgnoreCase));
+                    var movedSubName = toTopMaster?.Subs.FirstOrDefault(
+                        sub => string.Equals(sub.Name, move.Sub, StringComparison.CurrentCultureIgnoreCase))?.Name ?? move.Sub;
+                    await FollowRenameInSavedSearchesAsync(
+                        entries => Services.SavedSearches.MoveUserTagSub(
+                            entries, move.FromTop, move.Sub, toTopMaster?.Name ?? move.ToTop, movedSubName),
+                        cancellationToken);
+                }
+
+                return new CommandResult.UserTagsRewritten(movedResult);
 
             case UiCommand.NestUserTagTop nest:
                 if (_userTags is null)
@@ -595,9 +610,21 @@ public sealed class CommandHandler
                 }
 
                 var nested = await _userTags.NestTopAsync(nest.Top, nest.IntoTop, cancellationToken);
-                return nested.WasRefused
-                    ? new CommandResult.Failed($"「{nest.Top}」には小分類があるため、小分類にできませんでした。")
-                    : new CommandResult.UserTagsRewritten(nested);
+                if (nested.WasRefused)
+                {
+                    return new CommandResult.Failed($"「{nest.Top}」には小分類があるため、小分類にできませんでした。");
+                }
+
+                // 保存した検索の条件も付いていかせる。統合のときは入れ先に既にある小分類の綴りへ寄せる
+                var intoTopMaster = nested.Master.Tops.FirstOrDefault(
+                    top => string.Equals(top.Name, nest.IntoTop, StringComparison.CurrentCultureIgnoreCase));
+                var nestedSubName = intoTopMaster?.Subs.FirstOrDefault(
+                    sub => string.Equals(sub.Name, nest.Top, StringComparison.CurrentCultureIgnoreCase))?.Name ?? nest.Top;
+                await FollowRenameInSavedSearchesAsync(
+                    entries => Services.SavedSearches.NestUserTagTop(
+                        entries, nest.Top, intoTopMaster?.Name ?? nest.IntoTop, nestedSubName),
+                    cancellationToken);
+                return new CommandResult.UserTagsRewritten(nested);
 
             case UiCommand.RenameAttribute renameAttribute:
                 if (_attributes is null)
