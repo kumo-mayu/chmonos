@@ -51,9 +51,10 @@ public class ManageAddAndSortTests
         tags.FilterText = "作り物の丙";
 
         tags.AddTopCommand.Execute(null);
-        await UiThread.Until(() => tags.TopCount == 3, "足した大分類が並ぶ");
+        await UiThread.Until(() => tags.TopCount == 3 && tags.AddNoticeText.Length > 0, "足した大分類が並び、欄の下に知らせが出る");
 
-        Assert.Equal("「作り物の丙」を追加しました。", tags.StatusText);
+        Assert.Equal("「作り物の丙」を追加しました。", tags.AddNoticeText);
+        Assert.False(tags.AddNoticeIsWarning);
         Assert.Equal(string.Empty, tags.FilterText);
         Assert.Equal("作り物の丙", tags.Selected?.Name);
     });
@@ -125,9 +126,10 @@ public class ManageAddAndSortTests
         attributes.FilterText = "作り物の乙";
 
         attributes.AddCommand.Execute(null);
-        await UiThread.Until(() => attributes.Rows.Count == 2, "足した属性が並ぶ");
+        await UiThread.Until(() => attributes.Rows.Count == 2 && attributes.AddNoticeText.Length > 0, "足した属性が並び、欄の下に知らせが出る");
 
-        Assert.Equal("「作り物の乙」を追加しました。", attributes.StatusText);
+        Assert.Equal("「作り物の乙」を追加しました。", attributes.AddNoticeText);
+        Assert.False(attributes.AddNoticeIsWarning);
         Assert.Equal(string.Empty, attributes.FilterText);
         Assert.Equal("作り物の乙", attributes.Selected?.Name);
     });

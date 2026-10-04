@@ -22,8 +22,20 @@
             </Grid>
         </DockPanel>
 
-        <!-- 「既にあります」。空でも高さは残す（Collapsed にしない） -->
-        <TextBlock x:Name="Notice" Height="16" Margin="2,4,0,0" FontSize="11" TextTrimming="CharacterEllipsis"
-                   Foreground="{DynamicResource Warn}" />
+        <!--
+            欄の下の知らせ。共通の型 FieldNotice／FieldWarning（App.xaml）の作り（空でも1行分の高さを残す・長い文は吹き出し）で、
+            打ち直しが要る物（既にあります・入れてください）は警告の色、足せたことはふつうの色
+        -->
+        <TextBlock x:Name="Notice">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding NoticeIsWarning, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
     </StackPanel>
 </UserControl>

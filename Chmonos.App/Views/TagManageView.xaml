@@ -184,7 +184,7 @@
                         -->
                         <controls:SearchAddBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                                Placeholder="検索、または追加（例：衣装）"
-                                               NoticeText="{Binding AddNoticeText}" AddCommand="{Binding AddTopCommand}"
+                                               NoticeText="{Binding AddNoticeText}" NoticeIsWarning="{Binding AddNoticeIsWarning}" AddCommand="{Binding AddTopCommand}"
                                                SubmitCommand="{Binding SubmitFilterCommand}"
                                                AutomationProperties.Name="大分類を検索・追加"
                                                AutomationProperties.AutomationId="TagFilterInput"
@@ -215,6 +215,14 @@
                                          IsChecked="{Binding SortsManually, Mode=TwoWay}"
                                          ToolTip="検索と編集の候補に表示する順です。行をドラッグして並べ替えます。" />
                         </Grid>
+
+                        <!--
+                            一覧の見出しの近くの知らせ：行ごと消える操作（大分類の削除・統合・小分類にした）と、一覧に無いユーザータグの直しの結果。
+                            右の欄は選んだ大分類で入れ替わるので、変わらないこの欄で言う。1行分の場所は常に取る（出入りで下の一覧が跳ねない）
+                        -->
+                        <TextBlock Text="{Binding ListNotice.Text}" Tag="{Binding ListNotice.IsWarning}"
+                                   Style="{StaticResource ManageNoticeLine}" Margin="2,6,0,0"
+                                   AutomationProperties.AutomationId="TagListNotice" />
                     </StackPanel>
 
                     <!-- 並びは検索の絞り込みにも編集の候補にも出るので、ドラッグで変えられる -->
@@ -353,9 +361,6 @@
                 -->
                 <StackPanel HorizontalAlignment="Stretch" controls:ArrowGroup.IsOutside="True">
 
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
-                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
                     <!-- マスタに無い名前をitemが参照したまま。要確認は知らせるだけで、直せるのはここ -->
                     <Border Style="{StaticResource Card}" Margin="0,0,0,16"
                             Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
@@ -460,6 +465,10 @@
                                                     ToolTipService.ShowOnDisabled="True"
                                                     ToolTip="{Binding ShowItemsToolTip}" />
                                         </StackPanel>
+                                        <!-- 名前の変更の結果は名前の近く。1行分の場所は常に取る -->
+                                        <TextBlock Text="{Binding NameNotice.Text}" Tag="{Binding NameNotice.IsWarning}"
+                                                   Style="{StaticResource ManageNoticeLine}" Margin="0,4,0,0"
+                                                   AutomationProperties.AutomationId="TagNameNotice" />
                                     </StackPanel>
                                     <!-- 大分類の削除は小分類も商品の付け替えも伴うので、色で重さを出す（ユーザ指摘 2026-09-18） -->
                                     <Button Content="この大分類を削除" Style="{StaticResource DangerButton}"
@@ -499,11 +508,23 @@
                                 <TextBlock Text="大分類の下に入ります。商品から大分類を外すと、その下の小分類も一緒に外れます。"
                                            Style="{StaticResource Caption}" Margin="0,4,0,0" />
 
+                                <!-- 小分類の削除・統合・名前の変更・移したの結果は見出しの近く。1行分の場所は常に取る -->
+                                <TextBlock Text="{Binding SubNotice.Text}" Tag="{Binding SubNotice.IsWarning}"
+                                           Style="{StaticResource ManageNoticeLine}" Margin="0,2,0,0"
+                                           AutomationProperties.AutomationId="TagSubNotice" />
+
                                 <!--
                                     商品名で探す欄と、小分類を足すボタンは隣り合わせにする
                                     （ユーザ指摘 2026-09-18：右上に置くと遠い）。足す欄は押したときだけ出す
                                 -->
-                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <!--
+                                    探す欄・丸い＋の塊（左）と「すべて開く」（右）は SplitRowPanel で並べる（ほかの画面の見出しの行と同じ作法）。
+                                    幅1280で入り切らず「すべて開く」が切れていた。入り切らないときは次の段へ送る。
+                                    左の塊は、丸い＋が閉じていても開ききった幅（探す欄360＋間10＋丸い＋の約240）を要る幅として持つ——
+                                    丸い＋を開閉するたびに送る・戻すが入れ替わって、下が跳ねないように
+                                -->
+                                <controls:SplitRowPanel Margin="0,10,0,0" Gap="12" MinLeftWidth="620">
+                                <StackPanel Orientation="Horizontal" MinWidth="620">
                                 <Grid Width="360">
                                     <TextBox MaxLength="500" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                              AutomationProperties.Name="この大分類の中を小分類・商品で探す"
@@ -600,23 +621,24 @@
                                                     Visibility="{Binding IsAddingSub, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
                                     </Border>
+                                </StackPanel>
 
                                     <!--
                                         小分類をまとめて開く・畳む（ユーザ指示 2026-09-19）。全部開いている間は「すべて畳む」になる。
                                         開くのは中身のある小分類だけ（中身の無い物は三角も押せない）
                                     -->
                                     <Button Content="{Binding ToggleAllText}" Style="{StaticResource SmallButton}"
-                                            Margin="16,0,0,0" VerticalAlignment="Center"
+                                            VerticalAlignment="Center"
                                             Command="{Binding ToggleAllCommand}"
                                             ToolTip="中身のある小分類を、まとめて開くか折りたたみます。" />
-                                </StackPanel>
+                                </controls:SplitRowPanel>
 
                                 <!--
                                     小分類を足す欄の下の「既にあります」。丸い欄の左端（検索欄の幅360＋余白10）にそろえる。
                                     1行分の場所は常に取る（Collapsed にしない）——出入りで下が跳ねる
                                 -->
-                                <TextBlock Text="{Binding AddSubNoticeText}" Height="16" Margin="370,4,0,0" FontSize="11"
-                                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Warn}"
+                                <TextBlock Text="{Binding AddSubNoticeText}" Tag="{Binding AddSubNoticeIsWarning}"
+                                           Style="{StaticResource ManageNoticeLine}" Margin="370,4,0,0"
                                            AutomationProperties.AutomationId="TagAddSubNotice" />
 
                                 <controls:SearchSyntaxHint Margin="2,2,0,0" />

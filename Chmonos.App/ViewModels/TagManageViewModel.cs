@@ -505,7 +505,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     private TagTopRow? _selected;
     private string _filterText = string.Empty;
     private string _memoDraft = string.Empty;
-    private string _statusText = string.Empty;
     private bool _isBusy;
     private bool _swappingMemo;
     private bool _rebuildingList;
@@ -710,7 +709,16 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
                 _selected.IsSelected = false;
             }
 
+            var previousName = _selected?.Name;
             _selected = value;
+
+            // 読み直しで同じ名前の行に選び直しただけなら、今出している知らせは残す（名前の変更・移した結果が消えてしまう）。
+            // 別の大分類へ移ったときは、前の大分類の話なので消す
+            if (!string.Equals(previousName, value?.Name, StringComparison.CurrentCultureIgnoreCase))
+            {
+                NameNotice.Clear();
+                SubNotice.Clear();
+            }
 
             if (_selected is not null)
             {
@@ -791,7 +799,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         // 一覧に無い小分類が商品の側に付いていると、一覧の数だけでは分からない。下見で分かったらここで止める
         if (preview.HasSubs)
         {
-            StatusText = $"「{source.Name}」には小分類が付いた商品があるため、小分類にできませんでした。";
+            ListNotice.Warn($"「{source.Name}」には小分類が付いた商品があるため、小分類にできませんでした。");
             return;
         }
 
@@ -811,10 +819,10 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             return;
         }
 
-        var result = await RewriteTagsAsync(new UiCommand.NestUserTagTop(source.Name, into), "小分類にできませんでした。");
+        var result = await RewriteTagsAsync(new UiCommand.NestUserTagTop(source.Name, into), "小分類にできませんでした。", ListNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{source.Name}」を「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
+            ListNotice.Done($"「{source.Name}」を「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
 
         await ReloadAsync();
@@ -853,15 +861,29 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     }
 
     private string _addNoticeText = string.Empty;
+    private bool _addNoticeIsWarning = true;
 
     /// <summary>
-    /// 欄のすぐ下の「既にあります」。「追加」を押して同じ名前があったときだけ入る（画面の右上の状態の1行ではなく、押した所で言う）。
+    /// 欄のすぐ下の1行。名前が空・長すぎる・既にある（打ち直しが要る）と、足せた（済んだこと）を言う。
     /// 欄の側が1行分の場所を常に取ってあるので、出ても消えても下の一覧は動かない
     /// </summary>
     public string AddNoticeText
     {
         get => _addNoticeText;
         private set => SetField(ref _addNoticeText, value);
+    }
+
+    /// <summary>欄の下の知らせが、打ち直しや別の操作の要る物か（要る物は警告の色、済んだことはふつうの色）。</summary>
+    public bool AddNoticeIsWarning
+    {
+        get => _addNoticeIsWarning;
+        private set => SetField(ref _addNoticeIsWarning, value);
+    }
+
+    private void SayAdd(string text, bool warning)
+    {
+        AddNoticeIsWarning = warning;
+        AddNoticeText = text;
     }
 
     public string MemoDraft
@@ -901,19 +923,18 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     public string HeaderText => $"大分類 {TopCount} 件";
 
-    public string StatusText
-    {
-        get => _statusText;
-        private set
-        {
-            if (SetField(ref _statusText, value))
-            {
-                OnPropertyChanged(nameof(HasStatus));
-            }
-        }
-    }
+    /// <summary>
+    /// 操作の結果の知らせは、押した所の近くに出す（`notice-placement-2026-10-03.md`）。右の欄の先頭の1行にまとめて出していたのをやめた。
+    /// 欄の下（足す欄の誤りと「既にあります」）は AddNoticeText・AddSubNoticeText、
+    /// 名前の近くは <see cref="NameNotice"/>、小分類の見出しの近くは <see cref="SubNotice"/>、
+    /// 一覧の見出しの近く（行ごと消える操作と、一覧に無いタグの直し）は <see cref="ListNotice"/>。
+    /// メモの自動保存の成功は出さない（欄が残るので足りる。設定と同じ）
+    /// </summary>
+    public ManageNotice NameNotice { get; } = new();
 
-    public bool HasStatus => StatusText.Length > 0;
+    public ManageNotice SubNotice { get; } = new();
+
+    public ManageNotice ListNotice { get; } = new();
 
     public bool IsBusy
     {
@@ -1098,12 +1119,26 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     }
 
     /// <summary>
-    /// 小分類を足す欄のすぐ下の「既にあります」。欄の側が1行分の場所を常に取ってあるので、出ても消えても下は動かない
+    /// 小分類を足す欄のすぐ下の1行（大分類の側の <see cref="AddNoticeText"/> と同じ）。欄の側が1行分の場所を常に取ってあるので、出ても消えても下は動かない
     /// </summary>
     public string AddSubNoticeText
     {
         get => _addSubNoticeText;
         private set => SetField(ref _addSubNoticeText, value);
+    }
+
+    private bool _addSubNoticeIsWarning = true;
+
+    public bool AddSubNoticeIsWarning
+    {
+        get => _addSubNoticeIsWarning;
+        private set => SetField(ref _addSubNoticeIsWarning, value);
+    }
+
+    private void SayAddSub(string text, bool warning)
+    {
+        AddSubNoticeIsWarning = warning;
+        AddSubNoticeText = text;
     }
 
     /// <summary>小分類を足す欄を出しているか（普段は隠す。ユーザ指示 2026-09-18：入力欄が並ぶと読みづらい）。</summary>
@@ -1402,35 +1437,36 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         // 空のまま押したときに黙って終わらない（I1）。押した人は「やった」と思っている
         if (trimmed.Length == 0)
         {
-            StatusText = "大分類の名前を入れてから押してください。";
+            SayAdd("大分類の名前を入れてから押してください。", warning: true);
             return;
         }
 
         // 長すぎるものは**切らずに断る**（切ると打った名前と食い違う・I13）
         if (NameText.IsTooLong(trimmed))
         {
-            StatusText = NameText.TooLongMessage("大分類の名前");
+            SayAdd(NameText.TooLongMessage("大分類の名前"), warning: true);
             return;
         }
 
         // 既にある名前は足されない。**足していないのに「追加しました」と言わない**（I2）
         if (_allTops.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
         {
-            AddNoticeText = $"「{trimmed}」は既にあります。";
+            SayAdd($"「{trimmed}」は既にあります。", warning: true);
             Selected = _allTops.FirstOrDefault(row =>
                 string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
             return;
         }
 
         await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(trimmed));
-        StatusText = $"「{trimmed}」を追加しました。";
-
         // 足せたら欄を空ける（続けて足せるように）。空にすると絞り込みも外れ、足した大分類が一覧に並ぶ
         FilterText = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
         Selected = _allTops.FirstOrDefault(row =>
             string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
+
+        // 欄を空けると打ち直しの扱いで知らせが消えるので、空けた後に出す
+        SayAdd($"「{trimmed}」を追加しました。", warning: false);
     }
 
     private async Task AddSubAsync(string? name)
@@ -1443,30 +1479,32 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var trimmed = NameText.Normalize(name);
         if (trimmed.Length == 0)
         {
-            StatusText = "小分類の名前を入れてから押してください。";
+            SayAddSub("小分類の名前を入れてから押してください。", warning: true);
             return;
         }
 
         if (NameText.IsTooLong(trimmed))
         {
-            StatusText = NameText.TooLongMessage("小分類の名前");
+            SayAddSub(NameText.TooLongMessage("小分類の名前"), warning: true);
             return;
         }
 
         if (Subs.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
         {
-            // 押した所で言う（右上の状態の1行ではなく、欄のすぐ下）
-            AddSubNoticeText = $"「{trimmed}」は既にあります。";
+            SayAddSub($"「{trimmed}」は既にあります。", warning: true);
             return;
         }
 
         await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(Selected.Name, trimmed));
-        StatusText = $"「{Selected.Name}」に「{trimmed}」を追加しました。";
+        var parent = Selected.Name;
 
         // 足せたら欄を空ける（続けて足せるように）
         NewSubText = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
+
+        // 欄を空けると知らせが消えるので、空けた後に出す
+        SayAddSub($"「{parent}」に「{trimmed}」を追加しました。", warning: false);
     }
 
     /// <summary>
@@ -1496,10 +1534,14 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             return;
         }
 
-        var result = await RewriteTagsAsync(new UiCommand.RenameUserTag(Selected.Name, null, target), "名前を変更できませんでした。");
+        // 名前を変えただけなら名前の近く。統合は片方の行が消えるので、一覧の見出しの近く
+        var notice = merging ? ListNotice : NameNotice;
+        var result = await RewriteTagsAsync(
+            new UiCommand.RenameUserTag(Selected.Name, null, target), "名前を変更できませんでした。", notice);
+        string? done = null;
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = rewritten.Result.WasMerged
+            done = rewritten.Result.WasMerged
                 ? $"「{target}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。"
                 : $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
@@ -1508,6 +1550,12 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         await ReloadAsync();
         Selected = _allTops.FirstOrDefault(row =>
             string.Equals(row.Name, keep, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
+
+        // 名前が変わると選び直しで名前の近くの知らせが消えるので、選び直した後に出す
+        if (done is not null)
+        {
+            notice.Done(done);
+        }
 
         await _main.ReloadLibraryAsync();
     }
@@ -1534,13 +1582,13 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             return;
         }
 
-        var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(Selected.Name), "削除できませんでした。");
+        var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(Selected.Name), "削除できませんでした。", ListNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = rewritten.Result.ItemsLeftUntagged > 0
+            ListNotice.Done(rewritten.Result.ItemsLeftUntagged > 0
                 ? $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。"
                     + $"{rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になり、未編集に戻りました。"
-                : $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。";
+                : $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。");
         }
 
         Selected = null;
@@ -1600,10 +1648,12 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             return;
         }
 
-        var result = await RewriteTagsAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target), "名前を変更できませんでした。");
+        var result = await RewriteTagsAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target), "名前を変更できませんでした。", SubNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
+            SubNotice.Done(merging
+                ? $"「{target}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。"
+                : $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
 
         await ReloadAsync();
@@ -1623,10 +1673,10 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             return;
         }
 
-        var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(row.Top, row.Name), "削除できませんでした。");
+        var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(row.Top, row.Name), "削除できませんでした。", SubNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{row.Name}」を削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。";
+            SubNotice.Done($"「{row.Name}」を削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。");
         }
 
         await ReloadAsync();
@@ -1634,20 +1684,21 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     }
 
     /// <summary>
-    /// 改名・削除の命令を送り、できなかったら状態の行に出す。
+    /// 改名・削除の命令を送り、できなかったら呼び手の渡した出し先（<paramref name="failureNotice"/>）に出す。
+    /// 前は画面の1行に一律で出していたので、押した所から離れた所に失敗が出ていた。
     ///
     /// 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
     /// 前は押しても何も起きなかったように見えた。「できなかった」の結果も受けずに捨てていた。
     /// 例外でも読み直しは続ける——途中まで書き換えた商品があり得るので、今の数を見せる
     /// </summary>
-    private async Task<CommandResult?> RewriteTagsAsync(UiCommand command, string failedText)
+    private async Task<CommandResult?> RewriteTagsAsync(UiCommand command, string failedText, ManageNotice failureNotice)
     {
         try
         {
             var result = await _services.Commands.ExecuteAsync(command);
             if (result is CommandResult.Failed failed)
             {
-                StatusText = failed.Message;
+                failureNotice.Warn(failed.Message);
             }
 
             return result;
@@ -1655,7 +1706,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         catch (Exception exception)
         {
             Core.Diagnostics.AppLog.Error("ユーザータグの書き換え", exception);
-            StatusText = failedText + Core.Services.FailureText.Cause(exception);
+            failureNotice.Warn(failedText + Core.Services.FailureText.Cause(exception));
             return null;
         }
     }
@@ -1775,7 +1826,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
                 parts.Add($"{rewritten.Result.ItemsSourceTopRemoved} 件から「{row.Top}」を外しました");
             }
 
-            StatusText = $"「{to}」の下へ移しました（{string.Join("、", parts)}）。";
+            SubNotice.Done($"「{to}」の下へ移しました（{string.Join("、", parts)}）。");
         }
 
         await ReloadAsync();
@@ -1817,7 +1868,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var memo = MemoDraft;
         row.Memo = memo;
         await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(row.Name, null, memo));
-        StatusText = memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
     }
 
     /// <summary>小分類のメモを保存する。打つたびではなく、止まってから変わったものだけ書く。</summary>
@@ -1837,10 +1887,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(row.Top, row.Name, memo));
         }
 
-        if (changed.Count > 0)
-        {
-            StatusText = "メモを保存しました。";
-        }
     }
 
     /// <summary>
@@ -1994,7 +2040,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             ? new UiCommand.AddUserTag(row.Top, row.Sub)
             : new UiCommand.AddUserTag(row.Top));
 
-        StatusText = $"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。";
+        ListNotice.Done($"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }
@@ -2021,7 +2067,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
+            ListNotice.Done($"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
         }
 
         await ReloadAsync();
@@ -2047,10 +2093,10 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             : new UiCommand.DeleteUserTag(row.Top));
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = rewritten.Result.ItemsLeftUntagged > 0
+            ListNotice.Done(rewritten.Result.ItemsLeftUntagged > 0
                 ? $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。"
                     + $"{rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になり、未編集に戻りました。"
-                : $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。";
+                : $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。");
         }
 
         await ReloadAsync();

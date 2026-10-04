@@ -44,6 +44,39 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 操作の結果の知らせは、押した所の近くへ（2026-10-04）。tag-manage-list（知らせの無い所）と見比べ、下の物が動いていないことを見る
+        new Scene("tag-manage-notices", "タグの管理：名前の近く・小分類の見出しの近く・一覧の見出しの近くの知らせを出した所（tag-manage-list と見比べる）", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            var screen = context.Screen<TagManageViewModel>();
+            screen.NameNotice.Done("「衣装」に変更し、6 件の商品を書き換えました。");
+            screen.SubNotice.Warn("「冬」を削除できませんでした。もう一度試してください。");
+            screen.ListNotice.Done("「作り物」を削除し、3 件の商品から外しました。");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        // 小分類を足す欄を開いた行：「すべて開く」が幅1280で切れていた（次の段へ送る）
+        new Scene("tag-manage-sub-add-open", "タグの管理：小分類を足す丸い＋を開いた所。「すべて開く」が切れず、入り切らなければ次の段へ送る", async context =>
+        {
+            var root = await OpenTagManageAsync(context, cards: false);
+            var screen = context.Screen<TagManageViewModel>();
+            screen.IsAddingSub = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("attribute-manage-notices", "属性の管理：名前の近く・最初から並べるのボタンの下・一覧の見出しの近くの知らせを出した所（attribute-manage-list と見比べる）", async context =>
+        {
+            var root = await OpenAttributeManageAsync(context, cards: false);
+            var screen = context.Screen<AttributeManageViewModel>();
+            screen.NameNotice.Done("「かわいさ」に変更し、6 件の商品を書き換えました。");
+            screen.DefaultNotice.Done("「かわいさ」を編集画面に最初から並べます。値は動かしたときだけ付きます。");
+            screen.ListNotice.Done("削除し、3 件の商品から評価を外しました。");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         new Scene("attribute-manage-cards", "属性の管理：属性を選び、その商品をカードで並べた所", async context =>
         {
             var root = await OpenAttributeManageAsync(context, cards: true);
