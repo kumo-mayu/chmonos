@@ -54,6 +54,38 @@ public static class FileMissingMarks
     public static bool Differs(IReadOnlyList<LocalFileRecord> current, IReadOnlyCollection<FileSighting> sightings)
         => Apply(current, sightings, DateTimeOffset.UnixEpoch) is not null;
 
+    /// <summary>
+    /// 登録したフォルダを見た結果（場所 → 在るか）を、錠の中で読み直した今の一覧に当てる。変える物が無ければ null。
+    /// フォルダは場所が同一性なので、見た後に外された場所は当たる物が無く、そのまま落ちる。
+    /// </summary>
+    public static IReadOnlyList<LocalFolderRecord>? ApplyFolders(
+        IReadOnlyList<LocalFolderRecord> current,
+        IReadOnlyDictionary<string, FilePresence> sightings,
+        DateTimeOffset now)
+    {
+        var changed = false;
+        var folders = new List<LocalFolderRecord>(current.Count);
+        foreach (var folder in current)
+        {
+            var next = sightings.TryGetValue(folder.Path, out var presence) ? MarkedFolder(folder, presence, now) : folder;
+            changed |= !ReferenceEquals(next, folder);
+            folders.Add(next);
+        }
+
+        return changed ? folders : null;
+    }
+
+    /// <summary>
+    /// フォルダ1つに、見た結果を当てる（取り込みの数え直しと起動時の見回りが同じ決まりで書くよう、ここ1か所）。
+    /// また見つかったら日時を消し、見た日時（<see cref="LocalFolderRecord.LastSeenAt"/>）を今にする。変えなければ同じ物を返す。
+    /// </summary>
+    public static LocalFolderRecord MarkedFolder(LocalFolderRecord folder, FilePresence presence, DateTimeOffset now) => presence switch
+    {
+        FilePresence.Present when folder.MissingSince is not null => folder with { LastSeenAt = now, MissingSince = null },
+        FilePresence.Missing when folder.MissingSince is null => folder with { MissingSince = now },
+        _ => folder,
+    };
+
     private static LocalFileRecord Marked(LocalFileRecord file, FilePresence presence, DateTimeOffset now) => presence switch
     {
         FilePresence.Present when file.MissingSince is not null => file with { MissingSince = null },
@@ -88,15 +120,18 @@ public sealed class FilePresenceProbe
     private readonly Dictionary<string, bool> _reachable = new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<string, bool> _fileExists;
     private readonly Func<string, bool> _rootExists;
+    private readonly Func<string, bool> _folderExists;
     private readonly TimeSpan _rootWait;
 
     public FilePresenceProbe(
         Func<string, bool>? fileExists = null,
         Func<string, bool>? rootExists = null,
-        TimeSpan? rootWait = null)
+        TimeSpan? rootWait = null,
+        Func<string, bool>? folderExists = null)
     {
         _fileExists = fileExists ?? DiskCheck.FileExists;
         _rootExists = rootExists ?? DiskCheck.FolderExists;
+        _folderExists = folderExists ?? DiskCheck.FolderExists;
         _rootWait = rootWait ?? RootWait;
     }
 
@@ -108,6 +143,15 @@ public sealed class FilePresenceProbe
             paths,
             path => IsReachable(path) && _fileExists(path),
             path => !IsReachable(path));
+
+    /// <summary>
+    /// 登録したフォルダ1つが在るか（起動時の見回り・ユーザ判断 2026-10-05）。ファイルと同じく、
+    /// つながっていないドライブの上なら見に行かず <see cref="FilePresence.OnDetachedDrive"/>（書かない側）。
+    /// </summary>
+    public FilePresence OfFolder(string path)
+        => !IsReachable(path)
+            ? FilePresence.OnDetachedDrive
+            : _folderExists(path) ? FilePresence.Present : FilePresence.Missing;
 
     private bool IsReachable(string path)
     {

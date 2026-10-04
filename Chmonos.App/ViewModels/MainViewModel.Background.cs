@@ -142,6 +142,81 @@ public sealed partial class MainViewModel
             }
         }).Forget();
 
+    /// <summary>
+    /// 起動したときに裏で一度、記録しているファイルとフォルダの場所を全部見て、見つからなくなった日時を付け外しする（ユーザ判断 2026-10-05）。
+    /// **窓を出した後に呼ぶ**（全件を読み、ディスクを見るので、窓が出るまでの待ちに乗せない。App の起動の処理が呼ぶ）。
+    /// </summary>
+    /// <remarks>
+    /// 取り込みと使おうとした画面でしか書いていなかったので、取り込まずに使っている間は、手で消した zip が
+    /// カードの印・検索の条件「見つからないファイル」・統計に出なかった。決まりは取り込みの見回りと同じ（<see cref="Core.Services.MissingMarksSweep"/>）。
+    /// BOOTH に問い合わせないので、設定「起動したとき、裏で取得を始める」を切っていても見る（通知の整理・手で直した JSON の確認と同じ）。
+    /// 取り込みが同時に走っても、見回りは1本ずつ回り、錠の中で今の値と同じなら書かない。
+    /// </remarks>
+    public void StartMissingMarksSweep()
+    {
+        var token = (_backlog ??= new CancellationTokenSource()).Token;
+        Task.Run(async () =>
+        {
+            try
+            {
+                // 裏の作業は UiCommand を通らないので、保存先を運ぶ間の門はここで待つ（RunBackgroundStageAsync と同じ）
+                await Core.Storage.StoreWriteGate.WaitAsync(token);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                var written = await _services.MissingMarks.SweepAsync(token);
+                Core.Services.UiTrace.Write("速さ", $"起動時の見回り：見つからなくなった日時を {written.Count} 件の商品に書いた（{watch.ElapsedMilliseconds} ms）");
+                await NoteSweptItemsAsync(written);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // 見られなくても起動は妨げない。次の起動か取り込みでまた見る
+                Core.Diagnostics.AppLog.Error("起動時の裏の作業：見つからないファイルの見回り", exception);
+            }
+        }, token).Forget();
+    }
+
+    /// <summary>
+    /// 見回りが書いた商品を、検索の写しとカードの印へ知らせる。数が少なければ1件ずつ差し替え、多ければ全件を読み直す
+    /// （1件ずつの差し替えは毎回絞り込みをかけ直すので、数百件だと全件の読み直しより重い）。
+    /// </summary>
+    private async Task NoteSweptItemsAsync(IReadOnlyList<string> written)
+    {
+        if (written.Count == 0)
+        {
+            return;
+        }
+
+        if (written.Count > SweepNoteOneByOneLimit)
+        {
+            RunOnUiThread(() => ReloadLibraryAsync().Forget());
+            return;
+        }
+
+        var items = new List<ItemRecord>(written.Count);
+        foreach (var id in written)
+        {
+            if (await _services.Store.Items.LoadAsync(id) is { } item)
+            {
+                items.Add(item);
+            }
+        }
+
+        RunOnUiThread(() =>
+        {
+            foreach (var item in items)
+            {
+                Search.NoteItemChanged(item);
+            }
+
+            RefreshCounts();
+        });
+    }
+
+    /// <summary>
+    /// 見回りの後、1件ずつ差し替える上限。普段の起動で変わるのは数件（消した・戻した分）で、
+    /// 初めて見回る保存先や外付けを付け直した回だけ数百件になる（作り物の5000件の1割を消すと457件）。
+    /// </summary>
+    internal const int SweepNoteOneByOneLimit = 50;
+
     /// <summary>手元に無くなった商品の「最近」の足跡を落とす（<see cref="Services.RecentTracker.PruneMissingItemsAsync"/>）。通信しない。</summary>
     private void PruneRecent()
         => Task.Run(async () =>

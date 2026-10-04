@@ -91,7 +91,7 @@ public sealed class MissingFileFinder
                     missing[file.Hash] = entry = new MissingEntry(file.SizeBytes);
                 }
 
-                entry.Owners.Add((item.Id, gone));
+                entry.Owners.Add((item.Id, file.Paths, gone));
             }
         }
 
@@ -188,7 +188,7 @@ public sealed class MissingFileFinder
                 continue;
             }
 
-            foreach (var (itemId, gone) in entry.Owners)
+            foreach (var (itemId, _, gone) in entry.Owners)
             {
                 await _store.Items.ChangeLocalAsync(
                     itemId,
@@ -199,6 +199,8 @@ public sealed class MissingFileFinder
 
             relinked++;
         }
+
+        await NoteNotFoundAsync(missing, found, cancellationToken);
 
         return new MissingFileSearchResult
         {
@@ -253,10 +255,59 @@ public sealed class MissingFileFinder
         };
     }
 
+    /// <summary>
+    /// 探しても見つからなかった物に、見つからなくなった日時を付ける（ユーザ判断 2026-10-05）。
+    /// </summary>
+    /// <remarks>
+    /// 前は結び直した物の日時を消すだけで、見つからなかった物は記録が変わらず、取り込むか使おうとするまで印・検索の条件に出なかった。
+    /// 探した今は「どこにも無い」と分かっているので、取り込みの見回りと同じ決まりで書く（<see cref="FileMissingMarks.Apply"/>）：
+    /// **つながっていないドライブの上の物には付けない**（外付けを外しているだけかもしれない。<see cref="FilePresenceProbe"/> が見に行かずに分ける）。
+    /// 商品ごとの錠の中で今の値に当て、探している間に場所が変わったファイル（取り込みが結び直した物）には当てない。
+    /// </remarks>
+    private async Task NoteNotFoundAsync(
+        Dictionary<string, MissingEntry> missing,
+        Dictionary<string, string> found,
+        CancellationToken cancellationToken)
+    {
+        var probe = new FilePresenceProbe();
+        var now = DateTimeOffset.Now;
+        var sightingsByItem = new Dictionary<string, List<FileSighting>>(StringComparer.Ordinal);
+
+        foreach (var (hash, entry) in missing)
+        {
+            if (found.ContainsKey(hash))
+            {
+                continue;
+            }
+
+            foreach (var (itemId, paths, _) in entry.Owners)
+            {
+                if (!sightingsByItem.TryGetValue(itemId, out var sightings))
+                {
+                    sightingsByItem[itemId] = sightings = [];
+                }
+
+                sightings.Add(new FileSighting(hash, paths, probe.Of(paths)));
+            }
+        }
+
+        foreach (var (itemId, sightings) in sightingsByItem)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _store.Items.ChangeLocalAsync(
+                itemId,
+                current => FileMissingMarks.Apply(current.LocalFiles, sightings, now) is { } files
+                    ? current with { LocalFiles = files }
+                    : null,
+                LocalOwners.Import,
+                cancellationToken);
+        }
+    }
+
     private sealed class MissingEntry(long sizeBytes)
     {
         public long SizeBytes { get; } = sizeBytes;
 
-        public List<(string ItemId, IReadOnlyList<string> Gone)> Owners { get; } = [];
+        public List<(string ItemId, IReadOnlyList<string> Paths, IReadOnlyList<string> Gone)> Owners { get; } = [];
     }
 }
