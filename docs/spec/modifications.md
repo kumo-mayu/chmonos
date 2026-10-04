@@ -126,7 +126,9 @@
 
 ## 操作の結果の知らせの置き場（メモ20-③・2026-10-04）
 
-方針は `docs/feedback/notice-placement-2026-10-03.md`。欄やボタンのすぐ下の1行は `FieldNotice`／`FieldWarning`（`App.xaml`）で、改変の画面と詳細は `HubNoticeSlot`（文と警告の色）を持つ。
+共通の決まりは `ui-empty-and-errors.md`「知らせの置き場」。
+
+方針は `docs/feedback/notice-placement-2026-10-03.md`。欄やボタンのすぐ下の1行は `FieldNotice`／`FieldWarning`（`App.xaml`）で、改変の画面と詳細は `AreaNotice`（`AreaNoticeText`。文と警告の色）を持つ。
 
 - **改変の画面**：VCC・ALCOM を開く（ボタンの下。見方の切り替えでも高さを変えない）、プロジェクトを開く（行と右の詳細の「Unityを開く」の下）、Unityで選択（使ったものの行と右の帯の下）、「改変を作る」の案内と失敗（アバターの右の「新しい改変」の欄の下）。
   行の下は出ているときだけ1行を足す（行は数が多い）。右の詳細は出ていない間も1行を取る。作れたことは言わない（右に作った改変が開く）。
