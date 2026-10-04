@@ -40,7 +40,7 @@
         </Style>
 
         <!--
-            BOOTH の商品ページで変わった欄の印（メモ7-①）。色は種類で分ける：変わった＝橙・足された＝緑・消えた＝赤・価格＝青。
+            BOOTH の商品ページで変わった欄の印（メモ7-①）。色は種類で分ける：変わった＝橙・足された＝緑・消えた＝赤。価格の変更は「変わった」と同じ橙（ユーザ判断 2026-10-04）。
             線は欄の左の余白（カードの内側の余白）に置き、印が付いても外れても中身の位置は動かさない（-12 = 線3 + 間9）
         -->
         <Style x:Key="ChangeEdge" TargetType="Border">
@@ -59,7 +59,7 @@
                     <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Tag.Edge, RelativeSource={RelativeSource Self}}" Value="{x:Static vm:ChangeTone.Price}">
-                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource Warn}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -81,11 +81,6 @@
                     <Setter TargetName="Face" Property="Background" Value="{DynamicResource BadSoft}" />
                     <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource BadBorder}" />
                     <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource Bad}" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Price}">
-                    <Setter TargetName="Face" Property="Background" Value="{DynamicResource AccentSoft}" />
-                    <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
-                    <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource AccentText}" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -170,7 +165,7 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <!-- 左の短い線は、その所の印と同じ種類の色（変わった＝橙・足された＝緑・消えた＝赤・価格＝青） -->
+                            <!-- 左の短い線は、その所の印と同じ種類の色（変わった＝橙・足された＝緑・消えた＝赤。価格は変わったと同じ橙） -->
                             <DataTemplate DataType="{x:Type vm:ChangeTarget}">
                                 <Button Style="{StaticResource SmallButton}" Height="24" Padding="7,0"
                                         AutomationProperties.AutomationId="ItemChangeTarget" AutomationProperties.Name="{Binding Label}"
@@ -187,9 +182,6 @@
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Removed}">
                                         <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Price}">
-                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Accent}" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
                             </DataTemplate>
@@ -709,11 +701,11 @@
                                                 <Setter TargetName="Row" Property="ToolTipService.IsEnabled" Value="True" />
                                                 <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
                                             </DataTrigger>
-                                            <!-- 値段の変わった行（メモ27-⑤）。色は見出しの札「価格変更」と同じ青 -->
+                                            <!-- 値段の変わった行（メモ27-⑤）。色は見出しの札「価格変更」・変わった欄と同じ橙（ユーザ判断 2026-10-04。前は青） -->
                                             <DataTrigger Binding="{Binding Band}" Value="{x:Static vm:ChangeTone.Price}">
-                                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource PriceBand}" />
+                                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource ChangedBand}" />
                                                 <Setter TargetName="Row" Property="ToolTipService.IsEnabled" Value="True" />
-                                                <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Accent}" />
+                                                <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Warn}" />
                                             </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
