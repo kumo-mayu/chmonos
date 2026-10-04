@@ -70,7 +70,7 @@ public sealed partial class AvatarsViewModel
         }
 
         // 消した表記を足し直すと、印を下ろすだけになる（AvatarServiceEditing.AddAliasAsync）
-        if (await WriteAsync(new Core.Commands.UiCommand.AddAvatarAlias(Selected.ItemId, text), "呼び方を戻せませんでした。") is null)
+        if (await WriteAsync(new Core.Commands.UiCommand.AddAvatarAlias(Selected.ItemId, text), "呼び方を戻せませんでした。", AliasNote.Warn) is null)
         {
             return;
         }

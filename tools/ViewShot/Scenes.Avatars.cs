@@ -79,6 +79,21 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 欄の下の知らせ（2026-10-04 担当NA）。出る前と出た後を撮って diff し、下の物が動かないことを見る
+        new Scene("avatars-notice-off", "アバターの管理：欄の下の知らせが出ていない右の欄（呼び方を開いてある）", context => AvatarNoticeAsync(context, show: false)),
+        new Scene("avatars-notice-on", "アバターの管理：欄の下の知らせが出た右の欄（名前・ID・素体・呼び方・改変・メモ・所有・扱い）", context => AvatarNoticeAsync(context, show: true)),
+        new Scene("avatars-base-notice-off", "アバターの管理：素体を見ているときの欄の下の知らせが出ていない所", context => AvatarBaseNoticeAsync(context, show: false)),
+        new Scene("avatars-base-notice-on", "アバターの管理：素体を見ているときの欄の下の知らせが出た所（追加の欄・名前・商品）", context => AvatarBaseNoticeAsync(context, show: true)),
+        new Scene("avatars-status", "アバターの管理：検出の結果の長い文を、上の段の下に折り返して全部出した所", async context =>
+        {
+            var (avatars, root) = await OpenAvatarsAsync(context);
+            typeof(AvatarsViewModel).GetProperty(nameof(AvatarsViewModel.Status))!.SetValue(avatars,
+                "40 件を調べ、12 件の対応アバターを更新しました / アバター43体 / 共通素体2グループ / BOOTHへの問い合わせ7回"
+                + " / 通信できなかった 3 件は次回もう一度試します / 少し待ってからもう一度押すと、残りを確かめます");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 共通素体の一覧（足す欄・行の右クリック）と右の欄。既定の素体（名前だけの種）は絵を持たない（メモ3-①）
         new Scene("avatars-bases", "アバターの管理：共通素体の一覧と、選んだ素体の右の欄", async context =>
         {
@@ -100,6 +115,49 @@ internal static partial class Scenes
             return new Shot(root);
         }),
     ];
+
+    private static async Task<Shot> AvatarNoticeAsync(SceneContext context, bool show)
+    {
+        var (avatars, root) = await OpenAvatarsAsync(context);
+        avatars.ShowListCommand.Execute(null);
+        avatars.Selected = avatars.Rows.First(row => row.ItemId == OwnedAvatarId);
+        avatars.IsAliasesExpanded = true;
+        await context.SettleAsync();
+
+        if (show)
+        {
+            avatars.AvatarNameNote.Warn("名前を入れてから押してください。");
+            avatars.IdNote.Notice("9900301 をコピーしました。");
+            avatars.BaseFieldNote.Warn("共通素体の名前を入れてから押してください。");
+            avatars.AliasNote.Warn("呼び方は2文字以上で入れてください。");
+            avatars.ModificationNote.Notice("改変「普段着」を作りました。");
+            avatars.MemoNote.Warn("メモを保存できませんでした。ほかのアプリが記録を開いているか、保存先に書けないようです。");
+            avatars.OwnedNote.Warn("所有を保存できませんでした。");
+            avatars.JudgementNote.Warn("扱いを保存できませんでした。");
+            await context.SettleAsync();
+        }
+
+        return new Shot(root);
+    }
+
+    private static async Task<Shot> AvatarBaseNoticeAsync(SceneContext context, bool show)
+    {
+        var (avatars, root) = await OpenAvatarsAsync(context);
+        avatars.ShowBaseModeCommand.Execute(null);
+        avatars.SelectedBase = avatars.Bases.First();
+        avatars.SelectedBase.StartRenameCommand.Execute(null);
+        await context.SettleAsync();
+
+        if (show)
+        {
+            avatars.AddBaseNote.Warn("共通素体「作り物の素体A」は既にあります。");
+            avatars.SelectedBase.NameNote.Warn("新しい素体の名前を入れてから押してください。");
+            avatars.SelectedBase.ItemIdNote.Warn("商品IDが読み取れませんでした。数字か、BOOTHの商品ページのURLを入れてください。");
+            await context.SettleAsync();
+        }
+
+        return new Shot(root);
+    }
 
     /// <summary>
     /// 持っているアバター3体（1体は名前を付けてある）・名前が挙がっただけのアバター40体・扱わない物1体・共通素体2つ。

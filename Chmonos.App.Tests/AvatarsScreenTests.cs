@@ -63,7 +63,7 @@ public sealed class AvatarsScreenTests
         avatars.CopyIdCommand.Execute(null);
 
         Assert.Equal([AvatarId], app.Copied);
-        Assert.Equal($"{AvatarId} をコピーしました。", avatars.Status);
+        Assert.Equal($"{AvatarId} をコピーしました。", avatars.IdNote.Text);
         Assert.Equal("クリックすると商品IDをコピーします", avatars.IdCopyTip);
     });
 
@@ -114,7 +114,7 @@ public sealed class AvatarsScreenTests
         await app.SettleAsync();
         await UiThread.Until(() => avatars.Bases.Count == 2, "足した素体が並ぶ");
 
-        Assert.Equal("共通素体「作り物の素体B」を追加しました。", avatars.Status);
+        Assert.Equal(string.Empty, avatars.AddBaseNote.Text);
         Assert.Equal(string.Empty, avatars.NewBaseName);
         Assert.Equal("作り物の素体B", avatars.SelectedBase?.Name);
     });
@@ -132,7 +132,7 @@ public sealed class AvatarsScreenTests
         avatars.AddBaseCommand.Execute(null);
         await app.SettleAsync();
 
-        Assert.Equal("共通素体「作り物の素体A」は既にあります。", avatars.Status);
+        Assert.Equal("共通素体「作り物の素体A」は既にあります。", avatars.AddBaseNote.Text);
         Assert.Equal("作り物の素体A", avatars.SelectedBase?.Name);
         Assert.Equal("作り物の素体a", avatars.NewBaseName);
         Assert.Equal(writes, app.Store.Avatars.WriteCount);
