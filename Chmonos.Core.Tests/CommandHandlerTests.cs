@@ -43,7 +43,7 @@ public class CommandHandlerTests
 
         public Task<bool> NoteFilePresenceAsync(string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default) => Task.FromResult(false);
 
-        public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null) => Task.FromResult(true);
 
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 
@@ -146,7 +146,7 @@ public class CommandHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(ItemIdChangeOutcome.Moved);
 
-        public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
+        public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
         {
             AssignedHash = hash;
             return Task.FromResult(AssignSucceeds);

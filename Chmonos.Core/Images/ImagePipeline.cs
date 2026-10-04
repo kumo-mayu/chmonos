@@ -166,6 +166,15 @@ public sealed class ImagePipeline
     private const string IconSizeSegment = "/c/150x150/";
 
     /// <summary>
+    /// ショップのアイコンを、これから問い合わせる必要があるか（手元に無く、取る設定のとき）。
+    /// 未確定で登録するときの残りの問い合わせの数（メモ34）を数えるのに使う。
+    /// </summary>
+    public bool NeedsShopIcon(string subdomain, string? thumbnailUrl)
+        => _settings.SaveImages
+            && !string.IsNullOrEmpty(thumbnailUrl)
+            && !File.Exists(_paths.ShopIconFile(subdomain, LargerIconUrl(thumbnailUrl)));
+
+    /// <summary>
     /// ショップのアイコンを落とす。同じURLのものが既にあれば何もしない。
     ///
     /// 商品JSONに入っているのは48x48のURLだけなので、サイズの部分を差し替えて取る。
@@ -559,11 +568,17 @@ public sealed class ImagePipeline
     /// 画像の段で届かない失敗を続けて数える物（ユーザ判断 2026-09-29）。打ち切ったら、この商品の残りも問い合わせない。
     /// 残りには「しばらく休む」の印も置かない——休ませると、つながった後の次の機会にも取りに行かなくなる。
     /// </param>
+    /// <param name="requestsLeft">
+    /// これから BOOTH へ問い合わせる枚数を始めに、1枚問い合わせるごとに残りを流す。
+    /// 未確定で登録した新しい商品は、ここで十数枚を1.5秒ずつ空けて取るので、画面が残りと目安の時間を出すのに使う（メモ34）。
+    /// 数えるのは下の「取りに行く」の条件と同じ物だけ（手元にある絵・404の印・休み中は数えない）。
+    /// </param>
     public async Task<ImageSyncResult> SyncAsync(
         string itemId,
         IReadOnlyList<BoothImage> images,
         BoothOutageWatch? outage,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<int>? requestsLeft = null)
     {
         if (!_settings.SaveImages)
         {
@@ -586,6 +601,13 @@ public sealed class ImagePipeline
         var failed = 0;
         var missing = 0;
         var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var pending = requestsLeft is null
+            ? 0
+            : images.Count(image => !File.Exists(Path.Combine(directory, FileNameFor(image.OriginalUrl)))
+                && !File.Exists(Path.Combine(directory, MissingMarkerFor(image.OriginalUrl)))
+                && !IsRestingAfterFailure(directory, image.OriginalUrl));
+        requestsLeft?.Report(pending);
 
         // BOOTH側の一覧に残っている印。ここに無い印は「もう取りに行く先が無い」ので消す。
         // **取りに行く前に全部数えておく。**取りながら数えて最後に片付けていたので、
@@ -634,6 +656,7 @@ public sealed class ImagePipeline
 
                 var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
                 outage?.Note(result);
+                requestsLeft?.Report(Math.Max(0, --pending));
 
                 if (result.Status == BoothFetchStatus.NotFound)
                 {

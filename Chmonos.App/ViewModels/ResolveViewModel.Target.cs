@@ -63,7 +63,7 @@ public sealed partial class ResolveViewModel
     /// <summary>元のzipはディスクにあるが、未確定の一覧に無い中身を選んでいる（既に商品に結び付いている・取り込んでいない）。</summary>
     public bool IsOriginZipUnlisted => !HasChecked && Selected is { HasOriginZip: true, IsExpandedContent: true } row && !IsZipListed(row);
 
-    private static string OriginZipUnlistedText(string archiveName) => $"展開元のzip「{archiveName}」は未確定にありません。";
+    private static string OriginZipUnlistedText(string archiveName) => $"展開元のzip「{archiveName}」は発見できませんでした。";
 
     public bool IsCheckedTarget => HasChecked;
 

@@ -205,8 +205,18 @@ public class ImportAndResolveFlowTests
 
             Assert.True(resolve.IsRegisteringInDecision);
             Assert.False(resolve.IsRegisteringLocal);
-            Assert.Equal("登録しています…", resolve.RegisteringText);
             Assert.False(resolve.HasRegisteringTotal);
+
+            // 手元に無い商品は、JSON と商品ページの2つが残っていると知らせてくる（メモ34）。
+            // 画像の枚数は JSON を読むまで分からないので、始めはこの2つだけ
+            await UiThread.Until(() => resolve.RegisteringText.Contains("BOOTHへあと 2 件", StringComparison.Ordinal), "残り2件が出る");
+            Assert.StartsWith("登録しています…　", resolve.RegisteringText, StringComparison.Ordinal);
+
+            // 進むごとに減る。0になったら目安は消える
+            resolve.SetRequestsLeft(1);
+            Assert.Contains("BOOTHへあと 1 件", resolve.RegisteringText, StringComparison.Ordinal);
+            resolve.SetRequestsLeft(0);
+            Assert.Equal("登録しています…", resolve.RegisteringText);
         }
         finally
         {

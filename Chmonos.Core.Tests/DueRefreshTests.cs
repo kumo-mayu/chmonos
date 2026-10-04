@@ -76,7 +76,7 @@ public class DueRefreshTests : IDisposable
 
         public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
 
-        public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
+        public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
             => Task.FromResult(true);
 
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
@@ -85,7 +85,7 @@ public class DueRefreshTests : IDisposable
         public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
             => Task.FromResult(new ArchiveSwapOutcome(ArchiveSwapResult.Registered, "x.zip"));
 
-        public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
+        public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
             => Task.FromResult(true);
 
         public Task<string?> RegisterLocalItemAsync(

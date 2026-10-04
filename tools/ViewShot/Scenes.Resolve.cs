@@ -230,6 +230,25 @@ internal static partial class Scenes
             Height = 1500,
         },
 
+        new Scene("resolve-registering-eta", "未確定：登録している最中の帯に、BOOTHへの問い合わせの残りの件数と目安の時間（メモ34）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage", "readme.txt"),
+                    contents: ["hair_ribbon.unitypackage", "readme.txt"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\accessory_pack.zip", "ring.unitypackage"), contents: ["ring.unitypackage"]),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 2);
+            screen.Selected = screen.Files.First(row => row.FileName == "hair_ribbon_v1.0.zip");
+            await context.SettleAsync();
+            Backdoor.ShowRegisteringInDecision(screen, done: 0, total: 1, left: 14);
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
         new Scene("resolve-target-images", "未確定：BOOTHに無い商品に画像を2枚添えたときのギャラリー（枠と＋の枠）", async context =>
         {
             await context.Seed.Unresolved.SaveAsync(

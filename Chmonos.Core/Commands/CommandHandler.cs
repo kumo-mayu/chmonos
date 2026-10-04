@@ -334,7 +334,7 @@ public sealed class CommandHandler
                 };
 
             case UiCommand.AssignItemId assign:
-                if (await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken))
+                if (await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken, assign.RequestsLeft))
                 {
                     FillUnityPackagesInBackground(assign.ItemId);
 
@@ -763,7 +763,7 @@ public sealed class CommandHandler
                     : new CommandResult.Failed(previewFailure);
 
             case UiCommand.RegisterFolder register:
-                return await _items.RegisterFolderAsync(register.ItemId, register.FolderPath, cancellationToken)
+                return await _items.RegisterFolderAsync(register.ItemId, register.FolderPath, cancellationToken, register.RequestsLeft)
                     ? new CommandResult.ItemSaved(register.ItemId)
                     : new CommandResult.Failed("フォルダを紐付けられませんでした。フォルダが存在するか、商品IDが正しいかを確認してください。");
 
