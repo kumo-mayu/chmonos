@@ -16,6 +16,18 @@
                 <views:ItemCardResources />
             </ResourceDictionary.MergedDictionaries>
 
+            <!--
+                押した欄・ボタンの下の知らせ（DataContext は HubNoticeSlot）。出ていない間も1行を取る（FieldNotice）ので、
+                出入りで下の欄が動かない。打ち直しや別の操作が要る知らせ（IsWarning）は FieldWarning と同じ色
+            -->
+            <Style x:Key="SlotNotice" TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
             <!-- 使ったもののリストの名前。押すと商品ページ（「開く」ボタンの代わり・ユーザ指示 2026-09-14）。乗せると青い下線 -->
             <!--
                 外した使ったもの（ユーザ指示 2026-09-19：商品の手元のファイルと同じく、消さずに薄く残して戻せるように）。
@@ -162,6 +174,8 @@
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <!-- 写真が無いときの案内は、大きい絵の所に出す（GalleryEmptyText・ユーザ指示 2026-09-14） -->
                     <views:ItemGalleryPanel />
+                    <!-- 写真の追加・貼り付け・削除の結果。ギャラリーの下 -->
+                    <TextBlock DataContext="{Binding GalleryNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" />
 
                     <!--
                         使ったもの
@@ -206,6 +220,8 @@
                             </DockPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                        Text="上から順に入れた記録です。依存するものが先に来るように並べ替えられます。" />
+                            <!-- 外す・戻す・削除・Unityで選択の結果。外した行は並びの中で形が変わり、削除した行は消えるので、一覧の見出しの近くに出す -->
+                            <TextBlock DataContext="{Binding MembersNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" Margin="2,0,0,8" />
 
                             <TextBlock Text="{Binding MembersEmptyText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,0,0,10"
@@ -478,6 +494,7 @@
                                                  AutomationProperties.Name="使ったものを追加"
                                                  Placeholder="使ったものを商品名で探して追加"
                                                  Margin="0,12,0,0" />
+                            <TextBlock DataContext="{Binding AddNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" />
 
                             <!--
                                 紐付けたプロジェクトの中から探す（#72・ユーザ案）。
@@ -596,6 +613,7 @@
                                      AutomationProperties.Name="改変の名前"
                                      Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="「普段着」「制服」のような呼び分けです。打ち終えると保存されます。" />
+                            <TextBlock DataContext="{Binding NameNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" />
 
                             <!--
                                 VRChat の blueprint ID（ユーザ指示 2026-09-19：改変の名前の下に）。
@@ -611,6 +629,7 @@
                                          AutomationProperties.Name="VRChatのblueprint ID"
                                          Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
                             </DockPanel>
+                            <TextBlock DataContext="{Binding BlueprintNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" />
                             <TextBlock Text="アップロードしたアバターのID（avtr_…）。入れておくと、VRChatをこのアバターに着替えられます。打ち終えると保存されます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             <TextBlock Text="{Binding BlueprintHint}" FontSize="11" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0"
@@ -663,7 +682,10 @@
                                 </WrapPanel>
                             </StackPanel>
 
-                            <Border Height="1" Background="{DynamicResource Border}" Margin="0,14,0,12" />
+                            <!-- 開く・紐付ける・外すの結果。紐付けを外した直後は上の塊が消えるので、塊の外に置く -->
+                            <TextBlock DataContext="{Binding ProjectNotice}" Text="{Binding Text}" Style="{StaticResource SlotNotice}" />
+
+                            <Border Height="1" Background="{DynamicResource Border}" Margin="0,10,0,12" />
 
                             <Grid Margin="0,0,0,8">
                                 <TextBlock Text="紐付ける先" Style="{StaticResource SectionLabel}"
@@ -734,10 +756,19 @@
                                                         </Border>
                                                     </Grid>
 
-                                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
-                                                               Margin="0,2,0,0" MaxWidth="300"
-                                                               HorizontalAlignment="Left"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                    <!-- 版と置き場所を分ける：パスだけ等幅の英字の字体（日本語の字体では「\」が「¥」に見える）。長ければ間を省く -->
+                                                    <Grid Margin="0,2,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding VersionText}" Style="{StaticResource Caption}"
+                                                                   VerticalAlignment="Center" />
+                                                        <controls:PathLine Grid.Column="1" Path="{Binding Folder}" Style="{StaticResource Mono}" FontSize="11"
+                                                                           Foreground="{DynamicResource TextMuted}" Margin="10,0,0,0" MaxWidth="300"
+                                                                           VerticalAlignment="Center"
+                                                                           Visibility="{Binding HasFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    </Grid>
                                                 </StackPanel>
 
                                                 <!-- 今の紐付け先は押させない。同じ操作を2度出す意味が無い -->

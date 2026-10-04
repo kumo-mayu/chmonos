@@ -43,6 +43,7 @@ public sealed partial class ModificationHubViewModel
         }
 
         Lines.ReplaceAll(_lineBuilder.Build(Groups));
+        ApplyNotice();
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
@@ -54,6 +55,7 @@ public sealed partial class ModificationHubViewModel
         if (e.PropertyName == nameof(HubExpandable.IsExpanded))
         {
             CollectionSync.Apply(Lines, _lineBuilder.Build(Groups));
+            ApplyNotice();
         }
     }
 

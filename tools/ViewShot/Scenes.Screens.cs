@@ -304,6 +304,18 @@ internal static partial class Scenes
             Width = 900,
         },
 
+        // 知らせの置き場の前後（2026-10-04）。同じ幅で2枚を比べ、知らせが出ても下の欄が動かないことを見る（ViewShot diff）
+        new Scene("modification-detail-notice-before", "改変の詳細：知らせが出る前（欄の下の知らせの1行は、出ていなくても場所を取っている）", context => ModificationDetailNoticeAsync(context, show: false))
+        {
+            Height = 1500,
+        },
+        new Scene("modification-detail-notice-after", "改変の詳細：欄・ボタンの下に知らせが出た後", context => ModificationDetailNoticeAsync(context, show: true))
+        {
+            Height = 1500,
+        },
+        new Scene("modification-hub-notice-before", "改変の画面（アバターの見方）：右の「新しい改変」の下に知らせが出る前", context => ModificationHubNoticeAsync(context, show: false)),
+        new Scene("modification-hub-notice-after", "改変の画面（アバターの見方）：右の「新しい改変」の下に知らせが出た後", context => ModificationHubNoticeAsync(context, show: true)),
+
         // 右の欄の上から下までを1枚で見る（blueprint ID の欄の並び・大きさのスライダーの位置）。窓を縦に長くして描く
         new Scene("modification-selected-tall", "改変の画面：改変を選んだ右の欄の全部（縦に長い窓。blueprint ID の欄・大きさのスライダー）", async context =>
         {
@@ -439,6 +451,56 @@ internal static partial class Scenes
         }
 
         return longId;
+    }
+
+    private static async Task<Shot> ModificationDetailNoticeAsync(SceneContext context, bool show)
+    {
+        var selected = await SeedModificationsAsync(context);
+        var main = await context.StartAsync();
+        main.ShowModifications(
+            ModificationHubLevel.Modification,
+            new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+        await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+        await context.SettleAsync();
+
+        if (show)
+        {
+            var detail = (ModificationViewModel)context.Screen<ModificationHubViewModel>().Detail!;
+            detail.NameNotice.Set("同じ名前の改変が既にあります。", true);
+            detail.BlueprintNotice.Set("VRChatに着替えを送りました。着替わらないときは、VRChatでOSCが有効かを確かめてください。", false);
+            detail.ProjectNotice.Set("「MinatoWinter」をUnityで開いています。少し時間がかかります。", false);
+            detail.AddNotice.Set("「作り物の衣装セット」を追加しました。", false);
+            detail.MembersNotice.Set("「作り物の衣装セット」を外しました。「戻す」で元に戻せます。", false);
+            detail.GalleryNotice.Set("写真を 2 枚貼りました。", false);
+            await context.SettleAsync();
+        }
+
+        return new Shot(root) { Focus = () => Look.View<ModificationView>(root), FocusMargin = 0 };
+    }
+
+    private static async Task<Shot> ModificationHubNoticeAsync(SceneContext context, bool show)
+    {
+        await SeedModificationsAsync(context);
+        var main = await context.StartAsync();
+        main.ShowModifications(
+            ModificationHubLevel.Avatar,
+            new ModificationHubSelection(ModificationHubSelectionKind.Avatar, "9900201"));
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+
+        var hub = context.Screen<ModificationHubViewModel>();
+        await SceneContext.UntilAsync(() => hub.Detail is HubAvatarDetail, "アバターが右の欄に出る");
+        await context.SettleAsync();
+
+        if (show)
+        {
+            hub.StartCreateCommand.Execute("9900201");
+            await context.SettleAsync();
+        }
+
+        return new Shot(root) { Focus = () => Look.View<ModificationHubView>(root), FocusMargin = 0 };
     }
 
     private static IEnumerable<Scene> Search =>

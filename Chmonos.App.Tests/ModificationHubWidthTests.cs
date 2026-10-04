@@ -28,6 +28,28 @@ public class ModificationHubWidthTests
     });
 
     [Fact]
+    public Task 組み込んだ商品ページを選んだときは_商品ページが横に送らずに済む幅を残す() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("1000001", "作り物のアバター"));
+        await app.AddItemAsync(Make.Item("1000002", "作り物の衣装"));
+        var main = await app.StartAsync();
+        var created = Assert.IsType<Chmonos.Core.Commands.CommandResult.ModificationCreated>(
+            await app.Services.Commands.ExecuteAsync(new Chmonos.Core.Commands.UiCommand.CreateModification("1000001", "夏の改変")));
+        await app.Services.Commands.ExecuteAsync(new Chmonos.Core.Commands.UiCommand.AddModificationMember(
+            created.Record.Id, new Chmonos.Core.Models.ModificationMember { ItemId = "1000002" }));
+
+        main.ShowModifications(
+            ModificationHubLevel.Modification,
+            new ModificationHubSelection(ModificationHubSelectionKind.Member, created.Record.Id, 0));
+        var hub = Assert.IsType<ModificationHubViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => hub.Detail is HubItemDetail { Page: not null }, "右に商品ページが出る");
+
+        var page = Assert.IsType<HubItemDetail>(hub.Detail).Page!;
+        Assert.True(page.BodyMinWidth > 0);
+        Assert.Equal(ModificationHubViewModel.WidthWanted(page.BodyMinWidth), hub.DetailWidthWanted);
+    });
+
+    [Fact]
     public Task 反対側に残したい幅が列の最小より広ければ_一覧の幅はその分だけ頭打ちになる() => TestApp.Run(async app =>
     {
         var pane = new PaneColumn(app.Services.PaneWidths, "modifications.list");

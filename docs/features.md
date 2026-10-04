@@ -325,3 +325,4 @@
 | ResolveAccuracyProbe・QueryVariantProbe（自動検索の当たりを測る） | 同上。上位3件に正解が出る割合を測る | 道具 | #45・#59 |
 | ZipOriginProbe（未確定を元zipで束ねたときの束の数と検索を測る） | 同上 | 道具 | docs/research/id-resolution.md §6-1 |
 | ThesaurusBridgeProbe（類義語辞書に今の表記の橋渡しを重ねたときの広がりを測る） | 同上。曖昧検索を採るかの材料 | 道具 | docs/research/fuzzy-search.md §8 |
+| 改変の画面と改変の詳細の操作の結果は、押した欄・ボタン・行のすぐ下に出す（自動保存の成功は出さない。外す・削除は一覧の見出しの下。上の帯・左の欄の下の帯には残すものだけ）。紐付ける先の候補は版と置き場所を分け、置き場所だけ等幅の字体で出す。右に組み込んだ商品ページも横に送らずに済む幅を残す | 右上や左の下の1行に全部出していて、押した所から遠く、幅420で切れ、「¥」に見えた（メモ20-③ 2026-10-03・ユーザ指示 2026-10-04）。幅1280で組み込んだ商品ページが横に送られていた（絵で確認 2026-10-04） | 実装済み（2026-10-04） | HubNoticeSlot・ModificationHubViewModel.ShowNotice／DetailWidthWanted・ModificationViewModel.*Notice・docs/spec/modifications.md |

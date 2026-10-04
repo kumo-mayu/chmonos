@@ -102,15 +102,13 @@ public sealed class UnityProjectRowViewModel
 
     public string Name => Candidate.Name;
 
-    /// <summary>置き場所とバージョン。同名のプロジェクトを見分けるために出す。</summary>
-    public string Detail
-    {
-        get
-        {
-            var version = Candidate.Version ?? "バージョンが読めません";
-            return Candidate.Folder.Length > 0 ? $"{version}　{Candidate.Folder}" : version;
-        }
-    }
+    /// <summary>バージョン。置き場所（<see cref="Folder"/>）とは別に出す——パスは等幅の英字の字体で出さないと、区切りの「\」が「¥」に見える。</summary>
+    public string VersionText => Candidate.Version ?? "バージョンが読めません";
+
+    /// <summary>置き場所。同名のプロジェクトを見分けるために出す。</summary>
+    public string Folder => Candidate.Folder;
+
+    public bool HasFolder => Candidate.Folder.Length > 0;
 
     /// <summary>いま開いているものは目印を付ける。紐付けたいのは大抵これ。</summary>
     public bool IsOpen => Candidate.IsOpen;
@@ -523,12 +521,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         if (result is CommandResult.Failed failed)
         {
-            Status = failed.Message;
+            AddNotice.Set(failed.Message, true);
             return;
         }
 
         FoundInProject.Remove(row);
-        Status = $"「{row.Name}」を追加しました。";
+        AddNotice.Set($"「{row.Name}」を追加しました。", false);
         await ReloadAsync();
     }
 
@@ -683,7 +681,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 new UiCommand.RecordModificationMemberFiles(Record.Id, step.Member, step.Choice!.CheckedMembers));
             if (result is CommandResult.Failed failed)
             {
-                Status = failed.Message;
+                MembersNotice.Set(failed.Message, true);
             }
             else
             {
@@ -759,7 +757,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
-        if (await UnityMemberSelect.RunAsync(_services, Record, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => Status = text)))
+        if (await UnityMemberSelect.RunAsync(_services, Record, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => MembersNotice.Set(text, false))))
         {
             await ReloadAsync();
         }
@@ -1169,10 +1167,16 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         // 送りっぱなしの UDP なので、着替えたかはこちらでは分からない。送ったことと、効かないときの確かめ方を言う
-        Status = await VrcOsc.SendAvatarChangeAsync(id) is { } problem
-            ? problem
-            : "VRChatに着替えを送りました。着替わらないときは、VRChatでOSCが有効か、"
-                + "このアバターを着られるかを確かめてください。";
+        if (await VrcOsc.SendAvatarChangeAsync(id) is { } problem)
+        {
+            BlueprintNotice.Set(problem, true);
+            return;
+        }
+
+        BlueprintNotice.Set(
+            "VRChatに着替えを送りました。着替わらないときは、VRChatでOSCが有効か、"
+            + "このアバターを着られるかを確かめてください。",
+            false);
     }
 
     /// <summary>
@@ -1249,6 +1253,31 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     }
 
     public bool HasStatus => Status.Length > 0;
+
+    // ---- 押した欄・ボタンの下の知らせ（2026-10-04。上の帯の Status に全部出していて、幅420で切れていた） ----
+    // 出す場所の決まりは docs/feedback/notice-placement-2026-10-03.md。行の外す・戻す・削除と写真の削除は
+    // 押した所ごと消えるので、その一覧の見出しの近く（MembersNotice・GalleryNotice）に出す
+
+    /// <summary>名前の欄の下。保存できなかったときだけ。</summary>
+    public HubNoticeSlot NameNotice { get; } = new();
+
+    /// <summary>メモの欄の下。保存できなかったときだけ。</summary>
+    public HubNoticeSlot MemoNotice { get; } = new();
+
+    /// <summary>blueprint ID の欄と「VRChatで着替える」の下。</summary>
+    public HubNoticeSlot BlueprintNotice { get; } = new();
+
+    /// <summary>Unityプロジェクトの紐付け・開くの下。</summary>
+    public HubNoticeSlot ProjectNotice { get; } = new();
+
+    /// <summary>使ったものを足す欄（名前で足す・プロジェクトの候補）の下。</summary>
+    public HubNoticeSlot AddNotice { get; } = new();
+
+    /// <summary>使ったものの一覧の見出しの近く（外す・戻す・削除・Unityで選択・Unityへ送る）。</summary>
+    public HubNoticeSlot MembersNotice { get; } = new();
+
+    /// <summary>写真のギャラリーの近く（追加・貼り付け・削除）。</summary>
+    public HubNoticeSlot GalleryNotice { get; } = new();
 
     public string CreatedText => $"作成 {Record.CreatedAt:yyyy-MM-dd}";
 
@@ -1376,9 +1405,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await _services.Commands.ExecuteAsync(
             new UiCommand.SetModificationProject(Record.Id, row?.Candidate.Path));
 
-        Status = row is null
-            ? "Unityプロジェクトの紐付けを外しました。"
-            : $"「{row.Name}」を紐付けました。";
+        ProjectNotice.Set(
+            row is null
+                ? "Unityプロジェクトの紐付けを外しました。"
+                : $"「{row.Name}」を紐付けました。",
+            false);
 
         await ReloadAsync();
     }
@@ -1434,9 +1465,14 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         // 文は改変の画面の「Unityを開く」と同じ。フォルダが無いときだけ、ここでは指し直せることを言う
         var result = UnityLaunch.OpenProject(Record.UnityProject);
-        Status = result == UnityOpenResult.Missing
+        var text = result == UnityOpenResult.Missing
             ? $"「{name}」が見つかりません。移したのなら、下の一覧から指し直せます。"
             : await UnityOpenText.ForAsync(_services, result, name);
+
+        // 開けなかった結果は、指し直す・入れる・別のやり方で開くが要るので警告の色で出す
+        ProjectNotice.Set(
+            text,
+            result is UnityOpenResult.NoEditorNoHub or UnityOpenResult.Missing or UnityOpenResult.Failed);
     }
 
     /// <summary>記録に残した種類の番号を、人が読める名前に直す。</summary>
@@ -1522,7 +1558,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var result = await _services.Commands.ExecuteAsync(
             new UiCommand.RenameModification(Record.Id, NameInput));
 
-        Status = result is CommandResult.Failed failed ? failed.Message : "名前を変えました。";
+        // 自動で保存する欄は、保存できたときは何も言わない（出すのは保存できなかったときだけ）
+        NameNotice.Set(result is CommandResult.Failed failed ? failed.Message : string.Empty, true);
         await RefreshRecordAsync();
     }
 
@@ -1537,9 +1574,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var result = await _services.Commands.ExecuteAsync(
             new UiCommand.SetModificationMemo(Record.Id, memo));
 
-        Status = result is CommandResult.Failed failed
-            ? failed.Message
-            : memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
+        MemoNotice.Set(result is CommandResult.Failed failed ? failed.Message : string.Empty, true);
         await RefreshRecordAsync();
     }
 
@@ -1554,9 +1589,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var result = await _services.Commands.ExecuteAsync(
             new UiCommand.SetModificationBlueprintId(Record.Id, id));
 
-        Status = result is CommandResult.Failed failed
-            ? failed.Message
-            : id.Length == 0 ? "blueprint IDを消しました。" : "blueprint IDを保存しました。";
+        BlueprintNotice.Set(result is CommandResult.Failed failed ? failed.Message : string.Empty, true);
         await RefreshRecordAsync();
     }
 
@@ -1614,7 +1647,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         if (item is null)
         {
-            Status = $"「{name.Trim()}」という商品が手元に見つかりません。";
+            AddNotice.Set($"「{name.Trim()}」という商品が手元に見つかりません。", true);
             return;
         }
 
@@ -1622,9 +1655,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             Record.Id,
             new ModificationMember { ItemId = item.Id }));
 
-        Status = result is CommandResult.Failed failed
-            ? failed.Message
-            : $"「{item.DisplayName}」を追加しました。";
+        AddNotice.Set(
+            result is CommandResult.Failed failed ? failed.Message : $"「{item.DisplayName}」を追加しました。",
+            result is CommandResult.Failed);
 
         await ReloadAsync();
     }
@@ -1644,9 +1677,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await _services.Commands.ExecuteAsync(
             new UiCommand.SetModificationMemberDetached(Record.Id, row.Member, detached));
 
-        Status = detached
-            ? $"「{row.Name}」を外しました。「戻す」で元に戻せます。"
-            : $"「{row.Name}」を戻しました。";
+        MembersNotice.Set(
+            detached
+                ? $"「{row.Name}」を外しました。「戻す」で元に戻せます。"
+                : $"「{row.Name}」を戻しました。",
+            false);
         await ReloadAsync();
     }
 
@@ -1680,7 +1715,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await _services.Commands.ExecuteAsync(
             new UiCommand.RemoveModificationMember(Record.Id, row.Member));
 
-        Status = $"「{row.Name}」を削除しました。";
+        MembersNotice.Set($"「{row.Name}」を削除しました。", false);
         await ReloadAsync();
     }
 
@@ -1710,7 +1745,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        Status = $"「{row.Name}」は手元にありません。記録は残っています。";
+        MembersNotice.Set($"「{row.Name}」は手元にありません。記録は残っています。", true);
     }
 
     // ---- 写真 ----
@@ -1752,7 +1787,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                Status = $"{Path.GetFileName(path)} を読めませんでした。";
+                GalleryNotice.Set($"{Path.GetFileName(path)} を読めませんでした。", true);
                 continue;
             }
 
@@ -1762,13 +1797,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             }
             else
             {
-                Status = $"{Path.GetFileName(path)} は画像として読めませんでした。";
+                GalleryNotice.Set($"{Path.GetFileName(path)} は画像として読めませんでした。", true);
             }
         }
 
         if (added > 0)
         {
-            Status = $"写真を {added} 枚貼りました。";
+            GalleryNotice.Set($"写真を {added} 枚貼りました。", false);
             await ReloadAsync();
         }
     }
@@ -1785,9 +1820,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>貼り付けたあとに、外から組み直させる。</summary>
     public async Task PasteImageAsync(byte[] bytes)
     {
-        Status = await AddImageBytesAsync(bytes)
-            ? "写真を1枚貼りました。"
-            : "画像として読めませんでした。";
+        var added = await AddImageBytesAsync(bytes);
+        GalleryNotice.Set(added ? "写真を1枚貼りました。" : "画像として読めませんでした。", !added);
 
         await ReloadAsync();
     }
@@ -1815,7 +1849,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await _services.Commands.ExecuteAsync(
             new UiCommand.RemoveModificationImage(Record.Id, image.FileName));
 
-        Status = "写真を消しました。";
+        GalleryNotice.Set("写真を消しました。", false);
         await ReloadAsync();
     }
 

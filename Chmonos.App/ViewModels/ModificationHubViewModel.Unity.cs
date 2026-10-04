@@ -9,13 +9,18 @@ public sealed partial class ModificationHubViewModel
 
     private void OpenVcc()
     {
-        Status = OpenResultText(VccLaunch.Open(), "VCC");
+        var result = VccLaunch.Open();
+        ToolNotice.Set(OpenResultText(result, "VCC"), !IsOpenSuccess(result));
     }
 
     private void OpenAlcom()
     {
-        Status = OpenResultText(AlcomLaunch.Open(), "ALCOM");
+        var result = AlcomLaunch.Open();
+        ToolNotice.Set(OpenResultText(result, "ALCOM"), !IsOpenSuccess(result));
     }
+
+    /// <summary>起動できた・手前に出せたのは済んだこと。それ以外は、自分で切り替えるか入れ直すかが要るので警告の色で出す。</summary>
+    private static bool IsOpenSuccess(AppOpenResult result) => result is AppOpenResult.Launched or AppOpenResult.BroughtToFront;
 
     /// <summary>VCC と ALCOM で同じ結果を同じ文で言う（どちらも起動するだけで、結果の種類が同じ）。</summary>
     internal static string OpenResultText(AppOpenResult result, string app) => result switch
@@ -37,7 +42,14 @@ public sealed partial class ModificationHubViewModel
             return;
         }
 
-        Status = await UnityOpenText.ForAsync(_services, UnityLaunch.OpenProject(path), ProjectNameOf(path));
+        var result = UnityLaunch.OpenProject(path);
+        var text = await UnityOpenText.ForAsync(_services, result, ProjectNameOf(path));
+
+        // 開けなかった結果は別の操作が要るので警告の色で出す。プロジェクトの行と右の詳細は同じ鍵なので、両方に出る
+        ShowNotice(
+            $"project:{path}",
+            text,
+            warning: result is UnityOpenResult.NoEditorNoHub or UnityOpenResult.Missing or UnityOpenResult.Failed);
     }
 
     /// <summary>
@@ -53,7 +65,7 @@ public sealed partial class ModificationHubViewModel
 
         var item = _items.GetValueOrDefault(row.ItemId) ?? await _services.Store.Items.LoadAsync(row.ItemId);
         var recorded = await UnityMemberSelect.RunAsync(
-            _services, row.Record, row.Member, row.Name, row.FileText, item, Notices.LineOrWindow("Unityで選択", text => Status = text));
+            _services, row.Record, row.Member, row.Name, row.FileText, item, Notices.LineOrWindow("Unityで選択", text => ShowNotice(row.NoticeKey, text)));
 
         // 記録した行（どのファイルを使ったか）を一覧に出す
         if (recorded)
