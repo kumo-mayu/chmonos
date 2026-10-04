@@ -190,4 +190,108 @@ public sealed class SavedSearchRenameTests : IDisposable
 
         Assert.Equal(["base:素体A"], _store.SavedSearches.Load().Entries.Single().Modules.Single().Items);
     }
+
+    [Fact]
+    public async Task 小分類を別の大分類へ移すと_条件も移り_元に小分類が残らなければ元の条件は消える()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏"), Top("髪")] });
+        await SaveAsync(TagSearch(
+            new UserTagCondition { Top = "衣装", Subs = ["夏"] },
+            new UserTagCondition { Top = "色", Subs = ["夏"] }));
+
+        await _handler.ExecuteAsync(new UiCommand.MoveUserTagSub("衣装", "夏", "髪", false));
+
+        var tags = SavedTags();
+        Assert.Equal(["髪", "色"], tags.Select(tag => tag.Top).ToArray());
+        Assert.Equal(["夏"], tags.Single(tag => tag.Top == "髪").Subs);
+        Assert.Equal(["夏"], tags.Single(tag => tag.Top == "色").Subs);
+    }
+
+    [Fact]
+    public async Task 小分類を移すと_元の条件の残りの小分類は残り_移動先の条件にまとまる()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏", "冬"), Top("髪", "短")] });
+        await SaveAsync(TagSearch(
+            new UserTagCondition { Top = "衣装", Subs = ["夏", "冬"] },
+            new UserTagCondition { Top = "髪", Subs = ["短"] }));
+
+        await _handler.ExecuteAsync(new UiCommand.MoveUserTagSub("衣装", "夏", "髪", false));
+
+        var tags = SavedTags();
+        Assert.Equal(["冬"], tags.Single(tag => tag.Top == "衣装").Subs);
+        Assert.Equivalent(new[] { "短", "夏" }, tags.Single(tag => tag.Top == "髪").Subs);
+    }
+
+    [Fact]
+    public async Task 小分類を移すとき_移動先が大分類の全部の条件なら_そのまま残す()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏"), Top("髪")] });
+        await SaveAsync(TagSearch(
+            new UserTagCondition { Top = "衣装", Subs = ["夏"] },
+            new UserTagCondition { Top = "髪" }));
+
+        await _handler.ExecuteAsync(new UiCommand.MoveUserTagSub("衣装", "夏", "髪", false));
+
+        var tag = Assert.Single(SavedTags());
+        Assert.Equal("髪", tag.Top);
+        Assert.Empty(tag.Subs);
+    }
+
+    [Fact]
+    public async Task 移せなかった小分類の移動では_保存した検索は変わらない()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏"), Top("髪")] });
+        await SaveAsync(TagSearch(new UserTagCondition { Top = "衣装", Subs = ["春"] }));
+
+        await _handler.ExecuteAsync(new UiCommand.MoveUserTagSub("衣装", "春", "髪", false));
+
+        var tag = Assert.Single(SavedTags());
+        Assert.Equal("衣装", tag.Top);
+        Assert.Equal(["春"], tag.Subs);
+    }
+
+    [Fact]
+    public async Task 大分類を小分類にすると_条件も入れ先の小分類になる()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装"), Top("服")] });
+        await SaveAsync(TagSearch(
+            new UserTagCondition { Top = "衣装" },
+            new UserTagCondition { Top = "髪", Subs = ["短"] }));
+
+        await _handler.ExecuteAsync(new UiCommand.NestUserTagTop("衣装", "服"));
+
+        var tags = SavedTags();
+        Assert.Equal(["服", "髪"], tags.Select(tag => tag.Top).ToArray());
+        Assert.Equal(["衣装"], tags[0].Subs);
+        Assert.Equal(["短"], tags[1].Subs);
+    }
+
+    [Fact]
+    public async Task 大分類を小分類にして入れ先の条件があれば_小分類を足して1つにする()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装"), Top("服", "和")] });
+        await SaveAsync(TagSearch(
+            new UserTagCondition { Top = "衣装" },
+            new UserTagCondition { Top = "服", Subs = ["和"] }));
+
+        await _handler.ExecuteAsync(new UiCommand.NestUserTagTop("衣装", "服"));
+
+        var tag = Assert.Single(SavedTags());
+        Assert.Equal("服", tag.Top);
+        Assert.Equivalent(new[] { "和", "衣装" }, tag.Subs);
+    }
+
+    [Fact]
+    public async Task 小分類を持つ大分類を小分類にしようとして断られたら_条件は変わらない()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏"), Top("服")] });
+        await SaveAsync(TagSearch(new UserTagCondition { Top = "衣装", Subs = ["夏"] }));
+
+        var result = await _handler.ExecuteAsync(new UiCommand.NestUserTagTop("衣装", "服"));
+
+        Assert.IsType<CommandResult.Failed>(result);
+        var tag = Assert.Single(SavedTags());
+        Assert.Equal("衣装", tag.Top);
+        Assert.Equal(["夏"], tag.Subs);
+    }
 }

@@ -174,6 +174,105 @@ public static class SavedSearches
     }
 
     /// <summary>
+    /// 小分類を別の大分類へ移したのに付いていく。「元の大分類の小分類 x」を「移動先の大分類の小分類 x」へ書き換える。
+    /// 元の条件から x を抜いて小分類が1つも残らなくなったら、元の条件は消す（残すと「その大分類の全部」へ広がってしまう）。
+    /// 移動先に条件が既にあれば小分類を足して1つにする。ただし移動先が小分類を絞っていない（その大分類の全部）なら、
+    /// x はもう含まれているので足さない（足すと絞り込みになり、条件が狭まってしまう）
+    /// </summary>
+    public static IReadOnlyList<SearchHistoryEntry> MoveUserTagSub(
+        IEnumerable<SearchHistoryEntry> entries, string fromTop, string sub, string toTop, string subSpelling)
+        => RewriteModules(entries, UserTagKind, module =>
+        {
+            var result = new List<UserTagCondition>();
+            var carried = false;
+            var carriedMatchAll = false;
+            var carriedAt = -1;
+            foreach (var condition in module.UserTags)
+            {
+                if (!SameTag(condition.Top, fromTop) || !condition.Subs.Any(entry => SameTag(entry, sub)))
+                {
+                    result.Add(condition);
+                    continue;
+                }
+
+                var rest = condition.Subs.Where(entry => !SameTag(entry, sub)).ToList();
+                if (!carried)
+                {
+                    carried = true;
+                    carriedMatchAll = condition.MatchAll;
+                    carriedAt = result.Count;
+                }
+
+                if (rest.Count > 0 || condition.NoSub)
+                {
+                    result.Add(condition with { Subs = rest });
+                    carriedAt = -1;
+                }
+            }
+
+            if (carried)
+            {
+                AddSubTo(result, toTop, subSpelling, carriedMatchAll, carriedAt);
+            }
+
+            return module with { UserTags = result };
+        });
+
+    /// <summary>
+    /// 大分類を別の大分類の小分類にしたのに付いていく。「大分類 X」の条件を「移動先の大分類の小分類 X」へ書き換える。
+    /// X が小分類を持つ条件は、小分類のある大分類は小分類にできない決まり（断られて何も変わらない）なので触らない
+    /// </summary>
+    public static IReadOnlyList<SearchHistoryEntry> NestUserTagTop(
+        IEnumerable<SearchHistoryEntry> entries, string top, string intoTop, string subSpelling)
+        => RewriteModules(entries, UserTagKind, module =>
+        {
+            var result = new List<UserTagCondition>();
+            var carried = false;
+            var carriedMatchAll = false;
+            var carriedAt = -1;
+            foreach (var condition in module.UserTags)
+            {
+                if (!SameTag(condition.Top, top) || condition.Subs.Count > 0)
+                {
+                    result.Add(condition);
+                    continue;
+                }
+
+                if (!carried)
+                {
+                    carried = true;
+                    carriedMatchAll = condition.MatchAll;
+                    carriedAt = result.Count;
+                }
+            }
+
+            if (carried)
+            {
+                AddSubTo(result, intoTop, subSpelling, carriedMatchAll, carriedAt);
+            }
+
+            return module with { UserTags = result };
+        });
+
+    /// <summary>移動先の条件へ小分類を足す。無ければ <paramref name="insertAt"/>（元の条件があった位置。無ければ末尾）に作る</summary>
+    private static void AddSubTo(List<UserTagCondition> conditions, string top, string sub, bool matchAll, int insertAt)
+    {
+        var at = conditions.FindIndex(condition => SameTag(condition.Top, top));
+        if (at < 0)
+        {
+            var created = new UserTagCondition { Top = top, Subs = [sub], MatchAll = matchAll };
+            conditions.Insert(insertAt >= 0 ? insertAt : conditions.Count, created);
+            return;
+        }
+
+        var existing = conditions[at];
+        if (existing.HasSubConditions)
+        {
+            conditions[at] = existing with { Subs = existing.Subs.Append(sub).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList() };
+        }
+    }
+
+    /// <summary>
     /// 属性の名前の変更・統合。幅の条件と、その属性で並べた表示順（「質感 が高い順」）の両方を寄せる。
     /// 統合で両方の幅を持っていたら、寄せ先の幅を残す（商品側の統合の既定「寄せ先の値を残す」と同じ向き）
     /// </summary>

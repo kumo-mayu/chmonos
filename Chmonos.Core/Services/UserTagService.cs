@@ -62,6 +62,9 @@ public sealed record UserTagEditResult
     /// 下見から押すまでの間に編集画面で小分類が足されることがあるので、書く直前にも確かめて断る
     /// </summary>
     public bool WasRefused { get; init; }
+
+    /// <summary>小分類の移動で、実際に移せたか（元に無い小分類・同じ大分類への移動では何もしない）。</summary>
+    public bool WasMoved { get; init; }
 }
 
 /// <summary>大分類を別の大分類の小分類にしたら何が起きるかの下見。確認の文に件数を出すため。</summary>
@@ -558,6 +561,7 @@ public sealed class UserTagService : IUserTagService
             ItemsLeftUntagged = rewritten.LeftUntagged,
             ItemsGainedTop = gained,
             ItemsSourceTopRemoved = sourceRemoved,
+            WasMoved = true,
         };
     }
 
