@@ -116,6 +116,27 @@
             <Setter Property="MaxWidth" Value="520" />
         </Style>
 
+        <!--
+            操作の結果の知らせを、押した欄やボタンのすぐ下に出す1行（2026-10-03 のユーザの方針：画面の右上にぽつんと出る文は知らせに向かない。
+            docs/feedback/notice-placement-2026-10-03.md）。**出ていない間も1行ぶんの高さを取る**——出る・消えるたびに下の物が押し下げられて
+            画面が跳ねないように（ユーザ「画面が一瞬で大きくズレるような動作は避ける」）。長い文は1行で切り、全部は吹き出しで読む。
+            FieldNotice は済んだこと（コピーしました など）、FieldWarning は打ち直しや別の操作が要ること（既にあります・入れてください など）
+        -->
+        <Style x:Key="FieldNotice" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Margin" Value="2,4,0,0" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="ToolTip" Value="{x:Null}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FieldWarning" TargetType="TextBlock" BasedOn="{StaticResource FieldNotice}">
+            <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+        </Style>
+
         <Style x:Key="Mono" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
             <Setter Property="FontSize" Value="12" />
