@@ -25,6 +25,7 @@ internal static partial class Scenes
         .. Bands,
         .. Modifications,
         .. ModificationMembers,
+        .. ManageMemo32Scenes,
         .. AvatarScenes,
         .. Search,
         .. SearchFilters,
