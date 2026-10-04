@@ -351,7 +351,7 @@
                                 <controls:ItemCardBorder Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
                                         Focusable="True" KeyDown="OnCardKeyDown" Invoked="OnCardInvoked" Loaded="OnCardLoaded" FocusVisualStyle="{StaticResource CardFocusVisual}"
-                                        MouseEnter="OnCardMouseEnter" MouseLeave="OnCardMouseLeave" GotKeyboardFocus="OnCardFocusChanged" LostKeyboardFocus="OnCardFocusChanged"
+                                        GotKeyboardFocus="OnCardFocusChanged" LostKeyboardFocus="OnCardFocusChanged"
                                         ClipToBounds="True"
                                         AutomationProperties.AutomationId="ItemCard"
                                         AutomationProperties.Name="{Binding Name}"
@@ -446,8 +446,9 @@
                                         -->
                                         <Grid Margin="11,10,11,0">
                                             <StackPanel>
+                                                <!-- 高さは2行ぶんで固定（メモ37-①）。1行の名前だと下の札と1行が上へ詰まり、名前が2行の商品とずれた -->
                                                 <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
-                                                           TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
+                                                           TextWrapping="Wrap" Height="36" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <!--
@@ -456,7 +457,7 @@
                                                     札の段は高さを決め打ちにし、値の無い商品でも名前の欄の高さを変えない（一覧の段が揃う）。
                                                     札は一覧の ItemsControl にせず決まった数の枠にする——カードは数千枚並ぶので、1枚の部品の数を増やさない
                                                 -->
-                                                <controls:CardInfoStrip Margin="0,6,0,0">
+                                                <controls:CardInfoStrip Margin="0,6,0,0" MouseEnter="OnChipsMouseEnter" MouseLeave="OnChipsMouseLeave">
                                                     <controls:CardInfoStrip.Info>
                                                         <MultiBinding Converter="{x:Static vm:CardInfoForWidthConverter.Instance}">
                                                             <Binding />

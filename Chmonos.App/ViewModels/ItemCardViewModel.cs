@@ -290,7 +290,7 @@ public sealed class ItemCardViewModel : ViewModelBase
         }
     }
 
-    private bool _pointerOnText;
+    private bool _pointerOnChips;
     private bool _hasKeyboardFocus;
     private bool _isPeeking;
 
@@ -307,10 +307,16 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     private static readonly CardPeek EmptyPeek = new();
 
-    /// <summary>名前の欄にマウスが乗った・離れた（View が知らせる）。</summary>
-    public void SetPointerOnText(bool on)
+    /// <summary>
+    /// 札に乗せてから重ねを出すまでの待ち（ミリ秒）。ギャラリーの乗せて切り替える待ち（設定 GalleryHoverDelayMs）と同じ値で、
+    /// 掃くようにマウスを動かしただけで重ねが出入りしないようにする（メモ37-②）。待つのは View（札に乗ったときから数える）
+    /// </summary>
+    public int PeekDelayMs => InfoContext?.PeekDelayMs ?? 0;
+
+    /// <summary>ユーザータグ・属性の札にマウスが乗った・離れた（View が、乗せて <see cref="PeekDelayMs"/> 待ってから知らせる。離れたときはすぐ）。</summary>
+    public void SetPointerOnChips(bool on)
     {
-        _pointerOnText = on;
+        _pointerOnChips = on;
         UpdatePeeking();
     }
 
@@ -323,7 +329,7 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     private void UpdatePeeking(bool rebuild = false)
     {
-        var wanted = (_pointerOnText || _hasKeyboardFocus) && !_isHovering && InfoContext is not null;
+        var wanted = (_pointerOnChips || _hasKeyboardFocus) && !_isHovering && InfoContext is not null;
         if (wanted && (!_isPeeking || rebuild))
         {
             // 出す中身が何も無い商品（タグも評価も額も対応も無い）は、空の黒い板だけになるので重ねない

@@ -7,7 +7,7 @@ using Chmonos.App.ViewModels;
 namespace Chmonos.App.Controls;
 
 /// <summary>
-/// カードの名前の下の札と1行（ユーザ判断 2026-10-04・案A）：ユーザータグの札2枚＋残りの数・属性の札2枚・払った額と対応の数。
+/// カードの名前の下の札と1行（ユーザ判断 2026-10-04・案A）：ユーザータグの札＋残りの数・属性の札（どちらもカードの幅に入るだけ）・払った額と対応の数。
 ///
 /// **部品を並べずに、この1つが自分で描く。**札を枠と文字の部品で組むと、カード1枚につき部品が十数個・結び付けが二十ほど増え、
 /// 作り物の2000件を同じ歩みで流す時間が 1.37秒 → 2.12秒（33ms を超えた歩みが 60 歩中 2 → 44）になった。
@@ -90,32 +90,45 @@ public sealed class CardInfoStrip : FrameworkElement
         drawing.PushClip(new RectangleGeometry(new Rect(0, 0, width, StripHeight)));
 
         // 1段目：ユーザータグ（丸い札）と残りの数
+        // 札の数はここで、カードの幅に入るだけ決める（メモ37-③。前は2枚・幅200未満は1枚の決め打ちだった）。高さは変えない
+        var tagTexts = info.Tags.Select(tag => Text(tag, 10, Get(TagTextProperty), TagTextMax, dpi)).ToList();
+        var tagCount = FitCount(tagTexts.Select(text => ChipWidth(text, 7)).ToList(), info.TagTotal, width, ChipGap,
+            hidden => ChipWidth(Text($"+{hidden}", 10, Get(MoreTextProperty), double.PositiveInfinity, dpi), 6));
         var x = 0.0;
-        foreach (var tag in new[] { info.Tag1, info.Tag2 })
+        for (var i = 0; i < tagCount; i++)
         {
-            if (tag is not null)
-            {
-                x = DrawChip(drawing, x, 0, Text(tag, 10, Get(TagTextProperty), TagTextMax, dpi), 7, 9, Get(TagBackProperty), Get(TagBorderProperty));
-            }
+            x = DrawChip(drawing, x, 0, tagTexts[i], 7, 9, Get(TagBackProperty), Get(TagBorderProperty));
         }
 
-        if (info.HasTagMore)
+        var tagsRight = x;
+        if (info.TagTotal > tagCount)
         {
-            DrawChip(drawing, x, 0, Text(info.TagMore, 10, Get(MoreTextProperty), double.PositiveInfinity, dpi), 6, 9, Get(MoreBackProperty), Get(MoreBorderProperty));
+            tagsRight = DrawChip(drawing, x, 0, Text($"+{info.TagTotal - tagCount}", 10, Get(MoreTextProperty), double.PositiveInfinity, dpi), 6, 9,
+                Get(MoreBackProperty), Get(MoreBorderProperty));
         }
 
-        // 2段目：属性（線だけの角の丸い札。名前は薄く、値は太く）
+        // 2段目：属性（線だけの角の丸い札。名前は薄く、値は太く）。右下の星の上に掛からない幅まで。入らない分は出さない（全部は乗せたときの重ねで見える）
+        var attributeTexts = info.Attributes.Select(chip =>
+        {
+            var text = Text($"{chip.Name} {chip.ValueText}", 10, Get(AttributeNameProperty), AttributeTextMax, dpi);
+            var nameLength = chip.Name.Length + 1;
+            text.SetForegroundBrush(Get(AttributeValueProperty), nameLength, chip.ValueText.Length);
+            text.SetFontWeight(FontWeights.Bold, nameLength, chip.ValueText.Length);
+            return text;
+        }).ToList();
+        var attributeCount = FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, width - StarInset, ChipGap, null);
         x = 0;
-        foreach (var chip in new[] { info.Attribute1, info.Attribute2 })
+        for (var i = 0; i < attributeCount; i++)
         {
-            if (chip is not null)
-            {
-                var text = Text($"{chip.Name} {chip.ValueText}", 10, Get(AttributeNameProperty), AttributeTextMax, dpi);
-                var nameLength = chip.Name.Length + 1;
-                text.SetForegroundBrush(Get(AttributeValueProperty), nameLength, chip.ValueText.Length);
-                text.SetFontWeight(FontWeights.Bold, nameLength, chip.ValueText.Length);
-                x = DrawChip(drawing, x, ChipHeight + RowGap, text, 5, 4, null, Get(AttributeBorderProperty));
-            }
+            x = DrawChip(drawing, x, ChipHeight + RowGap, attributeTexts[i], 5, 4, null, Get(AttributeBorderProperty));
+        }
+
+        // 札の段の、札のある幅だけを「乗せている」と数える（メモ37-②：重ねは札に乗せて少し待ってから出す）。
+        // 何も描いていない所は当たらないので、透明で塗っておく。札の間の隙間で離れた扱いにならないよう、段ごと1枚で覆う
+        var chipsRight = Math.Max(tagsRight, x) - ChipGap;
+        if (chipsRight > 0 && (tagCount > 0 || attributeCount > 0))
+        {
+            drawing.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, Math.Min(width, chipsRight), ChipHeight + RowGap + ChipHeight));
         }
 
         // 3段目：払った額・対応の数
@@ -130,11 +143,40 @@ public sealed class CardInfoStrip : FrameworkElement
         drawing.Pop();
     }
 
+    private static double ChipWidth(FormattedText text, double padding) => Math.Ceiling(text.Width + padding * 2);
+
+    /// <summary>
+    /// 幅 <paramref name="available"/> に札を何枚並べられるか。入らない札があるときは「+n」の札のぶんも空ける。
+    /// 1枚も入らなくても1枚は出す（切れていても、何かが付いていると分かる方がよい）
+    /// </summary>
+    /// <param name="widths">札ごとの幅（付いている順）。</param>
+    /// <param name="total">付いている札の数（<paramref name="widths"/> は測る上限までなので、それ以上に付いていることがある）。</param>
+    /// <param name="moreWidthOf">隠れる数から「+n」の札の幅を出す。出さない段（属性）は null。</param>
+    internal static int FitCount(IReadOnlyList<double> widths, int total, double available, double gap, Func<int, double>? moreWidthOf)
+    {
+        for (var count = widths.Count; count >= 1; count--)
+        {
+            var used = widths.Take(count).Sum() + gap * (count - 1);
+            var hidden = total - count;
+            if (hidden > 0 && moreWidthOf is not null)
+            {
+                used += gap + moreWidthOf(hidden);
+            }
+
+            if (used <= available)
+            {
+                return count;
+            }
+        }
+
+        return Math.Min(1, widths.Count);
+    }
+
     /// <summary>札を1枚描き、次の札の左端を返す。</summary>
     private static double DrawChip(
         DrawingContext drawing, double x, double y, FormattedText text, double padding, double radius, Brush? back, Brush border)
     {
-        var chipWidth = Math.Ceiling(text.Width + padding * 2);
+        var chipWidth = ChipWidth(text, padding);
         var rect = new Rect(x + 0.5, y + 0.5, chipWidth - 1, ChipHeight - 1);
         drawing.DrawRoundedRectangle(back, new Pen(border, 1), rect, radius, radius);
         drawing.DrawText(text, new Point(x + padding, y + (ChipHeight - text.Height) / 2));

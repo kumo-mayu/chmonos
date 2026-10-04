@@ -456,6 +456,7 @@ public sealed partial class SearchViewModel
     {
         var settings = _services.Settings;
         var sortAttribute = _sort.Kind == SortKind.Attribute ? _sort.AttributeName : null;
+        _cardInfo.PeekDelayMs = _plainCardInfo.PeekDelayMs = Math.Max(0, settings.GalleryHoverDelayMs);
         _plainCardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, null, settings.ShowSubTagsInList));
         if (_cardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, sortAttribute, settings.ShowSubTagsInList)))
         {

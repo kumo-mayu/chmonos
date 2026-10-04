@@ -53,10 +53,10 @@ internal static partial class Scenes
 
             if (peek)
             {
-                // 2枚目（ユーザータグ・属性・額・対応がそろう商品）の名前の欄に乗せた姿
+                // 2枚目（ユーザータグ・属性・額・対応がそろう商品）の札に乗せた姿
                 var card = main.Search.Rows.SelectMany(row => row.Cards.OfType<ItemCardViewModel>())
                     .Skip(1).First(candidate => candidate.Item.Local.Attributes.Count >= 3 && candidate.Item.Local.UserTags.Count > 0);
-                card.SetPointerOnText(true);
+                card.SetPointerOnChips(true);
                 await context.SettleAsync();
             }
 
