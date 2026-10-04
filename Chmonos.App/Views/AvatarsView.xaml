@@ -153,9 +153,10 @@
                             三角は文字（▸▾）ではなく図形で描く。文字は小さく描かれる字形で、字を 11 → 14 に上げても見た目がほとんど変わらなかった
                             （ユーザ指摘 2026-09-13「折り畳みの三角が少し小さいかも」）。幅18の枠の真ん中に置くのは同じ（縦線を三角の真下に下ろしている）
                         -->
-                        <Border Background="Transparent">
+                        <!-- 押せる範囲は行の高さいっぱい（ユーザ指摘 2026-10-04「当たり判定が感覚より小さい」）。以前は改変の行で、上に寄せて下げた三角の枠だけ（18×9）が押せた。枠を行の高さに伸ばし、三角の位置だけ Padding で下げる -->
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
                             <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
-                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                   Visibility="{Binding HasGlyph, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -921,8 +922,8 @@
                                         <DataTemplate DataType="{x:Type vm:HubModificationRow}">
                                             <StackPanel Margin="0,4,0,2">
                                                 <DockPanel>
-                                                    <controls:ExpandToggle AutomationProperties.AutomationId="AvatarModToggle" Subject="{Binding Name, StringFormat={}{0}の使ったもの}" DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
-                                                                  Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
+                                                    <controls:ExpandToggle AutomationProperties.AutomationId="AvatarModToggle" Subject="{Binding Name, StringFormat={}{0}の使ったもの}" DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalContentAlignment="Top" Padding="0,10,0,0"
+                                                                  Margin="0,0,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
                                                     <Button AutomationProperties.AutomationId="AvatarModImage" DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
                                                             AutomationProperties.Name="{Binding Name}"
                                                             ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"

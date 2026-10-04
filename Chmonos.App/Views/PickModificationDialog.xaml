@@ -92,7 +92,7 @@
             <StackPanel>
                 <TextBlock Text="どのアバターの改変か" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
                 <!-- 選んだ名前は欄にそのまま出す（ユーザ指摘 2026-09-19）。下の1行は選んでいない間だけ -->
-                <controls:SuggestBox Source="{Binding AvatarNames}" CommitCommand="{Binding PickAvatarCommand}"
+                <controls:SuggestBox Source="{Binding AvatarNames}" PrimaryCount="{Binding OwnedAvatarCount}" CommitCommand="{Binding PickAvatarCommand}"
                                      AllowNew="False" KeepsCommittedText="True"
                                      Text="{Binding NewAvatarQuery, Mode=TwoWay}"
                                      Placeholder="アバターの名前で探す" />

@@ -11,6 +11,13 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public static class ModificationPicking
 {
+    /// <summary>持っている商品のID（ファイルかフォルダを1つ以上持つ。所持の定義）。アバターの候補を「持っている」で分けるのに使う。</summary>
+    public static async Task<IReadOnlySet<string>> LoadOwnedItemIdsAsync(AppServiceContainer services)
+        => (await services.Store.Items.LoadAllAsync()).Items
+            .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.Ordinal);
+
     /// <summary>ダイアログの中身を組む。呼ぶ場面ごとに文言だけ変える。</summary>
     public static PickModificationDialogViewModel BuildDialog(
         AppServiceContainer services,
@@ -21,7 +28,8 @@ public static class ModificationPicking
         string existingLabel,
         string commitLabel,
         string emptyText,
-        MemberFilePickViewModel? files = null)
+        MemberFilePickViewModel? files = null,
+        IReadOnlySet<string>? ownedItemIds = null)
     {
         var registry = services.Store.Avatars.Load();
         var names = Core.Services.AvatarNames.Map(registry.Entries);
@@ -32,12 +40,20 @@ public static class ModificationPicking
         // 作ったまま（アバターの管理画面・商品ページと同じ名前を出すため）
         var avatarEntries = registry.Entries.Where(Core.Services.AvatarService.IsAvatar).ToList();
 
-        var avatarNames = avatarEntries
+        // 持っているアバターを先に、その下にほかのアバター（メモ32-②。検索の対応アバターの候補と同じ分け方）。
+        // 名前が重なる物は1つにまとめるので、持っている方に1つでも入れば先に出す
+        bool IsOwned(AvatarRegistryEntry entry) => entry.IsOwnedManually || (ownedItemIds?.Contains(entry.ItemId) ?? false);
+        List<string> NamesOf(IEnumerable<AvatarRegistryEntry> entries) => entries
             .Select(NameOf)
             .Where(text => text.Length > 0)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(text => text, StringComparer.CurrentCulture)
             .ToList();
+        var ownedNames = NamesOf(avatarEntries.Where(IsOwned));
+        var otherNames = NamesOf(avatarEntries.Where(entry => !IsOwned(entry)))
+            .Where(text => !ownedNames.Contains(text, StringComparer.CurrentCultureIgnoreCase))
+            .ToList();
+        var avatarNames = ownedNames.Concat(otherNames).ToList();
 
         var rows = records
             .Select(record => new PickModificationRowViewModel
@@ -64,6 +80,7 @@ public static class ModificationPicking
             CommitLabel = commitLabel,
             EmptyText = emptyText,
             Files = files is { HasChoices: true } ? files : null,
+            OwnedAvatarCount = ownedNames.Count,
         };
     }
 

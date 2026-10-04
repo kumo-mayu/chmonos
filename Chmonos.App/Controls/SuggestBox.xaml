@@ -23,10 +23,13 @@
                     <DropShadowEffect Color="{DynamicResource PopupShadowColor}" BlurRadius="10" ShadowDepth="2" Direction="270" />
                 </Border.Effect>
                 <!-- 候補の行は、読み上げ・自動操作の「押す」でも決まる（InvokableListBox。素の ListBox の行は「選ぶ」しか持たない） -->
-                <local:InvokableListBox x:Name="Candidates" MaxHeight="230" BorderThickness="0" Background="Transparent"
+                <local:InvokableListBox x:Name="Candidates" MaxHeight="230" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
                          PreviewMouseLeftButtonUp="OnCandidateClicked">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
+                            <StackPanel>
+                            <!-- 先に出す群とその下の群の境目（PrimaryCount）。行の幅いっぱいの線 -->
+                            <Border Height="1" Margin="0,2,0,5" Background="{DynamicResource BorderStrong}" Visibility="{Binding DividerVisibility}" />
                             <StackPanel Orientation="Horizontal" Margin="2,3">
                                 <!--
                                     アバターの候補の頭の絵（U18）。見えた行だけで読む。
@@ -48,6 +51,7 @@
                                         Visibility="{Binding NewBadgeVisibility}">
                                     <TextBlock Text="新規" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                 </Border>
+                            </StackPanel>
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

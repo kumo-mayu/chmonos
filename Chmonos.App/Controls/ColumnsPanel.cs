@@ -28,8 +28,24 @@ public sealed class ColumnsPanel : Panel
         set => SetValue(MinColumnWidthProperty, value);
     }
 
+    /// <summary>
+    /// 1列に固定する（リストの見方のとき。メモ32-④ 2026-10-04）。並べ替えのドラッグは「この行の前／後ろ」で落とし先を決めるので、
+    /// 横に連なっていると、右の行の前が左の行の後ろでもあり、どちらへ落ちるのか見て分からない。
+    /// </summary>
+    public static readonly DependencyProperty SingleColumnProperty = DependencyProperty.Register(
+        nameof(SingleColumn),
+        typeof(bool),
+        typeof(ColumnsPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public bool SingleColumn
+    {
+        get => (bool)GetValue(SingleColumnProperty);
+        set => SetValue(SingleColumnProperty, value);
+    }
+
     private int ColumnsFor(double width)
-        => width <= 0 || double.IsInfinity(width)
+        => SingleColumn || width <= 0 || double.IsInfinity(width)
             ? 1
             : Math.Max(1, (int)(width / Math.Max(1, MinColumnWidth)));
 

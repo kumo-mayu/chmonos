@@ -46,7 +46,9 @@ public partial class SearchView : UserControl
     {
         InitializeComponent();
 
-        _reorder = new RowReorder(this, () => Model?.Modules ?? Enumerable.Empty<ReorderableRow>());
+        // 並びは絞り込み欄の外側の流し枠の中にある。積んだ値の一覧などの入れ子の流し枠を流さないよう、並びの外側の枠を指す
+        _reorder = new RowReorder(this, () => Model?.Modules ?? Enumerable.Empty<ReorderableRow>(),
+            () => DragEdgeScroll.FindScroller(ModulesList, ModulesList));
         _reorder.Dropped += (moved, target, after) =>
         {
             if (Model is not null && moved is SearchModule from && target is SearchModule to)
