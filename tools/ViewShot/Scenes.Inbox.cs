@@ -156,7 +156,17 @@ internal static partial class Scenes
                     IsStrong = true,
                     Diffs =
                     [
-                        new NotificationDiff { Field = "価格", Before = "¥ 1,500", After = "¥ 1,800" },
+                        new NotificationDiff
+                        {
+                            Field = "価格",
+                            Before = "¥ 1,500~",
+                            After = "¥ 1,500~",
+                            Prices =
+                            [
+                                new NotificationPrice { Id = 2, Name = "支援版", Before = 2000, After = 2500 },
+                                new NotificationPrice { Id = 3, Name = "テクスチャのみ", Before = 1800, After = 1500 },
+                            ],
+                        },
                         new NotificationDiff
                         {
                             Field = "更新履歴",

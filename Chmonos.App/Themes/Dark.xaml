@@ -57,6 +57,7 @@
     <!-- 商品ページの変わった行の帯の地（メモ17。理由は Light.xaml の同じ鍵）。札の地と面の色（Surface）の間 -->
     <SolidColorBrush x:Key="AddedBand" Color="#1a2d29" />
     <SolidColorBrush x:Key="RemovedBand" Color="#332228" />
+    <SolidColorBrush x:Key="PriceBand" Color="#1f2938" />
     <SolidColorBrush x:Key="DangerText" Color="#f29a9a" />
     <SolidColorBrush x:Key="DangerBorder" Color="#6b363a" />
     <SolidColorBrush x:Key="Unread" Color="#e694c3" />

@@ -156,6 +156,9 @@ public static class LocalOwners
     /// <summary>非表示の切り替え。検索の右クリックと設定画面の両方から。</summary>
     public static readonly IReadOnlyCollection<LocalField> Visibility = [LocalField.IsHidden];
 
+    /// <summary>更新通知の切り替え。編集画面の保存と、商品ページの「記録していること」のチェック（メモ27-④）から。</summary>
+    public static readonly IReadOnlyCollection<LocalField> UpdateNotice = [LocalField.NotifyOnUpdate];
+
     /// <summary>userTagの一括書き換え（名前を変えた・消したとき）。</summary>
     public static readonly IReadOnlyCollection<LocalField> UserTags = [LocalField.UserTags];
 

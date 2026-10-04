@@ -52,6 +52,7 @@ public static class ChangeStack
                 MoreAdded = Sum(first.MoreAdded, second.MoreAdded),
                 MoreRemoved = Sum(first.MoreRemoved, second.MoreRemoved),
                 Follows = first.Follows ?? second.Follows,
+                Prices = StackPrices(first.Prices, second.Prices),
             };
         }
 
@@ -111,6 +112,35 @@ public static class ChangeStack
     }
 
     /// <summary>
+    /// バリエーションの値段の変化を重ねる（ID ごとに「最初の前 → 最後の後」）。戻って元の値段になった物は外す。
+    /// 並びは前の知らせの順、新しく変わった物はその後ろ。名前は後の知らせの物（今の名前に近い方）
+    /// </summary>
+    private static IReadOnlyList<NotificationPrice>? StackPrices(IReadOnlyList<NotificationPrice>? first, IReadOnlyList<NotificationPrice>? second)
+    {
+        if (first is null && second is null)
+        {
+            return null;
+        }
+
+        var merged = new List<NotificationPrice>(first ?? []);
+        foreach (var price in second ?? [])
+        {
+            var index = merged.FindIndex(entry => entry.Id == price.Id);
+            if (index >= 0)
+            {
+                merged[index] = new NotificationPrice { Id = price.Id, Name = price.Name ?? merged[index].Name, Before = merged[index].Before, After = price.After };
+            }
+            else
+            {
+                merged.Add(price);
+            }
+        }
+
+        merged.RemoveAll(price => price.Before == price.After);
+        return merged.Count > 0 ? merged : null;
+    }
+
+    /// <summary>
     /// 戻って元と同じになった欄か：前と後が同じで、変わった行も残っていない。
     /// 頭の抜き出しが同じでも行が残っていれば外さない（見出しの後ろの方だけが変わった、が前の知らせの困りごとだった）
     /// </summary>
@@ -118,7 +148,8 @@ public static class ChangeStack
         => string.Equals(diff.Before, diff.After, StringComparison.Ordinal)
             && (diff.Lines is null || diff.Lines.Count == 0)
             && (diff.MoreAdded ?? 0) == 0
-            && (diff.MoreRemoved ?? 0) == 0;
+            && (diff.MoreRemoved ?? 0) == 0
+            && (diff.Prices is null || diff.Prices.Count == 0);
 
     private static int? Over(int count) => count > LineDiff.MaxLines ? count - LineDiff.MaxLines : null;
 

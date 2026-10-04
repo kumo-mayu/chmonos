@@ -52,10 +52,19 @@ public static class BoothChanges
             diffs.Add(new NotificationDiff { Field = NameField, Before = before.Name, After = after.Name });
         }
 
-        // 価格は整形済みの文字列（"¥ 2,500"）。そのまま見せる方が読みやすい
-        if (!string.Equals(before.PriceText, after.PriceText, StringComparison.Ordinal))
+        // 価格は整形済みの文字列（"¥ 2,500"）。そのまま見せる方が読みやすい。
+        // ただし商品の価格は一番安い値段（「¥ 500~」）しか言わないので、どのバリエーションの値段が変わったかを別に持つ（メモ27-⑤）。
+        // 高い方だけが変わると商品の価格の文字は同じままなので、バリエーションの値段だけが変わっても知らせる
+        var prices = VariationPrices(before, after);
+        if (!string.Equals(before.PriceText, after.PriceText, StringComparison.Ordinal) || prices.Count > 0)
         {
-            diffs.Add(new NotificationDiff { Field = PriceField, Before = before.PriceText, After = after.PriceText });
+            diffs.Add(new NotificationDiff
+            {
+                Field = PriceField,
+                Before = before.PriceText,
+                After = after.PriceText,
+                Prices = prices.Count > 0 ? prices : null,
+            });
         }
 
         // どのバリエーションが足された・消えたかを名前の行で持つ（メモ17・ユーザ指示 2026-10-03「どれが追加されたのか一発でわかるように」）。
@@ -216,6 +225,36 @@ public static class BoothChanges
         };
     }
 
+    /// <summary>
+    /// 前後の両方にあるバリエーション（ID で突き合わせる）のうち、値段の変わった物を今の並びで。
+    /// 足された・消えたバリエーションはバリエーションの欄の差が言うので、ここには入れない
+    /// </summary>
+    private static List<NotificationPrice> VariationPrices(BoothBlock before, BoothBlock after)
+    {
+        var previous = new Dictionary<long, int>();
+        foreach (var variation in before.Variations)
+        {
+            previous.TryAdd(variation.Id, variation.Price);
+        }
+
+        var result = new List<NotificationPrice>();
+        foreach (var variation in after.Variations)
+        {
+            if (previous.TryGetValue(variation.Id, out var price) && price != variation.Price)
+            {
+                result.Add(new NotificationPrice
+                {
+                    Id = variation.Id,
+                    Name = string.IsNullOrWhiteSpace(variation.Name) ? null : variation.Name,
+                    Before = price,
+                    After = variation.Price,
+                });
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>バリエーションの名前を BOOTH の並びのまま。名前の無いバリエーション（単一の商品）は行にならない（空の行は差に数えない）。</summary>
     private static List<string> VariationNames(BoothBlock block)
         => block.Variations.Select(variation => LineDiff.NormalizeLine(variation.Name ?? string.Empty)).ToList();
@@ -226,9 +265,24 @@ public static class BoothChanges
     private static string Excerpt(string text)
         => text.Length <= ExcerptLength ? text : text[..ExcerptLength] + "…";
 
-    /// <summary>要確認の1行にする。開かなくても判断できるように、変わったところを並べる。</summary>
+    /// <summary>
+    /// 要確認の1行にする。開かなくても判断できるように、変わったところを並べる。
+    /// 価格はバリエーションごとの値段があればそちらを言う（商品の価格の文字は一番安い値段だけで、「¥ 500~ → ¥ 500~」になり得る）
+    /// </summary>
     public static string Summarize(IReadOnlyList<NotificationDiff> diffs)
-        => string.Join(" / ", diffs.Select(diff => diff.Before is null && diff.After is null
-            ? diff.Field
-            : $"{diff.Field} {diff.Before ?? "（無し）"} → {diff.After ?? "（無し）"}"));
+        => string.Join(" / ", diffs.Select(diff => diff.Prices is { Count: > 0 } prices
+            ? $"{diff.Field} {string.Join("、", prices.Select(PriceChangeText))}"
+            : diff.Before is null && diff.After is null
+                ? diff.Field
+                : $"{diff.Field} {diff.Before ?? "（無し）"} → {diff.After ?? "（無し）"}"));
+
+    /// <summary>
+    /// バリエーション1つの値段の変化（「通常版 ¥500 → ¥800」。名前の無い単一の商品は値段だけ）。
+    /// 要確認の1行・札で同じ形にする
+    /// </summary>
+    public static string PriceChangeText(NotificationPrice price)
+        => price.Name is { Length: > 0 } name ? $"{name} {PriceStep(price)}" : PriceStep(price);
+
+    /// <summary>前の値段 → 今の値段。商品ページのバリエーションの行の値段と同じ「¥1,500」の書き方。</summary>
+    public static string PriceStep(NotificationPrice price) => $"¥{price.Before:N0} → ¥{price.After:N0}";
 }

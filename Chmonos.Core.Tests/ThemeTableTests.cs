@@ -125,6 +125,10 @@ public class ThemeTableTests
     [InlineData("TextMuted", "RemovedBand", 4.5)]
     [InlineData("Good", "AddedBand", 3)]
     [InlineData("Bad", "RemovedBand", 3)]
+    // 値段の変わったバリエーションの行（メモ27-⑤）。名前と値段（前 → 今）の文字が載る
+    [InlineData("Text", "PriceBand", 4.5)]
+    [InlineData("TextMuted", "PriceBand", 4.5)]
+    [InlineData("Accent", "PriceBand", 3)]
     [InlineData("DangerText", "Surface", 4.5)]
     [InlineData("Unread", "Surface", 4.5)]
     [InlineData("Unread", "UnreadSoft", 4.5)]

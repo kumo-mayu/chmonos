@@ -589,4 +589,76 @@ public class ItemPageChangesTests
         await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると帯が消える");
         Assert.Null(page.Sections[0].Band);
     });
+
+    // ---- バリエーションの値段の変化（メモ27-⑤） ----
+
+    private static NotificationDiff PriceDiff(string before, string after, params NotificationPrice[] prices)
+        => new() { Field = BoothChanges.PriceField, Before = before, After = after, Prices = prices };
+
+    private static NotificationPrice Price(long id, string name, int before, int after)
+        => new() { Id = id, Name = name, Before = before, After = after };
+
+    [Fact]
+    public void 値段の変わったバリエーションをIDで引けるようにし_商品の価格の文字が同じなら前の値を言わない()
+    {
+        var changes = ItemChanges.From([Updated(ItemId, PriceDiff("¥ 500~", "¥ 500~", Price(2, "支援版", 1000, 1500)))], []);
+
+        Assert.Equal(1500, changes.VariationPrices[2].After);
+        var mark = Assert.Single(changes.Variations.Marks);
+        Assert.Equal((ChangeTone.Price, "価格変更", "バリエーションの価格が変更されました。"), (mark.Tone, mark.Label, mark.Tip));
+    }
+
+    [Fact]
+    public Task 値段の変わったバリエーションの行に青の帯を付け_前の値段から今の値段を行に出す() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with
+        {
+            Booth = item.Booth with
+            {
+                Variations =
+                [
+                    new BoothVariation { Id = 1, Name = "通常版", Price = 500 },
+                    new BoothVariation { Id = 2, Name = "支援版", Price = 1500 },
+                    new BoothVariation { Id = 3, Name = "おまけ付き", Price = 2000 },
+                ],
+            },
+            Local = item.Local with { Purchases = [new Purchase { VariationId = 3, NameSnapshot = "おまけ付き", Price = 1800 }] },
+        };
+        await app.AddItemAsync(item);
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(Updated(ItemId, PriceDiff("¥ 500~", "¥ 500~", Price(2, "支援版", 1000, 1500), Price(3, "おまけ付き", 1800, 2000))));
+            return list;
+        });
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+
+        Assert.Equal(
+            ["通常版:|¥500|", "支援版:Price|¥1,000 → ¥1,500|", "おまけ付き:Price|¥1,800 で買った|BOOTHの価格 ¥1,800 → ¥2,000"],
+            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.PriceChangeText}"));
+        Assert.Equal("BOOTHで価格が変更されたバリエーションです。", page.Variations[1].BandTip);
+        Assert.Equal("価格", page.ChangeTargets.Single().Label);
+
+        page.MarkChangesReadCommand.Execute(null);
+        await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると帯が消える");
+
+        Assert.Equal(
+            ["通常版:|¥500|", "支援版:|¥1,500|", "おまけ付き:|¥1,800 で買った|"],
+            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.PriceChangeText}"));
+    });
+
+    [Fact]
+    public void 要確認の札は_値段の変わったバリエーションを商品ページと同じ形で1行ずつ出す()
+    {
+        var row = new NotificationRow
+        {
+            Record = Updated(ItemId, PriceDiff("¥ 500~", "¥ 500~", Price(2, "支援版", 1000, 1500), Price(3, "おまけ付き", 1800, 2000))),
+            KindText = "更新",
+        };
+
+        var card = Assert.Single(row.Cards);
+        Assert.Equal(("価格", "支援版 ¥1,000 → ¥1,500\nおまけ付き ¥1,800 → ¥2,000"), (card.Field, card.Text));
+    }
 }

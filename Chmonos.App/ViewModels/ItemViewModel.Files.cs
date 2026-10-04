@@ -42,6 +42,7 @@ public sealed partial class ItemViewModel
                 Name = DisplayText.VariationName(variation.Name),
                 PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
                 IsPurchased = group.Count > 0,
+                VariationId = variation.Id,
                 Key = LineDiff.NormalizeLine(variation.Name ?? string.Empty),
             });
         }
@@ -126,6 +127,29 @@ public sealed partial class ItemViewModel
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// 値段の変わったバリエーションの行に青の帯を付け、前の値段 → 今の値段を行の中に出す（メモ27-⑤・ユーザ判断 2026-10-04）。
+    /// 前は欄の見出しの「価格変更」の札だけで、どのバリエーションが変わったかが分からなかった。行は知らせの ID で当てる（名前は変わることがある）。
+    /// 買っていない行は値段の欄をそのまま「前 → 今」にし、買った行は払った額を残して BOOTH の値段の変化を下の行に出す
+    /// </summary>
+    internal static List<VariationRow> WithPrices(List<VariationRow> rows, IReadOnlyDictionary<long, NotificationPrice> prices)
+    {
+        if (prices.Count == 0)
+        {
+            return rows;
+        }
+
+        return rows.Select(row => row.VariationId is { } id && !row.IsGone && prices.TryGetValue(id, out var price)
+                ? row with
+                {
+                    Band = ChangeTone.Price,
+                    PriceText = row.IsPurchased ? row.PriceText : BoothChanges.PriceStep(price),
+                    PriceChangeText = row.IsPurchased ? $"BOOTHの価格 {BoothChanges.PriceStep(price)}" : string.Empty,
+                }
+                : row)
+            .ToList();
     }
 
     /// <summary>

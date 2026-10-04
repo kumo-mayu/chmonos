@@ -75,6 +75,8 @@
     -->
     <SolidColorBrush x:Key="AddedBand" Color="#f0f7f3" />
     <SolidColorBrush x:Key="RemovedBand" Color="#fdf2f2" />
+    <!-- 値段の変わったバリエーションの行（メモ27-⑤）。札「価格変更」の地（AccentSoft）から同じだけ面の色へ寄せる -->
+    <SolidColorBrush x:Key="PriceBand" Color="#f2f6fb" />
     <!-- 取り返しのつかない操作のボタンと右クリックの項目（V4） -->
     <SolidColorBrush x:Key="DangerText" Color="#9a3232" />
     <SolidColorBrush x:Key="DangerBorder" Color="#e2bcbc" />

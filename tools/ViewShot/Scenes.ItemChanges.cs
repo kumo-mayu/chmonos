@@ -133,7 +133,17 @@ internal static partial class Scenes
                 [
                     new NotificationDiff { Field = BoothChanges.SaleField, Before = "販売中", After = "販売終了" },
                     new NotificationDiff { Field = BoothChanges.NameField, Before = "作り物の衣装セット", After = item.Booth.Name },
-                    new NotificationDiff { Field = BoothChanges.PriceField, Before = "¥ 1,200", After = "¥ 1,500" },
+                    new NotificationDiff
+                    {
+                        Field = BoothChanges.PriceField,
+                        Before = "¥ 300~",
+                        After = "¥ 300~",
+                        Prices =
+                        [
+                            new NotificationPrice { Id = 1, Name = "フルセット", Before = 1200, After = 1500 },
+                            new NotificationPrice { Id = 2, Name = "ミナト用", Before = 1000, After = 800 },
+                        ],
+                    },
                     new NotificationDiff
                     {
                         Field = BoothChanges.VariationsField,
