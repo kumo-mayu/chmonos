@@ -92,7 +92,7 @@ public sealed partial class ItemViewModel
             commitLabel: "追加",
             emptyText: "改変がまだありません。新しく作って、そこに追加できます。",
             files,
-            ownedItemIds: await ModificationPicking.LoadOwnedItemIdsAsync(_services));
+            ownedItems: await ModificationPicking.LoadOwnedItemsAsync(_services));
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {

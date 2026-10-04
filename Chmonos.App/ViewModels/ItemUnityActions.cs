@@ -205,7 +205,7 @@ internal static class ItemUnityActions
             existingLabel: "このプロジェクトの改変に追加",
             commitLabel: "追加して送る",
             emptyText: "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに追加できます。",
-            ownedItemIds: await ModificationPicking.LoadOwnedItemIdsAsync(services));
+            ownedItems: await ModificationPicking.LoadOwnedItemsAsync(services));
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
