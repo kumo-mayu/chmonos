@@ -2,10 +2,11 @@ using Chmonos.Core.Models;
 
 namespace Chmonos.Core.Tests;
 
-/// <summary>「すべての設定を既定に戻す」（メモ29）。使う人の環境に特有の物（取り込み元・監視するフォルダ）だけ残り、ほかは既定に戻る。</summary>
+/// <summary>「すべての設定を既定に戻す」（メモ29）。使う人の環境に特有の物（取り込み元・監視するフォルダ・アバター検出の見出し語）だけ残り、ほかは既定に戻る。</summary>
 public class AppSettingsResetTests
 {
-    private static readonly string[] Kept = [nameof(AppSettings.ImportFolders), nameof(AppSettings.WatchedFolders)];
+    private static readonly string[] Kept = [nameof(AppSettings.ImportFolders), nameof(AppSettings.WatchedFolders),
+        nameof(AppSettings.AvatarSupportHeadings), nameof(AppSettings.AvatarIgnoredHeadings)];
 
     private static AppSettings Customized() => new()
     {
@@ -29,6 +30,7 @@ public class AppSettingsResetTests
         ImageMaxEdgePixels = 1024,
         SearchHistoryCount = 3,
         AvatarSupportHeadings = ["作り物の見出し"],
+        AvatarIgnoredHeadings = ["作り物の読まない見出し"],
         Shortcuts = new ShortcutSettings { SaveAndNext = "Ctrl+S", Back = "" },
     };
 
@@ -40,6 +42,8 @@ public class AppSettingsResetTests
 
         Assert.Equal(["D:\\作り物\\取り込み元"], reset.ImportFolders);
         Assert.Equal(["D:\\作り物\\監視"], reset.WatchedFolders);
+        Assert.Equal(["作り物の見出し"], reset.AvatarSupportHeadings);
+        Assert.Equal(["作り物の読まない見出し"], reset.AvatarIgnoredHeadings);
 
         foreach (var property in typeof(AppSettings).GetProperties().Where(p => !Kept.Contains(p.Name)))
         {
