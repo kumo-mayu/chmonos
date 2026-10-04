@@ -28,7 +28,7 @@
   [app-tests.md](dev/app-tests.md)：画面の側の試験の書き方・何を試験で確かめて何を画面で見るか・試験を重くしない書き方（本体の試験も）と重い試験の探し方）。書く前に読む。
 - **`history/`** — 決めたときの経緯（grill・当時の数字・訂正）。書かれた時点の記録なので、今の決め事と食い違う所がある（そのときは spec が正）。
 - **`research/`** — 調査と計測の記録。
-- **`feedback/`** — 画面への意見。`open.md` が未対応・記録のみ、`done-2026-09.md`・`done-2026-10.md` が直した記録（09 は U番号・D番号。約300KB なので見出しを Grep して節だけ読む）、`ui-flows-2026-09-15.md` が画面と状態ごとの操作の動線と、意図と違う動き・その画面に無い機能の一覧（UI 案を練るときの材料）、`ui-consistency-2026-09-20.md` が語・メニュー・窓・入力・空表示の**揃っていない所**の一覧（同じく材料。W/R/M/B/D/E/I/V の番号で指す）、`behavior-2026-09-20.md` が**動き**の変な所の一覧（中断・待ち・同時に走ったときの取り違え・保存の競合・裏の作業・データの決め事。L/C/N/P/G/X/J/Q の番号で指す）、`review-2026-09-23.md` がその後の全体の点検と直した記録（判断をもらった2件を含む）。
+- **`feedback/`** — 画面への意見。`open.md` が未対応・記録のみ、`done-2026-09.md`・`done-2026-10.md` が直した記録（09 は U番号・D番号。約420KB なので見出しを Grep して節だけ読む）、`ui-flows-2026-09-15.md` が画面と状態ごとの操作の動線と、意図と違う動き・その画面に無い機能の一覧（UI 案を練るときの材料）、`ui-consistency-2026-09-20.md` が語・メニュー・窓・入力・空表示の**揃っていない所**の一覧（同じく材料。W/R/M/B/D/E/I/V の番号で指す）、`behavior-2026-09-20.md` が**動き**の変な所の一覧（中断・待ち・同時に走ったときの取り違え・保存の競合・裏の作業・データの決め事。L/C/N/P/G/X/J/Q の番号で指す）、`review-2026-09-23.md` がその後の全体の点検と直した記録（判断をもらった2件を含む）、`review-2026-09-29.md` が直しの漏れの洗い出し、`review-2026-09-30-store-incident.md` が道具が友人の写しを開いて動かした件（2026-09-30）、`overnight-2026-09-29.md`・`overnight-2026-09-30.md` が夜の作業の報告、`notice-placement-2026-10-03.md` が操作の知らせの置き場の洗い出し（メモ20-②③）、`manual-check-2026-09-28.md`・`manual-check-2026-10-02.md`（この2つは役目を終えた）・`manual-check-2026-10-03.md`・`manual-check-2026-10-04.md`・`manual-check-2026-10-04-night.md` が、人が見ないと決められない物の確認項目。
 - **`features.md`** — 機能の一覧（何・なぜ・状態・出典）。1行が長いので行を Grep して直す。
 
 ## spec（今の決め事）
@@ -81,6 +81,10 @@
 | [app-tests-2026-09-30.md](history/app-tests-2026-09-30.md) | 画面の側の試験の一式を作った経緯（なぜ・どう組んだか・途中で踏んだ物・書いていて見つけた食い違い） |
 | [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
 | [search-modules-2026-10-01.md](history/search-modules-2026-10-01.md) | 検索の条件を同じ種類で複数・「除く」・編集状況にした記録（ユーザ判断・実装で決めた所・照らす重さの前後） |
+| [keyboard-groups-2026-10-01.md](history/keyboard-groups-2026-10-01.md) | 並びは Tab で1回、中は矢印にした経緯（キーボードだけで進める） |
+| [keyboard-cards-2026-10-01.md](history/keyboard-cards-2026-10-01.md) | カードの一覧も並びに入れ、キーボードで届かない所を塞いだ経緯（担当KEY2） |
+| [search-2026-10-02.md](history/search-2026-10-02.md) | 検索の手直し（2026-10-02 のメモ1・2と「更新あり」の件） |
+| [saved-search-button-2026-10-05.md](history/saved-search-button-2026-10-05.md) | 保存した検索の置き場を、畳める節からボタンの一覧へ変えた経緯 |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
 | [zip-inspector-readme.md](history/zip-inspector-readme.md) | その試作（BoothZipInspector・BoothIdResolver）の使い方。元は直下の README（2026-09-18 に移した） |
 | [author-memos/](history/author-memos/) | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`。2026-09-07〜08）。grill-1・grill-2 はこれを前提に決め事を確定させた。2026-09-24 に直下から移した（中身は変えていない） |
