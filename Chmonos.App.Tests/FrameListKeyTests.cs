@@ -60,6 +60,23 @@ public class FrameListKeyTests
     }
 
     [Fact]
+    public Task 押す操作が付いた枠のEnterは操作を押し_付いていない枠は中へ入る() => Support.UiThread.Run(() =>
+    {
+        // 保存した検索の行（2026-10-04）：中へ入る部品が無いので、Enter で呼び出す
+        var pressed = 0;
+        var row = new FocusFrame { Command = new ViewModels.RelayCommand(() => pressed++) };
+        Assert.True(FrameList.PressCommand(row));
+        Assert.Equal(1, pressed);
+
+        // 押せない操作でも中へは入らない（入る先が無い）
+        var disabled = new FocusFrame { Command = new ViewModels.RelayCommand(() => pressed++, () => false) };
+        Assert.True(FrameList.PressCommand(disabled));
+        Assert.Equal(1, pressed);
+
+        Assert.False(FrameList.PressCommand(new FocusFrame()));
+    });
+
+    [Fact]
     public void 修飾キー付きは枠では受けない()
     {
         // Shift+F10 は条件のメニュー、Ctrl+Tab は画面の外の決まりに任せる

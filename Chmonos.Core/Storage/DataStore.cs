@@ -278,6 +278,7 @@ public sealed class DataStore
         // 知らせは2000件で古い既読から捨てるので、多くても約1.1MB
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile, copyOnLoad: list => [.. list]);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
+        SavedSearches = new JsonFileStore<Services.SavedSearchList>(paths.SavedSearchesFile);
         // 足跡は「最近」で絞る・並べるたびに画面のスレッドで読まれる。中身は init だけの型なので共有する
         Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile, shareLoaded: true);
         Modifications = new ModificationRepository(paths);
@@ -311,6 +312,9 @@ public sealed class DataStore
 
     /// <summary>検索の履歴。商品を開いたときに1件積む</summary>
     public JsonFileStore<Services.SearchHistoryList> SearchHistory { get; }
+
+    /// <summary>保存した検索。検索の画面の絞り込み欄の上から呼び出す</summary>
+    public JsonFileStore<Services.SavedSearchList> SavedSearches { get; }
 
     /// <summary>「最近」の足跡（追加・使った・閲覧）</summary>
     public JsonFileStore<Services.RecentLog> Recent { get; }

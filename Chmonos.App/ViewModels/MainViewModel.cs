@@ -59,6 +59,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
         Search.RestoreHistory();
+        Search.RestoreSavedSearches();
         Import = new ImportViewModel(services, this);
 
         // 初回の読み込みは非同期に走るので、件数が確定したタイミングで表示を更新する。

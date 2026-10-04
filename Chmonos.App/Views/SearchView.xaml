@@ -362,6 +362,134 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16,12">
                         <!--
+                            保存した検索（ユーザ判断 2026-10-04・案A3）。絞り込み欄のいちばん上の畳める節。
+                            行を押すと今の検索を置き換える。今の検索と同じ行は地の色を変える。行の「…」と右クリックに上書き・名前の変更・移動・削除。
+                            6件目からは探す欄を出し、5件ぶんの高さで節の中だけを流す。
+                            キーボードは条件の並びと同じ FrameList：並びは1つの止まりで ↑↓ で行を移る。行には中へ入る部品が無いので、Enter は行を呼び出す
+                            （FocusFrame.Command）。「…」の操作は Shift+F10・アプリケーションキー（右クリックと同じ物）
+                        -->
+                        <StackPanel x:Name="SavedSearchSection" Margin="0,0,0,12">
+                            <DockPanel>
+                                <Button x:Name="SavedSearchToggle" DockPanel.Dock="Left" Command="{Binding ToggleSavedSectionCommand}" Margin="-6,0,0,0"
+                                        AutomationProperties.AutomationId="SavedSearchToggle">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource PanelToggle}">
+                                            <Setter Property="Content" Value="{StaticResource IconChevronUp}" />
+                                            <Setter Property="ToolTip" Value="保存した検索を折りたたむ" />
+                                            <Setter Property="AutomationProperties.Name" Value="保存した検索を折りたたむ" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSavedSectionCollapsed}" Value="True">
+                                                    <Setter Property="Content" Value="{StaticResource IconChevronDown}" />
+                                                    <Setter Property="ToolTip" Value="保存した検索を開く" />
+                                                    <Setter Property="AutomationProperties.Name" Value="保存した検索を開く" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <TextBlock DockPanel.Dock="Left" Text="保存した検索" FontWeight="SemiBold" FontSize="12.5" Margin="2,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock DockPanel.Dock="Left" Text="{Binding SavedCountText}" Style="{StaticResource Caption}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                <Button x:Name="SaveCurrentSearchButton" DockPanel.Dock="Right" Content="＋ 今の検索を保存" Command="{Binding SaveCurrentSearchCommand}"
+                                        Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}"
+                                        FontSize="12" VerticalAlignment="Center" Padding="4,2" Margin="8,0,0,0"
+                                        AutomationProperties.AutomationId="SavedSearchSave" AutomationProperties.Name="今の検索を保存"
+                                        ToolTip="今の検索に名前を付けて保存します" />
+                            </DockPanel>
+                            <!--
+                                畳んでいる間も、今の検索がどの保存した検索かは見えるようにする（行の地の色が見えないため）。
+                                見出しの行に並べると、幅 900 では頭の1字しか残らなかったので、見出しの下の1行にする
+                            -->
+                            <TextBlock Text="{Binding CurrentSavedName, StringFormat=★ {0}}" Style="{StaticResource Caption}" Margin="20,2,0,0"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding CurrentSavedName}"
+                                       AutomationProperties.AutomationId="SavedSearchCollapsedCurrent"
+                                       Visibility="{Binding ShowsCollapsedCurrent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <StackPanel Margin="0,6,0,0" Visibility="{Binding IsSavedSectionExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="「＋ 今の検索を保存」で、今の検索に名前を付けて残せます。" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                           Visibility="{Binding HasSavedSearches, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource Surface}"
+                                        Visibility="{Binding HasSavedSearches, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <StackPanel>
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="6,5"
+                                                Visibility="{Binding ShowsSavedFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <Grid>
+                                                <TextBox x:Name="SavedFilterBox" Text="{Binding SavedFilter, UpdateSourceTrigger=PropertyChanged}" FontSize="12"
+                                                         BorderThickness="0" Background="Transparent" Padding="2,1" MaxLength="100"
+                                                         PreviewKeyDown="OnSavedFilterKeyDown"
+                                                         AutomationProperties.AutomationId="SavedSearchFilter" AutomationProperties.Name="保存した検索を探す" />
+                                                <TextBlock Text="保存した検索を探す" FontSize="12" Foreground="{DynamicResource TextFaint}" Margin="4,1,0,0"
+                                                           IsHitTestVisible="False"
+                                                           Visibility="{Binding Text.IsEmpty, ElementName=SavedFilterBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock Text="見つかりません。探す語を変えてください。" Style="{StaticResource Caption}" Margin="8,6"
+                                                   Visibility="{Binding ShowsSavedFilterEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto" Focusable="False">
+                                            <controls:ContentItemsControl x:Name="SavedSearchList" ItemsSource="{Binding SavedRows}" Focusable="False"
+                                                                          controls:FrameList.IsEnabled="True">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:SavedSearchRow}">
+                                                        <controls:FocusFrame Command="{Binding ApplyCommand}" Height="30" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1"
+                                                                             FocusVisualStyle="{StaticResource ModuleFrameFocusVisual}" ToolTip="{Binding Summary}"
+                                                                             AutomationProperties.AutomationId="SavedSearch.Row"
+                                                                             AutomationProperties.Name="{Binding Name}"
+                                                                             AutomationProperties.HelpText="{Binding Summary}">
+                                                            <controls:FocusFrame.Style>
+                                                                <Style TargetType="controls:FocusFrame">
+                                                                    <Setter Property="Background" Value="{DynamicResource Surface}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                                            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </controls:FocusFrame.Style>
+                                                            <controls:FocusFrame.ContextMenu>
+                                                                <ContextMenu AutomationProperties.AutomationId="SavedSearch.MenuList"
+                                                                             AutomationProperties.Name="{Binding Name, StringFormat={}{0}の操作}">
+                                                                    <MenuItem Header="今の検索で上書き" AutomationProperties.Name="今の検索で上書き" Command="{Binding OverwriteCommand}"
+                                                                              AutomationProperties.AutomationId="SavedSearch.Menu.Overwrite"
+                                                                              controls:MenuTips.Disabled="今の検索と同じです" />
+                                                                    <MenuItem Header="名前を変更…" AutomationProperties.Name="名前を変更" Command="{Binding RenameCommand}"
+                                                                              AutomationProperties.AutomationId="SavedSearch.Menu.Rename" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="上へ移動" AutomationProperties.Name="上へ移動" Command="{Binding MoveUpCommand}"
+                                                                              AutomationProperties.AutomationId="SavedSearch.Menu.MoveUp" />
+                                                                    <MenuItem Header="下へ移動" AutomationProperties.Name="下へ移動" Command="{Binding MoveDownCommand}"
+                                                                              AutomationProperties.AutomationId="SavedSearch.Menu.MoveDown" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="削除" AutomationProperties.Name="削除" Command="{Binding DeleteCommand}"
+                                                                              Style="{StaticResource DangerMenuItem}"
+                                                                              AutomationProperties.AutomationId="SavedSearch.Menu.Delete" />
+                                                                </ContextMenu>
+                                                            </controls:FocusFrame.ContextMenu>
+                                                            <DockPanel>
+                                                                <!-- 行に止まっているか乗せたときだけ出す（条件の「…」と同じ）。Tab では止まらない：行の操作は Shift+F10 で同じ物が開く -->
+                                                                <Button DockPanel.Dock="Right" Style="{StaticResource ModuleMenuButton}" Click="OnModuleMenuClick" IsTabStop="False"
+                                                                        VerticalAlignment="Center" ToolTip="この保存した検索の操作"
+                                                                        AutomationProperties.AutomationId="SavedSearch.Menu"
+                                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}の操作}" />
+                                                                <Button Style="{StaticResource HistorySlotButton}" Command="{Binding ApplyCommand}" IsTabStop="False"
+                                                                        HorizontalContentAlignment="Stretch"
+                                                                        AutomationProperties.AutomationId="SavedSearch.Apply"
+                                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を呼び出す}">
+                                                                    <DockPanel Margin="8,0,4,0">
+                                                                        <TextBlock DockPanel.Dock="Left" Text="★" FontSize="10" Foreground="{DynamicResource Accent}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                                        <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                                    </DockPanel>
+                                                                </Button>
+                                                            </DockPanel>
+                                                        </controls:FocusFrame>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </controls:ContentItemsControl>
+                                        </ScrollViewer>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!--
                             条件はモジュールで足していく（ユーザ案 2026-09-15）。見出しはメニューの分け方で、同じ条件が
                             2つの見出しに出ることがある。1つまでの種類（三項・範囲・日付・ショップ・最近）は、足してあればどの見出しの下でもグレーになる
                         -->

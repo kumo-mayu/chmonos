@@ -52,6 +52,9 @@ public sealed class AppPaths
     /// <summary>検索の履歴。人が読めるので、要らない行を手で消せる</summary>
     public string SearchHistoryFile => Path.Combine(Root, "search-history.json");
 
+    /// <summary>保存した検索。名前を付けて残した検索の並び。人が読めるので、手で並べ替え・消せる</summary>
+    public string SavedSearchesFile => Path.Combine(Root, "saved-searches.json");
+
     /// <summary>「最近」の足跡。itemのJSONを足跡で埋めないために分けてある</summary>
     public string RecentFile => Path.Combine(Root, "recent.json");
 

@@ -17,7 +17,7 @@
 | `items/{id}.h2.html` | 表示用の説明HTML（商品ページを開いたときだけ読む） | 取り込み・再取得 |
 | `images/{id}/{URLのハッシュ}.webp` | 画像（長辺384・WebP）。`{ハッシュ}.missing` は404で取れなかった印 | 画像の取得 |
 | `settings.json` | 設定（設定画面で選ぶ物） | `UiCommand.ChangeSettings` だけ |
-| `ui-state.json` | 画面が覚えている状態（ナビ・絞り込み欄の畳み方・積んだ条件・窓の位置・画面の幅 `paneWidths`） | `UiCommand.ChangeUiState` だけ |
+| `ui-state.json` | 画面が覚えている状態（ナビ・絞り込み欄と保存した検索の節の畳み方・積んだ条件・窓の位置・画面の幅 `paneWidths`） | `UiCommand.ChangeUiState` だけ |
 | `unresolved.json` | 商品が決まっていないファイル | 取り込み（`UnresolvedMerge`）と未確定の画面の操作（錠つき） |
 | `excluded.json` | 管理から外したファイル（パスとハッシュ両方） | 錠つき（書き換えは画面のスレッドの外。外すのは `UiCommand.ExcludeFiles` で何件でも1回） |
 | `avatar-registry.json` | アバターと共通素体の登録簿 | 錠つき |
@@ -25,6 +25,7 @@
 | `modifications/{id}.json` | 改変1件 | 改変の画面 |
 | `notifications.json` | 要確認（既読の印つき。上限を超えたら古い既読から捨てる）。説明文の見出しの変更は、頭の抜き出し（`before`・`after`）に加えて変わった行（`lines`：`{"kind": "added"/"removed", "text"}`。種類ごとに30行まで、超えた数は `moreAdded`・`moreRemoved`）を持つ。消えた行と消えた見出しは `follows`（今の並びで直前にあった行・見出しの文。先頭なら無し）も持つ。バリエーションの入れ替えも名前を行で持つ。前の本文は保存しないので、知らせを作るときにしか作れない（メモ13-②）。未読のうちに同じ商品がまた変わると差を重ね、`updatedAt` に重ねた日時を書く（`createdAt` は最初の変化。import.md ⑦） | 再取得・検出 |
 | `search-history.json` | 検索の履歴 | `UiCommand.ChangeSearchHistory` |
+| `saved-searches.json` | 保存した検索（`entries`：履歴と同じ1件の形に名前 `name` とカードかリストか `view`〔"card"/"list"〕。並びは人が決めた順・押し出さない。[search-saved.md](search-saved.md)） | `UiCommand.ChangeSavedSearches` |
 | `recent.json` | 「最近」の足跡（追加・使った・閲覧）。手元に無くなった商品の行は起動時に落とす（`RecentTracker.PruneMissingItemsAsync`・2026-09-29） | 取り込み・Unityへ送る・商品ページ |
 | `shop-banners.json` | ショップのバナーを調べた記録 | ショップの画面 |
 | `shops.json` | ショップに人が付けた星とメモ（鍵はショップ一覧が束ねる鍵＝サブドメインか `local-` の鍵。見分け用の名前の控えと BOOTH の ID も書く。星もメモも無くなった店は落とす。商品が無くなった店の記録は消さない） | ショップの画面（書くのは `UiCommand.ChangeShopNote`）・検索のショップの条件 |

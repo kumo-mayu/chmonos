@@ -72,6 +72,11 @@ public interface ISettingsService
         Func<SearchHistoryList, SearchHistoryList> change,
         CancellationToken cancellationToken = default);
 
+    /// <summary>保存した検索を変える。変え方を関数で渡す。</summary>
+    Task<SavedSearchList> ChangeSavedSearchesAsync(
+        Func<SavedSearchList, SavedSearchList> change,
+        CancellationToken cancellationToken = default);
+
     Task<StorageUsage> LoadUsageAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<HiddenItem>> LoadHiddenAsync(CancellationToken cancellationToken = default);
@@ -143,6 +148,15 @@ public sealed class SettingsService : ISettingsService
         Func<SearchHistoryList, SearchHistoryList> change,
         CancellationToken cancellationToken = default)
         => _store.SearchHistory.UpdateAsync(change, cancellationToken);
+
+    /// <summary>
+    /// 保存した検索を変える（足す・上書き・名前の変更・削除・並べ替え）。履歴と同じく錠の中で今の並びに当てる。
+    /// 画面からは <see cref="Commands.UiCommand.ChangeSavedSearches"/> で呼ぶ。
+    /// </summary>
+    public Task<SavedSearchList> ChangeSavedSearchesAsync(
+        Func<SavedSearchList, SavedSearchList> change,
+        CancellationToken cancellationToken = default)
+        => _store.SavedSearches.UpdateAsync(change, cancellationToken);
 
     /// <summary>保存先が何をどれだけ使っているか。画像は実ファイルを数える。</summary>
     public Task<StorageUsage> LoadUsageAsync(CancellationToken cancellationToken = default)
