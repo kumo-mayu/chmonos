@@ -158,4 +158,64 @@ public class BoothChangesTests
 
         Assert.Equal("価格 ¥ 1,000 → ¥ 1,200 / 画像 8 枚 → 10 枚", BoothChanges.Summarize(diffs));
     }
+
+    private static BoothBlock Priced(string price, params (long Id, string? Name, int Price)[] variations)
+        => Block(price: price) with
+        {
+            Variations = variations.Select(entry => new BoothVariation { Id = entry.Id, Name = entry.Name, Price = entry.Price }).ToList(),
+        };
+
+    /// <summary>
+    /// どのバリエーションの値段が変わったかを持つ（メモ27-⑤）。商品の価格の文字は一番安い値段だけなので、
+    /// 高い方だけが変わると文字は同じまま。それでも知らせ、変わった物だけを今の並びで持つ
+    /// </summary>
+    [Fact]
+    public void バリエーションの値段だけが変わっても_価格の差に変わったバリエーションを持つ()
+    {
+        var diffs = BoothChanges.Describe(
+            Priced("¥ 500~", (1, "通常版", 500), (2, "支援版", 1000), (3, "おまけ", 0)),
+            Priced("¥ 500~", (1, "通常版", 500), (3, "おまけ", 0), (2, "支援版", 1500)));
+
+        var price = Assert.Single(diffs);
+        Assert.Equal(BoothChanges.PriceField, price.Field);
+        var changed = Assert.Single(price.Prices!);
+        Assert.Equal((2L, "支援版", 1000, 1500), (changed.Id, changed.Name, changed.Before, changed.After));
+        Assert.Equal("価格 支援版 ¥1,000 → ¥1,500", BoothChanges.Summarize(diffs));
+    }
+
+    [Fact]
+    public void 足された消えたバリエーションの値段は_価格の差に入れない()
+    {
+        var diffs = BoothChanges.Describe(
+            Priced("¥ 500", (1, "通常版", 500), (2, "旧版", 800)),
+            Priced("¥ 500", (1, "通常版", 500), (3, "新版", 900)));
+
+        Assert.DoesNotContain(diffs, diff => diff.Field == BoothChanges.PriceField);
+    }
+
+    [Fact]
+    public void 名前の無い単一の商品は_値段だけを言う()
+    {
+        var diffs = BoothChanges.Describe(Priced("¥ 500", (1, null, 500)), Priced("¥ 800", (1, null, 800)));
+
+        var changed = Assert.Single(Assert.Single(diffs).Prices!);
+        Assert.Null(changed.Name);
+        Assert.Equal("価格 ¥500 → ¥800", BoothChanges.Summarize(diffs));
+    }
+
+    /// <summary>人が読める形（JSON は開いて読めて直せる）。変わったバリエーションが無い欄には書かない。</summary>
+    [Fact]
+    public void 値段の変化は_ID名前前後の値段で書き_無い欄には書かない()
+    {
+        var diffs = BoothChanges.Describe(
+            Priced("¥ 500", (7, "通常版", 500)) with { Name = "旧" },
+            Priced("¥ 600", (7, "通常版", 600)) with { Name = "新" });
+
+        var json = System.Text.Json.JsonSerializer.Serialize(diffs, Chmonos.Core.Storage.JsonStore.Options);
+
+        Assert.Contains("\"prices\": [", json);
+        Assert.Contains("\"id\": 7", json);
+        Assert.Contains("\"before\": 500", json);
+        Assert.Equal(1, json.Split("\"prices\"").Length - 1);
+    }
 }

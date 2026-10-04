@@ -88,6 +88,9 @@ internal sealed class ItemChanges
     /// <summary>足された・消えたバリエーションの名前（メモ17）。行を持たない前の形の知らせでは空。</summary>
     public ChangedLines VariationLines { get; private init; } = ChangedLines.None;
 
+    /// <summary>値段の変わったバリエーション（鍵は BOOTH のバリエーションの ID。メモ27-⑤）。種類ごとの値段を持たない知らせでは空。</summary>
+    public IReadOnlyDictionary<long, NotificationPrice> VariationPrices { get; private init; } = new Dictionary<long, NotificationPrice>();
+
     /// <summary>今のページに無い、消えた見出し（元の位置に並べる。メモ17）。</summary>
     public IReadOnlyList<RemovedSection> RemovedSections { get; private init; } = [];
 
@@ -129,6 +132,7 @@ internal sealed class ItemChanges
         var sectionLines = new Dictionary<string, ChangedLines>(StringComparer.Ordinal);
         var descriptionLines = ChangedLines.None;
         var variationLines = ChangedLines.None;
+        var prices = new Dictionary<long, NotificationPrice>();
         string? nameBefore = null;
         var changedHeadings = new List<string>();
         var removedSections = new List<RemovedSection>();
@@ -144,7 +148,15 @@ internal sealed class ItemChanges
                     break;
 
                 case BoothChanges.PriceField:
-                    variations.Add(Mark(ChangeTone.Price, "価格変更", diff));
+                    // 商品の価格の文字は一番安い値段だけなので、高い方だけが変わると前後が同じになる。そのときは前の値を言わない
+                    variations.Add(string.Equals(diff.Before, diff.After, StringComparison.Ordinal) && diff.Prices is { Count: > 0 }
+                        ? new ChangeMark { Tone = ChangeTone.Price, Label = "価格変更", Tip = "バリエーションの価格が変更されました。" }
+                        : Mark(ChangeTone.Price, "価格変更", diff));
+                    foreach (var price in diff.Prices ?? [])
+                    {
+                        prices[price.Id] = price;
+                    }
+
                     break;
 
                 case BoothChanges.VariationsField:
@@ -221,6 +233,7 @@ internal sealed class ItemChanges
             DescriptionLines = descriptionLines,
             NameBefore = nameBefore,
             VariationLines = variationLines,
+            VariationPrices = prices,
             RemovedSections = removedSections,
             Others = others,
             NotificationIds = ordered.Select(record => record.Id).Distinct().ToList(),

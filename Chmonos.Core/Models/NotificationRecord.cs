@@ -122,6 +122,30 @@ public sealed class NotificationDiff
     /// 商品ページは消えた見出しを元の位置に並べる（メモ17）。行の <see cref="NotificationLine.Follows"/> と同じく名前で持つ
     /// </summary>
     public string? Follows { get; init; }
+
+    /// <summary>
+    /// 価格の欄（<see cref="Services.BoothChanges.PriceField"/>）だけが持つ、値段の変わったバリエーション（メモ27-⑤）。
+    /// 商品の価格の文字（<see cref="Before"/>・<see cref="After"/>）は「¥ 500~」のように一番安い値段しか言わず、どのバリエーションが変わったかが分からなかった。
+    /// 前の値段は保存しないので、知らせを作る瞬間にしか作れない。変わったバリエーションが無ければ null
+    /// </summary>
+    public IReadOnlyList<NotificationPrice>? Prices { get; init; }
+}
+
+/// <summary>
+/// 値段の変わったバリエーション1つ（<c>{"id": 123, "name": "通常版", "before": 500, "after": 800}</c>）。
+/// 商品ページは <see cref="Id"/> で今の行に当てる（名前は後で変わることがある）。名前は要確認の札に出すためと、
+/// その後でバリエーションが消えても何の値段だったかを読めるように持つ
+/// </summary>
+public sealed class NotificationPrice
+{
+    public required long Id { get; init; }
+
+    /// <summary>BOOTH のバリエーションの名前（名前の無い単一の商品では null）。</summary>
+    public string? Name { get; init; }
+
+    public required int Before { get; init; }
+
+    public required int After { get; init; }
 }
 
 /// <summary>変わった行が、後の本文に足された物か、前の本文から消えた物か。</summary>

@@ -133,4 +133,38 @@ public class ChangeStackTests
         Assert.Equal(2, stacked.MoreRemoved);
         Assert.Single(stacked.Lines!, line => line.Kind == NotificationLineKind.Removed);
     }
+
+    private static NotificationDiff PriceDiff(string text, params NotificationPrice[] prices)
+        => new() { Field = BoothChanges.PriceField, Before = text, After = text, Prices = prices };
+
+    private static NotificationPrice Price(long id, int before, int after) => new() { Id = id, Name = $"v{id}", Before = before, After = after };
+
+    /// <summary>バリエーションの値段も「最初の前 → 最後の後」。後から変わった別のバリエーションは後ろに足す（メモ27-⑤）。</summary>
+    [Fact]
+    public void バリエーションの値段は_IDごとに最初の前から最後の後にまとめる()
+    {
+        var stacked = ChangeStack.Stack(
+            [PriceDiff("¥ 500~", Price(1, 500, 600))],
+            [PriceDiff("¥ 500~", Price(1, 600, 800), Price(2, 1000, 1200))]);
+
+        var price = Assert.Single(stacked);
+        Assert.Equal(
+            ["1:500→800", "2:1000→1200"],
+            price.Prices!.Select(entry => $"{entry.Id}:{entry.Before}→{entry.After}"));
+    }
+
+    /// <summary>商品の価格の文字が同じでも、バリエーションの値段が変わったままなら外さない。全部戻ったら外す。</summary>
+    [Fact]
+    public void バリエーションの値段が戻ったら外し_残っていれば価格の欄を残す()
+    {
+        var back = ChangeStack.Stack(
+            [PriceDiff("¥ 500~", Price(1, 500, 600))],
+            [PriceDiff("¥ 500~", Price(1, 600, 500))]);
+        Assert.Empty(back);
+
+        var kept = ChangeStack.Stack(
+            [PriceDiff("¥ 500~", Price(1, 500, 600), Price(2, 900, 1000))],
+            [PriceDiff("¥ 500~", Price(1, 600, 500))]);
+        Assert.Equal(2, Assert.Single(Assert.Single(kept).Prices!).Id);
+    }
 }

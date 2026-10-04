@@ -142,9 +142,9 @@ public sealed partial class ItemViewModel
 
         DescriptionLines = ChangedLineMarks.For(changes.DescriptionLines, Description);
 
-        if (changes.VariationLines.HasAny || Variations.Any(row => row.Band is not null))
+        if (changes.VariationLines.HasAny || changes.VariationPrices.Count > 0 || Variations.Any(row => row.Band is not null))
         {
-            var rows = VariationRows();
+            var rows = WithPrices(VariationRows(), changes.VariationPrices);
             Variations.Clear();
             foreach (var row in WithBands(rows, Item.Booth.Variations.Count, changes.VariationLines))
             {

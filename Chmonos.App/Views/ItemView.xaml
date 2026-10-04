@@ -682,6 +682,9 @@
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding PriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
                                                                Visibility="{Binding PriceText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                    <!-- 買った行の BOOTH の値段の変化（メモ27-⑤）。上の行は払った額なので分けて出す -->
+                                                    <TextBlock Text="{Binding PriceChangeText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,2,0,0"
+                                                               Visibility="{Binding PriceChangeText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 </StackPanel>
                                                 <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
                                                         BorderThickness="1" CornerRadius="6" Padding="10,4"
@@ -702,6 +705,12 @@
                                                 <Setter TargetName="Row" Property="Background" Value="{DynamicResource RemovedBand}" />
                                                 <Setter TargetName="Row" Property="ToolTipService.IsEnabled" Value="True" />
                                                 <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
+                                            </DataTrigger>
+                                            <!-- 値段の変わった行（メモ27-⑤）。色は見出しの札「価格変更」と同じ青 -->
+                                            <DataTrigger Binding="{Binding Band}" Value="{x:Static vm:ChangeTone.Price}">
+                                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource PriceBand}" />
+                                                <Setter TargetName="Row" Property="ToolTipService.IsEnabled" Value="True" />
+                                                <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Accent}" />
                                             </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>

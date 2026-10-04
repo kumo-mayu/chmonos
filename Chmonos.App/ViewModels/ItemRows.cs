@@ -98,6 +98,15 @@ public sealed record VariationRow
 
     public bool IsPurchased { get; init; }
 
+    /// <summary>BOOTH のバリエーションの ID（知らせの値段の変化を当てる鍵）。買った記録だけの行・知らせるために差し込んだ行では null。</summary>
+    public long? VariationId { get; init; }
+
+    /// <summary>
+    /// 買った行の、BOOTH の値段の変化（「BOOTHの価格 ¥1,000 → ¥1,500」。メモ27-⑤）。買った行の値段の欄は払った額なので、BOOTH の値段は別の行に出す。
+    /// 買っていない行は値段の欄そのものを「¥1,000 → ¥1,500」にするので、ここは空
+    /// </summary>
+    public string PriceChangeText { get; init; } = string.Empty;
+
     /// <summary>BOOTH側に現存しない購入記録か。</summary>
     public bool IsGone { get; init; }
 
@@ -107,7 +116,10 @@ public sealed record VariationRow
     /// </summary>
     public string Key { get; init; } = string.Empty;
 
-    /// <summary>BOOTH の更新で足された（緑の帯）・消えた（赤の帯）バリエーションか（メモ17）。変わっていなければ null。</summary>
+    /// <summary>
+    /// BOOTH の更新で足された（緑の帯）・消えた（赤の帯。メモ17）・値段の変わった（青の帯。メモ27-⑤）バリエーションか。変わっていなければ null。
+    /// 足された・消えた行の値段が同時に変わることは無い（値段の変化は前後の両方にある物だけ）ので、帯は1つで足りる
+    /// </summary>
     public ChangeTone? Band { get; init; }
 
     /// <summary>BOOTH で消えたことを知らせるためだけに差し込んだ行（今の商品にも買った記録にも無い）。欄の件数には数えない。</summary>
@@ -117,6 +129,7 @@ public sealed record VariationRow
     {
         ChangeTone.Added => "BOOTHで追加されたバリエーションです。",
         ChangeTone.Removed => "BOOTHで削除されたバリエーションです。",
+        ChangeTone.Price => "BOOTHで価格が変更されたバリエーションです。",
         _ => string.Empty,
     };
 }

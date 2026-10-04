@@ -23,7 +23,7 @@
 | `avatar-registry.json` | アバターと共通素体の登録簿 | 錠つき |
 | `userTags.json` / `attributes.json` | ユーザータグ・属性のマスタ（名前・メモ・並び） | タグ・属性の管理 |
 | `modifications/{id}.json` | 改変1件 | 改変の画面 |
-| `notifications.json` | 要確認（既読の印つき。上限を超えたら古い既読から捨てる）。説明文の見出しの変更は、頭の抜き出し（`before`・`after`）に加えて変わった行（`lines`：`{"kind": "added"/"removed", "text"}`。種類ごとに30行まで、超えた数は `moreAdded`・`moreRemoved`）を持つ。消えた行と消えた見出しは `follows`（今の並びで直前にあった行・見出しの文。先頭なら無し）も持つ。バリエーションの入れ替えも名前を行で持つ。前の本文は保存しないので、知らせを作るときにしか作れない（メモ13-②）。未読のうちに同じ商品がまた変わると差を重ね、`updatedAt` に重ねた日時を書く（`createdAt` は最初の変化。import.md ⑦） | 再取得・検出 |
+| `notifications.json` | 要確認（既読の印つき。上限を超えたら古い既読から捨てる）。説明文の見出しの変更は、頭の抜き出し（`before`・`after`）に加えて変わった行（`lines`：`{"kind": "added"/"removed", "text"}`。種類ごとに30行まで、超えた数は `moreAdded`・`moreRemoved`）を持つ。消えた行と消えた見出しは `follows`（今の並びで直前にあった行・見出しの文。先頭なら無し）も持つ。バリエーションの入れ替えも名前を行で持つ。価格の欄は、値段の変わったバリエーションを `prices`（`{"id", "name", "before", "after"}`。前後の両方にある物だけ・ID で突き合わせる）で持つ（メモ27-⑤。商品の価格の文字は一番安い値段だけで、高い方だけが変わっても前後が同じになる）。前の本文は保存しないので、知らせを作るときにしか作れない（メモ13-②）。未読のうちに同じ商品がまた変わると差を重ね、`updatedAt` に重ねた日時を書く（`createdAt` は最初の変化。import.md ⑦） | 再取得・検出 |
 | `search-history.json` | 検索の履歴 | `UiCommand.ChangeSearchHistory` |
 | `recent.json` | 「最近」の足跡（追加・使った・閲覧）。手元に無くなった商品の行は起動時に落とす（`RecentTracker.PruneMissingItemsAsync`・2026-09-29） | 取り込み・Unityへ送る・商品ページ |
 | `shop-banners.json` | ショップのバナーを調べた記録 | ショップの画面 |

@@ -79,6 +79,13 @@ public sealed class NotificationRow : ViewModelBase
             return new DiffRow(diff.Field, string.Empty) { Lines = rows, MoreText = more };
         }
 
+        // 価格はバリエーションごとの値段があれば、商品ページの行と同じ「名前 ¥前 → ¥今」を1行ずつ（メモ27-⑤）。
+        // 商品の価格の文字は一番安い値段だけで、高い方だけが変わると「¥ 500~ → ¥ 500~」になる
+        if (diff.Prices is { Count: > 0 } prices)
+        {
+            return new DiffRow(diff.Field, string.Join("\n", prices.Select(Core.Services.BoothChanges.PriceChangeText)));
+        }
+
         return new DiffRow(
             diff.Field,
             diff.Before is { Length: > 0 } before
