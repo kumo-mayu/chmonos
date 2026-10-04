@@ -163,4 +163,143 @@ public class MissingFileFinderTests : IDisposable
         Assert.Equal(1, second.Relinked);
         Assert.Equal(0, second.Hashed);
     }
+
+    // ---- 場所が空のファイル（ユーザ判断 2026-10-04）----
+    // 取り込みはディスクに無いと見た場所を記録から外すので、全部外れたファイルは「無い場所」を持たない。
+    // 検索の条件「見つからないファイル」とカードの印が数えるのはこの形なので、探す側もこれを探す。
+
+    /// <summary>監視フォルダに中身を置き、その中身を持つ「場所が空の」ファイルを記録する。</summary>
+    private async Task<(string Path, LocalFileRecord File)> EmptyRecordOfAsync(string fileName, string content, bool detached = false)
+    {
+        var path = Path.Combine(_watched, fileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, content);
+        return (path, new LocalFileRecord
+        {
+            Hash = await FileHasher.ComputeSha256Async(path),
+            SizeBytes = new FileInfo(path).Length,
+            Paths = [],
+            Detached = detached,
+        });
+    }
+
+    private Task SaveAsync(string itemId, params LocalFileRecord[] files) => _store.Items.SaveAsync(new ItemRecord
+    {
+        Id = itemId,
+        Booth = new BoothBlock { FetchedAt = DateTimeOffset.UnixEpoch, Name = "作り物の商品" },
+        Local = new LocalBlock { LocalFiles = [.. files] },
+    });
+
+    private async Task<LocalFileRecord> OnlyFileOfAsync(string itemId)
+        => Assert.Single((await _store.Items.LoadAsync(itemId))!.Local.LocalFiles);
+
+    [Fact]
+    public async Task AFileWithNoPathLeftIsFoundByItsContentAndGetsThePlace()
+    {
+        var (path, file) = await EmptyRecordOfAsync(Path.Combine("sub", "移した.zip"), "なかみ");
+        await SaveAsync("111", file);
+
+        var result = await _finder.FindAsync([_watched]);
+
+        Assert.Equal((1, 1, 0), (result.MissingBefore, result.Relinked, result.StillMissing));
+        Assert.Equal([path], (await OnlyFileOfAsync("111")).Paths);
+        Assert.False((await _store.Items.LoadAsync("111"))!.HasMissingFile);
+    }
+
+    [Fact]
+    public async Task AFileWithNoPathLeftStaysEmptyWhenNothingMatches()
+    {
+        var (path, file) = await EmptyRecordOfAsync("消した.zip", "なかみ");
+        File.Delete(path);
+        File.WriteAllText(Path.Combine(_watched, "別の.zip"), "べつの"); // 大きさは同じで中身が違う
+        await SaveAsync("111", file);
+
+        var result = await _finder.FindAsync([_watched]);
+
+        Assert.Equal((1, 0, 1), (result.MissingBefore, result.Relinked, result.StillMissing));
+        Assert.Empty((await OnlyFileOfAsync("111")).Paths);
+    }
+
+    /// <summary>外したファイルは場所が空でも探さない（数えもしない）。</summary>
+    [Fact]
+    public async Task ADetachedFileWithNoPathIsNotSearched()
+    {
+        var (_, file) = await EmptyRecordOfAsync("外した.zip", "なかみ", detached: true);
+        await SaveAsync("111", file);
+
+        var result = await _finder.FindAsync([_watched]);
+
+        Assert.Equal(0, result.MissingBefore);
+        Assert.Empty((await OnlyFileOfAsync("111")).Paths);
+    }
+
+    /// <summary>
+    /// 同じ中身を2つの商品が持っていれば、どちらにも場所が入る（中身で数えるので1件）。
+    /// 監視フォルダに同じ中身が2つ置かれていても、足すのは1か所（どれを使っても同じ中身）。
+    /// 場所が空の商品と、無い場所を持つ商品が同じ中身でも、どちらも結び直る。
+    /// </summary>
+    [Fact]
+    public async Task TheSameContentIsCountedOnceAndEveryOwnerGetsOnePlace()
+    {
+        var (first, file) = await EmptyRecordOfAsync("写し1.zip", "おなじ");
+        var second = Path.Combine(_watched, "写し2.zip");
+        File.Copy(first, second);
+        await SaveAsync("111", file);
+        await SaveAsync("222", file);
+        await SaveAsync("333", file with { Paths = [Path.Combine(_watched, "元の場所.zip")] });
+
+        var result = await _finder.FindAsync([_watched]);
+
+        Assert.Equal((1, 1, 0), (result.MissingBefore, result.Relinked, result.StillMissing));
+        foreach (var itemId in new[] { "111", "222", "333" })
+        {
+            var placed = Assert.Single((await OnlyFileOfAsync(itemId)).Paths);
+            Assert.Contains(placed, new[] { first, second });
+        }
+    }
+
+    /// <summary>
+    /// 探している間（読み終えて中身を確かめている間）に、取り込みが同じファイルへ別の場所を足し、人がメモを書いても、
+    /// どれも消えない。探した側は錠の中で今の値に場所を足すだけ。
+    /// </summary>
+    [Fact]
+    public async Task AnImportWritingTheSameItemWhileSearchingKeepsBothPlaces()
+    {
+        var (found, file) = await EmptyRecordOfAsync("見つかる.zip", "なかみ");
+        var outside = Path.Combine(_root, "監視の外", "取り込んだ.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(outside)!);
+        File.Copy(found, outside);
+        await SaveAsync("111", file);
+
+        var wrote = 0;
+        var progress = new InlineProgress(() =>
+        {
+            if (Interlocked.Exchange(ref wrote, 1) == 1)
+            {
+                return;
+            }
+
+            // 取り込みと同じ口（錠の中で今の値に当てる）。探す側が商品を読んだ後、書く前に割り込む
+            _store.Items.ChangeLocalAsync(
+                "111",
+                local => local with { LocalFiles = [local.LocalFiles[0] with { Paths = [outside] }] },
+                LocalOwners.Import).GetAwaiter().GetResult();
+            _store.Items.ChangeLocalAsync(
+                "111", local => local with { Memo = "人が書いたメモ" }, [LocalField.Memo]).GetAwaiter().GetResult();
+        });
+
+        var result = await _finder.FindAsync([_watched], progress);
+
+        Assert.Equal(1, wrote);
+        Assert.Equal(1, result.Relinked);
+        var item = await _store.Items.LoadAsync("111");
+        Assert.Equal([outside, found], Assert.Single(item!.Local.LocalFiles).Paths);
+        Assert.Equal("人が書いたメモ", item.Local.Memo);
+    }
+
+    /// <summary>その場で受ける進み具合の受け手（<c>Progress</c> と違い、どこへも運ばない）。</summary>
+    private sealed class InlineProgress(Action onReport) : IProgress<(int Hashed, string? Detail)>
+    {
+        public void Report((int Hashed, string? Detail) value) => onReport();
+    }
 }

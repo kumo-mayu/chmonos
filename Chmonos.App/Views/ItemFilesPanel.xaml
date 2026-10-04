@@ -307,15 +307,16 @@
                                                     <!--
                                                         開く操作は名前のすぐ横に、1つのボタンにまとめる（ユーザ判断 2026-09-19：右端に並ぶと、名前を読んでから
                                                         押すまでに視線が画面の幅ぶん往復した）。外したファイルでも開けるので、薄くしない（薄いと押せないように見えた・ユーザ指摘）。
-                                                        見つからないファイルは開く先が無いので出さない
+                                                        見つからないファイル・取り外しているドライブの上のファイルは開く先が無いので押せなくし、吹き出しで理由を言う
+                                                        （ユーザ判断 2026-10-04。右クリックのメニューと同じ形。前は出さず、その行だけ形が変わっていた）
                                                     -->
                                                     <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,0,0"
                                                             VerticalAlignment="Center" Click="OnMenuButtonClick"
-                                                            Visibility="{Binding CanReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            IsEnabled="{Binding CanReveal}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             AutomationProperties.AutomationId="ItemFileOpenMenu"
                                                             AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を開く}"
-                                                            ToolTip="このファイルの開き方を選びます">
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenMenuTip}">
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
                                                                 <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding FirstPath}"
@@ -427,7 +428,8 @@
                                                                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                                     AutomationProperties.AutomationId="ItemPackageUnityMenu"
                                                                                     AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}"
-                                                                                    ToolTip="開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。">
+                                                                                    IsEnabled="{Binding FileRow.CanReveal}"
+                                                                                    ToolTipService.ShowOnDisabled="True" ToolTip="{Binding FileRow.UnityMenuTip}">
                                                                                 <Button.ContextMenu>
                                                                                     <ContextMenu>
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
