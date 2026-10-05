@@ -287,7 +287,8 @@ public static class ItemIdChange
             .Concat(target.Purchases)
             .ToList();
 
-        var files = LocalFileMerger.Merge(
+        // 人の操作なので、無い場所は外さない（取り込みの仕事。LocalFileMerger.MergeByHand）
+        var files = LocalFileMerger.MergeByHand(
             target.LocalFiles,
             source.LocalFiles.Select(file => file with { VariationId = null }).ToList());
 

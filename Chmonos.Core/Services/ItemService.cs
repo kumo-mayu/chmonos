@@ -1001,7 +1001,7 @@ public sealed class ItemService : IItemService
             itemId,
             current => current with
             {
-                LocalFiles = Scanning.LocalFileMerger.Merge(current.LocalFiles, [record]),
+                LocalFiles = Scanning.LocalFileMerger.MergeByHand(current.LocalFiles, [record]),
                 LocalFolders = WithoutFolder(current.LocalFolders, normalized) ?? current.LocalFolders,
             },
             [LocalField.LocalFiles, LocalField.LocalFolders],
@@ -1056,7 +1056,7 @@ public sealed class ItemService : IItemService
         // 書く直前の一覧に足す
         if (!await _store.Items.ChangeLocalAsync(
                 itemId,
-                current => current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, [record]) },
+                current => current with { LocalFiles = LocalFileMerger.MergeByHand(current.LocalFiles, [record]) },
                 LocalOwners.Import,
                 cancellationToken))
         {
@@ -1114,7 +1114,7 @@ public sealed class ItemService : IItemService
                 var written = await _store.Items.CreateOrChangeLocalAsync(
                     itemId,
                     () => UnpublishedItem(itemId, displayName),
-                    local => local with { LocalFiles = LocalFileMerger.Merge(local.LocalFiles, [record]) },
+                    local => local with { LocalFiles = LocalFileMerger.MergeByHand(local.LocalFiles, [record]) },
                     LocalOwners.Import,
                     cancellationToken);
                 if (!written)
@@ -1773,7 +1773,7 @@ public sealed class ItemService : IItemService
                         : current with
                         {
                             DisplayName = displayName.Trim(),
-                            LocalFiles = LocalFileMerger.Merge(current.LocalFiles, records),
+                            LocalFiles = LocalFileMerger.MergeByHand(current.LocalFiles, records),
                         },
                     [LocalField.DisplayName, LocalField.LocalFiles],
                     cancellationToken);

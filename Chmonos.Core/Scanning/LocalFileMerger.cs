@@ -19,6 +19,23 @@ namespace Chmonos.Core.Scanning;
 /// </summary>
 public static class LocalFileMerger
 {
+    /// <summary>
+    /// 人の登録操作（このIDで登録・BOOTHに無い商品・見つからないIDのまま登録・IDを変える・zipで登録し直す）で足し合わせる。
+    /// <see cref="Merge"/> と同じ決まりで、**無い場所を外さない**ことだけが違う（2026-10-05・file-lifecycle.md「気になった所」13）。
+    ///
+    /// 無い場所を外すのは、取り込みが走査で「移した・消した」と見た時の仕事（import.md）。人が1件登録しただけで、
+    /// 同じ商品のほかのファイルの覚えていた場所が消えると、見つからない物は場所を残して日時で示す決まり
+    /// （data-model.md「この欄のために場所は外さない」）と食い違い、「見つからないファイルを探す」の手掛かりも消える。
+    /// 在る場所が1つでもあれば日時を消すのは同じ（登録した物そのものが在る、など）。
+    /// </summary>
+    public static IReadOnlyList<LocalFileRecord> MergeByHand(
+        IReadOnlyList<LocalFileRecord> existing,
+        IEnumerable<LocalFileRecord> discovered,
+        Func<string, bool>? pathExists = null)
+
+        // 無い場所を「今は見えないだけ」と同じに扱えば、残す道は1つで済む。ドライブの根も見に行かない
+        => Merge(existing, discovered, pathExists, onMissingVolume: _ => true);
+
     public static IReadOnlyList<LocalFileRecord> Merge(
         IReadOnlyList<LocalFileRecord> existing,
         IEnumerable<LocalFileRecord> discovered,
