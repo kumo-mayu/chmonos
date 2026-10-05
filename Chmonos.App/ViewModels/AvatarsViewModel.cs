@@ -169,6 +169,34 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
     /// </summary>
     public bool Matches(string query)
         => AvatarSearch.Matches(Summary.Entry, Name, query, out _);
+
+    private string _matchNote = string.Empty;
+
+    /// <summary>
+    /// 探す欄の語が名前でなく呼び方・正式名で当たったときの「何で当たったか」。名前で当たった行・語が空のときは空。
+    /// 名前に無い語で当たると、なぜこの行が残ったのか分からないため（候補の欄の「正式名「…」」と同じ作り）
+    /// </summary>
+    public string MatchNote
+    {
+        get => _matchNote;
+        private set
+        {
+            if (_matchNote != value)
+            {
+                _matchNote = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasMatchNote));
+            }
+        }
+    }
+
+    public bool HasMatchNote => _matchNote.Length > 0;
+
+    /// <summary>探す語に合わせて札を付け替える。<see cref="Matches"/> と同じ照らし方（<see cref="AvatarSearch.Matches"/>）の答えを使う。</summary>
+    public void UpdateMatchNote(string query)
+        => MatchNote = query.Length > 0 && AvatarSearch.Matches(Summary.Entry, Name, query, out var hint)
+            ? hint?.Label ?? string.Empty
+            : string.Empty;
 }
 
 /// <summary>素体グループの1行。</summary>
@@ -1573,6 +1601,11 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 並びは「所有していてアバター扱い → アバターとして扱わない → 未所有」（ユーザ判断 2026-09-12）。
         // 扱わないものは所有していても真ん中に固める。見出しの中の並びは読み込んだ順のまま
         // （OrderBy は同じ順位の中の並びを変えない）
+        foreach (var row in _all)
+        {
+            row.UpdateMatchNote(_query);
+        }
+
         var matched = _all
             .Where(row => _query.Length == 0 || row.Matches(_query))
             .OrderBy(row => row.IsExcluded ? 1 : row.IsOwned ? 0 : 2)
