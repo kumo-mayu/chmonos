@@ -124,6 +124,26 @@ public class AvatarSearchTests : IDisposable
     }
 
     [Fact]
+    public void 持っているアバターの絵は_星で指名したサムネイル_無ければ1枚目()
+    {
+        var paths = MakePaths(_root);
+        var first = Path.Combine(paths.ItemImagesDir("9900001"), "a.webp");
+        var pinned = Path.Combine(paths.ItemImagesDir("9900001"), "b.webp");
+        Touch(first);
+        Touch(pinned);
+        var record = new ModificationRecord { Id = "m1", AvatarItemId = "9900001", Name = "普段着" };
+        ItemRecord Avatar(string? thumbnail) => new()
+        {
+            Id = "9900001",
+            Booth = new BoothBlock { Name = "作り物のアバター", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock { ThumbnailImage = thumbnail },
+        };
+
+        Assert.Equal(first, ModificationIcon.PathOf(paths, record, Avatar(null)));
+        Assert.Equal(pinned, ModificationIcon.PathOf(paths, record, Avatar("b.webp")));
+    }
+
+    [Fact]
     public void 写真の記録があってもファイルが無ければアバターの絵に戻る()
     {
         var paths = MakePaths(_root);

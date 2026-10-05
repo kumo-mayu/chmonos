@@ -188,8 +188,10 @@ public sealed class AvatarImageSync
     }
 
     /// <summary>
-    /// 画面に出す絵の場所。持っている（商品として取り込んである）なら商品の1枚目、
+    /// 画面に出す絵の場所。持っている（商品として取り込んである）なら商品のサムネイル（★で指名した絵、無ければ1枚目）、
     /// そうでなければ <c>images/_avatars</c> の1枚。どちらも無ければ null。
+    /// ★を見るのは、カードと同じ絵にそろえるため。改変の絵の2段目も「アバターのサムネイルとして指名した絵」（ユーザ 2026-10-05）。
+    /// 設定の「サムネイルに使う役割」は見ない——改変例の役割を選んでいると、アバターの絵が別の改変の姿になってしまう
     /// </summary>
     public static string? IconPath(AppPaths paths, string avatarItemId, ItemRecord? item)
     {
@@ -198,7 +200,9 @@ public sealed class AvatarImageSync
             var directory = paths.ItemImagesDir(item.Id);
             var files = ListImages(directory);
             if (files.Count > 0
-                && ItemImageOrder.Paths(directory, item.Booth.Images, files, item.Local.UserImages).FirstOrDefault() is { } first)
+                && ItemImageOrder.Thumbnail(
+                    ItemImageOrder.Arrange(directory, item.Booth.Images, files, item.Local.UserImages),
+                    item.Local.ThumbnailImage) is { } first)
             {
                 return first;
             }
