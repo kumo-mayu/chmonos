@@ -109,10 +109,23 @@ internal static partial class Scenes
         new Scene("item-files-states", "商品ページの手元のファイル：在る・壊れたzip・見つかりません・取り外しているドライブ・同じ中身が2箇所・確かめられない・古い版", async context =>
         {
             var plain = Fake.Zip(@"ライブラリ\costume_full_v1.2.zip", "costume.unitypackage", "readme.txt");
+            // 展開してあるフォルダ。中の unitypackage は行に並び、zip の行と同じ「Unity ▾」が出る（2026-10-05）。もう1つは見つからないフォルダ
+            var expanded = Fake.Folder(@"展開物\costume_expanded");
+            Fake.PlainFile(@"展開物\costume_expanded\Costume_Base.unitypackage");
+            Fake.PlainFile(@"展開物\costume_expanded\Costume_Option.unitypackage");
             var item = await context.Fake.ItemAsync("9900101", "作り物の衣装セット（ファイルの行の確かめ）", record => record with
             {
                 Local = record.Local with
                 {
+                    LocalFolders =
+                    [
+                        new LocalFolderRecord
+                        {
+                            Path = expanded, FileCount = 2, TotalBytes = 96_000_000,
+                            UnityPackages = ["Costume_Base.unitypackage", "Costume_Option.unitypackage"],
+                        },
+                        new LocalFolderRecord { Path = Fake.MissingPath(@"展開物\移したフォルダ"), FileCount = 14, TotalBytes = 210_000_000 },
+                    ],
                     LocalFiles =
                     [
                         Fake.FileRecord(plain),
@@ -150,7 +163,8 @@ internal static partial class Scenes
             // 在るかは、行を出した後で画面のスレッドの外で確かめて付く
             var page = context.Screen<ItemViewModel>();
             await SceneContext.UntilAsync(
-                () => page.LocalFiles.Count(row => row.IsMissing) == 2 && page.LocalFiles.Any(row => row.IsOnDetachedDrive),
+                () => page.LocalFiles.Count(row => row.IsMissing) == 2 && page.LocalFiles.Any(row => row.IsOnDetachedDrive)
+                    && page.LocalFolders.Any(row => row.HasUnityPackages) && page.LocalFolders.Any(row => row.IsMissing),
                 "「見つかりません」と「取り外しているドライブ」の印が付く");
 
             // 確かめられない（権限が無い）は、台の上で本物の拒否を作ると後片付けで消せなくなるので、見た答えだけを差し替える（MB-B）。

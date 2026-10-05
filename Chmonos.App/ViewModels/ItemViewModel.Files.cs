@@ -398,20 +398,37 @@ public sealed partial class ItemViewModel
     {
         var folders = Item.Local.LocalFolders.ToList();
         Func<Core.Models.LocalFolderRecord, string> remap = _services.Volumes.CurrentOf;
+        var showsUnity = ShowsUseActions;
         var rows = await Task.Run(() => folders
-            .Select(folder => ToFolderRow(
-                folder.Path,
-                remap(folder),
-                folder.FileCount,
-                folder.TotalBytes,
-                isMissing: !Core.Services.DiskCheck.FolderExists(remap(folder)),
-                // zipが手に入っていればフォルダ登録は役目を終えている。
-                // 気付かずに置いておくと容量が二重に数えられる。
-                archive: RegisteredFolderSet.FindArchiveFor(remap(folder))))
+            .Select(folder =>
+            {
+                var row = ToFolderRow(
+                    folder.Path,
+                    remap(folder),
+                    folder.FileCount,
+                    folder.TotalBytes,
+                    isMissing: !Core.Services.DiskCheck.FolderExists(remap(folder)),
+                    // zipが手に入っていればフォルダ登録は役目を終えている。
+                    // 気付かずに置いておくと容量が二重に数えられる。
+                    archive: RegisteredFolderSet.FindArchiveFor(remap(folder)));
+                // 中の unitypackage が今も在るかはディスクを見るので、ここ（裏）で調べる。zip の行と同じく、使う操作を出さない画面では並べない
+                var places = showsUnity && !row.IsMissing ? Core.Services.UnityHandoff.PlacesOf(folder) : [];
+                row.UnityPackageRows = [.. places.Select(place => new UnityPackageRow { Entry = place.Entry, FileRow = row })];
+                return row;
+            })
             .ToList());
 
         LocalFolders = rows;
         OnPropertyChanged(nameof(LocalFolders));
+        OnPropertyChanged(nameof(HasAnyUnityPackage));
+
+        // 入る先は unitypackage を最後まで読まないと分からないので、行を出した後で埋める（zip の行と同じ）
+        var reads = new Core.Services.UnityPackageReads();
+        foreach (var row in rows.SelectMany(folder => folder.UnityPackageRows).ToList())
+        {
+            var roots = await Task.Run(() => reads.ReadDestinations(row.Entry));
+            row.DestinationText = Core.Services.UnityHandoff.DescribeDestinations(roots);
+        }
     }
 
     private static LocalFolderRow ToFolderRow(string path, string currentPath, int fileCount, long totalBytes, bool isMissing, string? archive) => new()

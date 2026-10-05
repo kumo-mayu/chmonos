@@ -238,8 +238,36 @@ public sealed class SectionRow : ViewModelBase
     public string Marker => _isOpen ? "▾" : "▸";
 }
 
-public sealed class LocalFolderRow
+/// <summary>
+/// Unity へ送れる包み（<see cref="UnityPackageRow"/>）を持つ行。zip の行（<see cref="LocalFileRow"/>）と登録したフォルダの行（<see cref="LocalFolderRow"/>）が
+/// 同じ「Unity ▾」の部品を使うための形で、押せるか・押せない理由をここから読む（ユーザ判断 2026-10-05）。
+/// </summary>
+public interface IUnityPackageHost
 {
+    bool CanReveal { get; }
+
+    string UnityMenuTip { get; }
+}
+
+public sealed class LocalFolderRow : IUnityPackageHost
+{
+    /// <summary>フォルダが在るときだけ送れる。在るかは裏で確かめて差し替えるので、確かめる前は在るとして出す。</summary>
+    public bool CanReveal => !IsMissing;
+
+    public string UnityMenuTip => CanReveal
+        ? "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。"
+        : "フォルダが見つかりません。";
+
+    /// <summary>フォルダの中の、Unityへ送れるもの。zip の行と同じ部品で並べる。</summary>
+    public IReadOnlyList<UnityPackageRow> UnityPackageRows { get; set; } = [];
+
+    public bool HasUnityPackages => UnityPackageRows.Count > 0;
+
+    public bool HasManyUnityPackages => UnityPackageRows.Count > 1;
+
+    public string UnityPackageNote =>
+        $"Unityへ送れるもの {UnityPackageRows.Count} 件。依存するものから先に送ってください。";
+
     /// <summary>記録のパス（登録を外す相手の見分けに使う。書き換えない）。</summary>
     public required string Path { get; init; }
 
@@ -300,7 +328,7 @@ public sealed class UnityPackageRow : ViewModelBase
     /// この包みが入っているファイルの行。「Unity ▾」が押せるか・吹き出しは、ファイルが在るかで決まる
     /// （中の一覧は記録から出るので、ファイルが見つからなくても包みの行は並ぶ）。
     /// </summary>
-    public required LocalFileRow FileRow { get; init; }
+    public required IUnityPackageHost FileRow { get; init; }
 
     public string Name => Entry.Name;
 
@@ -320,7 +348,7 @@ public sealed class UnityPackageRow : ViewModelBase
     public bool HasDestination => DestinationText.Length > 0;
 }
 
-public sealed class LocalFileRow : ViewModelBase
+public sealed class LocalFileRow : ViewModelBase, IUnityPackageHost
 {
     /// <summary>このファイルの同一性。商品から外すときに指す。</summary>
     public required string Hash { get; init; }
