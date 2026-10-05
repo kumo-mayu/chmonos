@@ -73,6 +73,12 @@ public sealed record AvatarSummary
     /// 「『【くうた対応】School sweater』ほか2件が対応先として挙げています」と読めれば分かる。
     /// </summary>
     public IReadOnlyList<string> ReferencedBy { get; init; } = [];
+
+    /// <summary>
+    /// 名前から推した素体（手で決めた所属が無いときだけ）。アバターの詳細で、手で決めた素体と見分けて薄く出す（メモ46-3）。
+    /// 手で決めた素体しか出していなかったので、欄は空なのに素体の一覧には入っているアバターがあった。保存はしない（毎回推す）
+    /// </summary>
+    public string? InferredBaseName { get; init; }
 }
 
 /// <summary>素体グループ1件の一覧表示用。</summary>
@@ -137,6 +143,9 @@ public interface IAvatarRegistryEditor
     Task SetAvatarOverrideAsync(string itemId, bool? value, CancellationToken cancellationToken = default);
 
     Task SetBaseAsync(string itemId, string? baseName, CancellationToken cancellationToken = default);
+
+    /// <summary>この素体から外す。手で決めた所属は空にし、名前から推した仲間には「素体に入れない」の印を立てる。</summary>
+    Task RemoveFromBaseAsync(string itemId, string baseName, CancellationToken cancellationToken = default);
 
     Task SetInferClothingAsync(string name, bool infer, CancellationToken cancellationToken = default);
 
@@ -299,6 +308,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                 DirectCount = direct.TryGetValue(entry.ItemId, out var d) ? d : 0,
                 ViaBaseCount = viaBase.TryGetValue(entry.ItemId, out var v) ? v : 0,
                 ReferencedBy = names.TryGetValue(entry.ItemId, out var n) ? n : [],
+                InferredBaseName = string.IsNullOrWhiteSpace(entry.BaseName) ? index.BaseNameOf(entry.ItemId) : null,
             })
             // 「アバターとして扱わない」にしたものも残す。一覧から消すと選べなくなり、
             // 隣にある「自動判定に戻す」を押す手段が無くなる（JSONを手で直すしかなくなる）

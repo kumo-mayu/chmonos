@@ -166,6 +166,16 @@ public sealed record AvatarRegistryEntry
     public string? BaseName { get; init; }
 
     /// <summary>
+    /// 人が「素体に入れない」と決めた印（メモ46・ユーザ判断 2026-10-05 1-B）。立っていれば名前から素体を推さない
+    /// （<see cref="Services.AvatarBaseKeys.InferBaseOf"/>）。
+    /// 推した仲間は保存しない値なので、外すには「推すな」という人の決定を残すしかない。印は推定値ではなく人が決めた値。
+    /// 素体を選び直すと下ろす。**立っていないときは書き出さない**（全部の行に false が並ぶと読みにくい）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool NoBase { get; init; }
+
+    /// <summary>
     /// 手で「所有している」と指定したか。
     /// 所持itemからの計算と和を取る（本体を取り込んでいないアバターや、BOOTH外で入手したもの用）。
     /// </summary>
