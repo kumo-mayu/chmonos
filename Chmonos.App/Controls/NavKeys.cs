@@ -13,10 +13,11 @@ namespace Chmonos.App.Controls;
 ///
 /// - 戻る・進む・畳む・各画面の項目・「設定」を1つの並びとして、↑↓で1つずつ移る（横に並ぶ戻る・進むの間だけ ←→）。端では止まる。Home・End は端へ
 /// - 外から Tab（Shift+Tab）で入ると、今開いている画面の項目に止まる（前は戻るから14回以上 Tab を押して目当ての項目へ着いた）
-/// - ナビの中の Tab・Shift+Tab は WPF の既定のまま1つずつ。「設定」から Tab で画面の中身へ、一番上から Shift+Tab で前へ出る
+/// - ナビの項目（戻る・進む・畳む・各画面）は Tab では1回だけ止まる塊。その項目のどこからでも Tab で直接「設定」へ、「設定」から Tab で画面の中身へ。
+///   Shift+Tab は逆：中身 → 設定 → 項目の今の画面 → ナビの前へ（メモ64。案Xの「Tab でも1つずつ」では回数が減らなかった）。
+///   最後の項目から ↓ で「設定」・「設定」から ↑ で最後の項目へ、は矢印の並びで足りている
 ///
-/// <see cref="ArrowGroup"/> に寄せなかったのは、向きが逆だから。ArrowGroup は「Tab では1回だけ止まる」塊を作る（中の止まり先を Tab で止まらなくする）が、
-/// ナビは Tab でも1つずつ動けるままにしたい。さらに入れ物が2つに分かれる（送る入れ物の中と、送らずに下端へ固定した「設定」・BOOTH の形式の知らせ）ので、
+/// <see cref="ArrowGroup"/> に寄せなかったのは、入れ物が2つに分かれる（送る入れ物の中と、送らずに下端へ固定した「設定」・BOOTH の形式の知らせ）ので、
 /// ItemsControl の板を前提にする ArrowGroup には載らない。ナビの項目は手で並べた十数個のボタンで、上下の移りは「並びの順に隣へ」で足りる
 /// （ArrowGroup の位置で近い物を探す作りは要らない）ので、ここだけの小さな処理にした。
 /// </summary>
@@ -110,6 +111,56 @@ public static class NavKeys
                 return null;
         }
     }
+
+    /// <summary>ナビの中の Tab・Shift+Tab の扱い。</summary>
+    public enum TabAction
+    {
+        /// <summary>WPF の既定のまま。</summary>
+        Default,
+
+        /// <summary>代わりに <see cref="TabResult.Target"/> へ。</summary>
+        Focus,
+
+        /// <summary>項目の塊の前（ナビの外）へ出る。</summary>
+        LeaveBackward,
+    }
+
+    public readonly record struct TabResult(TabAction Action, Button? Target = null);
+
+    /// <summary>
+    /// 項目の塊は Tab で1回だけ止まり、「設定」は別の1回。<paramref name="members"/> は <see cref="Members"/>、<paramref name="settings"/> は「設定」。
+    /// 今の画面が「設定」のときは「設定」が塊を兼ねるので、Shift+Tab は前へ出る
+    /// </summary>
+    public static TabResult TabMove(IReadOnlyList<Button> members, Button? settings, Button focused, bool shift)
+    {
+        if (settings is null || !members.Contains(focused) || !members.Contains(settings))
+        {
+            return new TabResult(TabAction.Default);
+        }
+
+        if (!ReferenceEquals(focused, settings))
+        {
+            return shift ? new TabResult(TabAction.LeaveBackward) : new TabResult(TabAction.Focus, settings);
+        }
+
+        if (!shift)
+        {
+            return new TabResult(TabAction.Default);
+        }
+
+        var items = members.Where(member => !ReferenceEquals(member, settings)).ToList();
+        var active = items.FirstOrDefault(member => Nav.GetIsActive(member));
+        if (active is null && Nav.GetIsActive(settings))
+        {
+            return new TabResult(TabAction.LeaveBackward);
+        }
+
+        var target = active ?? items.FirstOrDefault();
+        return target is null ? new TabResult(TabAction.Default) : new TabResult(TabAction.Focus, target);
+    }
+
+    /// <summary>「設定」の自動化 ID（MainWindow の Nav.Settings）。</summary>
+    public const string SettingsId = "Nav.Settings";
 
     private static bool SameRow(double a, double b) => Math.Abs(a - b) < 1;
 
@@ -215,6 +266,26 @@ public static class NavKeys
 
     private static void OnRailKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Tab && !e.Handled && (Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift)
+            && sender is DependencyObject tabRail && Keyboard.FocusedElement is Button tabFocused)
+        {
+            var all = Members(tabRail);
+            var settings = all.FirstOrDefault(member => System.Windows.Automation.AutomationProperties.GetAutomationId(member) == SettingsId);
+            var result = TabMove(all, settings, tabFocused, Keyboard.Modifiers == ModifierKeys.Shift);
+            if (result.Action == TabAction.Focus)
+            {
+                e.Handled = true;
+                result.Target!.Focus();
+            }
+            else if (result.Action == TabAction.LeaveBackward)
+            {
+                e.Handled = true;
+                all[0].MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous));
+            }
+
+            return;
+        }
+
         // 修飾キー付き（Alt+← の戻る・設定で割り当てたキー）は窓の物
         if (e.Handled || Keyboard.Modifiers != ModifierKeys.None
             || e.Key is not (Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End)

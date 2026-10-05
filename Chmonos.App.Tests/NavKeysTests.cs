@@ -92,13 +92,48 @@ public class NavKeysTests
         // ナビの中からは横取りしない（WPF の既定の1つずつ）
         Assert.Null(NavKeys.EntryTarget(stage.Frame, stage.Items[3], stage.Items[4]));
         Assert.Null(NavKeys.EntryTarget(stage.Frame, stage.Items[2], stage.Items[1]));
-        // 項目は全部 Tab で止まる（並びの「1回だけ止まる」にしない）
-        Assert.All(stage.Items, item => Assert.True(KeyboardNavigation.GetIsTabStop(item)));
         // ナビの外の部品へ向かう移り（設定から Tab・一番上から Shift+Tab）も触らない
         Assert.Null(NavKeys.EntryTarget(stage.Frame, stage.Items[^1], stage.After));
         Assert.Null(NavKeys.EntryTarget(stage.Frame, stage.Items[0], stage.Before));
         // 何も止まっていない所から（窓を開いた直後）も、今の画面の項目
         Assert.Same(stage.Items[3], NavKeys.EntryTarget(stage.Frame, null, stage.Items[0]));
+    });
+
+    [Fact]
+    public Task 項目のどこからでもTabは直接設定へ_設定からは既定で中身へ() => UiThread.Run(() =>
+    {
+        using var stage = Stage.Build(activeIndex: 3);
+        var members = NavKeys.Members(stage.Frame);
+        var settings = stage.Items[6];
+
+        foreach (var item in stage.Items.Take(6))
+        {
+            Assert.Equal(new NavKeys.TabResult(NavKeys.TabAction.Focus, settings), NavKeys.TabMove(members, settings, item, shift: false));
+        }
+
+        // 設定から Tab は WPF の既定（画面の中身へ）
+        Assert.Equal(NavKeys.TabAction.Default, NavKeys.TabMove(members, settings, settings, shift: false).Action);
+    });
+
+    [Fact]
+    public Task ShiftTabは設定から今の画面の項目へ_項目からはナビの前へ() => UiThread.Run(() =>
+    {
+        using var stage = Stage.Build(activeIndex: 3);
+        var members = NavKeys.Members(stage.Frame);
+        var settings = stage.Items[6];
+
+        Assert.Equal(new NavKeys.TabResult(NavKeys.TabAction.Focus, stage.Items[3]), NavKeys.TabMove(members, settings, settings, shift: true));
+        Assert.Equal(NavKeys.TabAction.LeaveBackward, NavKeys.TabMove(members, settings, stage.Items[3], shift: true).Action);
+        Assert.Equal(NavKeys.TabAction.LeaveBackward, NavKeys.TabMove(members, settings, stage.Items[0], shift: true).Action);
+    });
+
+    [Fact]
+    public Task 今の画面が設定なら_Shift_Tabは設定から前へ出る() => UiThread.Run(() =>
+    {
+        using var stage = Stage.Build(activeIndex: 6);
+        var members = NavKeys.Members(stage.Frame);
+
+        Assert.Equal(NavKeys.TabAction.LeaveBackward, NavKeys.TabMove(members, stage.Items[6], stage.Items[6], shift: true).Action);
     });
 
     [Fact]
