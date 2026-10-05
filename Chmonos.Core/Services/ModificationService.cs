@@ -202,11 +202,12 @@ public sealed class ModificationService : IModificationService
     /// <summary>
     /// 複製の名前。「〇〇のコピー」、同じアバターに同じ名前があれば「〇〇のコピー 2」「〇〇のコピー 3」…。
     /// 同じ名前は許しているが、複製の直後に同じ名前が並ぶと見分けが付かない。比べ方は <see cref="HasSameNameAsync"/> と同じ
+    /// 「〇〇のコピー」「〇〇のコピー 2」を複製したときは、末尾のコピーの印を外してから番号を振る（「のコピーのコピー」と伸びない）
     /// </summary>
     internal static string DuplicateName(string sourceName, IEnumerable<string> existingNames)
     {
         var taken = existingNames.ToList();
-        var baseName = $"{sourceName.Trim()}のコピー";
+        var baseName = $"{StripCopySuffix(sourceName.Trim())}のコピー";
         var candidate = baseName;
         for (var number = 2; taken.Any(name => string.Equals(name, candidate, StringComparison.CurrentCultureIgnoreCase)); number++)
         {
@@ -216,7 +217,14 @@ public sealed class ModificationService : IModificationService
         return candidate;
     }
 
-    public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
+    private static string StripCopySuffix(string name)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(name, @"のコピー( \d+)?$");
+        // 名前が「のコピー」だけのときは外すと空になるので、そのまま使う
+        return match.Success && match.Index > 0 ? name[..match.Index].TrimEnd() : name;
+    }
+
+    public async Task<bool> DeleteAsync(string id,CancellationToken cancellationToken = default)
     {
         if (!_store.Modifications.Exists(id))
         {

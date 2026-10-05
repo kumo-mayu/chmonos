@@ -610,6 +610,10 @@ public sealed class ModificationServiceTests : IDisposable
         // 空き番号があれば、そこを使う
         Assert.Equal("普段着のコピー 2", ModificationService.DuplicateName("普段着", ["普段着のコピー", "普段着のコピー 3"]));
         Assert.Equal("制服のコピー", ModificationService.DuplicateName("  制服 ", ["普段着のコピー"]));
+        // コピーを複製しても「のコピーのコピー」と伸ばさない
+        Assert.Equal("普段着のコピー 2", ModificationService.DuplicateName("普段着のコピー", ["普段着", "普段着のコピー"]));
+        Assert.Equal("普段着のコピー 3", ModificationService.DuplicateName("普段着のコピー 2", ["普段着", "普段着のコピー", "普段着のコピー 2"]));
+        Assert.Equal("のコピーのコピー", ModificationService.DuplicateName("のコピー", []));
     }
 
     [Fact]
