@@ -375,7 +375,7 @@ public static class Program
         Console.WriteLine();
         Console.WriteLine($"論理容量   : {item.LogicalSizeBytes:N0} バイト（重複を1回だけ計上）");
         Console.WriteLine($"実占有量   : {item.ActualDiskBytes:N0} バイト（2箇所ぶん）");
-        Console.WriteLine($"所持       : {item.IsDownloaded}");
+        Console.WriteLine($"所持       : {item.IsOwned}");
         Console.WriteLine($"出力先     : {temporaryPath}");
 
         return 0;

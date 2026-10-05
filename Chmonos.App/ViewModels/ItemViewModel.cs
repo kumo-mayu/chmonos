@@ -1102,7 +1102,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public bool HasLocalFolders => LocalFolders.Count > 0;
 
-    public string FileSummary => Item.IsDownloaded
+    public string FileSummary => Item.HasOwnedFiles
         ? $"{Item.Local.OwnedFiles.Count} 件 / {Core.Models.DisplayText.Size(Item.LogicalSizeBytes)}"
         : "ファイルなし";
 

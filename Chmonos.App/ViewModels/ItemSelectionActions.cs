@@ -18,7 +18,8 @@ internal static class ItemSelectionActions
         AppServiceContainer services,
         IReadOnlyList<ItemCardViewModel> cards,
         Action<bool> setSending,
-        Action<string> setQueueText)
+        Action<string> setQueueText,
+        Action<ItemRecord>? presenceChanged = null)
     {
         const string title = "Unityへ順に送る";
 
@@ -148,6 +149,10 @@ internal static class ItemSelectionActions
             {
                 services.Recent.TouchAsync(itemId, Core.Services.RecentKind.Used).Forget();
             }
+
+            // 送れなかった物の zip が無ければ記録へ（商品ページの1件の送り方と同じ）。窓の前に書く
+            await FilePresenceNotes.NoteFailedSendsAsync(
+                services, queue.Select(entry => (entry.Card.Item.Id, entry.Package)), outcomes, presenceChanged);
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
             var shown = UnityQueueOutcome.Describe(outcomes);

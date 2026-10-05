@@ -69,9 +69,23 @@ public sealed record ItemRecord
     [JsonIgnore]
     public bool HasUserCategory => Local.Category is { Length: > 0 };
 
-    /// <summary>ファイルを1つ以上持っているか。全画面で「所持している」の定義に使う。</summary>
+    /// <summary>所持か（ファイルかフォルダを1つ以上持つ。全画面の「所持している」の定義。<see cref="LocalBlock.IsOwned"/>）。</summary>
     [JsonIgnore]
-    public bool IsDownloaded => Local.OwnedFiles.Count > 0;
+    public bool IsOwned => Local.IsOwned;
+
+    /// <summary>
+    /// 外していないファイルを持っているか。Unity へ送る・中身を読むなど、ファイルが要る場面用
+    /// （フォルダだけの商品は所持だが、ここは false）。
+    /// </summary>
+    [JsonIgnore]
+    public bool HasOwnedFiles => Local.HasOwnedFiles;
+
+    /// <summary>
+    /// 所持している物の大きさ（ファイル＋登録したフォルダ）。統計の容量と同じ求め方で、
+    /// カードの容量・容量の並びが所持の定義（フォルダも数える）と食い違わないようにする。
+    /// </summary>
+    [JsonIgnore]
+    public long OwnedSizeBytes => LogicalSizeBytes + Local.LocalFolders.Sum(folder => folder.TotalBytes);
 
     /// <summary>
     /// 壊れていて開けない zip を持っているか（検索の条件「壊れたzip」・ユーザ判断 2026-09-30）。

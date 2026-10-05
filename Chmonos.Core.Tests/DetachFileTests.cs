@@ -173,7 +173,7 @@ public class DetachFileTests : IDisposable
 
         var item = await LoadAsync("111");
         Assert.Empty(item.Local.OwnedFiles);
-        Assert.False(item.IsDownloaded);
+        Assert.False(item.IsOwned);
         Assert.Equal("自分で書いたメモ", item.Local.Memo);
     }
 

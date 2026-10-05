@@ -424,8 +424,8 @@ public sealed partial class SearchViewModel
         {
             Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
-            SizeText = item.IsDownloaded ? Core.Models.DisplayText.Size(item.LogicalSizeBytes) : "未取得",
-            IsOwned = item.IsDownloaded,
+            SizeText = item.IsOwned ? Core.Models.DisplayText.Size(item.OwnedSizeBytes) : "未取得",
+            IsOwned = item.IsOwned,
             NeedsEdit = item.Local.UserTags.Count == 0 && !awaiting,
             IsAwaitingDetection = awaiting,
             // 取り込みの途中で、絵がまだ1枚も無い。灰色の枠だけだと壊れて見える（U8）

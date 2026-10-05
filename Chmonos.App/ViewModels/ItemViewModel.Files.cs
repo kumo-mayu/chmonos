@@ -192,7 +192,8 @@ public sealed partial class ItemViewModel
                 Hash = file.Hash,
                 FileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0]) : "(見つかりません)",
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
-                Paths = file.Paths,
+                // 開く・在るかの確かめは今の場所で（ドライブ文字が変わった分は読み替える）。記録のパスは書き換えない
+                Paths = [.. file.Paths.Select(_services.Volumes.Current)],
                 VariationLabel = variation,
                 VariationId = file.VariationId,
                 UnityPackages = packages,
@@ -227,7 +228,7 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        var sightings = await FilePresenceNotes.LookAsync(files);
+        var sightings = await FilePresenceNotes.LookAsync(files, _services.Volumes.Current);
         var byHash = new Dictionary<string, FileSighting>(StringComparer.OrdinalIgnoreCase);
         foreach (var sighting in sightings)
         {
@@ -274,7 +275,7 @@ public sealed partial class ItemViewModel
         var files = Item.Local.LocalFiles.Where(which).ToList();
         if (files.Count > 0)
         {
-            await NotePresenceAsync(await FilePresenceNotes.LookAsync(files));
+            await NotePresenceAsync(await FilePresenceNotes.LookAsync(files, _services.Volumes.Current));
         }
     }
 
@@ -375,7 +376,7 @@ public sealed partial class ItemViewModel
     private void BuildLocalFolders()
     {
         LocalFolders = Item.Local.LocalFolders
-            .Select(folder => ToFolderRow(folder.Path, folder.FileCount, folder.TotalBytes, isMissing: false, archive: null))
+            .Select(folder => ToFolderRow(folder.Path, _services.Volumes.Current(folder.Path), folder.FileCount, folder.TotalBytes, isMissing: false, archive: null))
             .ToList();
 
         if (LocalFolders.Count > 0)
@@ -387,24 +388,27 @@ public sealed partial class ItemViewModel
     private async Task FillLocalFolderStateAsync()
     {
         var folders = Item.Local.LocalFolders.ToList();
+        var remap = _services.Volumes.Current;
         var rows = await Task.Run(() => folders
             .Select(folder => ToFolderRow(
                 folder.Path,
+                remap(folder.Path),
                 folder.FileCount,
                 folder.TotalBytes,
-                isMissing: !Core.Services.DiskCheck.FolderExists(folder.Path),
+                isMissing: !Core.Services.DiskCheck.FolderExists(remap(folder.Path)),
                 // zipが手に入っていればフォルダ登録は役目を終えている。
                 // 気付かずに置いておくと容量が二重に数えられる。
-                archive: RegisteredFolderSet.FindArchiveFor(folder.Path)))
+                archive: RegisteredFolderSet.FindArchiveFor(remap(folder.Path))))
             .ToList());
 
         LocalFolders = rows;
         OnPropertyChanged(nameof(LocalFolders));
     }
 
-    private static LocalFolderRow ToFolderRow(string path, int fileCount, long totalBytes, bool isMissing, string? archive) => new()
+    private static LocalFolderRow ToFolderRow(string path, string currentPath, int fileCount, long totalBytes, bool isMissing, string? archive) => new()
     {
         Path = path,
+        OpenPath = currentPath,
         Name = System.IO.Path.GetFileName(path),
         SummaryText = $"{fileCount} ファイル / {Core.Models.DisplayText.Size(totalBytes)}",
         IsMissing = isMissing,
@@ -480,7 +484,7 @@ public sealed partial class ItemViewModel
 
         // 開けても、近くのフォルダを開いただけでファイルは無いことがある（Shell.TryRevealAsync は親を開く）。
         // その場所を持つファイルを見直して記録へ。フォルダの行の場所はファイルに当たらないので何もしない
-        await NotePresenceOfAsync(file => file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase));
+        await NotePresenceOfAsync(file => file.Paths.Any(recorded => string.Equals(_services.Volumes.Current(recorded), path, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>開く先が無いときの知らせ。カードの右クリック（<see cref="ItemFileActions"/>）と同じ窓・同じ言い方にそろえる</summary>

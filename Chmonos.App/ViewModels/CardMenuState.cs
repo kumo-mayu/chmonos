@@ -25,7 +25,7 @@ internal static class CardMenuState
 
     /// <summary>手元にファイルかフォルダが1つ以上あるか。</summary>
     internal static bool HasFiles(ItemCardViewModel card)
-        => card.Item.Local.OwnedFiles.Count > 0 || card.Item.Local.LocalFolders.Count > 0;
+        => card.Item.IsOwned;
 
     private static bool NeedsFiles(string key)
         => key is "Reveal" or "Unpack" or "SendToUnity" or "SendToUnityWithRecord" or "SelectInUnity";

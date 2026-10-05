@@ -255,7 +255,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var index = AvatarCompatibilityIndex.Build(registry);
 
         var owned = loaded.Items
-            .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+            .Where(item => item.IsOwned)
             .ToList();
 
         var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
@@ -315,7 +315,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var registry = _store.Avatars.Load();
 
         var owned = loaded.Items
-            .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+            .Where(item => item.IsOwned)
             .ToList();
 
         var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);

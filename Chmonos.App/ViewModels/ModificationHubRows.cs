@@ -524,7 +524,7 @@ internal sealed class ModificationRowBuilder(
             FileText = FileTextOf(member, item),
 
             // 手元に無くても記録は残す。そのとき使ったのは事実
-            IsMissing = item is null || !item.IsDownloaded,
+            IsMissing = item is null || !item.IsOwned,
             ThumbnailPath = item is null ? null : ItemThumbnailPath(item),
             Thumbnails = thumbnails,
         };

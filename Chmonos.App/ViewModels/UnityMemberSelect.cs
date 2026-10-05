@@ -27,7 +27,8 @@ internal static class UnityMemberSelect
         string name,
         string fileText,
         ItemRecord? item,
-        NoticeSink setStatus)
+        NoticeSink setStatus,
+        Action<ItemRecord>? presenceChanged = null)
     {
         const string title = "Unityで選択";
 
@@ -140,6 +141,10 @@ internal static class UnityMemberSelect
 
         var outcomes = await UnityImportQueue.RunAsync(
             editor.ProcessId, toSend, new Progress<UnityQueueProgress>(report => setStatus(report.Text)), CancellationToken.None);
+
+        // 送れなかった物の zip が無ければ記録へ（商品ページの1件の送り方と同じ）
+        await FilePresenceNotes.NoteFailedSendsAsync(
+            services, toSend.Select(package => (item?.Id ?? member.ItemId, package)), outcomes, presenceChanged);
 
         // 「使った」の足跡。Cancel された物は入っていないので付けない（ほかの送り方と同じ）
         if (outcomes.Any(outcome => outcome.Opened && !outcome.Cancelled))

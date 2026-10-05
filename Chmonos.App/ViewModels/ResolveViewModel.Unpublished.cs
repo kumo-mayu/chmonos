@@ -52,10 +52,27 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        // 束を選んでいればその全件（1zip＝1商品）。1件目で商品を作り、残りはその商品へ加える（BOOTHへは行かない）
-        var targets = ActiveRows;
-        var name = UnpublishedNameDraft;
-        var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
+        // 対象は「このIDで登録」「BOOTHに無い商品として登録」と同じ（チェックがあればその全部＝zipの単位まで広げた物、
+        // 無ければ束か1件）。前はここだけ一覧のチェックを見ず、チェックしていても今の行（束）だけを登録していた。
+        // 1件目で商品を作り、残りはその商品へ加える（BOOTHへは行かない）
+        var fromChecked = HasChecked;
+        var (targets, blocked) = RegisterTargets();
+        if (blocked is not null)
+        {
+            StatusText = blocked;
+            OnPropertyChanged(nameof(HasStatus));
+            return;
+        }
+
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        // 名前の下書きは、チェックした分なら先頭の物から（選んでいる行は対象に入っていないことがある）
+        var lead = fromChecked ? targets[0] : Selected;
+        var name = Core.Resolution.FileNameQuery.ToNameDraft(lead.Origin?.ArchiveName ?? lead.FileName);
+        var what = TargetSubject(targets, fromChecked);
         var answer = Services.Notice.Show(
             $"{what} を商品ID {itemId} として登録します。\n\n"
             + $"BOOTHで公開されていない商品として、名前「{name}」で登録します。名前は編集画面で変えられます。\n\n"

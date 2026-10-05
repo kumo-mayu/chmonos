@@ -742,7 +742,7 @@ public sealed partial class SearchViewModel
     /// 所持＝ファイルかフォルダを1つ以上持つ。外していないファイルがあるかだけを見る（<c>OwnedFiles</c> は呼ぶたびに並びを作るので、
     /// 照らすたびに作ると所持の条件が5倍重かった・案c）。
     /// </summary>
-    private static bool IsOwned(ItemRecord item) => item.Local.LocalFolders.Count > 0 || item.Local.LocalFiles.Any(file => !file.Detached);
+    private static bool IsOwned(ItemRecord item) => item.IsOwned;
 
     /// <summary>
     /// 価格の条件で照らす数。既定は自分が払った額（ユーザ判断 Q2）。BOOTH の価格は種類ごとにあり、どれか1つでも範囲に入れば当たり。

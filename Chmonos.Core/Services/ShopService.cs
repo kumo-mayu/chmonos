@@ -716,7 +716,7 @@ public sealed class ShopService : IShopService
 
     /// <summary>所持＝ローカルにファイルかフォルダを持っている。全画面で同じ定義を使う。</summary>
     private static bool IsOwned(ItemRecord item)
-        => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
+        => item.IsOwned;
 
     /// <summary>
     /// 支出。貰い物は自分の支出ではないので除き、未入力は0として扱う。

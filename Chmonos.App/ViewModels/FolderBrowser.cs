@@ -382,7 +382,8 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     public RelayCommand SendSelectionToUnityCommand => _sendToUnity ??= new RelayCommand(
         () => ItemSelectionActions.SendToUnityAsync(
-            _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text).Forget(),
+            _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text,
+            _main.Search.NoteItemChanged).Forget(),
         () => !IsSendingToUnity);
 
     /// <summary>選んだ物に未読の更新があるか（検索の画面と同じ出し方）。</summary>

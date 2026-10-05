@@ -242,7 +242,13 @@ public sealed class SectionRow : ViewModelBase
 
 public sealed class LocalFolderRow
 {
+    /// <summary>記録のパス（登録を外す相手の見分けに使う。書き換えない）。</summary>
     public required string Path { get; init; }
+
+    /// <summary>開く場所。ドライブ文字が変わっていれば今の文字に読み替えた物（<see cref="VolumeTable.Current"/>）。</summary>
+    public string OpenPath { get => _openPath ?? Path; init => _openPath = value; }
+
+    private readonly string? _openPath;
 
     public required string Name { get; init; }
 

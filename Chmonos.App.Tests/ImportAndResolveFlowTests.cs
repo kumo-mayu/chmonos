@@ -265,6 +265,26 @@ public class ImportAndResolveFlowTests
         await UiThread.Until(() => main.UnresolvedCount == 0, "ナビの未確定の数が合う");
     });
 
+    /// <summary>file-lifecycle.md「気になった所」14。前はここだけ一覧のチェックを見ず、チェックしていても選んでいる行だけを登録した。</summary>
+    [Fact]
+    public Task そのIDのまま登録は_一覧にチェックがあればチェックした物を対象にする() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\selected-only.zip", @"b\checked.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "selected-only.zip");
+        await PreviewAsync(app, resolve, BoothMissing);
+        resolve.Files.Single(row => row.FileName == "checked.zip").IsSelected = true;
+        Assert.True(resolve.HasChecked);
+
+        app.Answer = _ => MessageBoxResult.OK;
+        resolve.AssignUnpublishedCommand.Execute(null);
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync(BoothMissing);
+        Assert.Equal("checked.zip", Path.GetFileName(Assert.Single(item!.Local.LocalFiles).Paths[0]));
+        Assert.Contains("選択した 1 件", Assert.Single(app.Notices).Text, StringComparison.Ordinal);
+        Assert.Equal("selected-only.zip", Path.GetFileName(Assert.Single(app.Store.Unresolved.Load()).Paths[0]));
+    });
+
     [Fact]
     public Task 読み取れなかったIDには_そのIDのまま登録する道を出さない() => TestApp.Run(async app =>
     {

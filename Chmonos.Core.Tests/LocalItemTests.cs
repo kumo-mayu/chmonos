@@ -93,7 +93,7 @@ public class LocalItemTests : IDisposable
         var item = await _store.Items.LoadAsync(itemId!);
 
         Assert.Single(item!.Local.LocalFiles);
-        Assert.True(item.IsDownloaded);
+        Assert.True(item.IsOwned);
         Assert.Empty(_store.Unresolved.Load());
     }
 
