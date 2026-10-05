@@ -298,6 +298,46 @@ public class MissingFileFinderTests : IDisposable
     }
 
     /// <summary>その場で受ける進み具合の受け手（<c>Progress</c> と違い、どこへも運ばない）。</summary>
+    // ---- つながっていないドライブの上（2026-10-05・file-lifecycle.md「気になった所」1）----
+    // 取り込みは外付けの上の場所を外さない（LocalFileMerger）。探す側も同じ判定にそろえる。
+
+    /// <summary>
+    /// 外付けを外したまま、同じ中身が監視フォルダにある。外付けの上の場所は「見えない」だけなので外さず、付け替えもしない。
+    /// 前は在るかをファイルだけで見ていたので、外付けの上の場所を監視フォルダの場所に差し替えていた。
+    /// </summary>
+    [Fact]
+    public async Task 外付けを外している間は_外付けの上の場所を外さず付け替えない()
+    {
+        var offline = Path.Combine(UnresolvedMergeTests.MissingVolumeFolder(), "外付けの上.zip");
+        var (_, file) = await EmptyRecordOfAsync("写し.zip", "なかみ");
+        await SaveAsync("9900001", file with { Paths = [offline] });
+
+        var result = await _finder.FindAsync([_watched]);
+
+        Assert.Equal([offline], (await OnlyFileOfAsync("9900001")).Paths);
+        Assert.Equal((0, 0), (result.MissingBefore, result.Relinked));
+    }
+
+    /// <summary>
+    /// 場所の1つが外付けの上なら、ほかの場所が無くても「無くなった」とは言えない（<see cref="LocalFilePresence"/> と同じ決まり）。
+    /// 外付けの上の場所を残し、つながったドライブの上の無い場所も付け替えない（取り込みに任せる）。
+    /// </summary>
+    [Fact]
+    public async Task 場所の1つが外付けの上なら_見つからない物に数えず場所も変えない()
+    {
+        var offline = Path.Combine(UnresolvedMergeTests.MissingVolumeFolder(), "外付けの上.zip");
+        var gone = Path.Combine(_root, "消した.zip");
+        var (_, file) = await EmptyRecordOfAsync("写し.zip", "なかみ");
+        await SaveAsync("9900002", file with { Paths = [offline, gone] });
+
+        var result = await _finder.FindAsync([_watched]);
+
+        var after = await OnlyFileOfAsync("9900002");
+        Assert.Equal([offline, gone], after.Paths);
+        Assert.Null(after.MissingSince);
+        Assert.Equal(0, result.MissingBefore);
+    }
+
     private sealed class InlineProgress(Action onReport) : IProgress<(int Hashed, string? Detail)>
     {
         public void Report((int Hashed, string? Detail) value) => onReport();

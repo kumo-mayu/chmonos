@@ -75,16 +75,25 @@ public sealed class MissingFileFinder
         // （LocalFileMerger）、全部外れたファイルは「無い場所」を持たない。前は無い場所を持つ物だけを探していたので、
         // 検索の条件「見つからないファイル」とカードの印（ItemRecord.HasMissingFile）が数える物が、ここでは探されなかった。
         // 空の物は差し替える古い場所が無いので、見つけた場所を足す（gone が空の Replace）
+        //
+        // **つながっていないドライブの上の場所は「無い」と見ない**（2026-10-05・file-lifecycle.md「気になった所」1）。
+        // 前はファイルが在るかだけで決めていたので、外付けを外したまま同じ中身が監視フォルダにあると、外付けの上の場所を
+        // 監視フォルダの場所に差し替えて外していた（取り込みの LocalFileMerger はそこを残すのに）。外しただけの物を
+        // 「見つかりませんでした」とも数えていた。見回りと同じ部品（FilePresenceProbe）で、根をドライブごとに1回・打ち切り付きで見る。
+        // 場所の1つでも外付けの上なら「無くなった」とは言えないので、探す物に入れない（LocalFilePresence と同じ決まり）
+        var probe = new FilePresenceProbe();
         var missing = new Dictionary<string, MissingEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in loaded.Items)
         {
             foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached))
             {
-                var gone = file.Paths.Where(path => !DiskCheck.FileExists(path)).ToList();
-                if (gone.Count == 0 && file.Paths.Count > 0)
+                if (probe.Of(file.Paths) != FilePresence.Missing)
                 {
                     continue;
                 }
+
+                // Missing なら、どの場所もつながったドライブの上にあり、どこにも無い
+                var gone = file.Paths;
 
                 if (!missing.TryGetValue(file.Hash, out var entry))
                 {
@@ -200,7 +209,7 @@ public sealed class MissingFileFinder
             relinked++;
         }
 
-        await NoteNotFoundAsync(missing, found, cancellationToken);
+        await NoteNotFoundAsync(missing, found, probe, cancellationToken);
 
         return new MissingFileSearchResult
         {
@@ -267,9 +276,9 @@ public sealed class MissingFileFinder
     private async Task NoteNotFoundAsync(
         Dictionary<string, MissingEntry> missing,
         Dictionary<string, string> found,
+        FilePresenceProbe probe,
         CancellationToken cancellationToken)
     {
-        var probe = new FilePresenceProbe();
         var now = DateTimeOffset.Now;
         var sightingsByItem = new Dictionary<string, List<FileSighting>>(StringComparer.Ordinal);
 
