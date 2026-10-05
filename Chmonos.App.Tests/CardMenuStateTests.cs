@@ -1,5 +1,6 @@
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 
 namespace Chmonos.App.Tests;
 
@@ -21,7 +22,7 @@ public class CardMenuStateTests
     [Fact]
     public Task ファイルがある商品は_全部の項目が押せる() => TestApp.Run(async app =>
     {
-        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装A"));
+        await app.AddItemAsync(WithPackageZip(Make.Item("1000001", "作り物の衣装A")));
         var main = await app.StartAsync();
         var card = main.Search.ListItems.Single();
 
@@ -51,26 +52,126 @@ public class CardMenuStateTests
         }
     });
 
+    private static readonly string[] NeedPackage = ["SendToUnity", "SendToUnityWithRecord", "SelectInUnity"];
+
+    /// <summary>zip の中に unitypackage を持つ商品にする（中身の一覧 `contents` に載っている）。</summary>
+    private static ItemRecord WithPackageZip(ItemRecord item)
+        => item with { Local = item.Local with { LocalFiles = [.. item.Local.LocalFiles.Select(file => file with { Contents = ["Sample/Sample.unitypackage"] })] } };
+
+    private static ItemRecord WithFolders(ItemRecord item, params LocalFolderRecord[] folders)
+        => item with { Local = item.Local with { LocalFolders = folders } };
+
     [Fact]
-    public Task フォルダだけの商品は_開くは押せ_zipが要る項目は押せず理由を言う() => TestApp.Run(async app =>
+    public Task フォルダだけの商品は_開くは押せ_展開は押せず理由を言う() => TestApp.Run(async app =>
     {
-        var item = Make.Item("9900601", "作り物の衣装A").WithFiles();
-        await app.AddItemAsync(item with
-        {
-            Local = item.Local with { LocalFolders = [new Chmonos.Core.Models.LocalFolderRecord { Path = @"C:\作り物\衣装A" }] },
-        });
+        await app.AddItemAsync(WithFolders(Make.Item("9900601", "作り物の衣装A").WithFiles(), new LocalFolderRecord { Path = @"C:\作り物\衣装A" }));
         var main = await app.StartAsync();
         var card = main.Search.ListItems.Single();
 
         Assert.True(CardMenuState.IsEnabled("Reveal", card));
         Assert.True(CardMenuState.IsEnabled("OpenParent", card));
-        foreach (var key in new[] { "Unpack", "SendToUnity", "SendToUnityWithRecord", "SelectInUnity" })
+        Assert.False(CardMenuState.IsEnabled("Unpack", card));
+        Assert.Equal("手元にzipがありません", CardMenuState.Tip("Unpack", card));
+
+        // 中に unitypackage が無いフォルダは、Unity の項目も押せない（メモ65-③）
+        foreach (var key in NeedPackage)
         {
             Assert.False(CardMenuState.IsEnabled(key, card), key);
-            Assert.Equal("手元にzipがありません", CardMenuState.Tip(key, card));
+            Assert.Equal("手元にunitypackageがありません", CardMenuState.Tip(key, card));
         }
 
         Assert.False(CardMenuState.IsEnabled("UnityParent", card));
+        Assert.Equal("手元にunitypackageがありません", CardMenuState.Tip("UnityParent", card));
+    });
+
+    [Fact]
+    public Task フォルダの中にunitypackageがあれば_Unityの項目は押せ_展開は押せない() => TestApp.Run(async app =>
+    {
+        // メモ65-③：展開できないのはフォルダだからで、中の unitypackage は送れる
+        await app.AddItemAsync(WithFolders(Make.Item("9900602", "作り物の衣装B").WithFiles(),
+            new LocalFolderRecord { Path = @"C:\作り物\衣装B", UnityPackages = ["Unity/Outfit.unitypackage"] }));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        foreach (var key in NeedPackage.Append("UnityParent"))
+        {
+            Assert.True(CardMenuState.IsEnabled(key, card), key);
+        }
+
+        Assert.False(CardMenuState.IsEnabled("Unpack", card));
+        Assert.Equal("手元にzipがありません", CardMenuState.Tip("Unpack", card));
+    });
+
+    [Fact]
+    public Task unitypackageの無いzipだけの商品は_Unityの項目を押せず理由を言う() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900603", "作り物のテクスチャ"));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        Assert.True(CardMenuState.IsEnabled("Unpack", card));
+        foreach (var key in NeedPackage.Append("UnityParent"))
+        {
+            Assert.False(CardMenuState.IsEnabled(key, card), key);
+            Assert.Equal("手元にunitypackageがありません", CardMenuState.Tip(key, card));
+        }
+    });
+
+    [Fact]
+    public Task 持っている物が全部見つからない商品は_開くとUnityを親ごと押せず_見つからないと言う() => TestApp.Run(async app =>
+    {
+        // メモ65-①：zip は見つからなくなった日時付き、もう1つの zip は場所が空、フォルダも日時付き
+        var gone = DateTimeOffset.Now;
+        var item = WithPackageZip(Make.Item("9900604", "作り物の衣装C").WithFiles(
+            Make.File(@"D:\files\c1.zip") with { MissingSince = gone },
+            Make.File(@"D:\files\c2.zip") with { Paths = [] }));
+        await app.AddItemAsync(WithFolders(item,
+            new LocalFolderRecord { Path = @"C:\作り物\衣装C", UnityPackages = ["C.unitypackage"], MissingSince = gone }));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        foreach (var key in NeedFiles.Concat(["OpenParent", "UnityParent"]))
+        {
+            Assert.False(CardMenuState.IsEnabled(key, card), key);
+            Assert.Equal("手元のファイルが見つかりません", CardMenuState.Tip(key, card));
+        }
+
+        // 記録だけを使う項目は今のまま押せる
+        foreach (var key in NeedJson)
+        {
+            Assert.True(CardMenuState.IsEnabled(key, card), key);
+        }
+    });
+
+    [Fact]
+    public Task 見つからない物があっても1つ在れば_今のまま押せる() => TestApp.Run(async app =>
+    {
+        // zip は見つからないが、フォルダ（中に unitypackage）は在る
+        var item = WithPackageZip(Make.Item("9900605", "作り物の衣装D").WithFiles(Make.File(@"D:\files\d.zip") with { MissingSince = DateTimeOffset.Now }));
+        await app.AddItemAsync(WithFolders(item, new LocalFolderRecord { Path = @"C:\作り物\衣装D", UnityPackages = ["D.unitypackage"] }));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        Assert.True(CardMenuState.IsEnabled("Reveal", card));
+        Assert.True(CardMenuState.IsEnabled("OpenParent", card));
+        foreach (var key in NeedPackage.Append("UnityParent"))
+        {
+            Assert.True(CardMenuState.IsEnabled(key, card), key);
+        }
+    });
+
+    [Fact]
+    public Task つながっていないドライブの上の物は_見つからないに数えず押せる() => TestApp.Run(async app =>
+    {
+        // 外付けを外しているだけの物には日時が付かない（無くなったのではない）。押せば「取り外しているドライブ」と言う
+        await app.AddItemAsync(WithPackageZip(Make.Item("9900606", "作り物の衣装E").WithFiles(Make.File(@"Q:\外付け\e.zip"))));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        foreach (var key in NeedFiles.Concat(["OpenParent", "UnityParent"]))
+        {
+            Assert.True(CardMenuState.IsEnabled(key, card), key);
+        }
     });
 
     [Fact]
@@ -128,7 +229,7 @@ public class CardMenuStateTests
     [Fact]
     public Task 子が1つでも押せる親は_押せて吹き出しは出さない() => TestApp.Run(async app =>
     {
-        await app.AddItemAsync(Make.Item("9900001", "作り物の衣装A"));
+        await app.AddItemAsync(WithPackageZip(Make.Item("9900001", "作り物の衣装A")));
         var main = await app.StartAsync();
         var card = main.Search.ListItems.Single();
 

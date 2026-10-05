@@ -52,7 +52,7 @@ stateDiagram-v2
 | 見つかりません（日時あり） | 商品の `localFiles[]`・`localFolders[]` | `missingSince`（最初に「無い」と見た日時。在ると見たら消す） |
 | 取り外しているドライブ | 書かない | 根がつながっていない場所と、控えた文字（`volumes.json`）に控えたのと別のディスクが来ている場所（ドライブ文字が変わった分は読み替えた後の場所で見る）。記録は変えない。フォルダビュー・商品ページの札は、その場でディスクを見て出す |
 | 壊れたzip | 未確定・商品の両方 | `archiveBroken: true`（zip の目録が読めなかった時だけ。開いていた・権限が無いは立てない） |
-| フォルダごと登録 | 商品の `localFolders[]` | `path`（同一性）・`fileCount`・`totalBytes`・`registeredAt`・`lastSeenAt`・`missingSince`。中身は記録しない |
+| フォルダごと登録 | 商品の `localFolders[]` | `path`（同一性）・`fileCount`・`totalBytes`・`registeredAt`・`lastSeenAt`・`missingSince`・`unityPackages`（中の unitypackage の場所。数えるたびに書き直す。Unity へ送る候補と右クリックの押せるか・メモ65-③）。ほかの中身は記録しない |
 | 展開したフォルダ（zip の隣の同名フォルダ） | 書かない | 走査が `UnpackedFolderDetector`（名前だけで判定）で見つけ、中を取り込まない。取り込みの結果に「展開先」として出る |
 | zip が無い展開物 | 未確定 | ふつうの未確定。`zoneReferrerUrl`（元 zip のパス）で束ねる。画面は記録の値だけを見る |
 | 元zip が登録済みの中身 | 書かない | 未確定の画面が開くたびに決めて隠す（`ResolveViewModel.ZipUnit.cs` `HideCoveredContents`） |
@@ -60,7 +60,7 @@ stateDiagram-v2
 | BOOTH の不調で取れなかった | `import-state.json` `unfetched` | 商品にも未確定にも無い。「続きから進む」で取り直す。監視はこのファイルを新着と数える |
 | 控えだけ | `scan-cache.json` | パス・大きさ・更新日時・ハッシュ・`clueItemIds`。消してもよい。行き先は決めない |
 
-**所持**＝外していないファイルかフォルダを1つ以上持つ。答えは `LocalBlock.IsOwned`（`ItemRecord.IsOwned`）1か所で、検索・改変・統計・ショップ・アバターが同じ物を使う。ファイルが要る場面（Unity へ送る・中身を読む）は `HasOwnedFiles`、容量は `OwnedSizeBytes`（ファイル＋フォルダ）（「気になった所」6）。
+**所持**＝外していないファイルかフォルダを1つ以上持つ。答えは `LocalBlock.IsOwned`（`ItemRecord.IsOwned`）1か所で、検索・改変・統計・ショップ・アバターが同じ物を使う。ファイルが要る場面（展開・中身を読む）は `HasOwnedFiles`（Unity へ送るは zip とフォルダの中の unitypackage。メモ65-③）、容量は `OwnedSizeBytes`（ファイル＋フォルダ）（「気になった所」6）。
 
 ## 出来事ごとの表
 
@@ -69,7 +69,7 @@ stateDiagram-v2
 | 出来事 | 見る物 | 書く物 | 書かない物・残す物 | 場所 |
 |---|---|---|---|---|
 | 始め | 前回の `import-state.json` | `unfetched` だけ引き継いで書き直す | 前回の `targets`・`stopped` は消える | `RunCoreAsync` 冒頭 |
-| 周回の頭 | 全商品 | 登録フォルダの数え直し（最初の周回だけ）・フォルダの `missingSince`／`lastSeenAt`（`ChangeLocalAsync`）・「zipが手に入った」通知 | フォルダの「無い」はドライブがつながっていない・根が3秒で答えない時は書かない（`FilePresenceProbe`） | `LoadOwnedAsync` |
+| 周回の頭 | 全商品 | 登録フォルダの数え直し（最初の周回だけ。中の unitypackage の一覧も）・フォルダの `missingSince`／`lastSeenAt`（`ChangeLocalAsync`）・「zipが手に入った」通知 | フォルダの「無い」はドライブがつながっていない・根が3秒で答えない時は書かない（`FilePresenceProbe`） | `LoadOwnedAsync` |
 | 走査 | ディスク（木を1回たどる） | `volumes.json`・`import-state.json`（`scanning: true`） | 一時展開の置き場（取り込み元がその外側でも降りない）・ジャンクション・シンボリックリンク（たどらないが、数を結果に・場所をログに出す）・オンラインのみ・登録フォルダの中・展開したフォルダの中 | `ScanFolders`・`FolderScanner.Scan` |
 | 取り込む拡張子 | 拡張子 | — | `.zip .rar .psd .ai .lip .pdf` 音声・`.epub .vroid .vrm .vrma .xwear` など・画像・動画。**単体の `.unitypackage`・`.7z` は取り込まない**（`FolderScanner.TargetExtensions`） | |
 | ハッシュ | 控えの3点 | `scan-cache.json`（10秒ごとと周回の終わり） | 読めないファイルは数えてログへ。控えに書かない | `ResolveAsync` |
@@ -92,7 +92,7 @@ stateDiagram-v2
 | このIDで登録 | `AssignItemId`（1件ずつ） | 商品が無ければ BOOTH から取って作る。`ChangeLocalAsync` で `localFiles` に足す → 未確定から外す | 移るのは hash・paths・size・contents・archiveBroken だけ（`FromUnresolved`）。zone の欄・候補は捨てる |
 | BOOTHに無い商品として登録 | `RegisterLocalItem` | 仮ID `local-…`（1件目のハッシュから）。未確定の錠を持ったまま作る。既にあればファイルを足すだけで名前は残す（空の時だけ入れる） | 問い合わせない |
 | 見つからないIDのまま登録 | `AssignUnpublishedItemId` | 空の booth・`isDelisted`。⑦で確かめ直す | 問い合わせない。対象はほかの登録と同じ今の対象（チェックがあればその全部） |
-| zipの代わりにフォルダを登録 | `RegisterFolder` | `localFolders` に足す（数えて）→ 配下の未確定を消す | 以後その配下は走査で飛ばす |
+| zipの代わりにフォルダを登録 | `RegisterFolder` | `localFolders` に足す（数えて。中の unitypackage の一覧も）→ 配下の未確定を消す | 以後その配下は走査で飛ばす |
 | 管理対象から除外 | `ExcludeFiles`（何件でも1回） | `excluded.json` に足す → 未確定から外す | 既に除外にあるハッシュは足さない |
 | 外した直後に戻す | `UndoExclude` | 除外からは今回足したハッシュだけ消し（`ExcludeFiles` の結果 `FilesExcluded` が返す）、画面の写しの未確定を戻す | 前から除外していた物の記録（日時・理由）は残る |
 | 開くたびの均し | `ReconcileUnresolved` | 商品が持つハッシュを未確定から外す | 登録の2段（商品→未確定）の間に落ちた時の後始末 |
@@ -126,6 +126,7 @@ stateDiagram-v2
 | 使おうとした時 | 商品ページを開く・エクスプローラで開く・展開・Unityへ送れなかった（商品ページ・検索の複数選択・フォルダビュー・改変の画面・「Unityで選択」。人が止めた分は見ない）。場所は読み替えた後で見る | `NoteFilePresence` → `ItemService.NoteFilePresenceAsync`（`LocalOwners.FilePresence`） | `FilePresenceNotes.cs`（`Look`・`NoteFailedSendsAsync`）・`ItemViewModel.Files.cs`・`ItemFileActions.cs`・`ItemUnityActions.cs`・`ItemSelectionActions.cs`・`ModificationViewModel.cs`・`UnityMemberSelect.cs` |
 | 「見つからないファイルを探す」（取り込み画面） | **監視フォルダの中だけ**。大きさが合う物だけハッシュ（控えを使う）。探すのはどの場所にも無い物だけ（`FilePresenceProbe`。場所の1つでもつながっていないドライブの上なら探さず、場所も外さない） | 見つけたら無い場所を差し替え・日時を消す（差し替えた無い場所は控えからも落とす）。見つからなければ日時を付ける。`scan-cache.json` に足す。どちらかを書いたら検索の写しを読み直す。監視フォルダが無ければ、ドライブがつながっていない（「つながっていないため」）と、ドライブは在ってフォルダが無い（「見つからないため」）を分けて言う | `MissingFileFinder.FindAsync`・`Replace`・`NoteNotFoundAsync` |
 | フォルダビュー | その場でディスク（ドライブ文字の読み替えの後） | 書かない | `FolderViewModel.Build` |
+| カードの右クリック（開くたび） | 記録だけ（ディスクは見ない）。持っているファイル・フォルダが**全部**「場所が空か `missingSince` あり」なら、開く ▸・Unity ▸ を親ごと薄く（メモ65-①）。つながっていないドライブの上の物は日時が無いので押せる | 書かない | `CardMenuState.AllMissing` |
 
 付け外しの決まりは1つ（`FileMissingMarks.Apply`）：在る→消す／無い→無ければ今の時刻（あれば最初の日時のまま）／つながっていないドライブ（控えた文字に来た別のディスクを含む）・確かめられない場所（権限が無い）だけ→何もしない／見てから書くまでに場所が変わったファイルには当てない。場所が複数なら1つ在れば「在る」で、見回りはそのとき無いと確かめた場所を外す（`FileSighting.Gone`）。
 
