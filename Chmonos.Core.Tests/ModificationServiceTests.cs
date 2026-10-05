@@ -533,4 +533,94 @@ public sealed class ModificationServiceTests : IDisposable
     [Fact]
     public async Task プロジェクトが空なら何も返さない()
         => Assert.Empty(await _service.LoadForProjectAsync("   "));
+
+    // ---- 複製（メモ44） ----
+
+    [Fact]
+    public async Task 複製はアバター_使ったもの_メモ_プロジェクトを写し_外した行_blueprint_写真は写さない()
+    {
+        var id = await NewAsync("普段着", "9900001");
+        var source = (await _service.LoadAsync(id))!;
+        var members = new[]
+        {
+            new ModificationMember { ItemId = "9900002", FileHash = "AAA", Package = "a.unitypackage" },
+            new ModificationMember { ItemId = "9900003", FileHash = "BBB", Detached = true },
+            new ModificationMember { ItemId = "9900004", FileHash = "CCC" },
+        };
+        await _store.Modifications.SaveAsync(source with
+        {
+            Memo = "靴は最後",
+            UnityProject = @"D:\proj\kip01",
+            BlueprintId = "avtr_00000000-0000-0000-0000-000000000000",
+            Images = [new ModificationImage { FileName = "user-aaaa.webp" }],
+            Members = members,
+        });
+
+        var copy = await _service.DuplicateAsync(id);
+
+        Assert.NotNull(copy);
+        Assert.NotEqual(id, copy!.Id);
+        var saved = (await _service.LoadAsync(copy.Id))!;
+        Assert.Equal("普段着のコピー", saved.Name);
+        Assert.Equal("9900001", saved.AvatarItemId);
+        Assert.Equal("靴は最後", saved.Memo);
+        Assert.Equal(@"D:\proj\kip01", saved.UnityProject);
+        // 外した行は持ち越さない。残りは順・ファイル・unitypackage のまま
+        Assert.Equal(["9900002", "9900004"], saved.Members.Select(member => member.ItemId));
+        Assert.Equal("a.unitypackage", saved.Members[0].Package);
+        Assert.Equal("AAA", saved.Members[0].FileHash);
+        Assert.Null(saved.BlueprintId);
+        Assert.Empty(saved.Images);
+
+        // 元は変わらない
+        var original = (await _service.LoadAsync(id))!;
+        Assert.Equal(3, original.Members.Count);
+        Assert.Equal("avtr_00000000-0000-0000-0000-000000000000", original.BlueprintId);
+        Assert.Single(original.Images);
+    }
+
+    [Fact]
+    public async Task 複製の作った日と更新日は今になる()
+    {
+        var id = await NewAsync();
+        var source = (await _service.LoadAsync(id))!;
+        await _store.Modifications.SaveAsync(source with
+        {
+            CreatedAt = DateTimeOffset.Now.AddYears(-1),
+            UpdatedAt = DateTimeOffset.Now.AddYears(-1),
+        });
+        var before = DateTimeOffset.Now.AddSeconds(-1);
+
+        var copy = (await _service.DuplicateAsync(id))!;
+
+        Assert.True(copy.CreatedAt >= before);
+        Assert.Equal(copy.CreatedAt, copy.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task 元が無ければ複製しない()
+        => Assert.Null(await _service.DuplicateAsync("mod-00000000"));
+
+    [Fact]
+    public void 複製の名前は同じ名前があれば番号を付ける()
+    {
+        Assert.Equal("普段着のコピー", ModificationService.DuplicateName("普段着", ["普段着"]));
+        Assert.Equal("普段着のコピー 2", ModificationService.DuplicateName("普段着", ["普段着", "普段着のコピー"]));
+        Assert.Equal("普段着のコピー 3", ModificationService.DuplicateName("普段着", ["普段着のコピー", "普段着のコピー 2"]));
+        // 空き番号があれば、そこを使う
+        Assert.Equal("普段着のコピー 2", ModificationService.DuplicateName("普段着", ["普段着のコピー", "普段着のコピー 3"]));
+        Assert.Equal("制服のコピー", ModificationService.DuplicateName("  制服 ", ["普段着のコピー"]));
+    }
+
+    [Fact]
+    public async Task 同じアバターで2回複製すると別の名前になる()
+    {
+        var id = await NewAsync("普段着", "9900001");
+
+        var first = (await _service.DuplicateAsync(id))!;
+        var second = (await _service.DuplicateAsync(id))!;
+
+        Assert.Equal("普段着のコピー", first.Name);
+        Assert.Equal("普段着のコピー 2", second.Name);
+    }
 }

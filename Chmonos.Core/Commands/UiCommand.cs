@@ -293,6 +293,9 @@ public abstract record UiCommand
     /// <summary>改変を作る。アバターが登録簿に無ければその場で足す</summary>
     public record CreateModification(string AvatarItemId, string Name) : UiCommand;
 
+    /// <summary>改変を複製する。外した行・blueprint ID・写真は写さない</summary>
+    public record DuplicateModification(string Id) : UiCommand;
+
     /// <summary>改変を消す。**貼った画像も一緒に消える**。聞くのは画面側</summary>
     public record DeleteModification(string Id) : UiCommand;
 
