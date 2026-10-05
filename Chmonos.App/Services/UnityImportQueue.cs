@@ -186,7 +186,7 @@ public static class UnityImportQueue
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int max);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
 
-    /// <summary>この商品の zip に入っている、Unity へ送れるもの（zip に入っている順）。</summary>
+    /// <summary>この商品の zip と登録したフォルダに入っている、Unity へ送れるもの（zip に入っている順、その後にフォルダの中の物）。</summary>
     /// <remarks>
     /// 中の一覧は item に書いてあればそれを使い、zip を開かない（<see cref="UnityHandoff.PlacesOf(LocalFileRecord)"/>）。
     /// zip のハッシュを持たせるので、中身のパスは取り込みの裏で読んだ控えから引ける（zip を解き直さない）
@@ -194,9 +194,47 @@ public static class UnityImportQueue
     public static IReadOnlyList<UnityPackageEntry> PackagesOf(ItemRecord item)
         => PlacesOf(item).Select(place => place.Entry).ToList();
 
-    /// <summary><see cref="PackagesOf"/> に、item に書いてある入る先を添えた物。</summary>
+    /// <summary>
+    /// <see cref="PackagesOf"/> に、item に書いてある入る先を添えた物。zip の中の物の後に、登録したフォルダの中の物を並べる
+    /// （ユーザ判断 2026-10-05・メモ65-③。展開してあるだけで中身は同じ unitypackage なので、送れない理由が無い）。
+    /// </summary>
     public static IReadOnlyList<UnityPackagePlace> PlacesOf(ItemRecord item)
-        => item.Local.OwnedFiles.SelectMany(UnityHandoff.PlacesOf).ToList();
+        => [.. item.Local.OwnedFiles.SelectMany(UnityHandoff.PlacesOf),
+            .. item.Local.LocalFolders.SelectMany(UnityHandoff.PlacesOf)];
+
+    /// <summary>
+    /// Unity のファイル選択に渡す場所。zip の中の物は一時フォルダへ取り出し、登録したフォルダの中の物は**取り出さずにそのまま渡す**
+    /// （展開してある物を写すと、数GBの物で待たせて空きも食う）。
+    /// フォルダの中の物が無いときと、ファイル選択の窓に渡せない長さ（<see cref="TemporaryUnpacker.MaxUnityPath"/>）のときは投げる
+    /// （zip から取り出す物は取り出す側で短く畳めるが、元の場所は変えられない）。
+    /// </summary>
+    internal static string PathToSend(
+        UnityPackageEntry package, TemporaryUnpacker unpacker, IProgress<TemporaryUnpackProgress>? progress, CancellationToken cancellationToken)
+    {
+        if (!package.InFolder)
+        {
+            return unpacker.ExtractEntry(package.ZipPath, package.EntryPath, progress, cancellationToken);
+        }
+
+        var path = package.VirtualPath;
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("フォルダの中の unitypackage が見つかりません。", path);
+        }
+
+        if (path.Length > TemporaryUnpacker.MaxUnityPath)
+        {
+            throw new PathTooLongException(path);
+        }
+
+        return path;
+    }
+
+    /// <summary>送る物を用意できなかったときの理由。フォルダの中の物は取り出していないので、原因だけを言う。</summary>
+    internal static string ExtractFailureText(UnityPackageEntry package, Exception exception)
+        => package.InFolder
+            ? Core.Services.FailureText.Cause(exception)
+            : $"zipから取り出せませんでした。{Core.Services.FailureText.Cause(exception)}";
 
     /// <summary>
     /// 順に送る。途中で続けられなくなったら（エディタが閉じた・メニューが見つからない）、
@@ -340,7 +378,7 @@ public static class UnityImportQueue
                     // 中止は書き出しの途中でも効き、取り出しの側が書きかけを消してから戻る。
                     // ここへ戻るのは片付けが済んだ後（止めた・失敗した後に空きを食う書きかけを残さない）
                     path = await Task.Run(
-                        () => unpacker.ExtractEntry(package.ZipPath, package.EntryPath, extractProgress, cancellationToken),
+                        () => PathToSend(package, unpacker, extractProgress, cancellationToken),
                         cancellationToken);
                 }
                 finally
@@ -363,8 +401,7 @@ public static class UnityImportQueue
             catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
             {
                 Core.Diagnostics.AppLog.Error("Unityへ送る：zip から取り出す", exception);
-                outcomes.Add(new UnityQueueOutcome(package, false,
-                    $"zipから取り出せませんでした。{Core.Services.FailureText.Cause(exception)}"));
+                outcomes.Add(new UnityQueueOutcome(package, false, ExtractFailureText(package, exception)));
                 continue;
             }
 

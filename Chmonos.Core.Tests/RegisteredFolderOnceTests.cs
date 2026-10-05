@@ -113,6 +113,39 @@ public sealed class RegisteredFolderOnceTests : IDisposable
         Assert.Equal(0, client.Calls);
     }
 
+    /// <summary>
+    /// 取り込みの数え直しは、中の unitypackage の一覧も書き直す（メモ65-③）。数と大きさが同じでも、一覧が違えば書く
+    /// （前の記録に一覧が無い・中で入れ替えた）。
+    /// </summary>
+    [Fact]
+    public async Task RemeasureRecordsUnityPackagesEvenWhenCountAndSizeAreUnchanged()
+    {
+        var paths = new AppPaths(Path.Combine(_root, "library"));
+        paths.EnsureCreated();
+        var store = new DataStore(paths);
+
+        var registered = Path.Combine(_root, "登録した");
+        Directory.CreateDirectory(Path.Combine(registered, "Unity"));
+        File.WriteAllBytes(Path.Combine(registered, "Unity", "作り物.unitypackage"), [1]);
+        await store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-1",
+            Local = new LocalBlock
+            {
+                LocalFolders = [new LocalFolderRecord { Path = registered, FileCount = 1, TotalBytes = 1, LastSeenAt = DateTimeOffset.Now }],
+            },
+        });
+
+        var client = new OffUiThreadTests.OfflineClient();
+        var settings = new AppSettings { SaveImages = false };
+        var pipeline = new ImportPipeline(store, client, new ImagePipeline(client, paths, settings), settings);
+
+        await pipeline.RunAsync(new ImportWorkSet([registered]), null);
+
+        var folder = (await store.Items.LoadAsync("local-1"))!.Local.LocalFolders.Single();
+        Assert.Equal(["Unity/作り物.unitypackage"], folder.UnityPackages);
+    }
+
     private sealed class Stacker(Action onScanning) : IProgress<ImportProgress>
     {
         public void Report(ImportProgress value)

@@ -822,7 +822,7 @@ public sealed class ImportPipeline : IImportPipeline
 
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
-            var measured = new Dictionary<string, (int Count, long Bytes)>(StringComparer.OrdinalIgnoreCase);
+            var measured = new Dictionary<string, FolderSurvey>(StringComparer.OrdinalIgnoreCase);
 
             // 「無い」と見たフォルダと、また見つかったフォルダ（LocalFolderRecord.MissingSince・ユーザ判断 2026-10-04）
             var missingNow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -865,9 +865,11 @@ public sealed class ImportPipeline : IImportPipeline
                     archivesFound.Add((item, folder.Path, archive));
                 }
 
-                var (count, bytes) = RegisteredFolderSet.Measure(folder.Path);
-                measured[folder.Path] = (count, bytes);
-                if (count != folder.FileCount || bytes != folder.TotalBytes || folder.LastSeenAt is null)
+                // 中の unitypackage も同じ1回の列挙で拾う（右クリックの「Unityへ送る」を、開くたびにフォルダを並べずに決めるため。メモ65-③）
+                var survey = RegisteredFolderSet.Survey(folder.Path);
+                measured[folder.Path] = survey;
+                if (survey.FileCount != folder.FileCount || survey.TotalBytes != folder.TotalBytes
+                    || !survey.SamePackages(folder.UnityPackages) || folder.LastSeenAt is null)
                 {
                     changed = true;
                 }
@@ -889,8 +891,9 @@ public sealed class ImportPipeline : IImportPipeline
                             measured.TryGetValue(folder.Path, out var size)
                                 ? folder with
                                 {
-                                    FileCount = size.Count,
-                                    TotalBytes = size.Bytes,
+                                    FileCount = size.FileCount,
+                                    TotalBytes = size.TotalBytes,
+                                    UnityPackages = size.UnityPackages,
                                     LastSeenAt = now,
                                     MissingSince = null,
                                 }

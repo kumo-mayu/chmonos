@@ -645,7 +645,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         if (steps.Count == 0)
         {
             Services.Notice.Show(
-                "使ったものの中に、Unityへ送れるもの（手元のzipの中の .unitypackage）がありませんでした。",
+                "使ったものの中に、Unityへ送れるもの（手元のzipやフォルダの中の .unitypackage）がありませんでした。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -786,6 +786,15 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 要約は zip のハッシュについて書いた物なので、記録した包みの分だけ引けば足りる（全部そろっているかは問わない）
             var roots = owner.UnityPackages?.FirstOrDefault(summary => string.Equals(summary.Entry, package, StringComparison.Ordinal))?.Roots;
             return [new UnityPackagePlace(new UnityPackageEntry(zip, package, 0) { ZipHash = hash }, roots)];
+        }
+
+        // 登録したフォルダの中の物を送った記録（ハッシュ無しで場所だけ。メモ65-③）。今もフォルダに在れば、その1つを送る
+        if (member.FileHash is null && member.Package is { } folderPackage
+            && item.Local.LocalFolders
+                .SelectMany(UnityHandoff.PlacesOf)
+                .FirstOrDefault(place => string.Equals(place.Entry.EntryPath, folderPackage, StringComparison.Ordinal)) is { } inFolder)
+        {
+            return [inFolder];
         }
 
         return UnityImportQueue.PlacesOf(item);

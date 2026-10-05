@@ -634,13 +634,15 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var (count, bytes) = RegisteredFolderSet.Measure(folderPath);
+        // 中の unitypackage も同じ1回の列挙で拾う（Unity へ送る候補。メモ65-③）
+        var survey = RegisteredFolderSet.Survey(folderPath);
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
         var record = new LocalFolderRecord
         {
             Path = normalized,
-            FileCount = count,
-            TotalBytes = bytes,
+            FileCount = survey.FileCount,
+            TotalBytes = survey.TotalBytes,
+            UnityPackages = survey.UnityPackages,
             RegisteredAt = DateTimeOffset.Now,
             LastSeenAt = DateTimeOffset.Now,
         };

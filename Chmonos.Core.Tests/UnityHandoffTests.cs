@@ -152,6 +152,38 @@ public sealed class UnityHandoffTests : IDisposable
     }
 
     [Fact]
+    public void 登録したフォルダの中のunitypackageを_zipを開かずにそのファイルから読む()
+    {
+        // メモ65-③：展開してあるフォルダの中の物も、zip の中の物と同じく中身（入る先）を読めること
+        var folder = Path.Combine(_dir, "作り物の衣装A");
+        Directory.CreateDirectory(Path.Combine(folder, "Unity"));
+        File.WriteAllBytes(Path.Combine(folder, "Unity", "Outfit.unitypackage"),
+            MakeUnityPackage("Assets/Sample_crafts", "Assets/Sample_crafts/Outfit.prefab"));
+        var package = new UnityPackageEntry(folder, "Unity/Outfit.unitypackage", 0) { InFolder = true };
+
+        Assert.Equal(["Assets/Sample_crafts"], UnityHandoff.ReadDestinations(package));
+        Assert.Equal("Outfit", package.Name);
+    }
+
+    [Fact]
+    public void 登録したフォルダの記録から_在るunitypackageだけを送る候補にする()
+    {
+        var folder = new Chmonos.Core.Models.LocalFolderRecord
+        {
+            Path = @"D:\作り物\衣装A",
+            UnityPackages = ["Unity/Outfit.unitypackage", "消した.unitypackage"],
+        };
+
+        var places = UnityHandoff.PlacesOf(folder, path => path == @"D:\作り物\衣装A\Unity\Outfit.unitypackage");
+
+        var entry = Assert.Single(places).Entry;
+        Assert.True(entry.InFolder);
+        Assert.Equal(@"D:\作り物\衣装A", entry.ZipPath);
+        Assert.Equal("Unity/Outfit.unitypackage", entry.EntryPath);
+        Assert.Null(entry.ZipHash);
+    }
+
+    [Fact]
     public void unitypackageから入る先を読む()
     {
         var package = MakeZipWithPackage(
