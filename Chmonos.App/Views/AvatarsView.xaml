@@ -33,6 +33,16 @@
             <MenuItem Header="削除" Command="{Binding DeleteCommand}" AutomationProperties.AutomationId="AvatarBaseRowMenu.Delete" Style="{StaticResource DangerMenuItem}"
                       ToolTip="この共通素体を削除します。元に戻せません。" />
         </ContextMenu>
+        <!--
+            素体の詳細の「この素体を使っているアバター」の行の右クリック（メモ46）。名前から推した仲間も外せる（印を立てる）ので、
+            どの行でも押せる。メニューは画面の木の外にあるので、画面の命令は行の Tag（画面の DataContext）から引く
+        -->
+        <ContextMenu x:Key="AvatarBaseMemberMenu">
+            <MenuItem Header="この素体から外す" AutomationProperties.AutomationId="AvatarBaseMemberMenu.Remove"
+                      Command="{Binding PlacementTarget.Tag.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      CommandParameter="{Binding}"
+                      ToolTip="外しても、上の欄からまた追加できます。" />
+        </ContextMenu>
         <!-- 共通素体の一覧の行。見た目は既定の行のまま、名前と ID と右クリックだけ足す -->
         <Style x:Key="AvatarBaseRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="ContextMenu" Value="{StaticResource AvatarBaseRowMenu}" />
@@ -738,6 +748,13 @@
                                     <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
                                 </StackPanel>
+                                <!--
+                                    名前から推した素体（メモ46-3）。欄は手で決めた素体だけを映すので、推した素体は欄に入れず、
+                                    下に薄い字で出して見分ける（欄に入れると、手で決めた素体と区別が付かない）
+                                -->
+                                <TextBlock Text="{Binding SelectedInferredBaseText}" Style="{StaticResource Caption}" Margin="2,6,0,0" TextWrapping="Wrap"
+                                           Visibility="{Binding HasSelectedInferredBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                           AutomationProperties.AutomationId="AvatarInferredBase" />
                                 <TextBlock DataContext="{Binding BaseFieldNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarBaseFieldNote" />
                                 <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
@@ -1035,10 +1052,24 @@
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
                                                Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に表示されます。押すとそのアバターを開きます。" />
                                     <!--
+                                        素体の側からアバターを足す欄（メモ46）。候補はほかのアバターの候補と同じ作り（群・呼び方・絵）。
+                                        ほかの素体に入っている物は聞かずに移し、欄の下で知らせる（アバターの側で選ぶと聞かずに入るのと揃える）
+                                    -->
+                                    <Grid Width="280" HorizontalAlignment="Left" Margin="0,12,0,0">
+                                        <controls:SuggestBox Source="{Binding MemberCandidates}" CommitCommand="{Binding AddMemberCommand}"
+                                                             InfoSelector="{Binding MemberInfoSelector}" GroupHeadings="{Binding MemberGroupHeadings}"
+                                                             IconSelector="{Binding MemberIconSelector}"
+                                                             AllowNew="False" MaxLength="60"
+                                                             Placeholder="追加するアバターの名前"
+                                                             AutomationProperties.AutomationId="AvatarBaseMemberInput" />
+                                    </Grid>
+                                    <TextBlock DataContext="{Binding SelectedBase.MemberNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
+                                               AutomationProperties.AutomationId="AvatarBaseMemberNote" />
+                                    <!--
                                         行は押せる枠（PressableBorder）にし、一覧は並び（ArrowGroup）にする（点検 2026-10-01）。
                                         前は素の枠にマウスの押し方だけを付けていて、キーボードと読み上げからは開けなかった
                                     -->
-                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0" controls:ArrowGroup.IsEnabled="True">
+                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,4,0,0" controls:ArrowGroup.IsEnabled="True">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">
                                                 <controls:PressableBorder Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
@@ -1046,6 +1077,8 @@
                                                         Focusable="True" FocusVisualStyle="{StaticResource RowFocusVisual}"
                                                         Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}"
+                                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        ContextMenu="{StaticResource AvatarBaseMemberMenu}"
                                                         AutomationProperties.AutomationId="AvatarBaseMemberRow"
                                                         AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}">
                                                     <Border.InputBindings>

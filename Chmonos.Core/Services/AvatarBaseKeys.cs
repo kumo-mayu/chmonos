@@ -144,6 +144,12 @@ public static partial class AvatarBaseKeys
     /// </summary>
     public static string? InferBaseOf(AvatarRegistryEntry entry, IReadOnlyDictionary<string, string> lookup)
     {
+        // 人が「素体に入れない」と決めたアバターは推さない（メモ46 1-B）。推す所すべてがここを通るので、印もここで見る
+        if (entry.NoBase)
+        {
+            return null;
+        }
+
         var texts = new[] { entry.BoothName, AvatarNames.ShownName(entry) }
             .Concat(entry.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text));
 

@@ -31,6 +31,7 @@ internal static partial class Scenes
         .. ModificationDuplicateScenes,
         .. DragEdgeScrollScenes,
         .. AvatarScenes,
+        .. AvatarBaseMemberScenes,
         .. Search,
         .. SearchFilters,
         .. SavedSearchScenes,

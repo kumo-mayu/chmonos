@@ -186,6 +186,8 @@ public class CommandHandlerTests
 
         public Task SetBaseAsync(string itemId, string? baseName, CancellationToken cancellationToken = default) => Note($"base {itemId} {baseName}");
 
+        public Task RemoveFromBaseAsync(string itemId, string baseName, CancellationToken cancellationToken = default) => Note($"base- {itemId} {baseName}");
+
         public Task SetInferClothingAsync(string name, bool infer, CancellationToken cancellationToken = default) => Note($"infer {name}");
 
         public Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default) => Note($"baseItem {name}");
@@ -228,10 +230,11 @@ public class CommandHandlerTests
         var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatarEditor: editor);
 
         Assert.IsType<CommandResult.Done>(await handler.ExecuteAsync(new UiCommand.SetAvatarBase("111", "素体A")));
+        Assert.IsType<CommandResult.Done>(await handler.ExecuteAsync(new UiCommand.RemoveAvatarFromBase("222", "素体A")));
         var renamed = Assert.IsType<CommandResult.Counted>(await handler.ExecuteAsync(new UiCommand.RenameBase("素体A", "素体B")));
 
         Assert.Equal(7, renamed.Count);
-        Assert.Equal(["base 111 素体A", "rename 素体A 素体B"], editor.Calls);
+        Assert.Equal(["base 111 素体A", "base- 222 素体A", "rename 素体A 素体B"], editor.Calls);
     }
 
     /// <summary>共通素体を手で足す操作も UiCommand から通り、足したかどうかを返す（2026-09-28）。</summary>

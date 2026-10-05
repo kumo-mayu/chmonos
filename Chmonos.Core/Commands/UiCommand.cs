@@ -78,6 +78,9 @@ public abstract record UiCommand
     /// <summary>アバターの共通素体を決める。null で所属を外す。</summary>
     public record SetAvatarBase(string ItemId, string? BaseName) : UiCommand;
 
+    /// <summary>アバターをこの素体から外す。名前から推した仲間も外せる（印を立てる。メモ46）。</summary>
+    public record RemoveAvatarFromBase(string ItemId, string BaseName) : UiCommand;
+
     /// <summary>共通素体の一致から衣装の互換を広げるか。</summary>
     public record SetBaseInferClothing(string Name, bool Infer) : UiCommand;
 

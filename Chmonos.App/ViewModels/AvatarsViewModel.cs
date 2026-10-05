@@ -203,6 +203,9 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
     /// <summary>素体の商品の欄のすぐ下の知らせ</summary>
     public AreaNotice ItemIdNote { get; } = new();
 
+    /// <summary>アバターを足す欄のすぐ下の知らせ（ほかの素体から移した・足せなかった。メモ46）</summary>
+    public AreaNotice MemberNote { get; } = new();
+
     /// <summary>欄を今の名前から変えたか。「名前を変える」はそのときだけ押せる（アバターと同じ作法）。</summary>
     public bool HasNameChange => NameInput.Trim().Length > 0 && NameInput.Trim() != Name;
 
@@ -425,7 +428,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 SetBaseAsync().Forget();
             }
         });
-        ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget());
+        ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget(), CanClearBase);
         AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
         _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
         RenameCommand = new RelayCommand(() => RenameAsync().Forget());
@@ -930,6 +933,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             if (SetField(ref _selectedBase, value))
             {
                 OnPropertyChanged(nameof(SelectedBaseMembers));
+                OnPropertyChanged(nameof(MemberCandidates));
                 OnPropertyChanged(nameof(HasSelectedBase));
                 OnPropertyChanged(nameof(ShowsBaseDetail));
             }
@@ -1178,6 +1182,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                     nameof(SelectedCategoryText), nameof(SelectedCountText), nameof(Aliases),
                     nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText), nameof(CanOpenItem),
                     nameof(SelectedCheckedText), nameof(SelectedBaseNote), nameof(HasSelectedBaseNote),
+                    nameof(SelectedInferredBaseText), nameof(HasSelectedInferredBase),
                     nameof(SelectedBoothName), nameof(HasSelectedBoothName),
                     nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),
                     nameof(ReferencedByText), nameof(HasReferencedBy),
@@ -1729,12 +1734,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     private async Task ClearBaseAsync()
     {
-        if (Selected is null)
+        // 手で決めた素体も、名前から推した素体も外す（推した素体は「素体に入れない」の印を立てる。メモ46 1-B）。
+        // 前は素体名を空にするだけで、推した素体は空にしても次に推されて外せなかった
+        if (Selected is null || CurrentBaseOfSelected is not { } current)
         {
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarBase(Selected.ItemId, null), "素体を外せませんでした。", BaseFieldNote.Warn) is null)
+        if (await WriteAsync(new UiCommand.RemoveAvatarFromBase(Selected.ItemId, current), "素体を外せませんでした。", BaseFieldNote.Warn) is null)
         {
             return;
         }

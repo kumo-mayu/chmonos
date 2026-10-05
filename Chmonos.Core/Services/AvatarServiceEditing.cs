@@ -67,10 +67,66 @@ public sealed partial class AvatarService
         await _store.Avatars.UpdateAsync(
             registry =>
             {
+                // 素体を選んだら「素体に入れない」の印は下ろす（人が新しく決め直したので、前の決定は要らない）
                 var entries = registry.Entries
-                    .Select(entry => entry.ItemId == itemId ? entry with { BaseName = trimmed } : entry);
+                    .Select(entry => entry.ItemId == itemId
+                        ? entry with { BaseName = trimmed, NoBase = trimmed is null && entry.NoBase }
+                        : entry);
 
                 return Sorted(registry, entries, trimmed is null ? registry.BaseGroups : WithManualBase(registry.BaseGroups, trimmed));
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// アバターをこの素体から外す（メモ46・ユーザ判断 2026-10-05 1-B）。素体の詳細の一覧の右クリックと、アバターの詳細の「素体から外す」が使う。
+    /// 手で決めた所属なら <see cref="AvatarRegistryEntry.BaseName"/> を空にし、名前から推した仲間なら
+    /// <see cref="AvatarRegistryEntry.NoBase"/> を立てる。手で決めた所属を空にしても名前から同じ素体に推されるときは、
+    /// 印も立てる（空にしただけでは一覧に残り、外れたように見えない）。
+    /// **錠の中で今の値を見て決める**——画面が読んだ後に所属が変わっていたら、その素体に入っていないので何もしない。
+    /// </summary>
+    public async Task RemoveFromBaseAsync(string itemId, string baseName, CancellationToken cancellationToken = default)
+    {
+        bool Same(string? name) => string.Equals(name?.Trim(), baseName.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
+        await _store.Avatars.UpdateAsync(
+            registry =>
+            {
+                var lookup = AvatarBaseKeys.Lookup([.. registry.BaseGroups.Where(group => !group.Rejected)]);
+                string? Inferred(AvatarRegistryEntry entry) => IsAvatar(entry) ? AvatarBaseKeys.InferBaseOf(entry, lookup) : null;
+
+                var changed = false;
+                var entries = registry.Entries
+                    .Select(entry =>
+                    {
+                        if (entry.ItemId != itemId)
+                        {
+                            return entry;
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(entry.BaseName))
+                        {
+                            if (!Same(entry.BaseName))
+                            {
+                                return entry;
+                            }
+
+                            var cleared = entry with { BaseName = null };
+                            changed = true;
+                            return Same(Inferred(cleared)) ? cleared with { NoBase = true } : cleared;
+                        }
+
+                        if (!Same(Inferred(entry)))
+                        {
+                            return entry;
+                        }
+
+                        changed = true;
+                        return entry with { NoBase = true };
+                    })
+                    .ToList();
+
+                return changed ? Sorted(registry, entries, registry.BaseGroups) : registry;
             },
             cancellationToken);
     }
