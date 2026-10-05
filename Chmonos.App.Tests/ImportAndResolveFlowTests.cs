@@ -414,7 +414,7 @@ public class ImportAndResolveFlowTests
     });
 
     [Fact]
-    public Task 見つからないファイルを探すとき_探しても無かった物は監視フォルダに追加するよう言う() => TestApp.Run(async app =>
+    public Task 見つからないファイルを探すとき_探しても無かった物は移した先のフォルダを足すよう言う() => TestApp.Run(async app =>
     {
         var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
         var original = app.NewFile(@"elsewhere\costume.zip", [9, 8, 7, 6]);
@@ -432,7 +432,7 @@ public class ImportAndResolveFlowTests
         await UiThread.Until(() => main.Import.MissingSearchText.Contains("見つかりませんでした", StringComparison.Ordinal), "探した結果が出る");
 
         Assert.Equal(
-            "紐付け直せたものはありませんでした。1 件は監視フォルダの中に見つかりませんでした。移した先を監視フォルダに追加してから、もう一度押してください。",
+            "紐付け直せたものはありませんでした。1 件は探したフォルダの中に見つかりませんでした。移した先のフォルダを追加して、もう一度探してください。",
             main.Import.MissingSearchText);
     });
 

@@ -7,7 +7,7 @@
 ## 1画面の要約
 
 1. **ファイルの行き先は4つ**：商品（`items/{id}.json` の `local.localFiles`）・未確定（`unresolved.json`）・除外（`excluded.json`）・どこにも載らない（走査の控え `scan-cache.json` にだけ在る）。フォルダごと登録した物は商品の `local.localFolders`。
-2. **同一性はファイルならハッシュ、フォルダならパス。**同じ中身が2か所なら1件に `paths` が2つ。移す・名前を変えるとハッシュで同じ物と分かり、場所が差し替わる。フォルダは移すと「見つからない」。
+2. **同一性はファイルならハッシュ、フォルダならパス。**同じ中身が2か所なら1件に `paths` が2つ。移す・名前を変えるとハッシュで同じ物と分かり、場所が差し替わる。フォルダは移すと「見つからない」（「見つからないファイルを探す…」の候補から人が選ぶと場所が差し替わる）。
 3. **取り込み**は「走査 → ハッシュ（控えが合えば省く）→ 手掛かりで商品が1つに決まれば商品へ・同じ中身を持つ商品があればそこへ場所を足す・どちらでもなければ未確定」。行き先は毎回決め直す。
 4. **「見つからない」は2通り**：場所が空（取り込みが無い場所を外した）と、場所はあるが `missingSince` が付いている（見回り・使おうとした画面が「無い」と見た）。印・検索の条件・統計は両方を数える（`ItemRecord.HasMissingFile`）。**同じ場所で新しい中身に置き換わった古い版（`replaced`）は数えない**（点検の8）。
 5. **場所を外すのは取り込み（`LocalFileMerger.Merge`）と、見回りが同じ中身のほかの場所に在ると確かめたときだけ**。人の登録操作（`MergeByHand`）は外さない。**つながっていないドライブ（控えた文字に別のディスクが来ている場合を含む）・権限が無く確かめられない場所の上の物は外さず、日時も付けない**（点検の2・13）。
@@ -126,7 +126,8 @@ stateDiagram-v2
 | 取り込みが商品を扱った時 | その商品の場所（`FilePresenceProbe`） | 無い場所を外す（場所が空になり得る）。人の登録操作は外さない | `LocalFileMerger.Merge`（人は `MergeByHand`） |
 | 起動時（窓を出した後） | ファイルとフォルダ全部 | `missingSince`（在るフォルダの `lastSeenAt` は空のとき・また見つかったときだけ）。設定に関わらず走る | `MainViewModel.Background.cs` `StartMissingMarksSweep` → `MissingMarksSweep.SweepAsync` |
 | 使おうとした時 | 商品ページを開く・エクスプローラで開く・展開・Unityへ送れなかった（商品ページ・検索の複数選択・フォルダビュー・改変の画面・「Unityで選択」。人が止めた分は見ない）。場所は読み替えた後で見る | `NoteFilePresence` → `ItemService.NoteFilePresenceAsync`（`LocalOwners.FilePresence`） | `FilePresenceNotes.cs`（`Look`・`NoteFailedSendsAsync`）・`ItemViewModel.Files.cs`・`ItemFileActions.cs`・`ItemUnityActions.cs`・`ItemSelectionActions.cs`・`ModificationViewModel.cs`・`UnityMemberSelect.cs` |
-| 「見つからないファイルを探す」（取り込み画面） | **監視フォルダの中だけ**。古い版（`replaced`）は探さない。大きさが合う物だけハッシュ（控えを使う）。探すのはどの場所にも無い物だけ（`FilePresenceProbe`。場所の1つでもつながっていないドライブの上なら探さず、場所も外さない） | 見つけたら無い場所を差し替え・日時を消す（差し替えた無い場所は控えからも落とす）。見つからなければ日時を付ける。`scan-cache.json` に足す。どちらかを書いたら検索の写しを読み直す。監視フォルダが無ければ、ドライブがつながっていない（「つながっていないため」）と、ドライブは在ってフォルダが無い（「見つからないため」）を分けて言う | `MissingFileFinder.FindAsync`・`Replace`・`NoteNotFoundAsync` |
+| 「見つからないファイルを探す…」（取り込み画面） | **押したときに窓で選んだフォルダ**（古い版（`replaced`）は探さない。監視フォルダが既定。この回だけほかの場所も足せ、監視には足さない。点検の11）。大きさが合う物だけハッシュ（控えを使う）。探すのはどの場所にも無い物だけ（`FilePresenceProbe`。場所の1つでもつながっていないドライブの上なら探さず、場所も外さない） | 見つけたら無い場所を差し替え・日時を消す（差し替えた無い場所は控えからも落とす）。見つからなければ日時を付ける。`scan-cache.json` に足す。どちらかを書いたら検索の写しを読み直す。監視フォルダが無ければ、ドライブがつながっていない（「つながっていないため」）と、ドライブは在ってフォルダが無い（「見つからないため」）を分けて言う | `MissingFileFinder.FindAsync`・`Replace`・`NoteNotFoundAsync` |
+| 同上（登録したフォルダ） | どこにも無い登録フォルダについて、選んだフォルダの木を1回たどり、名前・ファイル数・大きさで候補を選ぶ（`MovedFolderCandidates`） | 書かない（候補を返すだけ）。人が「この場所にする」を押したら `RelocateFolder` が場所・数・`lastSeenAt` を入れ `missingSince` を消す | `MissingFileFinder`・`ItemService.RelocateFolderAsync` |
 | フォルダビュー | その場でディスク（ドライブ文字の読み替えの後） | 書かない | `FolderViewModel.Build` |
 | カードの右クリック（開くたび） | 記録だけ（ディスクは見ない）。持っているファイル・フォルダが**全部**「場所が空か `missingSince` あり」なら、開く ▸・Unity ▸ を親ごと薄く（メモ65-①）。つながっていないドライブの上の物は日時が無いので押せる | 書かない | `CardMenuState.AllMissing` |
 
@@ -137,7 +138,7 @@ stateDiagram-v2
 | したこと | 起きること |
 |---|---|
 | 取り込み元の中でファイルを移す・名前を変える | 取り込むとハッシュで同じ物と分かり、新しい場所が足され、古い場所は `LocalFileMerger` が落とす |
-| 取り込み元の外へ移す | その場所を取り込むまで古い場所のまま「見つかりません」。監視フォルダへ移したなら「見つからないファイルを探す」で結び直せる |
+| 取り込み元の外へ移す | その場所を取り込むまで古い場所のまま「見つかりません」。「見つからないファイルを探す…」で移した先のフォルダを選べば（監視フォルダは既定で入る）結び直せる |
 | 同じ名前で別の中身に上書き | 古い中身の記録から場所が外れ（場所が空でも記録は残り、古い版の印 `replaced` が付く。商品ページは「古い版」の行で「古い版の記録を片付ける」を出す）、新しい中身は手掛かりで決まらなければ未確定へ（`samePathItemIds` に前の商品） |
 | ドライブ文字が変わる | 記録は書き換えない。フォルダビュー・検索の `path:`・商品ページ（行の場所・在るかの確かめ・開く・展開）・カードの右クリックが `volumes.json` で読み替える（`VolumeTable.Current`。「気になった所」2）。取り込み・見回り・Unity へ送る道の中（`UnityHandoff`）は元のパスのまま。次にその場所を取り込むと今の文字の場所が足される |
 | 外付けを外す | 場所は外さない・日時も付けない・未確定も残す。札は「取り外しているドライブ」 |
@@ -146,7 +147,7 @@ stateDiagram-v2
 | 外付けを外した文字に別のディスクが来る | 控え（`volumes.json`）の番号と違うので「取り外しているドライブ」と同じ（見回り・取り込みの突き合わせ・探す・商品ページ）。控えの無い文字は根だけで見る。その文字を取り込むと控えが新しいディスクに替わり、次からは元の外付けの物が「無い」になる（記録に番号を持たせるかは判断待ちの3） |
 | 名前の大文字小文字だけを変える | 取り込むと記録と走査の控えの綴りが今の名前になる |
 | 同じ中身の2か所の片方を消す | 見回りが、残った方が在ると確かめて消した方の場所を外す |
-| フォルダごと登録した物を移す | パスが同一性なので「見つからない」。取り込みは新しい場所の中身を未確定に出す |
+| フォルダごと登録した物を移す | パスが同一性なので「見つからない」。取り込みは新しい場所の中身を未確定に出す。「見つからないファイルを探す…」が名前・ファイル数・大きさの合うフォルダを候補に出し、人が「この場所にする」を押したら場所を差し替える（`RelocateFolder`。新しい場所の下の未確定も片付ける。点検の10） |
 
 ### 一時展開（`Core/Services/TemporaryUnpacker.cs`）
 
@@ -184,6 +185,7 @@ stateDiagram-v2
 |---|---|
 | 手元のファイル | `LocalFileRecord`・`local.localFiles` |
 | フォルダごと登録した商品・zipの代わりにフォルダを登録 | `LocalFolderRecord`・`local.localFolders`・`RegisterFolder` |
+| 見つからない登録フォルダ・この場所にする | `MissingFileSearchResult.MissingFolders`・`MovedFolderCandidates`・`RelocateFolder` |
 | 未確定 | `UnresolvedFile`・`unresolved.json` |
 | 管理対象から除外／除外を解除 | `ExcludeFiles`／`RestoreExcluded`・`UndoExclude`・`excluded.json` |
 | この商品から外す／この商品に戻す | `DetachFile`／`ReattachFile`・`detached` |
@@ -198,7 +200,7 @@ stateDiagram-v2
 | 一時的に展開して開く | `UnpackToTemporary`・`TemporaryUnpacker` |
 | 取り込み元の履歴・監視 | `AppSettings.ImportFolders`・`WatchedFolders`・`FolderWatch` |
 | 続きから進む／続きを捨てる | `import-state.json`（`targets`・`unfetched`・`scanning`・`stopped`）・`DiscardInterruptedImport` |
-| 見つからないファイルを探す | `FindMissingFiles`・`MissingFileFinder` |
+| 見つからないファイルを探す… | `FindMissingFiles`・`MissingFileFinder`・`MissingSearchScopeViewModel` |
 | 中身を確かめた／確かめを省いた | ハッシュを取った／控えから使った |
 | BOOTHに無い商品（仮のID） | `local-…`・`LocalItemId` |
 
@@ -267,6 +269,10 @@ stateDiagram-v2
    **上書きで残った古い版の記録が「見つかりません」と数えられ続ける**：場所の空いた記録が、カードの印・検索の条件・統計に当たり、「探す」が毎回探して「見つかりませんでした」と数えた。
 9. **直した（2026-10-05・67928f74）**：ドライブの根がつながっていてフォルダだけが無いときを `FilePresenceProbe.OfFolder` で見分ける。監視は `WatchResult.MissingFolders` を返し、取り込み画面に「監視フォルダ「名前」が見つかりません。」と次の手を出す（監視からは外さない）。探す所は「見つからないため探せませんでした」、設定の一覧は「見つかりません」と言い分ける。試験 `FolderWatchTests`・`MissingFileFinderTests` の各1件と、画面の側 `WatchedFolderMissingTests`（直す前は Core の2件・画面の3件が落ちた）。前の「つながっていない」の試験2件は、本当にドライブの無い場所で確かめるよう直した。
    **監視フォルダ・取り込み元の名前を変えた・移したのを、外付けを外したのと同じに扱う**：監視は黙り、探す所は「つながっていないため」、設定は「今つながっていません」と言っていた。
+10. **直した（2026-10-05・f8e377f5。ユーザ判断 10-A）**：「見つからないファイルを探す…」が、どこにも無い登録フォルダについて、選んだフォルダの木を1回たどって名前・ファイル数・大きさの合うフォルダを候補として返し（`MovedFolderCandidates`。包んでいるだけの親・ほかの登録とその中は出さない・5つまで）、取り込み画面の結果の下に並べる。人が「この場所にする」を押したときだけ `UiCommand.RelocateFolder` が錠の中の今の値に当てて差し替え、新しい場所の下の未確定を片付ける。試験 `MovedFolderTests`（Core 16件。探すと候補に出る・差し替え・取り込みと重なっても残る・その間に外されたら書かないの4件は、候補を空に・差し替えを書かないに戻すと落ちた。合い方の決まり・ほかの登録・選んだ場所が無いは、戻しても通る守りの試験）・画面の側 `MovedFolderCandidateTests`（3件は同じ戻し方で落ちた）。絵は ViewShot の `import-missing-folders`（明・暗・幅900）。
+    **登録したフォルダを移すと付いて行く手が無い**：場所が同一性なので「見つかりません」のままで、登録を外して登録し直すしかなかった（登録した日時も失う）。
+11. **直した（2026-10-05・4fdb6020。ユーザ判断 11-A）**：押すと探す場所を選ぶ窓（`MissingSearchScopeDialog`）を出し、監視フォルダを既定で入れたまま「フォルダを追加…」でその回だけ足せる。足した場所は監視にも設定にも書かず、覚えない。結果の文は「移した先のフォルダを追加して、もう一度探してください」。試験 `MissingSearchScopeTests`（窓の中身5件と、足したフォルダから結び直して監視は変わらない・キャンセルで何もしないの2件。後の2件と文の試験 `ImportScreenTests` の1件は、画面の側を直す前に戻すと落ちた）。絵は ViewShot の `missing-search-scope-dialog`・`missing-search-scope-empty`（明・暗）。
+    **「探す」が監視フォルダの中しか探さない**：ほかへ移した物は「移した先を監視フォルダに追加してから」と言うしかなく、探したいだけの場所を監視に足すと起動のたびに新着として見に行く。
 12. **直した（2026-10-05・5db5d233）**：`LocalFileMerger.Merge` に見方を渡す口を足し、取り込みの結び直し（`RelinkMovedFilesAsync`）と既にある商品へ足す2か所（`FetchAsync`）が周回の頭の見方を根の覚えだけ新しくして（`Renewed`）渡す。見方を渡さない呼び方も既定で `FilePresenceProbe` を通る（通し番号の控えは無し）。試験 `ForeignVolumeTests.取り込みは根が答えないドライブの上の場所を外さない`（直す前に落ちた）。
    **揺れる共有で場所を外す**：`Merge` は場所ごとに打ち切りなしで `File.Exists` と根の `Directory.Exists` を呼ぶ（錠の中）。
 13. **直した（2026-10-05・3c873264）**：`DiskCheck.FileState`／`FolderState` が、無いと分かったとき（ファイル・途中のフォルダが無い）だけ「無い」と答え、拒まれた・ドライブが答えなかったときは「確かめられない」（`FilePresence.Unverifiable`）。見回り・`Merge`・探すは日時も場所も触らない。商品ページの行は今までどおり「見つかりません」。「見つからないファイルを探す」は読めなかったファイル・フォルダを数えて結果の文に出し、ログに残す（`MissingFileSearchResult.UnreadableFiles`・`UnreadableFolders`）。試験 `UnverifiablePlaceTests`（見回り・突き合わせ・探すの3件は直す前に落ちた）・画面の側 `ImportResultTextTests` の探して読めなかった物の文。

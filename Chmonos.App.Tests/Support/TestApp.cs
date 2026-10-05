@@ -114,6 +114,15 @@ internal sealed class TestApp
     public List<MemberFilePickViewModel> FilePicks { get; } = [];
 
     /// <summary>
+    /// 「見つからないファイルを探す」の、どこを探すかの窓への答え（窓は出ない）。既定は、監視フォルダのまま「探す」。
+    /// ほかの場所を足す試験は、ここで <see cref="MissingSearchScopeViewModel.AddFolders"/> を呼んでから true を返す
+    /// </summary>
+    public Func<MissingSearchScopeViewModel, bool> PickSearchScope { get; set; } = _ => true;
+
+    /// <summary>出すはずだった、どこを探すかの窓（窓は出ない）。</summary>
+    public List<MissingSearchScopeViewModel> SearchScopes { get; } = [];
+
+    /// <summary>
     /// ログに「失敗」が残っても試験を落とさない。投げっぱなしの仕事（<c>Forget()</c>）の失敗はログにしか出ないので、
     /// 既定では残っていたら落とす。失敗する道そのものを確かめる試験だけが true にする
     /// </summary>
@@ -188,6 +197,11 @@ internal sealed class TestApp
         {
             app.FilePicks.Add(model);
             return app.PickFiles(model);
+        };
+        MissingSearchScopeViewModel.Intercept = model =>
+        {
+            app.SearchScopes.Add(model);
+            return app.PickSearchScope(model);
         };
 
         // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
@@ -334,6 +348,7 @@ internal sealed class TestApp
             // アプリ全体に効く静的な状態を、次の試験へ持ち越さない
             Notice.Intercept = null;
             MemberFilePickViewModel.Intercept = null;
+            MissingSearchScopeViewModel.Intercept = null;
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();

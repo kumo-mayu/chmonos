@@ -39,6 +39,12 @@ public sealed record MissingFileSearchResult
 
     /// <summary>中を読めなかったフォルダの数（権限が無い・ネットワーク越しで切れた）。中に何件あったかは分からないので、ファイルの数とは分ける。</summary>
     public int UnreadableFolders { get; init; }
+
+    /// <summary>
+    /// どこにも無い登録フォルダと、探した中で合ったフォルダ（見つからない・移動の点検 10-A）。
+    /// **候補を返すだけで記録は変えない**——フォルダはハッシュを持たないので同じ物と言い切れず、人が選んで差し替える（<c>UiCommand.RelocateFolder</c>）。
+    /// </summary>
+    public IReadOnlyList<MissingFolder> MissingFolders { get; init; } = [];
 }
 
 /// <summary>
@@ -128,7 +134,13 @@ public sealed class MissingFileFinder
             }
         }
 
-        if (missing.Count == 0)
+        // 見つからない登録フォルダも、同じ範囲で候補を探す（見つからない・移動の点検 10-A）。差し替えは人が選んだときだけ
+        var missingFolders = MissingFoldersOf(loaded.Items, probe);
+        var registeredFolders = new RegisteredFolderSet(
+            loaded.Items.SelectMany(item => item.Local.LocalFolders).Select(folder => folder.Path));
+        var measuredFolders = new List<MeasuredFolder>();
+
+        if (missing.Count == 0 && missingFolders.Count == 0)
         {
             return new MissingFileSearchResult { MissingBefore = 0, Relinked = 0, Hashed = 0 };
         }
@@ -160,6 +172,16 @@ public sealed class MissingFileFinder
                 // ドライブは在ってフォルダだけが無い（名前を変えた・移した）なら、つないでも直らないので分けて言う
                 // （見つからない・移動の点検 9・2026-10-05。前はどちらも「つながっていないため」と言っていた）
                 (presence == FilePresence.Missing ? notFoundFolders : unreachable).Add(folder);
+                continue;
+            }
+
+            if (missingFolders.Count > 0)
+            {
+                measuredFolders.AddRange(MovedFolderCandidates.MeasureTree(folder, cancellationToken));
+            }
+
+            if (missing.Count == 0)
+            {
                 continue;
             }
 
@@ -270,8 +292,31 @@ public sealed class MissingFileFinder
             MarkedItems = marked,
             UnreadableFiles = unreadableFiles,
             UnreadableFolders = unreadableFolders,
+            MissingFolders =
+            [
+                .. missingFolders.Select(entry => entry.Missing with
+                {
+                    Candidates = MovedFolderCandidates.Pick(entry.Record, measuredFolders, registeredFolders.Contains),
+                }),
+            ],
         };
     }
+
+    /// <summary>
+    /// どこにも無い登録フォルダ。つながっていないドライブ・確かめられない場所の上の物は入れない（外しているだけかもしれない。ファイルと同じ決まり）。
+    /// </summary>
+    private static List<(LocalFolderRecord Record, MissingFolder Missing)> MissingFoldersOf(
+        IEnumerable<ItemRecord> items, FilePresenceProbe probe)
+        => [.. items.SelectMany(item => item.Local.LocalFolders
+            .Where(folder => probe.OfFolder(folder.Path) == FilePresence.Missing)
+            .Select(folder => (folder, new MissingFolder
+            {
+                ItemId = item.Id,
+                ItemName = item.DisplayName,
+                Path = folder.Path,
+                FileCount = folder.FileCount,
+                TotalBytes = folder.TotalBytes,
+            })))];
 
     /// <summary>
     /// 無くなったパスを、見つけた場所に差し替える（同じ場所が2つ並ばないようにする）。

@@ -194,16 +194,74 @@
                                     同じ中身を探して場所を書き換えれば戻る。手で1件ずつ結び直すのは現実的ではない
                                 -->
                                 <DockPanel LastChildFill="False" Margin="0,10,0,0">
-                                    <Button DockPanel.Dock="Left" Content="見つからないファイルを探す"
+                                    <!-- 押すと探す場所を選ぶ窓が開くので「…」を付ける（D10・点検 11-A） -->
+                                    <Button DockPanel.Dock="Left" Content="見つからないファイルを探す…"
                                             AutomationProperties.AutomationId="ImportFindMissingFiles"
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding FindMissingFilesCommand}"
-                                            ToolTip="監視フォルダから探して紐付け直します。ファイルは動かしません。" />
+                                            ToolTip="探すフォルダを選んで紐付け直します。ファイルは動かしません。" />
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
                                                AutomationProperties.AutomationId="ImportMissingSearchText"
                                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
+
+                                <!--
+                                    見つからない登録フォルダと、移した先かもしれないフォルダ（見つからない・移動の点検 10-A）。
+                                    フォルダはハッシュを持たないので同じ物と言い切れない。候補として並べ、押した物だけ差し替える
+                                -->
+                                <StackPanel Margin="0,12,0,0"
+                                            Visibility="{Binding HasMissingFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="見つからない登録フォルダ" Style="{StaticResource SectionLabel}" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding MissingFolders}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="0,6,0,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding ItemName}" FontWeight="SemiBold" FontSize="12.5"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <DockPanel Margin="0,3,0,0">
+                                                            <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
+                                                                       Margin="10,0,0,0" VerticalAlignment="Top" />
+                                                            <TextBlock Text="{Binding Path, StringFormat=元の場所：{0}}" Style="{StaticResource Caption}"
+                                                                       TextWrapping="Wrap" />
+                                                        </DockPanel>
+
+                                                        <ItemsControl ItemsSource="{Binding Candidates}" Margin="14,6,0,0">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Margin="0,0,0,5">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" TextWrapping="Wrap" />
+                                                                            <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0">
+                                                                                <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding CountText, Mode=OneWay}" />
+                                                                            </TextBlock>
+                                                                        </StackPanel>
+                                                                        <Button Grid.Column="1" Content="この場所にする" Style="{StaticResource SmallButton}"
+                                                                                Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                                AutomationProperties.AutomationId="ImportUseFolderCandidate"
+                                                                                AutomationProperties.Name="{Binding Path, StringFormat={}{0}を登録の場所にする}"
+                                                                                Command="{Binding DataContext.UseFolderCandidateCommand, RelativeSource={RelativeSource AncestorType=controls:ContentItemsControl}}"
+                                                                                CommandParameter="{Binding}"
+                                                                                ToolTip="登録の場所をここに変えます。ファイルは動かしません。" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+
+                                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                                   AutomationProperties.AutomationId="ImportMissingFolderStatus"
+                                                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,12,18,14"
