@@ -1024,6 +1024,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>改変の写真は全部自分で貼ったもの。並べ替えと削除は、いま出ている1枚があれば出す。</summary>
     public bool CurrentIsUserAdded => _gallery.Count > 0;
 
+    /// <summary>いま出ている1枚があるか。画面の「この画像を削除」ボタンを、写真が無い改変には出さない。</summary>
+    public bool HasCurrentImage => _gallery.Count > 0;
+
     public bool CurrentIsPinned => false;
 
     public bool ShowsPinThumbnail => false;
@@ -1036,6 +1039,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public string PinDisabledTip => "改変の写真には使えません";
 
     public string UnpinDisabledTip => "改変の写真には使えません";
+
+    public string RemoveImageButtonTip => CurrentIsUserAdded
+        ? "ファイルごと消します。元に戻せません（押すと確かめます）。"
+        : "自分で足した画像だけ消せます";
 
     public string AddImageTip => "この改変に写真を追加します。ドロップやCtrl+Vでも追加できます。";
 
@@ -1154,7 +1161,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         foreach (var name in new[]
         {
             nameof(SelectedImage), nameof(GalleryCounter), nameof(GalleryEmptyText), nameof(CanGoPreviousImage), nameof(CanGoNextImage),
-            nameof(CurrentIsUserAdded),
+            nameof(CurrentIsUserAdded), nameof(HasCurrentImage), nameof(RemoveImageButtonTip),
         })
         {
             OnPropertyChanged(name);
