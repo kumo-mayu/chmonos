@@ -1085,7 +1085,6 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">
                                                 <controls:PressableBorder Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
-                                                        ToolTip="このアバターを開きます"
                                                         Focusable="True" FocusVisualStyle="{StaticResource RowFocusVisual}"
                                                         Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}"

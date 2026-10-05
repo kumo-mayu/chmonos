@@ -313,7 +313,7 @@ public sealed partial class MainViewModel
         // 開き直すと一覧が先頭に戻り、商品を1件見て戻るたびに探し直していた
         ShopViewModel shop => ShopEntry(shop.Shop, shop.CaptureState()),
         ModificationViewModel modification => ModificationEntry(Shorten(modification.Record.Name), modification.Record.Id),
-        AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
+        AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId, avatars.IsBaseMode ? avatars.SelectedBase?.Name : null)),
         ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
         ShopsViewModel shops => ShopsEntry(shops.CaptureListAnchor()),
         FolderViewModel folders => FolderEntry(folders.SelectedRef),
@@ -364,6 +364,17 @@ public sealed partial class MainViewModel
 
         // 次の商品へ移ったら枝分かれしたので「進む」は捨てる（画面を移るときと同じ。ブラウザと同じ）。
         // ここだけ Remember を直に呼んでいて、捨てるのも知らせるのも抜けていた
+        ClearForward();
+        NotifyHistoryChanged();
+    }
+
+    /// <summary>
+    /// アバターの画面の中で、素体の詳細からアバターを開くとき、素体の詳細を履歴に積む（メモ68）。
+    /// 画面は同じままなので普通の移動では積まれず、戻るがアバターの画面の前の画面へ飛んでいた
+    /// </summary>
+    public void RememberAvatarsStep(AvatarsViewModel avatars)
+    {
+        Remember(avatars);
         ClearForward();
         NotifyHistoryChanged();
     }
@@ -553,8 +564,8 @@ public sealed partial class MainViewModel
     };
 
     /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
-    private Action RestoreAvatars(string? selectedId)
-        => selectedId is null ? ShowAvatars : () => ShowAvatar(selectedId);
+    private Action RestoreAvatars(string? selectedId, string? baseName)
+        => selectedId is null && baseName is null ? ShowAvatars : () => ShowAvatarAt(selectedId, baseName);
 
     /// <summary>
     /// 商品ページは開き直した時点の中身で出す（覚えた時の中身は、その後の編集で古くなっている）。

@@ -438,14 +438,21 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// <summary>開いたときに選んでおくアバター。最初の読み込みで1回だけ使う。</summary>
     private string? _openWith;
 
+    /// <summary>開いたときに素体の詳細で開いておく素体。最初の読み込みで1回だけ使う。</summary>
+    private string? _openBaseWith;
+
     /// <param name="selectItemId">
     /// 開いたときに選んでおくアバター（商品ページの対応アバターの札から来たとき、U13）。
     /// </param>
-    public AvatarsViewModel(AppServiceContainer services, MainViewModel main, string? selectItemId = null)
+    /// <param name="selectBaseName">
+    /// 戻るで素体の詳細へ戻すとき、開いておく素体（共通素体の見方で開く）。
+    /// </param>
+    public AvatarsViewModel(AppServiceContainer services, MainViewModel main, string? selectItemId = null, string? selectBaseName = null)
     {
         _services = services;
         _main = main;
         _openWith = selectItemId;
+        _openBaseWith = selectBaseName;
 
         // ほかの長い作業（書き出し・移動・候補の検索など）が走っている間は押せない。帯は1本しか持てないので、
         // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
@@ -968,7 +975,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             if (SetField(ref _selectedBase, value))
             {
-                OnPropertyChanged(nameof(SelectedBaseMembers));
+                SyncBaseMembers();
                 OnPropertyChanged(nameof(MemberCandidates));
                 OnPropertyChanged(nameof(HasSelectedBase));
                 OnPropertyChanged(nameof(ShowsBaseDetail));
@@ -986,21 +993,91 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// 所属は素体の人数と同じ数え方（名前から推した仲間を含む）で引く。
     /// 手で決めた所属（BaseName）だけで引くと、「アバター 8」なのに一覧が空になった
     /// </summary>
-    public IReadOnlyList<AvatarRowViewModel> SelectedBaseMembers => SelectedBase is null
-        ? []
-        : _all
-            .Where(row => SelectedBase.Summary.MemberIds.Contains(row.ItemId))
-            .OrderByDescending(row => row.IsOwned)
-            .ThenBy(row => row.Name, StringComparer.CurrentCulture)
-            .ToList();
+    /// <remarks>
+    /// **一覧は1つを持ち続け、足した行・外した行だけを足し引きする**（メモ68）。
+    /// 前は変わるたびに新しい一覧を返していて、画面が全行を作り直し、乗せていた行のホバーが効かなくなった
+    /// </remarks>
+    public ObservableCollection<AvatarRowViewModel> SelectedBaseMembers { get; } = [];
 
-    /// <summary>素体の中のアバターを押すと、アバターの一覧へ切り替えてそれを選ぶ。</summary>
+    private string? _membersOf;
+
+    private void SyncBaseMembers()
+    {
+        var wanted = SelectedBase is null
+            ? []
+            : _all
+                .Where(row => SelectedBase.Summary.MemberIds.Contains(row.ItemId))
+                .OrderByDescending(row => row.IsOwned)
+                .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+                .ToList();
+
+        // 別の素体へ移ったときは入れ替える（行が変わるのでホバーの話ではない）
+        if (SelectedBase?.Name != _membersOf)
+        {
+            _membersOf = SelectedBase?.Name;
+            SelectedBaseMembers.Clear();
+            foreach (var row in wanted)
+            {
+                SelectedBaseMembers.Add(row);
+            }
+
+            return;
+        }
+
+        var wantedIds = wanted.Select(row => row.ItemId).ToHashSet();
+        for (var i = SelectedBaseMembers.Count - 1; i >= 0; i--)
+        {
+            if (!wantedIds.Contains(SelectedBaseMembers[i].ItemId))
+            {
+                SelectedBaseMembers.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            if (i < SelectedBaseMembers.Count && SelectedBaseMembers[i].ItemId == wanted[i].ItemId)
+            {
+                // 読み直しで行は作り直されるが、見える物（名前・持っているか）が同じなら今の行を残す。
+                // 入れ替えると、その行だけホバーが途切れる
+                if (SelectedBaseMembers[i].Name != wanted[i].Name || SelectedBaseMembers[i].IsOwned != wanted[i].IsOwned)
+                {
+                    SelectedBaseMembers[i] = wanted[i];
+                }
+
+                continue;
+            }
+
+            var existing = SelectedBaseMembers.Select((row, index) => (row, index))
+                .FirstOrDefault(pair => pair.row.ItemId == wanted[i].ItemId);
+            if (existing.row is null)
+            {
+                SelectedBaseMembers.Insert(i, wanted[i]);
+            }
+            else
+            {
+                SelectedBaseMembers.Move(existing.index, i);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 素体の中のアバターを押すと、アバターの一覧へ切り替えてそれを選ぶ。
+    /// 切り替える前の素体の詳細を履歴に積み、戻る（Alt+←）で素体の詳細へ戻れるようにする（メモ68）。
+    /// </summary>
     public RelayCommand OpenMemberCommand => _openMemberCommand ??= new RelayCommand(
         parameter =>
         {
-            if (parameter is not AvatarRowViewModel row)
+            if (parameter is not AvatarRowViewModel shown)
             {
                 return;
+            }
+
+            // 一覧の行は読み直しの前の物のことがあるので、今の行を ID で引く
+            var row = _all.FirstOrDefault(other => other.ItemId == shown.ItemId) ?? shown;
+
+            if (IsBaseMode)
+            {
+                _main.RememberAvatarsStep(this);
             }
 
             // 絞り込みで外れていると選べないので、そのときだけ絞り込みを外す
@@ -1534,7 +1611,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             }
 
             // 素体の設定を変えると読み直すので、選んでいた素体を名前で戻す
-            var selectedBaseName = SelectedBase?.Name;
+            var selectedBaseName = _openBaseWith ?? SelectedBase?.Name;
+            var openBase = _openBaseWith is not null;
+            _openBaseWith = null;
             Bases.Clear();
             BaseNames.Clear();
 
@@ -1570,6 +1649,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             IsLoading = false;
             Rebuild();
+
+            // 戻るで素体の詳細へ戻すとき。素体が消えていたら（戻る前に消した）アバターの見方のまま
+            if (openBase && SelectedBase?.Name == selectedBaseName)
+            {
+                IsBaseMode = true;
+            }
         });
     }
 
