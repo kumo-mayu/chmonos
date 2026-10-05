@@ -686,6 +686,16 @@ public sealed class CommandHandler
                     ? new CommandResult.ModificationCreated(created)
                     : new CommandResult.Failed("名前を入れてください。");
 
+            case UiCommand.DuplicateModification duplicateMod:
+                if (_modifications is null)
+                {
+                    return MissingService("改変の編集");
+                }
+
+                return await _modifications.DuplicateAsync(duplicateMod.Id, cancellationToken) is { } duplicated
+                    ? new CommandResult.ModificationCreated(duplicated)
+                    : new CommandResult.Failed("対象の改変が見つかりませんでした。");
+
             case UiCommand.DeleteModification deleteMod:
                 if (_modifications is null)
                 {

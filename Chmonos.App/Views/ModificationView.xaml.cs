@@ -13,6 +13,11 @@ public partial class ModificationView : UserControl
     {
         InitializeComponent();
 
+        // 複製の直後に開いたときは、名前の欄へフォーカスを置く（名前を変えるのが次の一手）。
+        // 画面の部品は使い回されて DataContext だけ替わることがあるので、読み込みと替わったとき両方で見る
+        DataContextChanged += (_, _) => FocusNameIfRequested();
+        Loaded += (_, _) => FocusNameIfRequested();
+
         // 落とすのは**窓全体**で受け、中身で行き先を決める（`ui-rules.md`・B5）。
         // この画面が自分で受けていた頃は、改変を見ている間は zip も BOOTH の URL も落とせなかった。
         // 画像を写真に回す判断は `DropRouting.DecideOnModification`。
@@ -34,6 +39,22 @@ public partial class ModificationView : UserControl
     }
 
     private IEnumerable<GridViewColumn> MemberColumns => ((GridView)MemberList.View).Columns;
+
+    private void FocusNameIfRequested()
+    {
+        if (DataContext is not ModificationViewModel { WantsNameFocus: true } modification || !IsLoaded)
+        {
+            return;
+        }
+
+        modification.WantsNameFocus = false;
+        Dispatcher.BeginInvoke(() =>
+        {
+            NameBox.Focus();
+            NameBox.SelectAll();
+            NameBox.BringIntoView();
+        }, System.Windows.Threading.DispatcherPriority.Input);
+    }
 
     private void OnMemberListSizeChanged(object sender, SizeChangedEventArgs e) => FitMemberNameColumn();
 

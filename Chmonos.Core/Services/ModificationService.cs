@@ -21,6 +21,9 @@ public interface IModificationService
         string name,
         CancellationToken cancellationToken = default);
 
+    /// <summary>複製を作って返す。元が無ければ null。</summary>
+    Task<ModificationRecord?> DuplicateAsync(string id, CancellationToken cancellationToken = default);
+
     /// <summary>消す。**貼った画像も一緒に消える。**聞くのは呼ぶ側。</summary>
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default);
 
@@ -159,6 +162,58 @@ public sealed class ModificationService : IModificationService
 
         await _store.Modifications.SaveAsync(record, cancellationToken);
         return record;
+    }
+
+    /// <summary>
+    /// 改変を複製する（メモ44・ユーザ決定 2026-10-05）。
+    /// 写す：アバター・使ったもの（順・ファイル・unitypackage・種類）・メモ・Unityプロジェクトとの紐付け。
+    /// 写さない：外した行（元の改変での判断なので、持ち越すと意味が薄れる）・blueprint ID
+    /// （写すと2つの改変から同じアップロードへ着替えることになる）・写真（組み合わせた結果の姿なので、新しい改変には合わない）。
+    /// 元が無ければ null。
+    /// </summary>
+    public async Task<ModificationRecord?> DuplicateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var source = await _store.Modifications.LoadAsync(id, cancellationToken);
+        if (source is null)
+        {
+            return null;
+        }
+
+        var existing = await LoadForAvatarAsync(source.AvatarItemId, cancellationToken);
+        var name = DuplicateName(source.Name, existing.Select(record => record.Name));
+
+        var now = DateTimeOffset.Now;
+        var record = new ModificationRecord
+        {
+            Id = ModificationId.For(source.AvatarItemId, name, now),
+            AvatarItemId = source.AvatarItemId,
+            Name = name,
+            CreatedAt = now,
+            UpdatedAt = now,
+            UnityProject = source.UnityProject,
+            Memo = source.Memo,
+            Members = [.. source.Members.Where(member => !member.Detached)],
+        };
+
+        await _store.Modifications.SaveAsync(record, cancellationToken);
+        return record;
+    }
+
+    /// <summary>
+    /// 複製の名前。「〇〇のコピー」、同じアバターに同じ名前があれば「〇〇のコピー 2」「〇〇のコピー 3」…。
+    /// 同じ名前は許しているが、複製の直後に同じ名前が並ぶと見分けが付かない。比べ方は <see cref="HasSameNameAsync"/> と同じ
+    /// </summary>
+    internal static string DuplicateName(string sourceName, IEnumerable<string> existingNames)
+    {
+        var taken = existingNames.ToList();
+        var baseName = $"{sourceName.Trim()}のコピー";
+        var candidate = baseName;
+        for (var number = 2; taken.Any(name => string.Equals(name, candidate, StringComparison.CurrentCultureIgnoreCase)); number++)
+        {
+            candidate = $"{baseName} {number}";
+        }
+
+        return candidate;
     }
 
     public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
