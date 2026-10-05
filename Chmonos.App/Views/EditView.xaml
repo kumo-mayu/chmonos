@@ -733,8 +733,9 @@
                                                         </StackPanel>
                                                     </DockPanel>
 
-                                                    <!-- 値段・誰のためか・［＋］。印が無いときも出して灰色にする（印を付けるたびに行が膨らまないように） -->
-                                                    <StackPanel Orientation="Horizontal" Margin="22,6,0,0" IsEnabled="{Binding IsPurchased}">
+                                                    <!-- 値段・誰のためか・日付・［＋］。2段に分ける（日付を足すと右の欄の幅に収まらない）。印が無いときも出して灰色にする（印を付けるたびに行が膨らまないように） -->
+                                                    <StackPanel Margin="22,6,0,0" IsEnabled="{Binding IsPurchased}">
+                                                        <StackPanel Orientation="Horizontal" Margin="0">
                                                         <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
                                                         <!-- 空欄は0円として記録する（ユーザ判断 2026-09-29：未入力を無くす）。空欄のときは薄い 0 を出す -->
                                                         <Grid>
@@ -764,12 +765,30 @@
                                                             <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
                                                             <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
                                                         </ComboBox>
+                                                        </StackPanel>
+                                                        <!--
+                                                            この1回の日付（メモ45）。名前は種類に合わせる（買った日／贈った日／貰った日）。
+                                                            空欄は入手日を使うので、空のときは薄い字でそう出す（入手日の欄と同じ作り）
+                                                        -->
+                                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <TextBlock Text="{Binding PurchasedAtLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                                        <Grid Margin="6,0,0,0">
+                                                            <TextBox x:Name="PurchasedAtBox" Text="{Binding PurchasedAt, UpdateSourceTrigger=PropertyChanged}" Width="104"
+                                                                     Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
+                                                                     AutomationProperties.AutomationId="EditVariationPurchasedAt"
+                                                                     ToolTip="yyyy-MM-dd の形で入れてください。"
+                                                                     AutomationProperties.Name="{Binding Name, StringFormat={}{0}の日付}" />
+                                                            <TextBlock Text="入手日と同じ" Margin="9,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
+                                                                       Foreground="{DynamicResource TextFaint}"
+                                                                       Visibility="{Binding Text, ElementName=PurchasedAtBox, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                                        </Grid>
                                                         <!-- 「＋」だけではファイルの結び付けか追加購入か分からなかった（ユーザ指摘）。何が起きるかを名乗らせる -->
                                                         <Button Content="＋ 追加購入" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 AutomationProperties.AutomationId="EditVariationAddPurchase"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の追加購入}"
                                                                 Command="{Binding AddPurchaseCommand}"
                                                                 ToolTip="このバリエーションをもう1回買った記録を追加します。" />
+                                                        </StackPanel>
                                                     </StackPanel>
 
                                                     <!--
@@ -781,7 +800,8 @@
                                                                   Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                <StackPanel Margin="0,8,0,0">
+                                                                    <StackPanel Orientation="Horizontal" Margin="0">
                                                                     <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
                                                                     <Grid>
                                                                         <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
@@ -802,12 +822,26 @@
                                                                         <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
                                                                         <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
                                                                     </ComboBox>
+                                                                    </StackPanel>
+                                                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                                    <TextBlock Text="{Binding PurchasedAtLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                                                    <Grid Margin="6,0,0,0">
+                                                                        <TextBox x:Name="ExtraPurchasedAtBox" Text="{Binding PurchasedAt, UpdateSourceTrigger=PropertyChanged}" Width="104"
+                                                                                 Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
+                                                                                 AutomationProperties.AutomationId="EditExtraPurchasedAt"
+                                                                                 ToolTip="yyyy-MM-dd の形で入れてください。"
+                                                                                 AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の日付}" />
+                                                                        <TextBlock Text="入手日と同じ" Margin="9,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
+                                                                                   Foreground="{DynamicResource TextFaint}"
+                                                                                   Visibility="{Binding Text, ElementName=ExtraPurchasedAtBox, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                                                    </Grid>
                                                                     <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
                                                                     <Button Content="この記録を削除" Style="{StaticResource DangerButton}"
                                                                             AutomationProperties.AutomationId="EditExtraRemove"
                                                                             AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の記録を削除}"
                                                                             ToolTip="この購入記録を消します。元に戻せません。"
                                                                             Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
+                                                                    </StackPanel>
                                                                 </StackPanel>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>

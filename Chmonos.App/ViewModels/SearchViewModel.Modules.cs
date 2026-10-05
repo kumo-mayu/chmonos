@@ -688,12 +688,11 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
-        SearchModuleKind.AcquiredAt => new DateModule(kind, item => item.Local.AcquiredAt)
+        // 購入記録ごとの日付のどれか1つが範囲に入れば当たる（メモ45・2-A）。2025年3月に別の種類を買い足した商品が「2025年3月」で出る。
+        // ファイルの日付では代えない（並べ替えと同じく手で入れた値だけ）
+        SearchModuleKind.AcquiredAt => new DateModule(kind, PurchaseDates.AnyEntered)
         {
-            AllDatesOf = () => _allItems
-                .Select(item => item.Local.AcquiredAt)
-                .Where(date => date is not null)
-                .Select(date => date!.Value),
+            AllDatesOf = () => _allItems.SelectMany(PurchaseDates.AllEntered),
         },
 
         SearchModuleKind.Hidden => new ChoiceModule(kind,

@@ -921,6 +921,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
                     NameSnapshot = variation.Name,
                     Price = Core.Services.MoneyText.ParsePaid(variation.Price),
                     Kind = variation.Kind,
+                    PurchasedAt = ParseDate(variation.PurchasedAt),
                     ExistsOnBooth = !variation.IsGone,
                 },
             }.Concat(variation.Extras.Select(extra => new Purchase
@@ -930,6 +931,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
                 Price = Core.Services.MoneyText.ParsePaid(extra.Price),
                 Kind = extra.Kind,
                 Note = extra.Note,
+                PurchasedAt = ParseDate(extra.PurchasedAt),
                 ExistsOnBooth = !variation.IsGone,
             })))
             .ToList();
@@ -945,11 +947,15 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             Purchases = ordered,
             // 人が打つ書き方を広く受ける（I3。`DateText` は検索の日付の欄と同じ読み取り）。
             // 前は `DateOnly.TryParse` だけで、読めない書き方は黙って空になり、支出の統計から静かに落ちていた
-            AcquiredAt = Core.Services.DateText.Parse(AcquiredAt, isEnd: false, DateOnly.FromDateTime(DateTime.Today)),
+            AcquiredAt = ParseDate(AcquiredAt),
             NotifyOnUpdate = NotifyOnUpdate,
             IsHidden = IsHidden,
         };
     }
+
+    /// <summary>入手日と購入の日付の欄の読み方（同じ書き方を受ける）。空欄と読めない文字は null。</summary>
+    private static DateOnly? ParseDate(string text)
+        => Core.Services.DateText.Parse(text, isEnd: false, DateOnly.FromDateTime(DateTime.Today));
 
     /// <summary>
     /// 打ってあるのに読めなかった欄を1行で言う（ユーザ判断 2026-09-20・I3）。
@@ -959,11 +965,21 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     {
         var unreadable = new List<string>();
 
-        if (AcquiredAt.Trim().Length > 0
-            && Core.Services.DateText.Parse(AcquiredAt, isEnd: false, DateOnly.FromDateTime(DateTime.Today)) is null)
+        if (AcquiredAt.Trim().Length > 0 && ParseDate(AcquiredAt) is null)
         {
             unreadable.Add($"入手日「{AcquiredAt.Trim()}」");
         }
+
+        // 購入の日付も同じく知らせる。欄の名前（買った日・贈った日・貰った日）で言う
+        var dates = Variations
+            .Where(variation => variation.IsPurchased)
+            .SelectMany(variation => new[] { (Text: variation.PurchasedAt, Label: variation.PurchasedAtLabel) }
+                .Concat(variation.Extras.Select(extra => (Text: extra.PurchasedAt, Label: extra.PurchasedAtLabel))))
+            .Where(entry => entry.Text.Trim().Length > 0 && ParseDate(entry.Text) is null)
+            .Select(entry => $"{entry.Label}「{entry.Text.Trim()}」")
+            .Distinct(StringComparer.Ordinal);
+
+        unreadable.AddRange(dates);
 
         var prices = Variations
             .Where(variation => variation.IsPurchased)

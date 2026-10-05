@@ -309,7 +309,8 @@ public static class StatsExtras
 
         foreach (var item in owned)
         {
-            var acquired = AcquiredDateResolver.Resolve(item);
+            // 件数は商品で数える物なので、代表の日付（最も早い購入）の月に1回だけ入れる（メモ45）
+            var acquired = PurchaseDates.ResolveEarliest(item);
             if (acquired.Value is not { } date)
             {
                 continue;

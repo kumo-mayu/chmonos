@@ -14,6 +14,7 @@ public sealed record StatsPeriod
 
     public required long SpentYen { get; init; }
 
+    /// <summary>その期間に購入の日付がある商品の数。同じ期間に2回買っても1件。</summary>
     public required int ItemCount { get; init; }
 }
 
@@ -201,12 +202,16 @@ public sealed record StatsSnapshot
 
     public required IReadOnlyList<StatsPeriod> Years { get; init; }
 
-    /// <summary>入手日が分からず、月別に入れられなかった分。</summary>
+    /// <summary>日付が分からず、月別に入れられなかった額。購入1件ごとに見る（買った日も入手日もファイルの日付も無い購入の分）。</summary>
     public required long UndatedSpentYen { get; init; }
 
+    /// <summary>月別に入れられなかった購入を1件でも持つ商品の数（購入記録の無い商品は、商品の日付が無ければ数える）。</summary>
     public required int UndatedCount { get; init; }
 
-    /// <summary>入手日をファイルの日付で代えたitem数。推定がどれだけ混ざっているかを示す。</summary>
+    /// <summary>
+    /// 買った日も入手日も無く、ファイルの日付で月に入れた購入を持つ商品の数。推定がどれだけ混ざっているかを示す。
+    /// 買った日を全部に入れた商品は、入手日が空でも数えない（ファイルの日付を使っていない）。
+    /// </summary>
     public required int FallbackDatedCount { get; init; }
 
     public required IReadOnlyList<StatsSpendBar> Shops { get; init; }
@@ -394,20 +399,39 @@ public sealed class StatsService : IStatsService
             logical += LogicalSizeOf(item);
             physical += itemPhysical;
 
-            var acquired = AcquiredDateResolver.Resolve(item);
-            if (acquired.Value is { } date)
+            // 支出は購入1件ごとに、その購入の日付の月へ入れる（メモ45）。商品の合計を1つの月へ入れると、
+            // 後から別の種類を買い足した月に支出が出ない。贈った分は自分用の支出に入れないので、置く月も決めない
+            // （贈った日が空で入手日も無いだけで、自分用の分まで「日付の分からない商品」に数えてしまう）。
+            // 件数は商品で数える：同じ月に2回買っても1件
+            var monthKeys = new HashSet<string>(StringComparer.Ordinal);
+            var yearKeys = new HashSet<string>(StringComparer.Ordinal);
+            var itemFallback = false;
+            var itemUndated = false;
+            foreach (var (purchase, acquired) in PurchaseDates.Resolve(item, purchase => purchase.Kind != PurchaseKind.Given))
             {
-                if (acquired.IsFallback)
+                var amount = purchase is { Kind: PurchaseKind.ForSelf, Price: { } price } ? price : 0L;
+                if (acquired.Value is { } date)
                 {
-                    fallbackDated++;
+                    itemFallback |= acquired.IsFallback;
+                    var month = $"{date.Year:D4}-{date.Month:D2}";
+                    var year = $"{date.Year:D4}";
+                    Add(months, month, amount, countItem: monthKeys.Add(month));
+                    Add(years, year, amount, countItem: yearKeys.Add(year));
                 }
-
-                Add(months, $"{date.Year:D4}-{date.Month:D2}", itemSpent);
-                Add(years, $"{date.Year:D4}", itemSpent);
+                else
+                {
+                    undatedSpent += amount;
+                    itemUndated = true;
+                }
             }
-            else
+
+            if (itemFallback)
             {
-                undatedSpent += itemSpent;
+                fallbackDated++;
+            }
+
+            if (itemUndated)
+            {
                 undated++;
             }
 
@@ -565,10 +589,10 @@ public sealed class StatsService : IStatsService
         }
     }
 
-    private static void Add(Dictionary<string, (long Spent, int Count)> buckets, string key, long spent)
+    private static void Add(Dictionary<string, (long Spent, int Count)> buckets, string key, long spent, bool countItem)
     {
         var current = buckets.TryGetValue(key, out var existing) ? existing : (Spent: 0L, Count: 0);
-        buckets[key] = (current.Spent + spent, current.Count + 1);
+        buckets[key] = (current.Spent + spent, current.Count + (countItem ? 1 : 0));
     }
 
     /// <summary>
