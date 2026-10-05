@@ -2188,7 +2188,7 @@ public sealed class ItemService : IItemService
 
     /// <summary>
     /// 未確定の画面で外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった）。
-    /// 設定の「解除」は除外の記録を消すだけで、次の取り込みまで未確定に出ない。ここでは外す前の未確定の記録（候補・元zipの記録を含む）をそのまま戻す。
+    /// 設定の「解除」はファイルから未確定の記録を作り直す（候補は控えの手掛かりだけ）。ここでは外す前の未確定の記録（候補・元zipの記録を含む）をそのまま戻す。
     /// </summary>
     public async Task UndoExcludeAsync(
         IReadOnlyList<UnresolvedFile> files,

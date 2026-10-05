@@ -124,7 +124,7 @@ public abstract record UiCommand
     /// <summary>「この商品のものではない」と外した記録を捨てる。</summary>
     public record ForgetDetached(string Hash, string ItemId) : UiCommand;
 
-    /// <summary>管理から外したファイルを戻す（次の取り込みでまた未確定に出る）。</summary>
+    /// <summary>管理から外したファイルを戻す（元の場所に在れば、その場で未確定に戻す。結果は CommandResult.ExclusionLifted）。</summary>
     public record RestoreExcluded(string Hash) : UiCommand;
 
     /// <summary>既にどこかの商品が持っているファイルを、未確定の一覧から取り除く（結果は取り除いた数）。</summary>
@@ -513,6 +513,9 @@ public abstract record CommandResult
     /// 外した直後に戻すときは、これを <see cref="UiCommand.UndoExclude"/> に渡す。
     /// </summary>
     public record FilesExcluded(IReadOnlyList<string> AddedHashes) : CommandResult;
+
+    /// <summary>除外を解除した。未確定に戻したか（戻せなかった理由）を持つ。</summary>
+    public record ExclusionLifted(Services.ExclusionLiftOutcome Outcome) : CommandResult;
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 

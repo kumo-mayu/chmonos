@@ -141,7 +141,7 @@ public class SettingsExcludedTests
         await app.SettleAsync();
         await UiThread.Until(() => settings.Excluded.Count == 2, "解除した行が消える");
 
-        Assert.Equal("除外を解除しました。次の取り込みでまた未確定として出てきます。", settings.ExcludedNote);
+        Assert.Equal("除外を解除しました。元の場所にファイルが見つからないので、未確定には戻していません。", settings.ExcludedNote);
         Assert.False(settings.HasStatus);
         Assert.Equal("2 件", settings.ExcludedText);
         Assert.Equal(["CCCC", "AAAA"], settings.Excluded.Select(row => row.Key));
@@ -150,5 +150,27 @@ public class SettingsExcludedTests
         Assert.Same(kept[0], settings.Excluded[0]);
         Assert.Same(kept[1], settings.Excluded[1]);
         Assert.Equal(["AAAA", "CCCC"], app.Services.Store.Excluded.Load().Select(entry => entry.Hash).Order(StringComparer.Ordinal));
+    }));
+
+    /// <summary>
+    /// 解除したら、その場で未確定の一覧に戻り、ナビの件数も増える（ユーザ判断 2026-10-05・file-lifecycle.md「気になった所」10）。
+    /// 前は記録を消すだけで、その取り込み元を取り込み直すまでどこにも出なかった。
+    /// </summary>
+    [Fact]
+    public Task 除外を解除すると_ファイルが在ればその場で未確定に戻る() => TestApp.Run(app => WithClosedAfterAsync(async () =>
+    {
+        var path = app.NewFile(@"除外\作り物.psd");
+        var hash = await Core.Scanning.FileHasher.ComputeSha256Async(path);
+        var settings = await OpenSettingsAsync(app, Entry(hash, path, 0));
+        await UiThread.Until(() => s_main!.UnresolvedCount == 0, "始めは未確定が無い");
+        settings.IsExcludedExpanded = true;
+
+        settings.Excluded.Single().RestoreCommand!.Execute(null);
+        await app.SettleAsync();
+        await UiThread.Until(() => settings.Excluded.Count == 0, "解除した行が消える");
+
+        Assert.Equal("除外を解除しました。未確定の一覧に戻しました。", settings.ExcludedNote);
+        Assert.Equal(hash, Assert.Single(app.Services.Store.Unresolved.Load()).Hash);
+        await UiThread.Until(() => s_main!.UnresolvedCount == 1, "ナビの未確定の数が増える");
     }));
 }
