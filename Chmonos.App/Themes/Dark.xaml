@@ -41,6 +41,8 @@
     <SolidColorBrush x:Key="AccentHover" Color="#3f76b0" />
     <SolidColorBrush x:Key="OnAccent" Color="#ffffff" />
     <SolidColorBrush x:Key="AccentOverlay" Color="#cc3767a6" />
+    <!-- 指した商品の行の地（理由は Light.xaml の同じ鍵）。面（Surface）より青く、AccentSoft より少し明るい -->
+    <SolidColorBrush x:Key="TargetBand" Color="#22344f" />
 
     <!-- ===== 状態の色 ===== -->
     <SolidColorBrush x:Key="Good" Color="#5cc497" />
