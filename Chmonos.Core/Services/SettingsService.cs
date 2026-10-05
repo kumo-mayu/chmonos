@@ -86,7 +86,8 @@ public interface ISettingsService
     /// <summary>除外したファイルを新しい順に。**読むのは呼んだスレッドの外**（同期の読み口は持たない。設定の画面が開くたびに読むため）。</summary>
     Task<IReadOnlyList<ExcludedFile>> LoadExcludedAsync(CancellationToken cancellationToken = default);
 
-    Task RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default);
+    /// <summary>除外を解除し、ファイルが元の場所に在れば、その場で未確定に戻す。</summary>
+    Task<ExclusionLiftOutcome> RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DetachedRecord>> LoadDetachedAsync(CancellationToken cancellationToken = default);
 
@@ -99,6 +100,22 @@ public interface ISettingsService
 /// 「非表示にした商品」と「管理から外したファイル」をここから戻せるようにしているのは、
 /// どちらも普段の画面からは見えなくなる操作で、設定画面以外に取り消す場所が無いため。
 /// </summary>
+/// <summary>除外を解除した結果。画面の1行を書き分けるために返す。</summary>
+public enum ExclusionLiftOutcome
+{
+    /// <summary>未確定に戻した（元から未確定に在った物も含む）。</summary>
+    BackInUnresolved,
+
+    /// <summary>元の場所にファイルが無い（移した・消した・中身が変わった）。除外は解いたが未確定には足していない。</summary>
+    FileNotFound,
+
+    /// <summary>同じ中身を商品が持っている。行き先が決まっているので未確定には足していない。</summary>
+    OwnedByItem,
+
+    /// <summary>除外の記録に無かった（別の画面で先に解除した）。</summary>
+    NotExcluded,
+}
+
 public sealed class SettingsService : ISettingsService
 {
     private readonly DataStore _store;
@@ -265,19 +282,161 @@ public sealed class SettingsService : ISettingsService
         => Task.Run(LoadExcluded, cancellationToken);
 
     /// <summary>
-    /// 除外を解除する。次の取り込みでまた未確定として出てくる。
+    /// 除外を解除し、元の場所に同じ中身が在れば、その場で未確定に戻す。
     /// ここで解除しないと、一度除外したファイルは二度と現れない。
     /// </summary>
-    public async Task RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default)
+    public async Task<ExclusionLiftOutcome> RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default)
     {
+        bool Same(string other) => string.Equals(other, hash, StringComparison.OrdinalIgnoreCase);
+
         // 取り込みも同じファイルへ書くので、読み直してから消す（`docs/spec/data-model.md`）。
         // 錠の外で読むと、解除の最中に取り込みが足した除外が消える
-        await _store.Excluded.UpdateAsync(
+        ExcludedEntry? lifted = null;
+        await _store.Excluded.TryUpdateAsync(
             entries =>
-            [
-                .. entries.Where(entry => !string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)),
-            ],
+            {
+                lifted = entries.FirstOrDefault(entry => Same(entry.Hash));
+                return entries.RemoveAll(entry => Same(entry.Hash)) > 0 ? entries : null;
+            },
             cancellationToken);
+        if (lifted is null)
+        {
+            return ExclusionLiftOutcome.NotExcluded;
+        }
+
+        // **その場で未確定に戻す**（ユーザ判断 2026-10-05・file-lifecycle.md「気になった所」10）。前は記録を消すだけで、
+        // その取り込み元を取り込み直すまでどこにも出なかった（走査の控えに載っているので、監視の新着にも数えない）。
+        // 画面の「次の取り込みでまた未確定として出てきます」は、対象に積んだときにしか正しくなかった。
+        // 商品が同じ中身を持つなら行き先は決まっているので出さない（未確定を開いたときの均しと同じ見方）
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        if (loaded.Items.Any(item => item.Local.OwnedFiles.Any(file => Same(file.Hash))))
+        {
+            return ExclusionLiftOutcome.OwnedByItem;
+        }
+
+        var entry = await Task.Run(() => ToUnresolvedAsync(lifted, cancellationToken), cancellationToken);
+        if (entry is null)
+        {
+            return ExclusionLiftOutcome.FileNotFound;
+        }
+
+        await _store.Unresolved.TryUpdateAsync(
+            current =>
+            {
+                if (current.Any(file => Same(file.Hash)))
+                {
+                    return null;
+                }
+
+                current.Add(entry);
+                return current;
+            },
+            cancellationToken);
+        return ExclusionLiftOutcome.BackInUnresolved;
+    }
+
+    /// <summary>
+    /// 除外の記録から、未確定の記録を作り直す。除外の記録は場所しか持たないので、取り込みが作るときと同じ物をそのファイルから読む
+    /// （大きさ・日時・ダウンロード元の記録・zip の中身と開けたか）。候補は走査の控えの手掛かり（控えの3点が合うときだけ）。
+    /// **同じ場所でも中身が変わっていれば戻さない**：控えの3点が合わなければハッシュを取り直して確かめる（人の1回の操作で、その1本だけ）。
+    /// </summary>
+    private async Task<UnresolvedFile?> ToUnresolvedAsync(ExcludedEntry lifted, CancellationToken cancellationToken)
+    {
+        var cache = _store.ScanCache.Load();
+        var alive = new List<string>();
+        IReadOnlyList<string> clues = [];
+        foreach (var path in lifted.Paths)
+        {
+            FileInfo info;
+            try
+            {
+                info = new FileInfo(path);
+                if (!info.Exists)
+                {
+                    continue;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                continue;
+            }
+
+            var modified = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero);
+            var cached = cache.FirstOrDefault(row =>
+                string.Equals(row.Path, path, StringComparison.OrdinalIgnoreCase)
+                && row.SizeBytes == info.Length
+                && row.ModifiedAtUtc == modified);
+
+            string current;
+            if (cached is not null)
+            {
+                current = cached.Hash;
+            }
+            else
+            {
+                try
+                {
+                    current = await Scanning.FileHasher.ComputeSha256Async(path, cancellationToken);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    continue;
+                }
+            }
+
+            if (!string.Equals(current, lifted.Hash, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            alive.Add(path);
+            if (clues.Count == 0 && cached?.ClueItemIds is { Count: > 0 } found)
+            {
+                clues = found;
+            }
+        }
+
+        if (alive.Count == 0)
+        {
+            return null;
+        }
+
+        var first = new FileInfo(alive[0]);
+        IReadOnlyList<string> contents = [];
+        var broken = false;
+        if (string.Equals(first.Extension, ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                contents = BoothZipInspector.ZipInspector.Inspect(alive[0]).Summary.Files
+                    .Select(file => file.RelativePath)
+                    .ToList();
+            }
+            catch (InvalidDataException)
+            {
+                // 取り込みと同じ印。ほかのアプリが開いていた・権限が無いは、壊れているとは言えないので立てない
+                broken = true;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+
+        // ダウンロード元の記録は未確定の画面が読まない（記録の値だけを見る）ので、作るここで読む（DetachFileAsync と同じ）
+        var zone = BoothZipInspector.ZoneIdentifierReader.Read(alive[0]);
+        return new UnresolvedFile
+        {
+            Hash = lifted.Hash,
+            Paths = alive,
+            SizeBytes = first.Length,
+            ModifiedAtUtc = new DateTimeOffset(first.LastWriteTimeUtc, TimeSpan.Zero),
+            FirstSeenAt = DateTimeOffset.Now,
+            Contents = contents,
+            ZoneHostUrl = zone.HostUrl,
+            ZoneReferrerUrl = zone.ReferrerUrl,
+            CandidateItemIds = clues,
+            ArchiveBroken = broken,
+        };
     }
 
     /// <summary>

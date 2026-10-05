@@ -10,7 +10,7 @@
 2. **同一性はファイルならハッシュ、フォルダならパス。**同じ中身が2か所なら1件に `paths` が2つ。移す・名前を変えるとハッシュで同じ物と分かり、場所が差し替わる。フォルダは移すと「見つからない」。
 3. **取り込み**は「走査 → ハッシュ（控えが合えば省く）→ 手掛かりで商品が1つに決まれば商品へ・同じ中身を持つ商品があればそこへ場所を足す・どちらでもなければ未確定」。行き先は毎回決め直す。
 4. **「見つからない」は2通り**：場所が空（取り込みが無い場所を外した）と、場所はあるが `missingSince` が付いている（見回り・使おうとした画面が「無い」と見た）。印・検索の条件・統計は両方を数える（`ItemRecord.HasMissingFile`）。
-5. **場所を外すのは取り込み（`LocalFileMerger`）と人の登録操作だけ**。見回りは日時を付け外しするだけで場所は外さない。**つながっていないドライブの上の物は外さず、日時も付けない**（例外は「気になった所」2）。
+5. **場所を外すのは取り込み（`LocalFileMerger.Merge`）だけ**。人の登録操作（`MergeByHand`）と見回りは日時を付け外しするだけで場所は外さない。**つながっていないドライブの上の物は外さず、日時も付けない**（例外は「気になった所」2）。
 6. **人の判断は印で残す**：この商品から外した＝`detached`（行を残す。その商品へは自動で戻さない）／管理対象から除外＝`excluded.json`（中身に効く。場所ではない）／壊れたzip＝`archiveBroken`。
 7. **起動時に自動で動くのはディスクの見回り（BOOTH へ行かない）と、設定で入れていれば裏の取得（⑤⑦は BOOTH へ行く）・監視の新着の取り込み**。一時展開は起動時と終了時に消す。
 8. 書き込みは商品ごとの錠の中で今の値に当てる（`ChangeLocalAsync`）のが決まり（守れていなかった4つと取り込みの1つは 2026-10-05 に直した。「気になった所」3）。
@@ -31,7 +31,7 @@ stateDiagram-v2
     未確定 --> 商品フォルダ: zipの代わりにフォルダを登録
     未確定 --> 除外: 管理対象から除外
     除外 --> 未確定: 外した直後に戻す
-    除外 --> 控えだけ: 設定で除外を解除（次にその取り込み元を取り込むと未確定へ）
+    除外 --> 未確定: 設定で除外を解除（元の場所に在れば、その場で）
     商品 --> 外した行: この商品から外す（未確定にも戻す）
     外した行 --> 商品: この商品に戻す
     外した行 --> [*]: 設定で記録を消す
@@ -83,18 +83,18 @@ stateDiagram-v2
 | 見回り | 全商品のファイルの場所 | `missingSince` の付け外し（最初の周回だけ・結び直しの後。見方は周回の頭と共用） | 場所は外さない | `MissingMarksSweep.NoteFilesAsync` |
 | 終わり | 取り込み元の下の控え | 消えたパスを控えから落とす。`import-state.json` を空に（不調があれば残す） | つながっていないドライブの控えは残す | `ScanCacheIndex.RemoveMissingUnder` |
 
-`LocalFileMerger.Merge` の決まり：ハッシュで合わせて場所を足し合わせ、**今ディスクに無い場所は落とす**（つながっていないドライブの上は残す）。在る場所が1つでもあれば `missingSince` を消す。`variationId`・`contents`・`unityPackages` は前の値を残す。`detached` は両方が外していた時だけ残る（＝人が登録し直すと印は下りる）。
+`LocalFileMerger.Merge` の決まり：ハッシュで合わせて場所を足し合わせ、**今ディスクに無い場所は落とす**（つながっていないドライブの上は残す。人の登録操作の `MergeByHand` は無い場所も残す）。在る場所が1つでもあれば `missingSince` を消す。`variationId`・`contents`・`unityPackages` は前の値を残す。`detached` は両方が外していた時だけ残る（＝人が登録し直すと印は下りる）。
 
 ### 未確定の操作（`ResolveViewModel*.cs` → `ItemService`）
 
 | 操作 | 命令 | 書く物 | 注意 |
 |---|---|---|---|
 | このIDで登録 | `AssignItemId`（1件ずつ） | 商品が無ければ BOOTH から取って作る。`ChangeLocalAsync` で `localFiles` に足す → 未確定から外す | 移るのは hash・paths・size・contents・archiveBroken だけ（`FromUnresolved`）。zone の欄・候補は捨てる |
-| BOOTHに無い商品として登録 | `RegisterLocalItem` | 仮ID `local-…`（1件目のハッシュから）。未確定の錠を持ったまま作る | 問い合わせない |
+| BOOTHに無い商品として登録 | `RegisterLocalItem` | 仮ID `local-…`（1件目のハッシュから）。未確定の錠を持ったまま作る。既にあればファイルを足すだけで名前は残す（空の時だけ入れる） | 問い合わせない |
 | 見つからないIDのまま登録 | `AssignUnpublishedItemId` | 空の booth・`isDelisted`。⑦で確かめ直す | 問い合わせない。対象はほかの登録と同じ今の対象（チェックがあればその全部） |
 | zipの代わりにフォルダを登録 | `RegisterFolder` | `localFolders` に足す（数えて）→ 配下の未確定を消す | 以後その配下は走査で飛ばす |
 | 管理対象から除外 | `ExcludeFiles`（何件でも1回） | `excluded.json` に足す → 未確定から外す | 既に除外にあるハッシュは足さない |
-| 外した直後に戻す | `UndoExclude` | 除外からハッシュで消し、画面の写しの未確定を戻す | |
+| 外した直後に戻す | `UndoExclude` | 除外からは今回足したハッシュだけ消し（`ExcludeFiles` の結果 `FilesExcluded` が返す）、画面の写しの未確定を戻す | 前から除外していた物の記録（日時・理由）は残る |
 | 開くたびの均し | `ReconcileUnresolved` | 商品が持つハッシュを未確定から外す | 登録の2段（商品→未確定）の間に落ちた時の後始末 |
 
 ### 商品ページ・設定の操作
@@ -104,10 +104,10 @@ stateDiagram-v2
 | この商品から外す | `DetachFile` | 今在る場所だけ未確定へ（Zone.Identifier を読み直す・`archiveBroken` 引き継ぎ）→ `detached: true` | 最後のファイルなら「非表示にして残す／残す／完全に削除」を聞く。無いファイルは未確定に戻らない |
 | この商品に戻す | `ReattachFile` | `detached` を下ろす → 未確定から外す | ほかの商品が持っていれば断る |
 | 外した記録を消す（設定） | `ForgetDetached` | 外した行を消す | 次の取り込みで手掛かりから同じ商品へ戻り得る |
-| 除外を解除（設定） | `RestoreExcluded` | `excluded.json` から消す | 未確定には戻さない。その取り込み元を取り込み直すまで、どこにも出ない（監視の新着にも数えない） |
+| 除外を解除（設定） | `RestoreExcluded` | `excluded.json` から消す → 元の場所に同じ中身が在れば、その場で未確定へ（そのファイルから大きさ・日時・Zone.Identifier・zip の中身を読み、候補は控えの手掛かり） | 無い・中身が変わった・商品が持つなら未確定には足さず、設定の行の下にそう言う |
 | フォルダの登録を外す | `UnregisterFolder` | `localFolders` から消す | ファイルには触らない。中身は次の取り込みで未確定へ |
-| zipで登録し直す（通知） | `SwapFolderForArchive` | 隣の zip を1本ハッシュして（錠の外）、錠の中で今の `localFiles` へ足し・フォルダの登録を外す → 未確定から消す | ディスクには触らない。ハッシュの間に商品が消されたら何も書かない |
-| IDを変える | `ChangeItemId` | 移す先へ `LocalFileMerger` で合わせる（移す元の `variationId` は捨てる）・フォルダは足す | 外した印は両方外していた時だけ残る |
+| zipで登録し直す（通知） | `SwapFolderForArchive` | 隣の zip を1本ハッシュして（錠の外）、錠の中で今の `localFiles` へ足し（`MergeByHand`）・フォルダの登録を外す → 未確定から消す | ディスクには触らない。ハッシュの間に商品が消されたら何も書かない。外していた zip は印を下ろして付ける。除外した zip・ほかの商品が持つ zip は何も書かずに返し、画面が窓で聞く（除外を解く／その商品を開く・この商品に付け直す＝向こうに外した印） |
+| IDを変える | `ChangeItemId` | 移す先へ `LocalFileMerger.MergeByHand` で合わせる（移す元の `variationId` は捨てる。無い場所も残す）・フォルダは足す | 外した印は、移す先が持つファイルは移す先の答えのまま。移す元だけが持つ物は印ごと運ぶ |
 | 非表示 | `SaveItemLocal`（`IsHidden`） | `isHidden` だけ | ファイルには触らない。統計には数える |
 | 完全に削除 | `DetachFile(DeleteItemWhenEmpty)` | `DeleteIfAsync`（空の時だけ） | 改変・最近などの参照は付け替えない |
 | 種類を付ける | `SetFileVariations` | `variationId` | 編集画面の「ファイルを追加…」もこれ。ファイルを商品へ直に足す操作は無い |
@@ -121,7 +121,7 @@ stateDiagram-v2
 |---|---|---|---|
 | 取り込み（最初の周回） | 全商品のファイルの場所（ドライブごとに根を1回・3秒で打ち切り） | `missingSince` の付け外し | `MissingMarksSweep.NoteFilesAsync`・`FilePresenceProbe` |
 | 取り込み（周回の頭） | 登録フォルダ（`FilePresenceProbe`。ドライブごとに根を1回・3秒で打ち切り） | フォルダの `missingSince`／数え直し | `LoadOwnedAsync` |
-| 取り込みが商品を扱った時 | その商品の場所 | 無い場所を外す（場所が空になり得る） | `LocalFileMerger.Merge` |
+| 取り込みが商品を扱った時 | その商品の場所 | 無い場所を外す（場所が空になり得る）。人の登録操作は外さない | `LocalFileMerger.Merge`（人は `MergeByHand`） |
 | 起動時（窓を出した後） | ファイルとフォルダ全部 | `missingSince`（在るフォルダの `lastSeenAt` は空のとき・また見つかったときだけ）。設定に関わらず走る | `MainViewModel.Background.cs` `StartMissingMarksSweep` → `MissingMarksSweep.SweepAsync` |
 | 使おうとした時 | 商品ページを開く・エクスプローラで開く・展開・Unityへ送れなかった（商品ページ・検索の複数選択・フォルダビュー・改変の画面・「Unityで選択」。人が止めた分は見ない）。場所は読み替えた後で見る | `NoteFilePresence` → `ItemService.NoteFilePresenceAsync`（`LocalOwners.FilePresence`） | `FilePresenceNotes.cs`（`Look`・`NoteFailedSendsAsync`）・`ItemViewModel.Files.cs`・`ItemFileActions.cs`・`ItemUnityActions.cs`・`ItemSelectionActions.cs`・`ModificationViewModel.cs`・`UnityMemberSelect.cs` |
 | 「見つからないファイルを探す」（取り込み画面） | **監視フォルダの中だけ**。大きさが合う物だけハッシュ（控えを使う）。探すのはどの場所にも無い物だけ（`FilePresenceProbe`。場所の1つでもつながっていないドライブの上なら探さず、場所も外さない） | 見つけたら無い場所を差し替え・日時を消す。見つからなければ日時を付ける。`scan-cache.json` に足す。どちらかを書いたら検索の写しを読み直す | `MissingFileFinder.FindAsync`・`Replace`・`NoteNotFoundAsync` |
@@ -209,15 +209,20 @@ stateDiagram-v2
    **「裏で取得を始める」を切ると、通信しない確かめまで止まる**：`MainViewModel.StartBacklog` の頭で丸ごと戻るので、通知の整理・ページの作りの確認・手で直した JSON の確認も走らない。コメント（「通信はしないので、裏の取得を切っていても見る」）と spec（通知の上限を起動時にも当てる）に反する。
 6. **直した（2026-10-05・7ceb2e3a）**：`IsDownloaded` をやめ、`LocalBlock.IsOwned`（所持）・`HasOwnedFiles`（ファイルが要る場面）・`ItemRecord.OwnedSizeBytes`（容量。フォルダの分も）に分けた。各画面の同じ式も寄せた。試験 `OwnershipAnswerTests`（検索のカード・改変の行）・`ItemOrderTests`（容量の並び）。
    **`ItemRecord.IsDownloaded` がフォルダを数えない**：所持の定義は「ファイルかフォルダ」だが、`IsDownloaded` は外していないファイルだけ。フォルダだけの商品が、検索のカードで「未取得」・所持でない扱い（`SearchViewModel.Filtering.cs` の `IsOwned`・`SizeText`）、改変の画面で「無い」扱い（`ModificationViewModel`・`ModificationHubRows`）になり得る。統計・ショップ・アバターは別の式でフォルダも数えていて、画面によって所持の答えが違う。
-7. **`SwapFolderForArchiveAsync` は外した印・ほかの持ち主・除外を見ない**：その zip を前に外していると「登録済み」と見てフォルダの登録だけ外し、商品の所持が無くなる。ほかの商品が持つ zip でも足す。
+7. **直した（2026-10-05・38b4866a。ユーザ判断）**：外していた zip は「登録済み」に数えず、突き合わせで印を下ろして付ける。除外した zip は `Excluded`、ほかの商品が持つ zip は `OwnedElsewhere`（持ち主と、付け直すと手元の物が無くなるか）を何も書かずに返し、通知の画面が窓で聞いて頼みを足して呼び直す（`LiftExclusion`・`TakeFromOtherItems`。除外を解く・向こうに印を付けるのは、こちらに付けられた後）。試験 `FolderRegistrationTests` の4件（「外していたzipで…」「除外したzipは…」「ほかの商品が持つzipは…」は直す前に落ちた。「ほかの商品が外しているzipは聞かずに付ける」は前から通る）・画面の側 `InboxArchiveSwapTests` の4件（窓の口を足したので、直す前は組み立てが通らない）。
+   **`SwapFolderForArchiveAsync` は外した印・ほかの持ち主・除外を見ない**：その zip を前に外していると「登録済み」と見てフォルダの登録だけ外し、商品の所持が無くなる。ほかの商品が持つ zip でも足す。
 8. **直した（2026-10-05・32779a6f）**：同じハッシュの2件目は1件目の行に場所を足す。前の行の場所のうち今回見ていない場所は引き継ぎ、見た場所で無くなった物は落とす。試験 `UnresolvedMergeTests` の2件（直す前は落ちた）。登録フォルダの配下の未確定を消す `ItemService` の道は、場所の1つでも配下なら行ごと消す（もう1か所は次の取り込みで戻る。登録の担当の範囲なので触っていない）。
    **未確定は同じ中身の2か所目を落とす**：取り込みは1ファイル1件で未確定を作り、`UnresolvedMerge.ForImport` がハッシュで最初の1件だけを残す。2か所目はフォルダビューの「?」にも出ない（登録すれば次の取り込みで商品に足されるので失われはしない。試験は見当たらない）。
 9. **直した（2026-10-05・d32a57b0）**：`ToUnresolved` が1か所目の Zone.Identifier を読み直す。試験 `NotFoundImportTests.CarriesTheZoneUrlsOfTheFile`（直す前は落ちた）。
    **①で404になって未確定へ戻した物は `zoneReferrerUrl`・`zoneHostUrl` を持たない**（`ImportPipeline.ToUnresolved`）。毎回同じ道を通るので取り込み直しても付かず、元zip の束に入らない。spec の「取り込み直すと書き直される」と合わない。
-10. **除外を解除した物がどこにも出ない期間がある**：`RestoreExcluded` は未確定に戻さず、控えに載っているので監視の新着にも数えない。その取り込み元を履歴から取り込み直すまで見えない（spec「次の取り込みでまた未確定に出る」は、対象に積んだ時だけ正しい）。外した記録を消す（`ForgetDetached`）も同じく、次の取り込みで手掛かりから同じ商品へ戻り得る。
-11. **「BOOTHに無い商品」の名前が上書きされ得る**：仮ID はハッシュから決まるので、外した後に同じファイルをもう一度「BOOTHに無い商品として登録」すると、既にある商品の `displayName` を欄の下書き（ファイル名）で上書きする（`RegisterLocalItemAsync` の既にある枝）。
-12. **「IDを変える」で外した印が下り得る**：移す先で外していたファイルを移す元が持っていると、`LocalFileMerger` の決まりで持ち物に戻る。
-13. **人の登録操作でもほかのファイルの場所が落ちる**：このIDで登録・IDを変える・zipで登録し直すも `LocalFileMerger.Merge`（既定の `File.Exists`）を通るので、同じ商品のほかのファイルの無い場所をその場で外す。`missingSince` の「場所は外さない」の趣旨と合わない（取り込みと同じ動きではある）。
+10. **直した（2026-10-05・d3d9cbe3。ユーザ判断）**：除外の解除は、元の場所に同じ中身が在ればその場で未確定に戻す（`ExclusionLiftOutcome`）。`ForgetDetached`（外した記録を消すと次の取り込みで手掛かりから同じ商品へ戻り得る）は、画面の文（「次の取り込みで、読み取った情報が指すならまたその商品に紐付きます」）とコメントに書いてある動きどおりなので変えていない。試験 `SettingsServiceTests` の「除外を解除すると_ファイルが在ればその場で未確定に戻る」「…商品が持つ中身なら…」（直す前は落ちた）・「…ファイルが無ければ…」「…中身が変わっていれば…」、画面の側 `SettingsExcludedTests` の「除外を解除すると_ファイルが在ればその場で未確定に戻る」（前の文を確かめていた試験は今の文に直した）。
+   **除外を解除した物がどこにも出ない期間がある**：`RestoreExcluded` は未確定に戻さず、控えに載っているので監視の新着にも数えない。その取り込み元を履歴から取り込み直すまで見えない（spec「次の取り込みでまた未確定に出る」は、対象に積んだ時だけ正しい）。外した記録を消す（`ForgetDetached`）も同じく、次の取り込みで手掛かりから同じ商品へ戻り得る。
+11. **直した（2026-10-05・cc2b321a）**：既にある枝は今の名前を残し、空の時だけ入れる。試験 `LocalItemTests` の `RegisteringTheSameFileTwiceLandsOnTheSameItemAndKeepsItsName`（前は上書きを確かめていた試験を、残す形に書き換えた。直す前は落ちた）・`RegisteringOntoAnItemWithoutANameGivesItTheName`。
+   **「BOOTHに無い商品」の名前が上書きされ得る**：仮ID はハッシュから決まるので、外した後に同じファイルをもう一度「BOOTHに無い商品として登録」すると、既にある商品の `displayName` を欄の下書き（ファイル名）で上書きする（`RegisterLocalItemAsync` の既にある枝）。
+12. **直した（2026-10-05・4f6abd9e）**：`ItemIdChange.Merge` が、移す先が持つファイルの外した印を移す先の答えに当て直す（突き合わせの「両方外していた時だけ残す」は未確定から選び直す道の決まりなので、ここには当てない）。試験 `ItemIdChangeTests` の「移す先で外していたファイルは外したまま残る」（直す前は落ちた）・「移す先が持っているファイルは移す元で外していても持ち物のまま」。
+   **「IDを変える」で外した印が下り得る**：移す先で外していたファイルを移す元が持っていると、`LocalFileMerger` の決まりで持ち物に戻る。
+13. **直した（2026-10-05・33fad934）**：人の登録操作は `LocalFileMerger.MergeByHand`（無い場所を「今は見えない」と同じに扱って残す。在る場所があれば日時を消すのは同じ）。取り込みは spec（import.md「移した・消した場所は落とす」）どおり `Merge` のまま。試験 `HandRegistrationKeepsPlacesTests`（5件。直す前は5件とも落ちた）。
+   **人の登録操作でもほかのファイルの場所が落ちる**：このIDで登録・IDを変える・zipで登録し直すも `LocalFileMerger.Merge`（既定の `File.Exists`）を通るので、同じ商品のほかのファイルの無い場所をその場で外す。`missingSince` の「場所は外さない」の趣旨と合わない（取り込みと同じ動きではある）。
 14. **直した（2026-10-05・dbe482ab）**：`RegisterTargets` を使う（止める理由・確認の文も揃う）。試験 `ImportAndResolveFlowTests`「そのIDのまま登録は…チェックした物を対象にする」（戻すと落ちる）。
    **「IDのまま登録」だけ一覧のチェックを見ない**：`ResolveViewModel.Unpublished.cs` `AssignUnpublishedAsync` は `ActiveRows` だけ使う。spec の「今の対象」（チェックがあればその全部）と食い違う（画面では確かめていない）。
 15. **直した（2026-10-05・6f1fdd8b）**：`FilePresenceProbe.OfFolder` で見る（根が答えない・つながっていない時は書かない）。同じ周回のファイルの見回りにも同じ見方を渡す。試験 `MissingMarksSweepTests` の「取り込みの登録フォルダの判定は_根が答えなければ打ち切り_無いと書かない」（待つ長さ0と答えない根で、時計に頼らない。直す前は落ちた）。
@@ -226,6 +231,7 @@ stateDiagram-v2
    **探して見つからなかった日時が、検索にすぐ出ない**：`ImportViewModel.FindMissingFilesAsync` は結び直した数が1以上の時だけ検索の写しを読み直す。
 17. **直した（2026-10-05・bb0e257c）**：`FilePresenceNotes.NoteFailedSendsAsync`（本当に失敗した物の zip を見直して書く。人が止めた分は見ない）を、検索・フォルダビューの複数選択・改変の順に送る・「Unityで選択」から呼ぶ。試験 `UnityBatchSendPresenceTests`。呼び出し側の配線そのものは試験していない（Unity を動かさないため）。
    **Unity へ送る道の一部が「無い」を記録しない**：検索の複数選択（`ItemSelectionActions`）・改変の画面（`ModificationViewModel`・`UnityMemberSelect`）は `FilePresenceNotes` を通らない。spec は区別していない。
-18. **除外を「戻す」と前からの除外まで消える**：`ExcludeAsync` は既にあるハッシュを足さないが、`UndoExcludeAsync` はハッシュで全部消す。前に除外していた物の記録（日時・理由）も消える。
+18. **直した（2026-10-05・ac4593d7）**：`ExcludeAsync` が今回足したハッシュを返し（命令の結果 `FilesExcluded`）、未確定の画面が覚えて `UndoExclude` に渡す。戻すはそれだけを除外から消す。未確定は外す前の記録をそのまま戻す。試験 `UndoExcludeTests` の「戻しても前から除外していた物の記録は残る」（直す前は落ちた）・画面の側 `BulkExcludeTests` の「戻すと_前から除外していた物の記録は残る」。
+   **除外を「戻す」と前からの除外まで消える**：`ExcludeAsync` は既にあるハッシュを足さないが、`UndoExcludeAsync` はハッシュで全部消す。前に除外していた物の記録（日時・理由）も消える。
 19. **一部を直した（2026-10-05）**：見回りの `lastSeenAt`（a11ea600。空のとき入れる。在ると見るたびには書かない・取り込みと同じ。試験 `MissingMarksSweepTests` の「見た日時が空の在るフォルダには…」）・`NextFetchDue` の種の無い計算（20e7a15c。`RefreshJitter`。試験 `RefreshJitterTests`。`ItemService` の同じ計算は登録の担当の範囲で未着手）・一時展開の置き場を走査から外す（a131cffe。試験 `FolderScannerTests.SkipsTheTemporaryUnpackAreaInsideTheRoot`）。どれも直す前に落ちた。残りは下のまま。
    小さな物：見回りは在るフォルダの `lastSeenAt` を更新しない（取り込みの数え直しだけ）。展開したフォルダの見分けが名前だけ。取り込み元に `%TEMP%` そのものを選ぶと一時展開の中まで走査する（根だけを見ているため）。`ImportPipeline.NextFetchDue` の `GetHashCode` はプロセスごとに変わるので、コメントの「何度計算しても同じ日」にならない。spec の item-page.md にある「管理から外す」（一括操作）は App に見当たらない。spec の「IDを変更」は画面では「IDを変える」。（spec の2つは 2026-10-05・bb0e257c・aa98ea79 に今の画面に合わせて直した）

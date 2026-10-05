@@ -349,7 +349,7 @@ public sealed class UnresolvedOffThreadTests : IDisposable
         OnOwnThread(() =>
         {
             _service.ExcludeAsync([first, second], "試験").GetAwaiter().GetResult();
-            _service.UndoExcludeAsync([first]).GetAwaiter().GetResult();
+            _service.UndoExcludeAsync([first], [first.Hash]).GetAwaiter().GetResult();
             settings.RestoreExcludedAsync(second.Hash).GetAwaiter().GetResult();
             return 0;
         });

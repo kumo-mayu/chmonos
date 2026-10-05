@@ -55,13 +55,48 @@ public sealed class UndoExcludeTests : IDisposable
         };
         await _store.Unresolved.UpdateAsync(current => { current.Add(file); return current; });
 
-        await _service.ExcludeAsync([file], "試験");
+        var added = await _service.ExcludeAsync([file], "試験");
         Assert.Empty(_store.Unresolved.Load());
 
-        await _service.UndoExcludeAsync([file]);
+        await _service.UndoExcludeAsync([file], added);
 
         Assert.Empty(_store.Excluded.Load());
         var restored = Assert.Single(_store.Unresolved.Load());
         Assert.Equal(["123"], restored.CandidateItemIds);
+    }
+
+    /// <summary>
+    /// 戻すのは今回足した除外だけ。前から除外していた物の記録（日時・理由）は残す（2026-10-05・file-lifecycle.md「気になった所」18）。
+    /// 除外は既にあるハッシュを足さないのに、戻すはハッシュで全部消していたので、前に外した記録まで消えていた。
+    /// </summary>
+    [Fact]
+    public async Task 戻しても前から除外していた物の記録は残る()
+    {
+        UnresolvedFile Make(string hash) => new()
+        {
+            Hash = hash,
+            Paths = [$@"D:\a\{hash}.zip"],
+            SizeBytes = 10,
+            ModifiedAtUtc = DateTimeOffset.Now,
+            FirstSeenAt = DateTimeOffset.Now,
+        };
+        var before = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+        var old = Make("OLD1");
+        var fresh = Make("NEW1");
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = "OLD1", Paths = old.Paths, ExcludedAt = before, Reason = "前に外した" }]);
+
+        // 前から除外していた物が、古い一覧の写しから未確定にも残っていた（取り込みと画面の行き違い）
+        await _store.Unresolved.SaveAsync([old, fresh]);
+
+        var excluded = await _service.ExcludeAsync([old, fresh], "試験");
+        await _service.UndoExcludeAsync([old, fresh], excluded);
+
+        var kept = Assert.Single(_store.Excluded.Load());
+        Assert.Equal("OLD1", kept.Hash);
+        Assert.Equal(before, kept.ExcludedAt);
+        Assert.Equal("前に外した", kept.Reason);
+
+        // 未確定は外す前のまま（どちらも戻る）
+        Assert.Equal(["NEW1", "OLD1"], _store.Unresolved.Load().Select(file => file.Hash).Order().ToArray());
     }
 }

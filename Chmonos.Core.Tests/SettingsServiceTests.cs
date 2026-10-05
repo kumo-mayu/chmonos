@@ -122,6 +122,74 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(["BBBB"], (await _service.LoadExcludedAsync()).Select(entry => entry.Hash));
     }
 
+    // ---- 除外を解除したら、その場で未確定に戻す（ユーザ判断 2026-10-05・file-lifecycle.md「気になった所」10）----
+
+    private async Task<(string Path, string Hash)> ExcludedFileAsync(string name, string content = "作り物の中身")
+    {
+        var path = Path.Combine(_root, "files", name);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, content);
+        var hash = await Scanning.FileHasher.ComputeSha256Async(path);
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = hash, Paths = [path], ExcludedAt = DateTimeOffset.Now }]);
+        return (path, hash);
+    }
+
+    /// <summary>
+    /// 前は除外の記録を消すだけで、その取り込み元を取り込み直すまでどこにも出なかった（走査の控えに載っているので、監視の新着にも数えない）。
+    /// </summary>
+    [Fact]
+    public async Task 除外を解除すると_ファイルが在ればその場で未確定に戻る()
+    {
+        var (path, hash) = await ExcludedFileAsync("作り物.psd");
+
+        Assert.Equal(ExclusionLiftOutcome.BackInUnresolved, await _service.RestoreExcludedAsync(hash));
+
+        Assert.Empty(_store.Excluded.Load());
+        var back = Assert.Single(_store.Unresolved.Load());
+        Assert.Equal(hash, back.Hash);
+        Assert.Equal([path], back.Paths);
+        Assert.Equal(new FileInfo(path).Length, back.SizeBytes);
+    }
+
+    [Fact]
+    public async Task 除外を解除しても_ファイルが無ければ未確定には足さない()
+    {
+        var (path, hash) = await ExcludedFileAsync("消した.psd");
+        File.Delete(path);
+
+        Assert.Equal(ExclusionLiftOutcome.FileNotFound, await _service.RestoreExcludedAsync(hash));
+
+        Assert.Empty(_store.Excluded.Load());
+        Assert.Empty(_store.Unresolved.Load());
+    }
+
+    /// <summary>除外した後に同じ場所が別の中身で上書きされていたら、その場所は戻さない（違う物を未確定に出さない）。</summary>
+    [Fact]
+    public async Task 除外を解除しても_同じ場所の中身が変わっていれば未確定には足さない()
+    {
+        var (path, hash) = await ExcludedFileAsync("上書き.psd");
+        await File.WriteAllTextAsync(path, "別の中身");
+
+        Assert.Equal(ExclusionLiftOutcome.FileNotFound, await _service.RestoreExcludedAsync(hash));
+        Assert.Empty(_store.Unresolved.Load());
+    }
+
+    /// <summary>同じ中身を商品が持っていれば、未確定には出さない（行き先が決まっている。未確定を開いたときの均しと同じ見方）。</summary>
+    [Fact]
+    public async Task 除外を解除しても_商品が持つ中身なら未確定には足さない()
+    {
+        var (path, hash) = await ExcludedFileAsync("持っている.psd");
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9900141",
+            Booth = new BoothBlock { Name = "作り物", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = hash, Paths = [path], SizeBytes = 1 }] },
+        });
+
+        Assert.Equal(ExclusionLiftOutcome.OwnedByItem, await _service.RestoreExcludedAsync(hash));
+        Assert.Empty(_store.Unresolved.Load());
+    }
+
     /// <summary>
     /// 設定の画面は新しい順に並べる。同じ日時（まとめて除外した物）は、記録の後ろ（後から足した物）を上にして、
     /// 読み直すたびに上下が入れ替わらないようにする。

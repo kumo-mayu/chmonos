@@ -124,7 +124,7 @@ public abstract record UiCommand
     /// <summary>「この商品のものではない」と外した記録を捨てる。</summary>
     public record ForgetDetached(string Hash, string ItemId) : UiCommand;
 
-    /// <summary>管理から外したファイルを戻す（次の取り込みでまた未確定に出る）。</summary>
+    /// <summary>管理から外したファイルを戻す（元の場所に在れば、その場で未確定に戻す。結果は CommandResult.ExclusionLifted）。</summary>
     public record RestoreExcluded(string Hash) : UiCommand;
 
     /// <summary>既にどこかの商品が持っているファイルを、未確定の一覧から取り除く（結果は取り除いた数）。</summary>
@@ -214,12 +214,15 @@ public abstract record UiCommand
     /// <summary>
     /// ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。1個でもまとめてでもこれ1本で、記録は1回で書く
     /// （1個ずつ命令を呼ぶと、フォルダごと外したときに 5,000 個で2分半かかっていた）。
-    /// 戻すときは同じ一覧を <see cref="UndoExclude"/> に渡す。
+    /// 戻すときは同じ一覧と、結果（<see cref="CommandResult.FilesExcluded"/>）の足したハッシュを <see cref="UndoExclude"/> に渡す。
     /// </summary>
     public record ExcludeFiles(IReadOnlyList<Models.UnresolvedFile> Files, string? Reason = null) : UiCommand;
 
-    /// <summary>外した直後に戻す。除外の記録を消し、外す前の未確定の記録を戻す。</summary>
-    public record UndoExclude(IReadOnlyList<Models.UnresolvedFile> Files) : UiCommand;
+    /// <summary>
+    /// 外した直後に戻す。外す前の未確定の記録を戻し、除外の記録からは <paramref name="ExcludedHashes"/>（今回足した物）だけを消す。
+    /// 前は一覧のハッシュで全部消していて、前から除外していた物の記録（日時・理由）まで消えていた（2026-10-05）。
+    /// </summary>
+    public record UndoExclude(IReadOnlyList<Models.UnresolvedFile> Files, IReadOnlyCollection<string> ExcludedHashes) : UiCommand;
 
     /// <summary>アーカイブの展開先フォルダを削除する。展開元のzipが残っていることを確かめてから消す。</summary>
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
@@ -438,8 +441,16 @@ public abstract record UiCommand
         bool Replace,
         IProgress<Storage.StoreMoveProgress>? Progress = null) : UiCommand;
 
-    /// <summary>展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。</summary>
-    public record SwapFolderForArchive(string ItemId, string FolderPath) : UiCommand;
+    /// <summary>
+    /// 展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。
+    /// zip が除外してある・ほかの商品が持つときは、何も書かずにそう返る。窓で聞いて頼まれたときだけ、
+    /// <paramref name="LiftExclusion"/>（除外を解いて付ける）・<paramref name="TakeFromOtherItems"/>（ほかの商品から外して付ける）を立てて呼び直す。
+    /// </summary>
+    public record SwapFolderForArchive(
+        string ItemId,
+        string FolderPath,
+        bool LiftExclusion = false,
+        bool TakeFromOtherItems = false) : UiCommand;
 
     /// <summary>
     /// zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。
@@ -496,6 +507,15 @@ public abstract record CommandResult
     public record ImagesFetched(string ItemId, int Downloaded) : CommandResult;
 
     public record Done : CommandResult;
+
+    /// <summary>
+    /// ファイルを管理対象から外した。<paramref name="AddedHashes"/> は今回除外の記録に足した物（前から除外していた物は入らない）。
+    /// 外した直後に戻すときは、これを <see cref="UiCommand.UndoExclude"/> に渡す。
+    /// </summary>
+    public record FilesExcluded(IReadOnlyList<string> AddedHashes) : CommandResult;
+
+    /// <summary>除外を解除した。未確定に戻したか（戻せなかった理由）を持つ。</summary>
+    public record ExclusionLifted(Services.ExclusionLiftOutcome Outcome) : CommandResult;
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 

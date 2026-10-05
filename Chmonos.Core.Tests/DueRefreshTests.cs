@@ -82,7 +82,7 @@ public class DueRefreshTests : IDisposable
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
 
-        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
+        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, bool liftExclusion = false, bool takeFromOtherItems = false, CancellationToken cancellationToken = default)
             => Task.FromResult(new ArchiveSwapOutcome(ArchiveSwapResult.Registered, "x.zip"));
 
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
@@ -157,11 +157,12 @@ public class DueRefreshTests : IDisposable
             string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 
-        public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+        public Task UndoExcludeAsync(
+            IReadOnlyList<UnresolvedFile> files, IReadOnlyCollection<string> excludedHashes, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        public Task<IReadOnlyList<string>> ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>([]);
     }
 
     private Task SaveAsync(string id, DateTimeOffset? due)

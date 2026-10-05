@@ -122,13 +122,9 @@ public sealed class CreateWhileSomeoneSavesTests : IDisposable
         release.Set();
     });
 
-    private static void AssertPersonKept(LocalBlock local, bool keepsName = true)
+    private static void AssertPersonKept(LocalBlock local)
     {
-        if (keepsName)
-        {
-            Assert.Equal("人が入れた名前", local.DisplayName);
-        }
-
+        Assert.Equal("人が入れた名前", local.DisplayName);
         Assert.Equal("人が書いたメモ", local.Memo);
         Assert.Equal("人が入れた購入記録", Assert.Single(local.Purchases).Note);
     }
@@ -178,7 +174,7 @@ public sealed class CreateWhileSomeoneSavesTests : IDisposable
 
     /// <summary>
     /// 未確定の「BOOTHに無い商品として登録」：同じ仮IDの商品を人が保存している最中でも、作り直した商品で丸ごと上書きしない。
-    /// 名前とファイルは登録の決まりどおり登録の側が書く（名前は登録で付けた物になる）。
+    /// 名前も人が入れた物を残す（既にある商品の名前は登録で上書きしない。2026-10-05・file-lifecycle.md「気になった所」11）。ファイルは登録の側が足す。
     /// </summary>
     [Fact]
     public async Task RegisteringDoesNotOverwriteAnItemAPersonCreatesMeanwhile()
@@ -207,8 +203,7 @@ public sealed class CreateWhileSomeoneSavesTests : IDisposable
         await saved;
 
         var item = (await _store.Items.LoadAsync(itemId))!;
-        AssertPersonKept(item.Local, keepsName: false);
-        Assert.Equal("登録で付けた名前", item.Local.DisplayName);
+        AssertPersonKept(item.Local);
         Assert.Equal(file.Hash, Assert.Single(item.Local.LocalFiles).Hash);
         Assert.Empty(_store.Unresolved.Load());
     }

@@ -122,10 +122,14 @@ public sealed partial class ResolveViewModel
 
     public bool ShowsInlineHidden => IsEmbedded && HasHiddenByRegisteredZip;
 
+    /// <summary>今回除外の記録に足したハッシュ。戻すときはこれだけを除外から消す（前から除外していた物の記録を残す。2026-10-05）。</summary>
+    private IReadOnlyCollection<string> _lastExcludedHashes = [];
+
     /// <summary>外した直後に呼ぶ。次に外すまで、上の帯に「戻す」を出す。</summary>
-    private void RememberExcluded(IEnumerable<UnresolvedRow> rows)
+    private void RememberExcluded(IEnumerable<UnresolvedRow> rows, Core.Commands.CommandResult excluded)
     {
         _lastExcluded = rows.Select(row => row.File).ToList();
+        _lastExcludedHashes = excluded is Core.Commands.CommandResult.FilesExcluded { AddedHashes: var added } ? added : [];
         OnPropertyChanged(nameof(HasUndoExclude));
         OnPropertyChanged(nameof(UndoExcludeText));
         OnPropertyChanged(nameof(ShowsInlineUndo));
@@ -140,8 +144,9 @@ public sealed partial class ResolveViewModel
         }
 
         var files = _lastExcluded;
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UndoExclude(files));
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UndoExclude(files, _lastExcludedHashes));
         _lastExcluded = [];
+        _lastExcludedHashes = [];
         OnPropertyChanged(nameof(HasUndoExclude));
         OnPropertyChanged(nameof(UndoExcludeText));
         OnPropertyChanged(nameof(ShowsInlineUndo));

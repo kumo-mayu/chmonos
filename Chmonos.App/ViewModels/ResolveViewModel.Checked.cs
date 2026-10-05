@@ -213,11 +213,11 @@ public sealed partial class ResolveViewModel
         IsBusy = true;
         try
         {
-            await _services.Commands.ExecuteAsync(
+            var excluded = await _services.Commands.ExecuteAsync(
                 new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], "未確定画面からまとめて除外"));
 
             RemoveRows(targets);
-            RememberExcluded(targets);
+            RememberExcluded(targets, excluded);
             ListNoticeText = $"{targets.Count} 件を管理対象から除外しました。";
             return true;
         }

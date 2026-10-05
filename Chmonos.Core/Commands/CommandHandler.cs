@@ -209,9 +209,9 @@ public sealed class CommandHandler
                 return new CommandResult.Done();
 
             case UiCommand.RestoreExcluded restore:
-                await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
-                    .RestoreExcludedAsync(restore.Hash, cancellationToken);
-                return new CommandResult.Done();
+                return new CommandResult.ExclusionLifted(
+                    await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                        .RestoreExcludedAsync(restore.Hash, cancellationToken));
 
             // ---- BOOTH への問い合わせ。入口の「人が押した」優先度のままだと、開いただけで取る物まで取り込みより先に出るので、
             //      人が押していない物は梯子の段に下げる（内側の指定が勝つ） ----
@@ -476,11 +476,11 @@ public sealed class CommandHandler
                 };
 
             case UiCommand.ExcludeFiles exclude:
-                await _items.ExcludeAsync(exclude.Files, exclude.Reason, cancellationToken);
-                return new CommandResult.Done();
+                return new CommandResult.FilesExcluded(
+                    await _items.ExcludeAsync(exclude.Files, exclude.Reason, cancellationToken));
 
             case UiCommand.UndoExclude undo:
-                await _items.UndoExcludeAsync(undo.Files, cancellationToken);
+                await _items.UndoExcludeAsync(undo.Files, undo.ExcludedHashes, cancellationToken);
                 return new CommandResult.Done();
 
             case UiCommand.RemoveUnpackedFolders remove:
@@ -796,7 +796,8 @@ public sealed class CommandHandler
 
             case UiCommand.SwapFolderForArchive swap:
                 return new CommandResult.ArchiveSwapped(
-                    await _items.SwapFolderForArchiveAsync(swap.ItemId, swap.FolderPath, cancellationToken));
+                    await _items.SwapFolderForArchiveAsync(
+                        swap.ItemId, swap.FolderPath, swap.LiftExclusion, swap.TakeFromOtherItems, cancellationToken));
 
             case UiCommand.UnregisterFolder unregister:
                 return await _items.UnregisterFolderAsync(unregister.ItemId, unregister.FolderPath, cancellationToken)

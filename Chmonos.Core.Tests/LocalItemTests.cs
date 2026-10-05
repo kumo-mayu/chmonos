@@ -222,22 +222,41 @@ public class LocalItemTests : IDisposable
         Assert.DoesNotContain(itemId, due);
     }
 
-    /// <summary>同じファイルをもう一度登録しても、同じ商品に行き着く（仮IDはハッシュから決まる）。</summary>
+    /// <summary>
+    /// 同じファイルをもう一度登録しても、同じ商品に行き着く（仮IDはハッシュから決まる）。
+    /// **既にある商品の名前は残す**（2026-10-05・file-lifecycle.md「気になった所」11）：外した後に登録し直すと、
+    /// 欄の下書き（ファイル名）で、人が付けて直してきた名前を黙って上書きしていた。
+    /// </summary>
     [Fact]
-    public async Task RegisteringTheSameFileTwiceLandsOnTheSameItem()
+    public async Task RegisteringTheSameFileTwiceLandsOnTheSameItemAndKeepsItsName()
     {
         await SeedUnresolvedAsync();
         var first = await _service.RegisterLocalItemAsync(Hash, "謎の衣装");
 
         await SeedUnresolvedAsync();
-        var second = await _service.RegisterLocalItemAsync(Hash, "謎の衣装（改）");
+        var second = await _service.RegisterLocalItemAsync(Hash, "MysteryOutfit_v1.2");
 
         Assert.Equal(first, second);
         Assert.Single(_store.Items.EnumerateItemIds());
 
         var item = await _store.Items.LoadAsync(second!);
-        Assert.Equal("謎の衣装（改）", item!.Local.DisplayName);
+        Assert.Equal("謎の衣装", item!.Local.DisplayName);
         Assert.Single(item.Local.LocalFiles);
+    }
+
+    /// <summary>既にある商品に名前が無い（手で JSON を直して消した）ときだけ、渡した名前を入れる。</summary>
+    [Fact]
+    public async Task RegisteringOntoAnItemWithoutANameGivesItTheName()
+    {
+        await SeedUnresolvedAsync();
+        var itemId = (await _service.RegisterLocalItemAsync(Hash, "謎の衣装"))!;
+        var item = await _store.Items.LoadAsync(itemId);
+        await _store.Items.SaveAsync(item! with { Local = item.Local with { DisplayName = null } });
+
+        await SeedUnresolvedAsync();
+        await _service.RegisterLocalItemAsync(Hash, "  付け直した名前  ");
+
+        Assert.Equal("付け直した名前", (await _store.Items.LoadAsync(itemId))!.Local.DisplayName);
     }
 
     /// <summary>未確定に無いファイルは登録しない。</summary>

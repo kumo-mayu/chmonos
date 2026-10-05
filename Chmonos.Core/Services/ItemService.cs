@@ -56,10 +56,16 @@ public interface IItemService
 
     Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
-    /// <summary>展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。</summary>
+    /// <summary>
+    /// 展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。
+    /// <paramref name="liftExclusion"/>：除外した zip なら除外を解いて付ける（人が窓で頼んだときだけ）。
+    /// <paramref name="takeFromOtherItems"/>：ほかの商品が持つ zip なら、そちらから外してこちらに付ける（人が窓で頼んだときだけ）。
+    /// </summary>
     Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
         string itemId,
         string folderPath,
+        bool liftExclusion = false,
+        bool takeFromOtherItems = false,
         CancellationToken cancellationToken = default);
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
@@ -160,9 +166,14 @@ public interface IItemService
 
     Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default);
 
-    Task ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default);
+    /// <returns>今回除外の記録に足したハッシュ（前から除外していた物は入らない）。戻すときに <see cref="UndoExcludeAsync"/> へ渡す。</returns>
+    Task<IReadOnlyList<string>> ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default);
 
-    Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default);
+    /// <param name="excludedHashes">除外から消すハッシュ。除外したときに <see cref="ExcludeAsync"/> が返した物（今回足した物だけ）。</param>
+    Task UndoExcludeAsync(
+        IReadOnlyList<UnresolvedFile> files,
+        IReadOnlyCollection<string> excludedHashes,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>1件のitemに対する操作。UIに依存しないので、そのまま単体テストできる。</summary>
@@ -925,6 +936,8 @@ public sealed class ItemService : IItemService
     public async Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
         string itemId,
         string folderPath,
+        bool liftExclusion = false,
+        bool takeFromOtherItems = false,
         CancellationToken cancellationToken = default)
     {
         var item = await _store.Items.LoadAsync(itemId, cancellationToken);
@@ -940,7 +953,10 @@ public sealed class ItemService : IItemService
         }
 
         var name = Path.GetFileName(archivePath);
-        var already = item.Local.LocalFiles.Any(file => file.Paths.Any(
+        // 外した行は「付いている」に数えない（2026-10-05・file-lifecycle.md「気になった所」7）。前は外した zip を「登録済み」と読んで
+        // フォルダの登録だけ外し、商品の手元の物が無くなっていた。外していた zip なら下へ進み、突き合わせで印を下ろして付け直す
+        // （押した方が新しい判断。ユーザ判断 2026-10-05）
+        var already = item.Local.OwnedFiles.Any(file => file.Paths.Any(
             path => string.Equals(path, archivePath, StringComparison.OrdinalIgnoreCase)));
 
         if (already)
@@ -991,6 +1007,21 @@ public sealed class ItemService : IItemService
             ArchiveBroken = broken,
         };
 
+        // 除外とほかの持ち主は、人が決めたこと。黙って上書きせず、何も書かずに返して画面に聞かせる（ユーザ判断 2026-10-05・
+        // file-lifecycle.md「気になった所」7）。前は見ずに付けていたので、除外した zip が除外のまま持ち物になり、
+        // ほかの商品が持つ zip は2つの商品の持ち物になって容量も二重に数えていた
+        var excluded = await _store.Excluded.LoadAsync(cancellationToken);
+        if (!liftExclusion && excluded.Any(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.Excluded, name);
+        }
+
+        var holders = await OtherHoldersAsync(itemId, hash, cancellationToken);
+        if (!takeFromOtherItems && holders.Count > 0)
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.OwnedElsewhere, name) { Holders = holders };
+        }
+
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
 
         // ファイルとフォルダを1回で、商品の錠の中で今の値に当てて書く。2回に分けると、間に人が触った入力が消える。
@@ -1001,7 +1032,7 @@ public sealed class ItemService : IItemService
             itemId,
             current => current with
             {
-                LocalFiles = Scanning.LocalFileMerger.Merge(current.LocalFiles, [record]),
+                LocalFiles = Scanning.LocalFileMerger.MergeByHand(current.LocalFiles, [record]),
                 LocalFolders = WithoutFolder(current.LocalFolders, normalized) ?? current.LocalFolders,
             },
             [LocalField.LocalFiles, LocalField.LocalFolders],
@@ -1013,11 +1044,68 @@ public sealed class ItemService : IItemService
             return new ArchiveSwapOutcome(ArchiveSwapResult.ItemMissing, name);
         }
 
+        // 除外を解くのも、ほかの商品から外すのも、こちらに付けられた後。逆にすると、付ける前に商品が消されていたとき
+        // 除外も持ち主も失ったファイルが残る。この順なら、途中で落ちても二重に持つだけで、どこからも消えない
+        if (liftExclusion)
+        {
+            await _store.Excluded.TryUpdateAsync(
+                current => current.RemoveAll(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0
+                    ? current
+                    : null,
+                cancellationToken);
+        }
+
+        if (takeFromOtherItems)
+        {
+            // 見てから書くまでに持ち主が変わっていることがあるので、それぞれの錠の中で今の一覧に印を付ける（DetachFileAsync と同じ形）。
+            // 行は消さずに外した印にする：手掛かりが指せば次の取り込みでそちらへ戻ってしまうのを止め、商品ページで「この商品に戻す」もできる。
+            // 手元の物が無くなっても商品は消さない（消すかは人が商品ページで決める）
+            foreach (var holder in await OtherHoldersAsync(itemId, hash, cancellationToken))
+            {
+                await _store.Items.ChangeLocalAsync(
+                    holder.ItemId,
+                    current => current.LocalFiles.Any(file =>
+                            !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
+                        ? current with
+                        {
+                            LocalFiles = [.. current.LocalFiles
+                                .Select(file => !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)
+                                    ? file with { Detached = true }
+                                    : file)],
+                        }
+                        : null,
+                    LocalOwners.Import,
+                    cancellationToken);
+            }
+        }
+
         // 未確定に同じzipが居たなら、行き先が決まったので外す
         await RemoveUnresolvedAsync(hash, cancellationToken);
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
 
         return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name);
+    }
+
+    /// <summary>
+    /// この中身を持っている（外していない）ほかの商品。外した行は持ち物ではないので数えない（ReattachFileAsync と同じ見方）。
+    /// 全件を読むのは人が押した1回だけで、取り込みの道では呼ばない。
+    /// </summary>
+    private async Task<IReadOnlyList<ArchiveHolder>> OtherHoldersAsync(
+        string itemId, string hash, CancellationToken cancellationToken)
+    {
+        bool Holds(LocalFileRecord file) => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase);
+
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return loaded.Items
+            .Where(other => other.Id != itemId && other.Local.OwnedFiles.Any(Holds))
+            .Select(other => new ArchiveHolder(
+                other.Id,
+                other.DisplayName,
+                !HoldsAnything(other.Local with
+                {
+                    LocalFiles = [.. other.Local.LocalFiles.Where(file => !Holds(file))],
+                })))
+            .ToList();
     }
 
     /// <summary>
@@ -1056,7 +1144,7 @@ public sealed class ItemService : IItemService
         // 書く直前の一覧に足す
         if (!await _store.Items.ChangeLocalAsync(
                 itemId,
-                current => current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, [record]) },
+                current => current with { LocalFiles = LocalFileMerger.MergeByHand(current.LocalFiles, [record]) },
                 LocalOwners.Import,
                 cancellationToken))
         {
@@ -1114,7 +1202,7 @@ public sealed class ItemService : IItemService
                 var written = await _store.Items.CreateOrChangeLocalAsync(
                     itemId,
                     () => UnpublishedItem(itemId, displayName),
-                    local => local with { LocalFiles = LocalFileMerger.Merge(local.LocalFiles, [record]) },
+                    local => local with { LocalFiles = LocalFileMerger.MergeByHand(local.LocalFiles, [record]) },
                     LocalOwners.Import,
                     cancellationToken);
                 if (!written)
@@ -1772,8 +1860,11 @@ public sealed class ItemService : IItemService
                         ? current
                         : current with
                         {
-                            DisplayName = displayName.Trim(),
-                            LocalFiles = LocalFileMerger.Merge(current.LocalFiles, records),
+                            // 既にある商品の名前は残す（2026-10-05・file-lifecycle.md「気になった所」11）。仮IDはハッシュから決まるので、
+                            // 外した後に同じファイルを登録し直すと既にある商品へ行き着く。欄の下書きはファイル名なので、
+                            // 前は人が付けて直してきた名前を黙ってファイル名で上書きしていた。名前が無い（手で消した）時だけ入れる
+                            DisplayName = string.IsNullOrWhiteSpace(current.DisplayName) ? displayName.Trim() : current.DisplayName,
+                            LocalFiles = LocalFileMerger.MergeByHand(current.LocalFiles, records),
                         },
                     [LocalField.DisplayName, LocalField.LocalFiles],
                     cancellationToken);
@@ -2047,23 +2138,27 @@ public sealed class ItemService : IItemService
     /// **除外の記録に足してから、未確定から外す。**逆にすると、未確定から消えた後で除外に書けなかったとき、
     /// ファイルがどちらの記録にも無くなる（次の取り込みまで見えない）。この順なら、途中で落ちても未確定に残るだけで、もう一度押せば済む。
     /// </summary>
-    public async Task ExcludeAsync(
+    public async Task<IReadOnlyList<string>> ExcludeAsync(
         IReadOnlyList<UnresolvedFile> files,
         string? reason,
         CancellationToken cancellationToken = default)
     {
         if (files.Count == 0)
         {
-            return;
+            return [];
         }
 
+        // 足した物を覚えて返す。戻すときに前からの除外まで消さないため（2026-10-05・file-lifecycle.md「気になった所」18）
+        List<string> added = [];
         await _store.Excluded.TryUpdateAsync(
             excluded =>
             {
                 // 既に在る中身は足さない（外したときの日時と理由は、先に外したときの物を残す）。同じ一覧の中の重なりも1件にする
                 var known = excluded.Select(entry => entry.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var now = DateTimeOffset.Now;
-                var added = false;
+
+                // 錠の中の変え方は書き込みに失敗すると呼び直されることがあるので、毎回空から数える
+                added = [];
                 foreach (var file in files)
                 {
                     if (known.Add(file.Hash))
@@ -2075,11 +2170,11 @@ public sealed class ItemService : IItemService
                             ExcludedAt = now,
                             Reason = reason,
                         });
-                        added = true;
+                        added.Add(file.Hash);
                     }
                 }
 
-                return added ? excluded : null;
+                return added.Count > 0 ? excluded : null;
             },
             cancellationToken);
 
@@ -2087,21 +2182,24 @@ public sealed class ItemService : IItemService
         await _store.Unresolved.TryUpdateAsync(
             current => current.RemoveAll(file => hashes.Contains(file.Hash)) > 0 ? current : null,
             cancellationToken);
+
+        return added;
     }
 
     /// <summary>
     /// 未確定の画面で外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった）。
-    /// 設定の「解除」は除外の記録を消すだけで、次の取り込みまで未確定に出ない。ここでは外す前の未確定の記録（候補・元zipの記録を含む）をそのまま戻す。
+    /// 設定の「解除」はファイルから未確定の記録を作り直す（候補は控えの手掛かりだけ）。ここでは外す前の未確定の記録（候補・元zipの記録を含む）をそのまま戻す。
     /// </summary>
-    public async Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+    public async Task UndoExcludeAsync(
+        IReadOnlyList<UnresolvedFile> files,
+        IReadOnlyCollection<string> excludedHashes,
+        CancellationToken cancellationToken = default)
     {
-        var hashes = files.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        await _store.Excluded.UpdateAsync(
-            excluded =>
-            {
-                excluded.RemoveAll(entry => hashes.Contains(entry.Hash));
-                return excluded;
-            },
+        // 消すのは今回足した除外だけ（2026-10-05・file-lifecycle.md「気になった所」18）。除外は既にあるハッシュを足さないので、
+        // 一覧のハッシュで全部消すと、前から除外していた物の記録（日時・理由）まで消えていた
+        var hashes = excludedHashes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        await _store.Excluded.TryUpdateAsync(
+            excluded => excluded.RemoveAll(entry => hashes.Contains(entry.Hash)) > 0 ? excluded : null,
             cancellationToken);
 
         await _store.Unresolved.UpdateAsync(

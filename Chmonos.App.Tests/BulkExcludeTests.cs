@@ -137,4 +137,32 @@ public class BulkExcludeTests
         Assert.Equal("未確定画面から除外", Assert.Single(app.Store.Excluded.Load()).Reason);
         Assert.Equal(["second.zip"], Names(app.Store.Unresolved.Load()));
     });
+
+    /// <summary>
+    /// 「戻す」は今回足した除外だけを消す。前から除外していた物の記録（日時・理由）は残る（2026-10-05・file-lifecycle.md「気になった所」18）。
+    /// 画面が除外の結果で受けたハッシュを、戻すときに渡しているかを見る。
+    /// </summary>
+    [Fact]
+    public Task 戻すと_前から除外していた物の記録は残る() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        var before = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+        var old = app.Store.Unresolved.Load().Single(file => file.Paths[0].EndsWith("first.zip", StringComparison.Ordinal));
+        await app.Store.Excluded.SaveAsync([new ExcludedEntry { Hash = old.Hash, Paths = old.Paths, ExcludedAt = before, Reason = "前に外した" }]);
+        foreach (var row in resolve.Files.Where(row => row.FileName != "third.zip"))
+        {
+            row.IsSelected = true;
+        }
+
+        app.Answer = _ => MessageBoxResult.OK;
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+        resolve.UndoExcludeCommand.Execute(null);
+        await app.SettleAsync();
+
+        var kept = Assert.Single(app.Store.Excluded.Load());
+        Assert.Equal(old.Hash, kept.Hash);
+        Assert.Equal("前に外した", kept.Reason);
+        Assert.Equal(before, kept.ExcludedAt);
+    });
 }

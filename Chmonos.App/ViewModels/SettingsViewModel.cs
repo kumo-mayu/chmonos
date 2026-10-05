@@ -1388,11 +1388,30 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         await LoadAsync();
     }
 
+    /// <summary>
+    /// 除外を解除した結果の1行。解除するとその場で未確定に戻す（ユーザ判断 2026-10-05）ので、前の「次の取り込みで出てきます」は言わない。
+    /// 戻せなかったときは、どこにも出ない理由を言う。
+    /// </summary>
+    internal static string RestoredNote(Core.Commands.CommandResult result)
+        => result is Core.Commands.CommandResult.ExclusionLifted { Outcome: var outcome }
+            ? outcome switch
+            {
+                Core.Services.ExclusionLiftOutcome.BackInUnresolved => "除外を解除しました。未確定の一覧に戻しました。",
+                Core.Services.ExclusionLiftOutcome.FileNotFound =>
+                    "除外を解除しました。元の場所にファイルが見つからないので、未確定には戻していません。",
+                Core.Services.ExclusionLiftOutcome.OwnedByItem => "除外を解除しました。同じファイルが商品に登録されています。",
+                _ => "除外を解除しました。",
+            }
+            : "除外を解除できませんでした。";
+
     private async Task RestoreAsync(string hash)
     {
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RestoreExcluded(hash));
-        ExcludedNote = "除外を解除しました。次の取り込みでまた未確定として出てきます。";
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RestoreExcluded(hash));
+        ExcludedNote = RestoredNote(result);
         await LoadAsync();
+
+        // 未確定に戻したので、ナビの件数も合わせる
+        _main.RefreshBadges();
     }
 
     /// <summary>

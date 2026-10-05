@@ -138,10 +138,10 @@ public sealed class BulkExcludeTests : IDisposable
         await store.Unresolved.SaveAsync([.. targets]);
         await store.Excluded.SaveAsync([other]);
 
-        await service.ExcludeAsync(targets, "試験");
+        var added = await service.ExcludeAsync(targets, "試験");
         Assert.Empty(store.Unresolved.Load());
 
-        await service.UndoExcludeAsync(targets);
+        await service.UndoExcludeAsync(targets, added);
 
         Assert.Equal(Hashes(targets), Hashes(store.Unresolved.Load()));
         Assert.Equal(other.Hash, Assert.Single(store.Excluded.Load()).Hash);
