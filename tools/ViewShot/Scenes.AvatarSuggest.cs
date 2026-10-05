@@ -109,6 +109,27 @@ internal static partial class Scenes
             Height = null,
         },
 
+        // 検索の「改変」の候補（「アバター名：改変名」）。アバター名の呼び方でも当たり、名前で当たった行には札が付かない（2026-10-05 判断⑥）
+        new Scene("suggest-modification-alias", "検索の改変の候補：空の入力／「mzh」（呼び方で当たる）／「普段着」（名前で当たる。札なし）", context =>
+        {
+            string[] all =
+            [
+                "作り物のミズホ（このアバターの改変すべて）", "作り物のミズホ：普段着", "作り物のミズホ：水着",
+                "作り物のカナタ（このアバターの改変すべて）", "作り物のカナタ：普段着",
+            ];
+            var mizuho = new SuggestInfo(0, [new SuggestHint("Mzh", "呼び方「Mzh」")]);
+            var infos = all.ToDictionary(text => text, text => text.StartsWith("作り物のミズホ") ? mizuho : new SuggestInfo(0, []));
+            var host = new StackPanel { Orientation = Orientation.Horizontal };
+            host.Children.Add(SuggestPanel("空の入力", all, string.Empty, text => infos.GetValueOrDefault(text), null));
+            host.Children.Add(SuggestPanel("「mzh」と打つ", all, "mzh", text => infos.GetValueOrDefault(text), null));
+            host.Children.Add(SuggestPanel("「普段着」と打つ", all, "普段着", text => infos.GetValueOrDefault(text), null));
+            return Task.FromResult(new Shot(SceneContext.OnSurface(host, 20)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
         new Scene("pick-modification-icons-dialog", "改変に追加の窓：今ある改変の行の絵（1行目は改変の写真・2行目は写真が無くアバターの絵・3行目はどちらも無く頭文字）", context =>
         {
             var photo = SwatchFile("photo", Color.FromRgb(232, 150, 120));

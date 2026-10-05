@@ -68,6 +68,16 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 探す欄の語が名前でなく正式名で当たった行にだけ、何で当たったかの札が出る（2026-10-05 判断⑤）
+        new Scene("avatars-match-note", "アバターの管理：探す欄に「作り物のアバター」と入れた一覧（名前を付けた行だけ、正式名で当たった札が出る）", async context =>
+        {
+            var (avatars, root) = await OpenAvatarsAsync(context);
+            avatars.ShowListCommand.Execute(null);
+            avatars.Query = "作り物のアバター";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 右の欄の ID（押すとコピー。メモ9-②）と「BOOTHの名前に戻す」（メモ9-③）
         new Scene("avatars-detail", "アバターの管理：名前を付けた持っているアバターを選んだ右の欄（ID・BOOTHの名前に戻す）", async context =>
         {

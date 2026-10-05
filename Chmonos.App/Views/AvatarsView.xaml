@@ -64,6 +64,10 @@
                                Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}" />
                     <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
                                Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 呼び方・正式名で当たった行だけ、何で当たったかを添える -->
+                    <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                               Foreground="{DynamicResource AccentSoftText}" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
                 <TextBlock Grid.Column="2" Text="{Binding CountText}" Style="{StaticResource Mono}"

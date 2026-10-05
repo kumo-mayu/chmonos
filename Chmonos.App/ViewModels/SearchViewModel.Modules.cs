@@ -462,24 +462,50 @@ public sealed partial class SearchViewModel
 
     private readonly Dictionary<string, Controls.SuggestInfo> _avatarSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
 
-    /// <summary>改変の候補。アバターでも選べる（そのアバターの改変すべて・ユーザ判断 R3 の「着せているアバター」）。</summary>
+    private readonly Dictionary<string, Controls.SuggestInfo> _modificationSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>
+    /// 改変の候補。アバターでも選べる（そのアバターの改変すべて・ユーザ判断 R3 の「着せているアバター」）。
+    /// アバター名の呼び方・正式名でも当たる（ユーザ判断 2026-10-05。照らし方はアバターの欄と同じ <see cref="AvatarSearch"/>）
+    /// </summary>
     private IEnumerable<(string Text, string Key)> ModificationCandidates()
     {
         EnsureModificationsLoaded();
+        _modificationSuggestInfo.Clear();
         var records = (_modificationUsage ?? ModificationUsage.Empty).Records;
-        var names = AvatarNames.Map(_services.Store.Avatars.Load().Entries);
+        var entries = _services.Store.Avatars.Load().Entries;
+        var names = AvatarNames.Map(entries);
+        var entryById = entries.GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         string AvatarName(string id) => names.TryGetValue(id, out var name) ? name : id;
+
+        Controls.SuggestInfo? InfoOf(string avatarId) => entryById.TryGetValue(avatarId, out var entry)
+            ? new Controls.SuggestInfo(0, AvatarSearch.Hints(entry, AvatarName(avatarId))
+                .Select(hint => new Controls.SuggestHint(hint.Text, hint.Label)).ToList())
+            : null;
 
         foreach (var avatarId in records.Select(record => record.AvatarItemId).Distinct(StringComparer.Ordinal)
             .OrderBy(AvatarName, StringComparer.CurrentCulture))
         {
-            yield return ($"{AvatarName(avatarId)}（このアバターの改変すべて）", AvatarKey + avatarId);
+            var text = $"{AvatarName(avatarId)}（このアバターの改変すべて）";
+            if (InfoOf(avatarId) is { } info)
+            {
+                _modificationSuggestInfo[text] = info;
+            }
+
+            yield return (text, AvatarKey + avatarId);
         }
 
         foreach (var record in records.OrderBy(record => AvatarName(record.AvatarItemId), StringComparer.CurrentCulture)
             .ThenBy(record => record.Name, StringComparer.CurrentCulture))
         {
-            yield return ($"{AvatarName(record.AvatarItemId)}：{record.Name}", ModificationKey + record.Id);
+            var text = $"{AvatarName(record.AvatarItemId)}：{record.Name}";
+            if (InfoOf(record.AvatarItemId) is { } info)
+            {
+                _modificationSuggestInfo[text] = info;
+            }
+
+            yield return (text, ModificationKey + record.Id);
         }
     }
 
@@ -688,7 +714,10 @@ public sealed partial class SearchViewModel
             (item, context, key, _) => key.StartsWith(AvatarKey, StringComparison.Ordinal)
                 ? context.Modifications.Used(key[AvatarKey.Length..], item.Id)
                 : key.StartsWith(ModificationKey, StringComparison.Ordinal)
-                    && context.Modifications.InModification(key[ModificationKey.Length..], item.Id)),
+                    && context.Modifications.InModification(key[ModificationKey.Length..], item.Id))
+        {
+            InfoSelector = text => _modificationSuggestInfo.GetValueOrDefault(text),
+        },
 
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
