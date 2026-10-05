@@ -479,7 +479,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         try
         {
             var loaded = await _services.Store.Items.LoadAllAsync(cancellationToken: token);
-            var items = loaded.Items.Where(item => item.IsDownloaded).ToList();
+            var items = loaded.Items.Where(item => item.HasOwnedFiles).ToList();
             IProgress<int> progress = new Progress<int>(done =>
                 ProjectFindText = $"手元の商品の中身を読んでいます…（{done}/{items.Count}）");
 
@@ -1403,7 +1403,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 Reversed = IsReversed,
 
                 // 手元に無くても記録は残す。そのとき使ったのは事実
-                IsMissing = item is null || !item.IsDownloaded,
+                IsMissing = item is null || !item.IsOwned,
 
                 VariationText = VariationLabel(member, item),
 
@@ -1602,7 +1602,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var excluded = Record.Members.Select(member => member.ItemId).Append(Record.AvatarItemId)
             .ToHashSet(StringComparer.Ordinal);
         var candidates = loaded
-            .Where(item => item.IsDownloaded && !excluded.Contains(item.Id))
+            .Where(item => item.IsOwned && !excluded.Contains(item.Id))
             .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
             .ToList();
 

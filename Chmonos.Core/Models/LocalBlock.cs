@@ -100,6 +100,20 @@ public sealed record LocalBlock
     public IReadOnlyList<LocalFileRecord> OwnedFiles => LocalFiles.Where(file => !file.Detached).ToList();
 
     /// <summary>
+    /// 外していないファイルを1つ以上持っているか。Unity へ送る・中身を読むなど、ファイルが要る場面の問い。
+    /// 「所持か」は <see cref="IsOwned"/>（フォルダも数える）。<see cref="OwnedFiles"/> は呼ぶたびに並びを作るので、有無だけならこちら。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasOwnedFiles => LocalFiles.Any(file => !file.Detached);
+
+    /// <summary>
+    /// 所持か。**ファイルかフォルダを1つ以上持つこと**（CLAUDE.md の定義。外したファイルは数えない）。
+    /// 検索・改変・統計・ショップ・アバターが同じ答えを使うよう、ここ1か所で決める。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsOwned => HasOwnedFiles || LocalFolders.Count > 0;
+
+    /// <summary>
     /// フォルダとして所有しているもの。zipが残っていない展開済みの配布物に使う。
     /// 配下のファイルはスキャン対象から外れる。
     /// </summary>

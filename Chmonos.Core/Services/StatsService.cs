@@ -634,7 +634,7 @@ public sealed class StatsService : IStatsService
         => new(int.Parse(key[..4]), int.Parse(key[5..]), 1);
 
     private static bool IsOwned(ItemRecord item)
-        => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
+        => item.IsOwned;
 
     /// <summary>同じ中身を1回だけ数えた大きさ。商品ページに出している容量と同じ求め方。</summary>
     private static long LogicalSizeOf(ItemRecord item)

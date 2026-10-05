@@ -317,4 +317,28 @@ public sealed class ItemOrderTests
     [Fact]
     public void 空の写しには先頭に足す()
         => Assert.Equal(0, ItemOrder.LibraryInsertIndex([], Item("a")));
+
+    /// <summary>所持＝ファイルかフォルダ（file-lifecycle.md 6）。フォルダだけの商品は所持で、容量はフォルダの分、ファイルは持っていない。</summary>
+    [Fact]
+    public void フォルダだけの商品は所持で_容量にフォルダの分が入り_ファイルは無い扱い()
+    {
+        var folderOnly = Item("folder") with
+        {
+            Local = new LocalBlock { LocalFolders = [new LocalFolderRecord { Path = @"D:\f", TotalBytes = 500 }] },
+        };
+        var detachedOnly = Item("detached") with
+        {
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = "h", Paths = ["x.zip"], SizeBytes = 9, Detached = true }] },
+        };
+        var small = Item("small") with
+        {
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = "s", Paths = ["s.zip"], SizeBytes = 10 }] },
+        };
+
+        Assert.True(folderOnly.IsOwned);
+        Assert.False(folderOnly.HasOwnedFiles);
+        Assert.Equal(500, folderOnly.OwnedSizeBytes);
+        Assert.False(detachedOnly.IsOwned);
+        Assert.Equal(["small", "folder", "detached"], Ids(ItemOrder.BySize([detachedOnly, folderOnly, small], descending: false)));
+    }
 }

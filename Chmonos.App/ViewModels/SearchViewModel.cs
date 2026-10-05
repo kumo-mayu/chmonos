@@ -271,7 +271,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// 検索画面は起動時に全商品を読んでいるので、札のために200件以上を読み直さない
     /// </summary>
     public IReadOnlySet<string> OwnedItemIds() => _allItems
-        .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+        .Where(item => item.IsOwned)
         .Select(item => item.Id)
         .ToHashSet(StringComparer.Ordinal);
 

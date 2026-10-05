@@ -79,10 +79,10 @@ public static class ItemOrder
         => ByValue(items, item => item.Local.AcquiredAt, descending, names);
 
     /// <summary>
-    /// 容量で並べる。**ファイルを持っていない商品は後ろ**（カードで「未取得」と出る物。0バイトとして混ぜると、小さい順で先頭に来た）。
+    /// 容量で並べる。**何も持っていない商品は後ろ**（カードで「未取得」と出る物。0バイトとして混ぜると、小さい順で先頭に来た）。
     /// </summary>
     public static IEnumerable<ItemRecord> BySize(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
-        => ByValue(items, item => item.IsDownloaded ? item.LogicalSizeBytes : (long?)null, descending, names);
+        => ByValue(items, item => item.IsOwned ? item.OwnedSizeBytes : (long?)null, descending, names);
 
     /// <summary>
     /// スキ数で並べる。**BOOTH から一度も取れていない商品は後ろ**（BOOTH に無い商品のスキ数は 0 ではなく「無い」。少ない順で先頭に来ていた）。

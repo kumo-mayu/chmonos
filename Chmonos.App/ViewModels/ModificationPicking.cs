@@ -19,7 +19,7 @@ public static class ModificationPicking
     /// <summary>持っている商品（上と同じ定義）をIDで引けるように。アバターの候補の頭の絵が、持っていれば商品の1枚目を使うため。</summary>
     public static async Task<IReadOnlyDictionary<string, ItemRecord>> LoadOwnedItemsAsync(AppServiceContainer services)
         => (await services.Store.Items.LoadAllAsync()).Items
-            .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+            .Where(item => item.IsOwned)
             .ToDictionary(item => item.Id, StringComparer.Ordinal);
 
     /// <summary>ダイアログの中身を組む。呼ぶ場面ごとに文言だけ変える。</summary>
