@@ -305,6 +305,17 @@
                                                         <TextBlock Text="取り外しているドライブ" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
                                                     <!--
+                                                        権限が無い・ドライブが答えないで、在るとも無いとも言えないファイル（2026-10-05・MB-B）。記録には「無い」と書かないので
+                                                        カードの印も出ない。「見つかりません」と出すと食い違い、取り込み直しを勧めることにもなる。次の手は権限を見ること
+                                                    -->
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding IsUnverifiable, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            AutomationProperties.AutomationId="ItemFileUnverifiable"
+                                                            ToolTip="フォルダを読む権限があるか確かめてください。">
+                                                        <TextBlock Text="確かめられません" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                    </Border>
+                                                    <!--
                                                         同じ場所で新しい版に置き換わった古い版（2026-10-05・点検の8）。探して見つかる物ではないので「見つかりません」と分け、
                                                         警告の色にしない（困った状態ではない）。外した行と同じ灰色の札
                                                     -->

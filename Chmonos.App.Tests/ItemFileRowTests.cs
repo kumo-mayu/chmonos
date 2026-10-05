@@ -74,6 +74,19 @@ public class ItemFileRowTests
     }
 
     [Fact]
+    public void 確かめられないファイルは_見つかりませんと分け_権限を確かめるよう言う()
+    {
+        // 権限が無い・ドライブが答えない場所は記録に「無い」と書かない（カードの印も出ない）。ここだけ「見つかりません」と出すと食い違う（MB-B）
+        var row = Row([@"D:\locked\sample.zip"], FilePresence.Unverifiable);
+
+        Assert.False(row.IsMissing);
+        Assert.True(row.IsUnverifiable);
+        Assert.False(row.IsOnDetachedDrive);
+        Assert.False(row.CanReveal);
+        Assert.Equal("D:\\locked\\sample.zip\nファイルを確かめられません。権限を確かめてください。", row.PathToolTip);
+    }
+
+    [Fact]
     public void 古い版の行は_見つかりませんと言わず_外す代わりに片付けるを出す()
     {
         var row = new LocalFileRow
@@ -130,7 +143,7 @@ public class ItemFileRowTests
             {
                 var row = Row([@"D:\files\sample.zip"], presence, broken);
 
-                var shown = new[] { row.IsMissing, row.IsOnDetachedDrive, row.ShowsBrokenArchive }.Count(flag => flag);
+                var shown = new[] { row.IsMissing, row.IsOnDetachedDrive, row.IsUnverifiable, row.ShowsBrokenArchive }.Count(flag => flag);
                 Assert.True(shown <= 1, $"{presence}・壊れた印 {broken} で札が {shown} つ出る");
             }
         }
@@ -147,6 +160,7 @@ public class ItemFileRowTests
         row.Presence = FilePresence.Missing;
 
         Assert.Contains(nameof(LocalFileRow.IsMissing), changed);
+        Assert.Contains(nameof(LocalFileRow.IsUnverifiable), changed);
         Assert.Contains(nameof(LocalFileRow.IsOnDetachedDrive), changed);
         Assert.Contains(nameof(LocalFileRow.CanReveal), changed);
         Assert.Contains(nameof(LocalFileRow.PathToolTip), changed);
@@ -282,6 +296,7 @@ public class ItemFileRowTests
     [InlineData(FilePresence.Present, true, "このファイルの開き方を選びます", "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。")]
     [InlineData(FilePresence.Missing, false, "ファイルが見つかりません。", "ファイルが見つかりません。")]
     [InlineData(FilePresence.OnDetachedDrive, false, "ドライブをつなぐと開けます。", "ドライブをつなぐと送れます。")]
+    [InlineData(FilePresence.Unverifiable, false, "ファイルを確かめられません。権限を確かめてください。", "ファイルを確かめられません。権限を確かめてください。")]
     public void 開くとUnityのボタンは_在るときだけ押せ_押せないときは理由を言う(
         FilePresence presence, bool enabled, string openTip, string unityTip)
     {

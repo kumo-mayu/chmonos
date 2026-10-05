@@ -360,6 +360,7 @@ public sealed class LocalFileRow : ViewModelBase
             if (SetField(ref _presence, value))
             {
                 OnPropertyChanged(nameof(IsMissing));
+                OnPropertyChanged(nameof(IsUnverifiable));
                 OnPropertyChanged(nameof(IsOnDetachedDrive));
                 OnPropertyChanged(nameof(CanReveal));
                 OnPropertyChanged(nameof(OpenMenuTip));
@@ -389,8 +390,12 @@ public sealed class LocalFileRow : ViewModelBase
     /// <summary>「古い版の記録を片付ける」を出すか。外した行は設定の「外した記録を消す」で片付くので、ここには出さない。</summary>
     public bool CanForgetOldVersion => IsOldVersion && !IsDetached;
 
-    // 確かめられない（親のフォルダを読む権限が無い等・点検の13）は、記録には書かないが、開けないことは同じなので画面は今までどおり「見つかりません」と出す
-    public bool IsMissing => !IsOldVersion && (Paths.Count == 0 || Presence is Core.Services.FilePresence.Missing or Core.Services.FilePresence.Unverifiable);
+    // 確かめられない（親のフォルダを読む権限が無い・ドライブが答えない。点検の13）は「見つかりません」と分ける（2026-10-05・MB-B）。
+    // 記録には「無い」と書かない（カードの印も出ない）のに、ここだけ「見つかりません」と出ていて食い違っていた。次の手も取り込みではなく権限を見ること
+    public bool IsMissing => !IsOldVersion && (Paths.Count == 0 || Presence == Core.Services.FilePresence.Missing);
+
+    /// <summary>どの場所にも在ると言えず、確かめられない場所がある（権限が無い等）。</summary>
+    public bool IsUnverifiable => Paths.Count > 0 && Presence == Core.Services.FilePresence.Unverifiable;
 
     /// <summary>つながっていないドライブの上にしか場所が無い。無くなったとは限らないので「見つかりません」と分ける</summary>
     public bool IsOnDetachedDrive => Paths.Count > 0 && Presence == Core.Services.FilePresence.OnDetachedDrive;
@@ -404,11 +409,13 @@ public sealed class LocalFileRow : ViewModelBase
     // 前はボタンごと消していて、見つからないファイルの行だけ形が変わり、なぜ無いのか分からなかった。
     // 押せる条件は名前のリンクと同じ CanReveal（在る場所が1つ以上ある）
 
+    private const string UnverifiableTip = "ファイルを確かめられません。権限を確かめてください。";
     private const string OldVersionTip = "新しい版に置き換わっています。";
 
     /// <summary>「開く ▾」の吹き出し。押せないときはその理由。</summary>
     public string OpenMenuTip => CanReveal ? "このファイルの開き方を選びます"
         : IsOnDetachedDrive ? "ドライブをつなぐと開けます。"
+        : IsUnverifiable ? UnverifiableTip
         : IsOldVersion ? OldVersionTip
         : "ファイルが見つかりません。";
 
@@ -416,6 +423,7 @@ public sealed class LocalFileRow : ViewModelBase
     public string UnityMenuTip => CanReveal
         ? "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。"
         : IsOnDetachedDrive ? "ドライブをつなぐと送れます。"
+        : IsUnverifiable ? UnverifiableTip
         : IsOldVersion ? OldVersionTip
         : "ファイルが見つかりません。";
 
@@ -428,6 +436,7 @@ public sealed class LocalFileRow : ViewModelBase
         0 when IsOldVersion => OldVersionTip,
         0 => "ファイルが見つかりません。",
         _ when IsMissing => $"{string.Join("\n", Paths)}\nファイルが見つかりません。",
+        _ when IsUnverifiable => $"{string.Join("\n", Paths)}\n{UnverifiableTip}",
         _ when Presence == Core.Services.FilePresence.OnDetachedDrive
             => $"{string.Join("\n", Paths)}\nドライブをつなぐと開けます。",
         1 => $"{Paths[0]}\n押すと、エクスプローラでこのファイルの場所を開きます。",

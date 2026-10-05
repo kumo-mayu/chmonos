@@ -158,7 +158,7 @@ stateDiagram-v2
 ## 例外的な動き・落とし穴
 
 - **外付けのドライブ**：「つながっていない」は根（`D:\`・`\\server\share`）が見えないこと。見回り・使う時・「見つからないファイルを探す」・取り込みの登録フォルダの判定と `LocalFileMerger` は根を3秒で打ち切る（`FilePresenceProbe`。控えた文字に別のディスクが来ていれば「つながっていない」と同じ・`VolumeSnapshot`）。`UnresolvedMerge`・控えの片付け・`MergeByHand` は `UnresolvedMerge.IsOnMissingVolume`（`Directory.Exists(root)`・打ち切り無し）。
-- **権限の無いフォルダ**：`FilePresenceProbe` は `DiskCheck.FileState` で、拒まれた・ドライブが答えなかった場所を「確かめられない」（`FilePresence.Unverifiable`）として日時も場所も触らない。商品ページの行は今までどおり「見つかりません」と出す。
+- **権限の無いフォルダ**：`FilePresenceProbe` は `DiskCheck.FileState` で、拒まれた・ドライブが答えなかった場所を「確かめられない」（`FilePresence.Unverifiable`）として日時も場所も触らない。商品ページの行は「確かめられません」と出し、吹き出しで権限を確かめるよう言う（MB-B）。
 - **届かない共有**：根の確かめは1回21秒かかったことがある。打ち切りがあるのは `FilePresenceProbe` を通る道だけ（上）。
 - **同じ中身が複数の場所**：商品は1件に複数の `paths`。容量は商品ページが1回、統計の実占有は場所の数だけ。未確定も1件に複数の場所を持つ（2026-10-05 から。前は最初の場所だけ）。同じ中身を2つの商品が持つことはあり得て、取り込みは両方に場所を足す。
 - **ハッシュの扱い**：ファイルは SHA-256。控え（パス・大きさ・更新日時）が合えば取り直さない。持っている zip は開き直さない（中身の一覧は商品、手掛かりは控え）。**フォルダはハッシュを持たない**（中の1ファイルで別物になるため）。
@@ -188,6 +188,7 @@ stateDiagram-v2
 | この商品から外す／この商品に戻す | `DetachFile`／`ReattachFile`・`detached` |
 | 見つかりません | 場所が空（`paths: []`）か `missingSince`・`HasMissingFile` |
 | 古い版／古い版の記録を片付ける | `replaced`・`IsOldVersion`／`ForgetOldVersion` |
+| 確かめられません | `FilePresence.Unverifiable`・`LocalFileRow.IsUnverifiable` |
 | 取り外しているドライブ | `FilePresence.OnDetachedDrive`・`IsOnMissingVolume` |
 | 壊れたzip | `archiveBroken`・`HasBrokenArchive` |
 | 同じ場所にあった | `samePathItemIds` |
@@ -261,13 +262,14 @@ stateDiagram-v2
    **監視フォルダの中で移した物を元へ戻すと、監視が気付かない**：監視の取り込みは新着のファイルだけが対象で、取り込み元の下の片付けが移した元に届かず、戻すと控えと3点が合った。
 6. **直した（2026-10-05・53171553）**：見回りは場所を全部見て（`FilePresenceProbe.Sight`）、ほかの場所に在ると確かめたときだけ、無いと確かめた場所を外す（`FileSighting.Gone`。錠の中で今の値に当て、見てから場所が変わったファイルには当てない）。つながっていない・確かめられない場所は外さない。使おうとした画面の確かめは外さない。試験 `MissingMarksSweepTests` の「同じ中身の片方を消したら…」（直す前に落ちた）・「ほかの場所に在っても_つながっていないドライブの上の場所は外さない」・「どの場所にも無いときは_場所を外さず日時だけ付ける」。
    **同じ中身の片方を消しても場所が残る**：残った方が在るので結び直しも `Merge` も走らず、見回りは「在る」とだけ見る。統計の重複・空けられる量・商品ページの行の名前（`Paths[0]`）に消した場所が残る。
-8. **直した（2026-10-05・COMMIT8。ユーザ判断 8-A）**：取り込みが上書きで場所の残らなかった記録に古い版の印 `replaced: { path, at }` を付け（`DropReplacedPathsAsync`）、`HasMissingFile`（カードの印・検索の条件・統計）・見回りの日時（`FileMissingMarks`）・「探す」の対象（`MissingFileFinder`）から外す。古い版の中身をまた取り込んで場所が付けば印を消す（`LocalFileMerger`）。商品ページは置き換わった場所の名前で「古い版」の札を出し、「この商品から外す」の代わりに「古い版の記録を片付ける」（`ForgetOldVersion`。行を記録から消す。外す印にしないのは、外す印が止める「手掛かりで同じ商品へ戻す」相手が、どこにも無い古い版には無いため）。試験 `OldVersionMarkTests`（「上書きで…古い版と印が付き…」「見回りは…」「探すは…」「片付けると…」は直す前に落ちた。「ほかの場所に残れば…」「また取り込むと印が下りる」は前から通る見張り）・画面の側 `ItemFileRowTests` の「古い版の行は…」「商品ページは_古い版を…片付けると記録から消える」（直す前に落ちた）。絵は ViewShot `item-files-states`。
+8. **直した（2026-10-05・d9017308。ユーザ判断 8-A）**：取り込みが上書きで場所の残らなかった記録に古い版の印 `replaced: { path, at }` を付け（`DropReplacedPathsAsync`）、`HasMissingFile`（カードの印・検索の条件・統計）・見回りの日時（`FileMissingMarks`）・「探す」の対象（`MissingFileFinder`）から外す。古い版の中身をまた取り込んで場所が付けば印を消す（`LocalFileMerger`）。商品ページは置き換わった場所の名前で「古い版」の札を出し、「この商品から外す」の代わりに「古い版の記録を片付ける」（`ForgetOldVersion`。行を記録から消す。外す印にしないのは、外す印が止める「手掛かりで同じ商品へ戻す」相手が、どこにも無い古い版には無いため）。試験 `OldVersionMarkTests`（「上書きで…古い版と印が付き…」「見回りは…」「探すは…」「片付けると…」は直す前に落ちた。「ほかの場所に残れば…」「また取り込むと印が下りる」は前から通る見張り）・画面の側 `ItemFileRowTests` の「古い版の行は…」「商品ページは_古い版を…片付けると記録から消える」（直す前に落ちた）。絵は ViewShot `item-files-states`。
    **上書きで残った古い版の記録が「見つかりません」と数えられ続ける**：場所の空いた記録が、カードの印・検索の条件・統計に当たり、「探す」が毎回探して「見つかりませんでした」と数えた。
 9. **直した（2026-10-05・67928f74）**：ドライブの根がつながっていてフォルダだけが無いときを `FilePresenceProbe.OfFolder` で見分ける。監視は `WatchResult.MissingFolders` を返し、取り込み画面に「監視フォルダ「名前」が見つかりません。」と次の手を出す（監視からは外さない）。探す所は「見つからないため探せませんでした」、設定の一覧は「見つかりません」と言い分ける。試験 `FolderWatchTests`・`MissingFileFinderTests` の各1件と、画面の側 `WatchedFolderMissingTests`（直す前は Core の2件・画面の3件が落ちた）。前の「つながっていない」の試験2件は、本当にドライブの無い場所で確かめるよう直した。
    **監視フォルダ・取り込み元の名前を変えた・移したのを、外付けを外したのと同じに扱う**：監視は黙り、探す所は「つながっていないため」、設定は「今つながっていません」と言っていた。
 12. **直した（2026-10-05・5db5d233）**：`LocalFileMerger.Merge` に見方を渡す口を足し、取り込みの結び直し（`RelinkMovedFilesAsync`）と既にある商品へ足す2か所（`FetchAsync`）が周回の頭の見方を根の覚えだけ新しくして（`Renewed`）渡す。見方を渡さない呼び方も既定で `FilePresenceProbe` を通る（通し番号の控えは無し）。試験 `ForeignVolumeTests.取り込みは根が答えないドライブの上の場所を外さない`（直す前に落ちた）。
    **揺れる共有で場所を外す**：`Merge` は場所ごとに打ち切りなしで `File.Exists` と根の `Directory.Exists` を呼ぶ（錠の中）。
 13. **直した（2026-10-05・3c873264）**：`DiskCheck.FileState`／`FolderState` が、無いと分かったとき（ファイル・途中のフォルダが無い）だけ「無い」と答え、拒まれた・ドライブが答えなかったときは「確かめられない」（`FilePresence.Unverifiable`）。見回り・`Merge`・探すは日時も場所も触らない。商品ページの行は今までどおり「見つかりません」。「見つからないファイルを探す」は読めなかったファイル・フォルダを数えて結果の文に出し、ログに残す（`MissingFileSearchResult.UnreadableFiles`・`UnreadableFolders`）。試験 `UnverifiablePlaceTests`（見回り・突き合わせ・探すの3件は直す前に落ちた）・画面の側 `ImportResultTextTests` の探して読めなかった物の文。
+   **MB-B も直した（2026-10-05・COMMITB。ユーザ判断 MB-B）**：商品ページの行は「確かめられません」の札（吹き出し「フォルダを読む権限があるか確かめてください。」）で「見つかりません」と分け、［開く ▾］［Unity ▾］・名前の吹き出しも「ファイルを確かめられません。権限を確かめてください。」。「取り込みを開く」は出さない。試験 `ItemFileRowTests` の「確かめられないファイルは…」と開く・Unity の吹き出しの Unverifiable の行（直す前に落ちた）。絵は ViewShot `item-files-states`（権限の拒否は台の上で作らず、見た答えだけを差し替えて撮る）。
    **権限が無いと「無い」と見る**：読み取り権限の無いフォルダの上のファイルを `DiskCheck` が「無い」と見て、見回りが日時を付け、`Merge` が場所を外し得る。探す所は読めなかった物を黙って飛ばしていた。
 14. **直した（2026-10-05・8c0b86cc）**：同じ場所かは大文字小文字を区別せずに見るまま、綴りは走査で読んだ方に合わせる（`LocalFileMerger` の足し合わせ・結び直しを積む条件・`ScanCacheIndex.TryGetHash`）。試験 `CaseRenameTests`・`LocalFileMergerTests.TakesTheSpellingOfTheFoundPathWhenOnlyTheCaseChanged`・`ScanCacheIndexTests.FollowsACaseOnlyRenameWhenReusingTheHash`（3件とも直す前に落ちた）。
    **大文字小文字だけの改名を記録が追わない**：場所を大文字小文字を区別せずに比べるので、同じ場所と見て何もしない。

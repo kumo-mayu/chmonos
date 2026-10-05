@@ -66,7 +66,7 @@ internal static partial class Scenes
 
     private static IEnumerable<Scene> Item =>
     [
-        new Scene("item-files-states", "商品ページの手元のファイル：在る・壊れたzip・見つかりません・取り外しているドライブ・同じ中身が2箇所・古い版", async context =>
+        new Scene("item-files-states", "商品ページの手元のファイル：在る・壊れたzip・見つかりません・取り外しているドライブ・同じ中身が2箇所・確かめられない・古い版", async context =>
         {
             var plain = Fake.Zip(@"ライブラリ\costume_full_v1.2.zip", "costume.unitypackage", "readme.txt");
             var item = await context.Fake.ItemAsync("9900101", "作り物の衣装セット（ファイルの行の確かめ）", record => record with
@@ -88,6 +88,7 @@ internal static partial class Scenes
                             SizeBytes = 9_400_000,
                             VariationId = 1,
                         },
+                        Fake.FileRecord(Fake.Zip(@"鍵のかかったフォルダ\costume_locked.zip"), size: 12_000_000),
 
                         // 同じ名前の新しい版で上書きされた古い版（点検の8）。1行目と同じ名前で並ぶ
                         new LocalFileRecord
@@ -112,6 +113,9 @@ internal static partial class Scenes
                 () => page.LocalFiles.Count(row => row.IsMissing) == 2 && page.LocalFiles.Any(row => row.IsOnDetachedDrive),
                 "「見つかりません」と「取り外しているドライブ」の印が付く");
 
+            // 確かめられない（権限が無い）は、台の上で本物の拒否を作ると後片付けで消せなくなるので、見た答えだけを差し替える（MB-B）。
+            // 答えから札を決める所は試験（ItemFileRowTests）が確かめている
+            page.LocalFiles.Single(row => row.FileName == "costume_locked.zip").Presence = FilePresence.Unverifiable;
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.View<ItemFilesPanel>(root) };
