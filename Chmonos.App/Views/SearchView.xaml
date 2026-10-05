@@ -732,6 +732,7 @@
                                                              CommitCommand="{Binding AddCommand}"
                                                              Placeholder="{Binding Placeholder}"
                                                              IconSelector="{Binding IconSelector}"
+                                                             InfoSelector="{Binding InfoSelector}" GroupHeadings="{Binding GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
                                                              AutomationProperties.Name="{Binding InputName}"
                                                              Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

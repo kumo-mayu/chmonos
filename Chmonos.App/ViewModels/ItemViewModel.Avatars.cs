@@ -357,17 +357,34 @@ public sealed partial class ItemViewModel
 
         // 対応アバターの候補。既に宣言されているものは出さない
         var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
-        var avatarSuggestions = registry.Entries
+        var avatarEntries = registry.Entries
             // その商品自身（アバターのとき）は、自分の対応アバターにはならない
             .Where(entry => AvatarService.IsAvatar(entry) && !declared.Contains(entry.ItemId)
                 && !string.Equals(entry.ItemId, Item.Id, StringComparison.Ordinal))
-            .Select(entry => names[entry.ItemId]);
+            .ToList();
+
+        // 所持／未所持の群と、呼び方でも当たる案内（メモ48・メモ58。検索の対応アバターと同じ分け方・照らし方）
+        _supportSuggestInfo = new Dictionary<string, Controls.SuggestInfo>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var entry in avatarEntries)
+        {
+            var group = ownedIds.Contains(entry.ItemId) || manuallyOwned.Contains(entry.ItemId)
+                ? AvatarSuggestionText.OwnedGroup
+                : AvatarSuggestionText.OtherGroup;
+            _supportSuggestInfo.TryAdd(names[entry.ItemId], AvatarSuggestionText.InfoOf(entry, names[entry.ItemId], group));
+        }
+
+        var avatarSuggestions = avatarEntries.Select(entry => names[entry.ItemId]);
 
         // 共通素体も同じ欄から付ける（ユーザ判断 2026-09-28：素体は外す・戻すしかできず、付ける口が無かった）。
         // アバターと素体に同じ名前がありうるので、素体には「（共通素体）」を添えて別の行にし、
         // 選ばれた文字列を名前で引き直さず、この表で素体と分かった物だけを素体として足す
         _baseNamesBySuggestion = AvatarService.ItemBaseCandidates(registry, Item.Local.AvatarBases)
             .ToDictionary(BaseSuggestionText, name => name, StringComparer.CurrentCultureIgnoreCase);
+
+        foreach (var baseText in _baseNamesBySuggestion.Keys)
+        {
+            _supportSuggestInfo[baseText] = new Controls.SuggestInfo(AvatarSuggestionText.BaseGroup, []);
+        }
 
         SupportSuggestions = avatarSuggestions
             .Concat(_baseNamesBySuggestion.Keys)

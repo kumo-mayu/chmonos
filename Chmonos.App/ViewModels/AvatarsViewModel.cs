@@ -168,10 +168,7 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
     /// 別名（誤記や略称の受け皿）も入れておく。
     /// </summary>
     public bool Matches(string query)
-        => Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-            || ItemId.Contains(query, StringComparison.Ordinal)
-            || BoothName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-            || Summary.Entry.Aliases.Any(alias => alias.Text.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+        => AvatarSearch.Matches(Summary.Entry, Name, query, out _);
 }
 
 /// <summary>素体グループの1行。</summary>

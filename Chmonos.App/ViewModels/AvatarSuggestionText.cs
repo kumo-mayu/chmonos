@@ -10,6 +10,22 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public static class AvatarSuggestionText
 {
+    /// <summary>候補の群の番号。見出し（<see cref="Headings"/>）の添え字と同じ。</summary>
+    public const int OwnedGroup = 0;
+
+    public const int BaseGroup = 1;
+
+    public const int OtherGroup = 2;
+
+    /// <summary>群の見出し（メモ48）。アバターの候補を出す欄はどこもこの3つ。共通素体を選べない欄は、素体の群が出ないだけ。</summary>
+    public static readonly IReadOnlyList<string> Headings = ["所持アバター", "共通素体", "未所持アバター"];
+
+    /// <summary>アバター1体の候補の案内。群と、名前以外の呼び方（登録簿の別名・BOOTHの正式名）を付ける。</summary>
+    public static Controls.SuggestInfo InfoOf(Core.Models.AvatarRegistryEntry entry, string shownName, int group)
+        => new(group, Core.Services.AvatarSearch.Hints(entry, shownName)
+            .Select(hint => new Controls.SuggestHint(hint.Text, hint.Label))
+            .ToList());
+
     public static string Format(string name, string itemId) => $"{name}（{itemId}）";
 
     /// <summary>

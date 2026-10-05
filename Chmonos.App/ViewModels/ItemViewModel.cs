@@ -295,6 +295,13 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>候補に出した名前から登録簿のIDを引く（U18：候補の頭に絵を出すため）。</summary>
     private Dictionary<string, string> _avatarIdsByName = new(StringComparer.CurrentCulture);
 
+    private Dictionary<string, Controls.SuggestInfo> _supportSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>「対応アバターを足す」の候補の群と、名前以外で当たる語（呼び方）。</summary>
+    public Func<string, Controls.SuggestInfo?> SupportSuggestInfoSelector => name => _supportSuggestInfo.GetValueOrDefault(name);
+
+    public IReadOnlyList<string> SupportGroupHeadings => AvatarSuggestionText.Headings;
+
     /// <summary>
     /// 「対応アバターを足す」の候補の頭に出す絵（U18）。持っていれば商品の1枚目、持っていなければ控えの1枚。
     /// 似た名前のアバターを名前だけで選ぶと取り違える

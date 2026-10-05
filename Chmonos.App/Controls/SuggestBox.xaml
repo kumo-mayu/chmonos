@@ -30,6 +30,9 @@
                             <StackPanel>
                             <!-- 先に出す群とその下の群の境目（PrimaryCount）。行の幅いっぱいの線 -->
                             <Border Height="1" Margin="0,2,0,5" Background="{DynamicResource BorderStrong}" Visibility="{Binding DividerVisibility}" />
+                            <!-- 群の見出し（所持アバター・共通素体・未所持アバター）。候補が残った群の最初の行にだけ付く -->
+                            <TextBlock Text="{Binding Heading}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFaint}"
+                                       Margin="2,1,0,2" Visibility="{Binding HeadingVisibility}" />
                             <StackPanel Orientation="Horizontal" Margin="2,3">
                                 <!--
                                     アバターの候補の頭の絵（U18）。見えた行だけで読む。
@@ -45,6 +48,10 @@
                                     </Grid>
                                 </Border>
                                 <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" />
+                                <!-- 名前以外（呼び方・正式名）で当たったとき、何で当たったか -->
+                                <TextBlock Text="{Binding Note}" FontSize="10.5" Foreground="{DynamicResource AccentText}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="150"
+                                           Visibility="{Binding NoteVisibility}" />
                                 <!-- 候補に無い語は「新規追加」であることを明示する -->
                                 <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                         BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="7,0,0,0"
