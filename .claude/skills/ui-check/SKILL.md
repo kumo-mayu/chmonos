@@ -27,6 +27,9 @@ dotnet run --project tools/ViewShot -- shot --all --theme both --out $env:TEMP\c
 dotnet run --project tools/ViewShot -- diff $env:TEMP\chmonos-shots\before $env:TEMP\chmonos-shots\after --out $env:TEMP\chmonos-shots\diff
 ```
 
+- **全部をまとめて見て回る・人に渡す**：`dotnet run --project tools/ViewShot -- catalog [--out <空のフォルダ>] [--only 名前の頭,…]`。
+  全場面を明・暗（一部は幅 900 も）で撮り、画面ごとのフォルダ・`index.html`（縮小・押すと原寸・明暗の切り替え・名前で絞る）・`summary.txt` を作って zip にする。
+  失敗しても止めずに索引へ印を付け、最後に枚数・時間・失敗・zip の大きさを出す（2026-10-05：323場面・704枚・4本ずつで約8分・zip 約90MB）。どの画面のどの状態をどの場面が撮るかは `docs/dev/ui-shots.md`
 - 画像は既定で `%TEMP%\chmonos-shots\view\<場面>-<light|dark>[-w幅][-s倍率][-z大きさ].png`。結果の行にパスが出るので Read で見る
 - 場面は「見たい所」で切り出して出す（窓全体は重い）。全体は `--full`、範囲を決めるなら `--crop x,y,幅,高さ`（DIP）
 - `diff` は違う画素の数・違う所の範囲・色の差の最大を言い、`--out` に前・後・違う所（赤）を並べた画像を書く。同じなら終了コード 0。
