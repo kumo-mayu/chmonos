@@ -101,8 +101,10 @@
             「アバターとして扱わない」印は、リストと同じ薄さで示す
         -->
         <DataTemplate x:Key="AvatarCard" DataType="{x:Type vm:AvatarRowViewModel}">
-            <Grid Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}">
+            <Grid HorizontalAlignment="Left" Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}">
+                <!-- 持っていない物の札（下）は左に付くので、ContentControl も左に付ける。そのままだと伸びてカードが中央に寄った（メモ69） -->
                 <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
                                 Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <!--
                     名前が挙がっただけで手元に商品が無いアバターの札。商品のカードを当てると、
