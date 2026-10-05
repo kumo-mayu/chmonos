@@ -45,6 +45,30 @@ public sealed record MissingFileSearchResult
     /// **候補を返すだけで記録は変えない**——フォルダはハッシュを持たないので同じ物と言い切れず、人が選んで差し替える（<c>UiCommand.RelocateFolder</c>）。
     /// </summary>
     public IReadOnlyList<MissingFolder> MissingFolders { get; init; } = [];
+
+    /// <summary>
+    /// 紐付け直したファイル（商品ごと。同じ中身を2つの商品が持てば2行）。書いた物だけ入る（その間に外したファイルは入らない）。
+    /// 前は数だけを返していて、画面が「何件」としか言えず、どの商品のどのファイルがどこへ移ったのかが分からなかった
+    /// （手触りの確認 2026-10-06・メモ73。結び直っていたのに、見つからなかったように見えた）。
+    /// </summary>
+    public IReadOnlyList<MissingFileOutcome> RelinkedFiles { get; init; } = [];
+
+    /// <summary>探しても見つからなかったファイル（商品ごと）。<see cref="RelinkedFiles"/> と同じく、画面がどれかを言うため。</summary>
+    public IReadOnlyList<MissingFileOutcome> NotFoundFiles { get; init; } = [];
+}
+
+/// <summary>探した結果の、商品のファイル1つ。</summary>
+public sealed record MissingFileOutcome
+{
+    public required string ItemId { get; init; }
+
+    public required string ItemName { get; init; }
+
+    /// <summary>探す前に記録していた場所。取り込みが全部外した物は空。</summary>
+    public required IReadOnlyList<string> OldPaths { get; init; }
+
+    /// <summary>紐付け直した場所。見つからなかった物は null。</summary>
+    public string? NewPath { get; init; }
 }
 
 /// <summary>
@@ -130,7 +154,7 @@ public sealed class MissingFileFinder
                     missing[file.Hash] = entry = new MissingEntry(file.SizeBytes);
                 }
 
-                entry.Owners.Add((item.Id, file.Paths, gone));
+                entry.Owners.Add((item.Id, item.DisplayName, file.Paths, gone));
             }
         }
 
@@ -262,6 +286,7 @@ public sealed class MissingFileFinder
         }
 
         var relinked = 0;
+        var relinkedFiles = new List<MissingFileOutcome>();
         foreach (var (hash, entry) in missing)
         {
             if (!found.TryGetValue(hash, out var path))
@@ -269,19 +294,29 @@ public sealed class MissingFileFinder
                 continue;
             }
 
-            foreach (var (itemId, _, gone) in entry.Owners)
+            foreach (var (itemId, itemName, paths, gone) in entry.Owners)
             {
-                await _store.Items.ChangeLocalAsync(
-                    itemId,
-                    current => Replace(current, hash, gone, path),
-                    LocalOwners.Import,
-                    cancellationToken);
+                if (await _store.Items.ChangeLocalAsync(
+                        itemId,
+                        current => Replace(current, hash, gone, path),
+                        LocalOwners.Import,
+                        cancellationToken))
+                {
+                    relinkedFiles.Add(new MissingFileOutcome { ItemId = itemId, ItemName = itemName, OldPaths = paths, NewPath = path });
+                }
             }
 
             relinked++;
         }
 
         var marked = await NoteNotFoundAsync(missing, found, probe, cancellationToken);
+        List<MissingFileOutcome> notFoundFiles =
+        [
+            .. missing
+                .Where(pair => !found.ContainsKey(pair.Key))
+                .SelectMany(pair => pair.Value.Owners)
+                .Select(owner => new MissingFileOutcome { ItemId = owner.ItemId, ItemName = owner.ItemName, OldPaths = owner.Paths }),
+        ];
 
         return new MissingFileSearchResult
         {
@@ -293,6 +328,8 @@ public sealed class MissingFileFinder
             MarkedItems = marked,
             UnreadableFiles = unreadableFiles,
             UnreadableFolders = unreadableFolders,
+            RelinkedFiles = relinkedFiles,
+            NotFoundFiles = notFoundFiles,
             MissingFolders =
             [
                 .. missingFolders.Select(entry => entry.Missing with
@@ -388,7 +425,7 @@ public sealed class MissingFileFinder
                 continue;
             }
 
-            foreach (var (itemId, paths, _) in entry.Owners)
+            foreach (var (itemId, _, paths, _) in entry.Owners)
             {
                 if (!sightingsByItem.TryGetValue(itemId, out var sightings))
                 {
@@ -422,6 +459,6 @@ public sealed class MissingFileFinder
     {
         public long SizeBytes { get; } = sizeBytes;
 
-        public List<(string ItemId, IReadOnlyList<string> Paths, IReadOnlyList<string> Gone)> Owners { get; } = [];
+        public List<(string ItemId, string ItemName, IReadOnlyList<string> Paths, IReadOnlyList<string> Gone)> Owners { get; } = [];
     }
 }

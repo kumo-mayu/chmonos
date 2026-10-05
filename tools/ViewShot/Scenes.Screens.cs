@@ -159,6 +159,101 @@ internal static partial class Scenes
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
         }),
+
+        // 探した結果の中身（手触りの確認 2026-10-06・メモ73）。紐付け直した物は開いて、見つからなかった物は多いので畳んで出る。
+        // 探せなかった場所の文と、候補の無い登録フォルダも並べる
+        new Scene("import-missing-results", "見つからないファイルを探した結果：紐付け直したファイル・見つからなかったファイル（畳んだ）・探せなかった場所", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var import = context.Screen<ImportViewModel>();
+            MissingFileOutcome NotFound(int i) => new()
+            {
+                ItemId = $"99007{i:00}",
+                ItemName = $"作り物の小物{i:00}",
+                OldPaths = [$@"D:\Booth\downloads\accessory_{i:00}.zip"],
+            };
+
+            var result = new MissingFileSearchResult
+            {
+                MissingBefore = 3 + ImportViewModel.ResultFoldOver + 1,
+                Relinked = 3,
+                Hashed = 12,
+                Unreachable = [@"E:\外付け\監視"],
+                RelinkedFiles =
+                [
+                    new MissingFileOutcome
+                    {
+                        ItemId = "9900711",
+                        ItemName = "作り物の移動テスト",
+                        OldPaths = [@"D:\Booth\downloads\sample-move-mid.zip"],
+                        NewPath = @"D:\保管（監視していない）\sample-move-mid.zip",
+                    },
+                    new MissingFileOutcome
+                    {
+                        ItemId = "9900712",
+                        ItemName = "作り物の衣装セット【とても長い商品名の確かめ用】春夏秋冬の4着とアクセサリーと髪型とテクスチャの差し替え一式",
+                        OldPaths = [@"D:\Booth\downloads\costume_full_v1.2.zip"],
+                        NewPath = @"D:\保管（監視していない）\VeryLongFolderNameWithoutAnySpaces\AnotherVeryLongFolderName\costume_full_v1.2.zip",
+                    },
+                    new MissingFileOutcome
+                    {
+                        ItemId = "9900713",
+                        ItemName = "作り物の髪型",
+                        OldPaths = [],
+                        NewPath = @"D:\Booth\library\hair_v2.zip",
+                    },
+                ],
+                NotFoundFiles = [.. Enumerable.Range(1, ImportViewModel.ResultFoldOver + 1).Select(NotFound)],
+            };
+            Backdoor.ShowMissingSearchText(import, ImportViewModel.MissingSearchSummary(result));
+            import.ShowMissingFiles(result);
+            import.ShowMissingFolders(
+            [
+                new MissingFolder
+                {
+                    ItemId = "9900702",
+                    ItemName = "作り物の髪型",
+                    Path = @"D:\Booth\extracted\hair",
+                    FileCount = 8,
+                    TotalBytes = 12_300_000,
+                },
+            ]);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+        }),
+
+        // 探した結果で、見つからなかった物だけの回（少ないので開いて出て、下に次の手が出る。メモ73）
+        new Scene("import-missing-notfound", "見つからないファイルを探した結果：見つからなかったファイルだけ（開いた）と次の手", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var import = context.Screen<ImportViewModel>();
+            var result = new MissingFileSearchResult
+            {
+                MissingBefore = 2,
+                Relinked = 0,
+                Hashed = 3,
+                UnreadableFiles = 1,
+                NotFoundFiles =
+                [
+                    new MissingFileOutcome { ItemId = "9900721", ItemName = "作り物の移動テスト中", OldPaths = [@"D:\Booth\downloads\sample-move-mid.zip"] },
+                    new MissingFileOutcome { ItemId = "9900722", ItemName = "作り物の小物", OldPaths = [] },
+                ],
+            };
+            Backdoor.ShowMissingSearchText(import, ImportViewModel.MissingSearchSummary(result));
+            import.ShowMissingFiles(result);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+        }),
     ];
 
     private static IEnumerable<Scene> Item =>

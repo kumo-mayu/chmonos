@@ -62,6 +62,60 @@ public class MissingMarksSweepTests
         Assert.Empty(app.Booth.Requests);
     });
 
+    /// <summary>
+    /// 見回りが日時を書いた商品は、検索のカードの写しにも入り、右クリックの「開く ▸」が押せなくなる
+    /// （手触りの確認 2026-10-06・メモ73⑤。全部見つからない商品で「開く」が押せた。右クリックはカードの記録の日時だけで決める）。
+    /// 探して紐付け直した後は、また押せる。
+    /// </summary>
+    [Fact]
+    public Task 起動時の見回りの後は_全部見つからない商品の右クリックの開くが押せず_探して紐付け直すと押せる() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        var original = app.NewFile(@"elsewhere\sample-move.zip", [4, 3, 2, 1]);
+        await app.AddItemAsync(Make.Item("9900001", "作り物の移動テスト").WithFiles(new LocalFileRecord
+        {
+            Hash = await Core.Scanning.FileHasher.ComputeSha256Async(original),
+            Paths = [original],
+            SizeBytes = 4,
+        }));
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var moved = Path.Combine(watched, "sample-move.zip");
+        File.Move(original, moved);
+
+        var main = await app.StartAsync();
+        Assert.True(CardMenuState.IsEnabled("OpenParent", CardOf(main, "9900001")));
+
+        main.StartMissingMarksSweep();
+        await app.SettleAsync();
+        await UiThread.Until(() => !CardMenuState.IsEnabled("OpenParent", CardOf(main, "9900001")), "見回りの日時がカードの写しに入る");
+        Assert.Equal(CardMenuState.AllMissingTip, CardMenuState.Tip("OpenParent", CardOf(main, "9900001")));
+
+        main.Import.FindMissingFilesCommand.Execute(null);
+        await UiThread.Until(() => main.Import.HasRelinkedFiles, "探した結果が出る");
+        await app.SettleAsync();
+
+        Assert.True(CardMenuState.IsEnabled("OpenParent", CardOf(main, "9900001")));
+    });
+
+    /// <summary>
+    /// 起動の直後は、検索の読み込みと見回りが重なる（窓を出した後に両方が裏で走る）。どちらが先に終わっても、
+    /// カードの写しは見回りの日時を持つ（読み込みの最中に届いた差し替えは、読み込みの後に当て直す）。
+    /// </summary>
+    [Fact]
+    public Task 検索の読み直しと見回りが重なっても_カードの写しは見回りの日時を持つ() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900001", "作り物の衣装").WithFiles(Make.File(Gone(app, "deleted-by-hand.zip"))));
+        var main = await app.StartAsync();
+
+        var reload = main.Search.ReloadAsync();
+        main.StartMissingMarksSweep();
+        await reload;
+        await app.SettleAsync();
+        await UiThread.Until(() => CardOf(main, "9900001").Item.Local.LocalFiles.Single().MissingSince is not null, "見回りの日時がカードの写しに入る");
+
+        Assert.False(CardMenuState.IsEnabled("OpenParent", CardOf(main, "9900001")));
+    });
+
     /// <summary>初めて見回る保存先や、外付けを付け直した回は数百件が変わる。1件ずつ差し替えず全件を読み直しても、印は同じく付く。</summary>
     [Fact]
     public Task 多くの商品が変わったら_全件を読み直して印を付ける() => TestApp.Run(async app =>

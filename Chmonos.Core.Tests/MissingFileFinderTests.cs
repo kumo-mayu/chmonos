@@ -107,6 +107,31 @@ public class MissingFileFinderTests : IDisposable
         Assert.Equal(moved, Assert.Single(Assert.Single(item!.Local.LocalFiles).Paths));
     }
 
+    /// <summary>
+    /// 結果は数だけでなく、どの商品のどのファイルをどこへ紐付け直したか・どれが見つからなかったかを持つ
+    /// （手触りの確認 2026-10-06・メモ73。数だけだと、結び直っていたのに画面で分からなかった）。
+    /// </summary>
+    [Fact]
+    public async Task 結果は紐付け直した物と見つからなかった物を商品とファイルの場所で持つ()
+    {
+        var movedFrom = await SaveItemWithFileAsync("9900001", "移した.zip", "うつした");
+        var deleted = await SaveItemWithFileAsync("9900002", "消した.zip", "けした");
+        var moved = Path.Combine(_watched, "移した先", "移した.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(moved)!);
+        File.Move(movedFrom, moved);
+        File.Delete(deleted);
+
+        var result = await _finder.FindAsync([_watched]);
+
+        var relinked = Assert.Single(result.RelinkedFiles);
+        Assert.Equal(("9900001", "テスト", moved), (relinked.ItemId, relinked.ItemName, relinked.NewPath));
+        Assert.Equal([movedFrom], relinked.OldPaths);
+
+        var notFound = Assert.Single(result.NotFoundFiles);
+        Assert.Equal(("9900002", (string?)null), (notFound.ItemId, notFound.NewPath));
+        Assert.Equal([deleted], notFound.OldPaths);
+    }
+
     [Fact]
     public async Task SaysNothingIsMissingWhenEveryFileIsWhereItShouldBe()
     {
@@ -271,6 +296,9 @@ public class MissingFileFinderTests : IDisposable
         var result = await _finder.FindAsync([_watched]);
 
         Assert.Equal((1, 1, 0), (result.MissingBefore, result.Relinked, result.StillMissing));
+
+        // 数は中身ごとに1件でも、紐付け直した一覧は商品ごとに並ぶ（どの商品が直ったかを言うため）
+        Assert.Equal(["111", "222", "333"], result.RelinkedFiles.Select(file => file.ItemId).Order());
         foreach (var itemId in new[] { "111", "222", "333" })
         {
             var placed = Assert.Single((await OnlyFileOfAsync(itemId)).Paths);
