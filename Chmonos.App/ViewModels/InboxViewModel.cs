@@ -440,10 +440,32 @@ public sealed class InboxViewModel : ViewModelBase
             // 検出に失敗しても、既にある通知は読めるようにする
         }
 
+        try
+        {
+            // 読めない商品の記録も開くたびに見直す（起動の後に壊れた物も出し、直った物を解消済みにする）。
+            // 展開先の削除が読めない記録で止まったとき「通知の画面から直せます」と案内しているので、開けば必ず並ぶようにする
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DetectUnreadableItems());
+        }
+        catch (IOException)
+        {
+            // 見直せなくても、既にある通知は読めるようにする
+        }
+
         // 知らせのファイル（上限2000件で約1MB）は裏で読む。前は画面のスレッドで同期で読んでいた。
         // 開き直しが重なったら、最後に頼んだ読みだけを当てる（先に頼んだ古い一覧で上書きしない）
         var turn = ++_loadTurn;
-        var records = await Task.Run(() => _services.Notifications.Load());
+        var (records, restorable) = await Task.Run(() =>
+        {
+            var loaded = _services.Notifications.Load();
+
+            // 読めない商品の行のボタン（控えに戻すか、BOOTH から作り直すか）は、控えが使えるかで決まる。控えを読むので裏で見る
+            var withCopy = loaded
+                .Where(record => record.Kind == NotificationKind.UnreadableItem && !record.IsResolved)
+                .Select(record => UnreadableItemId(record))
+                .Where(_services.Store.Items.HasUsableCopy)
+                .ToHashSet(StringComparer.Ordinal);
+            return (loaded, withCopy);
+        });
 
         RunOnUiThread(() =>
         {
@@ -452,6 +474,7 @@ public sealed class InboxViewModel : ViewModelBase
                 return;
             }
 
+            _restorable = restorable;
             Load(records);
             FocusRequestedItem();
 
@@ -467,6 +490,15 @@ public sealed class InboxViewModel : ViewModelBase
 
     /// <summary>知らせの読み込みの番号。画面のスレッドだけが触る。</summary>
     private int _loadTurn;
+
+    /// <summary>読めない商品の記録のうち、戻せる控えがある商品ID（読み込むたびに見直す）。</summary>
+    private HashSet<string> _restorable = new(StringComparer.Ordinal);
+
+    /// <summary>読めない商品の記録の知らせの ID から商品IDを取る（<c>unreadable-item:{商品ID}</c>）。</summary>
+    internal static string UnreadableItemId(NotificationRecord record)
+        => record.Id.StartsWith(Core.Services.NotificationService.UnreadableItemPrefix, StringComparison.Ordinal)
+            ? record.Id[Core.Services.NotificationService.UnreadableItemPrefix.Length..]
+            : record.Id;
 
     private void Load(IReadOnlyList<NotificationRecord> records)
     {
@@ -521,8 +553,8 @@ public sealed class InboxViewModel : ViewModelBase
             Record = record,
             KindText = KindLabel(record.Kind),
             IsRead = record.IsRead,
-            ActionText = ActionLabel(record),
-            ActionTip = ActionTip(record),
+            ActionText = ActionLabel(record, _restorable),
+            ActionTip = ActionTip(record, _restorable),
             ActionNotice = RowNoticeFor(record.Id),
         };
 
@@ -535,8 +567,14 @@ public sealed class InboxViewModel : ViewModelBase
     }
 
     /// <summary>種類ごとの「ここを直す」。直す道が無い種類（商品ページの変更など）は空。</summary>
-    private static string ActionLabel(NotificationRecord record) => record.Kind switch
+    internal static string ActionLabel(NotificationRecord record, IReadOnlySet<string> restorable) => record.Kind switch
     {
+        NotificationKind.UnreadableItem => UnreadableAction(record, restorable) switch
+        {
+            UnreadableFix.RestoreCopy => "1つ前の版に戻す",
+            UnreadableFix.Rebuild => "BOOTHから作り直す",
+            _ => string.Empty,
+        },
         NotificationKind.OrphanTag => "タグの管理を開く",
         // 「展開フォルダの登録を外す」では押すまで何が起きるか想像が付かなかった（ユーザ指摘 2026-09-18）。
         // 押した後どうなるか（zipの方でこの商品を数える）を名乗る
@@ -546,8 +584,14 @@ public sealed class InboxViewModel : ViewModelBase
         _ => string.Empty,
     };
 
-    private static string ActionTip(NotificationRecord record) => record.Kind switch
+    internal static string ActionTip(NotificationRecord record, IReadOnlySet<string> restorable) => record.Kind switch
     {
+        NotificationKind.UnreadableItem => UnreadableAction(record, restorable) switch
+        {
+            UnreadableFix.RestoreCopy => "壊れたファイルはitems\\_brokenフォルダに残します。",
+            UnreadableFix.Rebuild => "BOOTHに問い合わせます。タグやメモは戻りません。",
+            _ => string.Empty,
+        },
         NotificationKind.OrphanTag => "タグの管理を開きます。消えたユーザータグを作り直すか、商品から外せます。",
         NotificationKind.ArchiveFoundForFolder =>
             "展開したフォルダの代わりにzipで数えます。ファイルは削除しません。",
@@ -558,10 +602,110 @@ public sealed class InboxViewModel : ViewModelBase
         _ => string.Empty,
     };
 
+    /// <summary>読めない商品の記録の行で出す直し方。</summary>
+    internal enum UnreadableFix
+    {
+        None,
+        RestoreCopy,
+        Rebuild,
+    }
+
+    /// <summary>
+    /// 読めない商品の記録の行のボタン（ユーザ判断 2026-10-05）。控えが使えれば控えに戻す（タグ・メモまで戻る）。
+    /// 使えなければ BOOTH から作り直す。BOOTH に無い商品（仮ID）は作り直す元が無いので出さない。解消済みの行にも出さない
+    /// </summary>
+    internal static UnreadableFix UnreadableAction(NotificationRecord record, IReadOnlySet<string> restorable)
+    {
+        if (record.IsResolved)
+        {
+            return UnreadableFix.None;
+        }
+
+        var itemId = UnreadableItemId(record);
+        if (restorable.Contains(itemId))
+        {
+            return UnreadableFix.RestoreCopy;
+        }
+
+        return LocalItemId.IsLocal(itemId) ? UnreadableFix.None : UnreadableFix.Rebuild;
+    }
+
+    /// <summary>確認の窓の文（1行目に何が起きるか、続けて取り返し）。</summary>
+    internal static string UnreadableConfirmText(string itemId, UnreadableFix fix) => fix == UnreadableFix.RestoreCopy
+        ? $"{itemId}.jsonを、アプリが最後に保存した版に戻します。\n"
+            + "壊れたファイルはitems\\_brokenフォルダに残します。"
+        : $"商品 {itemId} の情報をBOOTHから取り直して、記録を作り直します。\n"
+            + "タグ・メモ・購入記録などは戻りません。手元のファイルは、そのフォルダを取り込み直すと付け直します。\n"
+            + "壊れたファイルはitems\\_brokenフォルダに残します。";
+
+    /// <summary>直し終えた知らせ（行は解消済みになって片付くので、一覧の見出しの近くへ出す）。</summary>
+    internal static string UnreadableDoneText(string itemId, UnreadableFix fix) => fix == UnreadableFix.RestoreCopy
+        ? $"{itemId}.jsonを1つ前の版に戻しました。壊れたファイルはitems\\_brokenフォルダに残してあります。"
+        : $"商品 {itemId} をBOOTHから作り直しました。手元のファイルは、そのフォルダを取り込み直すと付け直します。";
+
+    private async Task FixUnreadableAsync(NotificationRow row)
+    {
+        var fix = UnreadableAction(row.Record, _restorable);
+        if (fix == UnreadableFix.None || _isRefreshing)
+        {
+            return;
+        }
+
+        var itemId = UnreadableItemId(row.Record);
+        var caption = fix == UnreadableFix.RestoreCopy ? "1つ前の版に戻す" : "BOOTHから作り直す";
+        if (Services.Notice.Show(
+                UnreadableConfirmText(itemId, fix),
+                caption,
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Cancel) != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        // 作り直しは BOOTH へ2回以上問い合わせるので数秒かかる。待つ間の2度押しで同じ商品を2回作らせない
+        _isRefreshing = true;
+        row.ActionNotice.Show(fix == UnreadableFix.RestoreCopy ? "1つ前の版に戻しています…" : "BOOTHから作り直しています…");
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(fix == UnreadableFix.RestoreCopy
+                ? new UiCommand.RestoreItemCopy(itemId)
+                : new UiCommand.RebuildItemFromBooth(itemId));
+
+            if (result is CommandResult.Failed failed)
+            {
+                row.ActionNotice.Warn(failed.Message);
+            }
+            else
+            {
+                row.ActionNotice.Clear();
+                ListNotice.Show(UnreadableDoneText(itemId, fix));
+
+                // 読めなかった商品は検索の写しに居ないので、1件の差し替えではなく読み直して並べる
+                _main.ReloadLibraryAsync().Forget();
+            }
+
+            await ReloadAsync();
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("通知からの読めない商品の記録の直し", exception);
+            row.ActionNotice.Warn($"直せませんでした。{Core.Services.FailureText.Cause(exception)}");
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+
     private async Task ActAsync(NotificationRow row)
     {
         switch (row.Record.Kind)
         {
+            case NotificationKind.UnreadableItem:
+                await FixUnreadableAsync(row);
+                return;
+
             case NotificationKind.OrphanTag:
                 _main.ShowTagManage();
                 return;
@@ -928,6 +1072,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ItemBackOnBooth => "非公開商品の復活",
         NotificationKind.UnpackedFilesImported => "展開先のファイルを取り込んだ",
         NotificationKind.HandEditMismatch => "手で直したJSONの食い違い",
+        NotificationKind.UnreadableItem => "読めない商品の記録",
         _ => "その他",
     };
 
@@ -942,6 +1087,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         NotificationKind.UnpackedFilesImported => "自動で始めた取り込みで、zipを展開したフォルダの中のファイルを取り込みました。元のzipの方で持ち直せます。",
         NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前の重複や、ファイル名と商品IDの食い違いがあります。JSONを開いて直してください。",
+        NotificationKind.UnreadableItem => "itemsフォルダの商品の記録が壊れていて読めません。読めない間、その商品は検索に表示されません。",
         _ => string.Empty,
     };
 }

@@ -105,6 +105,7 @@ public sealed partial class MainViewModel : ViewModelBase
         StartBacklogResume();
         PruneVideoTitles();
         PruneRecent();
+        CheckUnreadableItems();
         StartWatchScan();
     }
 
