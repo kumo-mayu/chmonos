@@ -358,6 +358,10 @@ public sealed partial class MainViewModel
             {
                 var result = await _services.Watch.FindNewAsync(watched, token);
 
+                // ドライブは在るのに見つからない監視フォルダ（名前を変えた・移した）は、外付けを外しているのと違い
+                // 待っても戻らないので取り込み画面で言う（見つからない・移動の点検 9・2026-10-05。前は外付けと同じに黙っていた）
+                RunOnUiThread(() => WatchedMissingFolders = result.MissingFolders);
+
                 if (importsOnLaunch)
                 {
                     // **対象は監視フォルダの新着と、前回の続きだけ**（ユーザ判断 2026-09-21・G1、2026-09-29）。
@@ -456,6 +460,36 @@ public sealed partial class MainViewModel
     private RelayCommand? _dismissWatchedNew;
 
     public RelayCommand DismissWatchedNewCommand => _dismissWatchedNew ??= new RelayCommand(DismissWatchedNew);
+
+    private IReadOnlyList<string> _watchedMissingFolders = [];
+
+    /// <summary>起動時に見たとき、ドライブは在るのに見つからなかった監視フォルダ。</summary>
+    public IReadOnlyList<string> WatchedMissingFolders
+    {
+        get => _watchedMissingFolders;
+        private set
+        {
+            _watchedMissingFolders = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasWatchedMissing));
+            OnPropertyChanged(nameof(WatchedMissingText));
+        }
+    }
+
+    public bool HasWatchedMissing => WatchedMissingFolders.Count > 0;
+
+    public string WatchedMissingText => WatchedMissingSummary(WatchedMissingFolders);
+
+    /// <summary>見つからない監視フォルダの文。1つなら名前を出す（どれかが分かれば、外すか直すかを決められる）。</summary>
+    internal static string WatchedMissingSummary(IReadOnlyList<string> folders) => folders.Count switch
+    {
+        0 => string.Empty,
+        1 => $"監視フォルダ「{FolderName(folders[0])}」が見つかりません。",
+        _ => $"監視フォルダが {folders.Count} 個見つかりません。",
+    };
+
+    private static string FolderName(string path)
+        => Path.GetFileName(Path.TrimEndingDirectorySeparator(path)) is { Length: > 0 } name ? name : path;
 
     /// <summary>監視対象で見つかった、まだ見ていないファイル。</summary>
     public IReadOnlyList<string> WatchedNewFiles { get; private set; } = [];

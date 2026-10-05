@@ -203,6 +203,22 @@ public class ImportResultTextTests
         Assert.Equal(ImportResultLine.OnlineOnly, line.Id);
     });
 
+    /// <summary>たどらなかったリンクは黙らず、数と次の手を言う（見つからない・移動の点検 15）。</summary>
+    [Fact]
+    public Task たどらなかったリンクがあれば_数とリンク先をドロップする手を言う() => TestApp.Run(async app =>
+    {
+        var import = (await app.StartAsync()).Import;
+
+        import.Summary = new ImportSummary { FilesScanned = 10, LinksSkipped = 2 };
+
+        var line = Assert.Single(import.UnreadableLines);
+        Assert.Equal(
+            "リンクになっているフォルダやファイルが 2 件あり、取り込んでいません。リンク先をドロップすると取り込めます。",
+            line.Text);
+        Assert.Equal(ImportResultLine.Links, line.Id);
+        Assert.Equal(string.Empty, ImportViewModel.LinksSkippedText(0));
+    });
+
     [Fact]
     public Task 商品の壊れたzipがあるときだけ_検索で開くボタンを出す() => TestApp.Run(async app =>
     {

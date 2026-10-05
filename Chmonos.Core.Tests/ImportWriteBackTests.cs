@@ -217,11 +217,33 @@ public class ImportWriteBackTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// 取り込み元の中のジャンクション・シンボリックリンクはたどらないが、黙って飛ばすと中の物が入っていないことに気付けない。
+    /// 数を結果に出す（見つからない・移動の点検 15）。リンクを置いていなければ0。
+    /// </summary>
+    [Fact]
+    public async Task CountsLinksItDidNotFollow()
+    {
+        var source = CreateSource();
+        var elsewhere = Path.Combine(_root, "リンク先");
+        Directory.CreateDirectory(elsewhere);
+        if (!TestJunction.TryCreate(Path.Combine(source, "リンク"), elsewhere))
+        {
+            return; // ジャンクションを作れない環境（FAT など）では確かめようが無い
+        }
+
+        var summary = await _pipeline.RunAsync(new ImportWorkSet([source]));
+
+        Assert.Equal(1, summary.LinksSkipped);
+        Assert.Equal(0, summary.FoldersUnreadable);
+    }
+
     [Fact]
     public async Task DoesNotCountOnlineOnlyWhenEverythingIsOnThisDevice()
     {
         var summary = await _pipeline.RunAsync(new ImportWorkSet([CreateSource()]));
 
         Assert.Equal(0, summary.FilesOnlineOnly);
+        Assert.Equal(0, summary.LinksSkipped);
     }
 }

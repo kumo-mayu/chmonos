@@ -105,11 +105,16 @@ public sealed class ImportFolderRow
 
     public required bool Exists { get; init; }
 
+    /// <summary>ドライブ（パスの根）がつながっているか。つながっていてフォルダが無いなら、名前を変えたか移した。</summary>
+    public bool DriveConnected { get; init; }
+
     /// <summary>
     /// 取り込み元として登録したフォルダが、今その場所に無い。
     /// 外付けを外している場合もあるので、消せとは言わない。
+    /// ドライブは在ってフォルダだけが無いなら、つないでも戻らないので「見つかりません」と分けて言う
+    /// （見つからない・移動の点検 9・2026-10-05。前はどちらも「今つながっていません」だった）。
     /// </summary>
-    public string StatusText => Exists ? string.Empty : "今つながっていません";
+    public string StatusText => Exists ? string.Empty : DriveConnected ? "見つかりません" : "今つながっていません";
 
     public RelayCommand? RemoveCommand { get; set; }
 }
@@ -1116,8 +1121,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 在るかは画面のスレッドの外で見る（技術的負債 4-2）。取り込み元・監視は外付けやネットワークにもある
         var folderPaths = _services.Settings.ImportFolders.Concat(_services.Settings.WatchedFolders)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var exists = await Task.Run(() => folderPaths.ToDictionary(
-            path => path, Core.Services.DiskCheck.FolderExists, StringComparer.OrdinalIgnoreCase));
+        // ドライブの根は1回だけ・打ち切り付きで見る（見回りと同じ部品。落ちた共有で設定を開くのを待たせない）
+        var probe = new Core.Services.FilePresenceProbe();
+        var presence = await Task.Run(() => folderPaths.ToDictionary(
+            path => path, probe.OfFolder, StringComparer.OrdinalIgnoreCase));
 
         RunOnUiThread(() =>
         {
@@ -1130,7 +1137,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 Folders.Add(new ImportFolderRow
                 {
                     Path = path,
-                    Exists = exists.GetValueOrDefault(path),
+                    Exists = presence.GetValueOrDefault(path) == Core.Services.FilePresence.Present,
+                    DriveConnected = presence.GetValueOrDefault(path) != Core.Services.FilePresence.OnDetachedDrive,
                     RemoveCommand = new RelayCommand(() => RemoveFolder(captured)),
                 });
             }
@@ -1142,7 +1150,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 Watched.Add(new ImportFolderRow
                 {
                     Path = path,
-                    Exists = exists.GetValueOrDefault(path),
+                    Exists = presence.GetValueOrDefault(path) == Core.Services.FilePresence.Present,
+                    DriveConnected = presence.GetValueOrDefault(path) != Core.Services.FilePresence.OnDetachedDrive,
                     RemoveCommand = new RelayCommand(() => RemoveWatchedAsync(captured).Forget()),
                 });
             }

@@ -22,6 +22,9 @@ public sealed record MissingFileSearchResult
     /// <summary>見に行けなかったフォルダ（外付けを外している間など）。</summary>
     public IReadOnlyList<string> Unreachable { get; init; } = [];
 
+    /// <summary>ドライブはつながっているのに見つからなかった監視フォルダ（名前を変えた・移した）。</summary>
+    public IReadOnlyList<string> NotFoundFolders { get; init; } = [];
+
     /// <summary>
     /// 探しても見つからなかった物に、見つからなくなった日時を書いた商品の数（もう付いていた物は数えない）。
     /// 画面が検索の写しを読み直すかを決める（結び直しが0件でも、日時を付けたなら印と条件が変わる）。
@@ -122,6 +125,7 @@ public sealed class MissingFileFinder
         var cache = new ScanCacheIndex(_store.ScanCache.Load());
         var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var unreachable = new List<string>();
+        var notFoundFolders = new List<string>();
         var hashed = 0;
 
         // 計算したハッシュは走査の控えに足す。前は捨てていたので、同じ大きさのファイルを探すたび・取り込むたびに
@@ -132,10 +136,13 @@ public sealed class MissingFileFinder
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!DiskCheck.FolderExists(folder))
+            var presence = probe.OfFolder(folder);
+            if (presence != FilePresence.Present)
             {
-                // 外付けを外している間は「無い」ではなく「見られなかった」
-                unreachable.Add(folder);
+                // 外付けを外している間は「無い」ではなく「見られなかった」。
+                // ドライブは在ってフォルダだけが無い（名前を変えた・移した）なら、つないでも直らないので分けて言う
+                // （見つからない・移動の点検 9・2026-10-05。前はどちらも「つながっていないため」と言っていた）
+                (presence == FilePresence.Missing ? notFoundFolders : unreachable).Add(folder);
                 continue;
             }
 
@@ -178,7 +185,14 @@ public sealed class MissingFileFinder
             }
         }
 
-        if (computed.Count > 0)
+        // 見つけた場所へ差し替える無い場所は、控えからも落とす（見つからない・移動の点検 5・2026-10-05）。
+        // 残すと、元の場所へ戻したときに控えと大きさ・日時が合って監視が新着と数えず、記録は差し替えた先のままになる
+        var replacedPaths = missing
+            .Where(pair => found.ContainsKey(pair.Key))
+            .SelectMany(pair => pair.Value.Owners.SelectMany(owner => owner.Gone))
+            .ToList();
+
+        if (computed.Count > 0 || replacedPaths.Count > 0)
         {
             // 控えは取り込みも書くので、錠の中で今の控えに足す（読んだ時の写しで丸ごと書くと、その間に取り込みが足した分を消す）
             await _store.ScanCache.UpdateAsync(
@@ -188,6 +202,11 @@ public sealed class MissingFileFinder
                     foreach (var (file, hash) in computed)
                     {
                         index.Set(file.Path, file.SizeBytes, file.ModifiedAtUtc, hash);
+                    }
+
+                    foreach (var path in replacedPaths)
+                    {
+                        index.Forget(path);
                     }
 
                     return index.ToList();
@@ -223,6 +242,7 @@ public sealed class MissingFileFinder
             Relinked = relinked,
             Hashed = hashed,
             Unreachable = unreachable,
+            NotFoundFolders = notFoundFolders,
             MarkedItems = marked,
         };
     }

@@ -169,6 +169,36 @@ public class FolderScannerTests : IDisposable
     }
 
     /// <summary>
+    /// 取り込み元の中のジャンクション・シンボリックリンクは、たどらないが黙っても飛ばさない（見つからない・移動の点検 15）。
+    /// 飛ばした場所を返し、取り込みが数えて「リンク先を取り込み元に足す」と案内する。
+    /// </summary>
+    [Fact]
+    public void ReturnsTheLinksItDidNotFollow()
+    {
+        Write("a.zip");
+        var elsewhere = Path.GetFullPath(_root.TrimEnd(Path.DirectorySeparatorChar) + "-リンク先");
+        Directory.CreateDirectory(elsewhere);
+        File.WriteAllText(Path.Combine(elsewhere, "b.zip"), "b");
+        var link = Path.Combine(_root, "リンク");
+        try
+        {
+            if (!TestJunction.TryCreate(link, elsewhere))
+            {
+                return; // ジャンクションを作れない環境（FAT など）では確かめようが無い
+            }
+
+            var result = _scanner.Scan(_root);
+
+            Assert.Equal([Path.Combine(_root, "a.zip")], result.Files.Select(file => file.Path));
+            Assert.Equal([link], result.Links);
+        }
+        finally
+        {
+            Directory.Delete(elsewhere, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// 中身が手元に無いクラウドのファイル（OneDrive の「オンラインのみ」はこの機械で Offline＋RecallOnDataAccess）。
     /// 手元にある OneDrive のファイル（ReparsePoint だけ）は読む。
     /// </summary>

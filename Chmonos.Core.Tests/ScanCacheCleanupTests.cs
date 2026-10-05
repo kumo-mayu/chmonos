@@ -59,6 +59,42 @@ public sealed class ScanCacheCleanupTests : IDisposable
             index.ToList().Select(entry => entry.Path).Order(StringComparer.Ordinal));
     }
 
+    /// <summary>
+    /// 今回見た場所と同じ中身の、もう無い場所（移した元）だけを落とす。在る場所・外付けの上・別の中身は残す
+    /// （見つからない・移動の点検 5）。
+    /// </summary>
+    [Fact]
+    public void DropsOnlyTheGonePlacesOfContentSeenElsewhere()
+    {
+        static ScanCacheEntry With(string path, string hash) => new()
+        {
+            Path = path,
+            SizeBytes = 1,
+            ModifiedAtUtc = DateTimeOffset.UnixEpoch,
+            Hash = hash,
+        };
+
+        var index = new ScanCacheIndex(
+        [
+            With(@"D:\監視\移した先.zip", "A"),
+            With(@"D:\監視\移した元.zip", "A"),
+            With(@"D:\監視\写し.zip", "A"),
+            With(@"E:\外付け\同じ中身.zip", "A"),
+            With(@"D:\監視\別の中身.zip", "B"),
+        ]);
+        HashSet<string> present = [@"D:\監視\移した先.zip", @"D:\監視\写し.zip"];
+
+        var dropped = index.RemoveMovedAway(
+            [@"D:\監視\移した先.zip"],
+            exists: present.Contains,
+            onMissingVolume: path => path.StartsWith(@"E:\", StringComparison.Ordinal));
+
+        Assert.Equal(1, dropped);
+        Assert.Equal(
+            new[] { @"D:\監視\移した先.zip", @"D:\監視\写し.zip", @"D:\監視\別の中身.zip", @"E:\外付け\同じ中身.zip" }.Order(StringComparer.Ordinal),
+            index.ToList().Select(entry => entry.Path).Order(StringComparer.Ordinal));
+    }
+
     /// <summary>書くときは、今の控えに足した・落とした分だけを重ねる（ほかの書き手が足した分を消さない）。</summary>
     [Fact]
     public void MergesOnlyItsOwnChangesIntoTheCurrentFile()
