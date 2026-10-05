@@ -255,7 +255,7 @@
                                             <ContextMenu>
                                                 <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
                                                 <MenuItem Header="取り込み対象に追加" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.TakeFromHistory" />
-                                                <MenuItem Header="履歴から消す" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.ForgetHistory" />
+                                                <MenuItem Header="履歴から消す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.ForgetHistory" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <DockPanel>
@@ -263,7 +263,7 @@
                                                 行ごとに端を揃えたいので幅の下限だけ決める。決め打ちの幅だと、ボタンの左右の余白（14px ずつ）と
                                                 枠で文字の置き場が足りず、「履歴から消す」の最後の「す」が欠けた（点検 2026-09-23）
                                             -->
-                                            <Button DockPanel.Dock="Right" Content="履歴から消す" MinWidth="94" Height="27"
+                                            <Button DockPanel.Dock="Right" Content="履歴から消す" Style="{StaticResource DangerButton}" MinWidth="94" Height="27"
                                                     AutomationProperties.AutomationId="ImportHistoryForget"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を履歴から消す}"
                                                     FontSize="12" Margin="8,0,0,0"
@@ -550,7 +550,7 @@
                                 <Button Content="選択を切り替え" Command="{Binding SelectAllUnpackedCommand}"
                                         AutomationProperties.AutomationId="ImportUnpackedToggleAll" />
                                 <!-- 破壊的な操作なので、押した先で必ず確認を挟む。実際の削除はごみ箱送り -->
-                                <Button Content="ごみ箱へ移動" Margin="9,0,0,0" Command="{Binding RemoveUnpackedCommand}"
+                                <Button Content="ごみ箱へ移動" Style="{StaticResource DangerButton}" Margin="9,0,0,0" Command="{Binding RemoveUnpackedCommand}"
                                         AutomationProperties.AutomationId="ImportUnpackedRemove" />
                             </StackPanel>
                         </Grid>

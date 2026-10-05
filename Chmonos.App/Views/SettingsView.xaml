@@ -300,7 +300,7 @@
                                                      AutomationProperties.AutomationId="Settings.ShortcutKey"
                                                      AutomationProperties.Name="{Binding Label, StringFormat={}{0}のキー}"
                                                      ToolTip="ここを選んで、割り当てたいキーを押してください" />
-                                            <Button Grid.Column="2" Content="既定に戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            <Button Grid.Column="2" Content="既定に戻す" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
                                                     AutomationProperties.AutomationId="Settings.ShortcutReset"
                                                     AutomationProperties.Name="{Binding Label, StringFormat={}{0}を既定に戻す}"
                                                     VerticalAlignment="Center" Command="{Binding ResetCommand}" />
