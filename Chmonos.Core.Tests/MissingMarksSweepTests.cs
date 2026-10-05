@@ -114,6 +114,27 @@ public sealed class MissingMarksSweepTests : IDisposable
         Assert.Equal(Memo, item.Local.Memo);
     }
 
+    /// <summary>
+    /// 一度も在ると確かめていない（見た日時が空の）フォルダを在ると見たら、見た日時を入れる。取り込みの数え直しと同じ決まり
+    /// （file-lifecycle.md 気になった所19。前は見回りだけが空のまま残した）。在ると確かめた日時のあるフォルダは、毎回は書き直さない。
+    /// </summary>
+    [Fact]
+    public async Task 見た日時が空の在るフォルダには_見回りが見た日時を入れる()
+    {
+        var seen = ExistingFolder("確かめたフォルダ");
+        var neverSeen = ExistingFolder("まだ確かめていないフォルダ");
+        await SaveAsync([], [FolderAt(seen) with { LastSeenAt = First }, FolderAt(neverSeen)]);
+        var before = DateTimeOffset.Now;
+
+        var written = await new MissingMarksSweep(_store).SweepAsync();
+
+        Assert.Equal([ItemId], written);
+        var folders = (await ItemAsync()).Local.LocalFolders;
+        Assert.Equal(First, folders.Single(folder => folder.Path == seen).LastSeenAt);
+        Assert.InRange(folders.Single(folder => folder.Path == neverSeen).LastSeenAt!.Value, before, DateTimeOffset.Now);
+        Assert.Empty(await new MissingMarksSweep(_store).SweepAsync());
+    }
+
     [Fact]
     public async Task 無い間は最初の日時のままで_変わりが無ければ書かない()
     {
