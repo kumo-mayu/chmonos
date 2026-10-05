@@ -570,7 +570,7 @@
                                                 <TextBlock Text="{Binding Top}" FontSize="13" FontWeight="Medium"
                                                            VerticalAlignment="Center" />
                                                 <!-- 行の数だけ並ぶので、どのタグの「外す」かを名前に入れる -->
-                                                <Button Content="外す" Style="{StaticResource SmallButton}"
+                                                <Button Content="外す" Style="{StaticResource DangerButton}"
                                                         AutomationProperties.AutomationId="EditTagRemove"
                                                         AutomationProperties.Name="{Binding Top, StringFormat={}{0}を外す}"
                                                         HorizontalAlignment="Right" Command="{Binding RemoveCommand}" />
@@ -672,7 +672,7 @@
                                                    FontSize="11" TextAlignment="Right" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextFaint}"
                                                    Visibility="{Binding IsSuggested, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        <Button Grid.Column="3" Content="外す" Style="{StaticResource SmallButton}"
+                                        <Button Grid.Column="3" Content="外す" Style="{StaticResource DangerButton}"
                                                 AutomationProperties.AutomationId="EditAttributeRemove"
                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
                                                 Margin="7,0,0,0" Command="{Binding RemoveCommand}" />

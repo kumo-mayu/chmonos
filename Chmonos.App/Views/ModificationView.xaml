@@ -335,7 +335,7 @@
                                                             </ContextMenu>
                                                         </Button.ContextMenu>
                                                     </Button>
-                                                    <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource DangerButton}" Margin="5,0,0,0"
                                                             ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -483,7 +483,7 @@
                                                                         </ContextMenu>
                                                                     </Button.ContextMenu>
                                                                 </Button>
-                                                                <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource DangerButton}" Margin="4,0,0,0"
                                                                         ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                                         Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -695,7 +695,7 @@
                                             ToolTip="既に開いていれば、そのUnityを手前に出します。" />
                                     <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                             Margin="6,0,0,0" Command="{Binding OpenProjectFolderCommand}" />
-                                    <Button Content="紐付けを外す" Style="{StaticResource SmallButton}"
+                                    <Button Content="紐付けを外す" Style="{StaticResource DangerButton}"
                                             Margin="6,0,0,0" Command="{Binding UnlinkProjectCommand}"
                                             ToolTip="改変の記録は残ります。外す前に、今の紐付け先と付け直し方を表示して確かめます。" />
                                 </WrapPanel>

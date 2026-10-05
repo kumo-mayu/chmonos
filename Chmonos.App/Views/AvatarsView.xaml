@@ -38,7 +38,7 @@
             どの行でも押せる。メニューは画面の木の外にあるので、画面の命令は行の Tag（画面の DataContext）から引く
         -->
         <ContextMenu x:Key="AvatarBaseMemberMenu">
-            <MenuItem Header="この素体から外す" AutomationProperties.AutomationId="AvatarBaseMemberMenu.Remove"
+            <MenuItem Header="この素体から外す" Style="{StaticResource DangerMenuItem}" AutomationProperties.AutomationId="AvatarBaseMemberMenu.Remove"
                       Command="{Binding PlacementTarget.Tag.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                       CommandParameter="{Binding}"
                       ToolTip="外しても、上の欄からまた追加できます。" />
@@ -757,7 +757,7 @@
                                                              MaxLength="60"
                                                              Placeholder="素体を選ぶか、名前を打ってEnter" />
                                     </Grid>
-                                    <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                    <Button Content="素体から外す" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
                                 </StackPanel>
                                 <!--

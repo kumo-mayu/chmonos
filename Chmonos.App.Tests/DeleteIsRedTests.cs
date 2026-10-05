@@ -6,17 +6,17 @@ namespace Chmonos.App.Tests;
 
 /// <summary>
 /// 消す・初期化する操作は、戻せるかに関わらず赤にそろえる（ユーザ判断 2026-10-05・V4）。
-/// 画面の元の文（XAML）を読み、名前に「削除」「消す」「既定に戻す」「ごみ箱」を含むボタン・右クリックの項目が
+/// 画面の元の文（XAML）を読み、名前に「削除」「消す」「既定に戻す」「ごみ箱」「捨てる」「外す」を含むボタン・右クリックの項目が
 /// 赤の型（<c>DangerButton</c>／<c>DangerMenuItem</c>）を使っていることを確かめる。
 /// 赤い字の小さな ×（行の端の削除）は、名前の付いたものを <see cref="赤い字の小さな削除ボタン"/> で確かめる。
 /// 試験の中では画面の資源が無く View そのものは作れないので、元の文を読む（<c>FilterFieldDelayTests</c> と同じ）。
 /// </summary>
 public class DeleteIsRedTests
 {
-    private static readonly string[] DeleteWords = ["削除", "消す", "既定に戻す", "ごみ箱", "捨てる", "元の幅に戻す"];
+    private static readonly string[] DeleteWords = ["削除", "消す", "既定に戻す", "ごみ箱", "捨てる", "元の幅に戻す", "外す"];
 
-    /// <summary>消す操作に見えても、入力欄を空にするだけの物（赤にしない）。</summary>
-    private static readonly string[] NotDelete = ["絞り込みを消す", "条件をクリア"];
+    /// <summary>「除外」は「外す」を含んで見えるが赤にしない物（下の本文で除く）。消す操作に見えても、入力欄を空にするだけの物（赤にしない）。</summary>
+    private static readonly string[] NotDelete = ["絞り込みを消す", "条件をクリア", "この条件を外す", "サムネイルの指名を外す"];
 
     [Fact]
     public void 削除や初期化の名前のボタンと項目は_赤の型を使う()
@@ -31,6 +31,7 @@ public class DeleteIsRedTests
                 var label = (string?)element.Attribute(element.Name.LocalName == "Button" ? "Content" : "Header") ?? "";
                 if (label.Length == 0
                     || NotDelete.Contains(label)
+                    || label.Contains("除外")
                     || !DeleteWords.Any(label.Contains))
                 {
                     continue;
