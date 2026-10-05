@@ -19,7 +19,7 @@
                 <!-- バナーを畳む三角（TriangleExpander）。商品ページ・編集画面と同じ物を使う -->
                 <ResourceDictionary Source="ManageResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
+            <TranslateTransform x:Key="StarNudgeCompact" Y="4" />        </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{DynamicResource Bg}">
@@ -390,7 +390,8 @@
                                 </Border>
                             </ControlTemplate>
                         </Button.Template>
-                        <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17">
+                        <!-- ★ の字は上下の中心が字の枠より上にあり、中央ぞろえにしても名前（日本語の字）より上に見える。枠は動かさず絵だけ下げる（メモ66） -->
+                        <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17" RenderTransform="{StaticResource StarNudgeCompact}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
