@@ -171,7 +171,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
-        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
+        new(SearchModuleKind.AcquiredAt, "入手日", "入手日か買った日で絞ります。日付を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したかどうかで絞ります。"),
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
@@ -1912,7 +1912,8 @@ public sealed class RangeModule : SearchModule
 /// </summary>
 public sealed class DateModule : SearchModule
 {
-    private readonly Func<ItemRecord, DateOnly?> _value;
+    /// <summary>商品の日付のどれかが条件に当たるか。日付を1つも持たない商品は false。</summary>
+    private readonly Func<ItemRecord, Func<DateOnly, bool>, bool> _any;
     private string _sinceText = string.Empty;
     private string _tillText = string.Empty;
     private bool _sinceEnabled = true;
@@ -1922,9 +1923,19 @@ public sealed class DateModule : SearchModule
     private DateOnly? _dataSince;
     private DateOnly? _dataTill;
 
+    /// <summary>日付が1つの項目（公開日）。</summary>
     public DateModule(SearchModuleKind kind, Func<ItemRecord, DateOnly?> value)
+        : this(kind, (item, predicate) => value(item) is { } date && predicate(date))
+    {
+    }
+
+    /// <summary>
+    /// 日付をいくつも持つ項目（入手日：購入記録ごとの日付。メモ45）。**どれか1つが範囲に入れば当たる**（2-A）。
+    /// 一覧を作らずに照らせるよう、当てる条件を渡して「どれかが当たるか」を答えさせる（全件を照らすので）。
+    /// </summary>
+    public DateModule(SearchModuleKind kind, Func<ItemRecord, Func<DateOnly, bool>, bool> any)
         : base(kind)
-        => _value = value;
+        => _any = any;
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
 
@@ -2099,32 +2110,38 @@ public sealed class DateModule : SearchModule
         }
 
         // 日付が分からない商品は、日付で絞った時点で外す。「値が小さい」ではなく「値が無い」ので、範囲のどこにも当てはまらない
-        if (_value(item) is not { } date)
-        {
-            return false;
-        }
-
-        return (_preparedSince is not { } since || date >= since) && (_preparedTill is not { } till || date <= till);
+        return _any(item, _inRange);
     }
 
     /// <summary>
     /// 境の日付を読むのは絞り込みの1回で1回だけ（案c）。前は商品ごとに4回読み直していて（条件があるかを見る分と照らす分）、
-    /// 公開日の条件が照らす重さのいちばん上に来ていた（1件 900ns のうち読み直しが大半）。
+    /// 公開日の条件が照らす重さのいちばん上に来ていた（1件 900ns のうち読み直しが大半）。範囲に入るかの関数もここで1回だけ作る
     /// </summary>
-    protected override void PrepareCore(SearchModuleContext context) => (_preparedSince, _preparedTill) = (Since, Till);
+    protected override void PrepareCore(SearchModuleContext context)
+    {
+        var since = Since;
+        var till = Till;
+        (_preparedSince, _preparedTill) = (since, till);
+        _inRange = date => (since is null || date >= since) && (till is null || date <= till);
+    }
 
     private DateOnly? _preparedSince;
     private DateOnly? _preparedTill;
+    private Func<DateOnly, bool> _inRange = _ => true;
+    private static readonly Func<DateOnly, bool> AnyDate = _ => true;
 
     public override bool SupportsExclude => true;
 
     public override string ExcludedHint => "当てはまる商品と、日付の分からない商品を除いています。押すと除くのをやめます。";
 
-    /// <summary>日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。</summary>
+    /// <summary>
+    /// 日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。
+    /// 日付をいくつも持つ商品は、どれも範囲に入らないときだけ残る（当たる＝どれか1つが入る、の裏）。
+    /// </summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
     {
         EnsurePrepared(context);
-        return (_preparedSince is null && _preparedTill is null) || (_value(item) is not null && !Matches(item, context));
+        return (_preparedSince is null && _preparedTill is null) || (_any(item, AnyDate) && !Matches(item, context));
     }
 
     protected override string SummaryJoiner => " ";

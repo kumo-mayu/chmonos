@@ -98,11 +98,14 @@ public static class ItemGroups
             : ("month-none", none, null);
 
     /// <summary>
-    /// 入手日の年と月。並べ替え（<see cref="ItemOrder.ByAcquired"/>）と同じ <see cref="LocalBlock.AcquiredAt"/> を見る。
-    /// 別の値（購入の記録の日など）で切ると、並びの上では続いているのに札が2枚出る
+    /// 入手日の年と月。並べ替え（<see cref="ItemOrder.ByAcquired"/>）と同じ代表の日付（<see cref="PurchaseDates.EnteredEarliest"/>）を見る。
+    /// 別の値で切ると、並びの上では続いているのに札が2枚出る
     /// </summary>
     public static (string Key, string Label, string? Parent) AcquiredOf(ItemRecord item)
-        => MonthOf(item.Local.AcquiredAt?.Year, item.Local.AcquiredAt?.Month, NoAcquired);
+    {
+        var date = PurchaseDates.EnteredEarliest(item);
+        return MonthOf(date?.Year, date?.Month, NoAcquired);
+    }
 
     /// <summary>BOOTH の公開日の年と月。並べ替え（<see cref="ItemOrder.ByPublished"/>）と同じ値を見る。</summary>
     public static (string Key, string Label, string? Parent) PublishedOf(ItemRecord item)

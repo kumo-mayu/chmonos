@@ -21,7 +21,7 @@ public static class ItemOrder
     /// </summary>
     public static IComparer<ItemRecord> Library { get; } = Comparer<ItemRecord>.Create((left, right) =>
     {
-        var byDate = (right.Local.AcquiredAt ?? DateOnly.MinValue).CompareTo(left.Local.AcquiredAt ?? DateOnly.MinValue);
+        var byDate = (PurchaseDates.EnteredEarliest(right) ?? DateOnly.MinValue).CompareTo(PurchaseDates.EnteredEarliest(left) ?? DateOnly.MinValue);
         return byDate != 0 ? byDate : StringComparer.CurrentCulture.Compare(left.DisplayName, right.DisplayName);
     });
 
@@ -74,9 +74,12 @@ public static class ItemOrder
         NameCollation? names = null)
         => ByValue(items, item => times.TryGetValue(item.Id, out var time) ? time : (DateTimeOffset?)null, descending, names);
 
-    /// <summary>入手日で並べる（既定の並び）。入手日が無い商品は後ろ。</summary>
+    /// <summary>
+    /// 入手日で並べる（既定の並び）。日付が無い商品は後ろ。見るのは代表の日付（最も早い購入の日付。購入記録が無ければ入手日。
+    /// 手で入れた値だけ・<see cref="PurchaseDates.EnteredEarliest"/>。メモ45）。
+    /// </summary>
     public static IEnumerable<ItemRecord> ByAcquired(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
-        => ByValue(items, item => item.Local.AcquiredAt, descending, names);
+        => ByValue(items, PurchaseDates.EnteredEarliest, descending, names);
 
     /// <summary>
     /// 容量で並べる。**何も持っていない商品は後ろ**（カードで「未取得」と出る物。0バイトとして混ぜると、小さい順で先頭に来た）。
@@ -154,13 +157,13 @@ public static class ItemOrder
         IOrderedEnumerable<(ItemRecord Item, string? Name, int? Rank)> ordered,
         NameCollation collation)
         => ordered
-            .ThenByDescending(entry => entry.Item.Local.AcquiredAt ?? DateOnly.MinValue)
+            .ThenByDescending(entry => PurchaseDates.EnteredEarliest(entry.Item) ?? DateOnly.MinValue)
             .ThenBy(entry => collation.SortKeyOf(entry.Item.DisplayName));
 
     /// <summary>同じ値の中を入手日の新しい順（入手日の無い物はその後ろ）、さらに同じなら名前の読みの順。</summary>
     private static IEnumerable<ItemRecord> NewestFirst(IOrderedEnumerable<ItemRecord> ordered, NameCollation collation)
         => ordered
-            .ThenByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
+            .ThenByDescending(item => PurchaseDates.EnteredEarliest(item) ?? DateOnly.MinValue)
             .ThenBy(item => collation.SortKeyOf(item.DisplayName));
 
     /// <summary>値で並べ、値の無い商品を向きによらず後ろにまとめる。同じ値と後ろの物は名前の読みの順。</summary>

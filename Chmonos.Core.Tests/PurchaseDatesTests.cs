@@ -241,6 +241,41 @@ public sealed class PurchaseDatesTests : IDisposable
         Assert.Equal(expectedMonth is null ? new List<string>() : [expectedMonth[5..]], months);
     }
 
+    // ---- 検索の並べ替え・区切りの札 ----
+
+    /// <summary>並べ替えは代表の日付（代えない）。購入の日付だけの商品も、日付の無い商品より前に並ぶ。ファイルの日付は見ない。</summary>
+    [Fact]
+    public void 並べ替えは代表の日付で_札も同じ値で切る()
+    {
+        var onlyBought = Item("9900030", ItemDate.None, Buy(500, Bought));
+        var enteredOnly = Item("9900031", ItemDate.Entered, Buy(500));
+        var fileOnly = Item("9900032", ItemDate.FileOnly, Buy(500));
+        var both = Item("9900033", ItemDate.Entered, Buy(500, new DateOnly(2026, 1, 5)));
+
+        var order = ItemOrder.ByAcquired([fileOnly, enteredOnly, onlyBought, both], descending: true)
+            .Select(item => item.Id)
+            .ToList();
+
+        Assert.Equal(["9900033", "9900030", "9900031", "9900032"], order);
+        Assert.Equal("2025年3月", ItemGroups.AcquiredOf(onlyBought).Label);
+        Assert.Equal("2026年1月", ItemGroups.AcquiredOf(both).Label);
+        Assert.Equal("2024年6月", ItemGroups.AcquiredOf(enteredOnly).Label);
+        Assert.Equal(ItemGroups.NoAcquired, ItemGroups.AcquiredOf(fileOnly).Label);
+        Assert.True(ItemOrder.Library.Compare(onlyBought, enteredOnly) < 0);
+    }
+
+    /// <summary>買い足した購入に日付があっても、並びは最も早い購入（1-A）。最近の買い足しで上に来ない。</summary>
+    [Fact]
+    public void 買い足しても並びは最も早い購入で決まる()
+    {
+        var bought = Item("9900034", ItemDate.Entered, Buy(500), Buy(300, new DateOnly(2026, 5, 1)));
+        var newer = Item("9900035", ItemDate.None, Buy(500, Bought));
+
+        var order = ItemOrder.ByAcquired([bought, newer], descending: true).Select(item => item.Id).ToList();
+
+        Assert.Equal(["9900035", "9900034"], order);
+    }
+
     // ---- ショップ ----
 
     [Theory]
