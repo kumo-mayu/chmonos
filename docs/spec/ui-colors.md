@@ -34,7 +34,7 @@
 | 面 | `Bg`（画面の地）・`Surface`（カード・帯・窓）・`SurfaceAlt`（乗せた・押せない・一段下げた箱）・`Border`・`BorderStrong`・`Divider`（カードの中の行の線）・`BarTrack`（棒と進み具合の空き）・`InputBack` |
 | 文字 | `Text`・`TextBody`（説明文・数の列）・`TextMuted`・`TextFaint` |
 | 強調（青） | `Accent`（面の上の青：リンク・選んだ枠・線・棒）・`AccentText`（青の文字の小さな札）・`AccentSoft`・`AccentBorder`・`AccentSoftText`（AccentSoft の上の文字）・`AccentFill`・`AccentHover`（白い文字の地と、乗せたとき）・`OnAccent`・`AccentOverlay`（絵の上の青の札） |
-| 状態 | `Good`／`GoodSoft`／`GoodBorder`／`GoodFill`、`Warn`／`WarnSoft`／`WarnBorder`、`Bad`／`BadSoft`／`BadBorder`／`BadFill`、`DangerText`／`DangerBorder`（取り返しのつかない操作）、`PurchasedText`／`PurchasedSoft`／`PurchasedBorder`（購入の札。灰色。緑・赤は BOOTH で変わった所だけに使う。メモ53）、`Unread`／`UnreadSoft`／`UnreadBorder`／`UnreadFill`、`NeedsWorkFill`（ナビの未確定・未:n）、`Star` |
+| 状態 | `Good`／`GoodSoft`／`GoodBorder`／`GoodFill`、`Warn`／`WarnSoft`／`WarnBorder`、`Bad`／`BadSoft`／`BadBorder`／`BadFill`、`DangerText`／`DangerBorder`（消す・初期化する操作。戻せるかに関わらず）、`PurchasedText`／`PurchasedSoft`／`PurchasedBorder`（購入の札。灰色。緑・赤は BOOTH で変わった所だけに使う。メモ53）、`Unread`／`UnreadSoft`／`UnreadBorder`／`UnreadFill`、`NeedsWorkFill`（ナビの未確定・未:n）、`Star` |
 | 札 | `ChipBack`・`ChipText`・`ChipBorder`・`ChipRemove` |
 | ナビ | `Rail`・`RailActive`・`RailHover`・`RailText`・`RailTextActive`・`RailLabel`・`RailTitle`・`RailSubtitle`・`RailMuted`・`RailIntro`（初回の窓）・`RailButtonDimBorder`・`RailNoticeBack`／`Frame`／`Edge`／`Text` |
 | 絵の周り | `ImageBack`（絵の枠の地）・`ThumbBack`（小さな絵の枠）・`PlaceholderGlyph`・`FolderIconFill`・`TileText`（ショップの頭文字のタイル）・`OnImage`・`ImageScrim`・`ImageScrimLight`・`ImageHoverShade`・`ImageDotIdle`／`Active`・`ImagePill`（カードの絵の上の選ぶ印）・`GlyphShadowColor`（色） |

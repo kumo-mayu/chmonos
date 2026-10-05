@@ -1325,7 +1325,7 @@
                                         <!-- 要らない条件は個別に消せる。全部消すのは設定から -->
                                         <Button Style="{StaticResource HistorySlotButton}" Content="✕"
                                                 FontSize="10" Padding="6,4" Command="{Binding RemoveCommand}"
-                                                Foreground="{DynamicResource TextMuted}"
+                                                Foreground="{DynamicResource DangerText}"
                                                 AutomationProperties.AutomationId="SearchHistoryRemove"
                                                 AutomationProperties.Name="{Binding Summary, StringFormat={}{0}の履歴を削除}"
                                                 ToolTip="この履歴を削除します。検索の条件は変わりません。" />

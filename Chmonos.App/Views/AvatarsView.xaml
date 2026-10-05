@@ -774,7 +774,7 @@
                                                                 AutomationProperties.AutomationId="AvatarAliasRemove"
                                                                 AutomationProperties.Name="{Binding StringFormat={}{0}を削除}"
                                                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                                Foreground="{DynamicResource TextMuted}"
+                                                                Foreground="{DynamicResource DangerText}"
                                                                 Command="{Binding DataContext.RemoveAliasCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"
