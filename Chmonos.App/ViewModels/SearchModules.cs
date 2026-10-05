@@ -1476,7 +1476,7 @@ public sealed class RangeModule : SearchModule
     /// 境が出せないとき（価格の付いた商品が無い・払った額）は括弧を付けない
     /// </summary>
     public string OutlierLabel => _outlierFence is { } fence
-        ? $"外れ値を無視（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上を異常値として弾く）"
+        ? $"外れ値を無視（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上を弾く）"
         : "外れ値を無視";
 
     /// <summary>外れ値を外す数の元を、外れ値の無い物（価格の払った額）にしているキー。その元では外れ値を探さない。</summary>
