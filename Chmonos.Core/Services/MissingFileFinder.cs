@@ -136,7 +136,7 @@ public sealed class MissingFileFinder
         // 数百GBを読むことになる。大きさが違えば中身も違うので、そこで落とせる
         var sizes = missing.Values.Select(entry => entry.SizeBytes).ToHashSet();
 
-        var cache = new ScanCacheIndex(_store.ScanCache.Load());
+        var cache = new ScanCacheIndex(_store.ScanCache.Load(), probe.Volumes.SerialAt);
         var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var unreachable = new List<string>();
         var notFoundFolders = new List<string>();
@@ -221,7 +221,8 @@ public sealed class MissingFileFinder
             await _store.ScanCache.UpdateAsync(
                 current =>
                 {
-                    var index = new ScanCacheIndex(current);
+                    // 取ったハッシュの控えに、取ったディスクの通し番号を書く（点検の16）
+                    var index = new ScanCacheIndex(current, probe.Volumes.SerialAt);
                     foreach (var (file, hash) in computed)
                     {
                         index.Set(file.Path, file.SizeBytes, file.ModifiedAtUtc, hash);

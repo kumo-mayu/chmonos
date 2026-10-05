@@ -310,7 +310,9 @@ public sealed class ImportPipeline : IImportPipeline
         totals.CarryUnfetched(_store.ImportState.Load().UnfetchedItems);
         await _store.ImportState.SaveAsync(new ImportState { Unfetched = totals.Unfetched }, cancellationToken);
 
-        var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
+        // 走査の控えは、控えたのと別のディスクの上なら使い回さない（点検の16）。今のディスクは周回の頭の見方の写しで見る（周回ごとに読み直す）
+        var cacheVolumes = Services.VolumeSnapshot.Empty;
+        var scanCache = new ScanCacheIndex(_store.ScanCache.Load(), path => cacheVolumes.SerialAt(path));
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
 
         // 未確定の一覧は取り込みの最中に人も書く。書くたびに、前に書いた物と今の物を比べて人の変更を残す（UnresolvedMerge）。
@@ -361,6 +363,7 @@ public sealed class ImportPipeline : IImportPipeline
             // 登録したフォルダを測り直すのは取り込み1回につき最初の周回だけ（周回ごとに全部を並べ直していた）
             var (registered, owned, owners, recordedAt, detached, probe) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
             measuredFolders = true;
+            cacheVolumes = probe.Volumes;
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
             await RecordVolumesAsync(folders, cancellationToken);

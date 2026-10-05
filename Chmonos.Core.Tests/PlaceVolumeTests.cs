@@ -166,6 +166,35 @@ public sealed class PlaceVolumeTests : IDisposable
         Assert.Equal([same], file.Paths);
     }
 
+    /// <summary>
+    /// 走査の控えは、控えたのと別のディスクの上なら場所・大きさ・日時が同じでも使い回さない（点検の16・ユーザ判断 16-A）。
+    /// 取り込みが今のディスクを周回の頭の写しで見て、控えに渡しているかを確かめる。
+    /// </summary>
+    [Fact]
+    public async Task 取り込みは_別のディスクで取った走査の控えのハッシュを使い回さない()
+    {
+        var path = Path.Combine(_watched, "衣装.zip");
+        await File.WriteAllTextAsync(path, "Bの上の中身");
+        var info = new FileInfo(path);
+        await _store.ScanCache.SaveAsync(
+        [
+            new ScanCacheEntry
+            {
+                Path = path,
+                SizeBytes = info.Length,
+                ModifiedAtUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+                Hash = "A-NO-HASH",
+                Volume = SerialA,
+            },
+        ]);
+
+        await ImportAsync(await TableAsync(SerialB, SerialB));
+
+        var unresolved = Assert.Single(_store.Unresolved.Load());
+        Assert.Equal(await FileHasher.ComputeSha256Async(path), unresolved.Hash);
+        Assert.Equal(SerialB, Assert.Single(_store.ScanCache.Load()).Volume);
+    }
+
     [Fact]
     public async Task 登録したフォルダも_記録のディスクが来ていない間は見回りが日時を付けず_在ると見たら番号を書き足す()
     {

@@ -23,6 +23,12 @@ public sealed class ScanCacheEntry
     /// ハッシュを計算し直したら（大きさか日時が変わった）捨てて読み直す。このファイルは消してもよい（読み直すだけ）。
     /// </summary>
     public IReadOnlyList<string>? ClueItemIds { get; init; }
+
+    /// <summary>
+    /// ハッシュを取ったときに、その場所の文字に来ていたディスクの通し番号（2026-10-05・点検の16・ユーザ判断 16-A）。
+    /// 別のディスクの上なら、場所・大きさ・更新日時が同じでも使い回さない。分からない場所（ネットワークの共有）は書かない。
+    /// </summary>
+    public string? Volume { get; init; }
 }
 
 /// <summary>

@@ -12,8 +12,15 @@ public sealed class ScanCacheIndex
 {
     private readonly Dictionary<string, ScanCacheEntry> _byPath;
 
-    public ScanCacheIndex(IEnumerable<ScanCacheEntry>? entries = null)
+    private readonly Func<string, string?> _volumeAt;
+
+    /// <param name="volumeAt">
+    /// 場所の文字に今来ているディスクの通し番号（<see cref="Services.VolumeSnapshot.SerialAt"/>）。分からなければ null。
+    /// 渡さなければディスクを見分けない（3点だけで照らす）。
+    /// </param>
+    public ScanCacheIndex(IEnumerable<ScanCacheEntry>? entries = null, Func<string, string?>? volumeAt = null)
     {
+        _volumeAt = volumeAt ?? (_ => null);
         _byPath = new Dictionary<string, ScanCacheEntry>(StringComparer.OrdinalIgnoreCase);
         if (entries is null)
         {
@@ -32,15 +39,24 @@ public sealed class ScanCacheIndex
     /// 記録済みのハッシュを再利用できるかを判定する。
     /// サイズだけでは中身の差し替えを見逃し、更新日時だけではコピーで壊れるので3点で照合する。
     /// </summary>
+    /// <remarks>
+    /// **控えたのと別のディスクの上なら使い回さない**（2026-10-05・点検の16・ユーザ判断 16-A）。2台の外付けが同じ文字を使うと、
+    /// 同じ名前・大きさ・日時のファイル（写してから片方だけ直した等）で、Aで取ったハッシュをBのファイルに当てていた。
+    /// ディスクの欄の無い控えは使い回し、そのとき今のディスクを書き足す（取り直すと全部をハッシュし直す。実測で30分近く）。
+    /// </remarks>
     public bool TryGetHash(string path, long sizeBytes, DateTimeOffset modifiedAtUtc, out string hash)
     {
+        var volume = _volumeAt(path);
         if (_byPath.TryGetValue(path, out var entry)
             && entry.SizeBytes == sizeBytes
-            && entry.ModifiedAtUtc == modifiedAtUtc)
+            && entry.ModifiedAtUtc == modifiedAtUtc
+            && !IsOtherVolume(entry.Volume, volume))
         {
-            // 名前の大文字小文字だけを変えた物は、引けるが控えの綴りが古いまま残る。今の名前に直しておく（2026-10-05・点検の14）
-            if (!string.Equals(entry.Path, path, StringComparison.Ordinal))
+            // 名前の大文字小文字だけを変えた物は、引けるが控えの綴りが古いまま残る。今の名前に直しておく（2026-10-05・点検の14）。
+            // ディスクの欄が無ければ今のディスクを書き足す
+            if (!string.Equals(entry.Path, path, StringComparison.Ordinal) || (entry.Volume is null && volume is not null))
             {
+                _byPath.Remove(path);
                 _byPath[path] = new ScanCacheEntry
                 {
                     Path = path,
@@ -48,6 +64,7 @@ public sealed class ScanCacheIndex
                     ModifiedAtUtc = entry.ModifiedAtUtc,
                     Hash = entry.Hash,
                     ClueItemIds = entry.ClueItemIds,
+                    Volume = entry.Volume ?? volume,
                 };
                 Touch(path);
             }
@@ -68,9 +85,15 @@ public sealed class ScanCacheIndex
             SizeBytes = sizeBytes,
             ModifiedAtUtc = modifiedAtUtc,
             Hash = hash,
+            Volume = _volumeAt(path),
         };
         Touch(path);
     }
+
+    /// <summary>両方の番号が分かっていて違うときだけ「別のディスク」（分からなければ今までどおり3点で照らす）。</summary>
+    private static bool IsOtherVolume(string? recorded, string? now)
+        => Services.VolumeTable.IsDistinctive(recorded) && Services.VolumeTable.IsDistinctive(now)
+            && !string.Equals(recorded, now, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 読んだ後に足した・直したパスと、落としたパス。書くときはこれだけを**今の控えに重ねる**（<see cref="MergeInto"/>）。
@@ -250,6 +273,7 @@ public sealed class ScanCacheIndex
                 ModifiedAtUtc = entry.ModifiedAtUtc,
                 Hash = entry.Hash,
                 ClueItemIds = itemIds,
+                Volume = entry.Volume,
             };
             Touch(file.Path);
         }

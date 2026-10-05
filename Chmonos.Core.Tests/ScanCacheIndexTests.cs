@@ -32,6 +32,53 @@ public class ScanCacheIndexTests
         Assert.Equal(@"D:\storage\VRChat_clothes\A.zip", Assert.Single(index.MergeInto(CreateIndex().ToList())).Path);
     }
 
+    /// <summary>
+    /// 場所・大きさ・更新日時が同じでも、控えたのと別のディスクの上なら使い回さない（2026-10-05・見つからない・移動の点検の16・ユーザ判断 16-A）。
+    /// 2台の外付けが同じ文字を使い、同じ名前・大きさ・日時のファイル（写した物を更新した等）があると、Aで取ったハッシュをBのファイルに当てていた。
+    /// </summary>
+    [Fact]
+    public void 控えたのと別のディスクの上なら_場所と大きさと日時が同じでもハッシュを使い回さない()
+    {
+        var index = new ScanCacheIndex(
+            [new ScanCacheEntry { Path = @"E:\booth\a.zip", SizeBytes = 1000, ModifiedAtUtc = Modified, Hash = "AAAA", Volume = "AAAA0016" }],
+            volumeAt: _ => "BBBB0016");
+
+        Assert.False(index.TryGetHash(@"E:\booth\a.zip", 1000, Modified, out _));
+    }
+
+    [Fact]
+    public void 控えたのと同じディスクの上なら使い回し_取り直した控えには今のディスクを書く()
+    {
+        var index = new ScanCacheIndex(
+            [new ScanCacheEntry { Path = @"E:\booth\a.zip", SizeBytes = 1000, ModifiedAtUtc = Modified, Hash = "AAAA", Volume = "AAAA0016" }],
+            volumeAt: _ => "AAAA0016");
+
+        Assert.True(index.TryGetHash(@"E:\booth\a.zip", 1000, Modified, out var hash));
+        Assert.Equal("AAAA", hash);
+
+        index.Set(@"E:\booth\b.zip", 5, Modified, "BBBB");
+        Assert.Equal("AAAA0016", index.ToList().Single(entry => entry.Hash == "BBBB").Volume);
+    }
+
+    /// <summary>
+    /// ディスクの欄の無い控えは今までどおり使い回し、そのとき今のディスクを書き足す（取り直すと全部をハッシュし直すことになる。実測で30分近く）。
+    /// ディスクの分からない場所（ネットワークの共有）は欄を書かず、今までどおり3点で照らす。
+    /// </summary>
+    [Fact]
+    public void ディスクの欄の無い控えは使い回して今のディスクを書き足し_分からない場所は3点で照らす()
+    {
+        var index = new ScanCacheIndex(
+            [
+                new ScanCacheEntry { Path = @"E:\booth\a.zip", SizeBytes = 1000, ModifiedAtUtc = Modified, Hash = "AAAA" },
+                new ScanCacheEntry { Path = @"\\nas\share\b.zip", SizeBytes = 7, ModifiedAtUtc = Modified, Hash = "BBBB", Volume = "AAAA0016" },
+            ],
+            volumeAt: path => path.StartsWith(@"E:", StringComparison.Ordinal) ? "AAAA0016" : null);
+
+        Assert.True(index.TryGetHash(@"E:\booth\a.zip", 1000, Modified, out _));
+        Assert.True(index.TryGetHash(@"\\nas\share\b.zip", 7, Modified, out _));
+        Assert.Equal("AAAA0016", index.MergeInto([]).Single(entry => entry.Hash == "AAAA").Volume);
+    }
+
     [Fact]
     public void ReusesHashWhenPathSizeAndModifiedAllMatch()
     {
