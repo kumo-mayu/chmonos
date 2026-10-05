@@ -1,5 +1,7 @@
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
+using System.IO;
+using Chmonos.Core.Storage;
 
 namespace ViewShot;
 
@@ -55,6 +57,29 @@ internal static partial class Scenes
             // 既定は「未読のみ」。読んだ行の薄さも見たいので外す
             inbox.UnreadOnly = false;
             await SceneContext.UntilAsync(() => inbox.Lines.OfType<InboxRowLine>().Count() == 3, "知らせの行が3つ並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        // 読めない商品の記録の題（2026-10-05）：控えから商品名を引けた行（札にファイル名）と、引けなかった行（題がファイル名）
+        new Scene("inbox-unreadable", "通知：読めない商品の記録。題が商品名の行（札にファイル名）と、題がファイル名の行", async context =>
+        {
+            // 知らせは本物の検出に作らせる：控えの有る商品（題が商品名）と、控えを消した商品（題がファイル名）
+            await context.Fake.ItemAsync("9900601", "作り物の衣装セット");
+            await context.Fake.ItemAsync("9900602", "作り物の髪飾り");
+            File.Delete(AppPaths.Default.ItemCopyFile("9900602"));
+            foreach (var id in new[] { "9900601", "9900602" })
+            {
+                File.WriteAllText(AppPaths.Default.ItemFile(id), "{\n  \"id\": \"" + id + "\",\n  \"booth\": {\n");
+            }
+
+            var main = await context.StartAsync();
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            await SceneContext.UntilAsync(() => inbox.Lines.OfType<InboxRowLine>().Count() == 2, "知らせの行が2つ並ぶ");
             await context.SettleAsync();
             return new Shot(root);
         }),

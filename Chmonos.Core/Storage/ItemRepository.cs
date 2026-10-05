@@ -460,6 +460,29 @@ public sealed class ItemRepository
     /// </summary>
     public bool HasUsableCopy(string itemId) => IsUsableRecord(_paths.ItemCopyFile(itemId), itemId);
 
+    /// <summary>
+    /// 控えが読めるなら、画面に出す名前（表示名があればそれ、無ければ BOOTH の名前）。読めない・名前が無いときは null。
+    /// 読めない記録の知らせの題にする（ID は使う人が扱う第一の情報にしない。ユーザ判断 2026-10-05）。
+    /// </summary>
+    public string? ReadCopyName(string itemId)
+    {
+        try
+        {
+            if (JsonStore.Read<ItemRecord>(_paths.ItemCopyFile(itemId)) is not { } record
+                || !string.Equals(record.Id, itemId, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var name = record.DisplayName;
+            return string.IsNullOrWhiteSpace(name) || string.Equals(name, itemId, StringComparison.Ordinal) ? null : name;
+        }
+        catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private static bool IsUsableRecord(string path, string itemId)
     {
         try
