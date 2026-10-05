@@ -144,6 +144,19 @@ public class CardMenuStateTests
     });
 
     [Fact]
+    public Task zipが全部見つからずフォルダだけ在る商品は_展開の理由をzipが見つかりませんと言う() => TestApp.Run(async app =>
+    {
+        // ユーザ判断 2026-10-05：zip を持たない商品の「手元にzipがありません」と言い分ける
+        var item = Make.Item("9900607", "作り物の衣装F").WithFiles(Make.File(@"D:\files\f.zip") with { MissingSince = DateTimeOffset.Now });
+        await app.AddItemAsync(WithFolders(item, new LocalFolderRecord { Path = @"C:\作り物\衣装F" }));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        Assert.False(CardMenuState.IsEnabled("Unpack", card));
+        Assert.Equal("zipが見つかりません", CardMenuState.Tip("Unpack", card));
+    });
+
+    [Fact]
     public Task 見つからない物があっても1つ在れば_今のまま押せる() => TestApp.Run(async app =>
     {
         // zip は見つからないが、フォルダ（中に unitypackage）は在る

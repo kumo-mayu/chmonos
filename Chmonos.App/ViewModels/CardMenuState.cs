@@ -21,6 +21,9 @@ internal static class CardMenuState
 
     internal const string NoArchiveTip = "手元にzipがありません";
 
+    /// <summary>zip を持っているが全部見つからず、フォルダだけ在るとき。持っていない商品の「手元にzipがありません」と言い分ける。</summary>
+    internal const string ArchiveMissingTip = "zipが見つかりません";
+
     /// <summary>持っているファイル・フォルダが、記録の上で全部「見つからない」とき（メモ65-①）。</summary>
     internal const string AllMissingTip = "手元のファイルが見つかりません";
 
@@ -172,7 +175,8 @@ internal static class CardMenuState
                 : "この画面では使えません",
             _ when NeedsFiles(key) && !HasFiles(card) => NoFilesTip,
             _ when NeedsFiles(key) && AllMissing(card.Item) => AllMissingTip,
-            _ when NeedsArchive(key) => NoArchiveTip,
+            // zip を持っているのに全部見つからない（フォルダは在る）商品と、そもそも zip を持たない商品を言い分ける（ユーザ判断 2026-10-05）
+            _ when NeedsArchive(key) => card.Item.Local.OwnedFiles.Count > 0 ? ArchiveMissingTip : NoArchiveTip,
             _ when NeedsPackage(key) => NoPackageTip,
             _ => null,
         };
