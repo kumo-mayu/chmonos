@@ -1030,6 +1030,23 @@ public sealed class ImportPipeline : IImportPipeline
     }
 
     /// <summary>
+    /// 見つけた物のうち、錠の中の今の値でこの商品から外してあるハッシュを除く。
+    ///
+    /// 行き先は読んだ時点の外した印で決めるが、書くのは後。その間に人が「この商品から外す」を押すと、
+    /// 外した行に見つけた物を重ねることになり、<see cref="LocalFileMerger.Merge"/> の「両方が外していた時だけ残す」で
+    /// 印が下りて、人の判断を取り込みが覆していた（2026-10-05・見つからない・移動の点検 1。<see cref="RelinkMovedFilesAsync"/> と同じ考え）。
+    /// 外した物の場所は「この商品から外す」が未確定へ移している。
+    /// </summary>
+    private static List<LocalFileRecord> NotDetachedIn(LocalBlock current, IEnumerable<LocalFileRecord> discovered)
+    {
+        var detached = current.LocalFiles
+            .Where(file => file.Detached)
+            .Select(file => file.Hash)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return discovered.Where(file => !detached.Contains(file.Hash)).ToList();
+    }
+
+    /// <summary>
     /// 「登録したフォルダのzipが手に入った」を要確認へ書く。
     /// 同じフォルダで何度も出さないよう、未読の同種があれば足さない。
     /// </summary>
@@ -1527,7 +1544,9 @@ public sealed class ImportPipeline : IImportPipeline
             // 書くと、読んでから書くまでの間に人が付けた種類・外す／戻す・見つからなくなった日時が古い値に戻る
             await _store.Items.ChangeLocalAsync(
                 itemId,
-                current => current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, discovered) },
+                current => NotDetachedIn(current, discovered) is { Count: > 0 } files
+                    ? current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files) }
+                    : null,
                 [LocalField.LocalFiles],
                 cancellationToken);
 
@@ -1645,9 +1664,9 @@ public sealed class ImportPipeline : IImportPipeline
                         created = true;
                         return item;
                     },
-                    current => created
+                    current => created || NotDetachedIn(current, discovered) is not { Count: > 0 } files
                         ? current
-                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, discovered) },
+                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files) },
                     LocalOwners.Import,
                     cancellationToken,
                     item.Booth);
