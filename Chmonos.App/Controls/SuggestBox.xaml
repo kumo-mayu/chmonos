@@ -23,7 +23,9 @@
                     <DropShadowEffect Color="{DynamicResource PopupShadowColor}" BlurRadius="10" ShadowDepth="2" Direction="270" />
                 </Border.Effect>
                 <!-- 候補の行は、読み上げ・自動操作の「押す」でも決まる（InvokableListBox。素の ListBox の行は「選ぶ」しか持たない） -->
+                <!-- 横には流さない。長い行は名前の方を「…」で切り、何で当たったかの札は右に残す（2026-10-05：札が切れて横の帯が出ていた） -->
                 <local:InvokableListBox x:Name="Candidates" MaxHeight="230" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          PreviewMouseLeftButtonUp="OnCandidateClicked">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -33,13 +35,13 @@
                             <!-- 群の見出し（所持アバター・共通素体・未所持アバター）。候補が残った群の最初の行にだけ付く -->
                             <TextBlock Text="{Binding Heading}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFaint}"
                                        Margin="2,1,0,2" Visibility="{Binding HeadingVisibility}" />
-                            <StackPanel Orientation="Horizontal" Margin="2,3">
+                            <DockPanel Margin="2,3" LastChildFill="True">
                                 <!--
                                     アバターの候補の頭の絵（U18）。見えた行だけで読む。
                                     絵の無い候補（配布商品を結んでいない共通素体・絵をまだ取っていないアバター）は頭文字を出す
                                     （メモ3-① 2026-10-02：空の四角が並んで、読み込みに失敗したように見えた。タグの管理の小さな絵と同じ出し方）
                                 -->
-                                <Border Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4" ClipToBounds="True"
+                                <Border DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4" ClipToBounds="True"
                                         Background="{DynamicResource SurfaceAlt}" Visibility="{Binding IconVisibility}">
                                     <Grid>
                                         <TextBlock Text="{Binding Initial}" FontSize="11" Foreground="{DynamicResource TextMuted}"
@@ -47,18 +49,19 @@
                                         <Image Source="{Binding Icon}" Stretch="UniformToFill" />
                                     </Grid>
                                 </Border>
-                                <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" />
                                 <!-- 名前以外（呼び方・正式名）で当たったとき、何で当たったか -->
-                                <TextBlock Text="{Binding Note}" FontSize="10.5" Foreground="{DynamicResource AccentText}"
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" FontSize="10.5" Foreground="{DynamicResource AccentText}"
                                            VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="150"
                                            Visibility="{Binding NoteVisibility}" />
                                 <!-- 候補に無い語は「新規追加」であることを明示する -->
-                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                        BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="7,0,0,0"
+                                <Border DockPanel.Dock="Right" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                        BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="7,0,0,0" VerticalAlignment="Center"
                                         Visibility="{Binding NewBadgeVisibility}">
                                     <TextBlock Text="新規" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                 </Border>
-                            </StackPanel>
+                                <!-- 残りの幅を名前が取る（最後の子が埋める）。入らなければ切る -->
+                                <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
