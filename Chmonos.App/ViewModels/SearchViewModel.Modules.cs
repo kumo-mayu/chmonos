@@ -410,6 +410,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     private IEnumerable<(string Text, string Key)> AvatarCandidates()
     {
+        _avatarSuggestInfo.Clear();
         var registry = _services.Store.Avatars.Load();
         var names = AvatarNames.Map(registry.Entries);
         var owned = OwnedItemIds();
@@ -422,9 +423,17 @@ public sealed partial class SearchViewModel
 
         bool IsOwned(AvatarRegistryEntry entry) => entry.IsOwnedManually || owned.Contains(entry.ItemId);
 
+        // 群と呼び方は候補の文字から引く（欄の候補は文字の並びで渡るため）。呼び方でも当たる照らし方は AvatarSearch に1つ
+        (string Text, string Key) AvatarRow(AvatarRegistryEntry entry, string name, int group)
+        {
+            var text = AvatarSuggestionText.Format(name, entry.ItemId);
+            _avatarSuggestInfo[text] = AvatarSuggestionText.InfoOf(entry, name, group);
+            return (text, AvatarKey + entry.ItemId);
+        }
+
         foreach (var (entry, name) in avatars.Where(pair => IsOwned(pair.Entry)))
         {
-            yield return (AvatarSuggestionText.Format(name, entry.ItemId), AvatarKey + entry.ItemId);
+            yield return AvatarRow(entry, name, AvatarSuggestionText.OwnedGroup);
         }
 
         // 削除した素体（印の付いたグループ）は候補に出さない。一覧にも照合にも出さない約束で、
@@ -440,14 +449,18 @@ public sealed partial class SearchViewModel
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(name => name, StringComparer.CurrentCulture))
         {
-            yield return ($"{baseName}（共通素体）", BaseKey + baseName);
+            var text = $"{baseName}（共通素体）";
+            _avatarSuggestInfo[text] = new Controls.SuggestInfo(AvatarSuggestionText.BaseGroup, []);
+            yield return (text, BaseKey + baseName);
         }
 
         foreach (var (entry, name) in avatars.Where(pair => !IsOwned(pair.Entry)))
         {
-            yield return (AvatarSuggestionText.Format(name, entry.ItemId), AvatarKey + entry.ItemId);
+            yield return AvatarRow(entry, name, AvatarSuggestionText.OtherGroup);
         }
     }
+
+    private readonly Dictionary<string, Controls.SuggestInfo> _avatarSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>改変の候補。アバターでも選べる（そのアバターの改変すべて・ユーザ判断 R3 の「着せているアバター」）。</summary>
     private IEnumerable<(string Text, string Key)> ModificationCandidates()
@@ -636,6 +649,8 @@ public sealed partial class SearchViewModel
             isUnspecified: IsUnspecifiedAvatar)
         {
             IconSelector = AvatarIconSelector,
+            InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
+            GroupHeadings = AvatarSuggestionText.Headings,
         },
 
         SearchModuleKind.Favorite => new ChoiceModule(kind,

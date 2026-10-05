@@ -93,11 +93,22 @@
                             <Border Padding="0,5">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <StackPanel Grid.Column="0" Margin="6,0,8,0">
+                                    <!-- 改変の絵（メモ58）：改変の写真の1枚目 → そのアバターの絵 → 無ければ頭文字。名前と同じく見た目の飾りで、読み上げには出さない -->
+                                    <Border Grid.Column="0" Width="36" Height="36" Margin="6,0,0,0" CornerRadius="5" ClipToBounds="True"
+                                            VerticalAlignment="Center" Background="{DynamicResource SurfaceAlt}">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{DynamicResource TextMuted}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                         <TextBlock Text="{Binding Name}" FontSize="12.5"
                                                    MaxWidth="280" HorizontalAlignment="Left"
                                                    TextTrimming="CharacterEllipsis" />
@@ -112,7 +123,7 @@
                                                    Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
 
-                                    <Button AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name, StringFormat={}{0}に追加}" Grid.Column="1" Content="これに追加" Style="{StaticResource SmallButton}"
+                                    <Button AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name, StringFormat={}{0}に追加}" Grid.Column="2" Content="これに追加" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding DataContext.PickCommand,
                                                       RelativeSource={RelativeSource AncestorType=Window}}"
@@ -140,7 +151,7 @@
             <StackPanel>
                 <TextBlock Text="どのアバターの改変か" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
                 <!-- 選んだ名前は欄にそのまま出す（ユーザ指摘 2026-09-19）。下の1行は選んでいない間だけ -->
-                <controls:SuggestBox Source="{Binding AvatarNames}" PrimaryCount="{Binding OwnedAvatarCount}" IconSelector="{Binding AvatarIconSelector}" CommitCommand="{Binding PickAvatarCommand}"
+                <controls:SuggestBox Source="{Binding AvatarNames}" InfoSelector="{Binding AvatarSuggestInfoSelector}" GroupHeadings="{Binding AvatarGroupHeadings}" IconSelector="{Binding AvatarIconSelector}" CommitCommand="{Binding PickAvatarCommand}"
                                      AllowNew="False" KeepsCommittedText="True"
                                      Text="{Binding NewAvatarQuery, Mode=TwoWay}"
                                      Placeholder="アバターの名前で探す" />

@@ -170,6 +170,10 @@
                                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                          IconSelector="{Binding DataContext.AvatarIconSelector,
                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                         InfoSelector="{Binding DataContext.SupportSuggestInfoSelector,
+                                                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                         GroupHeadings="{Binding DataContext.SupportGroupHeadings,
+                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                          AllowNew="False" Placeholder="アバターか共通素体の名前"
                                                                          AutomationProperties.AutomationId="ItemAvatarAddInput"
                                                                          IsVisibleChanged="OnAddBoxVisibleChanged"

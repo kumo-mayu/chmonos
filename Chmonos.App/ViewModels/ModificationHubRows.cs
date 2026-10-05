@@ -564,18 +564,7 @@ internal sealed class ModificationRowBuilder(
 
     /// <summary>頭の絵。改変に貼った写真の1枚目、無ければアバターの絵。</summary>
     public string? ModificationIconPath(ModificationRecord record)
-    {
-        if (record.Images.Count > 0)
-        {
-            var path = Path.Combine(services.Paths.ModificationImagesDir(record.Id), record.Images[0].FileName);
-            if (File.Exists(path))
-            {
-                return path;
-            }
-        }
-
-        return AvatarIconPath(record.AvatarItemId);
-    }
+        => ModificationIcon.PathOf(services.Paths, record, items.GetValueOrDefault(record.AvatarItemId));
 
     /// <summary>商品の1枚目。検索のカードと同じ選び方（BOOTHの並び・★・役割の指定）。</summary>
     public string? ItemThumbnailPath(ItemRecord item)

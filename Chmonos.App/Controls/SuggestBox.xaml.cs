@@ -6,6 +6,15 @@ using System.Windows.Media;
 
 namespace Chmonos.App.Controls;
 
+/// <summary>候補の名前のほかに、その候補を引ける語1つ（アバターの呼び方など）。<see cref="Label"/> は当たったときに出す札。</summary>
+public sealed record SuggestHint(string Text, string Label);
+
+/// <summary>
+/// 候補1件に付ける案内。<see cref="Group"/> は何番目の群か（<see cref="SuggestBox.GroupHeadings"/> の添え字。小さい群が先に並ぶ）、
+/// <see cref="Hints"/> は名前のほかに当たる語。
+/// </summary>
+public sealed record SuggestInfo(int Group, IReadOnlyList<SuggestHint> Hints);
+
 /// <summary>候補1件。既存の語か、入力された新しい語か。</summary>
 public sealed class Suggestion
 {
@@ -22,6 +31,16 @@ public sealed class Suggestion
     public bool HasDividerAbove { get; init; }
 
     public Visibility DividerVisibility => HasDividerAbove ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>群の見出し（群の最初の行の上にだけ出す）。</summary>
+    public string Heading { get; init; } = string.Empty;
+
+    public Visibility HeadingVisibility => Heading.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>名前以外（呼び方など）で当たったときの「何で当たったか」。名前で当たった行は空。</summary>
+    public string Note { get; init; } = string.Empty;
+
+    public Visibility NoteVisibility => Note.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility NewBadgeVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
 
@@ -115,6 +134,34 @@ public partial class SuggestBox : UserControl
     {
         get => (int)GetValue(PrimaryCountProperty);
         set => SetValue(PrimaryCountProperty, value);
+    }
+
+    /// <summary>
+    /// 候補の語から、群と「名前以外で当たる語」を引く（アバターの候補。メモ48・メモ58）。
+    /// 引けない語は群を分けない（<see cref="PrimaryCount"/> があればそちら）。
+    /// </summary>
+    public static readonly DependencyProperty InfoSelectorProperty =
+        DependencyProperty.Register(nameof(InfoSelector), typeof(Func<string, SuggestInfo?>), typeof(SuggestBox),
+            new PropertyMetadata(null));
+
+    public Func<string, SuggestInfo?>? InfoSelector
+    {
+        get => (Func<string, SuggestInfo?>?)GetValue(InfoSelectorProperty);
+        set => SetValue(InfoSelectorProperty, value);
+    }
+
+    /// <summary>
+    /// 群の見出し（「所持アバター」「共通素体」「未所持アバター」）。<see cref="SuggestInfo.Group"/> の番号で引く。
+    /// 候補が残っている群の最初の行の上にだけ出す。無ければ見出しは出さず、群の境目の線だけ
+    /// </summary>
+    public static readonly DependencyProperty GroupHeadingsProperty =
+        DependencyProperty.Register(nameof(GroupHeadings), typeof(IReadOnlyList<string>), typeof(SuggestBox),
+            new PropertyMetadata(null));
+
+    public IReadOnlyList<string>? GroupHeadings
+    {
+        get => (IReadOnlyList<string>?)GetValue(GroupHeadingsProperty);
+        set => SetValue(GroupHeadingsProperty, value);
     }
 
     /// <summary>
@@ -344,27 +391,45 @@ public partial class SuggestBox : UserControl
         }
     }
 
+    /// <summary>並べ終えた候補1行。<see cref="Hit"/> は名前でなく呼び方などで当たったときの、その語。</summary>
+    public sealed record ArrangedRow(string Entry, int Group, bool DividerAbove, bool GroupStart, SuggestHint? Hit);
+
     /// <summary>
     /// 候補の並べ方。前方一致を先に、部分一致を後に（探している語が上に来る）。
-    /// 先に出す群（先頭から primaryCount 件）があるときは、群を先にして、各群の中でその並びにする。
-    /// 区切り線は、先の群と後の群の両方に候補が残っているときだけ、後の群の先頭の上に引く
+    /// 群（<paramref name="info"/> の番号。無ければ先頭から primaryCount 件までが先の群）があるときは、群を先にして、各群の中でその並びにする。
+    /// 区切り線は、群が変わる行の上に引く（候補が残っていない群は飛ばす）。
+    /// 名前に入っていなくても、名前以外の語（<see cref="SuggestInfo.Hints"/>）に入っていれば当たる
     /// </summary>
-    public static IReadOnlyList<(string Entry, bool DividerAbove)> Arrange(IReadOnlyList<string> all, string text, int primaryCount)
+    public static IReadOnlyList<ArrangedRow> Arrange(
+        IReadOnlyList<string> all, string text, int primaryCount, Func<string, SuggestInfo?>? info = null)
     {
+        bool Has(string value) => value.Contains(text, StringComparison.CurrentCultureIgnoreCase);
+
         var tagged = all
-            .Select((entry, index) => (Entry: entry, Group: primaryCount > 0 && index >= primaryCount ? 1 : 0))
-            .Where(pair => text.Length == 0 || pair.Entry.Contains(text, StringComparison.CurrentCultureIgnoreCase));
+            .Select((entry, index) =>
+            {
+                var extra = info?.Invoke(entry);
+                var group = extra?.Group ?? (primaryCount > 0 && index >= primaryCount ? 1 : 0);
+                var hit = text.Length == 0 || Has(entry) ? null : extra?.Hints.FirstOrDefault(hint => Has(hint.Text));
+                return (Entry: entry, Group: group, Hit: hit, Matches: text.Length == 0 || Has(entry) || hit is not null);
+            })
+            .Where(row => row.Matches);
 
         var ordered = text.Length == 0
-            ? tagged.OrderBy(pair => pair.Group).ToList()
-            : tagged.OrderBy(pair => pair.Group)
-                .ThenByDescending(pair => pair.Entry.StartsWith(text, StringComparison.CurrentCultureIgnoreCase))
-                .ThenBy(pair => pair.Entry, StringComparer.CurrentCulture)
+            ? tagged.OrderBy(row => row.Group).ToList()
+            : tagged.OrderBy(row => row.Group)
+                .ThenByDescending(row => row.Entry.StartsWith(text, StringComparison.CurrentCultureIgnoreCase)
+                    || (row.Hit?.Text.StartsWith(text, StringComparison.CurrentCultureIgnoreCase) ?? false))
+                .ThenBy(row => row.Hit is not null)
+                .ThenBy(row => row.Entry, StringComparer.CurrentCulture)
                 .ToList();
 
-        var firstOther = ordered.FindIndex(pair => pair.Group == 1);
         return ordered
-            .Select((pair, index) => (pair.Entry, DividerAbove: index == firstOther && firstOther > 0))
+            .Select((row, index) =>
+            {
+                var start = index == 0 || row.Group != ordered[index - 1].Group;
+                return new ArrangedRow(row.Entry, row.Group, start && index > 0, start, row.Hit);
+            })
             .ToList();
     }
 
@@ -381,8 +446,17 @@ public partial class SuggestBox : UserControl
             .Select(entry => entry!)
             .ToList()) ?? [];
 
-        var items = Arrange(all, text, PrimaryCount)
-            .Select(pair => new Suggestion { Value = pair.Entry, Display = pair.Entry, IconFactory = IconSelector, HasDividerAbove = pair.DividerAbove })
+        var headings = GroupHeadings;
+        var items = Arrange(all, text, PrimaryCount, InfoSelector)
+            .Select(row => new Suggestion
+            {
+                Value = row.Entry,
+                Display = row.Entry,
+                IconFactory = IconSelector,
+                HasDividerAbove = row.DividerAbove,
+                Heading = row.GroupStart && headings is not null && row.Group >= 0 && row.Group < headings.Count ? headings[row.Group] : string.Empty,
+                Note = row.Hit?.Label ?? string.Empty,
+            })
             .ToList();
 
         var exists = all.Any(entry => string.Equals(entry, text, StringComparison.CurrentCultureIgnoreCase));

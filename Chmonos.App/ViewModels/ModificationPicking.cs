@@ -62,9 +62,28 @@ public static class ModificationPicking
             .ToList();
         var avatarNames = ownedNames.Concat(otherNames).ToList();
 
+        // 呼び方でも当たる案内（メモ58）。名前が重なって1つにまとめた物は、呼び方も合わせる
+        var infos = new Dictionary<string, Controls.SuggestInfo>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var entry in avatarEntries.OrderByDescending(IsOwned))
+        {
+            var name = NameOf(entry);
+            var more = AvatarSuggestionText.InfoOf(entry, name, IsOwned(entry) ? AvatarSuggestionText.OwnedGroup : AvatarSuggestionText.OtherGroup);
+            infos[name] = infos.TryGetValue(name, out var found)
+                ? found with { Hints = found.Hints.Concat(more.Hints).DistinctBy(hint => hint.Text).ToList() }
+                : more;
+        }
+
+        // 絵は窓を開いている間だけ要る小さな物なので、窓専用の読み込み器を、絵が最初に要るときに作る
+        ThumbnailLoader? loader = null;
+        ThumbnailLoader Loader() => loader ??= new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
+
         var rows = records
             .Select(record => new PickModificationRowViewModel
             {
+                // 今ある改変の行の絵（メモ58）：改変の写真の1枚目 → そのアバターの絵 → 無ければ頭文字（既定の絵）。
+                // 読むのは行が見えたとき（絵の無い行は読み込み器も作らない）
+                IconPath = Core.Services.ModificationIcon.PathOf(services.Paths, record, ownedItems?.GetValueOrDefault(record.AvatarItemId)),
+                Thumbnails = Loader,
                 Record = record,
                 AvatarText = registry.Entries.FirstOrDefault(entry =>
                     string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
@@ -82,8 +101,6 @@ public static class ModificationPicking
             iconIds.TryAdd(NameOf(entry), entry.ItemId);
         }
 
-        // 絵は窓を開いている間だけ要る小さな物なので、窓専用の読み込み器を、候補の絵が最初に要るときに作る
-        ThumbnailLoader? loader = null;
         ImageSource? IconOf(string name)
         {
             if (!iconIds.TryGetValue(name, out var id)
@@ -92,8 +109,7 @@ public static class ModificationPicking
                 return null;
             }
 
-            loader ??= new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
-            return loader.LoadForTile(path);
+            return Loader().LoadForTile(path);
         }
 
         return new PickModificationDialogViewModel(
@@ -111,6 +127,7 @@ public static class ModificationPicking
             Files = files is { HasChoices: true } ? files : null,
             OwnedAvatarCount = ownedNames.Count,
             AvatarIconSelector = IconOf,
+            AvatarInfoSelector = name => infos.GetValueOrDefault(name),
         };
     }
 

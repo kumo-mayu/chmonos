@@ -1099,6 +1099,12 @@ public sealed class ListModule : SearchModule
     /// <summary>候補の頭に出す絵（対応アバター）。</summary>
     public Func<string, ImageSource?>? IconSelector { get; set; }
 
+    /// <summary>候補の語から、群と名前以外で当たる語を引く（対応アバター。メモ48・メモ58）。</summary>
+    public Func<string, Controls.SuggestInfo?>? InfoSelector { get; set; }
+
+    /// <summary>群の見出し。無ければ見出しは出ない。</summary>
+    public IReadOnlyList<string>? GroupHeadings { get; set; }
+
     public RelayCommand AddCommand => _add ??= new RelayCommand(parameter => Add(parameter as string));
 
     /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>

@@ -4,9 +4,23 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>選べる改変1件。</summary>
-public sealed class PickModificationRowViewModel
+public sealed class PickModificationRowViewModel : ViewModelBase
 {
     public required ModificationRecord Record { get; init; }
+
+    /// <summary>行の頭の絵の場所（改変の写真の1枚目 → アバターの絵。<see cref="Core.Services.ModificationIcon"/>）。無ければ null。</summary>
+    public string? IconPath { get; init; }
+
+    /// <summary>絵の読み込み器を返す。絵が無い行では呼ばない（窓ごとの読み込み器を、絵が要るときに初めて作るため）。</summary>
+    public Func<Services.ThumbnailLoader>? Thumbnails { get; init; }
+
+    /// <summary>頭の絵。見えた行で初めて読み、読み終えたら知らせる。無ければ空（頭文字が見える）。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon => IconPath is { } path
+        ? Thumbnails?.Invoke().PeekForIcon(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
+
+    /// <summary>絵の無い行の頭文字（既定の絵。アバターの候補・改変の一覧と同じ出し方）。</summary>
+    public string Initial => Core.Services.AvatarText.InitialOf(AvatarText);
 
     public required string AvatarText { get; init; }
 
@@ -195,6 +209,24 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     /// <summary>アバターの候補の頭に出す絵。名前から読む（持っていれば商品の1枚目・無ければ控え）。絵が無ければ頭文字が出る。</summary>
     public Func<string, System.Windows.Media.ImageSource?>? AvatarIconSelector { get; init; }
+
+    /// <summary>候補の名前から群と呼び方を引く（メモ58）。無ければ <see cref="OwnedAvatarCount"/> の前後で2群に分ける。</summary>
+    public Func<string, Controls.SuggestInfo?>? AvatarInfoSelector { get; init; }
+
+    /// <summary>
+    /// 群の見出し。共通素体は改変の持ち主にできない（改変は商品のあるアバターに属する）ので、
+    /// この窓の候補に素体の群は出ない。見出しの並びは検索・商品ページと同じ3つで、番号で引く
+    /// </summary>
+    public IReadOnlyList<string> AvatarGroupHeadings => AvatarSuggestionText.Headings;
+
+    /// <summary>欄に渡す案内。引けない名前は、先頭から <see cref="OwnedAvatarCount"/> 件までを所持、残りを未所持の群にする。</summary>
+    public Func<string, Controls.SuggestInfo?> AvatarSuggestInfoSelector => name =>
+        AvatarInfoSelector?.Invoke(name)
+        ?? new Controls.SuggestInfo(
+            AvatarNames.ToList().FindIndex(entry => string.Equals(entry, name, StringComparison.CurrentCultureIgnoreCase)) is >= 0 and var index && index < OwnedAvatarCount
+                ? AvatarSuggestionText.OwnedGroup
+                : AvatarSuggestionText.OtherGroup,
+            []);
 
     public IReadOnlyList<string> AvatarNames { get; }
 
