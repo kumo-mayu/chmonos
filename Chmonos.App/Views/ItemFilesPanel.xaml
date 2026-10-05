@@ -378,7 +378,7 @@
                                                             Command="{Binding DataContext.DetachFileCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="古い版の記録を片付ける" Style="{StaticResource SmallButton}"
+                                                    <Button Content="古い版の記録を片付ける" Style="{StaticResource DangerButton}"
                                                             AutomationProperties.AutomationId="ItemFileForgetOldVersion"
                                                             AutomationProperties.Name="{Binding FileName, StringFormat={}{0}の古い版の記録を片付ける}"
                                                             ToolTip="この行を消します。ファイルには触りません。"
