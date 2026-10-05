@@ -39,6 +39,8 @@ public class CommandHandlerTests
 
         public Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default) => Task.FromResult(ReattachOutcome.Reattached);
 
+        public Task<bool> ForgetOldVersionAsync(string itemId, string hash, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
         public Task<bool> SetFileVariationsAsync(string itemId, IReadOnlyDictionary<string, long?> variationByHash, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<bool> NoteFilePresenceAsync(string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default) => Task.FromResult(false);

@@ -979,7 +979,8 @@ public sealed class ImportPipeline : IImportPipeline
     /// 更新版を同じ名前で上書きすると商品ページに同じ名前の行が2つ並び、壊れた zip は落とし直しても「壊れたzip」が消えなかった。
     /// 未確定は取り込みのたびに一覧を作り直すので、同じことは起きない。
     ///
-    /// **場所が1つも残らなくなった記録は残す**（「見つかりません」の行になる）。種類の結び付きや、手で結んだ事実を失わないため。
+    /// **場所が1つも残らなくなった記録は残し、古い版の印（<see cref="LocalFileRecord.Replaced"/>）を付ける**（商品ページで「古い版」の行になる。
+    /// 「見つかりません」には数えない・2026-10-05・点検の8）。種類の結び付きや、手で結んだ事実を失わないため。
     /// **壊れた zip の記録だけは記録ごと落とす**——同じ場所に落とし直したのだから、壊れた方はもうどこにも無く、残しても取り戻す物が無い。
     /// 外した印の行からも場所は外す（そこに在るのは別の中身で、「この商品に戻す」相手ではない）。
     ///
@@ -1011,9 +1012,20 @@ public sealed class ImportPipeline : IImportPipeline
                         }
 
                         changed = true;
-                        if (paths.Count > 0 || !file.ArchiveBroken)
+                        if (paths.Count > 0)
                         {
                             files.Add(file with { Paths = paths });
+                        }
+                        else if (!file.ArchiveBroken)
+                        {
+                            // 場所が残らなかった記録は「古い版」と印を付ける（2026-10-05・点検の8）。印が無いと「見つかりません」と
+                            // 数えられ続け、探しても見つからない。どこで置き換わったかは行の名前に使う（場所はもう空なので）
+                            files.Add(file with
+                            {
+                                Paths = paths,
+                                Replaced = new ReplacedVersion(file.Paths.First(gone.Contains), DateTimeOffset.Now),
+                                MissingSince = null,
+                            });
                         }
                     }
 

@@ -109,10 +109,12 @@ public sealed record ItemRecord
     /// （ユーザ判断 2026-10-04。前は手で消したファイルが、取り込みがその商品を扱うまで数えられず、商品ページとだけ食い違っていた）。
     /// フォルダ登録（<see cref="LocalBlock.LocalFolders"/>）は、取り込みが「無い」と見たときに書く
     /// <see cref="LocalFolderRecord.MissingSince"/> を数える（ユーザ判断 2026-10-04。前は記録に「無い」状態が無く、数えていなかった）。
+    /// 同じ場所で新しい中身に置き換わった古い版（<see cref="LocalFileRecord.IsOldVersion"/>）は数えない（2026-10-05・点検の8）：
+    /// 探しても見つかる物ではなく、更新版を上書きしただけの商品に印が付き続けていた。
     /// </summary>
     [JsonIgnore]
     public bool HasMissingFile
-        => Local.LocalFiles.Any(file => !file.Detached && (file.Paths.Count == 0 || file.MissingSince is not null))
+        => Local.LocalFiles.Any(file => !file.Detached && !file.IsOldVersion && (file.Paths.Count == 0 || file.MissingSince is not null))
         || Local.LocalFolders.Any(folder => folder.MissingSince is not null);
 
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>

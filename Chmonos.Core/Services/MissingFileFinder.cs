@@ -108,7 +108,8 @@ public sealed class MissingFileFinder
         var missing = new Dictionary<string, MissingEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in loaded.Items)
         {
-            foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached))
+            // 古い版（同じ場所で新しい中身に置き換わった物）は探さない（2026-10-05・点検の8）。毎回「見つかりませんでした」と数えていた
+            foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached && !file.IsOldVersion))
             {
                 if (probe.Of(file.Paths) != FilePresence.Missing)
                 {

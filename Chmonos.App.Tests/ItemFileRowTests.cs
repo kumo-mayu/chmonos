@@ -1,5 +1,6 @@
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
@@ -73,6 +74,56 @@ public class ItemFileRowTests
     }
 
     [Fact]
+    public void 確かめられないファイルは_見つかりませんと分け_権限を確かめるよう言う()
+    {
+        // 権限が無い・ドライブが答えない場所は記録に「無い」と書かない（カードの印も出ない）。ここだけ「見つかりません」と出すと食い違う（MB-B）
+        var row = Row([@"D:\locked\sample.zip"], FilePresence.Unverifiable);
+
+        Assert.False(row.IsMissing);
+        Assert.True(row.IsUnverifiable);
+        Assert.False(row.IsOnDetachedDrive);
+        Assert.False(row.CanReveal);
+        Assert.Equal("D:\\locked\\sample.zip\nファイルを確かめられません。権限を確かめてください。", row.PathToolTip);
+    }
+
+    [Fact]
+    public void 古い版の行は_見つかりませんと言わず_外す代わりに片付けるを出す()
+    {
+        var row = new LocalFileRow
+        {
+            Hash = Make.HashOf("old"),
+            FileName = "pack.zip",
+            SizeText = "3 B",
+            Paths = [],
+            IsOldVersion = true,
+        };
+
+        Assert.False(row.IsMissing);
+        Assert.False(row.CanReveal);
+        Assert.True(row.CanForgetOldVersion);
+        Assert.False(row.CanDetach);
+        Assert.Equal("新しい版に置き換わっています。", row.PathToolTip);
+        Assert.Equal("新しい版に置き換わっています。", row.OpenMenuTip);
+    }
+
+    [Fact]
+    public void 古い版でも外した行には片付けるを出さない()
+    {
+        var row = new LocalFileRow
+        {
+            Hash = Make.HashOf("old"),
+            FileName = "pack.zip",
+            SizeText = "3 B",
+            Paths = [],
+            IsOldVersion = true,
+            IsDetached = true,
+        };
+
+        Assert.False(row.CanForgetOldVersion);
+        Assert.False(row.CanDetach);
+    }
+
+    [Fact]
     public void 壊れたzipの札は_在る物にだけ出す()
     {
         // 無い物・取り外しているドライブの上の物に札を2つ並べると、どちらを先にするのか分からない（ユーザ判断 2026-09-30）
@@ -92,7 +143,7 @@ public class ItemFileRowTests
             {
                 var row = Row([@"D:\files\sample.zip"], presence, broken);
 
-                var shown = new[] { row.IsMissing, row.IsOnDetachedDrive, row.ShowsBrokenArchive }.Count(flag => flag);
+                var shown = new[] { row.IsMissing, row.IsOnDetachedDrive, row.IsUnverifiable, row.ShowsBrokenArchive }.Count(flag => flag);
                 Assert.True(shown <= 1, $"{presence}・壊れた印 {broken} で札が {shown} つ出る");
             }
         }
@@ -109,6 +160,7 @@ public class ItemFileRowTests
         row.Presence = FilePresence.Missing;
 
         Assert.Contains(nameof(LocalFileRow.IsMissing), changed);
+        Assert.Contains(nameof(LocalFileRow.IsUnverifiable), changed);
         Assert.Contains(nameof(LocalFileRow.IsOnDetachedDrive), changed);
         Assert.Contains(nameof(LocalFileRow.CanReveal), changed);
         Assert.Contains(nameof(LocalFileRow.PathToolTip), changed);
@@ -164,6 +216,36 @@ public class ItemFileRowTests
     });
 
     [Fact]
+    public Task 商品ページは_古い版を置き換わった名前で出し_片付けると記録から消える() => TestApp.Run(async app =>
+    {
+        var fresh = app.NewFile("pack.zip");
+        var old = Make.File(fresh) with
+        {
+            Hash = Make.HashOf("old-version"),
+            Paths = [],
+            Replaced = new ReplacedVersion(fresh, DateTimeOffset.Now),
+        };
+        var item = Make.Item("9900001", "作り物の衣装").WithFiles(Make.File(fresh), old);
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        var row = page.LocalFiles.Single(row => row.Hash == old.Hash);
+
+        Assert.Equal("pack.zip", row.FileName);
+        Assert.True(row.IsOldVersion);
+        Assert.False(row.IsMissing);
+        Assert.True(row.CanForgetOldVersion);
+        Assert.False(item.HasMissingFile);
+
+        page.ForgetOldVersionCommand.Execute(row);
+        await app.SettleAsync();
+
+        var saved = await app.Services.Store.Items.LoadAsync(item.Id);
+        Assert.Equal(Make.HashOf(fresh), Assert.Single(saved!.Local.LocalFiles).Hash);
+    });
+
+    [Fact]
     public Task 商品ページは_外したファイルを後ろに並べ_戻せるかを言う() => TestApp.Run(async app =>
     {
         var kept = app.NewFile("kept.zip");
@@ -214,6 +296,7 @@ public class ItemFileRowTests
     [InlineData(FilePresence.Present, true, "このファイルの開き方を選びます", "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。")]
     [InlineData(FilePresence.Missing, false, "ファイルが見つかりません。", "ファイルが見つかりません。")]
     [InlineData(FilePresence.OnDetachedDrive, false, "ドライブをつなぐと開けます。", "ドライブをつなぐと送れます。")]
+    [InlineData(FilePresence.Unverifiable, false, "ファイルを確かめられません。権限を確かめてください。", "ファイルを確かめられません。権限を確かめてください。")]
     public void 開くとUnityのボタンは_在るときだけ押せ_押せないときは理由を言う(
         FilePresence presence, bool enabled, string openTip, string unityTip)
     {

@@ -195,7 +195,11 @@ public sealed partial class ItemViewModel
             LocalFiles.Add(new LocalFileRow
             {
                 Hash = file.Hash,
-                FileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0]) : "(見つかりません)",
+                // 古い版は場所が空なので、置き換わった場所の名前で出す（新しい版の行と同じ名前が並び、どの版の物か分かる）
+                FileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0])
+                    : file.IsOldVersion ? Path.GetFileName(file.Replaced!.Path)
+                    : "(見つかりません)",
+                IsOldVersion = file.IsOldVersion,
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 // 開く・在るかの確かめは今の場所で（ドライブ文字が変わった分は読み替える）。記録のパスは書き換えない
                 Paths = [.. file.Paths.Select(_services.Volumes.Current)],

@@ -88,6 +88,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         DetachFileCommand = new RelayCommand(
             parameter => DetachFileAsync(parameter as LocalFileRow).Forget(),
             parameter => parameter is LocalFileRow { IsDetached: false } && !IsEditLocked);
+        ForgetOldVersionCommand = new RelayCommand(parameter => ForgetOldVersionAsync(parameter as LocalFileRow).Forget());
         ReattachFileCommand = new RelayCommand(
             parameter => ReattachFileAsync(parameter as LocalFileRow).Forget(),
             parameter => parameter is LocalFileRow { CanReattach: true } && !IsEditLocked);
@@ -628,6 +629,34 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     /// <summary>灰色の行（外したファイル）をこの商品に戻す（ユーザ判断 2026-09-12）。</summary>
     public RelayCommand ReattachFileCommand { get; }
+
+    /// <summary>古い版の行を記録から消す（2026-10-05・点検の8）。</summary>
+    public RelayCommand ForgetOldVersionCommand { get; }
+
+    /// <summary>
+    /// 古い版の記録を片付ける。窓で聞かない：消すのはもうどこにも無いファイルの記録だけで、ディスクにも新しい版にも触らない。
+    /// 最後の1行でも聞かない（商品の情報は残り、古い版はもう所持していない物）。
+    /// </summary>
+    private async Task ForgetOldVersionAsync(LocalFileRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.ForgetOldVersion(Item.Id, row.Hash));
+        if (result is CommandResult.Failed failed)
+        {
+            FilesNotice.Warn(failed.Message);
+        }
+
+        if (await _services.Store.Items.LoadAsync(Item.Id) is { } reloaded)
+        {
+            // 「見つかりません」の印は古い版を数えないので、検索の写しは片付けで変わらないが、行の数と容量の写しを揃える
+            _main.Search.NoteItemChanged(reloaded);
+            ReplaceSelf(reloaded);
+        }
+    }
 
     private async Task ReattachFileAsync(LocalFileRow? row)
     {

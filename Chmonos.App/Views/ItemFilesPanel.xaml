@@ -305,6 +305,28 @@
                                                         <TextBlock Text="取り外しているドライブ" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
                                                     <!--
+                                                        権限が無い・ドライブが答えないで、在るとも無いとも言えないファイル（2026-10-05・MB-B）。記録には「無い」と書かないので
+                                                        カードの印も出ない。「見つかりません」と出すと食い違い、取り込み直しを勧めることにもなる。次の手は権限を見ること
+                                                    -->
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding IsUnverifiable, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            AutomationProperties.AutomationId="ItemFileUnverifiable"
+                                                            ToolTip="フォルダを読む権限があるか確かめてください。">
+                                                        <TextBlock Text="確かめられません" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                    </Border>
+                                                    <!--
+                                                        同じ場所で新しい版に置き換わった古い版（2026-10-05・点検の8）。探して見つかる物ではないので「見つかりません」と分け、
+                                                        警告の色にしない（困った状態ではない）。外した行と同じ灰色の札
+                                                    -->
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
+                                                            Visibility="{Binding IsOldVersion, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            AutomationProperties.AutomationId="ItemFileOldVersion"
+                                                            ToolTip="同じ名前の新しい版で上書きされました。">
+                                                        <TextBlock Text="古い版" FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                    </Border>
+                                                    <!--
                                                         開く操作は名前のすぐ横に、1つのボタンにまとめる（ユーザ判断 2026-09-19：右端に並ぶと、名前を読んでから
                                                         押すまでに視線が画面の幅ぶん往復した）。外したファイルでも開けるので、薄くしない（薄いと押せないように見えた・ユーザ指摘）。
                                                         見つからないファイル・取り外しているドライブの上のファイルは開く先が無いので押せなくし、吹き出しで理由を言う
@@ -352,8 +374,16 @@
                                                             AutomationProperties.AutomationId="ItemFileDetach"
                                                             AutomationProperties.Name="{Binding FileName, StringFormat={}{0}をこの商品から外す}"
                                                             ToolTip="未確定に戻します。ファイルは削除せず、あとで元に戻せます。"
-                                                            Visibility="{Binding IsAttached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Visibility="{Binding CanDetach, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.DetachFileCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="古い版の記録を片付ける" Style="{StaticResource SmallButton}"
+                                                            AutomationProperties.AutomationId="ItemFileForgetOldVersion"
+                                                            AutomationProperties.Name="{Binding FileName, StringFormat={}{0}の古い版の記録を片付ける}"
+                                                            ToolTip="この行を消します。ファイルには触りません。"
+                                                            Visibility="{Binding CanForgetOldVersion, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.ForgetOldVersionCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <Button Content="この商品に戻す" Style="{StaticResource SmallButton}"
