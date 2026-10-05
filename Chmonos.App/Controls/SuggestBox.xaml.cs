@@ -285,8 +285,20 @@ public partial class SuggestBox : UserControl
     /// <summary>入力欄にフォーカスを移す。ボタンで出した直後にすぐ打てるように（対応アバターの「＋ 追加」）。</summary>
     public void FocusInput() => Input.Focus();
 
+    /// <summary>
+    /// 候補の元が差し替わったとき、閉じている窓は開かない（開くのは人が欄を触ったときだけ）。
+    /// 選んで足すたびに候補の元が作り直される欄（素体の詳細のアバターを足す欄）で、足した後の読み直しが
+    /// フォーカスの残った欄の窓を開き直し、欄の位置が決まる前の窓が画面の左上に残った（メモ73-①）。
+    /// 開いている窓は、並びだけ引き直す
+    /// </summary>
     private static void OnSourceChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
-        => ((SuggestBox)element).Refresh();
+    {
+        var box = (SuggestBox)element;
+        if (box.DropDown.IsOpen)
+        {
+            box.Refresh();
+        }
+    }
 
     private static void OnPlaceholderChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
     {
