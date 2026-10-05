@@ -28,6 +28,7 @@ internal static partial class Scenes
         .. ManageMemo32Scenes,
         .. AvatarSuggestScenes,
         .. ManageRowMenuScenes,
+        .. ModificationDuplicateScenes,
         .. DragEdgeScrollScenes,
         .. AvatarScenes,
         .. Search,

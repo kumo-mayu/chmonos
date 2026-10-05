@@ -299,6 +299,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             parameter => AddCandidateAsync(parameter as ProjectCandidateRowViewModel).Forget(),
             parameter => parameter is ProjectCandidateRowViewModel);
         DeleteCommand = new RelayCommand(() => DeleteAsync().Forget());
+        DuplicateCommand = new RelayCommand(() => DuplicateRequested?.Invoke(Record.Id));
 
         ReloadAsync().Forget();
     }
@@ -356,8 +357,16 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>改変を消す。組み込んだときだけ出す（単独の画面ではアバターの管理の一覧から消す）。</summary>
     public RelayCommand DeleteCommand { get; }
 
+    public RelayCommand DuplicateCommand { get; }
+
     /// <summary>消し終えた。組み込んだ側が一覧を読み直して右側を空ける。</summary>
     public event Action? Deleted;
+
+    /// <summary>「複製」を押した。複製は左の一覧と右の開き方に関わるので、作るのは改変の画面（<see cref="ModificationHubViewModel"/>）で、ここは頼むだけ</summary>
+    public event Action<string>? DuplicateRequested;
+
+    /// <summary>複製の直後に開いたとき true。名前の欄へフォーカスを置く（名前を変えるのが次の一手）。画面が読んだら下ろす</summary>
+    public bool WantsNameFocus { get; set; }
 
     /// <summary>記録を読み直した（名前・メモ・使ったもの・紐付けが変わったかもしれない）。組み込んだ側が左の一覧を合わせる。</summary>
     public event Action? Changed;

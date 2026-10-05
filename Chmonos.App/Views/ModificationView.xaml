@@ -116,10 +116,16 @@
                                    Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </DockPanel>
                     <!-- 改変の画面の右側では、ここで消す（ユーザ判断 2026-09-13：作るのはアバターの行、消すのは右のビュー） -->
-                    <Button Content="この改変を削除" Style="{StaticResource DangerButton}"
-                            Command="{Binding DeleteCommand}"
-                            ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトは残ります。"
-                            Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <!-- 複製（メモ44 2026-10-05）。左の一覧の右クリックと同じ道。削除の左 -->
+                        <Button Content="複製" AutomationProperties.AutomationId="ModificationDuplicate"
+                                Command="{Binding DuplicateCommand}" Margin="0,0,8,0"
+                                ToolTip="使ったものとメモが同じ、新しい改変を作ります。" />
+                        <Button Content="この改変を削除" Style="{StaticResource DangerButton}"
+                                Command="{Binding DeleteCommand}"
+                                ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトは残ります。" />
+                    </StackPanel>
                 </controls:SplitRowPanel>
             </Grid>
         </Border>
@@ -622,7 +628,7 @@
                         <StackPanel>
                             <!-- 押さずに残す（ユーザ指示 2026-09-19：タグ・属性・アバターのメモと揃える） -->
                             <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
-                            <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"
+                            <TextBox x:Name="NameBox" Height="28" Padding="8,0" VerticalContentAlignment="Center"
                                      AutomationProperties.Name="改変の名前"
                                      Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="「普段着」「制服」のような呼び分けです。打ち終えると保存されます。" />

@@ -73,6 +73,13 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 ShowModification(record);
             }
         });
+        DuplicateModificationCommand = new RelayCommand(parameter =>
+        {
+            if (RecordOf(parameter) is { } record)
+            {
+                DuplicateModificationAsync(record.Id).Forget();
+            }
+        });
         ShowAvatarCommand = new RelayCommand(parameter =>
         {
             if (AvatarIdOf(parameter) is { } id)
@@ -403,6 +410,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     public RelayCommand ShowModificationCommand { get; }
 
+    /// <summary>左の一覧の改変の行の右クリック「複製」。引数は行か改変</summary>
+    public RelayCommand DuplicateModificationCommand { get; }
+
     public RelayCommand ShowAvatarCommand { get; }
 
     public RelayCommand ShowMemberCommand { get; }
@@ -652,9 +662,10 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         };
     }
 
-    private void ShowModification(ModificationRecord record)
+    private void ShowModification(ModificationRecord record, bool focusName = false)
     {
-        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true };
+        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true, WantsNameFocus = focusName };
+        modification.DuplicateRequested += id => DuplicateModificationAsync(id).Forget();
 
         // 開いた直後の読み込みでも Changed が来る。そのときは一覧を組み直さない（開くたびに一覧が動かないように）
         var first = true;
@@ -820,6 +831,26 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         if (result is CommandResult.ModificationCreated created)
         {
             ShowModification(created.Record);
+        }
+    }
+
+    /// <summary>
+    /// 複製して、できた改変を右に開き、名前の欄へフォーカスを置く（名前を変えるのが次の一手）。
+    /// 行の右クリックと詳細の帯のボタンの、どちらからもここへ来る
+    /// </summary>
+    public async Task DuplicateModificationAsync(string id)
+    {
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DuplicateModification(id));
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        await RefreshRecordsAsync();
+        if (result is CommandResult.ModificationCreated created)
+        {
+            ShowModification(created.Record, focusName: true);
         }
     }
 
