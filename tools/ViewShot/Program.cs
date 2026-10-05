@@ -41,6 +41,7 @@ internal static class Program
                 "peers" => ShotCommand(args[1..], peers: true),
                 "tabs" => ShotCommand(args[1..], tabs: true),
                 "diff" => DiffCommand(args[1..]),
+                "catalog" => Catalog.Run(args[1..]),
                 _ => Usage(),
             };
         }
@@ -65,6 +66,8 @@ internal static class Program
               ViewShot peers <場面>      読み上げ・自動操作の窓口の木を文字で書き出す（名前・型・押せるか）
               ViewShot tabs <場面> [--from <ID>] [--keys Tab,Right,Down,Enter…]
                                          Tab で一周して止まった所（型・名前・ID・枠）を書き出す。--keys はその順にキーを送る
+              ViewShot catalog [--out 空のフォルダ] [--zip 置き場.zip] [--only 名前の頭,…] [--jobs 4] [--timeout 240]
+                                         全場面を明・暗で撮り、画面ごとのフォルダと index.html を作って zip にする（docs/dev/ui-shots.md）
 
             画像は既定で %TEMP%\chmonos-shots\view\ に置く（リポジトリの外）。
             """);

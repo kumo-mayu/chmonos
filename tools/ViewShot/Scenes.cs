@@ -49,6 +49,7 @@ internal static partial class Scenes
         .. UnityToolScenes,
         .. Empties,
         .. Parts,
+        .. CatalogScenes,
     ];
 
     public static Scene Find(string name)
