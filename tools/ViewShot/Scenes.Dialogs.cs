@@ -39,6 +39,31 @@ internal static partial class Scenes
             "送るのを中止しました。",
             MessageBoxButton.OK,
             MessageBoxImage.Error),
+
+        // どこを探すかの窓（見つからない・移動の点検 11-A）。監視フォルダ2つと、この回だけ足した長いパス1つ（1つは外してある）
+        new Scene("missing-search-scope-dialog", "見つからないファイルを探す窓：監視フォルダ2つ・今回だけ足した長いパス・1つはチェックを外した", context =>
+        {
+            var model = new Chmonos.App.ViewModels.MissingSearchScopeViewModel([@"D:\Booth\downloads", @"E:\Assets"]);
+            model.AddFolders([@"F:\VeryLongFolderNameWithoutAnySpaces\AnotherVeryLongFolderName\moved-assets"]);
+            model.Rows[1].IsChecked = false;
+            var window = new Chmonos.App.Views.MissingSearchScopeDialog(model);
+            return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
+        new Scene("missing-search-scope-empty", "見つからないファイルを探す窓：監視フォルダが無い（空の文・「探す」が押せない理由）", context =>
+        {
+            var model = new Chmonos.App.ViewModels.MissingSearchScopeViewModel([]);
+            var window = new Chmonos.App.Views.MissingSearchScopeDialog(model);
+            return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
     ];
 
     private static Scene Notice(

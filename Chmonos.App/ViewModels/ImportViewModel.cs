@@ -154,6 +154,14 @@ public sealed class ImportViewModel : ViewModelBase
 
     private async Task FindMissingFilesAsync()
     {
+        // どこを探すかを窓で選ぶ（見つからない・移動の点検 11-A）。監視フォルダが既定で入り、ほかの場所はこの回だけ足せる。
+        // 足した場所は監視にも設定にも書かない（探したいだけの場所を監視に足すと、起動のたびに新着として見に行く）
+        var scope = new MissingSearchScopeViewModel(_services.Settings.WatchedFolders ?? []);
+        if (!MissingSearchScopeViewModel.Ask(scope))
+        {
+            return;
+        }
+
         _isFindingMissing = true;
         MissingSearchText = "見つからないファイルを調べています…";
         RelayCommand.RaiseCanExecuteChanged();
@@ -163,7 +171,7 @@ public sealed class ImportViewModel : ViewModelBase
             var progress = new Progress<(int Hashed, string? Detail)>(report => RunOnUiThread(() =>
                 MissingSearchText = $"中身を確かめています… {report.Hashed} 件（{report.Detail}）"));
 
-            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FindMissingFiles(progress));
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FindMissingFiles(progress, scope.SelectedFolders));
             MissingSearchText = result switch
             {
                 Core.Commands.CommandResult.MissingFilesSearched { Result.MissingBefore: 0 } =>
@@ -202,8 +210,9 @@ public sealed class ImportViewModel : ViewModelBase
 
         if (result.StillMissing > 0)
         {
-            parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした。"
-                + "移した先を監視フォルダに追加してから、もう一度押してください");
+            // 探す範囲は窓で選ぶので、次の手も窓の操作で言う（点検 11-A。前は「移した先を監視フォルダに追加してから」）
+            parts.Add($"{result.StillMissing} 件は探したフォルダの中に見つかりませんでした。"
+                + "移した先のフォルダを追加して、もう一度探してください");
         }
 
         if (result.Unreachable.Count > 0)

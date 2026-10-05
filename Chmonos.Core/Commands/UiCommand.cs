@@ -505,10 +505,14 @@ public abstract record UiCommand
     public record AddNotification(Models.NotificationRecord Record) : UiCommand;
 
     /// <summary>
-    /// 見つからない手元のファイルを、監視フォルダの中から**中身で**探して結び直す（G17）。
+    /// 見つからない手元のファイルを、選んだフォルダの中から**中身で**探して結び直す（G17）。
     /// 結果は <see cref="CommandResult.MissingFilesSearched"/> で返る。
+    /// <paramref name="Folders"/> は窓で選んだ探す場所（監視フォルダ＋この回だけ足した場所。点検 11-A）。null なら監視フォルダ。
+    /// 足した場所は監視にも設定にも書かない。
     /// </summary>
-    public record FindMissingFiles(IProgress<(int Hashed, string? Detail)>? Progress = null) : UiCommand;
+    public record FindMissingFiles(
+        IProgress<(int Hashed, string? Detail)>? Progress = null,
+        IReadOnlyList<string>? Folders = null) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

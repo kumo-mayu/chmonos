@@ -24,8 +24,8 @@ public sealed class WatchedFolderMissingTests
         await UiThread.Until(() => main.Import.MissingSearchText.Contains("探せませんでした", StringComparison.Ordinal), "探した結果が出る");
 
         Assert.Equal(
-            "紐付け直せたものはありませんでした。1 件は監視フォルダの中に見つかりませんでした。"
-            + "移した先を監視フォルダに追加してから、もう一度押してください。"
+            "紐付け直せたものはありませんでした。1 件は探したフォルダの中に見つかりませんでした。"
+            + "移した先のフォルダを追加して、もう一度探してください。"
             + "1 個のフォルダは見つからないため探せませんでした。名前を変えたか移したなら、新しい場所を監視フォルダに追加してください。",
             main.Import.MissingSearchText);
     });

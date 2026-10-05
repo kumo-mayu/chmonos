@@ -39,6 +39,7 @@
 | [data-model.md](spec/data-model.md) | 保存するファイルの一覧、商品の `booth`／`local`、手元のファイル、書き方、所持の数え方 |
 | [architecture.md](spec/architecture.md) | `UiCommand` を通す物、持ち主を宣言した書き込み、スレッドとディスク、画面の履歴、partial の分け方、試験 |
 | [import.md](spec/import.md) | 取り込みの周回と梯子、積む・取り消す・中断、未確定の一覧の合わせ方、⑦ 取り直し |
+| [missing-search.md](spec/missing-search.md) | 取り込み画面の「見つからないファイルを探す」：探す範囲の窓、結び直し・日時の書き方 |
 | [background-and-network.md](spec/background-and-network.md) | BOOTH への通信の決め事、優先度、起動時の裏の作業、失敗の書き残し（`logs/app.log`） |
 | [id-resolution.md](spec/id-resolution.md) | 商品IDの手掛かり、ファイル名からの自動検索、未確定の画面、「この商品から外す」 |
 | [private-items.md](spec/private-items.md) | BOOTH に無い商品（仮ID `local-`）、人が入れる名前・カテゴリ・ショップ、「IDを変更」 |
