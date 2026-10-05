@@ -145,7 +145,21 @@
         -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
+            <Border BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
+                <Border.Style>
+                    <!-- 線の色は変わった所の中身で決める（足しただけ＝緑・消しただけ＝赤・それ以外＝橙。メモ53②） -->
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{DynamicResource Warn}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Added}">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Removed}">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -665,28 +679,45 @@
                                                 ToolTipService.IsEnabled="False">
                                             <Grid>
                                             <Rectangle x:Name="Edge" Width="3" HorizontalAlignment="Left" Fill="Transparent" />
+                                            <!--
+                                                BOOTH の価格は1つなので行の右端に固定する（変わっていれば「¥前 → ¥今」。メモ27-⑤・54）。
+                                                買った記録は名前の下に札で並べ、入り切らなければ折り返す。札は灰色（購入は緑にしない。メモ53①）
+                                            -->
                                             <Grid Margin="18,12">
-                                                <StackPanel>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Name}" FontSize="13" />
-                                                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                                                Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{DynamicResource TextFaint}" />
-                                                        </Border>
-                                                    </StackPanel>
-                                                    <TextBlock Text="{Binding PriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
-                                                               Visibility="{Binding PriceText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                                    <!-- 買った行の BOOTH の今の値段（変わっていれば「¥前 → ¥今」。メモ27-⑤・39）。上の行は払った額なので分けて出す -->
-                                                    <TextBlock Text="{Binding BoothPriceText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,2,0,0"
-                                                               Visibility="{Binding BoothPriceText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Grid.Column="1" Text="{Binding BoothPrice}" Style="{StaticResource Mono}" FontSize="13"
+                                                           Foreground="{DynamicResource TextBody}" VerticalAlignment="Center" Margin="16,0,0,0"
+                                                           ToolTip="BOOTHの価格です。"
+                                                           Visibility="{Binding BoothPrice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                            Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{DynamicResource TextFaint}" />
+                                                    </Border>
                                                 </StackPanel>
-                                                <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                                                        BorderThickness="1" CornerRadius="6" Padding="10,4"
-                                                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                        Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="購入済み" FontSize="12" Foreground="{DynamicResource Good}" />
-                                                </Border>
+                                                <ItemsControl Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding Purchases}" Focusable="False" Margin="0,4,0,0"
+                                                              Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="{DynamicResource PurchasedSoft}" BorderBrush="{DynamicResource PurchasedBorder}"
+                                                                    BorderThickness="1" CornerRadius="6" Padding="8,2" Margin="0,2,6,2">
+                                                                <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource PurchasedText}" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                             </Grid>
                                             </Grid>
                                         </Border>

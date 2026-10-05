@@ -40,8 +40,13 @@ public sealed class ChangeSlot
 
     public bool IsMarked => Marks.Count > 0;
 
-    /// <summary>左の線の色。印が無ければ null（線を出さない）。</summary>
-    public ChangeTone? Edge => IsMarked ? Marks[0].Tone : null;
+    /// <summary>
+    /// 左の線の色。印が無ければ null（線を出さない）。足しただけなら緑・消しただけなら赤、
+    /// 足した札と消した札の両方があれば橙（変わった。メモ53②）。それ以外は先頭の印で決める
+    /// </summary>
+    public ChangeTone? Edge => !IsMarked ? null
+        : Marks.Any(mark => mark.Tone == ChangeTone.Added) && Marks.Any(mark => mark.Tone == ChangeTone.Removed) ? ChangeTone.Changed
+        : Marks[0].Tone;
 }
 
 /// <summary>
@@ -137,6 +142,7 @@ internal sealed class ItemChanges
         var changedHeadings = new List<string>();
         var removedSections = new List<RemovedSection>();
         var others = new List<string>();
+        var lineTotals = new List<NotificationDiff>();
 
         foreach (var diff in Merge(ordered))
         {
@@ -160,7 +166,7 @@ internal sealed class ItemChanges
                     break;
 
                 case BoothChanges.VariationsField:
-                    variations.Add(CountMark(diff));
+                    variations.AddRange(ByContent(CountMark(diff), [diff]));
                     variationLines = ChangedLines.From(diff);
                     break;
 
@@ -176,17 +182,19 @@ internal sealed class ItemChanges
 
                 // 見出しの無い商品は説明文の全体で比べている。見出しの名前が「説明文」になる商品（見出しが空）は、見出しの方で引く
                 case BoothChanges.DescriptionField when !keys.Contains(diff.Field):
-                    description.Add(Mark(ChangeTone.Changed, "変更", diff));
+                    description.AddRange(ByContent(Mark(ChangeTone.Changed, "変更", diff), [diff]));
                     descriptionLines = ChangedLines.From(diff);
+                    lineTotals.Add(diff);
                     break;
 
                 default:
                     if (keys.Contains(diff.Field))
                     {
-                        sections[diff.Field] = new ChangeSlot([diff.Before is null
-                            ? Mark(ChangeTone.Added, "追加", diff)
-                            : Mark(ChangeTone.Changed, "変更", diff)]);
+                        sections[diff.Field] = new ChangeSlot(diff.Before is null
+                            ? [Mark(ChangeTone.Added, "追加", diff)]
+                            : ByContent(Mark(ChangeTone.Changed, "変更", diff), [diff]));
                         changedHeadings.Add(diff.Field);
+                        lineTotals.Add(diff);
                         if (ChangedLines.From(diff) is { HasAny: true } lines)
                         {
                             sectionLines[diff.Field] = lines;
@@ -201,6 +209,7 @@ internal sealed class ItemChanges
                             ChangedLines.From(diff),
                             Mark(ChangeTone.Removed, "削除", diff)));
                         changedHeadings.Add(diff.Field);
+                        lineTotals.Add(diff);
                     }
                     else
                     {
@@ -213,12 +222,14 @@ internal sealed class ItemChanges
 
         if (changedHeadings.Count > 0)
         {
-            description.Add(new ChangeMark
-            {
-                Tone = ChangeTone.Changed,
-                Label = "変更",
-                Tip = $"変わった見出し：{string.Join("、", changedHeadings)}",
-            });
+            description.AddRange(ByContent(
+                new ChangeMark
+                {
+                    Tone = ChangeTone.Changed,
+                    Label = "変更",
+                    Tip = $"変わった見出し：{string.Join("、", changedHeadings)}",
+                },
+                lineTotals));
         }
 
         return new ItemChanges
@@ -269,6 +280,43 @@ internal sealed class ItemChanges
             : after < before
                 ? Mark(ChangeTone.Removed, "削除", diff)
                 : Mark(ChangeTone.Changed, "変更", diff);
+    }
+
+    /// <summary>
+    /// 「変更」の札を、中身（足した行・消した行）に合わせて「追加 n」「削除 n」に分ける（メモ53②）。
+    /// 足しただけなら「追加 n」の1枚（線は緑）、消しただけなら「削除 n」の1枚（赤）、両方なら2枚（線は橙）。
+    /// 札の色は変わった所だけの意味にして、足し引きの量も札で読めるようにする。
+    /// 行を持たない知らせ（商品名など）は中身が分からないので、渡した札のまま
+    /// </summary>
+    private static IReadOnlyList<ChangeMark> ByContent(ChangeMark mark, IReadOnlyList<NotificationDiff> diffs)
+    {
+        if (mark.Tone != ChangeTone.Changed)
+        {
+            return [mark];
+        }
+
+        // 見出しごと足された物（前が無い）は本文の全部が足した行、見出しごと消えた物は全部が消した行
+        var added = diffs.Sum(diff => (diff.Lines ?? []).Count(line => line.Kind == NotificationLineKind.Added) + (diff.MoreAdded ?? 0)
+            + (diff.Before is null && diff.Lines is not { Count: > 0 } ? 1 : 0));
+        var removed = diffs.Sum(diff => (diff.Lines ?? []).Count(line => line.Kind == NotificationLineKind.Removed) + (diff.MoreRemoved ?? 0)
+            + (diff.After is null && diff.Lines is not { Count: > 0 } ? 1 : 0));
+        if (added == 0 && removed == 0)
+        {
+            return [mark];
+        }
+
+        var marks = new List<ChangeMark>();
+        if (added > 0)
+        {
+            marks.Add(new ChangeMark { Tone = ChangeTone.Added, Label = $"追加 {added}", Tip = mark.Tip });
+        }
+
+        if (removed > 0)
+        {
+            marks.Add(new ChangeMark { Tone = ChangeTone.Removed, Label = $"削除 {removed}", Tip = mark.Tip });
+        }
+
+        return marks;
     }
 
     private static int LeadingNumber(string? text)

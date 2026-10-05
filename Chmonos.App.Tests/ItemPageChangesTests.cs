@@ -520,7 +520,7 @@ public class ItemPageChangesTests
             ["フルセット:", "旧色:Removed", "新色:Added", "テクスチャのみ:"],
             page.Variations.Select(row => $"{row.Name}:{row.Band}"));
         Assert.Equal("BOOTHで削除されたバリエーションです。", page.Variations[1].BandTip);
-        Assert.Equal(string.Empty, page.Variations[1].PriceText);
+        Assert.Equal(string.Empty, page.Variations[1].BoothPrice);
         Assert.Equal("バリエーション", page.ChangeTargets.Single().Label);
 
         // 知らせるために差し込んだ行は、欄の件数に数えない
@@ -538,8 +538,8 @@ public class ItemPageChangesTests
     {
         var rows = new List<VariationRow>
         {
-            new() { Name = "フルセット", PriceText = "¥1,500", Key = "フルセット" },
-            new() { Name = "旧色", PriceText = "¥800 で購入", IsPurchased = true, IsGone = true, Key = "旧色" },
+            new() { Name = "フルセット", BoothPrice = "¥1,500", Key = "フルセット" },
+            new() { Name = "旧色", Purchases = ["¥800 で買った"], IsPurchased = true, IsGone = true, Key = "旧色" },
         };
         var lines = ChangedLines.From(new NotificationDiff
         {
@@ -636,8 +636,8 @@ public class ItemPageChangesTests
         var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
 
         Assert.Equal(
-            ["通常版:|¥500|", "支援版:Price|¥1,000 → ¥1,500|", "おまけ付き:Price|¥1,800 で買った|BOOTHの価格 ¥1,800 → ¥2,000"],
-            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.BoothPriceText}"));
+            ["通常版:|¥500|", "支援版:Price|¥1,000 → ¥1,500|", "おまけ付き:Price|¥1,800 → ¥2,000|¥1,800 で買った"],
+            page.Variations.Select(Show));
         Assert.Equal("BOOTHで価格が変更されたバリエーションです。", page.Variations[1].BandTip);
         Assert.Equal("価格", page.ChangeTargets.Single().Label);
 
@@ -645,9 +645,12 @@ public class ItemPageChangesTests
         await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると帯が消える");
 
         Assert.Equal(
-            ["通常版:|¥500|", "支援版:|¥1,500|", "おまけ付き:|¥1,800 で買った|BOOTHの価格 ¥2,000"],
-            page.Variations.Select(row => $"{row.Name}:{row.Band}|{row.PriceText}|{row.BoothPriceText}"));
+            ["通常版:|¥500|", "支援版:|¥1,500|", "おまけ付き:|¥2,000|¥1,800 で買った"],
+            page.Variations.Select(Show));
     });
+
+    /// <summary>行の見え方を1行にする（名前:帯|BOOTHの価格|購入の札を「/」でつなぐ）。</summary>
+    private static string Show(VariationRow row) => $"{row.Name}:{row.Band}|{row.BoothPrice}|{string.Join('/', row.Purchases)}";
 
     [Fact]
     public Task 買ったバリエーションは_払った額とBOOTHの今の価格を両方出し_買っていない行と消えた行は1つだけ出す() => TestApp.Run(async app =>
@@ -678,9 +681,99 @@ public class ItemPageChangesTests
         var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
 
         Assert.Equal(
-            ["通常版|¥300 で買った|BOOTHの価格 ¥500", "支援版|¥1,500|", "旧色|¥800 で買った|"],
-            page.Variations.Select(row => $"{row.Name}|{row.PriceText}|{row.BoothPriceText}"));
+            ["通常版:|¥500|¥300 で買った", "支援版:|¥1,500|", "旧色:||¥800 で買った"],
+            page.Variations.Select(Show));
     });
+
+    [Fact]
+    public Task 同じバリエーションの購入は全部札で並べ_贈った貰ったは動詞で言い_価格の無い貰った物は貰ったとだけ言う() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with
+        {
+            Booth = item.Booth with { Variations = [new BoothVariation { Id = 1, Name = "通常版", Price = 1500 }] },
+            Local = item.Local with
+            {
+                Purchases =
+                [
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Price = 1200 },
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Price = 1500, Kind = PurchaseKind.Given },
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Price = 1500, Kind = PurchaseKind.Given },
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Kind = PurchaseKind.Received },
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Price = 800, Kind = PurchaseKind.Received },
+                    new Purchase { VariationId = 1, NameSnapshot = "通常版", Kind = PurchaseKind.Given },
+                ],
+            },
+        };
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+
+        var row = Assert.Single(page.Variations);
+        Assert.Equal("¥1,500", row.BoothPrice);
+        Assert.Equal(
+            ["¥1,200 で買った", "¥1,500 で贈った", "¥1,500 で贈った", "貰った", "¥800 で貰った", "価格未入力（贈った）"],
+            row.Purchases);
+    });
+
+    // ---- 見出しの「変更」の札を中身で分ける（メモ53②） ----
+
+    private static NotificationDiff HeadingDiff(string field, int added, int removed, int moreAdded = 0)
+        => new()
+        {
+            Field = field,
+            Before = "前",
+            After = "今",
+            Lines =
+            [
+                .. Enumerable.Range(0, added).Select(index => new NotificationLine { Kind = NotificationLineKind.Added, Text = $"足した{index}" }),
+                .. Enumerable.Range(0, removed).Select(index => new NotificationLine { Kind = NotificationLineKind.Removed, Text = $"消した{index}" }),
+            ],
+            MoreAdded = moreAdded == 0 ? null : moreAdded,
+        };
+
+    [Fact]
+    public void 足しただけの見出しは追加nの1枚で線は緑_消しただけなら削除nで線は赤_両方なら2枚で線は橙()
+    {
+        var changes = ItemChanges.From(
+            [Updated(ItemId, HeadingDiff("同梱物", added: 2, removed: 0, moreAdded: 3), HeadingDiff("注意", added: 0, removed: 2), HeadingDiff("導入", added: 1, removed: 4))],
+            ["同梱物", "注意", "導入"]);
+
+        Assert.Equal(["追加 5"], changes.Sections["同梱物"].Marks.Select(mark => mark.Label));
+        Assert.Equal(ChangeTone.Added, changes.Sections["同梱物"].Edge);
+        Assert.Equal(["削除 2"], changes.Sections["注意"].Marks.Select(mark => mark.Label));
+        Assert.Equal(ChangeTone.Removed, changes.Sections["注意"].Edge);
+        Assert.Equal(["追加 1", "削除 4"], changes.Sections["導入"].Marks.Select(mark => mark.Label));
+        Assert.Equal([ChangeTone.Added, ChangeTone.Removed], changes.Sections["導入"].Marks.Select(mark => mark.Tone));
+        Assert.Equal(ChangeTone.Changed, changes.Sections["導入"].Edge);
+
+        // 説明文の欄の札も、全部の見出しの合計で分ける
+        Assert.Equal(["追加 6", "削除 6"], changes.Description.Marks.Select(mark => mark.Label));
+        Assert.Equal(ChangeTone.Changed, changes.Description.Edge);
+    }
+
+    [Fact]
+    public void 行を持たない変更は変更の札のまま_橙のまま()
+    {
+        var changes = ItemChanges.From([Updated(ItemId, new NotificationDiff { Field = BoothChanges.NameField, Before = "前", After = "今" })], []);
+
+        var mark = Assert.Single(changes.Name.Marks);
+        Assert.Equal((ChangeTone.Changed, "変更"), (mark.Tone, mark.Label));
+        Assert.Equal(ChangeTone.Changed, changes.Name.Edge);
+    }
+
+    [Fact]
+    public void 上の帯の線は_変わった所が足しただけなら緑_消しただけなら赤_混ざるかほかの変化があれば橙()
+    {
+        ChangeTarget Target(ChangeTone tone) => new("所", tone, ChangePlace.Name);
+
+        Assert.Equal(ChangeTone.Added, ItemViewModel.BarTone([Target(ChangeTone.Added), Target(ChangeTone.Added)]));
+        Assert.Equal(ChangeTone.Removed, ItemViewModel.BarTone([Target(ChangeTone.Removed)]));
+        Assert.Equal(ChangeTone.Changed, ItemViewModel.BarTone([Target(ChangeTone.Added), Target(ChangeTone.Removed)]));
+        Assert.Equal(ChangeTone.Changed, ItemViewModel.BarTone([Target(ChangeTone.Added), Target(ChangeTone.Price)]));
+        Assert.Equal(ChangeTone.Changed, ItemViewModel.BarTone([]));
+    }
 
     [Fact]
     public void 通知の札は_値段の変わったバリエーションを商品ページと同じ形で1行ずつ出す()

@@ -40,11 +40,12 @@ public sealed partial class ItemViewModel
             rows.Add(new VariationRow
             {
                 Name = DisplayText.VariationName(variation.Name),
-                PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
                 IsPurchased = group.Count > 0,
 
-                // 払った額と BOOTH の今の値段は別の物（値上げ・値下げ・セールで開く）。買った行は両方を並べる
-                BoothPriceText = group.Count > 0 ? $"BOOTHの価格 ¥{variation.Price:N0}" : string.Empty,
+                // 払った額と BOOTH の今の値段は別の物（値上げ・値下げ・セールで開く）。
+                // BOOTH の価格は1つなので行の右端に固定し、買った記録は札で全部並べる（メモ54）
+                Purchases = group.Select(PurchaseLine).ToList(),
+                BoothPrice = $"¥{variation.Price:N0}",
                 VariationId = variation.Id,
                 Key = LineDiff.NormalizeLine(variation.Name ?? string.Empty),
             });
@@ -60,7 +61,7 @@ public sealed partial class ItemViewModel
             rows.Add(new VariationRow
             {
                 Name = purchases[0].NameSnapshot ?? DisplayText.VariationLabel(group.Key),
-                PriceText = PurchaseText(purchases),
+                Purchases = purchases.Select(PurchaseLine).ToList(),
                 IsPurchased = true,
 
                 // 指していない記録は「消えた」わけではない。指す先が無いだけ
@@ -113,7 +114,6 @@ public sealed partial class ItemViewModel
             inserts.Add((removed.Text, removed.Follows, new VariationRow
             {
                 Name = removed.Text,
-                PriceText = string.Empty,
                 Key = removed.Text,
                 Band = ChangeTone.Removed,
                 IsNoticeOnly = true,
@@ -148,30 +148,23 @@ public sealed partial class ItemViewModel
                 ? row with
                 {
                     Band = ChangeTone.Price,
-                    PriceText = row.IsPurchased ? row.PriceText : BoothChanges.PriceStep(price),
-                    BoothPriceText = row.IsPurchased ? $"BOOTHの価格 {BoothChanges.PriceStep(price)}" : string.Empty,
+                    BoothPrice = BoothChanges.PriceStep(price),
                 }
                 : row)
             .ToList();
     }
 
     /// <summary>
-    /// 1つの版についての購入記録をまとめて1行にする。
-    /// 同じ版を複数回買っていれば回数を出す（贈答・買い直しで起こる）。
+    /// 購入記録1件の札の文。同じバリエーションの購入は全部並べるので1件ずつ作る（前は1件目だけ「ほか n 件」だった）。
+    /// 種類は動詞で分ける（「¥1,500 で贈った」）。貰った物は自分の支出ではないので、価格が無い（空欄か0円）ときは「貰った」だけにする。
+    /// 括弧の中は名詞、文の中は動詞。同じ語を両方に使うと「¥100 で自分用」か「価格未入力（買った）」のどちらかが崩れる
     /// </summary>
-    private static string PurchaseText(IReadOnlyList<Purchase> group)
-    {
-        var head = group[0];
-
-        // 括弧の中は名詞、文の中は動詞。同じ語を両方に使うと
-        // 「¥100 で自分用」か「価格未入力（買った）」のどちらかが崩れる
-        var price = head.Price is null ? "価格未入力" : $"¥{head.Price:N0}";
-        var text = head.Price is null
-            ? $"{price}（{DisplayText.PurchaseKindLabel(head.Kind)}）"
-            : $"{price} で{DisplayText.PurchaseKindVerb(head.Kind)}";
-
-        return group.Count > 1 ? $"{text} ほか {group.Count - 1} 件" : text;
-    }
+    internal static string PurchaseLine(Purchase purchase)
+        => purchase.Kind == PurchaseKind.Received && purchase.Price is null or 0
+            ? "貰った"
+            : purchase.Price is null
+                ? $"価格未入力（{DisplayText.PurchaseKindLabel(purchase.Kind)}）"
+                : $"¥{purchase.Price:N0} で{DisplayText.PurchaseKindVerb(purchase.Kind)}";
 
     private void BuildLocalFiles()
     {

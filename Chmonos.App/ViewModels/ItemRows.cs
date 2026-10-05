@@ -94,18 +94,16 @@ public sealed record VariationRow
 {
     public required string Name { get; init; }
 
-    public required string PriceText { get; init; }
-
     public bool IsPurchased { get; init; }
 
     /// <summary>BOOTH のバリエーションの ID（知らせの値段の変化を当てる鍵）。買った記録だけの行・知らせるために差し込んだ行では null。</summary>
     public long? VariationId { get; init; }
 
-    /// <summary>
-    /// 買った行の、BOOTH の今の値段（「BOOTHの価格 ¥1,500」。変わっていれば「BOOTHの価格 ¥1,000 → ¥1,500」。メモ27-⑤・39）。
-    /// 買った行の値段の欄は払った額なので、BOOTH の値段は別の行に並べる。買っていない行は値段が1つだけで、値段の欄そのものに出すので、ここは空
-    /// </summary>
-    public string BoothPriceText { get; init; } = string.Empty;
+    /// <summary>購入記録1件ずつの札の文（「¥1,200 で買った」「¥1,500 で贈った」「貰った」）。同じバリエーションの購入を全部並べる。買っていない行は空（メモ54）。</summary>
+    public IReadOnlyList<string> Purchases { get; init; } = [];
+
+    /// <summary>行の右端に固定する BOOTH の価格（「¥1,500」。変わっていれば「¥1,200 → ¥1,500」。メモ27-⑤・54）。BOOTH に無い行（消えた・差し込んだ行）は空。</summary>
+    public string BoothPrice { get; init; } = string.Empty;
 
     /// <summary>BOOTH側に現存しない購入記録か。</summary>
     public bool IsGone { get; init; }

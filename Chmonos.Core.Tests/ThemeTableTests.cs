@@ -112,6 +112,12 @@ public class ThemeTableTests
     [InlineData("OnAccent", "NeedsWorkFill", 4.5)]
     [InlineData("Good", "Surface", 4.5)]
     [InlineData("Good", "GoodSoft", 4.5)]
+    // 購入の札（灰色。メモ53①54）。札の中の文字は札の地・面・値段の変わった行の帯の上で読める
+    [InlineData("PurchasedText", "PurchasedSoft", 4.5)]
+    [InlineData("PurchasedText", "Surface", 4.5)]
+    [InlineData("PurchasedText", "ChangedBand", 4.5)]
+    [InlineData("PurchasedText", "AddedBand", 4.5)]
+    [InlineData("PurchasedText", "RemovedBand", 4.5)]
     [InlineData("Warn", "Surface", 4.5)]
     [InlineData("Warn", "WarnSoft", 4.5)]
     [InlineData("Bad", "Surface", 4.5)]

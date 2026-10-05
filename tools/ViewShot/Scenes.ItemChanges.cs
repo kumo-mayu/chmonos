@@ -1,4 +1,8 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using Chmonos.App.ViewModels;
+using Chmonos.App.Views;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
@@ -11,7 +15,7 @@ namespace ViewShot;
 internal static partial class Scenes
 {
     // 右の列と左の説明が流さずに入る高さ（見出し3つ・画像3枚・タグ・バリエーション3つ・記録していること）
-    private const double ChangesHeight = 1700;
+    private const double ChangesHeight = 2100;
 
     private static IEnumerable<Scene> ItemChangeScenes =>
     [
@@ -40,6 +44,66 @@ internal static partial class Scenes
         new Scene("item-page-changes", "商品ページ：BOOTHで変わった所の帯（商品名・価格・バリエーションの入れ替え・画像・販売終了・見出しの変更と追加・消えた見出し）", async context =>
         {
             var item = await SeedChangedItemAsync(context, "9900603");
+            var root = await OpenItemAsync(context, item);
+            await SceneContext.UntilAsync(() => context.Screen<ItemViewModel>().HasUnreadChanges, "知らせを読んで印が付く");
+            await context.SettleAsync();
+            return new Shot(root);
+        })
+        {
+            Height = ChangesHeight,
+        },
+
+        new Scene("item-page-changes-variations", "商品ページ：バリエーションの欄だけ（BOOTHの価格は右端・購入は灰色の札で全部並べる・足した行・消えた行・価格の変わった行）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900611");
+            var root = await OpenItemAsync(context, item);
+            await SceneContext.UntilAsync(() => context.Screen<ItemViewModel>().HasUnreadChanges, "知らせを読んで印が付く");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root)?.FindName("VariationsAnchor") as FrameworkElement, FocusMargin = 8 };
+        })
+        {
+            Height = ChangesHeight,
+        },
+
+        new Scene("item-page-changes-description", "商品ページ：商品説明の欄だけ（見出しの札は「追加 n」「削除 n」に分け、両方あれば線は橙）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900612");
+            var root = await OpenItemAsync(context, item);
+            await SceneContext.UntilAsync(() => context.Screen<ItemViewModel>().HasUnreadChanges, "知らせを読んで印が付く");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => CardOf(Look.View<ItemView>(root)?.FindName("DescriptionAnchor") as FrameworkElement), FocusMargin = 8 };
+        })
+        {
+            Height = ChangesHeight,
+        },
+
+        new Scene("item-page-changes-bar", "商品ページ：上の帯だけ（両方あるので線は橙）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900613");
+            var root = await OpenItemAsync(context, item);
+            await SceneContext.UntilAsync(() => context.Screen<ItemViewModel>().HasUnreadChanges, "知らせを読んで印が付く");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => BarOf(root), FocusMargin = 0 };
+        })
+        {
+            Height = ChangesHeight,
+        },
+
+        new Scene("item-page-changes-added-only", "商品ページ：足しただけの商品（上の帯の線・見出しの札と線が緑）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900614", only: NotificationLineKind.Added);
+            var root = await OpenItemAsync(context, item);
+            await SceneContext.UntilAsync(() => context.Screen<ItemViewModel>().HasUnreadChanges, "知らせを読んで印が付く");
+            await context.SettleAsync();
+            return new Shot(root);
+        })
+        {
+            Height = ChangesHeight,
+        },
+
+        new Scene("item-page-changes-removed-only", "商品ページ：消しただけの商品（上の帯の線・見出しの札と線が赤）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900615", only: NotificationLineKind.Removed);
             var root = await OpenItemAsync(context, item);
             await SceneContext.UntilAsync(() => context.Screen<ItemViewModel>().HasUnreadChanges, "知らせを読んで印が付く");
             await context.SettleAsync();
@@ -112,17 +176,22 @@ internal static partial class Scenes
     /// 変わった所を一通り持つ商品（メモ17）。見出しの本文は複数行にし、足した行・消えた行（元の位置）を本文の上の帯で見る。
     /// 消えた行・見出し・バリエーションは、知らせを作る側と同じく「今の並びで直前にあった物」を持つ
     /// </summary>
-    private static async Task<ItemRecord> SeedChangedItemAsync(SceneContext context, string id)
+    /// <param name="only">足した行だけ・消した行だけの商品にする（上の帯の線と見出しの札の色が中身で変わるのを見る。メモ53②）。null なら両方</param>
+    private static async Task<ItemRecord> SeedChangedItemAsync(SceneContext context, string id, NotificationLineKind? only = null)
     {
         var item = await SeedTaggedItemAsync(context, id, delisted: true, sections:
         [
             new H2Section { Heading = "★更新履歴★", Text = "v1.0 公開しました\nv1.1 袖の形を直しました\nv1.2 テクスチャを2色足しました" },
             new H2Section { Heading = "同梱物", Text = "unitypackage\nテクスチャ（PNG）" },
             new H2Section { Heading = "注意事項", Text = "作り物の注意書きです。\n改変は自由です。" },
+
+            // 足しただけの見出し・消しただけの見出し（見出しの札と線の色が中身で変わるのを見る）
+            new H2Section { Heading = "対応アバター", Text = "作り物アバターA\n作り物アバターB\n作り物アバターC" },
+            new H2Section { Heading = "利用規約", Text = "規約は作り物です。" },
         ]);
         await context.Seed.Notifications.SaveAsync(
         [
-            new NotificationRecord
+            OnlyKind(new NotificationRecord
             {
                 Id = $"item-updated:{item.Id}",
                 Kind = NotificationKind.ItemUpdated,
@@ -186,6 +255,20 @@ internal static partial class Scenes
                     },
                     new NotificationDiff
                     {
+                        Field = "対応アバター",
+                        Before = "作り物アバターA",
+                        After = "作り物アバターA 作り物アバターB 作り物アバターC",
+                        Lines = [Line(true, "作り物アバターB"), Line(true, "作り物アバターC")],
+                    },
+                    new NotificationDiff
+                    {
+                        Field = "利用規約",
+                        Before = "規約は作り物です。 商用利用は不可です。",
+                        After = "規約は作り物です。",
+                        Lines = [Line(false, "商用利用は不可です。", "規約は作り物です。")],
+                    },
+                    new NotificationDiff
+                    {
                         Field = "旧版について",
                         Before = "旧版は配布を終えました",
                         Follows = "同梱物",
@@ -193,9 +276,57 @@ internal static partial class Scenes
                     },
                 ],
                 CreatedAt = new DateTimeOffset(2026, 10, 1, 21, 0, 0, TimeSpan.FromHours(9)),
-            },
+            }, only),
         ]);
         return item;
+    }
+
+    /// <summary>
+    /// 知らせを、足した行だけ（または消した行だけ）の変化に絞る。行を持たない変化（商品名・価格・画像・販売状況）と、
+    /// 該当する行が残らない見出しは外す。<paramref name="only"/> が null なら何もしない
+    /// </summary>
+    private static NotificationRecord OnlyKind(NotificationRecord record, NotificationLineKind? only)
+    {
+        if (only is not { } kind)
+        {
+            return record;
+        }
+
+        var diffs = (record.Diffs ?? [])
+            .Where(diff => diff.Lines is { Count: > 0 })
+            .Select(diff => new NotificationDiff
+            {
+                Field = diff.Field,
+                Before = diff.Before,
+                After = diff.After,
+                Follows = diff.Follows,
+                Lines = diff.Lines!.Where(line => line.Kind == kind).ToList(),
+                MoreAdded = kind == NotificationLineKind.Added ? diff.MoreAdded : null,
+                MoreRemoved = kind == NotificationLineKind.Removed ? diff.MoreRemoved : null,
+            })
+            .Where(diff => diff.Lines is { Count: > 0 })
+            .ToList();
+        return record with { Diffs = diffs };
+    }
+
+    /// <summary>上の帯（BOOTHで変わったところ）の外枠。</summary>
+    private static FrameworkElement? BarOf(FrameworkElement root)
+        => (Look.View<ItemView>(root)?.FindName("ChangeTargetList") as FrameworkElement)?.Parent is FrameworkElement grid
+            && grid.Parent is FrameworkElement inner && inner.Parent is FrameworkElement outer ? outer : null;
+
+    /// <summary>部品を囲むカード（型 Card の Border）。</summary>
+    private static FrameworkElement? CardOf(FrameworkElement? element)
+    {
+        var card = element?.TryFindResource("Card");
+        for (var current = element as DependencyObject; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is Border border && card is not null && ReferenceEquals(border.Style, card))
+            {
+                return border;
+            }
+        }
+
+        return element;
     }
 
     private static NotificationLine Line(bool added, string text, string? follows = null)
@@ -241,7 +372,12 @@ internal static partial class Scenes
                     Purchases =
                     [
                         new Purchase { VariationId = 1, NameSnapshot = "フルセット", Price = 1200 },
-                        new Purchase { VariationId = 3, NameSnapshot = "テクスチャのみ", Price = 300 },
+
+                        // 同じバリエーションを何度も買った（自分用1・贈った2）・貰った（価格なし）・BOOTH から消えた版を買った（メモ54）
+                        new Purchase { VariationId = 1, NameSnapshot = "フルセット", Price = 1500, Kind = PurchaseKind.Given },
+                        new Purchase { VariationId = 1, NameSnapshot = "フルセット", Price = 1500, Kind = PurchaseKind.Given },
+                        new Purchase { VariationId = 3, NameSnapshot = "テクスチャのみ", Kind = PurchaseKind.Received },
+                        new Purchase { VariationId = 4, NameSnapshot = "旧色セット", Price = 1000 },
                     ],
                 },
             },
