@@ -78,6 +78,17 @@ public sealed partial class ItemViewModel
     public IReadOnlyList<ChangeTarget> ChangeTargets { get; private set; } = [];
 
     /// <summary>
+    /// 上の帯の左の線の色（メモ53②）。変わった所がどれも足しただけなら緑・どれも消しただけなら赤、
+    /// 足したのと消したのが混ざる・値段や名前が変わった・見出しが変わったなら橙（変わった）
+    /// </summary>
+    public ChangeTone ChangesBarTone => BarTone(ChangeTargets);
+
+    internal static ChangeTone BarTone(IReadOnlyList<ChangeTarget> targets)
+        => targets.Count > 0 && targets.All(target => target.Tone == ChangeTone.Added) ? ChangeTone.Added
+        : targets.Count > 0 && targets.All(target => target.Tone == ChangeTone.Removed) ? ChangeTone.Removed
+        : ChangeTone.Changed;
+
+    /// <summary>
     /// 変わった所へ流すよう画面に頼む。畳んだ欄は先に開いてあるので、画面は並べ直してから位置を測る
     /// （開く前に測ると、開いて伸びた分だけ行き先がずれる）
     /// </summary>
@@ -168,6 +179,7 @@ public sealed partial class ItemViewModel
         OnPropertyChanged(nameof(SaleChange));
         OnPropertyChanged(nameof(DescriptionChange));
         OnPropertyChanged(nameof(ChangeTargets));
+        OnPropertyChanged(nameof(ChangesBarTone));
         RelayCommand.RaiseCanExecuteChanged();
     }
 

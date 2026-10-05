@@ -74,6 +74,13 @@
         何の帯かは左の線（Good・Bad）の色で見せ、地は面の色に寄せる（札の地と面の色の間の6割ほど）
     -->
     <SolidColorBrush x:Key="AddedBand" Color="#f0f7f3" />
+    <!--
+        購入の札（商品ページのバリエーションの行・メモ53①54）。灰色：緑と赤は「BOOTH で変わった所」だけの意味にして、
+        買った物の札が足した行の帯（緑）と見分けられるようにする。持っている印（Good）とは別の物なので、鍵を分けて持つ
+    -->
+    <SolidColorBrush x:Key="PurchasedText" Color="#454b57" />
+    <SolidColorBrush x:Key="PurchasedSoft" Color="#f1f2f5" />
+    <SolidColorBrush x:Key="PurchasedBorder" Color="#cdd0d8" />
     <SolidColorBrush x:Key="RemovedBand" Color="#fdf2f2" />
     <!-- 値段の変わったバリエーションの行（メモ27-⑤）。橙（変わった・Warn）。札の地（WarnSoft）から同じだけ面の色へ寄せる。前は青 -->
     <SolidColorBrush x:Key="ChangedBand" Color="#fcf6ea" />

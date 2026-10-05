@@ -56,6 +56,10 @@
     <SolidColorBrush x:Key="BadFill" Color="#a33c3c" />
     <!-- 商品ページの変わった行の帯の地（メモ17。理由は Light.xaml の同じ鍵）。札の地と面の色（Surface）の間 -->
     <SolidColorBrush x:Key="AddedBand" Color="#1a2d29" />
+    <!-- 購入の札（灰色。理由は Light.xaml の同じ鍵） -->
+    <SolidColorBrush x:Key="PurchasedText" Color="#c9cdd4" />
+    <SolidColorBrush x:Key="PurchasedSoft" Color="#272b32" />
+    <SolidColorBrush x:Key="PurchasedBorder" Color="#4b515d" />
     <SolidColorBrush x:Key="RemovedBand" Color="#332228" />
     <SolidColorBrush x:Key="ChangedBand" Color="#2f281d" />
     <SolidColorBrush x:Key="DangerText" Color="#f29a9a" />
