@@ -84,7 +84,9 @@
             一時展開が見えなかった）。ファイルや unitypackage が2つ以上あれば、押した後にどれにするかを選ばせる（「…」はその印）。
             どれも手元のファイルが要る
         -->
-        <MenuItem Header="開く">
+        <MenuItem Header="開く" AutomationProperties.AutomationId="CardMenu.OpenParent"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenParent}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenParent}">
             <MenuItem Header="エクスプローラで開く…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Reveal"
                       IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Reveal}"
                       ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Reveal}"
@@ -94,7 +96,9 @@
                       ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Unpack}"
                       Command="{Binding PlacementTarget.Tag.CardUnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </MenuItem>
-        <MenuItem Header="Unity">
+        <MenuItem Header="Unity" AutomationProperties.AutomationId="CardMenu.UnityParent"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=UnityParent}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=UnityParent}">
             <MenuItem Header="Unityへ送る…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.SendToUnity"
                       IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=SendToUnity}"
                       ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=SendToUnity}"

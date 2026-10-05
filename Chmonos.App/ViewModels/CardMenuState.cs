@@ -17,6 +17,9 @@ internal static class CardMenuState
 
     internal const string NoFilesTip = "手元にファイルがありません";
 
+    /// <summary>子の理由がそろわないとき、親の吹き出しに出すまとめの理由。</summary>
+    internal const string AllUnavailableTip = "今は使える操作がありません";
+
     /// <summary>メニューの宛先（カードそのもの、またはカードを持つ行）から商品のカードを取り出す。無ければ null。</summary>
     private static ItemCardViewModel? CardOf(object? target) => SearchViewModel.AsCard(target);
 
@@ -27,9 +30,24 @@ internal static class CardMenuState
     private static bool NeedsFiles(string key)
         => key is "Reveal" or "Unpack" or "SendToUnity" or "SendToUnityWithRecord" or "SelectInUnity";
 
+    /// <summary>
+    /// 子を持つ親の項目（「開く ▸」「Unity ▸」）と、その子。**子が全部押せないときは、親も押せなくして理由を言う**
+    /// （ユーザ判断 2026-10-05・メモ49。子だけ薄くて親が押せると、開いてから全部押せないと分かる）。
+    /// </summary>
+    private static readonly Dictionary<string, string[]> Parents = new()
+    {
+        ["OpenParent"] = ["Reveal", "Unpack"],
+        ["UnityParent"] = ["SendToUnity", "SendToUnityWithRecord", "SelectInUnity"],
+    };
+
     /// <summary>項目が押せるか。<paramref name="key"/> は項目の名前（<see cref="Tip"/> と同じ）。</summary>
     internal static bool IsEnabled(string key, object? target)
     {
+        if (Parents.TryGetValue(key, out var children))
+        {
+            return children.Any(child => IsEnabled(child, target));
+        }
+
         var card = CardOf(target);
         return key switch
         {
@@ -51,6 +69,13 @@ internal static class CardMenuState
     internal static string? Tip(string key, object? target)
     {
         var card = CardOf(target);
+        if (Parents.TryGetValue(key, out var children))
+        {
+            // 子の理由が同じならそれを、違えば短くまとめた理由を言う
+            var reasons = children.Select(child => Tip(child, target)).Distinct().ToList();
+            return IsEnabled(key, target) ? null : reasons.Count == 1 ? reasons[0] : AllUnavailableTip;
+        }
+
         if (IsEnabled(key, target))
         {
             return key switch
