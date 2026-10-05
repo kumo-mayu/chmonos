@@ -41,7 +41,8 @@ internal static class GalleryArrows
         }
 
         // 並び（対応アバターの札・ローカルファイルの行・ギャラリーの小さな絵など）の中の左右は、並びの中を移るキー（ユーザ判断 2026-10-01）
-        if (Controls.ArrowGroup.OwnsArrows(focused as DependencyObject))
+        // ナビの項目の左右も同じ（戻る・進むの間を移るキー。ほかの項目では何もしないが、絵は送らない）
+        if (Controls.ArrowGroup.OwnsArrows(focused as DependencyObject) || Controls.NavKeys.OwnsArrows(focused as DependencyObject))
         {
             return GalleryArrow.Yield;
         }
