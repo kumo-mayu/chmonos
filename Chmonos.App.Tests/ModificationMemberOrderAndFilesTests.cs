@@ -164,7 +164,7 @@ public class ModificationMemberOrderAndFilesTests
 
         var choice = Assert.Single(Assert.Single(app.FilePicks).Choices);
         Assert.True(choice.Selected.IsNone);
-        Assert.Equal(["選ばない", "Body.unitypackage　1000003.zipの中", "Option.unitypackage　1000003.zipの中"], choice.Options.Select(option => option.Text));
+        Assert.Equal(["選ばない", "Body.unitypackage (1000003.zip)", "Option.unitypackage (1000003.zip)"], choice.Options.Select(option => option.Text));
         var member = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!.Members.Single();
         Assert.Null(member.FileHash);
         Assert.Null(member.Package);
@@ -188,7 +188,7 @@ public class ModificationMemberOrderAndFilesTests
         var member = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!.Members.Single();
         Assert.Equal(Make.HashOf(@"D:\files\1000003.zip"), member.FileHash);
         Assert.Equal("Option/Option.unitypackage", member.Package);
-        Assert.Equal("Option.unitypackage", detail.Members.Single().SourceText);
+        Assert.Equal("Option.unitypackage (1000003.zip)", detail.Members.Single().SourceText);
     });
 
     [Fact]

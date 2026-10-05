@@ -106,6 +106,9 @@ public class SmallTextTests
         var pickedFile = new ModificationMember { ItemId = "1000001", FileHash = Make.HashOf(@"D:\files\a.zip") };
 
         Assert.Equal("Costume_v1.unitypackage", ModificationRowBuilder.FileTextOf(sent, item));
+        // zip を手元の一覧から引けるときは「パッケージ名 (zip名)」（メモ59）
+        var sentFromZip = new ModificationMember { ItemId = "1000001", FileHash = Make.HashOf(@"D:\files\a.zip"), Package = "costume/Costume_v1.unitypackage" };
+        Assert.Equal("Costume_v1.unitypackage (a.zip)", ModificationRowBuilder.FileTextOf(sentFromZip, item));
         // ファイルだけ記録した行（unitypackage の無いファイルを窓で選んだ・メモ26-②）は、手元のファイルの名前を出す
         Assert.Equal("a.zip", ModificationRowBuilder.FileTextOf(pickedFile, item));
         // 名前を引けないとき（手元の一覧に無い）は、記録があることだけ言う。送ったか選んだかは言い分けない

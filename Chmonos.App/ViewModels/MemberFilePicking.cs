@@ -19,7 +19,7 @@ public sealed class MemberFileOption
 
     public required string Label { get; init; }
 
-    /// <summary>どのファイルの中か（同じ名前の unitypackage を見分ける）。無ければ空。</summary>
+    /// <summary>どの zip に入っているか（同じ名前の unitypackage を見分ける）。無ければ空。</summary>
     public required string Detail { get; init; }
 
     public string? FileHash { get; init; }
@@ -31,7 +31,8 @@ public sealed class MemberFileOption
     public bool IsNone => FileHash is null;
 
     /// <summary>選ぶ欄の1行。閉じた欄にも同じ1行を出す。</summary>
-    public string Text => Detail.Length > 0 ? $"{Label}　{Detail}" : Label;
+    /// <summary>主はパッケージの名前で、zip の名前は補足。主が2つに見えないよう「名前 (zip名)」の形にする（メモ59・ユーザ決定 2026-10-05）。</summary>
+    public string Text => Detail.Length > 0 ? $"{Label} ({Detail})" : Label;
 
     /// <summary>
     /// 商品の手元のファイルから選べる物を作る（手元のファイルの順、zip の中は zip の中の順）。
@@ -62,7 +63,7 @@ public sealed class MemberFileOption
             options.AddRange(packages.Select(entry => new MemberFileOption
             {
                 Label = Path.GetFileName(entry),
-                Detail = fileName.Length > 0 ? $"{fileName}の中" : string.Empty,
+                Detail = fileName,
                 FileHash = file.Hash,
                 Package = entry,
                 VariationId = file.VariationId,
