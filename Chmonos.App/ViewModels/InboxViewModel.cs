@@ -565,7 +565,13 @@ public sealed class InboxViewModel : ViewModelBase
         var group = Groups.FirstOrDefault(candidate => candidate.Kind == NotificationKind.ItemUpdated);
         if (group is null || !group.Rows.Any(row => row.ItemId == itemId))
         {
-            return;
+            // 「商品ページの変更」の束に無いなら、「この商品 n」の印が付いた最初の束へ送る
+            // （印だけ見えて、送られた先には何も無い、という食い違いを作らない。ユーザ判断 2026-10-05）
+            group = Groups.FirstOrDefault(candidate => candidate.HasTarget);
+            if (group is null)
+            {
+                return;
+            }
         }
 
         group.IsExpanded = true;
