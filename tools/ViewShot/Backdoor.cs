@@ -77,6 +77,47 @@ internal static class Backdoor
             => owner.GetType().GetField(name, Hidden) ?? throw Missing(owner.GetType(), $"欄 {name}");
     }
 
+    /// <summary>
+    /// 未確定の「このIDで登録」の順番待ち（メモ60）。実際に積むと列が走って BOOTH へ行くので、列の中身を直に入れ、走っている印を立てて始めさせない。
+    /// 先頭が走っている物（<paramref name="requestsLeft"/> はその残り）、残りは待っている物。<paramref name="failed"/> は「登録に失敗」の札にする行。
+    /// </summary>
+    public static void ShowRegistrationQueue(
+        ResolveViewModel resolve,
+        RegistrationQueue queue,
+        IReadOnlyList<(string Hash, string ItemId, string Name, int? Estimate)> jobs,
+        int? requestsLeft,
+        (string Hash, string Reason)? failed)
+    {
+        SetField(queue, "_running", true);
+        var list = (List<RegistrationJob>)(queue.GetType().GetField("_jobs", Hidden)?.GetValue(queue)
+            ?? throw Missing(queue.GetType(), "欄 _jobs"));
+        foreach (var (hash, itemId, name, estimate) in jobs)
+        {
+            list.Add(new RegistrationJob
+            {
+                Record = new Chmonos.Core.Models.QueuedRegistration { ItemId = itemId, ItemName = name, FileHashes = [hash], EstimatedRequests = estimate },
+            });
+        }
+
+        if (list.Count > 0)
+        {
+            SetProperty(list[0], nameof(RegistrationJob.IsRunning), true);
+            SetProperty(list[0], nameof(RegistrationJob.RequestsLeft), requestsLeft);
+            SetProperty(list[0], "Reports", 3);
+        }
+
+        if (failed is { } failure)
+        {
+            var failures = (Dictionary<string, string>)(queue.GetType().GetField("_failures", Hidden)?.GetValue(queue)
+                ?? throw Missing(queue.GetType(), "欄 _failures"));
+            failures[failure.Hash] = failure.Reason;
+        }
+
+        var refresh = typeof(ResolveViewModel).GetMethod("RefreshQueueState", Hidden)
+            ?? throw Missing(typeof(ResolveViewModel), "RefreshQueueState()");
+        refresh.Invoke(resolve, null);
+    }
+
     private static void SetProperty(object target, string name, object? value)
     {
         var setter = target.GetType().GetProperty(name, Hidden)?.GetSetMethod(nonPublic: true)

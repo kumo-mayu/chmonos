@@ -45,6 +45,19 @@ public partial class ChoiceDialog : Window
     public static ChoiceDialogResult Ask(string title, string question, string detail, string first, string second)
         => Show(new ChoiceDialog(title, question, detail, first, second, third: null));
 
+    /// <summary>
+    /// 2つの選択肢だけで尋ねる（キャンセルを並べない）。2つ目が「やめる」側の答えのとき（閉じる／閉じない）に使う。
+    /// キャンセルを並べると「閉じない」と同じ意味のボタンが2つになる。Esc と × は2つ目と同じに扱う。
+    /// </summary>
+    public static ChoiceDialogResult AskTwo(string title, string question, string detail, string first, string second)
+    {
+        var dialog = new ChoiceDialog(title, question, detail, first, second, third: null);
+        dialog.CancelButton.Visibility = Visibility.Collapsed;
+        dialog.SecondButton.IsCancel = true;
+        var answer = Show(dialog);
+        return answer == ChoiceDialogResult.Cancel ? ChoiceDialogResult.Second : answer;
+    }
+
     /// <summary>3つの選択肢とキャンセルで尋ねる。既定のボタンを置かないのは2択と同じ。</summary>
     public static ChoiceDialogResult Ask(
         string title, string question, string detail, string first, string second, string third)

@@ -33,6 +33,7 @@
 | `scan-cache.json` | パス → サイズ・更新日時・ハッシュと、zip の中のテキストにあった商品ID（`clueItemIds`・まだ読んでいなければ無い）（消してもよい） | 取り込み・見つからないファイルを探す所（錠の中で今の控えに重ねる） |
 | `import-state.json` | 中断した取り込みの3項目（済んだ数・全体・日時）。最後まで終われば消す | 取り込み |
 | `edit-session.json` | 編集キューの位置 | 編集画面 |
+| `registration-queue.json` | 未確定の「このIDで登録」のまだ終わっていない列（商品ID・名前・ファイルのハッシュ・見込みの数）。次の起動で続ける（メモ60） | 未確定の画面（主画面が持つ列） |
 | `volumes.json` | ドライブ文字と通し番号の組（`docs/spec/folder-view.md`） | 取り込み・フォルダビュー |
 | `unitypackages/{zipのハッシュ}.json` | zip の中の unitypackage のパス一覧（中身から決まるので古くならない。消してもよい） | 取り込みの裏 |
 | `logs/app.log` | 失敗の書き残し（1MBで `app.old.log` へ回す。消してよい） | `AppLog` |

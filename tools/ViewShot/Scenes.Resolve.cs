@@ -249,7 +249,40 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("resolve-target-images", "未確定：BOOTHに無い商品に画像を2枚添えたときのギャラリー（枠と＋の枠）", async context =>
+        new Scene("resolve-queue", "未確定：登録の順番待ち（メモ60）。行の札（登録中・登録待ち・登録に失敗・検索中）と、待っている行を選んだ右の欄", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage"), contents: ["hair_ribbon.unitypackage"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\accessory_pack.zip", "ring.unitypackage"), contents: ["ring.unitypackage"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\winter_coat_full.zip", "coat.unitypackage"), contents: ["coat.unitypackage"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\shoes_set.zip", "shoes.unitypackage"), contents: ["shoes.unitypackage"]),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 4);
+            string HashOf(string name) => screen.Files.First(row => row.FileName == name).File.Hash;
+
+            Backdoor.ShowRegistrationQueue(
+                screen,
+                context.Main.Registrations,
+                [
+                    (HashOf("hair_ribbon_v1.0.zip"), "9900801", "作り物のリボン", 40),
+                    (HashOf("accessory_pack.zip"), "9900802", "作り物のアクセサリー", 12),
+                ],
+                requestsLeft: 31,
+                failed: (HashOf("shoes_set.zip"), "商品ID 9900804 には確定できませんでした。"));
+
+            // 検索中の札（別の行の検索が走っている）
+            context.Main.ResolveSearch.Begin(@"C:\ダウンロード\winter_coat_full.zip", [HashOf("winter_coat_full.zip")]);
+
+            screen.Selected = screen.Files.First(row => row.FileName == "accessory_pack.zip");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1100,
+        },
+
+        new Scene("resolve-target-images","未確定：BOOTHに無い商品に画像を2枚添えたときのギャラリー（枠と＋の枠）", async context =>
         {
             await context.Seed.Unresolved.SaveAsync(
             [

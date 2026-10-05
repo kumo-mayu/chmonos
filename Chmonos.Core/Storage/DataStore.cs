@@ -290,7 +290,11 @@ public sealed class DataStore
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
         Volumes = new JsonFileStore<List<VolumeRecord>>(paths.VolumesFile);
         UiState = new JsonFileStore<UiState>(paths.UiStateFile);
+        RegistrationQueue = new JsonFileStore<List<QueuedRegistration>>(paths.RegistrationQueueFile);
     }
+
+    /// <summary>まだ終わっていない登録の列。次の起動で同じ順に続ける（ユーザ判断 2026-10-05 メモ60）。</summary>
+    public JsonFileStore<List<QueuedRegistration>> RegistrationQueue { get; }
 
     public AppPaths Paths { get; }
 

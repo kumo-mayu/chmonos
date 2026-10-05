@@ -95,6 +95,9 @@ public sealed class AppPaths
 
     public string EditSessionFile => Path.Combine(Root, "edit-session.json");
 
+    /// <summary>未確定の画面で押して、まだ終わっていない登録の列（<see cref="Models.QueuedRegistration"/>）。次の起動で続ける</summary>
+    public string RegistrationQueueFile => Path.Combine(Root, "registration-queue.json");
+
     public string ScanCacheFile => Path.Combine(Root, "scan-cache.json");
 
     /// <summary>

@@ -212,11 +212,9 @@ public class ImportAndResolveFlowTests
             await UiThread.Until(() => resolve.RegisteringText.Contains("BOOTHへあと 2 件", StringComparison.Ordinal), "残り2件が出る");
             Assert.StartsWith("登録しています…　", resolve.RegisteringText, StringComparison.Ordinal);
 
-            // 進むごとに減る。0になったら目安は消える
-            resolve.SetRequestsLeft(1);
-            Assert.Contains("BOOTHへあと 1 件", resolve.RegisteringText, StringComparison.Ordinal);
-            resolve.SetRequestsLeft(0);
-            Assert.Equal("登録しています…", resolve.RegisteringText);
+            // 登録は列で走る（メモ60）。行には札「登録中」、同じ行の登録はもう押せない
+            Assert.Equal("登録中", resolve.Files.Single().QueueBadge);
+            Assert.False(resolve.AssignCommand.CanExecute(null));
         }
         finally
         {

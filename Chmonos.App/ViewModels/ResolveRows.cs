@@ -32,6 +32,47 @@ public sealed class UnresolvedRow : ViewModelBase
 
     public event Action? SelectionChanged;
 
+    private string _queueBadge = string.Empty;
+    private string _queueFailure = string.Empty;
+    private bool _isSearching;
+
+    /// <summary>登録の列での様子の札（「登録待ち 2番目」「登録中」「登録に失敗」）。列にいなければ空（メモ60）。</summary>
+    public string QueueBadge => _queueBadge;
+
+    public bool HasQueueBadge => _queueBadge.Length > 0;
+
+    /// <summary>登録できなかった理由（札「登録に失敗」の吹き出し）。失敗していなければ空。</summary>
+    public string QueueFailure => _queueFailure;
+
+    public bool IsQueueFailed => _queueFailure.Length > 0;
+
+    /// <summary>自動検索が今この行の分を探しているか（札「検索中」）。</summary>
+    public bool IsSearching => _isSearching;
+
+    /// <summary>列と検索の様子を入れる。画面が列の知らせを受けるたびに全部の行へ入れ直す（行は読み直しで作り直される）。</summary>
+    internal void SetQueueState(string badge, string failure, bool isSearching)
+    {
+        if (_queueBadge != badge)
+        {
+            _queueBadge = badge;
+            OnPropertyChanged(nameof(QueueBadge));
+            OnPropertyChanged(nameof(HasQueueBadge));
+        }
+
+        if (_queueFailure != failure)
+        {
+            _queueFailure = failure;
+            OnPropertyChanged(nameof(QueueFailure));
+            OnPropertyChanged(nameof(IsQueueFailed));
+        }
+
+        if (_isSearching != isSearching)
+        {
+            _isSearching = isSearching;
+            OnPropertyChanged(nameof(IsSearching));
+        }
+    }
+
     public required string FileName { get; init; }
 
     public required string SizeText { get; init; }

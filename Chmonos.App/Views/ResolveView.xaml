@@ -251,6 +251,15 @@
                                           ToolTipService.ShowOnDisabled="True"
                                           Command="{Binding PlacementTarget.DataContext.ExcludeRowCommand,
                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <!-- 登録を待っている行だけ、列から外せる（走っている登録は止めない。ユーザ判断 2026-10-05 メモ60「2-A」） -->
+                                <MenuItem Header="登録をやめる"
+                                          AutomationProperties.AutomationId="ResolveRowMenu.CancelQueued"
+                                          ToolTip="登録の順番待ちから外します。ファイルは未確定に残ります。"
+                                          Command="{Binding PlacementTarget.DataContext.CancelQueuedCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Visibility="{Binding PlacementTarget.DataContext.IsTargetWaiting,
+                                                    RelativeSource={RelativeSource AncestorType=ContextMenu},
+                                                    Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </ContextMenu>
                         </ListBox.ContextMenu>
                         <!--
@@ -415,6 +424,46 @@
                                             </TextBlock.Style>
                                         </TextBlock>
                                         <WrapPanel Margin="0,4,0,0">
+                                            <!--
+                                                登録の列での様子（メモ60）。待っている・走っている行は青、失敗した行は赤で、理由は吹き出し。
+                                                先頭に置く：この行をいま触れない（登録・除外が押せない）理由がここにある
+                                            -->
+                                            <Border CornerRadius="9" Padding="7,0" Margin="0,0,5,0" BorderThickness="1"
+                                                    ToolTip="{Binding QueueFailure}" ToolTipService.IsEnabled="{Binding IsQueueFailed}"
+                                                    Visibility="{Binding HasQueueBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsQueueFailed}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource BadSoft}" />
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding QueueBadge}" FontSize="10"
+                                                           AutomationProperties.AutomationId="ResolveRowQueueBadge">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsQueueFailed}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Bad}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+                                            <!-- 自動検索が今この行の分を探している（メモ60：検索は1本ずつなので、どの行かを一覧で分かるように） -->
+                                            <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource Accent}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                                    Visibility="{Binding IsSearching, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="検索中" FontSize="10" Foreground="{DynamicResource Accent}"
+                                                           AutomationProperties.AutomationId="ResolveRowSearching" />
+                                            </Border>
                                             <!--
                                                 取り込みで zip として開けなかった物（途中で切れたダウンロードなど）。前は普通の未確定と見分けられなかった
                                                 （大容量の確かめ 問題4・ユーザ判断 2026-09-30）。ほかの札は「確かめてほしい」の黄、これは直さないと使えないので赤
@@ -750,6 +799,21 @@
                             </StackPanel>
                             <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                             Visibility="{Binding IsRegisteringInDecision, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!--
+                                この行の登録が順番を待っている間（メモ60）。押した所のすぐ下に、いつ始まり何分かかるかと、やめる手立て。
+                                走っている物は止めない（ユーザ判断 2026-10-05「2-A」）ので、ボタンは待っている間だけ
+                            -->
+                            <DockPanel Margin="0,10,0,0"
+                                       Visibility="{Binding IsTargetWaiting, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Button DockPanel.Dock="Right" Content="登録をやめる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                        VerticalAlignment="Top"
+                                        AutomationProperties.AutomationId="ResolveCancelQueued"
+                                        ToolTip="登録の順番待ちから外します。ファイルは未確定に残ります。"
+                                        Command="{Binding CancelQueuedCommand}" />
+                                <TextBlock Text="{Binding QueueWaitingText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                           VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="ResolveQueueWaitingText" />
+                            </DockPanel>
                         </StackPanel>
                     </Border>
 
