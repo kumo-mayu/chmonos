@@ -27,6 +27,15 @@ public sealed record MissingFileSearchResult
     /// 画面が検索の写しを読み直すかを決める（結び直しが0件でも、日時を付けたなら印と条件が変わる）。
     /// </summary>
     public int MarkedItems { get; init; }
+
+    /// <summary>
+    /// 監視フォルダの中で、読めずに中身を確かめられなかったファイルの数（ほかのアプリが開いている・権限が無い。点検の13）。
+    /// 前は黙って飛ばしていて、探す物がそこにあったのかが分からなかった。
+    /// </summary>
+    public int UnreadableFiles { get; init; }
+
+    /// <summary>中を読めなかったフォルダの数（権限が無い・ネットワーク越しで切れた）。中に何件あったかは分からないので、ファイルの数とは分ける。</summary>
+    public int UnreadableFolders { get; init; }
 }
 
 /// <summary>
@@ -128,6 +137,8 @@ public sealed class MissingFileFinder
         var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var unreachable = new List<string>();
         var hashed = 0;
+        var unreadableFiles = 0;
+        var unreadableFolders = 0;
 
         // 計算したハッシュは走査の控えに足す。前は捨てていたので、同じ大きさのファイルを探すたび・取り込むたびに
         // 同じファイルを読み直していた（大きさが合う物は数GB の zip のこともある）
@@ -144,7 +155,10 @@ public sealed class MissingFileFinder
                 continue;
             }
 
-            foreach (var file in _scanner.Scan(folder, cancellationToken).Files)
+            var scan = _scanner.Scan(folder, cancellationToken);
+            unreadableFiles += scan.Unreadable;
+            unreadableFolders += scan.UnreadableFolders.Count;
+            foreach (var file in scan.Files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -166,6 +180,10 @@ public sealed class MissingFileFinder
                     }
                     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                     {
+                        // 黙って飛ばすと、探したのに見つからなかったのか、読めずに確かめられなかったのかが分からない（点検の13）。
+                        // 取り込みと同じく数に入れて結果に出し、どれかはログに残す
+                        Diagnostics.AppLog.Warn("見つからないファイルを探す", $"{file.Path}：{exception.Message}");
+                        unreadableFiles++;
                         continue;
                     }
 
@@ -229,6 +247,8 @@ public sealed class MissingFileFinder
             Hashed = hashed,
             Unreachable = unreachable,
             MarkedItems = marked,
+            UnreadableFiles = unreadableFiles,
+            UnreadableFolders = unreadableFolders,
         };
     }
 

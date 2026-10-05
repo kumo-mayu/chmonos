@@ -122,27 +122,51 @@ public sealed class FilePresenceProbe
     public static readonly TimeSpan RootWait = TimeSpan.FromSeconds(3);
 
     private readonly Dictionary<string, bool> _reachable = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Func<string, bool> _fileExists;
+    private readonly Func<string, DiskAnswer> _fileState;
     private readonly Func<string, bool> _rootExists;
-    private readonly Func<string, bool> _folderExists;
+    private readonly Func<string, DiskAnswer> _folderState;
     private readonly TimeSpan _rootWait;
 
+    /// <param name="fileExists">在るか無いかだけで答える見方（試験）。<paramref name="fileState"/> が優先。</param>
     /// <param name="volumes">
     /// 控えたボリュームと今のボリュームの写し。無ければ根がつながっているかだけで見る（控えを渡さない組み立て・試験）。
+    /// </param>
+    /// <param name="fileState">
+    /// 在る・無い・確かめられない（権限が無い等）で答える見方。既定は <see cref="DiskCheck.FileState"/>。試験が拒まれた場所を作るために差し替える。
     /// </param>
     public FilePresenceProbe(
         Func<string, bool>? fileExists = null,
         Func<string, bool>? rootExists = null,
         TimeSpan? rootWait = null,
         Func<string, bool>? folderExists = null,
-        VolumeSnapshot? volumes = null)
+        VolumeSnapshot? volumes = null,
+        Func<string, DiskAnswer>? fileState = null,
+        Func<string, DiskAnswer>? folderState = null)
+        : this(
+            fileState ?? Answer(fileExists) ?? DiskCheck.FileState,
+            rootExists ?? DiskCheck.FolderExists,
+            rootWait ?? RootWait,
+            folderState ?? Answer(folderExists) ?? DiskCheck.FolderState,
+            volumes ?? VolumeSnapshot.Empty)
     {
-        _fileExists = fileExists ?? DiskCheck.FileExists;
-        _rootExists = rootExists ?? DiskCheck.FolderExists;
-        _folderExists = folderExists ?? DiskCheck.FolderExists;
-        _rootWait = rootWait ?? RootWait;
-        Volumes = volumes ?? VolumeSnapshot.Empty;
     }
+
+    private FilePresenceProbe(
+        Func<string, DiskAnswer> fileState,
+        Func<string, bool> rootExists,
+        TimeSpan rootWait,
+        Func<string, DiskAnswer> folderState,
+        VolumeSnapshot volumes)
+    {
+        _fileState = fileState;
+        _rootExists = rootExists;
+        _rootWait = rootWait;
+        _folderState = folderState;
+        Volumes = volumes;
+    }
+
+    private static Func<string, DiskAnswer>? Answer(Func<string, bool>? exists)
+        => exists is null ? null : path => exists(path) ? DiskAnswer.Present : DiskAnswer.Missing;
 
     /// <summary>控えたボリュームの写し。</summary>
     public VolumeSnapshot Volumes { get; }
@@ -155,13 +179,17 @@ public sealed class FilePresenceProbe
     /// BOOTH から取る数分後のことがあり、その間に外付けを外すと、覚えた「つながっている」のまま「無い」と見て場所を外してしまう。
     /// ボリュームの写しは周回の頭の物を使い続ける（その周回で取り込んだ文字を控え直した後の写しでは、控えた文字に来た別のディスクを見分けられない）。
     /// </summary>
-    public FilePresenceProbe Renewed() => new(_fileExists, _rootExists, _rootWait, _folderExists, Volumes);
+    public FilePresenceProbe Renewed() => new(_fileState, _rootExists, _rootWait, _folderState, Volumes);
 
-    /// <summary>記録の場所のどれかに在るか（場所を全部見て1つにまとめる。決まりは <see cref="LocalFilePresence.Of"/> と同じ）。</summary>
+    /// <summary>
+    /// 記録の場所のどれかに在るか（場所を全部見て1つにまとめる）。1つ在れば在る。在る場所が無ければ、つながっていない場所があれば
+    /// <see cref="FilePresence.OnDetachedDrive"/>、確かめられない場所があれば <see cref="FilePresence.Unverifiable"/>、どれも無ければ無い。
+    /// </summary>
     /// <param name="remap">見る場所（ドライブ文字が変わった分の読み替え。<see cref="VolumeTable.Current"/>）。無ければ記録の場所のまま。</param>
     public FilePresence Of(IReadOnlyList<string> paths, Func<string, string>? remap = null)
     {
         var detached = false;
+        var unverifiable = false;
         foreach (var path in paths)
         {
             switch (PlaceOf(path, remap?.Invoke(path)))
@@ -171,15 +199,21 @@ public sealed class FilePresenceProbe
                 case FilePresence.OnDetachedDrive:
                     detached = true;
                     break;
+                case FilePresence.Unverifiable:
+                    unverifiable = true;
+                    break;
             }
         }
 
-        return detached ? FilePresence.OnDetachedDrive : FilePresence.Missing;
+        return detached ? FilePresence.OnDetachedDrive
+            : unverifiable ? FilePresence.Unverifiable
+            : FilePresence.Missing;
     }
 
     /// <summary>
     /// 記録の場所1つ。<paramref name="lookedPath"/> は実際に見る場所（読み替えた後。無ければ記録の場所）。
     /// つながっていない・控えたのと別のディスクの上なら、ファイルは見に行かず <see cref="FilePresence.OnDetachedDrive"/>。
+    /// 親のフォルダを読む権限が無いなど確かめられなければ <see cref="FilePresence.Unverifiable"/>（無いとは言わない。点検の13）。
     /// </summary>
     public FilePresence PlaceOf(string path, string? lookedPath = null)
     {
@@ -189,17 +223,25 @@ public sealed class FilePresenceProbe
             return FilePresence.OnDetachedDrive;
         }
 
-        return _fileExists(looked) ? FilePresence.Present : FilePresence.Missing;
+        return Presence(_fileState(looked));
     }
 
     /// <summary>
     /// 登録したフォルダ1つが在るか（起動時の見回り・ユーザ判断 2026-10-05）。ファイルと同じく、
     /// つながっていないドライブ（控えたのと別のディスクを含む）の上なら見に行かず <see cref="FilePresence.OnDetachedDrive"/>（書かない側）。
+    /// 確かめられなければ <see cref="FilePresence.Unverifiable"/>（書かない側）。
     /// </summary>
     public FilePresence OfFolder(string path)
         => !IsReachable(path) || Volumes.IsForeign(path, path)
             ? FilePresence.OnDetachedDrive
-            : _folderExists(path) ? FilePresence.Present : FilePresence.Missing;
+            : Presence(_folderState(path));
+
+    private static FilePresence Presence(DiskAnswer answer) => answer switch
+    {
+        DiskAnswer.Present => FilePresence.Present,
+        DiskAnswer.Missing => FilePresence.Missing,
+        _ => FilePresence.Unverifiable,
+    };
 
     private bool IsReachable(string path)
     {
