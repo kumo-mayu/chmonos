@@ -44,6 +44,9 @@ public sealed class MissingFolderRow : ViewModelBase
 
     public string ItemName => Folder.ItemName;
 
+    /// <summary>商品名を押す（商品ページを開く。結果のファイルの行と同じ）。</summary>
+    public RelayCommand? OpenItemCommand { get; set; }
+
     public string Path => Folder.Path;
 
     public string CountText => ImportViewModel.CountText(Folder.FileCount, Folder.TotalBytes);
@@ -89,7 +92,9 @@ public sealed partial class ImportViewModel
         MissingFolders.Clear();
         foreach (var folder in folders)
         {
-            MissingFolders.Add(new MissingFolderRow(folder));
+            var row = new MissingFolderRow(folder);
+            row.OpenItemCommand = new RelayCommand(() => OpenResultItemAsync(folder.ItemId, text => row.StatusText = text).Forget());
+            MissingFolders.Add(row);
         }
 
         OnPropertyChanged(nameof(HasMissingFolders));

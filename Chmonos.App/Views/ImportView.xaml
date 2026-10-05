@@ -8,6 +8,49 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ImportViewModel}"
              AllowDrop="True">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <!-- 探した結果の一覧の畳む印は、商品ページと同じ三角 -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ManageResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--
+                文字リンクの見た目のボタンで、長い商品名を「…」で切る（App.xaml の HyperlinkButton は切らないので、
+                幅900で長い名前が枠の外へはみ出す）
+            -->
+            <Style x:Key="TrimmedLinkButton" TargetType="Button" BasedOn="{StaticResource HyperlinkButton}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" TextDecorations="Underline"
+                                       FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}"
+                                       Foreground="{TemplateBinding Foreground}" Background="Transparent"
+                                       TextTrimming="CharacterEllipsis" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 探した結果のファイル1行（紐付け直した物・見つからなかった物で同じ形。メモ73） -->
+            <DataTemplate x:Key="MissingFileResultRowTemplate" DataType="{x:Type vm:MissingFileResultRow}">
+                <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,7,0,5">
+                    <StackPanel>
+                        <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
+                                HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
+                                AutomationProperties.AutomationId="ImportMissingResultItem"
+                                ToolTip="商品ページを開きます。" />
+                        <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                   ToolTip="{Binding PathTip}" />
+                        <TextBlock Text="{Binding FolderText, StringFormat=新しい場所：{0}}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding HasFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </StackPanel>
+                </Border>
+            </DataTemplate>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
         <Border DockPanel.Dock="Top" Height="60" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
@@ -207,6 +250,38 @@
                                 </DockPanel>
 
                                 <!--
+                                    探した結果の中身（手触りの確認 2026-10-06・メモ73）。前は上の1行だけで、どの商品のどのファイルが
+                                    どこへ移ったのかが分からず、結び直っていたのに見つからなかったように見えた。
+                                    多ければ畳んで出す（ImportViewModel.ResultFoldOver）。商品名は押すと商品ページを開く
+                                -->
+                                <TextBlock Text="{Binding MissingSearchNotes}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                           AutomationProperties.AutomationId="ImportMissingSearchNotes"
+                                           Visibility="{Binding HasMissingSearchNotes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,12,0,0"
+                                          IsExpanded="{Binding IsRelinkedExpanded, Mode=TwoWay}"
+                                          AutomationProperties.AutomationId="ImportRelinkedFiles" AutomationProperties.Name="紐付け直したファイル"
+                                          Visibility="{Binding HasRelinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" FontSize="12.5"><Run Text="紐付け直したファイル" /><Run Text="{Binding RelinkedCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
+                                    </Expander.Header>
+                                    <ItemsControl ItemsSource="{Binding RelinkedFiles}" ItemTemplate="{StaticResource MissingFileResultRowTemplate}" Margin="30,2,0,0" />
+                                </Expander>
+
+                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,12,0,0"
+                                          IsExpanded="{Binding IsNotFoundExpanded, Mode=TwoWay}"
+                                          AutomationProperties.AutomationId="ImportNotFoundFiles" AutomationProperties.Name="見つからなかったファイル"
+                                          Visibility="{Binding HasNotFoundFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" FontSize="12.5"><Run Text="見つからなかったファイル" /><Run Text="{Binding NotFoundCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
+                                    </Expander.Header>
+                                    <StackPanel Margin="30,2,0,0">
+                                        <ItemsControl ItemsSource="{Binding NotFoundFiles}" ItemTemplate="{StaticResource MissingFileResultRowTemplate}" />
+                                        <TextBlock Text="{Binding NotFoundHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Expander>
+
+                                <!--
                                     見つからない登録フォルダと、移した先かもしれないフォルダ（見つからない・移動の点検 10-A）。
                                     フォルダはハッシュを持たないので同じ物と言い切れない。候補として並べ、押した物だけ差し替える
                                 -->
@@ -218,8 +293,10 @@
                                             <DataTemplate>
                                                 <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="0,6,0,0">
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding ItemName}" FontWeight="SemiBold" FontSize="12.5"
-                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontWeight="SemiBold" FontSize="12.5"
+                                                                HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
+                                                                AutomationProperties.AutomationId="ImportMissingFolderItem"
+                                                                ToolTip="商品ページを開きます。" />
                                                         <DockPanel Margin="0,3,0,0">
                                                             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
                                                                        Margin="10,0,0,0" VerticalAlignment="Top" />

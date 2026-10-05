@@ -431,9 +431,7 @@ public class ImportAndResolveFlowTests
         main.Import.FindMissingFilesCommand.Execute(null);
         await UiThread.Until(() => main.Import.MissingSearchText.Contains("見つかりませんでした", StringComparison.Ordinal), "探した結果が出る");
 
-        Assert.Equal(
-            "紐付け直せたものはありませんでした。1 件は探したフォルダの中に見つかりませんでした。移した先のフォルダを追加して、もう一度探してください。",
-            main.Import.MissingSearchText);
+        Assert.Equal("1 件を探しましたが、見つかりませんでした。", main.Import.MissingSearchText);
     });
 
     /// <summary>

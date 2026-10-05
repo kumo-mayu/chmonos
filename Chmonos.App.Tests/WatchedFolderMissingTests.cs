@@ -21,19 +21,18 @@ public sealed class WatchedFolderMissingTests
         var main = await app.StartAsync();
 
         main.Import.FindMissingFilesCommand.Execute(null);
-        await UiThread.Until(() => main.Import.MissingSearchText.Contains("探せませんでした", StringComparison.Ordinal), "探した結果が出る");
+        await UiThread.Until(() => main.Import.MissingSearchNotes.Contains("探せませんでした", StringComparison.Ordinal), "探した結果が出る");
 
+        Assert.Equal("1 件を探しましたが、見つかりませんでした。", main.Import.MissingSearchText);
         Assert.Equal(
-            "紐付け直せたものはありませんでした。1 件は探したフォルダの中に見つかりませんでした。"
-            + "移した先のフォルダを追加して、もう一度探してください。"
-            + "1 個のフォルダは見つからないため探せませんでした。名前を変えたか移したなら、新しい場所を監視フォルダに追加してください。",
-            main.Import.MissingSearchText);
+            "1 個のフォルダは見つからないため探せませんでした。名前を変えたか移したなら、新しい場所を監視フォルダに追加してください。",
+            main.Import.MissingSearchNotes);
     });
 
     [Fact]
     public void 外付けの監視フォルダは_つながっていないと言う()
     {
-        var text = ImportViewModel.MissingSearchSummary(new Core.Services.MissingFileSearchResult
+        var lines = ImportViewModel.MissingSearchNoteLines(new Core.Services.MissingFileSearchResult
         {
             MissingBefore = 1,
             Relinked = 1,
@@ -41,7 +40,7 @@ public sealed class WatchedFolderMissingTests
             Unreachable = [@"E:\作り物\監視"],
         });
 
-        Assert.Equal("1 件を新しい場所に紐付け直しました。1 個のフォルダはつながっていないため探せませんでした。", text);
+        Assert.Equal(["1 個のフォルダはつながっていないため探せませんでした。"], lines);
     }
 
     [Fact]

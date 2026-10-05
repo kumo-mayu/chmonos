@@ -150,10 +150,12 @@ public class ImportScreenTests
         import.FindMissingFilesCommand.Execute(null);
         await app.SettleAsync();
 
-        Assert.Equal(
-            "紐付け直せたものはありませんでした。1 件は探したフォルダの中に見つかりませんでした。"
-            + "移した先のフォルダを追加して、もう一度探してください。",
-            import.MissingSearchText);
+        // 要約は短く、どれが見つからなかったかは下の一覧、次の手はその下（メモ73）
+        Assert.Equal("1 件を探しましたが、見つかりませんでした。", import.MissingSearchText);
+        var row = Assert.Single(import.NotFoundFiles);
+        Assert.Equal(("作り物の衣装", "moved-away.zip"), (row.ItemName, row.FileName));
+        Assert.True(import.IsNotFoundExpanded);
+        Assert.Equal("移した先のフォルダを追加して、もう一度探してください。", import.NotFoundHint);
     });
 
     /// <summary>

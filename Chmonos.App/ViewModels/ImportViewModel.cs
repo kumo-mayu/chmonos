@@ -164,6 +164,8 @@ public sealed partial class ImportViewModel : ViewModelBase
 
         _isFindingMissing = true;
         MissingSearchText = "見つからないファイルを調べています…";
+        ShowMissingFiles(null);
+        ShowMissingFolders([]);
         RelayCommand.RaiseCanExecuteChanged();
 
         try
@@ -181,8 +183,11 @@ public sealed partial class ImportViewModel : ViewModelBase
                 _ => string.Empty,
             };
 
-            // 見つからない登録フォルダの候補は、結果の下に並べて人に選ばせる（点検 10-A）
-            ShowMissingFolders(result is CommandResult.MissingFilesSearched searched ? searched.Result.MissingFolders : []);
+            // どの商品のどのファイルがどうなったかを、要約の下に並べる（メモ73）。
+            // 見つからない登録フォルダの候補は、その下に並べて人に選ばせる（点検 10-A）
+            var searched = (result as CommandResult.MissingFilesSearched)?.Result;
+            ShowMissingFiles(searched);
+            ShowMissingFolders(searched?.MissingFolders ?? []);
 
             // 結び直した商品の新しい場所を、検索の写しにも入れる（点検 2026-09-30 の C：検索の「ファイルの場所」（path:）が
             // 起動し直すまで古い場所で絞り、札の「見つかりません」も残っていた）。結果はどの商品かを持たず、
@@ -201,43 +206,21 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
     }
 
-    /// <summary>「見つからないファイルを探す」の結果の文。</summary>
+    /// <summary>
+    /// 「見つからないファイルを探す」の結果の1行目（短い要約）。どれがどうなったかは下の一覧
+    /// （<see cref="RelinkedFiles"/>・<see cref="NotFoundFiles"/>）、探せなかった場所は <see cref="MissingSearchNotes"/> が言う。
+    /// 前は全部をこの1行に繋げていて、ボタンの横で切れて「見つかりませんでした」の手前までしか読めなかった（メモ73）。
+    /// </summary>
     internal static string MissingSearchSummary(Core.Services.MissingFileSearchResult result)
-    {
-        var parts = new List<string>
+        => (result.Relinked, result.StillMissing) switch
         {
-            result.Relinked > 0
-                ? $"{result.Relinked} 件を新しい場所に紐付け直しました"
-                : "紐付け直せたものはありませんでした",
+            ( > 0, > 0) => $"{result.Relinked} 件を新しい場所に紐付け直し、{result.StillMissing} 件は見つかりませんでした。",
+            ( > 0, _) => $"{result.Relinked} 件を新しい場所に紐付け直しました。",
+            _ => $"{result.StillMissing} 件を探しましたが、見つかりませんでした。",
         };
 
-        if (result.StillMissing > 0)
-        {
-            // 探す範囲は窓で選ぶので、次の手も窓の操作で言う（点検 11-A。前は「移した先を監視フォルダに追加してから」）
-            parts.Add($"{result.StillMissing} 件は探したフォルダの中に見つかりませんでした。"
-                + "移した先のフォルダを追加して、もう一度探してください");
-        }
-
-        if (result.Unreachable.Count > 0)
-        {
-            parts.Add($"{result.Unreachable.Count} 個のフォルダはつながっていないため探せませんでした");
-        }
-
-        // ドライブは在ってフォルダだけが無い（名前を変えた・移した）。つないでも直らないので、外付けとは分けて言う
-        // （見つからない・移動の点検 9・2026-10-05）
-        if (result.NotFoundFolders.Count > 0)
-        {
-            parts.Add($"{result.NotFoundFolders.Count} 個のフォルダは見つからないため探せませんでした。"
-                + "名前を変えたか移したなら、新しい場所を監視フォルダに追加してください");
-        }
-
-        if (UnreadableInSearchText(result.UnreadableFiles, result.UnreadableFolders) is { Length: > 0 } unreadable)
-        {
-            parts.Add(unreadable);
-        }
-
-        return string.Join("。", parts) + "。";
-    }
+    /// <summary>見つからなかった一覧の下の、次の手。探す範囲は窓で選ぶので、窓の操作で言う（点検 11-A）。</summary>
+    public string NotFoundHint => "移した先のフォルダを追加して、もう一度探してください。";
 
     /// <summary>
     /// 「見つからないファイルを探す」で、読めずに確かめられなかった物の1文（句点なし。点検の13）。
