@@ -84,7 +84,7 @@ public sealed partial class SearchViewModel
     /// <remarks>中身はフォルダビューの右側と共通（<see cref="ItemSelectionActions"/>）。</remarks>
     private Task SendSelectionToUnityAsync()
         => ItemSelectionActions.SendToUnityAsync(
-            _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text);
+            _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text, NoteItemChanged);
 
     /// <summary>選んだカード。表示中の並びを先に、絞り込みを変えて見えなくなった物を後に。</summary>
     private List<ItemCardViewModel> SelectedCards()

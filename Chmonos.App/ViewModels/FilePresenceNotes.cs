@@ -65,6 +65,50 @@ internal static class FilePresenceNotes
         }
     }
 
+    /// <summary>
+    /// Unity へ送った列のうち、**本当に送れなかった**物の zip を見直して記録へ（検索の複数選択・改変の画面・「Unityで選択」の道。
+    /// 商品ページの1件の送り方と同じく、「無い」を記録に残す。前は商品ページと検索のカードの1件だけが書き、
+    /// 同じ zip が無いのに、こちらの道で送ると印にも条件にも出なかった。file-lifecycle.md「気になった所」17）。
+    /// 人が止めた分は、zip の有無と関わらないので見ない。見て在れば何も書かない（理由の文では見分けない）。
+    /// </summary>
+    /// <param name="sent">送った列（どの商品の包みか）。</param>
+    /// <param name="changed">書いた商品を読み直した物を受ける（検索の写しへ知らせる）。</param>
+    public static async Task NoteFailedSendsAsync(
+        AppServiceContainer services,
+        IEnumerable<(string ItemId, Core.Services.UnityPackageEntry Package)> sent,
+        IReadOnlyList<Services.UnityQueueOutcome> outcomes,
+        Action<ItemRecord>? changed)
+    {
+        var failed = outcomes
+            .Where(outcome => !outcome.Opened && !Services.UnityImportQueue.IsStopped(outcome.Problem))
+            .Select(outcome => outcome.Package)
+            .ToHashSet();
+        if (failed.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var group in sent.Where(entry => failed.Contains(entry.Package)).GroupBy(entry => entry.ItemId, StringComparer.Ordinal))
+        {
+            var item = await services.Store.Items.LoadAsync(group.Key);
+            if (item is null)
+            {
+                continue;
+            }
+
+            var packages = group.Select(entry => entry.Package).ToList();
+            var files = item.Local.LocalFiles
+                .Where(file => packages.Any(package =>
+                    (package.ZipHash is not null && string.Equals(file.Hash, package.ZipHash, StringComparison.OrdinalIgnoreCase))
+                    || file.Paths.Contains(package.ZipPath, StringComparer.OrdinalIgnoreCase)))
+                .ToList();
+            if (await LookAndNoteAsync(services, item, files) is { } reloaded)
+            {
+                changed?.Invoke(reloaded);
+            }
+        }
+    }
+
     /// <summary>商品のファイルを見て、食い違えば書く（開く・送るが「無かった」ときの道）。</summary>
     public static async Task<ItemRecord?> LookAndNoteAsync(
         AppServiceContainer services, ItemRecord item, IReadOnlyList<LocalFileRecord> files)

@@ -741,6 +741,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 _services.Recent.TouchAsync(itemId, RecentKind.Used).Forget();
             }
 
+            // 送れなかった物の zip が無ければ記録へ（商品ページの1件の送り方と同じ）
+            await FilePresenceNotes.NoteFailedSendsAsync(
+                _services, queue.Select(entry => (entry.ItemId, entry.Package)), outcomes, _main.Search.NoteItemChanged);
+
             UnityQueueText = UnityQueueOutcome.Describe(outcomes);
         }
         finally
@@ -787,7 +791,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
-        if (await UnityMemberSelect.RunAsync(_services, Record, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => MembersNotice.Set(text, false))))
+        if (await UnityMemberSelect.RunAsync(_services, Record, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => MembersNotice.Set(text, false)), _main.Search.NoteItemChanged))
         {
             await ReloadAsync();
         }
