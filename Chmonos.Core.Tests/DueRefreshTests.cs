@@ -157,11 +157,12 @@ public class DueRefreshTests : IDisposable
             string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 
-        public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+        public Task UndoExcludeAsync(
+            IReadOnlyList<UnresolvedFile> files, IReadOnlyCollection<string> excludedHashes, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        public Task<IReadOnlyList<string>> ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>([]);
     }
 
     private Task SaveAsync(string id, DateTimeOffset? due)

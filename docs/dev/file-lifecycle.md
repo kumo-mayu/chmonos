@@ -94,7 +94,7 @@ stateDiagram-v2
 | 見つからないIDのまま登録 | `AssignUnpublishedItemId` | 空の booth・`isDelisted`。⑦で確かめ直す | 問い合わせない |
 | zipの代わりにフォルダを登録 | `RegisterFolder` | `localFolders` に足す（数えて）→ 配下の未確定を消す | 以後その配下は走査で飛ばす |
 | 管理対象から除外 | `ExcludeFiles`（何件でも1回） | `excluded.json` に足す → 未確定から外す | 既に除外にあるハッシュは足さない |
-| 外した直後に戻す | `UndoExclude` | 除外からハッシュで消し、画面の写しの未確定を戻す | |
+| 外した直後に戻す | `UndoExclude` | 除外からは今回足したハッシュだけ消し（`ExcludeFiles` の結果 `FilesExcluded` が返す）、画面の写しの未確定を戻す | 前から除外していた物の記録（日時・理由）は残る |
 | 開くたびの均し | `ReconcileUnresolved` | 商品が持つハッシュを未確定から外す | 登録の2段（商品→未確定）の間に落ちた時の後始末 |
 
 ### 商品ページ・設定の操作
@@ -221,5 +221,6 @@ stateDiagram-v2
 15. **取り込みの登録フォルダの判定に打ち切りが無い**：`LoadOwnedAsync` は `Directory.Exists` と `IsOnMissingVolume`。spec（background-and-network.md）は見回りと同じ部品・3秒の打ち切りと書いている。落ちた共有の上の登録フォルダで周回の頭が長く止まり得る（推測）。
 16. **探して見つからなかった日時が、検索にすぐ出ない**：`ImportViewModel.FindMissingFilesAsync` は結び直した数が1以上の時だけ検索の写しを読み直す。
 17. **Unity へ送る道の一部が「無い」を記録しない**：検索の複数選択（`ItemSelectionActions`）・改変の画面（`ModificationViewModel`・`UnityMemberSelect`）は `FilePresenceNotes` を通らない。spec は区別していない。
-18. **除外を「戻す」と前からの除外まで消える**：`ExcludeAsync` は既にあるハッシュを足さないが、`UndoExcludeAsync` はハッシュで全部消す。前に除外していた物の記録（日時・理由）も消える。
+18. **直した（2026-10-05・コミットは下の「18」）**：`ExcludeAsync` が今回足したハッシュを返し（命令の結果 `FilesExcluded`）、未確定の画面が覚えて `UndoExclude` に渡す。戻すはそれだけを除外から消す。未確定は外す前の記録をそのまま戻す。試験 `UndoExcludeTests` の「戻しても前から除外していた物の記録は残る」（直す前は落ちた）・画面の側 `BulkExcludeTests` の「戻すと_前から除外していた物の記録は残る」。
+   **除外を「戻す」と前からの除外まで消える**：`ExcludeAsync` は既にあるハッシュを足さないが、`UndoExcludeAsync` はハッシュで全部消す。前に除外していた物の記録（日時・理由）も消える。
 19. 小さな物：見回りは在るフォルダの `lastSeenAt` を更新しない（取り込みの数え直しだけ）。展開したフォルダの見分けが名前だけ。取り込み元に `%TEMP%` そのものを選ぶと一時展開の中まで走査する（根だけを見ているため）。`ImportPipeline.NextFetchDue` の `GetHashCode` はプロセスごとに変わるので、コメントの「何度計算しても同じ日」にならない。spec の item-page.md にある「管理から外す」（一括操作）は App に見当たらない。spec の「IDを変更」は画面では「IDを変える」。

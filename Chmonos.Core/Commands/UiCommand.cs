@@ -214,12 +214,15 @@ public abstract record UiCommand
     /// <summary>
     /// ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。1個でもまとめてでもこれ1本で、記録は1回で書く
     /// （1個ずつ命令を呼ぶと、フォルダごと外したときに 5,000 個で2分半かかっていた）。
-    /// 戻すときは同じ一覧を <see cref="UndoExclude"/> に渡す。
+    /// 戻すときは同じ一覧と、結果（<see cref="CommandResult.FilesExcluded"/>）の足したハッシュを <see cref="UndoExclude"/> に渡す。
     /// </summary>
     public record ExcludeFiles(IReadOnlyList<Models.UnresolvedFile> Files, string? Reason = null) : UiCommand;
 
-    /// <summary>外した直後に戻す。除外の記録を消し、外す前の未確定の記録を戻す。</summary>
-    public record UndoExclude(IReadOnlyList<Models.UnresolvedFile> Files) : UiCommand;
+    /// <summary>
+    /// 外した直後に戻す。外す前の未確定の記録を戻し、除外の記録からは <paramref name="ExcludedHashes"/>（今回足した物）だけを消す。
+    /// 前は一覧のハッシュで全部消していて、前から除外していた物の記録（日時・理由）まで消えていた（2026-10-05）。
+    /// </summary>
+    public record UndoExclude(IReadOnlyList<Models.UnresolvedFile> Files, IReadOnlyCollection<string> ExcludedHashes) : UiCommand;
 
     /// <summary>アーカイブの展開先フォルダを削除する。展開元のzipが残っていることを確かめてから消す。</summary>
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
@@ -504,6 +507,12 @@ public abstract record CommandResult
     public record ImagesFetched(string ItemId, int Downloaded) : CommandResult;
 
     public record Done : CommandResult;
+
+    /// <summary>
+    /// ファイルを管理対象から外した。<paramref name="AddedHashes"/> は今回除外の記録に足した物（前から除外していた物は入らない）。
+    /// 外した直後に戻すときは、これを <see cref="UiCommand.UndoExclude"/> に渡す。
+    /// </summary>
+    public record FilesExcluded(IReadOnlyList<string> AddedHashes) : CommandResult;
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 

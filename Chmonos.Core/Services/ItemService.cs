@@ -166,9 +166,14 @@ public interface IItemService
 
     Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default);
 
-    Task ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default);
+    /// <returns>今回除外の記録に足したハッシュ（前から除外していた物は入らない）。戻すときに <see cref="UndoExcludeAsync"/> へ渡す。</returns>
+    Task<IReadOnlyList<string>> ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default);
 
-    Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default);
+    /// <param name="excludedHashes">除外から消すハッシュ。除外したときに <see cref="ExcludeAsync"/> が返した物（今回足した物だけ）。</param>
+    Task UndoExcludeAsync(
+        IReadOnlyList<UnresolvedFile> files,
+        IReadOnlyCollection<string> excludedHashes,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>1件のitemに対する操作。UIに依存しないので、そのまま単体テストできる。</summary>
@@ -2133,23 +2138,27 @@ public sealed class ItemService : IItemService
     /// **除外の記録に足してから、未確定から外す。**逆にすると、未確定から消えた後で除外に書けなかったとき、
     /// ファイルがどちらの記録にも無くなる（次の取り込みまで見えない）。この順なら、途中で落ちても未確定に残るだけで、もう一度押せば済む。
     /// </summary>
-    public async Task ExcludeAsync(
+    public async Task<IReadOnlyList<string>> ExcludeAsync(
         IReadOnlyList<UnresolvedFile> files,
         string? reason,
         CancellationToken cancellationToken = default)
     {
         if (files.Count == 0)
         {
-            return;
+            return [];
         }
 
+        // 足した物を覚えて返す。戻すときに前からの除外まで消さないため（2026-10-05・file-lifecycle.md「気になった所」18）
+        List<string> added = [];
         await _store.Excluded.TryUpdateAsync(
             excluded =>
             {
                 // 既に在る中身は足さない（外したときの日時と理由は、先に外したときの物を残す）。同じ一覧の中の重なりも1件にする
                 var known = excluded.Select(entry => entry.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var now = DateTimeOffset.Now;
-                var added = false;
+
+                // 錠の中の変え方は書き込みに失敗すると呼び直されることがあるので、毎回空から数える
+                added = [];
                 foreach (var file in files)
                 {
                     if (known.Add(file.Hash))
@@ -2161,11 +2170,11 @@ public sealed class ItemService : IItemService
                             ExcludedAt = now,
                             Reason = reason,
                         });
-                        added = true;
+                        added.Add(file.Hash);
                     }
                 }
 
-                return added ? excluded : null;
+                return added.Count > 0 ? excluded : null;
             },
             cancellationToken);
 
@@ -2173,21 +2182,24 @@ public sealed class ItemService : IItemService
         await _store.Unresolved.TryUpdateAsync(
             current => current.RemoveAll(file => hashes.Contains(file.Hash)) > 0 ? current : null,
             cancellationToken);
+
+        return added;
     }
 
     /// <summary>
     /// 未確定の画面で外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった）。
     /// 設定の「解除」は除外の記録を消すだけで、次の取り込みまで未確定に出ない。ここでは外す前の未確定の記録（候補・元zipの記録を含む）をそのまま戻す。
     /// </summary>
-    public async Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+    public async Task UndoExcludeAsync(
+        IReadOnlyList<UnresolvedFile> files,
+        IReadOnlyCollection<string> excludedHashes,
+        CancellationToken cancellationToken = default)
     {
-        var hashes = files.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        await _store.Excluded.UpdateAsync(
-            excluded =>
-            {
-                excluded.RemoveAll(entry => hashes.Contains(entry.Hash));
-                return excluded;
-            },
+        // 消すのは今回足した除外だけ（2026-10-05・file-lifecycle.md「気になった所」18）。除外は既にあるハッシュを足さないので、
+        // 一覧のハッシュで全部消すと、前から除外していた物の記録（日時・理由）まで消えていた
+        var hashes = excludedHashes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        await _store.Excluded.TryUpdateAsync(
+            excluded => excluded.RemoveAll(entry => hashes.Contains(entry.Hash)) > 0 ? excluded : null,
             cancellationToken);
 
         await _store.Unresolved.UpdateAsync(

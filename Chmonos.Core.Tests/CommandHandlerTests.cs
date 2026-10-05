@@ -152,19 +152,20 @@ public class CommandHandlerTests
             return Task.FromResult(AssignSucceeds);
         }
 
-        public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+        public Task UndoExcludeAsync(
+            IReadOnlyList<UnresolvedFile> files, IReadOnlyCollection<string> excludedHashes, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public int ExcludeCalls { get; private set; }
 
-        public Task ExcludeAsync(
+        public Task<IReadOnlyList<string>> ExcludeAsync(
             IReadOnlyList<UnresolvedFile> files,
             string? reason,
             CancellationToken cancellationToken = default)
         {
             ExcludeCalls++;
             ExcludedHashes = [.. files.Select(file => file.Hash)];
-            return Task.CompletedTask;
+            return Task.FromResult<IReadOnlyList<string>>(ExcludedHashes);
         }
     }
 
@@ -466,7 +467,7 @@ public class CommandHandlerTests
 
         Assert.Equal(["AAAA", "BBBB"], items.ExcludedHashes);
         Assert.Equal(1, items.ExcludeCalls);
-        Assert.IsType<CommandResult.Done>(result);
+        Assert.Equal(["AAAA", "BBBB"], Assert.IsType<CommandResult.FilesExcluded>(result).AddedHashes);
     }
 
     private static UnresolvedFile File(string hash, string path) => new()

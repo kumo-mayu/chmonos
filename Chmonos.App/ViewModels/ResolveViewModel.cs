@@ -1195,9 +1195,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         try
         {
             var reason = targets.Count == 1 ? "未確定画面から除外" : "未確定画面から元zipごと除外";
-            await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
+            var excluded = await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
 
-            RememberExcluded(targets);
+            RememberExcluded(targets, excluded);
             if (targets.Count == 1)
             {
                 AfterSettled(registered: false);
