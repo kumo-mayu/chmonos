@@ -78,7 +78,9 @@ internal sealed class SceneContext
 
         _services = new AppServiceContainer();
         AppTheme.Initialize(_services);
-        _main = new MainViewModel(_services);
+        // ナビの件数の数え直しは、続けて頼まれると 1 秒（CountsInterval）にまとめて遅れて読む。描く側はその遅れで絵が変わるのを
+        // 待てない（通知の画面でナビの数が 2 → 1 に変わったのが、止まって見えた約 0.45 秒後だった。2026-10-06）ので、まとめずその場で読ませる。試験（TestApp）と同じ
+        _main = new MainViewModel(_services) { CountsInterval = TimeSpan.Zero };
         Timing.Add("start", lap.ElapsedMilliseconds);
         return _main;
     }

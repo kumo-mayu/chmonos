@@ -396,6 +396,7 @@ internal static partial class Scenes
             await SeedModificationsAsync(context);
             var main = await context.StartAsync();
             main.ShowModifications(ModificationHubLevel.Modification);
+            await UntilHubLoadedAsync(main);
             var root = context.MainWindow();
             await context.PresentAsync(root);
 
@@ -417,10 +418,11 @@ internal static partial class Scenes
             main.ShowModifications(
                 ModificationHubLevel.Modification,
                 new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
             var root = context.MainWindow();
             await context.PresentAsync(root);
 
-            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            await UntilModificationShownAsync(context, root);
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.View<ModificationHubView>(root), FocusMargin = 0 };
@@ -449,10 +451,11 @@ internal static partial class Scenes
             main.ShowModifications(
                 ModificationHubLevel.Modification,
                 new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
             var root = context.MainWindow();
             await context.PresentAsync(root);
 
-            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            await UntilModificationShownAsync(context, root);
             await context.SettleAsync();
 
             return new Shot(root);
@@ -469,10 +472,11 @@ internal static partial class Scenes
             main.ShowModifications(
                 ModificationHubLevel.Modification,
                 new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
             var root = context.MainWindow();
             await context.PresentAsync(root);
 
-            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            await UntilModificationShownAsync(context, root);
             var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
             Backdoor.ShowModificationStatus(detail, "「作り物のとても長い名前の衣装セット フルパッケージ版」を追加しました。");
             await context.SettleAsync();
@@ -498,10 +502,11 @@ internal static partial class Scenes
             main.ShowModifications(
                 ModificationHubLevel.Modification,
                 new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
             var root = context.MainWindow();
             await context.PresentAsync(root);
 
-            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            await UntilModificationShownAsync(context, root);
             var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
             foreach (var (item, present, total) in rows)
             {
@@ -578,6 +583,25 @@ internal static partial class Scenes
         return longId;
     }
 
+    /// <summary>
+    /// 改変の画面の ViewModel の読み込みが済むまで待つ。窓に載せる前に待てば、載せた後の最初の「落ち着く」が
+    /// 「読み込んでいます…」の絵で止まって見える（0.5〜1 秒後に一覧と詳細に変わる）ことがない
+    /// </summary>
+    private static Task UntilHubLoadedAsync(MainViewModel main)
+        => SceneContext.UntilAsync(
+            () => main.CurrentViewModel is ModificationHubViewModel hub && hub.EmptyText != "読み込んでいます…",
+            "改変の画面の読み込みが済む");
+
+    /// <summary>
+    /// 改変を選んで開いた画面で、左の一覧の読み込みが済み、右の詳細（ViewModel）が付くまで待つ。
+    /// 決めた時間でなく済んだ印で待つ（読み込みは 0.5〜1 秒かかり、その間は「読み込んでいます…」の絵が止まって見える。2026-10-06）
+    /// </summary>
+    private static Task UntilModificationShownAsync(SceneContext context, System.Windows.FrameworkElement root)
+        => SceneContext.UntilAsync(
+            () => Look.View<ModificationView>(root)?.DataContext is ModificationViewModel
+                && context.Screen<ModificationHubViewModel>().EmptyText != "読み込んでいます…",
+            "選んだ改変が右の欄に出て、一覧の読み込みが済む");
+
     private static async Task<Shot> ModificationDetailNoticeAsync(SceneContext context, bool show)
     {
         var selected = await SeedModificationsAsync(context);
@@ -585,9 +609,10 @@ internal static partial class Scenes
         main.ShowModifications(
             ModificationHubLevel.Modification,
             new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+        await UntilHubLoadedAsync(main);
         var root = context.MainWindow();
         await context.PresentAsync(root);
-        await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+        await UntilModificationShownAsync(context, root);
         await context.SettleAsync();
 
         if (show)
@@ -612,6 +637,7 @@ internal static partial class Scenes
         main.ShowModifications(
             ModificationHubLevel.Avatar,
             new ModificationHubSelection(ModificationHubSelectionKind.Avatar, "9900201"));
+        await UntilHubLoadedAsync(main);
         var root = context.MainWindow();
         await context.PresentAsync(root);
 

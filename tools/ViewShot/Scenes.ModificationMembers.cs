@@ -18,10 +18,11 @@ internal static partial class Scenes
             main.ShowModifications(
                 ModificationHubLevel.Modification,
                 new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
             var root = context.MainWindow();
             await context.PresentAsync(root);
 
-            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            await UntilModificationShownAsync(context, root);
             var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
             await SceneContext.UntilAsync(() => detail.Members.Count == 3, "使ったものが並ぶ");
             detail.ShowReverseOrderCommand.Execute(null);
