@@ -245,7 +245,13 @@ public sealed partial class MainViewModel
     /// 見回りの後、1件ずつ差し替える上限。普段の起動で変わるのは数件（消した・戻した分）で、
     /// 初めて見回る保存先や外付けを付け直した回だけ数百件になる（作り物の5000件の1割を消すと457件）。
     /// </summary>
-    internal const int SweepNoteOneByOneLimit = 50;
+    internal const int DefaultSweepNoteOneByOneLimit = 50;
+
+    /// <summary>
+    /// <see cref="DefaultSweepNoteOneByOneLimit"/> の値。アプリは変えない。**試験だけが小さくする**——
+    /// 上限を超える側を確かめるのに51件の商品を置いて書き直すと、1件で 約1.2秒かかっていた（2026-10-05 に測った）
+    /// </summary>
+    internal int SweepNoteOneByOneLimit { get; set; } = DefaultSweepNoteOneByOneLimit;
 
     /// <summary>手元に無くなった商品の「最近」の足跡を落とす（<see cref="Services.RecentTracker.PruneMissingItemsAsync"/>）。通信しない。</summary>
     private void PruneRecent()
