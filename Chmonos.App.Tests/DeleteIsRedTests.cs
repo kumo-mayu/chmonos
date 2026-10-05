@@ -52,7 +52,6 @@ public class DeleteIsRedTests
 
     [Theory]
     [InlineData("AvatarsView.xaml", "AvatarAliasRemove")]
-    [InlineData("SearchView.xaml", "SearchHistoryRemove")]
     public void 赤い字の小さな削除ボタン(string view, string automationId)
     {
         var document = XDocument.Load(Path.Combine(ViewsFolder(), view));

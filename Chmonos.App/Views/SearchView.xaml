@@ -1324,15 +1324,16 @@
                                         </Button>
                                         <!-- 要らない条件は個別に消せる。全部消すのは設定から -->
                                         <!--
-                                            赤は中の文字に直に付ける。この型は ContentPresenter に文字を任せるので、ボタンの Foreground は
-                                            アプリ全体の TextBlock の暗黙の型に負けて灰白になっていた（2026-10-05 担当UC が撮って見つけた）
+                                            赤にしない（消す操作の例外。ユーザ判断 2026-10-05「重要度が高くない割に大量に並んでしまうからだ」）。
+                                            色は中の文字に直に付ける。この型は ContentPresenter に文字を任せるので、ボタンの Foreground は
+                                            アプリ全体の TextBlock の暗黙の型に負ける
                                         -->
                                         <Button Style="{StaticResource HistorySlotButton}"
                                                 FontSize="10" Padding="6,4" Command="{Binding RemoveCommand}"
                                                 AutomationProperties.AutomationId="SearchHistoryRemove"
                                                 AutomationProperties.Name="{Binding Summary, StringFormat={}{0}の履歴を削除}"
                                                 ToolTip="この履歴を削除します。検索の条件は変わりません。">
-                                            <TextBlock Text="✕" Foreground="{DynamicResource DangerText}" />
+                                            <TextBlock Text="✕" Foreground="{DynamicResource TextMuted}" />
                                         </Button>
                                     </StackPanel>
                                 </Border>
