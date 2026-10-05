@@ -64,10 +64,36 @@ public partial class InboxView : UserControl
             if (index >= 0 && FindPanel(LinesList) is { } panel)
             {
                 panel.BringIndexIntoViewPublic(index);
+                AlignToTop(index);
             }
 
             _viewModel.FocusLine = null;
         });
+    }
+
+    /// <summary>
+    /// 送った行を画面のいちばん上に合わせる。送るだけだと行は画面の端に来て、見出しだけ見えて中身が下に隠れることがある。
+    /// 一覧は <c>ScrollUnit=Pixel</c> なので、行の今の位置を測って、その分だけ流す。
+    /// 送った直後は行の部品がまだ無いことがあるので、配置し直してから測る
+    /// </summary>
+    private void AlignToTop(int index)
+    {
+        if (LinesList.ScrollHost is not { } scroll)
+        {
+            return;
+        }
+
+        LinesList.UpdateLayout();
+        if (LinesList.ItemContainerGenerator.ContainerFromIndex(index) is not FrameworkElement container)
+        {
+            return;
+        }
+
+        var top = container.TransformToAncestor(scroll).Transform(new Point(0, 0)).Y - scroll.Padding.Top;
+        if (Math.Abs(top) >= 1)
+        {
+            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + top);
+        }
     }
 
     private static VirtualizingStackPanel? FindPanel(DependencyObject parent)

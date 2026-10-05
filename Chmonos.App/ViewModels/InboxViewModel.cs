@@ -159,6 +159,18 @@ public sealed class NotificationRow : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 商品を指して通知の画面を開いたとき、その商品の行か（地の色と左の縦線で強調する）。
+    /// 画面にいる間ずっと立てておく（ユーザ決定 2026-10-05：数秒で消すと、目を離した人がまた探すことになる）
+    /// </summary>
+    public bool IsTarget
+    {
+        get => _isTarget;
+        set => SetField(ref _isTarget, value);
+    }
+
+    private bool _isTarget;
+
     public string ReadButtonText => IsRead ? "未読に戻す" : "既読にする";
 
     /// <summary>
@@ -228,6 +240,19 @@ public sealed class NotificationGroup : ViewModelBase
 
     public bool HasStrong => StrongCount > 0;
 
+    /// <summary>この束にある、指した商品の行の数（出ている行だけで数える。「未読のみ」で出ない行を数えると、開いても何も無い）。</summary>
+    public int TargetCount => Rows.Count(row => row.IsTarget);
+
+    /// <summary>
+    /// 束の見出しの「この商品 n」を出すか。「商品ページの変更」の束は、見出しを画面の上に合わせて自動で送る先なので印は要らない。
+    /// 畳んでいても見えるようにして、ほかの束にも同じ商品の通知があることを知らせる
+    /// </summary>
+    public bool HasTarget => TargetCount > 0 && Kind != NotificationKind.ItemUpdated;
+
+    public string TargetText => $"この商品 {TargetCount}";
+
+    public string TargetToolTip => $"開いた商品の通知が、この束に {TargetCount} 件あります。";
+
     public string StrongText => $"重要 {StrongCount}";
 
     public int ResolvedCount => Rows.Count(row => row.IsResolved);
@@ -250,6 +275,7 @@ public sealed class NotificationGroup : ViewModelBase
             nameof(UnreadCount), nameof(HasUnread), nameof(UnreadText),
             nameof(StrongCount), nameof(HasStrong), nameof(StrongText),
             nameof(ResolvedCount), nameof(HasResolved), nameof(ResolvedText),
+            nameof(TargetCount), nameof(HasTarget), nameof(TargetText), nameof(TargetToolTip),
 
             // 束は組み直しで使い回すので、行の数も変わり得る
             nameof(TotalText),
@@ -311,6 +337,13 @@ public sealed class InboxViewModel : ViewModelBase
     /// <summary>開いたら送る先の商品。送ったら忘れる（読み直すたびに同じ所へ戻されないように）。</summary>
     private string? _focusItemId;
 
+    /// <summary>
+    /// 指して開いた商品。送る（<see cref="_focusItemId"/>）のと違い、画面にいる間は持ち続ける
+    /// （読み直し・「未読のみ」の切り替えで行が作り直されても、強調と束の中の並びが外れないように）。
+    /// 画面を離れれば画面ごと作り直されるので消える
+    /// </summary>
+    private readonly string? _targetItemId;
+
     private InboxLine? _focusLine;
 
     /// <summary>
@@ -328,6 +361,7 @@ public sealed class InboxViewModel : ViewModelBase
         _services = services;
         _main = main;
         _focusItemId = focusItemId;
+        _targetItemId = string.IsNullOrEmpty(focusItemId) ? null : focusItemId;
 
         _unreadOnly = services.UiState.InboxUnreadOnly;
 
@@ -516,8 +550,9 @@ public sealed class InboxViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 頼まれた商品の「商品の更新」の知らせの束を開き、その行を画面に送らせる。
-    /// 未読を先に選ぶ（ショップの「更新あり」は未読の知らせから出している）
+    /// 頼まれた商品の「商品ページの変更」の束を開き、その見出しを画面の上へ送らせる。
+    /// 指した商品の行は束の先頭に寄せてある（<see cref="Rebuild"/>）ので、見出しを上に合わせれば見出しと行が一緒に見える。
+    /// 行そのものを送ると行は画面の端に来て、周りが見えなかった
     /// </summary>
     private void FocusRequestedItem()
     {
@@ -527,22 +562,16 @@ public sealed class InboxViewModel : ViewModelBase
         }
 
         _focusItemId = null;
-        var candidates = Groups
-            .Where(group => group.Kind == NotificationKind.ItemUpdated)
-            .SelectMany(group => group.Rows.Select(row => (group, row)))
-            .Where(pair => pair.row.ItemId == itemId)
-            .OrderBy(pair => pair.row.IsRead)
-            .ToList();
-        if (candidates.Count == 0)
+        var group = Groups.FirstOrDefault(candidate => candidate.Kind == NotificationKind.ItemUpdated);
+        if (group is null || !group.Rows.Any(row => row.ItemId == itemId))
         {
             return;
         }
 
-        var (group, row) = candidates[0];
         group.IsExpanded = true;
-        if (_rowLines.TryGetValue(row, out var line))
+        if (_headLines.TryGetValue(group, out var head))
         {
-            FocusLine = line;
+            FocusLine = head;
         }
     }
 
@@ -1084,7 +1113,17 @@ public sealed class InboxViewModel : ViewModelBase
                 built = created;
             }
 
-            CollectionSync.Apply(built.Rows, group.ToList());
+            // 指した商品の行を束の先頭に寄せる（未読を先、あとは今の新しい順のまま）。
+            // どの束でも先頭にしておけば、束を開いたときにその商品の行がいちばん上に来る
+            foreach (var row in group)
+            {
+                row.IsTarget = _targetItemId is not null && row.ItemId == _targetItemId;
+            }
+
+            var ordered = _targetItemId is null
+                ? group.ToList()
+                : group.OrderBy(row => row.IsTarget ? (row.IsRead ? 1 : 0) : 2).ToList();
+            CollectionSync.Apply(built.Rows, ordered);
             built.RefreshCount();
             target.Add(built);
         }

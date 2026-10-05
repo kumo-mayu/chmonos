@@ -330,6 +330,14 @@
                                                     <TextBlock Text="{Binding StrongText}" FontSize="12" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource Warn}" />
                                                 </Border>
+                                                <!-- 指した商品の通知が、この束にもある印（メモ51）。畳んでいても見える -->
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
+                                                        ToolTip="{Binding TargetToolTip}"
+                                                        Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding TargetText}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource AccentText}" />
+                                                </Border>
                                                 <Border Background="{DynamicResource UnreadSoft}" BorderBrush="{DynamicResource UnreadBorder}"
                                                         BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
                                                         Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -370,9 +378,18 @@
                         <DataTemplate DataType="{x:Type vm:InboxRowLine}">
                             <Border x:Name="Frame" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1,0,1,0">
-                                <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource InboxRowTemplate}" />
+                                <Grid>
+                                    <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource InboxRowTemplate}" />
+                                    <!-- 指した商品の行の左の縦線（メモ51）。行を押せる範囲には入れない -->
+                                    <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource Accent}"
+                                            IsHitTestVisible="False"
+                                            Visibility="{Binding Row.IsTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                </Grid>
                             </Border>
                             <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Row.IsTarget}" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource TargetBand}" />
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding IsLast}" Value="True">
                                     <Setter TargetName="Frame" Property="BorderThickness" Value="1,0,1,1" />
                                     <Setter TargetName="Frame" Property="CornerRadius" Value="0,0,8,8" />

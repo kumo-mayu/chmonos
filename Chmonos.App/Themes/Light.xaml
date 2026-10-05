@@ -52,6 +52,11 @@
     <SolidColorBrush x:Key="OnAccent" Color="#ffffff" />
     <!-- 絵の上に置く青の札（サムネイル） -->
     <SolidColorBrush x:Key="AccentOverlay" Color="#cc3767a6" />
+    <!--
+        通知の画面で、商品を指して開いたときのその商品の行の地（メモ51）。左の縦線は Accent。
+        札の地（AccentSoft）より一段濃くして、同じ束の見出しの「この商品 n」の札と並んでも行が地として読める
+    -->
+    <SolidColorBrush x:Key="TargetBand" Color="#e2ecf8" />
 
     <!-- ===== 状態の色：文字（無印）・札の地（Soft）・札の枠（Border）・白い文字を載せる地（Fill） ===== -->
     <!-- 所持・保存した・手元にある -->

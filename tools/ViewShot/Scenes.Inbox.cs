@@ -215,6 +215,92 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // メモ51（2026-10-05）。「商品ページの変更」の束の見出しが画面の上に合い、その商品の行が先頭で強調され、
+        // 下の束の見出しに「この商品 n」が出る所。指していない商品の行を先に並べ、送らないと見えない位置にしてある
+        new Scene("inbox-target", "通知：商品を指して開いた所（束の見出しが上に合う・その商品の行を強調・ほかの束の見出しに印）", async context =>
+        {
+            var target = await context.Fake.ItemAsync("9900511", "作り物の衣装セット");
+            var other = await context.Fake.ItemAsync("9900512", "作り物の髪飾り");
+            var day = new DateTimeOffset(2026, 10, 4, 21, 0, 0, TimeSpan.FromHours(9));
+            var records = new List<NotificationRecord>();
+            for (var i = 0; i < 6; i++)
+            {
+                records.Add(new NotificationRecord
+                {
+                    Id = $"viewshot-target-other-{i}",
+                    Kind = NotificationKind.OrphanTag,
+                    Title = $"タグ「作り物のタグ{i}」がどの一覧にもありません",
+                    Detail = "商品に付いていますが、タグの一覧から消えています。",
+                    CreatedAt = day.AddMinutes(-i),
+                });
+            }
+
+            for (var i = 0; i < 4; i++)
+            {
+                records.Add(new NotificationRecord
+                {
+                    Id = $"viewshot-target-up-{i}",
+                    Kind = NotificationKind.ItemUpdated,
+                    ItemId = other.Id,
+                    Title = $"「作り物の髪飾り」が更新されました（{i + 1}件目）",
+                    Detail = "価格が変わりました。",
+                    Diffs = [new NotificationDiff { Field = "価格", Before = "¥ 1,500", After = "¥ 1,800" }],
+                    CreatedAt = day.AddHours(-i),
+                });
+            }
+
+            records.Add(new NotificationRecord
+            {
+                Id = "viewshot-target-up-read",
+                Kind = NotificationKind.ItemUpdated,
+                ItemId = target.Id,
+                Title = "「作り物の衣装セット」が更新されました（読んだ行）",
+                Detail = "説明が変わりました。",
+                CreatedAt = day.AddHours(-30),
+                IsRead = true,
+            });
+            records.Add(new NotificationRecord
+            {
+                Id = "viewshot-target-up-unread",
+                Kind = NotificationKind.ItemUpdated,
+                ItemId = target.Id,
+                Title = "「作り物の衣装セット」が更新されました",
+                Detail = "価格が変わりました。",
+                Diffs = [new NotificationDiff { Field = "価格", Before = "¥ 2,000", After = "¥ 2,400" }],
+                CreatedAt = day.AddHours(-40),
+            });
+            records.Add(new NotificationRecord
+            {
+                Id = "viewshot-target-back-other",
+                Kind = NotificationKind.ItemBackOnBooth,
+                ItemId = other.Id,
+                Title = "「作り物の髪飾り」がBOOTHに戻りました",
+                Detail = "商品情報を取り直せます。",
+                CreatedAt = day.AddHours(-2),
+            });
+            records.Add(new NotificationRecord
+            {
+                Id = "viewshot-target-back",
+                Kind = NotificationKind.ItemBackOnBooth,
+                ItemId = target.Id,
+                Title = "「作り物の衣装セット」がBOOTHに戻りました",
+                Detail = "商品情報を取り直せます。",
+                CreatedAt = day.AddHours(-50),
+            });
+            await context.Seed.Notifications.SaveAsync(records);
+
+            var main = await context.StartAsync();
+            main.ShowInboxFor(target.Id);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            inbox.UnreadOnly = false;
+            await SceneContext.UntilAsync(() => inbox.Lines.OfType<InboxRowLine>().Count() == records.Count, "知らせの行が並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 行の名前と ID を付けたときに、木（peers）と見た目の前後を比べるために足した（2026-09-30）
         new Scene("stats", "統計：作り物の商品8件（よく買っているショップ・ディスク使用量の内訳の行）", async context =>
         {
