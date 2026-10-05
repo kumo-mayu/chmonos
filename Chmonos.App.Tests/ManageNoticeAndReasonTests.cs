@@ -153,9 +153,12 @@ public class ManageNoticeAndReasonTests
     });
 
     [Fact]
-    public Task 属性の検索は_付けた商品の名前では当たらず_メモで当たれば理由を出す() => TestApp.Run(async app =>
+    public Task 属性の検索は_付けた商品の名前でも当たり_何で当たったかを出す() => TestApp.Run(async app =>
     {
-        await app.AddItemAsync(Make.Item("1000001", "ひみつの商品名"));
+        var rated = Make.Item("1000001", "ひみつの商品名");
+        rated = rated with { Local = rated.Local with { Attributes = new Dictionary<string, int> { ["作り物の甲"] = 80 } } };
+        await app.AddItemAsync(rated);
+        await app.AddItemAsync(Make.Item("1000002", "ひみつの無印"));
         await app.Store.Attributes.SaveAsync(new AttributeMaster
         {
             Attributes = [new AttributeDefinition { Name = "作り物の甲", Memo = "季節の物" }, new AttributeDefinition { Name = "作り物の乙" }],
@@ -165,8 +168,11 @@ public class ManageNoticeAndReasonTests
         var attributes = Assert.IsType<AttributeManageViewModel>(main.CurrentViewModel);
         await UiThread.Until(() => attributes.Rows.Count > 0, "属性の管理の読み込みが済む");
 
+        // 評価した商品の名前で当たる。評価していない商品は数えない
         attributes.FilterText = "ひみつ";
-        Assert.Empty(attributes.Rows);
+        var hit = Assert.Single(attributes.Rows);
+        Assert.Equal("作り物の甲", hit.Name);
+        Assert.Equal("商品 1 件", hit.MatchReason);
 
         attributes.FilterText = "季節";
         Assert.Equal("メモ", Assert.Single(attributes.Rows).MatchReason);

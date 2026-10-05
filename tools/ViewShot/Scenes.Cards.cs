@@ -165,6 +165,15 @@ internal static partial class Scenes
             await context.SettleAsync();
             return new Shot(root);
         }),
+
+        // メモ57：商品の名前に当たる語。名前に当たらない属性が、評価した商品の数で残り、何で当たったかが出る
+        new Scene("attribute-manage-search-items", "属性の管理：左の欄に商品の名前の語（「衣装」）を打った所。当たった属性の下に「商品 n 件」が出る", async context =>
+        {
+            var root = await OpenAttributeManageAsync(context, cards: false);
+            context.Screen<AttributeManageViewModel>().FilterText = "衣装";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
     ];
 
     private static async Task<(MainViewModel Main, System.Windows.FrameworkElement Root)> OpenLibraryAsync(SceneContext context)

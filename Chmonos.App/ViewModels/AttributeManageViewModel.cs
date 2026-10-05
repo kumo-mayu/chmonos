@@ -883,12 +883,15 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     }
 
     /// <summary>
-    /// 左の一覧を絞る。属性の名前だけでなく、この属性を持つ商品でも引く（タグの管理と揃える。ユーザ指示 2026-09-19）。
+    /// 左の一覧を絞る。名前とメモに加え、**この属性を付けた（評価した）商品の名前でも当てる**（メモ57 2026-10-05）。
+    /// 属性は各属性の下に商品が並ぶので、商品名で探して属性が出ても何で当たったか分かる（タグの管理は二重構造で
+    /// 分かりにくかったので、名前とメモだけのまま。メモ21-② 2026-10-03）。何で当たったかは「商品 n 件」と出す。
     /// 書き方は検索画面と同じ
     /// </summary>
     private void Rebuild()
     {
         var filter = ItemTextFilter.Create(_filterText);
+        var itemHits = filter is null ? null : CountItemHitsByAttribute(filter);
 
         // 作り直す間は、一覧が書き戻す「選択なし」を受けない（タグの管理と同じ。探すたびに右が空になっていた）
         _rebuildingList = true;
@@ -896,17 +899,29 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         {
             Rows.Clear();
 
-            // 探すのは名前とメモだけ。付けた商品の名前では当てない（タグの管理と同じ。メモ21-② 2026-10-03）
             foreach (var row in _all)
             {
                 row.MatchReason = string.Empty;
                 if (filter is null || filter.MatchesNameOrMemo(row.Name, null))
                 {
                     Rows.Add(row);
+                    continue;
                 }
-                else if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
+
+                var reasons = new List<string>();
+                if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
                 {
-                    row.MatchReason = "メモ";
+                    reasons.Add("メモ");
+                }
+
+                if (itemHits!.TryGetValue(row.Name, out var hits) && hits > 0)
+                {
+                    reasons.Add($"商品 {hits} 件");
+                }
+
+                if (reasons.Count > 0)
+                {
+                    row.MatchReason = string.Join("・", reasons);
                     Rows.Add(row);
                 }
             }
@@ -927,6 +942,26 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         OnPropertyChanged(nameof(FilterResultText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+    }
+
+    /// <summary>属性ごとに、その属性を付けた商品のうち検索の語に当たる件数。1回の走査で全属性ぶん数える</summary>
+    private Dictionary<string, int> CountItemHitsByAttribute(ItemTextFilter filter)
+    {
+        var hits = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var item in _main.Search.SnapshotItems())
+        {
+            if (item.Local.Attributes.Count == 0 || !filter.Matches(item))
+            {
+                continue;
+            }
+
+            foreach (var key in item.Local.Attributes.Keys)
+            {
+                hits[key] = hits.GetValueOrDefault(key) + 1;
+            }
+        }
+
+        return hits;
     }
 
     public bool HasFilter => _filterText.Trim().Length > 0;

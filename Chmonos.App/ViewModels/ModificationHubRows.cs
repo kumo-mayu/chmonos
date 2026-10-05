@@ -538,13 +538,26 @@ internal sealed class ModificationRowBuilder(
     /// 送るときも同じに使う。見て知りたいのは「どのファイルか」で、名前を出せばどちらも同じ見せ方になる。
     /// 外したファイルの名前も引く（記録は過去の事実。手元の一覧から外しても、そのとき使ったファイルの名前は要る）
     /// </summary>
-    public static string FileTextOf(ModificationMember member, ItemRecord? item) => member.Package is { } package
-        ? Path.GetFileName(package)
-        : member.FileHash is { } hash
-            ? item?.Local.LocalFiles.FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))?.Paths.FirstOrDefault() is { } path
-                ? Path.GetFileName(path)
-                : "使ったファイルの記録あり"
-            : "どのファイルを使ったかは分かりません";
+    public static string FileTextOf(ModificationMember member, ItemRecord? item)
+    {
+        var zipName = member.FileHash is { } fileHash
+            ? item?.Local.LocalFiles.FirstOrDefault(file => string.Equals(file.Hash, fileHash, StringComparison.OrdinalIgnoreCase))?.Paths.FirstOrDefault() is { } found
+                ? Path.GetFileName(found)
+                : null
+            : null;
+
+        // unitypackage を記録していれば「名前 (zip名)」：主はパッケージで、zip は補足（メモ59・ユーザ決定 2026-10-05）。
+        // 手元の一覧から zip を引けないときは、パッケージの名前だけ
+        if (member.Package is { } package)
+        {
+            var packageName = Path.GetFileName(package);
+            return string.IsNullOrEmpty(zipName) ? packageName : $"{packageName} ({zipName})";
+        }
+
+        return member.FileHash is null
+            ? "どのファイルを使ったかは分かりません"
+            : zipName ?? "使ったファイルの記録あり";
+    }
 
     public string? AvatarIconPath(string id)
         => AvatarImageSync.IconPath(services.Paths, id, items.GetValueOrDefault(id));
