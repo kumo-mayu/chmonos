@@ -73,6 +73,10 @@ public class OldVersionMarkTests : IDisposable
         for (var index = 0; index <= version; index++)
         {
             var entry = archive.CreateEntry($"v{version}/file{index}.txt", CompressionLevel.NoCompression);
+
+            // 中の時刻を決めておく。zip は各ファイルに作った時刻（2秒刻み）を持つので、そのままだと
+            // 「同じ版を置き直す」試験で、作る間に時刻の区切りをまたぐと別の中身になり、まれに落ちていた
+            entry.LastWriteTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
             using var stream = entry.Open();
             stream.Write(new byte[1024]);
         }
