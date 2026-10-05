@@ -40,6 +40,7 @@ internal static partial class Scenes
                 throw new InvalidOperationException("メニューの命令が、右の欄の見出しと違います。");
             }
 
+            ExpectDanger(menu, "この大分類を削除", ["名前を変更", "検索で開く"]);
             Console.WriteLine("  タグ：押せない項目の吹き出し＝" + RowMenuTip(RowMenuItem(menu, "別の大分類の小分類にする")));
             return new Shot(root);
         }),
@@ -69,6 +70,7 @@ internal static partial class Scenes
                 throw new InvalidOperationException("メニューの命令が、右の欄の見出しと違います。");
             }
 
+            ExpectDanger(menu, "この属性を削除", ["名前を変更", "検索で開く"]);
             return new Shot(root);
         }),
     ];
@@ -94,6 +96,17 @@ internal static partial class Scenes
 
     private static MenuItem RowMenuItem(ContextMenu menu, string header)
         => menu.Items.OfType<MenuItem>().First(entry => (string)entry.Header == header);
+
+    /// <summary>取り返しのつかない項目は右の欄の削除ボタンと同じ赤の文字（DangerText）で、ほかの項目は普通の色（メモ56）。</summary>
+    private static void ExpectDanger(ContextMenu menu, string dangerHeader, string[] plainHeaders)
+    {
+        var danger = (System.Windows.Media.SolidColorBrush)Application.Current.FindResource("DangerText");
+        if (((System.Windows.Media.SolidColorBrush)RowMenuItem(menu, dangerHeader).Foreground).Color != danger.Color
+            || plainHeaders.Any(header => ((System.Windows.Media.SolidColorBrush)RowMenuItem(menu, header).Foreground).Color == danger.Color))
+        {
+            throw new InvalidOperationException("削除の項目だけが赤の文字になっていません。");
+        }
+    }
 
     private static string? RowMenuTip(MenuItem item) => Chmonos.App.Controls.MenuTips.GetDisabled(item);
 
