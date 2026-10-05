@@ -10,7 +10,7 @@
 2. **同一性はファイルならハッシュ、フォルダならパス。**同じ中身が2か所なら1件に `paths` が2つ。移す・名前を変えるとハッシュで同じ物と分かり、場所が差し替わる。フォルダは移すと「見つからない」。
 3. **取り込み**は「走査 → ハッシュ（控えが合えば省く）→ 手掛かりで商品が1つに決まれば商品へ・同じ中身を持つ商品があればそこへ場所を足す・どちらでもなければ未確定」。行き先は毎回決め直す。
 4. **「見つからない」は2通り**：場所が空（取り込みが無い場所を外した）と、場所はあるが `missingSince` が付いている（見回り・使おうとした画面が「無い」と見た）。印・検索の条件・統計は両方を数える（`ItemRecord.HasMissingFile`）。
-5. **場所を外すのは取り込み（`LocalFileMerger.Merge`）だけ**。人の登録操作（`MergeByHand`）と見回りは日時を付け外しするだけで場所は外さない。**つながっていないドライブの上の物は外さず、日時も付けない**（例外は「気になった所」2）。
+5. **場所を外すのは取り込み（`LocalFileMerger.Merge`）と、見回りが同じ中身のほかの場所に在ると確かめたときだけ**。人の登録操作（`MergeByHand`）は外さない。**つながっていないドライブ（控えた文字に別のディスクが来ている場合を含む）・権限が無く確かめられない場所の上の物は外さず、日時も付けない**（点検の2・13）。
 6. **人の判断は印で残す**：この商品から外した＝`detached`（行を残す。その商品へは自動で戻さない）／管理対象から除外＝`excluded.json`（中身に効く。場所ではない）／壊れたzip＝`archiveBroken`。
 7. **起動時に自動で動くのはディスクの見回り（BOOTH へ行かない）と、設定で入れていれば裏の取得（⑤⑦は BOOTH へ行く）・監視の新着の取り込み**。一時展開は起動時と終了時に消す。
 8. 書き込みは商品ごとの錠の中で今の値に当てる（`ChangeLocalAsync`）のが決まり（守れていなかった4つと取り込みの1つは 2026-10-05 に直した。「気になった所」3）。
@@ -50,7 +50,7 @@ stateDiagram-v2
 | この商品から外した（灰色の行） | 商品の `localFiles[]` | `detached: true`。所持・容量・検索・Unity へ送るに数えない（`LocalBlock.OwnedFiles`）。日時は持たない |
 | 見つかりません（場所が空） | 商品の `localFiles[]` | `paths: []`。取り込みが無い場所を外した結果。記録は残す |
 | 見つかりません（日時あり） | 商品の `localFiles[]`・`localFolders[]` | `missingSince`（最初に「無い」と見た日時。在ると見たら消す） |
-| 取り外しているドライブ | 書かない | 根がつながっていない場所（ドライブ文字が変わった分は読み替えた後の場所で見る）。記録は変えない。フォルダビュー・商品ページの札は、その場でディスクを見て出す |
+| 取り外しているドライブ | 書かない | 根がつながっていない場所と、控えた文字（`volumes.json`）に控えたのと別のディスクが来ている場所（ドライブ文字が変わった分は読み替えた後の場所で見る）。記録は変えない。フォルダビュー・商品ページの札は、その場でディスクを見て出す |
 | 壊れたzip | 未確定・商品の両方 | `archiveBroken: true`（zip の目録が読めなかった時だけ。開いていた・権限が無いは立てない） |
 | フォルダごと登録 | 商品の `localFolders[]` | `path`（同一性）・`fileCount`・`totalBytes`・`registeredAt`・`lastSeenAt`・`missingSince`。中身は記録しない |
 | 展開したフォルダ（zip の隣の同名フォルダ） | 書かない | 走査が `UnpackedFolderDetector`（名前だけで判定）で見つけ、中を取り込まない。取り込みの結果に「展開先」として出る |
@@ -80,10 +80,10 @@ stateDiagram-v2
 | どれでもない | — | 未確定（`UnresolvedMerge.ForImport` で人の変更と合わせる。同じ中身が2か所なら1件に場所を2つ）。上書きを見つけた回は `samePathItemIds` | 走査していない取り込み元・つながっていないドライブの未確定は残す | `SaveUnresolvedAsync` |
 | ①で404 | BOOTH | 未確定へ（候補にその商品ID、`archiveBroken` を引き継ぐ。Zone.Identifier を読み直して `zoneHostUrl`・`zoneReferrerUrl`） | | `FetchAsync`・`ToUnresolved` |
 | ①で不調 | BOOTH | `import-state.json` `unfetched` | 商品にも未確定にも入れない | `FetchAsync` |
-| 見回り | 全商品のファイルの場所 | `missingSince` の付け外し（最初の周回だけ・結び直しの後。見方は周回の頭と共用） | 場所は外さない | `MissingMarksSweep.NoteFilesAsync` |
+| 見回り | 全商品のファイルの場所 | `missingSince` の付け外し（最初の周回だけ・結び直しの後。見方は周回の頭と共用）。同じ中身のほかの場所に在ると確かめたら、無いと確かめた場所を外す | それ以外は場所を外さない | `MissingMarksSweep.NoteFilesAsync`・`FilePresenceProbe.Sight` |
 | 終わり | 取り込み元の下の控え | 消えたパスを控えから落とす。`import-state.json` を空に（不調があれば残す） | つながっていないドライブの控えは残す | `ScanCacheIndex.RemoveMissingUnder` |
 
-`LocalFileMerger.Merge` の決まり：ハッシュで合わせて場所を足し合わせ、**今ディスクに無い場所は落とす**（つながっていないドライブの上は残す。人の登録操作の `MergeByHand` は無い場所も残す）。在る場所が1つでもあれば `missingSince` を消す。`variationId`・`contents`・`unityPackages` は前の値を残す。`detached` は両方が外していた時だけ残る（＝人が登録し直すと印は下りる）。
+`LocalFileMerger.Merge` の決まり：ハッシュで合わせて場所を足し合わせ、**今ディスクに無い場所は落とす**（つながっていない・控えた文字に別のディスクが来ている・権限が無く確かめられない場所は残す。在るかは周回の頭の `FilePresenceProbe` を根の覚えだけ新しくして見る。人の登録操作の `MergeByHand` は無い場所も残す）。同じ場所の綴りは見つけた方に合わせる（大文字小文字だけの改名）。在る場所が1つでもあれば `missingSince` を消す。`variationId`・`contents`・`unityPackages` は前の値を残す。`detached` は両方が外していた時だけ残る（＝人が登録し直すと印は下りる）。
 
 ### 未確定の操作（`ResolveViewModel*.cs` → `ItemService`）
 
@@ -121,13 +121,13 @@ stateDiagram-v2
 |---|---|---|---|
 | 取り込み（最初の周回） | 全商品のファイルの場所（ドライブごとに根を1回・3秒で打ち切り） | `missingSince` の付け外し | `MissingMarksSweep.NoteFilesAsync`・`FilePresenceProbe` |
 | 取り込み（周回の頭） | 登録フォルダ（`FilePresenceProbe`。ドライブごとに根を1回・3秒で打ち切り） | フォルダの `missingSince`／数え直し | `LoadOwnedAsync` |
-| 取り込みが商品を扱った時 | その商品の場所 | 無い場所を外す（場所が空になり得る）。人の登録操作は外さない | `LocalFileMerger.Merge`（人は `MergeByHand`） |
+| 取り込みが商品を扱った時 | その商品の場所（`FilePresenceProbe`） | 無い場所を外す（場所が空になり得る）。人の登録操作は外さない | `LocalFileMerger.Merge`（人は `MergeByHand`） |
 | 起動時（窓を出した後） | ファイルとフォルダ全部 | `missingSince`（在るフォルダの `lastSeenAt` は空のとき・また見つかったときだけ）。設定に関わらず走る | `MainViewModel.Background.cs` `StartMissingMarksSweep` → `MissingMarksSweep.SweepAsync` |
 | 使おうとした時 | 商品ページを開く・エクスプローラで開く・展開・Unityへ送れなかった（商品ページ・検索の複数選択・フォルダビュー・改変の画面・「Unityで選択」。人が止めた分は見ない）。場所は読み替えた後で見る | `NoteFilePresence` → `ItemService.NoteFilePresenceAsync`（`LocalOwners.FilePresence`） | `FilePresenceNotes.cs`（`Look`・`NoteFailedSendsAsync`）・`ItemViewModel.Files.cs`・`ItemFileActions.cs`・`ItemUnityActions.cs`・`ItemSelectionActions.cs`・`ModificationViewModel.cs`・`UnityMemberSelect.cs` |
 | 「見つからないファイルを探す」（取り込み画面） | **監視フォルダの中だけ**。大きさが合う物だけハッシュ（控えを使う）。探すのはどの場所にも無い物だけ（`FilePresenceProbe`。場所の1つでもつながっていないドライブの上なら探さず、場所も外さない） | 見つけたら無い場所を差し替え・日時を消す。見つからなければ日時を付ける。`scan-cache.json` に足す。どちらかを書いたら検索の写しを読み直す | `MissingFileFinder.FindAsync`・`Replace`・`NoteNotFoundAsync` |
 | フォルダビュー | その場でディスク（ドライブ文字の読み替えの後） | 書かない | `FolderViewModel.Build` |
 
-付け外しの決まりは1つ（`FileMissingMarks.Apply`）：在る→消す／無い→無ければ今の時刻（あれば最初の日時のまま）／つながっていないドライブだけ→何もしない／見てから書くまでに場所が変わったファイルには当てない。場所が複数なら1つ在れば「在る」。
+付け外しの決まりは1つ（`FileMissingMarks.Apply`）：在る→消す／無い→無ければ今の時刻（あれば最初の日時のまま）／つながっていないドライブ（控えた文字に来た別のディスクを含む）・確かめられない場所（権限が無い）だけ→何もしない／見てから書くまでに場所が変わったファイルには当てない。場所が複数なら1つ在れば「在る」で、見回りはそのとき無いと確かめた場所を外す（`FileSighting.Gone`）。
 
 ### 移動
 
@@ -138,6 +138,9 @@ stateDiagram-v2
 | 同じ名前で別の中身に上書き | 古い中身の記録から場所が外れ（場所が空でも記録は残る）、新しい中身は手掛かりで決まらなければ未確定へ（`samePathItemIds` に前の商品） |
 | ドライブ文字が変わる | 記録は書き換えない。フォルダビュー・検索の `path:`・商品ページ（行の場所・在るかの確かめ・開く・展開）・カードの右クリックが `volumes.json` で読み替える（`VolumeTable.Current`。「気になった所」2）。取り込み・見回り・Unity へ送る道の中（`UnityHandoff`）は元のパスのまま。次にその場所を取り込むと今の文字の場所が足される |
 | 外付けを外す | 場所は外さない・日時も付けない・未確定も残す。札は「取り外しているドライブ」 |
+| 外付けを外した文字に別のディスクが来る | 控え（`volumes.json`）の番号と違うので「取り外しているドライブ」と同じ（見回り・取り込みの突き合わせ・探す・商品ページ）。控えの無い文字は根だけで見る。その文字を取り込むと控えが新しいディスクに替わり、次からは元の外付けの物が「無い」になる（記録に番号を持たせるかは判断待ちの3） |
+| 名前の大文字小文字だけを変える | 取り込むと記録と走査の控えの綴りが今の名前になる |
+| 同じ中身の2か所の片方を消す | 見回りが、残った方が在ると確かめて消した方の場所を外す |
 | フォルダごと登録した物を移す | パスが同一性なので「見つからない」。取り込みは新しい場所の中身を未確定に出す |
 
 ### 一時展開（`Core/Services/TemporaryUnpacker.cs`）
@@ -150,7 +153,8 @@ stateDiagram-v2
 
 ## 例外的な動き・落とし穴
 
-- **外付けのドライブ**：「つながっていない」は根（`D:\`・`\\server\share`）が見えないこと。見回り・使う時・「見つからないファイルを探す」・取り込みの登録フォルダの判定は根を3秒で打ち切る（`FilePresenceProbe`）。取り込みの `LocalFileMerger`・`UnresolvedMerge`・控えの片付けは `UnresolvedMerge.IsOnMissingVolume`（`Directory.Exists(root)`・打ち切り無し）。
+- **外付けのドライブ**：「つながっていない」は根（`D:\`・`\\server\share`）が見えないこと。見回り・使う時・「見つからないファイルを探す」・取り込みの登録フォルダの判定と `LocalFileMerger` は根を3秒で打ち切る（`FilePresenceProbe`。控えた文字に別のディスクが来ていれば「つながっていない」と同じ・`VolumeSnapshot`）。`UnresolvedMerge`・控えの片付け・`MergeByHand` は `UnresolvedMerge.IsOnMissingVolume`（`Directory.Exists(root)`・打ち切り無し）。
+- **権限の無いフォルダ**：`FilePresenceProbe` は `DiskCheck.FileState` で、拒まれた・ドライブが答えなかった場所を「確かめられない」（`FilePresence.Unverifiable`）として日時も場所も触らない。商品ページの行は今までどおり「見つかりません」と出す。
 - **届かない共有**：根の確かめは1回21秒かかったことがある。打ち切りがあるのは `FilePresenceProbe` を通る道だけ（上）。
 - **同じ中身が複数の場所**：商品は1件に複数の `paths`。容量は商品ページが1回、統計の実占有は場所の数だけ。未確定も1件に複数の場所を持つ（2026-10-05 から。前は最初の場所だけ）。同じ中身を2つの商品が持つことはあり得て、取り込みは両方に場所を足す。
 - **ハッシュの扱い**：ファイルは SHA-256。控え（パス・大きさ・更新日時）が合えば取り直さない。持っている zip は開き直さない（中身の一覧は商品、手掛かりは控え）。**フォルダはハッシュを持たない**（中の1ファイルで別物になるため）。
@@ -195,7 +199,7 @@ stateDiagram-v2
 
 1. **直した（2026-10-05・ae6489a1）**：見回りと同じ `FilePresenceProbe` で見て、どの場所にも無い物だけを探す。場所の1つでも外付けの上なら探さず、場所も変えない。試験 `MissingFileFinderTests` の「外付けを外している間は…」「場所の1つが外付けの上なら…」。
    **「見つからないファイルを探す」が、外付けの上の場所を外し得る**：`MissingFileFinder.FindCoreAsync` は無い場所を `DiskCheck.FileExists` だけで決め、ドライブがつながっているかを見ない。外付けを外したまま同じ中身が監視フォルダにあると、`Replace` が外付けの上の場所を外す（`LocalFileMerger` の「残す」と食い違う）。外付けを外しただけの物を「見つかりませんでした」とも数える。打ち切りも無いので落ちた共有で待たされ得る。
-2. **直した（2026-10-05・00421d19）**：商品ページ（行の場所・在るかの確かめ・開く・展開・フォルダの行）とカードの右クリックも `VolumeTable.Current` で読み替える（記録は書き換えない）。試験 `FilePresenceRemapTests`（作り物の `volumes.json` で商品ページの行が在ると見られる）。後半の推測（元の文字に別のディスクが来たときの見回り・取り込み）と、Unity へ送る道の中の場所（`UnityHandoff`）は未着手。
+2. **直した（2026-10-05・00421d19）**：商品ページ（行の場所・在るかの確かめ・開く・展開・フォルダの行）とカードの右クリックも `VolumeTable.Current` で読み替える（記録は書き換えない）。試験 `FilePresenceRemapTests`（作り物の `volumes.json` で商品ページの行が在ると見られる）。後半の推測（元の文字に別のディスクが来たときの見回り・取り込み）は下の点検の2で直した。Unity へ送る道の中の場所（`UnityHandoff`）は未着手。
    **ドライブ文字が変わると画面ごとに答えが違う**：読み替えはフォルダビューと検索だけ。元の文字が空なら商品ページは「取り外しているドライブ」で開けない。元の文字に別のディスクが来ると、見回りが日時を付け、取り込みがその商品を扱うと `LocalFileMerger` が場所を外し得る（後半は推測）。
 3. **直した（2026-10-05・dc06197c）**：5つとも `ChangeLocalAsync` で錠の中の今の値に当てる。zip のハッシュは錠の外のまま。試験は錠の取り合いで再現（`ItemLockRace`。`FolderRegistrationTests`・`SettingsServiceTests`・`ReimportTests`）。`UnhideAsync` は消える物が無かったので落ちる試験は無い。
    **錠の外で読んだ写しで書き戻す所が4つ**（CLAUDE.md の「錠の中で今の値に当てる」に反する）：
@@ -236,3 +240,18 @@ stateDiagram-v2
    **除外を「戻す」と前からの除外まで消える**：`ExcludeAsync` は既にあるハッシュを足さないが、`UndoExcludeAsync` はハッシュで全部消す。前に除外していた物の記録（日時・理由）も消える。
 19. **一部を直した（2026-10-05）**：見回りの `lastSeenAt`（a11ea600。空のとき入れる。在ると見るたびには書かない・取り込みと同じ。試験 `MissingMarksSweepTests` の「見た日時が空の在るフォルダには…」）・`NextFetchDue` の種の無い計算（20e7a15c。`RefreshJitter`。試験 `RefreshJitterTests`。`ItemService` の同じ計算は登録の担当の範囲で未着手）・一時展開の置き場を走査から外す（a131cffe。試験 `FolderScannerTests.SkipsTheTemporaryUnpackAreaInsideTheRoot`）。どれも直す前に落ちた。残りは下のまま。
    小さな物：見回りは在るフォルダの `lastSeenAt` を更新しない（取り込みの数え直しだけ）。展開したフォルダの見分けが名前だけ。取り込み元に `%TEMP%` そのものを選ぶと一時展開の中まで走査する（根だけを見ているため）。`ImportPipeline.NextFetchDue` の `GetHashCode` はプロセスごとに変わるので、コメントの「何度計算しても同じ日」にならない。spec の item-page.md にある「管理から外す」（一括操作）は App に見当たらない。spec の「IDを変更」は画面では「IDを変える」。（spec の2つは 2026-10-05・bb0e257c・aa98ea79 に今の画面に合わせて直した）
+
+## 見つからない・移動の点検（2026-10-05・担当MV）
+
+読むだけの点検で見つかった16件（`docs/feedback/open.md` の行）。判断の要らない物から直し、判断待ちは画面の確認の後で聞く。番号は点検の番号。
+
+2. **直した（2026-10-05・b88fbe4e。取り込みの突き合わせは 5db5d233）**：`volumes.json` に控えた通し番号と、今その文字にあるボリュームの番号を比べ（`VolumeSnapshot`。1回の見回り・確かめごとに1回読む）、控えがあって違えば「つながっていない」と同じに扱う（見回り・取り込みの登録フォルダの判定と突き合わせ・探す・商品ページ）。控えの無い文字・番号を持たないボリューム・ネットワークドライブは今のまま。商品ページは読み替えた後の文字で見るので、記録の文字の控えと見る文字の今の番号を比べる。取り込みは周回の頭の写しを使う（その周回で取り込み元の文字を控え直すため）。走査の控え（`scan-cache.json`）の片付けには当てていない：別のディスクの上を取り込んだときに元の外付けの控えが落ちても、つなぎ直したときにハッシュを取り直すだけで記録は変わらないため（使い回しの照らし方は16の判断待ち）。試験 `ForeignVolumeTests`（見回り・探す・読み替えの3件は直す前に落ちた。取り込みの1件は12の直しを戻すと落ちる。同じディスク・控えの無い文字・消えた場所は外すの3件は前から通る）。
+   **外付けの文字に別のディスクが来ると、一斉に見つからない・場所が落ちる**：根がつながっているかしか見ないので、外付けAの上の全ファイルに日時が付き、取り込みが `LocalFileMerger.Merge` で場所を外す。
+6. **直した（2026-10-05・53171553）**：見回りは場所を全部見て（`FilePresenceProbe.Sight`）、ほかの場所に在ると確かめたときだけ、無いと確かめた場所を外す（`FileSighting.Gone`。錠の中で今の値に当て、見てから場所が変わったファイルには当てない）。つながっていない・確かめられない場所は外さない。使おうとした画面の確かめは外さない。試験 `MissingMarksSweepTests` の「同じ中身の片方を消したら…」（直す前に落ちた）・「ほかの場所に在っても_つながっていないドライブの上の場所は外さない」・「どの場所にも無いときは_場所を外さず日時だけ付ける」。
+   **同じ中身の片方を消しても場所が残る**：残った方が在るので結び直しも `Merge` も走らず、見回りは「在る」とだけ見る。統計の重複・空けられる量・商品ページの行の名前（`Paths[0]`）に消した場所が残る。
+12. **直した（2026-10-05・5db5d233）**：`LocalFileMerger.Merge` に見方を渡す口を足し、取り込みの結び直し（`RelinkMovedFilesAsync`）と既にある商品へ足す2か所（`FetchAsync`）が周回の頭の見方を根の覚えだけ新しくして（`Renewed`）渡す。見方を渡さない呼び方も既定で `FilePresenceProbe` を通る（通し番号の控えは無し）。試験 `ForeignVolumeTests.取り込みは根が答えないドライブの上の場所を外さない`（直す前に落ちた）。
+   **揺れる共有で場所を外す**：`Merge` は場所ごとに打ち切りなしで `File.Exists` と根の `Directory.Exists` を呼ぶ（錠の中）。
+13. **直した（2026-10-05・3c873264）**：`DiskCheck.FileState`／`FolderState` が、無いと分かったとき（ファイル・途中のフォルダが無い）だけ「無い」と答え、拒まれた・ドライブが答えなかったときは「確かめられない」（`FilePresence.Unverifiable`）。見回り・`Merge`・探すは日時も場所も触らない。商品ページの行は今までどおり「見つかりません」。「見つからないファイルを探す」は読めなかったファイル・フォルダを数えて結果の文に出し、ログに残す（`MissingFileSearchResult.UnreadableFiles`・`UnreadableFolders`）。試験 `UnverifiablePlaceTests`（見回り・突き合わせ・探すの3件は直す前に落ちた）・画面の側 `ImportResultTextTests` の探して読めなかった物の文。
+   **権限が無いと「無い」と見る**：読み取り権限の無いフォルダの上のファイルを `DiskCheck` が「無い」と見て、見回りが日時を付け、`Merge` が場所を外し得る。探す所は読めなかった物を黙って飛ばしていた。
+14. **直した（2026-10-05・8c0b86cc）**：同じ場所かは大文字小文字を区別せずに見るまま、綴りは走査で読んだ方に合わせる（`LocalFileMerger` の足し合わせ・結び直しを積む条件・`ScanCacheIndex.TryGetHash`）。試験 `CaseRenameTests`・`LocalFileMergerTests.TakesTheSpellingOfTheFoundPathWhenOnlyTheCaseChanged`・`ScanCacheIndexTests.FollowsACaseOnlyRenameWhenReusingTheHash`（3件とも直す前に落ちた）。
+   **大文字小文字だけの改名を記録が追わない**：場所を大文字小文字を区別せずに比べるので、同じ場所と見て何もしない。
