@@ -149,6 +149,14 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
 
     public bool HasBase => !string.IsNullOrWhiteSpace(Summary.Entry.BaseName);
 
+    /// <summary>
+    /// 手で決めた素体が無く、名前から推した素体だけがあるときの、一覧の行に出す薄い字（ユーザ判断 2026-10-05）。
+    /// 手で決めた素体の字（<see cref="BaseText"/>）と見分けて出す。出さないと、詳細では「入っています」と言うのに行には素体名が無く食い違う
+    /// </summary>
+    public string InferredBaseText => Summary.InferredBaseName is { Length: > 0 } name ? $"名前から「{name}」" : string.Empty;
+
+    public bool HasInferredBase => InferredBaseText.Length > 0;
+
     /// <summary>直接対応と素体経由は分けて出す。素体経由は推定なので同じ顔で並べない。</summary>
     public string CountText => Summary.ViaBaseCount > 0
         ? $"{Summary.DirectCount} + 素体経由 {Summary.ViaBaseCount}"

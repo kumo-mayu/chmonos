@@ -153,6 +153,23 @@ public sealed class AvatarsBaseMembersTests
     });
 
     [Fact]
+    public Task 一覧の行は_推した素体も薄い字で出し_手で決めた素体は今のまま() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+
+        var inferred = Row(avatars, Inferred);
+        Assert.Equal($"名前から「{Marubody}」", inferred.InferredBaseText);
+        Assert.True(inferred.HasInferredBase);
+        Assert.False(inferred.HasBase);
+
+        var manual = Row(avatars, Manual);
+        Assert.Equal(string.Empty, manual.InferredBaseText);
+        Assert.False(manual.HasInferredBase);
+        Assert.True(manual.HasBase);
+        Assert.Equal(Handmade, manual.BaseText);
+    });
+
+    [Fact]
     public Task アバターの側の素体から外すは_推した素体も外し_素体を選び直すと印を下ろす() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);

@@ -74,6 +74,11 @@
                                Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}" />
                     <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
                                Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 名前から推した素体は、手で決めた素体と見分けて薄く出す -->
+                    <TextBlock Text="{Binding InferredBaseText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                               Foreground="{DynamicResource TextFaint}" TextTrimming="CharacterEllipsis"
+                               AutomationProperties.AutomationId="AvatarRowInferredBase"
+                               Visibility="{Binding HasInferredBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 呼び方・正式名で当たった行だけ、何で当たったかを添える -->
                     <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}" Margin="0,2,0,0"
                                Foreground="{DynamicResource AccentSoftText}" TextTrimming="CharacterEllipsis"
@@ -114,6 +119,9 @@
                             <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                        TextTrimming="CharacterEllipsis"
                                        Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="{Binding InferredBaseText}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                       Foreground="{DynamicResource TextFaint}" TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding HasInferredBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 検索が商品を読み終えるまでは添えない。持っているアバターまで手元に無いと言っていた（2026-10-02） -->
                             <TextBlock Text="この名前の商品は手元にありません" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                        Foreground="{DynamicResource TextFaint}" TextWrapping="Wrap"
