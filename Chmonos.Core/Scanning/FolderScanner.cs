@@ -87,12 +87,17 @@ public sealed class FolderScanner
     /// アーカイブの展開先とみなしたフォルダの中身は、取り込み対象から外して別に返す。
     /// </summary>
     public ScanResult Scan(string rootFolder, CancellationToken cancellationToken = default)
+        => Scan(rootFolder, Services.TemporaryUnpacker.TemporaryArea, cancellationToken);
+
+    /// <param name="temporaryArea">一時展開の置き場（試験が差し替える。本物は %TEMP% の下で、試験から作り物を置けないため）。</param>
+    internal ScanResult Scan(string rootFolder, string temporaryArea, CancellationToken cancellationToken = default)
     {
         // ファイルが直接指定されたら、そのファイルだけを対象にする。
         // 親フォルダへ広げると、ダウンロードフォルダの1件を落としただけで
         // フォルダ全体が取り込み対象になってしまう。
         // 一時展開（#56）の中は取り込まない。閉じると消えるので、紐付けても「見つからない」になるだけ
-        if (Services.TemporaryUnpacker.IsInsideTemporaryArea(rootFolder))
+        var areaPrefix = FolderPrefix(temporaryArea);
+        if (IsTemporaryArea(rootFolder, areaPrefix))
         {
             return new ScanResult();
         }
@@ -109,7 +114,24 @@ public sealed class FolderScanner
             return new ScanResult();
         }
 
-        return ScanTree(rootFolder, cancellationToken);
+        return ScanTree(rootFolder, areaPrefix, cancellationToken);
+    }
+
+    /// <summary>そのフォルダが一時展開の置き場そのものか、その中か。<paramref name="areaPrefix"/> は <see cref="FolderPrefix"/> の形（走査の間に1回だけ作る）。</summary>
+    private static bool IsTemporaryArea(string path, string? areaPrefix)
+        => areaPrefix is not null && FolderPrefix(path) is { } full && full.StartsWith(areaPrefix, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>区切りで終わる絶対パス（「C:\A」が「C:\AB」の頭に当たらないように）。読めない名前なら null。</summary>
+    private static string? FolderPrefix(string path)
+    {
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)) + Path.DirectorySeparatorChar;
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 
     /// <summary>1つのフォルダの中身1件（列挙で取れた物だけで足りる）。</summary>
@@ -137,7 +159,7 @@ public sealed class FolderScanner
     /// 入れ子の展開先・展開先の中の数え方を、前の <c>FileSystemEnumerable</c> の再帰と揃えてある。
     /// 大きさと日時は列挙で取れた物を使う（前は1件ずつ <see cref="FileInfo"/> で問い直していた）。
     /// </summary>
-    private static ScanResult ScanTree(string rootFolder, CancellationToken cancellationToken)
+    private static ScanResult ScanTree(string rootFolder, string? areaPrefix, CancellationToken cancellationToken)
     {
         var files = new List<ScannedFile>();
         var unpacked = new List<UnpackedTally>();
@@ -173,6 +195,13 @@ public sealed class FolderScanner
 
                 if (entry.IsDirectory)
                 {
+                    // 一時展開の置き場は降りない。根だけを見ていたので、取り込み元に %TEMP% そのものを選ぶと、
+                    // 閉じると消える展開物まで取り込んでいた（file-lifecycle.md 気になった所19）
+                    if (IsTemporaryArea(entry.Path, areaPrefix))
+                    {
+                        continue;
+                    }
+
                     var inside = current.Inside;
                     if (UnpackedFolderDetector.FindMatchingArchive(entry.Name, siblings) is { } archive)
                     {

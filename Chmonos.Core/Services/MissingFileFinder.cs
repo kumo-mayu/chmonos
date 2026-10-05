@@ -21,6 +21,12 @@ public sealed record MissingFileSearchResult
 
     /// <summary>見に行けなかったフォルダ（外付けを外している間など）。</summary>
     public IReadOnlyList<string> Unreachable { get; init; } = [];
+
+    /// <summary>
+    /// 探しても見つからなかった物に、見つからなくなった日時を書いた商品の数（もう付いていた物は数えない）。
+    /// 画面が検索の写しを読み直すかを決める（結び直しが0件でも、日時を付けたなら印と条件が変わる）。
+    /// </summary>
+    public int MarkedItems { get; init; }
 }
 
 /// <summary>
@@ -209,7 +215,7 @@ public sealed class MissingFileFinder
             relinked++;
         }
 
-        await NoteNotFoundAsync(missing, found, probe, cancellationToken);
+        var marked = await NoteNotFoundAsync(missing, found, probe, cancellationToken);
 
         return new MissingFileSearchResult
         {
@@ -217,6 +223,7 @@ public sealed class MissingFileFinder
             Relinked = relinked,
             Hashed = hashed,
             Unreachable = unreachable,
+            MarkedItems = marked,
         };
     }
 
@@ -273,7 +280,7 @@ public sealed class MissingFileFinder
     /// **つながっていないドライブの上の物には付けない**（外付けを外しているだけかもしれない。<see cref="FilePresenceProbe"/> が見に行かずに分ける）。
     /// 商品ごとの錠の中で今の値に当て、探している間に場所が変わったファイル（取り込みが結び直した物）には当てない。
     /// </remarks>
-    private async Task NoteNotFoundAsync(
+    private async Task<int> NoteNotFoundAsync(
         Dictionary<string, MissingEntry> missing,
         Dictionary<string, string> found,
         FilePresenceProbe probe,
@@ -300,17 +307,23 @@ public sealed class MissingFileFinder
             }
         }
 
+        var marked = 0;
         foreach (var (itemId, sightings) in sightingsByItem)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await _store.Items.ChangeLocalAsync(
-                itemId,
-                current => FileMissingMarks.Apply(current.LocalFiles, sightings, now) is { } files
-                    ? current with { LocalFiles = files }
-                    : null,
-                LocalOwners.Import,
-                cancellationToken);
+            if (await _store.Items.ChangeLocalAsync(
+                    itemId,
+                    current => FileMissingMarks.Apply(current.LocalFiles, sightings, now) is { } files
+                        ? current with { LocalFiles = files }
+                        : null,
+                    LocalOwners.Import,
+                    cancellationToken))
+            {
+                marked++;
+            }
         }
+
+        return marked;
     }
 
     private sealed class MissingEntry(long sizeBytes)

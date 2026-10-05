@@ -439,6 +439,34 @@ public class ImportAndResolveFlowTests
     });
 
     /// <summary>
+    /// 探しても見つからなかった物に付けた日時が、検索の写しにもすぐ入る（file-lifecycle.md 気になった所16）。
+    /// 前は結び直した数が1以上の時だけ読み直していたので、日時を付けただけの回はカードの印と条件に起動し直すまで出なかった。
+    /// </summary>
+    [Fact]
+    public Task 見つからないファイルを探して見つからなければ_日時がすぐ検索のカードの印に出る() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        var original = app.NewFile(@"elsewhere\costume.zip", [9, 8, 7, 6]);
+        await app.AddItemAsync(Make.Item("9900001", "作り物の衣装").WithFiles(new LocalFileRecord
+        {
+            Hash = await FileHasher.ComputeSha256Async(original),
+            Paths = [original],
+            SizeBytes = 4,
+        }));
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        File.Delete(original);
+        Assert.False(main.Search.ListItems.Single().HasMissingFile);
+
+        main.Import.FindMissingFilesCommand.Execute(null);
+        await UiThread.Until(() => main.Import.MissingSearchText.Contains("見つかりませんでした", StringComparison.Ordinal), "探した結果が出る");
+        await app.SettleAsync();
+
+        Assert.NotNull(Assert.Single((await app.Store.Items.LoadAsync("9900001"))!.Local.LocalFiles).MissingSince);
+        Assert.True(main.Search.ListItems.Single().HasMissingFile);
+    });
+
+    /// <summary>
     /// 取り込みが場所を全部外したファイル（場所が空）も中身で探す（ユーザ判断 2026-10-04）。
     /// 見つかれば場所が入り、検索の条件「見つからないファイルがある」から外れる。結果の文は付け替えと同じ数え方。
     /// </summary>

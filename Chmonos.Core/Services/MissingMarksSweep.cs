@@ -42,21 +42,32 @@ public sealed class MissingMarksSweep
     /// 全体を呼んだスレッドの外で回す（全件の読み込みとディスクの確かめを画面のスレッドに載せない）。
     /// </summary>
     public Task<IReadOnlyList<string>> SweepAsync(CancellationToken cancellationToken = default)
-        => Task.Run(() => RunAsync(folders: true, cancellationToken), cancellationToken);
+        => Task.Run(() => RunAsync(folders: true, probe: null, cancellationToken), cancellationToken);
 
     /// <summary>
     /// 取り込みの見回り：ファイルだけ（フォルダは取り込みが大きさの数え直しと一緒に書く。<c>ImportPipeline.LoadOwnedAsync</c>）。
     /// </summary>
-    public Task<IReadOnlyList<string>> NoteFilesAsync(CancellationToken cancellationToken = default)
-        => RunAsync(folders: false, cancellationToken);
+    /// <param name="probe">
+    /// 取り込みが登録フォルダの判定に使った見方（同じ周回の中で使い回す）。落ちた共有の根を、フォルダの判定とファイルの見回りで
+    /// 二度待たない（1回3秒）。無ければ新しく作る。
+    /// </param>
+    public Task<IReadOnlyList<string>> NoteFilesAsync(FilePresenceProbe? probe = null, CancellationToken cancellationToken = default)
+        => RunAsync(folders: false, probe, cancellationToken);
 
-    private async Task<IReadOnlyList<string>> RunAsync(bool folders, CancellationToken cancellationToken)
+    /// <summary>
+    /// 新しい見方（取り込みが登録フォルダの判定に使う。見回りと同じ部品・同じ打ち切りにするため。spec background-and-network.md）。
+    /// 試験が差し替えた作り方もここを通る。
+    /// </summary>
+    public FilePresenceProbe NewProbe() => _newProbe();
+
+
+    private async Task<IReadOnlyList<string>> RunAsync(bool folders, FilePresenceProbe? probe, CancellationToken cancellationToken)
     {
         using var turn = await EnterAsync(cancellationToken);
 
         // 番を待っている間に取り込みが書いた分も見るよう、読むのは番を取ってから
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        var probe = _newProbe();
+        probe ??= _newProbe();
         var now = DateTimeOffset.Now;
         var written = new List<string>();
 

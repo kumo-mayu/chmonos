@@ -78,10 +78,13 @@ public static class FileMissingMarks
     /// <summary>
     /// フォルダ1つに、見た結果を当てる（取り込みの数え直しと起動時の見回りが同じ決まりで書くよう、ここ1か所）。
     /// また見つかったら日時を消し、見た日時（<see cref="LocalFolderRecord.LastSeenAt"/>）を今にする。変えなければ同じ物を返す。
+    /// 見た日時が空のまま在ると見たときも今を入れる（取り込みの数え直しが空を「変わった」と数えるのと同じ。file-lifecycle.md 気になった所19）。
+    /// 在ると見るたびには書き直さない——起動のたびにフォルダを持つ商品を全部書くことになる。
     /// </summary>
     public static LocalFolderRecord MarkedFolder(LocalFolderRecord folder, FilePresence presence, DateTimeOffset now) => presence switch
     {
-        FilePresence.Present when folder.MissingSince is not null => folder with { LastSeenAt = now, MissingSince = null },
+        FilePresence.Present when folder.MissingSince is not null || folder.LastSeenAt is null
+            => folder with { LastSeenAt = now, MissingSince = null },
         FilePresence.Missing when folder.MissingSince is null => folder with { MissingSince = now },
         _ => folder,
     };

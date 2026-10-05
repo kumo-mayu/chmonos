@@ -25,7 +25,53 @@ public sealed partial class MainViewModel
     /// 邪魔をしてまで知らせる価値がない（どちらも次の起動でまた試す）。**ログには残す。**
     /// **段ごとに受け止める。**前は1つの try でつないでいて、⑤で落ちると⑦まで何も言わずに止まっていた（技術的負債 2-3）。
     /// </summary>
-    private void StartBacklogResume() => StartBacklog(force: false);
+    private void StartBacklogResume()
+    {
+        if (_services.Settings.ResumeFetchInBackground)
+        {
+            StartBacklog(force: false);
+            return;
+        }
+
+        // 設定が止めるのは BOOTH へ行く段だけ（background-and-network.md）。前はここで丸ごと戻り、
+        // 通知の上限・ページの作り・手で直した JSON の確認まで、設定を切った人には一度も走らなかった
+        var token = (_backlog ??= new CancellationTokenSource()).Token;
+        Task.Run(async () =>
+        {
+            try
+            {
+                await RunLocalChecksAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                // 閉じたときに止めた
+            }
+        }, token).Forget();
+    }
+
+    /// <summary>
+    /// 起動時の裏の作業のうち、通信しない確かめ。設定「起動したとき、裏で取得を始める」に関わらず走る。
+    /// </summary>
+    private async Task RunLocalChecksAsync(CancellationToken token)
+    {
+        // 足すときは上限を見ていないので、ここで1回だけ落とす（ユーザ判断 2026-09-18）。
+        // どちらも要確認の一覧を**書く**ので、他の段と同じく門と受け止めを通す——
+        // 直に await していたため、ここで転ぶと残りの段（残った画像・アバターの画像・期限）が丸ごと走らなかった
+        await RunBackgroundStageAsync("通知の整理", () => _services.Notifications.PruneAsync(token));
+
+        // BOOTH側の作りが変わっていないか（説明文の見出しが読めているか）を見て、ナビの帯を出し入れする
+        await RunBackgroundStageAsync(
+            "ページの作りの確認",
+            () => _services.Notifications.DetectPageStructureAsync(token));
+
+        // 手で直した JSON の食い違い（同じ名前が2つ・商品IDとファイル名が違う）。
+        // 通信はしないので、裏の取得を切っていても見る（J2・L6）
+        await RunBackgroundStageAsync(
+            "手で直したJSONの確認",
+            () => _services.Notifications.DetectHandEditIssuesAsync(token));
+
+        RunOnUiThread(RefreshCounts);
+    }
 
     /// <summary>走っている裏の作業。終わるまで次を始めない（同じ段を2本走らせると、同じ画像を2回取りに行く）。</summary>
     private Task? _backlogRun;
@@ -87,23 +133,7 @@ public sealed partial class MainViewModel
                     });
                 }
 
-                // 足すときは上限を見ていないので、ここで1回だけ落とす（ユーザ判断 2026-09-18）。
-                // どちらも要確認の一覧を**書く**ので、他の段と同じく門と受け止めを通す——
-                // 直に await していたため、ここで転ぶと残りの段（残った画像・アバターの画像・期限）が丸ごと走らなかった
-                await RunBackgroundStageAsync("通知の整理", () => _services.Notifications.PruneAsync(token));
-
-                // BOOTH側の作りが変わっていないか（説明文の見出しが読めているか）を見て、ナビの帯を出し入れする
-                await RunBackgroundStageAsync(
-                    "ページの作りの確認",
-                    () => _services.Notifications.DetectPageStructureAsync(token));
-
-                // 手で直した JSON の食い違い（同じ名前が2つ・商品IDとファイル名が違う）。
-                // 通信はしないので、裏の取得を切っていても見る（J2・L6）
-                await RunBackgroundStageAsync(
-                    "手で直したJSONの確認",
-                    () => _services.Notifications.DetectHandEditIssuesAsync(token));
-
-                RunOnUiThread(RefreshCounts);
+                await RunLocalChecksAsync(token);
 
                 await RunBackgroundStageAsync("前の取り込みで残った画像", () => _services.Backlog.ResumeAsync(images, token));
 

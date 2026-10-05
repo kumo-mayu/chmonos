@@ -175,8 +175,10 @@ public sealed class ImportViewModel : ViewModelBase
 
             // 結び直した商品の新しい場所を、検索の写しにも入れる（点検 2026-09-30 の C：検索の「ファイルの場所」（path:）が
             // 起動し直すまで古い場所で絞り、札の「見つかりません」も残っていた）。結果はどの商品かを持たず、
-            // 何件になるかも分からないので、取り込みの後と同じく全体を読み直す
-            if (result is Core.Commands.CommandResult.MissingFilesSearched { Result.Relinked: > 0 })
+            // 何件になるかも分からないので、取り込みの後と同じく全体を読み直す。
+            // 見つからなかった物に日時を付けただけの回も読み直す（印と条件「見つからないファイル」が変わる。
+            // 前は結び直しが0件だと読み直さず、起動し直すまで出なかった。file-lifecycle.md 気になった所16）
+            if (result is Core.Commands.CommandResult.MissingFilesSearched { Result: { Relinked: > 0 } or { MarkedItems: > 0 } })
             {
                 await _main.ReloadLibraryAsync();
             }

@@ -47,6 +47,23 @@ public class FolderScannerTests : IDisposable
     }
 
     /// <summary>
+    /// 取り込み元が一時展開の置き場を中に含んでも（%TEMP% そのものを選んだ）、置き場の中は走査しない
+    /// （file-lifecycle.md 気になった所19。前は取り込み元の根だけを見ていて、閉じると消える展開物まで取り込んでいた）。
+    /// </summary>
+    [Fact]
+    public void SkipsTheTemporaryUnpackAreaInsideTheRoot()
+    {
+        Write("keep.zip");
+        Write(@"Chmonos\unpacked-12345678\costume-1\inner.zip");
+        var area = Path.Combine(_root, "Chmonos");
+
+        var result = _scanner.Scan(_root, area);
+
+        Assert.Equal(["keep.zip"], result.Files.Select(file => Path.GetFileName(file.Path)));
+        Assert.Empty(_scanner.Scan(area, area).Files);
+    }
+
+    /// <summary>
     /// ファイルを直接指定したら、そのファイルだけを対象にする。
     /// 親フォルダへ広げると、ダウンロードフォルダの1件を落としただけで
     /// フォルダ全体が取り込み対象になってしまう。

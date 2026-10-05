@@ -32,19 +32,44 @@ public static class UnresolvedMerge
         var now = Hashes(current);
         var result = new List<UnresolvedFile>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var foundAt = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var file in found)
         {
             // 前に書いた後で人が一覧から外した物（割り当てた・管理から外した）は戻さない
             var removedByPerson = before.Contains(file.Hash) && !now.Contains(file.Hash);
-            if (!removedByPerson && seen.Add(file.Hash))
+            if (removedByPerson)
             {
-                result.Add(file);
+                continue;
             }
+
+            // **同じ中身の2か所目は、1か所目の行に場所を足す**（file-lifecycle.md 気になった所8）。
+            // 取り込みは1ファイル1件で判じるので、前は最初の1件だけが残り、2か所目はフォルダビューの「?」にも出なかった。
+            // 記録の同一性はハッシュで、商品の記録と同じく1件に場所を複数持つ
+            if (foundAt.TryGetValue(file.Hash, out var index))
+            {
+                result[index] = WithPaths(result[index], file.Paths, file.SamePathItemIds);
+                continue;
+            }
+
+            seen.Add(file.Hash);
+            foundAt[file.Hash] = result.Count;
+            result.Add(file);
         }
 
         foreach (var file in current)
         {
+            if (foundAt.TryGetValue(file.Hash, out var index))
+            {
+                // 今回見ていない場所（走査していない取り込み元・外付けを外していた）は、見つかった行に引き継ぐ。
+                // 見た場所で見つからなかった物だけが片付いた物（下の決まりと同じ）
+                var unseenPaths = file.Paths
+                    .Where(path => !scannedTargets.Contains(path) || offlineTargets.Contains(path))
+                    .ToList();
+                result[index] = WithPaths(result[index], unseenPaths, []);
+                continue;
+            }
+
             if (seen.Contains(file.Hash))
             {
                 continue;
@@ -81,6 +106,32 @@ public static class UnresolvedMerge
         {
             return true;
         }
+    }
+
+    /// <summary>場所（と、同じ場所にあった商品）を重ならないように足す。足す物が無ければ元のまま。</summary>
+    private static UnresolvedFile WithPaths(UnresolvedFile file, IReadOnlyList<string> paths, IReadOnlyList<string> samePathItemIds)
+    {
+        var newPaths = paths.Where(path => !file.Paths.Contains(path, StringComparer.OrdinalIgnoreCase)).ToList();
+        var newIds = samePathItemIds.Where(id => !file.SamePathItemIds.Contains(id, StringComparer.Ordinal)).ToList();
+        if (newPaths.Count == 0 && newIds.Count == 0)
+        {
+            return file;
+        }
+
+        return new UnresolvedFile
+        {
+            Hash = file.Hash,
+            Paths = [.. file.Paths, .. newPaths],
+            SizeBytes = file.SizeBytes,
+            ModifiedAtUtc = file.ModifiedAtUtc,
+            FirstSeenAt = file.FirstSeenAt,
+            Contents = file.Contents,
+            ZoneHostUrl = file.ZoneHostUrl,
+            ZoneReferrerUrl = file.ZoneReferrerUrl,
+            CandidateItemIds = file.CandidateItemIds,
+            SamePathItemIds = [.. file.SamePathItemIds, .. newIds],
+            ArchiveBroken = file.ArchiveBroken,
+        };
     }
 
     private static HashSet<string> Hashes(IReadOnlyList<UnresolvedFile> files)
