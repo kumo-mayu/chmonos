@@ -23,6 +23,47 @@ internal static class Backdoor
     public static void ShowImportSummary(ImportViewModel import, ImportSummary summary)
         => SetProperty(import, nameof(ImportViewModel.Summary), summary);
 
+    /// <summary>
+    /// 取り込んでいる最中の進み具合の欄（段・何を数えているか・件数・棒・残りの見込み・今の商品・減速）。
+    /// 実際に走らせると走査と BOOTH への問い合わせが要るので、取り込みが進み具合を知らせてきたときに入る値を直に入れる。
+    /// 走っている印（IsRunning）も立てる——立てると主画面の「取り込み中」と、ボタンの「今の取り込みに追加」・中断が押せる形も、本体の通りに変わる
+    /// </summary>
+    public static void ShowImportRunning(
+        ImportViewModel import, string phase, string step, int current, int total, string detail,
+        (string Phase, string Editable, string Images)? estimate = null, bool throttled = false)
+    {
+        SetProperty(import, nameof(ImportViewModel.IsRunning), true);
+        SetProperty(import, nameof(ImportViewModel.PhaseText), phase);
+        SetProperty(import, nameof(ImportViewModel.StepText), step);
+        SetProperty(import, nameof(ImportViewModel.Total), total);
+        SetProperty(import, nameof(ImportViewModel.Current), current);
+        SetProperty(import, nameof(ImportViewModel.DetailText), detail);
+        if (estimate is { } eta)
+        {
+            SetProperty(import, nameof(ImportViewModel.EtaPhaseText), eta.Phase);
+            SetProperty(import, nameof(ImportViewModel.EtaEditableText), eta.Editable);
+            SetProperty(import, nameof(ImportViewModel.EtaImagesText), eta.Images);
+            Raise(import, nameof(ImportViewModel.HasEstimate));
+        }
+
+        if (throttled)
+        {
+            SetProperty(import, nameof(ImportViewModel.IsThrottled), true);
+            Raise(import, nameof(ImportViewModel.ThrottleText));
+        }
+    }
+
+    /// <summary>
+    /// 編集する物が無いときの「n 秒後に検索に戻ります」の数え下げを、今の数のまま止める。
+    /// 止めないと、待つ長さ次第で数が変わったり検索へ戻ったりして、同じ場面でも回ごとに絵が変わっていた（2026-10-05 の比べで暗い色だけ検索の画面が写った）
+    /// </summary>
+    public static void FreezeEditReturn(EditViewModel edit)
+    {
+        var timer = edit.GetType().GetField("_returnTimer", Hidden)?.GetValue(edit) as System.Windows.Threading.DispatcherTimer
+            ?? throw Missing(typeof(EditViewModel), "欄 _returnTimer");
+        timer.Stop();
+    }
+
     /// <summary>「見つからないファイルを探す」の結果の1行。探し終えたときに入る文を、そのまま入れる。</summary>
     public static void ShowMissingSearchText(ImportViewModel import, string text)
         => SetProperty(import, nameof(ImportViewModel.MissingSearchText), text);

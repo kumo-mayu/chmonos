@@ -24,6 +24,9 @@ internal static class Isolation
     /// </summary>
     public static string FilesRoot { get; private set; } = string.Empty;
 
+    /// <summary>作り物の絵の控え（<see cref="Fake.Image"/>）。中身は名前と大きさだけで決まるので、場面と回をまたいで使い回す</summary>
+    public static string ImageCacheRoot { get; private set; } = string.Empty;
+
     public static void Enter(string sceneName)
     {
         // 一時フォルダを差し替える前に、本来の場所で作業用フォルダを決める
@@ -31,6 +34,8 @@ internal static class Isolation
         SweepOld(Path.Combine(parent, "run"));
 
         FilesRoot = Path.Combine(parent, "files", sceneName);
+        ImageCacheRoot = Path.Combine(parent, "image-cache");
+        Directory.CreateDirectory(ImageCacheRoot);
         WorkRoot = Path.Combine(parent, "run", $"{sceneName}-{Environment.ProcessId}");
         var store = Path.Combine(WorkRoot, "store");
         var temp = Path.Combine(WorkRoot, "temp");

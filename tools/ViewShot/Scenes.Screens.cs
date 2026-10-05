@@ -63,6 +63,63 @@ internal static partial class Scenes
             Width = 900,
         },
 
+        // 取り込んでいる最中（担当から上がった11件の ⑪ 2026-10-05）。進み具合は走らせないと出ないので、知らせてくる値を直に入れる
+        new Scene("import-running", "取り込んでいる最中：段・件数・棒・中断・残りの見込み・今の商品・ボタンが「今の取り込みに追加」", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            Backdoor.ShowImportRunning(
+                context.Screen<ImportViewModel>(), "5. 商品ページとタグから対応アバターを検出", "見つかった商品を確かめています", 37, 120,
+                "作り物の衣装セット【12アバター対応】",
+                ("この段の残り 約 3 分", "編集できるまで 約 3 分", "画像を取り終わるまで 約 9 分"));
+            main.BoothActivity.ReportWork(WorkSource.Import, "取り込み：対応アバターを検出中", 37, 120);
+            await context.SettleAsync();
+
+            return new Shot(root);
+        })
+        {
+            // 上のボタン（今の取り込みに追加・中断）・進み具合の欄の終わり・下の1行を1枚に入れる
+            Height = 1000,
+        },
+
+        new Scene("import-running-scanning", "取り込んでいる最中：ファイルをスキャン（総数が無いので棒は出ず件数だけ）", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            Backdoor.ShowImportRunning(
+                context.Screen<ImportViewModel>(), "1. ファイルをスキャン", string.Empty, 1834, 0,
+                @"D:\作り物\ダウンロード\作り物の髪型_v2.zip");
+            main.BoothActivity.ReportWork(WorkSource.Import, "取り込み：ファイルをスキャン中", 1834, 0);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "1. ファイルをスキャン")) };
+        }),
+
+        new Scene("import-running-throttled", "取り込んでいる最中：商品ページを取得・BOOTHの指示で間隔を広げている（黄色の帯）", async context =>
+        {
+            // 帯の秒数は今の間隔から出る。広げた後の値に見えるよう、間隔の設定を長くしておく（減速そのものは作れない）
+            var main = await context.StartAsync(settings => settings with { FetchIntervalMs = 6000 });
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            Backdoor.ShowImportRunning(
+                context.Screen<ImportViewModel>(), "4. 商品ページを取得", string.Empty, 212, 480,
+                "作り物のアクセサリー",
+                ("この段の残り 約 7 分", "編集できるまでの時間は、あと 約 7 分 で分かります", "画像の残りは、商品ページを取り終わると分かります"),
+                throttled: true);
+            main.BoothActivity.ReportWork(WorkSource.Import, "取り込み：商品ページを取得中", 212, 480);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "4. 商品ページを取得")) };
+        }),
+
         // 見つからない登録フォルダの候補（見つからない・移動の点検 10-A）。候補が3つの行と候補が無い行
         new Scene("import-missing-folders", "見つからないファイルを探した結果：見つからない登録フォルダと候補（候補3つ・候補無し）", async context =>
         {

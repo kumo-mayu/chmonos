@@ -71,6 +71,33 @@ internal sealed class Fake(DataStore store)
     public static void Image(string directory, string fileName, string seed, int width = 384, int height = 384)
     {
         Directory.CreateDirectory(directory);
+
+        // 絵は名前と大きさだけで決まるので、1度作った物を写す。作るたびに WebP へ詰めると、
+        // 8件の場面で作り物を書くのに 1.5 秒かかっていた（2026-10-05 に測った。プロセスごとに詰める道具を温め直すため）
+        var cached = Path.Combine(Isolation.ImageCacheRoot, $"{Hex($"{seed}|{width}x{height}")[..32]}.webp");
+        var target = Path.Combine(directory, fileName);
+        if (File.Exists(cached))
+        {
+            File.Copy(cached, target, overwrite: true);
+            return;
+        }
+
+        Draw(target, seed, width, height);
+        try
+        {
+            // 並んで走る別の回と同じ絵を作ることがある。名前を変えて置いてから移すので、書きかけを写されない
+            var partial = cached + "." + Environment.ProcessId + ".tmp";
+            File.Copy(target, partial, overwrite: true);
+            File.Move(partial, cached, overwrite: true);
+        }
+        catch (IOException)
+        {
+            // 控えを置けなくても、絵はもう置いた
+        }
+    }
+
+    private static void Draw(string path, string seed, int width, int height)
+    {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
         var first = new Rgba32(hash[0], hash[1], hash[2]);
         var second = new Rgba32(hash[3], hash[4], hash[5]);
@@ -87,7 +114,7 @@ internal sealed class Fake(DataStore store)
                 }
             }
         });
-        image.SaveAsWebp(Path.Combine(directory, fileName));
+        image.SaveAsWebp(path);
     }
 
     /// <summary>手元のファイルの記録。</summary>

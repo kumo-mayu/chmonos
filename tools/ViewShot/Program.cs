@@ -66,7 +66,8 @@ internal static class Program
               ViewShot peers <場面>      読み上げ・自動操作の窓口の木を文字で書き出す（名前・型・押せるか）
               ViewShot tabs <場面> [--from <ID>] [--keys Tab,Right,Down,Enter…]
                                          Tab で一周して止まった所（型・名前・ID・枠）を書き出す。--keys はその順にキーを送る
-              ViewShot catalog [--out 空のフォルダ] [--zip 置き場.zip] [--only 名前の頭,…] [--jobs 4] [--timeout 240]
+              ViewShot catalog [--out 空のフォルダ] [--zip 置き場.zip] [--only 名前の頭,…] [--changed [基準]] [--from 前の回の置き場]
+                               [--dry] [--jobs 論理数の3/4] [--timeout 240] [--quiet 400]
                                          全場面を明・暗で撮り、画面ごとのフォルダと index.html を作って zip にする（docs/dev/ui-shots.md）
 
             画像は既定で %TEMP%\chmonos-shots\view\ に置く（リポジトリの外）。
@@ -156,6 +157,9 @@ internal static class Program
                     break;
                 case "--from":
                     from = Next();
+                    break;
+                case "--quiet":
+                    Stage.QuietSpan = TimeSpan.FromMilliseconds(Numbers(Next())[0]);
                     break;
                 default:
                     names.AddRange(args[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
@@ -280,6 +284,9 @@ internal static class Program
     private static int RunOne(Scene scene, ShotOptions options)
     {
         var clock = Stopwatch.StartNew();
+
+        // プロセスが起きてからここまで（.NET と WPF の読み込み）。場面ごとにプロセスを分けているので、場面ごとにかかる
+        StartupMs = (long)(DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds;
         Isolation.Enter(scene.Name);
 
         // アプリの資源（色の表・標準の部品の見た目・App.xaml の既定）を読む。起動の処理は走らない——
@@ -290,6 +297,7 @@ internal static class Program
 
         // 窓を作って捨てるたびに「最後の窓が閉じた」で終わりにされないように
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        AppMs = clock.ElapsedMilliseconds;
 
         var exit = 1;
         var dispatcher = Dispatcher.CurrentDispatcher;
@@ -327,6 +335,11 @@ internal static class Program
         return exit;
     }
 
+    private static long StartupMs;
+    private static long AppMs;
+    private static long BuildMs;
+    private static long BuildSettleMs;
+
     private static async Task<int> RunSceneAsync(Scene scene, ShotOptions options, Stopwatch clock)
     {
         using var stage = new Stage(focusable: options.Tabs);
@@ -349,7 +362,10 @@ internal static class Program
                 : MessageBoxResult.Cancel;
         };
 
+        var buildClock = Stopwatch.StartNew();
         var shot = await scene.Build(context);
+        BuildMs = buildClock.ElapsedMilliseconds;
+        BuildSettleMs = Timing.SettleMs;
         if (shot.Still is { } still)
         {
             // 場面が自分で描いたコマ。待って描き直すと、見たかった途中の姿が消える
@@ -359,6 +375,7 @@ internal static class Program
             Stage.Save(cut, stillPath);
             Console.WriteLine($"{stillPath}\t{cut.PixelWidth}x{cut.PixelHeight}\t場面が描いたコマ");
             Console.WriteLine($"  {scene.Name}：全部で {clock.Elapsed.TotalSeconds:0.0} 秒");
+            Console.WriteLine(Timing.Line(StartupMs, AppMs, BuildMs, BuildSettleMs, clock.ElapsedMilliseconds));
             context.Dispose();
             return 0;
         }
@@ -451,6 +468,7 @@ internal static class Program
         }
 
         Console.WriteLine($"  {scene.Name}：組むまで {built.TotalSeconds:0.0} 秒・全部で {clock.Elapsed.TotalSeconds:0.0} 秒");
+        Console.WriteLine(Timing.Line(StartupMs, AppMs, BuildMs, BuildSettleMs, clock.ElapsedMilliseconds));
         context.Dispose();
         return 0;
     }
@@ -526,12 +544,15 @@ internal static class Program
         return result.IsSame ? 0 : 1;
     }
 
-    /// <summary>同じ名前の画像どうしを比べる（直す前に1回、直した後に1回描いて、2つのフォルダを渡す）。</summary>
+    /// <summary>
+    /// 同じ名前の画像どうしを比べる（直す前に1回、直した後に1回描いて、2つのフォルダを渡す）。
+    /// 中のフォルダも見る（網羅の撮影は画面ごとのフォルダに分けて置くので、2回の catalog の置き場をそのまま渡せるように）
+    /// </summary>
     private static int DiffFolders(string before, string after, string? outDir, int tolerance)
     {
         var different = 0;
-        var names = Directory.EnumerateFiles(before, "*.png").Select(Path.GetFileName)
-            .Union(Directory.EnumerateFiles(after, "*.png").Select(Path.GetFileName))
+        var names = Directory.EnumerateFiles(before, "*.png", SearchOption.AllDirectories).Select(path => Path.GetRelativePath(before, path))
+            .Union(Directory.EnumerateFiles(after, "*.png", SearchOption.AllDirectories).Select(path => Path.GetRelativePath(after, path)))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
 

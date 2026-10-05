@@ -436,6 +436,7 @@ internal static partial class Scenes
         {
             var main = await context.StartAsync();
             main.ShowEditCommand.Execute(null);
+            Backdoor.FreezeEditReturn(context.Screen<EditViewModel>());
             var root = context.MainWindow();
             await context.PresentAsync(root);
             await context.SettleAsync();

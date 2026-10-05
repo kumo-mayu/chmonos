@@ -251,6 +251,8 @@ internal static partial class Scenes
     /// アバターの一覧を上から下まで流し、作られた行がどれも今の見せ方（リストかカード）だけを出しているかを確かめる。
     /// 流すと行が使い回されるので、使い回した行で見せ方が外れていれば、ここで見つかる
     /// </summary>
+    private static readonly TimeSpan StepQuiet = TimeSpan.FromMilliseconds(100);
+
     private static async Task ScrollThroughAsync(
         SceneContext context, FrameworkElement root, AvatarsViewModel avatars, bool listMode, bool stopAtMiddle = false, bool fromCurrent = false)
     {
@@ -264,12 +266,15 @@ internal static partial class Scenes
             if (stopAtMiddle && offset >= viewer.ScrollableHeight / 2)
             {
                 viewer.ScrollToVerticalOffset(offset);
-                await context.SettleAsync();
+                await context.SettleAsync(StepQuiet);
                 break;
             }
 
             viewer.ScrollToVerticalOffset(offset);
-            await context.SettleAsync();
+
+            // 数えるのは行の部品の型で、絵ではない。行は並べ直し（描画の前）で作られるので、絵が出揃うまで待たない
+            // （1歩ごとに 0.4 秒待って、この場面だけで 70 秒かかっていた。2026-10-05）
+            await context.SettleAsync(StepQuiet);
 
             foreach (var row in Look.All<ListBoxItem>(list).Where(row => row.IsVisible))
             {
