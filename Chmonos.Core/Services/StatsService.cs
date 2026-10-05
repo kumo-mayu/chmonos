@@ -180,8 +180,11 @@ public sealed record StatsSnapshot
     /// <summary>重複コピーを含む、実際にドライブを占有している量。</summary>
     public required long PhysicalBytes { get; init; }
 
-    /// <summary>うち重複コピーの分。<see cref="PhysicalBytes"/> と <see cref="LogicalBytes"/> の差。</summary>
-    public long DuplicateBytes => PhysicalBytes - LogicalBytes;
+    /// <summary>
+    /// うち重複コピーの分（在る記録の、2つ目からの場所）。前は <see cref="PhysicalBytes"/> と <see cref="LogicalBytes"/> の差だったが、
+    /// 実占有が見つからない物を数えなくなった（点検の7）ので、差では見つからない分だけ小さく（負にも）なる。
+    /// </summary>
+    public long DuplicateBytes { get; init; }
 
     /// <summary>
     /// 重複の中身。空く量の大きい順。
@@ -367,6 +370,7 @@ public sealed class StatsService : IStatsService
         var unpriced = 0;
         var logical = 0L;
         var physical = 0L;
+        var duplicate = 0L;
         var undatedSpent = 0L;
         var undated = 0;
         var fallbackDated = 0;
@@ -398,6 +402,7 @@ public sealed class StatsService : IStatsService
             var itemPhysical = PhysicalSizeOf(item);
             logical += LogicalSizeOf(item);
             physical += itemPhysical;
+            duplicate += item.DuplicateDiskBytes;
 
             // 支出は購入1件ごとに、その購入の日付の月へ入れる（メモ45）。商品の合計を1つの月へ入れると、
             // 後から別の種類を買い足した月に支出が出ない。贈った分は自分用の支出に入れないので、置く月も決めない
@@ -467,6 +472,7 @@ public sealed class StatsService : IStatsService
             UnpricedItemCount = unpriced,
             LogicalBytes = logical,
             PhysicalBytes = physical,
+            DuplicateBytes = duplicate,
 
             // 所持しているものだけを見る。手元に無いものは容量を食っていない
             Duplicates = DuplicateFinder.Find(owned),
@@ -669,9 +675,7 @@ public sealed class StatsService : IStatsService
 
     /// <summary>
     /// ドライブが実際に食われている量。同じ中身を2箇所に置いていれば2回分数える。
-    /// 「どれだけ空けられるか」を知りたい時に要るのはこちら。
+    /// 「どれだけ空けられるか」を知りたい時に要るのはこちら。在る場所だけを数える（<see cref="ItemRecord.ActualDiskBytes"/>・点検の7）。
     /// </summary>
-    private static long PhysicalSizeOf(ItemRecord item)
-        => item.Local.OwnedFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
-            + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
+    private static long PhysicalSizeOf(ItemRecord item) => item.ActualDiskBytes;
 }

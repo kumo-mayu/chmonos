@@ -119,7 +119,21 @@ public sealed record ItemRecord
     [JsonIgnore]
     public long LogicalSizeBytes => Local.OwnedFiles.Sum(file => file.SizeBytes);
 
-    /// <summary>実占有量。重複コピーを含めて実際にドライブを食っている量（統計の表示用）。</summary>
+    /// <summary>
+    /// 実占有量。重複コピーを含めて実際にドライブを食っている量（統計の表示用）。**在る場所だけを数える**
+    /// （2026-10-05・見つからない・移動の点検の7・ユーザ判断 7-A）：場所が空の記録・見つからなくなった日時が付いた記録・
+    /// 無いと見たフォルダは0。前は場所が空でも1つ分、日時が付いても場所の数だけ数えていて、消したファイルがドライブを食っているように見え、
+    /// 「どれだけ空けられるか」が実際より大きく出た。つながっていないドライブの上の場所は数える（無くなったのではなく、そこを食っている）。
+    /// 商品の容量（<see cref="OwnedSizeBytes"/>・カード・並べ替え・商品ページ）は持っている物の大きさなので、見つからなくても数える。
+    /// </summary>
     [JsonIgnore]
-    public long ActualDiskBytes => Local.OwnedFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count));
+    public long ActualDiskBytes
+        => Local.OwnedFiles.Where(file => file.MissingSince is null).Sum(file => file.SizeBytes * file.Paths.Count)
+        + Local.LocalFolders.Where(folder => folder.MissingSince is null).Sum(folder => folder.TotalBytes);
+
+    /// <summary>実占有のうち重複コピーの分（在る記録の、2つ目からの場所）。</summary>
+    [JsonIgnore]
+    public long DuplicateDiskBytes
+        => Local.OwnedFiles.Where(file => file.MissingSince is null && file.Paths.Count > 1)
+            .Sum(file => file.SizeBytes * (file.Paths.Count - 1));
 }
