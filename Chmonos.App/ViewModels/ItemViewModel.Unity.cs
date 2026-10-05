@@ -182,7 +182,7 @@ public sealed partial class ItemViewModel
     }
 
     /// <summary>この商品にUnityへ送れるものが1つでもあるか。無ければ送り先の話もしない。</summary>
-    public bool HasAnyUnityPackage => LocalFiles.Any(file => file.HasUnityPackages);
+    public bool HasAnyUnityPackage => LocalFiles.Any(file => file.HasUnityPackages) || LocalFolders.Any(folder => folder.HasUnityPackages);
 
     /// <summary>
     /// 送り先の表示を読み直す。

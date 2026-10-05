@@ -105,6 +105,69 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <!-- Unityへ送れるもの。zip の行とフォルダの行が同じ部品を使う（ユーザ判断 2026-10-05） -->
+        <DataTemplate x:Key="UnityPackagesBlock">
+                                                <StackPanel Margin="10,4,0,0"
+                                                            Visibility="{Binding HasUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding UnityPackageNote}" Style="{StaticResource Caption}"
+                                                               Margin="10,0,0,5" TextWrapping="Wrap"
+                                                               Visibility="{Binding HasManyUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <controls:ContentItemsControl ItemsSource="{Binding UnityPackageRows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="{DynamicResource AccentBorder}" BorderThickness="2,0,0,0"
+                                                                        Padding="10,3" Margin="0,0,0,4">
+                                                                    <!--
+                                                                        名前のすぐ横に「Unity ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した。「Unityへ送る」は選択も入るので「Unity」に改めた）。
+                                                                        **送り方は2つに分けたまま選ばせる。**送る前に「記録しますか」と聞くと、記録を使っていない人の邪魔になる。
+                                                                        分ければ選んだ人だけが記録の話に入る
+                                                                    -->
+                                                                    <StackPanel VerticalAlignment="Center">
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5" MaxWidth="560"
+                                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                                            <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                                                    VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    AutomationProperties.AutomationId="ItemPackageUnityMenu"
+                                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}"
+                                                                                    IsEnabled="{Binding FileRow.CanReveal}"
+                                                                                    ToolTipService.ShowOnDisabled="True" ToolTip="{Binding FileRow.UnityMenuTip}">
+                                                                                <Button.ContextMenu>
+                                                                                    <ContextMenu>
+                                                                                        <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
+                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.Send"
+                                                                                                  ToolTip="開いているUnityへ送ります。送る内容はUnity側で確認できます。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                        <MenuItem Header="改変に追加して送る" CommandParameter="{Binding Entry}"
+                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.SendWithRecord"
+                                                                                                  ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                        <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
+                                                                                        <MenuItem Header="Unityで選択" CommandParameter="{Binding Entry}"
+                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.Select"
+                                                                                                  ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                    </ContextMenu>
+                                                                                </Button.ContextMenu>
+                                                                            </Button>
+                                                                        </StackPanel>
+                                                                        <!--
+                                                                            Unityのどこに入るか。**取り込んだ後に何という名前で
+                                                                            入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
+                                                                        -->
+                                                                        <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
+                                                                                   FontSize="10.5" Foreground="{DynamicResource TextMuted}"
+                                                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                                                   ToolTip="{Binding DestinationText}"
+                                                                                   Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </controls:ContentItemsControl>
+                                                </StackPanel>
+        </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
     <!--
@@ -201,6 +264,8 @@
                                                         <TextBlock Text="{Binding ArchiveNoticeText}" FontSize="11.5"
                                                                    Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
                                                     </Border>
+                                                    <!-- フォルダの中の unitypackage。zip の行と同じ部品・同じ命令（ユーザ判断 2026-10-05） -->
+                                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UnityPackagesBlock}" IsTabStop="False" Margin="0,4,0,0" />
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                                                     <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
@@ -434,66 +499,7 @@
                                                     **1つでも一覧に出す。**zipの名前と中の名前は
                                                     しばしば違うので、何が入るのかは見せた方がよい
                                                 -->
-                                                <StackPanel Margin="10,4,0,0"
-                                                            Visibility="{Binding HasUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="{Binding UnityPackageNote}" Style="{StaticResource Caption}"
-                                                               Margin="10,0,0,5" TextWrapping="Wrap"
-                                                               Visibility="{Binding HasManyUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <controls:ContentItemsControl ItemsSource="{Binding UnityPackageRows}">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Border BorderBrush="{DynamicResource AccentBorder}" BorderThickness="2,0,0,0"
-                                                                        Padding="10,3" Margin="0,0,0,4">
-                                                                    <!--
-                                                                        名前のすぐ横に「Unity ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した。「Unityへ送る」は選択も入るので「Unity」に改めた）。
-                                                                        **送り方は2つに分けたまま選ばせる。**送る前に「記録しますか」と聞くと、記録を使っていない人の邪魔になる。
-                                                                        分ければ選んだ人だけが記録の話に入る
-                                                                    -->
-                                                                    <StackPanel VerticalAlignment="Center">
-                                                                        <StackPanel Orientation="Horizontal">
-                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5" MaxWidth="560"
-                                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                                            <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
-                                                                                    VerticalAlignment="Center" Click="OnMenuButtonClick"
-                                                                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    AutomationProperties.AutomationId="ItemPackageUnityMenu"
-                                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}"
-                                                                                    IsEnabled="{Binding FileRow.CanReveal}"
-                                                                                    ToolTipService.ShowOnDisabled="True" ToolTip="{Binding FileRow.UnityMenuTip}">
-                                                                                <Button.ContextMenu>
-                                                                                    <ContextMenu>
-                                                                                        <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
-                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.Send"
-                                                                                                  ToolTip="開いているUnityへ送ります。送る内容はUnity側で確認できます。"
-                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                                        <MenuItem Header="改変に追加して送る" CommandParameter="{Binding Entry}"
-                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.SendWithRecord"
-                                                                                                  ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
-                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                                        <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
-                                                                                        <MenuItem Header="Unityで選択" CommandParameter="{Binding Entry}"
-                                                                                                  AutomationProperties.AutomationId="ItemPackageUnityMenu.Select"
-                                                                                                  ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
-                                                                                                  Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                                    </ContextMenu>
-                                                                                </Button.ContextMenu>
-                                                                            </Button>
-                                                                        </StackPanel>
-                                                                        <!--
-                                                                            Unityのどこに入るか。**取り込んだ後に何という名前で
-                                                                            入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
-                                                                        -->
-                                                                        <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
-                                                                                   FontSize="10.5" Foreground="{DynamicResource TextMuted}"
-                                                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
-                                                                                   ToolTip="{Binding DestinationText}"
-                                                                                   Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                    </StackPanel>
-                                                                </Border>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </controls:ContentItemsControl>
-                                                </StackPanel>
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UnityPackagesBlock}" IsTabStop="False" />
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
