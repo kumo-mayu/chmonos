@@ -13,7 +13,7 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public class DeleteIsRedTests
 {
-    private static readonly string[] DeleteWords = ["削除", "消す", "既定に戻す", "ごみ箱"];
+    private static readonly string[] DeleteWords = ["削除", "消す", "既定に戻す", "ごみ箱", "捨てる", "元の幅に戻す"];
 
     /// <summary>消す操作に見えても、入力欄を空にするだけの物（赤にしない）。</summary>
     private static readonly string[] NotDelete = ["絞り込みを消す", "条件をクリア"];

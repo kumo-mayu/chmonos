@@ -364,6 +364,12 @@ public sealed class RegistrationQueue : ViewModelBase
     internal static string BadgeText(int waitingPosition)
         => waitingPosition <= 0 ? "登録中" : $"登録待ち {waitingPosition}番目";
 
+    /// <summary>札の吹き出し。どの商品として登録するか。名前が空（読めなかった記録）なら出さない。</summary>
+    internal static string BadgeTip(RegistrationJob job)
+        => string.IsNullOrWhiteSpace(job.ItemName)
+            ? string.Empty
+            : job.IsRunning ? $"「{job.ItemName}」として登録しています。" : $"「{job.ItemName}」として登録します。";
+
     /// <summary>
     /// 閉じるときの確認。列が空なら null（聞かない）。
     /// ユーザの例「登録作業が続いています。終了予定まであとn分。閉じても次回起動時に再開されます」を ui-wording で整えた

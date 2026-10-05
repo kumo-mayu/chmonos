@@ -90,11 +90,27 @@
         <PathGeometry x:Key="IconSettings" Figures="M8.8,12 A3.2,3.2 0 1 1 15.2,12 A3.2,3.2 0 1 1 8.8,12 M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4" />
 
         <!--
+            ナビのボタンにキーボードで止まった印（ユーザ判断 2026-10-05・メモ62）。ナビは明暗どちらのテーマでも暗い地なので、
+            App.xaml の SmallFocusVisual（Accent。明るい配色の Accent は暗い地で沈む）ではなく、ナビの字の色で枠を描く。
+            マウスで押したときは WPF の既定どおり出ない
+        -->
+        <Style x:Key="RailFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource RailTextActive}" BorderThickness="1.5" CornerRadius="6" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
             ナビの1項目。11項目とも「アイコン・名前・件数」で同じ形なので、
             並べ方はここだけに書き、項目ごとの違いは views:Nav の添付プロパティで渡す。
             畳んだときに名前を消す、という変更も1箇所で済む。
         -->
         <Style x:Key="NavButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource RailFocusVisual}" />
             <!--
                 名前はテンプレートの中のTextBlockに入るので、ボタン自体には文字が無い。
                 読み上げと自動化には名前が見えなくなるので、ここで明示する。
@@ -253,6 +269,7 @@
             （既定のボタンのままだと、暗いナビの上に明るい箱が浮いた。2026-09-20）
         -->
         <Style x:Key="RailSmallButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource RailFocusVisual}" />
             <Setter Property="Width" Value="30" />
             <Setter Property="Height" Value="26" />
             <Setter Property="Padding" Value="0" />
@@ -684,7 +701,7 @@
                         <Button Content="続きから進む" Command="{Binding Import.ResumeCommand}"
                                 AutomationProperties.AutomationId="InterruptedImportResume" />
                         <!-- 「やめる」では何が無くなるのか読めなかった（戻せない操作なので、押す前に窓でも聞く） -->
-                        <Button Content="続きを捨てる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}"
+                        <Button Content="続きを捨てる" Style="{StaticResource DangerButton}" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}"
                                 AutomationProperties.AutomationId="InterruptedImportDiscard"
                                 ToolTip="{x:Static vm:ImportViewModel.DiscardInterruptedTip}" />
                     </StackPanel>

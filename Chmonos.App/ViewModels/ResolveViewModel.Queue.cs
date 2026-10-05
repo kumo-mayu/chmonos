@@ -100,7 +100,8 @@ public sealed partial class ResolveViewModel
             row.SetQueueState(
                 job is not null ? RegistrationQueue.BadgeText(Queue.WaitingPosition(job)) : failure is not null ? "登録に失敗" : string.Empty,
                 failure ?? string.Empty,
-                _main.ResolveSearch.OwnerHashes.Contains(row.File.Hash, StringComparer.OrdinalIgnoreCase));
+                _main.ResolveSearch.OwnerHashes.Contains(row.File.Hash, StringComparer.OrdinalIgnoreCase),
+                job is null ? string.Empty : RegistrationQueue.BadgeTip(job));
         }
 
         foreach (var name in QueueProperties)

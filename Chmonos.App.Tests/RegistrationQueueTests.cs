@@ -82,6 +82,8 @@ public class RegistrationQueueTests
             Assert.False(jobB!.IsRunning);
             Assert.Equal("登録待ち 1番目", Row(second, "second.zip").QueueBadge);
             Assert.Equal("登録中", Row(second, "first.zip").QueueBadge);
+            Assert.Equal("「作り物の靴」として登録します。", Row(second, "second.zip").QueueTip);
+            Assert.Equal("「作り物の衣装」として登録しています。", Row(second, "first.zip").QueueTip);
         }
         finally
         {
@@ -263,6 +265,7 @@ public class RegistrationQueueTests
         var row = Row(resolve, "first.zip");
         Assert.Equal("登録に失敗", row.QueueBadge);
         Assert.True(row.IsQueueFailed);
+        Assert.Equal(row.QueueFailure, row.QueueTip);
         Assert.Contains("確定できませんでした", row.QueueFailure, StringComparison.Ordinal);
         Assert.Equal(row.QueueFailure, resolve.StatusText);
         Assert.Same(row, resolve.Selected);

@@ -103,6 +103,7 @@
     読み上げの名前は「（行の題）を既読にする」⇄「（行の題）を未読に戻す」（`NotificationRow.ReadButtonName`。ID は `InboxRowRead`）。
 - **商品ページの星（お気に入り）・バリエーションとローカルファイルの開閉にも Tab で止まる**（点検 2026-10-01。読み上げの「押す」は届くのに止まれなかった）。開閉の丸い三角の型（`TagToggle`）は、管理の画面の行の中では止まらない物のまま。
   - 止まった所は選んだ色（`Accent`）の枠で示す（札・行・× とも。カードの枠と同じ作り：`ChipFocusVisual`・`RowFocusVisual`・`SmallFocusVisual`）。
+  - ナビのボタン（`NavButton`・`RailSmallButton`）は暗い地なので、止まった所はナビの字の色（`RailTextActive`）の枠（`RailFocusVisual`、MainWindow）。マウスで押したときは出ない。試験は `RailFocusVisualTests`、絵は `ViewShot shot nav-focus`。
   - 札の × は、Hidden で隠すとフォーカスを受けられないので、透明にして隠す（`RevealOnHoverOrFocusButton`。透明な間はマウスを受けない）。
 - **並べるだけの一覧（`ContentItemsControl`）は Tab で止まらない**（2026-09-30）。既定のままだと一覧ごとに「何も起きない止まり」が入り、フォーカスがどこにも見えなくなっていた。中の部品には今までどおり順に止まる。
 

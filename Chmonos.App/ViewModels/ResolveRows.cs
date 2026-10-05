@@ -46,12 +46,29 @@ public sealed class UnresolvedRow : ViewModelBase
 
     public bool IsQueueFailed => _queueFailure.Length > 0;
 
+    private string _registeringTip = string.Empty;
+
+    /// <summary>
+    /// 札に乗せたときの吹き出し。失敗した行は理由、待っている・走っている行は、どの商品として登録するか（ユーザ判断 2026-10-05）。
+    /// 札だけでは何の商品として登録されるのか分からず、登録を押した後に取り違えに気づけなかった
+    /// </summary>
+    public string QueueTip => _queueFailure.Length > 0 ? _queueFailure : _registeringTip;
+
+    public bool HasQueueTip => QueueTip.Length > 0;
+
     /// <summary>自動検索が今この行の分を探しているか（札「検索中」）。</summary>
     public bool IsSearching => _isSearching;
 
     /// <summary>列と検索の様子を入れる。画面が列の知らせを受けるたびに全部の行へ入れ直す（行は読み直しで作り直される）。</summary>
-    internal void SetQueueState(string badge, string failure, bool isSearching)
+    internal void SetQueueState(string badge, string failure, bool isSearching, string registeringTip = "")
     {
+        if (_registeringTip != registeringTip)
+        {
+            _registeringTip = registeringTip;
+            OnPropertyChanged(nameof(QueueTip));
+            OnPropertyChanged(nameof(HasQueueTip));
+        }
+
         if (_queueBadge != badge)
         {
             _queueBadge = badge;
@@ -64,6 +81,8 @@ public sealed class UnresolvedRow : ViewModelBase
             _queueFailure = failure;
             OnPropertyChanged(nameof(QueueFailure));
             OnPropertyChanged(nameof(IsQueueFailed));
+            OnPropertyChanged(nameof(QueueTip));
+            OnPropertyChanged(nameof(HasQueueTip));
         }
 
         if (_isSearching != isSearching)
