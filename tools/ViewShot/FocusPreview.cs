@@ -12,10 +12,12 @@ namespace ViewShot;
 /// </summary>
 internal static class FocusPreview
 {
-    public static void Show(FrameworkElement target, string styleKey)
+    public static void Show(FrameworkElement target, string styleKey, FrameworkElement? resourceOwner = null)
     {
         var layer = AdornerLayer.GetAdornerLayer(target) ?? throw new InvalidOperationException("装飾の層がない");
-        var style = (Style)Application.Current.FindResource(styleKey);
+
+        // 主窓の資源に置いた型（ナビの RailFocusVisual）は、アプリの資源からは引けない
+        var style = (Style)(resourceOwner is null ? Application.Current.FindResource(styleKey) : resourceOwner.FindResource(styleKey));
         layer.Add(new Mark(target, style));
     }
 

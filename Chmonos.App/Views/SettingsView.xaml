@@ -130,7 +130,7 @@
                             <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />
-                                <Button Content="すべて元の幅に戻す" Style="{StaticResource SmallButton}"
+                                <Button Content="すべて元の幅に戻す" Style="{StaticResource DangerButton}"
                                         AutomationProperties.AutomationId="Settings.ResetPaneWidths"
                                         Command="{Binding ResetPaneWidthsCommand}" />
                             </StackPanel>

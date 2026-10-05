@@ -18,7 +18,34 @@ internal static partial class Scenes
         NavScene("nav-low-mid", "ナビ：低い窓で途中まで送った所（上と下の両方に続きがある印）", collapsed: false, scrollTo: 40),
         NavScene("nav-low-end", "ナビ：低い窓で一番下まで送った所（下の印が消え、上の印だけ残る）", collapsed: false, scrollTo: 10000),
         NavScene("nav-low-collapsed-mid", "ナビ：低い窓で畳んで途中まで送った所（畳んだ幅でも同じ印）", collapsed: true, scrollTo: 40),
+        NavFocusScene(),
     ];
+
+    /// <summary>ナビのボタンにキーボードで止まった印（ユーザ判断 2026-10-05）。窓に実際のフォーカスは無いので、印の型を飾りの層に載せて見る</summary>
+    private static Scene NavFocusScene()
+        => new("nav-focus", "ナビ：項目（検索）と戻るの小さなボタンにキーボードで止まった印（暗いナビの上で見えるか）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            main.ShowStatsCommand.Execute(null);
+            await context.SettleAsync();
+            main.ShowSearchCommand.Execute(null);
+            await context.SettleAsync();
+
+            var search = Look.All<Button>(root).First(button => System.Windows.Automation.AutomationProperties.GetAutomationId(button) == "Nav.Search");
+            var back = Look.All<Button>(root).First(button => button.Content as string == "←");
+            FocusPreview.Show(search, "RailFocusVisual", root);
+            FocusPreview.Show(back, "RailFocusVisual", root);
+            await context.SettleAsync();
+
+            return new Shot(root)
+            {
+                Focus = () => Look.All<Border>(root).FirstOrDefault(border => border.Name == "NavRail"),
+                FocusMargin = 0,
+            };
+        });
 
     private static Scene NavScene(string name, string title, bool collapsed, double scrollTo = 0)
         => new(name, title, async context =>
