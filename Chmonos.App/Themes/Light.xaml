@@ -19,6 +19,8 @@
     <SolidColorBrush x:Key="BorderStrong" Color="#cdd0d8" />
     <!-- カードの中の行と行の間の細い線。枠（Border）より薄い -->
     <SolidColorBrush x:Key="Divider" Color="#f0f1f4" />
+    <!-- 通知の商品の行どうしの線。明るい表は枠（Border）と同じ -->
+    <SolidColorBrush x:Key="RowDivider" Color="#e2e4e9" />
     <!-- 棒と進み具合の、まだ埋まっていない所 -->
     <SolidColorBrush x:Key="BarTrack" Color="#f0f1f4" />
     <!-- 文字を入れる欄の地 -->

@@ -12,7 +12,7 @@
         <DataTemplate x:Key="InboxRowTemplate" DataType="{x:Type vm:NotificationRow}">
                 <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
                 <!-- 押せる行は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
-                <controls:PressableBorder BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,15"
+                <controls:PressableBorder BorderBrush="{DynamicResource RowDivider}" BorderThickness="0,0,0,1" Padding="18,15"
                                           Command="{Binding OpenItemCommand}"
                                           Focusable="True" FocusVisualStyle="{StaticResource RowFocusVisual}" AutomationProperties.AutomationId="InboxRow"
                                           AutomationProperties.Name="{Binding Title}">

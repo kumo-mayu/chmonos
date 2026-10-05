@@ -165,6 +165,9 @@ public class ThemeTableTests
     [InlineData("ScrollThumb", "ScrollTrack", 3)]
     [InlineData("SliderThumb", "SliderTrack", 3)]
     [InlineData("Star", "Surface", 3)]
+    // 通知の商品の行どうしの線（メモ67）。通常の地と、指した商品の強調の地の両方で見える
+    [InlineData("RowDivider", "Surface", 3)]
+    [InlineData("RowDivider", "TargetBand", 3)]
     [InlineData("ChipRemove", "ChipBack", 3)]
     [InlineData("Accent", "BarTrack", 3)]
     [InlineData("RailLabel", "Rail", 3)]
