@@ -250,7 +250,7 @@ public sealed class ImportPipeline : IImportPipeline
         _avatars = avatars;
         _unityPackages = unityPackages;
         _volumes = volumes;
-        _missingMarks = missingMarks ?? new Services.MissingMarksSweep(store);
+        _missingMarks = missingMarks ?? new Services.MissingMarksSweep(store, volumes: volumes);
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>

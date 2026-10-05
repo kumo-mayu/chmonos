@@ -43,10 +43,15 @@ public sealed class MissingFileFinder
 {
     private readonly DataStore _store;
     private readonly FolderScanner _scanner = new();
+    private readonly VolumeTable? _volumes;
 
-    public MissingFileFinder(DataStore store)
+    /// <param name="volumes">
+    /// ドライブ文字と通し番号の控え。控えた文字に別のディスクが来ている間、その上の場所は外さず日時も付けない（見回りと同じ。2026-10-05・点検の2）。
+    /// </param>
+    public MissingFileFinder(DataStore store, VolumeTable? volumes = null)
     {
         _store = store;
+        _volumes = volumes;
     }
 
     /// <remarks>
@@ -87,7 +92,7 @@ public sealed class MissingFileFinder
         // 監視フォルダの場所に差し替えて外していた（取り込みの LocalFileMerger はそこを残すのに）。外しただけの物を
         // 「見つかりませんでした」とも数えていた。見回りと同じ部品（FilePresenceProbe）で、根をドライブごとに1回・打ち切り付きで見る。
         // 場所の1つでも外付けの上なら「無くなった」とは言えないので、探す物に入れない（LocalFilePresence と同じ決まり）
-        var probe = new FilePresenceProbe();
+        var probe = new FilePresenceProbe(volumes: _volumes?.Snapshot());
         var missing = new Dictionary<string, MissingEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in loaded.Items)
         {

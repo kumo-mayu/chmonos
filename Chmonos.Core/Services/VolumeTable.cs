@@ -45,6 +45,24 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
         return remap;
     }
 
+    /// <summary>
+    /// 控えと今つながっているボリュームを1回だけ読む（在るかを見る所が、控えた文字に別のディスクが来ているかを見分ける。<see cref="VolumeSnapshot"/>）。
+    /// 通し番号を読むので画面のスレッドの外で呼ぶ。読めなければ空（今までどおり根だけで見る）——見分けられないだけで、見回りを止める理由にはならない。
+    /// </summary>
+    public VolumeSnapshot Snapshot()
+    {
+        try
+        {
+            return new VolumeSnapshot(store.Volumes.Load(), reader.Mounted());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or System.Text.Json.JsonException)
+        {
+            Diagnostics.AppLog.Warn("ドライブの控えを読む", exception.Message);
+            return VolumeSnapshot.Empty;
+        }
+    }
+
     /// <summary>取り込みで記録したパスのドライブ文字について、今見えているボリュームを控える。</summary>
     public async Task RecordAsync(IEnumerable<string> paths, CancellationToken cancellationToken = default)
     {

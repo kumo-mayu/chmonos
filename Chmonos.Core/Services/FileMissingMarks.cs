@@ -109,6 +109,7 @@ public static class FileMissingMarks
 /// つながっていなければその上のファイルは1つも見に行かない。落ちているネットワークドライブは、
 /// 1回確かめるだけで数十秒待たされることがあり、ファイルごとに見ると数千倍になる。
 /// 根を見るのも <see cref="RootWait"/> で打ち切り、答えが来なければ「つながっていない」として扱う（書かない側に倒す）。
+/// **控えた文字に別のディスクが来ていれば、その上も「つながっていない」と同じに扱う**（<see cref="VolumeSnapshot"/>・2026-10-05・点検の2）。
 /// 1つの取り込み・1回の画面の確かめの間だけ使う（ドライブは後でつながることがあるので、覚えたまま持ち越さない）。
 /// </remarks>
 public sealed class FilePresenceProbe
@@ -126,33 +127,77 @@ public sealed class FilePresenceProbe
     private readonly Func<string, bool> _folderExists;
     private readonly TimeSpan _rootWait;
 
+    /// <param name="volumes">
+    /// 控えたボリュームと今のボリュームの写し。無ければ根がつながっているかだけで見る（控えを渡さない組み立て・試験）。
+    /// </param>
     public FilePresenceProbe(
         Func<string, bool>? fileExists = null,
         Func<string, bool>? rootExists = null,
         TimeSpan? rootWait = null,
-        Func<string, bool>? folderExists = null)
+        Func<string, bool>? folderExists = null,
+        VolumeSnapshot? volumes = null)
     {
         _fileExists = fileExists ?? DiskCheck.FileExists;
         _rootExists = rootExists ?? DiskCheck.FolderExists;
         _folderExists = folderExists ?? DiskCheck.FolderExists;
         _rootWait = rootWait ?? RootWait;
+        Volumes = volumes ?? VolumeSnapshot.Empty;
     }
+
+    /// <summary>控えたボリュームの写し。</summary>
+    public VolumeSnapshot Volumes { get; }
 
     /// <summary>根を見に行った回数（試験と測りで、ドライブごとに1回かを確かめる）。</summary>
     public int RootChecks { get; private set; }
 
-    public FilePresence Of(IReadOnlyList<string> paths)
-        => LocalFilePresence.Of(
-            paths,
-            path => IsReachable(path) && _fileExists(path),
-            path => !IsReachable(path));
+    /// <summary>
+    /// 同じ見方・同じボリュームの写しで、根の覚えだけを空にした物。取り込みが商品へ足すのは、周回の頭で根を見てから
+    /// BOOTH から取る数分後のことがあり、その間に外付けを外すと、覚えた「つながっている」のまま「無い」と見て場所を外してしまう。
+    /// ボリュームの写しは周回の頭の物を使い続ける（その周回で取り込んだ文字を控え直した後の写しでは、控えた文字に来た別のディスクを見分けられない）。
+    /// </summary>
+    public FilePresenceProbe Renewed() => new(_fileExists, _rootExists, _rootWait, _folderExists, Volumes);
+
+    /// <summary>記録の場所のどれかに在るか（場所を全部見て1つにまとめる。決まりは <see cref="LocalFilePresence.Of"/> と同じ）。</summary>
+    /// <param name="remap">見る場所（ドライブ文字が変わった分の読み替え。<see cref="VolumeTable.Current"/>）。無ければ記録の場所のまま。</param>
+    public FilePresence Of(IReadOnlyList<string> paths, Func<string, string>? remap = null)
+    {
+        var detached = false;
+        foreach (var path in paths)
+        {
+            switch (PlaceOf(path, remap?.Invoke(path)))
+            {
+                case FilePresence.Present:
+                    return FilePresence.Present;
+                case FilePresence.OnDetachedDrive:
+                    detached = true;
+                    break;
+            }
+        }
+
+        return detached ? FilePresence.OnDetachedDrive : FilePresence.Missing;
+    }
+
+    /// <summary>
+    /// 記録の場所1つ。<paramref name="lookedPath"/> は実際に見る場所（読み替えた後。無ければ記録の場所）。
+    /// つながっていない・控えたのと別のディスクの上なら、ファイルは見に行かず <see cref="FilePresence.OnDetachedDrive"/>。
+    /// </summary>
+    public FilePresence PlaceOf(string path, string? lookedPath = null)
+    {
+        var looked = lookedPath ?? path;
+        if (!IsReachable(looked) || Volumes.IsForeign(path, looked))
+        {
+            return FilePresence.OnDetachedDrive;
+        }
+
+        return _fileExists(looked) ? FilePresence.Present : FilePresence.Missing;
+    }
 
     /// <summary>
     /// 登録したフォルダ1つが在るか（起動時の見回り・ユーザ判断 2026-10-05）。ファイルと同じく、
-    /// つながっていないドライブの上なら見に行かず <see cref="FilePresence.OnDetachedDrive"/>（書かない側）。
+    /// つながっていないドライブ（控えたのと別のディスクを含む）の上なら見に行かず <see cref="FilePresence.OnDetachedDrive"/>（書かない側）。
     /// </summary>
     public FilePresence OfFolder(string path)
-        => !IsReachable(path)
+        => !IsReachable(path) || Volumes.IsForeign(path, path)
             ? FilePresence.OnDetachedDrive
             : _folderExists(path) ? FilePresence.Present : FilePresence.Missing;
 
