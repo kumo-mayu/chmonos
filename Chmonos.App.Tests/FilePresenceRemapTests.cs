@@ -59,4 +59,37 @@ public class FilePresenceRemapTests
         // 記録は書き換えない
         Assert.Equal([recorded], (await app.Services.Store.Items.LoadAsync("9900001"))!.Local.LocalFiles.Single().Paths);
     });
+
+    /// <summary>
+    /// 記録が場所のディスクの通し番号を持てば、文字の控え（volumes.json）に無くても、そのディスクが今見えている文字で見る
+    /// （2026-10-05・見つからない・移動の点検の3）。控えは1つの文字に1台しか覚えないので、2台の外付けが同じ文字を使うと控えでは追えない。
+    /// </summary>
+    [Fact]
+    public Task 商品ページの行は_記録が持つディスクの番号で今の場所を見る() => TestApp.Run(async app =>
+    {
+        var real = app.NewFile("moved.zip");
+        var drive = Path.GetPathRoot(real)![..2];
+        var mounted = new VolumeReader().Mounted().SingleOrDefault(volume => string.Equals(volume.Letter, drive, StringComparison.OrdinalIgnoreCase));
+        if (mounted is null || !VolumeTable.IsDistinctive(mounted.Serial)
+            || new VolumeReader().Mounted().Any(volume => volume.Letter.Equals("Q:", StringComparison.OrdinalIgnoreCase)))
+        {
+            return; // この PC では読み替えを作れない（通し番号が無い・Q: が使われている）
+        }
+
+        // 文字の控えは書かない。記録の場所にだけ、今その試験の置き場があるディスクの番号を持たせる
+        var recorded = "Q:" + real[2..];
+        var file = Make.File(recorded) with { Volumes = new Dictionary<string, string> { [recorded] = mounted.Serial } };
+        var item = Make.Item("9900002", "作り物の衣装").WithFiles(file);
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+        app.Services.Volumes.RefreshRemap();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        await app.SettleAsync();
+
+        var row = page.LocalFiles.Single();
+        Assert.Equal([real], row.Paths);
+        Assert.True(row.CanReveal);
+        Assert.False(row.IsOnDetachedDrive);
+    });
 }

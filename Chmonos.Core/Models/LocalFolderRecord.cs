@@ -48,4 +48,10 @@ public sealed record LocalFolderRecord
     /// ディスクを見た結果で計算では出せないので JSON に書く。読むときは欠けていれば空。
     /// </remarks>
     public IReadOnlyList<string> UnityPackages { get; init; } = [];
+
+    /// <summary>
+    /// フォルダが載っているディスクの通し番号（2026-10-05・点検の3。ファイルの <see cref="LocalFileRecord.Volumes"/> と同じ考え）。
+    /// 在ると見たときに書き足す。分からなければ書き出さない。
+    /// </summary>
+    public string? Volume { get; init; }
 }

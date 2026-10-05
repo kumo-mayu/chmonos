@@ -202,7 +202,7 @@ public sealed partial class ItemViewModel
                 IsOldVersion = file.IsOldVersion,
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 // 開く・在るかの確かめは今の場所で（ドライブ文字が変わった分は読み替える）。記録のパスは書き換えない
-                Paths = [.. file.Paths.Select(_services.Volumes.Current)],
+                Paths = [.. file.Paths.Select(path => _services.Volumes.CurrentOf(file, path))],
                 VariationLabel = variation,
                 VariationId = file.VariationId,
                 UnityPackages = packages,
@@ -385,7 +385,7 @@ public sealed partial class ItemViewModel
     private void BuildLocalFolders()
     {
         LocalFolders = Item.Local.LocalFolders
-            .Select(folder => ToFolderRow(folder.Path, _services.Volumes.Current(folder.Path), folder.FileCount, folder.TotalBytes, isMissing: false, archive: null))
+            .Select(folder => ToFolderRow(folder.Path, _services.Volumes.CurrentOf(folder), folder.FileCount, folder.TotalBytes, isMissing: false, archive: null))
             .ToList();
 
         if (LocalFolders.Count > 0)
@@ -397,17 +397,17 @@ public sealed partial class ItemViewModel
     private async Task FillLocalFolderStateAsync()
     {
         var folders = Item.Local.LocalFolders.ToList();
-        var remap = _services.Volumes.Current;
+        Func<Core.Models.LocalFolderRecord, string> remap = _services.Volumes.CurrentOf;
         var rows = await Task.Run(() => folders
             .Select(folder => ToFolderRow(
                 folder.Path,
-                remap(folder.Path),
+                remap(folder),
                 folder.FileCount,
                 folder.TotalBytes,
-                isMissing: !Core.Services.DiskCheck.FolderExists(remap(folder.Path)),
+                isMissing: !Core.Services.DiskCheck.FolderExists(remap(folder)),
                 // zipが手に入っていればフォルダ登録は役目を終えている。
                 // 気付かずに置いておくと容量が二重に数えられる。
-                archive: RegisteredFolderSet.FindArchiveFor(remap(folder.Path))))
+                archive: RegisteredFolderSet.FindArchiveFor(remap(folder))))
             .ToList());
 
         LocalFolders = rows;
@@ -493,7 +493,7 @@ public sealed partial class ItemViewModel
 
         // 開けても、近くのフォルダを開いただけでファイルは無いことがある（Shell.TryRevealAsync は親を開く）。
         // その場所を持つファイルを見直して記録へ。フォルダの行の場所はファイルに当たらないので何もしない
-        await NotePresenceOfAsync(file => file.Paths.Any(recorded => string.Equals(_services.Volumes.Current(recorded), path, StringComparison.OrdinalIgnoreCase)));
+        await NotePresenceOfAsync(file => file.Paths.Any(recorded => string.Equals(_services.Volumes.CurrentOf(file, recorded), path, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>開く先が無いときの知らせ。カードの右クリック（<see cref="ItemFileActions"/>）と同じ窓・同じ言い方にそろえる</summary>

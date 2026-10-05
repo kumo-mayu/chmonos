@@ -78,9 +78,8 @@ public static class StatsExtras
 
     private static int SpentOf(ItemRecord item) => Purchases.SelfSpendOf(item);
 
-    private static long PhysicalSizeOf(ItemRecord item)
-        => item.Local.OwnedFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
-            + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
+    /// <summary>実占有（在る場所だけ。<see cref="ItemRecord.ActualDiskBytes"/>・点検の7）。統計の合計と同じ答え。</summary>
+    private static long PhysicalSizeOf(ItemRecord item) => item.ActualDiskBytes;
 
     /// <summary>
     /// 買った時の価格と今の価格を比べる。

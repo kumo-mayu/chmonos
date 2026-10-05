@@ -134,6 +134,39 @@ public class StatsServiceTests
         Assert.Equal(1000, snapshot.DuplicateBytes);
     }
 
+    /// <summary>
+    /// 実占有は在る場所の数だけで数える（2026-10-05・見つからない・移動の点検の7・ユーザ判断 7-A）。
+    /// 場所が空の記録・見つからなくなった日時が付いた記録・無いと見たフォルダは0。論理容量（持っているアセットの大きさ）は今のまま。
+    /// 前は場所が空でも1つ分、日時が付いても場所の数だけ数え、消したファイルがドライブを食っているように見えていた。
+    /// </summary>
+    [Fact]
+    public void 実占有は在る場所だけで数え_見つからない物は0()
+    {
+        var local = new LocalBlock
+        {
+            LocalFiles =
+            [
+                new LocalFileRecord { Hash = "h1", Paths = [@"D:\a\here.zip", @"D:\b\here.zip"], SizeBytes = 1000 },
+                new LocalFileRecord { Hash = "h2", Paths = [], SizeBytes = 300 },
+                new LocalFileRecord { Hash = "h3", Paths = [@"D:\a\gone.zip"], SizeBytes = 50, MissingSince = DateTimeOffset.UnixEpoch },
+            ],
+            LocalFolders =
+            [
+                new LocalFolderRecord { Path = @"D:\folder\here", TotalBytes = 7 },
+                new LocalFolderRecord { Path = @"D:\folder\gone", TotalBytes = 9, MissingSince = DateTimeOffset.UnixEpoch },
+            ],
+        };
+        var item = Item("1", local);
+
+        var snapshot = Build([item]);
+
+        Assert.Equal(2007, snapshot.PhysicalBytes);
+        Assert.Equal(1000, snapshot.DuplicateBytes);
+        Assert.Equal(1000 + 300 + 50 + 7 + 9, snapshot.LogicalBytes);
+        Assert.Equal(2007, item.ActualDiskBytes);
+        Assert.Equal(1000 + 300 + 50 + 7 + 9, item.OwnedSizeBytes);
+    }
+
     /// <summary>買っていない月も残す。詰めると間が空いたことが読めなくなる。</summary>
     [Fact]
     public void KeepsEmptyMonthsBetweenPurchases()

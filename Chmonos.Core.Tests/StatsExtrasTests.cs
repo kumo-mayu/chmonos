@@ -189,6 +189,24 @@ public class StatsExtrasTests
         Assert.Equal(["2", "3", "1"], snapshot.HeavyItems.Select(entry => entry.ItemId));
     }
 
+    /// <summary>
+    /// 重い商品の並びも実占有で並べるので、見つからなくなった物は並ばない（点検の7・ユーザ判断 7-A）。
+    /// 前は消したファイルの商品が「ドライブを食っている」として上位に出ていた。
+    /// </summary>
+    [Fact]
+    public void 重い商品の並びに見つからなくなった物は出ない()
+    {
+        var gone = Item("2", size: 5000);
+        gone = gone with
+        {
+            Local = gone.Local with { LocalFiles = [gone.Local.LocalFiles[0] with { MissingSince = DateTimeOffset.UnixEpoch }] },
+        };
+
+        var snapshot = Build(Item("1", size: 100), gone, Item("3", size: 900));
+
+        Assert.Equal(["3", "1"], snapshot.HeavyItems.Select(entry => entry.ItemId));
+    }
+
     /// <summary>1点だけのショップと、2点以上のショップを分けて数える。</summary>
     [Fact]
     public void SplitsShopsByRepeat()

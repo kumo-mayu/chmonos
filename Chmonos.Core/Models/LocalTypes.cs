@@ -281,6 +281,17 @@ public sealed record LocalFileRecord
     /// <summary>古い版として場所が残っていないか。場所がまた足されたら（古い版を別の所で見つけた）、印があっても古い版ではない。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsOldVersion => Replaced is not null && Paths.Count == 0;
+
+    /// <summary>
+    /// 場所ごとの、そのファイルが載っているディスク（場所 → ボリュームの通し番号。2026-10-05・点検の3・ユーザ判断 3-A）。
+    /// 読み方・書き足し方は <see cref="Services.PlaceVolumes"/>。分からない場所（ネットワークの共有など）は載らず、無ければ書き出さない。
+    /// </summary>
+    /// <remarks>
+    /// ドライブ文字と通し番号の控え（<c>volumes.json</c>）は1つの文字に1台しか覚えないので、2台の外付けが日によって同じ文字を使うと、
+    /// Aの上のファイルをBの上で探して「見つかりません」が付いたり消えたりしていた。場所ごとに持つのは、同じ中身を2台に置くと
+    /// 1件の記録の場所がディスクをまたぐため。ディスクを見た結果なので計算では出せない。
+    /// </remarks>
+    public IReadOnlyDictionary<string, string>? Volumes { get; init; }
 }
 
 /// <summary>古い版がどこで、いつ置き換わったか（<see cref="LocalFileRecord.Replaced"/>）。</summary>

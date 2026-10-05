@@ -88,6 +88,9 @@ public class MissingMarksSweepTests
         await app.AddItemAsync(Make.Item("1000002", "作り物の髪").WithFiles(Make.File(app.NewFile("here.zip"))));
         var main = await app.StartAsync();
 
+        // 1回目は、在る場所にディスクの通し番号がまだ無ければ書き足す（点検の3。この PC のディスクの番号なので数は決まらない）。
+        // 書き足した後は記録と同じなので、2回目は何も書かない
+        await app.Services.MissingMarks.SweepAsync();
         var written = await app.Services.MissingMarks.SweepAsync();
 
         Assert.Empty(written);

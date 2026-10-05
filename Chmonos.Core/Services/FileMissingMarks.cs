@@ -10,7 +10,15 @@ namespace Chmonos.Core.Services;
 /// 無いと確かめた場所。ほかの場所に在ると確かめたときだけ入れる（見回り。<see cref="FilePresenceProbe.Sight"/>）。
 /// 使おうとした画面の確かめは入れない（場所を外すのは見回りと取り込みだけ）。
 /// </param>
-public sealed record FileSighting(string Hash, IReadOnlyList<string> Paths, FilePresence Presence, IReadOnlyList<string>? Gone = null);
+/// <param name="Volumes">
+/// 在ると確かめた場所のうち、記録にディスクの通し番号がまだ無い場所と、そこに今来ているディスクの番号（見回り。点検の3）。書き足すだけで置き換えない。
+/// </param>
+public sealed record FileSighting(
+    string Hash,
+    IReadOnlyList<string> Paths,
+    FilePresence Presence,
+    IReadOnlyList<string>? Gone = null,
+    IReadOnlyDictionary<string, string>? Volumes = null);
 
 /// <summary>
 /// ディスクを見た結果を、ファイルの記録の「見つからなくなった日時」（<see cref="LocalFileRecord.MissingSince"/>）に当てる
@@ -48,7 +56,7 @@ public static class FileMissingMarks
         foreach (var file in current)
         {
             var next = byHash.TryGetValue(file.Hash, out var sighting) && SamePlaces(file.Paths, sighting.Paths)
-                ? WithoutGone(Marked(file, sighting.Presence, now), sighting)
+                ? WithVolumes(WithoutGone(Marked(file, sighting.Presence, now), sighting), sighting)
                 : file;
 
             changed |= !ReferenceEquals(next, file);
@@ -66,16 +74,20 @@ public static class FileMissingMarks
     /// 登録したフォルダを見た結果（場所 → 在るか）を、錠の中で読み直した今の一覧に当てる。変える物が無ければ null。
     /// フォルダは場所が同一性なので、見た後に外された場所は当たる物が無く、そのまま落ちる。
     /// </summary>
+    /// <param name="volumes">在ると見たフォルダの場所 → そこに今来ているディスクの通し番号（番号の無い登録に書き足す。点検の3）。</param>
     public static IReadOnlyList<LocalFolderRecord>? ApplyFolders(
         IReadOnlyList<LocalFolderRecord> current,
         IReadOnlyDictionary<string, FilePresence> sightings,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        IReadOnlyDictionary<string, string>? volumes = null)
     {
         var changed = false;
         var folders = new List<LocalFolderRecord>(current.Count);
         foreach (var folder in current)
         {
-            var next = sightings.TryGetValue(folder.Path, out var presence) ? MarkedFolder(folder, presence, now) : folder;
+            var next = sightings.TryGetValue(folder.Path, out var presence)
+                ? MarkedFolder(folder, presence, now, volumes?.GetValueOrDefault(folder.Path))
+                : folder;
             changed |= !ReferenceEquals(next, folder);
             folders.Add(next);
         }
@@ -89,13 +101,21 @@ public static class FileMissingMarks
     /// 見た日時が空のまま在ると見たときも今を入れる（取り込みの数え直しが空を「変わった」と数えるのと同じ。file-lifecycle.md 気になった所19）。
     /// 在ると見るたびには書き直さない——起動のたびにフォルダを持つ商品を全部書くことになる。
     /// </summary>
-    public static LocalFolderRecord MarkedFolder(LocalFolderRecord folder, FilePresence presence, DateTimeOffset now) => presence switch
+    /// <param name="volume">在ると見たとき、そこに今来ているディスクの通し番号。登録に番号が無ければ書き足す（点検の3）。</param>
+    public static LocalFolderRecord MarkedFolder(LocalFolderRecord folder, FilePresence presence, DateTimeOffset now, string? volume = null)
     {
-        FilePresence.Present when folder.MissingSince is not null || folder.LastSeenAt is null
-            => folder with { LastSeenAt = now, MissingSince = null },
-        FilePresence.Missing when folder.MissingSince is null => folder with { MissingSince = now },
-        _ => folder,
-    };
+        var marked = presence switch
+        {
+            FilePresence.Present when folder.MissingSince is not null || folder.LastSeenAt is null
+                => folder with { LastSeenAt = now, MissingSince = null },
+            FilePresence.Missing when folder.MissingSince is null => folder with { MissingSince = now },
+            _ => folder,
+        };
+
+        return presence == FilePresence.Present && marked.Volume is null && VolumeTable.IsDistinctive(volume)
+            ? marked with { Volume = volume }
+            : marked;
+    }
 
     private static LocalFileRecord Marked(LocalFileRecord file, FilePresence presence, DateTimeOffset now) => presence switch
     {
@@ -116,6 +136,10 @@ public static class FileMissingMarks
         var kept = file.Paths.Where(path => !gone.Contains(path, StringComparer.OrdinalIgnoreCase)).ToList();
         return kept.Count == file.Paths.Count || kept.Count == 0 ? file : file with { Paths = kept };
     }
+
+    /// <summary>在ると確かめた場所のディスクの通し番号を、まだ無い場所にだけ書き足す（点検の3）。</summary>
+    private static LocalFileRecord WithVolumes(LocalFileRecord file, FileSighting sighting)
+        => sighting.Volumes is { Count: > 0 } seen ? PlaceVolumes.With(file, seen, overwrite: false) : file;
 
     private static bool SamePlaces(IReadOnlyList<string> current, IReadOnlyList<string> seen)
         => current.Count == seen.Count
@@ -208,12 +232,21 @@ public sealed class FilePresenceProbe
     /// </summary>
     /// <param name="remap">見る場所（ドライブ文字が変わった分の読み替え。<see cref="VolumeTable.Current"/>）。無ければ記録の場所のまま。</param>
     public FilePresence Of(IReadOnlyList<string> paths, Func<string, string>? remap = null)
+        => Of(paths, remap, _ => null);
+
+    /// <summary>
+    /// ファイルの記録の場所のどれかに在るか。場所ごとに、記録が持つディスクの通し番号で別のディスクを見分ける（<see cref="PlaceVolumes"/>・点検の3）。
+    /// </summary>
+    public FilePresence Of(LocalFileRecord file, Func<string, string>? remap = null)
+        => Of(file.Paths, remap, path => PlaceVolumes.Of(file, path));
+
+    private FilePresence Of(IReadOnlyList<string> paths, Func<string, string>? remap, Func<string, string?> volumeOf)
     {
         var detached = false;
         var unverifiable = false;
         foreach (var path in paths)
         {
-            switch (PlaceOf(path, remap?.Invoke(path)))
+            switch (PlaceOf(path, remap?.Invoke(path), volumeOf(path)))
             {
                 case FilePresence.Present:
                     return FilePresence.Present;
@@ -235,9 +268,21 @@ public sealed class FilePresenceProbe
     /// 見回りの見方：ファイルの場所を全部見て、在るかと、ほかの場所に在るときは無いと確かめた場所（<see cref="FileSighting.Gone"/>）を返す。
     /// 1つ在れば在るので、そこで止めずに全部見る（同じ中身の片方を消した場所を見つけるため。点検の6）。
     /// </summary>
+    /// <remarks>
+    /// 在ると見た場所のうち、記録にディスクの通し番号がまだ無い場所には、今そこに来ているディスクの番号を添える（<see cref="FileSighting.Volumes"/>・点検の3）。
+    /// 欄の無い記録はこうして見回りのたびに埋まる。
+    /// </remarks>
     public FileSighting Sight(LocalFileRecord file)
     {
-        var places = file.Paths.Select(path => (Path: path, Presence: PlaceOf(path))).ToList();
+        var places = file.Paths.Select(path => (Path: path, Presence: PlaceOf(path, volume: PlaceVolumes.Of(file, path)))).ToList();
+        var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, answer) in places)
+        {
+            if (answer == FilePresence.Present && PlaceVolumes.Of(file, path) is null && Volumes.SerialAt(path) is { } serial)
+            {
+                seen.TryAdd(path, serial);
+            }
+        }
         var presence = places.Any(place => place.Presence == FilePresence.Present) ? FilePresence.Present
             : places.Any(place => place.Presence == FilePresence.OnDetachedDrive) ? FilePresence.OnDetachedDrive
             : places.Any(place => place.Presence == FilePresence.Unverifiable) ? FilePresence.Unverifiable
@@ -245,7 +290,7 @@ public sealed class FilePresenceProbe
         IReadOnlyList<string>? gone = presence == FilePresence.Present
             ? [.. places.Where(place => place.Presence == FilePresence.Missing).Select(place => place.Path)]
             : null;
-        return new FileSighting(file.Hash, file.Paths, presence, gone);
+        return new FileSighting(file.Hash, file.Paths, presence, gone, seen.Count > 0 ? seen : null);
     }
 
     /// <summary>
@@ -253,10 +298,11 @@ public sealed class FilePresenceProbe
     /// つながっていない・控えたのと別のディスクの上なら、ファイルは見に行かず <see cref="FilePresence.OnDetachedDrive"/>。
     /// 親のフォルダを読む権限が無いなど確かめられなければ <see cref="FilePresence.Unverifiable"/>（無いとは言わない。点検の13）。
     /// </summary>
-    public FilePresence PlaceOf(string path, string? lookedPath = null)
+    /// <param name="volume">記録がその場所に持つディスクの通し番号（点検の3）。無ければ文字の控えで見分ける。</param>
+    public FilePresence PlaceOf(string path, string? lookedPath = null, string? volume = null)
     {
         var looked = lookedPath ?? path;
-        if (!IsReachable(looked) || Volumes.IsForeign(path, looked))
+        if (!IsReachable(looked) || Volumes.IsForeign(path, looked, volume))
         {
             return FilePresence.OnDetachedDrive;
         }
@@ -269,8 +315,9 @@ public sealed class FilePresenceProbe
     /// つながっていないドライブ（控えたのと別のディスクを含む）の上なら見に行かず <see cref="FilePresence.OnDetachedDrive"/>（書かない側）。
     /// 確かめられなければ <see cref="FilePresence.Unverifiable"/>（書かない側）。
     /// </summary>
-    public FilePresence OfFolder(string path)
-        => !IsReachable(path) || Volumes.IsForeign(path, path)
+    /// <param name="volume">登録が持つディスクの通し番号（<see cref="LocalFolderRecord.Volume"/>・点検の3）。無ければ文字の控えで見分ける。</param>
+    public FilePresence OfFolder(string path, string? volume = null)
+        => !IsReachable(path) || Volumes.IsForeign(path, path, volume)
             ? FilePresence.OnDetachedDrive
             : Presence(_folderState(path));
 

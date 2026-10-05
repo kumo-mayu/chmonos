@@ -31,8 +31,38 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
     /// </summary>
     public IReadOnlyDictionary<string, string> Latest => Volatile.Read(ref _latest);
 
+    private VolumeSnapshot _latestVolumes = VolumeSnapshot.Empty;
+
+    /// <summary>最後に確かめたときの、控えと今つながっているボリューム（記録が持つ通し番号での読み替えに使う。点検の3）。</summary>
+    public VolumeSnapshot LatestVolumes => Volatile.Read(ref _latestVolumes);
+
     /// <summary>記録のパスを、最後に確かめた読み替えで今の場所にする。</summary>
     public string Current(string path) => Apply(path, Latest);
+
+    /// <summary>ファイルの記録の場所を今の場所にする。記録がその場所のディスクの通し番号を持てば、そのディスクが今見えている文字で読む（点検の3）。</summary>
+    public string CurrentOf(LocalFileRecord file, string path) => Apply(path, PlaceVolumes.Of(file, path), Latest, LatestVolumes);
+
+    /// <summary>登録したフォルダの場所を今の場所にする（<see cref="CurrentOf(LocalFileRecord, string)"/> と同じ決まり）。</summary>
+    public string CurrentOf(LocalFolderRecord folder) => Apply(folder.Path, folder.Volume, Latest, LatestVolumes);
+
+    /// <summary>
+    /// 記録が持つ通し番号での読み替え（2026-10-05・点検の3）。番号があれば、そのディスクが今1つの文字にだけ見えていればその文字で読み、
+    /// どこにも見えていなければ記録のまま（文字の控えでは読み替えない——控えの文字に来ているのは記録のとは別のディスクかもしれない）。
+    /// 番号が無ければ今までどおり文字の控えで読み替える。
+    /// </summary>
+    public static string Apply(
+        string path,
+        string? volume,
+        IReadOnlyDictionary<string, string> remap,
+        VolumeSnapshot volumes)
+    {
+        if (!IsDistinctive(volume) || LetterOf(path) is null)
+        {
+            return Apply(path, remap);
+        }
+
+        return volumes.LetterOfSerial(volume!) is { } letter ? letter.ToUpperInvariant() + path[2..] : path;
+    }
 
     /// <summary>
     /// 読み替えだけを確かめ直す（表は書かない。控えるのは取り込みとフォルダビューを開いた時・ユーザ判断）。
@@ -40,8 +70,11 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
     /// </summary>
     public IReadOnlyDictionary<string, string> RefreshRemap()
     {
-        var remap = Remap(store.Volumes.Load(), reader.Mounted());
+        var known = store.Volumes.Load();
+        var mounted = reader.Mounted();
+        var remap = Remap(known, mounted);
         Volatile.Write(ref _latest, remap);
+        Volatile.Write(ref _latestVolumes, new VolumeSnapshot(known, mounted));
         return remap;
     }
 
@@ -88,6 +121,7 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
         var known = store.Volumes.Load();
         var remap = Remap(known, mounted);
         Volatile.Write(ref _latest, remap);
+        Volatile.Write(ref _latestVolumes, new VolumeSnapshot(known, mounted));
 
         var confirmed = new List<MountedVolume>();
         foreach (var group in recordedPaths.Where(path => LetterOf(path) is not null)

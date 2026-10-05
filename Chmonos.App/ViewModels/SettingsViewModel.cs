@@ -1124,7 +1124,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         // ドライブの根は1回だけ・打ち切り付きで見る（見回りと同じ部品。落ちた共有で設定を開くのを待たせない）
         var probe = new Core.Services.FilePresenceProbe();
         var presence = await Task.Run(() => folderPaths.ToDictionary(
-            path => path, probe.OfFolder, StringComparer.OrdinalIgnoreCase));
+            path => path, path => probe.OfFolder(path), StringComparer.OrdinalIgnoreCase));
 
         RunOnUiThread(() =>
         {

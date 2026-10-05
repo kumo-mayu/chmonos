@@ -49,10 +49,49 @@ public sealed class VolumeSnapshot
     /// 記録の場所 <paramref name="recordedPath"/> を <paramref name="lookedPath"/> で見るとき、そこに今あるのが控えたのと別のボリュームか。
     /// 別なら、その場所の答えは「つながっていない」（在るとも無いとも言えない）。
     /// </summary>
-    public bool IsForeign(string recordedPath, string lookedPath)
-        => VolumeTable.LetterOf(recordedPath) is { } from
-           && _recorded.TryGetValue(from, out var expected)
+    /// <param name="recordedVolume">
+    /// 記録がその場所に持つディスクの通し番号（<see cref="PlaceVolumes"/>・点検の3）。あればそれと比べ、無ければ文字の控え（<c>volumes.json</c>）と比べる。
+    /// 控えは1つの文字に1台しか覚えないので、2台の外付けが同じ文字を使うと、控えを書き換えた側のディスクしか正しく見分けられなかった。
+    /// </param>
+    public bool IsForeign(string recordedPath, string lookedPath, string? recordedVolume = null)
+        => ExpectedAt(recordedPath, recordedVolume) is { } expected
            && VolumeTable.LetterOf(lookedPath) is { } at
            && _mounted.TryGetValue(at, out var actual)
            && !string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>今その場所の文字に来ているディスクの通し番号。番号で見分けられなければ null（ネットワークドライブ・文字の無い場所）。</summary>
+    public string? SerialAt(string path)
+        => VolumeTable.LetterOf(path) is { } letter && _mounted.TryGetValue(letter, out var serial) && VolumeTable.IsDistinctive(serial)
+            ? serial
+            : null;
+
+    /// <summary>
+    /// その通し番号のディスクが今見えている文字。1つの文字にだけ見えているときだけ答える
+    /// （丸ごと複製したディスクは同じ番号が2台に付く。どちらか分からないので読み替えない。<see cref="VolumeTable.Remap"/> と同じ理由）。
+    /// </summary>
+    public string? LetterOfSerial(string serial)
+    {
+        string? found = null;
+        foreach (var (letter, mounted) in _mounted)
+        {
+            if (!string.Equals(mounted, serial, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (found is not null)
+            {
+                return null;
+            }
+
+            found = letter;
+        }
+
+        return found;
+    }
+
+    private string? ExpectedAt(string recordedPath, string? recordedVolume)
+        => VolumeTable.IsDistinctive(recordedVolume) ? recordedVolume
+            : VolumeTable.LetterOf(recordedPath) is { } from && _recorded.TryGetValue(from, out var expected) ? expected
+            : null;
 }
