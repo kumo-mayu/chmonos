@@ -481,4 +481,60 @@ public class CommandHandlerTests
         ModifiedAtUtc = DateTimeOffset.UnixEpoch,
         FirstSeenAt = DateTimeOffset.UnixEpoch,
     };
+
+    // ---- まだ終わっていない登録の列（registration-queue.json。メモ60） ----
+
+    private static (CommandHandler Handler, Storage.JsonFileStore<List<QueuedRegistration>> Store, string Root) CreateWithQueue()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "chmonos-queue-file-" + Guid.NewGuid().ToString("N"));
+        var paths = new Storage.AppPaths(root);
+        paths.EnsureCreated();
+        var store = new Storage.DataStore(paths).RegistrationQueue;
+        return (new CommandHandler(new FakeImportPipeline(), new FakeItemService()) { RegistrationQueue = store }, store, root);
+    }
+
+    [Fact]
+    public async Task 登録の列は_積んだ順に人が読める形で書き_済んだ物を外せる()
+    {
+        var (handler, store, root) = CreateWithQueue();
+        try
+        {
+            var first = new QueuedRegistration { ItemId = "9900701", ItemName = "作り物の衣装", FileHashes = ["AAAA", "BBBB"], EstimatedRequests = 5 };
+            var second = new QueuedRegistration { ItemId = "9900702", ItemName = "作り物の靴", FileHashes = ["CCCC"] };
+
+            await handler.ExecuteAsync(new UiCommand.ChangeRegistrationQueue(list => [.. list, first]));
+            await handler.ExecuteAsync(new UiCommand.ChangeRegistrationQueue(list => [.. list, second]));
+
+            Assert.Equal(["9900701", "9900702"], store.Load().Select(record => record.ItemId));
+            var text = System.IO.File.ReadAllText(store.Path);
+            Assert.Contains("\"itemName\": \"作り物の衣装\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"estimatedRequests\": 5", text, StringComparison.Ordinal);
+
+            // 見込みの無い行は欄ごと書かない（null を並べない）
+            Assert.Equal(2, text.Split("estimatedRequests").Length);
+
+            await handler.ExecuteAsync(new UiCommand.ChangeRegistrationQueue(list => [.. list.Where(record => record.ItemId != "9900701")]));
+            Assert.Equal("9900702", Assert.Single(store.Load()).ItemId);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void 手で直した登録の列の欠けた配列は_空として読む()
+    {
+        var (_, store, root) = CreateWithQueue();
+        try
+        {
+            System.IO.File.WriteAllText(store.Path, """[ { "itemId": "9900703", "itemName": "作り物", "fileHashes": null } ]""");
+
+            Assert.Empty(Assert.Single(store.Load()).FileHashes);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

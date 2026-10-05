@@ -32,24 +32,33 @@ public sealed partial class ResolveViewModel
     private int _registeringDone;
     private int _registeringTotal;
 
-    public bool IsRegisteringInDecision => _registeringArea == RegisteringArea.Decision;
+    /// <summary>
+    /// 「商品IDを決める」の欄の帯。その場で済ませる登録（持っている商品へ足す・見つからないIDのまま）と、
+    /// 列で走っている「このIDで登録」（選んだ行の分だけ。メモ60）の両方をここに出す。
+    /// </summary>
+    public bool IsRegisteringInDecision => _registeringArea == RegisteringArea.Decision || IsQueueRunningShown;
+
+    /// <summary>その場の登録が無く、選んだ行の登録が列で走っているか（帯の中身を列から取る）。</summary>
+    private bool IsQueueRunningShown => _registeringArea == RegisteringArea.None && IsTargetRunning;
 
     public bool IsRegisteringLocal => _registeringArea == RegisteringArea.Local;
 
     public bool IsRegisteringFolder => _registeringArea == RegisteringArea.Folder;
 
     /// <summary>2件以上なら件数まで言う。束を登録すると1件ずつ順に掛けるので、止まっていないことが分かるように。</summary>
-    public string RegisteringText
+    public string RegisteringText => IsQueueRunningShown
+        ? QueueRunningText
+        : RegisteringLine(_registeringDone, _registeringTotal, _registeringRequestsLeft, _services.Settings.FetchIntervalMs);
+
+    /// <summary>帯の1行。その場の登録と、列で走っている登録で同じ文にする。</summary>
+    internal static string RegisteringLine(int done, int total, int? requestsLeft, int intervalMs)
     {
-        get
-        {
-            var text = _registeringTotal > 1
-                ? $"登録しています… {_registeringDone} / {_registeringTotal} 件"
-                : "登録しています…";
-            return RequestsLeftText(_registeringRequestsLeft, _services.Settings.FetchIntervalMs) is { Length: > 0 } left
-                ? $"{text}　{left}"
-                : text;
-        }
+        var text = total > 1
+            ? $"登録しています… {done} / {total} 件"
+            : "登録しています…";
+        return RequestsLeftText(requestsLeft, intervalMs) is { Length: > 0 } left
+            ? $"{text}　{left}"
+            : text;
     }
 
     /// <summary>
@@ -93,11 +102,11 @@ public sealed partial class ResolveViewModel
     }
 
     /// <summary>件数が分かるときだけ実際の進み具合を出し、1件なら動いていることだけ示す（自動検索の帯と同じ）。</summary>
-    public bool HasRegisteringTotal => _registeringTotal > 1;
+    public bool HasRegisteringTotal => IsQueueRunningShown ? HasQueueTotal : _registeringTotal > 1;
 
-    public int RegisteringTotal => _registeringTotal;
+    public int RegisteringTotal => IsQueueRunningShown ? QueueTotal : _registeringTotal;
 
-    public int RegisteringDone => _registeringDone;
+    public int RegisteringDone => IsQueueRunningShown ? QueueDone : _registeringDone;
 
     private void StartRegistering(RegisteringArea area, int total)
     {

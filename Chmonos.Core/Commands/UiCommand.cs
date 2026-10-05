@@ -120,6 +120,11 @@ public abstract record UiCommand
 
     public record ClearEditSession() : UiCommand;
 
+    /// <summary>
+    /// まだ終わっていない登録の列（registration-queue.json）を変える。列を持つのは主画面1つで、積む・済んだ・やめたを変え方で渡す（メモ60）。
+    /// </summary>
+    public record ChangeRegistrationQueue(Func<List<Models.QueuedRegistration>, List<Models.QueuedRegistration>> Change) : UiCommand;
+
     // ---- 設定画面から戻す操作 ----
 
     public record UnhideItem(string ItemId) : UiCommand;

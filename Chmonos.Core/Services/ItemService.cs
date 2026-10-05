@@ -27,6 +27,12 @@ public sealed class ItemPreview
 
     /// <summary>既にライブラリにあるitemか。あればBOOTHへは取りに行っていない。</summary>
     public bool IsAlreadyOwned { get; init; }
+
+    /// <summary>
+    /// 登録したときに BOOTH へ問い合わせる数の見込み（商品JSON・商品ページ・画像の枚数・手元に無ければショップのアイコン）。
+    /// 未確定の画面が「この商品は約 m 分」と、後に並んだ登録の「開始まで約 n 分」を出すのに使う（メモ60）。持っている商品は問い合わせないので null
+    /// </summary>
+    public int? RequestsToRegister { get; init; }
 }
 
 public interface IItemService
@@ -903,12 +909,19 @@ public sealed class ItemService : IItemService
         }
 
         return BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, [], itemId) is { } booth
-            ? (ToPreview(itemId, booth, isAlreadyOwned: false), null, false)
+            ? (ToPreview(itemId, booth, isAlreadyOwned: false, requestsToRegister: RequestsToRegister(booth)), null, false)
             : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。", false);
     }
 
-    private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned, string? name = null) => new()
+    /// <summary>登録の見込みの数。数え方は <see cref="FetchNewItemAsync"/> の問い合わせと同じ（JSON・ページ・画像・無ければアイコン）。</summary>
+    private int RequestsToRegister(BoothBlock booth)
+        => 2 + booth.Images.Count
+            + (booth.Shop is { } shop && _images.NeedsShopIcon(shop.Subdomain, shop.ThumbnailUrl) ? 1 : 0);
+
+    private static ItemPreview ToPreview(
+        string itemId, BoothBlock booth, bool isAlreadyOwned, string? name = null, int? requestsToRegister = null) => new()
     {
+        RequestsToRegister = requestsToRegister,
         Id = itemId,
         Name = name ?? booth.Name ?? itemId,
         ShopName = booth.Shop?.Name,

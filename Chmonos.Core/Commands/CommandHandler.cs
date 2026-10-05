@@ -34,6 +34,9 @@ public sealed class CommandHandler
     /// <summary>ドライブ文字と通し番号の組（フォルダビュー）。</summary>
     private readonly VolumeTable? _volumes;
 
+    /// <summary>まだ終わっていない登録の列（registration-queue.json。メモ60）。組み立ての引数を増やさないよう、作るときに入れる。</summary>
+    public Storage.JsonFileStore<List<Models.QueuedRegistration>>? RegistrationQueue { private get; init; }
+
     /// <summary>途中で止まった取り込みの記録（import-state.json）。</summary>
     private readonly Storage.JsonFileStore<ImportState>? _importState;
 
@@ -189,6 +192,11 @@ public sealed class CommandHandler
             case UiCommand.ChangeUiState uiState:
                 await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                     .UpdateUiStateAsync(uiState.Change, cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.ChangeRegistrationQueue queue:
+                await (RegistrationQueue ?? throw new InvalidOperationException("登録の列の保存先が渡されていません。"))
+                    .UpdateAsync(queue.Change, cancellationToken);
                 return new CommandResult.Done();
 
             case UiCommand.ChangeSettings change:

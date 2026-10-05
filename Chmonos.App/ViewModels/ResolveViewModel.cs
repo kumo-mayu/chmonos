@@ -35,6 +35,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         // 主画面はアプリと同じ寿命、この画面は開くたびに作り直す。外さないと捨てた画面が知らせを受け続ける
         _main.PropertyChanged -= OnMainChanged;
+        UnsubscribeQueue();
     }
 
     private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -45,10 +46,18 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
     }
 
-    /// <summary>「自動検索」の吹き出し。長い作業が走っていて押せない間は、その理由に差し替える（黙って押せなくしない）。</summary>
-    public string ProposeHint => _main.IsLongJobRunning
-        ? _main.LongJobBlockedNote
-        : "このファイル名でBOOTHを検索し、下の「候補」に表示します。";
+    /// <summary>
+    /// 「自動検索」の吹き出し。長い作業が走っていて押せない間は、その理由に差し替える（黙って押せなくしない）。
+    /// ほかのファイルの自動検索が走っているときは、そう言う（メモ60：検索は1本ずつで、ほかの行の検索を妨げる）。
+    /// </summary>
+    public string ProposeHint => _main.ResolveSearch.IsRunning && !_main.ResolveSearch.IsSearching(SearchTargetPath)
+        ? OtherSearchHint
+        : _main.IsLongJobRunning
+            ? _main.LongJobBlockedNote
+            : "このファイル名でBOOTHを検索し、下の「候補」に表示します。";
+
+    /// <summary>ユーザの例「ほかの商品の検索を進めています。」を ui-wording で整えた（行はまだ商品ではないのでファイルと言う）。</summary>
+    internal const string OtherSearchHint = "ほかのファイルの候補を検索中です。終わるか、下の帯で中止してからお試しください。";
 
     /// <summary>
     /// 登録の後で1件だけ読んで検索の写しに足せなかった商品（読み直しの途中に足した分が上書きされたなど）の保険。
@@ -71,18 +80,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     /// 一覧から外す（<see cref="AfterSettled"/>）より前に呼ぶ：フォルダビューに組み込んだときは残りの数が減ったのを見て、
     /// 検索の写しから木を組み直すので、その前に写しへ入っている必要がある
     /// </summary>
-    private async Task NoteSettledAsync(string itemId)
-    {
-        if (!_settledItemIds.Contains(itemId))
-        {
-            _settledItemIds.Add(itemId);
-        }
-
-        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
-        {
-            _main.Search.NoteItemSaved(item);
-        }
-    }
+    private Task NoteSettledAsync(string itemId) => _main.NoteResolveSettledAsync(itemId);
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
     public MainViewModel Main => _main;
@@ -120,20 +118,24 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
         ProposeCommand = new RelayCommand(() => ProposeAsync().Forget(), () => HasSelection && !_main.IsLongJobRunning);
         _main.PropertyChanged += OnMainChanged;
+        SubscribeQueue();
         // 取得中は押せないようにする。他のボタンには入っていて、ここだけ抜けていた
         PreviewCommand = new RelayCommand(() => PreviewAsync(ItemIdInput).Forget(), () => CanPreview && !IsBusy);
         UseCandidateCommand = new RelayCommand(parameter => UseCandidateAsync(parameter).Forget(), parameter => parameter is CandidateRow);
-        // どれも今の対象に効く（ResolveViewModel.Target.cs）。チェックした物は、元のzipが未確定にある中身が混ざっていれば押したときに理由を言って止める
-        AssignCommand = new RelayCommand(() => AssignAsync().Forget(), () => HasPreview && (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy);
-        ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => (HasSelection || HasChecked) && !IsBusy);
+        // どれも今の対象に効く（ResolveViewModel.Target.cs）。チェックした物は、元のzipが未確定にある中身が混ざっていれば押したときに理由を言って止める。
+        // 登録の列にいる物は押せない（2回積まない・登録の途中で外さない。ほかの行は押せる。メモ60）
+        AssignCommand = new RelayCommand(() => AssignAsync().Forget(),
+            () => HasPreview && (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !IsTargetQueued);
+        ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => (HasSelection || HasChecked) && !IsBusy && !IsTargetQueued);
         // 行の右クリックは、右クリックした行（束）に効く。チェックした物に効かせると、右クリックした行とは別の物が外れる
-        ExcludeRowCommand = new RelayCommand(() => ExcludeAsync(useChecked: false).Forget(), () => HasSelection && !IsBusy);
+        ExcludeRowCommand = new RelayCommand(() => ExcludeAsync(useChecked: false).Forget(),
+            () => HasSelection && !IsBusy && !ActiveRows.Any(row => Queue.JobFor(row.File.Hash) is not null));
         UseLocalNameCommand = new RelayCommand(
             parameter => { if (parameter is string name) { LocalNameInput = name; } },
             parameter => parameter is string);
         RegisterLocalCommand = new RelayCommand(
             () => RegisterLocalAsync().Forget(),
-            () => (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
+            () => (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !IsTargetQueued && !string.IsNullOrWhiteSpace(LocalNameInput));
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
         OpenLastSettledCommand = new RelayCommand(() => OpenLastSettledAsync().Forget(), () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
@@ -711,6 +713,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
         OnPropertyChanged(nameof(RemainingToolTip));
+
+        // 作り直した行に、列と検索の様子を入れ直す（画面を離れて戻っても、待っている行・登録中の行が分かるように）
+        RefreshQueueState();
     }
 
     private ReloadedRows BuildReload(Func<UnresolvedFile, bool>? scope, IReadOnlySet<string> owned, IReadOnlyList<string> importFolders)
@@ -876,6 +881,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OnPropertyChanged(nameof(HasStatus));
         OnPropertyChanged(nameof(LocalIdPreview));
         OnPropertyChanged(nameof(HasLocalNameSuggestions));
+        RaiseQueueProperties();
+        RaiseSearchProperties();
         RelayCommand.RaiseCanExecuteChanged();
     }
 
@@ -988,6 +995,14 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 return;
             }
+        }
+
+        // 手元に無い商品は BOOTH から取るので、列に積んで1件ずつ流す（メモ60）。画面は止めず、ほかの行はそのまま扱える。
+        // 持っている商品へ足すだけなら問い合わせが無く数十msで終わるので、今までどおりその場で済ませる
+        if (!Preview.IsAlreadyOwned)
+        {
+            EnqueueRegistration(targets, Preview, fromChecked);
+            return;
         }
 
         IsBusy = true;

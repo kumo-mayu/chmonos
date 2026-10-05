@@ -22,7 +22,7 @@
             <!-- 3つ目の選択肢。要るときだけ出す（外して空になった商品の「非表示・残す・完全に削除」） -->
             <Button AutomationProperties.AutomationId="ChoiceThird" x:Name="ThirdButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnThird"
                     Visibility="Collapsed" />
-            <Button AutomationProperties.AutomationId="ChoiceCancel" Content="キャンセル" IsCancel="True" MinWidth="90" Margin="8,0,0,0" Click="OnCancel" />
+            <Button AutomationProperties.AutomationId="ChoiceCancel" x:Name="CancelButton" Content="キャンセル" IsCancel="True" MinWidth="90" Margin="8,0,0,0" Click="OnCancel" />
         </StackPanel>
     </StackPanel>
 </Window>

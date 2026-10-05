@@ -723,6 +723,7 @@ public sealed partial class MainViewModel : ViewModelBase
             ItemViewSize.Current.FlushAsync(),
             AppZoom.Current.FlushAsync(),
             Search.FlushModulesAsync(),
+            Registrations.WhenWrittenAsync(),
             _services.BackgroundWrites.WhenIdleAsync());
     }
 

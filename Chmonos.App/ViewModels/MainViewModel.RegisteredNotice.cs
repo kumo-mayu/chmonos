@@ -22,6 +22,9 @@ public sealed partial class MainViewModel
     {
         Registered,
         ChangedAway,
+
+        /// <summary>未確定の画面を開いていない間に、列の登録が失敗した（メモ60）。押すと未確定を開く（理由は行の吹き出しに出る）。</summary>
+        RegistrationFailed,
     }
 
     private sealed record ItemNotice(string ItemId, string Text, string Action, ItemNoticeKind Kind);
@@ -58,6 +61,9 @@ public sealed partial class MainViewModel
 
         Enqueue(new ItemNotice(item.Id, $"「{item.DisplayName}」を登録しました。", "登録した商品を開く", ItemNoticeKind.Registered));
     }
+
+    private void NoteRegistrationFailed(string itemName)
+        => Enqueue(new ItemNotice(string.Empty, $"「{itemName}」を登録できませんでした。", "未確定を開く", ItemNoticeKind.RegistrationFailed));
 
     /// <summary>
     /// 商品ページを離れた後に、そのページで押した操作（取り直し・ファイルを外す）が済んだ。
@@ -107,6 +113,13 @@ public sealed partial class MainViewModel
     {
         if (_itemNotice?.ItemId is not { } itemId)
         {
+            return;
+        }
+
+        if (_itemNotice.Kind == ItemNoticeKind.RegistrationFailed)
+        {
+            ShowNextItemNotice();
+            ShowResolve();
             return;
         }
 

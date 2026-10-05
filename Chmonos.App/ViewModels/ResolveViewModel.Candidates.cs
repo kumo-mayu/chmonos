@@ -186,19 +186,22 @@ public sealed partial class ResolveViewModel
         // 行ではなく対象で比べる：一覧を読み直すと行は作り直されるが、同じファイルなら対象は同じ
         bool StillShowing() => string.Equals(SearchTargetPath, searchTarget, StringComparison.OrdinalIgnoreCase);
 
-        IsBusy = true;
+        // 検索は画面全体を止めない（登録・除外は押せる。メモ60）。進みは主画面に置き、検索している対象を選んだときだけ出す
+        var search = _main.ResolveSearch;
         StatusText = string.Empty;
-        SearchCurrent = 0;
-        SearchTotal = 0;
-        SearchPhase = "準備しています";
+        _proposing = true;
+        search.Begin(searchTarget, SearchOwners(startedWith));
 
         // 1件ずつ間隔を空けて取りに行くので十数秒かかることがある。
         // 何をどこまでやっているかを出さないと、止まったように見える。
         var progress = new Progress<ResolveProgress>(report => RunOnUiThread(() =>
         {
-            SearchPhase = report.Phase;
-            SearchCurrent = report.Current;
-            SearchTotal = report.Total;
+            if (!search.IsSearching(searchTarget))
+            {
+                return;
+            }
+
+            search.Report(report.Phase, report.Current, report.Total);
             _main.ReportLongJob($"候補を検索中　{report.Phase}　{report.Current} / {report.Total}", report.Current, report.Total);
         }));
 
@@ -213,7 +216,6 @@ public sealed partial class ResolveViewModel
 
                 if (StillShowing())
                 {
-                    SearchPhase = string.Empty;
                     ShowSearchResult(proposed);
                 }
             }
@@ -233,9 +235,8 @@ public sealed partial class ResolveViewModel
         finally
         {
             job.Dispose();
-            IsBusy = false;
-            IsSearching = false;
-            SearchPhase = string.Empty;
+            search.End();
+            _proposing = false;
             OnPropertyChanged(nameof(HasStatus));
         }
     }
@@ -251,64 +252,74 @@ public sealed partial class ResolveViewModel
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    // --- 自動検索の進み具合 ---
+    // --- 自動検索の進み具合（主画面の ResolveSearchState を、選んだ行が検索の対象のときだけ映す。メモ60） ---
 
-    private string _searchPhase = string.Empty;
-    private int _searchCurrent;
-    private int _searchTotal;
-    private bool _isSearching;
+    /// <summary>選んだ行が、今走っている検索の対象か。違う行を選んでいる間は進みを出さない（行ごとの進み）。</summary>
+    public bool IsSearching => _main.ResolveSearch.IsSearching(SearchTargetPath);
 
     /// <summary>今どの段階かの文言。</summary>
-    public string SearchPhase
-    {
-        get => _searchPhase;
-        private set
-        {
-            if (SetField(ref _searchPhase, value))
-            {
-                IsSearching = value.Length > 0;
-                OnPropertyChanged(nameof(SearchProgressText));
-            }
-        }
-    }
+    public string SearchPhase => IsSearching ? _main.ResolveSearch.Phase : string.Empty;
 
-    public int SearchCurrent
-    {
-        get => _searchCurrent;
-        private set
-        {
-            if (SetField(ref _searchCurrent, value))
-            {
-                OnPropertyChanged(nameof(SearchProgressText));
-            }
-        }
-    }
+    public int SearchCurrent => IsSearching ? _main.ResolveSearch.Current : 0;
 
     /// <summary>0なら件数の分からない段階。バーは伸び縮みだけさせる。</summary>
-    public int SearchTotal
-    {
-        get => _searchTotal;
-        private set
-        {
-            if (SetField(ref _searchTotal, value))
-            {
-                OnPropertyChanged(nameof(HasSearchTotal));
-                OnPropertyChanged(nameof(SearchProgressText));
-            }
-        }
-    }
+    public int SearchTotal => IsSearching ? _main.ResolveSearch.Total : 0;
 
     public bool HasSearchTotal => SearchTotal > 0;
-
-    public bool IsSearching
-    {
-        get => _isSearching;
-        private set => SetField(ref _isSearching, value);
-    }
 
     public string SearchProgressText => SearchTotal > 0
         ? $"{SearchPhase}　{SearchCurrent + 1} / {SearchTotal}"
         : SearchPhase;
+
+    private static readonly string[] SearchProperties =
+    [
+        nameof(IsSearching), nameof(SearchPhase), nameof(SearchCurrent), nameof(SearchTotal), nameof(HasSearchTotal),
+        nameof(SearchProgressText), nameof(ProposeHint),
+    ];
+
+    private void RaiseSearchProperties()
+    {
+        foreach (var name in SearchProperties)
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    private void OnSearchStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        RaiseSearchProperties();
+
+        // 行の札「検索中」は、始まったとき・終わったときだけ変わる（進むたびに全部の行を回さない）
+        if (_searchRowsShown != _main.ResolveSearch.IsRunning)
+        {
+            _searchRowsShown = _main.ResolveSearch.IsRunning;
+            RefreshQueueState();
+        }
+    }
+
+    private bool _searchRowsShown;
+
+    /// <summary>この画面が始めた検索が走っている間。</summary>
+    private bool _proposing;
+
+    /// <summary>
+    /// 検索が終わった。この画面が始めた検索でなくても（離れて戻った・フォルダビューの右から始めた）、
+    /// 同じ対象を選んでいれば覚えた結果を出す（始めた画面はもう無いことがある）。
+    /// </summary>
+    private void OnSearchEnded(string target)
+    {
+        // 自分で始めた検索は、結果・中止・失敗の文を自分で出している（ここで出し直すと中止の文が消える）
+        if (_proposing)
+        {
+            return;
+        }
+
+        if (string.Equals(SearchTargetPath, target, StringComparison.OrdinalIgnoreCase)
+            && RememberedSearches.Find(target) is { } remembered)
+        {
+            ShowSearchResult(remembered);
+        }
+    }
 
     private static CandidateRow ToRow(ResolutionCandidate candidate) => WithBooth(new CandidateRow
     {

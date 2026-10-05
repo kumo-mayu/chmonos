@@ -28,8 +28,13 @@ internal sealed class FakeBooth : HttpMessageHandler
     }
 
     /// <summary>その商品IDの JSON（<c>/items/{id}.json</c>）に、名前とショップだけの商品を答えるようにする。</summary>
-    public void HasItem(string itemId, string name, string shop = "sample-shop")
+    /// <param name="images">
+    /// 商品の画像の枚数。画像の場所（<see cref="ImageUrl"/>）には 1×1 の PNG を答える。
+    /// 画像を取るのは設定で画像を保存するときだけ（試験の既定は切ってある）。
+    /// </param>
+    public void HasItem(string itemId, string name, string shop = "sample-shop", int images = 0)
     {
+        var imageList = string.Join(", ", Enumerable.Range(1, images).Select(index => $$"""{ "original": "{{ImageUrl(itemId, index)}}" }"""));
         lock (_gate)
         {
             _itemJson[itemId] = $$"""
@@ -37,24 +42,41 @@ internal sealed class FakeBooth : HttpMessageHandler
                   "id": {{itemId}},
                   "name": "{{name}}",
                   "shop": { "name": "{{shop}}", "subdomain": "{{shop}}", "url": "https://{{shop}}.booth.pm/" },
-                  "images": [],
+                  "images": [{{imageList}}],
                   "variations": [ { "id": 1, "name": null, "price": 100 } ]
                 }
                 """;
         }
     }
 
+    /// <summary>教えた商品を忘れる（確かめた後に BOOTH から消えた、を作る）。</summary>
+    public void LosesItem(string itemId)
+    {
+        lock (_gate)
+        {
+            _itemJson.Remove(itemId);
+        }
+    }
+
+    public static string ImageUrl(string itemId, int index) => $"https://booth.pximg.net/fake/i/{itemId}/{index}.png";
+
+    private static readonly byte[] TinyPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
     private TaskCompletionSource? _held;
+    private Func<string, bool>? _holdOnly;
 
     /// <summary>
     /// 答えを止める。次に <see cref="Release"/> を呼ぶまで、来た問い合わせは答えずに待たせる
     /// （「BOOTH が答えていない間」の画面の守りを確かめるため）。
     /// </summary>
-    public void Hold()
+    /// <param name="only">止める問い合わせ（URL で選ぶ）。null なら全部。1件の登録の途中で止め、その間にほかの操作がどう並ぶかを見る。</param>
+    public void Hold(Func<string, bool>? only = null)
     {
         lock (_gate)
         {
             _held ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _holdOnly = only;
         }
     }
 
@@ -66,6 +88,7 @@ internal sealed class FakeBooth : HttpMessageHandler
         {
             held = _held;
             _held = null;
+            _holdOnly = null;
         }
 
         held?.TrySetResult();
@@ -77,8 +100,9 @@ internal sealed class FakeBooth : HttpMessageHandler
         Task? waiting;
         lock (_gate)
         {
-            _requests.Add(request.RequestUri!.ToString());
-            waiting = _held?.Task;
+            var url = request.RequestUri!.ToString();
+            _requests.Add(url);
+            waiting = _holdOnly is null || _holdOnly(url) ? _held?.Task : null;
         }
 
         if (waiting is not null)
@@ -92,6 +116,11 @@ internal sealed class FakeBooth : HttpMessageHandler
     private HttpResponseMessage Answer(HttpRequestMessage request)
     {
         var url = request.RequestUri!.ToString();
+        if (url.StartsWith("https://booth.pximg.net/fake/", StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(TinyPng) };
+        }
+
         lock (_gate)
         {
             foreach (var (itemId, json) in _itemJson)
