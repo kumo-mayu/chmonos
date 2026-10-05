@@ -921,6 +921,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
                     NameSnapshot = variation.Name,
                     Price = Core.Services.MoneyText.ParsePaid(variation.Price),
                     Kind = variation.Kind,
+                    Note = variation.FirstNote,
                     PurchasedAt = ParseDate(variation.PurchasedAt),
                     ExistsOnBooth = !variation.IsGone,
                 },

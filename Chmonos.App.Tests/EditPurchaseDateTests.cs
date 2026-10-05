@@ -72,6 +72,21 @@ public class EditPurchaseDateTests
     });
 
     [Fact]
+    public Task 一件目の購入のメモは_欄が無くても保存で消えない() => TestApp.Run(async app =>
+    {
+        var edit = await OpenAsync(app, Item("9900509",
+            new Purchase { VariationId = 1, NameSnapshot = "本体", Price = 1500, Note = "セールで買った" },
+            new Purchase { VariationId = 1, NameSnapshot = "本体", Price = 1500, Kind = PurchaseKind.Given, Note = "友人へ" }));
+        edit.Variations.Single(variation => variation.VariationId == 1).Price = "1400";
+
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+
+        var saved = (await app.Store.Items.LoadAsync("9900509"))!.Local.Purchases;
+        Assert.Equal(new string?[] { "セールで買った", "友人へ" }, saved.Select(purchase => purchase.Note).ToArray());
+    });
+
+    [Fact]
     public Task 入れた日付は購入ごとに書き_空欄はnullのまま書く() => TestApp.Run(async app =>
     {
         var edit = await OpenAsync(app, Item("9900503",

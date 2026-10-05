@@ -37,6 +37,7 @@ public sealed partial class EditViewModel
                 Price = first?.Price?.ToString() ?? string.Empty,
                 Kind = first?.Kind ?? PurchaseKind.ForSelf,
                 PurchasedAt = DateTextOf(first?.PurchasedAt),
+                FirstNote = first?.Note,
             };
 
             AttachExtras(row, group.Skip(1));
@@ -64,6 +65,7 @@ public sealed partial class EditViewModel
                 Price = first.Price?.ToString() ?? string.Empty,
                 Kind = first.Kind,
                 PurchasedAt = DateTextOf(first.PurchasedAt),
+                FirstNote = first.Note,
             };
 
             AttachExtras(row, purchases.Skip(1));

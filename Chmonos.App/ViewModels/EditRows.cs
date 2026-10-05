@@ -109,6 +109,12 @@ public sealed class OrderedVariationInput : ViewModelBase
     public string PurchasedAtLabel => PurchaseDateLabel.Of(Kind);
 
     /// <summary>
+    /// 1件目の購入記録のメモ。種類の行には欄が無いが、JSON を手で直して入れた物や、2件目だったメモが
+    /// 前の1件目を消して繰り上がった物がある。保存で書き戻さないと黙って消えるので、読んだまま持って返す
+    /// </summary>
+    public string? FirstNote { get; init; }
+
+    /// <summary>
     /// 同じ版の2件目以降の購入記録。
     ///
     /// **買った1回が1レコード**なので、同じ版を2回買った記録も持てる。
