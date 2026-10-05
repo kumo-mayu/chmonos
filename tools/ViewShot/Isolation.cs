@@ -36,7 +36,7 @@ internal static class Isolation
         FilesRoot = Path.Combine(parent, "files", sceneName);
         ImageCacheRoot = Path.Combine(parent, "image-cache");
         Directory.CreateDirectory(ImageCacheRoot);
-        WorkRoot = Path.Combine(parent, "run", $"{sceneName}-{Environment.ProcessId}");
+        WorkRoot = TakeSlot(Path.Combine(parent, "run", sceneName));
         var store = Path.Combine(WorkRoot, "store");
         var temp = Path.Combine(WorkRoot, "temp");
         Directory.CreateDirectory(store);
@@ -71,6 +71,39 @@ internal static class Isolation
         }
     }
 
+    private static FileStream? _slotLock;
+
+    /// <summary>
+    /// 作業用フォルダの場所を、プロセス番号ではなく「場面の名前＋空き番号」で決める。
+    /// 保存先の場所は設定の画面の下に出るので、回ごとに違うと設定の 18 枚が毎回「違う」と出ていた（2026-10-05）。
+    /// 同じ場面を同時に描く回（並べた2本の catalog）とぶつからないよう、番号の錠ファイルを排他で開けた者がその番号を使う。
+    /// 空いている一番小さい番号を取るので、1本だけ走る通常の回は毎回同じ場所になる
+    /// </summary>
+    private static string TakeSlot(string sceneDirectory)
+    {
+        Directory.CreateDirectory(sceneDirectory);
+        for (var slot = 1; ; slot++)
+        {
+            try
+            {
+                _slotLock = new FileStream(Path.Combine(sceneDirectory, $"{slot}.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+
+            var root = Path.Combine(sceneDirectory, slot.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (Directory.Exists(root))
+            {
+                // 落ちた回の消し残し。錠を取れたので、誰も使っていない
+                Directory.Delete(root, recursive: true);
+            }
+
+            return root;
+        }
+    }
+
     public static void Leave()
     {
         try
@@ -82,11 +115,17 @@ internal static class Isolation
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // 裏の作業がまだ書いている（ログ・辞書の控え）。次の回の掃除で消える
+            // 裏の作業がまだ書いている（ログ・辞書の控え）。次の回の錠を取った所で消える
         }
+
+        _slotLock?.Dispose();
+        _slotLock = null;
     }
 
-    /// <summary>落ちた回の消し残しを片付ける。並んで走っている回の分を消さないよう、1時間より古い物だけ。</summary>
+    /// <summary>
+    /// 落ちた回の消し残しを片付ける。場面の下の番号のフォルダは、錠が取れて（誰も使っていない）1時間より古い物だけ消す。
+    /// 場面の入れ物と錠のファイルは残す（番号を同じ所に保つため）
+    /// </summary>
     private static void SweepOld(string parent)
     {
         if (!Directory.Exists(parent))
@@ -94,17 +133,23 @@ internal static class Isolation
             return;
         }
 
-        foreach (var directory in Directory.EnumerateDirectories(parent))
+        foreach (var sceneDirectory in Directory.EnumerateDirectories(parent))
         {
-            try
+            foreach (var directory in Directory.EnumerateDirectories(sceneDirectory))
             {
-                if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(directory) > TimeSpan.FromHours(1))
+                try
                 {
+                    if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(directory) <= TimeSpan.FromHours(1))
+                    {
+                        continue;
+                    }
+
+                    using var probe = new FileStream(directory + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
                     Directory.Delete(directory, recursive: true);
                 }
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                }
             }
         }
     }
