@@ -315,6 +315,9 @@ public sealed class ImportPipeline : IImportPipeline
         // この取り込みで走査した取り込み元。終わりに、この下で無くなったパスを走査の控えから落とす
         var scannedTargets = new List<string>();
 
+        // この取り込みで中身を見たファイルの場所。終わりに、同じ中身の移した元（もう無い場所）を走査の控えから落とす
+        var seenPaths = new List<string>();
+
         // unitypackage の中身を裏で読む（2026-09-13 ユーザ判断）。問い合わせは1本ずつ1.5秒空けるので、その間 CPU とディスクは空いている。
         // 前の取り込みで読み残した物（中断など）も、最初の周回で一緒に拾う
         var unityPending = _unityPackages is null ? null : await _unityPackages.FindPendingAsync(cancellationToken);
@@ -383,6 +386,7 @@ public sealed class ImportPipeline : IImportPipeline
             // 前は走査した取り込み元の中というだけで落とし、控えに載っているので監視も拾い直さず、どこにも出なくなっていた
             unseenPlaces.AddRange(scan.Unseen);
             unseenPlaces.AddRange(resolution.Unhashed);
+            seenPaths.AddRange(scan.Files.Select(file => file.Path));
             await DropReplacedPathsAsync(resolution.Replaced, cancellationToken);
             await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
 
@@ -452,6 +456,10 @@ public sealed class ImportPipeline : IImportPipeline
         // 走査の控えから、今回の取り込み元の下で無くなったパスを落とす（移した・消したファイルの控えが際限なく残っていた）。
         // つながっていないボリュームの上は落とさない（ScanCacheIndex.RemoveMissingUnder）
         scanCache.RemoveMissingUnder(scannedTargets);
+
+        // 監視の新着だけを取り込んだ回は、移した元の場所が取り込み元の下に無い。同じ中身を今回見た、もう無い場所も落とす。
+        // 残すと、元へ戻したときに監視が新着と数えない（見つからない・移動の点検 5・ScanCacheIndex.RemoveMovedAway）
+        scanCache.RemoveMovedAway(seenPaths);
         await SaveScanCacheAsync(scanCache, cancellationToken);
 
         // 最後まで来たので途中の記録は要らない。残すと次の起動で「中断した」と嘘をつく。

@@ -178,7 +178,14 @@ public sealed class MissingFileFinder
             }
         }
 
-        if (computed.Count > 0)
+        // 見つけた場所へ差し替える無い場所は、控えからも落とす（見つからない・移動の点検 5・2026-10-05）。
+        // 残すと、元の場所へ戻したときに控えと大きさ・日時が合って監視が新着と数えず、記録は差し替えた先のままになる
+        var replacedPaths = missing
+            .Where(pair => found.ContainsKey(pair.Key))
+            .SelectMany(pair => pair.Value.Owners.SelectMany(owner => owner.Gone))
+            .ToList();
+
+        if (computed.Count > 0 || replacedPaths.Count > 0)
         {
             // 控えは取り込みも書くので、錠の中で今の控えに足す（読んだ時の写しで丸ごと書くと、その間に取り込みが足した分を消す）
             await _store.ScanCache.UpdateAsync(
@@ -188,6 +195,11 @@ public sealed class MissingFileFinder
                     foreach (var (file, hash) in computed)
                     {
                         index.Set(file.Path, file.SizeBytes, file.ModifiedAtUtc, hash);
+                    }
+
+                    foreach (var path in replacedPaths)
+                    {
+                        index.Forget(path);
                     }
 
                     return index.ToList();

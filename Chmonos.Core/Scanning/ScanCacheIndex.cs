@@ -149,6 +149,59 @@ public sealed class ScanCacheIndex
     }
 
     /// <summary>
+    /// 今回見た場所（<paramref name="seenPaths"/>）と同じ中身を控えている、**もう無い**ほかの場所を落とす
+    /// （移した元の場所）。つながっていないボリュームの上は落とさない（<see cref="RemoveMissingUnder"/> と同じ）。
+    ///
+    /// 監視の取り込みはフォルダではなく新着のファイルだけを対象にするので、取り込み元の下の片付けが移した元の場所に届かない。
+    /// 元の場所の控えが残ると、そこへ戻したときに控えと大きさ・日時が合って監視が新着と数えず、記録は移した先のままで
+    /// 「見つかりません」が残っていた（見つからない・移動の点検 5・2026-10-05）。
+    /// 落とすのは同じ中身を今回ほかの場所で見た物だけなので、確かめて回るのは移した元だけで済む。
+    /// </summary>
+    /// <returns>落とした数。</returns>
+    public int RemoveMovedAway(
+        IEnumerable<string> seenPaths,
+        Func<string, bool>? exists = null,
+        Func<string, bool>? onMissingVolume = null)
+    {
+        var seen = seenPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var hashes = seen
+            .Select(path => _byPath.TryGetValue(path, out var entry) ? entry.Hash : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (hashes.Count == 0)
+        {
+            return 0;
+        }
+
+        var isThere = exists ?? File.Exists;
+        var unreachable = onMissingVolume ?? UnresolvedMerge.IsOnMissingVolume;
+        var gone = _byPath.Values
+            .Where(entry => hashes.Contains(entry.Hash) && !seen.Contains(entry.Path))
+            .Select(entry => entry.Path)
+            .Where(path => !isThere(path) && !unreachable(path))
+            .ToList();
+        foreach (var path in gone)
+        {
+            Forget(path);
+        }
+
+        return gone.Count;
+    }
+
+    /// <summary>
+    /// 1つの場所を落とす（見つからないファイルを探して、無い場所を見つけた場所に差し替えたとき。
+    /// 残すと、元の場所へ戻したときに監視が新着と数えない。<see cref="RemoveMovedAway"/> と同じ理由）。
+    /// </summary>
+    public void Forget(string path)
+    {
+        if (_byPath.Remove(path))
+        {
+            _changed.Remove(path);
+            _removed.Add(path);
+        }
+    }
+
+    /// <summary>
     /// 控えてある zip の手掛かり（中のテキストの商品ID）を引く。パス・大きさ・日時が今と合い、ハッシュも同じときだけ。
     /// まだ読んでいなければ false。
     /// </summary>
