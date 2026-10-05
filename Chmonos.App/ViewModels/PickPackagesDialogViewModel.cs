@@ -11,14 +11,17 @@ public sealed class PackageChoiceRow : ViewModelBase
 
     public required UnityPackageEntry Package { get; init; }
 
-    /// <summary>この unitypackage を包んでいる手元のファイル。記録するときのハッシュと種類はここから取る。</summary>
-    public required LocalFileRecord Owner { get; init; }
+    /// <summary>
+    /// この unitypackage を包んでいる手元のファイル。記録するときのハッシュと種類はここから取る。
+    /// 登録したフォルダの中の物は null（フォルダはハッシュも種類も持たない。メモ65-③）。
+    /// </summary>
+    public required LocalFileRecord? Owner { get; init; }
 
     public string Name => Package.Name;
 
     public bool HasFolder => Package.Folder.Length > 0;
 
-    public string FolderText => HasFolder ? $"zipの中の {Package.Folder}" : string.Empty;
+    public string FolderText => HasFolder ? $"{(Package.InFolder ? "フォルダ" : "zip")}の中の {Package.Folder}" : string.Empty;
 
     public bool IsChecked
     {
@@ -94,8 +97,8 @@ public sealed class PackageChoiceSection
         .Select(row => new ModificationMember
         {
             ItemId = Item.Id,
-            VariationId = row.Owner.VariationId,
-            FileHash = row.Owner.Hash,
+            VariationId = row.Owner?.VariationId,
+            FileHash = row.Owner?.Hash,
             Package = row.Package.EntryPath,
         })
         .ToList();
@@ -136,6 +139,19 @@ public sealed class PackageChoiceSection
                 {
                     candidates.Add((new PackageChoiceRow { Package = place.Entry, Owner = file }, key, label, order));
                 }
+            }
+
+            fileOrder++;
+        }
+
+        // 登録したフォルダの中の物（メモ65-③）。種類は分からないので、zip と同じくフォルダの名前で塊にし、zip の後に並べる
+        foreach (var folder in item.Local.LocalFolders)
+        {
+            foreach (var place in UnityHandoff.PlacesOf(folder))
+            {
+                candidates.Add((new PackageChoiceRow { Package = place.Entry, Owner = null },
+                    $"folder:{folder.Path}", $"フォルダ：{Path.GetFileName(Path.TrimEndingDirectorySeparator(folder.Path))}",
+                    variations.Count + fileOrder));
             }
 
             fileOrder++;

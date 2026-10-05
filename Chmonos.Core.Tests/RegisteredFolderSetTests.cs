@@ -73,6 +73,32 @@ public class RegisteredFolderSetTests
     }
 
     [Fact]
+    public void 数えるときに_中のunitypackageの場所を同じ列挙で拾う()
+    {
+        // メモ65-③：右クリックが開くたびにフォルダを並べずに「送れる物があるか」を決めるため、数えた時に記録する
+        var root = Path.Combine(Path.GetTempPath(), "bam-survey-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "Unity"));
+        File.WriteAllBytes(Path.Combine(root, "readme.txt"), new byte[10]);
+        File.WriteAllBytes(Path.Combine(root, "Unity", "Outfit.UnityPackage"), new byte[20]);
+        File.WriteAllBytes(Path.Combine(root, "Base.unitypackage"), new byte[30]);
+
+        try
+        {
+            var survey = RegisteredFolderSet.Survey(root);
+
+            Assert.Equal(3, survey.FileCount);
+            Assert.Equal(60, survey.TotalBytes);
+            Assert.Equal(["Base.unitypackage", "Unity/Outfit.UnityPackage"], survey.UnityPackages);
+            Assert.True(survey.SamePackages(["Base.unitypackage", "Unity/Outfit.UnityPackage"]));
+            Assert.False(survey.SamePackages([]));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void MeasuresZeroForAMissingFolder()
     {
         var (count, bytes) = RegisteredFolderSet.Measure(Path.Combine(Path.GetTempPath(), "bam-missing-" + Guid.NewGuid()));

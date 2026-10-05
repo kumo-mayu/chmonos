@@ -5,13 +5,20 @@ using System.Text;
 namespace Chmonos.Core.Services;
 
 /// <summary>
-/// zipの中の1つの <c>.unitypackage</c>。
+/// zipの中の1つの <c>.unitypackage</c>。登録したフォルダの中の物も同じ形で持つ（<see cref="InFolder"/>）。
 /// </summary>
-/// <param name="ZipPath">包んでいるzipの絶対パス。</param>
-/// <param name="EntryPath">zip内のパス。区切りは <c>/</c>（zipの規約どおり）。</param>
+/// <param name="ZipPath">包んでいるzipの絶対パス（<see cref="InFolder"/> ならフォルダの絶対パス）。</param>
+/// <param name="EntryPath">zip内のパス。区切りは <c>/</c>（zipの規約どおり）。フォルダの中の物もフォルダからの場所を同じ書き方で持つ。</param>
 /// <param name="SizeBytes">展開後の大きさ。</param>
 public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long SizeBytes)
 {
+    /// <summary>
+    /// 登録したフォルダ（展開してある物）の中のファイルか（ユーザ判断 2026-10-05・メモ65-③）。**取り出さずにそのまま Unity へ渡す。**
+    /// 包みの名前・候補の表記（「名前 (zip名)」の zip名がフォルダ名になる）・使った記録の場所の書き方は zip の中の物とそろえるので、
+    /// 別の型にせず印1つで分ける。ハッシュ（<see cref="ZipHash"/>）は持たない（フォルダはハッシュを取らない）。
+    /// </summary>
+    public bool InFolder { get; init; }
+
     /// <summary>
     /// 包んでいる zip のハッシュ（手元のファイルの記録から作ったときだけ入れる）。あれば中身のパスを控え
     /// （<see cref="Storage.UnityPackagePathStore"/>）から引き、zip を解き直さない。
@@ -151,7 +158,7 @@ public static class UnityHandoff
     /// 1つのzipに入っている数の上限。これを超えるものは実データに無く、
     /// 壊れたzipや別物を掴んだときに画面が埋まるのを防ぐだけの歯止め。
     /// </summary>
-    private const int MaxPackages = 64;
+    internal const int MaxPackages = 64;
 
     /// <summary>
     /// zipの中の <c>.unitypackage</c> を、zipに入っている順で返す。
@@ -251,7 +258,8 @@ public static class UnityHandoff
         FileInfo? zip = null;
         try
         {
-            zip = new FileInfo(package.ZipPath);
+            // フォルダの中の物は、そのファイル自身の大きさ・更新時刻で覚えた物が今も正しいかを見る
+            zip = new FileInfo(package.InFolder ? package.VirtualPath : package.ZipPath);
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or UnauthorizedAccessException
                                               or PathTooLongException)
@@ -343,6 +351,22 @@ public static class UnityHandoff
 
         return find(zip).Select(package => new UnityPackagePlace(package with { ZipHash = file.Hash }, null)).ToList();
     }
+
+    /// <summary>
+    /// 登録したフォルダの中の、Unity へ送れる物（ユーザ判断 2026-10-05・メモ65-③）。数えたときに記録した一覧
+    /// （<see cref="Models.LocalFolderRecord.UnityPackages"/>）から作り、フォルダの中は並べ直さない。
+    /// **ファイルが今も在ることは1つずつ見る**（zip の <see cref="PlacesOf(Models.LocalFileRecord)"/> が zip の在ることを見るのと同じ。無ければ送れないので出さない）。
+    /// 入る先は記録に無いので null（使う側が読んで埋める）。
+    /// </summary>
+    public static IReadOnlyList<UnityPackagePlace> PlacesOf(Models.LocalFolderRecord folder) => PlacesOf(folder, File.Exists);
+
+    /// <param name="exists">ファイルが在るか（試験ではディスクを見ない物に差し替える）。</param>
+    internal static IReadOnlyList<UnityPackagePlace> PlacesOf(Models.LocalFolderRecord folder, Func<string, bool> exists)
+        => (folder.UnityPackages ?? [])
+            .Select(entry => new UnityPackageEntry(folder.Path, entry, 0) { InFolder = true })
+            .Where(package => exists(package.VirtualPath))
+            .Select(package => new UnityPackagePlace(package, null))
+            .ToList();
 
     /// <summary>
     /// item の要約を、zip の中の順に並べて返す。**要約が zip の中の unitypackage を全部覆っていなければ null**（zip を読む）。
@@ -513,6 +537,13 @@ public static class UnityHandoff
     {
         try
         {
+            // フォルダの中の物は zip を開かず、そのファイルを読む（中身の形は同じ）
+            if (package.InFolder)
+            {
+                using var file = File.OpenRead(package.VirtualPath);
+                return ReadAssetsFrom(file);
+            }
+
             using var archive = ZipFile.Open(package.ZipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance);
             if (archive.GetEntry(package.EntryPath) is not { } entry)
             {
@@ -520,6 +551,20 @@ public static class UnityHandoff
             }
 
             using var stream = entry.Open();
+            return ReadAssetsFrom(stream);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
+                                              or ArgumentException or ArithmeticException or InvalidOperationException
+                                              or UnauthorizedAccessException or NotSupportedException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>unitypackage（tar.gz）の流れから、中身のアセットを読む。</summary>
+    private static List<UnityPackageAsset> ReadAssetsFrom(Stream stream)
+    {
+        {
             using var gzip = new GZipStream(stream, CompressionMode.Decompress);
             using var tar = new TarReader(gzip);
 
@@ -551,12 +596,6 @@ public static class UnityHandoff
             }
 
             return assets;
-        }
-        catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
-                                              or ArgumentException or ArithmeticException or InvalidOperationException
-                                              or UnauthorizedAccessException or NotSupportedException)
-        {
-            return [];
         }
     }
 

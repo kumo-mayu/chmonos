@@ -87,6 +87,8 @@ public class FolderRegistrationTests : IDisposable
         Assert.Equal(3, registered.FileCount);
         Assert.Equal(600, registered.TotalBytes);
         Assert.NotNull(registered.LastSeenAt);
+        // 中の unitypackage も記録する（Unity へ送る候補・右クリックの押せるか。メモ65-③）
+        Assert.Equal(["rurune/rurune.unitypackage"], registered.UnityPackages);
     }
 
     /// <summary>行き先が決まったので、配下の未確定は取り除く。</summary>

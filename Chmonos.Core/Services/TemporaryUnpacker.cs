@@ -459,7 +459,7 @@ public sealed class TemporaryUnpacker
     /// Unity へ渡すパスの上限。Windows の MAX_PATH（260）から終端の1字を除いた長さ。
     /// 「.part」を足した書きかけの名前は Unity に渡さないので、ここには数えない（.NET は長いパスも扱える）
     /// </summary>
-    internal const int MaxUnityPath = 259;
+    public const int MaxUnityPath = 259;
 
     private static string ShortStamp(string entryPath)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(entryPath)))[..8];

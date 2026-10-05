@@ -92,14 +92,49 @@ public sealed class RegisteredFolderSet
     /// <summary>フォルダの中身を数える。ハッシュは計算しない（列挙して足すだけ）。</summary>
     public static (int FileCount, long TotalBytes) Measure(string folder)
     {
+        var survey = Survey(folder);
+        return (survey.FileCount, survey.TotalBytes);
+    }
+
+    /// <summary>
+    /// <see cref="Measure"/> と同じ1回の列挙で、中の <c>.unitypackage</c> の場所も拾う（<see cref="Models.LocalFolderRecord.UnityPackages"/>）。
+    /// 場所はフォルダからの相対で、区切りは <c>/</c>（zip の中の場所と同じ書き方。送る道が同じ形で扱える）。
+    /// 数は zip の中と同じ上限で切る（<see cref="Services.UnityHandoff.MaxPackages"/>。壊れた物や別物で一覧が埋まらないように）。
+    /// </summary>
+    public static FolderSurvey Survey(string folder)
+    {
         try
         {
-            var files = new DirectoryInfo(folder).EnumerateFiles("*", SearchOption.AllDirectories).ToList();
-            return (files.Count, files.Sum(file => file.Length));
+            var root = new DirectoryInfo(folder);
+            var count = 0;
+            long bytes = 0;
+            var packages = new List<string>();
+            foreach (var file in root.EnumerateFiles("*", SearchOption.AllDirectories))
+            {
+                count++;
+                bytes += file.Length;
+                if (packages.Count < Services.UnityHandoff.MaxPackages
+                    && file.Name.EndsWith(Services.UnityHandoff.PackageExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    packages.Add(Path.GetRelativePath(root.FullName, file.FullName).Replace('\\', '/'));
+                }
+            }
+
+            // 並びはファイルシステムの返す順で揺れるので、場所の順にそろえる（数え直すたびに記録が書き換わらないように）
+            packages.Sort(StringComparer.OrdinalIgnoreCase);
+            return new FolderSurvey(count, bytes, packages);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return (0, 0);
+            return new FolderSurvey(0, 0, []);
         }
     }
+}
+
+/// <summary>登録したフォルダを数えた結果（<see cref="RegisteredFolderSet.Survey"/>）。</summary>
+public sealed record FolderSurvey(int FileCount, long TotalBytes, IReadOnlyList<string> UnityPackages)
+{
+    /// <summary>記録の中の unitypackage の一覧と同じか（数え直して変わったときだけ書くため）。</summary>
+    public bool SamePackages(IReadOnlyList<string>? recorded)
+        => (recorded ?? []).SequenceEqual(UnityPackages, StringComparer.Ordinal);
 }

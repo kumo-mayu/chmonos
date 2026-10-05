@@ -390,7 +390,7 @@ public sealed class ModificationService : IModificationService
                 }
 
                 var current = record.Members[index];
-                if (current.FileHash is not null
+                if (current.HasFile
                     || members.Any(member => !string.Equals(member.ItemId, current.ItemId, StringComparison.Ordinal)))
                 {
                     return record;

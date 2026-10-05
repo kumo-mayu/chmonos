@@ -544,7 +544,7 @@ internal sealed class ModificationRowBuilder(
             ? item?.Local.LocalFiles.FirstOrDefault(file => string.Equals(file.Hash, fileHash, StringComparison.OrdinalIgnoreCase))?.Paths.FirstOrDefault() is { } found
                 ? Path.GetFileName(found)
                 : null
-            : null;
+            : FolderNameOf(member, item);
 
         // unitypackage を記録していれば「名前 (zip名)」：主はパッケージで、zip は補足（メモ59・ユーザ決定 2026-10-05）。
         // 手元の一覧から zip を引けないときは、パッケージの名前だけ
@@ -558,6 +558,16 @@ internal sealed class ModificationRowBuilder(
             ? "どのファイルを使ったかは分かりません"
             : zipName ?? "使ったファイルの記録あり";
     }
+
+    /// <summary>
+    /// 登録したフォルダの中の物を送った記録なら、そのフォルダの名前（「名前 (フォルダ名)」の補足。zip の名前と同じ置き方。メモ65-③）。
+    /// 記録はハッシュを持たないので、包みの場所を記録しているフォルダで引く。
+    /// </summary>
+    private static string? FolderNameOf(ModificationMember member, ItemRecord? item)
+        => member.Package is { } package
+            && item?.Local.LocalFolders.FirstOrDefault(folder => (folder.UnityPackages ?? []).Contains(package, StringComparer.Ordinal)) is { } owner
+            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(owner.Path))
+            : null;
 
     public string? AvatarIconPath(string id)
         => AvatarImageSync.IconPath(services.Paths, id, items.GetValueOrDefault(id));

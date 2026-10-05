@@ -37,4 +37,15 @@ public sealed record LocalFolderRecord
     /// 計算では出せない（ディスクを見た結果）ので JSON に書く。
     /// </remarks>
     public DateTimeOffset? MissingSince { get; init; }
+
+    /// <summary>
+    /// 中の <c>.unitypackage</c> のフォルダからの場所（区切りは <c>/</c>。zip の中の場所と同じ書き方）。<see cref="FileCount"/> と同じく、数えるたびに書き直す（ユーザ判断 2026-10-05・メモ65-③）。
+    /// </summary>
+    /// <remarks>
+    /// 展開してあるので、Unity へ送る・Unityで選択はフォルダの中のファイルをそのまま使える。前は送る候補を zip の中からしか集めず、フォルダだけの商品は送れなかった。
+    /// **右クリックのメニューは開くたびに「送れる物があるか」を引く**ので、その場でフォルダの中を並べると、大きなフォルダや HDD で開くたびに待たされる。
+    /// 登録したときと取り込みの数え直しは、もともと中を全部並べている（<see cref="FileCount"/>）ので、同じ1回で拾って残す。
+    /// ディスクを見た結果で計算では出せないので JSON に書く。読むときは欠けていれば空。
+    /// </remarks>
+    public IReadOnlyList<string> UnityPackages { get; init; } = [];
 }

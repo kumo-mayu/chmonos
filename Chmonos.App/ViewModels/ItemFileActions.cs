@@ -248,7 +248,7 @@ internal static class ItemFileActions
         if (packages.Count == 0)
         {
             Services.Notice.Show(
-                $"「{item.DisplayName}」には、Unityに入れられるもの（zipの中の .unitypackage）が手元にありません。",
+                $"「{item.DisplayName}」には、Unityに入れられるもの（zipやフォルダの中の .unitypackage）が手元にありません。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return null;
         }

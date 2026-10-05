@@ -33,6 +33,7 @@ public sealed record ModificationMember
     ///
     /// 1つのzipに2つ入っているものが実データで2件あり、どちらも片方が依存物だった。
     /// これが無いと**どちらを入れたのか**が再現できない。手で足して選ばなかった分と、unitypackage の無いファイルを選んだ分は null。
+    /// 登録したフォルダの中の物を送った分は、<see cref="FileHash"/> が null のままここだけ入る（フォルダからの場所。メモ65-③。フォルダはハッシュを持たない）。
     /// </summary>
     public string? Package { get; init; }
 
@@ -51,8 +52,9 @@ public sealed record ModificationMember
     /// どのファイルを使ったかの記録があるか。空欄の意味を画面で言い分けるために見る。
     /// Unityへ送って入った分も、手で足すときに窓で選んだ分も同じに扱う（どちらも人が選んだファイルで、送るときも同じに使う。メモ26-②）
     /// </summary>
+    /// <remarks>登録したフォルダの中の物はハッシュが無く、包みの場所だけを持つ（<see cref="Package"/>）ので、それも記録ありと数える。</remarks>
     [JsonIgnore]
-    public bool HasFile => FileHash is not null;
+    public bool HasFile => FileHash is not null || Package is not null;
 }
 
 /// <summary>改変に貼った画像1枚。商品の <see cref="UserImage"/> と同じ持ち方。</summary>

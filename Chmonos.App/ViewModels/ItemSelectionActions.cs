@@ -52,7 +52,7 @@ internal static class ItemSelectionActions
         if (steps.Count == 0)
         {
             Services.Notice.Show(
-                "選んだ商品には、Unityへ送れるもの（zipの中の .unitypackage）が入っていませんでした。",
+                "選んだ商品には、Unityへ送れるもの（zipやフォルダの中の .unitypackage）が入っていませんでした。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
