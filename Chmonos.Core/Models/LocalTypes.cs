@@ -139,6 +139,14 @@ public sealed record Purchase
     /// <summary>誰に贈ったか、などの覚え書き。</summary>
     public string? Note { get; init; }
 
+    /// <summary>
+    /// この1回を買った（贈った・貰った）日。**空なら商品の日付（入手日）を使う**（決まりは <see cref="Services.PurchaseDates"/>）。
+    ///
+    /// 日付が商品に1つだと、後から別の種類を買い足した月が統計にも検索にも出ない（メモ45・ユーザ判断 2026-10-05）。
+    /// 空を推定で埋めない——ファイルの日付や商品の入手日を書き写すと、人が入れた日と見分けが付かなくなる。
+    /// </summary>
+    public DateOnly? PurchasedAt { get; init; }
+
     /// <summary>BOOTH側の現在のvariation一覧に存在するか。消えても記録は残し、統計の支出には含める。</summary>
     public bool ExistsOnBooth { get; init; } = true;
 

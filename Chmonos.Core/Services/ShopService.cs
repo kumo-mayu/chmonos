@@ -231,7 +231,8 @@ public sealed class ShopService : IShopService
                 && IsCounted(item))
             .Select(item =>
             {
-                var acquired = AcquiredDateResolver.Resolve(item);
+                // 商品を1つの日付で並べるので、代表の日付（最も早い購入。メモ45）
+                var acquired = PurchaseDates.ResolveEarliest(item);
 
                 return new ShopItem
                 {
@@ -300,9 +301,10 @@ public sealed class ShopService : IShopService
         var owned = counted.Where(IsOwned).ToList();
 
         // 入手日は商品ページと同じ求め方をする。ここだけ手入力に限ると、
-        // 商品ページには日付が出ているのに一覧では空、という食い違いが起きる
+        // 商品ページには日付が出ているのに一覧では空、という食い違いが起きる。
+        // 「最後に買った日」なので、買い足した購入の日付まで見て最も遅い物を採る（メモ45）
         var latest = owned
-            .Select(AcquiredDateResolver.Resolve)
+            .Select(PurchaseDates.ResolveLatest)
             .Where(acquired => acquired.HasValue)
             .OrderByDescending(acquired => acquired.Value)
             .FirstOrDefault();
