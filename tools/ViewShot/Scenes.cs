@@ -35,6 +35,7 @@ internal static partial class Scenes
         .. SortDividers,
         .. CardLists,
         .. CardInfo,
+        .. CardBadges,
         .. ShopScenes,
         .. ShopPerfScenes,
         .. FolderTree,
