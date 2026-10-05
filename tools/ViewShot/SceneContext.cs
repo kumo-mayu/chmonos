@@ -20,6 +20,9 @@ internal sealed class SceneContext
 {
     private readonly Stage _stage;
     private readonly ShotOptions _options;
+
+    // 作ってから StartAsync までが、場面が作り物を書いている時間
+    private readonly System.Diagnostics.Stopwatch _created = System.Diagnostics.Stopwatch.StartNew();
     private AppServiceContainer? _services;
     private MainViewModel? _main;
 
@@ -63,6 +66,8 @@ internal sealed class SceneContext
             return _main;
         }
 
+        Timing.Add("seed", _created.ElapsedMilliseconds);
+        var lap = System.Diagnostics.Stopwatch.StartNew();
         var settings = new AppSettings
         {
             ColorTheme = AppTheme.Current.Mode,
@@ -74,11 +79,18 @@ internal sealed class SceneContext
         _services = new AppServiceContainer();
         AppTheme.Initialize(_services);
         _main = new MainViewModel(_services);
+        Timing.Add("start", lap.ElapsedMilliseconds);
         return _main;
     }
 
     /// <summary>主の窓の中身（ナビ・今の画面・下の帯）。窓そのものは出さずに、中身だけを取り出す。</summary>
-    public FrameworkElement MainWindow() => Unwrap(new MainWindow { DataContext = Main });
+    public FrameworkElement MainWindow()
+    {
+        var lap = System.Diagnostics.Stopwatch.StartNew();
+        var window = Unwrap(new MainWindow { DataContext = Main });
+        Timing.Add("window", lap.ElapsedMilliseconds);
+        return window;
+    }
 
     /// <summary>
     /// 窓を出さずに、その中身を舞台に載せられる形で取り出す。
@@ -148,8 +160,10 @@ internal sealed class SceneContext
     /// <summary>舞台に載せて、最初の読み込みが落ち着くまで待つ。載せた後でないと、View は読み込みを始めない（Loaded で始める）。</summary>
     public async Task PresentAsync(FrameworkElement root)
     {
+        var lap = System.Diagnostics.Stopwatch.StartNew();
         _stage.Show(root, _options.Width ?? Scene.Width, _options.Height ?? Scene.Height);
         await _stage.SettleAsync();
+        Timing.Add("present", lap.ElapsedMilliseconds);
     }
 
     /// <summary>
@@ -164,7 +178,7 @@ internal sealed class SceneContext
         return _stage.Render();
     }
 
-    public Task SettleAsync() => _stage.SettleAsync();
+    public Task SettleAsync(TimeSpan? quietFor = null) => _stage.SettleAsync(quietFor: quietFor);
 
     public static Task UntilAsync(Func<bool> condition, string what) => Stage.UntilAsync(condition, what);
 

@@ -176,6 +176,10 @@ internal static partial class Scenes
 
         var file = Fake.PlainFile(@"ライブラリ\card-info.zip");
         var rng = new Random(20261004);
+
+        // 商品の JSON は1件ずつディスクまで書き切る（JsonStore）。画面のスレッドで順に待つと 2000 件で約20秒かかっていた（2026-10-05 に測った）。
+        // 裏のスレッドで 32 件ずつ並べて書く。乱数は全部ここ（呼ぶ側）で順に引くので、並べても中身は変わらない
+        var pending = new List<Task>();
         var day = new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.FromHours(9));
         for (var i = 0; i < count; i++)
         {
@@ -199,7 +203,10 @@ internal static partial class Scenes
             var size = (long)rng.Next(2, 900) * 1_000_000;
 
             var url = $"https://viewshot.invalid/{id}/1.png";
-            await context.Fake.ItemAsync(
+            var at = i;
+            var favorite = rng.Next(100) < 10;
+            var received = rng.Next(100) < 5;
+            pending.Add(Task.Run(() => context.Fake.ItemAsync(
                 id,
                 name,
                 record => record with
@@ -207,26 +214,33 @@ internal static partial class Scenes
                     Booth = record.Booth with { Images = [new BoothImage { OriginalUrl = url }] },
                     Local = record.Local with
                     {
-                        AcquiredAt = DateOnly.FromDateTime(day.AddDays(-i).Date),
+                        AcquiredAt = DateOnly.FromDateTime(day.AddDays(-at).Date),
                         LocalFiles = owned ? [Fake.FileRecord(file, size: size)] : [],
                         UserTags = assigned,
                         Attributes = rated,
-                        IsFavorite = rng.Next(100) < 10,
+                        IsFavorite = favorite,
                         Avatars = Enumerable.Range(0, avatarCount)
                             .Select(n => new AvatarLink { AvatarItemId = (99400001 + n).ToString(), Name = $"作り物アバター{n + 1}", Source = AvatarLinkSource.SupportSection })
                             .ToList(),
-                        Purchases = rng.Next(100) < 5
+                        Purchases = received
                             ? [new Purchase { VariationId = 1, Price = price, Kind = PurchaseKind.Received }]
                             : [new Purchase { VariationId = 1, Price = price }],
                     },
                 },
                 images: 0,
-                shop: shops[i % shops.Length]);
+                shop: shops[at % shops.Length])));
 
             // 絵は作り物と同じ場所・名前に写す（images: 0 で Fake には描かせない）
             var directory = context.Seed.Paths.ItemImagesDir(id);
             Directory.CreateDirectory(directory);
             File.Copy(Path.Combine(imageCache, $"{i % 40}.webp"), Path.Combine(directory, ImagePipeline.FileNameFor(url)), overwrite: true);
+            if (pending.Count >= 32)
+            {
+                await Task.WhenAll(pending);
+                pending.Clear();
+            }
         }
+
+        await Task.WhenAll(pending);
     }
 }

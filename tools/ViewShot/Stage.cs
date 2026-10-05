@@ -151,34 +151,99 @@ internal sealed class Stage : IDisposable
     /// 0.4秒変わらなければ終わりとする——裏の読み込みは数十msで届き、入力の保存の遅れ（0.8秒）のような長い待ちは見た目を変えない。
     /// 回り続ける部品（長さの無い進み具合の棒）があると揃わないので、上限で打ち切って「落ち着かなかった」と返す。
     /// </summary>
-    public async Task<bool> SettleAsync(TimeSpan? limit = null)
+    public static TimeSpan QuietSpan { get; set; } = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>
+    /// 前に落ち着いた絵から何も変わっていないときに、落ち着いたとみなす長さ。
+    /// 場面は「載せて待つ → 状態を作って待つ → 色ごとに待つ」と何度も待ち、そのたびに <see cref="QuietSpan"/> を使っていた。
+    /// 前に落ち着いた（<see cref="QuietSpan"/> 止まった）絵と同じ所から始まるなら、裏で動いていた物はもう出揃っている
+    /// </summary>
+    public static TimeSpan RepeatQuietSpan { get; set; } = TimeSpan.FromMilliseconds(150);
+
+    private byte[]? _lastSettled;
+
+    /// <param name="quietFor">落ち着いたとみなす長さを場面が決める（流しながら行を数える場面は、絵が出揃うのを待たなくてよい）。</param>
+    public async Task<bool> SettleAsync(TimeSpan? limit = null, TimeSpan? quietFor = null)
     {
+        using var lap = Timing.Settling();
         var deadline = Stopwatch.StartNew();
         var max = limit ?? TimeSpan.FromSeconds(8);
         var quiet = Stopwatch.StartNew();
         byte[]? previous = null;
+        var full = quietFor ?? QuietSpan;
+        var span = full;
 
         while (deadline.Elapsed < max)
         {
             await IdleAsync();
             var current = Pixels(Render());
+            MaskEndless(current);
+            if (previous is null && _lastSettled is not null && current.AsSpan().SequenceEqual(_lastSettled))
+            {
+                span = full < RepeatQuietSpan ? full : RepeatQuietSpan;
+            }
+
             if (previous is not null && current.AsSpan().SequenceEqual(previous))
             {
-                if (quiet.Elapsed >= TimeSpan.FromMilliseconds(400))
+                if (quiet.Elapsed >= span)
                 {
+                    _lastSettled = current;
                     return true;
                 }
             }
             else
             {
+                if (previous is not null)
+                {
+                    // 変わらなかった間がどれだけ続いた後に変わったか。落ち着いたとみなす長さを決める根拠に、場面ごとの最大を残す
+                    Timing.NoteBrokenQuiet(quiet.ElapsedMilliseconds);
+                }
+
+                // 一度でも変わったら、前に落ち着いた絵からは離れた。裏の読み込みを待つ長さに戻す
+                if (previous is not null)
+                {
+                    span = full;
+                }
+
                 quiet.Restart();
                 previous = current;
             }
 
-            await Task.Delay(50);
+            await Task.Delay(PollInterval);
         }
 
+        _lastSettled = null;
         return false;
+    }
+
+    /// <summary>描き直して比べる間隔。比べる1回（描画と画素の比較）が 20〜40ms かかるので、これより細かくしても揃うのは早まらない</summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(30);
+
+    /// <summary>
+    /// 長さの無い進み具合の棒（回り続ける）の所を、比べる画素から外す。
+    /// 外さないと揃うことがなく、その棒を出す場面は待ちの上限（8秒）を毎回使い切っていた（2026-10-05：3場面で計約80秒）。
+    /// 棒の位置は描いた瞬間で決まり、台では描けない物として扱う（docs/dev/ui-shots.md「描けない物」）
+    /// </summary>
+    private void MaskEndless(byte[] pixels)
+    {
+        var width = Math.Max(1, (int)Math.Ceiling(_frame.ActualWidth * _scale));
+        foreach (var bar in Look.All<ProgressBar>(_frame).Where(bar => bar.IsIndeterminate && bar.IsVisible))
+        {
+            if (BoundsOf(bar, 0) is not { } box)
+            {
+                continue;
+            }
+
+            for (var y = box.Y; y < box.Y + box.Height; y++)
+            {
+                var start = (y * width + box.X) * 4;
+                var length = Math.Min(box.Width * 4, pixels.Length - start);
+                if (start >= 0 && length > 0)
+                {
+                    Array.Clear(pixels, start, length);
+                }
+            }
+        }
     }
 
     /// <summary>画面のスレッドに溜まった仕事（並べ直し・結び付け・読み込みの続き）を全部流す。</summary>
@@ -206,6 +271,7 @@ internal sealed class Stage : IDisposable
 
     public BitmapSource Render()
     {
+        using var lap = Timing.Rendering();
         _root.UpdateLayout();
 
         var width = Math.Max(1, (int)Math.Ceiling(_frame.ActualWidth * _scale));
@@ -266,6 +332,7 @@ internal sealed class Stage : IDisposable
 
     public static void Save(BitmapSource image, string path)
     {
+        using var lap = Timing.Saving();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(image));
