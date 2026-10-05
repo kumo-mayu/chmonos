@@ -273,7 +273,7 @@ public class FolderRegistrationTests : IDisposable
         var after = (await _store.Items.LoadAsync("9900121"))!;
         Assert.False(Assert.Single(after.Local.LocalFiles).Detached);
         Assert.Empty(after.Local.LocalFolders);
-        Assert.True(after.IsDownloaded);
+        Assert.True(after.HasOwnedFiles);
     }
 
     /// <summary>除外した zip は、聞かずには付けない（画面が窓で聞いてから、除外を解除して付ける）。</summary>
