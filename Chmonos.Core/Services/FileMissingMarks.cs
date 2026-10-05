@@ -6,7 +6,11 @@ namespace Chmonos.Core.Services;
 /// <summary>
 /// ファイル1件について、ディスクを見た結果。<paramref name="Paths"/> は見たときの記録の場所（錠の中で今の場所と比べる）。
 /// </summary>
-public sealed record FileSighting(string Hash, IReadOnlyList<string> Paths, FilePresence Presence);
+/// <param name="Gone">
+/// 無いと確かめた場所。ほかの場所に在ると確かめたときだけ入れる（見回り。<see cref="FilePresenceProbe.Sight"/>）。
+/// 使おうとした画面の確かめは入れない（場所を外すのは見回りと取り込みだけ）。
+/// </param>
+public sealed record FileSighting(string Hash, IReadOnlyList<string> Paths, FilePresence Presence, IReadOnlyList<string>? Gone = null);
 
 /// <summary>
 /// ディスクを見た結果を、ファイルの記録の「見つからなくなった日時」（<see cref="LocalFileRecord.MissingSince"/>）に当てる
@@ -22,7 +26,11 @@ public static class FileMissingMarks
     ///   つながっていないドライブの上にしか場所が無い → 触らない（無くなったとは限らない）。
     /// - **見たときと今で場所が違うファイルには当てない。**見ている間に取り込みや「見つからないファイルを探す」が
     ///   場所を足し替えていれば、見た結果はもう今の場所のことではない（古い答えで「無い」と書くと、見つけた直後に印が戻る）。
-    /// - 書くのは日時だけで、場所・種類・外した印などほかの欄には触れない。
+    /// - 書くのは日時と、下の無いと確かめた場所だけ。種類・外した印などほかの欄には触れない。
+    /// - **ほかの場所に在ると確かめたファイルは、無いと確かめた場所を外す**（<see cref="FileSighting.Gone"/>・2026-10-05・点検の6）。
+    ///   同じ中身が2か所にあって片方を消すと、残った方が在るので取り込みの結び直しも <see cref="LocalFileMerger"/> も走らず、
+    ///   消した場所が記録に残り続けていた（統計の重複・空けられる量・商品ページの行の名前が消した方の名前のまま）。
+    ///   つながっていない・確かめられない場所は外さない。
     /// </remarks>
     public static IReadOnlyList<LocalFileRecord>? Apply(
         IReadOnlyList<LocalFileRecord> current,
@@ -40,7 +48,7 @@ public static class FileMissingMarks
         foreach (var file in current)
         {
             var next = byHash.TryGetValue(file.Hash, out var sighting) && SamePlaces(file.Paths, sighting.Paths)
-                ? Marked(file, sighting.Presence, now)
+                ? WithoutGone(Marked(file, sighting.Presence, now), sighting)
                 : file;
 
             changed |= !ReferenceEquals(next, file);
@@ -95,6 +103,18 @@ public static class FileMissingMarks
         FilePresence.Missing when file.MissingSince is null => file with { MissingSince = now },
         _ => file,
     };
+
+    /// <summary>ほかの場所に在ると確かめたときだけ、無いと確かめた場所を外す。在る場所は必ず1つ残る。</summary>
+    private static LocalFileRecord WithoutGone(LocalFileRecord file, FileSighting sighting)
+    {
+        if (sighting.Presence != FilePresence.Present || sighting.Gone is not { Count: > 0 } gone)
+        {
+            return file;
+        }
+
+        var kept = file.Paths.Where(path => !gone.Contains(path, StringComparer.OrdinalIgnoreCase)).ToList();
+        return kept.Count == file.Paths.Count || kept.Count == 0 ? file : file with { Paths = kept };
+    }
 
     private static bool SamePlaces(IReadOnlyList<string> current, IReadOnlyList<string> seen)
         => current.Count == seen.Count
@@ -208,6 +228,23 @@ public sealed class FilePresenceProbe
         return detached ? FilePresence.OnDetachedDrive
             : unverifiable ? FilePresence.Unverifiable
             : FilePresence.Missing;
+    }
+
+    /// <summary>
+    /// 見回りの見方：ファイルの場所を全部見て、在るかと、ほかの場所に在るときは無いと確かめた場所（<see cref="FileSighting.Gone"/>）を返す。
+    /// 1つ在れば在るので、そこで止めずに全部見る（同じ中身の片方を消した場所を見つけるため。点検の6）。
+    /// </summary>
+    public FileSighting Sight(LocalFileRecord file)
+    {
+        var places = file.Paths.Select(path => (Path: path, Presence: PlaceOf(path))).ToList();
+        var presence = places.Any(place => place.Presence == FilePresence.Present) ? FilePresence.Present
+            : places.Any(place => place.Presence == FilePresence.OnDetachedDrive) ? FilePresence.OnDetachedDrive
+            : places.Any(place => place.Presence == FilePresence.Unverifiable) ? FilePresence.Unverifiable
+            : FilePresence.Missing;
+        IReadOnlyList<string>? gone = presence == FilePresence.Present
+            ? [.. places.Where(place => place.Presence == FilePresence.Missing).Select(place => place.Path)]
+            : null;
+        return new FileSighting(file.Hash, file.Paths, presence, gone);
     }
 
     /// <summary>
