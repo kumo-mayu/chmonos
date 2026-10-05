@@ -54,15 +54,27 @@ public sealed class FolderWatch
 
         var newFiles = new List<string>();
         var seenFolders = new List<string>();
+        var missingFolders = new List<string>();
+
+        // ドライブの根は1回だけ・打ち切り付きで見る（落ちた共有で起動の裏を長く止めない。見回りと同じ部品）
+        var probe = new Services.FilePresenceProbe();
 
         foreach (var folder in folders)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!Directory.Exists(folder))
+            var presence = probe.OfFolder(folder);
+            if (presence != Services.FilePresence.Present)
             {
                 // 外付けを外している間は「増えていない」と見なす。
-                // 消えたことにして監視から外すと、つなぎ直したときに戻す手が要る
+                // 消えたことにして監視から外すと、つなぎ直したときに戻す手が要る。
+                // ドライブは在ってフォルダだけが無い（名前を変えた・移した）なら、待っても戻らないので言う
+                // （見つからない・移動の点検 9・2026-10-05。前は外付けと同じに黙っていた）。監視からは外さない
+                if (presence == Services.FilePresence.Missing)
+                {
+                    missingFolders.Add(folder);
+                }
+
                 continue;
             }
 
@@ -85,7 +97,7 @@ public sealed class FolderWatch
             }
         }
 
-        return new WatchResult { Folders = seenFolders, NewFiles = newFiles };
+        return new WatchResult { Folders = seenFolders, NewFiles = newFiles, MissingFolders = missingFolders };
     }
 
     /// <summary>商品に紐付けたフォルダ。その中はもう管理済みなので、増えたとは数えない。</summary>
@@ -107,4 +119,7 @@ public sealed class WatchResult
     public required IReadOnlyList<string> NewFiles { get; init; }
 
     public bool HasNew => NewFiles.Count > 0;
+
+    /// <summary>ドライブはつながっているのに見つからない監視フォルダ（名前を変えた・移した）。外付けを外している物は入らない。</summary>
+    public IReadOnlyList<string> MissingFolders { get; init; } = [];
 }

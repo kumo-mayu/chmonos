@@ -70,6 +70,23 @@ public class MissingFileFinderTests : IDisposable
         return path;
     }
 
+    /// <summary>
+    /// ドライブは在るのに監視フォルダが無い（名前を変えた・移した）なら、外付けを外しているのとは分けて返す
+    /// （見つからない・移動の点検 9。前はどちらも「つながっていない」に数えていた）。
+    /// </summary>
+    [Fact]
+    public async Task 名前を変えた監視フォルダはつながっていないとは数えない()
+    {
+        var path = await SaveItemWithFileAsync("9900301", "衣装.zip", "なかみ");
+        File.Delete(path);
+        var renamed = Path.Combine(_root, "名前を変える前");
+
+        var result = await _finder.FindAsync([renamed]);
+
+        Assert.Empty(result.Unreachable);
+        Assert.Equal([renamed], result.NotFoundFolders);
+    }
+
     [Fact]
     public async Task RelinksAFileThatMovedWithinTheWatchedFolder()
     {
@@ -122,9 +139,12 @@ public class MissingFileFinderTests : IDisposable
         var path = await SaveItemWithFileAsync("111", "衣装.zip", "なかみ");
         File.Delete(path);
 
-        var result = await _finder.FindAsync([Path.Combine(_root, "外付け")]);
+        // ドライブが無い場所にする。ドライブが在ってフォルダだけ無いのは「見つからない」の方（見つからない・移動の点検 9）
+        var offline = Path.Combine(UnresolvedMergeTests.MissingVolumeFolder(), "外付け");
+        var result = await _finder.FindAsync([offline]);
 
-        Assert.Equal(Path.Combine(_root, "外付け"), Assert.Single(result.Unreachable));
+        Assert.Equal(offline, Assert.Single(result.Unreachable));
+        Assert.Empty(result.NotFoundFolders);
         Assert.Equal(0, result.Relinked);
     }
 

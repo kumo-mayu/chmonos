@@ -70,6 +70,21 @@
                     </DockPanel>
                 </Border>
 
+                <!--
+                    ドライブは在るのに見つからない監視フォルダ（名前を変えた・移した）。外付けを外しているのと違い待っても戻らないので言う
+                    （見つからない・移動の点検 9・2026-10-05。前は外付けと同じに黙っていた）。外すのは下の監視の一覧から
+                -->
+                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                        BorderThickness="1" CornerRadius="6" Padding="18,12" Margin="0,16,0,0"
+                        Visibility="{Binding Main.HasWatchedMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Main.WatchedMissingText}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource Warn}"
+                                   TextWrapping="Wrap" AutomationProperties.AutomationId="ImportWatchedMissingText" />
+                        <TextBlock Text="名前を変えたか移したなら、監視から外して新しい場所をドロップしてください。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
+                </Border>
+
                 <!-- 対象フォルダ -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>

@@ -61,6 +61,23 @@ public class FolderWatchTests : IDisposable
         await _store.ScanCache.SaveAsync(cache);
     }
 
+    /// <summary>
+    /// ドライブは在るのに監視フォルダが無い（名前を変えた・移した）なら、見つからない物として返す。
+    /// 外付けを外しているのと違い待っても戻らないので、画面が言う（見つからない・移動の点検 9。前は黙っていた）。
+    /// </summary>
+    [Fact]
+    public async Task 名前を変えた監視フォルダを見つからない物として返す()
+    {
+        WriteFile("衣装_1.00.zip");
+        var renamed = Path.Combine(_root, "名前を変える前");
+
+        var result = await _watch.FindNewAsync([_watched, renamed]);
+
+        Assert.Equal([renamed], result.MissingFolders);
+        Assert.Equal([_watched], result.Folders);
+        Assert.Single(result.NewFiles);
+    }
+
     [Fact]
     public async Task FindsAFileThatWasNeverScanned()
     {
@@ -172,10 +189,13 @@ public class FolderWatchTests : IDisposable
     [Fact]
     public async Task SkipsAFolderThatIsNotThereRightNow()
     {
-        var result = await _watch.FindNewAsync([Path.Combine(_root, "外付け")]);
+        var result = await _watch.FindNewAsync([Path.Combine(UnresolvedMergeTests.MissingVolumeFolder(), "外付け")]);
 
         Assert.False(result.HasNew);
         Assert.Empty(result.Folders);
+
+        // 外付けを外しているだけなので「見つからない」とも言わない（名前を変えた物とは分ける・見つからない・移動の点検 9）
+        Assert.Empty(result.MissingFolders);
     }
 
     [Fact]

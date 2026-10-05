@@ -168,7 +168,7 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 Core.Commands.CommandResult.MissingFilesSearched { Result.MissingBefore: 0 } =>
                     "見つからないファイルはありませんでした。",
-                Core.Commands.CommandResult.MissingFilesSearched found => Describe(found.Result),
+                Core.Commands.CommandResult.MissingFilesSearched found => MissingSearchSummary(found.Result),
                 Core.Commands.CommandResult.Failed failed => failed.Message,
                 _ => string.Empty,
             };
@@ -188,29 +188,38 @@ public sealed class ImportViewModel : ViewModelBase
             _isFindingMissing = false;
             RelayCommand.RaiseCanExecuteChanged();
         }
+    }
 
-        static string Describe(Core.Services.MissingFileSearchResult result)
+    /// <summary>「見つからないファイルを探す」の結果の文。</summary>
+    internal static string MissingSearchSummary(Core.Services.MissingFileSearchResult result)
+    {
+        var parts = new List<string>
         {
-            var parts = new List<string>
-            {
-                result.Relinked > 0
-                    ? $"{result.Relinked} 件を新しい場所に紐付け直しました"
-                    : "紐付け直せたものはありませんでした",
-            };
+            result.Relinked > 0
+                ? $"{result.Relinked} 件を新しい場所に紐付け直しました"
+                : "紐付け直せたものはありませんでした",
+        };
 
-            if (result.StillMissing > 0)
-            {
-                parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした。"
-                    + "移した先を監視フォルダに追加してから、もう一度押してください");
-            }
-
-            if (result.Unreachable.Count > 0)
-            {
-                parts.Add($"{result.Unreachable.Count} 個のフォルダはつながっていないため探せませんでした");
-            }
-
-            return string.Join("。", parts) + "。";
+        if (result.StillMissing > 0)
+        {
+            parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした。"
+                + "移した先を監視フォルダに追加してから、もう一度押してください");
         }
+
+        if (result.Unreachable.Count > 0)
+        {
+            parts.Add($"{result.Unreachable.Count} 個のフォルダはつながっていないため探せませんでした");
+        }
+
+        // ドライブは在ってフォルダだけが無い（名前を変えた・移した）。つないでも直らないので、外付けとは分けて言う
+        // （見つからない・移動の点検 9・2026-10-05）
+        if (result.NotFoundFolders.Count > 0)
+        {
+            parts.Add($"{result.NotFoundFolders.Count} 個のフォルダは見つからないため探せませんでした。"
+                + "名前を変えたか移したなら、新しい場所を監視フォルダに追加してください");
+        }
+
+        return string.Join("。", parts) + "。";
     }
 
     /// <summary>履歴から消す。フォルダとファイルには触らない。</summary>
