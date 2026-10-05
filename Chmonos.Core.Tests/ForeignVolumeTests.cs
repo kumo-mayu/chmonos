@@ -1,3 +1,4 @@
+using Chmonos.Core.Images;
 using Chmonos.Core.Models;
 using Chmonos.Core.Scanning;
 using Chmonos.Core.Services;
@@ -118,6 +119,84 @@ public sealed class ForeignVolumeTests : IDisposable
         var file = await OnlyFileAsync();
         Assert.Equal([gone], file.Paths);
         Assert.Null(file.MissingSince);
+    }
+
+    /// <summary>取り込み元に、商品が持つのと同じ中身を置く（手掛かりが無いので、同じ中身を持つ商品へ場所を足す道を通る）。</summary>
+    private async Task<(string Copy, string Gone)> OwnedCopyInWatchedAsync()
+    {
+        var copy = Path.Combine(_watched, "説明書.pdf");
+        await File.WriteAllTextAsync(copy, "作り物の説明書");
+        var gone = Gone("説明書.pdf");
+        await SaveAsync(new LocalFileRecord
+        {
+            Hash = await FileHasher.ComputeSha256Async(copy),
+            Paths = [gone],
+            SizeBytes = new FileInfo(copy).Length,
+        });
+        return (copy, gone);
+    }
+
+    private async Task ImportAsync(VolumeTable? volumes = null, MissingMarksSweep? sweep = null)
+    {
+        var client = new OffUiThreadTests.OfflineClient();
+        var settings = new AppSettings { SaveImages = false };
+        await new ImportPipeline(
+                _store, client, new ImagePipeline(client, _store.Paths, settings), () => settings,
+                volumes: volumes, missingMarks: sweep)
+            .RunAsync(new ImportWorkSet([_watched]));
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Fact]
+    public async Task 控えた文字に別のディスクが来ている間は_取り込みが同じ中身の場所を足しても_その文字の上の場所を外さない()
+    {
+        var (copy, gone) = await OwnedCopyInWatchedAsync();
+
+        // 取り込み元の文字を控え直すのは周回の頭の見方を作った後。その写しで見分けるので、この周回では外さない
+        await ImportAsync(volumes: await TableAsync(SerialA, SerialB));
+
+        var file = await OnlyFileAsync();
+        Assert.Equal([gone, copy], file.Paths);
+        Assert.Null(file.MissingSince);
+    }
+
+    [Fact]
+    public async Task 取り込みが同じ中身の場所を足すとき_消えた場所は外す()
+    {
+        var (copy, _) = await OwnedCopyInWatchedAsync();
+
+        await ImportAsync(volumes: await TableAsync(SerialA, SerialA));
+
+        Assert.Equal([copy], (await OnlyFileAsync()).Paths);
+    }
+
+    /// <summary>
+    /// 取り込みが場所を外すかは見回りと同じ見方で決める（点検の12）。前は場所ごとに打ち切りなしで File.Exists と根の Directory.Exists を
+    /// 呼んでいて、揺れる共有で根の答えが一瞬外れると、その上の場所を外していた。根が答えない見方（待つ長さ0）で、時計に頼らず打ち切らせる。
+    /// </summary>
+    [Fact]
+    public async Task 取り込みは根が答えないドライブの上の場所を外さない()
+    {
+        var (copy, gone) = await OwnedCopyInWatchedAsync();
+        var never = new TaskCompletionSource();
+        var sweep = new MissingMarksSweep(_store, () => new FilePresenceProbe(
+            rootExists: _ =>
+            {
+                never.Task.Wait();
+                return true;
+            },
+            rootWait: TimeSpan.Zero));
+
+        try
+        {
+            await ImportAsync(sweep: sweep);
+        }
+        finally
+        {
+            never.TrySetResult();
+        }
+
+        Assert.Equal([gone, copy], (await OnlyFileAsync()).Paths);
     }
 
     [Fact]
