@@ -4,6 +4,7 @@ using Chmonos.App.Services;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Diagnostics;
 using Chmonos.Core.Models;
+using Chmonos.Core.Search;
 using Chmonos.Core.Services;
 using Chmonos.Core.Storage;
 
@@ -35,15 +36,16 @@ internal sealed class TestApp
 
         var paths = new AppPaths(Path.Combine(root, "store"));
         paths.EnsureCreated();
-        SeedKanjiCache(paths);
 
         // 待たない：相手が作り物なので、1.5秒ずつ空ける意味が無い（空けると一式が分単位になる）。
-        // 一時展開の掃除はしない：場所が利用者の一時フォルダで、隣で動いているアプリの分まで消す
+        // 一時展開の掃除はしない：場所が利用者の一時フォルダで、隣で動いているアプリの分まで消す。
+        // 漢字の読みの表は一式で使い回す（SharedKanjiReadings）
         Services = new AppServiceContainer(
             paths,
             Booth,
             (_, _) => Task.CompletedTask,
-            cleanUpTemporaryUnpacks: false)
+            cleanUpTemporaryUnpacks: false,
+            kanjiReadings: SharedKanjiReadings.Value)
         {
             // 実マシンに Unity Hub・VCC・ALCOM が入っているかで結果を変えない。要る試験が入れ直す
             DetectUnityTools = () => Tools,
@@ -265,6 +267,9 @@ internal sealed class TestApp
         }
 
         AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDelete(RunRoot);
+
+        // 全件の読み込みの後などに頼む詰め直し（止めて GC する）を、試験では走らせない（MemoryTrim.Enabled に理由）
+        MemoryTrim.Enabled = false;
     }
 
     private static void TryDelete(string directory)
@@ -292,39 +297,16 @@ internal sealed class TestApp
     }
 
     /// <summary>
-    /// 漢字の読みの表の控え。最初の試験が組んだ物を、後の試験の保存先へ写す。
+    /// 漢字の読みの表。一式（プロセス1つ）で1つを組み、全部の試験のアプリに渡す。
     ///
-    /// 検索の読み込みは商品名の読みを作るのにこの表を使い、控えが無ければ同梱の辞書から組む。
-    /// 控えは保存先の中に置かれるので、保存先を試験ごとに作ると毎回組み直しになり、一式の時間のほとんどがこれだった
-    /// （2026-09-30 に測った：主画面を作って検索が済むまで 171〜216ms → 写した控えがあれば 20〜38ms）。
-    /// 控えは元の辞書の大きさと日時で確かめてから使われるので、写しても古い物が使われることは無い
+    /// 検索の読み込みは商品名の読みを作るのにこの表を使う。保存先ごとに持たせると、試験のたびに組み直しになる：
+    /// 同梱の辞書から組むと1回 約0.3秒（2026-09-30。一式の時間のほとんどがこれだった）、
+    /// 控えを保存先へ写して読んでも1回 約16ms・4MB（2026-10-05：商品を置く試験 361件で 5.8秒、割り当ての大半）。
+    /// 表は読んだ後に書き換えないので、保存先が違っても同じ物を使える。
+    /// 控えは持たせない：組むのは一式で1回だけで、控えを読むのと差が無い
     /// </summary>
-    private static readonly string SharedKanjiCache = Path.Combine(RunRoot, "kanji-readings.cache");
-
-    private static void SeedKanjiCache(AppPaths paths)
-    {
-        if (File.Exists(SharedKanjiCache))
-        {
-            File.Copy(SharedKanjiCache, paths.KanjiReadingsCacheFile, overwrite: true);
-        }
-    }
-
-    /// <summary>組んだ控えを、次の試験のために取っておく。</summary>
-    private void KeepKanjiCache()
-    {
-        var built = Services.Paths.KanjiReadingsCacheFile;
-        try
-        {
-            if (File.Exists(built) && !File.Exists(SharedKanjiCache))
-            {
-                File.Copy(built, SharedKanjiCache, overwrite: true);
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // 写せなくても試験は通る（次の試験が組み直すだけ）
-        }
-    }
+    private static readonly Lazy<KanjiReadings> SharedKanjiReadings = new(
+        () => new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz")));
 
     private async Task StopAsync(bool passed)
     {
@@ -352,7 +334,6 @@ internal sealed class TestApp
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();
-            KeepKanjiCache();
             TryDelete(Root);
         }
     }

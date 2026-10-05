@@ -38,10 +38,17 @@ public static class MemoryTrim
     private static long _privateBytesAfterLastRun;
     private static DispatcherTimer? _pending;
 
+    /// <summary>
+    /// 頼まれたら詰め直すか。アプリでは常に true。**試験だけが切る**（<c>TestApp</c>）：
+    /// 試験の一式は1つのプロセスで千件を走らせ、ヒープが数百MBになるので、詰め直しが1回 約0.2秒かかり、
+    /// 一式で7回・約1.5秒を足していた（2026-10-05 に測った）。どの試験も詰め直した結果を確かめていない
+    /// </summary>
+    internal static bool Enabled { get; set; } = true;
+
     /// <summary>UIスレッドから呼ぶ。既に予約があれば何もしない。</summary>
     public static void Request()
     {
-        if (_pending is not null || Application.Current?.Dispatcher is not { } dispatcher)
+        if (!Enabled || _pending is not null || Application.Current?.Dispatcher is not { } dispatcher)
         {
             return;
         }

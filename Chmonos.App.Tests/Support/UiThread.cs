@@ -126,19 +126,39 @@ internal static class UiThread
     /// <summary>
     /// 名指しした条件が成り立つまで待つ。画面のスレッドを空けながら回る。
     /// 時間で結果が変わる試験にしないよう、**待つのは「済んだか」だけ**にする（何秒で済むかは確かめない）。
-    /// 10秒は「来ない」と決める長さで、普通は数十ミリ秒で抜ける
+    /// 10秒は「来ない」と決める長さで、普通は数ミリ秒で抜ける
     /// </summary>
     public static async Task Until(Func<bool> condition, string what)
     {
-        var deadline = Environment.TickCount64 + 10_000;
+        var started = Environment.TickCount64;
+        var deadline = started + 10_000;
         while (!condition())
         {
-            if (Environment.TickCount64 > deadline)
+            var now = Environment.TickCount64;
+            if (now > deadline)
             {
                 throw new TimeoutException($"待っても成り立ちませんでした：{what}");
             }
 
-            await Task.Delay(10);
+            if (now - started < SpinFor && Dispatcher.FromThread(Thread.CurrentThread) is not null)
+            {
+                await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            }
+            else
+            {
+                await Task.Delay(10);
+            }
         }
     }
+
+    /// <summary>
+    /// <see cref="Until"/> が、時計を使わずに画面のスレッドの列を回すだけで待つ長さ（ミリ秒）。
+    ///
+    /// **<c>Task.Delay(10)</c> は Windows では 10ms ではなく、時計の刻み（約15.6ms）まで延びる。**裏の読み込みは数ミリ秒で済むのに、
+    /// 1回待つたびに1刻みを払い、主画面を作るたび・押すたびの <see cref="Settle"/> に積もっていた
+    /// （2026-10-05：一式 約43秒のうち 約14秒。試験ごとの最小の合計で 35.7→21.7秒）。他の担当が CPU を使っていると刻みはさらに延び、
+    /// 同じ一式が 38秒から2分半まで揺れた。列を回すだけなら、他の仕事が終わった次の周で抜ける。
+    /// 待つ物が裏で本当に時間のかかる作業のときに CPU を回し続けないよう、この長さを過ぎたら時計で待つ
+    /// </summary>
+    private const long SpinFor = 200;
 }

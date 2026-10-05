@@ -66,7 +66,9 @@ public class MissingMarksSweepTests
     [Fact]
     public Task 多くの商品が変わったら_全件を読み直して印を付ける() => TestApp.Run(async app =>
     {
-        var count = MainViewModel.SweepNoteOneByOneLimit + 1;
+        // 上限は小さくして超える（アプリの上限 50 のまま51件を置くと、置いて書き直すだけで1件 約1.2秒かかった。2026-10-05）
+        const int limit = 2;
+        var count = limit + 1;
         for (var i = 0; i < count; i++)
         {
             var id = (1000001 + i).ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -74,6 +76,7 @@ public class MissingMarksSweepTests
         }
 
         var main = await app.StartAsync();
+        main.SweepNoteOneByOneLimit = limit;
         Assert.DoesNotContain(main.Search.ListItems, card => card.HasMissingFile);
 
         main.StartMissingMarksSweep();
