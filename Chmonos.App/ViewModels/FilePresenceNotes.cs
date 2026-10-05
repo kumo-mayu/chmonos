@@ -18,14 +18,20 @@ namespace Chmonos.App.ViewModels;
 internal static class FilePresenceNotes
 {
     /// <summary>ファイルを今見る。ディスクを見るので画面のスレッドの外で（落ちたネットワークドライブで待たされないように）。</summary>
-    public static Task<IReadOnlyList<FileSighting>> LookAsync(IReadOnlyList<LocalFileRecord> files)
-        => Task.Run(() => Look(files));
+    /// <param name="remap">記録のパスを今の場所にする（ドライブ文字が変わった分。<see cref="VolumeTable.Current"/>）。</param>
+    public static Task<IReadOnlyList<FileSighting>> LookAsync(IReadOnlyList<LocalFileRecord> files, Func<string, string> remap)
+        => Task.Run(() => Look(files, remap));
 
-    /// <summary>画面のスレッドの外で呼ぶ。ドライブごとに1回だけつながっているかを見る（<see cref="FilePresenceProbe"/>）。</summary>
-    public static IReadOnlyList<FileSighting> Look(IReadOnlyList<LocalFileRecord> files)
+    /// <summary>
+    /// 画面のスレッドの外で呼ぶ。ドライブごとに1回だけつながっているかを見る（<see cref="FilePresenceProbe"/>）。
+    /// **見るのは読み替えた後の場所**（フォルダビュー・検索と同じ答えにする。読み替えないと、ドライブ文字が変わった商品だけ
+    /// 「取り外しているドライブ」と出て開けなかった。file-lifecycle.md「気になった所」2）。
+    /// 返す見た結果の場所は記録のまま（書く側が、見てから書くまでに場所が変わっていないかを記録と突き合わせるため）。
+    /// </summary>
+    public static IReadOnlyList<FileSighting> Look(IReadOnlyList<LocalFileRecord> files, Func<string, string> remap)
     {
         var probe = new FilePresenceProbe();
-        return [.. files.Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file.Paths)))];
+        return [.. files.Select(file => new FileSighting(file.Hash, file.Paths, probe.Of([.. file.Paths.Select(remap)])))];
     }
 
     /// <summary>
@@ -62,5 +68,5 @@ internal static class FilePresenceNotes
     /// <summary>商品のファイルを見て、食い違えば書く（開く・送るが「無かった」ときの道）。</summary>
     public static async Task<ItemRecord?> LookAndNoteAsync(
         AppServiceContainer services, ItemRecord item, IReadOnlyList<LocalFileRecord> files)
-        => files.Count == 0 ? null : await NoteAsync(services, item, await LookAsync(files));
+        => files.Count == 0 ? null : await NoteAsync(services, item, await LookAsync(files, services.Volumes.Current));
 }

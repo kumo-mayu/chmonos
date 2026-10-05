@@ -159,7 +159,7 @@
                                                                 Command="{Binding DataContext.OpenInExplorerCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 AutomationProperties.AutomationId="ItemFolderName"
-                                                                CommandParameter="{Binding Path}" />
+                                                                CommandParameter="{Binding OpenPath}" />
                                                         <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
                                                                    Margin="0,0,8,0" VerticalAlignment="Center" />
                                                         <!-- 開く操作は名前のすぐ横に（ファイルの行と同じ形。ユーザ判断 2026-09-19） -->
@@ -171,7 +171,7 @@
                                                                 ToolTip="このフォルダの開き方を選びます">
                                                             <Button.ContextMenu>
                                                                 <ContextMenu>
-                                                                    <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding Path}"
+                                                                    <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding OpenPath}"
                                                                               AutomationProperties.AutomationId="ItemFolderOpenMenu.Explorer"
                                                                               Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 </ContextMenu>
