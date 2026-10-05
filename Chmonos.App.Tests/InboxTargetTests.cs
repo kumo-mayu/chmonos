@@ -147,6 +147,29 @@ public class InboxTargetTests
     });
 
     [Fact]
+    public Task 指した商品が_商品ページの変更の束に無ければ_印のある最初の束へ送る() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(Target, "作り物の衣装"));
+        await app.AddItemAsync(Make.Item(Other, "作り物の髪"));
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(Record("up-other", NotificationKind.ItemUpdated, Other, 1));
+            list.Add(Record("back-target", NotificationKind.ItemBackOnBooth, Target, 5));
+            return list;
+        });
+
+        var main = await app.StartAsync();
+        var inbox = new InboxViewModel(app.Services, main, Target);
+        inbox.UnreadOnly = false;
+        await app.SettleAsync();
+        await UiThread.Until(() => inbox.FocusLine is not null, "送り先が決まる");
+
+        var head = Assert.IsType<InboxHeadLine>(inbox.FocusLine);
+        Assert.Equal(NotificationKind.ItemBackOnBooth, head.Group.Kind);
+        Assert.True(head.Group.IsExpanded);
+    });
+
+    [Fact]
     public Task 送り先は_商品ページの変更の束の見出しで_畳んであれば開く() => TestApp.Run(async app =>
     {
         // 畳んだ状態は種類ごとにアプリを閉じるまで覚えるので、先に畳んでおく

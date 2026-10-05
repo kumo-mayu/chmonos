@@ -159,6 +159,34 @@ public class BrokenItemRecordTests : IDisposable
     // ---- 知らせる ----
 
     [Fact]
+    public async Task 控えが無いか読めないときだけ_題は商品IDのファイル名になる()
+    {
+        await _store.Items.SaveAsync(Item(ItemId, "メモ"));
+        await _store.Items.SaveAsync(Item(OtherId, "メモ"));
+        Break(ItemId);
+        Break(OtherId);
+        File.Delete(_paths.ItemCopyFile(ItemId));
+        await File.WriteAllTextAsync(_paths.ItemCopyFile(OtherId), "{ 壊れた控え");
+
+        await _notifications.DetectUnreadableItemsAsync();
+
+        Assert.Equal($"{ItemId}.json", NoticeOf(ItemId)!.Title);
+        Assert.Equal($"{OtherId}.json", NoticeOf(OtherId)!.Title);
+        Assert.Empty(NoticeOf(ItemId)!.Diffs);
+    }
+
+    [Fact]
+    public async Task 表示名があれば_題は表示名になる()
+    {
+        await _store.Items.SaveAsync(Item(ItemId, "メモ") with { Local = new LocalBlock { Memo = "メモ", DisplayName = "作り物の呼び名" } });
+        Break(ItemId);
+
+        await _notifications.DetectUnreadableItemsAsync();
+
+        Assert.Equal("作り物の呼び名", NoticeOf(ItemId)!.Title);
+    }
+
+    [Fact]
     public async Task 壊れた記録は_何行目かを添えて1商品1件の知らせになり_直ると解消済みになる()
     {
         await _store.Items.SaveAsync(Item(ItemId, "メモ"));
@@ -170,7 +198,10 @@ public class BrokenItemRecordTests : IDisposable
         var notice = NoticeOf(ItemId);
         Assert.NotNull(notice);
         Assert.Equal(NotificationKind.UnreadableItem, notice!.Kind);
-        Assert.Equal($"{ItemId}.json", notice.Title);
+        Assert.Equal("作り物の商品", notice.Title);
+        Assert.Equal(["壊れている場所", "ファイル"], notice.Diffs.Select(diff => diff.Field));
+        Assert.Equal($"{ItemId}.json", notice.Diffs[1].After);
+        Assert.DoesNotContain(ItemId, notice.Title);
         Assert.Equal("壊れている場所：4 行目", notice.Detail);
         Assert.Null(NoticeOf(OtherId));
 

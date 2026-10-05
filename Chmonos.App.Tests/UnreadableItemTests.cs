@@ -38,7 +38,7 @@ public class UnreadableItemTests
         await app.SettleAsync();
 
         var notice = Assert.Single(app.Services.Notifications.Load(), record => record.Kind == NotificationKind.UnreadableItem);
-        Assert.Equal($"{ItemId}.json", notice.Title);
+        Assert.Equal("作り物の衣装", notice.Title);
         Assert.Equal("壊れている場所：4 行目", notice.Detail);
         Assert.Empty(app.Booth.Requests);
     });

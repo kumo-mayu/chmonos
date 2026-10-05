@@ -496,6 +496,7 @@ public sealed class NotificationService : INotificationService
                 foreach (var (id, failure) in broken)
                 {
                     var detail = UnreadableDetail(failure.Line);
+                    var name = _store.Items.ReadCopyName(failure.ItemId);
                     var existing = records.FindIndex(record => record.Id == id);
                     if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
                     {
@@ -511,8 +512,9 @@ public sealed class NotificationService : INotificationService
                     {
                         Id = id,
                         Kind = NotificationKind.UnreadableItem,
-                        Title = $"{failure.ItemId}.json",
+                        Title = name ?? $"{failure.ItemId}.json",
                         Detail = detail,
+                        Diffs = name is null ? [] : UnreadableCards(failure.ItemId, failure.Line),
                         CreatedAt = DateTimeOffset.Now,
                         IsStrong = true,
                     });
@@ -530,6 +532,20 @@ public sealed class NotificationService : INotificationService
     /// <summary>行の札（「見出し：中身」）。何行目かは JSON の読み取りが止まった行で、エディタで開いて探す目印になる。</summary>
     internal static string UnreadableDetail(long? line)
         => line is { } number ? $"壊れている場所：{number} 行目" : "壊れている内容：中身が空です";
+
+    /// <summary>
+    /// 題が商品名のとき、手で直す人がファイルを探せるよう、札にファイル名を並べる（題には ID を出さない）。
+    /// 札は変化の形（<see cref="NotificationDiff"/>）で持つ。Detail は札を持たない知らせの代わりなので、変化があればそちらは札に使われない。
+    /// </summary>
+    private static List<NotificationDiff> UnreadableCards(string itemId, long? line)
+    {
+        var parts = UnreadableDetail(line).Split('：', 2);
+        return
+        [
+            new NotificationDiff { Field = parts[0], After = parts.Length > 1 ? parts[1] : string.Empty },
+            new NotificationDiff { Field = "ファイル", After = $"{itemId}.json" },
+        ];
+    }
 
     private List<NotificationRecord> Pruned(List<NotificationRecord> records)
     {
