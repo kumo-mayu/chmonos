@@ -109,11 +109,10 @@
                                                 <MenuItem Header="取り込み対象から外す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveFolder" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
-                                        <Grid>
-                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                                        <DockPanel>
                                             <!-- 消すのは一覧からの登録だけで、ファイルには触らない。語も「外す」に揃える（V4・W の語彙） -->
                                             <!-- 行の数だけ並ぶので、どのフォルダのボタンかを名前に入れる -->
-                                            <Button Content="対象から外す" Style="{StaticResource DangerButton}" MinWidth="88" Height="27" HorizontalAlignment="Right"
+                                            <Button DockPanel.Dock="Right" Content="対象から外す" Style="{StaticResource DangerButton}" MinWidth="88" Height="27" Margin="8,0,0,0"
                                                     AutomationProperties.AutomationId="ImportFolderRemove"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を対象から外す}"
                                                     FontSize="12"
@@ -121,7 +120,18 @@
                                                     Command="{Binding DataContext.RemoveFolderCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                        </Grid>
+                                            <!-- 右クリックの「エクスプローラで開く」と同じ命令（基本の操作は右クリックと画面の両方に置く・ユーザ判断 2026-10-06） -->
+                                            <Button DockPanel.Dock="Right" Content="エクスプローラで開く" MinWidth="112" Height="27" Margin="8,0,0,0"
+                                                    AutomationProperties.AutomationId="ImportRowReveal"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
+                                                    FontSize="12"
+                                                    ToolTip="このフォルダをエクスプローラで開きます。見つからないときは、そう知らせます。"
+                                                    Command="{Binding DataContext.RevealFolderCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -280,9 +290,8 @@
                                                 <MenuItem Header="監視から外す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveWatched" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
-                                        <Grid>
-                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                                            <Button Content="外す" Style="{StaticResource DangerButton}" Width="60" Height="27" HorizontalAlignment="Right"
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="外す" Style="{StaticResource DangerButton}" Width="60" Height="27" Margin="8,0,0,0"
                                                     AutomationProperties.AutomationId="ImportWatchedRemove"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を監視から外す}"
                                                     FontSize="12"
@@ -290,7 +299,17 @@
                                                     Command="{Binding DataContext.RemoveWatchedCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                        </Grid>
+                                            <Button DockPanel.Dock="Right" Content="エクスプローラで開く" MinWidth="112" Height="27" Margin="8,0,0,0"
+                                                    AutomationProperties.AutomationId="ImportRowReveal"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
+                                                    FontSize="12"
+                                                    ToolTip="このフォルダをエクスプローラで開きます。見つからないときは、そう知らせます。"
+                                                    Command="{Binding DataContext.RevealFolderCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -350,6 +369,14 @@
                                                     FontSize="12"
                                                     ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
                                                     Command="{Binding DataContext.TakeFromHistoryCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button DockPanel.Dock="Right" Content="エクスプローラで開く" MinWidth="112" Height="27"
+                                                    AutomationProperties.AutomationId="ImportRowReveal"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
+                                                    FontSize="12" Margin="8,0,8,0"
+                                                    ToolTip="このフォルダをエクスプローラで開きます。見つからないときは、そう知らせます。"
+                                                    Command="{Binding DataContext.RevealFolderCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
