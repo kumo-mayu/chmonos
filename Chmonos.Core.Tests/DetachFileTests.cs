@@ -161,6 +161,34 @@ public class DetachFileTests : IDisposable
         Assert.False(detached.IsDetached(Hash, "222"));
     }
 
+    /// <summary>
+    /// 古い版（上書きで場所の残らなかった記録）は持ち物に数えないので、残りが古い版だけになる外し方は「空になった」と答える
+    /// （ユーザ判断 2026-10-05 ⑤-B。画面はこの答えで「非表示にして残す」を書く）。
+    /// </summary>
+    [Fact]
+    public async Task BecomesEmptyWhenOnlyAnOldVersionIsLeft()
+    {
+        await SaveItemAsync("111");
+        await _store.Items.ChangeLocalAsync(
+            "111",
+            current => current with
+            {
+                LocalFiles = [.. current.LocalFiles, new LocalFileRecord
+                {
+                    Hash = "OLD1",
+                    Paths = [],
+                    SizeBytes = 3,
+                    Replaced = new ReplacedVersion(_file, DateTimeOffset.Now),
+                }],
+            },
+            LocalOwners.Import);
+
+        var outcome = await _service.DetachFileAsync("111", Hash, deleteItemWhenEmpty: false);
+
+        Assert.Equal(DetachOutcome.ItemNowEmpty, outcome);
+        Assert.False((await LoadAsync("111")).IsOwned);
+    }
+
     /// <summary>手元に何も無くなっても、情報だけ残す状態は普通（贈った商品と同じ）なので勝手に消さない。</summary>
     [Fact]
     public async Task KeepsTheItemWhenItBecomesEmpty()

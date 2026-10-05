@@ -93,21 +93,41 @@ public sealed record LocalBlock
     public IReadOnlyList<LocalFileRecord> LocalFiles { get; init; } = [];
 
     /// <summary>
-    /// 手元に持っているファイル（外したものを除く）。所持・容量・検索・Unityへ送る対象はこちらで数える。
+    /// 手元に持っているファイル（外したもの・上書きで残った古い版を除く）。所持・容量・検索・Unityへ送る対象はこちらで数える。
     /// 計算で出せるので書き出さない。
     /// </summary>
+    /// <remarks>
+    /// 古い版（<see cref="LocalFileRecord.IsOldVersion"/>）は同じ場所で新しい中身に置き換わり、どこにも無いと分かっている記録なので、
+    /// 持ち物に数えない（ユーザ判断 2026-10-05 ⑤-B）。前は古い版だけが残った商品が「所持」のまま、容量にも古い版の大きさが足されていた。
+    /// 記録は商品ページの「古い版」の行と「古い版の記録を片付ける」のために残すので、行の一覧は <see cref="LocalFiles"/> を使う。
+    /// この中身がどの商品に結ばれているか（取り込みの結び直しなど）は <see cref="AttachedFiles"/>。
+    /// </remarks>
     [System.Text.Json.Serialization.JsonIgnore]
-    public IReadOnlyList<LocalFileRecord> OwnedFiles => LocalFiles.Where(file => !file.Detached).ToList();
+    public IReadOnlyList<LocalFileRecord> OwnedFiles => LocalFiles.Where(IsHeld).ToList();
 
     /// <summary>
-    /// 外していないファイルを1つ以上持っているか。Unity へ送る・中身を読むなど、ファイルが要る場面の問い。
+    /// この商品に結んだままの記録（外したものを除き、古い版は含む）。**持っているかではなく、中身がどの商品のものか**を見る所用：
+    /// 取り込みの結び直し・未確定の均し・ほかの商品が同じ中身を持つかの確かめ。
+    /// </summary>
+    /// <remarks>
+    /// 古い版を落とすと、古い版の中身をまた見つけたときに取り込みがこの商品へ結び直さず（印も下りない）、
+    /// 未確定に出たり、同じ中身を2つの商品に結んだりする。所持から外すのとは別の問いなので分けた（2026-10-05 ⑤-B）。
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<LocalFileRecord> AttachedFiles => LocalFiles.Where(file => !file.Detached).ToList();
+
+    /// <summary>
+    /// 手元に持っているファイル（<see cref="OwnedFiles"/>）を1つ以上持っているか。Unity へ送る・中身を読むなど、ファイルが要る場面の問い。
     /// 「所持か」は <see cref="IsOwned"/>（フォルダも数える）。<see cref="OwnedFiles"/> は呼ぶたびに並びを作るので、有無だけならこちら。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasOwnedFiles => LocalFiles.Any(file => !file.Detached);
+    public bool HasOwnedFiles => LocalFiles.Any(IsHeld);
+
+    /// <summary>持ち物に数えるファイルか：外しておらず、上書きで残った古い版でもない。</summary>
+    private static bool IsHeld(LocalFileRecord file) => !file.Detached && !file.IsOldVersion;
 
     /// <summary>
-    /// 所持か。**ファイルかフォルダを1つ以上持つこと**（CLAUDE.md の定義。外したファイルは数えない）。
+    /// 所持か。**ファイルかフォルダを1つ以上持つこと**（CLAUDE.md の定義。外したファイル・上書きで残った古い版は数えない）。
     /// 検索・改変・統計・ショップ・アバターが同じ答えを使うよう、ここ1か所で決める。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]

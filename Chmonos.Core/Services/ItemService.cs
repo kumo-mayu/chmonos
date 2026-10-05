@@ -939,7 +939,7 @@ public sealed class ItemService : IItemService
 
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var owned = loaded.Items
-            .SelectMany(item => item.Local.OwnedFiles)
+            .SelectMany(item => item.Local.AttachedFiles)
             .Select(file => file.Hash)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -1201,7 +1201,7 @@ public sealed class ItemService : IItemService
 
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         return loaded.Items
-            .Where(other => other.Id != itemId && other.Local.OwnedFiles.Any(Holds))
+            .Where(other => other.Id != itemId && other.Local.AttachedFiles.Any(Holds))
             .Select(other => new ArchiveHolder(
                 other.Id,
                 other.DisplayName,
@@ -2198,9 +2198,11 @@ public sealed class ItemService : IItemService
         return becameEmpty ? DetachOutcome.ItemNowEmpty : DetachOutcome.Detached;
     }
 
-    /// <summary>手元に何か持っているか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る。</summary>
-    private static bool HoldsAnything(LocalBlock local)
-        => local.LocalFiles.Any(file => !file.Detached) || local.LocalFolders.Count > 0;
+    /// <summary>
+    /// 手元に何か持っているか（所持の答え <see cref="LocalBlock.IsOwned"/>。外したファイル・上書きで残った古い版は数えない。フォルダ登録は数える）。
+    /// 古い版だけが残る外し方も「空になった」として、画面が最後のファイルのときと同じく残し方を聞けるようにする（⑤-B）。
+    /// </summary>
+    private static bool HoldsAnything(LocalBlock local) => local.IsOwned;
 
     /// <summary>
     /// 外したファイルをこの商品に戻す（商品ページの灰色の行の「この商品に戻す」・ユーザ判断 2026-09-12）。
@@ -2222,7 +2224,7 @@ public sealed class ItemService : IItemService
 
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         if (loaded.Items.Any(other => other.Id != itemId
-                && other.Local.OwnedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))))
+                && other.Local.AttachedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))))
         {
             return ReattachOutcome.OwnedElsewhere;
         }

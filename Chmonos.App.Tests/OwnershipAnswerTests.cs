@@ -48,6 +48,52 @@ public class OwnershipAnswerTests
         Assert.Equal("未取得", card.SizeText);
     });
 
+    /// <summary>上書きで残った古い版の記録（場所が空で、置き換わった印がある）。ユーザ判断 2026-10-05 ⑤-B で所持・容量に数えない。</summary>
+    private static LocalFileRecord OldVersion(string replacedPath) => new()
+    {
+        Hash = Make.HashOf("old-version"),
+        Paths = [],
+        SizeBytes = 5000,
+        Replaced = new ReplacedVersion(replacedPath, DateTimeOffset.Now),
+    };
+
+    [Fact]
+    public Task 古い版だけの商品は_検索のカードで未取得になり_所持の条件に当たらない() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(FolderOnly, "作り物の古い版だけの商品").WithFiles(OldVersion(@"D:\files\pack.zip"));
+        await app.AddItemAsync(item);
+        await app.AddItemAsync(Make.Item(Avatar, "作り物の持っている商品"));
+        var main = await app.StartAsync();
+        await app.SettleAsync();
+
+        // 写しが読めていることを、持っている方で確かめてから見る（読めていないだけで「含まない」にならないように）
+        Assert.Contains(Avatar, main.Search.OwnedItemIds());
+        var card = main.Search.CreateCard(item);
+
+        Assert.False(card.IsOwned);
+        Assert.Equal("未取得", card.SizeText);
+        Assert.DoesNotContain(FolderOnly, main.Search.OwnedItemIds());
+    });
+
+    [Fact]
+    public Task 商品ページの見出しの件数と容量に古い版は入らず_古い版の行は出る() => TestApp.Run(async app =>
+    {
+        var fresh = app.NewFile("pack.zip");
+        var item = Make.Item(FolderOnly, "作り物の衣装").WithFiles(Make.File(fresh), OldVersion(fresh));
+        var oldOnly = Make.Item(Avatar, "作り物の古い版だけの衣装").WithFiles(OldVersion(fresh) with { Hash = Make.HashOf("old-only") });
+        await app.AddItemAsync(item);
+        await app.AddItemAsync(oldOnly);
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        Assert.Equal($"1 件 / {DisplayText.Size(3)}", page.FileSummary);
+        Assert.Contains(page.LocalFiles, row => row.IsOldVersion);
+
+        var oldOnlyPage = new ItemViewModel(oldOnly, app.Services, main, main.Thumbnails);
+        Assert.Equal("ファイルなし", oldOnlyPage.FileSummary);
+        Assert.True(Assert.Single(oldOnlyPage.LocalFiles).CanForgetOldVersion);
+    });
+
     [Fact]
     public Task フォルダだけの商品は_改変の使ったものの行で無い扱いにならない() => TestApp.Run(async app =>
     {
