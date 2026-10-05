@@ -58,7 +58,11 @@ public class DeleteIsRedTests
         var document = XDocument.Load(Path.Combine(ViewsFolder(), view));
         var button = Assert.Single(document.Descendants(), e => e.Name.LocalName == "Button"
             && (string?)e.Attributes().FirstOrDefault(a => a.Name.LocalName == "AutomationProperties.AutomationId") == automationId);
-        Assert.Contains("DangerText", (string?)button.Attribute("Foreground"));
+        // ボタンの Foreground か、中の文字の Foreground のどちらか。文字を ContentPresenter に任せる型では、
+        // ボタンの色がアプリ全体の TextBlock の型に負ける（検索の履歴の ✕ が灰白だった）ので、中の文字に付ける
+        var colors = new[] { (string?)button.Attribute("Foreground") }
+            .Concat(button.Descendants().Where(e => e.Name.LocalName == "TextBlock").Select(e => (string?)e.Attribute("Foreground")));
+        Assert.Contains(colors, color => color is not null && color.Contains("DangerText"));
     }
 
     private static string ViewsFolder([CallerFilePath] string here = "")
