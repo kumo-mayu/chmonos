@@ -1855,17 +1855,10 @@ public sealed class ImportPipeline : IImportPipeline
 
     /// <summary>
     /// 次回の取得予定。全itemが同じ日に期限切れにならないよう、商品IDから決まるばらつきを足す。
-    /// 乱数ではなくIDから決めているのは、同じitemなら何度計算しても同じ日になるようにするため。
+    /// 乱数ではなくIDから決めているのは、同じitemなら何度計算しても（起動し直しても）同じ日になるようにするため（<see cref="RefreshJitter"/>）。
     /// </summary>
     private DateTimeOffset NextFetchDue(string itemId)
-    {
-        var jitterDays = _settings.RefreshJitterDays;
-        var offset = jitterDays <= 0
-            ? 0
-            : Math.Abs(itemId.GetHashCode(StringComparison.Ordinal)) % ((jitterDays * 2) + 1) - jitterDays;
-
-        return DateTimeOffset.Now.AddDays(_settings.RefreshIntervalDays + offset);
-    }
+        => DateTimeOffset.Now.AddDays(_settings.RefreshIntervalDays + RefreshJitter.Days(itemId, _settings.RefreshJitterDays));
 
     private sealed class ResolutionResult
     {
