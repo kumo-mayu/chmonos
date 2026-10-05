@@ -838,6 +838,15 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(register.ItemId)
                     : new CommandResult.Failed("フォルダを紐付けられませんでした。フォルダが存在するか、商品IDが正しいかを確認してください。");
 
+            case UiCommand.RelocateFolder relocate:
+                return await _items.RelocateFolderAsync(relocate.ItemId, relocate.FromPath, relocate.ToPath, cancellationToken) switch
+                {
+                    FolderRelocation.Moved => new CommandResult.ItemSaved(relocate.ItemId),
+                    FolderRelocation.TargetMissing => new CommandResult.Failed("選んだフォルダが見つかりません。もう一度探してください。"),
+                    FolderRelocation.RegisteredElsewhere => new CommandResult.Failed("このフォルダはほかの商品に登録されています。"),
+                    _ => new CommandResult.Failed("この登録は外されています。"),
+                };
+
             case UiCommand.SwapFolderForArchive swap:
                 return new CommandResult.ArchiveSwapped(
                     await _items.SwapFolderForArchiveAsync(

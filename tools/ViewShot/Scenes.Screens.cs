@@ -62,6 +62,46 @@ internal static partial class Scenes
             // 窓の最小の幅。文が折り返し、ボタンが次の行へ送られるかを見る
             Width = 900,
         },
+
+        // 見つからない登録フォルダの候補（見つからない・移動の点検 10-A）。候補が3つの行と候補が無い行
+        new Scene("import-missing-folders", "見つからないファイルを探した結果：見つからない登録フォルダと候補（候補3つ・候補無し）", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var import = context.Screen<ImportViewModel>();
+            Backdoor.ShowMissingSearchText(import, "見つからないファイルはありませんでした。");
+            import.ShowMissingFolders(
+            [
+                new MissingFolder
+                {
+                    ItemId = "9900701",
+                    ItemName = "作り物の衣装セット",
+                    Path = @"D:\Booth\extracted\costume_v1.2",
+                    FileCount = 42,
+                    TotalBytes = 182_400_000,
+                    Candidates =
+                    [
+                        new FolderCandidate(@"E:\Assets\costume\costume_v1.2", 42, 182_400_000, FolderMatchKind.NameAndContents),
+                        new FolderCandidate(@"E:\Assets\VeryLongFolderNameWithoutAnySpaces\AnotherVeryLongFolderName\renamed", 42, 182_400_000, FolderMatchKind.Contents),
+                        new FolderCandidate(@"F:\old-backup\costume_v1.2", 40, 175_000_000, FolderMatchKind.Name),
+                    ],
+                },
+                new MissingFolder
+                {
+                    ItemId = "9900702",
+                    ItemName = "作り物の髪型",
+                    Path = @"D:\Booth\extracted\hair",
+                    FileCount = 8,
+                    TotalBytes = 12_300_000,
+                },
+            ]);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+        }),
     ];
 
     private static IEnumerable<Scene> Item =>

@@ -513,6 +513,12 @@ public abstract record UiCommand
     public record FindMissingFiles(
         IProgress<(int Hashed, string? Detail)>? Progress = null,
         IReadOnlyList<string>? Folders = null) : UiCommand;
+
+    /// <summary>
+    /// 見つからない登録フォルダの場所を、探した結果の候補から人が選んだ場所に差し替える（見つからない・移動の点検 10-A）。
+    /// 商品ごとの錠の中で今の値に当てる。成功は <see cref="CommandResult.ItemSaved"/>。
+    /// </summary>
+    public record RelocateFolder(string ItemId, string FromPath, string ToPath) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

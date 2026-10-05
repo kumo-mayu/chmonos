@@ -23,6 +23,10 @@ internal static class Backdoor
     public static void ShowImportSummary(ImportViewModel import, ImportSummary summary)
         => SetProperty(import, nameof(ImportViewModel.Summary), summary);
 
+    /// <summary>「見つからないファイルを探す」の結果の1行。探し終えたときに入る文を、そのまま入れる。</summary>
+    public static void ShowMissingSearchText(ImportViewModel import, string text)
+        => SetProperty(import, nameof(ImportViewModel.MissingSearchText), text);
+
     /// <summary>
     /// 下の帯の「一時展開」の様子。主画面は、展開が知らせてきたときに今の様子を控える。その控えを直に入れて、変わったことを知らせる。
     /// </summary>

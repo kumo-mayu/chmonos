@@ -63,6 +63,11 @@ public interface IItemService
     Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 見つからない登録フォルダの場所を、人が選んだ場所に差し替える（見つからない・移動の点検 10-A）。
+    /// </summary>
+    Task<FolderRelocation> RelocateFolderAsync(string itemId, string fromPath, string toPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。
     /// <paramref name="liftExclusion"/>：除外した zip なら除外を解いて付ける（人が窓で頼んだときだけ）。
     /// <paramref name="takeFromOtherItems"/>：ほかの商品が持つ zip なら、そちらから外してこちらに付ける（人が窓で頼んだときだけ）。
@@ -692,6 +697,87 @@ public sealed class ItemService : IItemService
                 : null,
             [LocalField.LocalFolders],
             cancellationToken);
+    }
+
+    /// <summary>
+    /// 見つからない登録フォルダの場所を、人が「この場所にする」で選んだ場所に差し替える（見つからない・移動の点検 10-A・ユーザ判断 2026-10-05）。
+    /// </summary>
+    /// <remarks>
+    /// フォルダは場所が同一性なので、前は移すと「見つかりません」のままで、登録を外して登録し直すしかなかった（登録した日時も失う）。
+    /// 候補は「見つからないファイルを探す」が名前・ファイル数・大きさで見せ、ここは人が選んだ場所を書くだけ。
+    /// 測る（大きなフォルダでは数十秒）のは錠の外で、書くのは錠の中の今の値に当てる。その間に登録が外されていれば何も書かない。
+    /// 登録したときと同じく、新しい場所の下の未確定は片付ける（取り込みはフォルダを移すと中身を未確定に出す）。
+    /// </remarks>
+    public async Task<FolderRelocation> RelocateFolderAsync(
+        string itemId,
+        string fromPath,
+        string toPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(toPath))
+        {
+            return FolderRelocation.TargetMissing;
+        }
+
+        var from = Path.TrimEndingDirectorySeparator(fromPath);
+        var to = Path.TrimEndingDirectorySeparator(toPath);
+
+        // 2つの登録が同じ場所（とその中）を指すと、走査が飛ばす範囲と容量が二重になる。候補から外してあるが、選ぶまでの間に登録され得る
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var others = new RegisteredFolderSet(loaded.Items
+            .Where(item => item.Id != itemId)
+            .SelectMany(item => item.Local.LocalFolders)
+            .Select(folder => folder.Path));
+        if (others.Contains(to))
+        {
+            return FolderRelocation.RegisteredElsewhere;
+        }
+
+        var (count, bytes) = RegisteredFolderSet.Measure(to);
+        var now = DateTimeOffset.Now;
+        var written = await _store.Items.ChangeLocalAsync(
+            itemId,
+            current =>
+            {
+                var record = current.LocalFolders.FirstOrDefault(folder => string.Equals(
+                    Path.TrimEndingDirectorySeparator(folder.Path), from, StringComparison.OrdinalIgnoreCase));
+                if (record is null)
+                {
+                    return null;
+                }
+
+                // 同じ商品が選んだ場所を既に登録していれば、1つにまとめる（同じ場所の登録が2つ並ばないように）
+                return current with
+                {
+                    LocalFolders =
+                    [
+                        .. current.LocalFolders.Where(folder =>
+                        {
+                            var path = Path.TrimEndingDirectorySeparator(folder.Path);
+                            return !string.Equals(path, from, StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(path, to, StringComparison.OrdinalIgnoreCase);
+                        }),
+                        record with
+                        {
+                            Path = to,
+                            FileCount = count,
+                            TotalBytes = bytes,
+                            LastSeenAt = now,
+                            MissingSince = null,
+                        },
+                    ],
+                };
+            },
+            [LocalField.LocalFolders],
+            cancellationToken);
+
+        if (!written)
+        {
+            return FolderRelocation.RecordGone;
+        }
+
+        await RemoveUnresolvedUnderAsync(to, cancellationToken);
+        return FolderRelocation.Moved;
     }
 
     /// <summary>その場所の登録を除いた一覧。除く物が無ければ null。</summary>

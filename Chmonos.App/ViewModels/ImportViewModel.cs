@@ -33,7 +33,7 @@ public sealed class UnpackedFolderRow : ViewModelBase
 /// 取り込み画面。フォルダを選ぶ（またはドロップする）と3フェーズを走らせる。
 /// 進捗はバックエンドからUIスレッド以外で届くので、必ず <see cref="ViewModelBase.RunOnUiThread"/> を通す。
 /// </summary>
-public sealed class ImportViewModel : ViewModelBase
+public sealed partial class ImportViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -180,6 +180,9 @@ public sealed class ImportViewModel : ViewModelBase
                 Core.Commands.CommandResult.Failed failed => failed.Message,
                 _ => string.Empty,
             };
+
+            // 見つからない登録フォルダの候補は、結果の下に並べて人に選ばせる（点検 10-A）
+            ShowMissingFolders(result is CommandResult.MissingFilesSearched searched ? searched.Result.MissingFolders : []);
 
             // 結び直した商品の新しい場所を、検索の写しにも入れる（点検 2026-09-30 の C：検索の「ファイルの場所」（path:）が
             // 起動し直すまで古い場所で絞り、札の「見つかりません」も残っていた）。結果はどの商品かを持たず、
