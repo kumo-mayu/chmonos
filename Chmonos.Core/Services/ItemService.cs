@@ -56,10 +56,16 @@ public interface IItemService
 
     Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
-    /// <summary>展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。</summary>
+    /// <summary>
+    /// 展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。
+    /// <paramref name="liftExclusion"/>：除外した zip なら除外を解いて付ける（人が窓で頼んだときだけ）。
+    /// <paramref name="takeFromOtherItems"/>：ほかの商品が持つ zip なら、そちらから外してこちらに付ける（人が窓で頼んだときだけ）。
+    /// </summary>
     Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
         string itemId,
         string folderPath,
+        bool liftExclusion = false,
+        bool takeFromOtherItems = false,
         CancellationToken cancellationToken = default);
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
@@ -925,6 +931,8 @@ public sealed class ItemService : IItemService
     public async Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
         string itemId,
         string folderPath,
+        bool liftExclusion = false,
+        bool takeFromOtherItems = false,
         CancellationToken cancellationToken = default)
     {
         var item = await _store.Items.LoadAsync(itemId, cancellationToken);
@@ -940,7 +948,10 @@ public sealed class ItemService : IItemService
         }
 
         var name = Path.GetFileName(archivePath);
-        var already = item.Local.LocalFiles.Any(file => file.Paths.Any(
+        // 外した行は「付いている」に数えない（2026-10-05・file-lifecycle.md「気になった所」7）。前は外した zip を「登録済み」と読んで
+        // フォルダの登録だけ外し、商品の手元の物が無くなっていた。外していた zip なら下へ進み、突き合わせで印を下ろして付け直す
+        // （押した方が新しい判断。ユーザ判断 2026-10-05）
+        var already = item.Local.OwnedFiles.Any(file => file.Paths.Any(
             path => string.Equals(path, archivePath, StringComparison.OrdinalIgnoreCase)));
 
         if (already)
@@ -991,6 +1002,21 @@ public sealed class ItemService : IItemService
             ArchiveBroken = broken,
         };
 
+        // 除外とほかの持ち主は、人が決めたこと。黙って上書きせず、何も書かずに返して画面に聞かせる（ユーザ判断 2026-10-05・
+        // file-lifecycle.md「気になった所」7）。前は見ずに付けていたので、除外した zip が除外のまま持ち物になり、
+        // ほかの商品が持つ zip は2つの商品の持ち物になって容量も二重に数えていた
+        var excluded = await _store.Excluded.LoadAsync(cancellationToken);
+        if (!liftExclusion && excluded.Any(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.Excluded, name);
+        }
+
+        var holders = await OtherHoldersAsync(itemId, hash, cancellationToken);
+        if (!takeFromOtherItems && holders.Count > 0)
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.OwnedElsewhere, name) { Holders = holders };
+        }
+
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
 
         // ファイルとフォルダを1回で、商品の錠の中で今の値に当てて書く。2回に分けると、間に人が触った入力が消える。
@@ -1013,11 +1039,68 @@ public sealed class ItemService : IItemService
             return new ArchiveSwapOutcome(ArchiveSwapResult.ItemMissing, name);
         }
 
+        // 除外を解くのも、ほかの商品から外すのも、こちらに付けられた後。逆にすると、付ける前に商品が消されていたとき
+        // 除外も持ち主も失ったファイルが残る。この順なら、途中で落ちても二重に持つだけで、どこからも消えない
+        if (liftExclusion)
+        {
+            await _store.Excluded.TryUpdateAsync(
+                current => current.RemoveAll(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0
+                    ? current
+                    : null,
+                cancellationToken);
+        }
+
+        if (takeFromOtherItems)
+        {
+            // 見てから書くまでに持ち主が変わっていることがあるので、それぞれの錠の中で今の一覧に印を付ける（DetachFileAsync と同じ形）。
+            // 行は消さずに外した印にする：手掛かりが指せば次の取り込みでそちらへ戻ってしまうのを止め、商品ページで「この商品に戻す」もできる。
+            // 手元の物が無くなっても商品は消さない（消すかは人が商品ページで決める）
+            foreach (var holder in await OtherHoldersAsync(itemId, hash, cancellationToken))
+            {
+                await _store.Items.ChangeLocalAsync(
+                    holder.ItemId,
+                    current => current.LocalFiles.Any(file =>
+                            !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
+                        ? current with
+                        {
+                            LocalFiles = [.. current.LocalFiles
+                                .Select(file => !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)
+                                    ? file with { Detached = true }
+                                    : file)],
+                        }
+                        : null,
+                    LocalOwners.Import,
+                    cancellationToken);
+            }
+        }
+
         // 未確定に同じzipが居たなら、行き先が決まったので外す
         await RemoveUnresolvedAsync(hash, cancellationToken);
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
 
         return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name);
+    }
+
+    /// <summary>
+    /// この中身を持っている（外していない）ほかの商品。外した行は持ち物ではないので数えない（ReattachFileAsync と同じ見方）。
+    /// 全件を読むのは人が押した1回だけで、取り込みの道では呼ばない。
+    /// </summary>
+    private async Task<IReadOnlyList<ArchiveHolder>> OtherHoldersAsync(
+        string itemId, string hash, CancellationToken cancellationToken)
+    {
+        bool Holds(LocalFileRecord file) => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase);
+
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return loaded.Items
+            .Where(other => other.Id != itemId && other.Local.OwnedFiles.Any(Holds))
+            .Select(other => new ArchiveHolder(
+                other.Id,
+                other.DisplayName,
+                !HoldsAnything(other.Local with
+                {
+                    LocalFiles = [.. other.Local.LocalFiles.Where(file => !Holds(file))],
+                })))
+            .ToList();
     }
 
     /// <summary>

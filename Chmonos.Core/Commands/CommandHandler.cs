@@ -796,7 +796,8 @@ public sealed class CommandHandler
 
             case UiCommand.SwapFolderForArchive swap:
                 return new CommandResult.ArchiveSwapped(
-                    await _items.SwapFolderForArchiveAsync(swap.ItemId, swap.FolderPath, cancellationToken));
+                    await _items.SwapFolderForArchiveAsync(
+                        swap.ItemId, swap.FolderPath, swap.LiftExclusion, swap.TakeFromOtherItems, cancellationToken));
 
             case UiCommand.UnregisterFolder unregister:
                 return await _items.UnregisterFolderAsync(unregister.ItemId, unregister.FolderPath, cancellationToken)

@@ -241,6 +241,102 @@ public class FolderRegistrationTests : IDisposable
         Assert.Single(after.Local.LocalFiles);
     }
 
+    // ---- zip に事情があるとき（2026-10-05・file-lifecycle.md「気になった所」7・ユーザ判断）----
+
+    /// <summary>フォルダを登録し、隣に zip を置く。zip のパスとハッシュを返す。</summary>
+    private async Task<(string Folder, string Archive, string Hash)> FolderWithArchiveAsync(string itemId)
+    {
+        await SaveItemAsync(itemId);
+        var folder = CreateExtractedFolder("作り物_" + itemId);
+        await _service.RegisterFolderAsync(itemId, folder);
+        var archive = folder + ".zip";
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, archive);
+        return (folder, archive, await Scanning.FileHasher.ComputeSha256Async(archive));
+    }
+
+    private async Task SetFilesAsync(string itemId, params LocalFileRecord[] files)
+        => await _store.Items.ChangeLocalAsync(itemId, local => local with { LocalFiles = files }, LocalOwners.Import);
+
+    /// <summary>
+    /// 前にこの商品から外した zip でも、押した方が新しい判断なので外した印を下ろして付け、フォルダを外す。
+    /// 前は外した行が同じ場所を持つのを「登録済み」と読んでフォルダだけ外し、商品の所持が無くなっていた。
+    /// </summary>
+    [Fact]
+    public async Task 外していたzipで登録し直すと印を下ろして付ける()
+    {
+        var (folder, archive, hash) = await FolderWithArchiveAsync("9900121");
+        await SetFilesAsync("9900121", new LocalFileRecord { Hash = hash, Paths = [archive], SizeBytes = 1, Detached = true });
+
+        var outcome = await _service.SwapFolderForArchiveAsync("9900121", folder);
+
+        Assert.Equal(ArchiveSwapResult.Registered, outcome.Result);
+        var after = (await _store.Items.LoadAsync("9900121"))!;
+        Assert.False(Assert.Single(after.Local.LocalFiles).Detached);
+        Assert.Empty(after.Local.LocalFolders);
+        Assert.True(after.IsDownloaded);
+    }
+
+    /// <summary>除外した zip は、聞かずには付けない（画面が窓で聞いてから、除外を解除して付ける）。</summary>
+    [Fact]
+    public async Task 除外したzipは聞くまで付けず_解除を頼まれたら除外を解いて付ける()
+    {
+        var (folder, archive, hash) = await FolderWithArchiveAsync("9900122");
+        await _store.Excluded.SaveAsync(
+            [new ExcludedEntry { Hash = hash, Paths = [archive], ExcludedAt = DateTimeOffset.Now, Reason = "試験" }]);
+
+        var refused = await _service.SwapFolderForArchiveAsync("9900122", folder);
+
+        Assert.Equal(ArchiveSwapResult.Excluded, refused.Result);
+        var untouched = (await _store.Items.LoadAsync("9900122"))!.Local;
+        Assert.Empty(untouched.LocalFiles);
+        Assert.Single(untouched.LocalFolders);
+        Assert.Single(_store.Excluded.Load());
+
+        var lifted = await _service.SwapFolderForArchiveAsync("9900122", folder, liftExclusion: true);
+
+        Assert.Equal(ArchiveSwapResult.Registered, lifted.Result);
+        Assert.Equal(hash, Assert.Single((await _store.Items.LoadAsync("9900122"))!.Local.LocalFiles).Hash);
+        Assert.Empty(_store.Excluded.Load());
+    }
+
+    /// <summary>
+    /// ほかの商品が持つ zip は、聞かずには付けない。持ち主と、外すとファイルが無くなるかを返す。
+    /// 付け直すと頼まれたら、この商品に付けて、ほかの商品からは外す（外した印。行は残す）。
+    /// </summary>
+    [Fact]
+    public async Task ほかの商品が持つzipは持ち主を返し_付け直すと頼まれたら向こうから外す()
+    {
+        var (folder, archive, hash) = await FolderWithArchiveAsync("9900123");
+        await SaveItemAsync("9900124");
+        await SetFilesAsync("9900124", new LocalFileRecord { Hash = hash, Paths = [archive], SizeBytes = 1 });
+
+        var refused = await _service.SwapFolderForArchiveAsync("9900123", folder);
+
+        Assert.Equal(ArchiveSwapResult.OwnedElsewhere, refused.Result);
+        var holder = Assert.Single(refused.Holders);
+        Assert.Equal("9900124", holder.ItemId);
+        Assert.Equal("テスト商品", holder.Name);
+        Assert.True(holder.LosesLastFile);
+        Assert.Empty((await _store.Items.LoadAsync("9900123"))!.Local.LocalFiles);
+
+        var taken = await _service.SwapFolderForArchiveAsync("9900123", folder, takeFromOtherItems: true);
+
+        Assert.Equal(ArchiveSwapResult.Registered, taken.Result);
+        Assert.False(Assert.Single((await _store.Items.LoadAsync("9900123"))!.Local.LocalFiles).Detached);
+        Assert.True(Assert.Single((await _store.Items.LoadAsync("9900124"))!.Local.LocalFiles).Detached);
+    }
+
+    /// <summary>ほかの商品が外している zip は、その商品の持ち物ではないので聞かずに付ける。</summary>
+    [Fact]
+    public async Task ほかの商品が外しているzipは聞かずに付ける()
+    {
+        var (folder, archive, hash) = await FolderWithArchiveAsync("9900125");
+        await SaveItemAsync("9900126");
+        await SetFilesAsync("9900126", new LocalFileRecord { Hash = hash, Paths = [archive], SizeBytes = 1, Detached = true });
+
+        Assert.Equal(ArchiveSwapResult.Registered, (await _service.SwapFolderForArchiveAsync("9900125", folder)).Result);
+    }
+
     // ---- 錠の外で読んだ写しで書き戻さない（2026-10-05・file-lifecycle.md「気になった所」3）----
 
     /// <summary>

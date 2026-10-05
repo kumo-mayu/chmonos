@@ -647,9 +647,94 @@ public sealed class InboxViewModel : ViewModelBase
         }
     }
 
+    /// <summary>選ぶ窓に出す中身（試験が受けて答える）。</summary>
+    internal sealed record ChoiceRequest(string Title, string Question, string Detail, string First, string Second);
+
+    /// <summary>試験だけが差し替える。選ぶ窓（<see cref="Views.ChoiceDialog"/>）は答える人がいないと止まるので、窓の手前で受ける。</summary>
+    internal static Func<ChoiceRequest, Views.ChoiceDialogResult>? ChoiceIntercept { get; set; }
+
+    private static Views.ChoiceDialogResult AskChoice(ChoiceRequest request)
+        => ChoiceIntercept is { } intercept
+            ? intercept(request)
+            : Views.ChoiceDialog.Ask(request.Title, request.Question, request.Detail, request.First, request.Second);
+
+    /// <summary>
+    /// zip がほかの商品に付いているときに聞く中身（ユーザ判断 2026-10-05：断るだけにせず、開くか付け直すかを選ばせる）。
+    /// 付け直すと向こうの手元の物が無くなるなら、押す前に言う。
+    /// </summary>
+    internal static ChoiceRequest OwnedElsewhereQuestion(string archiveName, IReadOnlyList<Core.Services.ArchiveHolder> holders)
+    {
+        var first = holders[0];
+        var who = holders.Count == 1 ? $"「{first.Name}」" : $"「{first.Name}」ほか {holders.Count - 1} 件の商品";
+        var emptied = holders.Where(holder => holder.LosesLastFile).Select(holder => $"「{holder.Name}」").ToList();
+        var emptiedText = emptied.Count == 0 ? string.Empty : $"{string.Join("・", emptied)}にはファイルが残りません。\n";
+
+        return new ChoiceRequest(
+            "zipで登録し直す",
+            $"「{archiveName}」は{who}に登録されています。",
+            $"「その商品を開く」\n「{first.Name}」の商品ページを開きます。何も変えません。\n\n"
+            + "「この商品に付け直す」\n"
+            + $"{who}から外して、この商品に登録します。\n"
+            + emptiedText
+            + "戻すときは、この商品から外してから、元の商品で「この商品に戻す」を押します。",
+            "その商品を開く",
+            "この商品に付け直す");
+    }
+
     private async Task SwapFolderForArchiveAsync(string itemId, string path, AreaNotice rowNotice)
     {
-        var outcome = await _services.Commands.ExecuteAsync(new UiCommand.SwapFolderForArchive(itemId, path));
+        // zip が除外してある・ほかの商品に付いているときは、Core は何も書かずにそう返す。人が窓で選んだときだけ、頼みを足して呼び直す
+        // （除外も持ち主も人が決めたこと。押した方が新しい判断として扱うが、黙っては上書きしない。ユーザ判断 2026-10-05）。
+        // 除外を解いた後でほかの持ち主が分かることがあるので、聞くのは多くても2回
+        var command = new UiCommand.SwapFolderForArchive(itemId, path);
+        IReadOnlyList<Core.Services.ArchiveHolder> takenFrom = [];
+        var outcome = await _services.Commands.ExecuteAsync(command);
+        for (var asked = 0; asked < 2 && outcome is CommandResult.ArchiveSwapped { Outcome: { } pending }; asked++)
+        {
+            if (pending.Result == Core.Services.ArchiveSwapResult.Excluded && !command.LiftExclusion)
+            {
+                var answer = Services.Notice.Show(
+                    $"「{pending.ArchiveName}」は管理対象から除外しています。除外を解除して、この商品に登録しますか？\n\n"
+                    + "あとで商品ページの「この商品から外す」で外せます。",
+                    "zipで登録し直す",
+                    System.Windows.MessageBoxButton.OKCancel,
+                    System.Windows.MessageBoxImage.Question,
+                    System.Windows.MessageBoxResult.Cancel);
+                if (answer != System.Windows.MessageBoxResult.OK)
+                {
+                    rowNotice.Clear();
+                    return;
+                }
+
+                command = command with { LiftExclusion = true };
+            }
+            else if (pending.Result == Core.Services.ArchiveSwapResult.OwnedElsewhere
+                     && !command.TakeFromOtherItems && pending.Holders.Count > 0)
+            {
+                var choice = AskChoice(OwnedElsewhereQuestion(pending.ArchiveName ?? string.Empty, pending.Holders));
+                if (choice == Views.ChoiceDialogResult.First)
+                {
+                    rowNotice.Clear();
+                    await OpenItemAsync(pending.Holders[0].ItemId);
+                    return;
+                }
+
+                if (choice != Views.ChoiceDialogResult.Second)
+                {
+                    rowNotice.Clear();
+                    return;
+                }
+
+                command = command with { TakeFromOtherItems = true };
+                takenFrom = pending.Holders;
+            }
+            else
+            {
+                break;
+            }
+
+            outcome = await _services.Commands.ExecuteAsync(command);
+        }
 
         // 登録できたら行が片付くので、結果は一覧の見出しの近くへ。できなかったときは行が残るので、押した行の近くへ
         if (outcome is CommandResult.ArchiveSwapped { Outcome: { } swapped })
@@ -674,6 +759,11 @@ public sealed class InboxViewModel : ViewModelBase
                 case Core.Services.ArchiveSwapResult.ArchiveUnreadable:
                     rowNotice.Warn("zipを読めませんでした。ほかのアプリが開いている可能性があります。登録はそのままです。");
                     break;
+                case Core.Services.ArchiveSwapResult.Excluded:
+                case Core.Services.ArchiveSwapResult.OwnedElsewhere:
+                    // 聞いた後でまた別の事情が返った（間に除外・登録された）。黙って進めず、そのままにする
+                    rowNotice.Warn("zipの扱いが変わったので、登録はそのままにしました。もう一度押してください。");
+                    break;
                 default:
                     rowNotice.Warn("この商品は見つかりませんでした。");
                     break;
@@ -685,6 +775,13 @@ public sealed class InboxViewModel : ViewModelBase
         }
 
         await NoteItemChangedAsync(itemId);
+
+        // 付け直した相手の商品も外した印が付いたので、検索の写しに知らせる（容量・所持の絞り込みが古いまま残らないように）
+        foreach (var holder in takenFrom)
+        {
+            await NoteItemChangedAsync(holder.ItemId);
+        }
+
         await ReloadAsync();
     }
 

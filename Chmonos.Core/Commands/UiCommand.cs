@@ -438,8 +438,16 @@ public abstract record UiCommand
         bool Replace,
         IProgress<Storage.StoreMoveProgress>? Progress = null) : UiCommand;
 
-    /// <summary>展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。</summary>
-    public record SwapFolderForArchive(string ItemId, string FolderPath) : UiCommand;
+    /// <summary>
+    /// 展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。
+    /// zip が除外してある・ほかの商品が持つときは、何も書かずにそう返る。窓で聞いて頼まれたときだけ、
+    /// <paramref name="LiftExclusion"/>（除外を解いて付ける）・<paramref name="TakeFromOtherItems"/>（ほかの商品から外して付ける）を立てて呼び直す。
+    /// </summary>
+    public record SwapFolderForArchive(
+        string ItemId,
+        string FolderPath,
+        bool LiftExclusion = false,
+        bool TakeFromOtherItems = false) : UiCommand;
 
     /// <summary>
     /// zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。

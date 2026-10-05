@@ -82,7 +82,7 @@ public class DueRefreshTests : IDisposable
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
 
-        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
+        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, bool liftExclusion = false, bool takeFromOtherItems = false, CancellationToken cancellationToken = default)
             => Task.FromResult(new ArchiveSwapOutcome(ArchiveSwapResult.Registered, "x.zip"));
 
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
