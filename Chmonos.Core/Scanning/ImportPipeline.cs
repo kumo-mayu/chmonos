@@ -1899,6 +1899,8 @@ public sealed class ImportPipeline : IImportPipeline
     {
         var modified = DateTimeOffset.Now;
         var path = file.Paths.FirstOrDefault();
+        string? hostUrl = null;
+        string? referrerUrl = null;
 
         if (path is not null)
         {
@@ -1910,6 +1912,13 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 // 日時が読めなくても未確定には出したいので、今の時刻で通す
             }
+
+            // ふつうの未確定と同じくダウンロード元を読み直す（file-lifecycle.md 気になった所9）。
+            // 商品の記録は Zone の欄を持たないので、前はここで落ち、毎回この道を通るので取り込み直しても付かず、
+            // 展開した中身が元zip の束（ZoneReferrerUrl）に入らなかった。商品から外して戻すとき（DetachFile）も読み直している
+            var zone = ZoneIdentifierReader.Read(path);
+            hostUrl = zone.HostUrl;
+            referrerUrl = zone.ReferrerUrl;
         }
 
         return new UnresolvedFile
@@ -1920,6 +1929,8 @@ public sealed class ImportPipeline : IImportPipeline
             ModifiedAtUtc = modified,
             FirstSeenAt = DateTimeOffset.Now,
             Contents = file.Contents,
+            ZoneHostUrl = hostUrl,
+            ZoneReferrerUrl = referrerUrl,
             CandidateItemIds = [itemId],
 
             // 開けなかった印は記録ごと引き継ぐ（前は商品の記録が印を持たず、戻すときに付け直していた）

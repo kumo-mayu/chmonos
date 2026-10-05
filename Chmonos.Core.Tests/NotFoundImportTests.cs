@@ -170,6 +170,26 @@ public class NotFoundImportTests : IDisposable
         Assert.Contains(MissingId, unresolved[0].CandidateItemIds);
     }
 
+    /// <summary>
+    /// 404で戻した物も、ふつうの未確定と同じくダウンロード元の記録を持つ（file-lifecycle.md 気になった所9）。
+    /// 前は持たず、毎回同じ道を通るので取り込み直しても付かず、元zip の束（ZoneReferrerUrl）に入らなかった。
+    /// </summary>
+    [Fact]
+    public async Task CarriesTheZoneUrlsOfTheFile()
+    {
+        var folder = CreateSource(MissingId);
+        var path = Path.Combine(folder, $"item_{MissingId}.zip");
+        File.WriteAllText(
+            path + ":Zone.Identifier",
+            $"[ZoneTransfer]\r\nZoneId=3\r\nReferrerUrl=C:\\Downloads\\parent.zip\r\nHostUrl=https://booth.pm/ja/items/{MissingId}\r\n");
+
+        await _pipeline.RunAsync(new ImportWorkSet([folder]));
+
+        var unresolved = Assert.Single(_store.Unresolved.Load());
+        Assert.Equal($"https://booth.pm/ja/items/{MissingId}", unresolved.ZoneHostUrl);
+        Assert.Equal(@"C:\Downloads\parent.zip", unresolved.ZoneReferrerUrl);
+    }
+
     /// <summary>404の1件があっても、生きている商品の取り込みは普通に通る。</summary>
     [Fact]
     public async Task StillImportsTheItemsThatAreAlive()
