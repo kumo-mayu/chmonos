@@ -111,4 +111,36 @@ public sealed class UnresolvedMergeTests
 
         throw new InvalidOperationException("空いているドライブ文字がありません。");
     }
+
+    [Fact]
+    public void 同じ中身が2か所で見つかったら_1件の行に両方の場所を持つ()
+    {
+        // 前は最初の1件だけが残り、2か所目はフォルダビューの「?」にも出なかった（file-lifecycle.md 気になった所8）
+        var first = File("A", @"D:\BOOTH\a.zip");
+        var second = File("A", @"D:\BOOTH\copy\a.zip");
+
+        var result = UnresolvedMerge.ForImport(current: [], lastWritten: [], found: [first, second], Scanned, NoOffline);
+
+        var only = Assert.Single(result);
+        Assert.Equal([@"D:\BOOTH\a.zip", @"D:\BOOTH\copy\a.zip"], only.Paths);
+    }
+
+    [Fact]
+    public void 前の行の場所のうち_今回見ていない場所は見つかった行に引き継ぎ_見た場所で無くなった物は落とす()
+    {
+        var before = File("A", @"D:\BOOTH\a.zip");
+        before = new UnresolvedFile
+        {
+            Hash = before.Hash,
+            Paths = [@"D:\BOOTH\a.zip", @"D:\BOOTH\gone\a.zip", @"E:\Other\a.zip"],
+            SizeBytes = before.SizeBytes,
+            ModifiedAtUtc = before.ModifiedAtUtc,
+            FirstSeenAt = before.FirstSeenAt,
+        };
+
+        var result = UnresolvedMerge.ForImport(
+            current: [before], lastWritten: [before], found: [File("A", @"D:\BOOTH\a.zip")], Scanned, NoOffline);
+
+        Assert.Equal([@"D:\BOOTH\a.zip", @"E:\Other\a.zip"], Assert.Single(result).Paths);
+    }
 }
