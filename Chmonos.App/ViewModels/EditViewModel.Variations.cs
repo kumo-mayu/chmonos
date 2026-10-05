@@ -36,6 +36,7 @@ public sealed partial class EditViewModel
                 IsPurchased = first is not null,
                 Price = first?.Price?.ToString() ?? string.Empty,
                 Kind = first?.Kind ?? PurchaseKind.ForSelf,
+                PurchasedAt = DateTextOf(first?.PurchasedAt),
             };
 
             AttachExtras(row, group.Skip(1));
@@ -62,6 +63,7 @@ public sealed partial class EditViewModel
                 IsPurchased = true,
                 Price = first.Price?.ToString() ?? string.Empty,
                 Kind = first.Kind,
+                PurchasedAt = DateTextOf(first.PurchasedAt),
             };
 
             AttachExtras(row, purchases.Skip(1));
@@ -418,6 +420,9 @@ public sealed partial class EditViewModel
             .Where(pair => _savedFileVariations.GetValueOrDefault(pair.Hash) != pair.Value)
             .ToDictionary(pair => pair.Hash, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>欄に出す日付の書き方。入手日の欄と同じ形。</summary>
+    private static string DateTextOf(DateOnly? date) => date?.ToString("yyyy-MM-dd") ?? string.Empty;
+
     /// <summary>
     /// 2件目以降の購入記録を行にぶら下げ、足す／消すを配線する。
     /// 版の行と同じ形にしておくと、1件目と2件目で操作が変わらない。
@@ -426,12 +431,13 @@ public sealed partial class EditViewModel
     {
         foreach (var purchase in existing ?? [])
         {
-            AddExtra(row, purchase.Price?.ToString(), purchase.Kind, purchase.NameSnapshot, purchase.Note);
+            AddExtra(row, purchase.Price?.ToString(), purchase.Kind, purchase.NameSnapshot, purchase.Note, DateTextOf(purchase.PurchasedAt));
         }
 
         row.AddPurchaseCommand = new RelayCommand(
             // 版の名前は引き継ぐ。BOOTH側から消えたときに何の版だったか分からなくなる
-            () => AddExtra(row, row.Price, PurchaseKind.Given, row.Name, null),
+            // 日付は引き継がない。2件目は別の日に買った記録で、空なら入手日になる
+            () => AddExtra(row, row.Price, PurchaseKind.Given, row.Name, null, string.Empty),
             () => row.CanAddPurchase);
 
         row.NoteExtrasChanged();
@@ -442,7 +448,8 @@ public sealed partial class EditViewModel
         string? price,
         PurchaseKind kind,
         string? nameSnapshot,
-        string? note)
+        string? note,
+        string purchasedAt)
     {
         var extra = new ExtraPurchaseInput
         {
@@ -451,6 +458,7 @@ public sealed partial class EditViewModel
             Note = note,
             Price = price ?? string.Empty,
             Kind = kind,
+            PurchasedAt = purchasedAt,
         };
 
         extra.RemoveCommand = new RelayCommand(() =>

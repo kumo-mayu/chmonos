@@ -86,11 +86,27 @@ public sealed class OrderedVariationInput : ViewModelBase
             if (SetField(ref _kind, value))
             {
                 OnPropertyChanged(nameof(KindLabel));
+                OnPropertyChanged(nameof(PurchasedAtLabel));
             }
         }
     }
 
     public string KindLabel => DisplayText.PurchaseKindLabel(Kind);
+
+    private string _purchasedAt = string.Empty;
+
+    /// <summary>
+    /// この1回の日付（メモ45）。**空欄は入手日を使う**（保存時に null を書く）。1件目だけ入手日と違う日に買うこともあるので、種類の行にも出す（ユーザ判断 2026-10-05）。
+    /// 読み方は入手日の欄と同じ <see cref="DateText"/>。
+    /// </summary>
+    public string PurchasedAt
+    {
+        get => _purchasedAt;
+        set => SetField(ref _purchasedAt, value ?? string.Empty);
+    }
+
+    /// <summary>日付の欄の名前。行の種類に合わせる（買った日／贈った日／貰った日。ユーザ判断 2026-10-05）。</summary>
+    public string PurchasedAtLabel => PurchaseDateLabel.Of(Kind);
 
     /// <summary>
     /// 同じ版の2件目以降の購入記録。
@@ -174,6 +190,13 @@ public sealed class OrderedVariationInput : ViewModelBase
         OnPropertyChanged(nameof(HasLinkedFiles));
         OnPropertyChanged(nameof(FileCountText));
     }
+}
+
+/// <summary>購入の日付の欄の名前と、読めなかったときの知らせの名前を1か所で決める。</summary>
+public static class PurchaseDateLabel
+{
+    /// <summary>「買った日」「贈った日」「貰った日」。種類の動詞（札の「¥1,500 で贈った」と同じ）に「日」を付ける。</summary>
+    public static string Of(PurchaseKind kind) => DisplayText.PurchaseKindVerb(kind) + "日";
 }
 
 /// <summary>種類に紐付ける／紐付いたファイル1件。</summary>
@@ -271,8 +294,25 @@ public sealed class ExtraPurchaseInput : ViewModelBase
     public PurchaseKind Kind
     {
         get => _kind;
-        set => SetField(ref _kind, value);
+        set
+        {
+            if (SetField(ref _kind, value))
+            {
+                OnPropertyChanged(nameof(PurchasedAtLabel));
+            }
+        }
     }
+
+    private string _purchasedAt = string.Empty;
+
+    /// <summary>この1回の日付。空欄は入手日を使う（1件目の行と同じ）。</summary>
+    public string PurchasedAt
+    {
+        get => _purchasedAt;
+        set => SetField(ref _purchasedAt, value ?? string.Empty);
+    }
+
+    public string PurchasedAtLabel => PurchaseDateLabel.Of(Kind);
 
     /// <summary>この記録を消す。</summary>
     public RelayCommand? RemoveCommand { get; set; }

@@ -159,12 +159,24 @@ public sealed partial class ItemViewModel
     /// 種類は動詞で分ける（「¥1,500 で贈った」）。貰った物は自分の支出ではないので、価格が無い（空欄か0円）ときは「貰った」だけにする。
     /// 括弧の中は名詞、文の中は動詞。同じ語を両方に使うと「¥100 で自分用」か「価格未入力（買った）」のどちらかが崩れる
     /// </summary>
+    /// <remarks>
+    /// 購入の日付（メモ45）を入れた物だけ、頭に日付を添える（「2025-03-10 に ¥1,500 で贈った」）。
+    /// 空の物は入手日と同じ日なので、札ごとに同じ日付を並べない（入手日は「記録していること」に出ている）。
+    /// </remarks>
     internal static string PurchaseLine(Purchase purchase)
-        => purchase.Kind == PurchaseKind.Received && purchase.Price is null or 0
+    {
+        var text = purchase.Kind == PurchaseKind.Received && purchase.Price is null or 0
             ? "貰った"
             : purchase.Price is null
                 ? $"価格未入力（{DisplayText.PurchaseKindLabel(purchase.Kind)}）"
                 : $"¥{purchase.Price:N0} で{DisplayText.PurchaseKindVerb(purchase.Kind)}";
+
+        return purchase.PurchasedAt is not { } date
+            ? text
+            : purchase.Price is null && purchase.Kind != PurchaseKind.Received
+                ? $"{date:yyyy-MM-dd} {text}"
+                : $"{date:yyyy-MM-dd} に{(text.StartsWith('¥') ? " " : string.Empty)}{text}";
+    }
 
     private void BuildLocalFiles()
     {
