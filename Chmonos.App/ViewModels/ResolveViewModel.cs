@@ -1020,7 +1020,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             // 確定したものはここで溜めて、最後にまとめて編集へ送る
             await NoteSettledAsync(itemId);
 
-            if (!fromChecked && targets.Count == 1)
+            // 次の行へ送るのは、終わったときにまだその行を見ていたときだけ。登録は数分かかり、
+            // その間に別の行を選んでいると、AfterSettled は選んでいる（登録していない）行を外してしまう
+            if (!fromChecked && targets.Count == 1 && ReferenceEquals(Selected, targets[0]))
             {
                 AfterSettled();
             }

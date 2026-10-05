@@ -130,6 +130,27 @@ public class ResolveActionTests
     });
 
     [Fact]
+    public Task 登録の間に別の行へ移ると_終わったとき登録した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        app.Booth.HasItem("9900501", "作り物の衣装");
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.ItemIdInput = "9900501";
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+
+        // 登録は数分かかる。答えを止めている間に、ほかの行を見に行く
+        app.Booth.Hold();
+        resolve.AssignCommand.Execute(null);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "second.zip");
+        app.Booth.Release();
+        await app.SettleAsync();
+
+        Assert.Equal("second.zip", Assert.Single(resolve.Files).FileName);
+        Assert.Equal("second.zip", resolve.Selected!.FileName);
+    });
+
+    [Fact]
     public Task BOOTHに無い商品IDを確かめても_登録には進めない() => TestApp.Run(async app =>
     {
         var (_, resolve) = await OpenResolveAsync(app, @"a\costume.zip");
