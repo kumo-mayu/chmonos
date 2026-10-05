@@ -350,7 +350,7 @@ public sealed class ImportPipeline : IImportPipeline
             // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
             // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
             // 登録したフォルダを測り直すのは取り込み1回につき最初の周回だけ（周回ごとに全部を並べ直していた）
-            var (registered, owned, owners, recordedAt, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
+            var (registered, owned, owners, recordedAt, detached, probe) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
             measuredFolders = true;
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
@@ -387,7 +387,7 @@ public sealed class ImportPipeline : IImportPipeline
             if (!sweptFiles)
             {
                 sweptFiles = true;
-                await NoteMissingFilesAsync(cancellationToken);
+                await NoteMissingFilesAsync(probe, cancellationToken);
             }
 
             foreach (var (itemId, hash) in resolution.BrokenOwned)
@@ -755,7 +755,7 @@ public sealed class ImportPipeline : IImportPipeline
     /// 周回は積むたびに増え、そのたびに登録したフォルダの中を全部並べ直していた。測った値は容量の表示に使うだけで、
     /// 同じ取り込みの中で何度測っても変わらない。
     /// </param>
-    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, IReadOnlyDictionary<string, List<FileOwner>> Owners, IReadOnlyDictionary<string, List<RecordedFile>> RecordedAt, DetachedIndex Detached)> LoadOwnedAsync(
+    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, IReadOnlyDictionary<string, List<FileOwner>> Owners, IReadOnlyDictionary<string, List<RecordedFile>> RecordedAt, DetachedIndex Detached, FilePresenceProbe Probe)> LoadOwnedAsync(
         bool remeasure,
         CancellationToken cancellationToken)
     {
@@ -793,6 +793,11 @@ public sealed class ImportPipeline : IImportPipeline
         // 起動時の見回り（MissingMarksSweep）と番を合わせる。同じフォルダを同時に見て、同じ商品を二度書かないように（ユーザ判断 2026-10-05）
         using var sweeping = await _missingMarks.EnterAsync(cancellationToken);
 
+        // 在るかは見回りと同じ部品で見る（ドライブごとに根を1回・3秒で打ち切る。spec background-and-network.md）。
+        // 前は Directory.Exists と IsOnMissingVolume を打ち切り無しで呼んでいて、落ちた共有の上の登録フォルダで周回の頭が
+        // 1つにつき数十秒止まり得た（根の確かめが1回21秒かかったことがある）。同じ周回のファイルの見回りにも渡し、根を二度待たない
+        var probe = _missingMarks.NewProbe();
+
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
             var measured = new Dictionary<string, (int Count, long Bytes)>(StringComparer.OrdinalIgnoreCase);
@@ -804,12 +809,13 @@ public sealed class ImportPipeline : IImportPipeline
 
             foreach (var folder in item.Local.LocalFolders)
             {
-                if (!Directory.Exists(folder.Path))
+                var presence = probe.OfFolder(folder.Path);
+                if (presence != FilePresence.Present)
                 {
                     // 見つからないものは登録として残すが、スキャンの除外には使わない。
-                    // 無いことは記録に残す。ただしドライブごと見えない（外付けを外している）ときは「無い」と書かない
+                    // 無いことは記録に残す。ただしドライブごと見えない（外付けを外している・根が答えない）ときは「無い」と書かない
                     // （ファイルの取り込みが外付けの上の場所を残すのと同じ。LocalFileMerger）
-                    if (folder.MissingSince is null && !UnresolvedMerge.IsOnMissingVolume(folder.Path))
+                    if (folder.MissingSince is null && presence == FilePresence.Missing)
                     {
                         missingNow.Add(folder.Path);
                         changed = true;
@@ -917,7 +923,7 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
-        return (new RegisteredFolderSet(paths), owned, owners, recordedAt, DetachedIndex.From(loaded.Items));
+        return (new RegisteredFolderSet(paths), owned, owners, recordedAt, DetachedIndex.From(loaded.Items), probe);
     }
 
     /// <summary>
@@ -932,8 +938,8 @@ public sealed class ImportPipeline : IImportPipeline
     /// 書くのは商品ごとの錠の中で今の値に当て、見ている間に場所が変わったファイルには当てない（<see cref="FileMissingMarks.Apply"/>）。
     /// 見回りそのものは起動時の見回りと同じ <see cref="MissingMarksSweep"/>（1本ずつ回るので、起動時の見回りと重ならない）。
     /// </remarks>
-    private Task NoteMissingFilesAsync(CancellationToken cancellationToken)
-        => _missingMarks.NoteFilesAsync(cancellationToken);
+    private Task NoteMissingFilesAsync(FilePresenceProbe probe, CancellationToken cancellationToken)
+        => _missingMarks.NoteFilesAsync(probe, cancellationToken);
 
     /// <summary>そのハッシュを持つ商品と、その商品が記録している場所・開けなかった印。</summary>
     private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths, bool ArchiveBroken);

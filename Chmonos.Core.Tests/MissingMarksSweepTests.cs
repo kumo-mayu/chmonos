@@ -214,6 +214,45 @@ public sealed class MissingMarksSweepTests : IDisposable
         Assert.Empty(await new MissingMarksSweep(_store).SweepAsync());
     }
 
+    /// <summary>
+    /// 取り込みの登録フォルダの判定も、見回りと同じ部品で根の答えを打ち切る（file-lifecycle.md 気になった所15）。
+    /// 前は Directory.Exists を打ち切り無しで呼び、落ちた共有の上の登録フォルダで周回の頭が止まり得た。
+    /// 根が答えない（打ち切った）ドライブは「つながっていない」側に倒し、「無い」とは書かない。
+    /// </summary>
+    [Fact]
+    public async Task 取り込みの登録フォルダの判定は_根が答えなければ打ち切り_無いと書かない()
+    {
+        await SaveAsync([], [FolderAt(Gone("消したフォルダ"))]);
+
+        // 根を見に行くと答えが返らない（落ちた共有）。待つ長さは0なので、時計に頼らず必ず打ち切られる
+        var never = new TaskCompletionSource();
+        var rootAsked = 0;
+        var sweep = new MissingMarksSweep(_store, () => new FilePresenceProbe(
+            rootExists: _ =>
+            {
+                Interlocked.Increment(ref rootAsked);
+                never.Task.Wait();
+                return true;
+            },
+            rootWait: TimeSpan.Zero));
+
+        try
+        {
+            var client = new OffUiThreadTests.OfflineClient();
+            var settings = new AppSettings { SaveImages = false };
+            await new ImportPipeline(
+                    _store, client, new ImagePipeline(client, _paths, settings), () => settings, missingMarks: sweep)
+                .RunAsync(new ImportWorkSet([_watched]));
+
+            Assert.Null((await ItemAsync()).Local.LocalFolders.Single().MissingSince);
+            Assert.True(Volatile.Read(ref rootAsked) >= 1);
+        }
+        finally
+        {
+            never.TrySetResult();
+        }
+    }
+
     [Fact]
     public async Task 取り込みが先に同じ答えを書いていれば_起動時の見回りは書かない()
     {
