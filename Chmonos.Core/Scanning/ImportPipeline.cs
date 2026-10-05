@@ -827,11 +827,20 @@ public sealed class ImportPipeline : IImportPipeline
             // 「無い」と見たフォルダと、また見つかったフォルダ（LocalFolderRecord.MissingSince・ユーザ判断 2026-10-04）
             var missingNow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var seenAgain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 在ると見た、ディスクの通し番号がまだ無い登録 → 今そこに来ているディスク（点検の3。在ると見たときに書き足す）
+            var volumes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var changed = false;
 
             foreach (var folder in item.Local.LocalFolders)
             {
-                var presence = probe.OfFolder(folder.Path);
+                var presence = probe.OfFolder(folder.Path, folder.Volume);
+                if (presence == FilePresence.Present && folder.Volume is null && probe.Volumes.SerialAt(folder.Path) is { } serial)
+                {
+                    volumes[folder.Path] = serial;
+                    changed = true;
+                }
+
                 if (presence != FilePresence.Present)
                 {
                     // 見つからないものは登録として残すが、スキャンの除外には使わない。
@@ -881,11 +890,14 @@ public sealed class ImportPipeline : IImportPipeline
                 // 見つからなくなった日時も同じく今の値に当てる（無い間は最初に見た日時を残す。決まりは起動時の見回りと同じ FileMissingMarks.MarkedFolder）。
                 // 今の値で変わる物が無ければ書かない（起動時の見回りが先に同じ答えを書いていれば、二度書かない）
                 var now = DateTimeOffset.Now;
+                LocalFolderRecord WithVolume(LocalFolderRecord folder)
+                    => folder.Volume is null && volumes.TryGetValue(folder.Path, out var serial) ? folder with { Volume = serial } : folder;
+
                 await _store.Items.ChangeLocalAsync(
                     item.Id,
                     current =>
                     {
-                        var folders = current.LocalFolders.Select(folder =>
+                        var folders = current.LocalFolders.Select(folder => WithVolume(
                             measured.TryGetValue(folder.Path, out var size)
                                 ? folder with
                                 {
@@ -898,7 +910,7 @@ public sealed class ImportPipeline : IImportPipeline
                                     ? FileMissingMarks.MarkedFolder(folder, FilePresence.Present, now)
                                     : missingNow.Contains(folder.Path)
                                         ? FileMissingMarks.MarkedFolder(folder, FilePresence.Missing, now)
-                                        : folder).ToList();
+                                        : folder)).ToList();
 
                         return folders.Where((folder, index) => !ReferenceEquals(folder, current.LocalFolders[index])).Any()
                             ? current with { LocalFolders = folders }
@@ -934,6 +946,15 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 foreach (var path in file.Paths)
                 {
+                    // 記録が別のディスクの上の場所なら、今その場所に在る物は上書きではない（2台の外付けが同じ文字を使う。点検の3）。
+                    // 入れると、Bの上の同じ名前の別の中身を見て、Aの上の記録から場所を外していた
+                    if (PlaceVolumes.Of(file, path) is { } recorded
+                        && probe.Volumes.SerialAt(path) is { } now
+                        && !string.Equals(recorded, now, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     if (!recordedAt.TryGetValue(path, out var list))
                     {
                         list = [];
@@ -1697,7 +1718,8 @@ public sealed class ImportPipeline : IImportPipeline
                     Booth = booth,
                     Local = new LocalBlock
                     {
-                        LocalFiles = LocalFileMerger.Merge([], discovered),
+                        // 見方を渡すのは、見つけた場所にディスクの通し番号を書くため（点検の3）
+                        LocalFiles = LocalFileMerger.Merge([], discovered, presence),
                         NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
                         LastFetchedAt = DateTimeOffset.Now,
                         NextFetchDueAt = NextFetchDue(itemId),

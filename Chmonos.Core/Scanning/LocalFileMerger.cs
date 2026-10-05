@@ -42,11 +42,20 @@ public static class LocalFileMerger
     /// つながっていない・控えた文字に別のディスクが来ている場所は残す。前は場所ごとに打ち切りなしで <c>File.Exists</c> と根の
     /// <c>Directory.Exists</c> を（商品の錠の中で）呼んでいて、揺れる共有で根の答えが一瞬遅れたり外れたりすると、その上の場所を外していた。
     /// </summary>
+    /// <remarks>
+    /// **ディスクの通し番号**（<see cref="LocalFileRecord.Volumes"/>・2026-10-05・点検の3）：見つけた物の場所は今読んだので、そこに今来ているディスクの番号を書く。
+    /// 記録の場所は、記録が持つ番号のディスクの上かで見分ける（別のディスクが同じ文字に来ていれば、つながっていないのと同じに残す）。
+    /// 在ると見た場所で番号がまだ無ければ書き足す。
+    /// </remarks>
     public static IReadOnlyList<LocalFileRecord> Merge(
         IReadOnlyList<LocalFileRecord> existing,
         IEnumerable<LocalFileRecord> discovered,
         FilePresenceProbe presence)
-        => Merge(existing, discovered, path => presence.PlaceOf(path));
+        => Merge(
+            existing,
+            discovered.Select(file => PlaceVolumes.Stamped(file, presence.Volumes)),
+            (file, path) => presence.PlaceOf(path, volume: PlaceVolumes.Of(file, path)),
+            presence.Volumes.SerialAt);
 
     public static IReadOnlyList<LocalFileRecord> Merge(
         IReadOnlyList<LocalFileRecord> existing,
@@ -64,16 +73,19 @@ public static class LocalFileMerger
         return Merge(
             existing,
             discovered,
-            path => exists(path) ? FilePresence.Present
+            (_, path) => exists(path) ? FilePresence.Present
                 : unreachable(path) ? FilePresence.OnDetachedDrive
-                : FilePresence.Missing);
+                : FilePresence.Missing,
+            _ => null);
     }
 
     /// <param name="look">場所1つの答え。「無い」と分かった場所だけを落とし、在る場所があれば日時を消す。</param>
+    /// <param name="serialAt">在ると見た場所に今来ているディスクの通し番号（番号の無い場所に書き足す）。分からなければ null。</param>
     private static IReadOnlyList<LocalFileRecord> Merge(
         IReadOnlyList<LocalFileRecord> existing,
         IEnumerable<LocalFileRecord> discovered,
-        Func<string, FilePresence> look)
+        Func<LocalFileRecord, string, FilePresence> look,
+        Func<string, string?> serialAt)
     {
         var byHash = new Dictionary<string, LocalFileRecord>(StringComparer.OrdinalIgnoreCase);
 
@@ -94,13 +106,18 @@ public static class LocalFileMerger
         {
             var paths = new List<string>(record.Paths.Count);
             var found = false;
+            var seen = new List<KeyValuePair<string, string>>();
             foreach (var path in record.Paths)
             {
-                var place = look(path);
+                var place = look(record, path);
                 if (place == FilePresence.Present)
                 {
                     paths.Add(path);
                     found = true;
+                    if (serialAt(path) is { } serial)
+                    {
+                        seen.Add(new(path, serial));
+                    }
                 }
                 else if (place != FilePresence.Missing)
                 {
@@ -112,6 +129,12 @@ public static class LocalFileMerger
             // 「ファイルが見つからない」として扱い、再スキャンでの復旧やBOOTHからの再取得へ繋げるため。
             // 場所だけを差し替える（欄を1つずつ写すと、記録に欄を足したときにここで落ちる）
             var next = paths.Count == record.Paths.Count ? record : record with { Paths = paths };
+
+            // 在ると見た場所で番号がまだ無ければ書き足す（記録が持つ番号は変えない。点検の3）。外した場所の番号は落とす
+            if (next.Volumes is not null || seen.Count > 0)
+            {
+                next = PlaceVolumes.With(next, seen, overwrite: false);
+            }
 
             // 在る場所が1つでもあれば、見つからなくなった日時は消す（移した先を取り込んだ・同じ中身を別の所に置いた。
             // ユーザ判断 2026-10-04）。無くなった側は日時を付けない——ここは時計を持たず、日時は記録の場所を全部見る所
@@ -164,6 +187,27 @@ public static class LocalFileMerger
 
             // 見つかったかは上（Merge）で場所を見て決める。ここで落とすと、つながっていないドライブの上の場所しか無い物まで消える
             MissingSince = current.MissingSince,
+
+            // 見つけた方の番号は今そのディスクから読んだ答えなので、同じ場所の古い番号より優先する（点検の3）
+            Volumes = CombineVolumes(current.Volumes, discovered.Volumes),
         };
+    }
+
+    private static IReadOnlyDictionary<string, string>? CombineVolumes(
+        IReadOnlyDictionary<string, string>? current,
+        IReadOnlyDictionary<string, string>? discovered)
+    {
+        if (discovered is not { Count: > 0 })
+        {
+            return current;
+        }
+
+        var volumes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, serial) in (current ?? new Dictionary<string, string>()).Concat(discovered))
+        {
+            volumes[path] = serial;
+        }
+
+        return volumes;
     }
 }

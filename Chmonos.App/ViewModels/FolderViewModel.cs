@@ -750,6 +750,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             // ファイルが在るかを見るので裏で
             var recorded = RecordedPaths(items, unresolved);
             IReadOnlyDictionary<string, string> found;
+            var volumes = VolumeSnapshot.Empty;
             try
             {
                 // 木は今控えてある組で読み替えて組む（読むだけなので門を通らない）。
@@ -757,6 +758,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
                 // 門が閉じていて数分待たされ、その間フォルダビューが「読み込み中」のまま止まっていた（止めている間も読む操作はできる決め事）。
                 // 控え直し（ObserveVolumes）が返す読み替えも、書く前の組から出した物なので、待って組んでいた前と同じ木になる
                 found = _services.Volumes.RefreshRemap();
+                volumes = _services.Volumes.LatestVolumes;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                                   or System.Text.Json.JsonException)
@@ -769,7 +771,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ObserveVolumes(recorded), cancellationToken: token).Forget();
 
             token.ThrowIfCancellationRequested();
-            return Build(items, unresolved, found);
+            return Build(items, unresolved, found, volumes);
         }, token);
 
         token.ThrowIfCancellationRequested();
@@ -809,14 +811,17 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     /// <summary>
     /// 記録から木を組む（裏のスレッドで）。在るかどうかと、zip の横の展開したフォルダもここで見る。
     /// ドライブ文字が変わった外付けの物は、今の文字の下に置く（<paramref name="remap"/>・記録は書き換えない）。
+    /// 記録が場所のディスクの通し番号を持てば、そのディスクが今見えている文字で置く（<paramref name="mounted"/>・点検の3）。
     /// </summary>
     private static List<FolderViewVolume> Build(
         IReadOnlyList<ItemRecord> items,
         IReadOnlyList<UnresolvedFile> unresolved,
-        IReadOnlyDictionary<string, string> remap)
+        IReadOnlyDictionary<string, string> remap,
+        VolumeSnapshot mounted)
     {
         string Current(string path) => VolumeTable.Apply(path, remap);
-        string? Moved(string path) => Same(Current(path), path) ? null : VolumeTable.LetterOf(path);
+        string? Moved(string path, string current) => Same(current, path) ? null : VolumeTable.LetterOf(path);
+        string CurrentOf(LocalFileRecord file, string path) => VolumeTable.Apply(path, PlaceVolumes.Of(file, path), remap, mounted);
 
         var entries = new List<FolderViewEntry>();
         foreach (var item in items)
@@ -825,23 +830,25 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             {
                 foreach (var path in file.Paths)
                 {
+                    var current = CurrentOf(file, path);
                     entries.Add(new FolderViewEntry
                     {
-                        Path = Current(path),
-                        RecordedLetter = Moved(path),
+                        Path = current,
+                        RecordedLetter = Moved(path, current),
                         Kind = FolderViewRowKind.File,
                         Item = item,
-                        Others = file.Paths.Where(other => !Same(other, path)).Select(Current).ToList(),
+                        Others = file.Paths.Where(other => !Same(other, path)).Select(other => CurrentOf(file, other)).ToList(),
                     });
                 }
             }
 
             foreach (var folder in item.Local.LocalFolders)
             {
+                var current = VolumeTable.Apply(folder.Path, folder.Volume, remap, mounted);
                 entries.Add(new FolderViewEntry
                 {
-                    Path = Current(folder.Path),
-                    RecordedLetter = Moved(folder.Path),
+                    Path = current,
+                    RecordedLetter = Moved(folder.Path, current),
                     Kind = FolderViewRowKind.ItemFolder,
                     Item = item,
                 });
@@ -855,7 +862,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
                 entries.Add(new FolderViewEntry
                 {
                     Path = Current(path),
-                    RecordedLetter = Moved(path),
+                    RecordedLetter = Moved(path, Current(path)),
                     Kind = FolderViewRowKind.Unresolved,
                     Unresolved = file,
                     Others = file.Paths.Where(other => !Same(other, path)).Select(Current).ToList(),

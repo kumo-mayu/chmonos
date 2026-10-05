@@ -37,4 +37,10 @@ public sealed record LocalFolderRecord
     /// 計算では出せない（ディスクを見た結果）ので JSON に書く。
     /// </remarks>
     public DateTimeOffset? MissingSince { get; init; }
+
+    /// <summary>
+    /// フォルダが載っているディスクの通し番号（2026-10-05・点検の3。ファイルの <see cref="LocalFileRecord.Volumes"/> と同じ考え）。
+    /// 在ると見たときに書き足す。分からなければ書き出さない。
+    /// </summary>
+    public string? Volume { get; init; }
 }

@@ -103,11 +103,11 @@ internal static class ItemFileActions
 
         // 在るかは画面のスレッドの外で見る（技術的負債 4-2）
         var targets = await Task.Run(() => item.Local.OwnedFiles
-            .Select(file => file.Paths.Select(services.Volumes.Current).FirstOrDefault(DiskCheck.FileExists))
+            .Select(file => file.Paths.Select(path => services.Volumes.CurrentOf(file, path)).FirstOrDefault(DiskCheck.FileExists))
             .OfType<string>()
             .Select(path => new Target(path, new ListChoiceItem(Path.GetFileName(path), Path.GetDirectoryName(path))))
             .Concat(item.Local.LocalFolders
-                .Select(folder => services.Volumes.Current(folder.Path))
+                .Select(folder => services.Volumes.CurrentOf(folder))
                 .Where(DiskCheck.FolderExists)
                 .Select(folder => new Target(folder, new ListChoiceItem($"{Path.GetFileName(folder.TrimEnd('\\', '/'))}（フォルダ）", folder))))
             .ToList());
@@ -137,7 +137,7 @@ internal static class ItemFileActions
         const string title = "一時的に展開して開く";
 
         var zips = await Task.Run(() => item.Local.OwnedFiles
-            .Select(file => file.Paths.Select(services.Volumes.Current).FirstOrDefault(path =>
+            .Select(file => file.Paths.Select(path => services.Volumes.CurrentOf(file, path)).FirstOrDefault(path =>
                 path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && DiskCheck.FileExists(path)))
             .OfType<string>()
             .Select(path => new Target(path, new ListChoiceItem(Path.GetFileName(path), Path.GetDirectoryName(path))))

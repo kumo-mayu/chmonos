@@ -269,4 +269,15 @@ public sealed record LocalFileRecord
     /// 計算では出せない（ディスクを見た結果）ので JSON に書く。無ければ書き出さない。
     /// </remarks>
     public DateTimeOffset? MissingSince { get; init; }
+
+    /// <summary>
+    /// 場所ごとの、そのファイルが載っているディスク（場所 → ボリュームの通し番号。2026-10-05・点検の3・ユーザ判断 3-A）。
+    /// 読み方・書き足し方は <see cref="Services.PlaceVolumes"/>。分からない場所（ネットワークの共有など）は載らず、無ければ書き出さない。
+    /// </summary>
+    /// <remarks>
+    /// ドライブ文字と通し番号の控え（<c>volumes.json</c>）は1つの文字に1台しか覚えないので、2台の外付けが日によって同じ文字を使うと、
+    /// Aの上のファイルをBの上で探して「見つかりません」が付いたり消えたりしていた。場所ごとに持つのは、同じ中身を2台に置くと
+    /// 1件の記録の場所がディスクをまたぐため。ディスクを見た結果なので計算では出せない。
+    /// </remarks>
+    public IReadOnlyDictionary<string, string>? Volumes { get; init; }
 }

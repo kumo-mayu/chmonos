@@ -110,7 +110,7 @@ public sealed class MissingFileFinder
         {
             foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached))
             {
-                if (probe.Of(file.Paths) != FilePresence.Missing)
+                if (probe.Of(file) != FilePresence.Missing)
                 {
                     continue;
                 }

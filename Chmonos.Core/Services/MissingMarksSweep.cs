@@ -93,12 +93,17 @@ public sealed class MissingMarksSweep
             var folderSightings = hasFolders
                 ? item.Local.LocalFolders
                     .GroupBy(folder => folder.Path, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(group => group.Key, group => probe.OfFolder(group.Key), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => probe.OfFolder(group.Key, group.First().Volume), StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, FilePresence>(StringComparer.OrdinalIgnoreCase);
+
+            // 在ると見た登録に、今そこに来ているディスクの通し番号を書き足す（番号の無い登録だけ。点検の3）
+            var folderVolumes = folderSightings
+                .Where(pair => pair.Value == FilePresence.Present && probe.Volumes.SerialAt(pair.Key) is not null)
+                .ToDictionary(pair => pair.Key, pair => probe.Volumes.SerialAt(pair.Key)!, StringComparer.OrdinalIgnoreCase);
 
             // 変わる物が無ければ錠も取らない（数千件のうち、ほとんどは前回と同じ）
             if (FileMissingMarks.Apply(item.Local.LocalFiles, fileSightings, now) is null
-                && FileMissingMarks.ApplyFolders(item.Local.LocalFolders, folderSightings, now) is null)
+                && FileMissingMarks.ApplyFolders(item.Local.LocalFolders, folderSightings, now, folderVolumes) is null)
             {
                 continue;
             }
@@ -108,7 +113,7 @@ public sealed class MissingMarksSweep
                 current =>
                 {
                     var files = FileMissingMarks.Apply(current.LocalFiles, fileSightings, now);
-                    var marked = FileMissingMarks.ApplyFolders(current.LocalFolders, folderSightings, now);
+                    var marked = FileMissingMarks.ApplyFolders(current.LocalFolders, folderSightings, now, folderVolumes);
                     return files is null && marked is null
                         ? null
                         : current with

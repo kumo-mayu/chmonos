@@ -20,7 +20,18 @@ internal static class FilePresenceNotes
     /// <summary>ファイルを今見る。ディスクを見るので画面のスレッドの外で（落ちたネットワークドライブで待たされないように）。</summary>
     /// <param name="volumes">ドライブ文字の読み替え（<see cref="VolumeTable.Current"/>）と、控えた文字に別のディスクが来ているかの見分け。</param>
     public static Task<IReadOnlyList<FileSighting>> LookAsync(IReadOnlyList<LocalFileRecord> files, VolumeTable volumes)
-        => Task.Run(() => Look(files, volumes.Current, volumes.Snapshot()));
+        => Task.Run(() => Look(files, volumes.CurrentOf, volumes.Snapshot()));
+
+    /// <summary>
+    /// <see cref="Look(IReadOnlyList{LocalFileRecord}, Func{string, string}, VolumeSnapshot?)"/> と同じ。読み替えはファイルごとに、
+    /// 記録が持つディスクの通し番号で決める（<see cref="VolumeTable.CurrentOf(LocalFileRecord, string)"/>・点検の3）。
+    /// </summary>
+    public static IReadOnlyList<FileSighting> Look(
+        IReadOnlyList<LocalFileRecord> files, Func<LocalFileRecord, string, string> remap, VolumeSnapshot? volumes = null)
+    {
+        var probe = new FilePresenceProbe(volumes: volumes);
+        return [.. files.Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file, path => remap(file, path))))];
+    }
 
     /// <summary>
     /// 画面のスレッドの外で呼ぶ。ドライブごとに1回だけつながっているかを見る（<see cref="FilePresenceProbe"/>）。
@@ -34,7 +45,7 @@ internal static class FilePresenceNotes
         IReadOnlyList<LocalFileRecord> files, Func<string, string> remap, VolumeSnapshot? volumes = null)
     {
         var probe = new FilePresenceProbe(volumes: volumes);
-        return [.. files.Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file.Paths, remap)))];
+        return [.. files.Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file, remap)))];
     }
 
     /// <summary>
