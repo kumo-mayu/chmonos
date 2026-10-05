@@ -148,4 +148,25 @@ public sealed class ReimportTests : IDisposable
         Assert.Equal("直した", (await _store.Items.LoadAsync(ItemId))!.Local.Memo);
         Assert.Contains("直した", File.ReadAllText(file));
     }
+
+    /// <summary>
+    /// 既にある商品へファイルを足す間に、別の書き手が同じ商品へファイルを足しても消えない
+    /// （2026-10-05・file-lifecycle.md「気になった所」3）。前は錠の外で読んだ写しで localFiles ごと書いていた。
+    /// </summary>
+    [Fact]
+    public async Task 既にある商品へ足す間にほかの書き手が足したファイルが残る()
+    {
+        await SetUpAsync();
+
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            ItemId,
+            local => ItemLockRace.AddFile(local),
+            () => _pipeline.RunAsync([_source]));
+
+        var files = (await _store.Items.LoadAsync(ItemId))!.Local.LocalFiles;
+        Assert.Equal(2, files.Count);
+        Assert.Contains(files, file => file.Hash == "BBBB");
+        Assert.Contains(files, file => file.Contents.Contains("readme.txt"));
+    }
 }

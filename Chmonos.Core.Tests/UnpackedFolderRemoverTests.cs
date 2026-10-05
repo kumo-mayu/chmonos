@@ -47,13 +47,94 @@ public class UnpackedFolderRemoverTests : IDisposable
     }
 
     /// <summary>実際に消す代わりに、呼ばれたパスを記録するだけの削除役。</summary>
-    private static UnpackedFolderRemover Recording(List<string> deleted)
-        => new((path, _) =>
-        {
-            deleted.Add(path);
-            Directory.Delete(path, recursive: true);
-            return Task.CompletedTask;
-        });
+    private static UnpackedFolderRemover Recording(List<string> deleted, IReadOnlyList<string>? registered = null)
+        => new(
+            (path, _) =>
+            {
+                deleted.Add(path);
+                Directory.Delete(path, recursive: true);
+                return Task.CompletedTask;
+            },
+            _ => Task.FromResult<IReadOnlyList<string>?>(registered ?? []));
+
+    // ---- 商品に登録したフォルダは消さない（2026-10-05・file-lifecycle.md「気になった所」4）----
+    // zip の隣のフォルダを商品として登録していると（zip が後から来た・「zipで登録し直す」の前）、
+    // 名前が合うので展開先と見え、ごみ箱へ送っていた。送った間、その商品のフォルダは「見つからない」になる。
+
+    [Fact]
+    public async Task 商品に登録したフォルダは消さず_理由を返す()
+    {
+        var folder = CreatePair("作り物_1.0");
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted, [folder.Path + Path.DirectorySeparatorChar]).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Equal("商品に登録したフォルダです。削除しません。", results[0].Reason);
+        Assert.Empty(deleted);
+        Assert.True(Directory.Exists(folder.Path));
+    }
+
+    [Fact]
+    public async Task 中に商品に登録したフォルダがあれば消さない()
+    {
+        var folder = CreatePair("作り物_1.0");
+        var inner = Path.Combine(folder.Path, "中身");
+        Directory.CreateDirectory(inner);
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted, [inner.ToUpperInvariant()]).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Equal("中に商品に登録したフォルダがあります。削除しません。", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    [Fact]
+    public async Task 商品に登録したフォルダの中にあれば消さない()
+    {
+        var folder = CreatePair("作り物_1.0");
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted, [_root]).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Equal("商品に登録したフォルダの中にあります。削除しません。", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    /// <summary>名前の頭が同じだけの登録（"作り物_1.0" と "作り物_1.0.1"）では止めない。</summary>
+    [Fact]
+    public async Task 名前の頭が同じだけの登録では止めない()
+    {
+        var folder = CreatePair("作り物_1.0");
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted, [folder.Path + ".1"]).RemoveAsync([folder, CreatePair("別の_2.0")]);
+
+        Assert.All(results, result => Assert.True(result.Removed));
+    }
+
+    /// <summary>読めない商品の記録があると、どのフォルダを登録しているか分からないので消さない。</summary>
+    [Fact]
+    public async Task 登録を確かめきれないときは消さない()
+    {
+        var folder = CreatePair("作り物_1.0");
+        var deleted = new List<string>();
+        var remover = new UnpackedFolderRemover(
+            (path, _) =>
+            {
+                deleted.Add(path);
+                return Task.CompletedTask;
+            },
+            _ => Task.FromResult<IReadOnlyList<string>?>(null));
+
+        var results = await remover.RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Equal("読めない商品の記録があり、商品に登録したフォルダか確かめられません。削除しません。", results[0].Reason);
+        Assert.Empty(deleted);
+    }
 
     [Fact]
     public async Task RemovesFolderWhenArchiveIsStillThere()
@@ -171,7 +252,9 @@ public class UnpackedFolderRemoverTests : IDisposable
     public async Task ReportsDeletionFailureAsReason()
     {
         var folder = CreatePair("Kipfel_1.2.0");
-        var remover = new UnpackedFolderRemover((_, _) => throw new IOException("使用中です"));
+        var remover = new UnpackedFolderRemover(
+            (_, _) => throw new IOException("使用中です"),
+            _ => Task.FromResult<IReadOnlyList<string>?>([]));
 
         var results = await remover.RemoveAsync([folder]);
 

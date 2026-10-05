@@ -63,6 +63,51 @@ public class SettingsServiceTests : IDisposable
         Assert.False(item!.Local.IsHidden);
     }
 
+    private Task SaveItemWithDetachedAsync(string id)
+        => _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock { Name = "作り物の商品", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock
+            {
+                LocalFiles =
+                [
+                    new LocalFileRecord { Hash = "AAAA", Paths = [@"C:\作り物\外した.zip"], SizeBytes = 1, Detached = true },
+                    new LocalFileRecord { Hash = "CCCC", Paths = [@"C:\作り物\持っている.zip"], SizeBytes = 1 },
+                ],
+            },
+        });
+
+    [Fact]
+    public async Task 外した記録を消すと_その行だけが消える()
+    {
+        await SaveItemWithDetachedAsync("9900021");
+
+        await _service.ForgetDetachedAsync("AAAA", "9900021");
+
+        var files = (await _store.Items.LoadAsync("9900021"))!.Local.LocalFiles;
+        Assert.Equal(["CCCC"], files.Select(file => file.Hash));
+    }
+
+    /// <summary>
+    /// 外した記録を消す間に取り込みが同じ商品へファイルを足しても、足したファイルは消えない
+    /// （2026-10-05・file-lifecycle.md「気になった所」3）。前は錠の外で読んだ写しで localFiles ごと書いていた。
+    /// </summary>
+    [Fact]
+    public async Task 外した記録を消す間に取り込みが足したファイルが残る()
+    {
+        await SaveItemWithDetachedAsync("9900022");
+
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            "9900022",
+            local => ItemLockRace.AddFile(local),
+            () => _service.ForgetDetachedAsync("AAAA", "9900022"));
+
+        var files = (await _store.Items.LoadAsync("9900022"))!.Local.LocalFiles;
+        Assert.Equal(["CCCC", "BBBB"], files.Select(file => file.Hash));
+    }
+
     [Fact]
     public async Task RestoringAnExcludedFileRemovesTheEntry()
     {

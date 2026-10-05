@@ -227,17 +227,13 @@ public sealed class SettingsService : ISettingsService
 
     public async Task UnhideAsync(string itemId, CancellationToken cancellationToken = default)
     {
-        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (item is null || !item.Local.IsHidden)
-        {
-            return;
-        }
-
-        await _store.Items.SaveLocalAsync(
+        // ほかの書き込みと同じく、商品の錠の中で今の値に当てる（2026-10-05・file-lifecycle.md「気になった所」3）。
+        // 書くのは isHidden だけなので、前の写しで書く形でも消える物は無かったが、決まりを1つにそろえる
+        await _store.Items.ChangeLocalAsync(
             itemId,
-            item.Local with { IsHidden = false },
+            current => current.IsHidden ? current with { IsHidden = false } : null,
             LocalOwners.Visibility,
-            cancellationToken: cancellationToken);
+            cancellationToken);
     }
 
     /// <summary>
@@ -320,24 +316,18 @@ public sealed class SettingsService : ISettingsService
         string itemId,
         CancellationToken cancellationToken = default)
     {
-        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (item is null)
-        {
-            return;
-        }
-
-        var files = item.Local.LocalFiles
-            .Where(file => !(file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-        if (files.Count == item.Local.LocalFiles.Count)
-        {
-            return;
-        }
-
-        await _store.Items.SaveLocalAsync(
+        // 商品の錠の中で今の一覧から消す（2026-10-05・file-lifecycle.md「気になった所」3）。前は錠の外で読んだ写しで
+        // localFiles ごと書いていたので、読んでから書くまでに取り込みが足したファイル・付けた日時が消え得た
+        await _store.Items.ChangeLocalAsync(
             itemId,
-            item.Local with { LocalFiles = files },
+            current =>
+            {
+                var files = current.LocalFiles
+                    .Where(file => !(file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                return files.Count == current.LocalFiles.Count ? null : current with { LocalFiles = files };
+            },
             [LocalField.LocalFiles],
-            cancellationToken: cancellationToken);
+            cancellationToken);
     }
 }

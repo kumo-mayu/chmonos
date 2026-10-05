@@ -240,4 +240,53 @@ public class FolderRegistrationTests : IDisposable
         Assert.Empty(after!.Local.LocalFolders);
         Assert.Single(after.Local.LocalFiles);
     }
+
+    // ---- 錠の外で読んだ写しで書き戻さない（2026-10-05・file-lifecycle.md「気になった所」3）----
+
+    /// <summary>
+    /// zip をハッシュしている間に取り込みが同じ商品へファイルを足しても、足したファイルは消えない。
+    /// 前は錠の外で読んだ写しに zip を足して <c>localFiles</c> ごと書いていたので、ハッシュの数秒の間に足された物が消えていた。
+    /// </summary>
+    [Fact]
+    public async Task zipで登録し直す間に取り込みが足したファイルが残る()
+    {
+        var itemId = await SaveItemAsync("9900011");
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, folder + ".zip");
+
+        ArchiveSwapOutcome? outcome = null;
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            itemId,
+            local => ItemLockRace.AddFile(local),
+            async () => outcome = await _service.SwapFolderForArchiveAsync(itemId, folder));
+
+        Assert.Equal(ArchiveSwapResult.Registered, outcome!.Result);
+        var after = (await _store.Items.LoadAsync(itemId))!.Local;
+        Assert.Contains(after.LocalFiles, file => file.Hash == "BBBB");
+        Assert.Contains(after.LocalFiles, file => file.Paths.Contains(folder + ".zip"));
+        Assert.Empty(after.LocalFolders);
+    }
+
+    /// <summary>フォルダの登録を外す間に取り込みが足したファイルも消えない（外す方は localFiles の写しも書いていた）。</summary>
+    [Fact]
+    public async Task フォルダの登録を外す間に取り込みが足したファイルが残る()
+    {
+        var itemId = await SaveItemAsync("9900012");
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+
+        var removed = false;
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            itemId,
+            local => ItemLockRace.AddFile(local),
+            async () => removed = await _service.UnregisterFolderAsync(itemId, folder));
+
+        Assert.True(removed);
+        var after = (await _store.Items.LoadAsync(itemId))!.Local;
+        Assert.Equal("BBBB", Assert.Single(after.LocalFiles).Hash);
+        Assert.Empty(after.LocalFolders);
+    }
 }
