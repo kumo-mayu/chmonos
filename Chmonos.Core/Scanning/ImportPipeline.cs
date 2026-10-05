@@ -102,6 +102,12 @@ public sealed class ImportSummary
     public int FilesOnlineOnly { get; init; }
 
     /// <summary>
+    /// 取り込み元の中で、たどらなかったジャンクション・シンボリックリンクの数（見つからない・移動の点検 15）。
+    /// 中の物は取り込んでいない。リンク先を取り込み元に足せば取り込める。
+    /// </summary>
+    public int LinksSkipped { get; init; }
+
+    /// <summary>
     /// zip として開けず、未確定に「壊れたzip」の印を付けて置いた数（大容量の確かめ 問題4・ユーザ判断 2026-09-30）。**0 でないときだけ画面に出す。**
     /// 読めなかった物（<see cref="FilesUnreadable"/>）とは別に数える——あちらは取り込めていない物で、直し方は「閉じて取り込み直す」。
     /// こちらは取り込めていて（未確定にある）、直し方は「ダウンロードし直す」。
@@ -684,6 +690,7 @@ public sealed class ImportPipeline : IImportPipeline
         private int _unreadable;
         private int _unreadableFolders;
         private int _onlineOnly;
+    private int _links;
         private int _hashed;
         private int _reused;
         private int _excluded;
@@ -706,6 +713,7 @@ public sealed class ImportPipeline : IImportPipeline
             _unreadable += scan.Unreadable;
             _unreadableFolders += scan.UnreadableFolders;
             _onlineOnly += scan.OnlineOnly;
+        _links += scan.Links;
 
             _hashed += resolution.Hashed;
             _reused += resolution.ReusedFromCache;
@@ -738,6 +746,7 @@ public sealed class ImportPipeline : IImportPipeline
             FilesUnreadable = _unreadable,
             FoldersUnreadable = _unreadableFolders,
             FilesOnlineOnly = _onlineOnly,
+            LinksSkipped = _links,
             FilesHashed = _hashed,
             FilesReusedFromCache = _reused,
             FilesExcluded = _excluded,
@@ -1102,12 +1111,21 @@ public sealed class ImportPipeline : IImportPipeline
         var unreadableFolders = 0;
         var onlineOnly = 0;
         var unseen = new List<string>();
+        var links = 0;
 
         foreach (var folder in folders)
         {
             var result = _scanner.Scan(folder, cancellationToken);
             unseen.AddRange(result.UnreadableFolders);
             unseen.AddRange(result.NotRead);
+
+            // たどらなかったリンクは数を結果に出し、どれかはログに残す（見つからない・移動の点検 15）。
+            // リンクの先を勝手にたどらないのは、ループと二重読みを避けるため。入れたい人はリンク先を取り込み元に足す
+            links += result.Links.Count;
+            foreach (var link in result.Links)
+            {
+                Diagnostics.AppLog.Warn("取り込みの走査", $"{link}：リンクなので中を読みませんでした。リンク先を取り込み元に足すと取り込めます");
+            }
             unpacked.AddRange(result.UnpackedFolders);
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
             unreadable += result.Unreadable;
@@ -1163,6 +1181,7 @@ public sealed class ImportPipeline : IImportPipeline
             UnreadableFolders = unreadableFolders,
             OnlineOnly = onlineOnly,
             Unseen = unseen,
+            Links = links,
         };
     }
 
@@ -1182,6 +1201,9 @@ public sealed class ImportPipeline : IImportPipeline
 
         /// <summary>在るのに今回見ていない場所（読めなかったフォルダ・オンラインのみ・読めなかった1ファイル）。</summary>
         public required List<string> Unseen { get; init; }
+
+        /// <summary>たどらなかったジャンクション・シンボリックリンクの数。</summary>
+        public int Links { get; init; }
     }
 
     private async Task<ResolutionResult> ResolveAsync(

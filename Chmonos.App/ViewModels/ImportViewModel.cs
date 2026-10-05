@@ -1555,12 +1555,22 @@ public sealed class ImportViewModel : ViewModelBase
                         ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
                             + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
                         : string.Empty),
+                new ImportResultLine(ImportResultLine.Links, LinksSkippedText(summary.LinksSkipped)),
                 new ImportResultLine(ImportResultLine.BrokenZip, BrokenArchiveText(summary.FilesBrokenArchive)),
                 new ImportResultLine(
                     ImportResultLine.BrokenZipOnItems,
                     BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames)),
             }.Where(line => line.Text.Length > 0).ToList()
         : [];
+
+    /// <summary>
+    /// たどらなかったジャンクション・シンボリックリンクの1文（見つからない・移動の点検 15・2026-10-05）。
+    /// 勝手にはたどらない（ループ・同じファイルの二度読み）ので、入れたいならリンク先を落としてもらう。
+    /// 前は黙って飛ばしていて、中の物が入っていないことに気付けなかった。取り込めていない物なので、読めなかった物と同じ枠に置く
+    /// </summary>
+    internal static string LinksSkippedText(int links) => links > 0
+        ? $"リンクになっているフォルダやファイルが {links} 件あり、取り込んでいません。リンク先をドロップすると取り込めます。"
+        : string.Empty;
 
     /// <summary>
     /// 未確定にある、壊れていて開けない zip の1文。どれかは未確定の行の札「壊れたzip」で分かるので、そこへ案内する
@@ -1635,6 +1645,9 @@ public sealed record ImportResultLine(string Id, string Text)
 
     /// <summary>OneDrive の「オンラインのみ」で読まなかったファイル。</summary>
     public const string OnlineOnly = "ImportOnlineOnlyLine";
+
+    /// <summary>たどらなかったジャンクション・シンボリックリンク。</summary>
+    public const string Links = "ImportLinksLine";
 
     /// <summary>未確定にある、壊れていて開けない zip。</summary>
     public const string BrokenZip = "ImportBrokenZipLine";

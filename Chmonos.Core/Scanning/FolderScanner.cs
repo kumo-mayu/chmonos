@@ -166,6 +166,7 @@ public sealed class FolderScanner
         var skipped = 0;
         var onlineOnly = new List<string>();
         var unreadableFolders = new List<string>();
+        var links = new List<string>();
 
         // 前の再帰の列挙と同じく、並べ終えたフォルダの子を後ろに積む（幅優先）。
         // 各フォルダは「どの展開先の中か」（外側から順に）を持って積む
@@ -187,9 +188,16 @@ public sealed class FolderScanner
 
             foreach (var entry in entries)
             {
-                // 前の走査（システム属性を飛ばす列挙）と同じく、システム属性の物は数えず降りない。リンクも降りない（ループの元）
-                if ((entry.Attributes & FileAttributes.System) != 0 || entry.IsLink)
+                // 前の走査（システム属性を飛ばす列挙）と同じく、システム属性の物は数えず降りない
+                if ((entry.Attributes & FileAttributes.System) != 0)
                 {
+                    continue;
+                }
+
+                // リンクも降りない（ループの元）。ただし黙っては飛ばさず、場所を返す（見つからない・移動の点検 15）
+                if (entry.IsLink)
+                {
+                    links.Add(entry.Path);
                     continue;
                 }
 
@@ -263,6 +271,7 @@ public sealed class FolderScanner
             OnlineOnly = onlineOnly.Count,
             NotRead = onlineOnly,
             UnreadableFolders = unreadableFolders,
+            Links = links,
         };
     }
 
@@ -378,4 +387,12 @@ public sealed class ScanResult
     /// （見つからない・移動の点検 4・2026-10-05）。
     /// </summary>
     public IReadOnlyList<string> NotRead { get; init; } = [];
+
+    /// <summary>
+    /// たどらなかったジャンクション・シンボリックリンク（見つからない・移動の点検 15・2026-10-05）。
+    /// 自分の親を指せばループになり、別の場所を指せば同じファイルを二度読むので、勝手にはたどらない。
+    /// 黙って飛ばすと中の物が入っていないことに気付けないので、取り込みが数えて「リンク先を取り込み元に足す」と案内する。
+    /// システムの属性の物（ユーザのフォルダの「My Music」など古い名前の置き換え）は前どおり数えない。
+    /// </summary>
+    public IReadOnlyList<string> Links { get; init; } = [];
 }
