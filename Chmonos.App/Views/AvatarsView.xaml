@@ -30,7 +30,7 @@
             （何件が書き換わるかと、元に戻せないこと）を出してから消す。開くのは一度に1つなので、1つを全行で使い回す
         -->
         <ContextMenu x:Key="AvatarBaseRowMenu">
-            <MenuItem Header="削除" Command="{Binding DeleteCommand}" AutomationProperties.AutomationId="AvatarBaseRowMenu.Delete"
+            <MenuItem Header="削除" Command="{Binding DeleteCommand}" AutomationProperties.AutomationId="AvatarBaseRowMenu.Delete" Style="{StaticResource DangerMenuItem}"
                       ToolTip="この共通素体を削除します。元に戻せません。" />
         </ContextMenu>
         <!-- 共通素体の一覧の行。見た目は既定の行のまま、名前と ID と右クリックだけ足す -->

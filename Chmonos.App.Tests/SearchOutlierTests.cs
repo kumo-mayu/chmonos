@@ -32,7 +32,7 @@ public class SearchOutlierTests
         module.Source = module.Sources[1];
 
         Assert.True(module.OutliersApply);
-        Assert.Equal("外れ値を無視（5,000円以上を異常値として弾く）", module.OutlierLabel);
+        Assert.Equal("外れ値を無視（5,000円以上を弾く）", module.OutlierLabel);
         Assert.Equal(1000, (int)module.SliderMaximum);
     }
 
@@ -70,7 +70,7 @@ public class SearchOutlierTests
         module.AllValuesOf = _ => [.. Enumerable.Repeat(1000, 20)];
         module.RefreshBounds();
 
-        Assert.Equal("外れ値を無視（5,000円以上を異常値として弾く）", module.OutlierLabel);
+        Assert.Equal("外れ値を無視（5,000円以上を弾く）", module.OutlierLabel);
     }
 
     [Fact]

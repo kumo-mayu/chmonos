@@ -85,4 +85,35 @@ public class CardMenuStateTests
         Assert.Equal(card.OpenBoothTip, CardMenuState.Tip("OpenBooth", card));
         Assert.True(CardMenuState.IsEnabled("Edit", card));
     });
+
+    [Fact]
+    public Task 子が全部押せない親は_親も押せず_子と同じ理由を言う() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900001", "作り物の衣装A").WithFiles());
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        foreach (var parent in new[] { "OpenParent", "UnityParent" })
+        {
+            Assert.False(CardMenuState.IsEnabled(parent, card), parent);
+            Assert.Equal("手元にファイルがありません", CardMenuState.Tip(parent, card));
+            // 商品が手元に無い行は、子の理由（商品の情報がまだありません）がそのまま親の理由になる
+            Assert.False(CardMenuState.IsEnabled(parent, new Row(null)), parent);
+            Assert.Equal("商品の情報がまだありません", CardMenuState.Tip(parent, new Row(null)));
+        }
+    });
+
+    [Fact]
+    public Task 子が1つでも押せる親は_押せて吹き出しは出さない() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900001", "作り物の衣装A"));
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        foreach (var parent in new[] { "OpenParent", "UnityParent" })
+        {
+            Assert.True(CardMenuState.IsEnabled(parent, card), parent);
+            Assert.Null(CardMenuState.Tip(parent, card));
+        }
+    });
 }

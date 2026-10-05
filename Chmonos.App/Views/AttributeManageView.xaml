@@ -141,7 +141,7 @@
                                                       controls:MenuTips.Enabled="{Binding ShowItemsToolTip}"
                                                       controls:MenuTips.Disabled="{Binding ShowItemsToolTip}" />
                                             <Separator />
-                                            <MenuItem AutomationProperties.AutomationId="AttributeMenu.Delete" Header="この属性を削除"
+                                            <MenuItem AutomationProperties.AutomationId="AttributeMenu.Delete" Header="この属性を削除" Style="{StaticResource DangerMenuItem}"
                                                       Command="{Binding DeleteCommand}"
                                                       controls:MenuTips.Enabled="確かめてから削除します。商品の評価も消えます。" />
                                         </ContextMenu>
