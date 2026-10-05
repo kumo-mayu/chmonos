@@ -17,6 +17,8 @@ internal static class CardMenuState
 
     internal const string NoFilesTip = "手元にファイルがありません";
 
+    internal const string NoArchiveTip = "手元にzipがありません";
+
     /// <summary>子の理由がそろわないとき、親の吹き出しに出すまとめの理由。</summary>
     internal const string AllUnavailableTip = "今は使える操作がありません";
 
@@ -29,6 +31,14 @@ internal static class CardMenuState
 
     private static bool NeedsFiles(string key)
         => key is "Reveal" or "Unpack" or "SendToUnity" or "SendToUnityWithRecord" or "SelectInUnity";
+
+    /// <summary>
+    /// フォルダでは足りず、zip などのファイルが要る項目。展開と Unity へ送るは zip の中身を使うので、
+    /// フォルダだけの商品では押せなくする（押してから「無い」と言われるより、薄く出して理由を言う決まり）。
+    /// エクスプローラで開くはフォルダも開ける
+    /// </summary>
+    private static bool NeedsArchive(string key)
+        => key is "Unpack" or "SendToUnity" or "SendToUnityWithRecord" or "SelectInUnity";
 
     /// <summary>
     /// 子を持つ親の項目（「開く ▸」「Unity ▸」）と、その子。**子が全部押せないときは、親も押せなくして理由を言う**
@@ -56,6 +66,7 @@ internal static class CardMenuState
             "OpenBooth" or "CopyLink" => card is { HasBoothPage: true },
             "OpenShop" => card is { HasShop: true },
             // 手元のファイルが要る
+            _ when NeedsArchive(key) => card is not null && card.Item.HasOwnedFiles,
             _ when NeedsFiles(key) => card is not null && HasFiles(card),
             // 選ぶ箱を持つのはカードそのものだけ（行の一覧は選びを持たない）
             "Select" => target is ItemCardViewModel,
@@ -111,6 +122,7 @@ internal static class CardMenuState
             "ShowUpdate" or "MarkUpdateRead" => target is ItemCardViewModel { HasUpdate: false }
                 ? "未読の更新の通知はありません"
                 : "この画面では使えません",
+            _ when NeedsArchive(key) && HasFiles(card) => NoArchiveTip,
             _ when NeedsFiles(key) => NoFilesTip,
             _ => null,
         };

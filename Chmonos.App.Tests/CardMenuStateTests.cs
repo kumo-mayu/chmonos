@@ -52,6 +52,28 @@ public class CardMenuStateTests
     });
 
     [Fact]
+    public Task フォルダだけの商品は_開くは押せ_zipが要る項目は押せず理由を言う() => TestApp.Run(async app =>
+    {
+        var item = Make.Item("9900601", "作り物の衣装A").WithFiles();
+        await app.AddItemAsync(item with
+        {
+            Local = item.Local with { LocalFolders = [new Chmonos.Core.Models.LocalFolderRecord { Path = @"C:\作り物\衣装A" }] },
+        });
+        var main = await app.StartAsync();
+        var card = main.Search.ListItems.Single();
+
+        Assert.True(CardMenuState.IsEnabled("Reveal", card));
+        Assert.True(CardMenuState.IsEnabled("OpenParent", card));
+        foreach (var key in new[] { "Unpack", "SendToUnity", "SendToUnityWithRecord", "SelectInUnity" })
+        {
+            Assert.False(CardMenuState.IsEnabled(key, card), key);
+            Assert.Equal("手元にzipがありません", CardMenuState.Tip(key, card));
+        }
+
+        Assert.False(CardMenuState.IsEnabled("UnityParent", card));
+    });
+
+    [Fact]
     public Task 商品が手元に無い行は_商品のJSONが要る項目も押せず_理由を言う() => TestApp.Run(async app =>
     {
         await app.AddItemAsync(Make.Item("1000001", "作り物の衣装A"));
