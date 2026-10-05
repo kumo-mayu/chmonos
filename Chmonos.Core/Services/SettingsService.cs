@@ -309,7 +309,7 @@ public sealed class SettingsService : ISettingsService
         // 画面の「次の取り込みでまた未確定として出てきます」は、対象に積んだときにしか正しくなかった。
         // 商品が同じ中身を持つなら行き先は決まっているので出さない（未確定を開いたときの均しと同じ見方）
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        if (loaded.Items.Any(item => item.Local.OwnedFiles.Any(file => Same(file.Hash))))
+        if (loaded.Items.Any(item => item.Local.AttachedFiles.Any(file => Same(file.Hash))))
         {
             return ExclusionLiftOutcome.OwnedByItem;
         }

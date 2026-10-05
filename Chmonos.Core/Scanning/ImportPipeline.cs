@@ -794,11 +794,12 @@ public sealed class ImportPipeline : IImportPipeline
         var owned = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
         // 持っているハッシュと、それを持つ商品・記録している場所（移したファイルを結び直すため。ResolveAsync）。
-        // 外した印の行は入れない——外した商品へ戻すと、人が外した判断を取り込みが覆す
+        // 外した印の行は入れない——外した商品へ戻すと、人が外した判断を取り込みが覆す。
+        // 上書きで残った古い版は入れる（所持には数えないが、その中身をまた見つけたらこの商品へ結び直して印を下ろす。⑤-B）
         var owners = new Dictionary<string, List<FileOwner>>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in loaded.Items)
         {
-            foreach (var file in item.Local.OwnedFiles)
+            foreach (var file in item.Local.AttachedFiles)
             {
                 if (!owned.TryGetValue(file.Hash, out var known) || (known.Count == 0 && file.Contents.Count > 0))
                 {
@@ -1083,7 +1084,7 @@ public sealed class ImportPipeline : IImportPipeline
                 itemId,
                 current =>
                 {
-                    var stillOwned = current.OwnedFiles.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var stillOwned = current.AttachedFiles.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var files = discovered.Where(file => stillOwned.Contains(file.Hash)).ToList();
                     return files.Count == 0
                         ? null

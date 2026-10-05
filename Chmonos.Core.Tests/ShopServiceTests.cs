@@ -348,6 +348,29 @@ public class ShopServiceTests : IDisposable
         Assert.False(items[1].IsOwned);
     }
 
+    /// <summary>上書きで残った古い版だけの商品は未所持で、所持の数と容量に入らない（ユーザ判断 2026-10-05 ⑤-B）。</summary>
+    [Fact]
+    public async Task CountsAnItemWithOnlyAnOldVersionAsNotOwned()
+    {
+        var old = new LocalFileRecord
+        {
+            Hash = "old-version",
+            Paths = [],
+            SizeBytes = 300,
+            Replaced = new ReplacedVersion(@"D:\a\pack.zip", DateTimeOffset.UnixEpoch),
+        };
+        var owned = Owned(size: 1000);
+        await SaveItemAsync("1", Shop("a", "A"), new LocalBlock { LocalFiles = [old] });
+        await SaveItemAsync("2", Shop("a", "A"), owned with { LocalFiles = [.. owned.LocalFiles, old] });
+
+        var items = await Create().LoadItemsAsync("a");
+        var shop = Assert.Single(await Create().LoadAsync());
+
+        Assert.False(items.Single(item => item.Item.Id == "1").IsOwned);
+        Assert.Equal(1000, items.Single(item => item.Item.Id == "2").SizeBytes);
+        Assert.Equal(1, shop.OwnedCount);
+    }
+
     /// <summary>
     /// バナーはHTMLの先頭付近にあるので、見つかった時点で受信をやめる。
     /// 100KB超のページを毎回最後まで読む理由が無い。

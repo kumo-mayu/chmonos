@@ -752,7 +752,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // まだ他が残っていれば所持のままなので、聞くことが無い
         var deleteWhenEmpty = false;
         var hideWhenEmpty = false;
-        if (LocalFiles.Count(file => !file.IsDetached) == 1 && LocalFolders.Count == 0)
+        // 古い版の行は持ち物に数えない（所持の答えと同じ。⑤-B）。古い版だけが残る外し方も最後のファイルとして聞く
+        if (LocalFiles.Count(file => !file.IsDetached && !file.IsOldVersion) == 1 && LocalFolders.Count == 0)
         {
             // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ指示）。
             // **非表示で残すのを勧め、削除は特別な操作にする**（ユーザ判断 2026-09-12）——残せば外した印も残り、

@@ -263,7 +263,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
 
     public ItemRecord? FindFileOwner(string hash, string exceptItemId) => _allItems.FirstOrDefault(item =>
         item.Id != exceptItemId
-        && item.Local.OwnedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)));
+        && item.Local.AttachedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>
     /// 所持している商品のID（所持＝ファイルかフォルダを1つ以上持つ）。
