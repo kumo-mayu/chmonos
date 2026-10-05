@@ -204,7 +204,7 @@
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                                                     <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
-                                                    <Button Content="登録を外す" Style="{StaticResource SmallButton}"
+                                                    <Button Content="登録を外す" Style="{StaticResource DangerButton}"
                                                             AutomationProperties.AutomationId="ItemFolderUnregister"
                                                             AutomationProperties.Name="{Binding Name, StringFormat={}{0}の登録を外す}"
                                                             Command="{Binding DataContext.UnregisterFolderCommand,
@@ -348,7 +348,7 @@
                                                     左が2段になっても名前の段に並ぶよう、上に置く（1段のときは左と同じ高さなので、前と同じ位置）
                                                 -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                    <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
+                                                    <Button Content="この商品から外す" Style="{StaticResource DangerButton}"
                                                             AutomationProperties.AutomationId="ItemFileDetach"
                                                             AutomationProperties.Name="{Binding FileName, StringFormat={}{0}をこの商品から外す}"
                                                             ToolTip="未確定に戻します。ファイルは削除せず、あとで元に戻せます。"

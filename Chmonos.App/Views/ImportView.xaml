@@ -106,14 +106,14 @@
                                         <Border.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
-                                                <MenuItem Header="取り込み対象から外す" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveFolder" />
+                                                <MenuItem Header="取り込み対象から外す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveFolder" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                                             <!-- 消すのは一覧からの登録だけで、ファイルには触らない。語も「外す」に揃える（V4・W の語彙） -->
                                             <!-- 行の数だけ並ぶので、どのフォルダのボタンかを名前に入れる -->
-                                            <Button Content="対象から外す" MinWidth="88" Height="27" HorizontalAlignment="Right"
+                                            <Button Content="対象から外す" Style="{StaticResource DangerButton}" MinWidth="88" Height="27" HorizontalAlignment="Right"
                                                     AutomationProperties.AutomationId="ImportFolderRemove"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を対象から外す}"
                                                     FontSize="12"
@@ -219,12 +219,12 @@
                                         <Border.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
-                                                <MenuItem Header="監視から外す" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveWatched" />
+                                                <MenuItem Header="監視から外す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveWatched" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                                            <Button Content="外す" Width="60" Height="27" HorizontalAlignment="Right"
+                                            <Button Content="外す" Style="{StaticResource DangerButton}" Width="60" Height="27" HorizontalAlignment="Right"
                                                     AutomationProperties.AutomationId="ImportWatchedRemove"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を監視から外す}"
                                                     FontSize="12"

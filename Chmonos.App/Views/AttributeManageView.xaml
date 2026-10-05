@@ -278,8 +278,8 @@
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                         <Button AutomationProperties.AutomationId="AttributeOrphanAdd" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を一覧に追加}" Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button AutomationProperties.AutomationId="AttributeOrphanRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0" Foreground="{DynamicResource DangerText}"
+                                                        <Button AutomationProperties.AutomationId="AttributeOrphanRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource DangerButton}"
+                                                                Margin="6,0,0,0"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox AutomationProperties.AutomationId="AttributeOrphanMerge" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を既にある属性へ統合}" Width="260" Margin="0,7,0,0" AllowNew="False"

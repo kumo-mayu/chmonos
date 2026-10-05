@@ -199,4 +199,60 @@ public sealed class AvatarsBaseMembersTests
 
         Assert.False(avatars.ClearBaseCommand.CanExecute(null));
     });
+
+    [Fact]
+    public Task 足すと足した行だけが増え_元の行は作り直されない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        SelectBase(avatars, Handmade);
+        var before = avatars.SelectedBaseMembers.Single(row => row.ItemId == Manual);
+        var actions = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        avatars.SelectedBaseMembers.CollectionChanged += (_, e) => actions.Add(e.Action);
+
+        avatars.AddMemberCommand.Execute(Candidate(avatars, Loose));
+        await app.SettleAsync();
+        await UiThread.Until(() => MemberIds(avatars).Contains(Loose), "足したアバターが並ぶ");
+
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Add], actions);
+        Assert.Same(before, avatars.SelectedBaseMembers.Single(row => row.ItemId == Manual));
+    });
+
+    [Fact]
+    public Task 外すと外した行だけが消え_残る行は作り直されない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        SelectBase(avatars, Marubody);
+        avatars.AddMemberCommand.Execute(Candidate(avatars, Loose));
+        await app.SettleAsync();
+        await UiThread.Until(() => MemberIds(avatars).Contains(Loose), "足したアバターが並ぶ");
+        var kept = avatars.SelectedBaseMembers.Single(row => row.ItemId == Loose);
+        var actions = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        avatars.SelectedBaseMembers.CollectionChanged += (_, e) => actions.Add(e.Action);
+
+        avatars.RemoveMemberCommand.Execute(avatars.SelectedBaseMembers.Single(row => row.ItemId == Inferred));
+        await app.SettleAsync();
+        await UiThread.Until(() => !MemberIds(avatars).Contains(Inferred), "外したアバターが消える");
+
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Remove], actions);
+        Assert.Same(kept, avatars.SelectedBaseMembers.Single(row => row.ItemId == Loose));
+    });
+
+    [Fact]
+    public Task 素体の詳細から開くと_戻るで素体の詳細へ戻る() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        SelectBase(avatars, Handmade);
+
+        avatars.OpenMemberCommand.Execute(avatars.SelectedBaseMembers.Single(row => row.ItemId == Manual));
+
+        Assert.False(avatars.IsBaseMode);
+        Assert.Equal(Manual, avatars.Selected?.ItemId);
+        Assert.True(app.Main.CanGoBack);
+
+        app.Main.GoBack();
+        var restored = Assert.IsType<AvatarsViewModel>(app.Main.CurrentViewModel);
+        await UiThread.Until(() => !restored.IsLoading && restored.IsBaseMode, "素体の詳細で開き直る");
+
+        Assert.Equal(Handmade, restored.SelectedBase?.Name);
+    });
 }

@@ -401,7 +401,7 @@
                                             <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,12,0"
                                                        FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                        VerticalAlignment="Center" />
-                                            <Button Grid.Column="2" Content="外す" Style="{StaticResource SmallButton}"
+                                            <Button Grid.Column="2" Content="外す" Style="{StaticResource DangerButton}"
                                                     AutomationProperties.AutomationId="Settings.FolderRemove"
                                                     AutomationProperties.Name="{Binding Path, StringFormat={}{0}を履歴から外す}"
                                                     Command="{Binding RemoveCommand}" />
@@ -440,7 +440,7 @@
                                             <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,12,0"
                                                        FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                        VerticalAlignment="Center" />
-                                            <Button Grid.Column="2" Content="外す" Style="{StaticResource SmallButton}"
+                                            <Button Grid.Column="2" Content="外す" Style="{StaticResource DangerButton}"
                                                     AutomationProperties.AutomationId="Settings.WatchedRemove"
                                                     AutomationProperties.Name="{Binding Path, StringFormat={}{0}を監視から外す}"
                                                     Command="{Binding RemoveCommand}" />

@@ -435,8 +435,8 @@
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                         <Button AutomationProperties.AutomationId="TagOrphanAdd" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を一覧に追加}" Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button AutomationProperties.AutomationId="TagOrphanRemove" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0" Foreground="{DynamicResource DangerText}"
+                                                        <Button AutomationProperties.AutomationId="TagOrphanRemove" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource DangerButton}"
+                                                                Margin="6,0,0,0"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox AutomationProperties.AutomationId="TagOrphanMerge" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を既にあるタグへ統合}" Width="260" Margin="0,7,0,0" AllowNew="False"

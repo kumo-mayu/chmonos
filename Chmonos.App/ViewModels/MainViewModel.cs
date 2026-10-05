@@ -476,6 +476,9 @@ public sealed partial class MainViewModel : ViewModelBase
     /// </summary>
     public void ShowAvatar(string itemId) => CurrentViewModel = new AvatarsViewModel(_services, this, itemId);
 
+    /// <summary>戻る・進むで、アバターの画面を見ていた状態（選んでいたアバターと、素体の詳細を見ていた素体）で開く。</summary>
+    public void ShowAvatarAt(string? itemId, string? baseName) => CurrentViewModel = new AvatarsViewModel(_services, this, itemId, baseName);
+
     public RelayCommand ShowModificationsCommand { get; }
 
     public bool IsModificationsActive => CurrentViewModel is ModificationHubViewModel;
