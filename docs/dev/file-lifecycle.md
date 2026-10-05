@@ -146,7 +146,7 @@ stateDiagram-v2
 
 ### 保存先の引越し・バックアップ
 
-`StoreMover`（`MoveStore`）は保存先を丸ごと写して突き合わせてから元を消す。`BackupArchive` は zip に書き出し、空の所へ戻すだけ。**どちらも手元のファイルの記録（パス）を書き換えず、アセットのファイルも動かさない。** `scan-cache.json`・`volumes.json`・`import-state.json` も一緒に運ぶ（バックアップは `.tmp`・`location.json` などを入れない）。
+`StoreMover`（`MoveStore`）は保存先を丸ごと写して突き合わせてから元を消す。`BackupArchive` は zip に書き出し、空の所へ戻すだけ。**どちらも手元のファイルの記録（パス）を書き換えず、アセットのファイルも動かさない。** `scan-cache.json`・`volumes.json`・`import-state.json` も一緒に運ぶ（バックアップは `.tmp`・`location.json`・商品の記録の控え `items/.prev` などを入れない。よけた壊れた記録 `items/_broken` は入れる）。
 
 ## 例外的な動き・落とし穴
 
@@ -156,6 +156,7 @@ stateDiagram-v2
 - **ハッシュの扱い**：ファイルは SHA-256。控え（パス・大きさ・更新日時）が合えば取り直さない。持っている zip は開き直さない（中身の一覧は商品、手掛かりは控え）。**フォルダはハッシュを持たない**（中の1ファイルで別物になるため）。
 - **展開したフォルダの見分けは名前だけ**：zip と同じ名前のフォルダは、中身が別物でも取り込まない。zip を消すと次の取り込みで中身が出てくる。
 - **錠と同時の書き込み**：商品は `ChangeLocalAsync`・`CreateOrChangeLocalAsync`（錠の中で今の値に当てる）。`unresolved.json`・`excluded.json`・`scan-cache.json` は `JsonFileStore.UpdateAsync`。取り込み中に人が未確定を片付けても `UnresolvedMerge` が残す。見回りと取り込みのフォルダの判定は同じ番（`MissingMarksSweep.EnterAsync`）で1本ずつ。
+- **読めない商品の記録**：全件の読み込みが飛ばすので、その商品のファイル・フォルダの記録も見えなくなる（展開先の削除は止まり、未確定にも出ない）。通知の「BOOTHから作り直す」で作った記録にはファイルの記録が無く、取り込み直すと手掛かりで付き直すか未確定に出る（「1つ前の版に戻す」なら控えの時点の記録が戻る。`notifications.md`「読めない商品の記録」・`BrokenItemRecordTests`）。
 - **ドロップ**：ファイルは必ず取り込みに積む（結ぶ相手を選ぶ道は無い）。展開先の中のファイルを落とすと、元の zip に替えるか聞く（`UnpackedFileResolver`。自動で始めた時は聞かずに通知）。
 - **監視フォルダ**：新着＝除外・登録フォルダの下でなく、控えに3点が合う行が無い物か、`unfetched` に載っている物（`FolderWatch.FindNewAsync`。ハッシュを取らない）。控えに載っていれば、商品にも未確定にも無くても新着と数えない。
 - **起動時の自動の動き**：

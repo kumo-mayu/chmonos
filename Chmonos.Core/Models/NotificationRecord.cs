@@ -40,6 +40,13 @@ public enum NotificationKind
     /// 同じ名前が2つある・商品IDとファイル名が違う。**直し方はこちらで決めず、人に伝える。**
     /// </summary>
     HandEditMismatch,
+
+    /// <summary>
+    /// 商品の記録（<c>items/{id}.json</c>）が壊れていて読めない（ユーザ判断 2026-10-05）。
+    /// 読めない商品は検索にもどこにも出ないので、知らせないと黙って消えたことになる。
+    /// 1商品1件で、行から控えに戻すか BOOTH から作り直せる。ID は <c>unreadable-item:{商品ID}</c>
+    /// </summary>
+    UnreadableItem,
 }
 
 /// <summary>

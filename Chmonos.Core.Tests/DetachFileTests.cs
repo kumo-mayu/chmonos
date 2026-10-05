@@ -264,9 +264,8 @@ public class DetachFileTests : IDisposable
         await SaveItemAsync("111", fileCount: 2);
         await _service.DetachFileAsync("111", Hash, deleteItemWhenEmpty: false);
 
-        var json = string.Join("\n", Directory.EnumerateFiles(_library, "*.json", SearchOption.AllDirectories)
-            .Where(path => path.Contains("111", StringComparison.Ordinal))
-            .Select(File.ReadAllText));
+        // 商品の記録の本体だけを読む（items/.prev の控えは本体と同じ中身なので数えない）
+        var json = File.ReadAllText(Path.Combine(_library, "items", "111.json"));
 
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"detached\""));
     }

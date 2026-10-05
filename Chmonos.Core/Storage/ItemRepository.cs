@@ -135,7 +135,8 @@ public sealed class ItemRepository
         var path = _paths.ItemFile(item.Id);
         try
         {
-            await JsonStore.WriteAsync(path, item, cancellationToken);
+            // 書くたびに、書いた版を items/.prev へ控える（読めなくなったときに通知の画面から戻す元）
+            await JsonStore.WriteAsync(path, item, _paths.ItemCopyFile(item.Id), cancellationToken);
         }
         catch
         {
@@ -352,9 +353,13 @@ public sealed class ItemRepository
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
-        var failures = new List<string>();
+        var failures = new List<ItemReadFailure>();
         var read = await ReadAllAsync(failures, progress, cancellationToken);
-        return new ItemLoadResult { Items = read.Select(pair => pair.Item).ToList(), FailedItemIds = failures };
+        return new ItemLoadResult
+        {
+            Items = read.Select(pair => pair.Item).ToList(),
+            FailedItemIds = failures.Select(failure => failure.ItemId).ToList(),
+        };
     }
 
     /// <summary>
@@ -364,7 +369,7 @@ public sealed class ItemRepository
     /// 列挙に出なかった商品（外した・手で消した）の控えはここで捨てる。
     /// </summary>
     private async Task<List<(string FileId, ItemRecord Item)>> ReadAllAsync(
-        List<string> failures,
+        List<ItemReadFailure> failures,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
@@ -394,10 +399,21 @@ public sealed class ItemRepository
                 {
                     found.Add((itemId, item));
                 }
+                else if (File.Exists(file.FullName))
+                {
+                    // 中身が「null」だけのファイル。在るのに商品にならず、前は黙って検索から消えていた
+                    failures.Add(new ItemReadFailure(itemId, Line: null, IsBroken: true));
+                }
             }
-            catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException)
+            catch (System.Text.Json.JsonException exception)
             {
-                failures.Add(itemId);
+                // 行番号は 0 から数える。人がエディタで開いて探す数に直す
+                failures.Add(new ItemReadFailure(itemId, exception.LineNumber + 1, IsBroken: true));
+            }
+            catch (IOException)
+            {
+                // ほかのアプリが開いている・読む途中で消えた。壊れてはいないので、通知には出さない
+                failures.Add(new ItemReadFailure(itemId, Line: null, IsBroken: false));
             }
 
             progress?.Report(++loaded);
@@ -423,6 +439,180 @@ public sealed class ItemRepository
                 .Select(pair => (pair.FileId, pair.Item.Id))
                 .ToList(),
             cancellationToken);
+
+    /// <summary>
+    /// 壊れていて読めない商品の記録（JSON として読めない・中身が null）。全件の読み込みと同じ写しから引く。
+    /// ほかのアプリが開いていて読めなかっただけの物は入れない（次に読めば読める）。
+    /// </summary>
+    public Task<IReadOnlyList<ItemReadFailure>> FindUnreadableAsync(CancellationToken cancellationToken = default)
+        => Task.Run<IReadOnlyList<ItemReadFailure>>(
+            async () =>
+            {
+                var failures = new List<ItemReadFailure>();
+                await ReadAllAsync(failures, null, cancellationToken);
+                return failures.Where(failure => failure.IsBroken).ToList();
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// 戻せる控え（<see cref="AppPaths.ItemCopyFile"/>）があるか。読めて、中の商品IDがファイル名と同じ物だけを数える
+    /// （ID の違う控えを据えると、以後の保存が別のファイルへ書かれる）。
+    /// </summary>
+    public bool HasUsableCopy(string itemId) => IsUsableRecord(_paths.ItemCopyFile(itemId), itemId);
+
+    private static bool IsUsableRecord(string path, string itemId)
+    {
+        try
+        {
+            return JsonStore.Read<ItemRecord>(path) is { } record
+                && string.Equals(record.Id, itemId, StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>本体が今は読めるか（壊れていない）。無ければ偽。</summary>
+    private static bool IsReadable(string path)
+    {
+        try
+        {
+            return JsonStore.Read<ItemRecord>(path) is not null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 読めない本体を <c>items/_broken/{id}-{日時}.json</c> へよけ、控えを本体に据える（通知の「1つ前の版に戻す」）。
+    ///
+    /// **商品の錠の中で、本体がまだ読めないことを見てから動かす。**押すまでの間に手で直していれば何もしない。
+    /// 壊れた本体は消さない：壊れた中にしか無い入力を、後から手で救えるように。
+    /// </summary>
+    public async Task<BrokenItemOutcome> RestoreCopyAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+            var path = _paths.ItemFile(itemId);
+            if (!File.Exists(path))
+            {
+                return BrokenItemOutcome.Missing;
+            }
+
+            if (IsReadable(path))
+            {
+                return BrokenItemOutcome.NotBroken;
+            }
+
+            var copy = _paths.ItemCopyFile(itemId);
+            if (!File.Exists(copy))
+            {
+                return BrokenItemOutcome.NoCopy;
+            }
+
+            if (!IsUsableRecord(copy, itemId))
+            {
+                return BrokenItemOutcome.CopyUnreadable;
+            }
+
+            SetAside(itemId, path);
+
+            // 控えは残す（据えた本体と同じ中身。次にアプリが書けば書き直される）
+            var temporaryPath = path + ".restore.tmp";
+            File.Copy(copy, temporaryPath, overwrite: true);
+            File.Move(temporaryPath, path, overwrite: true);
+            _cache.TryRemove(itemId, out _);
+            return BrokenItemOutcome.Done;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 読めない本体を <c>items/_broken</c> へよける（通知の「BOOTHから作り直す」の前半）。よけた先を返す。
+    /// 本体が無い・今は読めるなら動かさず、その答えだけを返す。
+    /// </summary>
+    public async Task<(BrokenItemOutcome Outcome, string? MovedTo)> SetAsideBrokenAsync(
+        string itemId,
+        CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+            var path = _paths.ItemFile(itemId);
+            if (!File.Exists(path))
+            {
+                return (BrokenItemOutcome.Missing, null);
+            }
+
+            if (IsReadable(path))
+            {
+                return (BrokenItemOutcome.NotBroken, null);
+            }
+
+            return (BrokenItemOutcome.Done, SetAside(itemId, path));
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// よけた本体を元の場所へ戻す（作り直しが BOOTH から取れずに終わったとき）。戻したかを返す。
+    /// その間に別の道（取り込み）が同じ商品を作っていれば戻さない——読めない方で読める方を潰さない。
+    /// </summary>
+    public async Task<bool> PutBackBrokenAsync(string itemId, string movedTo, CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+            var path = _paths.ItemFile(itemId);
+            if (File.Exists(path) || !File.Exists(movedTo))
+            {
+                return false;
+            }
+
+            File.Move(movedTo, path);
+            _cache.TryRemove(itemId, out _);
+            return true;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 本体を <c>_broken</c> へ移す。名前は「商品ID-日時」で、同じ秒に2つ目が来たら番号を足す（前によけた物を上書きしない）。
+    /// 商品の錠と書き込みの門を持った所から呼ぶ。
+    /// </summary>
+    private string SetAside(string itemId, string path)
+    {
+        Directory.CreateDirectory(_paths.BrokenItemsDir);
+        var stamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        var target = Path.Combine(_paths.BrokenItemsDir, $"{itemId}-{stamp}.json");
+        for (var number = 2; File.Exists(target); number++)
+        {
+            target = Path.Combine(_paths.BrokenItemsDir, $"{itemId}-{stamp}-{number}.json");
+        }
+
+        File.Move(path, target);
+        _cache.TryRemove(itemId, out _);
+        return target;
+    }
 
     /// <summary>表示用の説明HTML。商品ページを開いた時だけ読む。</summary>
     public async Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken = default)
@@ -577,6 +767,9 @@ public sealed class ItemRepository
         }
 
         DeleteIfExists(_paths.ItemHtmlFile(itemId));
+
+        // 外した商品の控えは戻す先が無い。残すと、同じIDで登録し直したときに古い版が戻せてしまう
+        DeleteIfExists(_paths.ItemCopyFile(itemId));
         try
         {
             DeleteIfExists(_paths.ItemFile(itemId));
@@ -613,6 +806,32 @@ public sealed class ItemRepository
             File.Delete(path);
         }
     }
+}
+
+/// <summary>
+/// 全件の読み込みで読めなかった商品の記録1件。
+/// <paramref name="Line"/> は JSON の何行目で読めなくなったか（1から。分からなければ null）。
+/// <paramref name="IsBroken"/> は中身が壊れているか（偽ならほかのアプリが開いていて読めなかっただけ）。
+/// </summary>
+public sealed record ItemReadFailure(string ItemId, long? Line, bool IsBroken);
+
+/// <summary>読めない商品の記録を戻す・よけるときの答え。</summary>
+public enum BrokenItemOutcome
+{
+    /// <summary>戻した・よけた。</summary>
+    Done,
+
+    /// <summary>本体がもう無い（外した・手で消した）。</summary>
+    Missing,
+
+    /// <summary>本体は今は読める（押すまでの間に手で直した）。</summary>
+    NotBroken,
+
+    /// <summary>控えが無い。</summary>
+    NoCopy,
+
+    /// <summary>控えも読めない（か、中の商品IDが違う）。</summary>
+    CopyUnreadable,
 }
 
 public sealed class ItemLoadResult

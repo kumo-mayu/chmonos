@@ -148,7 +148,7 @@ public sealed class UnpackedFolderRemover
     {
         if (registered is null)
         {
-            return "読めない商品の記録があり、商品に登録したフォルダか確かめられません。削除しません。";
+            return "読めない商品の記録があり、商品に登録したフォルダか確かめられないので削除しません。通知の画面から直せます。";
         }
 
         var target = Normalized(folderPath);

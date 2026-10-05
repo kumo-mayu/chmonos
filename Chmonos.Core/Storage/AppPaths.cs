@@ -115,6 +115,19 @@ public sealed class AppPaths
 
     public string ItemFile(string itemId) => Path.Combine(ItemsDir, $"{itemId}.json");
 
+    /// <summary>
+    /// アプリが最後に書いた商品の記録の控え（<c>items/.prev/{id}.json</c>。ユーザ判断 2026-10-05）。
+    /// 本体が手で直して壊れたとき・ディスクや同期ソフトの事故で読めなくなったときに、通知の画面から戻す元。
+    /// 全件の読み込みは <c>items</c> の直下だけを列挙するので、ここの物は商品に数えない
+    /// </summary>
+    public string ItemCopyFile(string itemId) => Path.Combine(ItemsDir, ".prev", $"{itemId}.json");
+
+    /// <summary>
+    /// 読めなかった商品の記録をよけておく所（<c>items/_broken</c>）。戻す・作り直すときに本体をここへ移す。
+    /// 消さずに残すのは、壊れた中にしか無い入力（タグ・メモ）を後から手で救えるようにするため
+    /// </summary>
+    public string BrokenItemsDir => Path.Combine(ItemsDir, "_broken");
+
     /// <summary>表示用の説明HTML。検索には使わないので、開いた時だけ読む。</summary>
     public string ItemHtmlFile(string itemId) => Path.Combine(ItemsDir, $"{itemId}.h2.html");
 

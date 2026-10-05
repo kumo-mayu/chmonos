@@ -132,7 +132,7 @@ public class UnpackedFolderRemoverTests : IDisposable
         var results = await remover.RemoveAsync([folder]);
 
         Assert.False(results[0].Removed);
-        Assert.Equal("読めない商品の記録があり、商品に登録したフォルダか確かめられません。削除しません。", results[0].Reason);
+        Assert.Equal("読めない商品の記録があり、商品に登録したフォルダか確かめられないので削除しません。通知の画面から直せます。", results[0].Reason);
         Assert.Empty(deleted);
     }
 

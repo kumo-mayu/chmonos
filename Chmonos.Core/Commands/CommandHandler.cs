@@ -37,6 +37,9 @@ public sealed class CommandHandler
     /// <summary>途中で止まった取り込みの記録（import-state.json）。</summary>
     private readonly Storage.JsonFileStore<ImportState>? _importState;
 
+    /// <summary>読めない商品の記録を控えに戻す・BOOTH から作り直す（通知の行のボタン）。</summary>
+    private readonly BrokenItemRepair? _brokenItems;
+
     public CommandHandler(
         IImportPipeline import,
         IItemService items,
@@ -58,8 +61,10 @@ public sealed class CommandHandler
         Storage.JsonFileStore<List<Models.ShopNoteRecord>>? shopNotes = null,
         MissingFileFinder? missingFiles = null,
         VolumeTable? volumes = null,
-        Storage.JsonFileStore<ImportState>? importState = null)
+        Storage.JsonFileStore<ImportState>? importState = null,
+        BrokenItemRepair? brokenItems = null)
     {
+        _brokenItems = brokenItems;
         _volumes = volumes;
         _importState = importState;
         _missingFiles = missingFiles;
@@ -110,6 +115,27 @@ public sealed class CommandHandler
 
     private static CommandResult MissingService(string what)
         => throw new InvalidOperationException($"{what}が組み立てのときに渡されていません（アプリの不具合）。");
+
+    /// <summary>
+    /// 読めない商品の記録を直した結果の文。行の近くに出るので、何が起きたかと次の一手を言う。
+    /// 失敗の道はどれも記録をそのままにしている（よけた物は元へ戻している）ので、そう言う
+    /// </summary>
+    private static CommandResult RepairResult(string itemId, BrokenItemRepairResult result) => result switch
+    {
+        BrokenItemRepairResult.Repaired => new CommandResult.ItemSaved(itemId),
+        BrokenItemRepairResult.NotBroken => new CommandResult.Failed("この記録はもう読めるようになっています。"),
+        BrokenItemRepairResult.Missing => new CommandResult.Failed(
+            "この記録はもうありません。管理対象から除外したか、ファイルを削除した可能性があります。"),
+        BrokenItemRepairResult.NoCopy => new CommandResult.Failed("1つ前の版がありません。BOOTHから作り直してください。"),
+        BrokenItemRepairResult.CopyUnreadable => new CommandResult.Failed(
+            "1つ前の版も壊れていて戻せません。BOOTHから作り直してください。"),
+        BrokenItemRepairResult.NotOnBooth => new CommandResult.Failed(
+            "BOOTHに無い商品として登録したものなので、作り直せません。JSONを開いて直してください。"),
+        BrokenItemRepairResult.NotFound => new CommandResult.Failed(
+            $"商品 {itemId} はBOOTHに見つかりませんでした。記録はそのままなので、JSONを開いて直してください。"),
+        _ => new CommandResult.Failed(
+            "BOOTHから取れませんでした。記録はそのままです。通信を確かめて、少し待ってからもう一度お試しください。"),
+    };
 
     /// <summary>
     /// 保存先を運び終えた。**門を閉じたまま返し、ログも止める**（画面はこの後すぐ新しい保存先で開き直す・ユーザ判断 2026-09-23）。
@@ -956,6 +982,30 @@ public sealed class CommandHandler
                 return new CommandResult.MissingFilesSearched(
                     await _missingFiles.FindAsync(
                         _settings.Current.WatchedFolders, find.Progress, cancellationToken));
+
+            case UiCommand.DetectUnreadableItems:
+                if (_notifications is null)
+                {
+                    return MissingService("通知の保存");
+                }
+
+                return new CommandResult.Counted(await _notifications.DetectUnreadableItemsAsync(cancellationToken));
+
+            case UiCommand.RestoreItemCopy restoreCopy:
+                if (_brokenItems is null)
+                {
+                    return MissingService("読めない商品の記録の直し");
+                }
+
+                return RepairResult(restoreCopy.ItemId, await _brokenItems.RestoreCopyAsync(restoreCopy.ItemId, cancellationToken));
+
+            case UiCommand.RebuildItemFromBooth rebuild:
+                if (_brokenItems is null)
+                {
+                    return MissingService("読めない商品の記録の直し");
+                }
+
+                return RepairResult(rebuild.ItemId, await _brokenItems.RebuildFromBoothAsync(rebuild.ItemId, cancellationToken));
 
             case UiCommand.DetectOrphanReferences:
                 if (_notifications is null)

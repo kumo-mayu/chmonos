@@ -77,7 +77,7 @@ public sealed class FolderMissingSinceTests : IDisposable
         Assert.True(item.HasMissingFile);
 
         // JSON は人が読める形で、欄の名前で残る
-        Assert.Contains("\"missingSince\"", await File.ReadAllTextAsync(Directory.GetFiles(_paths.ItemsDir, "local-1.json", SearchOption.AllDirectories).Single()));
+        Assert.Contains("\"missingSince\"", await File.ReadAllTextAsync(_paths.ItemFile("local-1")));
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class FolderMissingSinceTests : IDisposable
         Assert.Null(folder.MissingSince);
         Assert.Equal(1, folder.FileCount);
         Assert.False(item.HasMissingFile);
-        Assert.DoesNotContain("missingSince", await File.ReadAllTextAsync(Directory.GetFiles(_paths.ItemsDir, "local-1.json", SearchOption.AllDirectories).Single()));
+        Assert.DoesNotContain("missingSince", await File.ReadAllTextAsync(_paths.ItemFile("local-1")));
     }
 
     /// <summary>ドライブごと見えない（外付けを外している）ときは「無い」と書かない。ファイルの取り込みが外付けの上の場所を残すのと同じ。</summary>
