@@ -616,20 +616,29 @@
                                 <DataTemplate x:Key="SearchChipTemplate" DataType="{x:Type vm:ListChip}">
                                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                             BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{DynamicResource AccentText}"
+                                        <!--
+                                            名前の列だけが縮み、件数と × は残す（メモ70）。横に並べる StackPanel は幅を無限に測るので、
+                                            長い名前を2つ積むと2つ目の × が欄の外へ出て切れた。星の列は、名前が短いときは中身の幅のまま（引き伸ばさない）
+                                        -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Text}" FontSize="11" Foreground="{DynamicResource AccentText}"
                                                        MaxWidth="200" TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Text}" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding CountText}" FontSize="10.5" Foreground="{DynamicResource AccentText}"
+                                            <TextBlock Grid.Column="1" Text="{Binding CountText}" FontSize="10.5" Foreground="{DynamicResource AccentText}"
                                                        Opacity="0.7" Margin="5,0,0,0" VerticalAlignment="Center" />
                                             <!-- 形は呼ばれ方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
-                                            <Button Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
+                                            <Button Grid.Column="2" Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
                                                     Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentText}"
                                                     ToolTip="この値を外す"
                                                     AutomationProperties.AutomationId="SearchChipRemove"
                                                     AutomationProperties.Name="{Binding Text, StringFormat={}{0}を外す}"
                                                     Command="{Binding RemoveCommand}" />
-                                        </StackPanel>
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
 
