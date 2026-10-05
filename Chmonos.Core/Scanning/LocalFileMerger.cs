@@ -124,10 +124,21 @@ public static class LocalFileMerger
 
     private static LocalFileRecord Combine(LocalFileRecord current, LocalFileRecord discovered)
     {
-        var paths = current.Paths
-            .Concat(discovered.Paths)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // 同じ場所は大文字小文字を区別せずに1つにまとめ、綴りは見つけた方（走査で今のディスクから読んだ名前）に合わせる。
+        // 前は記録の綴りを残していて、大文字小文字だけの改名（a.zip → A.zip）を記録が追わなかった（2026-10-05・点検の14）
+        var paths = current.Paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var path in discovered.Paths)
+        {
+            var index = paths.FindIndex(known => string.Equals(known, path, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                paths.Add(path);
+            }
+            else
+            {
+                paths[index] = path;
+            }
+        }
 
         return new LocalFileRecord
         {

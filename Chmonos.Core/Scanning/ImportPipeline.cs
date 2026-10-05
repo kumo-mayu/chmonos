@@ -1307,8 +1307,10 @@ public sealed class ImportPipeline : IImportPipeline
             // ほかのアプリが開いていて読めなかった回に、壊れていないことにしない
             void Relink(IEnumerable<FileOwner> holders)
             {
+                // 場所は綴りまで同じかで見る。大文字小文字だけ違う（名前の大文字小文字だけを変えた）物も積み、
+                // 足すときに記録の綴りを今の名前に合わせる（LocalFileMerger。2026-10-05・点検の14）
                 foreach (var holder in holders.Where(holder =>
-                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)
+                             !holder.Paths.Contains(file.Path, StringComparer.Ordinal)
                              || (holder.ArchiveBroken != broken && (broken || contents.Count > 0))))
                 {
                     if (!relinked.TryGetValue(holder.ItemId, out var list))

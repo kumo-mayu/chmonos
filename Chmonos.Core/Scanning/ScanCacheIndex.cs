@@ -38,6 +38,20 @@ public sealed class ScanCacheIndex
             && entry.SizeBytes == sizeBytes
             && entry.ModifiedAtUtc == modifiedAtUtc)
         {
+            // 名前の大文字小文字だけを変えた物は、引けるが控えの綴りが古いまま残る。今の名前に直しておく（2026-10-05・点検の14）
+            if (!string.Equals(entry.Path, path, StringComparison.Ordinal))
+            {
+                _byPath[path] = new ScanCacheEntry
+                {
+                    Path = path,
+                    SizeBytes = entry.SizeBytes,
+                    ModifiedAtUtc = entry.ModifiedAtUtc,
+                    Hash = entry.Hash,
+                    ClueItemIds = entry.ClueItemIds,
+                };
+                Touch(path);
+            }
+
             hash = entry.Hash;
             return true;
         }
