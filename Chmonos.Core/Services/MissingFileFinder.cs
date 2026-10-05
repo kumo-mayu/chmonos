@@ -30,6 +30,15 @@ public sealed record MissingFileSearchResult
     /// 画面が検索の写しを読み直すかを決める（結び直しが0件でも、日時を付けたなら印と条件が変わる）。
     /// </summary>
     public int MarkedItems { get; init; }
+
+    /// <summary>
+    /// 監視フォルダの中で、読めずに中身を確かめられなかったファイルの数（ほかのアプリが開いている・権限が無い。点検の13）。
+    /// 前は黙って飛ばしていて、探す物がそこにあったのかが分からなかった。
+    /// </summary>
+    public int UnreadableFiles { get; init; }
+
+    /// <summary>中を読めなかったフォルダの数（権限が無い・ネットワーク越しで切れた）。中に何件あったかは分からないので、ファイルの数とは分ける。</summary>
+    public int UnreadableFolders { get; init; }
 }
 
 /// <summary>
@@ -46,10 +55,15 @@ public sealed class MissingFileFinder
 {
     private readonly DataStore _store;
     private readonly FolderScanner _scanner = new();
+    private readonly VolumeTable? _volumes;
 
-    public MissingFileFinder(DataStore store)
+    /// <param name="volumes">
+    /// ドライブ文字と通し番号の控え。控えた文字に別のディスクが来ている間、その上の場所は外さず日時も付けない（見回りと同じ。2026-10-05・点検の2）。
+    /// </param>
+    public MissingFileFinder(DataStore store, VolumeTable? volumes = null)
     {
         _store = store;
+        _volumes = volumes;
     }
 
     /// <remarks>
@@ -90,7 +104,7 @@ public sealed class MissingFileFinder
         // 監視フォルダの場所に差し替えて外していた（取り込みの LocalFileMerger はそこを残すのに）。外しただけの物を
         // 「見つかりませんでした」とも数えていた。見回りと同じ部品（FilePresenceProbe）で、根をドライブごとに1回・打ち切り付きで見る。
         // 場所の1つでも外付けの上なら「無くなった」とは言えないので、探す物に入れない（LocalFilePresence と同じ決まり）
-        var probe = new FilePresenceProbe();
+        var probe = new FilePresenceProbe(volumes: _volumes?.Snapshot());
         var missing = new Dictionary<string, MissingEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in loaded.Items)
         {
@@ -127,6 +141,8 @@ public sealed class MissingFileFinder
         var unreachable = new List<string>();
         var notFoundFolders = new List<string>();
         var hashed = 0;
+        var unreadableFiles = 0;
+        var unreadableFolders = 0;
 
         // 計算したハッシュは走査の控えに足す。前は捨てていたので、同じ大きさのファイルを探すたび・取り込むたびに
         // 同じファイルを読み直していた（大きさが合う物は数GB の zip のこともある）
@@ -146,7 +162,10 @@ public sealed class MissingFileFinder
                 continue;
             }
 
-            foreach (var file in _scanner.Scan(folder, cancellationToken).Files)
+            var scan = _scanner.Scan(folder, cancellationToken);
+            unreadableFiles += scan.Unreadable;
+            unreadableFolders += scan.UnreadableFolders.Count;
+            foreach (var file in scan.Files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -168,6 +187,10 @@ public sealed class MissingFileFinder
                     }
                     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                     {
+                        // 黙って飛ばすと、探したのに見つからなかったのか、読めずに確かめられなかったのかが分からない（点検の13）。
+                        // 取り込みと同じく数に入れて結果に出し、どれかはログに残す
+                        Diagnostics.AppLog.Warn("見つからないファイルを探す", $"{file.Path}：{exception.Message}");
+                        unreadableFiles++;
                         continue;
                     }
 
@@ -244,6 +267,8 @@ public sealed class MissingFileFinder
             Unreachable = unreachable,
             NotFoundFolders = notFoundFolders,
             MarkedItems = marked,
+            UnreadableFiles = unreadableFiles,
+            UnreadableFolders = unreadableFolders,
         };
     }
 

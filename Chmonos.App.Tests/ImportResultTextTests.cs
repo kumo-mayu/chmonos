@@ -13,6 +13,20 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public class ImportResultTextTests
 {
+    // ---- 見つからないファイルを探して、読めなかった物（点検の13） ----
+
+    [Fact]
+    public void 探して読めなかった物が無ければ何も言わない()
+        => Assert.Equal(string.Empty, ImportViewModel.UnreadableInSearchText(files: 0, folders: 0));
+
+    [Fact]
+    public void 探して読めなかったファイルとフォルダの数を言う()
+    {
+        Assert.Equal("読めなかったファイルが 2 件あり、その中身は確かめられませんでした", ImportViewModel.UnreadableInSearchText(2, 0));
+        Assert.Equal("読めなかったフォルダが 1 件あり、その中は探せませんでした", ImportViewModel.UnreadableInSearchText(0, 1));
+        Assert.Equal("読めなかったファイルが 2 件、フォルダが 1 件あり、その中は探せませんでした", ImportViewModel.UnreadableInSearchText(2, 1));
+    }
+
     // ---- 読めなかったファイルとフォルダ ----
 
     [Fact]

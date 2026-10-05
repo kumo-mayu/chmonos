@@ -96,6 +96,56 @@ public sealed class MissingMarksSweepTests : IDisposable
         Assert.Equal(Memo, item.Local.Memo);
     }
 
+    /// <summary>
+    /// 同じ中身が2か所にあって片方を消したら、見回りが消した方の場所を外す（2026-10-05・見つからない・移動の点検の6）。
+    /// 前は残った方が在るので「在る」とだけ見て、消した場所が記録に残り続けた（統計の重複・商品ページの行の名前）。
+    /// </summary>
+    [Fact]
+    public async Task 同じ中身の片方を消したら_見回りは消した場所を外し_メモは残す()
+    {
+        var gone = Gone("消した方.zip");
+        var kept = ExistingFile("残した方.zip");
+        await SaveAsync([FileAt("AAAA", gone, kept) with { MissingSince = First }]);
+
+        var written = await new MissingMarksSweep(_store).SweepAsync();
+
+        Assert.Equal([ItemId], written);
+        var item = await ItemAsync();
+        Assert.Equal([kept], item.Local.LocalFiles.Single().Paths);
+        Assert.Null(item.Local.LocalFiles.Single().MissingSince);
+        Assert.Equal(Memo, item.Local.Memo);
+        Assert.Empty(await new MissingMarksSweep(_store).SweepAsync());
+    }
+
+    [Fact]
+    public async Task ほかの場所に在っても_つながっていないドライブの上の場所は外さない()
+    {
+        var offline = @"Q:\外付け\同じ中身.zip";
+        var kept = ExistingFile("残した方.zip");
+        await SaveAsync([FileAt("AAAA", offline, kept)]);
+
+        // Q: の根はつながっていない。ほかの根はつながっている
+        var sweep = new MissingMarksSweep(_store, () => new FilePresenceProbe(
+            rootExists: root => !root.StartsWith("Q:", StringComparison.OrdinalIgnoreCase) && Directory.Exists(root)));
+
+        Assert.Empty(await sweep.SweepAsync());
+        Assert.Equal([offline, kept], (await ItemAsync()).Local.LocalFiles.Single().Paths);
+    }
+
+    [Fact]
+    public async Task どの場所にも無いときは_場所を外さず日時だけ付ける()
+    {
+        var first = Gone("1つめ.zip");
+        var second = Gone("2つめ.zip");
+        await SaveAsync([FileAt("AAAA", first, second)]);
+
+        await new MissingMarksSweep(_store).SweepAsync();
+
+        var file = (await ItemAsync()).Local.LocalFiles.Single();
+        Assert.Equal([first, second], file.Paths);
+        Assert.NotNull(file.MissingSince);
+    }
+
     [Fact]
     public async Task また見つかったら_起動時の見回りが日時を消す()
     {

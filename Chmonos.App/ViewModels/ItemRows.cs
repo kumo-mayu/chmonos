@@ -380,7 +380,8 @@ public sealed class LocalFileRow : ViewModelBase
     /// </summary>
     public bool ShowsBrokenArchive => IsBrokenArchive && Paths.Count > 0 && Presence == Core.Services.FilePresence.Present;
 
-    public bool IsMissing => Paths.Count == 0 || Presence == Core.Services.FilePresence.Missing;
+    // 確かめられない（親のフォルダを読む権限が無い等・点検の13）は、記録には書かないが、開けないことは同じなので画面は今までどおり「見つかりません」と出す
+    public bool IsMissing => Paths.Count == 0 || Presence is Core.Services.FilePresence.Missing or Core.Services.FilePresence.Unverifiable;
 
     /// <summary>つながっていないドライブの上にしか場所が無い。無くなったとは限らないので「見つかりません」と分ける</summary>
     public bool IsOnDetachedDrive => Paths.Count > 0 && Presence == Core.Services.FilePresence.OnDetachedDrive;
@@ -409,7 +410,7 @@ public sealed class LocalFileRow : ViewModelBase
     public string PathToolTip => Paths.Count switch
     {
         0 => "ファイルが見つかりません。",
-        _ when Presence == Core.Services.FilePresence.Missing => $"{string.Join("\n", Paths)}\nファイルが見つかりません。",
+        _ when IsMissing => $"{string.Join("\n", Paths)}\nファイルが見つかりません。",
         _ when Presence == Core.Services.FilePresence.OnDetachedDrive
             => $"{string.Join("\n", Paths)}\nドライブをつなぐと開けます。",
         1 => $"{Paths[0]}\n押すと、エクスプローラでこのファイルの場所を開きます。",

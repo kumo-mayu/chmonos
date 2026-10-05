@@ -219,8 +219,25 @@ public sealed class ImportViewModel : ViewModelBase
                 + "名前を変えたか移したなら、新しい場所を監視フォルダに追加してください");
         }
 
+        if (UnreadableInSearchText(result.UnreadableFiles, result.UnreadableFolders) is { Length: > 0 } unreadable)
+        {
+            parts.Add(unreadable);
+        }
+
         return string.Join("。", parts) + "。";
     }
+
+    /// <summary>
+    /// 「見つからないファイルを探す」で、読めずに確かめられなかった物の1文（句点なし。点検の13）。
+    /// 前は黙って飛ばしていて、探す物がそこにあったのかが分からなかった。
+    /// </summary>
+    internal static string UnreadableInSearchText(int files, int folders) => (files, folders) switch
+    {
+        (> 0, > 0) => $"読めなかったファイルが {files} 件、フォルダが {folders} 件あり、その中は探せませんでした",
+        (> 0, _) => $"読めなかったファイルが {files} 件あり、その中身は確かめられませんでした",
+        (_, > 0) => $"読めなかったフォルダが {folders} 件あり、その中は探せませんでした",
+        _ => string.Empty,
+    };
 
     /// <summary>履歴から消す。フォルダとファイルには触らない。</summary>
     public RelayCommand ForgetHistoryCommand => _forgetHistory ??= new RelayCommand(

@@ -19,6 +19,19 @@ public class ScanCacheIndexTests
         },
     ]);
 
+    /// <summary>名前の大文字小文字だけを変えた物は、控えから引けて、控えの綴りも今の名前になる（2026-10-05・点検の14）。</summary>
+    [Fact]
+    public void FollowsACaseOnlyRenameWhenReusingTheHash()
+    {
+        var index = CreateIndex();
+
+        Assert.True(index.TryGetHash(@"D:\storage\VRChat_clothes\A.zip", 1000, Modified, out var hash));
+
+        Assert.Equal("AAAA", hash);
+        Assert.Equal(@"D:\storage\VRChat_clothes\A.zip", Assert.Single(index.ToList()).Path);
+        Assert.Equal(@"D:\storage\VRChat_clothes\A.zip", Assert.Single(index.MergeInto(CreateIndex().ToList())).Path);
+    }
+
     [Fact]
     public void ReusesHashWhenPathSizeAndModifiedAllMatch()
     {

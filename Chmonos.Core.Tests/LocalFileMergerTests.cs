@@ -42,6 +42,18 @@ public class LocalFileMergerTests
         Assert.Single(Assert.Single(merged).Paths);
     }
 
+    /// <summary>大文字小文字だけの改名は、見つけた方（今のディスクの名前）の綴りに合わせる（2026-10-05・点検の14）。</summary>
+    [Fact]
+    public void TakesTheSpellingOfTheFoundPathWhenOnlyTheCaseChanged()
+    {
+        var merged = LocalFileMerger.Merge(
+            [Record("AAAA", @"D:\storage\a.zip", @"E:\backup\a.zip")],
+            [Record("AAAA", @"D:\storage\A.zip")],
+            AllExist);
+
+        Assert.Equal([@"D:\storage\A.zip", @"E:\backup\a.zip"], Assert.Single(merged).Paths);
+    }
+
     /// <summary>中身が違えば別レコード（v1.0とv1.2を両方持っている状態）。</summary>
     [Fact]
     public void KeepsDifferentHashesAsSeparateRecords()

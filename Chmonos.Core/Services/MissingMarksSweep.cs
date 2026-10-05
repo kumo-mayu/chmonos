@@ -12,7 +12,8 @@ namespace Chmonos.Core.Services;
 /// 取り込まない人には記録が古いままだった（2026-10-05 の確認で、友人の写しの条件に1件も当たらなかった）。
 ///
 /// - 決まりは取り込みと同じ：在るかはドライブごとにまとめて見る（<see cref="FilePresenceProbe"/>。つながっていないドライブの上は見に行かず書かない・
-///   届かない共有の根は打ち切る）。書くのは変わった商品だけ、商品ごとの錠の中で今の値に当てる（<see cref="FileMissingMarks"/>）。場所は外さない。
+///   届かない共有の根は打ち切る）。書くのは変わった商品だけ、商品ごとの錠の中で今の値に当てる（<see cref="FileMissingMarks"/>）。
+///   場所は外さない。ただし同じ中身のほかの場所に在ると確かめたときは、無いと確かめた場所だけ外す（2026-10-05・点検の6）。
 /// - **見回りは1本ずつ**（<see cref="EnterAsync"/>）。起動時の見回りと取り込みの見回り（取り込みの最初の周回のフォルダの数え直しを含む）が重なると、
 ///   同じ商品を同じ答えで二度書き、ディスクも二度見る。後から来た方は先の方が済むのを待ち、錠の中で今の値と同じなら書かない。
 /// - BOOTH には問い合わせない。
@@ -24,10 +25,14 @@ public sealed class MissingMarksSweep
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <param name="newProbe">1回の見回りごとに作る見方（ドライブは後でつながることがあるので、覚えたまま持ち越さない）。試験が差し替える。</param>
-    public MissingMarksSweep(DataStore store, Func<FilePresenceProbe>? newProbe = null)
+    /// <param name="volumes">
+    /// ドライブ文字と通し番号の控え。渡すと、控えた文字に別のディスクが来ている間、その上の物を「つながっていない」と同じに扱う
+    /// （外付けを外した文字に別のディスクが来ると、外付けの上の全部に日時が付いていた。2026-10-05・点検の2）。見方を差し替えたときは使わない。
+    /// </param>
+    public MissingMarksSweep(DataStore store, Func<FilePresenceProbe>? newProbe = null, VolumeTable? volumes = null)
     {
         _store = store;
-        _newProbe = newProbe ?? (() => new FilePresenceProbe());
+        _newProbe = newProbe ?? (() => new FilePresenceProbe(volumes: volumes?.Snapshot()));
     }
 
     /// <summary>見回りの番を取る。取り込みがフォルダを数え直す間もこれで待ち合わせる。</summary>
@@ -83,7 +88,7 @@ public sealed class MissingMarksSweep
 
             // 外したファイルも見る（記録は事実なので。印と条件は外したファイルを数えない・ユーザ判断 2026-10-05 もこのまま）
             var fileSightings = item.Local.LocalFiles
-                .Select(file => new FileSighting(file.Hash, file.Paths, probe.Of(file.Paths)))
+                .Select(probe.Sight)
                 .ToList();
             var folderSightings = hasFolders
                 ? item.Local.LocalFolders

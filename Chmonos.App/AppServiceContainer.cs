@@ -101,7 +101,8 @@ public sealed class AppServiceContainer : IDisposable
         // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）
         Volumes = new VolumeTable(Store, new Services.VolumeReader());
         // 見つからなくなった日時の見回りは、取り込みと起動時の見回りで1つを分け合う（1本ずつ回して重ならないように。ユーザ判断 2026-10-05）
-        MissingMarks = new MissingMarksSweep(Store);
+        // 控えた文字に別のディスクが来ている間は、その上を「つながっていない」と同じに扱う（2026-10-05・点検の2）
+        MissingMarks = new MissingMarksSweep(Store, volumes: Volumes);
         Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes, MissingMarks);
         Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
@@ -136,7 +137,7 @@ public sealed class AppServiceContainer : IDisposable
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin, UnpackedFolderRemover.RegisteredFoldersIn(Store)), Resolver, Notifications, UserTags, Attributes,
             Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles, Store.ShopNotes,
-            new MissingFileFinder(Store), Volumes, Store.ImportState, new BrokenItemRepair(Store, Items, Notifications))
+            new MissingFileFinder(Store, Volumes), Volumes, Store.ImportState, new BrokenItemRepair(Store, Items, Notifications))
         {
             RegistrationQueue = Store.RegistrationQueue,
         };

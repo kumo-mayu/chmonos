@@ -233,7 +233,7 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        var sightings = await FilePresenceNotes.LookAsync(files, _services.Volumes.Current);
+        var sightings = await FilePresenceNotes.LookAsync(files, _services.Volumes);
         var byHash = new Dictionary<string, FileSighting>(StringComparer.OrdinalIgnoreCase);
         foreach (var sighting in sightings)
         {
@@ -280,7 +280,7 @@ public sealed partial class ItemViewModel
         var files = Item.Local.LocalFiles.Where(which).ToList();
         if (files.Count > 0)
         {
-            await NotePresenceAsync(await FilePresenceNotes.LookAsync(files, _services.Volumes.Current));
+            await NotePresenceAsync(await FilePresenceNotes.LookAsync(files, _services.Volumes));
         }
     }
 

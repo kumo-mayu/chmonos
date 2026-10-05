@@ -256,7 +256,7 @@ public sealed class ImportPipeline : IImportPipeline
         _avatars = avatars;
         _unityPackages = unityPackages;
         _volumes = volumes;
-        _missingMarks = missingMarks ?? new Services.MissingMarksSweep(store);
+        _missingMarks = missingMarks ?? new Services.MissingMarksSweep(store, volumes: volumes);
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
@@ -394,7 +394,7 @@ public sealed class ImportPipeline : IImportPipeline
             unseenPlaces.AddRange(resolution.Unhashed);
             seenPaths.AddRange(scan.Files.Select(file => file.Path));
             await DropReplacedPathsAsync(resolution.Replaced, cancellationToken);
-            await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
+            await RelinkMovedFilesAsync(resolution.Relinked, probe, cancellationToken);
 
             // 記録しているファイルの場所を全部見て、見つからなくなった日時を付け外しする（ユーザ判断 2026-10-04）。
             // 取り込み1回につき最初の周回だけ（登録したフォルダの測り直しと同じ）。走査で見つけた移し先を結び直した後に見るのは、
@@ -431,7 +431,7 @@ public sealed class ImportPipeline : IImportPipeline
             totals.Unresolved.AddRange(resolution.Unresolved);
             unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, unseenPlaces, cancellationToken);
 
-            var fetchResult = await FetchAsync(resolution.FilesByItemId, work, totals, progress, cancellationToken);
+            var fetchResult = await FetchAsync(resolution.FilesByItemId, work, totals, probe, progress, cancellationToken);
 
             // 入り先を item に写すのは①の後。item の手元のファイルは①も書き、錠が無いので、重なると片方の書き込みが消える。
             // 読み終わっていなければ、読み終わったところで写す（画像の段は待たせない）
@@ -1029,10 +1029,14 @@ public sealed class ImportPipeline : IImportPipeline
     /// 錠の中で今の値に当て、読んでからここまでの間に人がこの商品から外した（印を付けた）なら足さない。
     /// 足すと <see cref="LocalFileMerger"/> が印を下ろしてしまい、外した判断を取り込みが覆す。
     /// </summary>
+    /// <param name="probe">周回の頭で作った見方（無い場所を外すかを、見回りと同じ部品で決める。<see cref="LocalFileMerger.Merge(IReadOnlyList{LocalFileRecord}, IEnumerable{LocalFileRecord}, FilePresenceProbe)"/>）。</param>
     private async Task RelinkMovedFilesAsync(
         IReadOnlyDictionary<string, List<LocalFileRecord>> relinked,
+        FilePresenceProbe probe,
         CancellationToken cancellationToken)
     {
+        // 根の覚えは結び直しの間だけ（走査とハッシュの間に外付けを外していたら、周回の頭の「つながっている」は古い）
+        var presence = probe.Renewed();
         foreach (var (itemId, discovered) in relinked)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1044,7 +1048,7 @@ public sealed class ImportPipeline : IImportPipeline
                     var files = discovered.Where(file => stillOwned.Contains(file.Hash)).ToList();
                     return files.Count == 0
                         ? null
-                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files) };
+                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files, presence) };
                 },
                 LocalOwners.Import,
                 cancellationToken);
@@ -1364,8 +1368,10 @@ public sealed class ImportPipeline : IImportPipeline
             // ほかのアプリが開いていて読めなかった回に、壊れていないことにしない
             void Relink(IEnumerable<FileOwner> holders)
             {
+                // 場所は綴りまで同じかで見る。大文字小文字だけ違う（名前の大文字小文字だけを変えた）物も積み、
+                // 足すときに記録の綴りを今の名前に合わせる（LocalFileMerger。2026-10-05・点検の14）
                 foreach (var holder in holders.Where(holder =>
-                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)
+                             !holder.Paths.Contains(file.Path, StringComparer.Ordinal)
                              || (holder.ArchiveBroken != broken && (broken || contents.Count > 0))))
                 {
                     if (!relinked.TryGetValue(holder.ItemId, out var list))
@@ -1544,6 +1550,7 @@ public sealed class ImportPipeline : IImportPipeline
         Dictionary<string, List<LocalFileRecord>> filesByItemId,
         ImportWorkSet work,
         ImportTotals totals,
+        FilePresenceProbe probe,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -1572,6 +1579,10 @@ public sealed class ImportPipeline : IImportPipeline
         // 取得済みなのに説明が無い商品。①の後・②の前で閉じた取り込みの続き（U9）
         var withoutPage = new List<ItemRecord>();
 
+        // 無い場所を外すかは見回りと同じ部品で見る（根はドライブごとに1回・3秒で打ち切り。点検の12）。
+        // 根の覚えはこの段の間だけ（周回の頭からここまでに外付けを外していたら、頭の「つながっている」は古い）
+        var presence = probe.Renewed();
+
         foreach (var (itemId, discovered) in filesByItemId)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1590,7 +1601,7 @@ public sealed class ImportPipeline : IImportPipeline
             await _store.Items.ChangeLocalAsync(
                 itemId,
                 current => NotDetachedIn(current, discovered) is { Count: > 0 } files
-                    ? current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files) }
+                    ? current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files, presence) }
                     : null,
                 [LocalField.LocalFiles],
                 cancellationToken);
@@ -1711,7 +1722,7 @@ public sealed class ImportPipeline : IImportPipeline
                     },
                     current => created || NotDetachedIn(current, discovered) is not { Count: > 0 } files
                         ? current
-                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files) },
+                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files, probe.Renewed()) },
                     LocalOwners.Import,
                     cancellationToken,
                     item.Booth);

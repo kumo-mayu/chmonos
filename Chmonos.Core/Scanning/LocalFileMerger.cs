@@ -1,4 +1,5 @@
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.Core.Scanning;
 
@@ -36,14 +37,44 @@ public static class LocalFileMerger
         // 無い場所を「今は見えないだけ」と同じに扱えば、残す道は1つで済む。ドライブの根も見に行かない
         => Merge(existing, discovered, pathExists, onMissingVolume: _ => true);
 
+    /// <summary>
+    /// 取り込みが足し合わせる。在るかは見回りと同じ部品で見る（2026-10-05・点検の12）：ドライブごとに根を1回・3秒で打ち切り、
+    /// つながっていない・控えた文字に別のディスクが来ている場所は残す。前は場所ごとに打ち切りなしで <c>File.Exists</c> と根の
+    /// <c>Directory.Exists</c> を（商品の錠の中で）呼んでいて、揺れる共有で根の答えが一瞬遅れたり外れたりすると、その上の場所を外していた。
+    /// </summary>
+    public static IReadOnlyList<LocalFileRecord> Merge(
+        IReadOnlyList<LocalFileRecord> existing,
+        IEnumerable<LocalFileRecord> discovered,
+        FilePresenceProbe presence)
+        => Merge(existing, discovered, path => presence.PlaceOf(path));
+
     public static IReadOnlyList<LocalFileRecord> Merge(
         IReadOnlyList<LocalFileRecord> existing,
         IEnumerable<LocalFileRecord> discovered,
         Func<string, bool>? pathExists = null,
         Func<string, bool>? onMissingVolume = null)
     {
+        if (pathExists is null && onMissingVolume is null)
+        {
+            return Merge(existing, discovered, new FilePresenceProbe());
+        }
+
         var exists = pathExists ?? File.Exists;
         var unreachable = onMissingVolume ?? UnresolvedMerge.IsOnMissingVolume;
+        return Merge(
+            existing,
+            discovered,
+            path => exists(path) ? FilePresence.Present
+                : unreachable(path) ? FilePresence.OnDetachedDrive
+                : FilePresence.Missing);
+    }
+
+    /// <param name="look">場所1つの答え。「無い」と分かった場所だけを落とし、在る場所があれば日時を消す。</param>
+    private static IReadOnlyList<LocalFileRecord> Merge(
+        IReadOnlyList<LocalFileRecord> existing,
+        IEnumerable<LocalFileRecord> discovered,
+        Func<string, FilePresence> look)
+    {
         var byHash = new Dictionary<string, LocalFileRecord>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var record in existing)
@@ -65,12 +96,13 @@ public static class LocalFileMerger
             var found = false;
             foreach (var path in record.Paths)
             {
-                if (exists(path))
+                var place = look(path);
+                if (place == FilePresence.Present)
                 {
                     paths.Add(path);
                     found = true;
                 }
-                else if (unreachable(path))
+                else if (place != FilePresence.Missing)
                 {
                     paths.Add(path);
                 }
@@ -92,10 +124,21 @@ public static class LocalFileMerger
 
     private static LocalFileRecord Combine(LocalFileRecord current, LocalFileRecord discovered)
     {
-        var paths = current.Paths
-            .Concat(discovered.Paths)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // 同じ場所は大文字小文字を区別せずに1つにまとめ、綴りは見つけた方（走査で今のディスクから読んだ名前）に合わせる。
+        // 前は記録の綴りを残していて、大文字小文字だけの改名（a.zip → A.zip）を記録が追わなかった（2026-10-05・点検の14）
+        var paths = current.Paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var path in discovered.Paths)
+        {
+            var index = paths.FindIndex(known => string.Equals(known, path, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                paths.Add(path);
+            }
+            else
+            {
+                paths[index] = path;
+            }
+        }
 
         return new LocalFileRecord
         {
