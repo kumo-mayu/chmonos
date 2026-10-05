@@ -27,12 +27,33 @@ public sealed class UnpackedFolderRemoval
 public sealed class UnpackedFolderRemover
 {
     private readonly Func<string, CancellationToken, Task> _deleteDirectory;
+    private readonly Func<CancellationToken, Task<IReadOnlyList<string>?>> _registeredFolders;
 
     /// <param name="deleteDirectory">フォルダを実際に消す処理。</param>
-    public UnpackedFolderRemover(Func<string, CancellationToken, Task> deleteDirectory)
+    /// <param name="registeredFolders">
+    /// 商品に登録したフォルダの場所を今の記録から読む処理（<see cref="RegisteredFoldersIn"/>）。
+    /// 確かめきれない（読めない商品の記録がある）ときは null。
+    /// </param>
+    public UnpackedFolderRemover(
+        Func<string, CancellationToken, Task> deleteDirectory,
+        Func<CancellationToken, Task<IReadOnlyList<string>?>> registeredFolders)
     {
         _deleteDirectory = deleteDirectory;
+        _registeredFolders = registeredFolders;
     }
+
+    /// <summary>
+    /// 保存先の全商品から、登録したフォルダの場所を読む（見つからない印の付いた物・非表示の商品の物も入れる）。
+    /// 読めない商品の記録が1件でもあれば null：その商品がどのフォルダを登録しているか分からないので、消してよいと言えない。
+    /// </summary>
+    public static Func<CancellationToken, Task<IReadOnlyList<string>?>> RegisteredFoldersIn(Storage.DataStore store)
+        => async cancellationToken =>
+        {
+            var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+            return loaded.FailedItemIds.Count > 0
+                ? null
+                : loaded.Items.SelectMany(item => item.Local.LocalFolders).Select(folder => folder.Path).ToList();
+        };
 
     public async Task<IReadOnlyList<UnpackedFolderRemoval>> RemoveAsync(
         IEnumerable<UnpackedFolder> folders,
@@ -51,7 +72,10 @@ public sealed class UnpackedFolderRemover
 
     private async Task<UnpackedFolderRemoval> RemoveOneAsync(UnpackedFolder folder, CancellationToken cancellationToken)
     {
-        var refusal = FindRefusal(folder);
+        // 登録は消す直前に読み直す（画面が展開先を見つけた後に「zipの代わりにフォルダを登録」したかもしれない）。
+        // 全件を読むが、変わっていない商品は写しを返すので2回目からは軽い（ItemRepository.LoadAllAsync）
+        var refusal = FindRefusal(folder)
+            ?? RegistrationRefusal(folder.Path, await _registeredFolders(cancellationToken));
         if (refusal is not null)
         {
             return new UnpackedFolderRemoval { Path = folder.Path, Removed = false, Reason = refusal };
@@ -110,6 +134,48 @@ public sealed class UnpackedFolderRemover
 
         return null;
     }
+
+    /// <summary>
+    /// 商品に登録したフォルダに重なるなら、消さない理由（2026-10-05・file-lifecycle.md「気になった所」4）。
+    /// </summary>
+    /// <remarks>
+    /// 展開先かは名前で見ているだけなので、zip の隣のフォルダを商品として登録していても（zip が後から来た・
+    /// 「zipで登録し直す」の前）展開先に見え、ごみ箱へ送っていた。送った間、その商品のフォルダは「見つからない」になり、
+    /// 登録した人の判断（このフォルダがこの商品）も黙って崩れる。そのもの・中に登録がある・登録の中にある、のどれも止める。
+    /// 比べるのは区切りまで（"作り物_1.0" が "作り物_1.0.1" を巻き込まないように。RegisteredFolderSet と同じ考え）。
+    /// </remarks>
+    internal static string? RegistrationRefusal(string folderPath, IReadOnlyList<string>? registered)
+    {
+        if (registered is null)
+        {
+            return "読めない商品の記録があり、商品に登録したフォルダか確かめられません。削除しません。";
+        }
+
+        var target = Normalized(folderPath);
+        foreach (var path in registered)
+        {
+            var other = Normalized(path);
+            if (string.Equals(other, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return "商品に登録したフォルダです。削除しません。";
+            }
+
+            if (other.StartsWith(target + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return "中に商品に登録したフォルダがあります。削除しません。";
+            }
+
+            if (target.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return "商品に登録したフォルダの中にあります。削除しません。";
+            }
+        }
+
+        return null;
+    }
+
+    private static string Normalized(string path)
+        => Path.TrimEndingDirectorySeparator(path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
 
     private static long MeasureDirectory(string path)
     {
