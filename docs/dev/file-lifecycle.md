@@ -90,7 +90,7 @@ stateDiagram-v2
 | 操作 | 命令 | 書く物 | 注意 |
 |---|---|---|---|
 | このIDで登録 | `AssignItemId`（1件ずつ） | 商品が無ければ BOOTH から取って作る。`ChangeLocalAsync` で `localFiles` に足す → 未確定から外す | 移るのは hash・paths・size・contents・archiveBroken だけ（`FromUnresolved`）。zone の欄・候補は捨てる |
-| BOOTHに無い商品として登録 | `RegisterLocalItem` | 仮ID `local-…`（1件目のハッシュから）。未確定の錠を持ったまま作る | 問い合わせない |
+| BOOTHに無い商品として登録 | `RegisterLocalItem` | 仮ID `local-…`（1件目のハッシュから）。未確定の錠を持ったまま作る。既にあればファイルを足すだけで名前は残す（空の時だけ入れる） | 問い合わせない |
 | 見つからないIDのまま登録 | `AssignUnpublishedItemId` | 空の booth・`isDelisted`。⑦で確かめ直す | 問い合わせない |
 | zipの代わりにフォルダを登録 | `RegisterFolder` | `localFolders` に足す（数えて）→ 配下の未確定を消す | 以後その配下は走査で飛ばす |
 | 管理対象から除外 | `ExcludeFiles`（何件でも1回） | `excluded.json` に足す → 未確定から外す | 既に除外にあるハッシュは足さない |
@@ -210,7 +210,8 @@ stateDiagram-v2
 8. **未確定は同じ中身の2か所目を落とす**：取り込みは1ファイル1件で未確定を作り、`UnresolvedMerge.ForImport` がハッシュで最初の1件だけを残す。2か所目はフォルダビューの「?」にも出ない（登録すれば次の取り込みで商品に足されるので失われはしない。試験は見当たらない）。
 9. **①で404になって未確定へ戻した物は `zoneReferrerUrl`・`zoneHostUrl` を持たない**（`ImportPipeline.ToUnresolved`）。毎回同じ道を通るので取り込み直しても付かず、元zip の束に入らない。spec の「取り込み直すと書き直される」と合わない。
 10. **除外を解除した物がどこにも出ない期間がある**：`RestoreExcluded` は未確定に戻さず、控えに載っているので監視の新着にも数えない。その取り込み元を履歴から取り込み直すまで見えない（spec「次の取り込みでまた未確定に出る」は、対象に積んだ時だけ正しい）。外した記録を消す（`ForgetDetached`）も同じく、次の取り込みで手掛かりから同じ商品へ戻り得る。
-11. **「BOOTHに無い商品」の名前が上書きされ得る**：仮ID はハッシュから決まるので、外した後に同じファイルをもう一度「BOOTHに無い商品として登録」すると、既にある商品の `displayName` を欄の下書き（ファイル名）で上書きする（`RegisterLocalItemAsync` の既にある枝）。
+11. **直した（2026-10-05・コミットは下の「11」）**：既にある枝は今の名前を残し、空の時だけ入れる。試験 `LocalItemTests` の `RegisteringTheSameFileTwiceLandsOnTheSameItemAndKeepsItsName`（前は上書きを確かめていた試験を、残す形に書き換えた。直す前は落ちた）・`RegisteringOntoAnItemWithoutANameGivesItTheName`。
+   **「BOOTHに無い商品」の名前が上書きされ得る**：仮ID はハッシュから決まるので、外した後に同じファイルをもう一度「BOOTHに無い商品として登録」すると、既にある商品の `displayName` を欄の下書き（ファイル名）で上書きする（`RegisterLocalItemAsync` の既にある枝）。
 12. **直した（2026-10-05・コミットは下の「12」）**：`ItemIdChange.Merge` が、移す先が持つファイルの外した印を移す先の答えに当て直す（突き合わせの「両方外していた時だけ残す」は未確定から選び直す道の決まりなので、ここには当てない）。試験 `ItemIdChangeTests` の「移す先で外していたファイルは外したまま残る」（直す前は落ちた）・「移す先が持っているファイルは移す元で外していても持ち物のまま」。
    **「IDを変える」で外した印が下り得る**：移す先で外していたファイルを移す元が持っていると、`LocalFileMerger` の決まりで持ち物に戻る。
 13. **直した（2026-10-05・コミットは下の「13」）**：人の登録操作は `LocalFileMerger.MergeByHand`（無い場所を「今は見えない」と同じに扱って残す。在る場所があれば日時を消すのは同じ）。取り込みは spec（import.md「移した・消した場所は落とす」）どおり `Merge` のまま。試験 `HandRegistrationKeepsPlacesTests`（5件。直す前は5件とも落ちた）。

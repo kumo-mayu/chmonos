@@ -1772,7 +1772,10 @@ public sealed class ItemService : IItemService
                         ? current
                         : current with
                         {
-                            DisplayName = displayName.Trim(),
+                            // 既にある商品の名前は残す（2026-10-05・file-lifecycle.md「気になった所」11）。仮IDはハッシュから決まるので、
+                            // 外した後に同じファイルを登録し直すと既にある商品へ行き着く。欄の下書きはファイル名なので、
+                            // 前は人が付けて直してきた名前を黙ってファイル名で上書きしていた。名前が無い（手で消した）時だけ入れる
+                            DisplayName = string.IsNullOrWhiteSpace(current.DisplayName) ? displayName.Trim() : current.DisplayName,
                             LocalFiles = LocalFileMerger.MergeByHand(current.LocalFiles, records),
                         },
                     [LocalField.DisplayName, LocalField.LocalFiles],
