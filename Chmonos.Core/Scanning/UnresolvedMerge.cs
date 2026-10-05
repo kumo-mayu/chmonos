@@ -20,13 +20,16 @@ public static class UnresolvedMerge
     /// <param name="lastWritten">この取り込みが前に書いた一覧。まだ書いていなければ始めに読んだ一覧。</param>
     /// <param name="found">この取り込みがここまでに未確定と判じた物。</param>
     /// <param name="scannedTargets">この取り込みがここまでに走査した取り込み元（ファイルかフォルダ）。</param>
-    /// <param name="offlineTargets">取り込み元のうち、ボリュームがつながっていない物。</param>
+    /// <param name="unseenPlaces">
+    /// 走査した取り込み元の中で、今回見ていない場所（ファイルかフォルダ）。ボリュームがつながっていない取り込み元・
+    /// 中を読めなかったフォルダ・オンラインのみのファイル・ハッシュを取れなかったファイル。
+    /// </param>
     public static List<UnresolvedFile> ForImport(
         IReadOnlyList<UnresolvedFile> current,
         IReadOnlyList<UnresolvedFile> lastWritten,
         IReadOnlyList<UnresolvedFile> found,
         RegisteredFolderSet scannedTargets,
-        RegisteredFolderSet offlineTargets)
+        RegisteredFolderSet unseenPlaces)
     {
         var before = Hashes(lastWritten);
         var now = Hashes(current);
@@ -64,7 +67,7 @@ public static class UnresolvedMerge
                 // 今回見ていない場所（走査していない取り込み元・外付けを外していた）は、見つかった行に引き継ぐ。
                 // 見た場所で見つからなかった物だけが片付いた物（下の決まりと同じ）
                 var unseenPaths = file.Paths
-                    .Where(path => !scannedTargets.Contains(path) || offlineTargets.Contains(path))
+                    .Where(path => !scannedTargets.Contains(path) || unseenPlaces.Contains(path))
                     .ToList();
                 result[index] = WithPaths(result[index], unseenPaths, []);
                 continue;
@@ -76,12 +79,14 @@ public static class UnresolvedMerge
             }
 
             // 前に書いた後で人が足した物（外して戻した）と、今回見ていない物は残す。
-            // 見ていないのは、今回走査していない取り込み元の物（対象は「今積んだ物」だけ・G1）と、外付けを外していて見られなかった物。
+            // 見ていないのは、今回走査していない取り込み元の物（対象は「今積んだ物」だけ・G1）と、外付けを外していて見られなかった物、
+            // 走査した中でも読めなかったフォルダの下・オンラインのみ・ハッシュを取れなかった物（見つからない・移動の点検 4・2026-10-05。
+            // 前はこれらを片付いたとして落とし、控えに載っているので監視も拾い直さず、どこにも出なくなっていた）。
             // 走査した対象の中で見つからなかった物だけが、この取り込みが判じ直した（片付いた・消えた）物なので落とす。
             // 前は外付けだけを見ていて、フォルダ乙を取り込むとフォルダ甲の未確定が消え、甲の物は走査の控えに載るので
             // 監視も新しいと数えず、商品にも未確定にも出なくなっていた（大容量の確かめ E・2026-09-30）
             var addedByPerson = !before.Contains(file.Hash);
-            var unseen = file.Paths.Any(path => !scannedTargets.Contains(path) || offlineTargets.Contains(path));
+            var unseen = file.Paths.Any(path => !scannedTargets.Contains(path) || unseenPlaces.Contains(path));
             if ((addedByPerson || unseen) && seen.Add(file.Hash))
             {
                 result.Add(file);

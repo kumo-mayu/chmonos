@@ -310,7 +310,7 @@ public sealed class ImportPipeline : IImportPipeline
         // 未確定の一覧は取り込みの最中に人も書く。書くたびに、前に書いた物と今の物を比べて人の変更を残す（UnresolvedMerge）。
         // 外付けを外している取り込み元の下の物は、見られなかっただけなので引き継ぐ
         var unresolvedBase = _store.Unresolved.Load();
-        var offlineTargets = new List<string>();
+        var unseenPlaces = new List<string>();
 
         // この取り込みで走査した取り込み元。終わりに、この下で無くなったパスを走査の控えから落とす
         var scannedTargets = new List<string>();
@@ -355,7 +355,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
             await RecordVolumesAsync(folders, cancellationToken);
-            offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
+            unseenPlaces.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
             scannedTargets.AddRange(folders);
 
             // **走査に入る前に、対象と「走査の途中」を書く**（2026-09-30・大容量の確かめ #2）。
@@ -378,6 +378,11 @@ public sealed class ImportPipeline : IImportPipeline
                 scan.Files, scanCache, exclusions, detached, owned, owners, recordedAt, unresolvedBase, perFile, cancellationToken);
             perFile.Flush();
             await SaveScanCacheAsync(scanCache, cancellationToken);
+
+            // 在るのに今回見ていない場所の未確定は、片付いたと見ない（見つからない・移動の点検 4・2026-10-05）。
+            // 前は走査した取り込み元の中というだけで落とし、控えに載っているので監視も拾い直さず、どこにも出なくなっていた
+            unseenPlaces.AddRange(scan.Unseen);
+            unseenPlaces.AddRange(resolution.Unhashed);
             await DropReplacedPathsAsync(resolution.Replaced, cancellationToken);
             await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
 
@@ -414,7 +419,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 未確定は積み上げる。前の周回で残ったものを消してはいけない
             totals.Unresolved.AddRange(resolution.Unresolved);
-            unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, offlineTargets, cancellationToken);
+            unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, unseenPlaces, cancellationToken);
 
             var fetchResult = await FetchAsync(resolution.FilesByItemId, work, totals, progress, cancellationToken);
 
@@ -430,7 +435,7 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 // 開けなかった印は、商品のファイルの記録から引き継いである（ToUnresolved）
                 totals.Unresolved.AddRange(fetchResult.NotFoundFiles);
-                unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, offlineTargets, cancellationToken);
+                unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, unseenPlaces, cancellationToken);
             }
 
             totals.Add(scan, resolution, fetchResult);
@@ -490,11 +495,11 @@ public sealed class ImportPipeline : IImportPipeline
         IReadOnlyList<UnresolvedFile> found,
         IReadOnlyList<UnresolvedFile> lastWritten,
         IReadOnlyList<string> scannedTargets,
-        IReadOnlyList<string> offlineTargets,
+        IReadOnlyList<string> unseenPlaces,
         CancellationToken cancellationToken)
         => _store.Unresolved.UpdateAsync(
             current => UnresolvedMerge.ForImport(
-                current, lastWritten, found, new RegisteredFolderSet(scannedTargets), new RegisteredFolderSet(offlineTargets)),
+                current, lastWritten, found, new RegisteredFolderSet(scannedTargets), new RegisteredFolderSet(unseenPlaces)),
             cancellationToken);
 
     /// <summary>控えられなくても取り込みは止めない（次に開いたフォルダビューで控え直す）。</summary>
@@ -1088,10 +1093,13 @@ public sealed class ImportPipeline : IImportPipeline
         var unreadable = 0;
         var unreadableFolders = 0;
         var onlineOnly = 0;
+        var unseen = new List<string>();
 
         foreach (var folder in folders)
         {
             var result = _scanner.Scan(folder, cancellationToken);
+            unseen.AddRange(result.UnreadableFolders);
+            unseen.AddRange(result.NotRead);
             unpacked.AddRange(result.UnpackedFolders);
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
             unreadable += result.Unreadable;
@@ -1146,6 +1154,7 @@ public sealed class ImportPipeline : IImportPipeline
             Unreadable = unreadable,
             UnreadableFolders = unreadableFolders,
             OnlineOnly = onlineOnly,
+            Unseen = unseen,
         };
     }
 
@@ -1162,6 +1171,9 @@ public sealed class ImportPipeline : IImportPipeline
         public int UnreadableFolders { get; init; }
 
         public int OnlineOnly { get; init; }
+
+        /// <summary>在るのに今回見ていない場所（読めなかったフォルダ・オンラインのみ・読めなかった1ファイル）。</summary>
+        public required List<string> Unseen { get; init; }
     }
 
     private async Task<ResolutionResult> ResolveAsync(
@@ -1184,6 +1196,7 @@ public sealed class ImportPipeline : IImportPipeline
         var excluded = 0;
         var alreadyOwned = 0;
         var unreadable = 0;
+        var unhashed = new List<string>();
         var brokenArchives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var brokenOwned = new List<(string ItemId, string Hash)>();
         var replaced = new List<(string ItemId, string Hash, string Path)>();
@@ -1230,6 +1243,7 @@ public sealed class ImportPipeline : IImportPipeline
                     // 走査で読めなかった物（E4）と同じ数に入れて結果に出し、どれかはログに残す
                     Diagnostics.AppLog.Warn("取り込みでファイルを読む", $"{file.Path}：{exception.Message}");
                     unreadable++;
+                    unhashed.Add(file.Path);
                     continue;
                 }
 
@@ -1427,6 +1441,7 @@ public sealed class ImportPipeline : IImportPipeline
             Excluded = excluded,
             AlreadyOwned = alreadyOwned,
             Unreadable = unreadable,
+            Unhashed = unhashed,
             BrokenOwned = brokenOwned,
             Replaced = replaced,
         };
@@ -1899,6 +1914,9 @@ public sealed class ImportPipeline : IImportPipeline
 
         /// <summary>中身を読めず（ハッシュを計算できず）飛ばした件数。</summary>
         public int Unreadable { get; init; }
+
+        /// <summary>ハッシュを計算できなかったファイルの場所（今回見ていない場所として、前の未確定を残す）。</summary>
+        public IReadOnlyList<string> Unhashed { get; init; } = [];
 
         /// <summary>zip として開けなかった物のうち、前から商品が持っている物（商品ID とハッシュ）。結果の数に入れる。</summary>
         public required List<(string ItemId, string Hash)> BrokenOwned { get; init; }

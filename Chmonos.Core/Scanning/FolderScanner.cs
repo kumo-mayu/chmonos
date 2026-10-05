@@ -106,7 +106,7 @@ public sealed class FolderScanner
         {
             var missed = 0;
             var single = Describe(rootFolder, ref missed);
-            return new ScanResult { Files = single is null ? [] : [single], Unreadable = missed };
+            return new ScanResult { Files = single is null ? [] : [single], Unreadable = missed, NotRead = missed > 0 ? [rootFolder] : [] };
         }
 
         if (!Directory.Exists(rootFolder))
@@ -164,7 +164,7 @@ public sealed class FolderScanner
         var files = new List<ScannedFile>();
         var unpacked = new List<UnpackedTally>();
         var skipped = 0;
-        var onlineOnly = 0;
+        var onlineOnly = new List<string>();
         var unreadableFolders = new List<string>();
 
         // 前の再帰の列挙と同じく、並べ終えたフォルダの子を後ろに積む（幅優先）。
@@ -235,7 +235,7 @@ public sealed class FolderScanner
 
                 if (IsOnlineOnly(entry.Attributes))
                 {
-                    onlineOnly++;
+                    onlineOnly.Add(entry.Path);
                     continue;
                 }
 
@@ -260,7 +260,8 @@ public sealed class FolderScanner
                 TotalBytes = tally.Bytes,
             })],
             SkippedInsideUnpackedFolders = skipped,
-            OnlineOnly = onlineOnly,
+            OnlineOnly = onlineOnly.Count,
+            NotRead = onlineOnly,
             UnreadableFolders = unreadableFolders,
         };
     }
@@ -370,4 +371,11 @@ public sealed class ScanResult
     /// 読むとダウンロードが始まるので取り込まない（<see cref="FolderScanner.IsOnlineOnly"/>）。
     /// </summary>
     public int OnlineOnly { get; init; }
+
+    /// <summary>
+    /// 在るのに中身を読まなかったファイルの場所（オンラインのみ・読めなかった1ファイル）。
+    /// 取り込みは、ここと <see cref="UnreadableFolders"/> の下を「今回見ていない」として、前の未確定を片付いたと見ない
+    /// （見つからない・移動の点検 4・2026-10-05）。
+    /// </summary>
+    public IReadOnlyList<string> NotRead { get; init; } = [];
 }
