@@ -1099,7 +1099,20 @@
                                                                       Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                       CommandParameter="{Binding}" />
                                                     </Border.InputBindings>
-                                                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" />
+                                                    <!-- 基本の操作は右クリックと画面の両方に置く（メモ73-②）。右クリックの「この素体から外す」と同じ命令 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" />
+                                                        <Button Grid.Column="1" Content="外す" Style="{StaticResource DangerButton}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="外しても、上の欄からまた追加できます。"
+                                                                AutomationProperties.AutomationId="AvatarBaseMemberRemove"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}をこの素体から外す}" />
+                                                    </Grid>
                                                 </controls:PressableBorder>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

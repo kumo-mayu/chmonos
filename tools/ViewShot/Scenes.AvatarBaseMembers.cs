@@ -47,6 +47,15 @@ internal static partial class Scenes
                 throw new InvalidOperationException($"素体の詳細の行の右クリック：{string.Join("、", items.Select(item => item.Header))}");
             }
 
+            // 行の「外す」ボタン（メモ73-②。基本の操作は右クリックと画面の両方）：右クリックと同じ命令・同じ行を持つ
+            var buttons = Look.All<Button>(root).Where(button => button.DataContext is AvatarRowViewModel
+                && System.Windows.Automation.AutomationProperties.GetAutomationId(button) == "AvatarBaseMemberRemove").ToList();
+            if (buttons.Count == 0 || buttons.Any(button => !ReferenceEquals(button.Command, avatars.RemoveMemberCommand)
+                || !ReferenceEquals(button.CommandParameter, button.DataContext) || !button.IsEnabled))
+            {
+                throw new InvalidOperationException($"素体の詳細の行の「外す」ボタン：{buttons.Count} 個。命令か引数が右クリックと違う。");
+            }
+
             return new Shot(root);
         }),
 
