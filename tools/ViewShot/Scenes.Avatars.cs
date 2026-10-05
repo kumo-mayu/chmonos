@@ -68,6 +68,16 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 持っているアバターと持っていないアバターのカードが、左の一覧で同じ横の位置に並ぶ（メモ69）
+        new Scene("avatars-cards-unowned", "アバターの管理：カードで、持っているアバターと持っていないアバター（名前だけ）のカードの横の位置が同じ", async context =>
+        {
+            var (avatars, root) = await OpenAvatarsAsync(context);
+            avatars.ShowCardsCommand.Execute(null);
+            avatars.Query = "名前だけ";
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 探す欄の語が名前でなく正式名で当たった行にだけ、何で当たったかの札が出る（2026-10-05 判断⑤）
         new Scene("avatars-match-note", "アバターの管理：探す欄に「作り物のアバター」と入れた一覧（名前を付けた行だけ、正式名で当たった札が出る）", async context =>
         {

@@ -18,6 +18,8 @@
     <SolidColorBrush x:Key="Border" Color="#343943" />
     <SolidColorBrush x:Key="BorderStrong" Color="#4b515d" />
     <SolidColorBrush x:Key="Divider" Color="#2a2e36" />
+    <!-- 通知の商品の行どうしの線。Border では地とほぼ同じで見えなかった（メモ67）。通常の地と強調の地（TargetBand）の両方で 3:1 -->
+    <SolidColorBrush x:Key="RowDivider" Color="#7c7f89" />
     <SolidColorBrush x:Key="BarTrack" Color="#30353e" />
     <!-- 入力欄はカードより一段沈める（明るい表では白で、カードと同じ） -->
     <SolidColorBrush x:Key="InputBack" Color="#17191e" />
