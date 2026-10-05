@@ -399,43 +399,60 @@
                                         <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
                                                 Margin="11,0,11,11" Padding="0,6,0,0">
                                             <Grid>
-                                                <!-- 未所持のときは左下の襷が同じことを言うので、重ねて出さない -->
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <!--
+                                                    札が多いと、容量を先に取り、札は残りの幅に入るだけ出して残りを「+n」にまとめる（BadgeOverflowPanel・メモ52）。
+                                                    未所持のときは左下の襷が同じことを言うので、容量を重ねて出さない
+                                                -->
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
                                                            VerticalAlignment="Center"
                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                    <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                <controls:BadgeOverflowPanel Grid.Column="1" HorizontalAlignment="Right" Margin="6,0,0,0">
+                                                    <Border controls:BadgeOverflowPanel.Label="見つからない"
+                                                            Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
                                                             ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="見つからない" FontSize="10" Foreground="{DynamicResource Bad}" />
                                                     </Border>
                                                     <!-- 要確認に未読の更新がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27） -->
-                                                    <Button Style="{StaticResource UpdateBadgeButton}" Margin="4,0,0,0"
+                                                    <Button controls:BadgeOverflowPanel.Label="更新あり" Style="{StaticResource UpdateBadgeButton}"
                                                             Command="{Binding ShowUpdateCommand}"
                                                             AutomationProperties.AutomationId="ItemCardUpdate"
                                                             AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
                                                             ToolTip="通知に更新があります。押すとその通知を開きます。"
                                                             Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
-                                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                    <Border controls:BadgeOverflowPanel.Label="取り込み中"
+                                                            Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
                                                             ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"
                                                             Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
                                                     </Border>
-                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                    <Border controls:BadgeOverflowPanel.Label="未編集"
+                                                            Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
                                                             ToolTip="まだユーザータグを付けていません"
                                                             Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
-                                                    <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                    <Border controls:BadgeOverflowPanel.Label="所持"
+                                                            Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
                                                             Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
                                                     </Border>
-                                                </StackPanel>
+                                                    <!-- 入り切らない札の数。乗せると、出せなかった札の名前を全部出す -->
+                                                    <Border controls:BadgeOverflowPanel.IsMore="True"
+                                                            Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1">
+                                                        <TextBlock FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                    </Border>
+                                                </controls:BadgeOverflowPanel>
                                             </Grid>
                                         </Border>
 
