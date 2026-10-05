@@ -30,6 +30,7 @@ internal static partial class Scenes
         .. ManageRowMenuScenes,
         .. DragEdgeScrollScenes,
         .. AvatarScenes,
+        .. AvatarBaseMemberScenes,
         .. Search,
         .. SearchFilters,
         .. SavedSearchScenes,
