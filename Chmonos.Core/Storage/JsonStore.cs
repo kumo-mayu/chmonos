@@ -154,7 +154,18 @@ public static class JsonStore
         }
     }
 
-    public static async Task WriteAsync<T>(string path, T value, CancellationToken cancellationToken = default)
+    public static Task WriteAsync<T>(string path, T value, CancellationToken cancellationToken = default)
+        => WriteAsync(path, value, copyTo: null, cancellationToken);
+
+    /// <summary>
+    /// 書いて、据えた本体を <paramref name="copyTo"/> へも写す（商品の記録の控え <c>items/.prev</c>。ユーザ判断 2026-10-05）。
+    ///
+    /// **写すのは据えた後で、同じ門の中。**本体の置き換えは名前が途切れない改名（<see cref="AtomicReplace"/>）なので、
+    /// <c>File.Replace</c> の控えの引数（退けた旧い本体を残す）は使えない——使えば改名をやめて、読み手が本体を「無い」と見る隙を戻す。
+    /// 固いリンクも使わない：メモ帳などは本体をその場で書き換えるので、リンクの先も一緒に壊れる。
+    /// 写しは控えなので、写せなくても書き込みは成功のまま返す（ログに残す）。
+    /// </summary>
+    internal static async Task WriteAsync<T>(string path, T value, string? copyTo, CancellationToken cancellationToken)
     {
         var gate = GateFor(path);
         await gate.WaitAsync(cancellationToken);
@@ -179,10 +190,39 @@ public static class JsonStore
                 DiscardTemporary(temporaryPath, failure);
                 throw;
             }
+
+            if (copyTo is not null)
+            {
+                KeepCopy(path, copyTo);
+            }
         }
         finally
         {
             gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 本体を控えの場所へ写す。写しも一時ファイルから据える（途中で止まって半端な控えを残さない）。
+    /// 控えのディスクへの書き出し（Flush）はしない：本体は書き出し済みで、控えが要るのは本体が後から壊れたときだけ。
+    /// </summary>
+    private static void KeepCopy(string path, string copyTo)
+    {
+        string? temporaryPath = null;
+        try
+        {
+            temporaryPath = PrepareTemporary(copyTo);
+            File.Copy(path, temporaryPath, overwrite: true);
+            MoveOver(temporaryPath, copyTo);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            if (temporaryPath is not null)
+            {
+                TryDelete(temporaryPath);
+            }
+
+            Diagnostics.AppLog.Warn("商品の記録の控え", $"「{copyTo}」へ写せませんでした：{exception.Message}");
         }
     }
 

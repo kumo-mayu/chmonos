@@ -47,6 +47,14 @@ public static class BackupArchive
     private static bool IsLeftOut(string relativePath)
     {
         var name = Path.GetFileName(relativePath);
+
+        // 商品の記録の控え（items/.prev）は本体とほぼ同じ中身で、入れると商品の分が倍になる。
+        // 戻した後はアプリが書くたびに作り直す。よけた壊れた記録（items/_broken）は、そこにしか無い入力があるので入れる
+        if (relativePath.StartsWith(Path.Combine("items", ".prev") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".cache", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)

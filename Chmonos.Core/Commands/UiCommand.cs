@@ -461,6 +461,21 @@ public abstract record UiCommand
     /// <summary>用が済んだ要確認に「解消済み」の印を付ける（消さずに残す）。</summary>
     public record ResolveNotifications(IReadOnlyList<string> Ids) : UiCommand;
 
+    /// <summary>読めない商品の記録を探して要確認に出す（読めるようになった物は解消済みにする）。結果は件数。</summary>
+    public record DetectUnreadableItems : UiCommand;
+
+    /// <summary>
+    /// 読めない商品の記録を、アプリが最後に書いた版の控えに戻す（通知の「1つ前の版に戻す」）。
+    /// 壊れた記録は items/_broken へよけて残す。
+    /// </summary>
+    public record RestoreItemCopy(string ItemId) : UiCommand;
+
+    /// <summary>
+    /// 読めない商品の記録をよけ、BOOTH から取り直して新しく作る（通知の「BOOTHから作り直す」）。
+    /// BOOTH への問い合わせなので、ここを通して人が押した優先度で並ぶ。
+    /// </summary>
+    public record RebuildItemFromBooth(string ItemId) : UiCommand;
+
     /// <summary>
     /// 要確認を1件足す。同じIDの未読があれば差し替える（溜めても読む手間が増えるだけ）。
     /// 画面から書くので `UiCommand` を通す。

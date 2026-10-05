@@ -30,6 +30,9 @@ public interface INotificationService
 
     /// <summary>手で直した JSON の食い違いを要確認に出す（J2・L6）。</summary>
     Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>読めない商品の記録を1商品1件の知らせにする。読めるようになった物は解消済みにする。</summary>
+    Task<int> DetectUnreadableItemsAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -458,6 +461,75 @@ public sealed class NotificationService : INotificationService
 
         return changed;
     }
+
+    /// <summary>読めない商品の記録の知らせの ID の頭。続きが商品ID。</summary>
+    public const string UnreadableItemPrefix = "unreadable-item:";
+
+    /// <summary>
+    /// 読めない商品の記録を1商品1件の知らせにする（ユーザ判断 2026-10-05）。読めるようになった・無くなった物は解消済みにする。
+    ///
+    /// 読めない記録は全件の読み込みが飛ばすので、検索・統計・ショップのどこにも出ず、黙って消えたことになっていた。
+    /// 通信しないので、起動したときに設定に関わらず見る。通知の画面を開いたときにも見直す（起動の後に壊れた物も出す）。
+    /// 同じ商品が同じ所で読めないままなら、書き直さない（既読にした物を未読に戻さない）。
+    /// </summary>
+    /// <returns>新しく出した（か、読めない所が変わって出し直した）件数。</returns>
+    public async Task<int> DetectUnreadableItemsAsync(CancellationToken cancellationToken = default)
+    {
+        var broken = (await _store.Items.FindUnreadableAsync(cancellationToken))
+            .ToDictionary(failure => UnreadableItemPrefix + failure.ItemId, StringComparer.Ordinal);
+        var added = 0;
+
+        await _store.Notifications.TryUpdateAsync(
+            records =>
+            {
+                var changed = false;
+                for (var index = 0; index < records.Count; index++)
+                {
+                    var record = records[index];
+                    if (record.Kind == NotificationKind.UnreadableItem && !record.IsResolved && !broken.ContainsKey(record.Id))
+                    {
+                        records[index] = record with { IsResolved = true };
+                        changed = true;
+                    }
+                }
+
+                foreach (var (id, failure) in broken)
+                {
+                    var detail = UnreadableDetail(failure.Line);
+                    var existing = records.FindIndex(record => record.Id == id);
+                    if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
+                    {
+                        continue;
+                    }
+
+                    if (existing >= 0)
+                    {
+                        records.RemoveAt(existing);
+                    }
+
+                    records.Add(new NotificationRecord
+                    {
+                        Id = id,
+                        Kind = NotificationKind.UnreadableItem,
+                        Title = $"{failure.ItemId}.json",
+                        Detail = detail,
+                        CreatedAt = DateTimeOffset.Now,
+                        IsStrong = true,
+                    });
+                    added++;
+                    changed = true;
+                }
+
+                return changed ? Pruned(records) : null;
+            },
+            cancellationToken);
+
+        return added;
+    }
+
+    /// <summary>行の札（「見出し：中身」）。何行目かは JSON の読み取りが止まった行で、エディタで開いて探す目印になる。</summary>
+    internal static string UnreadableDetail(long? line)
+        => line is { } number ? $"壊れている場所：{number} 行目" : "壊れている内容：中身が空です";
 
     private List<NotificationRecord> Pruned(List<NotificationRecord> records)
     {

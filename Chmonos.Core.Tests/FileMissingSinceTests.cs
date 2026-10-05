@@ -96,7 +96,7 @@ public sealed class FileMissingSinceTests : IDisposable
             => throw new InvalidOperationException("この試験ではBOOTHへ行かないはず");
     }
 
-    private string ItemJson() => File.ReadAllText(Directory.GetFiles(_paths.ItemsDir, $"{ItemId}.json", SearchOption.AllDirectories).Single());
+    private string ItemJson() => File.ReadAllText(_paths.ItemFile(ItemId));
 
     // ---- 取り込みのたびに記録の場所を全部見る ----
 
