@@ -665,30 +665,27 @@ public sealed class ItemService : IItemService
         string folderPath,
         CancellationToken cancellationToken = default)
     {
-        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (item is null)
-        {
-            return false;
-        }
-
+        // 商品の錠の中で今の一覧から外す（2026-10-05・file-lifecycle.md「気になった所」3）。前は錠の外で読んだ写しを
+        // 取り込みの持ち物（localFiles も入る）として書いていたので、読んでから書くまでに取り込みが足したファイルが消え得た
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
-        var remaining = item.Local.LocalFolders
+        return await _store.Items.ChangeLocalAsync(
+            itemId,
+            current => WithoutFolder(current.LocalFolders, normalized) is { } remaining
+                ? current with { LocalFolders = remaining }
+                : null,
+            [LocalField.LocalFolders],
+            cancellationToken);
+    }
+
+    /// <summary>その場所の登録を除いた一覧。除く物が無ければ null。</summary>
+    private static List<LocalFolderRecord>? WithoutFolder(IReadOnlyList<LocalFolderRecord> folders, string normalized)
+    {
+        var remaining = folders
             .Where(folder => !string.Equals(
                 Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (remaining.Count == item.Local.LocalFolders.Count)
-        {
-            return false;
-        }
-
-        await _store.Items.SaveLocalAsync(
-            itemId,
-            item.Local with { LocalFolders = remaining },
-            LocalOwners.Import,
-            cancellationToken: cancellationToken);
-
-        return true;
+        return remaining.Count == folders.Count ? null : remaining;
     }
 
     /// <summary>
@@ -995,21 +992,26 @@ public sealed class ItemService : IItemService
         };
 
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
-        var folders = item.Local.LocalFolders
-            .Where(folder => !string.Equals(
-                Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase))
-            .ToList();
 
-        // ファイルとフォルダを1回で書く。2回に分けると、間に人が触った入力が消える
-        await _store.Items.SaveLocalAsync(
+        // ファイルとフォルダを1回で、商品の錠の中で今の値に当てて書く。2回に分けると、間に人が触った入力が消える。
+        // 上で読んだ写しは使わない（2026-10-05・file-lifecycle.md「気になった所」3）：zip のハッシュに数秒〜かかる間に
+        // 取り込みが足したファイル・付けた種類・外す／戻す・見つからなくなった日時が、写しで書くと古い値に戻っていた。
+        // 重いハッシュは錠の外で済ませ、錠の中では足し合わせるだけ
+        var written = await _store.Items.ChangeLocalAsync(
             itemId,
-            item.Local with
+            current => current with
             {
-                LocalFiles = Scanning.LocalFileMerger.Merge(item.Local.LocalFiles, [record]),
-                LocalFolders = folders,
+                LocalFiles = Scanning.LocalFileMerger.Merge(current.LocalFiles, [record]),
+                LocalFolders = WithoutFolder(current.LocalFolders, normalized) ?? current.LocalFolders,
             },
-            LocalOwners.Import,
-            cancellationToken: cancellationToken);
+            [LocalField.LocalFiles, LocalField.LocalFolders],
+            cancellationToken);
+
+        // ハッシュの間に商品が消されていたら、未確定からも外さない（行き先が無くなったので）
+        if (!written)
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.ItemMissing, name);
+        }
 
         // 未確定に同じzipが居たなら、行き先が決まったので外す
         await RemoveUnresolvedAsync(hash, cancellationToken);

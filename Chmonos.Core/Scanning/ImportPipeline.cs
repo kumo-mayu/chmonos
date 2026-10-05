@@ -1516,11 +1516,14 @@ public sealed class ImportPipeline : IImportPipeline
             }
 
             // 取得済みのitemは触らない。中断して再実行した時に、ここが「続きから」を成立させる。
-            await _store.Items.SaveLocalAsync(
+            //
+            // 足すのは商品の錠の中で今の一覧に（2026-10-05・file-lifecycle.md「気になった所」3）。上で読んだ写しに足して
+            // 書くと、読んでから書くまでの間に人が付けた種類・外す／戻す・見つからなくなった日時が古い値に戻る
+            await _store.Items.ChangeLocalAsync(
                 itemId,
-                existing.Local with { LocalFiles = LocalFileMerger.Merge(existing.Local.LocalFiles, discovered) },
-                LocalOwners.Import,
-                cancellationToken: cancellationToken);
+                current => current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, discovered) },
+                [LocalField.LocalFiles],
+                cancellationToken);
 
             alreadyKnown++;
             NoteBroken(itemId, discovered);
