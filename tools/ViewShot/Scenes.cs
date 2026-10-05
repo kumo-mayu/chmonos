@@ -16,6 +16,7 @@ internal static partial class Scenes
     [
         .. Resolve,
         .. Import,
+        .. RowButtons,
         .. Item,
         .. ItemPages,
         .. ItemChangeScenes,

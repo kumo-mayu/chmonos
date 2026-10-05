@@ -295,6 +295,17 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
 
+                            <!--
+                                右クリックの「この画像を削除」と同じ命令（基本の操作は右クリックと画面の両方に置く・ユーザ判断 2026-10-06）。
+                                押せないときも出したまま、理由を吹き出しで言う（右クリックと同じ文）。
+                                画像が1枚も無いときは消す相手がいないので出さない
+                            -->
+                            <Button Content="この画像を削除" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="12,0,12,10"
+                                    AutomationProperties.AutomationId="GalleryRemoveImage"
+                                    Command="{Binding RemoveImageCommand}"
+                                    ToolTip="{Binding RemoveImageButtonTip}" ToolTipService.ShowOnDisabled="True"
+                                    Visibility="{Binding HasCurrentImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
                             <TextBlock Text="{Binding UserImageText}" Style="{StaticResource Caption}" Margin="12,0,12,4"
                                        Visibility="{Binding HasUserImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 

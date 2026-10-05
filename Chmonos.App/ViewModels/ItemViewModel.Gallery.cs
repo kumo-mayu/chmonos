@@ -303,6 +303,9 @@ public sealed partial class ItemViewModel
     /// <summary>自分で足した画像か。並べ替えと削除はこれにだけ出す。</summary>
     public bool CurrentIsUserAdded => CurrentImage is { IsUserAdded: true };
 
+    /// <summary>いま出ている1枚があるか。画面の「この画像を削除」ボタンを、画像が無い商品には出さない。</summary>
+    public bool HasCurrentImage => CurrentImage is not null;
+
     /// <summary>いま出ている1枚がサムネイルに指名されているか。</summary>
     public bool CurrentIsPinned => CurrentImage is { IsPinned: true };
 
@@ -317,6 +320,11 @@ public sealed partial class ItemViewModel
     public string PinDisabledTip => CurrentImage is null ? "画像がありません" : "この画像はもう指名しています";
 
     public string UnpinDisabledTip => CurrentImage is null ? "画像がありません" : "この画像は指名していません";
+
+    /// <summary>画面の「この画像を削除」ボタンの吹き出し。右クリックの項目と同じ文（押せるときは何が起きるか、押せないときは理由）。</summary>
+    public string RemoveImageButtonTip => CurrentIsUserAdded
+        ? "ファイルごと消します。元に戻せません（押すと確かめます）。"
+        : "自分で足した画像だけ消せます";
 
     public string AddImageTip => "この商品に画像を追加";
 
@@ -609,7 +617,7 @@ public sealed partial class ItemViewModel
         {
             nameof(SelectedImage), nameof(GalleryCounter), nameof(GalleryEmptyText), nameof(CurrentImage),
             nameof(CanGoPreviousImage), nameof(CanGoNextImage),
-            nameof(CurrentIsUserAdded), nameof(CurrentIsPinned),
+            nameof(CurrentIsUserAdded), nameof(CurrentIsPinned), nameof(HasCurrentImage), nameof(RemoveImageButtonTip),
             nameof(ShowsPinThumbnail), nameof(ShowsUnpinThumbnail), nameof(PinDisabledTip), nameof(UnpinDisabledTip),
             nameof(CurrentRoleHeader), nameof(CurrentIsRoleBooth),
             nameof(CurrentIsRoleModified), nameof(CurrentIsRoleOther),
