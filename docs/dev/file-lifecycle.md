@@ -107,7 +107,7 @@ stateDiagram-v2
 | 除外を解除（設定） | `RestoreExcluded` | `excluded.json` から消す | 未確定には戻さない。その取り込み元を取り込み直すまで、どこにも出ない（監視の新着にも数えない） |
 | フォルダの登録を外す | `UnregisterFolder` | `localFolders` から消す | ファイルには触らない。中身は次の取り込みで未確定へ |
 | zipで登録し直す（通知） | `SwapFolderForArchive` | 隣の zip を1本ハッシュして（錠の外）、錠の中で今の `localFiles` へ足し・フォルダの登録を外す → 未確定から消す | ディスクには触らない。ハッシュの間に商品が消されたら何も書かない |
-| IDを変える | `ChangeItemId` | 移す先へ `LocalFileMerger` で合わせる（移す元の `variationId` は捨てる）・フォルダは足す | 外した印は両方外していた時だけ残る |
+| IDを変える | `ChangeItemId` | 移す先へ `LocalFileMerger.MergeByHand` で合わせる（移す元の `variationId` は捨てる。無い場所も残す）・フォルダは足す | 外した印は、移す先が持つファイルは移す先の答えのまま。移す元だけが持つ物は印ごと運ぶ |
 | 非表示 | `SaveItemLocal`（`IsHidden`） | `isHidden` だけ | ファイルには触らない。統計には数える |
 | 完全に削除 | `DetachFile(DeleteItemWhenEmpty)` | `DeleteIfAsync`（空の時だけ） | 改変・最近などの参照は付け替えない |
 | 種類を付ける | `SetFileVariations` | `variationId` | 編集画面の「ファイルを追加…」もこれ。ファイルを商品へ直に足す操作は無い |
@@ -211,7 +211,8 @@ stateDiagram-v2
 9. **①で404になって未確定へ戻した物は `zoneReferrerUrl`・`zoneHostUrl` を持たない**（`ImportPipeline.ToUnresolved`）。毎回同じ道を通るので取り込み直しても付かず、元zip の束に入らない。spec の「取り込み直すと書き直される」と合わない。
 10. **除外を解除した物がどこにも出ない期間がある**：`RestoreExcluded` は未確定に戻さず、控えに載っているので監視の新着にも数えない。その取り込み元を履歴から取り込み直すまで見えない（spec「次の取り込みでまた未確定に出る」は、対象に積んだ時だけ正しい）。外した記録を消す（`ForgetDetached`）も同じく、次の取り込みで手掛かりから同じ商品へ戻り得る。
 11. **「BOOTHに無い商品」の名前が上書きされ得る**：仮ID はハッシュから決まるので、外した後に同じファイルをもう一度「BOOTHに無い商品として登録」すると、既にある商品の `displayName` を欄の下書き（ファイル名）で上書きする（`RegisterLocalItemAsync` の既にある枝）。
-12. **「IDを変える」で外した印が下り得る**：移す先で外していたファイルを移す元が持っていると、`LocalFileMerger` の決まりで持ち物に戻る。
+12. **直した（2026-10-05・コミットは下の「12」）**：`ItemIdChange.Merge` が、移す先が持つファイルの外した印を移す先の答えに当て直す（突き合わせの「両方外していた時だけ残す」は未確定から選び直す道の決まりなので、ここには当てない）。試験 `ItemIdChangeTests` の「移す先で外していたファイルは外したまま残る」（直す前は落ちた）・「移す先が持っているファイルは移す元で外していても持ち物のまま」。
+   **「IDを変える」で外した印が下り得る**：移す先で外していたファイルを移す元が持っていると、`LocalFileMerger` の決まりで持ち物に戻る。
 13. **直した（2026-10-05・コミットは下の「13」）**：人の登録操作は `LocalFileMerger.MergeByHand`（無い場所を「今は見えない」と同じに扱って残す。在る場所があれば日時を消すのは同じ）。取り込みは spec（import.md「移した・消した場所は落とす」）どおり `Merge` のまま。試験 `HandRegistrationKeepsPlacesTests`（5件。直す前は5件とも落ちた）。
    **人の登録操作でもほかのファイルの場所が落ちる**：このIDで登録・IDを変える・zipで登録し直すも `LocalFileMerger.Merge`（既定の `File.Exists`）を通るので、同じ商品のほかのファイルの無い場所をその場で外す。`missingSince` の「場所は外さない」の趣旨と合わない（取り込みと同じ動きではある）。
 14. **「IDのまま登録」だけ一覧のチェックを見ない**：`ResolveViewModel.Unpublished.cs` `AssignUnpublishedAsync` は `ActiveRows` だけ使う。spec の「今の対象」（チェックがあればその全部）と食い違う（画面では確かめていない）。

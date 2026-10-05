@@ -552,6 +552,37 @@ public class ItemIdChangeTests : IDisposable
         Assert.False(moved.Local.LocalFiles.Single(file => file.Hash == "aaa").Detached);
     }
 
+    /// <summary>
+    /// 移す先で外していたファイルを移す元が持っていても、外した印は下りない（2026-10-05・file-lifecycle.md「気になった所」12）。
+    /// 前は取り込みと同じ「両方が外していた時だけ残す」で、移す元の外していない行が勝ち、移す先で「この商品のものではない」と
+    /// 決めたファイルが黙って持ち物に戻っていた。移した先の入力は潰さない（ほかの欄と同じ）。
+    /// </summary>
+    [Fact]
+    public async Task 移す先で外していたファイルは外したまま残る()
+    {
+        await SaveTargetAsync(new LocalBlock { LocalFiles = [File("aaa") with { Detached = true }, File("ccc")] });
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa"), File("bbb")] });
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local.LocalFiles;
+        Assert.True(moved.Single(file => file.Hash == "aaa").Detached);
+        Assert.False(moved.Single(file => file.Hash == "bbb").Detached);
+        Assert.False(moved.Single(file => file.Hash == "ccc").Detached);
+    }
+
+    /// <summary>移す先が持っている（外していない）ファイルを移す元が外していても、移す先の答えのまま。</summary>
+    [Fact]
+    public async Task 移す先が持っているファイルは移す元で外していても持ち物のまま()
+    {
+        await SaveTargetAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa") with { Detached = true }, File("bbb")] });
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        Assert.False((await _store.Items.LoadAsync(RealId))!.Local.LocalFiles.Single(file => file.Hash == "aaa").Detached);
+    }
+
     // ---- 画像とお気に入り ----
 
     private const string UserImageFile = "user-1a2b3c4d.webp";

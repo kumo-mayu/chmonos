@@ -288,9 +288,26 @@ public static class ItemIdChange
             .ToList();
 
         // 人の操作なので、無い場所は外さない（取り込みの仕事。LocalFileMerger.MergeByHand）
-        var files = LocalFileMerger.MergeByHand(
+        var merged = LocalFileMerger.MergeByHand(
             target.LocalFiles,
             source.LocalFiles.Select(file => file with { VariationId = null }).ToList());
+
+        // 外した印は、移した先が持っている行なら移した先の答えのまま（2026-10-05・file-lifecycle.md「気になった所」12）。
+        // 突き合わせの決まり（両方が外していた時だけ残す）は「未確定から選び直した」ための物で、ここに当てると
+        // 移す元の外していない行が勝ち、移した先で「この商品のものではない」と決めたファイルが黙って持ち物に戻っていた。
+        // 移す元だけが持つ行は、移す元の印をそのまま運ぶ
+        // 手で直した JSON に同じハッシュの行が2つあっても落ちないよう、突き合わせ（後の行が勝つ）と同じく上書きで集める
+        var targetDetached = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in target.LocalFiles)
+        {
+            targetDetached[file.Hash] = file.Detached;
+        }
+
+        var files = merged
+            .Select(file => targetDetached.TryGetValue(file.Hash, out var detached) && detached != file.Detached
+                ? file with { Detached = detached }
+                : file)
+            .ToList();
 
         var folders = target.LocalFolders
             .Concat(source.LocalFolders.Where(folder => !target.LocalFolders.Any(existing =>
