@@ -948,6 +948,11 @@ public sealed class CommandHandler
                     : new CommandResult.FileDetached(detach.ItemId, detachOutcome);
             }
 
+            case UiCommand.ForgetOldVersion forgetOld:
+                return await _items.ForgetOldVersionAsync(forgetOld.ItemId, forgetOld.Hash, cancellationToken)
+                    ? new CommandResult.ItemSaved(forgetOld.ItemId)
+                    : new CommandResult.Failed("この古い版の記録は、もう片付いています。");
+
             case UiCommand.ReattachFile reattach:
                 var reattached = await _items.ReattachFileAsync(reattach.ItemId, reattach.Hash, cancellationToken);
                 if (reattached == Services.ReattachOutcome.Reattached)

@@ -394,6 +394,12 @@ public abstract record UiCommand
     /// </param>
     public record DetachFile(string ItemId, string Hash, bool DeleteItemWhenEmpty = false) : UiCommand;
 
+    /// <summary>
+    /// 同じ場所で新しい中身に置き換わった古い版の記録を、商品から消す（商品ページの「古い版の記録を片付ける」・2026-10-05・点検の8）。
+    /// ディスクには触らない。まだ古い版のときだけ消す。
+    /// </summary>
+    public record ForgetOldVersion(string ItemId, string Hash) : UiCommand;
+
     /// <summary>外したファイルをこの商品に戻す（灰色の行の「この商品に戻す」）。未確定からは取り除く。</summary>
     public record ReattachFile(string ItemId, string Hash) : UiCommand;
 

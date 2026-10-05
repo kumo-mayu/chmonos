@@ -380,8 +380,17 @@ public sealed class LocalFileRow : ViewModelBase
     /// </summary>
     public bool ShowsBrokenArchive => IsBrokenArchive && Paths.Count > 0 && Presence == Core.Services.FilePresence.Present;
 
+    /// <summary>
+    /// 同じ場所で新しい中身に置き換わった古い版（記録の印 <c>replaced</c>・2026-10-05・点検の8）。
+    /// 探して見つかる物ではないので「見つかりません」と言わず、「古い版」と出して片付けられるようにする。
+    /// </summary>
+    public bool IsOldVersion { get; init; }
+
+    /// <summary>「古い版の記録を片付ける」を出すか。外した行は設定の「外した記録を消す」で片付くので、ここには出さない。</summary>
+    public bool CanForgetOldVersion => IsOldVersion && !IsDetached;
+
     // 確かめられない（親のフォルダを読む権限が無い等・点検の13）は、記録には書かないが、開けないことは同じなので画面は今までどおり「見つかりません」と出す
-    public bool IsMissing => Paths.Count == 0 || Presence is Core.Services.FilePresence.Missing or Core.Services.FilePresence.Unverifiable;
+    public bool IsMissing => !IsOldVersion && (Paths.Count == 0 || Presence is Core.Services.FilePresence.Missing or Core.Services.FilePresence.Unverifiable);
 
     /// <summary>つながっていないドライブの上にしか場所が無い。無くなったとは限らないので「見つかりません」と分ける</summary>
     public bool IsOnDetachedDrive => Paths.Count > 0 && Presence == Core.Services.FilePresence.OnDetachedDrive;
@@ -395,13 +404,20 @@ public sealed class LocalFileRow : ViewModelBase
     // 前はボタンごと消していて、見つからないファイルの行だけ形が変わり、なぜ無いのか分からなかった。
     // 押せる条件は名前のリンクと同じ CanReveal（在る場所が1つ以上ある）
 
+    private const string OldVersionTip = "新しい版に置き換わっています。";
+
     /// <summary>「開く ▾」の吹き出し。押せないときはその理由。</summary>
-    public string OpenMenuTip => CanReveal ? "このファイルの開き方を選びます" : IsOnDetachedDrive ? "ドライブをつなぐと開けます。" : "ファイルが見つかりません。";
+    public string OpenMenuTip => CanReveal ? "このファイルの開き方を選びます"
+        : IsOnDetachedDrive ? "ドライブをつなぐと開けます。"
+        : IsOldVersion ? OldVersionTip
+        : "ファイルが見つかりません。";
 
     /// <summary>この行の包みの「Unity ▾」の吹き出し。押せないときはその理由。</summary>
     public string UnityMenuTip => CanReveal
         ? "開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。"
-        : IsOnDetachedDrive ? "ドライブをつなぐと送れます。" : "ファイルが見つかりません。";
+        : IsOnDetachedDrive ? "ドライブをつなぐと送れます。"
+        : IsOldVersion ? OldVersionTip
+        : "ファイルが見つかりません。";
 
     /// <summary>
     /// 名前に乗せたときに出す場所（ユーザ指示 2026-09-19：名前の下に場所の行が続くと、同じ名前が2回並んで読みにくい）。
@@ -409,6 +425,7 @@ public sealed class LocalFileRow : ViewModelBase
     /// </summary>
     public string PathToolTip => Paths.Count switch
     {
+        0 when IsOldVersion => OldVersionTip,
         0 => "ファイルが見つかりません。",
         _ when IsMissing => $"{string.Join("\n", Paths)}\nファイルが見つかりません。",
         _ when Presence == Core.Services.FilePresence.OnDetachedDrive
@@ -426,6 +443,9 @@ public sealed class LocalFileRow : ViewModelBase
 
     /// <summary>「この商品から外す」を出すか（外していない行だけ）。</summary>
     public bool IsAttached => !IsDetached;
+
+    /// <summary>「この商品から外す」を出すか。古い版はもうどこにも無く未確定へ戻す物が無いので、代わりに「古い版の記録を片付ける」を出す。</summary>
+    public bool CanDetach => !IsDetached && !IsOldVersion;
 
     /// <summary>「この商品に戻す」を押せるか。外した後で別の商品へ紐付けてあれば押せない。</summary>
     public bool CanReattach { get; init; }

@@ -269,4 +269,19 @@ public sealed record LocalFileRecord
     /// 計算では出せない（ディスクを見た結果）ので JSON に書く。無ければ書き出さない。
     /// </remarks>
     public DateTimeOffset? MissingSince { get; init; }
+
+    /// <summary>
+    /// 同じ場所で新しい中身に置き換わった古い版の印（2026-10-05・file-lifecycle.md 点検の8・ユーザ判断 8-A）。無ければ書き出さない。
+    /// 販売者の更新版を同じ名前で上書きすると、取り込みが古い中身の記録から場所を外す（<c>ImportPipeline.DropReplacedPathsAsync</c>）。
+    /// 印が無いと場所の空いた記録が「見つかりません」と数えられ続け、「探す」も毎回探して見つからないと言っていた。
+    /// 場所はもう無いので、どこで置き換わったか（行の名前に使う）と、いつかだけを持つ。上書きを見た回にしか分からないので記録に書く。
+    /// </summary>
+    public ReplacedVersion? Replaced { get; init; }
+
+    /// <summary>古い版として場所が残っていないか。場所がまた足されたら（古い版を別の所で見つけた）、印があっても古い版ではない。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsOldVersion => Replaced is not null && Paths.Count == 0;
 }
+
+/// <summary>古い版がどこで、いつ置き換わったか（<see cref="LocalFileRecord.Replaced"/>）。</summary>
+public sealed record ReplacedVersion(string Path, DateTimeOffset At);

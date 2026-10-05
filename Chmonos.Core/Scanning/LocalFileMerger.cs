@@ -116,7 +116,11 @@ public static class LocalFileMerger
             // 在る場所が1つでもあれば、見つからなくなった日時は消す（移した先を取り込んだ・同じ中身を別の所に置いた。
             // ユーザ判断 2026-10-04）。無くなった側は日時を付けない——ここは時計を持たず、日時は記録の場所を全部見る所
             // （FileMissingMarks）が付ける。場所が空になった物は、日時が無くても印と条件に当たる（ItemRecord.HasMissingFile）
-            merged.Add(found && next.MissingSince is not null ? next with { MissingSince = null } : next);
+            next = found && next.MissingSince is not null ? next with { MissingSince = null } : next;
+
+            // 古い版の中身をまた見つけた（別の所に写しが在った）なら、もう古い版ではない（2026-10-05・点検の8）。
+            // 印を残すと、在る行に「古い版」と出る
+            merged.Add(next.Replaced is not null && next.Paths.Count > 0 ? next with { Replaced = null } : next);
         }
 
         return merged;
@@ -164,6 +168,9 @@ public static class LocalFileMerger
 
             // 見つかったかは上（Merge）で場所を見て決める。ここで落とすと、つながっていないドライブの上の場所しか無い物まで消える
             MissingSince = current.MissingSince,
+
+            // 場所が残るかは上（Merge）で見て決める。残らなければ古い版のまま
+            Replaced = current.Replaced,
         };
     }
 }

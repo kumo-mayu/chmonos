@@ -172,6 +172,9 @@ public interface IItemService
 
     Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default);
 
+    /// <summary>古い版の記録（<see cref="LocalFileRecord.IsOldVersion"/>）を消す。消したら true。</summary>
+    Task<bool> ForgetOldVersionAsync(string itemId, string hash, CancellationToken cancellationToken = default);
+
     /// <returns>今回除外の記録に足したハッシュ（前から除外していた物は入らない）。戻すときに <see cref="UndoExcludeAsync"/> へ渡す。</returns>
     Task<IReadOnlyList<string>> ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default);
 
@@ -1959,6 +1962,27 @@ public sealed class ItemService : IItemService
             LocalOwners.FilePresence,
             cancellationToken);
     }
+
+    /// <summary>
+    /// 古い版の記録を片付ける（商品ページの「古い版の記録を片付ける」・2026-10-05・点検の8）。
+    ///
+    /// **外した印（<see cref="LocalFileRecord.Detached"/>）ではなく、行ごと消す。**外した印は「手掛かりが同じ商品へ戻すのを止める」ための物で、
+    /// 古い版はどこにも無いので止める相手がいない。印にすると灰色の行が残り、片付けたことにならない。
+    /// 古い版をまたどこかに置けば、次の取り込みで手掛かりから戻り得る（設定の「外した記録を消す」と同じ）。
+    /// 錠の中の今の値で、まだ古い版のときだけ消す（見てから押すまでに、取り込みが古い版を別の所で見つけて場所を足していれば消さない）。
+    /// </summary>
+    public async Task<bool> ForgetOldVersionAsync(string itemId, string hash, CancellationToken cancellationToken = default)
+        => await _store.Items.ChangeLocalAsync(
+            itemId,
+            current =>
+            {
+                var files = current.LocalFiles
+                    .Where(file => !(file.IsOldVersion && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                return files.Count == current.LocalFiles.Count ? null : current with { LocalFiles = files };
+            },
+            [LocalField.LocalFiles],
+            cancellationToken);
 
     /// <summary>
     /// ファイルをこの商品から外し、未確定へ戻す。

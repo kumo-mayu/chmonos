@@ -100,7 +100,8 @@ public static class FileMissingMarks
     private static LocalFileRecord Marked(LocalFileRecord file, FilePresence presence, DateTimeOffset now) => presence switch
     {
         FilePresence.Present when file.MissingSince is not null => file with { MissingSince = null },
-        FilePresence.Missing when file.MissingSince is null => file with { MissingSince = now },
+        // 古い版は「見つからない」物ではないので日時を付けない（2026-10-05・点検の8）
+        FilePresence.Missing when file.MissingSince is null && !file.IsOldVersion => file with { MissingSince = now },
         _ => file,
     };
 

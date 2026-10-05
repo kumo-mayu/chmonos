@@ -1,5 +1,6 @@
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
@@ -70,6 +71,43 @@ public class ItemFileRowTests
         Assert.False(row.CanReveal);
         Assert.Null(row.FirstPath);
         Assert.Equal("ファイルが見つかりません。", row.PathToolTip);
+    }
+
+    [Fact]
+    public void 古い版の行は_見つかりませんと言わず_外す代わりに片付けるを出す()
+    {
+        var row = new LocalFileRow
+        {
+            Hash = Make.HashOf("old"),
+            FileName = "pack.zip",
+            SizeText = "3 B",
+            Paths = [],
+            IsOldVersion = true,
+        };
+
+        Assert.False(row.IsMissing);
+        Assert.False(row.CanReveal);
+        Assert.True(row.CanForgetOldVersion);
+        Assert.False(row.CanDetach);
+        Assert.Equal("新しい版に置き換わっています。", row.PathToolTip);
+        Assert.Equal("新しい版に置き換わっています。", row.OpenMenuTip);
+    }
+
+    [Fact]
+    public void 古い版でも外した行には片付けるを出さない()
+    {
+        var row = new LocalFileRow
+        {
+            Hash = Make.HashOf("old"),
+            FileName = "pack.zip",
+            SizeText = "3 B",
+            Paths = [],
+            IsOldVersion = true,
+            IsDetached = true,
+        };
+
+        Assert.False(row.CanForgetOldVersion);
+        Assert.False(row.CanDetach);
     }
 
     [Fact]
@@ -161,6 +199,36 @@ public class ItemFileRowTests
         // 壊れていて、しかも今は無い：「見つかりません」だけを言う
         Assert.True(RowOf(brokenMissing).IsMissing);
         Assert.False(RowOf(brokenMissing).ShowsBrokenArchive);
+    });
+
+    [Fact]
+    public Task 商品ページは_古い版を置き換わった名前で出し_片付けると記録から消える() => TestApp.Run(async app =>
+    {
+        var fresh = app.NewFile("pack.zip");
+        var old = Make.File(fresh) with
+        {
+            Hash = Make.HashOf("old-version"),
+            Paths = [],
+            Replaced = new ReplacedVersion(fresh, DateTimeOffset.Now),
+        };
+        var item = Make.Item("9900001", "作り物の衣装").WithFiles(Make.File(fresh), old);
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        var row = page.LocalFiles.Single(row => row.Hash == old.Hash);
+
+        Assert.Equal("pack.zip", row.FileName);
+        Assert.True(row.IsOldVersion);
+        Assert.False(row.IsMissing);
+        Assert.True(row.CanForgetOldVersion);
+        Assert.False(item.HasMissingFile);
+
+        page.ForgetOldVersionCommand.Execute(row);
+        await app.SettleAsync();
+
+        var saved = await app.Services.Store.Items.LoadAsync(item.Id);
+        Assert.Equal(Make.HashOf(fresh), Assert.Single(saved!.Local.LocalFiles).Hash);
     });
 
     [Fact]
