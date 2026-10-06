@@ -52,6 +52,9 @@ public class ItemRefreshTests : IDisposable
     /// <summary>商品JSONの代わりに返す失敗の状態。5xx や 429 の状況を作る。</summary>
     private HttpStatusCode? _itemJsonFailure;
 
+    /// <summary>商品ページ（HTML）だけを失敗させる。</summary>
+    private HttpStatusCode? _itemHtmlFailure;
+
     public ItemRefreshTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "bam-refresh-" + Guid.NewGuid().ToString("N"));
@@ -110,6 +113,11 @@ public class ItemRefreshTests : IDisposable
                     await edit();
                 }
 
+                if (owner._itemHtmlFailure is { } htmlFailure)
+                {
+                    return new HttpResponseMessage(htmlFailure);
+                }
+
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent("<html><body></body></html>"),
@@ -146,6 +154,26 @@ public class ItemRefreshTests : IDisposable
 
         Assert.Equal(expected, await _service.RefreshAsync(ItemId));
         Assert.Equal(due, (await _store.Items.LoadAsync(ItemId))!.Local.NextFetchDueAt);
+    }
+
+    /// <summary>
+    /// 商品の JSON は取れても、商品ページが一時的な不調なら、何も書かずに不調として返す（外部の点検 2026-10-07）。
+    /// 前は見出しを空にしたまま「取れた」として保存し、予定も進めたので、⑦が成功と数えて打ち切らなかった
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable, RefreshOutcome.ServerError)]
+    [InlineData(HttpStatusCode.TooManyRequests, RefreshOutcome.TemporaryFailure)]
+    public async Task KeepsTheRecordWhenOnlyTheItemPageFailsForNow(HttpStatusCode status, RefreshOutcome expected)
+    {
+        var due = DateTimeOffset.Now.AddDays(-3);
+        await SaveItemAsync(new LocalBlock { NextFetchDueAt = due });
+        _itemHtmlFailure = status;
+
+        Assert.Equal(expected, await _service.RefreshAsync(ItemId));
+
+        var item = await _store.Items.LoadAsync(ItemId);
+        Assert.Equal(due, item!.Local.NextFetchDueAt);
+        Assert.Equal("取り直す前の名前", item.Booth.Name);
     }
 
     /// <summary>

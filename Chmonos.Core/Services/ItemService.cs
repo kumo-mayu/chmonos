@@ -308,6 +308,17 @@ public sealed class ItemService : IItemService
         }
 
         var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
+
+        // **商品ページが一時的な不調で取れなかったら、JSON が取れなかったときと同じく何も書かずに不調として返す**
+        // （外部の点検 2026-10-07）。前は見出しを空にしたまま「取れた」として保存し、予定も普段どおり進めていた。
+        // ⑦はそれを成功と数えるので、商品ページだけの不調が続いても打ち切らず、見出しも消していた
+        if (htmlResult.Status == BoothFetchStatus.TemporaryFailure)
+        {
+            return htmlResult.IsUnreachable ? RefreshOutcome.Unreachable
+                : htmlResult.IsServerError ? RefreshOutcome.ServerError
+                : RefreshOutcome.TemporaryFailure;
+        }
+
         var extraction = htmlResult.IsSuccess && htmlResult.Value is not null
             ? H2SectionExtractor.Extract(htmlResult.Value)
             : new H2ExtractionResult();
