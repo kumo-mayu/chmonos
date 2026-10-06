@@ -89,34 +89,40 @@ public sealed class RegisteredFolderSet
         }
     }
 
-    /// <summary>フォルダの中身を数える。ハッシュは計算しない（列挙して足すだけ）。</summary>
-    public static (int FileCount, long TotalBytes) Measure(string folder)
-    {
-        var survey = Survey(folder);
-        return (survey.FileCount, survey.TotalBytes);
-    }
+    /// <summary>
+    /// フォルダの中身を数える。ハッシュは計算しない（列挙して足すだけ）。中を読めなかったら null（0件として保存しないため）。
+    /// </summary>
+    public static (int FileCount, long TotalBytes)? Measure(string folder, CancellationToken cancellationToken = default)
+        => Survey(folder, cancellationToken) is { } survey ? (survey.FileCount, survey.TotalBytes) : null;
 
     /// <summary>
     /// <see cref="Measure"/> と同じ1回の列挙で、中の <c>.unitypackage</c> の場所も拾う（<see cref="Models.LocalFolderRecord.UnityPackages"/>）。
     /// 場所はフォルダからの相対で、区切りは <c>/</c>（zip の中の場所と同じ書き方。送る道が同じ形で扱える）。
     /// 数は zip の中と同じ上限で切る（<see cref="Services.UnityHandoff.MaxPackages"/>。壊れた物や別物で一覧が埋まらないように）。
     /// </summary>
-    public static FolderSurvey Survey(string folder)
+    /// <remarks>
+    /// **リンク（ジャンクション・シンボリックリンク）の先には降りない**（<see cref="Storage.StoreTree"/>。外部の点検 2026-10-06）。
+    /// 前は <see cref="SearchOption.AllDirectories"/> で先まで降り、自分や祖先を指すリンクで輪になり、ドライブの根を指すリンクで
+    /// ドライブ中を数えて画面が止まった。登録の外の物を数えると容量も二重になる。
+    /// 途中で読めなくなったら null を返す。前は途中の値を捨てて 0件・0バイト・空の一覧を返し、それをそのまま記録に書いていた
+    /// （数え直しで、それまでの正しい値が 0 に置き換わる）。取り消しは <see cref="OperationCanceledException"/> で抜ける。
+    /// </remarks>
+    public static FolderSurvey? Survey(string folder, CancellationToken cancellationToken = default)
     {
         try
         {
-            var root = new DirectoryInfo(folder);
+            var root = Path.GetFullPath(folder);
             var count = 0;
             long bytes = 0;
             var packages = new List<string>();
-            foreach (var file in root.EnumerateFiles("*", SearchOption.AllDirectories))
+            foreach (var (path, length) in Storage.StoreTree.FilesWithLength(root, cancellationToken))
             {
                 count++;
-                bytes += file.Length;
+                bytes += length;
                 if (packages.Count < Services.UnityHandoff.MaxPackages
-                    && file.Name.EndsWith(Services.UnityHandoff.PackageExtension, StringComparison.OrdinalIgnoreCase))
+                    && path.EndsWith(Services.UnityHandoff.PackageExtension, StringComparison.OrdinalIgnoreCase))
                 {
-                    packages.Add(Path.GetRelativePath(root.FullName, file.FullName).Replace('\\', '/'));
+                    packages.Add(Path.GetRelativePath(root, path).Replace('\\', '/'));
                 }
             }
 
@@ -124,13 +130,12 @@ public sealed class RegisteredFolderSet
             packages.Sort(StringComparer.OrdinalIgnoreCase);
             return new FolderSurvey(count, bytes, packages);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            return new FolderSurvey(0, 0, []);
+            return null;
         }
     }
 }
-
 /// <summary>登録したフォルダを数えた結果（<see cref="RegisteredFolderSet.Survey"/>）。</summary>
 public sealed record FolderSurvey(int FileCount, long TotalBytes, IReadOnlyList<string> UnityPackages)
 {

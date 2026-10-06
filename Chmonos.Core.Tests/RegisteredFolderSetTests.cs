@@ -61,7 +61,7 @@ public class RegisteredFolderSetTests
 
         try
         {
-            var (count, bytes) = RegisteredFolderSet.Measure(root);
+            var (count, bytes) = RegisteredFolderSet.Measure(root)!.Value;
 
             Assert.Equal(2, count);
             Assert.Equal(150, bytes);
@@ -84,7 +84,7 @@ public class RegisteredFolderSetTests
 
         try
         {
-            var survey = RegisteredFolderSet.Survey(root);
+            var survey = RegisteredFolderSet.Survey(root)!;
 
             Assert.Equal(3, survey.FileCount);
             Assert.Equal(60, survey.TotalBytes);
@@ -99,13 +99,9 @@ public class RegisteredFolderSetTests
     }
 
     [Fact]
-    public void MeasuresZeroForAMissingFolder()
-    {
-        var (count, bytes) = RegisteredFolderSet.Measure(Path.Combine(Path.GetTempPath(), "bam-missing-" + Guid.NewGuid()));
-
-        Assert.Equal(0, count);
-        Assert.Equal(0, bytes);
-    }
+    public void 無いフォルダは_0件ではなく読めなかったとして返す()
+        // 0件として返すと、呼び手がそれを記録に書き、正しい値が消える（外部の点検 2026-10-06）
+        => Assert.Null(RegisteredFolderSet.Measure(Path.Combine(Path.GetTempPath(), "bam-missing-" + Guid.NewGuid())));
 }
 
 /// <summary>

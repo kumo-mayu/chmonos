@@ -879,7 +879,12 @@ public sealed class ImportPipeline : IImportPipeline
                 }
 
                 // 中の unitypackage も同じ1回の列挙で拾う（右クリックの「Unityへ送る」を、開くたびにフォルダを並べずに決めるため。メモ65-③）
-                var survey = RegisteredFolderSet.Survey(folder.Path);
+                // 読めなかったら前の値を残す（0件として書くと、正しい値が消える。外部の点検 2026-10-06）
+                if (RegisteredFolderSet.Survey(folder.Path, cancellationToken) is not { } survey)
+                {
+                    continue;
+                }
+
                 measured[folder.Path] = survey;
                 if (survey.FileCount != folder.FileCount || survey.TotalBytes != folder.TotalBytes
                     || !survey.SamePackages(folder.UnityPackages) || folder.LastSeenAt is null)

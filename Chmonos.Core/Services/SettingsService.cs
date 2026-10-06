@@ -8,13 +8,14 @@ public sealed record StorageUsage
 {
     public required string Root { get; init; }
 
-    public required long ImageBytes { get; init; }
+    // 読めなかった（途中で権限が無い・外付けが外れた）ときは null。0 は本当に空のとき（外部の点検 2026-10-06）
+    public required long? ImageBytes { get; init; }
 
-    public required int ImageCount { get; init; }
+    public required int? ImageCount { get; init; }
 
-    public required long ItemBytes { get; init; }
+    public required long? ItemBytes { get; init; }
 
-    public required int ItemCount { get; init; }
+    public required int? ItemCount { get; init; }
 }
 
 /// <summary>非表示にした商品1件。設定画面から戻せるようにする。</summary>
@@ -180,53 +181,52 @@ public sealed class SettingsService : ISettingsService
         => Task.Run(
             () =>
             {
-                var (imageBytes, imageCount) = Measure(_store.Paths.ImagesDir);
-                var (itemBytes, itemCount) = Measure(_store.Paths.ItemsDir);
+                var images = Measure(_store.Paths.ImagesDir, cancellationToken);
+                var items = Measure(_store.Paths.ItemsDir, cancellationToken);
 
                 return new StorageUsage
                 {
                     Root = _store.Paths.Root,
-                    ImageBytes = imageBytes,
-                    ImageCount = imageCount,
-                    ItemBytes = itemBytes,
-                    ItemCount = itemCount,
+                    ImageBytes = images?.Bytes,
+                    ImageCount = images?.Count,
+                    ItemBytes = items?.Bytes,
+                    ItemCount = items?.Count,
                 };
             },
             cancellationToken);
 
-    private static (long Bytes, int Count) Measure(string directory)
+    /// <summary>
+    /// フォルダの中のファイルの大きさと数。読めなかったら null（無いフォルダは空なので 0）。
+    /// </summary>
+    /// <remarks>
+    /// **リンクの先は数えない**（<see cref="StoreTree"/>。外部の点検 2026-10-06）。前は <see cref="SearchOption.AllDirectories"/> で
+    /// 保存先の中のジャンクションの先まで数え、ドライブを指すリンクがあると設定を開くたびにドライブ中を数えていた。
+    /// 取り消しは列挙の途中でも見る（画面を離れたら止める）。途中で読めなくなったら、前は項目ごと 0 にしていた——空と見分けが付かない
+    /// </remarks>
+    internal static (long Bytes, int Count)? Measure(string directory, CancellationToken cancellationToken)
     {
+        if (!Directory.Exists(directory))
+        {
+            return (0, 0);
+        }
+
         try
         {
-            if (!Directory.Exists(directory))
-            {
-                return (0, 0);
-            }
-
             long bytes = 0;
             var count = 0;
-
-            foreach (var path in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            foreach (var (_, length) in StoreTree.FilesWithLength(directory, cancellationToken))
             {
-                try
-                {
-                    bytes += new FileInfo(path).Length;
-                    count++;
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-                {
-                    // 触れないファイルは数えないだけ
-                }
+                bytes += length;
+                count++;
             }
 
             return (bytes, count);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return (0, 0);
+            return null;
         }
     }
-
     public async Task<IReadOnlyList<HiddenItem>> LoadHiddenAsync(CancellationToken cancellationToken = default)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);

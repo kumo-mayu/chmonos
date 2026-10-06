@@ -837,6 +837,7 @@ public sealed class CommandHandler
                     FolderRelocation.Moved => new CommandResult.ItemSaved(relocate.ItemId),
                     FolderRelocation.TargetMissing => new CommandResult.Failed("選んだフォルダが見つかりません。もう一度探してください。"),
                     FolderRelocation.RegisteredElsewhere => new CommandResult.Failed("このフォルダはほかの商品に登録されています。"),
+                    FolderRelocation.Unreadable => new CommandResult.Failed("選んだフォルダの中を読めませんでした。"),
                     _ => new CommandResult.Failed("この登録は外されています。"),
                 };
 
