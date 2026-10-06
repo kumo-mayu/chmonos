@@ -65,6 +65,11 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 除く・畳んだ姿・AND の要約 | `search-exclude` |
 | 同じ種類を2つ・隣に並べた後 | `search-many`・`search-many-grouped` |
 | 価格の外れ値（払った額・BOOTHの価格） | `search-price-outliers-paid`・`search-price-outliers-booth` |
+| 改変の2段（改変2つを AND・アバター2体を AND）・アバターだけの枠 | `search-modification-two-level`・`search-modification-avatar-only` |
+| ユーザータグの AND の中の「小分類なし」（警告の色） | `search-user-tag-no-sub-and` |
+| 長いパスの札（ファイルの場所・Unityプロジェクト）と候補 | `search-long-paths`・`suggest-path-long` |
+| ギフト・見つからないファイルの補助のチェック | `search-choice-flags` |
+| 改変の候補（アバター → 改変・語を区切って当てる・札） | `suggest-modification-alias`（候補の欄だけを描く） |
 | 候補の一覧が開いた所（打ちかけ） | **描けない**（候補はポップアップに出る） |
 
 ## 商品ページ（03-item）
