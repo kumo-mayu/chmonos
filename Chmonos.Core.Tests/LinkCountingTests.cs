@@ -141,6 +141,27 @@ public sealed class LinkCountingTests : IDisposable
         Assert.Equal(["sub/b.unitypackage"], survey.UnityPackages);
     }
 
+    /// <summary>
+    /// 移した先の候補の数え直しは、登録の数え方と同じ数を出す（2026-10-07）。比べて同じフォルダかを見分けるので、
+    /// 数え方が違うと移した先が候補に出ない。OneDrive の「必要なときにダウンロード」の物とリンクのファイルは、
+    /// 試験で作れない（作るのに管理者の権限か OneDrive が要る）ので、ここではジャンクションを含む木で揃うことを見る
+    /// </summary>
+    [Fact]
+    public async Task 移した先の候補の数え直しは_登録の数えと同じ数を出す()
+    {
+        var folder = MakeFolder("registered", ("a.psd", 100), (Path.Combine("sub", "b.unitypackage"), 50));
+        Link(Path.Combine(folder, "外へ"), Outside);
+        Link(Path.Combine(folder, "sub", "自分へ"), folder);
+
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var survey = await Task.Run(() => RegisteredFolderSet.Survey(folder, stop.Token)).WaitAsync(TimeSpan.FromSeconds(30));
+        var measured = await Task.Run(() => MovedFolderCandidates.MeasureTree(folder, stop.Token)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        var top = Assert.Single(measured, entry => string.Equals(Path.TrimEndingDirectorySeparator(entry.Path), folder, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(survey!.FileCount, top.FileCount);
+        Assert.Equal(survey.TotalBytes, top.TotalBytes);
+    }
+
     [Fact]
     public void 登録したフォルダの数えは取り消しで止まる()
     {

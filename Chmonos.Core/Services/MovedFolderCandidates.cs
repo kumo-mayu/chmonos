@@ -133,7 +133,7 @@ public static class MovedFolderCandidates
     /// </summary>
     /// <remarks>
     /// フォルダごとに <see cref="Scanning.RegisteredFolderSet.Measure"/> を呼ぶと、深さの分だけ同じファイルを数え直す。
-    /// ジャンクション・シンボリックリンクには降りない（登録の数え方も降りない。輪になり得る）。
+    /// ジャンクション・シンボリックリンクには降りず、リンクのファイルも数えない（登録の数え方と同じ。輪になり得る）。
     /// </remarks>
     public static List<MeasuredFolder> MeasureTree(string root, CancellationToken cancellationToken)
     {
@@ -153,12 +153,19 @@ public static class MovedFolderCandidates
         {
             foreach (var entry in folder.EnumerateFileSystemInfos("*", TopOnly))
             {
+                // リンクの見分けは登録の数え方（StoreTree）と同じ物を使う。前は属性だけで見ていたので、
+                // OneDrive の「必要なときにダウンロード」のフォルダに降りず、リンクのファイルは数え、登録の時の数と合わなかった
+                if (Storage.StoreTree.IsLink(entry))
+                {
+                    continue;
+                }
+
                 if (entry is FileInfo file)
                 {
                     count++;
                     bytes += file.Length;
                 }
-                else if (entry is DirectoryInfo child && !child.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                else if (entry is DirectoryInfo child)
                 {
                     var (childCount, childBytes) = Visit(child, result, cancellationToken);
                     if (childCount is { } c && childBytes is { } b)

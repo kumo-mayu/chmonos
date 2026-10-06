@@ -93,15 +93,22 @@ public static class StoreTree
     }
 
     private static bool IsLink(ref FileSystemEntry entry)
+        => (entry.Attributes & FileAttributes.ReparsePoint) != 0 && IsLink(entry.ToFileSystemInfo());
+
+    /// <summary>
+    /// リンク（行き先を持つ印）か。ほかの数え方もこれで見分ける——数え方が所によって違うと、
+    /// 登録の時に数えた値と後で数え直した値が合わなくなる（引越しの候補。2026-10-07）
+    /// </summary>
+    public static bool IsLink(FileSystemInfo info)
     {
-        if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
+        if ((info.Attributes & FileAttributes.ReparsePoint) == 0)
         {
             return false;
         }
 
         try
         {
-            return entry.ToFileSystemInfo().LinkTarget is not null;
+            return info.LinkTarget is not null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
