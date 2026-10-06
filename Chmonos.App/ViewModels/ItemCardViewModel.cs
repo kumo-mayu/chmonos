@@ -228,6 +228,15 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool HasMissingFile { get; init; }
 
+    /// <summary>持っている物が全部見つからないか。札の文を分ける（一部だけなら「一部見つからない」。メモ65 の②）。</summary>
+    public bool HasAllFilesMissing { get; init; }
+
+    public string MissingBadgeText => HasAllFilesMissing ? "見つからない" : "一部見つからない";
+
+    public string MissingBadgeTip => HasAllFilesMissing
+        ? "記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
+        : "記録にある場所に無いファイルがあります。どれかは商品ページで分かります。";
+
     /// <summary>
     /// ユーザタグを1行に並べた物（乗せたときの重ね）。小分類を出すときは「大分類：小分類・小分類」にする（ユーザ判断 2026-09-16）——
     /// 小分類だけだと、どの大分類の下の物かがカードから分からない。

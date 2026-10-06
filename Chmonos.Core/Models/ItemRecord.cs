@@ -117,6 +117,16 @@ public sealed record ItemRecord
         => Local.LocalFiles.Any(file => !file.Detached && !file.IsOldVersion && (file.Paths.Count == 0 || file.MissingSince is not null))
         || Local.LocalFolders.Any(folder => folder.MissingSince is not null);
 
+    /// <summary>
+    /// 持っているファイル・フォルダが**全部**見つからないか（<see cref="HasMissingFile"/> のうち、在る物が1つも無い物）。
+    /// カードの札を「見つからない」と「一部見つからない」に分ける（ユーザ判断 2026-10-06・メモ65 の②。前は1つでも全部でも同じ札だった）
+    /// </summary>
+    [JsonIgnore]
+    public bool HasAllFilesMissing
+        => HasMissingFile
+        && Local.OwnedFiles.All(file => file.Paths.Count == 0 || file.MissingSince is not null)
+        && Local.LocalFolders.All(folder => folder.MissingSince is not null);
+
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>
     [JsonIgnore]
     public long LogicalSizeBytes => Local.OwnedFiles.Sum(file => file.SizeBytes);

@@ -432,6 +432,7 @@ public sealed partial class SearchViewModel
             // 画像を保存しない設定では絵は来ないので、「取得中」と言うと嘘になる
             IsImagePending = imagePending,
             HasMissingFile = item.HasMissingFile,
+            HasAllFilesMissing = item.HasAllFilesMissing,
             InfoContext = info ?? _cardInfo,
         };
     }

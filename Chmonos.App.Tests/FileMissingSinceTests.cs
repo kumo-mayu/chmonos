@@ -45,6 +45,8 @@ public class FileMissingSinceTests
 
         // 検索の写しにも知らせてある：戻ればカードに印が付き、条件で絞れる
         Assert.True(CardOf(main, "1000001").HasMissingFile);
+        // 在るファイルもあるので「一部見つからない」（全部のときと札を分ける。メモ65 の②）
+        Assert.Equal("一部見つからない", CardOf(main, "1000001").MissingBadgeText);
         var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
         module.Selected = module.Options.Single(option => option.Key == "missing");
         Assert.Equal(["1000001"], main.Search.ListItems.Select(card => card.Item.Id));
@@ -58,6 +60,8 @@ public class FileMissingSinceTests
         await app.AddItemAsync(item);
         var main = await app.StartAsync();
         Assert.True(CardOf(main, "1000001").HasMissingFile);
+        // 持っている物が全部見つからないので、札は「見つからない」
+        Assert.Equal("見つからない", CardOf(main, "1000001").MissingBadgeText);
 
         _ = new ItemViewModel(item, app.Services, main, main.Thumbnails);
         await UiThread.Until(() => !CardOf(main, "1000001").HasMissingFile, "カードの印が外れる");

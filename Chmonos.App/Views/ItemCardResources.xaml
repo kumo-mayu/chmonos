@@ -415,12 +415,12 @@
                                                            VerticalAlignment="Center"
                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <controls:BadgeOverflowPanel Grid.Column="1" HorizontalAlignment="Right" Margin="6,0,0,0">
-                                                    <Border controls:BadgeOverflowPanel.Label="見つからない"
+                                                    <Border controls:BadgeOverflowPanel.Label="{Binding MissingBadgeText}"
                                                             Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1"
-                                                            ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
+                                                            ToolTip="{Binding MissingBadgeTip}"
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="見つからない" FontSize="10" Foreground="{DynamicResource Bad}" />
+                                                        <TextBlock Text="{Binding MissingBadgeText}" FontSize="10" Foreground="{DynamicResource Bad}" />
                                                     </Border>
                                                     <!-- 要確認に未読の更新がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27） -->
                                                     <Button controls:BadgeOverflowPanel.Label="更新あり" Style="{StaticResource UpdateBadgeButton}"
@@ -1027,9 +1027,9 @@
             <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                         BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
-                        ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
+                        ToolTip="{Binding MissingBadgeTip}"
                         Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="見つからない" FontSize="10" Foreground="{DynamicResource Bad}" />
+                    <TextBlock Text="{Binding MissingBadgeText}" FontSize="10" Foreground="{DynamicResource Bad}" />
                 </Border>
                 <Button Style="{StaticResource UpdateBadgeButton}" Margin="0,1,4,1"
                         Command="{Binding ShowUpdateCommand}"
