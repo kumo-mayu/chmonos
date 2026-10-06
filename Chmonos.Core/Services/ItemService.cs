@@ -1745,7 +1745,11 @@ public sealed class ItemService : IItemService
 
         // 始めた時の元の指紋を、何かを書く前に記録へ残す。BOOTH から取っている間に落ちても、続きで
         // 「元が記録した時のままか」を見られる（同じIDで作り直された物に当てないため。OperationFingerprint）
-        if (record is not null && !await record(new ItemIdChangeFingerprints(OperationFingerprint.Of(before.Local))))
+        // 元のIDを指している参照も、ここで記録へ残す。続きはこれに載った物だけを書き換える（ItemIdReferences）
+        if (record is not null
+            && !await record(new ItemIdChangeFingerprints(
+                OperationFingerprint.Of(before.Local),
+                References: await CollectReferencesAsync(fromId, cancellationToken))))
         {
             return ItemIdChangeOutcome.NotRecorded;
         }
@@ -1850,7 +1854,7 @@ public sealed class ItemService : IItemService
     /// - 移す先が合わせた後の指紋のまま：①は済んでいる。合わせ直さずに元を消す
     /// - 移す先が合わせる前の指紋のまま：①はまだ。ふつうに合わせる
     /// - 移す先がどちらとも違う：人が触った。当てない
-    /// ③④は「古いIDを新しいIDへ」なので、何回当てても同じ。
+    /// ③④は「古いIDを新しいIDへ」なので、何回当てても同じ。当てるのは始めた時に記録した参照だけ（<see cref="ItemIdReferences"/>）。
     /// </summary>
     public async Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
         string fromId,
@@ -1952,9 +1956,35 @@ public sealed class ItemService : IItemService
             }
         }
 
-        await MoveModificationsAsync(fromId, toId, cancellationToken);
-        await MoveReferencesAsync(fromId, toId, cancellationToken);
+        // 参照は始めた時に記録した物だけを書き換える。止まった後に元のIDで登録し直した持っていないアバターや、
+        // その後に作った改変は、記録に無いので触らない（外部の点検 2026-10-06・L110）
+        var recordedReferences = recorded.References ?? new ItemIdReferences();
+        await MoveModificationsAsync(fromId, toId, cancellationToken, recordedReferences);
+        await MoveReferencesAsync(fromId, toId, cancellationToken, recordedReferences);
         return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 元のIDを指している、商品の JSON の外の参照を集める（IDの変更を始めた時に記録へ書く）。読むだけ。
+    /// </summary>
+    private async Task<ItemIdReferences> CollectReferencesAsync(string fromId, CancellationToken cancellationToken)
+    {
+        var modifications = await _store.Modifications.LoadAllAsync(cancellationToken);
+        var registry = await _store.Avatars.LoadAsync(cancellationToken);
+        var items = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return new ItemIdReferences
+        {
+            Modifications = [.. modifications.Modifications
+                .Where(record => UsesItem(record, fromId))
+                .Select(record => record.Id)
+                .Order(StringComparer.Ordinal)],
+            RegistryEntry = registry.Entries.Any(entry => entry.ItemId == fromId),
+            BaseGroups = [.. registry.BaseGroups.Where(group => group.ItemId == fromId).Select(group => group.Name)],
+            LinkingItems = [.. items.Items
+                .Where(item => item.Local.Avatars.Any(link => link.AvatarItemId == fromId))
+                .Select(item => item.Id)
+                .Order(StringComparer.Ordinal)],
+        };
     }
 
     /// <summary>
@@ -2051,22 +2081,35 @@ public sealed class ItemService : IItemService
     /// 消えたIDを指したまま**になっていた（アバターの一覧から消える、持っていない扱いになる、
     /// 他の商品の対応アバターが迷子になる）。
     /// </summary>
-    private async Task MoveReferencesAsync(string fromId, string toId, CancellationToken cancellationToken)
+    /// <param name="only">
+    /// 続きのとき、始めた時に記録した参照（<see cref="ItemIdReferences"/>）。載った物だけを書き換える。null なら今の様子の全部（初めの1回）。
+    /// </param>
+    private async Task MoveReferencesAsync(
+        string fromId,
+        string toId,
+        CancellationToken cancellationToken,
+        ItemIdReferences? only = null)
     {
         // 登録簿（アバターそのもの・素体グループが指す商品）
         await _store.Avatars.TryUpdateAsync(
             registry =>
             {
+                // 続きでは、移す先の行が既にあれば元のIDの行は後から登録し直した物（行はもう移っている）
+                var moveEntry = only is null
+                    || (only.RegistryEntry && !registry.Entries.Any(entry => entry.ItemId == toId));
+                bool MovesGroup(AvatarBaseGroup group)
+                    => group.ItemId == fromId && (only is null || only.BaseGroups.Contains(group.Name, StringComparer.Ordinal));
+
                 var entries = registry.Entries
-                    .Select(entry => entry.ItemId == fromId ? entry with { ItemId = toId } : entry)
+                    .Select(entry => moveEntry && entry.ItemId == fromId ? entry with { ItemId = toId } : entry)
                     .ToList();
 
                 var groups = registry.BaseGroups
-                    .Select(group => group.ItemId == fromId ? group with { ItemId = toId } : group)
+                    .Select(group => MovesGroup(group) ? group with { ItemId = toId } : group)
                     .ToList();
 
-                return registry.Entries.Any(entry => entry.ItemId == fromId)
-                    || registry.BaseGroups.Any(group => group.ItemId == fromId)
+                return (moveEntry && registry.Entries.Any(entry => entry.ItemId == fromId))
+                    || registry.BaseGroups.Any(MovesGroup)
                         ? new AvatarRegistry
                         {
                             DetectedAt = registry.DetectedAt,
@@ -2108,7 +2151,8 @@ public sealed class ItemService : IItemService
         // 他の商品が対応アバターとして指している分
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         foreach (var item in loaded.Items.Where(item =>
-            item.Local.Avatars.Any(link => link.AvatarItemId == fromId)))
+            item.Local.Avatars.Any(link => link.AvatarItemId == fromId)
+            && (only is null || only.LinkingItems.Contains(item.Id, StringComparer.Ordinal))))
         {
             await _store.Items.ChangeLocalAsync(
                 item.Id,
@@ -2133,16 +2177,19 @@ public sealed class ItemService : IItemService
     ///
     /// アバターとして指されている場合も同じ（改変はアバター1体に属する）。
     /// </summary>
+    /// <param name="only">続きのとき、始めた時に記録した参照。載った改変だけを読み替える。null なら今の様子の全部（初めの1回）。</param>
     private async Task MoveModificationsAsync(
         string fromId,
         string toId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ItemIdReferences? only = null)
     {
         var loaded = await _store.Modifications.LoadAllAsync(cancellationToken);
 
         foreach (var found in loaded.Modifications)
         {
-            if (!UsesItem(found, fromId))
+            if (!UsesItem(found, fromId)
+                || (only is not null && !only.Modifications.Contains(found.Id, StringComparer.Ordinal)))
             {
                 continue;
             }
