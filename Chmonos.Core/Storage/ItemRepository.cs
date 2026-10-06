@@ -466,16 +466,27 @@ public sealed class ItemRepository
     /// </summary>
     public string? ReadCopyName(string itemId)
     {
+        if (ReadCopy(itemId) is not { } record)
+        {
+            return null;
+        }
+
+        var name = record.DisplayName;
+        return string.IsNullOrWhiteSpace(name) || string.Equals(name, itemId, StringComparison.Ordinal) ? null : name;
+    }
+
+    /// <summary>
+    /// 控えが読めて、中の商品IDが同じなら、その記録。読めない・無いときは null。
+    /// 読めない記録の知らせの行に、その商品の絵を添えるのに使う（本体は読めないが、絵の並びと★の指名は控えにある）。
+    /// </summary>
+    public ItemRecord? ReadCopy(string itemId)
+    {
         try
         {
-            if (JsonStore.Read<ItemRecord>(_paths.ItemCopyFile(itemId)) is not { } record
-                || !string.Equals(record.Id, itemId, StringComparison.Ordinal))
-            {
-                return null;
-            }
-
-            var name = record.DisplayName;
-            return string.IsNullOrWhiteSpace(name) || string.Equals(name, itemId, StringComparison.Ordinal) ? null : name;
+            return JsonStore.Read<ItemRecord>(_paths.ItemCopyFile(itemId)) is { } record
+                && string.Equals(record.Id, itemId, StringComparison.Ordinal)
+                    ? record
+                    : null;
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
         {

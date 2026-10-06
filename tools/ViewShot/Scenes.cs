@@ -49,6 +49,7 @@ internal static partial class Scenes
         .. ImportMissingPerfScenes,
         .. FolderTree,
         .. Inbox,
+        .. InboxPictureScenes,
         .. Dialogs,
         .. Settings,
         .. FirstRun,

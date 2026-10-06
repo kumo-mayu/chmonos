@@ -7,7 +7,7 @@ using Chmonos.Core.Services;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>
-/// 探した結果の行の左に出す、商品のサムネイル（メモ76）。商品の名前だけを大量に見比べると疲れるので、絵を添える。
+/// 探した結果の行（メモ76）と通知の行（ユーザ指示 2026-10-06）の左に出す、商品のサムネイル。商品の名前だけを大量に見比べると疲れるので、絵を添える。
 ///
 /// **見えた行だけが読む**：<see cref="Image"/> は画面が行を作って読んだときに初めて動く（仮想化された一覧は見えている行しか作らない）。
 /// 絵の場所の決定（商品の記録を読む）も、その最初の1回だけ裏で行う。行が作り直されても（再利用）、決めた場所は行が持っているので、読み直さない。
@@ -32,7 +32,26 @@ public sealed class ResultThumbnail : ViewModelBase
         Resolved,
     }
 
-    public ResultThumbnail(string itemName, Func<Task<string?>> resolve, ThumbnailLoader? loader)
+    /// <summary>
+    /// 商品の記録から絵を決める行の絵（取り込みの探した結果・通知の行）。記録を読む・絵の一覧を取るのは、絵が初めて読まれたときに裏で行う。
+    /// 商品が消えていれば絵は無く、頭文字のまま。<paramref name="fromCopy"/> は本体の記録が読めない商品のとき：絵の並びと★の指名を控えから取る。
+    /// </summary>
+    internal static ResultThumbnail ForItem(AppServiceContainer services, ThumbnailLoader? loader, string itemId, string? itemName, bool fromCopy = false) => new(
+        itemName,
+        () => Task.Run(async () =>
+        {
+            var item = fromCopy ? services.Store.Items.ReadCopy(itemId) : await services.Store.Items.LoadAsync(itemId);
+            if (item is null || loader is null)
+            {
+                return null;
+            }
+
+            var directory = services.Paths.ItemImagesDir(item.Id);
+            return PathOf(item, directory, loader.ListFiles(directory), services.Settings.ThumbnailRole);
+        }),
+        loader);
+
+    public ResultThumbnail(string? itemName, Func<Task<string?>> resolve, ThumbnailLoader? loader)
     {
         Initial = AvatarText.InitialOf(itemName);
         _resolve = resolve;

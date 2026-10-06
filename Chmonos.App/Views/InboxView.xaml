@@ -8,6 +8,20 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:InboxViewModel}">
     <UserControl.Resources>
+        <!--
+            行の頭の商品の絵。取り込みの探した結果の行（ImportView の ResultThumbnail の型）と同じ枠。絵が届くまで・絵の無い商品は頭文字。
+            右の間は枠の側に持たせる（絵の無い行では ContentPresenter が幅 0 になり、間も残さない）
+        -->
+        <DataTemplate DataType="{x:Type vm:ResultThumbnail}">
+            <Border Width="56" Height="56" CornerRadius="4" Margin="0,0,12,0" Background="{DynamicResource ThumbBack}" ClipToBounds="True">
+                <Grid>
+                    <TextBlock Text="{Binding Initial}" FontSize="18" Foreground="{DynamicResource TextMuted}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Source="{Binding Image}" Stretch="UniformToFill" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <!-- 知らせ1件の中身。平らな一覧の行（InboxRowLine）が、束の枠の中にこれを出す -->
         <DataTemplate x:Key="InboxRowTemplate" DataType="{x:Type vm:NotificationRow}">
                 <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
@@ -46,9 +60,10 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-            
+
                         <!--
                             既読の印は「読んだ」という状態なので、右の「何かをする」ボタンとは分ける
                             （ユーザ判断 2026-09-18）。タイトルの左に置き、押すと既読・もう一度押すと未読
@@ -84,23 +99,37 @@
                                 </ControlTemplate>
                             </ToggleButton.Template>
                         </ToggleButton>
-            
-                        <StackPanel Grid.Column="1" Margin="0,0,14,0">
-                            <StackPanel Orientation="Horizontal">
+
+                        <!--
+                            商品の絵（ユーザ指示 2026-10-06「通知画面にもアイコンが必要だろう」）。作りは取り込みの探した結果の行と同じ 56 の四角。
+                            行は札の数で高さが変わるので、絵は題の行に上をそろえて固定する。商品を指さない知らせ（Picture が null）は列ごと幅 0 になる。
+                            既読の印より内側に置く：印の位置を全部の行で同じにして、縦に読み流せるようにする
+                        -->
+                        <ContentPresenter Grid.Column="1" Content="{Binding Picture}"
+                                          VerticalAlignment="Top" />
+
+                        <StackPanel Grid.Column="2" Margin="0,0,14,0">
+                            <!--
+                                題は折り返す。前は横に並べる StackPanel の中で幅が無限になり、狭い窓では長い商品名が右で切れていた（2026-10-06 に幅 900 で見つけた）。
+                                印は題の1行目に上をそろえる（折り返した題の高さまで伸ばさない）
+                            -->
+                            <DockPanel>
                                 <!-- 見落とすと困る側にだけ印を付ける -->
-                                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                <Border DockPanel.Dock="Left" VerticalAlignment="Top"
+                                        Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                         BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
                                         Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <TextBlock Text="重要" FontSize="10" Foreground="{DynamicResource Warn}" />
                                 </Border>
                                 <!-- 用が済んだもの。消さずに印を付ける（ユーザ判断 2026-09-18） -->
-                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                <Border DockPanel.Dock="Left" VerticalAlignment="Top"
+                                        Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                         BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
                                         Visibility="{Binding IsResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <TextBlock Text="解消済み" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                 </Border>
                                 <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
-                            </StackPanel>
+                            </DockPanel>
                 
                             <!--
                                 行の中身は、どの種別も同じ札で出す（ユーザ指示 2026-09-18）。
