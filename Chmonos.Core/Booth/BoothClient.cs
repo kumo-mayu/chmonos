@@ -421,9 +421,9 @@ public sealed class BoothClient : IBoothClient
     ///
     /// 仮IDでURLを組むと、存在しない商品の404ページへ送ることになる。
     /// 「BOOTHで開く」も「リンクをコピー」も、ここがnullなら出さない。
+    /// 記録の <c>booth.url</c> は使わず、商品ID から作る（手で直せる JSON の URL を外のアプリへ渡さない。<see cref="BoothLinks"/>）。
     /// </summary>
-    public static string? PageUrlFor(ItemRecord item)
-        => item.IsLocalOnly ? null : item.Booth.Url ?? ItemPageUrl(item.Id);
+    public static string? PageUrlFor(ItemRecord item) => BoothLinks.ItemPage(item);
 
     public static string SearchUrl(string query) => $"https://booth.pm/ja/search/{Uri.EscapeDataString(query)}";
 

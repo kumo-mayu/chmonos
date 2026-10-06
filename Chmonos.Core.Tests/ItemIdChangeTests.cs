@@ -243,7 +243,7 @@ public class ItemIdChangeTests : IDisposable
 
     [Fact]
     public async Task SaysWhenTheSourceIsGone()
-        => Assert.Equal(ItemIdChangeOutcome.SourceMissing, await _service.ChangeItemIdAsync("nope", RealId));
+        => Assert.Equal(ItemIdChangeOutcome.SourceMissing, await _service.ChangeItemIdAsync("9900999", RealId));
 
     // ---- 移せないもの ----
 

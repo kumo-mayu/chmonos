@@ -214,7 +214,7 @@ public class SmallTextTests
     [Fact]
     public void 使った改変の行は_同じ商品が複数回入っていれば回数を言う()
     {
-        var record = new ModificationRecord { Id = "m1", AvatarItemId = "1000001", Name = "夏の改変" };
+        var record = new ModificationRecord { Id = "mod-0000a001", AvatarItemId = "1000001", Name = "夏の改変" };
 
         var once = new UsedInModificationRowViewModel { Record = record, AvatarText = "作り物のアバター", UseCount = 1 };
         var twice = new UsedInModificationRowViewModel { Record = record, AvatarText = "作り物のアバター", UseCount = 2 };

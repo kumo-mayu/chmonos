@@ -339,24 +339,9 @@ public sealed partial class ResolveViewModel
             return row;
         }
 
-        row.OpenBoothCommand = new RelayCommand(() => OpenInBrowser(Core.Booth.BoothClient.ItemPageUrl(row.ItemId)));
+        // 開けなくても作業は続けられる（失敗は Shell が握る）
+        row.OpenBoothCommand = new RelayCommand(() => Services.Shell.OpenUrl(Core.Booth.BoothLinks.ItemPage(row.ItemId)));
         return row;
-    }
-
-    private static void OpenInBrowser(string url)
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // 開けなくても作業は続けられる
-        }
     }
 
     /// <summary>

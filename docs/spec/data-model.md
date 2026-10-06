@@ -163,6 +163,13 @@
      IDの変更は手元の様子から読む（`ItemService.ResumeItemIdChangeAsync`）：元が無ければ改変とほかの参照だけ移す。元があって移す先が無ければ何も書いていないので行を消すだけ。
      両方あれば移す先へ合わせ直す——このとき移す先が既に持つ購入記録とメモは持って行かない（`ItemIdChange.MergeAgain`。前の合わせ方を2回当てると購入記録とメモが2回分になった）。
    - 続けられなかった行は残し（次の起動でまた試す）、通知「途中で止まった操作」に1件出す（ID `pending-operation:{行のID}`）。済んだら解消済みにする。
+12. **JSON から来た値を、場所や外のアプリへ渡す前に形で見る**（2026-10-06 外部の点検・L106）。手で直せるので、何が書かれていてもおかしくない。
+   - **ID は場所の名前になる**（`Storage/StoreIds`）。商品ID は数字だけか `local-` と小文字の16進、改変ID は `mod-` と小文字の16進、unitypackage の控えの鍵は16進。
+     `AppPaths` の ID から場所を組む関数（`ItemFile`・`ItemCopyFile`・`ItemHtmlFile`・`ItemImagesDir`・`AvatarImagesDir`・`ModificationFile`・`ModificationImagesDir`・`UnityPackageFile`）は形が違えば投げる。
+     読むだけの入口（在るか・読む・控え）は「無い」と答える。消す・移す直前にも、組んだ場所が所定のフォルダの中かを区切り付きで確かめる（`StoreIds.IsInside`）。
+   - 形の外れた記録（ファイル名・中の id・登録簿の行）は読み込み・片付け・IDの変更から外し、ログに1回書き、手で直したファイルの点検（9.）に出す。**こちらから直さない。**
+   - **外のアプリへ渡す URL**：商品ページは記録の `booth.url` を使わず番号の商品ID から作る（`Booth/BoothLinks`）。ショップのページは https で `booth.pm`・`*.booth.pm` の物だけ。
+     開くのは `Shell.OpenUrl` 1か所で、http/https の絶対 URL だけを解釈し直した形で渡す（説明文のリンク・動画も同じ）。実行ファイルの場所・`file:`・独自の形は開かない。
 
 ## 数え方（全画面で同じ）
 

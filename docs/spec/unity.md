@@ -133,6 +133,7 @@
 
 - エディタの探し方（`UnityLaunch.EditorCandidates`）：Hub の置き場所 → Hub の一覧（`editors-v2.json`・`editors.json`）→ Unity の登録 → アンインストール情報 → 起動中のエディタ → `.unitypackage` の関連付け。後の2つは実行ファイルの版の欄で見分ける。
 - 開いていれば手前に出す／版が無ければ `unityhub://`／Hub も無ければ渡さず、Hub を入れれば開けると言う。
+- **版は形を見てから使う**（2026-10-06 外部の点検・L106）。版は `ProjectVersion.txt`（プロジェクトの中のファイル）から来て、エディタの場所（`{Hubの置き場所}\{版}\Editor\Unity.exe`）と `unityhub://{版}` になる。Unity の版の形（`2022.3.22f1`・`6000.0.23f1`・中国版の `c1` 付き。`UnityProjects.IsEditorVersion`）でなければ版の分からないプロジェクトと同じに扱い、Hub の置き場所から組んだ場所も置き場所の中に収まる物だけを使う。
 - **VCC と ALCOM は起動するだけ**（中身を管理しない。ALCOM はユーザ指示 2026-09-29・`docs/research/alcom.md` §6 案 A）。起動中なら窓を戻して手前に出す（2回目の起動は VCC が前に出さない。ALCOM も同じ作法で出す。`DesktopAppLaunch`）。
   - VCC の場所：アンインストール情報の場所 → アイコンの欄 → `vcc://` の関連付け（先が `ALCOM.exe` なら VCC の候補にしない。「ALCOMを開く」と同じ物を開いてしまう）。
   - ALCOM の場所：アンインストール情報の鍵 `{4C3D0631-…}_is1` の場所・アイコン → 作者 `anatawa12` の記録（`ALCOM.exe` の物だけ）→ `%LOCALAPPDATA%\Programs\ALCOM\` → 古い `%LOCALAPPDATA%\ALCOM\` → `vcc://` の先が `ALCOM.exe` ならそれ。表示名は言語で変わるので見分けに使わない。プロセス名は `ALCOM`。

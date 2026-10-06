@@ -55,7 +55,12 @@ public sealed class ItemRepository
         _paths = paths;
     }
 
-    public bool Exists(string itemId) => File.Exists(_paths.ItemFile(itemId));
+    /// <remarks>
+    /// 読むだけの入口（在るか・読む・控え・説明HTML）は、**商品IDの形でない ID を「無い」として答える**（<see cref="StoreIds"/>）。
+    /// ID は登録簿・足跡・やりかけの記録など手で直せる JSON からも来るので、そこで投げると読むだけの画面や裏の作業が止まる。
+    /// 場所を組まないので、形の外れた ID で保存先の外を読むことも無い。書く・消すは <see cref="AppPaths"/> が投げる
+    /// </remarks>
+    public bool Exists(string itemId) => StoreIds.IsItemId(itemId) && File.Exists(_paths.ItemFile(itemId));
 
     /// <summary>
     /// 1件を読む。**古い形の読み替えはしない**（公開前は、今の形に合わないデータの側を問題にする・ユーザ判断 2026-09-12）。
@@ -65,6 +70,11 @@ public sealed class ItemRepository
     /// </summary>
     public Task<ItemRecord?> LoadAsync(string itemId, CancellationToken cancellationToken = default)
     {
+        if (!StoreIds.IsItemId(itemId))
+        {
+            return Task.FromResult<ItemRecord?>(null);
+        }
+
         var path = _paths.ItemFile(itemId);
         var info = new FileInfo(path);
         return info.Exists
@@ -326,6 +336,47 @@ public sealed class ItemRepository
             .Select(Path.GetFileNameWithoutExtension)
             .Where(id => !string.IsNullOrEmpty(id))
             .Select(id => id!)
+            .Where(id => KeepWellFormed(id, $"{id}.json"))
+            .ToList();
+    }
+
+    /// <summary>形の外れたファイル名・中の ID を書き残したもの。全件の読み込みは何度も呼ばれるので、1つにつき1回だけ書く</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _reportedMalformed = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 商品IDの形なら真。外れていれば書き残して偽（操作から外す）。
+    /// 外した物は手で直したファイルの点検（<see cref="Services.HandEditCheck"/>）にも出るので、ここでは書き残すだけ
+    /// </summary>
+    private bool KeepWellFormed(string? id, string where)
+    {
+        if (StoreIds.IsItemId(id))
+        {
+            return true;
+        }
+
+        if (_reportedMalformed.TryAdd(where, 0))
+        {
+            Diagnostics.AppLog.Warn("商品の記録を読む", $"items/{where} は商品IDの形でないので扱わない（「{id}」）");
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// ファイル名が商品IDの形でない物（手で付けた名前）。全件の読み込みからは外してある。
+    /// 手で直したファイルの点検（<see cref="Services.HandEditCheck"/>）に出す
+    /// </summary>
+    public IReadOnlyList<string> FindMalformedFileNames()
+    {
+        if (!Directory.Exists(_paths.ItemsDir))
+        {
+            return [];
+        }
+
+        return Directory.EnumerateFiles(_paths.ItemsDir, "*.json")
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .Where(name => !StoreIds.IsItemId(Path.GetFileNameWithoutExtension(name)))
             .ToList();
     }
 
@@ -357,7 +408,12 @@ public sealed class ItemRepository
         var read = await ReadAllAsync(failures, progress, cancellationToken);
         return new ItemLoadResult
         {
-            Items = read.Select(pair => pair.Item).ToList(),
+            // 中の ID が形を外れた商品は外す。画面と裏の作業はどれも中の ID で画像や説明の場所を組む。
+            // ファイル名とずれているので、手で直したファイルの点検（ファイル名と中の商品IDが違う）には出る
+            Items = read
+                .Where(pair => KeepWellFormed(pair.Item.Id, $"{pair.FileId}.json の中の id"))
+                .Select(pair => pair.Item)
+                .ToList(),
             FailedItemIds = failures.Select(failure => failure.ItemId).ToList(),
         };
     }
@@ -387,7 +443,7 @@ public sealed class ItemRepository
             cancellationToken.ThrowIfCancellationRequested();
 
             var itemId = Path.GetFileNameWithoutExtension(file.Name);
-            if (string.IsNullOrEmpty(itemId))
+            if (string.IsNullOrEmpty(itemId) || !KeepWellFormed(itemId, file.Name))
             {
                 continue;
             }
@@ -458,7 +514,7 @@ public sealed class ItemRepository
     /// 戻せる控え（<see cref="AppPaths.ItemCopyFile"/>）があるか。読めて、中の商品IDがファイル名と同じ物だけを数える
     /// （ID の違う控えを据えると、以後の保存が別のファイルへ書かれる）。
     /// </summary>
-    public bool HasUsableCopy(string itemId) => IsUsableRecord(_paths.ItemCopyFile(itemId), itemId);
+    public bool HasUsableCopy(string itemId) => StoreIds.IsItemId(itemId) && IsUsableRecord(_paths.ItemCopyFile(itemId), itemId);
 
     /// <summary>
     /// 控えが読めるなら、画面に出す名前（表示名があればそれ、無ければ BOOTH の名前）。読めない・名前が無いときは null。
@@ -481,6 +537,11 @@ public sealed class ItemRepository
     /// </summary>
     public ItemRecord? ReadCopy(string itemId)
     {
+        if (!StoreIds.IsItemId(itemId))
+        {
+            return null;
+        }
+
         try
         {
             return JsonStore.Read<ItemRecord>(_paths.ItemCopyFile(itemId)) is { } record
@@ -614,7 +675,7 @@ public sealed class ItemRepository
         {
             using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
             var path = _paths.ItemFile(itemId);
-            if (File.Exists(path) || !File.Exists(movedTo))
+            if (File.Exists(path) || !File.Exists(movedTo) || !StoreIds.IsInside(movedTo, _paths.BrokenItemsDir))
             {
                 return false;
             }
@@ -651,6 +712,11 @@ public sealed class ItemRepository
     /// <summary>表示用の説明HTML。商品ページを開いた時だけ読む。</summary>
     public async Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken = default)
     {
+        if (!StoreIds.IsItemId(itemId))
+        {
+            return null;
+        }
+
         var path = _paths.ItemHtmlFile(itemId);
         // JSON と同じく、読んでいる間に⑦の取り直しが置き換えても保存を落とさない開き方で読む
         return File.Exists(path)
@@ -794,7 +860,11 @@ public sealed class ItemRepository
         // 消すのも書き込み。運んでいる間は待ち、消している間は「書いている」に数えられる
         using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
 
+        // 消す直前に、組んだ場所が保存先の所定のフォルダに収まるかも確かめる（StoreIds の2枚目の守り）。
+        // 形の検査を後で緩めても、画像のフォルダの丸ごとの削除が保存先の外へ届かないように
         var imagesDir = _paths.ItemImagesDir(itemId);
+        StoreIds.EnsureInside(imagesDir, _paths.ImagesDir);
+        StoreIds.EnsureInside(_paths.ItemFile(itemId), _paths.ItemsDir);
         if (Directory.Exists(imagesDir))
         {
             Directory.Delete(imagesDir, recursive: true);

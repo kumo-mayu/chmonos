@@ -51,13 +51,22 @@ public sealed class ModificationRepository
         _paths = paths;
     }
 
-    public bool Exists(string id) => File.Exists(_paths.ModificationFile(id));
+    /// <remarks>
+    /// 読むだけの入口は、**改変IDの形でない ID を「無い」として答える**（<see cref="StoreIds"/>）。
+    /// 改変ID は足跡や商品の記録など手で直せる JSON からも来る。書く・消すは <see cref="AppPaths"/> が投げる
+    /// </remarks>
+    public bool Exists(string id) => StoreIds.IsModificationId(id) && File.Exists(_paths.ModificationFile(id));
 
     /// <summary>1件を読む。ファイルが前に読んだときと同じ（大きさと更新日時）なら写しを返す。</summary>
     public Task<ModificationRecord?> LoadAsync(
         string id,
         CancellationToken cancellationToken = default)
     {
+        if (!StoreIds.IsModificationId(id))
+        {
+            return Task.FromResult<ModificationRecord?>(null);
+        }
+
         var path = _paths.ModificationFile(id);
         var info = new FileInfo(path);
         return info.Exists
@@ -158,6 +167,11 @@ public sealed class ModificationRepository
         Func<ModificationRecord, ModificationRecord> change,
         CancellationToken cancellationToken = default)
     {
+        if (!StoreIds.IsModificationId(id))
+        {
+            return false;
+        }
+
         var gate = LockFor(id);
         await gate.WaitAsync(cancellationToken);
         try
@@ -210,8 +224,15 @@ public sealed class ModificationRepository
             {
                 if (await ReadThroughAsync(id, file.FullName, file.Length, file.LastWriteTimeUtc, cancellationToken) is { } record)
                 {
-                    loaded.Add(record);
-                    continue;
+                    // ファイル名か中の ID が改変IDの形でない記録は、読めなかった物と同じく一覧から外して数だけ返す。
+                    // 画面は中の ID で消す・画像を貼る場所を組むので、絶対パスや .. を書かれると保存先の外を消せた
+                    if (StoreIds.IsModificationId(id) && StoreIds.IsModificationId(record.Id))
+                    {
+                        loaded.Add(record);
+                        continue;
+                    }
+
+                    ReportMalformed(file.Name, record.Id);
                 }
             }
             catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
@@ -248,7 +269,56 @@ public sealed class ModificationRepository
         return Directory.EnumerateFiles(_paths.ModificationsDir, ModificationId.Prefix + "*.json")
             .Select(Path.GetFileNameWithoutExtension)
             .OfType<string>()
+            .Where(StoreIds.IsModificationId)
             .ToList();
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _reportedMalformed = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// ファイル名か中の ID が改変IDの形でない記録の名前（全件の読み込みから外してある物）。
+    /// 手で直したファイルの点検（<see cref="Services.HandEditCheck"/>）に出す。改変は人が1つずつ作る物で数が少ないので、写しを使わず読む
+    /// </summary>
+    public IReadOnlyList<string> FindMalformed()
+    {
+        if (!Directory.Exists(_paths.ModificationsDir))
+        {
+            return [];
+        }
+
+        var found = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(_paths.ModificationsDir, ModificationId.Prefix + "*.json"))
+        {
+            var name = Path.GetFileName(file);
+            if (!StoreIds.IsModificationId(Path.GetFileNameWithoutExtension(file)))
+            {
+                found.Add(name);
+                continue;
+            }
+
+            try
+            {
+                if (JsonStore.Read<ModificationRecord>(file) is { } record && !StoreIds.IsModificationId(record.Id))
+                {
+                    found.Add(name);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                // 読めない記録は「読めなかった改変」として別に数えている
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>全件の読み込みは画面を開くたびに呼ばれるので、1ファイルにつき1回だけ書き残す</summary>
+    private void ReportMalformed(string fileName, string? id)
+    {
+        if (_reportedMalformed.TryAdd(fileName, 0))
+        {
+            Diagnostics.AppLog.Warn("改変の記録を読む", $"modifications/{fileName} は改変IDの形でないので扱わない（中の id「{id}」）");
+        }
     }
 
     /// <summary>
@@ -260,7 +330,11 @@ public sealed class ModificationRepository
     /// </summary>
     public void Delete(string id)
     {
+        // 場所を組む所（AppPaths）で形を見たうえで、消す直前にも所定のフォルダの中かを確かめる
         var file = _paths.ModificationFile(id);
+        StoreIds.EnsureInside(file, _paths.ModificationsDir);
+        var images = _paths.ModificationImagesDir(id);
+        StoreIds.EnsureInside(images, _paths.ModificationImagesRoot);
         if (File.Exists(file))
         {
             File.Delete(file);
@@ -269,7 +343,6 @@ public sealed class ModificationRepository
         // 消えたファイルの写しは読み込みで返らない（在るかを先に見る）が、持ち続ける理由も無い
         _cache.TryRemove(id, out _);
 
-        var images = _paths.ModificationImagesDir(id);
         if (Directory.Exists(images))
         {
             Directory.Delete(images, recursive: true);

@@ -79,12 +79,21 @@ public sealed class AvatarImageSync
         var targets = new List<AvatarRegistryEntry>();
         foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
         {
+            // 登録簿は手で直せる JSON。商品IDの形でない行は、場所を組まず・消さず・問い合わせずに飛ばす
+            // （前はそのまま組んでいたので、絶対パスを書いた行が保存先の外のフォルダを丸ごと消せた）。
+            // 手で直したファイルの点検（HandEditCheck）にも出る
+            if (!StoreIds.IsItemId(entry.ItemId))
+            {
+                Diagnostics.AppLog.Warn("持っていないアバターの画像", $"avatar-registry.json の商品IDの形でない行を飛ばした（「{entry.ItemId}」）");
+                continue;
+            }
+
             var directory = _store.Paths.AvatarImagesDir(entry.ItemId);
 
             // 持っているなら商品の1枚目を使う。こちらに置いた1枚は要らなくなった
             if (File.Exists(_store.Paths.ItemFile(entry.ItemId)))
             {
-                DeleteQuietly(directory);
+                DeleteQuietly(directory, _store.Paths.AvatarImagesRoot);
                 continue;
             }
 
@@ -208,7 +217,8 @@ public sealed class AvatarImageSync
             }
         }
 
-        return FirstImage(paths.AvatarImagesDir(avatarItemId));
+        // 画面から呼ばれる。登録簿の形の外れた行で画面を止めない
+        return StoreIds.IsItemId(avatarItemId) ? FirstImage(paths.AvatarImagesDir(avatarItemId)) : null;
     }
 
     private async Task FlushAsync(Dictionary<string, string> observed, CancellationToken cancellationToken)
@@ -249,11 +259,12 @@ public sealed class AvatarImageSync
         }
     }
 
-    private static void DeleteQuietly(string directory)
+    private static void DeleteQuietly(string directory, string root)
     {
         try
         {
-            if (Directory.Exists(directory))
+            // 消す直前にも、images/_avatars の中かを確かめる（形の検査に続く2枚目の守り）
+            if (StoreIds.IsInside(directory, root) && Directory.Exists(directory))
             {
                 Directory.Delete(directory, recursive: true);
             }

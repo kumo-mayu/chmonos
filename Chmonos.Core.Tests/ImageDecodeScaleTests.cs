@@ -88,10 +88,10 @@ public sealed class ImageDecodeScaleTests : IDisposable
         var pipeline = new ImagePipeline(client, paths, settings);
         var bytes = Encode(width, height, jpeg);
 
-        var name = await pipeline.SaveModificationImageAsync("m1", bytes);
+        var name = await pipeline.SaveModificationImageAsync("mod-0000a001", bytes);
 
         Assert.NotNull(name);
-        var saved = Image.Identify(Path.Combine(paths.ModificationImagesDir("m1"), name!));
+        var saved = Image.Identify(Path.Combine(paths.ModificationImagesDir("mod-0000a001"), name!));
         Assert.Equal(BeforeSize(bytes, 384), saved.Size);
     }
 
@@ -104,8 +104,8 @@ public sealed class ImageDecodeScaleTests : IDisposable
         var client = new OffUiThreadTests.OfflineClient();
         var pipeline = new ImagePipeline(client, paths, new AppSettings { SaveModificationImagesAtOriginalSize = true });
 
-        var name = await pipeline.SaveModificationImageAsync("m1", Encode(1200, 800, jpeg: true));
+        var name = await pipeline.SaveModificationImageAsync("mod-0000a001", Encode(1200, 800, jpeg: true));
 
-        Assert.Equal(new Size(1200, 800), Image.Identify(Path.Combine(paths.ModificationImagesDir("m1"), name!)).Size);
+        Assert.Equal(new Size(1200, 800), Image.Identify(Path.Combine(paths.ModificationImagesDir("mod-0000a001"), name!)).Size);
     }
 }

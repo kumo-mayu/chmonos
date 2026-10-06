@@ -1286,18 +1286,8 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             return;
         }
 
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // 開けなくても編集は続けられる
-        }
+        // 開けなくても編集は続けられる（失敗は Shell が握る）
+        Services.Shell.OpenUrl(url);
     }
 
     private void RaiseItemChanged()

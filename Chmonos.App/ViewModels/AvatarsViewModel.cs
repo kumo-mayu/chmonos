@@ -2400,18 +2400,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = $"https://booth.pm/ja/items/{itemId}",
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // 開けなくてもアプリは動き続ける
-        }
+        // ID は登録簿（手で直せる JSON）から来るので、番号のときだけ商品ページを作り、開くのも1か所の守りを通す
+        Services.Shell.OpenUrl(Core.Booth.BoothLinks.ItemPage(itemId));
     }
 
     /// <summary>このアバター向けの商品を検索で見る。件数だけ見せても何も判断できない。</summary>

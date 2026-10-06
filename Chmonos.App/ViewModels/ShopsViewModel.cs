@@ -468,8 +468,10 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
                     }
 
                     card.OpenCommand = new RelayCommand(() => _main.ShowShop(shop));
+                    // 記録の URL（手で直せる JSON）は、https で BOOTH のホストの物だけ開く
+                    var shopPage = Core.Booth.BoothLinks.ShopPage(shop.Url);
                     card.OpenBoothCommand = new RelayCommand(
-                        () => Services.Shell.OpenUrl(shop.Url!), () => !string.IsNullOrEmpty(shop.Url));
+                        () => Services.Shell.OpenUrl(shopPage), () => shopPage is not null);
                     return card;
                 }).ToList();
 

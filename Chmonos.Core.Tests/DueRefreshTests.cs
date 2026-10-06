@@ -196,10 +196,10 @@ public class DueRefreshTests : IDisposable
     {
         var now = new DateTimeOffset(2026, 9, 9, 0, 0, 0, TimeSpan.Zero);
 
-        await SaveAsync("past", now.AddDays(-1));
-        await SaveAsync("future", now.AddDays(1));
+        await SaveAsync("9900001", now.AddDays(-1));
+        await SaveAsync("9900002", now.AddDays(1));
 
-        Assert.Equal(["past"], await _due.FindDueAsync(now));
+        Assert.Equal(["9900001"], await _due.FindDueAsync(now));
     }
 
     /// <summary>期限の古い順。長く放ってあるものから片付ける。</summary>
@@ -208,18 +208,18 @@ public class DueRefreshTests : IDisposable
     {
         var now = new DateTimeOffset(2026, 9, 9, 0, 0, 0, TimeSpan.Zero);
 
-        await SaveAsync("newer", now.AddDays(-1));
-        await SaveAsync("oldest", now.AddDays(-30));
-        await SaveAsync("middle", now.AddDays(-7));
+        await SaveAsync("9900003", now.AddDays(-1));
+        await SaveAsync("9900004", now.AddDays(-30));
+        await SaveAsync("9900005", now.AddDays(-7));
 
-        Assert.Equal(["oldest", "middle", "newer"], await _due.FindDueAsync(now));
+        Assert.Equal(["9900004", "9900005", "9900003"], await _due.FindDueAsync(now));
     }
 
     /// <summary>予定日を持たないものは対象にしない（古い形のデータだけがそうなる）。</summary>
     [Fact]
     public async Task IgnoresItemsWithNoDueDateAtAll()
     {
-        await SaveAsync("nodue", null);
+        await SaveAsync("9900006", null);
 
         Assert.Empty(await _due.FindDueAsync(DateTimeOffset.Now));
     }
@@ -233,11 +233,11 @@ public class DueRefreshTests : IDisposable
     {
         var now = DateTimeOffset.Now;
 
-        await SaveAsync("a", now.AddDays(-2));
-        await SaveAsync("b", now.AddDays(-9));
+        await SaveAsync("9900007", now.AddDays(-2));
+        await SaveAsync("9900008", now.AddDays(-9));
 
         Assert.Equal(2, await _due.RunAsync());
-        Assert.Equal(["b", "a"], _items.Refreshed);
+        Assert.Equal(["9900008", "9900007"], _items.Refreshed);
     }
 
     /// <summary>
@@ -249,19 +249,19 @@ public class DueRefreshTests : IDisposable
     {
         var now = DateTimeOffset.Now;
 
-        await SaveAsync("broken", now.AddDays(-9));
-        await SaveAsync("fine", now.AddDays(-2));
-        _items.Throws.Add("broken");
+        await SaveAsync("9900009", now.AddDays(-9));
+        await SaveAsync("9900010", now.AddDays(-2));
+        _items.Throws.Add("9900009");
 
         Assert.Equal(1, await _due.RunAsync());
-        Assert.Equal(["broken", "fine"], _items.Refreshed);
+        Assert.Equal(["9900009", "9900010"], _items.Refreshed);
     }
 
     /// <summary>期限の来たものが無ければ、何も呼ばない。</summary>
     [Fact]
     public async Task DoesNothingWhenNothingIsDue()
     {
-        await SaveAsync("future", DateTimeOffset.Now.AddDays(5));
+        await SaveAsync("9900002", DateTimeOffset.Now.AddDays(5));
 
         Assert.Equal(0, await _due.RunAsync());
         Assert.Empty(_items.Refreshed);
@@ -279,12 +279,12 @@ public class DueRefreshTests : IDisposable
         var past = DateTimeOffset.Now.AddDays(-10);
         for (var index = 1; index <= 5; index++)
         {
-            await SaveAsync($"due{index}", past.AddMinutes(index));
-            _items.Outcomes[$"due{index}"] = failure;
+            await SaveAsync($"99001{index:00}", past.AddMinutes(index));
+            _items.Outcomes[$"99001{index:00}"] = failure;
         }
 
         Assert.Equal(0, await _due.RunAsync());
-        Assert.Equal(["due1", "due2", "due3"], _items.Refreshed);
+        Assert.Equal(["9900101", "9900102", "9900103"], _items.Refreshed);
     }
 
     /// <summary>
@@ -307,8 +307,8 @@ public class DueRefreshTests : IDisposable
         ];
         for (var index = 0; index < outcomes.Length; index++)
         {
-            await SaveAsync($"due{index}", past.AddMinutes(index));
-            _items.Outcomes[$"due{index}"] = outcomes[index];
+            await SaveAsync($"99001{index:00}", past.AddMinutes(index));
+            _items.Outcomes[$"99001{index:00}"] = outcomes[index];
         }
 
         await _due.RunAsync();
@@ -331,8 +331,8 @@ public class DueRefreshTests : IDisposable
         ];
         for (var index = 0; index < outcomes.Length; index++)
         {
-            await SaveAsync($"due{index}", past.AddMinutes(index));
-            _items.Outcomes[$"due{index}"] = outcomes[index];
+            await SaveAsync($"99001{index:00}", past.AddMinutes(index));
+            _items.Outcomes[$"99001{index:00}"] = outcomes[index];
         }
 
         await _due.RunAsync();
