@@ -360,6 +360,18 @@
                             </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                        Text="{Binding ProjectManagerNote}" />
+                            <!-- 着替えで VRChat の OSC へ送るポート（ユーザ指示 2026-10-06。既定は 9000） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="OSC の送信先のポート" Style="{StaticResource RowLabel}" Width="220" />
+                                <TextBox Style="{StaticResource NumberBox}"
+                                         AutomationProperties.AutomationId="Settings.OscPort" AutomationProperties.Name="OSC の送信先のポート"
+                                         ToolTip="改変の画面の着替えで、VRChat へ送る先のポートです。"
+                                         Text="{Binding OscPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                <TextBlock Text="（1〜65535・既定は 9000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
+                                       AutomationProperties.AutomationId="Settings.Note.OscPort"
+                                       Text="{Binding Notes[OscPort]}" />
                         </StackPanel>
                     </Expander>
                 </Border>

@@ -855,6 +855,20 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
+    private int _oscPort;
+
+    /// <summary>着替えで VRChat の OSC へ送るポート。ポートとして使える 1〜65535 に丸める。</summary>
+    public int OscPort
+    {
+        get => _oscPort;
+        set
+        {
+            var clamped = Clamped(value, 1, 65535, "OSC の送信先のポート", string.Empty, nameof(OscPort));
+            if (SetField(ref _oscPort, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
+    }
+
     private int _notificationRetentionCount;
     public int NotificationRetentionCount
     {
@@ -1288,6 +1302,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ResumeFetchInBackground = ResumeFetchInBackground,
             SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,
+            OscPort = OscPort,
             NotificationRetentionCount = NotificationRetentionCount,
             SearchHistoryCount = SearchHistoryCount,
             ShopBannerRecheckDays = ShopBannerRecheckDays,

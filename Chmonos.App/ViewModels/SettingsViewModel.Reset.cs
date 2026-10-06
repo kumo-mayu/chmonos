@@ -115,6 +115,7 @@ public sealed partial class SettingsViewModel
         _resumeFetchInBackground = settings.ResumeFetchInBackground;
         _saveImages = settings.SaveImages;
         _refreshIntervalDays = settings.RefreshIntervalDays;
+        _oscPort = settings.OscPort;
         _notificationRetentionCount = settings.NotificationRetentionCount;
         _searchHistoryCount = settings.SearchHistoryCount;
         _fetchIntervalMs = settings.FetchIntervalMs;

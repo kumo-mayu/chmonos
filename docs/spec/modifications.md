@@ -13,7 +13,7 @@
 - `modifications/mod-{hash8}.json`。ID は `avatarItemId＋name＋createdAt` から作って以後変えない（名前を変えてもファイルが動かない）。**1ファイルにまとめない**（壊れたときに全部失う）。
 - 項目：`avatarItemId`・`name`・`createdAt`・`updatedAt`・`unityProject`（0か1。消えていても黙って外さない）・`memo`・`images`・`members`。
 - `blueprintId`（2026-09-19）：VRChat にアップロードしたアバターの ID（`avtr_…`）。改変の詳細の名前の下に欄と「VRChatで着替える」。
-  押すと VRChat の OSC（`127.0.0.1:9000`）へ `/avatar/change` を UDP で送る（`Core/Services/VrcOsc`・形の試験あり）。送りっぱなしなので着替えたかは分からず、送ったことと確かめ方（OSC を有効にする・着られるアバターか）を言う。
+  押すと VRChat の OSC（`127.0.0.1` の、設定の「OSC の送信先のポート」。既定は 9000。すべて既定に戻すで戻る。ユーザ指示 2026-10-06）へ `/avatar/change` を UDP で送る（`Core/Services/VrcOsc`・形の試験あり）。送りっぱなしなので着替えたかは分からず、送ったことと確かめ方（OSC を有効にする・着られるアバターか）を言う。
   形（`avtr_` ＋ GUID）が違えば欄の下で知らせるが、保存は止めない。
   送る形は隣のリポジトリ `avatar-image-pad` の `measure/osc/local-probe.js avatar` と同じバイト列（2026-09-19 に照らした）。着替えたかを知るには、そちらの `Paramroom.Core/VrcConnection.cs` のように OSCQuery で `/avatar/change` を受ける道があるが、**入れない**（ユーザ判断 2026-09-19：「送信だけなのでOSCQueryを入れる必要は無い」。ライブラリと受け口が増える）。
 - 改変の詳細の**名前・メモ・blueprint ID は押さずに残す**（打ち止めて 0.8 秒で書く。ユーザ指示 2026-09-19：タグ・属性・アバターのメモと揃える）。名前は空なら書かない。

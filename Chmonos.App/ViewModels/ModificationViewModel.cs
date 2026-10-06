@@ -1267,7 +1267,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public bool CanChangeAvatar => BlueprintInput.Trim().Length > 0;
 
-    /// <summary>VRChat の OSC（手元の 9000 番）へ /avatar/change を送り、この改変のアバターに着替える。</summary>
+    /// <summary>VRChat の OSC（設定の送信先のポート。既定は 9000）へ /avatar/change を送り、この改変のアバターに着替える。</summary>
     public RelayCommand ChangeAvatarCommand { get; }
 
     private async Task ChangeAvatarAsync()
@@ -1279,7 +1279,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         // 送りっぱなしの UDP なので、着替えたかはこちらでは分からない。送ったことと、効かないときの確かめ方を言う
-        if (await VrcOsc.SendAvatarChangeAsync(id) is { } problem)
+        if (await VrcOsc.SendAvatarChangeAsync(id, port: _services.Settings.OscPort) is { } problem)
         {
             BlueprintNotice.Set(problem, true);
             return;

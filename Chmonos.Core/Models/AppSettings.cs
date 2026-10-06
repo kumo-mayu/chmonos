@@ -108,6 +108,12 @@ public sealed record AppSettings
     public ProjectManagerChoice ProjectManager { get; init; } = ProjectManagerChoice.VccLink;
 
     /// <summary>
+    /// 改変の画面の着替えで、VRChat の OSC へ送るポート（ユーザ指示 2026-10-06）。既定は VRChat が受ける 9000 番。
+    /// VRChat の起動の引数で受け口を変えている人や、ほかの道具が 9000 番を先に取っている人のため。「すべて既定に戻す」で戻る
+    /// </summary>
+    public int OscPort { get; init; } = Services.VrcOsc.DefaultPort;
+
+    /// <summary>
     /// サムネイルにどの役割の画像を出すか。
     ///
     /// 既定は「デフォルト」。商品ごとの★の指名が効くのはこのときだけ。
