@@ -1269,13 +1269,19 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 保存の直前に読み直したものが残る。開いている間に検出や取り込みが書いたものを、
     /// 古い写しで潰さないため。
     /// </summary>
-    private async Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns, AreaNotice? notice = null)
+    private Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns, AreaNotice? notice = null)
+        => RunItemCommandAsync(new UiCommand.SaveItemLocal(Item.Id, local, owns), notice);
+
+    /// <summary>
+    /// この商品の記録を書く命令を通し、書いた後の記録を読み直して対応アバターを組み直す。
+    /// 失敗は、その欄の下へ出す。呼び手が渡さなければ対応アバターの欄（呼び手の大半）
+    /// </summary>
+    private async Task RunItemCommandAsync(UiCommand command, AreaNotice? notice = null)
     {
-        // 失敗は、その欄の下へ出す。呼び手が渡さなければ対応アバターの欄（呼び手の大半）
         var failureNotice = notice ?? AvatarsNotice;
         try
         {
-            var result = await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(Item.Id, local, owns));
+            var result = await _services.Commands.ExecuteAsync(command);
             if (result is CommandResult.Failed failed)
             {
                 failureNotice.Warn(failed.Message);

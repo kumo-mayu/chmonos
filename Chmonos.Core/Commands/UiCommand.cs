@@ -244,6 +244,12 @@ public abstract record UiCommand
         Models.LocalBlock Local,
         IReadOnlyCollection<Models.LocalField> Owns) : UiCommand;
 
+    /// <summary>
+    /// 確認待ちの対応アバターを確認済みにする（商品ページ・編集画面の札・右クリック・「すべて確認済みにする」）。
+    /// 名指しした ID のうち、今の記録で確認待ちの物だけを錠の中で変える。
+    /// </summary>
+    public record ConfirmAvatars(string ItemId, IReadOnlyList<string> AvatarItemIds) : UiCommand;
+
     /// <summary>userTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
     public record AddUserTag(string Top, string? Sub = null) : UiCommand;
 

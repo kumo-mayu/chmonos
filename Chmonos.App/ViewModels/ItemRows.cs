@@ -605,6 +605,9 @@ public sealed class AvatarRow : ChipTile
     /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
     public RelayCommand? RejectCommand { get; init; }
 
+    /// <summary>確認待ちの推定を確認済みにする（メモ83）。確認待ちの札に乗せたときの ✓ と、右クリックのメニュー。</summary>
+    public RelayCommand? ConfirmCommand { get; init; }
+
     /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
     public RelayCommand? OpenCommand { get; init; }
 }

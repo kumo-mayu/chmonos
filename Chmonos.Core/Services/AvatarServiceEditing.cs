@@ -250,6 +250,34 @@ public sealed partial class AvatarService
     }
 
     /// <summary>
+    /// 確認待ちの対応アバター（検出の推定）を、人が確かめた物にする（ユーザ判断 2026-10-06・メモ83）。
+    /// 出どころは手入力に付け替える——検出し直しは Manual 以外を作り直すので、出どころを残すと次の検出で確認待ちに戻る
+    /// （消す・戻すと同じ作法）。消した行・確認済みの行・名指ししなかった行には触らない。
+    /// 変える行が1つも無ければ null（書かない）。
+    /// </summary>
+    public static IReadOnlyList<AvatarLink>? WithConfirmedAvatars(
+        IReadOnlyList<AvatarLink> links,
+        IReadOnlyCollection<string> avatarItemIds)
+    {
+        var wanted = avatarItemIds.ToHashSet(StringComparer.Ordinal);
+        var changed = false;
+        var result = links
+            .Select(link =>
+            {
+                if (link.Rejected || link.Confirmed || !wanted.Contains(link.AvatarItemId))
+                {
+                    return link;
+                }
+
+                changed = true;
+                return link with { Source = AvatarLinkSource.Manual, Confirmed = true };
+            })
+            .ToList();
+
+        return changed ? result : null;
+    }
+
+    /// <summary>
     /// 説明文の素体の候補を「違う」として消す（ユーザ判断 2026-09-29：対応アバターの消し方と同じ作法）。
     /// 商品に消した印付きの手入力の行を残す——候補は商品に付いている素体（消した物も）を出さないので二度と出ず、
     /// 「消したもの」の欄に並んで戻せる。既に行があれば何もしない（付いている物・消した物を上書きしない）
