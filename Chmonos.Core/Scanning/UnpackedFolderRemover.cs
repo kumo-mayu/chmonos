@@ -50,7 +50,8 @@ public sealed class UnpackedFolderRemover
         => async cancellationToken =>
         {
             var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-            return loaded.FailedItemIds.Count > 0
+            // 形の外れた ID で外した商品も、どのフォルダを登録しているか見ていないので、読めない商品と同じ扱い（外部の点検 2026-10-06）
+            return loaded.FailedItemIds.Count > 0 || loaded.SkippedMalformed > 0
                 ? null
                 : loaded.Items.SelectMany(item => item.Local.LocalFolders).Select(folder => folder.Path).ToList();
         };

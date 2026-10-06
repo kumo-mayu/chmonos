@@ -252,6 +252,37 @@ public class StoreIdBoundaryTests : IDisposable
 
     private static string JsonEscape(string value) => value.Replace(@"\", @"\\", StringComparison.Ordinal);
 
+    /// <summary>
+    /// 形の外れた ID で外した商品の登録フォルダも、ごみ箱へ送ってよいかの判定から漏らさない（外部の点検 2026-10-06）。
+    /// 前は外した商品を「読めなかった物」にも数えず、その商品が登録したフォルダを消してよい物と見ていた
+    /// </summary>
+    [Theory]
+    [InlineData("inner")]
+    [InlineData("file")]
+    public async Task 形の外れたIDで外した商品があれば_消してよいフォルダを決めない(string where)
+    {
+        var folder = Path.Combine(_root, "registered");
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "100",
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "作り物" },
+            Local = new LocalBlock { LocalFolders = [new LocalFolderRecord { Path = folder, RegisteredAt = DateTimeOffset.Now }] },
+        });
+        Assert.NotNull(await Scanning.UnpackedFolderRemover.RegisteredFoldersIn(_store)(CancellationToken.None));
+
+        var file = _paths.ItemFile("100");
+        if (where == "inner")
+        {
+            File.WriteAllText(file, File.ReadAllText(file).Replace("\"id\": \"100\"", "\"id\": \"..\\x\""));
+        }
+        else
+        {
+            File.Move(file, Path.Combine(_paths.ItemsDir, "手で付けた名前.json"));
+        }
+
+        Assert.Null(await Scanning.UnpackedFolderRemover.RegisteredFoldersIn(_store)(CancellationToken.None));
+    }
+
     private sealed class RecordingHandler(List<string> requests) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

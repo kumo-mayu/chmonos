@@ -406,15 +406,18 @@ public sealed class ItemRepository
     {
         var failures = new List<ItemReadFailure>();
         var read = await ReadAllAsync(failures, progress, cancellationToken);
+
+        // 中の ID が形を外れた商品は外す。画面と裏の作業はどれも中の ID で画像や説明の場所を組む。
+        // ファイル名とずれているので、手で直したファイルの点検（ファイル名と中の商品IDが違う）には出る
+        var kept = read
+            .Where(pair => KeepWellFormed(pair.Item.Id, $"{pair.FileId}.json の中の id"))
+            .Select(pair => pair.Item)
+            .ToList();
         return new ItemLoadResult
         {
-            // 中の ID が形を外れた商品は外す。画面と裏の作業はどれも中の ID で画像や説明の場所を組む。
-            // ファイル名とずれているので、手で直したファイルの点検（ファイル名と中の商品IDが違う）には出る
-            Items = read
-                .Where(pair => KeepWellFormed(pair.Item.Id, $"{pair.FileId}.json の中の id"))
-                .Select(pair => pair.Item)
-                .ToList(),
+            Items = kept,
             FailedItemIds = failures.Select(failure => failure.ItemId).ToList(),
+            SkippedMalformed = read.Count - kept.Count + FindMalformedFileNames().Count,
         };
     }
 
@@ -944,4 +947,10 @@ public sealed class ItemLoadResult
 
     /// <summary>読み込めなかったitem。手編集で壊れた場合などに、黙って消えないよう返す。</summary>
     public required IReadOnlyList<string> FailedItemIds { get; init; }
+
+    /// <summary>
+    /// 形の外れた ID（ファイル名か中の id）のために外した記録の数。読めなかった物（<see cref="FailedItemIds"/>）と同じく、
+    /// 中身を全部見たとは言えない印。消してよいかを決める所は、これが1件でもあれば決めない（外部の点検 2026-10-06）
+    /// </summary>
+    public int SkippedMalformed { get; init; }
 }
