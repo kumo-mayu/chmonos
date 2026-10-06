@@ -389,6 +389,7 @@ public sealed partial class ItemViewModel
                 ItemId = link.AvatarItemId,
                 Name = NameOf(link.AvatarItemId, link.Name),
                 SourceText = SourceLabel(link.Source),
+                IsManual = link.Source == AvatarLinkSource.Manual,
                 IsUnconfirmed = !link.Confirmed,
                 IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
                 RejectCommand = new RelayCommand(() => RejectAvatarAsync(link.AvatarItemId).Forget(), () => !IsEditLocked),

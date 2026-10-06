@@ -195,6 +195,14 @@ public class SmallTextTests
     }
 
     [Fact]
+    public void 手で足したか確認済みにした対応アバターの吹き出しは_読み取ったとは言わず_手で確認したと言う()
+    {
+        // 確認済みにすると出どころを手入力に付け替える。「手入力から読み取りました」では、確かめた物が読み取った物に聞こえる
+        var manual = new AvatarRow { ItemId = "1000001", Name = "作り物のアバター", SourceText = "手入力", IsManual = true };
+        Assert.Equal("手で確認しました。押すとこのアバターを開きます", manual.SourceTooltip);
+    }
+
+    [Fact]
     public void 共通素体の候補の吹き出しは_一覧にも足すかを言い分ける()
     {
         Assert.Equal("共通素体の一覧とこの商品に追加します。", new BaseMentionRow { Name = "作り物の素体", IsNew = true }.AddTooltip);
