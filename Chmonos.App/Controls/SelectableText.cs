@@ -267,13 +267,7 @@ public static class SelectableText
     {
         args.Handled = true;
 
-        try
-        {
-            Process.Start(new ProcessStartInfo { FileName = args.Uri.AbsoluteUri, UseShellExecute = true });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // ブラウザが開けなくてもアプリは動き続ける
-        }
+        // 説明文は出品者が書いた物で、手で直した JSON からも来る。開くのは Shell の守り（http/https だけ）を通す
+        Services.Shell.OpenUrl(args.Uri.AbsoluteUri);
     }
 }

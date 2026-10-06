@@ -160,11 +160,12 @@ public sealed partial class SearchViewModel
         _shopIcons ??= _services.Paths.ReadShopIconIndex();
 
         // 手元だけのショップ（local-）には BOOTH のページが無い。BOOTH のショップなら、鍵を出した側（人が入れたショップが先）の URL か、
-        // サブドメインから作る（ShopSubdomain と同じ順に見ないと、人が直したショップの札で取れた側の店を開く）
+        // サブドメインから作る（ShopSubdomain と同じ順に見ないと、人が直したショップの札で取れた側の店を開く）。
+        // 記録の URL は手で直せる JSON なので、https で BOOTH のホストの物だけ使う（BoothLinks）
         var known = item.Local.Shop is { } local ? local.Url : item.Booth.Shop?.Url;
         var url = Core.Models.LocalShopKey.IsLocal(subdomain)
             ? null
-            : known is { Length: > 0 } ? known : $"https://{subdomain}.booth.pm/";
+            : Core.Booth.BoothLinks.ShopPage(subdomain, known);
         return new DividerShop(subdomain, _shopIcons.FindIcon(subdomain), url);
     }
 

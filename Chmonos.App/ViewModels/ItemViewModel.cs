@@ -1400,7 +1400,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     {
         if (BoothClient.PageUrlFor(Item) is { } url)
         {
-            TryStart(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            Services.Shell.OpenUrl(url);
         }
     }
 

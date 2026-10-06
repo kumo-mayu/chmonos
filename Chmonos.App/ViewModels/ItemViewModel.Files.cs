@@ -519,16 +519,4 @@ public sealed partial class ItemViewModel
             $"「{name}」が、記録にある場所に見つかりません。\n\n"
             + "外付けのドライブなら、つないでからもう一度お試しください。移した場合は、移した先のフォルダを取り込むと付け直します。",
             title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-
-    private static void TryStart(ProcessStartInfo startInfo)
-    {
-        try
-        {
-            Process.Start(startInfo);
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // 開けなくてもアプリは動き続ける
-        }
-    }
 }

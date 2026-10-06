@@ -12,14 +12,45 @@ namespace Chmonos.App.Services;
 /// </summary>
 public static class Shell
 {
-    /// <summary>URLを既定のブラウザで開く。</summary>
-    public static void OpenUrl(string? url)
+    /// <summary>
+    /// URLを既定のブラウザで開く。**http と https の URL だけを開く**（2026-10-06 外部の点検・L106）。
+    ///
+    /// 開き方は OS の関連付けに任せる（UseShellExecute）ので、渡した文字列が実行ファイルの場所・<c>file:</c>・
+    /// 独自の形（<c>ms-settings:</c> など）なら、それがそのまま起動される。URL は手で直せる JSON や説明文からも来るので、
+    /// ここ1か所で形を見て、ほかは断る。渡すのは解釈し直した形（<see cref="Uri.AbsoluteUri"/>）で、元の文字列ではない。
+    /// </summary>
+    /// <returns>開くよう渡したか（形が合わなければ false）。</returns>
+    public static bool OpenUrl(string? url)
     {
-        if (!string.IsNullOrWhiteSpace(url))
+        if (ToWebUrl(url) is not { } web)
         {
-            TryStart(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            return false;
         }
+
+        TryStart(new ProcessStartInfo { FileName = web, UseShellExecute = true });
+        return true;
     }
+
+    /// <summary>ブラウザへ渡してよい URL なら、解釈し直した形。http/https で、ホストのある絶対 URL だけ。</summary>
+    internal static string? ToWebUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)
+            || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || uri.IsUnc
+            || uri.Host.Length == 0)
+        {
+            return null;
+        }
+
+        return uri.AbsoluteUri;
+    }
+
+    /// <summary>
+    /// 外のアプリを起こす所の差し替え（試験だけが使う）。試験が本物のブラウザを開かずに、何が渡されたかを見るため。
+    /// 流れごとに持つので、並んで走るほかの試験の起動は拾わない
+    /// </summary>
+    internal static readonly AsyncLocal<Action<ProcessStartInfo>?> StartOverride = new();
 
     /// <summary>
     /// エクスプローラで開く（ユーザ指示 2026-09-14）。
@@ -103,6 +134,12 @@ public static class Shell
 
     private static void TryStart(ProcessStartInfo startInfo)
     {
+        if (StartOverride.Value is { } replaced)
+        {
+            replaced(startInfo);
+            return;
+        }
+
         try
         {
             Process.Start(startInfo);

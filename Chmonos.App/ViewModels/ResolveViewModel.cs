@@ -1336,18 +1336,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var query = FileNameQuery.ToSearchQuery(target);
         var url = Core.Booth.BoothClient.SearchUrl(query.Length > 0 ? query : Path.GetFileName(target));
 
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // 開けなくても作業は続けられる
-        }
+        // 開けなくても作業は続けられる（失敗は Shell が握る）
+        Services.Shell.OpenUrl(url);
     }
 
 }

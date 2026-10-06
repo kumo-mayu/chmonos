@@ -42,21 +42,9 @@ public sealed class ReplacementRow
 
     public string FoundByText => $"{Candidate.FoundBy}で見つかりました";
 
-    public RelayCommand OpenBoothCommand => _openBooth ??= new RelayCommand(() =>
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = Core.Booth.BoothClient.ItemPageUrl(ItemId),
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // 開けなくても選ぶことはできる
-        }
-    });
+    // 開けなくても選ぶことはできる（失敗は Shell が握る）
+    public RelayCommand OpenBoothCommand => _openBooth ??= new RelayCommand(
+        () => Services.Shell.OpenUrl(Core.Booth.BoothLinks.ItemPage(ItemId)));
 
     private RelayCommand? _openBooth;
 

@@ -38,7 +38,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
         // 戻るは画面の履歴を遡る（U23）
         BackCommand = new RelayCommand(main.GoBack);
-        OpenShopPageCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
+        OpenShopPageCommand = new RelayCommand(OpenBooth, () => Core.Booth.BoothLinks.ShopPage(Shop.Url) is not null);
 
         // カードかリストか（ユーザ指示 2026-09-15：検索画面と同じ見方に）。どちらで出すかはショップ画面として覚える
         _isListMode = ItemListMode.IsList(services, "shop");
@@ -1087,13 +1087,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     private void OpenBooth()
     {
-        if (string.IsNullOrEmpty(Shop.Url))
-        {
-            return;
-        }
-
+        // 記録の URL（手で直せる JSON）は、https で BOOTH のホストの物だけ開く。
         // 開けなくても落ちないよう、ほかの画面と同じ受け口を通す（ブラウザが無い・関連付けが壊れている）
-        Shell.OpenUrl(Shop.Url);
+        Shell.OpenUrl(Core.Booth.BoothLinks.ShopPage(Shop.Url));
     }
 
     /// <summary>
