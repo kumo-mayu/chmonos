@@ -76,6 +76,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         RemoveImageCommand = new RelayCommand(() => RemoveImageAsync().Forget(), () => CurrentIsUserAdded && !IsEditLocked);
         AddImageCommand = new RelayCommand(() => AddImageAsync().Forget(), () => !IsEditLocked);
         ChangeIdCommand = new RelayCommand(() => ChangeIdAsync().Forget(), () => !IsEditLocked);
+        FindOnBoothCommand = new RelayCommand(() => ChangeIdAsync(search: true).Forget(), () => !IsEditLocked && ShowsNotFoundOnBooth);
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => main.ShowEditAsync([item.Id]).Forget(), () => !IsEditLocked);
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
@@ -700,12 +701,18 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     ///
     /// 何が移って何が移らないかは、下見の画面で全部出してから押させる。
     /// </summary>
-    private async Task ChangeIdAsync()
+    /// <param name="search">開いてすぐ自動検索を始めるか（商品ページの「同じ商品をBOOTHで探す」）。</param>
+    private async Task ChangeIdAsync(bool search = false)
     {
-        var model = new ChangeItemIdDialogViewModel(_services, Item.Id, Item.DisplayName);
-        var dialog = new Views.ChangeItemIdDialog(model);
+        var model = new ChangeItemIdDialogViewModel(_services, Item.Id, Item.DisplayName, ReplacementClues.From(Item));
 
-        if (dialog.ShowDialog() != true || model.Plan is null)
+        // 窓を出す前に始める。窓は開いている間ずっと結果を待つので、進み具合はそのまま窓に出る
+        if (search)
+        {
+            model.SearchCommand.Execute(null);
+        }
+
+        if (!model.Ask() || model.Plan is null)
         {
             return;
         }
@@ -914,6 +921,21 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public string UserNameNotice => Item.Booth.Name is { Length: > 0 } booth
         ? $"この名前は自分で付けたものです。BOOTHでの名前は「{booth}」"
         : "この名前は自分で付けたものです";
+
+    /// <summary>
+    /// BOOTHで見つからなくなった商品（販売終了の印。一度も取れていない物も）。作者が消して新しいIDで出し直したことがあるので、
+    /// 探す道（「同じ商品をBOOTHで探す」→「IDを変える」の自動検索）を添える（ユーザ判断 2026-10-06）。
+    /// **仮IDの商品には出さない**：もともとBOOTHに無い物として登録していて「見つからなくなった」のではない。
+    /// 本物のIDを探すなら「IDを変える」の窓に同じ自動検索がある
+    /// </summary>
+    public bool ShowsNotFoundOnBooth => !Item.IsLocalOnly && Item.Local.IsDelisted;
+
+    public string NotFoundOnBoothNotice => Item.Booth.WasEverFetched
+        ? "BOOTHでこの商品が見つかりません。販売終了か、非公開になっています。"
+        : "BOOTHでこの商品が見つかりません。登録してから一度も情報を取得できていません。";
+
+    /// <summary>「同じ商品をBOOTHで探す」。押すと「IDを変える」の窓を開き、自動検索を始める。</summary>
+    public RelayCommand FindOnBoothCommand { get; }
 
     public string LocalOnlyNotice
         => $"BOOTHに無い商品として、仮のID {Item.Id} で登録しています。BOOTHからは情報を取得しません。";

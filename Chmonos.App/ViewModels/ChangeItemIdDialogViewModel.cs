@@ -37,7 +37,7 @@ public sealed class DuplicateRow : ViewModelBase
 /// こちらは*商品ごと*を動かすもの。同じボタンに畳むと、押した結果が
 /// 「メモが残る／残らない」で変わることになる。
 /// </summary>
-public sealed class ChangeItemIdDialogViewModel : ViewModelBase
+public sealed partial class ChangeItemIdDialogViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
 
@@ -46,9 +46,11 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
     private string _status = string.Empty;
     private bool _isBusy;
 
-    public ChangeItemIdDialogViewModel(AppServiceContainer services, string fromId, string currentName)
+    /// <param name="clues">自動検索の手掛かり。渡さなければ自動検索は押せない。</param>
+    public ChangeItemIdDialogViewModel(AppServiceContainer services, string fromId, string currentName, ReplacementClues? clues = null)
     {
         _services = services;
+        _clues = clues;
         FromId = fromId;
         CurrentName = currentName;
 

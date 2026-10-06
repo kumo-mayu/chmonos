@@ -1127,6 +1127,17 @@ public sealed class CommandHandler
                     return new CommandResult.CandidatesProposed(proposal.Candidates, proposal.BoothUnreachable);
                 }
 
+            case UiCommand.FindReplacementItem find:
+                if (_resolver is null)
+                {
+                    return MissingService("候補の検索");
+                }
+
+                // 優先度は入口の「人が押した操作」のまま。窓は結果を待っているが、Foreground は
+                // 未確定で次の1件へ移ったときの目の前の検索のための段で、ここで使うと段の意味が薄れる
+                return new CommandResult.ReplacementsFound(await _resolver.FindReplacementWithImagesAsync(
+                    find.FromId, find.PreviousName, find.ShopSubdomain, find.Paths, cancellationToken, find.Progress));
+
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");
         }

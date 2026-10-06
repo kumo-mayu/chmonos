@@ -591,6 +591,24 @@
                                            FontSize="12" Foreground="{DynamicResource Warn}" />
                             </Border>
 
+                            <!--
+                                BOOTHで見つからなくなった商品（ユーザ判断 2026-10-06）。作者が消して新しいIDで出し直したことがあるので、
+                                探す道を添える。押すと「IDを変える」の窓を開き、自動検索を始める。仮IDの商品には出さない
+                            -->
+                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,12,0,0"
+                                    Visibility="{Binding ShowsNotFoundOnBooth, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <controls:SplitRowPanel Gap="10" MinLeftWidth="260">
+                                    <TextBlock Text="{Binding NotFoundOnBoothNotice}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                               FontSize="12" Foreground="{DynamicResource Warn}"
+                                               AutomationProperties.AutomationId="ItemNotFoundOnBooth" />
+                                    <Button Content="同じ商品をBOOTHで探す" Style="{StaticResource SmallButton}"
+                                            AutomationProperties.AutomationId="ItemFindOnBooth"
+                                            ToolTip="商品名とファイル名でBOOTHを検索します。見つかればIDを変えて移せます。"
+                                            Command="{Binding FindOnBoothCommand}" />
+                                </controls:SplitRowPanel>
+                            </Border>
+
                             <Border Height="1" Background="{DynamicResource Divider}" Margin="0,14,0,12" />
 
                             <!--

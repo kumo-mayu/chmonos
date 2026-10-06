@@ -11,6 +11,9 @@ public partial class ChangeItemIdDialog : Window
         DataContext = model;
         Owner = Application.Current?.MainWindow;
         Services.DialogFit.Prepare(this);
+
+        // 閉じた後も探し続けると、誰も見ない結果のために BOOTH へ問い合わせ続ける
+        Closed += (_, _) => model.StopSearchCommand.Execute(null);
     }
 
     private void OnMove(object sender, RoutedEventArgs e) => DialogResult = true;

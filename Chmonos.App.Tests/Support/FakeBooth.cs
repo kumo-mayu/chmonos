@@ -58,6 +58,26 @@ internal sealed class FakeBooth : HttpMessageHandler
         }
     }
 
+    private readonly Dictionary<string, string[]> _searches = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// BOOTH の検索（<c>/search/{語}</c>）に、教えた商品のカードを答えるようにする。名前とショップは <see cref="HasItem"/> で教えた物。
+    /// 0件を作るときは商品を渡さずに呼ぶ。教えていない語には、ほかと同じく 404 を答える。
+    /// </summary>
+    public void SearchFinds(string query, params string[] itemIds)
+    {
+        lock (_gate)
+        {
+            _searches[BoothSearchUrl(query)] = itemIds;
+        }
+    }
+
+    // 来た問い合わせは Uri.ToString() で比べるので（日本語は戻した形になる）、同じ形にして覚える
+    private static string BoothSearchUrl(string query) => new Uri(Core.Booth.BoothClient.SearchUrl(query)).ToString();
+
+    /// <summary>来た検索の数。</summary>
+    public int SearchCount => Requests.Count(url => url.StartsWith("https://booth.pm/ja/search/", StringComparison.Ordinal));
+
     private readonly HashSet<string> _down = new(StringComparer.Ordinal);
 
     /// <summary>その商品IDの問い合わせに 503 を答える（一時的に届かない。「無い」とは言えない、を作る）。</summary>
@@ -134,6 +154,18 @@ internal sealed class FakeBooth : HttpMessageHandler
 
         lock (_gate)
         {
+            if (_searches.TryGetValue(url, out var ids))
+            {
+                var cards = string.Concat(ids.Select(id =>
+                {
+                    var name = _itemJson.TryGetValue(id, out var json)
+                        ? System.Text.Json.JsonDocument.Parse(json).RootElement.GetProperty("name").GetString()
+                        : id;
+                    return $"""<li class="item-card l-card" data-product-id="{id}" data-product-name="{name}" data-product-brand="">""";
+                }));
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent($"<html><body><ul>{cards}</ul></body></html>") };
+            }
+
             if (_down.Any(itemId => url.EndsWith($"/items/{itemId}.json", StringComparison.Ordinal)))
             {
                 return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
