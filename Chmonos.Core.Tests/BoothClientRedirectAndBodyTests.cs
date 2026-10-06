@@ -60,15 +60,38 @@ public sealed class BoothClientRedirectAndBodyTests : IDisposable
 
     private static HttpResponseMessage Ok(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };
 
-    /// <summary>待ちを差し替えたクライアント。言われた待ちの長さを <paramref name="waits"/> に足す。</summary>
+    /// <summary>
+    /// 待ちを差し替えたクライアント。言われた待ちの長さを <paramref name="waits"/> に足す。
+    /// **時計も差し替える**（外部の点検 2026-10-06）：実際の時計のままだと、1本目から次の間隔を数えるまでに
+    /// GC などで実際の時間が過ぎた分だけ待ちが短くなり、待ちの長さを決まった値と比べる試験がまれに落ちた。
+    /// 時計は待ちを頼まれた分だけ進むので、待ちの長さは実際に過ぎた時間に左右されない
+    /// </summary>
     private static BoothClient Client(HttpMessageHandler handler, List<TimeSpan>? waits = null, int intervalMs = 1500)
-        => new(new HttpClient(handler),
-            new AppSettings { FetchIntervalMs = intervalMs },
-            delay: (duration, _) =>
+    {
+        var clock = new StepClock();
+        return new(new HttpClient(handler),
+            SettingsSource.Fixed(new AppSettings { FetchIntervalMs = intervalMs }),
+            (duration, _) =>
             {
                 waits?.Add(duration);
+                clock.Advance(duration);
                 return Task.CompletedTask;
-            });
+            },
+            machineGate: null,
+            clock);
+    }
+
+    /// <summary>頼まれた待ちの分だけ進む時計。ほかの所では止まっている。</summary>
+    private sealed class StepClock : TimeProvider
+    {
+        private long _ticks;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Read(ref _ticks);
+
+        public void Advance(TimeSpan duration) => Interlocked.Add(ref _ticks, duration.Ticks);
+    }
 
     private static TimeSpan Sum(IEnumerable<TimeSpan> waits) => waits.Aggregate(TimeSpan.Zero, (sum, wait) => sum + wait);
 
@@ -92,9 +115,9 @@ public sealed class BoothClientRedirectAndBodyTests : IDisposable
         Assert.True(result.IsSuccess);
         Assert.Equal(["https://booth.pm/ja/items/1.json", "https://booth.pm/ja/items/1.json?moved"], handler.Requests);
 
-        // 転送先への1本も、1本目から間隔を空けて出た（待ちを差し替えているので、言われた長さで見る。
-        // 長さは1本目が終わってから実際に過ぎた分だけ間隔より短い。直す前は待ちが0だった）
-        Assert.True(Sum(waits) >= TimeSpan.FromMilliseconds(1400), $"待ち {Sum(waits).TotalMilliseconds}ms");
+        // 転送先への1本も、1本目から間隔を空けて出た（待ちと時計を差し替えているので、言われた長さが間隔そのものになる。
+        // 直す前は待ちが0だった）
+        Assert.True(Sum(waits) >= TimeSpan.FromMilliseconds(1500), $"待ち {Sum(waits).TotalMilliseconds}ms");
     }
 
     [Fact]
