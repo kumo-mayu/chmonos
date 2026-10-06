@@ -73,13 +73,15 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 ShowModification(record);
             }
         });
-        DuplicateModificationCommand = new RelayCommand(parameter =>
-        {
-            if (RecordOf(parameter) is { } record)
+        DuplicateModificationCommand = new RelayCommand(
+            parameter =>
             {
-                DuplicateModificationAsync(record.Id).Forget();
-            }
-        });
+                if (RecordOf(parameter) is { } record)
+                {
+                    DuplicateModificationAsync(record.Id).Forget();
+                }
+            },
+            _ => !_duplicating);
         ShowAvatarCommand = new RelayCommand(parameter =>
         {
             if (AvatarIdOf(parameter) is { } id)
@@ -859,6 +861,31 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// 行の右クリックと詳細の帯のボタンの、どちらからもここへ来る
     /// </summary>
     public async Task DuplicateModificationAsync(string id)
+    {
+        // **複製している間は次の複製を受けない**（外部の点検 2026-10-06。「改変を作る」と同じ）。
+        // 保存を待つ間に2回目が入ると、同じ元から複製が2つでき、同じ「コピー」の名前を選ぶこともあった。
+        // 一覧の右クリックも詳細のボタンもここへ来るので、印はここ1か所で立てる
+        if (_duplicating)
+        {
+            return;
+        }
+
+        _duplicating = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        try
+        {
+            await DuplicateModificationCoreAsync(id);
+        }
+        finally
+        {
+            _duplicating = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private bool _duplicating;
+
+    private async Task DuplicateModificationCoreAsync(string id)
     {
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DuplicateModification(id));
         if (result is CommandResult.Failed failed)

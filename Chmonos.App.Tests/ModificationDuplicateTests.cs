@@ -78,4 +78,29 @@ public class ModificationDuplicateTests
         Assert.Null(hub.Detail);
         Assert.Equal("対象の改変が見つかりませんでした。", hub.Status);
     });
+
+    /// <summary>
+    /// 複製を素早く2回押しても、複製は1つだけできる（外部の点検 2026-10-06）。
+    /// 書き込みの門を握って1回目を保存の手前で止め、その間に一覧の右クリックと詳細のボタンから2回目を押す
+    /// </summary>
+    [Fact]
+    public Task 複製を素早く2回押しても_複製は1つだけできる() => TestApp.Run(async app =>
+    {
+        var (hub, source, _) = await OpenAsync(app);
+        hub.ShowModificationCommand.Execute(source);
+        var detail = Assert.IsType<ModificationViewModel>(hub.Detail);
+
+        using (await Chmonos.Core.Storage.StoreWriteGate.HoldAsync())
+        {
+            detail.DuplicateCommand.Execute(null);
+            Assert.False(hub.DuplicateModificationCommand.CanExecute(source));
+            detail.DuplicateCommand.Execute(null);
+            hub.DuplicateModificationCommand.Execute(source);
+        }
+
+        await app.SettleAsync();
+
+        var all = (await app.Store.Modifications.LoadAllAsync()).Modifications;
+        Assert.Single(all, modification => modification.Name.StartsWith("夏の改変のコピー", StringComparison.Ordinal));
+    });
 }
