@@ -17,6 +17,9 @@ public sealed class RegistrationJob
     /// <summary>一覧でチェックした物をまとめて積んだか。終わったときに次の行へ送るかを決める（1件ずつ片付ける流れのときだけ送る）。</summary>
     public bool FromChecked { get; init; }
 
+    /// <summary>前の起動の記録から続けた物か。済んでいたファイルを、未確定に無いからと失敗に数えないために見る。</summary>
+    internal bool Resumed { get; init; }
+
     public bool IsRunning { get; internal set; }
 
     /// <summary>済んだファイルの数（束の n / m 件）。</summary>
@@ -55,7 +58,9 @@ public sealed class RegistrationOutcome(RegistrationJob job, IReadOnlyList<strin
 /// **主画面が持つ**：未確定の画面は開くたびに作り直す（フォルダビューの右にも別に作られる）ので、画面に持たせると離れたところで止まる。
 /// 画面の行とはハッシュで結ぶ（行は読み直しで作り直される）。
 /// 列は <c>registration-queue.json</c> にも書き、閉じても次の起動で同じ順に続ける。書くのは積んだ・済んだ・やめたの3つだけ
-/// （進み具合は書かない。再開すると済んだファイルは未確定から消えていて、命令が失敗として返す）。
+/// （進み具合は書かない。再開すると済んだファイルは未確定から消えていて、商品が持っているかで済んだと分かる）。
+/// **添えた画像を入れ終わるまでが1件**（2026-10-06 外部の点検）。前は画像を入れる前に列と記録から外していたので、
+/// その間に閉じると画像が入らず、次の起動でも続かなかった。
 /// </summary>
 public sealed class RegistrationQueue : ViewModelBase
 {
@@ -63,6 +68,7 @@ public sealed class RegistrationQueue : ViewModelBase
     private readonly Func<int> _intervalMs;
     private readonly Func<IDisposable>? _holdRemainingImages;
     private readonly Func<string, Task> _settled;
+    private readonly Func<string, string, Task<bool>>? _registeredBefore;
     private readonly List<RegistrationJob> _jobs = [];
 
     /// <summary>登録できなかったファイルの理由。行の札と吹き出しに出す。積み直すか、開き直して行が消えるまで覚える（記録には書かない）。</summary>
@@ -80,9 +86,19 @@ public sealed class RegistrationQueue : ViewModelBase
     /// 列が動いている間、登録の後に続く問い合わせ（残りの画像・対応アバターの検出）を待たせる札を取る（列が空になったら返す。メモ60 案B の続き）。
     /// 試験で列だけを組むときは null（待たせない）
     /// </param>
-    public RegistrationQueue(CommandHandler commands, Func<int> intervalMs, Func<string, Task> settled, Func<IDisposable>? holdRemainingImages = null)
+    /// <param name="registeredBefore">
+    /// （商品ID, ハッシュ）のファイルが、未確定から消えて、その商品に入っているか。記録から続けた登録で、前の起動で済んでいた分を見分ける。
+    /// null なら見分けない（済んでいた分は失敗に数える）
+    /// </param>
+    public RegistrationQueue(
+        CommandHandler commands,
+        Func<int> intervalMs,
+        Func<string, Task> settled,
+        Func<IDisposable>? holdRemainingImages = null,
+        Func<string, string, Task<bool>>? registeredBefore = null)
     {
         _commands = commands;
+        _registeredBefore = registeredBefore;
         _holdRemainingImages = holdRemainingImages;
         _intervalMs = intervalMs;
         _settled = settled;
@@ -211,7 +227,7 @@ public sealed class RegistrationQueue : ViewModelBase
     {
         foreach (var record in saved.Where(record => record.ItemId.Length > 0 && record.FileHashes.Count > 0))
         {
-            _jobs.Add(new RegistrationJob { Record = record });
+            _jobs.Add(new RegistrationJob { Record = record, Resumed = true });
         }
 
         Changed?.Invoke();
@@ -272,8 +288,13 @@ public sealed class RegistrationQueue : ViewModelBase
         {
             try
             {
-                var result = await _commands.ExecuteAsync(new UiCommand.AssignItemId(hash, job.ItemId, progress));
-                if (result is CommandResult.Failed failed)
+                // 前の起動で、ファイルは登録できたが添えた画像を入れる前に閉じた（または記録から外す前に落ちた）。
+                // 未確定に無いので命令は失敗を返すが、商品が持っていれば済んでいる。画像はこの後で入れる
+                if (job.Resumed && _registeredBefore is not null && await _registeredBefore(job.ItemId, hash))
+                {
+                    settled.Add(hash);
+                }
+                else if (await _commands.ExecuteAsync(new UiCommand.AssignItemId(hash, job.ItemId, progress)) is CommandResult.Failed failed)
                 {
                     failure ??= failed.Message;
                 }
@@ -295,19 +316,9 @@ public sealed class RegistrationQueue : ViewModelBase
             Changed?.Invoke();
         }
 
-        job.IsRunning = false;
-        _jobs.Remove(job);
-        foreach (var hash in job.FileHashes.Except(settled, StringComparer.OrdinalIgnoreCase))
-        {
-            if (failure is not null)
-            {
-                _failures[hash] = failure;
-            }
-        }
-
-        Persist(list => Without(list, job.Record));
-
-        // 添えた画像は商品ができてから入れる（BOOTHに無い商品と同じ）。写しへ入れる前に入れる（検索のカードに画像を出す）
+        // 添えた画像は商品ができてから入れる（BOOTHに無い商品と同じ）。写しへ入れる前に入れる（検索のカードに画像を出す）。
+        // **入れ終わるまで列と記録に残す。**先に外すと、入れている間に閉じたとき画像が入らず、次の起動でも続かない。
+        // 途中で閉じて次の起動で入れ直しても、保存名が中身のハッシュなので、入っていた分は1枚にまとまる
         var imagesFailed = 0;
         if (settled.Count > 0 && job.Record.UserImagePaths is { Count: > 0 } images)
         {
@@ -321,6 +332,18 @@ public sealed class RegistrationQueue : ViewModelBase
                 imagesFailed = images.Count;
             }
         }
+
+        job.IsRunning = false;
+        _jobs.Remove(job);
+        foreach (var hash in job.FileHashes.Except(settled, StringComparer.OrdinalIgnoreCase))
+        {
+            if (failure is not null)
+            {
+                _failures[hash] = failure;
+            }
+        }
+
+        Persist(list => Without(list, job.Record));
 
         // 画面が行を外す前に、主画面の控えと検索の写しへ入れる（フォルダビューの右は、残りの数が減ったのを見て写しから木を組み直す）
         if (settled.Count > 0)

@@ -16,9 +16,31 @@ public sealed partial class MainViewModel
 
     private RegistrationQueue CreateRegistrations()
     {
-        var queue = new RegistrationQueue(_services.Commands, () => _services.Settings.FetchIntervalMs, NoteResolveSettledAsync, _services.Commands.HoldAfterRegistration);
+        var queue = new RegistrationQueue(
+            _services.Commands,
+            () => _services.Settings.FetchIntervalMs,
+            NoteResolveSettledAsync,
+            _services.Commands.HoldAfterRegistration,
+            RegisteredBeforeAsync);
         queue.Unhandled += outcome => NoteRegistrationAwayAsync(outcome).Forget();
         return queue;
+    }
+
+    /// <summary>
+    /// このファイルが既にこの商品に入っているか（未確定から消えて、商品の記録が持っている）。読むだけなので命令を通さない。
+    /// 前の起動で登録の後、添えた画像を入れる前に閉じた登録を、記録から続けるときに見分ける。
+    /// </summary>
+    private async Task<bool> RegisteredBeforeAsync(string itemId, string hash)
+    {
+        if (await _services.Store.Items.LoadAsync(itemId) is not { } item
+            || !item.Local.LocalFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        // 未確定にまだ在るなら、商品に入っていても命令に任せる（命令が今の決まりで片付ける）
+        var unresolved = await _services.Store.Unresolved.LoadAsync();
+        return !unresolved.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
