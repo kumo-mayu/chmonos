@@ -54,9 +54,12 @@ public class AvatarSectionNoteTests
 
         Assert.True(page.HasDetectedAvatars);
         Assert.False(page.HasAvatars);
+        // 説明の文そのものが切り替わり、横に「表示する」が出る（「まだ終わっていません」と並べて2行にしない）
+        Assert.Equal("対応アバターの判定が終わりました。", page.AvatarSectionNote);
         page.ShowDetectedAvatarsCommand.Execute(null);
         Assert.False(page.HasDetectedAvatars);
         Assert.Equal("作り物のアバター", Assert.Single(page.Avatars).Name);
+        Assert.Equal("出品者が対応と書いているアバターです。", page.AvatarSectionNote);
 
         // （下の試験：フォルダビューに組み込んだ商品ページにも届く）
         // 変わらなかった判定は「表示する」を出さず、判定の日時だけを入れる

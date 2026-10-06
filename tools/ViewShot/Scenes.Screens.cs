@@ -427,6 +427,28 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        new Scene("item-page-avatars-detected", "商品ページ：開いている間に対応アバターの判定が終わった所。説明の文が「判定が終わりました」に切り替わり、すぐ後ろに［表示する］（2026-10-06）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900103", "作り物の衣装", record => record, images: 1);
+            var main = await context.StartAsync();
+            main.ShowItem(item);
+            var page = (Chmonos.App.ViewModels.ItemViewModel)main.CurrentViewModel!;
+
+            // 裏の判定が対応アバターを書いた（記録だけ。画面はまだ前の表示）
+            await context.Services.Store.Items.SaveAsync(item with
+            {
+                Local = item.Local with
+                {
+                    Avatars = [new Chmonos.Core.Models.AvatarLink { AvatarItemId = "9900951", Name = "作り物のアバター" }],
+                    AvatarsDetectedAt = DateTimeOffset.Now,
+                },
+            });
+            await page.NoteAvatarsDetectedAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            return new Shot(root);
+        }),
+
         // 対応アバターの多い商品（29体・共通素体2つ・ファイル2つ）。Tab と矢印の確かめ（ViewShot tabs）と、札の並びのフォーカスの枠を見る。
         // 2026-10-01 の点検で、29体の商品は欄を抜けるのに Tab を62回押した
         new Scene("item-page-avatars", "商品ページ：対応アバター29体・共通素体2つ・手元のファイル2つ（Tab の通しの確かめ）", async context =>

@@ -254,7 +254,11 @@ public sealed partial class ItemViewModel
     /// 対応アバターの欄の説明。**まだ判定していない商品は、見つからなかった商品と言い分ける**（ユーザ判断 2026-10-06）。
     /// 未確定から登録した直後は、登録の列が空になるまで判定を待たせるので、その間に「見つかっていません」と出ると誤って読める
     /// </summary>
-    public string AvatarSectionNote => HasAvatars || HasAvatarBases
+    public string AvatarSectionNote => HasDetectedAvatars
+        // 判定が終わったら説明の文そのものを切り替え、横に「表示する」を出す（2行並べると「まだ終わっていません」と
+        // 「終わりました」が両方書かれて見えた。ユーザ 2026-10-06）
+        ? DetectedAvatarsText
+        : HasAvatars || HasAvatarBases
         ? "出品者が対応と書いているアバターです。"
         : Item.Local.AvatarsDetectedAt is null
             ? "対応アバターの判定がまだ終わっていません。"
@@ -304,6 +308,7 @@ public sealed partial class ItemViewModel
 
         _detectedRecord = reloaded;
         OnPropertyChanged(nameof(HasDetectedAvatars));
+        OnPropertyChanged(nameof(AvatarSectionNote));
         RelayCommand.RaiseCanExecuteChanged();
     }
 
