@@ -377,6 +377,18 @@ public abstract record UiCommand
         IReadOnlyCollection<string>? Listed = null) : UiCommand;
 
     /// <summary>
+    /// BOOTH で見つからなくなった商品の、新しいIDの候補を探す（「IDを変える」の自動検索。ユーザ判断 2026-10-06）。
+    /// **何も書かない。**選んだ候補はIDの欄に入るだけで、移すのは下見を見てから。
+    /// 名前と場所は画面が手元の記録から読んで渡す（読むだけの処理は画面から直に呼んでよい）。
+    /// </summary>
+    public record FindReplacementItem(
+        string FromId,
+        string? PreviousName,
+        string? ShopSubdomain,
+        IReadOnlyList<string> Paths,
+        IProgress<Resolution.ResolveProgress>? Progress = null) : UiCommand;
+
+    /// <summary>
     /// 対応アバターを検出する（人が押したとき）。
     ///
     /// **取り込みの中の③とは別物。**あちらは待てるので <c>Detection</c> のまま、
@@ -636,6 +648,8 @@ public abstract record CommandResult
     /// <param name="BoothUnreachable">BOOTH に届かなかったか（E3）。0件でも「無い」と言い切らないため。</param>
     public record CandidatesProposed(
         IReadOnlyList<Resolution.ResolutionCandidate> Candidates, bool BoothUnreachable = false) : CommandResult;
+
+    public record ReplacementsFound(Resolution.ReplacementProposal Proposal) : CommandResult;
 
     public record AvatarsDetected(Services.AvatarDetectResult Result) : CommandResult;
 

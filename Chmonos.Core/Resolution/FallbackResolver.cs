@@ -55,7 +55,7 @@ public sealed class ResolutionCandidate
 /// </summary>
 public sealed record ResolutionProposal(IReadOnlyList<ResolutionCandidate> Candidates, bool BoothUnreachable);
 
-public sealed class FallbackResolver
+public sealed partial class FallbackResolver
 {
     private const int MaxCandidates = 3;
 
