@@ -46,6 +46,8 @@ public partial class SearchView : UserControl
     {
         InitializeComponent();
 
+        HookFilterToggleTabs();
+
         // 並びは絞り込み欄の外側の流し枠の中にある。積んだ値の一覧などの入れ子の流し枠を流さないよう、並びの外側の枠を指す
         _reorder = new RowReorder(this, () => Model?.Modules ?? Enumerable.Empty<ReorderableRow>(),
             () => DragEdgeScroll.FindScroller(ModulesList, ModulesList));
@@ -316,5 +318,62 @@ public partial class SearchView : UserControl
         }
 
         return null;
+    }
+
+    /// <summary>Tab の行き先を決める部品の名前。</summary>
+    public enum TabStop { FilterMenu, ClearFilters, Toggle, AddModule }
+
+    /// <summary>
+    /// 絞り込みのつまみを、見た目どおり「条件をクリア」の次・「条件を追加」の前に止めるための行き先（ユーザ指示 2026-10-06）。
+    /// null なら手でつながず、いつもの Tab に任せる。条件が無いと「条件をクリア」は押せず止まれないので、そのときは「…」の次に置く。
+    /// 畳んだ間は前後の部品が見えないので、つながない（つまみは画面の最初に止まる）
+    /// </summary>
+    internal static TabStop? FilterToggleTabTarget(TabStop from, bool backward, bool collapsed, bool canClear)
+    {
+        if (collapsed)
+        {
+            return null;
+        }
+
+        return (from, backward) switch
+        {
+            (TabStop.ClearFilters, false) => TabStop.Toggle,
+            (TabStop.FilterMenu, false) when !canClear => TabStop.Toggle,
+            (TabStop.Toggle, false) => TabStop.AddModule,
+            (TabStop.Toggle, true) => canClear ? TabStop.ClearFilters : TabStop.FilterMenu,
+            (TabStop.AddModule, true) => TabStop.Toggle,
+            _ => null,
+        };
+    }
+
+    private void HookFilterToggleTabs()
+    {
+        void Hook(UIElement element, TabStop from) => element.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Tab || (Keyboard.Modifiers & ~ModifierKeys.Shift) != ModifierKeys.None || Model is not { } model)
+            {
+                return;
+            }
+
+            var backward = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            var target = FilterToggleTabTarget(from, backward, model.IsFilterPanelCollapsed, ClearFiltersButton.IsEnabled);
+            UIElement? to = target switch
+            {
+                TabStop.FilterMenu => FilterMenuButton,
+                TabStop.ClearFilters => ClearFiltersButton,
+                TabStop.Toggle => FilterPanelToggle,
+                TabStop.AddModule => AddModuleMenuItem,
+                _ => null,
+            };
+            if (to is not null && to.Focus())
+            {
+                e.Handled = true;
+            }
+        };
+
+        Hook(FilterMenuButton, TabStop.FilterMenu);
+        Hook(ClearFiltersButton, TabStop.ClearFilters);
+        Hook(FilterPanelToggle, TabStop.Toggle);
+        Hook(AddModuleMenuItem, TabStop.AddModule);
     }
 }

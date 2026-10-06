@@ -299,7 +299,11 @@
         <Border Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,13,-13,0"
                 Width="26" Height="26" CornerRadius="13" Panel.ZIndex="2"
                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1">
-            <!-- 画面の最初に止まる（つまみは絞り込みの見出しの行の高さ、絞り込みの頭にある）。止まったことは丸い枠で見せる -->
+            <!--
+                Tab では見た目どおり「条件をクリア」の次・「条件を追加」の前に止まる（ユーザ指示 2026-10-06）。つまみは絞り込みの外の部品なので、
+                書いた順のままでは間に挟めない。開いている間は Tab の流れから外し、前後の部品から手でつなぐ（SearchView.xaml.cs の FilterToggleTabTarget）。
+                畳んだ間は前後の部品が見えないので、画面の最初（ナビの次）に止まる。止まったことは丸い枠で見せる
+            -->
             <Button x:Name="FilterPanelToggle" Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center"
                     KeyboardNavigation.TabIndex="0" FocusVisualStyle="{StaticResource PanelToggleFocusVisual}">
                 <Button.Style>
@@ -308,8 +312,10 @@
                         <Setter Property="ToolTip" Value="絞り込みを折りたたむ" />
                         <Setter Property="AutomationProperties.Name" Value="絞り込みを折りたたむ" />
                         <Setter Property="AutomationProperties.AutomationId" Value="SearchToggleFilterPanel" />
+                        <Setter Property="IsTabStop" Value="False" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsFilterPanelCollapsed}" Value="True">
+                                <Setter Property="IsTabStop" Value="True" />
                                 <Setter Property="Content" Value="{StaticResource IconExpand}" />
                                 <Setter Property="ToolTip" Value="絞り込みを開く" />
                                 <Setter Property="AutomationProperties.Name" Value="絞り込みを開く" />
@@ -388,7 +394,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Style="{StaticResource PanelMenuButton}" Margin="6,0,0,0" Click="OnModuleMenuClick"
+                        <Button x:Name="FilterMenuButton" Grid.Column="1" Style="{StaticResource PanelMenuButton}" Margin="6,0,0,0" Click="OnModuleMenuClick"
                                 ToolTip="絞り込みの操作"
                                 AutomationProperties.AutomationId="SearchFilterMenu"
                                 AutomationProperties.Name="絞り込みの操作" />
@@ -414,7 +420,7 @@
                         -->
                         <StackPanel x:Name="SavedAnchorRow" Orientation="Horizontal">
                         <Menu Background="Transparent" HorizontalAlignment="Left">
-                            <MenuItem Header="＋ 条件を追加 ▾" ItemsSource="{Binding ModuleMenu}" Height="30" Padding="10,0"
+                            <MenuItem x:Name="AddModuleMenuItem" Header="＋ 条件を追加 ▾" ItemsSource="{Binding ModuleMenu}" Height="30" Padding="10,0"
                                       FontSize="12.5" Foreground="{DynamicResource Accent}"
                                       AutomationProperties.AutomationId="SearchAddModule"
                                       AutomationProperties.Name="条件を追加"

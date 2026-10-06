@@ -48,15 +48,23 @@ public class SearchTabOrderTests
     });
 
     [Fact]
-    public Task 絞り込みのつまみは_画面の最初に止まり_次は絞り込みの見出しへ進む() => WithSearchView((app, search, view) =>
+    public Task 絞り込みのつまみは_開いている間は条件をクリアの次に止まり_畳んだ間は画面の最初に止まる() => WithSearchView((app, search, view) =>
     {
-        // 画面の先頭から入ると、つまみ（絞り込みと結果の境の上端）→ 絞り込みの見出しの「…」→「条件をクリア」
+        // 開いている間、つまみはいつもの Tab の流れから外れ（絞り込みの外の部品なので、書いた順では間に挟めない）、
+        // 前後の部品が Tab のキーで手でつなぐ（ユーザ指示 2026-10-06：見た目どおり「条件をクリア」の次・「条件を追加」の前）
         view.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
         Settle(view);
-        Assert.Equal("SearchToggleFilterPanel", Id(Keyboard.FocusedElement));
+        Assert.Equal("SearchFilterMenu", Id(Keyboard.FocusedElement));
         Assert.Equal(
-            ["SearchToggleFilterPanel", "SearchFilterMenu", "SearchClearFilters"],
-            Walk(view, "SearchToggleFilterPanel", FocusNavigationDirection.Next, 3));
+            ["SearchFilterMenu", "SearchClearFilters"],
+            Walk(view, "SearchFilterMenu", FocusNavigationDirection.Next, 2));
+
+        // 手でつないだ道：条件をクリア → Tab → つまみ → Tab → 条件を追加（既定の並びに条件があるので、条件をクリアは押せる）
+        Assert.True(Find(view, "SearchClearFilters").IsEnabled);
+        PressTab(view, Find(view, "SearchClearFilters"));
+        Assert.Equal("SearchToggleFilterPanel", Id(Keyboard.FocusedElement));
+        PressTab(view, Find(view, "SearchToggleFilterPanel"));
+        Assert.Equal("SearchAddModule", Id(Keyboard.FocusedElement));
 
         // 結果の後ろへは回らない（前は結果のカードの後ろで止まっていた）
         Assert.Equal(
@@ -95,6 +103,15 @@ public class SearchTabOrderTests
         }
 
         return stops;
+    }
+
+    /// <summary>その部品で Tab のキーを押したことにする（手でつないだ道は PreviewKeyDown で受けるので、MoveFocus では通らない）。</summary>
+    private static void PressTab(FrameworkElement view, FrameworkElement element)
+    {
+        element.Focus();
+        var source = PresentationSource.FromVisual(element)!;
+        element.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+        Settle(view);
     }
 
     private static string? Id(IInputElement? element)
