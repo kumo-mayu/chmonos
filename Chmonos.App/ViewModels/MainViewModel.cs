@@ -59,14 +59,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
         // 未確定から登録した後の対応アバターの判定が終わった。検索の写しは黙って読み直し（カードの「対応 n体」・条件）、
         // 開いている商品ページは「表示する」を出す（勝手に入れ替えると欄が伸びて下が急にずれる。ユーザ判断 2026-10-06）
-        services.Commands.AvatarsDetectedAfterRegistration += () => RunOnUiThread(() =>
-        {
-            ReloadLibraryAsync().Forget();
-            if (CurrentItemPage is { } page)
-            {
-                page.NoteAvatarsDetectedAsync().Forget();
-            }
-        });
+        services.Commands.AvatarsDetectedAfterRegistration += () => RunOnUiThread(NoteAvatarsDetectedAfterRegistration);
 
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
         Search.RestoreHistory();
@@ -562,6 +555,19 @@ public sealed partial class MainViewModel : ViewModelBase
     /// </summary>
     public ItemViewModel? CurrentItemPage
         => CurrentViewModel as ItemViewModel ?? (CurrentViewModel as EditViewModel)?.ItemPage;
+
+    /// <summary>
+    /// 未確定から登録した後の対応アバターの判定が終わった（UIスレッド）。検索の写しは黙って読み直し、開いている商品ページ
+    /// （フォルダビュー・改変の画面に組み込んだ物も）には「表示する」を出させる（ユーザ判断 2026-10-06）
+    /// </summary>
+    internal void NoteAvatarsDetectedAfterRegistration()
+    {
+        ReloadLibraryAsync().Forget();
+        if ((CurrentItemPage ?? (CurrentViewModel as IEmbeddedItemPageHost)?.EmbeddedItemPage) is { } page)
+        {
+            page.NoteAvatarsDetectedAsync().Forget();
+        }
+    }
 
     /// <summary>
     /// いま出している改変の詳細（単独の画面でも、改変の画面に組み込んだ物でも）。

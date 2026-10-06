@@ -1,3 +1,4 @@
+using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Tests;
@@ -57,11 +58,43 @@ public class AvatarSectionNoteTests
         Assert.False(page.HasDetectedAvatars);
         Assert.Equal("作り物のアバター", Assert.Single(page.Avatars).Name);
 
+        // （下の試験：フォルダビューに組み込んだ商品ページにも届く）
         // 変わらなかった判定は「表示する」を出さず、判定の日時だけを入れる
         var quiet = new ItemViewModel(unchanged, app.Services, main, main.Thumbnails);
         await app.Services.Store.Items.SaveAsync(unchanged with { Local = unchanged.Local with { AvatarsDetectedAt = now } });
         await quiet.NoteAvatarsDetectedAsync();
         Assert.False(quiet.HasDetectedAvatars);
         Assert.Equal("出品者の対応表明は見つかっていません。アバターの管理から検出できます。", quiet.AvatarSectionNote);
+    });
+
+    [Fact]
+    public Task フォルダビューに組み込んだ商品ページにも_判定が終わった知らせが届く() => Support.TestApp.Run(async app =>
+    {
+        var path = app.NewFile(@"lib\a\dress.zip");
+        var item = Support.Make.Item("9900905", "作り物のドレス").WithFiles(Support.Make.File(path));
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+        main.ShowFoldersCommand.Execute(null);
+        var folders = Assert.IsType<FolderViewModel>(main.CurrentViewModel);
+        await Support.UiThread.Until(() => folders.EmptyText != "読み込んでいます…", "フォルダビューの読み込みが済む");
+        while (folders.Rows.FirstOrDefault(row => row.CanExpand && !row.IsExpanded) is { } closed)
+        {
+            folders.ToggleCommand.Execute(closed);
+        }
+
+        folders.Selected = folders.Rows.First(row => row.Name == "dress.zip");
+        await app.SettleAsync();
+        var page = Assert.IsType<ItemViewModel>(folders.Detail);
+
+        await app.Services.Store.Items.SaveAsync(item with
+        {
+            Local = item.Local with
+            {
+                Avatars = [new Core.Models.AvatarLink { AvatarItemId = "9900951", Name = "作り物のアバター" }],
+                AvatarsDetectedAt = DateTimeOffset.Now,
+            },
+        });
+        main.NoteAvatarsDetectedAfterRegistration();
+        await Support.UiThread.Until(() => page.HasDetectedAvatars, "組み込んだ商品ページに「表示する」が出る");
     });
 }
