@@ -315,19 +315,8 @@ public sealed partial class ImportViewModel
     /// 行の絵（メモ76）。絵の場所は、行が見えて絵を読むときに初めて、商品の記録から決める（数千行ぶんの記録を先に読まない）。
     /// 記録を読む・絵の一覧を取るのは裏で行う。商品が消えていれば絵は無く、頭文字のまま。
     /// </summary>
-    internal ResultThumbnail PictureOf(string itemId, string itemName) => new(
-        itemName,
-        () => Task.Run(async () =>
-        {
-            if (await _services.Store.Items.LoadAsync(itemId) is not { } item)
-            {
-                return null;
-            }
-
-            var directory = _services.Paths.ItemImagesDir(item.Id);
-            return ResultThumbnail.PathOf(item, directory, _main.Thumbnails.ListFiles(directory), _services.Settings.ThumbnailRole);
-        }),
-        _main.Thumbnails);
+    internal ResultThumbnail PictureOf(string itemId, string itemName)
+        => ResultThumbnail.ForItem(_services, _main.Thumbnails, itemId, itemName);
 
     /// <summary>結果の1つを行にする。紐付け直した物は新しい場所の名前とフォルダ、見つからなかった物は元の名前。</summary>
     internal static MissingFileResultRow ResultRowOf(MissingFileOutcome outcome)

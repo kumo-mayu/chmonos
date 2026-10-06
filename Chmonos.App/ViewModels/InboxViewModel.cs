@@ -23,6 +23,12 @@ public sealed class NotificationRow : ViewModelBase
     public bool HasItem => !string.IsNullOrEmpty(Record.ItemId);
 
     /// <summary>
+    /// 行の頭の商品の絵（ユーザ指示 2026-10-06「通知画面にもアイコンが必要だろう」）。商品を指さない知らせは null で、絵の列ごと出さない
+    /// （束は種類ごとなので、同じ束の中で頭がずれることはない。種類の絵を置いても束の見出しと同じことを言うだけ）。
+    /// </summary>
+    public ResultThumbnail? Picture { get; init; }
+
+    /// <summary>
     /// 変わったところ1つ。**前の値も出す**（ユーザ指示 2026-09-18：価格・文言・バリエーション数は
     /// 「変化」なので、後の値だけでは何が起きたか分からない）。前が無いもの（足された見出しなど）は後だけ
     /// </summary>
@@ -591,6 +597,7 @@ public sealed class InboxViewModel : ViewModelBase
             ActionText = ActionLabel(record, _restorable),
             ActionTip = ActionTip(record, _restorable),
             ActionNotice = RowNoticeFor(record.Id),
+            Picture = PictureOf(record),
         };
 
         row.ReadChanged += OnRowReadChanged;
@@ -599,6 +606,25 @@ public sealed class InboxViewModel : ViewModelBase
         row.ActionCommand = new RelayCommand(() => ActAsync(row).Forget(), () => row.HasAction);
 
         return row;
+    }
+
+    /// <summary>
+    /// 行の頭の商品の絵。作り方は取り込みの探した結果の行と同じ（見えた行だけが記録を読み、絵は枠の大きさに縮めて読む）。
+    /// 読めない記録の知らせは商品を指す（<see cref="NotificationRecord.ItemId"/> は持たない）ので、絵は控えから決める。
+    /// 題が `{商品ID}.json` のとき（控えが無い・読めない）は名前が分からないので、頭文字の代わりに「?」
+    /// </summary>
+    private ResultThumbnail? PictureOf(NotificationRecord record)
+    {
+        if (record.Kind == NotificationKind.UnreadableItem)
+        {
+            var itemId = UnreadableItemId(record);
+            var name = string.Equals(record.Title, $"{itemId}.json", StringComparison.Ordinal) ? null : record.Title;
+            return ResultThumbnail.ForItem(_services, _main.Thumbnails, itemId, name, fromCopy: true);
+        }
+
+        return string.IsNullOrEmpty(record.ItemId)
+            ? null
+            : ResultThumbnail.ForItem(_services, _main.Thumbnails, record.ItemId, record.Title);
     }
 
     /// <summary>種類ごとの「ここを直す」。直す道が無い種類（商品ページの変更など）は空。</summary>
