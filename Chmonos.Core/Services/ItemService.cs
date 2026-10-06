@@ -1135,18 +1135,52 @@ public sealed class ItemService : IItemService
 
         if (jsonResult.Status == BoothFetchStatus.NotFound)
         {
+            await NoteBoothAnswerAsync(itemId, stillMissing: true, cancellationToken);
             return (null, $"商品ID {itemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。", true);
         }
 
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
+            // 一時的に届かないときは、残してある答え（無い）を変えない。確かめられていないだけ
             var detail = string.IsNullOrWhiteSpace(jsonResult.Error) ? string.Empty : $"（{jsonResult.Error}）";
             return (null, $"BOOTHに問い合わせできませんでした{detail}。通信を確かめて、もう一度お試しください。", false);
         }
 
-        return BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, [], itemId) is { } booth
-            ? (ToPreview(itemId, booth, isAlreadyOwned: false, requestsToRegister: RequestsToRegister(booth)), null, false)
-            : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。", false);
+        if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, [], itemId) is not { } booth)
+        {
+            return (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。", false);
+        }
+
+        await NoteBoothAnswerAsync(itemId, stillMissing: false, cancellationToken);
+        return (ToPreview(itemId, booth, isAlreadyOwned: false, requestsToRegister: RequestsToRegister(booth)), null, false);
+    }
+
+    /// <summary>
+    /// 人が聞き直した BOOTH の答えを、未確定に残した「無い」の記録（<see cref="UnresolvedFile.NotOnBooth"/>）に合わせる（ユーザ判断 2026-10-06）。
+    /// 今も無ければ日時を新しくし、公開されていれば外す（外さないと、一覧の札が「BOOTHで非公開」のまま残る）。
+    ///
+    /// 合わせるのは、もうそのIDの記録を持つ行だけ。人が打ったIDで「無い」と出ても、その行に付けない——打ち間違いかもしれず、
+    /// どの行の物かも決まらない。**錠の中で今の一覧に当てる**（取り込みが同じ一覧を書く。記録の無い一覧は書かない）
+    /// </summary>
+    private Task NoteBoothAnswerAsync(string itemId, bool stillMissing, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.Now;
+        return _store.Unresolved.TryUpdateAsync(
+            current =>
+            {
+                var changed = false;
+                for (var index = 0; index < current.Count; index++)
+                {
+                    if (current[index].NotOnBooth is { } note && string.Equals(note.ItemId, itemId, StringComparison.Ordinal))
+                    {
+                        current[index] = current[index].WithNotOnBooth(stillMissing ? note with { CheckedAt = now } : null);
+                        changed = true;
+                    }
+                }
+
+                return changed ? current : null;
+            },
+            cancellationToken);
     }
 
     /// <summary>

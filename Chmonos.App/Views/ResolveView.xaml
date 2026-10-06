@@ -549,9 +549,20 @@
                                             <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
                                             <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
-                                                    Visibility="{Binding HasCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    Visibility="{Binding ShowsCandidateCount, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}"
                                                            AutomationProperties.AutomationId="ResolveRowCandidateCount" />
+                                            </Border>
+                                            <!--
+                                                取り込みが BOOTH に聞いて「無い」と答えられた行（ユーザ判断 2026-10-06）。「自動候補」の代わりに出す
+                                                （候補は読み取れたIDの1件で、それが非公開。選ぶと、そのIDのまま登録する形が初めから出ている）
+                                            -->
+                                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                                    ToolTip="読み取れた商品IDが、BOOTHで見つかりませんでした。"
+                                                    Visibility="{Binding IsNotOnBooth, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="BOOTHで非公開" FontSize="10" Foreground="{DynamicResource Warn}"
+                                                           AutomationProperties.AutomationId="ResolveRowNotOnBooth" />
                                             </Border>
                                             <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
                                             <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource BorderStrong}"

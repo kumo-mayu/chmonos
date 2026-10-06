@@ -88,15 +88,25 @@ public sealed partial class ResolveViewModel
     /// <summary>
     /// 作った商品に添えた画像を入れる。読めなかった・画像として読めなかった枚数を返す（商品は作れているので、登録は取り消さない）。
     /// </summary>
-    private async Task<int> AddLocalImagesToAsync(string itemId, IReadOnlyList<LocalImageRow> images)
+    private Task<int> AddLocalImagesToAsync(string itemId, IReadOnlyList<LocalImageRow> images)
+        => LocalImageImport.AddAsync(_services.Commands, itemId, images.Select(image => image.Path));
+}
+
+/// <summary>
+/// 添えた画像を、商品の「自分で足す画像」として入れる。未確定の画面のその場の登録と、登録の列（聞き直して公開されていたIDの登録）の両方が使う。
+/// </summary>
+internal static class LocalImageImport
+{
+    /// <summary>読めなかった・画像として読めなかった枚数を返す（商品は作れているので、登録は取り消さない）。</summary>
+    public static async Task<int> AddAsync(CommandHandler commands, string itemId, IEnumerable<string> paths)
     {
         var failed = 0;
-        foreach (var image in images)
+        foreach (var path in paths)
         {
             byte[] bytes;
             try
             {
-                bytes = await File.ReadAllBytesAsync(image.Path);
+                bytes = await File.ReadAllBytesAsync(path);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -104,7 +114,7 @@ public sealed partial class ResolveViewModel
                 continue;
             }
 
-            if (await _services.Commands.ExecuteAsync(new UiCommand.AddUserImage(itemId, bytes)) is not CommandResult.UserImageAdded)
+            if (await commands.ExecuteAsync(new UiCommand.AddUserImage(itemId, bytes)) is not CommandResult.UserImageAdded)
             {
                 failed++;
             }

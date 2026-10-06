@@ -45,7 +45,7 @@ stateDiagram-v2
 | 状態（画面の言い方） | どこに | 欄・決め方 |
 |---|---|---|
 | 商品に結んだ | `items/{id}.json` `local.localFiles[]` | `hash`・`paths[]`・`sizeBytes`・`contents`・`variationId`・`unityPackages`・`volumes`（場所 → ディスクの通し番号。在ると確かめた場所だけ。点検の3） |
-| 未確定 | `unresolved.json` | `hash`・`paths`・`contents`・`zoneHostUrl`・`zoneReferrerUrl`・`candidateItemIds`・`samePathItemIds`・`archiveBroken` |
+| 未確定 | `unresolved.json` | `hash`・`paths`・`contents`・`zoneHostUrl`・`zoneReferrerUrl`・`candidateItemIds`・`samePathItemIds`・`archiveBroken`・`notOnBooth`（取り込みが BOOTH に聞いて404だった商品IDと日時 `{ itemId, checkedAt }`。2026-10-06） |
 | 管理対象から除外 | `excluded.json` | `hash`・`paths`・`excludedAt`・`reason`。走査の控えと3点が合えばハッシュを取らずに弾く |
 | この商品から外した（灰色の行） | 商品の `localFiles[]` | `detached: true`。所持・容量・検索・Unity へ送るに数えない（`LocalBlock.OwnedFiles`）。日時は持たない |
 | 見つかりません（場所が空） | 商品の `localFiles[]` | `paths: []`。取り込みが無い場所を外した結果。記録は残す |
