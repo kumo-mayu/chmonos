@@ -58,6 +58,17 @@ internal sealed class FakeBooth : HttpMessageHandler
         }
     }
 
+    private readonly HashSet<string> _down = new(StringComparer.Ordinal);
+
+    /// <summary>その商品IDの問い合わせに 503 を答える（一時的に届かない。「無い」とは言えない、を作る）。</summary>
+    public void IsDown(string itemId)
+    {
+        lock (_gate)
+        {
+            _down.Add(itemId);
+        }
+    }
+
     public static string ImageUrl(string itemId, int index) => $"https://booth.pximg.net/fake/i/{itemId}/{index}.png";
 
     private static readonly byte[] TinyPng = Convert.FromBase64String(
@@ -123,6 +134,11 @@ internal sealed class FakeBooth : HttpMessageHandler
 
         lock (_gate)
         {
+            if (_down.Any(itemId => url.EndsWith($"/items/{itemId}.json", StringComparison.Ordinal)))
+            {
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+            }
+
             foreach (var (itemId, json) in _itemJson)
             {
                 if (url.EndsWith($"/items/{itemId}.json", StringComparison.Ordinal))

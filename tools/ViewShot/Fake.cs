@@ -133,9 +133,11 @@ internal sealed class Fake(DataStore store)
     /// 中のファイルに書き残す値）。同じ zip を指すファイルは、一覧で1つの束になる
     /// </summary>
     public static UnresolvedFile Unresolved(
-        string path, long size = 48_300_000, bool broken = false, IReadOnlyList<string>? contents = null, string? originZip = null)
+        string path, long size = 48_300_000, bool broken = false, IReadOnlyList<string>? contents = null, string? originZip = null,
+        IReadOnlyList<string>? candidates = null)
         => new()
         {
+            CandidateItemIds = candidates ?? [],
             Hash = Hex(path),
             Paths = [path],
             SizeBytes = size,

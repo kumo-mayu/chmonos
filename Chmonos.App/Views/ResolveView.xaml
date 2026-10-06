@@ -40,6 +40,68 @@
                              Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
             </StackPanel>
         </DataTemplate>
+        <!--
+            添える画像の枠（メモ22：画像を足せると分かるよう、空でも「＋」の枠を並べたギャラリーの形にする）。
+            「BOOTHに無い商品として登録する」と「BOOTHで見つからなかったIDのまま登録する」の2か所で、同じ画像の一覧を出す
+        -->
+        <DataTemplate x:Key="LocalImageGallery" DataType="{x:Type vm:ResolveViewModel}">
+            <WrapPanel>
+                <controls:ContentItemsControl ItemsSource="{Binding LocalImages}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Width="96" Height="96" Margin="0,0,8,8" ToolTip="{Binding Name}">
+                                <!-- 読めない形式（WebP など）は名前を出す。絵が読めれば上に重なって隠れる -->
+                                <Border CornerRadius="6" BorderBrush="{DynamicResource Border}" BorderThickness="1" Background="{DynamicResource Surface}">
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                               Margin="6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                </Border>
+                                <Border CornerRadius="6" ClipToBounds="True" Margin="1">
+                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                </Border>
+                                <Button Style="{StaticResource ClearFieldButton}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Background="{DynamicResource ImagePill}" Margin="0,3,3,0"
+                                        AutomationProperties.AutomationId="ResolveLocalImageRemove"
+                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
+                                        ToolTip="この画像を外します。"
+                                        Command="{Binding DataContext.RemoveLocalImageCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </controls:ContentItemsControl>
+                <Button Width="96" Height="96" Margin="0,0,8,8" Cursor="Hand"
+                        AutomationProperties.AutomationId="ResolveLocalImageAdd" AutomationProperties.Name="画像を追加"
+                        ToolTip="画像を選びます。ここにドロップしても追加できます。"
+                        Command="{Binding ChooseLocalImagesCommand}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Grid Background="Transparent">
+                                <Rectangle x:Name="Frame" RadiusX="6" RadiusY="6" Stroke="{DynamicResource BorderStrong}"
+                                           StrokeDashArray="4 3" StrokeThickness="1.2" />
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="＋" FontSize="22" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
+                                    <TextBlock Text="画像を追加" FontSize="11" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Frame" Property="Stroke" Value="{DynamicResource Accent}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </WrapPanel>
+        </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
@@ -778,20 +840,29 @@
 
                             <!--
                                 BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。仮IDで登録すると再び公開されても情報を取れない。
-                                BOOTHが「無い」と答えたときだけ出す（一時的に届かないときに出すと、実はある商品を空のまま登録してしまう）
+                                BOOTHが「無い」と答えたときだけ出す（一時的に届かないときに出すと、実はある商品を空のまま登録してしまう）。
+                                欄の文字がそのIDのときだけ出し、書き換えたら引っ込める。BOOTHから何も取れないので、名前と画像はここで決める
+                                （ユーザ 2026-10-06：前はボタンだけで、何の道か分からなかった）。名前と画像は「BOOTHに無い商品」と同じ欄の値。
+                                登録は下の「このIDで登録」（キーも同じ）
                             -->
-                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                            <Border x:Name="UnpublishedCard" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0"
-                                    Visibility="{Binding HasNotOnBoothItemId, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    AllowDrop="True" PreviewDragOver="OnLocalBoxPreviewDragOver" PreviewDrop="OnLocalBoxPreviewDrop"
+                                    Visibility="{Binding IsUnpublishedForm, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
+                                    <TextBlock Text="{Binding UnpublishedLeadText}" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,5"
+                                               AutomationProperties.AutomationId="ResolveUnpublishedLead"
+                                               Visibility="{Binding HasUnpublishedLead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                               Text="このIDのまま登録できます。BOOTHで公開されたら情報を取得し、通知に表示します。" />
-                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0">
-                                        <Run Text="名前：" /><Run Text="{Binding UnpublishedNameDraft, Mode=OneWay}" />
-                                    </TextBlock>
-                                    <Button Content="{Binding UnpublishedButtonText}" Margin="0,10,0,0" HorizontalAlignment="Left"
-                                            AutomationProperties.AutomationId="ResolveAssignUnpublished"
-                                            Command="{Binding AssignUnpublishedCommand}" />
+                                               Text="このIDで登録すると、BOOTHで再び公開されたときに情報を取得します。" />
+
+                                    <TextBlock Text="名前" Style="{StaticResource SectionLabel}" Margin="0,12,0,5" />
+                                    <TextBox Height="32" VerticalContentAlignment="Center" Padding="8,0"
+                                             AutomationProperties.AutomationId="ResolveUnpublishedName" AutomationProperties.Name="登録する名前"
+                                             Text="{Binding LocalNameInput, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock Text="画像" Style="{StaticResource SectionLabel}" Margin="0,12,0,5" />
+                                    <ContentControl ContentTemplate="{StaticResource LocalImageGallery}" Content="{Binding}" Focusable="False" />
                                 </StackPanel>
                             </Border>
 
@@ -960,64 +1031,8 @@
                                         </controls:ContentItemsControl>
                                     </StackPanel>
 
-                                    <!-- 画像を足せると分かるよう、空でも「＋」の枠を並べたギャラリーの形にする（メモ22） -->
                                     <TextBlock Text="画像" Style="{StaticResource SectionLabel}" Margin="0,12,0,5" />
-                                    <WrapPanel>
-                                        <controls:ContentItemsControl ItemsSource="{Binding LocalImages}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Width="96" Height="96" Margin="0,0,8,8" ToolTip="{Binding Name}">
-                                                        <!-- 読めない形式（WebP など）は名前を出す。絵が読めれば上に重なって隠れる -->
-                                                        <Border CornerRadius="6" BorderBrush="{DynamicResource Border}" BorderThickness="1" Background="{DynamicResource Surface}">
-                                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                                                                       Margin="6" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                                        </Border>
-                                                        <Border CornerRadius="6" ClipToBounds="True" Margin="1">
-                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
-                                                        </Border>
-                                                        <Button Style="{StaticResource ClearFieldButton}" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                                Background="{DynamicResource ImagePill}" Margin="0,3,3,0"
-                                                                AutomationProperties.AutomationId="ResolveLocalImageRemove"
-                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
-                                                                ToolTip="この画像を外します。"
-                                                                Command="{Binding DataContext.RemoveLocalImageCommand,
-                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </controls:ContentItemsControl>
-                                        <Button Width="96" Height="96" Margin="0,0,8,8" Cursor="Hand"
-                                                AutomationProperties.AutomationId="ResolveLocalImageAdd" AutomationProperties.Name="画像を追加"
-                                                ToolTip="画像を選びます。ここにドロップしても追加できます。"
-                                                Command="{Binding ChooseLocalImagesCommand}">
-                                            <Button.Template>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Grid Background="Transparent">
-                                                        <Rectangle x:Name="Frame" RadiusX="6" RadiusY="6" Stroke="{DynamicResource BorderStrong}"
-                                                                   StrokeDashArray="4 3" StrokeThickness="1.2" />
-                                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                            <TextBlock Text="＋" FontSize="22" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
-                                                            <TextBlock Text="画像を追加" FontSize="11" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0" />
-                                                        </StackPanel>
-                                                    </Grid>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="Frame" Property="Stroke" Value="{DynamicResource Accent}" />
-                                                        </Trigger>
-                                                        <Trigger Property="IsEnabled" Value="False">
-                                                            <Setter Property="Opacity" Value="0.5" />
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Button.Template>
-                                        </Button>
-                                    </WrapPanel>
+                                    <ContentControl ContentTemplate="{StaticResource LocalImageGallery}" Content="{Binding}" Focusable="False" />
 
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0">
                                         <Run Text="仮のID（" /><Run Text="{Binding LocalIdPreview, Mode=OneWay}" FontFamily="Consolas" /><Run Text="）として登録します。" />

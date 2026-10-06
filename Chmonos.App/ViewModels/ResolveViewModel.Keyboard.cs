@@ -57,6 +57,18 @@ public sealed partial class ResolveViewModel
         }
 
         var typed = ParseItemIdInput(ItemIdInput);
+
+        // 見つからなかったIDのまま登録する形が出ていれば、ボタンと同じくその形で登録する（欄の文字が確かめたIDのときだけ出ている）
+        if (Preview is null && IsUnpublishedForm)
+        {
+            if (AssignCommand.CanExecute(null))
+            {
+                AssignCommand.Execute(null);
+            }
+
+            return true;
+        }
+
         if (Preview is not { } preview || typed != preview.Id)
         {
             // 欄のIDを確かめて「BOOTHに無い」と答えが出ていれば、その文を残す（そのIDのまま登録する道がそこに出ている）。

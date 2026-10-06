@@ -166,16 +166,19 @@ public class ResolveKeyboardTests
     });
 
     [Fact]
-    public Task BOOTHに無いと答えたIDで確定のキーを押しても_答えの文は残る() => TestApp.Run(async app =>
+    public Task BOOTHに無いと答えたIDで確定のキーを押すと_ボタンと同じくそのIDのまま登録するかを聞き_答えの文は残る() => TestApp.Run(async app =>
     {
         var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip");
         await TypeAndEnterAsync(app, resolve, "1999999");
-        Assert.True(resolve.HasNotOnBoothItemId);
+        Assert.True(resolve.IsUnpublishedForm);
         var answer = resolve.StatusText;
         Assert.NotEmpty(answer);
 
+        // 窓で「キャンセル」なら何も登録しない（既定の答え）
         Assert.True(main.RunShortcut(ShortcutAction.SaveAndNext));
+        await app.SettleAsync();
 
+        Assert.Equal("このIDのまま登録する", Assert.Single(app.Notices).Caption);
         Assert.Equal(answer, resolve.StatusText);
         Assert.Single(resolve.Files);
     });

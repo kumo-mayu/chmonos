@@ -320,7 +320,29 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("resolve-target-bundle", "未確定：元zipを展開した中身（束 3 件・元のzipも一覧にある）の1行を選んだ右の欄", async context =>
+        new Scene("resolve-not-on-booth", "未確定：ファイルから読み取れた商品IDが BOOTH で非公開だったとき（欄にID・説明・名前・画像の枠・このIDで登録。ユーザ 2026-10-06）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\winter_coat_2025.zip", "coat.unitypackage"), contents: ["coat.unitypackage"],
+                    candidates: ["9900901"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\accessory_pack.zip", "ring.unitypackage"), contents: ["ring.unitypackage"]),
+            ]);
+            var pictures = Path.Combine(Isolation.FilesRoot, "画像");
+            Fake.Image(pictures, "front.png", "front");
+            var (root, screen) = await OpenResolveAsync(context, 2);
+            screen.Selected = screen.Files.First(row => row.FileName == "winter_coat_2025.zip");
+            await context.SettleAsync();
+            Backdoor.ShowNotOnBooth(screen, "9900901");
+            screen.AddLocalImages([Path.Combine(pictures, "front.png")]);
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("resolve-target-bundle","未確定：元zipを展開した中身（束 3 件・元のzipも一覧にある）の1行を選んだ右の欄", async context =>
         {
             var zip = Fake.Zip(@"ダウンロード\costume_set_v2.zip", "costume.unitypackage", "costume_4k.psd", "readme.txt");
             await context.Seed.Unresolved.SaveAsync(
