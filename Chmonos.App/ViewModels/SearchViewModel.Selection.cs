@@ -205,10 +205,10 @@ public sealed partial class SearchViewModel
         }
         finally
         {
+            // 途中で例外が出ても、止めた知らせは必ず1回出す（帯や押せる・押せないが古いまま残らないように）
             _batchingSelection = false;
+            OnCardSelectionChanged();
         }
-
-        OnCardSelectionChanged();
     }
 
     /// <summary>

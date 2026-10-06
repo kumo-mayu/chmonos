@@ -17,8 +17,34 @@ public sealed partial class ResolveViewModel
 
     private List<UnresolvedRow> CheckedRows => Files.Where(row => row.IsSelected).ToList();
 
+    private bool _batchingChecks;
+
+    /// <summary>
+    /// まとめて選ぶ・外す間は1行ごとに知らせず、最後に1回だけ知らせる（外部の点検 2026-10-07。検索などと同じ）。
+    /// 1行ごとに知らせると、そのたびに名前の下書きのために全行をたどり、選んだ一覧も作り直すので、
+    /// 2万行を全部選ぶと約4億回になり、その間ずっと画面が止まっていた
+    /// </summary>
+    private void ChangeChecksTogether(Action change)
+    {
+        _batchingChecks = true;
+        try
+        {
+            change();
+        }
+        finally
+        {
+            _batchingChecks = false;
+            OnCheckedChanged();
+        }
+    }
+
     private void OnCheckedChanged()
     {
+        if (_batchingChecks)
+        {
+            return;
+        }
+
         OnPropertyChanged(nameof(CheckedCount));
         OnPropertyChanged(nameof(HasChecked));
         OnPropertyChanged(nameof(LocalIdPreview));
@@ -81,11 +107,14 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        foreach (var row in Files.Where(row =>
-            string.Equals(row.GroupKey, directory, StringComparison.OrdinalIgnoreCase)))
+        ChangeChecksTogether(() =>
         {
-            row.IsSelected = true;
-        }
+            foreach (var row in Files.Where(row =>
+                string.Equals(row.GroupKey, directory, StringComparison.OrdinalIgnoreCase)))
+            {
+                row.IsSelected = true;
+            }
+        });
 
         // 右にそのフォルダの話（展開元のzipが無いときの片付け方など）を出すため、フォルダのファイルを1つ選ぶ（ユーザ指示 2026-09-17）
         FocusFolder(directory);
@@ -141,21 +170,21 @@ public sealed partial class ResolveViewModel
     }
 
     /// <summary>見えている行だけを選ぶ。探して絞っているときに、見えない行までまとめて外したり確定したりしないため。</summary>
-    private void SelectAll()
+    private void SelectAll() => ChangeChecksTogether(() =>
     {
         foreach (var row in Files.Where(MatchesFilter))
         {
             row.IsSelected = true;
         }
-    }
+    });
 
-    private void ClearChecks()
+    private void ClearChecks() => ChangeChecksTogether(() =>
     {
-        foreach (var row in Files.Where(row => row.IsSelected))
+        foreach (var row in Files.Where(row => row.IsSelected).ToList())
         {
             row.IsSelected = false;
         }
-    }
+    });
 
     /// <summary>
     /// 元のzipが残っている中身を「元zipとして扱う」：元のzipの行を選ぶ。そのままzipで登録すれば、中身は一覧から消える。

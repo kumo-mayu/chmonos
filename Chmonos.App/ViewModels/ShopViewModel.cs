@@ -883,10 +883,10 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
         finally
         {
+            // 途中で例外が出ても、止めた知らせは必ず1回出す（帯や押せる・押せないが古いまま残らないように）
             _batchingSelection = false;
+            OnCardSelectionChanged();
         }
-
-        OnCardSelectionChanged();
     }
 
     /// <summary>選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。</summary>

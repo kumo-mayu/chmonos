@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
+using Chmonos.Core.Models;
 
 namespace Chmonos.App.Tests;
 
@@ -11,12 +12,12 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public sealed class SelectionBatchTests
 {
-    private static int CountSelectedCountNotices(INotifyPropertyChanged model, Action act)
+    private static int CountSelectedCountNotices(INotifyPropertyChanged model, Action act, string property = "SelectedCount")
     {
         var count = 0;
         void Handler(object? sender, PropertyChangedEventArgs args)
         {
-            if (args.PropertyName == "SelectedCount")
+            if (args.PropertyName == property)
             {
                 count++;
             }
@@ -53,5 +54,32 @@ public sealed class SelectionBatchTests
         Assert.Equal(1, CountSelectedCountNotices(search, search.ClearSelection));
         Assert.Equal(0, search.SelectedCount);
         Assert.False(search.HasSelection);
+    });
+
+    [Fact]
+    public Task 未確定で全部を選ぶのと選択を外すのは_件数の知らせが1回だけ() => TestApp.Run(async app =>
+    {
+        await app.Store.Unresolved.SaveAsync([.. Enumerable.Range(1, 30).Select(index =>
+        {
+            var path = app.NewFile($"file{index:00}.zip");
+            return new UnresolvedFile
+            {
+                Hash = Make.HashOf(path),
+                Paths = [path],
+                SizeBytes = 3,
+                ModifiedAtUtc = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                FirstSeenAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+            };
+        })]);
+        var main = await app.StartAsync();
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+        var resolve = Assert.IsType<ResolveViewModel>(main.CurrentViewModel);
+
+        Assert.Equal(1, CountSelectedCountNotices(resolve, () => resolve.SelectAllCommand.Execute(null), "CheckedCount"));
+        Assert.Equal(30, resolve.CheckedCount);
+
+        Assert.Equal(1, CountSelectedCountNotices(resolve, () => resolve.ClearChecksCommand.Execute(null), "CheckedCount"));
+        Assert.Equal(0, resolve.CheckedCount);
     });
 }

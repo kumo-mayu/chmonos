@@ -79,10 +79,13 @@ public sealed partial class ResolveViewModel
 
         if (fromChecked)
         {
-            foreach (var row in targets)
+            ChangeChecksTogether(() =>
             {
-                row.IsSelected = false;
-            }
+                foreach (var row in targets)
+                {
+                    row.IsSelected = false;
+                }
+            });
         }
 
         StatusText = string.Empty;
