@@ -9,8 +9,9 @@ namespace Chmonos.App.Controls;
 ///
 /// 札は右から左へ伸びる並びで、札が多いと左のカードの端を越えたり、左に置いた容量の文字に重なっていた。
 /// 容量の文字は別の欄が先に取るので、このパネルが受ける幅は容量の残りで、その中に収まる分だけを札のまま出す。
-/// 丸にするのは後ろ（右）から。カードの並びは 更新あり・取り込み中・未編集・所持・見つからない で、見つからない（一部見つからない）は
-/// いちばん幅を取るので一番右に置き、真っ先に丸にする（ユーザ判断 2026-10-06。前は先頭に置き、大事な札ほど文字のまま残す並びだった）。
+/// カードの並びは左から字の少ない順（所持・未編集・更新あり・取り込み中・見つからない）で、丸にするのは右（後ろ）から
+/// （ユーザ判断 2026-10-06「要素を並べる順番は左から文字数の少ないものとし、丸くなるのは右側の要素から。もともとの順番を保ちながら」）。
+/// 右ほど幅を取る札なので、1つ丸にするたびに空く幅が大きい。丸は並びの右の端に続けて出るので、札と丸が混ざっても左から同じ順になる。
 /// 丸は同じ部品のまま描き方だけを替える（<see cref="StatusBadge"/>）。カードは数千枚並ぶので、丸のための部品は足さない。
 /// 押せる札（更新あり）は丸になっても同じボタンなので、押せば札と同じ動きをする。
 ///
@@ -56,8 +57,16 @@ public sealed class BadgeOverflowPanel : Panel
 
     public static void SetTip(DependencyObject element, string value) => element.SetValue(TipProperty, value);
 
-    /// <summary>札と札の間。</summary>
+    /// <summary>札と札の間（どちらも文字の札のとき）。</summary>
     public double Gap { get; set; } = 4;
+
+    /// <summary>
+    /// 丸の隣の間（丸どうし・丸と札）。丸は押せる幅（<see cref="StatusBadge.DotSlot"/> 10）の真ん中に直径8で描くので、
+    /// 見える隙間は丸どうしで この値＋2、丸と札で この値＋1。札どうしと同じ4（見える隙間6）だと、直径8の丸より隙間が狭く、
+    /// 並んだ丸が1つの塊に見えた（ユーザ指摘 2026-10-06「詰まって見える」）。見える隙間が丸の直径より広くなる8にした（丸どうし10・丸と札9）。
+    /// 幅160のカード（容量の残り約86）でも、5つ全部の丸（10×5＋8×4＝82）が入る。
+    /// </summary>
+    public double DotGap { get; set; } = 8;
 
     /// <summary>丸にした札の数（並べ直した直後の値）。</summary>
     public int DotCount { get; private set; }
@@ -73,6 +82,26 @@ public sealed class BadgeOverflowPanel : Panel
     /// <summary>丸の吹き出し。名前を1行目に、札の吹き出しがあれば2行目に書く（札のときに読めた物を減らさない）。</summary>
     public static string DotTipOf(string label, string tip) => tip.Length == 0 ? label : $"{label}\n{tip}";
 
+    /// <summary>隣り合う2つの間。どちらかが丸なら丸の間。</summary>
+    private double GapBetween(bool leftIsDot, bool rightIsDot) => leftIsDot || rightIsDot ? DotGap : Gap;
+
+    /// <summary>前から <paramref name="texts"/> 個を札のまま、残り <paramref name="count"/>−texts 個を丸にしたときの幅（端の間は数えない）。</summary>
+    private double WidthOf(IReadOnlyList<double> full, int texts, int count)
+    {
+        var width = 0.0;
+        for (var i = 0; i < count; i++)
+        {
+            var dot = i >= texts;
+            width += dot ? StatusBadge.DotSlot : full[i];
+            if (i > 0)
+            {
+                width += GapBetween(i - 1 >= texts, dot);
+            }
+        }
+
+        return width;
+    }
+
     protected override Size MeasureOverride(Size availableSize)
     {
         var present = Present;
@@ -84,20 +113,19 @@ public sealed class BadgeOverflowPanel : Panel
 
         // 札のままの幅は、今丸に描いている札でも StatusBadge が測っておく（丸から戻せるかを、丸を解かずに見られる）
         var full = present.Select(FullWidthOf).ToList();
-        var dotWidth = StatusBadge.DotSlot + Gap;
+        var limit = availableSize.Width + 0.01;
         var dots = 0;
-        while (dots < present.Count
-               && full.Take(present.Count - dots).Sum(width => width + Gap) + dots * dotWidth > availableSize.Width)
+        while (dots < present.Count && WidthOf(full, present.Count - dots, present.Count) > limit)
         {
             dots++;
         }
 
         DotCount = dots;
         _shown = present.Count;
-        if (dots == present.Count)
+        while (_shown > 0 && WidthOf(full, 0, _shown) > limit)
         {
             // 全部を丸にしても入らないほど狭い。後ろの丸から出さない（カードの左端を越えない）
-            _shown = Math.Min(present.Count, (int)Math.Floor((availableSize.Width + 0.01) / dotWidth));
+            _shown--;
         }
 
         HiddenCount = present.Count - _shown;
@@ -115,27 +143,34 @@ public sealed class BadgeOverflowPanel : Panel
         }
 
         var height = present.Select(badge => badge.DesiredSize.Height).DefaultIfEmpty(0).Max();
-        var width = present.Take(_shown).Sum(badge => badge.DesiredSize.Width + Gap);
+        var width = 0.0;
+        for (var i = 0; i < _shown; i++)
+        {
+            width += present[i].DesiredSize.Width + (i > 0 ? GapBetween(GetIsDot(present[i - 1]), GetIsDot(present[i])) : 0);
+        }
+
         return new Size(Math.Min(width, availableSize.Width), height);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        // 右端から左へ。出さない札は大きさ0で置く（Collapsed にすると、結び付けの値を上書きしてしまう）
-        var order = Enumerable.Reverse(Present.Take(_shown)).ToList();
+        // 右端から左へ。出さない札は大きさ0で置く（Collapsed にすると、結び付けの値を上書きしてしまう。
+        // 測った大きさより小さく置くと WPF が置いた枠で切るので、丸も描かれない）
+        var shown = Present.Take(_shown).ToList();
         var right = finalSize.Width;
-        foreach (var child in order)
+        for (var i = shown.Count - 1; i >= 0; i--)
         {
+            var child = shown[i];
             var left = right - child.DesiredSize.Width;
             child.Arrange(new Rect(left, 0, child.DesiredSize.Width, finalSize.Height));
-            right = left - Gap;
+            right = left - (i > 0 ? GapBetween(GetIsDot(shown[i - 1]), GetIsDot(child)) : 0);
         }
 
         foreach (var child in Children.OfType<UIElement>())
         {
-            var shown = order.Contains(child);
-            child.SetValue(IsShownPropertyKey, shown);
-            if (!shown)
+            var isShown = shown.Contains(child);
+            child.SetValue(IsShownPropertyKey, isShown);
+            if (!isShown)
             {
                 child.Arrange(new Rect(0, 0, 0, 0));
             }
