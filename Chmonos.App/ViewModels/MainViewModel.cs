@@ -989,7 +989,7 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         // 読み直しを始めた時点で、そこまでに増えた分は一覧へ入る
         _reflectedAdded = _importWork?.AddedCount ?? 0;
-        _lastReflectAt = DateTime.UtcNow;
+        _lastReflectAt = Uptime.Elapsed;
 
         await Search.ReloadAsync();
         RefreshCounts();
@@ -1146,7 +1146,7 @@ public sealed partial class MainViewModel : ViewModelBase
             return;
         }
 
-        var wait = _lastCountsAt + CountsInterval - DateTime.UtcNow;
+        var wait = _lastCountsAt is { } countedAt ? countedAt + CountsInterval - Uptime.Elapsed : TimeSpan.Zero;
         if (wait > TimeSpan.Zero)
         {
             _countsQueued = true;
@@ -1168,7 +1168,14 @@ public sealed partial class MainViewModel : ViewModelBase
     /// </remarks>
     internal TimeSpan CountsInterval { get; set; } = TimeSpan.FromSeconds(1);
 
-    private DateTime _lastCountsAt = DateTime.MinValue;
+    private TimeSpan? _lastCountsAt;
+
+    /// <summary>
+    /// 短い間隔を数える時計（起動からの経過）。**壁の時計で数えない**（外部の点検 2026-10-06）：
+    /// Windows の時計を1時間戻すと、1秒のまとめ待ちが1時間になり、その間の件数の読み直しが全部飛ばされていた。
+    /// 予定日・暦の日付は今までどおり壁の時計
+    /// </summary>
+    private static readonly System.Diagnostics.Stopwatch Uptime = System.Diagnostics.Stopwatch.StartNew();
 
     /// <summary>まとめて後で読む分が待っているか。画面のスレッドだけが触る。</summary>
     private bool _countsQueued;
@@ -1187,7 +1194,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private void ReadCounts()
     {
-        _lastCountsAt = DateTime.UtcNow;
+        _lastCountsAt = Uptime.Elapsed;
         var turn = Interlocked.Increment(ref _countsRead);
         var reader = _countReader ??= new Core.Services.NavCountReader(_services.Store);
         var store = _services.Store;

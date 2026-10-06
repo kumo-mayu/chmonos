@@ -16,7 +16,7 @@ public sealed partial class MainViewModel
     private Core.Scanning.ImportWorkSet? _importWork;
     private int _lastAwaitingCount;
     private int _reflectedAdded;
-    private DateTime _lastReflectAt = DateTime.MinValue;
+    private TimeSpan? _lastReflectAt;
 
     /// <summary>
     /// 増えた商品を一覧へ入れる間隔の下限。
@@ -81,7 +81,7 @@ public sealed partial class MainViewModel
         }
 
         // ③が済んで編集に出せるようになったときは待たせない。札（取り込み中）を早く外す方が要る
-        if (!gateOpened && DateTime.UtcNow - _lastReflectAt < ReflectInterval)
+        if (!gateOpened && _lastReflectAt is { } reflectedAt && Uptime.Elapsed - reflectedAt < ReflectInterval)
         {
             return;
         }
