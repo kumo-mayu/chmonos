@@ -259,12 +259,18 @@ public sealed class ItemRepository
     ///
     /// <paramref name="change"/> が null を返したら何も書かない（触る物が無かった）。
     /// </summary>
-    /// <returns>書いたか（itemが消えていた・触る物が無かったときは false）。</returns>
+    /// <param name="beforeWrite">
+    /// 書く直前に、錠の中で、今の値と書く値を渡して呼ぶ。偽を返したら書かない（false を返す）。
+    /// やりかけの記録へ「書く前と書いた後の指紋」を残すため（IDの変更。<c>Services/OperationFingerprint</c>）——
+    /// 錠の外で読んだ値の指紋だと、読んでから書くまでに取り込みが書いた分で食い違う。
+    /// </param>
+    /// <returns>書いたか（itemが消えていた・触る物が無かった・<paramref name="beforeWrite"/> が断ったときは false）。</returns>
     public async Task<bool> ChangeLocalAsync(
         string itemId,
         Func<LocalBlock, LocalBlock?> change,
         IReadOnlyCollection<LocalField> owns,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<LocalBlock, LocalBlock, Task<bool>>? beforeWrite = null)
     {
         var gate = LockFor(itemId);
         await gate.WaitAsync(cancellationToken);
@@ -278,6 +284,10 @@ public sealed class ItemRepository
 
             var merged = LocalFields.Merge(existing.Local, changed, owns);
             merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
+            if (beforeWrite is not null && !await beforeWrite(existing.Local, merged))
+            {
+                return false;
+            }
 
             await WriteIfChangedAsync(existing, existing with { Local = merged }, cancellationToken);
         }
@@ -814,14 +824,16 @@ public sealed class ItemRepository
     /// こちらの新しい空の商品で丸ごと上書きしていた。
     /// </summary>
     /// <param name="booth">在ったときに差し替える booth（取ってきたばかりの物）。null なら今のまま。</param>
-    /// <returns>書いたか（<paramref name="change"/> が null を返したら false）。</returns>
+    /// <param name="beforeWrite">書く直前に、錠の中で、今の値（無ければ作った物）と書く値を渡して呼ぶ。偽なら書かない（<see cref="ChangeLocalAsync"/> と同じ）。</param>
+    /// <returns>書いたか（<paramref name="change"/> が null を返した・<paramref name="beforeWrite"/> が断ったら false）。</returns>
     public async Task<bool> CreateOrChangeLocalAsync(
         string itemId,
         Func<ItemRecord> create,
         Func<LocalBlock, LocalBlock?> change,
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default,
-        BoothBlock? booth = null)
+        BoothBlock? booth = null,
+        Func<LocalBlock, LocalBlock, Task<bool>>? beforeWrite = null)
     {
         var gate = LockFor(itemId);
         await gate.WaitAsync(cancellationToken);
@@ -836,6 +848,11 @@ public sealed class ItemRepository
 
             var merged = LocalFields.Merge(existing.Local, changed, owns);
             merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
+            if (beforeWrite is not null && !await beforeWrite(existing.Local, merged))
+            {
+                return false;
+            }
+
             var updated = existing with { Local = merged };
             if (found is null)
             {

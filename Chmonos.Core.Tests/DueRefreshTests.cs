@@ -144,13 +144,16 @@ public class DueRefreshTests : IDisposable
             string fromId,
             string toId,
             IReadOnlySet<int>? skippedPurchases = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            Func<ItemIdChangeFingerprints, Task<bool>>? record = null)
             => Task.FromResult(ItemIdChangeOutcome.Moved);
 
         public Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
             string fromId,
             string toId,
             IReadOnlySet<int>? skippedPurchases = null,
+            ItemIdChangeFingerprints? recorded = null,
+            Func<ItemIdChangeFingerprints, Task<bool>>? record = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(ItemIdChangeOutcome.Moved);
 

@@ -16,10 +16,12 @@ public class PendingOperationStartupTests
     [Fact]
     public Task 起動したとき_止まっていたタグの名前の変更の続きを済ませる() => TestApp.Run(async app =>
     {
-        // 一覧は書き終え、商品はまだ古い名前のまま止まった様子
-        await app.Store.UserTags.SaveAsync(new UserTagMaster { Tops = [new UserTagTop { Name = "服" }] });
+        // 始める前の様子で指紋を取り（本物の操作が記録に書くのと同じ物）、一覧は書き終え・商品はまだ古い名前のまま止まった様子にする
+        await app.Store.UserTags.SaveAsync(new UserTagMaster { Tops = [new UserTagTop { Name = "衣装" }] });
         var item = Make.Item(Tagged, "作り物の服");
         await app.AddItemAsync(item with { Local = item.Local with { UserTags = [new UserTagAssignment { Top = "衣装" }] } });
+        var fingerprint = await new UserTagService(app.Store).FingerprintRenameAsync("衣装", null, "服");
+        await app.Store.UserTags.SaveAsync(new UserTagMaster { Tops = [new UserTagTop { Name = "服" }] });
         await app.Store.PendingOperations.SaveAsync(
         [
             new PendingOperation
@@ -29,6 +31,8 @@ public class PendingOperationStartupTests
                 StartedAt = DateTimeOffset.Now,
                 Top = "衣装",
                 NewName = "服",
+                MasterFingerprint = fingerprint.Master,
+                Holders = fingerprint.Holders,
             },
         ]);
 
