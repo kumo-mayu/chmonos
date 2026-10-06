@@ -67,7 +67,12 @@ public sealed record LocalBlock
     public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 
     /// <summary>属性名 → 0-100 の連続値。キーが無いものは「未評価」で、0とは区別する。</summary>
-    public IReadOnlyDictionary<string, int> Attributes { get; init; } = new Dictionary<string, int>();
+    /// <remarks>名前は大文字と小文字の違いを区別せずに引く（<see cref="AttributeNames"/>）。</remarks>
+    public IReadOnlyDictionary<string, int> Attributes
+    {
+        get;
+        init => field = AttributeNames.Table(value);
+    } = AttributeNames.Table(null);
 
     public string? Memo { get; init; }
 

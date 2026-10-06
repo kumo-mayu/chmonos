@@ -68,6 +68,25 @@ public class AttributeServiceTests : IDisposable
         Assert.Null(usage.Single(entry => entry.Name == "かっこいい").Average);
     }
 
+    /// <summary>
+    /// 大文字と小文字だけが違う名前は、数えるのも同じ属性として数える（外部の点検 2026-10-06）。
+    /// 改名・削除・使われていない属性の判定はもとからそう見ていて、数えるのと検索だけが文字の全く同じ物しか見ていなかった
+    /// </summary>
+    [Fact]
+    public async Task CountsRatingsWhoseNameDiffersOnlyInLetterCase()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "Soft" });
+        await SaveItemAsync("1", ("soft", 40));
+        await SaveItemAsync("2", ("Soft", 60));
+
+        var usage = await _service.LoadUsageAsync();
+
+        Assert.Equal(2, usage.Single(entry => entry.Name == "Soft").ItemCount);
+        Assert.Equal(50, usage.Single(entry => entry.Name == "Soft").Average);
+        var item = await _store.Items.LoadAsync("1");
+        Assert.True(item!.Local.Attributes.TryGetValue("SOFT", out var value) && value == 40);
+    }
+
     [Fact]
     public async Task FindsNamesThatOnlyItemsStillReference()
     {
