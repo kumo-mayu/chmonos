@@ -166,6 +166,27 @@ public class MissingSearchResultTests
     });
 
     [Fact]
+    public Task 紐付け直した見出しと行は成功_見つからなかった物と登録フォルダは失敗として色を分ける() => TestApp.Run(async app =>
+    {
+        var import = (await app.StartAsync()).Import;
+        import.ShowMissingFiles(new MissingFileSearchResult
+        {
+            MissingBefore = 2,
+            Relinked = 1,
+            Hashed = 0,
+            RelinkedFiles = [Gone(0) with { NewPath = @"D:\移した先\000.zip" }],
+            NotFoundFiles = [Gone(1)],
+        });
+        var heads = import.MissingResultLines.OfType<MissingResultHeadLine>().ToDictionary(line => line.Title);
+        Assert.True(heads["紐付け直したファイル"].Succeeded);
+        Assert.False(heads["見つからなかったファイル"].Succeeded);
+
+        var rows = import.MissingResultLines.OfType<MissingFileResultRow>().ToList();
+        Assert.True(Assert.Single(rows, row => row.HasFolder).Succeeded);
+        Assert.False(Assert.Single(rows, row => !row.HasFolder).Succeeded);
+    });
+
+    [Fact]
     public Task 見出しを開くと中の行がその見出しの下に入り_畳むと抜ける() => TestApp.Run(async app =>
     {
         var import = (await app.StartAsync()).Import;
@@ -233,7 +254,7 @@ public class MissingSearchResultTests
         import.ShowMissingFiles(new MissingFileSearchResult { MissingBefore = 0, Relinked = 0, Hashed = 0, Unreachable = [@"E:\外付け"] });
         Assert.True(import.HasMissingResult);
         Assert.Empty(import.MissingResultLines);
-        Assert.Equal("1 個のフォルダはつながっていないため探せませんでした。", import.MissingSearchNotes);
+        Assert.Equal("フォルダ「外付け」はつながっていないため確認できませんでした。", import.MissingSearchNotes);
 
         // 登録フォルダの候補だけでも出す
         import.ShowMissingFiles(null);

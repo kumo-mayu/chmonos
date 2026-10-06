@@ -24,6 +24,12 @@ public sealed class MissingResultHeadLine(string title, string automationId, Act
 
     public string AutomationId { get; } = automationId;
 
+    /// <summary>
+    /// うまくいった物の見出しか（紐付け直したファイル）。緑と赤で分け、読まなくても成否が分かるようにする
+    /// （ユーザ 2026-10-06「成功と失敗が読まないとわからない。成功を緑、失敗を赤で分けましょう」）
+    /// </summary>
+    public bool Succeeded { get; init; }
+
     public int Count
     {
         get => _count;
@@ -73,6 +79,9 @@ public sealed class MissingFileResultRow : MissingResultLine
     public string FolderText { get; init; } = string.Empty;
 
     public bool HasFolder => FolderText.Length > 0;
+
+    /// <summary>紐付け直せた行か（見出しと同じく、行の左の線を緑と赤で分ける。流して見出しが見えなくても成否が分かる）。</summary>
+    public bool Succeeded => HasFolder;
 
     /// <summary>吹き出しに出す、ファイルの場所（紐付け直した行は新しい場所、見つからなかった行は元の場所）。</summary>
     public string PathTip { get; init; } = string.Empty;
@@ -164,7 +173,7 @@ public sealed partial class ImportViewModel
 
     // 見出しの行は使い回す（差し替えると、見えている見出しの部品が作り直される）
     private MissingResultHeadLine RelinkedHead => _relinkedHead ??= new MissingResultHeadLine(
-        "紐付け直したファイル", "ImportRelinkedFiles", () => OnHeadToggled(nameof(IsRelinkedExpanded)));
+        "紐付け直したファイル", "ImportRelinkedFiles", () => OnHeadToggled(nameof(IsRelinkedExpanded))) { Succeeded = true };
 
     private MissingResultHeadLine NotFoundHead => _notFoundHead ??= new MissingResultHeadLine(
         "見つからなかったファイル", "ImportNotFoundFiles", () => OnHeadToggled(nameof(IsNotFoundExpanded)));
@@ -192,7 +201,7 @@ public sealed partial class ImportViewModel
     {
         _relinkedFiles = RowsOf(result?.RelinkedFiles ?? []);
         _notFoundFiles = RowsOf(result?.NotFoundFiles ?? []);
-        MissingSearchNotes = result is null ? string.Empty : string.Join("\n", MissingSearchNoteLines(result));
+        MissingSearchNotes = result is null ? string.Empty : string.Join("\n", MissingSearchNoteLines(result, _services.Settings.WatchedFolders ?? []));
         RelinkedHead.Count = RelinkedFiles.Count;
         NotFoundHead.Count = NotFoundFiles.Count;
         FillResultLines(() =>
@@ -305,25 +314,54 @@ public sealed partial class ImportViewModel
         };
     }
 
-    /// <summary>1行目の要約の下に出す、探せなかった場所・読めなかった物の文（どれも句点で終わる）。</summary>
-    internal static IEnumerable<string> MissingSearchNoteLines(MissingFileSearchResult result)
+    /// <summary>
+    /// 1行目の要約の下に出す、探せなかった場所・読めなかった物の文（どれも句点で終わる）。
+    /// **ここは何が起きたかだけを言い、直し方は言わない**（ユーザ 2026-10-06「ここでは監視フォルダ「...」は見つからなかったため
+    /// 確認できませんでした。ということを出して直し方は監視対象の方に書くべきだろう」）。監視フォルダが見つからないときの直し方は、
+    /// 監視対象の欄の注意（「監視フォルダ「…」が見つかりません。名前を変えたか移したなら…」）が言う
+    /// </summary>
+    internal static IEnumerable<string> MissingSearchNoteLines(MissingFileSearchResult result, IReadOnlyList<string> watchedFolders)
     {
-        if (result.Unreachable.Count > 0)
+        foreach (var line in PlaceNotes(result.Unreachable, watchedFolders, "つながっていないため確認できませんでした。"))
         {
-            yield return $"{result.Unreachable.Count} 個のフォルダはつながっていないため探せませんでした。";
+            yield return line;
         }
 
         // ドライブは在ってフォルダだけが無い（名前を変えた・移した）。つないでも直らないので、外付けとは分けて言う
         // （見つからない・移動の点検 9・2026-10-05）
-        if (result.NotFoundFolders.Count > 0)
+        foreach (var line in PlaceNotes(result.NotFoundFolders, watchedFolders, "見つからなかったため確認できませんでした。"))
         {
-            yield return $"{result.NotFoundFolders.Count} 個のフォルダは見つからないため探せませんでした。"
-                + "名前を変えたか移したなら、新しい場所を監視フォルダに追加してください。";
+            yield return line;
         }
 
         if (UnreadableInSearchText(result.UnreadableFiles, result.UnreadableFolders) is { Length: > 0 } unreadable)
         {
             yield return unreadable + "。";
+        }
+    }
+
+    /// <summary>
+    /// 探せなかった場所を1つずつ名前で言う（監視フォルダなら「監視フォルダ「名前」は…」、その回だけ足したフォルダなら「フォルダ「名前」は…」）。
+    /// 多いと欄が文で埋まるので、4つ以上は数でまとめる
+    /// </summary>
+    private static IEnumerable<string> PlaceNotes(IReadOnlyList<string> places, IReadOnlyList<string> watchedFolders, string ending)
+    {
+        if (places.Count >= 4)
+        {
+            yield return $"{places.Count} 個のフォルダは{ending}";
+            yield break;
+        }
+
+        foreach (var place in places)
+        {
+            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(place));
+            if (name.Length == 0)
+            {
+                name = place;
+            }
+
+            var kind = watchedFolders.Any(watched => Core.Services.PathText.Same(watched, place)) ? "監視フォルダ" : "フォルダ";
+            yield return $"{kind}「{name}」は{ending}";
         }
     }
 

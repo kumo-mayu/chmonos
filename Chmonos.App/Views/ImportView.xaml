@@ -372,7 +372,17 @@
                                               IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
                                               AutomationProperties.AutomationId="{Binding AutomationId}" AutomationProperties.Name="{Binding Title}">
                                         <Expander.Header>
-                                            <TextBlock FontWeight="SemiBold" FontSize="12.5"><Run Text="{Binding Title, Mode=OneWay}" /><Run Text="{Binding CountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
+                                            <TextBlock FontWeight="SemiBold" FontSize="12.5">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource Bad}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Succeeded}" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource Good}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style><Run Text="{Binding Title, Mode=OneWay}" /><Run Text="{Binding CountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
                                         </Expander.Header>
                                     </Expander>
                                 </DataTemplate>
@@ -380,6 +390,18 @@
                                 <!-- ファイル1行（紐付け直した物・見つからなかった物で同じ形。メモ73）。見出しの三角の分だけ字下げする -->
                                 <DataTemplate DataType="{x:Type vm:MissingFileResultRow}">
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,7,0,5" Margin="30,0,0,0">
+                                        <!-- 左の線で成否を分ける（紐付け直した＝緑・見つからなかった＝赤。流して見出しが見えなくても分かる） -->
+                                        <Border BorderThickness="3,0,0,0" Padding="8,0,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Succeeded}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
                                         <StackPanel>
                                             <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
                                                     HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
@@ -392,6 +414,7 @@
                                             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
+                                        </Border>
                                     </Border>
                                 </DataTemplate>
 
@@ -407,6 +430,8 @@
                                 -->
                                 <DataTemplate DataType="{x:Type vm:MissingFolderRow}">
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="30,0,0,0">
+                                        <!-- 見つからない登録フォルダは失敗の側（ファイルの行と同じ赤の左の線） -->
+                                        <Border BorderThickness="3,0,0,0" Padding="8,0,0,0" BorderBrush="{DynamicResource Bad}">
                                         <StackPanel>
                                             <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
                                                     HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
@@ -449,6 +474,7 @@
                                                        AutomationProperties.AutomationId="ImportMissingFolderStatus"
                                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
+                                        </Border>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.Resources>

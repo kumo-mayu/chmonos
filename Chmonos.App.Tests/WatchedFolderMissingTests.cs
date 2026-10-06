@@ -21,16 +21,15 @@ public sealed class WatchedFolderMissingTests
         var main = await app.StartAsync();
 
         main.Import.FindMissingFilesCommand.Execute(null);
-        await UiThread.Until(() => main.Import.MissingSearchNotes.Contains("探せませんでした", StringComparison.Ordinal), "探した結果が出る");
+        await UiThread.Until(() => main.Import.MissingSearchNotes.Contains("確認できませんでした", StringComparison.Ordinal), "探した結果が出る");
 
         Assert.Equal("1 件を探しましたが、見つかりませんでした。", main.Import.MissingSearchText);
-        Assert.Equal(
-            "1 個のフォルダは見つからないため探せませんでした。名前を変えたか移したなら、新しい場所を監視フォルダに追加してください。",
-            main.Import.MissingSearchNotes);
+        // 結果の欄は何が起きたかだけ（どの監視フォルダか）。直し方は監視対象の欄の注意が言う（ユーザ 2026-10-06）
+        Assert.Equal("監視フォルダ「名前を変える前」は見つからなかったため確認できませんでした。", main.Import.MissingSearchNotes);
     });
 
     [Fact]
-    public void 外付けの監視フォルダは_つながっていないと言う()
+    public void 外付けの監視フォルダは_名前でつながっていないと言い_足したフォルダは監視フォルダと言わず_多ければ数でまとめる()
     {
         var lines = ImportViewModel.MissingSearchNoteLines(new Core.Services.MissingFileSearchResult
         {
@@ -38,9 +37,21 @@ public sealed class WatchedFolderMissingTests
             Relinked = 1,
             Hashed = 1,
             Unreachable = [@"E:\作り物\監視"],
-        });
+        }, [@"E:\作り物\監視"]);
 
-        Assert.Equal(["1 個のフォルダはつながっていないため探せませんでした。"], lines);
+        Assert.Equal(["監視フォルダ「監視」はつながっていないため確認できませんでした。"], lines);
+
+        var added = ImportViewModel.MissingSearchNoteLines(new Core.Services.MissingFileSearchResult
+        {
+            MissingBefore = 1, Relinked = 0, Hashed = 0, NotFoundFolders = [@"D:\保管"],
+        }, [@"E:\作り物\監視"]);
+        Assert.Equal(["フォルダ「保管」は見つからなかったため確認できませんでした。"], added);
+
+        var many = ImportViewModel.MissingSearchNoteLines(new Core.Services.MissingFileSearchResult
+        {
+            MissingBefore = 1, Relinked = 0, Hashed = 0, Unreachable = [@"E:\a", @"E:\b", @"E:\c", @"E:\d"],
+        }, []);
+        Assert.Equal(["4 個のフォルダはつながっていないため確認できませんでした。"], many);
     }
 
     [Fact]
