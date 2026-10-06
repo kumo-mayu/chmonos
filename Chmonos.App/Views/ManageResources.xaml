@@ -160,6 +160,11 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Margin" Value="-1,0,0,0" />
+        <!--
+            選んでいる方を上に重ねる（下の ZIndex）と、WPF の Tab は描く順に通るので、選んでいる方が後ろへ回る
+            （「新しい順」を選ぶと「古い順 → 新しい順」と逆に通った。ユーザ指摘 2026-10-06）。入れ物の Tab の順を書いた順にする
+        -->
+        <Setter Property="controls:ChildOrderTabs.ForParent" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
