@@ -639,6 +639,7 @@ public sealed partial class SearchViewModel
 
             // 価格の分からない商品も足せるようにする（ユーザ判断 2026-10-06。既定は切・有料・無料のチェックとは同期しない）
             SupportsUnpriced = true,
+            UnpricedLabelOf = source => source == BoothSource ? BoothUnpricedLabel : UnpricedLabel,
         },
 
         // ユーザ判断 2026-10-06（メモ84・案1）：使う人には非公開も削除も同じなので、販売終了と1つにまとめ、前の切り替え
@@ -895,8 +896,14 @@ public sealed partial class SearchViewModel
         return Core.Services.Purchases.SelfPaidOrNull(item) is { } paid ? [paid] : [];
     }
 
-    /// <summary>価格の条件の、値の無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。有料・無料の「非公開商品も含む」とは同期しない。</summary>
+    /// <summary>
+    /// 価格の条件の、値の無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。有料・無料の「非公開商品も含む」とは同期しない。
+    /// 元で出し分ける（ユーザ判断 2026-10-06）：払った額の間は値段を入れていない商品、BOOTHの価格の間はバリエーションの無い商品を足すので
+    /// </summary>
     public const string UnpricedLabel = "購入価格が未設定の商品も表示";
+
+    /// <summary>価格の条件を「BOOTHの価格」にした間の、同じ切り替えの文。</summary>
+    public const string BoothUnpricedLabel = "BOOTHの価格が未設定の商品も表示";
 
     /// <summary>有料・無料の、BOOTH の価格が無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。</summary>
     public const string PrivateItemsLabel = "非公開商品も含む";

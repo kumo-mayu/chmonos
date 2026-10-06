@@ -1586,6 +1586,7 @@ public sealed class RangeModule : SearchModule
                 // 元を変えたら数の意味が変わる（購入額と BOOTH の価格）。幅も既定に取り直す
                 _valuesFromState = false;
                 _defaultsApplied = false;
+                OnPropertyChanged(nameof(UnpricedLabel));
                 RefreshBounds();
                 NotifyChanged();
             }
@@ -1705,6 +1706,15 @@ public sealed class RangeModule : SearchModule
 
     /// <summary>「購入価格が未設定の商品も表示」を出すか（価格だけ。スキ数は BOOTH の商品なら必ずある）。</summary>
     public bool SupportsUnpriced { get; init; }
+
+    /// <summary>元ごとの、値の無い商品も足すチェックの文。検索側が入れる。</summary>
+    public Func<string?, string>? UnpricedLabelOf { get; init; }
+
+    /// <summary>
+    /// 値の無い商品も足すチェックの文。元で出し分ける（ユーザ判断 2026-10-06：BOOTHの価格の間に「購入価格が未設定」と出ると、
+    /// 何が未設定の商品を足すのかが元と食い違う）。
+    /// </summary>
+    public string UnpricedLabel => UnpricedLabelOf?.Invoke(_source?.Key) ?? string.Empty;
 
     /// <summary>
     /// 照らす数が1つも無い商品も通すか（ユーザ判断 2026-10-06。既定は切＝前と同じく、数の分からない商品は範囲に入らない）。
@@ -2133,7 +2143,7 @@ public sealed class RangeModule : SearchModule
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
             var all = SupportsMatchAll && _matchAll ? "（すべての価格が範囲内）" : string.Empty;
-            var unpriced = IncludesUnpricedNow ? "・" + SearchViewModel.UnpricedLabel : string.Empty;
+            var unpriced = IncludesUnpricedNow ? "・" + UnpricedLabel : string.Empty;
             return string.Join(" ", parts) + outliers + all + unpriced;
         }
     }
@@ -2197,6 +2207,7 @@ public sealed class RangeModule : SearchModule
         OnPropertyChanged(nameof(HasMin));
         OnPropertyChanged(nameof(HasMax));
         OnPropertyChanged(nameof(Source));
+        OnPropertyChanged(nameof(UnpricedLabel));
         RefreshBounds();
     }
 }
@@ -2803,11 +2814,16 @@ public sealed class UserTagModule : SearchModule
     }
 
     /// <summary>
-    /// 2つ以上の大分類を足したときだけ押せる（1つなら結果が変わらない）。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。
+    /// 2つ以上の大分類を足したときだけ押せる（1つなら結果が変わらない）。
+    /// **大分類どうしの AND／OR は、0〜1件の間は出さない**（ユーザ判断 2026-10-06「大分類は0-1件では表示しない。少し画面がずれてしまうがこれは受け入れる」）。
+    /// 枠の中の小分類どうしは、0〜1件でも薄く出したまま（<see cref="UserTagTopRow"/>）。
     /// </summary>
     public bool CanChooseMatchMode => Rows.Count > 1;
 
-    public bool MatchModeDimmed => !CanChooseMatchMode;
+    /// <summary>大分類どうしの AND／OR を出すか（<see cref="CanChooseMatchMode"/> と同じ。出ている間は押せるので薄くしない）。</summary>
+    public bool ShowsMatchMode => CanChooseMatchMode;
+
+    public bool MatchModeDimmed => false;
 
     public string MatchModeTip => CanChooseMatchMode ? TopMatchAllHint : MatchModeText.NeedsTwoOf("大分類");
 
@@ -2949,6 +2965,7 @@ public sealed class UserTagModule : SearchModule
         OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(IsMasterEmpty));
         OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(MatchModeTip));
     }
