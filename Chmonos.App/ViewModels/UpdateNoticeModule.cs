@@ -56,6 +56,7 @@ public sealed class UpdateNoticeModule : SearchModule
             if (value is not null && SetField(ref _selected, value))
             {
                 OnPropertyChanged(nameof(CanEditKinds));
+                OnPropertyChanged(nameof(MatchModeDimmed));
                 NotifyChanged();
             }
         }
@@ -123,8 +124,17 @@ public sealed class UpdateNoticeModule : SearchModule
         }
     }
 
-    /// <summary>種類を2つ以上入れているときだけ出す（1つなら結果が変わらない）。「両方」の間も出したまま押せなくする（欄の高さを変えない）。</summary>
-    public bool ShowsMatchMode => AllKinds.Count(kind => (_kinds & kind) != 0) > 1;
+    /// <summary>
+    /// 種類を2つ以上入れているときだけ押せる（1つなら結果が変わらない）。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。
+    /// 「両方」の間も出したまま押せなくする（<see cref="CanEditKinds"/>）。
+    /// </summary>
+    public bool CanChooseMatchMode => AllKinds.Count(kind => (_kinds & kind) != 0) > 1;
+
+    /// <summary>つなぎ方だけを薄くするか。「両方」で外の欄ごと薄いときは重ねて薄くしない。</summary>
+    public bool MatchModeDimmed => CanEditKinds && !CanChooseMatchMode;
+
+    /// <summary>押せないときだけ理由を言う（押せるときは選択肢の文で足りる）。</summary>
+    public string? MatchModeTip => CanChooseMatchMode ? null : MatchModeText.NeedsTwoOn("見る種類");
 
     public string MatchAnyLabel => MatchModeText.Any;
 
@@ -134,7 +144,7 @@ public sealed class UpdateNoticeModule : SearchModule
     {
         get
         {
-            var all = _matchAll && ShowsMatchMode;
+            var all = _matchAll && CanChooseMatchMode;
             if (_selected.Key == NeutralKey || (_kinds == AllMask && !all))
             {
                 return _selected.Label;
@@ -160,6 +170,7 @@ public sealed class UpdateNoticeModule : SearchModule
         OnPropertyChanged(nameof(MatchAny));
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(CanEditKinds));
+        OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -200,6 +211,7 @@ public sealed class UpdateNoticeModule : SearchModule
         SetKinds(kinds == BoothChangeKind.None ? AllMask : kinds);
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(CanEditKinds));
+        OnPropertyChanged(nameof(MatchModeDimmed));
     }
 
     /// <summary>状態に書く名前。</summary>
@@ -236,7 +248,9 @@ public sealed class UpdateNoticeModule : SearchModule
         }
 
         OnPropertyChanged(nameof(SelectedKinds));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
     }
 
 }

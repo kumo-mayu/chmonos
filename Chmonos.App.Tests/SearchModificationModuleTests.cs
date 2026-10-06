@@ -131,7 +131,7 @@ public class SearchModificationModuleTests
         row.AddCommand.Execute("普段着");
         row.AddCommand.Execute("制服");
         Assert.Equal(["9900111", "9900112", "9900113"], Shown(search));
-        Assert.True(row.ShowsMatchMode);
+        Assert.True(row.CanChooseMatchMode);
 
         row.MatchAll = true;
         Assert.Equal(["9900112"], Shown(search));

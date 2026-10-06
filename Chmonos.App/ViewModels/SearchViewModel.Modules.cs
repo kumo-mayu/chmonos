@@ -676,7 +676,7 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
-        // 「すべてのファイルが見つからなければ未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま）：
+        // 「すべて見つからない商品は未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま。文はユーザ判断 2026-10-06 で短くした）：
         // 記録のファイル・フォルダが全部見つからない商品は手元に何も無いので、使う人には未所持と同じ。入れると「所持のみ」から外し「未所持のみ」に入れる。
         // 見つからないファイルの条件の「未所持も含める」は別の問い（見つからない商品の中で分ける）なので、そのまま残す
         SearchModuleKind.Owned => new ChoiceModule(kind,
@@ -687,7 +687,7 @@ public sealed partial class SearchViewModel
                 "unowned" => !IsOwned(item) || (allMissingIsUnowned && item.HasAllFilesMissing),
                 _ => true,
             },
-            new ChoiceFlag("すべてのファイルが見つからなければ未所持とする", Default: false, "すべて見つからない商品は未所持",
+            new ChoiceFlag("すべて見つからない商品は未所持とする", Default: false, "すべて見つからない商品は未所持",
                 new HashSet<string>(StringComparer.Ordinal) { "owned", "unowned" })),
 
         // 壊れた zip は商品ページの札でしか分からず、取り込みの結果の文は数しか言わない。どの商品かをまとめて出せるようにする
@@ -745,13 +745,17 @@ public sealed partial class SearchViewModel
 
         // BOOTH のバリエーションの価格だけで分ける（ユーザ判断 2026-10-06・判断2）。使う人が知りたいのは「全部無料で使えるか・支援版があるか」。
         // 前は払った額を優先し、無料と有料の両方がある商品が両方に出ていた。
-        // 「両方」（絞らない）を最後に持つ（ユーザ判断 2026-10-06：真ん中の「無料版と有料版がある」が両方に読めたので、両方は両方として最後に置く）。
-        // 価格の分からない商品（バリエーションの価格が1つも無い）は既定でどれにも入らず、「価格が設定されていない商品も表示」で足せる
-        // （既定は切：「すべて無料」に価格の分からない商品が混ざると、無料で使えると読めてしまう。ギフトの「購入記録の無い商品も含める」と同じ形）
+        // 絞らない選択肢を最後に持つ（ユーザ判断 2026-10-06：真ん中の「無料版と有料版がある」が両方に読めたので、絞らない物は別に最後に置く）。
+        // 名前は「すべて」（ユーザ判断 2026-10-06。前は「両方」。選択肢が3つあり、両方では数が合わない）。
+        // 価格の無い商品は既定でどれにも入らず、「非公開商品も含む」で足せる（ユーザ判断 2026-10-06「そもそも未設定がないのですね。
+        // そうであれば非公開商品も含むという項目にすべきです」）。BOOTH の価格が無いのは、BOOTH の情報を一度も取れていない商品＝IDのまま登録した非公開の商品だけ
+        // （一度取れた後に非公開になった商品は、最後に取れた価格で分かれる）。仮IDの商品（BOOTHに無い商品）は BOOTH の物ではなく有料・無料も無いので入れない
+        // （販売終了の条件が仮IDの商品を「すべて」のときだけ出すのと同じ）。
+        // 既定は切：「すべて無料」に価格の分からない商品が混ざると、無料で使えると読めてしまう（ギフトの「購入記録の無い商品も含める」と同じ形）
         SearchModuleKind.FreePaid => new ChoiceModule(kind,
-            [new(AllFreeKey, "すべて無料"), new(FreeAndPaidKey, "無料版と有料版がある"), new(PaidOnlyKey, "有料のみ"), new("both", "両方")],
-            "both", (item, key, includeUnpriced) => (includeUnpriced && item.Booth.Variations.Count == 0) || FreePaidMatches(item, key),
-            new ChoiceFlag(UnpricedLabel, Default: false, UnpricedLabel,
+            [new(AllFreeKey, "すべて無料"), new(FreeAndPaidKey, "無料版と有料版がある"), new(PaidOnlyKey, "有料のみ"), new("both", "すべて")],
+            "both", (item, key, includePrivate) => (includePrivate && IsPrivateUnpriced(item)) || FreePaidMatches(item, key),
+            new ChoiceFlag(PrivateItemsLabel, Default: false, PrivateItemsLabel,
                 new HashSet<string>(StringComparer.Ordinal) { AllFreeKey, FreeAndPaidKey, PaidOnlyKey })),
 
         // 大分類 → 小分類の2段（ユーザ指示 2026-09-28）。照合は Core の UserTagCondition
@@ -902,8 +906,14 @@ public sealed partial class SearchViewModel
         return Core.Services.Purchases.SelfPaidOrNull(item) is { } paid ? [paid] : [];
     }
 
-    /// <summary>有料・無料と価格の両方に置く切り替えの文（ユーザの言い方のまま）。2つは同期しない（ユーザ判断 2026-10-06）。</summary>
-    public const string UnpricedLabel = "価格が設定されていない商品も表示";
+    /// <summary>価格の条件の、値の無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。有料・無料の「非公開商品も含む」とは同期しない。</summary>
+    public const string UnpricedLabel = "購入価格が未設定の商品も表示";
+
+    /// <summary>有料・無料の、BOOTH の価格が無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。</summary>
+    public const string PrivateItemsLabel = "非公開商品も含む";
+
+    /// <summary>BOOTH の価格が無い本物のIDの商品（IDのまま登録した非公開の商品）。仮IDの商品は有料・無料の外なので入れない。</summary>
+    private static bool IsPrivateUnpriced(ItemRecord item) => !item.IsLocalOnly && item.Booth.Variations.Count == 0;
 
     private const string AllFreeKey = "free";
     private const string FreeAndPaidKey = "mixed";

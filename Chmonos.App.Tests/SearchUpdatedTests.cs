@@ -186,7 +186,7 @@ public class SearchUpdatedTests
         }
 
         // 言い方は全部の条件で共通。既定はどれか（OR）
-        Assert.True(module.ShowsMatchMode);
+        Assert.True(module.CanChooseMatchMode);
         Assert.Equal(MatchModeText.Any, module.MatchAnyLabel);
         Assert.Equal(MatchModeText.All, module.MatchAllLabel);
         Assert.True(module.MatchAny);
@@ -208,7 +208,7 @@ public class SearchUpdatedTests
         Assert.True(module.MatchAll);
         module.Selected = module.Options[0];
         module.Kinds.Single(kind => kind.Label == "バリエーション").IsOn = false;
-        Assert.False(module.ShowsMatchMode);
+        Assert.False(module.CanChooseMatchMode);
 
         // 保存して読み直しても同じ
         var state = module.Save();

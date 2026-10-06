@@ -138,7 +138,7 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
-        new Scene("search-unpriced-flags", "検索の絞り込み：有料・無料（4択の最後に両方・「価格が設定されていない商品も表示」）と、価格の同じチェック（別々に持つ）", async context =>
+        new Scene("search-unpriced-flags", "検索の絞り込み：有料・無料（4択の最後に「すべて」・「非公開商品も含む」）と、価格の「購入価格が未設定の商品も表示」（別々に持つ）", async context =>
         {
             var (search, root) = await StartCatalogFiltersAsync(context);
             var freePaid = (ChoiceModule)AddModule(search, SearchModuleKind.FreePaid);
@@ -150,7 +150,7 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
-        new Scene("search-owned-flag", "検索の絞り込み：所持（未所持のみ・「すべてのファイルが見つからなければ未所持とする」を入れた所）", async context =>
+        new Scene("search-owned-flag", "検索の絞り込み：所持（未所持のみ・「すべて見つからない商品は未所持とする」を入れた所）", async context =>
         {
             var (search, root) = await StartCatalogFiltersAsync(context);
             var owned = (ChoiceModule)AddModule(search, SearchModuleKind.Owned);
