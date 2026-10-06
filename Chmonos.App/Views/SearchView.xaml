@@ -746,6 +746,42 @@
                                 </DataTemplate>
 
                                 <!--
+                                    更新通知あり（ユーザ判断 2026-10-06）。編集状況と同じ形で、三択と見る種類のトグル（チップにしない）。
+                                    件数は他の条件のもとでその種類の未読の通知がある商品の数。最後の1つは外せない
+                                -->
+                                <DataTemplate DataType="{x:Type vm:UpdateNoticeModule}">
+                                    <StackPanel>
+                                        <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                                  DisplayMemberPath="Display" Height="28" FontSize="12.5"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
+                                                  AutomationProperties.Name="{Binding SpokenLabel}" />
+                                        <StackPanel IsEnabled="{Binding CanEditKinds}">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CanEditKinds}" Value="False">
+                                                            <Setter Property="Opacity" Value="0.45" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="見る種類" Style="{StaticResource Caption}" Margin="0,8,0,3" />
+                                            <controls:ContentItemsControl ItemsSource="{Binding Kinds}" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:ChangeKindToggle}">
+                                                        <CheckBox IsChecked="{Binding IsOn, Mode=TwoWay}" Margin="0,0,0,3" ToolTip="{Binding Hint}"
+                                                                  AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                                  AutomationProperties.Name="{Binding Label}">
+                                                            <TextBlock Text="{Binding Display}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                        </CheckBox>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </controls:ContentItemsControl>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+
+                                <!--
                                     候補から積む条件（ユーザ案「list」）。候補は必ず出し、全部を並べずに入力欄から1件ずつ積む
                                     （件数に比例して縦に伸びないように）。積んだ値の件数は「他の条件のもとで、この値に当てはまる件数」
                                 -->

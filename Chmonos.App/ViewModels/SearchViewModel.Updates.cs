@@ -14,7 +14,7 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public sealed partial class SearchViewModel
 {
-    private IReadOnlyDictionary<string, IReadOnlyList<string>> _unreadUpdates = new Dictionary<string, IReadOnlyList<string>>();
+    private IReadOnlyDictionary<string, UnreadUpdate> _unreadUpdates = new Dictionary<string, UnreadUpdate>();
     private (DateTime WrittenUtc, long Length) _unreadStamp;
     private bool _readingUnread;
 
@@ -27,12 +27,27 @@ public sealed partial class SearchViewModel
     /// <summary>未読の更新がある商品か（条件「更新あり」とカードの札）。</summary>
     internal bool HasUnreadUpdate(string itemId) => _unreadUpdates.ContainsKey(itemId);
 
+    /// <summary>
+    /// 商品ごとの未読の更新の知らせのID（既読にするとき）と、知らせが含む変化の種類（条件「更新通知あり」の種類。ユーザ判断 2026-10-06）。
+    /// 種類は知らせのファイルを読んだときに1回だけ見分ける（絞り込みのたびに差を読み直さない）
+    /// </summary>
+    internal sealed record UnreadUpdate(IReadOnlyList<string> Ids, Core.Services.BoothChangeKind Kinds);
+
+    /// <summary>未読の更新の知らせがあれば、その知らせが含む変化の種類（無ければ None）。</summary>
+    internal Core.Services.BoothChangeKind UnreadUpdateKinds(string itemId)
+        => _unreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : Core.Services.BoothChangeKind.None;
+
     /// <summary>知らせのファイルから、商品ごとの未読の更新の知らせを引く表。</summary>
-    internal static Dictionary<string, IReadOnlyList<string>> UnreadUpdatesOf(IEnumerable<NotificationRecord> records)
+    internal static Dictionary<string, UnreadUpdate> UnreadUpdatesOf(IEnumerable<NotificationRecord> records)
         => records
             .Where(record => !record.IsRead && !record.IsResolved && record.Kind == NotificationKind.ItemUpdated && record.ItemId is not null)
             .GroupBy(record => record.ItemId!, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)group.Select(record => record.Id).ToList(), StringComparer.Ordinal);
+            .ToDictionary(
+                group => group.Key,
+                group => new UnreadUpdate(
+                    group.Select(record => record.Id).ToList(),
+                    group.Aggregate(Core.Services.BoothChangeKind.None, (kinds, record) => kinds | Core.Services.BoothChanges.KindsOf(record))),
+                StringComparer.Ordinal);
 
     private (DateTime WrittenUtc, long Length) NotificationsStamp()
     {
@@ -75,20 +90,21 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>読み直しの裏で読んでおく（商品と同じ時点の知らせで札を出す）。</summary>
-    private ((DateTime, long) Stamp, Dictionary<string, IReadOnlyList<string>> Unread) ReadUnreadUpdates()
+    private ((DateTime, long) Stamp, Dictionary<string, UnreadUpdate> Unread) ReadUnreadUpdates()
     {
         var stamp = NotificationsStamp();
         return (stamp, UnreadUpdatesOf(_services.Notifications.Load()));
     }
 
-    private void SetUnreadUpdates(IReadOnlyDictionary<string, IReadOnlyList<string>> unread)
+    private void SetUnreadUpdates(IReadOnlyDictionary<string, UnreadUpdate> unread)
     {
+        // 種類が変わっても（同じ商品に価格の知らせが重なった）結果が変わる
         var changed = unread.Count != _unreadUpdates.Count
-                      || unread.Keys.Any(id => !_unreadUpdates.ContainsKey(id));
+                      || unread.Any(pair => !_unreadUpdates.TryGetValue(pair.Key, out var before) || before.Kinds != pair.Value.Kinds);
         _unreadUpdates = unread;
         ApplyUpdatesToCards();
 
-        // 条件「更新あり」を置いていれば、結果と選択肢の件数が変わる
+        // 条件「更新通知あり」を置いていれば、結果と選択肢の件数が変わる
         if (changed && Modules.Any(module => module.Kind == SearchModuleKind.Updated))
         {
             ApplyFilters();
@@ -156,7 +172,7 @@ public sealed partial class SearchViewModel
         }
 
         // 表に無い商品（ショップの画面のカードは、検索がまだ知らせを読んでいないことがある）は、ファイルを1回だけ読んで引く
-        Dictionary<string, IReadOnlyList<string>>? loaded = null;
+        Dictionary<string, UnreadUpdate>? loaded = null;
         if (cards.Any(card => !_unreadUpdates.ContainsKey(card.Item.Id)))
         {
             loaded = UnreadUpdatesOf(await Task.Run(_services.Notifications.Load));
@@ -166,8 +182,8 @@ public sealed partial class SearchViewModel
             .Select(card => card.Item.Id)
             .Distinct(StringComparer.Ordinal)
             .SelectMany(itemId => _unreadUpdates.TryGetValue(itemId, out var known)
-                ? known
-                : loaded?.GetValueOrDefault(itemId) ?? [])
+                ? known.Ids
+                : loaded?.GetValueOrDefault(itemId)?.Ids ?? [])
             .Distinct(StringComparer.Ordinal)
             .ToList();
         if (ids.Count > 0)
@@ -193,7 +209,7 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        var rest = new Dictionary<string, IReadOnlyList<string>>(_unreadUpdates, StringComparer.Ordinal);
+        var rest = new Dictionary<string, UnreadUpdate>(_unreadUpdates, StringComparer.Ordinal);
         foreach (var card in cards)
         {
             rest.Remove(card.Item.Id);

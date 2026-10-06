@@ -48,7 +48,7 @@ public enum SearchModuleKind
     /// <summary>仮のIDで登録した「BOOTHに無い商品」か（ユーザ指示 2026-10-04 メモ31。判定は <see cref="Chmonos.Core.Models.ItemRecord.IsLocalOnly"/> と同じ）。</summary>
     NotOnBooth,
 
-    /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。</summary>
+    /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。画面の名前は「更新通知あり」（2026-10-06）。</summary>
     Updated,
 }
 
@@ -202,7 +202,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
         new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルやフォルダがある商品で絞ります。"),
         new(SearchModuleKind.NotOnBooth, "BOOTHに無い商品", "BOOTHに無い商品として登録した商品か、BOOTHの商品かで絞ります。"),
-        new(SearchModuleKind.Updated, "更新あり", "BOOTHで商品ページが更新され、通知でまだ読んでいない商品で絞ります。"),
+        new(SearchModuleKind.Updated, "更新通知あり", "未読の更新の通知がある商品を、変わった所で絞ります。"),
     ];
 
     /// <summary>
