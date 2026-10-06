@@ -586,6 +586,12 @@ public sealed class ThumbnailLoader
         }
     }
 
+    /// <summary>
+    /// 読めなかった覚え1件のおおよその大きさ。鍵の文字列（1字2バイト）と、入れ物・辞書の1行の分（実物で数百バイト）。
+    /// 正確でなくてよい：予算の中で古い順に追い出されることが目的
+    /// </summary>
+    internal static long FailedEntryBytes(string key) => key.Length * 2L + 200;
+
     private Entry Store(string key, Decoded? decoded)
     {
         var entry = new Entry
@@ -593,8 +599,10 @@ public sealed class ThumbnailLoader
             Pixels = decoded?.Pixels,
             Width = decoded?.Width ?? 0,
             Height = decoded?.Height ?? 0,
-            // 復号に失敗したものは「読めない」という結果自体に意味があるので残すが、容量には数えない
-            Bytes = decoded?.Pixels.LongLength ?? 0,
+            // 復号に失敗したものは「読めない」という結果自体に意味があるので残す。画素は無いが、
+            // 覚え1件ぶん（場所の文字列と入れ物）を数える（外部の点検 2026-10-07）。0 と数えると予算を超えないので
+            // 追い出しが始まらず、読めない画像を見て回るほど、覚えだけが増え続けた
+            Bytes = decoded?.Pixels.LongLength ?? FailedEntryBytes(key),
             LastUsedAt = ++_clock,
         };
 
