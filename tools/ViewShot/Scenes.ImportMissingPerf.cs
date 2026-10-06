@@ -19,10 +19,16 @@ internal static partial class Scenes
     [
         new Scene("perf-import-missing-3000", "計測：見つからないファイルを探した結果が3000件ずつ（紐付け直した・見つからなかった）", context => ImportMissingPerfAsync(context, 3000)),
         new Scene("perf-import-missing-30", "計測：見つからないファイルを探した結果が30件ずつ", context => ImportMissingPerfAsync(context, 30)),
+        new Scene("perf-import-missing-3000-images", "計測：3000件ずつ。紐付け直した先頭600件の商品に絵がある（行の絵を読む手間とメモリ。メモ76）", context => ImportMissingPerfAsync(context, 3000, images: 600)),
     ];
 
-    private static async Task<Shot> ImportMissingPerfAsync(SceneContext context, int count)
+    private static async Task<Shot> ImportMissingPerfAsync(SceneContext context, int count, int images = 0)
     {
+        for (var i = 0; i < images; i++)
+        {
+            await context.Fake.ItemAsync($"99{i:00000}", $"作り物の衣装{i:00000}", images: 1);
+        }
+
         var main = await context.StartAsync();
         main.ShowImportCommand.Execute(null);
         var root = context.MainWindow();

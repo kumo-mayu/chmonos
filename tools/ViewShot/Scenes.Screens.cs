@@ -124,6 +124,9 @@ internal static partial class Scenes
         new Scene("import-missing-folders", "見つからないファイルを探した結果：見つからない登録フォルダと候補（候補3つ・候補無し）", async context =>
         {
             var main = await context.StartAsync();
+            await context.Fake.ItemAsync("9900701", "作り物の衣装", images: 2);
+            await context.Fake.ItemAsync("9900702", "作り物の髪型", images: 1);
+
             main.ShowImportCommand.Execute(null);
             var root = context.MainWindow();
             await context.PresentAsync(root);
@@ -165,6 +168,15 @@ internal static partial class Scenes
         new Scene("import-missing-results", "見つからないファイルを探した結果：紐付け直したファイル・見つからなかったファイル（畳んだ）・探せなかった場所", async context =>
         {
             var main = await context.StartAsync();
+            // 絵のある商品と、記録の無い商品（9900713。頭文字になる）を混ぜる
+            await context.Fake.ItemAsync("9900711", "作り物の移動テスト", images: 2);
+            await context.Fake.ItemAsync("9900712", "作り物の衣装セット", images: 3);
+            await context.Fake.ItemAsync("9900702", "作り物の髪型", images: 1);
+            for (var i = 1; i <= 8; i++)
+            {
+                await context.Fake.ItemAsync($"99007{i:00}", $"作り物の小物{i:00}", images: 1);
+            }
+
             main.ShowImportCommand.Execute(null);
             var root = context.MainWindow();
             await context.PresentAsync(root);
@@ -231,6 +243,8 @@ internal static partial class Scenes
         new Scene("import-missing-notfound", "見つからないファイルを探した結果：見つからなかったファイルだけ（開いた）と次の手", async context =>
         {
             var main = await context.StartAsync();
+            await context.Fake.ItemAsync("9900721", "作り物の移動テスト中", images: 2);
+
             main.ShowImportCommand.Execute(null);
             var root = context.MainWindow();
             await context.PresentAsync(root);
@@ -259,6 +273,12 @@ internal static partial class Scenes
         new Scene("import-missing-results-many", "見つからないファイルを探した結果：3000件を開いて途中まで流した一覧（欄の中で流れる）・登録フォルダ", async context =>
         {
             var main = await context.StartAsync();
+            // 見えている辺りの行（紐付け直した先頭40件）だけ絵を置く。絵の読み込みは見えた行だけ（メモ76）
+            for (var i = 0; i < 40; i++)
+            {
+                await context.Fake.ItemAsync($"99{i:00000}", $"作り物の衣装{i:00000}", images: 2);
+            }
+
             main.ShowImportCommand.Execute(null);
             var root = context.MainWindow();
             await context.PresentAsync(root);

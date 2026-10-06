@@ -89,6 +89,18 @@ public sealed class MissingFileResultRow : MissingResultLine
     /// <summary>商品名を押す（商品ページを開く）。</summary>
     public RelayCommand? OpenItemCommand { get; set; }
 
+    /// <summary>行の左に出す商品の絵。</summary>
+    public ResultThumbnail? Picture { get; set; }
+
+    /// <summary>
+    /// 場所の行に出す文字。紐付け直した行は新しい場所のフォルダ、見つからなかった行は元の場所のフォルダ
+    /// （行はいつも3行：商品名・ファイル名・場所。名前の分からないファイルは場所も無いので空）。
+    /// </summary>
+    public string PlaceLabel => Succeeded ? "新しい場所：" : PlaceText.Length > 0 ? "元の場所：" : string.Empty;
+
+    /// <summary>場所の行の本体（フォルダ。長ければ画面が頭を切る）。</summary>
+    public string PlaceText => Succeeded ? FolderText : System.IO.Path.GetDirectoryName(PathTip) ?? string.Empty;
+
     /// <summary>商品を開けなかったときの1行（押した行のすぐ下に出す。D6）。</summary>
     public string StatusText
     {
@@ -293,10 +305,29 @@ public sealed partial class ImportViewModel
         foreach (var row in rows)
         {
             row.OpenItemCommand = new RelayCommand(() => OpenResultItemAsync(row.ItemId, text => row.StatusText = text).Forget());
+            row.Picture = PictureOf(row.ItemId, row.ItemName);
         }
 
         return rows;
     }
+
+    /// <summary>
+    /// 行の絵（メモ76）。絵の場所は、行が見えて絵を読むときに初めて、商品の記録から決める（数千行ぶんの記録を先に読まない）。
+    /// 記録を読む・絵の一覧を取るのは裏で行う。商品が消えていれば絵は無く、頭文字のまま。
+    /// </summary>
+    internal ResultThumbnail PictureOf(string itemId, string itemName) => new(
+        itemName,
+        () => Task.Run(async () =>
+        {
+            if (await _services.Store.Items.LoadAsync(itemId) is not { } item)
+            {
+                return null;
+            }
+
+            var directory = _services.Paths.ItemImagesDir(item.Id);
+            return ResultThumbnail.PathOf(item, directory, _main.Thumbnails.ListFiles(directory), _services.Settings.ThumbnailRole);
+        }),
+        _main.Thumbnails);
 
     /// <summary>結果の1つを行にする。紐付け直した物は新しい場所の名前とフォルダ、見つからなかった物は元の名前。</summary>
     internal static MissingFileResultRow ResultRowOf(MissingFileOutcome outcome)

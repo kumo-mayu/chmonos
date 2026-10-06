@@ -21,6 +21,13 @@ public sealed class PathLine : TextBlock
     public static readonly DependencyProperty PathProperty = DependencyProperty.Register(
         nameof(Path), typeof(string), typeof(PathLine), new PropertyMetadata(string.Empty, (target, _) => ((PathLine)target).Fit()));
 
+    /// <summary>
+    /// 頭を「…」で切るか（既定は間を省く）。「どのフォルダの中か」を読ませたい行（結果の欄の新しい場所）は、頭のドライブより
+    /// 奥のフォルダ名の方が要るので、奥のフォルダが残るように頭を切る（メモ76）。
+    /// </summary>
+    public static readonly DependencyProperty TrimHeadProperty = DependencyProperty.Register(
+        nameof(TrimHead), typeof(bool), typeof(PathLine), new PropertyMetadata(false, (target, _) => ((PathLine)target).Fit()));
+
     public PathLine()
     {
         TextWrapping = TextWrapping.NoWrap;
@@ -40,13 +47,21 @@ public sealed class PathLine : TextBlock
         set => SetValue(PathProperty, value);
     }
 
+    public bool TrimHead
+    {
+        get => (bool)GetValue(TrimHeadProperty);
+        set => SetValue(TrimHeadProperty, value);
+    }
+
     private void Fit()
     {
         var full = Path ?? string.Empty;
 
         // 並べる前（幅がまだ無い）は全文を置き、並べた後の幅で省き直す
         var room = ActualWidth - Padding.Left - Padding.Right;
-        var shown = room <= 0 ? full : PathEllipsis.Fit(full, candidate => Measure(candidate) <= room);
+        var shown = room <= 0 ? full : TrimHead
+            ? PathEllipsis.FitHead(full, candidate => Measure(candidate) <= room)
+            : PathEllipsis.Fit(full, candidate => Measure(candidate) <= room);
 
         Text = shown;
         ToolTip = shown == full ? null : FullPathTip(full);
@@ -122,6 +137,41 @@ internal static class PathEllipsis
 
         var tailKept = Longest(tail.Length, count => fits(Mark + tail[^count..]));
         return Mark + tail[^tailKept..];
+    }
+
+    /// <summary>
+    /// 収まるならそのまま。収まらなければ頭を「…」で切り、奥のフォルダが残るようにする（<c>…\AnotherVeryLongFolderName</c>）。
+    /// 区切りで切るので、奥のフォルダ名を途中で割らない（入る分だけ後ろから足す）。いちばん奥の名前だけでも収まらなければ、
+    /// その名前の後ろの字を残す（<c>…ryLongFolderName</c>）。
+    /// </summary>
+    public static string FitHead(string path, Func<string, bool> fits)
+    {
+        if (path.Length == 0 || fits(path))
+        {
+            return path;
+        }
+
+        var parts = path.TrimEnd('\\', '/').Split(['\\', '/']);
+        var kept = string.Empty;
+        for (var take = 1; take < parts.Length; take++)
+        {
+            var candidate = Mark + "\\" + string.Join('\\', parts[^take..]);
+            if (!fits(candidate))
+            {
+                break;
+            }
+
+            kept = candidate;
+        }
+
+        if (kept.Length > 0)
+        {
+            return kept;
+        }
+
+        var last = parts[^1];
+        var count = Longest(last.Length, n => fits(Mark + last[^n..]));
+        return Mark + last[^count..];
     }
 
     /// <summary>0〜<paramref name="max"/> のうち、収まる最大の数（収まるかは数が減るほど収まりやすい）。1つも収まらなければ 0。</summary>
