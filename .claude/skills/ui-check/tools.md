@@ -90,7 +90,7 @@
 | `Select-ChmonosFolder -Path` | Windows のフォルダを選ぶ窓にパスを入れて押す | 窓のクラス `#32770` |
 | `Select-ChmonosSaveFile -Path <フルパス>` | バックアップの書き出しでは、保存の後に「画像も入れる／画像は入れない」を聞く窓が出るので `Close-ChmonosDialog -Button '画像も入れる' -Like 'バックアップ*'` で答える。Windows の保存の窓（バックアップの書き出しなど）にフルパスを入れて「保存」を押す。同じ名前が既にあると断る（上書きの確認が出るため） | 窓のクラス `#32770`・ファイル名の Edit の ID `1001` |
 | `Add-ChmonosImportFolder -Path [-Watch]` / `Clear-ChmonosImportTargets` | 取り込みの対象に足す（監視を聞かれたら はい／いいえ）／対象を全部外す | `ImportChooseFolder`・題「監視…」・`ImportFolderRemove` |
-| `Start-ChmonosImport [-TimeoutSeconds 600] [-During {…}]` | 「取り込みを開始」を押し、終わるまで待つ。戻りは `Done`・`Seconds`・`Trace`・`Messages`・`Summary`・`Buttons`・`Lines` | `ImportStart`・`ImportCancel`・足跡の `ScanFolders` |
+| `Start-ChmonosImport [-TimeoutSeconds 600] [-During {…}]` | 「開始」を押し、終わるまで待つ。戻りは `Done`・`Seconds`・`Trace`・`Messages`・`Summary`・`Buttons`・`Lines` | `ImportStart`・`ImportCancel`・足跡の `ScanFolders` |
 | `Invoke-ChmonosImport -Path a,b [-Watch]` | 上をつないだ物（画面を移る → 対象を外す → 足す → 取り込む → 結果） | — |
 | `Get-ChmonosImportResult` | 結果を ID で読む：`Messages`（ID → 文。読めなかった文は `ImportUnreadableLine`、オンラインのみは `ImportOnlineOnlyLine`、壊れた zip は未確定が `ImportBrokenZipLine`・商品が `ImportBrokenZipOnItemsLine`）・`Summary`（`ImportSummary.<名前>` → 数。**その回の数**）・`Buttons`（出ているボタンの ID） | `Import*` |
 | `Get-ChmonosOpenDialogNote` | 小窓が開いたままなら、題とボタンを言う文（無ければ `$null`） | — |

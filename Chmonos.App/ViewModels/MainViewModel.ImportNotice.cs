@@ -52,7 +52,7 @@ public sealed partial class MainViewModel
 
             return _importNoticeStarted
                 ? "取り込みが終わりました。結果は取り込み画面で確認できます。"
-                : "取り込みの対象に追加しました。取り込み画面の「取り込みを開始」で始まります。";
+                : "取り込みの対象に追加しました。取り込み画面の「開始」で始まります。";
         }
     }
 

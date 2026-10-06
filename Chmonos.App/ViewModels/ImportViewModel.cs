@@ -72,6 +72,9 @@ public sealed partial class ImportViewModel : ViewModelBase
         // 前は履歴を全部「取り込み対象」に積んでいたので、1本落としたつもりでも
         // 過去に指したフォルダ全部が走り、起動時の自動取り込みは説明と逆に履歴を全部舐めていた（G1）。
         // 履歴は別の一覧として出し、そこから1件ずつ対象に積む
+        Folders.CollectionChanged += (_, _) => QueuePlaceCheck();
+        History.CollectionChanged += (_, _) => QueuePlaceCheck();
+        Watched.CollectionChanged += (_, _) => QueuePlaceCheck();
         SyncFolderLists();
 
         // 前回が途中で終わっていれば知らせる。中断は黙って起きるので、
@@ -80,7 +83,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         if (previous.HasProgress)
         {
             // 「もう一度押すと続きから進みます」とだけ書いていたが、取り込み対象は次の起動で空に戻るので、
-            // 指していた「取り込みを開始」は押せない状態だった。押せるボタンを横に置く（2026-09-22）
+            // 指していた「開始」は押せない状態だった。押せるボタンを横に置く（2026-09-22）
             _interruptedText = previous.Text + "。";
         }
 
@@ -89,8 +92,11 @@ public sealed partial class ImportViewModel : ViewModelBase
         AddFolderCommand = new RelayCommand(AddFolder);
         RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => parameter is string);
         // 右クリックから、そのフォルダをエクスプローラで開く（ユーザ指示 2026-09-20・M2）
+        // 場所が見つからない行は押せなくして理由を言う（ユーザ判断 2026-10-06・メモ75。右クリックの決まり）。
+        // 押せるかは控えた答えだけで決め、ここでディスクは見ない
         RevealFolderCommand = new RelayCommand(
-            parameter => ExplorerReveal.RevealAsync(parameter as string).Forget(), parameter => parameter is string);
+            parameter => ExplorerReveal.RevealAsync(parameter as string).Forget(),
+            parameter => parameter is string path && RevealBlockedReason(path) is null);
         StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0 && !IsRemovingUnpacked);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
@@ -333,7 +339,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 実行中は「積む」になる。押した先が別の取り込みではなく**今の取り込み**である
     /// ことが、文言だけで分かるようにする。
     /// </summary>
-    public string StartText => IsRunning ? "今の取り込みに追加" : "取り込みを開始";
+    public string StartText => IsRunning ? "今の取り込みに追加" : "開始";
 
     private string? _interruptedText;
 
@@ -364,7 +370,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 前回の続きから進む。**対象を積むところまでやる。**
     ///
     /// 前は「もう一度押すと続きから進みます」と書いてあるだけだったが、取り込み対象は
-    /// 次の起動で空に戻る（履歴とは別物）ので、指している「取り込みを開始」は押せない状態だった。
+    /// 次の起動で空に戻る（履歴とは別物）ので、指している「開始」は押せない状態だった。
     /// 案内が押せないボタンを指していた（ユーザ指摘 2026-09-22）。
     /// 積むのは前回の対象だけ（<see cref="Core.Scanning.ImportState.Targets"/>）——
     /// 履歴を全部積むと、そのとき対象にしていなかったフォルダまで走査してしまう。
@@ -548,6 +554,87 @@ public sealed partial class ImportViewModel : ViewModelBase
         await _main.ReloadLibraryAsync();
         _main.Search.ShowRecentlyAddedFirst();
         _main.ShowSearch();
+    }
+
+    internal const string PlaceMissingText = "見つかりません";
+
+    internal const string PlaceDetachedText = "今つながっていません";
+
+    private IReadOnlyDictionary<string, Core.Services.FilePresence> _places =
+        new Dictionary<string, Core.Services.FilePresence>(StringComparer.OrdinalIgnoreCase);
+
+    private bool _placeCheckQueued;
+
+    private Task _placeCheck = Task.CompletedTask;
+
+    /// <summary>場所の確かめが終わるたびに増える。吹き出しが引き直すための印。</summary>
+    public int PlacesVersion { get; private set; }
+
+    /// <summary>
+    /// 「エクスプローラで開く」を押せない理由。開ける（まだ確かめていない行も含む）ときは null。
+    /// 控えた答えを引くだけで、ディスクは見ない（押せるかは再確認のたびに聞かれる）。
+    /// </summary>
+    public string? RevealBlockedReason(string? path)
+        => path is not null && _places.TryGetValue(path, out var presence)
+            ? presence switch
+            {
+                Core.Services.FilePresence.Missing => PlaceMissingText,
+                Core.Services.FilePresence.OnDetachedDrive => PlaceDetachedText,
+                _ => null,
+            }
+            : null;
+
+    /// <summary>試験が確かめの終わりを待つ。</summary>
+    internal Task PlaceCheckTask => _placeCheck;
+
+    /// <summary>
+    /// 3つの一覧の場所が在るかを、一覧が変わったとき（画面を開いたときの並べ直しを含む）に1回だけ見る。
+    /// 1件ずつ足す所が多いので、同じ周で重なった変更は1回にまとめる。ディスクは画面のスレッドの外で見る。
+    /// </summary>
+    private void QueuePlaceCheck()
+    {
+        if (_placeCheckQueued)
+        {
+            return;
+        }
+
+        _placeCheckQueued = true;
+        _placeCheck = CheckPlacesAsync();
+    }
+
+    private async Task CheckPlacesAsync()
+    {
+        await Task.Yield();
+        _placeCheckQueued = false;
+
+        var paths = Folders.Concat(History).Concat(Watched).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var places = await Task.Run(() =>
+        {
+            // 取り込み元・監視は外付けやネットワークにもある。ドライブの根は1回だけ・打ち切り付きで見る（設定画面と同じ部品）
+            var probe = new Core.Services.FilePresenceProbe();
+            var result = new Dictionary<string, Core.Services.FilePresence>(StringComparer.OrdinalIgnoreCase);
+            foreach (var path in paths)
+            {
+                var presence = probe.OfFolder(path);
+                if (presence == Core.Services.FilePresence.Missing)
+                {
+                    // 履歴にはファイルも並ぶ。フォルダに無くてもファイルとして在れば開ける
+                    presence = probe.Of([path]);
+                }
+
+                result[path] = presence;
+            }
+
+            return result;
+        });
+
+        RunOnUiThread(() =>
+        {
+            _places = places;
+            PlacesVersion++;
+            OnPropertyChanged(nameof(PlacesVersion));
+            RelayCommand.RaiseCanExecuteChanged();
+        });
     }
 
     /// <summary>画面を開いたときに呼ぶ。設定画面で変えた値を説明に映す。</summary>

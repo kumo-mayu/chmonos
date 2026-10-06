@@ -39,7 +39,7 @@ public class RightClickActionButtonsTests
     {
         var main = await app.StartAsync();
 
-        // 見つからない場所でも押せる（押すと「見つかりません」と窓で言う・右クリックと同じ）。行の値が無いときだけ押せない
+        // まだ確かめていない場所は押せる（見つからないと分かった行を押せなくするのは ImportRowButtonTests）。行の値が無いときだけ押せない
         Assert.True(main.Import.RevealFolderCommand.CanExecute(@"E:\作り物\外付け"));
         Assert.False(main.Import.RevealFolderCommand.CanExecute(null));
     });

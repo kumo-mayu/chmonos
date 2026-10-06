@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows.Controls;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
@@ -13,12 +14,17 @@ internal static partial class Scenes
 {
     private static IEnumerable<Scene> RowButtons =>
     [
-        new Scene("import-row-reveal", "取り込み画面：3つの一覧（取り込み対象・監視・履歴）の各行に「エクスプローラで開く」", async context =>
+        new Scene("import-row-reveal", "取り込み画面：3つの一覧の各行（赤いボタンは1語で同じ幅。見つからない・つながっていない行は「エクスプローラで開く」が薄い）", async context =>
         {
+            // 在る場所（試験の置き場）・見つからない場所・つながっていないドライブの上の3通り（メモ75：後ろの2つは押せなくして理由を言う）
+            var existing = Path.GetTempPath().TrimEnd('\\');
+            var used = DriveInfo.GetDrives().Select(drive => drive.Name[0]).ToHashSet();
+            var unusedDrive = "ZYXWVUTSRQPONMLKJIHGFED".First(c => !used.Contains(c));
             string[] folders =
             [
                 @"D:\作り物のフォルダ\とても長い名前のフォルダ（入れ子1）\さらに長い名前のフォルダ（入れ子2）\もっと深い所にあるダウンロードの置き場\2026年9月に買った分",
-                @"D:\作り物\短い",
+                existing,
+                $@"{unusedDrive}:\外付け\作り物",
             ];
             var main = await context.StartAsync(settings => settings with { WatchedFolders = folders });
             main.ShowImportCommand.Execute(null);
@@ -31,7 +37,8 @@ internal static partial class Scenes
 
             var root = context.MainWindow();
             await context.PresentAsync(root);
-            await SceneContext.UntilAsync(() => import.Watched.Count == 2, "監視フォルダが届く");
+            await SceneContext.UntilAsync(() => import.Watched.Count == folders.Length, "監視フォルダが届く");
+            await import.PlaceCheckTask;
             await context.SettleAsync();
 
             return new Shot(root);
