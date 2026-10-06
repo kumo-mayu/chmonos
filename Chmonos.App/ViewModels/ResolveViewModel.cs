@@ -820,9 +820,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 行を選び直したら、束ではなくその1件を扱う。束は見出しのボタンからだけ立つ
         ActiveGroup = null;
 
-        ItemIdInput = string.Empty;
+        // 取り込みが BOOTH に聞いて「無い」と答えられた行は、初めからそのIDを欄に入れ、そのIDのまま登録する形を出す
+        // （ユーザ判断 2026-10-06。前は「情報を確認」でもう一度聞くまで出せなかった）。BOOTHへは聞かない（答えは残してある）
+        var notOnBooth = Selected?.NotOnBoothItemId;
+        ItemIdInput = notOnBooth ?? string.Empty;
         Preview = null;
-        NotOnBoothItemId = null;
+        NotOnBoothItemId = notOnBooth;
+        _overturnedItemId = null;
         StatusText = string.Empty;
         OriginZipNote = string.Empty;
         LocalStatusText = string.Empty;
@@ -936,6 +940,18 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 Preview = loaded.Preview;
                 StatusText = string.Empty;
+
+                // 取り込みのときは「無い」と答えられたIDが、聞き直すと公開されていた（ユーザ判断 2026-10-06）。
+                // ふつうの「このIDで登録」に戻し、添えてあった画像は登録と一緒に自分で足した画像として入れる（人が選んだ画像を捨てない）。
+                // 記録の印は Core が外した。手元から読んだ（ライブラリにあり）ときは BOOTH に聞いていないので、印は変わらない
+                if (!loaded.Preview.IsAlreadyOwned && startedWith?.NotOnBoothItemId == loaded.Preview.Id)
+                {
+                    startedWith.NoteNowOnBooth();
+                    _overturnedItemId = loaded.Preview.Id;
+                    StatusText = LocalImages.Count > 0
+                        ? $"BOOTHで公開されています。選んだ画像 {LocalImages.Count} 枚も一緒に追加します。"
+                        : "BOOTHで公開されています。";
+                }
             }
             else if (result is CommandResult.PreviewNotOnBooth notOnBooth)
             {
@@ -1013,7 +1029,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 持っている商品へ足すだけなら問い合わせが無く数十msで終わるので、今までどおりその場で済ませる
         if (!Preview.IsAlreadyOwned)
         {
-            EnqueueRegistration(targets, Preview, fromChecked);
+            // 非公開と思って添えた画像は、聞き直して公開されていたIDの登録にだけ持っていく（ほかのIDの登録には「BOOTHに無い商品」の欄の画像を混ぜない）
+            var images = itemId == _overturnedItemId ? LocalImages.Select(image => image.Path).ToList() : [];
+            EnqueueRegistration(targets, Preview, fromChecked, images);
             return;
         }
 

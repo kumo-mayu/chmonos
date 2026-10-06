@@ -320,12 +320,13 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("resolve-not-on-booth", "未確定：ファイルから読み取れた商品IDが BOOTH で非公開だったとき（欄にID・説明・名前・画像の枠・このIDで登録。ユーザ 2026-10-06）", async context =>
+        new Scene("resolve-not-on-booth", "未確定：取り込みが BOOTH から「無い」と言われた行を選んだとき（左の札「BOOTHで非公開」・初めから欄にID・説明・名前・画像の枠・このIDで登録。ユーザ 2026-10-06）", async context =>
         {
+            // 取り込みが残した答え（notOnBooth）を持つ行。選ぶだけで形が出る（BOOTHへは聞かない）
             await context.Seed.Unresolved.SaveAsync(
             [
                 Fake.Unresolved(Fake.Zip(@"ダウンロード\winter_coat_2025.zip", "coat.unitypackage"), contents: ["coat.unitypackage"],
-                    candidates: ["9900901"]),
+                    candidates: ["9900901"], notOnBooth: "9900901"),
                 Fake.Unresolved(Fake.Zip(@"ダウンロード\accessory_pack.zip", "ring.unitypackage"), contents: ["ring.unitypackage"]),
             ]);
             var pictures = Path.Combine(Isolation.FilesRoot, "画像");
@@ -333,7 +334,6 @@ internal static partial class Scenes
             var (root, screen) = await OpenResolveAsync(context, 2);
             screen.Selected = screen.Files.First(row => row.FileName == "winter_coat_2025.zip");
             await context.SettleAsync();
-            Backdoor.ShowNotOnBooth(screen, "9900901");
             screen.AddLocalImages([Path.Combine(pictures, "front.png")]);
             await context.SettleAsync();
             return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };

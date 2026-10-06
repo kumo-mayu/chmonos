@@ -149,6 +149,9 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(hash, back.Hash);
         Assert.Equal([path], back.Paths);
         Assert.Equal(new FileInfo(path).Length, back.SizeBytes);
+
+        // BOOTH に聞いていない行なので、「BOOTHで非公開」の答え（ユーザ判断 2026-10-06）は付けない
+        Assert.Null(back.NotOnBooth);
     }
 
     [Fact]

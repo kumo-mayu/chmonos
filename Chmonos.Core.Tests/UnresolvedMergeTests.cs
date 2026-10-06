@@ -143,4 +143,30 @@ public sealed class UnresolvedMergeTests
 
         Assert.Equal([@"D:\BOOTH\a.zip", @"E:\Other\a.zip"], Assert.Single(result).Paths);
     }
+
+    /// <summary>
+    /// BOOTH の「無い」の答え（ユーザ判断 2026-10-06）は、場所を足して行を作り直しても消えない。
+    /// 欄を書き並べて作り直す所で書き漏らすと、2か所にある物・今回見ていない場所を持つ物だけ札「BOOTHで非公開」が外れる。
+    /// </summary>
+    [Fact]
+    public void BOOTHで無いと答えられた記録は_場所を足しても残る()
+    {
+        var note = new BoothNotFoundNote { ItemId = "9900001", CheckedAt = new DateTimeOffset(2026, 10, 6, 0, 0, 0, TimeSpan.Zero) };
+        var found = File("A", @"D:\BOOTH\a.zip").WithNotOnBooth(note);
+        var copy = File("A", @"D:\BOOTH\copy\a.zip").WithNotOnBooth(note);
+        var before = new UnresolvedFile
+        {
+            Hash = "A",
+            Paths = [@"E:\Other\a.zip"],
+            SizeBytes = 1,
+            ModifiedAtUtc = DateTimeOffset.UnixEpoch,
+            FirstSeenAt = DateTimeOffset.UnixEpoch,
+        };
+
+        var result = UnresolvedMerge.ForImport(current: [before], lastWritten: [before], found: [found, copy], Scanned, NoOffline);
+
+        var only = Assert.Single(result);
+        Assert.Equal(3, only.Paths.Count);
+        Assert.Equal(note, only.NotOnBooth);
+    }
 }

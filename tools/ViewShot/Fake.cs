@@ -134,7 +134,7 @@ internal sealed class Fake(DataStore store)
     /// </summary>
     public static UnresolvedFile Unresolved(
         string path, long size = 48_300_000, bool broken = false, IReadOnlyList<string>? contents = null, string? originZip = null,
-        IReadOnlyList<string>? candidates = null)
+        IReadOnlyList<string>? candidates = null, string? notOnBooth = null)
         => new()
         {
             CandidateItemIds = candidates ?? [],
@@ -146,6 +146,9 @@ internal sealed class Fake(DataStore store)
             Contents = contents ?? [],
             ZoneReferrerUrl = originZip,
             ArchiveBroken = broken,
+
+            // 取り込みが BOOTH に聞いて「無い」と答えられた商品ID（札「BOOTHで非公開」・選ぶと初めからそのIDのまま登録する形）
+            NotOnBooth = notOnBooth is null ? null : new BoothNotFoundNote { ItemId = notOnBooth, CheckedAt = Day },
         };
 
     /// <summary>中身の要らないファイルを置く（zip でない物：unitypackage・画像・文書）。</summary>
