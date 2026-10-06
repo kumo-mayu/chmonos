@@ -358,13 +358,13 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     private bool _isSendingToUnity;
     private string _unityQueueText = string.Empty;
 
-    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(() =>
+    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(() => ChangeSelectionTogether(() =>
     {
         foreach (var card in _listItems.OfType<ItemCardViewModel>())
         {
             card.IsSelected = true;
         }
-    });
+    }));
 
     public RelayCommand ClearSelectionCommand => _clearSelection ??= new RelayCommand(ClearSelection);
 
@@ -454,12 +454,34 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         return cards;
     }
 
-    public void ClearSelection()
+    public void ClearSelection() => ChangeSelectionTogether(() =>
     {
-        foreach (var card in _cards.Values.Where(card => card.IsSelected))
+        foreach (var card in _cards.Values.Where(card => card.IsSelected).ToList())
         {
             card.IsSelected = false;
         }
+    });
+
+    private bool _batchingSelection;
+
+    /// <summary>
+    /// まとめて選ぶ・外す間は、1件ごとの知らせを止め、最後に1回だけ知らせる（外部の点検 2026-10-07）。
+    /// 1件ごとに知らせると、そのたびに全部のカードへ「選ぶ操作中か」を配り直し、件数も数え直すので、
+    /// 2万件を全部選ぶと約4億回になり、その間ずっと画面が止まっていた
+    /// </summary>
+    private void ChangeSelectionTogether(Action change)
+    {
+        _batchingSelection = true;
+        try
+        {
+            change();
+        }
+        finally
+        {
+            _batchingSelection = false;
+        }
+
+        OnCardSelectionChanged();
     }
 
     /// <summary>選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。</summary>
@@ -474,6 +496,11 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     /// <summary>1件でも選ぶと、カード全体が選択の的になる（検索画面と同じ。中を見るのは専用のボタンへ）。</summary>
     private void OnCardSelectionChanged()
     {
+        if (_batchingSelection)
+        {
+            return;
+        }
+
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasSelectedUpdates));

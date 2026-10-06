@@ -150,6 +150,11 @@ public sealed partial class SearchViewModel
 
     private void OnCardSelectionChanged()
     {
+        if (_batchingSelection)
+        {
+            return;
+        }
+
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasSelectedUpdates));
@@ -168,20 +173,42 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>今の絞り込み結果を全部選ぶ。画面に出ていないものは選ばない。</summary>
-    private void SelectAllMatches()
+    private void SelectAllMatches() => ChangeSelectionTogether(() =>
     {
         foreach (var card in _matches)
         {
             card.IsSelected = true;
         }
-    }
+    });
 
-    public void ClearSelection()
+    public void ClearSelection() => ChangeSelectionTogether(() =>
     {
-        foreach (var card in _cards.Values.Where(card => card.IsSelected))
+        foreach (var card in _cards.Values.Where(card => card.IsSelected).ToList())
         {
             card.IsSelected = false;
         }
+    });
+
+    private bool _batchingSelection;
+
+    /// <summary>
+    /// まとめて選ぶ・外す間は、1件ごとの知らせを止め、最後に1回だけ知らせる（外部の点検 2026-10-07）。
+    /// 1件ごとに知らせると、そのたびに全部のカードへ「選ぶ操作中か」を配り直し、件数も数え直すので、
+    /// 2万件を全部選ぶと約4億回になり、その間ずっと画面が止まっていた
+    /// </summary>
+    private void ChangeSelectionTogether(Action change)
+    {
+        _batchingSelection = true;
+        try
+        {
+            change();
+        }
+        finally
+        {
+            _batchingSelection = false;
+        }
+
+        OnCardSelectionChanged();
     }
 
     /// <summary>
