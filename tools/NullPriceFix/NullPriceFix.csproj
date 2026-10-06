@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    購入記録の額の空欄を 0 に書き換える、一度だけ動かす道具（ユーザ指示 2026-10-06）。
+    2026-09-29 より前の版は、編集画面の額の空欄を「未入力」として書いていた。今の版は空欄を 0円として記録するので、
+    前の版で 0円のつもりで空欄にした記録を、今の版の形にそろえる。ほかの人の PC で走らせる物なので、
+    既定は数えるだけ。書き換えるのは apply を付けたときだけで、書く前に控えを取る（中身は Chmonos.Core の NullPriceFixer）
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>NullPriceFix</AssemblyName>
+    <RootNamespace>NullPriceFix</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Chmonos.Core\Chmonos.Core.csproj" />
+  </ItemGroup>
+
+</Project>

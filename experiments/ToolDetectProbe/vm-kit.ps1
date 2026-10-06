@@ -38,8 +38,11 @@ function New-ProbeVm {
         [int]$MemoryMB = 8192,
         [int]$Cpus = 4,
         [int]$DiskGB = 80,
-        # 評価版の ISO は版が1つ（Enterprise）なので 1。複数の版が入った ISO なら選び直す
-        [int]$ImageIndex = 1
+        # 版の番号（VBoxManage unattended detect --iso で見る）。通常の ISO は 1 が Home（利用者に多い版）
+        [int]$ImageIndex = 1,
+        # 通常の ISO は入れるときにプロダクトキーを求める。Microsoft が公開している「入れるための既定のキー」（認証はされない）を渡す。
+        # 評価版の ISO ならキーは要らないので空にする
+        [string]$Key = 'YTMG3-N6DKC-DKB77-7M9GH-8HVX7'
     )
     if (-not (Test-Path $Iso)) { throw "ISO が見つからない: $Iso" }
     New-Item -ItemType Directory -Force $Dir, $script:ProbeShare | Out-Null
@@ -61,7 +64,8 @@ function New-ProbeVm {
     # 道具を渡す共有のフォルダ（読むだけで渡す。中から書かせない）
     Invoke-VBox sharedfolder add $script:ProbeVmName --name share --hostpath $script:ProbeShare --readonly --automount
 
-    Invoke-VBox unattended install $script:ProbeVmName --iso $Iso --image-index $ImageIndex `
+    $keyArgs = if ($Key) { @('--key', $Key) } else { @() }
+    Invoke-VBox unattended install $script:ProbeVmName --iso $Iso --image-index $ImageIndex @keyArgs `
         --user $script:ProbeUser --password $script:ProbePassword --full-user-name $script:ProbeUser `
         --locale ja_JP --country JP --time-zone 'Tokyo Standard Time' --install-additions
     Invoke-VBox startvm $script:ProbeVmName --type gui
