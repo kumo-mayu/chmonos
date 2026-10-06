@@ -13,6 +13,20 @@ public readonly record struct BackupProgress(int Done, int Total, string Current
 /// <summary>書き出した結果。何を入れて何を入れなかったかを人に見せるために持つ。</summary>
 public sealed record BackupResult(int Files, long Bytes, int SkippedLocked);
 
+/// <summary>
+/// 書き出しの途中で、写し始めたファイルが読めなくなった。zip は作りかけなので完成扱いにしない（一時の zip は消す）。
+/// 呼び手が「何が起き、前の zip はどうなったか」を言えるように、名前と前の zip の有無を持つ。
+/// </summary>
+public sealed class BackupReadException(string relativePath, bool previousKept, Exception inner)
+    : IOException($"書き出しの途中で読めなくなりました：{relativePath}", inner)
+{
+    /// <summary>読めなくなったファイル（保存先からの相対）。</summary>
+    public string RelativePath { get; } = relativePath;
+
+    /// <summary>同じ名前の前の zip が在り、手を付けずに残したか。</summary>
+    public bool PreviousKept { get; } = previousKept;
+}
+
 /// <summary>バックアップの中に入れる説明（<c>backup-info.json</c>）。zip を開いた人が読める形。</summary>
 public sealed record BackupInfo
 {
@@ -81,6 +95,9 @@ public static class BackupArchive
 
         // 書きかけの zip を本物の名前で残さない。書き終えてから置き換える
         var temporary = zipFull + ".tmp";
+
+        // 失敗したときに「前の zip はそのまま」と言えるかを、書き始める前に見ておく
+        var previousKept = File.Exists(zipFull);
         var files = 0;
         var bytes = 0L;
         var skipped = 0;
@@ -125,21 +142,41 @@ public static class BackupArchive
                     continue;
                 }
 
+                // 開く前の失敗（ほかのアプリが掴んでいる・消えた）は、そのファイルを飛ばして数える。zip にはまだ何も書いていない
+                FileStream source;
+                DateTime lastWrite;
                 try
                 {
-                    using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    var entry = archive.CreateEntry(relative.Replace(Path.DirectorySeparatorChar, '/'), CompressionLevel.Optimal);
-                    entry.LastWriteTime = File.GetLastWriteTime(path);
-                    using var target = entry.Open();
-                    source.CopyTo(target);
-                    files++;
-                    bytes += source.Length;
-                    progress?.Report(new BackupProgress(seen, targets.Count, Path.GetFileName(path)));
+                    source = OpenSource(path);
+                    lastWrite = File.GetLastWriteTime(path);
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
                     skipped++;
+                    continue;
                 }
+
+                // 写し始めた後の失敗は飛ばさない（外部の点検 2026-10-06）。項目は作りかけのまま zip に残り、
+                // 前は「飛ばした」と数えて完成扱いにし、前の正常な zip を上書きしていた。書き出しごと失敗にし、前の zip を残す
+                using (source)
+                {
+                    var entry = archive.CreateEntry(relative.Replace(Path.DirectorySeparatorChar, '/'), CompressionLevel.Optimal);
+                    entry.LastWriteTime = lastWrite;
+                    try
+                    {
+                        using var target = entry.Open();
+                        source.CopyTo(target);
+                    }
+                    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                    {
+                        throw new BackupReadException(relative, previousKept, exception);
+                    }
+
+                    files++;
+                    bytes += source.Length;
+                }
+
+                progress?.Report(new BackupProgress(seen, targets.Count, Path.GetFileName(path)));
             }
 
             var info = new BackupInfo { CreatedAt = DateTimeOffset.Now, IncludesImages = includeImages, Files = files };
@@ -147,6 +184,9 @@ public static class BackupArchive
             JsonSerializer.Serialize(infoStream, info, JsonStore.Options);
         }
     }
+
+    private static FileStream OpenSource(string path)
+        => new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
     private static void TryDelete(string path)
     {
@@ -203,8 +243,11 @@ public static class BackupArchive
             throw new IOException($"展開先が空ではありません：{destinationRoot}");
         }
 
-        var createdDestination = !Directory.Exists(destinationRoot);
-        Directory.CreateDirectory(destinationRoot);
+        // 片付けのために、**ここで作った**ファイルとフォルダを控える（外部の点検 2026-10-06）。
+        // 前は展開先を丸ごと再帰で消していたので、戻している間に人がそこへ置いた物（別のアプリが書いた物）まで、ごみ箱を通さずに消していた
+        var createdFiles = new List<string>();
+        var createdFolders = new List<string>();
+        StoreMover.CreateFolder(destinationRoot, createdFolders);
 
         try
         {
@@ -215,9 +258,8 @@ public static class BackupArchive
         catch
         {
             // 失敗・中止のときは展開した物を消す（ユーザ判断 2026-10-01）。
-            // 残すと展開先が空でなくなり、同じ場所へ戻し直すと「空ではありません」で断られ、
-            // 手で片付けるまで使えない。展開先は上で空と確かめてあるので、中身は全部ここで書いた物
-            ClearExtracted(destinationRoot, createdDestination);
+            // 残すと展開先が空でなくなり、同じ場所へ戻し直すと「空ではありません」で断られ、手で片付けるまで使えない
+            ClearExtracted(createdFiles, createdFolders);
             throw;
         }
 
@@ -243,8 +285,18 @@ public static class BackupArchive
                     continue;
                 }
 
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                entry.ExtractToFile(target, overwrite: false);
+                StoreMover.CreateFolder(Path.GetDirectoryName(target)!, createdFolders);
+
+                // 新しく作れたときだけ控える（同じ名前の物が先に在れば CreateNew が投げ、その物には触れない）。
+                // 書く途中で落ちた書きかけは控えに入っているので、片付けで消える
+                using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    createdFiles.Add(target);
+                    using var input = entry.Open();
+                    input.CopyTo(output);
+                }
+
+                File.SetLastWriteTime(target, entry.LastWriteTime.DateTime);
                 files++;
                 progress?.Report(new BackupProgress(files, total, Path.GetFileName(target)));
             }
@@ -253,31 +305,38 @@ public static class BackupArchive
         }
     }
 
-    /// <summary>展開先の中身を全部消す。展開先は始める前に空と確かめてあるので、中身はどれも展開した物。</summary>
-    private static void ClearExtracted(string destinationRoot, bool createdDestination)
+    /// <summary>
+    /// 戻すが作ったファイルを消し、作ったフォルダを空になった物だけ深い方から畳む。
+    /// 後から人が置いた物はどれにも入っていないので残り、それが入ったフォルダも空でないので残る。
+    /// </summary>
+    private static void ClearExtracted(IReadOnlyList<string> createdFiles, IReadOnlyList<string> createdFolders)
     {
-        try
+        foreach (var file in createdFiles)
         {
-            foreach (var file in Directory.EnumerateFiles(destinationRoot, "*", SearchOption.AllDirectories).ToList())
+            try
             {
                 File.Delete(file);
             }
-
-            foreach (var folder in Directory.EnumerateDirectories(destinationRoot, "*", SearchOption.AllDirectories)
-                         .OrderByDescending(path => path.Length).ToList())
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                Directory.Delete(folder);
-            }
-
-            if (createdDestination)
-            {
-                Directory.Delete(destinationRoot);
+                // 消しきれなければ残る。元の失敗の方を伝える（こちらはログにだけ残す）
+                Diagnostics.AppLog.Error("戻すの途中の物を消す", exception);
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+
+        foreach (var folder in createdFolders.OrderByDescending(path => path.Length))
         {
-            // 消しきれなければ残る。元の失敗の方を伝える（こちらはログにだけ残す）
-            Diagnostics.AppLog.Error("戻すの途中の物を消す", exception);
+            try
+            {
+                if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+                {
+                    Directory.Delete(folder);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.AppLog.Error("戻すの途中のフォルダを畳む", exception);
+            }
         }
     }
 }
