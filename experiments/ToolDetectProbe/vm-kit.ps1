@@ -35,11 +35,13 @@ function New-ProbeVm {
     param(
         [Parameter(Mandatory)][string]$Iso,
         [string]$Dir = (Join-Path $env:LOCALAPPDATA 'Chmonos-vm'),
-        [int]$MemoryMB = 8192,
-        [int]$Cpus = 4,
+        [int]$MemoryMB = 16384,
+        [int]$Cpus = 8,
         [int]$DiskGB = 80,
-        # 版の番号（VBoxManage unattended detect --iso で見る）。通常の ISO は 1 が Home（利用者に多い版）
-        [int]$ImageIndex = 1,
+        # 版の番号（VBoxManage unattended detect --iso で見る）。通常の ISO は 3 が Pro。
+        # Home（1）は最初の立ち上げで Microsoft のアカウントとネットワークを求め、自動の入れ方のローカルのアカウントが通らず、
+        # 黒い画面のまま入力を待った（2026-10-06・26300 の ISO）。見分けが読むレジストリは版で変わらないので Pro で確かめる
+        [int]$ImageIndex = 3,
         # 通常の ISO は入れるときにプロダクトキーを求める。Microsoft が公開している「入れるための既定のキー」（認証はされない）を渡す。
         # 評価版の ISO ならキーは要らないので空にする
         [string]$Key = 'YTMG3-N6DKC-DKB77-7M9GH-8HVX7'
@@ -70,6 +72,14 @@ function New-ProbeVm {
         --locale ja_JP --country JP --time-zone 'Tokyo Standard Time' --install-additions
     Invoke-VBox startvm $script:ProbeVmName --type gui
     "作った：$($script:ProbeVmName)。Windows を自動で入れている（1時間ほど）。Wait-ProbeVm で待つ"
+}
+
+function Remove-ProbeVm {
+    # 作り直すとき。止めてから、登録とディスクを消す（共有のフォルダの中身は残す）
+    & $script:VBox controlvm $script:ProbeVmName poweroff 2>$null | Out-Null
+    Start-Sleep -Seconds 5
+    Invoke-VBox unregistervm $script:ProbeVmName --delete
+    "消した：$($script:ProbeVmName)"
 }
 
 function Wait-ProbeVm {
@@ -128,5 +138,32 @@ function Invoke-Probe {
 function Save-ProbeShot([Parameter(Mandatory)][string]$Path) {
     # 窓を出したかは画面でしか分からない（Process.Start が返っても、Windows が「開くアプリを選んでください」を出していることがある）
     Invoke-VBox controlvm $script:ProbeVmName screenshotpng (Join-Path (Resolve-Path .) $Path)
+    "撮った：$Path"
+}
+
+function Save-ProbeWindowShot([Parameter(Mandatory)][string]$Path) {
+    # Windows の立ち上げの途中は、VBoxManage の screenshotpng が画面の元が無いとして失敗する（2026-10-06）。
+    # VirtualBox の窓そのものを PrintWindow で撮れば、黒いのか・何の画面かは分かる
+    Add-Type -AssemblyName System.Drawing
+    if (-not ('ProbeWin' -as [type])) {
+        Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class ProbeWin {
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint f);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+    public struct RECT { public int L, T, R, B; }
+}
+"@
+    }
+    $window = Get-Process VirtualBoxVM -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like "$($script:ProbeVmName)*" } | Select-Object -First 1
+    if (-not $window) { throw '仮想の PC の窓が見つからない' }
+    $rect = New-Object ProbeWin+RECT
+    [ProbeWin]::GetWindowRect($window.MainWindowHandle, [ref]$rect) | Out-Null
+    $bitmap = New-Object System.Drawing.Bitmap ($rect.R - $rect.L), ($rect.B - $rect.T)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $dc = $graphics.GetHdc()
+    [ProbeWin]::PrintWindow($window.MainWindowHandle, $dc, 2) | Out-Null
+    $graphics.ReleaseHdc($dc); $graphics.Dispose()
+    $bitmap.Save($Path); $bitmap.Dispose()
     "撮った：$Path"
 }
