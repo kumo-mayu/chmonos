@@ -158,6 +158,33 @@ public sealed class OrderedVariationInput : ViewModelBase
         set => SetField(ref _canLinkFiles, value);
     }
 
+    /// <summary>
+    /// 選ぶ欄の空欄の文字。今あるファイルから選ぶ欄なので「選択」（ユーザ判断 2026-10-06）。
+    /// 前は「ファイルを追加…」で、隣に置いた新しいファイルを足す「追加…」と取り違える
+    /// </summary>
+    public string FileChoiceHint => "ファイルを選択…";
+
+    /// <summary>選ぶ欄の読み上げの名前。空欄の文字と同じ動詞にそろえる。</summary>
+    public string FileChoiceAutomationName => $"{Name}のファイルを選択";
+
+    private bool _canAddFiles;
+
+    /// <summary>
+    /// 新しいファイルを選んでこの商品に紐付け、この種類にも結ぶ「追加…」を出すか（ユーザ判断 2026-10-06）。
+    /// 買った種類の行だけ。手元にまだファイルが無くても出す（今あるファイルから選ぶ欄と違い、選ぶ物が要らない）
+    /// </summary>
+    public bool CanAddFiles
+    {
+        get => _canAddFiles;
+        set => SetField(ref _canAddFiles, value);
+    }
+
+    /// <summary>「追加…」。窓で選んだファイルを紐付け、紐付いた物だけをこの種類に結ぶ。</summary>
+    public RelayCommand? AddFilesCommand { get; set; }
+
+    /// <summary>「追加…」の読み上げの名前。何に足すかは画面の字では行の名前が言っている。</summary>
+    public string AddFilesAutomationName => $"{Name}にファイルを追加";
+
     /// <summary>この種類に紐付けたファイル。同じ種類に複数付けられる（別zipでも同じ種類由来のことがある）。</summary>
     public ObservableCollection<FileLinkInput> LinkedFiles { get; } = [];
 

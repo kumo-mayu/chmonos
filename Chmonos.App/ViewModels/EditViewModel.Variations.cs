@@ -112,12 +112,33 @@ public sealed partial class EditViewModel
     /// <summary>開いた時点の紐付け。保存のときに差だけを書く。</summary>
     private Dictionary<string, long?> _savedFileVariations = new(StringComparer.OrdinalIgnoreCase);
 
-    private void BuildFileLinks(ItemRecord record)
-    {
-        _files = record.Local.OwnedFiles
+    /// <summary>ファイルの場所→ハッシュ。「追加…」で紐付いた場所を、種類に結ぶハッシュへ引く。</summary>
+    private Dictionary<string, string> _hashByPath = new(StringComparer.OrdinalIgnoreCase);
+
+    private static List<(string Hash, string Name)> FilesOf(ItemRecord record)
+        => record.Local.OwnedFiles
             .Where(file => file.Paths.Count > 0)
             .Select(file => (file.Hash, System.IO.Path.GetFileName(file.Paths[0])))
             .ToList();
+
+    private static Dictionary<string, string> HashByPathOf(ItemRecord record)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in record.Local.OwnedFiles)
+        {
+            foreach (var path in file.Paths)
+            {
+                map[path] = file.Hash;
+            }
+        }
+
+        return map;
+    }
+
+    private void BuildFileLinks(ItemRecord record)
+    {
+        _files = FilesOf(record);
+        _hashByPath = HashByPathOf(record);
 
         _fileVariations = record.Local.OwnedFiles.ToDictionary(
             file => file.Hash, file => file.VariationId, StringComparer.OrdinalIgnoreCase);
@@ -130,6 +151,12 @@ public sealed partial class EditViewModel
 
         foreach (var row in Variations)
         {
+            row.AddFilesCommand = new RelayCommand(
+                () => AddFilesToVariationAsync(row).Forget(),
+
+                // 塞ぐ条件（取り込みの③の途中・読んでいる最中）は左のファイルの欄の「追加…」と同じ
+                () => ItemPage?.AttachFilesCommand.CanExecute(null) == true);
+
             row.LinkRequested = choice =>
             {
                 _fileVariations[choice.Hash] = row.VariationId;
@@ -139,6 +166,63 @@ public sealed partial class EditViewModel
         }
 
         _purchasedCount = PurchasedVariationCount();
+        RefreshFileLinks();
+    }
+
+    /// <summary>
+    /// 左の商品ページの欄でファイルを紐付けた後（左の「追加…」・バリエーションの行の「追加…」のどちらも）。
+    /// 足したファイルを右の一覧と選ぶ欄に、開き直さずに足す（L80 の後は開き直すまで出なかった）。
+    /// 開き直すと打ちかけの種類の選び方を書きかけへ控えて戻す手間がかかり、左の欄の流した位置も動くので、足すだけにする。
+    /// 画面の上で選んだ種類（まだ保存していない物）は消さない：前からあるファイルの値には触れず、新しいファイルだけ記録の値で足す
+    /// </summary>
+    private void MergeAttachedFiles(ItemRecord reloaded)
+    {
+        _files = FilesOf(reloaded);
+        _hashByPath = HashByPathOf(reloaded);
+        foreach (var file in reloaded.Local.OwnedFiles)
+        {
+            if (_fileVariations.TryAdd(file.Hash, file.VariationId))
+            {
+                _savedFileVariations[file.Hash] = file.VariationId;
+            }
+        }
+
+        _canLinkAny = reloaded.Booth.Variations.Count >= 2 && _files.Count > 0;
+        RefreshFileLinks();
+    }
+
+    /// <summary>
+    /// バリエーションの行の「追加…」（ユーザ判断 2026-10-06）。左の欄の「追加…」と同じ道で紐付け、**紐付いた物だけ**をこの種類に結ぶ
+    /// （除外・ほかの持ち主の窓でやめた・もう紐付いていた物は結ばない）。
+    /// 種類への結び付けは、選ぶ欄で選んだときと同じく画面の上の値で、「保存して次へ」で書く（紐付けはその場で書く命令）
+    /// </summary>
+    private async Task AddFilesToVariationAsync(OrderedVariationInput row)
+    {
+        if (ItemPage is not { } page || row.VariationId is not { } variationId)
+        {
+            return;
+        }
+
+        var attached = await page.PickAndAttachAsync($"「{row.Name}」に追加するファイルを選ぶ");
+
+        // 読んでいる間に次の商品へ進んだ（左の欄が替わった）なら、今の商品の種類に結ばない
+        if (attached.Count == 0 || !ReferenceEquals(ItemPage, page))
+        {
+            return;
+        }
+
+        // 買った種類が1つなら、全部のファイルをその種類として見せるだけで書かない（BuildFileLinks の下の決まり）
+        if (AutoVariation() is null)
+        {
+            foreach (var path in attached)
+            {
+                if (_hashByPath.TryGetValue(path, out var hash))
+                {
+                    _fileVariations[hash] = variationId;
+                }
+            }
+        }
+
         RefreshFileLinks();
     }
 
@@ -306,6 +390,7 @@ public sealed partial class EditViewModel
             // 買った種類が1つのときは全部その種類として見せるので、選ぶ欄は出さない
             // 結び付けられるのは買った種類だけ（ユーザ指示）。買っていない種類のファイルは手元に無いはず
             row.CanLinkFiles = auto is null && _canLinkAny && row.VariationId is not null && row.IsPurchased;
+            row.CanAddFiles = row.VariationId is not null && row.IsPurchased;
 
             if (auto is { } autoId)
             {
