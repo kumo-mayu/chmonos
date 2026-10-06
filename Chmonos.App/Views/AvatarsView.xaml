@@ -801,7 +801,7 @@
                                                         BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
-                                                        <Button Content="×" Margin="7,0,0,0" Padding="2,0" FontSize="11"
+                                                        <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="2,0" FontSize="11"
                                                                 AutomationProperties.AutomationId="AvatarAliasRemove"
                                                                 AutomationProperties.Name="{Binding StringFormat={}{0}を削除}"
                                                                 Background="Transparent" BorderThickness="0" Cursor="Hand"

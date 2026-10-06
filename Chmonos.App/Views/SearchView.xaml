@@ -702,7 +702,7 @@
                                             <TextBlock Grid.Column="2" Text="{Binding CountText}" FontSize="10.5" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                        Opacity="0.7" Margin="5,0,0,0" VerticalAlignment="Center" />
                                             <!-- 形は呼ばれ方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
-                                            <Button Grid.Column="3" Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
+                                            <Button Grid.Column="3" Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
                                                     Background="Transparent" BorderThickness="0" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                     ToolTip="この値を外す"
                                                     AutomationProperties.AutomationId="SearchChipRemove"
@@ -1169,7 +1169,7 @@
                                                             Padding="8,6" Margin="0,0,0,6">
                                                         <StackPanel>
                                                             <DockPanel LastChildFill="True">
-                                                                <Button DockPanel.Dock="Right" Content="×" FontSize="11" Padding="4,0" Cursor="Hand"
+                                                                <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="11" Padding="4,0" Cursor="Hand"
                                                                         Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
                                                                         Foreground="{DynamicResource TextMuted}" ToolTip="この大分類を外す"
                                                                         AutomationProperties.Name="{Binding Top, StringFormat={}{0}を外す}"
@@ -1245,7 +1245,7 @@
                                                                         <Image Source="{Binding Icon}" Stretch="UniformToFill" />
                                                                     </Grid>
                                                                 </Border>
-                                                                <Button DockPanel.Dock="Right" Content="×" FontSize="11" Padding="4,0" Cursor="Hand"
+                                                                <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="11" Padding="4,0" Cursor="Hand"
                                                                         Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
                                                                         Foreground="{DynamicResource TextMuted}" ToolTip="このアバターを外す"
                                                                         AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}を外す}"
@@ -1309,7 +1309,7 @@
                                                         <DockPanel LastChildFill="False">
                                                             <TextBlock DockPanel.Dock="Left" Text="{Binding Name}" FontSize="12"
                                                                        VerticalAlignment="Center" />
-                                                            <Button DockPanel.Dock="Right" Content="×" FontSize="11" Padding="4,0" Cursor="Hand"
+                                                            <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="11" Padding="4,0" Cursor="Hand"
                                                                     Background="Transparent" BorderThickness="0"
                                                                     Foreground="{DynamicResource TextMuted}" ToolTip="この属性を外す"
                                                                     AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
@@ -1533,7 +1533,7 @@
                                                             AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}の操作}" />
                                                     <Button Grid.Column="3" Style="{StaticResource ModuleCollapseToggle}"
                                                             Command="{Binding ToggleCollapseCommand}" Margin="0,0,2,0" />
-                                                    <Button Grid.Column="4" Content="×" FontSize="13" Padding="4,0" Cursor="Hand"
+                                                    <Button Grid.Column="4" Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="13" Padding="4,0" Cursor="Hand"
                                                             Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
                                                             Foreground="{DynamicResource TextMuted}" ToolTip="この条件を外す"
                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Remove'}"

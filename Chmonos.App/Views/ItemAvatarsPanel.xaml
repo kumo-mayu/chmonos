@@ -202,7 +202,7 @@
                                                                     </Style>
                                                                 </Ellipse.Style>
                                                             </Ellipse>
-                                                            <Button Content="✓" Padding="0" FontSize="11" HorizontalAlignment="Center"
+                                                            <Button Content="✓" ContentTemplate="{StaticResource CheckGlyph}" Padding="0" FontSize="11" HorizontalAlignment="Center"
                                                                     Height="16" Background="Transparent" BorderThickness="0"
                                                                     Cursor="Hand" Foreground="{DynamicResource Good}"
                                                                     Command="{Binding ConfirmCommand}"
@@ -216,7 +216,7 @@
                                                             乗せたときと、札にキーボードのフォーカスがあるときだけ出して、普段は宣言そのものを読ませる
                                                             （RevealOnHoverOrFocusButton。Tab で札に止まると出て、もう一度 Tab で × に移れる）。
                                                         -->
-                                                        <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                        <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                                 Height="16" Background="Transparent" BorderThickness="0"
                                                                 Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding RejectCommand}"
@@ -287,7 +287,7 @@
                                                     <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
                                                                VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" />
                                                     <!-- 対応アバターと同じ形で消せる（X4）。乗せたときと、Tab で × に止まったときに出す（この札は押せないので、止まるのは × だけ） -->
-                                                    <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                    <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                             Height="16" Background="Transparent" BorderThickness="0"
                                                             Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                             Command="{Binding RejectCommand}"
@@ -328,7 +328,7 @@
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を追加}"
                                                                 Command="{Binding AddCommand}" ToolTip="{Binding AddTooltip}" />
                                                         <!-- 違う候補は消せる（ユーザ判断 2026-09-29。付いている素体の × と同じ形で、乗せたときと、札の中にフォーカスがあるときに出す） -->
-                                                        <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                        <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                                 Height="16" Background="Transparent" BorderThickness="0"
                                                                 Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding DismissCommand}"

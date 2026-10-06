@@ -48,6 +48,24 @@
         <PathGeometry x:Key="IconExpand" Figures="M10,7 L15,12 L10,17" />
 
         <!--
+            ボタンの「×」（消す・閉じる）と「✓」（確認済みにする）。字で書くとフォントの中で行の下寄りに描かれ、
+            ボタンの真ん中にそろえても見た目が下にずれた（ユーザ指示 2026-10-06：対応アバターの札の × と ✓）。線で描けば枠の真ん中に来る。
+            Content は字のまま残す（読み上げと自動操作の名前の元になる）。色は字と同じく、そのボタンの文字の色を受ける
+        -->
+        <PathGeometry x:Key="GlyphCross" Figures="M0,0 L7,7 M7,0 L0,7" />
+        <PathGeometry x:Key="GlyphCheck" Figures="M0,4 L3,7 L8,0.5" />
+        <DataTemplate x:Key="CrossGlyph">
+            <Path Data="{StaticResource GlyphCross}" Width="7" Height="7" Stretch="Uniform" StrokeThickness="1.4"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" SnapsToDevicePixels="True"
+                  Stroke="{Binding (TextElement.Foreground), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="CheckGlyph">
+            <Path Data="{StaticResource GlyphCheck}" Width="9" Height="8" Stretch="Uniform" StrokeThickness="1.6"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                  Stroke="{Binding (TextElement.Foreground), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" />
+        </DataTemplate>
+
+        <!--
             ナビを畳む・開くの印（ユーザ指摘 2026-10-02 メモ8）。左に縦の帯の付いた四角＝サイドバーの印。
             山形（上の IconCollapse／IconExpand）は左右の矢印に見え、畳んだナビで真上の「戻る ←」と並んで紛らわしかった。
             左右の矢印は画面の履歴（戻る・進む）だけに使う。

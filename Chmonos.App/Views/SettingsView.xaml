@@ -206,7 +206,7 @@
                                                         BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,6">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Name}" FontSize="11.5" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
-                                                        <Button Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
+                                                        <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
                                                                 Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentText}"
                                                                 ToolTip="カードに表示しないようにします"
                                                                 AutomationProperties.AutomationId="Settings.CardAttributeRemove"
