@@ -19,7 +19,7 @@ namespace Chmonos.App.ViewModels;
 public sealed class ModificationModule : SearchModule
 {
     /// <summary>1段目の候補の群の見出し。</summary>
-    internal static IReadOnlyList<string> Headings { get; } = ["アバター", "改変"];
+    public static IReadOnlyList<string> Headings { get; } = ["アバター", "改変"];
 
     private readonly Func<string, ImageSource?> _avatarIcon;
     private readonly Func<ModificationRecord, ImageSource?> _modificationIcon;

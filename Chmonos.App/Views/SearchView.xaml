@@ -644,13 +644,9 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <!-- 吹き出しは名前と、対応アバターならそのアバターのサムネイル（メモ82。絵は開いたときに読む） -->
-                                            <!-- パスの札（ファイルの場所・Unityプロジェクト）は間を省いて末尾を残す。省いたら吹き出しで全文（メモ83・メモ84） -->
-                                            <controls:PathLine Grid.Column="0" Path="{Binding Text}" FontSize="11" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
-                                                               MaxWidth="200" VerticalAlignment="Center"
-                                                               Visibility="{Binding TrimsMiddle, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            <TextBlock Grid.Column="0" Text="{Binding Text}" FontSize="11" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
-                                                       MaxWidth="200" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                                       Visibility="{Binding TrimsMiddle, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                            <!-- パスの札（ファイルの場所・Unityプロジェクト）は間を省いて末尾を残す（DisplayText。メモ83・メモ84）。吹き出しは全文 -->
+                                            <TextBlock Grid.Column="0" Text="{Binding DisplayText}" FontSize="11" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
+                                                       MaxWidth="200" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                                 <TextBlock.ToolTip>
                                                     <ToolTip>
                                                         <StackPanel MaxWidth="260">

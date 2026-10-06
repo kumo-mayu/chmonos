@@ -933,6 +933,7 @@ public sealed class ListChip : ViewModelBase
             if (SetField(ref _text, value))
             {
                 OnPropertyChanged(nameof(ToolTipText));
+                OnPropertyChanged(nameof(DisplayText));
             }
         }
     }
@@ -997,7 +998,45 @@ public sealed class ListChip : ViewModelBase
     public bool HasIconSource => IconSource is not null;
 
     /// <summary>長い文の間を省くか（パスの札。<see cref="ListModule.TrimsMiddle"/>）。</summary>
-    public bool TrimsMiddle { get; internal set; }
+    public bool TrimsMiddle
+    {
+        get => _trimsMiddle;
+        internal set
+        {
+            _trimsMiddle = value;
+            OnPropertyChanged(nameof(DisplayText));
+        }
+    }
+
+    private bool _trimsMiddle;
+
+    /// <summary>
+    /// 札に出す文。パスの札は**字数で**間を「…」にし、頭（ドライブ）と最後のフォルダ名を残す。
+    /// 札は中身の幅で決まる置き方なので、幅で省く部品（PathLine）は縮んだまま戻らない（`docs/dev/wpf.md`）。字数で決めて、残りは末尾の「…」に任せる
+    /// </summary>
+    public string DisplayText => _trimsMiddle ? MiddleTrim(_text, MiddleTrimLength) : _text;
+
+    /// <summary>札の幅（200px）に11ptの全角の字が入る数の目安（26字では最後のフォルダ名がまた末尾で切れた。撮って確かめた）。</summary>
+    private const int MiddleTrimLength = 18;
+
+    internal static string MiddleTrim(string text, int max)
+    {
+        if (text.Length <= max)
+        {
+            return text;
+        }
+
+        // 最後の区切り（\ か /）の後ろを残す。長すぎれば後ろの方だけ
+        var cut = text.TrimEnd('\\', '/').LastIndexOfAny(['\\', '/']);
+        var tail = cut >= 0 ? text[(cut + 1)..] : text[^(max / 2)..];
+        if (tail.Length > max - 4)
+        {
+            tail = tail[^(max - 4)..];
+        }
+
+        var head = text[..Math.Max(1, max - tail.Length - 1)];
+        return $"{head}…{tail}";
+    }
 }
 
 /// <summary>

@@ -317,7 +317,7 @@ public class SearchChoiceModulesTests
         var path = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Path);
         var project = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProject);
         var category = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
-        path.AddKey(@"D:作り物とても長い名前のフォルダさらに奥のフォルダ最後のフォルダ");
+        path.AddKey(@"D:\作り物\とても長い名前のフォルダ\さらに奥のフォルダ\最後のフォルダ");
         category.AddKey("衣装");
 
         Assert.True(path.TrimsMiddle);
@@ -325,5 +325,13 @@ public class SearchChoiceModulesTests
         Assert.False(category.TrimsMiddle);
         Assert.True(path.Chips.Single().TrimsMiddle);
         Assert.False(category.Chips.Single().TrimsMiddle);
+
+        // 札は頭のドライブと最後のフォルダ名を残し、間を「…」にする。吹き出しは全文
+        var chip = path.Chips.Single();
+        Assert.StartsWith(@"D:\", chip.DisplayText);
+        Assert.EndsWith("…最後のフォルダ", chip.DisplayText);
+        Assert.True(chip.DisplayText.Length <= 18);
+        Assert.Equal(chip.Text, chip.ToolTipText);
+        Assert.Equal("衣装", category.Chips.Single().DisplayText);
     });
 }

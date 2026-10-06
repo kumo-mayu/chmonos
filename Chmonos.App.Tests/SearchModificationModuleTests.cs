@@ -160,4 +160,11 @@ public class SearchModificationModuleTests
         Assert.Equal(["制服", "普段着"], back.Rows.Single().Chips.Select(chip => chip.Text));
         Assert.True(back.Rows.Single().MatchAll);
     });
+
+    [Fact]
+    public void 画面から静的に引く見出しは公開している()
+    {
+        // XAML の x:Static は public の物しか引けず、引けないと条件を足した途端に画面の処理で落ちる（撮影の場面で見つかった）
+        Assert.True(typeof(ModificationModule).GetProperty(nameof(ModificationModule.Headings))!.GetMethod!.IsPublic);
+    }
 }
