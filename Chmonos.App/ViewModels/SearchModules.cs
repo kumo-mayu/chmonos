@@ -762,6 +762,21 @@ public abstract class SearchModule : ReorderableRow
         var folded = text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
         return int.TryParse(folded, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
     }
+
+    /// <summary>
+    /// <see cref="ParseNumber"/> の 64bit 版。数の範囲（払った額の合計など）が使う。
+    /// 合計は 32bit を超え得る（外部の点検 2026-10-06）ので、欄に打てる数も同じ幅にそろえる
+    /// </summary>
+    protected static long? ParseAmount(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var folded = text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
+        return long.TryParse(folded, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
+    }
 }
 
 /// <summary>分布の帯の棒1本。高さは帯（<see cref="RangeModule.HistogramHeight"/>）に収めた px。</summary>
@@ -1543,7 +1558,7 @@ public sealed class ListModule : SearchModule
 /// </summary>
 public sealed class RangeModule : SearchModule
 {
-    private readonly Func<ItemRecord, string?, IReadOnlyList<int>> _values;
+    private readonly Func<ItemRecord, string?, IReadOnlyList<long>> _values;
     /// <summary>分布の帯の高さ（px）。棒の高さをここに収める。</summary>
     public const double HistogramHeight = 22;
 
@@ -1556,7 +1571,7 @@ public sealed class RangeModule : SearchModule
     private bool _maxEnabled = true;
     private bool _ignoreOutliers = true;
     private bool _matchAll;
-    private int? _outlierFence;
+    private long? _outlierFence;
     private int _outlierCount;
     private bool _valuesFromState;
     private bool _defaultsApplied;
@@ -1567,7 +1582,7 @@ public sealed class RangeModule : SearchModule
     /// <param name="sources">数の元の選択肢。先頭が既定。</param>
     public RangeModule(
         SearchModuleKind kind,
-        Func<ItemRecord, string?, IReadOnlyList<int>> values,
+        Func<ItemRecord, string?, IReadOnlyList<long>> values,
         string unit,
         IReadOnlyList<ChoiceOption>? sources = null)
         : base(kind)
@@ -1602,7 +1617,7 @@ public sealed class RangeModule : SearchModule
     }
 
     /// <summary>元ごとの、手元の商品の数の全部。両端・分布の帯をここから出す。検索側が入れる。</summary>
-    public Func<string?, IEnumerable<int>>? AllValuesOf { get; set; }
+    public Func<string?, IEnumerable<long>>? AllValuesOf { get; set; }
 
     /// <summary>
     /// スライダの左端。**いつでも0**（ユーザ指示 2026-09-16）。
@@ -1660,17 +1675,17 @@ public sealed class RangeModule : SearchModule
             }
 
             // 右端に置いていた上限は、新しい右端へ付いていく（外れ値を戻せばその分まで、外せば手前まで）
-            var wasAtEnd = ParseNumber(_maxText) is not { } oldMax || oldMax >= (int)SliderMaximum;
+            var wasAtEnd = ParseAmount(_maxText) is not { } oldMax || oldMax >= (long)SliderMaximum;
             RefreshBounds();
 
-            var end = (int)SliderMaximum;
-            if (wasAtEnd || ParseNumber(_maxText) > end)
+            var end = (long)SliderMaximum;
+            if (wasAtEnd || ParseAmount(_maxText) > end)
             {
                 _maxText = end.ToString(CultureInfo.InvariantCulture);
                 OnPropertyChanged(nameof(MaxText));
             }
 
-            if (ParseNumber(_minText) > end)
+            if (ParseAmount(_minText) > end)
             {
                 _minText = end.ToString(CultureInfo.InvariantCulture);
                 OnPropertyChanged(nameof(MinText));
@@ -1841,8 +1856,8 @@ public sealed class RangeModule : SearchModule
             return;
         }
 
-        var min = ParseNumber(_minText) ?? (int)SliderMinimum;
-        var max = ParseNumber(_maxText) ?? (int)SliderMaximum;
+        var min = ParseAmount(_minText) ?? (long)SliderMinimum;
+        var max = ParseAmount(_maxText) ?? (long)SliderMaximum;
         if (min <= max)
         {
             return;
@@ -1890,13 +1905,13 @@ public sealed class RangeModule : SearchModule
         ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数です。"
         : "目盛は対数です。";
 
-    public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
+    public string MaximumLabel => ((long)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
     /// <summary>効いている下限。切っていれば null（制限しない）。欄が空なら左端を下限とする。</summary>
-    public int? Min => _minEnabled ? ParseNumber(_minText) ?? (int)SliderMinimum : null;
+    public long? Min => _minEnabled ? ParseAmount(_minText) ?? (long)SliderMinimum : null;
 
     /// <summary>効いている上限。切っていれば null。欄が空なら右端を上限とする。</summary>
-    public int? Max => _maxEnabled ? ParseNumber(_maxText) ?? (int)SliderMaximum : null;
+    public long? Max => _maxEnabled ? ParseAmount(_maxText) ?? (long)SliderMaximum : null;
 
     /// <summary>
     /// 左のスライダの位置（0〜100）。**端も値として受ける**（左端＝手元の最小値以上）。切るのは左のトグル。
@@ -1906,14 +1921,14 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     public double LowPosition
     {
-        get => ToPosition(ParseNumber(_minText) ?? (int)SliderMinimum);
+        get => ToPosition(ParseAmount(_minText) ?? (long)SliderMinimum);
         set => MinText = ToNumber(value).ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>右のスライダの位置（0〜100）。**端も値として受ける**（右端＝手元の最大値以下）。</summary>
     public double HighPosition
     {
-        get => ToPosition(ParseNumber(_maxText) ?? (int)SliderMaximum);
+        get => ToPosition(ParseAmount(_maxText) ?? (long)SliderMaximum);
         set => MaxText = ToNumber(value).ToString(CultureInfo.InvariantCulture);
     }
 
@@ -1927,7 +1942,7 @@ public sealed class RangeModule : SearchModule
     /// 価格もスキ数も安い側・少ない側に集まっているので、そこを広く使う。
     /// 0 を含められるよう、端からの差に 1 を足した対数で測る。
     /// </summary>
-    private int ToNumber(double position)
+    private long ToNumber(double position)
     {
         var at = Math.Clamp(position, 0, 100);
 
@@ -1936,19 +1951,19 @@ public sealed class RangeModule : SearchModule
             // 左端の1目盛は 0〜Floor を直線で（0も50円も指せる）。そこから先は Floor〜上限の対数
             if (at <= FloorBand)
             {
-                return (int)Math.Round(at / FloorBand * Floor);
+                return (long)Math.Round(at / FloorBand * Floor);
             }
 
             var ratio = (at - FloorBand) / (100 - FloorBand);
             var scaled = Math.Exp(Math.Log(Floor) + (ratio * (Math.Log(SliderMaximum) - Math.Log(Floor))));
-            return (int)Math.Round(Math.Clamp(scaled, Floor, SliderMaximum));
+            return (long)Math.Round(Math.Clamp(scaled, Floor, SliderMaximum));
         }
 
         var value = SliderMinimum + Math.Exp(at / 100.0 * Math.Log(1 + Span)) - 1;
-        return (int)Math.Round(Math.Clamp(value, SliderMinimum, SliderMaximum));
+        return (long)Math.Round(Math.Clamp(value, SliderMinimum, SliderMaximum));
     }
 
-    private double ToPosition(int value)
+    private double ToPosition(long value)
     {
         if (UsesFloor)
         {
@@ -1995,7 +2010,7 @@ public sealed class RangeModule : SearchModule
         {
             _defaultsApplied = true;
             _minText = "0";
-            _maxText = ((int)SliderMaximum).ToString(CultureInfo.InvariantCulture);
+            _maxText = ((long)SliderMaximum).ToString(CultureInfo.InvariantCulture);
 
             // **数が分かる商品が1件も無いときは、上下とも切って足す。**
             // 手元に購入額を1件も入れていないのに「価格」を足すと、足した瞬間に0件になってしまう
@@ -2030,7 +2045,7 @@ public sealed class RangeModule : SearchModule
             : counts.Select(count => new HistogramBar(count == 0 ? 0 : Math.Max(2, count * HistogramHeight / peak))).ToList();
     }
 
-    private void RefreshHistogram(IReadOnlyList<int> values)
+    private void RefreshHistogram(IReadOnlyList<long> values)
     {
         var counts = new int[HistogramBuckets];
         foreach (var value in values)
@@ -2104,8 +2119,8 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     protected override void PrepareCore(SearchModuleContext context) => (_preparedMin, _preparedMax) = (Min, Max);
 
-    private int? _preparedMin;
-    private int? _preparedMax;
+    private long? _preparedMin;
+    private long? _preparedMax;
 
     /// <summary>
     /// 数が分かっていて、除かないときに当たらない商品（ユーザ判断 2026-10-01）。どれか1つで見るときは**どの数も**範囲に入らない商品、
@@ -2121,7 +2136,7 @@ public sealed class RangeModule : SearchModule
     private bool IsUnpriced(ItemRecord item) => _values(item, _source?.Key).Count == 0;
 
     /// <summary>照らす数。外れ値を外していれば、その数だけを外す（商品は他の種類の価格で照らす）。</summary>
-    private IReadOnlyList<int> KnownValues(ItemRecord item)
+    private IReadOnlyList<long> KnownValues(ItemRecord item)
     {
         var values = _values(item, _source?.Key);
         if (!IgnoresOutliersNow)

@@ -28,7 +28,7 @@ public static class Outliers
     /// <summary>
     /// 外れ値の境（この数以上が外れ値）。数が無い・基準が0以下（ほとんど無料）なら null（外れ値なし）。
     /// </summary>
-    public static int? UpperFence(IEnumerable<int> values)
+    public static long? UpperFence(IEnumerable<long> values)
     {
         var sorted = values.Order().ToList();
         if (sorted.Count == 0)
@@ -43,15 +43,17 @@ public static class Outliers
         }
 
         var fence = reference * Factor;
-        return fence >= int.MaxValue ? null : (int)Math.Ceiling(fence);
+        // 境は払った額の合計（32bit を超え得る）と同じ幅で持つ。long に収まらない境は「外れ値なし」
+        return fence >= long.MaxValue ? null : (long)Math.Ceiling(fence);
     }
 
     /// <summary>並べた数の、その位置の値（隣り合う2つの間は直線で埋める）。</summary>
-    private static double PercentileOf(IReadOnlyList<int> sorted, double percentile)
+    private static double PercentileOf(IReadOnlyList<long> sorted, double percentile)
     {
         var at = (sorted.Count - 1) * percentile;
         var low = (int)Math.Floor(at);
         var high = (int)Math.Ceiling(at);
-        return sorted[low] + ((sorted[high] - sorted[low]) * (at - low));
+        // 差は double で取る（long の引き算は両端が離れていると桁あふれする）
+        return sorted[low] + (((double)sorted[high] - sorted[low]) * (at - low));
     }
 }

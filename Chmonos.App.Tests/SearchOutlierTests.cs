@@ -6,7 +6,7 @@ namespace Chmonos.App.Tests;
 public class SearchOutlierTests
 {
     // 20個が1,000円、止め値が1個（99,999円）
-    private static readonly int[] Values = [.. Enumerable.Repeat(1000, 20), 99999];
+    private static readonly long[] Values = [.. Enumerable.Repeat(1000L, 20), 99999];
 
     private static RangeModule Price(string? noOutlierSource)
     {

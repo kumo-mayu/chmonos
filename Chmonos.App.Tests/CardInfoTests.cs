@@ -180,6 +180,13 @@ public class CardInfoTests
         Assert.Equal(string.Empty, CardInfo.PaidTextOf(Rated()));
     }
 
+    /// <summary>合計が 32bit を超えても負の額にならない（外部の点検 2026-10-06。前は int で足して回り込んでいた）。</summary>
+    [Fact]
+    public void 払った額の合計は32bitを超えてもそのまま出す()
+        => Assert.Equal(
+            "¥2,147,483,648",
+            CardInfo.PaidTextOf(Rated(purchases: [new Purchase { Price = int.MaxValue }, new Purchase { Price = 1 }])));
+
     [Fact]
     public void 対応の数は消したアバターを数えない()
     {

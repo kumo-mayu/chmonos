@@ -617,7 +617,7 @@ public sealed partial class SearchViewModel
 
         SearchModuleKind.WishList => new RangeModule(kind, (item, _) => [item.Booth.WishListsCount], string.Empty)
         {
-            AllValuesOf = _ => _allItems.Select(item => item.Booth.WishListsCount),
+            AllValuesOf = _ => _allItems.Select(item => (long)item.Booth.WishListsCount),
         },
 
         SearchModuleKind.Price => new RangeModule(kind, PriceValues, "円",
@@ -885,11 +885,11 @@ public sealed partial class SearchViewModel
     /// 価格の条件で照らす数。既定は自分が払った額（ユーザ判断 Q2）。BOOTH の価格は種類ごとにあり、どれか1つでも範囲に入れば当たり。
     /// 払った額を入れていない商品は「0円」ではなく「分からない」ので、範囲のどこにも入らない。
     /// </summary>
-    private static IReadOnlyList<int> PriceValues(ItemRecord item, string? source)
+    private static IReadOnlyList<long> PriceValues(ItemRecord item, string? source)
     {
         if (source == BoothSource)
         {
-            return item.Booth.Variations.Select(variation => variation.Price).ToList();
+            return item.Booth.Variations.Select(variation => (long)variation.Price).ToList();
         }
 
         // 「払った額」の並べ替えと同じ数え方（Purchases.SelfPaidOrNull）

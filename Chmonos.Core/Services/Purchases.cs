@@ -11,18 +11,18 @@ namespace Chmonos.Core.Services;
 public static class Purchases
 {
     /// <summary>自分用に買った額。贈答は含めない（別のタイルに出す）。</summary>
-    public static int SelfSpendOf(ItemRecord item)
+    public static long SelfSpendOf(ItemRecord item)
         => item.Local.Purchases
             .Where(purchase => purchase.Kind == PurchaseKind.ForSelf)
-            .Sum(purchase => purchase.Price ?? 0);
+            .Sum(purchase => (long)(purchase.Price ?? 0));
 
     /// <summary>
     /// 自分用に払った額。**額を1つも入れていなければ null**（「0円」ではなく「分からない」。無料は 0）。
     /// 検索の価格の絞り込み・「払った額」の並べ替えが使う。贈った・貰ったは含めない（統計の自分用の支出と同じ）。
     /// </summary>
-    public static int? SelfPaidOrNull(ItemRecord item)
+    public static long? SelfPaidOrNull(ItemRecord item)
     {
-        int? total = null;
+        long? total = null;
         foreach (var purchase in item.Local.Purchases)
         {
             if (purchase.Kind == PurchaseKind.ForSelf && purchase.Price is { } price)
@@ -35,10 +35,10 @@ public static class Purchases
     }
 
     /// <summary>人に贈るために払った額。払ってはいるが手元にファイルは来ない。</summary>
-    public static int GivenSpendOf(ItemRecord item)
+    public static long GivenSpendOf(ItemRecord item)
         => item.Local.Purchases
             .Where(purchase => purchase.Kind == PurchaseKind.Given)
-            .Sum(purchase => purchase.Price ?? 0);
+            .Sum(purchase => (long)(purchase.Price ?? 0));
 
     /// <summary>贈った回数。同じ商品を3人に贈れば3。</summary>
     public static int GivenCountOf(ItemRecord item)

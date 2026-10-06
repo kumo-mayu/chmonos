@@ -29,7 +29,7 @@ public class SearchPriceMatchAllTests
         null,
         new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.FromHours(9)));
 
-    private static readonly Dictionary<string, int[]> Prices = new()
+    private static readonly Dictionary<string, long[]> Prices = new()
     {
         ["9900501"] = [800],
         ["9900502"] = [300, 800],
@@ -51,7 +51,7 @@ public class SearchPriceMatchAllTests
             [new ChoiceOption("paid", "購入額"), new ChoiceOption("booth", "BOOTHの価格")])
         {
             // 外れ値の境は手元の価格の全部から決める：1,000円が20個なら 5,000円
-            AllValuesOf = _ => Enumerable.Repeat(1000, 20).Append(99999),
+            AllValuesOf = _ => Enumerable.Repeat(1000L, 20).Append(99999),
             Floor = 100,
             SupportsOutliers = true,
             SupportsMatchAll = true,
