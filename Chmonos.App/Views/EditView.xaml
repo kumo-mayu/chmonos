@@ -898,7 +898,7 @@
                                                ToolTip="選べるのは買ったバリエーションだけです。1つだけなら選ぶ必要はありません。" />
                                 </DockPanel>
 
-                                <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここでバリエーションを選べます。"
+                                <TextBlock Text="この商品に付いたファイルがありません。ファイルを追加すると、ここでバリエーションを選べます。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap"
                                            Visibility="{Binding HasNoFilesToSort, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -939,19 +939,34 @@
                                             <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <StackPanel>
                                                     <DockPanel>
-                                                        <Grid DockPanel.Dock="Right" Width="170" Margin="10,0,0,0" VerticalAlignment="Top"
+                                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Top">
+                                                        <Grid Width="170"
                                                               Visibility="{Binding CanLinkFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                             <ComboBox x:Name="FileChoiceBox" ItemsSource="{Binding FileChoices}"
                                                                       SelectedItem="{Binding SelectedFileChoice, Mode=TwoWay}"
                                                                       DisplayMemberPath="Display" Height="26" FontSize="11.5"
-                                                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}にファイルを追加}"
+                                                                      AutomationProperties.AutomationId="EditVariationFileChoice"
+                                                                      AutomationProperties.Name="{Binding FileChoiceAutomationName}"
                                                                       ToolTip="このバリエーションのファイルを選びます。同じバリエーションに複数付けられます。" />
                                                             <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
-                                                            <TextBlock Text="ファイルを追加…" IsHitTestVisible="False" FontSize="11.5"
+                                                            <TextBlock Text="{Binding FileChoiceHint}" IsHitTestVisible="False" FontSize="11.5"
                                                                        Foreground="{DynamicResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
                                                                        Visibility="{Binding Text, ElementName=FileChoiceBox,
                                                                                     Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                                         </Grid>
+                                                        <!--
+                                                            新しいファイルを選んでこの商品に紐付け、このバリエーションにも付ける（ユーザ判断 2026-10-06）。
+                                                            行の名前が何に足すかを言っているので動詞だけ（ui-writing.md「文脈が薄くないボタンは、動詞だけで言う」）。
+                                                            左の選ぶ欄は今あるファイルから選ぶ（空欄の文字「ファイルを選択…」）
+                                                        -->
+                                                        <Button Content="追加…" Style="{StaticResource SmallButton}" Height="26" Margin="6,0,0,0"
+                                                                Command="{Binding AddFilesCommand}"
+                                                                AutomationProperties.AutomationId="EditVariationAddFiles"
+                                                                AutomationProperties.Name="{Binding AddFilesAutomationName}"
+                                                                ToolTip="選んだファイルをこの商品に紐付け、このバリエーションに付けます。"
+                                                                ToolTipService.ShowOnDisabled="True"
+                                                                Visibility="{Binding CanAddFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        </StackPanel>
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" />
                                                     </DockPanel>
 
