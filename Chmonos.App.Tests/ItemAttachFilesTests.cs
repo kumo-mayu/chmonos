@@ -299,9 +299,9 @@ public class ItemAttachFilesTests
         Assert.Empty(local.UserImages);
     });
 
-    /// <summary>画像の問いをキャンセルしたら何もしない（zip だけ紐付けて画像を黙って捨てない）。</summary>
+    /// <summary>画像の問いのキャンセルは画像だけを飛ばす。zip は1つ目の問いで「紐付ける」と答えてあるので紐付ける（ユーザ判断 2026-10-06）。</summary>
     [Fact]
-    public Task 画像の問いをキャンセルすれば何もしない() => TestApp.Run(async app =>
+    public Task 画像の問いをキャンセルすれば画像だけ飛ばし_zipは紐付ける() => TestApp.Run(async app =>
     {
         var zip = app.NewFile("作り物_v2.zip");
         var red = app.NewFile(@"pics\red.png", Png());
@@ -313,7 +313,8 @@ public class ItemAttachFilesTests
 
         Assert.Equal(2, app.Choices.Count);
         var local = await LocalOfAsync(app, ItemId);
-        Assert.Empty(local.LocalFiles);
+        Assert.Single(local.LocalFiles);
+        Assert.EndsWith("作り物_v2.zip", local.LocalFiles[0].Paths[0]);
         Assert.Empty(local.UserImages);
     });
 

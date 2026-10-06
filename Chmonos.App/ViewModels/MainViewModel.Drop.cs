@@ -255,7 +255,15 @@ public sealed partial class MainViewModel
                 await item.AttachFilesAsync(paths);
                 return;
 
+            // キャンセルは画像だけを飛ばす。ほかのファイルは1つ目の問いで「紐付ける」と答えてもらっているので、
+            // 画像の問いをやめたことでそちらまで取り消さない（ユーザ判断 2026-10-06）
             default:
+                var others = paths.Except(images).ToList();
+                if (others.Count > 0)
+                {
+                    await item.AttachFilesAsync(others);
+                }
+
                 return;
         }
     }
@@ -266,7 +274,8 @@ public sealed partial class MainViewModel
             "画像も受け取りました",
             images.Count == 1 ? $"画像「{Path.GetFileName(images[0])}」をどうしますか？" : $"画像 {images.Count} 件をどうしますか？",
             $"「画像として追加」\n「{itemName}」の画像に加えます。ほかのファイルは紐付けます。\n\n"
-            + "「ファイルとして紐付ける」\nほかのファイルと一緒に、この商品のファイルに加えます。",
+            + "「ファイルとして紐付ける」\nほかのファイルと一緒に、この商品のファイルに加えます。\n\n"
+            + "「キャンセル」\n画像は加えません。ほかのファイルは紐付けます。",
             "画像として追加",
             "ファイルとして紐付ける");
 
