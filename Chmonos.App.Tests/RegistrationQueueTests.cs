@@ -54,7 +54,7 @@ public class RegistrationQueueTests
     [Fact]
     public Task 二件を並べると_BOOTHへの問い合わせは交互にならず_一件ずつ順に終わる() => TestApp.Run(async app =>
     {
-        // 画像の枚数があると、1件の登録の中に問い合わせが並ぶ（商品JSON・商品ページ・画像2枚）
+        // 画像の枚数があると、1件の登録の中に問い合わせが並ぶ（商品JSON・商品ページ・1枚目）
         await app.ChangeSettingsAsync(settings => settings with { SaveImages = true });
         app.Booth.HasItem(ItemA, "作り物の衣装", images: 2);
         app.Booth.HasItem(ItemB, "作り物の靴");
@@ -92,18 +92,21 @@ public class RegistrationQueueTests
 
         await app.SettleAsync();
 
-        // A の画像まで済んでから B の商品JSONへ（交互なら、A の画像の間に B の問い合わせが挟まる）
+        // A の登録（商品JSON・商品ページ・1枚目）が済んでから B の商品JSONへ（交互なら、A の登録の間に B の問い合わせが挟まる）。
+        // A の2枚目は登録の後に⑤の段で裏に頼むので、登録の列の外（メモ60 案B）。B と門で居合わせた順に出るので、並びの中の場所は見ない
         var registering = app.Booth.Requests.Skip(before).ToList();
+        var gallery = FakeBooth.ImageUrl(ItemA, 2);
         Assert.Equal(
             [
                 $"https://booth.pm/ja/items/{ItemA}.json",
                 $"https://booth.pm/ja/items/{ItemA}",
                 FakeBooth.ImageUrl(ItemA, 1),
-                FakeBooth.ImageUrl(ItemA, 2),
                 $"https://booth.pm/ja/items/{ItemB}.json",
                 $"https://booth.pm/ja/items/{ItemB}",
             ],
-            registering);
+            registering.Where(url => url != gallery));
+        Assert.Single(registering, gallery);
+        Assert.True(registering.IndexOf(FakeBooth.ImageUrl(ItemA, 1)) < registering.IndexOf(gallery));
         Assert.NotNull(await app.Store.Items.LoadAsync(ItemA));
         Assert.NotNull(await app.Store.Items.LoadAsync(ItemB));
         Assert.Empty(app.Store.Unresolved.Load());
@@ -116,7 +119,7 @@ public class RegistrationQueueTests
     [Fact]
     public Task 待っている行は_開始までと所要の見込みを出し_登録と除外は押せず_ほかの行は押せる() => TestApp.Run(async app =>
     {
-        await app.ChangeSettingsAsync(settings => settings with { SaveImages = true, FetchIntervalMs = 3000 });
+        await app.ChangeSettingsAsync(settings => settings with { SaveImages = true, FetchIntervalMs = 30000 });
         app.Booth.HasItem(ItemA, "作り物の衣装", images: 38);
         app.Booth.HasItem(ItemB, "作り物の靴", images: 8);
         var (main, first) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
@@ -125,8 +128,8 @@ public class RegistrationQueueTests
         await PreviewAsync(app, first, "first.zip", ItemA);
         await PreviewAsync(app, second, "second.zip", ItemB);
 
-        // 見込みは「商品JSON・商品ページ・画像の枚数」（ショップのアイコンは無い作り物）
-        Assert.Equal(2 + 8, second.Preview!.RequestsToRegister);
+        // 見込みは「商品JSON・商品ページ・1枚目」（ショップのアイコンは無い作り物）。残りの7枚は登録の後に⑤の段で取るので数えない（メモ60 案B）
+        Assert.Equal(2 + 1, second.Preview!.RequestsToRegister);
 
         app.Booth.Hold(url => url.EndsWith($"/items/{ItemA}.json", StringComparison.Ordinal));
         try
@@ -135,10 +138,10 @@ public class RegistrationQueueTests
             await UiThread.Until(() => app.Booth.Requests.Any(url => url.EndsWith($"/items/{ItemA}.json", StringComparison.Ordinal)), "A が始まる");
             second.AssignCommand.Execute(null);
 
-            // B：前の A は残り 40 件（JSON の答えの前なので見込みのまま）× 3 秒 = 2 分。B は 10 件 × 3 秒 = 30 秒
+            // B：前の A は残り 3 件（JSON の答えの前なので見込みのまま。画像が38枚でも1枚目だけ）× 30 秒 = 1 分 30 秒 → 約 2 分。B も 3 件 × 30 秒
             Assert.True(second.IsTargetWaiting);
             Assert.False(second.IsRegisteringInDecision);
-            Assert.Equal("ほかの商品を登録しています。開始まで約 2 分、この商品は1分以内です。", second.QueueWaitingText);
+            Assert.Equal("ほかの商品を登録しています。開始まで約 2 分、この商品は約 2 分です。", second.QueueWaitingText);
             Assert.False(second.AssignCommand.CanExecute(null));
             Assert.False(second.ExcludeCommand.CanExecute(null));
             Assert.True(second.CancelQueuedCommand.CanExecute(null));
@@ -154,7 +157,7 @@ public class RegistrationQueueTests
             Assert.True(second.IsTargetRunning);
             Assert.False(second.CancelQueuedCommand.CanExecute(null));
 
-            // 閉じるときの確認：2件・約 2 分 30 秒 → 約 3 分
+            // 閉じるときの確認：2件・6 件 × 30 秒 = 3 分
             Assert.Equal(2, main.Registrations.Jobs.Count);
             var confirm = RegistrationQueue.CloseConfirm(main.Registrations.Jobs.Count, main.Registrations.SecondsLeftAll());
             Assert.NotNull(confirm);
@@ -421,6 +424,45 @@ public class RegistrationQueueTests
 
         await app.SettleAsync();
         Assert.False(main.ResolveSearch.IsRunning);
+    });
+
+    // ---- 残りの画像は登録の後（メモ60 案B） ----
+
+    [Fact]
+    public Task 登録した直後の商品ページは_1枚目と未取得の枚数を出し_残りの画像が届くと並ぶ() => TestApp.Run(async app =>
+    {
+        await app.ChangeSettingsAsync(settings => settings with { SaveImages = true });
+        app.Booth.HasItem(ItemA, "作り物の衣装", images: 3);
+        var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip");
+        await PreviewAsync(app, resolve, "first.zip", ItemA);
+
+        // 残りの画像の答えを止めて、「登録は済んだが残りがまだ来ていない」間を作る
+        var rest = new[] { FakeBooth.ImageUrl(ItemA, 2), FakeBooth.ImageUrl(ItemA, 3) };
+        app.Booth.Hold(url => rest.Contains(url));
+        try
+        {
+            resolve.AssignCommand.Execute(null);
+            await UiThread.Until(
+                () => !main.Registrations.HasJobs && app.Booth.Requests.Contains(rest[0]),
+                "登録が済み、残りの画像を裏で頼む");
+
+            // 取り込みの⑤を待っている商品と同じ見え方：1枚目だけが並び、残りは「未取得の画像」の枚数で出る
+            main.ShowItem((await app.Store.Items.LoadAsync(ItemA))!);
+            var page = main.CurrentItemPage!;
+            Assert.Single(page.Images);
+            Assert.Equal(2, page.MissingImageCount);
+            Assert.True(page.HasMissingImages);
+        }
+        finally
+        {
+            app.Booth.Release();
+        }
+
+        await app.SettleAsync();
+
+        // 届いた分は開いている商品ページに並ぶ（裏の取得が画像を置いた知らせで組み直す）
+        Assert.Equal(3, main.CurrentItemPage!.Images.Count);
+        Assert.Equal(0, main.CurrentItemPage.MissingImageCount);
     });
 
     // ---- 文 ----
