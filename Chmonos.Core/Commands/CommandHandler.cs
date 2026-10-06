@@ -827,9 +827,14 @@ public sealed class CommandHandler
                     : new CommandResult.Failed(previewFailure);
 
             case UiCommand.RegisterFolder register:
-                return await _items.RegisterFolderAsync(register.ItemId, register.FolderPath, cancellationToken, register.RequestsLeft)
-                    ? new CommandResult.ItemSaved(register.ItemId)
-                    : new CommandResult.Failed("フォルダを紐付けられませんでした。フォルダが存在するか、商品IDが正しいかを確認してください。");
+                return await _items.RegisterFolderAsync(register.ItemId, register.FolderPath, cancellationToken, register.RequestsLeft) switch
+                {
+                    FolderRegistration.Registered => new CommandResult.ItemSaved(register.ItemId),
+                    FolderRegistration.FolderMissing => new CommandResult.Failed("選んだフォルダが見つかりませんでした。"),
+                    FolderRegistration.ItemUnavailable => new CommandResult.Failed($"商品ID {register.ItemId} を取得できませんでした。商品IDを確かめてください。"),
+                    FolderRegistration.Unreadable => new CommandResult.Failed("選んだフォルダの中を読めませんでした。"),
+                    _ => new CommandResult.Failed("商品が削除されていたので、紐付けませんでした。"),
+                };
 
             case UiCommand.RelocateFolder relocate:
                 return await _items.RelocateFolderAsync(relocate.ItemId, relocate.FromPath, relocate.ToPath, cancellationToken) switch

@@ -480,12 +480,12 @@ public sealed class UnresolvedOffThreadTests : IDisposable
         await _store.Items.SaveAsync(new ItemRecord { Id = "1000002", Booth = new BoothBlock(), Local = new LocalBlock() });
         var before = _store.Unresolved.WriteCount;
 
-        Assert.True(await _service.RegisterFolderAsync("1000002", empty));
+        Assert.Equal(FolderRegistration.Registered, await _service.RegisterFolderAsync("1000002", empty));
 
         Assert.Equal(before, _store.Unresolved.WriteCount);
         Assert.Equal(2, _store.Unresolved.Load().Count);
 
-        Assert.True(await _service.RegisterFolderAsync("1000002", unpacked));
+        Assert.Equal(FolderRegistration.Registered, await _service.RegisterFolderAsync("1000002", unpacked));
 
         Assert.Equal(outside.Hash, Assert.Single(_store.Unresolved.Load()).Hash);
     }

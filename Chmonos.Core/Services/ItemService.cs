@@ -70,7 +70,7 @@ public interface IItemService
 
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
-    Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
+    Task<FolderRegistration> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
 
     Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
@@ -668,7 +668,7 @@ public sealed class ItemService : IItemService
     /// 既に行き先の決まったファイルを作業として見せることになるだけなので。
     /// 商品がまだ手元に無ければBOOTHから取得する（ファイル確定と同じ扱い）。
     /// </summary>
-    public async Task<bool> RegisterFolderAsync(
+    public async Task<FolderRegistration> RegisterFolderAsync(
         string itemId,
         string folderPath,
         CancellationToken cancellationToken = default,
@@ -676,19 +676,19 @@ public sealed class ItemService : IItemService
     {
         if (!Directory.Exists(folderPath))
         {
-            return false;
+            return FolderRegistration.FolderMissing;
         }
 
         if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken, requestsLeft)).Item is null)
         {
-            return false;
+            return FolderRegistration.ItemUnavailable;
         }
 
         // 中の unitypackage も同じ1回の列挙で拾う（Unity へ送る候補。メモ65-③）
         // 中を読めなければ登録しない（0件・0バイトで残すと、移したときの候補が数で合わせられなくなる。外部の点検 2026-10-06）
         if (RegisteredFolderSet.Survey(folderPath, cancellationToken) is not { } survey)
         {
-            return false;
+            return FolderRegistration.Unreadable;
         }
 
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
@@ -721,11 +721,11 @@ public sealed class ItemService : IItemService
         // 測っている間に商品が消されていたら、未確定からも外さない（行き先が無くなったので）
         if (!written)
         {
-            return false;
+            return FolderRegistration.ItemRemoved;
         }
 
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
-        return true;
+        return FolderRegistration.Registered;
     }
 
     /// <summary>

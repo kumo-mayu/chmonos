@@ -806,7 +806,7 @@ public class ItemIdChangeTests : IDisposable
             LocalFolders = [new LocalFolderRecord { Path = @"D:\先に登録", RegisteredAt = DateTimeOffset.Now }],
         });
 
-        Assert.True(await _service.RegisterFolderAsync(RealId, folder));
+        Assert.Equal(FolderRegistration.Registered, await _service.RegisterFolderAsync(RealId, folder));
 
         var folders = (await _store.Items.LoadAsync(RealId))!.Local.LocalFolders.Select(record => record.Path);
         Assert.Contains(@"D:\先に登録", folders);

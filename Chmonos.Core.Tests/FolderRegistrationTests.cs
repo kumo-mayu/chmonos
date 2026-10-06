@@ -79,7 +79,7 @@ public class FolderRegistrationTests : IDisposable
         var itemId = await SaveItemAsync();
         var folder = CreateExtractedFolder();
 
-        Assert.True(await _service.RegisterFolderAsync(itemId, folder));
+        Assert.Equal(FolderRegistration.Registered, await _service.RegisterFolderAsync(itemId, folder));
 
         var item = await _store.Items.LoadAsync(itemId);
         var registered = Assert.Single(item!.Local.LocalFolders);
@@ -147,7 +147,7 @@ public class FolderRegistrationTests : IDisposable
     {
         var itemId = await SaveItemAsync();
 
-        Assert.False(await _service.RegisterFolderAsync(itemId, Path.Combine(_root, "does-not-exist")));
+        Assert.Equal(FolderRegistration.FolderMissing, await _service.RegisterFolderAsync(itemId, Path.Combine(_root, "does-not-exist")));
     }
 
     /// <summary>登録を解除すると記録から消える。ファイルには触らない。</summary>

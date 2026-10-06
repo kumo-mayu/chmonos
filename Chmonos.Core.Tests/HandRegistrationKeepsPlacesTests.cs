@@ -141,7 +141,7 @@ public sealed class HandRegistrationKeepsPlacesTests : IDisposable
         System.IO.Compression.ZipFile.CreateFromDirectory(folder, folder + ".zip");
 
         await SaveItemAsync("9900104", Missing("AAAA"));
-        Assert.True(await _service.RegisterFolderAsync("9900104", folder));
+        Assert.Equal(FolderRegistration.Registered, await _service.RegisterFolderAsync("9900104", folder));
 
         Assert.Equal(ArchiveSwapResult.Registered, (await _service.SwapFolderForArchiveAsync("9900104", folder)).Result);
 

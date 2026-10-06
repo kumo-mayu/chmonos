@@ -15,6 +15,27 @@ public enum FolderMatchKind
     Name,
 }
 
+/// <summary>
+/// フォルダを紐付けた結果。できなかった理由ごとに文を分けるため（前は真偽だけで、どの理由でも
+/// 「フォルダが存在するか、商品IDが正しいか」と出し、中を読めなかったときに合わなかった）
+/// </summary>
+public enum FolderRegistration
+{
+    Registered,
+
+    /// <summary>選んだフォルダが無い。</summary>
+    FolderMissing,
+
+    /// <summary>商品の記録が無く、BOOTH からも取れなかった。</summary>
+    ItemUnavailable,
+
+    /// <summary>フォルダの中を読めなかった（数を残せないので登録しない）。</summary>
+    Unreadable,
+
+    /// <summary>数えている間に商品が削除された。</summary>
+    ItemRemoved,
+}
+
 /// <summary>登録フォルダの場所を差し替えた結果（<c>ItemService.RelocateFolderAsync</c>）。</summary>
 public enum FolderRelocation
 {

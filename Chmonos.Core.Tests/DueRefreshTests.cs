@@ -76,8 +76,8 @@ public class DueRefreshTests : IDisposable
 
         public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
 
-        public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
-            => Task.FromResult(true);
+        public Task<FolderRegistration> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
+            => Task.FromResult(FolderRegistration.Registered);
 
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
             => Task.FromResult(true);

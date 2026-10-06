@@ -66,7 +66,7 @@ public class PendingOperationStartupTests
 
         var group = Assert.Single(inbox.Groups);
         Assert.Equal("途中で止まった操作", group.KindText);
-        Assert.Equal("IDや名前の変更が途中で止まり、続きを済ませられなかった操作です。", group.Description);
+        Assert.Equal("IDや名前の変更で、途中で止まったり、記録を残せなかったりした操作です。", group.Description);
         Assert.Null(Assert.Single(group.Rows).Picture);
     });
 }
