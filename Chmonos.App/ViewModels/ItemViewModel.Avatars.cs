@@ -96,6 +96,25 @@ public sealed partial class ItemViewModel
     public string UnconfirmedAvatarText => $"確認待ち {UnconfirmedAvatarCount}";
 
     /// <summary>
+    /// 見出しの「すべて確認済みにする」（ユーザ判断 2026-10-06・メモ83）。確認待ちは説明文のリンクから拾った物で、
+    /// 1商品に何十体と並ぶことがあり、1枚ずつでは手間が見合わない。絞り込みで隠れている札も含めて全部
+    /// </summary>
+    public RelayCommand ConfirmAllAvatarsCommand => _confirmAllAvatars ??= new RelayCommand(
+        () => ConfirmAvatarsAsync(Avatars.Where(row => row.IsUnconfirmed).Select(row => row.ItemId).ToList()).Forget(),
+        () => !IsEditLocked && HasUnconfirmedAvatars);
+
+    private RelayCommand? _confirmAllAvatars;
+
+    /// <summary>
+    /// 確認待ちの対応アバターを確認済みにする。書くのは命令で、**錠の中で今の記録に当てる**
+    /// （画面の写しの一覧を書き戻すと、開いている間に裏の検出が変えた行を古い値に戻す）
+    /// </summary>
+    private Task ConfirmAvatarsAsync(IReadOnlyList<string> avatarItemIds)
+        => avatarItemIds.Count == 0
+            ? Task.CompletedTask
+            : RunItemCommandAsync(new UiCommand.ConfirmAvatars(Item.Id, avatarItemIds));
+
+    /// <summary>
     /// 対応アバターの欄を開いているか（ユーザ指示 2026-09-12：200体を超える商品があるので畳める）。
     /// 商品ページと編集画面で共通で、商品を移っても保つ（アプリを閉じるまで）。
     /// </summary>
@@ -370,9 +389,14 @@ public sealed partial class ItemViewModel
                 ItemId = link.AvatarItemId,
                 Name = NameOf(link.AvatarItemId, link.Name),
                 SourceText = SourceLabel(link.Source),
+                IsManual = link.Source == AvatarLinkSource.Manual,
                 IsUnconfirmed = !link.Confirmed,
                 IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
                 RejectCommand = new RelayCommand(() => RejectAvatarAsync(link.AvatarItemId).Forget(), () => !IsEditLocked),
+                // 確認済みの札でも右クリックの項目は出したまま、押せなくする（右クリックの決まり）
+                ConfirmCommand = new RelayCommand(
+                    () => ConfirmAvatarsAsync([link.AvatarItemId]).Forget(),
+                    () => !IsEditLocked && !link.Confirmed),
                 // ツールチップに出す絵（R3）。乗せたときに初めて読む——248体の商品で全部を先に読むと開くのが遅れる
                 IconFactory = () => AvatarIcon(link.AvatarItemId, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(link.AvatarItemId).Forget()),

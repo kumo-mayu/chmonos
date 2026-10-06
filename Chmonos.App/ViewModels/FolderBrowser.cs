@@ -52,6 +52,9 @@ public sealed class FolderBrowserFolderCard
 
     /// <summary>フォルダの行。絵の代わりにフォルダの印、ショップの列に場所、札の列に数を出す。</summary>
     public bool IsFolder => true;
+
+    /// <summary>名前の列は商品の行と同じ型を使うので、R-18 の印の欄も持つ（フォルダには付かない）。</summary>
+    public string AdultMark => string.Empty;
 }
 
 /// <summary>

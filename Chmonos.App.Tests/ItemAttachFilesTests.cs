@@ -244,6 +244,94 @@ public class ItemAttachFilesTests
         Assert.Empty(main.Import.Folders);
     });
 
+    // ---- 画像と zip を混ぜて落としたとき（ユーザ判断 2026-10-06・L80 の 14） ----
+
+    private static byte[] Png()
+    {
+        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(8, 8);
+        using var stream = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(image, stream);
+        return stream.ToArray();
+    }
+
+    /// <summary>1つめの問い（紐付けるか取り込むか）には「この商品に紐付ける」、画像の問いには <paramref name="forImages"/> と答える。</summary>
+    private static Func<ChoiceRequest, ChoiceDialogResult> Answer(ChoiceDialogResult forImages)
+        => request => request.First == "この商品に紐付ける" ? ChoiceDialogResult.First : forImages;
+
+    [Fact]
+    public Task 画像とzipを混ぜて紐付けると画像は1回だけ聞き_画像として追加ならzipだけ紐付けて画像は商品の画像になる() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile("作り物_v2.zip");
+        var red = app.NewFile(@"pics\red.png", Png());
+        var blue = app.NewFile(@"pics\blue.png", Png());
+        var (main, page) = await OpenEmptyItemAsync(app);
+        app.Choose = Answer(ChoiceDialogResult.First);
+
+        await main.HandleDropAsync([red, zip, blue], null);
+        await app.SettleAsync();
+
+        Assert.Equal(2, app.Choices.Count);
+        var images = app.Choices[1];
+        Assert.Equal("画像 2 件をどうしますか？", images.Question);
+        Assert.Equal("画像として追加", images.First);
+        Assert.Equal("ファイルとして紐付ける", images.Second);
+
+        var local = await LocalOfAsync(app, ItemId);
+        Assert.Equal([zip], Assert.Single(local.LocalFiles).Paths);
+        Assert.Single(local.UserImages);
+        Assert.Single(page.LocalFiles);
+    });
+
+    [Fact]
+    public Task 画像とzipを混ぜてファイルとして紐付けるなら_画像もこの商品のファイルになる() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile("作り物_v2.zip");
+        var red = app.NewFile(@"pics\red.png", Png());
+        var (main, _) = await OpenEmptyItemAsync(app);
+        app.Choose = Answer(ChoiceDialogResult.Second);
+
+        await main.HandleDropAsync([red, zip], null);
+        await app.SettleAsync();
+
+        Assert.Equal("画像「red.png」をどうしますか？", app.Choices[1].Question);
+        var local = await LocalOfAsync(app, ItemId);
+        Assert.Equal(2, local.LocalFiles.Count);
+        Assert.Empty(local.UserImages);
+    });
+
+    /// <summary>画像の問いのキャンセルは画像だけを飛ばす。zip は1つ目の問いで「紐付ける」と答えてあるので紐付ける（ユーザ判断 2026-10-06）。</summary>
+    [Fact]
+    public Task 画像の問いをキャンセルすれば画像だけ飛ばし_zipは紐付ける() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile("作り物_v2.zip");
+        var red = app.NewFile(@"pics\red.png", Png());
+        var (main, _) = await OpenEmptyItemAsync(app);
+        app.Choose = Answer(ChoiceDialogResult.Cancel);
+
+        await main.HandleDropAsync([red, zip], null);
+        await app.SettleAsync();
+
+        Assert.Equal(2, app.Choices.Count);
+        var local = await LocalOfAsync(app, ItemId);
+        Assert.Single(local.LocalFiles);
+        Assert.EndsWith("作り物_v2.zip", local.LocalFiles[0].Paths[0]);
+        Assert.Empty(local.UserImages);
+    });
+
+    /// <summary>画像が混ざっていなければ、画像の問いは出さない（今までどおり1回）。</summary>
+    [Fact]
+    public Task zipだけなら画像の問いは出ない() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile("作り物_v2.zip");
+        var (main, _) = await OpenEmptyItemAsync(app);
+        app.Choose = Answer(ChoiceDialogResult.First);
+
+        await main.HandleDropAsync([zip], null);
+        await app.SettleAsync();
+
+        Assert.Single(app.Choices);
+    });
+
     [Fact]
     public void 落としたファイルが複数なら件数で聞く()
         => Assert.Equal(

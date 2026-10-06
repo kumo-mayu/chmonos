@@ -468,8 +468,9 @@
                                         <Grid Margin="11,10,11,0">
                                             <StackPanel>
                                                 <!-- 高さは2行ぶんで固定（メモ37-①）。1行の名前だと下の札と1行が上へ詰まり、名前が2行の商品とずれた -->
-                                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
-                                                           TextWrapping="Wrap" Height="36" TextTrimming="CharacterEllipsis" />
+                                                <!-- R-18 の印は名前の頭の1区切り（メモ82。ピンク・赤は消す操作の色なので使わない）。札の部品を増やさない -->
+                                                <TextBlock FontSize="12.5" FontWeight="Medium"
+                                                           TextWrapping="Wrap" Height="36" TextTrimming="CharacterEllipsis"><Run Text="{Binding AdultMark, Mode=OneWay}" Foreground="{DynamicResource AdultText}" FontWeight="Bold" /><Run Text="{Binding Name, Mode=OneWay}" /></TextBlock>
                                                 <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <!--
@@ -1002,8 +1003,8 @@
 
     <DataTemplate x:Key="ItemListNameCell">
         <Border Style="{StaticResource ItemListCellFrame}">
-            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
-                       VerticalAlignment="Center" ToolTip="{Binding Name}" />
+            <TextBlock FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip="{Binding Name}"><Run Text="{Binding AdultMark, Mode=OneWay}" Foreground="{DynamicResource AdultText}" FontWeight="Bold" /><Run Text="{Binding Name, Mode=OneWay}" /></TextBlock>
         </Border>
     </DataTemplate>
 

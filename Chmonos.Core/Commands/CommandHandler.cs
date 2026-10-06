@@ -536,6 +536,16 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(save.ItemId)
                     : new CommandResult.Failed("対象の商品データが手元にありません。");
 
+            case UiCommand.ConfirmAvatars confirm:
+                if (_edit is null)
+                {
+                    return MissingService("対応アバターの確認");
+                }
+
+                return await _edit.ConfirmAvatarsAsync(confirm.ItemId, confirm.AvatarItemIds, cancellationToken)
+                    ? new CommandResult.ItemSaved(confirm.ItemId)
+                    : new CommandResult.Failed("対象の商品データが手元にありません。");
+
             case UiCommand.AddUserTag addTag:
                 if (_edit is null)
                 {

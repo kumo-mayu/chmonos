@@ -598,12 +598,22 @@ public sealed class AvatarRow : ChipTile
     /// 所持は色だけに頼らず、ここでも言葉で言う。
     /// </summary>
     public string SourceTooltip => (IsOwned ? "持っているアバターです。" : string.Empty)
-        + (IsUnconfirmed
+        + (IsManual
+            // 手で足した物と、検出の物を「確認済みにする」で確かめた物（出どころを手入力に付け替える）。
+            // 「手入力から読み取りました」では、確かめた物が読み取った物に聞こえる（ユーザ判断 2026-10-06）
+            ? "手で確認しました。押すとこのアバターを開きます"
+            : IsUnconfirmed
             ? $"{SourceText}から読み取りました（未確認）。押すとこのアバターを開きます"
             : $"{SourceText}から読み取りました。押すとこのアバターを開きます");
 
+    /// <summary>出どころが手入力か（手で足した・確認済みにした）。吹き出しの言い方を分ける。</summary>
+    public bool IsManual { get; init; }
+
     /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
     public RelayCommand? RejectCommand { get; init; }
+
+    /// <summary>確認待ちの推定を確認済みにする（メモ83）。確認待ちの札に乗せたときの ✓ と、右クリックのメニュー。</summary>
+    public RelayCommand? ConfirmCommand { get; init; }
 
     /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
     public RelayCommand? OpenCommand { get; init; }

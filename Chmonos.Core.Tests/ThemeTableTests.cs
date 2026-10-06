@@ -143,6 +143,10 @@ public class ThemeTableTests
     [InlineData("DangerText", "Surface", 4.5)]
     [InlineData("Unread", "Surface", 4.5)]
     [InlineData("Unread", "UnreadSoft", 4.5)]
+    // R-18 の印（メモ82）。カードの面と、リストの乗せた行・選んだ行の上に載る
+    [InlineData("AdultText", "Surface", 4.5)]
+    [InlineData("AdultText", "ListHoverBack", 4.5)]
+    [InlineData("AdultText", "ListSelectedBack", 4.5)]
     [InlineData("ChipText", "ChipBack", 4.5)]
     [InlineData("RailText", "Rail", 4.5)]
     [InlineData("RailText", "RailActive", 4.5)]
@@ -175,6 +179,22 @@ public class ThemeTableTests
     {
         var dark = Table("Dark.xaml");
         var ratio = Contrast(dark[foreground].Value, dark[background].Value, dark["Surface"].Value);
+
+        Assert.True(ratio >= required, $"{foreground} / {background}: {ratio:F2}（{required} 以上が要る）");
+    }
+
+    /// <summary>
+    /// 明るい表の新しい色（R-18 の印・メモ82）。明るい表も AA に揃えた（ユーザ判断 2026-09-29）が、
+    /// 試験は暗い表だけだったので、足した色はここで計る
+    /// </summary>
+    [Theory]
+    [InlineData("AdultText", "Surface", 4.5)]
+    [InlineData("AdultText", "ListHoverBack", 4.5)]
+    [InlineData("AdultText", "ListSelectedBack", 4.5)]
+    public void 明るい表の足した色はAAを満たす(string foreground, string background, double required)
+    {
+        var light = Table("Light.xaml");
+        var ratio = Contrast(light[foreground].Value, light[background].Value, light["Surface"].Value);
 
         Assert.True(ratio >= required, $"{foreground} / {background}: {ratio:F2}（{required} 以上が要る）");
     }
