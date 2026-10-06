@@ -41,6 +41,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 多数（2000件）・カードの札 | `card-info`・`card-info-small`・`card-info-sorted`・`card-info-chosen` |
 | 乗せたときの札（ViewModel で乗せた状態） | `card-info-peek`・`card-info-peek-small` |
 | カードの下の段（幅 160・200・228） | `card-badges-160`・`card-badges-200`・`card-badges-228` |
+| R-18 の名前の頭の印（カード・リスト） | `search-cards-adult`・`search-list-adult` |
 | リスト | `card-info-list`・`search-sort-name-list`・`search-updated-list` |
 | 並べ替えの区切り（カテゴリ・ショップ・入手日・名前） | `search-sort-category(-list)`・`search-sort-shop(-list)`・`search-sort-acquired(-list)` |
 | カードの大きさ最小・最大 | `search-sort-shop-small`・`search-sort-shop-large` |
@@ -75,6 +76,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | BOOTHに無い商品 | `catalog-item-local-only`（900） |
 | 絵が無い・持っていない・BOOTHから消えた・隠した（メモあり） | `catalog-item-no-images`・`catalog-item-not-owned`・`catalog-item-delisted`・`catalog-item-hidden` |
 | 対応アバター29体・共通素体 | `item-page-avatars` |
+| 確認待ちの対応アバター（見出しの［すべて確認済みにする］・札にフォーカスして ✓） | `item-page-avatars-unconfirmed`・`item-page-avatars-unconfirmed-focus` |
 | 手元のファイルの状態（在る・壊れた・見つからない・外したドライブ・2箇所） | `item-files-states` |
 | 長い説明（開いた・畳んだ・流した・最後・縦長） | `item-page-long`・`item-page-long-*` |
 | 読み込み中（最初の1コマ） | `item-page-long-first-frame` |
