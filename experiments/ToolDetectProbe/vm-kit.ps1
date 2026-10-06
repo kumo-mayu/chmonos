@@ -99,7 +99,9 @@ function Wait-ProbeVm {
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     while ((Get-Date) -lt $deadline) {
         $users = try { Invoke-VBox -TimeoutSec 20 guestproperty get $script:ProbeVmName '/VirtualBox/GuestInfo/OS/LoggedInUsers' } catch { '' }
-        if ($users -match 'Value:\s*[1-9]') { "ログオンした：$users"; return }
+        # ログオンしたらネットの線を外す。プレビューの版の Windows は、ネットがあると新しい版へ勝手に入れ替え始め、
+        # 確かめの前に数十分止まった（2026-10-06）。確かめの道具は共有のフォルダから走るので、ネットは要らない
+        if ($users -match 'Value:\s*[1-9]') { Invoke-VBox controlvm $script:ProbeVmName setlinkstate1 off | Out-Null; "ログオンした：$users"; return }
         Start-Sleep -Seconds 30
     }
     throw "$TimeoutMinutes 分待ってもログオンしなかった"
