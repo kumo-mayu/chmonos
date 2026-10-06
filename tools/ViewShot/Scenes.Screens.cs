@@ -427,9 +427,19 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("item-page-avatars-detected", "商品ページ：開いている間に対応アバターの判定が終わった所。説明の文が「判定が終わりました」に切り替わり、すぐ後ろに［表示する］（2026-10-06）", async context =>
+        new Scene("item-page-avatars-pending", "商品ページ：対応アバターの判定がまだ終わっていない所（item-page-avatars-detected と並べて、ボタンが出ても欄の高さが変わらないかを diff で見る）", async context =>
         {
-            var item = await context.Fake.ItemAsync("9900103", "作り物の衣装", record => record, images: 1);
+            var item = await context.Fake.ItemAsync("9900103", "作り物の衣装", record => record with { Local = record.Local with { AvatarsDetectedAt = null } }, images: 1);
+            var main = await context.StartAsync();
+            main.ShowItem(item);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            return new Shot(root);
+        }),
+
+        new Scene("item-page-avatars-detected","商品ページ：開いている間に対応アバターの判定が終わった所。説明の文が「判定が終わりました」に切り替わり、すぐ後ろに［表示する］（2026-10-06）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900103", "作り物の衣装", record => record with { Local = record.Local with { AvatarsDetectedAt = null } }, images: 1);
             var main = await context.StartAsync();
             main.ShowItem(item);
             var page = (Chmonos.App.ViewModels.ItemViewModel)main.CurrentViewModel!;
