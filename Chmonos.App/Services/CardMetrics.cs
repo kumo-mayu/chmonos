@@ -30,6 +30,20 @@ public static class CardMetrics
     private const double TextAreaHeight = 176;
 
     /// <summary>
+    /// 属性の札の段を出さないとき、<see cref="TextAreaHeight"/> から引く高さ（設定「カードに属性を表示」・ユーザ判断 2026-10-06
+    /// 「無ければカードの縦幅を要らなくなった分縮めよう」）。札の段 18＋その下の間 4 で、<see cref="Controls.CardInfoStrip"/> の
+    /// 札の段・間と同じ値（描く側と同じ定数から取るので、片方だけ変わって下に隙間が空いたり1行が切れたりしない）。
+    /// 名前の欄（2行ぶんで固定）・ユーザータグの札・払った額の1行は動かさない
+    /// </summary>
+    internal const double AttributeRowHeight = Controls.CardInfoStrip.AttributeRowHeight;
+
+    /// <summary>
+    /// カードに属性の札の段を出すか。既定は出さない（ユーザ判断 2026-10-06：既定のカードは縦に長い印象があった。
+    /// 設定の <c>showCardAttributes</c> の既定と同じ）。変わると全部のカードの高さが替わる
+    /// </summary>
+    public static bool ShowAttributes { get; private set; }
+
+    /// <summary>
     /// 絵の枠の高さは幅からこれを引いた値。前の3段（180→150・228→200・300→270）がほぼこの差で、
     /// 横長の枠のまま大きさだけが変わって見える
     /// </summary>
@@ -48,7 +62,7 @@ public static class CardMetrics
 
     public static double ImageHeight { get; private set; } = DefaultWidth - ImageHeightInset;
 
-    public static double Height => ImageHeight + TextAreaHeight;
+    public static double Height => ImageHeight + TextAreaHeight - (ShowAttributes ? 0 : AttributeRowHeight);
 
     /// <summary>
     /// ショップ順の札のアイコンの一辺（メモ16-④）。幅の3割で、カードの大きさに合わせて伸び縮みする。
@@ -108,6 +122,26 @@ public static class CardMetrics
         {
             Changed?.Invoke();
         }
+    }
+
+    /// <summary>
+    /// カードの属性の段を出すかを変える。高さは DynamicResource の <c>CardHeight</c> を使う画面（検索・ショップ・フォルダ・アバター・
+    /// 区切りの札）が全部その場で追う。幅は変わらないので列は割り直さないが、<see cref="Changed"/> は幅と同じ道で知らせる
+    /// </summary>
+    public static void ApplyShowAttributes(bool show)
+    {
+        if (ShowAttributes == show)
+        {
+            return;
+        }
+
+        ShowAttributes = show;
+        if (Application.Current is { } app)
+        {
+            app.Resources["CardHeight"] = Height;
+        }
+
+        Changed?.Invoke();
     }
 
     private static int EdgeFor(double width) => (int)(Math.Ceiling(width * 1.05 / EdgeStepDip) * EdgeStepDip);

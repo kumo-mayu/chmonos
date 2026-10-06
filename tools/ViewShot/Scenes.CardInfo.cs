@@ -24,13 +24,19 @@ internal static partial class Scenes
         CardInfoScene("card-info-sorted", "カードの札：属性「質感」で並べたとき、質感を先に出す", sortAttribute: "質感"),
         CardInfoScene("card-info-chosen", "カードの札：設定で「軽さ」「かわいい」を選んだとき", chosen: ["軽さ", "かわいい"]),
         CardInfoScene("card-info-list", "カードの札：リストの列（ユーザータグ・属性・払った額・対応）", list: true),
+        // 設定「一覧のカードに属性の札を表示」（既定は切。2026-10-06）。上の場面は札を入れて撮る（札の描き方の確かめ）。ここは既定の姿と、切ったままの小さい幅・乗せたとき
+        CardInfoScene("card-info-off", "カードの札：属性の札を出さない既定（属性の段のぶん低い・2000件・幅228）", showAttributes: false),
+        CardInfoScene("card-info-off-small", "カードの札：属性の札を出さない・カードを小さくしたとき（幅160）", width: 160, showAttributes: false),
+        CardInfoScene("card-info-off-peek", "カードの札：属性の札を出さなくても、乗せたときの重ねは属性の棒を出す", peek: true, showAttributes: false),
+        CardInfoScene("card-info-off-list", "カードの札：属性の札を出さなくても、リストの属性の列は残る", list: true, showAttributes: false),
         CardInfoSettings(),
+        CardInfoSettings(showAttributes: false),
         CardInfoPerf(),
     ];
 
     private static Scene CardInfoScene(
         string name, string title, double? width = null, bool peek = false, bool list = false,
-        string? sortAttribute = null, IReadOnlyList<string>? chosen = null)
+        string? sortAttribute = null, IReadOnlyList<string>? chosen = null, bool showAttributes = true)
         => new(name, title, async context =>
         {
             await SeedCardInfoLibraryAsync(context, 2000);
@@ -38,6 +44,7 @@ internal static partial class Scenes
             {
                 CardWidth = width is { } w ? (int)w : settings.CardWidth,
                 CardAttributes = chosen ?? [],
+                ShowCardAttributes = showAttributes,
             });
             var root = context.MainWindow();
             await context.PresentAsync(root);
@@ -64,11 +71,12 @@ internal static partial class Scenes
         });
 
     /// <summary>設定の「一覧と検索」の「カードに表示する属性」（2つ選んだ姿）。</summary>
-    private static Scene CardInfoSettings()
-        => new("card-info-settings", "カードの札：設定の「カードに表示する属性」", async context =>
+    private static Scene CardInfoSettings(bool showAttributes = true)
+        => new(showAttributes ? "card-info-settings" : "card-info-settings-off",
+            showAttributes ? "カードの札：設定の「カードに表示する属性」" : "カードの札：属性の札を切ったときの設定（「カードに表示する属性」は押せず薄い）", async context =>
         {
             await SeedCardInfoLibraryAsync(context, 20);
-            var main = await context.StartAsync(settings => settings with { CardAttributes = ["質感", "かわいい"] });
+            var main = await context.StartAsync(settings => settings with { CardAttributes = ["質感", "かわいい"], ShowCardAttributes = showAttributes });
             main.ShowSettingsCommand.Execute(null);
             var root = context.MainWindow();
             await context.PresentAsync(root);
@@ -77,7 +85,7 @@ internal static partial class Scenes
                 Focus = () => Look.Text(root, "カードに表示する属性") is { } label
                     ? (FrameworkElement?)Look.Ancestor<StackPanel>(System.Windows.Media.VisualTreeHelper.GetParent(label)) ?? label
                     : null,
-                FocusMargin = 60,
+                FocusMargin = 90,
             };
         });
 

@@ -62,7 +62,7 @@ internal static class Catalog
     [
         "search-cards", "search-first-open", "catalog-search-no-hits", "item-page", "catalog-item-local-only",
         "resolve-broken-zip", "import-result-unreadable", "import-running", "import-row-reveal", "import-missing-results", "import-missing-folders", "stats", "shops-cards", "shop-header", "inbox-rows",
-        "avatars-detail", "folder-cards", "tag-manage-cards", "attribute-manage-cards", "settings-long-paths", "edit-chips",
+        "card-info", "card-info-off", "avatars-detail", "folder-cards", "tag-manage-cards", "attribute-manage-cards", "settings-long-paths", "edit-chips",
     ];
 
     private const double NarrowWidth = 900;

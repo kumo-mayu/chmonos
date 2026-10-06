@@ -563,6 +563,27 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showSubTagsInList, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _showCardAttributes;
+
+    /// <summary>
+    /// カードに属性の札の段を出すか。切るとカードの縦幅も縮む。保存の後に一覧を組み直す（組み直しがカードの高さと札を一緒に替える）
+    /// </summary>
+    public bool ShowCardAttributes
+    {
+        get => _showCardAttributes;
+        set
+        {
+            if (SetField(ref _showCardAttributes, value))
+            {
+                OnPropertyChanged(nameof(CardAttributesEnabled));
+                Save(_main.ReloadLibraryAsync);
+            }
+        }
+    }
+
+    /// <summary>「カードに表示する属性」の欄を押せるか。出さないときは選んでも見えないので押せなくする（選んだ属性は残る）。</summary>
+    public bool CardAttributesEnabled => _showCardAttributes;
+
     // どちらも今出ている一覧と件数を変えるので、保存したら組み直す（小分類タグ・サムネイルの役割と同じ）。
     // 組み直していなかったので、次に別の条件で検索し直すまで変わらず、
     // 「効くときと効かないときがある」ように見えていた
@@ -1253,6 +1274,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         ThenAsync(SaveAsync(current => current with
         {
             ShowSubTagsInList = ShowSubTagsInList,
+            ShowCardAttributes = ShowCardAttributes,
             ShowAdult = ShowAdult,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,

@@ -458,8 +458,10 @@ public sealed partial class SearchViewModel
         var settings = _services.Settings;
         var sortAttribute = _sort.Kind == SortKind.Attribute ? _sort.AttributeName : null;
         _cardInfo.PeekDelayMs = _plainCardInfo.PeekDelayMs = Math.Max(0, settings.GalleryHoverDelayMs);
-        _plainCardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, null, settings.ShowSubTagsInList));
-        if (_cardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, sortAttribute, settings.ShowSubTagsInList)))
+        // カードの高さ（属性の段の有無）も同じ所で替える。札の作り直しと同じ歩みで替わり、段が畳まれたまま札だけ残る瞬間を作らない
+        global::Chmonos.App.Services.CardMetrics.ApplyShowAttributes(settings.ShowCardAttributes);
+        _plainCardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, null, settings.ShowSubTagsInList, settings.ShowCardAttributes));
+        if (_cardInfo.Update(CardInfoOptions.Build(settings.CardAttributes, _attributeNames, sortAttribute, settings.ShowSubTagsInList, settings.ShowCardAttributes)))
         {
             foreach (var card in _cards.Values)
             {

@@ -29,12 +29,23 @@ public sealed class CardInfoStrip : FrameworkElement
 
     public const double StripHeight = ChipHeight + RowGap + ChipHeight + RowGap + MetaHeight;
 
+    /// <summary>属性の段（札18＋間4）を畳んだときの高さ。畳む量は <see cref="AttributeRowHeight"/>（カードの高さを縮める量と同じ）。</summary>
+    public const double StripHeightWithoutAttributes = StripHeight - (ChipHeight + RowGap);
+
+    /// <summary>属性の段の高さ（札＋間）。カードの高さを縮める量の元（<see cref="Services.CardMetrics"/>）。</summary>
+    public const double AttributeRowHeight = ChipHeight + RowGap;
+
+    private double StripHeightNow => Info is { ShowAttributes: false } ? StripHeightWithoutAttributes : StripHeight;
+
+    /// <summary>メタの1行の上端。属性の段があれば2段ぶん下、畳んでいれば1段ぶん下。</summary>
+    private double MetaTop => Info is { ShowAttributes: false } ? ChipHeight + RowGap : ChipHeight + RowGap + ChipHeight + RowGap;
+
     private static readonly FontFamily Family = new("Yu Gothic UI, Meiryo, Segoe UI");
     private static readonly Typeface Regular = new(Family, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
 
     public static readonly DependencyProperty InfoProperty = DependencyProperty.Register(
         nameof(Info), typeof(CardInfo), typeof(CardInfoStrip),
-        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure));
 
     public CardInfo? Info
     {
@@ -76,7 +87,7 @@ public sealed class CardInfoStrip : FrameworkElement
     private Brush Get(DependencyProperty property) => (Brush)GetValue(property);
 
     protected override Size MeasureOverride(Size availableSize)
-        => new(double.IsInfinity(availableSize.Width) ? 0 : availableSize.Width, StripHeight);
+        => new(double.IsInfinity(availableSize.Width) ? 0 : availableSize.Width, StripHeightNow);
 
     protected override void OnRender(DrawingContext drawing)
     {
@@ -87,7 +98,7 @@ public sealed class CardInfoStrip : FrameworkElement
 
         var width = ActualWidth;
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        drawing.PushClip(new RectangleGeometry(new Rect(0, 0, width, StripHeight)));
+        drawing.PushClip(new RectangleGeometry(new Rect(0, 0, width, StripHeightNow)));
 
         // 1段目：ユーザータグ（丸い札）と残りの数
         // 札の数はここで、カードの幅に入るだけ決める（メモ37-③。前は2枚・幅200未満は1枚の決め打ちだった）。高さは変えない
@@ -116,7 +127,7 @@ public sealed class CardInfoStrip : FrameworkElement
             text.SetFontWeight(FontWeights.Bold, nameLength, chip.ValueText.Length);
             return text;
         }).ToList();
-        var attributeCount = FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, width - StarInset, ChipGap, null);
+        var attributeCount = !info.ShowAttributes ? 0 : FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, width - StarInset, ChipGap, null);
         x = 0;
         for (var i = 0; i < attributeCount; i++)
         {
@@ -128,7 +139,7 @@ public sealed class CardInfoStrip : FrameworkElement
         var chipsRight = Math.Max(tagsRight, x) - ChipGap;
         if (chipsRight > 0 && (tagCount > 0 || attributeCount > 0))
         {
-            drawing.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, Math.Min(width, chipsRight), ChipHeight + RowGap + ChipHeight));
+            drawing.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, Math.Min(width, chipsRight), info.ShowAttributes ? ChipHeight + RowGap + ChipHeight : ChipHeight));
         }
 
         // 3段目：払った額・対応の数
@@ -137,7 +148,7 @@ public sealed class CardInfoStrip : FrameworkElement
             // 未所持の襷（カードの左下）に掛からないよう、そのとき1行を右へ寄せる（CardInfo.MetaMargin）
             var left = info.MetaMargin.Left;
             var meta = Text(info.MetaLine, 11, Get(MetaTextProperty), Math.Max(1, width - left - StarInset), dpi);
-            drawing.DrawText(meta, new Point(left, ChipHeight + RowGap + ChipHeight + RowGap + (MetaHeight - meta.Height) / 2));
+            drawing.DrawText(meta, new Point(left, MetaTop + (MetaHeight - meta.Height) / 2));
         }
 
         drawing.Pop();
@@ -223,7 +234,7 @@ public sealed class CardInfoStrip : FrameworkElement
                 parts.Add(info.TagsLine);
             }
 
-            if (info.AttributesLine.Length > 0)
+            if (info.ShowAttributes && info.AttributesLine.Length > 0)
             {
                 parts.Add(info.AttributesLine);
             }

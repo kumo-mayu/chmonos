@@ -14,7 +14,11 @@ namespace Chmonos.App.ViewModels;
 /// </param>
 /// <param name="SortAttribute">並べ替えに使っている属性。出してよい属性に含まれなくても、付いていれば先頭に出す。</param>
 /// <param name="WithSubs">ユーザータグの札に小分類も出すか（設定「一覧のカードに小分類のタグも表示」）。</param>
-public sealed record CardInfoOptions(IReadOnlyList<string> ChipAttributes, string? SortAttribute, bool WithSubs)
+/// <param name="ShowAttributes">
+/// カードに属性の札の段を出すか（設定「カードに属性を表示」・ユーザ判断 2026-10-06）。切れているとカードの属性の段を畳む。
+/// リストの「属性」の列と乗せたときの重ねは、この設定では消さない（設定の名前が「カード」で、重ねは属性を見るための道なので）
+/// </param>
+public sealed record CardInfoOptions(IReadOnlyList<string> ChipAttributes, string? SortAttribute, bool WithSubs, bool ShowAttributes = true)
 {
     public static CardInfoOptions Empty { get; } = new([], null, false);
 
@@ -24,20 +28,21 @@ public sealed record CardInfoOptions(IReadOnlyList<string> ChipAttributes, strin
     /// <param name="chosen">設定で選んだ属性（<see cref="AppSettings.CardAttributes"/>）。空なら属性の管理の並びの上から。</param>
     /// <param name="masterOrder">属性の管理の並び。</param>
     /// <param name="sortAttribute">並べ替えに使っている属性。並べた値がカードで見えないと、なぜその順なのかが読めないので先に出す。</param>
-    public static CardInfoOptions Build(IReadOnlyList<string>? chosen, IReadOnlyList<string> masterOrder, string? sortAttribute, bool withSubs)
+    public static CardInfoOptions Build(IReadOnlyList<string>? chosen, IReadOnlyList<string> masterOrder, string? sortAttribute, bool withSubs, bool showAttributes = true)
     {
         // 出してよい属性の集まりだけを持つ。順は商品ごとに付いている順なので、設定で選んだ順・管理の並びは使わない
         var allowed = (chosen is { Count: > 0 } ? chosen : masterOrder).Distinct(StringComparer.Ordinal).ToList();
-        return new CardInfoOptions(allowed, string.IsNullOrEmpty(sortAttribute) ? null : sortAttribute, withSubs);
+        return new CardInfoOptions(allowed, string.IsNullOrEmpty(sortAttribute) ? null : sortAttribute, withSubs, showAttributes);
     }
 
     public bool Equals(CardInfoOptions? other)
         => other is not null
            && WithSubs == other.WithSubs
+           && ShowAttributes == other.ShowAttributes
            && string.Equals(SortAttribute, other.SortAttribute, StringComparison.Ordinal)
            && ChipAttributes.SequenceEqual(other.ChipAttributes, StringComparer.Ordinal);
 
-    public override int GetHashCode() => HashCode.Combine(WithSubs, SortAttribute, ChipAttributes.Count);
+    public override int GetHashCode() => HashCode.Combine(WithSubs, ShowAttributes, SortAttribute, ChipAttributes.Count);
 }
 
 /// <summary>
@@ -108,6 +113,12 @@ public sealed record CardInfo
     /// <summary>属性の札（付いている順。<see cref="MaxChips"/> まで）。</summary>
     public IReadOnlyList<CardAttributeChip> Attributes { get; init; } = [];
 
+    /// <summary>
+    /// カードに属性の段を描くか。切れているときは段の高さも畳む（<see cref="Services.CardMetrics"/> のカードの高さと対）。
+    /// <see cref="Attributes"/> は切れていても持つ——リストの列の吹き出し（<see cref="HasAttribute1"/>）が同じ物を見るため
+    /// </summary>
+    public bool ShowAttributes { get; init; } = true;
+
     public string? Tag1 => Tags.Count > 0 ? Tags[0] : null;
 
     public CardAttributeChip? Attribute1 => Attributes.Count > 0 ? Attributes[0] : null;
@@ -162,6 +173,7 @@ public sealed record CardInfo
             Tags = tags.Take(MaxChips).ToList(),
             TagTotal = tags.Count,
             Attributes = rated.Take(MaxChips).ToList(),
+            ShowAttributes = options.ShowAttributes,
             MetaLine = string.Join("・", meta),
             MetaMargin = owned ? new Thickness(0, 4, 0, 0) : new Thickness(SashInset, 4, 0, 0),
             TagsLine = string.Join("　", tags),
