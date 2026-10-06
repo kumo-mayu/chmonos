@@ -831,6 +831,17 @@
                                             <TextBlock Text="{Binding OutlierLabel}" FontSize="12" TextWrapping="Wrap" />
                                         </CheckBox>
                                         <!--
+                                            切のときは種類ごとの価格のどれか1つが範囲に入れば当たる（メモ82-6）。
+                                            入れると、全部の価格が範囲に入る商品だけ（無料版と支援版のある商品を「500円以下」から外せる）
+                                        -->
+                                        <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,0,0,6"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                  AutomationProperties.Name="すべての価格が範囲内の商品のみ"
+                                                  ToolTip="切っているときは、どれか1つの価格が範囲に入る商品を表示します。"
+                                                  Visibility="{Binding SupportsMatchAll, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="すべての価格が範囲内の商品のみ" FontSize="12" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <!--
                                             目盛を出す（ユーザ指示 2026-09-16：目盛が無いと指定しづらい）。
                                             つまみは割合（0〜100）で動かし、目盛の刻みだけでは数が読めないので両端の数を下に出す
                                         -->
@@ -921,6 +932,16 @@
                                 <DataTemplate DataType="{x:Type vm:DateModule}">
                                     <StackPanel>
                                         <!--
+                                            入手日だけ：最初の購入（既定）か、購入ごとの日付の全部か（メモ82・83・判断8）。
+                                            価格の「購入額／BOOTHの価格」と同じく、何の日付で見るかを上で選ぶ
+                                        -->
+                                        <ComboBox ItemsSource="{Binding PurchaseScopes}" SelectedItem="{Binding PurchaseScope, Mode=TwoWay}"
+                                                  DisplayMemberPath="Label" Height="28" FontSize="12.5" Margin="0,0,0,6"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.PurchaseScope'}"
+                                                  AutomationProperties.Name="どの購入の日付で絞るか"
+                                                  ToolTip="「すべての購入」は、2回目以降に買った日が範囲に入る商品も表示します。"
+                                                  Visibility="{Binding HasPurchaseScopes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <!--
                                             「から」は欄の後ろに置く（ユーザ指示 2026-09-16。日本語では値のあとに付く）。
                                             左のトグルで片側を切れる（同。空欄を「制限なし」と読ませるより、切ってあることが見える方が分かる）
                                         -->
@@ -953,7 +974,7 @@
                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Since'}"
                                                      ToolTipService.ShowOnDisabled="True" ToolTip="{Binding SinceHint}" />
                                         </DockPanel>
-                                        <Popup IsOpen="{Binding IsChecked, ElementName=SinceCalendarButton}" StaysOpen="False"
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=SinceCalendarButton}" StaysOpen="False" controls:CalendarMonth.FollowsSelection="True"
                                                PlacementTarget="{Binding ElementName=SinceCalendarButton}" Placement="Bottom">
                                             <Calendar SelectedDate="{Binding SinceDate, Mode=TwoWay}" />
                                         </Popup>
@@ -987,7 +1008,7 @@
                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Till'}"
                                                      ToolTipService.ShowOnDisabled="True" ToolTip="{Binding TillHint}" />
                                         </DockPanel>
-                                        <Popup IsOpen="{Binding IsChecked, ElementName=TillCalendarButton}" StaysOpen="False"
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=TillCalendarButton}" StaysOpen="False" controls:CalendarMonth.FollowsSelection="True"
                                                PlacementTarget="{Binding ElementName=TillCalendarButton}" Placement="Bottom">
                                             <Calendar SelectedDate="{Binding TillDate, Mode=TwoWay}" />
                                         </Popup>
@@ -1088,16 +1109,35 @@
                                                                        Margin="0,0,6,0" />
                                                         </DockPanel>
                                                         <!--
-                                                            キーの刻みは目盛り（10）に合わせる。既定の0.1だと目盛りへ吸い寄せられて、キーでは動かなかった（点検 2026-09-23）
+                                                            分布の帯（メモ82：価格と同じくヒストグラムを出す）。目盛は直線なので、帯も等しい幅で数える
                                                         -->
-                                                        <Slider Minimum="0" Maximum="100" Value="{Binding Min, Mode=TwoWay}"
-                                                                TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="True"
-                                                                SmallChange="10" LargeChange="20"
-                                                                Margin="0,3,0,0"
+                                                        <controls:ContentItemsControl ItemsSource="{Binding Histogram}" Height="22" Margin="0,3,0,1"
+                                                                                      Focusable="False" ToolTip="評価した商品の数の分布"
+                                                                                      AutomationProperties.Name="評価した商品の数の分布"
+                                                                                      Visibility="{Binding HasHistogram, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate DataType="{x:Type vm:HistogramBar}">
+                                                                    <Rectangle Height="{Binding Height}" VerticalAlignment="Bottom" Margin="0.5,0"
+                                                                               Fill="{DynamicResource AccentBorder}" />
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </controls:ContentItemsControl>
+                                                        <!--
+                                                            1%刻み（メモ82・判断9）。目盛（10%）は読む手掛かりにだけ使い、吸い付けない。
+                                                            キーの刻みも1にする（既定の0.1のままだと、丸めて同じ値に戻りキーでは動かない。点検 2026-09-23 と同じ）。上下を外すチェックは付けない（メモ82）
+                                                        -->
+                                                        <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
+                                                                TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False"
+                                                                SmallChange="1" LargeChange="10"
+                                                                AutomationProperties.AutomationId="SearchAttributeMinSlider"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の下限}" />
-                                                        <Slider Minimum="0" Maximum="100" Value="{Binding Max, Mode=TwoWay}"
-                                                                TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="True"
-                                                                SmallChange="10" LargeChange="20"
+                                                        <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
+                                                                TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
+                                                                SmallChange="1" LargeChange="10"
+                                                                AutomationProperties.AutomationId="SearchAttributeMaxSlider"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の上限}" />
                                                     </StackPanel>
                                                 </DataTemplate>
