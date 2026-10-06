@@ -8,8 +8,11 @@ namespace Chmonos.App.ViewModels;
 /// 三択に、どの種類の変化を見るかのトグル5つを足した形——**チップではなく編集状況（<see cref="UneditedModule"/>）と同じ形**で並べる。
 ///
 /// 見るのは要確認に**未読**で片付けていない「商品の更新」の知らせだけ（カードの札「更新あり」と同じ数え方。今のまま）。
-/// 種類は知らせの差の欄から見分ける（<see cref="BoothChanges.KindsOf"/>）。選んだ種類のどれかを含む知らせがあれば当たる（OR）。
-/// 種類どうしの AND は持たない：1回の取り直しで価格とバリエーションが一緒に変わることはあっても、それを探したい場面が見えない（要るならユーザに聞く）。
+/// 種類は知らせの差の欄から見分ける（<see cref="BoothChanges.KindsOf"/>）。既定は選んだ種類のどれかの知らせがあれば当たる（OR）。
+/// **種類どうしを AND にもできる**（ユーザ判断 2026-10-06「無くす理由もないので AND と OR は使えるようにしておきましょう。未編集と同様の操作感です」）：
+/// 編集状況と同じ2つのラジオボタンで、言い方は <see cref="MatchModeText"/>。AND は商品ごとの未読の知らせを合わせて、選んだ種類が全部そろう商品
+/// （1通の知らせの中でそろっていなくてよい。カードの札も商品ごとに1つで、使う人が見るのは商品だから）。
+/// 「更新通知なしのみ」は「更新通知ありのみ」の反対（同じつなぎ方で当たる商品、以外）。
 /// </summary>
 public sealed class UpdateNoticeModule : SearchModule
 {
@@ -24,6 +27,7 @@ public sealed class UpdateNoticeModule : SearchModule
     private readonly Func<string, BoothChangeKind> _kindsOf;
     private ChoiceOption _selected;
     private BoothChangeKind _kinds = AllMask;
+    private bool _matchAll;
 
     private static BoothChangeKind AllMask => AllKinds.Aggregate(BoothChangeKind.None, (all, kind) => all | kind);
 
@@ -78,26 +82,82 @@ public sealed class UpdateNoticeModule : SearchModule
         _ => true,
     };
 
-    private bool HasSelected(ItemRecord item) => (_kindsOf(item.Id) & _kinds) != BoothChangeKind.None;
+    private bool HasSelected(ItemRecord item)
+        => _matchAll
+            ? (_kindsOf(item.Id) & _kinds) == _kinds
+            : (_kindsOf(item.Id) & _kinds) != BoothChangeKind.None;
+
+    /// <summary>種類どうしを全部そろえる（AND）か。既定はどれか（OR）。「両方」の間は受けない（編集状況と同じ）。</summary>
+    public bool MatchAll
+    {
+        get => _matchAll;
+        set
+        {
+            if (!CanEditKinds)
+            {
+                // 押せない間に来た値は受けず、画面の印を今の値に戻す
+                OnPropertyChanged(nameof(MatchAll));
+                OnPropertyChanged(nameof(MatchAny));
+                return;
+            }
+
+            if (SetField(ref _matchAll, value))
+            {
+                OnPropertyChanged(nameof(MatchAny));
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>つなぎ方のラジオボタンの「どれか」の側（編集状況の <see cref="UneditedModule.MatchAny"/> と同じ受け方）。</summary>
+    public bool MatchAny
+    {
+        get => !_matchAll;
+        set
+        {
+            // 片方を選ぶと、もう片方のラジオボタンが偽を書きに来る。偽は受けない
+            if (value)
+            {
+                MatchAll = false;
+            }
+        }
+    }
+
+    /// <summary>種類を2つ以上入れているときだけ出す（1つなら結果が変わらない）。「両方」の間も出したまま押せなくする（欄の高さを変えない）。</summary>
+    public bool ShowsMatchMode => AllKinds.Count(kind => (_kinds & kind) != 0) > 1;
+
+    public string MatchAnyLabel => MatchModeText.Any;
+
+    public string MatchAllLabel => MatchModeText.All;
 
     protected override string SummaryBody
     {
         get
         {
-            if (_selected.Key == NeutralKey || _kinds == AllMask)
+            var all = _matchAll && ShowsMatchMode;
+            if (_selected.Key == NeutralKey || (_kinds == AllMask && !all))
             {
                 return _selected.Label;
             }
 
             var names = string.Join("・", AllKinds.Where(kind => (_kinds & kind) != 0).Select(ChangeKindToggle.LabelOf));
-            return _selected.Key == UpdatedKey ? $"{names}の更新通知あり" : $"{names}の更新通知なし";
+            return (_selected.Key == UpdatedKey, all) switch
+            {
+                (true, false) => $"{names}の更新通知あり",
+                (true, true) => $"{names}のすべての更新通知あり",
+                (false, false) => $"{names}の更新通知なし",
+                (false, true) => $"{names}の更新通知がすべてはそろわない",
+            };
         }
     }
 
     public override void Clear()
     {
         _selected = Options.First(option => option.Key == NeutralKey);
+        _matchAll = false;
         SetKinds(AllMask);
+        OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(MatchAny));
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(CanEditKinds));
         OnPropertyChanged(nameof(IsActive));
@@ -119,11 +179,19 @@ public sealed class UpdateNoticeModule : SearchModule
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
-        => state with { Choice = _selected.Key, Fields = AllKinds.Where(kind => (_kinds & kind) != 0).Select(KeyOf).ToList() };
+        => state with
+        {
+            Choice = _selected.Key,
+            Fields = AllKinds.Where(kind => (_kinds & kind) != 0).Select(KeyOf).ToList(),
+            MatchAll = _matchAll,
+        };
 
     protected override void Read(SearchModuleState state)
     {
         _selected = Options.FirstOrDefault(option => option.Key == state.Choice) ?? Options[0];
+        _matchAll = state.MatchAll;
+        OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(MatchAny));
 
         // 知らない名前は飛ばし、残らなければ全部（編集状況の項目と同じ読み方）
         var kinds = state.Fields
@@ -168,6 +236,7 @@ public sealed class UpdateNoticeModule : SearchModule
         }
 
         OnPropertyChanged(nameof(SelectedKinds));
+        OnPropertyChanged(nameof(ShowsMatchMode));
     }
 
 }

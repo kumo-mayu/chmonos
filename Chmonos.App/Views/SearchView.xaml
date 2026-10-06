@@ -639,13 +639,27 @@
                                         -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
+                                            <!--
+                                                改変の札だけ、頭に小さな絵（改変の写真 → アバターの絵 → 頭文字。ユーザ指摘 2026-10-06）。
+                                                札の高さを変えないよう、字の高さに収まる14pxにする
+                                            -->
+                                            <Border Grid.Column="0" Width="14" Height="14" Margin="-4,0,5,0" CornerRadius="3" ClipToBounds="True"
+                                                    Background="{DynamicResource SurfaceAlt}" VerticalAlignment="Center"
+                                                    Visibility="{Binding ShowsIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Initial}" FontSize="8.5" Foreground="{DynamicResource TextMuted}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                </Grid>
+                                            </Border>
                                             <!-- 吹き出しは名前と、対応アバターならそのアバターのサムネイル（メモ82。絵は開いたときに読む） -->
                                             <!-- パスの札（ファイルの場所・Unityプロジェクト）は間を省いて末尾を残す（DisplayText。メモ83・メモ84）。吹き出しは全文 -->
-                                            <TextBlock Grid.Column="0" Text="{Binding DisplayText}" FontSize="11" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayText}" FontSize="11" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                        MaxWidth="200" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                                 <TextBlock.ToolTip>
                                                     <ToolTip>
@@ -658,10 +672,10 @@
                                                     </ToolTip>
                                                 </TextBlock.ToolTip>
                                             </TextBlock>
-                                            <TextBlock Grid.Column="1" Text="{Binding CountText}" FontSize="10.5" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
+                                            <TextBlock Grid.Column="2" Text="{Binding CountText}" FontSize="10.5" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                        Opacity="0.7" Margin="5,0,0,0" VerticalAlignment="Center" />
                                             <!-- 形は呼ばれ方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
-                                            <Button Grid.Column="2" Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
+                                            <Button Grid.Column="3" Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
                                                     Background="Transparent" BorderThickness="0" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                     ToolTip="この値を外す"
                                                     AutomationProperties.AutomationId="SearchChipRemove"
@@ -683,7 +697,7 @@
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
                                                   AutomationProperties.Name="{Binding FlagLabel}"
                                                   Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{DynamicResource Text}" TextWrapping="Wrap" />
                                         </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>
@@ -778,6 +792,23 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </controls:ContentItemsControl>
+                                            <!--
+                                                種類どうしのつなぎ方（ユーザ判断 2026-10-06「未編集と同様の操作感」）。編集状況と同じ2つのラジオボタンで、言い方は MatchModeText。
+                                                更新通知ありは1つまでの条件だが、GroupName は編集状況と同じく条件の鍵で分ける
+                                            -->
+                                            <WrapPanel Margin="0,3,0,0"
+                                                       Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <RadioButton IsChecked="{Binding MatchAny, Mode=TwoWay}" GroupName="{Binding IdKey, StringFormat='{}{0}.match'}" Margin="0,0,14,0"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAny'}"
+                                                             AutomationProperties.Name="{Binding MatchAnyLabel}">
+                                                    <TextBlock Text="{Binding MatchAnyLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                </RadioButton>
+                                                <RadioButton IsChecked="{Binding MatchAll, Mode=TwoWay}" GroupName="{Binding IdKey, StringFormat='{}{0}.match'}"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                             AutomationProperties.Name="{Binding MatchAllLabel}">
+                                                    <TextBlock Text="{Binding MatchAllLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                </RadioButton>
+                                            </WrapPanel>
                                         </StackPanel>
                                     </StackPanel>
                                 </DataTemplate>
@@ -905,6 +936,13 @@
                                                   ToolTip="切っているときは、どれか1つの価格が範囲に入る商品を表示します。"
                                                   Visibility="{Binding SupportsMatchAll, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="すべての価格が範囲内の商品のみ" FontSize="12" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <!-- 価格の分からない商品を足す（ユーザ判断 2026-10-06。既定は切・有料・無料の同じチェックとは同期しない） -->
+                                        <CheckBox IsChecked="{Binding IncludeUnpriced, Mode=TwoWay}" Margin="0,0,0,6"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeUnpriced'}"
+                                                  AutomationProperties.Name="{x:Static vm:SearchViewModel.UnpricedLabel}"
+                                                  Visibility="{Binding SupportsUnpriced, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{x:Static vm:SearchViewModel.UnpricedLabel}" FontSize="12" TextWrapping="Wrap" />
                                         </CheckBox>
                                         <!--
                                             目盛を出す（ユーザ指示 2026-09-16：目盛が無いと指定しづらい）。
@@ -1093,7 +1131,7 @@
                                                              CommitCommand="{Binding AddCommand}" Placeholder="大分類を選んで追加"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
                                                              AutomationProperties.Name="{Binding NameSuffix, StringFormat={}大分類を選んで追加{0}}"
-                                                             Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                             Visibility="{Binding ShowsInput, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="ユーザータグがまだ登録されていません。編集画面から追加できます。" Style="{StaticResource Caption}"
                                                    TextWrapping="Wrap"
                                                    Visibility="{Binding IsMasterEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -1118,7 +1156,7 @@
                                                             <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False" Margin="0,5,0,0"
                                                                                  CommitCommand="{Binding AddCommand}" Placeholder="小分類を選んで追加"
                                                                                  AutomationProperties.Name="{Binding Top, StringFormat={}{0}の小分類を選んで追加}"
-                                                                                 Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                                 Visibility="{Binding ShowsInput, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                             <controls:ContentItemsControl ItemsSource="{Binding Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,5,0,0" Focusable="False"
                                                                                           ItemTemplate="{StaticResource SearchChipTemplate}">
                                                                 <ItemsControl.ItemsPanel>
@@ -1160,7 +1198,7 @@
                                                              GroupHeadings="{x:Static vm:ModificationModule.Headings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
                                                              AutomationProperties.Name="{Binding NameSuffix, StringFormat={}アバターか改変を選んで追加{0}}"
-                                                             Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                             Visibility="{Binding ShowsInput, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="改変がまだありません。アバターの管理から作れます。" Style="{StaticResource Caption}"
                                                    TextWrapping="Wrap"
                                                    Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -1195,7 +1233,7 @@
                                                                                  CommitCommand="{Binding AddCommand}" Placeholder="改変を選んで追加"
                                                                                  IconSelector="{Binding IconSelector}"
                                                                                  AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}の改変を選んで追加}"
-                                                                                 Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                                 Visibility="{Binding ShowsInput, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                             <TextBlock Text="改変を選ばないときは、このアバターのすべての改変が対象です。" Style="{StaticResource Caption}"
                                                                        TextWrapping="Wrap" Margin="0,4,0,0"
                                                                        Visibility="{Binding HasNoModification, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

@@ -20,8 +20,11 @@ public class SearchChipLayoutTests
         var remove = chip.Descendants().Single(element => element.Name.LocalName == "Button");
         Assert.Equal("Grid", remove.Parent!.Name.LocalName);
 
-        var name = chip.Descendants().First(element => element.Name.LocalName == "TextBlock");
+        // 名前は省ける唯一の文字で、縮む（*）列に置く。頭に改変の絵の列（Auto）が入っても、名前の列が縮む列であること
+        var name = chip.Descendants().Single(element => element.Name.LocalName == "TextBlock" && element.Attribute("TextTrimming") is not null);
         Assert.Equal("CharacterEllipsis", name.Attribute("TextTrimming")?.Value);
-        Assert.Equal("0", name.Attribute("Grid.Column")?.Value);
+        var columns = remove.Parent!.Descendants().Where(element => element.Name.LocalName == "ColumnDefinition").ToList();
+        var column = int.Parse(name.Attribute("Grid.Column")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal("*", columns[column].Attribute("Width")?.Value);
     }
 }

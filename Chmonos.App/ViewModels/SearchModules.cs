@@ -789,7 +789,7 @@ public sealed record ChoiceFlag(string Label, bool Default, string ChangedSummar
 /// プルダウンで選ぶ条件（ユーザ案「三項」）。
 ///
 /// 何も絞らない選択肢（「両方」）を持つ物は、その選択肢で条件を残したまま無効にできる（トグル拡張）。
-/// 持たない物（ギフト・有料無料）は、条件自体の切り替えで無効にする（純三項）。
+/// 持たない物（ギフト）は、条件自体の切り替えで無効にする（純三項）。
 /// 「両方」は並びの最後に置く（ユーザ判断 2026-10-06・メモ82。全部の条件で同じ位置）。先頭が足したときの既定。
 /// </summary>
 public sealed class ChoiceModule : SearchModule
@@ -936,6 +936,7 @@ public sealed class ListChip : ViewModelBase
             {
                 OnPropertyChanged(nameof(ToolTipText));
                 OnPropertyChanged(nameof(DisplayText));
+                OnPropertyChanged(nameof(Initial));
             }
         }
     }
@@ -998,6 +999,15 @@ public sealed class ListChip : ViewModelBase
     }
 
     public bool HasIconSource => IconSource is not null;
+
+    /// <summary>
+    /// 札の頭に小さな絵を出すか（改変の札。絵が無ければ頭文字）。対応アバターの札は吹き出しにだけ絵を出す今の形のまま
+    /// （ユーザ判断 2026-10-06「アバターのアイコンは良いと思います。このままにしましょう」）。
+    /// </summary>
+    public bool ShowsIcon { get; internal set; }
+
+    /// <summary>絵の無い札の頭文字（候補の欄・改変の一覧と同じ出し方）。</summary>
+    public string Initial => Core.Services.AvatarText.InitialOf(_text);
 
     /// <summary>長い文の間を省くか（パスの札。<see cref="ListModule.TrimsMiddle"/>）。</summary>
     public bool TrimsMiddle
@@ -1654,6 +1664,32 @@ public sealed class RangeModule : SearchModule
         }
     }
 
+    /// <summary>「価格が設定されていない商品も表示」を出すか（価格だけ。スキ数は BOOTH の商品なら必ずある）。</summary>
+    public bool SupportsUnpriced { get; init; }
+
+    /// <summary>
+    /// 照らす数が1つも無い商品も通すか（ユーザ判断 2026-10-06。既定は切＝前と同じく、数の分からない商品は範囲に入らない）。
+    /// 「設定されていない」は**元の数が1つも無い**こと：払った額なら値段を入れていない、BOOTH の価格ならバリエーションが無い。
+    /// 外れ値を外した結果1つも残らない商品（止め値の種類しか無い）は、価格は設定されているので含めない。
+    /// **除くときも通す**（文の「も表示」のとおり、除いて出る物に足す。除くときは数の分からない商品を外すのが既定なので、ここで戻せる）。
+    /// 有料・無料の同じ名前のチェックとは同期しない（ユーザ判断 2026-10-06。条件ごとに別々に持つ）。
+    /// </summary>
+    public bool IncludeUnpriced
+    {
+        get => _includeUnpriced;
+        set
+        {
+            if (SetField(ref _includeUnpriced, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    private bool _includeUnpriced;
+
+    private bool IncludesUnpricedNow => SupportsUnpriced && _includeUnpriced;
+
     /// <summary>外れ値を外す数の元を、外れ値の無い物（価格の払った額）にしているキー。その元では外れ値を探さない。</summary>
     public string? NoOutlierSource { get; init; }
 
@@ -1969,6 +2005,11 @@ public sealed class RangeModule : SearchModule
         }
 
         EnsurePrepared(context);
+        if (IncludesUnpricedNow && IsUnpriced(item))
+        {
+            return true;
+        }
+
         var (min, max) = (_preparedMin, _preparedMax);
         var values = KnownValues(item);
         if (SupportsMatchAll && _matchAll)
@@ -2015,7 +2056,12 @@ public sealed class RangeModule : SearchModule
     /// 数の分からない商品（値段を入れていない・外れ値を外したら1つも残らない）は、除くときも外す。
     /// </summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
-        => !HasCondition || (KnownValues(item).Count > 0 && !Matches(item, context));
+        => !HasCondition
+            || (IncludesUnpricedNow && IsUnpriced(item))
+            || (KnownValues(item).Count > 0 && !Matches(item, context));
+
+    /// <summary>元の数が1つも無い（値段を入れていない・バリエーションが無い）。外れ値を外して残らない物は含めない。</summary>
+    private bool IsUnpriced(ItemRecord item) => _values(item, _source?.Key).Count == 0;
 
     /// <summary>照らす数。外れ値を外していれば、その数だけを外す（商品は他の種類の価格で照らす）。</summary>
     private IReadOnlyList<int> KnownValues(ItemRecord item)
@@ -2048,7 +2094,8 @@ public sealed class RangeModule : SearchModule
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
             var all = SupportsMatchAll && _matchAll ? "（すべての価格が範囲内）" : string.Empty;
-            return string.Join(" ", parts) + outliers + all;
+            var unpriced = IncludesUnpricedNow ? "・価格が設定されていない商品も表示" : string.Empty;
+            return string.Join(" ", parts) + outliers + all + unpriced;
         }
     }
 
@@ -2059,12 +2106,14 @@ public sealed class RangeModule : SearchModule
         _maxEnabled = true;
         _ignoreOutliers = true;
         _matchAll = false;
+        _includeUnpriced = false;
         _valuesFromState = false;
         _defaultsApplied = false;
         OnPropertyChanged(nameof(MinEnabled));
         OnPropertyChanged(nameof(MaxEnabled));
         OnPropertyChanged(nameof(IgnoreOutliers));
         OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(IncludeUnpriced));
         RefreshBounds();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -2079,6 +2128,9 @@ public sealed class RangeModule : SearchModule
             MaxEnabled = _maxEnabled,
             IgnoreOutliers = _ignoreOutliers,
             MatchAll = SupportsMatchAll && _matchAll,
+
+            // 補助の切り替えの欄（三択と同じ欄）を使う。価格の条件の形は増えない
+            Flag = IncludesUnpricedNow,
             Choice = _source?.Key,
         };
 
@@ -2090,8 +2142,10 @@ public sealed class RangeModule : SearchModule
         _maxEnabled = state.MaxEnabled;
         _ignoreOutliers = state.IgnoreOutliers;
         _matchAll = SupportsMatchAll && state.MatchAll;
+        _includeUnpriced = SupportsUnpriced && state.Flag;
         OnPropertyChanged(nameof(IgnoreOutliers));
         OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(IncludeUnpriced));
 
         // 前に入れていた数があるなら、端から端までの既定で上書きしない。
         // 空で残っていたもの（端という意味）は、端の数を入れて見えるようにする
@@ -2680,7 +2734,11 @@ public sealed class UserTagModule : SearchModule
     /// <summary>まだ足していない大分類。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    /// <summary>
+    /// 欄を出すか。**大分類を全部足しても出したまま**にする（改変の2段と同じ・ユーザ指摘 2026-10-06：欄が消えると下の枠が上へずれる）。
+    /// 大分類が1つも無いときだけ隠し、代わりに空の文を出す。
+    /// </summary>
+    public bool ShowsInput => _tops.Count > 0;
 
     /// <summary>大分類が1つも無い（足す物が無い）。足し終えて候補が尽きたときは言わない。</summary>
     public bool IsMasterEmpty => _mastersReady && _tops.Count == 0;
@@ -2836,7 +2894,7 @@ public sealed class UserTagModule : SearchModule
 
         // 枠の足し外しはどれもここを通る。用意した条件の並びを捨てる
         Unprepare();
-        OnPropertyChanged(nameof(HasSuggestions));
+        OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(IsMasterEmpty));
         OnPropertyChanged(nameof(ShowsMatchMode));
     }
@@ -2877,7 +2935,8 @@ public sealed class UserTagTopRow : ViewModelBase
     /// <summary>まだ足していない小分類と「小分類なし」。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    /// <summary>欄を出すか。「小分類なし」が必ず選べるので、全部選んだ後も含めていつも出す（枠の高さが変わらないように）。</summary>
+    public bool ShowsInput => true;
 
     /// <summary>小分類どうしを全部満たす（AND）か。既定は OR（大分類どうしの既定に揃える）。</summary>
     public bool MatchAll
@@ -3052,7 +3111,6 @@ public sealed class UserTagTopRow : ViewModelBase
             Suggestions.Add(sub);
         }
 
-        OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShowsMatchMode));
         RefreshConflict();
     }

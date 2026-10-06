@@ -164,6 +164,64 @@ public class SearchUpdatedTests
     });
 
     [Fact]
+    public Task 更新通知ありの種類どうしは_編集状況と同じ形でANDにもでき_商品ごとの知らせを合わせて見る() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900091", "1通で価格とバリエーション"));
+        await app.AddItemAsync(Make.Item("9900092", "価格だけ"));
+        await app.AddItemAsync(Make.Item("9900093", "2通に分かれて価格とバリエーション"));
+        await app.AddItemAsync(Make.Item("9900094", "知らせなし"));
+        await app.Store.Notifications.SaveAsync(
+        [
+            WithFields(Updated("a", "9900091"), Core.Services.BoothChanges.PriceField, Core.Services.BoothChanges.VariationsField),
+            WithFields(Updated("b", "9900092"), Core.Services.BoothChanges.PriceField),
+            WithFields(Updated("c", "9900093"), Core.Services.BoothChanges.PriceField),
+            WithFields(Updated("d", "9900093"), Core.Services.BoothChanges.VariationsField),
+        ]);
+        var search = (await app.StartAsync()).Search;
+        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Updated);
+        List<string> Shown() => [.. search.ListItems.Select(card => card.Item.Id).Order(StringComparer.Ordinal)];
+        foreach (var kind in module.Kinds.Where(kind => kind.Label is not ("価格" or "バリエーション")))
+        {
+            kind.IsOn = false;
+        }
+
+        // 言い方は全部の条件で共通。既定はどれか（OR）
+        Assert.True(module.ShowsMatchMode);
+        Assert.Equal(MatchModeText.Any, module.MatchAnyLabel);
+        Assert.Equal(MatchModeText.All, module.MatchAllLabel);
+        Assert.True(module.MatchAny);
+        Assert.Equal(["9900091", "9900092", "9900093"], Shown());
+
+        module.MatchAll = true;
+        Assert.False(module.MatchAny);
+        Assert.Equal(["9900091", "9900093"], Shown());
+        Assert.Equal("更新通知あり：バリエーション・価格のすべての更新通知あり", module.SummaryText);
+
+        // 更新通知なしのみは、ありのみの反対
+        module.Selected = module.Options[1];
+        Assert.Equal(["9900092", "9900094"], Shown());
+        Assert.Equal("更新通知あり：バリエーション・価格の更新通知がすべてはそろわない", module.SummaryText);
+
+        // 両方の間はつなぎ方も押せない（値は残す）。種類が1つならつなぎ方を出さない
+        module.Selected = module.Options[2];
+        module.MatchAny = true;
+        Assert.True(module.MatchAll);
+        module.Selected = module.Options[0];
+        module.Kinds.Single(kind => kind.Label == "バリエーション").IsOn = false;
+        Assert.False(module.ShowsMatchMode);
+
+        // 保存して読み直しても同じ
+        var state = module.Save();
+        Assert.True(state.MatchAll);
+        var back = new UpdateNoticeModule(_ => Core.Services.BoothChangeKind.None);
+        back.Load(state);
+        Assert.True(back.MatchAll);
+
+        module.Clear();
+        Assert.False(module.MatchAll);
+    });
+
+    [Fact]
     public Task 更新通知ありの種類は保存され_読み直しても同じ() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
