@@ -205,7 +205,7 @@ public class CardMenuStateTests
         Assert.True(CardMenuState.IsEnabled("Favorite", withCard));
         Assert.False(CardMenuState.IsEnabled("Select", withCard));
         Assert.Equal("この一覧では選べません", CardMenuState.Tip("Select", withCard));
-        Assert.Equal("お気に入りに入れる", CardMenuState.FavoriteHeader(nameOnly));
+        Assert.Equal("お気に入りに追加", CardMenuState.FavoriteHeader(nameOnly));
     });
 
     [Fact]

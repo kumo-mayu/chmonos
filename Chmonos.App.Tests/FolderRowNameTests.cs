@@ -87,7 +87,7 @@ public class FolderRowNameTests
         // 未確定（結び付いた商品が無い）とフォルダの行は名前のまま
         var stray = Row(folders, "unknown.zip");
         Assert.Equal("unknown.zip", stray.Title);
-        Assert.Equal("未確定（商品が決まっていません）", stray.SubText);
+        Assert.Equal("未確定", stray.SubText);
         Assert.All(folders.Rows.Where(row => row.IsFolderLike), row => Assert.Equal(row.Name, row.Title));
     });
 

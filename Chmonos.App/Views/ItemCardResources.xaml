@@ -46,7 +46,7 @@
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenShop}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenShop}"
                   Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-        <MenuItem Header="編集に入る" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Edit"
+        <MenuItem Header="編集画面を開く" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Edit"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Edit}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Edit}"
                   Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
@@ -708,9 +708,9 @@
                             AutomationProperties.AutomationId="SelectionBar.Clear"
                             Command="{Binding ClearSelectionCommand}" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
-                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
+                    <Button Content="お気に入りに追加" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToFavorites"
-                            AutomationProperties.Name="選んだ商品をお気に入りに入れる"
+                            AutomationProperties.Name="選んだ商品をお気に入りに追加"
                             Command="{Binding AddSelectionToFavoritesCommand}"
                             ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
                     <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="0,2,7,2"

@@ -411,7 +411,7 @@ public partial class ItemCardResources : ResourceDictionary
                 ? (card, host)
                 : null;
 
-    /// <summary>右クリックのメニューの「お気に入りに入れる／外す」（キーボードから星へ届く道。Shift+F10）。</summary>
+    /// <summary>右クリックのメニューの「お気に入りに追加／外す」（キーボードから星へ届く道。Shift+F10）。</summary>
     private void OnMenuFavoriteClick(object sender, RoutedEventArgs e)
     {
         if (MenuTarget(sender) is { } target)

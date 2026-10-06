@@ -98,7 +98,7 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public string FavoriteGlyph => IsFavorite ? "★" : "☆";
 
-    public string FavoriteTip => IsFavorite ? "お気に入りから外す" : "お気に入りに入れる";
+    public string FavoriteTip => IsFavorite ? "お気に入りから外す" : "お気に入りに追加";
 
     /// <summary>
     /// どの役割の画像をサムネイルに出すか。設定から来る。

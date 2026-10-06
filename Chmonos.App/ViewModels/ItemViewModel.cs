@@ -526,7 +526,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public string FavoriteGlyph => IsFavorite ? "★" : "☆";
 
-    public string FavoriteTip => IsFavorite ? "お気に入りから外す" : "お気に入りに入れる";
+    public string FavoriteTip => IsFavorite ? "お気に入りから外す" : "お気に入りに追加";
 
     private RelayCommand? _toggleFavoriteCommand;
 

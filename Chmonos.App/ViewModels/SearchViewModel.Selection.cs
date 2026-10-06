@@ -17,7 +17,7 @@ public sealed partial class SearchViewModel
 
     public RelayCommand SendSelectionToEditCommand { get; }
 
-    /// <summary>選んだ物をまとめてお気に入りに入れる（#44）。</summary>
+    /// <summary>選んだ物をまとめてお気に入りに追加（#44）。</summary>
     public RelayCommand AddSelectionToFavoritesCommand { get; }
 
     /// <summary>選んだ物をまとめて改変に足す（#44）。</summary>

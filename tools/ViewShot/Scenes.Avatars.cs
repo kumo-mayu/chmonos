@@ -312,7 +312,7 @@ internal static partial class Scenes
     }
 
     /// <summary>
-    /// アバターの行の右クリック（メモ9-④・メモ20-①）：持っているアバターでは「お気に入りに入れる」を押すと星が付く。
+    /// アバターの行の右クリック（メモ9-④・メモ20-①）：持っているアバターでは「お気に入りに追加」を押すと星が付く。
     /// 名前が挙がっただけのアバター（商品が無い）では、同じ項目を出したまま押せず、吹き出しで理由を言う。どちらも「選ぶ」は押せない（1つだけ選ぶ一覧）
     /// </summary>
     private static async Task CheckRowMenuAsync(SceneContext context, FrameworkElement root, AvatarsViewModel avatars)
@@ -323,13 +323,13 @@ internal static partial class Scenes
         var headers = (await MenuItemsAsync(context, ownedRow)).Select(item => item.Header?.ToString() ?? string.Empty).ToList();
         // 右クリックの決まり（2026-10-04）：項目は全部出し、できないものは押せなくして理由を言う。アバターの一覧は選ぶ箱を持たないので「選ぶ」は押せない
         var ownedSelect = (await MenuItemsAsync(context, ownedRow)).FirstOrDefault(item => item.Header?.ToString() == "選ぶ");
-        if (!headers.Contains("お気に入りに入れる") || ownedSelect is not { IsEnabled: false } || ownedSelect.ToolTip as string != "この一覧では選べません")
+        if (!headers.Contains("お気に入りに追加") || ownedSelect is not { IsEnabled: false } || ownedSelect.ToolTip as string != "この一覧では選べません")
         {
             throw new InvalidOperationException($"持っているアバターの行の右クリック：{string.Join("、", headers)}");
         }
 
         // 押すと、カードの星と同じ道で星が付く。もう一度押して戻す（絵を変えない）
-        var favorite = (await MenuItemsAsync(context, ownedRow)).First(item => item.Header?.ToString() == "お気に入りに入れる");
+        var favorite = (await MenuItemsAsync(context, ownedRow)).First(item => item.Header?.ToString() == "お気に入りに追加");
         favorite.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         await SceneContext.UntilAsync(() => owned.Card?.IsFavorite == true, "星が付く");
         var unfavorite = (await MenuItemsAsync(context, ownedRow)).First(item => item.Header?.ToString() == "お気に入りから外す");
@@ -341,7 +341,7 @@ internal static partial class Scenes
         await context.SettleAsync();
         var seenRow = Look.All<ListBoxItem>(list).First(item => ReferenceEquals(item.DataContext, seen));
         var seenHeaders = (await MenuItemsAsync(context, seenRow)).Select(item => item.Header?.ToString() ?? string.Empty).ToList();
-        var seenFavorite = (await MenuItemsAsync(context, seenRow)).FirstOrDefault(item => item.Header?.ToString() == "お気に入りに入れる");
+        var seenFavorite = (await MenuItemsAsync(context, seenRow)).FirstOrDefault(item => item.Header?.ToString() == "お気に入りに追加");
         if (seenFavorite is not { IsEnabled: false } || seenFavorite.ToolTip as string != "商品の情報がまだありません")
         {
             throw new InvalidOperationException($"名前だけのアバターの行の右クリック：{string.Join("、", seenHeaders)}");

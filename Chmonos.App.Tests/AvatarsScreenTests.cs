@@ -74,9 +74,9 @@ public sealed class AvatarsScreenTests
         var avatars = await OpenAsync(app);
         var row = avatars.Rows.Single(row => row.ItemId == AvatarId);
         var card = Assert.IsType<ItemCardViewModel>(row.Card);
-        Assert.Equal("お気に入りに入れる", card.FavoriteTip);
+        Assert.Equal("お気に入りに追加", card.FavoriteTip);
 
-        // メニューの「お気に入りに入れる」は、行のカードを入れ物の画面の ToggleFavoriteAsync へ渡す（カードの星と同じ道）
+        // メニューの「お気に入りに追加」は、行のカードを入れ物の画面の ToggleFavoriteAsync へ渡す（カードの星と同じ道）
         await avatars.ToggleFavoriteAsync(card);
         await app.SettleAsync();
 

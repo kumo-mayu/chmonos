@@ -1195,7 +1195,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         Path = entry.Path,
         SubText = entry.Kind switch
         {
-            FolderViewRowKind.Unresolved => "未確定（商品が決まっていません）",
+            FolderViewRowKind.Unresolved => "未確定",
             FolderViewRowKind.ItemFolder => $"{entry.Item!.DisplayName}（フォルダごと登録した商品）",
             _ => entry.Item!.DisplayName,
         },

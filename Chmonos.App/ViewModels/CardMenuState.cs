@@ -184,7 +184,7 @@ internal static class CardMenuState
 
     /// <summary>お気に入りの項目の見出し。商品が無い行でも項目は出すので、仮の見出しを返す。</summary>
     internal static string FavoriteHeader(object? target)
-        => CardOf(target)?.FavoriteTip ?? "お気に入りに入れる";
+        => CardOf(target)?.FavoriteTip ?? "お気に入りに追加";
 }
 
 /// <summary>`CardMenu` の項目の IsEnabled。{Binding} でメニューの宛先を受け、ConverterParameter に項目の名前を書く。</summary>
