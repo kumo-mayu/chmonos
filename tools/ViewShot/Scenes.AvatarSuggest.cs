@@ -47,12 +47,12 @@ internal static partial class Scenes
     /// <summary>候補の入れ物はポップアップ（別の窓）で撮れないので、ポップアップの中身だけを外して返す。並びは本物の Arrange の答え。</summary>
     private static FrameworkElement SuggestPanel(
         string caption, IReadOnlyList<string> all, string text, Func<string, SuggestInfo?> info, IReadOnlyList<string>? headings, double width = 320,
-        Func<string, string, SuggestMatch?>? matcher = null, bool trimMiddle = false)
+        Func<string, string, SuggestMatch?>? matcher = null, bool trimMiddle = false, Func<string, ImageSource?>? icons = null)
     {
         var box = new SuggestBox { Width = width };
         var popup = (System.Windows.Controls.Primitives.Popup)box.FindName("DropDown");
         var list = (ListBox)box.FindName("Candidates");
-        Func<string, ImageSource?> icon = value => value.StartsWith('作') && value.Contains("絵") ? Swatch(Color.FromRgb(120, 170, 210)) : null;
+        Func<string, ImageSource?> icon = icons ?? (value => value.StartsWith('作') && value.Contains("絵") ? Swatch(Color.FromRgb(120, 170, 210)) : null);
         list.ItemsSource = SuggestBox.Arrange(all, text, 0, info, matcher)
             .Select(row => new Suggestion
             {
