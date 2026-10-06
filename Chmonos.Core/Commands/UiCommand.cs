@@ -458,7 +458,10 @@ public abstract record UiCommand
         bool IncludeImages,
         IProgress<Storage.BackupProgress>? Progress = null) : UiCommand;
 
-    /// <summary>バックアップの zip を空の場所へ展開する（#61）。そこへ移るのは呼ぶ側（保存先の切り替え）。</summary>
+    /// <summary>
+    /// バックアップの zip を空の場所へ展開し、次の起動からそこを開くよう <c>location.json</c> を書き換える（#61）。
+    /// 開き直すのは呼ぶ側。書き換えに失敗したら展開した物を消して失敗を返す
+    /// </summary>
     public record RestoreBackup(
         string ZipPath,
         string DestinationRoot,
@@ -469,6 +472,7 @@ public abstract record UiCommand
     /// **ここを通すのは、書き込みを止めてから運ぶため**——前は画面が直に呼んでいて、
     /// 運んでいる間の書き込みが素通りし、コピー済みへ書いた分が元を消すときに失われていた。
     /// 画面のスレッドも塞いでいた（数GBならその間ずっと無反応）。
+    /// 運べたら、元を消す前に <c>location.json</c> を運んだ先へ書き換える（書けなければ運んだ物を消して元のまま）。開き直すのは呼ぶ側
     /// </summary>
     public record MoveStore(
         string Source,

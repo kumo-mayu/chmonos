@@ -91,7 +91,8 @@ public static class StoreMover
         string source,
         string destination,
         IProgress<StoreMoveProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action? commit = null)
     {
         // 今の保存先が選んだ先の内側にあると、下で選んだ先の中身を退けるときに**今の保存先ごと退けてしまう**。
         // 運ぶ元が消えるので、空のまま進むか元を消す所で落ちていた（試験で確かめた）。始める前に断る
@@ -128,14 +129,20 @@ public static class StoreMover
             };
         }
 
-        return Move(source, destination, progress, cancellationToken) with { ParkedAt = parked };
+        return Move(source, destination, progress, cancellationToken, commit) with { ParkedAt = parked };
     }
 
+    /// <param name="commit">
+    /// 突き合わせが済んでから、元を消す前に呼ぶ（呼び手はここで <c>location.json</c> を書き換える）。投げたら、運んだ物を消して失敗で返す。
+    /// 元を消した後に書き換えて失敗すると、データは新しい場所にあるのに、開き直すと空になった古い場所が開いた
+    /// （置き場を差し替えて試験で通し、2026-10-06 に見つけた）。消す前なら、失敗しても元のまま続けられる
+    /// </param>
     public static StoreMoveResult Move(
         string source,
         string destination,
         IProgress<StoreMoveProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action? commit = null)
     {
         // 運ぶ先が今の保存先の内側だと、運んだ物がまた運ぶ元に数えられ、突き合わせで必ず落ちる
         if (IsSameOrInside(destination, source))
@@ -204,6 +211,26 @@ public static class StoreMover
                 Error = $"コピーの確認に失敗しました：{mismatch}",
                 LeftoverAt = RemoveCopies(destination, written, createdDestination),
             };
+        }
+
+        if (commit is not null)
+        {
+            try
+            {
+                commit();
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                Diagnostics.AppLog.Error("引越しの後に保存先の場所を覚える", exception);
+                return new StoreMoveResult
+                {
+                    Succeeded = false,
+                    Copied = copied,
+                    Bytes = bytes,
+                    Error = $"新しい保存先の場所を記録できませんでした。{Services.FailureText.Cause(exception)}",
+                    LeftoverAt = RemoveCopies(destination, written, createdDestination),
+                };
+            }
         }
 
         return new StoreMoveResult
