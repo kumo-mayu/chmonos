@@ -61,7 +61,7 @@ internal static class Catalog
     private static readonly HashSet<string> NarrowToo =
     [
         "search-cards", "search-first-open", "catalog-search-no-hits", "item-page", "catalog-item-local-only",
-        "resolve-broken-zip", "import-result-unreadable", "import-running", "stats", "shops-cards", "shop-header", "inbox-rows",
+        "resolve-broken-zip", "import-result-unreadable", "import-running", "import-row-reveal", "stats", "shops-cards", "shop-header", "inbox-rows",
         "avatars-detail", "folder-cards", "tag-manage-cards", "attribute-manage-cards", "settings-long-paths", "edit-chips",
     ];
 

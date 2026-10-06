@@ -130,16 +130,24 @@
                                         <!-- 右クリック（ユーザ指示 2026-09-20・M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" ToolTipService.ShowOnDisabled="True">
+                                                    <MenuItem.ToolTip>
+                                                        <MultiBinding Converter="{x:Static vm:PlaceTipConverter.Instance}" ConverterParameter="menu">
+                                                            <Binding />
+                                                            <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                            <Binding Path="PlacementTarget.Tag.PlacesVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                        </MultiBinding>
+                                                    </MenuItem.ToolTip>
+                                                </MenuItem>
                                                 <MenuItem Header="取り込み対象から外す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveFolder" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <DockPanel>
                                             <!-- 消すのは一覧からの登録だけで、ファイルには触らない。語も「外す」に揃える（V4・W の語彙） -->
                                             <!-- 行の数だけ並ぶので、どのフォルダのボタンかを名前に入れる -->
-                                            <Button DockPanel.Dock="Right" Content="対象から外す" Style="{StaticResource DangerButton}" MinWidth="88" Height="27" Margin="8,0,0,0"
+                                            <Button DockPanel.Dock="Right" Content="外す" Style="{StaticResource DangerButton}" Width="60" Height="27" Margin="8,0,0,0"
                                                     AutomationProperties.AutomationId="ImportFolderRemove"
-                                                    AutomationProperties.Name="{Binding StringFormat={}{0}を対象から外す}"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}を取り込み対象から外す}"
                                                     FontSize="12"
                                                     ToolTip="取り込み対象の一覧から外します。フォルダとファイルはそのまま残ります。"
                                                     Command="{Binding DataContext.RemoveFolderCommand,
@@ -150,10 +158,18 @@
                                                     AutomationProperties.AutomationId="ImportRowReveal"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
                                                     FontSize="12"
-                                                    ToolTip="このフォルダをエクスプローラで開きます。見つからないときは、そう知らせます。"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     Command="{Binding DataContext.RevealFolderCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                                    CommandParameter="{Binding}">
+                                                <Button.ToolTip>
+                                                    <MultiBinding Converter="{x:Static vm:PlaceTipConverter.Instance}">
+                                                        <Binding />
+                                                        <Binding Path="DataContext" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                        <Binding Path="DataContext.PlacesVersion" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                    </MultiBinding>
+                                                </Button.ToolTip>
+                                            </Button>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" />
                                         </DockPanel>
@@ -182,7 +198,7 @@
                             <!--
                                 中断は黙って起きる。閉じた時に何件残っていたかは覚えていない。
                                 **押せるボタンを横に置く**（2026-09-22）。前は「もう一度押すと続きから進みます」と
-                                書いてあるだけで、指していた「取り込みを開始」は対象が空なので押せなかった
+                                書いてあるだけで、指していた「開始」は対象が空なので押せなかった
                             -->
                             <Border Background="{DynamicResource AccentSoft}" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                     Visibility="{Binding HasInterrupted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -254,7 +270,15 @@
                                         <!-- 右クリック（M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" ToolTipService.ShowOnDisabled="True">
+                                                    <MenuItem.ToolTip>
+                                                        <MultiBinding Converter="{x:Static vm:PlaceTipConverter.Instance}" ConverterParameter="menu">
+                                                            <Binding />
+                                                            <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                            <Binding Path="PlacementTarget.Tag.PlacesVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                        </MultiBinding>
+                                                    </MenuItem.ToolTip>
+                                                </MenuItem>
                                                 <MenuItem Header="監視から外す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveWatched" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
@@ -271,10 +295,18 @@
                                                     AutomationProperties.AutomationId="ImportRowReveal"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
                                                     FontSize="12"
-                                                    ToolTip="このフォルダをエクスプローラで開きます。見つからないときは、そう知らせます。"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     Command="{Binding DataContext.RevealFolderCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                                    CommandParameter="{Binding}">
+                                                <Button.ToolTip>
+                                                    <MultiBinding Converter="{x:Static vm:PlaceTipConverter.Instance}">
+                                                        <Binding />
+                                                        <Binding Path="DataContext" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                        <Binding Path="DataContext.PlacesVersion" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                    </MultiBinding>
+                                                </Button.ToolTip>
+                                            </Button>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" />
                                         </DockPanel>
@@ -452,17 +484,22 @@
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" ToolTipService.ShowOnDisabled="True">
+                                                    <MenuItem.ToolTip>
+                                                        <MultiBinding Converter="{x:Static vm:PlaceTipConverter.Instance}" ConverterParameter="menu">
+                                                            <Binding />
+                                                            <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                            <Binding Path="PlacementTarget.Tag.PlacesVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                        </MultiBinding>
+                                                    </MenuItem.ToolTip>
+                                                </MenuItem>
                                                 <MenuItem Header="取り込み対象に追加" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.TakeFromHistory" />
                                                 <MenuItem Header="履歴から消す" Style="{StaticResource DangerMenuItem}" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.ForgetHistory" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <DockPanel>
-                                            <!--
-                                                行ごとに端を揃えたいので幅の下限だけ決める。決め打ちの幅だと、ボタンの左右の余白（14px ずつ）と
-                                                枠で文字の置き場が足りず、「履歴から消す」の最後の「す」が欠けた（点検 2026-09-23）
-                                            -->
-                                            <Button DockPanel.Dock="Right" Content="履歴から消す" Style="{StaticResource DangerButton}" MinWidth="94" Height="27"
+                                            <!-- 3つの一覧の赤いボタンは1語（外す・消す）にして同じ幅にそろえる（ユーザ判断 2026-10-06・メモ75）。何を外す・消すかは吹き出しと読み上げの名前で言う -->
+                                            <Button DockPanel.Dock="Right" Content="消す" Style="{StaticResource DangerButton}" Width="60" Height="27"
                                                     AutomationProperties.AutomationId="ImportHistoryForget"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を履歴から消す}"
                                                     FontSize="12" Margin="8,0,0,0"
@@ -482,10 +519,18 @@
                                                     AutomationProperties.AutomationId="ImportRowReveal"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
                                                     FontSize="12" Margin="8,0,8,0"
-                                                    ToolTip="このフォルダをエクスプローラで開きます。見つからないときは、そう知らせます。"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     Command="{Binding DataContext.RevealFolderCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                                    CommandParameter="{Binding}">
+                                                <Button.ToolTip>
+                                                    <MultiBinding Converter="{x:Static vm:PlaceTipConverter.Instance}">
+                                                        <Binding />
+                                                        <Binding Path="DataContext" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                        <Binding Path="DataContext.PlacesVersion" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                    </MultiBinding>
+                                                </Button.ToolTip>
+                                            </Button>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" />
                                         </DockPanel>
@@ -500,7 +545,7 @@
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,16"
                         Visibility="{Binding IsRunning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <StackPanel>
-                        <!-- 進み具合を見ている目の先に中断を置く（ユーザ指摘 2026-09-28。上の「取り込みを開始」の横だけでは気付きにくい） -->
+                        <!-- 進み具合を見ている目の先に中断を置く（ユーザ指摘 2026-09-28。上の「開始」の横だけでは気付きにくい） -->
                         <DockPanel>
                         <Button DockPanel.Dock="Right" Content="中断" Command="{Binding CancelCommand}" VerticalAlignment="Center"
                                 AutomationProperties.AutomationId="ImportProgressCancel" />
@@ -527,7 +572,7 @@
                             走っている間はどの画面からでも見えるよう、常設の1行の横にも短い形で出している（MainWindow.xaml）
                         -->
                         <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Text="アプリを閉じても、取得した分は残ります。次に「取り込みを開始」を押すと続きから進みます。" />
+                                   Text="アプリを閉じても、取得した分は残ります。次に「開始」を押すと続きから進みます。" />
                         <!--
                             残り時間の見込み（U1）。取り込みの時間のほとんどは問い合わせの間隔を待つ時間なので、
                             残りの問い合わせの数から出す。今の段／編集できるまで／画像を取り終わるまで、に分ける
