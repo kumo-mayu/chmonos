@@ -646,7 +646,8 @@
                                           Visibility="{Binding HasHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:RestorableRow}">
-                                        <Grid Margin="0,0,0,5">
+                                        <Border Style="{StaticResource ButtonListRow}">
+                                        <Grid>
                                             <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" Margin="0,0,220,0" />
                                             <!-- 戻す前に中身を確かめられるよう、商品ページも開ける（動線の点検 D9） -->
@@ -662,6 +663,7 @@
                                                         Command="{Binding RestoreCommand}" />
                                             </StackPanel>
                                         </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
@@ -721,11 +723,13 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:RestorableRow}">
-                                        <Grid Margin="0,0,0,5">
-                                            <StackPanel Margin="0,0,90,0">
+                                        <Border Style="{StaticResource ButtonListRow}">
+                                        <Grid>
+                                            <StackPanel Margin="0,0,90,0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Label}" Style="{StaticResource Mono}" FontSize="11.5"
                                                            TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
+                                                <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}"
+                                                                               Visibility="{Binding SubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                             </StackPanel>
                                             <Button Content="解除" Style="{StaticResource SmallButton}"
                                                     AutomationProperties.AutomationId="Settings.ExcludedRestore"
@@ -734,6 +738,7 @@
                                                     Command="{Binding RestoreCommand}"
                                                     ToolTip="次の取り込みで、また未確定として出てきます。" />
                                         </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
@@ -759,11 +764,13 @@
                                           Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:RestorableRow}">
-                                        <Grid Margin="0,0,0,5">
-                                            <StackPanel Margin="0,0,90,0">
+                                        <Border Style="{StaticResource ButtonListRow}">
+                                        <Grid>
+                                            <StackPanel Margin="0,0,90,0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Label}" Style="{StaticResource Mono}" FontSize="11.5"
                                                            TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
+                                                <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}"
+                                                                               Visibility="{Binding SubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                             </StackPanel>
                                             <Button Content="戻す" Style="{StaticResource SmallButton}"
                                                     AutomationProperties.AutomationId="Settings.DetachedRestore"
@@ -772,6 +779,7 @@
                                                     Command="{Binding RestoreCommand}"
                                                     ToolTip="次の取り込みで、読み取った情報が指す商品にまた紐付きます。" />
                                         </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>

@@ -54,6 +54,24 @@
         -->
         <PathGeometry x:Key="GlyphCross" Figures="M0,0 L7,7 M7,0 L0,7" />
         <PathGeometry x:Key="GlyphCheck" Figures="M0,4 L3,7 L8,0.5" />
+        <!--
+            右にボタンが縦に並ぶ長い一覧の1行（ユーザ指示 2026-10-06：行の境が無いと、どの行の［解除］なのか分かりにくかった）。
+            行ごとに下に薄い線を引き、乗せた行・フォーカスのある行は地の色を変えて、ボタンと行がつながって見えるようにする
+        -->
+        <Style x:Key="ButtonListRow" TargetType="Border">
+            <Setter Property="Padding" Value="6,5" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RowDivider}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ListHoverBack}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ListHoverBack}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
         <DataTemplate x:Key="CrossGlyph">
             <Path Data="{StaticResource GlyphCross}" Width="7" Height="7" Stretch="Uniform" StrokeThickness="1.4"
                   StrokeStartLineCap="Round" StrokeEndLineCap="Round" SnapsToDevicePixels="True"
