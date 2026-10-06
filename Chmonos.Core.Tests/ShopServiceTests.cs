@@ -736,4 +736,26 @@ public class ShopServiceTests : IDisposable
 
         Assert.False(match.Success);
     }
+
+    /// <summary>属性の値の中の &gt; はタグの終わりと見ない（8回目の点検。前の式は見つけていた）。</summary>
+    [Fact]
+    public void FindsTheBannerWhenAnAttributeValueContainsAClosingBracket()
+        => Assert.Equal(
+            "https://booth.pximg.net/b.png",
+            ShopService.FindBanner("""<img class="header-image x>y" src="https://booth.pximg.net/b.png">""").Groups[1].Value);
+
+    /// <summary>
+    /// 終わりに &gt; がある巨大な1つのタグでも固まらない（8回目の点検）。上限を超えるタグには式を当てない。
+    /// 速さは比べず、固まらないことだけを期限で見る
+    /// </summary>
+    [Fact]
+    public async Task OneHugeImgTagEndingWithABracketDoesNotHang()
+    {
+        var html = string.Concat(Enumerable.Repeat("""<img class="x header-image y" alt="" """, 1024 * 1024 / 72)) + ">"
+            + """<img class="header-image" src="https://booth.pximg.net/after.png">""";
+
+        var match = await Task.Run(() => ShopService.FindBanner(html)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal("https://booth.pximg.net/after.png", match.Groups[1].Value);
+    }
 }

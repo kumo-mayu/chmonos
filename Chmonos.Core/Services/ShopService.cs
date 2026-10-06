@@ -595,7 +595,7 @@ public sealed class ShopService : IShopService
 
     /// <summary>ショップのヘッダ画像。classが先、srcが後という並びで出てくる。</summary>
     private static readonly System.Text.RegularExpressions.Regex BannerPattern = new(
-        "<img[^>]*class=\"[^\"]*header-image[^\"]*\"[^>]*src=\"([^\"]+)\"",
+        "\\A<img[^>]*class=\"[^\"]*header-image[^\"]*\"[^>]*src=\"([^\"]+)\"",
         System.Text.RegularExpressions.RegexOptions.Compiled
             | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
@@ -604,15 +604,22 @@ public sealed class ShopService : IShopService
     /// ページ全体に当てると、&lt;img で始まる候補ごとに先まで探し直し、作り物の 200KB で7.3秒かかった（大きさの2乗で伸びる）。
     /// ヘッダ画像はタグ1つの中に収まるので、当たり方は変わらない。見つからなければ空の一致を返す
     /// </summary>
+    /// <remarks>
+    /// タグの終わりは、引用符の中の &gt; を飛ばして探す（属性の値に &gt; を含む正しい HTML で、前の式は見つけていた）。
+    /// 長すぎるタグ（<see cref="MaxImgTagChars"/> を超える）には式を当てない。式はタグの頭からだけ当てる（\A）。
+    /// どちらも、閉じない属性が並ぶ巨大な1つのタグで、式が候補ごとに探し直すのを止めるため（8回目の点検）
+    /// </remarks>
     internal static System.Text.RegularExpressions.Match FindBanner(string html)
     {
         var from = 0;
         while (html.IndexOf("<img", from, StringComparison.OrdinalIgnoreCase) is var start and >= 0)
         {
-            var end = html.IndexOf('>', start);
+            var end = ImgTagEnd(html, start);
             if (end < 0)
             {
-                break;
+                // 終わりが上限の内に無い。このタグは飛ばして、次の <img から探す
+                from = start + 4;
+                continue;
             }
 
             var match = BannerPattern.Match(html[start..(end + 1)]);
@@ -625,6 +632,37 @@ public sealed class ShopService : IShopService
         }
 
         return System.Text.RegularExpressions.Match.Empty;
+    }
+
+    /// <summary>img のタグの長さの上限。BOOTH のショップのページの img は数百字（属性が多くても千字ほど）。</summary>
+    internal const int MaxImgTagChars = 8000;
+
+    /// <summary>引用符の外にある、最初の &gt; の位置。上限の内に無ければ -1。</summary>
+    private static int ImgTagEnd(string html, int start)
+    {
+        var limit = Math.Min(html.Length, start + MaxImgTagChars);
+        char? quote = null;
+        for (var index = start + 4; index < limit; index++)
+        {
+            var c = html[index];
+            if (quote is { } open)
+            {
+                if (c == open)
+                {
+                    quote = null;
+                }
+            }
+            else if (c is '"' or '\'')
+            {
+                quote = c;
+            }
+            else if (c == '>')
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>
