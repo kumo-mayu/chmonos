@@ -262,7 +262,14 @@ public sealed partial class ItemViewModel
         ? "出品者が対応と書いているアバターです。"
         : Item.Local.AvatarsDetectedAt is null
             ? "対応アバターの判定がまだ終わっていません。"
-            : "出品者の対応表明は見つかっていません。アバターの管理から検出できます。";
+            : "出品者の対応表明は見つかっていません。";
+
+    /// <summary>
+    /// 欄の説明の吹き出し。見つからなかったときの次の手は吹き出しへ回す（説明を1行に収め、判定の前後で欄の高さを変えない。ユーザ判断 2026-10-06）
+    /// </summary>
+    public string? AvatarSectionTip => !HasDetectedAvatars && !HasAvatars && !HasAvatarBases && Item.Local.AvatarsDetectedAt is not null
+        ? "アバターの管理から検出できます。"
+        : null;
 
     /// <summary>
     /// 対応アバターまわりを組み立てる。
@@ -303,6 +310,7 @@ public sealed partial class ItemViewModel
         {
             Item = Item with { Local = Item.Local with { AvatarsDetectedAt = reloaded.Local.AvatarsDetectedAt } };
             OnPropertyChanged(nameof(AvatarSectionNote));
+            OnPropertyChanged(nameof(AvatarSectionTip));
             return;
         }
 
@@ -472,7 +480,7 @@ public sealed partial class ItemViewModel
         foreach (var name in new[]
         {
             nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
-            nameof(AvatarSectionNote), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
+            nameof(AvatarSectionNote), nameof(AvatarSectionTip), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
             nameof(RejectedAvatars), nameof(HasRejectedAvatars), nameof(RejectedAvatarsHeader),
             nameof(AvatarsCountText), nameof(UnconfirmedAvatarCount), nameof(HasUnconfirmedAvatars),
             nameof(UnconfirmedAvatarText), nameof(BaseMentions), nameof(HasBaseMentions),

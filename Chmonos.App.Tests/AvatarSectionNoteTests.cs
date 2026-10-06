@@ -21,7 +21,7 @@ public class AvatarSectionNoteTests
 
         Assert.Equal("対応アバターの判定がまだ終わっていません。", new ItemViewModel(notYet, app.Services, main, main.Thumbnails).AvatarSectionNote);
         Assert.Equal(
-            "出品者の対応表明は見つかっていません。アバターの管理から検出できます。",
+            "出品者の対応表明は見つかっていません。",
             new ItemViewModel(detected, app.Services, main, main.Thumbnails).AvatarSectionNote);
     });
 
@@ -67,7 +67,7 @@ public class AvatarSectionNoteTests
         await app.Services.Store.Items.SaveAsync(unchanged with { Local = unchanged.Local with { AvatarsDetectedAt = now } });
         await quiet.NoteAvatarsDetectedAsync();
         Assert.False(quiet.HasDetectedAvatars);
-        Assert.Equal("出品者の対応表明は見つかっていません。アバターの管理から検出できます。", quiet.AvatarSectionNote);
+        Assert.Equal("出品者の対応表明は見つかっていません。", quiet.AvatarSectionNote);
     });
 
     [Fact]

@@ -437,6 +437,16 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        new Scene("item-page-avatars-none", "商品ページ：判定して対応アバターが見つからなかった所（item-page-avatars-pending と diff で比べ、判定の前後で欄の高さが変わらないかを見る）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900103", "作り物の衣装", record => record with { Local = record.Local with { AvatarsDetectedAt = DateTimeOffset.Now } }, images: 1);
+            var main = await context.StartAsync();
+            main.ShowItem(item);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            return new Shot(root);
+        }),
+
         new Scene("item-page-avatars-detected","商品ページ：開いている間に対応アバターの判定が終わった所。説明の文が「判定が終わりました」に切り替わり、すぐ後ろに［表示する］（2026-10-06）", async context =>
         {
             var item = await context.Fake.ItemAsync("9900103", "作り物の衣装", record => record with { Local = record.Local with { AvatarsDetectedAt = null } }, images: 1);
