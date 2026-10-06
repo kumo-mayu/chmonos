@@ -1662,6 +1662,32 @@ public sealed class RangeModule : SearchModule
         }
     }
 
+    /// <summary>「価格が設定されていない商品も表示」を出すか（価格だけ。スキ数は BOOTH の商品なら必ずある）。</summary>
+    public bool SupportsUnpriced { get; init; }
+
+    /// <summary>
+    /// 照らす数が1つも無い商品も通すか（ユーザ判断 2026-10-06。既定は切＝前と同じく、数の分からない商品は範囲に入らない）。
+    /// 「設定されていない」は**元の数が1つも無い**こと：払った額なら値段を入れていない、BOOTH の価格ならバリエーションが無い。
+    /// 外れ値を外した結果1つも残らない商品（止め値の種類しか無い）は、価格は設定されているので含めない。
+    /// **除くときも通す**（文の「も表示」のとおり、除いて出る物に足す。除くときは数の分からない商品を外すのが既定なので、ここで戻せる）。
+    /// 有料・無料の同じ名前のチェックとは同期しない（ユーザ判断 2026-10-06。条件ごとに別々に持つ）。
+    /// </summary>
+    public bool IncludeUnpriced
+    {
+        get => _includeUnpriced;
+        set
+        {
+            if (SetField(ref _includeUnpriced, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    private bool _includeUnpriced;
+
+    private bool IncludesUnpricedNow => SupportsUnpriced && _includeUnpriced;
+
     /// <summary>外れ値を外す数の元を、外れ値の無い物（価格の払った額）にしているキー。その元では外れ値を探さない。</summary>
     public string? NoOutlierSource { get; init; }
 
@@ -1977,6 +2003,11 @@ public sealed class RangeModule : SearchModule
         }
 
         EnsurePrepared(context);
+        if (IncludesUnpricedNow && IsUnpriced(item))
+        {
+            return true;
+        }
+
         var (min, max) = (_preparedMin, _preparedMax);
         var values = KnownValues(item);
         if (SupportsMatchAll && _matchAll)
@@ -2023,7 +2054,12 @@ public sealed class RangeModule : SearchModule
     /// 数の分からない商品（値段を入れていない・外れ値を外したら1つも残らない）は、除くときも外す。
     /// </summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
-        => !HasCondition || (KnownValues(item).Count > 0 && !Matches(item, context));
+        => !HasCondition
+            || (IncludesUnpricedNow && IsUnpriced(item))
+            || (KnownValues(item).Count > 0 && !Matches(item, context));
+
+    /// <summary>元の数が1つも無い（値段を入れていない・バリエーションが無い）。外れ値を外して残らない物は含めない。</summary>
+    private bool IsUnpriced(ItemRecord item) => _values(item, _source?.Key).Count == 0;
 
     /// <summary>照らす数。外れ値を外していれば、その数だけを外す（商品は他の種類の価格で照らす）。</summary>
     private IReadOnlyList<int> KnownValues(ItemRecord item)
@@ -2056,7 +2092,8 @@ public sealed class RangeModule : SearchModule
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
             var all = SupportsMatchAll && _matchAll ? "（すべての価格が範囲内）" : string.Empty;
-            return string.Join(" ", parts) + outliers + all;
+            var unpriced = IncludesUnpricedNow ? "・価格が設定されていない商品も表示" : string.Empty;
+            return string.Join(" ", parts) + outliers + all + unpriced;
         }
     }
 
@@ -2067,12 +2104,14 @@ public sealed class RangeModule : SearchModule
         _maxEnabled = true;
         _ignoreOutliers = true;
         _matchAll = false;
+        _includeUnpriced = false;
         _valuesFromState = false;
         _defaultsApplied = false;
         OnPropertyChanged(nameof(MinEnabled));
         OnPropertyChanged(nameof(MaxEnabled));
         OnPropertyChanged(nameof(IgnoreOutliers));
         OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(IncludeUnpriced));
         RefreshBounds();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -2087,6 +2126,9 @@ public sealed class RangeModule : SearchModule
             MaxEnabled = _maxEnabled,
             IgnoreOutliers = _ignoreOutliers,
             MatchAll = SupportsMatchAll && _matchAll,
+
+            // 補助の切り替えの欄（三択と同じ欄）を使う。価格の条件の形は増えない
+            Flag = IncludesUnpricedNow,
             Choice = _source?.Key,
         };
 
@@ -2098,8 +2140,10 @@ public sealed class RangeModule : SearchModule
         _maxEnabled = state.MaxEnabled;
         _ignoreOutliers = state.IgnoreOutliers;
         _matchAll = SupportsMatchAll && state.MatchAll;
+        _includeUnpriced = SupportsUnpriced && state.Flag;
         OnPropertyChanged(nameof(IgnoreOutliers));
         OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(IncludeUnpriced));
 
         // 前に入れていた数があるなら、端から端までの既定で上書きしない。
         // 空で残っていたもの（端という意味）は、端の数を入れて見えるようにする
