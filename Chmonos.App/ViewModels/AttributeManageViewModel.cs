@@ -1089,7 +1089,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         => Confirm(
             $"「{from}」を「{to}」に統合します。\n\n"
             + (preview.ItemCount == 0
-                ? "どの商品も評価していないので、商品は書き換わりません。\n"
+                ? "どの商品も評価していません。\n"
                 : $"{preview.ItemCount} 件の商品を書き換えます。メモは「{to}」側へ追記します。\n")
             + (preview.Conflicts > 0
                 ? $"両方に値が入っている {preview.Conflicts} 件は、"
@@ -1173,7 +1173,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         }
 
         var message = Selected.ItemCount == 0
-            ? $"「{Selected.Name}」を削除します。\n\nどの商品も評価していないので、影響はありません。"
+            ? $"「{Selected.Name}」を削除します。\n\nどの商品も評価していません。"
             : $"「{Selected.Name}」を削除します。\n\n"
                 + $"{Selected.ItemCount} 件の商品から、この属性の評価が消えます。\n"
                 + $"\nこの操作は元に戻せません。同じ名前で作り直しても、{Selected.ItemCount} 件ぶんの評価は戻りません。";

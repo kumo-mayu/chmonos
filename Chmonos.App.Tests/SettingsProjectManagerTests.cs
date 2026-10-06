@@ -53,7 +53,7 @@ public class SettingsProjectManagerTests
     {
         var settings = await OpenSettingsAsync(app, new UnityTools(true, HasVcc: true, HasAlcom: false, LinkOpensAlcom: false));
 
-        Assert.Equal("見つかったのはVCCだけなので、改変の画面からはVCCを開きます。", settings.ProjectManagerNote);
+        Assert.Equal("VCCだけ見つかったので、改変の画面ではVCCを開きます。", settings.ProjectManagerNote);
     });
 
     [Fact]
@@ -61,7 +61,7 @@ public class SettingsProjectManagerTests
     {
         var settings = await OpenSettingsAsync(app, new UnityTools(false, HasVcc: false, HasAlcom: true, LinkOpensAlcom: true));
 
-        Assert.Equal("見つかったのはALCOMだけなので、改変の画面からはALCOMを開きます。", settings.ProjectManagerNote);
+        Assert.Equal("ALCOMだけ見つかったので、改変の画面ではALCOMを開きます。", settings.ProjectManagerNote);
     });
 
     [Fact]

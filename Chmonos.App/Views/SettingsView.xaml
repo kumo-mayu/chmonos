@@ -175,7 +175,7 @@
                             -->
                             <CheckBox Content="一覧のカードに属性の札を表示" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.ShowCardAttributes"
-                                      ToolTip="切ると、カードの高さが札の1段ぶん低くなります。リストの列と、カードに乗せたときの棒は残ります。"
+                                      ToolTip="切ると、カードの高さが札の1段ぶん低くなります。"
                                       IsChecked="{Binding ShowCardAttributes, Mode=TwoWay}" />
                             <!--
                                 カードの札とリストの「属性」の列に出す属性（ユーザ判断 2026-10-04：設定で選ぶ。既定は属性の管理の並びの上から）。
@@ -656,7 +656,7 @@
                                                         AutomationProperties.Name="{Binding Label, StringFormat={}{0}の商品ページを開く}"
                                                         Command="{Binding OpenCommand}"
                                                         Visibility="{Binding CanOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <Button Content="非表示を解除" Style="{StaticResource SmallButton}"
+                                                <Button Content="解除" Style="{StaticResource SmallButton}"
                                                         AutomationProperties.AutomationId="Settings.HiddenRestore"
                                                         AutomationProperties.Name="{Binding Label, StringFormat={}{0}の非表示を解除}"
                                                         Command="{Binding RestoreCommand}" />
@@ -727,7 +727,7 @@
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
                                             </StackPanel>
-                                            <Button Content="除外を解除" Style="{StaticResource SmallButton}"
+                                            <Button Content="解除" Style="{StaticResource SmallButton}"
                                                     AutomationProperties.AutomationId="Settings.ExcludedRestore"
                                                     AutomationProperties.Name="{Binding Label, StringFormat={}{0}の除外を解除}"
                                                     HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -765,7 +765,7 @@
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
                                             </StackPanel>
-                                            <Button Content="紐付けを戻す" Style="{StaticResource SmallButton}"
+                                            <Button Content="戻す" Style="{StaticResource SmallButton}"
                                                     AutomationProperties.AutomationId="Settings.DetachedRestore"
                                                     AutomationProperties.Name="{Binding Label, StringFormat={}{0}の紐付けを戻す}"
                                                     HorizontalAlignment="Right" VerticalAlignment="Center"

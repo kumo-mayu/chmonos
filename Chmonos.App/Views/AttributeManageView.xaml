@@ -278,7 +278,7 @@
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                         <Button AutomationProperties.AutomationId="AttributeOrphanAdd" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を一覧に追加}" Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button AutomationProperties.AutomationId="AttributeOrphanRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource DangerButton}"
+                                                        <Button AutomationProperties.AutomationId="AttributeOrphanRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を商品から外す}" Content="外す" Style="{StaticResource DangerButton}"
                                                                 Margin="6,0,0,0"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
@@ -325,7 +325,7 @@
                                                Style="{StaticResource AreaNoticeText}" Margin="0,4,0,0"
                                                AutomationProperties.AutomationId="AttributeNameNotice" />
                                 </StackPanel>
-                                <Button Content="この属性を削除" Style="{StaticResource DangerButton}"
+                                <Button Content="削除" AutomationProperties.Name="この属性を削除" Style="{StaticResource DangerButton}"
                                         HorizontalAlignment="Right" VerticalAlignment="Top"
                                         Command="{Binding DeleteCommand}" />
                             </Grid>
@@ -393,7 +393,7 @@
                             </StackPanel>
 
                             <!-- 上の並べ方・向き・下の欄がまとめて押せなくなるので、その理由を1行で出す（E11） -->
-                            <TextBlock Text="この属性はまだどの商品にも付いていないため、並べ方と絞り込みは使えません。編集画面で値を付けると使えます。"
+                            <TextBlock Text="どの商品にも付いていないので、並べ方と絞り込みには使えません。編集画面で値を付けてください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="30,10,0,0"
                                        Visibility="{Binding ShowsUnusedReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 

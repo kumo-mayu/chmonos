@@ -1042,7 +1042,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public string RemoveImageButtonTip => CurrentIsUserAdded
         ? "ファイルごと消します。元に戻せません（押すと確かめます）。"
-        : "自分で足した画像だけ消せます";
+        : "自分で追加した画像だけ消せます";
 
     public string AddImageTip => "この改変に写真を追加します。ドロップやCtrl+Vでも追加できます。";
 

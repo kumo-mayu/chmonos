@@ -104,7 +104,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
             if (_preview.ItemCount == 0)
             {
-                return "どの商品にも付いていないので、商品は書き換わりません。";
+                return "どの商品にも付いていません。";
             }
 
             var lines = new List<string> { $"{_preview.ItemCount} 件の商品を書き換えます。" };
@@ -134,7 +134,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
             }
 
             lines.Add(_nestPreview.ItemCount == 0
-                ? "どの商品にも付いていないので、商品は書き換わりません。"
+                ? "どの商品にも付いていません。"
                 : $"{_nestPreview.ItemCount} 件の商品を「{Target}」の「{FromTop}」に書き換えます。");
 
             return string.Join(Environment.NewLine, lines);

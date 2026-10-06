@@ -288,7 +288,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>金額に入っていない分。総額を額面どおり受け取られないように必ず出す。</summary>
     public string UnpricedNote => _snapshot is null || _snapshot.UnpricedItemCount == 0
         ? string.Empty
-        : $"購入価格の記録が無い商品が {_snapshot.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。";
+        : $"払った額の記録が無い商品が {_snapshot.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。";
 
     public bool HasUnpricedNote => UnpricedNote.Length > 0;
 

@@ -726,8 +726,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         { HasVcc: true, HasAlcom: true } tools => ProjectManager == ProjectManagerChoice.VccLink
             ? $"改変の画面から開くアプリです。vcc:// に合わせると、今は{(tools.LinkOpensAlcom ? "ALCOM" : "VCC")}を開きます。"
             : "改変の画面から開くアプリです。",
-        { HasVcc: true } => "見つかったのはVCCだけなので、改変の画面からはVCCを開きます。",
-        { HasAlcom: true } => "見つかったのはALCOMだけなので、改変の画面からはALCOMを開きます。",
+        { HasVcc: true } => "VCCだけ見つかったので、改変の画面ではVCCを開きます。",
+        { HasAlcom: true } => "ALCOMだけ見つかったので、改変の画面ではALCOMを開きます。",
         _ => "VCCかALCOMを入れると、改変の画面から開けます。",
     };
 
@@ -1514,7 +1514,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     internal static string LeftoverNote(Core.Storage.StoreMoveResult result)
         => result.LeftoverAt is null
             ? string.Empty
-            : $"\n\n移動先「{result.LeftoverAt}」に、途中までコピーした物が残っています。不要なら削除してください。";
+            : $"\n\n移動先「{result.LeftoverAt}」に、途中までコピーしたファイルが残っています。不要なら削除してください。";
 
     private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)
     {

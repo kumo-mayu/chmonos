@@ -138,7 +138,7 @@
                                         <MenuItem Header="この画像を削除" Command="{Binding RemoveImageCommand}"
                                                   Style="{StaticResource DangerMenuItem}"
                                                   controls:MenuTips.Enabled="ファイルごと消します。元に戻せません（押すと確かめます）。"
-                                                  controls:MenuTips.Disabled="自分で足した画像だけ消せます" />
+                                                  controls:MenuTips.Disabled="自分で追加した画像だけ消せます" />
                                         <Separator />
                                         <MenuItem Header="画像を追加…" Command="{Binding AddImageCommand}" />
                                     </ContextMenu>
@@ -300,7 +300,7 @@
                                 押せないときも出したまま、理由を吹き出しで言う（右クリックと同じ文）。
                                 画像が1枚も無いときは消す相手がいないので出さない
                             -->
-                            <Button Content="この画像を削除" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="12,0,12,10"
+                            <Button Content="削除" AutomationProperties.Name="この画像を削除" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="12,0,12,10"
                                     AutomationProperties.AutomationId="GalleryRemoveImage"
                                     Command="{Binding RemoveImageCommand}"
                                     ToolTip="{Binding RemoveImageButtonTip}" ToolTipService.ShowOnDisabled="True"
@@ -322,7 +322,7 @@
                                         Visibility="{Binding HasMissingImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="{Binding MissingImageText}" Style="{StaticResource Caption}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <Button Content="この商品の画像取得を優先" FontSize="12"
+                                <Button Content="画像取得を優先" AutomationProperties.Name="この商品の画像取得を優先" FontSize="12"
                                         AutomationProperties.AutomationId="GalleryFetchImages"
                                         Command="{Binding FetchImagesCommand}" />
                             </StackPanel>

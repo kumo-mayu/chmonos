@@ -759,7 +759,7 @@
                                                              MaxLength="60"
                                                              Placeholder="素体を選ぶか、名前を打ってEnter" />
                                     </Grid>
-                                    <Button Content="素体から外す" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                                    <Button Content="外す" AutomationProperties.Name="素体から外す" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
                                 </StackPanel>
                                 <!--
@@ -888,7 +888,7 @@
                                                    VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                                    Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                     </Grid>
-                                    <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                    <Button Content="作る" AutomationProperties.Name="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding CreateModificationCommand}" />
                                 </StackPanel>
                                 <TextBlock DataContext="{Binding ModificationNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"

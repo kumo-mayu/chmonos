@@ -122,7 +122,7 @@
                         <Button Content="複製" AutomationProperties.AutomationId="ModificationDuplicate"
                                 Command="{Binding DuplicateCommand}" Margin="0,0,8,0"
                                 ToolTip="使ったものとメモが同じ、新しい改変を作ります。" />
-                        <Button Content="この改変を削除" Style="{StaticResource DangerButton}"
+                        <Button Content="削除" AutomationProperties.Name="この改変を削除" Style="{StaticResource DangerButton}"
                                 Command="{Binding DeleteCommand}"
                                 ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトは残ります。" />
                     </StackPanel>
@@ -695,7 +695,7 @@
                                             ToolTip="既に開いていれば、そのUnityを手前に出します。" />
                                     <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                             Margin="6,0,0,0" Command="{Binding OpenProjectFolderCommand}" />
-                                    <Button Content="紐付けを外す" Style="{StaticResource DangerButton}"
+                                    <Button Content="外す" AutomationProperties.Name="紐付けを外す" Style="{StaticResource DangerButton}"
                                             Margin="6,0,0,0" Command="{Binding UnlinkProjectCommand}"
                                             ToolTip="改変の記録は残ります。外す前に、今の紐付け先と付け直し方を表示して確かめます。" />
                                 </WrapPanel>

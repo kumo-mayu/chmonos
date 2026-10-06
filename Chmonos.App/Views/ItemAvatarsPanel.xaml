@@ -65,7 +65,7 @@
                                         <Button Content="表示する" Margin="8,0,0,0"
                                                 Command="{Binding ShowDetectedAvatarsCommand}"
                                                 AutomationProperties.AutomationId="ItemShowDetectedAvatars"
-                                                ToolTip="判定した対応アバターを、この欄に出します。">
+                                                ToolTip="判定した対応アバターを、この欄に表示します。">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
                                                     <Setter Property="Visibility" Value="Hidden" />

@@ -126,7 +126,7 @@
                     <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,2,8,2"
                             AutomationProperties.AutomationId="ItemRefresh"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
-                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,2,8,2"
+                    <Button Content="編集" AutomationProperties.Name="この商品を編集" Command="{Binding EditCommand}" Margin="0,2,8,2"
                             AutomationProperties.AutomationId="ItemEdit"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,2,0,2"

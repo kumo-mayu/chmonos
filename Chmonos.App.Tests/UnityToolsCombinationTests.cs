@@ -208,8 +208,8 @@ public class UnityToolsCombinationTests
     [Theory]
     [InlineData("none", false, false, "VCCかALCOMを入れると、改変の画面から開けます。")]
     [InlineData("hub", false, false, "VCCかALCOMを入れると、改変の画面から開けます。")]
-    [InlineData("vcc", true, false, "見つかったのはVCCだけなので、改変の画面からはVCCを開きます。")]
-    [InlineData("alcom", false, true, "見つかったのはALCOMだけなので、改変の画面からはALCOMを開きます。")]
+    [InlineData("vcc", true, false, "VCCだけ見つかったので、改変の画面ではVCCを開きます。")]
+    [InlineData("alcom", false, true, "ALCOMだけ見つかったので、改変の画面ではALCOMを開きます。")]
     [InlineData("both-link-vcc", true, true, "改変の画面から開くアプリです。vcc:// に合わせると、今はVCCを開きます。")]
     [InlineData("both-link-alcom", true, true, "改変の画面から開くアプリです。vcc:// に合わせると、今はALCOMを開きます。")]
     public Task 組み合わせごとに_設定で選べる物と説明が決まる(
@@ -247,8 +247,8 @@ public class UnityToolsCombinationTests
     });
 
     [Theory]
-    [InlineData(ProjectManagerChoice.Vcc, "alcom", "見つかったのはALCOMだけなので、改変の画面からはALCOMを開きます。")]
-    [InlineData(ProjectManagerChoice.Alcom, "vcc", "見つかったのはVCCだけなので、改変の画面からはVCCを開きます。")]
+    [InlineData(ProjectManagerChoice.Vcc, "alcom", "ALCOMだけ見つかったので、改変の画面ではALCOMを開きます。")]
+    [InlineData(ProjectManagerChoice.Alcom, "vcc", "VCCだけ見つかったので、改変の画面ではVCCを開きます。")]
     [InlineData(ProjectManagerChoice.Vcc, "none", "VCCかALCOMを入れると、改変の画面から開けます。")]
     public Task 設定で選んだ方が見つからなければ_欄はvccに合わせるを見せ_設定は書き換えない(
         ProjectManagerChoice choice, string combination, string note) => TestApp.Run(async app =>

@@ -80,7 +80,7 @@ public class RightClickActionButtonsTests
         page.SelectImageCommand.Execute(booth);
         Assert.True(page.HasCurrentImage);
         Assert.False(page.RemoveImageCommand.CanExecute(null));
-        Assert.Equal("自分で足した画像だけ消せます", page.RemoveImageButtonTip);
+        Assert.Equal("自分で追加した画像だけ消せます", page.RemoveImageButtonTip);
 
         page.SelectImageCommand.Execute(mine);
         Assert.True(page.RemoveImageCommand.CanExecute(null));

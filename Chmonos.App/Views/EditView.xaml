@@ -710,7 +710,7 @@
                                 </StackPanel>
                             </Expander.Header>
                             <StackPanel>
-                                <TextBlock Text="買ったバリエーションに印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
+                                <TextBlock Text="買ったバリエーションに印を付けます。値段にはBOOTH価格が入ります。払った額が違うときは書き換えてください。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
                                            ToolTip="空欄は0円として記録します。2回買ったときは［＋］で追加します。" />
 
@@ -747,7 +747,7 @@
                                                             <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
                                                                      Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
                                                                      AutomationProperties.AutomationId="EditVariationPrice"
-                                                                     AutomationProperties.Name="{Binding Name, StringFormat={}{0}の支払額}"
+                                                                     AutomationProperties.Name="{Binding Name, StringFormat={}{0}の払った額}"
                                                                      VerticalContentAlignment="Center" />
                                                             <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
                                                                        Foreground="{DynamicResource TextFaint}"
@@ -781,7 +781,7 @@
                                                             <TextBox x:Name="PurchasedAtBox" Text="{Binding PurchasedAt, UpdateSourceTrigger=PropertyChanged}" Width="104"
                                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                                      AutomationProperties.AutomationId="EditVariationPurchasedAt"
-                                                                     ToolTip="yyyy-MM-dd の形で入れてください。"
+                                                                     ToolTip="2026-09-20 の形で入れてください。"
                                                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の日付}" />
                                                             <TextBlock Text="入手日と同じ" Margin="9,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
                                                                        Foreground="{DynamicResource TextFaint}"
@@ -812,7 +812,7 @@
                                                                         <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
                                                                                  Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
                                                                                  AutomationProperties.AutomationId="EditExtraPrice"
-                                                                                 AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の支払額}"
+                                                                                 AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の払った額}"
                                                                                  VerticalContentAlignment="Center" />
                                                                         <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
                                                                                    Foreground="{DynamicResource TextFaint}"
@@ -834,7 +834,7 @@
                                                                         <TextBox x:Name="ExtraPurchasedAtBox" Text="{Binding PurchasedAt, UpdateSourceTrigger=PropertyChanged}" Width="104"
                                                                                  Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                                                  AutomationProperties.AutomationId="EditExtraPurchasedAt"
-                                                                                 ToolTip="yyyy-MM-dd の形で入れてください。"
+                                                                                 ToolTip="2026-09-20 の形で入れてください。"
                                                                                  AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の日付}" />
                                                                         <TextBlock Text="入手日と同じ" Margin="9,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
                                                                                    Foreground="{DynamicResource TextFaint}"
@@ -1032,7 +1032,7 @@
                         <Grid>
                             <TextBox x:Name="AcquiredBox" Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
                                      AutomationProperties.Name="入手日"
-                                     ToolTip="yyyy-MM-dd の形で入れてください。"
+                                     ToolTip="2026-09-20 の形で入れてください。"
                                      VerticalContentAlignment="Center" Padding="8,0" />
                             <TextBlock Text="{Binding AcquiredHintText}" IsHitTestVisible="False"
                                        VerticalAlignment="Center" Margin="10,0,10,0"

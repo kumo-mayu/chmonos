@@ -804,7 +804,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         }
 
         var impact = preview.ItemCount == 0
-            ? "どの商品にも付いていないので、商品は書き換わりません。\n"
+            ? "どの商品にも付いていません。\n"
             : $"{preview.ItemCount} 件の商品を「{into}」の「{source.Name}」に書き換えます。\n";
 
         if (!Confirm(
@@ -1560,7 +1560,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         }
 
         var message = Selected.ItemCount == 0
-            ? $"「{Selected.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
+            ? $"「{Selected.Name}」を削除します。\n\nどの商品にも付いていません。"
             : $"「{Selected.Name}」を削除します。\n\n"
                 + $"{Selected.ItemCount} 件の商品から、この大分類と小分類が外れます。\n"
                 + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。";
@@ -1651,7 +1651,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     private async Task DeleteSubAsync(TagSubRow row)
     {
         var message = row.ItemCount == 0
-            ? $"「{row.Top}」から「{row.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
+            ? $"「{row.Top}」から「{row.Name}」を削除します。\n\nどの商品にも付いていません。"
             : $"「{row.Top}」から「{row.Name}」を削除します。\n\n"
                 + $"{row.ItemCount} 件の商品からこの小分類が外れます。「{row.Top}」自体は付いたままです。\n"
                 + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。";

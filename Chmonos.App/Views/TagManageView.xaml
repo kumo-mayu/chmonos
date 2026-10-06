@@ -435,7 +435,7 @@
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                         <Button AutomationProperties.AutomationId="TagOrphanAdd" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を一覧に追加}" Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button AutomationProperties.AutomationId="TagOrphanRemove" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource DangerButton}"
+                                                        <Button AutomationProperties.AutomationId="TagOrphanRemove" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を商品から外す}" Content="外す" Style="{StaticResource DangerButton}"
                                                                 Margin="6,0,0,0"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
@@ -499,7 +499,7 @@
                                                    AutomationProperties.AutomationId="TagNameNotice" />
                                     </StackPanel>
                                     <!-- 大分類の削除は小分類も商品の付け替えも伴うので、色で重さを出す（ユーザ指摘 2026-09-18） -->
-                                    <Button Content="この大分類を削除" Style="{StaticResource DangerButton}"
+                                    <Button Content="削除" AutomationProperties.Name="この大分類を削除" Style="{StaticResource DangerButton}"
                                             HorizontalAlignment="Right" VerticalAlignment="Top"
                                             Command="{Binding DeleteTopCommand}" />
                                 </Grid>

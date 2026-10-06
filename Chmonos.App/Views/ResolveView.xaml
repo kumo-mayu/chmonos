@@ -134,8 +134,8 @@
                     <TextBlock Text="{Binding HiddenByRegisteredZipText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0"
                                ToolTip="元のzipを消すと、中身として一覧に戻ります。" DockPanel.Dock="Right"
                                Visibility="{Binding HasHiddenByRegisteredZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
-                               ToolTip="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
+                    <TextBlock Text="商品IDが決まらなかったファイルです。商品IDを登録するか、管理対象から除外します。"
+                               ToolTip="商品IDが決まらなかったファイルです。商品IDを登録するか、管理対象から除外します。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
 
@@ -1058,7 +1058,7 @@
                                     </TextBlock>
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
                                                Foreground="{DynamicResource Warn}"
-                                               Text="BOOTHから情報を取り直さないので、名前も画像も自動では増えません。" />
+                                               Text="名前も画像も自動では増えません。" />
                                     <!-- 誤りはボタンの右に出す。下に出すと、出る・消えるで下の欄が跳ねる（ユーザ 2026-10-03） -->
                                     <DockPanel Margin="0,10,0,0">
                                         <Button DockPanel.Dock="Left" Content="この名前で登録する" Command="{Binding RegisterLocalCommand}" VerticalAlignment="Top"
