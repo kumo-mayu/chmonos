@@ -166,6 +166,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="BOOTHで変わったところ：" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,8,0"
                                Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -221,7 +222,14 @@
                         </Button.ContextMenu>
                     </Button>
                     <!-- 帯がある間にいちばんやってほしいことなので主のボタン（メモ17④）。押した後も同じ幅で残し、押せなくする -->
-                    <Button Grid.Column="3" Content="既読にする" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                    <!-- 既読にする前に、通知の画面で前と後を見比べる道（ユーザ指示 2026-10-06）。既読にする操作より軽いので左に置く -->
+                    <Button Grid.Column="3" Content="通知で確認する" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemShowChangesInInbox"
+                            Command="{Binding ShowChangesInInboxCommand}"
+                            Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="この商品の更新の通知を開きます。" />
+                    <Button Grid.Column="4" Content="既読にする" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Margin="6,0,0,0"
                             Height="27" Padding="9,0" FontSize="11.5"
                             AutomationProperties.AutomationId="ItemMarkChangesRead"
                             Command="{Binding MarkChangesReadCommand}"

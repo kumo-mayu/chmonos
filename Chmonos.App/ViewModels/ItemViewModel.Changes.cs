@@ -97,6 +97,16 @@ public sealed partial class ItemViewModel
     /// <summary>既読にして印を外す直前。画面は、見ている所より上で消える帯の高さを測り、外した後に位置を詰め直す。</summary>
     public event Action? ChangesClearing;
 
+    private RelayCommand? _showChangesInInbox;
+
+    /// <summary>
+    /// この商品の更新の知らせを通知の画面で開く（ユーザ指示 2026-10-06：帯から通知へ行く道。カードの「更新あり」と同じ行き先）。
+    /// 既読にはしない——通知の画面で前と後を見比べてから決めたいときの道なので
+    /// </summary>
+    public RelayCommand ShowChangesInInboxCommand => _showChangesInInbox ??= new RelayCommand(
+        () => _main.ShowInboxFor(Item.Id),
+        () => _changes.HasAny);
+
     public RelayCommand MarkChangesReadCommand => _markChangesRead ??= new RelayCommand(
         () => MarkChangesReadAsync().Forget(),
         () => _changes.HasAny && !_markingChangesRead);

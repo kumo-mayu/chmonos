@@ -327,4 +327,28 @@ public class ChangedLinesTests
         await UiThread.Until(() => !page.HasUnreadChanges, "既読にすると印が消える");
         Assert.Same(ChangedLineMarks.None, page.DescriptionLines);
     });
+
+    /// <summary>帯の「通知で確認する」は、既読にせずに、この商品の知らせを通知の画面で開く（ユーザ指示 2026-10-06）。</summary>
+    [Fact]
+    public Task 帯の通知で確認するは_既読にせずに_通知の画面を開く() => TestApp.Run(async app =>
+    {
+        var item = Make.Item(ItemId, "作り物の衣装");
+        await app.AddItemAsync(item);
+        await app.Store.Notifications.UpdateAsync(list =>
+        {
+            list.Add(Updated(ItemId, new NotificationDiff { Field = "name", Before = "作り物の衣装", After = "作り物の衣装 改" }));
+            return list;
+        });
+
+        var main = await app.StartAsync();
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => page.HasUnreadChanges, "知らせを読んで印が付く");
+        Assert.True(page.ShowChangesInInboxCommand.CanExecute(null));
+
+        page.ShowChangesInInboxCommand.Execute(null);
+
+        Assert.IsType<InboxViewModel>(main.CurrentViewModel);
+        Assert.True(page.HasUnreadChanges);
+        Assert.Contains(app.Store.Notifications.Load(), record => record.ItemId == ItemId && !record.IsRead);
+    });
 }
