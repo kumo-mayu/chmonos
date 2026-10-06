@@ -291,7 +291,11 @@ public sealed class DataStore
         Volumes = new JsonFileStore<List<VolumeRecord>>(paths.VolumesFile);
         UiState = new JsonFileStore<UiState>(paths.UiStateFile);
         RegistrationQueue = new JsonFileStore<List<QueuedRegistration>>(paths.RegistrationQueueFile);
+        PendingOperations = new JsonFileStore<List<PendingOperation>>(paths.PendingOperationsFile);
     }
+
+    /// <summary>始めて、まだ終わっていない操作。次の起動で続きを当てる（ユーザ判断 2026-10-06「A」）。</summary>
+    public JsonFileStore<List<PendingOperation>> PendingOperations { get; }
 
     /// <summary>まだ終わっていない登録の列。次の起動で同じ順に続ける（ユーザ判断 2026-10-05 メモ60）。</summary>
     public JsonFileStore<List<QueuedRegistration>> RegistrationQueue { get; }

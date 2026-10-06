@@ -61,6 +61,7 @@ var checks = new List<FileKind>
     Single<List<VolumeRecord>>(paths.VolumesFile),
     Single<UiState>(paths.UiStateFile),
     Single<List<QueuedRegistration>>(paths.RegistrationQueueFile),
+    Single<List<PendingOperation>>(paths.PendingOperationsFile),
 };
 
 var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

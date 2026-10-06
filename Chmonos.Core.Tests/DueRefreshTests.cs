@@ -147,6 +147,13 @@ public class DueRefreshTests : IDisposable
             CancellationToken cancellationToken = default)
             => Task.FromResult(ItemIdChangeOutcome.Moved);
 
+        public Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
+            string fromId,
+            string toId,
+            IReadOnlySet<int>? skippedPurchases = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(ItemIdChangeOutcome.Moved);
+
         public Task<DetachOutcome> DetachFileAsync(
             string itemId, string hash, bool deleteItemWhenEmpty, CancellationToken cancellationToken = default)
             => Task.FromResult(DetachOutcome.Detached);

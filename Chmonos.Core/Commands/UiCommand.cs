@@ -527,6 +527,12 @@ public abstract record UiCommand
     public record DetectUnreadableItems : UiCommand;
 
     /// <summary>
+    /// 前の起動で途中で止まった操作（IDの変更・タグや属性の名前の変更）の続きを済ませる（pending-operations.json。ユーザ判断 2026-10-06「A」）。
+    /// 起動したときに主画面が1回送る。BOOTHへは問い合わせない。結果は扱った記録の件数
+    /// </summary>
+    public record ResumePendingOperations : UiCommand;
+
+    /// <summary>
     /// 読めない商品の記録を、アプリが最後に書いた版の控えに戻す（通知の「1つ前の版に戻す」）。
     /// 壊れた記録は items/_broken へよけて残す。
     /// </summary>

@@ -104,6 +104,9 @@ public sealed class AppPaths
     /// <summary>未確定の画面で押して、まだ終わっていない登録の列（<see cref="Models.QueuedRegistration"/>）。次の起動で続ける</summary>
     public string RegistrationQueueFile => Path.Combine(Root, "registration-queue.json");
 
+    /// <summary>始めて、まだ終わっていない操作（IDの変更・タグや属性の名前の変更。<see cref="Models.PendingOperation"/>）。次の起動で続ける</summary>
+    public string PendingOperationsFile => Path.Combine(Root, "pending-operations.json");
+
     public string ScanCacheFile => Path.Combine(Root, "scan-cache.json");
 
     /// <summary>

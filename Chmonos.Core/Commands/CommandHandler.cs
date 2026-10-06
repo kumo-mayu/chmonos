@@ -37,6 +37,21 @@ public sealed class CommandHandler
     /// <summary>まだ終わっていない登録の列（registration-queue.json。メモ60）。組み立ての引数を増やさないよう、作るときに入れる。</summary>
     public Storage.JsonFileStore<List<Models.QueuedRegistration>>? RegistrationQueue { private get; init; }
 
+    /// <summary>
+    /// やりかけの記録（pending-operations.json）。IDの変更・タグや属性の名前の変更を、この記録で囲んで走らせる。
+    /// 無ければ記録せずに走らせる（保存先を持たない一部の試験の組み立て）。組み立ての引数を増やさないよう、作るときに入れる。
+    /// </summary>
+    public Storage.JsonFileStore<List<Models.PendingOperation>>? PendingOperations { private get; init; }
+
+    private PendingOperationRunner? _pending;
+
+    private PendingOperationRunner Pending
+        => _pending ??= new PendingOperationRunner(PendingOperations, _items, _userTags, _attributes, _settings, _notifications);
+
+    /// <summary>やりかけの記録を書けなかったので始めなかったときの文。</summary>
+    private const string NotRecordedMessage =
+        "保存先に書き込めなかったので、変更していません。保存先の空きと、ほかのアプリで開いていないかを確かめてください。";
+
     /// <summary>途中で止まった取り込みの記録（import-state.json）。</summary>
     private readonly Storage.JsonFileStore<ImportState>? _importState;
 
@@ -431,7 +446,7 @@ public sealed class CommandHandler
                     : new CommandResult.Failed("移せません。同じIDか、元の商品が見つかりません。");
 
             case UiCommand.ChangeItemId change:
-                var changed = await _items.ChangeItemIdAsync(
+                var changed = await Pending.ChangeItemIdAsync(
                     change.FromId, change.ToId, change.SkippedPurchases, cancellationToken);
                 return changed switch
                 {
@@ -440,6 +455,7 @@ public sealed class CommandHandler
                     ItemIdChangeOutcome.SourceMissing => new CommandResult.Failed("元の商品が見つかりませんでした。"),
                     ItemIdChangeOutcome.ImagesNotMoved => new CommandResult.Failed(
                         "自分で追加した画像を移せなかったので、商品IDは変えていません。ほかのアプリで画像を開いていないか確かめて、もう一度押してください。"),
+                    ItemIdChangeOutcome.NotRecorded => new CommandResult.Failed(NotRecordedMessage),
                     _ => new CommandResult.Failed("移動先を用意できませんでした。"),
                 };
 
@@ -570,30 +586,10 @@ public sealed class CommandHandler
                     return MissingService("ユーザータグの編集");
                 }
 
-                var renamedTag = rename.Sub is null
-                    ? await _userTags.RenameTopAsync(rename.Top, rename.NewName, cancellationToken)
-                    : await _userTags.RenameSubAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken);
-
-                // 保存した検索の条件の名前も付いていかせる。統合のときは、残る側の綴り（マスタにある名前）へ寄せる
-                var tagTarget = rename.NewName.Trim();
-                if (tagTarget.Length > 0)
-                {
-                    var tops = renamedTag.Master.Tops;
-                    var topSpelling = rename.Sub is null
-                        ? tops.FirstOrDefault(top => string.Equals(top.Name, tagTarget, StringComparison.CurrentCultureIgnoreCase))?.Name ?? tagTarget
-                        : tagTarget;
-                    var subSpelling = rename.Sub is null
-                        ? tagTarget
-                        : tops.FirstOrDefault(top => string.Equals(top.Name, rename.Top, StringComparison.CurrentCultureIgnoreCase))
-                            ?.Subs.FirstOrDefault(sub => string.Equals(sub.Name, tagTarget, StringComparison.CurrentCultureIgnoreCase))?.Name ?? tagTarget;
-                    await FollowRenameInSavedSearchesAsync(
-                        entries => rename.Sub is null
-                            ? Services.SavedSearches.RenameUserTagTop(entries, rename.Top, topSpelling)
-                            : Services.SavedSearches.RenameUserTagSub(entries, rename.Top, rename.Sub, subSpelling),
-                        cancellationToken);
-                }
-
-                return new CommandResult.UserTagsRewritten(renamedTag);
+                // 一覧・商品・保存した検索の条件を順に書くので、やりかけの記録で囲む（落ちたら次の起動で続ける）
+                return await Pending.RenameUserTagAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken) is { } renamedTag
+                    ? new CommandResult.UserTagsRewritten(renamedTag)
+                    : new CommandResult.Failed(NotRecordedMessage);
 
             case UiCommand.DeleteUserTag delete:
                 if (_userTags is null)
@@ -676,24 +672,11 @@ public sealed class CommandHandler
                     return MissingService("属性の編集");
                 }
 
-                var renamed = await _attributes.RenameAsync(
-                    renameAttribute.OldName, renameAttribute.NewName, renameAttribute.Keep, cancellationToken);
-
-                // 設定で選んだ属性の名前も付いていかせる（設定の書き込みの錠の中で今の値に当てる）。
-                // 統合のときは、残る側の綴り（マスタにある名前）へ寄せる
-                var trimmed = renameAttribute.NewName.Trim();
-                if (_settings is not null && trimmed.Length > 0)
-                {
-                    var kept = renamed.Master.Attributes
-                        .Select(definition => definition.Name)
-                        .FirstOrDefault(name => string.Equals(name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? trimmed;
-                    await _settings.UpdateAsync(
-                        current => current.WithCardAttributeRenamed(renameAttribute.OldName, kept), cancellationToken);
-                    await FollowRenameInSavedSearchesAsync(
-                        entries => Services.SavedSearches.RenameAttribute(entries, renameAttribute.OldName, kept), cancellationToken);
-                }
-
-                return new CommandResult.AttributesRewritten(renamed);
+                // 一覧・商品・設定のカードの属性・保存した検索の条件を順に書くので、やりかけの記録で囲む（落ちたら次の起動で続ける）
+                return await Pending.RenameAttributeAsync(
+                        renameAttribute.OldName, renameAttribute.NewName, renameAttribute.Keep, cancellationToken) is { } renamed
+                    ? new CommandResult.AttributesRewritten(renamed)
+                    : new CommandResult.Failed(NotRecordedMessage);
 
             case UiCommand.DeleteAttribute deleteAttribute:
                 if (_attributes is null)
@@ -1054,6 +1037,9 @@ public sealed class CommandHandler
                 }
 
                 return RepairResult(rebuild.ItemId, await _brokenItems.RebuildFromBoothAsync(rebuild.ItemId, cancellationToken));
+
+            case UiCommand.ResumePendingOperations:
+                return new CommandResult.Counted(await Pending.ResumeAsync(cancellationToken));
 
             case UiCommand.DetectOrphanReferences:
                 if (_notifications is null)

@@ -146,6 +146,7 @@ public sealed class AppServiceContainer : IDisposable
             new MissingFileFinder(Store, Volumes), Volumes, Store.ImportState, new BrokenItemRepair(Store, Items, Notifications))
         {
             RegistrationQueue = Store.RegistrationQueue,
+            PendingOperations = Store.PendingOperations,
         };
 
         // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）
