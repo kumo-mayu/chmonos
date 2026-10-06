@@ -1009,6 +1009,26 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     }
 
     /// <summary>
+    /// 属性の欄を開いているか（ユーザ指示 2026-10-06：ほかの欄と同じ三角で畳める。既定は開く）。
+    /// 開け閉めはユーザータグと同じく、商品を移っても保つ（<see cref="SectionFolds"/>）
+    /// </summary>
+    public bool IsAttributesExpanded
+    {
+        get => SectionFolds.AttributesExpanded;
+        set
+        {
+            if (SectionFolds.AttributesExpanded != value)
+            {
+                SectionFolds.AttributesExpanded = value;
+                OnPropertyChanged(nameof(IsAttributesExpanded));
+            }
+        }
+    }
+
+    /// <summary>見出しに添える数。畳んでいても何個あるかは分かるように（ユーザータグと同じ）。</summary>
+    public string AttributesCountText => $"（{Attributes.Count}）";
+
+    /// <summary>
     /// 商品説明のh2セクション。
     ///
     /// **長すぎることがある**（Wendyは説明だけで画面を6枚ぶん流れる）ので、

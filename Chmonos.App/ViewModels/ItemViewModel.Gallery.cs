@@ -278,6 +278,7 @@ public sealed partial class ItemViewModel
             .OrderByDescending(pair => pair.Value)
             .Select(pair => new AttributeBar { Name = pair.Key, Value = pair.Value })
             .ToList();
+        OnPropertyChanged(nameof(AttributesCountText));
 
         BuildAvatars();
     }

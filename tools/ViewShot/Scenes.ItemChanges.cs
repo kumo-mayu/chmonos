@@ -41,7 +41,31 @@ internal static partial class Scenes
             Height = ChangesHeight,
         },
 
-        new Scene("item-page-changes", "商品ページ：BOOTHで変わった所の帯（商品名・価格・バリエーションの入れ替え・画像・販売終了・見出しの変更と追加・消えた見出し）", async context =>
+        new Scene("item-page-attributes", "商品ページ：属性の欄（開いた所。見出しに数）", async context =>
+        {
+            var item = await SeedAttributedItemAsync(context, "9900611");
+            var root = await OpenItemAsync(context, item);
+            context.Screen<ItemViewModel>().IsAttributesExpanded = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("item-page-attributes-folded", "商品ページ：属性の欄を畳んだ所（item-page-attributes と diff で比べ、下の欄が詰まるだけなのを見る）", async context =>
+        {
+            var item = await SeedAttributedItemAsync(context, "9900612");
+            var root = await OpenItemAsync(context, item);
+            context.Screen<ItemViewModel>().IsAttributesExpanded = false;
+            await context.SettleAsync();
+            return new Shot(root);
+        })
+        {
+            Height = 1500,
+        },
+
+        new Scene("item-page-changes","商品ページ：BOOTHで変わった所の帯（商品名・価格・バリエーションの入れ替え・画像・販売終了・見出しの変更と追加・消えた見出し）", async context =>
         {
             var item = await SeedChangedItemAsync(context, "9900603");
             var root = await OpenItemAsync(context, item);
@@ -333,6 +357,19 @@ internal static partial class Scenes
         => new() { Kind = added ? NotificationLineKind.Added : NotificationLineKind.Removed, Text = text, Follows = follows };
 
     /// <summary>ユーザータグ（小分類あり・なし）・BOOTHのタグ・見出し3つ・バリエーション3つの商品。主画面を組む前に呼ぶ。</summary>
+    private static Task<ItemRecord> SeedAttributedItemAsync(SceneContext context, string id)
+        => context.Fake.ItemAsync(
+            id,
+            "作り物の衣装",
+            record => record with
+            {
+                Local = record.Local with
+                {
+                    Attributes = new Dictionary<string, int> { ["かわいい"] = 70, ["かっこいい"] = 25, ["露出"] = 10 },
+                },
+            },
+            images: 1);
+
     private static Task<ItemRecord> SeedTaggedItemAsync(
         SceneContext context, string id, bool delisted = false, IReadOnlyList<H2Section>? sections = null)
         => context.Fake.ItemAsync(
