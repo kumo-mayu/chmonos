@@ -15,14 +15,23 @@ public enum EditField
     Purchases,
     AcquiredAt,
     Memo,
+
+    /// <summary>
+    /// 対応アバターの確認（ユーザ判断 2026-10-06。前は別の条件「対応アバターの確認」で、確認待ちあり／なし／両方を選んだ）。
+    /// 未入力＝確認待ちあり、入力済み＝確認待ちなし。人が商品ページで確かめると消える物なので、入力と同じ向きに数える
+    /// </summary>
+    AvatarConfirmation,
 }
 
 /// <summary>編集画面の項目が未入力か（検索の「編集状況」・試験あり）。</summary>
 public static class EditFieldsMissing
 {
-    /// <summary>画面に並べる順（編集画面の右の欄の上からの順）。</summary>
+    /// <summary>
+    /// 画面に並べる順（編集画面の右の欄の上からの順）。対応アバターの確認は最後：編集画面では左の欄（商品ページと同じ部品）にあり、
+    /// 右の欄の入力とは別の作業なので、入力の項目の後ろに置く。
+    /// </summary>
     public static IReadOnlyList<EditField> All { get; } =
-        [EditField.UserTags, EditField.Attributes, EditField.Purchases, EditField.AcquiredAt, EditField.Memo];
+        [EditField.UserTags, EditField.Attributes, EditField.Purchases, EditField.AcquiredAt, EditField.Memo, EditField.AvatarConfirmation];
 
     /// <summary>何も選んでいない状態は作らない（全部切ると何も選ばない条件になり、意味が無い）。既定はユーザータグ（前の「未編集」と同じ意味）。</summary>
     public static IReadOnlyList<EditField> Default { get; } = [EditField.UserTags];
@@ -41,8 +50,15 @@ public static class EditFieldsMissing
         // 手で入れていない。画面はファイルの日付を出しているが、それは入力ではない
         EditField.AcquiredAt => item.Local.AcquiredAt is null,
         EditField.Memo => string.IsNullOrWhiteSpace(item.Local.Memo),
+        EditField.AvatarConfirmation => HasUnconfirmedAvatars(item),
         _ => false,
     };
+
+    /// <summary>
+    /// まだ確かめていない対応アバターがあるか。説明文から読み取っただけの対応アバター（`H2Link`）は対応と数えず、
+    /// 商品ページで人が確かめるまで `Confirmed` が立たない。消した物（`Rejected`）は数えない（商品ページの「確認待ち n」と同じ）。
+    /// </summary>
+    public static bool HasUnconfirmedAvatars(ItemRecord item) => item.Local.Avatars.Any(link => !link.Rejected && !link.Confirmed);
 
     /// <summary>状態（<c>searchModules</c> の <c>fields</c>）に書く名前。<c>LocalBlock</c> の欄の名前（camelCase）に揃える。</summary>
     public static string KeyOf(EditField field) => field switch
@@ -51,6 +67,9 @@ public static class EditFieldsMissing
         EditField.Attributes => "attributes",
         EditField.Purchases => "purchases",
         EditField.AcquiredAt => "acquiredAt",
+
+        // 欄の名前（avatars）にすると「対応アバターが未入力」と読めるので、確かめたかを名前に入れる
+        EditField.AvatarConfirmation => "avatarConfirmation",
         _ => "memo",
     };
 

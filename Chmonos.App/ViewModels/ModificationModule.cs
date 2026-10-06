@@ -74,10 +74,16 @@ public sealed class ModificationModule : SearchModule
         }
     }
 
-    /// <summary>アバターが2つ以上のときだけ押せる。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。</summary>
+    /// <summary>
+    /// アバターが2つ以上のときだけ押せる。**アバターどうしの AND／OR は0〜1件の間は出さない**（ユーザ判断 2026-10-06：ユーザータグの大分類と同じ決まりにそろえる。
+    /// 同じ2段の作りで、片方だけ出し方が違うと使う人が迷う）。枠の中の改変どうしは、0〜1件でも薄く出したまま（<see cref="ModificationAvatarRow"/>）。
+    /// </summary>
     public bool CanChooseMatchMode => Rows.Count > 1;
 
-    public bool MatchModeDimmed => !CanChooseMatchMode;
+    /// <summary>アバターどうしの AND／OR を出すか（<see cref="CanChooseMatchMode"/> と同じ。出ている間は押せるので薄くしない）。</summary>
+    public bool ShowsMatchMode => CanChooseMatchMode;
+
+    public bool MatchModeDimmed => false;
 
     public string MatchModeTip => CanChooseMatchMode ? AvatarMatchAllHint : MatchModeText.NeedsTwoOf("アバター");
 
@@ -330,6 +336,7 @@ public sealed class ModificationModule : SearchModule
 
         OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(MatchModeTip));
     }

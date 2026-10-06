@@ -32,8 +32,8 @@ public enum SearchModuleKind
     Hidden,
     Unedited,
 
-    /// <summary>対応アバターの推定に、まだ確かめていないものがあるか（ユーザ判断 2026-09-18）。</summary>
-    AvatarUnconfirmed,
+    // 「対応アバターの確認」（AvatarUnconfirmed・2026-09-18）は、編集状況の項目の1つにした（ユーザ判断 2026-10-06）。
+    // 種類ごと消したので、前に保存した状態のその条件は読めずに飛ばされる（公開前なので救済はしない）
     Modification,
     UnityProject,
     Path,
@@ -175,6 +175,7 @@ public static class SearchModuleCatalog
 {
     public const string BoothInfo = "BOOTHの情報";
     public const string ItemInfo = "商品の情報";
+    public const string FileInfo = "ファイルの情報";
     public const string Calendar = "カレンダー";
     public const string Slider = "スライダー";
     public const string Usage = "利用状況";
@@ -193,7 +194,9 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格で絞ります。", AllowsMany: true, OrSameKind: true),
-        new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品か、非公開になった商品で絞ります。"),
+        // 名前は「公開状況」（ユーザ判断 2026-10-06。前は「販売終了」）。中身が「販売終了・非公開／公開中／両方」になり、販売終了だけの条件ではなくなった。
+        // 種類の名前（EndOfSale）は保存した状態に書くので変えない
+        new(SearchModuleKind.EndOfSale, "公開状況", "BOOTHで公開中か、販売終了・非公開かで絞ります。"),
         new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
@@ -205,8 +208,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日か買った日で絞ります。日付を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
-        new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したかどうかで絞ります。", AllowsMany: true),
-        new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
+        new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したか、対応アバターを確認したかで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターだけを選ぶと、そのアバターの改変のどれかに使った商品です。", AllowsMany: true),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
@@ -218,36 +220,48 @@ public static class SearchModuleCatalog
     ];
 
     /// <summary>
-    /// 「条件を追加」の見出しと、見出しの中の並び（ユーザ判断 2026-09-16・案1）。
+    /// 「条件を追加」の見出しと、見出しの中の並び（ユーザ判断 2026-10-06・open.md の「条件を追加の並びの監修」。前の形は 2026-09-16・案1）。
     ///
-    /// **意味のまとまりで並べ、まとまりの間に区切り線を引く**：何の商品か → お金と入手 → 自分の整理 → 使い方。
-    /// 前は条件の一覧の順のまま全見出しに出していて、所持と入手日、改変とファイルの場所のように意味の近い物が離れていた。
-    /// 並びは見出しごとに決める（全体で1つの並びだと、ある見出しで良い並びが別の見出しで崩れる）。
-    /// 同じ条件が2つの見出しに出てよい（対応アバターは出品者が BOOTH に書いた物を元にするので BOOTH の情報に見え、自分で直せる商品の情報でもある）。
+    /// **意味のまとまりで並べ、まとまりの間に区切り線を引く**。並びは見出しごとに決める（全体で1つの並びだと、ある見出しで良い並びが別の見出しで崩れる）。
+    /// 同じ条件が2つの見出しに出てよい：対応アバター・価格・R-18・公開日は BOOTH に載っている物で BOOTH の情報に見え、
+    /// 自分で直せる・払った額で見る・自分の商品の整理に使うので商品の情報でもある。所持は商品の情報（手に入れ方）にもファイルの情報（手元のファイル）にも見える。
+    /// - BOOTHの情報：何の商品か → お金と人気 → 誰が出し何に使えるか → BOOTH の側の時の流れ（出た日 → 今も出ているか → 出た後に変わったか）
+    /// - 商品の情報：自分の整理（タグ・評価・星・表示） → 手に入れ方（持っているか・ギフトか・BOOTH に無いか） → 使い方 → 日付 → 入力の片付け（編集状況）
+    /// - ファイルの情報（2026-10-06 に商品の情報から分けた。所持の群が7つと長く、ファイルの傷みと手に入れ方が混ざっていた）：
+    ///   手元のファイルが在るか → 記録の物が置き場に在るか → 在る物が開けるか → どこに置いたか
+    /// - カレンダー・スライダー・利用状況：入れる部品の形・使い方で引く見出し。見出しの並びは情報の3つ → 部品の形 → 使い方
     /// </summary>
     public static IReadOnlyList<SearchModuleMenuLayout> Menu { get; } =
     [
         new(BoothInfo,
         [
-            [SearchModuleKind.Category, SearchModuleKind.BoothTag, SearchModuleKind.Avatar, SearchModuleKind.Adult],
-            [SearchModuleKind.Shop, SearchModuleKind.Price],
-            // 更新ありは販売終了のすぐ後：どちらも BOOTH の側で商品に起きた変化
-            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.Updated, SearchModuleKind.WishList],
+            [SearchModuleKind.Category, SearchModuleKind.BoothTag, SearchModuleKind.Adult],
+            [SearchModuleKind.Price, SearchModuleKind.WishList, SearchModuleKind.FreePaid],
+            [SearchModuleKind.Shop, SearchModuleKind.Avatar],
+
+            // 更新通知ありは公開状況のすぐ後：どちらも BOOTH の側で商品に起きた変化
+            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.Updated],
         ]),
         new(ItemInfo,
         [
-            [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Avatar, SearchModuleKind.Adult],
-            // 壊れたzip は所持のすぐ後：所持が「手元にファイルがあるか」、壊れたzip が「そのファイルが開けるか」、見つからないファイルが「記録のファイルが置き場に在るか」
-            [SearchModuleKind.Owned, SearchModuleKind.BrokenZip, SearchModuleKind.MissingFile, SearchModuleKind.NotOnBooth, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
-            [SearchModuleKind.Favorite, SearchModuleKind.Unedited, SearchModuleKind.AvatarUnconfirmed, SearchModuleKind.Hidden],
-            [SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.Path],
+            [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Favorite, SearchModuleKind.Price, SearchModuleKind.Avatar, SearchModuleKind.Hidden, SearchModuleKind.Adult],
+            [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.NotOnBooth],
+            [SearchModuleKind.Modification, SearchModuleKind.Recent, SearchModuleKind.UnityProject],
+            [SearchModuleKind.AcquiredAt, SearchModuleKind.PublishedAt],
+            [SearchModuleKind.Unedited],
+        ]),
+        new(FileInfo,
+        [
+            // 所持が「手元にファイルがあるか」、見つからないファイルが「記録のファイルが置き場に在るか」、壊れたzip が「在るファイルが開けるか」
+            [SearchModuleKind.Owned, SearchModuleKind.MissingFile, SearchModuleKind.BrokenZip],
+            [SearchModuleKind.Path],
         ]),
 
         // BOOTH に出た日 → 自分が手に入れた日
         new(Calendar, [[SearchModuleKind.PublishedAt, SearchModuleKind.AcquiredAt]]),
 
-        // BOOTH の数 → 自分の評価
-        new(Slider, [[SearchModuleKind.Price, SearchModuleKind.WishList, SearchModuleKind.Attribute]]),
+        // BOOTH の数 → 自分の評価 → 自分の足跡（最近も日数の範囲を動かす・2026-10-06）
+        new(Slider, [[SearchModuleKind.Price, SearchModuleKind.WishList, SearchModuleKind.Attribute, SearchModuleKind.Recent]]),
 
         // 広い → 狭い
         new(Usage, [[SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject]]),
@@ -1572,6 +1586,7 @@ public sealed class RangeModule : SearchModule
                 // 元を変えたら数の意味が変わる（購入額と BOOTH の価格）。幅も既定に取り直す
                 _valuesFromState = false;
                 _defaultsApplied = false;
+                OnPropertyChanged(nameof(UnpricedLabel));
                 RefreshBounds();
                 NotifyChanged();
             }
@@ -1691,6 +1706,15 @@ public sealed class RangeModule : SearchModule
 
     /// <summary>「購入価格が未設定の商品も表示」を出すか（価格だけ。スキ数は BOOTH の商品なら必ずある）。</summary>
     public bool SupportsUnpriced { get; init; }
+
+    /// <summary>元ごとの、値の無い商品も足すチェックの文。検索側が入れる。</summary>
+    public Func<string?, string>? UnpricedLabelOf { get; init; }
+
+    /// <summary>
+    /// 値の無い商品も足すチェックの文。元で出し分ける（ユーザ判断 2026-10-06：BOOTHの価格の間に「購入価格が未設定」と出ると、
+    /// 何が未設定の商品を足すのかが元と食い違う）。
+    /// </summary>
+    public string UnpricedLabel => UnpricedLabelOf?.Invoke(_source?.Key) ?? string.Empty;
 
     /// <summary>
     /// 照らす数が1つも無い商品も通すか（ユーザ判断 2026-10-06。既定は切＝前と同じく、数の分からない商品は範囲に入らない）。
@@ -2119,7 +2143,7 @@ public sealed class RangeModule : SearchModule
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
             var all = SupportsMatchAll && _matchAll ? "（すべての価格が範囲内）" : string.Empty;
-            var unpriced = IncludesUnpricedNow ? "・" + SearchViewModel.UnpricedLabel : string.Empty;
+            var unpriced = IncludesUnpricedNow ? "・" + UnpricedLabel : string.Empty;
             return string.Join(" ", parts) + outliers + all + unpriced;
         }
     }
@@ -2183,6 +2207,7 @@ public sealed class RangeModule : SearchModule
         OnPropertyChanged(nameof(HasMin));
         OnPropertyChanged(nameof(HasMax));
         OnPropertyChanged(nameof(Source));
+        OnPropertyChanged(nameof(UnpricedLabel));
         RefreshBounds();
     }
 }
@@ -2789,11 +2814,16 @@ public sealed class UserTagModule : SearchModule
     }
 
     /// <summary>
-    /// 2つ以上の大分類を足したときだけ押せる（1つなら結果が変わらない）。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。
+    /// 2つ以上の大分類を足したときだけ押せる（1つなら結果が変わらない）。
+    /// **大分類どうしの AND／OR は、0〜1件の間は出さない**（ユーザ判断 2026-10-06「大分類は0-1件では表示しない。少し画面がずれてしまうがこれは受け入れる」）。
+    /// 枠の中の小分類どうしは、0〜1件でも薄く出したまま（<see cref="UserTagTopRow"/>）。
     /// </summary>
     public bool CanChooseMatchMode => Rows.Count > 1;
 
-    public bool MatchModeDimmed => !CanChooseMatchMode;
+    /// <summary>大分類どうしの AND／OR を出すか（<see cref="CanChooseMatchMode"/> と同じ。出ている間は押せるので薄くしない）。</summary>
+    public bool ShowsMatchMode => CanChooseMatchMode;
+
+    public bool MatchModeDimmed => false;
 
     public string MatchModeTip => CanChooseMatchMode ? TopMatchAllHint : MatchModeText.NeedsTwoOf("大分類");
 
@@ -2935,6 +2965,7 @@ public sealed class UserTagModule : SearchModule
         OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(IsMasterEmpty));
         OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(MatchModeTip));
     }
@@ -3166,6 +3197,7 @@ public sealed class UserTagTopRow : ViewModelBase
 /// <summary>
 /// 編集状況（ユーザ判断 2026-10-01。前の名前は「未編集」で、ユーザータグが0件かだけを見ていた）。
 /// 三項「未入力のみ／入力済みのみ／両方」に、どの項目を見るか（<see cref="EditField"/>）のトグルと、2つ以上のときの「すべて」を足した形。
+/// 対応アバターの確認も項目の1つ（ユーザ判断 2026-10-06。前は別の条件）：未入力のみ＝確認待ちあり、入力済みのみ＝確認待ちなし。
 ///
 /// 既定は「ユーザータグのどれかが未入力」＝前の「未編集」と同じ意味（札・ナビの「未編集」もユーザータグが0件のまま）。
 /// 取り込みの③（対応アバターの検出）を待っている商品は「未入力のみ」から外す（カードに「取り込み中」と出る商品で、編集画面の順番にも出ない・D22）。
@@ -3455,6 +3487,9 @@ public sealed class EditFieldToggle : ViewModelBase
         EditField.Attributes => "属性",
         EditField.Purchases => "購入したバリエーション",
         EditField.AcquiredAt => "入手日",
+
+        // 前の条件の名前（「対応アバターの確認」）と、商品ページの「確認待ち」の作業の名前に揃える
+        EditField.AvatarConfirmation => "対応アバターの確認",
         _ => "メモ",
     };
 

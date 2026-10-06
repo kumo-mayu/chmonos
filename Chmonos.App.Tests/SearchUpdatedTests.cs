@@ -238,7 +238,7 @@ public class SearchUpdatedTests
     });
 
     [Fact]
-    public void 更新ありはBOOTHの情報の見出しで販売終了のすぐ後に出る()
+    public void 更新通知ありはBOOTHの情報の見出しで公開状況のすぐ後に出る()
     {
         var booth = SearchModuleCatalog.Menu.Single(layout => layout.Title == SearchModuleCatalog.BoothInfo);
         var group = booth.Groups.Single(kinds => kinds.Contains(SearchModuleKind.Updated));

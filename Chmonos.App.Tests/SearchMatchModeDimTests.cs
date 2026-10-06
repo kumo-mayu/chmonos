@@ -48,18 +48,21 @@ public class SearchMatchModeDimTests
     }
 
     [Fact]
-    public void ユーザータグは_大分類どうしも枠の中の小分類どうしも_1つの間は薄く押せない()
+    public void ユーザータグは_大分類どうしは1つの間は出さず_枠の中の小分類どうしは薄く押せない()
     {
         var module = new UserTagModule();
         module.SetMasters([("衣装", (IReadOnlyList<string>)["上着", "靴"]), ("髪", (IReadOnlyList<string>)["長い"])]);
         var top = module.AddTop("衣装")!;
         top.AddCommand.Execute("上着");
 
-        AssertDimmed(module.CanChooseMatchMode, module.MatchModeDimmed, module.MatchModeTip, "大分類を2つ以上追加すると選べます。");
+        // 大分類どうしは0〜1件の間は出さない（ユーザ判断 2026-10-06「大分類は0-1件では表示しない」）
+        Assert.False(module.ShowsMatchMode);
+        Assert.False(module.MatchModeDimmed);
         AssertDimmed(top.CanChooseMatchMode, top.MatchModeDimmed, top.MatchModeTip, "小分類を2つ以上追加すると選べます。");
 
         module.AddTop("髪");
         top.AddCommand.Execute("靴");
+        Assert.True(module.ShowsMatchMode);
         Assert.True(module.CanChooseMatchMode);
         Assert.Equal(module.TopMatchAllHint, module.MatchModeTip);
         Assert.True(top.CanChooseMatchMode);
@@ -80,17 +83,20 @@ public class SearchMatchModeDimTests
     }
 
     [Fact]
-    public void 改変は_アバターどうしも改変どうしも_1つの間は薄く押せない()
+    public void 改変は_アバターどうしは1つの間は出さず_改変どうしは薄く押せない()
     {
         var module = new ModificationModule(_ => null, _ => null);
         var row = module.AddAvatar("9900001");
         row.AddModificationQuietly("m1");
 
-        AssertDimmed(module.CanChooseMatchMode, module.MatchModeDimmed, module.MatchModeTip, "アバターを2つ以上追加すると選べます。");
+        // アバターどうしもユーザータグの大分類と同じく出さない（ユーザ判断 2026-10-06）
+        Assert.False(module.ShowsMatchMode);
+        Assert.False(module.MatchModeDimmed);
         AssertDimmed(row.CanChooseMatchMode, row.MatchModeDimmed, row.MatchModeTip, "改変を2つ以上追加すると選べます。");
 
         module.AddAvatar("9900002");
         row.AddModificationQuietly("m2");
+        Assert.True(module.ShowsMatchMode);
         Assert.True(module.CanChooseMatchMode);
         Assert.Equal(module.AvatarMatchAllHint, module.MatchModeTip);
         Assert.True(row.CanChooseMatchMode);
@@ -153,14 +159,18 @@ public class SearchMatchModeDimTests
         // チェックの形：対応アバターなどの候補から積む条件・ユーザータグの2段・改変の2段・属性（価格の「すべての価格が範囲内」は数に依らないので別）
         var dimmable = checks.Where(e => Attr(e, "Style") == "{StaticResource MatchModeCheck}").ToList();
         Assert.Equal(6, dimmable.Count);
-        Assert.All(dimmable, e => Assert.True(Attr(e, "Visibility") is null || Attr(e, "Visibility")!.Contains("AllowsAnd")));
+
+        // 2段の外側（ユーザータグの大分類どうし・改変のアバターどうし）だけは0〜1件の間は出さない（ユーザ判断 2026-10-06。ずれは受け入れる）
+        var outer = dimmable.Where(e => Attr(e, "Visibility")?.Contains("ShowsMatchMode") == true).ToList();
+        Assert.Equal(["すべての大分類を満たす商品のみ", "すべてのアバターを満たす商品のみ"],
+            outer.Select(e => Attr(e, "AutomationProperties.Name")!.Replace("{Binding NameSuffix, StringFormat={}", "").Replace("{0}}", "")));
+        Assert.All(dimmable.Except(outer), e => Assert.True(Attr(e, "Visibility") is null || Attr(e, "Visibility")!.Contains("AllowsAnd")));
 
         // ラジオボタンの形：編集状況・更新通知あり
         Assert.Equal(2, radios.Count);
         Assert.All(radios, e => Assert.Equal("{StaticResource MatchModeRadios}", Attr(e, "Style")));
         Assert.All(radios, e => Assert.Null(Attr(e, "Visibility")));
 
-        Assert.DoesNotContain("ShowsMatchMode", File.ReadAllText(Path.Combine(ViewsFolder(), "SearchView.xaml")));
     }
 
     private static string ViewsFolder([CallerFilePath] string here = "")

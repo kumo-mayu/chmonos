@@ -75,7 +75,17 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
-        new Scene("search-missing-file", "検索の絞り込み：条件「見つからないファイル」（見つからないファイルがある）と、絞った結果のカードの印", async context =>
+        new Scene("search-edit-status-avatar-confirm", "検索の絞り込み：編集状況の項目「対応アバターの確認」を入れ、ユーザータグとすべてで結んだ所（2026-10-06 に条件から項目へ）", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context);
+            var status = (UneditedModule)AddModule(search, SearchModuleKind.Unedited);
+            status.Fields.First(toggle => toggle.Field == Chmonos.Core.Services.EditField.AvatarConfirmation).IsOn = true;
+            status.MatchAll = true;
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
+        new Scene("search-missing-file","検索の絞り込み：条件「見つからないファイル」（見つからないファイルがある）と、絞った結果のカードの印", async context =>
         {
             var (search, root) = await StartFiltersAsync(context, missing: index => index is 1 or 4);
             var module = (ChoiceModule)AddModule(search, SearchModuleKind.MissingFile);

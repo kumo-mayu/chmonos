@@ -50,6 +50,7 @@ public class SearchPriceUnpricedTests
             SupportsOutliers = true,
             SupportsMatchAll = true,
             SupportsUnpriced = true,
+            UnpricedLabelOf = _ => SearchViewModel.UnpricedLabel,
         };
         module.RefreshBounds();
         module.MinText = "500";
@@ -123,5 +124,23 @@ public class SearchPriceUnpricedTests
 
         module.IncludeUnpriced = true;
         Assert.Equal(["9900611", "9900612"], search.ListItems.Select(card => card.Item.Id).Order(StringComparer.Ordinal));
+    });
+
+    [Fact]
+    public Task チェックの文は_購入額の間は購入価格_BOOTHの価格の間はBOOTHの価格と言う() => TestApp.Run(async app =>
+    {
+        // ユーザ判断 2026-10-06：BOOTHの価格に切り替えた間も「購入価格が未設定」と出ると、何が無い商品を足すのか食い違う
+        var search = (await app.StartAsync()).Search;
+        var price = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Price);
+
+        Assert.Equal("購入価格が未設定の商品も表示", price.UnpricedLabel);
+
+        price.IncludeUnpriced = true;
+        price.Source = price.Sources.Single(source => source.Key == "booth");
+        Assert.Equal("BOOTHの価格が未設定の商品も表示", price.UnpricedLabel);
+        Assert.EndsWith("・BOOTHの価格が未設定の商品も表示", price.SummaryText);
+
+        price.Source = price.Sources.Single(source => source.Key == "paid");
+        Assert.Equal("購入価格が未設定の商品も表示", price.UnpricedLabel);
     });
 }
