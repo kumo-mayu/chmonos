@@ -3,14 +3,14 @@ using Chmonos.App.ViewModels;
 namespace ViewShot;
 
 /// <summary>
-/// カードの下の段の札（メモ52）。札が入り切らないとき、容量を先に取り、札は入るだけ出して残りを「+n」にまとめるのを、
+/// カードの下の段の札（メモ52・ユーザ判断 2026-10-06）。札が入り切らないとき、容量を先に取り、札は入るだけ出して残りを後ろから色の丸にするのを、
 /// カードの幅（スライダーの両端と中ほど）で見る。1枚目は札が少ない商品、2枚目以降は札がそろう商品（見つからない・更新あり・未編集・所持）。
 /// </summary>
 internal static partial class Scenes
 {
     private static IEnumerable<Scene> CardBadges =>
     [
-        CardBadgesScene("card-badges-160", "カードの下の段：幅160で札が多い商品（容量を先に取り、残りは「+n」）", 160),
+        CardBadgesScene("card-badges-160", "カードの下の段：幅160で札が多い商品（容量を先に取り、残りは色の丸）", 160),
         CardBadgesScene("card-badges-200", "カードの下の段：幅200で札が多い商品", 200),
         CardBadgesScene("card-badges-228", "カードの下の段：幅228で札が多い商品", 228),
     ];
