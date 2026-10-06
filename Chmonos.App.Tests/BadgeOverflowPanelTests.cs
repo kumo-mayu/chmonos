@@ -56,14 +56,29 @@ public class BadgeOverflowPanelTests
         panel.Arrange(new Rect(0, 0, panel.DesiredSize.Width, panel.DesiredSize.Height));
     }
 
-    /// <summary>札3枚＋丸2つが入る幅（3×(40+4) + 2×(10+4)）。</summary>
-    private const double ThreeAndTwoDots = 3 * (BadgeWidth + 4) + 2 * (StatusBadge.DotSlot + 4);
+    private const double Gap = 4;
+
+    /// <summary>丸の隣の間（パネルの既定）。</summary>
+    private static readonly double DotGap = new BadgeOverflowPanel().DotGap;
+
+    /// <summary>前から札 <paramref name="texts"/> 枚・丸 <paramref name="dots"/> つが、ちょうど入る幅（端の間は数えない）。</summary>
+    private static double Needed(int texts, int dots)
+    {
+        var width = texts * BadgeWidth + dots * StatusBadge.DotSlot;
+        width += Math.Max(0, texts - 1) * Gap;
+        width += Math.Max(0, dots - 1) * DotGap;
+        width += texts > 0 && dots > 0 ? DotGap : 0;
+        return width;
+    }
+
+    /// <summary>札3枚＋丸2つが入る幅。</summary>
+    private static readonly double ThreeAndTwoDots = Needed(3, 2);
 
     [Fact]
     public Task 全部入るときは_札のまま出す() => UiThread.Run(() =>
     {
         var (panel, badges) = Build(3);
-        Lay(panel, 3 * (BadgeWidth + 4));
+        Lay(panel, Needed(3, 0));
 
         Assert.Equal(0, panel.DotCount);
         Assert.All(badges, badge => Assert.False(BadgeOverflowPanel.GetIsDot(badge)));
@@ -104,12 +119,17 @@ public class BadgeOverflowPanelTests
         Lay(panel, ThreeAndTwoDots);
         Assert.Equal(2, panel.DotCount);
 
-        Lay(panel, 5 * (BadgeWidth + 4));
+        Lay(panel, Needed(5, 0));
 
         Assert.Equal(0, panel.DotCount);
         Assert.All(badges, badge => Assert.False(BadgeOverflowPanel.GetIsDot(badge)));
         Assert.All(badges, badge => Assert.Equal(BadgeWidth, badge.DesiredSize.Width));
     });
+
+    /// <summary>出した札の、パネルの中の四角（並びの順）。</summary>
+    private static List<Rect> ShownRects(BadgeOverflowPanel panel, IEnumerable<StatusBadge> badges)
+        => badges.Where(BadgeOverflowPanel.GetIsShown)
+            .Select(element => element.TransformToAncestor(panel).TransformBounds(new Rect(element.RenderSize))).ToList();
 
     [Fact]
     public Task 出した札と丸は_左端を越えず_重ならない() => UiThread.Run(() =>
@@ -118,8 +138,7 @@ public class BadgeOverflowPanelTests
         Lay(panel, 130);
 
         Assert.True(panel.DotCount > 0);
-        var rects = badges.Where(element => BadgeOverflowPanel.GetIsShown(element))
-            .Select(element => element.TransformToAncestor(panel).TransformBounds(new Rect(element.RenderSize))).ToList();
+        var rects = ShownRects(panel, badges);
         Assert.All(rects, rect => Assert.InRange(rect.Left, 0, 130));
         Assert.All(rects, rect => Assert.True(rect.Right <= panel.RenderSize.Width + 0.01));
         for (var i = 0; i < rects.Count; i++)
@@ -133,11 +152,60 @@ public class BadgeOverflowPanelTests
         Assert.True(panel.DesiredSize.Width <= 130);
     });
 
+    /// <summary>
+    /// 見えている形の左右の端（丸は押せる幅の真ん中に描く直径の分、札は枠いっぱい）。
+    /// </summary>
+    private static (double Left, double Right) Visible(Rect rect, bool dot)
+        => dot
+            ? (rect.Left + (rect.Width - StatusBadge.DotDiameter) / 2, rect.Right - (rect.Width - StatusBadge.DotDiameter) / 2)
+            : (rect.Left, rect.Right);
+
+    [Theory]
+    [InlineData(1, 4)]
+    [InlineData(2, 3)]
+    [InlineData(0, 5)]
+    public Task 丸の隣は_丸の直径より広く空ける(int texts, int dots) => UiThread.Run(() =>
+    {
+        // 間4では、丸どうしの見える隙間が6で直径8より狭く、並んだ丸が詰まって1つの塊に見えた（ユーザ指摘 2026-10-06）
+        var (panel, badges) = Build(texts + dots);
+        Lay(panel, Needed(texts, dots));
+        Assert.Equal(dots, panel.DotCount);
+
+        var rects = ShownRects(panel, badges);
+        Assert.Equal(texts + dots, rects.Count);
+        for (var i = 1; i < rects.Count; i++)
+        {
+            var leftDot = BadgeOverflowPanel.GetIsDot(badges[i - 1]);
+            var rightDot = BadgeOverflowPanel.GetIsDot(badges[i]);
+            var space = Visible(rects[i], rightDot).Left - Visible(rects[i - 1], leftDot).Right;
+            if (leftDot || rightDot)
+            {
+                Assert.True(space >= StatusBadge.DotDiameter, $"{i - 1} と {i} の見える隙間 {space}");
+            }
+            else
+            {
+                Assert.True(space >= Gap - 0.01, $"{i - 1} と {i} の隙間 {space}");
+            }
+        }
+    });
+
+    [Fact]
+    public Task 札と丸が混ざっても_左から並びの順のまま() => UiThread.Run(() =>
+    {
+        // 丸だけを右へ寄せ集めない。丸は並びの後ろの札なので、右の端に続けて出る
+        var (panel, badges) = Build(5);
+        Lay(panel, ThreeAndTwoDots);
+
+        var lefts = ShownRects(panel, badges).Select(rect => rect.Left).ToList();
+        Assert.Equal(lefts.Order(), lefts);
+        Assert.Equal([false, false, false, true, true], badges.Select(BadgeOverflowPanel.GetIsDot));
+    });
+
     [Fact]
     public Task 全部を丸にしても入らないほど狭いときは_後ろの丸から出さない() => UiThread.Run(() =>
     {
         var (panel, badges) = Build(5);
-        Lay(panel, 2 * (StatusBadge.DotSlot + 4));
+        Lay(panel, Needed(0, 2));
 
         Assert.Equal(5, panel.DotCount);
         Assert.Equal(3, panel.HiddenCount);
@@ -164,7 +232,7 @@ public class BadgeOverflowPanelTests
         panel.Children.Add(first);
         panel.Children.Add(tipped);
         panel.Children.Add(plain);
-        Lay(panel, BadgeWidth + 4 + 2 * (StatusBadge.DotSlot + 4));
+        Lay(panel, Needed(1, 2));
 
         Assert.False(BadgeOverflowPanel.GetIsDot(first));
         Assert.Equal("ファイルが見つかりません", first.ToolTip);
@@ -215,7 +283,7 @@ public class BadgeOverflowPanelTests
         BadgeOverflowPanel.SetTip(update, "通知に更新があります。押すとその通知を開きます。");
         panel.Children.Add(update);
         var host = new Grid { Children = { panel } };
-        host.Measure(new Size(BadgeWidth + 4 + StatusBadge.DotSlot + 4, 40));
+        host.Measure(new Size(Needed(1, 1), 40));
         host.Arrange(new Rect(host.DesiredSize));
 
         Assert.True(BadgeOverflowPanel.GetIsDot(update));

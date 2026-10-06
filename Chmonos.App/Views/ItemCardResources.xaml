@@ -419,7 +419,24 @@
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
                                                            VerticalAlignment="Center"
                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <!--
+                                                    並びは左から字の少ない順：所持・未編集・更新あり・取り込み中・見つからない（一部見つからない）（ユーザ判断 2026-10-06）。
+                                                    BadgeOverflowPanel は右（後ろ）の札から丸にするので、幅を取る札ほど先に丸になり、丸は右の端に続けて並ぶ（札と丸が混ざっても順は同じ）
+                                                -->
                                                 <controls:BadgeOverflowPanel Grid.Column="1" HorizontalAlignment="Right" Margin="6,0,0,0">
+                                                    <controls:StatusBadge controls:BadgeOverflowPanel.Label="所持"
+                                                            Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
+                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
+                                                    </controls:StatusBadge>
+                                                    <controls:StatusBadge controls:BadgeOverflowPanel.Label="未編集"
+                                                            Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
+                                                            controls:BadgeOverflowPanel.Tip="まだユーザータグを付けていません"
+                                                            Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                    </controls:StatusBadge>
                                                     <!-- 要確認に未読の更新がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27） -->
                                                     <Button controls:BadgeOverflowPanel.Label="更新あり" Style="{StaticResource UpdateBadgeButton}"
                                                             Command="{Binding ShowUpdateCommand}"
@@ -435,23 +452,6 @@
                                                             Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
                                                     </controls:StatusBadge>
-                                                    <controls:StatusBadge controls:BadgeOverflowPanel.Label="未編集"
-                                                            Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
-                                                            controls:BadgeOverflowPanel.Tip="まだユーザータグを付けていません"
-                                                            Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
-                                                    </controls:StatusBadge>
-                                                    <controls:StatusBadge controls:BadgeOverflowPanel.Label="所持"
-                                                            Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
-                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
-                                                    </controls:StatusBadge>
-                                                    <!--
-                                                        見つからない（一部見つからない）は一番右：札の中でいちばん幅を取るので、入らないときに真っ先に丸にする（ユーザ判断 2026-10-06）。
-                                                        BadgeOverflowPanel は後ろ（右）の札から丸にする
-                                                    -->
                                                     <controls:StatusBadge controls:BadgeOverflowPanel.Label="{Binding MissingBadgeText}"
                                                             Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1"
@@ -508,8 +508,8 @@
                                                         <Binding Path="FavoriteTip" />
                                                     </MultiBinding>
                                                 </AutomationProperties.Name>
-                                                <!-- 17（前は 15）：周りが空いていて小さく見えた（ユーザ判断 2026-10-06）。名前の欄の右下の角の余白に収まる大きさ -->
-                                                <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17">
+                                                <!-- 22（15 → 17 → 22）：周りが空いていて小さく見えた（ユーザ判断 2026-10-06「カードはもう5px」）。名前の欄の右下の角の余白に収まる大きさ -->
+                                                <TextBlock Text="{Binding FavoriteGlyph}" FontSize="22">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
@@ -989,7 +989,8 @@
                     <Binding Path="FavoriteTip" />
                 </MultiBinding>
             </AutomationProperties.Name>
-            <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
+            <!-- 18（前は 15。ユーザ判断 2026-10-06「リストはあと3px」）。行の高さは変えない -->
+            <TextBlock Text="{Binding FavoriteGlyph}" FontSize="18">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
@@ -1030,6 +1031,23 @@
         <Border Style="{StaticResource ItemListCellFrame}">
         <Grid VerticalAlignment="Center">
             <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                <!-- 左から字の少ない順（カードと同じ。未所持は所持と同じ所。ユーザ判断 2026-10-06）。リストは折り返すので丸にはしないが、読む順をカードとそろえる -->
+                <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
+                </Border>
+                <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="手元にファイルがありません"
+                        Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未所持" FontSize="10" Foreground="{DynamicResource Bad}" />
+                </Border>
+                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだユーザータグを付けていません"
+                        Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
+                </Border>
                 <Button Style="{StaticResource UpdateBadgeButton}" Margin="0,1,4,1"
                         Command="{Binding ShowUpdateCommand}"
                         AutomationProperties.AutomationId="ItemListUpdate"
@@ -1042,28 +1060,11 @@
                         Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
                 </Border>
-                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだユーザータグを付けていません"
-                        Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
-                </Border>
-                <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
-                        Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
-                </Border>
-                <!-- 見つからないはカードと同じく所持の後ろ（カードでは一番右・ユーザ判断 2026-10-06）。リストは折り返すので丸にはしないが、読む順をカードとそろえる -->
                 <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                         BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
                         ToolTip="{Binding MissingBadgeTip}"
                         Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="{Binding MissingBadgeText}" FontSize="10" Foreground="{DynamicResource Bad}" />
-                </Border>
-                <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
-                        ToolTip="手元にファイルがありません"
-                        Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="未所持" FontSize="10" Foreground="{DynamicResource Bad}" />
                 </Border>
             </WrapPanel>
             <StackPanel Orientation="Horizontal"
