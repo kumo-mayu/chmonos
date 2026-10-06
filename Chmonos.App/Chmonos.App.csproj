@@ -18,6 +18,8 @@
       台のためにそれぞれを public にすると、アプリの外へ見せる形が台の都合で決まってしまう
     -->
     <InternalsVisibleTo Include="ViewShot" />
+    <!-- 仮想の PC で Hub・VCC・ALCOM の見分けを確かめる道具（experiments/ToolDetectProbe）。見分けが読む記録そのものを書き出すため -->
+    <InternalsVisibleTo Include="ToolDetectProbe" />
   </ItemGroup>
 
   <PropertyGroup>

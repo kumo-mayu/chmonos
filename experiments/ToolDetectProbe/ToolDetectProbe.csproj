@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Unity Hub・VCC・ALCOM の見分けを、仮想の PC（何も入っていない Windows）の中で走らせて確かめる道具（2026-10-06）。
+    試験では作れない「本物の記録の形」「消した後の残りかす」「入っていないリンクを開いたときに Windows が何をするか」を見る。
+    読むだけ（引数 open を付けたときだけ、リンクとアプリを開こうとする）。保存先は持たないので、利用者のデータには触れない
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ToolDetectProbe</AssemblyName>
+    <RootNamespace>ToolDetectProbe</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Chmonos.App\Chmonos.App.csproj" />
+  </ItemGroup>
+
+</Project>
