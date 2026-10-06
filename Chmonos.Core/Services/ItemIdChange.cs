@@ -144,7 +144,38 @@ public enum ItemIdChangeOutcome
 /// <param name="Source">移す元の <c>local</c>。</param>
 /// <param name="Target">移す先の、合わせる前の <c>local</c>。</param>
 /// <param name="Merged">移す先へ書く、合わせた後の <c>local</c>。</param>
-public sealed record ItemIdChangeFingerprints(string Source, string? Target = null, string? Merged = null);
+/// <param name="References">始めた時に元のIDを指していた、商品の JSON の外の参照。始めた時の1回目にだけ入れる（後の書き直しでは null のまま、記録の値を残す）。</param>
+public sealed record ItemIdChangeFingerprints(
+    string Source,
+    string? Target = null,
+    string? Merged = null,
+    ItemIdReferences? References = null);
+
+/// <summary>
+/// IDの変更を始めた時に、元のIDを指していた参照（やりかけの記録の <c>references</c>。外部の点検 2026-10-06・L110）。
+///
+/// 続きは参照を「古いIDを新しいIDへ」書き換える。今の様子だけで当てると、止まった後に元のIDで登録し直した
+/// 持っていないアバターや、その後に作った改変まで移す先へ書き換えてしまう。続きで書き換えるのは、ここに載せた物だけにする。
+/// 載せるのは見分けに足りる最小の物（改変ID・商品ID・素体の名前と、登録簿に元のIDの行があったか）。
+/// 足跡と知らせは表示のための控えなので載せず、今の様子のまま書き換える。
+/// </summary>
+public sealed record ItemIdReferences
+{
+    /// <summary>元のIDをアバターか構成物として使っていた改変の ID。</summary>
+    public IReadOnlyList<string> Modifications { get; init; } = [];
+
+    /// <summary>
+    /// 登録簿に元のIDの行があったか。続きでは、移す先の行がまだ無いときだけ書き換える——
+    /// 移す先の行が既にあるなら、行はもう移っていて、元のIDの行は後から登録し直した物。
+    /// </summary>
+    public bool RegistryEntry { get; init; }
+
+    /// <summary>元のIDを素体そのものとして指していた素体のグループの名前。</summary>
+    public IReadOnlyList<string> BaseGroups { get; init; } = [];
+
+    /// <summary>元のIDを対応アバターとして指していた商品の ID。</summary>
+    public IReadOnlyList<string> LinkingItems { get; init; } = [];
+}
 
 /// <summary>
 /// 商品まるごとを別のIDへ移すときの、移せるもの／移せないものの決まり。

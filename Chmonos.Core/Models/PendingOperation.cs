@@ -78,6 +78,24 @@ public sealed record PendingOperation
     /// </summary>
     public string? MergedFingerprint { get; init; }
 
+    /// <summary>IDの変更：始めた時に元のIDを指していた参照。続きはこれに載った物だけを書き換える。</summary>
+    public ItemIdReferences? References { get; init; }
+
+    /// <summary>
+    /// 操作を終えた日時（済んだ・続きを当てずにやめた）。**書いてあれば、もう何も書き換えない**（外部の点検 2026-10-06・L110）。
+    /// 終えた行は消すが、消せずに残ることがある。指紋だけでは「済んだ後に同じ物を作り直した」と見分けられず、
+    /// 次の起動で作り直した物に当たっていた。消す前にここを書き、次の起動では当て直さずに消すだけにする。
+    /// </summary>
+    public DateTimeOffset? FinishedAt { get; init; }
+
+    /// <summary>
+    /// 終えたのが、記録した時から対象が変わっていて続きを当てずにやめた物か。そのとき出した「続きは行いませんでした」の知らせは、
+    /// 行を消せたときも解消済みにしない。**立っていないときは書き出さない。**
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Skipped { get; init; }
+
     /// <summary>タグ・属性：始める前の一覧（タグの一覧・属性の一覧）の丸ごとの指紋。</summary>
     public string? MasterFingerprint { get; init; }
 

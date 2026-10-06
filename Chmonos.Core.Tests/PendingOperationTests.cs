@@ -189,6 +189,9 @@ public sealed class PendingOperationTests : IDisposable
             SourceFingerprint = OperationFingerprint.Of(new LocalBlock()),
             TargetFingerprint = OperationFingerprint.Of(new LocalBlock()),
             MergedFingerprint = written,
+
+            // 始めた時に元のIDを指していた参照（本物の操作が1回目の記録に書く物）
+            References = new ItemIdReferences { Modifications = ["mod-99001"], RegistryEntry = true, LinkingItems = ["9900102"] },
         });
 
         Assert.Equal(1, await Runner().ResumeAsync());
@@ -666,6 +669,220 @@ public sealed class PendingOperationTests : IDisposable
 
         Assert.Null(await Runner().RenameAttributeAsync("質", "質感", AttributeMergeValue.KeepTarget, CancellationToken.None));
         Assert.Equal(["質"], _store.Attributes.Load().Attributes.Select(definition => definition.Name));
+    }
+
+    // ---- 済んだのに消せずに残った記録（外部の点検 2026-10-06・L110） ----
+
+    /// <summary>
+    /// 元のIDがアバターで、改変・登録簿・ほかの商品の対応アバターから指されている様子を作り、IDの変更を最後まで走らせる。
+    /// 終わり際（ほかの商品の対応アバターを書き換える所）で待たせ、その間に記録のファイルを書けなくするので、
+    /// 操作は済むが、終えた印も書けず行も消せずに残る（記録の指紋と参照は本物の段で書かれる）。
+    /// </summary>
+    private async Task<PendingOperation> ChangeIdLeavingRecordAsync()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ", LocalFiles = [File("aaa")] }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock()));
+        await _store.Items.SaveAsync(Item("9900102", new LocalBlock { Avatars = [new AvatarLink { AvatarItemId = FromId }] }));
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-99001",
+            AvatarItemId = FromId,
+            Name = "普段着",
+            CreatedAt = DateTimeOffset.Now,
+            UpdatedAt = DateTimeOffset.Now,
+        });
+        await _store.Avatars.SaveAsync(new AvatarRegistry { Entries = [new AvatarRegistryEntry { ItemId = FromId }] });
+
+        var gate = await HoldItemAsync("9900102");
+        var running = Runner().ChangeItemIdAsync(FromId, ToId, null, CancellationToken.None);
+        await WaitUntilAsync(() => !System.IO.File.Exists(_store.Paths.ItemFile(FromId))
+            && _store.Avatars.Load().Entries.Any(entry => entry.ItemId == ToId));
+        using (HoldFile(_store.PendingOperations.Path))
+        {
+            gate.SetResult();
+            Assert.Equal(ItemIdChangeOutcome.Moved, await running);
+        }
+
+        Assert.Equal(ToId, (await _store.Modifications.LoadAsync("mod-99001"))!.AvatarItemId);
+        Assert.Equal(ToId, (await _store.Items.LoadAsync("9900102"))!.Local.Avatars.Single().AvatarItemId);
+        var left = Assert.Single(Records());
+        Assert.Null(left.FinishedAt);
+        Assert.Equal(["mod-99001"], left.References!.Modifications);
+        Assert.Equal(PendingOperationRunner.NotRemovedDetail, Assert.Single(_store.Notifications.Load()).Detail);
+        return left;
+    }
+
+    /// <summary>終えた印は書けたが、行は消せなかった様子にする（印を書く所と消す所の間で落ちた）。</summary>
+    private async Task MarkFinishedAsync(bool skipped = false)
+        => await _store.PendingOperations.UpdateAsync(list => [.. list.Select(entry => entry with { FinishedAt = DateTimeOffset.Now, Skipped = skipped })]);
+
+    /// <summary>元のIDを「持っていないアバター」として登録し直し、それを使う改変を作る（点検の手順）。</summary>
+    private async Task RegisterAgainAsUnownedAvatarAsync()
+    {
+        await _store.Avatars.UpdateAsync(registry => new AvatarRegistry
+        {
+            DetectedAt = registry.DetectedAt,
+            Entries = [.. registry.Entries, new AvatarRegistryEntry { ItemId = FromId, IsOwnedManually = false, Memo = "登録し直した" }],
+            BaseGroups = registry.BaseGroups,
+        });
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-99002",
+            AvatarItemId = FromId,
+            Name = "後で作った",
+            CreatedAt = DateTimeOffset.Now,
+            UpdatedAt = DateTimeOffset.Now,
+            Members = [new ModificationMember { ItemId = FromId }],
+        });
+    }
+
+    [Fact]
+    public async Task IDの変更_済んで終えた印だけ残った後で元のIDを登録し直して改変を作っても_次の起動で書き換わらず記録が消える()
+    {
+        await ChangeIdLeavingRecordAsync();
+        await MarkFinishedAsync();
+        await RegisterAgainAsUnownedAvatarAsync();
+
+        // 始めた時に元のIDを指していた商品が、登録し直したアバターをもう一度指す（記録の参照に載っている商品）
+        await _store.Items.ChangeLocalAsync(
+            "9900102",
+            local => local with { Avatars = [.. local.Avatars, new AvatarLink { AvatarItemId = FromId }] },
+            LocalOwners.SupportedAvatars);
+
+        Assert.Equal(1, await Runner().ResumeAsync());
+
+        var made = (await _store.Modifications.LoadAsync("mod-99002"))!;
+        Assert.Equal(FromId, made.AvatarItemId);
+        Assert.Equal([FromId], made.Members.Select(member => member.ItemId));
+        Assert.Equal([ToId, FromId], _store.Avatars.Load().Entries.Select(entry => entry.ItemId).Order(StringComparer.Ordinal));
+        Assert.Equal([ToId, FromId], (await _store.Items.LoadAsync("9900102"))!.Local.Avatars.Select(link => link.AvatarItemId));
+        Assert.Null(await _store.Items.LoadAsync(FromId));
+        Assert.Empty(Records());
+        Assert.True(Assert.Single(_store.Notifications.Load()).IsResolved);
+        Assert.Equal(0, _http.Requests);
+    }
+
+    /// <summary>
+    /// 終えた印さえ書けずに残った行（保存先に書けなかった）。次の起動では指紋で見分けて続きを当てるが、
+    /// 参照は始めた時に記録した物だけを書き換えるので、後で作った改変と登録し直した登録簿の行には当たらない。
+    /// </summary>
+    [Fact]
+    public async Task IDの変更_終えた印も書けずに残った後で元のIDを登録し直して改変を作っても_次の起動で書き換わらない()
+    {
+        await ChangeIdLeavingRecordAsync();
+        await RegisterAgainAsUnownedAvatarAsync();
+
+        Assert.Equal(1, await Runner().ResumeAsync());
+
+        var made = (await _store.Modifications.LoadAsync("mod-99002"))!;
+        Assert.Equal(FromId, made.AvatarItemId);
+        Assert.Equal([FromId], made.Members.Select(member => member.ItemId));
+        var registry = _store.Avatars.Load().Entries;
+        Assert.Equal([ToId, FromId], registry.Select(entry => entry.ItemId).Order(StringComparer.Ordinal));
+        Assert.Equal("登録し直した", registry.Single(entry => entry.ItemId == FromId).Memo);
+        Assert.Empty(Records());
+    }
+
+    [Fact]
+    public async Task タグの名前の変更_済んで終えた印だけ残った後で元の名前を同じ内容で作り直し同じ付け方に戻しても_次の起動で当たらない()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装")] });
+        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "衣装" })));
+
+        var gate = await HoldItemAsync("9900111");
+        var running = Runner().RenameUserTagAsync("衣装", null, "服", CancellationToken.None);
+        await WaitUntilAsync(() => Records().Count == 1 && _store.UserTags.Load().Tops.Any(top => top.Name == "服"));
+        using (HoldFile(_store.PendingOperations.Path))
+        {
+            gate.SetResult();
+            Assert.NotNull(await running);
+        }
+
+        Assert.Single(Records());
+        await MarkFinishedAsync();
+
+        // 改名先を消し、元の名前を同じ内容で作り直し、同じ商品へ同じ付け方に戻す（一覧と付け方の指紋が始める前と同じになる）
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装")] });
+        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "衣装" })));
+
+        Assert.Equal(1, await Runner().ResumeAsync());
+
+        Assert.Equal(["衣装"], _store.UserTags.Load().Tops.Select(top => top.Name));
+        Assert.Equal("衣装", (await _store.Items.LoadAsync("9900111"))!.Local.UserTags.Single().Top);
+        Assert.Empty(Records());
+        var notice = Assert.Single(_store.Notifications.Load());
+        Assert.Equal(PendingOperationRunner.NotRemovedDetail, notice.Detail);
+        Assert.True(notice.IsResolved);
+    }
+
+    [Fact]
+    public async Task 属性の名前の変更_済んで終えた印だけ残った後で元の名前を同じ内容で作り直し同じ値に戻しても_次の起動で当たらない()
+    {
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
+        await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
+
+        var gate = await HoldItemAsync("9900121");
+        var running = Runner().RenameAttributeAsync("質", "質感", AttributeMergeValue.KeepTarget, CancellationToken.None);
+        await WaitUntilAsync(() => Records().Count == 1 && _store.Attributes.Load().Attributes.Any(definition => definition.Name == "質感"));
+        using (HoldFile(_store.PendingOperations.Path))
+        {
+            gate.SetResult();
+            Assert.NotNull(await running);
+        }
+
+        await MarkFinishedAsync();
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
+        await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
+
+        Assert.Equal(1, await Runner().ResumeAsync());
+
+        Assert.Equal(["質"], _store.Attributes.Load().Attributes.Select(definition => definition.Name));
+        Assert.Equal(4, (await _store.Items.LoadAsync("9900121"))!.Local.Attributes["質"]);
+        Assert.Empty(Records());
+        Assert.True(Assert.Single(_store.Notifications.Load()).IsResolved);
+    }
+
+    /// <summary>当てずにやめた（記録した時から変わっていた）のに消せなかった行は、次の起動で消すが、「続きは行いませんでした」の知らせは残す。</summary>
+    [Fact]
+    public async Task 当てずにやめた印の行は_次の起動で当てずに消し_知らせは解消済みにしない()
+    {
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
+        await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
+        var recorded = await LeaveRecordAsync(
+            await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" }));
+        await MarkFinishedAsync(skipped: true);
+        await _notifications.AddAsync(new NotificationRecord
+        {
+            Id = PendingOperationRunner.NotificationPrefix + recorded.Id,
+            Kind = NotificationKind.UnfinishedOperation,
+            Title = "t",
+            Detail = PendingOperationRunner.ChangedDetail,
+            CreatedAt = DateTimeOffset.Now,
+        });
+
+        Assert.Equal(1, await Runner().ResumeAsync());
+
+        // 指紋は始める前のままなので、印が無ければ当たる様子
+        Assert.Equal(["質"], _store.Attributes.Load().Attributes.Select(definition => definition.Name));
+        Assert.Empty(Records());
+        var notice = Assert.Single(_store.Notifications.Load());
+        Assert.Equal(PendingOperationRunner.ChangedDetail, notice.Detail);
+        Assert.False(notice.IsResolved);
+    }
+
+    [Fact]
+    public async Task 終えた印と参照は_欄の名前で読める形で記録に書かれる()
+    {
+        await ChangeIdLeavingRecordAsync();
+        await MarkFinishedAsync();
+
+        var text = await System.IO.File.ReadAllTextAsync(_store.PendingOperations.Path);
+        Assert.Contains("\"finishedAt\"", text);
+        Assert.Contains("\"references\"", text);
+        Assert.Contains("\"modifications\"", text);
+        Assert.Contains("\"linkingItems\"", text);
+        Assert.Contains("\"registryEntry\": true", text);
+        Assert.DoesNotContain("\"skipped\"", text);
     }
 
     // ---- 続きの失敗 ----

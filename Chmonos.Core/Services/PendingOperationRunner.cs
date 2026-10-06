@@ -13,7 +13,7 @@ namespace Chmonos.Core.Services;
 /// **記録を書けなければ始めない**（落ちたときに続きを当てる手掛かりが無くなるため）。
 /// 続きは、どの段も2回当てても同じ結果になる作りに頼る（タグ・属性は操作をそのままもう一度、IDの変更は <see cref="IItemService.ResumeItemIdChangeAsync"/>）。
 /// 当てる前に、記録した指紋（<see cref="OperationFingerprint"/>）で「記録した時と同じ物か」を見分け、違えば当てずに知らせて記録を消す。
-/// 済んだ記録を消せなかったときも済んだ扱いにせず知らせる。
+/// 終えた記録は、消す前に終えた印を書く。消せずに残った行は次の起動で当て直さずに消すだけにし、消せなかったことは知らせる。
 ///
 /// 命令の層（<see cref="Commands.CommandHandler"/>）が1つ持つ。
 /// </summary>
@@ -96,6 +96,9 @@ public sealed class PendingOperationRunner
                 SourceFingerprint = fingerprints.Source,
                 TargetFingerprint = fingerprints.Target,
                 MergedFingerprint = fingerprints.Merged,
+
+                // 参照は始めた時の1回目にだけ渡る。書き直しでは記録の値を残す
+                References = fingerprints.References ?? entry.References,
             };
 
             try
@@ -193,25 +196,27 @@ public sealed class PendingOperationRunner
             handled++;
             try
             {
-                if (!await ResumeOneAsync(operation, cancellationToken))
+                // 終えた印のある行は、前の起動で済んだ（または当てずにやめた）のに消せなかった物。**当て直さずに消すだけ。**
+                // 指紋だけでは「済んだ後に同じ物を作り直した」と見分けられず、作り直した参照・名前に当たっていた（L110）
+                if (operation.FinishedAt is null && !await ResumeOneAsync(operation, cancellationToken))
                 {
                     // 記録した時から変わっていた物には当てない。記録は消す——残すと、起動のたびに同じ物を見て止まるだけで、
-                    // 使う人が今の様子のままもう一度操作しても、この行は消えない
+                    // 使う人が今の様子のままもう一度操作しても、この行は消えない。消せなくても終えた印で次は当てない
                     AppLog.Warn("やりかけの操作の続き", $"{operation.Kind} は記録した時から対象が変わっていた。当てずに記録を消す");
-                    await RemoveAsync(operation, cancellationToken);
+                    await FinishAsync(operation, skipped: true, cancellationToken);
                     await NotifyAsync(operation, ChangedDetail, cancellationToken);
                     continue;
                 }
 
-                if (!await RemoveAsync(operation, cancellationToken))
+                if (!await FinishAsync(operation, operation.Skipped, cancellationToken))
                 {
-                    // 済んだ扱いにしない（知らせを解消済みにしない）。残った行は次の起動でまた見分ける。
-                    // 済んだ操作はもう一度当てても変わらず、後で同じID・名前で作り直した物は指紋が合わないので当たらない
-                    await NotifyAsync(operation, NotRemovedDetail, cancellationToken);
+                    // 済んだ扱いにしない（知らせを解消済みにしない）。残った行は終えた印で、次の起動では消すだけになる
+                    await NotifyAsync(operation, operation.Skipped ? ChangedDetail : NotRemovedDetail, cancellationToken);
                     continue;
                 }
 
-                if (_notifications is not null)
+                // 当てずにやめた物の知らせ（続きは行いませんでした）は、行を消せても残す——使う人が操作し直すかを決める
+                if (_notifications is not null && !operation.Skipped)
                 {
                     await _notifications.ResolveAsync([NotificationPrefix + operation.Id], cancellationToken);
                 }
@@ -233,7 +238,7 @@ public sealed class PendingOperationRunner
         {
             case PendingOperationKind.ChangeItemId:
                 var recorded = operation.SourceFingerprint is { } source
-                    ? new ItemIdChangeFingerprints(source, operation.TargetFingerprint, operation.MergedFingerprint)
+                    ? new ItemIdChangeFingerprints(source, operation.TargetFingerprint, operation.MergedFingerprint, operation.References)
                     : null;
                 var outcome = await _items.ResumeItemIdChangeAsync(
                     Required(operation.FromId),
@@ -420,7 +425,7 @@ public sealed class PendingOperationRunner
             }
 
             var result = await run();
-            if (!await RemoveAsync(operation, cancellationToken))
+            if (!await FinishAsync(operation, skipped: false, cancellationToken))
             {
                 // 操作は済んでいるので結果はそのまま返す。記録が残ったことは知らせる（済んだ扱いにしない）
                 await NotifyAsync(operation, NotRemovedDetail, cancellationToken);
@@ -438,10 +443,43 @@ public sealed class PendingOperationRunner
     }
 
     /// <summary>
-    /// 済んだ記録を消す。**消せなければ偽**を返し、呼んだ所が知らせる。
+    /// 終えた記録に終えた印（<see cref="PendingOperation.FinishedAt"/>）を書いてから、行を消す。**消せなければ偽**を返し、呼んだ所が知らせる。
+    ///
+    /// 印を先に書くのは、消せずに残った行を次の起動で当て直さないため。指紋は「記録した時と同じ物か」しか見られず、
+    /// 済んだ後に同じ ID で登録し直した物・同じ名前と付け方で作り直したタグや属性は、記録した時と同じに見えて当たっていた
+    /// （外部の点検 2026-10-06・L110）。
+    /// **印も書けなかったとき**（保存先に書けない）は、消すのも同じファイルなので多くは残る。残った行は印の無いまま、
+    /// 次の起動で指紋と始めた時に記録した参照で見分けて続きを当てる——済んだ物は2回当てても変わらず、
+    /// 印を書けない間に作り直された物だけが見分けの届かない所として残る。保存先に書けない間は使う人の操作も書けないので、そこまでは追わない。
+    /// </summary>
+    private async Task<bool> FinishAsync(PendingOperation operation, bool skipped, CancellationToken cancellationToken)
+    {
+        if (operation.FinishedAt is null)
+        {
+            try
+            {
+                var finishedAt = DateTimeOffset.Now;
+                await _journal!.TryUpdateAsync(
+                    list => list.Any(entry => entry.Id == operation.Id && entry.FinishedAt is null)
+                        ? [.. list.Select(entry => entry.Id == operation.Id ? entry with { FinishedAt = finishedAt, Skipped = skipped } : entry)]
+                        : null,
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                // 消すのはこの後でもう一度試す。消せれば印は要らない
+                AppLog.Error($"やりかけの記録に終えた印を書く（{operation.Kind}）", exception);
+            }
+        }
+
+        return await RemoveAsync(operation, cancellationToken);
+    }
+
+    /// <summary>
+    /// 終えた記録を消す。**消せなければ偽**を返す。
     /// 前は消せなくても済んだ扱いにしていた。記録には ID と名前しか無かったので、後で同じ ID の商品を登録し直す・
     /// 同じ名前のタグや属性を作ると、次の起動で古い操作がそれに当たっていた（外部の点検 2026-10-06・L108）。
-    /// 今は指紋で見分けるので当たらないが、残ったことは使う人に見えるようにする。
+    /// 今は終えた印で当て直さないが、残ったことは使う人に見えるようにする。
     /// </summary>
     private async Task<bool> RemoveAsync(PendingOperation operation, CancellationToken cancellationToken)
     {
