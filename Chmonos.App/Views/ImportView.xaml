@@ -31,24 +31,6 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-
-            <!-- 探した結果のファイル1行（紐付け直した物・見つからなかった物で同じ形。メモ73） -->
-            <DataTemplate x:Key="MissingFileResultRowTemplate" DataType="{x:Type vm:MissingFileResultRow}">
-                <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,7,0,5">
-                    <StackPanel>
-                        <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
-                                HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
-                                AutomationProperties.AutomationId="ImportMissingResultItem"
-                                ToolTip="商品ページを開きます。" />
-                        <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextWrapping="Wrap" Margin="0,3,0,0"
-                                   ToolTip="{Binding PathTip}" />
-                        <TextBlock Text="{Binding FolderText, StringFormat=新しい場所：{0}}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                   Visibility="{Binding HasFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    </StackPanel>
-                </Border>
-            </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
@@ -68,7 +50,7 @@
             </StackPanel>
         </Border>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="ImportScroll" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,20" MaxWidth="{StaticResource ReadingMaxWidth}">
 
                 <!-- 取り込み元 -->
@@ -248,97 +230,6 @@
                                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
-
-                                <!--
-                                    探した結果の中身（手触りの確認 2026-10-06・メモ73）。前は上の1行だけで、どの商品のどのファイルが
-                                    どこへ移ったのかが分からず、結び直っていたのに見つからなかったように見えた。
-                                    多ければ畳んで出す（ImportViewModel.ResultFoldOver）。商品名は押すと商品ページを開く
-                                -->
-                                <TextBlock Text="{Binding MissingSearchNotes}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
-                                           AutomationProperties.AutomationId="ImportMissingSearchNotes"
-                                           Visibility="{Binding HasMissingSearchNotes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,12,0,0"
-                                          IsExpanded="{Binding IsRelinkedExpanded, Mode=TwoWay}"
-                                          AutomationProperties.AutomationId="ImportRelinkedFiles" AutomationProperties.Name="紐付け直したファイル"
-                                          Visibility="{Binding HasRelinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" FontSize="12.5"><Run Text="紐付け直したファイル" /><Run Text="{Binding RelinkedCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
-                                    </Expander.Header>
-                                    <ItemsControl ItemsSource="{Binding RelinkedFiles}" ItemTemplate="{StaticResource MissingFileResultRowTemplate}" Margin="30,2,0,0" />
-                                </Expander>
-
-                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,12,0,0"
-                                          IsExpanded="{Binding IsNotFoundExpanded, Mode=TwoWay}"
-                                          AutomationProperties.AutomationId="ImportNotFoundFiles" AutomationProperties.Name="見つからなかったファイル"
-                                          Visibility="{Binding HasNotFoundFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" FontSize="12.5"><Run Text="見つからなかったファイル" /><Run Text="{Binding NotFoundCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
-                                    </Expander.Header>
-                                    <StackPanel Margin="30,2,0,0">
-                                        <ItemsControl ItemsSource="{Binding NotFoundFiles}" ItemTemplate="{StaticResource MissingFileResultRowTemplate}" />
-                                        <TextBlock Text="{Binding NotFoundHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                                    </StackPanel>
-                                </Expander>
-
-                                <!--
-                                    見つからない登録フォルダと、移した先かもしれないフォルダ（見つからない・移動の点検 10-A）。
-                                    フォルダはハッシュを持たないので同じ物と言い切れない。候補として並べ、押した物だけ差し替える
-                                -->
-                                <StackPanel Margin="0,12,0,0"
-                                            Visibility="{Binding HasMissingFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="見つからない登録フォルダ" Style="{StaticResource SectionLabel}" />
-                                    <controls:ContentItemsControl ItemsSource="{Binding MissingFolders}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="0,6,0,0">
-                                                    <StackPanel>
-                                                        <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontWeight="SemiBold" FontSize="12.5"
-                                                                HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
-                                                                AutomationProperties.AutomationId="ImportMissingFolderItem"
-                                                                ToolTip="商品ページを開きます。" />
-                                                        <DockPanel Margin="0,3,0,0">
-                                                            <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
-                                                                       Margin="10,0,0,0" VerticalAlignment="Top" />
-                                                            <TextBlock Text="{Binding Path, StringFormat=元の場所：{0}}" Style="{StaticResource Caption}"
-                                                                       TextWrapping="Wrap" />
-                                                        </DockPanel>
-
-                                                        <ItemsControl ItemsSource="{Binding Candidates}" Margin="14,6,0,0">
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <Grid Margin="0,0,0,5">
-                                                                        <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="*" />
-                                                                            <ColumnDefinition Width="Auto" />
-                                                                        </Grid.ColumnDefinitions>
-                                                                        <StackPanel VerticalAlignment="Center">
-                                                                            <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" TextWrapping="Wrap" />
-                                                                            <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0">
-                                                                                <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding CountText, Mode=OneWay}" />
-                                                                            </TextBlock>
-                                                                        </StackPanel>
-                                                                        <Button Grid.Column="1" Content="この場所にする" Style="{StaticResource SmallButton}"
-                                                                                Margin="10,0,0,0" VerticalAlignment="Center"
-                                                                                AutomationProperties.AutomationId="ImportUseFolderCandidate"
-                                                                                AutomationProperties.Name="{Binding Path, StringFormat={}{0}を登録の場所にする}"
-                                                                                Command="{Binding DataContext.UseFolderCandidateCommand, RelativeSource={RelativeSource AncestorType=controls:ContentItemsControl}}"
-                                                                                CommandParameter="{Binding}"
-                                                                                ToolTip="登録の場所をここに変えます。ファイルは動かしません。" />
-                                                                    </Grid>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
-
-                                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                                                   AutomationProperties.AutomationId="ImportMissingFolderStatus"
-                                                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </controls:ContentItemsControl>
-                                </StackPanel>
                             </StackPanel>
                         </Border>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,12,18,14"
@@ -371,6 +262,145 @@
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
+                        </controls:ContentItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    見つからないファイルを探した結果（メモ74 で監視対象の欄から独立させた）。紐付け直したファイル・見つからなかったファイル・
+                    見つからない登録フォルダは数千件になり得るので、見出しと行を1本に並べて見えている行だけを作る（通知の画面と同じ作り）。
+                    画面全体は1本のスクロールの中にあり、その中の一覧は仮想化が効かない（中の板が高さの制限なしで測られ、全部の行を作る。
+                    docs/dev/wpf.md「一覧と速さ」）。一覧の高さを窓の見えている高さまでにして、中で流す。端まで流したらホイールは画面へ渡す。
+                    置き場所は監視対象のすぐ下：押した「探す…」のボタンから近く、監視フォルダが数本なら押した位置のまま結果の頭が見える。
+                    並べる物も探せなかった場所の文も無ければ、欄ごと出さない
+                -->
+                <Border x:Name="MissingResultCard" Style="{StaticResource Card}" Margin="0,16,0,0"
+                        AutomationProperties.AutomationId="ImportMissingResult"
+                        Visibility="{Binding HasMissingResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <StackPanel>
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                            <StackPanel>
+                                <TextBlock Text="見つからないファイルを探した結果" FontWeight="Bold" FontSize="13" />
+                                <TextBlock Text="{Binding MissingSearchNotes}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                           AutomationProperties.AutomationId="ImportMissingSearchNotes"
+                                           Visibility="{Binding HasMissingSearchNotes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 高さの上限は、見えている高さから欄の頭（見出しと上下の余白）の分を引いた物。欄の頭を上端に寄せれば一覧が窓に収まる -->
+                        <controls:ContentItemsControl x:Name="MissingResultList" ItemsSource="{Binding MissingResultLines}"
+                                                      MaxHeight="{Binding ViewportHeight, ElementName=ImportScroll, Converter={x:Static vm:SubtractConverter.Instance}, ConverterParameter=70}"
+                                                      AutomationProperties.AutomationId="ImportMissingResultList"
+                                                      AutomationProperties.Name="見つからないファイルを探した結果"
+                                                      controls:ArrowGroup.IsEnabled="True"
+                                                      controls:ForwardWheel.AtEdges="True"
+                                                      VirtualizingPanel.IsVirtualizing="True"
+                                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                                      VirtualizingPanel.ScrollUnit="Pixel"
+                                                      ScrollViewer.CanContentScroll="True">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                                  CanContentScroll="True" Focusable="False" Padding="18,0,18,14">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.Resources>
+                                <!--
+                                    見出し。中身の無い三角の Expander で、見た目と読み上げの開閉は商品ページ・前の結果の見出しと同じ。
+                                    中身の行は一覧の後ろの行として並び、畳むと一覧から抜ける（入れ子にすると仮想化されない）
+                                -->
+                                <DataTemplate DataType="{x:Type vm:MissingResultHeadLine}">
+                                    <Expander Style="{StaticResource TriangleExpander}" Margin="0,12,0,4"
+                                              IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                              AutomationProperties.AutomationId="{Binding AutomationId}" AutomationProperties.Name="{Binding Title}">
+                                        <Expander.Header>
+                                            <TextBlock FontWeight="SemiBold" FontSize="12.5"><Run Text="{Binding Title, Mode=OneWay}" /><Run Text="{Binding CountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
+                                        </Expander.Header>
+                                    </Expander>
+                                </DataTemplate>
+
+                                <!-- ファイル1行（紐付け直した物・見つからなかった物で同じ形。メモ73）。見出しの三角の分だけ字下げする -->
+                                <DataTemplate DataType="{x:Type vm:MissingFileResultRow}">
+                                    <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,7,0,5" Margin="30,0,0,0">
+                                        <StackPanel>
+                                            <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
+                                                    HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
+                                                    AutomationProperties.AutomationId="ImportMissingResultItem"
+                                                    ToolTip="商品ページを開きます。" />
+                                            <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                       ToolTip="{Binding PathTip}" />
+                                            <TextBlock Text="{Binding FolderText, StringFormat=新しい場所：{0}}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                       Visibility="{Binding HasFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+
+                                <!-- 見つからなかったファイルの次の手 -->
+                                <DataTemplate DataType="{x:Type vm:MissingResultHintLine}">
+                                    <TextBlock Text="{Binding Text}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="30,6,0,0" />
+                                </DataTemplate>
+
+                                <!--
+                                    見つからない登録フォルダと、移した先かもしれないフォルダ（見つからない・移動の点検 10-A）。
+                                    フォルダはハッシュを持たないので同じ物と言い切れない。候補として並べ、押した物だけ差し替える。
+                                    候補は1つの登録フォルダに5つまでなので、行の中で並べてよい
+                                -->
+                                <DataTemplate DataType="{x:Type vm:MissingFolderRow}">
+                                    <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="30,0,0,0">
+                                        <StackPanel>
+                                            <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
+                                                    HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
+                                                    AutomationProperties.AutomationId="ImportMissingFolderItem"
+                                                    ToolTip="商品ページを開きます。" />
+                                            <DockPanel Margin="0,3,0,0">
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
+                                                           Margin="10,0,0,0" VerticalAlignment="Top" />
+                                                <TextBlock Text="{Binding Path, StringFormat=元の場所：{0}}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" />
+                                            </DockPanel>
+
+                                            <ItemsControl ItemsSource="{Binding Candidates}" Margin="14,6,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,5">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" TextWrapping="Wrap" />
+                                                                <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0">
+                                                                    <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding CountText, Mode=OneWay}" />
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                            <Button Grid.Column="1" Content="この場所にする" Style="{StaticResource SmallButton}"
+                                                                    Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                    AutomationProperties.AutomationId="ImportUseFolderCandidate"
+                                                                    AutomationProperties.Name="{Binding Path, StringFormat={}{0}を登録の場所にする}"
+                                                                    Command="{Binding DataContext.UseFolderCandidateCommand, RelativeSource={RelativeSource AncestorType=controls:ContentItemsControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    ToolTip="登録の場所をここに変えます。ファイルは動かしません。" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                       AutomationProperties.AutomationId="ImportMissingFolderStatus"
+                                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.Resources>
                         </controls:ContentItemsControl>
                     </StackPanel>
                 </Border>

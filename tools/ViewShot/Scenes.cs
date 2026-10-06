@@ -41,6 +41,7 @@ internal static partial class Scenes
         .. CardBadges,
         .. ShopScenes,
         .. ShopPerfScenes,
+        .. ImportMissingPerfScenes,
         .. FolderTree,
         .. Inbox,
         .. Dialogs,

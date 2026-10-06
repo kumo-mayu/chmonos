@@ -157,7 +157,7 @@ internal static partial class Scenes
             ]);
             await context.SettleAsync();
 
-            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+            return await ResultCardShotAsync(context, root);
         }),
 
         // 探した結果の中身（手触りの確認 2026-10-06・メモ73）。紐付け直した物は開いて、見つからなかった物は多いので畳んで出る。
@@ -224,7 +224,7 @@ internal static partial class Scenes
             ]);
             await context.SettleAsync();
 
-            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+            return await ResultCardShotAsync(context, root);
         }),
 
         // 探した結果で、見つからなかった物だけの回（少ないので開いて出て、下に次の手が出る。メモ73）
@@ -252,9 +252,66 @@ internal static partial class Scenes
             import.ShowMissingFiles(result);
             await context.SettleAsync();
 
-            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+            return await ResultCardShotAsync(context, root);
+        }),
+
+        // 結果が数千件の回（メモ74）。開いた見出しの一覧は欄の中で流れ、見えている行だけが作られる。途中まで流した所を撮る
+        new Scene("import-missing-results-many", "見つからないファイルを探した結果：3000件を開いて途中まで流した一覧（欄の中で流れる）・登録フォルダ", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var import = context.Screen<ImportViewModel>();
+            var result = new MissingFileSearchResult
+            {
+                MissingBefore = 6000,
+                Relinked = 3000,
+                Hashed = 6000,
+                RelinkedFiles = [.. Enumerable.Range(0, 3000).Select(i => new MissingFileOutcome
+                {
+                    ItemId = $"99{i:00000}",
+                    ItemName = $"作り物の衣装{i:0000}",
+                    OldPaths = [$@"D:\Booth\downloads\costume_{i:0000}.zip"],
+                    NewPath = $@"E:\保管\衣装\costume_{i:0000}.zip",
+                })],
+                NotFoundFiles = [.. Enumerable.Range(3000, 3000).Select(i => new MissingFileOutcome
+                {
+                    ItemId = $"99{i:00000}",
+                    ItemName = $"作り物の小物{i:0000}",
+                    OldPaths = [$@"D:\Booth\downloads\accessory_{i:0000}.zip"],
+                })],
+            };
+            Backdoor.ShowMissingSearchText(import, ImportViewModel.MissingSearchSummary(result));
+            import.ShowMissingFiles(result);
+            import.ShowMissingFolders(
+            [
+                new MissingFolder { ItemId = "9900702", ItemName = "作り物の髪型", Path = @"D:\Booth\extracted\hair", FileCount = 8, TotalBytes = 12_300_000 },
+            ]);
+            import.IsRelinkedExpanded = true;
+            await context.SettleAsync();
+
+            var list = Look.Named<ItemsControl>(root, "MissingResultList") ?? throw new InvalidOperationException("結果の一覧が見つかりません。");
+            Look.All<ScrollViewer>(list).First().ScrollToVerticalOffset(60_000);
+            await context.SettleAsync();
+
+            return await ResultCardShotAsync(context, root);
         }),
     ];
+
+    /// <summary>探した結果の欄を窓の上の方へ送って、欄を切り出す（欄は監視対象の下にあり、高さ800では下が窓の外に出る）。</summary>
+    private static async Task<Shot> ResultCardShotAsync(SceneContext context, System.Windows.FrameworkElement root)
+    {
+        if (Look.Named<Border>(root, "MissingResultCard") is { IsVisible: true } card)
+        {
+            card.BringIntoView(new System.Windows.Rect(0, 0, card.ActualWidth, Math.Min(card.ActualHeight, 2000)));
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.Named<Border>(root, "MissingResultCard") };
+        }
+
+        return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+    }
 
     private static IEnumerable<Scene> Item =>
     [
