@@ -246,7 +246,9 @@ public class SearchChoiceModulesTests
         Assert.Equal([2, 2, 4], module.Options.Select(option => option.Count));
         Pick(module, "both");
         Assert.False(module.HasFlag);
-        Assert.True(module.Save().Flag);
+        // 切り替えは名前で持つ（使い回しの Flag には書かない）
+        Assert.True(module.Save().Toggles!["allMissingIsUnowned"]);
+        Assert.False(module.Save().Flag);
     });
 
     [Fact]
@@ -434,5 +436,28 @@ public class SearchChoiceModulesTests
         Assert.True(chip.DisplayText.Length <= 18);
         Assert.Equal(chip.Text, chip.ToolTipText);
         Assert.Equal("衣装", category.Chips.Single().DisplayText);
+    });
+
+    /// <summary>
+    /// 前の版は切り替えの無い三択の条件にも使い回しの Flag=true を書いていた。後から足した切り替えがそれを「入れた」と読むと、
+    /// 所持の条件が黙って意味を変えた（友人のデータの互換性の点検 2026-10-06）。切り替えは名前で持ち、Flag は読まない
+    /// </summary>
+    [Theory]
+    [InlineData(SearchModuleKind.Owned, "allMissingIsUnowned", false)]
+    [InlineData(SearchModuleKind.MissingFile, "includeUnowned", true)]
+    [InlineData(SearchModuleKind.Gift, "includeUnrecorded", false)]
+    [InlineData(SearchModuleKind.FreePaid, "includePrivate", false)]
+    public Task 前の版の使い回しのFlagは_後から足した切り替えとして読まない(SearchModuleKind kind, string key, bool defaultOn) => TestApp.Run(async app =>
+    {
+        var search = (await app.StartAsync()).Search;
+        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, kind);
+        var old = module.Save() with { Flag = true, Toggles = null };
+
+        module.Load(old);
+        Assert.Equal(defaultOn, module.Flag);
+
+        // 名前で書いた物は読む
+        module.Load(old with { Toggles = new Dictionary<string, bool> { [key] = !defaultOn } });
+        Assert.Equal(!defaultOn, module.Flag);
     });
 }

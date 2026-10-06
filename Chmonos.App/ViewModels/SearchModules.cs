@@ -809,7 +809,8 @@ public sealed class ChoiceOption : ViewModelBase
 /// <param name="Keys">
 /// 切り替えが効く選択肢。null ならどれでも効く。効かない選択肢を選んでいる間は隠す（押しても何も変わらない印を出さない）。
 /// </param>
-public sealed record ChoiceFlag(string Label, bool Default, string ChangedSummary, IReadOnlySet<string>? Keys = null);
+/// <param name="StateKey">状態に書く名前（<see cref="SearchModuleState.Toggles"/>）。使い回しの Flag には書かない。</param>
+public sealed record ChoiceFlag(string Label, bool Default, string ChangedSummary, string StateKey, IReadOnlySet<string>? Keys = null);
 
 /// <summary>
 /// プルダウンで選ぶ条件（ユーザ案「三項」）。
@@ -914,12 +915,19 @@ public sealed class ChoiceModule : SearchModule
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
-        => state with { Choice = _selected.Key, Flag = _flagSpec is not null && _flag };
+        => state with
+        {
+            Choice = _selected.Key,
+            Flag = false,
+            Toggles = _flagSpec is null ? null : new Dictionary<string, bool> { [_flagSpec.StateKey] = _flag },
+        };
 
     protected override void Read(SearchModuleState state)
     {
         _selected = Options.FirstOrDefault(option => option.Key == state.Choice) ?? Options[0];
-        _flag = _flagSpec is not null && state.Flag;
+        // 名前で持つ切り替えだけを読む。欠けていれば既定（前の版の使い回しの Flag は読まない）
+        _flag = _flagSpec is not null
+            && (state.Toggles is { } toggles && toggles.TryGetValue(_flagSpec.StateKey, out var on) ? on : _flagSpec.Default);
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(HasFlag));

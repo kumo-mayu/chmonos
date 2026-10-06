@@ -677,7 +677,7 @@ public sealed partial class SearchViewModel
                 "unowned" => !IsOwned(item) || (allMissingIsUnowned && item.HasAllFilesMissing),
                 _ => true,
             },
-            new ChoiceFlag("すべて見つからない商品は未所持とする", Default: false, "すべて見つからない商品は未所持",
+            new ChoiceFlag("すべて見つからない商品は未所持とする", Default: false, "すべて見つからない商品は未所持", "allMissingIsUnowned",
                 new HashSet<string>(StringComparer.Ordinal) { "owned", "unowned" })),
 
         // 壊れた zip は商品ページの札でしか分からず、取り込みの結果の文は数しか言わない。どの商品かをまとめて出せるようにする
@@ -702,7 +702,7 @@ public sealed partial class SearchViewModel
                 "none" => !item.HasMissingFile,
                 _ => true,
             },
-            new ChoiceFlag("未所持も含める", Default: true, "すべて見つからない商品を除く",
+            new ChoiceFlag("未所持も含める", Default: true, "すべて見つからない商品を除く", "includeUnowned",
                 new HashSet<string>(StringComparer.Ordinal) { MissingFileKey })),
 
         // 仮のIDで登録した商品（BOOTHに無い商品・ローカル登録。ユーザ指示 2026-10-04 メモ31）。カードの「BOOTHで開く」を出さない判定と同じ式（ItemRecord.IsLocalOnly）
@@ -731,7 +731,7 @@ public sealed partial class SearchViewModel
                 "received" => Purchases.WasReceived(item),
                 _ => item.Local.Purchases.Any(purchase => purchase.Kind == PurchaseKind.ForSelf),
             },
-            new ChoiceFlag("購入記録の無い商品も含める", Default: false, "購入記録の無い商品も含める")),
+            new ChoiceFlag("購入記録の無い商品も含める", Default: false, "購入記録の無い商品も含める", "includeUnrecorded")),
 
         // BOOTH のバリエーションの価格だけで分ける（ユーザ判断 2026-10-06・判断2）。使う人が知りたいのは「全部無料で使えるか・支援版があるか」。
         // 前は払った額を優先し、無料と有料の両方がある商品が両方に出ていた。
@@ -745,7 +745,7 @@ public sealed partial class SearchViewModel
         SearchModuleKind.FreePaid => new ChoiceModule(kind,
             [new(AllFreeKey, "すべて無料"), new(FreeAndPaidKey, "無料版と有料版がある"), new(PaidOnlyKey, "有料のみ"), new("both", "すべて")],
             "both", (item, key, includePrivate) => (includePrivate && IsPrivateUnpriced(item)) || FreePaidMatches(item, key),
-            new ChoiceFlag(PrivateItemsLabel, Default: false, PrivateItemsLabel,
+            new ChoiceFlag(PrivateItemsLabel, Default: false, PrivateItemsLabel, "includePrivate",
                 new HashSet<string>(StringComparer.Ordinal) { AllFreeKey, FreeAndPaidKey, PaidOnlyKey })),
 
         // 大分類 → 小分類の2段（ユーザ指示 2026-09-28）。照合は Core の UserTagCondition

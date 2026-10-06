@@ -60,6 +60,14 @@ public sealed record SearchModuleState
     public bool Flag { get; init; }
 
     /// <summary>
+    /// 三択の条件の補助の切り替えを、名前で持つ（所持の「すべて見つからない商品は未所持とする」など。2026-10-06）。
+    /// 使い回しの <see cref="Flag"/> に書くと、前の版が切り替えの無い条件にも書いていた true が、
+    /// 後から足した切り替えを入れた状態として読まれた（友人のデータで所持の条件が意味を変えた）。名前で分ければ、知らない名前は読まれない。
+    /// 欠けた（null）ときは空として受ける。
+    /// </summary>
+    public IReadOnlyDictionary<string, bool>? Toggles { get; init; }
+
+    /// <summary>
     /// 対応アバターの「出すもの」：選んだアバターに**対応している商品**を出すか（既定は出す）。
     ///
     /// 商品を「対応が書いてある」と「対応の指定が無い」の2つのかたまりに分け、どちらを出すかを選ぶ
@@ -125,6 +133,7 @@ public sealed record SearchModuleState
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
             text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
             text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0');
+            text.Append(string.Join((char)0x1E, (Toggles ?? new Dictionary<string, bool>()).OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"{pair.Key}={(pair.Value ? 1 : 0)}"))).Append(Separator);
 
             // 除くかどうかで結果が逆になるので、指紋に入れる（同じ値の「含む」と「除く」を履歴の1件にまとめない）
             text.Append(Exclude ? '1' : '0').Append(Separator);
