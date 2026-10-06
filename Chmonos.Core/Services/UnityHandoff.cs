@@ -583,8 +583,8 @@ public static class UnityHandoff
                     continue;
                 }
 
-                using var reader = new StreamReader(tarEntry.DataStream, Encoding.UTF8, false, 1024, leaveOpen: true);
-                if (reader.ReadLine()?.Trim() is { Length: > 0 } path)
+                // 長さの上限を超える物は読まずに飛ばす（Resolution.UnityPackagePathname）
+                if (Resolution.UnityPackagePathname.Read(tarEntry) is { } path)
                 {
                     assets.Add(new UnityPackageAsset(parts[0].ToLowerInvariant(), path));
                 }

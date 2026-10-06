@@ -7,9 +7,9 @@ namespace Chmonos.Core.Tests;
 public class OutliersTests
 {
     /// <summary>普通の価格の並び（100〜8,500円）。上位の刻みは1.2倍前後。</summary>
-    private static List<int> Ordinary()
+    private static List<long> Ordinary()
     {
-        var values = new List<int>();
+        var values = new List<long>();
         for (var i = 0; i < 95; i++)
         {
             values.Add(100 + (i * 20));
@@ -57,5 +57,5 @@ public class OutliersTests
     [InlineData(new int[0])]
     [InlineData(new[] { 0, 0, 0, 0 })]
     public void 数が無いか基準が0なら外れ値は無い(int[] values)
-        => Assert.Null(Outliers.UpperFence(values));
+        => Assert.Null(Outliers.UpperFence(values.Select(value => (long)value)));
 }

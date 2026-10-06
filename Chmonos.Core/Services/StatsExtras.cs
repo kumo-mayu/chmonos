@@ -34,9 +34,9 @@ public static class StatsExtras
             PriceBuckets = Buckets(owned.Select(SpentOf).Where(price => price > 0), PriceEdges, "¥"),
             FreeItemCount = owned.Count(item => Purchases.FreeCountOf(item) > 0 && SpentOf(item) == 0),
             GiftedItemCount = owned.Count(Purchases.WasReceived),
-            GiftedValueYen = owned.Sum(item => (long)item.Local.Purchases
+            GiftedValueYen = owned.Sum(item => item.Local.Purchases
                 .Where(purchase => purchase.Kind == PurchaseKind.Received)
-                .Sum(purchase => purchase.Price ?? 0)),
+                .Sum(purchase => (long)(purchase.Price ?? 0))),
             CategorySpend = SpendBy(owned, CategoryOf),
             UserTagSpend = SpendByMany(owned, item => item.Local.UserTags.Select(tag => tag.Top)),
             CategoryCounts = CountBy(owned, CategoryOf),
@@ -65,18 +65,18 @@ public static class StatsExtras
             HiddenCount = allItems.Count(item => item.Local.IsHidden),
             EndOfSaleCount = owned.Count(item => item.Booth.IsEndOfSale),
             SoldOutCount = owned.Count(item => item.Booth.IsSoldOut && !item.Booth.IsEndOfSale),
-            EndOfSaleSpentYen = owned.Where(item => item.Booth.IsEndOfSale).Sum(item => (long)SpentOf(item)),
+            EndOfSaleSpentYen = owned.Where(item => item.Booth.IsEndOfSale).Sum(item => SpentOf(item)),
             LocalOnlyCount = owned.Count(item => item.IsLocalOnly),
-            LocalOnlySpentYen = owned.Where(item => item.IsLocalOnly).Sum(item => (long)SpentOf(item)),
+            LocalOnlySpentYen = owned.Where(item => item.IsLocalOnly).Sum(item => SpentOf(item)),
             WishBuckets = Buckets(
-                owned.Select(item => item.Booth.WishListsCount).Where(count => count > 0), WishEdges, string.Empty),
+                owned.Select(item => (long)item.Booth.WishListsCount).Where(count => count > 0), WishEdges, string.Empty),
         };
     }
 
     private static string CategoryOf(ItemRecord item)
         => string.IsNullOrWhiteSpace(item.CategoryName) ? "分類なし" : item.CategoryName!;
 
-    private static int SpentOf(ItemRecord item) => Purchases.SelfSpendOf(item);
+    private static long SpentOf(ItemRecord item) => Purchases.SelfSpendOf(item);
 
     /// <summary>実占有（在る場所だけ。<see cref="ItemRecord.ActualDiskBytes"/>・点検の7）。統計の合計と同じ答え。</summary>
     private static long PhysicalSizeOf(ItemRecord item) => item.ActualDiskBytes;
@@ -92,8 +92,8 @@ public static class StatsExtras
         foreach (var item in owned)
         {
             var current = FirstWins.Map(item.Booth.Variations, v => v.Id, v => v.Price, EqualityComparer<long>.Default);
-            var paid = 0;
-            var now = 0;
+            var paid = 0L;
+            var now = 0L;
             var matched = false;
 
             foreach (var record in item.Local.Purchases)
@@ -127,7 +127,7 @@ public static class StatsExtras
         return result.OrderByDescending(entry => Math.Abs(entry.DiffYen)).ToList();
     }
 
-    private static List<StatsBucket> Buckets(IEnumerable<int> values, int[] edges, string prefix)
+    private static List<StatsBucket> Buckets(IEnumerable<long> values, int[] edges, string prefix)
     {
         var list = values.ToList();
         if (list.Count == 0)
@@ -181,7 +181,7 @@ public static class StatsExtras
             {
                 Key = group.Key,
                 Label = group.First().ShopName ?? group.Key,
-                SpentYen = group.Sum(item => (long)SpentOf(item)),
+                SpentYen = group.Sum(item => SpentOf(item)),
                 ItemCount = group.Count(),
             })
             .OrderByDescending(bar => bar.ItemCount)
@@ -196,7 +196,7 @@ public static class StatsExtras
             {
                 Key = group.Key,
                 Label = group.Key,
-                SpentYen = group.Sum(item => (long)SpentOf(item)),
+                SpentYen = group.Sum(item => SpentOf(item)),
                 ItemCount = group.Count(),
             })
             .Where(bar => bar.SpentYen > 0)
@@ -215,7 +215,7 @@ public static class StatsExtras
 
         foreach (var item in owned)
         {
-            var amount = (long)SpentOf(item);
+            var amount = SpentOf(item);
 
             foreach (var key in keys(item).Distinct(StringComparer.CurrentCulture))
             {

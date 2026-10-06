@@ -140,8 +140,8 @@ public static class UnityPackageInspector
 
                 if (kind == "pathname" && tarEntry.DataStream is not null)
                 {
-                    using var reader = new StreamReader(tarEntry.DataStream, Encoding.UTF8, false, 1024, leaveOpen: true);
-                    var assetPath = reader.ReadLine()?.Trim();
+                    // 長さの上限を超える物は読まずに飛ばす（UnityPackagePathname）
+                    var assetPath = UnityPackagePathname.Read(tarEntry);
                     if (string.IsNullOrEmpty(assetPath))
                     {
                         continue;

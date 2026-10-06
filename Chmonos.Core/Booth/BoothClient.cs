@@ -192,6 +192,21 @@ public sealed class BoothClient : IBoothClient
     }
 
     /// <summary>
+    /// 手元の作り物のサーバ（<c>http://127.0.0.1</c> などのループバック）へも出してよいか。
+    /// **2つのプロセスから門を叩く確かめ（<c>experiments/BoothGateProbe</c>）と本体の試験だけが立てる。**
+    /// 外に出していない口（internal の init）なので、アプリ・道具・評価台の組み立てからは開けない
+    /// </summary>
+    internal bool AllowsLoopbackForProbe { get; init; }
+
+    /// <summary>問い合わせてよい先か。最初の先にも転送の先にも同じ一覧を当てる。</summary>
+    private bool IsAllowedTarget(Uri target)
+        => IsAllowedRedirectTarget(target) || (AllowsLoopbackForProbe && target.IsAbsoluteUri && target.IsLoopback);
+
+    /// <summary>ログに書く先。URL の残り（商品の番号や問い合わせの中身）は書かない。</summary>
+    private static string DescribeHost(string url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var parsed) ? $"{parsed.Scheme}://{parsed.Host}" : "URL として読めない";
+
+    /// <summary>
     /// BOOTH への問い合わせに使う HttpClient を組む。**自動の転送は切る。**
     ///
     /// 自動の転送は通信の層の中で転送先へ出るので、門（間隔・1本ずつ）を通らず、先のホストも見られない。
@@ -596,7 +611,7 @@ public sealed class BoothClient : IBoothClient
                 return BoothFetchResult<T>.Rejected("BOOTHからの転送が多すぎます");
             }
 
-            if (!IsAllowedRedirectTarget(next))
+            if (!IsAllowedTarget(next))
             {
                 Diagnostics.AppLog.Warn("BOOTHへの問い合わせ", $"BOOTH の外への転送は追わない（転送先 {next.Scheme}://{next.Host}）");
                 return BoothFetchResult<T>.Rejected("BOOTHの外へ転送されました");
@@ -611,6 +626,15 @@ public sealed class BoothClient : IBoothClient
         Func<HttpResponseMessage, CancellationToken, Task<T>> readBody,
         CancellationToken cancellationToken)
     {
+        // 最初に渡された先も、転送の先と同じ一覧で縛る（外部の点検 2026-10-06・ユーザ判断「縛る」）。
+        // 画像の URL は商品の JSON（booth.images[].originalUrl）から来るので、相手の書いた先へそのまま出ていた。
+        // 門に並ぶ前に断る（外れた先のために、ほかの問い合わせを待たせない）
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var first) || !IsAllowedTarget(first))
+        {
+            Diagnostics.AppLog.Warn("BOOTHへの問い合わせ", $"BOOTH の外の先には問い合わせない（{DescribeHost(url)}）");
+            return BoothFetchResult<T>.Rejected("BOOTHの外の場所なので取りに行きませんでした");
+        }
+
         BoothFetchResult<T>? previous = null;
 
         for (var attempt = 0; attempt <= RetryDelays.Length; attempt++)

@@ -83,11 +83,11 @@ public sealed record StatsPriceChange
 
     public required string Name { get; init; }
 
-    public required int PaidYen { get; init; }
+    public required long PaidYen { get; init; }
 
-    public required int CurrentYen { get; init; }
+    public required long CurrentYen { get; init; }
 
-    public int DiffYen => CurrentYen - PaidYen;
+    public long DiffYen => CurrentYen - PaidYen;
 }
 
 /// <summary>容量の大きい商品1件。</summary>
@@ -387,7 +387,7 @@ public sealed class StatsService : IStatsService
 
         foreach (var item in owned)
         {
-            var itemSpent = (long)Purchases.SelfSpendOf(item);
+            var itemSpent = Purchases.SelfSpendOf(item);
 
             spent += itemSpent;
             gifted += Purchases.ReceivedCountOf(item);
@@ -467,7 +467,7 @@ public sealed class StatsService : IStatsService
             SpentYen = spent,
             GiftedCount = gifted,
             GivenCount = items.Sum(Purchases.GivenCountOf),
-            GivenSpentYen = items.Sum(item => (long)Purchases.GivenSpendOf(item)),
+            GivenSpentYen = items.Sum(Purchases.GivenSpendOf),
             FreeCount = free,
             UnpricedItemCount = unpriced,
             LogicalBytes = logical,

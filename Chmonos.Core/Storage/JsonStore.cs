@@ -484,8 +484,8 @@ public static class JsonStore
 
         var deleted = 0;
         var cutoff = DateTime.UtcNow.AddMinutes(-10);
-        var scope = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        foreach (var file in Directory.EnumerateFiles(directory, "*.tmp", scope))
+        // リンクの先（保存先の外）の .tmp は消さない（StoreTree。外部の点検 2026-10-06）
+        foreach (var file in StoreTree.Files(directory, "*.tmp", includeSubdirectories))
         {
             if (File.GetLastWriteTimeUtc(file) < cutoff && TryDelete(file))
             {

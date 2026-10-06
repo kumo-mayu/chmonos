@@ -323,7 +323,7 @@ public sealed class ShopService : IShopService
             BannerState = BannerStateOf(subdomain, hasBanner, bannerRecords),
             KnownCount = counted.Count,
             OwnedCount = owned.Count,
-            SpentYen = owned.Sum(item => (long)Spent(item)),
+            SpentYen = owned.Sum(Spent),
             LastAcquiredAt = latest.Value,
             LastAcquiredIsFallback = latest.IsFallback,
             UpdatedCount = counted.Count(item => updatedIds.Contains(item.Id)),
@@ -725,7 +725,7 @@ public sealed class ShopService : IShopService
     /// BOOTH側から消えたvariationも、払った事実は変わらないので含める。
     /// 贈答ぶんは自分用と混ぜず、統計で別に出す（ここは所持しているものの集計なので現れない）。
     /// </summary>
-    private static int Spent(ItemRecord item) => Purchases.SelfSpendOf(item);
+    private static long Spent(ItemRecord item) => Purchases.SelfSpendOf(item);
 
     /// <summary>同じ中身のファイルは1回だけ数える。複数箇所に置いていても容量は1つ分。</summary>
     private static long SizeOf(ItemRecord item)

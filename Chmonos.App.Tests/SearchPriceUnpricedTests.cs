@@ -24,7 +24,7 @@ public class SearchPriceUnpricedTests
         null,
         new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.FromHours(9)));
 
-    private static readonly Dictionary<string, int[]> Prices = new()
+    private static readonly Dictionary<string, long[]> Prices = new()
     {
         ["9900601"] = [800],
         ["9900602"] = [300, 800],
@@ -45,7 +45,7 @@ public class SearchPriceUnpricedTests
             "円",
             [new ChoiceOption("paid", "払った額"), new ChoiceOption("booth", "BOOTH価格")])
         {
-            AllValuesOf = _ => Enumerable.Repeat(1000, 20).Append(99999),
+            AllValuesOf = _ => Enumerable.Repeat(1000L, 20).Append(99999),
             Floor = 100,
             SupportsOutliers = true,
             SupportsMatchAll = true,
