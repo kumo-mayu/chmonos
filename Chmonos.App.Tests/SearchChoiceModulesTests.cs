@@ -287,7 +287,31 @@ public class SearchChoiceModulesTests
         Assert.True(avatar.Flag);
         Assert.True(avatar.Chips.Single().HasIconSource);
         Assert.False(category.Chips.Single().HasIconSource);
+
+        // 札そのものに絵を出すのは改変の札だけ。対応アバターの札は吹き出しだけの今の形（ユーザ判断 2026-10-06）
+        Assert.False(avatar.Chips.Single().ShowsIcon);
+        Assert.False(category.Chips.Single().ShowsIcon);
     });
+
+    [Fact]
+    public void ユーザータグは_大分類も小分類も全部選んだ後も欄を出したまま()
+    {
+        var module = new UserTagModule();
+        Assert.False(module.ShowsInput);
+        module.SetMasters([("衣装", (IReadOnlyList<string>)["上着"])]);
+        Assert.True(module.ShowsInput);
+
+        var top = module.AddTop("衣装")!;
+        top.AddCommand.Execute(UserTagTopRow.NoSubText);
+        top.AddCommand.Execute("上着");
+
+        // 候補は尽きても、欄は消さない（消すと下の枠が上へずれる・ユーザ指摘 2026-10-06）
+        Assert.Empty(module.Suggestions);
+        Assert.Empty(top.Suggestions);
+        Assert.True(module.ShowsInput);
+        Assert.True(top.ShowsInput);
+        Assert.False(module.IsMasterEmpty);
+    }
 
     [Fact]
     public Task 編集状況は複数置け_同じ種類どうしはANDで結ぶ() => TestApp.Run(async app =>

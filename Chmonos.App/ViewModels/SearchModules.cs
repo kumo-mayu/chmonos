@@ -934,6 +934,7 @@ public sealed class ListChip : ViewModelBase
             {
                 OnPropertyChanged(nameof(ToolTipText));
                 OnPropertyChanged(nameof(DisplayText));
+                OnPropertyChanged(nameof(Initial));
             }
         }
     }
@@ -996,6 +997,15 @@ public sealed class ListChip : ViewModelBase
     }
 
     public bool HasIconSource => IconSource is not null;
+
+    /// <summary>
+    /// 札の頭に小さな絵を出すか（改変の札。絵が無ければ頭文字）。対応アバターの札は吹き出しにだけ絵を出す今の形のまま
+    /// （ユーザ判断 2026-10-06「アバターのアイコンは良いと思います。このままにしましょう」）。
+    /// </summary>
+    public bool ShowsIcon { get; internal set; }
+
+    /// <summary>絵の無い札の頭文字（候補の欄・改変の一覧と同じ出し方）。</summary>
+    public string Initial => Core.Services.AvatarText.InitialOf(_text);
 
     /// <summary>長い文の間を省くか（パスの札。<see cref="ListModule.TrimsMiddle"/>）。</summary>
     public bool TrimsMiddle
@@ -2678,7 +2688,11 @@ public sealed class UserTagModule : SearchModule
     /// <summary>まだ足していない大分類。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    /// <summary>
+    /// 欄を出すか。**大分類を全部足しても出したまま**にする（改変の2段と同じ・ユーザ指摘 2026-10-06：欄が消えると下の枠が上へずれる）。
+    /// 大分類が1つも無いときだけ隠し、代わりに空の文を出す。
+    /// </summary>
+    public bool ShowsInput => _tops.Count > 0;
 
     /// <summary>大分類が1つも無い（足す物が無い）。足し終えて候補が尽きたときは言わない。</summary>
     public bool IsMasterEmpty => _mastersReady && _tops.Count == 0;
@@ -2834,7 +2848,7 @@ public sealed class UserTagModule : SearchModule
 
         // 枠の足し外しはどれもここを通る。用意した条件の並びを捨てる
         Unprepare();
-        OnPropertyChanged(nameof(HasSuggestions));
+        OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(IsMasterEmpty));
         OnPropertyChanged(nameof(ShowsMatchMode));
     }
@@ -2875,7 +2889,8 @@ public sealed class UserTagTopRow : ViewModelBase
     /// <summary>まだ足していない小分類と「小分類なし」。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    /// <summary>欄を出すか。「小分類なし」が必ず選べるので、全部選んだ後も含めていつも出す（枠の高さが変わらないように）。</summary>
+    public bool ShowsInput => true;
 
     /// <summary>小分類どうしを全部満たす（AND）か。既定は OR（大分類どうしの既定に揃える）。</summary>
     public bool MatchAll
@@ -3050,7 +3065,6 @@ public sealed class UserTagTopRow : ViewModelBase
             Suggestions.Add(sub);
         }
 
-        OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShowsMatchMode));
         RefreshConflict();
     }

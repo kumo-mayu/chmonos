@@ -51,7 +51,12 @@ public sealed class ModificationModule : SearchModule
     /// <summary>まだ足していないアバターと、その改変。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    /// <summary>
+    /// 欄を出すか。**候補が尽きても出したまま**にする（ユーザ指摘 2026-10-06：全部入れて欄が消えると、下の枠が上へずれる）。
+    /// 対応アバターなどの候補から積む条件（<see cref="ListModule.HasSuggestions"/>）と同じく、選べる物がもう無ければ、開いても何も並ばないだけ。
+    /// 改変が1つも無いときだけ隠し、代わりに空の文を出す。
+    /// </summary>
+    public bool ShowsInput => _order.Count > 0;
 
     /// <summary>改変が1つも無い（足す物が無い）。</summary>
     public bool IsEmpty => _sourcesReady && _byAvatar.Count == 0;
@@ -318,7 +323,7 @@ public sealed class ModificationModule : SearchModule
             Suggestions.Add(text);
         }
 
-        OnPropertyChanged(nameof(HasSuggestions));
+        OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(ShowsMatchMode));
     }
 }
@@ -377,7 +382,8 @@ public sealed class ModificationAvatarRow : ViewModelBase
     /// <summary>このアバターの、まだ足していない改変。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    /// <summary>欄を出すか。改変を全部選んでも出したまま（1段目の欄と同じ・枠の高さが変わらないように）。</summary>
+    public bool ShowsInput => _records.Count > 0;
 
     /// <summary>改変を選んでいない（このアバターのどの改変でもよい）。枠の下に、そう読めるように一言出す。</summary>
     public bool HasNoModification => Chips.Count == 0;
@@ -475,6 +481,11 @@ public sealed class ModificationAvatarRow : ViewModelBase
 
         var chip = new ListChip(id, _textOfId.TryGetValue(id, out var text) ? text : id);
         chip.IconSource = () => Find(id) is { } record ? _modificationIcon(record) : null;
+
+        // 改変の札は、札そのものにも絵を出す（ユーザ指摘 2026-10-06「改変にアイコンがついているようには見えません」）。
+        // 札の型は絵を吹き出しにしか置いておらず、改変の名前だけが並んで、アバターの枠の絵と比べて改変には絵が無いように見えた。
+        // 吹き出しの大きな絵（ユーザが見て決めた形）はそのまま残す
+        chip.ShowsIcon = true;
         chip.RemoveCommand = new RelayCommand(() =>
         {
             Chips.Remove(chip);
@@ -520,7 +531,7 @@ public sealed class ModificationAvatarRow : ViewModelBase
             Suggestions.Add(_textOfId[record.Id]);
         }
 
-        OnPropertyChanged(nameof(HasSuggestions));
+        OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(HasNoModification));
     }

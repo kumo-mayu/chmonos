@@ -1,3 +1,4 @@
+using System.IO;
 using Chmonos.App.Controls;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
@@ -28,7 +29,8 @@ public class SearchModificationModuleTests
     /// 改変は3つ：作り物のアバターの「普段着」（9900111・9900112）と「制服」（9900112・9900113。プロジェクト付き）、
     /// ほかのアバターの「普段着」（9900114）。9900115 はどの改変にも使っていない。
     /// </summary>
-    private static async Task<(SearchViewModel Search, ModificationModule Module, Dictionary<string, string> Ids)> StartAsync(TestApp app)
+    private static async Task<(SearchViewModel Search, ModificationModule Module, Dictionary<string, string> Ids)> StartAsync(
+        TestApp app, Func<Dictionary<string, string>, Task>? beforeStart = null)
     {
         foreach (var id in new[] { "9900111", "9900112", "9900113", "9900114", "9900115" })
         {
@@ -51,6 +53,10 @@ public class SearchModificationModuleTests
         await Create("9900101", "制服", "a-uniform", "9900112", "9900113");
         await app.Services.Modifications.SetProjectAsync(ids["a-uniform"], @"D:\作り物\UnityProjects\学園の撮影");
         await Create("9900102", "普段着", "b-casual", "9900114");
+        if (beforeStart is not null)
+        {
+            await beforeStart(ids);
+        }
 
         var search = (await app.StartAsync()).Search;
         var module = (ModificationModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Modification);
@@ -167,4 +173,75 @@ public class SearchModificationModuleTests
         // XAML の x:Static は public の物しか引けず、引けないと条件を足した途端に画面の処理で落ちる（撮影の場面で見つかった）
         Assert.True(typeof(ModificationModule).GetProperty(nameof(ModificationModule.Headings))!.GetMethod!.IsPublic);
     }
+
+    private static byte[] Png()
+    {
+        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(8, 8);
+        using var stream = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(image, stream);
+        return stream.ToArray();
+    }
+
+    /// <summary>アバターの控えの絵は webp だけを見る（AvatarImageSync）。</summary>
+    private static byte[] Webp()
+    {
+        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(8, 8);
+        using var stream = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsWebp(image, stream);
+        return stream.ToArray();
+    }
+
+    [Fact]
+    public Task 改変の写真があれば_候補と札の絵は写真で_無ければアバターの絵() => TestApp.Run(async app =>
+    {
+        var (_, module, _) = await StartAsync(app, async ids =>
+        {
+            // 「制服」には写真、「普段着」には無し。ほかのアバターには控えの絵（持っていないアバターの絵の置き場）
+            Assert.NotNull(await app.Services.Modifications.AddImageAsync(ids["a-uniform"], Png()));
+            var avatarPictures = app.Services.Paths.AvatarImagesDir("9900102");
+            Directory.CreateDirectory(avatarPictures);
+            await File.WriteAllBytesAsync(Path.Combine(avatarPictures, "a.webp"), Webp());
+        });
+
+        // 1段目の候補：写真のある改変は写真、写真の無い改変はアバターの絵、絵の無いアバターの改変は無し（頭文字）
+        Assert.NotNull(module.IconSelector("制服"));
+        Assert.NotNull(module.IconSelector("ほかのアバター"));
+        Assert.NotNull(module.IconSelector("普段着（ほかのアバター）"));
+        Assert.Null(module.IconSelector("普段着（作り物のアバター）"));
+
+        module.AddCommand.Execute("作り物のアバター");
+        var row = Assert.Single(module.Rows);
+
+        // 2段目の候補と、選んだ札
+        Assert.NotNull(row.IconSelector("制服"));
+        row.AddCommand.Execute("制服");
+        var chip = Assert.Single(row.Chips);
+        Assert.NotNull(chip.Icon);
+
+        // 札そのものにも絵を出す（前は吹き出しにしか出さず、改変には絵が無いように見えた）
+        Assert.True(chip.ShowsIcon);
+        Assert.Equal("制", chip.Initial);
+    });
+
+    [Fact]
+    public Task 候補を全部選んでも_どちらの段の欄も出したまま() => TestApp.Run(async app =>
+    {
+        var (_, module, _) = await StartAsync(app);
+        Assert.True(module.ShowsInput);
+
+        // 1段目の候補を全部選ぶ（アバター2体と、その改変全部）
+        foreach (var text in module.Suggestions.ToList())
+        {
+            module.AddCommand.Execute(text);
+        }
+
+        Assert.Empty(module.Suggestions);
+        Assert.True(module.ShowsInput);
+        Assert.All(module.Rows, row =>
+        {
+            Assert.Empty(row.Suggestions);
+            Assert.True(row.ShowsInput);
+        });
+        Assert.False(module.IsEmpty);
+    });
 }
