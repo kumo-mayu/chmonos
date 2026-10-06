@@ -686,7 +686,9 @@ public sealed class ItemService : IItemService
 
         // 中の unitypackage も同じ1回の列挙で拾う（Unity へ送る候補。メモ65-③）
         // 中を読めなければ登録しない（0件・0バイトで残すと、移したときの候補が数で合わせられなくなる。外部の点検 2026-10-06）
-        if (RegisteredFolderSet.Survey(folderPath, cancellationToken) is not { } survey)
+        // **数えるのは裏のスレッドで**（外部の点検 2026-10-06）。画面から来ると、Core は続きを元の文脈へ戻すので、
+        // 確かめの窓の後の登録で、同じフォルダを画面のスレッドでもう一度数え、その間ずっと画面が止まっていた
+        if (await Task.Run(() => RegisteredFolderSet.Survey(folderPath, cancellationToken), cancellationToken) is not { } survey)
         {
             return FolderRegistration.Unreadable;
         }
@@ -785,7 +787,8 @@ public sealed class ItemService : IItemService
             return FolderRelocation.RegisteredElsewhere;
         }
 
-        if (RegisteredFolderSet.Measure(to, cancellationToken) is not (int count, long bytes))
+        // 裏のスレッドで数える（登録と同じ理由）
+        if (await Task.Run(() => RegisteredFolderSet.Measure(to, cancellationToken), cancellationToken) is not (int count, long bytes))
         {
             return FolderRelocation.Unreadable;
         }

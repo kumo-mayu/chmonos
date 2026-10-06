@@ -244,12 +244,19 @@ public sealed partial class ResolveViewModel
     /// フォルダを商品に紐付ける。zipを落とし直せない場合の受け皿。
     /// 紐付けると配下がスキャン対象から外れるので、未確定も一緒に片付く。
     /// </summary>
+    /// <summary>試験の口：登録の前にフォルダを数える処理を差し替える（数えている間に選び直す場面を作る）。</summary>
+    internal Func<string, CancellationToken, (int FileCount, long TotalBytes)?>? MeasureFolderForTest { get; set; }
+
     private async Task RegisterFolderAsync()
     {
-        if (RegisterTargetFolder is not { } folder || Preview is null)
+        if (RegisterTargetFolder is not { } folder || Preview is not { } target)
         {
             return;
         }
+
+        // **始めた時の商品に固定する**（外部の点検 2026-10-06）。数えている間に別の行や候補を選べるので、
+        // 待った後に Preview を読み直すと、数えたフォルダを選び直した別の商品へ登録していた（選び直して空なら落ちていた）
+        var targetName = RegisterTargetName;
 
         // 数えるのは裏で（大きなフォルダや HDD では数十秒かかる。前は画面のスレッドで数え、その間ずっと固まっていた。外部の点検 2026-10-06）。
         // 数えている間は登録のボタンを止める（同じ登録を二度始めない）。画面を離れたら数えるのをやめる
@@ -259,7 +266,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var token = _leaving.Token;
-            measured = await Task.Run(() => RegisteredFolderSet.Measure(folder, token), token);
+            measured = await Task.Run(() => (MeasureFolderForTest ?? RegisteredFolderSet.Measure)(folder, token), token);
         }
         catch (OperationCanceledException)
         {
@@ -268,6 +275,13 @@ public sealed partial class ResolveViewModel
         finally
         {
             IsBusy = false;
+        }
+
+        // 数えている間に選び直していたら、確かめの窓を出さずにやめる（もう一度押せば今の選択で数え直す）
+        if (!ReferenceEquals(Preview, target))
+        {
+            FolderStatusText = string.Empty;
+            return;
         }
 
         if (measured is not (int count, long bytes))
@@ -279,7 +293,7 @@ public sealed partial class ResolveViewModel
         FolderStatusText = string.Empty;
 
         var answer = Services.Notice.Show(
-            $"次のフォルダを「{Preview.Name}」（ID {Preview.Id}）として登録します。\n\n"
+            $"次のフォルダを「{target.Name}」（ID {target.Id}）として登録します。\n\n"
             + $"{folder}\n{count} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
             + "このフォルダの中は、以降の取り込みと未確定の対象から外れます。\n"
             + "フォルダを移動したときは、登録し直してください。",
@@ -298,7 +312,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.RegisterFolder(Preview.Id, folder, RequestsLeftProgress));
+                new UiCommand.RegisterFolder(target.Id, folder, RequestsLeftProgress));
 
             if (result is CommandResult.Failed failed)
             {
@@ -308,7 +322,7 @@ public sealed partial class ResolveViewModel
 
             // itemの中身が変わったので、持ち回っているライブラリの写しにもその1件を当てる。
             // これをしないと商品ページに登録したフォルダが出てこない。全件は読み直さない（2000件で数秒。確定のたびに重ねると固まる）
-            await NoteSettledAsync(Preview.Id);
+            await NoteSettledAsync(target.Id);
 
             await ReloadAsync();
 
@@ -316,7 +330,7 @@ public sealed partial class ResolveViewModel
             // ここは一覧を読み直すだけで行を外す道を通らないので、呼ばないと次に数え直すまで古い数が残っていた
             _main.RefreshBadges();
             // 配下の行ごと消えるので、一覧の見出しの近くに出す
-            ListNoticeText = $"「{RegisterTargetName}」を登録しました。配下の未確定は一覧から外れます。";
+            ListNoticeText = $"「{targetName}」を登録しました。配下の未確定は一覧から外れます。";
         }
         finally
         {

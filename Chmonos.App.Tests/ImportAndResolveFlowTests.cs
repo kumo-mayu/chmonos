@@ -822,6 +822,49 @@ public class ImportAndResolveFlowTests
 
     // ---- 未確定：元zipが無いフォルダ。フォルダのまま商品として登録できる（5-12）----
 
+    /// <summary>
+    /// フォルダを数えている間に行を選び直したら、登録せずにやめる（外部の点検 2026-10-06）。
+    /// 前は待った後に今の下見を読み直し、選び直した別の商品へ登録していた（下見が空なら落ちていた）
+    /// </summary>
+    [Fact]
+    public Task フォルダを数えている間に選び直したら_登録せずにやめる() => TestApp.Run(async app =>
+    {
+        app.Booth.HasItem("1000001", "作り物の衣装");
+        app.Booth.HasItem("1000002", "作り物の別の衣装");
+        const string inside = @"1\2\3\4\5";
+        var texture = app.NewFile(inside + @"\outfit_v1\outfit\texture\t.png");
+        var package = app.NewFile(inside + @"\outfit_v1\outfit\outfit.unitypackage");
+        app.NewFile(inside + @"\other\readme.txt");
+        var importFolder = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(texture))))!;
+        await app.ChangeSettingsAsync(settings => settings with { ImportFolders = [importFolder] });
+        await app.Store.Unresolved.SaveAsync([Unresolved(texture), Unresolved(package)]);
+
+        var main = await app.StartAsync();
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+        var resolve = Assert.IsType<ResolveViewModel>(main.CurrentViewModel);
+        var row = resolve.Files.First();
+        await PreviewAsync(app, resolve, "1000001");
+
+        using var counting = new ManualResetEventSlim();
+        resolve.MeasureFolderForTest = (_, _) => { counting.Wait(); return (2, 10); };
+        app.Answer = _ => MessageBoxResult.OK;
+        resolve.RegisterFolderOfCommand.Execute(row.GroupKey);
+
+        // 数えている間に、一覧で行を選び直し（下見が消える）、別の商品の下見を出す（作業中も押せる「候補を使う」と同じ道）
+        resolve.Selected = resolve.Files.Last();
+        Assert.Null(resolve.Preview);
+        resolve.ItemIdInput = "1000002";
+        resolve.PreviewCommand.Execute(null);
+        await UiThread.Until(() => resolve.Preview?.Id == "1000002", "別の商品の下見");
+        counting.Set();
+        await app.SettleAsync();
+
+        Assert.Empty(app.Notices);
+        Assert.Empty((await app.Store.Items.LoadAsync("1000001"))?.Local.LocalFolders ?? []);
+        Assert.Empty((await app.Store.Items.LoadAsync("1000002"))?.Local.LocalFolders ?? []);
+    });
+
     [Fact]
     public Task 元zipが無い展開物は_フォルダのまま商品として登録でき_配下の未確定が片付く() => TestApp.Run(async app =>
     {

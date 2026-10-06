@@ -238,6 +238,17 @@ public sealed class LinkCountingTests : IDisposable
         Assert.Equal(0, usage.ItemBytes);
     }
 
+    /// <summary>保存先の images そのものがリンクなら、その先を数えず、読めなかったとする（外部の点検 2026-10-06）。</summary>
+    [Fact]
+    public void 保存容量の起点そのものがリンクなら_数えずに読めなかったとする()
+    {
+        var images = Path.Combine(_root, "store-root", "images");
+        Link(images, Outside);
+
+        Assert.Null(SettingsService.Measure(images, CancellationToken.None));
+        Assert.True(File.Exists(Directory.EnumerateFiles(Outside).First()));
+    }
+
     [Fact]
     public async Task 保存容量の計測は取り消しで止まる()
     {

@@ -210,6 +210,13 @@ public sealed class SettingsService : ISettingsService
             return (0, 0);
         }
 
+        // 起点（images・items）そのものがリンクなら、その先は保存先の外なので数えない（外部の点検 2026-10-06）。
+        // 下のリンクは StoreTree が飛ばすが、起点は見ていなかった。0 と出すと空と読み違えるので、読めなかったとする
+        if (StoreTree.IsLink(new DirectoryInfo(directory)))
+        {
+            return null;
+        }
+
         try
         {
             long bytes = 0;
