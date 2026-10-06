@@ -171,7 +171,7 @@ internal static class ClientProcess
             SettingsSource.Fixed(new AppSettings { FetchIntervalMs = interval }),
             (duration, token) => Task.Delay(duration, token),
             gate,
-            TimeProvider.System);
+            TimeProvider.System) { AllowsLoopbackForProbe = true };
 
         await Task.Delay(startAfter);
 
@@ -355,7 +355,7 @@ internal static class Bench
         async Task<double> MeasureAsync(BoothMachineGate? gate)
         {
             using var http = new HttpClient(new InstantHandler());
-            var client = new BoothClient(http, SettingsSource.Fixed(new AppSettings()), noWait, gate, TimeProvider.System);
+            var client = new BoothClient(http, SettingsSource.Fixed(new AppSettings()), noWait, gate, TimeProvider.System) { AllowsLoopbackForProbe = true };
             for (var warm = 0; warm < 200; warm++)
             {
                 await client.GetBinaryAsync("http://127.0.0.1/x");
