@@ -111,8 +111,8 @@ public class InboxArchiveSwapTests
             new LocalFileRecord { Hash = hash, Paths = [folder + ".zip"], SizeBytes = 1 }));
         var (_, inbox, row) = await OpenAsync(app);
 
-        InboxViewModel.ChoiceRequest? asked = null;
-        InboxViewModel.ChoiceIntercept = request =>
+        ChoiceRequest? asked = null;
+        ChoiceQuestion.Intercept = request =>
         {
             asked = request;
             return ChoiceDialogResult.Second;
@@ -123,7 +123,7 @@ public class InboxArchiveSwapTests
         }
         finally
         {
-            InboxViewModel.ChoiceIntercept = null;
+            ChoiceQuestion.Intercept = null;
         }
 
         Assert.NotNull(asked);
@@ -145,8 +145,8 @@ public class InboxArchiveSwapTests
             Make.File(@"D:\files\別のファイル.zip")));
         var (main, _, row) = await OpenAsync(app);
 
-        InboxViewModel.ChoiceRequest? asked = null;
-        InboxViewModel.ChoiceIntercept = request =>
+        ChoiceRequest? asked = null;
+        ChoiceQuestion.Intercept = request =>
         {
             asked = request;
             return ChoiceDialogResult.First;
@@ -157,7 +157,7 @@ public class InboxArchiveSwapTests
         }
         finally
         {
-            InboxViewModel.ChoiceIntercept = null;
+            ChoiceQuestion.Intercept = null;
         }
 
         Assert.DoesNotContain("ファイルが残りません", asked!.Detail);

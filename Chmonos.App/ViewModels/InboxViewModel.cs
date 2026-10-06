@@ -826,40 +826,6 @@ public sealed class InboxViewModel : ViewModelBase
         }
     }
 
-    /// <summary>選ぶ窓に出す中身（試験が受けて答える）。</summary>
-    internal sealed record ChoiceRequest(string Title, string Question, string Detail, string First, string Second);
-
-    /// <summary>試験だけが差し替える。選ぶ窓（<see cref="Views.ChoiceDialog"/>）は答える人がいないと止まるので、窓の手前で受ける。</summary>
-    internal static Func<ChoiceRequest, Views.ChoiceDialogResult>? ChoiceIntercept { get; set; }
-
-    private static Views.ChoiceDialogResult AskChoice(ChoiceRequest request)
-        => ChoiceIntercept is { } intercept
-            ? intercept(request)
-            : Views.ChoiceDialog.Ask(request.Title, request.Question, request.Detail, request.First, request.Second);
-
-    /// <summary>
-    /// zip がほかの商品に付いているときに聞く中身（ユーザ判断 2026-10-05：断るだけにせず、開くか付け直すかを選ばせる）。
-    /// 付け直すと向こうの手元の物が無くなるなら、押す前に言う。
-    /// </summary>
-    internal static ChoiceRequest OwnedElsewhereQuestion(string archiveName, IReadOnlyList<Core.Services.ArchiveHolder> holders)
-    {
-        var first = holders[0];
-        var who = holders.Count == 1 ? $"「{first.Name}」" : $"「{first.Name}」ほか {holders.Count - 1} 件の商品";
-        var emptied = holders.Where(holder => holder.LosesLastFile).Select(holder => $"「{holder.Name}」").ToList();
-        var emptiedText = emptied.Count == 0 ? string.Empty : $"{string.Join("・", emptied)}にはファイルが残りません。\n";
-
-        return new ChoiceRequest(
-            "zipで登録し直す",
-            $"「{archiveName}」は{who}に登録されています。",
-            $"「その商品を開く」\n「{first.Name}」の商品ページを開きます。何も変えません。\n\n"
-            + "「この商品に付け直す」\n"
-            + $"{who}から外して、この商品に登録します。\n"
-            + emptiedText
-            + "戻すときは、この商品から外してから、元の商品で「この商品に戻す」を押します。",
-            "その商品を開く",
-            "この商品に付け直す");
-    }
-
     private async Task SwapFolderForArchiveAsync(string itemId, string path, AreaNotice rowNotice)
     {
         // zip が除外してある・ほかの商品に付いているときは、Core は何も書かずにそう返す。人が窓で選んだときだけ、頼みを足して呼び直す
@@ -890,7 +856,7 @@ public sealed class InboxViewModel : ViewModelBase
             else if (pending.Result == Core.Services.ArchiveSwapResult.OwnedElsewhere
                      && !command.TakeFromOtherItems && pending.Holders.Count > 0)
             {
-                var choice = AskChoice(OwnedElsewhereQuestion(pending.ArchiveName ?? string.Empty, pending.Holders));
+                var choice = ChoiceQuestion.Ask(ChoiceQuestion.OwnedElsewhere("zipで登録し直す", pending.ArchiveName ?? string.Empty, pending.Holders));
                 if (choice == Views.ChoiceDialogResult.First)
                 {
                     rowNotice.Clear();

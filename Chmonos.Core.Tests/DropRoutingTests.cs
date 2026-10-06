@@ -228,21 +228,51 @@ public class DropRoutingTests
     }
 
     /// <summary>
-    /// zipが混ざっていたら取り込みを採る。
-    /// **画像そのものが配布物のこともある**（BOOTHのダウンロード形式に画像が含まれる）ので、
-    /// 画像だから取り込みではない、とは言えない。混ざっているなら取り込みたい意図の方が強い、
-    /// という判断だけをする。
+    /// zip を落としたら、この商品に結ぶか取り込むかを聞く（ユーザ指示 2026-10-06：作者が同じ物を新しいIDで出し直すと、
+    /// 取り込みでは古い商品へ行く）。前はそのまま取り込みに積んでいた。
     /// </summary>
     [Fact]
-    public void PrefersImportWhenSomethingElseIsMixedIn()
+    public void 商品ページにzipを落としたら_結ぶか取り込むかを聞く()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            [@"C:\dl\outfit.zip"], text: null, hasBitmap: false, _ => true);
+
+        Assert.Equal(DropAction.AskAttachOrImport, decision.Action);
+    }
+
+    /// <summary>
+    /// 画像とzipが混ざっていても聞く。**画像そのものが配布物のこともある**（BOOTHのダウンロード形式に画像が含まれる）ので、
+    /// 画像だからこの商品の画像に足す、とは言えない。
+    /// </summary>
+    [Fact]
+    public void 画像とzipが混ざっていても_結ぶか取り込むかを聞く()
     {
         var decision = DropRouting.DecideOnItemPage(
             [@"C:\pics\mine.png", @"C:\dl\outfit.zip"], text: null, hasBitmap: false, _ => true);
 
+        Assert.Equal(DropAction.AskAttachOrImport, decision.Action);
+    }
+
+    /// <summary>フォルダ・取り込まない種類が混ざっていれば結べない（結ぶのはファイルだけ）。今まで通り取り込みに積む。</summary>
+    [Theory]
+    [InlineData(@"C:\dl\展開したフォルダ")]
+    [InlineData(@"C:\dl\単体.unitypackage")]
+    public void 結べない物が混ざっていれば今まで通り取り込む(string other)
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            [@"C:\dl\outfit.zip", other], text: null, hasBitmap: false, _ => true);
+
         Assert.Equal(DropAction.Import, decision.Action);
     }
 
-    /// <summary>画像が来ていなければ、今まで通りの規則で決める。</summary>
+    /// <summary>商品ページ以外では聞かない（結ぶ先が決まっていない）。</summary>
+    [Fact]
+    public void 商品ページ以外でzipを落としたら今まで通り取り込む()
+    {
+        Assert.Equal(DropAction.Import, DropRouting.Decide([@"C:\dl\outfit.zip"], text: null, _ => true).Action);
+    }
+
+    /// <summary>ファイルも画像も来ていなければ、今まで通りの規則で決める。</summary>
     [Fact]
     public void FallsBackToTheUsualRuleWithoutAnImage()
     {
@@ -250,11 +280,6 @@ public class DropRoutingTests
             DropAction.OpenItem,
             DropRouting.DecideOnItemPage(
                 paths: null, text: "https://booth.pm/ja/items/3565798", hasBitmap: false, _ => true).Action);
-
-        Assert.Equal(
-            DropAction.Import,
-            DropRouting.DecideOnItemPage(
-                [@"C:\dl\outfit.zip"], text: null, hasBitmap: false, _ => true).Action);
     }
 
     [Theory]

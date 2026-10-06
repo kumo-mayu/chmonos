@@ -852,6 +852,17 @@ public sealed class CommandHandler
                     await _items.SwapFolderForArchiveAsync(
                         swap.ItemId, swap.FolderPath, swap.LiftExclusion, swap.TakeFromOtherItems, cancellationToken));
 
+            case UiCommand.AttachFile attach:
+                var attached = await _items.AttachFileAsync(
+                    attach.ItemId, attach.Path, attach.LiftExclusion, attach.TakeFromOtherItems, cancellationToken);
+                if (attached.Result == Services.FileAttachResult.Attached)
+                {
+                    // 登録の後と同じに、中の unitypackage を裏で読む（Unity へ送る候補。商品ページは後から届いた分を出す）
+                    FillUnityPackagesInBackground(attach.ItemId);
+                }
+
+                return new CommandResult.FileAttached(attached);
+
             case UiCommand.UnregisterFolder unregister:
                 return await _items.UnregisterFolderAsync(unregister.ItemId, unregister.FolderPath, cancellationToken)
                     ? new CommandResult.ItemSaved(unregister.ItemId)

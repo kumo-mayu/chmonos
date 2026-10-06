@@ -92,6 +92,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         ReattachFileCommand = new RelayCommand(
             parameter => ReattachFileAsync(parameter as LocalFileRow).Forget(),
             parameter => parameter is LocalFileRow { CanReattach: true } && !IsEditLocked);
+        InitAttachCommand();
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         FetchImagesCommand = new RelayCommand(() => FetchImagesAsync().Forget(), () => HasMissingImages);
         AddAvatarCommand = new RelayCommand(parameter => AddAvatarAsync(parameter as string).Forget(), _ => !IsEditLocked);

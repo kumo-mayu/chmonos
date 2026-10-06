@@ -32,6 +32,12 @@ public enum DropAction
 
     /// <summary>改変の詳細を開いているとき、画像を**その改変の写真**に足す（B5）。</summary>
     AddPhotoToModification,
+
+    /// <summary>
+    /// 商品ページに zip などを落とした。**いま開いている商品に結ぶのか、いつも通り取り込むのかが決まらない**ので聞く
+    /// （ユーザ指示 2026-10-06。作者が同じ物を新しいIDで出し直すと、取り込みでは古い商品へ行く）。
+    /// </summary>
+    AskAttachOrImport,
 }
 
 public readonly record struct DropDecision(
@@ -129,6 +135,10 @@ public static class DropRouting
     private static readonly string[] ImageExtensions =
         [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"];
 
+    /// <summary>商品に結べるファイルか。取り込む拡張子と同じ（<see cref="Scanning.FolderScanner.TargetExtensions"/>）。フォルダは結べない。</summary>
+    public static bool IsAttachable(string path)
+        => Scanning.FolderScanner.TargetExtensions.Contains(Path.GetExtension(path));
+
     /// <summary>拡張子で画像かを見る。</summary>
     public static bool LooksLikeImage(string path)
         => ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
@@ -151,6 +161,18 @@ public static class DropRouting
         bool hasBitmap,
         Func<string, bool> isKnown)
     {
+        // 画像でないファイルが混ざっていたら、「この商品に結ぶ」か「取り込む」かを聞く（ユーザ指示 2026-10-06）。
+        // 作者が同じ物を新しいIDで出し直すと、手掛かりは古いIDを指すので、取り込むと古い商品か未確定へ行く。
+        // 商品ページに落とす人は「これはこの商品の物」と言いたいことがあるが、いつもの取り込みのつもりのこともあり、落とした物からは決まらない。
+        // **画像そのものが配布物のこともある**ので（BOOTHのダウンロード形式に画像が含まれる）、混ざった画像も一緒に結ぶ・取り込む。
+        // フォルダ・取り込まない種類が混ざっていれば結べない（結ぶのはファイルだけ）ので、今まで通り取り込みに積む
+        if (paths is { Count: > 0 } && !paths.All(LooksLikeImage))
+        {
+            return paths.All(IsAttachable)
+                ? new DropDecision(DropAction.AskAttachOrImport, null)
+                : new DropDecision(DropAction.Import, null);
+        }
+
         var images = paths?.Where(LooksLikeImage).ToList() ?? [];
 
         // ブラウザから絵をドラッグすると、ファイルではなくURLだけが落ちてくる。
@@ -162,15 +184,6 @@ public static class DropRouting
         {
             // 画像が来ていないなら、今まで通りの規則で決める
             return Decide(paths, text, isKnown);
-        }
-
-        // 画像でないファイルが混ざっていたら取り込みを採る。
-        // **画像そのものが配布物のこともある**ので（BOOTHのダウンロード形式に画像が含まれる）、
-        // 画像だから取り込みではない、とは言えない。zipが混ざっているなら
-        // 「取り込みたい」意図の方が強い、という判断だけをする
-        if (paths is { Count: > 0 } && images.Count != paths.Count)
-        {
-            return new DropDecision(DropAction.Import, null);
         }
 
         // BOOTH由来か。商品IDが読めるなら、どちらの意図かは決まらない
