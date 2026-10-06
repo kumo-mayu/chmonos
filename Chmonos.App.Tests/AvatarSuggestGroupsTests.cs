@@ -207,7 +207,7 @@ public class AvatarSuggestGroupsTests
         await app.StartAsync();
         var paths = app.Services.Paths;
 
-        var photo = Path.Combine(paths.ModificationImagesDir("m1"), "p.webp");
+        var photo = Path.Combine(paths.ModificationImagesDir("mod-0000a001"), "p.webp");
         var avatarPicture = Path.Combine(paths.AvatarImagesDir("9900002"), "a.webp");
         Directory.CreateDirectory(Path.GetDirectoryName(photo)!);
         Directory.CreateDirectory(Path.GetDirectoryName(avatarPicture)!);
@@ -216,9 +216,9 @@ public class AvatarSuggestGroupsTests
 
         var records = new[]
         {
-            new ModificationRecord { Id = "m1", AvatarItemId = "9900001", Name = "写真あり", Images = [new ModificationImage { FileName = "p.webp" }] },
-            new ModificationRecord { Id = "m2", AvatarItemId = "9900002", Name = "アバターの絵だけ" },
-            new ModificationRecord { Id = "m3", AvatarItemId = "9900003", Name = "絵なし" },
+            new ModificationRecord { Id = "mod-0000a001", AvatarItemId = "9900001", Name = "写真あり", Images = [new ModificationImage { FileName = "p.webp" }] },
+            new ModificationRecord { Id = "mod-0000a002", AvatarItemId = "9900002", Name = "アバターの絵だけ" },
+            new ModificationRecord { Id = "mod-0000a003", AvatarItemId = "9900003", Name = "絵なし" },
         };
 
         var model = ModificationPicking.BuildDialog(app.Services, "題", "見出し", "", records, "既存", "決定", "空");

@@ -1712,6 +1712,13 @@ public sealed class ItemService : IItemService
             return ItemIdChangeOutcome.SameId;
         }
 
+        // ID は場所の名前になる（items/{id}.json・images/{id}/）。やりかけの記録（pending-operations.json）は手で直せるので、
+        // 形の外れた ID では何も書かず・消さず、参照も付け替えない（StoreIds）
+        if (!StoreIds.IsItemId(fromId) || !StoreIds.IsItemId(toId))
+        {
+            return ItemIdChangeOutcome.TargetUnavailable;
+        }
+
         if (await _store.Items.LoadAsync(fromId, cancellationToken) is not { } before)
         {
             return ItemIdChangeOutcome.SourceMissing;
@@ -1818,6 +1825,13 @@ public sealed class ItemService : IItemService
         if (string.Equals(fromId, toId, StringComparison.Ordinal))
         {
             return ItemIdChangeOutcome.SameId;
+        }
+
+        // ID は場所の名前になる（items/{id}.json・images/{id}/）。やりかけの記録（pending-operations.json）は手で直せるので、
+        // 形の外れた ID では何も書かず・消さず、参照も付け替えない（StoreIds）
+        if (!StoreIds.IsItemId(fromId) || !StoreIds.IsItemId(toId))
+        {
+            return ItemIdChangeOutcome.TargetUnavailable;
         }
 
         var skipped = skippedPurchases ?? new HashSet<int>();

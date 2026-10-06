@@ -117,7 +117,9 @@ public sealed class ModificationImageTests : IDisposable
 
         // images/ 直下は商品IDのフォルダが並ぶ場所。_mods を挟んで避ける
         Assert.Contains(Path.Combine("images", "_mods"), _paths.ModificationImagesDir(id));
-        Assert.False(Directory.Exists(_paths.ItemImagesDir(id)));
+        // 改変ID は商品IDの形ではないので、商品の画像の置き場所としては組めない
+        Assert.Throws<InvalidStoreIdException>(() => _paths.ItemImagesDir(id));
+        Assert.False(Directory.Exists(Path.Combine(_paths.ImagesDir, id)));
     }
 
     [Fact]

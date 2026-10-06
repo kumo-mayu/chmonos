@@ -87,7 +87,7 @@ public class SearchMatchModeDimTests
     {
         var module = new ModificationModule(_ => null, _ => null);
         var row = module.AddAvatar("9900001");
-        row.AddModificationQuietly("m1");
+        row.AddModificationQuietly("mod-0000a001");
 
         // アバターどうしもユーザータグの大分類と同じく出さない（ユーザ判断 2026-10-06）
         Assert.False(module.ShowsMatchMode);
@@ -95,7 +95,7 @@ public class SearchMatchModeDimTests
         AssertDimmed(row.CanChooseMatchMode, row.MatchModeDimmed, row.MatchModeTip, "改変を2つ以上追加すると選べます。");
 
         module.AddAvatar("9900002");
-        row.AddModificationQuietly("m2");
+        row.AddModificationQuietly("mod-0000a002");
         Assert.True(module.ShowsMatchMode);
         Assert.True(module.CanChooseMatchMode);
         Assert.Equal(module.AvatarMatchAllHint, module.MatchModeTip);

@@ -141,7 +141,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
             {
                 entered.Set();
                 release.Wait();
-                return current with { LocalFiles = [.. current.LocalFiles, new LocalFileRecord { Hash = "NEW", Paths = [@"C:\dl\new.zip"], SizeBytes = 1 }] };
+                return current with { LocalFiles = [.. current.LocalFiles, new LocalFileRecord { Hash = "A6A6", Paths = [@"C:\dl\new.zip"], SizeBytes = 1 }] };
             },
             LocalOwners.Import));
         entered.Wait();
@@ -154,7 +154,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
         Assert.Equal(1, await apply);
 
         var files = (await _store.Items.LoadAsync("1"))!.Local.LocalFiles;
-        Assert.Contains(files, record => record.Hash == "NEW");
+        Assert.Contains(files, record => record.Hash == "A6A6");
         Assert.NotNull(files.Single(record => record.Hash == "AAA").UnityPackages);
     }
 
@@ -216,9 +216,9 @@ public sealed class UnityPackageCatalogTests : IDisposable
     public async Task まだ書いていない物を探す()
     {
         var pending = MakeZip("a.zip", "FFF", ("A.unitypackage", MakeUnityPackage("Assets/A/a.prefab")));
-        var done = MakeZip("b.zip", "GGG", ("B.unitypackage", MakeUnityPackage("Assets/B/b.prefab")))
+        var done = MakeZip("b.zip", "A1A1", ("B.unitypackage", MakeUnityPackage("Assets/B/b.prefab")))
             with { UnityPackages = [new UnityPackageSummary { Entry = "B.unitypackage", Roots = ["Assets/B"] }] };
-        var none = MakeZip("c.zip", "HHH", ("c.fbx", Encoding.UTF8.GetBytes("fbx")));
+        var none = MakeZip("c.zip", "A2A2", ("c.fbx", Encoding.UTF8.GetBytes("fbx")));
         await SaveItemAsync("1", pending, none);
         await SaveItemAsync("2", done);
 
@@ -231,7 +231,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
     [Fact]
     public async Task 手でファイルを付けた商品をまとめて埋める()
     {
-        var file = MakeZip("k.zip", "III", ("K/Kuuta.unitypackage", MakeUnityPackage("Assets/Kuuta_ShapekeyAddon/a.asset")));
+        var file = MakeZip("k.zip", "A3A3", ("K/Kuuta.unitypackage", MakeUnityPackage("Assets/Kuuta_ShapekeyAddon/a.asset")));
         await SaveItemAsync("1", file);
 
         await _catalog.FillItemAsync("1");
@@ -245,12 +245,12 @@ public sealed class UnityPackageCatalogTests : IDisposable
         // 走査で見つけた方はまだ読んでいない（null）。既にある記録の値を残す
         var current = new LocalFileRecord
         {
-            Hash = "JJJ",
+            Hash = "A4A4",
             Paths = ["C:/a.zip"],
             SizeBytes = 1,
             UnityPackages = [new UnityPackageSummary { Entry = "A.unitypackage", Roots = ["Assets/A"] }],
         };
-        var discovered = new LocalFileRecord { Hash = "JJJ", Paths = ["C:/b.zip"], SizeBytes = 1 };
+        var discovered = new LocalFileRecord { Hash = "A4A4", Paths = ["C:/b.zip"], SizeBytes = 1 };
 
         var merged = Assert.Single(LocalFileMerger.Merge([current], [discovered], _ => true));
 
@@ -260,14 +260,14 @@ public sealed class UnityPackageCatalogTests : IDisposable
     [Fact]
     public void zipのハッシュがあれば控えから中身のパスを引く()
     {
-        var file = MakeZip("h.zip", "KKK", ("H.unitypackage", MakeUnityPackage("Assets/H/a.prefab", "Assets/H/b.prefab")));
-        var package = UnityHandoff.FindPackages(file.Paths[0]).Single() with { ZipHash = "KKK" };
+        var file = MakeZip("h.zip", "A5A5", ("H.unitypackage", MakeUnityPackage("Assets/H/a.prefab", "Assets/H/b.prefab")));
+        var package = UnityHandoff.FindPackages(file.Paths[0]).Single() with { ZipHash = "A5A5" };
 
         UnityHandoff.UsePathStore(_paths);
         try
         {
             Assert.Equal(2, UnityHandoff.ReadAssetPaths(package).Count);
-            Assert.True(_paths.Has("KKK"));
+            Assert.True(_paths.Has("A5A5"));
 
             // zip が消えても（手元から消した後でも）控えから引ける
             File.Delete(file.Paths[0]);
@@ -283,17 +283,17 @@ public sealed class UnityPackageCatalogTests : IDisposable
     public async Task 控えにパスごとのGUIDも書く()
     {
         // フォルダを移された物を GUID で探す（UnityProjectGuids）ため、パスと一緒に残す
-        var file = MakeZip("g.zip", "GGG", ("G.unitypackage", MakeUnityPackage("Assets/G", "Assets/G/a.prefab")));
+        var file = MakeZip("g.zip", "A1A1", ("G.unitypackage", MakeUnityPackage("Assets/G", "Assets/G/a.prefab")));
 
         await _catalog.ReadAsync([file]);
 
-        var assets = _paths.Load("GGG")!["G.unitypackage"];
+        var assets = _paths.Load("A1A1")!["G.unitypackage"];
         Assert.Equal(
             [new UnityPackageAsset(0.ToString("x32"), "Assets/G"), new UnityPackageAsset(1.ToString("x32"), "Assets/G/a.prefab")],
             assets);
 
         // 人が開いて読める形：1行が「GUID: パス」
-        var text = await File.ReadAllTextAsync(_appPaths.UnityPackageFile("GGG"));
+        var text = await File.ReadAllTextAsync(_appPaths.UnityPackageFile("A1A1"));
         Assert.Contains($"\"{1.ToString("x32")}\": \"Assets/G/a.prefab\"", text);
     }
 
@@ -301,17 +301,17 @@ public sealed class UnityPackageCatalogTests : IDisposable
     public async Task 読めない控えは無いのと同じで読み直す()
     {
         // 読めない控え（ここでは GUID を持たない形）は使えない。控えは作り直せる写しなので、zip を解き直して書き直す
-        var file = MakeZip("o.zip", "OOO", ("O.unitypackage", MakeUnityPackage("Assets/O/a.prefab")));
-        Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("OOO"))!);
+        var file = MakeZip("o.zip", "A7A7", ("O.unitypackage", MakeUnityPackage("Assets/O/a.prefab")));
+        Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("A7A7"))!);
         await File.WriteAllTextAsync(
-            _appPaths.UnityPackageFile("OOO"),
+            _appPaths.UnityPackageFile("A7A7"),
             """{ "packages": { "O.unitypackage": [ "Assets/O/a.prefab" ] } }""");
 
-        Assert.False(_paths.Has("OOO"));
-        Assert.Null(_paths.Load("OOO"));
+        Assert.False(_paths.Has("A7A7"));
+        Assert.Null(_paths.Load("A7A7"));
 
         Assert.Equal(1, await _catalog.ReadAsync([file]));
-        Assert.Equal([new UnityPackageAsset(0.ToString("x32"), "Assets/O/a.prefab")], _paths.Load("OOO")!["O.unitypackage"]);
+        Assert.Equal([new UnityPackageAsset(0.ToString("x32"), "Assets/O/a.prefab")], _paths.Load("A7A7")!["O.unitypackage"]);
     }
 
     // ---- 一部の包みしか載っていない要約（2026-09-29） ----
@@ -333,7 +333,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
     [Fact]
     public async Task 一部しか書いていない要約も探す()
     {
-        var partial = await PartialAsync("1", "PPP");
+        var partial = await PartialAsync("1", "A8A8");
 
         var found = await _catalog.FindPendingAsync();
 
@@ -344,7 +344,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
     [Fact]
     public async Task 一部しか載っていない控えを読み直して要約を埋める()
     {
-        var partial = await PartialAsync("1", "QQQ");
+        var partial = await PartialAsync("1", "A9A9");
 
         Assert.Equal(1, await _catalog.ReadAsync([partial]));
         Assert.Equal(1, await _catalog.ApplyAsync(["1"]));
@@ -352,7 +352,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
         var summaries = (await LoadFileAsync("1")).UnityPackages!;
         Assert.Equal(["A.unitypackage", "B/B.unitypackage"], summaries.Select(summary => summary.Entry).Order(StringComparer.Ordinal));
         Assert.Equal(["Assets/B"], summaries.Single(summary => summary.Entry == "B/B.unitypackage").Roots);
-        Assert.Equal(["A.unitypackage", "B/B.unitypackage"], _paths.Load("QQQ")!.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["A.unitypackage", "B/B.unitypackage"], _paths.Load("A9A9")!.Keys.Order(StringComparer.Ordinal));
 
         // そろった後は、表示の側が item の要約だけで足りる（zip を開かない）
         Assert.NotNull(UnityHandoff.KnownPackages(await LoadFileAsync("1")));
@@ -365,18 +365,18 @@ public sealed class UnityPackageCatalogTests : IDisposable
     {
         // 控えの A は zip の中身と違う印の値にしておく。解き直していれば zip の中身に戻る
         var marker = new UnityPackageAsset("ffffffffffffffffffffffffffffffff", "Assets/控えの値/a.prefab");
-        var partial = await PartialAsync("1", "RRR", [marker]);
+        var partial = await PartialAsync("1", "B1B1", [marker]);
 
         await _catalog.ReadAsync([partial]);
 
-        Assert.Equal([marker], _paths.Load("RRR")!["A.unitypackage"]);
+        Assert.Equal([marker], _paths.Load("B1B1")!["A.unitypackage"]);
     }
 
     [Fact]
     public async Task 要約がそろっていれば控えが欠けていても要約は書き直さない()
     {
         // 要約は2つともある。控えだけ A しか無い（控えを消した・古い）。控えは読み直して埋めるが、要約はそのまま
-        var file = MakeZip("s.zip", "SSS",
+        var file = MakeZip("s.zip", "B2B2",
             ("A.unitypackage", MakeUnityPackage("Assets/A/a.prefab")),
             ("B.unitypackage", MakeUnityPackage("Assets/B/b.prefab")))
             with
@@ -387,13 +387,13 @@ public sealed class UnityPackageCatalogTests : IDisposable
                     new UnityPackageSummary { Entry = "B.unitypackage", Roots = ["Assets/前の値B"] },
                 ],
             };
-        _paths.Add("SSS", "A.unitypackage", [new UnityPackageAsset(0.ToString("x32"), "Assets/A/a.prefab")]);
+        _paths.Add("B2B2", "A.unitypackage", [new UnityPackageAsset(0.ToString("x32"), "Assets/A/a.prefab")]);
         await SaveItemAsync("1", file);
 
         Assert.Equal(1, await _catalog.ReadAsync([file]));
         Assert.Equal(0, await _catalog.ApplyAsync(["1"]));
 
-        Assert.Equal(2, _paths.Load("SSS")!.Count);
+        Assert.Equal(2, _paths.Load("B2B2")!.Count);
         Assert.Equal(["Assets/前の値B"], (await LoadFileAsync("1")).UnityPackages!.Single(summary => summary.Entry == "B.unitypackage").Roots);
     }
 
@@ -403,31 +403,31 @@ public sealed class UnityPackageCatalogTests : IDisposable
         // 空の控えを書くと、入り先の無い要約が書かれる。控えなければ、開けるようになった取り込みで読める
         var path = Path.Combine(_files, "notzip.zip");
         await File.WriteAllTextAsync(path, "zip ではない");
-        var file = new LocalFileRecord { Hash = "TTT", Paths = [path], SizeBytes = 1, Contents = ["T.unitypackage"] };
+        var file = new LocalFileRecord { Hash = "B3B3", Paths = [path], SizeBytes = 1, Contents = ["T.unitypackage"] };
         await SaveItemAsync("1", file);
 
         Assert.Equal(0, await _catalog.ReadAsync([file]));
         Assert.Equal(0, await _catalog.ApplyAsync(["1"]));
 
-        Assert.False(_paths.Has("TTT"));
+        Assert.False(_paths.Has("B3B3"));
         Assert.Null((await LoadFileAsync("1")).UnityPackages);
     }
 
     [Fact]
     public void 使うときに読んだ物も読めない控えを書き直す()
     {
-        var file = MakeZip("u.zip", "UUU", ("U.unitypackage", MakeUnityPackage("Assets/U/a.prefab")));
-        Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("UUU"))!);
+        var file = MakeZip("u.zip", "B4B4", ("U.unitypackage", MakeUnityPackage("Assets/U/a.prefab")));
+        Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("B4B4"))!);
         File.WriteAllText(
-            _appPaths.UnityPackageFile("UUU"),
+            _appPaths.UnityPackageFile("B4B4"),
             """{ "packages": { "U.unitypackage": [ "Assets/U/a.prefab" ] } }""");
-        var package = UnityHandoff.FindPackages(file.Paths[0]).Single() with { ZipHash = "UUU" };
+        var package = UnityHandoff.FindPackages(file.Paths[0]).Single() with { ZipHash = "B4B4" };
 
         UnityHandoff.UsePathStore(_paths);
         try
         {
             Assert.Equal([new UnityPackageAsset(0.ToString("x32"), "Assets/U/a.prefab")], UnityHandoff.ReadAssets(package));
-            Assert.True(_paths.Has("UUU"));
+            Assert.True(_paths.Has("B4B4"));
         }
         finally
         {

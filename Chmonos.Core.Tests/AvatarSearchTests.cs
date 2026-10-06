@@ -96,12 +96,12 @@ public class AvatarSearchTests : IDisposable
     public void 改変の絵は写真の1枚目が先()
     {
         var paths = MakePaths(_root);
-        var photo = Path.Combine(paths.ModificationImagesDir("m1"), "a.webp");
+        var photo = Path.Combine(paths.ModificationImagesDir("mod-0000a001"), "a.webp");
         Touch(photo);
         Touch(Path.Combine(paths.AvatarImagesDir("9900001"), "av.webp"));
         var record = new ModificationRecord
         {
-            Id = "m1",
+            Id = "mod-0000a001",
             AvatarItemId = "9900001",
             Name = "普段着",
             Images = [new ModificationImage { FileName = "a.webp" }],
@@ -115,7 +115,7 @@ public class AvatarSearchTests : IDisposable
     {
         var paths = MakePaths(_root);
         var avatarPicture = Path.Combine(paths.AvatarImagesDir("9900001"), "av.webp");
-        var record = new ModificationRecord { Id = "m1", AvatarItemId = "9900001", Name = "普段着" };
+        var record = new ModificationRecord { Id = "mod-0000a001", AvatarItemId = "9900001", Name = "普段着" };
 
         Assert.Null(ModificationIcon.PathOf(paths, record, null));
 
@@ -131,7 +131,7 @@ public class AvatarSearchTests : IDisposable
         var pinned = Path.Combine(paths.ItemImagesDir("9900001"), "b.webp");
         Touch(first);
         Touch(pinned);
-        var record = new ModificationRecord { Id = "m1", AvatarItemId = "9900001", Name = "普段着" };
+        var record = new ModificationRecord { Id = "mod-0000a001", AvatarItemId = "9900001", Name = "普段着" };
         ItemRecord Avatar(string? thumbnail) => new()
         {
             Id = "9900001",
@@ -151,7 +151,7 @@ public class AvatarSearchTests : IDisposable
         Touch(avatarPicture);
         var record = new ModificationRecord
         {
-            Id = "m1",
+            Id = "mod-0000a001",
             AvatarItemId = "9900001",
             Name = "普段着",
             Images = [new ModificationImage { FileName = "gone.webp" }],

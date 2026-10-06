@@ -67,20 +67,26 @@ public sealed class AppPaths
     /// <summary>改変の記録。1改変1ファイル（1つにまとめると壊れたときに全部失う）</summary>
     public string ModificationsDir => Path.Combine(Root, "modifications");
 
-    public string ModificationFile(string id) => Path.Combine(ModificationsDir, $"{id}.json");
+    public string ModificationFile(string id) => Path.Combine(ModificationsDir, $"{StoreIds.RequireModificationId(id)}.json");
 
     /// <summary>
     /// 改変に貼った画像。<c>images/</c> 直下は商品IDのフォルダが並ぶ場所なので、
     /// ショップアイコンの <c>_shops</c> と同じ避け方にする
     /// （<c>mod-</c> で始まる商品IDが将来出ない保証が無い）。
     /// </summary>
-    public string ModificationImagesDir(string id) => Path.Combine(ImagesDir, "_mods", id);
+    public string ModificationImagesDir(string id) => Path.Combine(ImagesDir, "_mods", StoreIds.RequireModificationId(id));
 
     /// <summary>
     /// 持っていないアバターの1枚目（U18）。持っているアバターは商品の画像を使うので、ここには置かない。
     /// <c>images/</c> 直下は商品IDのフォルダが並ぶ場所なので、<c>_shops</c>・<c>_mods</c> と同じ避け方にする
     /// </summary>
-    public string AvatarImagesDir(string avatarItemId) => Path.Combine(ImagesDir, "_avatars", avatarItemId);
+    public string AvatarImagesDir(string avatarItemId) => Path.Combine(AvatarImagesRoot, StoreIds.RequireItemId(avatarItemId));
+
+    /// <summary>持っていないアバターの1枚目の置き場の親（<c>images/_avatars</c>）。消す前に、この中に収まるかを確かめる</summary>
+    public string AvatarImagesRoot => Path.Combine(ImagesDir, "_avatars");
+
+    /// <summary>改変に貼った画像の置き場の親（<c>images/_mods</c>）。消す前に、この中に収まるかを確かめる</summary>
+    public string ModificationImagesRoot => Path.Combine(ImagesDir, "_mods");
 
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
 
@@ -116,7 +122,7 @@ public sealed class AppPaths
     /// </summary>
     public string UnityPackagesDir => Path.Combine(Root, "unitypackages");
 
-    public string UnityPackageFile(string hash) => Path.Combine(UnityPackagesDir, hash.ToUpperInvariant() + ".json");
+    public string UnityPackageFile(string hash) => Path.Combine(UnityPackagesDir, StoreIds.RequirePackageHash(hash).ToUpperInvariant() + ".json");
 
     /// <summary>中断した取り込みの記録。最後まで終われば消える。</summary>
     public string ImportStateFile => Path.Combine(Root, "import-state.json");
@@ -125,14 +131,14 @@ public sealed class AppPaths
 
     public string LockFile => Path.Combine(Root, "app.lock");
 
-    public string ItemFile(string itemId) => Path.Combine(ItemsDir, $"{itemId}.json");
+    public string ItemFile(string itemId) => Path.Combine(ItemsDir, $"{StoreIds.RequireItemId(itemId)}.json");
 
     /// <summary>
     /// アプリが最後に書いた商品の記録の控え（<c>items/.prev/{id}.json</c>。ユーザ判断 2026-10-05）。
     /// 本体が手で直して壊れたとき・ディスクや同期ソフトの事故で読めなくなったときに、通知の画面から戻す元。
     /// 全件の読み込みは <c>items</c> の直下だけを列挙するので、ここの物は商品に数えない
     /// </summary>
-    public string ItemCopyFile(string itemId) => Path.Combine(ItemsDir, ".prev", $"{itemId}.json");
+    public string ItemCopyFile(string itemId) => Path.Combine(ItemsDir, ".prev", $"{StoreIds.RequireItemId(itemId)}.json");
 
     /// <summary>
     /// 読めなかった商品の記録をよけておく所（<c>items/_broken</c>）。戻す・作り直すときに本体をここへ移す。
@@ -141,9 +147,9 @@ public sealed class AppPaths
     public string BrokenItemsDir => Path.Combine(ItemsDir, "_broken");
 
     /// <summary>表示用の説明HTML。検索には使わないので、開いた時だけ読む。</summary>
-    public string ItemHtmlFile(string itemId) => Path.Combine(ItemsDir, $"{itemId}.h2.html");
+    public string ItemHtmlFile(string itemId) => Path.Combine(ItemsDir, $"{StoreIds.RequireItemId(itemId)}.h2.html");
 
-    public string ItemImagesDir(string itemId) => Path.Combine(ImagesDir, itemId);
+    public string ItemImagesDir(string itemId) => Path.Combine(ImagesDir, StoreIds.RequireItemId(itemId));
 
     /// <summary>
     /// ショップのアイコン置き場。商品IDと衝突しないよう、専用の名前にしてある

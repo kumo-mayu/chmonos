@@ -25,11 +25,20 @@ public sealed class UnityPackagePathsFile
 public sealed class UnityPackagePathStore(AppPaths paths)
 {
     /// <summary>読める控えがあるか。読めない控えは無いのと同じ（読み直して書き直す）。</summary>
-    public bool Has(string hash) => File.Exists(paths.UnityPackageFile(hash)) && Load(hash) is not null;
+    /// <remarks>
+    /// 鍵は商品の記録（手で直せる JSON）に書かれたハッシュからも来る。**ハッシュの形でない鍵では場所を組まない**
+    /// （<see cref="StoreIds"/>）：読むは「無い」、書くは何もしない。控えは作り直せる写しなので、書かなくても壊れない
+    /// </remarks>
+    public bool Has(string hash) => StoreIds.IsPackageHash(hash) && File.Exists(paths.UnityPackageFile(hash)) && Load(hash) is not null;
 
     /// <summary>読めなければ null（無い・壊れている）。</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>? Load(string hash)
     {
+        if (!StoreIds.IsPackageHash(hash))
+        {
+            return null;
+        }
+
         try
         {
             return JsonStore.Read<UnityPackagePathsFile>(paths.UnityPackageFile(hash))?.Packages
@@ -59,6 +68,11 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> packages,
         CancellationToken cancellationToken = default)
     {
+        if (!StoreIds.IsPackageHash(hash))
+        {
+            return;
+        }
+
         var gate = LockFor(hash);
         await gate.WaitAsync(cancellationToken);
         try
@@ -78,6 +92,11 @@ public sealed class UnityPackagePathStore(AppPaths paths)
     /// </summary>
     public void Add(string hash, string entry, IReadOnlyList<UnityPackageAsset> assets)
     {
+        if (!StoreIds.IsPackageHash(hash))
+        {
+            return;
+        }
+
         // 取り込みの裏と商品ページが同じ zip を同時に開くので、読み直してから足すまでを1本にする
         var gate = LockFor(hash);
         gate.Wait();

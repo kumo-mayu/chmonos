@@ -195,7 +195,7 @@ public class UnityToolsCombinationTests
         // 前は入っているかを見ずに「Unity Hubと、VCCかALCOMの一覧を見ましたが…」と言っていた
         app.Tools = ToolsOf(combination);
         var main = await app.StartAsync();
-        var record = new ModificationRecord { Id = "m1", AvatarItemId = "1000001", Name = "夏の改変" };
+        var record = new ModificationRecord { Id = "mod-0000a001", AvatarItemId = "1000001", Name = "夏の改変" };
         var modification = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
         await UiThread.Until(() => modification.RefreshProjectsHint == hint, "Hub・VCC・ALCOM を調べ終わる");
 

@@ -168,14 +168,14 @@ public sealed class UnityHelperTests : IDisposable
     {
         var usage = ModificationUsage.From(
         [
-            Modification("m1", "9000001", @"D:\unity\SampleProject",
+            Modification("mod-0000a001", "9000001", @"D:\unity\SampleProject",
                 new ModificationMember { ItemId = "1000001" }, new ModificationMember { ItemId = "1000002" }),
-            Modification("m2", "9000001", @"d:\unity\sampleproject",
+            Modification("mod-0000a002", "9000001", @"d:\unity\sampleproject",
                 new ModificationMember { ItemId = "1000002" }, new ModificationMember { ItemId = "1000003" }),
-            Modification("m3", "9000002", project: null, new ModificationMember { ItemId = "1000004" }),
+            Modification("mod-0000a003", "9000002", project: null, new ModificationMember { ItemId = "1000004" }),
         ]);
 
-        Assert.Equal(["1000001", "1000002"], usage.ItemIdsByModification["m1"].Order());
+        Assert.Equal(["1000001", "1000002"], usage.ItemIdsByModification["mod-0000a001"].Order());
         Assert.Equal(["1000001", "1000002", "1000003"], usage.ItemIdsByAvatar["9000001"].Order());
         Assert.Equal(["1000004"], usage.ItemIdsByAvatar["9000002"]);
 
@@ -190,12 +190,12 @@ public sealed class UnityHelperTests : IDisposable
     {
         var usage = ModificationUsage.From(
         [
-            Modification("m1", "9000001", project: null,
+            Modification("mod-0000a001", "9000001", project: null,
                 new ModificationMember { ItemId = "1000001" },
                 new ModificationMember { ItemId = "1000002", Detached = true }),
         ]);
 
-        Assert.Equal(["1000001"], usage.ItemIdsByModification["m1"]);
+        Assert.Equal(["1000001"], usage.ItemIdsByModification["mod-0000a001"]);
     }
 
     [Fact]
@@ -203,11 +203,11 @@ public sealed class UnityHelperTests : IDisposable
     {
         var usage = ModificationUsage.From(
         [
-            Modification("m1", "9000001", project: null,
+            Modification("mod-0000a001", "9000001", project: null,
                 new ModificationMember { ItemId = "1000001", VariationId = 1 },
                 new ModificationMember { ItemId = "1000001", VariationId = 2 }),
         ]);
 
-        Assert.Equal(["1000001"], usage.ItemIdsByModification["m1"]);
+        Assert.Equal(["1000001"], usage.ItemIdsByModification["mod-0000a001"]);
     }
 }

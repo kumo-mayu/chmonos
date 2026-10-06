@@ -90,6 +90,13 @@ public static class HandEditCheck
 
         Add("items/", "ファイル名と中の商品IDが違います", mismatched);
 
+        // 商品ID・改変ID は場所の名前になるので、形の外れた物は読み込みと片付けから外している（StoreIds）。
+        // 黙って一覧から減らさないよう、どのファイルかをここで知らせる
+        Add("items/", "ファイル名が商品IDになっていないため、読み込んでいません", store.Items.FindMalformedFileNames());
+        Add("avatar-registry.json", "商品IDになっていない行があるため、その行は使っていません",
+            registry.Entries.Where(entry => !StoreIds.IsItemId(entry.ItemId)).Select(entry => $"「{entry.ItemId}」").ToList());
+        Add("modifications/", "改変IDになっていない記録があるため、読み込んでいません", store.Modifications.FindMalformed());
+
         return issues;
     }
 }

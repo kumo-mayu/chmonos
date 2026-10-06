@@ -211,7 +211,7 @@ public class CardMenuStateTests
     [Fact]
     public Task BOOTHに無い商品は_BOOTHとリンクだけ押せず_その理由を言う() => TestApp.Run(async app =>
     {
-        var local = Make.Item("1000001", "作り物の衣装A") with { Id = "local-sample-1" };
+        var local = Make.Item("1000001", "作り物の衣装A") with { Id = "local-5a3e0001" };
         await app.AddItemAsync(local);
         var main = await app.StartAsync();
         var card = main.Search.ListItems.Single();
