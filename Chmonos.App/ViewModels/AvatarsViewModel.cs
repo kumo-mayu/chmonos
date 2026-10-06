@@ -1867,12 +1867,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarBase(Selected.ItemId, BaseInput), "素体を保存できませんでした。", BaseFieldNote.Warn) is null)
+        var baseFor = Selected.ItemId;
+        var baseName = BaseInput;
+        if (await WriteAsync(new UiCommand.SetAvatarBase(baseFor, baseName), "素体を保存できませんでした。", BaseFieldNote.Warn) is null)
         {
             return;
         }
 
-        _drafts.Remove(Selected.ItemId);
+        AfterWritten(baseFor, draft => draft with { Base = draft.Base == baseName ? null : draft.Base }, () => { });
         NoteRegistryChanged();
         await LoadAsync();
     }
@@ -2109,13 +2111,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (await WriteAsync(new UiCommand.SetAvatarName(Selected.ItemId, string.Empty), "名前を戻せませんでした。", AvatarNameNote.Warn) is null)
+        var resetFor = Selected.ItemId;
+        if (await WriteAsync(new UiCommand.SetAvatarName(resetFor, string.Empty), "名前を戻せませんでした。", AvatarNameNote.Warn) is null)
         {
             return;
         }
 
-        _drafts.Remove(Selected.ItemId);
-        IsEditingName = false;
+        AfterWritten(resetFor, draft => draft with { Name = null }, () => IsEditingName = false);
         NoteRegistryChanged();
         await LoadAsync();
     }
@@ -2148,15 +2150,43 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         // 書けなかったときは打った名前の欄を開いたまま残す（もう一度押せば書ける）
-        if (await WriteAsync(new UiCommand.SetAvatarName(Selected.ItemId, newName), "名前を保存できませんでした。", AvatarNameNote.Warn) is null)
+        var renameFor = Selected.ItemId;
+        if (await WriteAsync(new UiCommand.SetAvatarName(renameFor, newName), "名前を保存できませんでした。", AvatarNameNote.Warn) is null)
         {
             return;
         }
 
-        _drafts.Remove(Selected.ItemId);
-        IsEditingName = false;
+        AfterWritten(renameFor, draft => draft with { Name = draft.Name == newName ? null : draft.Name }, () => IsEditingName = false);
         NoteRegistryChanged();
         await LoadAsync();
+    }
+
+    /// <summary>
+    /// 書けた後の片付けを、**書いたアバターにだけ**当てる（外部の点検 2026-10-06）。
+    /// 書き込みを待つ間に別のアバターを選べるので、待った後に Selected を見ると、選び直した先の欄と打ちかけを消していた。
+    /// まだ同じアバターなら欄を片付けて控えを捨てる。離れていたら、控えのうち書いた値と同じ所だけを捨てる
+    /// </summary>
+    private void AfterWritten(string itemId, Func<AvatarDraft, AvatarDraft> forget, Action onSame)
+    {
+        if (Selected?.ItemId == itemId)
+        {
+            _drafts.Remove(itemId);
+            onSame();
+            return;
+        }
+
+        if (_drafts.TryGetValue(itemId, out var draft))
+        {
+            var left = forget(draft);
+            if (left == default)
+            {
+                _drafts.Remove(itemId);
+            }
+            else
+            {
+                _drafts[itemId] = left;
+            }
+        }
     }
 
     /// <summary>待っているメモを今書く。別のアバターへ移る前に呼ぶ（移ってからだと、移った先の欄の文になる）</summary>
@@ -2220,13 +2250,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (await WriteAsync(new UiCommand.AddAvatarAlias(Selected.ItemId, AliasInput), "呼び方を追加できませんでした。", AliasNote.Warn) is null)
+        var aliasFor = Selected.ItemId;
+        var alias = AliasInput;
+        if (await WriteAsync(new UiCommand.AddAvatarAlias(aliasFor, alias), "呼び方を追加できませんでした。", AliasNote.Warn) is null)
         {
             return;
         }
 
-        AliasInput = string.Empty;
-        _drafts.Remove(Selected.ItemId);
+        AfterWritten(aliasFor, draft => draft with { Alias = draft.Alias == alias ? null : draft.Alias }, () =>
+        {
+            if (AliasInput == alias)
+            {
+                AliasInput = string.Empty;
+            }
+        });
         await LoadAsync();
     }
 

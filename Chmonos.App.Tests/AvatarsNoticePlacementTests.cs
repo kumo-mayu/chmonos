@@ -221,6 +221,34 @@ public sealed class AvatarsNoticePlacementTests
         Assert.True(avatars.CreateModificationCommand.CanExecute(null) || avatars.ModificationNameInput.Length == 0);
     });
 
+    /// <summary>
+    /// 呼び方の保存を待つ間に別のアバターを選んで打っても、その呼び方は消えない（外部の点検 2026-10-06）。
+    /// 前は待った後に Selected を見て、選び直した先の欄と打ちかけを消していた
+    /// </summary>
+    [Fact]
+    public Task 呼び方の保存を待つ間に別のアバターへ移って打った呼び方は_消えない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.Selected = avatars.Rows.Single(row => row.ItemId == AvatarId);
+        avatars.AliasInput = "さきの呼び方";
+
+        using (await Chmonos.Core.Storage.StoreWriteGate.HoldAsync())
+        {
+            avatars.AddAliasCommand.Execute(null);
+            avatars.Selected = avatars.Rows.Single(row => row.ItemId == "2000002");
+            avatars.AliasInput = "あとの呼び方";
+        }
+
+        await app.SettleAsync();
+
+        Assert.Equal("2000002", avatars.Selected?.ItemId);
+        Assert.Equal("あとの呼び方", avatars.AliasInput);
+
+        // 書いたアバターへ戻ると、書いた呼び方は打ちかけとして残っていない
+        avatars.Selected = avatars.Rows.Single(row => row.ItemId == AvatarId);
+        Assert.Equal(string.Empty, avatars.AliasInput);
+    });
+
     [Fact]
     public Task メモを保存できたときは何も出さない() => TestApp.Run(async app =>
     {
