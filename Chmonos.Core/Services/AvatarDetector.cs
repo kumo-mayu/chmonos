@@ -811,9 +811,50 @@ public static class AvatarText
 /// </summary>
 public static class AvatarDetector
 {
-    private static readonly Regex SectionPattern = new(
-        "<h2[^>]*>(?<heading>[\\s\\S]*?)</h2>(?<body>[\\s\\S]*?)(?=<h2[^>]*>|$)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    /// <summary>説明の HTML の見出し（<c>&lt;h2 …&gt;見出し&lt;/h2&gt;</c>）1つと、次の見出しまでの本文。</summary>
+    private readonly record struct HtmlSection(int Index, int Length, string Heading, string Body);
+
+    /// <summary>
+    /// 見出しで区切る。**正規表現でなく位置で探す**（外部の点検 2026-10-06 で測った）。
+    /// 前の正規表現（<c>&lt;h2[^&gt;]*&gt;([sS]*?)&lt;/h2&gt;</c>）は、閉じない &lt;h2&gt; が並ぶと始まりの候補ごとに最後まで探し直し、
+    /// 作り物の 200KB で10.5秒・1MB で211秒かかった。ここでは閉じる &lt;/h2&gt; が無ければそこで打ち切る（後の候補にも無いので）。
+    /// 区切り方は前の正規表現と同じ：見出しは最初の &lt;/h2&gt; まで、本文は次の「&lt;h2…&gt;」の手前まで
+    /// </summary>
+    private static List<HtmlSection> HtmlSections(string html)
+    {
+        var sections = new List<HtmlSection>();
+        var from = 0;
+        while (OpeningH2(html, from) is { } open)
+        {
+            var close = html.IndexOf("</h2>", open.End, StringComparison.OrdinalIgnoreCase);
+            if (close < 0)
+            {
+                break;
+            }
+
+            var bodyStart = close + "</h2>".Length;
+            var bodyEnd = OpeningH2(html, bodyStart)?.Start ?? html.Length;
+            sections.Add(new HtmlSection(
+                open.Start, bodyEnd - open.Start, html[open.End..close], html[bodyStart..bodyEnd]));
+            from = bodyEnd;
+        }
+
+        return sections;
+    }
+
+    /// <summary><c>&lt;h2[^&gt;]*&gt;</c> の最初の1つ（大文字も）。Start は「&lt;」、End は「&gt;」の次。</summary>
+    private static (int Start, int End)? OpeningH2(string html, int from)
+    {
+        var start = html.IndexOf("<h2", from, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+        {
+            return null;
+        }
+
+        // [^>]* の後の > が無ければ、この後のどの <h2 にも無い
+        var end = html.IndexOf('>', start + 3);
+        return end < 0 ? null : (start, end + 1);
+    }
 
     private static readonly Regex TagPattern = new("<[^>]+>", RegexOptions.Compiled);
 
@@ -847,7 +888,7 @@ public static class AvatarDetector
         var hasSupportHeading = false;
         var lastEnd = 0;
 
-        foreach (Match section in SectionPattern.Matches(html))
+        foreach (var section in HtmlSections(html))
         {
             // 最初の見出しより前は「概要」扱い。対応表明が置かれることがある
             if (section.Index > lastEnd)
@@ -857,8 +898,8 @@ public static class AvatarDetector
 
             lastEnd = section.Index + section.Length;
 
-            var heading = StripTags(section.Groups["heading"].Value);
-            var body = section.Groups["body"].Value;
+            var heading = StripTags(section.Heading);
+            var body = section.Body;
 
             if (Contains(heading, supportHeadings))
             {
@@ -1122,11 +1163,11 @@ public static class AvatarDetector
         {
             var heading = string.Empty;
             var last = 0;
-            foreach (Match match in Regex.Matches(html, "<h2[^>]*>(?<heading>[\\s\\S]*?)</h2>", RegexOptions.IgnoreCase))
+            foreach (var match in HtmlSections(html))
             {
                 raw.Add(new Section(heading, LinesOf(html[last..match.Index]), false));
-                heading = StripTags(match.Groups["heading"].Value).Trim();
-                last = match.Index + match.Length;
+                heading = StripTags(match.Heading).Trim();
+                last = match.Index + match.Length - match.Body.Length;
             }
 
             raw.Add(new Section(heading, LinesOf(html[last..]), false));

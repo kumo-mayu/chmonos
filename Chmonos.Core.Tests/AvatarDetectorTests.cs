@@ -537,4 +537,37 @@ public class AvatarNameShorteningTests
     [InlineData("★☆♪", "?")]
     public void TakesTheFirstRealCharacterAsInitial(string input, string expected)
         => Assert.Equal(expected, AvatarText.InitialOf(input));
+
+    /// <summary>
+    /// 閉じない見出しが並ぶ HTML でも固まらない（外部の点検 2026-10-06）。前の正規表現は始まりの候補ごとに最後まで探し直し、
+    /// 作り物の 1MB で211秒かかった。速さは比べず、固まらないことだけを期限で見る
+    /// </summary>
+    [Fact]
+    public async Task UnclosedHeadingsDoNotHangTheScan()
+    {
+        var unit = "<h2>見出し<p>本文の行</p>";
+        var html = string.Concat(Enumerable.Repeat(unit, 1024 * 1024 / (unit.Length * 2)));
+
+        var scan = await Task.Run(() => AvatarDetector.ScanDescription(html, "999", ["対応アバター"], ["クレジット"])).WaitAsync(TimeSpan.FromSeconds(30));
+        var parsed = await Task.Run(() => new AvatarDetector.ParsedDescription(html, null)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.NotNull(scan);
+        Assert.NotNull(parsed);
+    }
+
+    /// <summary>位置で探す区切りが、前の正規表現と同じ所で区切る（閉じない見出しを挟んでも、大文字の見出しでも）。</summary>
+    [Fact]
+    public void SplitsSectionsLikeTheFormerPattern()
+    {
+        var html = "<p>前</p><H2 class='a'>対応アバター</H2><p>[https://booth.pm/ja/items/111]</p><h2 x>途中<h2>注意</h2><p>[https://booth.pm/ja/items/222]</p>";
+
+        var scan = AvatarDetector.ScanDescription(html, "999", ["対応アバター"], ["クレジット"]);
+        var former = System.Text.RegularExpressions.Regex.Matches(
+            html, @"<h2[^>]*>(?<heading>[\s\S]*?)</h2>(?<body>[\s\S]*?)(?=<h2[^>]*>|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        Assert.Equal(2, former.Count);
+        Assert.True(scan.HasSupportHeading);
+        Assert.Equal(["111"], scan.Support.Select(hit => hit.ItemId));
+        Assert.Contains("222", scan.Other);
+    }
 }
