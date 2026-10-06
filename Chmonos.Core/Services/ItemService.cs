@@ -2667,12 +2667,9 @@ public sealed class ItemService : IItemService
             ? _settings.DelistedRecheckDays
             : _settings.RefreshIntervalDays;
 
-        var jitterDays = _settings.RefreshJitterDays;
-        var offset = jitterDays <= 0
-            ? 0
-            : Math.Abs(itemId.GetHashCode(StringComparison.Ordinal)) % ((jitterDays * 2) + 1) - jitterDays;
-
-        return DateTimeOffset.Now.AddDays(days + offset);
+        // 取り込みの側と同じ、起動をまたいで変わらないずらし方（RefreshJitter）。前は string.GetHashCode で、
+        // 起動し直すたびに同じ商品でも違う日になっていた（file-lifecycle.md 気になった所19の残り）
+        return DateTimeOffset.Now.AddDays(days + RefreshJitter.Days(itemId, _settings.RefreshJitterDays));
     }
 
 }
