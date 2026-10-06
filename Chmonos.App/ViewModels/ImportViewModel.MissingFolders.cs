@@ -22,7 +22,7 @@ public sealed class FolderCandidateRow
 }
 
 /// <summary>見つからない登録フォルダ1つ（取り込み画面の、探した結果の下に並ぶ）。</summary>
-public sealed class MissingFolderRow : ViewModelBase
+public sealed class MissingFolderRow : MissingResultLine
 {
     private string _statusText = string.Empty;
 
@@ -77,7 +77,9 @@ public sealed partial class ImportViewModel
     /// 探した結果の、見つからない登録フォルダと候補（見つからない・移動の点検 10-A）。
     /// 候補は見せるだけで、人が「この場所にする」を押したときだけ差し替える（推した値を勝手に入れない）。
     /// </summary>
-    public ObservableCollection<MissingFolderRow> MissingFolders { get; } = [];
+    public IReadOnlyList<MissingFolderRow> MissingFolders => _missingFolders;
+
+    private IReadOnlyList<MissingFolderRow> _missingFolders = [];
 
     public bool HasMissingFolders => MissingFolders.Count > 0;
 
@@ -86,17 +88,24 @@ public sealed partial class ImportViewModel
         parameter => UseFolderCandidateAsync(parameter as FolderCandidateRow).Forget(),
         parameter => parameter is FolderCandidateRow);
 
-    /// <summary>探し直すたびに並べ直す（前の回の候補は古いので残さない）。</summary>
+    /// <summary>
+    /// 探し直すたびに並べ直す（前の回の候補は古いので残さない）。結果の欄の一覧に、ファイルの2つの見出しと同じ形の見出しで並ぶ（メモ74）。
+    /// </summary>
     internal void ShowMissingFolders(IReadOnlyList<MissingFolder> folders)
     {
-        MissingFolders.Clear();
+        var rows = new List<MissingFolderRow>(folders.Count);
         foreach (var folder in folders)
         {
             var row = new MissingFolderRow(folder);
             row.OpenItemCommand = new RelayCommand(() => OpenResultItemAsync(folder.ItemId, text => row.StatusText = text).Forget());
-            MissingFolders.Add(row);
+            rows.Add(row);
         }
 
+        _missingFolders = rows;
+        FoldersHead.Count = rows.Count;
+        FillResultLines(() => IsMissingFoldersExpanded = rows.Count <= ResultFoldOver);
+
+        OnPropertyChanged(nameof(MissingFolders));
         OnPropertyChanged(nameof(HasMissingFolders));
     }
 

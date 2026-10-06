@@ -1,11 +1,65 @@
-using System.Collections.ObjectModel;
 using System.IO;
 using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
+/// <summary>
+/// 「見つからないファイルを探す」の結果の欄の、平らな一覧の1行（仮想化の単位。メモ74）。
+///
+/// 結果は数千件になり得る（監視フォルダの中を丸ごと移した回）。前は見出しごとの一覧を入れ子にして画面全体の1本のスクロールに置いていたので
+/// 仮想化されず、3000件ずつの結果を開くと全部の行を作って約4.7秒固まり、メモリが約300MB増えた（2026-10-06・台で測った）。
+/// 通知の画面と同じく、見出しと行を1本に並べて見えている行だけを作る。畳んだ見出しの中の行は一覧から抜く。
+/// </summary>
+public abstract class MissingResultLine : ViewModelBase
+{
+}
+
+/// <summary>結果の欄の見出しの行（紐付け直したファイル・見つからなかったファイル・見つからない登録フォルダ）。</summary>
+public sealed class MissingResultHeadLine(string title, string automationId, Action toggled) : MissingResultLine
+{
+    private bool _isExpanded;
+    private int _count;
+
+    public string Title { get; } = title;
+
+    public string AutomationId { get; } = automationId;
+
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (SetField(ref _count, value))
+            {
+                OnPropertyChanged(nameof(CountText));
+            }
+        }
+    }
+
+    public string CountText => $"  {Count} 件";
+
+    /// <summary>開いているか。替わったら一覧の行を出し入れする。</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetField(ref _isExpanded, value))
+            {
+                toggled();
+            }
+        }
+    }
+}
+
+/// <summary>見つからなかったファイルの見出しの後ろに出す、次の手の1行。</summary>
+public sealed class MissingResultHintLine(string text) : MissingResultLine
+{
+    public string Text { get; } = text;
+}
+
 /// <summary>「見つからないファイルを探す」の結果の、商品のファイル1行（紐付け直した物・見つからなかった物）。</summary>
-public sealed class MissingFileResultRow : ViewModelBase
+public sealed class MissingFileResultRow : MissingResultLine
 {
     private string _statusText = string.Empty;
 
@@ -45,45 +99,78 @@ public sealed class MissingFileResultRow : ViewModelBase
 public sealed partial class ImportViewModel
 {
     /// <summary>
-    /// これより多ければ、結果の一覧を畳んで出す。監視フォルダの中を丸ごと移した回は数十〜数百件になり、
-    /// 開いたまま並べると、下の「見つからない登録フォルダ」（押して選ぶ物）が画面の外へ押し出される。
-    /// 5件は見出しと合わせて、幅900でもスクロールせずに読める数。
+    /// これより多ければ、結果の見出しを畳んで出す（メモ74 で 5 から上げた）。
+    /// 行は見えている分だけ作るので、数は重さに効かない（3000件を開いても1歩の並べ直しは数ms）。畳むのは、次の見出し
+    /// （特に下の「見つからない登録フォルダ」。押して選ぶ物）へ届くまでの送りを短くするためだけ。
+    /// 結果の一覧の高さは窓の見えている高さまでで、高さ800の窓で約10行。20件なら2画面ほど送れば次の見出しに届く。
     /// </summary>
-    internal const int ResultFoldOver = 5;
+    internal const int ResultFoldOver = 20;
 
-    private bool _isRelinkedExpanded;
-    private bool _isNotFoundExpanded;
+    private MissingResultHeadLine? _relinkedHead;
+    private MissingResultHeadLine? _notFoundHead;
+    private MissingResultHeadLine? _foldersHead;
+    private MissingResultHintLine? _notFoundHintLine;
+    private IReadOnlyList<MissingFileResultRow> _relinkedFiles = [];
+    private IReadOnlyList<MissingFileResultRow> _notFoundFiles = [];
     private string _missingSearchNotes = string.Empty;
+    private bool _fillingResult;
 
     /// <summary>
     /// 探して紐付け直したファイル（手触りの確認 2026-10-06・メモ73）。
     /// 前は「n 件を紐付け直しました」の1行だけで、どの商品のどのファイルがどこへ移ったかが分からず、
     /// 監視していない場所を足して探した回に結び直っていたのに、見つからなかったように見えた。
+    /// 画面に並べるのは <see cref="MissingResultLines"/>。
     /// </summary>
-    public ObservableCollection<MissingFileResultRow> RelinkedFiles { get; } = [];
+    public IReadOnlyList<MissingFileResultRow> RelinkedFiles => _relinkedFiles;
 
     /// <summary>探しても見つからなかったファイル。</summary>
-    public ObservableCollection<MissingFileResultRow> NotFoundFiles { get; } = [];
+    public IReadOnlyList<MissingFileResultRow> NotFoundFiles => _notFoundFiles;
+
+    /// <summary>
+    /// 結果の欄の一覧：見出し・その中の行・次の手を1本に並べた物（メモ74）。畳んだ見出しの中の行は入れない。
+    /// 探し直したときはまとめて1回知らせる（1行ずつだと数千回の知らせが一覧へ飛ぶ）。畳む・開くは差分で寄せ、押した見出しの部品を残す
+    /// （丸ごと作り直すと、キーボードで押した見出しからフォーカスが窓へ落ちる）。
+    /// </summary>
+    public RangeObservableCollection<MissingResultLine> MissingResultLines { get; } = [];
 
     public bool HasRelinkedFiles => RelinkedFiles.Count > 0;
 
     public bool HasNotFoundFiles => NotFoundFiles.Count > 0;
 
-    public string RelinkedCountText => $"  {RelinkedFiles.Count} 件";
+    /// <summary>結果の欄を出すか。並べる物も探せなかった場所の文も無ければ、欄ごと出さない。</summary>
+    public bool HasMissingResult => HasRelinkedFiles || HasNotFoundFiles || HasMissingFolders || HasMissingSearchNotes;
 
-    public string NotFoundCountText => $"  {NotFoundFiles.Count} 件";
+    public string RelinkedCountText => RelinkedHead.CountText;
+
+    public string NotFoundCountText => NotFoundHead.CountText;
 
     public bool IsRelinkedExpanded
     {
-        get => _isRelinkedExpanded;
-        set => SetField(ref _isRelinkedExpanded, value);
+        get => RelinkedHead.IsExpanded;
+        set => RelinkedHead.IsExpanded = value;
     }
 
     public bool IsNotFoundExpanded
     {
-        get => _isNotFoundExpanded;
-        set => SetField(ref _isNotFoundExpanded, value);
+        get => NotFoundHead.IsExpanded;
+        set => NotFoundHead.IsExpanded = value;
     }
+
+    public bool IsMissingFoldersExpanded
+    {
+        get => FoldersHead.IsExpanded;
+        set => FoldersHead.IsExpanded = value;
+    }
+
+    // 見出しの行は使い回す（差し替えると、見えている見出しの部品が作り直される）
+    private MissingResultHeadLine RelinkedHead => _relinkedHead ??= new MissingResultHeadLine(
+        "紐付け直したファイル", "ImportRelinkedFiles", () => OnHeadToggled(nameof(IsRelinkedExpanded)));
+
+    private MissingResultHeadLine NotFoundHead => _notFoundHead ??= new MissingResultHeadLine(
+        "見つからなかったファイル", "ImportNotFoundFiles", () => OnHeadToggled(nameof(IsNotFoundExpanded)));
+
+    private MissingResultHeadLine FoldersHead => _foldersHead ??= new MissingResultHeadLine(
+        "見つからない登録フォルダ", "ImportMissingFolders", () => OnHeadToggled(nameof(IsMissingFoldersExpanded)));
 
     /// <summary>探せなかった場所・読めなかった物の文（1行に1つ）。1行目の要約に混ぜると長くなり、切れて読めなかった。</summary>
     public string MissingSearchNotes
@@ -103,29 +190,103 @@ public sealed partial class ImportViewModel
     /// <summary>探し直すたびに並べ直す（前の回の結果は古いので残さない）。結果が無い（失敗・窓を閉じた）なら空にする。</summary>
     internal void ShowMissingFiles(MissingFileSearchResult? result)
     {
-        Fill(RelinkedFiles, result?.RelinkedFiles ?? []);
-        Fill(NotFoundFiles, result?.NotFoundFiles ?? []);
+        _relinkedFiles = RowsOf(result?.RelinkedFiles ?? []);
+        _notFoundFiles = RowsOf(result?.NotFoundFiles ?? []);
         MissingSearchNotes = result is null ? string.Empty : string.Join("\n", MissingSearchNoteLines(result));
-        IsRelinkedExpanded = RelinkedFiles.Count <= ResultFoldOver;
-        IsNotFoundExpanded = NotFoundFiles.Count <= ResultFoldOver;
+        RelinkedHead.Count = RelinkedFiles.Count;
+        NotFoundHead.Count = NotFoundFiles.Count;
+        FillResultLines(() =>
+        {
+            IsRelinkedExpanded = RelinkedFiles.Count <= ResultFoldOver;
+            IsNotFoundExpanded = NotFoundFiles.Count <= ResultFoldOver;
+        });
 
+        OnPropertyChanged(nameof(RelinkedFiles));
+        OnPropertyChanged(nameof(NotFoundFiles));
         OnPropertyChanged(nameof(HasRelinkedFiles));
         OnPropertyChanged(nameof(HasNotFoundFiles));
         OnPropertyChanged(nameof(RelinkedCountText));
         OnPropertyChanged(nameof(NotFoundCountText));
     }
 
-    private void Fill(ObservableCollection<MissingFileResultRow> rows, IReadOnlyList<MissingFileOutcome> outcomes)
+    /// <summary>
+    /// 開き具合を入れてから、一覧をまとめて並べ直す。開き具合を1つ入れるたびに並べ直すと、数千行を何度も寄せ直すことになる。
+    /// </summary>
+    private void FillResultLines(Action setExpanded)
     {
-        rows.Clear();
-        foreach (var row in outcomes
-                     .Select(ResultRowOf)
-                     .OrderBy(row => row.ItemName, StringComparer.CurrentCulture)
-                     .ThenBy(row => row.FileName, StringComparer.CurrentCulture))
+        _fillingResult = true;
+        try
+        {
+            setExpanded();
+        }
+        finally
+        {
+            _fillingResult = false;
+        }
+
+        MissingResultLines.ReplaceAll(BuildResultLines());
+        OnPropertyChanged(nameof(HasMissingResult));
+    }
+
+    private void OnHeadToggled(string property)
+    {
+        OnPropertyChanged(property);
+        if (!_fillingResult)
+        {
+            CollectionSync.Apply(MissingResultLines, BuildResultLines());
+        }
+    }
+
+    /// <summary>見出しの並びと開き具合から、平らな一覧の目当ての並びを作る。中身の無い見出しは出さない。</summary>
+    private List<MissingResultLine> BuildResultLines()
+    {
+        var lines = new List<MissingResultLine>();
+        if (RelinkedFiles.Count > 0)
+        {
+            lines.Add(RelinkedHead);
+            if (RelinkedHead.IsExpanded)
+            {
+                lines.AddRange(RelinkedFiles);
+            }
+        }
+
+        if (NotFoundFiles.Count > 0)
+        {
+            lines.Add(NotFoundHead);
+            if (NotFoundHead.IsExpanded)
+            {
+                lines.AddRange(NotFoundFiles);
+            }
+
+            // 次の手は畳んでいても出す（何をすればよいかは、中を開かなくても要る）
+            lines.Add(_notFoundHintLine ??= new MissingResultHintLine(NotFoundHint));
+        }
+
+        if (MissingFolders.Count > 0)
+        {
+            lines.Add(FoldersHead);
+            if (FoldersHead.IsExpanded)
+            {
+                lines.AddRange(MissingFolders);
+            }
+        }
+
+        return lines;
+    }
+
+    private List<MissingFileResultRow> RowsOf(IReadOnlyList<MissingFileOutcome> outcomes)
+    {
+        var rows = outcomes
+            .Select(ResultRowOf)
+            .OrderBy(row => row.ItemName, StringComparer.CurrentCulture)
+            .ThenBy(row => row.FileName, StringComparer.CurrentCulture)
+            .ToList();
+        foreach (var row in rows)
         {
             row.OpenItemCommand = new RelayCommand(() => OpenResultItemAsync(row.ItemId, text => row.StatusText = text).Forget());
-            rows.Add(row);
         }
+
+        return rows;
     }
 
     /// <summary>結果の1つを行にする。紐付け直した物は新しい場所の名前とフォルダ、見つからなかった物は元の名前。</summary>
