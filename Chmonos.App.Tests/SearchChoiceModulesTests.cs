@@ -309,4 +309,21 @@ public class SearchChoiceModulesTests
         Assert.Equal(["9900071"], Shown(search));
         Assert.Equal("SearchModule.Unedited-2.Field.Memo", memo.Fields.Single(field => field.Field == Core.Services.EditField.Memo).AutomationId);
     });
+
+    [Fact]
+    public Task ファイルの場所とUnityプロジェクトは_候補と札の長い文の間を省き_ほかは末尾を切る() => TestApp.Run(async app =>
+    {
+        var search = (await app.StartAsync()).Search;
+        var path = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Path);
+        var project = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProject);
+        var category = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+        path.AddKey(@"D:作り物とても長い名前のフォルダさらに奥のフォルダ最後のフォルダ");
+        category.AddKey("衣装");
+
+        Assert.True(path.TrimsMiddle);
+        Assert.True(project.TrimsMiddle);
+        Assert.False(category.TrimsMiddle);
+        Assert.True(path.Chips.Single().TrimsMiddle);
+        Assert.False(category.Chips.Single().TrimsMiddle);
+    });
 }

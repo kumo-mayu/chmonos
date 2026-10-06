@@ -995,6 +995,9 @@ public sealed class ListChip : ViewModelBase
     }
 
     public bool HasIconSource => IconSource is not null;
+
+    /// <summary>長い文の間を省くか（パスの札。<see cref="ListModule.TrimsMiddle"/>）。</summary>
+    public bool TrimsMiddle { get; internal set; }
 }
 
 /// <summary>
@@ -1187,6 +1190,12 @@ public sealed class ListModule : SearchModule
     /// <summary>候補の頭に出す絵（対応アバター）。</summary>
     public Func<string, ImageSource?>? IconSelector { get; set; }
 
+    /// <summary>
+    /// 候補と札の長い文を、間を「…」にして末尾を残すか（ファイルの場所・Unityプロジェクト。メモ83・メモ84：長いパスが切れて見えなかった）。
+    /// パスは末尾の名前がいちばん要るので、ほかの画面の長いパスと同じ省き方にする（`Controls/PathLine`）。省いたら吹き出しで全文
+    /// </summary>
+    public bool TrimsMiddle { get; init; }
+
     /// <summary>候補の語から、群と名前以外で当たる語を引く（対応アバター。メモ48・メモ58）。</summary>
     public Func<string, Controls.SuggestInfo?>? InfoSelector { get; set; }
 
@@ -1249,6 +1258,7 @@ public sealed class ListModule : SearchModule
         }
 
         var chip = new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
+        chip.TrimsMiddle = TrimsMiddle;
         if (IconSelector is { } icon)
         {
             // 候補の頭に出す絵と同じ物を、チップの吹き出しにも添える（対応アバター。メモ82）。候補の文字から引くので、乗せた時点の文字で引く

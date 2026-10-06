@@ -751,14 +751,20 @@ public sealed partial class SearchViewModel
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
             "Unityプロジェクトを紐付けた改変がまだありません。",
-            (item, context, key, _) => context.Modifications.InProject(key, item.Id)),
+            (item, context, key, _) => context.Modifications.InProject(key, item.Id))
+        {
+            TrimsMiddle = true,
+        },
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
         // フォルダは比べる形に1回だけ畳み（matchKey）、照らすときは畳んだ形を受ける
         SearchModuleKind.Path => new ListModule(kind, allowsAnd: true, "フォルダの名前で絞り込む",
             "手元にファイルのある商品がまだありません。",
             (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
-            matchKey: FolderTree.UnderPrefix),
+            matchKey: FolderTree.UnderPrefix)
+        {
+            TrimsMiddle = true,
+        },
 
         SearchModuleKind.Recent => new RecentModule(),
 
