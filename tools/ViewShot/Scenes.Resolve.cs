@@ -342,6 +342,29 @@ internal static partial class Scenes
             Height = 1500,
         },
 
+        new Scene("resolve-not-on-booth-overturned", "未確定：非公開と思って画像を添えた行を「情報を確認」で聞き直したら公開されていた後（ふつうの登録の形に画像の枠が残り、外せる。ユーザ 2026-10-06）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\winter_coat_2025.zip", "coat.unitypackage"), contents: ["coat.unitypackage"],
+                    candidates: ["9900901"], notOnBooth: "9900901"),
+            ]);
+            var pictures = Path.Combine(Isolation.FilesRoot, "画像");
+            Fake.Image(pictures, "front.png", "front");
+            Fake.Image(pictures, "back.png", "back");
+            var (root, screen) = await OpenResolveAsync(context, 1);
+            screen.Selected = screen.Files.First(row => row.FileName == "winter_coat_2025.zip");
+            await context.SettleAsync();
+            screen.AddLocalImages([Path.Combine(pictures, "front.png"), Path.Combine(pictures, "back.png")]);
+            await context.SettleAsync();
+            Backdoor.ShowOverturnedPreview(screen, "9900901", "作り物の再公開された冬のコート");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Height = 1500,
+        },
+
         new Scene("resolve-target-bundle","未確定：元zipを展開した中身（束 3 件・元のzipも一覧にある）の1行を選んだ右の欄", async context =>
         {
             var zip = Fake.Zip(@"ダウンロード\costume_set_v2.zip", "costume.unitypackage", "costume_4k.psd", "readme.txt");

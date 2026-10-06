@@ -83,6 +83,11 @@ public sealed partial class ResolveViewModel
     {
         OnPropertyChanged(nameof(HasLocalImages));
         OnPropertyChanged(nameof(LocalImagesText));
+        if (ShowsOverturnedImages && StatusText.StartsWith("BOOTHで公開されています。", StringComparison.Ordinal))
+        {
+            StatusText = OverturnedStatusText();
+            OnPropertyChanged(nameof(HasStatus));
+        }
     }
 
     /// <summary>
