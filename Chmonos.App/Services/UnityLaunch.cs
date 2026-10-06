@@ -403,11 +403,11 @@ public static class UnityLaunch
     }
 
     /// <summary>
-    /// Unity Hub が入っているか。<c>unityhub://</c> の受け手（Hub が入るときに登録する）か、アンインストール情報の「Unity Hub」で見る。
+    /// Unity Hub が入っているか。記録（<c>unityhub://</c> の受け手・アンインストール情報）の指す実行ファイルが在るか、今動いているか（<see cref="UnityToolPresence"/>）。
     /// </summary>
     public static bool HasHub()
-        => InstalledApps.OpenCommand("unityhub") is not null
-            || InstalledApps.Uninstall().Any(entry => entry.DisplayName.StartsWith("Unity Hub", StringComparison.OrdinalIgnoreCase));
+        => ProjectManagerApps.FirstExisting(UnityToolPresence.HubCandidates(InstalledApps.Records()), DesktopAppLaunch.Exists) is not null
+            || DesktopAppLaunch.IsRunning(UnityToolPresence.HubProcessName);
 
     private static bool Start(ProcessStartInfo startInfo)
     {

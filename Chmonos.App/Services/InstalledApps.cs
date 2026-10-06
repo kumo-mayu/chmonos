@@ -22,6 +22,13 @@ internal static class InstalledApps
         (Registry.LocalMachine, @"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
     ];
 
+    /// <summary>Hub・VCC・ALCOM の見分けに使う記録をまとめて読む（<see cref="UnityToolPresence"/> へ渡す）。</summary>
+    public static InstalledAppRecords Records() => new(
+        Uninstall(),
+        OpenCommand("unityhub"),
+        OpenCommand("vcc"),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
     /// <summary>アンインストール情報を全部。</summary>
     public static IReadOnlyList<UninstallRecord> Uninstall()
     {

@@ -20,9 +20,10 @@ public sealed record UnityTools(bool HasHub, bool HasVcc, bool HasAlcom, bool Li
     public ProjectManagerButtons Buttons(ProjectManagerChoice choice)
         => ProjectManagerApps.Buttons(HasVcc, HasAlcom, LinkOpensAlcom, choice);
 
-    public static UnityTools Detect() => new(
-        UnityLaunch.HasHub(),
-        VccLaunch.IsAvailable(),
-        AlcomLaunch.IsAvailable(),
-        ProjectManagerApps.LinkOpensAlcom(InstalledApps.OpenCommand("vcc")));
+    /// <summary>この PC の記録から見分ける。見分け方そのものは <see cref="UnityToolPresence.Detect"/>（試験付き）。</summary>
+    public static UnityTools Detect()
+    {
+        var presence = UnityToolPresence.Detect(InstalledApps.Records(), DesktopAppLaunch.Exists, DesktopAppLaunch.IsRunning);
+        return new(presence.HasHub, presence.HasVcc, presence.HasAlcom, presence.LinkOpensAlcom);
+    }
 }
