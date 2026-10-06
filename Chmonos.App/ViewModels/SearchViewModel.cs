@@ -94,6 +94,14 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     {
         _services = services;
         _thumbnails = thumbnails;
+        // 表示順のメニューの印は今の項目から作る。項目を替える所（選ぶ・履歴から戻す・組み直す）はどれも SortField を知らせるので、ここで続けて知らせる
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SortField))
+            {
+                OnPropertyChanged(nameof(SortMenu));
+            }
+        };
         global::Chmonos.App.Services.CardMetrics.Changed += RelayoutForCardSize;
         ClearFiltersCommand = new RelayCommand(() => ClearFiltersKeepingHistoryAsync().Forget());
         SelectAllCommand = new RelayCommand(SelectAllMatches);

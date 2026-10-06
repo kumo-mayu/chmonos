@@ -1814,42 +1814,63 @@
                     <WrapPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,8,2">
                         <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0" />
-                        <!-- まとまりの間に区切り線、属性はまとまりの見出し「属性」の下に一段下げて並べる（ユーザ判断 2026-10-06） -->
-                        <ComboBox ItemsSource="{Binding SortFieldGroups}" SelectedItem="{Binding SortField, Mode=TwoWay}"
-                                  DisplayMemberPath="Label" Width="150" Height="28" FontSize="12"
-                                  AutomationProperties.AutomationId="SearchSortField"
-                                  AutomationProperties.Name="並べ替えに使う項目">
-                            <ComboBox.ItemContainerStyle>
-                                <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsAttribute}" Value="True">
-                                            <Setter Property="Padding" Value="19,2,5,2" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ComboBox.ItemContainerStyle>
-                            <ComboBox.GroupStyle>
-                                <GroupStyle>
-                                    <GroupStyle.HeaderTemplate>
-                                        <DataTemplate>
-                                            <StackPanel x:Name="Head" Margin="0,3,0,2">
-                                                <Border Height="1" Background="{DynamicResource MenuSeparator}" Margin="6,0" SnapsToDevicePixels="True" />
-                                                <TextBlock x:Name="Title" Text="{Binding Name}" Style="{StaticResource Caption}" Margin="10,5,10,0" Visibility="Collapsed" />
-                                            </StackPanel>
-                                            <DataTemplate.Triggers>
-                                                <!-- 先頭のまとまりには線を引かない -->
-                                                <DataTrigger Binding="{Binding Name}" Value="1">
-                                                    <Setter TargetName="Head" Property="Visibility" Value="Collapsed" />
+                        <!--
+                            押すとメニューが開くボタン（ユーザ判断 2026-10-06：「属性」の中に大量の属性が入っている形）。
+                            プルダウンは子の一覧を持てないので、「属性 ▸」の子に属性を入れるためにメニューにした。閉じた姿はプルダウンと同じ顔（DropDownButton）。
+                            メニューの並びと区切りは SearchViewModel.SortMenu。属性が多くても、下の段は画面の高さで止まって中が流れる（メニューの型の MenuScrollViewer）
+                        -->
+                        <Button x:Name="SortFieldButton" Style="{StaticResource DropDownButton}" Content="{Binding SortField.Label}"
+                                Width="150" Height="28" FontSize="12"
+                                Click="OnSortFieldMenuClick" PreviewKeyDown="OnSortFieldMenuKeyDown"
+                                AutomationProperties.AutomationId="SearchSortField"
+                                AutomationProperties.Name="{Binding SortField.Label, StringFormat='並べ替えに使う項目、{0}'}">
+                            <Button.ContextMenu>
+                                <ContextMenu ItemsSource="{Binding SortMenu}" Opened="OnSortFieldMenuOpened">
+                                    <ContextMenu.ItemContainerStyle>
+                                        <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                            <Setter Property="Header" Value="{Binding Label}" />
+                                            <Setter Property="IsChecked" Value="{Binding IsChecked, Mode=OneWay}" />
+                                            <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+                                            <Setter Property="Command" Value="{Binding ChooseCommand}" />
+                                            <Setter Property="ItemsSource" Value="{Binding Children}" />
+                                            <Setter Property="controls:MenuTips.Disabled" Value="{Binding DisabledHint}" />
+                                            <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                                            <Setter Property="AutomationProperties.AutomationId" Value="{Binding AutomationId}" />
+                                            <!-- 子の属性も同じ形で出す（印・選ぶ・名前） -->
+                                            <Setter Property="ItemContainerStyle">
+                                                <Setter.Value>
+                                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Setter Property="Header" Value="{Binding Label}" />
+                                                        <Setter Property="IsChecked" Value="{Binding IsChecked, Mode=OneWay}" />
+                                                        <Setter Property="Command" Value="{Binding ChooseCommand}" />
+                                                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                                                        <Setter Property="AutomationProperties.AutomationId" Value="{Binding AutomationId}" />
+                                                    </Style>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <!-- 属性が0個でも子を開く見た目（▸）のまま押せなくする。子が無いと型が子を持たない項目の物に替わり、▸ が消える -->
+                                                <DataTrigger Binding="{Binding IsParent}" Value="True">
+                                                    <Setter Property="Template" Value="{StaticResource MenuSubmenuHeader}" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Name}" Value="属性">
-                                                    <Setter TargetName="Title" Property="Visibility" Value="Visible" />
+                                                <!-- 区切り線：見た目を線に差し替え、押せず・キーボードでも止まらない（「＋ 条件を追加」と同じ作り） -->
+                                                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                                    <Setter Property="Focusable" Value="False" />
+                                                    <Setter Property="IsHitTestVisible" Value="False" />
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="MenuItem">
+                                                                <Border Height="1" Margin="30,4,4,4" Background="{DynamicResource MenuSeparator}" SnapsToDevicePixels="True" />
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
                                                 </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </GroupStyle.HeaderTemplate>
-                                </GroupStyle>
-                            </ComboBox.GroupStyle>
-                        </ComboBox>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ContextMenu.ItemContainerStyle>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
                     </StackPanel>
                         <Grid Margin="0,2,16,2" VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
