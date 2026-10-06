@@ -393,9 +393,17 @@ public class ResolveTargetTests
         Assert.Equal("{Binding ChooseLocalImagesCommand}", (string?)add.Attribute("Command"));
         Assert.Null(add.Attribute("Visibility"));
 
-        var card = add.Ancestors().First(element => (string?)element.Attribute(x + "Name") == "LocalCard");
-        Assert.Equal("True", (string?)card.Attribute("AllowDrop"));
-        Assert.Equal("OnLocalBoxPreviewDrop", (string?)card.Attribute("PreviewDrop"));
+        // 枠は型（LocalImageGallery）にして、BOOTHに無い商品の欄と、見つからなかったIDのまま登録する欄（ユーザ 2026-10-06）の2か所で同じ物を出す。
+        // どちらの欄も画像の落とし込みを受ける
+        var gallery = add.Ancestors().First(element => (string?)element.Attribute(x + "Key") == "LocalImageGallery");
+        Assert.Equal("DataTemplate", gallery.Name.LocalName);
+        foreach (var name in new[] { "LocalCard", "UnpublishedCard" })
+        {
+            var card = Assert.Single(xaml.Descendants(), element => (string?)element.Attribute(x + "Name") == name);
+            Assert.Equal("True", (string?)card.Attribute("AllowDrop"));
+            Assert.Equal("OnLocalBoxPreviewDrop", (string?)card.Attribute("PreviewDrop"));
+            Assert.Contains(card.Descendants(), element => (string?)element.Attribute("ContentTemplate") == "{StaticResource LocalImageGallery}");
+        }
     }
 
     private static string ResolveViewPath([CallerFilePath] string here = "")

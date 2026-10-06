@@ -7,8 +7,13 @@ namespace Chmonos.App.ViewModels;
 ///
 /// 商品IDは分かっている（zipの名前・購入履歴・ショップのページから）のにBOOTHで見つからない商品は、今までは仮ID（BOOTHに無い商品）で
 /// 登録するしかなく、再び公開されても情報を取れなかった。確かめた結果が「BOOTHに無い」だったときだけ（一時的に届かないときは出さない）、
-/// そのIDのまま「BOOTHで公開されていない」商品として登録する道を出す。名前はファイル名から作る（編集画面で変えられる）。
-/// ⑦（期限の来た商品の取り直し）で確かめ直し、公開されたら情報を取って要確認に知らせる（Core の <c>AssignUnpublishedItemIdAsync</c>）。
+/// そのIDのまま「BOOTHで公開されていない」商品として登録する道を出す。
+/// ⑦（期限の来た商品の取り直し）で確かめ直し、公開されたら情報を取って通知に出す（Core の <c>AssignUnpublishedItemIdAsync</c>）。
+///
+/// 2026-10-06（ユーザ）：前は確定の欄の下に「ID … のまま登録する」のボタンが出るだけで、何の道なのか分かりにくかった。
+/// BOOTH から何も取れない商品なので、名前と画像を決めるのはここしかない。「商品IDを決める」の欄の中に、説明・名前・画像の枠を出し、
+/// 登録は同じ「このIDで登録」（キーも同じ）で行う。名前と画像は「BOOTHに無い商品」と同じ欄の値を使う（どちらの出口でも、
+/// 決めるのは同じファイルの名前と画像。2つ持つと、片方で書いた名前がもう片方の登録に乗らない）。
 /// </summary>
 public sealed partial class ResolveViewModel
 {
@@ -23,31 +28,46 @@ public sealed partial class ResolveViewModel
             if (SetField(ref _notOnBoothItemId, value))
             {
                 OnPropertyChanged(nameof(HasNotOnBoothItemId));
-                OnPropertyChanged(nameof(UnpublishedButtonText));
-                OnPropertyChanged(nameof(UnpublishedNameDraft));
-                RelayCommand.RaiseCanExecuteChanged();
+                RaiseUnpublishedForm();
             }
         }
     }
 
     public bool HasNotOnBoothItemId => NotOnBoothItemId is not null;
 
-    public string UnpublishedButtonText => $"ID {NotOnBoothItemId} のまま登録する";
+    /// <summary>
+    /// 見つからなかったIDのまま登録する形（説明・名前・画像）を出すか。欄の文字がそのIDのときだけ。
+    /// 人が欄を書き換えたら、ふつうの「確かめてから登録」に戻す——書き換えたIDはまだ確かめていない。
+    /// </summary>
+    public bool IsUnpublishedForm => NotOnBoothItemId is { } id && ParseItemIdInput(ItemIdInput) == id;
 
-    /// <summary>登録するときの名前。元zipが分かれば、中の1ファイルの名前より商品名に近い（「BOOTHに無い商品」の下書きと同じ作り方）。</summary>
-    public string UnpublishedNameDraft => Selected is null
-        ? string.Empty
-        : Core.Resolution.FileNameQuery.ToNameDraft(Selected.Origin?.ArchiveName ?? Selected.FileName);
+    /// <summary>
+    /// 見つからなかったIDが、このファイルから読み取れた物か（取り込みの手掛かり）。人が打ったIDなら打ち間違いもあり得るので、
+    /// 欄の下の「IDが違うか、非公開です」の文を残し、ここでは登録すると何が起きるかだけを言う。
+    /// </summary>
+    private bool IsNotOnBoothIdFromFile => NotOnBoothItemId is { } id
+        && Selected?.File.CandidateItemIds.Contains(id, StringComparer.Ordinal) == true;
 
-    public RelayCommand AssignUnpublishedCommand => _assignUnpublishedCommand ??= new RelayCommand(
-        () => AssignUnpublishedAsync().Forget(),
-        () => HasNotOnBoothItemId && HasSelection && !IsBusy && !IsBlockedByListedZip);
+    /// <summary>説明の1行目。読み取れたIDなら、BOOTHで非公開だったことを言う。人が打ったIDは欄の下の文が言っている。</summary>
+    public string UnpublishedLeadText => IsNotOnBoothIdFromFile
+        ? "このファイルから読み取れた商品IDは、BOOTHで非公開です。"
+        : string.Empty;
 
-    private RelayCommand? _assignUnpublishedCommand;
+    public bool HasUnpublishedLead => UnpublishedLeadText.Length > 0;
+
+    private void RaiseUnpublishedForm()
+    {
+        OnPropertyChanged(nameof(IsUnpublishedForm));
+        OnPropertyChanged(nameof(UnpublishedLeadText));
+        OnPropertyChanged(nameof(HasUnpublishedLead));
+        OnPropertyChanged(nameof(AssignOutcomeText));
+        OnPropertyChanged(nameof(HasAssignOutcome));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
     private async Task AssignUnpublishedAsync()
     {
-        if (Selected is null || NotOnBoothItemId is not { } itemId)
+        if (Selected is null || !IsUnpublishedForm || NotOnBoothItemId is not { } itemId || string.IsNullOrWhiteSpace(LocalNameInput))
         {
             return;
         }
@@ -69,13 +89,14 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        // 名前の下書きは、チェックした分なら先頭の物から（選んでいる行は対象に入っていないことがある）
-        var lead = fromChecked ? targets[0] : Selected;
-        var name = Core.Resolution.FileNameQuery.ToNameDraft(lead.Origin?.ArchiveName ?? lead.FileName);
+        // 名前は欄の値（下書きは元zipの名前かファイル名。人が書き換えた名前はそのまま）。添えた画像は押した時点の分を控える
+        var name = LocalNameInput.Trim();
+        var images = LocalImages.ToList();
         var what = TargetSubject(targets, fromChecked);
         var answer = Services.Notice.Show(
             $"{what} を商品ID {itemId} として登録します。\n\n"
-            + $"BOOTHで公開されていない商品として、名前「{name}」で登録します。名前は編集画面で変えられます。\n\n"
+            + $"BOOTHで公開されていない商品として、名前「{name}」で登録します。"
+            + (images.Count > 0 ? $"選んだ画像 {images.Count} 枚を追加します。" : string.Empty) + "\n\n"
             + "BOOTHで公開されたら情報を取得し、通知に表示します。",
             "このIDのまま登録する",
             System.Windows.MessageBoxButton.OKCancel,
@@ -102,11 +123,23 @@ public sealed partial class ResolveViewModel
                 return;
             }
 
-            // 確定と同じ扱いで溜める（まとめて編集へ送れる）。検索にもその場で出す
+            // 商品ができてから画像を入れる（BOOTHに無い商品と同じ）。入らなかった分があっても登録は取り消さない（商品ページの「＋」で足し直せる）。
+            // 同じIDの商品が先にあった（確かめた後に別の道で作られた）ときも、その商品へ入れる：添えたのはこのファイルの商品の画像
+            var imagesFailed = images.Count > 0 ? await AddLocalImagesToAsync(itemId, images) : 0;
+            var imagesNote = imagesFailed > 0
+                ? $"画像 {imagesFailed} 枚を追加できませんでした。商品ページの「＋」から追加してください。"
+                : string.Empty;
+
+            // 確定と同じ扱いで溜める（まとめて編集へ送れる）。検索にもその場で出す（画像を入れた後。カードに画像を出す）
             if (targets.Count == 1)
             {
                 await NoteSettledAsync(itemId);
                 AfterSettled();
+                if (imagesNote.Length > 0)
+                {
+                    ListNoticeText = imagesNote;
+                }
+
                 return;
             }
 
@@ -125,9 +158,9 @@ public sealed partial class ResolveViewModel
             // 残りの中身まで加えた後の商品を写しへ足す
             await NoteSettledAsync(itemId);
             RemoveRows(settled);
-            ListNoticeText = settled.Count == targets.Count
+            ListNoticeText = (settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"
-                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。";
+                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。") + imagesNote;
             HideCoveredContents(settled);
         }
         finally

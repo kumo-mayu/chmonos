@@ -19,6 +19,16 @@ internal static class Backdoor
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
+    /// <summary>
+    /// 「情報を確認」で BOOTH が「無い」と答えた後の未確定の右の欄（ユーザ 2026-10-06）。台は通信できない（届かない＝一時的な失敗になる）ので、
+    /// 答えが404だったときに入る値（欄のID・見つからなかったID）を直に入れる。欄の下の文は、ファイルから読み取れたIDなら空（本体と同じ）
+    /// </summary>
+    public static void ShowNotOnBooth(ResolveViewModel resolve, string itemId)
+    {
+        resolve.ItemIdInput = itemId;
+        SetProperty(resolve, nameof(ResolveViewModel.NotOnBoothItemId), itemId);
+    }
+
     /// <summary>取り込みの結果の欄。取り込みが終わったときに入る値を、そのまま入れる。</summary>
     public static void ShowImportSummary(ImportViewModel import, ImportSummary summary)
         => SetProperty(import, nameof(ImportViewModel.Summary), summary);

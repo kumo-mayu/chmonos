@@ -124,8 +124,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         UseCandidateCommand = new RelayCommand(parameter => UseCandidateAsync(parameter).Forget(), parameter => parameter is CandidateRow);
         // どれも今の対象に効く（ResolveViewModel.Target.cs）。チェックした物は、元のzipが未確定にある中身が混ざっていれば押したときに理由を言って止める。
         // 登録の列にいる物は押せない（2回積まない・登録の途中で外さない。ほかの行は押せる。メモ60）
+        // BOOTHで見つからなかったIDのまま登録する形のときも、同じボタンで登録する（名前が要る。ResolveViewModel.Unpublished.cs）
         AssignCommand = new RelayCommand(() => AssignAsync().Forget(),
-            () => HasPreview && (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !IsTargetQueued);
+            () => (HasPreview || (IsUnpublishedForm && !string.IsNullOrWhiteSpace(LocalNameInput))) && (HasChecked || (HasSelection && !IsBlockedByListedZip)) && !IsBusy && !IsTargetQueued);
         ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => (HasSelection || HasChecked) && !IsBusy && !IsTargetQueued);
         // 行の右クリックは、右クリックした行（束）に効く。チェックした物に効かせると、右クリックした行とは別の物が外れる
         ExcludeRowCommand = new RelayCommand(() => ExcludeAsync(useChecked: false).Forget(),
@@ -346,7 +347,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             if (SetField(ref _itemIdInput, value))
             {
                 OnPropertyChanged(nameof(CanPreview));
-                RelayCommand.RaiseCanExecuteChanged();
+
+                // 見つからなかったIDから書き換えたら、そのIDのまま登録する形は引っ込める（書き換えたIDはまだ確かめていない）
+                RaiseUnpublishedForm();
             }
         }
     }
@@ -428,7 +431,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     /// 「追加されるのかされないのか」を文から読み取らせないための行。
     /// </summary>
     public string AssignOutcomeText => Preview is null
-        ? string.Empty
+        ? IsUnpublishedForm ? $"登録すると：BOOTHで非公開の商品として新しく作って、{OutcomeSubject}を紐付けます" : string.Empty
         : IsPreviewOwned
             ? $"登録すると：{OutcomeSubject}が、既にある商品に加わります"
             : $"登録すると：この商品を新しく作って、{OutcomeSubject}を紐付けます";
@@ -443,7 +446,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         ? $"元zip「{ActiveGroup}」の中身 {ActiveRows.Count} 件"
         : $"フォルダ「{Path.GetFileName(ActiveGroup)}」のファイル {ActiveRows.Count} 件";
 
-    public bool HasAssignOutcome => Preview is not null;
+    public bool HasAssignOutcome => Preview is not null || IsUnpublishedForm;
 
     public int RemainingCount => Files.Count;
 
@@ -938,8 +941,11 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 // BOOTHが「無い」と答えたときだけ、このIDのまま登録する道を出す（一時的に届かないときは出さない）
                 Preview = null;
-                StatusText = notOnBooth.Message;
                 NotOnBoothItemId = notOnBooth.ItemId;
+
+                // このファイルから読み取れたIDなら、欄の下の枠が「非公開です」と言う（同じことを2か所で言わない）。
+                // 人が打ったIDは打ち間違いもあり得るので、「IDが違うか、非公開です」を残す
+                StatusText = IsNotOnBoothIdFromFile ? string.Empty : notOnBooth.Message;
             }
             else if (result is CommandResult.Failed failed)
             {
@@ -961,6 +967,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     /// </summary>
     private async Task AssignAsync()
     {
+        if (Preview is null && IsUnpublishedForm)
+        {
+            await AssignUnpublishedAsync();
+            return;
+        }
+
         if (Preview is null || (Selected is null && !HasChecked))
         {
             return;
