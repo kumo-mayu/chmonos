@@ -35,6 +35,7 @@ internal static partial class Scenes
         .. AvatarBaseMemberScenes,
         .. Search,
         .. SearchFilters,
+        .. SearchNumberScenes,
         .. SavedSearchScenes,
         .. SortDividers,
         .. CardLists,
