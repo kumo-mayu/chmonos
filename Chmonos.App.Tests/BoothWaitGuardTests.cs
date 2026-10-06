@@ -24,4 +24,41 @@ public sealed class BoothWaitGuardTests
         Assert.Equal("boothDelay", thrown.ParamName);
         Assert.False(Directory.Exists(paths.Root));
     }
+
+    /// <summary>出口の型は自分で転送するが、送りはしない（試験から外へ出ない）。</summary>
+    private sealed class NoNetworkHandler : System.Net.Http.HttpClientHandler
+    {
+        protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(
+            System.Net.Http.HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("試験から外へは出ない");
+    }
+
+    /// <summary>
+    /// 渡した出口が自分で転送する型でも、アプリの組み立ては自動の転送を切る（2026-10-06 の外部の点検）。
+    /// 自動の転送は門を通らずに転送先へ出るので、転送は BoothClient が受けて門を通して取り直す。
+    /// </summary>
+    [Fact]
+    public void 組み立ては通信の出口の自動の転送を切る()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bam-app-redirect-" + Guid.NewGuid().ToString("N")[..8]);
+        var handler = new NoNetworkHandler();
+        try
+        {
+            using (new AppServiceContainer(
+                new AppPaths(root), handler, (_, _) => Task.CompletedTask, cleanUpTemporaryUnpacks: false))
+            {
+                Assert.False(handler.AllowAutoRedirect);
+            }
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
 }

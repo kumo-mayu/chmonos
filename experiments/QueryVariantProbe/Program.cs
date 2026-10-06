@@ -55,7 +55,7 @@ if (args.Contains("--dry"))
     return;
 }
 
-using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+using var http = Chmonos.Core.Booth.BoothClient.CreateHttpClient();
 var client = new BoothClient(http, new AppSettings());
 Console.WriteLine($"外れ {misses.Count} 本／対照（元は当たり・語が変わる）{controls.Count} 本");
 

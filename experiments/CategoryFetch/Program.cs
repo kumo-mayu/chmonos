@@ -27,7 +27,7 @@ var options = new JsonSerializerOptions
     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
 };
 
-using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+using var http = Chmonos.Core.Booth.BoothClient.CreateHttpClient();
 var client = new BoothClient(http, new AppSettings());
 
 Console.WriteLine($"BOOTHへの間隔: {client.CurrentIntervalMs}ms（1本ずつ）");

@@ -54,7 +54,7 @@ if (ids.Count == 0)
     return 1;
 }
 
-using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+using var http = Chmonos.Core.Booth.BoothClient.CreateHttpClient();
 var client = new BoothClient(http, new AppSettings());
 
 Console.WriteLine($"BOOTHへの間隔: {client.CurrentIntervalMs}ms（1本ずつ）");

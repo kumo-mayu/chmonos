@@ -99,7 +99,7 @@ sealed class CachingBoothClient : IBoothClient
             return BoothFetchResult<string>.Temporary("控えに無い（--offline）");
         }
 
-        _http ??= new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        _http ??= BoothClient.CreateHttpClient();
         _inner ??= new BoothClient(_http, new Chmonos.Core.Models.AppSettings());
 
         NetworkRequests++;
