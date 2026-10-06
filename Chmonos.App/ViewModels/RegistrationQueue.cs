@@ -58,6 +58,7 @@ public sealed class RegistrationQueue : ViewModelBase
 {
     private readonly CommandHandler _commands;
     private readonly Func<int> _intervalMs;
+    private readonly Func<IDisposable>? _holdRemainingImages;
     private readonly Func<string, Task> _settled;
     private readonly List<RegistrationJob> _jobs = [];
 
@@ -72,9 +73,14 @@ public sealed class RegistrationQueue : ViewModelBase
     /// <param name="commands">登録と記録の書き込みを通す口（<see cref="UiCommand"/> 1本）。</param>
     /// <param name="intervalMs">問い合わせの間隔（設定の値）。見込みの時間に使う。</param>
     /// <param name="settled">登録できた商品を、画面に知らせる前に主画面の控えと検索の写しへ足す。</param>
-    public RegistrationQueue(CommandHandler commands, Func<int> intervalMs, Func<string, Task> settled)
+    /// <param name="holdRemainingImages">
+    /// 列が動いている間、登録した商品の残りの画像を待たせる札を取る（列が空になったら返す。メモ60 案B の続き）。
+    /// 試験で列だけを組むときは null（待たせない）
+    /// </param>
+    public RegistrationQueue(CommandHandler commands, Func<int> intervalMs, Func<string, Task> settled, Func<IDisposable>? holdRemainingImages = null)
     {
         _commands = commands;
+        _holdRemainingImages = holdRemainingImages;
         _intervalMs = intervalMs;
         _settled = settled;
     }
@@ -225,6 +231,9 @@ public sealed class RegistrationQueue : ViewModelBase
 
     private async Task RunAsync()
     {
+        // 列が動いている間は、登録した商品の残りの画像を始めない（始めると次の登録の問い合わせの合間に入り、
+        // 2件目からの登録が見込みの倍ほどかかる）。列が空になったら、待たせた分をまとめて裏の段で頼む
+        using var hold = _holdRemainingImages?.Invoke();
         try
         {
             while (_jobs.Count > 0)

@@ -294,4 +294,27 @@ public class RegisterGalleryLaterTests : IDisposable
 
         Assert.Equal([Json(ItemA), Page(ItemA)], _booth.Answered);
     }
+
+    [Fact]
+    public async Task 登録の列が待たせている間は残りの画像を頼まず_札を返すとまとめて頼む()
+    {
+        await AddUnresolvedAsync("aaa");
+        await AddUnresolvedAsync("bbb");
+
+        var hold = _service.HoldRemainingImages();
+        Assert.True(await AssignAsUser("aaa", ItemA));
+        Assert.True(await AssignAsUser("bbb", ItemB));
+
+        // 列が動いている間（札を持っている間）は、2件とも残りの画像を1本も問い合わせていない
+        Assert.DoesNotContain(_booth.Sent, url => url == Image(ItemA, 2) || url == Image(ItemB, 2));
+
+        hold.Dispose();
+        await Until(() => HasImageOnDisk(ItemA, 3) && HasImageOnDisk(ItemB, 3), "札を返すと、待たせた2件の残りの画像が届く");
+
+        // 残りの画像は、2件の登録の問い合わせが全部済んだ後に来る（登録の合間に入らない）
+        var answered = _booth.Answered.ToList();
+        var lastRegistration = answered.FindLastIndex(url => url == Image(ItemB, 1) || IsShopIcon(url));
+        var firstRemaining = answered.FindIndex(url => url == Image(ItemA, 2) || url == Image(ItemB, 2));
+        Assert.True(firstRemaining > lastRegistration, string.Join(" / ", _booth.Answered));
+    }
 }

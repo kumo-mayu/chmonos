@@ -934,6 +934,74 @@ public sealed class ItemService : IItemService
             return;
         }
 
+        lock (_galleryHoldGate)
+        {
+            if (_galleryHolds > 0)
+            {
+                // 登録の列が動いている間は始めない（下の HoldRemainingImages）。始めると、門が空いた瞬間に待っている
+                // 残りの画像が、次の登録の問い合わせの合間に1本ずつ入り、2件目からの登録が見込みの倍ほどかかっていた
+                _heldGalleries.Add((itemId, images));
+                return;
+            }
+        }
+
+        StartRemainingImages(itemId, images);
+    }
+
+    private readonly object _galleryHoldGate = new();
+    private int _galleryHolds;
+    private readonly List<(string ItemId, IReadOnlyList<BoothImage> Images)> _heldGalleries = [];
+
+    /// <summary>
+    /// 登録の列が動いている間、登録した商品の残りの画像を頼むのを待たせる（ユーザ判断 2026-10-06・メモ60 案B の続き）。
+    /// 返した物を Dispose すると（列が空になったら）、待たせた分をまとめて⑤の段で頼む。
+    /// 門の決まり（空いた時点で待っている物から選ぶ）には触れず、列を短くする狙いがそのまま出る
+    /// </summary>
+    public IDisposable HoldRemainingImages()
+    {
+        lock (_galleryHoldGate)
+        {
+            _galleryHolds++;
+        }
+
+        return new GalleryHold(this);
+    }
+
+    private void ReleaseGalleryHold()
+    {
+        List<(string ItemId, IReadOnlyList<BoothImage> Images)> released;
+        lock (_galleryHoldGate)
+        {
+            if (--_galleryHolds > 0)
+            {
+                return;
+            }
+
+            released = [.. _heldGalleries];
+            _heldGalleries.Clear();
+        }
+
+        foreach (var (itemId, images) in released)
+        {
+            StartRemainingImages(itemId, images);
+        }
+    }
+
+    private sealed class GalleryHold(ItemService owner) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                owner.ReleaseGalleryHold();
+            }
+        }
+    }
+
+    private void StartRemainingImages(string itemId, IReadOnlyList<BoothImage> images)
+    {
         BackgroundWork.Run("登録した商品の残りの画像", async () =>
         {
             using var priority = BoothClient.Prioritize(BoothPriority.Gallery);
