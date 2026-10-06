@@ -915,15 +915,21 @@ public sealed class ImagePipeline
         // 復号の側の縮小は、片方の辺が既に目標と同じだと縮めないので、合わせるのは必ず下で行う。
         // 目標より小さい絵に目標を渡すと復号の側が引き伸ばすので、頭だけ読んで大きいときだけ渡す
         var header = Image.Identify(bytes);
+        if (ImageLimits.IsTooLarge(header))
+        {
+            throw new InvalidImageContentException($"寸法が大きすぎる画像（{header.Width}×{header.Height}）");
+        }
+
         using var image = header.Width > maxEdge || header.Height > maxEdge
             ? Image.Load(
                 new SixLabors.ImageSharp.Formats.DecoderOptions
                 {
                     TargetSize = new Size(maxEdge, maxEdge),
                     Sampler = KnownResamplers.Bicubic,
+                    MaxFrames = 1,
                 },
                 bytes)
-            : Image.Load(bytes);
+            : Image.Load(ImageLimits.FirstFrame, bytes);
 
         if (image.Width > maxEdge || image.Height > maxEdge)
         {

@@ -675,7 +675,13 @@ public sealed class ThumbnailLoader
     {
         try
         {
-            using var image = Image.Load<Bgra32>(path);
+            // 寸法を頭だけ読んで確かめてから復号する（ImageLimits）。大きすぎる物は読めない画像と同じ扱い
+            if (Core.Images.ImageLimits.IsTooLarge(Image.Identify(path)))
+            {
+                return null;
+            }
+
+            using var image = Image.Load<Bgra32>(Core.Images.ImageLimits.FirstFrame, path);
 
             // 拡大はしない。元が小さい画像はそのままの大きさで作る
             if (shortEdge && maxEdgePixels is { } shortSide && Math.Min(image.Width, image.Height) > shortSide)
