@@ -1041,7 +1041,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public string UnpinDisabledTip => "改変の写真には使えません";
 
     public string RemoveImageButtonTip => CurrentIsUserAdded
-        ? "ファイルごと消します。元に戻せません（押すと確かめます）。"
+        ? "ファイルごと消します。元に戻せません。"
         : "自分で追加した画像だけ消せます";
 
     public string AddImageTip => "この改変に写真を追加します。ドロップやCtrl+Vでも追加できます。";

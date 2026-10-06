@@ -84,7 +84,7 @@ public class RightClickActionButtonsTests
 
         page.SelectImageCommand.Execute(mine);
         Assert.True(page.RemoveImageCommand.CanExecute(null));
-        Assert.Equal("ファイルごと消します。元に戻せません（押すと確かめます）。", page.RemoveImageButtonTip);
+        Assert.Equal("ファイルごと消します。元に戻せません。", page.RemoveImageButtonTip);
     });
 
     /// <summary>取り込み画面の一覧（取り込み対象・監視・履歴）。ItemsSource の名前で探す。</summary>

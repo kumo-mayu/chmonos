@@ -79,5 +79,5 @@ public sealed class AttributeRow : ViewModelBase
     }
 
     /// <summary>並べてあるだけだと分かるようにする。黙って0%で保存されたと思われないため。</summary>
-    public string SuggestedNote => _isSuggested ? "未評価（動かすと付きます）" : string.Empty;
+    public string SuggestedNote => _isSuggested ? "未評価。動かすと付きます" : string.Empty;
 }

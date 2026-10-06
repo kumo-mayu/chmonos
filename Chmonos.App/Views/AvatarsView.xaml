@@ -236,7 +236,7 @@
                                     <KeyBinding Key="Escape" Command="{Binding CancelRenameCommand}" />
                                 </TextBox.InputBindings>
                             </TextBox>
-                            <Button AutomationProperties.AutomationId="AvatarBaseRenameCommit" Content="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
+                            <Button AutomationProperties.AutomationId="AvatarBaseRenameCommit" Content="変更" AutomationProperties.Name="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding RenameCommand}"
                                     IsEnabled="{Binding HasNameChange}" ToolTipService.ShowOnDisabled="True"
                                     ToolTip="今と違う名前を入れると押せます。" />
@@ -630,7 +630,7 @@
                                                     <KeyBinding Key="Escape" Command="{Binding CancelRenameCommand}" />
                                                 </TextBox.InputBindings>
                                             </TextBox>
-                                            <Button AutomationProperties.AutomationId="AvatarRenameCommit" Content="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
+                                            <Button AutomationProperties.AutomationId="AvatarRenameCommit" Content="変更" AutomationProperties.Name="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding RenameCommand}"
                                                     IsEnabled="{Binding HasNameChange}" ToolTipService.ShowOnDisabled="True"
                                                     ToolTip="今と違う名前を入れると押せます。" />

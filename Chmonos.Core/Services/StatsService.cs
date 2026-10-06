@@ -450,7 +450,7 @@ public sealed class StatsService : IStatsService
             }
 
             var category = string.IsNullOrWhiteSpace(item.CategoryName)
-                ? "分類なし"
+                ? "カテゴリなし"
                 : item.CategoryName!;
             var bucket = categories.TryGetValue(category, out var size) ? size : (Bytes: 0L, Count: 0);
             categories[category] = (bucket.Bytes + itemPhysical, bucket.Count + 1);

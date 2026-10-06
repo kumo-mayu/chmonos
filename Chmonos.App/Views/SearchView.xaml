@@ -488,7 +488,7 @@
                                       AutomationProperties.AutomationId="SavedSearchesButton" AutomationProperties.Name="保存した条件"
                                       AutomationProperties.HelpText="{Binding CurrentSavedName}"
                                       PreviewKeyDown="OnSavedButtonKeyDown"
-                                      ToolTip="保存した条件を開きます。呼び出すと、今の検索を置き換えます。">
+                                      ToolTip="保存した条件を開いて、今の検索を置き換えます。">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Template">

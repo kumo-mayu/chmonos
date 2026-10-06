@@ -65,7 +65,7 @@ public sealed class PackageChoiceGroup : ViewModelBase
 
     /// <summary>畳んでいても、中で何件選んでいるかが分かるように。</summary>
     public string CountText => Rows.Count(row => row.IsChecked) is var picked and > 0
-        ? $"{Rows.Count} 件（{picked} 件を選択）"
+        ? $"{Rows.Count} 件中 {picked} 件を選択"
         : $"{Rows.Count} 件";
 
     internal void NoteChecked() => OnPropertyChanged(nameof(CountText));

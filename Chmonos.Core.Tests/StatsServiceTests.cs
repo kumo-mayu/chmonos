@@ -231,7 +231,7 @@ public class StatsServiceTests
             Item("3", Owned(size: 200)),
         ]);
 
-        Assert.Equal(["3Dキャラクター", "3D衣装", "分類なし"], snapshot.Categories.Select(entry => entry.Key));
+        Assert.Equal(["3Dキャラクター", "3D衣装", "カテゴリなし"], snapshot.Categories.Select(entry => entry.Key));
         Assert.Equal(1500, snapshot.Categories[0].Bytes);
     }
 
