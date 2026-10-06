@@ -24,20 +24,32 @@
                         <Expander Style="{DynamicResource TriangleExpander}" IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}"
                                   AutomationProperties.AutomationId="ItemAvatarsExpander" AutomationProperties.Name="対応アバター">
                             <Expander.Header>
-                                <StackPanel Orientation="Horizontal">
+                                <!-- 右の列は狭い（約310px）ので、「すべて確認済みにする」が入り切らなければ次の行へ折り返す（切らない） -->
+                                <WrapPanel Orientation="Horizontal">
                                     <TextBlock FontWeight="Bold" VerticalAlignment="Center"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
                                     <!--
                                         確かめていない推定の数（ユーザ判断 2026-09-18）。対応と数えていないので、
                                         確かめるまで検索にも統計にも出てこない。畳んでいても気付けるよう見出しに出す
                                     -->
                                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                            BorderThickness="1" CornerRadius="4" Padding="7,1" Margin="10,0,0,0"
+                                            BorderThickness="1" CornerRadius="4" Padding="7,1" Margin="10,0,8,0"
                                             VerticalAlignment="Center"
-                                            ToolTip="説明文のリンクから読み取った推定です。丸の付いた札を押して確かめてください。"
+                                            ToolTip="説明文のリンクから読み取った推定です。札の ✓ で確認済みにできます。"
                                             Visibility="{Binding HasUnconfirmedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="{Binding UnconfirmedAvatarText}" FontSize="11" Foreground="{DynamicResource Warn}" />
                                     </Border>
-                                </StackPanel>
+                                    <!--
+                                        確認待ちをまとめて確認済みにする（ユーザ判断 2026-10-06・メモ83）。説明文のリンクの推定は1商品に何十体と並ぶことがあり、
+                                        1枚ずつでは手間が見合わない。確認待ちがある間だけ出す。畳んでいても押せるよう見出しに置く
+                                    -->
+                                    <!-- 左の余白は札の右に持たせる：折り返したとき、ボタンが見出しの文字の頭にそろう -->
+                                    <Button Content="すべて確認済みにする" Style="{StaticResource SmallButton}" Margin="0,3,0,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding ConfirmAllAvatarsCommand}"
+                                            AutomationProperties.AutomationId="ItemAvatarConfirmAll"
+                                            ToolTip="確認待ちの対応アバターを、すべて確認済みにします。"
+                                            Visibility="{Binding HasUnconfirmedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                </WrapPanel>
                             </Expander.Header>
                             <StackPanel>
                                 <!--
@@ -149,14 +161,55 @@
                                                     <Border.InputBindings>
                                                         <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
                                                     </Border.InputBindings>
+                                                    <!-- 札の操作を右クリックにも置く。項目は全部出し、できない物は押せなくして理由を言う（右クリックの決まり） -->
+                                                    <Border.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="開く" Command="{Binding OpenCommand}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                                                            <MenuItem Header="確認済みにする" Command="{Binding ConfirmCommand}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Confirm"
+                                                                      controls:MenuTips.Disabled="確認済みです" />
+                                                            <Separator />
+                                                            <MenuItem Header="外す" Command="{Binding RejectCommand}" Style="{StaticResource DangerMenuItem}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Reject"
+                                                                      ToolTip="再検出しても戻らず、「消したもの」から戻せます。" />
+                                                        </ContextMenu>
+                                                    </Border.ContextMenu>
                                                     <StackPanel Orientation="Horizontal">
                                                         <!--
                                                             推定を確定と同じ顔で出さない、は守る。
-                                                            ただし語ではなく印にして、幅を取らない形にする
+                                                            ただし語ではなく印にして、幅を取らない形にする。
+
+                                                            確認待ちの推定を確認済みにする ✓ は、この印と同じ場所に重ね、乗せたとき・フォーカスがあるときだけ
+                                                            印と入れ替える（ユーザ判断 2026-10-06・メモ83。前は手で足す・戻すときしか確認済みにならなかった）。
+                                                            × の横に並べると、乗せていない間も場所を取って確認待ちの札だけ横に長くなり、狭い列で1行に1枚しか入らなかった。
+                                                            確認済みの札には置かない（押す物が無い）。右クリックのメニューにも同じ命令を置く（基本の操作は画面と右クリックの両方）
                                                         -->
-                                                        <Ellipse Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                                 Fill="{DynamicResource Warn}"
-                                                                 Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center"
+                                                              Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <Ellipse Width="6" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                     Fill="{DynamicResource Warn}">
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                                <Setter Property="Opacity" Value="0" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                                <Setter Property="Opacity" Value="0" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Button Content="✓" Padding="0" FontSize="11" HorizontalAlignment="Center"
+                                                                    Height="16" Background="Transparent" BorderThickness="0"
+                                                                    Cursor="Hand" Foreground="{DynamicResource Good}"
+                                                                    Command="{Binding ConfirmCommand}"
+                                                                    AutomationProperties.AutomationId="ItemAvatarConfirm"
+                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}を確認済みにする}"
+                                                                    ToolTip="確認済みにします。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
+                                                        </Grid>
                                                         <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                         <!--
                                                             検出の適合率は実測で89%。1割は誤りが出るので消せる必要がある。

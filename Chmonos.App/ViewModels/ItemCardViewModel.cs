@@ -148,6 +148,13 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public string ShopName { get; init; } = string.Empty;
 
+    /// <summary>
+    /// R-18 の商品の名前の頭に付ける印（メモ82・ユーザ判断 2026-10-06：ピンク）。見分けは検索の条件「R-18」と同じ
+    /// <c>Booth.IsAdult</c>（BOOTH の is_adult）。カード・リストの名前の文字の中の1区切りとして描く——
+    /// カードは数千枚並ぶので札の部品を増やさない。空の文字なら何も描かれず、名前の位置も変わらない
+    /// </summary>
+    public string AdultMark => Item.Booth.IsAdult ? "R-18 " : string.Empty;
+
     public string SizeText { get; init; } = string.Empty;
 
     public bool IsOwned { get; init; }

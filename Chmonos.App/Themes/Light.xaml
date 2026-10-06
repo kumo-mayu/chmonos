@@ -99,6 +99,11 @@
     <SolidColorBrush x:Key="UnreadSoft" Color="#f8edf4" />
     <SolidColorBrush x:Key="UnreadBorder" Color="#e6cddd" />
     <SolidColorBrush x:Key="UnreadFill" Color="#8a3f6b" />
+    <!--
+        R-18 の商品の名前の頭の印（メモ82・ユーザ判断 2026-10-06：ピンク）。赤は消す・初期化の色（DangerText）なので使わない。
+        未読（Unread・紫寄り）と見分けられるよう、赤みの強いピンクにする。カード（Surface）とリストの選んだ行の上で 4.5:1
+    -->
+    <SolidColorBrush x:Key="AdultText" Color="#b81657" />
     <!-- ナビの「未確定」「未:n」の件数の地 -->
     <SolidColorBrush x:Key="NeedsWorkFill" Color="#9a6b1f" />
     <!-- お気に入りの★ -->

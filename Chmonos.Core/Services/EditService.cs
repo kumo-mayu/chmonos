@@ -11,6 +11,11 @@ public interface IEditService
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default);
 
+    Task<bool> ConfirmAvatarsAsync(
+        string itemId,
+        IReadOnlyCollection<string> avatarItemIds,
+        CancellationToken cancellationToken = default);
+
     Task<EditSession> StartSessionAsync(IReadOnlyList<string> itemIds, int index = 0, CancellationToken cancellationToken = default);
 
     Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default);
@@ -55,6 +60,32 @@ public sealed class EditService : IEditService
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default)
         => _store.Items.SaveLocalAsync(itemId, local, owns, cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// 確認待ちの対応アバターを確認済みにする（ユーザ判断 2026-10-06・メモ83）。**錠の中で今の一覧に当てる**——
+    /// 画面の写しの一覧を書き戻すと、開いている間に裏の検出が足した・人が別の札で外した行が古い一覧に戻る。
+    /// itemが消えていれば false。変える行が無ければ書かずに true。
+    /// </summary>
+    public async Task<bool> ConfirmAvatarsAsync(
+        string itemId,
+        IReadOnlyCollection<string> avatarItemIds,
+        CancellationToken cancellationToken = default)
+    {
+        var found = false;
+        await _store.Items.ChangeLocalAsync(
+            itemId,
+            local =>
+            {
+                found = true;
+                return AvatarService.WithConfirmedAvatars(local.Avatars, avatarItemIds) is { } links
+                    ? local with { Avatars = links }
+                    : null;
+            },
+            LocalOwners.SupportedAvatars,
+            cancellationToken);
+
+        return found;
+    }
 
     /// <summary>
     /// 順番を積み直す。今の記録は使わない（保存した印も空に戻す）が、**書くのは錠の中**にする。

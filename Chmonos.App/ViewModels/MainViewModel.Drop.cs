@@ -215,7 +215,7 @@ public sealed partial class MainViewModel
         switch (answer)
         {
             case Views.ChoiceDialogResult.First:
-                await item.AttachFilesAsync(paths);
+                await AttachDroppedAsync(item, paths);
                 return;
 
             case Views.ChoiceDialogResult.Second:
@@ -228,6 +228,47 @@ public sealed partial class MainViewModel
                 return;
         }
     }
+
+    /// <summary>
+    /// 「この商品に紐付ける」を選んだ後。**混ざっていた画像は、商品の画像にしたいのか、配布物として紐付けたいのかが決まらない**
+    /// （ユーザ判断 2026-10-06・L80 の 14：BOOTH のダウンロード形式に画像が含まれることがあるので紐付ける道は残し、画像として追加するかも聞く）。
+    /// 画像が何枚あっても1回だけ聞き、全部に同じ答えを当てる（1枚ずつ聞くと、画像を何枚も落とした人に何度も窓が出る）。
+    /// キャンセルは何もしない——zip だけ紐付けて画像を黙って捨てると、落とした物の一部が消えたように見える
+    /// </summary>
+    private async Task AttachDroppedAsync(ItemViewModel item, IReadOnlyList<string> paths)
+    {
+        var images = paths.Where(Core.Services.DropRouting.LooksLikeImage).ToList();
+        if (images.Count == 0)
+        {
+            await item.AttachFilesAsync(paths);
+            return;
+        }
+
+        switch (ChoiceQuestion.Ask(ImagesOnAttachQuestion(item.Name, images)))
+        {
+            case Views.ChoiceDialogResult.First:
+                await item.AttachFilesAsync(paths.Except(images).ToList());
+                await item.AddImageFilesAsync(images);
+                return;
+
+            case Views.ChoiceDialogResult.Second:
+                await item.AttachFilesAsync(paths);
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>紐付けるファイルに混ざっていた画像を、商品の画像にするかファイルとして紐付けるかの問い。</summary>
+    internal static ChoiceRequest ImagesOnAttachQuestion(string itemName, IReadOnlyList<string> images)
+        => new(
+            "画像も受け取りました",
+            images.Count == 1 ? $"画像「{Path.GetFileName(images[0])}」をどうしますか？" : $"画像 {images.Count} 件をどうしますか？",
+            $"「画像として追加」\n「{itemName}」の画像に加えます。ほかのファイルは紐付けます。\n\n"
+            + "「ファイルとして紐付ける」\nほかのファイルと一緒に、この商品のファイルに加えます。",
+            "画像として追加",
+            "ファイルとして紐付ける");
 
     /// <summary>商品ページに落としたファイルを、紐付けるか取り込むかの問い。</summary>
     internal static ChoiceRequest AttachOrImportQuestion(string itemName, IReadOnlyList<string> paths)
