@@ -476,7 +476,7 @@ public sealed class ShopService : IShopService
         // バナーとアイコンの両方が見つかったら、そこで受信をやめる
         var result = await _client.GetTextUntilAsync(
             $"https://{subdomain}.booth.pm/items",
-            html => BannerPattern.IsMatch(html) && IconPattern.IsMatch(html),
+            html => FindBanner(html).Success && IconPattern.IsMatch(html),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess || result.Value is null)
@@ -502,7 +502,7 @@ public sealed class ShopService : IShopService
                 cancellationToken);
         }
 
-        var bannerMatch = BannerPattern.Match(html);
+        var bannerMatch = FindBanner(html);
         var bannerUrl = bannerMatch.Success
             ? System.Net.WebUtility.HtmlDecode(bannerMatch.Groups[1].Value)
             : null;
@@ -564,7 +564,7 @@ public sealed class ShopService : IShopService
 
         var result = await _client.GetTextUntilAsync(
             $"https://{subdomain}.booth.pm/items",
-            html => BannerPattern.IsMatch(html),
+            html => FindBanner(html).Success,
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess || result.Value is null)
@@ -572,7 +572,7 @@ public sealed class ShopService : IShopService
             return new BannerLookup(BannerLookupStatus.Failed, null);
         }
 
-        var match = BannerPattern.Match(result.Value);
+        var match = FindBanner(result.Value);
 
         // ページは読めた。バナーが見当たらなければ「置いていない」と判断してよい
         return match.Success
@@ -598,6 +598,34 @@ public sealed class ShopService : IShopService
         "<img[^>]*class=\"[^\"]*header-image[^\"]*\"[^>]*src=\"([^\"]+)\"",
         System.Text.RegularExpressions.RegexOptions.Compiled
             | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// ヘッダ画像を探す。**式はページ全体でなく、&lt;img …&gt; のタグ1つずつに当てる**（外部の点検 2026-10-06 の指摘を測った）。
+    /// ページ全体に当てると、&lt;img で始まる候補ごとに先まで探し直し、作り物の 200KB で7.3秒かかった（大きさの2乗で伸びる）。
+    /// ヘッダ画像はタグ1つの中に収まるので、当たり方は変わらない。見つからなければ空の一致を返す
+    /// </summary>
+    internal static System.Text.RegularExpressions.Match FindBanner(string html)
+    {
+        var from = 0;
+        while (html.IndexOf("<img", from, StringComparison.OrdinalIgnoreCase) is var start and >= 0)
+        {
+            var end = html.IndexOf('>', start);
+            if (end < 0)
+            {
+                break;
+            }
+
+            var match = BannerPattern.Match(html[start..(end + 1)]);
+            if (match.Success)
+            {
+                return match;
+            }
+
+            from = end + 1;
+        }
+
+        return System.Text.RegularExpressions.Match.Empty;
+    }
 
     /// <summary>
     /// まだ持っていないショップのアイコンを順に落とす。

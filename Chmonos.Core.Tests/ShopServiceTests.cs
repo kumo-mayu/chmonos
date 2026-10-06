@@ -712,4 +712,28 @@ public class ShopServiceTests : IDisposable
 
         Assert.Equal(700, Assert.Single(await Create().LoadItemsAsync("a")).SizeBytes);
     }
+
+    /// <summary>ヘッダ画像は、タグ1つずつに当てて探す。並びは前の式と同じ（class が先、src が後）。</summary>
+    [Fact]
+    public void FindsTheBannerInsideOneImgTag()
+    {
+        var html = """<img src="https://example.invalid/a.png"><IMG alt="" class="x header-image y" src="https://booth.pximg.net/b.png">""";
+
+        Assert.Equal("https://booth.pximg.net/b.png", ShopService.FindBanner(html).Groups[1].Value);
+        Assert.False(ShopService.FindBanner("""<img class="header-image">""").Success);
+    }
+
+    /// <summary>
+    /// ヘッダ画像の無い img が並ぶページでも固まらない（外部の点検 2026-10-06）。前の式はページ全体に当て、作り物の 200KB で7.3秒かかった。
+    /// 速さは比べず、固まらないことだけを期限で見る
+    /// </summary>
+    [Fact]
+    public async Task ManyImgTagsWithoutABannerDoNotHang()
+    {
+        var html = string.Concat(Enumerable.Repeat("""<img class="x header-image y" alt="" """, 1024 * 1024 / 72));
+
+        var match = await Task.Run(() => ShopService.FindBanner(html)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.False(match.Success);
+    }
 }
