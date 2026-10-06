@@ -227,6 +227,33 @@
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
+        <!--
+            条件の AND／OR（チェック1つの形とラジオボタン2つの形）。意味を成さない間（1つしか無い）も隠さず、薄く押せなくする
+            （ユーザ判断 2026-10-06「消えたりついたりすると縦に揺れるので意味を成さない時はグレーアウト」）。
+            押せない理由は吹き出しで言う（押せない間も出す）。薄さは編集状況の「両方」と同じ 0.45 で、外の欄ごと薄い間は重ねない（MatchModeDimmed）
+        -->
+        <Style x:Key="MatchModeCheck" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="IsEnabled" Value="{Binding CanChooseMatchMode}" />
+            <Setter Property="ToolTip" Value="{Binding MatchModeTip}" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding MatchModeDimmed}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="MatchModeRadios" TargetType="WrapPanel">
+            <Setter Property="IsEnabled" Value="{Binding CanChooseMatchMode}" />
+            <Setter Property="ToolTip" Value="{Binding MatchModeTip}" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Setter Property="Background" Value="Transparent" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding MatchModeDimmed}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
       </ResourceDictionary>
     </UserControl.Resources>
 
@@ -744,7 +771,7 @@
                                             GroupName は条件ごとに分ける（同じ名前だと、ほかの編集状況の条件のラジオボタンと1組になる）
                                         -->
                                         <WrapPanel Margin="0,3,0,0"
-                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                   Style="{StaticResource MatchModeRadios}">
                                             <RadioButton IsChecked="{Binding MatchAny, Mode=TwoWay}" GroupName="{Binding IdKey, StringFormat='{}{0}.match'}" Margin="0,0,14,0"
                                                          AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAny'}"
                                                          AutomationProperties.Name="{Binding MatchAnyLabel}">
@@ -797,7 +824,7 @@
                                                 更新通知ありは1つまでの条件だが、GroupName は編集状況と同じく条件の鍵で分ける
                                             -->
                                             <WrapPanel Margin="0,3,0,0"
-                                                       Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                       Style="{StaticResource MatchModeRadios}">
                                                 <RadioButton IsChecked="{Binding MatchAny, Mode=TwoWay}" GroupName="{Binding IdKey, StringFormat='{}{0}.match'}" Margin="0,0,14,0"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAny'}"
                                                              AutomationProperties.Name="{Binding MatchAnyLabel}">
@@ -865,8 +892,7 @@
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
                                                   AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}のすべてを満たす商品のみ}"
-                                                  ToolTip="{x:Static vm:MatchModeText.AllHint}"
-                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                  Style="{StaticResource MatchModeCheck}" Visibility="{Binding AllowsAnd, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding Flag, Mode=TwoWay}" Margin="0,4,0,0"
@@ -1165,8 +1191,7 @@
                                                             </controls:ContentItemsControl>
                                                             <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                                       AutomationProperties.Name="{Binding Top, StringFormat={}{0}の小分類のすべてを満たす商品のみ}"
-                                                                      ToolTip="{x:Static vm:MatchModeText.AllHint}"
-                                                                      Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                      Style="{StaticResource MatchModeCheck}">
                                                                 <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                                             </CheckBox>
                                                         </StackPanel>
@@ -1177,8 +1202,7 @@
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
                                                   AutomationProperties.Name="{Binding NameSuffix, StringFormat={}すべての大分類を満たす商品のみ{0}}"
-                                                  ToolTip="{Binding TopMatchAllHint}"
-                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                  Style="{StaticResource MatchModeCheck}">
                                             <TextBlock Text="{Binding TopMatchAllText}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                     </StackPanel>
@@ -1245,8 +1269,7 @@
                                                             </controls:ContentItemsControl>
                                                             <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                                       AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}の改変のすべてを満たす商品のみ}"
-                                                                      ToolTip="{x:Static vm:MatchModeText.AllHint}"
-                                                                      Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                      Style="{StaticResource MatchModeCheck}">
                                                                 <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                                             </CheckBox>
                                                         </StackPanel>
@@ -1257,8 +1280,7 @@
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
                                                   AutomationProperties.Name="{Binding NameSuffix, StringFormat={}すべてのアバターを満たす商品のみ{0}}"
-                                                  ToolTip="{Binding AvatarMatchAllHint}"
-                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                  Style="{StaticResource MatchModeCheck}">
                                             <TextBlock Text="{Binding AvatarMatchAllText}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                     </StackPanel>
@@ -1329,8 +1351,7 @@
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
                                                   AutomationProperties.Name="すべての属性を満たす商品のみ"
-                                                  ToolTip="{x:Static vm:MatchModeText.AllHint}"
-                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                  Style="{StaticResource MatchModeCheck}">
                                             <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <TextBlock Text="追加した属性は、評価済みの商品だけが対象になります。" Style="{StaticResource Caption}"

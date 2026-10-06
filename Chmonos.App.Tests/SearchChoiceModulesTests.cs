@@ -137,7 +137,7 @@ public class SearchChoiceModulesTests
     });
 
     [Fact]
-    public Task 有料無料は_BOOTHのバリエーションの価格だけで3つに分け_最後に両方を持つ() => TestApp.Run(async app =>
+    public Task 有料無料は_BOOTHのバリエーションの価格だけで3つに分け_最後に絞らないすべてを持つ() => TestApp.Run(async app =>
     {
         var item = Make.Item("9900021", "作り物");
         await app.AddItemAsync(item with { Booth = item.Booth with { Variations = [Variation(1, 0)] } });
@@ -159,7 +159,7 @@ public class SearchChoiceModulesTests
         var search = (await app.StartAsync()).Search;
         var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.FreePaid);
 
-        Assert.Equal(["すべて無料", "無料版と有料版がある", "有料のみ", "両方"], module.Options.Select(option => option.Label));
+        Assert.Equal(["すべて無料", "無料版と有料版がある", "有料のみ", "すべて"], module.Options.Select(option => option.Label));
         Assert.Equal(["9900021", "9900024"], Shown(search));
 
         Pick(module, "mixed");
@@ -168,13 +168,13 @@ public class SearchChoiceModulesTests
         Pick(module, "paid");
         Assert.Equal(["9900023"], Shown(search));
 
-        // バリエーションの分からない商品はどれにも入らない。両方は絞らない
+        // バリエーションの分からない商品はどれにも入らない。すべては絞らない
         Assert.Equal([2, 1, 1, 5], module.Options.Select(option => option.Count));
         Pick(module, "both");
         Assert.Equal(["9900021", "9900022", "9900023", "9900024", "9900025"], Shown(search));
         Assert.False(module.IsActive);
 
-        // 条件をクリアすると、ほかの選ぶ形と同じく「両方」に戻る（条件ごと切らない）
+        // 条件をクリアすると、ほかの選ぶ形と同じく絞らない選択肢（「すべて」）に戻る（条件ごと切らない）
         Pick(module, "free");
         module.Clear();
         Assert.Equal("both", module.SelectedKey);
@@ -182,34 +182,37 @@ public class SearchChoiceModulesTests
     });
 
     [Fact]
-    public Task 有料無料の価格が設定されていない商品も表示は_既定で切り_両方の間は隠す() => TestApp.Run(async app =>
+    public Task 有料無料の非公開商品も含むは_既定で切り_仮IDの商品は入れず_すべての間は隠す() => TestApp.Run(async app =>
     {
         var item = Make.Item("9900026", "作り物");
         await app.AddItemAsync(item with { Booth = item.Booth with { Variations = [Variation(1, 0)] } });
         await app.AddItemAsync(item with { Id = "9900027", Booth = item.Booth with { Variations = [Variation(1, 500)] } });
         await app.AddItemAsync(item with { Id = "9900028" });
+
+        // 仮IDの商品（BOOTHに無い商品）も BOOTH の価格を持たないが、BOOTH の物ではないので入れない
+        await app.AddItemAsync(item with { Id = "local-9900029" });
         var search = (await app.StartAsync()).Search;
         var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.FreePaid);
 
         Assert.True(module.HasFlag);
         Assert.False(module.Flag);
-        Assert.Equal("価格が設定されていない商品も表示", module.FlagLabel);
+        Assert.Equal("非公開商品も含む", module.FlagLabel);
         Assert.Equal(["9900026"], Shown(search));
 
         // どの選択肢でも、バリエーションの価格が1つも無い商品を足す
         module.Flag = true;
         Assert.Equal(["9900026", "9900028"], Shown(search));
-        Assert.Equal("有料・無料：すべて無料・価格が設定されていない商品も表示", module.SummaryText);
+        Assert.Equal("有料・無料：すべて無料・非公開商品も含む", module.SummaryText);
         Pick(module, "paid");
         Assert.Equal(["9900027", "9900028"], Shown(search));
 
-        // 両方は何も絞らないので、切り替えを隠す
+        // すべては何も絞らないので、切り替えを隠す
         Pick(module, "both");
         Assert.False(module.HasFlag);
     });
 
     [Fact]
-    public Task 所持のすべてのファイルが見つからなければ未所持とするは_既定で切り_入れると未所持に数える() => TestApp.Run(async app =>
+    public Task 所持のすべて見つからない商品は未所持とするは_既定で切り_入れると未所持に数える() => TestApp.Run(async app =>
     {
         var gone = Make.File(@"D:\files\gone.zip") with { MissingSince = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero) };
         await app.AddItemAsync(Make.Item("9900081", "一部だけ見つからない").WithFiles(Make.File(@"D:\files\here.zip"), gone));
@@ -221,7 +224,7 @@ public class SearchChoiceModulesTests
 
         Assert.True(module.HasFlag);
         Assert.False(module.Flag);
-        Assert.Equal("すべてのファイルが見つからなければ未所持とする", module.FlagLabel);
+        Assert.Equal("すべて見つからない商品は未所持とする", module.FlagLabel);
 
         // 既定は所持の定義のまま（ファイルの記録があれば所持）
         Assert.Equal(["9900081", "9900082", "9900083"], Shown(search));
@@ -281,7 +284,7 @@ public class SearchChoiceModulesTests
             module.AddKey("A");
             module.AddKey("B");
             Assert.False(module.AllowsAnd);
-            Assert.False(module.ShowsMatchMode);
+            Assert.False(module.CanChooseMatchMode);
             module.RemoveCommand!.Execute(null);
         }
 

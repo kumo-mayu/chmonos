@@ -101,7 +101,7 @@ public class SearchEditStatusTests
         module.Selected = module.Options.First(option => option.Key == "both");
 
         Assert.False(module.CanEditFields);
-        Assert.True(module.ShowsMatchMode);
+        Assert.True(module.CanChooseMatchMode);
 
         module.Fields.First(toggle => toggle.Field == EditField.Attributes).IsOn = true;
         module.Fields.First(toggle => toggle.Field == EditField.Memo).IsOn = false;
@@ -129,7 +129,7 @@ public class SearchEditStatusTests
         Assert.False(tags.IsOn);
         Assert.True(memo.IsOn);
         Assert.Equal([EditField.Memo], module.SelectedFields);
-        Assert.False(module.ShowsMatchMode);
+        Assert.False(module.CanChooseMatchMode);
     });
 
     [Fact]

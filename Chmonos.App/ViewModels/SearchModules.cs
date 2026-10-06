@@ -153,6 +153,18 @@ public static class MatchModeText
     public static string AllOf(string noun) => $"すべての{noun}を満たす商品のみ（AND）";
 
     public static string AllHintOf(string noun) => $"切ると、いずれかの{noun}を満たす商品（OR）を表示します。";
+
+    /// <summary>
+    /// 1つしか無くて AND／OR が意味を成さないときの吹き出し（ユーザ判断 2026-10-06）。
+    /// AND／OR は隠さずに薄く押せなくする——出たり消えたりすると、下の欄が縦に揺れる。押せない理由は使う人の次の手なので、吹き出しで言う。
+    /// </summary>
+    public const string NeedsTwo = "2つ以上追加すると選べます。";
+
+    /// <summary>何を2つ以上か言い分ける所（枠の中にもう1つ AND／OR がある条件）。</summary>
+    public static string NeedsTwoOf(string noun) => $"{noun}を2つ以上追加すると選べます。";
+
+    /// <summary>チェックで選ぶ項目（編集状況の見る項目・更新通知ありの見る種類）。追加ではなく入れる物なので、言い方を分ける。</summary>
+    public static string NeedsTwoOn(string noun) => $"{noun}が2つ以上のときに選べます。";
 }
 
 /// <param name="Groups">見出しの中の、意味のまとまり。まとまりの間に区切り線を引く。</param>
@@ -1130,8 +1142,16 @@ public sealed class ListModule : SearchModule
         }
     }
 
-    /// <summary>2つ以上積んだときだけ AND／OR を出す（1つなら結果が変わらない）。</summary>
-    public bool ShowsMatchMode => AllowsAnd && Chips.Count > 1;
+    /// <summary>
+    /// 2つ以上積んだときだけ AND／OR を押せる（1つなら結果が変わらない）。出すかは <see cref="AllowsAnd"/> だけで決め、
+    /// 1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。
+    /// </summary>
+    public bool CanChooseMatchMode => AllowsAnd && Chips.Count > 1;
+
+    /// <summary>AND／OR だけを薄くするか。「指定が無い商品だけ」で外の欄ごと薄いときは重ねて薄くしない。</summary>
+    public bool MatchModeDimmed => ShowMatched && !CanChooseMatchMode;
+
+    public string MatchModeTip => CanChooseMatchMode ? MatchModeText.AllHint : MatchModeText.NeedsTwo;
 
     public string Placeholder { get; }
 
@@ -1231,6 +1251,7 @@ public sealed class ListModule : SearchModule
         }
 
         OnPropertyChanged(nameof(ShowMatched));
+        OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(ShowUnspecified));
         if (field == value)
         {
@@ -1405,6 +1426,7 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(ShowMatched));
+        OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(ShowUnspecified));
         OnPropertyChanged(nameof(IncludeOn));
         RefreshSuggestions();
@@ -1469,6 +1491,7 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(ShowMatched));
+        OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(ShowUnspecified));
     }
 
@@ -1486,7 +1509,9 @@ public sealed class ListModule : SearchModule
         }
 
         OnPropertyChanged(nameof(HasSuggestions));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
         OnPropertyChanged(nameof(HasFlag));
     }
 }
@@ -1664,7 +1689,7 @@ public sealed class RangeModule : SearchModule
         }
     }
 
-    /// <summary>「価格が設定されていない商品も表示」を出すか（価格だけ。スキ数は BOOTH の商品なら必ずある）。</summary>
+    /// <summary>「購入価格が未設定の商品も表示」を出すか（価格だけ。スキ数は BOOTH の商品なら必ずある）。</summary>
     public bool SupportsUnpriced { get; init; }
 
     /// <summary>
@@ -2094,7 +2119,7 @@ public sealed class RangeModule : SearchModule
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
             var all = SupportsMatchAll && _matchAll ? "（すべての価格が範囲内）" : string.Empty;
-            var unpriced = IncludesUnpricedNow ? "・価格が設定されていない商品も表示" : string.Empty;
+            var unpriced = IncludesUnpricedNow ? "・" + SearchViewModel.UnpricedLabel : string.Empty;
             return string.Join(" ", parts) + outliers + all + unpriced;
         }
     }
@@ -2606,7 +2631,12 @@ public sealed class AttributeModule : SearchModule
         }
     }
 
-    public bool ShowsMatchMode => Rows.Count > 1;
+    /// <summary>属性が2つ以上のときだけ押せる。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。</summary>
+    public bool CanChooseMatchMode => Rows.Count > 1;
+
+    public bool MatchModeDimmed => !CanChooseMatchMode;
+
+    public string MatchModeTip => CanChooseMatchMode ? MatchModeText.AllHint : MatchModeText.NeedsTwoOf("属性");
 
     public RelayCommand AddCommand => _add ??= new RelayCommand(parameter => AddRow(parameter as string));
 
@@ -2706,7 +2736,9 @@ public sealed class AttributeModule : SearchModule
         }
 
         OnPropertyChanged(nameof(HasSuggestions));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
     }
 }
 
@@ -2756,8 +2788,14 @@ public sealed class UserTagModule : SearchModule
         }
     }
 
-    /// <summary>2つ以上の大分類を足したときだけ AND／OR を出す（1つなら結果が変わらない）。</summary>
-    public bool ShowsMatchMode => Rows.Count > 1;
+    /// <summary>
+    /// 2つ以上の大分類を足したときだけ押せる（1つなら結果が変わらない）。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。
+    /// </summary>
+    public bool CanChooseMatchMode => Rows.Count > 1;
+
+    public bool MatchModeDimmed => !CanChooseMatchMode;
+
+    public string MatchModeTip => CanChooseMatchMode ? TopMatchAllHint : MatchModeText.NeedsTwoOf("大分類");
 
     /// <summary>大分類どうしのチェックの文。枠の中の小分類どうしのチェックと見分けられるよう、何どうしかを言う（言い方は <see cref="MatchModeText"/>）。</summary>
     public string TopMatchAllText => MatchModeText.AllOf("大分類");
@@ -2896,7 +2934,9 @@ public sealed class UserTagModule : SearchModule
         Unprepare();
         OnPropertyChanged(nameof(ShowsInput));
         OnPropertyChanged(nameof(IsMasterEmpty));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
     }
 }
 
@@ -2952,7 +2992,12 @@ public sealed class UserTagTopRow : ViewModelBase
         }
     }
 
-    public bool ShowsMatchMode => Chips.Count > 1;
+    /// <summary>小分類が2つ以上のときだけ押せる（1つの間も隠さずに薄くする。大分類どうしと同じ）。</summary>
+    public bool CanChooseMatchMode => Chips.Count > 1;
+
+    public bool MatchModeDimmed => !CanChooseMatchMode;
+
+    public string MatchModeTip => CanChooseMatchMode ? MatchModeText.AllHint : MatchModeText.NeedsTwoOf("小分類");
 
     /// <summary>
     /// 「小分類なし」を小分類と AND で結んでいるか。大分類は付いているが小分類が無い商品と、その小分類を持つ商品は重ならないので、必ず0件になる。
@@ -3111,7 +3156,9 @@ public sealed class UserTagTopRow : ViewModelBase
             Suggestions.Add(sub);
         }
 
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
         RefreshConflict();
     }
 }
@@ -3170,8 +3217,11 @@ public sealed class UneditedModule : SearchModule
             {
                 OnPropertyChanged(nameof(MatchAllLabel));
                 OnPropertyChanged(nameof(MatchAnyLabel));
-                OnPropertyChanged(nameof(ShowsMatchMode));
+                OnPropertyChanged(nameof(CanChooseMatchMode));
+                OnPropertyChanged(nameof(MatchModeDimmed));
+                OnPropertyChanged(nameof(MatchModeTip));
                 OnPropertyChanged(nameof(CanEditFields));
+                OnPropertyChanged(nameof(MatchModeDimmed));
                 NotifyChanged();
             }
         }
@@ -3235,10 +3285,16 @@ public sealed class UneditedModule : SearchModule
     }
 
     /// <summary>
-    /// 2つ以上入れているときだけ出す（1つなら結果が変わらない）。「両方」の間も出したまま押せなくする（<see cref="CanEditFields"/>）——
-    /// 隠すと、項目のチェックは薄く残るのにつなぎ方だけ消え、選び直すたびに欄の高さが変わる。
+    /// 2つ以上入れているときだけ押せる（1つなら結果が変わらない）。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。
+    /// 「両方」の間も出したまま押せなくする（<see cref="CanEditFields"/>）。
     /// </summary>
-    public bool ShowsMatchMode => _fields.Count > 1;
+    public bool CanChooseMatchMode => _fields.Count > 1;
+
+    /// <summary>つなぎ方だけを薄くするか。「両方」で外の欄ごと薄いときは重ねて薄くしない。</summary>
+    public bool MatchModeDimmed => CanEditFields && !CanChooseMatchMode;
+
+    /// <summary>押せないときだけ理由を言う（押せるときは選択肢の文で足りる）。</summary>
+    public string? MatchModeTip => CanChooseMatchMode ? null : MatchModeText.NeedsTwoOn("見る項目");
 
     /// <summary>「すべて」で結ばない方の文。未入力のみ＝どれかが未入力、入力済みのみ＝その反対なので、すべて入力済み。</summary>
     public string MatchAnyLabel => _selected.Key == FilledKey ? "すべて入力済み" : "どれかが未入力";
@@ -3290,6 +3346,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
         OnPropertyChanged(nameof(CanEditFields));
+        OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -3301,8 +3358,11 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
         OnPropertyChanged(nameof(CanEditFields));
+        OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -3336,6 +3396,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(MatchAllLabel));
         OnPropertyChanged(nameof(MatchAnyLabel));
         OnPropertyChanged(nameof(CanEditFields));
+        OnPropertyChanged(nameof(MatchModeDimmed));
     }
 
     /// <summary>
@@ -3365,7 +3426,9 @@ public sealed class UneditedModule : SearchModule
         }
 
         OnPropertyChanged(nameof(SelectedFields));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
     }
 }
 

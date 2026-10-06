@@ -6,7 +6,7 @@ using Chmonos.Core.Services;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 価格の「価格が設定されていない商品も表示」（ユーザ判断 2026-10-06。既定は切・有料・無料の同じチェックとは同期しない）。
+/// 価格の「購入価格が未設定の商品も表示」（ユーザ判断 2026-10-06。既定は切・有料・無料の同じチェックとは同期しない）。
 /// 「設定されていない」は元の数が1つも無いこと（D）。外れ値を外して残らない商品（G）は設定されているので足さない。
 /// **除くときも足す**（文の「も表示」のとおり）。表は <see cref="SearchPriceMatchAllTests"/> と同じ7件（範囲 500〜1,000円・外れ値の境 5,000円）：
 ///
@@ -93,7 +93,7 @@ public class SearchPriceUnpricedTests
 
         Assert.True(restored.IncludeUnpriced);
         Assert.Equal(["1", "2", "4", "5", "6"], Passing(restored));
-        Assert.EndsWith("・価格が設定されていない商品も表示", restored.SummaryText);
+        Assert.EndsWith("・購入価格が未設定の商品も表示", restored.SummaryText);
     }
 
     [Fact]

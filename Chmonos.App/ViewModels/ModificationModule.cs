@@ -74,7 +74,12 @@ public sealed class ModificationModule : SearchModule
         }
     }
 
-    public bool ShowsMatchMode => Rows.Count > 1;
+    /// <summary>アバターが2つ以上のときだけ押せる。1つの間も隠さずに薄くする（ユーザ判断 2026-10-06：出たり消えたりすると下の欄が縦に揺れる）。</summary>
+    public bool CanChooseMatchMode => Rows.Count > 1;
+
+    public bool MatchModeDimmed => !CanChooseMatchMode;
+
+    public string MatchModeTip => CanChooseMatchMode ? AvatarMatchAllHint : MatchModeText.NeedsTwoOf("アバター");
 
     public string AvatarMatchAllText => MatchModeText.AllOf("アバター");
 
@@ -324,7 +329,9 @@ public sealed class ModificationModule : SearchModule
         }
 
         OnPropertyChanged(nameof(ShowsInput));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
     }
 }
 
@@ -401,7 +408,12 @@ public sealed class ModificationAvatarRow : ViewModelBase
         }
     }
 
-    public bool ShowsMatchMode => Chips.Count > 1;
+    /// <summary>改変が2つ以上のときだけ押せる（1つの間も隠さずに薄くする。モジュールのアバターどうしと同じ）。</summary>
+    public bool CanChooseMatchMode => Chips.Count > 1;
+
+    public bool MatchModeDimmed => !CanChooseMatchMode;
+
+    public string MatchModeTip => CanChooseMatchMode ? MatchModeText.AllHint : MatchModeText.NeedsTwoOf("改変");
 
     public string CountText => _count < 0 ? string.Empty : _count.ToString(CultureInfo.InvariantCulture);
 
@@ -532,7 +544,9 @@ public sealed class ModificationAvatarRow : ViewModelBase
         }
 
         OnPropertyChanged(nameof(ShowsInput));
-        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(CanChooseMatchMode));
+        OnPropertyChanged(nameof(MatchModeDimmed));
+        OnPropertyChanged(nameof(MatchModeTip));
         OnPropertyChanged(nameof(HasNoModification));
     }
 }
