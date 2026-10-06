@@ -1134,7 +1134,9 @@ public sealed partial class ImportViewModel : ViewModelBase
 
     private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(UnpackedFolderRow.IsSelected))
+        // まとめて選ぶ・外す間は1行ごとに知らせず、最後に1回だけ知らせる（外部の点検 2026-10-07。検索などと同じ）。
+        // 1行ごとに知らせると、件数と合計の大きさを全行から数え直すので、2万行を全部選ぶと約4億回になっていた
+        if (args.PropertyName == nameof(UnpackedFolderRow.IsSelected) && !_batchingUnpackedSelection)
         {
             RaiseSelectionChanged();
         }
@@ -1152,10 +1154,36 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         // 全部入っているなら全解除。押すたびに切り替える
         var selectAll = UnpackedFolders.Any(row => !row.IsSelected);
-        foreach (var row in UnpackedFolders)
+        _batchingUnpackedSelection = true;
+        try
         {
-            row.IsSelected = selectAll;
+            foreach (var row in UnpackedFolders)
+            {
+                row.IsSelected = selectAll;
+            }
         }
+        finally
+        {
+            _batchingUnpackedSelection = false;
+            RaiseSelectionChanged();
+        }
+    }
+
+    private bool _batchingUnpackedSelection;
+
+    /// <summary>展開したフォルダの行を足し、選び替えの知らせをつなぐ（試験も同じ道で足す）。</summary>
+    internal void AddUnpackedRow(Core.Scanning.UnpackedFolder folder)
+    {
+        var row = new UnpackedFolderRow
+        {
+            Folder = folder,
+            Name = Path.GetFileName(folder.Path),
+            ArchiveName = Path.GetFileName(folder.ArchivePath),
+            FileCount = folder.FileCount,
+            SizeText = Core.Models.DisplayText.Size(folder.TotalBytes),
+        };
+        row.PropertyChanged += OnUnpackedRowChanged;
+        UnpackedFolders.Add(row);
     }
 
     /// <summary>
@@ -1474,16 +1502,7 @@ public sealed partial class ImportViewModel : ViewModelBase
                 Summary = imported.Summary;
                 foreach (var folder in imported.Summary.UnpackedFolders.OrderByDescending(entry => entry.TotalBytes))
                 {
-                    var row = new UnpackedFolderRow
-                    {
-                        Folder = folder,
-                        Name = Path.GetFileName(folder.Path),
-                        ArchiveName = Path.GetFileName(folder.ArchivePath),
-                        FileCount = folder.FileCount,
-                        SizeText = Core.Models.DisplayText.Size(folder.TotalBytes),
-                    };
-                    row.PropertyChanged += OnUnpackedRowChanged;
-                    UnpackedFolders.Add(row);
+                    AddUnpackedRow(folder);
                 }
 
                 OnPropertyChanged(nameof(HasUnpackedFolders));

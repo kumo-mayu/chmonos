@@ -82,4 +82,28 @@ public sealed class SelectionBatchTests
         Assert.Equal(1, CountSelectedCountNotices(resolve, () => resolve.ClearChecksCommand.Execute(null), "CheckedCount"));
         Assert.Equal(0, resolve.CheckedCount);
     });
+
+    [Fact]
+    public Task 取り込みで展開したフォルダを全部選ぶのと外すのは_件数の知らせが1回だけ() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var import = main.Import;
+        for (var index = 1; index <= 30; index++)
+        {
+            import.AddUnpackedRow(new Chmonos.Core.Scanning.UnpackedFolder
+            {
+                Path = System.IO.Path.Combine(app.Root, $"unpacked{index:00}"),
+                ArchivePath = System.IO.Path.Combine(app.Root, $"unpacked{index:00}.zip"),
+                FileCount = 1,
+                TotalBytes = 3,
+            });
+        }
+
+        Assert.Equal(1, CountSelectedCountNotices(import, () => import.SelectAllUnpackedCommand.Execute(null), "SelectedUnpackedCount"));
+        Assert.Equal(30, import.SelectedUnpackedCount);
+
+        // もう一度押すと全部外す（押すたびに切り替える）
+        Assert.Equal(1, CountSelectedCountNotices(import, () => import.SelectAllUnpackedCommand.Execute(null), "SelectedUnpackedCount"));
+        Assert.Equal(0, import.SelectedUnpackedCount);
+    });
 }
