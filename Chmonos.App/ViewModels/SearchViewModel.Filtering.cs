@@ -33,6 +33,24 @@ public sealed partial class SearchViewModel
         }
     }
 
+    /// <summary>最後に絞り込んだ日（使う人の時刻で）。日が替わったかを見る。</summary>
+    private DateOnly? _filteredOn;
+
+    /// <summary>
+    /// 日が替わっていて「最近」の条件があれば、絞り直す（外部の点検 2026-10-07）。今日・何日の数えは絞り込みの時に決まるので、
+    /// 開いたまま日をまたぐと、昨日になった商品が「今日」に残り、帯も前の日のままだった。
+    /// 窓が手前に来たときと、検索の画面へ戻ったときに呼ぶ（日をまたぐ時刻に見張りは置かない。見ていない間は古くても困らない）
+    /// </summary>
+    internal void NoteMaybeNewDay()
+    {
+        if (_filteredOn is { } day
+            && day != DateOnly.FromDateTime(Clock().LocalDateTime)
+            && Modules.OfType<RecentModule>().Any())
+        {
+            ApplyFilters();
+        }
+    }
+
     private void ApplyFilters()
     {
         RefreshCardInfo();
@@ -49,6 +67,7 @@ public sealed partial class SearchViewModel
         }
 
         _matches = FilterMatches();
+        _filteredOn = DateOnly.FromDateTime((_moduleContext?.Now ?? Clock()).LocalDateTime);
         RefreshRecentModules();
 
         // 別表記は「別表記でも検索」を入れているときだけ広げる。前は0件のときに自動で広げていたが、

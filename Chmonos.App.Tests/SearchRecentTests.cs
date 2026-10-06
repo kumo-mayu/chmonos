@@ -298,6 +298,33 @@ public class SearchRecentTests
         Assert.Equal(20, module.HighDays);
     }
 
+    /// <summary>
+    /// 開いたまま日をまたいでも、窓が手前に来たら「最近」の今日・何日を数え直す（外部の点検 2026-10-07）。
+    /// 前は絞り込みの時に決まった日のままで、昨日になった商品が「今日」に残った。時計は差し替えて進める
+    /// </summary>
+    [Fact]
+    public Task 日をまたいで窓が手前に来たら_最近の今日を数え直す() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900641", "作り物 今日見た"));
+        await app.Services.Recent.TouchAsync("9900641", RecentKind.Viewed, Now);
+        var main = await app.StartAsync();
+        var search = main.Search;
+        search.Clock = () => Now;
+
+        var recent = (RecentModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Recent);
+        recent.Selected = recent.Options.First(option => option.Key == "viewed");
+        SetRange(recent, 0, 0);
+        await app.SettleAsync();
+        Assert.Contains(search.ListItems, card => card.Item.Id == "9900641");
+
+        // 翌日になって、窓が手前に来る
+        search.Clock = () => Now.AddDays(1);
+        main.NoteWindowActivated();
+        await app.SettleAsync();
+
+        Assert.DoesNotContain(search.ListItems, card => card.Item.Id == "9900641");
+    });
+
     [Fact]
     public Task 新しい順に並べるを押すと_その記録の日の新しい順になり_押せなくなる() => TestApp.Run(async app =>
     {

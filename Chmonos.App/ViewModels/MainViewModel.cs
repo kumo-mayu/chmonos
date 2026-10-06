@@ -588,6 +588,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
         // フォルダビューも同じ。取り込みや未確定の片付けを別の画面でした後に、木を読み直す
         (CurrentViewModel as FolderViewModel)?.NoteWindowActivated();
+
+        // 開いたまま日をまたいだら、「最近」の今日・何日を数え直す
+        (CurrentViewModel as SearchViewModel)?.NoteMaybeNewDay();
     }
 
     public object? CurrentViewModel
@@ -870,6 +873,7 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         // 改変は別の画面で増えたり減ったりする。戻ってきた時点で読み直させる
         Search.NoteModificationsChanged();
+        Search.NoteMaybeNewDay();
         CurrentViewModel = Search;
     }
 
