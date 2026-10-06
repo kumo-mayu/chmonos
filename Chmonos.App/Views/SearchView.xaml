@@ -85,6 +85,19 @@
             </Setter>
         </Style>
 
+        <!--
+            つまみに止まった印。つまみの丸い縁（26）に重ねて、選んだ色の丸にする。
+            ほかの小さなボタンの SmallFocusVisual（角の丸い四角）だと、四角の角が丸い縁の外へはみ出す
+        -->
+        <Style x:Key="PanelToggleFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="1.5" CornerRadius="13" Margin="-1" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="PanelToggle" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Width" Value="24" />
@@ -257,7 +270,12 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <controls:PaneGrid Background="{DynamicResource Bg}" Pane="{Binding FilterPane}">
+    <!--
+        Tab の区切り（Local）にして、つまみに番号 0 を振る（ユーザ指摘 2026-10-06「絞り込みの折り畳みの矢印に tab が止まらない」）。
+        つまみは結果の上に重ねる（ZIndex 2）ので、WPF の Tab（描く順に通る）では結果のカードの後ろ、画面の最後に回っていた。
+        番号の無いほかの部品は今までどおり木の順に通る
+    -->
+    <controls:PaneGrid Background="{DynamicResource Bg}" Pane="{Binding FilterPane}" KeyboardNavigation.TabNavigation="Local">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding FilterPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding FilterPane.MinWidth}" MaxWidth="{Binding FilterPane.MaxWidth}" />
@@ -281,7 +299,9 @@
         <Border Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,13,-13,0"
                 Width="26" Height="26" CornerRadius="13" Panel.ZIndex="2"
                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1">
-            <Button x:Name="FilterPanelToggle" Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <!-- 画面の最初に止まる（つまみは絞り込みの見出しの行の高さ、絞り込みの頭にある）。止まったことは丸い枠で見せる -->
+            <Button x:Name="FilterPanelToggle" Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    KeyboardNavigation.TabIndex="0" FocusVisualStyle="{StaticResource PanelToggleFocusVisual}">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource PanelToggle}">
                         <Setter Property="Content" Value="{StaticResource IconCollapse}" />

@@ -105,5 +105,9 @@
   - 止まった所は選んだ色（`Accent`）の枠で示す（札・行・× とも。カードの枠と同じ作り：`ChipFocusVisual`・`RowFocusVisual`・`SmallFocusVisual`）。
   - ナビのボタン（`NavButton`・`RailSmallButton`）は暗い地なので、止まった所はナビの字の色（`RailTextActive`）の枠（`RailFocusVisual`、MainWindow）。マウスで押したときは出ない。試験は `RailFocusVisualTests`、絵は `ViewShot shot nav-focus`。
   - 札の × は、Hidden で隠すとフォーカスを受けられないので、透明にして隠す（`RevealOnHoverOrFocusButton`。透明な間はマウスを受けない）。
+- **Tab の順は書いた順。重ねるためだけの ZIndex で順を変えない**（ユーザ指摘 2026-10-06）。WPF の Tab は描く順に子をたどり、Panel は ZIndex の大きい子を後ろへ回して描く。
+  - 繋がったボタンは選んでいる方を上に重ねるので、選んでいる方が後ろへ回っていた（検索で「新しい順」を選ぶと 古い順 → 新しい順）。型（`SegmentButton`）が入れ物の Tab を書いた順にする（`Controls/ChildOrderTabs`）。どれも1つずつ止まり、並んでいる順に通る（カード／リストと同じ）。
+  - 検索の絞り込みのつまみ（結果の上に重ねる）は結果のカードの後ろ、画面の最後に回っていた。**画面の最初（ナビの次）に止まり、次は絞り込みの「…」**（畳んでいれば検索欄の側）。止まった所は丸い選んだ色の枠（`PanelToggleFocusVisual`）。
+  - 検索の順：つまみ →「…」→ 条件をクリア → 条件を追加 → 保存した条件 → 条件の並び → 検索欄 → 対象 → オプション → 表示順の項目 → 向き2つ → カード → リスト → 大きさ → 結果。試験は `SearchTabOrderTests`、たどり方は `ViewShot tabs search-cards`。
 - **並べるだけの一覧（`ContentItemsControl`）は Tab で止まらない**（2026-09-30）。既定のままだと一覧ごとに「何も起きない止まり」が入り、フォーカスがどこにも見えなくなっていた。中の部品には今までどおり順に止まる。
 
