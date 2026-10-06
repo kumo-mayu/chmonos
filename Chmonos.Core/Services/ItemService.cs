@@ -1886,7 +1886,8 @@ public sealed class ItemService : IItemService
             log => log.Entries.Any(entry => entry.ItemId == fromId)
                 ? new Services.RecentLog
                 {
-                    Entries = [.. log.Entries.Select(entry => entry.ItemId == fromId ? entry with { ItemId = toId } : entry)],
+                    // 移し先にも足跡があれば1行にまとめる（ID の書き換えだけだと同じ商品の行が2つ残った）
+                    Entries = [.. RecentActivity.Renamed(log.Entries, fromId, toId)],
                 }
                 : null,
             cancellationToken);

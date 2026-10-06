@@ -135,4 +135,55 @@ public sealed class RecentActivityTests
         // 時計を戻した後などに起こりうる。除くと「使ったのに出ない」になる
         Assert.True(RecentActivity.IsWithin(Now.AddDays(1), 30, Now));
     }
+
+    /// <summary>
+    /// 商品のIDを変えるとき、移し先にも足跡があれば1行にまとめ、種類ごとに新しい方の日時を残す（外部の点検 2026-10-06）。
+    /// 前は ID を書き換えるだけで同じ商品の行が2つ残り、打つ側は先の行・引く側は後の行を見て、新しい閲覧が検索に出なくなった
+    /// </summary>
+    [Fact]
+    public void IDを変えると_移し元と移し先の足跡は1行にまとまり_新しい方の日時が残る()
+    {
+        var entries = new[]
+        {
+            new RecentEntry { ItemId = "9900001", ViewedAt = Now, UsedAt = Now.AddDays(-9) },
+            new RecentEntry { ItemId = "9900003", ViewedAt = Now.AddDays(-1) },
+            new RecentEntry { ItemId = "9900002", ViewedAt = Now.AddDays(-5), UsedAt = Now.AddDays(-2), AddedAt = Now.AddDays(-30) },
+        };
+
+        var renamed = RecentActivity.Renamed(entries, "9900001", "9900002");
+
+        Assert.Equal(["9900002", "9900003"], renamed.Select(entry => entry.ItemId));
+        var merged = renamed[0];
+        Assert.Equal(Now, merged.ViewedAt);
+        Assert.Equal(Now.AddDays(-2), merged.UsedAt);
+        Assert.Equal(Now.AddDays(-30), merged.AddedAt);
+
+        // その後に閲覧すると、検索で引く日時も変わる
+        var touched = RecentActivity.Touch(renamed, "9900002", RecentKind.Viewed, Now.AddHours(1));
+        Assert.Equal(Now.AddHours(1), RecentActivity.Times(touched, RecentKind.Viewed)["9900002"]);
+    }
+
+    [Fact]
+    public void IDを変える先に足跡が無ければ_行の場所はそのままで付け替わる()
+    {
+        var entries = new[] { new RecentEntry { ItemId = "9900009" }, new RecentEntry { ItemId = "9900001", ViewedAt = Now } };
+
+        var renamed = RecentActivity.Renamed(entries, "9900001", "9900002");
+
+        Assert.Equal(["9900009", "9900002"], renamed.Select(entry => entry.ItemId));
+        Assert.Equal(Now, renamed[1].ViewedAt);
+    }
+
+    [Fact]
+    public void 同じ商品の行が2つあっても_日時は新しい方を引く()
+    {
+        // 手で直した JSON や前の版で重なった行に、古い日時で引きずられない
+        var entries = new[]
+        {
+            new RecentEntry { ItemId = "9900001", ViewedAt = Now },
+            new RecentEntry { ItemId = "9900001", ViewedAt = Now.AddDays(-7) },
+        };
+
+        Assert.Equal(Now, RecentActivity.Times(entries, RecentKind.Viewed)["9900001"]);
+    }
 }

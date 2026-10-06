@@ -120,6 +120,55 @@ public static class RecentActivity
         return entries;
     }
 
+    /// <summary>
+    /// 商品のIDを変えたときに、足跡を移し先へ付け替える（外部の点検 2026-10-06）。
+    ///
+    /// 前は ID を書き換えるだけで、移し先にも足跡があると同じ商品の行が2つ残った。足跡を打つ側（<see cref="Touch"/>）は
+    /// 先の行を、日時を引く側は後の行を見るので、新しい閲覧が検索に出なくなった。
+    /// 移し元と移し先の行を、先に出た方の場所に1行にまとめ、種類ごとに新しい方の日時を残す。どちらも無ければそのまま返す
+    /// </summary>
+    public static IReadOnlyList<RecentEntry> Renamed(IEnumerable<RecentEntry> existing, string fromId, string toId)
+    {
+        var entries = existing.ToList();
+        bool Matches(RecentEntry entry) => string.Equals(entry.ItemId, fromId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entry.ItemId, toId, StringComparison.OrdinalIgnoreCase);
+
+        var first = entries.FindIndex(entry => Matches(entry));
+        if (first < 0)
+        {
+            return entries;
+        }
+
+        var merged = new RecentEntry { ItemId = toId };
+        foreach (var entry in entries.Where(Matches))
+        {
+            merged = merged with
+            {
+                AddedAt = Latest(merged.AddedAt, entry.AddedAt),
+                UsedAt = Latest(merged.UsedAt, entry.UsedAt),
+                ViewedAt = Latest(merged.ViewedAt, entry.ViewedAt),
+            };
+        }
+
+        var result = new List<RecentEntry>(entries.Count);
+        for (var index = 0; index < entries.Count; index++)
+        {
+            if (index == first)
+            {
+                result.Add(merged);
+            }
+            else if (!Matches(entries[index]))
+            {
+                result.Add(entries[index]);
+            }
+        }
+
+        return result;
+    }
+
+    private static DateTimeOffset? Latest(DateTimeOffset? a, DateTimeOffset? b)
+        => a is null ? b : b is null ? a : a > b ? a : b;
+
     private static RecentEntry Stamped(RecentEntry entry, RecentKind kind, DateTimeOffset at) => kind switch
     {
         RecentKind.Added => entry with { AddedAt = at },
@@ -137,7 +186,8 @@ public static class RecentActivity
         var result = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in entries)
         {
-            if (entry.Get(kind) is { } at)
+            // 同じ商品の行が2つあれば新しい方を取る（手で直した JSON・前の版の ID の付け替えで重なった行に、古い日時で引きずられない）
+            if (entry.Get(kind) is { } at && (!result.TryGetValue(entry.ItemId, out var seen) || at > seen))
             {
                 result[entry.ItemId] = at;
             }
