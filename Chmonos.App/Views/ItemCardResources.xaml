@@ -17,8 +17,24 @@
             **項目はどの画面・どの商品でも全部出し、要る物（商品の JSON・手元のファイル）が無いときは押せなくして、吹き出しで理由を言う**
             （ユーザ判断 2026-10-04・メモ20-①。並びがいつも同じになり、無い項目の理由も分かる）。
             押せるかと吹き出しの文は CardMenuState に集めてある（IsEnabled と ToolTip を同じ名前で引く）。吹き出しは ShowOnDisabled を
-            全 MenuItem の既定にしてある（Themes/Controls.xaml）
+            全 MenuItem の既定にしてある（Themes/Controls.xaml）。
+            項目を出し入れしないので、群が空になって区切りが続くことは無い（出し入れを足すなら区切りの出し入れも一緒に作る。CardMenuOrderTests）
         -->
+        <!--
+            並びは6つの群（ユーザ判断 2026-10-06）：BOOTH へ出る物 / アプリの中で開く物 / 自分の印を付ける物 / 更新 / 手元のファイル / 隠す。
+            前は「商品ページ・BOOTH・ショップ・リンク・編集・改変・お気に入り・選ぶ・更新」が区切り無しの1つの群だった
+        -->
+        <!-- 行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1） -->
+        <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.OpenBooth"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenBooth}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenBooth}"
+                  Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <!-- 人に商品を教えるときに要る。落とす／貼るの逆向き -->
+        <MenuItem Header="リンクをコピー" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.CopyLink"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=CopyLink}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=CopyLink}"
+                  Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <Separator />
         <!--
             選んでいる最中はカードを押すと選択の切り替えになるので、商品ページへの出口（カードの「中を見る」）をここにも置く。
             「中を見る」は乗せたときだけ出るので、キーボード（Shift+F10）からはここしか無い
@@ -26,33 +42,19 @@
         <MenuItem Header="商品ページを開く" Click="OnMenuOpenItemClick" AutomationProperties.AutomationId="CardMenu.OpenItem"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenItem}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenItem}" />
-        <!-- 行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1） -->
-        <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.OpenBooth"
-                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenBooth}"
-                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenBooth}"
-                  Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <MenuItem Header="ショップを開く" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.OpenShop"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=OpenShop}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=OpenShop}"
                   Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-        <!-- 人に商品を教えるときに要る。落とす／貼るの逆向き -->
-        <MenuItem Header="リンクをコピー" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.CopyLink"
-                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=CopyLink}"
-                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=CopyLink}"
-                  Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <MenuItem Header="編集に入る" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Edit"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Edit}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Edit}"
                   Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-        <!--
-            送らずに改変へ足すだけの口（商品ページの「改変に追加」・選んだ帯の「改変に追加…」と同じ窓。ユーザ指示 2026-10-03）。
-            使った記録を残すだけなので、手元のファイルは要らない（商品ページの「改変に追加」も同じ）。
-            選んでいる最中に選んだ物の上で押したら選んだ全部
-        -->
-        <MenuItem Header="改変に追加…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.AddToModification"
-                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=AddToModification}"
-                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=AddToModification}"
-                  Command="{Binding PlacementTarget.Tag.CardAddToModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <Separator />
+        <!-- 行の一覧（アバターは1つだけ選ぶ）には選ぶ箱が無いので、出したまま押せない -->
+        <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Select}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Select}" />
         <!--
             お気に入り（星と同じ操作。カードの一覧は Tab で1回だけ入り、中は矢印でカードからカードへ移る（ArrowGroup）ので、
             中の物を矢印の止まりにすると隣のカードへ移るのに最大4回押すことになる。点検 2026-10-01）。
@@ -63,10 +65,16 @@
                   AutomationProperties.AutomationId="CardMenu.Favorite"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Favorite}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Favorite}" />
-        <!-- 行の一覧（アバターは1つだけ選ぶ）には選ぶ箱が無いので、出したまま押せない -->
-        <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
-                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Select}"
-                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Select}" />
+        <!--
+            送らずに改変へ足すだけの口（商品ページの「改変に追加」・選んだ帯の「改変に追加…」と同じ窓。ユーザ指示 2026-10-03）。
+            使った記録を残すだけなので、手元のファイルは要らない（商品ページの「改変に追加」も同じ）。
+            選んでいる最中に選んだ物の上で押したら選んだ全部
+        -->
+        <MenuItem Header="改変に追加…" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.AddToModification"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=AddToModification}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=AddToModification}"
+                  Command="{Binding PlacementTarget.Tag.CardAddToModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <Separator />
         <MenuItem Header="更新の通知を開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=ShowUpdate}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=ShowUpdate}" />
