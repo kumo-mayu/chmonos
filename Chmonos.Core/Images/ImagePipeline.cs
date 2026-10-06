@@ -861,6 +861,11 @@ public sealed class ImagePipeline
             : Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 復号・縮小・圧縮を始めたときに、そのスレッドで呼ぶ（試験だけが使う。画面のスレッドで走っていないかを見る）。
+    /// </summary>
+    internal Action? EncodingStarted { get; set; }
+
     private async Task SaveAsWebpAsync(
         byte[] bytes,
         string path,
@@ -868,6 +873,41 @@ public sealed class ImagePipeline
         int? maxEdgeOverride = null)
     {
         var maxEdge = maxEdgeOverride ?? _settings.ImageMaxEdgePixels;
+        var quality = _settings.ImageQuality;
+
+        // **復号・縮小・圧縮は裏のスレッドで回す**（2026-10-06 外部の点検）。Core は続きを元の文脈へ戻すので、
+        // 画面の「画像を追加」・ドロップ・貼り付けから来ると、最初の await の前の復号と縮小が画面のスレッドで走り、
+        // 大きな写真では1枚ごとに画面が止まっていた。BOOTH から取る画像も、画面から始めた取得は通信の続きが
+        // 画面のスレッドへ戻るので同じ道に乗る。ここ1か所で裏へ出せば、どの呼び方でも止めない。
+        // 取り消しの印は中で見る（Task.Run に渡すと、始まる前の取り消しで例外の種類が変わる）
+        using var encoded = await Task.Run(() => Encode(bytes, maxEdge, quality, cancellationToken));
+
+        // **一時ファイルの名前は毎回変える。失敗したら消す。**
+        // 固定の「本体+.tmp」だと、同じ絵を2本が同時に保存したとき（指名された画像と裏の取得が重なる）に
+        // 一時ファイルを取り合って落ち、落ちた方の .tmp は誰も片付けずに残っていた
+        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+        try
+        {
+            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                encoded.Position = 0;
+                await encoded.CopyToAsync(stream, cancellationToken);
+            }
+
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteFile(temporaryPath);
+            throw;
+        }
+    }
+
+    private MemoryStream Encode(byte[] bytes, int maxEdge, int quality, CancellationToken cancellationToken)
+    {
+        EncodingStarted?.Invoke();
+        cancellationToken.ThrowIfCancellationRequested();
 
         // **縮めながら復号する**（2026-09-24）。前は元の大きさで復号してから縮めていたので、BOOTH の 3000px 級の JPEG は
         // 1枚ごとに元の大きさの画素（3000×3000 で約36MB）を作っていた。JPEG は復号の段で 1/2・1/4・1/8 に縮められるので、
@@ -898,33 +938,22 @@ public sealed class ImagePipeline
         var encoder = new WebpEncoder
         {
             FileFormat = WebpFileFormatType.Lossy,
-            Quality = _settings.ImageQuality,
+            Quality = quality,
             TransparentColorMode = WebpTransparentColorMode.Clear,
         };
 
         // 縮めて圧縮するのは手元の計算なので、書く前に済ませる。保存先を運ぶ門（StoreWriteGate）で
         // 「書いている」に数える間を、ファイルに書く一瞬だけにするため
-        using var encoded = new MemoryStream();
-        await image.SaveAsync(encoded, encoder, cancellationToken);
-
-        // **一時ファイルの名前は毎回変える。失敗したら消す。**
-        // 固定の「本体+.tmp」だと、同じ絵を2本が同時に保存したとき（指名された画像と裏の取得が重なる）に
-        // 一時ファイルを取り合って落ち、落ちた方の .tmp は誰も片付けずに残っていた
-        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
-        using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+        var encoded = new MemoryStream();
         try
         {
-            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                encoded.Position = 0;
-                await encoded.CopyToAsync(stream, cancellationToken);
-            }
-
-            File.Move(temporaryPath, path, overwrite: true);
+            image.Save(encoded, encoder);
+            cancellationToken.ThrowIfCancellationRequested();
+            return encoded;
         }
         catch
         {
-            TryDeleteFile(temporaryPath);
+            encoded.Dispose();
             throw;
         }
     }

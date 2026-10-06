@@ -381,6 +381,148 @@ public class RegistrationQueueTests
         Assert.Contains($"https://booth.pm/ja/items/{ItemA}.json", app.Booth.Requests);
     });
 
+    // ---- 添えた画像は、入れ終わるまでが1件（2026-10-06 外部の点検） ----
+
+    private static byte[] Png(byte red)
+    {
+        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(8, 8, new SixLabors.ImageSharp.PixelFormats.Rgba32(red, 100, 100));
+        using var stream = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(image, stream);
+        return stream.ToArray();
+    }
+
+    /// <summary>
+    /// 前の起動で、ファイルは商品に入ったが、添えた画像を入れる前に閉じた（記録は残っている）。
+    /// 前は記録から外してから画像を入れていたので、この間に閉じると画像が入らず、記録が残っていても未確定に無いので失敗に数えていた。
+    /// </summary>
+    [Fact]
+    public Task 登録が済んで画像がまだの記録から続けると_BOOTHへ行かずに画像だけ入れる() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile(@"a\first.zip");
+        var red = app.NewFile(@"pics\red.png", Png(200));
+        var blue = app.NewFile(@"pics\blue.png", Png(20));
+        await app.Store.Items.SaveAsync(Make.Item(ItemA, "作り物の衣装").WithFiles(Make.File(zip)));
+        await app.Store.RegistrationQueue.SaveAsync(
+        [
+            new QueuedRegistration { ItemId = ItemA, ItemName = "作り物の衣装", FileHashes = [Make.HashOf(zip)], UserImagePaths = [red, blue] },
+        ]);
+
+        var main = await app.StartAsync();
+        await main.ResumeRegistrationsAsync();
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync(ItemA);
+        Assert.Equal(2, item!.Local.UserImages.Count);
+        Assert.Empty(app.Store.RegistrationQueue.Load());
+        Assert.DoesNotContain(app.Booth.Requests, url => url.Contains(ItemA, StringComparison.Ordinal));
+        Assert.Equal("「作り物の衣装」を登録しました。", main.RegisteredNoticeText);
+    });
+
+    /// <summary>
+    /// 画像を入れている間は、列と記録に残る（閉じる確認が出て、閉じても次の起動で続く）。
+    /// 商品の錠を試験が持って、画像を記録に足す所で止める（ファイルの登録が済んだ知らせの中で取るので、画像より必ず先に取れる）。
+    /// </summary>
+    [Fact]
+    public Task 添えた画像を入れ終わるまでは_列と記録に残り_閉じる確認が出る() => TestApp.Run(async app =>
+    {
+        app.Booth.HasItem(ItemA, "作り物の衣装");
+        var file = Unresolved(app.NewFile(@"a\first.zip"));
+        var red = app.NewFile(@"pics\red.png", Png(200));
+        await app.Store.Unresolved.SaveAsync([file]);
+        await app.Store.RegistrationQueue.SaveAsync(
+        [
+            new QueuedRegistration { ItemId = ItemA, ItemName = "作り物の衣装", FileHashes = [file.Hash], UserImagePaths = [red] },
+        ]);
+
+        var main = await app.StartAsync();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        Task? holding = null;
+        main.Registrations.Changed += () =>
+        {
+            if (holding is null && main.Registrations.Jobs is [{ IsRunning: true, Done: 1 }])
+            {
+                holding = Task.Run(() => app.Store.Items.ChangeLocalAsync(
+                    ItemA,
+                    _ =>
+                    {
+                        entered.Set();
+                        release.Wait();
+                        return null;
+                    },
+                    []));
+                entered.Wait();
+            }
+        };
+
+        try
+        {
+            await main.ResumeRegistrationsAsync();
+            await UiThread.Until(() => holding is not null, "ファイルの登録が済む");
+            await main.Registrations.WhenWrittenAsync();
+
+            Assert.Single(main.Registrations.Jobs);
+            Assert.Single(app.Store.RegistrationQueue.Load());
+            Assert.NotNull(RegistrationQueue.CloseConfirm(main.Registrations.Jobs.Count, main.Registrations.SecondsLeftAll()));
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await holding!;
+        await app.SettleAsync();
+        Assert.Single((await app.Store.Items.LoadAsync(ItemA))!.Local.UserImages);
+        Assert.Empty(app.Store.RegistrationQueue.Load());
+        Assert.False(main.Registrations.HasJobs);
+    });
+
+    /// <summary>画像を入れている途中で閉じた（1枚目だけ入った）。次の起動で残りが入り、入っていた1枚は増えない。</summary>
+    [Fact]
+    public Task 画像を入れている途中で閉じた記録から続けると_残りが入り_入っていた分は増えない() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile(@"a\first.zip");
+        var red = app.NewFile(@"pics\red.png", Png(200));
+        var blue = app.NewFile(@"pics\blue.png", Png(20));
+        await app.Store.Items.SaveAsync(Make.Item(ItemA, "作り物の衣装").WithFiles(Make.File(zip)));
+        await app.Store.RegistrationQueue.SaveAsync(
+        [
+            new QueuedRegistration { ItemId = ItemA, ItemName = "作り物の衣装", FileHashes = [Make.HashOf(zip)], UserImagePaths = [red, blue] },
+        ]);
+
+        var main = await app.StartAsync();
+        Assert.IsType<Core.Commands.CommandResult.UserImageAdded>(
+            await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddUserImage(ItemA, Png(200))));
+        await main.ResumeRegistrationsAsync();
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync(ItemA);
+        Assert.Equal(2, item!.Local.UserImages.Count);
+        Assert.Empty(app.Store.RegistrationQueue.Load());
+    });
+
+    /// <summary>記録から続けても、未確定から消えて別の商品に入ったファイルは、済んだと見なさない（画像も入れない）。</summary>
+    [Fact]
+    public Task 記録から続けた登録のファイルが別の商品に入っていれば_失敗として知らせ_画像は入れない() => TestApp.Run(async app =>
+    {
+        var zip = app.NewFile(@"a\first.zip");
+        var red = app.NewFile(@"pics\red.png", Png(200));
+        await app.Store.Items.SaveAsync(Make.Item(ItemA, "作り物の衣装").WithFiles());
+        await app.Store.Items.SaveAsync(Make.Item(ItemB, "作り物の靴").WithFiles(Make.File(zip)));
+        await app.Store.RegistrationQueue.SaveAsync(
+        [
+            new QueuedRegistration { ItemId = ItemA, ItemName = "作り物の衣装", FileHashes = [Make.HashOf(zip)], UserImagePaths = [red] },
+        ]);
+
+        var main = await app.StartAsync();
+        await main.ResumeRegistrationsAsync();
+        await app.SettleAsync();
+
+        Assert.Empty((await app.Store.Items.LoadAsync(ItemA))!.Local.UserImages);
+        Assert.Empty(app.Store.RegistrationQueue.Load());
+        Assert.Equal("「作り物の衣装」を登録できませんでした。", main.RegisteredNoticeText);
+    });
+
     // ---- 自動検索 ----
 
     [Fact]

@@ -82,6 +82,43 @@ public sealed class OffUiThreadTests : IDisposable
         Assert.Equal(0, client.Calls);
     }
 
+    /// <summary>
+    /// 商品ページの「画像を追加」・ドロップ・貼り付けは、画面のスレッドから命令を呼ぶ。復号・縮小・圧縮は裏で回す（2026-10-06 外部の点検。
+    /// 前は最初の await の前に復号と縮小が走り、大きな写真で画面が止まっていた）。
+    /// </summary>
+    [Fact]
+    public async Task AddingAUserImageDecodesOffTheCallingUiThread()
+    {
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "100",
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "商品" },
+        });
+
+        var client = new OfflineClient();
+        var settings = new AppSettings();
+        var images = new ImagePipeline(client, _paths, settings);
+        var encodedOn = new ConcurrentQueue<int>();
+        images.EncodingStarted = () => encodedOn.Enqueue(Environment.CurrentManagedThreadId);
+        var commands = new Commands.CommandHandler(null!, new ItemService(_store, client, images, settings));
+
+        byte[] png;
+        using (var picture = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(8, 8))
+        using (var stream = new MemoryStream())
+        {
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(picture, stream);
+            png = stream.ToArray();
+        }
+
+        using var ui = new UiThreadStandIn();
+        var result = await ui.RunAsync(() => commands.ExecuteAsync(new Commands.UiCommand.AddUserImage("100", png)));
+
+        Assert.IsType<Commands.CommandResult.UserImageAdded>(result);
+        Assert.Single(encodedOn);
+        Assert.DoesNotContain(ui.ThreadId, encodedOn);
+        Assert.Equal(0, client.Calls);
+    }
+
     /// <summary>知らせを受けたスレッドを書き留める（Progress と違い、知らせた所でそのまま受ける）。</summary>
     private sealed class ThreadRecorder<T> : IProgress<T>
     {
