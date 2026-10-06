@@ -68,10 +68,11 @@
     <SolidColorBrush x:Key="ChangedBand" Color="#2f281d" />
     <SolidColorBrush x:Key="DangerText" Color="#f29a9a" />
     <SolidColorBrush x:Key="DangerBorder" Color="#6b363a" />
-    <SolidColorBrush x:Key="Unread" Color="#e694c3" />
-    <SolidColorBrush x:Key="UnreadSoft" Color="#392233" />
-    <SolidColorBrush x:Key="UnreadBorder" Color="#633c56" />
-    <SolidColorBrush x:Key="UnreadFill" Color="#8a3f6b" />
+    <!-- 未読は紫寄りにする（ユーザ指示 2026-10-06）：カードの札を丸にすると、前の赤みのピンクは「見つからない」の赤と R-18 のピンクに近く、見分けにくかった -->
+    <SolidColorBrush x:Key="Unread" Color="#b4a2f2" />
+    <SolidColorBrush x:Key="UnreadSoft" Color="#2a2640" />
+    <SolidColorBrush x:Key="UnreadBorder" Color="#4a426e" />
+    <SolidColorBrush x:Key="UnreadFill" Color="#5b44a8" />
     <SolidColorBrush x:Key="AdultText" Color="#ff7ab0" />
     <SolidColorBrush x:Key="NeedsWorkFill" Color="#8a5f1a" />
     <SolidColorBrush x:Key="Star" Color="#f2b53a" />
