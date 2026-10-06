@@ -135,6 +135,26 @@ public static class SearchModuleOrder
         => GroupByKind(kinds).Select((from, to) => from == to).All(same => same);
 }
 
+/// <summary>
+/// AND／OR の言い方（ユーザ判断 2026-10-06・メモ82「AND と OR の言い方はモジュール間で共有」）。
+/// 形はどの条件も「AND にするか」のチェック1つで、切れば OR。条件ごとに言い方を書くと揃わなくなるので、ここ1か所に置く。
+/// 「すべて」はかなで書く（`docs/spec/ui-terms.md` の揃える表記）。
+/// </summary>
+public static class MatchModeText
+{
+    public const string All = "すべてを満たす商品のみ（AND）";
+
+    public const string Any = "いずれかを満たす商品（OR）";
+
+    /// <summary>チェックの吹き出し。切ったときに何が出るかを言う。</summary>
+    public const string AllHint = "切ると、" + Any + "を表示します。";
+
+    /// <summary>何どうしを結ぶかを言い分ける所（ユーザータグの大分類どうしなど、枠の中にもう1つチェックがある条件）。</summary>
+    public static string AllOf(string noun) => $"すべての{noun}を満たす商品のみ（AND）";
+
+    public static string AllHintOf(string noun) => $"切ると、いずれかの{noun}を満たす商品（OR）を表示します。";
+}
+
 /// <param name="Groups">見出しの中の、意味のまとまり。まとまりの間に区切り線を引く。</param>
 public sealed record SearchModuleMenuLayout(string Title, IReadOnlyList<IReadOnlyList<SearchModuleKind>> Groups);
 
@@ -161,19 +181,19 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。", AllowsMany: true, OrSameKind: true),
-        new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品で絞ります。非公開・削除された商品は、既定では表示しません。"),
+        new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品か、非公開になった商品で絞ります。"),
         new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
-        new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰ったもので、自分でも買ったものは両方に表示されます。"),
-        new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければBOOTHの価格）で絞ります。無料と有料の両方があるものは両方に表示されます。"),
+        new(SearchModuleKind.Gift, "ギフト", "購入記録で絞ります。貰って自分でも買った商品は、どちらにも表示されます。"),
+        new(SearchModuleKind.FreePaid, "有料・無料", "BOOTHのバリエーションの価格で絞ります。"),
         new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日か買った日で絞ります。日付を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
-        new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したかどうかで絞ります。"),
+        new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したかどうかで絞ります。", AllowsMany: true),
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。", AllowsMany: true),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
@@ -753,15 +773,28 @@ public sealed class ChoiceOption : ViewModelBase
 }
 
 /// <summary>
+/// 選ぶ条件の補助の切り替え1つ（見つからないファイルの「未所持も含める」・ギフトの「購入記録の無い商品も含める」）。
+/// </summary>
+/// <param name="Label">チェックの文。</param>
+/// <param name="Default">足したときと「条件をクリア」の後の値。</param>
+/// <param name="ChangedSummary">既定から変えたときに要約へ添える言い方。</param>
+/// <param name="Keys">
+/// 切り替えが効く選択肢。null ならどれでも効く。効かない選択肢を選んでいる間は隠す（押しても何も変わらない印を出さない）。
+/// </param>
+public sealed record ChoiceFlag(string Label, bool Default, string ChangedSummary, IReadOnlySet<string>? Keys = null);
+
+/// <summary>
 /// プルダウンで選ぶ条件（ユーザ案「三項」）。
 ///
 /// 何も絞らない選択肢（「両方」）を持つ物は、その選択肢で条件を残したまま無効にできる（トグル拡張）。
-/// 持たない物（ギフト）は、条件自体の切り替えで無効にする（純三項）。
+/// 持たない物（ギフト・有料無料）は、条件自体の切り替えで無効にする（純三項）。
+/// 「両方」は並びの最後に置く（ユーザ判断 2026-10-06・メモ82。全部の条件で同じ位置）。先頭が足したときの既定。
 /// </summary>
 public sealed class ChoiceModule : SearchModule
 {
     private readonly Func<ItemRecord, string, bool, bool> _matches;
     private readonly string? _neutralKey;
+    private readonly ChoiceFlag? _flagSpec;
     private ChoiceOption _selected;
     private bool _flag;
 
@@ -773,14 +806,15 @@ public sealed class ChoiceModule : SearchModule
         IReadOnlyList<ChoiceOption> options,
         string? neutralKey,
         Func<ItemRecord, string, bool, bool> matches,
-        string? flagLabel = null)
+        ChoiceFlag? flag = null)
         : base(kind)
     {
         Options = options;
         _selected = options[0];
         _neutralKey = neutralKey;
         _matches = matches;
-        FlagLabel = flagLabel;
+        _flagSpec = flag;
+        _flag = flag?.Default ?? false;
     }
 
     public IReadOnlyList<ChoiceOption> Options { get; }
@@ -792,6 +826,7 @@ public sealed class ChoiceModule : SearchModule
         {
             if (value is not null && SetField(ref _selected, value))
             {
+                OnPropertyChanged(nameof(HasFlag));
                 NotifyChanged();
             }
         }
@@ -799,10 +834,11 @@ public sealed class ChoiceModule : SearchModule
 
     public string SelectedKey => _selected.Key;
 
-    /// <summary>補助の切り替え（販売終了の「非公開・削除された商品も表示する」）。</summary>
-    public string? FlagLabel { get; }
+    /// <summary>補助の切り替えの文。</summary>
+    public string? FlagLabel => _flagSpec?.Label;
 
-    public bool HasFlag => FlagLabel is not null;
+    /// <summary>補助の切り替えを出すか。効かない選択肢（見つからないファイルの「両方」など）を選んでいる間は隠す。</summary>
+    public bool HasFlag => _flagSpec is not null && (_flagSpec.Keys is null || _flagSpec.Keys.Contains(_selected.Key));
 
     public bool Flag
     {
@@ -816,16 +852,17 @@ public sealed class ChoiceModule : SearchModule
         }
     }
 
-    /// <summary>補助の切り替えを切っていると隠す物がある（販売終了では非公開の物を隠す）ので、それも条件とみなす。</summary>
-    protected override bool HasCondition => _selected.Key != _neutralKey || (HasFlag && !_flag);
+    protected override bool HasCondition => _selected.Key != _neutralKey;
 
     public override bool Matches(ItemRecord item, SearchModuleContext context) => _matches(item, _selected.Key, _flag);
 
     protected override string SummaryBody
-        => _selected.Label + (HasFlag && _flag ? $"・{FlagLabel}" : string.Empty);
+        => _selected.Label + (HasFlag && _flag != _flagSpec!.Default ? $"・{_flagSpec.ChangedSummary}" : string.Empty);
 
     public override void Clear()
     {
+        _flag = _flagSpec?.Default ?? false;
+        OnPropertyChanged(nameof(Flag));
         if (_neutralKey is null)
         {
             // 純三項は「何も絞らない」選択肢を持たないので、条件ごと切る
@@ -834,9 +871,8 @@ public sealed class ChoiceModule : SearchModule
         }
 
         _selected = Options.First(option => option.Key == _neutralKey);
-        _flag = true;
         OnPropertyChanged(nameof(Selected));
-        OnPropertyChanged(nameof(Flag));
+        OnPropertyChanged(nameof(HasFlag));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -849,14 +885,16 @@ public sealed class ChoiceModule : SearchModule
         }
     }
 
-    protected override SearchModuleState Write(SearchModuleState state) => state with { Choice = _selected.Key, Flag = _flag };
+    protected override SearchModuleState Write(SearchModuleState state)
+        => state with { Choice = _selected.Key, Flag = _flagSpec is not null && _flag };
 
     protected override void Read(SearchModuleState state)
     {
         _selected = Options.FirstOrDefault(option => option.Key == state.Choice) ?? Options[0];
-        _flag = state.Flag;
+        _flag = _flagSpec is not null && state.Flag;
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(Flag));
+        OnPropertyChanged(nameof(HasFlag));
     }
 
     /// <summary>選ぶ（他の画面から条件を渡すとき）。通知だけ出し、絞り直しは呼ぶ側。</summary>
@@ -864,6 +902,7 @@ public sealed class ChoiceModule : SearchModule
     {
         _selected = Options.FirstOrDefault(option => option.Key == key) ?? _selected;
         OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(HasFlag));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -889,7 +928,13 @@ public sealed class ListChip : ViewModelBase
     public string Text
     {
         get => _text;
-        set => SetField(ref _text, value);
+        set
+        {
+            if (SetField(ref _text, value))
+            {
+                OnPropertyChanged(nameof(ToolTipText));
+            }
+        }
     }
 
     public int Count
@@ -907,6 +952,49 @@ public sealed class ListChip : ViewModelBase
     public string CountText => _count < 0 ? string.Empty : _count.ToString(CultureInfo.InvariantCulture);
 
     public RelayCommand? RemoveCommand { get; set; }
+
+    private bool _isConflict;
+
+    /// <summary>ほかのチップと矛盾していて、必ず0件になる（ユーザータグの AND の中の「小分類なし」）。チップを警告の色にする。</summary>
+    public bool IsConflict
+    {
+        get => _isConflict;
+        set
+        {
+            if (SetField(ref _isConflict, value))
+            {
+                OnPropertyChanged(nameof(ToolTipText));
+            }
+        }
+    }
+
+    /// <summary>乗せたときの文。矛盾しているときは、0件になることを言う（色だけでは何が起きているか分からない）。</summary>
+    public string ToolTipText => _isConflict ? $"{_text}：AND では、ほかの小分類と同時に満たす商品はありません。" : _text;
+
+    /// <summary>
+    /// 吹き出しに添える絵（対応アバターのサムネイル。ユーザ判断 2026-10-06・メモ82）。乗せたときに初めて読む——
+    /// 吹き出しの中身は開くまで結ばれないので、チップを積んだだけでは絵を読まない。
+    /// </summary>
+    internal Func<ImageSource?>? IconSource { get; set; }
+
+    private ImageSource? _icon;
+    private bool _iconRead;
+
+    public ImageSource? Icon
+    {
+        get
+        {
+            if (!_iconRead && IconSource is { } source)
+            {
+                _iconRead = true;
+                _icon = source();
+            }
+
+            return _icon;
+        }
+    }
+
+    public bool HasIconSource => IconSource is not null;
 }
 
 /// <summary>
@@ -1161,6 +1249,12 @@ public sealed class ListModule : SearchModule
         }
 
         var chip = new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
+        if (IconSelector is { } icon)
+        {
+            // 候補の頭に出す絵と同じ物を、チップの吹き出しにも添える（対応アバター。メモ82）。候補の文字から引くので、乗せた時点の文字で引く
+            chip.IconSource = () => icon(chip.Text);
+        }
+
         chip.RemoveCommand = new RelayCommand(() =>
         {
             Chips.Remove(chip);
@@ -1287,7 +1381,7 @@ public sealed class ListModule : SearchModule
         => state with
         {
             Items = Chips.Select(chip => chip.Key).ToList(),
-            MatchAll = _matchAll,
+            MatchAll = AllowsAnd && _matchAll,
             Flag = _flag,
             ShowMatched = _showMatched,
             ShowUnspecified = _showUnspecified,
@@ -1302,7 +1396,8 @@ public sealed class ListModule : SearchModule
             AddKey(key, notify: false);
         }
 
-        _matchAll = state.MatchAll;
+        // AND を持たない種類（ショップ・カテゴリ・BOOTHタグ）に書かれた AND は読まない（照らすときも見ないが、書き戻すと残り続ける）
+        _matchAll = AllowsAnd && state.MatchAll;
         _flag = FlagLabel is null ? _flagDefault : state.Flag;
 
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
@@ -2422,6 +2517,11 @@ public sealed class UserTagModule : SearchModule
     /// <summary>2つ以上の大分類を足したときだけ AND／OR を出す（1つなら結果が変わらない）。</summary>
     public bool ShowsMatchMode => Rows.Count > 1;
 
+    /// <summary>大分類どうしのチェックの文。枠の中の小分類どうしのチェックと見分けられるよう、何どうしかを言う（言い方は <see cref="MatchModeText"/>）。</summary>
+    public string TopMatchAllText => MatchModeText.AllOf("大分類");
+
+    public string TopMatchAllHint => MatchModeText.AllHintOf("大分類");
+
     public RelayCommand AddCommand => _add ??= new RelayCommand(parameter => AddTop(parameter as string));
 
     /// <summary>大分類と小分類の一覧（タグの管理の並び）を入れる。一覧から消えた大分類・小分類の条件は外す（属性と同じ）。</summary>
@@ -2603,12 +2703,30 @@ public sealed class UserTagTopRow : ViewModelBase
         {
             if (SetField(ref _matchAll, value))
             {
+                RefreshConflict();
                 Changed?.Invoke();
             }
         }
     }
 
     public bool ShowsMatchMode => Chips.Count > 1;
+
+    /// <summary>
+    /// 「小分類なし」を小分類と AND で結んでいるか。大分類は付いているが小分類が無い商品と、その小分類を持つ商品は重ならないので、必ず0件になる。
+    /// 選べなくするのは制限が強いので選べるまま、チップの色だけ変えて見て分かるようにする（ユーザ判断 2026-10-06・メモ82〜84 の判断3）
+    /// </summary>
+    public bool HasNoSubConflict => _matchAll && Chips.Count > 1 && Chips.Any(chip => chip.Key == NoSubKey);
+
+    private void RefreshConflict()
+    {
+        var conflict = HasNoSubConflict;
+        foreach (var chip in Chips)
+        {
+            chip.IsConflict = conflict && chip.Key == NoSubKey;
+        }
+
+        OnPropertyChanged(nameof(HasNoSubConflict));
+    }
 
     /// <summary>この大分類の条件に、他の条件のもとで当たる件数。</summary>
     public string CountText => _count < 0 ? string.Empty : _count.ToString(CultureInfo.InvariantCulture);
@@ -2659,6 +2777,7 @@ public sealed class UserTagTopRow : ViewModelBase
 
         _matchAll = condition.MatchAll;
         OnPropertyChanged(nameof(MatchAll));
+        RefreshConflict();
     }
 
     /// <summary>小分類を足す（他の画面から「この小分類の商品」を見に来たとき）。通知は出さない。</summary>
@@ -2751,6 +2870,7 @@ public sealed class UserTagTopRow : ViewModelBase
 
         OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShowsMatchMode));
+        RefreshConflict();
     }
 }
 
@@ -2865,6 +2985,15 @@ public sealed class UneditedModule : SearchModule
     private ChoiceOption _selected;
     private bool _matchAll;
     private List<EditField> _fields = [.. EditFieldsMissing.Default];
+
+    /// <summary>番号が替わったら、項目のトグルの ID も振り直す。</summary>
+    protected override void OnOrdinalChanged()
+    {
+        foreach (var toggle in Fields)
+        {
+            toggle.RaiseAutomationId();
+        }
+    }
 
     /// <param name="isAwaiting">取り込みの③を待っているか。</param>
     public UneditedModule(Func<ItemRecord, bool> isAwaiting)
@@ -3137,10 +3266,12 @@ public sealed class EditFieldToggle : ViewModelBase
 
     public string Display => _count < 0 ? Label : $"{Label}（{_count}）";
 
-    /// <summary>UI Automation の ID（編集状況は1つまでの条件なので、番号は付かない）。</summary>
-    public string AutomationId => $"SearchModule.Unedited.Field.{Field}";
+    /// <summary>UI Automation の ID。編集状況は複数置けるので、条件の番号を入れる（2つ目から `Unedited-2`。メモ83）。</summary>
+    public string AutomationId => $"SearchModule.{_owner.IdKey}.Field.{Field}";
 
     internal void RaiseIsOn() => OnPropertyChanged(nameof(IsOn));
+
+    internal void RaiseAutomationId() => OnPropertyChanged(nameof(AutomationId));
 }
 
 /// <summary>「条件を追加」のメニューの1行。1つまでの種類は、追加済みならグレー。</summary>
