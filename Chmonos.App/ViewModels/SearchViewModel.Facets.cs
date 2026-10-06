@@ -14,6 +14,18 @@ public sealed partial class SearchViewModel
     /// <summary>表示順に使う項目。属性が増えるとその軸も増える（向きは別に持つ・M5）。</summary>
     public ObservableCollection<SortField> SortFields { get; } = [];
 
+    private System.ComponentModel.ICollectionView? _sortFieldGroups;
+
+    /// <summary>プルダウンに渡す、まとまりで分けた表示順の項目（区切り線と「属性」の見出しは画面の GroupStyle が描く）。</summary>
+    public System.ComponentModel.ICollectionView SortFieldGroups => _sortFieldGroups ??= GroupSortFields();
+
+    private System.ComponentModel.ICollectionView GroupSortFields()
+    {
+        var view = new System.Windows.Data.ListCollectionView(SortFields);
+        view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(SortField.Group)));
+        return view;
+    }
+
     public static SortField DefaultSortField => new()
     {
         Label = "入手日",
@@ -160,11 +172,11 @@ public sealed partial class SearchViewModel
         // 絞り込みの「BOOTHの価格」と同じ呼び方にする（「今の価格」だと、自分が払った額と取り違えやすい）
         SortFields.Add(new SortField
         {
-            Label = "BOOTHの価格",
+            Label = "BOOTH価格",
             Kind = SortKind.BoothPrice,
             DescendingLabel = "高い順",
             AscendingLabel = "安い順",
-            FullLabel = descending => descending ? "BOOTHの価格が高い順" : "BOOTHの価格が安い順",
+            FullLabel = descending => descending ? "BOOTH価格が高い順" : "BOOTH価格が安い順",
         });
         SortFields.Add(new SortField
         {
@@ -247,9 +259,19 @@ public sealed partial class SearchViewModel
             });
         }
 
-        // 組み直しで参照が変わるので、同じ意味の項目に繋ぎ直す
+        // 足した順ではなく、決めた並びに並べ直す（まとまりごとに区切り線を引くので、同じまとまりを隣に置く）。
+        // 属性どうしは属性の管理の並びのまま（並べ直しは安定な並べ替え）
+        var ordered = SortFields.OrderBy(field => SortField.OrderOf(field.Kind)).ToList();
+        SortFields.Clear();
+        foreach (var field in ordered)
+        {
+            SortFields.Add(field);
+        }
+
+        // 組み直しで参照が変わるので、同じ意味の項目に繋ぎ直す。見つからなければ既定（入手日）——並べ直したので先頭は名前になった
         _sortField = SortFields.FirstOrDefault(field =>
-            field.Kind == _sort.Kind && field.AttributeName == _sort.AttributeName) ?? SortFields[0];
+            field.Kind == _sort.Kind && field.AttributeName == _sort.AttributeName)
+            ?? SortFields.First(field => field.Kind == SortKind.AcquiredAt);
         _sort = _sortField.ToOption(_sort.Descending);
 
         OnPropertyChanged(nameof(Sort));

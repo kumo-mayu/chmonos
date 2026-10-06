@@ -1814,10 +1814,42 @@
                     <WrapPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,8,2">
                         <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0" />
-                        <ComboBox ItemsSource="{Binding SortFields}" SelectedItem="{Binding SortField, Mode=TwoWay}"
+                        <!-- まとまりの間に区切り線、属性はまとまりの見出し「属性」の下に一段下げて並べる（ユーザ判断 2026-10-06） -->
+                        <ComboBox ItemsSource="{Binding SortFieldGroups}" SelectedItem="{Binding SortField, Mode=TwoWay}"
                                   DisplayMemberPath="Label" Width="150" Height="28" FontSize="12"
                                   AutomationProperties.AutomationId="SearchSortField"
-                                  AutomationProperties.Name="並べ替えに使う項目" />
+                                  AutomationProperties.Name="並べ替えに使う項目">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAttribute}" Value="True">
+                                            <Setter Property="Padding" Value="19,2,5,2" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                            <ComboBox.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <StackPanel x:Name="Head" Margin="0,3,0,2">
+                                                <Border Height="1" Background="{DynamicResource MenuSeparator}" Margin="6,0" SnapsToDevicePixels="True" />
+                                                <TextBlock x:Name="Title" Text="{Binding Name}" Style="{StaticResource Caption}" Margin="10,5,10,0" Visibility="Collapsed" />
+                                            </StackPanel>
+                                            <DataTemplate.Triggers>
+                                                <!-- 先頭のまとまりには線を引かない -->
+                                                <DataTrigger Binding="{Binding Name}" Value="1">
+                                                    <Setter TargetName="Head" Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Name}" Value="属性">
+                                                    <Setter TargetName="Title" Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
                     </StackPanel>
                         <Grid Margin="0,2,16,2" VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>

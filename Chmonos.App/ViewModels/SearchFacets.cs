@@ -177,6 +177,35 @@ public sealed class SortField
 {
     public required string Label { get; init; }
 
+    /// <summary>
+    /// プルダウンの中のまとまり（間に区切り線を引く。ユーザ判断 2026-10-06）。属性のまとまりだけ見出し「属性」を付け、
+    /// 項目を一段下げて子として並べる（属性の数だけ一番上の並びが伸びて、ほかの項目が埋もれないように）
+    /// </summary>
+    public string Group => Kind switch
+    {
+        SortKind.Name or SortKind.Shop or SortKind.Category or SortKind.WishList => "1",
+        SortKind.BoothPrice or SortKind.SelfPaid => "2",
+        SortKind.PublishedAt or SortKind.AcquiredAt or SortKind.RecentlyViewed or SortKind.RecentlyUsed or SortKind.RecentlyAdded => "3",
+        SortKind.Size => "4",
+        _ => "属性",
+    };
+
+    /// <summary>属性の子として一段下げて出すか。</summary>
+    public bool IsAttribute => Kind == SortKind.Attribute;
+
+    /// <summary>
+    /// プルダウンでの並び（ユーザ判断 2026-10-06）：名前・ショップ・カテゴリ・スキ数／BOOTH価格・払った額／
+    /// 公開日・入手日・商品閲覧日・Unity送信日・取り込み日／容量／属性。属性は属性の管理の並びのまま後ろに続ける
+    /// </summary>
+    internal static int OrderOf(SortKind kind) => kind switch
+    {
+        SortKind.Name => 0, SortKind.Shop => 1, SortKind.Category => 2, SortKind.WishList => 3,
+        SortKind.BoothPrice => 4, SortKind.SelfPaid => 5,
+        SortKind.PublishedAt => 6, SortKind.AcquiredAt => 7, SortKind.RecentlyViewed => 8, SortKind.RecentlyUsed => 9, SortKind.RecentlyAdded => 10,
+        SortKind.Size => 11,
+        _ => 12,
+    };
+
     public required SortKind Kind { get; init; }
 
     /// <summary><see cref="SortKind.Attribute"/> のときの属性名。</summary>

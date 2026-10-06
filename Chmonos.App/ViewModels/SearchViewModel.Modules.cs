@@ -621,7 +621,7 @@ public sealed partial class SearchViewModel
         },
 
         SearchModuleKind.Price => new RangeModule(kind, PriceValues, "円",
-            [new ChoiceOption(PaidSource, "購入額"), new ChoiceOption(BoothSource, "BOOTHの価格")])
+            [new ChoiceOption(PaidSource, "払った額"), new ChoiceOption(BoothSource, "BOOTH価格")])
         {
             AllValuesOf = source => _allItems.SelectMany(item => PriceValues(item, source)),
 
@@ -900,10 +900,10 @@ public sealed partial class SearchViewModel
     /// 価格の条件の、値の無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。有料・無料の「非公開商品も含む」とは同期しない。
     /// 元で出し分ける（ユーザ判断 2026-10-06）：払った額の間は値段を入れていない商品、BOOTHの価格の間はバリエーションの無い商品を足すので
     /// </summary>
-    public const string UnpricedLabel = "購入価格が未設定の商品も表示";
+    public const string UnpricedLabel = "払った額が未設定の商品も表示";
 
-    /// <summary>価格の条件を「BOOTHの価格」にした間の、同じ切り替えの文。</summary>
-    public const string BoothUnpricedLabel = "BOOTHの価格が未設定の商品も表示";
+    /// <summary>価格の条件を「BOOTH価格」にした間の、同じ切り替えの文。</summary>
+    public const string BoothUnpricedLabel = "BOOTH価格が未設定の商品も表示";
 
     /// <summary>有料・無料の、BOOTH の価格が無い商品も足す切り替えの文（ユーザ判断 2026-10-06）。</summary>
     public const string PrivateItemsLabel = "非公開商品も含む";

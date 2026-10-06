@@ -193,7 +193,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", AllowsMany: true, OrSameKind: true),
-        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格で絞ります。", AllowsMany: true, OrSameKind: true),
+        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTH価格で絞ります。", AllowsMany: true, OrSameKind: true),
         // 名前は「公開状況」（ユーザ判断 2026-10-06。前は「販売終了」）。中身が「販売終了・非公開／公開中／両方」になり、販売終了だけの条件ではなくなった。
         // 種類の名前（EndOfSale）は保存した状態に書くので変えない
         new(SearchModuleKind.EndOfSale, "公開状況", "BOOTHで公開中か、販売終了・非公開かで絞ります。"),
@@ -201,7 +201,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
         new(SearchModuleKind.Gift, "ギフト", "購入記録で絞ります。貰って自分でも買った商品は、どちらにも表示されます。"),
-        new(SearchModuleKind.FreePaid, "有料・無料", "BOOTHのバリエーションの価格で絞ります。"),
+        new(SearchModuleKind.FreePaid, "有料・無料", "BOOTH価格で絞ります。"),
         new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
@@ -212,7 +212,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターだけを選ぶと、そのアバターの改変のどれかに使った商品です。", AllowsMany: true),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
-        new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
+        new(SearchModuleKind.Recent, "最近", "Unity送信・商品閲覧・取り込みをした日で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
         new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルやフォルダがある商品で絞ります。"),
         new(SearchModuleKind.NotOnBooth, "BOOTHに無い商品", "BOOTHに無い商品として登録した商品か、BOOTHの商品かで絞ります。"),

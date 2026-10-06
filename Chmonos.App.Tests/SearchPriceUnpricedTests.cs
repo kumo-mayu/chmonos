@@ -6,7 +6,7 @@ using Chmonos.Core.Services;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 価格の「購入価格が未設定の商品も表示」（ユーザ判断 2026-10-06。既定は切・有料・無料の同じチェックとは同期しない）。
+/// 価格の「払った額が未設定の商品も表示」（ユーザ判断 2026-10-06。既定は切・有料・無料の同じチェックとは同期しない）。
 /// 「設定されていない」は元の数が1つも無いこと（D）。外れ値を外して残らない商品（G）は設定されているので足さない。
 /// **除くときも足す**（文の「も表示」のとおり）。表は <see cref="SearchPriceMatchAllTests"/> と同じ7件（範囲 500〜1,000円・外れ値の境 5,000円）：
 ///
@@ -43,7 +43,7 @@ public class SearchPriceUnpricedTests
             SearchModuleKind.Price,
             (item, _) => Prices[item.Id],
             "円",
-            [new ChoiceOption("paid", "購入額"), new ChoiceOption("booth", "BOOTHの価格")])
+            [new ChoiceOption("paid", "払った額"), new ChoiceOption("booth", "BOOTH価格")])
         {
             AllValuesOf = _ => Enumerable.Repeat(1000, 20).Append(99999),
             Floor = 100,
@@ -94,7 +94,7 @@ public class SearchPriceUnpricedTests
 
         Assert.True(restored.IncludeUnpriced);
         Assert.Equal(["1", "2", "4", "5", "6"], Passing(restored));
-        Assert.EndsWith("・購入価格が未設定の商品も表示", restored.SummaryText);
+        Assert.EndsWith("・払った額が未設定の商品も表示", restored.SummaryText);
     }
 
     [Fact]
@@ -127,20 +127,20 @@ public class SearchPriceUnpricedTests
     });
 
     [Fact]
-    public Task チェックの文は_購入額の間は購入価格_BOOTHの価格の間はBOOTHの価格と言う() => TestApp.Run(async app =>
+    public Task チェックの文は_払った額の間は払った額_BOOTH価格の間はBOOTH価格と言う() => TestApp.Run(async app =>
     {
-        // ユーザ判断 2026-10-06：BOOTHの価格に切り替えた間も「購入価格が未設定」と出ると、何が無い商品を足すのか食い違う
+        // ユーザ判断 2026-10-06：BOOTH価格に切り替えた間も「払った額が未設定」と出ると、何が無い商品を足すのか食い違う
         var search = (await app.StartAsync()).Search;
         var price = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Price);
 
-        Assert.Equal("購入価格が未設定の商品も表示", price.UnpricedLabel);
+        Assert.Equal("払った額が未設定の商品も表示", price.UnpricedLabel);
 
         price.IncludeUnpriced = true;
         price.Source = price.Sources.Single(source => source.Key == "booth");
-        Assert.Equal("BOOTHの価格が未設定の商品も表示", price.UnpricedLabel);
-        Assert.EndsWith("・BOOTHの価格が未設定の商品も表示", price.SummaryText);
+        Assert.Equal("BOOTH価格が未設定の商品も表示", price.UnpricedLabel);
+        Assert.EndsWith("・BOOTH価格が未設定の商品も表示", price.SummaryText);
 
         price.Source = price.Sources.Single(source => source.Key == "paid");
-        Assert.Equal("購入価格が未設定の商品も表示", price.UnpricedLabel);
+        Assert.Equal("払った額が未設定の商品も表示", price.UnpricedLabel);
     });
 }

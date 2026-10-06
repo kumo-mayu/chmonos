@@ -702,7 +702,7 @@
                                                 </Grid.RowDefinitions>
                                                 <TextBlock Grid.Column="1" Text="{Binding BoothPrice}" Style="{StaticResource Mono}" FontSize="13"
                                                            Foreground="{DynamicResource TextBody}" VerticalAlignment="Center" Margin="16,0,0,0"
-                                                           ToolTip="BOOTHの価格です。"
+                                                           ToolTip="BOOTH価格です。"
                                                            Visibility="{Binding BoothPrice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />

@@ -72,9 +72,9 @@ public sealed class RecentModule : SearchModule
     {
         Options =
         [
-            new ChoiceOption("used", "Unityへ送った"),
-            new ChoiceOption("viewed", "商品ページを開いた"),
-            new ChoiceOption("added", "取り込んだ"),
+            new ChoiceOption("used", "Unity送信"),
+            new ChoiceOption("viewed", "商品閲覧"),
+            new ChoiceOption("added", "取り込み"),
         ];
         _selected = Options[0];
     }
@@ -110,9 +110,9 @@ public sealed class RecentModule : SearchModule
     /// </summary>
     public static string DateLabel(RecentKind kind) => kind switch
     {
-        RecentKind.Viewed => "商品ページを開いた日",
-        RecentKind.Added => "取り込んだ日",
-        _ => "Unityへ送った日",
+        RecentKind.Viewed => "商品閲覧日",
+        RecentKind.Added => "取り込み日",
+        _ => "Unity送信日",
     };
 
     public RecentPeriod Period

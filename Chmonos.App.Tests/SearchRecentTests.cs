@@ -9,7 +9,7 @@ namespace Chmonos.App.Tests;
 /// 検索の「最近」（ユーザ判断 2026-10-06・案A）：最後にそれをしてからの日数を、分布の帯とスライダ2本で選ぶ。帯の範囲は一週間・一か月・一年・全期間。
 /// 今は 2026-10-06 12:00（+09:00）に止める（時計に左右されない）。商品の末尾の数字が「何日前に開いたか」、9900599 は記録が無い。
 ///
-/// 除くときの表（記録の種類は「商品ページを開いた」）：
+/// 除くときの表（記録の種類は「商品閲覧」）：
 ///
 /// | 商品 | 開いた日 | 今日〜6日前 | 除く：今日〜6日前 | 30日以上前 | 除く：30日以上前 | 記録あり | 除く：記録あり |
 /// |---|---|---|---|---|---|---|---|
@@ -92,7 +92,7 @@ public class SearchRecentTests
 
         Assert.Equal(expected.Split(','), Passing(module));
         Assert.Equal(text, module.RangeText);
-        Assert.Equal($"最近（商品ページを開いた） {text}", module.SummaryText);
+        Assert.Equal($"最近（商品閲覧） {text}", module.SummaryText);
     }
 
     [Theory]
@@ -118,7 +118,7 @@ public class SearchRecentTests
         SetRange(module, 0, 6);
         module.IsExcluded = true;
 
-        Assert.Equal("除く：最近（商品ページを開いた） 今日〜6日前", module.SummaryText);
+        Assert.Equal("除く：最近（商品閲覧） 今日〜6日前", module.SummaryText);
     }
 
     [Fact]
@@ -318,13 +318,13 @@ public class SearchRecentTests
 
         Assert.Equal("3 件", search.ResultSummary);
         Assert.True(recent.CanSort);
-        Assert.Equal("表示順を「商品ページを開いた日が新しい順」にします。", recent.SortHint);
+        Assert.Equal("表示順を「商品閲覧日が新しい順」にします。", recent.SortHint);
 
         recent.SortCommand.Execute(null);
         await app.SettleAsync();
 
-        Assert.Equal("商品ページを開いた日", search.SortField.Label);
-        Assert.Equal("商品ページを開いた日が新しい順", search.Sort.Label);
+        Assert.Equal("商品閲覧日", search.SortField.Label);
+        Assert.Equal("商品閲覧日が新しい順", search.Sort.Label);
         Assert.True(search.SortsDescending);
         Assert.Equal(["9900612", "9900613", "9900611"], search.ListItems.Select(card => card.Item.Id));
         Assert.False(recent.CanSort);
@@ -366,14 +366,14 @@ public class SearchRecentTests
         recent.HighPosition = 2 * 100.0 / recent.Span;
         await UiThread.Until(() => search.ResultSummary == "2 件", "今日〜2日前で絞る");
 
-        Assert.Equal("最近（Unityへ送った） 今日〜2日前", search.FilterSummary);
+        Assert.Equal("最近（Unity送信） 今日〜2日前", search.FilterSummary);
     });
 
     [Fact]
     public void 並べ替えの最近の3種は_条件の記録の種類と同じ言い方()
     {
-        Assert.Equal("Unityへ送った日", RecentModule.DateLabel(RecentKind.Used));
-        Assert.Equal("商品ページを開いた日", RecentModule.DateLabel(RecentKind.Viewed));
-        Assert.Equal("取り込んだ日", RecentModule.DateLabel(RecentKind.Added));
+        Assert.Equal("Unity送信日", RecentModule.DateLabel(RecentKind.Used));
+        Assert.Equal("商品閲覧日", RecentModule.DateLabel(RecentKind.Viewed));
+        Assert.Equal("取り込み日", RecentModule.DateLabel(RecentKind.Added));
     }
 }
