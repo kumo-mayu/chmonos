@@ -101,6 +101,12 @@ public static class StoreMover
             return Refused(refusal);
         }
 
+        // 退ける前に断る。Move の中で断ると、選んだ先の中身を退けたまま返ってしまう
+        if (LinkInside(source, destination) is { } linked)
+        {
+            return Refused(linked);
+        }
+
         var parked = Path.Combine(destination, $"_置き換え前-{DateTime.Now:yyyyMMdd-HHmmss}");
 
         try
@@ -149,6 +155,11 @@ public static class StoreMover
         if (FolderIdentity.IsSameOrInside(destination, source))
         {
             return Refused("選んだ場所が今の保存先の中にあります。今の保存先の外の場所を選んでください。");
+        }
+
+        if (LinkInside(source, destination) is { } linked)
+        {
+            return Refused(linked);
         }
 
         var files = Enumerate(source).ToList();
@@ -492,7 +503,8 @@ public static class StoreMover
         }
 
         // 深い方から畳む
-        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories)
+        // リンクのフォルダには降りない（StoreTree）。先の外のフォルダを畳まない
+        foreach (var directory in StoreTree.Directories(source)
             .OrderByDescending(path => path.Length))
         {
             try
@@ -511,9 +523,27 @@ public static class StoreMover
         return allRemoved;
     }
 
+    /// <summary>
+    /// 保存先の中にリンクがあれば、断る文を返す（ユーザ判断「A」2026-10-06）。
+    /// 辿って運ぶと、保存先の外のファイルを写したうえで消していた。辿らずに運ぶと、リンクの先の中身は新しい場所に無い。
+    /// どちらも黙って進めず、外すか戻すかを使う人に決めてもらう。
+    /// 運ぶ先の中のリンクも断る——写した物がリンクを通って選んだ場所の外へ書かれ、失敗の片付けもそこを消す
+    /// </summary>
+    private static string? LinkInside(string source, string destination)
+    {
+        if (StoreTree.FindLink(source) is { } inSource)
+        {
+            return StoreTree.LinkRefusal(inSource);
+        }
+
+        return StoreTree.FindLink(destination) is { } inDestination
+            ? $"選んだ場所の中の「{inDestination}」は、ほかの場所を指すリンクです。リンクの無い場所を選んでください。"
+            : null;
+    }
+
     private static IEnumerable<string> Enumerate(string root)
         => Directory.Exists(root)
-            ? Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            ? StoreTree.Files(root)
                 .Where(file => !Skipped.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase))
             : [];
 

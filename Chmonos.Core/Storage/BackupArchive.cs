@@ -27,6 +27,13 @@ public sealed class BackupReadException(string relativePath, bool previousKept, 
     public bool PreviousKept { get; } = previousKept;
 }
 
+/// <summary>保存先の中に、ほかの場所を指すリンクがあるので始めない。<see cref="Exception.Message"/> は画面に出せる文。</summary>
+public sealed class StoreLinkException(string relativePath) : IOException(StoreTree.LinkRefusal(relativePath))
+{
+    /// <summary>リンクの場所（保存先からの相対）。</summary>
+    public string RelativePath { get; } = relativePath;
+}
+
 /// <summary>バックアップの中に入れる説明（<c>backup-info.json</c>）。zip を開いた人が読める形。</summary>
 public sealed record BackupInfo
 {
@@ -102,8 +109,15 @@ public static class BackupArchive
         var bytes = 0L;
         var skipped = 0;
 
+        // 保存先の中にリンクがあれば始めない（ユーザ判断「A」2026-10-06）。辿ると保存先の外のファイルが zip に入り、
+        // 辿らずに書くと、戻したときにリンクの先の中身が無い。どちらにするかは使う人に決めてもらう
+        if (StoreTree.FindLink(rootFull) is { } link)
+        {
+            throw new StoreLinkException(link);
+        }
+
         // 先に数える（E8）。件数が分からないと進み具合を出せない。列挙をもう一度回すだけで、中身は読まない
-        var targets = Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories).ToList();
+        var targets = StoreTree.Files(rootFull).ToList();
 
         try
         {

@@ -877,6 +877,11 @@ public sealed class CommandHandler
                         },
                         cancellationToken);
                 }
+                catch (Storage.StoreLinkException linked)
+                {
+                    // 始める前に断った。zip には手を付けていない
+                    return new CommandResult.Failed(linked.Message);
+                }
                 catch (Storage.BackupReadException readFailed)
                 {
                     // 途中で読めなくなった：作りかけの zip は消してある。前の zip が在ればそのまま（上書きしていない）
