@@ -213,31 +213,26 @@ public sealed partial class SearchViewModel
         });
 
         // 「最近」の3種。足跡が無い商品は後ろにまとめる（0扱いにすると
-        // 「まだ無い」が「一番古い」に化ける）
-        SortFields.Add(new SortField
+        // 「まだ無い」が「一番古い」に化ける）。
+        // 名前は「最近」の条件の記録の種類と同じ言い方（ユーザ判断 2026-10-06。前の「使った日」「見た日」は、条件の「Unityへ送った」「商品ページを開いた」と
+        // 同じ物だと読めなかった）。言い方を変えたので、前の言い方で残った検索の履歴・保存した条件の表示順は既定の順で開く
+        foreach (var (kind, sortKind) in new[]
         {
-            Label = "使った日",
-            Kind = SortKind.RecentlyUsed,
-            DescendingLabel = "新しい順",
-            AscendingLabel = "古い順",
-            FullLabel = descending => descending ? "最近使った順" : "使ったのが古い順",
-        });
-        SortFields.Add(new SortField
+            (Core.Services.RecentKind.Used, SortKind.RecentlyUsed),
+            (Core.Services.RecentKind.Viewed, SortKind.RecentlyViewed),
+            (Core.Services.RecentKind.Added, SortKind.RecentlyAdded),
+        })
         {
-            Label = "見た日",
-            Kind = SortKind.RecentlyViewed,
-            DescendingLabel = "新しい順",
-            AscendingLabel = "古い順",
-            FullLabel = descending => descending ? "最近見た順" : "見たのが古い順",
-        });
-        SortFields.Add(new SortField
-        {
-            Label = "取り込んだ日",
-            Kind = SortKind.RecentlyAdded,
-            DescendingLabel = "新しい順",
-            AscendingLabel = "古い順",
-            FullLabel = descending => descending ? "最近取り込んだ順" : "取り込んだのが古い順",
-        });
+            var label = RecentModule.DateLabel(kind);
+            SortFields.Add(new SortField
+            {
+                Label = label,
+                Kind = sortKind,
+                DescendingLabel = "新しい順",
+                AscendingLabel = "古い順",
+                FullLabel = descending => descending ? $"{label}が新しい順" : $"{label}が古い順",
+            });
+        }
 
         foreach (var name in _attributeNames)
         {

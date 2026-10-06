@@ -760,7 +760,7 @@
                                     AutomationProperties.AutomationId="ImportShowAdded"
                                     Command="{Binding ShowAddedCommand}"
                                     Visibility="{Binding HasAddedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                    ToolTip="最近取り込んだ順に並べて、検索を開きます。ほかの条件は外します。" />
+                                    ToolTip="取り込んだ日が新しい順に並べて、検索を開きます。ほかの条件は外します。" />
                         </WrapPanel>
 
 

@@ -28,6 +28,12 @@ public sealed record SearchModuleState
     /// <summary>三択などで選んだもの・価格の元・最近の種類・入手日のどの購入で見るか（first／all）。</summary>
     public string? Choice { get; init; }
 
+    /// <summary>
+    /// 最近の帯の範囲（<c>week</c>・<c>month</c>・<c>year</c>・<c>all</c>。ユーザ判断 2026-10-06）。見え方だけで結果を変えないので、指紋に入れない。
+    /// 最近の日数は <see cref="Min"/>（何日前から）と <see cref="Max"/>（何日前まで。空はそれより前もすべて）。
+    /// </summary>
+    public string? Period { get; init; }
+
     /// <summary>下限（数値か日付の文字）。空は端（数の範囲なら0・日付なら制限しない）。</summary>
     public string? Min { get; init; }
 
@@ -88,7 +94,7 @@ public sealed record SearchModuleState
 
     /// <summary>
     /// 当てはまる商品を**除く**か（ユーザ判断 2026-10-01・`docs/research/search-modules-2026-10-01.md`）。
-    /// 除くを持たない種類（三項・最近・編集状況）では読まない。前の版で書いた状態はこの欄を持たないので、除かない姿で読まれる。
+    /// 除くを持たない種類（三項・編集状況）では読まない。前の版で書いた状態はこの欄を持たないので、除かない姿で読まれる。
     /// </summary>
     public bool Exclude { get; init; }
 

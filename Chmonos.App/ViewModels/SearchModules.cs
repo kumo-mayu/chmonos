@@ -529,7 +529,8 @@ public abstract class SearchModule : ReorderableRow
     protected abstract bool HasCondition { get; }
 
     /// <summary>
-    /// 「除く」を持つか（ユーザ判断 2026-10-01）。三項は「ある／ない」を選べるので持たない。最近も持たない（D10）。
+    /// 「除く」を持つか（ユーザ判断 2026-10-01）。三項は「ある／ない」を選べるので持たない。
+    /// 最近は日数の範囲になったので持つ（2026-10-06。前は「n日以内」だけで、除くと「n日より前」と同じだった・D10）。
     /// </summary>
     public virtual bool SupportsExclude => false;
 
@@ -738,7 +739,8 @@ public abstract class SearchModule : ReorderableRow
 }
 
 /// <summary>分布の帯の棒1本。高さは帯（<see cref="RangeModule.HistogramHeight"/>）に収めた px。</summary>
-public sealed record HistogramBar(double Height);
+/// <param name="IsOutside">帯の範囲より外をまとめた1本（最近の「それより前」）。範囲の中の棒と色を分ける。</param>
+public sealed record HistogramBar(double Height, bool IsOutside = false);
 
 /// <summary>三択などの選択肢1つ。件数は「選んだら何件になるか」。</summary>
 public sealed class ChoiceOption : ViewModelBase
@@ -3053,99 +3055,6 @@ public sealed class UserTagTopRow : ViewModelBase
         OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShowsMatchMode));
         RefreshConflict();
-    }
-}
-
-/// <summary>
-/// 最近（ユーザ判断 2026-09-16 Q1：プルダウンと日数）。使った（Unityへ送った）・見た（商品ページを開いた）・取り込んだ。
-/// 記録が無い商品は、日数を入れた時点で外す（「値が小さい」ではなく「値が無い」）。
-/// </summary>
-public sealed class RecentModule : SearchModule
-{
-    private ChoiceOption _selected;
-    private string _daysText = string.Empty;
-
-    public RecentModule()
-        : base(SearchModuleKind.Recent)
-    {
-        Options =
-        [
-            new ChoiceOption("used", "Unityへ送った"),
-            new ChoiceOption("viewed", "商品ページを開いた"),
-            new ChoiceOption("added", "取り込んだ"),
-        ];
-        _selected = Options[0];
-    }
-
-    public IReadOnlyList<ChoiceOption> Options { get; }
-
-    public ChoiceOption Selected
-    {
-        get => _selected;
-        set
-        {
-            if (value is not null && SetField(ref _selected, value))
-            {
-                NotifyChanged();
-            }
-        }
-    }
-
-    public string DaysText
-    {
-        get => _daysText;
-        set
-        {
-            if (SetField(ref _daysText, value ?? string.Empty))
-            {
-                OnPropertyChanged(nameof(HasDays));
-                NotifyChanged();
-            }
-        }
-    }
-
-    /// <summary>入れた日数を消す手段を出すか（ユーザ指示 2026-09-16）。</summary>
-    public bool HasDays => _daysText.Length > 0;
-
-    public RelayCommand ClearDaysCommand => _clearDays ??= new RelayCommand(() => DaysText = string.Empty);
-
-    private RelayCommand? _clearDays;
-
-    private int? Days => ParseNumber(_daysText) is > 0 and var days ? days : null;
-
-    public RecentKind SelectedKind => _selected.Key switch
-    {
-        "viewed" => RecentKind.Viewed,
-        "added" => RecentKind.Added,
-        _ => RecentKind.Used,
-    };
-
-    protected override bool HasCondition => Days is not null;
-
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-        => !HasCondition || RecentActivity.IsWithin(context.Recent.Of(item.Id, SelectedKind), Days ?? 0, context.Now);
-
-    protected override string SummaryHead => $"最近{_selected.Label.Split('（')[0]} {Days}日以内";
-
-    protected override string SummaryBody => string.Empty;
-
-    public override void Clear()
-    {
-        _daysText = string.Empty;
-        OnPropertyChanged(nameof(DaysText));
-        OnPropertyChanged(nameof(HasDays));
-        OnPropertyChanged(nameof(IsActive));
-        OnPropertyChanged(nameof(CollapsedSummary));
-    }
-
-    protected override SearchModuleState Write(SearchModuleState state) => state with { Choice = _selected.Key, Min = _daysText };
-
-    protected override void Read(SearchModuleState state)
-    {
-        _selected = Options.FirstOrDefault(option => option.Key == state.Choice) ?? Options[0];
-        _daysText = state.Min ?? string.Empty;
-        OnPropertyChanged(nameof(Selected));
-        OnPropertyChanged(nameof(DaysText));
     }
 }
 
