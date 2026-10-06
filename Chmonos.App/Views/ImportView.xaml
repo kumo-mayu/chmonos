@@ -422,7 +422,8 @@
                                                     <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,3,0,0" />
                                                     <DockPanel Margin="0,2,0,0" MinHeight="16">
                                                         <TextBlock DockPanel.Dock="Left" Text="{Binding PlaceLabel}" Style="{StaticResource Caption}" TextWrapping="NoWrap" />
-                                                        <controls:PathLine Path="{Binding PlaceText}" TrimHead="True" Style="{StaticResource Caption}" />
+                                                        <!-- 場所はコードの書体（区切りが「」に見え、エクスプローラやほかの画面の場所と同じ見え方。ユーザ判断 2026-10-06） -->
+                                                        <controls:PathLine Path="{Binding PlaceText}" TrimHead="True" Style="{StaticResource Mono}" FontSize="11" />
                                                     </DockPanel>
                                                 </StackPanel>
                                             </Grid>
@@ -462,8 +463,9 @@
                                             <DockPanel Margin="0,3,0,0">
                                                 <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
                                                            Margin="10,0,0,0" VerticalAlignment="Top" />
-                                                <TextBlock Text="{Binding Path, StringFormat=元の場所：{0}}" Style="{StaticResource Caption}"
-                                                           TextWrapping="Wrap" />
+                                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap">
+                                                           <Run Text="元の場所：" /><Run Text="{Binding Path, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" />
+                                                </TextBlock>
                                             </DockPanel>
 
                                             <ItemsControl ItemsSource="{Binding Candidates}" Margin="14,6,0,0">
