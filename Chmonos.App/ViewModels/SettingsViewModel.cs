@@ -1599,7 +1599,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 初回画面と同じ規則：選んだ場所の中に「Chmonos」を作って使う（ライブラリがある場所ならそのまま）
         var chosen = PickFolder();
         var picked = chosen is null ? null : StoreLocation.RootFor(chosen);
-        if (picked is null || string.Equals(picked, _services.Paths.Root, StringComparison.OrdinalIgnoreCase))
+        // 同じ場所かは実体で見る（ジャンクションなどの別名も同じ場所。外部の点検 2026-10-06）
+        if (picked is null || Core.Storage.FolderIdentity.IsSame(picked, _services.Paths.Root))
         {
             return;
         }
@@ -1643,36 +1644,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
-            if (!await PrepareToRelocateAsync())
-            {
-                return;
-            }
-
-            _services.ReleaseInstanceLock();
-            var replaced = await MoveStoreAsync(source, picked, replace: true);
-
-            if (!replaced.Succeeded)
-            {
-                _services.ReacquireInstanceLock();
-                Services.Notice.Show(
-                    $"置き換えられませんでした。\n\n{replaced.Error}\n\n"
-                    + "保存先は元のままです。データは失われていません。"
-                    + LeftoverNote(replaced)
-                    + (replaced.ParkedAt is null
-                        ? string.Empty
-                        : $"\n\n選んだ場所のデータは「{replaced.ParkedAt}」に移動したままです。"),
-                    "置き換えに失敗しました",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-                return;
-            }
-
-            // 場所の書き換えは運ぶ命令が元を消す前に済ませている（書けなければ上の失敗で返る）
-            RestartIntoNewRoot(
-                $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"
-                + $"元々あったものは「{replaced.ParkedAt}」に移動しました。不要なら、中身を確かめてから削除してください。\n\n"
-                + "新しい場所で開き直します。",
-                "置き換えました");
+            await RelocateAsync(source, picked, replace: true);
             return;
         }
 
@@ -1706,34 +1678,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         if (move == Views.ChoiceDialogResult.First)
         {
-            if (!await PrepareToRelocateAsync())
-            {
-                return;
-            }
-
-            // 実行中のロックを持ったままだと、元のフォルダを畳みきれない
-            _services.ReleaseInstanceLock();
-
-            var result = await MoveStoreAsync(source, picked, replace: false);
-
-            if (!result.Succeeded)
-            {
-                _services.ReacquireInstanceLock();
-                Services.Notice.Show(
-                    $"引越しできませんでした。\n\n{result.Error}\n\n"
-                    + "保存先は元のままです。データは失われていません。"
-                    + LeftoverNote(result),
-                    "引越しに失敗しました",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-                return;
-            }
-
-            RestartIntoNewRoot(
-                $"{result.Copied:N0} ファイルを「{picked}」へ移しました。\n\n"
-                + (result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n")
-                + "新しい場所で開き直します。",
-                "引っ越しました");
+            await RelocateAsync(source, picked, replace: false);
             return;
         }
 
@@ -1745,6 +1690,54 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
         PendingRoot = picked;
         RaiseRootChanged();
+    }
+
+    /// <summary>
+    /// 運ぶ（引越し・置き換え）。窓で聞き終えた後の本体。試験は失敗する道だけをここから呼ぶ（成功すると開き直すので）。
+    ///
+    /// **多重起動の錠（元の保存先の <c>app.lock</c>）は放さない**（外部の点検 2026-10-06）。
+    /// 前は「握ったままだと元のフォルダを畳みきれない」として運ぶ前に放していたが、錠は根元にあり、
+    /// 元を消すときに根元は畳まない（中のファイルとサブフォルダだけ消す）ので、握ったままで畳める。
+    /// 放していた間は2つ目のアプリが元の保存先を開けて書け、その入力は最後に元を消すときに消えていた
+    /// （書き込みの門 <c>StoreWriteGate</c> はプロセスの中しか止めない）。放さないので、取り直しの失敗も起きない。
+    /// 錠は開き直しまで持ち、プロセスが閉じると OS が放して消す。開き直した方は新しい保存先の錠を取るので、ぶつからない
+    /// </summary>
+    internal async Task RelocateAsync(string source, string picked, bool replace)
+    {
+        if (!await PrepareToRelocateAsync())
+        {
+            return;
+        }
+
+        var result = await MoveStoreAsync(source, picked, replace);
+
+        if (!result.Succeeded)
+        {
+            Services.Notice.Show(
+                $"{(replace ? "置き換えられませんでした" : "引越しできませんでした")}。\n\n{result.Error}\n\n"
+                + "保存先は元のままです。データは失われていません。"
+                + LeftoverNote(result)
+                + (result.ParkedAt is null
+                    ? string.Empty
+                    : $"\n\n選んだ場所のデータは「{result.ParkedAt}」に移動したままです。"),
+                replace ? "置き換えに失敗しました" : "引越しに失敗しました",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+            return;
+        }
+
+        // 場所の書き換えは運ぶ命令が元を消す前に済ませている（書けなければ上の失敗で返る）
+        var leftInSource = result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n";
+        RestartIntoNewRoot(
+            replace
+                ? $"{result.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"
+                  + $"元々あったものは「{result.ParkedAt}」に移動しました。不要なら、中身を確かめてから削除してください。\n\n"
+                  + leftInSource
+                  + "新しい場所で開き直します。"
+                : $"{result.Copied:N0} ファイルを「{picked}」へ移しました。\n\n"
+                  + leftInSource
+                  + "新しい場所で開き直します。",
+            replace ? "置き換えました" : "引っ越しました");
     }
 
     /// <summary>

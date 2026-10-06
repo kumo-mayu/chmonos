@@ -327,27 +327,8 @@ public sealed class AppServiceContainer : IDisposable
     public SettingsService SettingsStore { get; }
 
 
-    /// <summary>
-    /// 多重起動のロックを放す。引越しのときだけ使う。
-    ///
-    /// ロックファイルは保存先の中にあり、握ったままだと元のフォルダを畳みきれない。
-    /// 放してから再起動までの短い間だけ二重起動を許すことになるが、
-    /// その間ユーザは引越しの確認ダイアログの中にいる。
-    /// </summary>
-    public void ReleaseInstanceLock()
-    {
-        _instanceLock?.Dispose();
-        _instanceLock = null;
-    }
-
-    /// <summary>
-    /// 運ぶのに失敗して元の保存先のまま続けるときに、放した錠を取り直す。
-    /// 取り直さないと、失敗の後はずっと二重起動を許していた。
-    /// </summary>
-    public void ReacquireInstanceLock()
-    {
-        _instanceLock ??= SingleInstanceLock.TryAcquire(Paths);
-    }
+    // 多重起動の錠は、引越しの間も放さない（前は放す口があり、その間に2つ目のアプリが元の保存先へ書けた。
+    // 理由は SettingsViewModel.RelocateAsync）。放すのはプロセスを閉じるとき（Dispose）だけ
 
     public CommandHandler Commands { get; }
 
