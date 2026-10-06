@@ -29,7 +29,7 @@ public sealed class ItemPreview
     public bool IsAlreadyOwned { get; init; }
 
     /// <summary>
-    /// 登録したときに BOOTH へ問い合わせる数の見込み（商品JSON・商品ページ・画像の枚数・手元に無ければショップのアイコン）。
+    /// 登録したときに BOOTH へ問い合わせる数の見込み（商品JSON・商品ページ・1枚目の画像・手元に無ければショップのアイコン。残りの画像は登録の後に⑤の段で取るので数えない）。
     /// 未確定の画面が「この商品は約 m 分」と、後に並んだ登録の「開始まで約 n 分」を出すのに使う（メモ60）。持っている商品は問い合わせないので null
     /// </summary>
     public int? RequestsToRegister { get; init; }
@@ -809,8 +809,12 @@ public sealed class ItemService : IItemService
     /// 画像の枚数はJSONを読むまで分からないので、始めは JSON と商品ページの2つだけ数え、分かった所で数え直す。
     /// 数え方は問い合わせる物だけ（画像の側は <see cref="ImagePipeline.SyncAsync(string, IReadOnlyList{BoothImage}, BoothOutageWatch?, CancellationToken, IProgress{int}?)"/>）。
     /// </param>
+    /// <param name="galleryLater">
+    /// 画像は1枚目だけを取り、残りを⑤の段で裏に頼む（<see cref="RequestRemainingImagesLater"/>）。未確定の「このIDで登録」だけが使う
+    /// （登録の列で後ろの登録を待たせるのはこの道だけ。ID の付け替え・ファイルを持たない登録・フォルダの登録は今までどおり全部取る）。
+    /// </param>
     private async Task<(ItemRecord? Item, Booth.BoothFetchStatus Status)> FetchNewItemAsync(
-        string itemId, CancellationToken cancellationToken, IProgress<int>? requestsLeft = null)
+        string itemId, CancellationToken cancellationToken, IProgress<int>? requestsLeft = null, bool galleryLater = false)
     {
         if (LocalItemId.IsLocal(itemId))
         {
@@ -878,9 +882,27 @@ public sealed class ItemService : IItemService
 
         // ショップのアイコンは、画像の後に1枚問い合わせる（まだ手元に無いときだけ）
         var iconLeft = item.Booth.Shop is { } iconShop && _images.NeedsShopIcon(iconShop.Subdomain, iconShop.ThumbnailUrl) ? 1 : 0;
-        await _images.SyncAsync(
-            itemId, item.Booth.Images, null, cancellationToken,
-            requestsLeft is null ? null : new ShiftedProgress(requestsLeft, iconLeft));
+        if (galleryLater)
+        {
+            // 1枚目はカードと商品ページの顔なので、登録の中で取る（梯子の④と同じ）
+            var first = item.Booth.Images.Count > 0 ? item.Booth.Images[0] : null;
+            var firstLeft = first is not null && _images.SavesImages && !_images.IsSettled(itemId, first.OriginalUrl) ? 1 : 0;
+            requestsLeft?.Report(firstLeft + iconLeft);
+            if (first is not null)
+            {
+                await _images.SyncOneAsync(itemId, first, cancellationToken);
+                if (firstLeft > 0)
+                {
+                    requestsLeft?.Report(iconLeft);
+                }
+            }
+        }
+        else
+        {
+            await _images.SyncAsync(
+                itemId, item.Booth.Images, null, cancellationToken,
+                requestsLeft is null ? null : new ShiftedProgress(requestsLeft, iconLeft));
+        }
 
         if (item.Booth.Shop is { } shop)
         {
@@ -888,7 +910,39 @@ public sealed class ItemService : IItemService
         }
 
         requestsLeft?.Report(0);
+
+        if (galleryLater)
+        {
+            RequestRemainingImagesLater(itemId, item.Booth.Images);
+        }
+
         return (item, Booth.BoothFetchStatus.Success);
+    }
+
+    /// <summary>
+    /// 登録した商品の残りの画像（2枚目から）を、梯子の⑤（<see cref="BoothPriority.Gallery"/>）で裏に頼む（メモ60 案B・ユーザ判断 2026-10-06）。
+    ///
+    /// 登録の中で全部を取ると、1件が「2＋画像の枚数＋アイコン」になる。友人の写し206件で画像は平均7.4枚・90%で15枚・最大43枚あり、
+    /// 1件の登録が中央 約13秒・90% 約30秒・最大 約1.1分かかって、列の後ろの登録を待たせていた。残りを⑤へ回すと1件 約6秒になる。
+    /// **人が押した優先度は掛けない**——起動時の⑤と同じ段で走らせ、次に並んだ登録（人が押した操作）や取り込みの①②に先を譲る。
+    /// 閉じて途中で止まっても印は置かないので、手元の JSON とディスクの差で次の起動の⑤（<see cref="ImageBacklog"/>）が拾う。
+    /// </summary>
+    private void RequestRemainingImagesLater(string itemId, IReadOnlyList<BoothImage> images)
+    {
+        if (!_images.SavesImages || images.Count <= 1)
+        {
+            return;
+        }
+
+        BackgroundWork.Run("登録した商品の残りの画像", async () =>
+        {
+            using var priority = BoothClient.Prioritize(BoothPriority.Gallery);
+
+            // 起動時の⑤と同じく、届かない失敗が3件続いたら残りは問い合わせない（取らなかった絵は次の起動の⑤で取る）
+            var outage = new BoothOutageWatch();
+            await _images.SyncAsync(itemId, images, outage);
+            outage.LogIfStopped("登録した商品の残りの画像");
+        });
     }
 
     /// <summary>
@@ -1004,9 +1058,12 @@ public sealed class ItemService : IItemService
             : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。", false);
     }
 
-    /// <summary>登録の見込みの数。数え方は <see cref="FetchNewItemAsync"/> の問い合わせと同じ（JSON・ページ・画像・無ければアイコン）。</summary>
+    /// <summary>
+    /// 登録の見込みの数。数え方は「このIDで登録」の <see cref="FetchNewItemAsync"/> の問い合わせと同じ（JSON・ページ・1枚目・無ければアイコン）。
+    /// 残りの画像は登録の後に⑤の段で裏に取るので数えない（メモ60 案B）
+    /// </summary>
     private int RequestsToRegister(BoothBlock booth)
-        => 2 + booth.Images.Count
+        => 2 + Math.Min(booth.Images.Count, 1)
             + (booth.Shop is { } shop && _images.NeedsShopIcon(shop.Subdomain, shop.ThumbnailUrl) ? 1 : 0);
 
     private static ItemPreview ToPreview(
@@ -1238,7 +1295,7 @@ public sealed class ItemService : IItemService
 
         var record = FromUnresolved(target);
 
-        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken, requestsLeft)).Item is null)
+        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken, requestsLeft, galleryLater: true)).Item is null)
         {
             return false;
         }

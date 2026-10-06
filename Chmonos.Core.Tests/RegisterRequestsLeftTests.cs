@@ -108,8 +108,9 @@ public class RegisterRequestsLeftTests : IDisposable
 
         Assert.True(await _service.AssignItemIdAsync("aaa", ItemId, requestsLeft: recorder));
 
-        // JSON と商品ページ（2）→ 商品ページだけ（1）→ 画像3枚とアイコン（4）→ 1つ問い合わせるごとに減る → 0
-        Assert.Equal([2, 1, 4, 3, 2, 1, 0], recorder.Values);
+        // JSON と商品ページ（2）→ 商品ページだけ（1）→ 1枚目とアイコン（2）→ アイコンだけ（1）→ 0。
+        // 残りの2枚は登録の後に⑤の段で取るので、登録の残りには入らない（メモ60 案B）
+        Assert.Equal([2, 1, 2, 1, 0], recorder.Values);
     }
 
     [Fact]
