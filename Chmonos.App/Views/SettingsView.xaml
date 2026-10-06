@@ -943,6 +943,17 @@
                                        Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
                                        Text="https://www.edrdg.org/edrdg/licence.html" />
+
+                            <!-- 第三者のライブラリの許諾文（THIRD-PARTY-NOTICES.txt）へ、アプリから辿れるようにする（外部の点検 2026-10-07） -->
+                            <TextBlock Text="使っているライブラリ" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       Text="AngleSharp（MIT）・SixLabors.ImageSharp（Apache-2.0）" />
+                            <Button Content="ライセンスを開く" Style="{StaticResource SmallButton}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                    Command="{Binding OpenThirdPartyNoticesCommand}"
+                                    AutomationProperties.AutomationId="Settings.OpenThirdPartyNotices" />
+                            <TextBlock Text="{Binding LicenseNoteText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Foreground="{DynamicResource Warn}"
+                                       Visibility="{Binding LicenseNoteText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                         </StackPanel>
                     </Expander>
                 </Border>

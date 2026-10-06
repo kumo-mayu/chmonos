@@ -1421,6 +1421,25 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     private RelayCommand? _resetPaneWidthsCommand;
 
     /// <summary>ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14）。1か所だけなら境目のダブルクリックで戻せる。</summary>
+    /// <summary>
+    /// 同梱した第三者のライブラリの許諾文を開く（外部の点検 2026-10-07。MIT は配る物に添えることを求め、
+    /// 添えた文書へアプリから辿れるようにする）。見つからなければ、ボタンの下にそう言う
+    /// </summary>
+    public RelayCommand OpenThirdPartyNoticesCommand => _openThirdPartyNoticesCommand ??= new RelayCommand(() =>
+        LicenseNoteText = Services.Shell.OpenBundledText("THIRD-PARTY-NOTICES.txt")
+            ? string.Empty
+            : "ライセンスの文書が見つかりませんでした。アプリを入れ直してください。");
+
+    private RelayCommand? _openThirdPartyNoticesCommand;
+
+    private string _licenseNoteText = string.Empty;
+
+    public string LicenseNoteText
+    {
+        get => _licenseNoteText;
+        private set => SetField(ref _licenseNoteText, value);
+    }
+
     public RelayCommand ResetPaneWidthsCommand => _resetPaneWidthsCommand ??= new RelayCommand(() =>
     {
         _services.PaneWidths.ResetAll();

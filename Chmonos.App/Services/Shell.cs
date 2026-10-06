@@ -47,6 +47,25 @@ public static class Shell
     }
 
     /// <summary>
+    /// アプリと一緒に配った文書（ライセンスなど）を、メモ帳で開く（外部の点検 2026-10-07）。
+    /// 開くのはアプリの置き場所にある、こちらで決めた名前のファイルだけ。拡張子の無い LICENSE もあるので、
+    /// 関連付けに任せずメモ帳を名指しする。無ければ false
+    /// </summary>
+    public static bool OpenBundledText(string fileName)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, Path.GetFileName(fileName));
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        var startInfo = new ProcessStartInfo { FileName = "notepad.exe", UseShellExecute = false };
+        startInfo.ArgumentList.Add(path);
+        TryStart(startInfo);
+        return true;
+    }
+
+    /// <summary>
     /// 外のアプリを起こす所の差し替え（試験だけが使う）。試験が本物のブラウザを開かずに、何が渡されたかを見るため。
     /// 流れごとに持つので、並んで走るほかの試験の起動は拾わない
     /// </summary>
