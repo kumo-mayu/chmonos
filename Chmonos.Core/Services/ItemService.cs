@@ -163,20 +163,29 @@ public interface IItemService
     /// 商品まるごとを別のIDへ移す。移し終えたら元の商品は消える。
     /// </summary>
     /// <param name="skippedPurchases">移さない購入記録の番号（二重計上と判断したもの）。</param>
+    /// <param name="record">
+    /// 指紋をやりかけの記録へ書く（元を読んだ直後と、移す先へ書く直前の2回）。偽なら何も書かずに
+    /// <see cref="ItemIdChangeOutcome.NotRecorded"/>。null なら記録しない。
+    /// </param>
     Task<ItemIdChangeOutcome> ChangeItemIdAsync(
         string fromId,
         string toId,
         IReadOnlySet<int>? skippedPurchases = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Func<ItemIdChangeFingerprints, Task<bool>>? record = null);
 
     /// <summary>
     /// 途中で止まった IDの変更の続きを済ませる（次の起動で、やりかけの記録が残っていたとき）。BOOTHへは問い合わせない。
-    /// 何度当てても同じ結果になる。
+    /// 記録した指紋（<paramref name="recorded"/>）で、どこまで済んだか・記録した時と同じ物かを見分ける。何度当てても同じ結果になる。
     /// </summary>
+    /// <param name="recorded">記録した指紋。null ならまだ何も書いていない。</param>
+    /// <param name="record">合わせ直すときに指紋を書き直す（<see cref="ChangeItemIdAsync"/> と同じ）。</param>
     Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
         string fromId,
         string toId,
         IReadOnlySet<int>? skippedPurchases = null,
+        ItemIdChangeFingerprints? recorded = null,
+        Func<ItemIdChangeFingerprints, Task<bool>>? record = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -1705,7 +1714,8 @@ public sealed class ItemService : IItemService
         string fromId,
         string toId,
         IReadOnlySet<int>? skippedPurchases = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<ItemIdChangeFingerprints, Task<bool>>? record = null)
     {
         if (string.Equals(fromId, toId, StringComparison.Ordinal))
         {
@@ -1722,6 +1732,13 @@ public sealed class ItemService : IItemService
         if (await _store.Items.LoadAsync(fromId, cancellationToken) is not { } before)
         {
             return ItemIdChangeOutcome.SourceMissing;
+        }
+
+        // 始めた時の元の指紋を、何かを書く前に記録へ残す。BOOTH から取っている間に落ちても、続きで
+        // 「元が記録した時のままか」を見られる（同じIDで作り直された物に当てないため。OperationFingerprint）
+        if (record is not null && !await record(new ItemIdChangeFingerprints(OperationFingerprint.Of(before.Local))))
+        {
+            return ItemIdChangeOutcome.NotRecorded;
         }
 
         // 自分で足した画像のファイルは、何かを書く前に移した先のフォルダへ写す。
@@ -1778,14 +1795,16 @@ public sealed class ItemService : IItemService
                 // 移すのは手元の記録の全部なので、全項目の持ち主として書く。
                 // 購入記録は移した先のvariation一覧で照合し直される（保存側）。指していない記録は支出にそのまま数える
                 LocalBlock? Merge(LocalBlock current) => ItemIdChange.Merge(source.Local, current, skipped);
+                var beforeWrite = RecordBeforeMerge(source.Local, record, () => refused = ItemIdChangeOutcome.NotRecorded);
 
                 // 手元にも BOOTH にも無ければ新しく作る。在るかは移す先の錠の中で見る——取れなかった間に、
                 // 取り込みが同じIDの商品を作っていることがある（L13 と同じ形）。在ればそちらへ重ねる。
                 // 取って作った物が取った後で消されていれば、作り直さずに断る（元は消さずに残す）
                 return prepared is null
                     ? await _store.Items.CreateOrChangeLocalAsync(
-                        toId, NewItem, Merge, Enum.GetValues<LocalField>(), cancellationToken)
-                    : await _store.Items.ChangeLocalAsync(toId, Merge, Enum.GetValues<LocalField>(), cancellationToken);
+                        toId, NewItem, Merge, Enum.GetValues<LocalField>(), cancellationToken, beforeWrite: beforeWrite)
+                    : await _store.Items.ChangeLocalAsync(
+                        toId, Merge, Enum.GetValues<LocalField>(), cancellationToken, beforeWrite);
             },
             cancellationToken);
 
@@ -1811,15 +1830,25 @@ public sealed class ItemService : IItemService
     /// <summary>
     /// 途中で止まった IDの変更の続き（やりかけの記録が次の起動で残っていたとき）。**BOOTHへは問い合わせない。**
     ///
-    /// 段は ①移す先へ書く → ②元を消す → ③改変 → ④ほかの参照。どこで止まったかは記録せず、手元の様子から読む：
-    /// 元が無ければ①②は済んでいるので③④だけ当てる。元があって移す先が無ければ、まだ何も書いていない（元のまま。始める前に戻ったのと同じ）。
-    /// 両方あれば、①が済んだかは分からないので、2回当てても増えない合わせ方（<see cref="ItemIdChange.MergeAgain"/>）で①からやり直す。
+    /// 段は ①移す先へ書く → ②元を消す → ③改変 → ④ほかの参照。どこまで済んだかは、記録した指紋（<see cref="OperationFingerprint"/>）で読む。
+    /// 前は手元の様子だけで読み、移す先の購入記録を値で照らして「合わせ済み」と見たので、操作の前から同じ値の購入を
+    /// 持っていた移す先で元の購入が1件落ち、元の商品も消えていた。
+    /// - 指紋が1つも無い：何も書く前に止まった（記録を消すだけ）
+    /// - 合わせた後の指紋が無い：移す先へはまだ何も書いていない。元が無いのは人が消した物なので、何も当てない。
+    ///   元が記録した時のままで移す先があれば、ふつうに合わせる
+    /// - 元が無い（合わせた後の指紋はある）：①②は済んでいるので③④だけ当てる
+    /// - 元が記録した時と違う：人が触ったか、同じIDで作り直した物。当てない
+    /// - 移す先が合わせた後の指紋のまま：①は済んでいる。合わせ直さずに元を消す
+    /// - 移す先が合わせる前の指紋のまま：①はまだ。ふつうに合わせる
+    /// - 移す先がどちらとも違う：人が触った。当てない
     /// ③④は「古いIDを新しいIDへ」なので、何回当てても同じ。
     /// </summary>
     public async Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
         string fromId,
         string toId,
         IReadOnlySet<int>? skippedPurchases = null,
+        ItemIdChangeFingerprints? recorded = null,
+        Func<ItemIdChangeFingerprints, Task<bool>>? record = null,
         CancellationToken cancellationToken = default)
     {
         if (string.Equals(fromId, toId, StringComparison.Ordinal))
@@ -1834,20 +1863,40 @@ public sealed class ItemService : IItemService
             return ItemIdChangeOutcome.TargetUnavailable;
         }
 
-        var skipped = skippedPurchases ?? new HashSet<int>();
-        if (await _store.Items.LoadAsync(fromId, cancellationToken) is not null)
+        if (recorded is null)
+        {
+            return ItemIdChangeOutcome.NotStarted;
+        }
+
+        var written = recorded.Merged is not null;
+        if (await _store.Items.LoadAsync(fromId, cancellationToken) is null)
+        {
+            if (!written)
+            {
+                return ItemIdChangeOutcome.NotStarted;
+            }
+        }
+        else
         {
             if (await _store.Items.LoadAsync(toId, cancellationToken) is null)
             {
                 return ItemIdChangeOutcome.NotStarted;
             }
 
+            var skipped = skippedPurchases ?? new HashSet<int>();
             var refused = ItemIdChangeOutcome.TargetUnavailable;
             var copied = new List<string>();
             var moved = await _store.Items.MoveAwayAsync(
                 fromId,
                 async source =>
                 {
+                    // 元の錠の中で見る。ここから消すまで、ほかの書き手は元に触れない
+                    if (OperationFingerprint.Of(source.Local) != recorded.Source)
+                    {
+                        refused = ItemIdChangeOutcome.ChangedSinceStarted;
+                        return false;
+                    }
+
                     // 写し済みの画像は飛ばされる（名前が中身のハッシュなので、同じ名前は同じ絵）
                     if (CopyUserImages(fromId, toId, source.Local.UserImages) is not { } late)
                     {
@@ -1856,11 +1905,34 @@ public sealed class ItemService : IItemService
                     }
 
                     copied.AddRange(late);
-                    return await _store.Items.ChangeLocalAsync(
+
+                    // 移す先が合わせ済みかは、移す先の錠の中（合わせ直しと同じ所）で見る
+                    var applied = false;
+                    LocalBlock? MergeIfNotYet(LocalBlock current)
+                    {
+                        var now = OperationFingerprint.Of(current);
+                        if (written && now == recorded.Merged)
+                        {
+                            applied = true;
+                            return null;
+                        }
+
+                        if (written && now != recorded.Target)
+                        {
+                            refused = ItemIdChangeOutcome.ChangedSinceStarted;
+                            return null;
+                        }
+
+                        return ItemIdChange.Merge(source.Local, current, skipped);
+                    }
+
+                    var merged = await _store.Items.ChangeLocalAsync(
                         toId,
-                        current => ItemIdChange.MergeAgain(source.Local, current, skipped),
+                        MergeIfNotYet,
                         Enum.GetValues<LocalField>(),
-                        cancellationToken);
+                        cancellationToken,
+                        RecordBeforeMerge(source.Local, record, () => refused = ItemIdChangeOutcome.NotRecorded));
+                    return applied || merged;
                 },
                 cancellationToken);
 
@@ -1874,6 +1946,36 @@ public sealed class ItemService : IItemService
         await MoveModificationsAsync(fromId, toId, cancellationToken);
         await MoveReferencesAsync(fromId, toId, cancellationToken);
         return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 移す先へ書く直前（移す先の錠の中）に、元・合わせる前・合わせた後の指紋を記録へ書く。書けなければ書かずに断る——
+    /// 合わせた後の指紋が記録に無いまま移す先へ書くと、続きが「まだ合わせていない」と読み、もう一度合わせて購入記録が2回分になる。
+    /// </summary>
+    private static Func<LocalBlock, LocalBlock, Task<bool>>? RecordBeforeMerge(
+        LocalBlock source,
+        Func<ItemIdChangeFingerprints, Task<bool>>? record,
+        Action refusedForRecord)
+    {
+        if (record is null)
+        {
+            return null;
+        }
+
+        return async (before, after) =>
+        {
+            var fingerprints = new ItemIdChangeFingerprints(
+                OperationFingerprint.Of(source),
+                OperationFingerprint.Of(before),
+                OperationFingerprint.Of(after));
+            if (await record(fingerprints))
+            {
+                return true;
+            }
+
+            refusedForRecord();
+            return false;
+        };
     }
 
     /// <summary>

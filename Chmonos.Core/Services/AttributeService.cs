@@ -66,6 +66,9 @@ public interface IAttributeService
         AttributeMergeValue keep = AttributeMergeValue.KeepTarget,
         CancellationToken cancellationToken = default);
 
+    /// <summary>名前の変更のやりかけの記録に書く指紋（<see cref="OperationFingerprint.ForAttributeRename"/>）。</summary>
+    Task<RenameFingerprint> FingerprintRenameAsync(string oldName, string newName, CancellationToken cancellationToken = default);
+
     Task<AttributeEditResult> DeleteAsync(string name, CancellationToken cancellationToken = default);
 
     /// <summary>編集画面で最初から並べる属性かを切り替える。item側には何も書かない</summary>
@@ -170,6 +173,15 @@ public sealed class AttributeService : IAttributeService
     /// 両方に値が入っているitemでは <paramref name="keep"/> の側を残す。
     /// マスタに無い名前も改名できる。参照が壊れたitemを直す唯一の手段なので。
     /// </summary>
+    public async Task<RenameFingerprint> FingerprintRenameAsync(
+        string oldName,
+        string newName,
+        CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return OperationFingerprint.ForAttributeRename(_store.Attributes.Load(), loaded.Items, oldName, newName);
+    }
+
     public async Task<AttributeEditResult> RenameAsync(
         string oldName,
         string newName,

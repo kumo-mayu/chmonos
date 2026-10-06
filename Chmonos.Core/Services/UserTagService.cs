@@ -112,6 +112,9 @@ public interface IUserTagService
 
     Task<UserTagEditResult> RenameSubAsync(string top, string oldName, string newName, CancellationToken cancellationToken = default);
 
+    /// <summary>名前の変更のやりかけの記録に書く指紋（<see cref="OperationFingerprint.ForUserTagRename"/>）。<paramref name="sub"/> が null なら大分類。</summary>
+    Task<RenameFingerprint> FingerprintRenameAsync(string top, string? sub, string newName, CancellationToken cancellationToken = default);
+
     Task<UserTagEditResult> DeleteTopAsync(string name, CancellationToken cancellationToken = default);
 
     Task<UserTagEditResult> DeleteSubAsync(string top, string name, CancellationToken cancellationToken = default);
@@ -292,6 +295,16 @@ public sealed class UserTagService : IUserTagService
             ItemsLeftUntagged = rewritten.LeftUntagged,
             WasMerged = merged,
         };
+    }
+
+    public async Task<RenameFingerprint> FingerprintRenameAsync(
+        string top,
+        string? sub,
+        string newName,
+        CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return OperationFingerprint.ForUserTagRename(_store.UserTags.Load(), loaded.Items, top, sub, newName);
     }
 
     public async Task<UserTagEditResult> RenameSubAsync(

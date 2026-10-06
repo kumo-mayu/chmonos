@@ -89,6 +89,9 @@ public sealed class PendingOperationTests : IDisposable
                 ? throw new IOException("試験で落とす")
                 : inner.RenameAsync(oldName, newName, keep, cancellationToken);
 
+        public Task<RenameFingerprint> FingerprintRenameAsync(string oldName, string newName, CancellationToken cancellationToken = default)
+            => inner.FingerprintRenameAsync(oldName, newName, cancellationToken);
+
         public Task<AttributeEditResult> DeleteAsync(string name, CancellationToken cancellationToken = default)
             => inner.DeleteAsync(name, cancellationToken);
 
@@ -126,11 +129,40 @@ public sealed class PendingOperationTests : IDisposable
 
     // ---- IDの変更 ----
 
+    /// <summary>
+    /// 商品の JSON を、読めるが消せも置き換えもできないように開いておく。その商品を消す・書く所で落ちたのと同じ様子を、
+    /// 本物の操作の途中で作る（記録の指紋も本物の段で書かれる）。
+    /// </summary>
+    private FileStream HoldFile(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    private FileStream HoldItemFile(string itemId) => HoldFile(_store.Paths.ItemFile(itemId));
+
+    /// <summary>移す先へ書いた後・元を消す前（①と②の間）で落ちた様子を、本物の操作で作る。</summary>
+    private async Task CrashAfterWritingTargetAsync(IReadOnlySet<int>? skipped = null)
+    {
+        using (HoldItemFile(FromId))
+        {
+            await Assert.ThrowsAnyAsync<IOException>(() => Runner().ChangeItemIdAsync(FromId, ToId, skipped, CancellationToken.None));
+        }
+    }
+
+    /// <summary>移す先へ書く直前（指紋は書いた・移す先は書けなかった）で落ちた様子を、本物の操作で作る。</summary>
+    private async Task CrashBeforeWritingTargetAsync(IReadOnlySet<int>? skipped = null)
+    {
+        using (HoldItemFile(ToId))
+        {
+            await Assert.ThrowsAnyAsync<IOException>(() => Runner().ChangeItemIdAsync(FromId, ToId, skipped, CancellationToken.None));
+        }
+    }
+
+    private static IEnumerable<int> Prices(LocalBlock local) => local.Purchases.Select(purchase => purchase.Price!.Value).Order();
+
     /// <summary>元を消した後（②の後）で止まると、改変・登録簿・ほかの商品の対応アバター・知らせ・足跡が古いIDを指したまま残っていた。</summary>
     [Fact]
     public async Task IDの変更_元を消した後で止まっても_次の起動でほかの参照が移る()
     {
-        await _store.Items.SaveAsync(Item(ToId, new LocalBlock { LocalFiles = [File("aaa")] }));
+        var target = new LocalBlock { LocalFiles = [File("aaa")] };
+        await _store.Items.SaveAsync(Item(ToId, target));
         await _store.Items.SaveAsync(Item("9900102", new LocalBlock { Avatars = [new AvatarLink { AvatarItemId = FromId }] }));
         await _store.Modifications.SaveAsync(new ModificationRecord
         {
@@ -146,7 +178,18 @@ public sealed class PendingOperationTests : IDisposable
         [
             new NotificationRecord { Id = "n1", Kind = NotificationKind.ItemUpdated, ItemId = FromId, Title = "t", Detail = "d", CreatedAt = DateTimeOffset.Now },
         ]);
-        await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.ChangeItemId, FromId = FromId, ToId = ToId });
+
+        // 移す先へ書いた後の指紋まで書かれた記録（元はもう無い）
+        var written = OperationFingerprint.Of(target);
+        await LeaveRecordAsync(new PendingOperation
+        {
+            Kind = PendingOperationKind.ChangeItemId,
+            FromId = FromId,
+            ToId = ToId,
+            SourceFingerprint = OperationFingerprint.Of(new LocalBlock()),
+            TargetFingerprint = OperationFingerprint.Of(new LocalBlock()),
+            MergedFingerprint = written,
+        });
 
         Assert.Equal(1, await Runner().ResumeAsync());
 
@@ -162,37 +205,68 @@ public sealed class PendingOperationTests : IDisposable
 
     /// <summary>
     /// 移す先へ書いた後・元を消す前（①と②の間）で止まると、移す先は合わせ済みで元も残る。
-    /// 前の合わせ方をもう一度当てると購入記録が2回分になり、メモが2回つながっていた。
+    /// もう一度合わせると購入記録が2回分になり、メモが2回つながっていた。指紋で「合わせ済み」と読み、元を消すだけにする。
     /// </summary>
     [Fact]
     public async Task IDの変更_移す先へ書いて元を消す前に止まっても_購入記録とメモが増えない()
     {
-        var source = new LocalBlock
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock
         {
             Memo = "元のメモ",
             LocalFiles = [File("aaa")],
             Purchases = [new Purchase { Price = 500 }, new Purchase { Price = 500 }, new Purchase { Price = 800, Kind = PurchaseKind.Given }],
-        };
-        var target = new LocalBlock { Memo = "先のメモ", Purchases = [new Purchase { Price = 1000 }] };
-        var skipped = new HashSet<int> { 2 };
+        }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock { Memo = "先のメモ", Purchases = [new Purchase { Price = 1000 }] }));
 
-        await _store.Items.SaveAsync(Item(FromId, source));
-        await _store.Items.SaveAsync(Item(ToId, ItemIdChange.Merge(source, target, skipped)));
-        await LeaveRecordAsync(new PendingOperation
-        {
-            Kind = PendingOperationKind.ChangeItemId,
-            FromId = FromId,
-            ToId = ToId,
-            SkippedPurchases = [2],
-        });
+        await CrashAfterWritingTargetAsync(new HashSet<int> { 2 });
+        Assert.NotNull(await _store.Items.LoadAsync(FromId));
+        Assert.Equal([500, 500, 1000], Prices((await _store.Items.LoadAsync(ToId))!.Local));
 
         await Runner().ResumeAsync();
 
         Assert.Null(await _store.Items.LoadAsync(FromId));
         var moved = (await _store.Items.LoadAsync(ToId))!.Local;
-        Assert.Equal([500, 500, 1000], moved.Purchases.Select(purchase => purchase.Price!.Value).Order());
+        Assert.Equal([500, 500, 1000], Prices(moved));
         Assert.Equal("先のメモ\n\n元のメモ", moved.Memo);
         Assert.Equal(["aaa"], moved.LocalFiles.Select(file => file.Hash));
+        Assert.Empty(Records());
+        Assert.Equal(0, _http.Requests);
+    }
+
+    /// <summary>
+    /// 移す先が操作の前から同じ値の購入を持っていて、移す先へ書く前に止まった。前は値で照らして「合わせ済み」と読み、
+    /// 元の購入を持って行かずに元を消していた（購入が1件落ちる。外部の点検 2026-10-06・L108）。
+    /// </summary>
+    [Fact]
+    public async Task IDの変更_同じ値の購入を先が前から持っていても_書く前に止まった続きで2件残る()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ", Purchases = [new Purchase { Price = 500 }] }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock { Memo = "元のメモ", Purchases = [new Purchase { Price = 500 }] }));
+
+        await CrashBeforeWritingTargetAsync();
+        Assert.Equal([500], Prices((await _store.Items.LoadAsync(ToId))!.Local));
+
+        await Runner().ResumeAsync();
+
+        Assert.Null(await _store.Items.LoadAsync(FromId));
+        var moved = (await _store.Items.LoadAsync(ToId))!.Local;
+        Assert.Equal([500, 500], Prices(moved));
+        Assert.Equal("元のメモ\n\n元のメモ", moved.Memo);
+        Assert.Empty(Records());
+    }
+
+    /// <summary>同じ値の購入を前から持つ移す先で、書いた後に止まった続きも2件のまま（3件にしない）。</summary>
+    [Fact]
+    public async Task IDの変更_同じ値の購入を先が前から持っていても_書いた後に止まった続きで2件のまま()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Purchases = [new Purchase { Price = 500 }] }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock { Purchases = [new Purchase { Price = 500 }] }));
+
+        await CrashAfterWritingTargetAsync();
+        await Runner().ResumeAsync();
+
+        Assert.Null(await _store.Items.LoadAsync(FromId));
+        Assert.Equal([500, 500], Prices((await _store.Items.LoadAsync(ToId))!.Local));
         Assert.Empty(Records());
     }
 
@@ -202,14 +276,37 @@ public sealed class PendingOperationTests : IDisposable
     {
         await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ", Purchases = [new Purchase { Price = 500 }] }));
         await _store.Items.SaveAsync(Item(ToId, new LocalBlock { Purchases = [new Purchase { Price = 1000 }] }));
-        await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.ChangeItemId, FromId = FromId, ToId = ToId });
+
+        await CrashBeforeWritingTargetAsync();
+        var left = Assert.Single(Records());
+        Assert.NotNull(left.MergedFingerprint);
 
         await Runner().ResumeAsync();
 
         Assert.Null(await _store.Items.LoadAsync(FromId));
         var moved = (await _store.Items.LoadAsync(ToId))!.Local;
-        Assert.Equal([500, 1000], moved.Purchases.Select(purchase => purchase.Price!.Value).Order());
+        Assert.Equal([500, 1000], Prices(moved));
         Assert.Equal("元のメモ", moved.Memo);
+        Assert.Empty(Records());
+    }
+
+    /// <summary>移す先へ書いた後で、人が移す先を触っていたら当てない（元も消さない）。知らせに出し、記録は消す。</summary>
+    [Fact]
+    public async Task IDの変更_止まった後に移す先を触っていたら当てずに知らせる()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ" }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock()));
+        await CrashAfterWritingTargetAsync();
+        await _store.Items.ChangeLocalAsync(ToId, local => local with { Memo = "後で書いたメモ" }, [LocalField.Memo]);
+
+        await Runner().ResumeAsync();
+
+        Assert.Equal("元のメモ", (await _store.Items.LoadAsync(FromId))!.Local.Memo);
+        Assert.Equal("後で書いたメモ", (await _store.Items.LoadAsync(ToId))!.Local.Memo);
+        Assert.Empty(Records());
+        var notice = Assert.Single(_store.Notifications.Load());
+        Assert.Equal(PendingOperationRunner.ChangedDetail, notice.Detail);
+        Assert.Equal(FromId, notice.ItemId);
     }
 
     [Fact]
@@ -218,13 +315,13 @@ public sealed class PendingOperationTests : IDisposable
         await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ", Purchases = [new Purchase { Price = 500 }] }));
         await _store.Items.SaveAsync(Item(ToId, new LocalBlock { Memo = "先のメモ", Purchases = [new Purchase { Price = 1000 }] }));
         await _store.Items.SaveAsync(Item("9900102", new LocalBlock { Avatars = [new AvatarLink { AvatarItemId = FromId }] }));
-        var operation = new PendingOperation { Kind = PendingOperationKind.ChangeItemId, FromId = FromId, ToId = ToId };
 
-        await LeaveRecordAsync(operation);
+        await CrashBeforeWritingTargetAsync();
+        var left = Assert.Single(Records());
         await Runner().ResumeAsync();
         var once = Json((await _store.Items.LoadAllAsync()).Items.Select(item => item.Local).ToList());
 
-        await LeaveRecordAsync(operation);
+        await _store.PendingOperations.UpdateAsync(list => [.. list, left]);
         await Runner().ResumeAsync();
         var twice = Json((await _store.Items.LoadAllAsync()).Items.Select(item => item.Local).ToList());
 
@@ -232,7 +329,7 @@ public sealed class PendingOperationTests : IDisposable
         Assert.Empty(Records());
     }
 
-    /// <summary>移す先へ何も書く前（BOOTHから取っている間など）に止まった物は、元のままなので記録を消すだけ。BOOTHへも行かない。</summary>
+    /// <summary>移す先へ何も書く前（指紋も書く前）に止まった物は、元のままなので記録を消すだけ。BOOTHへも行かない。</summary>
     [Fact]
     public async Task IDの変更_書き始める前に止まっていれば_元のまま記録を消す()
     {
@@ -258,6 +355,7 @@ public sealed class PendingOperationTests : IDisposable
         Assert.Null(await _store.Items.LoadAsync(FromId));
         Assert.Empty(Records());
         Assert.True(System.IO.File.Exists(_store.PendingOperations.Path));
+        Assert.Empty(_store.Notifications.Load());
     }
 
     [Fact]
@@ -273,6 +371,42 @@ public sealed class PendingOperationTests : IDisposable
         Assert.Equal(0, _http.Requests);
     }
 
+    /// <summary>
+    /// 済んだ記録を消せなかったら済んだ扱いにせず知らせる。前は済んだ扱いで返し、残った記録（ID だけ）が、後で同じ ID で
+    /// 登録し直した商品に次の起動で当たり、その商品を移す先へ合わせて消していた（外部の点検 2026-10-06・L108）。
+    /// </summary>
+    [Fact]
+    public async Task IDの変更_記録を消せずに残った後で同じIDの商品を登録し直しても_次の起動で古い操作が当たらない()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ", Purchases = [new Purchase { Price = 500 }] }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock { Purchases = [new Purchase { Price = 1000 }] }));
+        await CrashAfterWritingTargetAsync();
+        var left = Assert.Single(Records());
+
+        // 続きは済むが、記録を消せない（記録のファイルを読めるが書けないように開いておく）
+        using (HoldFile(_store.PendingOperations.Path))
+        {
+            await Runner().ResumeAsync();
+        }
+
+        Assert.Null(await _store.Items.LoadAsync(FromId));
+        Assert.Equal(left.Id, Assert.Single(Records()).Id);
+        var notice = Assert.Single(_store.Notifications.Load());
+        Assert.Equal(PendingOperationRunner.NotRemovedDetail, notice.Detail);
+        Assert.False(notice.IsResolved);
+
+        // 同じ ID で登録し直す
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "登録し直した", LocalFiles = [File("bbb")] }));
+        var targetBefore = Json((await _store.Items.LoadAsync(ToId))!.Local);
+
+        await Runner().ResumeAsync();
+
+        Assert.Equal("登録し直した", (await _store.Items.LoadAsync(FromId))!.Local.Memo);
+        Assert.Equal(targetBefore, Json((await _store.Items.LoadAsync(ToId))!.Local));
+        Assert.Empty(Records());
+        Assert.Equal(PendingOperationRunner.ChangedDetail, Assert.Single(_store.Notifications.Load()).Detail);
+    }
+
     // ---- タグの名前の変更・統合 ----
 
     private static UserTagTop Top(string name, params string[] subs)
@@ -285,15 +419,30 @@ public sealed class PendingOperationTests : IDisposable
 
     private SearchModuleState SavedModule() => _store.SavedSearches.Load().Entries.Single().Modules.Single();
 
+    /// <summary>今の保存先の様子で、始める前の指紋を付ける（本物の操作が記録に書くのと同じ物）。</summary>
+    private async Task<PendingOperation> StartedAsync(PendingOperation operation)
+    {
+        var fingerprint = operation.Kind == PendingOperationKind.RenameUserTag
+            ? await new UserTagService(_store).FingerprintRenameAsync(operation.Top!, operation.Sub, operation.NewName!)
+            : await _attributes.FingerprintRenameAsync(operation.OldName!, operation.NewName!);
+        return operation with { MasterFingerprint = fingerprint.Master, Holders = fingerprint.Holders };
+    }
+
     /// <summary>一覧を書いた後・商品を途中まで書き換えたところで止まると、残りの商品と保存した検索が古い名前のまま残っていた。</summary>
     [Fact]
     public async Task タグの名前の変更_商品の途中で止まっても_次の起動で残りの商品と保存した検索が新しい名前になる()
     {
-        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("服", "夏")] });
-        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "服", Subs = ["夏"] })));
+        // 始める前
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏")] });
+        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "衣装", Subs = ["夏"] })));
         await _store.Items.SaveAsync(Item("9900112", Tagged(new UserTagAssignment { Top = "衣装", Subs = ["夏"] })));
         await SaveSearchAsync(new SearchModuleState { Kind = "UserTag", UserTags = [new UserTagCondition { Top = "衣装" }] });
-        await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", NewName = "服" });
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", NewName = "服" });
+
+        // 一覧と1件目まで書いたところで止まった
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("服", "夏")] });
+        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "服", Subs = ["夏"] })));
+        await LeaveRecordAsync(operation);
 
         await Runner().ResumeAsync();
 
@@ -301,6 +450,7 @@ public sealed class PendingOperationTests : IDisposable
         Assert.Equal("服", (await _store.Items.LoadAsync("9900112"))!.Local.UserTags.Single().Top);
         Assert.Equal("服", SavedModule().UserTags.Single().Top);
         Assert.Empty(Records());
+        Assert.Empty(_store.Notifications.Load());
     }
 
     [Fact]
@@ -318,11 +468,12 @@ public sealed class PendingOperationTests : IDisposable
             Kind = "UserTag",
             UserTags = [new UserTagCondition { Top = "衣装", Subs = ["夏"] }, new UserTagCondition { Top = "服", Subs = ["冬"] }],
         });
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", NewName = "服" });
 
         Assert.NotNull(await Runner().RenameUserTagAsync("衣装", null, "服", CancellationToken.None));
         var once = Json((_store.UserTags.Load(), (await _store.Items.LoadAsync("9900111"))!.Local, _store.SavedSearches.Load()));
 
-        await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", NewName = "服" });
+        await LeaveRecordAsync(operation);
         await Runner().ResumeAsync();
         var twice = Json((_store.UserTags.Load(), (await _store.Items.LoadAsync("9900111"))!.Local, _store.SavedSearches.Load()));
 
@@ -334,15 +485,76 @@ public sealed class PendingOperationTests : IDisposable
     [Fact]
     public async Task 小分類の名前の変更_一覧を書いた後で止まっても_次の起動で商品と保存した検索が新しい名前になる()
     {
-        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "サマー")] });
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "夏")] });
         await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "衣装", Subs = ["夏"] })));
         await SaveSearchAsync(new SearchModuleState { Kind = "UserTag", UserTags = [new UserTagCondition { Top = "衣装", Subs = ["夏"] }] });
-        await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", Sub = "夏", NewName = "サマー" });
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", Sub = "夏", NewName = "サマー" });
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装", "サマー")] });
+        await LeaveRecordAsync(operation);
 
         await Runner().ResumeAsync();
 
         Assert.Equal(["サマー"], (await _store.Items.LoadAsync("9900111"))!.Local.UserTags.Single().Subs);
         Assert.Equal(["サマー"], SavedModule().UserTags.Single().Subs);
+        Assert.Empty(Records());
+    }
+
+    /// <summary>
+    /// 済んだ記録を消せずに残った後で、同じ名前のタグを作り直して商品に付けた。前は次の起動で古い操作が当たり、
+    /// 作り直したタグまで新しい名前へ寄せていた（外部の点検 2026-10-06・L108）。
+    /// </summary>
+    [Fact]
+    public async Task タグの名前の変更_記録を消せずに残った後で同じ名前のタグを作り直しても_次の起動で当たらない()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装")] });
+        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "衣装" })));
+
+        // 商品を書き換える所で待たせ、その間に記録のファイルを書けなくしておく（済んだ後で消せない）
+        var gate = await HoldItemAsync("9900111");
+        var running = Runner().RenameUserTagAsync("衣装", null, "服", CancellationToken.None);
+        await WaitUntilAsync(() => Records().Count == 1 && _store.UserTags.Load().Tops.Any(top => top.Name == "服"));
+        using (HoldFile(_store.PendingOperations.Path))
+        {
+            gate.SetResult();
+            Assert.NotNull(await running);
+        }
+
+        Assert.Equal("服", (await _store.Items.LoadAsync("9900111"))!.Local.UserTags.Single().Top);
+        Assert.Single(Records());
+        Assert.Equal(PendingOperationRunner.NotRemovedDetail, Assert.Single(_store.Notifications.Load()).Detail);
+
+        // 同じ名前を作り直して、別の商品に付ける
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("服"), Top("衣装")] });
+        await _store.Items.SaveAsync(Item("9900112", Tagged(new UserTagAssignment { Top = "衣装" })));
+
+        await Runner().ResumeAsync();
+
+        Assert.Equal(["服", "衣装"], _store.UserTags.Load().Tops.Select(top => top.Name));
+        Assert.Equal("衣装", (await _store.Items.LoadAsync("9900112"))!.Local.UserTags.Single().Top);
+        Assert.Empty(Records());
+        Assert.Equal(PendingOperationRunner.ChangedDetail, Assert.Single(_store.Notifications.Load()).Detail);
+    }
+
+    /// <summary>作り直した名前を一覧には足さず、商品にだけ付けた（一覧に無い名前）場合も当てない。</summary>
+    [Fact]
+    public async Task タグの名前の変更_残った記録の後で同じ名前を商品にだけ付けても_次の起動で当たらない()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [Top("衣装")] });
+        await _store.Items.SaveAsync(Item("9900111", Tagged(new UserTagAssignment { Top = "衣装" })));
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameUserTag, Top = "衣装", NewName = "服" });
+        Assert.NotNull(await Runner().RenameUserTagAsync("衣装", null, "服", CancellationToken.None));
+        await LeaveRecordAsync(operation);
+
+        await _store.Items.SaveAsync(Item("9900112", Tagged(new UserTagAssignment { Top = "衣装" })));
+        await _store.Items.ChangeLocalAsync(
+            "9900111",
+            local => local with { UserTags = [.. local.UserTags, new UserTagAssignment { Top = "衣装" }] },
+            LocalOwners.UserTags);
+
+        await Runner().ResumeAsync();
+
+        Assert.Equal("衣装", (await _store.Items.LoadAsync("9900112"))!.Local.UserTags.Single().Top);
+        Assert.Equal(["服", "衣装"], (await _store.Items.LoadAsync("9900111"))!.Local.UserTags.Select(tag => tag.Top));
         Assert.Empty(Records());
     }
 
@@ -377,11 +589,13 @@ public sealed class PendingOperationTests : IDisposable
     [Fact]
     public async Task 属性の名前の変更_一覧を書いた後で止まっても_次の起動で商品と設定と保存した検索が新しい名前になる()
     {
-        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質感" }] });
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
         await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
         await _settings.UpdateAsync(current => current with { CardAttributes = ["質"] });
         await SaveSearchAsync(new SearchModuleState { Kind = "Attribute", Ranges = [new AttributeRange("質", 3, 5)] });
-        await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質感" }] });
+        await LeaveRecordAsync(operation);
 
         await Runner().ResumeAsync();
 
@@ -400,23 +614,48 @@ public sealed class PendingOperationTests : IDisposable
         });
         await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4, ["質感"] = 2 } }));
         await _settings.UpdateAsync(current => current with { CardAttributes = ["質", "質感"] });
-
-        Assert.NotNull(await Runner().RenameAttributeAsync("質", "質感", AttributeMergeValue.UseSource, CancellationToken.None));
-        var once = Json((_store.Attributes.Load(), (await _store.Items.LoadAsync("9900121"))!.Local, _store.Settings.Load().CardAttributes));
-
-        await LeaveRecordAsync(new PendingOperation
+        var operation = await StartedAsync(new PendingOperation
         {
             Kind = PendingOperationKind.RenameAttribute,
             OldName = "質",
             NewName = "質感",
             Keep = AttributeMergeValue.UseSource,
         });
+
+        Assert.NotNull(await Runner().RenameAttributeAsync("質", "質感", AttributeMergeValue.UseSource, CancellationToken.None));
+        var once = Json((_store.Attributes.Load(), (await _store.Items.LoadAsync("9900121"))!.Local, _store.Settings.Load().CardAttributes));
+
+        await LeaveRecordAsync(operation);
         await Runner().ResumeAsync();
         var twice = Json((_store.Attributes.Load(), (await _store.Items.LoadAsync("9900121"))!.Local, _store.Settings.Load().CardAttributes));
 
         Assert.Equal(once, twice);
         Assert.Equal(4, (await _store.Items.LoadAsync("9900121"))!.Local.Attributes["質感"]);
         Assert.Empty(Records());
+    }
+
+    /// <summary>済んだ後に残った記録は、同じ名前で作り直した属性（一覧・商品の値）に当てない。</summary>
+    [Fact]
+    public async Task 属性の名前の変更_残った記録の後で同じ名前の属性を作り直しても_次の起動で当たらない()
+    {
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
+        await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        Assert.NotNull(await Runner().RenameAttributeAsync("質", "質感", AttributeMergeValue.KeepTarget, CancellationToken.None));
+        await LeaveRecordAsync(operation);
+
+        await _store.Attributes.SaveAsync(new AttributeMaster
+        {
+            Attributes = [new AttributeDefinition { Name = "質感" }, new AttributeDefinition { Name = "質" }],
+        });
+        await _store.Items.SaveAsync(Item("9900122", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 2 } }));
+
+        await Runner().ResumeAsync();
+
+        Assert.Equal(["質感", "質"], _store.Attributes.Load().Attributes.Select(definition => definition.Name));
+        Assert.Equal(2, (await _store.Items.LoadAsync("9900122"))!.Local.Attributes["質"]);
+        Assert.Empty(Records());
+        Assert.Equal(PendingOperationRunner.ChangedDetail, Assert.Single(_store.Notifications.Load()).Detail);
     }
 
     [Fact]
@@ -434,9 +673,11 @@ public sealed class PendingOperationTests : IDisposable
     [Fact]
     public async Task 続きが落ちたら記録は残して知らせ_次に済んだら知らせを解消済みにする()
     {
-        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質感" }] });
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
         await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
-        var recorded = await LeaveRecordAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質感" }] });
+        var recorded = await LeaveRecordAsync(operation);
 
         _attributes.Fail = true;
         Assert.Equal(1, await Runner().ResumeAsync());
@@ -445,6 +686,7 @@ public sealed class PendingOperationTests : IDisposable
         var notice = Assert.Single(_store.Notifications.Load());
         Assert.Equal(NotificationKind.UnfinishedOperation, notice.Kind);
         Assert.Equal(PendingOperationRunner.NotificationPrefix + recorded.Id, notice.Id);
+        Assert.Equal(PendingOperationRunner.FailedDetail, notice.Detail);
         Assert.False(notice.IsResolved);
 
         _attributes.Fail = false;

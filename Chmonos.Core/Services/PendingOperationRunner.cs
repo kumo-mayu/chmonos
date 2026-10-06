@@ -12,6 +12,8 @@ namespace Chmonos.Core.Services;
 /// IDの変更は元を消した後で落ちると、もう一度押しても元が無いので始められない。
 /// **記録を書けなければ始めない**（落ちたときに続きを当てる手掛かりが無くなるため）。
 /// 続きは、どの段も2回当てても同じ結果になる作りに頼る（タグ・属性は操作をそのままもう一度、IDの変更は <see cref="IItemService.ResumeItemIdChangeAsync"/>）。
+/// 当てる前に、記録した指紋（<see cref="OperationFingerprint"/>）で「記録した時と同じ物か」を見分け、違えば当てずに知らせて記録を消す。
+/// 済んだ記録を消せなかったときも済んだ扱いにせず知らせる。
 ///
 /// 命令の層（<see cref="Commands.CommandHandler"/>）が1つ持つ。
 /// </summary>
@@ -66,10 +68,52 @@ public sealed class PendingOperationRunner
 
         return await RecordedAsync(
             operation,
-            () => _items.ChangeItemIdAsync(fromId, toId, skippedPurchases, cancellationToken),
+            () => _items.ChangeItemIdAsync(
+                fromId,
+                toId,
+                skippedPurchases,
+                cancellationToken,
+                RecordFingerprintsFor(operation, cancellationToken)),
             cancellationToken) is (true, var outcome)
             ? outcome
             : ItemIdChangeOutcome.NotRecorded;
+    }
+
+    /// <summary>IDの変更が指紋を記録へ書く所（元を読んだ直後・移す先へ書く直前）。記録を持たない組み立てでは null。</summary>
+    private Func<ItemIdChangeFingerprints, Task<bool>>? RecordFingerprintsFor(
+        PendingOperation operation,
+        CancellationToken cancellationToken)
+    {
+        if (_journal is null)
+        {
+            return null;
+        }
+
+        return async fingerprints =>
+        {
+            PendingOperation Stamped(PendingOperation entry) => entry with
+            {
+                SourceFingerprint = fingerprints.Source,
+                TargetFingerprint = fingerprints.Target,
+                MergedFingerprint = fingerprints.Merged,
+            };
+
+            try
+            {
+                // 自分の行を書き直す。無くなっていれば（手で消した）足し直す——指紋の無いまま移す先へ書くと、続きで見分けられない
+                await _journal.UpdateAsync(
+                    list => list.Any(entry => entry.Id == operation.Id)
+                        ? [.. list.Select(entry => entry.Id == operation.Id ? Stamped(entry) : entry)]
+                        : [.. list, Stamped(operation)],
+                    cancellationToken);
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                AppLog.Error($"やりかけの記録に指紋を書く（{operation.Kind}）", exception);
+                return false;
+            }
+        };
     }
 
     /// <summary>ユーザータグの名前の変更・統合（保存した検索の条件まで）。記録を書けなければ null。</summary>
@@ -80,6 +124,11 @@ public sealed class PendingOperationRunner
         CancellationToken cancellationToken)
     {
         var operation = New(PendingOperationKind.RenameUserTag) with { Top = top, Sub = sub, NewName = newName };
+        if (_journal is not null && _userTags is not null)
+        {
+            operation = WithFingerprint(operation, await _userTags.FingerprintRenameAsync(top, sub, newName, cancellationToken));
+        }
+
         return await RecordedAsync(operation, () => RunRenameUserTagAsync(top, sub, newName, cancellationToken), cancellationToken)
             is (true, var result)
             ? result
@@ -94,6 +143,11 @@ public sealed class PendingOperationRunner
         CancellationToken cancellationToken)
     {
         var operation = New(PendingOperationKind.RenameAttribute) with { OldName = oldName, NewName = newName, Keep = keep };
+        if (_journal is not null && _attributes is not null)
+        {
+            operation = WithFingerprint(operation, await _attributes.FingerprintRenameAsync(oldName, newName, cancellationToken));
+        }
+
         return await RecordedAsync(operation, () => RunRenameAttributeAsync(oldName, newName, keep, cancellationToken), cancellationToken)
             is (true, var result)
             ? result
@@ -102,7 +156,8 @@ public sealed class PendingOperationRunner
 
     /// <summary>
     /// 前の起動で残った記録の続きを、始めた順に済ませる。済んだ記録は消し、前に出した「続けられなかった」知らせは解消済みにする。
-    /// **続けられなかった記録は残し**（次の起動でまた試す）、知らせに出す。BOOTHへは問い合わせない。
+    /// **続けられなかった記録は残し**（次の起動でまた試す）、知らせに出す。記録した時から対象が変わっていた物は当てず、知らせて記録を消す。
+    /// BOOTHへは問い合わせない。
     /// </summary>
     /// <returns>扱った記録の数（済んだ物と、続けられなかった物）。</returns>
     public async Task<int> ResumeAsync(CancellationToken cancellationToken = default)
@@ -138,8 +193,24 @@ public sealed class PendingOperationRunner
             handled++;
             try
             {
-                await ResumeOneAsync(operation, cancellationToken);
-                await RemoveAsync(operation, cancellationToken);
+                if (!await ResumeOneAsync(operation, cancellationToken))
+                {
+                    // 記録した時から変わっていた物には当てない。記録は消す——残すと、起動のたびに同じ物を見て止まるだけで、
+                    // 使う人が今の様子のままもう一度操作しても、この行は消えない
+                    AppLog.Warn("やりかけの操作の続き", $"{operation.Kind} は記録した時から対象が変わっていた。当てずに記録を消す");
+                    await RemoveAsync(operation, cancellationToken);
+                    await NotifyAsync(operation, ChangedDetail, cancellationToken);
+                    continue;
+                }
+
+                if (!await RemoveAsync(operation, cancellationToken))
+                {
+                    // 済んだ扱いにしない（知らせを解消済みにしない）。残った行は次の起動でまた見分ける。
+                    // 済んだ操作はもう一度当てても変わらず、後で同じID・名前で作り直した物は指紋が合わないので当たらない
+                    await NotifyAsync(operation, NotRemovedDetail, cancellationToken);
+                    continue;
+                }
+
                 if (_notifications is not null)
                 {
                     await _notifications.ResolveAsync([NotificationPrefix + operation.Id], cancellationToken);
@@ -148,27 +219,33 @@ public sealed class PendingOperationRunner
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 AppLog.Error($"やりかけの操作の続き（{operation.Kind}）", exception);
-                await NotifyFailedAsync(operation, cancellationToken);
+                await NotifyAsync(operation, FailedDetail, cancellationToken);
             }
         }
 
         return handled;
     }
 
-    private async Task ResumeOneAsync(PendingOperation operation, CancellationToken cancellationToken)
+    /// <summary>続きを1件当てる。記録した時から対象が変わっていて当てなかったら偽。</summary>
+    private async Task<bool> ResumeOneAsync(PendingOperation operation, CancellationToken cancellationToken)
     {
         switch (operation.Kind)
         {
             case PendingOperationKind.ChangeItemId:
+                var recorded = operation.SourceFingerprint is { } source
+                    ? new ItemIdChangeFingerprints(source, operation.TargetFingerprint, operation.MergedFingerprint)
+                    : null;
                 var outcome = await _items.ResumeItemIdChangeAsync(
                     Required(operation.FromId),
                     Required(operation.ToId),
                     (operation.SkippedPurchases ?? []).ToHashSet(),
+                    recorded,
+                    RecordFingerprintsFor(operation, cancellationToken),
                     cancellationToken);
 
                 // 移す先へまだ何も書いていなかった物は、元のまま（押す前と同じ）なので記録を消すだけにする。
-                // 自分で足した画像を写せなかった物は、元も残っているので次の起動でまた試す
-                if (outcome is ItemIdChangeOutcome.ImagesNotMoved or ItemIdChangeOutcome.TargetUnavailable)
+                // 自分で足した画像を写せなかった物・指紋を書き直せなかった物は、元も残っているので次の起動でまた試す
+                if (outcome is ItemIdChangeOutcome.ImagesNotMoved or ItemIdChangeOutcome.TargetUnavailable or ItemIdChangeOutcome.NotRecorded)
                 {
                     throw new IOException($"IDの変更の続きを済ませられませんでした（{outcome}）。");
                 }
@@ -178,24 +255,50 @@ public sealed class PendingOperationRunner
                     AppLog.Warn("やりかけの操作の続き", $"IDの変更 {operation.FromId} → {operation.ToId} は書き始める前に止まっていた。元のまま記録を消す");
                 }
 
-                return;
+                return outcome != ItemIdChangeOutcome.ChangedSinceStarted;
 
             case PendingOperationKind.RenameUserTag:
-                await RunRenameUserTagAsync(Required(operation.Top), operation.Sub, Required(operation.NewName), cancellationToken);
-                return;
+                var top = Required(operation.Top);
+                var tagName = Required(operation.NewName);
+                if (!OperationFingerprint.AllowsResume(
+                    RecordedRename(operation),
+                    await UserTags().FingerprintRenameAsync(top, operation.Sub, tagName, cancellationToken)))
+                {
+                    return false;
+                }
+
+                await RunRenameUserTagAsync(top, operation.Sub, tagName, cancellationToken);
+                return true;
 
             case PendingOperationKind.RenameAttribute:
-                await RunRenameAttributeAsync(
-                    Required(operation.OldName),
-                    Required(operation.NewName),
-                    operation.Keep ?? AttributeMergeValue.KeepTarget,
-                    cancellationToken);
-                return;
+                var oldName = Required(operation.OldName);
+                var attributeName = Required(operation.NewName);
+                if (!OperationFingerprint.AllowsResume(
+                    RecordedRename(operation),
+                    await Attributes().FingerprintRenameAsync(oldName, attributeName, cancellationToken)))
+                {
+                    return false;
+                }
+
+                await RunRenameAttributeAsync(oldName, attributeName, operation.Keep ?? AttributeMergeValue.KeepTarget, cancellationToken);
+                return true;
 
             default:
                 throw new InvalidDataException($"やりかけの記録の種類が読めません（{operation.Kind}）。");
         }
     }
+
+    private static RenameFingerprint RecordedRename(PendingOperation operation)
+        => new(Required(operation.MasterFingerprint), MasterHasOldName: false, operation.Holders ?? throw new InvalidDataException("やりかけの記録に要る欄がありません。"));
+
+    private static PendingOperation WithFingerprint(PendingOperation operation, RenameFingerprint fingerprint)
+        => operation with { MasterFingerprint = fingerprint.Master, Holders = fingerprint.Holders };
+
+    private IUserTagService UserTags()
+        => _userTags ?? throw new InvalidOperationException("ユーザータグの編集が組み立てのときに渡されていません（アプリの不具合）。");
+
+    private IAttributeService Attributes()
+        => _attributes ?? throw new InvalidOperationException("属性の編集が組み立てのときに渡されていません（アプリの不具合）。");
 
     private static string Required(string? value)
         => value ?? throw new InvalidDataException("やりかけの記録に要る欄がありません。");
@@ -317,7 +420,12 @@ public sealed class PendingOperationRunner
             }
 
             var result = await run();
-            await RemoveAsync(operation, cancellationToken);
+            if (!await RemoveAsync(operation, cancellationToken))
+            {
+                // 操作は済んでいるので結果はそのまま返す。記録が残ったことは知らせる（済んだ扱いにしない）
+                await NotifyAsync(operation, NotRemovedDetail, cancellationToken);
+            }
+
             return (true, result);
         }
         finally
@@ -330,9 +438,12 @@ public sealed class PendingOperationRunner
     }
 
     /// <summary>
-    /// 済んだ記録を消す。消せなくても操作は済んでいるので失敗にしない——次の起動で同じ操作をもう一度当てるだけで、2回当てても変わらない。
+    /// 済んだ記録を消す。**消せなければ偽**を返し、呼んだ所が知らせる。
+    /// 前は消せなくても済んだ扱いにしていた。記録には ID と名前しか無かったので、後で同じ ID の商品を登録し直す・
+    /// 同じ名前のタグや属性を作ると、次の起動で古い操作がそれに当たっていた（外部の点検 2026-10-06・L108）。
+    /// 今は指紋で見分けるので当たらないが、残ったことは使う人に見えるようにする。
     /// </summary>
-    private async Task RemoveAsync(PendingOperation operation, CancellationToken cancellationToken)
+    private async Task<bool> RemoveAsync(PendingOperation operation, CancellationToken cancellationToken)
     {
         try
         {
@@ -341,14 +452,25 @@ public sealed class PendingOperationRunner
                     ? [.. list.Where(entry => entry.Id != operation.Id)]
                     : null,
                 cancellationToken);
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
             AppLog.Error($"済んだやりかけの記録を消す（{operation.Kind}）", exception);
+            return false;
         }
     }
 
-    private async Task NotifyFailedAsync(PendingOperation operation, CancellationToken cancellationToken)
+    /// <summary>続きを当てられなかった（次の起動でまた試す）。</summary>
+    internal const string FailedDetail = "途中で止まっていた操作を続けられませんでした。次に起動したときに、もう一度続けます。";
+
+    /// <summary>記録した時から対象が変わっていたので当てなかった（記録は消した）。</summary>
+    internal const string ChangedDetail = "止まった後に内容が変わっていたので、続きは行いませんでした。必要なら、もう一度操作してください。";
+
+    /// <summary>操作は済んだが、記録を消せなかった（次の起動でまた見分ける）。</summary>
+    internal const string NotRemovedDetail = "操作は済みましたが、保存先に書き込めませんでした。次に起動したときに、もう一度確かめます。";
+
+    private async Task NotifyAsync(PendingOperation operation, string detail, CancellationToken cancellationToken)
     {
         if (_notifications is null)
         {
@@ -364,7 +486,7 @@ public sealed class PendingOperationRunner
                     Kind = NotificationKind.UnfinishedOperation,
                     ItemId = operation.Kind == PendingOperationKind.ChangeItemId ? operation.FromId : null,
                     Title = TitleOf(operation),
-                    Detail = "途中で止まっていた操作を続けられませんでした。次に起動したときに、もう一度続けます。",
+                    Detail = detail,
                     CreatedAt = DateTimeOffset.Now,
                     IsStrong = true,
                 },
