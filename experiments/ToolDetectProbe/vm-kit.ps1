@@ -26,9 +26,20 @@ $script:ProbeRoot = Join-Path $PSScriptRoot '..\..'
 $script:ProbeShare = Join-Path $env:LOCALAPPDATA 'Chmonos-vm\share'
 
 function Invoke-VBox {
-    # VBoxManage の失敗は終了コードでしか分からないので、ここで例外にする
-    & $script:VBox @args
-    if ($LASTEXITCODE -ne 0) { throw "VBoxManage $($args -join ' ') が失敗した（$LASTEXITCODE）" }
+    # VBoxManage の失敗は終了コードでしか分からないので、ここで例外にする。
+    # **期限を付ける**：動いたままの控え取りが止まると、状態を聞くだけの命令まで返らなくなった（2026-10-06）。
+    # 待ち続けずに止め、何が止まったかを言う。既定は2分（取り込み・起動の命令もこれで足りた）。長い物は -TimeoutSec で渡す
+    # 期限は先頭の -TimeoutSec N で受ける。param を使うと、--machinereadable のような VBoxManage の引数を PowerShell が名前付きの引数と読んでしまう
+    $TimeoutSec = 120; $Rest = @($args)
+    if ($Rest.Count -ge 2 -and $Rest[0] -eq '-TimeoutSec') { $TimeoutSec = [int]$Rest[1]; $Rest = @($Rest | Select-Object -Skip 2) }
+    $out = Join-Path $env:TEMP "vbox-$PID-out.txt"; $err = Join-Path $env:TEMP "vbox-$PID-err.txt"
+    $quoted = $Rest | ForEach-Object { if ($_ -match '[s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }
+    $process = Start-Process $script:VBox -ArgumentList $quoted -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+    if (-not $process.WaitForExit($TimeoutSec * 1000)) {
+        throw "VBoxManage $($Rest -join ' ') が $TimeoutSec 秒で返らない（VirtualBox が止まっている。窓から電源を切る）"
+    }
+    Get-Content $out -ErrorAction SilentlyContinue
+    if ($process.ExitCode -ne 0) { throw "VBoxManage $($Rest -join ' ') が失敗した（$($process.ExitCode)）: $(Get-Content $err -Raw)" }
 }
 
 function New-ProbeVm {
@@ -76,7 +87,7 @@ function New-ProbeVm {
 
 function Remove-ProbeVm {
     # 作り直すとき。止めてから、登録とディスクを消す（共有のフォルダの中身は残す）
-    & $script:VBox controlvm $script:ProbeVmName poweroff 2>$null | Out-Null
+    try { Invoke-VBox controlvm $script:ProbeVmName poweroff | Out-Null } catch { }
     Start-Sleep -Seconds 5
     Invoke-VBox unregistervm $script:ProbeVmName --delete
     "消した：$($script:ProbeVmName)"
@@ -87,7 +98,7 @@ function Wait-ProbeVm {
     # 追加の部品（Guest Additions）が動き、利用者がログオンしていれば、中で命令を走らせられる
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     while ((Get-Date) -lt $deadline) {
-        $users = & $script:VBox guestproperty get $script:ProbeVmName '/VirtualBox/GuestInfo/OS/LoggedInUsers' 2>$null
+        $users = try { Invoke-VBox -TimeoutSec 20 guestproperty get $script:ProbeVmName '/VirtualBox/GuestInfo/OS/LoggedInUsers' } catch { '' }
         if ($users -match 'Value:\s*[1-9]') { "ログオンした：$users"; return }
         Start-Sleep -Seconds 30
     }
@@ -95,12 +106,19 @@ function Wait-ProbeVm {
 }
 
 function Save-ProbeSnapshot([Parameter(Mandatory)][string]$Name) {
-    Invoke-VBox snapshot $script:ProbeVmName take $Name --live
+    # 止めてから取る（ディスクだけ）。動いたままの控え（--live）はメモリ（16GB）まで書き出し、15分以上かかった（2026-10-06）。
+    # 戻した後は立ち上げから始まるが、確かめにはそれで足りる
+    try { Invoke-VBox controlvm $script:ProbeVmName acpipowerbutton | Out-Null } catch { }
+    $deadline = (Get-Date).AddMinutes(3)
+    while ((Get-Date) -lt $deadline -and ((Invoke-VBox -TimeoutSec 20 showvminfo $script:ProbeVmName --machinereadable) -match '^VMState="running"')) { Start-Sleep -Seconds 3 }
+    try { Invoke-VBox controlvm $script:ProbeVmName poweroff | Out-Null } catch { }
+    Invoke-VBox -TimeoutSec 300 snapshot $script:ProbeVmName take $Name
+    Invoke-VBox startvm $script:ProbeVmName --type gui
 }
 
 function Restore-ProbeSnapshot([Parameter(Mandatory)][string]$Name) {
     # 動いたままでは戻せないので、止めてから戻して起こす
-    & $script:VBox controlvm $script:ProbeVmName poweroff 2>$null | Out-Null
+    try { Invoke-VBox controlvm $script:ProbeVmName poweroff | Out-Null } catch { }
     Start-Sleep -Seconds 3
     Invoke-VBox snapshot $script:ProbeVmName restore $Name
     Invoke-VBox startvm $script:ProbeVmName --type gui
@@ -128,8 +146,8 @@ function Invoke-Probe {
     $deadline = (Get-Date).AddSeconds($(if ($Open) { 60 } else { 30 }))
     do {
         Start-Sleep -Seconds 3
-        $text = & $script:VBox guestcontrol $script:ProbeVmName run --exe 'C:\Windows\System32\cmd.exe' --username $script:ProbeUser --password $script:ProbePassword `
-            --wait-stdout -- cmd.exe /c "type $report" 2>$null
+        $text = try { Invoke-VBox -TimeoutSec 60 guestcontrol $script:ProbeVmName run --exe 'C:\Windows\System32\cmd.exe' --username $script:ProbeUser --password $script:ProbePassword `
+            --wait-stdout -- cmd.exe /c "type $report" } catch { $null }
     } while (-not $text -and (Get-Date) -lt $deadline)
     if (-not $text) { throw "書き出しが読めなかった：$report" }
     $text
