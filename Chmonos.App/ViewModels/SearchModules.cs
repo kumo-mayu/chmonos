@@ -787,7 +787,7 @@ public sealed record ChoiceFlag(string Label, bool Default, string ChangedSummar
 /// プルダウンで選ぶ条件（ユーザ案「三項」）。
 ///
 /// 何も絞らない選択肢（「両方」）を持つ物は、その選択肢で条件を残したまま無効にできる（トグル拡張）。
-/// 持たない物（ギフト・有料無料）は、条件自体の切り替えで無効にする（純三項）。
+/// 持たない物（ギフト）は、条件自体の切り替えで無効にする（純三項）。
 /// 「両方」は並びの最後に置く（ユーザ判断 2026-10-06・メモ82。全部の条件で同じ位置）。先頭が足したときの既定。
 /// </summary>
 public sealed class ChoiceModule : SearchModule
