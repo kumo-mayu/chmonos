@@ -123,6 +123,27 @@ public sealed class TemporaryUnpackerTests : IDisposable
     }
 
     /// <summary>
+    /// 置き場所の名前に替えると同じになる名前（使えない字・大文字小文字だけの違い）でも取り違えない（外部の点検 2026-10-06）。
+    /// 前は替えた後の名前で控えの場所を決めていたので、先に取り出した方を、後から頼んだ方にも渡していた
+    /// </summary>
+    [Theory]
+    [InlineData("A?.unitypackage", "A*.unitypackage")]
+    [InlineData("Hat.unitypackage", "hat.unitypackage")]
+    [InlineData("中/A?.unitypackage", "中/A_.unitypackage")]
+    public void 置き場所の名前に替えると同じになる名前でも取り違えない(string first, string second)
+    {
+        var zip = MakeZip("pack.zip", (first, "first"), (second, "second"));
+        var unpacker = new TemporaryUnpacker(Root);
+
+        var a = unpacker.ExtractEntry(zip, first);
+        var b = unpacker.ExtractEntry(zip, second);
+
+        Assert.NotEqual(Path.GetFullPath(a), Path.GetFullPath(b), StringComparer.OrdinalIgnoreCase);
+        Assert.Equal("first", File.ReadAllText(a));
+        Assert.Equal("second", File.ReadAllText(b));
+    }
+
+    /// <summary>
     /// 深いフォルダの中の物でも、Unity のファイル選択に渡せる長さ（260 字未満）に収める。
     /// 同じ名前で別のフォルダの物は、畳んだ後も取り違えない。
     /// </summary>

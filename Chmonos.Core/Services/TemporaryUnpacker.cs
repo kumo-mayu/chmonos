@@ -320,7 +320,11 @@ public sealed class TemporaryUnpacker
         // ファイル名は最後にそのまま残す——Unity の取り込みの窓はファイル名を出すので
         var segments = entryPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Select(SafeSegment).ToArray();
         string[] directories = segments.Length > 1 ? segments[..^1] : [];
-        var folder = Path.Combine([_root, "packages", Stamp(info), .. directories]);
+
+        // **元のパスから作った印を1段入れる**（外部の点検 2026-10-06）。置き場所の名前は使えない字を「_」に替えるので、
+        // `A?.unitypackage` と `A*.unitypackage`、大文字小文字だけ違う名前（Windows では同じ場所）が同じ控えになり、
+        // 後から頼んだ方に先に取り出した方を渡していた。印は替える前のパス全体から作るので、別の物は別の場所になる
+        var folder = Path.Combine([_root, "packages", Stamp(info), ShortStamp(entryPath), .. directories]);
         var fileName = SafeFileName(segments.Length == 0 ? string.Empty : segments[^1]);
         var target = Path.Combine(folder, fileName);
 
