@@ -9,14 +9,19 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 // A bounded, read-only sample investigation. All outputs go to the workspace.
 // Never extracts archive members, imports Unity packages, or runs embedded code.
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-var outputPath = Path.GetFullPath(args.Length > 0 ? args[0] : "research/pdf-probe-results.json");
-var allowedOutput = Path.GetFullPath("D:/work/ClaudeCode/chmonos/research/");
+// Usage: PdfProbe <input root containing VRChat_* folders> [output json under ./research/]
+// Paths come from the arguments and the current directory, not from one machine's layout.
+if (args.Length < 1)
+    throw new ArgumentException("Usage: PdfProbe <input root> [output json]");
+var inputRoot = Path.GetFullPath(args[0]);
+var outputPath = Path.GetFullPath(args.Length > 1 ? args[1] : "research/pdf-probe-results.json");
+var allowedOutput = Path.GetFullPath("research/");
 if (!outputPath.StartsWith(allowedOutput, StringComparison.OrdinalIgnoreCase))
-    throw new ArgumentException("Output must be under the workspace research directory.");
+    throw new ArgumentException("Output must be under the research directory of the current directory.");
 var results = new List<object>();
 var urlRegex = new Regex("https?://[^\\s<>\"\\[\\]\\(\\)]+", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
 var options = new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-foreach (var root in Directory.EnumerateDirectories("D:/storage", "VRChat_*", SearchOption.TopDirectoryOnly))
+foreach (var root in Directory.EnumerateDirectories(inputRoot, "VRChat_*", SearchOption.TopDirectoryOnly))
 {
     if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) continue;
     foreach (var path in Directory.EnumerateFiles(root, "*.zip", options))

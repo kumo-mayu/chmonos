@@ -1,7 +1,8 @@
 # Read-only research probe. Does not extract archives or modify source files.
 # Requires a PowerShell host on .NET 9+ so ZIP UTF-8 flags are respected.
 # It also uses the existing built inspector DLL.
-param([switch]$IncludeUnityPackages)
+# InputRoot は VRChat_* のフォルダを含む場所（1台の PC の置き場所を決め打ちしない）
+param([Parameter(Mandatory)][string]$InputRoot, [switch]$IncludeUnityPackages)
 $ErrorActionPreference = 'Stop'
 Add-Type -Path (Join-Path $PSScriptRoot '../BoothZipInspector/bin/Debug/net10.0/BoothZipInspector.dll')
 [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
@@ -18,7 +19,7 @@ function Read-SmallEntry($Stream, [long]$Length) {
     return [BoothZipInspector.TextDecoder]::Decode($buffer)
 }
 
-$roots = @(Get-ChildItem -LiteralPath 'D:/storage' -Directory |
+$roots = @(Get-ChildItem -LiteralPath $InputRoot -Directory |
     Where-Object { $_.Name.StartsWith('VRChat_') -and -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) })
 $results = foreach ($root in $roots) {
     foreach ($file in (Get-ChildItem -LiteralPath $root.FullName -Recurse -File -Filter '*.zip' |

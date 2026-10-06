@@ -43,9 +43,11 @@ BOOTHのカテゴリ表 (assets/booth-categories.json)
 ---- 使っているライブラリ ----
 
 AngleSharp — MIT License
-SixLabors.ImageSharp — Six Labors Split License 1.0
-  本プロジェクトはOSSライセンス（Apache-2.0）で公開しているため、
-  Apache License 2.0 の条件で利用している。
+SixLabors.ImageSharp — Apache License 2.0
+  Six Labors Split License 1.0 で配られている。オープンソースのライセンスの
+  ソフトウェアで使うので、Apache License 2.0 を選んで利用している。
+
+許諾文と著作権表示は THIRD-PARTY-NOTICES.txt にある。
 
 
 ---- BOOTHへの作法（フォークする方へのお願い） ----
