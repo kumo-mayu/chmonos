@@ -124,6 +124,12 @@ internal sealed class TestApp
     /// <summary>出すはずだった、どこを探すかの窓（窓は出ない）。</summary>
     public List<MissingSearchScopeViewModel> SearchScopes { get; } = [];
 
+    /// <summary>「IDを変える」の窓への答え（窓は出ない）。既定は「キャンセル」。</summary>
+    public Func<ChangeItemIdDialogViewModel, bool> AnswerChangeId { get; set; } = _ => false;
+
+    /// <summary>出すはずだった「IDを変える」の窓。</summary>
+    public List<ChangeItemIdDialogViewModel> ChangeIdDialogs { get; } = [];
+
     /// <summary>選ぶ窓（<see cref="ChoiceQuestion"/>）への答え（窓は出ない）。既定はキャンセル——答えを決めていない問いで、書き換えが黙って走らないように</summary>
     public Func<ChoiceRequest, Views.ChoiceDialogResult> Choose { get; set; } = _ => Views.ChoiceDialogResult.Cancel;
 
@@ -222,6 +228,11 @@ internal sealed class TestApp
             return app.Choose(request);
         };
         ItemViewModel.PickFilesToAttachIntercept = () => app.PickAttachFiles();
+        ChangeItemIdDialogViewModel.Intercept = model =>
+        {
+            app.ChangeIdDialogs.Add(model);
+            return app.AnswerChangeId(model);
+        };
 
         // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
         // 置いた商品に「BOOTHで見つからない」の印が付いて、確かめたい物と関係なく中身が変わる
@@ -348,6 +359,7 @@ internal sealed class TestApp
             Notice.Intercept = null;
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
+            ChangeItemIdDialogViewModel.Intercept = null;
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();

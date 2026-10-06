@@ -8,7 +8,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:ChangeItemIdDialogViewModel}"
         Title="商品のIDを変える"
-        Width="520" SizeToContent="Height" ResizeMode="NoResize"
+        Width="600" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Surface}">
     <StackPanel Margin="22,20">
@@ -36,6 +36,92 @@
         </Grid>
         <TextBlock Text="商品IDでも、BOOTHの商品ページのURLでも入れられます。"
                    Style="{StaticResource Caption}" Margin="0,5,0,0" />
+
+        <!--
+            自動検索（ユーザ判断 2026-10-06）。作者が消して出し直した商品の新しいIDを、前の商品名と手元のファイル名で探す。
+            押したときだけ BOOTH へ問い合わせる。候補を選ぶと上の欄に入って下見が出るだけで、移すのは「この内容で移す」
+        -->
+        <Grid Margin="0,14,0,0">
+            <TextBlock Text="{Binding SearchHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                       VerticalAlignment="Center" Margin="0,0,110,0" />
+            <Button Content="自動検索" HorizontalAlignment="Right" Width="100"
+                    AutomationProperties.AutomationId="ChangeItemIdSearch"
+                    Command="{Binding SearchCommand}" />
+        </Grid>
+
+        <!-- 1本ずつ間隔を空けて問い合わせるので数十秒かかることがある。何をしているかを出し、止められるようにする -->
+        <DockPanel Margin="0,10,0,0"
+                   Visibility="{Binding IsSearching, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                    VerticalAlignment="Center" AutomationProperties.AutomationId="ChangeItemIdStopSearch"
+                    AutomationProperties.Name="自動検索を中止"
+                    ToolTip="自動検索をやめます。もう一度押すとやり直せます。"
+                    Command="{Binding StopSearchCommand}" />
+            <StackPanel>
+                <TextBlock Text="{Binding SearchProgressText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="ChangeItemIdSearchProgress" />
+                <ProgressBar Height="5" Margin="0,6,0,0" Minimum="0"
+                             Maximum="{Binding SearchTotal, Mode=OneWay}"
+                             Value="{Binding SearchCurrent, Mode=OneWay}"
+                             IsIndeterminate="{Binding HasSearchTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                             Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
+            </StackPanel>
+        </DockPanel>
+
+        <controls:ContentItemsControl ItemsSource="{Binding Candidates}" Margin="0,10,0,0"
+                                      Visibility="{Binding HasCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:ReplacementRow}">
+                    <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                            Padding="10,8" Margin="0,0,0,7">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="56" Height="56" CornerRadius="4" Background="{DynamicResource SurfaceAlt}"
+                                    VerticalAlignment="Top" Margin="0,0,10,0" ClipToBounds="True">
+                                <Image Source="{Binding Image}" Stretch="UniformToFill" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap"
+                                           AutomationProperties.AutomationId="ChangeItemIdCandidateTitle" />
+                                <WrapPanel Margin="0,3,0,0">
+                                    <TextBlock Text="{Binding ShopText}" Style="{StaticResource Caption}" Margin="0,0,6,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="240"
+                                               Visibility="{Binding HasShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                            BorderThickness="1" CornerRadius="9" Padding="7,0" VerticalAlignment="Center"
+                                            ToolTip="今の商品と同じショップの商品です。"
+                                            Visibility="{Binding IsSameShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="同じショップ" FontSize="10" Foreground="{DynamicResource AccentText}"
+                                                   AutomationProperties.AutomationId="ChangeItemIdSameShop" />
+                                    </Border>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding FoundByText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                                <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                        AutomationProperties.Name="{Binding Title, StringFormat={}{0}をBOOTHで開く}"
+                                        ToolTip="この候補の商品ページをブラウザで開きます。アプリの外へ出ます。"
+                                        Command="{Binding OpenBoothCommand}" />
+                                <Button Content="これで調べる" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="ChangeItemIdUseCandidate"
+                                        AutomationProperties.Name="{Binding Title, StringFormat={}{0}で調べる}"
+                                        ToolTip="このIDを移し先の欄に入れて、何が移るかを表示します。"
+                                        Command="{Binding DataContext.UseCandidateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </controls:ContentItemsControl>
+
+        <TextBlock Text="{Binding NoCandidatesText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                   AutomationProperties.AutomationId="ChangeItemIdNoCandidates"
+                   Visibility="{Binding ShowsNoCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                    Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
