@@ -894,6 +894,14 @@ public sealed class CommandHandler
                         },
                         cancellationToken);
                 }
+                catch (Storage.BackupReadException readFailed)
+                {
+                    // 途中で読めなくなった：作りかけの zip は消してある。前の zip が在ればそのまま（上書きしていない）
+                    Diagnostics.AppLog.Error("バックアップの書き出し", readFailed);
+                    return new CommandResult.Failed(
+                        $"バックアップを書き出せませんでした。「{readFailed.RelativePath}」が途中で読めなくなりました。"
+                        + (readFailed.PreviousKept ? "前のzipはそのまま残っています。" : "zipは作っていません。"));
+                }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
                     Diagnostics.AppLog.Error("バックアップの書き出し", exception);

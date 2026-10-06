@@ -144,24 +144,38 @@ public static class StoreMover
         CancellationToken cancellationToken = default,
         Action? commit = null)
     {
-        // 運ぶ先が今の保存先の内側だと、運んだ物がまた運ぶ元に数えられ、突き合わせで必ず落ちる
-        if (IsSameOrInside(destination, source))
+        // 運ぶ先が今の保存先の内側（または別名で同じ実体）だと、運んだ物がまた運ぶ元に数えられ、
+        // 同じ実体なら失敗の片付けが元のファイルを消す。文字だけでなく実体で比べる（FolderIdentity）
+        if (FolderIdentity.IsSameOrInside(destination, source))
         {
             return Refused("選んだ場所が今の保存先の中にあります。今の保存先の外の場所を選んでください。");
         }
 
         var files = Enumerate(source).ToList();
+
+        // 運ぶ先に同じ名前の物が既にあれば始めない。上書きすると、失敗したときにその物の中身は戻せない
+        // （運ぶ先は空か、置き換えで退けた後のはず。そうでない呼び方を通さない）
+        if (files.Select(file => Path.GetRelativePath(source, file))
+                .FirstOrDefault(relative => File.Exists(Path.Combine(destination, relative))) is { } collision)
+        {
+            return Refused($"選んだ場所に同じ名前のファイルがあります：{collision}");
+        }
+
         var copied = 0;
         var bytes = 0L;
 
-        // 止めた・失敗したときに消すため、書いたファイルを控える。
-        // 運ぶ先は空か、置き換えで元の物を退けた後なので、消すのはここで書いた物だけになる
+        // 止めた・失敗したときに消すため、**ここで新しく作った**ファイルとフォルダを控える。
+        // 前から在った物は控えない（消す相手にしない）
         var written = new List<string>();
+        var createdFolders = new List<string>();
         var createdDestination = !Directory.Exists(destination);
+
+        // 元を消す前に、運んだ時から元が変わっていないかを見る（ほかの書き手が書いた入力を消さない）
+        var snapshots = new Dictionary<string, FileStamp>(StringComparer.OrdinalIgnoreCase);
 
         try
         {
-            Directory.CreateDirectory(destination);
+            CreateFolder(destination, createdFolders);
 
             foreach (var file in files)
             {
@@ -170,11 +184,23 @@ public static class StoreMover
                 var relative = Path.GetRelativePath(source, file);
                 var target = Path.Combine(destination, relative);
 
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                CreateFolder(Path.GetDirectoryName(target)!, createdFolders);
 
-                // コピーの途中で落ちると書きかけが残るので、書く前に控える
+                // 写す前の姿を控える。写した後に変わった物は、突き合わせで落とすか、元を消さずに残す
+                snapshots[file] = FileStamp.Of(file);
+
+                // コピーの途中で落ちると書きかけが残るので、書く前に控える。上書きはしない（上で無いと確かめた）
                 written.Add(target);
-                File.Copy(file, target, overwrite: true);
+                try
+                {
+                    File.Copy(file, target, overwrite: false);
+                }
+                catch (IOException exception) when ((exception.HResult & 0xFFFF) == FileExists)
+                {
+                    // 確かめた後に誰かが同じ名前で置いた。その物はこちらが作っていないので、片付けで消さない
+                    written.RemoveAt(written.Count - 1);
+                    throw;
+                }
 
                 copied++;
                 bytes += new FileInfo(file).Length;
@@ -195,13 +221,36 @@ public static class StoreMover
                 Copied = copied,
                 Bytes = bytes,
                 Error = exception is OperationCanceledException ? "中断しました。" : Services.FailureText.Cause(exception),
-                LeftoverAt = RemoveCopies(destination, written, createdDestination),
+                LeftoverAt = RemoveCopies(destination, written, createdFolders, createdDestination),
             };
         }
 
-        // 検証。1件ずつ大きさを突き合わせる。
-        // ハッシュまで取ると数GBで現実的な時間に収まらないので、件数と大きさで見る
-        if (Verify(source, destination) is { } mismatch)
+        // 突き合わせ。1件ずつ**中身まで**比べる（外部の点検 2026-10-06）。
+        // 前は在るかと大きさだけで、運んでいる間にほかの書き手が同じ大きさで書き換えた入力を見逃し、その後で元を消していた。
+        // 重さは docs/spec/architecture.md「保存先の引越し」に測った数を置く
+        string? mismatch;
+        try
+        {
+            mismatch = Verify(source, destination, snapshots, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            if (exception is not OperationCanceledException)
+            {
+                Diagnostics.AppLog.Error("保存先を運んだ後の突き合わせ", exception);
+            }
+
+            return new StoreMoveResult
+            {
+                Succeeded = false,
+                Copied = copied,
+                Bytes = bytes,
+                Error = exception is OperationCanceledException ? "中断しました。" : Services.FailureText.Cause(exception),
+                LeftoverAt = RemoveCopies(destination, written, createdFolders, createdDestination),
+            };
+        }
+
+        if (mismatch is not null)
         {
             return new StoreMoveResult
             {
@@ -209,7 +258,7 @@ public static class StoreMover
                 Copied = copied,
                 Bytes = bytes,
                 Error = $"コピーの確認に失敗しました：{mismatch}",
-                LeftoverAt = RemoveCopies(destination, written, createdDestination),
+                LeftoverAt = RemoveCopies(destination, written, createdFolders, createdDestination),
             };
         }
 
@@ -228,7 +277,7 @@ public static class StoreMover
                     Copied = copied,
                     Bytes = bytes,
                     Error = $"新しい保存先の場所を記録できませんでした。{Services.FailureText.Cause(exception)}",
-                    LeftoverAt = RemoveCopies(destination, written, createdDestination),
+                    LeftoverAt = RemoveCopies(destination, written, createdFolders, createdDestination),
                 };
             }
         }
@@ -238,7 +287,7 @@ public static class StoreMover
             Succeeded = true,
             Copied = copied,
             Bytes = bytes,
-            SourceRemoved = TryRemoveSource(source, files),
+            SourceRemoved = TryRemoveSource(source, files, snapshots),
         };
     }
 
@@ -246,10 +295,11 @@ public static class StoreMover
     /// 止めた・失敗した引越しの途中のコピーを消す（ユーザ判断 2026-10-01）。
     /// 残すと、次に同じ場所を選んだときに「既にあるライブラリ」に見え、「選んだ場所のデータを使う」で
     /// 半分しか無いライブラリへ切り替えられた（作り物の2GBで確かめた。docs/research/store-transfer-2026-10-01.md）。
-    /// 消すのは書いたファイルと、それで空になったフォルダだけ。置き換えで退けた物（_置き換え前-…）には触れない。
+    /// 消すのは**ここで作った**ファイルと、ここで作って空になったフォルダだけ。前から在った物・置き換えで退けた物（_置き換え前-…）には触れない。
     /// </summary>
     /// <returns>消しきれずに残した場所。全部消せたら null。</returns>
-    private static string? RemoveCopies(string destination, IReadOnlyList<string> written, bool createdDestination)
+    private static string? RemoveCopies(
+        string destination, IReadOnlyList<string> written, IReadOnlyList<string> createdFolders, bool createdDestination)
     {
         var allRemoved = true;
         foreach (var file in written)
@@ -264,70 +314,65 @@ public static class StoreMover
             }
         }
 
-        // 書いたファイルの親を、深い方から畳む。中に別の物があれば残る（空のときだけ消す）
-        var folders = written
-            .Select(Path.GetDirectoryName)
-            .OfType<string>()
-            .SelectMany(folder => Ancestors(folder, destination))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(folder => folder.Length);
-        foreach (var folder in folders)
+        // 作ったフォルダを深い方から畳む。中に別の物があれば残る（空のときだけ消す）
+        foreach (var folder in createdFolders.OrderByDescending(folder => folder.Length))
         {
-            TryRemoveEmptyFolder(folder);
-        }
-
-        if (createdDestination)
-        {
-            TryRemoveEmptyFolder(destination);
+            if (createdDestination || !string.Equals(folder, destination, StringComparison.OrdinalIgnoreCase))
+            {
+                TryRemoveEmptyFolder(folder);
+            }
         }
 
         return allRemoved ? null : destination;
+    }
 
-        static IEnumerable<string> Ancestors(string folder, string root)
+    /// <summary>フォルダを作り、無かった祖先を（浅い方から）控える。前から在ったフォルダは控えない。</summary>
+    internal static void CreateFolder(string folder, List<string> created)
+    {
+        var missing = new Stack<string>();
+        for (var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+             !string.IsNullOrEmpty(current) && !Directory.Exists(current);
+             current = Path.GetDirectoryName(current))
         {
-            var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-            for (var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
-                 current.Length > stop.Length && IsSameOrInside(current, stop);
-                 current = Path.GetDirectoryName(current)!)
-            {
-                yield return current;
-            }
+            missing.Push(current);
         }
 
-        static void TryRemoveEmptyFolder(string folder)
+        foreach (var path in missing)
         {
-            try
+            Directory.CreateDirectory(path);
+            created.Add(path);
+        }
+    }
+
+    private static void TryRemoveEmptyFolder(string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
             {
-                if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
-                {
-                    Directory.Delete(folder);
-                }
+                Directory.Delete(folder);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // 空のフォルダが残るだけ。ライブラリには見えないので、引越しの結果には響かない
-            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 空のフォルダが残るだけ。ライブラリには見えないので、引越しの結果には響かない
         }
     }
 
     private static StoreMoveResult Refused(string error)
         => new() { Succeeded = false, Copied = 0, Bytes = 0, Error = error };
 
-    /// <summary>置き換えで、2つの場所が重なっていれば断る理由を返す。</summary>
+    /// <summary>
+    /// 置き換えで、2つの場所が重なっていれば断る理由を返す。
+    /// 別名（ジャンクションなど）で同じ実体を指す場所も重なりと見る（<see cref="FolderIdentity"/>）——
+    /// 文字だけで見ていたので、選んだ先の中身を退ける所で今の保存先の中身ごと退けていた
+    /// </summary>
     private static string? Overlap(string source, string destination)
-        => IsSameOrInside(source, destination)
+        => FolderIdentity.IsSameOrInside(source, destination)
             ? "今の保存先が、選んだ場所の中にあります。別の場所を選んでください。"
-            : IsSameOrInside(destination, source)
+            : FolderIdentity.IsSameOrInside(destination, source)
                 ? "選んだ場所が今の保存先の中にあります。今の保存先の外の場所を選んでください。"
                 : null;
-
-    /// <summary><paramref name="path"/> が <paramref name="folder"/> そのものか、その内側か。</summary>
-    private static bool IsSameOrInside(string path, string folder)
-    {
-        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)) + Path.DirectorySeparatorChar;
-        var container = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar;
-        return full.StartsWith(container, StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// 突き合わせない物。<c>logs/</c> は運んでいる間も書き足される（ログは引越しの門を通らない——
@@ -337,11 +382,17 @@ public static class StoreMover
     private static bool IsUnverified(string relative)
         => relative.StartsWith("logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>全部揃っていれば null、足りなければその名前を返す。</summary>
-    private static string? Verify(string source, string destination)
+    /// <summary>
+    /// 全部揃っていれば null、足りない・違えばその名前を返す。
+    /// 運んだ後に元へ増えた物（列挙の後に書かれた物）は運ぶ先に無いので、ここで落ちる。
+    /// </summary>
+    private static string? Verify(
+        string source, string destination, IReadOnlyDictionary<string, FileStamp> snapshots, CancellationToken cancellationToken)
     {
         foreach (var file in Enumerate(source))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var relative = Path.GetRelativePath(source, file);
             if (IsUnverified(relative))
             {
@@ -350,26 +401,74 @@ public static class StoreMover
 
             var target = Path.Combine(destination, relative);
 
-            if (!File.Exists(target))
+            if (!File.Exists(target) || !snapshots.ContainsKey(file))
             {
                 return relative;
             }
 
-            if (new FileInfo(target).Length != new FileInfo(file).Length)
+            if (FileStamp.Of(file) != snapshots[file])
             {
-                return relative + "（大きさが違います）";
+                return relative + "（運んでいる間に書き換えられました）";
+            }
+
+            // 中身まで比べるのは画像の外（人が入れた記録・設定・改変など）。画像は大きさで見る。
+            // 書いたばかりのファイルを初めて読むのは遅く（おそらくウイルス対策の検査）、22,021ファイル・692MB の作り物で
+            // 全部を比べると 103秒、写すのは 15秒だった。画像は BOOTH から取り直せ、数で9割を占める。
+            // ほかの書き手が書いた入力は、中身を読まずに上の姿の比べで拾う
+            if (IsImage(relative)
+                    ? new FileInfo(target).Length != new FileInfo(file).Length
+                    : !SameContent(file, target))
+            {
+                return relative + "（中身が違います）";
             }
         }
 
         return null;
     }
 
+    private static bool IsImage(string relative)
+        => relative.StartsWith("images" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 中身が同じか。ハッシュを取らずに並べて比べる——両方を1回ずつ読むだけで済み、ハッシュの計算の分だけ速い。
+    /// 大きさが違えば読まずに違うと返す。
+    /// </summary>
+    internal static bool SameContent(string left, string right)
+    {
+        const int BufferSize = 1 << 20;
+
+        using var a = new FileStream(left, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.SequentialScan);
+        using var b = new FileStream(right, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.SequentialScan);
+        if (a.Length != b.Length)
+        {
+            return false;
+        }
+
+        var bufferA = new byte[Math.Min(BufferSize, Math.Max(1, a.Length))];
+        var bufferB = new byte[bufferA.Length];
+        while (true)
+        {
+            var readA = a.ReadAtLeast(bufferA, bufferA.Length, throwOnEndOfStream: false);
+            var readB = b.ReadAtLeast(bufferB, bufferB.Length, throwOnEndOfStream: false);
+            if (readA != readB || !bufferA.AsSpan(0, readA).SequenceEqual(bufferB.AsSpan(0, readB)))
+            {
+                return false;
+            }
+
+            if (readA == 0)
+            {
+                return true;
+            }
+        }
+    }
+
     /// <summary>
     /// 元を消す。運んだファイルだけを消し、空になったフォルダも畳む。
-    /// <c>app.lock</c> は実行中のこのプロセスが握っているので消せない。
-    /// 握りを放してから呼べば消えるが、消せなくても引越し自体は成立している。
+    /// **運んだ時から変わった物は消さない**（ほかの書き手が突き合わせの後に書いた入力。消すとどこにも残らない）。
+    /// <c>app.lock</c> は実行中のこのプロセスが握っているので運ばず、消さない（プロセスが閉じると OS が消す）。
     /// </summary>
-    private static bool TryRemoveSource(string source, IReadOnlyList<string> files)
+    private static bool TryRemoveSource(
+        string source, IReadOnlyList<string> files, IReadOnlyDictionary<string, FileStamp> snapshots)
     {
         var allRemoved = true;
 
@@ -377,6 +476,13 @@ public static class StoreMover
         {
             try
             {
+                var relative = Path.GetRelativePath(source, file);
+                if (!IsUnverified(relative) && snapshots.TryGetValue(file, out var stamp) && FileStamp.Of(file) != stamp)
+                {
+                    allRemoved = false;
+                    continue;
+                }
+
                 File.Delete(file);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -410,4 +516,17 @@ public static class StoreMover
             ? Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
                 .Where(file => !Skipped.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase))
             : [];
+
+    /// <summary>ERROR_FILE_EXISTS。上書きしないコピーが、同じ名前の物に当たったとき。</summary>
+    private const int FileExists = 0x50;
+
+    /// <summary>ファイルの姿（大きさと更新日時）。写した後に変わったかを、読まずに見る。</summary>
+    private readonly record struct FileStamp(long Length, DateTime LastWriteUtc)
+    {
+        public static FileStamp Of(string path)
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? new FileStamp(info.Length, info.LastWriteTimeUtc) : new FileStamp(-1, DateTime.MinValue);
+        }
+    }
 }
