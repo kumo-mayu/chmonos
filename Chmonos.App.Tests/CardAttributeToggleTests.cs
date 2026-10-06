@@ -43,7 +43,6 @@ public class CardAttributeToggleTests
 
             var info = InfoOfFirstCard(search);
             Assert.False(info.ShowAttributes);
-            Assert.Empty(info.Attributes);
             Assert.False(CardMetrics.ShowAttributes);
             Assert.Equal(CardMetrics.ImageHeight + 176 - AttributeRow, CardMetrics.Height);
         }
@@ -72,7 +71,7 @@ public class CardAttributeToggleTests
             await app.SettleAsync();
 
             Assert.False(app.Services.Settings.ShowCardAttributes);
-            Assert.Empty(InfoOfFirstCard(search).Attributes);
+            Assert.False(InfoOfFirstCard(search).ShowAttributes);
             Assert.Equal(shortHeight, CardMetrics.Height);
         }
         finally
@@ -88,7 +87,9 @@ public class CardAttributeToggleTests
         {
             var (search, _) = await OpenAsync(app);
 
-            Assert.Equal("質感 63", InfoOfFirstCard(search).AttributesLine);
+            var info = search.ListItems.First().ListInfo;
+            Assert.Equal("質感 63", info.AttributesLine);
+            Assert.True(info.HasAttribute1);
         }
         finally
         {

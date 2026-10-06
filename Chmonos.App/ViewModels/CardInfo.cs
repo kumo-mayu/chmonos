@@ -113,7 +113,10 @@ public sealed record CardInfo
     /// <summary>属性の札（付いている順。<see cref="MaxChips"/> まで）。</summary>
     public IReadOnlyList<CardAttributeChip> Attributes { get; init; } = [];
 
-    /// <summary>属性の段を描くか。切れているときは札を持たず、段の高さも畳む（<see cref="Services.CardMetrics"/> のカードの高さと対）。</summary>
+    /// <summary>
+    /// カードに属性の段を描くか。切れているときは段の高さも畳む（<see cref="Services.CardMetrics"/> のカードの高さと対）。
+    /// <see cref="Attributes"/> は切れていても持つ——リストの列の吹き出し（<see cref="HasAttribute1"/>）が同じ物を見るため
+    /// </summary>
     public bool ShowAttributes { get; init; } = true;
 
     public string? Tag1 => Tags.Count > 0 ? Tags[0] : null;
@@ -169,7 +172,7 @@ public sealed record CardInfo
         {
             Tags = tags.Take(MaxChips).ToList(),
             TagTotal = tags.Count,
-            Attributes = options.ShowAttributes ? rated.Take(MaxChips).ToList() : [],
+            Attributes = rated.Take(MaxChips).ToList(),
             ShowAttributes = options.ShowAttributes,
             MetaLine = string.Join("・", meta),
             MetaMargin = owned ? new Thickness(0, 4, 0, 0) : new Thickness(SashInset, 4, 0, 0),

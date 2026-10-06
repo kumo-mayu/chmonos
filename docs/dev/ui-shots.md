@@ -39,6 +39,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 最初に開いた（既定の条件3つ） | `search-first-open`（900） |
 | 何も当たらない | `catalog-search-no-hits`（900） |
 | 多数（2000件）・カードの札 | `card-info`・`card-info-small`・`card-info-sorted`・`card-info-chosen` |
+| 属性の札を出さない（既定。カードが22低い）・小さい幅・乗せたとき・リストの列・設定の欄 | `card-info-off`（900）・`card-info-off-small`・`card-info-off-peek`・`card-info-off-list`・`card-info-settings-off` |
 | 乗せたときの札（ViewModel で乗せた状態） | `card-info-peek`・`card-info-peek-small` |
 | カードの下の段（幅 160・200・228） | `card-badges-160`・`card-badges-200`・`card-badges-228` |
 | R-18 の名前の頭の印（カード・リスト） | `search-cards-adult`・`search-list-adult` |

@@ -127,7 +127,7 @@ public sealed class CardInfoStrip : FrameworkElement
             text.SetFontWeight(FontWeights.Bold, nameLength, chip.ValueText.Length);
             return text;
         }).ToList();
-        var attributeCount = FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, width - StarInset, ChipGap, null);
+        var attributeCount = !info.ShowAttributes ? 0 : FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, width - StarInset, ChipGap, null);
         x = 0;
         for (var i = 0; i < attributeCount; i++)
         {
@@ -234,7 +234,7 @@ public sealed class CardInfoStrip : FrameworkElement
                 parts.Add(info.TagsLine);
             }
 
-            if (info.AttributesLine.Length > 0)
+            if (info.ShowAttributes && info.AttributesLine.Length > 0)
             {
                 parts.Add(info.AttributesLine);
             }
