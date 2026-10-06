@@ -81,6 +81,12 @@ public sealed record SearchModuleState
     public IReadOnlyList<UserTagCondition> UserTags { get; init; } = [];
 
     /// <summary>
+    /// 改変のアバターごとの条件（改変だけ・ユーザ判断 2026-10-06）。アバターどうしの結び方は <see cref="MatchAll"/>。
+    /// 前は <see cref="Items"/> に「avatar:…」「mod:…」の鍵を積んでいた。その形の状態は読まない（公開前なので読み替えを作らない）。
+    /// </summary>
+    public IReadOnlyList<ModificationCondition> Modifications { get; init; } = [];
+
+    /// <summary>
     /// 当てはまる商品を**除く**か（ユーザ判断 2026-10-01・`docs/research/search-modules-2026-10-01.md`）。
     /// 除くを持たない種類（三項・最近・編集状況）では読まない。前の版で書いた状態はこの欄を持たないので、除かない姿で読まれる。
     /// </summary>
@@ -133,6 +139,14 @@ public sealed record SearchModuleState
 
             // 項目は選んだ順が結果を変えないので、並べ替えてから比べる
             text.Append(string.Join((char)0x1E, Fields.OrderBy(name => name, StringComparer.Ordinal)));
+            text.Append(Separator);
+
+            // 改変もユーザータグと同じく、足した順を並べ替えてから比べる
+            text.Append(string.Join(
+                (char)0x1E,
+                Modifications.OrderBy(group => group.Avatar, StringComparer.Ordinal).Select(group =>
+                    $"{group.Avatar}:{(group.MatchAll ? '1' : '0')}:"
+                    + string.Join((char)0x1C, group.Modifications.OrderBy(id => id, StringComparer.Ordinal)))));
             return text.ToString();
         }
     }

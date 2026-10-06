@@ -364,6 +364,9 @@ public sealed partial class SearchViewModel
                 attribute.SetNames(_attributeNames);
                 attribute.RefreshHistograms();
                 break;
+            case ModificationModule modification:
+                SetModificationSources(modification);
+                break;
             case UserTagModule userTag:
                 userTag.SetMasters(_services.Store.UserTags.Load().Tops
                     .Select(top => (top.Name, (IReadOnlyList<string>)top.Subs.Select(sub => sub.Name).ToList())));
@@ -390,7 +393,6 @@ public sealed partial class SearchViewModel
         SearchModuleKind.BoothTag => _boothTagNames.Select(name => (name, name)),
         SearchModuleKind.Shop => ShopCandidates(),
         SearchModuleKind.Avatar => AvatarCandidates(),
-        SearchModuleKind.Modification => ModificationCandidates(),
         SearchModuleKind.UnityProject => UnityProjectCandidates(),
         SearchModuleKind.Path => FolderTree.AllFolders(_allItems, _services.Volumes.Current).Select(path => (path, path)),
         _ => [],
@@ -483,52 +485,43 @@ public sealed partial class SearchViewModel
 
     private readonly Dictionary<string, Controls.SuggestInfo> _avatarSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
 
-    private readonly Dictionary<string, Controls.SuggestInfo> _modificationSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
-
     /// <summary>
-    /// 改変の候補。アバターでも選べる（そのアバターの改変すべて・ユーザ判断 R3 の「着せているアバター」）。
-    /// アバター名の呼び方・正式名でも当たる（ユーザ判断 2026-10-05。照らし方はアバターの欄と同じ <see cref="AvatarSearch"/>）
+    /// 条件「改変」に改変の一覧を入れる（2段の形・ユーザ判断 2026-10-06）。アバターの名前は登録簿の名前、呼び方・正式名でも当たる
+    /// （前の候補と同じ <see cref="AvatarSearch"/> の語）。改変を読む前は何もしない（読み終えたらまた呼ばれる）
     /// </summary>
-    private IEnumerable<(string Text, string Key)> ModificationCandidates()
+    private void SetModificationSources(ModificationModule module)
     {
         EnsureModificationsLoaded();
-        _modificationSuggestInfo.Clear();
-        var records = (_modificationUsage ?? ModificationUsage.Empty).Records;
+        if (_modificationUsage is not { } usage)
+        {
+            return;
+        }
+
         var entries = _services.Store.Avatars.Load().Entries;
         var names = AvatarNames.Map(entries);
         var entryById = entries.GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         string AvatarName(string id) => names.TryGetValue(id, out var name) ? name : id;
 
-        Controls.SuggestInfo? InfoOf(string avatarId) => entryById.TryGetValue(avatarId, out var entry)
-            ? new Controls.SuggestInfo(0, AvatarSearch.Hints(entry, AvatarName(avatarId))
-                .Select(hint => new Controls.SuggestHint(hint.Text, hint.Label)).ToList())
+        module.SetSources(
+            usage.Records,
+            AvatarName,
+            id => entryById.TryGetValue(id, out var entry)
+                ? AvatarSearch.Hints(entry, AvatarName(id)).Select(hint => hint.Text).ToList()
+                : []);
+    }
+
+    /// <summary>改変の絵（改変の写真の1枚目 → アバターの絵。改変の一覧・改変を選ぶ窓と同じ決め方）。</summary>
+    private System.Windows.Media.ImageSource? ModificationIconOf(ModificationRecord record)
+        => Core.Services.ModificationIcon.PathOf(_services.Paths, record, FindItem(record.AvatarItemId)) is { } path
+            ? _thumbnails.LoadForTile(path)
             : null;
 
-        foreach (var avatarId in records.Select(record => record.AvatarItemId).Distinct(StringComparer.Ordinal)
-            .OrderBy(AvatarName, StringComparer.CurrentCulture))
-        {
-            var text = $"{AvatarName(avatarId)}（このアバターの改変すべて）";
-            if (InfoOf(avatarId) is { } info)
-            {
-                _modificationSuggestInfo[text] = info;
-            }
-
-            yield return (text, AvatarKey + avatarId);
-        }
-
-        foreach (var record in records.OrderBy(record => AvatarName(record.AvatarItemId), StringComparer.CurrentCulture)
-            .ThenBy(record => record.Name, StringComparer.CurrentCulture))
-        {
-            var text = $"{AvatarName(record.AvatarItemId)}：{record.Name}";
-            if (InfoOf(record.AvatarItemId) is { } info)
-            {
-                _modificationSuggestInfo[text] = info;
-            }
-
-            yield return (text, ModificationKey + record.Id);
-        }
-    }
+    /// <summary>アバターの絵（持っていれば商品の1枚目、持っていなければ控えの1枚。対応アバターの候補と同じ）。</summary>
+    private System.Windows.Media.ImageSource? AvatarIconOf(string avatarItemId)
+        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId)) is { } path
+            ? _thumbnails.LoadForTile(path)
+            : null;
 
     private IEnumerable<(string Text, string Key)> UnityProjectCandidates()
     {
@@ -543,7 +536,6 @@ public sealed partial class SearchViewModel
 
     private const string AvatarKey = "avatar:";
     private const string BaseKey = "base:";
-    private const string ModificationKey = "mod:";
 
     private SearchModule CreateModule(SearchModuleKind kind) => kind switch
     {
@@ -746,15 +738,8 @@ public sealed partial class SearchViewModel
         // 取り込みの③がまだの商品は「未入力のみ」に数えない（編集画面に出てこないため・U8・U10）
         SearchModuleKind.Unedited => new UneditedModule(item => _main?.IsAwaitingDetection(item.Id) == true),
 
-        SearchModuleKind.Modification => new ListModule(kind, allowsAnd: true, "改変の名前かアバター名で絞り込む",
-            "改変がまだありません。アバターの管理から作れます。",
-            (item, context, key, _) => key.StartsWith(AvatarKey, StringComparison.Ordinal)
-                ? context.Modifications.Used(key[AvatarKey.Length..], item.Id)
-                : key.StartsWith(ModificationKey, StringComparison.Ordinal)
-                    && context.Modifications.InModification(key[ModificationKey.Length..], item.Id))
-        {
-            InfoSelector = text => _modificationSuggestInfo.GetValueOrDefault(text),
-        },
+        // アバター → 改変の2段（ユーザ判断 2026-10-06。ユーザータグと同じ形）
+        SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf),
 
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
