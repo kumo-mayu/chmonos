@@ -1617,7 +1617,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
             if (answer == Views.ChoiceDialogResult.Second)
             {
-                StoreLocation.Save(picked);
+                if (!TryRememberRoot(picked))
+                {
+                    return;
+                }
+
                 PendingRoot = picked;
                 RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
                 RaiseRootChanged();
@@ -1648,7 +1652,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
-            StoreLocation.Save(picked);
+            // 場所の書き換えは運ぶ命令が元を消す前に済ませている（書けなければ上の失敗で返る）
             RestartIntoNewRoot(
                 $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"
                 + $"元々あったものは「{replaced.ParkedAt}」に移動しました。不要なら、中身を確かめてから削除してください。\n\n"
@@ -1710,7 +1714,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
-            StoreLocation.Save(picked);
             RestartIntoNewRoot(
                 $"{result.Copied:N0} ファイルを「{picked}」へ移しました。\n\n"
                 + (result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n")
@@ -1718,12 +1721,13 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 "引っ越しました");
             return;
         }
-        else
+
+        if (!TryRememberRoot(picked))
         {
-            RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
+            return;
         }
 
-        StoreLocation.Save(picked);
+        RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
         PendingRoot = picked;
         RaiseRootChanged();
     }
@@ -1944,8 +1948,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
+            // 場所の書き換えは戻す命令の中で済ませている（書けなければ展開した物ごと取り消して上の失敗で返る）
             var files = (result as Core.Commands.CommandResult.BackupRestored)?.Files ?? 0;
-            StoreLocation.Save(destination);
             job.Dispose();
             _main.EndStoreJob(string.Empty);
             RestartIntoNewRoot(
@@ -1976,6 +1980,30 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     public bool HasPendingRoot => PendingRoot is not null;
 
     public string RootNotice { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// 次の起動で開く場所を覚える（運ばずに場所だけ変えるとき）。書けなければ窓で知らせて false。
+    /// 前は投げっぱなしで、書けない場所だと何も言わずに止まり、「次の起動から使います」とも出なかった（2026-10-06）。
+    /// 何も書けていないので、保存先は今のまま
+    /// </summary>
+    internal bool TryRememberRoot(string root)
+    {
+        try
+        {
+            StoreLocation.Save(root);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("保存先の場所を覚える", exception);
+            Services.Notice.Show(
+                $"新しい保存先の場所を記録できませんでした。\n\n{Core.Services.FailureText.Cause(exception)}\n\n保存先は今のままです。",
+                "保存先を変えられませんでした",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+            return false;
+        }
+    }
 
     private void RaiseRootChanged()
     {

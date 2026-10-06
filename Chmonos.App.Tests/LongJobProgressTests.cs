@@ -132,6 +132,14 @@ public class LongJobProgressTests
         }
 
         Assert.True(OpenSettings(main).ExportBackupCommand.CanExecute(null));
+
+        // 元の保存先はそのまま使える：画面からの書き込みが今の保存先へ届く
+        var before = File.ReadAllText(app.Services.Paths.SettingsFile);
+        var changed = await app.Services.Commands.ExecuteAsync(
+            new Chmonos.Core.Commands.UiCommand.ChangeSettings(settings => settings with { SaveImages = !settings.SaveImages }));
+        Assert.IsNotType<Chmonos.Core.Commands.CommandResult.Failed>(changed);
+        Assert.Equal(rootBefore, app.Services.Paths.Root);
+        Assert.NotEqual(before, File.ReadAllText(Path.Combine(rootBefore, "settings.json")));
     });
 
     private static SettingsViewModel OpenSettings(MainViewModel main)

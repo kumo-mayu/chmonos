@@ -907,14 +907,17 @@ public sealed class CommandHandler
                         async () =>
                         {
                             using var holdForRestore = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
+                            // 次の起動で戻した場所を開くよう、展開の中で場所を書き換える（書けなければ展開した物ごと取り消す）
                             var restored = Storage.BackupArchive.Restore(
-                                restore.ZipPath, restore.DestinationRoot, restore.Progress, cancellationToken);
+                                restore.ZipPath, restore.DestinationRoot, restore.Progress, cancellationToken,
+                                commit: () => Storage.StoreLocation.Save(restore.DestinationRoot));
                             KeepClosedUntilRestart(holdForRestore);
                             return (CommandResult)new CommandResult.BackupRestored(restored);
                         },
                         cancellationToken);
                 }
-                catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+                catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+                                                      or InvalidOperationException)
                 {
                     Diagnostics.AppLog.Error("バックアップから戻す", exception);
                     return new CommandResult.Failed($"バックアップから戻せませんでした。{Services.FailureText.Cause(exception)}");
@@ -927,9 +930,11 @@ public sealed class CommandHandler
                         // **運んでいる間は書き込みを止める**（E8）。通してしまうと、コピー済みへ書いた分は
                         // 元を消すときに消え、列挙の後に生まれたファイルは運ばれず、増えた1件で突き合わせが落ちる
                         using var holdForMove = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
+                        // 次の起動で運んだ先を開くよう、元を消す前に場所を書き換える（書けなければ運んだ物を消して元のまま）
+                        void Commit() => Storage.StoreLocation.Save(move.Destination);
                         var moved = move.Replace
-                            ? Storage.StoreMover.Replace(move.Source, move.Destination, move.Progress, cancellationToken)
-                            : Storage.StoreMover.Move(move.Source, move.Destination, move.Progress, cancellationToken);
+                            ? Storage.StoreMover.Replace(move.Source, move.Destination, move.Progress, cancellationToken, Commit)
+                            : Storage.StoreMover.Move(move.Source, move.Destination, move.Progress, cancellationToken, Commit);
                         if (moved.Succeeded)
                         {
                             KeepClosedUntilRestart(holdForMove);

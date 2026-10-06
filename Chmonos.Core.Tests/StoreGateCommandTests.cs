@@ -18,10 +18,14 @@ public sealed class StoreGateCommandTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"bam-gatecmd-{Guid.NewGuid():N}");
 
+    private readonly string? _defaultBefore = Environment.GetEnvironmentVariable(AppPaths.DefaultRootVariable);
+
     private string Root => Path.Combine(_directory, "store");
 
     public StoreGateCommandTests()
     {
+        // 運べると命令が location.json を書き換える。置き場を一時フォルダへ向けないと、守り（StoreLocation）が止めて運べない
+        Environment.SetEnvironmentVariable(AppPaths.DefaultRootVariable, Path.Combine(_directory, "default"));
         new AppPaths(Root).EnsureCreated();
         File.WriteAllText(Path.Combine(Root, "settings.json"), "{}");
     }
@@ -31,6 +35,7 @@ public sealed class StoreGateCommandTests : IDisposable
         // 試験が途中で落ちても、閉じたままの門を後の試験へ持ち越さない
         StoreWriteGate.ReopenAfterRestartForTests();
         AppLog.Use(null);
+        Environment.SetEnvironmentVariable(AppPaths.DefaultRootVariable, _defaultBefore);
 
         try
         {

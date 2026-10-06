@@ -180,12 +180,18 @@ public static class BackupArchive
     /// 空の場所へ展開する。展開先が空でなければ何もせずに投げる——混ざるのを防ぐため。
     /// zip の外へ書き出そうとする名前は飛ばす。
     /// </summary>
+    /// <param name="commit">
+    /// 展開し終えてから呼ぶ（呼び手はここで <c>location.json</c> を書き換える）。投げたら、止めた・失敗したときと同じく展開した物を消して投げ直す。
+    /// 展開の外で書き換えて失敗すると、書き込みの門を閉じたまま（開き直す前提）なのに開き直す先が無く、
+    /// 展開先にも中身が残って同じ場所へ戻し直せなかった（2026-10-06）
+    /// </param>
     /// <returns>展開したファイルの数。</returns>
     public static int Restore(
         string zipPath,
         string destinationRoot,
         IProgress<BackupProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action? commit = null)
     {
         if (!LooksLikeBackup(zipPath))
         {
@@ -202,7 +208,9 @@ public static class BackupArchive
 
         try
         {
-            return Extract();
+            var extracted = Extract();
+            commit?.Invoke();
+            return extracted;
         }
         catch
         {

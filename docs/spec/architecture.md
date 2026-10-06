@@ -142,6 +142,7 @@
   今の保存先と選んだ場所が重なる（どちらかがもう一方の内側）ときは、運ぶ前に断る（置き換えで今の保存先ごと退けてしまうため）。
   運んだ後の突き合わせ（件数と大きさ）から `logs/` は外す（ログは門を通らずに書き足され、食い違って失敗になっていた）。
   **止めた・失敗した引越しと戻すは、運ぶ先に書いた物を消す**（ユーザ判断 2026-10-01）。残すと、次に同じ場所を選んだときに既にあるライブラリに見え、半分しか無いライブラリへ切り替えられた（`docs/research/store-transfer-2026-10-01.md`）。消すのは書いた物と空になったフォルダだけで、置き換えで退けた物には触れない。消しきれなければ失敗の文に場所を書く（`StoreMoveResult.LeftoverAt`）。
+  **`location.json` の書き換えは運ぶ・戻す命令の中で、元を消す前に行う**（`StoreMover.Move` と `BackupArchive.Restore` の `commit`。2026-10-06）。書けなければ運んだ・展開した物を消し、元のまま失敗で返す（門も開く）。前は元を消してから画面が書き換えていて、書けないとデータは新しい場所にあるのに、開き直すと空の古い場所が開いた。「場所だけ変える」で書けなければ窓で知らせ、保存先は今のまま（`SettingsViewModel.TryRememberRoot`）。
 - 同時に1つしか起動しない（保存先の中のロック）。**保存先が違えば、同時に何本でも開ける。**保存先をまたぐ物は、そのつもりで作る（2026-09-30）：
   - BOOTH への問い合わせの門は PC で1つ（`BoothMachineGate`。`%LOCALAPPDATA%\Chmonos.Shared\booth-gate.txt`。`docs/spec/background-and-network.md`）。
   - 一時フォルダの置き場所は保存先ごと（`TemporaryUnpacker.UseStore`。`%TEMP%\Chmonos\unpacked-{保存先の印}`）。起動と終了の片付けは、自分の保存先の分だけを消す。
@@ -153,6 +154,8 @@
   戻すも同じ帯に「中止」を出す（止めた・失敗したときは Core が戻す先へ展開した物を消すので戻す先は空に戻り、保存先の場所は書き換えず、書き込みの門も開く。知らせは「バックアップから戻すのを中止しました。戻す先は空のままです。」。2026-10-02）。帯には進み具合の棒も出す（一時展開の帯と同じ見た目。件数が分かるまでは流れる棒、分かったら割合。`MainViewModel.ReportLongJob(text, done, total)`）。長い作業の帯は1本で、検出・候補の検索とも重ねない（`BeginLongJob` は走っている間は始めずに null を返し、畳むのは始めた本人だけ。ui-rules.md）。
 - **利用者の本当の保存先（`location.json` の指す先・既定の場所）を使えるのは、アプリ本体だけ**（2026-09-30）。`App` は、入口が自分の実行ファイルのとき（`App.IsLaunchedAsApp`）だけ `StoreLocation.AllowsUserStore` を立て、起動の処理（`OnStartup`）もそのときだけ進める。道具や試験が資源を読むために `new App()` しても、起動の処理は走らない（WPF は `Run` を呼ばなくても、コンストラクタで積んだ `OnStartup` をメッセージを回した時点で走らせる。これで道具が本番の指す先を開いて動かした）。立っていないプロセス（試験・`tools/ViewShot`・`tools/SandboxGen`・評価台）は、環境変数 `CHMONOS_HOME` の指定が無いと `StoreLocation.Resolve` が例外で止まる。
   前は指定が無ければ黙って `location.json` を読んだので、道具がアプリの一式を組む順番を誤ると本当の保存先が開き、起動時の取り込みと BOOTH への取り直しまで走った（経緯は `docs/feedback/review-2026-09-30-store-incident.md`）。
+- **`location.json` の置き場（既定の場所）は、試験と道具のときだけ環境変数 `CHMONOS_DEFAULT_HOME` で差し替えられる**（2026-10-06）。差し替えると `location.json` もそれが無いときの落ち先もそこになるので、`AllowsUserStore` が無くても `Resolve` は進む。`CHMONOS_HOME` と違い `location.json` を読むので、引越し→書き換え→開き直し（`Resolve` の呼び直し）を試験で通せる（`StoreRelocationTests`）。指定が無ければ今までどおり `%LOCALAPPDATA%\Chmonos`。
+  **本番の `location.json` を書けるのは、アプリ本体が `CHMONOS_HOME` なしで動いているときだけ**（`StoreLocation.MayWriteLocationFile`。それ以外の `Save`・`Clear` は例外で止まる）。引越しと戻すは Core の命令の中で書くので、試験や `CHMONOS_HOME` の写しが命令を通しても本番の指す先は変わらない。
 
 ## 試験とビルド
 

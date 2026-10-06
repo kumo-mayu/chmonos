@@ -40,11 +40,22 @@ public static class StoreLocation
     /// <summary>既定の保存先。<c>location.json</c> もここに置く。</summary>
     // 2026-09-14 に BoothAssetManager から改名（公式の BOOTH Library Manager と取り違えられないよう・docs/research/booth-terms.md）。
     // 公開前なので古い名前のフォルダは読み替えない。持っている人は手でフォルダ名を変える
-    public static string DefaultRoot => System.IO.Path.Combine(
+    //
+    // 環境変数 CHMONOS_DEFAULT_HOME があれば、そこを既定の場所として扱う（location.json もそこに置く）。
+    // 引越しの最後の「location.json を書き換えて開き直す」は、置き場が本番に固定だと試験で通せなかった（2026-10-06）。
+    // CHMONOS_HOME では足りない：あれは location.json を読まずに保存先を決める逃げ道で、場所を変える操作も塞ぐ。
+    // 既定の保存先ごと差し替えるのは、location.json が無い・読めないときに落ちる先も本番にしないため
+    public static string DefaultRoot => DefaultRootOverride ?? System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Chmonos");
 
     public static string LocationFile => System.IO.Path.Combine(DefaultRoot, "location.json");
+
+    /// <summary>既定の場所を差し替えている（試験・確かめの道具）ときの場所。差し替えていなければ null。</summary>
+    private static string? DefaultRootOverride
+        => Environment.GetEnvironmentVariable(AppPaths.DefaultRootVariable) is { } value && !string.IsNullOrWhiteSpace(value)
+            ? System.IO.Path.GetFullPath(value.Trim())
+            : null;
 
     /// <summary>
     /// 利用者の本当の保存先（<c>location.json</c> の指す先・既定の場所）を使ってよいプロセスか。
@@ -72,7 +83,8 @@ public static class StoreLocation
             return new StoreRoot(System.IO.Path.GetFullPath(fromEnvironment.Trim()), StoreRootSource.Environment);
         }
 
-        if (!AllowsUserStore)
+        // 既定の場所を差し替えていれば、location.json もその落ち先も本番ではないので、印が無くても進めてよい
+        if (!AllowsUserStore && DefaultRootOverride is null)
         {
             throw new InvalidOperationException(
                 "保存先が指定されていません。アプリ本体以外（試験・確かめの道具）は、環境変数 "
@@ -115,6 +127,7 @@ public static class StoreLocation
     /// <summary>保存先を覚える。既定と同じ場所なら覚えずに消す（余計なファイルを残さない）。</summary>
     public static void Save(string root)
     {
+        EnsureMayWriteLocationFile();
         var full = System.IO.Path.GetFullPath(root);
 
         if (string.Equals(full.TrimEnd(System.IO.Path.DirectorySeparatorChar),
@@ -132,6 +145,7 @@ public static class StoreLocation
 
     public static void Clear()
     {
+        EnsureMayWriteLocationFile();
         try
         {
             if (File.Exists(LocationFile))
@@ -144,6 +158,35 @@ public static class StoreLocation
             // 消せなくても動作は変わらない（次に Save で上書きされる）
         }
     }
+
+    /// <summary>
+    /// 本番の <c>location.json</c> を書いてよいかを、書く前に確かめる。だめなら例外で止める。
+    ///
+    /// 書いてよいのは、既定の場所を差し替えている（書く先が本番ではない）か、
+    /// アプリ本体（<see cref="AllowsUserStore"/>）が <c>CHMONOS_HOME</c> なしで動いているときだけ。
+    /// 引越しと戻すは、成功すると Core の命令の中で <c>location.json</c> を書く。試験がその命令を通すと、
+    /// 気を付けていなければ本番の指す先（ユーザが普段使う写し）を書き換えてしまう。読む側の守り（<see cref="Resolve"/>）と同じく、
+    /// 気を付けるのではなく止まるようにする。<c>CHMONOS_HOME</c> で動く写しは <c>location.json</c> を読まないので、書いても害しか無い
+    /// </summary>
+    private static void EnsureMayWriteLocationFile()
+    {
+        if (!MayWriteLocationFile(
+                AllowsUserStore,
+                defaultRootOverridden: DefaultRootOverride is not null,
+                rootFromEnvironment: !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(AppPaths.RootVariable))))
+        {
+            throw new InvalidOperationException(
+                "本番の location.json は、アプリ本体が " + AppPaths.RootVariable + " なしで動いているときだけ書けます。"
+                + "試験・確かめの道具は、環境変数 " + AppPaths.DefaultRootVariable + " で置き場を差し替えてください。");
+        }
+    }
+
+    /// <summary>
+    /// 書いてよいかの決まりだけを切り出したもの。試験はここを見る
+    /// （決まりを外して確かめるとき、Save を通すと本番の location.json を書いてしまうため）。
+    /// </summary>
+    internal static bool MayWriteLocationFile(bool allowsUserStore, bool defaultRootOverridden, bool rootFromEnvironment)
+        => defaultRootOverridden || (allowsUserStore && !rootFromEnvironment);
 
     /// <summary>
     /// そこに既にライブラリがあるか。

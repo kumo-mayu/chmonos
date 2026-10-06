@@ -559,7 +559,8 @@ internal static partial class Scenes
         StoreJobBand("band-restore-running", "下の帯：バックアップから戻している間（進み具合の棒と中止）", main =>
         {
             main.BeginStoreJob(StoreJobKind.Restore, "バックアップから戻しています…");
-            main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", new CancellationTokenSource());
+            main.BeginLongJob("バックアップから戻しています", "戻し終えるまで、保存は待たされます。終わったら開き直します。", new CancellationTokenSource(),
+                "戻すのをやめます。保存先は今のままです。");
             main.ReportLongJob("バックアップから戻しています… 1,234/5,678", 1_234, 5_678);
             return main.LongJobText;
         }),

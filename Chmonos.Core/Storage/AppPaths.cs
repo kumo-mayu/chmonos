@@ -14,6 +14,12 @@ public sealed class AppPaths
     public const string RootVariable = "CHMONOS_HOME";
 
     /// <summary>
+    /// 既定の場所（<c>location.json</c> の置き場と、それが無いときの保存先）を差し替える環境変数。試験と確かめの道具のためのもの。
+    /// 詳しくは <see cref="StoreLocation.DefaultRoot"/>。
+    /// </summary>
+    public const string DefaultRootVariable = "CHMONOS_DEFAULT_HOME";
+
+    /// <summary>
     /// 今回の保存先。優先順位は 環境変数 &gt; 設定した場所 &gt; 既定
     /// （<see cref="StoreLocation.Resolve"/>）。
     ///
