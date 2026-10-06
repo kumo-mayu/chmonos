@@ -75,6 +75,15 @@ if (running.Count > 0)
     return Fail("Chmonos が開いています。閉じてから、もう一度走らせてください。");
 }
 
+// **アプリと同じ多重起動の錠を、読む前から終わるまで握る**（外部の点検 2026-10-06）。
+// プロセスの一覧を1回見るだけでは、確かめの入力を待つ間にアプリを開かれると、道具が古い記録で
+// アプリの入力を上書きした。握っている間は、アプリの側が「もう開いている」として起動をやめる
+using var storeLock = SingleInstanceLock.TryAcquire(new AppPaths(root));
+if (storeLock is null)
+{
+    return Fail("Chmonos がこの保存先を開いています。閉じてから、もう一度走らせてください。");
+}
+
 // ---- 数える ----
 var scan = NullPriceFixer.Scan(root);
 Console.WriteLine();
