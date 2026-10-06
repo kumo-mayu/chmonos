@@ -1271,8 +1271,15 @@ public sealed class CommandHandler
         {
             using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.Detection);
             await avatars.RequestDetectAsync();
+
+            // 画面へ知らせる。前は何も知らせず、検索のカードや対応アバターの条件が次に読み直すまで古いまま、
+            // 開いている商品ページも組み直されなかった（2026-10-06 の確認で見つけた穴）
+            AvatarsDetectedAfterRegistration?.Invoke();
         });
     }
+
+    /// <summary>登録の後の対応アバターの判定が終わった（裏のスレッドで呼ばれる）。画面は検索の写しを読み直し、開いている商品ページへ知らせる。</summary>
+    public event Action? AvatarsDetectedAfterRegistration;
 
     private void FillUnityPackagesInBackground(string itemId)
     {

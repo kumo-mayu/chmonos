@@ -383,10 +383,16 @@ public class CommandHandlerTests
         await Task.Delay(50);
         Assert.False(avatars.Started.Task.IsCompleted);
 
+        // 判定が終わったら画面へ知らせる（検索の写しの読み直しと、開いている商品ページの「表示する」）
+        var notified = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        handler.AvatarsDetectedAfterRegistration += () => notified.TrySetResult();
+
         hold.Dispose();
         await avatars.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.False(notified.Task.IsCompleted);
         avatars.Release.SetResult();
         await avatars.Finished.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await notified.Task.WaitAsync(TimeSpan.FromSeconds(10));
     }
 
     [Fact]

@@ -268,6 +268,71 @@ public sealed partial class ItemViewModel
     /// 「この商品を使った改変」のカードに分けてある。
     /// 混ぜると「誰が言っていることなのか」が分からなくなる。
     /// </summary>
+    private ItemRecord? _detectedRecord;
+
+    /// <summary>
+    /// 開いている間に対応アバターの判定が終わり、記録の対応アバターが今の表示と違う。欄に「表示する」を出す
+    /// （ユーザ判断 2026-10-06：勝手に入れ替えると欄が伸びて下が急にずれ、打ちかけの「＋ 追加」も邪魔する）
+    /// </summary>
+    public bool HasDetectedAvatars => _detectedRecord is not null;
+
+    public string DetectedAvatarsText => "対応アバターの判定が終わりました。";
+
+    /// <summary>判定が終わった記録の対応アバターを、この欄だけ入れ替えて出す（ページ全体は組み直さず、流した位置も保つ）。</summary>
+    public RelayCommand ShowDetectedAvatarsCommand => _showDetectedAvatars ??= new RelayCommand(ShowDetectedAvatars, () => HasDetectedAvatars);
+
+    private RelayCommand? _showDetectedAvatars;
+
+    /// <summary>
+    /// 裏の判定が終わった（主画面から呼ばれる。UIスレッド）。記録を読み直し、対応アバターが変わっていれば「表示する」を出す。
+    /// 変わっていなければ、判定の日時だけを黙って入れる（「判定がまだ終わっていません」の説明を外すため）
+    /// </summary>
+    internal async Task NoteAvatarsDetectedAsync()
+    {
+        var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
+        if (reloaded is null)
+        {
+            return;
+        }
+
+        if (SameAvatars(Item.Local, reloaded.Local))
+        {
+            Item = Item with { Local = Item.Local with { AvatarsDetectedAt = reloaded.Local.AvatarsDetectedAt } };
+            OnPropertyChanged(nameof(AvatarSectionNote));
+            return;
+        }
+
+        _detectedRecord = reloaded;
+        OnPropertyChanged(nameof(HasDetectedAvatars));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    private static bool SameAvatars(LocalBlock shown, LocalBlock saved)
+        => shown.Avatars.SequenceEqual(saved.Avatars) && shown.AvatarBases.SequenceEqual(saved.AvatarBases);
+
+    private void ShowDetectedAvatars()
+    {
+        if (_detectedRecord is not { } detected)
+        {
+            return;
+        }
+
+        // 対応アバターの持ち物だけを入れ替える（ほかの欄で打ちかけている値を古い記録で上書きしない）
+        Item = Item with
+        {
+            Local = Item.Local with
+            {
+                Avatars = detected.Local.Avatars,
+                AvatarBases = detected.Local.AvatarBases,
+                AvatarsDetectedAt = detected.Local.AvatarsDetectedAt,
+            },
+        };
+        _detectedRecord = null;
+        BuildAvatars();
+        OnPropertyChanged(nameof(HasDetectedAvatars));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
     private void BuildAvatars()
     {
         // 変わっていなければ前に読んだ物（商品ページを開くたびに登録簿を読み直していた）

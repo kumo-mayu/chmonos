@@ -57,6 +57,17 @@ public sealed partial class MainViewModel : ViewModelBase
             (CurrentViewModel as IItemImagesListener)?.NoteItemImagesSaved(itemId);
         });
 
+        // 未確定から登録した後の対応アバターの判定が終わった。検索の写しは黙って読み直し（カードの「対応 n体」・条件）、
+        // 開いている商品ページは「表示する」を出す（勝手に入れ替えると欄が伸びて下が急にずれる。ユーザ判断 2026-10-06）
+        services.Commands.AvatarsDetectedAfterRegistration += () => RunOnUiThread(() =>
+        {
+            ReloadLibraryAsync().Forget();
+            if (CurrentItemPage is { } page)
+            {
+                page.NoteAvatarsDetectedAsync().Forget();
+            }
+        });
+
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
         Search.RestoreHistory();
         Search.RestoreSavedSearches();

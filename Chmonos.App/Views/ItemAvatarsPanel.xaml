@@ -42,6 +42,18 @@
                             <StackPanel>
                                 <TextBlock Text="{Binding AvatarSectionNote}" Style="{StaticResource Caption}"
                                            Margin="0,5,0,0" TextWrapping="Wrap" />
+                                <!--
+                                    開いている間に裏の判定が終わったとき。勝手に入れ替えると欄が伸びて下が急にずれるので、押したら入れ替える
+                                    （ユーザ判断 2026-10-06）
+                                -->
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                            Visibility="{Binding HasDetectedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="{Binding DetectedAvatarsText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <Button Content="表示する" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            Command="{Binding ShowDetectedAvatarsCommand}"
+                                            AutomationProperties.AutomationId="ItemShowDetectedAvatars"
+                                            ToolTip="判定した対応アバターを、この欄に出します。" />
+                                </StackPanel>
                                 <!-- 共通素体を足す・対応アバターの保存の失敗。1行ぶんの場所は常に取る -->
                                 <controls:AreaNoticeLine DataContext="{Binding AvatarsNotice}" Margin="0,2,0,0" />
 
