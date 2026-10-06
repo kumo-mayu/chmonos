@@ -191,8 +191,24 @@
                                                       ToolTip="ローカルファイルの欄を開く・折りたたむ" />
                                         <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>
-                                    <TextBlock Text="{Binding FileSummary}" Style="{StaticResource Mono}" FontSize="11"
-                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding FileSummary}" Style="{StaticResource Mono}" FontSize="11"
+                                                   VerticalAlignment="Center" />
+                                        <!--
+                                            選んだファイルをこの商品に紐付ける（ユーザ指示 2026-10-06：作者が同じ物を新しいIDで出し直すと、取り込みでは古い商品へ行く）。
+                                            見出しの隣なので動詞だけで足りる（ui-writing.md「文脈が薄くないボタンは、動詞だけで言う」）。何に足すかは吹き出しと読み上げの名前で言う。
+                                            編集画面には出さない：種類の欄に同じ名の「ファイルを追加…」（今あるファイルを種類に付ける）があり、取り違える
+                                        -->
+                                        <!-- 上下を余白へはみ出させ、見出しの帯の高さを変えない（足す前と同じ高さで、下の行が動かない） -->
+                                        <Button Content="追加…" Style="{StaticResource SmallButton}" Margin="12,-6,0,-6"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding AttachFilesCommand}"
+                                                AutomationProperties.AutomationId="ItemAttachFiles"
+                                                AutomationProperties.Name="この商品にファイルを追加"
+                                                ToolTip="選んだファイルをこの商品に紐付けます。"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Visibility="{Binding ShowsUseActions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                             <StackPanel Visibility="{Binding IsFilesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

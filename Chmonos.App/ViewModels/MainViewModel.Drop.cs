@@ -64,6 +64,10 @@ public sealed partial class MainViewModel
                 await AskImageOrItemAsync(decision.ItemId!, paths, hasBitmap, decision.ImageUrl);
                 return;
 
+            case Core.Services.DropAction.AskAttachOrImport:
+                await AskAttachOrImportAsync(paths!);
+                return;
+
             case Core.Services.DropAction.Import:
                 // 画面は移さない（点検 2026-09-23・動線の点検 A2）。前は取り込み画面へ移り、見ていた画面が勝手に替わった。
                 // 登録で画面を移さなくした（Q4）のと同じく、下の帯に進み具合と「取り込み画面を開く」を出す
@@ -192,6 +196,48 @@ public sealed partial class MainViewModel
                 return;
         }
     }
+
+    /// <summary>
+    /// 商品ページに zip などを落としたとき（ユーザ指示 2026-10-06）。
+    ///
+    /// **この商品に紐付けたいのか、いつも通り取り込みたいのかは決まらない。**作者が同じ物を新しいIDで出し直すと、
+    /// 手掛かりは古いIDを指すので、取り込むと古い商品か未確定へ行く。前はいつも取り込みに積んでいた。
+    /// 画像を落としたときの聞き方（<see cref="AskImageOrItemAsync"/>）と同じに、ボタンに何が起きるかを名乗らせる。
+    /// </summary>
+    private async Task AskAttachOrImportAsync(IReadOnlyList<string> paths)
+    {
+        if (CurrentItemPage is not { } item)
+        {
+            return;
+        }
+
+        var answer = ChoiceQuestion.Ask(AttachOrImportQuestion(item.Name, paths));
+        switch (answer)
+        {
+            case Views.ChoiceDialogResult.First:
+                await item.AttachFilesAsync(paths);
+                return;
+
+            case Views.ChoiceDialogResult.Second:
+                var startNow = _services.Settings.StartImportOnDrop;
+                Import.AddDroppedPaths(paths, startImmediately: startNow);
+                NoteImportQueued(startNow);
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>商品ページに落としたファイルを、紐付けるか取り込むかの問い。</summary>
+    internal static ChoiceRequest AttachOrImportQuestion(string itemName, IReadOnlyList<string> paths)
+        => new(
+            "ファイルを受け取りました",
+            paths.Count == 1 ? $"「{Path.GetFileName(paths[0])}」をどうしますか？" : $"{paths.Count} 件のファイルをどうしますか？",
+            $"「この商品に紐付ける」\nいま開いている「{itemName}」のファイルに加えます。\n\n"
+            + "「取り込む」\nいつもの取り込みに加えます。ファイルの情報から商品を探します。",
+            "この商品に紐付ける",
+            "取り込む");
 
     /// <summary>手元にあれば開き、無ければ登録するか尋ねる。落としたURLと同じ扱い。</summary>
     private async Task OpenOrOfferAsync(string itemId)

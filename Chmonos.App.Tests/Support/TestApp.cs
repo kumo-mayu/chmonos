@@ -124,6 +124,17 @@ internal sealed class TestApp
     /// <summary>出すはずだった、どこを探すかの窓（窓は出ない）。</summary>
     public List<MissingSearchScopeViewModel> SearchScopes { get; } = [];
 
+    /// <summary>選ぶ窓（<see cref="ChoiceQuestion"/>）への答え（窓は出ない）。既定はキャンセル——答えを決めていない問いで、書き換えが黙って走らないように</summary>
+    public Func<ChoiceRequest, Views.ChoiceDialogResult> Choose { get; set; } = _ => Views.ChoiceDialogResult.Cancel;
+
+    /// <summary>出すはずだった選ぶ窓（窓は出ない）。</summary>
+    public List<ChoiceRequest> Choices { get; } = [];
+
+    /// <summary>
+    /// 「ファイルを選ぶ」窓への答え（窓は出ない）。既定は何も選ばずに閉じた（null）。
+    /// </summary>
+    public Func<IReadOnlyList<string>?> PickAttachFiles { get; set; } = () => null;
+
     /// <summary>
     /// ログに「失敗」が残っても試験を落とさない。投げっぱなしの仕事（<c>Forget()</c>）の失敗はログにしか出ないので、
     /// 既定では残っていたら落とす。失敗する道そのものを確かめる試験だけが true にする
@@ -205,6 +216,12 @@ internal sealed class TestApp
             app.SearchScopes.Add(model);
             return app.PickSearchScope(model);
         };
+        ChoiceQuestion.Intercept = request =>
+        {
+            app.Choices.Add(request);
+            return app.Choose(request);
+        };
+        ItemViewModel.PickFilesToAttachIntercept = () => app.PickAttachFiles();
 
         // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
         // 置いた商品に「BOOTHで見つからない」の印が付いて、確かめたい物と関係なく中身が変わる
