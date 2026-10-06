@@ -39,6 +39,28 @@ public class PathEllipsisTests
     public void 区切りの無い名前は後ろを省く()
         => Assert.Equal("とても長…", Fit("とても長い名前のファイル", 5));
 
+    private static string FitHead(string path, int width) => PathEllipsis.FitHead(path, text => text.Length <= width);
+
+    [Fact]
+    public void 頭切り_収まればそのまま()
+        => Assert.Equal(@"D:\a\b", FitHead(@"D:\a\b", 20));
+
+    [Theory]
+    [InlineData(40, @"…\Shop\Assets\AnotherVeryLongFolderName")]
+    [InlineData(34, @"…\Assets\AnotherVeryLongFolderName")]
+    [InlineData(33, @"…\AnotherVeryLongFolderName")]
+    [InlineData(27, @"…\AnotherVeryLongFolderName")]
+    public void 頭切り_奥のフォルダが残るよう_区切りの単位で頭を切る(int width, string expected)
+        => Assert.Equal(expected, FitHead(@"D:\Work\Shop\Assets\AnotherVeryLongFolderName", width));
+
+    [Fact]
+    public void 頭切り_いちばん奥の名前も収まらなければ_その名前の後ろを残す()
+        => Assert.Equal("…ryLongFolderName", FitHead(@"D:\Assets\AnotherVeryLongFolderName", 17));
+
+    [Fact]
+    public void 頭切り_末尾の区切りがあっても_その前の名前を残す()
+        => Assert.Equal(@"…\Assets\Folder", FitHead(@"D:\Work\Assets\Folder\", 15));
+
     /// <summary>
     /// 省いたときの全文の吹き出しは、欄と同じ字体で出す（2026-10-01：吹き出しの既定の日本語の字体では「\」が「¥」に見えた）。
     /// </summary>

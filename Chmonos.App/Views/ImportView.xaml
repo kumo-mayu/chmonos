@@ -403,15 +403,30 @@
                                                 </Style>
                                             </Border.Style>
                                         <StackPanel>
-                                            <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
-                                                    HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
-                                                    AutomationProperties.AutomationId="ImportMissingResultItem"
-                                                    ToolTip="商品ページを開きます。" />
-                                            <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextWrapping="Wrap" Margin="0,3,0,0"
-                                                       ToolTip="{Binding PathTip}" />
-                                            <TextBlock Text="{Binding FolderText, StringFormat=新しい場所：{0}}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                                       Visibility="{Binding HasFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                            <!--
+                                                絵（3行の高さの四角）の右に、商品名・ファイル名・場所をいつも3行で出す。折り返さない：
+                                                商品名とファイル名は末尾を「…」、場所は奥のフォルダが残るように頭を「…」で切る（幅が変われば切り直す）。
+                                                全部の場所は、行に乗せると吹き出しで出す（メモ76・判断B）。高さを絵の高さに固定して、どの行も同じ高さにそろえる
+                                            -->
+                                            <Grid Height="56" ToolTip="{Binding PathTip}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Content="{Binding Picture}" Margin="0,0,10,0" />
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
+                                                            HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
+                                                            AutomationProperties.AutomationId="ImportMissingResultItem"
+                                                            ToolTip="商品ページを開きます。" />
+                                                    <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,3,0,0" />
+                                                    <DockPanel Margin="0,2,0,0" MinHeight="16">
+                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding PlaceLabel}" Style="{StaticResource Caption}" TextWrapping="NoWrap" />
+                                                        <controls:PathLine Path="{Binding PlaceText}" TrimHead="True" Style="{StaticResource Caption}" />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
                                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
                                         </Border>
@@ -432,7 +447,14 @@
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="30,0,0,0">
                                         <!-- 見つからない登録フォルダは失敗の側（ファイルの行と同じ赤の左の線） -->
                                         <Border BorderThickness="3,0,0,0" Padding="8,0,0,0" BorderBrush="{DynamicResource Bad}">
-                                        <StackPanel>
+                                        <!-- 絵は上にそろえて固定し、文と候補は下へ伸びる（メモ76・判断A。候補の数で行の高さが変わる） -->
+                                        <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <ContentPresenter Content="{Binding Picture}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                        <StackPanel Grid.Column="1">
                                             <Button Content="{Binding ItemName}" Style="{StaticResource TrimmedLinkButton}" FontSize="12.5"
                                                     HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
                                                     AutomationProperties.AutomationId="ImportMissingFolderItem"
@@ -474,7 +496,19 @@
                                                        AutomationProperties.AutomationId="ImportMissingFolderStatus"
                                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
+                                        </Grid>
                                         </Border>
+                                    </Border>
+                                </DataTemplate>
+
+                                <!-- 商品の絵の枠（3行の高さの四角）。絵が無い間・無い商品は頭文字 -->
+                                <DataTemplate DataType="{x:Type vm:ResultThumbnail}">
+                                    <Border Width="56" Height="56" CornerRadius="4" Background="{DynamicResource ThumbBack}" ClipToBounds="True">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Initial}" FontSize="18" Foreground="{DynamicResource TextMuted}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Image Source="{Binding Image}" Stretch="UniformToFill" />
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.Resources>

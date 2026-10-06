@@ -47,6 +47,9 @@ public sealed class MissingFolderRow : MissingResultLine
     /// <summary>商品名を押す（商品ページを開く。結果のファイルの行と同じ）。</summary>
     public RelayCommand? OpenItemCommand { get; set; }
 
+    /// <summary>行の左に出す商品の絵（ファイルの行と同じ。絵は上にそろえ、文と候補は下へ伸びる）。</summary>
+    public ResultThumbnail? Picture { get; set; }
+
     public string Path => Folder.Path;
 
     public string CountText => ImportViewModel.CountText(Folder.FileCount, Folder.TotalBytes);
@@ -98,6 +101,7 @@ public sealed partial class ImportViewModel
         {
             var row = new MissingFolderRow(folder);
             row.OpenItemCommand = new RelayCommand(() => OpenResultItemAsync(folder.ItemId, text => row.StatusText = text).Forget());
+            row.Picture = PictureOf(folder.ItemId, folder.ItemName);
             rows.Add(row);
         }
 
