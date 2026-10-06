@@ -121,20 +121,41 @@ public partial class App : Application
             }
         }
 
-        _services = new AppServiceContainer();
-
-        if (!_services.IsSingleInstance)
+        // **組み立ての途中で止まったら、知らせて終える**（外部の点検 2026-10-06）。設定の JSON が壊れているなどで
+        // ここが投げると、共通の受け口が知らせて「済んだ」にするだけで、窓が1つも無いままアプリが残っていた
+        MainViewModel main;
+        MainWindow mainWindow;
+        try
         {
-            Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+            _services = new AppServiceContainer();
+
+            if (!_services.IsSingleInstance)
+            {
+                Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
+            // 設定の表示の色。主の窓を作る前に当てる（作るときに色を読む）
+            ViewModels.AppTheme.Initialize(_services);
+
+            main = new MainViewModel(_services);
+            mainWindow = new MainWindow { DataContext = main };
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("起動", exception);
+            Services.Notice.Show(
+                "起動できませんでした。\n\n"
+                + Core.Services.FailureText.Cause(exception) + "\n\n"
+                + "詳しい記録は保存先のlogs\\app.logに残しました。",
+                "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
+            _services?.Dispose();
+            _services = null;
             Shutdown();
             return;
         }
 
-        // 設定の表示の色。主の窓を作る前に当てる（作るときに色を読む）
-        ViewModels.AppTheme.Initialize(_services);
-
-        var main = new MainViewModel(_services);
-        var mainWindow = new MainWindow { DataContext = main };
         ViewModels.AppTheme.Watch(mainWindow);
         ViewModels.AppTheme.HideUntilFirstFrame(mainWindow);
 

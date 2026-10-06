@@ -69,91 +69,105 @@ public sealed class AppServiceContainer : IDisposable
         _instanceLock = SingleInstanceLock.TryAcquire(Paths);
         IsSingleInstance = _instanceLock is not null;
 
-        Store = new DataStore(Paths);
-
-        // 一時展開（#56）と Unity へ送る前の取り出しの置き場所は、保存先ごと（ユーザ判断 2026-09-30）。
-        // 前は全部の保存先が1つの置き場所を使い、下の片付けが、保存先の違う別のアプリ（普段使いと確かめ用の写し）の
-        // 展開した物まで消していた。「1つ目のときだけ」の判定（二重起動の錠）は保存先ごとなので、片付ける範囲も保存先ごとにする
-        TemporaryUnpacker.UseStore(Paths.Root);
-
-        // 前回閉じたときに消し残った一時展開。二重に起動した側が消すと、
-        // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
-        if (IsSingleInstance && cleanUpTemporaryUnpacks)
+        // **組み立ての途中で失敗したら、取った錠と出口を放してから投げ直す**（外部の点検 2026-10-06）。
+        // 設定の JSON が壊れているなどで止まると、呼んだ側はこの一式を受け取れず片付けられないので、
+        // 錠を握ったまま残り、開き直すと「既に起動しています」になっていた
+        try
         {
-            new TemporaryUnpacker().CleanUp();
 
-            // 保存先ごとに分ける前の版が残した物も片付ける。今の版はそこに何も置かないので、どの保存先の起動が消してもよい
-            TemporaryUnpacker.RemoveLegacyRoot();
+            Store = new DataStore(Paths);
+
+            // 一時展開（#56）と Unity へ送る前の取り出しの置き場所は、保存先ごと（ユーザ判断 2026-09-30）。
+            // 前は全部の保存先が1つの置き場所を使い、下の片付けが、保存先の違う別のアプリ（普段使いと確かめ用の写し）の
+            // 展開した物まで消していた。「1つ目のときだけ」の判定（二重起動の錠）は保存先ごとなので、片付ける範囲も保存先ごとにする
+            TemporaryUnpacker.UseStore(Paths.Root);
+
+            // 前回閉じたときに消し残った一時展開。二重に起動した側が消すと、
+            // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
+            if (IsSingleInstance && cleanUpTemporaryUnpacks)
+            {
+                new TemporaryUnpacker().CleanUp();
+
+                // 保存先ごとに分ける前の版が残した物も片付ける。今の版はそこに何も置かないので、どの保存先の起動が消してもよい
+                TemporaryUnpacker.RemoveLegacyRoot();
+            }
+            // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
+            SettingsStore = new SettingsService(Store);
+
+            // 自動の転送を切った出口で組む（転送先への問い合わせも門を通すため）。期限は BoothClient が本文の受信まで持つ
+            _httpClient = BoothClient.CreateHttpClient(http);
+            // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても
+            // 起動し直すまで効かなかった（画像の長辺・画質・取得の間隔など。SettingsSource に理由）
+            Client = new BoothClient(_httpClient, () => Settings, boothDelay);
+            Images = new ImagePipeline(Client, Paths, () => Settings);
+
+            // 検出は梯子の③なので、取り込みより先に組み立てる
+            Avatars = new AvatarService(Store, () => Settings, Client);
+
+            // unitypackage の中身は取り込みの裏で1度だけ読み、ハッシュごとの控えに置く（2026-09-13 ユーザ判断）。
+            // 商品ページや改変の画面は zip を解く前に控えを見る
+            var unityPackagePaths = new UnityPackagePathStore(Paths);
+            UnityHandoff.UsePathStore(unityPackagePaths);
+            UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths);
+
+            // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）
+            Volumes = new VolumeTable(Store, new Services.VolumeReader());
+            // 見つからなくなった日時の見回りは、取り込みと起動時の見回りで1つを分け合う（1本ずつ回して重ならないように。ユーザ判断 2026-10-05）
+            // 控えた文字に別のディスクが来ている間は、その上を「つながっていない」と同じに扱う（2026-10-05・点検の2）
+            MissingMarks = new MissingMarksSweep(Store, volumes: Volumes);
+            Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes, MissingMarks);
+            Items = new ItemService(Store, Client, Images, () => Settings);
+            Backlog = new ImageBacklog(Store, Images);
+            AvatarImages = new AvatarImageSync(Store, Client, Images);
+            Watch = new FolderWatch(Store);
+
+            // 辞書は実行ファイルの隣に配られる。索引は最初に必要になったときだけ組む
+            Bridge = new SearchBridge(new JapaneseDictionary(
+                Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
+                Paths.SearchBridgeCacheFile));
+
+            // 辞書に載っていない造語の読みは、漢字1字ごとの音訓から組み立てる。
+            // 字の表は控えから読む（gz の XML から組むと 0.3秒・19.5MB、控えなら 14ms・4.1MB。2026-09-24 の実測）
+            KanjiReadings = kanjiReadings ?? new KanjiReadings(
+                Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"),
+                Paths.KanjiReadingsCacheFile);
+
+            // 検索の「名前」「ショップ」の並べ替えの鍵（名前の読み）。名前ごとに1度だけ作って控える
+            NameOrder = new Core.Services.NameCollation(KanjiReadings);
+            Due = new DueRefresh(Store, Items);
+            // 登録簿を渡すと、ファイル名の中のアバターの名前を検索語から外す（「商品名_アバター名」で AND 検索が0件になっていた。
+            // 2026-09-29 の再調整で最も効いた分）。押すたびに読み直すので、検出で登録簿が増えればそのまま効く
+            Resolver = new FallbackResolver(Client, Bridge, KanjiReadings, () => Store.Avatars.Load());
+            Edit = new EditService(Store);
+            Notifications = new NotificationService(Store, () => Settings);
+            UserTags = new UserTagService(Store);
+            Attributes = new AttributeService(Store);
+            Shops = new ShopService(Store, () => Settings, Client);
+            Stats = new StatsService(Store);
+            Recent = new Services.RecentTracker(Store, BackgroundWrites);
+            Modifications = new ModificationService(Store, Images);
+            Commands = new CommandHandler(
+                Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin, UnpackedFolderRemover.RegisteredFoldersIn(Store)), Resolver, Notifications, UserTags, Attributes,
+                Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles, Store.ShopNotes,
+                new MissingFileFinder(Store, Volumes), Volumes, Store.ImportState, new BrokenItemRepair(Store, Items, Notifications))
+            {
+                RegistrationQueue = Store.RegistrationQueue,
+                PendingOperations = Store.PendingOperations,
+            };
+
+            // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）
+            YouTube = new Services.YouTubeInfo(Store.VideoTitles, Commands);
+
+            // ドラッグで変えた画面の幅（ユーザ判断 2026-09-14）。書くのは UiCommand.ChangeUiState
+            PaneWidths = new Services.PaneWidths(SettingsStore, Commands);
         }
-        // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
-        SettingsStore = new SettingsService(Store);
-
-        // 自動の転送を切った出口で組む（転送先への問い合わせも門を通すため）。期限は BoothClient が本文の受信まで持つ
-        _httpClient = BoothClient.CreateHttpClient(http);
-        // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても
-        // 起動し直すまで効かなかった（画像の長辺・画質・取得の間隔など。SettingsSource に理由）
-        Client = new BoothClient(_httpClient, () => Settings, boothDelay);
-        Images = new ImagePipeline(Client, Paths, () => Settings);
-
-        // 検出は梯子の③なので、取り込みより先に組み立てる
-        Avatars = new AvatarService(Store, () => Settings, Client);
-
-        // unitypackage の中身は取り込みの裏で1度だけ読み、ハッシュごとの控えに置く（2026-09-13 ユーザ判断）。
-        // 商品ページや改変の画面は zip を解く前に控えを見る
-        var unityPackagePaths = new UnityPackagePathStore(Paths);
-        UnityHandoff.UsePathStore(unityPackagePaths);
-        UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths);
-
-        // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）
-        Volumes = new VolumeTable(Store, new Services.VolumeReader());
-        // 見つからなくなった日時の見回りは、取り込みと起動時の見回りで1つを分け合う（1本ずつ回して重ならないように。ユーザ判断 2026-10-05）
-        // 控えた文字に別のディスクが来ている間は、その上を「つながっていない」と同じに扱う（2026-10-05・点検の2）
-        MissingMarks = new MissingMarksSweep(Store, volumes: Volumes);
-        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes, MissingMarks);
-        Items = new ItemService(Store, Client, Images, () => Settings);
-        Backlog = new ImageBacklog(Store, Images);
-        AvatarImages = new AvatarImageSync(Store, Client, Images);
-        Watch = new FolderWatch(Store);
-
-        // 辞書は実行ファイルの隣に配られる。索引は最初に必要になったときだけ組む
-        Bridge = new SearchBridge(new JapaneseDictionary(
-            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
-            Paths.SearchBridgeCacheFile));
-
-        // 辞書に載っていない造語の読みは、漢字1字ごとの音訓から組み立てる。
-        // 字の表は控えから読む（gz の XML から組むと 0.3秒・19.5MB、控えなら 14ms・4.1MB。2026-09-24 の実測）
-        KanjiReadings = kanjiReadings ?? new KanjiReadings(
-            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"),
-            Paths.KanjiReadingsCacheFile);
-
-        // 検索の「名前」「ショップ」の並べ替えの鍵（名前の読み）。名前ごとに1度だけ作って控える
-        NameOrder = new Core.Services.NameCollation(KanjiReadings);
-        Due = new DueRefresh(Store, Items);
-        // 登録簿を渡すと、ファイル名の中のアバターの名前を検索語から外す（「商品名_アバター名」で AND 検索が0件になっていた。
-        // 2026-09-29 の再調整で最も効いた分）。押すたびに読み直すので、検出で登録簿が増えればそのまま効く
-        Resolver = new FallbackResolver(Client, Bridge, KanjiReadings, () => Store.Avatars.Load());
-        Edit = new EditService(Store);
-        Notifications = new NotificationService(Store, () => Settings);
-        UserTags = new UserTagService(Store);
-        Attributes = new AttributeService(Store);
-        Shops = new ShopService(Store, () => Settings, Client);
-        Stats = new StatsService(Store);
-        Recent = new Services.RecentTracker(Store, BackgroundWrites);
-        Modifications = new ModificationService(Store, Images);
-        Commands = new CommandHandler(
-            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin, UnpackedFolderRemover.RegisteredFoldersIn(Store)), Resolver, Notifications, UserTags, Attributes,
-            Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles, Store.ShopNotes,
-            new MissingFileFinder(Store, Volumes), Volumes, Store.ImportState, new BrokenItemRepair(Store, Items, Notifications))
+        catch
         {
-            RegistrationQueue = Store.RegistrationQueue,
-            PendingOperations = Store.PendingOperations,
-        };
-
-        // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）
-        YouTube = new Services.YouTubeInfo(Store.VideoTitles, Commands);
-
-        // ドラッグで変えた画面の幅（ユーザ判断 2026-09-14）。書くのは UiCommand.ChangeUiState
-        PaneWidths = new Services.PaneWidths(SettingsStore, Commands);
+            _httpClient?.Dispose();
+            _instanceLock?.Dispose();
+            _instanceLock = null;
+            throw;
+        }
     }
 
     /// <summary>
