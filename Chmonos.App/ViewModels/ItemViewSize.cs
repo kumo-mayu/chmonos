@@ -51,6 +51,7 @@ public sealed class ItemViewSize : ViewModelBase
         if (services is not null)
         {
             CardMetrics.Apply(settings.CardWidth);
+            CardMetrics.ApplyShowAttributes(settings.ShowCardAttributes);
             _save = new Debounced(SaveDelay, SaveAsync);
         }
     }

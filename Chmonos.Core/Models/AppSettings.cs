@@ -10,6 +10,13 @@ public sealed record AppSettings
 
     public bool ShowSubTagsInList { get; init; }
 
+    /// <summary>
+    /// 商品カードに属性の札の段を出すか（ユーザ判断 2026-10-06）。**既定は出さない**——既定のカードが縦に長い印象があり、
+    /// 出さないとその段のぶんカードの縦幅が縮む。リストの「属性」の列と、乗せたときの重ねの属性の棒は、この設定では消さない。
+    /// どの属性を出すかの <see cref="CardAttributes"/> はこれと独立に覚える（切っても選んだ属性は消えない）
+    /// </summary>
+    public bool ShowCardAttributes { get; init; }
+
     /// <summary>R-18を表示するか。オフのときは検索・ショップ件数から除くが、統計の金額には含める。</summary>
     public bool ShowAdult { get; init; } = true;
 

@@ -101,6 +101,7 @@ public sealed partial class SettingsViewModel
     private void ApplyFields(AppSettings settings)
     {
         _showSubTagsInList = settings.ShowSubTagsInList;
+        _showCardAttributes = settings.ShowCardAttributes;
         _showAdult = settings.ShowAdult;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;

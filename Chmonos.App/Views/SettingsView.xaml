@@ -170,10 +170,27 @@
                             <CheckBox Content="一覧のカードに小分類のタグも表示" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
                             <!--
+                                カードに属性の札の段を出すか（ユーザ判断 2026-10-06）。既定は出さず、切るとカードの縦幅も縮む。
+                                リストの「属性」の列と、乗せたときの重ねは消さない。下の「カードに表示する属性」は、出すときだけ押せる
+                            -->
+                            <CheckBox Content="一覧のカードに属性の札を表示" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.ShowCardAttributes"
+                                      ToolTip="切ると、カードの高さが札の1段ぶん低くなります。リストの列と、カードに乗せたときの棒は残ります。"
+                                      IsChecked="{Binding ShowCardAttributes, Mode=TwoWay}" />
+                            <!--
                                 カードの札とリストの「属性」の列に出す属性（ユーザ判断 2026-10-04：設定で選ぶ。既定は属性の管理の並びの上から）。
                                 候補を全部並べてチェックさせる形にはしない（属性の数だけ縦に伸びる）。候補付きの欄から1つずつ足し、札の × で外す
                             -->
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding CardAttributesEnabled}">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.5" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
                                 <TextBlock Text="カードに表示する属性" Style="{StaticResource RowLabel}" Width="220" VerticalAlignment="Top" Margin="0,5,0,0" />
                                 <StackPanel>
                                     <controls:ContentItemsControl ItemsSource="{Binding CardAttributes}" Focusable="False" MaxWidth="460" HorizontalAlignment="Left"
