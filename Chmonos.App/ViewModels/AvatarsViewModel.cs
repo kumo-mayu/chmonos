@@ -494,7 +494,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         ShowItemsCommand = new RelayCommand(ShowItems);
         CreateModificationCommand = new RelayCommand(
             () => CreateModificationAsync().Forget(),
-            () => Selected is not null && ModificationNameInput.Trim().Length > 0);
+            () => !_creatingModification && Selected is not null && ModificationNameInput.Trim().Length > 0);
         // 改変の行（絵・名前）と使ったものの行は、どれも改変に入るだけ。ここには右のビューが無い（ユーザ判断 2026-09-17）
         OpenModificationCommand = new RelayCommand(
             parameter =>
@@ -649,13 +649,32 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         OnPropertyChanged(nameof(HasModifications));
     }
 
+    private bool _creatingModification;
+
     private async Task CreateModificationAsync()
     {
-        if (Selected is not { } row)
+        if (_creatingModification || Selected is not { } row)
         {
             return;
         }
 
+        // **作っている間は押せない**（外部の点検 2026-10-06）。同じ名前の確かめと保存を待つ間に2回目が入ると、
+        // 両方が「まだ無い」と判断して、同じアバター・同じ名前の改変が2つできた。印は最初の待ちより前に立てる
+        _creatingModification = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        try
+        {
+            await CreateModificationCoreAsync(row);
+        }
+        finally
+        {
+            _creatingModification = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private async Task CreateModificationCoreAsync(AvatarRowViewModel row)
+    {
         var name = ModificationNameInput.Trim();
 
         // **同じ名前を許すが、黙って2つ並べない。**

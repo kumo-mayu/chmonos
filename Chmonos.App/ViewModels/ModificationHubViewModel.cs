@@ -110,7 +110,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         });
         CreateModificationCommand = new RelayCommand(
             () => CreateModificationAsync().Forget(),
-            () => Detail is HubAvatarDetail avatar && avatar.NameInput.Trim().Length > 0);
+            () => !_creatingModification && Detail is HubAvatarDetail avatar && avatar.NameInput.Trim().Length > 0);
         OpenItemPageCommand = new RelayCommand(parameter => OpenItemPageAsync(parameter as string).Forget());
 
         LoadAsync().Forget();
@@ -787,12 +787,32 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     // ---- 作る・開く ----
 
+    private bool _creatingModification;
+
     private async Task CreateModificationAsync()
     {
-        if (Detail is not HubAvatarDetail avatar)
+        if (_creatingModification || Detail is not HubAvatarDetail avatar)
         {
             return;
         }
+
+        // **作っている間は押せない**（外部の点検 2026-10-06）。同じ名前の確かめと保存を待つ間に2回目が入ると、
+        // 両方が「まだ無い」と判断して、同じアバター・同じ名前の改変が2つできた。印は最初の待ちより前に立てる
+        _creatingModification = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        try
+        {
+            await CreateModificationCoreAsync(avatar);
+        }
+        finally
+        {
+            _creatingModification = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private async Task CreateModificationCoreAsync(HubAvatarDetail avatar)
+    {
 
         var name = avatar.NameInput.Trim();
         if (name.Length == 0)

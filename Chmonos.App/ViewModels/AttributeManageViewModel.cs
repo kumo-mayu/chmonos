@@ -1102,32 +1102,46 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// 改名。既にある名前を指すと統合になる。
     /// 統合では両方に値が入っているitemが出るので、そのときだけどちらを残すか聞く。
     /// </summary>
-    private async Task RenameAsync(string? newName)
+    /// <summary>試験の口：統合の件数を数える処理を差し替える（数えている間に選び直す場面を作る）。</summary>
+    internal Func<string, string, Task<AttributeMergePreview>>? PreviewMergeForTest { get; set; }
+
+    /// <summary>試験の口：統合の窓に答える（窓を出すと答える人がいないので止まる）。true で統合する。</summary>
+    internal static Func<MergeAttributeDialogViewModel, bool>? MergeDialogIntercept { get; set; }
+
+    internal async Task RenameAsync(string? newName)
     {
         var target = newName?.Trim();
-        if (Selected is null || string.IsNullOrEmpty(target)
-            || string.Equals(target, Selected.Name, StringComparison.Ordinal))
+        if (Selected is not { } source || string.IsNullOrEmpty(target)
+            || string.Equals(target, source.Name, StringComparison.Ordinal))
         {
             return;
         }
 
+        // **始めた時の属性に固定する**（外部の点検 2026-10-06）。統合の件数を数える間（商品を全部読む）に一覧で別の属性を
+        // 選び直せるので、待った後に Selected を読み直すと、数えた属性とは別の属性を統合し、その評価値を失っていた
+        var sourceName = source.Name;
         var merging = _all.Any(row => string.Equals(row.Name, target, StringComparison.CurrentCultureIgnoreCase));
         var keep = AttributeMergeValue.KeepTarget;
 
         if (merging)
         {
-            var preview = await _services.Attributes.PreviewMergeAsync(Selected.Name, target);
-            var dialog = new Views.MergeAttributeDialog(
-                new MergeAttributeDialogViewModel(Selected.Name, target, preview));
+            var preview = await (PreviewMergeForTest ?? ((from, to) => _services.Attributes.PreviewMergeAsync(from, to)))(sourceName, target);
 
-            if (dialog.ShowDialog() != true)
+            // 待った間に選び直していたら、数えた件数が今の選択と合わないので、窓を出さずにやめる（もう一度押せば今の選択で数え直す）
+            if (!ReferenceEquals(Selected, source))
             {
                 return;
             }
 
-            keep = ((MergeAttributeDialogViewModel)dialog.DataContext).Keep;
+            var mergeModel = new MergeAttributeDialogViewModel(sourceName, target, preview);
+            if (!(MergeDialogIntercept?.Invoke(mergeModel) ?? new Views.MergeAttributeDialog(mergeModel).ShowDialog() == true))
+            {
+                return;
+            }
 
-            if (!ConfirmMerge(Selected.Name, target, preview, keep))
+            keep = mergeModel.Keep;
+
+            if (!ConfirmMerge(sourceName, target, preview, keep))
             {
                 return;
             }
@@ -1136,7 +1150,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         // 名前を変えただけなら名前の近く。統合は片方の行が消えるので、一覧の見出しの近く
         var notice = merging ? ListNotice : NameNotice;
         var result = await RewriteAttributesAsync(
-            new UiCommand.RenameAttribute(Selected.Name, target, keep), "名前を変更できませんでした。", notice);
+            new UiCommand.RenameAttribute(sourceName, target, keep), "名前を変更できませんでした。", notice);
 
         string? done = null;
         if (result is CommandResult.AttributesRewritten rewritten)

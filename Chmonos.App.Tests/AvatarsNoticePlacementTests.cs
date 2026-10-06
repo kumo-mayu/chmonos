@@ -195,6 +195,32 @@ public sealed class AvatarsNoticePlacementTests
         Assert.Equal(string.Empty, avatars.ModificationNote.Text);
     });
 
+    /// <summary>
+    /// 「改変を作る」を素早く2回押しても、改変は1つだけできる（外部の点検 2026-10-06）。
+    /// 前は作業中の印が無く、同じ名前の確かめと保存を待つ間に2回目が入り、両方が「まだ無い」と判断して2つできた
+    /// </summary>
+    [Fact]
+    public Task 改変を作るを素早く2回押しても_改変は1つだけできる() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.Selected = avatars.Rows.Single(row => row.ItemId == AvatarId);
+
+        avatars.ModificationNameInput = "普段着";
+
+        // 書き込みの門を握って1回目を保存の手前で止め、その間に2回目を押す
+        using (await Chmonos.Core.Storage.StoreWriteGate.HoldAsync())
+        {
+            avatars.CreateModificationCommand.Execute(null);
+            Assert.False(avatars.CreateModificationCommand.CanExecute(null));
+            avatars.CreateModificationCommand.Execute(null);
+        }
+
+        await app.SettleAsync();
+
+        Assert.Single((await app.Store.Modifications.LoadAllAsync()).Modifications, modification => modification.Name == "普段着");
+        Assert.True(avatars.CreateModificationCommand.CanExecute(null) || avatars.ModificationNameInput.Length == 0);
+    });
+
     [Fact]
     public Task メモを保存できたときは何も出さない() => TestApp.Run(async app =>
     {

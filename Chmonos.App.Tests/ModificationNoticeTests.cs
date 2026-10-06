@@ -114,4 +114,31 @@ public class ModificationNoticeTests
         hub.ShowAvatarCommand.Execute("1000009");
         Assert.Equal(string.Empty, Assert.IsType<HubAvatarDetail>(hub.Detail).Notice.Text);
     });
+
+    /// <summary>
+    /// 改変の画面で「改変を作る」を素早く2回押しても、改変は1つだけできる（外部の点検 2026-10-06。アバターの管理と同じ）
+    /// </summary>
+    [Fact]
+    public Task 改変の画面で改変を作るを素早く2回押しても_改変は1つだけできる() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("1000001", "作り物のアバター"));
+        var main = await app.StartAsync();
+        main.ShowModificationsCommand.Execute(null);
+        await app.SettleAsync();
+        var hub = Assert.IsType<ModificationHubViewModel>(main.CurrentViewModel);
+        hub.StartCreateCommand.Execute("1000001");
+        Assert.IsType<HubAvatarDetail>(hub.Detail).NameInput = "冬の改変";
+
+        // 書き込みの門を握って1回目を保存の手前で止め、その間に2回目を押す
+        using (await Chmonos.Core.Storage.StoreWriteGate.HoldAsync())
+        {
+            hub.CreateModificationCommand.Execute(null);
+            Assert.False(hub.CreateModificationCommand.CanExecute(null));
+            hub.CreateModificationCommand.Execute(null);
+        }
+
+        await app.SettleAsync();
+
+        Assert.Single((await app.Store.Modifications.LoadAllAsync()).Modifications, modification => modification.Name == "冬の改変");
+    });
 }
