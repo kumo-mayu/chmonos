@@ -161,15 +161,25 @@ public static class UnityProjects
                 continue;
             }
 
+            // 版の形でなければ版の分からないプロジェクトと同じに扱う。版はエディタの場所の名前
+            // （Hub の置き場所\{版}\Editor\Unity.exe）と Hub へのリンクになるので、区切りや .. を含む値を通すと
+            // 指定外の実行ファイルを選べた（2026-10-06 外部の点検・L106）
             var value = trimmed[key.Length..].Trim();
-            if (value.Length > 0)
-            {
-                return value;
-            }
+            return IsEditorVersion(value) ? value : null;
         }
 
         return null;
     }
+
+    // Unity の版の形：年（か 6000 のような大きい番号）.小.修正 と、種別（a 開発・b 試験・f 正式・p 修正・x 試作）の番号。
+    // 中国版は後ろに c と番号が付く（2022.3.22f1c1）。例 2022.3.22f1・6000.0.23f1・5.6.7f1
+    private static readonly System.Text.RegularExpressions.Regex EditorVersionPattern = new(
+        @"\A[0-9]{1,4}\.[0-9]{1,3}\.[0-9]{1,3}[abfpx][0-9]{1,3}(?:c[0-9]{1,3})?\z",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>Unity の版の形か（<c>2022.3.22f1</c>）。版から場所やリンクを組む前に見る。</summary>
+    public static bool IsEditorVersion([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] string? version)
+        => version is not null && EditorVersionPattern.IsMatch(version);
 
     /// <summary>
     /// いま開いているか。

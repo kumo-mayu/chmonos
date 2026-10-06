@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Chmonos.Core.Models;
 
@@ -36,13 +37,13 @@ public static class StoreIds
         RegexOptions.CultureInvariant);
 
     /// <summary>商品ID（BOOTH の番号か仮ID）の形か。持っていないアバターの ID も同じ形。</summary>
-    public static bool IsItemId(string? id) => id is not null && ItemIdPattern.IsMatch(id);
+    public static bool IsItemId([NotNullWhen(true)] string? id) => id is not null && ItemIdPattern.IsMatch(id);
 
     /// <summary>改変ID の形か。</summary>
-    public static bool IsModificationId(string? id) => id is not null && ModificationIdPattern.IsMatch(id);
+    public static bool IsModificationId([NotNullWhen(true)] string? id) => id is not null && ModificationIdPattern.IsMatch(id);
 
     /// <summary>unitypackage の控えの鍵（zip のハッシュ）の形か。</summary>
-    public static bool IsPackageHash(string? hash) => hash is not null && PackageHashPattern.IsMatch(hash);
+    public static bool IsPackageHash([NotNullWhen(true)] string? hash) => hash is not null && PackageHashPattern.IsMatch(hash);
 
     /// <summary>商品ID の形でなければ投げる。場所を組む前に呼ぶ（<see cref="AppPaths"/>）。</summary>
     public static string RequireItemId(string? id)

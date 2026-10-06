@@ -101,7 +101,8 @@ public static class UnityLaunch
     /// <summary>そのバージョンのエディタの実行ファイル。無ければ null（そのときは Hub に渡す）。</summary>
     public static string? FindEditor(string? version)
     {
-        if (string.IsNullOrWhiteSpace(version))
+        // 版は場所の名前になる。形の外れた版（区切り・..・ドライブ名を含む）では探さない
+        if (!UnityProjects.IsEditorVersion(version))
         {
             return null;
         }
@@ -132,9 +133,14 @@ public static class UnityLaunch
     /// </summary>
     internal static IEnumerable<(string Source, string Path)> EditorCandidates(string version)
     {
-        foreach (var root in EditorRoots())
+        if (!UnityProjects.IsEditorVersion(version))
         {
-            yield return ("Hubの置き場所", Path.Combine(root, version, "Editor", "Unity.exe"));
+            yield break;
+        }
+
+        foreach (var exe in HubEditorCandidates(EditorRoots(), version))
+        {
+            yield return ("Hubの置き場所", exe);
         }
 
         foreach (var file in new[] { "editors-v2.json", "editors.json" })
@@ -182,6 +188,32 @@ public static class UnityLaunch
             yield return (".unitypackageの関連付け", associated);
         }
     }
+
+    /// <summary>
+    /// Hub の置き場所の中の、その版のエディタ（<c>{置き場所}\{版}\Editor\Unity.exe</c>）。
+    /// 版は ProjectVersion.txt（プロジェクトの中のファイル）や一覧から来るので、**形を見て、組んだ場所が置き場所の中に収まる物だけ**を出す。
+    /// 前は版をそのまま Path.Combine に渡していたので、版に <c>..</c> や絶対パスを書くと指定外の実行ファイルを選べた
+    /// </summary>
+    internal static IEnumerable<string> HubEditorCandidates(IEnumerable<string> roots, string? version)
+    {
+        if (!UnityProjects.IsEditorVersion(version))
+        {
+            yield break;
+        }
+
+        foreach (var root in roots)
+        {
+            var exe = Path.Combine(root, version!, "Editor", "Unity.exe");
+            if (Core.Storage.StoreIds.IsInside(exe, root))
+            {
+                yield return exe;
+            }
+        }
+    }
+
+    /// <summary>Hub へ渡すリンク。版の形でなければ版を添えない（リンクの中へ区切りや別の指定を混ぜない）。</summary>
+    internal static string HubLink(string? version)
+        => UnityProjects.IsEditorVersion(version) ? $"unityhub://{version}" : "unityhub://";
 
     /// <summary>起動中のエディタの実行ファイル。窓を持たない裏の Unity.exe（取り込みの作業用）も同じ実行ファイルなので区別しない。</summary>
     private static IReadOnlyList<string> RunningEditorPaths()
@@ -333,6 +365,7 @@ public static class UnityLaunch
         {
             if (File.Exists(versionFile))
             {
+                // 形の外れた版は読めなかったのと同じ（VersionFromProjectVersionText が null を返す）
                 wanted = UnityProjects.VersionFromProjectVersionText(File.ReadAllText(versionFile))
                     ?? version;
             }
@@ -362,8 +395,8 @@ public static class UnityLaunch
             return UnityOpenResult.NoEditorNoHub;
         }
 
-        var hasVersion = !string.IsNullOrWhiteSpace(wanted);
-        var link = hasVersion ? $"unityhub://{wanted}" : "unityhub://";
+        var hasVersion = UnityProjects.IsEditorVersion(wanted);
+        var link = HubLink(wanted);
         return !Start(new ProcessStartInfo(link) { UseShellExecute = true })
             ? UnityOpenResult.Failed
             : hasVersion ? UnityOpenResult.HandedToHub : UnityOpenResult.HandedToHubWithoutVersion;
