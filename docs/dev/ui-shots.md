@@ -113,6 +113,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 取り込み：「探す」の窓と候補 | F3 の担当が足す |
 | 未確定：空 | `empty-resolve`（900） |
 | 未確定：一覧（壊れたzip・束・行の札・順番待ち） | `resolve-broken-zip`（900）・`resolve-row-badges`・`resolve-bundles`・`resolve-queue` |
+| 未確定：聞き直して公開されていた後（画像の枠が残る） | `resolve-not-on-booth-overturned` |
 | 未確定：右の欄（1件・束・元zip無し・フォルダ・チェック3件・画像・中身7万件） | `resolve-target-*`・`resolve-unpacked-folder`・`resolve-checked-local`・`resolve-many-contents` |
 | 未確定：登録している最中（残りの件数と目安の時間） | `resolve-registering-eta` |
 

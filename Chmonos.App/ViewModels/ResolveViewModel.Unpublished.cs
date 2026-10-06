@@ -54,6 +54,19 @@ public sealed partial class ResolveViewModel
     /// </summary>
     private string? _overturnedItemId;
 
+    /// <summary>
+    /// 聞き直して公開されていたIDの「このIDで登録」に、添えた画像の枠を出し続けるか（ユーザ判断 2026-10-06）。
+    /// 前は枠が消え、画像は一緒に入るのに外せなかった。はじめからふつうの登録の行（印が無い）には出さない。
+    /// 全部外しても枠（＋）は残す：未確定の他の枠と同じく、足し直せると分かるように
+    /// </summary>
+    public bool ShowsOverturnedImages
+        => _overturnedItemId is not null && Preview is { IsAlreadyOwned: false } preview && preview.Id == _overturnedItemId;
+
+    /// <summary>枚数を言う文は、画像の増減に合わせて組み直す（外しても「n 枚も一緒に」が残ると嘘になる）。</summary>
+    private string OverturnedStatusText() => LocalImages.Count > 0
+        ? $"BOOTHで公開されています。選んだ画像 {LocalImages.Count} 枚も一緒に追加します。"
+        : "BOOTHで公開されています。";
+
     /// <summary>説明の1行目。読み取れたIDなら、BOOTHで非公開だったことを言う。人が打ったIDは欄の下の文が言っている。</summary>
     public string UnpublishedLeadText => IsNotOnBoothIdFromFile
         ? "このファイルから読み取れた商品IDは、BOOTHで非公開です。"

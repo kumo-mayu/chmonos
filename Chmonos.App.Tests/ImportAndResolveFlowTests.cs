@@ -564,6 +564,44 @@ public class ImportAndResolveFlowTests
         Assert.DoesNotContain(app.Store.Unresolved.Load(), file => file.Paths.Any(path => path.EndsWith("作り物の季節衣装.zip", StringComparison.Ordinal)));
     });
 
+    [Fact]
+    public Task 聞き直して公開されていたら_画像の枠を出したまま外せて_全部外すと文から枚数が消え_登録で入る() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        Assert.False(resolve.ShowsOverturnedImages);
+        resolve.AddLocalImages([app.NewFile(@"pics\red.png", Png(200)), app.NewFile(@"pics\blue.png", Png(20))]);
+        app.Booth.HasItem(FromFileMissing, "作り物の再公開された衣装");
+
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.True(resolve.ShowsOverturnedImages);
+        resolve.RemoveLocalImageCommand.Execute(resolve.LocalImages[0]);
+        Assert.True(resolve.ShowsOverturnedImages);
+        Assert.Equal("BOOTHで公開されています。選んだ画像 1 枚も一緒に追加します。", resolve.StatusText);
+        resolve.RemoveLocalImageCommand.Execute(resolve.LocalImages[0]);
+        Assert.True(resolve.ShowsOverturnedImages);
+        Assert.Equal("BOOTHで公開されています。", resolve.StatusText);
+
+        resolve.AddLocalImages([app.NewFile(@"pics\gray.png", Png(120))]);
+        resolve.AssignCommand.Execute(null);
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync(FromFileMissing);
+        Assert.Single(item!.Local.UserImages);
+    });
+
+    [Fact]
+    public Task はじめからふつうの登録の行には_公開後の画像の枠を出さない() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "作り物の手掛かり付き.zip");
+        app.Booth.HasItem("9900005", "作り物のふつうの商品");
+        await PreviewAsync(app, resolve, "9900005");
+        Assert.True(resolve.HasPreview);
+        Assert.False(resolve.ShowsOverturnedImages);
+    });
+
     /// <summary>「BOOTHに無い商品」の欄で添えた画像は、ほかのIDのふつうの登録には持っていかない（非公開と思って添えた画像だけを持っていく）。</summary>
     [Fact]
     public Task 非公開ではない行のふつうの登録には_添えた画像を入れない() => TestApp.Run(async app =>

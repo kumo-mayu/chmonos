@@ -163,6 +163,19 @@ internal static class Backdoor
         refresh.Invoke(resolve, null);
     }
 
+    /// <summary>
+    /// 未確定：非公開と思って添えた画像のある行で、聞き直したら公開されていた後の形（BOOTH へは聞けない台なので、聞いた後の値を入れる）。
+    /// 本体は PreviewAsync が Preview・印・文を入れる
+    /// </summary>
+    public static void ShowOverturnedPreview(ResolveViewModel resolve, string itemId, string name)
+    {
+        SetField(resolve, "_overturnedItemId", itemId);
+        SetProperty(resolve, nameof(ResolveViewModel.NotOnBoothItemId), null);
+        SetProperty(resolve, nameof(ResolveViewModel.Preview), new ItemPreview { Id = itemId, Name = name, ShopName = "作り物のショップ" });
+        SetProperty(resolve, nameof(ResolveViewModel.StatusText), "BOOTHで公開されています。選んだ画像 " + resolve.LocalImages.Count + " 枚も一緒に追加します。");
+        Raise(resolve, nameof(ResolveViewModel.ShowsOverturnedImages), nameof(ResolveViewModel.HasStatus));
+    }
+
     private static void SetProperty(object target, string name, object? value)
     {
         var setter = target.GetType().GetProperty(name, Hidden)?.GetSetMethod(nonPublic: true)

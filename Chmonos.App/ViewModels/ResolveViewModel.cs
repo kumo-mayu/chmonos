@@ -389,6 +389,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             if (SetField(ref _preview, value))
             {
                 OnPropertyChanged(nameof(HasPreview));
+                OnPropertyChanged(nameof(ShowsOverturnedImages));
                 OnPropertyChanged(nameof(PreviewTitle));
                 OnPropertyChanged(nameof(PreviewDetail));
                 OnPropertyChanged(nameof(PreviewOwnedNote));
@@ -827,6 +828,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Preview = null;
         NotOnBoothItemId = notOnBooth;
         _overturnedItemId = null;
+        OnPropertyChanged(nameof(ShowsOverturnedImages));
         StatusText = string.Empty;
         OriginZipNote = string.Empty;
         LocalStatusText = string.Empty;
@@ -948,9 +950,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 {
                     startedWith.NoteNowOnBooth();
                     _overturnedItemId = loaded.Preview.Id;
-                    StatusText = LocalImages.Count > 0
-                        ? $"BOOTHで公開されています。選んだ画像 {LocalImages.Count} 枚も一緒に追加します。"
-                        : "BOOTHで公開されています。";
+                    StatusText = OverturnedStatusText();
+                    OnPropertyChanged(nameof(ShowsOverturnedImages));
                 }
             }
             else if (result is CommandResult.PreviewNotOnBooth notOnBooth)

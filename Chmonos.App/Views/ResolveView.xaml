@@ -842,6 +842,14 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- 非公開のつもりで添えた画像が、聞き直したら公開されていた行だけ。登録と一緒に自分で足した画像として入る。外せる -->
+                            <StackPanel x:Name="OverturnedImages" Margin="0,10,0,0"
+                                        AllowDrop="True" PreviewDragOver="OnLocalBoxPreviewDragOver" PreviewDrop="OnLocalBoxPreviewDrop"
+                                        Visibility="{Binding ShowsOverturnedImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="画像" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
+                                <ContentControl ContentTemplate="{StaticResource LocalImageGallery}" Content="{Binding}" Focusable="False" />
+                            </StackPanel>
+
                             <!--
                                 欄とボタン（情報を確認・このIDで登録）の誤りと途中経過。出ていない間も1行分を取っておき、出る・消えるで下が跳ねないようにする
                                 （ユーザ 2026-10-03。docs/feedback/notice-placement-2026-10-03.md）
