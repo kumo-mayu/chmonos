@@ -30,9 +30,21 @@ public static class FolderIdentity
             return false;
         }
 
-        for (var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-             !string.IsNullOrEmpty(current);
-             current = Path.GetDirectoryName(current))
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        if (AncestorIs(full, target))
+        {
+            return true;
+        }
+
+        // 文字の祖先だけでは、調べる側そのもの（またはその祖先）が保存先の子を直に指すリンクのとき見落とす。
+        // C:\alias → C:\store\child なら、C:\alias を開くと child の ID、その文字の親は C:\ で、C:\store はどこにも出てこない。
+        // 在る一番深い祖先の、リンクを全部解いた実体の場所を OS に聞き、その祖先を比べる
+        return RealPathOfDeepestExisting(full) is { } real && AncestorIs(real, target);
+    }
+
+    private static bool AncestorIs(string start, (ulong Volume, ulong High, ulong Low) target)
+    {
+        for (var current = start; !string.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
         {
             if (IdOf(current) is { } id && id == target)
             {
@@ -41,6 +53,47 @@ public static class FolderIdentity
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// <paramref name="path"/> の祖先のうち在る一番深いものを開き、リンク・subst を解いた実体の場所を返す。
+    /// 下のまだ無い部分は、実体の場所の内側になるだけなので付け足さない（祖先を比べるのに要らない）。
+    /// </summary>
+    private static string? RealPathOfDeepestExisting(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        for (var current = path; !string.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
+        {
+            if (!Directory.Exists(current))
+            {
+                continue;
+            }
+
+            using var handle = CreateFileW(
+                current, FileReadAttributes, ShareAll, IntPtr.Zero, OpenExisting, BackupSemantics, IntPtr.Zero);
+            if (handle.IsInvalid)
+            {
+                return null;
+            }
+
+            var buffer = new char[1024];
+            var length = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Length, 0);
+            if (length >= buffer.Length)
+            {
+                buffer = new char[length + 1];
+                length = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Length, 0);
+            }
+
+            return length == 0 || length >= buffer.Length
+                ? null
+                : Path.TrimEndingDirectorySeparator(new string(buffer, 0, (int)length));
+        }
+
+        return null;
     }
 
     /// <summary>同じ実体か（文字でも実体でも）。</summary>
@@ -126,6 +179,9 @@ public static class FolderIdentity
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetFileInformationByHandleEx(SafeFileHandle file, int informationClass, out FileIdInfo information, int size);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern uint GetFinalPathNameByHandleW(SafeFileHandle file, char[] path, uint length, uint flags);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetFileInformationByHandle(SafeFileHandle file, out ByHandleFileInformation information);

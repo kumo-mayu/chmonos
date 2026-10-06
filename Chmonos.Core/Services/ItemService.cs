@@ -685,7 +685,12 @@ public sealed class ItemService : IItemService
         }
 
         // 中の unitypackage も同じ1回の列挙で拾う（Unity へ送る候補。メモ65-③）
-        var survey = RegisteredFolderSet.Survey(folderPath);
+        // 中を読めなければ登録しない（0件・0バイトで残すと、移したときの候補が数で合わせられなくなる。外部の点検 2026-10-06）
+        if (RegisteredFolderSet.Survey(folderPath, cancellationToken) is not { } survey)
+        {
+            return false;
+        }
+
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
         var record = new LocalFolderRecord
         {
@@ -780,7 +785,11 @@ public sealed class ItemService : IItemService
             return FolderRelocation.RegisteredElsewhere;
         }
 
-        var (count, bytes) = RegisteredFolderSet.Measure(to);
+        if (RegisteredFolderSet.Measure(to, cancellationToken) is not (int count, long bytes))
+        {
+            return FolderRelocation.Unreadable;
+        }
+
         var now = DateTimeOffset.Now;
         var written = await _store.Items.ChangeLocalAsync(
             itemId,

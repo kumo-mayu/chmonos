@@ -251,7 +251,32 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        var (count, bytes) = RegisteredFolderSet.Measure(folder);
+        // 数えるのは裏で（大きなフォルダや HDD では数十秒かかる。前は画面のスレッドで数え、その間ずっと固まっていた。外部の点検 2026-10-06）。
+        // 数えている間は登録のボタンを止める（同じ登録を二度始めない）。画面を離れたら数えるのをやめる
+        IsBusy = true;
+        FolderStatusText = "フォルダの中を数えています…";
+        (int FileCount, long TotalBytes)? measured;
+        try
+        {
+            var token = _leaving.Token;
+            measured = await Task.Run(() => RegisteredFolderSet.Measure(folder, token), token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        if (measured is not (int count, long bytes))
+        {
+            FolderStatusText = "フォルダの中を読めませんでした。";
+            return;
+        }
+
+        FolderStatusText = string.Empty;
 
         var answer = Services.Notice.Show(
             $"次のフォルダを「{Preview.Name}」（ID {Preview.Id}）として登録します。\n\n"

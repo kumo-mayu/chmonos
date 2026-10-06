@@ -28,6 +28,9 @@ public enum FolderRelocation
 
     /// <summary>探してから選ぶまでの間に、元の登録が外された・商品が消された。</summary>
     RecordGone,
+
+    /// <summary>選んだ場所の中を読めなかった（権限が無い・途中で外された）。0件として書かない。</summary>
+    Unreadable,
 }
 
 /// <summary>移した先かもしれないフォルダ1つ。</summary>

@@ -18,11 +18,20 @@ public static class StoreTree
 {
     /// <summary>保存先の中のファイル。リンクのファイルは入れず、リンクのフォルダには降りない。</summary>
     public static IEnumerable<string> Files(string root, string pattern = "*", bool recurse = true)
-        => Walk(root, pattern, recurse, includeFiles: true, includeDirectories: false, linksOnly: false);
+        => Walk(root, pattern, recurse, includeFiles: true, includeDirectories: false, linksOnly: false, FullPath, default);
+
+    /// <summary>
+    /// <see cref="Files"/> と同じ物を、大きさを添えて返す。登録したフォルダ・保存先の容量を数える所が使う
+    /// （列挙で分かっている大きさを、ファイルごとに聞き直さない）。
+    /// 取り消しはフォルダに降りる所とファイルごとに見る。空のフォルダばかりの深い木でも止まれるように、降りる所でも見る
+    /// </summary>
+    public static IEnumerable<(string Path, long Length)> FilesWithLength(string root, CancellationToken cancellationToken = default)
+        => Walk<(string Path, long Length)>(root, "*", recurse: true, includeFiles: true, includeDirectories: false, linksOnly: false,
+            static (ref FileSystemEntry entry) => (entry.ToFullPath(), entry.Length), cancellationToken);
 
     /// <summary>保存先の中のフォルダ。リンクのフォルダは入れず、降りもしない。</summary>
     public static IEnumerable<string> Directories(string root)
-        => Walk(root, "*", recurse: true, includeFiles: false, includeDirectories: true, linksOnly: false);
+        => Walk(root, "*", recurse: true, includeFiles: false, includeDirectories: true, linksOnly: false, FullPath, default);
 
     /// <summary>
     /// 保存先の中にある、ほかの場所を指すリンク（ファイルでもフォルダでも）の、保存先からの相対の場所。無ければ null。
@@ -35,7 +44,7 @@ public static class StoreTree
             return null;
         }
 
-        var link = Walk(root, "*", recurse: true, includeFiles: true, includeDirectories: true, linksOnly: true).FirstOrDefault();
+        var link = Walk(root, "*", recurse: true, includeFiles: true, includeDirectories: true, linksOnly: true, FullPath, default).FirstOrDefault();
         return link is null ? null : Path.GetRelativePath(root, link);
     }
 
@@ -43,8 +52,11 @@ public static class StoreTree
     public static string LinkRefusal(string relative)
         => $"保存先の中の「{relative}」は、ほかの場所を指すリンクです。リンクを外すか、中身を保存先へ戻してから、もう一度選んでください。";
 
-    private static IEnumerable<string> Walk(
-        string root, string pattern, bool recurse, bool includeFiles, bool includeDirectories, bool linksOnly)
+    private static string FullPath(ref FileSystemEntry entry) => entry.ToFullPath();
+
+    private static IEnumerable<T> Walk<T>(
+        string root, string pattern, bool recurse, bool includeFiles, bool includeDirectories, bool linksOnly,
+        FileSystemEnumerable<T>.FindTransform transform, CancellationToken cancellationToken)
     {
         // 隠し・システムの属性の物も数える（SearchOption.AllDirectories と同じ。EnumerationOptions の既定は飛ばす）。
         // 読めないフォルダで投げるのも前と同じにする（引越しで黙って飛ばすと、運ばずに元を消す側へ倒れる）
@@ -55,10 +67,11 @@ public static class StoreTree
             IgnoreInaccessible = false,
         };
 
-        return new FileSystemEnumerable<string>(root, (ref FileSystemEntry entry) => entry.ToFullPath(), options)
+        return new FileSystemEnumerable<T>(root, transform, options)
         {
             ShouldIncludePredicate = (ref FileSystemEntry entry) =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (linksOnly)
                 {
                     return IsLink(ref entry);
@@ -71,7 +84,11 @@ public static class StoreTree
 
                 return FileSystemName.MatchesSimpleExpression(pattern, entry.FileName) && !IsLink(ref entry);
             },
-            ShouldRecursePredicate = (ref FileSystemEntry entry) => !IsLink(ref entry),
+            ShouldRecursePredicate = (ref FileSystemEntry entry) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return !IsLink(ref entry);
+            },
         };
     }
 

@@ -153,6 +153,9 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     private string _dataStatus = string.Empty;
     private StorageUsage? _usage;
 
+    /// <summary>離れたら保存容量の計測をやめる（大きな保存先では数十秒かかり、離れた後の値は誰も見ない）。</summary>
+    private readonly CancellationTokenSource _leaving = new();
+
     public SettingsViewModel(AppServiceContainer services, MainViewModel main)
     {
         _services = services;
@@ -246,6 +249,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>離れたら主画面の知らせを外す（外さないと、開いた回数ぶん生き残って同じ知らせが走る）。</summary>
     public void OnLeaving()
     {
+        _leaving.Cancel();
         _main.PropertyChanged -= OnMainChanged;
         _main.StoreJobEnded -= OnStoreJobEnded;
     }
@@ -1056,13 +1060,17 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     public string RootPath => _usage?.Root ?? _services.Paths.Root;
 
-    public string ImageUsageText => _usage is null
-        ? "…"
-        : $"{Core.Models.DisplayText.Size(_usage.ImageBytes)} / {_usage.ImageCount:N0} ファイル";
+    public string ImageUsageText => UsageText(_usage is not null, _usage?.ImageBytes, _usage?.ImageCount);
 
-    public string ItemUsageText => _usage is null
-        ? "…"
-        : $"{Core.Models.DisplayText.Size(_usage.ItemBytes)} / {_usage.ItemCount:N0} ファイル";
+    public string ItemUsageText => UsageText(_usage is not null, _usage?.ItemBytes, _usage?.ItemCount);
+
+    /// <summary>読めなかった項目は 0 と書かない（空と見分けが付かない。外部の点検 2026-10-06）。</summary>
+    internal static string UsageText(bool loaded, long? bytes, int? count)
+        => !loaded
+            ? "…"
+            : bytes is { } size && count is { } files
+                ? $"{Core.Models.DisplayText.Size(size)} / {files:N0} ファイル"
+                : "読めませんでした";
 
     public bool HasHidden => Hidden.Count > 0;
 
@@ -1140,6 +1148,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             await LoadCoreAsync();
         }
+        catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
+        {
+            // 画面を離れた。読み込みの続きは誰も見ない
+        }
         finally
         {
             RunOnUiThread(() => IsLoading = false);
@@ -1148,7 +1160,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     private async Task LoadCoreAsync()
     {
-        var usage = await _services.SettingsStore.LoadUsageAsync();
+        var usage = await _services.SettingsStore.LoadUsageAsync(_leaving.Token);
         var hidden = await _services.SettingsStore.LoadHiddenAsync();
         var excluded = await _services.SettingsStore.LoadExcludedAsync();
         var detached = await _services.SettingsStore.LoadDetachedAsync();
@@ -1780,7 +1792,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         var withImages = Views.ChoiceDialog.Ask(
             "バックアップを書き出す",
-            $"画像（{ImageUsageText}）も含めますか？",
+            _usage is { ImageBytes: not null, ImageCount: not null } ? $"画像（{ImageUsageText}）も含めますか？" : "画像も含めますか？",
             "「画像も入れる」\n戻したときに取り直さずに済みますが、zipが大きくなります。\n\n"
             + "「画像は入れない」\n戻した後、使っていない間にBOOTHから少しずつ取り直します。",
             "画像も入れる",
