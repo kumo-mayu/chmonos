@@ -45,7 +45,19 @@ public sealed class BoothFetchResult<T>
     /// </summary>
     public bool IsServerError { get; init; }
 
+    /// <summary>
+    /// 応答を受け取らずに捨てたか（許さない先への転送・転送の重ねすぎ・大きすぎる本文）。状態としては一時エラー。
+    /// 取り直しても同じ応答が来るだけなので、再試行しない。
+    /// </summary>
+    public bool IsRejected { get; init; }
+
+    /// <summary>相手が転送を指示した先（3xx の Location）。中の受け渡しだけに使い、呼び元へは返さない。</summary>
+    internal Uri? RedirectTo { get; init; }
+
     public bool IsSuccess => Status == BoothFetchStatus.Success;
+
+    public static BoothFetchResult<T> Rejected(string error)
+        => new() { Status = BoothFetchStatus.TemporaryFailure, Error = error, IsRejected = true };
 
     public static BoothFetchResult<T> Success(T value) => new() { Status = BoothFetchStatus.Success, Value = value };
 
@@ -132,6 +144,91 @@ public sealed class BoothClient : IBoothClient
     public const string UserAgent = "Chmonos/0.1 (personal library manager)";
 
     private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8)];
+
+    /// <summary>
+    /// 1本の問い合わせの期限。**送ってから本文を読み終えるまで**を合わせて数える。
+    ///
+    /// 前は HttpClient.Timeout（30秒）だけで、見出しだけ先に受ける読み方では見出しまでしか効かなかった。
+    /// 本文が途中で止まると、PC で1つの門を握ったまま戻らず、ほかのアプリも全部止まる。
+    /// 長さは前と同じ30秒：応答は手元の実測で 0.16〜0.3 秒、画像の上限（<see cref="MaxImageBytes"/>）を
+    /// 30秒で受けるのに要る速さは約 5.6 Mbps で、普通の回線なら届く。
+    /// </summary>
+    internal static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// 転送をたどる回数の上限。BOOTH の転送は「言語の付かない URL → /ja/」のような1〜2段で、
+    /// 5段を超えるのは輪になっているか、相手の作りが変わったとき。
+    /// </summary>
+    internal const int MaxRedirects = 5;
+
+    /// <summary>
+    /// 文字の応答（商品の JSON・ページ・検索）の受信の上限。商品ページは100KB超・ショップのバナー探しは
+    /// 先頭の256KBで足りている。桁を1つ以上空けて8MB——これを超えるのは BOOTH のページではない。
+    /// </summary>
+    internal const int MaxTextBytes = 8 * 1024 * 1024;
+
+    /// <summary>
+    /// 画像の受信の上限。いちばん大きいショップのバナーが実測で4MB（<c>ImagePipeline</c> の注記）、
+    /// 商品画像の原寸（3000×3000 前後の JPEG）も数MB。5倍の余裕を見て20MB。
+    /// </summary>
+    internal const int MaxImageBytes = 20 * 1024 * 1024;
+
+    /// <summary>
+    /// 転送してよい先。今の問い合わせ先から決める：商品の JSON・ページ・検索・一覧は booth.pm、
+    /// ショップのページは &lt;ショップ&gt;.booth.pm、画像は booth.pximg.net。
+    /// ほかの先へ出る道を作ると、門の外の相手に BOOTH と同じ顔で問い合わせることになる。
+    /// </summary>
+    internal static bool IsAllowedRedirectTarget(Uri target)
+    {
+        if (!target.IsAbsoluteUri || target.Scheme != Uri.UriSchemeHttps)
+        {
+            return false;
+        }
+
+        var host = target.IdnHost.ToLowerInvariant();
+        return host == "booth.pm"
+            || host.EndsWith(".booth.pm", StringComparison.Ordinal)
+            || host == "booth.pximg.net";
+    }
+
+    /// <summary>
+    /// BOOTH への問い合わせに使う HttpClient を組む。**自動の転送は切る。**
+    ///
+    /// 自動の転送は通信の層の中で転送先へ出るので、門（間隔・1本ずつ）を通らず、先のホストも見られない。
+    /// 転送は <see cref="BoothClient"/> が受けて、先を確かめてから門を通して取り直す。
+    /// 期限は <see cref="DefaultRequestTimeout"/> で BoothClient が持つので、HttpClient の期限は切る（時計を2つにしない）。
+    /// </summary>
+    /// <param name="handler">試験の作り物。null なら本物の通信。渡した物が転送する型なら、そこでも切る。</param>
+    public static HttpClient CreateHttpClient(HttpMessageHandler? handler = null)
+    {
+        var outlet = handler ?? new SocketsHttpHandler();
+        TurnOffAutoRedirect(outlet);
+        return new HttpClient(outlet) { Timeout = Timeout.InfiniteTimeSpan };
+    }
+
+    private static void TurnOffAutoRedirect(HttpMessageHandler? handler)
+    {
+        while (handler is not null)
+        {
+            switch (handler)
+            {
+                case SocketsHttpHandler sockets:
+                    sockets.AllowAutoRedirect = false;
+                    return;
+                case HttpClientHandler client:
+                    client.AllowAutoRedirect = false;
+                    return;
+                case DelegatingHandler delegating:
+                    handler = delegating.InnerHandler;
+                    break;
+                default:
+                    return;
+            }
+        }
+    }
+
+    /// <summary>1本の問い合わせの期限。試験だけが短くする（30秒を実際に待たないため）。</summary>
+    internal TimeSpan RequestTimeout { get; init; } = DefaultRequestTimeout;
 
     private readonly HttpClient _httpClient;
     private readonly Func<AppSettings> _currentSettings;
@@ -332,7 +429,71 @@ public sealed class BoothClient : IBoothClient
         => GetStringAsync(ItemPageUrl(itemId), cancellationToken);
 
     public Task<BoothFetchResult<byte[]>> GetBinaryAsync(string url, CancellationToken cancellationToken = default)
-        => SendWithRetryAsync(url, response => response.Content.ReadAsByteArrayAsync(cancellationToken), cancellationToken);
+        => SendWithRetryAsync(url, (response, token) => ReadBytesAsync(response, MaxImageBytes, token), cancellationToken);
+
+    /// <summary>本文が上限を超えた。受信をやめて捨てる。</summary>
+    private sealed class BodyTooLargeException(int limit) : Exception
+    {
+        public int Limit { get; } = limit;
+    }
+
+    /// <summary>
+    /// 本文を上限まで受ける。**上限を超えたら、そこで受けるのをやめる**（全部読んでから捨てない）。
+    /// 長さが見出しに書いてあれば、読み始める前に断る。
+    /// </summary>
+    private static async Task<byte[]> ReadBytesAsync(HttpResponseMessage response, int limit, CancellationToken cancellationToken)
+    {
+        var declared = response.Content.Headers.ContentLength;
+        if (declared > limit)
+        {
+            throw new BodyTooLargeException(limit);
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var body = new MemoryStream(declared is { } length ? (int)length : 0);
+        var chunk = new byte[64 * 1024];
+
+        while (true)
+        {
+            var count = await stream.ReadAsync(chunk, cancellationToken);
+            if (count == 0)
+            {
+                return body.ToArray();
+            }
+
+            if (body.Length + count > limit)
+            {
+                throw new BodyTooLargeException(limit);
+            }
+
+            body.Write(chunk, 0, count);
+        }
+    }
+
+    /// <summary>
+    /// 文字の本文を上限まで受けて読む。文字の符号は見出しの charset、無ければ UTF-8（BOM があればそちら）。
+    /// ReadAsStringAsync と同じ読み方で、上限と期限だけ足した物。
+    /// </summary>
+    private static async Task<string> ReadTextAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var bytes = await ReadBytesAsync(response, MaxTextBytes, cancellationToken);
+
+        var encoding = Encoding.UTF8;
+        if (response.Content.Headers.ContentType?.CharSet is { Length: > 0 } charset)
+        {
+            try
+            {
+                encoding = Encoding.GetEncoding(charset.Trim('"'));
+            }
+            catch (ArgumentException)
+            {
+                // 知らない符号名なら UTF-8 で読む（BOOTH は UTF-8 で返している）
+            }
+        }
+
+        using var reader = new StreamReader(new MemoryStream(bytes), encoding, detectEncodingFromByteOrderMarks: true);
+        return await reader.ReadToEndAsync(cancellationToken);
+    }
 
     /// <summary>
     /// 探しているものが見つかった時点で受信をやめる取得。
@@ -348,7 +509,7 @@ public sealed class BoothClient : IBoothClient
         CancellationToken cancellationToken = default)
         => SendWithRetryAsync(
             url,
-            response => ReadUntilAsync(response, found, maxBytes, cancellationToken),
+            (response, token) => ReadUntilAsync(response, found, maxBytes, token),
             cancellationToken);
 
     private static async Task<string> ReadUntilAsync(
@@ -408,11 +569,46 @@ public sealed class BoothClient : IBoothClient
     }
 
     private Task<BoothFetchResult<string>> GetStringAsync(string url, CancellationToken cancellationToken)
-        => SendWithRetryAsync(url, response => response.Content.ReadAsStringAsync(cancellationToken), cancellationToken);
+        => SendWithRetryAsync(url, ReadTextAsync, cancellationToken);
+
+    /// <summary>
+    /// 1本を取り、転送されたら先を確かめて取り直す。**転送先への問い合わせも、1本ずつ門を通す**
+    /// （間隔を空けて・優先度は元と同じ。優先度は文脈に付いているので、ここで取り直しても変わらない）。
+    /// </summary>
+    private async Task<BoothFetchResult<T>> SendFollowingRedirectsAsync<T>(
+        string url,
+        Func<HttpResponseMessage, CancellationToken, Task<T>> readBody,
+        int attempt,
+        CancellationToken cancellationToken)
+    {
+        var current = url;
+        for (var hops = 0; ; hops++)
+        {
+            var result = await SendOnceAsync(current, readBody, attempt, cancellationToken);
+            if (result.RedirectTo is not { } next)
+            {
+                return result;
+            }
+
+            if (hops >= MaxRedirects)
+            {
+                Diagnostics.AppLog.Warn("BOOTHへの問い合わせ", $"転送が {MaxRedirects} 回を超えたので打ち切った");
+                return BoothFetchResult<T>.Rejected("BOOTHからの転送が多すぎます");
+            }
+
+            if (!IsAllowedRedirectTarget(next))
+            {
+                Diagnostics.AppLog.Warn("BOOTHへの問い合わせ", $"BOOTH の外への転送は追わない（転送先 {next.Scheme}://{next.Host}）");
+                return BoothFetchResult<T>.Rejected("BOOTHの外へ転送されました");
+            }
+
+            current = next.AbsoluteUri;
+        }
+    }
 
     private async Task<BoothFetchResult<T>> SendWithRetryAsync<T>(
         string url,
-        Func<HttpResponseMessage, Task<T>> readBody,
+        Func<HttpResponseMessage, CancellationToken, Task<T>> readBody,
         CancellationToken cancellationToken)
     {
         BoothFetchResult<T>? previous = null;
@@ -442,8 +638,9 @@ public sealed class BoothClient : IBoothClient
                     cancellationToken);
             }
 
-            var result = await SendOnceAsync(url, readBody, attempt, cancellationToken);
-            if (result.Status != BoothFetchStatus.TemporaryFailure)
+            // 取り直しは元の URL から（転送の回数も数え直す）
+            var result = await SendFollowingRedirectsAsync(url, readBody, attempt, cancellationToken);
+            if (result.Status != BoothFetchStatus.TemporaryFailure || result.IsRejected)
             {
                 return result;
             }
@@ -462,11 +659,14 @@ public sealed class BoothClient : IBoothClient
 
     private async Task<BoothFetchResult<T>> SendOnceAsync<T>(
         string url,
-        Func<HttpResponseMessage, Task<T>> readBody,
+        Func<HttpResponseMessage, CancellationToken, Task<T>> readBody,
         int attempt,
         CancellationToken cancellationToken)
     {
         var target = DescribeTarget(url);
+
+        // 期限は送る直前から数える（門の順番待ち・間隔の待ちは入れない）。本文を読み終えるまで効かせる
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         await _gate.EnterAsync(CurrentPriority, cancellationToken);
 
@@ -511,14 +711,36 @@ public sealed class BoothClient : IBoothClient
 
             // ヘッダだけ先に受け取る。本文を途中で打ち切る呼び出し（ショップのバナー探し）が
             // 実際に通信を止められるようにするため。全部読む呼び出しの動きは変わらない。
+            deadline.CancelAfter(RequestTimeout);
             using var response = await _httpClient.GetAsync(
                 url,
                 HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+                deadline.Token);
+
+            // 出口が自分で転送をたどっていた（自動の転送を切っていない HttpClient を渡された）。
+            // 転送先へはもう門の外で出てしまったので、せめて受け取らずに捨て、ログに残して組み立てを直させる
+            if (response.RequestMessage?.RequestUri is { } answered
+                && Uri.TryCreate(url, UriKind.Absolute, out var asked)
+                && answered != asked)
+            {
+                Diagnostics.AppLog.Warn(
+                    "BOOTHへの問い合わせ",
+                    "通信の出口が自動で転送をたどった。HttpClient は BoothClient.CreateHttpClient で組む");
+                return BoothFetchResult<T>.Rejected("BOOTHからの転送を受け取れませんでした");
+            }
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return BoothFetchResult<T>.NotFound();
+            }
+
+            // 転送は、ここでは追わずに先を返す。先を確かめて、門を通して取り直すのは呼び元（SendFollowingRedirectsAsync）
+            if (IsRedirect(response.StatusCode))
+            {
+                return response.Headers.Location is { } location
+                    && Uri.TryCreate(new Uri(url), location, out var next)
+                    ? new BoothFetchResult<T> { Status = BoothFetchStatus.TemporaryFailure, RedirectTo = next }
+                    : BoothFetchResult<T>.Rejected("BOOTHからの転送の先が読めません");
             }
 
             // 相手が待てと言ってきたら（429 に限らず 503 などでも）、**次の誰もが**その間は取りに行かない
@@ -563,7 +785,13 @@ public sealed class BoothClient : IBoothClient
 
             // 広げた間隔は、成功が続いたら少しずつ戻す（C16）
             EaseBack();
-            return BoothFetchResult<T>.Success(await readBody(response));
+            return BoothFetchResult<T>.Success(await readBody(response, deadline.Token));
+        }
+        catch (BodyTooLargeException tooLarge)
+        {
+            // 受けるのをやめた残りは、応答を捨てれば（using）つながりごと切られる
+            Diagnostics.AppLog.Warn("BOOTHへの問い合わせ", $"応答が {tooLarge.Limit / (1024 * 1024)}MB を超えたので受信をやめた（{target}）");
+            return BoothFetchResult<T>.Rejected("BOOTHからの応答が大きすぎます");
         }
         catch (HttpRequestException exception)
         {
@@ -573,9 +801,19 @@ public sealed class BoothClient : IBoothClient
             // 取り込みは続いたら段を打ち切る（ユーザ判断 2026-09-29）
             return BoothFetchResult<T>.Unreachable(Services.FailureText.Cause(exception));
         }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException canceled) when (
+            !cancellationToken.IsCancellationRequested
+            && (deadline.IsCancellationRequested || canceled is TaskCanceledException))
         {
+            // 見出しの前でも本文の途中でも、期限で切れたらここ（本文の読み取りは TaskCanceled でない取り消しも投げる）。
+            // TaskCanceled は渡された HttpClient の側の期限。期限でも呼び元の中断でもない取り消しは、そのまま上へ返す
             return BoothFetchResult<T>.Unreachable("タイムアウトしました");
+        }
+        catch (IOException exception)
+        {
+            // 本文の途中でつながりが切れた。BOOTH は応答しているので「つながっていない」とは言わない
+            Diagnostics.AppLog.Error("BOOTHへの問い合わせ", exception);
+            return BoothFetchResult<T>.Temporary("BOOTHからの受信が途中で切れました");
         }
         finally
         {
@@ -604,6 +842,11 @@ public sealed class BoothClient : IBoothClient
             Report(BoothActivity.Idle);
         }
     }
+
+    /// <summary>先を Location で示す転送か。300・304 などは先を示さないので、ふつうの失敗として扱う。</summary>
+    private static bool IsRedirect(HttpStatusCode status)
+        => status is HttpStatusCode.MovedPermanently or HttpStatusCode.Found or HttpStatusCode.SeeOther
+            or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect;
 
     /// <summary>
     /// URLを人に見せる短い名前にする。生のURLを出しても読めないし、横にも収まらない。

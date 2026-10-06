@@ -88,8 +88,8 @@ public sealed class AppServiceContainer : IDisposable
         // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
         SettingsStore = new SettingsService(Store);
 
-        _httpClient = http is null ? new HttpClient() : new HttpClient(http);
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+        // 自動の転送を切った出口で組む（転送先への問い合わせも門を通すため）。期限は BoothClient が本文の受信まで持つ
+        _httpClient = BoothClient.CreateHttpClient(http);
         // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても
         // 起動し直すまで効かなかった（画像の長辺・画質・取得の間隔など。SettingsSource に理由）
         Client = new BoothClient(_httpClient, () => Settings, boothDelay);

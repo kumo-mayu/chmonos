@@ -62,7 +62,7 @@ public static class Program
         var store = new Core.Storage.DataStore(paths);
         var settings = store.Settings.Load();
 
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var httpClient = BoothClient.CreateHttpClient();
         Core.Booth.IBoothClient? client = offline ? null : new BoothClient(httpClient, settings);
         var service = new Core.Services.AvatarService(store, settings, client);
 
@@ -131,7 +131,7 @@ public static class Program
         var store = new Core.Storage.DataStore(paths);
         var settings = store.Settings.Load();
 
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var httpClient = BoothClient.CreateHttpClient();
         var client = new BoothClient(httpClient, settings);
         var images = new Core.Images.ImagePipeline(client, paths, settings);
         var pipeline = new Core.Scanning.ImportPipeline(store, client, images, settings);
@@ -214,7 +214,7 @@ public static class Program
         }
 
         var settings = new Core.Storage.DataStore(Core.Storage.AppPaths.Default).Settings.Load();
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var httpClient = BoothClient.CreateHttpClient();
         var resolver = new Core.Resolution.FallbackResolver(new BoothClient(httpClient, settings));
 
         var strong = 0;
