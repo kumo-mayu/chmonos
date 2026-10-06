@@ -178,8 +178,8 @@ public sealed class SortField
     public required string Label { get; init; }
 
     /// <summary>
-    /// プルダウンの中のまとまり（間に区切り線を引く。ユーザ判断 2026-10-06）。属性のまとまりだけ見出し「属性」を付け、
-    /// 項目を一段下げて子として並べる（属性の数だけ一番上の並びが伸びて、ほかの項目が埋もれないように）
+    /// メニューの中のまとまり（間に区切り線を引く。ユーザ判断 2026-10-06）。属性は「属性 ▸」の子に入る
+    /// （属性の数だけ一番上の並びが伸びて、ほかの項目が埋もれないように）
     /// </summary>
     public string Group => Kind switch
     {
@@ -190,11 +190,8 @@ public sealed class SortField
         _ => "属性",
     };
 
-    /// <summary>属性の子として一段下げて出すか。</summary>
-    public bool IsAttribute => Kind == SortKind.Attribute;
-
     /// <summary>
-    /// プルダウンでの並び（ユーザ判断 2026-10-06）：名前・ショップ・カテゴリ・スキ数／BOOTH価格・払った額／
+    /// メニューでの並び（ユーザ判断 2026-10-06）：名前・ショップ・カテゴリ・スキ数／BOOTH価格・払った額／
     /// 公開日・入手日・商品閲覧日・Unity送信日・取り込み日／容量／属性。属性は属性の管理の並びのまま後ろに続ける
     /// </summary>
     internal static int OrderOf(SortKind kind) => kind switch
@@ -234,6 +231,41 @@ public sealed class SortField
         AttributeName = AttributeName,
         Descending = descending,
     };
+
+    public override string ToString() => Label;
+}
+
+/// <summary>
+/// 表示順のメニューの1行（ユーザ判断 2026-10-06：「属性」の中に大量の属性が入っている形）。
+/// 項目・区切り線・「属性 ▸」（子に属性）のどれか。開くたびに今の選びから作り直すので、値は作ったときのまま変えない。
+/// **区切りごとに別の物を作る**——同じ物を1つの一覧に何度も入れると、WPF の一覧は項目と部品の対応を取り違える
+/// </summary>
+public sealed class SortMenuEntry
+{
+    public string Label { get; init; } = "";
+
+    /// <summary>メニューの項目の見た目を線に差し替える印。</summary>
+    public bool IsSeparator { get; init; }
+
+    /// <summary>子を持つ「属性 ▸」。属性が0個でも子を開く見た目（▸）で出し、押せなくする。</summary>
+    public bool IsParent { get; init; }
+
+    public IReadOnlyList<SortMenuEntry> Children { get; init; } = [];
+
+    /// <summary>今この項目で並べているか。「属性 ▸」は子のどれかで並べているとき。</summary>
+    public bool IsChecked { get; init; }
+
+    public bool IsEnabled { get; init; } = true;
+
+    /// <summary>押せないときの理由（吹き出し）。</summary>
+    public string? DisabledHint { get; init; }
+
+    public string AutomationId { get; init; } = "";
+
+    /// <summary>この項目で並べる。区切りと「属性 ▸」は持たない。</summary>
+    public System.Windows.Input.ICommand? ChooseCommand { get; init; }
+
+    public static SortMenuEntry Separator() => new() { IsSeparator = true, IsEnabled = false, Label = "区切り" };
 
     public override string ToString() => Label;
 }

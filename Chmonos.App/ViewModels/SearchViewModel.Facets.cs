@@ -14,17 +14,57 @@ public sealed partial class SearchViewModel
     /// <summary>表示順に使う項目。属性が増えるとその軸も増える（向きは別に持つ・M5）。</summary>
     public ObservableCollection<SortField> SortFields { get; } = [];
 
-    private System.ComponentModel.ICollectionView? _sortFieldGroups;
+    /// <summary>押せない「属性 ▸」の吹き出し。</summary>
+    internal const string NoAttributesHint = "属性の管理で属性を追加すると選べます。";
 
-    /// <summary>プルダウンに渡す、まとまりで分けた表示順の項目（区切り線と「属性」の見出しは画面の GroupStyle が描く）。</summary>
-    public System.ComponentModel.ICollectionView SortFieldGroups => _sortFieldGroups ??= GroupSortFields();
+    /// <summary>
+    /// 表示順のボタンが開くメニュー（ユーザ判断 2026-10-06：「属性」の中に大量の属性が入っている形）。
+    /// 名前・ショップ・カテゴリ・スキ数／BOOTH価格・払った額／公開日〜取り込み日／容量／属性 ▸（子に属性の管理の並びで全部）。
+    /// プルダウンは子の一覧を持てないので、メニューにした。今の項目が替わるたびに作り直す（印を付け直すため。<see cref="SortField"/> の知らせに続けて知らせる）
+    /// </summary>
+    public IReadOnlyList<SortMenuEntry> SortMenu => BuildSortMenu();
 
-    private System.ComponentModel.ICollectionView GroupSortFields()
+    private List<SortMenuEntry> BuildSortMenu()
     {
-        var view = new System.Windows.Data.ListCollectionView(SortFields);
-        view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(SortField.Group)));
-        return view;
+        var entries = new List<SortMenuEntry>();
+        string? group = null;
+        foreach (var field in SortFields.Where(field => field.Kind != SortKind.Attribute))
+        {
+            if (group is not null && field.Group != group)
+            {
+                entries.Add(SortMenuEntry.Separator());
+            }
+
+            group = field.Group;
+            entries.Add(SortMenuLeaf(field, $"SearchSortField.{field.Kind}"));
+        }
+
+        var attributes = SortFields
+            .Where(field => field.Kind == SortKind.Attribute)
+            .Select(field => SortMenuLeaf(field, $"SearchSortField.Attribute.{field.AttributeName}"))
+            .ToList();
+        entries.Add(SortMenuEntry.Separator());
+        entries.Add(new SortMenuEntry
+        {
+            Label = "属性",
+            IsParent = true,
+            Children = attributes,
+            IsChecked = attributes.Any(attribute => attribute.IsChecked),
+            // 属性が無いと子が空で、開いても何も選べない。消さずに押せなくして、作る所を言う（ui-input.md「右クリックのメニュー」と同じ）
+            IsEnabled = attributes.Count > 0,
+            DisabledHint = attributes.Count > 0 ? null : NoAttributesHint,
+            AutomationId = "SearchSortField.Attributes",
+        });
+        return entries;
     }
+
+    private SortMenuEntry SortMenuLeaf(SortField field, string automationId) => new()
+    {
+        Label = field.Label,
+        IsChecked = ReferenceEquals(field, _sortField),
+        AutomationId = automationId,
+        ChooseCommand = new RelayCommand(() => SortField = field),
+    };
 
     public static SortField DefaultSortField => new()
     {
