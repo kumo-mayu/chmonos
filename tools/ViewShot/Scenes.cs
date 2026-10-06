@@ -40,6 +40,7 @@ internal static partial class Scenes
         .. CardLists,
         .. CardInfo,
         .. CardBadges,
+        .. AvatarConfirmScenes,
         .. ShopScenes,
         .. ShopPerfScenes,
         .. ImportMissingPerfScenes,
