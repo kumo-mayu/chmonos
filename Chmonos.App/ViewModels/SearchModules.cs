@@ -180,7 +180,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", AllowsMany: true, OrSameKind: true),
-        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。", AllowsMany: true, OrSameKind: true),
+        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品か、非公開になった商品で絞ります。"),
         new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
@@ -1457,6 +1457,7 @@ public sealed class RangeModule : SearchModule
     private bool _minEnabled = true;
     private bool _maxEnabled = true;
     private bool _ignoreOutliers = true;
+    private bool _matchAll;
     private int? _outlierFence;
     private int _outlierCount;
     private bool _valuesFromState;
@@ -1587,8 +1588,30 @@ public sealed class RangeModule : SearchModule
     /// 境が出せないとき（価格の付いた商品が無い・払った額）は括弧を付けない
     /// </summary>
     public string OutlierLabel => _outlierFence is { } fence
-        ? $"外れ値を無視（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上を弾く）"
+        ? $"外れ値（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上）を無視"
         : "外れ値を無視";
+
+    /// <summary>「すべての価格が範囲内の商品のみ」を出すか（価格だけ。スキ数は1商品に1つなので、どれかと全部が同じ）。</summary>
+    public bool SupportsMatchAll { get; init; }
+
+    /// <summary>
+    /// 照らす数が**全部**範囲に入る商品だけにするか（ユーザ判断 2026-10-06・メモ82-6。既定は切＝どれか1つが入れば当たり）。
+    ///
+    /// 無料版と支援版のある商品は、どれかで見ると「500円以下」にも「3,000円以上」にも出る。「この幅に全部の種類が収まる商品」を探す手が無かった。
+    /// 除くときの意味は他の条件と同じ「除かないときに当たる物、以外」（＝範囲の外の数を1つでも持つ商品）。数の分からない商品は除くときも外す。
+    /// 外れ値を無視しているときは、外した数は見ない（支援用の 99,999円の種類があっても、残りが全部範囲に入れば当たる）。
+    /// </summary>
+    public bool MatchAll
+    {
+        get => _matchAll;
+        set
+        {
+            if (SetField(ref _matchAll, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
 
     /// <summary>外れ値を外す数の元を、外れ値の無い物（価格の払った額）にしているキー。その元では外れ値を探さない。</summary>
     public string? NoOutlierSource { get; init; }
@@ -1861,6 +1884,18 @@ public sealed class RangeModule : SearchModule
         OnPropertyChanged(nameof(CollapsedSummary));
     }
 
+    /// <summary>
+    /// 棒ごとの数（左から）を帯の高さにする。属性のスライダの帯（<see cref="AttributeFilter"/>）も同じ描き方にそろえる。
+    /// 1件しかない所も見えるように最低の高さを持たせ、0件の所は出さない。1件も無ければ帯を出さない
+    /// </summary>
+    internal static IReadOnlyList<HistogramBar> Bars(int[] counts)
+    {
+        var peak = counts.Length == 0 ? 0 : counts.Max();
+        return peak == 0
+            ? []
+            : counts.Select(count => new HistogramBar(count == 0 ? 0 : Math.Max(2, count * HistogramHeight / peak))).ToList();
+    }
+
     private void RefreshHistogram(IReadOnlyList<int> values)
     {
         var counts = new int[HistogramBuckets];
@@ -1870,13 +1905,7 @@ public sealed class RangeModule : SearchModule
             counts[index]++;
         }
 
-        var peak = counts.Max();
-
-        // 1件しかない所も見えるように、最低の高さを持たせる（0件の所は出さない）
-        Histogram = peak == 0
-            ? []
-            : counts.Select(count => new HistogramBar(count == 0 ? 0 : Math.Max(2, count * HistogramHeight / peak))).ToList();
-
+        Histogram = Bars(counts);
         OnPropertyChanged(nameof(Histogram));
         OnPropertyChanged(nameof(HasHistogram));
     }
@@ -1900,7 +1929,27 @@ public sealed class RangeModule : SearchModule
 
         EnsurePrepared(context);
         var (min, max) = (_preparedMin, _preparedMax);
-        foreach (var value in KnownValues(item))
+        var values = KnownValues(item);
+        if (SupportsMatchAll && _matchAll)
+        {
+            // 数の分からない商品は当てない（「全部が範囲に入る」の全部が空で真になるのを避ける）
+            if (values.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var value in values)
+            {
+                if ((min is not null && value < min) || (max is not null && value > max))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        foreach (var value in values)
         {
             if ((min is null || value >= min) && (max is null || value <= max))
             {
@@ -1920,7 +1969,8 @@ public sealed class RangeModule : SearchModule
     private int? _preparedMax;
 
     /// <summary>
-    /// 数が分かっていて、**どの数も**範囲に入らない商品（ユーザ判断 2026-10-01）。
+    /// 数が分かっていて、除かないときに当たらない商品（ユーザ判断 2026-10-01）。どれか1つで見るときは**どの数も**範囲に入らない商品、
+    /// 「すべての価格が範囲内」のときは**範囲の外の数を1つでも持つ**商品（メモ82-6。表は `docs/spec/search-filters.md`）。
     /// 数の分からない商品（値段を入れていない・外れ値を外したら1つも残らない）は、除くときも外す。
     /// </summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
@@ -1956,7 +2006,8 @@ public sealed class RangeModule : SearchModule
             }.OfType<string>().ToList();
 
             var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
-            return string.Join(" ", parts) + outliers;
+            var all = SupportsMatchAll && _matchAll ? "（すべての価格が範囲内）" : string.Empty;
+            return string.Join(" ", parts) + outliers + all;
         }
     }
 
@@ -1966,11 +2017,13 @@ public sealed class RangeModule : SearchModule
         _minEnabled = true;
         _maxEnabled = true;
         _ignoreOutliers = true;
+        _matchAll = false;
         _valuesFromState = false;
         _defaultsApplied = false;
         OnPropertyChanged(nameof(MinEnabled));
         OnPropertyChanged(nameof(MaxEnabled));
         OnPropertyChanged(nameof(IgnoreOutliers));
+        OnPropertyChanged(nameof(MatchAll));
         RefreshBounds();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -1984,6 +2037,7 @@ public sealed class RangeModule : SearchModule
             MinEnabled = _minEnabled,
             MaxEnabled = _maxEnabled,
             IgnoreOutliers = _ignoreOutliers,
+            MatchAll = SupportsMatchAll && _matchAll,
             Choice = _source?.Key,
         };
 
@@ -1994,7 +2048,9 @@ public sealed class RangeModule : SearchModule
         _minEnabled = state.MinEnabled;
         _maxEnabled = state.MaxEnabled;
         _ignoreOutliers = state.IgnoreOutliers;
+        _matchAll = SupportsMatchAll && state.MatchAll;
         OnPropertyChanged(nameof(IgnoreOutliers));
+        OnPropertyChanged(nameof(MatchAll));
 
         // 前に入れていた数があるなら、端から端までの既定で上書きしない。
         // 空で残っていたもの（端という意味）は、端の数を入れて見えるようにする
@@ -2042,10 +2098,58 @@ public sealed class DateModule : SearchModule
         : base(kind)
         => _any = any;
 
+    /// <summary>
+    /// 日付をいくつも持ち、**最初の1つだけで見るか全部で見るかを選べる**項目（入手日・ユーザ判断 2026-10-06・メモ82・83、判断8）。
+    /// <paramref name="first"/> は商品の代表の日付（購入の日付のうち最も早い物、無ければ商品の入手日）。既定は「最初の購入のみ」。
+    /// </summary>
+    public DateModule(SearchModuleKind kind, Func<ItemRecord, Func<DateOnly, bool>, bool> any, Func<ItemRecord, DateOnly?> first)
+        : this(kind, any)
+    {
+        _first = first;
+        PurchaseScopes = [new ChoiceOption(FirstPurchase, "最初の購入のみ"), new ChoiceOption(AllPurchases, "すべての購入")];
+        _purchaseScope = PurchaseScopes[0];
+    }
+
+    /// <summary>最初の購入だけで見る（状態の <c>choice</c> の値）。</summary>
+    public const string FirstPurchase = "first";
+
+    /// <summary>購入ごとの日付の全部で見る（どれか1つが範囲に入れば当たる）。</summary>
+    public const string AllPurchases = "all";
+
+    private readonly Func<ItemRecord, DateOnly?>? _first;
+    private ChoiceOption? _purchaseScope;
+
+    /// <summary>「最初の購入のみ」「すべての購入」（入手日だけ。公開日は空）。</summary>
+    public IReadOnlyList<ChoiceOption> PurchaseScopes { get; } = [];
+
+    public bool HasPurchaseScopes => PurchaseScopes.Count > 0;
+
+    /// <summary>
+    /// 最初の購入だけで見るか（既定）、購入ごとの日付の全部で見るか。
+    /// 切り替えても打った日付は残す——「2025年3月」を入れたまま、買い足した分も含めて見直す使い方を崩さない。空欄が指す手元の端だけ取り直す。
+    /// </summary>
+    public ChoiceOption? PurchaseScope
+    {
+        get => _purchaseScope;
+        set
+        {
+            if (value is not null && SetField(ref _purchaseScope, value))
+            {
+                RefreshBounds();
+                NotifyChanged();
+            }
+        }
+    }
+
+    private bool FirstOnly => _first is not null && _purchaseScope?.Key != AllPurchases;
+
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
 
-    /// <summary>手元の商品の日付の全部。両端（足したときの既定）をここから出す。検索側が入れる。</summary>
-    public Func<IEnumerable<DateOnly>>? AllDatesOf { get; set; }
+    /// <summary>
+    /// 手元の商品の日付の全部。両端（足したときの既定）をここから出す。検索側が入れる。
+    /// 引数は最初の購入だけで見ているか（入手日。最初の購入だけなら、買い足した日は端に入れない）。
+    /// </summary>
+    public Func<bool, IEnumerable<DateOnly>>? AllDatesOf { get; set; }
 
     public string SinceText
     {
@@ -2123,7 +2227,7 @@ public sealed class DateModule : SearchModule
     {
         // 空欄の境が指す日（手元の端）が変わりうる
         Unprepare();
-        var dates = (AllDatesOf?.Invoke() ?? []).ToList();
+        var dates = (AllDatesOf?.Invoke(FirstOnly) ?? []).ToList();
         _dataSince = dates.Count == 0 ? null : dates.Min();
         _dataTill = dates.Count == 0 ? null : dates.Max();
 
@@ -2215,7 +2319,9 @@ public sealed class DateModule : SearchModule
         }
 
         // 日付が分からない商品は、日付で絞った時点で外す。「値が小さい」ではなく「値が無い」ので、範囲のどこにも当てはまらない
-        return _any(item, _inRange);
+        return FirstOnly
+            ? _first!(item) is { } first && _inRange(first)
+            : _any(item, _inRange);
     }
 
     /// <summary>
@@ -2242,12 +2348,19 @@ public sealed class DateModule : SearchModule
     /// <summary>
     /// 日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。
     /// 日付をいくつも持つ商品は、どれも範囲に入らないときだけ残る（当たる＝どれか1つが入る、の裏）。
+    /// 最初の購入だけで見るときは、最初の日付が範囲の外の商品（後で買い足した日が範囲に入っていても残る）。
     /// </summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
     {
         EnsurePrepared(context);
-        return (_preparedSince is null && _preparedTill is null) || (_any(item, AnyDate) && !Matches(item, context));
+        var known = FirstOnly ? _first!(item) is not null : _any(item, AnyDate);
+        return (_preparedSince is null && _preparedTill is null) || (known && !Matches(item, context));
     }
+
+    /// <summary>入手日は、最初の購入か全てかを頭に添える（同じ日付でも当たる物が違う）。</summary>
+    protected override string SummaryHead => HasPurchaseScopes
+        ? $"{Label}（{(FirstOnly ? "最初の購入" : "すべての購入")}）"
+        : base.SummaryHead;
 
     protected override string SummaryJoiner => " ";
 
@@ -2272,8 +2385,10 @@ public sealed class DateModule : SearchModule
         _tillEnabled = true;
         _valuesFromState = false;
         _defaultsApplied = false;
+        _purchaseScope = PurchaseScopes.FirstOrDefault();
         OnPropertyChanged(nameof(SinceEnabled));
         OnPropertyChanged(nameof(TillEnabled));
+        OnPropertyChanged(nameof(PurchaseScope));
         RefreshBounds();
     }
 
@@ -2284,6 +2399,7 @@ public sealed class DateModule : SearchModule
             Max = _tillText,
             MinEnabled = _sinceEnabled,
             MaxEnabled = _tillEnabled,
+            Choice = _purchaseScope?.Key,
         };
 
     protected override void Read(SearchModuleState state)
@@ -2292,6 +2408,10 @@ public sealed class DateModule : SearchModule
         _tillText = state.Max ?? string.Empty;
         _sinceEnabled = state.MinEnabled;
         _tillEnabled = state.MaxEnabled;
+
+        // 書いていない（公開日・手で消した）ときは既定の「最初の購入のみ」
+        _purchaseScope = PurchaseScopes.FirstOrDefault(option => option.Key == state.Choice) ?? PurchaseScopes.FirstOrDefault();
+        OnPropertyChanged(nameof(PurchaseScope));
 
         // 前に入れていた日付があるなら、両端の既定で上書きしない
         _valuesFromState = _sinceText.Length > 0 || _tillText.Length > 0;
@@ -2363,6 +2483,18 @@ public sealed class AttributeModule : SearchModule
 
     public ObservableCollection<AttributeFilter> Rows { get; } = [];
 
+    /// <summary>属性の名前 → 手元でその属性を評価した商品の値の全部。行ごとの分布の帯をここから出す。検索側が入れる。</summary>
+    public Func<string, IEnumerable<int>>? AllValuesOf { get; set; }
+
+    /// <summary>分布の帯を手元の商品から描き直す（読み込み・マスタの変更のあと）。</summary>
+    public void RefreshHistograms()
+    {
+        foreach (var row in Rows)
+        {
+            row.SetValues(AllValuesOf?.Invoke(row.Name) ?? []);
+        }
+    }
+
     public ObservableCollection<string> Suggestions { get; } = [];
 
     public bool HasSuggestions => _names.Count > 0;
@@ -2409,6 +2541,7 @@ public sealed class AttributeModule : SearchModule
         var row = new AttributeFilter { Name = known };
         row.Min = min;
         row.Max = max;
+        row.SetValues(AllValuesOf?.Invoke(known) ?? []);
         row.Changed += NotifyChanged;
         row.RemoveCommand = new RelayCommand(() =>
         {

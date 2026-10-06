@@ -34,6 +34,7 @@ public sealed class AttributeFilter : ViewModelBase
             if (SetField(ref _min, Math.Clamp(value, 0, _max)))
             {
                 OnPropertyChanged(nameof(RangeText));
+                OnPropertyChanged(nameof(LowPosition));
                 _changedSoon.Request();
             }
         }
@@ -47,12 +48,63 @@ public sealed class AttributeFilter : ViewModelBase
             if (SetField(ref _max, Math.Clamp(value, _min, 100)))
             {
                 OnPropertyChanged(nameof(RangeText));
+                OnPropertyChanged(nameof(HighPosition));
                 _changedSoon.Request();
             }
         }
     }
 
     public string RangeText => $"{Min}〜{Max}%";
+
+    /// <summary>
+    /// スライダの位置（0〜100）。**1%刻み**（ユーザ判断 2026-10-06・メモ82・判断9。前は目盛の10%に吸い付けていた）。
+    /// スライダはドラッグ中に端数を返すので、ここで整数に丸めて受ける（数に結ぶと、端数の変換に任せることになる）。
+    /// </summary>
+    // 上下は越えられない（価格と同じ）。越えようとして値が変わらなかったときも位置を知らせ、つまみを止まった値へ戻す
+    public double LowPosition
+    {
+        get => _min;
+        set
+        {
+            Min = (int)Math.Round(value, MidpointRounding.AwayFromZero);
+            OnPropertyChanged(nameof(LowPosition));
+        }
+    }
+
+    public double HighPosition
+    {
+        get => _max;
+        set
+        {
+            Max = (int)Math.Round(value, MidpointRounding.AwayFromZero);
+            OnPropertyChanged(nameof(HighPosition));
+        }
+    }
+
+    /// <summary>棒の数。5%ずつ（0〜4%・5〜9%…95〜100%）。編集画面が5%刻みだった頃の値が棒の間で割れず、目盛（10%）の2本ぶんに当たる。</summary>
+    public const int HistogramBuckets = 20;
+
+    /// <summary>
+    /// 分布の帯（ユーザ判断 2026-10-06・メモ82：価格と同じくヒストグラムを出す）。手元でこの属性を評価した商品の値がどこに集まっているか。
+    /// 目盛は直線（0〜100%）なので、帯も等しい幅で数える。
+    /// </summary>
+    public IReadOnlyList<HistogramBar> Histogram { get; private set; } = [];
+
+    public bool HasHistogram => Histogram.Count > 0;
+
+    /// <summary>手元の値の全部から帯を描き直す。評価した商品が無ければ帯を出さない。</summary>
+    public void SetValues(IEnumerable<int> values)
+    {
+        var counts = new int[HistogramBuckets];
+        foreach (var value in values)
+        {
+            counts[Math.Clamp(value * HistogramBuckets / 100, 0, HistogramBuckets - 1)]++;
+        }
+
+        Histogram = RangeModule.Bars(counts);
+        OnPropertyChanged(nameof(Histogram));
+        OnPropertyChanged(nameof(HasHistogram));
+    }
 
     /// <summary>評価が入っていて、かつレンジに収まるものだけを通す。</summary>
     public bool Matches(ItemRecord item)

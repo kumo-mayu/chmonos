@@ -197,6 +197,37 @@ public sealed class UnresolvedRow : ViewModelBase
     public string CandidateText => $"自動候補:{CandidateCount} 件";
 
     /// <summary>
+    /// 札「自動候補」を出すか。BOOTHで非公開と分かっている行は、代わりに札「BOOTHで非公開」を出す
+    /// （候補の数は読み取れたIDの1件で、それが非公開。2つ並べると、候補があるのにどうして登録できないのかが読めない）。
+    /// </summary>
+    public bool ShowsCandidateCount => HasCandidates && !IsNotOnBooth;
+
+    private bool _boothAnswerOverturned;
+
+    /// <summary>
+    /// 取り込みが BOOTH に聞いて「無い」と答えられた商品ID（<see cref="UnresolvedFile.NotOnBooth"/>）。
+    /// 「情報を確認」で聞き直して公開されていたら、画面の行も記録と同じく外す（記録は Core が外す。行は読み直すまで古い写しを持つ）。
+    /// </summary>
+    public string? NotOnBoothItemId => _boothAnswerOverturned ? null : File.NotOnBooth?.ItemId;
+
+    /// <summary>一覧の札「BOOTHで非公開」。</summary>
+    public bool IsNotOnBooth => NotOnBoothItemId is not null;
+
+    /// <summary>聞き直して公開されていた。札を「BOOTHで非公開」から戻す。</summary>
+    internal void NoteNowOnBooth()
+    {
+        if (_boothAnswerOverturned || File.NotOnBooth is null)
+        {
+            return;
+        }
+
+        _boothAnswerOverturned = true;
+        OnPropertyChanged(nameof(NotOnBoothItemId));
+        OnPropertyChanged(nameof(IsNotOnBooth));
+        OnPropertyChanged(nameof(ShowsCandidateCount));
+    }
+
+    /// <summary>
     /// 取り込みで zip として開けなかった物（札「壊れたzip」）。中身の一覧が空なだけでは、途中で切れたダウンロードだと気付けなかった。
     /// 取り込みが記録に書いた事実をそのまま見せる——画面を開くたびに開き直すと、未確定の zip の数だけディスクを読む
     /// </summary>

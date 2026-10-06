@@ -20,6 +20,9 @@ public class NotFoundImportTests : IDisposable
     private const string MissingId = "9999999";
     private const string LivingId = "111";
 
+    /// <summary>BOOTH が一時的に答えない（503）商品ID。</summary>
+    private const string DownId = "9900003";
+
     private readonly string _root;
     private readonly DataStore _store;
     private readonly ImportPipeline _pipeline;
@@ -63,6 +66,11 @@ public class NotFoundImportTests : IDisposable
             if (url.Contains(MissingId, StringComparison.Ordinal))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+            }
+
+            if (url.Contains(DownId, StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
             }
 
             if (url.EndsWith(".json", StringComparison.Ordinal))
@@ -214,6 +222,59 @@ public class NotFoundImportTests : IDisposable
         await _pipeline.RunAsync(new ImportWorkSet([folder]));
         await _pipeline.RunAsync(new ImportWorkSet([folder]));
 
-        Assert.Single(_store.Unresolved.Load());
+        // 2回目の答え（また無い）も残っている
+        Assert.Equal(MissingId, Assert.Single(_store.Unresolved.Load()).NotOnBooth?.ItemId);
+    }
+
+    // ---- BOOTH の「無い」の答えを未確定の行に残す（ユーザ判断 2026-10-06）----
+
+    /// <summary>
+    /// 前は答えを捨て、商品IDを候補に載せるだけだった。未確定の画面は選んだだけでは非公開だと分からず、
+    /// 「情報を確認」でもう一度 BOOTH に聞くまで、そのIDのまま登録する形を出せなかった。
+    /// </summary>
+    [Fact]
+    public async Task 取り込みでBOOTHに無いと答えられたら_その答えを未確定の行に残す()
+    {
+        var before = DateTimeOffset.Now;
+
+        await _pipeline.RunAsync(new ImportWorkSet([CreateSource(MissingId)]));
+
+        var note = Assert.Single(_store.Unresolved.Load()).NotOnBooth;
+        Assert.NotNull(note);
+        Assert.Equal(MissingId, note!.ItemId);
+        Assert.InRange(note.CheckedAt, before, DateTimeOffset.Now);
+
+        // 人が読める形で書く（欄の名前は notOnBooth。中は商品IDと聞いた日時）
+        var json = await File.ReadAllTextAsync(Path.Combine(_root, "library", "unresolved.json"));
+        Assert.Contains("\"notOnBooth\"", json, StringComparison.Ordinal);
+        Assert.Contains($"\"itemId\": \"{MissingId}\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"checkedAt\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 一時的に届かなかった物（5xx）は、非公開と分かったわけではない。未確定へは送らず「続きから」に残す（今の扱い）ので、印の付いた行は無い。
+    /// </summary>
+    [Fact]
+    public async Task 一時的に届かなかった商品のファイルには_非公開の印を付けない()
+    {
+        await _pipeline.RunAsync(new ImportWorkSet([CreateSource(DownId, MissingId)]));
+
+        var unresolved = _store.Unresolved.Load();
+        Assert.DoesNotContain(unresolved, file => file.Paths.Any(path => path.Contains(DownId, StringComparison.Ordinal)));
+        Assert.DoesNotContain(unresolved, file => file.NotOnBooth?.ItemId == DownId);
+        Assert.Contains(DownId, _store.ImportState.Load().UnfetchedItems.Select(entry => entry.ItemId));
+    }
+
+    /// <summary>手掛かりから決まらず BOOTH に聞いていない行（ふつうの未確定）には付けない。</summary>
+    [Fact]
+    public async Task BOOTHに聞いていない未確定には_非公開の印を付けない()
+    {
+        var folder = Path.Combine(_root, "plain");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "作り物の手掛かりなし.zip"), "plain");
+
+        await _pipeline.RunAsync(new ImportWorkSet([folder]));
+
+        Assert.Null(Assert.Single(_store.Unresolved.Load()).NotOnBooth);
     }
 }

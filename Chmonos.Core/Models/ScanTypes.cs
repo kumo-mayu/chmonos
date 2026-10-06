@@ -98,4 +98,38 @@ public sealed class UnresolvedFile
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool ArchiveBroken { get; init; }
+
+    private BoothNotFoundNote? _notOnBooth;
+
+    /// <summary>
+    /// 取り込みがこのファイルの商品IDを BOOTH に聞き、「無い」（404）と答えられた記録（ユーザ判断 2026-10-06）。
+    ///
+    /// 前は答えを捨てて、商品IDを候補1つに載せて未確定へ送るだけだった。未確定の画面は選んだだけでは非公開だと分からず、
+    /// 「情報を確認」でもう一度聞くまで、そのIDのまま登録する形を出せなかった。**もう聞いた答えを残すだけで、問い合わせは増やさない。**
+    /// 一時的に届かなかった物は未確定へ送らない（「続きから」に残る）ので、ここに混ざらない。
+    /// BOOTH に聞いていない行（除外を解除して戻した・商品から外して戻した・候補が複数で聞かなかった）には付けない。
+    /// 人が「情報を確認」で聞き直すと、今も無ければ日時を新しくし、公開されていれば外す（<c>ItemService.PreviewWithReasonAsync</c>）。
+    /// </summary>
+    public BoothNotFoundNote? NotOnBooth { get => _notOnBooth; init => _notOnBooth = value; }
+
+    /// <summary>
+    /// 記録だけを差し替えた写し。ほかの欄は同じ物を指す（読み直した今の一覧に錠の中で当てるときに使う）。
+    /// 欄を全部書き並べて作り直すと、後から欄を足したときに書き漏れて、その欄が消える
+    /// </summary>
+    public UnresolvedFile WithNotOnBooth(BoothNotFoundNote? note)
+    {
+        var copy = (UnresolvedFile)MemberwiseClone();
+        copy._notOnBooth = note;
+        return copy;
+    }
+}
+
+/// <summary>BOOTH に商品IDを聞いて「無い」と答えられた記録（<c>unresolved.json</c> の <c>notOnBooth</c>）。</summary>
+public sealed record BoothNotFoundNote
+{
+    /// <summary>聞いた商品ID。</summary>
+    public required string ItemId { get; init; }
+
+    /// <summary>最後に「無い」と答えられた日時。</summary>
+    public required DateTimeOffset CheckedAt { get; init; }
 }

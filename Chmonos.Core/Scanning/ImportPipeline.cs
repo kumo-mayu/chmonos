@@ -2053,6 +2053,9 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 開けなかった印は記録ごと引き継ぐ（前は商品の記録が印を持たず、戻すときに付け直していた）
             ArchiveBroken = file.ArchiveBroken,
+
+            // BOOTH の答えを残す（ユーザ判断 2026-10-06）。未確定の画面が、選んだときからそのIDのまま登録する形を出せるように
+            NotOnBooth = new BoothNotFoundNote { ItemId = itemId, CheckedAt = DateTimeOffset.Now },
         };
     }
 

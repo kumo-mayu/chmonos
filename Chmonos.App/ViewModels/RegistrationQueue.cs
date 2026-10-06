@@ -39,6 +39,9 @@ public sealed class RegistrationOutcome(RegistrationJob job, IReadOnlyList<strin
     /// <summary>1つでも登録できなかったときの理由（最初の物）。</summary>
     public string? Failure { get; } = failure;
 
+    /// <summary>添えた画像（<see cref="QueuedRegistration.UserImagePaths"/>）のうち、入らなかった枚数。登録は取り消さない。</summary>
+    public int ImagesFailed { get; init; }
+
     public bool Handled { get; set; }
 }
 
@@ -304,6 +307,21 @@ public sealed class RegistrationQueue : ViewModelBase
 
         Persist(list => Without(list, job.Record));
 
+        // 添えた画像は商品ができてから入れる（BOOTHに無い商品と同じ）。写しへ入れる前に入れる（検索のカードに画像を出す）
+        var imagesFailed = 0;
+        if (settled.Count > 0 && job.Record.UserImagePaths is { Count: > 0 } images)
+        {
+            try
+            {
+                imagesFailed = await LocalImageImport.AddAsync(_commands, job.ItemId, images);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Core.Diagnostics.AppLog.Error("登録の列の画像", exception);
+                imagesFailed = images.Count;
+            }
+        }
+
         // 画面が行を外す前に、主画面の控えと検索の写しへ入れる（フォルダビューの右は、残りの数が減ったのを見て写しから木を組み直す）
         if (settled.Count > 0)
         {
@@ -311,7 +329,7 @@ public sealed class RegistrationQueue : ViewModelBase
         }
 
         Changed?.Invoke();
-        var outcome = new RegistrationOutcome(job, settled, failure);
+        var outcome = new RegistrationOutcome(job, settled, failure) { ImagesFailed = imagesFailed };
         Finished?.Invoke(outcome);
         if (!outcome.Handled)
         {

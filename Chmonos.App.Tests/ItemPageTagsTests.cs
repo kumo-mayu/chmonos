@@ -88,6 +88,42 @@ public class ItemPageTagsTests
     });
 
     [Fact]
+    public Task 属性の欄は_既定で開き_畳んだら別の商品へ移っても畳んだまま_見出しに数が出る() => TestApp.Run(async app =>
+    {
+        var first = Make.Item("1000001", "作り物の衣装") with { };
+        first = first with { Local = first.Local with { Attributes = new Dictionary<string, int> { ["かわいい"] = 70, ["かっこいい"] = 20 } } };
+        var second = Make.Item("1000002", "作り物の髪型");
+        await app.AddItemAsync(first);
+        await app.AddItemAsync(second);
+        var main = await app.StartAsync();
+
+        // 開閉はアプリを閉じるまで保つ値なので、試験の後へ持ち越さない
+        var before = SectionFolds.AttributesExpanded;
+        try
+        {
+            SectionFolds.AttributesExpanded = true;
+            var page = new ItemViewModel(first, app.Services, main, main.Thumbnails);
+            Assert.True(page.IsAttributesExpanded);
+            Assert.Equal("（2）", page.AttributesCountText);
+
+            var changed = new List<string?>();
+            page.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            page.IsAttributesExpanded = false;
+            Assert.Contains(nameof(ItemViewModel.IsAttributesExpanded), changed);
+
+            var next = new ItemViewModel(second, app.Services, main, main.Thumbnails);
+            Assert.False(next.IsAttributesExpanded);
+
+            // ユーザータグの開閉とは別に覚える
+            Assert.Equal(SectionFolds.UserTagsExpanded, next.IsUserTagsExpanded);
+        }
+        finally
+        {
+            SectionFolds.AttributesExpanded = before;
+        }
+    });
+
+    [Fact]
     public void 右の列の枠の中は_商品名_ユーザータグ_BOOTHのタグの順()
     {
         // 並びは XAML の書いた順で決まる（縦に積む1つの StackPanel の中）。部品を組んで測るにはアプリの見た目の資源が要り、

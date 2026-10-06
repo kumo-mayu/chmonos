@@ -754,8 +754,12 @@
                         画面から分からない。ユーザータグと同じ扱いに揃えた
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
-                        <StackPanel>
-                            <TextBlock Text="属性" FontWeight="Bold" Margin="0,0,0,12" />
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsAttributesExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="ItemAttributesExpander" AutomationProperties.Name="属性">
+                            <Expander.Header>
+                                <TextBlock Style="{StaticResource SectionLabel}"><Run Text="属性" /><Run Text="{Binding AttributesCountText, Mode=OneWay}" /></TextBlock>
+                            </Expander.Header>
+                        <StackPanel Margin="0,8,0,0">
                             <TextBlock Text="未設定。編集画面で付けられます。" Style="{StaticResource Caption}"
                                        Visibility="{Binding HasAttributes, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                             <controls:ContentItemsControl ItemsSource="{Binding Attributes}"
@@ -780,6 +784,7 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
                         </StackPanel>
+                        </Expander>
                     </Border>
 
                     <!--

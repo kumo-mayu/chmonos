@@ -151,7 +151,7 @@ public class ResolveActionTests
     });
 
     [Fact]
-    public Task BOOTHに無い商品IDを確かめると_ふつうの登録ではなく_そのIDのまま登録するかを聞く() => TestApp.Run(async app =>
+    public Task BOOTHに無い商品IDを確かめると_そのIDのまま登録する形になり_1件なら窓を出さずに登録する() => TestApp.Run(async app =>
     {
         var (_, resolve) = await OpenResolveAsync(app, @"a\costume.zip");
 
@@ -163,12 +163,14 @@ public class ResolveActionTests
         Assert.False(resolve.HasPreview);
         Assert.NotEmpty(app.Booth.Requests);
 
-        // 「このIDで登録」は、見つからなかったIDのまま登録する形で押せる（ユーザ 2026-10-06）。窓で「キャンセル」なら何も起きない
+        // 「このIDで登録」は、見つからなかったIDのまま登録する形で押せる（ユーザ 2026-10-06）。
+        // 確かめの窓はふつうの登録と同じく、チェックした物をまとめて登録するときだけ（ユーザ判断 2026-10-06）
         Assert.True(resolve.IsUnpublishedForm);
         resolve.AssignCommand.Execute(null);
         await app.SettleAsync();
-        Assert.Equal("このIDのまま登録する", Assert.Single(app.Notices).Caption);
-        Assert.Single(resolve.Files);
+        Assert.Empty(app.Notices);
+        Assert.Empty(resolve.Files);
+        Assert.NotNull(await app.Store.Items.LoadAsync("1999999"));
     });
 
     [Fact]

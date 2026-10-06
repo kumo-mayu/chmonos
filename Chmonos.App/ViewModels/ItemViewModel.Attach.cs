@@ -29,28 +29,36 @@ public sealed partial class ItemViewModel
             // 取り込みの③が済むまでは、商品の中身を変える操作を塞ぐ（外す・戻すと同じ）。読んでいる間の2度押しで同じファイルを2回読ませない
             () => !IsEditLocked && !_isAttachingFiles);
 
-    private async Task PickAndAttachAsync()
+    /// <summary>
+    /// 選ぶ窓を出して紐付ける。返すのは紐付いたファイルの場所（選ばなかった・断られた物は入らない）。
+    /// 編集画面のバリエーションの行も、紐付いた物だけをその種類に結ぶためにこれを通す
+    /// </summary>
+    /// <param name="title">窓の題。既定は「この商品に追加するファイルを選ぶ」。</param>
+    internal async Task<IReadOnlyList<string>> PickAndAttachAsync(string? title = null)
     {
-        var picked = PickFilesToAttachIntercept is { } intercept ? intercept() : PickFiles();
-        if (picked is { Count: > 0 })
-        {
-            await AttachFilesAsync(picked);
-        }
+        var picked = PickFilesToAttachIntercept is { } intercept ? intercept() : PickFiles(title ?? "この商品に追加するファイルを選ぶ");
+        return picked is { Count: > 0 } ? await AttachFilesAsync(picked) : [];
     }
 
     /// <summary>取り込む拡張子と同じ物だけを選ばせる（単体の unitypackage などは、紐付けても送れも開けもしない行になる）。</summary>
-    private static IReadOnlyList<string>? PickFiles()
+    private static IReadOnlyList<string>? PickFiles(string title)
     {
         var patterns = string.Join(";", Core.Scanning.FolderScanner.TargetExtensions.Order().Select(extension => "*" + extension));
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "この商品に追加するファイルを選ぶ",
+            Title = title,
             Filter = $"BOOTHのファイル|{patterns}",
             Multiselect = true,
         };
 
         return dialog.ShowDialog() == true ? dialog.FileNames : null;
     }
+
+    /// <summary>
+    /// 紐付けてファイルの行を組み直した後に呼ぶ（編集画面が、右のバリエーション分けの一覧を開き直さずに足すため）。
+    /// 引数は読み直した商品。null（単独の商品ページ）なら何もしない
+    /// </summary>
+    public Action<ItemRecord>? FilesAttached { get; set; }
 
     /// <summary>1本ずつ紐付けた結果。<see cref="OpenItemId"/> は「その商品を開く」を選んだときの行き先。</summary>
     private readonly record struct AttachStep(bool Written, string? Failure, IReadOnlyList<ArchiveHolder> TakenFrom, string? OpenItemId);
@@ -60,11 +68,12 @@ public sealed partial class ItemViewModel
     /// 1本ずつ順に読む（ハッシュに数秒かかる物もあるが、窓で聞く問いはファイルごとに違う）。
     /// 紐付けたら**ファイルの行だけをその場で組み直す**（ページ全体を組み直すと、読んでいた位置や開いた欄が動く）。
     /// </summary>
-    public async Task AttachFilesAsync(IReadOnlyList<string> paths)
+    /// <returns>紐付いたファイルの場所。断られた・やめた・もう紐付いていた物は入らない。</returns>
+    public async Task<IReadOnlyList<string>> AttachFilesAsync(IReadOnlyList<string> paths)
     {
         if (_isAttachingFiles || paths.Count == 0)
         {
-            return;
+            return [];
         }
 
         _isAttachingFiles = true;
@@ -74,7 +83,7 @@ public sealed partial class ItemViewModel
         IsFilesExpanded = true;
         FilesNotice.Show(paths.Count == 1 ? "ファイルを読んでいます…" : $"{paths.Count} 件のファイルを読んでいます…");
 
-        var written = false;
+        var attached = new List<string>();
         var failures = new List<string>();
         var others = new List<ArchiveHolder>();
         string? openItemId = null;
@@ -83,7 +92,11 @@ public sealed partial class ItemViewModel
             foreach (var path in paths)
             {
                 var step = await AttachOneAsync(path);
-                written |= step.Written;
+                if (step.Written)
+                {
+                    attached.Add(path);
+                }
+
                 others.AddRange(step.TakenFrom);
                 if (step.Failure is { } failure)
                 {
@@ -122,7 +135,7 @@ public sealed partial class ItemViewModel
                 : $"{failures[0]}ほか {failures.Count - 1} 件も紐付けられませんでした。");
         }
 
-        if (written)
+        if (attached.Count > 0)
         {
             await AfterAttachAsync(others);
         }
@@ -131,6 +144,8 @@ public sealed partial class ItemViewModel
         {
             _main.ShowItem(holder);
         }
+
+        return attached;
     }
 
     private async Task<AttachStep> AttachOneAsync(string path)
@@ -230,6 +245,7 @@ public sealed partial class ItemViewModel
 
         _main.Search.NoteItemChanged(reloaded);
         RebuildLocalFilesInPlace(reloaded);
+        FilesAttached?.Invoke(reloaded);
     }
 
     private void RebuildLocalFilesInPlace(ItemRecord reloaded)

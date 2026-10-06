@@ -46,7 +46,13 @@ public sealed partial class ResolveViewModel
     /// 欄の下の「IDが違うか、非公開です」の文を残し、ここでは登録すると何が起きるかだけを言う。
     /// </summary>
     private bool IsNotOnBoothIdFromFile => NotOnBoothItemId is { } id
-        && Selected?.File.CandidateItemIds.Contains(id, StringComparer.Ordinal) == true;
+        && (Selected?.NotOnBoothItemId == id || Selected?.File.CandidateItemIds.Contains(id, StringComparer.Ordinal) == true);
+
+    /// <summary>
+    /// 取り込みのときは「無い」と答えられたが、聞き直すと公開されていたID（ユーザ判断 2026-10-06）。
+    /// このIDのふつうの登録にだけ、非公開のつもりで添えた画像を持っていく。選び直すと消える
+    /// </summary>
+    private string? _overturnedItemId;
 
     /// <summary>説明の1行目。読み取れたIDなら、BOOTHで非公開だったことを言う。人が打ったIDは欄の下の文が言っている。</summary>
     public string UnpublishedLeadText => IsNotOnBoothIdFromFile
@@ -92,20 +98,24 @@ public sealed partial class ResolveViewModel
         // 名前は欄の値（下書きは元zipの名前かファイル名。人が書き換えた名前はそのまま）。添えた画像は押した時点の分を控える
         var name = LocalNameInput.Trim();
         var images = LocalImages.ToList();
-        var what = TargetSubject(targets, fromChecked);
-        var answer = Services.Notice.Show(
-            $"{what} を商品ID {itemId} として登録します。\n\n"
-            + $"BOOTHで公開されていない商品として、名前「{name}」で登録します。"
-            + (images.Count > 0 ? $"選んだ画像 {images.Count} 枚を追加します。" : string.Empty) + "\n\n"
-            + "BOOTHで公開されたら情報を取得し、通知に表示します。",
-            "このIDのまま登録する",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Cancel);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
+        // 確かめの窓はふつうの「このIDで登録」と同じく、一覧でチェックした物をまとめて登録するときだけ出す（ユーザ判断 2026-10-06）。
+        // 1件と束は、枠と「登録すると：」の行で何が起きるかを見て押している。窓を挟むと、キーで1件ずつ片付ける流れが止まる
+        if (fromChecked)
         {
-            return;
+            var answer = Services.Notice.Show(
+                $"{TargetSubject(targets, fromChecked)} を商品ID {itemId} として登録します。\n\n"
+                + $"BOOTHで公開されていない商品として、名前「{name}」で登録します。"
+                + (images.Count > 0 ? $"選んだ画像 {images.Count} 枚を追加します。" : string.Empty) + "\n\n"
+                + "BOOTHで公開されたら情報を取得し、通知に表示します。",
+                "このIDのまま登録する",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Cancel);
+
+            if (answer != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
         }
 
         IsBusy = true;

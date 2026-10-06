@@ -136,6 +136,7 @@ public static class UnresolvedMerge
             CandidateItemIds = file.CandidateItemIds,
             SamePathItemIds = [.. file.SamePathItemIds, .. newIds],
             ArchiveBroken = file.ArchiveBroken,
+            NotOnBooth = file.NotOnBooth,
         };
     }
 

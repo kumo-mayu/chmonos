@@ -22,10 +22,10 @@ public sealed record SearchModuleState
     /// <summary>積んだ値（リストの形の条件）。</summary>
     public IReadOnlyList<string> Items { get; init; } = [];
 
-    /// <summary>積んだ値を全部満たす（AND）か。false はいずれか（OR）。</summary>
+    /// <summary>積んだ値を全部満たす（AND）か。false はいずれか（OR）。価格では「全ての価格が範囲内の商品のみ」。</summary>
     public bool MatchAll { get; init; }
 
-    /// <summary>三択などで選んだもの・価格の元・最近の種類。</summary>
+    /// <summary>三択などで選んだもの・価格の元・最近の種類・入手日のどの購入で見るか（first／all）。</summary>
     public string? Choice { get; init; }
 
     /// <summary>下限（数値か日付の文字）。空は端（数の範囲なら0・日付なら制限しない）。</summary>

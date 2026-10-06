@@ -823,6 +823,15 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
                 var page = new ItemViewModel(record, _services, _main, _thumbnails, forEditing: true);
                 var openedId = record.Id;
                 page.Replaced = updated => OnItemPageReplaced(page, openedId, updated);
+
+                // 読み終える前に次の商品へ進んでいたら、今の商品の一覧へ前の商品のファイルを足さない
+                page.FilesAttached = reloaded =>
+                {
+                    if (ReferenceEquals(ItemPage, page))
+                    {
+                        MergeAttachedFiles(reloaded);
+                    }
+                };
                 ItemPage = page;
                 RaiseItemChanged();
                 return;

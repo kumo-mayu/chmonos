@@ -247,13 +247,11 @@ public class ImportAndResolveFlowTests
         Assert.Contains("見つかりませんでした", resolve.StatusText, StringComparison.Ordinal);
         Assert.False(resolve.HasUnpublishedLead);
 
-        app.Answer = _ => MessageBoxResult.OK;
         resolve.AssignCommand.Execute(null);
         await app.SettleAsync();
 
-        var asked = Assert.Single(app.Notices);
-        Assert.Equal("このIDのまま登録する", asked.Caption);
-        Assert.Contains($"商品ID {BoothMissing} として登録します", asked.Text, StringComparison.Ordinal);
+        // 1件の登録は窓を出さない（ふつうの「このIDで登録」と同じ。ユーザ判断 2026-10-06）
+        Assert.Empty(app.Notices);
 
         var item = await app.Store.Items.LoadAsync(BoothMissing);
         Assert.NotNull(item);
@@ -347,12 +345,11 @@ public class ImportAndResolveFlowTests
 
         resolve.LocalNameInput = "作り物の季節の贈り物";
         resolve.AddLocalImages([app.NewFile(@"pics\red.png", Png(200)), app.NewFile(@"pics\blue.png", Png(20))]);
-        app.Answer = _ => MessageBoxResult.OK;
         var asked = app.Booth.Requests.Count;
         resolve.AssignCommand.Execute(null);
         await app.SettleAsync();
 
-        Assert.Contains("選んだ画像 2 枚を追加します。", Assert.Single(app.Notices).Text, StringComparison.Ordinal);
+        Assert.Empty(app.Notices);
         var item = await app.Store.Items.LoadAsync(FromFileMissing);
         Assert.Equal("作り物の季節の贈り物", item!.Local.DisplayName);
         Assert.Equal(2, item.Local.UserImages.Count);
@@ -416,6 +413,174 @@ public class ImportAndResolveFlowTests
         Assert.False(resolve.IsUnpublishedForm);
         Assert.False(resolve.AssignCommand.CanExecute(null));
         Assert.Contains("問い合わせできませんでした", resolve.StatusText, StringComparison.Ordinal);
+    });
+
+    // ---- 未確定：取り込みが BOOTH から「無い」と言われた答えを残した行（ユーザ判断 2026-10-06）----
+
+    /// <summary>取り込みが BOOTH に聞いて404だった行（<see cref="UnresolvedFile.NotOnBooth"/> 付き）と、ふつうの手掛かりの行を置いて未確定を開く。</summary>
+    private static async Task<(MainViewModel Main, ResolveViewModel Resolve)> OpenResolveWithNotOnBoothAsync(TestApp app)
+    {
+        var marked = app.NewFile(@"a\作り物の季節衣装.zip");
+        var plain = app.NewFile(@"b\作り物の手掛かり付き.zip");
+        await app.Store.Unresolved.SaveAsync(
+        [
+            new UnresolvedFile
+            {
+                Hash = Make.HashOf(marked),
+                Paths = [marked],
+                SizeBytes = 3,
+                ModifiedAtUtc = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                FirstSeenAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                CandidateItemIds = [FromFileMissing],
+                NotOnBooth = new BoothNotFoundNote { ItemId = FromFileMissing, CheckedAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero) },
+            },
+            new UnresolvedFile
+            {
+                Hash = Make.HashOf(plain),
+                Paths = [plain],
+                SizeBytes = 3,
+                ModifiedAtUtc = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                FirstSeenAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                CandidateItemIds = ["9900005"],
+            },
+        ]);
+        var main = await app.StartAsync();
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+        var resolve = Assert.IsType<ResolveViewModel>(main.CurrentViewModel);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "作り物の季節衣装.zip");
+        await app.SettleAsync();
+        return (main, resolve);
+    }
+
+    [Fact]
+    public Task 取り込みでBOOTHに無いと答えられた行は_札がBOOTHで非公開になり_ほかの行は自動候補のまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+
+        var marked = resolve.Files.Single(row => row.FileName == "作り物の季節衣装.zip");
+        Assert.True(marked.IsNotOnBooth);
+        Assert.False(marked.ShowsCandidateCount);
+
+        var plain = resolve.Files.Single(row => row.FileName == "作り物の手掛かり付き.zip");
+        Assert.False(plain.IsNotOnBooth);
+        Assert.True(plain.ShowsCandidateCount);
+        Assert.Equal("自動候補:1 件", plain.CandidateText);
+    });
+
+    [Fact]
+    public Task 取り込みでBOOTHに無いと答えられた行を選ぶと_初めから欄にIDが入り_そのIDのまま登録する形が出て_BOOTHへは聞かない() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+
+        Assert.Equal(FromFileMissing, resolve.ItemIdInput);
+        Assert.True(resolve.IsUnpublishedForm);
+        Assert.Equal("このファイルから読み取れた商品IDは、BOOTHで非公開です。", resolve.UnpublishedLeadText);
+        Assert.Equal("作り物の季節衣装", resolve.LocalNameInput);
+        Assert.True(resolve.AssignCommand.CanExecute(null));
+        Assert.Empty(app.Booth.Requests);
+
+        // ほかの行を選ぶと引っ込む（その行には答えが無い）
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "作り物の手掛かり付き.zip");
+        Assert.Equal(string.Empty, resolve.ItemIdInput);
+        Assert.False(resolve.IsUnpublishedForm);
+    });
+
+    [Fact]
+    public Task 選んだだけで出た非公開の形から_1件なら窓を出さずにそのIDのまま登録する() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        resolve.AddLocalImages([app.NewFile(@"pics\red.png", Png(200))]);
+
+        resolve.AssignCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Empty(app.Notices);
+        Assert.Empty(app.Booth.Requests);
+        var item = await app.Store.Items.LoadAsync(FromFileMissing);
+        Assert.Equal("作り物の季節衣装", item!.Local.DisplayName);
+        Assert.True(item.Local.IsDelisted);
+        Assert.Single(item.Local.UserImages);
+    });
+
+    [Fact]
+    public Task 非公開のIDのまま登録も_一覧でチェックした物をまとめるときは窓で確かめる() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        resolve.Files.Single(row => row.FileName == "作り物の季節衣装.zip").IsSelected = true;
+
+        resolve.AssignCommand.Execute(null);
+        await app.SettleAsync();
+
+        // 既定の答え（キャンセル）なので何も登録しない
+        Assert.Equal("このIDのまま登録する", Assert.Single(app.Notices).Caption);
+        Assert.Null(await app.Store.Items.LoadAsync(FromFileMissing));
+    });
+
+    [Fact]
+    public Task 情報を確認で聞き直して今も無ければ_そのIDのまま登録する形のまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.NotEmpty(app.Booth.Requests);
+        Assert.True(resolve.IsUnpublishedForm);
+        Assert.True(resolve.Selected!.IsNotOnBooth);
+
+        // 記録の日時は聞き直した時に新しくなる
+        var row = app.Store.Unresolved.Load().Single(file => file.NotOnBooth is not null);
+        Assert.True(row.NotOnBooth!.CheckedAt > new DateTimeOffset(2026, 9, 2, 0, 0, 0, TimeSpan.Zero));
+    });
+
+    [Fact]
+    public Task 情報を確認で聞き直して公開されていれば_伝えてふつうの登録に戻り_添えた画像を自分で足した画像として入れる() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        resolve.AddLocalImages([app.NewFile(@"pics\red.png", Png(200)), app.NewFile(@"pics\blue.png", Png(20))]);
+        app.Booth.HasItem(FromFileMissing, "作り物の再公開された衣装");
+
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.True(resolve.HasPreview);
+        Assert.False(resolve.IsUnpublishedForm);
+        Assert.Equal("BOOTHで公開されています。選んだ画像 2 枚も一緒に追加します。", resolve.StatusText);
+        Assert.Equal("登録すると：この商品を新しく作って、このファイルを紐付けます", resolve.AssignOutcomeText);
+
+        // 札も記録も「BOOTHで非公開」から外れる
+        Assert.False(resolve.Selected!.IsNotOnBooth);
+        Assert.All(app.Store.Unresolved.Load(), file => Assert.Null(file.NotOnBooth));
+
+        resolve.AssignCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Empty(app.Notices);
+        var item = await app.Store.Items.LoadAsync(FromFileMissing);
+        Assert.Equal("作り物の再公開された衣装", item!.Booth.Name);
+        Assert.False(item.Local.IsDelisted);
+        Assert.Equal(2, item.Local.UserImages.Count);
+        Assert.DoesNotContain(app.Store.Unresolved.Load(), file => file.Paths.Any(path => path.EndsWith("作り物の季節衣装.zip", StringComparison.Ordinal)));
+    });
+
+    /// <summary>「BOOTHに無い商品」の欄で添えた画像は、ほかのIDのふつうの登録には持っていかない（非公開と思って添えた画像だけを持っていく）。</summary>
+    [Fact]
+    public Task 非公開ではない行のふつうの登録には_添えた画像を入れない() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "作り物の手掛かり付き.zip");
+        resolve.AddLocalImages([app.NewFile(@"pics\red.png", Png(200))]);
+        app.Booth.HasItem("9900005", "作り物のふつうの商品");
+
+        await PreviewAsync(app, resolve, "9900005");
+        Assert.Equal(string.Empty, resolve.StatusText);
+        resolve.AssignCommand.Execute(null);
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync("9900005");
+        Assert.NotNull(item);
+        Assert.Empty(item!.Local.UserImages);
     });
 
     // ---- 未確定：BOOTHに無い商品として登録するとき、画像も一緒に入れられる（5-10）----

@@ -62,7 +62,7 @@ public sealed partial class ResolveViewModel
     /// 「BOOTHへ問い合わせて商品を作る」登録を列に積む。持っている商品へ足すだけの登録は問い合わせが無く数十msで終わるので、
     /// 積まずにその場で済ませる（呼ぶ側）。積んだ物はチェックを外す（そのまま次のチェックで別の物をまとめられるように）。
     /// </summary>
-    private void EnqueueRegistration(IReadOnlyList<UnresolvedRow> targets, ItemPreview preview, bool fromChecked)
+    private void EnqueueRegistration(IReadOnlyList<UnresolvedRow> targets, ItemPreview preview, bool fromChecked, IReadOnlyList<string> imagePaths)
     {
         Queue.Enqueue(new RegistrationJob
         {
@@ -72,6 +72,7 @@ public sealed partial class ResolveViewModel
                 ItemName = preview.Name,
                 FileHashes = [.. targets.Select(row => row.File.Hash)],
                 EstimatedRequests = preview.RequestsToRegister,
+                UserImagePaths = imagePaths.Count > 0 ? imagePaths : null,
             },
             FromChecked = fromChecked,
         });
@@ -151,19 +152,28 @@ public sealed partial class ResolveViewModel
         OnPropertyChanged(nameof(HasSettled));
         OnPropertyChanged(nameof(SettledText));
 
+        // 添えた画像が入らなかった分は、BOOTHに無い商品の登録と同じく一覧の見出しの近くに言う
+        var imagesNote = outcome.ImagesFailed > 0
+            ? $"画像 {outcome.ImagesFailed} 枚を追加できませんでした。商品ページの「＋」から追加してください。"
+            : string.Empty;
+
         if (viewing)
         {
             AfterSettled();
+            if (imagesNote.Length > 0)
+            {
+                ListNoticeText = imagesNote;
+            }
         }
         else if (settledRows.Count > 0)
         {
             RemoveFinishedRows(settledRows);
             // 文はその場で済ませる登録と同じ（束・選んだ物は件数で、1件は何を登録したかが分かるよう商品名で）
-            ListNoticeText = outcome.Failure is not null
+            ListNoticeText = (outcome.Failure is not null
                 ? $"{settledRows.Count} / {job.FileHashes.Count} 件を登録しました。残りは失敗しました。{outcome.Failure}"
                 : job.FileHashes.Count > 1
                     ? $"{settledRows.Count} 件を登録しました。"
-                    : $"「{job.ItemName}」を登録しました。";
+                    : $"「{job.ItemName}」を登録しました。") + imagesNote;
             HideCoveredContents(settledRows);
         }
 
