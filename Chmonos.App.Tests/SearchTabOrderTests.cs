@@ -108,7 +108,9 @@ public class SearchTabOrderTests
     /// <summary>その部品で Tab のキーを押したことにする（手でつないだ道は PreviewKeyDown で受けるので、MoveFocus では通らない）。</summary>
     private static void PressTab(FrameworkElement view, FrameworkElement element)
     {
-        element.Focus();
+        // フォーカスを置けたかを先に見る（外部の点検 2026-10-07）。試験の窓が手前に無い環境では置けず、
+        // Tab の行き先の違いとして落ちていた。置けなければ、環境のせいだと分かる文で落とす
+        Assert.True(element.Focus(), $"{Id(element)} にフォーカスを置けませんでした（試験の窓が手前に無い環境）");
         var source = PresentationSource.FromVisual(element)!;
         element.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
         Settle(view);

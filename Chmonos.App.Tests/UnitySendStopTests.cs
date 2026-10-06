@@ -77,8 +77,11 @@ public class UnitySendStopTests
         var lines = new List<(string Text, bool Failed)>();
         await app.StartAsync();
 
+        // 送り先は、決して動いていない PID にする（外部の点検 2026-10-07）。前は試験そのものの PID を使い、
+        // 「試験には窓が無いので閉じられたと見る」前提だったが、試験の窓が出ていると取り出しへ進み、別の文で落ちた
+        var closed = new OpenUnityEditor(int.MaxValue, "作り物のプロジェクト");
         await ItemUnityActions.SendPickedAsync(
-            app.Services, item, Editor, Package(app), "Unityへ送る", null, (text, failed) => lines.Add((text, failed)));
+            app.Services, item, closed, Package(app), "Unityへ送る", null, (text, failed) => lines.Add((text, failed)));
         await app.SettleAsync();
 
         var notice = Assert.Single(app.Notices);
