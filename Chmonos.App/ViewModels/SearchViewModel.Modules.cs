@@ -665,17 +665,6 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
-        // 説明文から読み取っただけの対応アバター（`H2Link`）は、対応と数えず確認待ちにしてある。
-        // 商品ページで確かめる作業へ、まとめて回れるようにする（ユーザ判断 2026-09-18）
-        SearchModuleKind.AvatarUnconfirmed => new ChoiceModule(kind,
-            [new("unconfirmed", "確認待ちあり"), new("none", "確認待ちなし"), new("both", "両方")],
-            "both", (item, key, _) => key switch
-            {
-                "unconfirmed" => HasUnconfirmedAvatars(item),
-                "none" => !HasUnconfirmedAvatars(item),
-                _ => true,
-            }),
-
         // 「すべて見つからない商品は未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま。文はユーザ判断 2026-10-06 で短くした）：
         // 記録のファイル・フォルダが全部見つからない商品は手元に何も無いので、使う人には未所持と同じ。入れると「所持のみ」から外し「未所持のみ」に入れる。
         // 見つからないファイルの条件の「未所持も含める」は別の問い（見つからない商品の中で分ける）なので、そのまま残す
@@ -976,13 +965,6 @@ public sealed partial class SearchViewModel
     /// 出品者の宣言（消していない分）と共通素体の宣言が両方とも無いこと。1つでも書いてあるものは書いてある内容どおりに照らす。
     /// 要確認（説明文のリンク）は宣言に数えていない（絞り込みでも数えない）ので、それだけの商品は「指定が無い」側に入る。
     /// </summary>
-    /// <summary>
-    /// まだ確かめていない対応アバターがあるか。説明文のその他のリンク（`H2Link`）は対応と数えず、
-    /// 商品ページで人が確かめるまで `Confirmed` が立たない
-    /// </summary>
-    private static bool HasUnconfirmedAvatars(Core.Models.ItemRecord item)
-        => item.Local.Avatars.Any(link => !link.Rejected && !link.Confirmed);
-
     private static bool IsUnspecifiedAvatar(ItemRecord item, SearchModuleContext context)
         => context.Compatibility.Resolve(item.Local).Count == 0
             && item.Local.AvatarBases.All(link => link.Rejected);

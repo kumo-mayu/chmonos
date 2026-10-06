@@ -40,13 +40,12 @@ public class SearchChoiceModulesTests
     });
 
     [Fact]
-    public Task 所持_非表示_対応アバターの確認の選択肢() => TestApp.Run(async app =>
+    public Task 所持_非表示の選択肢() => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
 
         Assert.Equal(["所持のみ", "未所持のみ", "両方"], ((ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Owned)).Options.Select(option => option.Label));
         Assert.Equal(["非表示のみ", "表示している商品のみ", "両方"], ((ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Hidden)).Options.Select(option => option.Label));
-        Assert.Equal(["確認待ちあり", "確認待ちなし", "両方"], ((ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.AvatarUnconfirmed)).Options.Select(option => option.Label));
     });
 
     private static async Task<SearchViewModel> StartEndOfSaleAsync(TestApp app)
@@ -67,16 +66,21 @@ public class SearchChoiceModulesTests
     }
 
     [Fact]
-    public Task 販売終了は_本物のIDの商品だけを分け_仮IDの商品は両方のときだけ出す() => TestApp.Run(async app =>
+    public Task 公開状況は_本物のIDの商品だけを分け_仮IDの商品は両方のときだけ出す() => TestApp.Run(async app =>
     {
         var search = await StartEndOfSaleAsync(app);
         var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.EndOfSale);
+
+        // 名前は「公開状況」（ユーザ判断 2026-10-06。前は「販売終了」）。要約の頭も同じ名前
+        Assert.Equal("公開状況", module.Label);
+        Assert.Equal("公開状況", SearchModuleCatalog.Of(SearchModuleKind.EndOfSale).Label);
 
         Assert.Equal(["販売終了・非公開", "公開中", "両方"], module.Options.Select(option => option.Label));
         Assert.False(module.HasFlag);
 
         Pick(module, "ended");
         Assert.Equal(["9900002", "9900003"], Shown(search));
+        Assert.Equal("公開状況：販売終了・非公開", module.SummaryText);
 
         Pick(module, "selling");
         Assert.Equal(["9900001", "9900004"], Shown(search));

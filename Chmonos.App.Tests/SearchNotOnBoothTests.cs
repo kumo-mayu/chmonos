@@ -73,12 +73,12 @@ public class SearchNotOnBoothTests
     });
 
     [Fact]
-    public void メニューでは_商品の情報の群で_見つからないファイルのすぐ後に並ぶ()
+    public void メニューでは_商品の情報の群で_ギフトのすぐ後に並ぶ()
     {
         var info = SearchModuleCatalog.Menu.Single(layout => layout.Title == SearchModuleCatalog.ItemInfo);
         var group = info.Groups.Single(kinds => kinds.Contains(SearchModuleKind.NotOnBooth));
 
-        Assert.Equal(group.ToList().IndexOf(SearchModuleKind.MissingFile) + 1, group.ToList().IndexOf(SearchModuleKind.NotOnBooth));
+        Assert.Equal(group.ToList().IndexOf(SearchModuleKind.Gift) + 1, group.ToList().IndexOf(SearchModuleKind.NotOnBooth));
         Assert.False(SearchModuleCatalog.Of(SearchModuleKind.NotOnBooth).AllowsMany);
     }
 }

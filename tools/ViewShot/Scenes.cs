@@ -38,6 +38,7 @@ internal static partial class Scenes
         .. SearchNumberScenes,
         .. SearchModuleReview,
         .. MatchModeDimScenes,
+        .. AddMenuScenes,
         .. SavedSearchScenes,
         .. SortDividers,
         .. CardLists,

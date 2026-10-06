@@ -16,7 +16,8 @@ public class EditFieldsMissingTests
     [Fact]
     public void 何も入れていない商品は_どの項目も未入力()
     {
-        var item = Item(new LocalBlock());
+        // 対応アバターの確認は「確認待ちがある」が未入力。読み取っただけの推定を1つ持たせる
+        var item = Item(new LocalBlock { Avatars = [new AvatarLink { AvatarItemId = "9900001", Source = AvatarLinkSource.H2Link }] });
 
         Assert.All(EditFieldsMissing.All, field => Assert.True(EditFieldsMissing.IsMissing(item, field), field.ToString()));
     }
@@ -31,6 +32,7 @@ public class EditFieldsMissingTests
             Purchases = [new Purchase { Kind = PurchaseKind.ForSelf }],
             AcquiredAt = new DateOnly(2026, 9, 1),
             Memo = "作り物のメモ",
+            Avatars = [new AvatarLink { AvatarItemId = "9900001", Source = AvatarLinkSource.H2Link, Confirmed = true }],
         });
 
         Assert.All(EditFieldsMissing.All, field => Assert.False(EditFieldsMissing.IsMissing(item, field), field.ToString()));
@@ -40,10 +42,23 @@ public class EditFieldsMissingTests
     public void 空白だけのメモは未入力()
         => Assert.True(EditFieldsMissing.IsMissing(Item(new LocalBlock { Memo = "  \n" }), EditField.Memo));
 
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    public void 対応アバターの確認は_確かめても消してもいない推定があるときだけ未入力(bool confirmed, bool rejected, bool missing)
+        => Assert.Equal(missing, EditFieldsMissing.IsMissing(
+            Item(new LocalBlock { Avatars = [new AvatarLink { AvatarItemId = "9900001", Source = AvatarLinkSource.H2Link, Confirmed = confirmed, Rejected = rejected }] }),
+            EditField.AvatarConfirmation));
+
+    [Fact]
+    public void 対応アバターの無い商品は_確認の項目では入力済み()
+        => Assert.False(EditFieldsMissing.IsMissing(Item(new LocalBlock()), EditField.AvatarConfirmation));
+
     [Fact]
     public void 状態の名前は欄の名前で_知らない名前は飛ばし_残らなければ既定()
     {
-        Assert.Equal(["userTags", "attributes", "purchases", "acquiredAt", "memo"], EditFieldsMissing.All.Select(EditFieldsMissing.KeyOf));
+        Assert.Equal(["userTags", "attributes", "purchases", "acquiredAt", "memo", "avatarConfirmation"], EditFieldsMissing.All.Select(EditFieldsMissing.KeyOf));
         Assert.Equal([EditField.Attributes, EditField.Memo], EditFieldsMissing.Parse(["memo", "知らない", "attributes"]));
         Assert.Equal([EditField.UserTags], EditFieldsMissing.Parse([]));
         Assert.Equal([EditField.UserTags], EditFieldsMissing.Parse(["知らない"]));

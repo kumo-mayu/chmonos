@@ -172,4 +172,61 @@ public class SearchEditStatusTests
         Assert.Contains(search.ModuleMenu.SelectMany(heading => heading.Entries).OfType<SearchModuleMenuEntry>(), entry => entry.Label == "編集状況");
         Assert.Equal(["1000001"], search.ListItems.Select(card => card.Item.Id));
     });
+
+    /// <summary>対応アバターの推定を1つ持たせる（confirmed＝確かめた・null＝持たない）。</summary>
+    private static ItemRecord Avatar(string id, bool? confirmed, bool tags = false)
+    {
+        var item = With(id, tags: tags);
+        return item with
+        {
+            Local = item.Local with
+            {
+                Avatars = confirmed is { } done
+                    ? [new AvatarLink { AvatarItemId = "9900901", Source = AvatarLinkSource.H2Link, Confirmed = done }]
+                    : [],
+            },
+        };
+    }
+
+    private static string[] PassingOf(SearchModule module, IEnumerable<ItemRecord> items)
+        => items.Where(item => module.Passes(item, Context)).Select(item => item.Id).ToArray();
+
+    /// <summary>a: 確認待ちあり・b: 確かめた・c: 推定なし・d: 確認待ちありでタグあり・5: 確認待ちありだが③待ち。</summary>
+    private static readonly ItemRecord[] AvatarItems =
+        [Avatar("a", confirmed: false), Avatar("b", confirmed: true), Avatar("c", confirmed: null), Avatar("d", confirmed: false, tags: true), Avatar("5", confirmed: false)];
+
+    [Fact]
+    public Task 対応アバターの確認は_未入力のみが確認待ちあり_入力済みのみが確認待ちなし() => UiThread.Run(() =>
+    {
+        // 前の条件「対応アバターの確認」の 確認待ちあり／確認待ちなし／両方 に当たる（ユーザ判断 2026-10-06）
+        var waiting = Module("unedited", matchAll: false, "avatarConfirmation");
+        var done = Module("edited", matchAll: false, "avatarConfirmation");
+        var both = Module("both", matchAll: false, "avatarConfirmation");
+
+        Assert.Equal(["a", "d"], PassingOf(waiting, AvatarItems));
+        Assert.Equal(["b", "c"], PassingOf(done, AvatarItems));
+        Assert.Equal(5, PassingOf(both, AvatarItems).Length);
+        Assert.Equal("編集状況：対応アバターの確認が未入力", waiting.SummaryText);
+        Assert.Equal("対応アバターの確認", waiting.Fields.Single(toggle => toggle.Field == EditField.AvatarConfirmation).Label);
+    });
+
+    [Fact]
+    public Task 対応アバターの確認とユーザータグをすべてにすると_両方未入力の商品だけ() => UiThread.Run(() =>
+    {
+        var all = Module("unedited", matchAll: true, "userTags", "avatarConfirmation");
+        var any = Module("unedited", matchAll: false, "userTags", "avatarConfirmation");
+
+        Assert.Equal(["a"], PassingOf(all, AvatarItems));
+        Assert.Equal(["a", "b", "c", "d"], PassingOf(any, AvatarItems));
+        Assert.Equal("編集状況：ユーザータグ・対応アバターの確認がすべて未入力", all.SummaryText);
+    });
+
+    [Fact]
+    public Task 対応アバターの確認の項目の横は_確認待ちの商品の数() => UiThread.Run(() =>
+    {
+        var module = Module("unedited", matchAll: false, "avatarConfirmation");
+        module.RefreshCounts(AvatarItems, Context);
+
+        Assert.Equal("対応アバターの確認（2）", module.Fields.Single(toggle => toggle.Field == EditField.AvatarConfirmation).Display);
+    });
 }

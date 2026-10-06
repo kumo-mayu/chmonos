@@ -145,14 +145,15 @@ public class SearchMissingFileTests
     });
 
     [Fact]
-    public void 条件は壊れたzipのすぐ後に出る()
+    public void 条件はファイルの情報の見出しで_所持のすぐ後_壊れたzipの前に出る()
     {
         var group = SearchModuleCatalog.Menu
-            .Single(layout => layout.Title == SearchModuleCatalog.ItemInfo)
+            .Single(layout => layout.Title == SearchModuleCatalog.FileInfo)
             .Groups.Single(kinds => kinds.Contains(SearchModuleKind.MissingFile))
             .ToList();
 
-        Assert.Equal(group.IndexOf(SearchModuleKind.BrokenZip) + 1, group.IndexOf(SearchModuleKind.MissingFile));
+        Assert.Equal(group.IndexOf(SearchModuleKind.Owned) + 1, group.IndexOf(SearchModuleKind.MissingFile));
+        Assert.Equal(group.IndexOf(SearchModuleKind.MissingFile) + 1, group.IndexOf(SearchModuleKind.BrokenZip));
         Assert.False(SearchModuleCatalog.Of(SearchModuleKind.MissingFile).AllowsMany);
     }
 }
