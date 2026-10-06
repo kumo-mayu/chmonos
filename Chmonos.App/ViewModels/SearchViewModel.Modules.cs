@@ -362,6 +362,7 @@ public sealed partial class SearchViewModel
                 break;
             case AttributeModule attribute:
                 attribute.SetNames(_attributeNames);
+                attribute.RefreshHistograms();
                 break;
             case UserTagModule userTag:
                 userTag.SetMasters(_services.Store.UserTags.Load().Tops
@@ -561,6 +562,9 @@ public sealed partial class SearchViewModel
 
             // 払った額は自分で入れた数なので外れ値は無い（ユーザ判断 2026-10-03・メモ16-③）
             NoOutlierSource = PaidSource,
+
+            // 種類ごとの価格が全部範囲に入る商品だけを探せるようにする（ユーザ判断 2026-10-06・メモ82-6）
+            SupportsMatchAll = true,
         },
 
         SearchModuleKind.EndOfSale => new ChoiceModule(kind,
@@ -570,7 +574,7 @@ public sealed partial class SearchViewModel
         SearchModuleKind.PublishedAt => new DateModule(kind,
             item => item.Booth.PublishedAt is { } at ? DateOnly.FromDateTime(at.LocalDateTime) : null)
         {
-            AllDatesOf = () => _allItems
+            AllDatesOf = _ => _allItems
                 .Select(item => item.Booth.PublishedAt)
                 .Where(at => at is not null)
                 .Select(at => DateOnly.FromDateTime(at!.Value.LocalDateTime)),
@@ -666,7 +670,8 @@ public sealed partial class SearchViewModel
         // 大分類 → 小分類の2段（ユーザ指示 2026-09-28）。照合は Core の UserTagCondition
         SearchModuleKind.UserTag => new UserTagModule(),
 
-        SearchModuleKind.Attribute => new AttributeModule(),
+        // 行ごとの分布の帯（メモ82）。照合（AttributeFilter.Matches）と同じ引き方で値を集める
+        SearchModuleKind.Attribute => new AttributeModule { AllValuesOf = name => RatedValues(_allItems, name) },
 
         // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針
         SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "アバター名・商品ID・共通素体で絞り込む",
@@ -688,11 +693,14 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
-        // 購入記録ごとの日付のどれか1つが範囲に入れば当たる（メモ45・2-A）。2025年3月に別の種類を買い足した商品が「2025年3月」で出る。
+        // 既定は最初の購入（並べ替え・区切りの札と同じ代表の日付）だけで見る。「すべての購入」にすると、購入記録ごとの日付のどれか1つが範囲に入れば当たる
+        // （メモ45・2-A。2025年3月に別の種類を買い足した商品が「2025年3月」で出る。ユーザ判断 2026-10-06・判断8）。
         // ファイルの日付では代えない（並べ替えと同じく手で入れた値だけ）
-        SearchModuleKind.AcquiredAt => new DateModule(kind, PurchaseDates.AnyEntered)
+        SearchModuleKind.AcquiredAt => new DateModule(kind, PurchaseDates.AnyEntered, PurchaseDates.EnteredEarliest)
         {
-            AllDatesOf = () => _allItems.SelectMany(PurchaseDates.AllEntered),
+            AllDatesOf = firstOnly => firstOnly
+                ? _allItems.Select(PurchaseDates.EnteredEarliest).OfType<DateOnly>()
+                : _allItems.SelectMany(PurchaseDates.AllEntered),
         },
 
         SearchModuleKind.Hidden => new ChoiceModule(kind,
@@ -734,6 +742,21 @@ public sealed partial class SearchViewModel
 
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
+
+    /// <summary>
+    /// その属性を評価した商品の値（属性の条件の分布の帯）。照合（<see cref="AttributeFilter.Matches"/>）と同じ引き方。
+    /// 数を箱に入れずに数える（数千件で1回 240KB を割り当てていた。行を足すたび・読み込みのたびに走る）
+    /// </summary>
+    private static IEnumerable<int> RatedValues(IEnumerable<ItemRecord> items, string name)
+    {
+        foreach (var item in items)
+        {
+            if (item.Local.Attributes.TryGetValue(name, out var value))
+            {
+                yield return value;
+            }
+        }
+    }
 
     /// <summary>条件「壊れたzip」の「ある」の鍵。取り込みの結果から入る口（<see cref="ShowOnlyBrokenZip"/>）と同じ物を指す。</summary>
     private const string BrokenZipKey = "broken";
