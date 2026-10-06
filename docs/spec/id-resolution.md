@@ -11,9 +11,10 @@
 
 ## 手掛かり（強い順）
 
-1. zip の中のテキストの BOOTH 商品URL（依存ツール lilToon などを指す物は除く）
-2. Zone.Identifier の `HostUrl` の配布URL `s{n}.booth.pm/<shop>/f/<商品ID>/…`（Chrome/Edge は書く。**Brave はオリジンしか書かない**）
-3. unitypackage の名前空間 `Assets/<作者>/…`・中の Readme の URL、PDF の本文
+1. Zone.Identifier の `HostUrl` の配布URL `s{n}.booth.pm/<shop>/f/<商品ID>/…`（実際のダウンロード元。Chrome/Edge は書く。**Brave はオリジンしか書かない**）。読めれば、これだけで決める（`BoothIdResolver/IdResolver.cs`・試験 `PrefersZoneIdentifierOverZipClues`）
+2. zip の中のテキストの BOOTH 商品URL（依存ツール lilToon などを指す物は除く）。Zone.Identifier から商品ID が読めないときの手掛かり
+3. unitypackage の名前空間 `Assets/<作者>/…`・中の Readme の URL
+   （PDF の本文は、調べた案として `docs/research/id-resolution.md` に残してあるが、今の取り込みと自動検索では読んでいない。2026-10-07 の点検で spec を作りに合わせた）
 4. ファイル名の接頭辞・末尾がショップのサブドメイン
 5. ファイル名からの BOOTH 内検索＋点数付け（下）
 

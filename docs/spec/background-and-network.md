@@ -2,7 +2,7 @@
 
 > **要点**：BOOTH への問い合わせは全部 `BoothClient` の1つのゲート（1本ずつ・1.5秒以上）を通り、優先度は1本の梯子で決まる。
 > ゲートは PC で1つ（同じ PC で動くアプリ・評価台・道具を合わせて1本ずつ・1.5秒以上）。
-> 起動時に自動で始めてよいのは手元の JSON だけで対象が決まる作業（⑤画像・持っていないアバターの1枚目・⑦期限）だけで、フォルダの走査（①②）は人が押して始める。
+> 起動時に自動で始めてよいのは手元の JSON だけで対象が決まる作業（⑤画像・持っていないアバターの1枚目・⑦期限）だけで、フォルダの走査（①②）は人が押して始める。例外は、設定で起動時の自動取り込みを入れたとき（既定は切）の、監視フォルダの新着と前回の続き（`import.md`）。
 > 失敗は黙って飛ばさず `logs/app.log` に残す。
 >
 > **コード**：`Core/Booth/BoothClient.cs`・`BoothPriority`・`PriorityGate`・`BoothMachineGate`、`Core/Services/ImageBacklog`・`DueRefresh`・`BoothChanges`・`NotificationService`・`FolderWatch`、
