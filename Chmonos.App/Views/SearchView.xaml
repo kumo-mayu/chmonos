@@ -614,8 +614,25 @@
                             <ItemsControl.Resources>
                                 <!-- 積んだ値1つ（チップ）。候補から積む条件と、ユーザータグの小分類で同じ形を使う -->
                                 <DataTemplate x:Key="SearchChipTemplate" DataType="{x:Type vm:ListChip}">
-                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                            BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
+                                    <!--
+                                        矛盾していて必ず0件になるチップ（ユーザータグの AND の中の「小分類なし」・ユーザ判断 2026-10-06）は警告の色。
+                                        選べなくはせず、見て分かるようにするだけ
+                                    -->
+                                    <Border x:Name="ChipFrame" BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
+                                                <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentText}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsConflict}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
+                                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource Warn}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <!--
                                             名前の列だけが縮み、件数と × は残す（メモ70）。横に並べる StackPanel は幅を無限に測るので、
                                             長い名前を2つ積むと2つ目の × が欄の外へ出て切れた。星の列は、名前が短いときは中身の幅のまま（引き伸ばさない）
@@ -626,14 +643,26 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding Text}" FontSize="11" Foreground="{DynamicResource AccentText}"
-                                                       MaxWidth="200" TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding Text}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Text="{Binding CountText}" FontSize="10.5" Foreground="{DynamicResource AccentText}"
+                                            <!-- 吹き出しは名前と、対応アバターならそのアバターのサムネイル（メモ82。絵は開いたときに読む） -->
+                                            <!-- パスの札（ファイルの場所・Unityプロジェクト）は間を省いて末尾を残す（DisplayText。メモ83・メモ84）。吹き出しは全文 -->
+                                            <TextBlock Grid.Column="0" Text="{Binding DisplayText}" FontSize="11" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
+                                                       MaxWidth="200" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                <TextBlock.ToolTip>
+                                                    <ToolTip>
+                                                        <StackPanel MaxWidth="260">
+                                                            <Image Source="{Binding Icon}" Width="96" Height="96" Stretch="Uniform" Margin="0,2,0,6"
+                                                                   HorizontalAlignment="Left" RenderOptions.BitmapScalingMode="HighQuality"
+                                                                   Visibility="{Binding HasIconSource, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <TextBlock Text="{Binding ToolTipText}" TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </ToolTip>
+                                                </TextBlock.ToolTip>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="1" Text="{Binding CountText}" FontSize="10.5" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                        Opacity="0.7" Margin="5,0,0,0" VerticalAlignment="Center" />
                                             <!-- 形は呼ばれ方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
                                             <Button Grid.Column="2" Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
-                                                    Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentText}"
+                                                    Background="Transparent" BorderThickness="0" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                     ToolTip="この値を外す"
                                                     AutomationProperties.AutomationId="SearchChipRemove"
                                                     AutomationProperties.Name="{Binding Text, StringFormat={}{0}を外す}"
@@ -718,6 +747,42 @@
                                 </DataTemplate>
 
                                 <!--
+                                    更新通知あり（ユーザ判断 2026-10-06）。編集状況と同じ形で、三択と見る種類のトグル（チップにしない）。
+                                    件数は他の条件のもとでその種類の未読の通知がある商品の数。最後の1つは外せない
+                                -->
+                                <DataTemplate DataType="{x:Type vm:UpdateNoticeModule}">
+                                    <StackPanel>
+                                        <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                                  DisplayMemberPath="Display" Height="28" FontSize="12.5"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
+                                                  AutomationProperties.Name="{Binding SpokenLabel}" />
+                                        <StackPanel IsEnabled="{Binding CanEditKinds}">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CanEditKinds}" Value="False">
+                                                            <Setter Property="Opacity" Value="0.45" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="見る種類" Style="{StaticResource Caption}" Margin="0,8,0,3" />
+                                            <controls:ContentItemsControl ItemsSource="{Binding Kinds}" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:ChangeKindToggle}">
+                                                        <CheckBox IsChecked="{Binding IsOn, Mode=TwoWay}" Margin="0,0,0,3" ToolTip="{Binding Hint}"
+                                                                  AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                                  AutomationProperties.Name="{Binding Label}">
+                                                            <TextBlock Text="{Binding Display}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                        </CheckBox>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </controls:ContentItemsControl>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+
+                                <!--
                                     候補から積む条件（ユーザ案「list」）。候補は必ず出し、全部を並べずに入力欄から1件ずつ積む
                                     （件数に比例して縦に伸びないように）。積んだ値の件数は「他の条件のもとで、この値に当てはまる件数」
                                 -->
@@ -740,7 +805,7 @@
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding AddCommand}"
                                                              Placeholder="{Binding Placeholder}"
-                                                             IconSelector="{Binding IconSelector}"
+                                                             IconSelector="{Binding IconSelector}" TrimMiddle="{Binding TrimsMiddle}"
                                                              InfoSelector="{Binding InfoSelector}" GroupHeadings="{Binding GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
                                                              AutomationProperties.Name="{Binding InputName}"
@@ -759,8 +824,8 @@
                                         -->
                                         <CheckBox IsChecked="{Binding IncludeOn, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeFavoriteShops'}"
-                                                  AutomationProperties.Name="お気に入りのショップの商品を含める"
-                                                  ToolTip="お気に入りのショップをすべて選んだのと同じに絞ります。"
+                                                  AutomationProperties.Name="お気に入りのショップはすべて表示"
+                                                  ToolTip="選んだショップに加えて、お気に入りのショップの商品も表示します。"
                                                   Visibility="{Binding HasInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock FontSize="12" Foreground="{DynamicResource Text}">
                                                 <Run Text="★" Foreground="{DynamicResource Star}" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
@@ -768,10 +833,10 @@
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
-                                                  AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}のすべてに当てはまる商品だけ}"
-                                                  ToolTip="切っているときは、どれか1つに当てはまる商品（OR）を表示します。"
+                                                  AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}のすべてを満たす商品のみ}"
+                                                  ToolTip="{x:Static vm:MatchModeText.AllHint}"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding Flag, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
@@ -1061,10 +1126,10 @@
                                                                 </ItemsControl.ItemsPanel>
                                                             </controls:ContentItemsControl>
                                                             <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
-                                                                      AutomationProperties.Name="{Binding Top, StringFormat={}{0}の小分類すべてに当てはまる商品だけ}"
-                                                                      ToolTip="切っているときは、どれか1つに当てはまる商品（OR）を表示します。"
+                                                                      AutomationProperties.Name="{Binding Top, StringFormat={}{0}の小分類のすべてを満たす商品のみ}"
+                                                                      ToolTip="{x:Static vm:MatchModeText.AllHint}"
                                                                       Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                                <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                                             </CheckBox>
                                                         </StackPanel>
                                                     </Border>
@@ -1073,10 +1138,90 @@
                                         </controls:ContentItemsControl>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
-                                                  AutomationProperties.Name="{Binding NameSuffix, StringFormat={}すべての大分類に当てはまる商品だけ{0}}"
-                                                  ToolTip="切っているときは、どれか1つの大分類に当てはまる商品（OR）を表示します。"
+                                                  AutomationProperties.Name="{Binding NameSuffix, StringFormat={}すべての大分類を満たす商品のみ{0}}"
+                                                  ToolTip="{Binding TopMatchAllHint}"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="すべての大分類に当てはまる商品だけ（AND）" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="{Binding TopMatchAllText}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                        </CheckBox>
+                                    </StackPanel>
+                                </DataTemplate>
+
+                                <!--
+                                    改変（ユーザ判断 2026-10-06）。ユーザータグと同じ2段：欄の候補はアバターと改変（改変に追加の窓と同じ探し方）。
+                                    アバターを選ぶとアバターの枠が立ち、改変を選ぶとそのアバターの枠にその改変が入る。
+                                    改変どうしの AND／OR は枠ごと、アバターどうしは下のチェック。画面に「大分類」「小分類」とは書かない
+                                -->
+                                <DataTemplate DataType="{x:Type vm:ModificationModule}">
+                                    <StackPanel>
+                                        <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
+                                                             CommitCommand="{Binding AddCommand}" Placeholder="アバターか改変を選んで追加"
+                                                             IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
+                                                             Matcher="{Binding Matcher}"
+                                                             GroupHeadings="{x:Static vm:ModificationModule.Headings}"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
+                                                             AutomationProperties.Name="{Binding NameSuffix, StringFormat={}アバターか改変を選んで追加{0}}"
+                                                             Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <TextBlock Text="改変がまだありません。アバターの管理から作れます。" Style="{StaticResource Caption}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <controls:ContentItemsControl ItemsSource="{Binding Rows}" Margin="0,6,0,0" Focusable="False">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:ModificationAvatarRow}">
+                                                    <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="5"
+                                                            Padding="8,6" Margin="0,0,0,6">
+                                                        <StackPanel>
+                                                            <DockPanel LastChildFill="True">
+                                                                <!-- アバターの絵。無ければ頭文字（候補の欄と同じ出し方） -->
+                                                                <Border DockPanel.Dock="Left" Width="22" Height="22" Margin="0,0,7,0" CornerRadius="4" ClipToBounds="True"
+                                                                        Background="{DynamicResource SurfaceAlt}" VerticalAlignment="Center">
+                                                                    <Grid>
+                                                                        <TextBlock Text="{Binding Initial}" FontSize="10.5" Foreground="{DynamicResource TextMuted}"
+                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                                                    </Grid>
+                                                                </Border>
+                                                                <Button DockPanel.Dock="Right" Content="×" FontSize="11" Padding="4,0" Cursor="Hand"
+                                                                        Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
+                                                                        Foreground="{DynamicResource TextMuted}" ToolTip="このアバターを外す"
+                                                                        AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}を外す}"
+                                                                        Command="{Binding RemoveCommand}" />
+                                                                <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
+                                                                           VerticalAlignment="Center" Margin="6,0,4,0" />
+                                                                <TextBlock Text="{Binding AvatarName}" FontSize="12" FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding AvatarName}"
+                                                                           VerticalAlignment="Center" />
+                                                            </DockPanel>
+                                                            <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False" Margin="0,5,0,0"
+                                                                                 CommitCommand="{Binding AddCommand}" Placeholder="改変を選んで追加"
+                                                                                 IconSelector="{Binding IconSelector}"
+                                                                                 AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}の改変を選んで追加}"
+                                                                                 Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <TextBlock Text="改変を選ばないときは、このアバターのすべての改変が対象です。" Style="{StaticResource Caption}"
+                                                                       TextWrapping="Wrap" Margin="0,4,0,0"
+                                                                       Visibility="{Binding HasNoModification, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <controls:ContentItemsControl ItemsSource="{Binding Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,5,0,0" Focusable="False"
+                                                                                          ItemTemplate="{StaticResource SearchChipTemplate}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                            </controls:ContentItemsControl>
+                                                            <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
+                                                                      AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}の改変のすべてを満たす商品のみ}"
+                                                                      ToolTip="{x:Static vm:MatchModeText.AllHint}"
+                                                                      Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                            </CheckBox>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
+                                        <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                  AutomationProperties.Name="{Binding NameSuffix, StringFormat={}すべてのアバターを満たす商品のみ{0}}"
+                                                  ToolTip="{Binding AvatarMatchAllHint}"
+                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding AvatarMatchAllText}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>
@@ -1145,10 +1290,10 @@
                                         </controls:ContentItemsControl>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
-                                                  AutomationProperties.Name="すべての属性に当てはまる商品だけ"
-                                                  ToolTip="切っているときは、どれか1つの属性に当てはまる商品（OR）を表示します。"
+                                                  AutomationProperties.Name="すべての属性を満たす商品のみ"
+                                                  ToolTip="{x:Static vm:MatchModeText.AllHint}"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="{x:Static vm:MatchModeText.All}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <TextBlock Text="追加した属性は、評価済みの商品だけが対象になります。" Style="{StaticResource Caption}"
                                                    TextWrapping="Wrap" Margin="0,4,0,0" />

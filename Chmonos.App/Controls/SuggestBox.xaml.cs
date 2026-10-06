@@ -15,6 +15,11 @@ public sealed record SuggestHint(string Text, string Label);
 /// </summary>
 public sealed record SuggestInfo(int Group, IReadOnlyList<SuggestHint> Hints);
 
+/// <summary>
+/// 候補1件を、打った語で当てた結果（<see cref="SuggestBox.Matcher"/>）。<see cref="Note"/> は名前以外で当たったときの札（空なら出さない）。
+/// </summary>
+public sealed record SuggestMatch(string Note);
+
 /// <summary>候補1件。既存の語か、入力された新しい語か。</summary>
 public sealed class Suggestion
 {
@@ -43,6 +48,13 @@ public sealed class Suggestion
     public Visibility NoteVisibility => Note.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility NewBadgeVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>入らないときに間を「…」にするか（パスの候補。<see cref="SuggestBox.TrimMiddle"/>）。</summary>
+    public bool TrimMiddle { get; init; }
+
+    public Visibility EndTrimVisibility => TrimMiddle ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility MiddleTrimVisibility => TrimMiddle ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>頭に出す小さな絵を作るもの（U18）。無ければ絵の欄ごと出さない。</summary>
     public Func<string, ImageSource?>? IconFactory { get; init; }
@@ -121,6 +133,33 @@ public partial class SuggestBox : UserControl
     {
         get => (Func<string, ImageSource?>?)GetValue(IconSelectorProperty);
         set => SetValue(IconSelectorProperty, value);
+    }
+
+    /// <summary>
+    /// 打った語で候補を当てる決まりを、欄ごとに差し替える（検索の条件「改変」：商品ページの「改変に追加」の窓と同じ探し方。ユーザ判断 2026-10-06）。
+    /// 候補の文字と打った語 → 当たれば札、外れれば null。無ければ今までどおり、名前か <see cref="SuggestInfo.Hints"/> に打った語が入っている物
+    /// </summary>
+    public static readonly DependencyProperty MatcherProperty =
+        DependencyProperty.Register(nameof(Matcher), typeof(Func<string, string, SuggestMatch?>), typeof(SuggestBox), new PropertyMetadata(null));
+
+    public Func<string, string, SuggestMatch?>? Matcher
+    {
+        get => (Func<string, string, SuggestMatch?>?)GetValue(MatcherProperty);
+        set => SetValue(MatcherProperty, value);
+    }
+
+    /// <summary>
+    /// 入らない候補の**間**を「…」にし、頭と末尾を残すか（既定は末尾を切る）。パスの候補（ファイルの場所・Unityプロジェクト）は
+    /// 末尾の名前がいちばん要るので、長いパスを1行に出す決まり（`docs/spec/ui-rules.md`・<see cref="PathLine"/>）に揃える。
+    /// 省いた行は吹き出しで全文を出す（メモ83・メモ84：長いと見えなかった）
+    /// </summary>
+    public static readonly DependencyProperty TrimMiddleProperty =
+        DependencyProperty.Register(nameof(TrimMiddle), typeof(bool), typeof(SuggestBox), new PropertyMetadata(false));
+
+    public bool TrimMiddle
+    {
+        get => (bool)GetValue(TrimMiddleProperty);
+        set => SetValue(TrimMiddleProperty, value);
     }
 
     /// <summary>
@@ -413,7 +452,8 @@ public partial class SuggestBox : UserControl
     /// 名前に入っていなくても、名前以外の語（<see cref="SuggestInfo.Hints"/>）に入っていれば当たる
     /// </summary>
     public static IReadOnlyList<ArrangedRow> Arrange(
-        IReadOnlyList<string> all, string text, int primaryCount, Func<string, SuggestInfo?>? info = null)
+        IReadOnlyList<string> all, string text, int primaryCount, Func<string, SuggestInfo?>? info = null,
+        Func<string, string, SuggestMatch?>? matcher = null)
     {
         bool Has(string value) => value.Contains(text, StringComparison.CurrentCultureIgnoreCase);
 
@@ -422,6 +462,14 @@ public partial class SuggestBox : UserControl
             {
                 var extra = info?.Invoke(entry);
                 var group = extra?.Group ?? (primaryCount > 0 && index >= primaryCount ? 1 : 0);
+                if (matcher is not null && text.Length > 0)
+                {
+                    // 欄ごとの探し方（改変：語を空白で区切り、全部の語が名前・アバター・プロジェクトのどれかに入る）
+                    var match = matcher(entry, text);
+                    var note = match is { Note.Length: > 0 } ? new SuggestHint(string.Empty, match.Note) : null;
+                    return (Entry: entry, Group: group, Hit: note, Matches: match is not null);
+                }
+
                 var hit = text.Length == 0 || Has(entry) ? null : extra?.Hints.FirstOrDefault(hint => Has(hint.Text));
                 return (Entry: entry, Group: group, Hit: hit, Matches: text.Length == 0 || Has(entry) || hit is not null);
             })
@@ -459,7 +507,7 @@ public partial class SuggestBox : UserControl
             .ToList()) ?? [];
 
         var headings = GroupHeadings;
-        var items = Arrange(all, text, PrimaryCount, InfoSelector)
+        var items = Arrange(all, text, PrimaryCount, InfoSelector, Matcher)
             .Select(row => new Suggestion
             {
                 Value = row.Entry,
@@ -468,6 +516,7 @@ public partial class SuggestBox : UserControl
                 HasDividerAbove = row.DividerAbove,
                 Heading = row.GroupStart && headings is not null && row.Group >= 0 && row.Group < headings.Count ? headings[row.Group] : string.Empty,
                 Note = row.Hit?.Label ?? string.Empty,
+                TrimMiddle = TrimMiddle,
             })
             .ToList();
 

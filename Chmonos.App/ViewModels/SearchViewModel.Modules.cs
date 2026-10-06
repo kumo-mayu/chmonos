@@ -364,6 +364,9 @@ public sealed partial class SearchViewModel
                 attribute.SetNames(_attributeNames);
                 attribute.RefreshHistograms();
                 break;
+            case ModificationModule modification:
+                SetModificationSources(modification);
+                break;
             case UserTagModule userTag:
                 userTag.SetMasters(_services.Store.UserTags.Load().Tops
                     .Select(top => (top.Name, (IReadOnlyList<string>)top.Subs.Select(sub => sub.Name).ToList())));
@@ -390,20 +393,39 @@ public sealed partial class SearchViewModel
         SearchModuleKind.BoothTag => _boothTagNames.Select(name => (name, name)),
         SearchModuleKind.Shop => ShopCandidates(),
         SearchModuleKind.Avatar => AvatarCandidates(),
-        SearchModuleKind.Modification => ModificationCandidates(),
         SearchModuleKind.UnityProject => UnityProjectCandidates(),
         SearchModuleKind.Path => FolderTree.AllFolders(_allItems, _services.Volumes.Current).Select(path => (path, path)),
         _ => [],
     };
 
-    /// <summary>ショップは名前が変わりうるので鍵はサブドメイン。候補の文字にも入れておく（同じ名前のショップを見分ける）。</summary>
+    /// <summary>
+    /// ショップは名前が変わりうるので鍵はサブドメイン。候補の文字にも入れておく（同じ名前のショップを見分ける）。
+    /// お気に入りのショップ（ショップ画面の星）を先に、区切り線の後にそれ以外（ユーザ判断 2026-10-06・メモ82）。
+    /// 区切りは候補の欄の群で引く（見出しは出さない。星の付いた物が先に並ぶのは見れば分かる）
+    /// </summary>
     private IEnumerable<(string Text, string Key)> ShopCandidates()
-        => _allItems
+    {
+        _shopSuggestInfo.Clear();
+        var shops = _allItems
             .Where(item => item.ShopSubdomain is not null)
             .GroupBy(item => item.ShopSubdomain!, StringComparer.OrdinalIgnoreCase)
             .Select(group => (Name: group.Select(item => item.ShopName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? group.Key, group.Key))
-            .OrderBy(pair => pair.Name, StringComparer.CurrentCulture)
-            .Select(pair => ($"{pair.Name}（{pair.Key}）", pair.Key));
+            .OrderBy(pair => _favoriteShops.Contains(pair.Key) ? 0 : 1)
+            .ThenBy(pair => pair.Name, StringComparer.CurrentCulture)
+            .ToList();
+
+        foreach (var (name, key) in shops)
+        {
+            var text = $"{name}（{key}）";
+            _shopSuggestInfo[text] = new Controls.SuggestInfo(_favoriteShops.Contains(key) ? 0 : 1, []);
+            yield return (text, key);
+        }
+    }
+
+    private readonly Dictionary<string, Controls.SuggestInfo> _shopSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>ショップの条件の「お気に入りも出す」チェックの文。</summary>
+    internal const string FavoriteShopsIncludeLabel = "お気に入りのショップはすべて表示";
 
     /// <summary>
     /// 対応アバターの候補。並びは 持っているアバター → 共通素体 → 持っていないアバター（ユーザ判断 Q1）。
@@ -463,52 +485,43 @@ public sealed partial class SearchViewModel
 
     private readonly Dictionary<string, Controls.SuggestInfo> _avatarSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
 
-    private readonly Dictionary<string, Controls.SuggestInfo> _modificationSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
-
     /// <summary>
-    /// 改変の候補。アバターでも選べる（そのアバターの改変すべて・ユーザ判断 R3 の「着せているアバター」）。
-    /// アバター名の呼び方・正式名でも当たる（ユーザ判断 2026-10-05。照らし方はアバターの欄と同じ <see cref="AvatarSearch"/>）
+    /// 条件「改変」に改変の一覧を入れる（2段の形・ユーザ判断 2026-10-06）。アバターの名前は登録簿の名前、呼び方・正式名でも当たる
+    /// （前の候補と同じ <see cref="AvatarSearch"/> の語）。改変を読む前は何もしない（読み終えたらまた呼ばれる）
     /// </summary>
-    private IEnumerable<(string Text, string Key)> ModificationCandidates()
+    private void SetModificationSources(ModificationModule module)
     {
         EnsureModificationsLoaded();
-        _modificationSuggestInfo.Clear();
-        var records = (_modificationUsage ?? ModificationUsage.Empty).Records;
+        if (_modificationUsage is not { } usage)
+        {
+            return;
+        }
+
         var entries = _services.Store.Avatars.Load().Entries;
         var names = AvatarNames.Map(entries);
         var entryById = entries.GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         string AvatarName(string id) => names.TryGetValue(id, out var name) ? name : id;
 
-        Controls.SuggestInfo? InfoOf(string avatarId) => entryById.TryGetValue(avatarId, out var entry)
-            ? new Controls.SuggestInfo(0, AvatarSearch.Hints(entry, AvatarName(avatarId))
-                .Select(hint => new Controls.SuggestHint(hint.Text, hint.Label)).ToList())
+        module.SetSources(
+            usage.Records,
+            AvatarName,
+            id => entryById.TryGetValue(id, out var entry)
+                ? AvatarSearch.Hints(entry, AvatarName(id)).Select(hint => hint.Text).ToList()
+                : []);
+    }
+
+    /// <summary>改変の絵（改変の写真の1枚目 → アバターの絵。改変の一覧・改変を選ぶ窓と同じ決め方）。</summary>
+    private System.Windows.Media.ImageSource? ModificationIconOf(ModificationRecord record)
+        => Core.Services.ModificationIcon.PathOf(_services.Paths, record, FindItem(record.AvatarItemId)) is { } path
+            ? _thumbnails.LoadForTile(path)
             : null;
 
-        foreach (var avatarId in records.Select(record => record.AvatarItemId).Distinct(StringComparer.Ordinal)
-            .OrderBy(AvatarName, StringComparer.CurrentCulture))
-        {
-            var text = $"{AvatarName(avatarId)}（このアバターの改変すべて）";
-            if (InfoOf(avatarId) is { } info)
-            {
-                _modificationSuggestInfo[text] = info;
-            }
-
-            yield return (text, AvatarKey + avatarId);
-        }
-
-        foreach (var record in records.OrderBy(record => AvatarName(record.AvatarItemId), StringComparer.CurrentCulture)
-            .ThenBy(record => record.Name, StringComparer.CurrentCulture))
-        {
-            var text = $"{AvatarName(record.AvatarItemId)}：{record.Name}";
-            if (InfoOf(record.AvatarItemId) is { } info)
-            {
-                _modificationSuggestInfo[text] = info;
-            }
-
-            yield return (text, ModificationKey + record.Id);
-        }
-    }
+    /// <summary>アバターの絵（持っていれば商品の1枚目、持っていなければ控えの1枚。対応アバターの候補と同じ）。</summary>
+    private System.Windows.Media.ImageSource? AvatarIconOf(string avatarItemId)
+        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId)) is { } path
+            ? _thumbnails.LoadForTile(path)
+            : null;
 
     private IEnumerable<(string Text, string Key)> UnityProjectCandidates()
     {
@@ -523,26 +536,32 @@ public sealed partial class SearchViewModel
 
     private const string AvatarKey = "avatar:";
     private const string BaseKey = "base:";
-    private const string ModificationKey = "mod:";
 
     private SearchModule CreateModule(SearchModuleKind kind) => kind switch
     {
-        SearchModuleKind.Category => new ListModule(kind, allowsAnd: true, "カテゴリで絞り込む",
+        // カテゴリと BOOTHタグは OR だけ（ユーザ判断 2026-10-06・メモ82・メモ84「AND できる必要が無い」）。
+        // 「A と B の両方」が要るときは、同じ種類の条件をもう1つ置けば AND になる（条件どうしは AND）
+        SearchModuleKind.Category => new ListModule(kind, allowsAnd: false, "カテゴリで絞り込む",
             "カテゴリがまだありません。商品を取り込むと付いてきます。",
             (item, _, key, _) => string.Equals(item.CategoryName, key, StringComparison.CurrentCulture)
                 || string.Equals(item.Booth.Category?.ParentName, key, StringComparison.CurrentCulture)),
 
-        SearchModuleKind.BoothTag => new ListModule(kind, allowsAnd: true, "BOOTHタグで絞り込む",
+        SearchModuleKind.BoothTag => new ListModule(kind, allowsAnd: false, "BOOTHタグで絞り込む",
             "BOOTHタグがまだありません。商品を取り込むと付いてきます。",
             (item, _, key, _) => item.Booth.Tags.Any(tag => string.Equals(tag, key, StringComparison.CurrentCultureIgnoreCase))),
 
         // 1商品に1つなので「すべて（AND）」は意味が無い
-        // お気に入りのショップ（ショップ画面の星）は、別の条件にせずここに持つ（ユーザ指示 2026-09-16）
+        // お気に入りのショップ（ショップ画面の星）は、別の条件にせずここに持つ（ユーザ指示 2026-09-16）。
+        // 文は「選んだショップに加えて、お気に入りをすべて出す」と読めるように（メモ82：「お気に入りのショップの商品」は、お気に入りだけに絞るように読めた）。
+        // 候補はお気に入りのショップを先に、区切り線の後にそれ以外（メモ82）
         SearchModuleKind.Shop => new ListModule(kind, allowsAnd: false, "ショップ名で絞り込む",
             "ショップの分かる商品がまだありません。",
             (item, _, key, _) => string.Equals(item.ShopSubdomain, key, StringComparison.OrdinalIgnoreCase),
-            includeLabel: "お気に入りのショップの商品",
-            includeMatches: (item, _) => IsFavoriteShop(item)),
+            includeLabel: FavoriteShopsIncludeLabel,
+            includeMatches: (item, _) => IsFavoriteShop(item))
+        {
+            InfoSelector = text => _shopSuggestInfo.GetValueOrDefault(text),
+        },
 
         SearchModuleKind.WishList => new RangeModule(kind, (item, _) => [item.Booth.WishListsCount], string.Empty)
         {
@@ -567,9 +586,11 @@ public sealed partial class SearchViewModel
             SupportsMatchAll = true,
         },
 
+        // ユーザ判断 2026-10-06（メモ84・案1）：使う人には非公開も削除も同じなので、販売終了と1つにまとめ、前の切り替え
+        // 「非公開・削除された商品も表示する」は外した。仮IDの商品（BOOTHに無い商品）は「両方」のときだけ出す
         SearchModuleKind.EndOfSale => new ChoiceModule(kind,
-            [new("ended", "販売終了のみ"), new("both", "販売中と販売終了の両方"), new("selling", "販売中のみ")],
-            "both", EndOfSaleMatches, "非公開・削除された商品も表示する"),
+            [new("ended", "販売終了・非公開"), new("selling", "公開中"), new("both", "両方")],
+            "both", (item, key, _) => EndOfSaleMatches(item, key)),
 
         SearchModuleKind.PublishedAt => new DateModule(kind,
             item => item.Booth.PublishedAt is { } at ? DateOnly.FromDateTime(at.LocalDateTime) : null)
@@ -592,7 +613,7 @@ public sealed partial class SearchViewModel
         // 説明文から読み取っただけの対応アバター（`H2Link`）は、対応と数えず確認待ちにしてある。
         // 商品ページで確かめる作業へ、まとめて回れるようにする（ユーザ判断 2026-09-18）
         SearchModuleKind.AvatarUnconfirmed => new ChoiceModule(kind,
-            [new("unconfirmed", "確かめていない推定がある"), new("none", "確かめていない推定は無い"), new("both", "両方")],
+            [new("unconfirmed", "確認待ちあり"), new("none", "確認待ちなし"), new("both", "両方")],
             "both", (item, key, _) => key switch
             {
                 "unconfirmed" => HasUnconfirmedAvatars(item),
@@ -601,7 +622,7 @@ public sealed partial class SearchViewModel
             }),
 
         SearchModuleKind.Owned => new ChoiceModule(kind,
-            [new("owned", "所持している"), new("unowned", "所持していない"), new("both", "両方")],
+            [new("owned", "所持のみ"), new("unowned", "未所持のみ"), new("both", "両方")],
             "both", (item, key, _) => key switch
             {
                 "owned" => IsOwned(item),
@@ -621,14 +642,18 @@ public sealed partial class SearchViewModel
             }),
 
         // 記録の上では持っているが置き場が無いファイル（ユーザ判断 2026-10-04）。カードの印と同じ式（ItemRecord.HasMissingFile）
+        // 「未所持も含める」（ユーザ判断 2026-10-06・メモ83・判断7。既定は含める＝前と同じ）：記録のファイル・フォルダが**全部**見つからない商品は、
+        // 手元には何も無い＝実際には未所持。切ると、一部だけ見つからない商品に絞れる（カードの札「一部見つからない」と同じ分け方・HasAllFilesMissing）
         SearchModuleKind.MissingFile => new ChoiceModule(kind,
             [new(MissingFileKey, "見つからないファイルがある"), new("none", "見つからないファイルは無い"), new("both", "両方")],
-            "both", (item, key, _) => key switch
+            "both", (item, key, includeAllMissing) => key switch
             {
-                MissingFileKey => item.HasMissingFile,
+                MissingFileKey => item.HasMissingFile && (includeAllMissing || !item.HasAllFilesMissing),
                 "none" => !item.HasMissingFile,
                 _ => true,
-            }),
+            },
+            new ChoiceFlag("未所持も含める", Default: true, "すべて見つからない商品を除く",
+                new HashSet<string>(StringComparer.Ordinal) { MissingFileKey })),
 
         // 仮のIDで登録した商品（BOOTHに無い商品・ローカル登録。ユーザ指示 2026-10-04 メモ31）。カードの「BOOTHで開く」を出さない判定と同じ式（ItemRecord.IsLocalOnly）
         SearchModuleKind.NotOnBooth => new ChoiceModule(kind,
@@ -641,31 +666,28 @@ public sealed partial class SearchViewModel
             }),
 
         // 要確認に未読の更新がある商品（ユーザ指示 2026-10-02）。カードの札「更新あり」と同じ表（SearchViewModel.Updates）を見る。
-        // 既読にすると外れる（表が変わったら絞り直す）
-        SearchModuleKind.Updated => new ChoiceModule(kind,
-            [new("updated", "更新ありのみ"), new("other", "更新あり以外のみ"), new("both", "両方")],
-            "both", (item, key, _) => key switch
-            {
-                "updated" => HasUnreadUpdate(item.Id),
-                "other" => !HasUnreadUpdate(item.Id),
-                _ => true,
-            }),
+        // 既読にすると外れる（表が変わったら絞り直す）。変わった所の種類で絞れる（ユーザ判断 2026-10-06・更新のモジュールの判断）
+        SearchModuleKind.Updated => new UpdateNoticeModule(UnreadUpdateKinds),
 
-        // 純三項：「何も絞らない」選択肢を持たない。切るときは条件の切り替えで
+        // 純三項：「何も絞らない」選択肢を持たない。切るときは条件の切り替えで。
+        // 3つで全部の購入記録を覆うので「両方」は持たない（全部選ぶのは外すのと同じ。メモ83）。貰って自分でも買った物は両方に出る。
+        // 購入記録は編集画面で入れたときだけできるので、記録の無い商品がいちばん多い。どの選択肢でも
+        // 「購入記録の無い商品も含める」で足せる（ユーザ判断 2026-10-06・判断1：既定は切・どの項目でも出す）
         SearchModuleKind.Gift => new ChoiceModule(kind,
-            [new("received", "ギフトされた"), new("given", "ギフトした"), new("other", "その他（自分で入手・記録なし）")],
-            null, (item, key, _) => key switch
+            [new("given", "ギフトした"), new("received", "ギフトされた"), new("bought", "購入した")],
+            null, (item, key, includeUnrecorded) => (includeUnrecorded && item.Local.Purchases.Count == 0) || key switch
             {
-                "received" => Purchases.WasReceived(item),
                 "given" => Purchases.WasGiven(item),
+                "received" => Purchases.WasReceived(item),
+                _ => item.Local.Purchases.Any(purchase => purchase.Kind == PurchaseKind.ForSelf),
+            },
+            new ChoiceFlag("購入記録の無い商品も含める", Default: false, "購入記録の無い商品も含める")),
 
-                // 購入記録の無い商品は「その他」（ユーザ判断 Q4）。貰って自分でも買った物は両方に出る
-                _ => item.Local.Purchases.Count == 0 || item.Local.Purchases.Any(purchase => purchase.Kind == PurchaseKind.ForSelf),
-            }),
-
+        // BOOTH のバリエーションの価格だけで分ける（ユーザ判断 2026-10-06・判断2）。使う人が知りたいのは「全部無料で使えるか・支援版があるか」。
+        // 前は払った額を優先し、無料と有料の両方がある商品が両方に出ていた。3つで分けきるので「両方」は持たない。価格の分からない商品はどれにも入らない
         SearchModuleKind.FreePaid => new ChoiceModule(kind,
-            [new("free", "無料のみ"), new("paid", "有料のみ"), new("both", "両方")],
-            "both", (item, key, _) => FreePaidMatches(item, key)),
+            [new(AllFreeKey, "すべて無料"), new(FreeAndPaidKey, "無料版と有料版がある"), new(PaidOnlyKey, "有料のみ")],
+            null, (item, key, _) => FreePaidMatches(item, key)),
 
         // 大分類 → 小分類の2段（ユーザ指示 2026-09-28）。照合は Core の UserTagCondition
         SearchModuleKind.UserTag => new UserTagModule(),
@@ -673,8 +695,8 @@ public sealed partial class SearchViewModel
         // 行ごとの分布の帯（メモ82）。照合（AttributeFilter.Matches）と同じ引き方で値を集める
         SearchModuleKind.Attribute => new AttributeModule { AllValuesOf = name => RatedValues(_allItems, name) },
 
-        // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針
-        SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "アバター名・商品ID・共通素体で絞り込む",
+        // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針（メモ82 で確かめた）
+        SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "名前、ID、素体で絞り込む",
             "アバターがまだ見つかっていません。アバターの管理から検出できます。", AvatarMatches,
             "素体経由の対応も含める", flagDefault: true,
             isUnspecified: IsUnspecifiedAvatar)
@@ -704,7 +726,7 @@ public sealed partial class SearchViewModel
         },
 
         SearchModuleKind.Hidden => new ChoiceModule(kind,
-            [new("hidden", "非表示のみ"), new("both", "両方"), new("visible", "表示している商品のみ")],
+            [new("hidden", "非表示のみ"), new("visible", "表示している商品のみ"), new("both", "両方")],
             "both", (item, key, _) => key switch
             {
                 "hidden" => item.Local.IsHidden,
@@ -716,27 +738,26 @@ public sealed partial class SearchViewModel
         // 取り込みの③がまだの商品は「未入力のみ」に数えない（編集画面に出てこないため・U8・U10）
         SearchModuleKind.Unedited => new UneditedModule(item => _main?.IsAwaitingDetection(item.Id) == true),
 
-        SearchModuleKind.Modification => new ListModule(kind, allowsAnd: true, "改変の名前かアバター名で絞り込む",
-            "改変がまだありません。アバターの管理から作れます。",
-            (item, context, key, _) => key.StartsWith(AvatarKey, StringComparison.Ordinal)
-                ? context.Modifications.Used(key[AvatarKey.Length..], item.Id)
-                : key.StartsWith(ModificationKey, StringComparison.Ordinal)
-                    && context.Modifications.InModification(key[ModificationKey.Length..], item.Id))
-        {
-            InfoSelector = text => _modificationSuggestInfo.GetValueOrDefault(text),
-        },
+        // アバター → 改変の2段（ユーザ判断 2026-10-06。ユーザータグと同じ形）
+        SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf),
 
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
             "Unityプロジェクトを紐付けた改変がまだありません。",
-            (item, context, key, _) => context.Modifications.InProject(key, item.Id)),
+            (item, context, key, _) => context.Modifications.InProject(key, item.Id))
+        {
+            TrimsMiddle = true,
+        },
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
         // フォルダは比べる形に1回だけ畳み（matchKey）、照らすときは畳んだ形を受ける
         SearchModuleKind.Path => new ListModule(kind, allowsAnd: true, "フォルダの名前で絞り込む",
             "手元にファイルのある商品がまだありません。",
             (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
-            matchKey: FolderTree.UnderPrefix),
+            matchKey: FolderTree.UnderPrefix)
+        {
+            TrimsMiddle = true,
+        },
 
         SearchModuleKind.Recent => new RecentModule(),
 
@@ -785,6 +806,12 @@ public sealed partial class SearchViewModel
         _favoriteShops = ShopNotes.FavoriteKeys(notes);
         if (Modules.Any(module => module.Kind == SearchModuleKind.Shop))
         {
+            // 候補の並び（お気に入りが先）も変わる
+            foreach (var module in Modules.Where(module => module.Kind == SearchModuleKind.Shop).ToList())
+            {
+                RefreshModuleSource(module);
+            }
+
             ApplyFilters();
         }
     }
@@ -810,48 +837,53 @@ public sealed partial class SearchViewModel
         return Core.Services.Purchases.SelfPaidOrNull(item) is { } paid ? [paid] : [];
     }
 
+    private const string AllFreeKey = "free";
+    private const string FreeAndPaidKey = "mixed";
+    private const string PaidOnlyKey = "paid";
+
     /// <summary>
-    /// 有料・無料。払った額があればそれで決め、無ければ BOOTH の種類ごとの価格（無料と有料の種類が両方あれば両方に出す）。
-    /// どちらも分からない商品（BOOTH に無く、額も入れていない）は「両方」のときだけ出す（ユーザ判断 Q5）。
+    /// 有料・無料（ユーザ判断 2026-10-06・判断2）。BOOTH のバリエーションの価格だけで、すべて0円・0円と有料の両方・すべて有料に分ける。
+    /// 払った額は見ない（支援版を買っても、無料版があるかは変わらない）。バリエーションの無い商品（BOOTHに無い商品・取れていない商品）はどれにも入らない。
     /// </summary>
-    private static bool FreePaidMatches(ItemRecord item, string key)
+    internal static bool FreePaidMatches(ItemRecord item, string key)
     {
-        if (key is not ("free" or "paid"))
+        var variations = item.Booth.Variations;
+        if (variations.Count == 0)
+        {
+            return false;
+        }
+
+        var hasFree = variations.Any(variation => variation.Price == 0);
+        var hasPaid = variations.Any(variation => variation.Price > 0);
+        return key switch
+        {
+            AllFreeKey => hasFree && !hasPaid,
+            FreeAndPaidKey => hasFree && hasPaid,
+            PaidOnlyKey => hasPaid && !hasFree,
+            _ => false,
+        };
+    }
+
+    /// <summary>
+    /// 販売終了（ユーザ判断 2026-10-06・メモ84・案1）。**本物のIDの商品だけに効かせる**：
+    /// 「販売終了・非公開」＝ページはあるが販売終了・一度取れた後に見つからないのが続いた（非公開と確定した）・IDのまま登録した物（登録のときに非公開の印を付ける）。
+    /// 「公開中」＝それ以外。見つからない回数が非公開と確定する回数に届く前（確かめ中）は、まだ印が付いていないので公開中（判断4）。
+    /// 仮IDの商品は BOOTH の状態を持たないので、「両方」のときだけ出す。売り切れは含めない（在庫の話で、販売が終わったわけではない）。
+    /// </summary>
+    internal static bool EndOfSaleMatches(ItemRecord item, string key)
+    {
+        if (key == "both")
         {
             return true;
         }
 
-        IReadOnlyList<int> prices = item.Local.Purchases
-            .Where(purchase => purchase.Kind == PurchaseKind.ForSelf && purchase.Price is not null)
-            .Select(purchase => purchase.Price!.Value)
-            .ToList();
-
-        if (prices.Count == 0)
-        {
-            prices = item.Booth.Variations.Select(variation => variation.Price).ToList();
-        }
-
-        return key == "free" ? prices.Any(price => price == 0) : prices.Any(price => price > 0);
-    }
-
-    /// <summary>
-    /// 販売終了。非公開・削除（BOOTH で見つからないのが続いた）も販売終了に含めるが、基本は隠す（ユーザ判断 R1）。
-    /// 売り切れは含めない（在庫の話で、販売が終わったわけではない）。
-    /// </summary>
-    private static bool EndOfSaleMatches(ItemRecord item, string key, bool showDelisted)
-    {
-        if (item.Local.IsDelisted && !showDelisted)
+        if (item.IsLocalOnly)
         {
             return false;
         }
 
         var ended = item.Booth.IsEndOfSale || item.Local.IsDelisted;
-        return key switch
-        {
-            "ended" => ended,
-            "selling" => !ended,
-            _ => true,
-        };
+        return key == "ended" ? ended : !ended;
     }
 
     /// <summary>

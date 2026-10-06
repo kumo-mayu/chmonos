@@ -60,7 +60,13 @@
                                     <TextBlock Text="新規" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                 </Border>
                                 <!-- 残りの幅を名前が取る（最後の子が埋める）。入らなければ切る -->
-                                <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <!-- パスの候補は間を省き、末尾の名前を残す（TrimMiddle。省いたら吹き出しで全文） -->
+                                <Grid>
+                                    <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding EndTrimVisibility}" />
+                                    <local:PathLine Path="{Binding Display}" FontSize="12.5" VerticalAlignment="Center"
+                                                    Visibility="{Binding MiddleTrimVisibility}" />
+                                </Grid>
                             </DockPanel>
                             </StackPanel>
                         </DataTemplate>

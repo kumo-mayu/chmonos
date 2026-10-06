@@ -173,6 +173,32 @@ public static class BoothChanges
         => diffs.Any(diff => Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field));
 
     /// <summary>
+    /// 知らせ1件が、どの種類の変化を含むか（検索の条件「更新通知あり」の種類・ユーザ判断 2026-10-06）。
+    /// 差の欄の名前で見分ける：販売状況 → 販売の状態、価格 → 価格、バリエーション → バリエーション、
+    /// 更新履歴の見出し（強い知らせ）→ 中身の更新、それ以外（商品名・画像・説明文とほかの見出し）→ ページ内容の変更。
+    /// 差を持たない知らせでも強い知らせなら中身の更新に数え、それ以外はページ内容の変更に数える（どの種類にも入らない知らせを作らない）。
+    /// </summary>
+    public static BoothChangeKind KindsOf(NotificationRecord record)
+    {
+        var kinds = record.IsStrong ? BoothChangeKind.Content : BoothChangeKind.None;
+        foreach (var diff in record.Diffs)
+        {
+            kinds |= diff.Field switch
+            {
+                SaleField => BoothChangeKind.Sale,
+                PriceField => BoothChangeKind.Price,
+                VariationsField => BoothChangeKind.Variations,
+                _ when Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field) => BoothChangeKind.Content,
+                _ => BoothChangeKind.Page,
+            };
+        }
+
+        // 差を持たない知らせ（差を書けなかった物）も、ページが変わったことは確か。どの種類にも入らないと、
+        // カードには札「更新あり」が出るのに、種類を全部入れた条件で出てこない
+        return kinds == BoothChangeKind.None ? BoothChangeKind.Page : kinds;
+    }
+
+    /// <summary>
     /// 見出しの原文は装飾記号付きなので、正規化した見出しで突き合わせる（同じ見出しが2つあれば後ろを足す）。
     /// 本文は改行を残したまま持つ（行の差を作るため）。変わったかは空白を詰めてから比べる
     /// </summary>
@@ -285,4 +311,26 @@ public static class BoothChanges
 
     /// <summary>前の値段 → 今の値段。商品ページのバリエーションの行の値段と同じ「¥1,500」の書き方。</summary>
     public static string PriceStep(NotificationPrice price) => $"¥{price.Before:N0} → ¥{price.After:N0}";
+}
+
+/// <summary>
+/// 商品の更新の知らせの種類（検索の条件「更新通知あり」で選ぶ5つ・ユーザ判断 2026-10-06）。1件の知らせが複数を含むことがある。
+/// </summary>
+[Flags]
+public enum BoothChangeKind
+{
+    None = 0,
+
+    /// <summary>中身の更新（更新履歴の見出しが変わった）。</summary>
+    Content = 1,
+
+    Variations = 2,
+
+    Price = 4,
+
+    /// <summary>販売の状態（販売中 ⇄ 販売終了）。</summary>
+    Sale = 8,
+
+    /// <summary>ページ内容の変更（商品名・画像・説明文。更新履歴の見出しは除く）。</summary>
+    Page = 16,
 }

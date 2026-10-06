@@ -46,13 +46,14 @@ internal static partial class Scenes
 
     /// <summary>候補の入れ物はポップアップ（別の窓）で撮れないので、ポップアップの中身だけを外して返す。並びは本物の Arrange の答え。</summary>
     private static FrameworkElement SuggestPanel(
-        string caption, IReadOnlyList<string> all, string text, Func<string, SuggestInfo?> info, IReadOnlyList<string>? headings, double width = 320)
+        string caption, IReadOnlyList<string> all, string text, Func<string, SuggestInfo?> info, IReadOnlyList<string>? headings, double width = 320,
+        Func<string, string, SuggestMatch?>? matcher = null, bool trimMiddle = false)
     {
         var box = new SuggestBox { Width = width };
         var popup = (System.Windows.Controls.Primitives.Popup)box.FindName("DropDown");
         var list = (ListBox)box.FindName("Candidates");
         Func<string, ImageSource?> icon = value => value.StartsWith('作') && value.Contains("絵") ? Swatch(Color.FromRgb(120, 170, 210)) : null;
-        list.ItemsSource = SuggestBox.Arrange(all, text, 0, info)
+        list.ItemsSource = SuggestBox.Arrange(all, text, 0, info, matcher)
             .Select(row => new Suggestion
             {
                 Value = row.Entry,
@@ -61,6 +62,7 @@ internal static partial class Scenes
                 HasDividerAbove = row.DividerAbove,
                 Heading = row.GroupStart && headings is not null ? headings[row.Group] : string.Empty,
                 Note = row.Hit?.Label ?? string.Empty,
+                TrimMiddle = trimMiddle,
             })
             .ToList();
         list.SelectedIndex = 0;
@@ -110,19 +112,46 @@ internal static partial class Scenes
         },
 
         // 検索の「改変」の候補（「アバター名：改変名」）。アバター名の呼び方でも当たり、名前で当たった行には札が付かない（2026-10-05 判断⑥）
-        new Scene("suggest-modification-alias", "検索の改変の候補：空の入力／「mzh」（呼び方で当たる）／「普段着」（名前で当たる。札なし）", context =>
+        new Scene("suggest-modification-alias", "検索の改変の候補（アバター → 改変）：空の入力／「mzh」（アバターの呼び方で当たる）／「ミズホ 普段」（語を区切って当てる。名前以外で当たった札）", context =>
+        {
+            var created = DateTimeOffset.UnixEpoch;
+            ModificationRecord Record(string avatar, string name, string? project = null) => new()
+            {
+                Id = ModificationId.For(avatar, name, created),
+                AvatarItemId = avatar,
+                Name = name,
+                CreatedAt = created,
+                UpdatedAt = created,
+                UnityProject = project,
+            };
+
+            var module = new ModificationModule(_ => null, _ => null);
+            module.SetSources(
+                [Record("9900001", "普段着"), Record("9900001", "水着", @"D:\UnityProjects\夏の撮影"), Record("9900002", "普段着")],
+                id => id == "9900001" ? "作り物のミズホ" : "作り物のカナタ",
+                id => id == "9900001" ? ["Mzh"] : []);
+            var all = module.Suggestions.ToList();
+            var host = new StackPanel { Orientation = Orientation.Horizontal };
+            host.Children.Add(SuggestPanel("空の入力", all, string.Empty, module.InfoSelector, ModificationModule.Headings, matcher: module.Matcher));
+            host.Children.Add(SuggestPanel("「mzh」と打つ", all, "mzh", module.InfoSelector, ModificationModule.Headings, matcher: module.Matcher));
+            host.Children.Add(SuggestPanel("「ミズホ 普段」と打つ", all, "ミズホ 普段", module.InfoSelector, ModificationModule.Headings, matcher: module.Matcher));
+            return Task.FromResult(new Shot(SceneContext.OnSurface(host, 20)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
+        new Scene("suggest-path-long", "検索のファイルの場所の候補：長いパスは間を「…」にして最後のフォルダ名を残す", context =>
         {
             string[] all =
             [
-                "作り物のミズホ（このアバターの改変すべて）", "作り物のミズホ：普段着", "作り物のミズホ：水着",
-                "作り物のカナタ（このアバターの改変すべて）", "作り物のカナタ：普段着",
+                @"D:\作り物のライブラリ\アバター用の衣装\とても長い名前のショップのフォルダ\2026年の夏の新作\最後のフォルダ",
+                @"D:\作り物のライブラリ\短い",
+                @"E:\外付けのドライブ\作り物の素材\テクスチャ\4K\肌の色違い",
             ];
-            var mizuho = new SuggestInfo(0, [new SuggestHint("Mzh", "呼び方「Mzh」")]);
-            var infos = all.ToDictionary(text => text, text => text.StartsWith("作り物のミズホ") ? mizuho : new SuggestInfo(0, []));
             var host = new StackPanel { Orientation = Orientation.Horizontal };
-            host.Children.Add(SuggestPanel("空の入力", all, string.Empty, text => infos.GetValueOrDefault(text), null));
-            host.Children.Add(SuggestPanel("「mzh」と打つ", all, "mzh", text => infos.GetValueOrDefault(text), null));
-            host.Children.Add(SuggestPanel("「普段着」と打つ", all, "普段着", text => infos.GetValueOrDefault(text), null));
+            host.Children.Add(SuggestPanel("空の入力", all, string.Empty, _ => null, null, width: 260, trimMiddle: true));
             return Task.FromResult(new Shot(SceneContext.OnSurface(host, 20)));
         })
         {

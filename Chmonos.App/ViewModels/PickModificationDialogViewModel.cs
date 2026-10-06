@@ -141,7 +141,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     /// </summary>
     private void ApplyFilter()
     {
-        var words = FilterText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var words = ModificationSearchText.Words(FilterText);
         var shown = new List<PickModificationRowViewModel>();
         foreach (var row in _allRows)
         {
@@ -166,46 +166,9 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasNoMatch));
     }
 
-    private static readonly System.Globalization.CompareInfo Compare = System.Globalization.CultureInfo.InvariantCulture.CompareInfo;
-
-    private const System.Globalization.CompareOptions Loose = System.Globalization.CompareOptions.IgnoreCase
-        | System.Globalization.CompareOptions.IgnoreKanaType | System.Globalization.CompareOptions.IgnoreWidth;
-
-    private static bool Contains(string text, string word) => text.Length > 0 && Compare.IndexOf(text, word, Loose) >= 0;
-
-    /// <summary>語が全部当たるか。名前以外（アバター・プロジェクト）に当たった物は <paramref name="note"/> に書く。</summary>
+    /// <summary>語が全部当たるか。名前以外（アバター・プロジェクト）に当たった物は <paramref name="note"/> に書く（決まりは検索の「改変」と同じ <see cref="ModificationSearchText"/>）。</summary>
     internal static bool Matches(PickModificationRowViewModel row, string[] words, out string note)
-    {
-        note = string.Empty;
-        var avatarHit = false;
-        var projectHit = false;
-        foreach (var word in words)
-        {
-            var avatar = Contains(row.AvatarText, word);
-            var project = Contains(row.ProjectName, word);
-            if (!Contains(row.Name, word) && !avatar && !project)
-            {
-                return false;
-            }
-
-            avatarHit |= avatar;
-            projectHit |= project;
-        }
-
-        var notes = new List<string>();
-        if (avatarHit)
-        {
-            notes.Add($"アバター：{row.AvatarText}");
-        }
-
-        if (projectHit)
-        {
-            notes.Add($"プロジェクト：{row.ProjectName}");
-        }
-
-        note = string.Join("　", notes);
-        return true;
-    }
+        => ModificationSearchText.Matches(row.Name, row.AvatarText, row.ProjectName, words, out note);
 
     /// <summary>アバターの候補の頭に出す絵。名前から読む（持っていれば商品の1枚目・無ければ控え）。絵が無ければ頭文字が出る。</summary>
     public Func<string, System.Windows.Media.ImageSource?>? AvatarIconSelector { get; init; }

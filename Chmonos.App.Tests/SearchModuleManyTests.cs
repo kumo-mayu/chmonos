@@ -96,8 +96,8 @@ public class SearchModuleManyTests
 
         Assert.Equal(("Category", "カテゴリ", "カテゴリで絞り込む"), (first.IdKey, first.SpokenLabel, first.InputName));
         Assert.Equal(("Category-2", "カテゴリ（2つ目）", "カテゴリ（2つ目）で絞り込む"), (second.IdKey, second.SpokenLabel, second.InputName));
-        Assert.Equal("アバター名・商品ID・共通素体で絞り込む", avatar1.InputName);
-        Assert.Equal("アバター名・商品ID・共通素体で絞り込む（2つ目）", avatar2.InputName);
+        Assert.Equal("名前、ID、素体で絞り込む", avatar1.InputName);
+        Assert.Equal("名前、ID、素体で絞り込む（2つ目）", avatar2.InputName);
 
         // 見出しに見える文字は番号を付けない（動かすと替わって紛らわしい）
         Assert.Equal("カテゴリ", second.Label);

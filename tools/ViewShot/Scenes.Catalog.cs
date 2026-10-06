@@ -99,6 +99,10 @@ internal static partial class Scenes
             case RecentModule recent when recent.Options.Count > 1:
                 recent.Selected = recent.Options[1];
                 break;
+            case UpdateNoticeModule updated:
+                // 見る種類を1つ切る（要約が「…の更新通知あり」になる）
+                updated.Kinds[2].IsOn = false;
+                break;
             case UneditedModule unedited:
                 unedited.Fields.First().IsOn = true;
                 break;
