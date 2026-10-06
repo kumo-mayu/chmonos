@@ -13,12 +13,44 @@ public sealed class LogFile(string path, long maxBytes = 1_000_000)
 
     public string Path => path;
 
+    /// <summary>1件の文の上限。手で直した JSON の値は長さに限りが無いので、ログ1件で1MB の回しを食い切らないように抑える。</summary>
+    public const int MaxMessageChars = 2000;
+
+    /// <summary>
+    /// 見出しと文を1行に収める（外部の点検 2026-10-06）。文には外から来た値（手で直した JSON の ID・ファイル名・BOOTH の文）が入る。
+    /// 改行がそのままだと、日時と重さに似せた偽の行を作れた。改行と制御文字、向きを変える字（U+202E など）は
+    /// 「\u000A」の形で見えるように書き、長すぎる文は切って印を付ける。例外の中身は下の字下げの行で、仕様どおり複数行のまま
+    /// </summary>
+    internal static string OneLine(string text, int max)
+    {
+        var builder = new System.Text.StringBuilder(Math.Min(text.Length, max) + 32);
+        foreach (var c in text)
+        {
+            if (builder.Length >= max)
+            {
+                builder.Append($"…（{text.Length:N0}字のうち先頭だけ）");
+                break;
+            }
+
+            if (char.IsControl(c) || c is (>= (char)0x202A and <= (char)0x202E) or (>= (char)0x2066 and <= (char)0x2069) or (char)0x200E or (char)0x200F)
+            {
+                builder.Append($"\\u{(int)c:X4}");
+            }
+            else
+            {
+                builder.Append(c);
+            }
+        }
+
+        return builder.ToString();
+    }
+
     /// <summary>回した1つ前の分。</summary>
     public string OldPath => System.IO.Path.ChangeExtension(path, ".old.log");
 
     public void Write(string level, string where, string message, Exception? exception = null)
     {
-        var text = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff} {level} [{where}] {message}{Environment.NewLine}";
+        var text = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff} {level} [{OneLine(where, 200)}] {OneLine(message, MaxMessageChars)}{Environment.NewLine}";
         if (exception is not null)
         {
             // 例外の中身は字下げして、次の行の見出しと見分けられるようにする

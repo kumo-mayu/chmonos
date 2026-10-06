@@ -33,6 +33,28 @@ public sealed class LogFileTests : IDisposable
         Assert.Contains("[取り込み] 2行目", lines[^1]);
     }
 
+    /// <summary>
+    /// 外から来た値の改行・制御文字・向きを変える字は見える形にして1行に収め、長すぎる文は切る（外部の点検 2026-10-06）。
+    /// 例外の中身は、今までどおり字下げした複数行で残す
+    /// </summary>
+    [Fact]
+    public void 文の改行と制御文字は1行に収め_例外は複数行のまま()
+    {
+        var path = Path.Combine(_root, "app.log");
+        var log = new LogFile(path);
+
+        var rtl = (char)0x202E;
+        log.Write("WARN", "読む\n2026-01-01 00:00:00.000 ERROR [偽]", "ID「a\r\n2026-01-01 00:00:00.000 ERROR [偽] 消した」" + rtl + "は扱わない" + new string('x', 5000), new InvalidOperationException("一\n二"));
+
+        var lines = File.ReadAllLines(path);
+        Assert.DoesNotContain(lines, line => line.StartsWith("2026-01-01", StringComparison.Ordinal));
+        Assert.Contains(@"\u000A", lines[0]);
+        Assert.Contains(@"\u202E", lines[0]);
+        Assert.DoesNotContain(rtl, lines[0]);
+        Assert.True(lines[0].Length < 2300);
+        Assert.Contains(lines.Skip(1), line => line.Trim() == "二");
+    }
+
     [Fact]
     public void 大きくなったら1つ前へ回して2つだけ残す()
     {
