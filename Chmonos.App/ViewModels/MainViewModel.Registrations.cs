@@ -16,7 +16,7 @@ public sealed partial class MainViewModel
 
     private RegistrationQueue CreateRegistrations()
     {
-        var queue = new RegistrationQueue(_services.Commands, () => _services.Settings.FetchIntervalMs, NoteResolveSettledAsync, _services.Items.HoldRemainingImages);
+        var queue = new RegistrationQueue(_services.Commands, () => _services.Settings.FetchIntervalMs, NoteResolveSettledAsync, _services.Commands.HoldAfterRegistration);
         queue.Unhandled += outcome => NoteRegistrationAwayAsync(outcome).Forget();
         return queue;
     }

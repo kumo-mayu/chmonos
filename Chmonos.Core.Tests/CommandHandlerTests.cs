@@ -367,6 +367,28 @@ public class CommandHandlerTests
             => Task.FromResult<IReadOnlyList<AvatarBaseSummary>>([]);
     }
 
+    /// <summary>
+    /// 登録の列が札を持っている間は、登録の後の検出を始めず、札を返したら1回だけ始める（ユーザ判断 2026-10-06）。
+    /// 始めると、検出が知らないアバターを問い合わせる1本ずつが、次の登録の問い合わせの合間に入る
+    /// </summary>
+    [Fact]
+    public async Task HoldsTheDetectionWhileTheRegistrationQueueRunsAndStartsItOnceOnRelease()
+    {
+        var avatars = new HeldAvatarService();
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatars: avatars);
+
+        var hold = handler.HoldAfterRegistration();
+        Assert.IsType<CommandResult.ItemSaved>(await handler.ExecuteAsync(new UiCommand.AssignItemId("AAAA", "5813187")));
+        Assert.IsType<CommandResult.ItemSaved>(await handler.ExecuteAsync(new UiCommand.AssignItemId("BBBB", "5813188")));
+        await Task.Delay(50);
+        Assert.False(avatars.Started.Task.IsCompleted);
+
+        hold.Dispose();
+        await avatars.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        avatars.Release.SetResult();
+        await avatars.Finished.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
     [Fact]
     public async Task ReportsFailureWhenAssignmentIsRejected()
     {

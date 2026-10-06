@@ -376,18 +376,18 @@ public sealed class CommandHandler
                     // 対応アバターが空だった（「手で紐付けると上手く行かない」と見えていた）。
                     // **裏で走らせ、確定の画面は待たせない。**確定すると次の1件の自動検索が走るので、
                     // ここで待たせると #27 で直した待ちが戻る。検出は1本ずつなので重ならない
-                    if (_avatars is { } avatars)
+                    lock (_registrationHoldGate)
                     {
-                        // 落ちても、次の取り込みかアバター画面のボタンで拾われる（失敗はログに残る）
-                        Diagnostics.BackgroundWork.Run("手で紐付けた後の対応アバターの検出", async () =>
+                        if (_registrationHolds > 0)
                         {
-                            using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.Detection);
-
-                            // まとめて確定したときは1回にまとめる（N4）
-                            await avatars.RequestDetectAsync();
-                        });
+                            // 登録の列が動いている間は始めない（HoldAfterRegistration）。検出は知らないアバターを問い合わせるので、
+                            // 始めると次の登録の問い合わせの合間に入り、2件目からの登録が遅くなる（ユーザ判断 2026-10-06）
+                            _detectAfterRelease = true;
+                            return new CommandResult.ItemSaved(assign.ItemId);
+                        }
                     }
 
+                    StartDetectionAfterRegistration();
                     return new CommandResult.ItemSaved(assign.ItemId);
                 }
 
@@ -1205,6 +1205,73 @@ public sealed class CommandHandler
         }
 
         return new CommandResult.Done();
+    }
+
+    private readonly object _registrationHoldGate = new();
+    private int _registrationHolds;
+    private bool _detectAfterRelease;
+
+    /// <summary>
+    /// 登録の列が動いている間、登録の後に続く問い合わせ（残りの画像・対応アバターの検出）を待たせる（ユーザ判断 2026-10-06・メモ60 案B の続き）。
+    /// 門は空いた時点で待っている物から選ぶので、続けて始めると次の登録の問い合わせの合間に1本ずつ入り、2件目からの登録が遅くなる。
+    /// 返した物を Dispose すると（列が空になったら）、残りの画像はまとめて⑤の段で、検出は1回にまとめて③の段で始める。
+    /// 閉じて途中で止まっても、列は次の起動で続きから流れ、終わったときに同じく始まる
+    /// </summary>
+    public IDisposable HoldAfterRegistration()
+    {
+        lock (_registrationHoldGate)
+        {
+            _registrationHolds++;
+        }
+
+        var images = _items.HoldRemainingImages();
+        return new RegistrationHold(() =>
+        {
+            images.Dispose();
+            bool detect;
+            lock (_registrationHoldGate)
+            {
+                detect = --_registrationHolds == 0 && _detectAfterRelease;
+                if (detect)
+                {
+                    _detectAfterRelease = false;
+                }
+            }
+
+            if (detect)
+            {
+                StartDetectionAfterRegistration();
+            }
+        });
+    }
+
+    private sealed class RegistrationHold(Action release) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                release();
+            }
+        }
+    }
+
+    /// <summary>手で紐付けた後の対応アバターの検出を裏で始める（③の段。まとめて確定したときは1回にまとめる・N4）。</summary>
+    private void StartDetectionAfterRegistration()
+    {
+        if (_avatars is not { } avatars)
+        {
+            return;
+        }
+
+        // 落ちても、次の取り込みかアバター画面のボタンで拾われる（失敗はログに残る）
+        Diagnostics.BackgroundWork.Run("手で紐付けた後の対応アバターの検出", async () =>
+        {
+            using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.Detection);
+            await avatars.RequestDetectAsync();
+        });
     }
 
     private void FillUnityPackagesInBackground(string itemId)

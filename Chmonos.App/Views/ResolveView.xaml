@@ -48,27 +48,36 @@
         <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <!--
+                左（題・件数・画面の説明）と右（行ごと消える操作の結果・確定した物）を列に分ける。前は同じ枠に重ねていて、
+                右の知らせが出ると左の説明の上に重なった（2026-10-06 の手触りの確認）。狭いときは説明の方を「…」で切る
+            -->
             <Grid Margin="20,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.Column="0" VerticalAlignment="Center" LastChildFill="True">
                     <!-- 戻る（V3）。統計・取り込み・フォルダから飛んで来られるのに、戻る道が無かった -->
-                    <StackPanel Orientation="Horizontal"
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left"
                                 Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
                                 BorderThickness="0" Background="Transparent" />
                         <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     </StackPanel>
-                    <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
-                    <TextBlock Text="{Binding RemainingText}" ToolTip="{Binding RemainingToolTip}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
-                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                    <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" DockPanel.Dock="Left" />
+                    <TextBlock Text="{Binding RemainingText}" ToolTip="{Binding RemainingToolTip}" Style="{StaticResource Mono}" VerticalAlignment="Center" DockPanel.Dock="Left" />
                     <!-- 元のzipが登録済みなので出していない中身。黙って減らさない（ユーザ判断 2026-09-17） -->
                     <TextBlock Text="{Binding HiddenByRegisteredZipText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0"
-                               ToolTip="元のzipを消すと、中身として一覧に戻ります。"
+                               ToolTip="元のzipを消すと、中身として一覧に戻ります。" DockPanel.Dock="Right"
                                Visibility="{Binding HasHiddenByRegisteredZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                </StackPanel>
+                    <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
+                               ToolTip="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
+                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0">
                 <!--
                     行ごと消える操作（まとめての登録・除外・戻す・フォルダのまま登録）の結果。押した所が消えるので、一覧の見出しの近くのここに出す
                     （docs/feedback/notice-placement-2026-10-03.md「未確定」）。帯の高さは決まっているので、出ても下は動かない

@@ -39,6 +39,18 @@ public interface IItemService
 {
     Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default);
 
+    /// <summary>登録の列が動いている間、登録した商品の残りの画像を待たせる札（<see cref="ItemService.HoldRemainingImages"/>）。既定は待たせない。</summary>
+    IDisposable HoldRemainingImages() => NoHold.Instance;
+
+    private sealed class NoHold : IDisposable
+    {
+        public static readonly NoHold Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
+
     Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default);
 
     /// <summary>

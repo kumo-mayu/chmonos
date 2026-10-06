@@ -282,6 +282,25 @@ internal static partial class Scenes
             Height = 1100,
         },
 
+        new Scene("resolve-header-notice", "未確定：上の帯の右に結果の知らせが出たとき、左の画面の説明と重ならず、説明の方が「…」で切れる（2026-10-06 の手触りの確認）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage"), contents: ["hair_ribbon.unitypackage"]),
+            ]);
+            var (root, screen) = await OpenResolveAsync(context, 1);
+
+            // 知らせは行ごと消える操作の結果だけが書く（private set）。台では文だけを入れて見た目を見る
+            typeof(Chmonos.App.ViewModels.ResolveViewModel).GetProperty(nameof(Chmonos.App.ViewModels.ResolveViewModel.ListNoticeText))!
+                .SetValue(screen, "「作り物のとても長い名前の衣装セット」を登録しました。");
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        })
+        {
+            Width = 900,
+            Height = 300,
+        },
+
         new Scene("resolve-target-images","未確定：BOOTHに無い商品に画像を2枚添えたときのギャラリー（枠と＋の枠）", async context =>
         {
             await context.Seed.Unresolved.SaveAsync(

@@ -74,7 +74,7 @@ public sealed class RegistrationQueue : ViewModelBase
     /// <param name="intervalMs">問い合わせの間隔（設定の値）。見込みの時間に使う。</param>
     /// <param name="settled">登録できた商品を、画面に知らせる前に主画面の控えと検索の写しへ足す。</param>
     /// <param name="holdRemainingImages">
-    /// 列が動いている間、登録した商品の残りの画像を待たせる札を取る（列が空になったら返す。メモ60 案B の続き）。
+    /// 列が動いている間、登録の後に続く問い合わせ（残りの画像・対応アバターの検出）を待たせる札を取る（列が空になったら返す。メモ60 案B の続き）。
     /// 試験で列だけを組むときは null（待たせない）
     /// </param>
     public RegistrationQueue(CommandHandler commands, Func<int> intervalMs, Func<string, Task> settled, Func<IDisposable>? holdRemainingImages = null)
