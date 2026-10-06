@@ -27,16 +27,16 @@ public class SearchModuleMenuTests
     }
 
     [Fact]
-    public Task 除くを持つのは候補から積む条件と範囲と日付と属性とユーザータグで_三項と最近は持たない() => TestApp.Run(async app =>
+    public Task 除くを持つのは候補から積む条件と範囲と日付と属性とユーザータグと最近で_三項は持たない() => TestApp.Run(async app =>
     {
         var search = await StartAsync(app);
 
-        foreach (var kind in new[] { SearchModuleKind.Category, SearchModuleKind.Price, SearchModuleKind.PublishedAt, SearchModuleKind.Attribute, SearchModuleKind.UserTag, SearchModuleKind.Shop })
+        foreach (var kind in new[] { SearchModuleKind.Category, SearchModuleKind.Price, SearchModuleKind.PublishedAt, SearchModuleKind.Attribute, SearchModuleKind.UserTag, SearchModuleKind.Shop, SearchModuleKind.Recent })
         {
             Assert.True(Add(search, kind).SupportsExclude, kind.ToString());
         }
 
-        foreach (var kind in new[] { SearchModuleKind.Owned, SearchModuleKind.Favorite, SearchModuleKind.Recent, SearchModuleKind.Gift })
+        foreach (var kind in new[] { SearchModuleKind.Owned, SearchModuleKind.Favorite, SearchModuleKind.Gift })
         {
             Assert.False(Add(search, kind).SupportsExclude, kind.ToString());
         }

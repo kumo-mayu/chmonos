@@ -1300,24 +1300,78 @@
                                     </StackPanel>
                                 </DataTemplate>
 
-                                <!-- 最近（ユーザ判断 Q1：プルダウンと日数）。上下限にしないのは、聞きたいことが「何日以内か」の片側しかないから -->
+                                <!--
+                                    最近（ユーザ判断 2026-10-06・案A）。記録の種類ごとに「最後にそれをしてからの日数」を軸に、価格・属性と同じ分布の帯とスライダ2本。
+                                    帯の範囲は一週間・一か月・一年・全期間から選ぶ（いちばん古い記録がとても昔だと、全期間の帯は最近の数日が潰れる）。
+                                    範囲を区切ると右端の1本が「それより前」で、色を分ける
+                                -->
                                 <DataTemplate DataType="{x:Type vm:RecentModule}">
                                     <StackPanel>
                                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                                                   DisplayMemberPath="Label" Height="28" FontSize="12.5"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
                                                   AutomationProperties.Name="何の記録で絞るか" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                            <TextBox Text="{Binding DaysText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
-                                                     Width="64" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Days'}"
-                                                     AutomationProperties.Name="日数" />
-                                            <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearDaysCommand}"
-                                                    ToolTip="日数を消す" AutomationProperties.Name="日数を消す"
-                                                    AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ClearDays'}"
-                                                    Visibility="{Binding HasDays, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            <TextBlock Text="日以内" VerticalAlignment="Center" Margin="4,0,0,0" Style="{StaticResource Caption}" />
-                                        </StackPanel>
+                                        <!-- 4つは同じ幅に並べる（つながったボタン。並べ替えの向きと同じ部品） -->
+                                        <UniformGrid Rows="1" Columns="4" Margin="0,6,0,0">
+                                            <RadioButton Style="{StaticResource SegmentFirst}" Content="一週間" IsChecked="{Binding IsWeek, Mode=TwoWay}"
+                                                         AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Period.Week'}"
+                                                         AutomationProperties.Name="帯の範囲：一週間" />
+                                            <RadioButton Style="{StaticResource SegmentMiddle}" Content="一か月" IsChecked="{Binding IsMonth, Mode=TwoWay}"
+                                                         AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Period.Month'}"
+                                                         AutomationProperties.Name="帯の範囲：一か月" />
+                                            <RadioButton Style="{StaticResource SegmentMiddle}" Content="一年" IsChecked="{Binding IsYear, Mode=TwoWay}"
+                                                         AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Period.Year'}"
+                                                         AutomationProperties.Name="帯の範囲：一年" />
+                                            <RadioButton Style="{StaticResource SegmentLast}" Content="全期間" IsChecked="{Binding IsAll, Mode=TwoWay}"
+                                                         AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Period.All'}"
+                                                         AutomationProperties.Name="帯の範囲：全期間" />
+                                        </UniformGrid>
+                                        <TextBlock Text="{Binding RangeText}" FontSize="12" Margin="0,7,0,0" HorizontalAlignment="Right"
+                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.RangeText'}" />
+                                        <TextBlock Text="記録が付くと、ここに日数の分布が表示されます。" Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Visibility="{Binding HasRecords, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                        <controls:ContentItemsControl ItemsSource="{Binding Histogram}" Height="22" Margin="0,3,0,1"
+                                                                      Focusable="False" ToolTip="最後の記録の日数の分布"
+                                                                      AutomationProperties.Name="最後の記録の日数の分布"
+                                                                      Visibility="{Binding HasHistogram, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:HistogramBar}">
+                                                    <Rectangle x:Name="Bar" Height="{Binding Height}" VerticalAlignment="Bottom" Margin="0.5,0"
+                                                               Fill="{DynamicResource AccentBorder}" />
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOutside}" Value="True">
+                                                            <Setter TargetName="Bar" Property="Fill" Value="{DynamicResource BorderStrong}" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
+                                        <!--
+                                            つまみは位置（0〜100）で動かし、日数に割り戻す（価格と同じ。右端を日数に結ぶと、範囲を変えた瞬間に丸めた値が書き戻されうる）。
+                                            矢印キーは1日ずつ。上下を外すチェックは付けない（右端が「それより前もすべて」・左端が今日）
+                                        -->
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
+                                                TickFrequency="{Binding TickFrequency}" TickPlacement="TopLeft" IsSnapToTickEnabled="False"
+                                                SmallChange="{Binding DayStep}" LargeChange="{Binding TickFrequency}" ToolTip="{Binding ScaleHint}"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MinSlider'}"
+                                                AutomationProperties.Name="何日前から" />
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
+                                                TickFrequency="{Binding TickFrequency}" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
+                                                SmallChange="{Binding DayStep}" LargeChange="{Binding TickFrequency}" ToolTip="{Binding ScaleHint}"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MaxSlider'}"
+                                                AutomationProperties.Name="何日前まで" />
+                                        <DockPanel LastChildFill="False" Margin="0,2,0,0">
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding MinimumLabel}" Style="{StaticResource Caption}" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding MaximumLabel}" Style="{StaticResource Caption}" />
+                                        </DockPanel>
+                                        <Button Content="新しい順に並べる" Command="{Binding SortCommand}" IsEnabled="{Binding CanSort}"
+                                                HorizontalAlignment="Left" Height="28" FontSize="12" Padding="10,0" Margin="0,8,0,0"
+                                                ToolTip="{Binding SortHint}" ToolTipService.ShowOnDisabled="True"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Sort'}"
+                                                AutomationProperties.Name="この記録の新しい順に並べる" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.Resources>

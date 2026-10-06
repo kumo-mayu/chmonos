@@ -332,7 +332,7 @@ public sealed partial class SearchViewModel
         _modificationUsage ?? ModificationUsage.Empty,
         _recentTimes ?? RecentTimes.Empty,
         _services.Volumes.Current,
-        DateTimeOffset.Now);
+        Clock());
 
     /// <summary>候補・スライダの右端・使えない理由を入れ直す（読み込み・マスタの変更のあと）。</summary>
     private void RefreshModuleSources()
@@ -377,7 +377,59 @@ public sealed partial class SearchViewModel
             case DateModule date:
                 date.RefreshBounds();
                 break;
+            case RecentModule recent:
+                recent.SetRecords(_services.Recent.AllTimes(), _allItems, Clock());
+                recent.IsSortedByThis = IsSortedBy(recent.SelectedKind);
+                break;
         }
+    }
+
+    /// <summary>
+    /// 今の時刻。「最近」の日数（帯と照合）はこれで数える。試験は日をまたいでも同じ答えになるよう差し替える
+    /// （時計に左右される試験を書かない決め事・`docs/dev/app-tests.md`）。
+    /// </summary>
+    internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.Now;
+
+    /// <summary>
+    /// 「最近」の帯と「新しい順に並べる」の押せるかを、今の足跡と表示順に合わせる。絞り直しのたびに呼ぶ
+    /// （商品ページを開くと足跡が増え、表示順は欄からも変わる）。足跡が前と同じ入れ物で同じ日なら、帯は数え直さない。
+    /// </summary>
+    private void RefreshRecentModules()
+    {
+        foreach (var recent in Modules.OfType<RecentModule>())
+        {
+            recent.SetRecords(_recentTimes ?? _services.Recent.AllTimes(), _allItems, _moduleContext?.Now ?? Clock());
+            recent.IsSortedByThis = IsSortedBy(recent.SelectedKind);
+        }
+    }
+
+    private bool IsSortedBy(Core.Services.RecentKind kind) => _sort.Descending && RecentKindOf(_sort.Kind) == kind;
+
+    /// <summary>
+    /// 「最近」の条件の「新しい順に並べる」（ユーザ判断 2026-10-06）。表示順をその記録の項目・新しい順にする。絞り込みはそのまま
+    /// （取り込みの結果から来る <see cref="ShowRecentlyAddedFirst"/> は値を戻すが、こちらは絞った上での順を見たい）。
+    /// </summary>
+    internal void SortByRecent(Core.Services.RecentKind kind)
+    {
+        var kindOfSort = kind switch
+        {
+            Core.Services.RecentKind.Added => SortKind.RecentlyAdded,
+            Core.Services.RecentKind.Viewed => SortKind.RecentlyViewed,
+            _ => SortKind.RecentlyUsed,
+        };
+
+        if (SortFields.FirstOrDefault(field => field.Kind == kindOfSort) is not { } field)
+        {
+            return;
+        }
+
+        _sortField = field;
+        OnPropertyChanged(nameof(SortField));
+        OnPropertyChanged(nameof(AscendingLabel));
+        OnPropertyChanged(nameof(DescendingLabel));
+        Sort = field.ToOption(descending: true);
+        OnPropertyChanged(nameof(SortsDescending));
+        OnPropertyChanged(nameof(SortsAscending));
     }
 
     private IEnumerable<(string Text, string Key)> CandidatesFor(SearchModuleKind kind) => kind switch
@@ -759,7 +811,7 @@ public sealed partial class SearchViewModel
             TrimsMiddle = true,
         },
 
-        SearchModuleKind.Recent => new RecentModule(),
+        SearchModuleKind.Recent => new RecentModule { SortRequested = SortByRecent },
 
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };

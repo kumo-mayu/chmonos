@@ -299,7 +299,7 @@ internal static class Samples
         ("スキ数：100以上", SearchModuleKind.WishList, S() with { Min = "100", MaxEnabled = false }),
         ("公開日：2024年", SearchModuleKind.PublishedAt, S() with { Min = "2024/1/1", Max = "2024/12/31" }),
         ("入手日：2025年以降", SearchModuleKind.AcquiredAt, S() with { Min = "2025/1/1", MaxEnabled = false }),
-        ("最近：開いた 30日", SearchModuleKind.Recent, S() with { Choice = "viewed", Min = "30" }),
+        ("最近：開いた 30日", SearchModuleKind.Recent, S() with { Choice = "viewed", Min = "0", Max = "29" }),
     ];
 
     public static (string Name, SearchModuleKind Kind, SearchModuleState State) Of(string prefix)

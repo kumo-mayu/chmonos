@@ -80,6 +80,31 @@ internal static partial class Scenes
             return FiltersShot(context.MainWindow());
         }),
 
+        new Scene("search-recent", "検索の絞り込み：最近（商品ページを開いた・一か月の帯・7〜28日前・新しい順に並べた後）", async context =>
+        {
+            var search = await StartRecentAsync(context);
+            var recent = (RecentModule)AddModule(search, SearchModuleKind.Recent);
+            recent.Selected = recent.Options.First(option => option.Key == "viewed");
+            recent.LowPosition = 7 * 100.0 / recent.Span;
+            recent.HighPosition = 28 * 100.0 / recent.Span;
+            recent.SortCommand.Execute(null);
+            await context.SettleAsync();
+            // 窓ごと撮る：表示順の欄に「商品ページを開いた日」が入り切るかも見る
+            return new Shot(context.MainWindow());
+        }),
+
+        new Scene("search-recent-week", "検索の絞り込み：最近（一週間の帯・右端の「それより前」の1本・除く）", async context =>
+        {
+            var search = await StartRecentAsync(context);
+            var recent = (RecentModule)AddModule(search, SearchModuleKind.Recent);
+            recent.Selected = recent.Options.First(option => option.Key == "viewed");
+            recent.Period = RecentPeriod.Week;
+            recent.HighPosition = 2 * 100.0 / recent.Span;
+            recent.IsExcluded = true;
+            await context.SettleAsync();
+            return FiltersShot(context.MainWindow());
+        }),
+
         new Scene("edit-attributes", "編集画面：属性の欄（1%刻みの値 37%・62%・100%と、並べてあるだけの行）", async context =>
         {
             await context.Seed.Attributes.SaveAsync(new AttributeMaster
@@ -101,6 +126,31 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
         }),
     ];
+
+    /// <summary>撮る絵が日によって変わらないよう、「最近」の今を止める。</summary>
+    private static readonly DateTimeOffset RecentNow = new(2026, 10, 6, 12, 0, 0, TimeSpan.FromHours(9));
+
+    /// <summary>作り物の12件に「商品ページを開いた」足跡（今日〜200日前）を付けて検索を開く。1件は記録なし。</summary>
+    private static async Task<SearchViewModel> StartRecentAsync(SceneContext context)
+    {
+        int[] days = [0, 0, 1, 2, 3, 5, 9, 12, 20, 26, 45];
+        await context.Seed.Recent.SaveAsync(new Chmonos.Core.Services.RecentLog
+        {
+            Entries =
+            [
+                .. days.Select((ago, index) => new Chmonos.Core.Services.RecentEntry
+                {
+                    ItemId = (9900301 + index).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ViewedAt = RecentNow.AddDays(-ago).AddHours(-2),
+                    AddedAt = RecentNow.AddDays(-200),
+                }),
+            ],
+        });
+
+        var search = await StartNumbersAsync(context, (_, item) => item);
+        search.Clock = () => RecentNow;
+        return search;
+    }
 
     /// <summary>作り物の12件を置いて検索を開き、既定の条件を外して空から始める。</summary>
     private static async Task<SearchViewModel> StartNumbersAsync(SceneContext context, Func<int, ItemRecord, ItemRecord> change)

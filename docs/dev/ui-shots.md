@@ -71,6 +71,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | ユーザータグの AND の中の「小分類なし」（警告の色） | `search-user-tag-no-sub-and` |
 | 長いパスの札（ファイルの場所・Unityプロジェクト）と候補 | `search-long-paths`・`suggest-path-long` |
 | ギフト・見つからないファイルの補助のチェック | `search-choice-flags` |
+| 最近（一か月の帯・7〜28日前・新しい順に並べた後は窓ごと／一週間の「それより前」の1本・除く） | `search-recent`（900）・`search-recent-week`（900）。場面は `01-search` に入る |
 | 改変の候補（アバター → 改変・語を区切って当てる・札） | `suggest-modification-alias`（候補の欄だけを描く） |
 | 候補の一覧が開いた所（打ちかけ） | **描けない**（候補はポップアップに出る） |
 

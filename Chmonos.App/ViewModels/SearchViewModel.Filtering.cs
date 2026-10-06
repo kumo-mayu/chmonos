@@ -49,6 +49,7 @@ public sealed partial class SearchViewModel
         }
 
         _matches = FilterMatches();
+        RefreshRecentModules();
 
         // 別表記は「別表記でも検索」を入れているときだけ広げる。前は0件のときに自動で広げていたが、
         // 切っているのに広げると切っている意味が無い（ユーザ判断 2026-09-16）。0件の所にボタンを出す
