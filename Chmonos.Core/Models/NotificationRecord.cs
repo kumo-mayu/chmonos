@@ -47,6 +47,12 @@ public enum NotificationKind
     /// 1商品1件で、行から控えに戻すか BOOTH から作り直せる。ID は <c>unreadable-item:{商品ID}</c>
     /// </summary>
     UnreadableItem,
+
+    /// <summary>
+    /// 途中で止まった操作（IDの変更・タグや属性の名前の変更）の続きを、起動したときに済ませられなかった（ユーザ判断 2026-10-06「A」）。
+    /// やりかけの記録は残してあり、次の起動でまた続ける。済んだら解消済みにする。ID は <c>pending-operation:{記録のID}</c>
+    /// </summary>
+    UnfinishedOperation,
 }
 
 /// <summary>

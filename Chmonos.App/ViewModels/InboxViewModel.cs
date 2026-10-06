@@ -1207,6 +1207,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.UnpackedFilesImported => "展開先のファイルを取り込んだ",
         NotificationKind.HandEditMismatch => "手で直したJSONの食い違い",
         NotificationKind.UnreadableItem => "読めない商品の記録",
+        NotificationKind.UnfinishedOperation => "途中で止まった操作",
         _ => "その他",
     };
 
@@ -1222,6 +1223,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.UnpackedFilesImported => "自動で始めた取り込みで、zipを展開したフォルダの中のファイルを取り込みました。元のzipの方で持ち直せます。",
         NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前の重複や、ファイル名と商品IDの食い違いがあります。JSONを開いて直してください。",
         NotificationKind.UnreadableItem => "itemsフォルダの商品の記録が壊れていて読めません。読めない間、その商品は検索に表示されません。",
+        NotificationKind.UnfinishedOperation => "IDや名前の変更が途中で止まり、続きを済ませられなかった操作です。",
         _ => string.Empty,
     };
 }

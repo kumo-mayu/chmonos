@@ -124,6 +124,12 @@ public enum ItemIdChangeOutcome
     /// 元の商品を消すと画像のフォルダごと消え、二度と取り返せないため。
     /// </summary>
     ImagesNotMoved,
+
+    /// <summary>やりかけの記録（<c>pending-operations.json</c>）を書けなかった。**何も書かず、始めない。**</summary>
+    NotRecorded,
+
+    /// <summary>やりかけの続きで見ると、移す先へまだ何も書いていなかった（元はそのまま残っている）。</summary>
+    NotStarted,
 }
 
 /// <summary>
@@ -373,6 +379,48 @@ public static class ItemIdChange
             UserImages = images,
             ImageRoles = roles,
         };
+    }
+
+    /// <summary>
+    /// やりかけの続き（次の起動）で、移す元がまだ残っていたときの <see cref="Merge"/>。
+    ///
+    /// 移す先へ書いてから元を消すまでの間に落ちると、移す先は合わせ済みで、元も残っている。
+    /// そこへ <see cref="Merge"/> をもう一度当てると、購入記録が2回分になり、メモが2回つながる
+    /// （ほかの欄は「移した先が持っていれば移した先」「同じ物は1つ」なので、2回当てても変わらない）。
+    /// 移す先が既に持っている購入記録（バリエーションと BOOTH にあるかの印は比べない。移すときに外し、保存で照合し直すので）と、
+    /// 既に含んでいるメモは持って行かない。
+    /// </summary>
+    public static LocalBlock MergeAgain(LocalBlock source, LocalBlock target, IReadOnlySet<int> skipped)
+    {
+        static Purchase Comparable(Purchase purchase) => purchase with { VariationId = null, ExistsOnBooth = true };
+
+        // 移す先の記録を1件ずつ使い切る。同じ値の記録が元に2件・先に1件なら、1件は合わせ済み・もう1件は未だと読む
+        var remaining = target.Purchases.Select(Comparable).ToList();
+        var purchases = new List<Purchase>();
+        for (var index = 0; index < source.Purchases.Count; index++)
+        {
+            if (skipped.Contains(index))
+            {
+                continue;
+            }
+
+            var comparable = Comparable(source.Purchases[index]);
+            var found = remaining.IndexOf(comparable);
+            if (found >= 0)
+            {
+                remaining.RemoveAt(found);
+                continue;
+            }
+
+            purchases.Add(source.Purchases[index]);
+        }
+
+        var memo = !string.IsNullOrWhiteSpace(source.Memo) && target.Memo?.Contains(source.Memo, StringComparison.Ordinal) == true
+            ? null
+            : source.Memo;
+
+        // 番号での飛ばしは上で済ませたので、残りは全部持って行く
+        return Merge(source with { Purchases = purchases, Memo = memo }, target, new HashSet<int>());
     }
 
     /// <summary>

@@ -153,6 +153,13 @@ public class CommandHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(ItemIdChangeOutcome.Moved);
 
+        public Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
+            string fromId,
+            string toId,
+            IReadOnlySet<int>? skippedPurchases = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(ItemIdChangeOutcome.Moved);
+
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
         {
             AssignedHash = hash;

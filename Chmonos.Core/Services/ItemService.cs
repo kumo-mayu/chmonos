@@ -170,6 +170,16 @@ public interface IItemService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 途中で止まった IDの変更の続きを済ませる（次の起動で、やりかけの記録が残っていたとき）。BOOTHへは問い合わせない。
+    /// 何度当てても同じ結果になる。
+    /// </summary>
+    Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
+        string fromId,
+        string toId,
+        IReadOnlySet<int>? skippedPurchases = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 未確定のファイルを「BOOTHに無い商品」として登録する。
     /// 仮ID（<see cref="LocalItemId"/>）を与えるので、BOOTHへは一切問い合わせない。
     /// </summary>
@@ -1788,6 +1798,67 @@ public sealed class ItemService : IItemService
         await MoveModificationsAsync(fromId, toId, cancellationToken);
         await MoveReferencesAsync(fromId, toId, cancellationToken);
 
+        return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 途中で止まった IDの変更の続き（やりかけの記録が次の起動で残っていたとき）。**BOOTHへは問い合わせない。**
+    ///
+    /// 段は ①移す先へ書く → ②元を消す → ③改変 → ④ほかの参照。どこで止まったかは記録せず、手元の様子から読む：
+    /// 元が無ければ①②は済んでいるので③④だけ当てる。元があって移す先が無ければ、まだ何も書いていない（元のまま。始める前に戻ったのと同じ）。
+    /// 両方あれば、①が済んだかは分からないので、2回当てても増えない合わせ方（<see cref="ItemIdChange.MergeAgain"/>）で①からやり直す。
+    /// ③④は「古いIDを新しいIDへ」なので、何回当てても同じ。
+    /// </summary>
+    public async Task<ItemIdChangeOutcome> ResumeItemIdChangeAsync(
+        string fromId,
+        string toId,
+        IReadOnlySet<int>? skippedPurchases = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.Equals(fromId, toId, StringComparison.Ordinal))
+        {
+            return ItemIdChangeOutcome.SameId;
+        }
+
+        var skipped = skippedPurchases ?? new HashSet<int>();
+        if (await _store.Items.LoadAsync(fromId, cancellationToken) is not null)
+        {
+            if (await _store.Items.LoadAsync(toId, cancellationToken) is null)
+            {
+                return ItemIdChangeOutcome.NotStarted;
+            }
+
+            var refused = ItemIdChangeOutcome.TargetUnavailable;
+            var copied = new List<string>();
+            var moved = await _store.Items.MoveAwayAsync(
+                fromId,
+                async source =>
+                {
+                    // 写し済みの画像は飛ばされる（名前が中身のハッシュなので、同じ名前は同じ絵）
+                    if (CopyUserImages(fromId, toId, source.Local.UserImages) is not { } late)
+                    {
+                        refused = ItemIdChangeOutcome.ImagesNotMoved;
+                        return false;
+                    }
+
+                    copied.AddRange(late);
+                    return await _store.Items.ChangeLocalAsync(
+                        toId,
+                        current => ItemIdChange.MergeAgain(source.Local, current, skipped),
+                        Enum.GetValues<LocalField>(),
+                        cancellationToken);
+                },
+                cancellationToken);
+
+            if (moved is false)
+            {
+                DeleteQuietly(copied);
+                return refused;
+            }
+        }
+
+        await MoveModificationsAsync(fromId, toId, cancellationToken);
+        await MoveReferencesAsync(fromId, toId, cancellationToken);
         return ItemIdChangeOutcome.Moved;
     }
 
