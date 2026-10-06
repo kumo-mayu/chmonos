@@ -250,9 +250,15 @@ public sealed partial class ItemViewModel
             LocalOwners.AvatarBases);
     }
 
+    /// <summary>
+    /// 対応アバターの欄の説明。**まだ判定していない商品は、見つからなかった商品と言い分ける**（ユーザ判断 2026-10-06）。
+    /// 未確定から登録した直後は、登録の列が空になるまで判定を待たせるので、その間に「見つかっていません」と出ると誤って読める
+    /// </summary>
     public string AvatarSectionNote => HasAvatars || HasAvatarBases
         ? "出品者が対応と書いているアバターです。"
-        : "出品者の対応表明は見つかっていません。アバターの管理から検出できます。";
+        : Item.Local.AvatarsDetectedAt is null
+            ? "対応アバターの判定がまだ終わっていません。"
+            : "出品者の対応表明は見つかっていません。アバターの管理から検出できます。";
 
     /// <summary>
     /// 対応アバターまわりを組み立てる。
