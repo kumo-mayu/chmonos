@@ -1,6 +1,6 @@
 # Chmonos（クモノス）— AIへの指示
 
-BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**まだ公開していない。**
+BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**2026-10-07 に v1.0.0 を公開した**（GitHub の Releases と BOOTH。配る zip は tag から GitHub Actions で組む：`docs/dev/signing.md`）。
 名前は **Chmonos**（2026-09-14 に「BOOTH Asset Manager」から改名。`docs/research/booth-terms.md` §4）。
 コードの名前空間（`Chmonos.App`・`Chmonos.Core`）・実行ファイル名（`Chmonos.exe`）・リポジトリ名（`chmonos`）・写しの置き場（`%LOCALAPPDATA%\Chmonos-sandboxes\<名前>`）も 2026-10-01 に新しい名前へ揃えた。
 `BoothIdResolver`・`BoothZipInspector` は役目の名前なので残している。`docs/history/` の中は書かれた時点の古い名前のまま。
