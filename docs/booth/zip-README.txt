@@ -8,7 +8,7 @@ BOOTH で買ったアセットを、今のフォルダの並びのまま管理�
 
   GitHub : https://github.com/kumo-mayu/chmonos
   マニュアル : https://github.com/kumo-mayu/chmonos/tree/master/manual
-  BOOTH  : 【未定】
+  BOOTH  : https://kumo-mayu.booth.pm/items/8952335
   お問い合わせ : BOOTH ショップのメッセージ、または X（@kumo_mayu79）の DM
 
 

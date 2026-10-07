@@ -28,7 +28,7 @@ BOOTH のアカウント情報は入力しません。
 
 ## はじめかた
 
-1. [GitHub の Releases](https://github.com/kumo-mayu/chmonos/releases)（BOOTH でも配っています。【未定：BOOTH の URL】）から `Chmonos-v1.0.0.zip` をダウンロードします
+1. [GitHub の Releases](https://github.com/kumo-mayu/chmonos/releases)（[BOOTH](https://kumo-mayu.booth.pm/items/8952335) でも配っています）から `Chmonos-v1.0.0.zip` をダウンロードします
 2. zip を右クリックして「すべて展開」を選びます。
    **zip の中から直接開かないでください。**一緒に入っている `assets` フォルダ（辞書など）が使われないことがあります
 3. 展開したフォルダの `Chmonos.exe` を開きます。インストールは要りません
