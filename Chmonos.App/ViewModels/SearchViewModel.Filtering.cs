@@ -319,9 +319,10 @@ public sealed partial class SearchViewModel
     /// <summary>足跡を1回だけ読んで3種類に分ける（前は種類ごとに読み直していた）。</summary>
     private RecentTimes LoadRecentTimes() => _services.Recent.AllTimes();
 
-    /// <summary>改変を読む必要があるか。改変・Unityプロジェクトの条件を足していなければ読まない。</summary>
+    /// <summary>改変を読む必要があるか。改変・Unityプロジェクトの条件を足しているか、改変に使った回数で並べているときだけ読む。</summary>
     private bool NeedsModifications()
-        => Modules.Any(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject);
+        => _sort.Kind == SortKind.ModificationCount
+            || Modules.Any(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject);
 
     private async Task LoadModificationUsageAsync()
     {
@@ -402,6 +403,9 @@ public sealed partial class SearchViewModel
             SortKind.Name => Core.Services.ItemOrder.ByName(items, descending, names),
             SortKind.Size => Core.Services.ItemOrder.BySize(items, descending, names),
             SortKind.WishList => Core.Services.ItemOrder.ByWishList(items, descending, names),
+            // 改変をまだ読んでいなければ、どれも0回として並べる。読めたら絞り直すので並びも直る（LoadModificationUsageAsync）
+            SortKind.ModificationCount => Core.Services.ItemOrder.ByCount(
+                items, itemId => _modificationUsage?.UseCounts.GetValueOrDefault(itemId) ?? 0, descending, names),
             SortKind.SelfPaid => Core.Services.ItemOrder.BySelfPaid(items, descending, names),
             SortKind.PublishedAt => Core.Services.ItemOrder.ByPublished(items, descending, names),
             SortKind.BoothPrice => Core.Services.ItemOrder.ByBoothPrice(items, descending, names),

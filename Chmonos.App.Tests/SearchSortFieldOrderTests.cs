@@ -47,7 +47,7 @@ public sealed class SearchSortFieldOrderTests
 
         Assert.Equal(
             ["名前", "ショップ", "カテゴリ", "スキ数", Line, "BOOTH価格", "払った額", Line,
-             "公開日", "入手日", "商品閲覧日", "Unity送信日", "取り込み日", Line, "容量", Line, "属性"],
+             "公開日", "入手日", "商品閲覧日", "Unity送信日", "改変に使った回数", "取り込み日", Line, "容量", Line, "属性"],
             Labels(search.SortMenu));
 
         var attributes = AttributesEntry(search);

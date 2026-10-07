@@ -220,6 +220,14 @@ public sealed partial class SearchViewModel
         });
         SortFields.Add(new SortField
         {
+            Label = "改変に使った回数",
+            Kind = SortKind.ModificationCount,
+            DescendingLabel = "多い順",
+            AscendingLabel = "少ない順",
+            FullLabel = descending => descending ? "改変に使った回数が多い順" : "改変に使った回数が少ない順",
+        });
+        SortFields.Add(new SortField
+        {
             Label = "スキ数",
             Kind = SortKind.WishList,
             DescendingLabel = "多い順",

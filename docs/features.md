@@ -433,3 +433,4 @@
 | ResolveAccuracyProbe・QueryVariantProbe（自動検索の当たりを測る） | 同上。上位3件に正解が出る割合を測る | 道具 | #45・#59 |
 | ZipOriginProbe（未確定を元zipで束ねたときの束の数と検索を測る） | 同上 | 道具 | docs/research/id-resolution.md §6-1 |
 | ThesaurusBridgeProbe（類義語辞書に今の表記の橋渡しを重ねたときの広がりを測る） | 同上。曖昧検索を採るかの材料 | 道具 | docs/research/fuzzy-search.md §8 |
+| 表示順に「改変に使った回数」（改変の使ったものに入れている改変の数。多い順・少ない順。メニューの Unity送信日 の次） | よく使う物を見つけたい（ユーザ指示 2026-10-07。データの持ち方は変えず、改変の記録から数える） | 実装済み（2026-10-07） | docs/spec/search.md |

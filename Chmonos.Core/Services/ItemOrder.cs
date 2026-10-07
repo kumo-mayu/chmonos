@@ -93,6 +93,14 @@ public static class ItemOrder
     public static IEnumerable<ItemRecord> ByWishList(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
         => ByValue(items, item => item.Booth.WasEverFetched ? item.Booth.WishListsCount : (int?)null, descending, names);
 
+    /// <summary>
+    /// 改変に使った回数で並べる（ユーザ指示 2026-10-07）。数は呼び手が渡す（改変の記録は Core の外の読み込みで持つ）。
+    /// 0回も値として並べる（「使っていない」も知りたい値）
+    /// </summary>
+    public static IEnumerable<ItemRecord> ByCount(
+        IEnumerable<ItemRecord> items, Func<string, int> countOf, bool descending, NameCollation? names = null)
+        => ByValue(items, item => (int?)countOf(item.Id), descending, names);
+
     /// <summary>自分用に払った額の合計で並べる（<see cref="Purchases.SelfPaidOrNull"/>）。額を入れていない商品は後ろ、無料は 0。</summary>
     public static IEnumerable<ItemRecord> BySelfPaid(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
         => ByValue(items, Purchases.SelfPaidOrNull, descending, names);

@@ -309,6 +309,15 @@ public sealed record ModificationUsage(
     IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByProject,
     IReadOnlyList<ModificationRecord> Records)
 {
+    /// <summary>
+    /// 商品ごとの、「使ったもの」に入れている改変の数（並べ替えの「改変に使った回数」。ユーザ判断 2026-10-07）。
+    /// 1つの改変に同じ商品が2回入っていても1回と数える（改変ごとの集合から数える）
+    /// </summary>
+    public IReadOnlyDictionary<string, int> UseCounts { get; } = ItemIdsByModification.Values
+        .SelectMany(members => members)
+        .GroupBy(itemId => itemId, StringComparer.Ordinal)
+        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
     public static ModificationUsage Empty { get; } = new(
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal),
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal),

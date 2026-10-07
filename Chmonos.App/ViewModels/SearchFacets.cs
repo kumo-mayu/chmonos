@@ -131,6 +131,9 @@ public enum SortKind
     /// <summary>自分用に払った額の合計（贈った・貰ったは含めない）</summary>
     SelfPaid,
 
+    /// <summary>改変の「使ったもの」に入っている改変の数（アバターにしている改変は数えない。ユーザ判断 2026-10-07）</summary>
+    ModificationCount,
+
     /// <summary>BOOTH の公開日</summary>
     PublishedAt,
 
@@ -185,22 +188,24 @@ public sealed class SortField
     {
         SortKind.Name or SortKind.Shop or SortKind.Category or SortKind.WishList => "1",
         SortKind.BoothPrice or SortKind.SelfPaid => "2",
-        SortKind.PublishedAt or SortKind.AcquiredAt or SortKind.RecentlyViewed or SortKind.RecentlyUsed or SortKind.RecentlyAdded => "3",
+        SortKind.PublishedAt or SortKind.AcquiredAt or SortKind.RecentlyViewed or SortKind.RecentlyUsed or SortKind.ModificationCount or SortKind.RecentlyAdded => "3",
         SortKind.Size => "4",
         _ => "属性",
     };
 
     /// <summary>
     /// メニューでの並び（ユーザ判断 2026-10-06）：名前・ショップ・カテゴリ・スキ数／BOOTH価格・払った額／
-    /// 公開日・入手日・商品閲覧日・Unity送信日・取り込み日／容量／属性。属性は属性の管理の並びのまま後ろに続ける
+    /// 公開日・入手日・商品閲覧日・Unity送信日・改変に使った回数・取り込み日／容量／属性。属性は属性の管理の並びのまま後ろに続ける
+    /// （改変に使った回数は Unity送信日の次。ユーザ判断 2026-10-07）
     /// </summary>
     internal static int OrderOf(SortKind kind) => kind switch
     {
         SortKind.Name => 0, SortKind.Shop => 1, SortKind.Category => 2, SortKind.WishList => 3,
         SortKind.BoothPrice => 4, SortKind.SelfPaid => 5,
-        SortKind.PublishedAt => 6, SortKind.AcquiredAt => 7, SortKind.RecentlyViewed => 8, SortKind.RecentlyUsed => 9, SortKind.RecentlyAdded => 10,
-        SortKind.Size => 11,
-        _ => 12,
+        SortKind.PublishedAt => 6, SortKind.AcquiredAt => 7, SortKind.RecentlyViewed => 8, SortKind.RecentlyUsed => 9,
+        SortKind.ModificationCount => 10, SortKind.RecentlyAdded => 11,
+        SortKind.Size => 12,
+        _ => 13,
     };
 
     public required SortKind Kind { get; init; }
