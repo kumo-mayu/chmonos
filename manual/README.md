@@ -59,4 +59,7 @@ BOOTH ショップのメッセージか、X（[@kumo_mayu79](https://x.com/kumo_
 架空の商品の写し showcase で、tools/ViewShot の描画台を使って等倍・明るい色で描く。写しの作り方は docs/booth/images.md「作り方」。
   dotnet run --project tools/ViewShot -- shot <場面> --full --out <出し先>
 章ごとに使った場面は、各章の末尾のコメントに書いてある。
+
+章の冒頭の「目次へ・前の記事」と末尾の「次の記事」は、manual フォルダの中で node ../tools/manual-nav.js を走らせて入れる。
+前と次は部の中でたどり、部の最後の章には「次の記事」を付けない。章を足したら、道具の parts にも足す。
 -->
