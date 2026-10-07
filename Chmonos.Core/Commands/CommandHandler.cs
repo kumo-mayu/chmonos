@@ -579,6 +579,16 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(confirm.ItemId)
                     : ItemMissing();
 
+            case UiCommand.ChangeAvatarLinks changeLinks:
+                if (_edit is null)
+                {
+                    return MissingService("対応アバターの変更");
+                }
+
+                return await _edit.ChangeAvatarLinksAsync(changeLinks.ItemId, changeLinks.Avatars, changeLinks.Bases, cancellationToken)
+                    ? new CommandResult.ItemSaved(changeLinks.ItemId)
+                    : ItemMissing();
+
             case UiCommand.AddUserTag addTag:
                 if (_edit is null)
                 {

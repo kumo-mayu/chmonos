@@ -264,10 +264,20 @@ public sealed partial class ItemViewModel
             }
         }
 
-        await SaveLocalAsync(
-            Item.Local with { AvatarBases = AvatarService.WithManualBaseLink(Item.Local.AvatarBases, mention.Name) },
-            LocalOwners.AvatarBases);
+        await ChangeBasesAsync(links => AvatarService.WithManualBaseLink(links, mention.Name));
     }
+
+    /// <summary>
+    /// 対応アバター・共通素体の行を変える。**変え方を渡し、錠の中で今の一覧に当てる**（点検22）——
+    /// 画面の <c>Item.Local</c> から作った一覧を丸ごと書くと、開いている間に検出が足した行や、
+    /// 確認済みにした行を、古い一覧で戻してしまう
+    /// </summary>
+    private Task ChangeAvatarsAsync(Func<IReadOnlyList<AvatarLink>, IReadOnlyList<AvatarLink>> change)
+        => RunItemCommandAsync(new UiCommand.ChangeAvatarLinks(Item.Id, Avatars: change));
+
+    /// <inheritdoc cref="ChangeAvatarsAsync"/>
+    private Task ChangeBasesAsync(Func<IReadOnlyList<AvatarBaseLink>, IReadOnlyList<AvatarBaseLink>> change)
+        => RunItemCommandAsync(new UiCommand.ChangeAvatarLinks(Item.Id, Bases: change));
 
     /// <summary>
     /// 対応アバターの欄の説明。**まだ判定していない商品は、見つからなかった商品と言い分ける**（ユーザ判断 2026-10-06）。
@@ -431,9 +441,7 @@ public sealed partial class ItemViewModel
                 IsNew = !mention.IsRegistered,
                 AddCommand = new RelayCommand(() => AddMentionedBaseAsync(mention).Forget(), () => !IsEditLocked),
                 DismissCommand = new RelayCommand(
-                    () => SaveLocalAsync(
-                        Item.Local with { AvatarBases = AvatarService.WithDismissedBaseMention(Item.Local.AvatarBases, mention.Name) },
-                        LocalOwners.AvatarBases).Forget(),
+                    () => ChangeBasesAsync(links => AvatarService.WithDismissedBaseMention(links, mention.Name)).Forget(),
                     () => !IsEditLocked),
             })
             .ToList();
@@ -534,16 +542,12 @@ public sealed partial class ItemViewModel
     ///
     /// 検出の適合率は実測で89%。1割は誤りが出るので、消せないと噛み合わない。
     /// </summary>
-    private async Task RejectAvatarAsync(string avatarItemId)
-    {
-        var links = Item.Local.Avatars
+    private Task RejectAvatarAsync(string avatarItemId)
+        => ChangeAvatarsAsync(links => links
             .Select(link => link.AvatarItemId == avatarItemId
                 ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
                 : link)
-            .ToList();
-
-        await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
-    }
+            .ToList());
 
     /// <summary>
     /// 対応している共通素体を、この商品から消す（ユーザ判断 2026-09-21・X3/X4）。
@@ -552,16 +556,12 @@ public sealed partial class ItemViewModel
     /// 行は残して出どころを「手入力」に付け替え、消した印を立てる
     /// （出どころを変えないと、次の検出で行ごと作り直されて印が消える）。
     /// </summary>
-    private async Task RejectBaseAsync(string baseName)
-    {
-        var links = Item.Local.AvatarBases
+    private Task RejectBaseAsync(string baseName)
+        => ChangeBasesAsync(links => links
             .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
                 ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
                 : link)
-            .ToList();
-
-        await SaveLocalAsync(Item.Local with { AvatarBases = links }, LocalOwners.AvatarBases);
-    }
+            .ToList());
 
     /// <summary>消した共通素体を戻す（「消したもの」の欄の［戻す］）。</summary>
     private async Task RestoreBaseAsync(string baseName)
@@ -577,13 +577,11 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        var links = Item.Local.AvatarBases
+        await ChangeBasesAsync(links => links
             .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
                 ? link with { Rejected = false, Confirmed = true }
                 : link)
-            .ToList();
-
-        await SaveLocalAsync(Item.Local with { AvatarBases = links }, LocalOwners.AvatarBases);
+            .ToList());
     }
 
     /// <summary>
@@ -591,16 +589,12 @@ public sealed partial class ItemViewModel
     /// 出どころは消したときに「手入力」へ付け替えてあるので、元の出どころ（対応アバター節・タグなど）には戻らない。
     /// 手入力のままにするのは、次の検出でも消えないようにするため（手で足したのと同じ扱い）
     /// </summary>
-    private async Task RestoreAvatarAsync(string avatarItemId)
-    {
-        var links = Item.Local.Avatars
+    private Task RestoreAvatarAsync(string avatarItemId)
+        => ChangeAvatarsAsync(links => links
             .Select(link => link.AvatarItemId == avatarItemId
                 ? link with { Rejected = false, Confirmed = true }
                 : link)
-            .ToList();
-
-        await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
-    }
+            .ToList());
 
     /// <summary>
     /// 対応アバターを手で足す。出品者が書き漏らしている場合や、検出が拾えなかった場合に使う。
@@ -610,9 +604,7 @@ public sealed partial class ItemViewModel
     {
         if (name is not null && _baseNamesBySuggestion.TryGetValue(name.Trim(), out var baseName))
         {
-            await SaveLocalAsync(
-                Item.Local with { AvatarBases = AvatarService.WithManualBaseLink(Item.Local.AvatarBases, baseName) },
-                LocalOwners.AvatarBases);
+            await ChangeBasesAsync(links => AvatarService.WithManualBaseLink(links, baseName));
             return;
         }
 
@@ -621,24 +613,22 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        var existing = Item.Local.Avatars.FirstOrDefault(link => link.AvatarItemId == match.ItemId);
+        var shownName = AvatarNames.ShownName(match);
 
-        // 一度消したものを足し直す場合は、Rejected を下ろすだけ
-        var links = existing is null
-            ? [.. Item.Local.Avatars, new AvatarLink
-            {
-                AvatarItemId = match.ItemId,
-                Name = AvatarNames.ShownName(match),
-                Source = AvatarLinkSource.Manual,
-                Confirmed = true,
-            }]
-            : Item.Local.Avatars
+        // 一度消したものを足し直す場合は、Rejected を下ろすだけ。在るかは錠の中の今の一覧で見る
+        await ChangeAvatarsAsync(links => links.Any(link => link.AvatarItemId == match.ItemId)
+            ? links
                 .Select(link => link.AvatarItemId == match.ItemId
                     ? link with { Source = AvatarLinkSource.Manual, Rejected = false, Confirmed = true }
                     : link)
-                .ToList();
-
-        await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
+                .ToList()
+            : [.. links, new AvatarLink
+            {
+                AvatarItemId = match.ItemId,
+                Name = shownName,
+                Source = AvatarLinkSource.Manual,
+                Confirmed = true,
+            }]);
     }
 
     /// <summary>「＋ 追加」の候補に出した素体の行から素体の名前を引く表。アバターの名前と取り違えないように分けて持つ。</summary>

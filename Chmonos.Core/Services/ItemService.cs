@@ -331,10 +331,12 @@ public sealed class ItemService : IItemService
         // 404 の回数・取得日時・booth には触れない（読めていないので、何も分かっていない）
         if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, extraction.Sections, itemId) is not { } booth)
         {
+            // 名乗るのは予定日だけ（点検22）。取得の記録4欄を名乗ると、問い合わせを待つ間にほかの取得が書いた
+            // 取得日時・404 の回数・販売終了の印を、問い合わせの前に読んだ古い値へ戻した
             await _store.Items.SaveLocalAsync(
                 itemId,
                 existing.Local with { NextFetchDueAt = NextDue(itemId) },
-                LocalOwners.Fetch,
+                [LocalField.NextFetchDueAt],
                 cancellationToken: cancellationToken);
             return RefreshOutcome.Unreadable;
         }

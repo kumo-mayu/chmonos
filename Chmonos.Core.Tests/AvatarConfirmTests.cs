@@ -146,6 +146,56 @@ public class AvatarConfirmTests : IDisposable
         Assert.Equal(before, File.GetLastWriteTimeUtc(path));
     }
 
+    /// <summary>
+    /// 足す・消す・戻すも、画面の写しを書き戻さない（点検22）：画面が読んだ後に検出が足した行と、
+    /// 別の所で足した共通素体を残したまま、消した1行だけを変える。
+    /// </summary>
+    [Fact]
+    public async Task 対応アバターを消しても画面が読んだ後に足された行と素体を残す()
+    {
+        await SaveAsync(new LocalBlock { Avatars = [Guess("9900011")] });
+
+        // 画面が読んだ後に、検出が行を足し、別の操作が共通素体を足した
+        await SaveAsync(new LocalBlock
+        {
+            Avatars = [Guess("9900011"), Guess("9900012")],
+            AvatarBases = [new AvatarBaseLink { BaseName = "作り物の素体", Source = AvatarLinkSource.Manual, Confirmed = true }],
+        });
+
+        Assert.True(await _service.ChangeAvatarLinksAsync(
+            ItemId,
+            links => links.Select(link => link.AvatarItemId == "9900011" ? link with { Rejected = true, Source = AvatarLinkSource.Manual } : link).ToList(),
+            bases: null));
+
+        var saved = (await _store.Items.LoadAsync(ItemId))!;
+        Assert.Equal(["9900011", "9900012"], saved.Local.Avatars.Select(link => link.AvatarItemId));
+        Assert.True(saved.Local.Avatars[0].Rejected);
+        Assert.False(saved.Local.Avatars[1].Rejected);
+        Assert.Single(saved.Local.AvatarBases);
+    }
+
+    [Fact]
+    public async Task 足し引きで一覧が変わらなければ書かない()
+    {
+        await SaveAsync(new LocalBlock { Avatars = [Guess("9900011")] });
+        var path = _store.Paths.ItemFile(ItemId);
+        var before = File.GetLastWriteTimeUtc(path);
+
+        Assert.True(await _service.ChangeAvatarLinksAsync(ItemId, links => links, bases: null));
+
+        Assert.Equal(before, File.GetLastWriteTimeUtc(path));
+    }
+
+    [Fact]
+    public async Task 足し引きの商品が無ければ失敗を返す()
+    {
+        var handler = new CommandHandler(null!, null!, _service);
+
+        var result = await handler.ExecuteAsync(new UiCommand.ChangeAvatarLinks("9900099", Avatars: links => links));
+
+        Assert.IsType<CommandResult.Failed>(result);
+    }
+
     [Fact]
     public async Task 商品が無ければ失敗を返す()
     {

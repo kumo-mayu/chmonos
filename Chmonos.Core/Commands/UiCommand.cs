@@ -256,6 +256,16 @@ public abstract record UiCommand
     /// </summary>
     public record ConfirmAvatars(string ItemId, IReadOnlyList<string> AvatarItemIds) : UiCommand;
 
+    /// <summary>
+    /// 対応アバター・共通素体の行を足す・消す・戻す（商品ページ・編集画面）。変え方を渡し、**錠の中で今の一覧に当てる**
+    /// （点検22：画面の写しの一覧を丸ごと書き戻すと、開いている間に検出が足した・確認済みにした行を古い一覧に戻した）。
+    /// 変えない方は null。
+    /// </summary>
+    public record ChangeAvatarLinks(
+        string ItemId,
+        Func<IReadOnlyList<Models.AvatarLink>, IReadOnlyList<Models.AvatarLink>>? Avatars = null,
+        Func<IReadOnlyList<Models.AvatarBaseLink>, IReadOnlyList<Models.AvatarBaseLink>>? Bases = null) : UiCommand;
+
     /// <summary>userTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
     public record AddUserTag(string Top, string? Sub = null) : UiCommand;
 

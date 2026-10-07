@@ -16,6 +16,12 @@ public interface IEditService
         IReadOnlyCollection<string> avatarItemIds,
         CancellationToken cancellationToken = default);
 
+    Task<bool> ChangeAvatarLinksAsync(
+        string itemId,
+        Func<IReadOnlyList<AvatarLink>, IReadOnlyList<AvatarLink>>? avatars,
+        Func<IReadOnlyList<AvatarBaseLink>, IReadOnlyList<AvatarBaseLink>>? bases,
+        CancellationToken cancellationToken = default);
+
     Task<EditSession> StartSessionAsync(IReadOnlyList<string> itemIds, int index = 0, CancellationToken cancellationToken = default);
 
     Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default);
@@ -82,6 +88,47 @@ public sealed class EditService : IEditService
                     : null;
             },
             LocalOwners.SupportedAvatars,
+            cancellationToken);
+
+        return found;
+    }
+
+    /// <summary>
+    /// 対応アバター・共通素体の行を足す・消す・戻す。<see cref="ConfirmAvatarsAsync"/> と同じく、**錠の中で今の一覧に当てる**
+    /// （点検22。画面の写しの一覧を書き戻すと、開いている間に検出が足した行・確認済みにした行が古い一覧に戻った）。
+    /// 名乗る持ち主は、変える方だけ。itemが消えていれば false。変わらなければ書かずに true。
+    /// </summary>
+    public async Task<bool> ChangeAvatarLinksAsync(
+        string itemId,
+        Func<IReadOnlyList<AvatarLink>, IReadOnlyList<AvatarLink>>? avatars,
+        Func<IReadOnlyList<AvatarBaseLink>, IReadOnlyList<AvatarBaseLink>>? bases,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyCollection<LocalField> owns = (avatars, bases) switch
+        {
+            (not null, not null) => [LocalField.Avatars, LocalField.AvatarBases],
+            (not null, null) => LocalOwners.SupportedAvatars,
+            (null, not null) => LocalOwners.AvatarBases,
+            _ => [],
+        };
+        if (owns.Count == 0)
+        {
+            return true;
+        }
+
+        var found = false;
+        await _store.Items.ChangeLocalAsync(
+            itemId,
+            local =>
+            {
+                found = true;
+                var nextAvatars = avatars?.Invoke(local.Avatars) ?? local.Avatars;
+                var nextBases = bases?.Invoke(local.AvatarBases) ?? local.AvatarBases;
+                return nextAvatars.SequenceEqual(local.Avatars) && nextBases.SequenceEqual(local.AvatarBases)
+                    ? null
+                    : local with { Avatars = nextAvatars, AvatarBases = nextBases };
+            },
+            owns,
             cancellationToken);
 
         return found;
