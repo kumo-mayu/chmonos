@@ -9,6 +9,7 @@ using Chmonos.Core.Storage;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 // 確かめ用の写し（サンドボックス）を、作り物のデータで組み立てる。
 //
@@ -35,6 +36,9 @@ using SixLabors.ImageSharp.PixelFormats;
 //   changes                            商品ページの変化の知らせ（変わった行・名前・価格・販売終了）を、商品7件に作る
 //                                      （アプリの取り直し＝ItemService.RefreshAsync に、台本どおりの JSON と HTML を返して作る）
 //   show                               今の数を出す（商品・未確定・取り込み元）
+//   showcase <一覧の JSON> <画像のフォルダ>
+//                                      BOOTH のページ用の画面に写す、架空の商品の写しを組む（tools/SandboxGen/showcase.json）。
+//                                      商品・対応アバター・購入記録・タグ・属性・手元の zip・未確定・改変・通知まで入れる
 
 Console.OutputEncoding = Encoding.UTF8;
 if (args.Length < 2)
@@ -81,7 +85,7 @@ var pipeline = new ImportPipeline(store, client, images, Settings, null, unityPa
 var itemService = new ItemService(store, client, images, Settings);
 var handler = new CommandHandler(
     pipeline, itemService, new EditService(store), null, null, new NotificationService(store, Settings),
-    new UserTagService(store), new AttributeService(store), new ModificationService(store, images), null, unityPackages,
+    new UserTagService(store), new AttributeService(store), new ModificationService(store, images), new AvatarService(store, Settings, client), unityPackages,
     settingsService, null, null, images, client, store.VideoTitles, store.ShopNotes, new MissingFileFinder(store), null, store.ImportState);
 
 var imageCache = new Dictionary<(int Hue, int Index), byte[]>();
@@ -96,6 +100,7 @@ var code = step switch
     "settings" => await ChangeSettingsAsync(rest),
     "manage" => await FillManageAsync(),
     "changes" => await ChangesAsync(),
+    "showcase" => await ShowcaseAsync(rest[0], rest[1]),
     "show" => await ShowAsync(),
     _ => Unknown(step),
 };
@@ -555,6 +560,261 @@ async Task RefreshAsAsync(ItemService service, ItemRecord baseItem, ChangeVersio
     if (outcome != RefreshOutcome.Updated)
     {
         throw new InvalidOperationException($"取り直せなかった: {baseItem.Id} → {outcome}");
+    }
+}
+
+// BOOTH のページ用の画面に写す、架空の商品の写しを組む（2026-10-07）。
+//
+// 確かめ用の作り物（items）は縞の絵と「作り物の商品」の名前で、宣伝の画像には向かない。実在の商品は権利が作者にあり、
+// 友人のデータは使えないので、名前は一般名詞・ショップと説明と対応アバターは作り物・画像は CC0 の写真にした（ユーザ判断）。
+// 対応アバターは検出に任せる：説明の「対応アバター」節に架空のアバターの商品の URL を書けば、手元の商品なので通信せずに入る。
+// 1件（傘）だけ、別の見出しの節にアバターへのリンクを書き、「確認待ち」の見本にする
+async Task<int> ShowcaseAsync(string catalogPath, string imagesDir)
+{
+    if (store.Items.EnumerateItemIds().Count > 0)
+    {
+        Console.Error.WriteLine($"もう商品がある: {root}（作り直すなら、写しを消してから）");
+        return 2;
+    }
+
+    var catalog = System.Text.Json.JsonDocument.Parse(File.ReadAllText(catalogPath)).RootElement;
+    var shops = catalog.GetProperty("shops").EnumerateArray().ToDictionary(
+        shop => shop.GetProperty("key").GetString()!,
+        shop => (Name: shop.GetProperty("name").GetString()!, Subdomain: shop.GetProperty("subdomain").GetString()!));
+    var entries = catalog.GetProperty("items").EnumerateArray().ToList();
+    var idOf = entries.Select((entry, index) => (Name: entry.GetProperty("name").GetString()!, Id: (90000001 + index).ToString()))
+        .ToDictionary(pair => pair.Name, pair => pair.Id);
+    var categoryIds = new Dictionary<string, int>
+    {
+        ["3Dキャラクター"] = 208, ["3D衣装"] = 209, ["3D装飾品"] = 211, ["3D小道具"] = 212, ["3Dテクスチャ"] = 214, ["3Dツール・システム"] = 215,
+    };
+
+    // 画像は 2 倍で撮っても粗くならない大きさで持つ（既定の 384 では、カードを大きくすると甘い）
+    await RunAsync(new UiCommand.ChangeSettings(current => current with { ImageMaxEdgePixels = 1024, ShowCardAttributes = true }));
+
+    static string Text(System.Text.Json.JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString()! : string.Empty;
+    static IReadOnlyList<string> List(System.Text.Json.JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) ? value.EnumerateArray().Select(item => item.GetString()!).ToList() : [];
+
+    var now = DateTimeOffset.Now;
+    var fixtures = Path.Combine(local, "Chmonos-fixtures", Path.GetFileName(root));
+    if (Directory.Exists(fixtures))
+    {
+        Directory.Delete(fixtures, recursive: true);
+    }
+
+    var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // zip のパス → 商品の番号
+    for (var i = 0; i < entries.Count; i++)
+    {
+        var entry = entries[i];
+        var id = (90000001 + i).ToString();
+        var name = Text(entry, "name");
+        var category = Text(entry, "category");
+        var shop = shops[Text(entry, "shop")];
+        var price = entry.GetProperty("price").GetInt32();
+        var supports = List(entry, "supports");
+        var days = entry.TryGetProperty("days", out var d) ? d.GetInt32() : 30;
+        var imageUrl = $"https://example.invalid/showcase/{id}/0.jpg";
+
+        // バリエーションは対応アバターごと（BOOTH でよくある並べ方）。アバター本体と、対応の無い物は「通常版」1つ
+        var variations = supports.Count > 0
+            ? supports.Select((avatar, n) => new BoothVariation { Id = 900000000L + i * 10 + n, Name = $"{avatar}対応", Price = price, Status = "addable_to_cart", Type = "digital" }).ToList()
+            : [new BoothVariation { Id = 900000000L + i * 10, Name = "通常版", Price = price, Status = "addable_to_cart", Type = "digital" }];
+        // 対応アバター節は名前だけ（検出は登録簿の名前と突き合わせる）。架空の番号の booth.pm の URL を、見せる画面に出さないため
+        var supportText = string.Join("\n", supports.Select(avatar => $"・{avatar}"));
+        var description = Text(entry, "description");
+
+        var item = new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock
+            {
+                FetchedAt = now,
+                Name = name,
+                Description = description,
+                PublishedAt = now.AddDays(-days - 20),
+                PriceText = price == 0 ? "¥ 0" : $"¥ {price:N0}",
+                WishListsCount = 40 + i * 37 % 900,
+                Url = $"https://example.invalid/items/{id}",
+                Tags = ["VRChat", .. supports],
+                Category = new BoothCategory { Id = categoryIds.GetValueOrDefault(category, 209), Name = category, ParentName = "3Dモデル" },
+                Shop = new BoothShop { Name = shop.Name, Subdomain = shop.Subdomain, Url = $"https://example.invalid/shop/{shop.Subdomain}" },
+                Images = [new BoothImage { OriginalUrl = imageUrl }],
+                Variations = variations,
+                H2Sections = supports.Count > 0
+                    ? [new H2Section { Heading = "対応アバター", Text = supportText }, new H2Section { Heading = "内容", Text = description }]
+                    : [new H2Section { Heading = "内容", Text = description }],
+            },
+            Local = new LocalBlock
+            {
+                Purchases = [new Purchase { VariationId = variations[0].Id, NameSnapshot = variations[0].Name, Price = price }],
+                AcquiredAt = DateOnly.FromDateTime(now.AddDays(-days).DateTime),
+                LastFetchedAt = now,
+                // 作り物の番号は BOOTH に無い。期限が来て取り直すと「見つからない」が積もるので、来ない先へ置く
+                NextFetchDueAt = new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            },
+        };
+        // 錠の中で新しい商品を作る道（CLAUDE.md「Items.SaveAsync を直接呼ぶのは、新しい商品を作るときだけ」）
+        await store.Items.SaveAsync(item);
+
+        // 説明の HTML。検出はこれを見出しごとに読む（対応アバター節の商品 URL が最も強い手掛かり）
+        var html = new StringBuilder();
+        if (supports.Count > 0)
+        {
+            html.Append("<h2>対応アバター</h2><p>")
+                .Append(string.Join("<br>", supports.Select(avatar => $"・{System.Net.WebUtility.HtmlEncode(avatar)}")))
+                .Append("</p>");
+        }
+
+        html.Append("<h2>内容</h2><p>").Append(System.Net.WebUtility.HtmlEncode(description).Replace("\n", "<br>")).Append("</p>");
+        if (name == "傘")
+        {
+            // 確認待ちの見本：対応アバター節ではない所のリンクは、人が確かめるまで絞り込みに数えない
+            html.Append($"<h2>おすすめの組み合わせ</h2><p>うさぎと合わせるのがおすすめです。https://booth.pm/ja/items/{idOf["うさぎ"]}</p>");
+        }
+
+        await File.WriteAllTextAsync(paths.ItemHtmlFile(id), html.ToString());
+
+        // 画像は、アプリが取得して置く場所と名前に合わせる（無いと、裏の取得が「残りの画像」として取りに行く）
+        var dir = paths.ItemImagesDir(id);
+        Directory.CreateDirectory(dir);
+        SaveShowcaseImage(Path.Combine(imagesDir, Text(entry, "image")), Path.Combine(dir, ImagePipeline.FileNameFor(imageUrl)), 1024);
+
+        // 手元の zip。中に unitypackage を置くと、商品ページに「Unity ▾」が出る（中身は作り物なので送れない）
+        if (Text(entry, "file") is { Length: > 0 } fileName)
+        {
+            var zip = Path.Combine(fixtures, "BOOTH", Text(entry, "folder"), fileName);
+            WriteShowcaseZip(zip, name, Text(entry, "unitypackage"));
+            files[zip] = id;
+        }
+    }
+
+    foreach (var extra in catalog.GetProperty("unresolved").EnumerateArray())
+    {
+        WriteShowcaseZip(Path.Combine(fixtures, "BOOTH", Text(extra, "folder"), Text(extra, "file")), Text(extra, "file"), string.Empty);
+    }
+
+    // 取り込みそのもので読む。手掛かりの無い作り物の zip なので、全部いったん未確定へ行く
+    await ScanAsync([Path.Combine(fixtures, "BOOTH")]);
+    var unresolved = store.Unresolved.Load();
+    foreach (var (zip, id) in files)
+    {
+        var file = unresolved.FirstOrDefault(candidate => candidate.Paths.Any(path => string.Equals(path, zip, StringComparison.OrdinalIgnoreCase)));
+        if (file is null)
+        {
+            Console.Error.WriteLine($"未確定に無い: {zip}");
+            continue;
+        }
+
+        // 商品が手元にあるので、BOOTH へは問い合わせずに紐付く
+        await RunAsync(new UiCommand.AssignItemId(file.Hash, id));
+    }
+
+    // ユーザータグ・属性のマスタを先に作る（マスタに無い名前を付けると「一覧に無いタグ」になる）
+    foreach (var tag in entries.SelectMany(entry => List(entry, "userTags")).Distinct())
+    {
+        var parts = tag.Split('/', 2);
+        await RunAsync(new UiCommand.AddUserTag(parts[0], parts.Length > 1 ? parts[1] : null));
+    }
+
+    foreach (var attribute in entries.Where(entry => entry.TryGetProperty("attributes", out _))
+                 .SelectMany(entry => entry.GetProperty("attributes").EnumerateObject().Select(property => property.Name)).Distinct())
+    {
+        await RunAsync(new UiCommand.AddAttribute(attribute));
+    }
+
+    for (var i = 0; i < entries.Count; i++)
+    {
+        var entry = entries[i];
+        var id = (90000001 + i).ToString();
+        var current = (await store.Items.LoadAsync(id))!;
+        var tags = List(entry, "userTags").Select(tag => tag.Split('/', 2))
+            .GroupBy(parts => parts[0])
+            .Select(group => new UserTagAssignment { Top = group.Key, Subs = group.Where(parts => parts.Length > 1).Select(parts => parts[1]).ToList() })
+            .ToList();
+        var attributes = entry.TryGetProperty("attributes", out var values)
+            ? values.EnumerateObject().ToDictionary(property => property.Name, property => property.Value.GetInt32())
+            : new Dictionary<string, int>();
+        var favorite = entry.TryGetProperty("favorite", out var f) && f.GetBoolean();
+        // 作り物の zip は数百バイトで、カードに「391 B」と出ると不自然。記録の大きさだけをそれらしい値にする
+        // （アバターは数百 MB・衣装は数十 MB・小物とテクスチャは数 MB。番号で少しずつずらす）。見せる写しだけの細工
+        var scale = Text(entry, "category") switch { "3Dキャラクター" => 180_000_000L, "3D衣装" => 28_000_000L, _ => 4_000_000L };
+        var sizedFiles = current.Local.LocalFiles.Select(file => file with { SizeBytes = scale + scale * (i * 37 % 60) / 100 }).ToList();
+        await store.Items.SaveLocalAsync(
+            id, current.Local with { UserTags = tags, Attributes = attributes, IsFavorite = favorite, LocalFiles = sizedFiles },
+            [LocalField.UserTags, LocalField.Attributes, LocalField.IsFavorite, LocalField.LocalFiles]);
+    }
+
+    // 対応アバターはアプリの検出に任せる（手元の商品と説明だけで決まる。通信しない）
+    await RunAsync(new UiCommand.DetectAvatars());
+
+    // 改変と写真
+    foreach (var mod in catalog.GetProperty("modifications").EnumerateArray())
+    {
+        var created = now.AddDays(-10);
+        var avatarId = idOf[Text(mod, "avatar")];
+        var name = Text(mod, "name");
+        var modId = ModificationId.For(avatarId, name, created);
+        var photo = await images.SaveModificationImageAsync(modId, await File.ReadAllBytesAsync(Path.Combine(imagesDir, Text(mod, "photo"))));
+        await store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = modId, AvatarItemId = avatarId, Name = name, CreatedAt = created, UpdatedAt = created.AddHours(1),
+            Images = photo is null ? [] : [new ModificationImage { FileName = photo, AddedAt = created }],
+            Members = List(mod, "members").Select((member, k) => new ModificationMember { ItemId = idOf[member], AddedAt = created.AddMinutes(k + 1) }).ToList(),
+        });
+    }
+
+    // 通知（更新と販売終了）
+    var notes = new List<NotificationRecord>();
+    var noteIndex = 0;
+    foreach (var note in catalog.GetProperty("notifications").EnumerateArray())
+    {
+        var id = idOf[Text(note, "item")];
+        var diffs = note.GetProperty("diffs").EnumerateArray()
+            .Select(diff => diff.EnumerateArray().Select(part => part.ValueKind == System.Text.Json.JsonValueKind.String ? part.GetString() : null).ToList())
+            .Select(parts => new NotificationDiff { Field = parts[0]!, Before = parts[1], After = parts[2] })
+            .ToList();
+        notes.Add(new NotificationRecord
+        {
+            Id = $"itemUpdated:{id}:{noteIndex}", Kind = NotificationKind.ItemUpdated, ItemId = id, Title = Text(note, "item"),
+            Detail = string.Join(" / ", diffs.Select(diff => diff.Before is null ? diff.Field : $"{diff.Field} {diff.Before} → {diff.After}")),
+            Diffs = diffs, CreatedAt = now.AddHours(-3 - noteIndex * 5), IsRead = false,
+            IsStrong = diffs.Any(diff => diff.Field is "販売状態" or "バリエーション"),
+        });
+        noteIndex++;
+    }
+
+    await store.Notifications.SaveAsync(notes);
+    Console.WriteLine($"見せる写しを組んだ: 商品 {entries.Count} 件・手元の zip {files.Count} 本・未確定 {store.Unresolved.Load().Count} 件・改変 {catalog.GetProperty("modifications").GetArrayLength()} 件・通知 {notes.Count} 件");
+    return 0;
+}
+
+// 写真を正方形に切り抜いて、長辺 size の WebP にする（カードの絵は正方形で並ぶので、真ん中を使う）
+static void SaveShowcaseImage(string source, string destination, int size)
+{
+    using var image = Image.Load<Rgba32>(source);
+    var side = Math.Min(image.Width, image.Height);
+    image.Mutate(context => context
+        .Crop(new Rectangle((image.Width - side) / 2, (image.Height - side) / 2, side, side))
+        .Resize(size, size));
+    image.Save(destination, new WebpEncoder { Quality = 85 });
+}
+
+// 作り物の zip。説明の文書1つと、あれば unitypackage の名前の入れ物（中身は作り物）
+static void WriteShowcaseZip(string path, string name, string unityPackage)
+{
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    using var archive = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create);
+    using (var writer = new StreamWriter(archive.CreateEntry("はじめにお読みください.txt").Open()))
+    {
+        writer.Write($"{name}（BOOTH のページ用の画面に写す作り物です）");
+    }
+
+    if (unityPackage.Length > 0)
+    {
+        using var stream = archive.CreateEntry(unityPackage).Open();
+        stream.Write(Encoding.UTF8.GetBytes("作り物"));
     }
 }
 

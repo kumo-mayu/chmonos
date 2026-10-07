@@ -1,0 +1,53 @@
+{
+  "note": "BOOTH のページ用の画面に写す、架空の商品。名前は一般名詞、ショップ・説明・対応アバター・価格は作り物。画像は CC0 の写真（%LOCALAPPDATA%\\Chmonos-fixtures\\showcase-images と credits.tsv）",
+  "shops": [
+    { "key": "kobo", "name": "サンプル工房", "subdomain": "chmonos-sample-kobo" },
+    { "key": "do", "name": "サンプル堂", "subdomain": "chmonos-sample-do" },
+    { "key": "atelier", "name": "サンプルアトリエ", "subdomain": "chmonos-sample-atelier" },
+    { "key": "zakka", "name": "サンプル雑貨店", "subdomain": "chmonos-sample-zakka" },
+    { "key": "lab", "name": "サンプル製作所", "subdomain": "chmonos-sample-lab" }
+  ],
+  "items": [
+    { "name": "うさぎ", "image": "rabbit.jpg", "shop": "kobo", "category": "3Dキャラクター", "price": 5500, "folder": "アバター", "file": "うさぎ_v1.3.0.zip", "unitypackage": "Usagi_v1.3.0.unitypackage", "days": 210, "favorite": true, "userTags": ["アバター"], "attributes": { "かわいい": 95, "軽さ": 70 }, "description": "VRChat 向けのオリジナル3Dモデル「うさぎ」です。\n\n■ 同梱物\nunitypackage・テクスチャ・PSD\n\n■ 動作環境\nUnity 2022.3 / VRChat SDK 3.x" },
+    { "name": "きつね", "image": "fox.jpg", "shop": "do", "category": "3Dキャラクター", "price": 6000, "folder": "アバター", "file": "Kitsune_v2.0.zip", "unitypackage": "Kitsune_v2.0.unitypackage", "days": 160, "userTags": ["アバター"], "attributes": { "かわいい": 80, "軽さ": 60 }, "description": "VRChat 向けのオリジナル3Dモデル「きつね」です。\n\n■ 同梱物\nunitypackage・テクスチャ" },
+    { "name": "ねこ", "image": "cat.jpg", "shop": "atelier", "category": "3Dキャラクター", "price": 4800, "folder": "アバター", "file": "ねこ_1.1.zip", "unitypackage": "Neko_1.1.unitypackage", "days": 90, "favorite": true, "userTags": ["アバター"], "attributes": { "かわいい": 90, "軽さ": 85 }, "description": "VRChat 向けのオリジナル3Dモデル「ねこ」です。\n\n■ 同梱物\nunitypackage・テクスチャ・表情のアニメーション" },
+
+    { "name": "ワンピース", "image": "dress.jpg", "shop": "atelier", "category": "3D衣装", "price": 1800, "folder": "衣装", "file": "ワンピース_v1.0.zip", "unitypackage": "OnePiece_v1.0.unitypackage", "supports": ["うさぎ", "ねこ"], "days": 70, "favorite": true, "userTags": ["衣装/ワンピース", "季節/夏"], "attributes": { "かわいい": 88 }, "description": "ふんわりした白いワンピースです。" },
+    { "name": "パーカー", "image": "hoodie.jpg", "shop": "kobo", "category": "3D衣装", "price": 1200, "folder": "衣装", "file": "パーカー_1.2.zip", "unitypackage": "Hoodie_1.2.unitypackage", "supports": ["うさぎ", "きつね", "ねこ"], "days": 60, "userTags": ["衣装/トップス"], "attributes": { "かわいい": 70 }, "description": "ゆったりしたパーカーです。フードの有無を切り替えられます。" },
+    { "name": "スカート", "image": "skirt.jpg", "shop": "atelier", "category": "3D衣装", "price": 900, "folder": "衣装", "file": "スカート.zip", "unitypackage": "Skirt.unitypackage", "supports": ["ねこ"], "days": 55, "userTags": ["衣装/ボトムス"], "attributes": { "かわいい": 75 }, "description": "クラシカルなシルエットのスカートです。" },
+    { "name": "コート", "image": "coat.jpg", "shop": "do", "category": "3D衣装", "price": 2000, "folder": "衣装", "file": "コート_v1.1.zip", "unitypackage": "Coat_v1.1.unitypackage", "supports": ["うさぎ", "きつね"], "days": 45, "userTags": ["衣装/アウター", "季節/冬"], "attributes": { "かわいい": 60 }, "description": "冬のおでかけ用のコートです。" },
+    { "name": "着物", "image": "kimono.jpg", "shop": "do", "category": "3D衣装", "price": 2500, "folder": "衣装", "file": "着物_v1.0.zip", "unitypackage": "Kimono_v1.0.unitypackage", "supports": ["きつね"], "days": 120, "favorite": true, "userTags": ["衣装/和服"], "attributes": { "かわいい": 85 }, "description": "柄を差し替えられる着物です。" },
+    { "name": "エプロン", "image": "apron.jpg", "shop": "kobo", "category": "3D衣装", "price": 700, "folder": "衣装", "file": "エプロン.zip", "unitypackage": "Apron.unitypackage", "supports": ["うさぎ", "ねこ"], "days": 30, "userTags": ["衣装/小物"], "attributes": { "かわいい": 65 }, "description": "ポケットの付いたエプロンです。" },
+    { "name": "セーター", "image": "sweater.jpg", "shop": "atelier", "category": "3D衣装", "price": 1500, "folder": "衣装", "file": "セーター_v2.zip", "unitypackage": "Sweater_v2.unitypackage", "supports": ["うさぎ", "きつね", "ねこ"], "days": 40, "userTags": ["衣装/トップス", "季節/冬"], "attributes": { "かわいい": 72 }, "description": "ざっくり編みのセーターです。色を5色から選べます。" },
+
+    { "name": "ブーツ", "image": "boots.jpg", "shop": "zakka", "category": "3D装飾品", "price": 800, "folder": "小物", "file": "ブーツ_1.0.zip", "unitypackage": "Boots_1.0.unitypackage", "supports": ["うさぎ", "きつね"], "days": 44, "userTags": ["小物/靴"], "description": "ショートブーツです。" },
+    { "name": "スニーカー", "image": "sneakers.jpg", "shop": "zakka", "category": "3D装飾品", "price": 600, "folder": "小物", "file": "スニーカー.zip", "unitypackage": "Sneakers.unitypackage", "supports": ["うさぎ", "きつね", "ねこ"], "days": 58, "userTags": ["小物/靴"], "description": "白いスニーカーです。" },
+    { "name": "帽子", "image": "hat.jpg", "shop": "zakka", "category": "3D装飾品", "price": 500, "folder": "小物", "file": "帽子_v1.0.zip", "unitypackage": "Hat_v1.0.unitypackage", "supports": ["ねこ"], "days": 80, "userTags": ["小物/帽子", "季節/夏"], "description": "麦わら帽子です。" },
+    { "name": "リボン", "image": "ribbon.jpg", "shop": "zakka", "category": "3D装飾品", "price": 0, "folder": "小物", "file": "リボン_無料.zip", "unitypackage": "Ribbon.unitypackage", "supports": ["うさぎ", "きつね", "ねこ"], "days": 100, "userTags": ["小物/髪飾り"], "description": "髪に付けるリボンです。無料で配布しています。" },
+    { "name": "メガネ", "image": "glasses.jpg", "shop": "lab", "category": "3D装飾品", "price": 400, "folder": "小物", "file": "メガネ.zip", "unitypackage": "Glasses.unitypackage", "supports": ["うさぎ", "きつね", "ねこ"], "days": 25, "userTags": ["小物/顔"], "description": "細いフレームのメガネです。" },
+    { "name": "ネックレス", "image": "necklace.jpg", "shop": "lab", "category": "3D装飾品", "price": 500, "folder": "小物", "file": "ネックレス_v1.zip", "unitypackage": "Necklace_v1.unitypackage", "supports": ["ねこ"], "days": 20, "userTags": ["小物/アクセサリ"], "description": "石の付いたネックレスです。" },
+    { "name": "マフラー", "image": "scarf.jpg", "shop": "kobo", "category": "3D装飾品", "price": 600, "folder": "小物", "file": "マフラー.zip", "unitypackage": "Scarf.unitypackage", "supports": ["うさぎ", "きつね"], "days": 46, "userTags": ["小物/アクセサリ", "季節/冬"], "description": "揺れものの付いたマフラーです。" },
+    { "name": "手袋", "image": "gloves.jpg", "shop": "kobo", "category": "3D装飾品", "price": 300, "folder": "小物", "file": "手袋.zip", "unitypackage": "Gloves.unitypackage", "supports": ["うさぎ"], "days": 47, "userTags": ["小物/アクセサリ", "季節/冬"], "description": "あたたかい手袋です。" },
+    { "name": "リュック", "image": "backpack.jpg", "shop": "zakka", "category": "3D小道具", "price": 700, "folder": "小物", "file": "リュック_v1.2.zip", "unitypackage": "Backpack_v1.2.unitypackage", "supports": ["ねこ"], "days": 35, "userTags": ["小物/持ち物"], "description": "背負えるリュックです。" },
+    { "name": "傘", "image": "umbrella.jpg", "shop": "zakka", "category": "3D小道具", "price": 400, "folder": "小物", "file": "傘.zip", "unitypackage": "Umbrella.unitypackage", "days": 15, "userTags": ["小物/持ち物"], "description": "開いたり閉じたりできる傘です。どのアバターでも持てます。" },
+
+    { "name": "木目", "image": "wood.jpg", "shop": "lab", "category": "3Dテクスチャ", "price": 300, "folder": "テクスチャ", "file": "木目テクスチャ.zip", "days": 150, "userTags": ["素材/テクスチャ"], "description": "木目のテクスチャです。4K と 2K を同梱しています。" },
+    { "name": "大理石", "image": "marble.jpg", "shop": "lab", "category": "3Dテクスチャ", "price": 300, "folder": "テクスチャ", "file": "大理石テクスチャ.zip", "days": 140, "userTags": ["素材/テクスチャ"], "description": "大理石のテクスチャです。" },
+    { "name": "レンガ", "image": "brick.jpg", "shop": "lab", "category": "3Dテクスチャ", "price": 0, "folder": "テクスチャ", "file": "レンガテクスチャ.zip", "days": 130, "userTags": ["素材/テクスチャ"], "description": "レンガのテクスチャです。無料で配布しています。" },
+    { "name": "花火", "image": "fireworks.jpg", "shop": "lab", "category": "3Dツール・システム", "price": 1000, "folder": "ギミック", "file": "花火ギミック_v3.0.zip", "unitypackage": "Fireworks_v3.0.unitypackage", "days": 12, "favorite": true, "userTags": ["ギミック/エフェクト"], "description": "手から花火を出せるギミックです。Modular Avatar に対応しています。" }
+  ],
+  "unresolved": [
+    { "folder": "未整理", "file": "夏のおでかけセット_v1.zip" },
+    { "folder": "未整理", "file": "表情パック.zip" }
+  ],
+  "modifications": [
+    { "avatar": "うさぎ", "name": "冬のおでかけ", "members": ["コート", "マフラー", "手袋", "ブーツ"], "photo": "scarf.jpg" },
+    { "avatar": "ねこ", "name": "夏の休日", "members": ["ワンピース", "帽子", "スニーカー", "リュック"], "photo": "hat.jpg" },
+    { "avatar": "きつね", "name": "お正月", "members": ["着物", "リボン"], "photo": "kimono.jpg" }
+  ],
+  "notifications": [
+    { "item": "コート", "diffs": [["価格", "¥ 2,000", "¥ 1,600"]] },
+    { "item": "セーター", "diffs": [["説明文", null, null], ["バリエーション", "5色", "6色"]] },
+    { "item": "大理石", "diffs": [["販売状態", "販売中", "販売終了"]] }
+  ]
+}

@@ -109,6 +109,7 @@ New-ChmonosSandbox -Name mycheck -Recipe movecheck      # 台本の一覧は Get
 | `stress-manage` | `-From stress-realcat` で写し、`tools/SandboxGen` の `manage`（`SandboxGen.exe <保存先> manage`）でタグ・属性・知らせ・改変を入れる |
 | `importtest` | **アプリが要る**：無いフォルダを `Start-ChmonosApp -Store <フルパス> -AllowNew` で開き、初回の窓を進め、`Invoke-ChmonosImport -Path <小さなフォルダ>`。BOOTH へ問い合わせる（1本だけで） |
 | 友人のデータの写し | 台本にしない（第三者のデータ）。`-From friendcheck` で写して、作り物を足す |
+| `showcase` | BOOTH のページ用の画面に写す架空の商品 24 件（`tools/SandboxGen/showcase.json`・画像は CC0 の写真を `%LOCALAPPDATA%Chmonos-fixturesshowcase-images` に置く。出どころは同じ所の `credits.tsv`）。`SandboxGen.exe <写し> init` → `SandboxGen.exe <写し> showcase tools/SandboxGen/showcase.json <画像のフォルダ>`。描くのは `ViewShot shot showcase-* --full --scale 2`（写しを場面の保存先へ写して描く） |
 
 ## 作り物の作り方
 

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -39,6 +40,34 @@ internal sealed class SceneContext
     }
 
     public Scene Scene { get; }
+
+    /// <summary>
+    /// 組み立て済みの写し（<c>SandboxGen showcase</c>）の中身を、場面の保存先へ写す。<see cref="StartAsync"/> の前に呼ぶ。
+    /// BOOTH のページ用の画面を、確かめ用の作り物（縞の絵）ではなく見せるための作り物で描くため（2026-10-07）。
+    /// 写しの錠と記録は写さない（場面の保存先はこの台の作業用で、写しのアプリが開いていても描ける）
+    /// </summary>
+    public void CopyStoreFrom(string source)
+    {
+        if (!Directory.Exists(Path.Combine(source, "items")))
+        {
+            throw new InvalidOperationException($"写しが無い: {source}（tools/SandboxGen の showcase で組む）");
+        }
+
+        var target = AppPaths.Default.Root;
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            if (relative.Equals("app.lock", StringComparison.OrdinalIgnoreCase)
+                || relative.StartsWith("logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var to = Path.Combine(target, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to, overwrite: true);
+        }
+    }
 
     /// <summary>作り物を書く保存先。<see cref="StartAsync"/> の前に書く（サービス一式は起動時に読む物がある）。</summary>
     public DataStore Seed { get; }
