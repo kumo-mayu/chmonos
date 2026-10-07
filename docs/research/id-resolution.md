@@ -700,3 +700,22 @@ Zone.Identifier や zip 内の URL が消えた状態を再現。ファイルの
 - 入れる手間：PDF を読む部品（PdfPig・Apache-2.0）で配布物が約 5〜6MB 増える。1本あたり約 90ms。空・壊れた・巨大な PDF への上限が要る
 
 効果が 0 で手間が見合わないので入れない（ユーザ判断「効果があって実装も簡単なら」2026-10-07）。友人のデータ（第三者）は測っていない。標本が増えたら同じ道具で測り直す。
+
+## 20. ブラウザごとの Zone.Identifier（2026-10-07、ソースを読んだ。実機は Chrome・Edge だけ）
+
+公開の文書に「Chrome か Edge がいちばん確実」と書いたところ、使えるブラウザはもっと多いはず、とユーザに言われて調べた（担当が調べ、Firefox は自分でもソースを見た）。
+ダウンロードはしていない。
+
+| ブラウザ | HostUrl に書く物 | 確かさ |
+|---|---|---|
+| Chromium（Chrome・Edge） | URL の連なりの最後（リダイレクト後の CDN の URL）。`download_item_impl.cc` の `RenameAndAnnotate` に `GetURL()`（`url_chain.back()`） | ソース。実機は §1 の18本 |
+| Chromium の**シークレット・InPrivate** | 空を渡す（`IsOffTheRecord() ? GURL() : GetURL()`）。`quarantine_win.cc` は空なら始めたページのオリジンを書く → Brave と同じくオリジンだけ | ソース（実機は未確認） |
+| Brave | 常にオリジンだけ（§6） | ソース・実機 |
+| Firefox | `DownloadIntegration.sys.mjs` の `downloadDone` が自分で `:Zone.Identifier` に書く。HostUrl は `download.source.url`、ReferrerUrl も書く。**プライベートウィンドウでは ZoneId だけ** | ソース（2026-10-07 に自分で見た）。`source.url` がリダイレクト後の URL かは、呼び出し側まで追っておらず未確認。最初の URL（`booth.pm/downloadables/{id}`）なら商品IDは読めない |
+| Floorp | Firefox と同じと見込む | 未確認 |
+| Vivaldi・Opera・Opera GX・Yandex・Arc | Chromium と同じと見込む（URL を消すパッチの話は見つからなかった） | 未確認 |
+| ダウンロード管理の拡張・外のダウンローダ | 自分で書くと印が付かないことがある | 未確認 |
+
+- Windows のポリシー「添付ファイルのゾーン情報を保存しない」（`SaveZoneInformation`）が有効だと、Windows の仕組みも Firefox も印を付けない（[Policy CSP - AttachmentManager](https://learn.microsoft.com/windows/client-management/mdm/policy-csp-attachmentmanager)）
+- 出典：[download_item_impl.cc](https://github.com/chromium/chromium/blob/main/components/download/internal/common/download_item_impl.cc)・[quarantine_win.cc](https://github.com/chromium/chromium/blob/main/components/services/quarantine/quarantine_win.cc)・[DownloadIntegration.sys.mjs](https://github.com/mozilla/gecko-dev/blob/master/toolkit/components/downloads/DownloadIntegration.sys.mjs)
+- 文書には「確かめたのは Chrome・Edge。Firefox・Vivaldi・Opera なども記録は残すが未確認。シークレットなどの窓では残らない」と書いた。Firefox で落とした zip が手元にあれば、HostUrl を読むだけで確かめられる（BOOTH へは問い合わせない）
