@@ -914,4 +914,26 @@ public class ImportAndResolveFlowTests
         // ナビの未確定の数も、ほかの片付け方と同じく登録の直後に減る（前はフォルダの登録だけ古い数が残っていた）
         await UiThread.Until(() => main.UnresolvedCount == 0, "ナビの未確定の数が合う");
     });
+
+    /// <summary>
+    /// 下に出ている商品と違うIDに書き換えたら、その商品の確かめは引っ込み、登録できない（外部の点検 2026-10-07）。
+    /// 前は欄が別のIDのまま「このIDで登録」を押すと、下に出ている（前に確かめた）商品へ登録した。同じ商品のURLを貼っただけなら残す
+    /// </summary>
+    [Fact]
+    public Task IDを書き換えたら_前に確かめた商品へは登録しない() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9901001", "作り物の衣装A"));
+        await app.AddItemAsync(Make.Item("9901002", "作り物の衣装B"));
+        var (_, resolve) = await OpenResolveAsync(app, @"bootha.zip");
+
+        await PreviewAsync(app, resolve, "9901001");
+        Assert.True(resolve.HasPreview);
+
+        resolve.ItemIdInput = "https://booth.pm/ja/items/9901001";
+        Assert.True(resolve.HasPreview);
+
+        resolve.ItemIdInput = "9901002";
+        Assert.False(resolve.HasPreview);
+        Assert.False(resolve.AssignCommand.CanExecute(null));
+    });
 }

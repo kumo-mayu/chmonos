@@ -51,6 +51,23 @@ public sealed partial class SearchViewModel
         }
     }
 
+    /// <summary>
+    /// 「最近」の条件を置いている・閲覧日か送信日で並べているなら、絞り直す（外部の点検 2026-10-07）。検索の画面へ戻ったときに呼ぶ。
+    /// 商品を開く・Unity へ送ると足跡が増えるが、検索はそれを知らないので、前はナビの「検索」で戻っても古い結果と並びのままだった。
+    /// 使っていなければ足跡を読まない
+    /// </summary>
+    /// <returns>絞り直したか。</returns>
+    internal bool NoteMaybeRecentChanged()
+    {
+        if (!NeedsRecent() && _sort.Kind is not (SortKind.RecentlyUsed or SortKind.RecentlyViewed))
+        {
+            return false;
+        }
+
+        ApplyFilters();
+        return true;
+    }
+
     private void ApplyFilters()
     {
         RefreshCardInfo();

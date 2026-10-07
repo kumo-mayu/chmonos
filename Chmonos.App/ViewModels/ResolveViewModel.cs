@@ -348,6 +348,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 OnPropertyChanged(nameof(CanPreview));
 
+                // 下に出ている商品と違うIDに書き換えたら、その商品の確かめは引っ込める（外部の点検 2026-10-07）。
+                // 残すと、欄は別のIDなのに「このIDで登録」が下の商品へ登録した。同じ商品のURLを貼っただけなら残す
+                if (Preview is { } shown && ParseItemIdInput(value) != shown.Id)
+                {
+                    Preview = null;
+                }
+
                 // 見つからなかったIDから書き換えたら、そのIDのまま登録する形は引っ込める（書き換えたIDはまだ確かめていない）
                 RaiseUnpublishedForm();
             }
@@ -933,7 +940,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         try
         {
             var result = await _services.Commands.ExecuteAsync(new UiCommand.PreviewItem(trimmed));
-            if (!ReferenceEquals(Selected, startedWith))
+
+            // 問い合わせの間に選び直した・欄を書き換えた後に届いた結果は捨てる（欄と下の商品を食い違わせない）
+            if (!ReferenceEquals(Selected, startedWith) || ParseItemIdInput(ItemIdInput) != trimmed)
             {
                 return;
             }

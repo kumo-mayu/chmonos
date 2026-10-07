@@ -351,4 +351,23 @@ public class SavedSearchTests
         Assert.DoesNotContain("isNamed", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("\"summary\": \"夏\"", json);
     });
+
+    /// <summary>
+    /// 編集で新しいカテゴリを入れたら、置いてある条件の候補にも出る（外部の点検 2026-10-07。前は全件を読み直すまで古いままだった）。
+    /// </summary>
+    [Fact]
+    public Task 編集で新しいカテゴリを入れたら_置いてある条件の候補に出る() => TestApp.Run(async app =>
+    {
+        var item = Make.Item("9901101", "作り物の衣装") with { Local = new LocalBlock { Category = "前のカテゴリ" } };
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+        var search = main.Search;
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+
+        search.NoteItemChanged(item with { Local = item.Local with { Category = "新しいカテゴリ" } });
+        await app.SettleAsync();
+        module.AddCommand.Execute("新しいカテゴリ");
+
+        Assert.Contains(module.Chips, chip => chip.Text == "新しいカテゴリ");
+    });
 }

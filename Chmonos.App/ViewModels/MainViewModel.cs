@@ -873,7 +873,13 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         // 改変は別の画面で増えたり減ったりする。戻ってきた時点で読み直させる
         Search.NoteModificationsChanged();
-        Search.NoteMaybeNewDay();
+
+        // 開いた・送った足跡で「最近」の結果と並びが変わる。絞り直したなら、日の替わりもその中で見ている
+        if (!Search.NoteMaybeRecentChanged())
+        {
+            Search.NoteMaybeNewDay();
+        }
+
         CurrentViewModel = Search;
     }
 

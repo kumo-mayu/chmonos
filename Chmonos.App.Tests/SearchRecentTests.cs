@@ -403,4 +403,30 @@ public class SearchRecentTests
         Assert.Equal("商品閲覧日", RecentModule.DateLabel(RecentKind.Viewed));
         Assert.Equal("取り込み日", RecentModule.DateLabel(RecentKind.Added));
     }
+
+    /// <summary>
+    /// 閲覧日で並べているとき、商品を開いた後にナビの「検索」で戻ると、並びが新しい足跡に合う（外部の点検 2026-10-07）。
+    /// 前は条件を触るまで古い並びのままだった
+    /// </summary>
+    [Fact]
+    public Task 閲覧日で並べているとき_ナビで検索へ戻ると_新しく開いた商品が先に来る() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9901201", "作り物の衣装甲"));
+        await app.AddItemAsync(Make.Item("9901202", "作り物の衣装乙"));
+        await app.Services.Recent.TouchAsync("9901201", RecentKind.Viewed, DateTimeOffset.Now.AddHours(-2));
+        await app.Services.Recent.TouchAsync("9901202", RecentKind.Viewed, DateTimeOffset.Now.AddHours(-3));
+        var main = await app.StartAsync();
+        var search = main.Search;
+        search.SortField = search.SortFields.Single(field => field.Kind == SortKind.RecentlyViewed);
+        search.SortsDescending = true;
+        await app.SettleAsync();
+        Assert.Equal("9901201", search.ListItems.First().Item.Id);
+
+        // ほかの画面で乙を開いた（足跡が増えた）後に、ナビの「検索」で戻る
+        await app.Services.Recent.TouchAsync("9901202", RecentKind.Viewed, DateTimeOffset.Now);
+        main.ShowSearch();
+        await app.SettleAsync();
+
+        Assert.Equal("9901202", search.ListItems.First().Item.Id);
+    });
 }

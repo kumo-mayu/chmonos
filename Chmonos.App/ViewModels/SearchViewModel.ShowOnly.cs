@@ -178,6 +178,29 @@ public sealed partial class SearchViewModel
 
         ApplyFilters();
         OnPropertyChanged(nameof(NeedsEditCount));
+
+        // 編集で新しいカテゴリ・ショップを入れた・額を変えたら、置いてある条件の候補と範囲も変わる（外部の点検 2026-10-07。
+        // 前は全件を読み直すまで古いままだった）。続けて何十件も来る（見回りの後など）ので、手が空いた時に1回だけ組み直す
+        QueueFacetRefresh();
+    }
+
+    private bool _facetRefreshQueued;
+
+    private void QueueFacetRefresh()
+    {
+        if (_facetRefreshQueued)
+        {
+            return;
+        }
+
+        _facetRefreshQueued = true;
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.InvokeAsync(
+            () =>
+            {
+                _facetRefreshQueued = false;
+                BuildFacets();
+            },
+            System.Windows.Threading.DispatcherPriority.Background);
     }
 
     /// <summary>
