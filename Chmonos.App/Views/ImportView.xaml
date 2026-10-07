@@ -251,15 +251,6 @@
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding FindMissingFilesCommand}"
                                             ToolTip="探すフォルダを選んで紐付け直します。ファイルは動かしません。" />
-                                    <!--
-                                        探しても残った物を、判断なしでまとめて片付ける（ユーザ判断 2026-10-07）。記録を消すので赤。
-                                        押すと件数を見せて確かめるので「…」を付ける
-                                    -->
-                                    <Button DockPanel.Dock="Right" Content="見つからないファイルの記録をすべて削除…"
-                                            AutomationProperties.AutomationId="ImportForgetMissingFiles"
-                                            Style="{StaticResource DangerButton}"
-                                            Command="{Binding ForgetMissingFilesCommand}"
-                                            ToolTip="ファイルが戻れば、取り込みでまた紐付きます。" />
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
                                                AutomationProperties.AutomationId="ImportMissingSearchText"
                                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"

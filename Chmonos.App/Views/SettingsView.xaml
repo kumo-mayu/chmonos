@@ -895,6 +895,23 @@
                             </StackPanel>
 
                             <!--
+                                見つからないファイル・フォルダの記録を、全部の商品からまとめて消す（ユーザ判断 2026-10-07）。
+                                監視フォルダとは関係の無い、ライブラリ全体の片付けなので、取り込み画面ではなくデータの節に置く。
+                                記録を消すので赤。押すと件数を見せて確かめるので「…」を付ける
+                            -->
+                            <Grid Margin="0,16,0,0">
+                                <TextBlock Text="見つからないファイル" Style="{StaticResource RowLabel}" VerticalAlignment="Center" />
+                                <Button Content="記録をすべて削除…" Style="{StaticResource DangerButton}"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.AutomationId="Settings.ForgetMissingFiles"
+                                        Command="{Binding ForgetMissingFilesCommand}"
+                                        ToolTip="ファイルが戻れば、取り込みでまた紐付きます。" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource FieldNotice}" Margin="0,4,0,0" HorizontalAlignment="Right"
+                                       AutomationProperties.AutomationId="Settings.ForgetMissingNote"
+                                       Text="{Binding ForgetMissingNote}" />
+
+                            <!--
                                 すべての設定を既定に戻す（メモ29・ユーザ判断 2026-10-04）。設定の節ではなくデータの節に置く：
                                 節はどれも「その節の項目」で、全体を戻すボタンはどの節の中にも収まらない。
                                 保存先・バックアップの行と同じ「名前と右のボタン」の形にして、押し間違えにくい末尾に置く。
