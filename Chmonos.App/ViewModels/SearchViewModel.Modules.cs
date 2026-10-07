@@ -565,13 +565,13 @@ public sealed partial class SearchViewModel
 
     /// <summary>改変の絵（改変の写真の1枚目 → アバターの絵。改変の一覧・改変を選ぶ窓と同じ決め方）。</summary>
     private System.Windows.Media.ImageSource? ModificationIconOf(ModificationRecord record)
-        => Core.Services.ModificationIcon.PathOf(_services.Paths, record, FindItem(record.AvatarItemId)) is { } path
+        => Core.Services.ModificationIcon.PathOf(_services.Paths, record, FindItem(record.AvatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
             ? _thumbnails.LoadForTile(path)
             : null;
 
     /// <summary>アバターの絵（持っていれば商品の1枚目、持っていなければ控えの1枚。対応アバターの候補と同じ）。</summary>
     private System.Windows.Media.ImageSource? AvatarIconOf(string avatarItemId)
-        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId)) is { } path
+        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
             ? _thumbnails.LoadForTile(path)
             : null;
 
@@ -1024,7 +1024,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => entry =>
         AvatarSuggestionText.IdOf(entry) is { } id
-        && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id)) is { } path
+        && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
             ? _thumbnails.LoadForTile(path)
             : null;
 }

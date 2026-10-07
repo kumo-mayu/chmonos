@@ -143,6 +143,11 @@
                             <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowAdult, Mode=TwoWay}"
                                       ToolTip="オフにすると検索とショップの件数から外れます。統計の金額には含まれたままです。" />
+                            <!-- 作者が見せたくなくて外した画像のことがあるので、既定は見せない（ユーザ判断 2026-10-07）。ファイルは消さない -->
+                            <CheckBox Content="BOOTHから消えた画像も表示する" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding ShowRemovedBoothImages, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ShowRemovedBoothImages"
+                                      ToolTip="作者が商品ページから外した画像です。手元には残っています。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="一覧と検索" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--

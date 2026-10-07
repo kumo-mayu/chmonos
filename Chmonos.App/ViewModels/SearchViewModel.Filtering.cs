@@ -461,7 +461,8 @@ public sealed partial class SearchViewModel
             item,
             _thumbnails,
             _services.Paths.ItemImagesDir(item.Id),
-            _services.Settings.ThumbnailRole)
+            _services.Settings.ThumbnailRole,
+            _services.Settings.ShowRemovedBoothImages)
         {
             Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,

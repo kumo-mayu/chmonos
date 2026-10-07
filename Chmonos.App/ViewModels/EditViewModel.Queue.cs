@@ -225,7 +225,7 @@ public sealed partial class EditViewModel
 
         var directory = _services.Paths.ItemImagesDir(record.Id);
         var ordered = Core.Images.ItemImageOrder.Arrange(
-            directory, record.Booth.Images, _thumbnails.ListFiles(directory), record.Local.UserImages);
+            directory, record.Booth.Images, _thumbnails.ListFiles(directory), record.Local.UserImages, _services.Settings.ShowRemovedBoothImages);
         var path = Core.Images.ItemImageOrder.Thumbnail(
             ordered, record.Local.ThumbnailImage, _services.Settings.ThumbnailRole, record.Local.ImageRoles);
 

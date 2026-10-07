@@ -570,11 +570,11 @@ internal sealed class ModificationRowBuilder(
             : null;
 
     public string? AvatarIconPath(string id)
-        => AvatarImageSync.IconPath(services.Paths, id, items.GetValueOrDefault(id));
+        => AvatarImageSync.IconPath(services.Paths, id, items.GetValueOrDefault(id), services.Settings.ShowRemovedBoothImages);
 
     /// <summary>頭の絵。改変に貼った写真の1枚目、無ければアバターの絵。</summary>
     public string? ModificationIconPath(ModificationRecord record)
-        => ModificationIcon.PathOf(services.Paths, record, items.GetValueOrDefault(record.AvatarItemId));
+        => ModificationIcon.PathOf(services.Paths, record, items.GetValueOrDefault(record.AvatarItemId), services.Settings.ShowRemovedBoothImages);
 
     /// <summary>商品の1枚目。検索のカードと同じ選び方（BOOTHの並び・★・役割の指定）。</summary>
     public string? ItemThumbnailPath(ItemRecord item)
@@ -586,7 +586,7 @@ internal sealed class ModificationRowBuilder(
 
         var directory = services.Paths.ItemImagesDir(item.Id);
         var ordered = Core.Images.ItemImageOrder.Arrange(
-            directory, item.Booth.Images, thumbnails.ListFiles(directory), item.Local.UserImages);
+            directory, item.Booth.Images, thumbnails.ListFiles(directory), item.Local.UserImages, services.Settings.ShowRemovedBoothImages);
         return Core.Images.ItemImageOrder.Thumbnail(
             ordered, item.Local.ThumbnailImage, services.Settings.ThumbnailRole, item.Local.ImageRoles);
     }

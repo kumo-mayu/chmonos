@@ -107,7 +107,7 @@ public class AvatarSearchTests : IDisposable
             Images = [new ModificationImage { FileName = "a.webp" }],
         };
 
-        Assert.Equal(photo, ModificationIcon.PathOf(paths, record, null));
+        Assert.Equal(photo, ModificationIcon.PathOf(paths, record, null, showRemoved: true));
     }
 
     [Fact]
@@ -117,10 +117,10 @@ public class AvatarSearchTests : IDisposable
         var avatarPicture = Path.Combine(paths.AvatarImagesDir("9900001"), "av.webp");
         var record = new ModificationRecord { Id = "mod-0000a001", AvatarItemId = "9900001", Name = "普段着" };
 
-        Assert.Null(ModificationIcon.PathOf(paths, record, null));
+        Assert.Null(ModificationIcon.PathOf(paths, record, null, showRemoved: true));
 
         Touch(avatarPicture);
-        Assert.Equal(avatarPicture, ModificationIcon.PathOf(paths, record, null));
+        Assert.Equal(avatarPicture, ModificationIcon.PathOf(paths, record, null, showRemoved: true));
     }
 
     [Fact]
@@ -139,8 +139,8 @@ public class AvatarSearchTests : IDisposable
             Local = new LocalBlock { ThumbnailImage = thumbnail },
         };
 
-        Assert.Equal(first, ModificationIcon.PathOf(paths, record, Avatar(null)));
-        Assert.Equal(pinned, ModificationIcon.PathOf(paths, record, Avatar("b.webp")));
+        Assert.Equal(first, ModificationIcon.PathOf(paths, record, Avatar(null), showRemoved: true));
+        Assert.Equal(pinned, ModificationIcon.PathOf(paths, record, Avatar("b.webp"), showRemoved: true));
     }
 
     [Fact]
@@ -157,6 +157,6 @@ public class AvatarSearchTests : IDisposable
             Images = [new ModificationImage { FileName = "gone.webp" }],
         };
 
-        Assert.Equal(avatarPicture, ModificationIcon.PathOf(paths, record, null));
+        Assert.Equal(avatarPicture, ModificationIcon.PathOf(paths, record, null, showRemoved: true));
     }
 }

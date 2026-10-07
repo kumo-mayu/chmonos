@@ -102,6 +102,7 @@ public sealed partial class SettingsViewModel
         _showSubTagsInList = settings.ShowSubTagsInList;
         _showCardAttributes = settings.ShowCardAttributes;
         _showAdult = settings.ShowAdult;
+        _showRemovedBoothImages = settings.ShowRemovedBoothImages;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
         _showSortDividers = settings.ShowSortDividers;

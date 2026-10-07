@@ -42,7 +42,7 @@ public sealed class ProbeHost : IItemCardHost
         var cards = new ObservableCollection<object>();
         foreach (var id in new[] { "9000001", "9000002" })
         {
-            var card = new ItemCardViewModel(new ItemRecord { Id = id }, loader, images) { Name = "作り物の服" + id };
+            var card = new ItemCardViewModel(new ItemRecord { Id = id }, loader, images, ThumbnailRole.Default, showRemovedImages: false) { Name = "作り物の服" + id };
             cards.Add(card);
             ListItems.Add(card);
         }
@@ -57,7 +57,7 @@ public sealed class ProbeHost : IItemCardHost
             var more = new ObservableCollection<object>();
             foreach (var id in new[] { $"90000{index}3", $"90000{index}4" })
             {
-                more.Add(new ItemCardViewModel(new ItemRecord { Id = id }, loader, images) { Name = "作り物の服" + id });
+                more.Add(new ItemCardViewModel(new ItemRecord { Id = id }, loader, images, ThumbnailRole.Default, showRemovedImages: false) { Name = "作り物の服" + id });
             }
 
             IDictionary<string, object?> next = new ExpandoObject();

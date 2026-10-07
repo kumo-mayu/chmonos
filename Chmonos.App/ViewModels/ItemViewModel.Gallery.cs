@@ -223,7 +223,7 @@ public sealed partial class ItemViewModel
 
         // 並べ替えは共有の規則に任せる（カードと編集画面でも同じ順になる）
         var ordered = ItemImageOrder.Arrange(
-            directory, Item.Booth.Images, onDisk, Item.Local.UserImages);
+            directory, Item.Booth.Images, onDisk, Item.Local.UserImages, _services.Settings.ShowRemovedBoothImages);
 
         foreach (var entry in ordered)
         {

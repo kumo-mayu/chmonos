@@ -39,11 +39,17 @@ public readonly record struct OrderedImage(string Path, ImageOrigin Origin)
 /// </summary>
 public static class ItemImageOrder
 {
+    /// <param name="showRemoved">
+    /// BOOTH から消えた画像も並べるか（設定 <see cref="AppSettings.ShowRemovedBoothImages"/>。既定は並べない・ユーザ判断 2026-10-07）。
+    /// 作者が見せたくなくて外した画像のことがあるので、既定では手元に残っていても見せない。**省けない引数にしている**：
+    /// 呼ぶ所（カード・商品ページ・フォルダ・改変・アバターの絵）のどれかで渡し忘れると、そこだけ消えた画像が出る
+    /// </param>
     public static IReadOnlyList<OrderedImage> Arrange(
         string directory,
         IReadOnlyList<BoothImage> images,
         IReadOnlyList<string> onDisk,
-        IReadOnlyList<UserImage>? userImages = null)
+        IReadOnlyList<UserImage>? userImages,
+        bool showRemoved)
     {
         var result = new List<OrderedImage>(onDisk.Count);
         var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -82,9 +88,13 @@ public static class ItemImageOrder
 
             // 記録が失われても、名前で自分の分と分かる。
             // 「削除済」と誤って出すよりは、名前を信じる方が害が小さい
-            result.Add(new OrderedImage(
-                path,
-                UserImageName.IsUserAdded(path) ? ImageOrigin.UserAdded : ImageOrigin.Orphaned));
+            var origin = UserImageName.IsUserAdded(path) ? ImageOrigin.UserAdded : ImageOrigin.Orphaned;
+            if (origin == ImageOrigin.Orphaned && !showRemoved)
+            {
+                continue;
+            }
+
+            result.Add(new OrderedImage(path, origin));
         }
 
         return result;
@@ -95,8 +105,9 @@ public static class ItemImageOrder
         string directory,
         IReadOnlyList<BoothImage> images,
         IReadOnlyList<string> onDisk,
-        IReadOnlyList<UserImage>? userImages = null)
-        => Arrange(directory, images, onDisk, userImages).Select(entry => entry.Path).ToList();
+        IReadOnlyList<UserImage>? userImages,
+        bool showRemoved)
+        => Arrange(directory, images, onDisk, userImages, showRemoved).Select(entry => entry.Path).ToList();
 
     /// <summary>
     /// サムネイルに使う1枚を選ぶ。

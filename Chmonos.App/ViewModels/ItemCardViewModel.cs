@@ -45,14 +45,19 @@ public sealed class ItemCardViewModel : ViewModelBase
         ItemRecord item,
         ThumbnailLoader thumbnails,
         string imageDirectory,
-        ThumbnailRole thumbnailRole = ThumbnailRole.Default)
+        ThumbnailRole thumbnailRole,
+        bool showRemovedImages)
     {
         Item = item;
         _isFavorite = item.Local.IsFavorite;
         _thumbnails = thumbnails;
         _imageDirectory = imageDirectory;
         ThumbnailRole = thumbnailRole;
+        _showRemovedImages = showRemovedImages;
     }
+
+    /// <summary>BOOTH から消えた画像も並べるか（設定。既定は並べない・ユーザ判断 2026-10-07）。</summary>
+    private readonly bool _showRemovedImages;
 
     public ItemRecord Item { get; }
 
@@ -406,7 +411,8 @@ public sealed class ItemCardViewModel : ViewModelBase
             _imageDirectory,
             Item.Booth.Images,
             _thumbnails.ListFiles(_imageDirectory),
-            Item.Local.UserImages);
+            Item.Local.UserImages,
+            _showRemovedImages);
 
         return Chmonos.Core.Images.ItemImageOrder
             .Thumbnail(ordered, Item.Local.ThumbnailImage, ThumbnailRole, Item.Local.ImageRoles);
@@ -573,7 +579,8 @@ public sealed class ItemCardViewModel : ViewModelBase
             _imageDirectory,
             Item.Booth.Images,
             _thumbnails.ListFiles(_imageDirectory),
-            Item.Local.UserImages);
+            Item.Local.UserImages,
+            _showRemovedImages);
         ImageCount = _imageFiles.Count;
 
         var maxSteps = Math.Max(1, (int)(widthPixels / MinimumSegmentWidth));

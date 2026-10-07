@@ -161,7 +161,7 @@ public class StoreIdBoundaryTests : IDisposable
 
         AssertSentinelSurvives();
         Assert.Empty(requests);
-        Assert.Null(AvatarImageSync.IconPath(_paths, _sentinel, item: null));
+        Assert.Null(AvatarImageSync.IconPath(_paths, _sentinel, item: null, showRemoved: false));
     }
 
     /// <summary>改変の記録の中の id に番兵の場所を書いても、一覧に出ず、消すで番兵が消えない</summary>

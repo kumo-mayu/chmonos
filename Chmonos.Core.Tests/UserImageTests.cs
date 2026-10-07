@@ -277,7 +277,8 @@ public class UserImageTests : IDisposable
             directory,
             booth,
             [goneFile, userFile, boothFile],
-            [new UserImage { FileName = "user-3f9c1b7e.webp" }]);
+            [new UserImage { FileName = "user-3f9c1b7e.webp" }],
+            showRemoved: true);
 
         Assert.Equal(ImageOrigin.Booth, ordered[0].Origin);
         Assert.Equal(ImageOrigin.UserAdded, ordered[1].Origin);
@@ -291,7 +292,7 @@ public class UserImageTests : IDisposable
         var directory = @"C:\images\5927710";
         var userFile = Path.Combine(directory, "user-3f9c1b7e.webp");
 
-        var ordered = ItemImageOrder.Arrange(directory, [], [userFile], userImages: null);
+        var ordered = ItemImageOrder.Arrange(directory, [], [userFile], userImages: null, showRemoved: true);
 
         Assert.Equal(ImageOrigin.UserAdded, Assert.Single(ordered).Origin);
     }
@@ -311,7 +312,8 @@ public class UserImageTests : IDisposable
             directory,
             [],
             [added, first],
-            [new UserImage { FileName = "user-ffff0000.webp" }, new UserImage { FileName = "user-00000000.webp" }]);
+            [new UserImage { FileName = "user-ffff0000.webp" }, new UserImage { FileName = "user-00000000.webp" }],
+            showRemoved: true);
 
         Assert.Equal(new[] { first, added }, ordered.Select(entry => entry.Path));
         Assert.All(ordered, entry => Assert.Equal(ImageOrigin.UserAdded, entry.Origin));

@@ -315,7 +315,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     private System.Windows.Media.Imaging.BitmapSource? AvatarIcon(
         string avatarItemId,
         Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
-        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, _main.Search.FindItem(avatarItemId)) is { } path
+        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, _main.Search.FindItem(avatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
             ? load(path)
             : null;
 

@@ -47,7 +47,7 @@ public sealed class ResultThumbnail : ViewModelBase
             }
 
             var directory = services.Paths.ItemImagesDir(item.Id);
-            return PathOf(item, directory, loader.ListFiles(directory), services.Settings.ThumbnailRole);
+            return PathOf(item, directory, loader.ListFiles(directory), services.Settings.ThumbnailRole, services.Settings.ShowRemovedBoothImages);
         }),
         loader);
 
@@ -103,9 +103,9 @@ public sealed class ResultThumbnail : ViewModelBase
     /// 商品の絵の決め方は検索のカードと同じ（BOOTH の並び・自分で足した絵・★の指名・設定の役割。
     /// <c>ItemCardViewModel.FindRestingImagePath</c>）。絵が1枚も無ければ null。
     /// </summary>
-    internal static string? PathOf(ItemRecord item, string imageDirectory, IReadOnlyList<string> files, ThumbnailRole role)
+    internal static string? PathOf(ItemRecord item, string imageDirectory, IReadOnlyList<string> files, ThumbnailRole role, bool showRemoved)
     {
-        var ordered = ItemImageOrder.Arrange(imageDirectory, item.Booth.Images, files, item.Local.UserImages);
+        var ordered = ItemImageOrder.Arrange(imageDirectory, item.Booth.Images, files, item.Local.UserImages, showRemoved);
         return ItemImageOrder.Thumbnail(ordered, item.Local.ThumbnailImage, role, item.Local.ImageRoles);
     }
 }

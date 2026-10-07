@@ -603,6 +603,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showAdult, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _showRemovedBoothImages;
+
+    /// <summary>BOOTH から消えた画像も見せるか（既定は見せない・ユーザ判断 2026-10-07）。カードの絵も変わり得るので一覧を読み直す</summary>
+    public bool ShowRemovedBoothImages
+    {
+        get => _showRemovedBoothImages;
+        set { if (SetField(ref _showRemovedBoothImages, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
     private bool _showHiddenCountInSearch;
     public bool ShowHiddenCountInSearch
     {
@@ -1378,6 +1387,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowSubTagsInList = ShowSubTagsInList,
             ShowCardAttributes = ShowCardAttributes,
             ShowAdult = ShowAdult,
+            ShowRemovedBoothImages = ShowRemovedBoothImages,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             ShowSortDividers = ShowSortDividers,

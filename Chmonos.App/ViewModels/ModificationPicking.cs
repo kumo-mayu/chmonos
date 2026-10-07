@@ -82,7 +82,7 @@ public static class ModificationPicking
             {
                 // 今ある改変の行の絵（メモ58）：改変の写真の1枚目 → そのアバターの絵 → 無ければ頭文字（既定の絵）。
                 // 読むのは行が見えたとき（絵の無い行は読み込み器も作らない）
-                IconPath = Core.Services.ModificationIcon.PathOf(services.Paths, record, ownedItems?.GetValueOrDefault(record.AvatarItemId)),
+                IconPath = Core.Services.ModificationIcon.PathOf(services.Paths, record, ownedItems?.GetValueOrDefault(record.AvatarItemId), services.Settings.ShowRemovedBoothImages),
                 Thumbnails = Loader,
                 Record = record,
                 AvatarText = registry.Entries.FirstOrDefault(entry =>
@@ -104,7 +104,7 @@ public static class ModificationPicking
         ImageSource? IconOf(string name)
         {
             if (!iconIds.TryGetValue(name, out var id)
-                || Core.Services.AvatarImageSync.IconPath(services.Paths, id, ownedItems?.GetValueOrDefault(id)) is not { } path)
+                || Core.Services.AvatarImageSync.IconPath(services.Paths, id, ownedItems?.GetValueOrDefault(id), services.Settings.ShowRemovedBoothImages) is not { } path)
             {
                 return null;
             }

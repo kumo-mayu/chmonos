@@ -20,6 +20,12 @@ public sealed record AppSettings
     /// <summary>R-18を表示するか。オフのときは検索・ショップ件数から除くが、統計の金額には含める。</summary>
     public bool ShowAdult { get; init; } = true;
 
+    /// <summary>
+    /// BOOTH から消えた画像（手元に残っている物）も見せるか。既定はオフ（ユーザ判断 2026-10-07）：作者が見せたくなくて外した画像のことがある。
+    /// 画像のファイルは消さない（入れれば今まで通り「削除済」として並ぶ）
+    /// </summary>
+    public bool ShowRemovedBoothImages { get; init; }
+
     /// <summary>非表示中の件数を検索結果に出すか。既定はオフ（人前で開いても気付かれないように）。</summary>
     public bool ShowHiddenCountInSearch { get; init; }
 

@@ -1197,7 +1197,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// アバターの絵（アバターの管理と同じ1枚）。右の列の「アバター」の欄に出す（ユーザ指示 2026-09-14：左上ではなく、
     /// 「改変の名前」の上にアバターとして置く）。持っていないアバターは取った1枚目、無ければ出さない
     /// </summary>
-    public BitmapSource? AvatarIcon => AvatarImageSync.IconPath(_services.Paths, AvatarItemId, _main.Search.FindItem(AvatarItemId)) is { } path
+    public BitmapSource? AvatarIcon => AvatarImageSync.IconPath(_services.Paths, AvatarItemId, _main.Search.FindItem(AvatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
         ? _thumbnails.PeekForTile(path, () => OnPropertyChanged(nameof(AvatarIcon)))
         : null;
 

@@ -25,7 +25,7 @@ public class ItemImageOrderTests
         // わざとファイル名順（ハッシュ順）に並べて渡す
         var onDisk = urls.Select(PathOf).OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
 
-        var arranged = ItemImageOrder.Paths(Dir, images, onDisk);
+        var arranged = ItemImageOrder.Paths(Dir, images, onDisk, userImages: null, showRemoved: true);
 
         Assert.Equal(urls.Select(PathOf), arranged);
     }
@@ -38,12 +38,30 @@ public class ItemImageOrderTests
         var orphan = PathOf("https://x/gone.png");
         var onDisk = new[] { orphan, PathOf("https://x/a.png") };
 
-        var arranged = ItemImageOrder.Arrange(Dir, images, onDisk);
+        var arranged = ItemImageOrder.Arrange(Dir, images, onDisk, userImages: null, showRemoved: true);
 
         Assert.Equal(PathOf("https://x/a.png"), arranged[0].Path);
         Assert.False(arranged[0].IsOrphaned);
         Assert.Equal(orphan, arranged[1].Path);
         Assert.True(arranged[1].IsOrphaned);
+    }
+
+    /// <summary>
+    /// 消えた画像を見せない設定（既定。ユーザ判断 2026-10-07）では、BOOTH から消えた画像を並びに入れない。
+    /// 作者が見せたくなくて外した画像のことがある。自分で足した画像は残す（記録に無くても名前で分かる物も）
+    /// </summary>
+    [Fact]
+    public void LeavesOutRemovedBoothImagesWhenNotShown()
+    {
+        var images = new[] { Image("https://x/a.png") };
+        var orphan = PathOf("https://x/gone.png");
+        var mine = Path.Combine(Dir, "user-0a1b2c3d.webp");
+        var onDisk = new[] { orphan, mine, PathOf("https://x/a.png") };
+
+        var arranged = ItemImageOrder.Arrange(Dir, images, onDisk, userImages: null, showRemoved: false);
+
+        Assert.Equal([PathOf("https://x/a.png"), mine], arranged.Select(image => image.Path));
+        Assert.DoesNotContain(arranged, image => image.IsOrphaned);
     }
 
     /// <summary>まだ落としていない画像は並びから飛ばす（取得の途中で開いても崩れない）。</summary>
@@ -53,7 +71,7 @@ public class ItemImageOrderTests
         var images = new[] { Image("https://x/a.png"), Image("https://x/b.png") };
         var onDisk = new[] { PathOf("https://x/b.png") };
 
-        var arranged = ItemImageOrder.Paths(Dir, images, onDisk);
+        var arranged = ItemImageOrder.Paths(Dir, images, onDisk, userImages: null, showRemoved: true);
 
         Assert.Equal([PathOf("https://x/b.png")], arranged);
     }
@@ -65,10 +83,10 @@ public class ItemImageOrderTests
         var images = new[] { Image("https://x/a.png"), Image("https://x/a.png") };
         var onDisk = new[] { PathOf("https://x/a.png") };
 
-        Assert.Single(ItemImageOrder.Paths(Dir, images, onDisk));
+        Assert.Single(ItemImageOrder.Paths(Dir, images, onDisk, userImages: null, showRemoved: true));
     }
 
     [Fact]
     public void HandlesAnEmptyFolder()
-        => Assert.Empty(ItemImageOrder.Paths(Dir, [Image("https://x/a.png")], []));
+        => Assert.Empty(ItemImageOrder.Paths(Dir, [Image("https://x/a.png")], [], userImages: null, showRemoved: true));
 }

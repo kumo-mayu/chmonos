@@ -353,7 +353,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 
             // 右クリックのメニューは商品だけを見る（絵や札は出さない）ので、名前だけ埋めれば足りる
             return _card = new ItemCardViewModel(
-                item, Thumbnails, Services.Paths.ItemImagesDir(item.Id), Services.Settings.ThumbnailRole)
+                item, Thumbnails, Services.Paths.ItemImagesDir(item.Id), Services.Settings.ThumbnailRole, Services.Settings.ShowRemovedBoothImages)
             {
                 Name = item.DisplayName,
             };
@@ -1575,7 +1575,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     {
         var directory = _services.Paths.ItemImagesDir(item.Id);
         var ordered = Core.Images.ItemImageOrder.Arrange(
-            directory, item.Booth.Images, _thumbnails.ListFiles(directory), item.Local.UserImages);
+            directory, item.Booth.Images, _thumbnails.ListFiles(directory), item.Local.UserImages, _services.Settings.ShowRemovedBoothImages);
         return Core.Images.ItemImageOrder.Thumbnail(
             ordered, item.Local.ThumbnailImage, _services.Settings.ThumbnailRole, item.Local.ImageRoles);
     }

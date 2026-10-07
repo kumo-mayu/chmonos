@@ -202,7 +202,7 @@ public sealed class AvatarImageSync
     /// ★を見るのは、カードと同じ絵にそろえるため。改変の絵の2段目も「アバターのサムネイルとして指名した絵」（ユーザ 2026-10-05）。
     /// 設定の「サムネイルに使う役割」は見ない——改変例の役割を選んでいると、アバターの絵が別の改変の姿になってしまう
     /// </summary>
-    public static string? IconPath(AppPaths paths, string avatarItemId, ItemRecord? item)
+    public static string? IconPath(AppPaths paths, string avatarItemId, ItemRecord? item, bool showRemoved)
     {
         if (item is not null)
         {
@@ -210,7 +210,7 @@ public sealed class AvatarImageSync
             var files = ListImages(directory);
             if (files.Count > 0
                 && ItemImageOrder.Thumbnail(
-                    ItemImageOrder.Arrange(directory, item.Booth.Images, files, item.Local.UserImages),
+                    ItemImageOrder.Arrange(directory, item.Booth.Images, files, item.Local.UserImages, showRemoved),
                     item.Local.ThumbnailImage) is { } first)
             {
                 return first;

@@ -10,7 +10,7 @@ namespace Chmonos.Core.Services;
 /// </summary>
 public static class ModificationIcon
 {
-    public static string? PathOf(AppPaths paths, ModificationRecord record, ItemRecord? avatarItem)
+    public static string? PathOf(AppPaths paths, ModificationRecord record, ItemRecord? avatarItem, bool showRemoved)
     {
         if (record.Images.Count > 0)
         {
@@ -21,6 +21,6 @@ public static class ModificationIcon
             }
         }
 
-        return AvatarImageSync.IconPath(paths, record.AvatarItemId, avatarItem);
+        return AvatarImageSync.IconPath(paths, record.AvatarItemId, avatarItem, showRemoved);
     }
 }

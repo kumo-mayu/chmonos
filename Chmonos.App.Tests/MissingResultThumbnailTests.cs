@@ -40,7 +40,7 @@ public class MissingResultThumbnailTests
         var item = ItemWithImages(null);
         var files = FilesOf(item, @"D:\作り物\画像");
 
-        Assert.Equal(files[0], ResultThumbnail.PathOf(item, @"D:\作り物\画像", files, ThumbnailRole.Default));
+        Assert.Equal(files[0], ResultThumbnail.PathOf(item, @"D:\作り物\画像", files, ThumbnailRole.Default, showRemoved: true));
     }
 
     [Fact]
@@ -50,12 +50,28 @@ public class MissingResultThumbnailTests
         var files = FilesOf(ItemWithImages(null), directory);
         var item = ItemWithImages(Path.GetFileName(files[1]));
 
-        Assert.Equal(files[1], ResultThumbnail.PathOf(item, directory, files, ThumbnailRole.Default));
+        Assert.Equal(files[1], ResultThumbnail.PathOf(item, directory, files, ThumbnailRole.Default, showRemoved: true));
+    }
+
+    /// <summary>
+    /// BOOTH から消えた画像しか手元に無い商品は、既定（消えた画像を見せない。ユーザ判断 2026-10-07）では絵を出さない。
+    /// 設定で見せるようにすれば、今まで通りその絵を出す
+    /// </summary>
+    [Fact]
+    public void 消えた画像しか無ければ_既定では絵を出さない()
+    {
+        const string directory = @"D:\作り物\画像";
+        var removed = Path.Combine(directory, ImagePipeline.FileNameFor("https://sample.invalid/9900001/gone.png"));
+        var item = ItemWithImages(null);
+
+        Assert.Null(ResultThumbnail.PathOf(item, directory, [removed], ThumbnailRole.Default, showRemoved: false));
+        Assert.Equal(removed, ResultThumbnail.PathOf(item, directory, [removed], ThumbnailRole.Default, showRemoved: true));
+        Assert.False(new Chmonos.Core.Models.AppSettings().ShowRemovedBoothImages);
     }
 
     [Fact]
     public void 絵が1枚も無ければ_場所は無い()
-        => Assert.Null(ResultThumbnail.PathOf(ItemWithImages(null), @"D:\作り物\画像", [], ThumbnailRole.Default));
+        => Assert.Null(ResultThumbnail.PathOf(ItemWithImages(null), @"D:\作り物\画像", [], ThumbnailRole.Default, showRemoved: true));
 
     [Fact]
     public Task 行の絵は_見えて読まれるまで決めず_星の指名で決め_商品が消えていれば頭文字だけ() => TestApp.Run(async app =>

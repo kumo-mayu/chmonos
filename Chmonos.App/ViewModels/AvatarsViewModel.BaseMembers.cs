@@ -46,7 +46,7 @@ public sealed partial class AvatarsViewModel
     /// <summary>候補の頭の絵。一覧の行と同じ探し方（持っていれば商品の1枚目、無ければ控えの1枚）</summary>
     public Func<string, System.Windows.Media.ImageSource?> MemberIconSelector => text =>
         AvatarSuggestionText.IdOf(text) is { } id
-        && AvatarImageSync.IconPath(_services.Paths, id, _main.Search.FindItem(id)) is { } path
+        && AvatarImageSync.IconPath(_services.Paths, id, _main.Search.FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
             ? _main.Thumbnails.LoadForTile(path)
             : null;
 

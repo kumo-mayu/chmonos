@@ -1626,7 +1626,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 CardFactory = () => _main.Search.CardFor(summary.Entry.ItemId) is { } card ? WithoutSelection(card) : null,
                 Services = _services,
                 IconPathFactory = () => AvatarImageSync.IconPath(
-                    _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId)),
+                    _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId), _services.Settings.ShowRemovedBoothImages),
             }).ToList();
 
             var pending = ItemsPending;
