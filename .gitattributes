@@ -3,3 +3,5 @@
 # コミットのたびに「LF will be replaced by CRLF」が出ていた。作業中のファイルも CRLF・LF・混在が入り混じっていた。
 # 文字かどうかは git に見分けさせる（画像・辞書の gz などはそのまま）
 * text=auto eol=lf
+# 友人に渡す道具の .bat と説明は、cmd とメモ帳で読むので CRLF のまま保つ
+tools/NullPriceFix/package/* text eol=crlf
