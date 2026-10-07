@@ -237,7 +237,7 @@ public sealed class CommandHandler
                         .UpdateAsync(change.Change, cancellationToken));
 
             case UiCommand.SetAvatarName or UiCommand.SetAvatarMemo or UiCommand.SetAvatarOwned
-                or UiCommand.SetAvatarOverride or UiCommand.SetAvatarBase or UiCommand.RemoveAvatarFromBase or UiCommand.SetBaseInferClothing
+                or UiCommand.SetAvatarOverride or UiCommand.RegisterAvatar or UiCommand.SetAvatarBase or UiCommand.RemoveAvatarFromBase or UiCommand.SetBaseInferClothing
                 or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase or UiCommand.AddBase
                 or UiCommand.AddAvatarAlias or UiCommand.RemoveAvatarAlias or UiCommand.RecheckAvatar:
             {
@@ -1208,6 +1208,9 @@ public sealed class CommandHandler
                 break;
             case UiCommand.SetAvatarOverride overrideValue:
                 await editor.SetAvatarOverrideAsync(overrideValue.ItemId, overrideValue.Value, cancellationToken);
+                break;
+            case UiCommand.RegisterAvatar register:
+                await editor.RegisterAvatarAsync(register.ItemId, cancellationToken);
                 break;
             case UiCommand.SetAvatarBase avatarBase:
                 await editor.SetBaseAsync(avatarBase.ItemId, avatarBase.BaseName, cancellationToken);

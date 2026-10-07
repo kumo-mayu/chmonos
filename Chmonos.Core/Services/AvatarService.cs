@@ -134,6 +134,9 @@ public interface IAvatarService
 /// </summary>
 public interface IAvatarRegistryEditor
 {
+    /// <summary>人がアバターと指定した物として載せる。無ければ商品の記録から作る（問い合わせない）。商品が無ければ何もしない。</summary>
+    Task RegisterAvatarAsync(string itemId, CancellationToken cancellationToken = default);
+
     Task SetDisplayNameAsync(string itemId, string name, CancellationToken cancellationToken = default);
 
     Task SetMemoAsync(string itemId, string? memo, CancellationToken cancellationToken = default);

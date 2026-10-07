@@ -1216,6 +1216,11 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 前は見せるだけで、変えるには編集画面を開く必要があった。書くのは編集画面と同じ命令で、持ち主はこの項目だけ。
     /// 押した結果の知らせは出さない（チェックの状態で分かる）
     /// </summary>
+    /// <summary>「アバター」の欄（編集ページと同じ部品）。</summary>
+    public ItemAvatarRegistration AvatarRegistration => _avatarRegistration ??= new ItemAvatarRegistration(_services, _main, Item.Id);
+
+    private ItemAvatarRegistration? _avatarRegistration;
+
     public RelayCommand ToggleNotifyCommand => _toggleNotify ??= new RelayCommand(() => ToggleNotifyAsync().Forget());
 
     private async Task ToggleNotifyAsync()

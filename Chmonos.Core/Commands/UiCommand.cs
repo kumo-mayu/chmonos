@@ -75,6 +75,12 @@ public abstract record UiCommand
     /// <summary>アバターとして扱うかを手で決める。null で規則の判定に戻す。</summary>
     public record SetAvatarOverride(string ItemId, bool? Value) : UiCommand;
 
+    /// <summary>
+    /// 商品を、人がアバターと指定した物として登録簿に載せる（無ければ作る。ユーザ判断 2026-10-07）。
+    /// 作者がカテゴリを3Dキャラクターにしていないと、登録簿に載らず、アバターの管理から扱いを変えられなかった
+    /// </summary>
+    public record RegisterAvatar(string ItemId) : UiCommand;
+
     /// <summary>アバターの共通素体を決める。null で所属を外す。</summary>
     public record SetAvatarBase(string ItemId, string? BaseName) : UiCommand;
 

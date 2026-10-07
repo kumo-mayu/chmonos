@@ -50,6 +50,37 @@ public sealed partial class AvatarService
     /// アバターとして扱うかを手で決める。null に戻すと規則の判定に従う。
     /// 販売終了でcategoryを引けないものなど、規則で拾えない例外のために使う。
     /// </summary>
+    /// <summary>
+    /// 商品を、人がアバターと指定した物（<c>avatarOverride: true</c>）として登録簿に載せる（ユーザ判断 2026-10-07）。
+    /// 登録簿は BOOTH のカテゴリが3Dキャラクターの物と、ほかの商品の対応アバターに挙がった物しか載せないので、
+    /// 作者がカテゴリを別の物にしたアバターは載らず、扱いを変える場所が無かった。項目は商品の記録から作り、BOOTH には問い合わせない
+    /// </summary>
+    public async Task RegisterAvatarAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        if (await _store.Items.LoadAsync(itemId, cancellationToken) is not { } item)
+        {
+            return;
+        }
+
+        await _store.Avatars.UpdateAsync(
+            registry => Sorted(
+                registry,
+                registry.Entries.Any(entry => entry.ItemId == itemId)
+                    ? registry.Entries.Select(entry => entry.ItemId == itemId ? entry with { AvatarOverride = true } : entry)
+                    : [.. registry.Entries, new AvatarRegistryEntry
+                    {
+                        ItemId = itemId,
+                        BoothName = item.Booth.Name,
+                        ShopName = item.Booth.Shop?.Name ?? item.Local.Shop?.Name,
+                        Category = item.Booth.Category?.Name ?? item.Local.Category,
+                        CheckedAt = item.Booth.FetchedAt,
+                        Aliases = BuildAliasesFromTags(item.Booth),
+                        AvatarOverride = true,
+                    }],
+                registry.BaseGroups),
+            cancellationToken);
+    }
+
     public async Task SetAvatarOverrideAsync(
         string itemId,
         bool? value,

@@ -196,6 +196,8 @@ public class CommandHandlerTests
 
         public bool RecheckSucceeds { get; set; } = true;
 
+        public Task RegisterAvatarAsync(string itemId, CancellationToken cancellationToken = default) => Note($"register {itemId}");
+
         public Task SetDisplayNameAsync(string itemId, string name, CancellationToken cancellationToken = default) => Note($"name {itemId} {name}");
 
         public Task SetMemoAsync(string itemId, string? memo, CancellationToken cancellationToken = default) => Note($"memo {itemId}");

@@ -730,6 +730,11 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     /// <summary>今開いている商品。画面の履歴は位置ではなく商品で覚える（入り直すと順番が詰まるため）。</summary>
     public string? CurrentItemId => _item?.Id;
 
+    /// <summary>「アバター」の欄（商品ページと同じ部品）。押した時にすぐ登録簿へ書く（「保存」とは別）。</summary>
+    public ItemAvatarRegistration AvatarRegistration => _avatarRegistration ??= new ItemAvatarRegistration(_services, _main);
+
+    private ItemAvatarRegistration? _avatarRegistration;
+
     /// <summary>
     /// 指定して入った編集の順番と位置。null なら未編集の順番（edit-session.json に持つ）。
     /// </summary>
@@ -793,6 +798,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
                 FillFromItem(record);
                 _baseline = BuildLocal(record);
+                AvatarRegistration.Show(record.Id);
 
                 // 前の商品の打ちかけを持ち越さない（この商品の控えがあれば、すぐ下で戻す・I4）
                 TagInput = string.Empty;
