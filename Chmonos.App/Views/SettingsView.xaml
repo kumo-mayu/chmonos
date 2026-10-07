@@ -952,10 +952,13 @@
                         <StackPanel Margin="0,14,0,0">
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Text="BOOTHで買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTHはピクシブ株式会社のサービスです。" />
+                            <!-- 不具合を知らせてもらうときに、どの版かを読んでもらう（ユーザ判断 2026-10-07） -->
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" Text="{Binding VersionText}"
+                                       AutomationProperties.AutomationId="Settings.Version" />
 
                             <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       Text="打った語の別の表記でも探します。toriなら「鳥」、sharkなら「サメ」が見つかります。0件のときは自動で働き、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。" />
+                                       Text="打った語の別の表記でも探します。toriなら「鳥」、sharkなら「サメ」が見つかります。検索欄の右の「オプション」で「別表記でも検索」を入れると働きます。通信はしません。" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
