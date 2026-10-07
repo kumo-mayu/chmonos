@@ -1,0 +1,88 @@
+# 配る zip を組む。tag（v1.0.0 など）を push すると、Releases に下書きとして置く。
+#
+# GitHub と BOOTH で同じ zip を配る（ここで1回だけ組んだ物）。署名の無い exe は、
+# スマート アプリ コントロールと SmartScreen が exe ごとの評判で判定する。
+# 組み直すと別の exe になり評判が無くなるので、手元で組み直した物を BOOTH に上げない
+# （別の PC で、組み直した配布の形が止められた。docs/feedback/manual-check-2026-10-07.md）。
+#
+# 下書きにするのは、公開する前に中身を見て確かめるため。公開は人が Releases の画面で押す。
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  # 試しに組むだけのとき（下書きは作らず、成果物として残す）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 版をそろえる
+        id: version
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if (-not $version) { throw 'Directory.Build.props に Version が無い' }
+          # tag で組むときは、tag と exe の版が食い違わないようにする（設定画面の版と Releases の名前がずれる）
+          if ('${{ github.ref_type }}' -eq 'tag' -and '${{ github.ref_name }}' -ne "v$version") {
+            throw "tag（${{ github.ref_name }}）と Directory.Build.props の版（v$version）が違う"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: 組む
+        run: dotnet publish Chmonos.App -c Release -p:PublishProfile=win-x64 -o out/Chmonos-v${{ steps.version.outputs.version }}
+
+      - name: 説明を添えて確かめる
+        run: |
+          $dir = 'out/Chmonos-v${{ steps.version.outputs.version }}'
+          $readme = Get-Content docs/booth/zip-README.txt -Raw -Encoding utf8
+          # 決まっていない所が残ったまま配らない（BOOTH の URL など）
+          if ('${{ github.ref_type }}' -eq 'tag' -and $readme.Contains('【未定')) { throw 'docs/booth/zip-README.txt に【未定】が残っている' }
+          # メモ帳でも崩れないよう、改行は CRLF にする
+          [IO.File]::WriteAllText("$dir/README.txt", ($readme -replace "`r?`n", "`r`n"), [Text.UTF8Encoding]::new($false))
+
+          # exe だけでは動かない（辞書は assets に置き、exe の隣を探す）。ライセンスの文も配る物に要る
+          $expected = @('Chmonos.exe', 'README.txt', 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt',
+                        'assets/JMdict_e.gz', 'assets/kanjidic2.xml.gz', 'assets/booth-categories.json', 'assets/README.md')
+          $missing = @($expected | Where-Object { -not (Test-Path "$dir/$_") })
+          if ($missing.Count -gt 0) { throw "足りない: $($missing -join ', ')" }
+          # pdb などが並ぶのは設定が崩れたしるし（1ファイルにまとめていない）
+          $extra = @(Get-ChildItem $dir -File | Where-Object { $_.Name -notin $expected })
+          if ($extra.Count -gt 0) { throw "余分な物: $($extra.Name -join ', ')" }
+
+      - name: zip にする
+        id: zip
+        run: |
+          $name = 'Chmonos-v${{ steps.version.outputs.version }}'
+          # 展開すると1つのフォルダにまとまるよう、フォルダごと入れる
+          Compress-Archive -Path "out/$name" -DestinationPath "out/$name.zip"
+          $hash = (Get-FileHash "out/$name.zip" -Algorithm SHA256).Hash
+          "$hash  $name.zip" | Set-Content "out/$name.zip.sha256" -Encoding ascii
+          "SHA256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.name }}
+          # artifact は zip に包まれて渡るので、中身は配る zip そのもの
+          path: |
+            out/${{ steps.zip.outputs.name }}.zip
+            out/${{ steps.zip.outputs.name }}.zip.sha256
+
+      - name: Releases に下書きを置く
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create '${{ github.ref_name }}' 'out/${{ steps.zip.outputs.name }}.zip' 'out/${{ steps.zip.outputs.name }}.zip.sha256' --draft --title 'Chmonos ${{ github.ref_name }}' --notes '（下書き：公開の前に書く）'

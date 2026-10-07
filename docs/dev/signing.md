@@ -1,14 +1,35 @@
-# コード署名（SignPath Foundation）
+# コード署名（しない）
 
-> **要点**：署名は SignPath Foundation（オープンソース向け・無料）で行う（ユーザ判断 2026-10-07）。
-> 申し込むには、GitHub で公開したリポジトリと**公開済みのリリース**が要る。組むのは GitHub Actions の GitHub が用意する実行環境で、手元で組んだ物は署名できない見込み。
-> 署名の発行元は **SignPath Foundation** と出る（作者の名前は出ない）。署名しても、評判が貯まるまで SmartScreen の警告は出うる。スマート アプリ コントロールへの効き目は未確認。
+> **要点**：v1.0.0 はコード署名をせずに配る（ユーザ判断 2026-10-07。前に決めた SignPath Foundation の案はやめた）。
+> 代わりに、**GitHub Actions で1回だけ組んだ zip を、GitHub と BOOTH の両方で配る**（`.github/workflows/release.yml`）。
+> 署名の無い exe は、SmartScreen とスマート アプリ コントロールが exe ごとの評判で判定する。組み直すと別の exe になって評判が無くなるので、手元で組み直した物を配らない。
+> 使う人への説明は README・`docs/booth/item-page.md`・`docs/booth/zip-README.txt` の「Windows の警告」の節。
 >
-> **経緯**：`docs/dev/release-handoff-2026-10-07.md` §2（選択肢と費用。そのときは BOOTH が先の前提で、公開リポジトリが条件の SignPath は外れていた）。公開を GitHub、BOOTH の順に変えたので候補に戻り、決めた。
+> **経緯**：`docs/dev/release-handoff-2026-10-07.md` §2（選択肢と費用）。下の SignPath の調べは、後で署名を考え直すときのために残す。
 
-2026-10-07 に担当（サブエージェント）が公式の文書で調べた。要約を通した所があり、**申し込む前に原文で確かめる**。
+## 署名しないと起きること
 
-## 申し込みの条件
+- **SmartScreen**：初回に「Windows によって PC が保護されました」。「詳細情報」→「実行」で起動できる。評判が貯まると出なくなる
+- **スマート アプリ コントロール**：止められると「実行」の道が無い。使う人ができるのは、設定でオフにすることだけ。
+  2026年4月の更新（KB5083769）から、オフにした後にオンへ戻せるようになった。それより前は Windows を入れ直さないと戻せない
+  （[topedia](https://blog-en.topedia.com/2026/04/smart-app-control-in-windows-11-can-now-be-re-enabled-without-reinstalling/)・[Windows Latest](https://windowslatest.com/2025/12/16/microsoft-confirms-you-can-soon-disable-smart-app-control-without-reinstalling-windows-11)）
+- 判定は exe ごとの評判。別の PC（オン）で、1回目の配布の形は通り、組み直した版は止められた（`docs/feedback/manual-check-2026-10-07.md`）。
+  組み直さずに同じ exe を配り続けると評判が貯まる見込み（[Dev Genius](https://blog.devgenius.io/smart-app-control-may-blocked-your-app-the-fix-was-to-stop-rebuilding-it-5676f69ec3bc)。公式の文書ではない）
+
+## 配る手順
+
+1. `docs/booth/zip-README.txt` の【未定】を埋める（BOOTH の URL は、BOOTH の商品を非公開で作ると先に分かる）。`Directory.Build.props` の `Version` を確かめる
+2. `git tag v1.0.0` → `git push origin v1.0.0`。workflow が組み、Releases に**下書き**として zip と SHA256 を置く（tag と版が違う・【未定】が残る・zip の中身が足りないときは止まる）
+3. 下書きの zip を落として起動を確かめ、Releases で公開する
+4. **同じ zip** を BOOTH の2つのバリエーションに付ける
+
+直す版を出すときも、手元で組まずに tag から組む。
+
+## 後で署名を考え直すとき：SignPath Foundation の調べ（2026-10-07）
+
+担当（サブエージェント）が公式の文書で調べた。要約を通した所があり、**申し込む前に原文で確かめる**。
+
+### 申し込みの条件
 
 出典：[signpath.org/terms](https://signpath.org/terms)・[signpath.org](https://signpath.org/)
 
@@ -19,7 +40,7 @@
 - 個人で通るかは公式では未確認。個人の体験記では、単独で保守する人の申し込みが審査待ちだった（[Zenn](https://zenn.dev/shm_7ec/articles/signpath-oss-code-signing)）。審査の日数は未確認
 - 申し込みのフォーム（signpath.org/apply）は担当の道具で開けなかった。ブラウザで項目を確かめる
 
-## プロジェクトの側に要る物
+### プロジェクトの側に要る物
 
 - **コード署名の方針（code signing policy）の節**をホームページ（README など）に置く。SignPath.io と SignPath Foundation の名前、役割（コミッター・レビュアー・承認者）と担当者、プライバシーポリシーを載せる。1人で全部を兼ねてよいかは未確認
 - 全員が SignPath とリポジトリの両方で多要素認証を使う
@@ -27,7 +48,7 @@
 - 利用者のデータを集めるならプライバシーポリシーに書く。Chmonos は集めないが、**人が「自動検索」を押したときにファイル名から作った語を BOOTH の検索に送る**ことと、通信の先（BOOTH・YouTube）を書いておく
 - 説明なしにシステムの設定を変えない。消し方を示す（README の「データの置き場と消し方」）
 
-## 組み方
+### 組み方
 
 出典：[docs.signpath.io/trusted-build-systems/github](https://docs.signpath.io/trusted-build-systems/github)・[signpath/github-action-submit-signing-request](https://github.com/SignPath/github-action-submit-signing-request)
 
@@ -36,16 +57,10 @@
 - action は `signpath/github-action-submit-signing-request@v3`（古い `SignPath/github-actions` は 2026-02-12 にアーカイブ）。SignPath 側で GitHub.com を信頼するビルドの仕組みとして入れ、GitHub App を入れ、API トークンを作る
 - 単一ファイルの exe（`PublishSingleFile`）で問題があるかは未確認
 
-## 署名した後の Windows
+### 署名した後の Windows
 
 出典：[signpath.io/knowledge-base/windows-platform](https://signpath.io/knowledge-base/windows-platform)
 
 - SmartScreen の評判は、出回って悪用の報告が無いことで貯まる。署名した直後は警告が出うる。証明書が替わると評判は引き継がれない
 - スマート アプリ コントロールは SignPath の文書に記述が無い。署名した版を、スマート アプリ コントロールの入った別の PC で起動して確かめる（handoff §7）
 
-## 進め方の案
-
-1. 履歴に出してはいけない物が無いかを点検して、リポジトリを公開する
-2. GitHub Actions で配る形（exe ＋ `assets`）を組む流れを作る。csproj に版を入れる
-3. 署名なしの最初のリリースを GitHub に出す（申し込みの条件）。README にコード署名の方針の節とプライバシーポリシーを足す
-4. SignPath に申し込む。通ったら、署名した版を GitHub と BOOTH に出す
