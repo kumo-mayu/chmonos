@@ -157,7 +157,7 @@ stateDiagram-v2
 
 ### 保存先の引越し・バックアップ
 
-`StoreMover`（`MoveStore`）は保存先を丸ごと写して突き合わせてから元を消す。`BackupArchive` は zip に書き出し、空の所へ戻すだけ。**どちらも手元のファイルの記録（パス）を書き換えず、アセットのファイルも動かさない。** `scan-cache.json`・`volumes.json`・`import-state.json` も一緒に運ぶ（バックアップは `.tmp`・`location.json`・商品の記録の控え `items/.prev` などを入れない。よけた壊れた記録 `items/_broken` は入れる）。
+`StoreMover`（`MoveStore`）は保存先を丸ごと写して突き合わせてから元を消す。`BackupArchive` は zip に書き出し、空の所へ戻すだけ。**どちらも手元のファイルの記録（パス）を書き換えず、アセットのファイルも動かさない。** `scan-cache.json`・`volumes.json`・`import-state.json` も一緒に運ぶ（バックアップは `.tmp`・`location.json`・商品の記録の控え `items/.prev` などを入れない。よけた壊れた記録 `items/_broken` は入れる）。写している間は写し先に `_Chmonos-コピーの途中.json` を置き、途中でアプリごと止まった写しかけをライブラリと見ない（`UnfinishedCopy`。`docs/spec/architecture.md`）。
 
 ## 例外的な動き・落とし穴
 

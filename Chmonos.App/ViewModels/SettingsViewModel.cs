@@ -1627,11 +1627,29 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        if (PickFolder() is { } chosen)
+        {
+            await ChangeRootToAsync(chosen);
+        }
+    }
+
+    /// <summary>
+    /// 選んだフォルダへ保存先を変える（フォルダを選んだ後の本体）。試験はここから呼ぶ
+    /// （試験は環境変数で保存先を決めるので、「場所を変える」自体は押せない）。
+    /// </summary>
+    internal async Task ChangeRootToAsync(string chosen)
+    {
         // 初回画面と同じ規則：選んだ場所の中に「Chmonos」を作って使う（ライブラリがある場所ならそのまま）
-        var chosen = PickFolder();
-        var picked = chosen is null ? null : StoreLocation.RootFor(chosen);
+        var picked = StoreLocation.RootFor(chosen);
         // 同じ場所かは実体で見る（ジャンクションなどの別名も同じ場所。外部の点検 2026-10-06）
-        if (picked is null || Core.Storage.FolderIdentity.IsSame(picked, _services.Paths.Root))
+        if (Core.Storage.FolderIdentity.IsSame(picked, _services.Paths.Root))
+        {
+            return;
+        }
+
+        // 前の引越し・戻すの途中で止まった写しかけは、ライブラリとして比べさせない（実機の確かめ 2026-10-07）。
+        // 片付けたら、空になった（または置き換える前の物が戻った）場所として続ける
+        if (Core.Storage.UnfinishedCopy.IsAt(picked) && !await UnfinishedCopyPrompt.ResolveAsync(picked))
         {
             return;
         }
@@ -1647,7 +1665,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             var there = await Task.Run(() => Core.Storage.StoreMover.Summarize(picked));
 
             // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ判断）
-            var answer = Views.ChoiceDialog.Ask(
+            var answer = ChoiceQuestion.Ask(new ChoiceRequest(
                 "どちらのライブラリを残しますか",
                 "選んだ場所には既にライブラリがあります。どちらを残しますか？",
                 $"【今の保存先】{source}\n{Describe(here)}\n\n"
@@ -1655,7 +1673,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 + "「今のデータで置き換える」\n選んだ場所にあるものは消さず、「_置き換え前-（日時）」へ移動してから入れ替えます。\n\n"
                 + "「選んだ場所のデータを使う」\n今のデータは元の場所に残ります。混ぜることはしません。",
                 "今のデータで置き換える",
-                "選んだ場所のデータを使う");
+                "選んだ場所のデータを使う"));
 
             if (answer == Views.ChoiceDialogResult.Cancel)
             {
@@ -1692,7 +1710,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         var (files, bytes) = await Task.Run(() => Core.Storage.StoreMover.Measure(source));
 
-        var move = Views.ChoiceDialog.Ask(
+        var move = ChoiceQuestion.Ask(new ChoiceRequest(
             "データを引っ越しますか",
             "今のデータを新しい場所へ引っ越しますか？",
             $"変更前：{source}\n変更後：{picked}\n"
@@ -1700,7 +1718,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             + "「引っ越す」\nコピーしてから元を消します。途中で失敗した場合は元のままにします。\n\n"
             + "「場所だけ変える」\n次の起動は、新しい場所の空の状態から始まります。今のデータは元の場所に残ります。",
             "引っ越す",
-            "場所だけ変える");
+            "場所だけ変える"));
 
         if (move == Views.ChoiceDialogResult.Cancel)
         {
@@ -1930,6 +1948,18 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        await RestoreBackupIntoAsync(open.FileName, destination);
+    }
+
+    /// <summary>zip と戻す先を選んだ後の本体。試験はここから呼ぶ（「戻す」自体は環境変数で保存先を決めた試験では押せない）。</summary>
+    internal async Task RestoreBackupIntoAsync(string zipPath, string destination)
+    {
+        // 前の引越し・戻すの途中で止まった写しかけは、空でない場所として断るだけにしない。何の写しかけかを言い、片付けられるようにする
+        if (Core.Storage.UnfinishedCopy.IsAt(destination) && !await UnfinishedCopyPrompt.ResolveAsync(destination))
+        {
+            return;
+        }
+
         if (!StoreLocation.IsEmpty(destination))
         {
             Services.Notice.Show(
@@ -1941,7 +1971,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        await RestoreBackupToAsync(open.FileName, destination);
+        await RestoreBackupToAsync(zipPath, destination);
     }
 
     /// <summary>

@@ -224,6 +224,20 @@ public partial class App : Application
     {
         var root = StoreLocation.Resolve();
 
+        // 保存先が引越し・戻すの途中で止まった写しかけなら開かない。今の作りでは location.json が写しかけを指すことは無い
+        // （印を外してから場所を書き換える）が、手で直したときなどに起こり得る。開くと商品の大半が欠けたライブラリとして動き、
+        // 起動時の作業がそこへ書き足すので、写しかけと元を見比べられなくなる。既定の場所へ切り替える問いは出さない
+        // （見つからないときと違い、つなぎ直せば済む話ではなく、どこへ直すかは使う人が知っている）
+        if (UnfinishedCopy.IsAt(root.Path))
+        {
+            Services.Notice.Show(
+                ViewModels.UnfinishedCopyPrompt.StartupText(root.Path, UnfinishedCopy.Read(root.Path)),
+                "保存先を開けません",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return false;
+        }
+
         if (!AsksWhenStoreMissing(root, Directory.Exists(root.Path)))
         {
             return true;

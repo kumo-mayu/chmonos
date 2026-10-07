@@ -199,6 +199,13 @@ public static class StoreLocation
             return false;
         }
 
+        // 引越し・戻すの途中で止まった写しかけは、管理ファイルがあっても商品の大半が欠けている。
+        // ライブラリと見ると「選んだ場所のデータを使う」で欠けたライブラリへ切り替わった（実機の確かめ 2026-10-07）
+        if (UnfinishedCopy.IsAt(root))
+        {
+            return false;
+        }
+
         var paths = new AppPaths(root);
 
         return Directory.Exists(paths.ItemsDir)
@@ -220,7 +227,10 @@ public static class StoreLocation
     public static string RootFor(string picked)
     {
         var trimmed = System.IO.Path.TrimEndingDirectorySeparator(picked);
+
+        // 写しかけの場所もそのまま返す。置き換えの写しかけは名前が「Chmonos」とは限らず、中に作る先を返すと写しかけに気付けない
         return LooksLikeStore(trimmed)
+            || UnfinishedCopy.IsAt(trimmed)
             || string.Equals(System.IO.Path.GetFileName(trimmed), FolderName, StringComparison.OrdinalIgnoreCase)
                 ? trimmed
                 : System.IO.Path.Combine(trimmed, FolderName);
