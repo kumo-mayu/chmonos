@@ -1,0 +1,241 @@
+using Chmonos.Core.Storage;
+using Xunit;
+
+namespace Chmonos.Core.Tests;
+
+/// <summary>
+/// 引越し・戻すの途中でプロセスごと止まったときの写しかけ（実機の確かめ 2026-10-07）。
+/// 前は印が無く、写しかけの場所を後で選ぶと「既にあるライブラリ」に見え、「選んだ場所のデータを使う」で
+/// 商品の大半が欠けたライブラリへ切り替わった。
+///
+/// 止まった所は、進み具合の知らせから投げる例外で作る。運ぶ処理が拾うのは入出力・権限・中止の例外だけなので、
+/// それ以外は片付けを通らずに抜ける——プロセスが落ちて片付けが走らないのと同じ姿が残る
+/// </summary>
+public sealed class UnfinishedCopyTests : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "chmonos-unfinished-" + Guid.NewGuid().ToString("N"));
+
+    private string Source => Path.Combine(_root, "src");
+
+    private string Destination => Path.Combine(_root, "dst");
+
+    public UnfinishedCopyTests()
+    {
+        Directory.CreateDirectory(Path.Combine(Source, "items"));
+        Directory.CreateDirectory(Path.Combine(Source, "images", "123"));
+        File.WriteAllText(Path.Combine(Source, "settings.json"), "{}");
+        File.WriteAllText(Path.Combine(Source, "items", "123.json"), "{ \"id\": \"123\" }");
+        File.WriteAllText(Path.Combine(Source, "items", "456.json"), "{ \"id\": \"456\" }");
+        File.WriteAllBytes(Path.Combine(Source, "images", "123", "a.webp"), new byte[64]);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_root))
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+    }
+
+    private sealed class Crash : Exception;
+
+    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
+
+    /// <summary>全部を写し終えた直後（突き合わせの前）に止める。写し先には商品も設定もそろっている。</summary>
+    private void CrashMoveAtTheEnd(Func<StoreMoveResult> run)
+        => Assert.Throws<Crash>(() => run());
+
+    private SyncProgress<StoreMoveProgress> CrashAfterLast()
+        => new(report =>
+        {
+            if (report.Copied == report.Total)
+            {
+                throw new Crash();
+            }
+        });
+
+    [Fact]
+    public void 引越しの途中で止まった場所は_ライブラリと見ず_写しかけと分かる()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+
+        // 印が無ければ、商品と設定がそろっているのでライブラリに見えていた
+        Assert.True(File.Exists(Path.Combine(Destination, "settings.json")));
+        Assert.True(UnfinishedCopy.IsAt(Destination));
+        Assert.False(StoreLocation.LooksLikeStore(Destination));
+
+        var marker = UnfinishedCopy.Read(Destination);
+        Assert.NotNull(marker);
+        Assert.Equal(UnfinishedCopyKind.Move, marker.Kind);
+        Assert.Equal(Source, marker.From);
+
+        // 人が開いて読める形（名前の付いた欄と、何の物かの説明）
+        var text = File.ReadAllText(UnfinishedCopy.MarkerPath(Destination));
+        Assert.Contains("\"kind\": \"move\"", text);
+        Assert.Contains("途中で止まったコピー", text);
+    }
+
+    /// <summary>名前が「Chmonos」でない写しかけ（置き換えの先など）を選んでも、中に新しく作らずその場所を返す。</summary>
+    [Fact]
+    public void 写しかけの場所を選ぶと_中に作らずその場所を使う()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+
+        Assert.Equal(Destination, StoreLocation.RootFor(Destination));
+    }
+
+    [Fact]
+    public void 写しかけへもう一度引っ越すと_断り_写しかけは触らない()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+        var before = UnfinishedCopy.Plan(Destination).Files.Count;
+
+        var moved = StoreMover.Move(Source, Destination);
+        var replaced = StoreMover.Replace(Source, Destination);
+
+        Assert.False(moved.Succeeded);
+        Assert.Equal(StoreMover.UnfinishedRefusal, moved.Error);
+        Assert.False(replaced.Succeeded);
+        Assert.Equal(StoreMover.UnfinishedRefusal, replaced.Error);
+        Assert.Equal(before, UnfinishedCopy.Plan(Destination).Files.Count);
+        Assert.True(File.Exists(Path.Combine(Source, "settings.json")));
+    }
+
+    [Fact]
+    public void 引越しを写し終えると印は消える()
+    {
+        var sawMarker = false;
+        var result = StoreMover.Move(Source, Destination, new SyncProgress<StoreMoveProgress>(_ => sawMarker |= UnfinishedCopy.IsAt(Destination)));
+
+        Assert.True(result.Succeeded);
+        Assert.True(sawMarker);
+        Assert.False(UnfinishedCopy.IsAt(Destination));
+        Assert.True(StoreLocation.LooksLikeStore(Destination));
+    }
+
+    [Fact]
+    public void 引越しを止めると_写しと一緒に印も消える()
+    {
+        using var stop = new CancellationTokenSource();
+        var result = StoreMover.Move(Source, Destination, new SyncProgress<StoreMoveProgress>(_ => stop.Cancel()), stop.Token);
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.LeftoverAt);
+        Assert.False(Directory.Exists(Destination));
+    }
+
+    [Fact]
+    public void 戻すの途中は印があり_戻し終えると印は消える()
+    {
+        var zip = Path.Combine(_root, "backup.zip");
+        BackupArchive.Export(Source, zip, includeImages: true);
+        var restored = Path.Combine(_root, "restored");
+
+        var sawMarker = false;
+        BackupArchive.Restore(zip, restored, new SyncProgress<BackupProgress>(_ => sawMarker |= UnfinishedCopy.IsAt(restored)));
+
+        Assert.True(sawMarker);
+        Assert.False(UnfinishedCopy.IsAt(restored));
+        Assert.True(StoreLocation.LooksLikeStore(restored));
+    }
+
+    [Fact]
+    public void 戻すの途中の印は_何の写しかけかを書く_書き出しには入らない()
+    {
+        var zip = Path.Combine(_root, "backup.zip");
+        BackupArchive.Export(Source, zip, includeImages: true);
+        var restored = Path.Combine(_root, "restored");
+
+        UnfinishedCopyMarker? seen = null;
+        BackupArchive.Restore(zip, restored, new SyncProgress<BackupProgress>(_ => seen ??= UnfinishedCopy.Read(restored)));
+
+        Assert.NotNull(seen);
+        Assert.Equal(UnfinishedCopyKind.Restore, seen.Kind);
+        Assert.Equal(zip, seen.From);
+        Assert.True(seen.CreatedFolder);
+    }
+
+    /// <summary>
+    /// 片付けは写しで作った物だけを消す。写し始める前から写し先にあった物（番兵）は、フォルダの中の物も残す。
+    /// 写し先のフォルダは元から在ったので畳まない
+    /// </summary>
+    [Fact]
+    public void 片付けは写しで作った物だけを消し_元からあった物は残す()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "notes"));
+        File.WriteAllText(Path.Combine(Destination, "keep.txt"), "番兵");
+        File.WriteAllText(Path.Combine(Destination, "notes", "memo.txt"), "番兵");
+
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+
+        var plan = UnfinishedCopy.Plan(Destination);
+        Assert.Equal(4, plan.Files.Count);
+        Assert.DoesNotContain(plan.Files, file => file.EndsWith("keep.txt", StringComparison.Ordinal) || file.EndsWith("memo.txt", StringComparison.Ordinal));
+
+        var cleanup = UnfinishedCopy.Clean(Destination);
+
+        Assert.Equal(4, cleanup.Removed);
+        Assert.Equal(0, cleanup.Left);
+        Assert.Equal(
+            ["keep.txt", Path.Combine("notes", "memo.txt")],
+            Directory.EnumerateFiles(Destination, "*", SearchOption.AllDirectories)
+                .Select(file => Path.GetRelativePath(Destination, file)).Order().ToArray());
+        Assert.False(UnfinishedCopy.IsAt(Destination));
+
+        // 元のデータには触れない
+        Assert.Equal(4, Directory.EnumerateFiles(Source, "*", SearchOption.AllDirectories).Count());
+    }
+
+    [Fact]
+    public void 写すために作ったフォルダは_片付けると畳む()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+
+        UnfinishedCopy.Clean(Destination);
+
+        Assert.False(Directory.Exists(Destination));
+        Assert.True(Directory.Exists(_root));
+    }
+
+    /// <summary>置き換えの途中で止まった写しかけは、片付けると退けておいた元のライブラリが選んだ場所に戻る。</summary>
+    [Fact]
+    public void 置き換えの写しかけを片付けると_退けた元のライブラリが戻る()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "items"));
+        File.WriteAllText(Path.Combine(Destination, "settings.json"), "{\"old\":true}");
+        File.WriteAllText(Path.Combine(Destination, "items", "999.json"), "{ \"id\": \"999\" }");
+
+        CrashMoveAtTheEnd(() => StoreMover.Replace(Source, Destination, CrashAfterLast()));
+        Assert.False(StoreLocation.LooksLikeStore(Destination));
+        Assert.NotNull(UnfinishedCopy.Plan(Destination).ParkedAt);
+
+        var cleanup = UnfinishedCopy.Clean(Destination);
+
+        Assert.True(cleanup.ParkedRestored);
+        Assert.Equal("{\"old\":true}", File.ReadAllText(Path.Combine(Destination, "settings.json")));
+        Assert.Equal(
+            ["999.json"],
+            Directory.EnumerateFiles(Path.Combine(Destination, "items")).Select(path => Path.GetFileName(path)!).ToArray());
+        Assert.Equal(["items", "settings.json"], Directory.EnumerateFileSystemEntries(Destination).Select(path => Path.GetFileName(path)!).Order().ToArray());
+        Assert.True(StoreLocation.LooksLikeStore(Destination));
+    }
+
+    [Fact]
+    public void 印が読めなければ_何も消さない()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+        File.WriteAllText(UnfinishedCopy.MarkerPath(Destination), "壊れた");
+        var before = Directory.EnumerateFiles(Destination, "*", SearchOption.AllDirectories).Count();
+
+        Assert.Null(UnfinishedCopy.Plan(Destination).Marker);
+        var cleanup = UnfinishedCopy.Clean(Destination);
+
+        Assert.Equal(0, cleanup.Removed);
+        Assert.True(cleanup.Left > 0);
+        Assert.Equal(before, Directory.EnumerateFiles(Destination, "*", SearchOption.AllDirectories).Count());
+        Assert.False(StoreLocation.LooksLikeStore(Destination));
+    }
+}

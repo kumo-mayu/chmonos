@@ -48,8 +48,8 @@ public sealed record StoreSummary
 /// </summary>
 public static class StoreMover
 {
-    /// <summary>数えるときも運ぶときも、この名前は除く（実行中のロックは持ち出せない）。</summary>
-    private static readonly string[] Skipped = ["app.lock"];
+    /// <summary>数えるときも運ぶときも、この名前は除く（実行中のロックは持ち出せない。写している途中の印は運ぶ先が自分で置く）。</summary>
+    private static readonly string[] Skipped = ["app.lock", UnfinishedCopy.MarkerName];
 
     /// <summary>運ぶ量を先に測る。確認のダイアログに出す。</summary>
     public static (int Files, long Bytes) Measure(string root)
@@ -107,6 +107,12 @@ public static class StoreMover
             return Refused(linked);
         }
 
+        // 写しかけを退けると、退けた中に写しかけの印ごと埋もれ、元々あった物との見分けが付かなくなる。先に片付けてもらう
+        if (UnfinishedCopy.IsAt(destination))
+        {
+            return Refused(UnfinishedRefusal);
+        }
+
         var parked = Path.Combine(destination, $"_置き換え前-{DateTime.Now:yyyyMMdd-HHmmss}");
 
         try
@@ -135,8 +141,12 @@ public static class StoreMover
             };
         }
 
-        return Move(source, destination, progress, cancellationToken, commit) with { ParkedAt = parked };
+        return MoveCore(source, destination, progress, cancellationToken, commit, parked) with { ParkedAt = parked };
     }
+
+    /// <summary>写しかけの場所へ写そうとしたときの文。</summary>
+    public const string UnfinishedRefusal =
+        "選んだ場所は、前の引越しかバックアップから戻す途中で止まったコピーです。途中のコピーを削除してから、もう一度選んでください。";
 
     /// <param name="commit">
     /// 突き合わせが済んでから、元を消す前に呼ぶ（呼び手はここで <c>location.json</c> を書き換える）。投げたら、運んだ物を消して失敗で返す。
@@ -149,6 +159,15 @@ public static class StoreMover
         IProgress<StoreMoveProgress>? progress = null,
         CancellationToken cancellationToken = default,
         Action? commit = null)
+        => MoveCore(source, destination, progress, cancellationToken, commit, parked: null);
+
+    private static StoreMoveResult MoveCore(
+        string source,
+        string destination,
+        IProgress<StoreMoveProgress>? progress,
+        CancellationToken cancellationToken,
+        Action? commit,
+        string? parked)
     {
         // 運ぶ先が今の保存先の内側（または別名で同じ実体）だと、運んだ物がまた運ぶ元に数えられ、
         // 同じ実体なら失敗の片付けが元のファイルを消す。文字だけでなく実体で比べる（FolderIdentity）
@@ -160,6 +179,12 @@ public static class StoreMover
         if (LinkInside(source, destination) is { } linked)
         {
             return Refused(linked);
+        }
+
+        // 印を置き直すと、前の写しかけを「写す前から在った物」と控えてしまい、片付けで消せなくなる
+        if (parked is null && UnfinishedCopy.IsAt(destination))
+        {
+            return Refused(UnfinishedRefusal);
         }
 
         var files = Enumerate(source).ToList();
@@ -187,6 +212,10 @@ public static class StoreMover
         try
         {
             CreateFolder(destination, createdFolders);
+
+            // 写している途中の印。途中でプロセスごと止まると下の片付けは走らず、写しかけが「既にあるライブラリ」に見えていた
+            // （実機の確かめ 2026-10-07）。印のある場所はライブラリとして扱わない（StoreLocation.LooksLikeStore）
+            UnfinishedCopy.Begin(destination, UnfinishedCopyKind.Move, source, createdDestination, parked);
 
             foreach (var file in files)
             {
@@ -273,6 +302,25 @@ public static class StoreMover
             };
         }
 
+        // 印は場所を書き換える前に外す。書き換えた後に外して落ちると、保存先が写しかけに見える場所を指したまま残る。
+        // 外した後で止まっても、運ぶ先は突き合わせの済んだ完全な写しなので、ライブラリに見えてよい
+        try
+        {
+            UnfinishedCopy.End(destination);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Diagnostics.AppLog.Error("写している途中の印を外す", exception);
+            return new StoreMoveResult
+            {
+                Succeeded = false,
+                Copied = copied,
+                Bytes = bytes,
+                Error = Services.FailureText.Cause(exception),
+                LeftoverAt = RemoveCopies(destination, written, createdFolders, createdDestination),
+            };
+        }
+
         if (commit is not null)
         {
             try
@@ -318,6 +366,22 @@ public static class StoreMover
             try
             {
                 File.Delete(file);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                allRemoved = false;
+            }
+        }
+
+        // 写している途中の印は、写しを全部消せたときだけ外す。消し残しがあれば、印を残して写しかけだと分かるようにする
+        if (allRemoved)
+        {
+            try
+            {
+                if (File.Exists(UnfinishedCopy.MarkerPath(destination)))
+                {
+                    UnfinishedCopy.End(destination);
+                }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {

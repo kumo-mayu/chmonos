@@ -82,7 +82,8 @@ public static class BackupArchive
             || string.Equals(name, "location.json", StringComparison.OrdinalIgnoreCase)
             // 書き出しの途中の記録は、その回の書き出しのための物。戻すと、戻した先で知らない場所の .tmp を探しに行く
             || string.Equals(name, BackupWritingRecord.FileName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, InfoFileName, StringComparison.OrdinalIgnoreCase);
+            || string.Equals(name, InfoFileName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, UnfinishedCopy.MarkerName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsImage(string relativePath)
@@ -267,11 +268,16 @@ public static class BackupArchive
         // 前は展開先を丸ごと再帰で消していたので、戻している間に人がそこへ置いた物（別のアプリが書いた物）まで、ごみ箱を通さずに消していた
         var createdFiles = new List<string>();
         var createdFolders = new List<string>();
+        var createdDestination = !Directory.Exists(destinationRoot);
         StoreMover.CreateFolder(destinationRoot, createdFolders);
 
         try
         {
+            // 写している途中の印。途中でプロセスごと止まると下の片付けは走らず、書きかけが「既にあるライブラリ」に見えていた
+            // （実機の確かめ 2026-10-07）。印は展開し終えてから、場所を書き換える前に外す（StoreMover と同じ順）
+            UnfinishedCopy.Begin(destinationRoot, UnfinishedCopyKind.Restore, zipPath, createdDestination);
             var extracted = Extract();
+            UnfinishedCopy.End(destinationRoot);
             commit?.Invoke();
             return extracted;
         }
@@ -279,7 +285,7 @@ public static class BackupArchive
         {
             // 失敗・中止のときは展開した物を消す（ユーザ判断 2026-10-01）。
             // 残すと展開先が空でなくなり、同じ場所へ戻し直すと「空ではありません」で断られ、手で片付けるまで使えない
-            ClearExtracted(createdFiles, createdFolders);
+            ClearExtracted(destinationRoot, createdFiles, createdFolders);
             throw;
         }
 
@@ -329,8 +335,9 @@ public static class BackupArchive
     /// 戻すが作ったファイルを消し、作ったフォルダを空になった物だけ深い方から畳む。
     /// 後から人が置いた物はどれにも入っていないので残り、それが入ったフォルダも空でないので残る。
     /// </summary>
-    private static void ClearExtracted(IReadOnlyList<string> createdFiles, IReadOnlyList<string> createdFolders)
+    private static void ClearExtracted(string destinationRoot, IReadOnlyList<string> createdFiles, IReadOnlyList<string> createdFolders)
     {
+        var allRemoved = true;
         foreach (var file in createdFiles)
         {
             try
@@ -341,6 +348,20 @@ public static class BackupArchive
             {
                 // 消しきれなければ残る。元の失敗の方を伝える（こちらはログにだけ残す）
                 Diagnostics.AppLog.Error("戻すの途中の物を消す", exception);
+                allRemoved = false;
+            }
+        }
+
+        // 印は全部消せたときだけ外す。消し残しがあれば、印を残して写しかけだと分かるようにする
+        if (allRemoved)
+        {
+            try
+            {
+                File.Delete(UnfinishedCopy.MarkerPath(destinationRoot));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.AppLog.Error("写している途中の印を外す", exception);
             }
         }
 

@@ -82,7 +82,7 @@ public partial class FirstRunWindow : Window
         base.OnPreviewKeyDown(e);
     }
 
-    private void OnPickFolder(object sender, RoutedEventArgs e)
+    private async void OnPickFolder(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
@@ -97,6 +97,12 @@ public partial class FirstRunWindow : Window
 
         // 選んだ場所の中に「Chmonos」を作って使う（ライブラリがある場所ならそのまま）
         var picked = StoreLocation.RootFor(dialog.FolderName);
+
+        // 前の引越し・戻すの途中で止まった写しかけは、ライブラリとして開かせない（実機の確かめ 2026-10-07）。片付けたら続けて使える
+        if (UnfinishedCopy.IsAt(picked) && !await ViewModels.UnfinishedCopyPrompt.ResolveAsync(picked))
+        {
+            return;
+        }
 
         // 既に別のライブラリが入っている場所を選んだら、そちらを開くことになる。
         // 黙って混ざるより、選び直す機会を出す
