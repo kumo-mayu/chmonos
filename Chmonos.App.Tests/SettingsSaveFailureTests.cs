@@ -116,4 +116,38 @@ public sealed class SettingsSaveFailureTests
         Assert.Contains(app.Notices, request => request.Caption == "設定を保存できませんでした");
         Assert.NotEqual("設定を既定に戻しました。", settings.ResetNote);
     });
+
+    /// <summary>
+    /// 取り込み元を外す保存に失敗したら、行は戻り、「外しました」は出さない（外部の点検 2026-10-07）。
+    /// 前は行が消えたまま、保存されていない外しの知らせと「取り込み元に戻す」が出ていた
+    /// </summary>
+    [Fact]
+    public Task 取り込み元を外す保存に失敗したら_行が戻り_外したとは言わない() => TestApp.Run(async app =>
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "chmonos-import-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(folder);
+        try
+        {
+            await app.ChangeSettingsAsync(current => Core.Services.FolderListChange.AddImportFolders(current, [folder]));
+            var main = await app.StartAsync();
+            main.ShowSettingsCommand.Execute(null);
+            var settings = Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
+            await app.SettleAsync();
+            var row = Assert.Single(settings.Folders, entry => entry.Path == folder);
+
+            await WithReadOnlySettings(app, async () =>
+            {
+                row.RemoveCommand!.Execute(null);
+                await app.SettleAsync();
+            });
+
+            Assert.Contains(settings.Folders, entry => entry.Path == folder);
+            Assert.False(main.HasFolderRemovedNotice);
+            Assert.Contains(folder, app.Services.Settings.ImportFolders);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    });
 }

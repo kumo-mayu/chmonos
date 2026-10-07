@@ -231,8 +231,7 @@ public sealed class ModificationService : IModificationService
             return false;
         }
 
-        _store.Modifications.Delete(id);
-        await Task.CompletedTask;
+        await _store.Modifications.DeleteAsync(id, cancellationToken);
         return true;
     }
 

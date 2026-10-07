@@ -1229,7 +1229,8 @@ public sealed partial class ImportViewModel : ViewModelBase
             {
                 var freed = removed.Results.Where(entry => entry.Removed).Sum(entry => entry.FreedBytes);
                 var removedCount = removed.Results.Count(entry => entry.Removed);
-                RemovalResults.Add($"{removedCount} フォルダを削除し、{Core.Models.DisplayText.Size(freed)} 空きました。");
+                // ごみ箱へ移しただけでは空かない。空けたい人に次の一手を言う（ユーザ判断 2026-10-07。設定で完全な削除を選ばせる代わり）
+                RemovalResults.Add($"{removedCount} フォルダをごみ箱へ移しました。ごみ箱を空にすると {Core.Models.DisplayText.Size(freed)} 空きます。");
 
                 foreach (var entry in removed.Results.Where(entry => !entry.Removed))
                 {

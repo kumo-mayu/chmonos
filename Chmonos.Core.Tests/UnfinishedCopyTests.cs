@@ -349,4 +349,37 @@ public sealed class UnfinishedCopyTests : IDisposable
             held?.Dispose();
         }
     }
+
+    /// <summary>
+    /// 場所を記録できず、印も置き直せなければ、写しを消さずに残す（外部の点検 2026-10-07）。
+    /// 印の無いまま消し始めると、消し残しが欠けたライブラリになる。残すのは突き合わせの済んだ完全な写し
+    /// </summary>
+    [Fact]
+    public void 場所を記録できず印も置き直せなければ_写しを消さずに残す()
+    {
+        var result = StoreMover.Move(Source, Destination, commit: () =>
+        {
+            // 印の場所にフォルダを置いて、置き直しを失敗させる
+            Directory.CreateDirectory(UnfinishedCopy.MarkerPath(Destination));
+            throw new IOException("記録できない");
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(Destination, result.LeftoverAt);
+        Assert.True(File.Exists(Path.Combine(Destination, "items", "123.json")));
+        Assert.True(File.Exists(Path.Combine(Destination, "items", "456.json")));
+        Assert.True(File.Exists(Path.Combine(Source, "items", "123.json")));
+    }
+
+    /// <summary>突き合わせの後で元へ書き足された物が残っていれば、「全部移した」とは言わない（外部の点検 2026-10-07）。</summary>
+    [Fact]
+    public void 突き合わせの後で元へ増えた物が残れば_全部移したとは言わない()
+    {
+        var result = StoreMover.Move(Source, Destination, commit: () =>
+            File.WriteAllText(Path.Combine(Source, "items", "789.json"), "{ \"id\": \"789\" }"));
+
+        Assert.True(result.Succeeded);
+        Assert.False(result.SourceRemoved);
+        Assert.True(File.Exists(Path.Combine(Source, "items", "789.json")));
+    }
 }

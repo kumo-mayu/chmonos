@@ -487,7 +487,7 @@ public static class JsonStore
         // リンクの先（保存先の外）の .tmp は消さない（StoreTree。外部の点検 2026-10-06）
         foreach (var file in StoreTree.Files(directory, "*.tmp", includeSubdirectories))
         {
-            if (File.GetLastWriteTimeUtc(file) < cutoff && TryDelete(file))
+            if (IsAppTemporaryName(Path.GetFileName(file)) && File.GetLastWriteTimeUtc(file) < cutoff && TryDelete(file))
             {
                 deleted++;
             }
@@ -495,6 +495,18 @@ public static class JsonStore
 
         return deleted;
     }
+
+    /// <summary>
+    /// このアプリが書き込みに使う一時ファイルの名前か。片付けで消すのはこの形だけ（外部の点検 2026-10-07。
+    /// 前は保存先の中の .tmp を古さだけで消していたので、使う人や別の道具が置いた .tmp も消えた）。
+    /// <c>&lt;本体&gt;.&lt;プロセス番号&gt;-&lt;通し番号&gt;.tmp</c>（JSON）・<c>&lt;本体&gt;.&lt;32桁&gt;.tmp</c>（画像）・
+    /// <c>&lt;本体&gt;.restore.tmp</c>（よけた記録を戻す）・辞書の索引の2つ
+    /// </summary>
+    internal static bool IsAppTemporaryName(string fileName)
+        => System.Text.RegularExpressions.Regex.IsMatch(
+            fileName,
+            @"\.([0-9a-f]+-[0-9a-f]+|[0-9a-f]{32}|restore)\.tmp$|^(search-bridge|kanji-readings)\.cache\.tmp$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     private static bool TryDelete(string path)
     {

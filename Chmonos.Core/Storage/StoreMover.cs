@@ -332,15 +332,16 @@ public static class StoreMover
             {
                 Diagnostics.AppLog.Error("引越しの後に保存先の場所を覚える", exception);
 
-                // 写しを消し始める前に印を置き直す。消し残し・途中で落ちた分が、印の無い欠けたライブラリにならないように
-                UnfinishedCopy.PutBack(destination, savedMarker);
+                // 写しを消し始める前に印を置き直す。消し残し・途中で落ちた分が、印の無い欠けたライブラリにならないように。
+                // 置けなければ消さずに残す（突き合わせの済んだ完全な写しなので、ライブラリとして開いても欠けていない）
+                var marked = UnfinishedCopy.PutBack(destination, savedMarker);
                 return new StoreMoveResult
                 {
                     Succeeded = false,
                     Copied = copied,
                     Bytes = bytes,
                     Error = $"新しい保存先の場所を記録できませんでした。{Services.FailureText.Cause(exception)}",
-                    LeftoverAt = RemoveCopies(destination, written, createdFolders, createdDestination),
+                    LeftoverAt = marked ? RemoveCopies(destination, written, createdFolders, createdDestination) : destination,
                 };
             }
         }
@@ -586,6 +587,20 @@ public static class StoreMover
             {
                 allRemoved = false;
             }
+        }
+
+        // 突き合わせの後で元へ書き足された物は、運んだ一覧に無いので消さずに残る。残っていれば「全部移した」とは言わない
+        // （残ったと知らせる。外部の点検 2026-10-07）。運ばない決まりの物（app.lock・写しかけの印）は数えない
+        try
+        {
+            if (StoreTree.Files(source).Any(file => !Skipped.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase)))
+            {
+                allRemoved = false;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            allRemoved = false;
         }
 
         return allRemoved;

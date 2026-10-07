@@ -148,8 +148,8 @@ public sealed class StoreLinkTests : IDisposable
     [Fact]
     public void StaleTemporaryCleanupDoesNotFollowJunction()
     {
-        var outsideTmp = Path.Combine(Outside, "old.tmp");
-        var insideTmp = Path.Combine(Source, "items", "old.tmp");
+        var outsideTmp = Path.Combine(Outside, "old.json.1a-2.tmp");
+        var insideTmp = Path.Combine(Source, "items", "old.json.1a-3.tmp");
         File.WriteAllText(outsideTmp, "外の書きかけ");
         File.WriteAllText(insideTmp, "中の書きかけ");
         var old = DateTime.UtcNow.AddHours(-1);

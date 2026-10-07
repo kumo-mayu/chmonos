@@ -225,4 +225,124 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.False(BackupArchive.LooksLikeBackup(zip));
         Assert.Throws<InvalidDataException>(() => BackupArchive.Restore(zip, Path.Combine(_dir, "x")));
     }
+
+    /// <summary>zip を作る（中の名前と中身）。手を入れた zip・別の道具で作った zip を戻す試験に使う。</summary>
+    private string MakeZip(string name, params (string Entry, string Text)[] entries)
+    {
+        var zip = Path.Combine(_dir, name);
+        using var archive = ZipFile.Open(zip, ZipArchiveMode.Create);
+        foreach (var (entry, text) in entries)
+        {
+            using var writer = new StreamWriter(archive.CreateEntry(entry).Open());
+            writer.Write(text);
+        }
+
+        return zip;
+    }
+
+    /// <summary>
+    /// 書き出しで入れない物（書き出しの途中の記録・写しかけの印）は、zip に入っていても戻さない（外部の点検 2026-10-07）。
+    /// 書き出しの途中の記録が戻ると、次の起動の片付けが、記録の指す保存先の外のファイルを消しに行った
+    /// </summary>
+    [Fact]
+    public void 書き出しの途中の記録と写しかけの印は戻さない()
+    {
+        var victim = Path.Combine(_dir, "使う人の.zip.tmp");
+        File.WriteAllText(victim, "大事");
+        var zip = MakeZip("crafted.zip",
+            ("settings.json", "{}"),
+            (BackupWritingRecord.FileName, $"{{\"temporaryFile\": {System.Text.Json.JsonSerializer.Serialize(victim)}}}"),
+            (UnfinishedCopy.MarkerName, "{}"));
+        var destination = Path.Combine(_dir, "restored");
+
+        BackupArchive.Restore(zip, destination);
+        BackupWritingRecord.CleanUp(destination);
+
+        Assert.False(File.Exists(Path.Combine(destination, BackupWritingRecord.FileName)));
+        Assert.False(UnfinishedCopy.IsAt(destination));
+        Assert.True(File.Exists(victim));
+    }
+
+    /// <summary>戻すと危ない名前（代替データストリーム・予約名・末尾の点）が入っていれば、何も書かずに断る。</summary>
+    [Theory]
+    [InlineData("items/111.json:hidden")]
+    [InlineData("images/CON.txt")]
+    [InlineData("items/x.json.")]
+    public void 戻すと危ない名前が入っていれば_何も書かずに断る(string bad)
+    {
+        var zip = MakeZip("odd.zip", ("settings.json", "{}"), (bad, "x"));
+        var destination = Path.Combine(_dir, "restored");
+
+        Assert.Throws<InvalidDataException>(() => BackupArchive.Restore(zip, destination));
+
+        Assert.False(Directory.Exists(destination) && Directory.EnumerateFileSystemEntries(destination, "*", SearchOption.AllDirectories).Any());
+    }
+
+    /// <summary>
+    /// 最後のファイルを書いている間に押された中止でも、場所を記録しない（外部の点検 2026-10-07）。
+    /// 前は中止をファイルの頭でしか見ず、最後の1つの後は見ないまま場所を記録して開き直していた
+    /// </summary>
+    [Fact]
+    public void 最後のファイルの後に中止されたら_場所を記録しない()
+    {
+        // 最後の項目が本物のファイルの zip（頭の確かめで止まる項目が後に無い）
+        var zip = MakeZip("last-is-file.zip", ("settings.json", "{}"), ("items/111.json", "{}"));
+        var destination = Path.Combine(_dir, "restored");
+        using var cancel = new CancellationTokenSource();
+        var committed = false;
+
+        Assert.ThrowsAny<OperationCanceledException>(() => BackupArchive.Restore(
+            zip,
+            destination,
+            new SyncProgress<BackupProgress>(report =>
+            {
+                if (report.Done == 2)
+                {
+                    cancel.Cancel();
+                }
+            }),
+            cancel.Token,
+            commit: () => committed = true));
+
+        Assert.False(committed);
+    }
+
+    /// <summary>
+    /// 書き出しの一時ファイルと同じ名前の物が既にあれば、上書きも削除もしない（外部の点検 2026-10-07）。
+    /// 前は上書きして作り、失敗したら消していた
+    /// </summary>
+    [Fact]
+    public void 一時ファイルと同じ名前の物があっても_上書きも削除もしない()
+    {
+        var zip = Path.Combine(_dir, "backup.zip");
+        File.WriteAllText(zip + ".tmp", "使う人の物");
+
+        BackupArchive.Export(Store, zip, includeImages: true);
+
+        Assert.Equal("使う人の物", File.ReadAllText(zip + ".tmp"));
+        Assert.True(File.Exists(zip));
+        Assert.Empty(Directory.EnumerateFiles(_dir, "backup.zip.*.tmp"));
+    }
+
+    /// <summary>書きかけの記録が書き出しの一時ファイルの形でない名前を指していれば、消さない。</summary>
+    [Fact]
+    public void 書きかけの片付けは_書き出しの一時ファイルの形の名前しか消さない()
+    {
+        var other = Path.Combine(_dir, "使う人の.tmp");
+        File.WriteAllText(other, "大事");
+        File.WriteAllText(Path.Combine(Store, BackupWritingRecord.FileName),
+            $"{{\"temporaryFile\": {System.Text.Json.JsonSerializer.Serialize(other)}}}");
+
+        BackupWritingRecord.CleanUp(Store);
+
+        Assert.True(File.Exists(other));
+        Assert.True(BackupWritingRecord.IsWritingName("backup.zip.tmp"));
+        Assert.True(BackupWritingRecord.IsWritingName("backup.zip.1a2b3c4d.tmp"));
+        Assert.False(BackupWritingRecord.IsWritingName("backup.tmp"));
+    }
+
+    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
 }

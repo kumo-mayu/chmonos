@@ -146,7 +146,7 @@ public sealed class ModificationCacheTests : IDisposable
         await SaveAsync("mod-00000002");
         await _store.Modifications.LoadAllAsync();
 
-        _store.Modifications.Delete("mod-00000001");
+        await _store.Modifications.DeleteAsync("mod-00000001");
         File.Delete(_paths.ModificationFile("mod-00000002"));
 
         Assert.Empty((await _store.Modifications.LoadAllAsync()).Modifications);

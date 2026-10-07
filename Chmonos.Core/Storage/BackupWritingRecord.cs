@@ -72,7 +72,7 @@ public static class BackupWritingRecord
         try
         {
             if (JsonStore.Read<BackupWritingFile>(recordPath)?.TemporaryFile is { Length: > 0 } temporary
-                && temporary.EndsWith(".zip.tmp", StringComparison.OrdinalIgnoreCase)
+                && IsWritingName(temporary)
                 && File.Exists(temporary))
             {
                 File.Delete(temporary);
@@ -87,4 +87,12 @@ public static class BackupWritingRecord
         End(root);
         return deleted;
     }
+
+    /// <summary>
+    /// 書き出しが作る一時ファイルの名前か（<c>&lt;名前&gt;.zip.tmp</c>、同じ名前の物が既にあったときの <c>&lt;名前&gt;.zip.&lt;8桁&gt;.tmp</c>）。
+    /// 記録は手で直せる JSON なので、この形の名前のほかは消さない
+    /// </summary>
+    internal static bool IsWritingName(string path)
+        => System.Text.RegularExpressions.Regex.IsMatch(
+            Path.GetFileName(path), @"\.zip(\.[0-9a-f]{8})?\.tmp$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 }

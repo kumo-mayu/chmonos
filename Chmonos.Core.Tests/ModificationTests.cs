@@ -220,15 +220,15 @@ public sealed class ModificationRepositoryTests : IDisposable
         Directory.CreateDirectory(images);
         await File.WriteAllTextAsync(Path.Combine(images, "user-1.webp"), "絵");
 
-        _repo.Delete(record.Id);
+        await _repo.DeleteAsync(record.Id);
 
         Assert.False(_repo.Exists(record.Id));
         Assert.False(Directory.Exists(images));
     }
 
     [Fact]
-    public void 無いものを消しても投げない()
-        => _repo.Delete("mod-00000000");
+    public Task 無いものを消しても投げない()
+        => _repo.DeleteAsync("mod-00000000");
 
     [Fact]
     public async Task 画像の置き場所は商品IDと衝突しない()

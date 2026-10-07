@@ -86,6 +86,38 @@ public static class BackupArchive
             || string.Equals(name, UnfinishedCopy.MarkerName, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// 戻してよい名前か（zip の中の名前・区切りは /）。:（代替データストリーム・ドライブ名）、予約名（CON・NUL・COM1 など）、
+    /// 末尾の点・空白、空の段は断る。書き出しはこういう名前を作らないので、入っていれば別の道具で作った・手を入れた zip
+    /// </summary>
+    internal static bool IsSafeEntryName(string fullName)
+    {
+        foreach (var segment in fullName.Split('/', '\\'))
+        {
+            if (segment.Length == 0 || segment is "." or ".." || segment.Contains(':')
+                || segment.EndsWith('.') || segment.EndsWith(' ')
+                || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                return false;
+            }
+
+            var stem = segment.Split('.')[0].TrimEnd();
+            if (ReservedNames.Contains(stem))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
     private static bool IsImage(string relativePath)
         => relativePath.StartsWith("images" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
@@ -103,8 +135,15 @@ public static class BackupArchive
         var rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         var zipFull = Path.GetFullPath(zipPath);
 
-        // 書きかけの zip を本物の名前で残さない。書き終えてから置き換える
+        // 書きかけの zip を本物の名前で残さない。書き終えてから置き換える。
+        // 同じ名前の物が既にあれば、別の名前にする（上書きして失敗で消すと、使う人のファイルを壊す。外部の点検 2026-10-07）
         var temporary = zipFull + ".tmp";
+        if (File.Exists(temporary))
+        {
+            temporary = $"{zipFull}.{Guid.NewGuid().ToString("N")[..8]}.tmp";
+        }
+
+        var createdTemporary = false;
 
         // 失敗したときに「前の zip はそのまま」と言えるかを、書き始める前に見ておく
         var previousKept = File.Exists(zipFull);
@@ -131,8 +170,13 @@ public static class BackupArchive
         catch
         {
             // 中止・失敗のときは書きかけを残さない（公開前の点検 2026-10-01）。
-            // 残すと、書き出し先のフォルダに開けない .tmp が残り、何が書けたのかが分からなくなる
-            TryDelete(temporary);
+            // 残すと、書き出し先のフォルダに開けない .tmp が残り、何が書けたのかが分からなくなる。
+            // 消すのは、この回に作れた物だけ（作る前に失敗したなら、その名前の物はほかの誰かの物）
+            if (createdTemporary)
+            {
+                TryDelete(temporary);
+            }
+
             BackupWritingRecord.End(rootFull);
             throw;
         }
@@ -143,7 +187,8 @@ public static class BackupArchive
 
         void WriteArchive()
         {
-            using var stream = File.Create(temporary);
+            using var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            createdTemporary = true;
             using var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false, Encoding.UTF8);
             var seen = 0;
             foreach (var path in targets)
@@ -278,6 +323,9 @@ public static class BackupArchive
             // （実機の確かめ 2026-10-07）。印は展開し終えてから、場所を書き換える前に外す（StoreMover と同じ順）
             UnfinishedCopy.Begin(destinationRoot, UnfinishedCopyKind.Restore, zipPath, createdDestination);
             var extracted = Extract();
+
+            // 展開し終えた後、場所を記録する前にも中止を見る（最後のファイルを書いている間に押された中止）
+            cancellationToken.ThrowIfCancellationRequested();
             savedMarker = UnfinishedCopy.EndKeeping(destinationRoot);
             commit?.Invoke();
             return extracted;
@@ -285,9 +333,10 @@ public static class BackupArchive
         catch
         {
             // 場所の記録に失敗したなら、印は外れている。消し始める前に置き直す（消し残しが印の無い欠けたライブラリにならないように）
-            if (savedMarker is not null)
+            if (savedMarker is not null && !UnfinishedCopy.PutBack(destinationRoot, savedMarker))
             {
-                UnfinishedCopy.PutBack(destinationRoot, savedMarker);
+                // 印を置けないまま消し始めると、消し残しが印の無い欠けたライブラリになる。展開し終えた完全な写しのまま残す
+                throw;
             }
 
             // 失敗・中止のときは展開した物を消す（ユーザ判断 2026-10-01）。
@@ -303,11 +352,20 @@ public static class BackupArchive
 
             using var archive = ZipFile.OpenRead(zipPath);
             var total = archive.Entries.Count;
+
+            // 書き始める前に全部の名前を見る。途中で断ると、半分だけ戻した物を片付けることになる
+            if (archive.Entries.FirstOrDefault(entry => !entry.FullName.EndsWith('/') && !IsSafeEntryName(entry.FullName)) is not null)
+            {
+                throw new InvalidDataException("戻せない名前のファイルが入っています。");
+            }
+
             foreach (var entry in archive.Entries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (string.Equals(entry.FullName, InfoFileName, StringComparison.OrdinalIgnoreCase) || entry.FullName.EndsWith('/'))
+                // 書き出しで入れない物（書き出しの途中の記録・写しかけの印・場所の記録・一時ファイルなど）は、zip に入っていても戻さない。
+                // 書き出しの途中の記録が戻ると、次の起動の片付けが、記録の指す保存先の外のファイルを消しに行く（外部の点検 2026-10-07）
+                if (entry.FullName.EndsWith('/') || IsLeftOut(entry.FullName.Replace('/', Path.DirectorySeparatorChar)))
                 {
                     continue;
                 }
@@ -326,7 +384,15 @@ public static class BackupArchive
                 {
                     createdFiles.Add(target);
                     using var input = entry.Open();
-                    input.CopyTo(output);
+
+                    // 大きなファイルの途中でも中止を見る（ファイルの頭でしか見ないと、最後の1つが大きいと中止が効かない）
+                    var buffer = new byte[81920];
+                    int read;
+                    while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        output.Write(buffer, 0, read);
+                    }
                 }
 
                 File.SetLastWriteTime(target, entry.LastWriteTime.DateTime);

@@ -126,16 +126,21 @@ public static class UnfinishedCopy
         return saved;
     }
 
-    /// <summary>外した印を置き直す。置けなければログにだけ残す（元の失敗の方を伝える）。</summary>
-    internal static void PutBack(string destination, byte[] saved)
+    /// <summary>
+    /// 外した印を置き直す。置けなければ false（呼び手は写しを消さずに残す。印の無いまま消し始めると、
+    /// 消し残しが欠けたライブラリになる。外部の点検 2026-10-07）
+    /// </summary>
+    internal static bool PutBack(string destination, byte[] saved)
     {
         try
         {
             File.WriteAllBytes(MarkerPath(destination), saved);
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Diagnostics.AppLog.Error("写している途中の印を置き直す", exception);
+            return false;
         }
     }
 

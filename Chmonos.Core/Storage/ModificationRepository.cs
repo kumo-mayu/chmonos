@@ -328,13 +328,34 @@ public sealed class ModificationRepository
     /// 行き場の無いファイルになって誰も辿れない。
     /// 取り返しがつかないので、聞くのは呼ぶ側の仕事。
     /// </summary>
-    public void Delete(string id)
+    /// <summary>
+    /// 消す。保存・更新と同じ改変ごとの錠と、保存先の書き込みの門を通す（外部の点検 2026-10-07）。
+    /// 前は錠を取らずに消していたので、更新が読み終えた後に消すと、更新の続きが書き戻して改変が戻ってきた
+    /// （貼った画像は消えたまま）。運んでいる間に消すと、書き出しの中身と食い違った
+    /// </summary>
+    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
     {
         // 場所を組む所（AppPaths）で形を見たうえで、消す直前にも所定のフォルダの中かを確かめる
         var file = _paths.ModificationFile(id);
         StoreIds.EnsureInside(file, _paths.ModificationsDir);
         var images = _paths.ModificationImagesDir(id);
         StoreIds.EnsureInside(images, _paths.ModificationImagesRoot);
+
+        var gate = LockFor(id);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+            DeleteLocked(id, file, images);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private void DeleteLocked(string id, string file, string images)
+    {
         if (File.Exists(file))
         {
             File.Delete(file);

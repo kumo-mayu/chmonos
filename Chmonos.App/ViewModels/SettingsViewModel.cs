@@ -1186,7 +1186,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                     Path = path,
                     Exists = presence.GetValueOrDefault(path) == Core.Services.FilePresence.Present,
                     DriveConnected = presence.GetValueOrDefault(path) != Core.Services.FilePresence.OnDetachedDrive,
-                    RemoveCommand = new RelayCommand(() => RemoveFolder(captured)),
+                    RemoveCommand = new RelayCommand(() => RemoveFolderAsync(captured).Forget()),
                 });
             }
 
@@ -1262,19 +1262,32 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        // 保存できなければ行を戻し、「やめました」は言わない（保存の失敗は窓で知らせてある。外部の点検 2026-10-07）
+        var index = Watched.IndexOf(row);
         Watched.Remove(row);
         OnPropertyChanged(nameof(HasWatched));
+        if (!await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: false)))
+        {
+            Watched.Insert(Math.Min(index, Watched.Count), row);
+            OnPropertyChanged(nameof(HasWatched));
+            return;
+        }
+
         _main.NoteFolderRemoved($"「{path}」の監視をやめました。", "監視を再開", async () =>
         {
-            if (Watched.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase)))
+            var added = Watched.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
+            if (added)
             {
                 Watched.Add(row);
                 OnPropertyChanged(nameof(HasWatched));
             }
 
-            await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: true));
+            if (!await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: true)) && added)
+            {
+                Watched.Remove(row);
+                OnPropertyChanged(nameof(HasWatched));
+            }
         });
-        await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: false));
     }
 
     /// <summary>
@@ -1422,18 +1435,27 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         // 畳んだまま足すと、足した行が見えず何も起きなかったように見える
         IsFoldersExpanded = true;
-        Folders.Add(new ImportFolderRow
+        var row = new ImportFolderRow
         {
             Path = path,
             Exists = true,
-            RemoveCommand = new RelayCommand(() => RemoveFolder(path)),
-        });
+            RemoveCommand = new RelayCommand(() => RemoveFolderAsync(path).Forget()),
+        };
+        Folders.Add(row);
 
-        // 足すのはこの1件だけ（Save の注を参照）
-        SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])).Forget();
+        // 足すのはこの1件だけ（Save の注を参照）。保存できなければ行も外す（外部の点検 2026-10-07）
+        AddFolderRowAsync(row, path).Forget();
     }
 
-    private void RemoveFolder(string path)
+    private async Task AddFolderRowAsync(ImportFolderRow row, string path)
+    {
+        if (!await SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])))
+        {
+            Folders.Remove(row);
+        }
+    }
+
+    private async Task RemoveFolderAsync(string path)
     {
         var row = Folders.FirstOrDefault(entry =>
             string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
@@ -1443,19 +1465,29 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        // 保存できなければ行を戻し、「外しました」は言わない（保存の失敗は窓で知らせてある。外部の点検 2026-10-07）
+        var index = Folders.IndexOf(row);
         Folders.Remove(row);
-        SaveAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
+        if (!await SaveAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)))
+        {
+            Folders.Insert(Math.Min(index, Folders.Count), row);
+            return;
+        }
 
         // 戻すと設定の並びでは末尾に足されるので、画面の行も末尾に戻す（次に開いたときと同じ並び）。
         // 外した後に同じフォルダを足し直していたら、二重にしない
         _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す", async () =>
         {
-            if (Folders.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase)))
+            var added = Folders.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
+            if (added)
             {
                 Folders.Add(row);
             }
 
-            await SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path]));
+            if (!await SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])) && added)
+            {
+                Folders.Remove(row);
+            }
         });
     }
 

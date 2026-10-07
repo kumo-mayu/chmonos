@@ -52,22 +52,33 @@ public sealed class StaleTemporaryFileTests : IDisposable
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
-    /// <summary>古い .tmp だけを消す。今まさに書いているかもしれない新しいものと、本体は残す。</summary>
+    /// <summary>
+    /// 古い .tmp だけを消す。今まさに書いているかもしれない新しいものと、本体は残す。
+    /// 消すのはアプリの一時ファイルの形の名前だけで、使う人や別の道具が置いた .tmp は古くても残す（外部の点検 2026-10-07）
+    /// </summary>
     [Fact]
     public void DeletesOnlyOldTemporaryFiles()
     {
-        var old = Path.Combine(_dir, "9000001.h2.html.tmp");
-        var fresh = Path.Combine(_dir, "1.json.tmp");
+        var old = Path.Combine(_dir, "9000001.h2.html.1a2b-3.tmp");
+        var oldImage = Path.Combine(_dir, "a.webp.0123456789abcdef0123456789abcdef.tmp");
+        var fresh = Path.Combine(_dir, "1.json.1a2b-4.tmp");
         var real = Path.Combine(_dir, "1.json");
-        File.WriteAllText(old, "");
-        File.WriteAllText(fresh, "");
-        File.WriteAllText(real, "");
-        File.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddHours(-1));
+        var someoneElses = Path.Combine(_dir, "メモ.tmp");
+        foreach (var path in new[] { old, oldImage, fresh, real, someoneElses })
+        {
+            File.WriteAllText(path, "");
+        }
 
-        Assert.Equal(1, JsonStore.DeleteStaleTemporaryFiles(_dir));
+        File.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddHours(-1));
+        File.SetLastWriteTimeUtc(oldImage, DateTime.UtcNow.AddHours(-1));
+        File.SetLastWriteTimeUtc(someoneElses, DateTime.UtcNow.AddHours(-1));
+
+        Assert.Equal(2, JsonStore.DeleteStaleTemporaryFiles(_dir));
         Assert.False(File.Exists(old));
+        Assert.False(File.Exists(oldImage));
         Assert.True(File.Exists(fresh));
         Assert.True(File.Exists(real));
+        Assert.True(File.Exists(someoneElses));
     }
 
     [Fact]

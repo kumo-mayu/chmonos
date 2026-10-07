@@ -178,8 +178,8 @@ public class StoreIdBoundaryTests : IDisposable
         Assert.Empty(loaded.Modifications);
         Assert.Single(loaded.FailedIds);
 
-        Assert.Throws<InvalidStoreIdException>(() => _store.Modifications.Delete(_sentinel));
-        Assert.Throws<InvalidStoreIdException>(() => _store.Modifications.Delete(@"..\..\..\sentinel"));
+        await Assert.ThrowsAsync<InvalidStoreIdException>(() => _store.Modifications.DeleteAsync(_sentinel));
+        await Assert.ThrowsAsync<InvalidStoreIdException>(() => _store.Modifications.DeleteAsync(@"..\..\..\sentinel"));
         Assert.False(_store.Modifications.Exists(_sentinel));
         Assert.Null(await _store.Modifications.LoadAsync(_sentinel));
         AssertSentinelSurvives();
