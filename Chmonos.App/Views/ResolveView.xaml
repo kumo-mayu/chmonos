@@ -641,7 +641,7 @@
                                 <RadioButton Style="{StaticResource SegmentLast}" GroupName="ResolveTarget" Padding="12,0"
                                              AutomationProperties.AutomationId="ResolveTargetSingle"
                                              Content="このファイルだけ" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
-                                             ToolTip="1つのzipに複数の商品があるときに使います。" />
+                                             ToolTip="同じフォルダやzipの中身に、別々の商品があるときに使います。" />
                             </StackPanel>
                             <Button Content="選択を解除" Style="{StaticResource SmallButton}"
                                     AutomationProperties.AutomationId="ResolveTargetClearChecks"
