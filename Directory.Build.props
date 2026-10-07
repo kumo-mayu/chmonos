@@ -11,5 +11,14 @@
       全プロジェクトに掛けるのは、experiments を含めどこで例外が出ても行番号を残すため。
     -->
     <DebugType>embedded</DebugType>
+
+    <!--
+      配る版。ここ1か所で全プロジェクトにそろえる（ユーザ判断 2026-10-07：公開は v1.0.0）。
+      コード署名（SignPath）は、署名する実行ファイルの製品名と版を組むたびにそろえることを求める（docs/dev/signing.md）。
+      版を上げたら BoothClient.UserAgent の名乗りと、docs/booth の原稿の版も合わせる
+    -->
+    <Version>1.0.0</Version>
+    <Product>Chmonos</Product>
+    <Copyright>Copyright 2026 kumo_mayu</Copyright>
   </PropertyGroup>
 </Project>
