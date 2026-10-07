@@ -245,6 +245,12 @@ public sealed class AppServiceContainer : IDisposable
         {
             using var writing = await Core.Storage.StoreWriteGate.EnterAsync();
             var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
+
+            // 前のバックアップの書き出しが途中で止まっていたら、書き出し先に残った書きかけを消す
+            if (Core.Storage.BackupWritingRecord.CleanUp(Paths.Root))
+            {
+                UiTrace.Write("速さ", "起動時の片付け：前のバックアップの書きかけを消した");
+            }
             UiTrace.Write("速さ", $"起動時の片付け：書きかけ {deleted} 件を消した（窓を出した後に裏で）");
         }).Forget();
 

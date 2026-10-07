@@ -80,6 +80,8 @@ public static class BackupArchive
             || name.EndsWith(".cache", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "location.json", StringComparison.OrdinalIgnoreCase)
+            // 書き出しの途中の記録は、その回の書き出しのための物。戻すと、戻した先で知らない場所の .tmp を探しに行く
+            || string.Equals(name, BackupWritingRecord.FileName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, InfoFileName, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -119,6 +121,8 @@ public static class BackupArchive
         // 先に数える（E8）。件数が分からないと進み具合を出せない。列挙をもう一度回すだけで、中身は読まない
         var targets = StoreTree.Files(rootFull).ToList();
 
+        // 途中でアプリが止まったときに、次の起動で書きかけを片付けられるよう、場所を書いておく（BackupWritingRecord）
+        BackupWritingRecord.Begin(rootFull, temporary);
         try
         {
             WriteArchive();
@@ -128,10 +132,12 @@ public static class BackupArchive
             // 中止・失敗のときは書きかけを残さない（公開前の点検 2026-10-01）。
             // 残すと、書き出し先のフォルダに開けない .tmp が残り、何が書けたのかが分からなくなる
             TryDelete(temporary);
+            BackupWritingRecord.End(rootFull);
             throw;
         }
 
         File.Move(temporary, zipFull, overwrite: true);
+        BackupWritingRecord.End(rootFull);
         return new BackupResult(files, bytes, skipped);
 
         void WriteArchive()

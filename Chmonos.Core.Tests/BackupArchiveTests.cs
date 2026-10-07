@@ -72,6 +72,61 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.Equal(before, after);
     }
 
+    /// <summary>
+    /// 書いている間は保存先に途中の記録があり、書き終えたら消える（2026-10-07 ユーザ判断「次回片付ける」）。
+    /// 途中でアプリが止まったとき、次の起動で書き出し先に残った .tmp を見つけるための記録
+    /// </summary>
+    [Fact]
+    public void 書いている間だけ_途中の記録が保存先にある()
+    {
+        var zip = Path.Combine(_dir, "out", "with-record.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(zip)!);
+        var record = Path.Combine(Store, BackupWritingRecord.FileName);
+        var seenWhileWriting = false;
+
+        BackupArchive.Export(Store, zip, includeImages: true, new Watch(() => seenWhileWriting |= File.Exists(record)));
+
+        Assert.True(seenWhileWriting);
+        Assert.False(File.Exists(record));
+        Assert.True(File.Exists(zip));
+        Assert.DoesNotContain(BackupWritingRecord.FileName, EntriesOf(zip));
+    }
+
+    /// <summary>前の書き出しが途中で止まって記録が残っていたら、起動の片付けで書きかけを消し、記録も外す。</summary>
+    [Fact]
+    public void 途中で止まった書き出しの書きかけは_次の片付けで消える()
+    {
+        var temporary = Path.Combine(_dir, "out", "crashed.zip.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(temporary)!);
+        File.WriteAllText(temporary, "書きかけ");
+        BackupWritingRecord.Begin(Store, temporary);
+
+        Assert.True(BackupWritingRecord.CleanUp(Store));
+
+        Assert.False(File.Exists(temporary));
+        Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
+    }
+
+    /// <summary>記録は手で直せるので、名前が .zip.tmp で終わらない場所を書かれても消さない（記録だけ外す）。</summary>
+    [Fact]
+    public void 途中の記録に別の場所が書かれていても_消すのは書きかけの名前の物だけ()
+    {
+        var sentinel = Path.Combine(_dir, "out", "大事な物.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(sentinel)!);
+        File.WriteAllText(sentinel, "消さない");
+        BackupWritingRecord.Begin(Store, sentinel);
+
+        Assert.False(BackupWritingRecord.CleanUp(Store));
+
+        Assert.True(File.Exists(sentinel));
+        Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
+    }
+
+    private sealed class Watch(Action onReport) : IProgress<BackupProgress>
+    {
+        public void Report(BackupProgress value) => onReport();
+    }
+
     private sealed class StopAfterFirst(CancellationTokenSource stop) : IProgress<BackupProgress>
     {
         public void Report(BackupProgress value) => stop.Cancel();
