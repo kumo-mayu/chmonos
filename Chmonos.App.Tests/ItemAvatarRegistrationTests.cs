@@ -17,6 +17,7 @@ public sealed class ItemAvatarRegistrationTests
         var main = await app.StartAsync();
         main.ShowItem((await app.Store.Items.LoadAsync("9901401"))!);
         var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        avatar.ClickGuard = TimeSpan.Zero;
 
         Assert.False(avatar.IsAvatar);
         Assert.True(avatar.RegisterCommand.CanExecute(null));
@@ -44,6 +45,7 @@ public sealed class ItemAvatarRegistrationTests
         var main = await app.StartAsync();
         main.ShowItem((await app.Store.Items.LoadAsync("9901402"))!);
         var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        avatar.ClickGuard = TimeSpan.Zero;
         avatar.RegisterCommand.Execute(null);
         await app.SettleAsync();
 
@@ -64,6 +66,7 @@ public sealed class ItemAvatarRegistrationTests
         main.ShowEditCommand.Execute(null);
         await app.SettleAsync();
         var edit = Assert.IsType<EditViewModel>(main.CurrentViewModel);
+        edit.AvatarRegistration.ClickGuard = TimeSpan.Zero;
         var first = edit.CurrentItemId!;
 
         edit.AvatarRegistration.RegisterCommand.Execute(null);
@@ -87,6 +90,7 @@ public sealed class ItemAvatarRegistrationTests
         var main = await app.StartAsync();
         main.ShowItem((await app.Store.Items.LoadAsync("9901405"))!);
         var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        avatar.ClickGuard = TimeSpan.Zero;
         var registry = app.Services.Paths.AvatarRegistryFile;
         await app.Store.Avatars.UpdateAsync(current => current);
         System.IO.File.SetAttributes(registry, System.IO.FileAttributes.ReadOnly);
@@ -112,6 +116,7 @@ public sealed class ItemAvatarRegistrationTests
         var main = await app.StartAsync();
         main.ShowItem((await app.Store.Items.LoadAsync("9901406"))!);
         var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        avatar.ClickGuard = TimeSpan.Zero;
         avatar.RegisterCommand.Execute(null);
         await app.SettleAsync();
 
@@ -119,5 +124,54 @@ public sealed class ItemAvatarRegistrationTests
         await app.SettleAsync();
 
         Assert.Equal("見つかった場所：なし", Assert.IsType<AvatarsViewModel>(main.CurrentViewModel).SelectedSeenAsText);
+    });
+
+    /// <summary>
+    /// 登録と外すを続けて押しても、二重に走らず、状態と登録簿が合う（ユーザ確認 2026-10-07）。
+    /// 押せるかは走らせる直前の状態で決めるので、登録した後の2回目の「登録」、外した後の2回目の「外す」は受け付けない
+    /// </summary>
+    [Fact]
+    public Task 登録と外すを連打しても_二重に走らず_状態と登録簿が合う() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9901407", "作り物のアバター"));
+        var main = await app.StartAsync();
+        main.ShowItem((await app.Store.Items.LoadAsync("9901407"))!);
+        var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        avatar.ClickGuard = TimeSpan.Zero;
+
+        avatar.RegisterCommand.Execute(null);
+        avatar.RegisterCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(avatar.IsManual);
+        Assert.True(Assert.Single(app.Store.Avatars.Load().Entries).AvatarOverride);
+
+        avatar.UnregisterCommand.Execute(null);
+        avatar.UnregisterCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.False(avatar.IsAvatar);
+        Assert.Null(Assert.Single(app.Store.Avatars.Load().Entries).AvatarOverride);
+    });
+
+    /// <summary>
+    /// 「アバターとして登録」をダブルクリックしても、2回目が同じ場所に出た「アバターの管理で開く」に当たって画面が移らない（ユーザ確認 2026-10-07）。
+    /// 状態が変わった直後の短い間は、新しく出たボタンを受け付けない
+    /// </summary>
+    [Fact]
+    public Task 登録をダブルクリックしても_アバターの画面へ移らない() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9901408", "作り物のアバター"));
+        var main = await app.StartAsync();
+        main.ShowItem((await app.Store.Items.LoadAsync("9901408"))!);
+        var page = Assert.IsType<ItemViewModel>(main.CurrentViewModel);
+        page.AvatarRegistration.ClickGuard = TimeSpan.FromHours(1);
+
+        page.AvatarRegistration.RegisterCommand.Execute(null);
+        await app.SettleAsync();
+        page.AvatarRegistration.OpenInAvatarsCommand.Execute(null);
+        page.AvatarRegistration.UnregisterCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Same(page, main.CurrentViewModel);
+        Assert.True(page.AvatarRegistration.IsManual);
     });
 }

@@ -24,17 +24,42 @@ public sealed class ItemAvatarRegistration : ViewModelBase
     {
         _services = services;
         _main = main;
-        RegisterCommand = new RelayCommand(() => RunAsync(id => new UiCommand.RegisterAvatar(id)).Forget(), () => CanRegister);
-        UnregisterCommand = new RelayCommand(() => RunAsync(id => new UiCommand.SetAvatarOverride(id, null)).Forget(), () => CanUnregister);
+        // 押せるかは走らせる直前にも見る（ユーザ確認 2026-10-07・連打）。書き込みはすぐ終わるので、
+        // 1回目が終わった直後に来た2回目は、その時の状態で受けるか決める
+        RegisterCommand = new RelayCommand(() =>
+        {
+            if (CanRegister && !JustChanged)
+            {
+                RunAsync(id => new UiCommand.RegisterAvatar(id)).Forget();
+            }
+        }, () => CanRegister);
+        UnregisterCommand = new RelayCommand(() =>
+        {
+            if (CanUnregister && !JustChanged)
+            {
+                RunAsync(id => new UiCommand.SetAvatarOverride(id, null)).Forget();
+            }
+        }, () => CanUnregister);
         OpenInAvatarsCommand = new RelayCommand(() =>
         {
-            if (_itemId is { } id)
+            if (_itemId is { } id && _isAvatar && !JustChanged)
             {
                 _main.ShowAvatar(id);
             }
         }, () => _isAvatar);
         Show(itemId);
     }
+
+    /// <summary>
+    /// 状態が変わった直後に新しく出たボタンを受け付けない間（ユーザ確認 2026-10-07）。「アバターとして登録」をダブルクリックすると、
+    /// 1回目で登録が終わって同じ場所に「アバターの管理で開く」が出て、2回目のクリックで画面が移ってしまう。
+    /// 長さは Windows のダブルクリックの既定の間隔（0.5秒）。試験では 0 にする
+    /// </summary>
+    internal TimeSpan ClickGuard { get; set; } = TimeSpan.FromMilliseconds(500);
+
+    private long _changedAt = long.MinValue;
+
+    private bool JustChanged => _changedAt != long.MinValue && Environment.TickCount64 - _changedAt < ClickGuard.TotalMilliseconds;
 
     /// <summary>手で「アバターとして登録」した（人の指定でアバターになっている）か。</summary>
     public bool IsManual => _isAvatar && _override == true;
@@ -105,6 +130,7 @@ public sealed class ItemAvatarRegistration : ViewModelBase
                 var notice = Notice;
                 Show(id);
                 Notice = notice;
+                _changedAt = Environment.TickCount64;
             }
         }
 
