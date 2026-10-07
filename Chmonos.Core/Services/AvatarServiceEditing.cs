@@ -71,8 +71,14 @@ public sealed partial class AvatarService
                     {
                         ItemId = itemId,
                         BoothName = item.Booth.Name,
+
+                        // BOOTH の名前が無い商品（BOOTHに無い商品など）は、手で付けた名前を表示名にする（外部の点検 2026-10-07。
+                        // 入れないと商品IDだけのアバターになり、名前での照合にも使えなかった）
+                        DisplayName = string.IsNullOrWhiteSpace(item.Booth.Name) ? item.Local.DisplayName : null,
                         ShopName = item.Booth.Shop?.Name ?? item.Local.Shop?.Name,
-                        Category = item.Booth.Category?.Name ?? item.Local.Category,
+                        // カテゴリは BOOTH で見た値だけ（手で入れたカテゴリを入れると、自動の判定に混ざり、
+                        // 「登録を外す」の後もアバターのまま残った。外部の点検 2026-10-07・spec の「手で入れたカテゴリでは載せない」）
+                        Category = item.Booth.Category?.Name,
                         CheckedAt = item.Booth.FetchedAt,
                         Aliases = BuildAliasesFromTags(item.Booth),
                         AvatarOverride = true,

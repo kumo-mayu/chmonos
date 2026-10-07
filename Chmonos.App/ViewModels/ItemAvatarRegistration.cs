@@ -91,6 +91,12 @@ public sealed class ItemAvatarRegistration : ViewModelBase
             var result = await _services.Commands.ExecuteAsync(command(id));
             Notice = result is CommandResult.Failed failed ? failed.Message : string.Empty;
         }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // 書けなかったことを言う（外部の点検 2026-10-07。前はログに残るだけで、押しても何も起きないように見えた）
+            Core.Diagnostics.AppLog.Error("アバターとして登録する", exception);
+            Notice = "登録簿に書けませんでした。" + FailureText.Cause(exception);
+        }
         finally
         {
             _isBusy = false;

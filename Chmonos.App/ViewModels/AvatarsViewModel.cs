@@ -1483,9 +1483,15 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         get
         {
-            if (Selected is null || Selected.Summary.Entry.SeenAs.Count == 0)
+            if (Selected is null)
             {
                 return string.Empty;
+            }
+
+            // 無いときも「なし」と言う（ユーザ指摘 2026-10-07。空だと1行ぶんの空白が間延びして見えた。手で登録したアバターは挙がった所が無い）
+            if (Selected.Summary.Entry.SeenAs.Count == 0)
+            {
+                return "見つかった場所：なし";
             }
 
             var parts = Selected.Summary.Entry.SeenAs

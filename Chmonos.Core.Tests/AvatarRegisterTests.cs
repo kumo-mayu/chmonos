@@ -85,4 +85,42 @@ public sealed class AvatarRegisterTests : IDisposable
 
         Assert.Empty(_store.Avatars.Load().Entries);
     }
+
+    /// <summary>
+    /// 登録簿のカテゴリには BOOTH で見た値だけを入れる（外部の点検 2026-10-07）。手で入れたカテゴリを入れると自動の判定に混ざり、
+    /// 「登録を外す」の後もアバターのまま残った
+    /// </summary>
+    [Fact]
+    public async Task 手で入れたカテゴリは登録簿に入れず_外すとアバターでなくなる()
+    {
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-1a2b3c4d",
+            Booth = new BoothBlock(),
+            Local = new LocalBlock { DisplayName = "作り物の手作りアバター", Category = "3Dキャラクター" },
+        });
+
+        await _service.RegisterAvatarAsync("local-1a2b3c4d");
+        await _service.SetAvatarOverrideAsync("local-1a2b3c4d", null);
+
+        var entry = Assert.Single(_store.Avatars.Load().Entries);
+        Assert.Null(entry.Category);
+        Assert.False(AvatarService.IsAvatar(entry));
+    }
+
+    /// <summary>BOOTH の名前が無い商品は、手で付けた名前を表示名に入れる（入れないと商品IDだけのアバターになる）。</summary>
+    [Fact]
+    public async Task BOOTHの名前が無い商品は_手で付けた名前が表示名に入る()
+    {
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-5e6f7a8b",
+            Booth = new BoothBlock(),
+            Local = new LocalBlock { DisplayName = "作り物の手作りアバター" },
+        });
+
+        await _service.RegisterAvatarAsync("local-5e6f7a8b");
+
+        Assert.Equal("作り物の手作りアバター", Assert.Single(_store.Avatars.Load().Entries).DisplayName);
+    }
 }

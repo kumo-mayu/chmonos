@@ -989,9 +989,7 @@
                                 -->
                                 <StackPanel DataContext="{Binding AvatarRegistration}" Margin="0,0,0,10">
                                     <TextBlock Text="アバター" Style="{StaticResource SectionLabel}" />
-                                    <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                               Visibility="{Binding StateText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <Button Content="アバターとして登録" Style="{StaticResource SmallButton}"
                                                 AutomationProperties.AutomationId="ItemRegisterAvatar"
                                                 Command="{Binding RegisterCommand}"
@@ -1006,6 +1004,9 @@
                                                 Command="{Binding UnregisterCommand}"
                                                 Visibility="{Binding IsManual, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                 ToolTip="自動の判定に戻します。" />
+                                        <!-- 押しても欄の高さが変わらないよう、ボタンと同じ行の右に出す（ユーザ指摘 2026-10-07。前はボタンの上に出入りして並びがずれた） -->
+                                        <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                                   Visibility="{Binding StateText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding Notice}" Style="{StaticResource FieldNotice}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="260"
                                                HorizontalAlignment="Left"

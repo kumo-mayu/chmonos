@@ -77,4 +77,47 @@ public sealed class ItemAvatarRegistrationTests
         Assert.False(edit.AvatarRegistration.IsAvatar);
         Assert.True(edit.AvatarRegistration.RegisterCommand.CanExecute(null));
     });
+
+    /// <summary>登録簿に書けないときは、欄の下にそう言う（外部の点検 2026-10-07。前はログに残るだけで、押しても何も起きないように見えた）。</summary>
+    [Fact]
+    public Task 登録簿に書けないときは_欄の下にそう言う() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        await app.AddItemAsync(Make.Item("9901405", "作り物のアバター"));
+        var main = await app.StartAsync();
+        main.ShowItem((await app.Store.Items.LoadAsync("9901405"))!);
+        var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        var registry = app.Services.Paths.AvatarRegistryFile;
+        await app.Store.Avatars.UpdateAsync(current => current);
+        System.IO.File.SetAttributes(registry, System.IO.FileAttributes.ReadOnly);
+        try
+        {
+            avatar.RegisterCommand.Execute(null);
+            await app.SettleAsync();
+        }
+        finally
+        {
+            System.IO.File.SetAttributes(registry, System.IO.FileAttributes.Normal);
+        }
+
+        Assert.StartsWith("登録簿に書けませんでした。", avatar.Notice);
+        Assert.False(avatar.IsAvatar);
+    });
+
+    /// <summary>アバターの画面の「見つかった場所」は、無いときも「なし」と言う（ユーザ指摘 2026-10-07。空だと1行ぶん間延びして見えた）。</summary>
+    [Fact]
+    public Task 見つかった場所が無いときは_なしと言う() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9901406", "作り物のアバター"));
+        var main = await app.StartAsync();
+        main.ShowItem((await app.Store.Items.LoadAsync("9901406"))!);
+        var avatar = Assert.IsType<ItemViewModel>(main.CurrentViewModel).AvatarRegistration;
+        avatar.RegisterCommand.Execute(null);
+        await app.SettleAsync();
+
+        avatar.OpenInAvatarsCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal("見つかった場所：なし", Assert.IsType<AvatarsViewModel>(main.CurrentViewModel).SelectedSeenAsText);
+    });
 }
