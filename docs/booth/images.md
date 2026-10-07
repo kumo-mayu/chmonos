@@ -29,7 +29,7 @@ dotnet run --project tools/ViewShot -- shot showcase-search,showcase-search-hove
 
 Unity の実機で撮るときは、空のプロジェクト `D:\work\vrchat\VRChatProjects\ChmonosShowcase`（2022.3.22f1）を使う。
 いつもの確かめのプロジェクトには実在のアバターとショップのフォルダがあり、画面に写る。
-「Unityで選択」はプロジェクトが Unity Hub の一覧に無いと断られるので、Hub に足しておく。
+「Unityで選択」はプロジェクトが Unity Hub か VCC の一覧に無いと断られる。ChmonosShowcase は VCC の一覧（`%LOCALAPPDATA%VRChatCreatorCompanionsettings.json` の `userProjects`）に足してある（2026-10-07）。
 
 ## 載せる画像の案（2026-10-07）
 

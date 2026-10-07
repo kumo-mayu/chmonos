@@ -34,6 +34,10 @@ Unity のエディタが2つ以上開いているときは、どれに送るか�
 「Unity ▾」の「Unityで選択」を押すと、Unity の Project ウィンドウで、その商品が入ったフォルダが選ばれます。
 衣装を着せる前に、どこに入ったかを探す手間が省けます。
 
+![Unity の Project ウィンドウ。インポートしたフォルダが選ばれ、中が開いている](images/unity-select.png)
+
+プロジェクトの場所は、Unity Hub か VCC（または ALCOM）のプロジェクトの一覧から調べます。どちらの一覧にも無いプロジェクトでは使えません。
+
 まだインポートしていない物で押すと、「まだ入っていません」と知らせます。
 
 ## 4. 対応アバターを確かめる
@@ -70,4 +74,4 @@ Unity の Project ウィンドウに、送った商品のフォルダが増え�
 | 「Unity ▾」を押せない・「見つかりません」と出る | zip を移したか消したかで、手元に見つかりません。移した先を取り込むと、この商品に付け直します |
 | 違うプロジェクトに送られそう | 送る前の確かめの窓に、送り先のプロジェクト名が出ます。違っていればキャンセルして、送りたいプロジェクトのエディタを開きます |
 
-<!-- 画像：showcase-item（--height 1500 でローカルファイルの欄を切り抜き）・showcase-item-confirm（対応アバターの欄を切り抜き）・Unity の実機（空のプロジェクト ChmonosShowcase で撮った Import Unity Package）（ViewShot） -->
+<!-- 画像：showcase-item（--height 1500 でローカルファイルの欄を切り抜き）・showcase-item-confirm（対応アバターの欄を切り抜き）・Unity の実機（空のプロジェクト ChmonosShowcase で撮った Import Unity Package と、Unityで選択の Project ウィンドウ。ChmonosShowcase は VCC の一覧に足してある）（ViewShot） -->
