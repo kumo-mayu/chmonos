@@ -107,8 +107,13 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
                     itemId,
                     local =>
                     {
+                        // 錠の中でもう一度確かめる（外部の点検 2026-10-07）。錠を待つ間に戻されたファイルの記録まで消さない
                         before = local;
-                        after = Strip(local, targets);
+                        after = Strip(local, Find(local, probe) is var stillGone
+                            ? new MissingRecordTargets(
+                                targets.Hashes.Where(stillGone.Hashes.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase),
+                                targets.Folders.Where(stillGone.Folders.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase))
+                            : targets);
                         return after;
                     },
                     [LocalField.LocalFiles, LocalField.LocalFolders],

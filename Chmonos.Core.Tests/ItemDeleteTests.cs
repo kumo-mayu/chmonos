@@ -257,10 +257,15 @@ public sealed class ItemDeleteTests : IDisposable
         var orphan = _paths.ItemImagesDir("778") + ".removing-5e6f7a8b";
         Directory.CreateDirectory(orphan);
 
+        // アプリが作る形でない名前は、退避ではないので触らない
+        var notOurs = _paths.ItemImagesDir("779") + ".removing-note";
+        Directory.CreateDirectory(notOurs);
+
         Assert.Equal(2, await _store.Items.RecoverRemovingImagesAsync());
 
         Assert.True(File.Exists(Path.Combine(_paths.ItemImagesDir(ItemId), "mine.png")));
         Assert.False(Directory.Exists(kept));
         Assert.False(Directory.Exists(orphan));
+        Assert.True(Directory.Exists(notOurs));
     }
 }

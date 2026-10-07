@@ -240,11 +240,11 @@ public sealed class AppServiceContainer : IDisposable
     public void SweepStaleTemporaryFilesLater()
         => Task.Run(async () =>
         {
+            // 商品を消す途中で止まって残った画像の退避を、元へ戻すか消す。商品の錠を取ってから門に入るので、門の外で呼ぶ
+            await Store.Items.RecoverRemovingImagesAsync();
+
             using var writing = await Core.Storage.StoreWriteGate.EnterAsync();
             var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
-
-            // 商品を消す途中で止まって残った画像の退避を、元へ戻すか消す
-            await Store.Items.RecoverRemovingImagesAsync();
 
             // 前のバックアップの書き出しが途中で止まっていたら、書き出し先に残った書きかけを消す
             if (Core.Storage.BackupWritingRecord.CleanUp(Paths.Root))

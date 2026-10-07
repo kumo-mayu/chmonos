@@ -971,17 +971,20 @@ public sealed class ItemRepository
         var handled = 0;
         foreach (var removing in Directory.EnumerateDirectories(_paths.ImagesDir, "*.removing-*").ToList())
         {
-            var name = Path.GetFileName(removing);
-            var itemId = name[..name.IndexOf(".removing-", StringComparison.Ordinal)];
+            // 退避はこのアプリが作る形（<商品ID>.removing-<8桁>）の名前だけ。ほかの名前のフォルダには触らない（外部の点検 2026-10-07）
+            var match = RemovingName.Match(Path.GetFileName(removing));
+            var itemId = match.Success ? match.Groups["id"].Value : null;
             if (!StoreIds.IsItemId(itemId))
             {
                 continue;
             }
 
+            // 錠を取ってから書き込みの門へ（ふつうの保存と同じ順。門の中から錠を取ると、保存・書き出しと待ち合う。外部の点検 2026-10-07）
             var gate = LockFor(itemId);
             await gate.WaitAsync(cancellationToken);
             try
             {
+                using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
                 var original = _paths.ItemImagesDir(itemId);
                 if (!File.Exists(_paths.ItemFile(itemId)))
                 {
@@ -1006,6 +1009,10 @@ public sealed class ItemRepository
 
         return handled;
     }
+
+    /// <summary>商品を消すときの画像の退避の名前（<see cref="DeleteLockedAsync"/> が作る形）。</summary>
+    private static readonly System.Text.RegularExpressions.Regex RemovingName =
+        new(@"^(?<id>.+)\.removing-[0-9a-f]{8}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     private static void TryDeleteDirectory(string directory)
     {

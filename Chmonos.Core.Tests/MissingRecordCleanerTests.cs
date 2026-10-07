@@ -176,4 +176,24 @@ public sealed class MissingRecordCleanerTests : IDisposable
 
         Assert.Equal([other], (await _store.ScanCache.LoadAsync()).Select(entry => entry.Path));
     }
+
+    /// <summary>
+    /// 消す相手でも、錠の中で確かめ直して在れば消さない（外部の点検 2026-10-07）。錠を待つ間に戻されたファイルの記録まで消していた
+    /// </summary>
+    [Fact]
+    public async Task 錠を待つ間に戻された物は消さない()
+    {
+        await SaveAsync("9900808", new LocalBlock { LocalFiles = [File("h-back", Gone("h.zip"))] });
+        var asked = 0;
+        var cleaner = new MissingRecordCleaner(_store, () => new FilePresenceProbe(
+            fileState: _ => Interlocked.Increment(ref asked) <= 2 ? DiskAnswer.Missing : DiskAnswer.Present,
+            rootExists: _ => true));
+
+        var plan = await cleaner.PlanAsync();
+        var done = await cleaner.ForgetAsync(plan);
+
+        Assert.Equal(1, plan.Counts.Files);
+        Assert.Equal(0, done.Files);
+        Assert.Single((await _store.Items.LoadAsync("9900808"))!.Local.LocalFiles);
+    }
 }
