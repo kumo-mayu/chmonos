@@ -1262,32 +1262,81 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        // 保存できなければ行を戻し、「やめました」は言わない（保存の失敗は窓で知らせてある。外部の点検 2026-10-07）
-        var index = Watched.IndexOf(row);
+        // 保存できなければ「やめました」は言わない（保存の失敗は窓で知らせてある。外部の点検 2026-10-07）
         Watched.Remove(row);
         OnPropertyChanged(nameof(HasWatched));
-        if (!await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: false)))
+        if (!await ChangeFolderListAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: false)))
         {
-            Watched.Insert(Math.Min(index, Watched.Count), row);
-            OnPropertyChanged(nameof(HasWatched));
             return;
         }
 
         _main.NoteFolderRemoved($"「{path}」の監視をやめました。", "監視を再開", async () =>
         {
-            var added = Watched.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
-            if (added)
+            if (Watched.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase)))
             {
                 Watched.Add(row);
                 OnPropertyChanged(nameof(HasWatched));
             }
 
-            if (!await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: true)) && added)
-            {
-                Watched.Remove(row);
-                OnPropertyChanged(nameof(HasWatched));
-            }
+            await ChangeFolderListAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: true));
         });
+    }
+
+    private readonly SemaphoreSlim _folderListGate = new(1, 1);
+
+    /// <summary>
+    /// 取り込み元・監視の1件の変更を保存する。**変更は1本ずつ順に通し、保存できなければ、保存してある設定から行を合わせ直す**
+    /// （外部の点検 2026-10-07）。その場で行を出し入れして戻すと、保存の途中で足す・外すが重なったとき、
+    /// 保存していない行が残ったり二重になったりした。行は押した所で先に動かす（押した手応えのため）
+    /// </summary>
+    /// <returns>保存できたか。</returns>
+    private async Task<bool> ChangeFolderListAsync(Func<AppSettings, AppSettings> change)
+    {
+        await _folderListGate.WaitAsync();
+        try
+        {
+            if (await SaveAsync(change))
+            {
+                return true;
+            }
+
+            SyncFolderRows(_services.Settings);
+            return false;
+        }
+        finally
+        {
+            _folderListGate.Release();
+        }
+    }
+
+    /// <summary>取り込み元・監視の行を、保存してある設定の並びに合わせる。今ある行は使い回し、無い行だけ作る（在るかは見直さない）。</summary>
+    private void SyncFolderRows(AppSettings settings)
+    {
+        static List<ImportFolderRow> Arrange(IEnumerable<ImportFolderRow> rows, IReadOnlyList<string> paths, Func<string, ImportFolderRow> create)
+        {
+            var byPath = rows.GroupBy(row => row.Path, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+            return paths.Select(path => byPath.TryGetValue(path, out var row) ? row : create(path)).ToList();
+        }
+
+        var folders = Arrange(Folders, settings.ImportFolders, path => new ImportFolderRow
+        {
+            Path = path,
+            Exists = true,
+            RemoveCommand = new RelayCommand(() => RemoveFolderAsync(path).Forget()),
+        });
+        var watched = Arrange(Watched, settings.WatchedFolders, path => new ImportFolderRow
+        {
+            Path = path,
+            Exists = true,
+            RemoveCommand = new RelayCommand(() => RemoveWatchedAsync(path).Forget()),
+        });
+
+        Folders.Clear();
+        folders.ForEach(Folders.Add);
+        Watched.Clear();
+        watched.ForEach(Watched.Add);
+        OnPropertyChanged(nameof(HasWatched));
     }
 
     /// <summary>
@@ -1443,16 +1492,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         };
         Folders.Add(row);
 
-        // 足すのはこの1件だけ（Save の注を参照）。保存できなければ行も外す（外部の点検 2026-10-07）
-        AddFolderRowAsync(row, path).Forget();
-    }
-
-    private async Task AddFolderRowAsync(ImportFolderRow row, string path)
-    {
-        if (!await SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])))
-        {
-            Folders.Remove(row);
-        }
+        // 足すのはこの1件だけ（Save の注を参照）。保存できなければ行は保存してある設定に合わせ直る
+        ChangeFolderListAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])).Forget();
     }
 
     private async Task RemoveFolderAsync(string path)
@@ -1465,12 +1506,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        // 保存できなければ行を戻し、「外しました」は言わない（保存の失敗は窓で知らせてある。外部の点検 2026-10-07）
-        var index = Folders.IndexOf(row);
+        // 保存できなければ「外しました」は言わない（保存の失敗は窓で知らせてある。外部の点検 2026-10-07）
         Folders.Remove(row);
-        if (!await SaveAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)))
+        if (!await ChangeFolderListAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)))
         {
-            Folders.Insert(Math.Min(index, Folders.Count), row);
             return;
         }
 
@@ -1478,16 +1517,12 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 外した後に同じフォルダを足し直していたら、二重にしない
         _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す", async () =>
         {
-            var added = Folders.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
-            if (added)
+            if (Folders.All(entry => !string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase)))
             {
                 Folders.Add(row);
             }
 
-            if (!await SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])) && added)
-            {
-                Folders.Remove(row);
-            }
+            await ChangeFolderListAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path]));
         });
     }
 

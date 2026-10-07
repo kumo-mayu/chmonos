@@ -113,35 +113,102 @@ public static class StoreMover
             return Refused(UnfinishedRefusal);
         }
 
+        // 別の Chmonos が開いている場所は退け始める前に断る（外部の点検 2026-10-07）。
+        // 前は1つずつ退けていき、そのアプリが掴む app.lock に当たって失敗し、退けた分を戻さずに返していた
+        if (IsInUse(destination))
+        {
+            return Refused(InUseRefusal);
+        }
+
         var parked = Path.Combine(destination, $"_置き換え前-{DateTime.Now:yyyyMMdd-HHmmss}");
+        var moved = new List<(string From, string To)>();
 
         try
         {
             Directory.CreateDirectory(parked);
 
-            foreach (var entry in Directory.EnumerateFileSystemEntries(destination))
+            foreach (var entry in Directory.EnumerateFileSystemEntries(destination).ToList())
             {
                 if (string.Equals(entry, parked, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                Directory.Move(entry, Path.Combine(parked, Path.GetFileName(entry)));
+                var target = Path.Combine(parked, Path.GetFileName(entry));
+                Directory.Move(entry, target);
+                moved.Add((entry, target));
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Diagnostics.AppLog.Error("置き換えで選んだ場所を退ける", exception);
+
+            // 退けた分を戻す。戻さないと、選んだ場所のライブラリが一部だけ退けたフォルダに入ったまま欠ける
+            var restored = PutParkedBack(moved, parked);
             return new StoreMoveResult
             {
                 Succeeded = false,
                 Copied = 0,
                 Bytes = 0,
                 Error = $"選んだ場所のデータを移動できませんでした。{Services.FailureText.Cause(exception)}",
+                LeftoverAt = restored ? null : parked,
             };
         }
 
         return MoveCore(source, destination, progress, cancellationToken, commit, parked) with { ParkedAt = parked };
+    }
+
+    /// <summary>別の Chmonos が開いている場所を置き換えようとしたときの文。</summary>
+    public const string InUseRefusal =
+        "選んだ場所は、ほかのChmonosが開いています。そのアプリを閉じてから、もう一度選んでください。";
+
+    /// <summary>その場所の app.lock を、ほかのプロセスが掴んでいるか（開いているアプリがあるか）。</summary>
+    private static bool IsInUse(string root)
+    {
+        var lockPath = Path.Combine(root, "app.lock");
+        if (!File.Exists(lockPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var probe = new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>置き換えで退けた分を、退けた順の逆に戻す。全部戻せたら退けたフォルダを畳んで真。</summary>
+    private static bool PutParkedBack(IReadOnlyList<(string From, string To)> moved, string parked)
+    {
+        var all = true;
+        foreach (var (from, to) in moved.Reverse())
+        {
+            try
+            {
+                Directory.Move(to, from);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.AppLog.Error("置き換えで退けた物を戻す", exception);
+                all = false;
+            }
+        }
+
+        if (all)
+        {
+            TryRemoveEmptyFolder(parked);
+        }
+
+        return all;
     }
 
     /// <summary>写しかけの場所へ写そうとしたときの文。</summary>

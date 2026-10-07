@@ -390,4 +390,34 @@ public class MissingFileFinderTests : IDisposable
     {
         public void Report((int Hashed, string? Detail) value) => onReport();
     }
+
+    /// <summary>
+    /// 探し始めたときに無かった場所でも、結び直す時に在れば外さない（外部の点検 2026-10-07）。
+    /// 探している間に元の場所へ戻され、取り込みが確かめた場所まで外していた
+    /// </summary>
+    [Fact]
+    public void 探している間に元の場所へ戻った物は_外さない()
+    {
+        var back = Path.Combine(Path.GetTempPath(), "chmonos-back-" + Guid.NewGuid().ToString("N")[..8] + ".zip");
+        File.WriteAllBytes(back, [1, 2, 3]);
+        try
+        {
+            var gone = Path.Combine(Path.GetTempPath(), "chmonos-gone-" + Guid.NewGuid().ToString("N")[..8] + ".zip");
+            var current = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = "h1", Paths = [back, gone], SizeBytes = 3 }],
+            };
+
+            var next = MissingFileFinder.Replace(current, "h1", [back, gone], @"D:見つけた場所a.zip");
+
+            var paths = Assert.Single(next!.LocalFiles).Paths;
+            Assert.Contains(back, paths);
+            Assert.DoesNotContain(gone, paths);
+            Assert.Contains(@"D:見つけた場所a.zip", paths);
+        }
+        finally
+        {
+            File.Delete(back);
+        }
+    }
 }

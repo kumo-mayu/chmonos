@@ -187,4 +187,60 @@ public sealed class ItemDeleteTests : IDisposable
         Assert.Equal("重ねた", saved.Memo);
         Assert.True(saved.IsFavorite);
     }
+
+    /// <summary>
+    /// 記録を消せずに外せなかったら、画像は消えずに残る（外部の点検 2026-10-07）。
+    /// 前は画像を先に消していたので、自分で足した画像（BOOTH から取り直せない）だけが消えた
+    /// </summary>
+    [Fact]
+    public async Task 記録を消せずに外せなければ_画像は残る()
+    {
+        await SaveItemAsync();
+        var imagesDir = _paths.ItemImagesDir(ItemId);
+        Directory.CreateDirectory(imagesDir);
+        File.WriteAllBytes(Path.Combine(imagesDir, "mine.png"), TinyPng);
+
+        using (new FileStream(_paths.ItemFile(ItemId), FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            await Assert.ThrowsAnyAsync<IOException>(() => _store.Items.DeleteAsync(ItemId));
+        }
+
+        Assert.True(File.Exists(Path.Combine(imagesDir, "mine.png")));
+        Assert.NotNull(await _store.Items.LoadAsync(ItemId));
+        Assert.Empty(Directory.EnumerateDirectories(_paths.ImagesDir, "*.removing-*"));
+    }
+
+    /// <summary>
+    /// 逆向きの付け替え（甲→乙と乙→甲）が重なっても、待ち合わずに終わる（外部の点検 2026-10-07）。
+    /// 元の錠を持ったまま先の錠を取るので、前は互いの錠を待ち続けた
+    /// </summary>
+    [Fact]
+    public async Task 逆向きの付け替えが重なっても_待ち合わずに終わる()
+    {
+        foreach (var id in new[] { "801", "802" })
+        {
+            await _store.Items.SaveAsync(new ItemRecord { Id = id, Booth = new BoothBlock { FetchedAt = DateTimeOffset.UtcNow }, Local = new LocalBlock() });
+        }
+
+        var bothInside = new TaskCompletionSource();
+        var inside = 0;
+        Func<ItemRecord, Task<bool>> MoveInto(string other) => async _ =>
+        {
+            // 両方が元の錠を持った所まで進めてから、先の錠を取りに行く（前の作りでは、ここで輪になる）
+            if (Interlocked.Increment(ref inside) == 2)
+            {
+                bothInside.TrySetResult();
+            }
+
+            await Task.WhenAny(bothInside.Task, Task.Delay(300));
+            await _store.Items.ChangeLocalAsync(other, local => local, [LocalField.Memo]);
+            return false;
+        };
+
+        var first = _store.Items.MoveAwayAsync("801", MoveInto("802"));
+        var second = _store.Items.MoveAwayAsync("802", MoveInto("801"));
+
+        var finished = await Task.WhenAny(Task.WhenAll(first, second), Task.Delay(TimeSpan.FromSeconds(10)));
+        Assert.True(first.IsCompleted && second.IsCompleted, "付け替えどうしが待ち合って終わらなかった");
+    }
 }

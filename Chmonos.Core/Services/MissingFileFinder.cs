@@ -365,7 +365,7 @@ public sealed class MissingFileFinder
     /// その場所は消さずに並べる（どちらも同じ中身が実際に在る場所）。その間に人がファイルを外したなら触らない
     /// （探すのは外していないファイルだけ、という決まりを書く時にも当てる）。
     /// </remarks>
-    private static LocalBlock? Replace(LocalBlock current, string hash, IReadOnlyList<string> gone, string path)
+    internal static LocalBlock? Replace(LocalBlock current, string hash, IReadOnlyList<string> gone, string path)
     {
         var file = current.LocalFiles.FirstOrDefault(entry =>
             string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase));
@@ -389,7 +389,11 @@ public sealed class MissingFileFinder
         }
         else
         {
-            var paths = file.Paths.Where(entry => !gone.Contains(entry, StringComparer.OrdinalIgnoreCase)).ToList();
+            // 外すのは、探し始めたときに無かった場所のうち、今も無い物だけ（外部の点検 2026-10-07）。
+            // 探している間に元の場所へ戻され、取り込みが確かめた場所まで外していた
+            var paths = file.Paths
+                .Where(entry => !gone.Contains(entry, StringComparer.OrdinalIgnoreCase) || File.Exists(entry))
+                .ToList();
             paths.Add(path);
             next = file with { Paths = paths, MissingSince = null };
         }

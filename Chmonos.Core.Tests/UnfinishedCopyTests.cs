@@ -382,4 +382,42 @@ public sealed class UnfinishedCopyTests : IDisposable
         Assert.False(result.SourceRemoved);
         Assert.True(File.Exists(Path.Combine(Source, "items", "789.json")));
     }
+
+    /// <summary>
+    /// 別の Chmonos が開いている場所への置き換えは、何も退けずに断る（外部の点検 2026-10-07）。
+    /// 前は1つずつ退けていき、そのアプリが掴む app.lock に当たって失敗し、退けた分を戻さずに返した
+    /// </summary>
+    [Fact]
+    public void 別のアプリが開いている場所への置き換えは_何も退けずに断る()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "items"));
+        File.WriteAllText(Path.Combine(Destination, "settings.json"), "{}");
+        using var held = new FileStream(Path.Combine(Destination, "app.lock"), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+
+        var result = StoreMover.Replace(Source, Destination);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(StoreMover.InUseRefusal, result.Error);
+        Assert.True(Directory.Exists(Path.Combine(Destination, "items")));
+        Assert.Empty(Directory.EnumerateDirectories(Destination, "_置き換え前-*"));
+    }
+
+    /// <summary>退ける途中で失敗したら、退けた分を元へ戻す。</summary>
+    [Fact]
+    public void 退ける途中で失敗したら_退けた分を戻す()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "items"));
+        File.WriteAllText(Path.Combine(Destination, "items", "999.json"), "{}");
+        File.WriteAllText(Path.Combine(Destination, "zz-掴まれている.txt"), "x");
+
+        StoreMoveResult result;
+        using (new FileStream(Path.Combine(Destination, "zz-掴まれている.txt"), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            result = StoreMover.Replace(Source, Destination);
+        }
+
+        Assert.False(result.Succeeded);
+        Assert.True(File.Exists(Path.Combine(Destination, "items", "999.json")));
+        Assert.Empty(Directory.EnumerateDirectories(Destination, "_置き換え前-*"));
+    }
 }

@@ -798,6 +798,26 @@ public sealed class ItemRepository
         Func<ItemRecord, Task<bool>> moveTo,
         CancellationToken cancellationToken = default)
     {
+        // 付け替えどうしは1本ずつ（外部の点検 2026-10-07）。元の錠を持ったまま先の錠を取るので、
+        // 甲→乙と乙→甲が重なると互いに待ち合う。ほかの書き込みは錠を1つしか取らないので、輪にはならない
+        await _moveAwayGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await MoveAwayCoreAsync(itemId, moveTo, cancellationToken);
+        }
+        finally
+        {
+            _moveAwayGate.Release();
+        }
+    }
+
+    private readonly SemaphoreSlim _moveAwayGate = new(1, 1);
+
+    private async Task<bool?> MoveAwayCoreAsync(
+        string itemId,
+        Func<ItemRecord, Task<bool>> moveTo,
+        CancellationToken cancellationToken)
+    {
         var gate = LockFor(itemId);
         await gate.WaitAsync(cancellationToken);
         try
@@ -885,22 +905,49 @@ public sealed class ItemRepository
         var imagesDir = _paths.ItemImagesDir(itemId);
         StoreIds.EnsureInside(imagesDir, _paths.ImagesDir);
         StoreIds.EnsureInside(_paths.ItemFile(itemId), _paths.ItemsDir);
-        if (Directory.Exists(imagesDir))
+
+        // 画像は消さずに、同じ置き場の中で別の名前へ移しておく（外部の点検 2026-10-07）。
+        // 前は画像を先に消してから記録を消していたので、記録を消せずに失敗すると、商品は残るのに
+        // 自分で足した画像（BOOTH から取り直せない）だけが消えていた。中の物が掴まれていれば、ここで失敗して商品は残る
+        var removing = Directory.Exists(imagesDir) ? $"{imagesDir}.removing-{Guid.NewGuid().ToString("N")[..8]}" : null;
+        if (removing is not null)
         {
-            Directory.Delete(imagesDir, recursive: true);
+            Directory.Move(imagesDir, removing);
         }
 
-        DeleteIfExists(_paths.ItemHtmlFile(itemId));
-
-        // 外した商品の控えは戻す先が無い。残すと、同じIDで登録し直したときに古い版が戻せてしまう
-        DeleteIfExists(_paths.ItemCopyFile(itemId));
         try
         {
-            DeleteIfExists(_paths.ItemFile(itemId));
+            DeleteIfExists(_paths.ItemHtmlFile(itemId));
+
+            // 外した商品の控えは戻す先が無い。残すと、同じIDで登録し直したときに古い版が戻せてしまう
+            DeleteIfExists(_paths.ItemCopyFile(itemId));
+            try
+            {
+                DeleteIfExists(_paths.ItemFile(itemId));
+            }
+            finally
+            {
+                _cache.TryRemove(itemId, out _);
+            }
         }
-        finally
+        catch when (removing is not null && File.Exists(_paths.ItemFile(itemId)))
         {
-            _cache.TryRemove(itemId, out _);
+            // 記録が残った。画像を元の名前へ戻す（戻せなければ、移した名前のまま残す。消しはしない）
+            try
+            {
+                Directory.Move(removing, imagesDir);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.AppLog.Error("商品を外せなかったときに画像を戻す", exception);
+            }
+
+            throw;
+        }
+
+        if (removing is not null)
+        {
+            TryDeleteDirectory(removing);
         }
 
         // 画像を消してから JSON を消すまでの間に、画像の取得がフォルダを作り直していることがある
