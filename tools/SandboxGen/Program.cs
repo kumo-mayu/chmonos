@@ -465,7 +465,7 @@ async Task<int> FillManageAsync()
     // 改変300件。アバター40体・プロジェクト30個（2割は紐付け無し）・使ったもの3〜8件。プロジェクトは在り得ないパス
     foreach (var old in store.Modifications.EnumerateIds())
     {
-        store.Modifications.Delete(old);
+        await store.Modifications.DeleteAsync(old);
     }
 
     var avatars = items.Where(item => item.Booth.Category?.Name == "3Dキャラクター").Take(40).ToList();
