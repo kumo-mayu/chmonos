@@ -86,7 +86,7 @@ public class RegistryCandidateTests(RegistryCandidateBridgeFixture dictionary) :
 
     /// <summary>
     /// 名前そのものが短い項目には、2文字の読みでも当てる。
-    /// 実データで Tori_v1_0_0.zip → 『Bird/鳥』、Eku_PC_v1_0_0.zip → エク が正解だった。
+    /// 実データ（ファイル名の版は作り物に変えた）で、Tori の zip → 『Bird/鳥』、Eku の zip → エク が正解だった。
     /// </summary>
     [Theory]
     [InlineData(@"C:\dl\Tori_v1_0_0.zip", "Bird/鳥")]
