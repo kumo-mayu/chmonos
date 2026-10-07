@@ -207,45 +207,48 @@ internal sealed class TestApp
     public static Task Run(Func<TestApp, Task> body) => UiThread.Run(async () =>
     {
         var app = new TestApp(NewRoot());
-        Notice.Intercept = request =>
-        {
-            app.Notices.Add(request);
-            return app.Answer(request);
-        };
-        MemberFilePickViewModel.Intercept = model =>
-        {
-            app.FilePicks.Add(model);
-            return app.PickFiles(model);
-        };
-        MissingSearchScopeViewModel.Intercept = model =>
-        {
-            app.SearchScopes.Add(model);
-            return app.PickSearchScope(model);
-        };
-        ChoiceQuestion.Intercept = request =>
-        {
-            app.Choices.Add(request);
-            return app.Choose(request);
-        };
-        ItemViewModel.PickFilesToAttachIntercept = () => app.PickAttachFiles();
-        ChangeItemIdDialogViewModel.Intercept = model =>
-        {
-            app.ChangeIdDialogs.Add(model);
-            return app.AnswerChangeId(model);
-        };
 
-        // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
-        // 置いた商品に「BOOTHで見つからない」の印が付いて、確かめたい物と関係なく中身が変わる
-        await app.ChangeSettingsAsync(settings => settings with { ResumeFetchInBackground = false, SaveImages = false });
-
-        // 検索の条件は空から始める：条件を1つも積んでいなければ、置いた商品が全部並ぶ。
-        // 既定の条件（保存された並びが無いときに出す3つ）のままにすると、既定を変えるたびに、絞り込みと関係の無い試験まで結果が変わる。
-        // 既定の条件そのものを確かめる試験は、null に戻してから始める（SearchDefaultsTests）
-        await app.Services.SettingsStore.UpdateUiStateAsync(state => state with { SearchModules = [] });
-
+        // 差し替えと初期設定の保存も、後始末を保証する範囲の中で行う（点検25：初期設定の保存が落ちると
+        // StopAsync を通らず、差し替えとサービスが次の試験へ残った）
         var passed = false;
         try
         {
+            Notice.Intercept = request =>
+            {
+                app.Notices.Add(request);
+                return app.Answer(request);
+            };
+            MemberFilePickViewModel.Intercept = model =>
+            {
+                app.FilePicks.Add(model);
+                return app.PickFiles(model);
+            };
+            MissingSearchScopeViewModel.Intercept = model =>
+            {
+                app.SearchScopes.Add(model);
+                return app.PickSearchScope(model);
+            };
+            ChoiceQuestion.Intercept = request =>
+            {
+                app.Choices.Add(request);
+                return app.Choose(request);
+            };
+            ItemViewModel.PickFilesToAttachIntercept = () => app.PickAttachFiles();
+            ChangeItemIdDialogViewModel.Intercept = model =>
+            {
+                app.ChangeIdDialogs.Add(model);
+                return app.AnswerChangeId(model);
+            };
+
+            // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
+            // 置いた商品に「BOOTHで見つからない」の印が付いて、確かめたい物と関係なく中身が変わる
+            await app.ChangeSettingsAsync(settings => settings with { ResumeFetchInBackground = false, SaveImages = false });
+
+            // 検索の条件は空から始める：条件を1つも積んでいなければ、置いた商品が全部並ぶ。
+            // 既定の条件（保存された並びが無いときに出す3つ）のままにすると、既定を変えるたびに、絞り込みと関係の無い試験まで結果が変わる。
+            // 既定の条件そのものを確かめる試験は、null に戻してから始める（SearchDefaultsTests）
+            await app.Services.SettingsStore.UpdateUiStateAsync(state => state with { SearchModules = [] });
+
             await body(app);
 
             // 中身が投げたままの仕事を、ここで済ませる。済ませずに終えると、次の試験の最中に落ちて、次の試験のログに混ざる
