@@ -58,6 +58,18 @@ public sealed class CommandHandler
     /// <summary>読めない商品の記録を控えに戻す・BOOTH から作り直す（通知の行のボタン）。</summary>
     private readonly BrokenItemRepair? _brokenItems;
 
+    private readonly string? _storeRoot;
+
+    /// <summary>
+    /// 商品の記録が見つからなかったときの文。**保存先のフォルダそのものが無ければ、ドライブを確かめるよう言う**
+    /// （実機の確かめ 2026-10-07）。USB メモリを抜いた状態でお気に入りを押すと「商品データが手元にありません」と出て、
+    /// 記録は無事なのに、使う人からは消えたように見えた
+    /// </summary>
+    private CommandResult.Failed ItemMissing()
+        => _storeRoot is { } rootPath && !Directory.Exists(rootPath)
+            ? new CommandResult.Failed("保存先のフォルダが見つかりません。外付けやネットワークのドライブがつながっているかを確かめて、もう一度押してください。")
+            : new CommandResult.Failed("対象の商品データが手元にありません。");
+
     public CommandHandler(
         IImportPipeline import,
         IItemService items,
@@ -80,8 +92,10 @@ public sealed class CommandHandler
         MissingFileFinder? missingFiles = null,
         VolumeTable? volumes = null,
         Storage.JsonFileStore<ImportState>? importState = null,
-        BrokenItemRepair? brokenItems = null)
+        BrokenItemRepair? brokenItems = null,
+        string? storeRoot = null)
     {
+        _storeRoot = storeRoot;
         _brokenItems = brokenItems;
         _volumes = volumes;
         _importState = importState;
@@ -519,7 +533,7 @@ public sealed class CommandHandler
                     RefreshOutcome.Unreadable => new CommandResult.Failed(
                         "BOOTHから届いた商品情報を読めませんでした。BOOTHのメンテナンス中か、ページの形が変わったことがあります。"
                         + "時間をおいてもう一度押してください。"),
-                    RefreshOutcome.Missing => new CommandResult.Failed("対象の商品データが手元にありません。"),
+                    RefreshOutcome.Missing => ItemMissing(),
                     RefreshOutcome.NotOnBooth =>
                         new CommandResult.Failed("BOOTHに無い商品として登録したものなので、取り直せません。"),
                     _ => new CommandResult.Failed("不明な結果です。"),
@@ -550,7 +564,7 @@ public sealed class CommandHandler
 
                 return await _edit.SaveLocalAsync(save.ItemId, save.Local, save.Owns, cancellationToken)
                     ? new CommandResult.ItemSaved(save.ItemId)
-                    : new CommandResult.Failed("対象の商品データが手元にありません。");
+                    : ItemMissing();
 
             case UiCommand.ConfirmAvatars confirm:
                 if (_edit is null)
@@ -560,7 +574,7 @@ public sealed class CommandHandler
 
                 return await _edit.ConfirmAvatarsAsync(confirm.ItemId, confirm.AvatarItemIds, cancellationToken)
                     ? new CommandResult.ItemSaved(confirm.ItemId)
-                    : new CommandResult.Failed("対象の商品データが手元にありません。");
+                    : ItemMissing();
 
             case UiCommand.AddUserTag addTag:
                 if (_edit is null)
@@ -974,7 +988,7 @@ public sealed class CommandHandler
                 return await _items.SetFileVariationsAsync(
                         setVariations.ItemId, setVariations.VariationByHash, cancellationToken)
                     ? new CommandResult.ItemSaved(setVariations.ItemId)
-                    : new CommandResult.Failed("対象の商品データが手元にありません。");
+                    : ItemMissing();
 
             case UiCommand.DetachFile detach:
             {

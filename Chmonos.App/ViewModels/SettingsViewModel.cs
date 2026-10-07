@@ -1355,8 +1355,22 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             // 原因はこちらでは分からないので、断定も指示もしない。
             // 見当だけ添えて、判断はユーザに残す
+            //
+            // **窓で知らせる**（ユーザ判断 2026-10-07。USB メモリを抜く実機の確かめで）。下の帯だけだと見落とし、
+            // 変えたつもりの設定が保存されていないことに気付かない。欄は変える前の値に戻っているので、そう言う
             Core.Diagnostics.AppLog.Error("設定画面：設定の保存", exception);
-            Status = $"保存できませんでした。{Core.Services.FailureText.Cause(exception)}　もう一度変えると保存し直します。";
+            Status = string.Empty;
+
+            // 欄は変えた値のままなので、保存してある値へ写し直す（窓の「変える前のまま」と画面を食い違わせない）
+            ApplyFields(_services.Settings);
+            OnPropertyChanged(string.Empty);
+            Services.Notice.Show(
+                "設定を保存できなかったので、変える前のままです。\n\n"
+                + Core.Services.FailureText.Cause(exception) + "\n\n"
+                + "もう一度変えると保存し直します。",
+                "設定を保存できませんでした",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
         }
     }
 

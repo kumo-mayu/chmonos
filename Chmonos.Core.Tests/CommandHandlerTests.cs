@@ -30,6 +30,9 @@ public class CommandHandlerTests
 
     private sealed class FakeItemService : IItemService
     {
+        /// <summary>商品の記録が見つからない形を作る（書き込みの命令が偽を返す）。</summary>
+        public bool ItemFound { get; init; } = true;
+
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<FolderRelocation> RelocateFolderAsync(string itemId, string fromPath, string toPath, CancellationToken cancellationToken = default) => Task.FromResult(FolderRelocation.Moved);
@@ -46,7 +49,7 @@ public class CommandHandlerTests
 
         public Task<bool> ForgetOldVersionAsync(string itemId, string hash, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task<bool> SetFileVariationsAsync(string itemId, IReadOnlyDictionary<string, long?> variationByHash, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> SetFileVariationsAsync(string itemId, IReadOnlyDictionary<string, long?> variationByHash, CancellationToken cancellationToken = default) => Task.FromResult(ItemFound);
 
         public Task<bool> NoteFilePresenceAsync(string itemId, IReadOnlyCollection<FileSighting> sightings, CancellationToken cancellationToken = default) => Task.FromResult(false);
 
@@ -581,5 +584,24 @@ public class CommandHandlerTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// 商品の記録が見つからないとき、保存先のフォルダそのものが無ければ、ドライブを確かめるよう言う（実機の確かめ 2026-10-07）。
+    /// USB メモリを抜くと「商品データが手元にありません」と出て、記録は無事なのに消えたように見えた
+    /// </summary>
+    [Fact]
+    public async Task 保存先のフォルダが無いときは_商品が無いではなくドライブを確かめるよう言う()
+    {
+        var missingRoot = Path.Combine(Path.GetTempPath(), "bam-missing-root-" + Guid.NewGuid().ToString("N"));
+        var gone = new CommandHandler(new FakeImportPipeline(), new FakeItemService { ItemFound = false }, storeRoot: missingRoot);
+        var here = new CommandHandler(new FakeImportPipeline(), new FakeItemService { ItemFound = false }, storeRoot: Path.GetTempPath());
+        var command = new UiCommand.SetFileVariations("100", new Dictionary<string, long?>());
+
+        var whenGone = Assert.IsType<CommandResult.Failed>(await gone.ExecuteAsync(command));
+        var whenHere = Assert.IsType<CommandResult.Failed>(await here.ExecuteAsync(command));
+
+        Assert.Contains("保存先のフォルダが見つかりません", whenGone.Message);
+        Assert.Equal("対象の商品データが手元にありません。", whenHere.Message);
     }
 }
