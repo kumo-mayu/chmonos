@@ -98,7 +98,7 @@ https://github.com/kumo-mayu/chmonos
 
 設定の「起動したとき、監視フォルダの新しいファイルと前回の続きを取り込む」を入れておくと、起動したときに監視フォルダの新しいファイルを自動で取り込みます。入れていなければ、新しいファイルがあることを知らせるだけです。
 
-詳しい説明は GitHub の README にあります。
+詳しい使い方は、GitHub のマニュアル（https://github.com/kumo-mayu/chmonos/tree/master/manual）にあります。
 https://github.com/kumo-mayu/chmonos
 ```
 
