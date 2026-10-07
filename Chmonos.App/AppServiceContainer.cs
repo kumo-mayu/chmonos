@@ -206,27 +206,18 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>
     /// フォルダをごみ箱へ送る。完全削除にしないのは、判定を誤ったときに取り返しがつくようにするため。
-    /// ごみ箱を使えない場所（ネットワークドライブなど）では完全削除にフォールバックする。
+    /// **ごみ箱へ送れないときは消さない**（2026-10-07）。前はネットワークのドライブなどで黙って完全に消していた。
+    /// ネットワーク・取り外せるドライブはごみ箱が無いので先に断る。ごみ箱に入りきらない大きさは、
+    /// Windows に「完全に削除しますか」を聞かせる（聞かずに完全に消す設定で呼んでいた）。
     /// </summary>
     private static Task DeleteToRecycleBin(string path, CancellationToken cancellationToken)
     {
-        try
+        if (!Services.RecycleBin.HasRecycleBin(path))
         {
-            Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
-                path,
-                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
-                Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin,
-                Microsoft.VisualBasic.FileIO.UICancelOption.ThrowException);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception) when (exception is not IOException and not UnauthorizedAccessException)
-        {
-            Directory.Delete(path, recursive: true);
+            throw new NotRecyclableException("ごみ箱を使えないドライブなので、削除しません。");
         }
 
+        Services.RecycleBin.Send(path);
         return Task.CompletedTask;
     }
 

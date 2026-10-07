@@ -24,25 +24,26 @@ public class UnpackedFolderRemoverTests : IDisposable
         }
     }
 
-    /// <summary>zipとその展開先フォルダを並べて作る。</summary>
+    /// <summary>zipとその展開先フォルダを並べて作る。zip はフォルダの中身から作る（消す直前に中身を照らすので）。</summary>
     private UnpackedFolder CreatePair(string stem, int fileCount = 2, int bytesPerFile = 16)
     {
         var archive = Path.Combine(_root, stem + ".zip");
-        File.WriteAllBytes(archive, new byte[8]);
-
         var folder = Path.Combine(_root, stem);
-        Directory.CreateDirectory(folder);
+        Directory.CreateDirectory(Path.Combine(folder, "sub"));
         for (var index = 0; index < fileCount; index++)
         {
             File.WriteAllBytes(Path.Combine(folder, $"file{index}.png"), new byte[bytesPerFile]);
         }
+
+        File.WriteAllBytes(Path.Combine(folder, "sub", "日本語の名前.txt"), new byte[3]);
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, archive);
 
         return new UnpackedFolder
         {
             Path = folder,
             ArchivePath = archive,
             FileCount = fileCount,
-            TotalBytes = fileCount * bytesPerFile,
+            TotalBytes = (fileCount * bytesPerFile) + 3,
         };
     }
 
@@ -145,7 +146,7 @@ public class UnpackedFolderRemoverTests : IDisposable
         var results = await Recording(deleted).RemoveAsync([folder]);
 
         Assert.True(results[0].Removed);
-        Assert.Equal(96, results[0].FreedBytes);
+        Assert.Equal(96 + 3, results[0].FreedBytes);
         Assert.Equal([folder.Path], deleted);
         Assert.False(Directory.Exists(folder.Path));
     }
@@ -261,6 +262,102 @@ public class UnpackedFolderRemoverTests : IDisposable
         Assert.False(results[0].Removed);
         // 画面に出る理由なので、.NET の文ではなく原因の見当（中身はログへ）
         Assert.Equal(Chmonos.Core.Services.FailureText.Cause(new IOException("使用中です")), results[0].Reason);
+        Assert.True(Directory.Exists(folder.Path));
+    }
+
+    /// <summary>
+    /// 展開した後に足したファイルがあれば消さない（2026-10-07）。名前だけで展開先とみなすので、
+    /// 中で組んだ・使った跡（.obj・.db など）のあるフォルダも消す候補に並んでいた。zip からは戻せない
+    /// </summary>
+    [Fact]
+    public async Task 展開元のzipに無いファイルがあれば消さない()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        File.WriteAllBytes(Path.Combine(folder.Path, "sub", "build.obj"), new byte[5]);
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Contains("展開元のzipに無いファイルが 1 件", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    [Fact]
+    public async Task 大きさの違うファイルがあれば消さない()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        File.WriteAllBytes(Path.Combine(folder.Path, "file0.png"), new byte[99]);
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Contains("大きさの違うファイルが 1 件", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    /// <summary>Windows が勝手に作る物は手を入れた跡ではない。展開した後に消した物は zip から戻せるので構わない。</summary>
+    [Fact]
+    public async Task Windowsが作る物と_消したファイルは照らしの妨げにならない()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        File.WriteAllBytes(Path.Combine(folder.Path, "Thumbs.db"), new byte[7]);
+        File.WriteAllBytes(Path.Combine(folder.Path, "sub", "desktop.ini"), new byte[7]);
+        File.Delete(Path.Combine(folder.Path, "file1.png"));
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([folder]);
+
+        Assert.True(results[0].Removed, results[0].Reason);
+        Assert.Single(deleted);
+    }
+
+    /// <summary>rar・7z は目録を読めないので比べられない。比べられない物は消さない。</summary>
+    [Fact]
+    public async Task zip以外は消さない()
+    {
+        var folder = Path.Combine(_root, "Kipfel_1.2.0");
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, "a.png"), new byte[4]);
+        var archive = Path.Combine(_root, "Kipfel_1.2.0.rar");
+        File.WriteAllBytes(archive, new byte[8]);
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([new UnpackedFolder { Path = folder, ArchivePath = archive }]);
+
+        Assert.False(results[0].Removed);
+        Assert.Contains("zip以外", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    [Fact]
+    public async Task 読めないzipなら消さない()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        File.WriteAllBytes(folder.ArchivePath, new byte[8]);
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Contains("読めない", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    /// <summary>ごみ箱へ送れないと消す役が言ったら、その文を理由にする（完全には消さない）。</summary>
+    [Fact]
+    public async Task ごみ箱へ送れないときは_その理由を返す()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        var remover = new UnpackedFolderRemover(
+            (_, _) => throw new NotRecyclableException("ごみ箱を使えないドライブなので、削除しません。"),
+            _ => Task.FromResult<IReadOnlyList<string>?>([]));
+
+        var results = await remover.RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Equal("ごみ箱を使えないドライブなので、削除しません。", results[0].Reason);
         Assert.True(Directory.Exists(folder.Path));
     }
 }

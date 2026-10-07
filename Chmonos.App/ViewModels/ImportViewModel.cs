@@ -1206,7 +1206,7 @@ public sealed partial class ImportViewModel : ViewModelBase
 
         var answer = Services.Notice.Show(
             $"次の {targets.Count} フォルダをごみ箱へ移動します。\n\n{names}\n\n"
-            + "いずれも展開元のアーカイブが手元に残っているものです。削除しますか？",
+            + "展開元のzipと中身が同じフォルダだけを移します。削除しますか？",
             "展開先フォルダの削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

@@ -76,7 +76,8 @@ public sealed class UnpackedFolderRemover
         // 登録は消す直前に読み直す（画面が展開先を見つけた後に「zipの代わりにフォルダを登録」したかもしれない）。
         // 全件を読むが、変わっていない商品は写しを返すので2回目からは軽い（ItemRepository.LoadAllAsync）
         var refusal = FindRefusal(folder)
-            ?? RegistrationRefusal(folder.Path, await _registeredFolders(cancellationToken));
+            ?? RegistrationRefusal(folder.Path, await _registeredFolders(cancellationToken))
+            ?? await Task.Run(() => UnpackedContentCheck.Refusal(folder.Path, folder.ArchivePath, cancellationToken), cancellationToken);
         if (refusal is not null)
         {
             return new UnpackedFolderRemoval { Path = folder.Path, Removed = false, Reason = refusal };
@@ -88,6 +89,11 @@ public sealed class UnpackedFolderRemover
         try
         {
             await _deleteDirectory(folder.Path, cancellationToken);
+        }
+        catch (NotRecyclableException exception)
+        {
+            // ごみ箱へ送れないなら消さない。取り違えたときに戻せない消し方はしない（2026-10-07）
+            return new UnpackedFolderRemoval { Path = folder.Path, Removed = false, Reason = exception.Message };
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -192,3 +198,9 @@ public sealed class UnpackedFolderRemover
         }
     }
 }
+
+/// <summary>
+/// ごみ箱へ送れないので消さなかった（ネットワーク・取り外せるドライブ、ごみ箱に入りきらず完全に消すかを聞かれてやめた）。
+/// 消す処理（App）が投げ、<see cref="UnpackedFolderRemover"/> は文をそのまま理由にする。
+/// </summary>
+public sealed class NotRecyclableException(string reason) : IOException(reason);
