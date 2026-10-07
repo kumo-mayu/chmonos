@@ -401,7 +401,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         OnPropertyChanged(nameof(IsCardMode));
         OnPropertyChanged(nameof(IsListMode));
-    });
+    }, defaultList: true);
 
     public bool IsCardMode => ItemView.IsCardMode;
 

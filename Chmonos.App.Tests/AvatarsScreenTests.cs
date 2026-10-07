@@ -29,6 +29,36 @@ public sealed class AvatarsScreenTests
     }
 
     [Fact]
+    public Task 一覧は既定でリストで出し_カードを選べば開き直してもカードのまま() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        Assert.True(avatars.IsListMode);
+
+        avatars.ShowCardsCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(avatars.IsCardMode);
+        Assert.Contains("avatar", app.Services.UiState.ItemCardScreens);
+
+        app.Main.ShowSearch();
+        app.Main.ShowAvatarsCommand.Execute(null);
+        var reopened = Assert.IsType<AvatarsViewModel>(app.Main.CurrentViewModel);
+        Assert.True(reopened.IsCardMode);
+
+        reopened.ShowListCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.DoesNotContain("avatar", app.Services.UiState.ItemCardScreens);
+    });
+
+    [Fact]
+    public Task タグの管理の一覧の既定はカードのまま() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        main.ShowTagManage();
+        var tags = Assert.IsType<TagManageViewModel>(main.CurrentViewModel);
+        Assert.False(tags.IsListMode);
+    });
+
+    [Fact]
     public Task BOOTHの名前に戻すは1回で戻り_名前の欄は開かない() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app, new AvatarRegistryEntry

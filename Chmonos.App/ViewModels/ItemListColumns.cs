@@ -5,15 +5,29 @@ namespace Chmonos.App.ViewModels;
 /// <summary>カードとリストのどちらで出すか（画面ごとに ui-state.json に覚える・ユーザ指示 2026-09-14）。</summary>
 internal static class ItemListMode
 {
-    public static bool IsList(AppServiceContainer services, string screen) => services.UiState.ItemListScreens.Contains(screen);
+    /// <param name="defaultList">
+    /// 一度も切り替えていないときにリストで出すか。リストが既定の画面は、選んだカードを <c>ItemCardScreens</c> に覚える
+    /// （<c>ItemListScreens</c> は「無ければカード」で、既定をリストにすると切り替えていない人と区別できない）
+    /// </param>
+    public static bool IsList(AppServiceContainer services, string screen, bool defaultList = false)
+        => defaultList
+            ? !services.UiState.ItemCardScreens.Contains(screen)
+            : services.UiState.ItemListScreens.Contains(screen);
 
-    public static void Save(AppServiceContainer services, string screen, bool list)
-        => services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(state => state with
-        {
-            ItemListScreens = list
-                ? [.. state.ItemListScreens.Where(name => name != screen), screen]
-                : [.. state.ItemListScreens.Where(name => name != screen)],
-        })).Forget();
+    public static void Save(AppServiceContainer services, string screen, bool list, bool defaultList = false)
+        => services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(state => defaultList
+            ? state with
+            {
+                ItemCardScreens = list
+                    ? [.. state.ItemCardScreens.Where(name => name != screen)]
+                    : [.. state.ItemCardScreens.Where(name => name != screen), screen],
+            }
+            : state with
+            {
+                ItemListScreens = list
+                    ? [.. state.ItemListScreens.Where(name => name != screen), screen]
+                    : [.. state.ItemListScreens.Where(name => name != screen)],
+            })).Forget();
 }
 
 /// <summary>

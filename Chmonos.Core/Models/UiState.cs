@@ -75,6 +75,12 @@ public sealed record UiState
     public IReadOnlyList<string> ItemListScreens { get; init; } = [];
 
     /// <summary>
+    /// 既定がリストの画面（アバターの管理）で、人がカードを選んだ画面（ユーザ指示 2026-10-07：アバターの一覧の既定をリストに）。
+    /// <see cref="ItemListScreens"/> は「無ければカード」なので、既定をリストにする画面は、こちらで「無ければリスト」と読む
+    /// </summary>
+    public IReadOnlyList<string> ItemCardScreens { get; init; } = [];
+
+    /// <summary>
     /// ショップの中の画面でバナーを畳んでいるか（ユーザ指示 2026-09-29：バナーが場所を取りすぎる）。
     /// ショップごとではなく全部のショップで同じ値——1店ずつ畳み直すのは手間なので。既定は出す（今までと同じ見た目から始まる）
     /// </summary>
