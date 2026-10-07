@@ -15,7 +15,7 @@
                     非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
                     docs/research/booth-terms.md §3）。設定画面にも同じ旨を出す
                 -->
-                <TextBlock Text="個人が作ったアプリです。ピクシブ株式会社（BOOTHの運営）が作成・配布しているものではありません。"
+                <TextBlock Text="個人が開発した非公式のアプリケーションです。pixivが作成、配布しているアプリケーションではありません。"
                            Foreground="{DynamicResource RailMuted}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>

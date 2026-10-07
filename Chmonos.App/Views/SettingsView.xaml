@@ -951,7 +951,7 @@
                         </Expander.Header>
                         <StackPanel Margin="0,14,0,0">
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       Text="BOOTHで買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTHはピクシブ株式会社のサービスです。" />
+                                       Text="BOOTHで買ったアセットを手元で管理するために、pixivプラットフォーム（BOOTH）を利用して個人が開発した、非公式のアプリケーションです。pixivが作成、配布しているアプリケーションではありません。「BOOTH」「pixiv」はピクシブ株式会社（pixiv Inc.）の登録商標です。" />
                             <!-- 不具合を知らせてもらうときに、どの版かを読んでもらう（ユーザ判断 2026-10-07） -->
                             <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" Text="{Binding VersionText}"
                                        AutomationProperties.AutomationId="Settings.Version" />
