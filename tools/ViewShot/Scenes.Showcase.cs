@@ -30,6 +30,20 @@ internal static partial class Scenes
             return new Shot(root);
         }) { Width = 1600, Height = 1000 },
 
+        // カードの絵はマウスの横の位置で替わる。止まった画像では動きが見えないので、1枚のカードを乗せて2枚目にした姿で描く
+        // （下の区切りと「2 / 3」が出る）。マウスの矢印は描けないので、載せる画像に後から足す
+        new Scene("showcase-search-hover", "BOOTH 用：検索の画面（1枚のカードにマウスを乗せ、2枚目を見ている姿）", async context =>
+        {
+            var (main, root) = await OpenShowcaseAsync(context);
+            main.ShowSearch();
+            await context.SettleAsync();
+            var card = main.Search.Rows.SelectMany(row => row.Cards.OfType<ItemCardViewModel>())
+                .First(candidate => candidate.Item.Booth.Name == "傘"); // 入手日の新しい順で1段目にあり、1枚目と2枚目の絵の違いが大きい
+            card.ShowImageAt(0.5, 200);
+            await context.SettleAsync();
+            return new Shot(root);
+        }) { Width = 1600, Height = 1000 },
+
         // 絞り込みの組み合わせ：対応アバター2体を AND・価格の範囲2つ（同じ種類は OR）・カテゴリを除く。
         // 結果はワンピース・エプロン・セーターの3件（うさぎとねこの両方に対応し、価格が範囲に入り、装飾品でない物）
         new Scene("showcase-filters", "BOOTH 用：絞り込みを組んだ検索（対応アバター AND・価格2つ・カテゴリを除く）", async context =>

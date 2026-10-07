@@ -627,7 +627,9 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
         var price = entry.GetProperty("price").GetInt32();
         var supports = List(entry, "supports");
         var days = entry.TryGetProperty("days", out var d) ? d.GetInt32() : 30;
-        var imageUrl = $"https://example.invalid/showcase/{id}/0.jpg";
+        // 画像は「image」が1枚目、「images」が2枚目から。カードはマウスの位置で絵が替わるので、1枚だけだと動きが伝わらない
+        var imageFiles = new[] { Text(entry, "image") }.Concat(List(entry, "images")).ToList();
+        var imageUrls = imageFiles.Select((_, n) => $"https://example.invalid/showcase/{id}/{n}.jpg").ToList();
 
         // バリエーションは対応アバターごと（BOOTH でよくある並べ方）。アバター本体と、対応の無い物は「通常版」1つ
         var variations = supports.Count > 0
@@ -652,7 +654,7 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
                 Tags = ["VRChat", .. supports],
                 Category = new BoothCategory { Id = categoryIds.GetValueOrDefault(category, 209), Name = category, ParentName = "3Dモデル" },
                 Shop = new BoothShop { Name = shop.Name, Subdomain = shop.Subdomain, Url = $"https://example.invalid/shop/{shop.Subdomain}" },
-                Images = [new BoothImage { OriginalUrl = imageUrl }],
+                Images = imageUrls.Select(url => new BoothImage { OriginalUrl = url }).ToList(),
                 Variations = variations,
                 H2Sections = supports.Count > 0
                     ? [new H2Section { Heading = "対応アバター", Text = supportText }, new H2Section { Heading = "内容", Text = description }]
@@ -691,7 +693,10 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
         // 画像は、アプリが取得して置く場所と名前に合わせる（無いと、裏の取得が「残りの画像」として取りに行く）
         var dir = paths.ItemImagesDir(id);
         Directory.CreateDirectory(dir);
-        SaveShowcaseImage(Path.Combine(imagesDir, Text(entry, "image")), Path.Combine(dir, ImagePipeline.FileNameFor(imageUrl)), 1024);
+        for (var n = 0; n < imageFiles.Count; n++)
+        {
+            SaveShowcaseImage(Path.Combine(imagesDir, imageFiles[n]), Path.Combine(dir, ImagePipeline.FileNameFor(imageUrls[n])), 1024);
+        }
 
         // 手元の zip。中に unitypackage を置くと、商品ページに「Unity ▾」が出る（中身は作り物なので送れない）
         if (Text(entry, "file") is { Length: > 0 } fileName)
