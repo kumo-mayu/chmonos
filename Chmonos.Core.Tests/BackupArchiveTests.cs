@@ -142,6 +142,26 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.DoesNotContain("images/111/a.webp", EntriesOf(zip));
     }
 
+    /// <summary>
+    /// 画像を入れないときも、自分で足した画像と改変の写真は入れる（ユーザ判断 2026-10-07）。
+    /// BOOTH の画像は戻した後に取り直せるが、この2つは BOOTH に無いので、落とすと戻した後に消える
+    /// </summary>
+    [Fact]
+    public void 画像を入れないときも_自分で足した画像と改変の写真は入れる()
+    {
+        Directory.CreateDirectory(Path.Combine(Store, "images", "_mods", "mod-0123abcd"));
+        File.WriteAllText(Path.Combine(Store, "images", "111", "user-3f9c1b7e.webp"), "自分で足した画像");
+        File.WriteAllText(Path.Combine(Store, "images", "_mods", "mod-0123abcd", "user-0a1b2c3d.webp"), "改変の写真");
+        var zip = Path.Combine(_dir, "no-booth-images.zip");
+
+        BackupArchive.Export(Store, zip, includeImages: false);
+
+        var entries = EntriesOf(zip);
+        Assert.Contains("images/111/user-3f9c1b7e.webp", entries);
+        Assert.Contains("images/_mods/mod-0123abcd/user-0a1b2c3d.webp", entries);
+        Assert.DoesNotContain("images/111/a.webp", entries);
+    }
+
     [Fact]
     public void 保存先の中に書き出しても自分自身は入れない()
     {

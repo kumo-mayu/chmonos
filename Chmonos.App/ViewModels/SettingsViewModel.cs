@@ -339,6 +339,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set => SetSectionOpen(nameof(SectionAboutOpen), value, nameof(SectionAboutOpen));
     }
 
+    /// <summary>「このアプリについて」の版。不具合を知らせてもらうときに、どの版かを読んでもらう</summary>
+    public string VersionText => VersionTextFor(Chmonos.App.Services.AppVersion.Text);
+
+    internal static string VersionTextFor(string version) => $"バージョン {version}";
+
     /// <summary>見出しの右に出す数。畳んでいても何件あるかは分かるように。</summary>
     public string FoldersCountText => $"{Folders.Count} 件";
 
@@ -2029,7 +2034,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             "バックアップを書き出す",
             _usage is { ImageBytes: not null, ImageCount: not null } ? $"画像（{ImageUsageText}）も含めますか？" : "画像も含めますか？",
             "「画像も入れる」\n戻したときに取り直さずに済みますが、zipが大きくなります。\n\n"
-            + "「画像は入れない」\n戻した後、使っていない間にBOOTHから少しずつ取り直します。",
+            + "「画像は入れない」\nBOOTHの画像は、戻した後に少しずつ取り直します。自分で足した画像と改変の写真は入ります。",
             "画像も入れる",
             "画像は入れない");
 

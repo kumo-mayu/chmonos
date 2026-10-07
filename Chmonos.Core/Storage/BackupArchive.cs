@@ -118,8 +118,14 @@ public static class BackupArchive
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     };
 
-    private static bool IsImage(string relativePath)
-        => relativePath.StartsWith("images" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// 「画像は入れない」で落とす物。BOOTH から取った画像だけで、戻した後に取り直せる。
+    /// **自分で足した画像と改変の写真は落とさない**（ユーザ判断 2026-10-07）。BOOTH に無いので、落とすと戻した後に消える。
+    /// どちらも名前の頭が <see cref="Models.UserImageName.Prefix"/> で、BOOTH の画像は URL のハッシュの名前なので、名前で分けられる
+    /// </summary>
+    private static bool IsRefetchableImage(string relativePath)
+        => relativePath.StartsWith("images" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && !Models.UserImageName.IsUserAdded(relativePath);
 
     /// <summary>
     /// 書き出す。書き出し先の zip が保存先の中にあっても、自分自身は入れない。
@@ -203,7 +209,7 @@ public static class BackupArchive
                 }
 
                 var relative = Path.GetRelativePath(rootFull, path);
-                if (IsLeftOut(relative) || (!includeImages && IsImage(relative)))
+                if (IsLeftOut(relative) || (!includeImages && IsRefetchableImage(relative)))
                 {
                     continue;
                 }
