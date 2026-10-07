@@ -160,11 +160,11 @@ BOOTH のアカウント情報は入力しません。
 - 同梱している辞書（JMdict・KANJIDIC2、Electronic Dictionary Research and Development Group）：CC BY-SA 4.0。出典はアプリの設定の「このアプリについて」にも出しています
 - そのほかの第三者のデータとライブラリ：[NOTICE](NOTICE)・[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
 
-フォークする方へのお願いです。BOOTH への問い合わせは、必ず1本ずつ、1.5秒以上空けて行う作りにしています。改変して配るときも、この作法を残してください（`NOTICE` にも書いています）。
-
 ## 開発する人へ
 
 ビルドとテスト、配る物の組み方は [docs/dev/build.md](docs/dev/build.md)、機能の一覧は [docs/features.md](docs/features.md)、文書の入口は [docs/README.md](docs/README.md) にあります。
+
+改変して配るときは、BOOTH への名乗り（`Chmonos.Core/Booth/BoothClient.cs` の `UserAgent`）を、あなたのアプリの名前に変えてください。同じ名前で動きの違うアプリが問い合わせると、BOOTH から見分けられず、このアプリを使う人まで巻き込まれることがあります。
 
 ## お問い合わせ
 

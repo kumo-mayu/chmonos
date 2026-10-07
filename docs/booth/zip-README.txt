@@ -63,7 +63,6 @@ BOOTH で買ったアセットを、今のフォルダの並びのまま整理�
 ■ ライセンス
 
   Apache License 2.0 です（LICENSE）。改変・再配布できます。LICENSE と NOTICE を添えてください。
-  改変して配るときも、BOOTH への問い合わせを1回ずつ・1.5秒以上空ける作りは残してください。
 
   同梱の辞書 JMdict・KANJIDIC2 は Electronic Dictionary Research and Development Group の物で、
   CC BY-SA 4.0 です（https://www.edrdg.org/edrdg/licence.html）。
