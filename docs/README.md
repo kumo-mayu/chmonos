@@ -29,6 +29,8 @@
   [file-lifecycle.md](dev/file-lifecycle.md) は手元のファイルが取り込み・未確定・外す・見つからない・移動・一時展開でどう記録され変わるかの地図（2026-10-05 にコードから。気になった所の一覧つき）。
   [ui-shots.md](dev/ui-shots.md) は画面の静止画の網羅の表（画面・状態 → 描画台の場面名・描けない物）と、全部を撮って索引付きの zip にまとめる `ViewShot catalog` の使い方。
   [release-handoff-2026-10-07.md](dev/release-handoff-2026-10-07.md) は公開の準備への申し送り（配る形・コード署名・データの置き場の説明・実機で確かめた動き・配ってはいけない物）。
+  [build.md](dev/build.md) はビルドとテスト、配る物（実行ファイル1つ＋`assets`）の組み方（2026-10-07 に直下の README から移した。直下の README は使う人向け）。
+- **`booth/`** — BOOTH の商品ページの原稿（[item-page.md](booth/item-page.md)。BOOTH は Markdown が効かないので本文は素の文字）と、配る zip に入れる [zip-README.txt](booth/zip-README.txt)。書き方と点検は `public-docs` スキル。
 - **`history/`** — 決めたときの経緯（grill・当時の数字・訂正）。書かれた時点の記録なので、今の決め事と食い違う所がある（そのときは spec が正）。
 - **`research/`** — 調査と計測の記録。
 - **`feedback/`** — 画面への意見。`open.md` が未対応・記録のみ、`done-2026-09.md`・`done-2026-10.md` が直した記録（09 は U番号・D番号。約420KB なので見出しを Grep して節だけ読む）、`ui-flows-2026-09-15.md` が画面と状態ごとの操作の動線と、意図と違う動き・その画面に無い機能の一覧（UI 案を練るときの材料）、`ui-consistency-2026-09-20.md` が語・メニュー・窓・入力・空表示の**揃っていない所**の一覧（同じく材料。W/R/M/B/D/E/I/V の番号で指す）、`behavior-2026-09-20.md` が**動き**の変な所の一覧（中断・待ち・同時に走ったときの取り違え・保存の競合・裏の作業・データの決め事。L/C/N/P/G/X/J/Q の番号で指す）、`review-2026-09-23.md` がその後の全体の点検と直した記録（判断をもらった2件を含む）、`review-2026-09-29.md` が直しの漏れの洗い出し、`review-2026-09-30-store-incident.md` が道具が友人の写しを開いて動かした件（2026-09-30）、`overnight-2026-09-29.md`・`overnight-2026-09-30.md` が夜の作業の報告、`notice-placement-2026-10-03.md` が操作の知らせの置き場の洗い出し（メモ20-②③）、`manual-check-2026-09-28.md`・`manual-check-2026-10-02.md`（この2つは役目を終えた）・`manual-check-2026-10-03.md`・`manual-check-2026-10-04.md`・`manual-check-2026-10-04-night.md` が、人が見ないと決められない物の確認項目。
