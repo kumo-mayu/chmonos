@@ -35,19 +35,19 @@ internal static class RecycleBin
         }
     }
 
-    /// <summary>ごみ箱へ送る。完全に消すかを聞かれて「いいえ」なら <see cref="NotRecyclableException"/>、失敗は IOException。</summary>
-    internal static void Send(string path)
-    {
-        var operation = new ShFileOperation
-        {
-            Func = FoDelete,
-            // 二重の NUL で終わる一覧（1件）
-            From = Path.GetFullPath(path) + "\0\0",
-            Flags = FofAllowUndo | FofNoConfirmation | FofSilent | FofNoErrorUi | FofWantNukeWarning,
-        };
+    /// <summary>
+    /// 渡す旗。ごみ箱へ送る（ALLOWUNDO）。確かめの窓は出さないが、完全に消すことになるときだけは聞かせる（WANTNUKEWARNING）。
+    /// WANTNUKEWARNING を外すと、ごみ箱に入りきらない物を黙って完全に消す
+    /// </summary>
+    internal const ushort DeleteFlags = FofAllowUndo | FofNoConfirmation | FofSilent | FofNoErrorUi | FofWantNukeWarning;
 
-        var result = SHFileOperation(ref operation);
-        if (operation.AnyOperationsAborted)
+    /// <summary>ごみ箱へ送る。完全に消すかを聞かれて「いいえ」なら <see cref="NotRecyclableException"/>、失敗は IOException。</summary>
+    /// <param name="shell">Windows の削除を呼ぶ所（試験で差し替える）。渡す一覧と旗を受け、結果と「やめたか」を返す。</param>
+    internal static void Send(string path, Func<string, ushort, (int Result, bool Aborted)>? shell = null)
+    {
+        // 二重の NUL で終わる一覧（1件）
+        var (result, aborted) = (shell ?? CallShell)(Path.GetFullPath(path) + "\0\0", DeleteFlags);
+        if (aborted)
         {
             throw new NotRecyclableException("ごみ箱に入りきらないため、削除をやめました。");
         }
@@ -58,12 +58,19 @@ internal static class RecycleBin
         }
     }
 
+    private static (int Result, bool Aborted) CallShell(string from, ushort flags)
+    {
+        var operation = new ShFileOperation { Func = FoDelete, From = from, Flags = flags };
+        var result = SHFileOperation(ref operation);
+        return (result, operation.AnyOperationsAborted);
+    }
+
     private const uint FoDelete = 3;
-    private const ushort FofSilent = 0x0004;
-    private const ushort FofNoConfirmation = 0x0010;
-    private const ushort FofAllowUndo = 0x0040;
-    private const ushort FofNoErrorUi = 0x0400;
-    private const ushort FofWantNukeWarning = 0x4000;
+    internal const ushort FofSilent = 0x0004;
+    internal const ushort FofNoConfirmation = 0x0010;
+    internal const ushort FofAllowUndo = 0x0040;
+    internal const ushort FofNoErrorUi = 0x0400;
+    internal const ushort FofWantNukeWarning = 0x4000;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct ShFileOperation

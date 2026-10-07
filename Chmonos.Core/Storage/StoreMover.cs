@@ -304,9 +304,10 @@ public static class StoreMover
 
         // 印は場所を書き換える前に外す。書き換えた後に外して落ちると、保存先が写しかけに見える場所を指したまま残る。
         // 外した後で止まっても、運ぶ先は突き合わせの済んだ完全な写しなので、ライブラリに見えてよい
+        byte[] savedMarker;
         try
         {
-            UnfinishedCopy.End(destination);
+            savedMarker = UnfinishedCopy.EndKeeping(destination);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -330,6 +331,9 @@ public static class StoreMover
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
                 Diagnostics.AppLog.Error("引越しの後に保存先の場所を覚える", exception);
+
+                // 写しを消し始める前に印を置き直す。消し残し・途中で落ちた分が、印の無い欠けたライブラリにならないように
+                UnfinishedCopy.PutBack(destination, savedMarker);
                 return new StoreMoveResult
                 {
                     Succeeded = false,

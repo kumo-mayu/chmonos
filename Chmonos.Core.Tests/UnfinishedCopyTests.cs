@@ -238,4 +238,115 @@ public sealed class UnfinishedCopyTests : IDisposable
         Assert.Equal(before, Directory.EnumerateFiles(Destination, "*", SearchOption.AllDirectories).Count());
         Assert.False(StoreLocation.LooksLikeStore(Destination));
     }
+
+    /// <summary>
+    /// 退けた物を戻している途中で落ちた姿から片付け直しても、戻した物を消さない（外部の点検 2026-10-07）。
+    /// 戻した物は退けたフォルダの外にあり、写し始める前の控えにも無いので、前は「写しで作った物」に見えて消された
+    /// </summary>
+    [Fact]
+    public void 退けた物を戻す途中で止まっても_片付け直しで戻した物を消さない()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "items"));
+        File.WriteAllText(Path.Combine(Destination, "settings.json"), "{\"old\":true}");
+        File.WriteAllText(Path.Combine(Destination, "items", "999.json"), "{ \"id\": \"999\" }");
+        CrashMoveAtTheEnd(() => StoreMover.Replace(Source, Destination, CrashAfterLast()));
+        var parked = UnfinishedCopy.Plan(Destination).ParkedAt!;
+
+        // 片付けが写しを消し、戻す名前を印に書き、items だけ戻したところで落ちた姿
+        foreach (var file in UnfinishedCopy.Plan(Destination).Files)
+        {
+            File.Delete(file);
+        }
+
+        foreach (var folder in Directory.EnumerateDirectories(Destination).Where(path => !path.StartsWith(parked, StringComparison.OrdinalIgnoreCase)))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        JsonStore.WriteOutsideStore(UnfinishedCopy.MarkerPath(Destination), UnfinishedCopy.Read(Destination)! with { Restoring = ["items", "settings.json"] });
+        Directory.Move(Path.Combine(parked, "items"), Path.Combine(Destination, "items"));
+
+        var cleanup = UnfinishedCopy.Clean(Destination);
+
+        Assert.Equal(0, cleanup.Left);
+        Assert.True(File.Exists(Path.Combine(Destination, "items", "999.json")));
+        Assert.Equal("{\"old\":true}", File.ReadAllText(Path.Combine(Destination, "settings.json")));
+        Assert.True(StoreLocation.LooksLikeStore(Destination));
+    }
+
+    /// <summary>退けた物を戻しきれなければ印を外さない。外すと、退けたフォルダに残った物が写しかけの一部とも分からなくなる。</summary>
+    [Fact]
+    public void 退けた物を戻しきれなければ_印を残す()
+    {
+        Directory.CreateDirectory(Path.Combine(Destination, "items"));
+        File.WriteAllText(Path.Combine(Destination, "settings.json"), "{\"old\":true}");
+        CrashMoveAtTheEnd(() => StoreMover.Replace(Source, Destination, CrashAfterLast()));
+        var parked = UnfinishedCopy.Plan(Destination).ParkedAt!;
+
+        UnfinishedCopyCleanup cleanup;
+        using (new FileStream(Path.Combine(parked, "settings.json"), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            cleanup = UnfinishedCopy.Clean(Destination);
+        }
+
+        Assert.False(cleanup.ParkedRestored);
+        Assert.True(cleanup.Left > 0);
+        Assert.True(UnfinishedCopy.IsAt(Destination));
+
+        // 掴んでいた物を離せば、片付け直しで全部戻る
+        var again = UnfinishedCopy.Clean(Destination);
+        Assert.Equal(0, again.Left);
+        Assert.Equal("{\"old\":true}", File.ReadAllText(Path.Combine(Destination, "settings.json")));
+        Assert.True(Directory.Exists(Path.Combine(Destination, "items")));
+    }
+
+    /// <summary>
+    /// 新しい保存先の場所を記録できず、写しを消しきれなかったら、印を残す（外部の点検 2026-10-07）。
+    /// 前は印を外した後で消していたので、消し残しが印の無い欠けたライブラリに見えた
+    /// </summary>
+    [Fact]
+    public void 引越しで場所を記録できず写しを消しきれなければ_印を残す()
+    {
+        FileStream? held = null;
+        try
+        {
+            var result = StoreMover.Move(Source, Destination, commit: () =>
+            {
+                held = new FileStream(Path.Combine(Destination, "items", "123.json"), FileMode.Open, FileAccess.Read, FileShare.None);
+                throw new IOException("記録できない");
+            });
+
+            Assert.False(result.Succeeded);
+            Assert.NotNull(result.LeftoverAt);
+            Assert.True(UnfinishedCopy.IsAt(Destination));
+            Assert.False(StoreLocation.LooksLikeStore(Destination));
+        }
+        finally
+        {
+            held?.Dispose();
+        }
+    }
+
+    [Fact]
+    public void 戻すで場所を記録できず写しを消しきれなければ_印を残す()
+    {
+        var zip = Path.Combine(_root, "backup.zip");
+        BackupArchive.Export(Source, zip, includeImages: true);
+        FileStream? held = null;
+        try
+        {
+            Assert.Throws<IOException>(() => BackupArchive.Restore(zip, Destination, commit: () =>
+            {
+                held = new FileStream(Path.Combine(Destination, "items", "123.json"), FileMode.Open, FileAccess.Read, FileShare.None);
+                throw new IOException("記録できない");
+            }));
+
+            Assert.True(UnfinishedCopy.IsAt(Destination));
+            Assert.False(StoreLocation.LooksLikeStore(Destination));
+        }
+        finally
+        {
+            held?.Dispose();
+        }
+    }
 }

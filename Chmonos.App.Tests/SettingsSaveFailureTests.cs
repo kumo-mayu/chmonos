@@ -47,4 +47,73 @@ public sealed class SettingsSaveFailureTests
             File.SetAttributes(file, File.GetAttributes(file) & ~FileAttributes.ReadOnly);
         }
     });
+
+    /// <summary>設定のファイルを読むだけにして、保存を失敗させる。終わったら戻す。</summary>
+    private static async Task WithReadOnlySettings(TestApp app, Func<Task> body)
+    {
+        app.AllowLoggedFailures = true;
+        var file = app.Services.Paths.SettingsFile;
+        if (!File.Exists(file))
+        {
+            await app.ChangeSettingsAsync(current => current);
+        }
+
+        File.SetAttributes(file, File.GetAttributes(file) | FileAttributes.ReadOnly);
+        try
+        {
+            await body();
+        }
+        finally
+        {
+            File.SetAttributes(file, File.GetAttributes(file) & ~FileAttributes.ReadOnly);
+        }
+    }
+
+    /// <summary>
+    /// ショートカットの保存に失敗したら、行も保存してある割り当てへ戻す（外部の点検 2026-10-07）。
+    /// 戻さないと、次に別の設定を保存したとき、失敗した割り当てまで一緒に書かれる（保存のたびに行から組み直すため）
+    /// </summary>
+    [Fact]
+    public Task ショートカットの保存に失敗したら_行も保存してある割り当てへ戻る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        main.ShowSettingsCommand.Execute(null);
+        var settings = Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
+        await app.SettleAsync();
+        var row = settings.ShortcutRows[0];
+        var before = row.Gesture;
+
+        await WithReadOnlySettings(app, async () =>
+        {
+            settings.AssignShortcut(row, "Ctrl+Shift+F12");
+            await app.SettleAsync();
+        });
+
+        Assert.Equal(before, row.Gesture);
+        Assert.DoesNotContain(settings.ShortcutRows, entry => entry.Gesture == "Ctrl+Shift+F12");
+
+        // 保存できるようになってから別の設定を変えても、失敗した割り当ては書かれない
+        settings.ShowAdult = !settings.ShowAdult;
+        await app.SettleAsync();
+        Assert.DoesNotContain("Ctrl+Shift+F12", File.ReadAllText(app.Services.Paths.SettingsFile));
+    });
+
+    /// <summary>「すべての設定を既定に戻す」の保存に失敗したら、既定に戻したとは言わない（外部の点検 2026-10-07）。</summary>
+    [Fact]
+    public Task 既定に戻すの保存に失敗したら_戻したとは言わない() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        main.ShowSettingsCommand.Execute(null);
+        var settings = Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
+        await app.SettleAsync();
+
+        await WithReadOnlySettings(app, async () =>
+        {
+            await settings.ResetAllSettingsAsync();
+            await app.SettleAsync();
+        });
+
+        Assert.Contains(app.Notices, request => request.Caption == "設定を保存できませんでした");
+        Assert.NotEqual("設定を既定に戻しました。", settings.ResetNote);
+    });
 }

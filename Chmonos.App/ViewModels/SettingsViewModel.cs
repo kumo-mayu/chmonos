@@ -1340,7 +1340,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
-    private async Task SaveAsync(Func<AppSettings, AppSettings> change)
+    /// <returns>保存できたか。続けて何かする呼び手（既定に戻す）は、できなかったら続けない。</returns>
+    private async Task<bool> SaveAsync(Func<AppSettings, AppSettings> change)
     {
         try
         {
@@ -1350,6 +1351,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             // 出すのは、範囲の外を打たれて丸めたこと（I11。その欄の下）と、保存に失敗したこと（下）だけ。
             // 前の失敗の知らせは、保存し直せたので消える
             Status = string.Empty;
+            return true;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -1361,9 +1363,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             Core.Diagnostics.AppLog.Error("設定画面：設定の保存", exception);
             Status = string.Empty;
 
-            // 欄は変えた値のままなので、保存してある値へ写し直す（窓の「変える前のまま」と画面を食い違わせない）
-            ApplyFields(_services.Settings);
-            OnPropertyChanged(string.Empty);
+            // 欄は変えた値のままなので、保存してある値へ写し直す（窓の「変える前のまま」と画面を食い違わせない）。
+            // ショートカットの行とカードに出す属性も戻す。戻さないと、次に別の設定を保存したときに、
+            // 失敗した変更まで一緒に書かれる（ショートカットは保存のたびに行から組み直す。外部の点検 2026-10-07）
+            ShowStoredSettings(_services.Settings);
             Services.Notice.Show(
                 "設定を保存できなかったので、変える前のままです。\n\n"
                 + Core.Services.FailureText.Cause(exception) + "\n\n"
@@ -1371,7 +1374,31 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 "設定を保存できませんでした",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
+            return false;
         }
+    }
+
+    /// <summary>保存してある設定を、この画面の欄・ショートカットの行・カードに出す属性へ写す（書かない）。</summary>
+    private void ShowStoredSettings(AppSettings settings)
+    {
+        _suppressSave = true;
+        try
+        {
+            ApplyFields(settings);
+            foreach (var row in ShortcutRows)
+            {
+                row.Note = string.Empty;
+                row.SetGesture(Services.Shortcuts.GestureOf(settings.Shortcuts ?? new ShortcutSettings(), row.Action));
+            }
+
+            LoadCardAttributes(settings);
+        }
+        finally
+        {
+            _suppressSave = false;
+        }
+
+        OnPropertyChanged(string.Empty);
     }
 
     private void AddFolder()

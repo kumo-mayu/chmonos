@@ -360,4 +360,30 @@ public class UnpackedFolderRemoverTests : IDisposable
         Assert.Equal("ごみ箱を使えないドライブなので、削除しません。", results[0].Reason);
         Assert.True(Directory.Exists(folder.Path));
     }
+
+    /// <summary>
+    /// 中にほかの場所へのリンクがあれば消さない（外部の点検 2026-10-07）。zip を展開してリンクはできないので後から作った物で、
+    /// 前は照らしがリンクの先まで降り、大きなフォルダや輪になったリンクで読み続けていた
+    /// </summary>
+    [Fact]
+    public async Task 中にほかの場所へのリンクがあれば消さない()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        var elsewhere = Path.Combine(_root, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        File.WriteAllBytes(Path.Combine(elsewhere, "big.bin"), new byte[10]);
+        if (!TestJunction.TryCreate(Path.Combine(folder.Path, "link"), elsewhere))
+        {
+            return;
+        }
+
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Contains("リンク", results[0].Reason);
+        Assert.Empty(deleted);
+        Assert.True(File.Exists(Path.Combine(elsewhere, "big.bin")));
+    }
 }

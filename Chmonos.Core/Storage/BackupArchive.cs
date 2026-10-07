@@ -271,18 +271,25 @@ public static class BackupArchive
         var createdDestination = !Directory.Exists(destinationRoot);
         StoreMover.CreateFolder(destinationRoot, createdFolders);
 
+        byte[]? savedMarker = null;
         try
         {
             // 写している途中の印。途中でプロセスごと止まると下の片付けは走らず、書きかけが「既にあるライブラリ」に見えていた
             // （実機の確かめ 2026-10-07）。印は展開し終えてから、場所を書き換える前に外す（StoreMover と同じ順）
             UnfinishedCopy.Begin(destinationRoot, UnfinishedCopyKind.Restore, zipPath, createdDestination);
             var extracted = Extract();
-            UnfinishedCopy.End(destinationRoot);
+            savedMarker = UnfinishedCopy.EndKeeping(destinationRoot);
             commit?.Invoke();
             return extracted;
         }
         catch
         {
+            // 場所の記録に失敗したなら、印は外れている。消し始める前に置き直す（消し残しが印の無い欠けたライブラリにならないように）
+            if (savedMarker is not null)
+            {
+                UnfinishedCopy.PutBack(destinationRoot, savedMarker);
+            }
+
             // 失敗・中止のときは展開した物を消す（ユーザ判断 2026-10-01）。
             // 残すと展開先が空でなくなり、同じ場所へ戻し直すと「空ではありません」で断られ、手で片付けるまで使えない
             ClearExtracted(destinationRoot, createdFiles, createdFolders);

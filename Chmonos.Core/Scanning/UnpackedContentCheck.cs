@@ -51,22 +51,38 @@ public static class UnpackedContentCheck
 
         var extra = 0;
         var resized = 0;
-        foreach (var file in Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories))
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (MadeByWindows.Contains(Path.GetFileName(file)))
+            // 中にリンクがあれば消さない。zip を展開してリンクはできないので、後から作った物。
+            // リンクの先は zip と関係の無い場所で、照らすと先の中まで読み続けてしまう（外部の点検 2026-10-07）
+            if (Storage.StoreTree.FindLink(folderPath) is not null)
             {
-                continue;
+                return "フォルダの中にほかの場所へのリンクがあるため、削除しません。";
             }
 
-            if (!entries.TryGetValue(Path.GetRelativePath(folderPath, file), out var length))
+            // リンクの先へは降りない数え方（StoreTree）で照らす
+            foreach (var (file, size) in Storage.StoreTree.FilesWithLength(folderPath, cancellationToken))
             {
-                extra++;
+                if (MadeByWindows.Contains(Path.GetFileName(file)))
+                {
+                    continue;
+                }
+
+                if (!entries.TryGetValue(Path.GetRelativePath(folderPath, file), out var length))
+                {
+                    extra++;
+                }
+                else if (size != length)
+                {
+                    resized++;
+                }
             }
-            else if (new FileInfo(file).Length != length)
-            {
-                resized++;
-            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 照らしの途中で消えた・読めないフォルダがあった・ドライブが外れた。そのフォルダは消さず、ほかのフォルダは続ける
+            Diagnostics.AppLog.Error("展開したフォルダを zip と照らす", exception);
+            return "フォルダの中を読めないため、中身を比べられません。削除しません。";
         }
 
         return extra > 0

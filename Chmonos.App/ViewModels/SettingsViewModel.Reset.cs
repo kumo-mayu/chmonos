@@ -54,10 +54,9 @@ public sealed partial class SettingsViewModel
     internal async Task ResetAllSettingsAsync()
     {
         Status = string.Empty;
-        await SaveAsync(settings => settings.ResetToDefaults());
-        if (Status.Length > 0)
+        if (!await SaveAsync(settings => settings.ResetToDefaults()))
         {
-            // 書けなかった（理由は Status に出ている）。画面の値は変えない
+            // 書けなかった（窓で知らせてある）。画面の値は保存してある値のまま。画面の幅なども戻さない
             return;
         }
 

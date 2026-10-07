@@ -32,6 +32,13 @@ public sealed record UnfinishedCopyMarker
     /// <summary>写し始める前から写し先にあったファイルとフォルダ（写し先からの相対）。片付けで消さない。</summary>
     public IReadOnlyList<string> Existing { get; init; } = [];
 
+    /// <summary>
+    /// 片付けで、退けたフォルダから写し先の直下へ戻している途中の名前。この下は消さない（外部の点検 2026-10-07）。
+    /// 戻している途中で落ちると、戻した物は退けたフォルダの外にあり、写し始める前の控えにも無いので、
+    /// 次の片付けで「写しで作った物」に見えて消されていた
+    /// </summary>
+    public IReadOnlyList<string> Restoring { get; init; } = [];
+
     public string Note { get; init; } =
         "Chmonosがデータをコピーしている途中に置く印です。コピーし終えると消えます。"
         + "残っていれば途中で止まったコピーで、ライブラリとしては使えません。設定の「場所を変える」でこの場所を選ぶと削除できます。";
@@ -108,6 +115,30 @@ public static class UnfinishedCopy
     /// <summary>写し終えて突き合わせが済んだら外す。外せなければ投げる（写し終えた物が写しかけに見えたまま進めない）。</summary>
     internal static void End(string destination) => File.Delete(MarkerPath(destination));
 
+    /// <summary>
+    /// 外して、外す前の中身を返す。場所の記録（<c>location.json</c>）に失敗したら <see cref="PutBack"/> で置き直すため。
+    /// 置き直さずに写しを消し始めると、消し残しや途中で落ちた分が、印の無い欠けたライブラリとして残る（外部の点検 2026-10-07）
+    /// </summary>
+    internal static byte[] EndKeeping(string destination)
+    {
+        var saved = File.ReadAllBytes(MarkerPath(destination));
+        End(destination);
+        return saved;
+    }
+
+    /// <summary>外した印を置き直す。置けなければログにだけ残す（元の失敗の方を伝える）。</summary>
+    internal static void PutBack(string destination, byte[] saved)
+    {
+        try
+        {
+            File.WriteAllBytes(MarkerPath(destination), saved);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Diagnostics.AppLog.Error("写している途中の印を置き直す", exception);
+        }
+    }
+
     /// <summary>片付けで消す物を数える。印が読めなければ <see cref="UnfinishedCopyPlan.Marker"/> が null で、何も数えない。</summary>
     public static UnfinishedCopyPlan Plan(string root)
     {
@@ -155,11 +186,13 @@ public static class UnfinishedCopy
             }
         }
 
-        var kept = new HashSet<string>(marker.Existing, StringComparer.OrdinalIgnoreCase);
+        var kept = new HashSet<string>(marker.Existing ?? [], StringComparer.OrdinalIgnoreCase);
         var parked = ParkedFolder(root, marker);
         foreach (var folder in StoreTree.Directories(root).OrderByDescending(path => path.Length))
         {
-            if ((parked is not null && IsSameOrUnder(folder, parked)) || kept.Contains(Path.GetRelativePath(root, folder)))
+            if ((parked is not null && IsSameOrUnder(folder, parked))
+                || kept.Contains(Path.GetRelativePath(root, folder))
+                || IsRestoring(root, folder, marker))
             {
                 continue;
             }
@@ -172,7 +205,31 @@ public static class UnfinishedCopy
             return new UnfinishedCopyCleanup(removed, left, ParkedRestored: false);
         }
 
-        var restored = parked is not null && Directory.Exists(parked) && RestoreParked(root, parked);
+        var restored = false;
+        if (parked is not null && Directory.Exists(parked))
+        {
+            try
+            {
+                var names = Directory.EnumerateFileSystemEntries(parked).Select(Path.GetFileName).OfType<string>();
+                JsonStore.WriteOutsideStore(MarkerPath(root), marker with
+                {
+                    Restoring = (marker.Restoring ?? []).Concat(names).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                });
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 戻す名前を控えられないまま戻すと、途中で落ちたときに戻した物が消される。戻さずに残す
+                Diagnostics.AppLog.Error("置き換えで退けた物を戻す前に控える", exception);
+                return new UnfinishedCopyCleanup(removed, 1, ParkedRestored: false);
+            }
+
+            restored = RestoreParked(root, parked);
+            if (!restored)
+            {
+                // 戻しきれていない物が退けたフォルダに残る。印を外すと、その物が写しかけの一部とも分からなくなる
+                return new UnfinishedCopyCleanup(removed, 1, ParkedRestored: false);
+            }
+        }
 
         try
         {
@@ -234,14 +291,27 @@ public static class UnfinishedCopy
     /// <summary>写しで作ったと見るファイル：印・退けたフォルダ・写す前から在った物のほか全部。リンクの先へは降りない。</summary>
     private static IEnumerable<string> CopiedFiles(string root, UnfinishedCopyMarker marker)
     {
-        var kept = new HashSet<string>(marker.Existing, StringComparer.OrdinalIgnoreCase);
+        var kept = new HashSet<string>(marker.Existing ?? [], StringComparer.OrdinalIgnoreCase);
         var parked = ParkedFolder(root, marker);
         var markerPath = MarkerPath(root);
 
         return StoreTree.Files(root).Where(file =>
             !string.Equals(file, markerPath, StringComparison.OrdinalIgnoreCase)
             && !(parked is not null && IsSameOrUnder(file, parked))
-            && !kept.Contains(Path.GetRelativePath(root, file)));
+            && !kept.Contains(Path.GetRelativePath(root, file))
+            && !IsRestoring(root, file, marker));
+    }
+
+    /// <summary>退けた物から戻した（戻している途中の）名前の下か。写し先の直下の名前で見る。</summary>
+    private static bool IsRestoring(string root, string path, UnfinishedCopyMarker marker)
+    {
+        if (marker.Restoring is not { Count: > 0 } restoring)
+        {
+            return false;
+        }
+
+        var first = Path.GetRelativePath(root, path).Split(Path.DirectorySeparatorChar)[0];
+        return restoring.Contains(first, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string? ParkedFolder(string root, UnfinishedCopyMarker marker)
