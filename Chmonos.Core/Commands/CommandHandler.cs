@@ -60,6 +60,9 @@ public sealed class CommandHandler
 
     private readonly string? _storeRoot;
 
+    /// <summary>見つからない記録をまとめて消す部品。無ければ「この機能は使えません」と返す。</summary>
+    public Services.MissingRecordCleaner? MissingRecords { get; init; }
+
     /// <summary>
     /// 商品の記録が見つからなかったときの文。**保存先のフォルダそのものが無ければ、ドライブを確かめるよう言う**
     /// （実機の確かめ 2026-10-07）。USB メモリを抜いた状態でお気に入りを押すと「商品データが手元にありません」と出て、
@@ -1036,6 +1039,14 @@ public sealed class CommandHandler
 
                 await _notifications.AddAsync(add.Record, cancellationToken);
                 return new CommandResult.Done();
+
+            case UiCommand.ForgetMissingFiles:
+                if (MissingRecords is null)
+                {
+                    return MissingService("見つからないファイルの記録の片付け");
+                }
+
+                return new CommandResult.MissingRecordsForgotten(await MissingRecords.ForgetAsync(cancellationToken));
 
             case UiCommand.FindMissingFiles find:
                 if (_missingFiles is null || _settings is null)

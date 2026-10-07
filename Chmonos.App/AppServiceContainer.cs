@@ -146,6 +146,9 @@ public sealed class AppServiceContainer : IDisposable
             Stats = new StatsService(Store);
             Recent = new Services.RecentTracker(Store, BackgroundWrites);
             Modifications = new ModificationService(Store, Images);
+            // 見つからない記録のまとめての片付け。数えるのは読むだけなので画面から直に呼び、消すのは UiCommand を通す
+            MissingRecords = new MissingRecordCleaner(Store);
+
             Commands = new CommandHandler(
                 Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin, UnpackedFolderRemover.RegisteredFoldersIn(Store)), Resolver, Notifications, UserTags, Attributes,
                 Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles, Store.ShopNotes,
@@ -154,6 +157,7 @@ public sealed class AppServiceContainer : IDisposable
             {
                 RegistrationQueue = Store.RegistrationQueue,
                 PendingOperations = Store.PendingOperations,
+                MissingRecords = MissingRecords,
             };
 
             // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）
@@ -269,6 +273,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>改変の記録を作る・消す・読む</summary>
     public IModificationService Modifications { get; }
+
+    /// <summary>見つからないファイル・フォルダの記録をまとめて消す（数えるだけなら画面から直に呼んでよい）。</summary>
+    public MissingRecordCleaner MissingRecords { get; }
 
     /// <summary>「最近」の足跡を打つ。itemのJSONではなく recent.json に集める</summary>
     public Services.RecentTracker Recent { get; }

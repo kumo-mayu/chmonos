@@ -158,6 +158,68 @@ public sealed partial class ImportViewModel : ViewModelBase
         () => FindMissingFilesAsync().Forget(),
         () => !_isFindingMissing);
 
+    private RelayCommand? _forgetMissing;
+
+    /// <summary>
+    /// 見つからないファイル・フォルダの記録を、全部の商品からまとめて消す（ユーザ判断 2026-10-07）。
+    /// 大量に見つからなくなると、1件ずつ判断して外すのは我慢を強いるので、件数を見せる確かめ1回で片付ける。
+    /// 探して結び直した後に残った物を片付ける流れにするので、「探す」の隣に置く
+    /// </summary>
+    public RelayCommand ForgetMissingFilesCommand => _forgetMissing ??= new RelayCommand(
+        () => ForgetMissingFilesAsync().Forget(),
+        () => !_isFindingMissing);
+
+    private async Task ForgetMissingFilesAsync()
+    {
+        _isFindingMissing = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        try
+        {
+            var plan = await _services.MissingRecords.PlanAsync();
+            if (plan.Files + plan.Folders == 0)
+            {
+                MissingSearchText = "見つからないファイルはありません。";
+                return;
+            }
+
+            var answer = Services.Notice.Show(
+                $"{plan.Items:N0} 商品の、見つからないファイル {plan.Files:N0} 件・フォルダ {plan.Folders:N0} 件の記録を削除します。\n\n"
+                + (plan.Unowned > 0 ? $"手元のファイルが無くなる {plan.Unowned:N0} 商品は、未所持になります。" : string.Empty)
+                + "ファイルが戻れば、取り込みでまた紐付きます。\n\n"
+                + "削除した記録は元に戻せません。",
+                "見つからないファイルの記録を削除",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Warning,
+                System.Windows.MessageBoxResult.Cancel);
+            if (answer != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
+
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetMissingFiles());
+            MissingSearchText = result switch
+            {
+                Core.Commands.CommandResult.MissingRecordsForgotten { Result: var done } =>
+                    $"{done.Items:N0} 商品から、見つからないファイル {done.Files:N0} 件・フォルダ {done.Folders:N0} 件の記録を削除しました。",
+                Core.Commands.CommandResult.Failed failed => failed.Message,
+                _ => string.Empty,
+            };
+
+            // 前に探した結果の一覧は、消した記録を指しているので片付ける
+            ShowMissingFiles(null);
+            ShowMissingFolders([]);
+            if (result is Core.Commands.CommandResult.MissingRecordsForgotten { Result.Items: > 0 })
+            {
+                await _main.ReloadLibraryAsync();
+            }
+        }
+        finally
+        {
+            _isFindingMissing = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
+
     private async Task FindMissingFilesAsync()
     {
         // どこを探すかを窓で選ぶ（見つからない・移動の点検 11-A）。監視フォルダが既定で入り、ほかの場所はこの回だけ足せる。

@@ -556,6 +556,9 @@ public abstract record UiCommand
     /// <paramref name="Folders"/> は窓で選んだ探す場所（監視フォルダ＋この回だけ足した場所。点検 11-A）。null なら監視フォルダ。
     /// 足した場所は監視にも設定にも書かない。
     /// </summary>
+    /// <summary>見つからないファイル・フォルダの記録を、全部の商品からまとめて消す（ユーザ判断 2026-10-07）。</summary>
+    public record ForgetMissingFiles : UiCommand;
+
     public record FindMissingFiles(
         IProgress<(int Hashed, string? Detail)>? Progress = null,
         IReadOnlyList<string>? Folders = null) : UiCommand;
@@ -670,6 +673,8 @@ public abstract record CommandResult
 
     /// <summary>見つからないファイルを探した結果（G17）。</summary>
     public record MissingFilesSearched(Services.MissingFileSearchResult Result) : CommandResult;
+
+    public record MissingRecordsForgotten(Services.MissingRecordCleanup Result) : CommandResult;
 
     /// <summary>展開フォルダをzipへ切り替えた結果。</summary>
     public record ArchiveSwapped(Services.ArchiveSwapOutcome Outcome) : CommandResult;
