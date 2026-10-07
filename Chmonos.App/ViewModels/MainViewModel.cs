@@ -22,6 +22,14 @@ public sealed partial class MainViewModel : ViewModelBase
         _services = services;
         Thumbnails = new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
 
+        // 同梱の辞書などは起動中に増えも減りもしないので、起動したときに1回だけ確かめる（BundledAssets）
+        var missingAssets = services.FindMissingAssets();
+        _hasMissingAssets = missingAssets.Count > 0;
+        if (_hasMissingAssets)
+        {
+            Chmonos.Core.Diagnostics.AppLog.Warn("同梱のファイル", $"assets に見つからない：{string.Join("、", missingAssets)}");
+        }
+
         // カードの大きさとリストの行の高さ（一覧の右下のスライダー）。検索画面が列を割る前に決めておく
         ItemViewSize.Initialize(services);
 
@@ -1053,6 +1061,16 @@ public sealed partial class MainViewModel : ViewModelBase
     /// </summary>
     public bool HasInterruptedImport
         => !IsImporting && _interruptedImport is { HasProgress: true };
+
+    /// <summary>
+    /// 同梱の辞書などが見つからないまま起動したか。**画面全体の状態なので下の帯に出す**（ユーザ判断 2026-10-07）。
+    /// 閉じるボタンは付けない：開き直すまで直らず、出ている間ずっと検索の一部が効かない
+    /// </summary>
+    public bool HasMissingAssets => _hasMissingAssets;
+
+    private readonly bool _hasMissingAssets;
+
+    public string MissingAssetsText => HasMissingAssets ? Chmonos.App.Services.BundledAssets.MissingText : string.Empty;
 
     public string InterruptedImportText
         => _interruptedImport is { HasProgress: true } state ? state.Text : string.Empty;

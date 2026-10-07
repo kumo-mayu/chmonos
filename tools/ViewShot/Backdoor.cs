@@ -183,6 +183,16 @@ internal static class Backdoor
         setter.Invoke(target, [value]);
     }
 
+    /// <summary>
+    /// 同梱の辞書などが見つからないまま起動した状態。本物は起動したときに実行ファイルの隣を見て決めるが、
+    /// 台の隣には assets がそろっているので、出た後の値を入れる
+    /// </summary>
+    public static void ShowMissingAssets(MainViewModel main)
+    {
+        SetField(main, "_hasMissingAssets", true);
+        Raise(main, nameof(MainViewModel.HasMissingAssets), nameof(MainViewModel.MissingAssetsText));
+    }
+
     private static void SetField(object target, string name, object? value)
     {
         var field = target.GetType().GetField(name, Hidden) ?? throw Missing(target.GetType(), $"欄 {name}");

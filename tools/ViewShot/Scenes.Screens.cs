@@ -513,6 +513,20 @@ internal static partial class Scenes
 
     private static IEnumerable<Scene> Bands =>
     [
+        // 2026-10-07：zip の中から開くなどで assets が無いと、検索の一部が黙って効かなかった
+        new("band-missing-assets", "下の帯：同梱の辞書などが見つからない（開き直し方）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            Backdoor.ShowMissingAssets(main);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.MissingAssetsText)), FocusMargin = 24 };
+        }),
+
         Unpacking("band-unpacking", "下の帯：一時展開の進み具合（1本・長いzip名・半分まで）", main =>
             Backdoor.ShowUnpacking(
                 main, 1, "作り物のとても長い名前の衣装セット_フルパッケージ版_v2.1_対応アバター12体同梱_テクスチャ4K_PSD付き.zip",

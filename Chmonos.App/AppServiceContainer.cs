@@ -183,6 +183,12 @@ public sealed class AppServiceContainer : IDisposable
     internal Func<Services.UnityTools> DetectUnityTools { get; set; } = Services.UnityTools.Detect;
 
     /// <summary>
+    /// 同梱の <c>assets</c> に無い物を調べる。実行ファイルの隣を見るので、試験は決まった答えに差し替える
+    /// （主の窓の帯が、これで出る）
+    /// </summary>
+    internal Func<IReadOnlyList<string>> FindMissingAssets { get; set; } = Services.BundledAssets.Missing;
+
+    /// <summary>
     /// ファイルを選んだ状態でエクスプローラを開く（書き出したバックアップの「エクスプローラで開く」）。
     /// 試験で本物のエクスプローラを開くと使う人の画面に出るので、試験は渡された道を控えるだけの物に差し替える
     /// </summary>

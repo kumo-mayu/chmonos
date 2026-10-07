@@ -689,6 +689,18 @@
             </Border>
 
             <!--
+                同梱の辞書などが無いまま起動すると、検索の一部が黙って効かなかった（2026-10-07）。開き直すまで直らないので、
+                閉じるボタンは付けず、出ている間ずっと出す。文が長いので切らずに折り返す
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource WarnSoft}"
+                    BorderBrush="{DynamicResource WarnBorder}" BorderThickness="0,1,0,0" Padding="18,8"
+                    Visibility="{Binding HasMissingAssets, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding MissingAssetsText}" Style="{StaticResource Caption}"
+                           AutomationProperties.AutomationId="MissingAssetsText"
+                           Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+            </Border>
+
+            <!--
                 前回の取り込みが途中で止まったままだと、どの画面からも分からず、再開の道も取り込み画面にしか無かった
                 （ユーザ指摘 2026-09-22）。**帯は常設ではない**——続きが残っている間と、通信している間だけ出す。
                 走っている間は下の通信の帯が同じ場所に出るので、こちらは引っ込む（2本並べない）

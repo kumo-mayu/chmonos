@@ -173,7 +173,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 |---|---|
 | ナビ：低い窓・畳む・送る・フォーカス | `nav-low-*`・`nav-focus` |
 | ナビ：数の札（未確定・未編集・通知） | `catalog-nav-badges` |
-| 下の帯：一時展開・バックアップ（中・数える・済み・失敗）・戻す | `band-unpacking(-two)`・`band-backup-*`・`band-restore-running` |
+| 下の帯：同梱の辞書などが無い・一時展開・バックアップ（中・数える・済み・失敗）・戻す | `band-unpacking(-two)`・`band-missing-assets`・`band-backup-*`・`band-restore-running` |
 | 主の窓の知らせの帯（隠した・離れたページの操作・取り込みを始められない・監視をやめた） | `catalog-notice-hidden`・`catalog-notice-changed-away`・`catalog-notice-import-not-started`・`catalog-notice-folder-removed` |
 | 知らせの窓（OK/キャンセル・はい/いいえ・エラー） | `notice-okcancel-long`・`notice-yesno-warning`・`notice-error-short` |
 | 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three` |
