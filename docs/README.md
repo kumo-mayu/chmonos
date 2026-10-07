@@ -18,7 +18,7 @@
 | `tools/wording.mjs` | 画面に表示される文を App と Core から集め、書き方の決まりに外れていそうな所に印を付ける（使い方はスキル `ui-wording`） |
 | `tools/SandboxGen/` | 確かめ用の写しを、作り物のデータで組み立てる道具（アプリと同じ道で書く・BOOTH へ問い合わせない）。ソリューションには入れていない。呼ぶのは `ui-check` の `New-ChmonosSandbox -Recipe` |
 | `tools/ViewShot/` | 窓を出さずに、画面や部品を作り物のデータで組んで PNG に描く台。前後の画像を比べる `diff` も持つ。見た目だけの確かめはアプリを起動せずにこれで行う（使い方と、確かめられない物はスキル `ui-check`「窓を出さずに描く」） |
-| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md`、確かめの道具の一覧は `ui-check/tools.md` |
+| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`・`public-docs`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md`、確かめの道具の一覧は `ui-check/tools.md` |
 | `docs/history/author-memos/` | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`）。2026-09-24 に直下から移した（中身は変えていない）。書き直さない |
 
 ## 文書の種類

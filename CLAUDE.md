@@ -195,4 +195,5 @@ XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep 
 - Unity を実際に動かす確かめは、ユーザが「試して」と言ったときだけ
 - 作業をサブエージェントに分けて並行で直すときは `parallel-fix` スキル。サブエージェントの報告の重い指摘は、ユーザへ伝える前に自分でコードか画像を見て確かめる
 
-手順は `.claude/skills/` のスキル（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）にある。
+手順は `.claude/skills/` のスキル（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`・`public-docs`）にある。
+`public-docs` が使う外のスキル（`natural-japanese`・`humanizer-ja`・`user-guide-writing`）は手元に置くだけで git では追跡しない（`.git/info/exclude`。取得元は各フォルダの `SOURCE.txt`）。
