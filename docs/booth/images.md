@@ -20,7 +20,7 @@ $root = "$env:LOCALAPPDATA\Chmonos-sandboxes\showcase"
 & $exe $root init
 # 最後の引数は手元の zip の置き場。画面にパスが写るので短い場所にする（作り直すと、この手順が作った印のある所だけ消す）
 & $exe $root showcase tools/SandboxGen/showcase.json "$env:LOCALAPPDATA\Chmonos-fixtures\showcase-images" D:\BOOTH
-dotnet run --project tools/ViewShot -- shot showcase-search,showcase-search-hover,showcase-filters,showcase-folder,showcase-item,showcase-item-confirm,showcase-modification,showcase-inbox,showcase-resolve,showcase-avatars --full --scale 2 --out <出し先>
+dotnet run --project tools/ViewShot -- shot showcase-search,showcase-search-hover,showcase-filters,showcase-folder,showcase-item,showcase-item-confirm,showcase-modification,showcase-inbox,showcase-resolve,showcase-avatars,showcase-list,showcase-shops,showcase-stats,showcase-tags,showcase-attributes,showcase-edit,showcase-import --full --scale 2 --theme both --out <出し先>
 ```
 
 描画台（`RenderTargetBitmap`）で描くので、実機の撮影より綺麗で、2倍（3200×2000）でもくっきり描ける。

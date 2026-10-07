@@ -130,7 +130,55 @@ internal static partial class Scenes
             await context.SettleAsync();
             return new Shot(root);
         }) { Width = 1600, Height = 1000 },
+
+        new Scene("showcase-list", "BOOTH 用：検索の画面のリスト表示", async context =>
+        {
+            var (main, root) = await OpenShowcaseAsync(context);
+            main.ShowSearch();
+            main.Search.IsListMode = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }) { Width = 1600, Height = 1000 },
+
+        ShowcaseScreen("showcase-shops", "BOOTH 用：ショップの画面", main => main.ShowShops()),
+        ShowcaseScreen("showcase-stats", "BOOTH 用：統計の画面", main => main.ShowStats()),
+        ShowcaseScreen("showcase-tags", "BOOTH 用：タグの管理", main => main.ShowTagManage()),
+        ShowcaseScreen("showcase-attributes", "BOOTH 用：属性の管理", main => main.ShowAttributeManage()),
+        // 見せる写しの商品は全部編集済みなので、ナビから開くと「編集するものがありません」になる。商品を指して開く
+        new Scene("showcase-edit", "BOOTH 用：編集の画面（ワンピース）", async context =>
+        {
+            var (main, root) = await OpenShowcaseAsync(context);
+            var id = (await context.Seed.Items.LoadAllAsync()).Items.First(candidate => candidate.Booth.Name == "ワンピース").Id;
+            await main.ShowEditAsync([id]);
+            await SceneContext.UntilAsync(() => Look.View<EditView>(root) is not null, "編集の画面");
+            await context.SettleAsync();
+            return new Shot(root);
+        }) { Width = 1600, Height = 1000 },
+
+        // 取り込みは一瞬で終わる（作り物は BOOTH へ問い合わせない）ので、走っている最中の値を直に入れる。
+        // 見せたいのは「画像を取り終わる前に編集できる」こと
+        new Scene("showcase-import", "BOOTH 用：取り込みの最中（段・件数・残りの見込み）", async context =>
+        {
+            var (main, root) = await OpenShowcaseAsync(context);
+            main.ShowImportCommand.Execute(null);
+            await context.SettleAsync();
+            Backdoor.ShowImportRunning(
+                context.Screen<ImportViewModel>(), "4. 商品ページを取得", string.Empty, 18, 24, "パーカー",
+                ("この段の残り 約 1 分", "編集できるまで 約 1 分", "画像を取り終わるまで 約 4 分"));
+            main.BoothActivity.ReportWork(WorkSource.Import, "取り込み：商品ページを取得中", 18, 24);
+            await context.SettleAsync();
+            return new Shot(root);
+        }) { Width = 1600, Height = 1000 },
     ];
+
+    private static Scene ShowcaseScreen(string name, string description, Action<MainViewModel> show)
+        => new(name, description, async context =>
+        {
+            var (main, root) = await OpenShowcaseAsync(context);
+            show(main);
+            await context.SettleAsync();
+            return new Shot(root);
+        }) { Width = 1600, Height = 1000 };
 
     private static async Task<(MainViewModel Main, FrameworkElement Root)> OpenShowcaseAsync(SceneContext context)
     {
