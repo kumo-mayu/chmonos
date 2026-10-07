@@ -17,8 +17,9 @@ BOOTH のページに載せる画像の素材の作り方。作りは Paramroom 
 $exe = 'tools/SandboxGen/bin/Release/net10.0/SandboxGen.exe'   # dotnet build tools/SandboxGen -c Release
 $root = "$env:LOCALAPPDATA\Chmonos-sandboxes\showcase"
 & $exe $root init
-& $exe $root showcase tools/SandboxGen/showcase.json "$env:LOCALAPPDATA\Chmonos-fixtures\showcase-images"
-dotnet run --project tools/ViewShot -- shot showcase-search,showcase-folder,showcase-item,showcase-item-confirm,showcase-modification,showcase-inbox,showcase-resolve,showcase-avatars --full --scale 2 --out <出し先>
+# 最後の引数は手元の zip の置き場。画面にパスが写るので短い場所にする（作り直すと、この手順が作った印のある所だけ消す）
+& $exe $root showcase tools/SandboxGen/showcase.json "$env:LOCALAPPDATA\Chmonos-fixtures\showcase-images" D:\BOOTH
+dotnet run --project tools/ViewShot -- shot showcase-search,showcase-filters,showcase-folder,showcase-item,showcase-item-confirm,showcase-modification,showcase-inbox,showcase-resolve,showcase-avatars --full --scale 2 --out <出し先>
 ```
 
 描画台（`RenderTargetBitmap`）で描くので、実機の撮影より綺麗で、2倍（3200×2000）でもくっきり描ける。
@@ -31,7 +32,7 @@ dotnet run --project tools/ViewShot -- shot showcase-search,showcase-folder,show
 | 1 | 買ったアセットを、今のフォルダのまま管理 | `showcase-search` |
 | 2 | フォルダの並びはそのまま | `showcase-folder` |
 | 3 | zip を入れるだけで商品を特定 | `showcase-resolve`（と取り込みの結果） |
-| 4 | 条件を組み合わせて絞り込み | 絞り込みの欄（場面はまだ） |
+| 4 | 条件を組み合わせて絞り込み | `showcase-filters`（対応アバター AND・価格2つ・カテゴリを除く → 3件） |
 | 5 | Unity へそのままインポート | `showcase-item` ＋ Unity の実機 |
 | 6 | 改変を記録 | `showcase-modification` |
 | 7 | 注意点 | 文字だけ（ユーザ） |
