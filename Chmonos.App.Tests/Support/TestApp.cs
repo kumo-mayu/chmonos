@@ -360,6 +360,10 @@ internal sealed class TestApp
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;
+            // Run で差し替えた口は全部ここで戻す（点検24：この2つだけ戻しておらず、TestApp を使わない試験が
+            // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
+            ChoiceQuestion.Intercept = null;
+            ItemViewModel.PickFilesToAttachIntercept = null;
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();

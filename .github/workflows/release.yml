@@ -41,6 +41,11 @@ jobs:
           }
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      # 配る物と同じコミットの試験が通ったときだけ組む（点検24：組めても、保存・読み込みの試験が落ちる版を
+      # 配る候補にできた）。試験は通信しない決まり（CLAUDE.md）なので、ここでも走らせられる
+      - name: 試験
+        run: dotnet test -c Release
+
       - name: 組む
         run: dotnet publish Chmonos.App -c Release -p:PublishProfile=win-x64 -o out/Chmonos-v${{ steps.version.outputs.version }}
 
