@@ -72,7 +72,7 @@ stateDiagram-v2
 | 始め | 前回の `import-state.json` | `unfetched` だけ引き継いで書き直す | 前回の `targets`・`stopped` は消える | `RunCoreAsync` 冒頭 |
 | 周回の頭 | 全商品 | 登録フォルダの数え直し（最初の周回だけ。中の unitypackage の一覧も）・フォルダの `missingSince`／`lastSeenAt`（`ChangeLocalAsync`）・「zipが手に入った」通知 | フォルダの「無い」はドライブがつながっていない・根が3秒で答えない時は書かない（`FilePresenceProbe`） | `LoadOwnedAsync` |
 | 走査 | ディスク（木を1回たどる） | `volumes.json`・`import-state.json`（`scanning: true`） | 一時展開の置き場（取り込み元がその外側でも降りない）・ジャンクション・シンボリックリンク（たどらないが、数を結果に・場所をログに出す）・オンラインのみ・登録フォルダの中・展開したフォルダの中 | `ScanFolders`・`FolderScanner.Scan` |
-| 取り込む拡張子 | 拡張子 | — | `.zip .rar .psd .ai .lip .pdf` 音声・`.epub .vroid .vrm .vrma .xwear` など・画像・動画。**単体の `.unitypackage`・`.7z` は取り込まない**（`FolderScanner.TargetExtensions`） | |
+| 取り込む拡張子 | 拡張子 | — | `.zip .rar .psd .ai .lip .pdf` 音声・`.epub .vroid .vrm .vrma .xwear` など・画像・動画。BOOTH のダウンロード商品の「対応形式」と同じ27個に、`.unitypackage`・`.7z`・`.blend`・`.fbx` を足した物（2026-10-07。前は単体の unitypackage・7z を取り込まなかった。`FolderScanner.TargetExtensions`）。手で紐付けるときは問わない | |
 | ハッシュ | 控えの3点 | `scan-cache.json`（10秒ごとと周回の終わり） | 読めないファイルは数えてログへ。控えに書かない | `ResolveAsync` |
 | 上書きされた場所 | 記録の場所 → 今のハッシュ | 古い中身の記録からその場所を外す。場所が残らなければ古い版の印 `replaced` を付け、`missingSince` を消す。壊れた zip の記録だけ記録ごと落とす | 走査していない・読めない・つながっていない場所は触らない | `DropReplacedPathsAsync` |
 | 除外 | `excluded.json` | — | 中身が違えば新しい物として通す | `ExclusionFilter` |
@@ -109,7 +109,7 @@ stateDiagram-v2
 | 除外を解除（設定） | `RestoreExcluded` | `excluded.json` から消す → 元の場所に同じ中身が在れば、その場で未確定へ（そのファイルから大きさ・日時・Zone.Identifier・zip の中身を読み、候補は控えの手掛かり） | 無い・中身が変わった・商品が持つなら未確定には足さず、設定の行の下にそう言う |
 | フォルダの登録を外す | `UnregisterFolder` | `localFolders` から消す | ファイルには触らない。中身は次の取り込みで未確定へ |
 | zipで登録し直す（通知） | `SwapFolderForArchive` | 隣の zip を1本ハッシュして（錠の外）、錠の中で今の `localFiles` へ足し（`MergeByHand`）・フォルダの登録を外す → 未確定から消す | ディスクには触らない。ハッシュの間に商品が消されたら何も書かない。外していた zip は印を下ろして付ける。除外した zip・ほかの商品が持つ zip は何も書かずに返し、画面が窓で聞く（除外を解く／その商品を開く・この商品に付け直す＝向こうに外した印） |
-| ファイルを紐付ける（商品ページの［追加…］・落として「この商品に紐付ける」。2026-10-06） | `AttachFile` | 選んだファイルを1本ずつハッシュして（錠の外。zip だけ中身の一覧と壊れた印）、錠の中で今の `localFiles` へ `MergeByHand` で足す → 未確定から消す | ディスクには触らない・BOOTH へ行かない。取り込む拡張子だけ。この場所のまま持っていれば書かない。外していた物は印を下ろして付ける。除外・ほかの商品が持つ物は「zipで登録し直す」と同じに何も書かずに返し、画面が窓で聞く。付けた後で裏で unitypackage を読む |
+| ファイルを紐付ける（商品ページの［追加…］・落として「この商品に紐付ける」。2026-10-06） | `AttachFile` | 選んだファイルを1本ずつハッシュして（錠の外。zip だけ中身の一覧と壊れた印）、錠の中で今の `localFiles` へ `MergeByHand` で足す → 未確定から消す | ディスクには触らない・BOOTH へ行かない。拡張子は問わない（2026-10-07。前は取り込む拡張子だけ）。この場所のまま持っていれば書かない。外していた物は印を下ろして付ける。除外・ほかの商品が持つ物は「zipで登録し直す」と同じに何も書かずに返し、画面が窓で聞く。付けた後で裏で unitypackage を読む |
 | IDを変える | `ChangeItemId` | 移す先へ `LocalFileMerger.MergeByHand` で合わせる（移す元の `variationId` は捨てる。無い場所も残す）・フォルダは足す | 外した印は、移す先が持つファイルは移す先の答えのまま。移す元だけが持つ物は印ごと運ぶ |
 | 非表示 | `SaveItemLocal`（`IsHidden`） | `isHidden` だけ | ファイルには触らない。統計には数える |
 | 完全に削除 | `DetachFile(DeleteItemWhenEmpty)` | `DeleteIfAsync`（空の時だけ） | 改変・最近などの参照は付け替えない |

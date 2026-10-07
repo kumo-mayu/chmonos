@@ -24,6 +24,22 @@ public sealed class UnityPackageReadsTests
 
     private static IReadOnlyList<UnityPackageEntry> FailFind(string zip) => throw new InvalidOperationException("zip を開いた");
 
+    /// <summary>
+    /// 単体の unitypackage は、そのファイルを取り出さずにそのまま渡す（登録したフォルダの中の物と同じ道。ユーザ判断 2026-10-07）。
+    /// 前は zip でなければ送る物が無く、取り込んでも送れない行になった
+    /// </summary>
+    [Fact]
+    public void 単体のunitypackageはそのファイルをそのまま送る物にする()
+    {
+        var file = new LocalFileRecord { Hash = "BBB", Paths = [@"Q:\読み取り試験\単体\Outfit.unitypackage"], SizeBytes = 5 };
+
+        var place = Assert.Single(UnityHandoff.PlacesOf(file, _ => true, FailFind));
+
+        Assert.True(place.Entry.InFolder);
+        Assert.Equal(@"Q:\読み取り試験\単体\Outfit.unitypackage", place.Entry.VirtualPath);
+        Assert.Equal("Outfit", place.Entry.Name);
+    }
+
     [Fact]
     public void 要約がそろっていればzipを開かずzipの中の順に返す()
     {

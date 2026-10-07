@@ -135,9 +135,12 @@ public static class DropRouting
     private static readonly string[] ImageExtensions =
         [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"];
 
-    /// <summary>商品に結べるファイルか。取り込む拡張子と同じ（<see cref="Scanning.FolderScanner.TargetExtensions"/>）。フォルダは結べない。</summary>
-    public static bool IsAttachable(string path)
-        => Scanning.FolderScanner.TargetExtensions.Contains(Path.GetExtension(path));
+    /// <summary>
+    /// 商品に結べるか。**ファイルなら拡張子を問わない**（人が商品を指して足すので、取り込みの拡張子の線で絞らない。ユーザ判断 2026-10-07）。
+    /// フォルダは結べない（フォルダは「フォルダとして登録」の道）。
+    /// </summary>
+    public static bool IsAttachable(string path, Func<string, bool> isFolder)
+        => !isFolder(path);
 
     /// <summary>拡張子で画像かを見る。</summary>
     public static bool LooksLikeImage(string path)
@@ -159,16 +162,19 @@ public static class DropRouting
         IReadOnlyList<string>? paths,
         string? text,
         bool hasBitmap,
-        Func<string, bool> isKnown)
+        Func<string, bool> isKnown,
+        Func<string, bool>? isFolder = null)
     {
+        isFolder ??= Directory.Exists;
+
         // 画像でないファイルが混ざっていたら、「この商品に結ぶ」か「取り込む」かを聞く（ユーザ指示 2026-10-06）。
         // 作者が同じ物を新しいIDで出し直すと、手掛かりは古いIDを指すので、取り込むと古い商品か未確定へ行く。
         // 商品ページに落とす人は「これはこの商品の物」と言いたいことがあるが、いつもの取り込みのつもりのこともあり、落とした物からは決まらない。
         // **画像そのものが配布物のこともある**ので（BOOTHのダウンロード形式に画像が含まれる）、混ざった画像も一緒に結ぶ・取り込む。
-        // フォルダ・取り込まない種類が混ざっていれば結べない（結ぶのはファイルだけ）ので、今まで通り取り込みに積む
+        // フォルダが混ざっていれば結べない（結ぶのはファイルだけ）ので、今まで通り取り込みに積む
         if (paths is { Count: > 0 } && !paths.All(LooksLikeImage))
         {
-            return paths.All(IsAttachable)
+            return paths.All(path => IsAttachable(path, isFolder))
                 ? new DropDecision(DropAction.AskAttachOrImport, null)
                 : new DropDecision(DropAction.Import, null);
         }

@@ -40,14 +40,13 @@ public sealed partial class ItemViewModel
         return picked is { Count: > 0 } ? await AttachFilesAsync(picked) : [];
     }
 
-    /// <summary>取り込む拡張子と同じ物だけを選ばせる（単体の unitypackage などは、紐付けても送れも開けもしない行になる）。</summary>
+    /// <summary>種類で絞らずに選ばせる（人が商品を指して足すので、取り込みの拡張子の線で絞らない。ユーザ判断 2026-10-07）。</summary>
     private static IReadOnlyList<string>? PickFiles(string title)
     {
-        var patterns = string.Join(";", Core.Scanning.FolderScanner.TargetExtensions.Order().Select(extension => "*" + extension));
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = title,
-            Filter = $"BOOTHのファイル|{patterns}",
+            Filter = "すべてのファイル|*.*",
             Multiselect = true,
         };
 
@@ -214,7 +213,6 @@ public sealed partial class ItemViewModel
         FileAttachResult.AlreadyAttached => $"「{outcome.FileName}」は、もうこの商品に紐付いています。",
         FileAttachResult.FileMissing => $"「{outcome.FileName}」が見つかりません。移動したか削除した可能性があります。",
         FileAttachResult.FileUnreadable => $"「{outcome.FileName}」を読めませんでした。ほかのアプリが開いている可能性があります。",
-        FileAttachResult.NotTarget => $"「{outcome.FileName}」は紐付けられない種類のファイルです。",
 
         // 聞いた後でまた別の事情が返った（間に除外・登録された）。黙って進めず、そのままにする
         FileAttachResult.Excluded or FileAttachResult.OwnedElsewhere

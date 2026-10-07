@@ -25,10 +25,16 @@ public sealed class ScannedFile
 public sealed class FolderScanner
 {
     /// <summary>
-    /// 取り込み対象の拡張子。zip以外もリストに含めるのは、ユーザに紐付けを問い合わせるため。
+    /// フォルダ・ファイルを落としたとき・監視で取り込む拡張子。zip以外もリストに含めるのは、ユーザに紐付けを問い合わせるため。
+    ///
+    /// **線は「BOOTH のダウンロード商品にアップロードできる形式」**（ダウンロード商品の登録画面の「対応形式」。2026-10-07 にユーザが写した物と同じ）。
+    /// BOOTH で買った物はこのどれかで届くので、フォルダごと落としても関係の無いファイル（インストーラ・文書・Windows の作るファイル）を拾わない。
+    /// それに、展開した中身や包み直した物を持っている人のために、単体の unitypackage・7z と、3Dモデルの blend・fbx を足す（ユーザ判断 2026-10-07）。
+    /// **人が商品を指して足すとき（商品ページ・編集画面の「追加…」・商品ページへ落とす）は、この線で絞らない**（<see cref="Services.ItemService.AttachFileAsync"/>）。
     /// </summary>
     public static readonly IReadOnlySet<string> TargetExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
+        // BOOTH の対応形式
         ".zip", ".rar",
         ".psd", ".ai", ".lip", ".pdf",
         ".mp3", ".m4a", ".wav", ".aif", ".aiff", ".flac",
@@ -37,6 +43,10 @@ public sealed class FolderScanner
         ".xwear", ".xavatar", ".xroid",
         ".jpg", ".jpeg", ".gif", ".png",
         ".mp4", ".mov", ".avi",
+
+        // BOOTH には上げられないが、手元に持っている人がいる物
+        ".unitypackage", ".7z",
+        ".blend", ".fbx",
     };
 
     // Windows の属性で .NET の列挙に名前が無い物。オンラインのみのクラウドのファイルに付く

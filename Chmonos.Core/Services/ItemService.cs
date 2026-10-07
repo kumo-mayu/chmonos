@@ -1357,13 +1357,9 @@ public sealed class ItemService : IItemService
     {
         var name = Path.GetFileName(path);
 
-        // 単体の unitypackage・7z などは取り込みも扱わない（Unity へ送る道も zip の中しか見ない）。持ち物にすると、所持には数えるのに
-        // 送れも開けもしない行になる
-        if (!Scanning.FolderScanner.TargetExtensions.Contains(Path.GetExtension(path)))
-        {
-            return new FileAttachOutcome(FileAttachResult.NotTarget, name);
-        }
-
+        // 拡張子では絞らない（ユーザ判断 2026-10-07）。取り込みの拡張子の線（FolderScanner.TargetExtensions）は、フォルダごと落としたときに
+        // 関係の無い物を拾わないためで、人が商品を指して足す物には要らない。走査に映らない拡張子でも、取り込みは場所ごとに在るかで見るので
+        // 場所を外さない（LocalFileMerger）
         if (!_store.Items.Exists(itemId))
         {
             return new FileAttachOutcome(FileAttachResult.ItemMissing, name);

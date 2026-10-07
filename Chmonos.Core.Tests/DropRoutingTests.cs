@@ -253,16 +253,28 @@ public class DropRoutingTests
         Assert.Equal(DropAction.AskAttachOrImport, decision.Action);
     }
 
-    /// <summary>フォルダ・取り込まない種類が混ざっていれば結べない（結ぶのはファイルだけ）。今まで通り取り込みに積む。</summary>
-    [Theory]
-    [InlineData(@"C:\dl\展開したフォルダ")]
-    [InlineData(@"C:\dl\単体.unitypackage")]
-    public void 結べない物が混ざっていれば今まで通り取り込む(string other)
+    /// <summary>フォルダが混ざっていれば結べない（結ぶのはファイルだけ）。今まで通り取り込みに積む。</summary>
+    [Fact]
+    public void フォルダが混ざっていれば今まで通り取り込む()
     {
+        const string folder = @"C:\dl\展開したフォルダ";
+
         var decision = DropRouting.DecideOnItemPage(
-            [@"C:\dl\outfit.zip", other], text: null, hasBitmap: false, _ => true);
+            [@"C:\dl\outfit.zip", folder], text: null, hasBitmap: false, _ => true, isFolder: path => path == folder);
 
         Assert.Equal(DropAction.Import, decision.Action);
+    }
+
+    /// <summary>ファイルなら拡張子を問わず結べる（人が商品を指して足すので。ユーザ判断 2026-10-07）。</summary>
+    [Theory]
+    [InlineData(@"C:\dl\単体.unitypackage")]
+    [InlineData(@"C:\dl\改変メモ.txt")]
+    public void 取り込みの一覧に無い種類のファイルでも_結ぶか取り込むかを聞く(string other)
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            [@"C:\dl\outfit.zip", other], text: null, hasBitmap: false, _ => true, isFolder: _ => false);
+
+        Assert.Equal(DropAction.AskAttachOrImport, decision.Action);
     }
 
     /// <summary>商品ページ以外では聞かない（結ぶ先が決まっていない）。</summary>

@@ -120,16 +120,19 @@ public class FileAttachTests : IDisposable
         Assert.True(Assert.Single((await LocalOfAsync(ItemId)).LocalFiles).ArchiveBroken);
     }
 
-    /// <summary>単体の unitypackage は取り込みも扱わない（送る道も zip の中しか見ない）。持ち物にしない。</summary>
+    /// <summary>
+    /// 人が商品を選んで足すときは、取り込む拡張子に限らない（ユーザ判断 2026-10-07）。
+    /// 取り込みの一覧は、フォルダごと落としたときに関係の無い物を拾わないための線で、商品を指して足す物には要らない
+    /// </summary>
     [Fact]
-    public async Task 取り込む種類でないファイルは結ばない()
+    public async Task 手で足すファイルは取り込む種類でなくても結ぶ()
     {
         await SaveItemAsync(ItemId);
-        var package = Path.Combine(_root, "単体.unitypackage");
-        File.WriteAllBytes(package, [1, 2, 3]);
+        var notes = Path.Combine(_root, "改変メモ.txt");
+        File.WriteAllBytes(notes, [1, 2, 3]);
 
-        Assert.Equal(FileAttachResult.NotTarget, (await _service.AttachFileAsync(ItemId, package)).Result);
-        Assert.Empty((await LocalOfAsync(ItemId)).LocalFiles);
+        Assert.Equal(FileAttachResult.Attached, (await _service.AttachFileAsync(ItemId, notes)).Result);
+        Assert.Equal([notes], Assert.Single((await LocalOfAsync(ItemId)).LocalFiles).Paths);
     }
 
     [Fact]

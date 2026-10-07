@@ -15,9 +15,6 @@ public enum FileAttachResult
     /// <summary>ファイルを読めなかった（ほかのアプリが開いている・権限）。</summary>
     FileUnreadable,
 
-    /// <summary>取り込む種類のファイルではない（単体の unitypackage など）。何も書いていない。</summary>
-    NotTarget,
-
     /// <summary>商品がもう無い。</summary>
     ItemMissing,
 

@@ -93,6 +93,22 @@ public class FolderScannerTests : IDisposable
         Assert.True(file.ModifiedAtUtc > DateTimeOffset.UnixEpoch);
     }
 
+    /// <summary>
+    /// BOOTH にアップロードできる形式のほかに、単体の unitypackage・7z・blend・fbx も取り込む（ユーザ判断 2026-10-07）。
+    /// 展開した中身や、自分で包み直した物を持っている人がいる
+    /// </summary>
+    [Theory]
+    [InlineData("Outfit.unitypackage")]
+    [InlineData("Outfit.7z")]
+    [InlineData("Outfit.blend")]
+    [InlineData("Outfit.fbx")]
+    public void TakesUnityPackagesAndModelFilesOutsideTheBoothList(string name)
+    {
+        var target = Write(name);
+
+        Assert.Single(_scanner.Scan(target).Files);
+    }
+
     /// <summary>対象外の拡張子は、直接指定されても取り込まない。</summary>
     [Fact]
     public void IgnoresANonTargetFileEvenWhenSpecifiedDirectly()
