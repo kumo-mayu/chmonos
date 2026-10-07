@@ -243,4 +243,24 @@ public sealed class ItemDeleteTests : IDisposable
         var finished = await Task.WhenAny(Task.WhenAll(first, second), Task.Delay(TimeSpan.FromSeconds(10)));
         Assert.True(first.IsCompleted && second.IsCompleted, "付け替えどうしが待ち合って終わらなかった");
     }
+
+    /// <summary>
+    /// 商品を消す途中で止まって残った画像の退避は、起動の後の片付けで、記録が残っていれば戻し、無ければ消す（外部の点検 2026-10-07）。
+    /// </summary>
+    [Fact]
+    public async Task 消す途中で残った画像の退避は_記録が残れば戻し_無ければ消す()
+    {
+        await SaveItemAsync();
+        var kept = _paths.ItemImagesDir(ItemId) + ".removing-1a2b3c4d";
+        Directory.CreateDirectory(kept);
+        File.WriteAllBytes(Path.Combine(kept, "mine.png"), TinyPng);
+        var orphan = _paths.ItemImagesDir("778") + ".removing-5e6f7a8b";
+        Directory.CreateDirectory(orphan);
+
+        Assert.Equal(2, await _store.Items.RecoverRemovingImagesAsync());
+
+        Assert.True(File.Exists(Path.Combine(_paths.ItemImagesDir(ItemId), "mine.png")));
+        Assert.False(Directory.Exists(kept));
+        Assert.False(Directory.Exists(orphan));
+    }
 }

@@ -955,6 +955,58 @@ public sealed class ItemRepository
         TryDeleteDirectory(imagesDir);
     }
 
+    /// <summary>
+    /// 商品を消す途中で止まって残った、画像の退避（<c>&lt;商品ID&gt;.removing-…</c>）を片付ける。起動の後に裏で呼ぶ（外部の点検 2026-10-07）。
+    /// 商品の記録が残っていれば画像を元の名前へ戻し（戻さないと、商品は残るのに自分で足した画像が出ない）、
+    /// 記録が無ければ（消せていれば）退避を消す。元の名前のフォルダが既にあれば（取得が作り直した）、混ぜずに残す
+    /// </summary>
+    /// <returns>戻した・消した数。</returns>
+    public async Task<int> RecoverRemovingImagesAsync(CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(_paths.ImagesDir))
+        {
+            return 0;
+        }
+
+        var handled = 0;
+        foreach (var removing in Directory.EnumerateDirectories(_paths.ImagesDir, "*.removing-*").ToList())
+        {
+            var name = Path.GetFileName(removing);
+            var itemId = name[..name.IndexOf(".removing-", StringComparison.Ordinal)];
+            if (!StoreIds.IsItemId(itemId))
+            {
+                continue;
+            }
+
+            var gate = LockFor(itemId);
+            await gate.WaitAsync(cancellationToken);
+            try
+            {
+                var original = _paths.ItemImagesDir(itemId);
+                if (!File.Exists(_paths.ItemFile(itemId)))
+                {
+                    TryDeleteDirectory(removing);
+                    handled++;
+                }
+                else if (!Directory.Exists(original))
+                {
+                    Directory.Move(removing, original);
+                    handled++;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.AppLog.Error("商品を消す途中で残った画像を片付ける", exception);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        return handled;
+    }
+
     private static void TryDeleteDirectory(string directory)
     {
         try

@@ -75,9 +75,9 @@ public sealed class MissingRecordCleanerTests : IDisposable
 
         var cleaner = new MissingRecordCleaner(_store);
         var plan = await cleaner.PlanAsync();
-        var done = await cleaner.ForgetAsync();
+        var done = await cleaner.ForgetAsync(plan);
 
-        Assert.Equal(plan, done);
+        Assert.Equal(plan.Counts, done);
         Assert.Equal(new MissingRecordCleanup(Items: 1, Files: 1, Folders: 1, Unowned: 0), done);
         var item = Assert.IsType<ItemRecord>(await _store.Items.LoadAsync("9900801"));
         Assert.Equal(["h-back", "h-detached-drive", "h-detached", "h-old"], item.Local.LocalFiles.Select(file => file.Hash));
@@ -91,7 +91,8 @@ public sealed class MissingRecordCleanerTests : IDisposable
         await SaveAsync("9900802", new LocalBlock { Memo = "残る", LocalFiles = [File("h1", Gone("x.zip")), File("h2", Gone("y.zip"))] });
         await SaveAsync("9900803", new LocalBlock { LocalFiles = [File("h3", Gone("z.zip"), missing: false)] });
 
-        var done = await new MissingRecordCleaner(_store).ForgetAsync();
+        var cleaner = new MissingRecordCleaner(_store);
+        var done = await cleaner.ForgetAsync(await cleaner.PlanAsync());
 
         Assert.Equal(new MissingRecordCleanup(Items: 1, Files: 2, Folders: 0, Unowned: 1), done);
         var item = Assert.IsType<ItemRecord>(await _store.Items.LoadAsync("9900802"));
@@ -111,9 +112,68 @@ public sealed class MissingRecordCleanerTests : IDisposable
             LocalFiles = [new LocalFileRecord { Hash = "h-empty", Paths = [], SizeBytes = 3 }, File("h-keep", Gone("k.zip"), missing: false)],
         });
 
-        var done = await new MissingRecordCleaner(_store).ForgetAsync();
+        var cleaner = new MissingRecordCleaner(_store);
+        var done = await cleaner.ForgetAsync(await cleaner.PlanAsync());
 
         Assert.Equal(1, done.Files);
         Assert.Equal(["h-keep"], (await _store.Items.LoadAsync("9900804"))!.Local.LocalFiles.Select(file => file.Hash));
+    }
+
+    /// <summary>
+    /// 確かめられない物（親のフォルダを読む権限が無い等）は消さない（外部の点検 2026-10-07）。
+    /// 前は在るかを File.Exists だけで見ていて、確かめられない物も「無い」として消せた
+    /// </summary>
+    [Fact]
+    public async Task 確かめられない物は消さない()
+    {
+        var locked = Gone("読めない.zip");
+        await SaveAsync("9900805", new LocalBlock { LocalFiles = [File("h-locked", locked), File("h-gone", Gone("d.zip"))] });
+        var cleaner = new MissingRecordCleaner(_store, () => new FilePresenceProbe(
+            fileState: path => path == locked ? DiskAnswer.Unknown : DiskAnswer.Missing,
+            rootExists: _ => true));
+
+        var done = await cleaner.ForgetAsync(await cleaner.PlanAsync());
+
+        Assert.Equal(1, done.Files);
+        Assert.Equal(["h-locked"], (await _store.Items.LoadAsync("9900805"))!.Local.LocalFiles.Select(file => file.Hash));
+    }
+
+    /// <summary>
+    /// 数えた後で日時が付いた物は消さない（外部の点検 2026-10-07）。確かめの窓を出している間に見回りが付けた物まで消すと、
+    /// 窓で見せた件数を超えた
+    /// </summary>
+    [Fact]
+    public async Task 数えた後で見つからなくなった物は消さない()
+    {
+        await SaveAsync("9900806", new LocalBlock { LocalFiles = [File("h-first", Gone("e.zip")), File("h-later", Gone("f.zip"), missing: false)] });
+        var cleaner = new MissingRecordCleaner(_store);
+        var plan = await cleaner.PlanAsync();
+
+        await _store.Items.ChangeLocalAsync("9900806", local => local with
+        {
+            LocalFiles = [.. local.LocalFiles.Select(file => file.Hash == "h-later" ? file with { MissingSince = DateTimeOffset.Now } : file)],
+        }, [LocalField.LocalFiles]);
+        var done = await cleaner.ForgetAsync(plan);
+
+        Assert.Equal(1, done.Files);
+        Assert.Equal(["h-later"], (await _store.Items.LoadAsync("9900806"))!.Local.LocalFiles.Select(file => file.Hash));
+    }
+
+    /// <summary>消した場所は走査の控えからも外す。外さないと、同じファイルを戻しても監視が新しいと数えない。</summary>
+    [Fact]
+    public async Task 消した場所は走査の控えからも外す()
+    {
+        var gone = Gone("g.zip");
+        var other = Gone("ほかの.zip");
+        await SaveAsync("9900807", new LocalBlock { LocalFiles = [File("h-g", gone)] });
+        await _store.ScanCache.UpdateAsync(_ => [
+            new ScanCacheEntry { Path = gone, SizeBytes = 3, ModifiedAtUtc = DateTimeOffset.UtcNow, Hash = "h-g" },
+            new ScanCacheEntry { Path = other, SizeBytes = 3, ModifiedAtUtc = DateTimeOffset.UtcNow, Hash = "h-o" },
+        ]);
+        var cleaner = new MissingRecordCleaner(_store);
+
+        await cleaner.ForgetAsync(await cleaner.PlanAsync());
+
+        Assert.Equal([other], (await _store.ScanCache.LoadAsync()).Select(entry => entry.Path));
     }
 }

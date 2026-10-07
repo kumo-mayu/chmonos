@@ -788,6 +788,17 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return [new UnityPackagePlace(new UnityPackageEntry(zip, package, 0) { ZipHash = hash }, roots)];
         }
 
+        // 使ったファイルを記録してある物は、そのファイルが手元に無ければ送らない（外部の点検 2026-10-07）。
+        // 前は商品の送れる物全部に落ちて、別の版・別の種類のファイルを黙って送っていた（版まで同じにするための記録なのに）。
+        // 包みの名前が無い記録（手で足すときに使ったファイルを選んだ物）は、その zip の中の物だけを送る
+        if (member.FileHash is { } recorded)
+        {
+            var recordedFile = item.Local.OwnedFiles.FirstOrDefault(file => string.Equals(file.Hash, recorded, StringComparison.OrdinalIgnoreCase));
+            return recordedFile is not null && member.Package is null && recordedFile.Paths.Any(File.Exists)
+                ? [.. UnityHandoff.PlacesOf(recordedFile)]
+                : [];
+        }
+
         // 登録したフォルダの中の物を送った記録（ハッシュ無しで場所だけ。メモ65-③）。今もフォルダに在れば、その1つを送る
         if (member.FileHash is null && member.Package is { } folderPackage
             && item.Local.LocalFolders

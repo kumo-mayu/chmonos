@@ -147,7 +147,8 @@ public sealed class AppServiceContainer : IDisposable
             Recent = new Services.RecentTracker(Store, BackgroundWrites);
             Modifications = new ModificationService(Store, Images);
             // 見つからない記録のまとめての片付け。数えるのは読むだけなので画面から直に呼び、消すのは UiCommand を通す
-            MissingRecords = new MissingRecordCleaner(Store);
+            // 在るかは見回りと同じ見方で確かめる（控えたディスクの番号で、同じ文字に来た別のディスクを見分ける）
+            MissingRecords = new MissingRecordCleaner(Store, () => new FilePresenceProbe(volumes: Volumes.Snapshot()));
 
             Commands = new CommandHandler(
                 Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin, UnpackedFolderRemover.RegisteredFoldersIn(Store)), Resolver, Notifications, UserTags, Attributes,
@@ -241,6 +242,9 @@ public sealed class AppServiceContainer : IDisposable
         {
             using var writing = await Core.Storage.StoreWriteGate.EnterAsync();
             var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
+
+            // 商品を消す途中で止まって残った画像の退避を、元へ戻すか消す
+            await Store.Items.RecoverRemovingImagesAsync();
 
             // 前のバックアップの書き出しが途中で止まっていたら、書き出し先に残った書きかけを消す
             if (Core.Storage.BackupWritingRecord.CleanUp(Paths.Root))

@@ -1040,13 +1040,13 @@ public sealed class CommandHandler
                 await _notifications.AddAsync(add.Record, cancellationToken);
                 return new CommandResult.Done();
 
-            case UiCommand.ForgetMissingFiles:
+            case UiCommand.ForgetMissingFiles forget:
                 if (MissingRecords is null)
                 {
                     return MissingService("見つからないファイルの記録の片付け");
                 }
 
-                return new CommandResult.MissingRecordsForgotten(await MissingRecords.ForgetAsync(cancellationToken));
+                return new CommandResult.MissingRecordsForgotten(await MissingRecords.ForgetAsync(forget.Plan, cancellationToken));
 
             case UiCommand.FindMissingFiles find:
                 if (_missingFiles is null || _settings is null)

@@ -1292,22 +1292,31 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// <returns>保存できたか。</returns>
     private async Task<bool> ChangeFolderListAsync(Func<AppSettings, AppSettings> change)
     {
+        // 待っている変更の数。行は押した所で先に動かすので、途中の変更が失敗した時に保存してある設定で合わせ直すと、
+        // 後に待っている変更の行まで戻ってしまう（外部の点検 2026-10-07）。合わせ直すのは、最後の変更が済んで、
+        // どこかで失敗していた時だけ（そのときの保存してある設定は、成功した変更を全部含む）
+        _pendingFolderChanges++;
+        var saved = false;
         await _folderListGate.WaitAsync();
         try
         {
-            if (await SaveAsync(change))
-            {
-                return true;
-            }
-
-            SyncFolderRows(_services.Settings);
-            return false;
+            saved = await SaveAsync(change);
+            _folderChangeFailed |= !saved;
+            return saved;
         }
         finally
         {
             _folderListGate.Release();
+            if (--_pendingFolderChanges == 0 && _folderChangeFailed)
+            {
+                _folderChangeFailed = false;
+                SyncFolderRows(_services.Settings);
+            }
         }
     }
+
+    private int _pendingFolderChanges;
+    private bool _folderChangeFailed;
 
     /// <summary>取り込み元・監視の行を、保存してある設定の並びに合わせる。今ある行は使い回し、無い行だけ作る（在るかは見直さない）。</summary>
     private void SyncFolderRows(AppSettings settings)
@@ -1491,10 +1500,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         RelayCommand.RaiseCanExecuteChanged();
         try
         {
-            var plan = await _services.MissingRecords.PlanAsync();
+            var planned = await _services.MissingRecords.PlanAsync();
+            var plan = planned.Counts;
             if (plan.Files + plan.Folders == 0)
             {
-                ForgetMissingNote = "見つからないファイルはありません。";
+                ForgetMissingNote = NothingMissingNote;
                 return;
             }
 
@@ -1512,26 +1522,36 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
-            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetMissingFiles());
+            // 消すのは確かめた範囲だけ（窓を出している間に見回りが日時を付けた物は消さない。外部の点検 2026-10-07）
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetMissingFiles(planned));
             ForgetMissingNote = result switch
             {
                 Core.Commands.CommandResult.MissingRecordsForgotten { Result: var done } =>
-                    $"{done.Items:N0} 商品から、見つからないファイル {done.Files:N0} 件・フォルダ {done.Folders:N0} 件の記録を削除しました。",
+                    $"{done.Items:N0} 商品から、見つからないファイル {done.Files:N0} 件・フォルダ {done.Folders:N0} 件の記録を削除しました。"
+                    + (done.Failed > 0 ? $"{done.Failed:N0} 商品は書き込めず、残っています。" : string.Empty),
                 Core.Commands.CommandResult.Failed failed => failed.Message,
                 _ => string.Empty,
             };
-
-            if (result is Core.Commands.CommandResult.MissingRecordsForgotten { Result.Items: > 0 })
-            {
-                await _main.ReloadLibraryAsync();
-            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // 途中で止まっても、消せた分は消えている。そう言い、一覧も読み直す（前は何も出ず、一覧も古いままだった）
+            Core.Diagnostics.AppLog.Error("見つからない記録をまとめて消す", exception);
+            ForgetMissingNote = "途中で止まりました。" + Core.Services.FailureText.Cause(exception);
         }
         finally
         {
             _forgettingMissing = false;
             RelayCommand.RaiseCanExecuteChanged();
         }
+
+        if (ForgetMissingNote.Length > 0 && ForgetMissingNote != NothingMissingNote)
+        {
+            await _main.ReloadLibraryAsync();
+        }
     }
+
+    private const string NothingMissingNote = "見つからないファイルはありません。";
 
     private void AddFolder()
     {
