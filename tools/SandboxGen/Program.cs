@@ -100,7 +100,7 @@ var code = step switch
     "settings" => await ChangeSettingsAsync(rest),
     "manage" => await FillManageAsync(),
     "changes" => await ChangesAsync(),
-    "showcase" => await ShowcaseAsync(rest[0], rest[1]),
+    "showcase" => await ShowcaseAsync(rest[0], rest[1], rest.Length > 2 ? rest[2] : null),
     "show" => await ShowAsync(),
     _ => Unknown(step),
 };
@@ -569,7 +569,7 @@ async Task RefreshAsAsync(ItemService service, ItemRecord baseItem, ChangeVersio
 // 友人のデータは使えないので、名前は一般名詞・ショップと説明と対応アバターは作り物・画像は CC0 の写真にした（ユーザ判断）。
 // 対応アバターは検出に任せる：説明の「対応アバター」節に架空のアバターの商品の URL を書けば、手元の商品なので通信せずに入る。
 // 1件（傘）だけ、別の見出しの節にアバターへのリンクを書き、「確認待ち」の見本にする
-async Task<int> ShowcaseAsync(string catalogPath, string imagesDir)
+async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? filesRoot)
 {
     if (store.Items.EnumerateItemIds().Count > 0)
     {
@@ -598,11 +598,23 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir)
         => element.TryGetProperty(name, out var value) ? value.EnumerateArray().Select(item => item.GetString()!).ToList() : [];
 
     var now = DateTimeOffset.Now;
-    var fixtures = Path.Combine(local, "Chmonos-fixtures", Path.GetFileName(root));
+    // 手元の zip の置き場。画面にパスが写るので、BOOTH のページ用には短い場所（D:BOOTH など）を渡す（ユーザ判断 2026-10-07）。
+    // 渡さなければ作り物の置き場。作り直すときに消すのは、この手順が作った印のある場所だけ
+    var fixtures = Path.GetFullPath(filesRoot ?? Path.Combine(local, "Chmonos-fixtures", Path.GetFileName(root), "BOOTH"));
+    var marker = Path.Combine(fixtures, ".chmonos-showcase");
+    if (Directory.Exists(fixtures) && Directory.EnumerateFileSystemEntries(fixtures).Any() && !File.Exists(marker))
+    {
+        Console.Error.WriteLine($"作り物の印の無いフォルダには書かない: {fixtures}");
+        return 2;
+    }
+
     if (Directory.Exists(fixtures))
     {
         Directory.Delete(fixtures, recursive: true);
     }
+
+    Directory.CreateDirectory(fixtures);
+    File.WriteAllText(marker, "SandboxGen showcase が作った作り物の置き場。作り直すときに消してよい");
 
     var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // zip のパス → 商品の番号
     for (var i = 0; i < entries.Count; i++)
@@ -684,19 +696,19 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir)
         // 手元の zip。中に unitypackage を置くと、商品ページに「Unity ▾」が出る（中身は作り物なので送れない）
         if (Text(entry, "file") is { Length: > 0 } fileName)
         {
-            var zip = Path.Combine(fixtures, "BOOTH", Text(entry, "folder"), fileName);
-            WriteShowcaseZip(zip, name, Text(entry, "unitypackage"));
+            var zip = Path.Combine(fixtures, Text(entry, "folder"), fileName);
+            WriteShowcaseZip(zip, name, Text(entry, "unitypackage"), shop.Subdomain, Path.Combine(imagesDir, Text(entry, "image")));
             files[zip] = id;
         }
     }
 
     foreach (var extra in catalog.GetProperty("unresolved").EnumerateArray())
     {
-        WriteShowcaseZip(Path.Combine(fixtures, "BOOTH", Text(extra, "folder"), Text(extra, "file")), Text(extra, "file"), string.Empty);
+        WriteShowcaseZip(Path.Combine(fixtures, Text(extra, "folder"), Text(extra, "file")), Text(extra, "file"), Text(extra, "unitypackage"), shops[Text(extra, "shop")].Subdomain, Path.Combine(imagesDir, Text(extra, "image")));
     }
 
     // 取り込みそのもので読む。手掛かりの無い作り物の zip なので、全部いったん未確定へ行く
-    await ScanAsync([Path.Combine(fixtures, "BOOTH")]);
+    await ScanAsync([fixtures]);
     var unresolved = store.Unresolved.Load();
     foreach (var (zip, id) in files)
     {
@@ -761,7 +773,17 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir)
         {
             Id = modId, AvatarItemId = avatarId, Name = name, CreatedAt = created, UpdatedAt = created.AddHours(1),
             Images = photo is null ? [] : [new ModificationImage { FileName = photo, AddedAt = created }],
-            Members = List(mod, "members").Select((member, k) => new ModificationMember { ItemId = idOf[member], AddedAt = created.AddMinutes(k + 1) }).ToList(),
+            // 使ったファイル（zip のハッシュと中の unitypackage）まで記録する。無いと「どのファイルを使ったか分かりません」と出る
+            Members = (await Task.WhenAll(List(mod, "members").Select(async (member, k) =>
+            {
+                var owned = (await store.Items.LoadAsync(idOf[member]))!.Local.LocalFiles.FirstOrDefault();
+                var package = entries.First(candidate => Text(candidate, "name") == member) is var source ? Text(source, "unitypackage") : string.Empty;
+                return new ModificationMember
+                {
+                    ItemId = idOf[member], AddedAt = created.AddMinutes(k + 1),
+                    FileHash = owned?.Hash, Package = package.Length > 0 ? package : null,
+                };
+            }))).ToList(),
         });
     }
 
@@ -801,8 +823,8 @@ static void SaveShowcaseImage(string source, string destination, int size)
     image.Save(destination, new WebpEncoder { Quality = 85 });
 }
 
-// 作り物の zip。説明の文書1つと、あれば unitypackage の名前の入れ物（中身は作り物）
-static void WriteShowcaseZip(string path, string name, string unityPackage)
+// 作り物の zip。説明の文書1つと、あれば Unity が読める形の unitypackage（画像のテクスチャと説明。Unity へ実際に送って撮るため）
+static void WriteShowcaseZip(string path, string name, string unityPackage, string shopSubdomain, string imagePath)
 {
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
     using var archive = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create);
@@ -814,8 +836,60 @@ static void WriteShowcaseZip(string path, string name, string unityPackage)
     if (unityPackage.Length > 0)
     {
         using var stream = archive.CreateEntry(unityPackage).Open();
-        stream.Write(Encoding.UTF8.GetBytes("作り物"));
+        stream.Write(BuildUnityPackage(shopSubdomain, Path.GetFileNameWithoutExtension(unityPackage), imagePath));
     }
+}
+
+// unitypackage の形：tar.gz の中に、資産ごとに GUID の名前のフォルダを置き、pathname（入る先）・asset（中身）・asset.meta を入れる。
+// フォルダも資産として持つ（meta に folderAsset: yes）。GUID は入る先から決める（作り直しても同じ GUID なので、Unity の側で重ならない）
+static byte[] BuildUnityPackage(string shopSubdomain, string packageName, string imagePath)
+{
+    // 入る先は英数字にする（Assets/ の下の名前。ショップはサブドメインから、商品は unitypackage の名前の版を除いた物）
+    var shop = string.Concat(shopSubdomain.Replace("chmonos-", string.Empty).Split('-').Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+    var product = packageName.Split('_')[0];
+    var top = $"Assets/{shop}/{product}";
+
+    static string Guid(string pathname) => Convert.ToHexStringLower(System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes(pathname)));
+
+    using var buffer = new MemoryStream();
+    using (var gzip = new System.IO.Compression.GZipStream(buffer, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true))
+    using (var tar = new System.Formats.Tar.TarWriter(gzip, System.Formats.Tar.TarEntryFormat.Ustar, leaveOpen: true))
+    {
+        void Entry(string name, byte[] data)
+        {
+            tar.WriteEntry(new System.Formats.Tar.UstarTarEntry(System.Formats.Tar.TarEntryType.RegularFile, name) { DataStream = new MemoryStream(data) });
+        }
+
+        void Folder(string pathname)
+        {
+            var guid = Guid(pathname);
+            Entry($"{guid}/pathname", Encoding.UTF8.GetBytes(pathname));
+            Entry($"{guid}/asset.meta", Encoding.UTF8.GetBytes($"fileFormatVersion: 2\nguid: {guid}\nfolderAsset: yes\nDefaultImporter:\n  externalObjects: {{}}\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n"));
+        }
+
+        void Asset(string pathname, byte[] data)
+        {
+            var guid = Guid(pathname);
+            Entry($"{guid}/pathname", Encoding.UTF8.GetBytes(pathname));
+            Entry($"{guid}/asset", data);
+            Entry($"{guid}/asset.meta", Encoding.UTF8.GetBytes($"fileFormatVersion: 2\nguid: {guid}\n"));
+        }
+
+        Folder($"Assets/{shop}");
+        Folder(top);
+        Folder($"{top}/Textures");
+        Asset($"{top}/Readme.txt", Encoding.UTF8.GetBytes($"{product}（BOOTH のページ用の画面に写す作り物です）"));
+        if (File.Exists(imagePath))
+        {
+            using var image = Image.Load<Rgba32>(imagePath);
+            image.Mutate(context => context.Resize(new ResizeOptions { Size = new Size(512, 512), Mode = ResizeMode.Crop }));
+            using var png = new MemoryStream();
+            image.SaveAsPng(png);
+            Asset($"{top}/Textures/{product}.png", png.ToArray());
+        }
+    }
+
+    return buffer.ToArray();
 }
 
 async Task<int> ShowAsync()

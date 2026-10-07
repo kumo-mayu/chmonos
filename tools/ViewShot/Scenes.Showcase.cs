@@ -30,7 +30,35 @@ internal static partial class Scenes
             return new Shot(root);
         }) { Width = 1600, Height = 1000 },
 
-        new Scene("showcase-folder", "BOOTH 用：フォルダの画面（今のフォルダの木と、右に商品のカード）", async context =>
+        // 絞り込みの組み合わせ：対応アバター2体を AND・価格の範囲2つ（同じ種類は OR）・カテゴリを除く。
+        // 結果はワンピース・エプロン・セーターの3件（うさぎとねこの両方に対応し、価格が範囲に入り、装飾品でない物）
+        new Scene("showcase-filters", "BOOTH 用：絞り込みを組んだ検索（対応アバター AND・価格2つ・カテゴリを除く）", async context =>
+        {
+            var (main, root) = await OpenShowcaseAsync(context);
+            main.ShowSearch();
+            foreach (var module in main.Search.Modules.ToList())
+            {
+                module.RemoveCommand!.Execute(null);
+            }
+
+            var avatar = (ListModule)AddModule(main.Search, SearchModuleKind.Avatar);
+            avatar.AddKey("avatar:90000001", text: "うさぎ");
+            avatar.AddKey("avatar:90000003", text: "ねこ");
+            avatar.MatchAll = true;
+            var cheap = (RangeModule)AddModule(main.Search, SearchModuleKind.Price);
+            cheap.MinText = "0";
+            cheap.MaxText = "800";
+            var middle = (RangeModule)AddModule(main.Search, SearchModuleKind.Price);
+            middle.MinText = "1500";
+            middle.MaxText = "2500";
+            var category = (ListModule)AddModule(main.Search, SearchModuleKind.Category);
+            category.AddKey("3D装飾品");
+            category.IsExcluded = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }) { Width = 1600, Height = 1000 },
+
+        new Scene("showcase-folder","BOOTH 用：フォルダの画面（今のフォルダの木と、右に商品のカード）", async context =>
         {
             var (main, root) = await OpenShowcaseAsync(context);
             main.ShowFolders();

@@ -37,8 +37,8 @@
     { "name": "花火", "image": "fireworks.jpg", "shop": "lab", "category": "3Dツール・システム", "price": 1000, "folder": "ギミック", "file": "花火ギミック_v3.0.zip", "unitypackage": "Fireworks_v3.0.unitypackage", "days": 12, "favorite": true, "userTags": ["ギミック/エフェクト"], "description": "手から花火を出せるギミックです。Modular Avatar に対応しています。" }
   ],
   "unresolved": [
-    { "folder": "未整理", "file": "夏のおでかけセット_v1.zip" },
-    { "folder": "未整理", "file": "表情パック.zip" }
+    { "folder": "未整理", "file": "夏のおでかけセット_v1.zip", "unitypackage": "SummerSet_v1.unitypackage", "image": "hat.jpg", "shop": "zakka" },
+    { "folder": "未整理", "file": "表情パック.zip", "unitypackage": "FacePack.unitypackage", "image": "cat.jpg", "shop": "atelier" }
   ],
   "modifications": [
     { "avatar": "うさぎ", "name": "冬のおでかけ", "members": ["コート", "マフラー", "手袋", "ブーツ"], "photo": "scarf.jpg" },
