@@ -178,12 +178,13 @@ public static class BackupArchive
             // 中止・失敗のときは書きかけを残さない（公開前の点検 2026-10-01）。
             // 残すと、書き出し先のフォルダに開けない .tmp が残り、何が書けたのかが分からなくなる。
             // 消すのは、この回に作れた物だけ（作る前に失敗したなら、その名前の物はほかの誰かの物）
-            if (createdTemporary)
+            // 書きかけを消せなかったときは、途中の記録を残す（点検23）。外すと、次の起動で片付ける手掛かりが無くなり、
+            // バックアップ1つ分の大きさの .tmp が選んだフォルダに残り続けた
+            if (!createdTemporary || TryDelete(temporary))
             {
-                TryDelete(temporary);
+                BackupWritingRecord.End(rootFull);
             }
 
-            BackupWritingRecord.End(rootFull);
             throw;
         }
 
@@ -260,15 +261,18 @@ public static class BackupArchive
     private static FileStream OpenSource(string path)
         => new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
-    private static void TryDelete(string path)
+    /// <returns>消せたか（初めから無かったときも true）。</returns>
+    private static bool TryDelete(string path)
     {
         try
         {
             File.Delete(path);
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // 消せなくても、元の失敗の方を伝える（名前が .tmp なので、戻すときにバックアップと取り違えない）
+            return false;
         }
     }
 

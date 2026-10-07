@@ -58,6 +58,10 @@ public static class BackupWritingRecord
     /// <summary>
     /// 起動の後に呼ぶ。記録が残っていれば、前の書き出しが途中で止まったので、書きかけを消して記録も外す。
     /// 記録は手で直せる JSON なので、消すのは名前が <c>.zip.tmp</c> で終わるファイルだけ（ほかの場所を書かれても消さない）。
+    ///
+    /// **書きかけがまだ残っているかもしれない間は、記録を外さない**（点検23）：消そうとして失敗した（ほかのアプリが開いている）・
+    /// 書き出し先のフォルダが今は見えない（外付けを外している・ネットの共有が切れている）ときは、次の起動でまた試す。
+    /// 外すのは、消せた・フォルダはあるのに書きかけが無い・記録が読めない／書きかけの名前ではない（こちらでは何もできない）とき
     /// </summary>
     /// <returns>書きかけを消したか。</returns>
     public static bool CleanUp(string root)
@@ -68,24 +72,53 @@ public static class BackupWritingRecord
             return false;
         }
 
-        var deleted = false;
+        string? temporary;
         try
         {
-            if (JsonStore.Read<BackupWritingFile>(recordPath)?.TemporaryFile is { Length: > 0 } temporary
-                && IsWritingName(temporary)
-                && File.Exists(temporary))
-            {
-                File.Delete(temporary);
-                deleted = true;
-            }
+            temporary = JsonStore.Read<BackupWritingFile>(recordPath)?.TemporaryFile;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or NotSupportedException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
-            AppLog.Warn("バックアップの書き出し", $"前の書きかけを片付けられなかった：{exception.Message}");
+            AppLog.Warn("バックアップの書き出し", $"前の書き出しの記録を読めなかった：{exception.Message}");
+            End(root);
+            return false;
         }
 
-        End(root);
-        return deleted;
+        if (temporary is not { Length: > 0 } || !IsWritingName(temporary))
+        {
+            End(root);
+            return false;
+        }
+
+        try
+        {
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+                End(root);
+                return true;
+            }
+
+            // 書きかけが無いと言えるのは、それを置いたフォルダが見えているときだけ
+            if (Path.GetDirectoryName(temporary) is { Length: > 0 } folder && Directory.Exists(folder))
+            {
+                End(root);
+            }
+
+            return false;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            AppLog.Warn("バックアップの書き出し", $"前の書きかけを片付けられなかった（次の起動でまた試す）：{exception.Message}");
+            return false;
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        {
+            // 場所の形がおかしい（手で直した記録）。何度試しても同じなので外す
+            AppLog.Warn("バックアップの書き出し", $"前の書きかけの場所を読めなかった：{exception.Message}");
+            End(root);
+            return false;
+        }
     }
 
     /// <summary>

@@ -107,6 +107,54 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
     }
 
+    /// <summary>
+    /// 書きかけを消せなかった（ほかのアプリが開いている）ときは、記録を残して次の起動でまた試す（点検23）。
+    /// 外すと、バックアップ1つ分の .tmp が手掛かりなしで残り続けた
+    /// </summary>
+    [Fact]
+    public void 書きかけを消せなかったら記録を残し_次に消せたら外す()
+    {
+        var temporary = Path.Combine(_dir, "out", "locked.zip.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(temporary)!);
+        File.WriteAllText(temporary, "書きかけ");
+        BackupWritingRecord.Begin(Store, temporary);
+        var record = Path.Combine(Store, BackupWritingRecord.FileName);
+
+        using (new FileStream(temporary, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.False(BackupWritingRecord.CleanUp(Store));
+            Assert.True(File.Exists(record));
+        }
+
+        Assert.True(BackupWritingRecord.CleanUp(Store));
+        Assert.False(File.Exists(temporary));
+        Assert.False(File.Exists(record));
+    }
+
+    /// <summary>書き出し先のフォルダが見えない（外付けを外している）ときは、書きかけが無いとは言えないので記録を残す。</summary>
+    [Fact]
+    public void 書き出し先のフォルダが見えなければ記録を残す()
+    {
+        BackupWritingRecord.Begin(Store, Path.Combine(_dir, "外した外付け", "gone.zip.tmp"));
+
+        Assert.False(BackupWritingRecord.CleanUp(Store));
+
+        Assert.True(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
+    }
+
+    /// <summary>フォルダは見えていて書きかけが無いなら、もう片付いているので記録を外す。</summary>
+    [Fact]
+    public void フォルダがあって書きかけが無ければ記録を外す()
+    {
+        var folder = Path.Combine(_dir, "out");
+        Directory.CreateDirectory(folder);
+        BackupWritingRecord.Begin(Store, Path.Combine(folder, "already.zip.tmp"));
+
+        Assert.False(BackupWritingRecord.CleanUp(Store));
+
+        Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
+    }
+
     /// <summary>記録は手で直せるので、名前が .zip.tmp で終わらない場所を書かれても消さない（記録だけ外す）。</summary>
     [Fact]
     public void 途中の記録に別の場所が書かれていても_消すのは書きかけの名前の物だけ()
