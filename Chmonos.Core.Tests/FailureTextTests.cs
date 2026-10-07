@@ -39,6 +39,32 @@ public class FailureTextTests
         Assert.Contains("権限", FailureText.Cause(new UnauthorizedAccessException()));
     }
 
+    /// <summary>
+    /// 同期のアプリ（OneDrive など）のファイルをダウンロードできなかったときは、それと分かる言い方にする（2026-10-07）。
+    /// 番号は OneDrive を止めて実際に出た「クラウド ファイル プロバイダーが実行されていません」（362）と、ネットが無いとき（388）
+    /// </summary>
+    [Theory]
+    [InlineData(362)]
+    [InlineData(388)]
+    public void CloudFileErrorSaysTheSyncAppOrNetwork(int code)
+    {
+        var cloud = new IOException("cloud", unchecked((int)0x80070000) | code);
+
+        var text = FailureText.Cause(cloud);
+
+        Assert.Contains("同期のアプリ", text);
+        Assert.DoesNotContain("別のアプリが開いて", text);
+    }
+
+    /// <summary>同じ下16ビットでも Windows の番号でなければ、クラウドの話にしない。</summary>
+    [Fact]
+    public void SameLowBitsFromAnotherFacilityIsNotCloud()
+    {
+        var other = new IOException("other", unchecked((int)0x80040000) | 362);
+
+        Assert.DoesNotContain("同期のアプリ", FailureText.Cause(other));
+    }
+
     /// <summary>見当が付かない種類でも空にしない（画面の文が「〜できませんでした。」で切れないように）。</summary>
     [Fact]
     public void UnknownKindStillSaysSomething()

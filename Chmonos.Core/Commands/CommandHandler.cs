@@ -67,7 +67,7 @@ public sealed class CommandHandler
     /// </summary>
     private CommandResult.Failed ItemMissing()
         => _storeRoot is { } rootPath && !Directory.Exists(rootPath)
-            ? new CommandResult.Failed("保存先のフォルダが見つかりません。外付けやネットワークのドライブがつながっているかを確かめて、もう一度押してください。")
+            ? new CommandResult.Failed("保存先のフォルダが見つかりません。ドライブがつながっているか、Googleドライブなどの同期のアプリが動いているかを確かめて、もう一度押してください。")
             : new CommandResult.Failed("対象の商品データが手元にありません。");
 
     public CommandHandler(
