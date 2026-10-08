@@ -162,6 +162,10 @@ public class SearchSyntaxTests
         tags.ItemFilter = "has:update";
         Assert.EndsWith("商品 0 件", tags.ItemFilterResultText);
 
+        // 小分類のメモを書いている途中（保存を待つ 0.8 秒の間）に絞り直しが来ても、書きかけは消えない（点検29）
+        var sub = tags.Subs.Single();
+        sub.MemoDraft = "書きかけのメモ";
+
         await app.Store.Notifications.SaveAsync(
         [
             new NotificationRecord
@@ -177,5 +181,48 @@ public class SearchSyntaxTests
         main.Search.NoteNotificationsMaybeChanged();
 
         await UiThread.Until(() => tags.ItemFilterResultText.EndsWith("商品 1 件", StringComparison.Ordinal), "絞り直す");
+        Assert.Same(sub, tags.Subs.Single());
+        Assert.Equal("書きかけのメモ", sub.MemoDraft);
+    });
+
+    /// <summary>左と右の欄が両方とも事実を見る式でも、右の欄を絞り直す（点検29：左が事実を見ると、右が飛ばされていた）</summary>
+    [Fact]
+    public Task 管理画面の左右の欄が両方とも事実を見ても右を絞り直す() => TestApp.Run(async app =>
+    {
+        var item = Make.Item("1000001", "作り物の衣装");
+        await app.AddItemAsync(item with
+        {
+            Local = item.Local with { UserTags = [new UserTagAssignment { Top = "作り物の甲", Subs = ["小の一"] }] },
+        });
+        await app.Store.UserTags.SaveAsync(new UserTagMaster
+        {
+            Tops = [new UserTagTop { Name = "作り物の甲", Subs = [new UserTagSub { Name = "小の一" }] }],
+        });
+        var main = await app.StartAsync();
+        main.ShowTagManageCommand.Execute(null);
+        var tags = Assert.IsType<TagManageViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => tags.TopCount > 0, "タグの管理の読み込みが済む");
+        tags.Selected = tags.Tops.Single(row => row.Name == "作り物の甲");
+        await UiThread.Until(() => tags.Subs.Count == 1, "小分類が並ぶ");
+
+        tags.FilterText = "-has:update";
+        tags.ItemFilter = "has:update";
+        Assert.EndsWith("商品 0 件", tags.ItemFilterResultText);
+
+        await app.Store.Notifications.SaveAsync(
+        [
+            new NotificationRecord
+            {
+                Id = "item-updated:1000001",
+                Kind = NotificationKind.ItemUpdated,
+                ItemId = "1000001",
+                Title = "作り物の衣装",
+                Detail = "価格が変わりました",
+                CreatedAt = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.FromHours(9)),
+            },
+        ]);
+        main.Search.NoteNotificationsMaybeChanged();
+
+        await UiThread.Until(() => tags.ItemFilterResultText.EndsWith("商品 1 件", StringComparison.Ordinal), "右の欄も絞り直す");
     });
 }

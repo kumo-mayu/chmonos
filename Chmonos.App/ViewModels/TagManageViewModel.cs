@@ -836,15 +836,21 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// 検索画面の事実が変わった（<see cref="MainViewModel.NoteSearchFactsChanged"/>）。検索欄の式が事実を見るときだけ絞り直す——
     /// 見ない式で作り直すと、打っていないのに一覧が動く
     /// </summary>
+    /// <remarks>
+    /// 左と右の欄は別々に見る（点検29：左が事実を見ると、右の絞り直しが飛ばされていた）。
+    /// 右は小分類の行を作り直さず、今の行に絞り込みを当て直すだけにする——作り直すと、保存を待っている（0.8秒）小分類のメモの入力が捨てられる（点検29）
+    /// </remarks>
     internal void RefilterForSearchFacts()
     {
         if (DependsOnFacts(_filterText))
         {
             RebuildTops();
         }
-        else if (DependsOnFacts(_itemFilter))
+
+        if (DependsOnFacts(_itemFilter))
         {
-            RebuildSubs();
+            ApplyItemFilter();
+            MarkSubMatches();
             OnPropertyChanged(nameof(ItemFilterResultText));
         }
     }
