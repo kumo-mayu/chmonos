@@ -16,7 +16,7 @@ GitHub の Releases の本文と、BOOTH の商品ページの「更新履歴」
 v1.0.0 から移るときは、新しいフォルダに展開した `Chmonos.exe` を開くだけです。データは今までの保存先のまま使えます。
 古い `Chmonos-v1.0.0` フォルダは、新しいバージョンが動くのを確かめてから削除してください。
 
-- 使い方：[マニュアル](https://github.com/kumo-mayu/chmonos/tree/master/manual)
+- 使い方：[マニュアル](https://github.com/kumo-mayu/chmonos/tree/manual-v1.1.0/manual)
 - `Chmonos.exe` には電子署名をしていないため、新しいバージョンでも初回に Windows の警告が出ることがあります。対処は README の「[Windows の警告が出たとき](https://github.com/kumo-mayu/chmonos#windows-の警告が出たとき)」を見てください
 
 ## 変わったこと
@@ -29,7 +29,7 @@ v1.0.0 から移るときは、新しいフォルダに展開した `Chmonos.exe
 - `"tori"` のように二重引用符で囲んだ語は、「別表記でも検索」を入れていても広げず、打ったとおりに探します
 - タグの管理・属性の管理の検索欄でも、同じ書き方が使えます
 
-書き方の一覧は、マニュアルの「[検索の画面](https://github.com/kumo-mayu/chmonos/blob/master/manual/10-search.md#検索欄)」にあります。
+書き方の一覧は、マニュアルの「[検索の画面](https://github.com/kumo-mayu/chmonos/blob/manual-v1.1.0/manual/10-search.md#検索欄)」にあります。
 
 ### 新しいバージョンを知らせます
 

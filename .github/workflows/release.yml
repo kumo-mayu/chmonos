@@ -87,6 +87,10 @@ jobs:
           $readme = Get-Content docs/booth/zip-README.txt -Raw -Encoding utf8
           # 決まっていない所が残ったまま配らない（BOOTH の URL など）
           if ('${{ github.ref_type }}' -eq 'tag' -and $readme.Contains('【未定')) { throw 'docs/booth/zip-README.txt に【未定】が残っている' }
+          # マニュアルはそのバージョンの印（manual-v<版>。下の段で付ける）を指す。master は開発中の次のバージョンを含むので、
+          # 配った zip から開くと、まだ無い動きが書いてある（2026-10-08・ユーザ判断）
+          $readme = $readme.Replace('{version}', '${{ steps.version.outputs.version }}')
+          if ($readme.Contains('{')) { throw 'docs/booth/zip-README.txt に埋めていない {…} が残っている' }
           # メモ帳でも崩れないよう、改行は CRLF にする
           [IO.File]::WriteAllText("$dir/README.txt", ($readme -replace "`r?`n", "`r`n"), [Text.UTF8Encoding]::new($false))
 
@@ -134,3 +138,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create '${{ github.ref_name }}' 'out/${{ steps.zip.outputs.name }}.zip' 'out/${{ steps.zip.outputs.name }}.zip.sha256' --draft --title 'Chmonos ${{ github.ref_name }}' --notes '（下書き：公開の前に書く）'
+
+      # そのバージョンのマニュアルの印 manual-v<版> を、組んだのと同じコミットに付ける（2026-10-08・ユーザ判断）。
+      # Releases の本文と zip の README はここを指す。公開した後にマニュアルの言い方だけを直したときは、この印を動かす（docs/dev/signing.md）。
+      # 名前が v で始まらないので、この workflow はもう一度は動かない
+      - name: マニュアルの印を付ける
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'manual-${{ github.ref_name }}'
+          gh api "repos/${{ github.repository }}/git/refs/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { "印 $tag は既にある（動かさない）"; $global:LASTEXITCODE = 0; exit 0 }
+          $global:LASTEXITCODE = 0
+          gh api "repos/${{ github.repository }}/git/refs" -f ref="refs/tags/$tag" -f sha='${{ github.sha }}' > $null
+          "印 $tag を ${{ github.sha }} に付けた"
