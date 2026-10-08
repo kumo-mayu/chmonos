@@ -684,7 +684,7 @@ public sealed class ThumbnailLoader
         try
         {
             // 寸法を頭だけ読んで確かめてから復号する（ImageLimits）。大きすぎる物は読めない画像と同じ扱い
-            if (Core.Images.ImageLimits.IsTooLarge(Image.Identify(path)))
+            if (Core.Images.ImageLimits.IsTooLarge(Image.Identify(Core.Images.ImageLimits.FirstFrame, path)))
             {
                 return null;
             }
