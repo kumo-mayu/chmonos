@@ -316,7 +316,10 @@ public sealed class MissingMarksSweepTests : IDisposable
                 .RunAsync(new ImportWorkSet([_watched]));
 
             Assert.Null((await ItemAsync()).Local.LocalFolders.Single().MissingSince);
-            Assert.True(Volatile.Read(ref rootAsked) >= 1);
+
+            // 根を見に行く処理は裏で始まる。待つ長さが0なので、打ち切りの方が先に来て、見に行く前に取り込みが終わることがある
+            // （GitHub の遅い環境で落ちた。2026-10-08）。見に行ったこと自体は、始まるのを待って確かめる
+            Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref rootAsked) >= 1, TimeSpan.FromSeconds(10)));
         }
         finally
         {
