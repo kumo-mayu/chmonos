@@ -330,4 +330,20 @@ public class SearchConditionTests
         Assert.False(SearchConditions.IsCondition(SearchField.Category));
         Assert.False(SearchConditions.IsCondition(SearchField.Name));
     }
+
+    // --- 管理画面の検索欄（ItemTextFilter） ---
+
+    /// <summary>管理画面の検索欄も、事実を渡せば avatar:・has:update が効く（ユーザ判断 2026-10-08「繋ぐ方針」）</summary>
+    [Fact]
+    public void 管理画面の検索欄も事実を渡せば記録の外の記法が効く()
+    {
+        var item = Item("1000001");
+
+        Assert.True(ItemTextFilter.Create("has:update", Facts(null, "1000001"))!.Matches(item));
+        Assert.False(ItemTextFilter.Create("has:update", Facts(null, "1000002"))!.Matches(item));
+        Assert.False(ItemTextFilter.Create("has:update")!.Matches(item));
+
+        // 記録だけで決まる記法は、事実が無くても効く
+        Assert.True(ItemTextFilter.Create("-is:favorite")!.Matches(item));
+    }
 }

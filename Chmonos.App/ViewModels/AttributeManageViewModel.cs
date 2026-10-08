@@ -421,7 +421,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
         _builtKey = key;
 
-        var filter = ItemTextFilter.Create(_itemFilter);
+        var filter = ItemTextFilter.Create(_itemFilter, _main.Search.CreateSearchFacts());
         var found = _main.Search.SnapshotItems()
             .Select(item => (Item: item, Value: ValueOf(item, row.Name)))
             .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)));
@@ -890,7 +890,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// </summary>
     private void Rebuild()
     {
-        var filter = ItemTextFilter.Create(_filterText);
+        var filter = ItemTextFilter.Create(_filterText, _main.Search.CreateSearchFacts());
         var itemHits = filter is null ? null : CountItemHitsByAttribute(filter);
 
         // 作り直す間は、一覧が書き戻す「選択なし」を受けない（タグの管理と同じ。探すたびに右が空になっていた）

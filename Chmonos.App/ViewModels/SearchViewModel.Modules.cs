@@ -328,8 +328,11 @@ public sealed partial class SearchViewModel
 
     private AvatarRegistry AvatarRegistryForSearch() => _avatarRegistry ??= _services.Store.Avatars.Load();
 
-    /// <summary>検索欄の記法（<c>avatar:</c>・<c>has:update</c>）が見る事実。素体の索引は絞り込みの条件と同じ物を使う。</summary>
-    private SearchFacts CreateSearchFacts() => new(
+    /// <summary>
+    /// 検索欄の記法（<c>avatar:</c>・<c>has:update</c>）が見る事実。素体の索引は絞り込みの条件と同じ物を使う。
+    /// タグの管理・属性の管理の検索欄も、これを借りて同じ答えにする（登録簿と未読の表は検索画面が読み直しのたびに保っている）
+    /// </summary>
+    internal SearchFacts CreateSearchFacts() => new(
         () => _compatibility ??= AvatarCompatibilityIndex.Build(AvatarRegistryForSearch()),
         AvatarRegistryForSearch,
         HasUnreadUpdate);

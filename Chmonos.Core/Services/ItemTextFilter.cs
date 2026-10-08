@@ -12,16 +12,22 @@ namespace Chmonos.Core.Services;
 public sealed class ItemTextFilter
 {
     private readonly SearchNode _node;
+    private readonly SearchFacts? _facts;
     private readonly Dictionary<string, SearchHaystack> _haystacks = new(StringComparer.Ordinal);
 
-    private ItemTextFilter(SearchNode node)
+    private ItemTextFilter(SearchNode node, SearchFacts? facts)
     {
         _node = node;
+        _facts = facts;
     }
 
     /// <summary>空白だけなら null（絞らない）。</summary>
-    public static ItemTextFilter? Create(string? text)
-        => string.IsNullOrWhiteSpace(text) ? null : new ItemTextFilter(SearchQuery.Parse(text));
+    /// <param name="facts">
+    /// 商品の記録の外の事実（対応アバターの名前・未読の更新）。渡さなければ <c>avatar:</c>・<c>has:update</c> はどれにも当たらない。
+    /// 管理画面も検索画面と同じ物を渡す（同じ書き方が画面によって効いたり効かなかったりしないように。ユーザ判断 2026-10-08）
+    /// </param>
+    public static ItemTextFilter? Create(string? text, SearchFacts? facts = null)
+        => string.IsNullOrWhiteSpace(text) ? null : new ItemTextFilter(SearchQuery.Parse(text), facts);
 
     /// <summary>
     /// 商品を照らす。同じ絞り込みの間に同じ商品を何度も照らす（大分類ごと・小分類ごと）ので、
@@ -35,7 +41,7 @@ public sealed class ItemTextFilter
             _haystacks[item.Id] = haystack;
         }
 
-        return SearchQuery.Matches(_node, haystack, SearchOptions.Default);
+        return SearchQuery.Matches(_node, haystack, SearchOptions.Default, _facts);
     }
 
     /// <summary>

@@ -87,4 +87,33 @@ public class SearchSyntaxTests
 
         Assert.Equal(["1000001"], ShownIds(search));
     });
+
+    /// <summary>
+    /// タグの管理・属性の管理の検索欄は、検索画面が持つ事実（未読の知らせの表・登録簿）を借りる。
+    /// 同じ書き方が画面によって効いたり効かなかったりしないように（ユーザ判断 2026-10-08）
+    /// </summary>
+    [Fact]
+    public Task 管理画面の検索欄は検索画面の事実を借りてhasのupdateが効く() => TestApp.Run(async app =>
+    {
+        var item = Make.Item("1000001", "更新のあった商品");
+        await app.AddItemAsync(item);
+        await app.Store.Notifications.SaveAsync(
+        [
+            new NotificationRecord
+            {
+                Id = "item-updated:1000001",
+                Kind = NotificationKind.ItemUpdated,
+                ItemId = "1000001",
+                Title = "更新のあった商品",
+                Detail = "価格が変わりました",
+                CreatedAt = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.FromHours(9)),
+            },
+        ]);
+        var main = await app.StartAsync();
+        await UiThread.Until(() => main.Search.HasUnreadUpdate("1000001"), "未読の表を読む");
+
+        var filter = Core.Services.ItemTextFilter.Create("has:update", main.Search.CreateSearchFacts());
+
+        Assert.True(filter!.Matches(item));
+    });
 }

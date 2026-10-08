@@ -1016,7 +1016,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     private void RebuildTops()
     {
         // 書き方は検索画面と同じ（ユーザ指示 2026-09-19）。大分類・小分類の名前にも同じ式を当てる
-        var filter = ItemTextFilter.Create(_filterText);
+        var filter = ItemTextFilter.Create(_filterText, _main.Search.CreateSearchFacts());
         var master = filter is null ? null : _filterMaster ?? _services.Store.UserTags.Load();
 
         // 作り直す間は、一覧が書き戻す「選択なし」を受けない。受けると、探すたびに右が空になっていた。
@@ -1089,7 +1089,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     /// <summary>右に開いている大分類の小分類のうち、左の欄の語に当たった物を印す（開いたときに、当たった小分類が分かるように）。</summary>
     private void MarkSubMatches()
     {
-        var filter = ItemTextFilter.Create(_filterText);
+        var filter = ItemTextFilter.Create(_filterText, _main.Search.CreateSearchFacts());
         foreach (var sub in Subs)
         {
             sub.IsFilterMatch = filter is not null && filter.MatchesNameOrMemo(sub.Name, sub.MemoDraft);
@@ -1307,7 +1307,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     private void ApplyItemFilter()
     {
         // 書き方は検索画面と同じ（ユーザ指示 2026-09-19）
-        var filter = ItemTextFilter.Create(_itemFilter);
+        var filter = ItemTextFilter.Create(_itemFilter, _main.Search.CreateSearchFacts());
         _itemFilterHits = 0;
 
         if (filter is null)
