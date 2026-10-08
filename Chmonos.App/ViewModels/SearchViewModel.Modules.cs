@@ -326,9 +326,17 @@ public sealed partial class SearchViewModel
     public Task FlushModulesAsync()
         => _moduleSavedToken == _moduleSaveToken ? Task.CompletedTask : SaveModulesNowAsync();
 
+    private AvatarRegistry AvatarRegistryForSearch() => _avatarRegistry ??= _services.Store.Avatars.Load();
+
+    /// <summary>検索欄の記法（<c>avatar:</c>・<c>has:update</c>）が見る事実。素体の索引は絞り込みの条件と同じ物を使う。</summary>
+    private SearchFacts CreateSearchFacts() => new(
+        () => _compatibility ??= AvatarCompatibilityIndex.Build(AvatarRegistryForSearch()),
+        AvatarRegistryForSearch,
+        HasUnreadUpdate);
+
     /// <summary>絞り込み1回ぶんの材料。</summary>
     private SearchModuleContext CreateModuleContext() => new(
-        () => _compatibility ??= AvatarCompatibilityIndex.Build(_services.Store.Avatars.Load()),
+        () => _compatibility ??= AvatarCompatibilityIndex.Build(AvatarRegistryForSearch()),
         _modificationUsage ?? ModificationUsage.Empty,
         _recentTimes ?? RecentTimes.Empty,
         _services.Volumes.Current,

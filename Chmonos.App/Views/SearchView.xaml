@@ -1793,7 +1793,17 @@
                                     name: 商品名　shop: ショップ名　memo: メモ　subdomain: サブドメイン　main: 本文<LineBreak />
                                     tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
                                     file: ファイル名　path: ファイルの場所　content: zipの中のファイル名<LineBreak />
-                                    name:&quot;夏 セット&quot; や tag:(夏 OR 冬) のようにも書けます。&quot;…&quot; の中の name: はそのままの文字として探します。
+                                    usertag: ユーザータグ　avatar: 対応アバター　category: カテゴリ<LineBreak />
+                                    name:&quot;夏 セット&quot; や tag:(夏 OR 冬) のようにも書けます。&quot;…&quot; の中の name: はそのままの文字として探します。<LineBreak />
+                                    <LineBreak />
+                                    商品の状態でも探せます。<LineBreak />
+                                    is:favorite お気に入り　is:hidden 非表示　is:owned 所持　is:local BOOTHに無い商品<LineBreak />
+                                    is:r18 R-18　is:delisted 販売終了・非公開<LineBreak />
+                                    has:update 更新通知あり　has:brokenzip 壊れたzip　has:missing 見つからないファイル<LineBreak />
+                                    <LineBreak />
+                                    price: BOOTH価格　paid: 払った額　wish: スキ数 は、数の範囲で探します。<LineBreak />
+                                    price:-400 は400以下、price:100-500 は100から500、price:500- は500以上です。<LineBreak />
+                                    price:&lt;=400 や price:&gt;=500 とも書けます。
                                 </TextBlock>
                             </TextBlock.ToolTip>
                         </TextBlock>

@@ -113,9 +113,13 @@ public sealed partial class SearchViewModel
     private List<ItemCardViewModel> FilterMatches()
     {
         // 非表示は、非表示の条件を足して効かせていなければ隠す（今までどおり・ユーザ判断 Q12）
-        _allowsHidden = Modules.Any(module => module.Kind == SearchModuleKind.Hidden && module.IsEnabled);
+        // 検索欄に is:hidden と書いたときも隠さない（書いたのに0件になるので。ユーザ判断 2026-10-08・記法の追加）。
+        // R-18 は設定で隠している物なので、is:r18 と書いても出さない
+        _allowsHidden = Modules.Any(module => module.Kind == SearchModuleKind.Hidden && module.IsEnabled)
+            || Core.Services.SearchQuery.Mentions(_queryNode, Core.Services.SearchField.Is, "hidden");
         _hiddenCount = _allowsHidden ? 0 : _allItems.Count(item => item.Local.IsHidden);
         _moduleContext = CreateModuleContext();
+        _searchFacts = CreateSearchFacts();
 
         // 結果と選択肢の件数の材料を、全商品を1回なめて同時に作る（案b）
         _filterPass = SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), _moduleContext);
@@ -324,7 +328,7 @@ public sealed partial class SearchViewModel
         => !_haystacks.TryGetValue(item.Id, out var haystack)
             // 読みは広げていて造語変換が入のときだけ見る（_searchOptions.IncludeReadings）。組み立てた「あり得る読み」には
             // 外れも混じるので、普段の検索から当たると「なぜこれが出たのか」が説明できなくなる
-            || Core.Services.SearchQuery.Matches(_widenedNode ?? _queryNode, haystack, _searchOptions);
+            || Core.Services.SearchQuery.Matches(_widenedNode ?? _queryNode, haystack, _searchOptions, _searchFacts ??= CreateSearchFacts());
 
     /// <summary>
     /// この絞り込みで足跡が要るか。

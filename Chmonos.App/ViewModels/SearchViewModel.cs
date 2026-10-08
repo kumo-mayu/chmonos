@@ -67,6 +67,12 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     private Core.Services.SearchNode _queryNode = new Core.Services.SearchNode.All();
     private bool _searchAlternates;
     private Core.Services.AvatarCompatibilityIndex? _compatibility;
+
+    /// <summary>素体の索引と検索欄の <c>avatar:</c> が引く登録簿。索引と同じときに捨てる（1回の絞り込みで2度読まない）。</summary>
+    private AvatarRegistry? _avatarRegistry;
+
+    /// <summary>検索欄の記法が見る、商品の記録の外の事実。絞り込みの1回ごとに作り直す（既読・登録簿の変化を拾うため）。</summary>
+    private Core.Services.SearchFacts? _searchFacts;
     private bool _isLoading;
     private bool _isFilterPanelCollapsed;
     private int _columns = 1;

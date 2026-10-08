@@ -112,6 +112,7 @@ public class LocalCategoryTests
     /// <summary>
     /// 入れた分類は文字列では探さない（ユーザ判断 2026-09-16「カテゴリは文字列の方には不要」）。
     /// 分類は絞り込みの条件で選ぶ物で、文字列にも入れると「なぜこれが出たのか」が分かりにくくなる。
+    /// 前置き <c>category:</c> を書いたときだけは探す（ユーザ判断 2026-10-08。書いた本人には当たった理由が分かる）
     /// </summary>
     [Fact]
     public void CategoryIsNotATextTarget()
@@ -124,7 +125,7 @@ public class LocalCategoryTests
         };
 
         var haystack = SearchText.Build(item);
-        foreach (var field in Enum.GetValues<SearchField>())
+        foreach (var field in Enum.GetValues<SearchField>().Where(field => field != SearchField.Category))
         {
             Assert.DoesNotContain("3dキャラクター", haystack.Folded(field), StringComparison.OrdinalIgnoreCase);
         }

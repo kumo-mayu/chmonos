@@ -329,6 +329,7 @@ public sealed partial class SearchViewModel
 
         // 素体の所属はアバターの管理で変わる。索引は次の絞り込みで作り直す
         _compatibility = null;
+        _avatarRegistry = null;
         _moduleSourcesReady = true;
         RefreshModuleSources();
     }

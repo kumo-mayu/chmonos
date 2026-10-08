@@ -40,6 +40,32 @@ public enum SearchField
 
     /// <summary>BOOTHタグ。</summary>
     Tag,
+
+    // ここから下は検索欄の記法で指す物（ユーザ判断 2026-10-08）。「対象」の切り替えには出さない
+
+    /// <summary>ユーザータグ（大分類と「大分類 / 小分類」）。</summary>
+    UserTag,
+
+    /// <summary>対応アバター（名前・呼び方・素体の名前）。登録簿から引く（<see cref="SearchFacts"/>）。</summary>
+    Avatar,
+
+    /// <summary>カテゴリ（条件「カテゴリ」と同じく、自分で入れたカテゴリか BOOTH のカテゴリと、その親）。</summary>
+    Category,
+
+    /// <summary>商品の状態（<c>is:favorite</c> など・<see cref="SearchConditions"/>）。</summary>
+    Is,
+
+    /// <summary>商品が持つ物（<c>has:update</c> など）。</summary>
+    Has,
+
+    /// <summary>払った額の範囲。</summary>
+    Paid,
+
+    /// <summary>BOOTH の価格の範囲（種類のどれかが入れば当たる）。</summary>
+    Price,
+
+    /// <summary>スキ数の範囲。</summary>
+    Wish,
 }
 
 /// <summary>
@@ -144,6 +170,11 @@ public sealed class SearchHaystack
 
     private readonly Func<string>? _makeReadings;
     private string? _readings;
+
+    /// <summary>
+    /// 元の商品。状態・数で当てる記法（<c>is:</c>・<c>paid:</c> など）が見る。ショップの一覧などの商品でない材料では null（当たらない）
+    /// </summary>
+    public ItemRecord? Item { get; init; }
 
     /// <summary>
     /// 商品名の読み（畳み済み・ひらがな）。造語変換のときだけ見るので、**見たときに作る**
@@ -281,6 +312,14 @@ public static class SearchQuery
         ["file"] = SearchField.File,
         ["content"] = SearchField.Content,
         ["tag"] = SearchField.Tag,
+        ["usertag"] = SearchField.UserTag,
+        ["avatar"] = SearchField.Avatar,
+        ["category"] = SearchField.Category,
+        ["is"] = SearchField.Is,
+        ["has"] = SearchField.Has,
+        ["paid"] = SearchField.Paid,
+        ["price"] = SearchField.Price,
+        ["wish"] = SearchField.Wish,
     };
 
     public static string FieldName(SearchField field) => FieldNames.First(pair => pair.Value == field).Key;
@@ -373,11 +412,19 @@ public static class SearchQuery
     /// 大文字小文字・全角半角を区別して本文を対象にすると1回の照合が2000件で約170ms かかり、それが（条件数＋1）倍になっていた（2026-09-24 実測）。
     /// 打ち直すと式が作り直されるので、覚えた答えは使われない（式と切り替えは参照が同じ時だけ同じ組とみなす）。
     /// </summary>
-    public static bool Matches(SearchNode node, SearchHaystack haystack, SearchOptions options)
+    /// <param name="facts">商品の記録の外の事実（対応アバターの名前・未読の更新）。無ければ <c>avatar:</c>・<c>has:</c> の一部が当たらない。</param>
+    public static bool Matches(SearchNode node, SearchHaystack haystack, SearchOptions options, SearchFacts? facts = null)
     {
         if (node is SearchNode.All)
         {
             return true;
+        }
+
+        // 記録の外の事実で答えが変わる式は覚えない。材料は記録が同じ商品で使い回すので、既読にしてもアバターを登録し直しても、
+        // 覚えた古い答えが返ってしまう
+        if (DependsOnFacts(node))
+        {
+            return Evaluate(node, haystack, options, facts);
         }
 
         var key = MatchKey.For(node, options);
@@ -386,10 +433,35 @@ public static class SearchQuery
             return matched;
         }
 
-        matched = Evaluate(node, haystack, options);
+        matched = Evaluate(node, haystack, options, facts);
         haystack.Remember(key, matched);
         return matched;
     }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SearchNode, object> FactDependence = new();
+
+    /// <summary>式が記録の外の事実（<see cref="SearchConditions.DependsOnFacts"/>）を見るか。式ごとに1回だけ調べる。</summary>
+    public static bool DependsOnFacts(SearchNode node)
+        => (bool)FactDependence.GetValue(node, static node => Walk(node));
+
+    private static bool Walk(SearchNode node) => node switch
+    {
+        SearchNode.Term { Field: { } field } => SearchConditions.DependsOnFacts(field),
+        SearchNode.Not not => Walk(not.Inner),
+        SearchNode.And and => and.Parts.Any(Walk),
+        SearchNode.Or or => or.Parts.Any(Walk),
+        _ => false,
+    };
+
+    /// <summary>式のどこかに <c>is:</c> の語があるか（<c>is:hidden</c> で非表示の商品も照らすため）。否定の中も数える——外す側でも、照らさなければ外せない。</summary>
+    public static bool Mentions(SearchNode node, SearchField field, string word) => node switch
+    {
+        SearchNode.Term term => term.Field == field && term.Text == word,
+        SearchNode.Not not => Mentions(not.Inner, field, word),
+        SearchNode.And and => and.Parts.Any(part => Mentions(part, field, word)),
+        SearchNode.Or or => or.Parts.Any(part => Mentions(part, field, word)),
+        _ => false,
+    };
 
     /// <summary>
     /// 式と切り替えの組。直前の組と参照が同じなら同じ物を返す（1回の絞り込みの中では、全商品が同じ鍵を覚える）。
@@ -415,20 +487,20 @@ public static class SearchQuery
     }
 
     // ラムダ（All・Any）を使わないのは、商品×ノードごとに閉包が1つできていたため
-    private static bool Evaluate(SearchNode node, SearchHaystack haystack, SearchOptions options)
+    private static bool Evaluate(SearchNode node, SearchHaystack haystack, SearchOptions options, SearchFacts? facts)
     {
         switch (node)
         {
             case SearchNode.Term term:
-                return Contains(term, haystack, options);
+                return Contains(term, haystack, options, facts);
 
             case SearchNode.Not not:
-                return !Evaluate(not.Inner, haystack, options);
+                return !Evaluate(not.Inner, haystack, options, facts);
 
             case SearchNode.And and:
                 for (var i = 0; i < and.Parts.Count; i++)
                 {
-                    if (!Evaluate(and.Parts[i], haystack, options))
+                    if (!Evaluate(and.Parts[i], haystack, options, facts))
                     {
                         return false;
                     }
@@ -439,7 +511,7 @@ public static class SearchQuery
             case SearchNode.Or or:
                 for (var i = 0; i < or.Parts.Count; i++)
                 {
-                    if (Evaluate(or.Parts[i], haystack, options))
+                    if (Evaluate(or.Parts[i], haystack, options, facts))
                     {
                         return true;
                     }
@@ -452,8 +524,13 @@ public static class SearchQuery
         }
     }
 
-    private static bool Contains(SearchNode.Term term, SearchHaystack haystack, SearchOptions options)
+    private static bool Contains(SearchNode.Term term, SearchHaystack haystack, SearchOptions options, SearchFacts? facts)
     {
+        if (term.Field is { } conditionField && SearchConditions.IsCondition(conditionField))
+        {
+            return SearchConditions.Matches(term, haystack.Item, facts);
+        }
+
         if (term.Field is { } field)
         {
             return InField(term, haystack, field, options)

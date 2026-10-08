@@ -24,7 +24,7 @@ public static class SearchText
         // 前は切れていても全商品の読みを作っていて、全件の作り直しが 2ms→23ms・割り当て 2MB→8MB に膨らんでいた
         // （2000件。取り込み中は10秒ごとに作り直す・2026-09-24 実測）
         Func<string>? makeReadings = readings is null ? null : () => NameReadings(item, readings);
-        var haystack = new SearchHaystack(field => RawValues(item, field), makeReadings);
+        var haystack = new SearchHaystack(field => RawValues(item, field), makeReadings) { Item = item };
 
         // 既定で探す対象だけは先に畳んでおく（読み込みの裏で作り、打つたびに作らない）
         foreach (var field in SearchOptions.DefaultTargets)
@@ -173,6 +173,26 @@ public static class SearchText
                     Add(tag);
                 }
 
+                break;
+
+            // 大分類だけを付けた物は大分類、小分類は「大分類 / 小分類」の形で入れる（タグの管理と同じ見せ方）。
+            // 小分類の名前だけで打っても、この文字の中に含まれるので当たる
+            case SearchField.UserTag:
+                foreach (var tag in item.Local.UserTags)
+                {
+                    Add(tag.Top);
+                    foreach (var sub in tag.Subs)
+                    {
+                        Add($"{tag.Top} / {sub}");
+                    }
+                }
+
+                break;
+
+            // 条件「カテゴリ」と同じ値（自分で入れたカテゴリか BOOTH のカテゴリ、と BOOTH の親カテゴリ）
+            case SearchField.Category:
+                Add(item.CategoryName);
+                Add(item.Booth.Category?.ParentName);
                 break;
         }
 
