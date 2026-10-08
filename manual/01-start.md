@@ -16,10 +16,10 @@ BOOTH のアカウントやパスワードは使いません。ログインす�
 
 ## 1. ダウンロードして展開する
 
-1. [GitHub の Releases](https://github.com/kumo-mayu/chmonos/releases) か [BOOTH](https://kumo-mayu.booth.pm/items/8952335) から、`Chmonos-v1.0.0.zip` をダウンロードします
+1. [GitHub の Releases](https://github.com/kumo-mayu/chmonos/releases) か [BOOTH](https://kumo-mayu.booth.pm/items/8952335) から、`Chmonos-v1.1.0.zip` をダウンロードします
 2. zip を右クリックして「すべて展開」を選び、好きな場所に展開します
 
-展開すると、`Chmonos-v1.0.0` フォルダの中に `Chmonos.exe` と `assets` フォルダなどが並びます。
+展開すると、`Chmonos-v1.1.0` フォルダの中に `Chmonos.exe` と `assets` フォルダなどが並びます。
 
 > **zip の中から直接開かないでください。**`assets` フォルダには、検索に使う辞書が入っています。zip の中から開くと、`assets` が使われないことがあります。
 > `Chmonos.exe` だけを別の場所へ移すのも避けてください。移すときは、フォルダごと移します。
