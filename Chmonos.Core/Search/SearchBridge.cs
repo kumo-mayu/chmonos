@@ -166,8 +166,8 @@ public sealed class SearchBridge
         {
             case Services.SearchNode.Term term:
             {
-                // 状態・数で当てる記法（is:・paid: など）は決まった語や数なので広げない
-                if (term.Field is { } field && Services.SearchConditions.IsCondition(field))
+                // 状態・数で当てる記法（is:・paid: など）は決まった語や数なので広げない。引用符で囲んだ語は打ったとおりに探す
+                if (term.Quoted || (term.Field is { } field && Services.SearchConditions.IsCondition(field)))
                 {
                     return term;
                 }

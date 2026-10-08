@@ -146,4 +146,29 @@ public class SearchBridgeTests
 
         Assert.DoesNotContain("bird", Texts("bird"));
     }
+
+    /// <summary>
+    /// 引用符で囲んだ語は、別表記で広げない（ユーザ判断 2026-10-08：「その並びのまま含むものだけを探す」と説明している）。
+    /// 囲まない同じ語は今までどおり広げる。前置きを付けて囲んでも同じ
+    /// </summary>
+    [Fact]
+    public void 引用符で囲んだ語は広げない()
+    {
+        if (!Available)
+        {
+            return;
+        }
+
+        var used = new Dictionary<string, List<BridgeCandidate>>();
+        Assert.IsType<Services.SearchNode.Or>(_bridge.Widen(Services.SearchQuery.Parse("tori"), used));
+
+        used.Clear();
+        var quoted = _bridge.Widen(Services.SearchQuery.Parse("\"tori\""), used);
+        Assert.True(Assert.IsType<Services.SearchNode.Term>(quoted).Quoted);
+        Assert.Empty(used);
+
+        used.Clear();
+        Assert.IsType<Services.SearchNode.Term>(_bridge.Widen(Services.SearchQuery.Parse("name:\"tori\""), used));
+        Assert.Empty(used);
+    }
 }

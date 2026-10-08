@@ -271,6 +271,12 @@ public abstract record SearchNode
     /// </param>
     public sealed record Term(string Text, string Raw, SearchField? Field = null, bool WholeWord = false) : SearchNode
     {
+        /// <summary>
+        /// 引用符で囲んで打った語か。**囲んだ語は別表記で広げない**（ユーザ判断 2026-10-08）——「その並びのまま含むものだけを探す」と説明していて、
+        /// 多くの検索でも引用符は「打ったとおりに探す」。別表記を入れたままでも、この語だけは広げないと1語ずつ指せる
+        /// </summary>
+        public bool Quoted { get; init; }
+
         private readonly EqualityNeutral<string, string> _hiragana = new();
 
         /// <summary>
@@ -640,7 +646,7 @@ public static class SearchQuery
         Prefix,
     }
 
-    private readonly record struct Token(TokenKind Kind, string Raw, SearchField? Field = null);
+    private readonly record struct Token(TokenKind Kind, string Raw, SearchField? Field = null, bool Quoted = false);
 
     /// <summary>1字を NFKC で畳む。構文の記号（全角の括弧・引用符・ハイフン・コロン）を見分けるため。</summary>
     private static char FoldSymbol(char c) => Nfkc.FoldChar(c);
@@ -716,7 +722,7 @@ public static class SearchQuery
                 // 閉じ忘れでも、そこまでをフレーズとして扱う。引用符の中の「name:」は前置きとして読まない（ユーザ判断）
                 if (phrase.Length > 0)
                 {
-                    tokens.Add(new Token(TokenKind.Word, phrase));
+                    tokens.Add(new Token(TokenKind.Word, phrase, Quoted: true));
                 }
 
                 continue;
@@ -878,7 +884,7 @@ public static class SearchQuery
         if (token.Kind == TokenKind.Word)
         {
             index++;
-            return new SearchNode.Term(Normalize(token.Raw), token.Raw, token.Field);
+            return new SearchNode.Term(Normalize(token.Raw), token.Raw, token.Field) { Quoted = token.Quoted };
         }
 
         return null;
