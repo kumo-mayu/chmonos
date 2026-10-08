@@ -32,7 +32,8 @@ public sealed class SearchFacts
     /// <summary>
     /// 対応アバターとして探す名前。絞り込みの「対応アバター」の既定（素体経由も含める）と同じ範囲にする：
     /// 対応しているアバターの名前・正式名・呼び方・ID、宣言した素体と、対応しているアバターが属する素体の名前と呼び方。
-    /// 消した対応と、説明文のリンク（要確認）は数えない（<see cref="AvatarCompatibilityIndex.Resolve"/> と同じ）
+    /// 消した対応と、説明文のリンク（要確認）は数えない（<see cref="AvatarCompatibilityIndex.Resolve"/> と同じ）。
+    /// 返すのは畳んだ名前（登録簿から作るときに1回だけ畳む。この式は答えを覚えないので、打つたびに全商品で引かれる）
     /// </summary>
     internal IEnumerable<string> AvatarNames(ItemRecord item)
     {
@@ -75,7 +76,7 @@ public sealed class SearchFacts
     }
 
     private IEnumerable<string> BaseNames(string baseName)
-        => _baseNames!.TryGetValue(baseName, out var names) ? names : [baseName];
+        => _baseNames!.TryGetValue(baseName, out var names) ? names : [SearchQuery.Normalize(baseName)];
 
     private void BuildNames(AvatarRegistry registry)
     {
@@ -85,13 +86,14 @@ public sealed class SearchFacts
                 .Concat(entry.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text))
                 .OfType<string>()
                 .Where(name => name.Length > 0)
+                .Select(SearchQuery.Normalize)
                 .ToArray(),
             StringComparer.Ordinal);
 
         _baseNames = new Dictionary<string, string[]>(StringComparer.CurrentCultureIgnoreCase);
         foreach (var group in registry.BaseGroups.Where(group => !group.Rejected && !string.IsNullOrWhiteSpace(group.Name)))
         {
-            _baseNames[group.Name] = group.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text).Prepend(group.Name).ToArray();
+            _baseNames[group.Name] = group.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text).Prepend(group.Name).Select(SearchQuery.Normalize).ToArray();
         }
     }
 }
@@ -135,7 +137,7 @@ public static class SearchConditions
             SearchField.Wish => TryParseRange(term.Text, out var wish) && wish.Contains(item.Booth.WishListsCount),
             SearchField.UserTag => MatchesUserTag(term.Text, item),
             SearchField.Avatar => facts is not null && term.Text.Length > 0
-                && facts.AvatarNames(item).Any(name => SearchQuery.Normalize(name).Contains(term.Text, StringComparison.Ordinal)),
+                && facts.AvatarNames(item).Any(name => name.Contains(term.Text, StringComparison.Ordinal)),
             _ => false,
         };
     }
