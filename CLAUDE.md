@@ -174,7 +174,7 @@ App を直したら、その出し分けの試験も足す。画面で見るの�
 
 特に大きいもの：`docs/feedback/done-2026-09.md`（約390KB）、`docs/history/` の `unity-handoff.md`・`ui-revision.md`・`avatars.md`、
 `docs/features.md`（1行が長い）、`Views/` の大きな XAML（`EditView`・`SearchView`・`StatsView`・`Modification*View`・`AvatarsView`・`TagManageView`・`ItemCardResources`）、
-1,200行を超える ViewModel と `Core/Services/ItemService.cs`・`AvatarDetector.cs`・`Core/Scanning/ImportPipeline.cs`。
+1,200行を超える ViewModel と `Core/Services/AvatarDetector.cs`（`ItemService`・`ImportPipeline`・`SearchModules` は 2026-10-08 に担当・段・種類ごとのファイルへ分けた）。
 XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep する。
 
 ---

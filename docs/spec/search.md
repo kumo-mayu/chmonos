@@ -3,7 +3,7 @@
 > **要点**：絞り込み（離散値）と文字列検索（自由記述）を分け、並べ替えは単一値の欄だけ。絞り込みは**モジュール方式**（「＋ 条件を追加」から条件を1つずつ足す。有効／無効のチェックと ×。**足した条件・有効か・値まで覚える**。同じ種類を複数・「除く」は [search-filters.md](search-filters.md)）。非表示と（設定で隠しているときの）R-18 は条件より先に外す。
 > 文字列は同梱の辞書で表記（ローマ字・かな・漢字・英語）をまたげる。**意味検索（埋め込み）はしない**——辞書は引いた結果を説明できる。
 >
-> **コード**：`App/ViewModels/SearchViewModel*.cs`（`.Modules`・`.Filtering`・`.History` など partial）・`SearchModules.cs`（条件の種類と形）・`ItemCardViewModel`・`DeferredCardHost`・`Controls/ContentItemsControl`、`Core/Models/SearchModuleState`・`Core/Services/DateText`・`Core/Search/`（`SearchQuery`・`SearchBridge`・`ReadingMatch`）・`Core/Services/ItemOrder`・`FolderTree`
+> **コード**：`App/ViewModels/SearchViewModel*.cs`（`.Modules`・`.Filtering`・`.History` など partial）・`SearchModules.cs`（条件の種類と基底。種類ごとの形は `ChoiceModule.cs` などに分けた）・`ItemCardViewModel`・`DeferredCardHost`・`Controls/ContentItemsControl`、`Core/Models/SearchModuleState`・`Core/Services/DateText`・`Core/Search/`（`SearchQuery`・`SearchBridge`・`ReadingMatch`）・`Core/Services/ItemOrder`・`FolderTree`
 >
 > **経緯**：`docs/history/search-redesign.md`（2026-09-15〜16 の刷新：案の原文・決めたこと・実装）、`docs/history/ui-revision.md` §1〜3（絞り込み・文字列・カード・辞書の実測）、`docs/history/grill-2-ui-and-data-model.md`、`docs/research/fuzzy-search.md`（類義語は入れない推し）
 

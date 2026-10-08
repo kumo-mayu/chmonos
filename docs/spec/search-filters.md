@@ -4,7 +4,7 @@
 > 値を選んで積む条件は**同じ種類を複数置ける**。条件は三項・編集状況を除いて**「除く」**にできる（除かないときに当てはまる物、以外）。
 > 条件の見出しの「…」と右クリックに条件のメニュー、パネルの見出しに「同じ種類の条件を隣に並べる」。非表示と（設定で隠しているときの）R-18 は条件より先に外す。
 >
-> **コード**：`App/ViewModels/SearchModules.cs`（条件の種類と形・`SearchModuleOrder`・`UneditedModule`・`MatchModeText`）・`ModificationModule.cs`・`UpdateNoticeModule.cs`・`SearchFilterPass.cs`（絞り込みの1回）・
+> **コード**：`App/ViewModels/SearchModules.cs`（条件の種類・基底・`SearchModuleOrder`・`MatchModeText`）と種類ごとの `ChoiceModule.cs`・`ListModule.cs`・`RangeModule.cs`・`DateModule.cs`・`AttributeModule.cs`・`UserTagModule.cs`・`UneditedModule.cs`（2026-10-08 に分けた）・`ModificationModule.cs`・`UpdateNoticeModule.cs`・`SearchFilterPass.cs`（絞り込みの1回）・
 > `SearchViewModel.Modules/Filtering/History/ShowOnly.cs`・`Views/SearchView.xaml`・`SearchView.Modules.cs`（見出しのメニューと止まり直し）、
 > `Core/Models/SearchModuleState`・`Core/Services/EditFieldsMissing`・`DateText`・`FolderTree`
 >
