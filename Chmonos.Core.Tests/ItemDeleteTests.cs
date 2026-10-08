@@ -240,8 +240,15 @@ public sealed class ItemDeleteTests : IDisposable
         var first = _store.Items.MoveAwayAsync("801", MoveInto("802"));
         var second = _store.Items.MoveAwayAsync("802", MoveInto("801"));
 
-        var finished = await Task.WhenAny(Task.WhenAll(first, second), Task.Delay(TimeSpan.FromSeconds(10)));
-        Assert.True(first.IsCompleted && second.IsCompleted, "付け替えどうしが待ち合って終わらなかった");
+        var both = Task.WhenAll(first, second);
+        await Task.WhenAny(both, Task.Delay(TimeSpan.FromSeconds(10)));
+        Assert.True(both.IsCompleted, "付け替えどうしが待ち合って終わらなかった");
+
+        // 終わったことに加えて、例外で終わっていないことも確かめる（点検24：IsCompleted は例外で終わっても真なので、
+        // 両方が投げて終わっても通っていた）
+        await both;
+        Assert.False(await first);
+        Assert.False(await second);
     }
 
     /// <summary>

@@ -322,6 +322,24 @@ public class EditServiceTests : IDisposable
     }
 
     /// <summary>
+    /// 錠を持っている書き手がいる間、後から来た操作が**終わらずに待っている**ことを確かめてから錠を放す（点検24）。
+    /// 前は一定の時間だけ待って放していたので、後の操作が錠を素通りして先に終わっても、試験は通っていた。
+    /// 錠を放すのは finally で必ず行う（確かめが落ちても、錠を持った書き手を待たせ続けない）
+    /// </summary>
+    private static async Task AssertWaitsForLockAsync(Task operation, ManualResetEventSlim release)
+    {
+        try
+        {
+            var first = await Task.WhenAny(operation, Task.Delay(300));
+            Assert.NotSame(operation, first);
+        }
+        finally
+        {
+            release.Set();
+        }
+    }
+
+    /// <summary>
     /// IDの付け替えも錠の中で今の記録に当てる。ここだけ錠の外で読んで書いていたので、
     /// 「保存して次へ」と重なると、進めた位置か付け替えのどちらかが消えていた。
     /// </summary>
@@ -343,8 +361,7 @@ public class EditServiceTests : IDisposable
         entered.Wait();
 
         var replace = _service.ReplaceItemIdAsync("local-aaaa1111", "222");
-        await Task.WhenAny(replace, Task.Delay(500));
-        release.Set();
+        await AssertWaitsForLockAsync(replace, release);
         await Task.WhenAll(advance, replace);
 
         var saved = _store.EditSession.Load();
@@ -374,8 +391,7 @@ public class EditServiceTests : IDisposable
         entered.Wait();
 
         var start = _service.StartSessionAsync(["7", "8"]);
-        await Task.WhenAny(start, Task.Delay(300));
-        release.Set();
+        await AssertWaitsForLockAsync(start, release);
         await Task.WhenAll(advance, start);
 
         var saved = _store.EditSession.Load();
@@ -403,8 +419,7 @@ public class EditServiceTests : IDisposable
         entered.Wait();
 
         var clear = _service.ClearSessionAsync();
-        await Task.WhenAny(clear, Task.Delay(300));
-        release.Set();
+        await AssertWaitsForLockAsync(clear, release);
         await Task.WhenAll(note, clear);
 
         var saved = _store.EditSession.Load();
