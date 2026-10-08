@@ -253,7 +253,13 @@ public sealed class ItemService : IItemService
         _images = images;
         _currentSettings = currentSettings;
         _userImages = new UserImageEditor(store, images);
+        _changeNotes = new BoothChangeNotes(store);
+        _remainingImages = new RemainingImageRequests(images);
     }
+
+    private readonly RemainingImageRequests _remainingImages;
+
+    private readonly BoothChangeNotes _changeNotes;
 
     private readonly UserImageEditor _userImages;
 
@@ -375,258 +381,15 @@ public sealed class ItemService : IItemService
         // 作者がたまたま商品ページを非公開にしていただけ、という場合はこれで復活する。
         await _images.ClearMissingMarkersAsync(itemId, cancellationToken);
 
-        await NoteBackOnBoothAsync(existing, booth, cancellationToken);
-        await NoteVariationLinksAsync(existing, booth, cancellationToken);
-        await NoteChangesAsync(existing, booth, cancellationToken);
+        await _changeNotes.NoteBackOnBoothAsync(existing, booth, cancellationToken);
+        await _changeNotes.NoteVariationLinksAsync(existing, booth, cancellationToken);
+        await _changeNotes.NoteChangesAsync(existing, booth, cancellationToken);
 
         // **画像はここで落とさない。**梯子の規則をここだけ破らないため。
         // 落とすと「①②が画像より先」の外側に画像の取得が生まれる。
         // 増えた画像は ImageBacklog が拾い、人が押した取り直しでは
         // 呼び出し側が優先ボタンと同じ経路で取りに行く。
         return RefreshOutcome.Updated;
-    }
-
-    /// <summary>
-    /// 変わっていたら要確認へ書く。
-    ///
-    /// 「知らせる」を商品ごとに切れるようにしてあるので、切っている商品には出さない。
-    /// 何が変わったかを列挙するのは、**開かなくても判断できるようにする**ため。
-    /// </summary>
-    private async Task NoteChangesAsync(ItemRecord existing, BoothBlock booth, CancellationToken cancellationToken)
-    {
-        if (!existing.Local.NotifyOnUpdate)
-        {
-            return;
-        }
-
-        var diffs = BoothChanges.Describe(existing.Booth, booth);
-        if (diffs.Count == 0)
-        {
-            return;
-        }
-
-        // 同じ商品の未読が既にあれば、そこへ重ねる（ユーザ判断 2026-10-02「重ねましょう」）。
-        // 前は差し替えていて、既読にする前に2回変わると1回目の差が消えていた。
-        // 別の知らせとして溜めず1件にするのは、要確認の行・商品ページの印・ナビの数・「既読にする」が
-        // どれも「商品1件に未読1件」で数えているから。読む方も、最初の前と最後の後が分かれば足りる。
-        // 錠の中で今の一覧に当てる（読んでから書くまでに人が既読にしていたら、その知らせには重ねない）
-        var id = $"item-updated:{existing.Id}";
-        var now = DateTimeOffset.Now;
-        await _store.Notifications.UpdateAsync(
-            notifications =>
-            {
-                var unread = notifications
-                    .Where(entry => entry.Id == id && !entry.IsRead && !entry.IsResolved)
-                    .OrderBy(entry => entry.CreatedAt)
-                    .ToList();
-
-                if (unread.Count == 0)
-                {
-                    notifications.Add(new NotificationRecord
-                    {
-                        Id = id,
-                        Kind = NotificationKind.ItemUpdated,
-                        ItemId = existing.Id,
-                        Title = booth.Name ?? existing.Id,
-                        Detail = BoothChanges.Summarize(diffs),
-                        Diffs = diffs,
-                        CreatedAt = now,
-                        IsStrong = BoothChanges.HasStrongChange(diffs),
-                    });
-
-                    return notifications;
-                }
-
-                // 手で直した JSON などで未読が2件以上あっても、古い順に重ねて1件にまとめる
-                var stacked = unread.Skip(1).Aggregate(
-                    unread[0].Diffs ?? [],
-                    (accumulated, entry) => ChangeStack.Stack(accumulated, entry.Diffs ?? []));
-                stacked = ChangeStack.Stack(stacked, diffs);
-
-                // 記録は値で比べると同じ中身の別の行も拾うので、置き場所は参照で探す
-                var at = notifications.FindIndex(entry => ReferenceEquals(entry, unread[0]));
-                notifications.RemoveAll(entry => unread.Any(target => ReferenceEquals(target, entry)));
-
-                // 戻って元と同じになった（価格が上がって戻った、など）なら、知らせることが無いので消す
-                if (stacked.Count > 0)
-                {
-                    notifications.Insert(Math.Min(at, notifications.Count), unread[0] with
-                    {
-                        Title = booth.Name ?? existing.Id,
-                        Detail = BoothChanges.Summarize(stacked),
-                        Diffs = stacked,
-                        UpdatedAt = now,
-                        IsStrong = BoothChanges.HasStrongChange(stacked),
-                    });
-                }
-
-                return notifications;
-            },
-            cancellationToken);
-    }
-
-    /// <summary>
-    /// 手元のファイル・購入の記録が指す種類が、BOOTH側から消えた／戻ったことを要確認に出す
-    /// （ユーザ判断 2026-09-18：どちらも一度きりの出来事で、商品ごとに結び直しの手当てができる）。
-    ///
-    /// 種類ごとの販売終了は普通の商品でも起こるので、消えたままだと
-    /// 「買ったのに記録を入れる行が無い」状態に気付けない。
-    /// </summary>
-    private async Task NoteVariationLinksAsync(ItemRecord existing, BoothBlock booth, CancellationToken cancellationToken)
-    {
-        var linked = existing.Local.LocalFiles.Select(file => file.VariationId)
-            .Concat(existing.Local.Purchases.Select(purchase => purchase.VariationId))
-            .OfType<long>()
-            .Distinct()
-            .ToList();
-
-        if (linked.Count == 0)
-        {
-            return;
-        }
-
-        var present = booth.Variations.Select(variation => variation.Id).ToHashSet();
-        var missing = linked.Where(id => !present.Contains(id)).ToList();
-
-        var goneId = $"variation-gone:{existing.Id}";
-        var name = booth.Name ?? existing.Id;
-
-        await _store.Notifications.TryUpdateAsync(
-            notifications =>
-            {
-                var wasGone = notifications.FindIndex(entry => entry.Id == goneId && !entry.IsResolved);
-                if (missing.Count > 0)
-                {
-                    if (wasGone >= 0)
-                    {
-                        return null;
-                    }
-
-                    notifications.Add(new NotificationRecord
-                    {
-                        Id = goneId,
-                        Kind = NotificationKind.OrphanVariationLink,
-                        ItemId = existing.Id,
-                        // 説明は束の見出しに出るので、行にはこの行だけの事実を書く（ユーザ指示 2026-09-18）
-                        Title = name,
-                        Detail = $"消えたバリエーション：{NameVariations(missing, existing)}",
-                        CreatedAt = DateTimeOffset.Now,
-                    });
-
-                    return notifications;
-                }
-
-                if (wasGone < 0)
-                {
-                    return null;
-                }
-
-                // 消えていた種類が戻った。前の知らせは用が済んだので解消済みにし、戻ったことを1件出す
-                notifications[wasGone] = notifications[wasGone] with { IsResolved = true };
-                notifications.Add(new NotificationRecord
-                {
-                    Id = $"variation-back:{existing.Id}:{DateTimeOffset.Now:yyyyMMddHHmmss}",
-                    Kind = NotificationKind.VariationBackOnBooth,
-                    ItemId = existing.Id,
-                    Title = name,
-                    Detail = $"戻ったバリエーション：{NameVariations(linked.Where(present.Contains).ToList(), existing, booth)}",
-                    CreatedAt = DateTimeOffset.Now,
-                });
-
-                return notifications;
-            },
-            cancellationToken);
-    }
-
-    /// <summary>行に出すバリエーションの名前を並べる（ユーザ要望 2026-09-18：件数だけでは何が消えたか分からない）。</summary>
-    /// <remarks>
-    /// 消えたバリエーションの名前は**BOOTHにはもう無い**。
-    /// 取り直す前の <c>booth</c> ブロックと、購入時に写し取った名前（<see cref="Purchase.NameSnapshot"/>）から引く。
-    /// BOOTH が名前を持たせていなかったもの（種類が1つだけの商品に多い）は、ほかの画面と同じく <see cref="DisplayText.NoVariationName"/> と呼ぶ
-    /// （ユーザ判断 2026-09-29。「ID 12345」では何のことか分からない）。
-    /// どちらでもない（在ったかも分からない）ものだけIDで言う（黙って落とすと、どれのことか辿れなくなる）。
-    /// </remarks>
-    private static string NameVariations(IReadOnlyList<long> ids, ItemRecord existing, BoothBlock? booth = null)
-    {
-        const int shown = 3;
-
-        var names = new Dictionary<long, string>();
-        var unnamed = new HashSet<long>();
-        foreach (var variation in (booth ?? existing.Booth).Variations.Concat(existing.Booth.Variations))
-        {
-            if (variation.Name is { Length: > 0 } text && !string.IsNullOrWhiteSpace(text))
-            {
-                names.TryAdd(variation.Id, text);
-            }
-            else
-            {
-                unnamed.Add(variation.Id);
-            }
-        }
-
-        foreach (var purchase in existing.Local.Purchases)
-        {
-            if (purchase.VariationId is { } id && purchase.NameSnapshot is { Length: > 0 } text)
-            {
-                names.TryAdd(id, text);
-            }
-        }
-
-        var labels = ids
-            .Select(id => names.TryGetValue(id, out var text) ? text
-                : unnamed.Contains(id) ? DisplayText.NoVariationName
-                : $"ID {id}")
-            .ToList();
-
-        return labels.Count <= shown
-            ? string.Join("・", labels)
-            : string.Join("・", labels.Take(shown)) + $"　ほか {labels.Count - shown} 件";
-    }
-
-    /// <summary>
-    /// 非公開と見なしていた商品が戻ってきたことを要確認に出す。
-    ///
-    /// 黙って埋めると、画像が急に増え、価格が入り、印が消える。
-    /// 説明が無いと「壊れた」と読まれる。
-    ///
-    /// **名前を切り替えるかは聞かない。**自分で付けた名前を優先すると決めてあるので、
-    /// そこを毎回問い直す理由がない（編集画面で変えられることだけ言う）。
-    /// 「知らせる」を切っている商品にも出す——これは更新の知らせではなく、
-    /// **こちらが「もう無い」と判断していたのが誤りだったという訂正**だから。
-    /// </summary>
-    private async Task NoteBackOnBoothAsync(
-        ItemRecord existing,
-        BoothBlock booth,
-        CancellationToken cancellationToken)
-    {
-        if (!existing.Local.IsDelisted)
-        {
-            return;
-        }
-
-        var id = $"item-back:{existing.Id}";
-        var name = existing.Local.DisplayName;
-        var detail = name is { Length: > 0 }
-            ? $"「販売終了」の印を外しました。名前は自分で付けた「{name}」のままです。編集画面で変えられます。"
-            : "「販売終了」の印を外しました。";
-
-        await _store.Notifications.UpdateAsync(
-            notifications =>
-            {
-                notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
-                notifications.Add(new NotificationRecord
-                {
-                    Id = id,
-                    Kind = NotificationKind.ItemBackOnBooth,
-                    ItemId = existing.Id,
-                    Title = name ?? booth.Name ?? existing.Id,
-                    Detail = detail,
-                    CreatedAt = DateTimeOffset.Now,
-                });
-
-                return notifications;
-            },
-            cancellationToken);
     }
 
     /// <summary>
@@ -880,7 +643,7 @@ public sealed class ItemService : IItemService
     /// 数え方は問い合わせる物だけ（画像の側は <see cref="ImagePipeline.SyncAsync(string, IReadOnlyList{BoothImage}, BoothOutageWatch?, CancellationToken, IProgress{int}?)"/>）。
     /// </param>
     /// <param name="galleryLater">
-    /// 画像は1枚目だけを取り、残りを⑤の段で裏に頼む（<see cref="RequestRemainingImagesLater"/>）。未確定の「このIDで登録」だけが使う
+    /// 画像は1枚目だけを取り、残りを⑤の段で裏に頼む（<see cref="RemainingImageRequests.Request"/>）。未確定の「このIDで登録」だけが使う
     /// （登録の列で後ろの登録を待たせるのはこの道だけ。ID の付け替え・ファイルを持たない登録・フォルダの登録は今までどおり全部取る）。
     /// </param>
     private async Task<(ItemRecord? Item, Booth.BoothFetchStatus Status)> FetchNewItemAsync(
@@ -983,105 +746,14 @@ public sealed class ItemService : IItemService
 
         if (galleryLater)
         {
-            RequestRemainingImagesLater(itemId, item.Booth.Images);
+            _remainingImages.Request(itemId, item.Booth.Images);
         }
 
         return (item, Booth.BoothFetchStatus.Success);
     }
 
-    /// <summary>
-    /// 登録した商品の残りの画像（2枚目から）を、梯子の⑤（<see cref="BoothPriority.Gallery"/>）で裏に頼む（メモ60 案B・ユーザ判断 2026-10-06）。
-    ///
-    /// 登録の中で全部を取ると、1件が「2＋画像の枚数＋アイコン」になる。友人の写し206件で画像は平均7.4枚・90%で15枚・最大43枚あり、
-    /// 1件の登録が中央 約13秒・90% 約30秒・最大 約1.1分かかって、列の後ろの登録を待たせていた。残りを⑤へ回すと1件 約6秒になる。
-    /// **人が押した優先度は掛けない**——起動時の⑤と同じ段で走らせ、次に並んだ登録（人が押した操作）や取り込みの①②に先を譲る。
-    /// 閉じて途中で止まっても印は置かないので、手元の JSON とディスクの差で次の起動の⑤（<see cref="ImageBacklog"/>）が拾う。
-    /// </summary>
-    private void RequestRemainingImagesLater(string itemId, IReadOnlyList<BoothImage> images)
-    {
-        if (!_images.SavesImages || images.Count <= 1)
-        {
-            return;
-        }
-
-        lock (_galleryHoldGate)
-        {
-            if (_galleryHolds > 0)
-            {
-                // 登録の列が動いている間は始めない（下の HoldRemainingImages）。始めると、門が空いた瞬間に待っている
-                // 残りの画像が、次の登録の問い合わせの合間に1本ずつ入り、2件目からの登録が見込みの倍ほどかかっていた
-                _heldGalleries.Add((itemId, images));
-                return;
-            }
-        }
-
-        StartRemainingImages(itemId, images);
-    }
-
-    private readonly object _galleryHoldGate = new();
-    private int _galleryHolds;
-    private readonly List<(string ItemId, IReadOnlyList<BoothImage> Images)> _heldGalleries = [];
-
-    /// <summary>
-    /// 登録の列が動いている間、登録した商品の残りの画像を頼むのを待たせる（ユーザ判断 2026-10-06・メモ60 案B の続き）。
-    /// 返した物を Dispose すると（列が空になったら）、待たせた分をまとめて⑤の段で頼む。
-    /// 門の決まり（空いた時点で待っている物から選ぶ）には触れず、列を短くする狙いがそのまま出る
-    /// </summary>
-    public IDisposable HoldRemainingImages()
-    {
-        lock (_galleryHoldGate)
-        {
-            _galleryHolds++;
-        }
-
-        return new GalleryHold(this);
-    }
-
-    private void ReleaseGalleryHold()
-    {
-        List<(string ItemId, IReadOnlyList<BoothImage> Images)> released;
-        lock (_galleryHoldGate)
-        {
-            if (--_galleryHolds > 0)
-            {
-                return;
-            }
-
-            released = [.. _heldGalleries];
-            _heldGalleries.Clear();
-        }
-
-        foreach (var (itemId, images) in released)
-        {
-            StartRemainingImages(itemId, images);
-        }
-    }
-
-    private sealed class GalleryHold(ItemService owner) : IDisposable
-    {
-        private int _released;
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _released, 1) == 0)
-            {
-                owner.ReleaseGalleryHold();
-            }
-        }
-    }
-
-    private void StartRemainingImages(string itemId, IReadOnlyList<BoothImage> images)
-    {
-        BackgroundWork.Run("登録した商品の残りの画像", async () =>
-        {
-            using var priority = BoothClient.Prioritize(BoothPriority.Gallery);
-
-            // 起動時の⑤と同じく、届かない失敗が3件続いたら残りは問い合わせない（取らなかった絵は次の起動の⑤で取る）
-            var outage = new BoothOutageWatch();
-            await _images.SyncAsync(itemId, images, outage);
-            outage.LogIfStopped("登録した商品の残りの画像");
-        });
-    }
+    /// <inheritdoc cref="RemainingImageRequests.Hold"/>
+    public IDisposable HoldRemainingImages() => _remainingImages.Hold();
 
     /// <summary>
     /// 登録したフォルダの配下にあった未確定を取り除く。行き先が決まったため。
@@ -1620,7 +1292,7 @@ public sealed class ItemService : IItemService
     /// <item><c>Booth</c> は空（<c>FetchedAt</c> が null＝一度も取れていない。観測していないので、それが正しい）。名前は <c>Local.DisplayName</c></item>
     /// <item><c>IsDelisted</c> を立て、見つからない回数は非公開と確定する回数にしておく。⑦で見つからなければ回数が増えるだけで
     ///   印は外れない（回数を1で始めると、次に見つからなかったとき「3回未満」で印が外れてしまう）。確かめ直しの間隔も販売終了と同じ</item>
-    /// <item>公開されたら <see cref="RefreshAsync"/> が booth を埋め、印を外し、要確認に「BOOTHに現れました」を出す（<c>NoteBackOnBoothAsync</c>）</item>
+    /// <item>公開されたら <see cref="RefreshAsync"/> が booth を埋め、印を外し、要確認に「BOOTHに現れました」を出す（<c>BoothChangeNotes.NoteBackOnBoothAsync</c>）</item>
     /// </list>
     /// **BOOTHへは問い合わせない。**直前の確かめ（<see cref="PreviewWithReasonAsync"/>）で見つからなかったIDで、もう一度聞いても同じ答えになる。
     /// </summary>
