@@ -217,9 +217,12 @@ public class StoreFormatTests : IDisposable
         Directory.CreateDirectory(PathOf("images/1000001"));
         File.WriteAllBytes(PathOf("images/1000001/a.png"), [1, 2, 3]);
 
-        var target = StoreFormat.Backup(_root, 1, new DateTimeOffset(2026, 10, 8, 12, 0, 0, TimeSpan.FromHours(9)));
+        var now = new DateTimeOffset(2026, 10, 8, 12, 0, 0, TimeSpan.FromHours(9));
+        var target = StoreFormat.Backup(_root, 1, now);
 
-        Assert.Equal(Path.Combine(_root, StoreFormat.BackupsDirName, "v1-20261008-120000"), target);
+        // フォルダ名はその PC の時刻で付ける（使う人が見て分かるように）。試験は走らせる PC の時間帯に左右されないよう、同じ式で見込む
+        // （GitHub の環境は UTC で、日本時間の決め打ちでは落ちた。2026-10-08）
+        Assert.Equal(Path.Combine(_root, StoreFormat.BackupsDirName, $"v1-{now.LocalDateTime:yyyyMMdd-HHmmss}"), target);
         Assert.True(File.Exists(Path.Combine(target, "settings.json")));
         Assert.True(File.Exists(Path.Combine(target, "items", "1000001.json")));
         Assert.True(File.Exists(Path.Combine(target, "modifications", "m1.json")));
