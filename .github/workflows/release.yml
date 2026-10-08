@@ -99,6 +99,17 @@ jobs:
           $extra = @(Get-ChildItem $dir -File | Where-Object { $_.Name -notin $expected })
           if ($extra.Count -gt 0) { throw "余分な物: $($extra.Name -join ', ')" }
 
+          # exe は自己完結で .NET のランタイムを含むので、その許諾文と第三者の表示を THIRD-PARTY-NOTICES.txt に添える。
+          # SDK の版を上げるとランタイムの版も変わるので、告知が同梱する版と合っているかを見る（2026-10-08：v1.0.0・v1.1.0 で抜けていた）
+          # 同梱した版は、組み立てが書く deps.json の runtimepack の行にある
+          $deps = Get-ChildItem Chmonos.App/obj/Release -Recurse -Filter Chmonos.deps.json | Select-Object -First 1
+          $found = if ($deps) { Select-String -LiteralPath $deps.FullName -Pattern 'runtimepack\.Microsoft\.NETCore\.App\.Runtime\.win-x64/([0-9.]+)' | Select-Object -First 1 }
+          if (-not $found) { throw '同梱したランタイムの版が分からない（Chmonos.deps.json に runtimepack の行が無い）' }
+          $runtime = $found.Matches[0].Groups[1].Value
+          $notices = Get-Content "$dir/THIRD-PARTY-NOTICES.txt" -Raw -Encoding utf8
+          if (-not $notices.Contains(".NET Runtime $runtime")) { throw "THIRD-PARTY-NOTICES.txt に、同梱するランタイム（$runtime）の告知が無い" }
+          "同梱するランタイム：$runtime（告知あり）"
+
       - name: zip にする
         id: zip
         run: |

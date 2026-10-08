@@ -29,6 +29,10 @@
 SDK の版は `global.json` で固め、workflow もそれを入れて組む（`10.0.x` のままだと、その日の最新の SDK で組まれ、同じソースでも別の exe になった）。
 手元の SDK が上がっても組めるよう、手元では新しい機能帯へ進むのを許している（`rollForward: latestFeature`）。版を上げるときは `global.json` を書き換える。
 
+**`THIRD-PARTY-NOTICES.txt` に、同梱する .NET ランタイムの許諾文と第三者の表示を入れる**（2026-10-08。exe は自己完結でランタイムと WPF を含む。v1.0.0・v1.1.0 で抜けていた）。
+SDK の版を上げると同梱するランタイムの版も変わるので、その版の `LICENSE.TXT`・`THIRD-PARTY-NOTICES.TXT`（NuGet の `microsoft.netcore.app.runtime.win-x64/<版>`）と、
+Windows Desktop の `LICENSE`、WPF・Windows Forms の第三者の表示（各リポジトリの tag）に差し替える。workflow は、告知に同梱する版が書いてなければ止まる。
+
 ## 後で署名を考え直すとき：SignPath Foundation の調べ（2026-10-07）
 
 担当（サブエージェント）が公式の文書で調べた。要約を通した所があり、**申し込む前に原文で確かめる**。
