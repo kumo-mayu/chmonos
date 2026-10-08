@@ -53,7 +53,7 @@ v1.0.0 から移るときは、新しいフォルダに展開した `Chmonos.exe
 
 ## BOOTH の「更新履歴」に足す行
 
-`docs/booth/item-page.md` の「更新履歴」の先頭に足す。
+`docs/booth/item-page.md` の「更新履歴」の末尾に足す（古い順に並べる）。
 
 ```
 2026-10-08 v1.1.0
