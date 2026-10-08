@@ -787,7 +787,7 @@
                     <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissUpdateCommand}" AutomationProperties.Name="この知らせを閉じる"
                             AutomationProperties.AutomationId="UpdateNoticeClose"
-                            ToolTip="次の版が出るまで表示しません。" />
+                            ToolTip="次のバージョンが出るまで表示しません。" />
                     <Button DockPanel.Dock="Right" Content="ダウンロードページを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                             Command="{Binding OpenUpdatePageCommand}" AutomationProperties.AutomationId="UpdateNoticeOpen" />
                     <TextBlock Text="{Binding UpdateNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"

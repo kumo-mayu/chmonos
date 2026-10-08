@@ -47,7 +47,7 @@
 - 保存する説明から script・埋め込み・フォーム・イベントの属性・http 以外の URL を削る（セキュリティソフトの検査で怪しまれないように）。
 - 配布物の exe は本体の1つだけ（用途の分からない exe・メモリを書き出す道具は怪しまれやすい）。
 - ログイン（cookie）を使う通信はしない。
-- **BOOTH 以外への通信は YouTube だけ**（ユーザ指示 2026-09-14：商品ページの動画の欄に絵とタイトルを出す）。
+- **BOOTH 以外への通信は YouTube と、新しいバージョンの確認の GitHub だけ**。
   - **欄を開いたときだけ**（人の操作）。裏では取りに行かない。
   - タイトルは鍵の要らない oEmbed（`youtube.com/oembed`）。1本ずつ、BOOTH と同じアプリの名前で名乗る（`YouTubeInfo`）。
     通信の失敗（429・5xx を含む）は覚えない。
@@ -57,6 +57,9 @@
     YouTube の開発者ポリシーの「API で取ったデータは30日まで」に合わせた（`docs/research/youtube-terms.md`）。
   - 絵は動画の ID から決まる `i.ytimg.com/vi/{ID}/mqdefault.jpg` を画面が直に読む。**保存しない**
     （利用規約は、許された場合を除いてダウンロードを禁じている。同じ調べ）。
+- **GitHub**（ユーザ判断 2026-10-08・[data-format.md](data-format.md)「新しい版の確認」）：起動の後に裏で、1日1回まで Releases の最新を聞く。設定「新しいバージョンを確かめる」で切れる。
+  BOOTH ではないので `BoothClient` の門は通さず、BOOTH とは別の `HttpClient`（`AppServiceContainer.FetchLatestVersion`）。待つのは10秒まで、失敗はログだけ。
+  試験は差し替えて通信しない。**写しで起動したアプリも1日1回 GitHub へ聞きに行く**。
 
 ## 優先度の梯子
 

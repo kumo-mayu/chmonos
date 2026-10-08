@@ -121,8 +121,10 @@ public partial class App : Application
             }
         }
 
-        // 保存データの形式の版を、サービス一式を作る前（＝起動時の裏の作業が書き始める前）に確かめる（docs/spec/data-format.md）
-        if (!EnsureStoreFormat())
+        // 保存データの形式の版を、サービス一式を作る前に確かめる（docs/spec/data-format.md）。ここでは読むだけ——
+        // 新しい版の保存先なら、組み立てが設定を読む所で「読めない」と止まる前に、何が起きたかを言って終える
+        var storeFormat = CheckStoreFormat();
+        if (storeFormat is null)
         {
             Shutdown();
             return;
@@ -139,6 +141,16 @@ public partial class App : Application
             if (!_services.IsSingleInstance)
             {
                 Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
+            // 控えと印の書き込みは、多重起動の錠を取った後（＝ほかの起動が書いていない）、主の画面が裏の作業を始める前。
+            // 錠より先に書くと、開いている古い版の横で印だけ上がり、古い版が前の形式で書き続けてしまう
+            if (!UpgradeStoreFormat(storeFormat.Value))
+            {
+                _services.Dispose();
+                _services = null;
                 Shutdown();
                 return;
             }
@@ -222,14 +234,18 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 保存先の形式の版を確かめる（ユーザ判断 2026-10-08）。新しい版の Chmonos が使った保存先は開かない——
-    /// 起動時の裏の作業が知らない欄を消しながら書いてしまうため、ファイルごとに止めるのでは間に合わない。
-    /// 古い版の保存先は、控えを取ってから今の版の印を書く（ファイルは読むときに直し、書くときに今の版になる）
+    /// 保存先の形式の版を読み、このアプリで開けるかを決める（ユーザ判断 2026-10-08）。**読むだけで書かない。**
+    /// 新しい版の Chmonos が使った保存先は開かない——起動時の裏の作業が知らない欄を消しながら書いてしまうため、ファイルごとに止めるのでは間に合わない。
+    /// 開ければ保存先の版（印が無いときは null ではなく -1）を返し、開けなければ null
     /// </summary>
-    private static bool EnsureStoreFormat()
+    private static int? CheckStoreFormat()
     {
         var root = StoreLocation.Resolve().Path;
-        var markerExists = File.Exists(Path.Combine(root, StoreFormat.MarkerFileName));
+        if (!File.Exists(Path.Combine(root, StoreFormat.MarkerFileName)))
+        {
+            return -1;
+        }
+
         int version;
         try
         {
@@ -239,17 +255,17 @@ public partial class App : Application
         {
             // 印が読めないだけなら、今までどおり開く（開いた後の読み書きが同じ理由で失敗すれば、そこで知らせる）
             Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
-            return true;
+            return StoreFormat.Current;
         }
 
         switch (StoreFormat.Check(version))
         {
             case StoreFormat.Verdict.TooNew:
                 var answer = Services.Notice.Show(
-                    "このデータは、新しい版の Chmonos で使われています。この版では開けません。\n\n"
-                    + "［はい］ダウンロードページを開きます。新しい版を入れてから開いてください。\n"
+                    "このデータは、新しいバージョンの Chmonos で使われています。このバージョンでは開けません。\n\n"
+                    + "［はい］ダウンロードページを開きます。新しいバージョンを入れてから開いてください。\n"
                     + "［いいえ］何もせずに終了します。",
-                    "新しい版のデータです",
+                    "新しいバージョンのデータです",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning,
                     MessageBoxResult.Yes);
@@ -258,40 +274,51 @@ public partial class App : Application
                     Services.Shell.OpenUrl(Core.Services.UpdateCheck.DownloadPage);
                 }
 
-                return false;
+                return null;
 
             case StoreFormat.Verdict.TooOld:
                 Services.Notice.Show(
-                    "このデータは古い形式のため、この版では開けません。",
+                    "このデータは古い形式のため、このバージョンでは開けません。",
                     "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
-                return false;
-
-            case StoreFormat.Verdict.Older:
-                try
-                {
-                    StoreFormat.Backup(root, version, DateTimeOffset.Now);
-                    StoreFormat.MarkCurrent(root, Services.AppVersion.Text);
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-                {
-                    // 控えが無いまま形式を上げると、古い版へ戻せなくなる。開かずに知らせる
-                    Core.Diagnostics.AppLog.Error("形式を上げる前の控え", exception);
-                    Services.Notice.Show(
-                        "データの控えを作れなかったため、開けませんでした。ディスクの空きを確かめてから、もう一度開いてください。",
-                        "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return false;
-                }
-
-                return true;
+                return null;
 
             default:
-                // v1.0.0 が使った保存先・初めて開く保存先には印が無い。今の版で書いておき、後の版が見分けられるようにする
-                if (!markerExists)
-                {
-                    TryMarkCurrent(root);
-                }
+                return version;
+        }
+    }
 
-                return true;
+    /// <summary>
+    /// 古い版の保存先なら控えを取ってから今の版の印を書く（ファイルは読むときに直し、書くときに今の版になる）。
+    /// 印が無い保存先（v1.0.0 が使った・初めて開く）には今の版の印を書き、後の版が見分けられるようにする。
+    /// 控えが取れなければ開かない（控えが無いまま形式を上げると、古い版へ戻せなくなる）
+    /// </summary>
+    private bool UpgradeStoreFormat(int storeVersion)
+    {
+        var root = _services!.Paths.Root;
+        if (storeVersion < 0)
+        {
+            TryMarkCurrent(root);
+            return true;
+        }
+
+        if (StoreFormat.Check(storeVersion) != StoreFormat.Verdict.Older)
+        {
+            return true;
+        }
+
+        try
+        {
+            StoreFormat.Backup(root, storeVersion, DateTimeOffset.Now);
+            StoreFormat.MarkCurrent(root, Services.AppVersion.Text);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("形式を上げる前の控え", exception);
+            Services.Notice.Show(
+                "データの控えを作れなかったため、開けませんでした。ディスクの空きを確かめてから、もう一度開いてください。",
+                "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
     }
 

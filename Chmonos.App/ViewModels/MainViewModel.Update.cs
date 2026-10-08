@@ -15,7 +15,7 @@ public sealed partial class MainViewModel
     /// <summary>帯に出す新しい版（無ければ null）。</summary>
     public bool HasUpdateNotice => _updateVersion is not null;
 
-    public string UpdateNoticeText => _updateVersion is null ? string.Empty : $"新しい版（v{_updateVersion}）があります。";
+    public string UpdateNoticeText => _updateVersion is null ? string.Empty : $"新しいバージョン（v{_updateVersion}）があります。";
 
     private RelayCommand? _openUpdatePageCommand;
 

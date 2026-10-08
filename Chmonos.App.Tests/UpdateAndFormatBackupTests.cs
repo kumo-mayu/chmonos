@@ -24,7 +24,7 @@ public class UpdateAndFormatBackupTests
         await main.CheckForUpdatesAsync();
         await UiThread.Until(() => main.HasUpdateNotice, "帯が出る");
 
-        Assert.Equal("新しい版（v99.0.0）があります。", main.UpdateNoticeText);
+        Assert.Equal("新しいバージョン（v99.0.0）があります。", main.UpdateNoticeText);
         main.OpenUpdatePageCommand.Execute(null);
         Assert.Equal([UpdateCheck.DownloadPage], app.OpenedUrls);
     });
@@ -62,7 +62,7 @@ public class UpdateAndFormatBackupTests
         app.LatestVersion = "v99.1.0";
         await main.CheckForUpdatesAsync();
         await UiThread.Until(() => main.HasUpdateNotice, "次の版の帯が出る");
-        Assert.Equal("新しい版（v99.1.0）があります。", main.UpdateNoticeText);
+        Assert.Equal("新しいバージョン（v99.1.0）があります。", main.UpdateNoticeText);
     });
 
     /// <summary>1日たっていなければ聞きに行かず、前に聞けた版で決める</summary>

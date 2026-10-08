@@ -503,10 +503,10 @@
                             <CheckBox Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.CheckForUpdates"
                                       IsChecked="{Binding CheckForUpdates, Mode=TwoWay}">
-                                <TextBlock Text="新しい版を確かめる" />
+                                <TextBlock Text="新しいバージョンを確かめる" />
                             </CheckBox>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
-                                       Text="1日1回、GitHub に新しい版があるかを問い合わせます。" />
+                                       Text="1日1回、GitHub に新しいバージョンがあるかを問い合わせます。" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                 <TextBlock Text="商品情報を取り直す間隔" Style="{StaticResource RowLabel}" Width="220" />
@@ -923,7 +923,7 @@
                                         HorizontalAlignment="Right"
                                         AutomationProperties.AutomationId="Settings.DeleteFormatBackups"
                                         Command="{Binding DeleteFormatBackupsCommand}"
-                                        ToolTip="前の版の Chmonos に戻すときに使う控えです。" />
+                                        ToolTip="前のバージョンの Chmonos に戻すときに使う控えです。" />
                             </Grid>
 
                             <!--

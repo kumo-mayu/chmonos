@@ -1135,7 +1135,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         var answer = Services.Notice.Show(
             $"データの控え {usage.Files:N0} ファイル（{Core.Models.DisplayText.Size(usage.Bytes)}）を削除します。\n\n"
-            + "削除した控えは元に戻せません。前の版の Chmonos に戻すときに使うものです。",
+            + "削除した控えは元に戻せません。前のバージョンの Chmonos に戻すときに使うものです。",
             "控えを削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Warning,
