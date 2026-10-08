@@ -973,7 +973,7 @@ public sealed partial class SearchViewModel
             return false;
         }
 
-        var ended = item.Booth.IsEndOfSale || item.Local.IsDelisted;
+        var ended = SearchConditions.IsDelisted(item);
         return key == "ended" ? ended : !ended;
     }
 

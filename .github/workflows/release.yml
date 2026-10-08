@@ -37,9 +37,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view '${{ github.ref_name }}' --repo '${{ github.repository }}' *> $null
+          # 「無い」と確かめられたときだけ進む（点検26）。認証や通信の失敗まで「無い」と読むと、配った物と別の zip を組んでしまう
+          $answer = gh release view '${{ github.ref_name }}' --repo '${{ github.repository }}' 2>&1 | Out-String
           if ($LASTEXITCODE -eq 0) {
             throw "tag ${{ github.ref_name }} の Releases は既にあります。組み直さず、Releases にある zip を使ってください"
+          }
+          if ($answer -notmatch 'release not found') {
+            throw "Releases があるかを確かめられませんでした。組まずに止めます：$answer"
           }
           $global:LASTEXITCODE = 0
 
@@ -49,6 +53,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+
+      # global.json は、手元で SDK が上がっても組めるよう新しい機能帯へ進むのを許している（rollForward: latestFeature）。
+      # 実行環境に新しい SDK が入っていると、それで組まれて別の exe になるので、指定の版で組めるときだけ進む（点検26）
+      - name: SDK の版を確かめる
+        run: |
+          $want = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
+          $used = dotnet --version
+          if ($used -ne $want) { throw "global.json の SDK（$want）ではなく $used で組もうとしています" }
 
       - name: 版をそろえる
         id: version

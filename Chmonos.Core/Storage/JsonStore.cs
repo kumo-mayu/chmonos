@@ -77,7 +77,7 @@ public static class JsonStore
 
     private static T? FromVersioned<T>(MemoryStream buffer, string path) where T : class
     {
-        var json = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
+        var json = StoreFormat.WithoutBom(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
         var version = StoreFormat.VersionOf(json);
         if (version > StoreFormat.Current)
         {

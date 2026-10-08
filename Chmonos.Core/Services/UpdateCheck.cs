@@ -77,6 +77,8 @@ public static class UpdateCheck
         using var response = await http.SendAsync(request, timeout.Token);
         if (!response.IsSuccessStatusCode)
         {
+            // 画面には出さないが、理由は残す（点検26：403・429・5xx が黙って null になり、なぜ知らせが出ないのか追えなかった）
+            Diagnostics.AppLog.Warn("新しいバージョンの確認", $"GitHub が {(int)response.StatusCode} を返しました。");
             return null;
         }
 

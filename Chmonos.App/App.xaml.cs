@@ -123,8 +123,7 @@ public partial class App : Application
 
         // 保存データの形式の版を、サービス一式を作る前に確かめる（docs/spec/data-format.md）。ここでは読むだけ——
         // 新しい版の保存先なら、組み立てが設定を読む所で「読めない」と止まる前に、何が起きたかを言って終える
-        var storeFormat = CheckStoreFormat();
-        if (storeFormat is null)
+        if (!CheckStoreFormat(StoreLocation.Resolve().Path))
         {
             Shutdown();
             return;
@@ -147,7 +146,7 @@ public partial class App : Application
 
             // 控えと印の書き込みは、多重起動の錠を取った後（＝ほかの起動が書いていない）、主の画面が裏の作業を始める前。
             // 錠より先に書くと、開いている古い版の横で印だけ上がり、古い版が前の形式で書き続けてしまう
-            if (!UpgradeStoreFormat(storeFormat.Value))
+            if (!SettleStoreFormat())
             {
                 _services.Dispose();
                 _services = null;
@@ -235,17 +234,11 @@ public partial class App : Application
 
     /// <summary>
     /// 保存先の形式の版を読み、このアプリで開けるかを決める（ユーザ判断 2026-10-08）。**読むだけで書かない。**
-    /// 新しい版の Chmonos が使った保存先は開かない——起動時の裏の作業が知らない欄を消しながら書いてしまうため、ファイルごとに止めるのでは間に合わない。
-    /// 開ければ保存先の版（印が無いときは null ではなく -1）を返し、開けなければ null
+    /// 新しいバージョンの Chmonos が使った保存先は開かない——起動時の裏の作業が知らない欄を消しながら書いてしまうため、ファイルごとに止めるのでは間に合わない。
+    /// 印が在るのに読めないときも開かない（点検26：読めない印を今の版とみなすと、新しいバージョンの保存先を止められない）
     /// </summary>
-    private static int? CheckStoreFormat()
+    private static bool CheckStoreFormat(string root)
     {
-        var root = StoreLocation.Resolve().Path;
-        if (!File.Exists(Path.Combine(root, StoreFormat.MarkerFileName)))
-        {
-            return -1;
-        }
-
         int version;
         try
         {
@@ -253,9 +246,12 @@ public partial class App : Application
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // 印が読めないだけなら、今までどおり開く（開いた後の読み書きが同じ理由で失敗すれば、そこで知らせる）
             Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
-            return StoreFormat.Current;
+            Services.Notice.Show(
+                "データの形式を確かめられなかったため、開けませんでした。\n\n"
+                + $"保存先の {StoreFormat.MarkerFileName} が読めません。同期のアプリなどが開いている場合は、少し待ってから開き直してください。",
+                "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
 
         switch (StoreFormat.Check(version))
@@ -274,41 +270,59 @@ public partial class App : Application
                     Services.Shell.OpenUrl(Core.Services.UpdateCheck.DownloadPage);
                 }
 
-                return null;
+                return false;
 
             case StoreFormat.Verdict.TooOld:
                 Services.Notice.Show(
                     "このデータは古い形式のため、このバージョンでは開けません。",
                     "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
-                return null;
+                return false;
 
             default:
-                return version;
+                return true;
         }
     }
 
     /// <summary>
-    /// 古い版の保存先なら控えを取ってから今の版の印を書く（ファイルは読むときに直し、書くときに今の版になる）。
-    /// 印が無い保存先（v1.0.0 が使った・初めて開く）には今の版の印を書き、後の版が見分けられるようにする。
-    /// 控えが取れなければ開かない（控えが無いまま形式を上げると、古い版へ戻せなくなる）
+    /// 多重起動の錠を取った後に、版を**読み直して**から控えと印を書く（点検26：錠を取るまでの間に、別のバージョンが形式を上げて終わることがある）。
+    /// 印の無い保存先（v1.0.0 が使った・初めて開く）は版 1 として扱い、今の版より古ければ控えを取ってから上げる。
+    /// 控えか印が書けなければ開かない（控えが無いまま形式を上げると、古いバージョンへ戻せなくなる）
     /// </summary>
-    private bool UpgradeStoreFormat(int storeVersion)
+    private bool SettleStoreFormat()
     {
         var root = _services!.Paths.Root;
-        if (storeVersion < 0)
+        if (!CheckStoreFormat(root))
         {
-            TryMarkCurrent(root);
-            return true;
+            return false;
         }
 
-        if (StoreFormat.Check(storeVersion) != StoreFormat.Verdict.Older)
+        int? marked;
+        try
         {
+            marked = StoreFormat.ReadMarker(root);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 直前の確かめでは読めた。読めなくなったなら、確かめと同じく開かない
+            Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
+            return false;
+        }
+
+        var version = marked ?? StoreFormat.OldestReadable;
+        if (StoreFormat.Check(version) == StoreFormat.Verdict.Same)
+        {
+            // 印が無ければ今の版で書き、後のバージョンが見分けられるようにする。書けなくても形式は変えていないので開く
+            if (marked is null)
+            {
+                TryMarkCurrent(root);
+            }
+
             return true;
         }
 
         try
         {
-            StoreFormat.Backup(root, storeVersion, DateTimeOffset.Now);
+            StoreFormat.Backup(root, version, DateTimeOffset.Now);
             StoreFormat.MarkCurrent(root, Services.AppVersion.Text);
             return true;
         }

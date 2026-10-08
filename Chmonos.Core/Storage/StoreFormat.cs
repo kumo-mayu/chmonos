@@ -80,6 +80,8 @@ public static class StoreFormat
     /// </summary>
     public static int VersionOf(ReadOnlySpan<byte> json)
     {
+        json = WithoutBom(json);
+
         // 壊れた JSON は版を決めずに 1 とし、本読み（Deserialize）に今までどおりの例外を出させる。
         // ここで投げると、読み手の型（JsonReaderException）が変わり、壊れた記録の扱いが揃わない
         try
@@ -115,6 +117,13 @@ public static class StoreFormat
 
         return OldestReadable;
     }
+
+    /// <summary>
+    /// UTF-8 の印（BOM）を除く。メモ帳で直して保存すると付く。ストリームから読むときは読み手が飛ばすが、
+    /// バイト列で渡すと JSON の字ではないとして落ちる（点検26：版を読むためにバイト列で読むようにして、BOM 付きの記録が読めなくなっていた）
+    /// </summary>
+    internal static ReadOnlySpan<byte> WithoutBom(ReadOnlySpan<byte> json)
+        => json.StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF]) ? json[3..] : json;
 
     /// <summary>古い版の JSON を今の版へ直す。読める範囲より古ければ例外。</summary>
     internal static JsonNode Migrate(JsonNode node, int from, Type type, string path)
@@ -157,19 +166,41 @@ public static class StoreFormat
         public string? WrittenBy { get; init; }
     }
 
-    /// <summary>保存先の版。印が無ければ 1（v1.0.0 が使った保存先か、初めて開く保存先）。</summary>
-    public static int StoreVersion(string root)
+    /// <summary>保存先の版。印が無ければ 1（v1.0.0 が使った保存先か、初めて開く保存先）。印が読めなければ例外。</summary>
+    public static int StoreVersion(string root) => ReadMarker(root) ?? OldestReadable;
+
+    /// <summary>
+    /// 保存先の印の版。印が無ければ null。**在るのに版を決められなければ <see cref="StoreFormatUnreadableException"/>**（点検26）——
+    /// ふつうのファイルは壊れていれば本読みで分かるが、印は版しか持たないので、読めない印を 1 とみなすと、新しいバージョンの保存先を止められない
+    /// </summary>
+    public static int? ReadMarker(string root)
     {
         var path = Path.Combine(root, MarkerFileName);
         if (!File.Exists(path))
         {
-            return OldestReadable;
+            return null;
         }
 
         using var stream = JsonStore.OpenShared(path);
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
-        return VersionOf(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+        try
+        {
+            var json = WithoutBom(buffer.GetBuffer().AsSpan(0, (int)buffer.Length)).ToArray();
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            if (document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty(VersionProperty, out var version)
+                && version.ValueKind == JsonValueKind.Number
+                && version.TryGetInt32(out var value))
+            {
+                return value;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        throw new StoreFormatUnreadableException(path);
     }
 
     public static Verdict Check(int storeVersion)
@@ -254,6 +285,10 @@ public sealed class FormatTooNewException(string path, int version)
 {
     public int Version { get; } = version;
 }
+
+/// <summary>保存先の印（<c>format.json</c>）が在るのに、版を読めない（点検26）。</summary>
+public sealed class StoreFormatUnreadableException(string path)
+    : IOException($"「{Path.GetFileName(path)}」から形式の版を読めません。");
 
 /// <summary>読める範囲より古い形式のファイル。</summary>
 public sealed class FormatTooOldException(string path, int version)

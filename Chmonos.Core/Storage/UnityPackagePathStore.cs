@@ -31,7 +31,29 @@ public sealed class UnityPackagePathStore(AppPaths paths)
     /// </remarks>
     public bool Has(string hash) => StoreIds.IsPackageHash(hash) && File.Exists(paths.UnityPackageFile(hash)) && Load(hash) is not null;
 
-    /// <summary>読めなければ null（無い・壊れている）。</summary>
+    /// <summary>
+    /// 新しいバージョンの Chmonos が書いた控えか（点検26）。読めない控えは捨てて書き直すが、新しすぎる控えは
+    /// 壊れているのではなく、このバージョンが知らない形なので、書き直すと新しいバージョンが入れた中身を消す。書かず、読み直しもしない
+    /// </summary>
+    public bool IsTooNew(string hash)
+    {
+        if (!StoreIds.IsPackageHash(hash))
+        {
+            return false;
+        }
+
+        var path = paths.UnityPackageFile(hash);
+        try
+        {
+            return File.Exists(path) && StoreFormat.VersionOf(File.ReadAllBytes(path)) > StoreFormat.Current;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>読めなければ null（無い・壊れている・新しすぎる）。</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>? Load(string hash)
     {
         if (!StoreIds.IsPackageHash(hash))
@@ -77,6 +99,11 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         await gate.WaitAsync(cancellationToken);
         try
         {
+            if (IsTooNew(hash))
+            {
+                return;
+            }
+
             await JsonStore.WriteAsync(paths.UnityPackageFile(hash), ToFile(packages), cancellationToken);
         }
         finally
@@ -102,6 +129,11 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         gate.Wait();
         try
         {
+            if (IsTooNew(hash))
+            {
+                return;
+            }
+
             // 読めない控えは捨てて、今読んだ分から書き直す。ほかの物は使うときに読み直して足す
             var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
                 ?? new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);

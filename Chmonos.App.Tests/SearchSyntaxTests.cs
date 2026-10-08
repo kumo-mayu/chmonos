@@ -116,4 +116,24 @@ public class SearchSyntaxTests
 
         Assert.True(filter!.Matches(item));
     });
+
+    /// <summary>
+    /// is:delisted と絞り込みの条件「公開状況」の「販売終了・非公開」は、同じ商品の集まりを返す（点検26：式を2か所に書くと片方だけ直される）
+    /// </summary>
+    [Fact]
+    public void 販売終了の記法と条件は同じ商品を返す()
+    {
+        ItemRecord[] items =
+        [
+            Make.Item("1000001", "公開中"),
+            Make.Item("1000002", "販売終了") with { Booth = Make.Item("1000002", "販売終了").Booth with { IsEndOfSale = true } },
+            Make.Item("1000003", "非公開") with { Local = new LocalBlock { IsDelisted = true } },
+            Make.Item("local-aaaa1111", "BOOTHに無い商品") with { Local = new LocalBlock { IsDelisted = true } },
+        ];
+        var filter = Core.Services.ItemTextFilter.Create("is:delisted")!;
+
+        Assert.Equal(
+            items.Where(item => SearchViewModel.EndOfSaleMatches(item, "ended")).Select(item => item.Id),
+            items.Where(filter.Matches).Select(item => item.Id));
+    }
 }

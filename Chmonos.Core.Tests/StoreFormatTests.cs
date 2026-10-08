@@ -114,11 +114,75 @@ public class StoreFormatTests : IDisposable
         Assert.Equal("作り物", JsonStore.Read<ItemRecord>(PathOf("item.json"))!.Booth.Name);
     }
 
+    /// <summary>メモ帳で直すと付く UTF-8 の印（BOM）があっても読める（点検26：バイト列で読むようにして読めなくなっていた）</summary>
+    [Fact]
+    public async Task BOM付きのJSONを読める()
+    {
+        var bom = new byte[] { 0xEF, 0xBB, 0xBF };
+        File.WriteAllBytes(PathOf("item.json"), [.. bom, .. Encoding.UTF8.GetBytes("{\"formatVersion\": 1, \"id\": \"1000001\", \"booth\": {\"name\": \"作り物\"}, \"local\": {}}")]);
+        File.WriteAllBytes(PathOf("list.json"), [.. bom, .. Encoding.UTF8.GetBytes("[\"a\"]")]);
+
+        Assert.Equal("作り物", JsonStore.Read<ItemRecord>(PathOf("item.json"))!.Booth.Name);
+        Assert.Equal("作り物", (await JsonStore.ReadAsync<ItemRecord>(PathOf("item.json")))!.Booth.Name);
+        Assert.Equal(["a"], JsonStore.Read<List<string>>(PathOf("list.json"))!);
+    }
+
+    /// <summary>BOM 付きの新しすぎるファイルも、版を読んで止める（BOM で版が読めず 1 とみなすと、止められない）</summary>
+    [Fact]
+    public void BOM付きでも新しすぎる版を見分ける()
+    {
+        var json = Encoding.UTF8.GetBytes($"{{\"formatVersion\": {StoreFormat.Current + 1}}}");
+        Assert.Equal(StoreFormat.Current + 1, StoreFormat.VersionOf([0xEF, 0xBB, 0xBF, .. json]));
+    }
+
+    /// <summary>
+    /// 新しいバージョンが書いた unitypackage の控えは、読めないからといって空から書き直さない（点検26：新しいバージョンが入れた中身を消していた）
+    /// </summary>
+    [Fact]
+    public async Task 新しすぎるunitypackageの控えを書き直さない()
+    {
+        var paths = new AppPaths(_root);
+        var store = new UnityPackagePathStore(paths);
+        var hash = new string('a', 64);
+        Directory.CreateDirectory(Path.GetDirectoryName(paths.UnityPackageFile(hash))!);
+        var newer = $"{{\"formatVersion\": {StoreFormat.Current + 1}, \"packages\": {{}}}}";
+        File.WriteAllText(paths.UnityPackageFile(hash), newer);
+
+        Assert.True(store.IsTooNew(hash));
+        Assert.Null(store.Load(hash));
+
+        store.Add(hash, "a.unitypackage", [new Chmonos.Core.Services.UnityPackageAsset("0123", "Assets/a.prefab")]);
+        await store.SaveAsync(hash, new Dictionary<string, IReadOnlyList<Chmonos.Core.Services.UnityPackageAsset>>());
+
+        Assert.Equal(newer, File.ReadAllText(paths.UnityPackageFile(hash)));
+    }
+
     // --- 保存先ごとの版 ---
 
     [Fact]
     public void 印が無い保存先は版1()
         => Assert.Equal(1, StoreFormat.StoreVersion(_root));
+
+    /// <summary>印が在るのに版を読めなければ、1 とみなさず例外（点検26：新しいバージョンの保存先を止められなくなる）</summary>
+    [Theory]
+    [InlineData("{ this is not json")]
+    [InlineData("{\"writtenBy\": \"1.1.0\"}")]
+    [InlineData("{\"formatVersion\": \"2\"}")]
+    [InlineData("[]")]
+    public void 読めない印は開かない側に倒す(string json)
+    {
+        File.WriteAllText(PathOf(StoreFormat.MarkerFileName), json);
+
+        Assert.Throws<StoreFormatUnreadableException>(() => StoreFormat.StoreVersion(_root));
+    }
+
+    [Fact]
+    public void BOM付きの印も読む()
+    {
+        File.WriteAllBytes(PathOf(StoreFormat.MarkerFileName), [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes("{\"formatVersion\": 1}")]);
+
+        Assert.Equal(1, StoreFormat.ReadMarker(_root));
+    }
 
     [Fact]
     public void 印を今の版で書く()

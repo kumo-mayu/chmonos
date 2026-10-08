@@ -207,10 +207,16 @@ public static class SearchConditions
         "owned" => item.IsOwned,
         "r18" or "r-18" => item.Booth.IsAdult,
 
-        // 条件「公開状況」の「販売終了・非公開」と同じ。BOOTHに無い商品（仮ID）は公開状況を持たないので入れない
-        "delisted" => !item.IsLocalOnly && (item.Booth.IsEndOfSale || item.Local.IsDelisted),
+        "delisted" => IsDelisted(item),
         _ => false,
     };
+
+    /// <summary>
+    /// 販売終了・非公開か（<c>is:delisted</c> と、絞り込みの条件「公開状況」の「販売終了・非公開」が同じ式を使う。点検26：2か所に書くと片方だけ直される）。
+    /// 使う人には非公開も削除も同じなので1つにまとめる（ユーザ判断 2026-10-06）。BOOTHに無い商品（仮ID）は公開状況を持たないので入れない
+    /// </summary>
+    public static bool IsDelisted(ItemRecord item)
+        => !item.IsLocalOnly && (item.Booth.IsEndOfSale || item.Local.IsDelisted);
 
     private static bool MatchesHas(string word, ItemRecord item, SearchFacts? facts) => word switch
     {
