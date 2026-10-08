@@ -1,9 +1,4 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
-using System.Text;
-using System.Windows.Media;
 using Chmonos.Core.Models;
-using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 

@@ -103,6 +103,10 @@ public sealed partial class SearchViewModel
                       || unread.Any(pair => !_unreadUpdates.TryGetValue(pair.Key, out var before) || before.Kinds != pair.Value.Kinds);
         _unreadUpdates = unread;
         ApplyUpdatesToCards();
+        if (changed)
+        {
+            _main?.NoteSearchFactsChanged();
+        }
 
         // 条件「更新通知あり」を置いているか、検索欄に has:update などを書いていれば、結果と選択肢の件数が変わる
         if (changed && (Modules.Any(module => module.Kind == SearchModuleKind.Updated) || Core.Services.SearchQuery.DependsOnFacts(_queryNode)))

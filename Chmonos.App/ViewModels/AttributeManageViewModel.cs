@@ -732,6 +732,28 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         ? "この属性を持つ商品を、検索で開きます。"
         : "この属性はまだどの商品にも付いていません。編集画面で値を入れると開けます。";
 
+    /// <summary>
+    /// 検索画面の事実が変わった（<see cref="MainViewModel.NoteSearchFactsChanged"/>）。検索欄の式が事実を見るときだけ絞り直す。
+    /// 商品の一覧は同じ条件なら作り直さない作り（<c>_builtKey</c>）なので、鍵を捨ててから作る
+    /// </summary>
+    internal void RefilterForSearchFacts()
+    {
+        if (DependsOnFacts(_filterText))
+        {
+            Rebuild();
+        }
+
+        if (DependsOnFacts(_itemFilter))
+        {
+            _builtKey = null;
+            RebuildItems();
+            OnPropertyChanged(nameof(ItemFilterResultText));
+        }
+    }
+
+    private static bool DependsOnFacts(string text)
+        => !string.IsNullOrWhiteSpace(text) && SearchQuery.DependsOnFacts(SearchQuery.Parse(text));
+
     public string FilterText
     {
         get => _filterText;

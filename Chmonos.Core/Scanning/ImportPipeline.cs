@@ -1,11 +1,7 @@
 using Chmonos.Core.Booth;
 using Chmonos.Core.Images;
 using Chmonos.Core.Models;
-using Chmonos.Core.Services;
 using Chmonos.Core.Storage;
-using BoothIdResolver;
-using BoothZipInspector;
-using BoothZipInspector.Models;
 
 namespace Chmonos.Core.Scanning;
 

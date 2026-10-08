@@ -1,15 +1,13 @@
 using Chmonos.Core.Booth;
-using Chmonos.Core.Images;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
-using Chmonos.Core.Storage;
-using BoothIdResolver;
 using BoothZipInspector;
-using BoothZipInspector.Models;
 
 namespace Chmonos.Core.Scanning;
 
-// <summary>/n/// 取り込みの梯子の取得（①②③④⑤⑥）：BOOTH から商品を取り、画像の待ち列を流す。途中の記録と、次に取り直す日も決める。/n////n/// ImportPipeline（約2,200行）を段ごとのファイルに分けた（点検24・ユーザ判断 2026-10-08）。中身は変えていない/n/// </summary>
+// 取り込みの梯子の取得（①②③④⑤⑥）：BOOTH から商品を取り、画像の待ち列を流す。途中の記録と、次に取り直す日も決める。
+//
+// ImportPipeline（約2,200行）を段ごとのファイルに分けた（点検24・ユーザ判断 2026-10-08）。クラスの説明は ImportPipeline.cs にある
 public sealed partial class ImportPipeline
 {
     /// <summary>

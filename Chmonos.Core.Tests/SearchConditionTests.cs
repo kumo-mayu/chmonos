@@ -381,4 +381,18 @@ public class SearchConditionTests
         // 記録だけで決まる記法は、事実が無くても効く
         Assert.True(ItemTextFilter.Create("-is:favorite")!.Matches(item));
     }
+
+    /// <summary>
+    /// 引用符で囲んだ語は、造語変換の読みでも当てない（点検27：辞書で広げるのは止めたが、読みの照合が残っていた）。囲まない語は今までどおり読みで当たる
+    /// </summary>
+    [Fact]
+    public void 引用符で囲んだ語は読みでも当てない()
+    {
+        var haystack = SearchHaystack.FromValues(new Dictionary<SearchField, string[]> { [SearchField.Name] = ["鳥"] }, readings: "とり");
+        var options = SearchOptions.Default with { IncludeReadings = true };
+
+        Assert.True(SearchQuery.Matches(SearchQuery.Parse("とり"), haystack, options));
+        Assert.False(SearchQuery.Matches(SearchQuery.Parse("\"とり\""), haystack, options));
+        Assert.True(SearchQuery.Matches(SearchQuery.Parse("-\"とり\""), haystack, options));
+    }
 }

@@ -4,7 +4,7 @@
 > 「人が押した通信 ＞ 指名された画像 ＞ ①JSON ②HTML ＞ ③検出 ＞ ④1枚目 ＞ ⑤残りの画像 ＞ ⑥ショップのアイコン ＞ ⑦期限の来た商品」。
 > 取り込み中もアプリは使え、取り込みは積め、取り消しは即座。1商品ずつ保存するのでどこで止めても壊れない。
 >
-> **コード**：`Core/Scanning/ImportPipeline.cs`（周回と画像の列）・`ImportWorkSet`・`FolderScanner`・`ScanCacheIndex`・`UnresolvedMerge`、
+> **コード**：`Core/Scanning/ImportPipeline.cs`（周回の制御）と段ごとのファイル `.Owned`（既に持っている物の読み込みと記録の合わせ方）・`.Scan`（走査と ID の特定）・`.Fetch`（梯子の取得と画像の列）・`ImportWorkSet`・`FolderScanner`・`ScanCacheIndex`・`UnresolvedMerge`、
 > `Core/Booth/BoothClient.cs`（ゲート）・`BoothPriority`、`Core/Services/ImageBacklog`（⑤の再開）・`DueRefresh`（⑦）・`BoothChanges`・`UnityPackageCatalog`・`VolumeTable`
 >
 > **経緯**：`docs/history/import-order.md`（梯子を決めた理由）、`docs/history/import-concurrency.md`（取り込み中に使える・⑦・印）、

@@ -19,8 +19,14 @@ public static class StoreFormat
     /// </summary>
     public const int Current = 1;
 
-    /// <summary>読める最も古い版。v1.0.0 の形（版の欄が無い）が 1。</summary>
+    /// <summary>読める最も古い版。上げると、それより古いデータは開かない（移し替えの関数を消すとき）。</summary>
     public const int OldestReadable = 1;
+
+    /// <summary>
+    /// 版の欄・印の無いデータの版。v1.0.0 の形で、**いつまでも 1**（点検28：読める下限と同じ定数で表していたので、
+    /// 下限を 2 に上げると、版の無い v1.0.0 のデータを版 2 と見なして、拒みも移し替えもせずに読み書きしてしまう）
+    /// </summary>
+    public const int Unversioned = 1;
 
     /// <summary>ファイルごとの版の欄の名前。オブジェクトの JSON のいちばん外側の最初に書く。</summary>
     public const string VersionProperty = "formatVersion";
@@ -82,7 +88,8 @@ public static class StoreFormat
     {
         json = WithoutBom(json);
 
-        // 壊れた JSON は版を決めずに 1 とし、本読み（Deserialize）に今までどおりの例外を出させる。
+        // 壊れた JSON は版を決めずに読める下限とし、本読み（Deserialize か、移し替えの前の Parse）に今までどおりの JsonException を出させる。
+        // 版の無いデータの版（Unversioned）にしないのは、下限を上げた後に「古すぎる」と取り違えないため。
         // ここで投げると、読み手の型（JsonReaderException）が変わり、壊れた記録の扱いが揃わない
         try
         {
@@ -99,7 +106,7 @@ public static class StoreFormat
         var reader = new Utf8JsonReader(json, new JsonReaderOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
         {
-            return OldestReadable;
+            return Unversioned;
         }
 
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
@@ -115,7 +122,7 @@ public static class StoreFormat
             reader.Skip();
         }
 
-        return OldestReadable;
+        return Unversioned;
     }
 
     /// <summary>
@@ -167,7 +174,7 @@ public static class StoreFormat
     }
 
     /// <summary>保存先の版。印が無ければ 1（v1.0.0 が使った保存先か、初めて開く保存先）。印が読めなければ例外。</summary>
-    public static int StoreVersion(string root) => ReadMarker(root) ?? OldestReadable;
+    public static int StoreVersion(string root) => ReadMarker(root) ?? Unversioned;
 
     /// <summary>
     /// 保存先の印の版。印が無ければ null。**在るのに版を決められなければ <see cref="StoreFormatUnreadableException"/>**（点検26）——

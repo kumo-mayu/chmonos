@@ -1,15 +1,13 @@
-using Chmonos.Core.Booth;
-using Chmonos.Core.Images;
 using Chmonos.Core.Models;
-using Chmonos.Core.Services;
-using Chmonos.Core.Storage;
 using BoothIdResolver;
 using BoothZipInspector;
 using BoothZipInspector.Models;
 
 namespace Chmonos.Core.Scanning;
 
-// <summary>/n/// 取り込みの走査と ID の特定：フォルダを並べてハッシュを取り（<see cref="ScanFolders"/>）、手掛かりから商品 ID を決める（<see cref="ResolveAsync"/>）。/n////n/// ImportPipeline（約2,200行）を段ごとのファイルに分けた（点検24・ユーザ判断 2026-10-08）。中身は変えていない/n/// </summary>
+// 取り込みの走査と ID の特定：フォルダを並べてハッシュを取り（ScanFolders）、手掛かりから商品 ID を決める（ResolveAsync）。
+//
+// ImportPipeline（約2,200行）を段ごとのファイルに分けた（点検24・ユーザ判断 2026-10-08）。クラスの説明は ImportPipeline.cs にある
 public sealed partial class ImportPipeline
 {
     private ScanOutcome ScanFolders(

@@ -1,15 +1,12 @@
-using Chmonos.Core.Booth;
-using Chmonos.Core.Images;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
-using Chmonos.Core.Storage;
-using BoothIdResolver;
-using BoothZipInspector;
-using BoothZipInspector.Models;
 
 namespace Chmonos.Core.Scanning;
 
-// <summary>/n/// 取り込みの1周の初め：ライブラリが既に持っている物を読み（<see cref="OwnedSnapshot"/>）、走査の前に記録の側を今のディスクに合わせる/n/// （上書きで置き換わった場所を外す・移したファイルを結び直す・見つからない印・登録したフォルダの zip が手に入った知らせ）。/n////n/// ImportPipeline（約2,200行）を段ごとのファイルに分けた（点検24・ユーザ判断 2026-10-08）。中身は変えていない/n/// </summary>
+// 取り込みの1周の初め：ライブラリが既に持っている物を読み（OwnedSnapshot）、走査の前に記録の側を今のディスクに合わせる
+// （上書きで置き換わった場所を外す・移したファイルを結び直す・見つからない印・登録したフォルダの zip が手に入った知らせ）。
+//
+// ImportPipeline（約2,200行）を段ごとのファイルに分けた（点検24・ユーザ判断 2026-10-08）。クラスの説明は ImportPipeline.cs にある
 public sealed partial class ImportPipeline
 {
     /// <summary>

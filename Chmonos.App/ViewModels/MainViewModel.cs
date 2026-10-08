@@ -514,6 +514,23 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public bool IsTagManageActive => CurrentViewModel is TagManageViewModel;
 
+    /// <summary>
+    /// 検索画面の事実（未読の更新の表・アバターの登録簿）が変わった（点検27）。タグの管理・属性の管理の検索欄は同じ事実を借りて
+    /// <c>has:update</c>・<c>avatar:</c> を照らすので、開いていれば絞り直してもらう。開いていなければ、次に開いたときに作り直される
+    /// </summary>
+    internal void NoteSearchFactsChanged()
+    {
+        switch (CurrentViewModel)
+        {
+            case TagManageViewModel tags:
+                tags.RefilterForSearchFacts();
+                break;
+            case AttributeManageViewModel attributes:
+                attributes.RefilterForSearchFacts();
+                break;
+        }
+    }
+
     /// <summary>タグの管理を開く。マスタは画面の外からも書き換わるので、毎回読み直す。</summary>
     public void ShowTagManage() => CurrentViewModel = new TagManageViewModel(_services, this);
 

@@ -332,6 +332,9 @@ public sealed partial class SearchViewModel
         _avatarRegistry = null;
         _moduleSourcesReady = true;
         RefreshModuleSources();
+
+        // 登録簿を読み直す（読み込みの後・マスタの変更の後）。管理画面の検索欄も同じ事実を借りているので、絞り直してもらう
+        _main?.NoteSearchFactsChanged();
     }
 
     /// <summary>

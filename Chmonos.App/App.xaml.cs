@@ -244,6 +244,26 @@ public partial class App : Application
         {
             version = StoreFormat.StoreVersion(root);
         }
+        catch (StoreFormatUnreadableException exception)
+        {
+            // 中身が壊れている印は、待っても直らない（点検27：一時的に読めないときと同じ「待って開き直す」しか言わず、抜け出せなかった）。
+            // 開かないのはそのまま。版を確かめずに印を消して作り直す救済はしない——新しいバージョンの保存先だったら、知らない欄を消してしまう
+            Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
+            var answer = Services.Notice.Show(
+                $"保存先の {StoreFormat.MarkerFileName} が壊れていて、データの形式を確かめられないため、開けませんでした。\n\n"
+                + $"新しいバージョンの Chmonos でこのデータを使ったことがなければ、{StoreFormat.MarkerFileName} を削除すると開けます。"
+                + "使ったことがあれば、新しいバージョンで開いてください。\n\n"
+                + "［はい］保存先をエクスプローラで開きます。\n"
+                + "［いいえ］何もせずに終了します。",
+                "Chmonos", MessageBoxButton.YesNo, MessageBoxImage.Error, MessageBoxResult.Yes);
+            if (answer == MessageBoxResult.Yes)
+            {
+                // この後すぐ終えるので、開くまで待つ（裏の仕事のまま終えると、開く前にプロセスが閉じる）。開く処理は画面のスレッドの外で動くので待ち合わない
+                Services.Shell.TrySelectAsync(Path.Combine(root, StoreFormat.MarkerFileName)).GetAwaiter().GetResult();
+            }
+
+            return false;
+        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
@@ -308,7 +328,7 @@ public partial class App : Application
             return false;
         }
 
-        var version = marked ?? StoreFormat.OldestReadable;
+        var version = marked ?? StoreFormat.Unversioned;
         if (StoreFormat.Check(version) == StoreFormat.Verdict.Same)
         {
             // 印が無ければ今の版で書き、後のバージョンが見分けられるようにする。書けなくても形式は変えていないので開く

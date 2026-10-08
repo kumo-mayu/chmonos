@@ -832,6 +832,26 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         await _main.ReloadLibraryAsync();
     }
 
+    /// <summary>
+    /// 検索画面の事実が変わった（<see cref="MainViewModel.NoteSearchFactsChanged"/>）。検索欄の式が事実を見るときだけ絞り直す——
+    /// 見ない式で作り直すと、打っていないのに一覧が動く
+    /// </summary>
+    internal void RefilterForSearchFacts()
+    {
+        if (DependsOnFacts(_filterText))
+        {
+            RebuildTops();
+        }
+        else if (DependsOnFacts(_itemFilter))
+        {
+            RebuildSubs();
+            OnPropertyChanged(nameof(ItemFilterResultText));
+        }
+    }
+
+    private static bool DependsOnFacts(string text)
+        => !string.IsNullOrWhiteSpace(text) && SearchQuery.DependsOnFacts(SearchQuery.Parse(text));
+
     public string FilterText
     {
         get => _filterText;

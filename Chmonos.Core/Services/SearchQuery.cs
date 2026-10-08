@@ -626,8 +626,10 @@ public static class SearchQuery
     }
 
     /// <summary>読みはひらがなで組んであるので、畳んだ語で見る（区別の切り替えは効かせない）。</summary>
+    /// <remarks>引用符で囲んだ語は読みでも当てない（打ったとおりに探す。辞書で広げないのと同じ。点検27）</remarks>
     private static bool InReadings(SearchNode.Term term, SearchHaystack haystack, SearchOptions options)
         => options.IncludeReadings
+            && !term.Quoted
             && haystack.Readings.Length > 0
             && (haystack.Readings.Contains(term.Text, StringComparison.Ordinal)
                 || haystack.Readings.Contains(term.Hiragana, StringComparison.Ordinal));
