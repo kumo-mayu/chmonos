@@ -112,6 +112,37 @@ public class SearchConditionTests
         Assert.False(Matches("wish:<100", item));
     }
 
+    /// <summary>
+    /// 範囲の前置きを括弧に当てると、中の「-400」は除くではなく「400以下」（ユーザ判断 2026-10-08）。
+    /// 2つの範囲のどちらか、は OR で書く（空白で並べると AND。払った額は1つの値なので、離れた2つの範囲を AND にすると0件）
+    /// </summary>
+    [Theory]
+    [InlineData(300, true)]
+    [InlineData(700, false)]
+    [InlineData(1500, true)]
+    public void 範囲の前置きの括弧の中は範囲として読む(int paid, bool expected)
+    {
+        var item = Item(local: l => l with { Purchases = [new Purchase { Price = paid }] });
+
+        Assert.Equal(expected, Matches("paid:(-400 OR 1000-2000)", item));
+        Assert.Equal(expected, Matches("paid:-400 OR paid:1000-2000", item));
+        Assert.False(Matches("paid:-400 paid:1000-2000", item));
+    }
+
+    /// <summary>前置きの後に空白を入れても範囲として読む。範囲を除くのは前置きの外に「-」を書く</summary>
+    [Fact]
+    public void 範囲の前置きの後の空白と_範囲を除く書き方()
+    {
+        var item = Item(local: l => l with { Purchases = [new Purchase { Price = 300 }] });
+
+        Assert.True(Matches("paid: -400", item));
+        Assert.False(Matches("-paid:-400", item));
+        Assert.True(Matches("-paid:1000-", item));
+
+        // 範囲でない前置きの中の「-」は、今までどおり除く
+        Assert.False(Matches("name:(-作り物)", item));
+    }
+
     /// <summary>読めない範囲はどの商品にも当たらない（打ちかけで全件が出たり、ふつうの文字として探したりしない）</summary>
     [Fact]
     public void 読めない範囲はどれにも当たらない()

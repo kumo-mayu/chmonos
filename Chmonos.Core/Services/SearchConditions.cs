@@ -116,6 +116,9 @@ public static class SearchConditions
         => field is SearchField.Is or SearchField.Has or SearchField.Paid or SearchField.Price or SearchField.Wish or SearchField.Avatar
             or SearchField.UserTag;
 
+    /// <summary>数の範囲で当てる前置きか（<c>paid:</c>・<c>price:</c>・<c>wish:</c>）。</summary>
+    public static bool IsRange(SearchField field) => field is SearchField.Paid or SearchField.Price or SearchField.Wish;
+
     /// <summary>答えが商品の記録の外の事実で変わる前置きか（覚えた答えを使い回せない）。</summary>
     internal static bool DependsOnFacts(SearchField field) => field is SearchField.Avatar or SearchField.Has;
 

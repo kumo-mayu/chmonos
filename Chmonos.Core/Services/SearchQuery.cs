@@ -894,6 +894,13 @@ public static class SearchQuery
     private static SearchNode WithField(SearchNode node, SearchField field) => node switch
     {
         SearchNode.Term { Field: null } term => term with { Field = field },
+
+        // 範囲の前置きの中の「-400」は、除くではなく「400以下」（ユーザ判断 2026-10-08）。括弧の中では「-」が語の先頭に来るので
+        // 除くの印として読まれ、paid:(-400 OR 1000-2000) が「400ちょうどを除く」になっていた。範囲として読めるときだけ付け替える。
+        // 範囲を除きたいときは、前置きの外に書く（-paid:-400）
+        SearchNode.Not { Inner: SearchNode.Term { Field: null } inner }
+            when SearchConditions.IsRange(field) && SearchConditions.TryParseRange("-" + inner.Text, out _)
+            => inner with { Text = "-" + inner.Text, Raw = "-" + inner.Raw, Field = field },
         SearchNode.Not not => new SearchNode.Not(WithField(not.Inner, field)),
         SearchNode.And and => new SearchNode.And(and.Parts.Select(part => WithField(part, field)).ToList()),
         SearchNode.Or or => new SearchNode.Or(or.Parts.Select(part => WithField(part, field)).ToList()),
