@@ -56,4 +56,32 @@ public sealed class RecycleBinTests
         Assert.False(RecycleBin.HasRecycleBin(@"\\server\share\展開先"));
         Assert.False(RecycleBin.HasRecycleBin($@"{unused}:\展開先"));
     }
+    /// <summary>まとめて送るときは、二重の NUL で終わる一覧で1回だけ渡す（写しかけの片付けで、数千のファイルを1つずつ送ると遅い）</summary>
+    [Fact]
+    public void まとめて送るときは_一覧を1回で渡す()
+    {
+        var calls = new List<string>();
+
+        RecycleBin.SendAll([@"C:\作り物\a.png", @"C:\作り物\b.json"], (list, _) =>
+        {
+            calls.Add(list);
+            return (0, false);
+        });
+
+        Assert.Equal([@"C:\作り物\a.png" + "\0" + @"C:\作り物\b.json" + "\0\0"], calls);
+    }
+
+    [Fact]
+    public void まとめて送る物が無ければ_何も呼ばない()
+    {
+        var called = false;
+
+        RecycleBin.SendAll([], (_, _) =>
+        {
+            called = true;
+            return (0, false);
+        });
+
+        Assert.False(called);
+    }
 }

@@ -838,13 +838,13 @@ public sealed class ImagePipeline
     /// BOOTHから取り直しても戻らないので、呼ぶ側で確かめてから呼ぶ。
     /// </summary>
     public Task DeleteUserImageAsync(string itemId, string fileName, CancellationToken cancellationToken = default)
-        => DeleteUserImageFromAsync(_paths.ItemImagesDir(itemId), fileName, cancellationToken);
+        => DeleteUserImageFromAsync(_paths.ItemImagesDir(itemId), _paths.ImagesDir, fileName, cancellationToken);
 
     /// <summary>改変に貼った画像を消す。**ファイルごと消える。**</summary>
     public Task DeleteModificationImageAsync(string modificationId, string fileName, CancellationToken cancellationToken = default)
-        => DeleteUserImageFromAsync(_paths.ModificationImagesDir(modificationId), fileName, cancellationToken);
+        => DeleteUserImageFromAsync(_paths.ModificationImagesDir(modificationId), _paths.ImagesDir, fileName, cancellationToken);
 
-    private static Task DeleteUserImageFromAsync(string directory, string fileName, CancellationToken cancellationToken)
+    private static Task DeleteUserImageFromAsync(string directory, string imagesRoot, string fileName, CancellationToken cancellationToken)
     {
         if (!UserImageName.IsUserAdded(fileName))
         {
@@ -854,6 +854,13 @@ public sealed class ImagePipeline
         }
 
         var path = Path.Combine(directory, Path.GetFileName(fileName));
+
+        // 途中にリンクがあれば消さない（点検29：リンクの先の実体を消してしまう）。記録からは外れ、ファイルは残る
+        if (File.Exists(path) && StoreIds.PassesThroughLink(path, imagesRoot))
+        {
+            Diagnostics.AppLog.Warn("自分で足した画像を消す", $"途中にリンクがあるため、消さずに残しました：{path}");
+            return Task.CompletedTask;
+        }
 
         // 消せなくても記録からは外す。次の掃除で消える
         return File.Exists(path)

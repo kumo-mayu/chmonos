@@ -58,6 +58,29 @@ internal static class RecycleBin
         }
     }
 
+    /// <summary>
+    /// まとめてごみ箱へ送る（1つずつ送ると、写しかけの片付けのように数千のファイルで遅い）。一覧は二重の NUL で終わる並び。
+    /// 完全に消すかを聞かれて「いいえ」なら <see cref="NotRecyclableException"/>、失敗は IOException。どこまで送れたかは呼んだ側が在るかで数える
+    /// </summary>
+    internal static void SendAll(IReadOnlyList<string> paths, Func<string, ushort, (int Result, bool Aborted)>? shell = null)
+    {
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
+        var (result, aborted) = (shell ?? CallShell)(string.Join("\0", paths.Select(Path.GetFullPath)) + "\0\0", DeleteFlags);
+        if (aborted)
+        {
+            throw new NotRecyclableException("ごみ箱に入りきらないため、削除をやめました。");
+        }
+
+        if (result != 0)
+        {
+            throw new IOException("ごみ箱へ移せませんでした。", unchecked((int)0x80070000) | (result & 0xFFFF));
+        }
+    }
+
     private static (int Result, bool Aborted) CallShell(string from, ushort flags)
     {
         var operation = new ShFileOperation { Func = FoDelete, From = from, Flags = flags };

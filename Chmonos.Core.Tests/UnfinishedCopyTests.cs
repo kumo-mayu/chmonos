@@ -189,6 +189,46 @@ public sealed class UnfinishedCopyTests : IDisposable
         Assert.Equal(4, Directory.EnumerateFiles(Source, "*", SearchOption.AllDirectories).Count());
     }
 
+    /// <summary>
+    /// 片付ける所を渡すと、写しで作ったとみなした物をまとめて渡す（アプリはごみ箱へ送る。点検29：止まった後に置いた物も入り得るので、完全には消さない）。
+    /// 片付けられなかった物は、在るかどうかで数える
+    /// </summary>
+    [Fact]
+    public void 片付ける所を渡すと_まとめて渡し_残った物を数える()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+        var trash = Path.Combine(_root, "trash");
+        Directory.CreateDirectory(trash);
+        IReadOnlyList<string>? given = null;
+
+        var cleanup = UnfinishedCopy.Clean(Destination, paths =>
+        {
+            given = paths;
+            foreach (var path in paths)
+            {
+                File.Move(path, Path.Combine(trash, Guid.NewGuid().ToString("N")));
+            }
+        });
+
+        Assert.Equal(4, given!.Count);
+        Assert.Equal(4, cleanup.Removed);
+        Assert.Equal(0, cleanup.Left);
+        Assert.Equal(4, Directory.EnumerateFiles(trash).Count());
+        Assert.False(UnfinishedCopy.IsAt(Destination));
+    }
+
+    [Fact]
+    public void 片付ける所が失敗したら_消さずに残りを数え_印も残す()
+    {
+        CrashMoveAtTheEnd(() => StoreMover.Move(Source, Destination, CrashAfterLast()));
+
+        var cleanup = UnfinishedCopy.Clean(Destination, _ => throw new IOException("ごみ箱へ移せませんでした。"));
+
+        Assert.Equal(0, cleanup.Removed);
+        Assert.Equal(4, cleanup.Left);
+        Assert.True(UnfinishedCopy.IsAt(Destination));
+    }
+
     [Fact]
     public void 写すために作ったフォルダは_片付けると畳む()
     {

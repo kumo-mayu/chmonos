@@ -53,6 +53,47 @@ public class SettingsStoreSafetyTests
     });
 
     /// <summary>
+    /// 保存先の中に使う人のアセットがあれば、引越しを断る（点検29：保存先の中を丸ごと運んで元を消すので、アセットも運ばれて元から消え、
+    /// 商品とファイルのつながりが切れた）。取り込み元のフォルダでも、商品が記録しているファイルでも断る。何も運ばない
+    /// </summary>
+    [Fact]
+    public Task 保存先の中に取り込み元があれば_引越しを断り何も運ばない() => TestApp.Run(async app =>
+    {
+        var source = app.Services.Paths.Root;
+        var inside = Path.Combine(source, "my-assets");
+        Directory.CreateDirectory(inside);
+        await app.ChangeSettingsAsync(current => current with { ImportFolders = [inside] });
+        var main = await app.StartAsync();
+        var settings = OpenSettings(main);
+        var destination = Path.Combine(app.Root, "moved");
+
+        await settings.RelocateAsync(source, destination, replace: false);
+
+        var notice = Assert.Single(app.Notices, notice => notice.Caption == "引越しできません");
+        Assert.Contains(inside, notice.Text);
+        Assert.False(Directory.Exists(destination));
+        Assert.True(Directory.Exists(inside));
+        Assert.Equal(StoreJobKind.None, main.StoreJob);
+    });
+
+    [Fact]
+    public Task 保存先の中に商品のファイルがあれば_置き換えを断る() => TestApp.Run(async app =>
+    {
+        var source = app.Services.Paths.Root;
+        var zip = Path.Combine(source, "assets-inside", "作り物.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(zip)!);
+        await File.WriteAllBytesAsync(zip, new byte[16]);
+        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装").WithFiles(Make.File(zip)));
+        var main = await app.StartAsync();
+        var settings = OpenSettings(main);
+
+        await settings.RelocateAsync(source, Path.Combine(app.Root, "other"), replace: true);
+
+        Assert.Contains(app.Notices, notice => notice.Caption == "置き換えできません" && notice.Text.Contains(zip, StringComparison.Ordinal));
+        Assert.True(File.Exists(zip));
+    });
+
+    /// <summary>
     /// 写し始めた後に読めなくなったら、書き出しは失敗にして前の zip を残し、そう言う。
     /// 前は「開けなかったファイルは入れていません」と言って、作りかけの zip で前の zip を上書きしていた
     /// </summary>

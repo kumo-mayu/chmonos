@@ -56,6 +56,46 @@ public static class StoreIds
         => IsPackageHash(hash) ? hash! : throw new InvalidStoreIdException("unitypackage の控えの鍵", hash);
 
     /// <summary>
+    /// <paramref name="folder"/> から <paramref name="path"/> までの途中（両端を含む）に、リンク（ジャンクション・シンボリックリンク）があるか。
+    /// <see cref="IsInside"/> は文字の上で中かを見るだけなので、途中のフォルダがほかの場所へのリンクだと、消す処理がリンクの先の実体を消してしまう
+    /// （点検29：<c>images\_avatars</c> を使う人の別のフォルダへのリンクにしていると、画像を片付ける処理がその先の同じ名前のフォルダを丸ごと消し得た）。
+    /// 保存先の根そのもの（外付けを指すなど、使い方としてあり得る）は見ない——<paramref name="folder"/> には保存先の中の決まったフォルダを渡す。
+    /// 中でない・確かめられないときも「ある」とみなす（消さない側に倒す）
+    /// </summary>
+    public static bool PassesThroughLink(string path, string folder)
+    {
+        try
+        {
+            var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            var top = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+            if (!IsInside(full, top))
+            {
+                return true;
+            }
+
+            for (var current = full; current is not null; current = Path.GetDirectoryName(current))
+            {
+                if ((File.Exists(current) || Directory.Exists(current))
+                    && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                {
+                    return true;
+                }
+
+                if (string.Equals(current, top, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
     /// <paramref name="path"/> を正規化した場所が <paramref name="folder"/> の**中**（同じ場所は含まない）にあるか。
     /// 区切りを付けて比べる（<c>images</c> と <c>images-old</c> を取り違えない）。大文字小文字は区別しない（Windows の場所）。
     /// </summary>

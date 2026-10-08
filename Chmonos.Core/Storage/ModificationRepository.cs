@@ -364,7 +364,12 @@ public sealed class ModificationRepository
         // 消えたファイルの写しは読み込みで返らない（在るかを先に見る）が、持ち続ける理由も無い
         _cache.TryRemove(id, out _);
 
-        if (Directory.Exists(images))
+        // 途中にリンクがあれば写真のフォルダは消さない（点検29：リンクの先の実体を消してしまう）。改変の記録は消え、写真は残る
+        if (Directory.Exists(images) && StoreIds.PassesThroughLink(images, _paths.ImagesDir))
+        {
+            Diagnostics.AppLog.Warn("改変を消す", $"写真のフォルダの途中にリンクがあるため、消さずに残しました：{images}");
+        }
+        else if (Directory.Exists(images))
         {
             Directory.Delete(images, recursive: true);
         }

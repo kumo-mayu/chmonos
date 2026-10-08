@@ -2051,6 +2051,20 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     internal async Task RelocateAsync(string source, string picked, bool replace)
     {
+        // 保存先の中にアセット（取り込み元・監視フォルダ・商品のファイルなど）があると、引越しで一緒に運んで元から消し、
+        // 商品とファイルのつながりも切れる（点検29）。アセットは今ある場所のまま使う作りなので、重なっていれば断る
+        var overlap = await Core.Storage.StoreAssetOverlap.FindAsync(_services.Store, _services.Settings);
+        if (overlap is not null)
+        {
+            Services.Notice.Show(
+                $"保存先の中に、取り込み元や商品のファイルがあるため、{(replace ? "置き換え" : "引越し")}できません。\n\n{overlap}\n\n"
+                + "これらを保存先の外へ移してから、もう一度お試しください。",
+                replace ? "置き換えできません" : "引越しできません",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
         if (!await PrepareToRelocateAsync())
         {
             return;

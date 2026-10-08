@@ -909,7 +909,14 @@ public sealed class ItemRepository
         // 画像は消さずに、同じ置き場の中で別の名前へ移しておく（外部の点検 2026-10-07）。
         // 前は画像を先に消してから記録を消していたので、記録を消せずに失敗すると、商品は残るのに
         // 自分で足した画像（BOOTH から取り直せない）だけが消えていた。中の物が掴まれていれば、ここで失敗して商品は残る
-        var removing = Directory.Exists(imagesDir) ? $"{imagesDir}.removing-{Guid.NewGuid().ToString("N")[..8]}" : null;
+        // 途中にリンクがあれば画像には触らない（点検29：リンクの先の実体を移して消してしまう）。商品の記録だけを消し、画像は残す
+        var throughLink = Directory.Exists(imagesDir) && StoreIds.PassesThroughLink(imagesDir, _paths.ImagesDir);
+        if (throughLink)
+        {
+            Diagnostics.AppLog.Warn("商品を消す", $"画像のフォルダの途中にリンクがあるため、画像は消さずに残しました：{imagesDir}");
+        }
+
+        var removing = Directory.Exists(imagesDir) && !throughLink ? $"{imagesDir}.removing-{Guid.NewGuid().ToString("N")[..8]}" : null;
         if (removing is not null)
         {
             Directory.Move(imagesDir, removing);
@@ -952,7 +959,10 @@ public sealed class ItemRepository
 
         // 画像を消してから JSON を消すまでの間に、画像の取得がフォルダを作り直していることがある
         // （取得は JSON があるかを見てから作る）。JSON が消えた今なら、もう作り直されない
-        TryDeleteDirectory(imagesDir);
+        if (!throughLink)
+        {
+            TryDeleteDirectory(imagesDir);
+        }
     }
 
     /// <summary>
@@ -1014,10 +1024,17 @@ public sealed class ItemRepository
     private static readonly System.Text.RegularExpressions.Regex RemovingName =
         new(@"^(?<id>.+)\.removing-[0-9a-f]{8}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-    private static void TryDeleteDirectory(string directory)
+    private void TryDeleteDirectory(string directory)
     {
         try
         {
+            // 消す直前にも、途中にリンクが無いかを見る（点検29）
+            if (Directory.Exists(directory) && StoreIds.PassesThroughLink(directory, _paths.ImagesDir))
+            {
+                Diagnostics.AppLog.Warn("商品の画像を消す", $"途中にリンクがあるため、消さずに残しました：{directory}");
+                return;
+            }
+
             if (Directory.Exists(directory))
             {
                 Directory.Delete(directory, recursive: true);

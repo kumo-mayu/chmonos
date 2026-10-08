@@ -293,7 +293,28 @@ public class UnpackedFolderRemoverTests : IDisposable
         var results = await Recording(deleted).RemoveAsync([folder]);
 
         Assert.False(results[0].Removed);
-        Assert.Contains("大きさの違うファイルが 1 件", results[0].Reason);
+        Assert.Contains("中身の違うファイルが 1 件", results[0].Reason);
+        Assert.Empty(deleted);
+    }
+
+    /// <summary>
+    /// 大きさが同じでも、中身を書き換えていれば消さない（点検29：名前と大きさだけを見ていたので、同じ大きさの書き換えを見逃していた）。
+    /// zip が記録している CRC-32 と比べる
+    /// </summary>
+    [Fact]
+    public async Task 大きさが同じでも中身を書き換えていれば消さない()
+    {
+        var folder = CreatePair("Kipfel_1.2.0");
+        var file = Path.Combine(folder.Path, "file0.png");
+        var bytes = File.ReadAllBytes(file);
+        bytes[0] ^= 0xFF;
+        File.WriteAllBytes(file, bytes);
+        var deleted = new List<string>();
+
+        var results = await Recording(deleted).RemoveAsync([folder]);
+
+        Assert.False(results[0].Removed);
+        Assert.Contains("中身の違うファイルが 1 件", results[0].Reason);
         Assert.Empty(deleted);
     }
 

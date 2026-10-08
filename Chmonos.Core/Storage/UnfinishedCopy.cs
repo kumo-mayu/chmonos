@@ -167,7 +167,12 @@ public static class UnfinishedCopy
     /// 置き換えで退けた物は元の場所へ戻す（退けたままだと、選んだ場所にあったライブラリが見えなくなる）。
     /// 全部消せたら印を外し、写すために作ったフォルダは空なら畳む。印が読めなければ何もしない（何が元から在ったか分からない）
     /// </summary>
-    public static UnfinishedCopyCleanup Clean(string root)
+    /// <param name="discard">
+    /// 写しで作ったとみなした物をまとめて片付ける所。アプリはごみ箱へ送る物を渡す（点検29：「写し始める前から在った物以外」を写しで作った物とみなすので、
+    /// 止まった後に使う人が置いたファイルも入る。完全に消すと取り戻せなかった）。渡さなければ完全に消す（試験）。
+    /// 片付けられなかった物は、在るかどうかで数える
+    /// </param>
+    public static UnfinishedCopyCleanup Clean(string root, Action<IReadOnlyList<string>>? discard = null)
     {
         root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         if (Read(root) is not { } marker)
@@ -177,17 +182,38 @@ public static class UnfinishedCopy
 
         var removed = 0;
         var left = 0;
-        foreach (var file in CopiedFiles(root, marker).ToList())
+        var copied = CopiedFiles(root, marker).ToList();
+        if (discard is not null)
         {
             try
             {
-                File.Delete(file);
-                removed++;
+                if (copied.Count > 0)
+                {
+                    discard(copied);
+                }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 Diagnostics.AppLog.Error("写しかけを片付ける", exception);
-                left++;
+            }
+
+            left = copied.Count(File.Exists);
+            removed = copied.Count - left;
+        }
+        else
+        {
+            foreach (var file in copied)
+            {
+                try
+                {
+                    File.Delete(file);
+                    removed++;
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    Diagnostics.AppLog.Error("写しかけを片付ける", exception);
+                    left++;
+                }
             }
         }
 

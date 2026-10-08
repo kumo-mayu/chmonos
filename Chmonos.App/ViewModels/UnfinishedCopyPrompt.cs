@@ -46,7 +46,21 @@ internal static class UnfinishedCopyPrompt
             return false;
         }
 
-        var cleanup = await Task.Run(() => UnfinishedCopy.Clean(folder));
+        // ごみ箱へ送る（点検29）。写しで作った物の見分けは「写し始める前から在った物以外」なので、止まった後に置いたファイルも入り得る。
+        // ごみ箱の無いドライブでは消さず、自分で片付けてもらう（完全に消すと取り戻せない）
+        if (!Services.RecycleBin.HasRecycleBin(folder))
+        {
+            Services.Notice.Show(
+                $"このドライブにはごみ箱が無いため、途中のコピーを削除しませんでした。\n\n{folder}\n\n"
+                + "中身を表示します。要らないファイルを確かめてから、手で削除してください。",
+                "削除できませんでした",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            OpenFolder(folder);
+            return false;
+        }
+
+        var cleanup = await Task.Run(() => UnfinishedCopy.Clean(folder, paths => Services.RecycleBin.SendAll(paths)));
         if (cleanup.Left > 0)
         {
             Services.Notice.Show(
@@ -71,7 +85,7 @@ internal static class UnfinishedCopyPrompt
             $"選んだ場所は、{What(marker.Kind)}の途中で止まったコピーです。",
             $"{folder}\n{marker.StartedAt.LocalDateTime:yyyy/MM/dd HH:mm} に始めたコピーです。ライブラリとしては使えません。\n\n"
             + $"「{CleanAnswer}」\n"
-            + $"このコピーで作ったファイル {plan.Files.Count:N0} 個・{Core.Models.DisplayText.Size(plan.Bytes)} を削除します。"
+            + $"このコピーで作ったファイル {plan.Files.Count:N0} 個・{Core.Models.DisplayText.Size(plan.Bytes)} をごみ箱へ移します。"
             + "元のデータと、コピーの前からあったファイルは残ります。\n"
             + parked
             + $"\n「{OpenAnswer}」\n中身を表示します。何も変えません。",

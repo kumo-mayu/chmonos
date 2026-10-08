@@ -264,6 +264,13 @@ public sealed class AvatarImageSync
         try
         {
             // 消す直前にも、images/_avatars の中かを確かめる（形の検査に続く2枚目の守り）
+            // 途中にリンクがあれば消さない。images から見る（root は images\_avatars。点検29：images\_avatars がリンクだと、その先の同じ名前のフォルダを丸ごと消し得た）
+            if (StoreIds.IsInside(directory, root) && Directory.Exists(directory) && StoreIds.PassesThroughLink(directory, Path.GetDirectoryName(root) ?? root))
+            {
+                Diagnostics.AppLog.Warn("アバターの画像の控えを片付ける", $"途中にリンクがあるため、消さずに残しました：{directory}");
+                return;
+            }
+
             if (StoreIds.IsInside(directory, root) && Directory.Exists(directory))
             {
                 Directory.Delete(directory, recursive: true);
