@@ -17,6 +17,11 @@ on:
 permissions:
   contents: write
 
+# 同じ tag の実行を重ねない（重なると、2つが別々の zip を組んで取り合う）。走っている方を止めずに、後の方を待たせる
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: windows-latest
@@ -24,11 +29,26 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v4
+      # その tag の Releases が既にあれば、組む前に止める（点検24）。組み直した zip は別の exe になり、
+      # 配った物と取り違えるうえ、最後の Releases の作成で衝突して止まるまで気付けなかった。
+      # 配り直すときは、Releases にある zip を使う（docs/dev/signing.md）
+      - name: 既に配った tag でないか確かめる
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view '${{ github.ref_name }}' --repo '${{ github.repository }}' *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "tag ${{ github.ref_name }} の Releases は既にあります。組み直さず、Releases にある zip を使ってください"
+          }
+          $global:LASTEXITCODE = 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+
+      # SDK の版は global.json で固める（後日組み直しても同じ SDK で組むため。10.0.x だと、その日の最新の SDK になった）
+      - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: 版をそろえる
         id: version
@@ -78,7 +98,7 @@ jobs:
           "SHA256: $hash" >> $env:GITHUB_STEP_SUMMARY
           "name=$name" >> $env:GITHUB_OUTPUT
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.zip.outputs.name }}
           # artifact は zip に包まれて渡るので、中身は配る zip そのもの
