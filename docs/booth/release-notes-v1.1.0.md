@@ -76,3 +76,9 @@ v1.0.0 から移るときは、新しいフォルダに展開した `Chmonos.exe
 | v1.0.0 でも開ける | 形式は 1 のまま。v1.0.0 は増えた `formatVersion` の欄を読み飛ばす（保存すると消えるが害は無い）。`format.json`・`update-check.json`・`format-backups` は v1.0.0 から見えない |
 
 書かなかったこと：試験・workflow・クラスの分け（使う人に見える変化が無い）、取り直しで BOOTH の応答が読めなかったときの記録の扱い（`8fa1edfb` の後半。見える変化がほぼ無い）。
+
+## 作者向け：配った後に zip を作り直した（2026-10-08）
+
+公開の後、同梱する .NET ランタイム・Windows Desktop（WPF・Windows Forms）の許諾文と第三者の表示が `THIRD-PARTY-NOTICES.txt` に無いと分かった（ユーザの指摘。`f85e7ea0`）。
+ユーザ判断「Aで行きましょう」で、**`Chmonos.exe` はそのまま**（SHA256 `B78EB4B8…BE30CDC`）、zip の中の `THIRD-PARTY-NOTICES.txt` だけを差し替えて、workflow と同じ `Compress-Archive` で作り直した。
+ほかの8ファイルは元の zip と同じことを確かめた。Releases の zip と `.sha256` を差し替え（新しい zip の SHA256 `BD0C115B74AD61085755302561E611BCE4DE2D17E494E335655116D9E7663BB5`）、BOOTH の2つのバリエーションも同じ zip に差し替える。
