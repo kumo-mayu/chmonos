@@ -121,6 +121,13 @@ public partial class App : Application
             }
         }
 
+        // 保存データの形式の版を、サービス一式を作る前（＝起動時の裏の作業が書き始める前）に確かめる（docs/spec/data-format.md）
+        if (!EnsureStoreFormat())
+        {
+            Shutdown();
+            return;
+        }
+
         // **組み立ての途中で止まったら、知らせて終える**（外部の点検 2026-10-06）。設定の JSON が壊れているなどで
         // ここが投げると、共通の受け口が知らせて「済んだ」にするだけで、窓が1つも無いままアプリが残っていた
         MainViewModel main;
@@ -206,9 +213,98 @@ public partial class App : Application
         // 人が押した登録なので、起動時の裏の作業（設定で切れる）とは別に、押したときと同じ優先度で流す
         main.ResumeRegistrationsAsync().Forget();
 
+        // 新しい版の確認（1日1回まで・設定で切れる）。窓を出してから裏で
+        main.CheckForUpdatesAsync().Forget();
+
         // Unity で最後に選んでいたプロジェクトタブを覚え始める（「Unityで選択」の既定・ユーザ判断）。
         // 画面のスレッドで付ける——知らせはこのスレッドのメッセージとして届く
         Services.UnityFocusWatch.Start();
+    }
+
+    /// <summary>
+    /// 保存先の形式の版を確かめる（ユーザ判断 2026-10-08）。新しい版の Chmonos が使った保存先は開かない——
+    /// 起動時の裏の作業が知らない欄を消しながら書いてしまうため、ファイルごとに止めるのでは間に合わない。
+    /// 古い版の保存先は、控えを取ってから今の版の印を書く（ファイルは読むときに直し、書くときに今の版になる）
+    /// </summary>
+    private static bool EnsureStoreFormat()
+    {
+        var root = StoreLocation.Resolve().Path;
+        var markerExists = File.Exists(Path.Combine(root, StoreFormat.MarkerFileName));
+        int version;
+        try
+        {
+            version = StoreFormat.StoreVersion(root);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 印が読めないだけなら、今までどおり開く（開いた後の読み書きが同じ理由で失敗すれば、そこで知らせる）
+            Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
+            return true;
+        }
+
+        switch (StoreFormat.Check(version))
+        {
+            case StoreFormat.Verdict.TooNew:
+                var answer = Services.Notice.Show(
+                    "このデータは、新しい版の Chmonos で使われています。この版では開けません。\n\n"
+                    + "［はい］ダウンロードページを開きます。新しい版を入れてから開いてください。\n"
+                    + "［いいえ］何もせずに終了します。",
+                    "新しい版のデータです",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning,
+                    MessageBoxResult.Yes);
+                if (answer == MessageBoxResult.Yes)
+                {
+                    Services.Shell.OpenUrl(Core.Services.UpdateCheck.DownloadPage);
+                }
+
+                return false;
+
+            case StoreFormat.Verdict.TooOld:
+                Services.Notice.Show(
+                    "このデータは古い形式のため、この版では開けません。",
+                    "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+
+            case StoreFormat.Verdict.Older:
+                try
+                {
+                    StoreFormat.Backup(root, version, DateTimeOffset.Now);
+                    StoreFormat.MarkCurrent(root, Services.AppVersion.Text);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // 控えが無いまま形式を上げると、古い版へ戻せなくなる。開かずに知らせる
+                    Core.Diagnostics.AppLog.Error("形式を上げる前の控え", exception);
+                    Services.Notice.Show(
+                        "データの控えを作れなかったため、開けませんでした。ディスクの空きを確かめてから、もう一度開いてください。",
+                        "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return false;
+                }
+
+                return true;
+
+            default:
+                // v1.0.0 が使った保存先・初めて開く保存先には印が無い。今の版で書いておき、後の版が見分けられるようにする
+                if (!markerExists)
+                {
+                    TryMarkCurrent(root);
+                }
+
+                return true;
+        }
+    }
+
+    private static void TryMarkCurrent(string root)
+    {
+        try
+        {
+            StoreFormat.MarkCurrent(root, Services.AppVersion.Text);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("保存データの形式の版を書く", exception);
+        }
     }
 
     /// <summary>

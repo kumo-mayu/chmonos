@@ -499,6 +499,15 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
                                        Text="残りの画像・持っていないアバターの画像・商品の更新の確認・対応アバターの検出し直しを、押さなくても進めます。オフでも、押して始めた取得と取り込みは止まりません。" />
 
+                            <!-- BOOTH 以外への通信なので、勝手に通信していると見えるものには止める手段を付ける（ユーザ判断 2026-10-08） -->
+                            <CheckBox Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.CheckForUpdates"
+                                      IsChecked="{Binding CheckForUpdates, Mode=TwoWay}">
+                                <TextBlock Text="新しい版を確かめる" />
+                            </CheckBox>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
+                                       Text="1日1回、GitHub に新しい版があるかを問い合わせます。" />
+
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                 <TextBlock Text="商品情報を取り直す間隔" Style="{StaticResource RowLabel}" Width="220" />
                                 <TextBox Style="{StaticResource NumberBox}"
@@ -898,6 +907,24 @@
                                 <TextBlock Text="{Binding ItemUsageText}" Style="{StaticResource Mono}" FontSize="12"
                                            VerticalAlignment="Center" />
                             </StackPanel>
+
+                            <!--
+                                形式を上げる前に取ったデータの控え（ユーザ判断 2026-10-08・docs/spec/data-format.md）。自動では消さないので、量を見て消せるようにする。
+                                他の行と同じく容量とファイル数を最初から出す。消すと戻せないので赤、確かめの窓を出すので「…」
+                            -->
+                            <Grid Margin="0,6,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="控え" Style="{StaticResource RowLabel}" Width="220" />
+                                    <TextBlock Text="{Binding FormatBackupUsageText}" Style="{StaticResource Mono}" FontSize="12"
+                                               AutomationProperties.AutomationId="Settings.FormatBackupUsage"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Button Content="控えを削除…" Style="{StaticResource DangerButton}"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.AutomationId="Settings.DeleteFormatBackups"
+                                        Command="{Binding DeleteFormatBackupsCommand}"
+                                        ToolTip="前の版の Chmonos に戻すときに使う控えです。" />
+                            </Grid>
 
                             <!--
                                 見つからないファイル・フォルダの記録を、全部の商品からまとめて消す（ユーザ判断 2026-10-07）。

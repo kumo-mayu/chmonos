@@ -200,6 +200,18 @@ public sealed class AppServiceContainer : IDisposable
     /// </summary>
     internal Func<string, bool> CopyText { get; set; } = Services.ClipboardText.TrySet;
 
+    /// <summary>
+    /// 新しい版を GitHub に聞く（tag の名前・聞けなければ null）。試験は差し替えて通信しない。
+    /// BOOTH への通信とは別の HttpClient を使う（BOOTH の門と取り違えない）
+    /// </summary>
+    internal Func<CancellationToken, Task<string?>> FetchLatestVersion { get; set; }
+        = token => Core.Services.UpdateCheck.FetchLatestAsync(UpdateHttp.Value, Services.AppVersion.Text, token);
+
+    private static readonly Lazy<HttpClient> UpdateHttp = new(() => new HttpClient());
+
+    /// <summary>ブラウザでページを開く。試験は差し替えて、開いた先を控える。</summary>
+    internal Func<string, bool> OpenUrl { get; set; } = Services.Shell.OpenUrl;
+
     /// <summary>Unity Hub・VCC の一覧から Unity のプロジェクトを集める。実マシンの一覧を読むので、試験は差し替える。</summary>
     internal Func<IReadOnlyList<UnityProjectCandidate>> DiscoverUnityProjects { get; set; } = () => UnityProjects.Discover();
 

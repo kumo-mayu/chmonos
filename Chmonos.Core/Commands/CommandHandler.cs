@@ -335,6 +335,11 @@ public sealed class CommandHandler
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                         .ChangeSearchHistoryAsync(history.Change, cancellationToken));
 
+            case UiCommand.ChangeUpdateCheck update:
+                await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                    .ChangeUpdateCheckAsync(update.Change, cancellationToken);
+                return new CommandResult.Done();
+
             case UiCommand.ChangeSavedSearches saved:
                 return new CommandResult.SavedSearchesChanged(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
@@ -927,6 +932,24 @@ public sealed class CommandHandler
                 {
                     Diagnostics.AppLog.Error("バックアップの書き出し", exception);
                     return new CommandResult.Failed($"バックアップを書き出せませんでした。{Services.FailureText.Cause(exception)}");
+                }
+
+            case UiCommand.DeleteFormatBackups:
+                if (_storeRoot is null)
+                {
+                    return new CommandResult.Failed("保存先が分からないため、控えを削除できませんでした。");
+                }
+
+                try
+                {
+                    await Task.Run(() => Storage.StoreFormat.DeleteBackups(_storeRoot), cancellationToken);
+                    return new CommandResult.Done();
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // 途中まで消えていても、残りは次に押せば消える（控えは戻すときにしか使わない）
+                    Diagnostics.AppLog.Error("控えの削除", exception);
+                    return new CommandResult.Failed($"控えを削除できませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
             case UiCommand.RestoreBackup restore:

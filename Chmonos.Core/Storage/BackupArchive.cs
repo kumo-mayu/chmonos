@@ -76,6 +76,12 @@ public static class BackupArchive
             return true;
         }
 
+        // 形式を上げる前の控え（StoreFormat）は、戻したい時点のデータそのものではなく、入れると書き出しが倍に膨らむ（ユーザ判断 2026-10-08）
+        if (relativePath.StartsWith(StoreFormat.BackupsDirName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".cache", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)

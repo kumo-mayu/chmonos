@@ -62,6 +62,16 @@ internal sealed class TestApp
             return Task.CompletedTask;
         };
 
+        // GitHub へ新しい版を聞きに行かない。試験が入れた版を返す
+        Services.FetchLatestVersion = _ => Task.FromResult(LatestVersion);
+
+        // 本物のブラウザを開かない。開いた先を控える
+        Services.OpenUrl = url =>
+        {
+            OpenedUrls.Add(url);
+            return true;
+        };
+
         // 本物のクリップボードを書き換えない（使う人が写していた物が消える）。写した文字を控える
         Services.CopyText = text =>
         {
@@ -91,6 +101,12 @@ internal sealed class TestApp
 
     /// <summary>クリップボードへ写すはずだった文字（写しはしない）。</summary>
     public List<string> Copied { get; } = [];
+
+    /// <summary>新しい版の確認で返す版（tag の名前）。null は聞けなかったとき。</summary>
+    public string? LatestVersion { get; set; }
+
+    /// <summary>開いたページ。</summary>
+    public List<string> OpenedUrls { get; } = [];
 
     /// <summary>出すはずだった知らせ・確認の窓（窓は出ない）。文言を確かめるのに使う。</summary>
     public List<NoticeRequest> Notices { get; } = [];

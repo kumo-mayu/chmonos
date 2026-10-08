@@ -73,6 +73,11 @@ public interface ISettingsService
         Func<SearchHistoryList, SearchHistoryList> change,
         CancellationToken cancellationToken = default);
 
+    /// <summary>新しい版の確認の記録を変える（× で閉じた版を覚える）。変え方を関数で渡す。</summary>
+    Task<UpdateCheckRecord> ChangeUpdateCheckAsync(
+        Func<UpdateCheckRecord, UpdateCheckRecord> change,
+        CancellationToken cancellationToken = default);
+
     /// <summary>保存した検索を変える。変え方を関数で渡す。</summary>
     Task<SavedSearchList> ChangeSavedSearchesAsync(
         Func<SavedSearchList, SavedSearchList> change,
@@ -166,6 +171,12 @@ public sealed class SettingsService : ISettingsService
         Func<SearchHistoryList, SearchHistoryList> change,
         CancellationToken cancellationToken = default)
         => _store.SearchHistory.UpdateAsync(change, cancellationToken);
+
+    /// <summary>新しい版の確認の記録を変える。画面からは <see cref="Commands.UiCommand.ChangeUpdateCheck"/> で呼ぶ。</summary>
+    public Task<UpdateCheckRecord> ChangeUpdateCheckAsync(
+        Func<UpdateCheckRecord, UpdateCheckRecord> change,
+        CancellationToken cancellationToken = default)
+        => _store.UpdateCheck.UpdateAsync(change, cancellationToken);
 
     /// <summary>
     /// 保存した検索を変える（足す・上書き・名前の変更・削除・並べ替え）。履歴と同じく錠の中で今の並びに当てる。

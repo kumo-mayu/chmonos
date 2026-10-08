@@ -778,6 +778,25 @@
             </Border>
 
             <!--
+                新しい版の知らせ（ユーザ判断 2026-10-08）。登録し終えた知らせの帯と同じ場所・同じ見た目。× で閉じた版は、次の版が出るまで出さない
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasUpdateNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissUpdateCommand}" AutomationProperties.Name="この知らせを閉じる"
+                            AutomationProperties.AutomationId="UpdateNoticeClose"
+                            ToolTip="次の版が出るまで表示しません。" />
+                    <Button DockPanel.Dock="Right" Content="ダウンロードページを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding OpenUpdatePageCommand}" AutomationProperties.AutomationId="UpdateNoticeOpen" />
+                    <TextBlock Text="{Binding UpdateNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="UpdateNoticeText"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                </DockPanel>
+            </Border>
+
+            <!--
                 登録し終えた商品への入口（ユーザ指示 2026-09-15）。前は登録が終わると商品ページへ移り、検索を進めていた画面が勝手に替わっていた。
                 通信の帯のすぐ上に出し、開くかを選ばせる。通信が終わって通信の帯が畳まれても、押すか閉じるまでは残す。
                 商品ページを離れた後に取り直しが済んだときも同じ帯で知らせる（画面を引き戻さない）

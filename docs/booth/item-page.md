@@ -250,7 +250,7 @@ A. 中身はまったく同じです。
 - ログインしない・cookie を使わない：`docs/spec/id-resolution.md` の要点
 - 手掛かりが消える場合：`docs/research/id-resolution.md` §6（Brave はオリジンだけ・7-Zip の既定で消える・FAT32 / exFAT は ADS を持てない。最後はこの PC では未検証）
 - 取り込みの時間：`docs/history/import-order.md`（15商品で画像は1商品あたり約9.5枚。約19秒は本数×1.5秒の計算で実測ではない。門は前の問い合わせが終わってから1.5秒を数えるので、実際はこれより長い）。画像を切ると①②の2本で約3秒・100商品で約5分。どちらも「以上」と書く
-- 通信する先：`BoothClient` と `YouTubeInfo` だけが `HttpClient` を作る。ほかに WPF が動画の絵を i.ytimg.com から直に読む（`ItemVideosPanel.xaml`）。BOOTH の検索（`FallbackResolver`）は `UiCommand` から、人が押したときだけ（2026-10-07 に Grep）
+- 通信する先：`BoothClient` と `YouTubeInfo` と、新しい版の確認（`UpdateCheck`・GitHub の Releases・1日1回まで・設定で切れる。2026-10-08 に足した）だけが `HttpClient` を作る。ほかに WPF が動画の絵を i.ytimg.com から直に読む（`ItemVideosPanel.xaml`）。BOOTH の検索（`FallbackResolver`）は `UiCommand` から、人が押したときだけ（2026-10-07 に Grep）
 - 取り直しの間隔：`AppSettings.RefreshIntervalDays` = 7・`RefreshJitterDays` = 3
 - 手元のファイルを消すのは「展開先フォルダの削除」（`UiCommand.RemoveUnpackedFolders`）だけで、ごみ箱へ送る。送れないドライブでは消さない（`AppServiceContainer.DeleteToRecycleBin`）
 - `assets` が無いと、アプリは起動するが辞書を使う検索が黙って切れる（`SearchBridge.IsAvailable`。知らせは出ない）

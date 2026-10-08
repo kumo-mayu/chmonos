@@ -210,6 +210,12 @@ public sealed record AppSettings
     /// </summary>
     public bool ResumeFetchInBackground { get; init; } = true;
 
+    /// <summary>
+    /// 新しい版を確かめるか（ユーザ判断 2026-10-08）。1日1回まで GitHub の Releases に問い合わせる。
+    /// BOOTH 以外への通信なので、勝手に通信していると見えるものには止める手段を付ける
+    /// </summary>
+    public bool CheckForUpdates { get; init; } = true;
+
     /// <summary>非公開と判断するまでの404の連続回数。一時エラーはここに数えない。</summary>
     public int NotFoundThreshold { get; init; } = 3;
 

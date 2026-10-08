@@ -113,6 +113,7 @@ public sealed partial class SettingsViewModel
         _showEditQueueStrip = settings.ShowEditQueueStrip;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;
         _resumeFetchInBackground = settings.ResumeFetchInBackground;
+        _checkForUpdates = settings.CheckForUpdates;
         _saveImages = settings.SaveImages;
         _refreshIntervalDays = settings.RefreshIntervalDays;
         _oscPort = settings.OscPort;

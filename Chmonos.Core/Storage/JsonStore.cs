@@ -33,7 +33,10 @@ public static class JsonStore
         },
     };
 
-    /// <summary>ファイルが無ければ null を返す。壊れていれば例外を投げる（黙って握り潰さない）。</summary>
+    /// <summary>
+    /// ファイルが無ければ null を返す。壊れていれば例外を投げる（黙って握り潰さない）。
+    /// 形式の版（<see cref="StoreFormat"/>）が新しすぎれば <see cref="FormatTooNewException"/>、古ければ今の形に直してから読む
+    /// </summary>
     public static T? Read<T>(string path) where T : class
     {
         if (!File.Exists(path))
@@ -42,7 +45,16 @@ public static class JsonStore
         }
 
         using var stream = OpenShared(path);
-        return JsonSerializer.Deserialize<T>(stream, Options);
+
+        // 配列は版の欄を持てない（1 とみなす）。数十MBになる未確定の一覧を丸ごとメモリに読まないよう、そのまま流して読む
+        if (!StoreFormat.CarriesVersion(typeof(T)))
+        {
+            return JsonSerializer.Deserialize<T>(stream, Options);
+        }
+
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return FromVersioned<T>(buffer, path);
     }
 
     public static async Task<T?> ReadAsync<T>(string path, CancellationToken cancellationToken = default) where T : class
@@ -53,7 +65,43 @@ public static class JsonStore
         }
 
         await using var stream = OpenShared(path);
-        return await JsonSerializer.DeserializeAsync<T>(stream, Options, cancellationToken);
+        if (!StoreFormat.CarriesVersion(typeof(T)))
+        {
+            return await JsonSerializer.DeserializeAsync<T>(stream, Options, cancellationToken);
+        }
+
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, cancellationToken);
+        return FromVersioned<T>(buffer, path);
+    }
+
+    private static T? FromVersioned<T>(MemoryStream buffer, string path) where T : class
+    {
+        var json = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
+        var version = StoreFormat.VersionOf(json);
+        if (version > StoreFormat.Current)
+        {
+            throw new FormatTooNewException(path, version);
+        }
+
+        if (version == StoreFormat.Current)
+        {
+            return JsonSerializer.Deserialize<T>(json, Options);
+        }
+
+        var node = System.Text.Json.Nodes.JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
+        return node is null ? null : StoreFormat.Migrate(node, version, typeof(T), path).Deserialize<T>(Options);
+    }
+
+    /// <summary>書く中身。オブジェクトには形式の版の欄を足す（<see cref="StoreFormat.Stamp"/>）。</summary>
+    private static byte[] Serialize<T>(T value)
+    {
+        var json = JsonSerializer.SerializeToUtf8Bytes(value, Options);
+        return value is not null && StoreFormat.CarriesVersion(value.GetType()) ? StoreFormat.Stamp(json) : json;
     }
 
     /// <summary>
@@ -136,7 +184,7 @@ public static class JsonStore
             {
                 using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    JsonSerializer.Serialize(stream, value, Options);
+                    stream.Write(Serialize(value));
                     stream.Flush(flushToDisk: true);
                 }
 
@@ -177,7 +225,7 @@ public static class JsonStore
             {
                 await using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    await JsonSerializer.SerializeAsync(stream, value, Options, cancellationToken);
+                    await stream.WriteAsync(Serialize(value), cancellationToken);
                     stream.Flush(flushToDisk: true);
                 }
 

@@ -797,6 +797,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _resumeFetchInBackground, value)) { Save(); } }
     }
 
+    private bool _checkForUpdates;
+
+    /// <summary>新しい版を確かめるか（1日1回まで GitHub に問い合わせる）。</summary>
+    public bool CheckForUpdates
+    {
+        get => _checkForUpdates;
+        set { if (SetField(ref _checkForUpdates, value)) { Save(); } }
+    }
+
     private bool _saveImages;
 
     /// <summary>
@@ -1078,6 +1087,80 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     public string ItemUsageText => UsageText(_usage is not null, _usage?.ItemBytes, _usage?.ItemCount);
 
+    private (int Files, long Bytes)? _formatBackups;
+    private bool _formatBackupsLoaded;
+
+    /// <summary>形式を上げる前の控え（ユーザ判断 2026-10-08）。他の行と同じく、容量とファイル数を最初から出す。</summary>
+    public string FormatBackupUsageText
+        => _formatBackupsLoaded && _formatBackups is { Files: 0 } ? "控えはありません" : UsageText(_formatBackupsLoaded, _formatBackups?.Bytes, _formatBackups?.Files);
+
+    public bool HasFormatBackups => _formatBackups is { Files: > 0 };
+
+    private RelayCommand? _deleteFormatBackups;
+    private bool _deletingFormatBackups;
+
+    public RelayCommand DeleteFormatBackupsCommand => _deleteFormatBackups ??= new RelayCommand(
+        () => DeleteFormatBackupsAsync().Forget(),
+        () => HasFormatBackups && !_deletingFormatBackups);
+
+    private async Task LoadFormatBackupsAsync()
+    {
+        (int Files, long Bytes)? usage;
+        try
+        {
+            usage = await Task.Run(() => Core.Storage.StoreFormat.BackupUsage(_services.Paths.Root));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("控えの容量を数える", exception);
+            usage = null;
+        }
+
+        RunOnUiThread(() =>
+        {
+            _formatBackups = usage;
+            _formatBackupsLoaded = true;
+            OnPropertyChanged(nameof(FormatBackupUsageText));
+            OnPropertyChanged(nameof(HasFormatBackups));
+            RelayCommand.RaiseCanExecuteChanged();
+        });
+    }
+
+    private async Task DeleteFormatBackupsAsync()
+    {
+        if (_formatBackups is not { Files: > 0 } usage)
+        {
+            return;
+        }
+
+        var answer = Services.Notice.Show(
+            $"データの控え {usage.Files:N0} ファイル（{Core.Models.DisplayText.Size(usage.Bytes)}）を削除します。\n\n"
+            + "削除した控えは元に戻せません。前の版の Chmonos に戻すときに使うものです。",
+            "控えを削除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.Cancel);
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        _deletingFormatBackups = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        try
+        {
+            if (await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DeleteFormatBackups()) is Core.Commands.CommandResult.Failed failed)
+            {
+                Services.Notice.Show(failed.Message, "控えを削除", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+        finally
+        {
+            _deletingFormatBackups = false;
+            await LoadFormatBackupsAsync();
+        }
+    }
+
     /// <summary>読めなかった項目は 0 と書かない（空と見分けが付かない。外部の点検 2026-10-06）。</summary>
     internal static string UsageText(bool loaded, long? bytes, int? count)
         => !loaded
@@ -1175,6 +1258,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     private async Task LoadCoreAsync()
     {
         var usage = await _services.SettingsStore.LoadUsageAsync(_leaving.Token);
+        await LoadFormatBackupsAsync();
         var hidden = await _services.SettingsStore.LoadHiddenAsync();
         var excluded = await _services.SettingsStore.LoadExcludedAsync();
         var detached = await _services.SettingsStore.LoadDetachedAsync();
@@ -1398,6 +1482,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowEditQueueStrip = ShowEditQueueStrip,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,
             ResumeFetchInBackground = ResumeFetchInBackground,
+            CheckForUpdates = CheckForUpdates,
             SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,
             OscPort = OscPort,

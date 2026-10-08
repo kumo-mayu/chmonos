@@ -290,6 +290,7 @@ public sealed class DataStore
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
         Volumes = new JsonFileStore<List<VolumeRecord>>(paths.VolumesFile);
         UiState = new JsonFileStore<UiState>(paths.UiStateFile);
+        UpdateCheck = new JsonFileStore<Services.UpdateCheckRecord>(paths.UpdateCheckFile);
         RegistrationQueue = new JsonFileStore<List<QueuedRegistration>>(paths.RegistrationQueueFile);
         PendingOperations = new JsonFileStore<List<PendingOperation>>(paths.PendingOperationsFile);
     }
@@ -303,6 +304,9 @@ public sealed class DataStore
     public AppPaths Paths { get; }
 
     public ItemRepository Items { get; }
+
+    /// <summary>新しい版の確認の記録（<c>update-check.json</c>）。</summary>
+    public JsonFileStore<Services.UpdateCheckRecord> UpdateCheck { get; }
 
     public JsonFileStore<UserTagMaster> UserTags { get; }
 

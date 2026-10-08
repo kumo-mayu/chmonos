@@ -102,6 +102,9 @@ public sealed class AppPaths
     /// <summary>画面が覚えている状態（<see cref="Models.UiState"/>）。消してよい（次の起動が既定の見た目で始まるだけ）</summary>
     public string UiStateFile => Path.Combine(Root, "ui-state.json");
 
+    /// <summary>新しい版の確認の記録（最後に確かめた日時・最新の版・閉じた版）。</summary>
+    public string UpdateCheckFile => Path.Combine(Root, "update-check.json");
+
     /// <summary>失敗の書き残し（<see cref="Diagnostics.AppLog"/>）。消してよい</summary>
     public string LogFile => Path.Combine(Root, "logs", "app.log");
 

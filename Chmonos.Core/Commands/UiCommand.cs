@@ -575,6 +575,12 @@ public abstract record UiCommand
     /// <summary>見つからないファイル・フォルダの記録を、数えた控えの範囲でまとめて消す（ユーザ判断 2026-10-07）。</summary>
     public record ForgetMissingFiles(Services.MissingRecordPlan Plan) : UiCommand;
 
+    /// <summary>形式を上げる前に取った控え（<c>format-backups</c>）を全部消す（設定の「データ」・ユーザ判断 2026-10-08）。</summary>
+    public record DeleteFormatBackups : UiCommand;
+
+    /// <summary>新しい版の確認の記録を変える（新しい版の帯を × で閉じた版を覚える。ユーザ判断 2026-10-08）。</summary>
+    public record ChangeUpdateCheck(Func<Services.UpdateCheckRecord, Services.UpdateCheckRecord> Change) : UiCommand;
+
     public record FindMissingFiles(
         IProgress<(int Hashed, string? Detail)>? Progress = null,
         IReadOnlyList<string>? Folders = null) : UiCommand;
