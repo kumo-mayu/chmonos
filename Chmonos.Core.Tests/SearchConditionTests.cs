@@ -129,13 +129,17 @@ public class SearchConditionTests
         Assert.False(Matches("paid:-400 paid:1000-2000", item));
     }
 
-    /// <summary>前置きの後に空白を入れても範囲として読む。範囲を除くのは前置きの外に「-」を書く</summary>
+    /// <summary>
+    /// 読み替えるのは括弧の中だけ。前置きの後に空白を入れた paid: -400 は今までどおり「400ちょうどを除く」（ユーザ判断 2026-10-08）。
+    /// 範囲を除くのは前置きの外に「-」を書く
+    /// </summary>
     [Fact]
     public void 範囲の前置きの後の空白と_範囲を除く書き方()
     {
         var item = Item(local: l => l with { Purchases = [new Purchase { Price = 300 }] });
 
         Assert.True(Matches("paid: -400", item));
+        Assert.False(Matches("paid: -300", item));
         Assert.False(Matches("-paid:-400", item));
         Assert.True(Matches("-paid:1000-", item));
 

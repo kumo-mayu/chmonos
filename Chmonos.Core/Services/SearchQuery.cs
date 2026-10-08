@@ -862,10 +862,13 @@ public static class SearchQuery
         if (token.Kind == TokenKind.Prefix)
         {
             index++;
+
+            // 範囲の「-400」を読み替えるのは括弧の中だけ（前置きの後に空白を入れた paid: -400 は、今までどおり除く。ユーザ判断 2026-10-08）
+            var grouped = index < tokens.Count && tokens[index].Kind == TokenKind.Open;
             var inner = ParseUnary(tokens, ref index);
 
             // 打ちかけの「name:」だけは落とす。語として探すとどこにも当たらず0件になる
-            return inner is null ? null : WithField(inner, token.Field!.Value);
+            return inner is null ? null : WithField(inner, token.Field!.Value, grouped);
         }
 
         if (token.Kind == TokenKind.Open)
@@ -891,19 +894,20 @@ public static class SearchQuery
     }
 
     /// <summary>前置きを括弧やフレーズの中の語に当てる。中で別の前置きを書いた語はそちらを優先する。</summary>
-    private static SearchNode WithField(SearchNode node, SearchField field) => node switch
+    /// <param name="grouped">前置きを括弧に当てたか。範囲の前置きの括弧の中だけ、「-400」を「400以下」と読む。</param>
+    private static SearchNode WithField(SearchNode node, SearchField field, bool grouped = false) => node switch
     {
         SearchNode.Term { Field: null } term => term with { Field = field },
 
-        // 範囲の前置きの中の「-400」は、除くではなく「400以下」（ユーザ判断 2026-10-08）。括弧の中では「-」が語の先頭に来るので
+        // 範囲の前置きの括弧の中の「-400」は、除くではなく「400以下」（ユーザ判断 2026-10-08）。括弧の中では「-」が語の先頭に来るので
         // 除くの印として読まれ、paid:(-400 OR 1000-2000) が「400ちょうどを除く」になっていた。範囲として読めるときだけ付け替える。
         // 範囲を除きたいときは、前置きの外に書く（-paid:-400）
         SearchNode.Not { Inner: SearchNode.Term { Field: null } inner }
-            when SearchConditions.IsRange(field) && SearchConditions.TryParseRange("-" + inner.Text, out _)
+            when grouped && SearchConditions.IsRange(field) && SearchConditions.TryParseRange("-" + inner.Text, out _)
             => inner with { Text = "-" + inner.Text, Raw = "-" + inner.Raw, Field = field },
-        SearchNode.Not not => new SearchNode.Not(WithField(not.Inner, field)),
-        SearchNode.And and => new SearchNode.And(and.Parts.Select(part => WithField(part, field)).ToList()),
-        SearchNode.Or or => new SearchNode.Or(or.Parts.Select(part => WithField(part, field)).ToList()),
+        SearchNode.Not not => new SearchNode.Not(WithField(not.Inner, field, grouped)),
+        SearchNode.And and => new SearchNode.And(and.Parts.Select(part => WithField(part, field, grouped)).ToList()),
+        SearchNode.Or or => new SearchNode.Or(or.Parts.Select(part => WithField(part, field, grouped)).ToList()),
         _ => node,
     };
 }
