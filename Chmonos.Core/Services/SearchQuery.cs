@@ -43,7 +43,7 @@ public enum SearchField
 
     // ここから下は検索欄の記法で指す物（ユーザ判断 2026-10-08）。「対象」の切り替えには出さない
 
-    /// <summary>ユーザータグ（大分類と「大分類 / 小分類」）。</summary>
+    /// <summary>ユーザータグ（完全一致・<c>*</c>・<c>大分類/小分類</c>。<see cref="SearchConditions"/>）。</summary>
     UserTag,
 
     /// <summary>対応アバター（名前・呼び方・素体の名前）。登録簿から引く（<see cref="SearchFacts"/>）。</summary>

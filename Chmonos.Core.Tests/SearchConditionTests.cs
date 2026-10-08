@@ -179,18 +179,69 @@ public class SearchConditionTests
 
     // --- 名前の前置き ---
 
+    /// <summary>ユーザータグは完全一致。区切りの無い名前は大分類か小分類のどちらか（ユーザ判断 2026-10-08）</summary>
     [Fact]
-    public void Usertagは大分類と小分類の名前で当たる()
+    public void Usertagは名前の完全一致で当たる()
     {
         var item = Item(local: l => l with { UserTags = [new UserTagAssignment { Top = "衣装", Subs = ["ワンピース"] }] });
 
         Assert.True(Matches("usertag:衣装", item));
         Assert.True(Matches("usertag:ワンピース", item));
-        Assert.False(Matches("usertag:髪型", item));
+        Assert.False(Matches("usertag:衣", item));
+        Assert.False(Matches("usertag:ピース", item));
 
         // 前置きが無ければ、ユーザータグは文字の対象ではない（今までどおり）
         Assert.False(Matches("ワンピース", item));
     }
+
+    [Fact]
+    public void Usertagはスラッシュで大分類と小分類を分けて指せる()
+    {
+        var dress = Item(local: l => l with { UserTags = [new UserTagAssignment { Top = "衣装", Subs = ["ワンピース"] }] });
+        var topOnly = Item(local: l => l with { UserTags = [new UserTagAssignment { Top = "衣装" }] });
+        var otherTop = Item(local: l => l with { UserTags = [new UserTagAssignment { Top = "小物", Subs = ["ワンピース"] }] });
+
+        Assert.True(Matches("usertag:衣装/ワンピース", dress));
+        Assert.False(Matches("usertag:衣装/ワンピース", otherTop));
+
+        // 大分類/：小分類は問わない（小分類の無い付け方にも当たる）
+        Assert.True(Matches("usertag:衣装/", topOnly));
+        Assert.False(Matches("usertag:衣装/", otherTop));
+
+        // /小分類：大分類は問わない。小分類の名前が大分類と同じでも、大分類には当てない
+        Assert.True(Matches("usertag:/ワンピース", otherTop));
+        Assert.False(Matches("usertag:/衣装", topOnly));
+
+        // 全角の「／」と、括弧で囲んだ空白入りも同じ
+        Assert.True(Matches("usertag:衣装／ワンピース", dress));
+        Assert.True(Matches("usertag:\"衣装 / ワンピース\"", dress));
+    }
+
+    [Fact]
+    public void Usertagはアスタリスクの所だけ何でもよい()
+    {
+        var item = Item(local: l => l with { UserTags = [new UserTagAssignment { Top = "衣装小物", Subs = ["夏のワンピース"] }] });
+
+        Assert.True(Matches("usertag:衣装*", item));
+        Assert.True(Matches("usertag:*ワンピース", item));
+        Assert.True(Matches("usertag:*の*", item));
+        Assert.True(Matches("usertag:衣装*/夏*", item));
+        Assert.False(Matches("usertag:*スカート", item));
+        Assert.False(Matches("usertag:小物*", item));
+    }
+
+    [Theory]
+    [InlineData("abc", "abc", true)]
+    [InlineData("abc", "a*", true)]
+    [InlineData("abc", "*c", true)]
+    [InlineData("abc", "a*c", true)]
+    [InlineData("abc", "*", true)]
+    [InlineData("abc", "a*b*c", true)]
+    [InlineData("ac", "a*b*c", false)]
+    [InlineData("aba", "ab*ba", false)]
+    [InlineData("ABC", "abc", true)]
+    public void 名前の型を照らす(string name, string pattern, bool expected)
+        => Assert.Equal(expected, SearchConditions.Like(name, pattern));
 
     [Fact]
     public void Categoryは条件のカテゴリと同じ値で当たる()
@@ -275,7 +326,8 @@ public class SearchConditionTests
     {
         Assert.True(SearchConditions.IsCondition(SearchField.Paid));
         Assert.True(SearchConditions.IsCondition(SearchField.Is));
-        Assert.False(SearchConditions.IsCondition(SearchField.UserTag));
+        Assert.True(SearchConditions.IsCondition(SearchField.UserTag));
+        Assert.False(SearchConditions.IsCondition(SearchField.Category));
         Assert.False(SearchConditions.IsCondition(SearchField.Name));
     }
 }

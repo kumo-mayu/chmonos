@@ -47,9 +47,32 @@ public class SearchSyntaxTests
         await app.AddItemAsync(Make.Item("1000002", "全年齢の商品"));
         var search = (await app.StartAsync()).Search;
 
+        Assert.False(search.HasQueryNotice);
         search.QueryText = "is:r18";
 
         Assert.Empty(ShownIds(search));
+
+        // 黙って0件にせず、検索欄で理由を言う（絞り込みの条件がグレーで理由を出すのと同じ）
+        Assert.True(search.HasQueryNotice);
+        Assert.Equal("R-18 の商品は、設定で表示しないようにしています。", search.QueryNotice);
+
+        search.QueryText = "夏";
+        Assert.False(search.HasQueryNotice);
+    });
+
+    /// <summary>R-18 を表示する設定なら、is:r18 で R-18 の商品が出て、理由は言わない</summary>
+    [Fact]
+    public Task R18を表示する設定ではIsのr18で出る() => TestApp.Run(async app =>
+    {
+        await app.ChangeSettingsAsync(current => current with { ShowAdult = true });
+        await app.AddItemAsync(Adult(Make.Item("1000001", "R-18の商品")));
+        await app.AddItemAsync(Make.Item("1000002", "全年齢の商品"));
+        var search = (await app.StartAsync()).Search;
+
+        search.QueryText = "is:r18";
+
+        Assert.Equal(["1000001"], ShownIds(search));
+        Assert.False(search.HasQueryNotice);
     });
 
     [Fact]

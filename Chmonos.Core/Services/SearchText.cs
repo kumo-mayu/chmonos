@@ -175,20 +175,6 @@ public static class SearchText
 
                 break;
 
-            // 大分類だけを付けた物は大分類、小分類は「大分類 / 小分類」の形で入れる（タグの管理と同じ見せ方）。
-            // 小分類の名前だけで打っても、この文字の中に含まれるので当たる
-            case SearchField.UserTag:
-                foreach (var tag in item.Local.UserTags)
-                {
-                    Add(tag.Top);
-                    foreach (var sub in tag.Subs)
-                    {
-                        Add($"{tag.Top} / {sub}");
-                    }
-                }
-
-                break;
-
             // 条件「カテゴリ」と同じ値（自分で入れたカテゴリか BOOTH のカテゴリ、と BOOTH の親カテゴリ）
             case SearchField.Category:
                 Add(item.CategoryName);

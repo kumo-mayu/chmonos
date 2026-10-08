@@ -111,7 +111,8 @@ public static class SearchConditions
 
     /// <summary>文字の照らし方を使わず、ここで当てる前置きか。別表記で広げない（数や決まった語なので）。</summary>
     public static bool IsCondition(SearchField field)
-        => field is SearchField.Is or SearchField.Has or SearchField.Paid or SearchField.Price or SearchField.Wish or SearchField.Avatar;
+        => field is SearchField.Is or SearchField.Has or SearchField.Paid or SearchField.Price or SearchField.Wish or SearchField.Avatar
+            or SearchField.UserTag;
 
     /// <summary>答えが商品の記録の外の事実で変わる前置きか（覚えた答えを使い回せない）。</summary>
     internal static bool DependsOnFacts(SearchField field) => field is SearchField.Avatar or SearchField.Has;
@@ -132,10 +133,65 @@ public static class SearchConditions
             SearchField.Price => TryParseRange(term.Text, out var price)
                 && item.Booth.Variations.Any(variation => price.Contains(variation.Price)),
             SearchField.Wish => TryParseRange(term.Text, out var wish) && wish.Contains(item.Booth.WishListsCount),
+            SearchField.UserTag => MatchesUserTag(term.Text, item),
             SearchField.Avatar => facts is not null && term.Text.Length > 0
                 && facts.AvatarNames(item).Any(name => SearchQuery.Normalize(name).Contains(term.Text, StringComparison.Ordinal)),
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// ユーザータグ（ユーザ判断 2026-10-08）。名前は**完全一致**で、<c>*</c> を書いた所だけ何文字でもよい。
+    /// 自分で付けた名前なので、ぴったり指せる方が役に立つ（含むで当てると「衣装」が「衣装小物」にも当たる）。
+    /// <c>大分類/小分類</c>・<c>大分類/</c>（小分類は問わない）・<c>/小分類</c>（大分類は問わない）。区切りの無い名前は大分類か小分類のどちらか。
+    /// 区切りはタグの管理の見せ方（「大分類 / 小分類」）に合わせて「/」。全角の「／」も畳まれて同じになる
+    /// </summary>
+    private static bool MatchesUserTag(string text, ItemRecord item)
+    {
+        var slash = text.IndexOf('/');
+        if (slash < 0)
+        {
+            var name = text.Trim();
+            return name.Length > 0 && item.Local.UserTags.Any(tag => Like(tag.Top, name) || tag.Subs.Any(sub => Like(sub, name)));
+        }
+
+        var top = text[..slash].Trim();
+        var sub = text[(slash + 1)..].Trim();
+        return item.Local.UserTags.Any(tag =>
+            (top.Length == 0 || Like(tag.Top, top))
+            && (sub.Length == 0 || tag.Subs.Any(name => Like(name, sub))));
+    }
+
+    /// <summary>名前が型に合うか。型は畳んである。<c>*</c> は0文字以上の何でも</summary>
+    internal static bool Like(string name, string pattern)
+    {
+        var folded = SearchQuery.Normalize(name);
+        if (!pattern.Contains('*'))
+        {
+            return folded == pattern;
+        }
+
+        var pieces = pattern.Split('*');
+        if (!folded.StartsWith(pieces[0], StringComparison.Ordinal) || !folded.EndsWith(pieces[^1], StringComparison.Ordinal)
+            || folded.Length < pieces[0].Length + pieces[^1].Length)
+        {
+            return false;
+        }
+
+        var at = pieces[0].Length;
+        var end = folded.Length - pieces[^1].Length;
+        for (var i = 1; i < pieces.Length - 1; i++)
+        {
+            var found = folded.IndexOf(pieces[i], at, end - at, StringComparison.Ordinal);
+            if (found < 0)
+            {
+                return false;
+            }
+
+            at = found + pieces[i].Length;
+        }
+
+        return true;
     }
 
     // 絞り込みの条件（SearchViewModel.CreateModule）と同じ式。値を変えるときは両方を見る

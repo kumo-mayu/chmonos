@@ -98,6 +98,8 @@ public sealed partial class SearchViewModel
         RebuildRows();
 
         OnPropertyChanged(nameof(ResultSummary));
+        OnPropertyChanged(nameof(QueryNotice));
+        OnPropertyChanged(nameof(HasQueryNotice));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(ShowsWidenOffer));
         OnPropertyChanged(nameof(FilterSummary));
@@ -221,6 +223,19 @@ public sealed partial class SearchViewModel
     }
 
     public bool HasWidened => _widenedTerms.Count > 0;
+
+    /// <summary>
+    /// 検索欄に書いた記法が効かない理由（無ければ空）。設定で R-18 を隠しているときの is:r18 は、書いても出ない
+    /// （設定の方が守り）。黙って0件にすると理由が分からないので、絞り込みの条件と同じく理由を言う（ユーザ判断 2026-10-08）
+    /// </summary>
+    public string QueryNotice
+        => !_services.Settings.ShowAdult
+           && (Core.Services.SearchQuery.Mentions(_queryNode, Core.Services.SearchField.Is, "r18")
+               || Core.Services.SearchQuery.Mentions(_queryNode, Core.Services.SearchField.Is, "r-18"))
+            ? "R-18 の商品は、設定で表示しないようにしています。"
+            : string.Empty;
+
+    public bool HasQueryNotice => QueryNotice.Length > 0;
 
     /// <summary>
     /// 何で当たったかを1行で出す。

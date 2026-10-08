@@ -1698,8 +1698,24 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6"
-                            Height="34" HorizontalAlignment="Stretch" Background="{DynamicResource InputBack}">
+                    <!--
+                        書いた記法が効かない理由があるとき（設定で R-18 を隠しているのに is:r18）、枠を赤くして吹き出しで言う
+                        （ユーザ判断 2026-10-08。絞り込みの条件がグレーで理由を出すのと同じ扱い）
+                    -->
+                    <Border BorderThickness="1" CornerRadius="6"
+                            Height="34" HorizontalAlignment="Stretch" Background="{DynamicResource InputBack}"
+                            AutomationProperties.HelpText="{Binding QueryNotice}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasQueryNotice}" Value="True">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource DangerText}" />
+                                        <Setter Property="ToolTip" Value="{Binding QueryNotice}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <Grid>
                             <TextBox x:Name="QueryBox" MaxLength="500" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0,34,0"
@@ -1794,6 +1810,7 @@
                                     tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
                                     file: ファイル名　path: ファイルの場所　content: zipの中のファイル名<LineBreak />
                                     usertag: ユーザータグ　avatar: 対応アバター　category: カテゴリ<LineBreak />
+                                    ユーザータグは名前がぴったり同じ物を探します。usertag:衣装/ワンピース や usertag:*ピース とも書けます。<LineBreak />
                                     name:&quot;夏 セット&quot; や tag:(夏 OR 冬) のようにも書けます。&quot;…&quot; の中の name: はそのままの文字として探します。<LineBreak />
                                     <LineBreak />
                                     商品の状態でも探せます。<LineBreak />
