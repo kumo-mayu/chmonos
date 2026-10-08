@@ -15,6 +15,7 @@
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
 | `mock/` | 画面のモック（Claude Design のキャンバス。`*.dc.html` が1画面ずつ）。今の画面とは違う所がある。キャンバスの道具ごと書き出した1枚の HTML は、許諾の無い他社のコードとフォントを含むので置かない（2026-10-07 に履歴からも外した） |
+| `design/icon/` | アプリのアイコンの元の SVG と、`.ico` を作り直す台本（`design/icon/README.md`） |
 | `tools/wording.mjs` | 画面に表示される文を App と Core から集め、書き方の決まりに外れていそうな所に印を付ける（使い方はスキル `ui-wording`） |
 | `tools/SandboxGen/` | 確かめ用の写しを、作り物のデータで組み立てる道具（アプリと同じ道で書く・BOOTH へ問い合わせない）。ソリューションには入れていない。呼ぶのは `ui-check` の `New-ChmonosSandbox -Recipe` |
 | `tools/ViewShot/` | 窓を出さずに、画面や部品を作り物のデータで組んで PNG に描く台。前後の画像を比べる `diff` も持つ。見た目だけの確かめはアプリを起動せずにこれで行う（使い方と、確かめられない物はスキル `ui-check`「窓を出さずに描く」） |

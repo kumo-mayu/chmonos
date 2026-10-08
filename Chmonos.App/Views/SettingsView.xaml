@@ -982,11 +982,18 @@
                             <TextBlock Text="Chmonos（クモノス）について" Style="{StaticResource GroupTitle}" VerticalAlignment="Center" />
                         </Expander.Header>
                         <StackPanel Margin="0,14,0,0">
+                            <!-- アイコンと名前・バージョン（2026-10-08）。不具合を知らせてもらうときに、どの版かを読んでもらう（ユーザ判断 2026-10-07） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <Image Source="/Assets/Chmonos-64.png" Width="48" Height="48" RenderOptions.BitmapScalingMode="HighQuality"
+                                       AutomationProperties.Name="Chmonos のアイコン" />
+                                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Chmonos（クモノス）" Style="{StaticResource SubTitle}" />
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0" Text="{Binding VersionText}"
+                                               AutomationProperties.AutomationId="Settings.Version" />
+                                </StackPanel>
+                            </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Text="BOOTHで買ったアセットを手元で管理するために、pixivプラットフォーム（BOOTH）を利用して個人が開発した、非公式のアプリケーションです。pixivが作成、配布しているアプリケーションではありません。「BOOTH」「pixiv」はピクシブ株式会社（pixiv Inc.）の登録商標です。" />
-                            <!-- 不具合を知らせてもらうときに、どの版かを読んでもらう（ユーザ判断 2026-10-07） -->
-                            <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" Text="{Binding VersionText}"
-                                       AutomationProperties.AutomationId="Settings.Version" />
 
                             <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"

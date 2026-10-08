@@ -26,6 +26,8 @@
     <OutputType>WinExe</OutputType>
     <!-- 配る exe の名前。名前空間は Chmonos.App のまま（試験と道具が組み立ての名前で参照する所は Chmonos に揃えてある） -->
     <AssemblyName>Chmonos</AssemblyName>
+    <!-- exe のアイコン（エクスプローラ・タスクバー）。ウィンドウもこれを使う。元の絵は design/icon（2026-10-08・ユーザ判断「Aで良さそうだ」） -->
+    <ApplicationIcon>Assets\Chmonos.ico</ApplicationIcon>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -53,6 +55,8 @@
       ExcludeFromSingleFile を付けるのは、付けないと1ファイルにまとめたとき exe の中へ
       吸い込まれて読めなくなるため（辞書と同じ。Chmonos.Core.csproj の assets と揃える）
     -->
+    <Resource Include="Assets\Chmonos.ico" />
+    <Resource Include="Assets\Chmonos-64.png" />
     <None Include="..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="..\NOTICE" Link="NOTICE" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <!-- 第三者のライブラリの許諾文と著作権表示（MIT は配る物に添えることを求める。外部の点検 2026-10-07） -->
