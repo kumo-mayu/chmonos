@@ -145,6 +145,13 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
 
         // 商品と画像は、中身が本当に変わったときだけ知らせる（ファイルの日時だけ変わった・同じ中身で書き直した、では知らせない）
         var reported = snapshotParts.Where(part => part is not (StorePart.Items or StorePart.Images)).ToList();
+
+        // 改変も中身が変わったときだけ知らせる。読めない改変が残ると、印を確定しないので見比べのたびに読み直す。
+        // そのたびに知らせると、外の道具が同じ一覧を2分ごとに取り直し、直近1000件の記録も埋まる（点検32）
+        if (reported.Contains(StorePart.Modifications) && SameModifications(before, after))
+        {
+            reported.Remove(StorePart.Modifications);
+        }
         if (itemIds.Count > 0)
         {
             reported.Add(StorePart.Items);
@@ -179,6 +186,14 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
         {
             feed.Publish("changed", reported.Select(PartName).ToList(), changedIds, null, LoadedAt);
         }
+    }
+
+    private static bool SameModifications(QuerySnapshot before, QuerySnapshot after)
+    {
+        static string Text(QuerySnapshot snapshot)
+            => JsonSerializer.Serialize(snapshot.Modifications.Records.OrderBy(record => record.Id, StringComparer.Ordinal).ToList(), Core.Storage.JsonStore.Options);
+
+        return ReferenceEquals(before.Modifications, after.Modifications) || Text(before) == Text(after);
     }
 
     /// <summary>読み直せた部分の新しい印を確定する。</summary>

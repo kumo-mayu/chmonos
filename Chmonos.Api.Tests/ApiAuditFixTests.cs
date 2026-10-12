@@ -161,4 +161,39 @@ public sealed class ApiAuditFixTests : IAsyncLifetime
         await _sync.ApplyPendingAsync();
         Assert.Equal("作り物の改変・二", (await GetAsync("/v1/modifications"))[0].GetProperty("name").GetString());
     }
+    [Fact]
+    public async Task 壊れた改変が残っても_見比べのたびに知らせない()
+    {
+        await _store.Modifications.SaveAsync(new ModificationRecord { Id = "mod-0001", AvatarItemId = "9300001", Name = "作り物の改変" });
+        Directory.CreateDirectory(_store.Paths.ModificationsDir);
+        await File.WriteAllTextAsync(_store.Paths.ModificationFile("mod-0002"), "{ 壊れた");
+        _sync.Note(_store.Paths.ModificationFile("mod-0001"));
+        await _sync.ApplyPendingAsync();
+        var sequence = (await GetAsync("/v1/changes")).GetProperty("sequence").GetInt64();
+
+        // 読み終えていないので見比べのたびに読み直すが、中身は変わらないので知らせない（点検32）
+        for (var round = 0; round < 3; round++)
+        {
+            var everything = new StoreChangeSet();
+            everything.Add(StorePart.Modifications);
+            _sync.Enqueue(everything);
+            await _sync.ApplyPendingAsync();
+        }
+
+        Assert.Equal(sequence, (await GetAsync("/v1/changes")).GetProperty("sequence").GetInt64());
+        Assert.Single((await GetAsync("/v1/modifications")).EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("/v1/items/batch", """{"ids":[null]}""", "invalidIds")]
+    [InlineData("/v1/search", """{"where":{"and":[null]}}""", "invalidExpression")]
+    [InlineData("/v1/search", """{"sort":[null]}""", "invalidSort")]
+    public async Task 配列の中のnullは_入力の誤りとして400を返す(string path, string body, string code)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(code, JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("code").GetString());
+    }
 }

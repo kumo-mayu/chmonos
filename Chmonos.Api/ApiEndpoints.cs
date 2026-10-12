@@ -96,6 +96,13 @@ internal static partial class ApiEndpoints
             var snapshot = state.Snapshot;
             var includes = Includes.ParseItem(body.Include);
             var ids = body.Ids ?? [];
+
+            // 配列の中の null は入力の誤り（点検32：照らす所で落ち、内部の誤りとして 500 を返していた）
+            if (ids.Any(id => id is null))
+            {
+                throw QueryException.Invalid("invalidIds", "ids に null は書けません。");
+            }
+
             if (ids.Count > SearchEngine.MaxLimit)
             {
                 throw QueryException.Invalid("invalidLimit", $"一度に引けるのは {SearchEngine.MaxLimit} 件までです。");

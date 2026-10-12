@@ -189,6 +189,12 @@ public static class SearchEngine
         ExpressionBudget budget,
         int depth)
     {
+        // and・or の中の null は入力の誤り（点検32：読む所で落ち、内部の誤りとして 500 を返していた）
+        if (expression is null)
+        {
+            throw QueryException.Invalid("invalidExpression", "式に null は書けません。");
+        }
+
         if (depth > MaxDepth)
         {
             throw QueryException.Invalid("expressionTooDeep", $"式が深すぎます（{MaxDepth} 段まで）。");
@@ -309,6 +315,11 @@ public static class SearchEngine
         var keys = new List<SortKey>();
         foreach (var request in requests ?? [])
         {
+            if (request is null)
+            {
+                throw QueryException.Invalid("invalidSort", "sort に null は書けません。");
+            }
+
             var descending = request.Order switch
             {
                 null or "asc" => false,
