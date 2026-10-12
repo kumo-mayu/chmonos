@@ -75,6 +75,22 @@ public sealed class QuerySnapshot
         UnreadUpdateKinds = itemId => UnreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : BoothChangeKind.None,
     };
 
+    /// <summary>検索用の文字列を照らす間に取る錠（文字列は対象を初めて探すときに畳んで覚えるので、同時に畳み合わない）。</summary>
+    internal object SearchGate { get; } = new();
+
+    private Dictionary<string, SearchHaystack>? _haystacks;
+    private SearchFacts? _facts;
+
+    /// <summary>商品の検索用の文字列（画面と同じ作り方。商品名の読みは作らない＝造語変換は使わない）。<see cref="SearchGate"/> の中で呼ぶ。</summary>
+    internal SearchHaystack HaystackOf(ItemRecord item)
+    {
+        _haystacks ??= Items.ToDictionary(entry => entry.Id, entry => SearchText.Build(entry), StringComparer.Ordinal);
+        return _haystacks[item.Id];
+    }
+
+    /// <summary>検索欄の記法（<c>avatar:</c>・<c>has:update</c>）が見る事実。素体の索引は条件と同じ物を使う（同じ答えにするため）。</summary>
+    internal SearchFacts Facts => _facts ??= new SearchFacts(() => Compatibility, () => Registry, UnreadUpdates.ContainsKey);
+
     public static async Task<QuerySnapshot> LoadAsync(DataStore store, CancellationToken cancellationToken = default)
     {
         var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);

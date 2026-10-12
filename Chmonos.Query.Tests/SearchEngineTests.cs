@@ -1,0 +1,234 @@
+using System.Text.Json;
+using Chmonos.Core.Models;
+using Chmonos.Core.Storage;
+using Chmonos.Query.Search;
+
+namespace Chmonos.Query.Tests;
+
+/// <summary>検索の式（AND・OR・NOT）・並べ替えと続きの印・選択肢の件数（docs/spec/local-api-shapes.md）。</summary>
+public sealed class SearchEngineTests : IDisposable
+{
+    private static readonly DateTimeOffset Now = new(2026, 10, 12, 12, 0, 0, TimeSpan.FromHours(9));
+
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "chmonos-query-tests", Guid.NewGuid().ToString("N"));
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
+    }
+
+    private static ItemRecord Item(string id, string name, Func<BoothBlock, BoothBlock>? booth = null, Func<LocalBlock, LocalBlock>? local = null)
+    {
+        var record = new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock { Name = name },
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = id.PadLeft(64, '0'), Paths = [$@"D:\files\{id}.zip"], SizeBytes = 1 }] },
+        };
+        return record with { Booth = booth?.Invoke(record.Booth) ?? record.Booth, Local = local?.Invoke(record.Local) ?? record.Local };
+    }
+
+    /// <summary>作り物の5件（名前・ID は作り物）。</summary>
+    private async Task<QuerySnapshot> SnapshotAsync()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        ItemRecord[] items =
+        [
+            Item("9700001", "夏の水着", booth => booth with { Category = new BoothCategory { Id = 1, Name = "3D衣装" }, Tags = ["夏"], WishListsCount = 300 },
+                local => local with { Purchases = [new Purchase { Kind = PurchaseKind.ForSelf, Price = 1500 }], IsFavorite = true }),
+            Item("9700002", "冬のコート", booth => booth with { Category = new BoothCategory { Id = 1, Name = "3D衣装" }, Tags = ["冬"], WishListsCount = 100 },
+                local => local with { Purchases = [new Purchase { Kind = PurchaseKind.ForSelf, Price = 3000 }] }),
+            Item("9700003", "夏の帽子", booth => booth with { Category = new BoothCategory { Id = 2, Name = "3D小物" }, Tags = ["夏"], WishListsCount = 300, IsAdult = true }),
+            Item("9700004", "素材集", booth => booth with { WishListsCount = 50 }, local => local with { IsHidden = true }),
+            Item("9700005", "対応つきの髪", booth => booth with { Category = new BoothCategory { Id = 3, Name = "3D装飾品" }, WishListsCount = 10 },
+                local => local with { Avatars = [new AvatarLink { AvatarItemId = "7000001", Source = AvatarLinkSource.SupportSection }] }),
+        ];
+
+        foreach (var item in items)
+        {
+            await store.Items.SaveAsync(item);
+        }
+
+        return await QuerySnapshot.LoadAsync(store);
+    }
+
+    private static string[] Ids(QuerySnapshot snapshot, SearchExpression? where, bool includeHidden = true, bool includeAdult = true)
+        => SearchEngine.Filter(snapshot, where, includeHidden, includeAdult, null, Now).Select(item => item.Id).ToArray();
+
+    private static SearchExpression Condition(ConditionRequest request) => new() { Condition = request };
+
+    [Fact]
+    public async Task 文字列と条件を_ANDとORとNOTで組める()
+    {
+        var snapshot = await SnapshotAsync();
+
+        Assert.Equal(["9700001", "9700003"], Ids(snapshot, new() { Text = "夏" }));
+        Assert.Equal(["9700001"], Ids(snapshot, new()
+        {
+            And = [new() { Text = "夏" }, Condition(new() { Kind = "category", Values = ["3D衣装"] })],
+        }));
+        Assert.Equal(["9700001", "9700002", "9700003"], Ids(snapshot, new()
+        {
+            Or = [new() { Text = "夏" }, Condition(new() { Kind = "category", Values = ["3D衣装"] })],
+        }));
+        Assert.Equal(["9700002", "9700004", "9700005"], Ids(snapshot, new() { Not = new() { Text = "夏" } }));
+
+        // NOT (夏 AND 3D衣装) = 夏でない OR 3D衣装でない
+        Assert.Equal(["9700002", "9700003", "9700004", "9700005"], Ids(snapshot, new()
+        {
+            Not = new() { And = [new() { Text = "夏" }, Condition(new() { Kind = "category", Values = ["3D衣装"] })] },
+        }));
+    }
+
+    [Fact]
+    public async Task NOTの範囲は_画面の除くと同じく_値の分からない商品も外す()
+    {
+        var snapshot = await SnapshotAsync();
+        var paid = Condition(new() { Kind = "price", Min = 1000, Max = 2000 });
+
+        Assert.Equal(["9700001"], Ids(snapshot, paid));
+
+        // 払った額を入れていない3件は「範囲の外」とは言えないので、NOT でも出さない
+        Assert.Equal(["9700002"], Ids(snapshot, new() { Not = paid }));
+
+        // NOT を2回重ねると元に戻る
+        Assert.Equal(["9700001"], Ids(snapshot, new() { Not = new() { Not = paid } }));
+    }
+
+    [Fact]
+    public async Task 絞らない値の条件は_すべてに当たり_NOTで何にも当たらない()
+    {
+        var snapshot = await SnapshotAsync();
+        var both = Condition(new() { Kind = "favorite", Choice = "both" });
+        var noBounds = Condition(new() { Kind = "wishCount" });
+
+        Assert.Equal(5, Ids(snapshot, both).Length);
+        Assert.Empty(Ids(snapshot, new() { Not = both }));
+        Assert.Equal(5, Ids(snapshot, noBounds).Length);
+        Assert.Empty(Ids(snapshot, new() { Not = noBounds }));
+    }
+
+    [Fact]
+    public async Task 非表示とR18は既定で返し_外すこともできる()
+    {
+        var snapshot = await SnapshotAsync();
+
+        Assert.Equal(5, Ids(snapshot, null).Length);
+        Assert.Equal(["9700001", "9700002", "9700005"], Ids(snapshot, null, includeHidden: false, includeAdult: false));
+    }
+
+    [Fact]
+    public async Task 対応アバターは画面と同じ数え方で当てる()
+    {
+        var snapshot = await SnapshotAsync();
+
+        Assert.Equal(["9700005"], Ids(snapshot, Condition(new() { Kind = "avatar", Avatars = ["7000001"] })));
+
+        // 対応の指定が無い商品だけ
+        Assert.Equal(["9700001", "9700002", "9700003", "9700004"], Ids(snapshot, Condition(new() { Kind = "avatar", Matched = false, Unspecified = true })));
+    }
+
+    [Theory]
+    [InlineData("""{"condition":{"kind":"無い種類"}}""", "unknownCondition")]
+    [InlineData("""{"condition":{"kind":"favorite","choice":"maybe"}}""", "invalidChoice")]
+    [InlineData("""{"condition":{"kind":"gift","options":{"includeEverything":true}}}""", "invalidOption")]
+    [InlineData("""{"condition":{"kind":"boothTag","values":["夏"],"match":"most"}}""", "invalidCondition")]
+    [InlineData("""{"condition":{"kind":"avatar","matched":false,"unspecified":false}}""", "invalidCondition")]
+    [InlineData("""{"text":"夏","condition":{"kind":"favorite"}}""", "invalidExpression")]
+    [InlineData("""{}""", "invalidExpression")]
+    public async Task 読めない式は_決まった名前の誤りで返す(string json, string code)
+    {
+        var snapshot = await SnapshotAsync();
+        var where = JsonSerializer.Deserialize("{\"where\":" + json + "}", QueryJson.Context.SearchRequest)!.Where;
+
+        var error = Assert.Throws<QueryException>(() => SearchEngine.Filter(snapshot, where, true, true, null, Now));
+        Assert.Equal(400, error.Status);
+        Assert.Equal(code, error.Code);
+    }
+
+    [Fact]
+    public async Task 深すぎる式は断る()
+    {
+        var snapshot = await SnapshotAsync();
+        var where = new SearchExpression { Text = "夏" };
+        for (var depth = 0; depth < SearchEngine.MaxDepth; depth++)
+        {
+            where = new SearchExpression { Not = where };
+        }
+
+        Assert.Equal("expressionTooDeep", Assert.Throws<QueryException>(() => Ids(snapshot, where)).Code);
+    }
+
+    [Fact]
+    public async Task 並べ替えて続きの印で分けると_全部を1回ずつ返す()
+    {
+        var snapshot = await SnapshotAsync();
+        var sort = new[] { new SortRequest("wishCount", "desc") };
+        var seen = new List<string>();
+        string? cursor = null;
+        var pages = 0;
+        do
+        {
+            var page = SearchEngine.Search(snapshot, new SearchRequest { Sort = sort, Limit = 2, Cursor = cursor }, Now);
+            Assert.Equal(5, page.Total);
+            seen.AddRange(page.Items.Select(item => item.Id));
+            cursor = page.NextCursor;
+            pages++;
+        }
+        while (cursor is not null);
+
+        Assert.Equal(3, pages);
+
+        // スキ数の多い順。同じ数（300）は ID の順
+        Assert.Equal(["9700001", "9700003", "9700002", "9700004", "9700005"], seen);
+    }
+
+    [Fact]
+    public async Task 続きの印は_同じ並べ方にだけ使える()
+    {
+        var snapshot = await SnapshotAsync();
+        var first = SearchEngine.Search(snapshot, new SearchRequest { Sort = [new SortRequest("wishCount")], Limit = 2 }, Now);
+
+        Assert.Equal("invalidCursor", Assert.Throws<QueryException>(() =>
+            SearchEngine.Search(snapshot, new SearchRequest { Sort = [new SortRequest("name")], Cursor = first.NextCursor }, Now)).Code);
+        Assert.Equal("invalidCursor", Assert.Throws<QueryException>(() =>
+            SearchEngine.Search(snapshot, new SearchRequest { Cursor = "読めない印" }, Now)).Code);
+    }
+
+    [Fact]
+    public async Task 選択肢の件数は_式に当たった商品の中で数える()
+    {
+        var snapshot = await SnapshotAsync();
+        var answer = SearchEngine.Facets(snapshot, new FacetsRequest { Where = new() { Text = "夏" }, Fields = ["category", "boothTag", "avatar"] }, Now);
+
+        Assert.Equal(2, answer.Total);
+        Assert.Equal([("3D小物", 1), ("3D衣装", 1)], answer.Fields["category"].Select(value => (value.Value, value.Count)));
+        Assert.Equal([("夏", 2)], answer.Fields["boothTag"].Select(value => (value.Value, value.Count)));
+        Assert.Equal(new AvatarGroupCounts(0, 2), answer.AvatarGroups);
+
+        Assert.Equal("unknownFacet", Assert.Throws<QueryException>(() =>
+            SearchEngine.Facets(snapshot, new FacetsRequest { Fields = ["price"] }, Now)).Code);
+    }
+
+    [Fact]
+    public async Task 要求のJSONは_camelCaseで読み_答えは日本語のまま書く()
+    {
+        var snapshot = await SnapshotAsync();
+        var request = JsonSerializer.Deserialize(
+            """{"where":{"and":[{"text":"夏"},{"not":{"condition":{"kind":"adult","choice":"adult"}}}]},"sort":[{"field":"id"}],"limit":10}""",
+            QueryJson.Context.SearchRequest)!;
+
+        var page = SearchEngine.Search(snapshot, request, Now);
+        var json = JsonSerializer.Serialize(page, QueryJson.Context.SearchPage);
+
+        Assert.Equal(["9700001"], page.Items.Select(item => item.Id));
+        Assert.Contains("\"name\":\"夏の水着\"", json);
+        Assert.Contains("\"nextCursor\":null", json);
+    }
+}

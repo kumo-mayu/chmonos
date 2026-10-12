@@ -16,6 +16,10 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(ItemDetail))]
 [JsonSerializable(typeof(ItemSummary))]
 [JsonSerializable(typeof(IReadOnlyList<ItemSummary>))]
+[JsonSerializable(typeof(Search.SearchRequest))]
+[JsonSerializable(typeof(Search.SearchPage))]
+[JsonSerializable(typeof(Search.FacetsRequest))]
+[JsonSerializable(typeof(Search.FacetsAnswer))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {
 }
