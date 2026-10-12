@@ -113,7 +113,8 @@ public sealed class QuerySnapshot
     {
         try
         {
-            return _store.Items.LoadAsync(item.Id).GetAwaiter().GetResult() ?? item;
+            // Core の ItemRepository の控えを通さない（説明文ごと控えて、写しで落とした分が戻ってしまう）
+            return JsonStore.ReadAsync<ItemRecord>(Paths.ItemFile(item.Id)).GetAwaiter().GetResult() ?? item;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
@@ -124,49 +125,187 @@ public sealed class QuerySnapshot
     /// <summary>検索欄の記法（<c>avatar:</c>・<c>has:update</c>）が見る事実。素体の索引は条件と同じ物を使う（同じ答えにするため）。</summary>
     internal SearchFacts Facts => _facts ??= new SearchFacts(() => Compatibility, () => Registry, UnreadUpdates.ContainsKey);
 
-    public static async Task<QuerySnapshot> LoadAsync(DataStore store, CancellationToken cancellationToken = default)
+    /// <summary>商品のファイルの印（大きさと日時）と、説明文を落とした記録。変わっていないファイルは読み直さず、写しどうしで使い回す。</summary>
+    private sealed record ItemSlot(long Length, DateTime LastWriteUtc, ItemRecord Item, IReadOnlyList<VideoLink> Videos);
+
+    private IReadOnlyDictionary<string, ItemSlot> _slots = new Dictionary<string, ItemSlot>();
+
+    /// <summary>保存先を全部読む。</summary>
+    public static Task<QuerySnapshot> LoadAsync(DataStore store, CancellationToken cancellationToken = default)
+        => BuildAsync(store, previous: null, StoreChangeSet.Everything(), cancellationToken);
+
+    /// <summary>
+    /// 変わった部分だけを読み直した、新しい写しを作る（この写しは変えない。問い合わせの途中で半分だけ新しい答えを返さないため）。
+    /// 商品は変わった部分に入っていれば一覧を見直し、大きさか日時が変わったファイルだけを読む（2,000 件でも見直すのは一覧だけ）。
+    /// </summary>
+    public Task<QuerySnapshot> UpdateAsync(StoreChangeSet changes, CancellationToken cancellationToken = default)
+        => BuildAsync(_store, this, changes, cancellationToken);
+
+    private static async Task<QuerySnapshot> BuildAsync(DataStore store, QuerySnapshot? previous, StoreChangeSet changes, CancellationToken cancellationToken)
     {
-        var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        var full = loaded.Items.OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
-        var videos = full.ToDictionary(item => item.Id, item => VideoLinks.Find(item.Booth), StringComparer.Ordinal);
-        var items = full.Select(item => item with { Booth = item.Booth with { Description = null, H2Sections = [] } }).ToList();
-        var registry = store.Avatars.Load();
+        bool Need(StorePart part) => previous is null || changes.Overflowed || changes.Parts.Contains(part);
+
+        var (slots, failed, touched) = Need(StorePart.Items)
+            ? await Task.Run(() => ScanItems(store.Paths, previous?._slots, cancellationToken), cancellationToken)
+            : (previous!._slots, previous.FailedItemIds, (IReadOnlySet<string>)new HashSet<string>());
+        // ファイル名と中の ID が食い違うと、同じ ID の商品が2つ見えることがある（手で写したファイル）。1つ目だけ使う
+        var items = slots.Values.Select(slot => slot.Item)
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(item => item.Id, StringComparer.Ordinal)
+            .ToList();
+
+        // 画像の一覧は、商品が変わった・画像が変わったと知らされた商品だけ見直す（2,000 件の商品の画像のフォルダを毎回並べない）
+        Dictionary<string, IReadOnlyList<string>> images;
+        if (previous is null || changes.Overflowed)
+        {
+            images = items.ToDictionary(item => item.Id, item => ListImages(store.Paths.ItemImagesDir(item.Id)), StringComparer.Ordinal);
+        }
+        else
+        {
+            images = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            var relist = touched.Concat(changes.Parts.Contains(StorePart.Images) ? changes.ItemIds : []).ToHashSet(StringComparer.Ordinal);
+            foreach (var item in items)
+            {
+                images[item.Id] = !relist.Contains(item.Id) && previous.ImageFiles.TryGetValue(item.Id, out var known)
+                    ? known
+                    : ListImages(store.Paths.ItemImagesDir(item.Id));
+            }
+        }
+
+        var registry = Need(StorePart.Registry) ? store.Avatars.Load() : previous!.Registry;
+        var shopNotes = Need(StorePart.ShopNotes) ? store.ShopNotes.Load() : previous!.ShopNotes;
+        var notifications = Need(StorePart.Notifications) ? store.Notifications.Load() : previous!.Notifications;
+        var recent = Need(StorePart.Recent) ? TimesOf(store.Recent.Load()) : previous!.Recent;
+        var modifications = Need(StorePart.Modifications)
+            ? ModificationUsage.From((await store.Modifications.LoadAllAsync(cancellationToken)).Modifications)
+            : previous!.Modifications;
         var ownedItemIds = items.Where(item => item.IsOwned).Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
-        var shopNotes = store.ShopNotes.Load();
-        var recent = store.Recent.Load();
-        var notifications = store.Notifications.Load();
 
         return new QuerySnapshot(store)
         {
+            _slots = slots,
             Items = items,
             ItemsById = items.ToDictionary(item => item.Id, StringComparer.Ordinal),
-            FailedItemIds = loaded.FailedItemIds,
+            FailedItemIds = failed,
             Registry = registry,
-            Compatibility = AvatarCompatibilityIndex.Build(registry),
+            Compatibility = previous is not null && ReferenceEquals(registry, previous.Registry) ? previous.Compatibility : AvatarCompatibilityIndex.Build(registry),
             AvatarNames = Chmonos.Core.Services.AvatarNames.Map(registry.Entries),
             OwnedAvatarIds = registry.Entries
                 .Where(entry => entry.IsOwnedManually || ownedItemIds.Contains(entry.ItemId))
                 .Select(entry => entry.ItemId)
                 .ToHashSet(StringComparer.Ordinal),
-            UnreadUpdates = Chmonos.Core.Services.UnreadUpdates.Of(notifications),
+            UnreadUpdates = previous is not null && ReferenceEquals(notifications, previous.Notifications)
+                ? previous.UnreadUpdates
+                : Chmonos.Core.Services.UnreadUpdates.Of(notifications),
             Notifications = notifications,
-            Modifications = ModificationUsage.From((await store.Modifications.LoadAllAsync(cancellationToken)).Modifications),
-            Recent = new RecentTimes(
-                RecentActivity.Times(recent.Entries, RecentKind.Added),
-                RecentActivity.Times(recent.Entries, RecentKind.Used),
-                RecentActivity.Times(recent.Entries, RecentKind.Viewed)),
+            Modifications = modifications,
+            Recent = recent,
             ShopNotes = shopNotes,
             FavoriteShops = Chmonos.Core.Services.ShopNotes.FavoriteKeys(shopNotes),
-            Settings = store.Settings.Load(),
-            UserTagMaster = store.UserTags.Load(),
-            AttributeMaster = store.Attributes.Load(),
-            VideoTitles = store.VideoTitles.Load()
-                .GroupBy(record => record.VideoId, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.Last().Title, StringComparer.Ordinal),
-            Videos = videos,
-            ImageFiles = items.ToDictionary(item => item.Id, item => ListImages(store.Paths.ItemImagesDir(item.Id)), StringComparer.Ordinal),
+            Settings = Need(StorePart.Settings) ? store.Settings.Load() : previous!.Settings,
+            UserTagMaster = Need(StorePart.UserTags) ? store.UserTags.Load() : previous!.UserTagMaster,
+            AttributeMaster = Need(StorePart.Attributes) ? store.Attributes.Load() : previous!.AttributeMaster,
+            VideoTitles = Need(StorePart.VideoTitles)
+                ? store.VideoTitles.Load()
+                    .GroupBy(record => record.VideoId, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.Last().Title, StringComparer.Ordinal)
+                : previous!.VideoTitles,
+            Videos = slots.Values.GroupBy(slot => slot.Item.Id, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Videos, StringComparer.Ordinal),
+            ImageFiles = images,
         };
     }
+
+    /// <summary>
+    /// 商品のファイルを並べ、前の写しと大きさか日時が違うファイルだけを読む。
+    ///
+    /// **Core の <c>ItemRepository</c> の控えを使わない**（2026-10-12）：あちらは読んだ記録を説明文ごと控えるので、
+    /// 写しで説明文を落としても、控えの側に全部が残る。ここでは印と説明文を落とした記録だけを持つ。
+    /// 読めないファイル（壊れた JSON）は読めなかった商品として知らせ、書きかけで開けないファイルは前の記録のまま残す（一瞬消えて見えないように）。
+    /// </summary>
+    private static (IReadOnlyDictionary<string, ItemSlot> Slots, IReadOnlyList<string> Failed, IReadOnlySet<string> Touched) ScanItems(
+        AppPaths paths,
+        IReadOnlyDictionary<string, ItemSlot>? previous,
+        CancellationToken cancellationToken)
+    {
+        var slots = new Dictionary<string, ItemSlot>(StringComparer.Ordinal);
+        var failed = new List<string>();
+        var touched = new HashSet<string>(StringComparer.Ordinal);
+        if (!Directory.Exists(paths.ItemsDir))
+        {
+            return (slots, failed, touched);
+        }
+
+        foreach (var file in new DirectoryInfo(paths.ItemsDir).EnumerateFiles("*.json"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fileId = Path.GetFileNameWithoutExtension(file.Name);
+            if (!StoreIds.IsItemId(fileId))
+            {
+                continue;
+            }
+
+            if (previous is not null && previous.TryGetValue(fileId, out var known)
+                && known.Length == file.Length && known.LastWriteUtc == file.LastWriteTimeUtc)
+            {
+                slots[fileId] = known;
+                continue;
+            }
+
+            try
+            {
+                var record = JsonStore.ReadAsync<ItemRecord>(file.FullName, cancellationToken).GetAwaiter().GetResult();
+
+                // 中の ID が形を外れた商品は外す（画面と同じ。中の ID で画像や説明の場所を組むので）
+                if (record is null || !StoreIds.IsItemId(record.Id))
+                {
+                    failed.Add(fileId);
+                    continue;
+                }
+
+                slots[fileId] = new ItemSlot(
+                    file.Length,
+                    file.LastWriteTimeUtc,
+                    record with { Booth = record.Booth with { Description = null, H2Sections = [] } },
+                    VideoLinks.Find(record.Booth));
+                touched.Add(record.Id);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                failed.Add(fileId);
+            }
+            catch (IOException) when (previous is not null && previous.TryGetValue(fileId, out var kept))
+            {
+                slots[fileId] = kept;
+            }
+            catch (IOException)
+            {
+                // 初めて読むときに開けなかった（ほかのアプリが書いている途中）。次の読み直しで入る
+            }
+        }
+
+        // 消えた商品も、画像の一覧を見直す相手に入れる（写しから外れたことを知らせるため）
+        if (previous is not null)
+        {
+            touched.UnionWith(previous.Keys.Where(id => !slots.ContainsKey(id)).Select(id => previous[id].Item.Id));
+        }
+
+        return (slots, failed, touched);
+    }
+
+    private static RecentTimes TimesOf(RecentLog log)
+        => new(
+            RecentActivity.Times(log.Entries, RecentKind.Added),
+            RecentActivity.Times(log.Entries, RecentKind.Used),
+            RecentActivity.Times(log.Entries, RecentKind.Viewed));
+
+    /// <summary>この写しの後で変わった商品（外への知らせに使う。前の写しと記録の参照が違う物・増えた物・消えた物）。</summary>
+    public IReadOnlyList<string> ChangedItemsSince(QuerySnapshot previous)
+        => ItemsById.Where(pair => !previous.ItemsById.TryGetValue(pair.Key, out var before) || !ReferenceEquals(before, pair.Value))
+            .Select(pair => pair.Key)
+            .Concat(previous.ItemsById.Keys.Where(id => !ItemsById.ContainsKey(id)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>画像のフォルダの WebP（名前の順）。読めないフォルダは空として扱う（画像が無いだけで答えは返す）。</summary>
     private static IReadOnlyList<string> ListImages(string directory)
