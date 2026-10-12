@@ -491,7 +491,7 @@
                     -->
                     <TextBlock Text="フォルダの置き方" Style="{StaticResource SubTitle}" Margin="0,14,0,6" />
                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                               Text="商品名やショップ名でフォルダを分けているなら、未確定の自動検索がフォルダ名も使って探します。" />
+                               Text="商品名やショップ名でフォルダを分けているなら、未確定の自動検索がフォルダ名も使って探します。指定が分け方と合っていないと、検索に時間がかかり、候補も外れやすくなります。" />
                     <controls:ContentItemsControl ItemsSource="{Binding FolderLayouts}" controls:ArrowGroup.IsEnabled="True"
                                                   AutomationProperties.AutomationId="Settings.FolderLayouts">
                         <ItemsControl.ItemTemplate>
