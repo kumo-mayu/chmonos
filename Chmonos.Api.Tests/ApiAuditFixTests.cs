@@ -136,4 +136,29 @@ public sealed class ApiAuditFixTests : IAsyncLifetime
         await _sync.ApplyPendingAsync();
         Assert.Single((await GetAsync("/v1/avatars")).EnumerateArray());
     }
+    [Fact]
+    public async Task 改変が一時的に読めなければ_前の記録を残し_読めるようになったら印が変わらなくても読み直す()
+    {
+        await _store.Modifications.SaveAsync(new ModificationRecord { Id = "mod-0001", AvatarItemId = "9300001", Name = "作り物の改変" });
+        _sync.Note(_store.Paths.ModificationFile("mod-0001"));
+        await _sync.ApplyPendingAsync();
+        Assert.Single((await GetAsync("/v1/modifications")).EnumerateArray());
+
+        // 名前を変えたが、ほかのアプリが開いたままで読めない。改変の読み込みは投げないので、前は一覧から消えて印も確定していた（点検31）
+        await _store.Modifications.SaveAsync(new ModificationRecord { Id = "mod-0001", AvatarItemId = "9300001", Name = "作り物の改変・二" });
+        using (new FileStream(_store.Paths.ModificationFile("mod-0001"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            _sync.Note(_store.Paths.ModificationFile("mod-0001"));
+            await _sync.ApplyPendingAsync();
+        }
+
+        Assert.Equal("作り物の改変", (await GetAsync("/v1/modifications"))[0].GetProperty("name").GetString());
+
+        // ファイルは変わらないまま。2分ごとの見比べ（全部の部分）で読み直す
+        var everything = new StoreChangeSet();
+        everything.Add(StorePart.Modifications);
+        _sync.Enqueue(everything);
+        await _sync.ApplyPendingAsync();
+        Assert.Equal("作り物の改変・二", (await GetAsync("/v1/modifications"))[0].GetProperty("name").GetString());
+    }
 }

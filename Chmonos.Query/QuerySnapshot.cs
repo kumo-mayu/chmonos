@@ -52,6 +52,11 @@ public sealed class QuerySnapshot
 
     public required ModificationUsage Modifications { get; init; }
 
+    /// <summary>
+    /// 読み終えていない部分（読めなかったファイルがあり、前の写しの記録で埋めた部分）。API はこの部分の印を確定せず、次の見比べで読み直す。
+    /// </summary>
+    public IReadOnlySet<StorePart> IncompleteParts { get; private init; } = new HashSet<StorePart>();
+
     public required RecentTimes Recent { get; init; }
 
     public required IReadOnlyList<ShopNoteRecord> ShopNotes { get; init; }
@@ -177,9 +182,33 @@ public sealed class QuerySnapshot
         var shopNotes = Need(StorePart.ShopNotes) ? store.ShopNotes.Load() : previous!.ShopNotes;
         var notifications = Need(StorePart.Notifications) ? store.Notifications.Load() : previous!.Notifications;
         var recent = Need(StorePart.Recent) ? TimesOf(store.Recent.Load()) : previous!.Recent;
-        var modifications = Need(StorePart.Modifications)
-            ? ModificationUsage.From((await store.Modifications.LoadAllAsync(cancellationToken)).Modifications)
-            : previous!.Modifications;
+        // 改変の読み込みは、開けなかった・壊れたファイルを内側で受け止めて「読めなかった ID」に入れるだけで、投げない。
+        // 黙って一覧から消すと、読み直しが成功したように見え、部分の印も確定して二度と読み直されない（点検31）。
+        // 読めなかった改変は前の写しの記録を残し、この部分を読み終えていない物として知らせる（API は印を確定せず、次の見比べで読み直す）
+        var incomplete = new HashSet<StorePart>();
+        ModificationUsage modifications;
+        if (Need(StorePart.Modifications))
+        {
+            var loaded = await store.Modifications.LoadAllAsync(cancellationToken);
+            var records = loaded.Modifications.ToList();
+            if (loaded.FailedIds.Count > 0)
+            {
+                incomplete.Add(StorePart.Modifications);
+                var failedIds = loaded.FailedIds.ToHashSet(StringComparer.Ordinal);
+                records.AddRange((previous?.Modifications.Records ?? [])
+                    .Where(record => failedIds.Contains(record.Id) && records.All(read => read.Id != record.Id)));
+            }
+
+            modifications = ModificationUsage.From(records);
+        }
+        else
+        {
+            modifications = previous!.Modifications;
+            if (previous.IncompleteParts.Contains(StorePart.Modifications))
+            {
+                incomplete.Add(StorePart.Modifications);
+            }
+        }
         var ownedItemIds = items.Where(item => item.IsOwned).Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
 
         return new QuerySnapshot(store)
@@ -200,6 +229,7 @@ public sealed class QuerySnapshot
                 : Chmonos.Core.Services.UnreadUpdates.Of(notifications),
             Notifications = notifications,
             Modifications = modifications,
+            IncompleteParts = incomplete,
             Recent = recent,
             ShopNotes = shopNotes,
             FavoriteShops = Chmonos.Core.Services.ShopNotes.FavoriteKeys(shopNotes),

@@ -142,6 +142,18 @@ public sealed class ApiHostTests : IAsyncLifetime
         // 頼む物（include）が違えば中身が違うので、印も違う
         var included = await _client.SendAsync(Request(HttpMethod.Get, "/v1/items/9600001?include=avatarLinks"));
         Assert.NotEqual(tag, included.Headers.ETag);
+
+        // 弱い印（W/）も中身が同じなら同じと見る（点検31）
+        var weak = Request(HttpMethod.Get, "/v1/items/9600001");
+        weak.Headers.TryAddWithoutValidation("If-None-Match", "W/" + tag!.Tag);
+        Assert.Equal(HttpStatusCode.NotModified, (await _client.SendAsync(weak)).StatusCode);
+
+        // POST（batch・検索）は 304 を返さない
+        var batch = Request(HttpMethod.Post, "/v1/items/batch", body: """{"ids":["9600001"]}""");
+        var batchTag = (await _client.SendAsync(batch)).Headers.ETag;
+        var batchAgain = Request(HttpMethod.Post, "/v1/items/batch", body: """{"ids":["9600001"]}""");
+        batchAgain.Headers.IfNoneMatch.Add(batchTag!);
+        Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(batchAgain)).StatusCode);
     }
 
     [Fact]
@@ -181,11 +193,15 @@ public sealed class ApiHostTests : IAsyncLifetime
         Assert.Equal(Origin, answer.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.Contains("Authorization", answer.Headers.GetValues("Access-Control-Allow-Headers").Single());
 
+        // 許したページが ETag で取り直せるように、印を見せ、If-None-Match を許す（点検31）
+        Assert.Contains("If-None-Match", answer.Headers.GetValues("Access-Control-Allow-Headers").Single());
+
         var allowed = Request(HttpMethod.Get, "/v1/items");
         allowed.Headers.Add("Origin", Origin);
         var page = await _client.SendAsync(allowed);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Equal(Origin, page.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal("ETag", page.Headers.GetValues("Access-Control-Expose-Headers").Single());
 
         var other = Request(HttpMethod.Get, "/v1/health", token: false);
         other.Headers.Add("Origin", "https://evil.example");

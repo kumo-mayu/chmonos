@@ -253,7 +253,9 @@ internal static partial class ApiEndpoints
                 var replay = parts.Length == 2 && parts[0] == feed.Epoch && long.TryParse(parts[1], out var lastSeq) ? feed.Since(lastSeq).Changes : null;
                 if (replay is null)
                 {
-                    await WriteEventAsync(response, feed.Epoch, new ChangeEventRef(feed.Sequence, "reloaded", [], [], null, DateTimeOffset.Now), aborted);
+                    // reloaded の通番は送り済みの境と同じにする（今の通番を付けると、その後に小さい通番の変化を送り、
+                    // 外の道具が控える Last-Event-ID が逆に戻った・点検31）。この通番より後の変化は待ち行列から続けて流れる
+                    await WriteEventAsync(response, feed.Epoch, new ChangeEventRef(sent, "reloaded", [], [], null, DateTimeOffset.Now), aborted);
                 }
                 else
                 {

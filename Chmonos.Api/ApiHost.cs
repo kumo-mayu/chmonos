@@ -60,6 +60,13 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
 
         _snapshot = await QuerySnapshot.LoadAsync(new DataStore(Paths), cancellationToken);
         LoadedAt = Clock();
+
+        // 読み終えていない部分は印を空にしておく（次の見比べで印が違うと見て読み直す。点検31）
+        foreach (var part in _snapshot.IncompleteParts)
+        {
+            _stamps[part] = null;
+        }
+
         Compact();
     }
 
@@ -152,6 +159,13 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
         LoadedAt = Clock();
         foreach (var part in snapshotParts)
         {
+            // 読み終えていない部分（読めなかったファイルを前の写しの記録で埋めた）は確定しない。次の見比べで読み直す（点検31）
+            if (after.IncompleteParts.Contains(part))
+            {
+                _stamps[part] = null;
+                continue;
+            }
+
             Confirm(stamps, part);
         }
         if (changes.Overflowed)
@@ -291,11 +305,14 @@ internal static class ApiHost
             }
 
             context.Response.Headers.AccessControlAllowOrigin = origin.ToString();
+
+            // ページの fetch から ETag を読めるようにする（見せないと、条件付きで取り直せない。点検31）
+            context.Response.Headers.AccessControlExposeHeaders = "ETag";
             context.Response.Headers.Vary = "Origin";
             if (HttpMethods.IsOptions(request.Method))
             {
                 context.Response.Headers.AccessControlAllowMethods = "GET, POST";
-                context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID";
+                context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID, If-None-Match";
                 context.Response.Headers.AccessControlMaxAge = "600";
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 return;
@@ -374,7 +391,7 @@ internal static class ApiHost
 
             // 手元の写しを使う前に、毎回確かめてもらう（写しは保存先の変化で変わる）
             context.Response.Headers.CacheControl = "no-cache";
-            if (context.Request.Headers.IfNoneMatch.Any(value => value is not null && (value.Split(',').Any(one => one.Trim() == tag) || value.Trim() == "*")))
+            if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) && Matches(context.Request.Headers.IfNoneMatch, tag))
             {
                 context.Response.StatusCode = StatusCodes.Status304NotModified;
                 return;
@@ -382,6 +399,26 @@ internal static class ApiHost
 
             context.Response.ContentType = "application/json; charset=utf-8";
             await context.Response.Body.WriteAsync(bytes, context.RequestAborted);
+        }
+
+        /// <summary>
+        /// If-None-Match の比べ方（弱い比べ方。RFC 9110 §13.1.2）：<c>W/</c> の付いた印も中身が同じなら同じと見る。<c>*</c> は何にでも当たる。
+        /// 304 を返すのは GET と HEAD だけ（POST の検索・batch には条件付きの取り直しを用意していない。点検31）。
+        /// </summary>
+        private static bool Matches(Microsoft.Extensions.Primitives.StringValues header, string tag)
+        {
+            foreach (var value in header)
+            {
+                foreach (var one in (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (one == "*" || (one.StartsWith("W/", StringComparison.Ordinal) ? one[2..] : one) == tag)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }
