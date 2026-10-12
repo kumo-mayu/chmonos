@@ -1,0 +1,24 @@
+[
+  {
+    "key": "local-0001",
+    "name": "自分",
+    "subdomain": null,
+    "isLocal": true,
+    "url": null,
+    "isFavorite": false,
+    "memo": null,
+    "itemCount": 1,
+    "ownedCount": 0
+  },
+  {
+    "key": "shop-a",
+    "name": "作り物のショップ",
+    "subdomain": "shop-a",
+    "isLocal": false,
+    "url": "https://shop-a.booth.pm/",
+    "isFavorite": true,
+    "memo": "作り物のショップのメモ",
+    "itemCount": 2,
+    "ownedCount": 2
+  }
+]

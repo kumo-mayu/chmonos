@@ -1,0 +1,19 @@
+[
+  {
+    "name": "衣装",
+    "memo": "着せる物",
+    "count": 1,
+    "subs": [
+      {
+        "name": "夏",
+        "memo": null,
+        "count": 1
+      },
+      {
+        "name": "冬",
+        "memo": null,
+        "count": 0
+      }
+    ]
+  }
+]

@@ -40,6 +40,9 @@ public sealed class QuerySnapshot
 
     public required IReadOnlyDictionary<string, UnreadUpdate> UnreadUpdates { get; init; }
 
+    /// <summary>通知の全部（既読・片付けた物も）。</summary>
+    public required IReadOnlyList<NotificationRecord> Notifications { get; init; }
+
     public required ModificationUsage Modifications { get; init; }
 
     public required RecentTimes Recent { get; init; }
@@ -99,6 +102,7 @@ public sealed class QuerySnapshot
         var ownedItemIds = items.Where(item => item.IsOwned).Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         var shopNotes = store.ShopNotes.Load();
         var recent = store.Recent.Load();
+        var notifications = store.Notifications.Load();
 
         return new QuerySnapshot(store.Paths)
         {
@@ -112,7 +116,8 @@ public sealed class QuerySnapshot
                 .Where(entry => entry.IsOwnedManually || ownedItemIds.Contains(entry.ItemId))
                 .Select(entry => entry.ItemId)
                 .ToHashSet(StringComparer.Ordinal),
-            UnreadUpdates = Chmonos.Core.Services.UnreadUpdates.Of(store.Notifications.Load()),
+            UnreadUpdates = Chmonos.Core.Services.UnreadUpdates.Of(notifications),
+            Notifications = notifications,
             Modifications = ModificationUsage.From((await store.Modifications.LoadAllAsync(cancellationToken)).Modifications),
             Recent = new RecentTimes(
                 RecentActivity.Times(recent.Entries, RecentKind.Added),

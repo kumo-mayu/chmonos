@@ -125,6 +125,23 @@ public sealed class ItemAnswerGoldenTests : IDisposable
         await File.WriteAllBytesAsync(Path.Combine(images, Chmonos.Core.Images.ImagePipeline.FileNameFor("https://example.invalid/a.png")), [0]);
         await File.WriteAllBytesAsync(Path.Combine(images, "0000000000.webp"), [0]);
 
+        await store.UserTags.SaveAsync(new UserTagMaster
+        {
+            Tops = [new UserTagTop { Name = "衣装", Memo = "着せる物", Subs = [new UserTagSub { Name = "夏" }, new UserTagSub { Name = "冬" }] }],
+        });
+        await store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "かわいい", IsDefault = true }] });
+        await store.ShopNotes.SaveAsync([new ShopNoteRecord { Subdomain = "shop-a", IsFavorite = true, Memo = "作り物のショップのメモ", UpdatedAt = Jst(2026, 10, 1) }]);
+        await store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-0001",
+            AvatarItemId = "7000001",
+            Name = "作り物の改変",
+            CreatedAt = Jst(2026, 9, 1),
+            UpdatedAt = Jst(2026, 9, 2),
+            UnityProject = @"D:\unity\project-a",
+            Members = [new ModificationMember { ItemId = "9800001", VariationId = 11, AddedAt = Jst(2026, 9, 1) }],
+        });
+
         await store.VideoTitles.SaveAsync([new VideoTitleRecord { VideoId = "AAAAAAAAAAA", Title = "作り物の紹介動画", FetchedAt = Jst(2026, 10, 1) }]);
         return await QuerySnapshot.LoadAsync(store);
     }
@@ -149,6 +166,50 @@ public sealed class ItemAnswerGoldenTests : IDisposable
             snapshot.Items.Select(item => QueryJson.Serialize(ItemMapper.Summary(item, snapshot))));
         AssertGolden("summaries.jsonl", json);
     }
+
+    [Fact]
+    public async Task 商品以外の答え()
+    {
+        var snapshot = await StoreAsync();
+        AssertGolden("avatars.json", JsonSerializer.Serialize(Catalogs.Avatars(snapshot), Indented.IReadOnlyListAvatarEntryRef));
+        AssertGolden("shops.json", JsonSerializer.Serialize(Catalogs.Shops(snapshot), Indented.IReadOnlyListShopEntryRef));
+        AssertGolden("user-tags.json", JsonSerializer.Serialize(Catalogs.UserTags(snapshot), Indented.IReadOnlyListUserTagTopRef));
+        AssertGolden("attributes.json", JsonSerializer.Serialize(Catalogs.Attributes(snapshot), Indented.IReadOnlyListAttributeEntryRef));
+        AssertGolden("categories.json", JsonSerializer.Serialize(Catalogs.Categories(snapshot), Indented.IReadOnlyListCategoryEntryRef));
+        AssertGolden("booth-tags.json", JsonSerializer.Serialize(Catalogs.BoothTags(snapshot), Indented.IReadOnlyListCountRef));
+        AssertGolden("unitypackages.json", JsonSerializer.Serialize(Catalogs.UnityPackages(snapshot, null), Indented.IReadOnlyListUnityPackageEntryRef));
+        AssertGolden("modifications.json", JsonSerializer.Serialize(Catalogs.Modifications(snapshot), Indented.IReadOnlyListModificationRef));
+        AssertGolden("unity-projects.json", JsonSerializer.Serialize(Catalogs.UnityProjects(snapshot), Indented.IReadOnlyListUnityProjectRef));
+        AssertGolden("search-conditions.json", JsonSerializer.Serialize(Catalogs.ConditionKinds(), Indented.IReadOnlyListConditionKindRef));
+    }
+
+    [Fact]
+    public async Task ファイルの場所とハッシュから商品を引く()
+    {
+        var snapshot = await StoreAsync();
+
+        // 区切りと大文字・小文字を問わない。外したファイルも状態つきで返す
+        Assert.Equal([("9800001", "file", "present")], Catalogs.LookupFiles(snapshot, "d:/ASSETS/costume.zip", null).Select(owner => (owner.ItemId, owner.Kind, owner.State)));
+        Assert.Equal([("9800001", "file", "detached")], Catalogs.LookupFiles(snapshot, @"D:\assets\extra.zip", null).Select(owner => (owner.ItemId, owner.Kind, owner.State)));
+
+        // 登録したフォルダの中の場所は、そのフォルダの商品
+        Assert.Equal([("7000001", "folder")], Catalogs.LookupFiles(snapshot, @"D:\avatars\a\sub\a.unitypackage", null).Select(owner => (owner.ItemId, owner.Kind)));
+        Assert.Empty(Catalogs.LookupFiles(snapshot, @"D:\avatars\ab\x.zip", null));
+
+        Assert.Equal(["9800001"], Catalogs.LookupFiles(snapshot, null, new string('b', 64)).Select(owner => owner.ItemId));
+        Assert.Equal("invalidLookup", Assert.Throws<QueryException>(() => Catalogs.LookupFiles(snapshot, null, null)).Code);
+    }
+
+    [Fact]
+    public async Task unitypackageはアバターで絞れる()
+    {
+        var snapshot = await StoreAsync();
+
+        Assert.Equal(["9800001"], Catalogs.UnityPackages(snapshot, "7000002").Select(package => package.ItemId));
+        Assert.Empty(Catalogs.UnityPackages(snapshot, "7000004"));
+    }
+
+    private static QueryJsonContext Indented { get; } = new(new JsonSerializerOptions(QueryJson.Options) { WriteIndented = true });
 
     private void AssertGolden(string name, string actual, [CallerFilePath] string source = "")
     {

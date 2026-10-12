@@ -1,0 +1,12 @@
+[
+  {
+    "name": "3D衣装",
+    "parent": "3Dモデル",
+    "count": 1
+  },
+  {
+    "name": "テクスチャ",
+    "parent": null,
+    "count": 1
+  }
+]

@@ -123,12 +123,16 @@ public static class ItemMapper
             file.SizeBytes,
             file.VariationId,
             file.Paths,
-            file.Detached ? "detached" : file.IsOldVersion ? "oldVersion" : file.Paths.Count == 0 || file.MissingSince is not null ? "missing" : "present",
+            FileState(file),
             file.MissingSince,
             file.ArchiveBroken,
             file.Replaced is { } replaced ? new ReplacedRef(replaced.Path, replaced.At) : null,
             file.UnityPackages?.Select(package => new UnityPackageRef(package.Entry, package.Roots)).ToList(),
             file.Contents);
+
+    /// <summary>ファイルの状態（<see cref="FileRef.State"/>）。見つからないの数え方はカードの印と同じ（<see cref="ItemRecord.HasMissingFile"/>）。</summary>
+    internal static string FileState(LocalFileRecord file)
+        => file.Detached ? "detached" : file.IsOldVersion ? "oldVersion" : file.Paths.Count == 0 || file.MissingSince is not null ? "missing" : "present";
 
     /// <summary>画面のカードと同じ並べ方・同じ1枚目（<see cref="ItemImageOrder"/>）。</summary>
     internal static ImagesRef Images(ItemRecord item, QuerySnapshot snapshot)

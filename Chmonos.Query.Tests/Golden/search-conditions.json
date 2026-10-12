@@ -1,0 +1,284 @@
+[
+  {
+    "kind": "category",
+    "shape": "list",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "boothTag",
+    "shape": "list",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "shop",
+    "shape": "list",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "wishCount",
+    "shape": "range",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "price",
+    "shape": "range",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "saleStatus",
+    "shape": "choice",
+    "choices": [
+      "ended",
+      "selling",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "publishedAt",
+    "shape": "date",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "adult",
+    "shape": "choice",
+    "choices": [
+      "adult",
+      "general",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "owned",
+    "shape": "choice",
+    "choices": [
+      "owned",
+      "unowned",
+      "both"
+    ],
+    "options": {
+      "allMissingIsUnowned": false
+    },
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "gift",
+    "shape": "choice",
+    "choices": [
+      "given",
+      "received",
+      "bought"
+    ],
+    "options": {
+      "includeUnrecorded": false
+    },
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "freePaid",
+    "shape": "choice",
+    "choices": [
+      "free",
+      "mixed",
+      "paid",
+      "both"
+    ],
+    "options": {
+      "includePrivate": false
+    },
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "userTag",
+    "shape": "userTag",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "attribute",
+    "shape": "attribute",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "avatar",
+    "shape": "avatar",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "favorite",
+    "shape": "choice",
+    "choices": [
+      "favorite",
+      "other",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "acquiredAt",
+    "shape": "date",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "hidden",
+    "shape": "choice",
+    "choices": [
+      "hidden",
+      "visible",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "editStatus",
+    "shape": "editStatus",
+    "choices": [
+      "unedited",
+      "edited",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": true,
+    "fields": [
+      "userTags",
+      "attributes",
+      "purchases",
+      "acquiredAt",
+      "memo",
+      "avatarConfirmation"
+    ]
+  },
+  {
+    "kind": "modification",
+    "shape": "modification",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "unityProject",
+    "shape": "list",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "path",
+    "shape": "list",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
+    "kind": "recent",
+    "shape": "recent",
+    "choices": [
+      "used",
+      "viewed",
+      "added"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "brokenZip",
+    "shape": "choice",
+    "choices": [
+      "broken",
+      "none",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "missingFile",
+    "shape": "choice",
+    "choices": [
+      "missing",
+      "none",
+      "both"
+    ],
+    "options": {
+      "includeUnowned": true
+    },
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "notOnBooth",
+    "shape": "choice",
+    "choices": [
+      "local",
+      "booth",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": false,
+    "fields": null
+  },
+  {
+    "kind": "updateNotice",
+    "shape": "updateNotice",
+    "choices": [
+      "updated",
+      "other",
+      "both"
+    ],
+    "options": null,
+    "allowsAll": true,
+    "fields": [
+      "content",
+      "variations",
+      "price",
+      "sale",
+      "page"
+    ]
+  }
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "mod-0001",
+    "name": "作り物の改変",
+    "avatarId": "7000001",
+    "avatarName": "作り物のアバター",
+    "unityProject": "D:\\unity\\project-a",
+    "memo": null,
+    "blueprintId": null,
+    "createdAt": "2026-09-01T12:00:00+09:00",
+    "updatedAt": "2026-09-02T12:00:00+09:00",
+    "members": [
+      {
+        "itemId": "9800001",
+        "variationId": 11,
+        "fileHash": null,
+        "package": null,
+        "addedAt": "2026-09-01T12:00:00+09:00",
+        "detached": false
+      }
+    ],
+    "images": []
+  }
+]

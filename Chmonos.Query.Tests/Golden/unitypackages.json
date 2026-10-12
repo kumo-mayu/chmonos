@@ -1,0 +1,25 @@
+[
+  {
+    "itemId": "7000001",
+    "itemName": "作り物のアバター",
+    "source": "folder",
+    "container": "D:\\avatars\\a",
+    "entry": "a.unitypackage",
+    "roots": [],
+    "avatarIds": []
+  },
+  {
+    "itemId": "9800001",
+    "itemName": "作り物の衣装",
+    "source": "file",
+    "container": "D:\\assets\\costume.zip",
+    "entry": "costume/costume.unitypackage",
+    "roots": [
+      "Assets/Costume"
+    ],
+    "avatarIds": [
+      "7000001",
+      "7000002"
+    ]
+  }
+]

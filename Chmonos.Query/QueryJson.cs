@@ -20,6 +20,22 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(Search.SearchPage))]
 [JsonSerializable(typeof(Search.FacetsRequest))]
 [JsonSerializable(typeof(Search.FacetsAnswer))]
+[JsonSerializable(typeof(IReadOnlyList<AvatarEntryRef>))]
+[JsonSerializable(typeof(IReadOnlyList<AvatarBaseRef>))]
+[JsonSerializable(typeof(IReadOnlyList<ShopEntryRef>))]
+[JsonSerializable(typeof(ShopEntryRef))]
+[JsonSerializable(typeof(IReadOnlyList<UserTagTopRef>))]
+[JsonSerializable(typeof(IReadOnlyList<AttributeEntryRef>))]
+[JsonSerializable(typeof(IReadOnlyList<CategoryEntryRef>))]
+[JsonSerializable(typeof(IReadOnlyList<CountRef>))]
+[JsonSerializable(typeof(IReadOnlyList<FileOwnerRef>))]
+[JsonSerializable(typeof(IReadOnlyList<UnityPackageEntryRef>))]
+[JsonSerializable(typeof(IReadOnlyList<ModificationRef>))]
+[JsonSerializable(typeof(ModificationRef))]
+[JsonSerializable(typeof(IReadOnlyList<UnityProjectRef>))]
+[JsonSerializable(typeof(IReadOnlyList<NotificationRef>))]
+[JsonSerializable(typeof(DisplaySettingsRef))]
+[JsonSerializable(typeof(IReadOnlyList<ConditionKindRef>))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {
 }

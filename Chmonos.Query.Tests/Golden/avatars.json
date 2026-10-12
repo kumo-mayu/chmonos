@@ -1,0 +1,34 @@
+[
+  {
+    "id": "7000001",
+    "name": "作り物のアバター",
+    "boothName": "作り物のアバター",
+    "shopName": null,
+    "category": "3Dキャラクター",
+    "isAvatar": true,
+    "isOwned": true,
+    "isOwnedManually": false,
+    "baseName": null,
+    "aliases": [],
+    "memo": null,
+    "imagePath": null,
+    "directCount": 1,
+    "viaBaseCount": 0
+  },
+  {
+    "id": "7000002",
+    "name": "作り物のアバターB",
+    "boothName": "作り物のアバターB",
+    "shopName": null,
+    "category": "3Dキャラクター",
+    "isAvatar": true,
+    "isOwned": false,
+    "isOwnedManually": false,
+    "baseName": null,
+    "aliases": [],
+    "memo": null,
+    "imagePath": null,
+    "directCount": 1,
+    "viaBaseCount": 0
+  }
+]
