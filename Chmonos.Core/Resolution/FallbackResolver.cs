@@ -344,16 +344,19 @@ public sealed partial class FallbackResolver
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var (layoutIds, shopListIds) = layout is null
-            ? ([], new HashSet<string>(StringComparer.Ordinal))
+        var (layoutIds, shopListIds, layoutSearched) = layout is null
+            ? ([], new HashSet<string>(StringComparer.Ordinal), false)
             : await LayoutIdsAsync(layout, filePath, avatars, progress, cancellationToken);
 
+        // どれかの検索が BOOTH に届いたか。正常に0件だったのと、届かなかったのを分ける（候補の有無で決めると、
+        // フォルダ名の検索が正常に0件のときに「問い合わせできませんでした」と言った。点検34）
         IReadOnlyList<string> searchIds = [];
-        var searched = layoutIds.Count > 0;
+        var searched = layoutSearched;
         if (query.Length > 0)
         {
             progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
-            (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
+            (searchIds, var fileSearched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
+            searched |= fileSearched;
         }
 
         // 置き方から出した候補は、今までの枠（同梱の URL とファイル名の検索で上位3件）とは別に上位3件まで確かめる
@@ -473,14 +476,15 @@ public sealed partial class FallbackResolver
     /// 置き方から候補のIDを出す：ショップの商品一覧で商品名のフォルダと同じ名前の商品（ショップが分かるとき）、次に商品名のフォルダでの検索。
     /// 一覧で見つかったIDも返す（点を足すため）。
     /// </summary>
-    private async Task<(IReadOnlyList<string> Ids, HashSet<string> ShopListIds)> LayoutIdsAsync(
+    private async Task<(IReadOnlyList<string> Ids, HashSet<string> ShopListIds, bool Searched)> LayoutIdsAsync(
         FolderLayoutHint layout, string filePath, AvatarTokens? avatars, IProgress<ResolveProgress>? progress, CancellationToken cancellationToken)
     {
         var shopListIds = new HashSet<string>(StringComparer.Ordinal);
         var ids = new List<string>();
+        var searched = false;
         if (layout.ItemFolder is null)
         {
-            return (ids, shopListIds);
+            return (ids, shopListIds, searched);
         }
 
         if (layout.ShopSubdomain is { Length: > 0 } subdomain)
@@ -489,6 +493,7 @@ public sealed partial class FallbackResolver
                 subdomain,
                 page => progress?.Report(new ResolveProgress($"ショップの商品一覧を見ています（{page} ページ目）", 0, 0)),
                 cancellationToken);
+            searched |= list is not null;
             foreach (var entry in list ?? [])
             {
                 if (SaleDecorations.SameName(entry.Name, layout.ItemFolder, layout.ShopFolder) && shopListIds.Add(entry.ItemId))
@@ -505,10 +510,12 @@ public sealed partial class FallbackResolver
         if (folderQuery.Length > 0)
         {
             progress?.Report(new ResolveProgress($"BOOTHを検索しています（{folderQuery}）", 0, 0));
-            ids.AddRange((await SearchIdsAsync(folderQuery, folderPath, avatars, null, cancellationToken)).Ids);
+            var (folderIds, folderSearched) = await SearchIdsAsync(folderQuery, folderPath, avatars, null, cancellationToken);
+            ids.AddRange(folderIds);
+            searched |= folderSearched;
         }
 
-        return (ids.Distinct(StringComparer.Ordinal).ToList(), shopListIds);
+        return (ids.Distinct(StringComparer.Ordinal).ToList(), shopListIds, searched);
     }
 
     /// <summary>置き方の根拠の点と理由を足す（<see cref="ResolutionCandidate.LayoutPoints"/>）。</summary>

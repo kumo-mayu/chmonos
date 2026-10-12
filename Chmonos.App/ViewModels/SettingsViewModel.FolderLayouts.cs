@@ -61,7 +61,7 @@ public sealed partial class SettingsViewModel
         }
 
         var items = (await _services.Store.Items.LoadAllAsync()).Items;
-        var fits = await Task.Run(() => rows.Select(row => FolderLayoutFit.Measure(items, row.Rule)).ToList());
+        var fits = await Task.Run(() => rows.Select(row => FolderLayoutFit.Measure(items, row.Current)).ToList());
         for (var index = 0; index < rows.Count; index++)
         {
             rows[index].Fit = fits[index];
@@ -79,7 +79,11 @@ public sealed partial class SettingsViewModel
         }
     }
 
-    /// <summary>1行を変える。今の設定の同じフォルダの行に当てる（画面の写しで丸ごと書かない）。</summary>
+    /// <summary>
+    /// 1行を変える。今の設定の同じフォルダの行に当てる（画面の写しで丸ごと書かない）。
+    /// **行は作り直さない**：続けて変えると、1つ目の保存が終わった所で作り直した行が、まだ保存していない2つ目の入力の前の値を出した（点検34）。
+    /// 行は最後の入力を持ち続け、当てはまりだけ数え直す
+    /// </summary>
     internal async Task ChangeFolderLayoutAsync(string root, Func<FolderLayoutRule, FolderLayoutRule> change)
     {
         if (await SaveAsync(settings => settings with
@@ -87,7 +91,7 @@ public sealed partial class SettingsViewModel
                 FolderLayouts = settings.FolderLayouts.Select(rule => SameRoot(rule.Root, root) ? change(rule) : rule).ToList(),
             }))
         {
-            LoadFolderLayouts(_services.Settings);
+            MeasureFolderLayoutsAsync().Forget();
         }
     }
 
@@ -129,6 +133,9 @@ public sealed class FolderLayoutRow : ViewModelBase
 
     public FolderLayoutRule Rule { get; }
 
+    /// <summary>最後の入力を当てた指定（当てはまりと「効かない段」の文はこちらで見る）。</summary>
+    public FolderLayoutRule Current => Rule with { Enabled = _enabled, ItemNameLevel = _itemNameLevel, ShopNameLevel = _shopNameLevel };
+
     public string Root => Rule.Root;
 
     public bool Enabled
@@ -150,6 +157,7 @@ public sealed class FolderLayoutRow : ViewModelBase
         {
             if (SetField(ref _itemNameLevel, value))
             {
+                Fit = null;
                 _owner.ChangeFolderLayoutAsync(Rule.Root, rule => rule with { ItemNameLevel = value }).Forget();
             }
         }
@@ -162,6 +170,7 @@ public sealed class FolderLayoutRow : ViewModelBase
         {
             if (SetField(ref _shopNameLevel, value))
             {
+                Fit = null;
                 _owner.ChangeFolderLayoutAsync(Rule.Root, rule => rule with { ShopNameLevel = value }).Forget();
             }
         }
@@ -189,8 +198,8 @@ public sealed class FolderLayoutRow : ViewModelBase
     /// 指定として効かない（段が無い・同じ段を2つに使う）なら、先にそれを言う
     /// </summary>
     public string FitText
-        => !Rule.IsUsable
-            ? (Rule.ItemNameLevel is not null && Rule.ItemNameLevel == Rule.ShopNameLevel
+        => !Current.IsUsable
+            ? (Current.ItemNameLevel is not null && Current.ItemNameLevel == Current.ShopNameLevel
                 ? "商品名とショップ名に同じ段は選べません。"
                 : "商品名かショップ名のどちらかを選んでください。")
             : Fit is not { } fit
@@ -202,12 +211,12 @@ public sealed class FolderLayoutRow : ViewModelBase
     private string FitLine(FolderLayoutFit fit)
     {
         var parts = new List<string>();
-        if (Rule.ItemNameLevel is not null)
+        if (Current.ItemNameLevel is not null)
         {
             parts.Add($"商品名 {fit.ItemNameMatches:N0} 件");
         }
 
-        if (Rule.ShopNameLevel is not null)
+        if (Current.ShopNameLevel is not null)
         {
             parts.Add($"ショップ名 {fit.ShopNameMatches:N0} 件");
         }

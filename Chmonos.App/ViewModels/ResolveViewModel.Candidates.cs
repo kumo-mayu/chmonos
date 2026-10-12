@@ -119,6 +119,13 @@ public sealed partial class ResolveViewModel
                 ? folder
                 : Selected.File.Paths[0];
 
+    /// <summary>
+    /// 検索の対象が展開物の根のフォルダか（<see cref="SearchTargetPath"/> の決め方と同じ条件）。ディスクを見て決めない：
+    /// フォルダが消えた・ドライブを外した後に「ファイル」と見て、置き方の段がずれた（点検34）
+    /// </summary>
+    public bool SearchTargetIsFolder => Selected is not null && Selected.File.Paths.Count > 0
+        && Selected.Origin is null && Selected.IsArchiveContent && RegisterTargetFolder is not null;
+
     public string SearchTargetText => SearchTargetPath is null
         ? string.Empty
         : SelectedOriginText is not null
@@ -164,10 +171,10 @@ public sealed partial class ResolveViewModel
     /// 設定のフォルダの置き方から、このファイルの手掛かりを組む（<c>docs/spec/folder-layout.md</c>）。指定が無ければ null。
     /// ショップのサブドメインは検索の写し（手元の商品）から引く。読むだけなので画面から直に組む
     /// </summary>
-    private Task<FolderLayoutHint?> LayoutHintForAsync(string targetPath)
+    private Task<FolderLayoutHint?> LayoutHintForAsync(string targetPath, bool isFolder)
         => LayoutHintForAsync(
             targetPath,
-            Directory.Exists(targetPath),
+            isFolder,
             _services.Settings.FolderLayouts,
             _main.Search.SnapshotItems(),
             async () => (await _services.Store.Items.LoadAllAsync()).Items);
@@ -199,6 +206,8 @@ public sealed partial class ResolveViewModel
         {
             return;
         }
+
+        var searchTargetIsFolder = SearchTargetIsFolder;
 
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C2）。
         // BOOTH内検索＋候補3件のJSON＋（当たらなければ）別語での引き直しで分単位かかるのに、
@@ -241,7 +250,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(searchTarget, progress, ListedPaths(), await LayoutHintForAsync(searchTarget)), cancellationToken: stop.Token);
+                new UiCommand.ProposeCandidates(searchTarget, progress, ListedPaths(), await LayoutHintForAsync(searchTarget, searchTargetIsFolder)), cancellationToken: stop.Token);
 
             if (result is CommandResult.CandidatesProposed proposed)
             {

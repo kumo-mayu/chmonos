@@ -83,6 +83,24 @@ public sealed class SettingsFolderLayoutTests
     });
 
     [Fact]
+    public Task 段を続けて変えても_行は作り直さず最後の入力のまま() => TestApp.Run(async app =>
+    {
+        await app.ChangeSettingsAsync(current => current with { FolderLayouts = [FolderLayoutRule.DefaultFor(Root)] });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        // 前は1つ目の保存が終わるたびに行を作り直し、まだ保存していない入力の前の値が出た（点検34）
+        var row = settings.FolderLayouts[0];
+        row.ShopNameLevel = 3;
+        row.ShopNameLevel = null;
+        await app.SettleAsync();
+
+        Assert.Same(row, settings.FolderLayouts[0]);
+        Assert.Null(row.ShopNameLevel);
+        Assert.Null(Assert.Single(app.Services.Settings.FolderLayouts).ShopNameLevel);
+    });
+
+    [Fact]
     public async Task 検索の写しが空なら_保存先の記録からショップを引く()
     {
         var items = new[] { Make.Item("9100001", "別の帽子", "fake-studio").WithFiles(Make.File(@"E:\別\a.zip")) };

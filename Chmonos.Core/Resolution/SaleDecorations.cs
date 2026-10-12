@@ -49,8 +49,11 @@ public static partial class SaleDecorations
 
     private const string Separators = @"[\s\-_~～・|｜!！★☆♪✨/]";
 
-    /// <summary>飾りの語と区切りだけでできているか（括弧の中身に当てる）。</summary>
-    [GeneratedRegex(@"^(?:" + Separators + @"|\d|" + Words + @")*$", RegexOptions.IgnoreCase)]
+    /// <summary>
+    /// 飾りの語と区切りだけでできていて、飾りの語を1つ以上含むか（括弧の中身に当てる）。
+    /// 数字だけの括弧（「帽子(1)」）は番号なので残す（落とすと番号違いの商品が同じ名前になった。点検34）
+    /// </summary>
+    [GeneratedRegex(@"^(?=.*" + Words + @")(?:" + Separators + @"|\d|" + Words + @")*$", RegexOptions.IgnoreCase)]
     private static partial Regex OnlyWordsRegex { get; }
 
     /// <summary>頭の飾りの語（後ろが区切りか終わり）。</summary>

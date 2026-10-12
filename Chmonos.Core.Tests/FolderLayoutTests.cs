@@ -22,6 +22,8 @@ public class FolderLayoutTests
     [InlineData("限定カラーの帽子", "限定カラーの帽子")]
     [InlineData("無料 ふわふわ帽子 free", "ふわふわ帽子")] // 頭と尻の飾りの語は落とす
     [InlineData("【FREE】ふわふわ帽子", "ふわふわ帽子")]
+    [InlineData("ふわふわ帽子(1)", "ふわふわ帽子(1)")] // 数字だけの括弧は番号なので残す（点検34）
+    [InlineData("【2026】ふわふわ帽子", "【2026】ふわふわ帽子")]
     public void 販売の飾りを落とす(string name, string expected)
         => Assert.Equal(expected, SaleDecorations.Strip(name));
 
@@ -39,6 +41,7 @@ public class FolderLayoutTests
     [InlineData("ＦｕｗａＨａｔ", "fuwa hat", true)] // 全角半角・大小・空白
     [InlineData("ふわふわ帽子 Ver2 たくさんの色と形のセット", "ふわふわ帽子 Ver2 たくさんの色", true)] // 長い名前が切られた
     [InlineData("帽子", "ふわふわ帽子", false)] // 4字未満を含むで当てない
+    [InlineData("ふわふわ帽子(1)", "ふわふわ帽子(2)", false)] // 番号違いは別の商品
     [InlineData("ふわふわ帽子", "もこもこ手袋", false)]
     public void フォルダ名と商品名を比べる(string itemName, string folder, bool same)
         => Assert.Equal(same, SaleDecorations.SameName(itemName, folder));
@@ -225,6 +228,21 @@ public class FolderLayoutTests
     }
 
     [Fact]
+    public async Task フォルダ名の検索が正常に0件なら_届かなかったとは言わない()
+    {
+        // 前は候補の有無で決めていて、正常な0件でも「問い合わせできませんでした」と言った（点検34）
+        var path = @"D:\作り物の置き場\作り物工房\知らない帽子\v1.0.zip";
+        var layout = new FolderLayoutHint("知らない帽子", "作り物工房");
+
+        var empty = await new FallbackResolver(new FakeClient(search: [])).ProposeAsync(path, layout: layout);
+        Assert.Empty(empty.Candidates);
+        Assert.False(empty.BoothUnreachable);
+
+        var failed = await new FallbackResolver(new FakeClient(search: [], failSearch: true)).ProposeAsync(path, layout: layout);
+        Assert.True(failed.BoothUnreachable);
+    }
+
+    [Fact]
     public async Task 消えたショップの一覧は_同じショップで聞き直さない()
     {
         var client = new FakeClient(shopPages: []);
@@ -247,7 +265,8 @@ public class FolderLayoutTests
     private sealed class FakeClient(
         Dictionary<string, (string Id, string Name, string Shop)[]>? search = null,
         Dictionary<int, string>? shopPages = null,
-        Dictionary<string, string>? shopNames = null) : IBoothClient
+        Dictionary<string, string>? shopNames = null,
+        bool failSearch = false) : IBoothClient
     {
         public int ShopPageRequests { get; private set; }
 
@@ -257,7 +276,7 @@ public class FolderLayoutTests
             => (search ?? []).Values.SelectMany(cards => cards).FirstOrDefault(card => card.Id == id) is { Id: not null } card ? card : null;
 
         public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
-            => Task.FromResult(BoothFetchResult<string>.Success(string.Concat(
+            => failSearch ? Task.FromResult(BoothFetchResult<string>.Temporary("作り物の失敗")) : Task.FromResult(BoothFetchResult<string>.Success(string.Concat(
                 ((search ?? []).TryGetValue(query, out var cards) ? cards : []).Select(card =>
                     $"""<li class="item-card l-card" data-product-id="{card.Id}" data-product-name="{card.Name}" data-product-brand="{card.Shop}">"""))));
 
