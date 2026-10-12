@@ -40,7 +40,15 @@ public static class Program
         var paths = new AppPaths(root);
 
         // 保存先ごとに1本だけ。開いたまま持つ錠なので、同時に2本起動しても片方だけが取れる（落ちても OS が放す）
-        using var instance = SingleInstanceLock.TryAcquire(paths.Root, paths.ApiLockFile);
+        // 設定の画面は動いているかを錠を一瞬開いて見るので、それに当たったときだけ取り直す（本当に動いているなら何度でも取れない）
+        var acquired = SingleInstanceLock.TryAcquire(paths.Root, paths.ApiLockFile);
+        for (var attempt = 0; acquired is null && attempt < 3; attempt++)
+        {
+            await Task.Delay(100);
+            acquired = SingleInstanceLock.TryAcquire(paths.Root, paths.ApiLockFile);
+        }
+
+        using var instance = acquired;
         var settings = ApiFiles.ReadSettings(paths);
         var endpoint = ApiFiles.ReadEndpoint(paths);
         if (instance is null)

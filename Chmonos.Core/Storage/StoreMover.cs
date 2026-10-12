@@ -163,28 +163,7 @@ public static class StoreMover
         "選んだ場所は、ほかのChmonosが開いています。そのアプリを閉じてから、もう一度選んでください。";
 
     /// <summary>その場所の app.lock を、ほかのプロセスが掴んでいるか（開いているアプリがあるか）。</summary>
-    private static bool IsInUse(string root)
-    {
-        var lockPath = Path.Combine(root, "app.lock");
-        if (!File.Exists(lockPath))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var probe = new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            return false;
-        }
-        catch (IOException)
-        {
-            return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
+    private static bool IsInUse(string root) => SingleInstanceLock.IsHeld(Path.Combine(root, "app.lock"));
 
     /// <summary>置き換えで退けた分を、退けた順の逆に戻す。全部戻せたら退けたフォルダを畳んで真。</summary>
     private static bool PutParkedBack(IReadOnlyList<(string From, string To)> moved, string parked)

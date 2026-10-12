@@ -238,8 +238,20 @@ public class FolderLayoutTests
         Assert.Empty(empty.Candidates);
         Assert.False(empty.BoothUnreachable);
 
-        var failed = await new FallbackResolver(new FakeClient(search: [], failSearch: true)).ProposeAsync(path, layout: layout);
+        var failed = await new FallbackResolver(new FakeClient(search: [], failSearches: int.MaxValue)).ProposeAsync(path, layout: layout);
         Assert.True(failed.BoothUnreachable);
+    }
+
+    [Fact]
+    public async Task 最初の検索だけ失敗し_引き直しが正常に0件なら_届かなかったとは言わない()
+    {
+        // 前は引き直しの届いたかを捨てていて、最初の検索の失敗だけで「問い合わせできませんでした」と言った（点検35）
+        var client = new FakeClient(search: [], failSearches: 1);
+        var proposal = await new FallbackResolver(client).ProposeAsync(@"D:\作り物の置き場\ふわふわ 帽子 セット.zip");
+
+        Assert.True(client.SearchRequests >= 2);
+        Assert.Empty(proposal.Candidates);
+        Assert.False(proposal.BoothUnreachable);
     }
 
     [Fact]
@@ -266,8 +278,10 @@ public class FolderLayoutTests
         Dictionary<string, (string Id, string Name, string Shop)[]>? search = null,
         Dictionary<int, string>? shopPages = null,
         Dictionary<string, string>? shopNames = null,
-        bool failSearch = false) : IBoothClient
+        int failSearches = 0) : IBoothClient
     {
+        public int SearchRequests { get; private set; }
+
         public int ShopPageRequests { get; private set; }
 
         public List<string> JsonRequests { get; } = [];
@@ -276,7 +290,7 @@ public class FolderLayoutTests
             => (search ?? []).Values.SelectMany(cards => cards).FirstOrDefault(card => card.Id == id) is { Id: not null } card ? card : null;
 
         public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
-            => failSearch ? Task.FromResult(BoothFetchResult<string>.Temporary("作り物の失敗")) : Task.FromResult(BoothFetchResult<string>.Success(string.Concat(
+            => ++SearchRequests <= failSearches ? Task.FromResult(BoothFetchResult<string>.Temporary("作り物の失敗")) : Task.FromResult(BoothFetchResult<string>.Success(string.Concat(
                 ((search ?? []).TryGetValue(query, out var cards) ? cards : []).Select(card =>
                     $"""<li class="item-card l-card" data-product-id="{card.Id}" data-product-name="{card.Name}" data-product-brand="{card.Shop}">"""))));
 

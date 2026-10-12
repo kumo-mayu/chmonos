@@ -121,4 +121,38 @@ public sealed class SettingsApiTests
             Assert.Equal("Chmonos.Api.exeが見つかりません。", settings.StartApiTip);
         }
     });
+
+    [Fact]
+    public Task 動いているかは錠で見て_止まれば画面を開き直さなくても戻る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        JsonStore.Write(app.Services.Paths.ApiFile, new ApiEndpointRecord { Port = 39847, Token = "token", ProcessId = Environment.ProcessId });
+
+        // 引越しで運ばれた api.json：番号は動いているプロセスでも、この保存先の錠が無ければ動いていない（点検35）
+        Assert.Equal("止まっています。", new SettingsViewModel(app.Services, main).ApiStatusText);
+
+        var interval = SettingsViewModel.ApiWatchInterval;
+        SettingsViewModel.ApiWatchInterval = TimeSpan.FromMilliseconds(20);
+        var apiLock = SingleInstanceLock.TryAcquire(app.Services.Paths.Root, app.Services.Paths.ApiLockFile);
+        var settings = new SettingsViewModel(app.Services, main);
+        try
+        {
+            Assert.Equal("ポート 39847 で動いています。", settings.ApiStatusText);
+
+            // 前は起動を確かめた所で見るのをやめ、止めても「動いています」のままだった（点検35）
+            apiLock!.Dispose();
+            for (var attempt = 0; attempt < 100 && settings.ApiStatusText != "止まっています。"; attempt++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.Equal("止まっています。", settings.ApiStatusText);
+        }
+        finally
+        {
+            apiLock?.Dispose();
+            settings.OnLeaving();
+            SettingsViewModel.ApiWatchInterval = interval;
+        }
+    });
 }

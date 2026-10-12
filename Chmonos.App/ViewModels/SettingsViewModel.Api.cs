@@ -127,7 +127,10 @@ public sealed partial class SettingsViewModel
         RefreshApiStatus();
     }
 
-    /// <summary>api.json と、そこに書かれたプロセスが今も API かを見る（落ちて残った api.json の番号を、別のプロセスが使い回していることがある）。</summary>
+    /// <summary>
+    /// api.json と、この保存先の api.lock を見る。動いているかは錠で決める：api.json の番号だけで見ると、
+    /// API を動かしたまま引越した先で、古い保存先の API を「動いています」と取り違えた（点検35）
+    /// </summary>
     internal void RefreshApiStatus()
     {
         try
@@ -139,7 +142,12 @@ public sealed partial class SettingsViewModel
             _apiEndpoint = null;
         }
 
-        _apiRunning = _apiEndpoint?.ProcessId is { } processId && IsRunningApi(processId);
+        _apiRunning = _apiEndpoint?.ProcessId is not null && SingleInstanceLock.IsHeld(_services.Paths.ApiLockFile);
+        if (_apiRunning && !_watchingApi)
+        {
+            WatchApiAsync().Forget();
+        }
+
         OnPropertyChanged(nameof(ApiStatusText));
         OnPropertyChanged(nameof(ApiRestartNote));
         OnPropertyChanged(nameof(CanStartApi));
@@ -147,18 +155,35 @@ public sealed partial class SettingsViewModel
         RelayCommand.RaiseCanExecuteChanged();
     }
 
-    internal static bool IsRunningApi(int processId)
+    private bool _watchingApi;
+
+    /// <summary>
+    /// 動いている間は、止まったかを見直し続ける。API は別の窓を閉じて止めるので、知らせが来ない
+    /// （前は起動を確かめた所で見るのをやめ、止めても画面を開き直すまで「起動」を押せなかった。点検35）。
+    /// 錠を見るだけなので軽い。止まったと分かるか、画面を離れたら終わる
+    /// </summary>
+    private async Task WatchApiAsync()
     {
+        _watchingApi = true;
         try
         {
-            using var process = Process.GetProcessById(processId);
-            return !process.HasExited && string.Equals(process.ProcessName, "Chmonos.Api", StringComparison.OrdinalIgnoreCase);
+            while (_apiRunning)
+            {
+                await Task.Delay(ApiWatchInterval, _leaving.Token);
+                RefreshApiStatus();
+            }
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        catch (OperationCanceledException)
         {
-            return false;
+        }
+        finally
+        {
+            _watchingApi = false;
         }
     }
+
+    /// <summary>止まったかを見直す間合い。止めてからボタンが戻るまでの待ちで、人が気にならない長さ。</summary>
+    internal static TimeSpan ApiWatchInterval { get; set; } = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// <c>http://localhost:5173</c> の形（http か https・場所と問い合わせの無い住所）だけを受け、ブラウザが送る形にそろえる。

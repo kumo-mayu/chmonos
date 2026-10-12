@@ -67,6 +67,27 @@ public sealed class SettingsFolderLayoutTests
     });
 
     [Fact]
+    public Task 数えている間に段を変えたら_前の計算の件数を出さない() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9100001", "ふわふわ帽子", "fake-studio").WithFiles(Make.File($@"{Root}\fake-studio\ふわふわ帽子\hat.zip")));
+        await app.ChangeSettingsAsync(current => current with { FolderLayouts = [FolderLayoutRule.DefaultFor(Root)] });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        await app.SettleAsync();
+        var row = settings.FolderLayouts[0];
+        Assert.Contains("商品名 1 件", row.FitText);
+
+        // 前は段を変える前に始めた計算が後から終わり、変えた後の段に古い件数を出した（点検35）
+        var stale = settings.MeasureFolderLayoutsAsync();
+        row.ItemNameLevel = 3;
+        await stale;
+        Assert.DoesNotContain("商品名 1 件", row.FitText);
+
+        await app.SettleAsync();
+        Assert.Contains("商品名 0 件", row.FitText);
+    });
+
+    [Fact]
     public Task 保存が終わる前に元へ戻しても_最後の操作が残る() => TestApp.Run(async app =>
     {
         await app.ChangeSettingsAsync(current => current with { FolderLayouts = [FolderLayoutRule.DefaultFor(Root)] });

@@ -44,6 +44,36 @@ public sealed class SingleInstanceLock : IDisposable
         }
     }
 
+    /// <summary>
+    /// その錠を、ほかのプロセスが掴んでいるか。持ち主は共有なしで開いているので、こちらが開けなければ掴まれている。
+    /// 落ちたプロセスの錠は OS が放す（DeleteOnClose で消える）ので、記録に残ったプロセス番号より確か
+    /// </summary>
+    public static bool IsHeld(string lockFile)
+    {
+        if (!File.Exists(lockFile))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var probe = new FileStream(lockFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return false;
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     public void Dispose()
     {
         _stream?.Dispose();

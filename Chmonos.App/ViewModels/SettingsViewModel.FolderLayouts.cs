@@ -52,7 +52,7 @@ public sealed partial class SettingsViewModel
     /// 紐付け済みのファイルで、どれだけ当てはまるかを数える。2万件でも画面を止めないよう裏で数える。
     /// 保存先の商品の記録から読む（検索の写しは起動の直後だとまだ空で、0件と言ってしまう）。読むだけなので命令を通さない
     /// </summary>
-    private async Task MeasureFolderLayoutsAsync()
+    internal async Task MeasureFolderLayoutsAsync()
     {
         var rows = FolderLayouts.ToList();
         if (rows.Count == 0)
@@ -60,11 +60,17 @@ public sealed partial class SettingsViewModel
             return;
         }
 
+        // 数える指定は画面のスレッドで写しておき、終わった時に行の指定がまだ同じときだけ出す。
+        // 数えている間に段を変えると、前の計算が後から終わって、変えた後の段に古い件数を出した（点検35）
+        var rules = rows.Select(row => row.Current).ToList();
         var items = (await _services.Store.Items.LoadAllAsync()).Items;
-        var fits = await Task.Run(() => rows.Select(row => FolderLayoutFit.Measure(items, row.Current)).ToList());
+        var fits = await Task.Run(() => rules.Select(rule => FolderLayoutFit.Measure(items, rule)).ToList());
         for (var index = 0; index < rows.Count; index++)
         {
-            rows[index].Fit = fits[index];
+            if (rows[index].Current == rules[index])
+            {
+                rows[index].Fit = fits[index];
+            }
         }
     }
 

@@ -411,7 +411,10 @@ public sealed partial class FallbackResolver
 
                 progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
-                var alternateIds = (await SearchIdsAsync(alternate, filePath, avatars, varying, cancellationToken)).Ids;
+                // 引き直しが届いたことも数える。最初の検索だけ一時的に失敗し、引き直しが正常に0件だったのを
+                // 「問い合わせできませんでした」と言っていた（点検35）
+                var (alternateIds, alternateSearched) = await SearchIdsAsync(alternate, filePath, avatars, varying, cancellationToken);
+                searched |= alternateSearched;
                 if (string.Equals(alternate, firstWord, StringComparison.OrdinalIgnoreCase) && alternateIds.Count >= SearchPageSize)
                 {
                     firstWordFilled = true;
@@ -435,8 +438,9 @@ public sealed partial class FallbackResolver
                 progress?.Report(new ResolveProgress($"別の語で探しています（{firstWord}・2ページ目）", 0, 0));
 
                 // 順位は1ページ目の続きで数える（2ページ目の先頭に「検索結果の1位」を付けない）
-                await AddRetryCandidatesAsync(
-                    (await SearchIdsAsync(firstWord, filePath, avatars, varying, cancellationToken, page: 2)).Ids, SearchPageSize);
+                var (secondPageIds, secondPageSearched) = await SearchIdsAsync(firstWord, filePath, avatars, varying, cancellationToken, page: 2);
+                searched |= secondPageSearched;
+                await AddRetryCandidatesAsync(secondPageIds, SearchPageSize);
             }
 
             async Task AddRetryCandidatesAsync(IReadOnlyList<string> alternateIds, int rankOffset)
