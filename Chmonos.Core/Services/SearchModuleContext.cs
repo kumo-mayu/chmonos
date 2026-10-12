@@ -143,14 +143,14 @@ public sealed class SearchModuleContext
     public IReadOnlyList<ItemRecord> Items { get; init; } = [];
 
     /// <summary>
-    /// 何も持たない材料。商品の全体を見ずに値の決まる条件（画面が自分で端を求めた日付など）が、絞り込みの外で使う。
+    /// 何も持たない材料（今日は作った時点）。商品の全体を見ずに値の決まる条件（画面が自分で端を求めた日付など）が、絞り込みの外で使う。
     /// </summary>
     public static SearchModuleContext Unused { get; } = new(
         () => AvatarCompatibilityIndex.Build(new AvatarRegistry()),
         ModificationUsage.Empty,
         RecentTimes.Empty,
         null,
-        DateTimeOffset.MinValue);
+        DateTimeOffset.Now);
 
     /// <summary>お気に入りのショップの鍵（shops.json の星）。ショップの条件の「お気に入りのショップ」に使う。</summary>
     public IReadOnlySet<string> FavoriteShops { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

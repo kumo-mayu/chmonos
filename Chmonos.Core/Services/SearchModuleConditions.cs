@@ -230,7 +230,18 @@ public static class SearchModuleConditions
     };
 
     /// <summary>
-    /// 保存した条件から判定を作る。知らない種類は null。
+    /// 保存した条件から判定を作り、<paramref name="context"/> で準備まで済ませる（外から使う入口。準備を忘れると、空欄の境が手元の端を指さない）。
+    /// 知らない種類は null。
+    /// </summary>
+    public static ItemCondition? Build(SearchModuleState state, SearchModuleContext context)
+    {
+        var condition = From(state);
+        condition?.Prepare(context);
+        return condition;
+    }
+
+    /// <summary>
+    /// 保存した条件から判定を作る（準備はまだ）。知らない種類は null。
     /// 「効かせているか」（<see cref="SearchModuleState.Enabled"/>）と「除く」（<see cref="SearchModuleState.Exclude"/>）は見ない（使う側が見る）。
     /// </summary>
     public static ItemCondition? From(SearchModuleState state)

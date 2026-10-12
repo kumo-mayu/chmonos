@@ -222,25 +222,29 @@ public sealed class DateCondition(
     private Func<DateOnly, bool> _inRange = AnyDate;
     private bool _prepared;
 
+    /// <summary>
+    /// 準備の前に読まれたら、商品の全体を見ずに求めた境で答える（覚えない。後の <see cref="Prepare"/> や照らす時に、渡された材料で求め直す）。
+    /// 覚えると、空欄の境が手元の端を指さないまま照らしてしまう。
+    /// </summary>
     public override bool IsActive
     {
         get
         {
-            EnsurePrepared(null);
-            return _since is not null || _till is not null;
+            var (since, till) = _prepared ? (_since, _till) : bounds(SearchModuleContext.Unused);
+            return since is not null || till is not null;
         }
     }
 
     public override void Prepare(SearchModuleContext context) => EnsurePrepared(context, force: true);
 
-    private void EnsurePrepared(SearchModuleContext? context, bool force = false)
+    private void EnsurePrepared(SearchModuleContext context, bool force = false)
     {
         if (_prepared && !force)
         {
             return;
         }
 
-        var (since, till) = bounds(context ?? SearchModuleContext.Unused);
+        var (since, till) = bounds(context);
         (_since, _till) = (since, till);
         _inRange = date => (since is null || date >= since) && (till is null || date <= till);
         _prepared = true;
