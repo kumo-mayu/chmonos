@@ -38,11 +38,17 @@ public static class Program
         }
 
         var paths = new AppPaths(root);
+
+        // 保存先ごとに1本だけ。開いたまま持つ錠なので、同時に2本起動しても片方だけが取れる（落ちても OS が放す）
+        using var instance = SingleInstanceLock.TryAcquire(paths.Root, paths.ApiLockFile);
         var settings = ApiFiles.ReadSettings(paths);
         var endpoint = ApiFiles.ReadEndpoint(paths);
-        if (endpoint?.ProcessId is { } other && ApiFiles.IsRunningApi(other))
+        if (instance is null)
         {
-            Console.Error.WriteLine($"この保存先の API は既に動いています（プロセス {other}・ポート {endpoint.Port}）。");
+            // 番号は今も動いている API のときだけ出す（同時に起動すると、もう1本が書く前の古い記録を読む）
+            Console.Error.WriteLine(endpoint?.ProcessId is { } other && ApiFiles.IsRunningApi(other)
+                ? $"この保存先の API は既に動いています（プロセス {other}・ポート {endpoint.Port}）。"
+                : "この保存先の API は既に動いています。");
             return 1;
         }
 
@@ -82,8 +88,7 @@ public static class Program
         }
         finally
         {
-            // 止まったことを残す（合言葉は残す。次に起動したときも同じ合言葉で使えるように）
-            ApiFiles.WriteEndpoint(paths, new ApiEndpointRecord { Port = settings.Port, Token = token, Version = ApiHost.AppVersion });
+            ApiFiles.MarkStopped(paths, settings.Port, token);
         }
 
         return 0;
@@ -115,6 +120,20 @@ internal static class ApiFiles
     }
 
     public static void WriteEndpoint(AppPaths paths, ApiEndpointRecord record) => JsonStore.Write(paths.ApiFile, record);
+
+    /// <summary>
+    /// 止まったことを残す（合言葉は残す。次に起動したときも同じ合言葉で使えるように）。
+    /// **api.json が自分の記録のときだけ**書く：ほかのプロセスが書いた記録を「止まった」で消すと、動いている API が見えなくなる
+    /// </summary>
+    public static void MarkStopped(AppPaths paths, int port, string token)
+    {
+        if (ReadEndpoint(paths)?.ProcessId is { } processId && processId != Environment.ProcessId)
+        {
+            return;
+        }
+
+        WriteEndpoint(paths, new ApiEndpointRecord { Port = port, Token = token, Version = ApiHost.AppVersion });
+    }
 
     /// <summary>合言葉。32バイトの乱数（推し量れない長さ）を URL に使える文字で。</summary>
     public static string NewToken()

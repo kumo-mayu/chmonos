@@ -14,13 +14,19 @@ public sealed class SingleInstanceLock : IDisposable
     }
 
     /// <summary>取得できなければ null を返す（既に別のインスタンスが起動している）。</summary>
-    public static SingleInstanceLock? TryAcquire(AppPaths paths)
+    public static SingleInstanceLock? TryAcquire(AppPaths paths) => TryAcquire(paths.Root, paths.LockFile);
+
+    /// <summary>
+    /// 錠のファイルを指して取る（外から使う API は <see cref="AppPaths.ApiLockFile"/>）。取れなければ null。
+    /// 見てから書く確かめ（api.json のプロセス番号）だと、同時に2本起動したときに両方がすり抜けたので、開いたまま持つ錠にした
+    /// </summary>
+    public static SingleInstanceLock? TryAcquire(string root, string lockFile)
     {
         try
         {
-            Directory.CreateDirectory(paths.Root);
+            Directory.CreateDirectory(root);
             var stream = new FileStream(
-                paths.LockFile,
+                lockFile,
                 FileMode.OpenOrCreate,
                 FileAccess.ReadWrite,
                 FileShare.None,

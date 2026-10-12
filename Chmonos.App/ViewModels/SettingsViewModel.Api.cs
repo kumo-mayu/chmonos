@@ -94,7 +94,12 @@ public sealed partial class SettingsViewModel
         ? "変えたポートは、APIを起動し直すと使われます。"
         : string.Empty;
 
-    public bool CanStartApi => !_apiRunning && File.Exists(ApiExecutablePath);
+    public bool CanStartApi => !_apiRunning && !_apiStarting && File.Exists(ApiExecutablePath);
+
+    /// <summary>
+    /// 押してから、API が動いていると分かるまで（最大5秒）。その間は押せなくする（前は押せたままで、2回押すと2つ目の窓がすぐエラーで閉じた）
+    /// </summary>
+    private bool _apiStarting;
 
     /// <summary>起動の吹き出し。押せないときは理由を言う。</summary>
     public string StartApiTip => _apiRunning
@@ -218,19 +223,29 @@ public sealed partial class SettingsViewModel
     /// </summary>
     private async Task StartApiAsync()
     {
+        _apiStarting = true;
+        RefreshApiStatus();
         try
         {
-            Process.Start(new ProcessStartInfo(ApiExecutablePath) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or IOException)
-        {
-            Status = "APIを起動できませんでした。";
-            return;
-        }
+            try
+            {
+                Process.Start(new ProcessStartInfo(ApiExecutablePath) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
+            }
+            catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or IOException)
+            {
+                Status = "APIを起動できませんでした。";
+                return;
+            }
 
-        for (var attempt = 0; attempt < 20 && !_apiRunning; attempt++)
+            for (var attempt = 0; attempt < 20 && !_apiRunning; attempt++)
+            {
+                await Task.Delay(250);
+                RefreshApiStatus();
+            }
+        }
+        finally
         {
-            await Task.Delay(250);
+            _apiStarting = false;
             RefreshApiStatus();
         }
     }

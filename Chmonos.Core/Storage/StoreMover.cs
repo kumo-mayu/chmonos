@@ -49,7 +49,7 @@ public sealed record StoreSummary
 public static class StoreMover
 {
     /// <summary>数えるときも運ぶときも、この名前は除く（実行中のロックは持ち出せない。写している途中の印は運ぶ先が自分で置く）。</summary>
-    private static readonly string[] Skipped = ["app.lock", UnfinishedCopy.MarkerName];
+    private static readonly string[] Skipped = ["app.lock", AppPaths.ApiLockFileName, UnfinishedCopy.MarkerName];
 
     /// <summary>運ぶ量を先に測る。確認のダイアログに出す。</summary>
     public static (int Files, long Bytes) Measure(string root)
