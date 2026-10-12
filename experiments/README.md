@@ -25,6 +25,7 @@
 | `AvatarEvalBench` | 対応アバター検出の今の版と案を、正解付きの試験データ（友人のデータ・リポジトリ外）に当てて適合率と再現率を比べる。`--store` で写しを選ぶ | `docs/history/avatars.md`「正解付きの試験データでの比較」 |
 | `AvatarNameBench` | 登録簿の表示名の付け方を、人が付け直した正解の名前と比べる（#54） | `docs/history/avatars.md`「表示名の付け方を変えた」 |
 | `CategoryFetch` | BOOTH のカテゴリ表を1度だけ取り、同梱できる形に落とす（計測ではなく取得の道具） | `docs/history/private-items.md` §8 |
+| `ItemStatusProbe` | 商品IDの一覧を BOOTH に聞き、今の状態（公開・無い・R-18・販売終了）を確かめる。未確定に残った行の原因を調べるため。画面には件数だけを出し、ID ごとの結果は指定したファイル（リポジトリの外）に書く | （2026-10-12 の調べ。結果は手元だけ） |
 | `FallbackSearchProbe` | 候補検索を別の表記で引き直す価値があるか（正解の分かる10ファイル） | `docs/research/id-resolution.md`「§7 候補検索に表記の橋渡し」 |
 | `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位）。`--make-pairs` で写しから正解の組を作り、BOOTH の答えは `--cache` に控えて `--offline` で通信なしに測り直せる（`--no-avatars` でアバター名を外す直しを切って比べる）。使い方は `Program.cs` の冒頭 | `docs/research/id-resolution.md` §15・§16 |
 | `QueryVariantProbe` | 上位3件に正解が出なかったファイルで、検索語の変え方ごとの当たりを比べる | `docs/research/id-resolution.md` §15 |
