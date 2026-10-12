@@ -82,6 +82,9 @@ public class FolderLayoutTests
             var rule = ShopThenItem with { ShopNameLevel = null };
             Storage.JsonStore.Write(path, new AppSettings { FolderLayouts = [rule] });
             Assert.Equal([rule], Storage.JsonStore.Read<AppSettings>(path)!.FolderLayouts);
+
+            // 計算で出せる値は書かない
+            Assert.DoesNotContain("isUsable", File.ReadAllText(path), StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

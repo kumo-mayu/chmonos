@@ -31,7 +31,8 @@ public sealed record FolderLayoutRule
     /// </summary>
     public const int MaxLevel = 3;
 
-    /// <summary>指定として効くか（段が範囲にあり、どちらか1つは使う）。</summary>
+    /// <summary>指定として効くか（段が範囲にあり、どちらか1つは使う）。計算で出せるので JSON に書かない。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsUsable
         => Root.Length > 0
             && (ItemNameLevel is >= 1 and <= MaxLevel || ShopNameLevel is >= 1 and <= MaxLevel)
