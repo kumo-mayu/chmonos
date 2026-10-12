@@ -33,12 +33,55 @@ internal static partial class Scenes
         SettingsNotes("settings-notes-before", "設定：操作の知らせが出る前（出る場所は前もって空けてある）", shown: false),
         SettingsNotes("settings-notes-after", "設定：知らせが出た後（欄の下・ボタンの下・見出しの横。ほかの物は動かない）", shown: true),
         SettingsApi(),
+        SettingsFolderLayouts(),
     ];
 
     /// <summary>
     /// 設定の「API」の節（2026-10-12）を開いた形。許可するWebページが2つ・追加できなかった知らせ・範囲の外のポートを丸めた知らせ。
     /// API は動いていない（台は API を起動しない）
     /// </summary>
+    /// <summary>
+    /// 設定の「フォルダの置き方」：2行（当てはまりの数が出た行・オフで同じ段を選んだ行）。作り物の商品3つを置き方どおりの場所に置く
+    /// </summary>
+    private static Scene SettingsFolderLayouts()
+        => new("settings-folder-layouts", "設定の「フォルダの置き方」：当てはまりを数えた行と、オフで効かない段を選んだ行", async context =>
+        {
+            const string root = @"D:\作り物の置き場";
+            foreach (var (id, name, folder) in new[] { ("9900801", "ふわふわ帽子", "【期間限定無料】ふわふわ帽子"), ("9900802", "もこもこ手袋", "もこもこ手袋"), ("9900803", "きらきらブローチ", "まとめ") })
+            {
+                await context.Seed.Items.SaveAsync(new Chmonos.Core.Models.ItemRecord
+                {
+                    Id = id,
+                    Booth = new Chmonos.Core.Models.BoothBlock
+                    {
+                        Name = name,
+                        Shop = new Chmonos.Core.Models.BoothShop { Name = "作り物工房", Subdomain = "fake-studio", Url = "https://fake-studio.booth.pm/" },
+                    },
+                    Local = new Chmonos.Core.Models.LocalBlock
+                    {
+                        LocalFiles = [new Chmonos.Core.Models.LocalFileRecord { Hash = id + "0000", Paths = [$@"{root}\作り物工房\{folder}\{id}.zip"], SizeBytes = 3 }],
+                    },
+                });
+            }
+
+            var main = await context.StartAsync(settings => settings with
+            {
+                FolderLayouts =
+                [
+                    Chmonos.Core.Models.FolderLayoutRule.DefaultFor(root),
+                    Chmonos.Core.Models.FolderLayoutRule.DefaultFor(@"E:\ダウンロード\BOOTH") with { Enabled = false, ShopNameLevel = 1 },
+                ],
+            });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root2 = context.MainWindow();
+            await context.PresentAsync(root2);
+            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.FolderLayouts.All(row => row.Fit is not null), "置き方の当てはまりを数え終わる");
+            await context.SettleAsync();
+
+            return new Shot(root2) { Focus = () => Look.Ancestor<StackPanel>(Look.Text(root2, "フォルダの置き方")) };
+        });
+
     private static Scene SettingsApi()
         => new("settings-api", "設定の「API」：開いた形（許可するWebページ2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
         {

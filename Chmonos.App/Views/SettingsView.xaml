@@ -483,6 +483,64 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
                     </StackPanel>
+
+                    <!--
+                        フォルダの置き方（docs/spec/folder-layout.md）。未確定の自動検索が、フォルダ名を商品名・ショップ名の手掛かりに使う。
+                        使う人が自分の並べ方を教える物で、推し量っては作らない。合わない置き方をオンにしたまま気付かないよう、
+                        紐付け済みのファイルでの当てはまりを行ごとに出す
+                    -->
+                    <TextBlock Text="フォルダの置き方" Style="{StaticResource SubTitle}" Margin="0,14,0,6" />
+                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                               Text="商品名やショップ名でフォルダを分けているなら、未確定の自動検索がフォルダ名も使って探します。" />
+                    <controls:ContentItemsControl ItemsSource="{Binding FolderLayouts}" controls:ArrowGroup.IsEnabled="True"
+                                                  AutomationProperties.AutomationId="Settings.FolderLayouts">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:FolderLayoutRow}">
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" Style="{StaticResource SettingCheck}" Margin="0" VerticalAlignment="Center"
+                                                  IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                                  AutomationProperties.AutomationId="Settings.FolderLayoutEnabled"
+                                                  AutomationProperties.Name="{Binding Root, StringFormat={}{0}の置き方を使う}" />
+                                        <controls:PathLine Grid.Column="1" Path="{Binding Root}" Style="{StaticResource Mono}"
+                                                           FontSize="11.5" VerticalAlignment="Center" Margin="4,0,12,0" />
+                                        <Button Grid.Column="2" Content="外す" Style="{StaticResource DangerButton}"
+                                                AutomationProperties.AutomationId="Settings.FolderLayoutRemove"
+                                                AutomationProperties.Name="{Binding Root, StringFormat={}{0}の置き方を外す}"
+                                                Command="{Binding RemoveCommand}" />
+                                    </Grid>
+                                    <WrapPanel Orientation="Horizontal" Margin="26,6,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,20,4">
+                                            <TextBlock Text="商品名のフォルダ" Style="{StaticResource RowLabel}" Margin="0,0,8,0" />
+                                            <ComboBox Width="100" ItemsSource="{x:Static vm:SettingsViewModel.LevelOptions}"
+                                                      DisplayMemberPath="Label" SelectedValuePath="Level"
+                                                      SelectedValue="{Binding ItemNameLevel, Mode=TwoWay}"
+                                                      AutomationProperties.AutomationId="Settings.FolderLayoutItemLevel"
+                                                      AutomationProperties.Name="商品名のフォルダ" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                            <TextBlock Text="ショップ名のフォルダ" Style="{StaticResource RowLabel}" Margin="0,0,8,0" />
+                                            <ComboBox Width="100" ItemsSource="{x:Static vm:SettingsViewModel.LevelOptions}"
+                                                      DisplayMemberPath="Label" SelectedValuePath="Level"
+                                                      SelectedValue="{Binding ShopNameLevel, Mode=TwoWay}"
+                                                      AutomationProperties.AutomationId="Settings.FolderLayoutShopLevel"
+                                                      AutomationProperties.Name="ショップ名のフォルダ" />
+                                        </StackPanel>
+                                    </WrapPanel>
+                                    <TextBlock Text="{Binding FitText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,2,0,0"
+                                               AutomationProperties.AutomationId="Settings.FolderLayoutFit" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </controls:ContentItemsControl>
+                    <Button Content="フォルダを追加" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="Settings.AddFolderLayout"
+                            Command="{Binding AddFolderLayoutCommand}" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="取得と更新" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--

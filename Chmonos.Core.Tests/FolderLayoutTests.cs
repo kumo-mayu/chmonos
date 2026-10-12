@@ -64,6 +64,23 @@ public class FolderLayoutTests
     }
 
     [Fact]
+    public void 使わない段は_保存して読み直しても使わないのまま()
+    {
+        // 保存の JSON は null の欄を書かない。既定の段が null でないと、読み直すと既定に戻っていた
+        var path = Path.Combine(Path.GetTempPath(), $"chmonos-layout-{Guid.NewGuid():N}.json");
+        try
+        {
+            var rule = ShopThenItem with { ShopNameLevel = null };
+            Storage.JsonStore.Write(path, new AppSettings { FolderLayouts = [rule] });
+            Assert.Equal([rule], Storage.JsonStore.Read<AppSettings>(path)!.FolderLayouts);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void 段が無い_同じ段を2つに使う指定は効かない()
     {
         Assert.False((ShopThenItem with { ItemNameLevel = null, ShopNameLevel = null }).IsUsable);

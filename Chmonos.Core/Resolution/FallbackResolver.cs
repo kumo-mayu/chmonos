@@ -30,7 +30,7 @@ public sealed class ResolutionCandidate
     /// <summary>
     /// <see cref="Score"/> のうち、フォルダの置き方（<c>docs/spec/folder-layout.md</c>）から足した点。並びにだけ効かせ、<see cref="IsStrong"/> には数えない。
     /// 名前とショップが両方フォルダ名と一致した1位の外れは、ファイルが別の商品のフォルダに入っていた物で、一致の型では見分けられなかった
-    /// （置き方に合う60本で外れ1/42、合わない30本で外れ4/4。research §20）
+    /// （置き方に合う60本で外れ1/42、合わない30本で外れ4/4。research §21）
     /// </summary>
     public int LayoutPoints { get; init; }
 
@@ -308,7 +308,7 @@ public sealed partial class FallbackResolver
     /// <param name="layout">
     /// 使う人が指定したフォルダの置き方から読んだフォルダ名（<c>docs/spec/folder-layout.md</c>）。渡せば、ショップの商品一覧と照らし、
     /// 商品名のフォルダでも検索する。**ファイル名での検索も必ず回す**（置き方に合わないファイルで、フォルダ名だけに頼ると外す）。
-    /// 正解の分かる60本で、画面の1位の正解が 25 → 50 本（research §20）
+    /// 正解の分かる60本で、画面の1位の正解が 25 → 55 本、置き方に合わない30本でも 9 → 12 本（research §21）
     /// </param>
     public async Task<ResolutionProposal> ProposeAsync(
         string filePath,

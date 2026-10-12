@@ -27,6 +27,8 @@
 //   pairs.json は [{ "file": "...zip", "id": "123", "itemName": "...", "shop": "subdomain", "shopFolder": "...", "itemFolder": "..." }, ...]
 //   --query folder は、検索語にファイル名の代わりに親のフォルダ名（itemFolder）を使う（置き方を人が明示したときの案。2026-10-12）。
 //   --query folder-clean は、そのフォルダ名から販売の飾り（期間限定無料・8/5まで・○%OFF・末尾の「 - ショップ名」）を落としてから使う
+//   --layout は、本体の自動検索（ProposeAsync）に置き方の手掛かり（FolderLayoutHint）を渡す。ショップのサブドメインは正解の商品を除いた
+//   手元の商品から引く。--shops <ShopListProbe の控え> を渡せば、そのショップの一覧は取り直さない
 //   第3部は、置き方のフォルダ名（2段上＝ショップ、1段上＝商品名）と一致する候補を上へ並べ直した順位も出す
 //
 // 結果の TSV には正解の商品名とファイル名が入る。友人のデータで測るときは、リポジトリの外に置く。
@@ -65,10 +67,14 @@ var doSearch = args.Contains("--search");
 var secondPage = args.Contains("--second-page");
 var queryMode = Option("--query");
 var folderQuery = queryMode is "folder" or "folder-clean";
+var layoutMode = args.Contains("--layout");
+var storeItems = layoutMode
+    ? Directory.EnumerateFiles(Path.Combine(storeDir, "items"), "*.json").Select(path => JsonStore.Read<ItemRecord>(path)).OfType<ItemRecord>().ToList()
+    : [];
 var outPath = Option("--out");
 var detailPath = Option("--detail");
 var cacheDir = Option("--cache") ?? Path.Combine(Path.GetTempPath(), "chmonos-resolve-probe-cache");
-var client = new CachingBoothClient(cacheDir, offline: args.Contains("--offline"));
+var client = new CachingBoothClient(cacheDir, offline: args.Contains("--offline")) { ShopListsDirectory = Option("--shops") };
 
 var pairs = JsonSerializer.Deserialize<List<Pair>>(
         File.ReadAllText(args[1]),
@@ -319,6 +325,8 @@ if (propose is not null)
     var missedPairs = 0;
     var missedTop1 = 0;
     var layoutTop1 = 0;
+    var layoutSureRight = 0;
+    var layoutSureWrong = 0;
     var layoutStrongRight = 0;
     var layoutStrongWrong = 0;
     var details = new List<string>();
@@ -331,7 +339,26 @@ if (propose is not null)
             : pair.File);
         var missesBefore = client.Misses;
         var secondBefore = client.SecondPageRequests;
-        var candidates = (await resolver.ProposeAsync(fake, listed: listing?.All)).Candidates;
+        FolderLayoutHint? hint = null;
+        if (layoutMode)
+        {
+            var subdomain = storeItems.Where(item => item.Id != pair.Id).Select(item => item.Booth.Shop)
+                .FirstOrDefault(shop => shop?.Subdomain is { Length: > 0 } && SaleDecorations.SameShop(shop.Name, shop.Subdomain, pair.ShopFolder))?.Subdomain;
+            hint = new FolderLayoutHint(pair.ItemFolder, pair.ShopFolder, subdomain);
+        }
+
+        var candidates = (await resolver.ProposeAsync(fake, listed: listing?.All, layout: hint)).Candidates;
+        if (candidates.Count > 0 && candidates[0].LayoutPoints >= 3)
+        {
+            if (candidates[0].ItemId == pair.Id)
+            {
+                layoutSureRight++;
+            }
+            else
+            {
+                layoutSureWrong++;
+            }
+        }
         if (client.Misses > missesBefore)
         {
             missedPairs++;
@@ -396,6 +423,10 @@ if (propose is not null)
     Console.WriteLine($"  1位が正解: {top1}/{sample.Count}　候補に正解: {listed}　候補なし: {empty}");
     Console.WriteLine($"  1位が「確度が高い」: 正解 {strongRight} ／ 外れ {strongWrong}");
     Console.WriteLine($"  置き方のフォルダ名で並べ直した1位が正解: {layoutTop1}/{sample.Count}　商品名とショップが両方一致した1位: 正解 {layoutStrongRight} ／ 外れ {layoutStrongWrong}");
+    if (layoutMode)
+    {
+        Console.WriteLine($"  本体（--layout）：置き方の点が3以上の1位 正解 {layoutSureRight} ／ 外れ {layoutSureWrong}　ショップの一覧を求めた {client.ShopPageRequests} 本");
+    }
     Console.WriteLine($"  BOOTH へ出た問い合わせ: {client.NetworkRequests - before} 本・控えに無く飛ばした {client.Misses} 本");
     Console.WriteLine($"  控えに無い問い合わせを含んだ本数: {missedPairs}（うち1位が正解 {missedTop1}）");
 

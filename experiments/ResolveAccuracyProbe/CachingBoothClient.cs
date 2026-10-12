@@ -29,6 +29,40 @@ sealed class CachingBoothClient : IBoothClient
         _offline = offline;
         Directory.CreateDirectory(Path.Combine(directory, "search"));
         Directory.CreateDirectory(Path.Combine(directory, "json"));
+        Directory.CreateDirectory(Path.Combine(directory, "shop"));
+    }
+
+    /// <summary>
+    /// ShopListProbe が書いたショップの一覧（<c>&lt;サブドメイン&gt;.json</c>）の置き場。あれば、そのショップの一覧は1ページ目に全部並べて返す
+    /// （同じ一覧を取り直さない）。
+    /// </summary>
+    public string? ShopListsDirectory { get; init; }
+
+    /// <summary>ショップの商品一覧を求めた本数（控えから返した分も含む）。</summary>
+    public int ShopPageRequests { get; private set; }
+
+    public Task<BoothFetchResult<string>> GetShopItemsPageAsync(string subdomain, int page, CancellationToken cancellationToken = default)
+    {
+        ShopPageRequests++;
+        var listed = ShopListsDirectory is null ? null : Path.Combine(ShopListsDirectory, subdomain.ToLowerInvariant() + ".json");
+        if (listed is not null && File.Exists(listed))
+        {
+            CacheHits++;
+            if (page > 1)
+            {
+                return Task.FromResult(BoothFetchResult<string>.Success(string.Empty));
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(listed, Encoding.UTF8));
+            var cards = document.RootElement.EnumerateArray().Select(entry =>
+            {
+                var json = JsonSerializer.Serialize(new { id = long.Parse(entry.GetProperty("Id").GetString()!), name = entry.GetProperty("Name").GetString() });
+                return $"<li class=\"js-mount-point-shop-item-card\" data-item=\"{System.Net.WebUtility.HtmlEncode(json)}\"></li>";
+            });
+            return Task.FromResult(BoothFetchResult<string>.Success(string.Concat(cards)));
+        }
+
+        return CachedAsync("shop", $"{subdomain}\npage={page}", inner => inner.GetShopItemsPageAsync(subdomain, page, cancellationToken));
     }
 
     /// <summary>実際に BOOTH へ出た問い合わせの本数。</summary>

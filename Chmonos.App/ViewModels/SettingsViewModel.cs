@@ -212,6 +212,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         LoadCardAttributes(settings);
         LoadApiSettings();
+        LoadFolderLayouts(settings);
         LoadAsync().Forget();
         DetectProjectManagersAsync().Forget();
     }
@@ -1564,6 +1565,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             }
 
             LoadCardAttributes(settings);
+            LoadFolderLayouts(settings);
         }
         finally
         {
@@ -2394,11 +2396,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         OnPropertyChanged(nameof(RootNotice));
     }
 
-    private static string? PickFolder()
+    private static string? PickFolder(string title = "データの保存先を選ぶ")
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "データの保存先を選ぶ",
+            Title = title,
             Multiselect = false,
         };
 

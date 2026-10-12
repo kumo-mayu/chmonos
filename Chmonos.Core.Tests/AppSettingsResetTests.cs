@@ -22,7 +22,7 @@ public class AppSettingsResetTests
     {
         ImportFolders = ["D:\\作り物\\取り込み元"],
         WatchedFolders = ["D:\\作り物\\監視"],
-        FolderLayouts = [new FolderLayoutRule { Root = "D:\\作り物\\置き場", ShopNameLevel = null }],
+        FolderLayouts = [new FolderLayoutRule { Root = "D:\\作り物\\置き場", ItemNameLevel = 1 }],
         ShowAdult = false,
         ShowSortDividers = false,
         ShowAcquiredSortDividers = true,
