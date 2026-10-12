@@ -25,7 +25,6 @@
 | ○ | `GET /v1/items/{id}/description` | 説明文（見出しごとの文と、表示用の HTML） |
 | ○ | `GET /v1/items/{id}/modifications` | その商品を使っている改変 |
 | ○ | `GET /v1/items/{id}/notifications` | その商品の通知（更新・価格・説明文の変化） |
-| △ | `GET /v1/items/{id}/related` | 同じショップ・同じ対応アバターの商品 |
 
 ### 検索
 
