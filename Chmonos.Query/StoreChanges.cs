@@ -139,4 +139,47 @@ public static class StoreChanges
     }
 
     private static bool Is(string segment, string name) => string.Equals(segment, name, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 部分のファイルの印（大きさ・日時。改変はフォルダの中のファイルの数・合計・いちばん新しい日時）。
+    /// 読み直しの前にこれを比べ、変わっていない部分は読み直さず、外にも知らせない（時々の見比べのたびに知らせが出ないように）。
+    /// 商品と画像は商品ごとに見るので、ここでは扱わない（null）。
+    /// </summary>
+    public static string? StampOf(AppPaths paths, StorePart part)
+    {
+        if (part == StorePart.Modifications)
+        {
+            var directory = new DirectoryInfo(paths.ModificationsDir);
+            if (!directory.Exists)
+            {
+                return "none";
+            }
+
+            var files = directory.GetFiles("*.json");
+            return $"{files.Length}:{files.Sum(file => file.Length)}:{(files.Length == 0 ? 0 : files.Max(file => file.LastWriteTimeUtc.Ticks))}";
+        }
+
+        var path = part switch
+        {
+            StorePart.Registry => paths.AvatarRegistryFile,
+            StorePart.UserTags => paths.UserTagsFile,
+            StorePart.Attributes => paths.AttributesFile,
+            StorePart.ShopNotes => paths.ShopNotesFile,
+            StorePart.Notifications => paths.NotificationsFile,
+            StorePart.Recent => paths.RecentFile,
+            StorePart.Settings => paths.SettingsFile,
+            StorePart.VideoTitles => paths.VideoTitlesFile,
+            StorePart.Format => Path.Combine(paths.Root, StoreFormat.MarkerFileName),
+            StorePart.ApiSettings => paths.ApiSettingsFile,
+            _ => null,
+        };
+
+        if (path is null)
+        {
+            return null;
+        }
+
+        var info = new FileInfo(path);
+        return info.Exists ? $"{info.Length}:{info.LastWriteTimeUtc.Ticks}" : "none";
+    }
 }

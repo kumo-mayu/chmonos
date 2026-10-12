@@ -17,9 +17,37 @@ internal static partial class ApiEndpoints
             new HealthAnswer(state.TooNew ? "tooNew" : "ok", state.LoadedAt, state.Snapshot.Items.Count, state.Snapshot.FailedItemIds),
             json.HealthAnswer));
 
-        app.MapGet("/v1/version", (ApiState state) => ApiHost.Json(
-            new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice),
+        app.MapGet("/v1/version", (ApiState state, ChangeFeed feed, StoreSync sync) => ApiHost.Json(
+            new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice, feed.Epoch, feed.Sequence, sync.Busy),
             json.VersionAnswer));
+
+        // 変化（docs/spec/local-api.md「同期」）。外の道具は前に見た通番を送り、それより後の変化を受け取る
+        app.MapGet("/v1/changes", (ChangeFeed feed, long? since, string? epoch) =>
+        {
+            var changes = epoch is null || epoch == feed.Epoch ? feed.Since(since ?? 0) : null;
+            return ApiHost.Json(new ChangesAnswer(feed.Epoch, feed.Sequence, changes is null, changes ?? []), json.ChangesAnswer);
+        });
+
+        app.MapGet("/v1/events", (HttpContext context, ChangeFeed feed) => StreamEventsAsync(context, feed));
+
+        // アプリからの知らせ：まとめて書く操作の始まりと終わり（その間は古い答えを返し続ける）
+        app.MapPost("/internal/busy", async (HttpRequest request, StoreSync sync, ApiState state) =>
+        {
+            var body = await ReadAsync(request, json.BusyRequest);
+            switch (body.State)
+            {
+                case "start":
+                    sync.SetBusy(body.Kind ?? "write", state.Clock());
+                    break;
+                case "end":
+                    sync.SetBusy(null, state.Clock());
+                    break;
+                default:
+                    throw QueryException.Invalid("invalidBusy", $"state は start か end です: {body.State}");
+            }
+
+            return Results.NoContent();
+        });
 
         app.MapGet("/v1/display-settings", (ApiState state) => ApiHost.Json(Catalogs.DisplaySettings(state.Snapshot), json.DisplaySettingsRef));
 
@@ -135,6 +163,86 @@ internal static partial class ApiEndpoints
                 : throw QueryException.NotFound("imageNotFound", $"画像が見つかりません: {name}");
         });
     }
+
+    /// <summary>SSE で、ほかの物が何も流れないときに送る印の間隔。間に入る物（プロキシ・ブラウザ）が、つながりを切られたと見なさないように。</summary>
+    private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// 変化を SSE で流す。ブラウザの EventSource はヘッダ（合言葉）を付けられないので、fetch で流れを読んでもらう（docs/spec/local-api.md「ブラウザから」）。
+    /// つなぎ直すときは Last-Event-ID（<c>起動の名前-通番</c>）で続きから流す。持っていない分があれば reloaded を流し、全部を取り直してもらう。
+    /// </summary>
+    private static async Task StreamEventsAsync(HttpContext context, ChangeFeed feed)
+    {
+        var response = context.Response;
+        response.ContentType = "text/event-stream; charset=utf-8";
+        response.Headers.CacheControl = "no-cache";
+        var aborted = context.RequestAborted;
+
+        // 先に聞き始め、取り直した分と重なった物は通番で落とす（間に起きた変化を取りこぼさない）
+        var channel = feed.Listen();
+        try
+        {
+            var sent = feed.Sequence;
+            var last = context.Request.Headers["Last-Event-ID"].ToString();
+            if (last.Length > 0)
+            {
+                var parts = last.Split('-', 2);
+                var replay = parts.Length == 2 && parts[0] == feed.Epoch && long.TryParse(parts[1], out var lastSeq) ? feed.Since(lastSeq) : null;
+                if (replay is null)
+                {
+                    await WriteEventAsync(response, feed.Epoch, new ChangeEventRef(feed.Sequence, "reloaded", [], [], null, DateTimeOffset.Now), aborted);
+                }
+                else
+                {
+                    foreach (var change in replay)
+                    {
+                        await WriteEventAsync(response, feed.Epoch, change, aborted);
+                        sent = change.Seq;
+                    }
+                }
+            }
+
+            await response.Body.FlushAsync(aborted);
+            while (!aborted.IsCancellationRequested)
+            {
+                var waiting = channel.Reader.WaitToReadAsync(aborted).AsTask();
+                if (await Task.WhenAny(waiting, Task.Delay(Heartbeat, aborted)) != waiting)
+                {
+                    await response.WriteAsync(": ping\n\n", aborted);
+                    await response.Body.FlushAsync(aborted);
+                    continue;
+                }
+
+                if (!await waiting)
+                {
+                    return;
+                }
+
+                while (channel.Reader.TryRead(out var change))
+                {
+                    if (change.Seq > sent)
+                    {
+                        await WriteEventAsync(response, feed.Epoch, change, aborted);
+                        sent = change.Seq;
+                    }
+                }
+
+                await response.Body.FlushAsync(aborted);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            feed.Stop(channel);
+        }
+    }
+
+    private static Task WriteEventAsync(HttpResponse response, string epoch, ChangeEventRef change, CancellationToken cancellationToken)
+        => response.WriteAsync(
+            $"id: {epoch}-{change.Seq}\nevent: {change.Kind}\ndata: {JsonSerializer.Serialize(change, QueryJson.Context.ChangeEventRef)}\n\n",
+            cancellationToken);
 
     private static Core.Models.ItemRecord FindItem(ApiState state, string id)
         => state.Snapshot.ItemsById.GetValueOrDefault(id) ?? throw QueryException.NotFound("itemNotFound", $"商品が見つかりません: {id}");

@@ -18,7 +18,25 @@ public sealed record HealthAnswer(string Status, DateTimeOffset LoadedAt, int It
 /// <param name="StoreFormat">保存先の形の版。</param>
 /// <param name="StoreFormatSupported">この API が読める版の上限。</param>
 /// <param name="Notice">BOOTH の情報の扱いについての注意（docs/spec/local-api.md「注意」）。</param>
-public sealed record VersionAnswer(string Api, string App, int StoreFormat, int StoreFormatSupported, string Notice);
+/// <param name="Epoch">この API の起動ごとに変わる名前。通番は起動ごとに数え直すので、外の道具は名前が変わったら全部を取り直す。</param>
+/// <param name="Sequence">今の通番（変化を1つ記録するたびに進む）。</param>
+/// <param name="Busy">アプリがまとめて書いている途中なら、その種類（<c>import</c> など）。その間は古い答えを返し続ける。</param>
+public sealed record VersionAnswer(string Api, string App, int StoreFormat, int StoreFormatSupported, string Notice, string Epoch, long Sequence, string? Busy);
+
+/// <summary>変化1つ（<c>/v1/changes</c> と SSE の出来事）。</summary>
+/// <param name="Kind"><c>changed</c>（写しを読み直した）・<c>reloaded</c>（全部を読み直した。外の道具も全部を取り直す）・<c>busy</c>（まとめて書く操作の始まりと終わり）・<c>formatTooNew</c>・<c>stopping</c>。</param>
+/// <param name="Parts">読み直した部分（<c>items</c>・<c>images</c>・<c>registry</c>・<c>userTags</c> など）。</param>
+/// <param name="ItemIds">変わった商品（増えた・直した・消えた）。</param>
+/// <param name="Busy"><c>busy</c> のとき、始まりならその種類、終わりなら null。</param>
+public sealed record ChangeEventRef(long Seq, string Kind, IReadOnlyList<string> Parts, IReadOnlyList<string> ItemIds, string? Busy, DateTimeOffset At);
+
+/// <param name="Reload">頼んだ通番からの変化を全部は持っていない（古すぎる・API が起動し直した）。外の道具は全部を取り直す。</param>
+public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IReadOnlyList<ChangeEventRef> Changes);
+
+/// <summary>アプリからの知らせ（<c>POST /internal/busy</c>）：まとめて書く操作の始まりと終わり。ファイルを見張っても分からないのはここだけ。</summary>
+/// <param name="State"><c>start</c> か <c>end</c>。</param>
+/// <param name="Kind">操作の種類（<c>import</c> など）。</param>
+public sealed record BusyRequest(string State, string? Kind);
 
 /// <summary>
 /// 誤りの答え（RFC 9457 <c>application/problem+json</c>）。<see cref="Code"/> は機械が読む名前で変えない。<see cref="Detail"/> は人が読む説明。

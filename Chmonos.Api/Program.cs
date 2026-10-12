@@ -52,8 +52,9 @@ public static class Program
         WebApplication app;
         try
         {
-            (app, _) = await ApiHost.BuildAsync(new ApiHostOptions(root, settings.Port, token, settings.AllowedOrigins));
+            (app, _, var sync) = await ApiHost.BuildAsync(new ApiHostOptions(root, settings.Port, token, settings.AllowedOrigins));
             await app.StartAsync();
+            sync.Start();
         }
         catch (IOException exception)
         {

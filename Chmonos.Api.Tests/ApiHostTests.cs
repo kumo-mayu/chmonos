@@ -37,7 +37,7 @@ public sealed class ApiHostTests : IAsyncLifetime
         Directory.CreateDirectory(images);
         await File.WriteAllBytesAsync(Path.Combine(images, "0011223344.webp"), [1, 2, 3]);
 
-        (_app, _) = await ApiHost.BuildAsync(new ApiHostOptions(_root, 0, Token, [Origin]));
+        (_app, _, _) = await ApiHost.BuildAsync(new ApiHostOptions(_root, 0, Token, [Origin]));
         await _app.StartAsync();
         _port = new Uri(_app.Urls.Single()).Port;
         _client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{_port}") };

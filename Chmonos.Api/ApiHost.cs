@@ -14,8 +14,15 @@ namespace Chmonos.Api;
 /// <summary>API を組む材料。</summary>
 /// <param name="Port">待つポート（0 なら空いている番号。試験で使う）。</param>
 /// <param name="Token">合言葉（<c>Authorization: Bearer …</c>）。</param>
-/// <param name="AllowedOrigins">CORS を許す住所（自作の Web ページ）。</param>
-internal sealed record ApiHostOptions(string StoreRoot, int Port, string Token, IReadOnlyList<string> AllowedOrigins, Func<DateTimeOffset>? Clock = null);
+/// <param name="AllowedOrigins">CORS を許す住所（自作の Web ページ）。api-settings.json が変われば読み直す。</param>
+/// <param name="Watch">保存先のファイルの変化を見張るか（試験では切り、読み直しを直に呼ぶ）。</param>
+internal sealed record ApiHostOptions(
+    string StoreRoot,
+    int Port,
+    string Token,
+    IReadOnlyList<string> AllowedOrigins,
+    Func<DateTimeOffset>? Clock = null,
+    bool Watch = true);
 
 /// <summary>読み込んだ写しと、答えに要る物。</summary>
 internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
@@ -36,16 +43,122 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
 
     public QuerySnapshot Snapshot => _snapshot ?? throw new InvalidOperationException("まだ読み込んでいません。");
 
-    public async Task LoadAsync(CancellationToken cancellationToken = default)
+    /// <summary>CORS を許す住所。api-settings.json が変われば入れ替える（入れ物ごと差し替えるので、照らす途中で揺れない）。</summary>
+    public IReadOnlySet<string> AllowedOrigins { get; private set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>部分ごとのファイルの印（<see cref="StoreChanges.StampOf"/>）。変わっていない部分は読み直さず、知らせもしない。</summary>
+    private readonly Dictionary<StorePart, string?> _stamps = [];
+
+    public async Task LoadAsync(IReadOnlyList<string> origins, CancellationToken cancellationToken = default)
     {
+        AllowedOrigins = origins.ToHashSet(StringComparer.OrdinalIgnoreCase);
         StoreFormat = Core.Storage.StoreFormat.StoreVersion(Paths.Root);
+        foreach (var part in Enum.GetValues<StorePart>())
+        {
+            _stamps[part] = StoreChanges.StampOf(Paths, part);
+        }
+
         _snapshot = await QuerySnapshot.LoadAsync(new DataStore(Paths), cancellationToken);
         LoadedAt = Clock();
-
-        // 読み込みの途中で出たごみ（JSON の読み込み・説明文を落とす前の記録）を片付けて、使っていないメモリを OS へ返す。
-        // 2,000 件で専用が 120 → 111MB（2026-10-12 に測った）。読み込みのたびに1回だけなので、止まる時間は問題にならない
-        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        Compact();
     }
+
+    /// <summary>
+    /// 読み込みの途中で出たごみ（JSON の読み込み・説明文を落とす前の記録）を片付けて、使っていないメモリを OS へ返す。
+    /// 2,000 件で専用が 120 → 111MB（2026-10-12 に測った）。全部を読んだときだけ行う（止まる時間は問題にならない）
+    /// </summary>
+    private static void Compact() => GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+
+    /// <summary>
+    /// 変わった部分を読み直して写しを差し替え、外へ知らせる。部分のファイルの印が変わっていなければ読み直さない。
+    /// 呼ぶのは同期の1本の流れ（<see cref="StoreSync"/>）だけ。
+    /// </summary>
+    public async Task ApplyAsync(StoreChangeSet changes, ChangeFeed feed, CancellationToken cancellationToken = default)
+    {
+        var effective = new StoreChangeSet();
+        if (changes.Overflowed)
+        {
+            effective.Add(StoreChangeSet.Everything());
+        }
+
+        foreach (var part in changes.Parts)
+        {
+            if (part is StorePart.Items or StorePart.Images)
+            {
+                effective.Add(part);
+                continue;
+            }
+
+            var stamp = StoreChanges.StampOf(Paths, part);
+            if (changes.Overflowed || !string.Equals(stamp, _stamps.GetValueOrDefault(part), StringComparison.Ordinal))
+            {
+                _stamps[part] = stamp;
+                effective.Add(part);
+            }
+        }
+
+        foreach (var itemId in changes.ItemIds)
+        {
+            effective.Add(StorePart.Images, itemId);
+        }
+
+        if (effective.Parts.Contains(StorePart.ApiSettings))
+        {
+            AllowedOrigins = ApiFiles.ReadSettings(Paths).AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        if (effective.Parts.Contains(StorePart.Format))
+        {
+            var wasTooNew = TooNew;
+            StoreFormat = Core.Storage.StoreFormat.StoreVersion(Paths.Root);
+            if (TooNew && !wasTooNew)
+            {
+                feed.Publish("formatTooNew", [], [], null, Clock());
+            }
+        }
+
+        var snapshotParts = effective.Parts.Where(part => part is not (StorePart.Format or StorePart.ApiSettings)).ToList();
+        if (snapshotParts.Count == 0)
+        {
+            return;
+        }
+
+        var before = Snapshot;
+        var after = await before.UpdateAsync(effective, cancellationToken);
+        var itemIds = after.ChangedItemsSince(before);
+        var imageIds = after.ImageFiles
+            .Where(pair => !before.ImageFiles.TryGetValue(pair.Key, out var old) || !old.SequenceEqual(pair.Value, StringComparer.OrdinalIgnoreCase))
+            .Select(pair => pair.Key);
+        var changedIds = itemIds.Concat(imageIds).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+
+        // 商品と画像は、中身が本当に変わったときだけ知らせる（ファイルの日時だけ変わった・同じ中身で書き直した、では知らせない）
+        var reported = snapshotParts.Where(part => part is not (StorePart.Items or StorePart.Images)).ToList();
+        if (itemIds.Count > 0)
+        {
+            reported.Add(StorePart.Items);
+        }
+
+        if (changedIds.Count > itemIds.Count)
+        {
+            reported.Add(StorePart.Images);
+        }
+
+        _snapshot = after;
+        LoadedAt = Clock();
+        if (changes.Overflowed)
+        {
+            Compact();
+            feed.Publish("reloaded", [], [], null, LoadedAt);
+            return;
+        }
+
+        if (reported.Count > 0)
+        {
+            feed.Publish("changed", reported.Select(PartName).ToList(), changedIds, null, LoadedAt);
+        }
+    }
+
+    public static string PartName(StorePart part) => JsonNamingPolicy.CamelCase.ConvertName(part.ToString());
 }
 
 /// <summary>
@@ -63,7 +176,7 @@ internal static class ApiHost
     public static string AppVersion { get; } =
         typeof(ApiHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
 
-    public static async Task<(WebApplication App, ApiState State)> BuildAsync(ApiHostOptions options, CancellationToken cancellationToken = default)
+    public static async Task<(WebApplication App, ApiState State, StoreSync Sync)> BuildAsync(ApiHostOptions options, CancellationToken cancellationToken = default)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
         builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, options.Port));
@@ -77,19 +190,30 @@ internal static class ApiHost
         });
 
         var state = new ApiState(new AppPaths(options.StoreRoot), options.Clock ?? (() => DateTimeOffset.Now));
-        await state.LoadAsync(cancellationToken);
+        await state.LoadAsync(options.AllowedOrigins, cancellationToken);
+        var feed = new ChangeFeed();
+        var sync = new StoreSync(state, feed, options.Watch);
         builder.Services.AddSingleton(state);
+        builder.Services.AddSingleton(feed);
+        builder.Services.AddSingleton(sync);
 
         var app = builder.Build();
-        var origins = options.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var token = Encoding.UTF8.GetBytes("Bearer " + options.Token);
-        app.Use((context, next) => GuardAsync(context, next, origins, token, state));
+        app.Use((context, next) => GuardAsync(context, next, token, state));
         ApiEndpoints.Map(app);
-        return (app, state);
+
+        // 止まるときは SSE の聞き手に知らせてから、見張りを止める
+        app.Lifetime.ApplicationStopping.Register(() =>
+        {
+            feed.Publish("stopping", [], [], null, state.Clock());
+            sync.Dispose();
+        });
+        return (app, state, sync);
     }
 
-    private static async Task GuardAsync(HttpContext context, RequestDelegate next, HashSet<string> origins, byte[] token, ApiState state)
+    private static async Task GuardAsync(HttpContext context, RequestDelegate next, byte[] token, ApiState state)
     {
+        var origins = state.AllowedOrigins;
         var request = context.Request;
 
         // Host が自分（127.0.0.1・localhost と待っているポート）でなければ断る。他所のドメインを 127.0.0.1 へ向け直して
