@@ -284,6 +284,7 @@ public sealed class DataStore
         Modifications = new ModificationRepository(paths);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ShopNotes = new JsonFileStore<List<ShopNoteRecord>>(paths.ShopNotesFile);
+        ApiSettings = new JsonFileStore<ApiSettings>(paths.ApiSettingsFile);
         VideoTitles = new JsonFileStore<List<VideoTitleRecord>>(paths.VideoTitlesFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
@@ -339,6 +340,9 @@ public sealed class DataStore
 
     /// <summary>ショップに人が付けた星とメモ（<see cref="ShopNoteRecord"/>）。</summary>
     public JsonFileStore<List<ShopNoteRecord>> ShopNotes { get; }
+
+    /// <summary>外から使う API の設定（ポート・許可する Web ページ。設定画面と、手で書いたファイルの両方から変わる）。</summary>
+    public JsonFileStore<ApiSettings> ApiSettings { get; }
 
     /// <summary>YouTube の動画のタイトルの控え。30日を過ぎたら取り直すか消す（<see cref="Services.VideoTitleBook"/>）。</summary>
     public JsonFileStore<List<VideoTitleRecord>> VideoTitles { get; }

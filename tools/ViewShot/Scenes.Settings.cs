@@ -32,7 +32,34 @@ internal static partial class Scenes
         SettingsReset("settings-reset-all-done", "設定：すべての設定を既定に戻した後（値が既定へ戻り、ボタンの下に結果の1行が出る）", done: true),
         SettingsNotes("settings-notes-before", "設定：操作の知らせが出る前（出る場所は前もって空けてある）", shown: false),
         SettingsNotes("settings-notes-after", "設定：知らせが出た後（欄の下・ボタンの下・見出しの横。ほかの物は動かない）", shown: true),
+        SettingsApi(),
     ];
+
+    /// <summary>
+    /// 設定の「API」の節（2026-10-12）を開いた形。許可するWebページが2つ・追加できなかった知らせ・範囲の外のポートを丸めた知らせ。
+    /// API は動いていない（台は API を起動しない）
+    /// </summary>
+    private static Scene SettingsApi()
+        => new("settings-api", "設定の「API」：開いた形（許可するWebページ2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
+        {
+            Chmonos.Core.Storage.JsonStore.Write(
+                context.Seed.Paths.ApiSettingsFile,
+                new Chmonos.Core.Models.ApiSettings { AllowedOrigins = ["http://localhost:5173", "https://example.test"] });
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            settings.SectionApiOpen = true;
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+
+            settings.ApiPort = 80;
+            settings.NewApiOrigin = "localhost:5173";
+            settings.AddApiOriginCommand.Execute(null);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "許可するWebページ")) };
+        });
 
     /// <summary>
     /// 設定をいくつか既定から変えておき、「すべての設定を既定に戻す」を押す。確かめの窓は台が答える（done なら OK、そうでなければキャンセル）

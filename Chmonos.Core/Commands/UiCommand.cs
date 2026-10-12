@@ -578,6 +578,12 @@ public abstract record UiCommand
     /// <summary>形式を上げる前に取った控え（<c>format-backups</c>）を全部消す（設定の「データ」・ユーザ判断 2026-10-08）。</summary>
     public record DeleteFormatBackups : UiCommand;
 
+    /// <summary>
+    /// 外から使う API の設定（api-settings.json）を変える（設定の「API」・2026-10-12）。設定と同じく変え方を関数で渡し、
+    /// ディスクの今の値に錠の中で当てる（手でファイルを書き換えていても、画面が触っていない項目を古い値で消さない）。
+    /// </summary>
+    public record ChangeApiSettings(Func<Models.ApiSettings, Models.ApiSettings> Change) : UiCommand;
+
     /// <summary>新しい版の確認の記録を変える（新しい版の帯を × で閉じた版を覚える。ユーザ判断 2026-10-08）。</summary>
     public record ChangeUpdateCheck(Func<Services.UpdateCheckRecord, Services.UpdateCheckRecord> Change) : UiCommand;
 

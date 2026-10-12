@@ -37,6 +37,9 @@ public sealed class CommandHandler
     /// <summary>まだ終わっていない登録の列（registration-queue.json。メモ60）。組み立ての引数を増やさないよう、作るときに入れる。</summary>
     public Storage.JsonFileStore<List<Models.QueuedRegistration>>? RegistrationQueue { private get; init; }
 
+    /// <summary>外から使う API の設定の置き場（<see cref="UiCommand.ChangeApiSettings"/>）。</summary>
+    public Storage.JsonFileStore<Models.ApiSettings>? ApiSettings { private get; init; }
+
     /// <summary>
     /// やりかけの記録（pending-operations.json）。IDの変更・タグや属性の名前の変更を、この記録で囲んで走らせる。
     /// 無ければ記録せずに走らせる（保存先を持たない一部の試験の組み立て）。組み立ての引数を増やさないよう、作るときに入れる。
@@ -334,6 +337,12 @@ public sealed class CommandHandler
                 return new CommandResult.SearchHistoryChanged(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                         .ChangeSearchHistoryAsync(history.Change, cancellationToken));
+
+            case UiCommand.ChangeApiSettings api:
+                // 手で書いた JSON の欠けた配列（null）を空として受けてから変える
+                await (ApiSettings ?? throw new InvalidOperationException("API の設定の保存先が渡されていません。"))
+                    .UpdateAsync(current => api.Change(current with { AllowedOrigins = current.AllowedOrigins ?? [] }), cancellationToken);
+                return new CommandResult.Done();
 
             case UiCommand.ChangeUpdateCheck update:
                 await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))

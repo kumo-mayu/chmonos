@@ -158,6 +158,7 @@ public sealed class AppServiceContainer : IDisposable
                 storeRoot: Paths.Root)
             {
                 RegistrationQueue = Store.RegistrationQueue,
+                ApiSettings = Store.ApiSettings,
                 PendingOperations = Store.PendingOperations,
                 MissingRecords = MissingRecords,
             };

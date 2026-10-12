@@ -211,6 +211,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         _suppressSave = false;
 
         LoadCardAttributes(settings);
+        LoadApiSettings();
         LoadAsync().Forget();
         DetectProjectManagersAsync().Forget();
     }

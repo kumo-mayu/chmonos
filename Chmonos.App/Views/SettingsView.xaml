@@ -968,6 +968,80 @@
                 </Border>
 
                 <!--
+                    API（外から使う。docs/spec/local-api.md・2026-10-12）。ポートなどの考えが要る開発者向けの機能なので、
+                    1行目でそう言い、節は既定で畳む（ユーザ判断 2026-10-12「少し難しい話だと見てわかるようにした方が良い」）
+                -->
+                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                    <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding SectionApiOpen, Mode=TwoWay}"
+                              AutomationProperties.AutomationId="Settings.SectionApi"
+                              AutomationProperties.Name="API">
+                        <Expander.Header>
+                            <TextBlock Text="API" Style="{StaticResource GroupTitle}" VerticalAlignment="Center" />
+                        </Expander.Header>
+                        <StackPanel Margin="0,14,0,0">
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       Text="開発者向けの機能です。ほかのアプリや自作のツールから、このアプリのデータを読めるようにします。使い方はマニュアルの「API」の章にあります。" />
+
+                            <Grid Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="状態" Style="{StaticResource RowLabel}" Width="220" />
+                                    <TextBlock Text="{Binding ApiStatusText}" Style="{StaticResource RowLabel}"
+                                               AutomationProperties.AutomationId="Settings.ApiStatus" />
+                                </StackPanel>
+                                <Button Content="起動" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        AutomationProperties.AutomationId="Settings.StartApi"
+                                        Command="{Binding StartApiCommand}"
+                                        ToolTip="{Binding StartApiTip}" ToolTipService.ShowOnDisabled="True" />
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="ポート" Style="{StaticResource RowLabel}" Width="220" />
+                                <TextBox Style="{StaticResource NumberBox}"
+                                         AutomationProperties.AutomationId="Settings.ApiPort" AutomationProperties.Name="APIのポート"
+                                         Text="{Binding ApiPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                <TextBlock Text="（1024〜65535）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
+                                       AutomationProperties.AutomationId="Settings.Note.ApiPort"
+                                       Text="{Binding Notes[ApiPort]}" />
+                            <TextBlock Style="{StaticResource Caption}" Margin="222,0,0,6" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Settings.ApiRestartNote"
+                                       Text="{Binding ApiRestartNote}"
+                                       Visibility="{Binding ApiRestartNote, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+
+                            <TextBlock Text="許可するWebページ" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Text="ブラウザで開いた自作のページから使うときだけ追加します。" />
+                            <controls:SearchAddBox Width="340" HorizontalAlignment="Left"
+                                                   AutomationProperties.AutomationId="Settings.ApiOriginInput"
+                                                   AutomationProperties.Name="許可するWebページ"
+                                                   Placeholder="http://localhost:5173"
+                                                   Text="{Binding NewApiOrigin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                   NoticeText="{Binding ApiOriginNotice}" NoticeIsWarning="True"
+                                                   AddCommand="{Binding AddApiOriginCommand}"
+                                                   SubmitCommand="{Binding AddApiOriginCommand}" />
+                            <ItemsControl ItemsSource="{Binding ApiOrigins}" Margin="0,8,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ApiOriginRow}">
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Origin}" Style="{StaticResource Mono}" FontSize="11.5" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="削除" Style="{StaticResource DangerButton}"
+                                                    AutomationProperties.AutomationId="Settings.ApiOriginRemove"
+                                                    AutomationProperties.Name="{Binding Origin, StringFormat={}{0}を許可するページから削除}"
+                                                    Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+                </Border>
+
+                <!--
                     このアプリについて。いちばん下に置く（設定ではなく、読めばよいもの）。
                     非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
                     docs/research/booth-terms.md §3）。初回の窓にも同じ旨を出す。
@@ -984,7 +1058,7 @@
                         <StackPanel Margin="0,14,0,0">
                             <!-- アイコンと名前・バージョン（2026-10-08）。不具合を知らせてもらうときに、どの版かを読んでもらう（ユーザ判断 2026-10-07） -->
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                <Image Source="/Assets/Chmonos-64.png" Width="48" Height="48" RenderOptions.BitmapScalingMode="HighQuality"
+                                <Image Source="pack://application:,,,/Chmonos;component/Assets/Chmonos-64.png" Width="48" Height="48" RenderOptions.BitmapScalingMode="HighQuality"
                                        AutomationProperties.Name="Chmonos のアイコン" />
                                 <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="Chmonos（クモノス）" Style="{StaticResource SubTitle}" />
