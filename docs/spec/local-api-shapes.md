@@ -1,179 +1,100 @@
-# 外から使う API：URL と答えの形（案）
+# 外から使う API：URL と答えの形
 
-> **要点**：[local-api.md](local-api.md) の URL と答えの形の案。**広めに出して、ユーザが削る**（2026-10-12・ユーザ指示）。印の「◎」は最初に要る物、「○」はあると便利、「△」は削ってよさそうな物（作り手の見立て）。
+> **要点**：[local-api.md](local-api.md) の URL と答えの形。URL はユーザが広めの案から削った（2026-10-12）。答えの中身は Chmonos.Query（HTTP を持たない問い合わせ層）が作り、
+> **形の見本は期待する答えの試験（`Chmonos.Query.Tests/Golden/`）**。形を変えたら見本を書き直し（`CHMONOS_UPDATE_GOLDEN=1`）、差分を読んでから入れる。
+> 「作った」は Chmonos.Query に答えを作る処理があること（HTTP の口は手順3で付ける）。
 
 ## URL
 
-### 仕組み
-
-| | URL | 中身 |
+| URL | 中身 | 状態 |
 |---|---|---|
-| ◎ | `GET /v1/health` | 動いているか・読み終えたか（合言葉なし） |
-| ◎ | `GET /v1/version` | API のバージョン・保存の形の版・今の通番・まとめて書いている途中か・BOOTH の情報についての注意（合言葉なし） |
-| ◎ | `GET /v1/openapi.json` | 仕様書 |
-| ◎ | `GET /v1/changes?since=<通番>` | 前に見た時点からの変化（種類と ID） |
-| ◎ | `GET /v1/events` | SSE。変化・全部の読み直し・まとめて書く始まりと終わり・止まる |
-| ○ | `GET /v1/display-settings` | 使う人の表示の設定（R-18 を表示しない・非表示の件数を出す、など）。外の道具が画面と同じに隠すため |
+| `GET /v1/health`・`GET /v1/version` | 動いているか・読み終えたか・読めなかった商品／API のバージョン・保存の形の版・通番・まとめて書いている途中か・注意（合言葉なし） | 手順3 |
+| `GET /v1/openapi.json` | 仕様書 | 手順6 |
+| `GET /v1/changes?since=`・`GET /v1/events` | 変化の一覧と SSE | 手順4 |
+| `GET /v1/display-settings` | 使う人の表示の設定（R-18 を表示しない・非表示の件数・消えた画像・サムネイルにする画像） | 作った |
+| `GET /v1/items`・`GET /v1/items/{id}`・`POST /v1/items/batch` | 一覧（要約）・1件（詳細）・ID をまとめて詳細 | 作った（`ItemMapper`） |
+| `GET /v1/items/{id}/description` | 説明文（見出しごとの文と表示用の HTML） | まだ |
+| `GET /v1/items/{id}/modifications`・`/notifications` | その商品を使っている改変・その商品の通知 | 作った |
+| `POST /v1/search` | 式で検索（下）。答えは一覧（要約）と全体の数と続きの印 | 作った（`SearchEngine`） |
+| `GET /v1/search/conditions` | 条件の種類・値の形・選択肢・切り替えの既定 | 作った |
+| `POST /v1/search/facets` | 選択肢の件数（下） | 作った |
+| `GET /v1/search/explain?q=` | 検索欄の文字列をどう読んだか | まだ |
+| `GET /v1/saved-searches`・`/search-history` | 保存した検索・履歴（式に変換した物も添える） | まだ（保存の形から API の条件へ戻す変換が要る） |
+| `GET /v1/avatars`・`/v1/avatars/{id}` | 登録簿（名前・素体・持っているか・対応する商品の数・絵の場所） | 作った |
+| `GET /v1/avatar-bases` | 共通素体（属するアバター・呼び方） | 作った |
+| `GET /v1/files/lookup?path=`・`?hash=` | ファイル・フォルダから商品を逆に引く | 作った |
+| `GET /v1/unitypackages?avatar=` | 手元の `.unitypackage` と、その商品・対応アバター | 作った |
+| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | まだ |
+| `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/booth-tags` | 分類と件数（マスタに無いのに付いている物も返す） | 作った |
+| `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
+| `GET /v1/modifications`・`/{id}`・`/v1/unity-projects` | 改変・Unity プロジェクト | 作った |
+| `GET /v1/notifications` | 通知（既読・片付けた印つき） | 作った（変化の中身はまだ） |
+| `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | まだ |
+| `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 手順3 |
 
-### 商品
+アバター・素体・ショップから商品を引く専用の URL は作らない（検索の式で書く。ユーザ判断 2026-10-12）。
 
-| | URL | 中身 |
-|---|---|---|
-| ◎ | `GET /v1/items` | 一覧（要約）。`cursor`・`limit`・`includeHidden`・`includeAdult`・`sort` |
-| ◎ | `GET /v1/items/{id}` | 1件（詳細。下の形） |
-| ◎ | `POST /v1/items/batch` | ID をまとめて渡して詳細を返す（一覧から詳細へ、1件ずつ聞かずに済む） |
-| ○ | `GET /v1/items/{id}/description` | 説明文（見出しごとの文と、表示用の HTML） |
-| ○ | `GET /v1/items/{id}/modifications` | その商品を使っている改変 |
-| ○ | `GET /v1/items/{id}/notifications` | その商品の通知（更新・価格・説明文の変化） |
+## 商品の答え（`ItemDetail`・`ItemSummary`）
 
-### 検索
+見本は `Golden/item-*.json`・`summaries.jsonl`。決まりだけ書く：
 
-| | URL | 中身 |
-|---|---|---|
-| ◎ | `POST /v1/search` | 式で検索（下の形）。答えは一覧（要約） |
-| ◎ | `GET /v1/search/conditions` | 使える条件の種類と、それぞれの値の形（外の道具が条件の画面を組むため） |
-| ◎ | `POST /v1/search/facets` | 選択肢の件数：式の結果の中で、指定した欄（カテゴリ・対応アバター・タグ…）の値ごとの件数 |
-| ○ | `GET /v1/search/explain?q=…` | 検索欄の文字列をどう読んだか（前置き・辞書で広げた別表記）。「なぜ当たったか」を説明する |
-| ○ | `GET /v1/saved-searches` | 保存した検索（式に変換した物も添える） |
-| △ | `GET /v1/search-history` | 検索の履歴 |
-
-### アバター・素体
-
-| | URL | 中身 |
-|---|---|---|
-| ◎ | `GET /v1/avatars` | 登録簿（名前・呼び方・素体・所有しているか） |
-| ◎ | `GET /v1/avatars/{id}` | 1体 |
-| ○ | `GET /v1/avatar-bases` | 共通素体（属するアバター・呼び方）。対応する商品は検索で引く |
-
-### ファイル・Unity（自動の紐付けの資産を外で使う中心）
-
-| | URL | 中身 |
-|---|---|---|
-| ◎ | `GET /v1/files/lookup?path=…` | このファイル・フォルダはどの商品の物か（Unity や外の道具から逆に引く） |
-| ◎ | `GET /v1/files/lookup?hash=…` | 同じくハッシュで |
-| ◎ | `GET /v1/unitypackages` | 手元の `.unitypackage`（zip の中・フォルダの中）と、その商品・対応アバター。`avatar=` で絞る |
-| ○ | `GET /v1/folders` | 商品として登録したフォルダ |
-| ○ | `GET /v1/unresolved` | 商品が決まっていないファイル |
-| △ | `GET /v1/excluded` | 管理から外したファイル |
-| △ | `GET /v1/volumes` | ドライブ文字と通し番号の組 |
-
-### 分類・ショップ・改変・その他
-
-| | URL | 中身 |
-|---|---|---|
-| ◎ | `GET /v1/user-tags` | ユーザータグ（大分類・小分類・メモ・件数） |
-| ◎ | `GET /v1/attributes` | 属性（名前・メモ・件数） |
-| ○ | `GET /v1/categories` | カテゴリ（画面と同じ実質の1つ：自分で入れた物があればそれ、無ければ BOOTH の物。名前・親・件数） |
-| ○ | `GET /v1/booth-tags` | BOOTH のタグと件数 |
-| ◎ | `GET /v1/shops`・`GET /v1/shops/{key}` | ショップ（名前・サブドメイン・自分で作ったショップか・星・メモ・件数） |
-| ○ | `GET /v1/modifications`・`GET /v1/modifications/{id}` | 改変（アバター・使った商品とファイル・Unity プロジェクト・メモ） |
-| ○ | `GET /v1/unity-projects` | 改変に書いた Unity プロジェクトと、その改変 |
-| ○ | `GET /v1/notifications` | 通知（既読・解決済みの印つき） |
-| △ | `GET /v1/recent` | 「最近」の足跡 |
-| △ | `GET /v1/stats` | 統計（件数・金額）。画面の統計と同じ数え方 |
-| ○ | `GET /v1/images/{itemId}/{name}` | 画像の本体（ブラウザの画面のため。場所は商品の答えにも入れる） |
-| ○ | `GET /v1/modifications/{id}/images/{name}` | 改変の画像の本体 |
-
-## 商品1件の形
-
-```json
-{
-  "id": "1234567",
-  "name": "表示に使う名前（手で直した名前があればそれ）",
-  "boothName": "BOOTH の商品名",
-  "url": "https://booth.pm/ja/items/1234567",
-  "shop": { "key": "example", "name": "…", "subdomain": "example", "isLocal": false, "url": "…" },
-  "category": "3D衣装",
-  "categorySource": "booth",
-  "boothCategory": { "id": 208, "name": "3D衣装", "parentName": "3Dモデル" },
-  "boothTags": ["…"],
-  "priceText": "¥ 1,500",
-  "wishCount": 1234,
-  "publishedAt": "2025-05-01T12:00:00+09:00",
-  "isAdult": false, "isEndOfSale": false, "isSoldOut": false, "isDelisted": false,
-  "isHidden": false, "isFavorite": false, "isOwned": true, "isAvatar": false,
-  "hasUpdate": false, "hasBrokenArchive": false, "hasMissingFiles": false,
-  "variations": [ { "id": 111, "name": "…", "price": 1500, "status": "…", "type": "…" } ],
-  "purchases": [ { "variationId": 111, "variationName": "…", "price": 1500, "kind": "self", "purchasedAt": "2026-01-01", "note": null, "existsOnBooth": true } ],
-  "acquiredAt": "2026-01-01",
-  "avatars": [
-    { "avatarId": "7654321", "name": "…", "source": "supportSection", "state": "confirmed", "isOwned": true }
-  ],
-  "avatarBases": [ { "name": "…", "source": "supportList", "state": "candidate" } ],
-  "avatarsDetectedAt": "2026-10-01T12:00:00+09:00",
-  "userTags": [ { "top": "衣装", "subs": ["夏"] } ],
-  "attributes": { "かわいい": 3 },
-  "memo": "…",
-  "files": [
-    {
-      "hash": "…", "sizeBytes": 123456, "variationId": 111,
-      "paths": ["D:\\Assets\\…\\foo.zip"],
-      "state": "present",
-      "missingSince": null, "isArchiveBroken": false,
-      "replaced": null,
-      "unityPackages": [ { "entry": "foo/foo.unitypackage", "roots": ["Assets/foo"] } ],
-      "contents": ["foo/foo.unitypackage", "foo/readme.txt"]
-    }
-  ],
-  "folders": [ { "path": "D:\\Assets\\…", "fileCount": 120, "totalBytes": 9000000, "missingSince": null, "unityPackages": ["…"] } ],
-  "images": {
-    "thumbnail": { "name": "….webp", "path": "C:\\…\\images\\1234567\\….webp" },
-    "booth": [ { "name": "….webp", "path": "…", "caption": null, "role": null } ],
-    "user": [ { "name": "…", "path": "…", "caption": "…", "addedAt": "…" } ]
-  },
-  "videos": [ { "id": "…", "title": "…" } ],
-  "fetchedAt": "2026-10-10T09:00:00+09:00",
-  "updatedAt": "2026-10-10T09:00:00+09:00"
-}
-```
-
-- `category` は画面と同じ実質の1つ（`ItemRecord.CategoryName`：自分で入れた物があればそれ、無ければ BOOTH の物）。`categorySource` は `booth`・`user`。BOOTH の元の値は `boothCategory`（無ければ `null`）。
-- 紐付けの `state` は `confirmed`（確認済み）・`candidate`（推定で、まだ人が選んでいない）・`rejected`（人が消した）。中の `Confirmed`・`Rejected` の2つの真偽を1つの値にした。
-- ファイルの `state` は `present`（ある）・`missing`（場所が空）・`detached`（外した）・`oldVersion`（上書きで残った古い版）。
-- アセットのファイルは場所だけ返し、中身は送らない。
-- 一覧の要約は、`id`・`name`・`shop`・`category`・`isOwned`・`isAdult`・`isHidden`・`isFavorite`・確認済みの対応アバターの ID・サムネイルの名前。
+- `name` は画面と同じ表示名、`boothName` は BOOTH の名前。`category` は画面と同じ実質の1つで、`categorySource` は `user`・`booth`。
+- **対応アバターは2つ**：`compatibleAvatars` は画面の検索と同じ数え方（人が消した紐付けと説明文のリンクを除き、**人が確認していない推定は数える**。`match` は `direct`・`viaBase`）。
+  `avatars` は紐付けの出どころ（`supportSection`・`supportList`・`tag`・`variation`・`h2Link`・`manual`）と状態（`confirmed`・`candidate`・`rejected`）。
+  確認済みだけを対応として返すと、検索の答えと食い違う。一覧の要約の `avatarIds` は前者。
+- ファイルの `state` は `present`・`missing`・`detached`・`oldVersion`。`unityPackages` が null はまだ調べていない（空は調べて無かった）。中身は送らず場所だけ。
+- 画像は画面のカードと同じ並べ方と1枚目（設定に従い、消えた画像の控えは設定で表示しているときだけ）。`origin` は `booth`・`user`・`orphaned`、`role` は `booth`・`modified`・`other`。
+- 購入の `kind` は `self`・`given`・`received`（保存の JSON の日本語の値ではなく、変えない英字）。
 
 ## 検索の式（`POST /v1/search`）
 
 ```json
 {
-  "where": {
-    "and": [
-      { "text": "夏 avatar:…" },
-      { "or": [
-        { "condition": { "kind": "attribute", "values": ["かわいい"], "match": "any" } },
-        { "condition": { "kind": "userTag", "top": "衣装", "sub": "夏" } }
-      ] },
-      { "not": { "condition": { "kind": "date", "field": "purchased", "from": "2026-01-01", "to": null } } }
-    ]
-  },
-  "includeHidden": true,
-  "includeAdult": true,
-  "sort": [ { "field": "purchasedAt", "order": "desc" } ],
-  "cursor": null,
-  "limit": 100
+  "where": { "and": [ { "text": "夏" }, { "not": { "condition": { "kind": "price", "min": 1000, "max": 2000 } } } ] },
+  "includeHidden": true, "includeAdult": true,
+  "textOptions": { "targets": ["name", "shop"], "caseSensitive": false },
+  "sort": [ { "field": "wishCount", "order": "desc" } ],
+  "cursor": null, "limit": 100
 }
 ```
 
-- 葉は `text`（検索欄の記法）か `condition`（画面の絞り込みの条件1つ）。枝は `and`・`or`・`not`。
-- 条件の中の「どれか・すべて」（`match`）や、対応アバターの「素体経由を含める」は条件の値として持つ。画面の「除く」は `not` で書く。
-- 条件の形は、検索の履歴に残している形（`SearchModuleState`）をそのまま出さず、API の形から変換する（中を直しても外の約束が壊れないように）。
-- `includeHidden`・`includeAdult` の既定は `true`（全部返して印を付ける）。
+- 式の1段には `and`・`or`・`not`・`text`・`condition` のどれか1つ。深さ32段・葉200まで。
+- `text` は検索欄の記法そのまま（前置き・`OR`・`-` も同じ）。**辞書で別表記に広げる処理は v1 では入れない**（画面でも既定は切。索引の控えが無いと保存先へ書くため。後から互換のまま足せる）。
+- `not` は葉まで下ろし、条件の葉では**画面の「除く」と同じ判定**（範囲・日付・属性は値の分からない商品も外す）。
+- **絞らない値の条件**（「両方」・境の無い範囲）は種類を問わず「すべてに当たる」。`not` を付ければ何にも当たらない。
+- 範囲・日付は送らなかった側を制限しない（両方送らなければ絞らない）。
+- 並べる欄は `id`・`name`・`publishedAt`・`acquiredAt`・`wishCount`・`paid`・`fetchedAt`。値の無い商品は向きを問わず後ろ、同じ値は ID の順（並びは必ず一意）。
+- `cursor` は前の答えの `nextCursor`。最後に返した商品の並べる値と ID を持ち、並べ方を変えて送られたら断る（`invalidCursor`）。中身は約束にしない。
+
+### 条件（`condition`）
+
+種類と値の形の一覧は `GET /v1/search/conditions`（見本 `Golden/search-conditions.json`）。保存の形をそのまま受けず、API の形で受けて変換する（`ConditionKinds.ToState`）。
+
+| 形 | 種類 | 欄 |
+|---|---|---|
+| choice | saleStatus・adult・owned・gift・freePaid・favorite・hidden・brokenZip・missingFile・notOnBooth | `choice`（先頭が既定）・`options`（補助の切り替えを名前で） |
+| list | category・boothTag・shop・unityProject・path | `values`・`match`（`any`・`all`。AND を持たない種類は OR）・`includeFavoriteShops`（shop） |
+| avatar | avatar | `avatars`（ID）・`bases`（素体名）・`match`・`viaBase`（既定 true）・`matched`（既定 true）・`unspecified`（既定 false） |
+| range | wishCount・price | `min`・`max`・`source`（`paid`・`booth`）・`allVariations`・`includeUnknown`・`ignoreOutliers`（既定 true） |
+| date | publishedAt・acquiredAt | `from`・`to`（`YYYY-MM-DD`）・`scope`（`first`・`all`。入手日） |
+| attribute | attribute | `ranges`（`name`・`min`・`max`）・`match` |
+| userTag | userTag | `tags`（`top`・`subs`・`match`・`noSub`）・`match` |
+| modification | modification | `modifications`（`avatar`・`modifications`・`match`）・`match` |
+| editStatus | editStatus | `choice`（`unedited`・`edited`・`both`）・`fields`・`match` |
+| updateNotice | updateNotice | `choice`（`updated`・`other`・`both`）・`fields`（種類）・`match` |
+| recent | recent | `recent`（`used`・`viewed`・`added`）・`fromDays`・`toDays` |
+
+読めない値は既定で読まず、決まった名前の誤りで返す（`unknownCondition`・`invalidChoice`・`invalidOption`・`invalidCondition`）。
+編集状況の「取り込みの③待ちは未入力に数えない」は API では分からないので、待っていない物として数える。
 
 ## 選択肢の件数（`POST /v1/search/facets`）
 
-```json
-{ "where": { "…": "検索と同じ式" }, "fields": ["category", "avatar", "userTag"], "includeHidden": true, "includeAdult": true }
-```
+`{ "where": …, "fields": ["category", "boothTag", "shop", "avatar", "userTag", "attribute"] }` → `{ "total": 2, "fields": { "category": [ { "value": "3D衣装", "name": null, "count": 1 } ] }, "avatarGroups": { "matched": 0, "unspecified": 2 } }`
 
-```json
-{ "category": [ { "value": "3D衣装", "count": 120 } ], "avatar": [ { "value": "7654321", "name": "…", "count": 77 } ], "userTag": [ { "value": "衣装/夏", "count": 12 } ] }
-```
+- 数えるのは `where` の結果の中。画面は「自分の条件は自分を除いて数える」が、式は木なので「自分」を決められない。数えたい欄の条件を外した式を送ってもらう。
+- `avatar` は画面の検索と同じ数え方の対応アバターごと。`avatarGroups` は対応アバターの「対応している」「対応の指定が無い」の数。`userTag` は `大分類` と `大分類/小分類`。`attribute` は評価した商品の数。
 
-- 数えるのは `where` の結果の中。画面は「自分の条件は自分を除いて数える」が、式は木なので「自分」を決められない。外の道具は、数えたい欄の条件を外した式を渡す（使い方に書く）。
-- 対応アバターは「対応している」「対応の指定が無い」の件数も返す（画面の2つのチェックの数）。
-
-## SSE（`GET /v1/events`）の出来事
+## SSE（`GET /v1/events`）の出来事（手順4）
 
 | 出来事 | 中身 |
 |---|---|
