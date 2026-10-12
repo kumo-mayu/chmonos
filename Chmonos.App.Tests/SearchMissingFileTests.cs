@@ -2,6 +2,7 @@ using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
 using Chmonos.Core.Storage;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
 

@@ -14,9 +14,9 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public sealed class UneditedModule : SearchModule
 {
-    private const string MissingKey = "unedited";
-    private const string FilledKey = "edited";
-    private const string NeutralKey = "both";
+    private const string MissingKey = EditStatusCondition.MissingKey;
+    private const string FilledKey = EditStatusCondition.FilledKey;
+    private const string NeutralKey = EditStatusCondition.NeutralKey;
 
     private readonly Func<ItemRecord, bool> _isAwaiting;
     private ChoiceOption _selected;
@@ -145,19 +145,8 @@ public sealed class UneditedModule : SearchModule
 
     protected override bool HasCondition => _selected.Key != NeutralKey;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context) => MatchesKey(item, _selected.Key);
-
-    private bool MatchesKey(ItemRecord item, string key) => key switch
-    {
-        MissingKey => !_isAwaiting(item) && Missing(item),
-        FilledKey => !Missing(item),
-        _ => true,
-    };
-
-    private bool Missing(ItemRecord item)
-        => _matchAll
-            ? _fields.All(field => EditFieldsMissing.IsMissing(item, field))
-            : _fields.Any(field => EditFieldsMissing.IsMissing(item, field));
+    protected override ItemCondition BuildCondition()
+        => new EditStatusCondition(_selected.Key, _fields.ToList(), _matchAll, (item, _) => _isAwaiting(item));
 
     protected override string SummaryBody
     {
@@ -213,9 +202,10 @@ public sealed class UneditedModule : SearchModule
     /// </summary>
     public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
     {
+        var condition = (EditStatusCondition)ConditionFor(context);
         foreach (var option in Options)
         {
-            option.Count = items.Count(item => MatchesKey(item, option.Key));
+            option.Count = items.Count(item => condition.MatchesKey(item, context, option.Key));
         }
 
         foreach (var toggle in Fields)

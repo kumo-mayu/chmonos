@@ -520,83 +520,22 @@ public sealed class RangeModule : SearchModule
 
     public override bool SupportsExclude => true;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-    {
-        if (!HasCondition)
-        {
-            return true;
-        }
-
-        EnsurePrepared(context);
-        if (IncludesUnpricedNow && IsUnpriced(item))
-        {
-            return true;
-        }
-
-        var (min, max) = (_preparedMin, _preparedMax);
-        var values = KnownValues(item);
-        if (SupportsMatchAll && _matchAll)
-        {
-            // 数の分からない商品は当てない（「全部が範囲に入る」の全部が空で真になるのを避ける）
-            if (values.Count == 0)
-            {
-                return false;
-            }
-
-            foreach (var value in values)
-            {
-                if ((min is not null && value < min) || (max is not null && value > max))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        foreach (var value in values)
-        {
-            if ((min is null || value >= min) && (max is null || value <= max))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>
-    /// 欄の字を数に読むのは絞り込みの1回で1回だけ（案c）。前は商品ごとに全角を畳んで読み直していた。
+    /// 欄の字を数に読むのは判定を作るときの1回だけ（案c）。前は商品ごとに全角を畳んで読み直していた。
+    /// 外れ値の境は帯を描くときに求めた物を渡す（同じ境で照らす）。
     /// </summary>
-    protected override void PrepareCore(SearchModuleContext context) => (_preparedMin, _preparedMax) = (Min, Max);
-
-    private long? _preparedMin;
-    private long? _preparedMax;
-
-    /// <summary>
-    /// 数が分かっていて、除かないときに当たらない商品（ユーザ判断 2026-10-01）。どれか1つで見るときは**どの数も**範囲に入らない商品、
-    /// 「すべての価格が範囲内」のときは**範囲の外の数を1つでも持つ**商品（メモ82-6。表は `docs/spec/search-filters.md`）。
-    /// 数の分からない商品（値段を入れていない・外れ値を外したら1つも残らない）は、除くときも外す。
-    /// </summary>
-    protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
-        => !HasCondition
-            || (IncludesUnpricedNow && IsUnpriced(item))
-            || (KnownValues(item).Count > 0 && !Matches(item, context));
-
-    /// <summary>元の数が1つも無い（値段を入れていない・バリエーションが無い）。外れ値を外して残らない物は含めない。</summary>
-    private bool IsUnpriced(ItemRecord item) => _values(item, _source?.Key).Count == 0;
-
-    /// <summary>照らす数。外れ値を外していれば、その数だけを外す（商品は他の種類の価格で照らす）。</summary>
-    private IReadOnlyList<long> KnownValues(ItemRecord item)
+    protected override ItemCondition BuildCondition()
     {
-        var values = _values(item, _source?.Key);
-        if (!IgnoresOutliersNow)
-        {
-            return values;
-        }
-
-        var fence = _outlierFence!.Value;
-        return values.Where(value => value < fence).ToList();
+        var source = _source?.Key;
+        var fence = IgnoresOutliersNow ? _outlierFence : null;
+        return new RangeCondition(
+            item => _values(item, source),
+            HasCondition,
+            Min,
+            Max,
+            SupportsMatchAll && _matchAll,
+            IncludesUnpricedNow,
+            fence is null ? null : _ => fence);
     }
 
     public override string ExcludedHint => "当てはまる商品と、数の分からない商品を除いています。押すと除くのをやめます。";

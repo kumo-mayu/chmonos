@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
 

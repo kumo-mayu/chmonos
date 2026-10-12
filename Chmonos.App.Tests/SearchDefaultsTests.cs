@@ -1,5 +1,7 @@
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
+using Chmonos.Core.Services;
+using Chmonos.Core.Models;
 
 namespace Chmonos.App.Tests;
 

@@ -16,13 +16,12 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public sealed class UpdateNoticeModule : SearchModule
 {
-    private const string UpdatedKey = "updated";
-    private const string OtherKey = "other";
-    private const string NeutralKey = "both";
+    private const string UpdatedKey = UpdateNoticeCondition.UpdatedKey;
+    private const string OtherKey = UpdateNoticeCondition.OtherKey;
+    private const string NeutralKey = UpdateNoticeCondition.NeutralKey;
 
     /// <summary>画面の並び（ユーザ判断の並び）。</summary>
-    internal static IReadOnlyList<BoothChangeKind> AllKinds { get; } =
-        [BoothChangeKind.Content, BoothChangeKind.Variations, BoothChangeKind.Price, BoothChangeKind.Sale, BoothChangeKind.Page];
+    internal static IReadOnlyList<BoothChangeKind> AllKinds => UpdateNoticeCondition.AllKinds;
 
     private readonly Func<string, BoothChangeKind> _kindsOf;
     private ChoiceOption _selected;
@@ -74,19 +73,8 @@ public sealed class UpdateNoticeModule : SearchModule
 
     protected override bool HasCondition => _selected.Key != NeutralKey;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context) => MatchesKey(item, _selected.Key);
-
-    private bool MatchesKey(ItemRecord item, string key) => key switch
-    {
-        UpdatedKey => HasSelected(item),
-        OtherKey => !HasSelected(item),
-        _ => true,
-    };
-
-    private bool HasSelected(ItemRecord item)
-        => _matchAll
-            ? (_kindsOf(item.Id) & _kinds) == _kinds
-            : (_kindsOf(item.Id) & _kinds) != BoothChangeKind.None;
+    protected override ItemCondition BuildCondition()
+        => new UpdateNoticeCondition(_selected.Key, _kinds, _matchAll, (itemId, _) => _kindsOf(itemId));
 
     /// <summary>種類どうしを全部そろえる（AND）か。既定はどれか（OR）。「両方」の間は受けない（編集状況と同じ）。</summary>
     public bool MatchAll
@@ -177,9 +165,10 @@ public sealed class UpdateNoticeModule : SearchModule
 
     public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
     {
+        var condition = (UpdateNoticeCondition)ConditionFor(context);
         foreach (var option in Options)
         {
-            option.Count = items.Count(item => MatchesKey(item, option.Key));
+            option.Count = items.Count(item => condition.MatchesKey(item, context, option.Key));
         }
 
         // 種類の横の件数は、他の条件のもとでその種類の未読の知らせがある商品の数
@@ -215,14 +204,7 @@ public sealed class UpdateNoticeModule : SearchModule
     }
 
     /// <summary>状態に書く名前。</summary>
-    internal static string KeyOf(BoothChangeKind kind) => kind switch
-    {
-        BoothChangeKind.Content => "content",
-        BoothChangeKind.Variations => "variations",
-        BoothChangeKind.Price => "price",
-        BoothChangeKind.Sale => "sale",
-        _ => "page",
-    };
+    internal static string KeyOf(BoothChangeKind kind) => UpdateNoticeCondition.KeyOf(kind);
 
     /// <summary>種類のトグルを入れ・切る。**最後の1つは外させない**（編集状況の項目と同じ）。</summary>
     internal void Toggle(BoothChangeKind kind, bool on)

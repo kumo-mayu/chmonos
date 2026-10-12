@@ -1,4 +1,5 @@
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -108,7 +109,7 @@ public sealed class AttributeFilter : ViewModelBase
 
     /// <summary>評価が入っていて、かつレンジに収まるものだけを通す。</summary>
     public bool Matches(ItemRecord item)
-        => item.Local.Attributes.TryGetValue(Name, out var value) && value >= Min && value <= Max;
+        => AttributeCondition.InRange(item, new AttributeRange(Name, Min, Max));
 }
 
 public enum SortKind

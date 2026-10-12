@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
 using Chmonos.App.Services;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 

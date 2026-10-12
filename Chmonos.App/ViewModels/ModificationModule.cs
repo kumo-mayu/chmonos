@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows.Media;
 using Chmonos.App.Controls;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -263,10 +264,8 @@ public sealed class ModificationModule : SearchModule
 
     protected override bool HasCondition => Rows.Count > 0;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-        => _matchAll
-            ? Rows.All(row => row.Matches(item.Id, context.Modifications))
-            : Rows.Any(row => row.Matches(item.Id, context.Modifications));
+    protected override ItemCondition BuildCondition()
+        => new ModificationsCondition(Rows.Select(row => row.Condition).ToList(), _matchAll);
 
     /// <summary>除くときも、アバターどうし・枠の中の改変どうしの AND／OR はそのまま効かせ、その反対を取る（ユーザータグと同じ）。</summary>
     public override bool SupportsExclude => true;
@@ -525,12 +524,7 @@ public sealed class ModificationAvatarRow : ViewModelBase
     }
 
     /// <summary>改変を選んでいなければこのアバターの改変のどれか、選んでいれば選んだ改変のどれか（AND ならすべて）に使った商品。</summary>
-    internal bool Matches(string itemId, ModificationUsage usage)
-        => Chips.Count == 0
-            ? usage.Used(Avatar, itemId)
-            : _matchAll
-                ? Chips.All(chip => usage.InModification(chip.Key, itemId))
-                : Chips.Any(chip => usage.InModification(chip.Key, itemId));
+    internal bool Matches(string itemId, ModificationUsage usage) => ModificationsCondition.MatchesOne(Condition, itemId, usage);
 
     internal void RefreshCounts(IReadOnlyList<ItemRecord> items, ModificationUsage usage)
     {

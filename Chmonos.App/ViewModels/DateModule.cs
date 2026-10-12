@@ -247,52 +247,19 @@ public sealed class DateModule : SearchModule
 
     protected override bool HasCondition => Since is not null || Till is not null;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-    {
-        EnsurePrepared(context);
-        if (_preparedSince is null && _preparedTill is null)
-        {
-            return true;
-        }
-
-        // 日付が分からない商品は、日付で絞った時点で外す。「値が小さい」ではなく「値が無い」ので、範囲のどこにも当てはまらない
-        return FirstOnly
-            ? _first!(item) is { } first && _inRange(first)
-            : _any(item, _inRange);
-    }
-
     /// <summary>
-    /// 境の日付を読むのは絞り込みの1回で1回だけ（案c）。前は商品ごとに4回読み直していて（条件があるかを見る分と照らす分）、
-    /// 公開日の条件が照らす重さのいちばん上に来ていた（1件 900ns のうち読み直しが大半）。範囲に入るかの関数もここで1回だけ作る
+    /// 境の日付を読むのは判定を作るときの1回だけ（案c）。前は商品ごとに4回読み直していて（条件があるかを見る分と照らす分）、
+    /// 公開日の条件が照らす重さのいちばん上に来ていた（1件 900ns のうち読み直しが大半）
     /// </summary>
-    protected override void PrepareCore(SearchModuleContext context)
+    protected override ItemCondition BuildCondition()
     {
-        var since = Since;
-        var till = Till;
-        (_preparedSince, _preparedTill) = (since, till);
-        _inRange = date => (since is null || date >= since) && (till is null || date <= till);
+        var bounds = (Since, Till);
+        return new DateCondition(_any, FirstOnly ? _first : null, _ => bounds);
     }
-
-    private DateOnly? _preparedSince;
-    private DateOnly? _preparedTill;
-    private Func<DateOnly, bool> _inRange = _ => true;
-    private static readonly Func<DateOnly, bool> AnyDate = _ => true;
 
     public override bool SupportsExclude => true;
 
     public override string ExcludedHint => "当てはまる商品と、日付の分からない商品を除いています。押すと除くのをやめます。";
-
-    /// <summary>
-    /// 日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。
-    /// 日付をいくつも持つ商品は、どれも範囲に入らないときだけ残る（当たる＝どれか1つが入る、の裏）。
-    /// 最初の購入だけで見るときは、最初の日付が範囲の外の商品（後で買い足した日が範囲に入っていても残る）。
-    /// </summary>
-    protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
-    {
-        EnsurePrepared(context);
-        var known = FirstOnly ? _first!(item) is not null : _any(item, AnyDate);
-        return (_preparedSince is null && _preparedTill is null) || (known && !Matches(item, context));
-    }
 
     /// <summary>入手日は、最初の購入か全てかを頭に添える（同じ日付でも当たる物が違う）。</summary>
     protected override string SummaryHead => HasPurchaseScopes

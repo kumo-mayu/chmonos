@@ -112,7 +112,7 @@ public sealed class RecentTracker
     /// 足跡は写しとして持つ（<c>DataStore.Recent</c>。変わっていなければ同じ物が返る）ので、
     /// 返った物が前と同じなら分けた結果も前の物を使う。持つのは商品数ぶんの時刻の表3つ（2000件で数百KB）。
     /// </summary>
-    public ViewModels.RecentTimes AllTimes()
+    public Core.Services.RecentTimes AllTimes()
     {
         var log = _store.Recent.Load();
         if (_times is { } seen && ReferenceEquals(seen.Source, log))
@@ -120,7 +120,7 @@ public sealed class RecentTracker
             return seen.Times;
         }
 
-        var times = new ViewModels.RecentTimes(
+        var times = new Core.Services.RecentTimes(
             RecentActivity.Times(log.Entries, RecentKind.Added),
             RecentActivity.Times(log.Entries, RecentKind.Used),
             RecentActivity.Times(log.Entries, RecentKind.Viewed));
@@ -128,7 +128,7 @@ public sealed class RecentTracker
         return times;
     }
 
-    private sealed record TimesCache(RecentLog Source, ViewModels.RecentTimes Times);
+    private sealed record TimesCache(RecentLog Source, Core.Services.RecentTimes Times);
 
     private volatile TimesCache? _times;
 }

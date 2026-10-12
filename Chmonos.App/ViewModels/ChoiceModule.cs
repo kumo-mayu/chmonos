@@ -1,4 +1,5 @@
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -117,7 +118,8 @@ public sealed class ChoiceModule : SearchModule
 
     protected override bool HasCondition => _selected.Key != _neutralKey;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context) => _matches(item, _selected.Key, _flag);
+    protected override ItemCondition BuildCondition()
+        => new ChoiceCondition(_selected.Key, _flag, _neutralKey, (item, _, key, flag) => _matches(item, key, flag));
 
     protected override string SummaryBody
         => _selected.Label + (HasFlag && _flag != _flagSpec!.Default ? $"・{_flagSpec.ChangedSummary}" : string.Empty);

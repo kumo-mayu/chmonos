@@ -5,51 +5,6 @@ using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
-/// <summary>
-/// 検索の絞り込みのモジュール（ユーザ案 2026-09-15・`docs/history/search-redesign.md`）。
-/// 名前は ui-state.json と検索の履歴に書くので、変えると古い状態が読めなくなる（読めなかった物は黙って飛ばす）。
-/// </summary>
-public enum SearchModuleKind
-{
-    Category,
-    BoothTag,
-    Shop,
-    WishList,
-    Price,
-    EndOfSale,
-    PublishedAt,
-    Adult,
-    Owned,
-    Gift,
-    FreePaid,
-    UserTag,
-    Attribute,
-    Avatar,
-    Favorite,
-    AcquiredAt,
-    Hidden,
-    Unedited,
-
-    // 「対応アバターの確認」（AvatarUnconfirmed・2026-09-18）は、編集状況の項目の1つにした（ユーザ判断 2026-10-06）。
-    // 種類ごと消したので、前に保存した状態のその条件は読めずに飛ばされる（公開前なので救済はしない）
-    Modification,
-    UnityProject,
-    Path,
-    Recent,
-
-    /// <summary>壊れていて開けない zip を持つか（ユーザ判断 2026-09-30）。</summary>
-    BrokenZip,
-
-    /// <summary>記録の上では持っているが、置き場がどこにも無いファイルがあるか（ユーザ判断 2026-10-04。カードの印「見つかりません」と同じ数え方）。</summary>
-    MissingFile,
-
-    /// <summary>仮のIDで登録した「BOOTHに無い商品」か（ユーザ指示 2026-10-04 メモ31。判定は <see cref="Chmonos.Core.Models.ItemRecord.IsLocalOnly"/> と同じ）。</summary>
-    NotOnBooth,
-
-    /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。画面の名前は「更新通知あり」（2026-10-06）。</summary>
-    Updated,
-}
-
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
 /// <param name="AllowsMany">
 /// 同じ種類を複数置けるか（ユーザ判断 2026-10-01）。値を選んで積む条件だけ。条件どうしは AND なので、
@@ -268,140 +223,6 @@ public static class SearchModuleCatalog
     public static SearchModuleInfo Of(SearchModuleKind kind) => All.First(entry => entry.Kind == kind);
 }
 
-/// <summary>
-/// 「最近」の足跡を、商品IDから引ける形にまとめたもの。
-///
-/// 絞り込みの1回ぶんで使い回す。1商品ごとにファイルを読み直さないため。
-/// </summary>
-public sealed record RecentTimes(
-    IReadOnlyDictionary<string, DateTimeOffset> Added,
-    IReadOnlyDictionary<string, DateTimeOffset> Used,
-    IReadOnlyDictionary<string, DateTimeOffset> Viewed)
-{
-    public static RecentTimes Empty { get; } = new(
-        new Dictionary<string, DateTimeOffset>(),
-        new Dictionary<string, DateTimeOffset>(),
-        new Dictionary<string, DateTimeOffset>());
-
-    public DateTimeOffset? Of(string itemId, RecentKind kind)
-    {
-        var source = kind switch
-        {
-            RecentKind.Added => Added,
-            RecentKind.Used => Used,
-            _ => Viewed,
-        };
-
-        return source.TryGetValue(itemId, out var at) ? at : null;
-    }
-}
-
-/// <summary>
-/// 改変から引いた「どの改変・アバター・プロジェクトにどの商品を使ったか」。
-///
-/// **絞り込みの1回ぶんで使い回す**（<see cref="RecentTimes"/> と同じ理由。1商品ごとに改変のファイルを読み直さないため）。
-/// </summary>
-public sealed record ModificationUsage(
-    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByAvatar,
-    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByModification,
-    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByProject,
-    IReadOnlyList<ModificationRecord> Records)
-{
-    /// <summary>
-    /// 商品ごとの、「使ったもの」に入れている改変の数（並べ替えの「改変に使った回数」。ユーザ判断 2026-10-07）。
-    /// 1つの改変に同じ商品が2回入っていても1回と数える（改変ごとの集合から数える）
-    /// </summary>
-    public IReadOnlyDictionary<string, int> UseCounts { get; } = ItemIdsByModification.Values
-        .SelectMany(members => members)
-        .GroupBy(itemId => itemId, StringComparer.Ordinal)
-        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-
-    public static ModificationUsage Empty { get; } = new(
-        new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal),
-        new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal),
-        new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase),
-        []);
-
-    public static ModificationUsage From(IEnumerable<ModificationRecord> records)
-    {
-        var list = records.ToList();
-        var byAvatar = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        var byProject = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        var byModification = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
-
-        foreach (var record in list)
-        {
-            // 同じ商品が2回入っていても、絞り込みに要るのは「入っているか」だけ
-            var members = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
-            byModification[record.Id] = members;
-            Collect(byAvatar, record.AvatarItemId, members);
-
-            if (!string.IsNullOrWhiteSpace(record.UnityProject))
-            {
-                Collect(byProject, record.UnityProject!, members);
-            }
-        }
-
-        return new ModificationUsage(
-            byAvatar.ToDictionary(pair => pair.Key, pair => (IReadOnlySet<string>)pair.Value, StringComparer.Ordinal),
-            byModification,
-            byProject.ToDictionary(pair => pair.Key, pair => (IReadOnlySet<string>)pair.Value, StringComparer.OrdinalIgnoreCase),
-            list);
-
-        static void Collect(Dictionary<string, HashSet<string>> map, string key, IEnumerable<string> members)
-        {
-            if (!map.TryGetValue(key, out var set))
-            {
-                set = new HashSet<string>(StringComparer.Ordinal);
-                map[key] = set;
-            }
-
-            set.UnionWith(members);
-        }
-    }
-
-    public bool Used(string avatarItemId, string itemId)
-        => ItemIdsByAvatar.TryGetValue(avatarItemId, out var used) && used.Contains(itemId);
-
-    public bool InModification(string modificationId, string itemId)
-        => ItemIdsByModification.TryGetValue(modificationId, out var used) && used.Contains(itemId);
-
-    public bool InProject(string projectPath, string itemId)
-        => ItemIdsByProject.TryGetValue(projectPath, out var used) && used.Contains(itemId);
-}
-
-/// <summary>絞り込み1回ぶんの材料。モジュールが商品を照らすときに使う。</summary>
-public sealed class SearchModuleContext
-{
-    private readonly Func<AvatarCompatibilityIndex> _compatibility;
-    private AvatarCompatibilityIndex? _index;
-
-    public SearchModuleContext(
-        Func<AvatarCompatibilityIndex> compatibility,
-        ModificationUsage modifications,
-        RecentTimes recent,
-        Func<string, string>? pathMap,
-        DateTimeOffset now)
-    {
-        _compatibility = compatibility;
-        Modifications = modifications;
-        Recent = recent;
-        PathMap = pathMap;
-        Now = now;
-    }
-
-    /// <summary>素体経由の対応の索引。対応アバターで絞るときだけ作る。</summary>
-    public AvatarCompatibilityIndex Compatibility => _index ??= _compatibility();
-
-    public ModificationUsage Modifications { get; }
-
-    public RecentTimes Recent { get; }
-
-    /// <summary>外付けのドライブ文字が変わった記録を今の場所に読み替える（フォルダの条件）。</summary>
-    public Func<string, string>? PathMap { get; }
-
-    public DateTimeOffset Now { get; }
-}
 
 /// <summary>
 /// 絞り込みのモジュール1つ（ユーザ案 2026-09-15）。追加したまま切れる（<see cref="IsEnabled"/>）、右上の × で外す。
@@ -430,6 +251,10 @@ public abstract class SearchModule : ReorderableRow
     {
         Kind = kind;
         _changedSoon = new Debounced(FilterWait, () => Changed?.Invoke());
+
+        // 見える値が変わったら、作った判定を捨てる（次に照らすときに今の値で作り直す）。
+        // 値を変える道はどれも知らせを出すので、ここ1か所で古い判定を使わずに済む（知らせを出さずに値だけ変える道を作らない）
+        PropertyChanged += (_, _) => _condition = null;
     }
 
     public SearchModuleKind Kind { get; }
@@ -601,20 +426,37 @@ public abstract class SearchModule : ReorderableRow
     }
 
     /// <summary>除かないときに当てはまるか（値と AND／OR などの設定どおりに照らす）。</summary>
-    public abstract bool Matches(ItemRecord item, SearchModuleContext context);
+    public bool Matches(ItemRecord item, SearchModuleContext context) => ConditionFor(context).Matches(item, context);
 
     /// <summary>
     /// 絞り込みで通すか。**照らす口はここ1つ**（除くかどうかで分ける所を1か所にする）。
+    /// 除くときの決まり（値の分からない商品も外す、など）は判定の側（<see cref="ItemCondition.MatchesExcluded"/>）が持つ。
     /// </summary>
     public bool Passes(ItemRecord item, SearchModuleContext context)
-        => _isExcluded ? MatchesExcluded(item, context) : Matches(item, context);
+    {
+        var condition = ConditionFor(context);
+        return _isExcluded ? condition.MatchesExcluded(item, context) : condition.Matches(item, context);
+    }
 
     /// <summary>
-    /// 除くときに通すか。既定は「除かないときに当てはまる物、以外」。
-    /// 範囲・日付・属性は**値の分からない商品を、除くときも外す**ように上書きする（ユーザ判断 2026-10-01。
-    /// 値の分からない商品は「範囲の外」とは言えない。除かないときも外れているので、除いたら出てくると食い違う）。
+    /// 今の値の判定（2026-10-12・外から使う API と同じ判定を使うため、照らす中身を Core の <see cref="ItemCondition"/> に移した）。
+    /// 種類ごとの照らし方は作るときに受け取った物（検索画面は <see cref="SearchModuleConditions"/> の物を渡す）。
     /// </summary>
-    protected virtual bool MatchesExcluded(ItemRecord item, SearchModuleContext context) => !Matches(item, context);
+    protected abstract ItemCondition BuildCondition();
+
+    /// <summary>作った判定。値が変わると捨てる（<see cref="PropertyChanged"/>・<see cref="Unprepare"/>）。</summary>
+    protected ItemCondition ConditionFor(SearchModuleContext context)
+    {
+        if (_condition is null)
+        {
+            _condition = BuildCondition();
+            _condition.Prepare(context);
+        }
+
+        return _condition;
+    }
+
+    private ItemCondition? _condition;
 
     /// <summary>
     /// 絞り込みの1回の始めに1回だけ呼ぶ（照らす重さの案c・`docs/research/search-modules-2026-10-01.md` §9）。
@@ -623,31 +465,12 @@ public abstract class SearchModule : ReorderableRow
     /// </summary>
     public void Prepare(SearchModuleContext context)
     {
-        PrepareCore(context);
-        _prepared = true;
+        _condition = BuildCondition();
+        _condition.Prepare(context);
     }
 
-    /// <summary>用意する物を持つ条件が上書きする。</summary>
-    protected virtual void PrepareCore(SearchModuleContext context)
-    {
-    }
-
-    /// <summary>
-    /// 用意した物を使う前に呼ぶ。絞り込みは毎回 <see cref="Prepare"/> を通すので、ここで用意するのは
-    /// それを通らずに照らしたとき（値を変えた直後に直に照らす試験など）だけ。
-    /// </summary>
-    protected void EnsurePrepared(SearchModuleContext context)
-    {
-        if (!_prepared)
-        {
-            Prepare(context);
-        }
-    }
-
-    /// <summary>値が変わったので、用意した物を捨てる（次に照らすときに用意し直す）。</summary>
-    protected void Unprepare() => _prepared = false;
-
-    private bool _prepared;
+    /// <summary>値が変わったので、作った判定を捨てる（次に照らすときに作り直す）。</summary>
+    protected void Unprepare() => _condition = null;
 
     /// <summary>効いている条件の1行（結果の上と、畳んだパネルと、検索の履歴に出す）。</summary>
     public string SummaryText

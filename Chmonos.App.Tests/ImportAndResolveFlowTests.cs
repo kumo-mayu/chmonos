@@ -6,6 +6,7 @@ using Chmonos.Core.Models;
 using Chmonos.Core.Scanning;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
 

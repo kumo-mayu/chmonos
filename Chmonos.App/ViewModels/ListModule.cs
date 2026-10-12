@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Media;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -443,27 +444,18 @@ public sealed class ListModule : SearchModule
     protected override bool HasCondition
         => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn);
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-    {
-        if (_isUnspecified is not null && _isUnspecified(item, context))
-        {
-            // 指定が無い商品は、選んだアバターと照らさない。出すかどうかだけ
-            return _showUnspecified;
-        }
-
-        if (HasGroups && !_showMatched)
-        {
-            return false;
-        }
-
-        if (HasInclude && _includeOn)
-        {
-            // 選んだ値のどれかと同じ扱い（OR）。何も選んでいなければ、このかたまりだけ
-            return _includeMatches!(item, context) || (Chips.Count > 0 && MatchesChips(item, context));
-        }
-
-        return MatchesChips(item, context);
-    }
+    protected override ItemCondition BuildCondition()
+        => new ListCondition(
+            Chips.Select(chip => chip.Key).ToList(),
+            _matchAll && AllowsAnd,
+            _flag,
+            _matches,
+            _isUnspecified,
+            _showMatched,
+            _showUnspecified,
+            _includeMatches,
+            HasInclude && _includeOn,
+            _matchKey);
 
     /// <summary>
     /// 照らすときに <c>matches</c> へ渡す鍵。畳む決まり（<c>matchKey</c>）があれば、チップごとに1回だけ畳んで覚える（案c）。
@@ -473,11 +465,6 @@ public sealed class ListModule : SearchModule
 
     private readonly Func<string, string>? _matchKey;
 
-    private bool MatchesChips(ItemRecord item, SearchModuleContext context)
-        => Chips.Count == 0
-            || (_matchAll && AllowsAnd
-                ? Chips.All(chip => _matches(item, context, MatchKey(chip), _flag))
-                : Chips.Any(chip => _matches(item, context, MatchKey(chip), _flag)));
 
     public override bool SupportsExclude => true;
 
@@ -538,7 +525,8 @@ public sealed class ListModule : SearchModule
 
         // 各かたまりが「他の条件を当てたうえで」何件か。どちらに印を付けるかの判断に使う
         _unspecifiedCount = items.Count(item => _isUnspecified(item, context));
-        _matchedCount = items.Count(item => !_isUnspecified(item, context) && MatchesChips(item, context));
+        var condition = (ListCondition)ConditionFor(context);
+        _matchedCount = items.Count(item => !_isUnspecified(item, context) && condition.MatchesKeys(item, context));
         OnPropertyChanged(nameof(MatchedLabel));
         OnPropertyChanged(nameof(UnspecifiedLabel));
     }

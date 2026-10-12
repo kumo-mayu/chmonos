@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -133,19 +134,11 @@ public sealed class UserTagModule : SearchModule
 
     protected override bool HasCondition => Rows.Count > 0;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-    {
-        EnsurePrepared(context);
-        return UserTagCondition.MatchesAll(_preparedConditions, _matchAll, item.Local.UserTags);
-    }
-
     /// <summary>
-    /// 条件の並びを作るのは絞り込みの1回で1回だけ（案c）。前は商品ごとに枠の数だけ条件を作り直していた。
+    /// 条件の並びを作るのは判定を作るときの1回だけ（案c）。前は商品ごとに枠の数だけ条件を作り直していた。
     /// 小分類のチップを足し外しすると枠の Changed から <see cref="SearchModule.NotifyChanged"/> が来て捨てられる。
     /// </summary>
-    protected override void PrepareCore(SearchModuleContext context) => _preparedConditions = Conditions();
-
-    private List<UserTagCondition> _preparedConditions = [];
+    protected override ItemCondition BuildCondition() => new UserTagsCondition(Conditions(), _matchAll);
 
     private List<UserTagCondition> Conditions() => Rows.Select(row => row.Condition).ToList();
 

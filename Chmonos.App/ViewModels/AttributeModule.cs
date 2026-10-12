@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -102,19 +103,12 @@ public sealed class AttributeModule : SearchModule
 
     protected override bool HasCondition => Rows.Count > 0;
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-        => Rows.Count == 0 || (_matchAll ? Rows.All(row => row.Matches(item)) : Rows.Any(row => row.Matches(item)));
+    protected override ItemCondition BuildCondition()
+        => new AttributeCondition(Rows.Select(row => new AttributeRange(row.Name, row.Min, row.Max)).ToList(), _matchAll);
 
     public override bool SupportsExclude => true;
 
     public override string ExcludedHint => "当てはまる商品と、評価していない商品を除いています。押すと除くのをやめます。";
-
-    /// <summary>
-    /// 選んだ属性が**全部**評価済みで、当てはまらない商品（D2）。1行のときの「値が分かっていて範囲の外」を、そのまま全部の行に広げた形。
-    /// 評価していない属性が1つでもあれば、除くときも外す。
-    /// </summary>
-    protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
-        => Rows.Count == 0 || (Rows.All(row => item.Local.Attributes.ContainsKey(row.Name)) && !Matches(item, context));
 
     protected override string SummaryBody => JoinValues(Rows.Select(row => $"{row.Name} {row.Min}〜{row.Max}"), _matchAll);
 

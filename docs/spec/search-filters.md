@@ -6,7 +6,7 @@
 >
 > **コード**：`App/ViewModels/SearchModules.cs`（条件の種類・基底・`SearchModuleOrder`・`MatchModeText`）と種類ごとの `ChoiceModule.cs`・`ListModule.cs`・`RangeModule.cs`・`DateModule.cs`・`AttributeModule.cs`・`UserTagModule.cs`・`UneditedModule.cs`（2026-10-08 に分けた）・`ModificationModule.cs`・`UpdateNoticeModule.cs`・`SearchFilterPass.cs`（絞り込みの1回）・
 > `SearchViewModel.Modules/Filtering/History/ShowOnly.cs`・`Views/SearchView.xaml`・`SearchView.Modules.cs`（見出しのメニューと止まり直し）、
-> `Core/Models/SearchModuleState`・`Core/Services/EditFieldsMissing`・`DateText`・`FolderTree`
+> `Core/Models/SearchModuleState`・`SearchModuleKind`。**照らす中身は Core**（2026-10-12・外から使う API と同じ判定にするため）：`Core/Services/SearchModuleConditions`（種類ごとの照らし方と、状態から判定を作る `From`）・`ItemConditions`（判定。画面の条件は値を渡して作る）・`SearchModuleContext`・`EditFieldsMissing`・`DateText`・`FolderTree`
 >
 > **経緯**：`docs/history/search-redesign.md`（2026-09-15〜16 の刷新）、`docs/history/search-modules-2026-10-01.md`（複数・除く・編集状況）、
 > 案と計測 `docs/research/search-modules-2026-10-01.md`。監修（2026-10-06・メモ82〜84）は `docs/feedback/open.md` の同じ名前の行。文字列と結果は [search.md](search.md)

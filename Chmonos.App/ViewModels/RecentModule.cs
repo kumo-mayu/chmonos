@@ -310,19 +310,9 @@ public sealed class RecentModule : SearchModule
     public override bool SupportsExclude => true;
 
     /// <summary>暦の日で何日前か（今日＝0）。先の時刻（時計のずれ）は今日に数える。</summary>
-    public static int DaysAgo(DateTimeOffset at, DateTimeOffset now)
-        => Math.Max(0, (now.Date - at.ToOffset(now.Offset).Date).Days);
+    public static int DaysAgo(DateTimeOffset at, DateTimeOffset now) => RecentCondition.DaysAgo(at, now);
 
-    public override bool Matches(ItemRecord item, SearchModuleContext context)
-    {
-        if (context.Recent.Of(item.Id, SelectedKind) is not { } at)
-        {
-            return false;
-        }
-
-        var days = DaysAgo(at, context.Now);
-        return days >= _low && (_high is not { } high || days <= high);
-    }
+    protected override ItemCondition BuildCondition() => new RecentCondition(SelectedKind, _low, _high);
 
     protected override string SummaryHead => $"{Label}（{_selected.Label}）";
 

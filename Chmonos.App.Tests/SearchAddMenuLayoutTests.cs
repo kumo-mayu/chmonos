@@ -1,6 +1,8 @@
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
-using K = Chmonos.App.ViewModels.SearchModuleKind;
+using K = Chmonos.Core.Models.SearchModuleKind;
+using Chmonos.Core.Services;
+using Chmonos.Core.Models;
 
 namespace Chmonos.App.Tests;
 
