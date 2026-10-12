@@ -10,6 +10,9 @@
 | `Chmonos.Core/` | 画面に依存しない本体。`Booth/`（通信のゲート）・`Commands/`（`UiCommand`）・`Models/`・`Storage/`・`Scanning/`（取り込み）・`Resolution/`（商品IDの特定）・`Search/`・`Services/`・`Images/` |
 | `Chmonos.Core.Tests/` | 既定のテスト一式（通信しない） |
 | `Chmonos.App.Tests/` | 画面の側（ViewModel・App の Services）の試験。窓を出さず、一時フォルダの保存先と作り物の BOOTH で組む。書き方は `docs/dev/app-tests.md` |
+| `Chmonos.Query/` | 外から使う API の中身（読むだけの問い合わせ層。HTTP を持たない）：保存先の写し・答えの形・検索の式・選択肢の件数・読み直し（`docs/spec/local-api.md`） |
+| `Chmonos.Api/` | 外から使う API の実行ファイル（`Chmonos.Api.exe`。HTTP の口と守り・同期）。配る形は `Properties/PublishProfiles/win-x64.pubxml` |
+| `Chmonos.Query.Tests/`・`Chmonos.Api.Tests/` | 問い合わせ層の試験（答えの見本 `Golden/`）と、API を本当に待ち受けさせて叩く試験 |
 | `Chmonos.Cli/` | データ層を実データで試す足場。配布物ではない |
 | `BoothZipInspector/`・`BoothIdResolver/`（と `.Tests`） | zip の手掛かり読み・商品IDの特定のライブラリ（本体が使う） |
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |

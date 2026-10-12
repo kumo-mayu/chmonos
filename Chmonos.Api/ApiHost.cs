@@ -170,8 +170,8 @@ internal static class ApiHost
 {
     public const string ApiVersion = "v1";
 
-    /// <summary>合言葉なしで答える URL（動いているかとバージョンを確かめるだけ。中身は漏れない）。</summary>
-    private static readonly HashSet<string> OpenPaths = new(StringComparer.Ordinal) { "/v1/health", "/v1/version" };
+    /// <summary>合言葉なしで答える URL（動いているか・バージョン・仕様書。どれも保存先の中身は含まない）。</summary>
+    private static readonly HashSet<string> OpenPaths = new(StringComparer.Ordinal) { "/v1/health", "/v1/version", "/v1/openapi.json" };
 
     public static string AppVersion { get; } =
         typeof(ApiHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
@@ -193,6 +193,14 @@ internal static class ApiHost
         await state.LoadAsync(options.AllowedOrigins, cancellationToken);
         var feed = new ChangeFeed();
         var sync = new StoreSync(state, feed, options.Watch);
+        // 仕様書（OpenAPI）はコードから作る（手で書くとコードとずれる）。答えの型の書き方は答えと同じ source generator の物
+        builder.Services.AddOpenApi("v1", openApi => openApi.AddDocumentTransformer((document, _, _) =>
+        {
+            document.Info.Title = "Chmonos API";
+            document.Info.Version = ApiVersion;
+            document.Info.Description = ServiceText.Notice;
+            return Task.CompletedTask;
+        }));
         builder.Services.AddSingleton(state);
         builder.Services.AddSingleton(feed);
         builder.Services.AddSingleton(sync);
@@ -201,6 +209,7 @@ internal static class ApiHost
         var token = Encoding.UTF8.GetBytes("Bearer " + options.Token);
         app.Use((context, next) => GuardAsync(context, next, token, state));
         ApiEndpoints.Map(app);
+        app.MapOpenApi("/v1/openapi.json");
 
         // 止まるときは SSE の聞き手に知らせてから、見張りを止める
         app.Lifetime.ApplicationStopping.Register(() =>

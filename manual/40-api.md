@@ -1,0 +1,125 @@
+# API（開発者向け）
+
+<!-- nav:top -->
+[← 目次へ](README.md)
+<!-- /nav:top -->
+
+（次のバージョンから）この章の機能は、次のバージョンから使えます。
+
+ほかのアプリや自作のツールから、Chmonos のデータを HTTP で読めるようにする機能です。プログラムを書く人に向けた機能で、ふだんの整理には使いません。
+
+- 読むだけです。データを書き換えることも、BOOTH に問い合わせることもありません。
+- 同じ PC の中（`127.0.0.1`）からだけ使えます。
+- 答えは JSON です。名前の付け方や意味は変えない約束で、大きく変えるときは URL の `/v1/` を上げます。
+
+## 使う前に
+
+API が返す BOOTH の商品の情報（商品名・説明文・画像など）の権利は、それぞれの作者にあります。自分で使うための機能なので、取り出した情報を他の人に渡したり、公開したりしないでください。購入したファイルの扱いは、各ショップの利用規約に従ってください。
+
+## 起動する
+
+1. 次のどちらかで起動します。
+   - Chmonos のフォルダにある `Chmonos.Api.exe` を開く
+   - 設定の「API」の「起動」を押す
+2. 黒いウィンドウが開き、API が待ち受けを始めます。止めるときは、このウィンドウを閉じるか、ウィンドウで Ctrl+C を押します。
+3. ブラウザで `http://127.0.0.1:39847/v1/health` を開きます。`"status":"ok"` と出れば動いています。
+
+Chmonos 本体と一緒に動かしても、API だけを動かしてもかまいません。本体でデータを変えると、API は数秒以内に読み直します。本体で取り込みをしている間は、終わるまで前の答えを返します。
+
+ポートは既定で `39847` です。ほかのアプリとぶつかるときは、設定の「API」の「ポート」で変え、API を起動し直してください。
+
+## 合言葉を付けて問い合わせる
+
+API は、合言葉（トークン）を付けた問い合わせにだけ答えます。合言葉は、データの保存先にある `api.json` の `token` です。保存先は設定の「データ」の「エクスプローラで開く」で開けます。
+
+```powershell
+$api = Get-Content "$env:LOCALAPPDATA\Chmonos\api.json" -Raw | ConvertFrom-Json
+Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ Authorization = "Bearer $($api.token)" }
+```
+
+- `/v1/health`・`/v1/version`・`/v1/openapi.json` は、合言葉なしで答えます。
+- 合言葉は起動のたびには変わりません。作り直すときは `Chmonos.Api.exe --new-token` で起動します。
+- `api.json` は、バックアップの書き出しには入りません。
+
+## 主な URL
+
+すべての URL と答えの形は、仕様書 `/v1/openapi.json`（OpenAPI）にあります。多くの言語で、ここから問い合わせのコードを作れます。
+
+| URL | 答え |
+|---|---|
+| `GET /v1/items`・`GET /v1/items/{id}` | 商品の一覧・商品1件 |
+| `POST /v1/search` | 式で検索した商品 |
+| `POST /v1/search/facets` | 検索の結果の中での、カテゴリ・対応アバターなどの件数 |
+| `GET /v1/search/conditions` | 検索の式に使える条件の種類 |
+| `GET /v1/avatars`・`GET /v1/avatar-bases` | アバター・共通素体 |
+| `GET /v1/files/lookup?path=…` | ファイルの場所から、どの商品の物かを引く（`?hash=` でも引ける） |
+| `GET /v1/unitypackages?avatar=…` | 手元の unitypackage（対応アバターで絞れる） |
+| `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/shops` | タグ・属性・カテゴリ・ショップと件数 |
+| `GET /v1/modifications`・`/v1/notifications` | 改変・通知 |
+| `GET /v1/changes`・`GET /v1/events` | 変わったこと（下の「変わったことを知る」） |
+
+対応アバター（`compatibleAvatars`）は、検索の「対応アバター」と同じ数え方です。まだ確認していない推定の対応も入り、消した対応と説明文のリンクは入りません。
+
+## 検索の式
+
+`POST /v1/search` には、`and`・`or`・`not` で組んだ式を送ります。式の1段には、どれか1つだけを書きます。
+
+```json
+{
+  "where": {
+    "and": [
+      { "text": "水着" },
+      { "condition": { "kind": "avatar", "avatars": ["1234567"] } },
+      { "not": { "condition": { "kind": "price", "min": 3000 } } }
+    ]
+  },
+  "sort": [ { "field": "wishCount", "order": "desc" } ],
+  "limit": 50
+}
+```
+
+- `text` は、検索の画面の入力欄と同じ書き方です（`name:`・`OR`・`-` なども使えます）。
+- `condition` は、検索の画面の絞り込みの条件1つです。種類と書き方は `/v1/search/conditions` にあります。
+- `not` は、絞り込みの条件の「除く」と同じ動きです。価格や日付では、値の分からない商品も外します。
+- 非表示の商品と R-18 の商品も返します。返した商品には `isHidden`・`isAdult` が付きます。外したいときは `"includeHidden": false`・`"includeAdult": false` を送ります。
+- 続きがあるときは、答えの `nextCursor` を次の問い合わせの `cursor` に入れます。
+
+## 詳しい情報を足す
+
+商品1件の答えは、既定では結果だけを返します。次の名前を `?include=` に付けると、詳しい情報を足します。
+
+| 名前 | 足す物 |
+|---|---|
+| `avatarLinks` | 対応アバターをどこから見つけたか、確認したか・消したか |
+| `allFiles` | 管理から外したファイルと、上書きで残った古い版 |
+| `contents` | zip の中のファイルの一覧 |
+| `images` | 画像の全部（既定はサムネイルだけ） |
+| `meta` | BOOTH の情報を最後に取った日時 |
+
+例：`/v1/items/1234567?include=avatarLinks,images`
+
+## 変わったことを知る
+
+- `GET /v1/changes?since=<通番>&epoch=<名前>`：前に見た時点より後に変わったことを返します。通番と名前は `/v1/version` の `sequence`・`epoch` にあります。答えの `reload` が `true` のときは、変わったことを全部は追えていないので、全部を取り直してください。
+- `GET /v1/events`：変わったことを Server-Sent Events で流します。つなぎ直すときは、最後に受けた `id` を `Last-Event-ID` で送ると、続きから流れます。
+
+## 自作の Web ページから使う
+
+ブラウザで開いたページから使うときは、そのページの住所を設定の「API」の「許可するWebページ」に追加します（例：`http://localhost:5173`）。追加していないページからの問い合わせは断ります。
+
+- ページは `api.json` を読めないので、合言葉はページに手で貼り付けてください。
+- 合言葉は、`fetch` の `Authorization` ヘッダで送ります。
+- `<img src>` は合言葉を送れないので、画像は `fetch` で `/v1/images/{商品ID}/{名前}` を取り、`URL.createObjectURL` で表示します。
+- `EventSource` も合言葉を送れないので、`/v1/events` は `fetch` で流れを読みます。
+
+## 困ったとき
+
+| 出たこと | すること |
+|---|---|
+| 「ポート … で待てません」 | ほかのアプリがそのポートを使っています。設定の「API」でポートを変えて、起動し直してください。 |
+| 「この保存先の API は既に動いています」 | 開いている黒いウィンドウを使ってください。 |
+| `401`（`unauthorized`） | 合言葉が違います。`api.json` の `token` を送ってください。作り直した後は、新しい合言葉に替えてください。 |
+| `403`（`originNotAllowed`） | そのページの住所を、設定の「API」の「許可するWebページ」に追加してください。 |
+| `503`（`storeFormatTooNew`） | 新しいバージョンの Chmonos で使ったデータです。Chmonos を新しくしてください。 |
+
+誤りの答えは `application/problem+json` で、`code` に決まった名前が入ります。

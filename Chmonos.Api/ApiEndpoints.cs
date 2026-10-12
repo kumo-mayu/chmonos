@@ -15,20 +15,24 @@ internal static partial class ApiEndpoints
 
         app.MapGet("/v1/health", (ApiState state) => ApiHost.Json(
             new HealthAnswer(state.TooNew ? "tooNew" : "ok", state.LoadedAt, state.Snapshot.Items.Count, state.Snapshot.FailedItemIds),
-            json.HealthAnswer));
+            json.HealthAnswer))
+            .Answers<HealthAnswer>("動いているか・読み終えたか・読めなかった商品（合言葉なし）");
 
         app.MapGet("/v1/version", (ApiState state, ChangeFeed feed, StoreSync sync) => ApiHost.Json(
             new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice, feed.Epoch, feed.Sequence, sync.Busy),
-            json.VersionAnswer));
+            json.VersionAnswer))
+            .Answers<VersionAnswer>("API のバージョン・保存の形・通番・まとめて書いている途中か・注意（合言葉なし）");
 
         // 変化（docs/spec/local-api.md「同期」）。外の道具は前に見た通番を送り、それより後の変化を受け取る
         app.MapGet("/v1/changes", (ChangeFeed feed, long? since, string? epoch) =>
         {
             var changes = epoch is null || epoch == feed.Epoch ? feed.Since(since ?? 0) : null;
             return ApiHost.Json(new ChangesAnswer(feed.Epoch, feed.Sequence, changes is null, changes ?? []), json.ChangesAnswer);
-        });
+        })
+            .Answers<ChangesAnswer>("前に見た通番より後の変化");
 
-        app.MapGet("/v1/events", (HttpContext context, ChangeFeed feed) => StreamEventsAsync(context, feed));
+        app.MapGet("/v1/events", (HttpContext context, ChangeFeed feed) => StreamEventsAsync(context, feed))
+            .WithSummary("変化を SSE で流す（text/event-stream。fetch で読む）").Produces(200, contentType: "text/event-stream");
 
         // アプリからの知らせ：まとめて書く操作の始まりと終わり（その間は古い答えを返し続ける）
         app.MapPost("/internal/busy", async (HttpRequest request, StoreSync sync, ApiState state) =>
@@ -47,9 +51,11 @@ internal static partial class ApiEndpoints
             }
 
             return Results.NoContent();
-        });
+        })
+            .Takes<BusyRequest>().Produces(204).WithSummary("アプリからの知らせ：まとめて書く操作の始まりと終わり").ExcludeFromDescription();
 
-        app.MapGet("/v1/display-settings", (ApiState state) => ApiHost.Json(Catalogs.DisplaySettings(state.Snapshot), json.DisplaySettingsRef));
+        app.MapGet("/v1/display-settings", (ApiState state) => ApiHost.Json(Catalogs.DisplaySettings(state.Snapshot), json.DisplaySettingsRef))
+            .Answers<DisplaySettingsRef>("使う人の表示の設定");
 
         // 商品
         app.MapGet("/v1/items", (ApiState state, string? cursor, int? limit, string? sort, bool? includeHidden, bool? includeAdult) =>
@@ -62,10 +68,12 @@ internal static partial class ApiEndpoints
                     IncludeHidden = includeHidden ?? true,
                     IncludeAdult = includeAdult ?? true,
                 }, state.Clock()),
-                json.SearchPage));
+                json.SearchPage))
+            .Answers<SearchPage>("商品の一覧（要約）。sort は wishCount:desc,name の形");
 
         app.MapGet("/v1/items/{id}", (ApiState state, string id, string? include) =>
-            ApiHost.Json(ItemMapper.Detail(FindItem(state, id), state.Snapshot, Includes.ParseItem(include)), json.ItemDetail));
+            ApiHost.Json(ItemMapper.Detail(FindItem(state, id), state.Snapshot, Includes.ParseItem(include)), json.ItemDetail))
+            .Answers<ItemDetail>("商品1件（include で帳簿などを足す）");
 
         app.MapPost("/v1/items/batch", async (ApiState state, HttpRequest request) =>
         {
@@ -81,64 +89,85 @@ internal static partial class ApiEndpoints
                 .Select(id => ItemMapper.Detail(state.Snapshot.ItemsById[id], state.Snapshot, includes)).ToList();
             var missing = ids.Where(id => !state.Snapshot.ItemsById.ContainsKey(id)).ToList();
             return ApiHost.Json(new ItemsBatchAnswer(found, missing), json.ItemsBatchAnswer);
-        });
+        })
+            .Takes<ItemsBatchRequest>().Answers<ItemsBatchAnswer>("ID をまとめて詳細を引く");
 
         app.MapGet("/v1/items/{id}/modifications", (ApiState state, string id, string? include) =>
         {
             FindItem(state, id);
             return ApiHost.Json(Catalogs.ModificationsUsing(state.Snapshot, id, Includes.ParseFlag(include, "detached")), json.IReadOnlyListModificationRef);
-        });
+        })
+            .Answers<IReadOnlyList<ModificationRef>>("その商品を使っている改変");
 
         app.MapGet("/v1/items/{id}/notifications", (ApiState state, string id) =>
         {
             FindItem(state, id);
             return ApiHost.Json(Catalogs.Notifications(state.Snapshot, id), json.IReadOnlyListNotificationRef);
-        });
+        })
+            .Answers<IReadOnlyList<NotificationRef>>("その商品の通知");
 
         // 検索
         app.MapPost("/v1/search", async (ApiState state, HttpRequest request) =>
-            ApiHost.Json(SearchEngine.Search(state.Snapshot, await ReadAsync(request, json.SearchRequest), state.Clock()), json.SearchPage));
+            ApiHost.Json(SearchEngine.Search(state.Snapshot, await ReadAsync(request, json.SearchRequest), state.Clock()), json.SearchPage))
+            .Takes<SearchRequest>().Answers<SearchPage>("式で検索（and・or・not・text・condition）");
 
-        app.MapGet("/v1/search/conditions", () => ApiHost.Json(Catalogs.ConditionKinds(), json.IReadOnlyListConditionKindRef));
+        app.MapGet("/v1/search/conditions", () => ApiHost.Json(Catalogs.ConditionKinds(), json.IReadOnlyListConditionKindRef))
+            .Answers<IReadOnlyList<ConditionKindRef>>("条件の種類・値の形・選択肢・切り替えの既定");
 
         app.MapPost("/v1/search/facets", async (ApiState state, HttpRequest request) =>
-            ApiHost.Json(SearchEngine.Facets(state.Snapshot, await ReadAsync(request, json.FacetsRequest), state.Clock()), json.FacetsAnswer));
+            ApiHost.Json(SearchEngine.Facets(state.Snapshot, await ReadAsync(request, json.FacetsRequest), state.Clock()), json.FacetsAnswer))
+            .Takes<FacetsRequest>().Answers<FacetsAnswer>("選択肢の件数（式に当たった商品の中で）");
 
         // アバター・分類・ショップ
-        app.MapGet("/v1/avatars", (ApiState state) => ApiHost.Json(Catalogs.Avatars(state.Snapshot), json.IReadOnlyListAvatarEntryRef));
+        app.MapGet("/v1/avatars", (ApiState state) => ApiHost.Json(Catalogs.Avatars(state.Snapshot), json.IReadOnlyListAvatarEntryRef))
+            .Answers<IReadOnlyList<AvatarEntryRef>>("アバターの登録簿");
 
         app.MapGet("/v1/avatars/{id}", (ApiState state, string id) =>
             ApiHost.Json(
                 Catalogs.Avatars(state.Snapshot).FirstOrDefault(avatar => avatar.Id == id)
                     ?? throw QueryException.NotFound("avatarNotFound", $"登録簿にないアバターです: {id}"),
-                json.AvatarEntryRef));
+                json.AvatarEntryRef))
+            .Answers<AvatarEntryRef>("アバター1体");
 
         app.MapGet("/v1/avatar-bases", (ApiState state, string? include) =>
-            ApiHost.Json(Catalogs.AvatarBases(state.Snapshot, Includes.ParseFlag(include, "rejected")), json.IReadOnlyListAvatarBaseRef));
+            ApiHost.Json(Catalogs.AvatarBases(state.Snapshot, Includes.ParseFlag(include, "rejected")), json.IReadOnlyListAvatarBaseRef))
+            .Answers<IReadOnlyList<AvatarBaseRef>>("共通素体（include=rejected で人が消した素体も）");
 
-        app.MapGet("/v1/user-tags", (ApiState state) => ApiHost.Json(Catalogs.UserTags(state.Snapshot), json.IReadOnlyListUserTagTopRef));
-        app.MapGet("/v1/attributes", (ApiState state) => ApiHost.Json(Catalogs.Attributes(state.Snapshot), json.IReadOnlyListAttributeEntryRef));
-        app.MapGet("/v1/categories", (ApiState state) => ApiHost.Json(Catalogs.Categories(state.Snapshot), json.IReadOnlyListCategoryEntryRef));
-        app.MapGet("/v1/booth-tags", (ApiState state) => ApiHost.Json(Catalogs.BoothTags(state.Snapshot), json.IReadOnlyListCountRef));
-        app.MapGet("/v1/shops", (ApiState state) => ApiHost.Json(Catalogs.Shops(state.Snapshot), json.IReadOnlyListShopEntryRef));
-        app.MapGet("/v1/shops/{key}", (ApiState state, string key) => ApiHost.Json(Catalogs.Shop(state.Snapshot, key), json.ShopEntryRef));
+        app.MapGet("/v1/user-tags", (ApiState state) => ApiHost.Json(Catalogs.UserTags(state.Snapshot), json.IReadOnlyListUserTagTopRef))
+            .Answers<IReadOnlyList<UserTagTopRef>>("ユーザータグと件数");
+        app.MapGet("/v1/attributes", (ApiState state) => ApiHost.Json(Catalogs.Attributes(state.Snapshot), json.IReadOnlyListAttributeEntryRef))
+            .Answers<IReadOnlyList<AttributeEntryRef>>("属性と評価した数");
+        app.MapGet("/v1/categories", (ApiState state) => ApiHost.Json(Catalogs.Categories(state.Snapshot), json.IReadOnlyListCategoryEntryRef))
+            .Answers<IReadOnlyList<CategoryEntryRef>>("カテゴリと件数");
+        app.MapGet("/v1/booth-tags", (ApiState state) => ApiHost.Json(Catalogs.BoothTags(state.Snapshot), json.IReadOnlyListCountRef))
+            .Answers<IReadOnlyList<CountRef>>("BOOTHタグと件数");
+        app.MapGet("/v1/shops", (ApiState state) => ApiHost.Json(Catalogs.Shops(state.Snapshot), json.IReadOnlyListShopEntryRef))
+            .Answers<IReadOnlyList<ShopEntryRef>>("ショップ（星・メモ・件数）");
+        app.MapGet("/v1/shops/{key}", (ApiState state, string key) => ApiHost.Json(Catalogs.Shop(state.Snapshot, key), json.ShopEntryRef))
+            .Answers<ShopEntryRef>("ショップ1つ");
 
         // ファイル・Unity
         app.MapGet("/v1/files/lookup", (ApiState state, string? path, string? hash) =>
-            ApiHost.Json(Catalogs.LookupFiles(state.Snapshot, path, hash), json.IReadOnlyListFileOwnerRef));
+            ApiHost.Json(Catalogs.LookupFiles(state.Snapshot, path, hash), json.IReadOnlyListFileOwnerRef))
+            .Answers<IReadOnlyList<FileOwnerRef>>("ファイル・フォルダの場所かハッシュから商品を引く");
 
         app.MapGet("/v1/unitypackages", (ApiState state, string? avatar) =>
-            ApiHost.Json(Catalogs.UnityPackages(state.Snapshot, avatar), json.IReadOnlyListUnityPackageEntryRef));
+            ApiHost.Json(Catalogs.UnityPackages(state.Snapshot, avatar), json.IReadOnlyListUnityPackageEntryRef))
+            .Answers<IReadOnlyList<UnityPackageEntryRef>>("手元の unitypackage（avatar で絞る）");
 
         // 改変・通知
         app.MapGet("/v1/modifications", (ApiState state, string? include) =>
-            ApiHost.Json(Catalogs.Modifications(state.Snapshot, Includes.ParseFlag(include, "detached")), json.IReadOnlyListModificationRef));
+            ApiHost.Json(Catalogs.Modifications(state.Snapshot, Includes.ParseFlag(include, "detached")), json.IReadOnlyListModificationRef))
+            .Answers<IReadOnlyList<ModificationRef>>("改変");
 
         app.MapGet("/v1/modifications/{id}", (ApiState state, string id, string? include) =>
-            ApiHost.Json(Catalogs.Modification(state.Snapshot, id, Includes.ParseFlag(include, "detached")), json.ModificationRef));
+            ApiHost.Json(Catalogs.Modification(state.Snapshot, id, Includes.ParseFlag(include, "detached")), json.ModificationRef))
+            .Answers<ModificationRef>("改変1つ");
 
-        app.MapGet("/v1/unity-projects", (ApiState state) => ApiHost.Json(Catalogs.UnityProjects(state.Snapshot), json.IReadOnlyListUnityProjectRef));
-        app.MapGet("/v1/notifications", (ApiState state) => ApiHost.Json(Catalogs.Notifications(state.Snapshot, null), json.IReadOnlyListNotificationRef));
+        app.MapGet("/v1/unity-projects", (ApiState state) => ApiHost.Json(Catalogs.UnityProjects(state.Snapshot), json.IReadOnlyListUnityProjectRef))
+            .Answers<IReadOnlyList<UnityProjectRef>>("Unity プロジェクトとその改変");
+        app.MapGet("/v1/notifications", (ApiState state) => ApiHost.Json(Catalogs.Notifications(state.Snapshot, null), json.IReadOnlyListNotificationRef))
+            .Answers<IReadOnlyList<NotificationRef>>("通知");
 
         // 画像の本体（ブラウザの画面のため）。返すのは写しが知っている画像の名前だけ（送られた名前で場所を組まない）
         app.MapGet("/v1/images/{itemId}/{name}", (ApiState state, string itemId, string name) =>
@@ -149,7 +178,8 @@ internal static partial class ApiEndpoints
             return file is not null && File.Exists(file)
                 ? Results.File(file, ContentTypeOf(file))
                 : throw QueryException.NotFound("imageNotFound", $"画像が見つかりません: {name}");
-        });
+        })
+            .WithSummary("商品の画像の本体（写しが知っている名前だけ）").Produces(200, contentType: "image/webp").ProducesProblem(404);
 
         app.MapGet("/v1/modifications/{id}/images/{name}", (ApiState state, string id, string name) =>
         {
@@ -161,8 +191,22 @@ internal static partial class ApiEndpoints
             return SafeName().IsMatch(image.FileName) && File.Exists(file)
                 ? Results.File(file, ContentTypeOf(file))
                 : throw QueryException.NotFound("imageNotFound", $"画像が見つかりません: {name}");
-        });
+        })
+            .WithSummary("改変の画像の本体").Produces(200, contentType: "image/webp").ProducesProblem(404);
     }
+
+    /// <summary>仕様書の印：答えの型（JSON）と、誤りの答え（problem+json）と、短い説明。</summary>
+    private static RouteHandlerBuilder Answers<T>(this RouteHandlerBuilder builder, string summary)
+        => builder.Produces<T>(StatusCodes.Status200OK, "application/json")
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary(summary);
+
+    /// <summary>仕様書の印：要求の本文の型（本文は自分で読むので、型を知らせる）。</summary>
+    private static RouteHandlerBuilder Takes<T>(this RouteHandlerBuilder builder)
+        where T : notnull
+        => builder.Accepts<T>("application/json");
 
     /// <summary>SSE で、ほかの物が何も流れないときに送る印の間隔。間に入る物（プロキシ・ブラウザ）が、つながりを切られたと見なさないように。</summary>
     private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(15);

@@ -2,15 +2,15 @@
 
 > **要点**：[local-api.md](local-api.md) の URL と答えの形。URL はユーザが広めの案から削った（2026-10-12）。答えの中身は Chmonos.Query（HTTP を持たない問い合わせ層）が作り、
 > **形の見本は期待する答えの試験（`Chmonos.Query.Tests/Golden/`）**。形を変えたら見本を書き直し（`CHMONOS_UPDATE_GOLDEN=1`）、差分を読んでから入れる。
-> 「作った」は Chmonos.Query に答えを作る処理があること（HTTP の口は手順3で付ける）。
+> 「作った」は答えを作る処理と HTTP の口があること（2026-10-12）。使う人向けの説明は `manual/40-api.md`。
 
 ## URL
 
 | URL | 中身 | 状態 |
 |---|---|---|
-| `GET /v1/health`・`GET /v1/version` | 動いているか・読み終えたか・読めなかった商品／API のバージョン・保存の形の版・通番・まとめて書いている途中か・注意（合言葉なし） | 手順3 |
-| `GET /v1/openapi.json` | 仕様書 | 手順6 |
-| `GET /v1/changes?since=`・`GET /v1/events` | 変化の一覧と SSE | 手順4 |
+| `GET /v1/health`・`GET /v1/version` | 動いているか・読み終えたか・読めなかった商品／API のバージョン・保存の形の版・通番・まとめて書いている途中か・注意（合言葉なし） | 作った |
+| `GET /v1/openapi.json` | 仕様書（OpenAPI。コードから作る。合言葉なし） | 作った |
+| `GET /v1/changes?since=`・`GET /v1/events` | 変化の一覧と SSE | 作った |
 | `GET /v1/display-settings` | 使う人の表示の設定（R-18 を表示しない・非表示の件数・消えた画像・サムネイルにする画像） | 作った |
 | `GET /v1/items`・`GET /v1/items/{id}`・`POST /v1/items/batch` | 一覧（要約）・1件（詳細）・ID をまとめて詳細 | 作った（`ItemMapper`） |
 | `GET /v1/items/{id}/description` | 説明文（見出しごとの文と表示用の HTML） | まだ |
@@ -30,7 +30,7 @@
 | `GET /v1/modifications`・`/{id}`・`/v1/unity-projects` | 改変・Unity プロジェクト | 作った |
 | `GET /v1/notifications` | 通知（既読・片付けた印つき） | 作った（変化の中身はまだ） |
 | `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | まだ |
-| `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 手順3 |
+| `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 作った |
 
 アバター・素体・ショップから商品を引く専用の URL は作らない（検索の式で書く。ユーザ判断 2026-10-12）。
 
@@ -108,7 +108,7 @@
 - 数えるのは `where` の結果の中。画面は「自分の条件は自分を除いて数える」が、式は木なので「自分」を決められない。数えたい欄の条件を外した式を送ってもらう。
 - `avatar` は画面の検索と同じ数え方の対応アバターごと。`avatarGroups` は対応アバターの「対応している」「対応の指定が無い」の数。`userTag` は `大分類` と `大分類/小分類`。`attribute` は評価した商品の数。
 
-## SSE（`GET /v1/events`）の出来事（手順4）
+## SSE（`GET /v1/events`）の出来事
 
 | 出来事 | 中身 |
 |---|---|

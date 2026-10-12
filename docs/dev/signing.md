@@ -69,6 +69,7 @@ Windows Desktop の `LICENSE`、WPF・Windows Forms の第三者の表示（各�
 
 - 公開リポジトリから自動で組んだ物だけを署名する。署名を頼むまでのジョブは、GitHub が用意する実行環境で動かす
 - 成果物は `actions/upload-artifact` で上げ（zip で渡る）、zip の中の exe を署名する設定を SignPath 側で作る
+  （2026-10-12 から zip の中の exe は2つ：`Chmonos.exe` と、外から使う API の `Chmonos.Api.exe`。どちらも署名の対象に入れる。API は ASP.NET Core のランタイムも同梱するので、workflow はその告知が同梱した版と合っているかも見る）
 - action は `signpath/github-action-submit-signing-request@v3`（古い `SignPath/github-actions` は 2026-02-12 にアーカイブ）。SignPath 側で GitHub.com を信頼するビルドの仕組みとして入れ、GitHub App を入れ、API トークンを作る
 - 単一ファイルの exe（`PublishSingleFile`）で問題があるかは未確認
 

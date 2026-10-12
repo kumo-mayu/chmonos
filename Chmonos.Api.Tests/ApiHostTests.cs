@@ -100,6 +100,28 @@ public sealed class ApiHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task 仕様書は合言葉なしで返し_URLと答えの型が載っている()
+    {
+        var response = await _client.SendAsync(Request(HttpMethod.Get, "/v1/openapi.json", token: false));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var document = await JsonOf(response);
+
+        Assert.Equal("Chmonos API", document.GetProperty("info").GetProperty("title").GetString());
+        var paths = document.GetProperty("paths");
+        foreach (var path in new[] { "/v1/items/{id}", "/v1/search", "/v1/search/facets", "/v1/files/lookup", "/v1/changes", "/v1/events" })
+        {
+            Assert.True(paths.TryGetProperty(path, out _), path);
+        }
+
+        // アプリからの知らせの口は外の道具向けではないので載せない
+        Assert.False(paths.TryGetProperty("/internal/busy", out _));
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+        Assert.True(schemas.TryGetProperty("ItemDetail", out var detail));
+        Assert.True(detail.GetProperty("properties").TryGetProperty("compatibleAvatars", out _));
+        Assert.True(schemas.TryGetProperty("SearchRequest", out _));
+    }
+
+    [Fact]
     public async Task 合言葉が無い_違うときは断る()
     {
         var none = await _client.SendAsync(Request(HttpMethod.Get, "/v1/items", token: false));

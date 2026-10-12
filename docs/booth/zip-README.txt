@@ -15,6 +15,8 @@ BOOTH で買ったアセットを、今のフォルダの並びのまま管理�
 ■ 入っているもの
 
   Chmonos.exe                … アプリ本体（インストール不要）
+  Chmonos.Api.exe            … ほかのアプリから Chmonos のデータを読むための、開発者向けの API
+                               （使わないなら開かなくてかまいません。使い方はマニュアルの「API」の章）
   assets                     … 辞書とカテゴリの表（Chmonos.exe と同じ場所に置いたままにする）
   README.txt                 … このファイル
   LICENSE                    … Chmonos のライセンス（Apache License 2.0）

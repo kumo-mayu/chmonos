@@ -6,6 +6,7 @@ const parts = [
   ["01-start", "02-import", "03-find", "04-unity", "05-record"],
   ["10-search", "11-item", "12-edit", "13-resolve", "14-import", "15-folders", "16-modifications", "17-avatars", "18-shops", "19-stats", "20-inbox", "21-tags-attributes", "22-settings", "23-keys"],
   ["30-data", "31-faq"],
+  ["40-api"],
 ];
 const title = n => fs.readFileSync(n + ".md", "utf8").split("\n")[0].replace(/^# /, "").trim();
 const strip = t => t.replace(/<!-- nav:top -->[\s\S]*?<!-- \/nav:top -->\n\n/, "").replace(/\n\n<!-- nav:bottom -->[\s\S]*?<!-- \/nav:bottom -->/, "");
