@@ -117,6 +117,11 @@ public sealed class ItemAnswerGoldenTests : IDisposable
                 new AvatarRegistryEntry { ItemId = "7000001", BoothName = "作り物のアバター", Category = "3Dキャラクター" },
                 new AvatarRegistryEntry { ItemId = "7000002", BoothName = "作り物のアバターB", Category = "3Dキャラクター" },
             ],
+            BaseGroups =
+            [
+                new AvatarBaseGroup { Name = "作り物の素体", ItemId = "7000001" },
+                new AvatarBaseGroup { Name = "消した素体", Rejected = true },
+            ],
         });
 
         // 画像（BOOTH の1枚と、消えた画像の控え）
@@ -139,7 +144,11 @@ public sealed class ItemAnswerGoldenTests : IDisposable
             CreatedAt = Jst(2026, 9, 1),
             UpdatedAt = Jst(2026, 9, 2),
             UnityProject = @"D:\unity\project-a",
-            Members = [new ModificationMember { ItemId = "9800001", VariationId = 11, AddedAt = Jst(2026, 9, 1) }],
+            Members =
+            [
+                new ModificationMember { ItemId = "9800001", VariationId = 11, AddedAt = Jst(2026, 9, 1) },
+                new ModificationMember { ItemId = "7000001", AddedAt = Jst(2026, 9, 1), Detached = true },
+            ],
         });
 
         await store.VideoTitles.SaveAsync([new VideoTitleRecord { VideoId = "AAAAAAAAAAA", Title = "作り物の紹介動画", FetchedAt = Jst(2026, 10, 1) }]);
@@ -155,6 +164,39 @@ public sealed class ItemAnswerGoldenTests : IDisposable
             var json = QueryJson.Serialize(ItemMapper.Detail(snapshot.ItemsById[id], snapshot), indented: true);
             AssertGolden($"item-{id}.json", json);
         }
+
+        // 頼まれたときだけ返す物を全部頼んだ答え（帳簿・外したファイル・zip の中・画像の全部・記録の古さ）
+        var full = Includes.ParseItem("avatarLinks,allFiles,contents,images,meta");
+        AssertGolden("item-9800001-include.json", QueryJson.Serialize(ItemMapper.Detail(snapshot.ItemsById["9800001"], snapshot, full), indented: true));
+    }
+
+    [Fact]
+    public void includeの知らない名前は誤りで返す()
+    {
+        Assert.Equal(ItemIncludes.AvatarLinks | ItemIncludes.Meta, Includes.ParseItem(" avatarLinks , meta "));
+        Assert.Equal(ItemIncludes.None, Includes.ParseItem(null));
+        Assert.Equal("unknownInclude", Assert.Throws<QueryException>(() => Includes.ParseItem("avatars")).Code);
+        Assert.True(Includes.ParseFlag("detached", "detached"));
+        Assert.Equal("unknownInclude", Assert.Throws<QueryException>(() => Includes.ParseFlag("rejected", "detached")).Code);
+    }
+
+    [Fact]
+    public async Task 消した素体と外した改変の商品は_頼まれたときだけ印つきで返す()
+    {
+        var snapshot = await StoreAsync();
+
+        Assert.Equal(["作り物の素体"], Catalogs.AvatarBases(snapshot).Select(group => group.Name));
+        Assert.Null(Catalogs.AvatarBases(snapshot).Single().IsRejected);
+        Assert.Equal([("作り物の素体", (bool?)false), ("消した素体", true)], Catalogs.AvatarBases(snapshot, includeRejected: true).Select(group => (group.Name, group.IsRejected)));
+
+        Assert.Equal(["9800001"], Catalogs.Modifications(snapshot).Single().Members.Select(member => member.ItemId));
+        Assert.Null(Catalogs.Modifications(snapshot).Single().Members.Single().Detached);
+        Assert.Equal([("9800001", (bool?)false), ("7000001", true)],
+            Catalogs.Modifications(snapshot, includeDetached: true).Single().Members.Select(member => (member.ItemId, member.Detached)));
+
+        // 外した商品としてだけ載っている改変は、その商品の改変として既定では返さない
+        Assert.Empty(Catalogs.ModificationsUsing(snapshot, "7000001"));
+        Assert.Single(Catalogs.ModificationsUsing(snapshot, "7000001", includeDetached: true));
     }
 
     [Fact]
@@ -218,7 +260,15 @@ public sealed class ItemAnswerGoldenTests : IDisposable
         actual = actual.Replace(escapedRoot, "<store>").Replace("\r\n", "\n");
 
         var file = Path.Combine(Path.GetDirectoryName(source)!, "Golden", name);
-        if (Environment.GetEnvironmentVariable("CHMONOS_UPDATE_GOLDEN") == "1" || !File.Exists(file))
+        // 書き直す設定のときは止めずに全部書く（1つ書くたびに止めると、1回の試験で最初の見本しか進まない）。差分は git で読む
+        if (Environment.GetEnvironmentVariable("CHMONOS_UPDATE_GOLDEN") == "1")
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, actual + "\n");
+            return;
+        }
+
+        if (!File.Exists(file))
         {
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             File.WriteAllText(file, actual + "\n");

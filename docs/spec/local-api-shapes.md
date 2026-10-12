@@ -36,14 +36,28 @@
 
 ## 商品の答え（`ItemDetail`・`ItemSummary`）
 
-見本は `Golden/item-*.json`・`summaries.jsonl`。決まりだけ書く：
+見本は `Golden/item-*.json`（既定）・`item-9800001-include.json`（全部を頼んだ答え）・`summaries.jsonl`。決まりだけ書く：
 
+- **既定の答えは結果だけ**（ユーザ判断 2026-10-12「使わない情報は落として、聞かれた時だけ返す」）。どう決まったか・人が何を打ち消したかの帳簿と、長くなる一覧は
+  `?include=` で頼まれたときだけ返す。**頼まなかった項目は項目ごと出さない**（頼んで中身が無ければ `[]` か null。「頼んでいない」と「無い」を見分けられる）。
+  頼んで返すときは中の区別を潰さない（消した紐付けも状態つきで返す）。知らない名前は誤り（`unknownInclude`）。
+
+  | include | 足す物 |
+  |---|---|
+  | `avatarLinks` | `avatarLinks`：紐付けの出どころ（`supportSection`・`supportList`・`tag`・`variation`・`h2Link`・`manual`）と状態（`confirmed`・`candidate`・`rejected`）、素体の紐付け、検出した日時 |
+  | `allFiles` | 外した（`detached`）・上書きで残った古い版（`oldVersion`。`replaced` 付き）のファイル。既定は `present`・`missing` だけ |
+  | `contents` | ファイルごとの zip の中の一覧 |
+  | `images` | `images`：画像の全部（既定は `thumbnail` だけ） |
+  | `meta` | `meta`：BOOTH の情報を最後に取った日時 |
+
+  商品以外：改変（`/v1/modifications`・`/v1/items/{id}/modifications`）の `include=detached` で外した商品を `detached` 付きで返し、
+  共通素体の `include=rejected` で人が「素体ではない」とした物を `isRejected` 付きで返す。アバターの「手で持っているにしたか」・バリエーションの BOOTH の中の状態・購入の「BOOTH にまだあるか」は返さない。
+  ファイルの逆引き（`files/lookup`）は「このファイルは何か」への答えなので、外した物も状態つきで既定で返す。
 - `name` は画面と同じ表示名、`boothName` は BOOTH の名前。`category` は画面と同じ実質の1つで、`categorySource` は `user`・`booth`。
-- **対応アバターは2つ**：`compatibleAvatars` は画面の検索と同じ数え方（人が消した紐付けと説明文のリンクを除き、**人が確認していない推定は数える**。`match` は `direct`・`viaBase`）。
-  `avatars` は紐付けの出どころ（`supportSection`・`supportList`・`tag`・`variation`・`h2Link`・`manual`）と状態（`confirmed`・`candidate`・`rejected`）。
-  確認済みだけを対応として返すと、検索の答えと食い違う。一覧の要約の `avatarIds` は前者。
-- ファイルの `state` は `present`・`missing`・`detached`・`oldVersion`。`unityPackages` が null はまだ調べていない（空は調べて無かった）。中身は送らず場所だけ。
-- 画像は画面のカードと同じ並べ方と1枚目（設定に従い、消えた画像の控えは設定で表示しているときだけ）。`origin` は `booth`・`user`・`orphaned`、`role` は `booth`・`modified`・`other`。
+- **対応アバター** `compatibleAvatars` は画面の検索と同じ数え方（人が消した紐付けと説明文のリンクを除き、**人が確認していない推定は数える**。`match` は `direct`・`viaBase`）。
+  確認済みだけを対応として返すと、検索の答えと食い違う。一覧の要約の `avatarIds` も同じ物。
+- ファイルの `state` は `present`・`missing`（と、頼んだときの `detached`・`oldVersion`）。`unityPackages` が null はまだ調べていない（空は調べて無かった）。中身は送らず場所だけ。
+- サムネイルは画面のカードと同じ1枚（設定に従う）。画像の `origin` は `booth`・`user`・`orphaned`、`role` は `booth`・`modified`・`other`。
 - 購入の `kind` は `self`・`given`・`received`（保存の JSON の日本語の値ではなく、変えない英字）。
 
 ## 検索の式（`POST /v1/search`）

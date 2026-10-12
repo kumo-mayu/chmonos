@@ -1,0 +1,216 @@
+{
+  "id": "9800001",
+  "name": "作り物の衣装",
+  "boothName": "作り物の衣装",
+  "url": "https://shop-a.booth.pm/items/9800001",
+  "shop": {
+    "key": "shop-a",
+    "name": "作り物のショップ",
+    "subdomain": "shop-a",
+    "isLocal": false,
+    "url": "https://shop-a.booth.pm/"
+  },
+  "category": "3D衣装",
+  "categorySource": "booth",
+  "boothCategory": {
+    "id": 208,
+    "name": "3D衣装",
+    "parentName": "3Dモデル"
+  },
+  "boothTags": [
+    "夏",
+    "水着"
+  ],
+  "priceText": "¥ 1,500",
+  "wishCount": 321,
+  "publishedAt": "2025-03-01T12:00:00+09:00",
+  "isAdult": false,
+  "isEndOfSale": false,
+  "isSoldOut": false,
+  "isDelisted": false,
+  "isLocalOnly": false,
+  "isHidden": false,
+  "isFavorite": true,
+  "isOwned": true,
+  "isAvatar": false,
+  "hasUpdate": false,
+  "hasBrokenArchive": false,
+  "hasMissingFiles": true,
+  "variations": [
+    {
+      "id": 11,
+      "name": "通常版",
+      "price": 1500
+    },
+    {
+      "id": 12,
+      "name": "支援版",
+      "price": 3000
+    }
+  ],
+  "purchases": [
+    {
+      "variationId": 11,
+      "variationName": "通常版",
+      "price": 1500,
+      "kind": "self",
+      "purchasedAt": "2025-04-01",
+      "note": null
+    }
+  ],
+  "acquiredAt": null,
+  "compatibleAvatars": [
+    {
+      "avatarId": "7000001",
+      "name": "作り物のアバター",
+      "match": "direct",
+      "isOwned": true
+    },
+    {
+      "avatarId": "7000002",
+      "name": "作り物のアバターB",
+      "match": "direct",
+      "isOwned": false
+    }
+  ],
+  "userTags": [
+    {
+      "top": "衣装",
+      "subs": [
+        "夏"
+      ]
+    }
+  ],
+  "attributes": {
+    "かわいい": 4
+  },
+  "memo": "作り物のメモ",
+  "files": [
+    {
+      "hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sizeBytes": 1000,
+      "variationId": 11,
+      "paths": [
+        "D:\\assets\\costume.zip"
+      ],
+      "state": "present",
+      "missingSince": null,
+      "isArchiveBroken": false,
+      "replaced": null,
+      "unityPackages": [
+        {
+          "entry": "costume/costume.unitypackage",
+          "roots": [
+            "Assets/Costume"
+          ]
+        }
+      ],
+      "contents": [
+        "costume/costume.unitypackage",
+        "costume/readme.txt"
+      ]
+    },
+    {
+      "hash": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "sizeBytes": 10,
+      "variationId": null,
+      "paths": [],
+      "state": "missing",
+      "missingSince": "2026-09-01T12:00:00+09:00",
+      "isArchiveBroken": false,
+      "replaced": null,
+      "unityPackages": null,
+      "contents": []
+    },
+    {
+      "hash": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "sizeBytes": 20,
+      "variationId": null,
+      "paths": [
+        "D:\\assets\\extra.zip"
+      ],
+      "state": "detached",
+      "missingSince": null,
+      "isArchiveBroken": false,
+      "replaced": null,
+      "unityPackages": null,
+      "contents": []
+    },
+    {
+      "hash": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+      "sizeBytes": 900,
+      "variationId": null,
+      "paths": [],
+      "state": "oldVersion",
+      "missingSince": null,
+      "isArchiveBroken": false,
+      "replaced": {
+        "path": "D:\\assets\\costume.zip",
+        "at": "2026-08-01T12:00:00+09:00"
+      },
+      "unityPackages": null,
+      "contents": []
+    }
+  ],
+  "folders": [],
+  "thumbnail": {
+    "name": "35103488.webp",
+    "path": "<store>\\images\\9800001\\35103488.webp",
+    "origin": "booth",
+    "role": "booth",
+    "caption": "表紙"
+  },
+  "videos": [
+    {
+      "id": "AAAAAAAAAAA",
+      "url": "https://www.youtube.com/watch?v=AAAAAAAAAAA",
+      "title": "作り物の紹介動画"
+    }
+  ],
+  "images": [
+    {
+      "name": "35103488.webp",
+      "path": "<store>\\images\\9800001\\35103488.webp",
+      "origin": "booth",
+      "role": "booth",
+      "caption": "表紙"
+    }
+  ],
+  "avatarLinks": {
+    "avatars": [
+      {
+        "avatarId": "7000001",
+        "name": "作り物のアバター",
+        "source": "supportSection",
+        "state": "confirmed",
+        "isOwned": true
+      },
+      {
+        "avatarId": "7000002",
+        "name": "作り物のアバターB",
+        "source": "tag",
+        "state": "candidate",
+        "isOwned": false
+      },
+      {
+        "avatarId": "7000003",
+        "name": "7000003",
+        "source": "manual",
+        "state": "rejected",
+        "isOwned": false
+      },
+      {
+        "avatarId": "7000004",
+        "name": "7000004",
+        "source": "h2Link",
+        "state": "candidate",
+        "isOwned": false
+      }
+    ],
+    "bases": [],
+    "detectedAt": "2026-10-02T12:00:00+09:00"
+  },
+  "meta": {
+    "fetchedAt": "2026-10-01T12:00:00+09:00"
+  }
+}

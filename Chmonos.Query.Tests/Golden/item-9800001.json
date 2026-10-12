@@ -40,16 +40,12 @@
     {
       "id": 11,
       "name": "通常版",
-      "price": 1500,
-      "status": "on_sale",
-      "type": "digital"
+      "price": 1500
     },
     {
       "id": 12,
       "name": "支援版",
-      "price": 3000,
-      "status": "on_sale",
-      "type": "digital"
+      "price": 3000
     }
   ],
   "purchases": [
@@ -59,8 +55,7 @@
       "price": 1500,
       "kind": "self",
       "purchasedAt": "2025-04-01",
-      "note": null,
-      "existsOnBooth": true
+      "note": null
     }
   ],
   "acquiredAt": null,
@@ -78,38 +73,6 @@
       "isOwned": false
     }
   ],
-  "avatars": [
-    {
-      "avatarId": "7000001",
-      "name": "作り物のアバター",
-      "source": "supportSection",
-      "state": "confirmed",
-      "isOwned": true
-    },
-    {
-      "avatarId": "7000002",
-      "name": "作り物のアバターB",
-      "source": "tag",
-      "state": "candidate",
-      "isOwned": false
-    },
-    {
-      "avatarId": "7000003",
-      "name": "7000003",
-      "source": "manual",
-      "state": "rejected",
-      "isOwned": false
-    },
-    {
-      "avatarId": "7000004",
-      "name": "7000004",
-      "source": "h2Link",
-      "state": "candidate",
-      "isOwned": false
-    }
-  ],
-  "avatarBases": [],
-  "avatarsDetectedAt": "2026-10-02T12:00:00+09:00",
   "userTags": [
     {
       "top": "衣装",
@@ -141,10 +104,6 @@
             "Assets/Costume"
           ]
         }
-      ],
-      "contents": [
-        "costume/costume.unitypackage",
-        "costume/readme.txt"
       ]
     },
     {
@@ -156,57 +115,16 @@
       "missingSince": "2026-09-01T12:00:00+09:00",
       "isArchiveBroken": false,
       "replaced": null,
-      "unityPackages": null,
-      "contents": []
-    },
-    {
-      "hash": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-      "sizeBytes": 20,
-      "variationId": null,
-      "paths": [
-        "D:\\assets\\extra.zip"
-      ],
-      "state": "detached",
-      "missingSince": null,
-      "isArchiveBroken": false,
-      "replaced": null,
-      "unityPackages": null,
-      "contents": []
-    },
-    {
-      "hash": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
-      "sizeBytes": 900,
-      "variationId": null,
-      "paths": [],
-      "state": "oldVersion",
-      "missingSince": null,
-      "isArchiveBroken": false,
-      "replaced": {
-        "path": "D:\\assets\\costume.zip",
-        "at": "2026-08-01T12:00:00+09:00"
-      },
-      "unityPackages": null,
-      "contents": []
+      "unityPackages": null
     }
   ],
   "folders": [],
-  "images": {
-    "thumbnail": {
-      "name": "35103488.webp",
-      "path": "<store>\\images\\9800001\\35103488.webp",
-      "origin": "booth",
-      "role": "booth",
-      "caption": "表紙"
-    },
-    "all": [
-      {
-        "name": "35103488.webp",
-        "path": "<store>\\images\\9800001\\35103488.webp",
-        "origin": "booth",
-        "role": "booth",
-        "caption": "表紙"
-      }
-    ]
+  "thumbnail": {
+    "name": "35103488.webp",
+    "path": "<store>\\images\\9800001\\35103488.webp",
+    "origin": "booth",
+    "role": "booth",
+    "caption": "表紙"
   },
   "videos": [
     {
@@ -214,6 +132,5 @@
       "url": "https://www.youtube.com/watch?v=AAAAAAAAAAA",
       "title": "作り物の紹介動画"
     }
-  ],
-  "fetchedAt": "2026-10-01T12:00:00+09:00"
+  ]
 }

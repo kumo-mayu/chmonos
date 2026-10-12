@@ -1,8 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace Chmonos.Query;
 
 // 外から使う API の答えの形（docs/spec/local-api-shapes.md）。**ここの名前と意味は外の道具との約束**：
 // 項目を足すのは互換、消す・名前を変える・意味を変えるのは非互換（/v2/）。保存の JSON の形とは別に持つ（中を直しても外の約束が壊れない）。
 // 列挙の値は変えない英字の文字列にする（保存の JSON が日本語の値でも）。値が無いときは項目を省かず null を書く。
+// **既定の答えは結果だけ**（2026-10-12・ユーザ判断）：どう決まったか・人が何を打ち消したかの帳簿は include で頼まれたときだけ返す。
+// 頼まなかった項目は項目ごと出さない（頼んで中身が無ければ [] か null。「頼んでいない」と「無い」を見分けられる）。
 
 /// <summary>ショップ（商品が属する物）。</summary>
 /// <param name="Key">束ねる鍵（サブドメイン。自分で作ったショップは <c>local-</c> で始まる鍵）。</param>
@@ -17,9 +21,6 @@ public sealed record BoothCategoryRef(int Id, string Name, string? ParentName);
 /// <param name="Origin"><c>booth</c>（BOOTH の画像）・<c>user</c>（自分で足した画像）・<c>orphaned</c>（BOOTH から消えた画像の控え）。</param>
 /// <param name="Role">画像の役割（<c>booth</c>・<c>modified</c>・<c>other</c>）。</param>
 public sealed record ImageRef(string Name, string Path, string Origin, string Role, string? Caption);
-
-/// <summary>商品の画像。<paramref name="Thumbnail"/> は画面のカードと同じ1枚（設定の「サムネイルにする画像」に従う）。</summary>
-public sealed record ImagesRef(ImageRef? Thumbnail, IReadOnlyList<ImageRef> All);
 
 /// <summary>対応アバターへの紐付け。</summary>
 /// <param name="Source">どこから見つけたか（<c>supportSection</c>・<c>supportList</c>・<c>tag</c>・<c>variation</c>・<c>h2Link</c>・<c>manual</c>）。</param>
@@ -38,12 +39,13 @@ public sealed record AvatarBaseLinkRef(string Name, string Source, string State)
 
 public sealed record UserTagRef(string Top, IReadOnlyList<string> Subs);
 
-public sealed record VariationRef(long Id, string? Name, int Price, string? Status, string? Type);
+/// <summary>バリエーション（BOOTH の中の値の状態・種類は約束にしない。BOOTH が変えたときに外の約束まで揺れるので）。</summary>
+public sealed record VariationRef(long Id, string? Name, int Price);
 
 /// <param name="Kind"><c>self</c>（自分用）・<c>given</c>（贈った）・<c>received</c>（貰った）。</param>
 /// <param name="Price">払った額。分からなければ null（0 は無料）。</param>
-/// <param name="ExistsOnBooth">そのバリエーションが BOOTH にまだあるか。</param>
-public sealed record PurchaseRef(long? VariationId, string? VariationName, int? Price, string Kind, DateOnly? PurchasedAt, string? Note, bool ExistsOnBooth);
+/// <param name="VariationName">買った時点の名前（BOOTH から消えたバリエーションでも残る）。</param>
+public sealed record PurchaseRef(long? VariationId, string? VariationName, int? Price, string Kind, DateOnly? PurchasedAt, string? Note);
 
 /// <summary>zip の中の <c>.unitypackage</c>。</summary>
 /// <param name="Roots">パッケージが入れる先（<c>Assets/…</c>）。</param>
@@ -56,6 +58,7 @@ public sealed record UnityPackageRef(string Entry, IReadOnlyList<string> Roots);
 /// </param>
 /// <param name="Replaced">上書きされた古い版なら、上書きした物の場所と日時。</param>
 /// <param name="UnityPackages">中の <c>.unitypackage</c>。まだ調べていなければ null（空は「調べて、無かった」）。</param>
+/// <param name="Contents">zip の中のファイルの一覧（長くなり得る）。<c>include=contents</c> のときだけ。</param>
 public sealed record FileRef(
     string Hash,
     long SizeBytes,
@@ -66,7 +69,7 @@ public sealed record FileRef(
     bool IsArchiveBroken,
     ReplacedRef? Replaced,
     IReadOnlyList<UnityPackageRef>? UnityPackages,
-    IReadOnlyList<string> Contents);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Contents);
 
 public sealed record ReplacedRef(string Path, DateTimeOffset At);
 
@@ -159,13 +162,6 @@ public sealed record ItemDetail
     /// <summary>画面の検索と同じ数え方の対応アバター（検索の条件「対応アバター」が当てる物）。</summary>
     public required IReadOnlyList<CompatibleAvatarRef> CompatibleAvatars { get; init; }
 
-    /// <summary>対応アバターの紐付けの一覧（出どころと、確認済み・候補・消したの状態）。</summary>
-    public required IReadOnlyList<AvatarLinkRef> Avatars { get; init; }
-
-    public required IReadOnlyList<AvatarBaseLinkRef> AvatarBases { get; init; }
-
-    public required DateTimeOffset? AvatarsDetectedAt { get; init; }
-
     public required IReadOnlyList<UserTagRef> UserTags { get; init; }
 
     /// <summary>属性の値（評価していない属性は入らない。0 は評価して 0）。</summary>
@@ -173,14 +169,32 @@ public sealed record ItemDetail
 
     public required string? Memo { get; init; }
 
+    /// <summary>手元のファイル（既定は「ある」「見つからない」だけ。外した物・古い版は <c>include=allFiles</c>）。</summary>
     public required IReadOnlyList<FileRef> Files { get; init; }
 
     public required IReadOnlyList<FolderRef> Folders { get; init; }
 
-    public required ImagesRef Images { get; init; }
+    /// <summary>画面のカードと同じ1枚（設定の「サムネイルにする画像」に従う）。</summary>
+    public required ImageRef? Thumbnail { get; init; }
 
     public required IReadOnlyList<VideoRef> Videos { get; init; }
 
-    /// <summary>BOOTH の情報を最後に取った日時。</summary>
-    public required DateTimeOffset? FetchedAt { get; init; }
+    /// <summary>画像の全部（画面の商品ページと同じ並び）。<c>include=images</c> のときだけ。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ImageRef>? Images { get; init; }
+
+    /// <summary>対応アバターの紐付けの帳簿（出どころと、確認済み・候補・消したの状態）。<c>include=avatarLinks</c> のときだけ。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AvatarLinksRef? AvatarLinks { get; init; }
+
+    /// <summary>記録の古さ。<c>include=meta</c> のときだけ。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ItemMetaRef? Meta { get; init; }
 }
+
+/// <summary>対応アバターの紐付けの帳簿。消した紐付け・説明文のリンク（要確認）も、状態つきでそのまま返す。</summary>
+/// <param name="DetectedAt">対応アバターの検出を最後に走らせた日時。</param>
+public sealed record AvatarLinksRef(IReadOnlyList<AvatarLinkRef> Avatars, IReadOnlyList<AvatarBaseLinkRef> Bases, DateTimeOffset? DetectedAt);
+
+/// <param name="FetchedAt">BOOTH の情報を最後に取った日時。</param>
+public sealed record ItemMetaRef(DateTimeOffset? FetchedAt);

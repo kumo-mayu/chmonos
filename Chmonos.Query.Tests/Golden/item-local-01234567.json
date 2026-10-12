@@ -33,18 +33,11 @@
   "purchases": [],
   "acquiredAt": null,
   "compatibleAvatars": [],
-  "avatars": [],
-  "avatarBases": [],
-  "avatarsDetectedAt": null,
   "userTags": [],
   "attributes": {},
   "memo": null,
   "files": [],
   "folders": [],
-  "images": {
-    "thumbnail": null,
-    "all": []
-  },
-  "videos": [],
-  "fetchedAt": null
+  "thumbnail": null,
+  "videos": []
 }

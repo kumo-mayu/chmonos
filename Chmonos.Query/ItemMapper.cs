@@ -22,9 +22,9 @@ public static class ItemMapper
             item.Local.IsHidden,
             item.Local.IsFavorite,
             Compatible(item, snapshot).Select(avatar => avatar.AvatarId).ToList(),
-            Images(item, snapshot).Thumbnail);
+            Thumbnail(item, snapshot));
 
-    public static ItemDetail Detail(ItemRecord item, QuerySnapshot snapshot)
+    public static ItemDetail Detail(ItemRecord item, QuerySnapshot snapshot, ItemIncludes includes = ItemIncludes.None)
     {
         var booth = item.Booth;
         var local = item.Local;
@@ -57,41 +57,53 @@ public static class ItemMapper
             HasUpdate = snapshot.UnreadUpdates.ContainsKey(item.Id),
             HasBrokenArchive = item.HasBrokenArchive,
             HasMissingFiles = item.HasMissingFile,
-            Variations = booth.Variations.Select(variation => new VariationRef(variation.Id, variation.Name, variation.Price, variation.Status, variation.Type)).ToList(),
+            Variations = booth.Variations.Select(variation => new VariationRef(variation.Id, variation.Name, variation.Price)).ToList(),
             Purchases = local.Purchases.Select(purchase => new PurchaseRef(
                 purchase.VariationId,
                 purchase.NameSnapshot ?? (purchase.VariationId is { } id && variationNames.TryGetValue(id, out var name) ? name : null),
                 purchase.Price,
                 KindOf(purchase.Kind),
                 purchase.PurchasedAt,
-                purchase.Note,
-                purchase.ExistsOnBooth)).ToList(),
+                purchase.Note)).ToList(),
             AcquiredAt = local.AcquiredAt,
             CompatibleAvatars = Compatible(item, snapshot),
-            Avatars = local.Avatars.Select(link => new AvatarLinkRef(
+            UserTags = local.UserTags.Select(tag => new UserTagRef(tag.Top, tag.Subs)).ToList(),
+            Attributes = local.Attributes,
+            Memo = local.Memo,
+            Files = local.LocalFiles
+                .Where(file => includes.HasFlag(ItemIncludes.AllFiles) || FileState(file) is "present" or "missing")
+                .Select(file => File(file, includes.HasFlag(ItemIncludes.Contents)))
+                .ToList(),
+            Folders = local.LocalFolders.Select(folder => new FolderRef(
+                folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages)).ToList(),
+            Thumbnail = Thumbnail(item, snapshot),
+            Videos = VideoLinks.Find(booth)
+                .Select(video => new VideoRef(video.VideoId, video.Url, snapshot.VideoTitles.GetValueOrDefault(video.VideoId)))
+                .ToList(),
+            Images = includes.HasFlag(ItemIncludes.Images) ? Images(item, snapshot).All : null,
+            AvatarLinks = includes.HasFlag(ItemIncludes.AvatarLinks) ? AvatarLinks(item, snapshot) : null,
+            Meta = includes.HasFlag(ItemIncludes.Meta) ? new ItemMetaRef(booth.FetchedAt) : null,
+        };
+    }
+
+    /// <summary>
+    /// 対応アバターの紐付けの帳簿（頼まれたときだけ）。消した紐付け・説明文のリンクも状態つきでそのまま返す（中の区別を潰さない）。
+    /// </summary>
+    private static AvatarLinksRef AvatarLinks(ItemRecord item, QuerySnapshot snapshot)
+        => new(
+            item.Local.Avatars.Select(link => new AvatarLinkRef(
                 link.AvatarItemId,
                 AvatarName(link.AvatarItemId, link.Name, snapshot),
                 Camel(link.Source.ToString()),
                 StateOf(link.Confirmed, link.Rejected),
                 snapshot.OwnedAvatarIds.Contains(link.AvatarItemId))).ToList(),
-            AvatarBases = local.AvatarBases.Select(link => new AvatarBaseLinkRef(
+            item.Local.AvatarBases.Select(link => new AvatarBaseLinkRef(
                 link.BaseName,
                 Camel(link.Source.ToString()),
                 StateOf(link.Confirmed, link.Rejected))).ToList(),
-            AvatarsDetectedAt = local.AvatarsDetectedAt,
-            UserTags = local.UserTags.Select(tag => new UserTagRef(tag.Top, tag.Subs)).ToList(),
-            Attributes = local.Attributes,
-            Memo = local.Memo,
-            Files = local.LocalFiles.Select(File).ToList(),
-            Folders = local.LocalFolders.Select(folder => new FolderRef(
-                folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages)).ToList(),
-            Images = Images(item, snapshot),
-            Videos = VideoLinks.Find(booth)
-                .Select(video => new VideoRef(video.VideoId, video.Url, snapshot.VideoTitles.GetValueOrDefault(video.VideoId)))
-                .ToList(),
-            FetchedAt = booth.FetchedAt,
-        };
-    }
+            item.Local.AvatarsDetectedAt);
+
+    internal static ImageRef? Thumbnail(ItemRecord item, QuerySnapshot snapshot) => Images(item, snapshot).Thumbnail;
 
     /// <summary>
     /// 画面の検索と同じ数え方の対応アバター（<see cref="AvatarCompatibilityIndex.Resolve"/>）。人が消した紐付けと、
@@ -117,7 +129,7 @@ public static class ItemMapper
                 item.Local.Shop?.Url ?? item.Booth.Shop?.Url)
             : null;
 
-    private static FileRef File(LocalFileRecord file)
+    private static FileRef File(LocalFileRecord file, bool contents)
         => new(
             file.Hash,
             file.SizeBytes,
@@ -128,14 +140,14 @@ public static class ItemMapper
             file.ArchiveBroken,
             file.Replaced is { } replaced ? new ReplacedRef(replaced.Path, replaced.At) : null,
             file.UnityPackages?.Select(package => new UnityPackageRef(package.Entry, package.Roots)).ToList(),
-            file.Contents);
+            contents ? file.Contents : null);
 
     /// <summary>ファイルの状態（<see cref="FileRef.State"/>）。見つからないの数え方はカードの印と同じ（<see cref="ItemRecord.HasMissingFile"/>）。</summary>
     internal static string FileState(LocalFileRecord file)
         => file.Detached ? "detached" : file.IsOldVersion ? "oldVersion" : file.Paths.Count == 0 || file.MissingSince is not null ? "missing" : "present";
 
     /// <summary>画面のカードと同じ並べ方・同じ1枚目（<see cref="ItemImageOrder"/>）。</summary>
-    internal static ImagesRef Images(ItemRecord item, QuerySnapshot snapshot)
+    private static (ImageRef? Thumbnail, IReadOnlyList<ImageRef> All) Images(ItemRecord item, QuerySnapshot snapshot)
     {
         var directory = snapshot.Paths.ItemImagesDir(item.Id);
         var files = snapshot.ImageFiles.GetValueOrDefault(item.Id) ?? [];
@@ -169,7 +181,7 @@ public static class ItemMapper
                 captions.GetValueOrDefault(name));
         }).ToList();
 
-        return new ImagesRef(
+        return (
             thumbnail is null ? null : all.FirstOrDefault(image => string.Equals(image.Path, thumbnail, StringComparison.OrdinalIgnoreCase)),
             all);
     }

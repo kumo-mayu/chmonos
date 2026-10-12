@@ -19,7 +19,6 @@ public sealed record AvatarEntryRef(
     string? Category,
     bool IsAvatar,
     bool IsOwned,
-    bool IsOwnedManually,
     string? BaseName,
     IReadOnlyList<string> Aliases,
     string? Memo,
@@ -30,8 +29,14 @@ public sealed record AvatarEntryRef(
 /// <summary>共通素体（<c>/v1/avatar-bases</c>）。</summary>
 /// <param name="ItemId">素体そのものの商品（配布されていなければ null）。</param>
 /// <param name="Members">属するアバターの ID。</param>
-/// <param name="IsRejected">人が「素体ではない」とした物。</param>
-public sealed record AvatarBaseRef(string Name, string? ItemId, IReadOnlyList<string> Members, IReadOnlyList<string> Aliases, string? Memo, bool IsManual, bool IsRejected);
+/// <param name="IsRejected">人が「素体ではない」とした物か。<c>include=rejected</c> のときだけ（既定ではその素体を一覧に入れない）。</param>
+public sealed record AvatarBaseRef(
+    string Name,
+    string? ItemId,
+    IReadOnlyList<string> Members,
+    IReadOnlyList<string> Aliases,
+    string? Memo,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] bool? IsRejected);
 
 /// <summary>ショップ（<c>/v1/shops</c>）。星とメモは shops.json（ショップの画面で付けた物）。</summary>
 public sealed record ShopEntryRef(string Key, string? Name, string? Subdomain, bool IsLocal, string? Url, bool IsFavorite, string? Memo, int ItemCount, int OwnedCount);
@@ -61,7 +66,14 @@ public sealed record FileOwnerRef(string ItemId, string ItemName, string Kind, s
 /// <param name="Roots">パッケージが入れる先（zip の中の物だけ。フォルダの物は調べていないので空）。</param>
 public sealed record UnityPackageEntryRef(string ItemId, string ItemName, string Source, string Container, string Entry, IReadOnlyList<string> Roots, IReadOnlyList<string> AvatarIds);
 
-public sealed record ModificationMemberRef(string ItemId, long? VariationId, string? FileHash, string? Package, DateTimeOffset AddedAt, bool Detached);
+/// <param name="Detached">改変から外した商品か。<c>include=detached</c> のときだけ（既定では外した商品を入れない）。</param>
+public sealed record ModificationMemberRef(
+    string ItemId,
+    long? VariationId,
+    string? FileHash,
+    string? Package,
+    DateTimeOffset AddedAt,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] bool? Detached);
 
 public sealed record ModificationImageRef(string Name, string Path, string? Caption, DateTimeOffset AddedAt);
 
@@ -119,7 +131,6 @@ public static class Catalogs
                 entry.Category,
                 AvatarService.IsAvatar(entry),
                 snapshot.OwnedAvatarIds.Contains(entry.ItemId),
-                entry.IsOwnedManually,
                 string.IsNullOrWhiteSpace(entry.BaseName) ? snapshot.Compatibility.BaseNameOf(entry.ItemId) : entry.BaseName,
                 entry.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text).ToList(),
                 entry.Memo,
@@ -129,16 +140,16 @@ public static class Catalogs
             .ToList();
     }
 
-    public static IReadOnlyList<AvatarBaseRef> AvatarBases(QuerySnapshot snapshot)
+    public static IReadOnlyList<AvatarBaseRef> AvatarBases(QuerySnapshot snapshot, bool includeRejected = false)
         => snapshot.Registry.BaseGroups
+            .Where(group => includeRejected || !group.Rejected)
             .Select(group => new AvatarBaseRef(
                 group.Name,
                 group.ItemId,
                 snapshot.Compatibility.MembersOf(group.Name),
                 group.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text).ToList(),
                 group.Memo,
-                group.IsManual,
-                group.Rejected))
+                includeRejected ? group.Rejected : null))
             .ToList();
 
     public static IReadOnlyList<ShopEntryRef> Shops(QuerySnapshot snapshot)
@@ -359,26 +370,26 @@ public static class Catalogs
         return result;
     }
 
-    public static IReadOnlyList<ModificationRef> Modifications(QuerySnapshot snapshot)
+    public static IReadOnlyList<ModificationRef> Modifications(QuerySnapshot snapshot, bool includeDetached = false)
         => snapshot.Modifications.Records
             .OrderBy(record => record.Id, StringComparer.Ordinal)
-            .Select(record => Modification(snapshot, record))
+            .Select(record => Modification(snapshot, record, includeDetached))
             .ToList();
 
-    public static ModificationRef Modification(QuerySnapshot snapshot, string id)
+    public static ModificationRef Modification(QuerySnapshot snapshot, string id, bool includeDetached = false)
         => snapshot.Modifications.Records.FirstOrDefault(record => record.Id == id) is { } record
-            ? Modification(snapshot, record)
+            ? Modification(snapshot, record, includeDetached)
             : throw QueryException.NotFound("modificationNotFound", $"改変が見つかりません: {id}");
 
-    /// <summary>その商品を使っている改変（外した物も含め、<see cref="ModificationMemberRef.Detached"/> で見分ける）。</summary>
-    public static IReadOnlyList<ModificationRef> ModificationsUsing(QuerySnapshot snapshot, string itemId)
+    /// <summary>その商品を使っている改変（外した商品としてだけ載っている改変は、頼まれたときだけ）。</summary>
+    public static IReadOnlyList<ModificationRef> ModificationsUsing(QuerySnapshot snapshot, string itemId, bool includeDetached = false)
         => snapshot.Modifications.Records
-            .Where(record => record.Members.Any(member => member.ItemId == itemId))
+            .Where(record => record.Members.Any(member => member.ItemId == itemId && (includeDetached || !member.Detached)))
             .OrderBy(record => record.Id, StringComparer.Ordinal)
-            .Select(record => Modification(snapshot, record))
+            .Select(record => Modification(snapshot, record, includeDetached))
             .ToList();
 
-    private static ModificationRef Modification(QuerySnapshot snapshot, ModificationRecord record)
+    private static ModificationRef Modification(QuerySnapshot snapshot, ModificationRecord record, bool includeDetached)
     {
         var directory = snapshot.Paths.ModificationImagesDir(record.Id);
         return new ModificationRef(
@@ -391,7 +402,10 @@ public static class Catalogs
             record.BlueprintId,
             record.CreatedAt,
             record.UpdatedAt,
-            record.Members.Select(member => new ModificationMemberRef(member.ItemId, member.VariationId, member.FileHash, member.Package, member.AddedAt, member.Detached)).ToList(),
+            record.Members
+                .Where(member => includeDetached || !member.Detached)
+                .Select(member => new ModificationMemberRef(member.ItemId, member.VariationId, member.FileHash, member.Package, member.AddedAt, includeDetached ? member.Detached : null))
+                .ToList(),
             record.Images.Select(image => new ModificationImageRef(image.FileName, Path.Combine(directory, image.FileName), image.Caption, image.AddedAt)).ToList());
     }
 
