@@ -49,6 +49,14 @@ public sealed partial class ShopItemList(IBoothClient client)
             var answer = await client.GetShopItemsPageAsync(subdomain, page, cancellationToken);
             if (!answer.IsSuccess || answer.Value is not { } html)
             {
+                // 1ページ目が「無い」なら、ショップが消えた（名前を変えた）。空の一覧として覚え、同じショップのファイルのたびに聞き直さない。
+                // 一時的な失敗は覚えない（次に押せば取れる）
+                if (page == 1 && answer.Status == BoothFetchStatus.NotFound)
+                {
+                    _cache[subdomain] = [];
+                    return [];
+                }
+
                 return null;
             }
 

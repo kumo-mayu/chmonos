@@ -54,6 +54,15 @@ public class FolderLayoutTests
     }
 
     [Fact]
+    public void ドライブの直下を指定しても段を読む()
+    {
+        var rule = FolderLayoutRule.DefaultFor(@"D:\");
+        Assert.Equal(new FolderLayoutHint("ふわふわ帽子", "作り物工房"), FolderLayoutHint.For(@"D:\作り物工房\ふわふわ帽子\hat.zip", [rule]));
+        Assert.Equal(new FolderLayoutHint("作り物工房", null), FolderLayoutHint.For(@"D:\作り物工房\hat.zip", [rule]));
+        Assert.Null(FolderLayoutHint.For(@"E:\作り物工房\ふわふわ帽子\hat.zip", [rule]));
+    }
+
+    [Fact]
     public void いちばん深い指定を使い_オフなら上の指定にも落ちない()
     {
         var inner = new FolderLayoutRule { Root = @"D:\作り物の置き場\まとめ", ItemNameLevel = 2, ShopNameLevel = null };
@@ -174,6 +183,27 @@ public class FolderLayoutTests
         Assert.Equal(0, client.ShopPageRequests);
     }
 
+    [Fact]
+    public async Task 置き方を渡さなければ_確かめる商品は今までどおり3件まで()
+    {
+        var client = new FakeClient(search: new()
+        {
+            ["hat"] = [.. Enumerable.Range(1, 6).Select(index => ($"910001{index}", $"帽子{index}", "other-shop"))],
+        });
+        await new FallbackResolver(client).ProposeAsync(@"D:\作り物の置き場\hat.zip");
+        Assert.Equal(["9100011", "9100012", "9100013"], client.JsonRequests);
+    }
+
+    [Fact]
+    public async Task 消えたショップの一覧は_同じショップで聞き直さない()
+    {
+        var client = new FakeClient(shopPages: []);
+        var lists = new ShopItemList(client);
+        Assert.Empty((await lists.GetAsync("gone-shop"))!);
+        Assert.Empty((await lists.GetAsync("gone-shop"))!);
+        Assert.Equal(1, client.ShopPageRequests);
+    }
+
     private static string Card(string id, string name)
         => $"<li class=\"js-mount-point-shop-item-card\" data-item=\"{{&quot;id&quot;:{id},&quot;name&quot;:&quot;{name}&quot;}}\"></li>";
 
@@ -191,6 +221,8 @@ public class FolderLayoutTests
     {
         public int ShopPageRequests { get; private set; }
 
+        public List<string> JsonRequests { get; } = [];
+
         private (string Id, string Name, string Shop)? Find(string id)
             => (search ?? []).Values.SelectMany(cards => cards).FirstOrDefault(card => card.Id == id) is { Id: not null } card ? card : null;
 
@@ -201,6 +233,7 @@ public class FolderLayoutTests
 
         public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
         {
+            JsonRequests.Add(itemId);
             var card = Find(itemId) ?? (itemId, "もこもこ手袋", "fake-studio");
             var shopName = (shopNames ?? []).GetValueOrDefault(card.Shop, card.Shop);
             return Task.FromResult(BoothFetchResult<string>.Success($$"""

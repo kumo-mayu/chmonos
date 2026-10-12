@@ -28,7 +28,7 @@
 | `ItemStatusProbe` | 商品IDの一覧を BOOTH に聞き、今の状態（公開・無い・R-18・販売終了）を確かめる。未確定に残った行の原因を調べるため。画面には件数だけを出し、ID ごとの結果は指定したファイル（リポジトリの外）に書く | （2026-10-12 の調べ。結果は手元だけ） |
 | `ShopListProbe` | ショップの商品一覧（`<サブドメイン>.booth.pm/items?page=N`）を全ページ取り、商品IDと商品名の一覧を控えに書く。置き方（ショップ名商品名ファイル）のフォルダ名を一覧と照らして ID が決まるかを測るため | （2026-10-12 の調べ。結果は手元だけ） |
 | `FallbackSearchProbe` | 候補検索を別の表記で引き直す価値があるか（正解の分かる10ファイル） | `docs/research/id-resolution.md`「§7 候補検索に表記の橋渡し」 |
-| `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位）。`--make-pairs` で写しから正解の組を作り、BOOTH の答えは `--cache` に控えて `--offline` で通信なしに測り直せる（`--no-avatars` でアバター名を外す直しを切って比べる。`--query folder`・`folder-clean` で置き方の親のフォルダ名を検索語にし、ショップと商品名のフォルダで並べ直した順位も出す）。使い方は `Program.cs` の冒頭 | `docs/research/id-resolution.md` §15・§16 |
+| `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位）。`--make-pairs` で写しから正解の組を作り、BOOTH の答えは `--cache` に控えて `--offline` で通信なしに測り直せる（`--no-avatars` でアバター名を外す直しを切って比べる。`--query folder`・`folder-clean` で置き方の親のフォルダ名を検索語にし、ショップと商品名のフォルダで並べ直した順位も出す。`--layout` は本体の自動検索に置き方を渡し、`--shops <ShopListProbe の控え>` でショップの一覧を取り直さない）。使い方は `Program.cs` の冒頭 | `docs/research/id-resolution.md` §15・§16 |
 | `QueryVariantProbe` | 上位3件に正解が出なかったファイルで、検索語の変え方ごとの当たりを比べる | `docs/research/id-resolution.md` §15 |
 | `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
 | `StoreTransferProbe` | 保存先の引越し・バックアップの書き出しと戻すを、作り物の数GBで通す（時間・メモリ・ハッシュでの一致・途中で止めたときの残り）。`location.json` は書かない | `docs/research/store-transfer-2026-10-01.md` |

@@ -350,10 +350,10 @@ public sealed partial class FallbackResolver
 
         var (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
 
-        // 置き方から出した候補とファイル名の検索の候補を、それぞれ上位3件まで確かめる（枠を分けないと、片方が3件で埋まって他方が見られない）
-        var orderedIds = direct
-            .Concat(layoutIds.Take(MaxCandidates))
-            .Concat(searchIds.Take(MaxCandidates))
+        // 置き方から出した候補は、今までの枠（同梱の URL とファイル名の検索で上位3件）とは別に上位3件まで確かめる
+        // （枠を分けないと、片方が3件で埋まって他方が見られない）。置き方を使わないときの問い合わせは今までと同じ
+        var orderedIds = layoutIds.Take(MaxCandidates)
+            .Concat(direct.Concat(searchIds).Distinct(StringComparer.Ordinal).Take(MaxCandidates))
             .Distinct(StringComparer.Ordinal)
             .ToList();
 

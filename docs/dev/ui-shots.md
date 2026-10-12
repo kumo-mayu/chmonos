@@ -165,6 +165,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 統計：60件・12店 | `catalog-stats-many` |
 | 設定：全体（除外 0・3・5000件）・欄を開いた形 | `settings-excluded-*` |
 | 設定：長いパス・区切り・保存先の作業中・書き出し・既定に戻す・知らせ | `settings-long-paths`（900）・`settings-sort-dividers-*`・`settings-store-blocked`・`settings-backup-exported`・`settings-reset-all(-done)`・`settings-notes-*` |
+| 設定：API の節・フォルダの置き方（当てはまりの行・効かない段の行） | `settings-api`・`settings-folder-layouts` |
 | 設定：カードに出す属性 | `card-info-settings` |
 
 ## ナビと下の帯（16-nav-bands）・小窓（17-dialogs）・部品（18-parts）
