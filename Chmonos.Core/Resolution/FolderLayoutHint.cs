@@ -15,11 +15,13 @@ public sealed record FolderLayoutHint(string? ItemFolder, string? ShopFolder, st
     /// </summary>
     public static FolderLayoutHint? For(string filePath, IReadOnlyList<FolderLayoutRule> rules)
     {
+        // 先にいちばん深い指定を選び、それから効くかを見る。効かない段の指定を先に除くと、オフにしたつもりの深い指定を
+        // すり抜けて上の指定が働いた（点検33）
         var rule = rules
-            .Where(rule => rule.IsUsable && IsUnder(filePath, rule.Root))
+            .Where(rule => IsUnder(filePath, rule.Root))
             .OrderByDescending(rule => rule.Root.TrimEnd('\\', '/').Length)
             .FirstOrDefault();
-        if (rule is null || !rule.Enabled)
+        if (rule is null || !rule.Enabled || !rule.IsUsable)
         {
             return null;
         }
@@ -48,6 +50,13 @@ public sealed record FolderLayoutHint(string? ItemFolder, string? ShopFolder, st
             ?.Subdomain;
         return hint with { ShopSubdomain = subdomain };
     }
+
+    /// <summary>
+    /// 対象がフォルダ（zip の無い展開物の根・フォルダのまま登録する物）のときの手掛かり。フォルダそのものを「1つ上」と数える
+    /// （中のファイルから見た段と同じにする。フォルダのパスをそのまま渡すと、段が1つずれてショップ名を商品名として読んだ。点検33）
+    /// </summary>
+    public static FolderLayoutHint? ForFolder(string folderPath, IReadOnlyList<FolderLayoutRule> rules, IEnumerable<ItemRecord> items)
+        => For(Path.Combine(folderPath.TrimEnd('\\', '/'), "_"), rules, items);
 
     /// <summary>ファイルから見て <paramref name="level"/> 段上のフォルダの名前。指定のフォルダより上に出るなら null（その段は置き方の外）。</summary>
     private static string? FolderAt(string filePath, int? level, string root)

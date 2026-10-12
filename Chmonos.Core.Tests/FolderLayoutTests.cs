@@ -17,6 +17,11 @@ public class FolderLayoutTests
     [InlineData("48時間限定無料 ふわふわ帽子", "ふわふわ帽子")]
     [InlineData("ふわふわ帽子", "ふわふわ帽子")]
     [InlineData("【無料】", "【無料】")] // 落として何も残らなければ元のまま
+    [InlineData("フリース帽子", "フリース帽子")] // 名前の一部の「フリー」は落とさない（点検33）
+    [InlineData("記念碑セット", "記念碑セット")]
+    [InlineData("限定カラーの帽子", "限定カラーの帽子")]
+    [InlineData("無料 ふわふわ帽子 free", "ふわふわ帽子")] // 頭と尻の飾りの語は落とす
+    [InlineData("【FREE】ふわふわ帽子", "ふわふわ帽子")]
     public void 販売の飾りを落とす(string name, string expected)
         => Assert.Equal(expected, SaleDecorations.Strip(name));
 
@@ -70,6 +75,16 @@ public class FolderLayoutTests
             FolderLayoutHint.For(@"D:\作り物の置き場\まとめ\商品の名前\版1\hat.zip", [ShopThenItem, inner]));
 
         Assert.Null(FolderLayoutHint.For(@"D:\作り物の置き場\まとめ\商品の名前\版1\hat.zip", [ShopThenItem, inner with { Enabled = false }]));
+
+        // 段を両方「使わない」にした深い指定も、上の指定を通さない（点検33）
+        Assert.Null(FolderLayoutHint.For(@"D:\作り物の置き場\まとめ\商品の名前\版1\hat.zip", [ShopThenItem, inner with { ItemNameLevel = null }]));
+    }
+
+    [Fact]
+    public void 対象がフォルダなら_フォルダそのものを1つ上と数える()
+    {
+        Assert.Equal(new FolderLayoutHint("ふわふわ帽子", "作り物工房"),
+            FolderLayoutHint.ForFolder(@"D:\作り物の置き場\作り物工房\ふわふわ帽子", [ShopThenItem], []));
     }
 
     [Fact]
@@ -118,10 +133,11 @@ public class FolderLayoutTests
             Item("9100001", "ふわふわ帽子", "作り物工房", "fake-studio", @"D:\作り物の置き場\作り物工房\【期間限定無料】ふわふわ帽子\hat.zip"),
             Item("9100002", "もこもこ手袋", "作り物工房", "fake-studio", @"D:\作り物の置き場\作り物工房\まとめ\glove.zip"),
             Item("9100003", "外の商品", "作り物工房", "fake-studio", @"E:\ほか\x.zip"),
+            Item("9100004", "直下の商品", "作り物工房", "fake-studio", @"D:\作り物の置き場\直下.zip"),
         };
 
-        // オフでも数える（オンにする前に確かめられるように）
-        Assert.Equal(new FolderLayoutFit(2, 1, 2), FolderLayoutFit.Measure(items, ShopThenItem with { Enabled = false }));
+        // オフでも数える（オンにする前に確かめられるように）。段の足りない直下のファイルも母数に入れる（点検33）
+        Assert.Equal(new FolderLayoutFit(3, 1, 2), FolderLayoutFit.Measure(items, ShopThenItem with { Enabled = false }));
     }
 
     [Fact]
@@ -195,6 +211,17 @@ public class FolderLayoutTests
         });
         await new FallbackResolver(client).ProposeAsync(@"D:\作り物の置き場\hat.zip");
         Assert.Equal(["9100011", "9100012", "9100013"], client.JsonRequests);
+    }
+
+    [Fact]
+    public async Task ファイル名から検索語が作れなくても_置き方のフォルダ名では探す()
+    {
+        var client = new FakeClient(search: new() { ["ふわふわ帽子"] = [("9100001", "ふわふわ帽子", "fake-studio")] });
+        var proposal = await new FallbackResolver(client).ProposeAsync(
+            @"D:\作り物の置き場\作り物工房\ふわふわ帽子\v1.0.zip", layout: new FolderLayoutHint("ふわふわ帽子", "作り物工房"));
+
+        Assert.Equal("9100001", Assert.Single(proposal.Candidates).ItemId);
+        Assert.Empty(await new FallbackResolver(client).ProposeAsync(@"D:\作り物の置き場\作り物工房\ふわふわ帽子\v1.0.zip") is { } none ? none.Candidates : []);
     }
 
     [Fact]

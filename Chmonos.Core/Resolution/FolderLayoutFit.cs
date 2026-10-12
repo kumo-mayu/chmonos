@@ -27,12 +27,18 @@ public sealed record FolderLayoutFit(int Files, int ItemNameMatches, int ShopNam
 
             foreach (var path in item.Local.OwnedFiles.SelectMany(file => file.Paths).Distinct(StringComparer.OrdinalIgnoreCase))
             {
+                if (!FolderLayoutHint.IsUnder(path, rule.Root))
+                {
+                    continue;
+                }
+
+                // 段の足りない浅い所のファイルも数える（数えないと、置き方に合わないファイルが隠れて、実際より合って見えた。点検33）
+                files++;
                 if (FolderLayoutHint.For(path, [enabled]) is not { } hint)
                 {
                     continue;
                 }
 
-                files++;
                 itemMatches += SaleDecorations.SameName(item.Booth.Name, hint.ItemFolder, item.Booth.Shop?.Name) ? 1 : 0;
                 shopMatches += SaleDecorations.SameShop(item.Booth.Shop?.Name, item.Booth.Shop?.Subdomain, hint.ShopFolder) ? 1 : 0;
             }

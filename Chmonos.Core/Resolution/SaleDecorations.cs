@@ -13,11 +13,14 @@ namespace Chmonos.Core.Resolution;
 /// </summary>
 public static partial class SaleDecorations
 {
-    /// <summary>期限・値段の言葉。商品名の中身には出にくい語だけにする。</summary>
+    /// <summary>
+    /// 名前のどこにあっても落とす飾り：期限・値段が数字や「期間」「時間」と組になった言い回し。商品名の中身には出にくい。
+    /// 「無料」「フリー」「記念」などの1語は、括弧の中か名前の頭と尻にあるときだけ落とす（<see cref="WordRegex"/>）。
+    /// どこでも落とすと「フリース帽子」が「ス帽子」、「記念碑セット」が「碑セット」になった（点検33）
+    /// </summary>
     private static readonly Regex[] Sale =
     [
         DateUntilRegex, SanitizedDateUntilRegex, LimitedRegex, PercentOffRegex, PercentJapaneseRegex, YenOffRegex,
-        FreeJapaneseRegex, FreeRegex, SaleRegex, SaleJapaneseRegex, PriceDownRegex, DiscountRegex, SpecialPriceRegex, MemorialRegex,
     ];
 
     // 8/5(水)まで・10月14日 23:59まで
@@ -28,7 +31,8 @@ public static partial class SaleDecorations
     [GeneratedRegex(@"\d{1,4}\s*(?:[(（][月火水木金土日][)）])?\s*(?:まで|迄)")]
     private static partial Regex SanitizedDateUntilRegex { get; }
 
-    [GeneratedRegex(@"(?:\d+\s*(?:時間|日間|日|週間|ヶ月|か月))?\s*(?:期間|数量|時間|日数)?\s*限定\s*(?:無料|価格|セール|公開|配布|販売|特価|割引)?")]
+    // 「限定」は前に期間か後ろに値段の語があるときだけ（「限定カラー」のような名前の語を残す）
+    [GeneratedRegex(@"(?:\d+\s*(?:時間|日間|日|週間|ヶ月|か月)\s*(?:期間|数量|時間|日数)?|期間|数量)\s*限定\s*(?:無料|価格|セール|公開|配布|販売|特価|割引)?|限定\s*(?:無料|価格|セール|特価|割引)")]
     private static partial Regex LimitedRegex { get; }
 
     [GeneratedRegex(@"\d+\s*%\s*off", RegexOptions.IgnoreCase)]
@@ -40,29 +44,26 @@ public static partial class SaleDecorations
     [GeneratedRegex(@"\d+\s*円\s*(?:引き|off)", RegexOptions.IgnoreCase)]
     private static partial Regex YenOffRegex { get; }
 
-    [GeneratedRegex(@"(?:無料|フリー)\s*(?:配布|公開|版)?")]
-    private static partial Regex FreeJapaneseRegex { get; }
+    /// <summary>飾りの1語。括弧の中か、名前の頭と尻（区切りで離れている）にあるときだけ落とす。</summary>
+    private const string Words = @"(?:無料|フリー|free|sale|セール中?|値下げ中?|割引中?|特価|記念|配布中|公開中|配布|新作)";
 
-    [GeneratedRegex(@"\bfree\b", RegexOptions.IgnoreCase)]
-    private static partial Regex FreeRegex { get; }
+    private const string Separators = @"[\s\-_~～・|｜!！★☆♪✨/]";
 
-    [GeneratedRegex(@"\bsale\b", RegexOptions.IgnoreCase)]
-    private static partial Regex SaleRegex { get; }
+    /// <summary>飾りの語と区切りだけでできているか（括弧の中身に当てる）。</summary>
+    [GeneratedRegex(@"^(?:" + Separators + @"|\d|" + Words + @")*$", RegexOptions.IgnoreCase)]
+    private static partial Regex OnlyWordsRegex { get; }
 
-    [GeneratedRegex(@"セール(?:中)?")]
-    private static partial Regex SaleJapaneseRegex { get; }
+    /// <summary>頭の飾りの語（後ろが区切りか終わり）。</summary>
+    [GeneratedRegex(@"^" + Separators + @"*" + Words + @"(?=" + Separators + @"|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingWordRegex { get; }
 
-    [GeneratedRegex(@"値下げ(?:中)?")]
-    private static partial Regex PriceDownRegex { get; }
+    /// <summary>尻の飾りの語（前が区切り）。</summary>
+    [GeneratedRegex(@"(?<=" + Separators + @")" + Words + Separators + @"*$", RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingWordRegex { get; }
 
-    [GeneratedRegex(@"割引(?:中)?")]
-    private static partial Regex DiscountRegex { get; }
-
-    [GeneratedRegex(@"特価")]
-    private static partial Regex SpecialPriceRegex { get; }
-
-    [GeneratedRegex(@"記念")]
-    private static partial Regex MemorialRegex { get; }
+    /// <summary>括弧ひと組（中に括弧を含まない）。</summary>
+    [GeneratedRegex(@"[【\[［(（〈《]([^【\[［(（〈《】\]］)）〉》]*)[】\]］)）〉》]")]
+    private static partial Regex BracketRegex { get; }
 
     /// <summary>中身が飾りの区切りだけになった括弧。</summary>
     [GeneratedRegex(@"[【\[［(（〈《][\s\-_~～・|｜!！]*[】\]］)）〉》]")]
@@ -88,7 +89,11 @@ public static partial class SaleDecorations
                 text = sale.Replace(text, " ");
             }
 
+            // 中身が飾りの語だけの括弧を落とす（「【無料】」「【FREE】」）
+            text = BracketRegex.Replace(text, match => OnlyWordsRegex.IsMatch(match.Groups[1].Value) ? " " : match.Value);
             text = EmptyBracketsRegex.Replace(text, " ");
+            text = LeadingWordRegex.Replace(text, " ");
+            text = TrailingWordRegex.Replace(text, " ");
             if (text == before)
             {
                 break;

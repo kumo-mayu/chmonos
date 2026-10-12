@@ -115,8 +115,17 @@ public sealed class FolderLayoutRow : ViewModelBase
     {
         _owner = owner;
         Rule = rule;
+        _enabled = rule.Enabled;
+        _itemNameLevel = rule.ItemNameLevel;
+        _shopNameLevel = rule.ShopNameLevel;
         RemoveCommand = new RelayCommand(() => owner.RemoveFolderLayoutAsync(rule.Root).Forget());
     }
+
+    // 最後の入力を覚えて、それと比べる。読んだときの設定（Rule）と比べると、保存が終わる前に元の値へ戻した操作を
+    // 「変わっていない」と見て捨て、先の変更だけが残った（点検33）。保存は変え方を関数で渡すので、押した順に当たる
+    private bool _enabled;
+    private int? _itemNameLevel;
+    private int? _shopNameLevel;
 
     public FolderLayoutRule Rule { get; }
 
@@ -124,10 +133,10 @@ public sealed class FolderLayoutRow : ViewModelBase
 
     public bool Enabled
     {
-        get => Rule.Enabled;
+        get => _enabled;
         set
         {
-            if (value != Rule.Enabled)
+            if (SetField(ref _enabled, value))
             {
                 _owner.ChangeFolderLayoutAsync(Rule.Root, rule => rule with { Enabled = value }).Forget();
             }
@@ -136,10 +145,10 @@ public sealed class FolderLayoutRow : ViewModelBase
 
     public int? ItemNameLevel
     {
-        get => Rule.ItemNameLevel;
+        get => _itemNameLevel;
         set
         {
-            if (value != Rule.ItemNameLevel)
+            if (SetField(ref _itemNameLevel, value))
             {
                 _owner.ChangeFolderLayoutAsync(Rule.Root, rule => rule with { ItemNameLevel = value }).Forget();
             }
@@ -148,10 +157,10 @@ public sealed class FolderLayoutRow : ViewModelBase
 
     public int? ShopNameLevel
     {
-        get => Rule.ShopNameLevel;
+        get => _shopNameLevel;
         set
         {
-            if (value != Rule.ShopNameLevel)
+            if (SetField(ref _shopNameLevel, value))
             {
                 _owner.ChangeFolderLayoutAsync(Rule.Root, rule => rule with { ShopNameLevel = value }).Forget();
             }

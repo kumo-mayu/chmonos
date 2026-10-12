@@ -56,6 +56,18 @@ public sealed class FallbackRankTests : IDisposable
     }
 
     [Fact]
+    public async Task 置き方を渡さなければ_同梱のURLと検索の候補を合わせて3件だけ確かめる()
+    {
+        // 置き方の枠を足したとき、同梱の URL の分だけ確かめる数が増えていた（点検33）
+        var zip = ZipWithBundledUrl("111");
+        var client = new FakeClient(searchIds: ["222", "333", "444", "555"]);
+        await new FallbackResolver(client).ProposeAsync(zip);
+
+        Assert.Equal(["111", "222", "333"], client.JsonRequests.Take(3));
+        Assert.DoesNotContain("444", client.JsonRequests);
+    }
+
+    [Fact]
     public async Task OnlyTheRealTopSearchHitIsCalledFirst()
     {
         var zip = ZipWithBundledUrl("111");
@@ -75,11 +87,19 @@ public sealed class FallbackRankTests : IDisposable
             => Task.FromResult(BoothFetchResult<string>.Success(string.Concat(searchIds.Select(id =>
                 $"""<li class="item-card l-card" data-product-id="{id}" data-product-name="別の商品 {id}" data-product-brand="shop{id}">"""))));
 
+        public List<string> JsonRequests { get; } = [];
+
         public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
-            => Task.FromResult(BoothFetchResult<string>.Success($$"""
+            => Record(itemId) ?? Task.FromResult(BoothFetchResult<string>.Success($$"""
                 { "id": {{itemId}}, "name": "別の商品 {{itemId}}", "url": "https://booth.pm/ja/items/{{itemId}}",
                   "images": [], "variations": [] }
                 """));
+
+        private Task<BoothFetchResult<string>>? Record(string itemId)
+        {
+            JsonRequests.Add(itemId);
+            return null;
+        }
 
         public Task<BoothFetchResult<string>> GetItemHtmlAsync(string itemId, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

@@ -308,7 +308,7 @@ public sealed partial class FallbackResolver
     /// <param name="layout">
     /// 使う人が指定したフォルダの置き方から読んだフォルダ名（<c>docs/spec/folder-layout.md</c>）。渡せば、ショップの商品一覧と照らし、
     /// 商品名のフォルダでも検索する。**ファイル名での検索も必ず回す**（置き方に合わないファイルで、フォルダ名だけに頼ると外す）。
-    /// 正解の分かる60本で、画面の1位の正解が 25 → 55 本、置き方に合わない30本でも 9 → 12 本（research §21）
+    /// 正解の分かる60本で、画面の1位の正解が 25 → 54 本、置き方に合わない30本でも 9 → 11 本（research §21）
     /// </param>
     public async Task<ResolutionProposal> ProposeAsync(
         string filePath,
@@ -321,7 +321,9 @@ public sealed partial class FallbackResolver
         var avatars = _avatarRegistry is null ? null : AvatarTokens.From(_avatarRegistry(), _readings);
         var varying = listed is null ? null : SiblingTokens.Varying(filePath, listed, avatars is null ? null : avatars.IsAvatarName);
         var query = FileNameQuery.ToSearchQuery(filePath, SiblingTokens.NotProductName(avatars, varying));
-        if (query.Length == 0)
+
+        // ファイル名から検索語が作れなくても（「v1.0.zip」など）、置き方のフォルダ名では探す。前は置き方を見る前に打ち切っていた（点検33）
+        if (query.Length == 0 && layout?.ItemFolder is null)
         {
             return new ResolutionProposal([], false);
         }
@@ -346,9 +348,13 @@ public sealed partial class FallbackResolver
             ? ([], new HashSet<string>(StringComparer.Ordinal))
             : await LayoutIdsAsync(layout, filePath, avatars, progress, cancellationToken);
 
-        progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
-
-        var (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
+        IReadOnlyList<string> searchIds = [];
+        var searched = layoutIds.Count > 0;
+        if (query.Length > 0)
+        {
+            progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
+            (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
+        }
 
         // 置き方から出した候補は、今までの枠（同梱の URL とファイル名の検索で上位3件）とは別に上位3件まで確かめる
         // （枠を分けないと、片方が3件で埋まって他方が見られない）。置き方を使わないときの問い合わせは今までと同じ
@@ -390,7 +396,7 @@ public sealed partial class FallbackResolver
         // （枠を共有すると、弱い候補で埋まった時点で引き直しが何も足さなくなる）
         // 置き方で名前とショップ（か一覧）が揃った候補があれば、引き直さない。「確度が高い」には数えないが、
         // 引き直しの候補（1語・別表記）はそれより弱く、問い合わせが増えるだけになる
-        if (!candidates.Any(candidate => candidate.IsStrong || candidate.LayoutPoints >= 3))
+        if (query.Length > 0 && !candidates.Any(candidate => candidate.IsStrong || candidate.LayoutPoints >= 3))
         {
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
             var firstWord = FileNameQuery.MostDistinctiveToken(filePath, SiblingTokens.NotProductName(avatars, varying));

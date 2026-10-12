@@ -164,22 +164,33 @@ public sealed partial class ResolveViewModel
     /// 設定のフォルダの置き方から、このファイルの手掛かりを組む（<c>docs/spec/folder-layout.md</c>）。指定が無ければ null。
     /// ショップのサブドメインは検索の写し（手元の商品）から引く。読むだけなので画面から直に組む
     /// </summary>
-    private async Task<FolderLayoutHint?> LayoutHintForAsync(string filePath)
+    private Task<FolderLayoutHint?> LayoutHintForAsync(string targetPath)
+        => LayoutHintForAsync(
+            targetPath,
+            Directory.Exists(targetPath),
+            _services.Settings.FolderLayouts,
+            _main.Search.SnapshotItems(),
+            async () => (await _services.Store.Items.LoadAllAsync()).Items);
+
+    /// <summary>
+    /// 検索の写しは起動の直後だとまだ空のことがある（取り込みの知らせから未確定を開いたとき）。空ならサブドメインが引けず、
+    /// ショップの一覧を黙って飛ばすので、そのときは保存先の記録から読む（<paramref name="loadItems"/>）。
+    /// 対象がフォルダ（zip の無い展開物の根）なら、フォルダそのものを「1つ上」と数える（点検33）
+    /// </summary>
+    internal static async Task<FolderLayoutHint?> LayoutHintForAsync(
+        string targetPath,
+        bool isFolder,
+        IReadOnlyList<FolderLayoutRule> rules,
+        IReadOnlyList<ItemRecord> snapshot,
+        Func<Task<IReadOnlyList<ItemRecord>>> loadItems)
     {
-        if (_services.Settings.FolderLayouts.Count == 0)
+        if (rules.Count == 0)
         {
             return null;
         }
 
-        // 検索の写しは起動の直後だとまだ空のことがある（取り込みの知らせから未確定を開いたとき）。空ならサブドメインが引けず、
-        // ショップの一覧を黙って飛ばすので、そのときは保存先の記録から読む
-        IReadOnlyList<ItemRecord> items = _main.Search.SnapshotItems();
-        if (items.Count == 0)
-        {
-            items = (await _services.Store.Items.LoadAllAsync()).Items;
-        }
-
-        return FolderLayoutHint.For(filePath, _services.Settings.FolderLayouts, items);
+        var items = snapshot.Count > 0 ? snapshot : await loadItems();
+        return isFolder ? FolderLayoutHint.ForFolder(targetPath, rules, items) : FolderLayoutHint.For(targetPath, rules, items);
     }
 
     private async Task ProposeAsync()
