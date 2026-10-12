@@ -77,7 +77,7 @@ public static class ItemMapper
             Folders = local.LocalFolders.Select(folder => new FolderRef(
                 folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages)).ToList(),
             Thumbnail = Thumbnail(item, snapshot),
-            Videos = VideoLinks.Find(booth)
+            Videos = (snapshot.Videos.GetValueOrDefault(item.Id) ?? [])
                 .Select(video => new VideoRef(video.VideoId, video.Url, snapshot.VideoTitles.GetValueOrDefault(video.VideoId)))
                 .ToList(),
             Images = includes.HasFlag(ItemIncludes.Images) ? Images(item, snapshot).All : null,

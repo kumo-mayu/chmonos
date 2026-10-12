@@ -2,7 +2,7 @@
 
   <!--
     外から使う API の実行ファイル（docs/spec/local-api.md）。中身は Chmonos.Query が作り、ここは HTTP の口と守りだけを持つ。
-    Native AOT の単体の exe にする（.NET を入れずに動き、起動が速い。ユーザ判断 2026-10-12）。
+    配る形は .NET を同梱した1ファイルの exe（Properties/PublishProfiles/win-x64.pubxml。Native AOT にしない理由もそこ）。
     日本語の並べ方・かなの畳み方を使うので、言語の情報（ICU）は切らない（InvariantGlobalization を false のままにする）
   -->
   <PropertyGroup>
@@ -12,8 +12,11 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>Chmonos.Api</AssemblyName>
     <RootNamespace>Chmonos.Api</RootNamespace>
-    <PublishAot>true</PublishAot>
     <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- IIS 向けの web.config と、静的なファイルの一覧を作らない（Kestrel だけで動き、静的なファイルも配らない） -->
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
 
   <ItemGroup>

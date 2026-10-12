@@ -45,7 +45,12 @@ public sealed class SearchEngineTests : IDisposable
             Item("9700002", "冬のコート", booth => booth with { Category = new BoothCategory { Id = 1, Name = "3D衣装" }, Tags = ["冬"], WishListsCount = 100 },
                 local => local with { Purchases = [new Purchase { Kind = PurchaseKind.ForSelf, Price = 3000 }] }),
             Item("9700003", "夏の帽子", booth => booth with { Category = new BoothCategory { Id = 2, Name = "3D小物" }, Tags = ["夏"], WishListsCount = 300, IsAdult = true }),
-            Item("9700004", "素材集", booth => booth with { WishListsCount = 50 }, local => local with { IsHidden = true }),
+            Item("9700004", "素材集", booth => booth with
+            {
+                WishListsCount = 50,
+                Description = "作り物の説明。秘密の手順が書いてある",
+                H2Sections = [new H2Section { Heading = "使い方", Text = "見出しの下の作り物の文" }],
+            }, local => local with { IsHidden = true }),
             Item("9700005", "対応つきの髪", booth => booth with { Category = new BoothCategory { Id = 3, Name = "3D装飾品" }, WishListsCount = 10 },
                 local => local with { Avatars = [new AvatarLink { AvatarItemId = "7000001", Source = AvatarLinkSource.SupportSection }] }),
         ];
@@ -84,6 +89,20 @@ public sealed class SearchEngineTests : IDisposable
         {
             Not = new() { And = [new() { Text = "夏" }, Condition(new() { Kind = "category", Values = ["3D衣装"] })] },
         }));
+    }
+
+    [Fact]
+    public async Task 説明文は写しに持たず_本文を探すときだけファイルから読む()
+    {
+        var snapshot = await SnapshotAsync();
+
+        Assert.All(snapshot.Items, item => Assert.Null(item.Booth.Description));
+        Assert.All(snapshot.Items, item => Assert.Empty(item.Booth.H2Sections));
+
+        // 既定の対象（名前・ショップ・メモ）に本文は入らないので、前置き main: で探す
+        Assert.Empty(Ids(snapshot, new() { Text = "秘密" }));
+        Assert.Equal(["9700004"], Ids(snapshot, new() { Text = "main:秘密" }));
+        Assert.Equal(["9700004"], Ids(snapshot, new() { Text = "main:見出しの下" }));
     }
 
     [Fact]

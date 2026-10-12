@@ -41,6 +41,10 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
         StoreFormat = Core.Storage.StoreFormat.StoreVersion(Paths.Root);
         _snapshot = await QuerySnapshot.LoadAsync(new DataStore(Paths), cancellationToken);
         LoadedAt = Clock();
+
+        // 読み込みの途中で出たごみ（JSON の読み込み・説明文を落とす前の記録）を片付けて、使っていないメモリを OS へ返す。
+        // 2,000 件で専用が 120 → 111MB（2026-10-12 に測った）。読み込みのたびに1回だけなので、止まる時間は問題にならない
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 }
 

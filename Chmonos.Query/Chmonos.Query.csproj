@@ -3,7 +3,7 @@
   <!--
     外から使う API の中身（読むだけの問い合わせ層。docs/spec/local-api.md）。HTTP を持たない：
     答えの形・保存先の読み込み・検索の式をここに置き、API の実行ファイルはこれを呼ぶだけにする（試験はここに書く）。
-    API の実行ファイルは Native AOT で組むので、ここも AOT で使える書き方にする（JSON は source generator）
+    答えの JSON は source generator で書く（実行時に型を調べない。いつか API を Native AOT にするときに、ここは作り替えずに済む）
   -->
   <ItemGroup>
     <ProjectReference Include="..\Chmonos.Core\Chmonos.Core.csproj" />

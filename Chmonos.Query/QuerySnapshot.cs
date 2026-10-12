@@ -13,14 +13,21 @@ namespace Chmonos.Query;
 /// </summary>
 public sealed class QuerySnapshot
 {
-    private QuerySnapshot(AppPaths paths)
+    private readonly DataStore _store;
+
+    private QuerySnapshot(DataStore store)
     {
-        Paths = paths;
+        _store = store;
+        Paths = store.Paths;
     }
 
     public AppPaths Paths { get; }
 
-    /// <summary>読めた商品の全部（ID の順）。</summary>
+    /// <summary>
+    /// 読めた商品の全部（ID の順）。**説明文（本文と見出しごとの文）は落としてある**（2026-10-12・ユーザ判断）：
+    /// 一覧・検索の既定の対象・条件のどれも使わないのに、2,000 件で専用のメモリの約3割（143MB のうち 43MB）を占めていた。
+    /// 本文を探すとき（<see cref="HaystackOf"/>）だけ、その商品の JSON をファイルから読む。動画のリンクは落とす前に拾っておく（<see cref="Videos"/>）
+    /// </summary>
     public required IReadOnlyList<ItemRecord> Items { get; init; }
 
     public required IReadOnlyDictionary<string, ItemRecord> ItemsById { get; init; }
@@ -59,6 +66,9 @@ public sealed class QuerySnapshot
 
     public required IReadOnlyDictionary<string, string> VideoTitles { get; init; }
 
+    /// <summary>商品ごとの動画のリンク（説明文を落とす前に拾った物）。</summary>
+    public required IReadOnlyDictionary<string, IReadOnlyList<VideoLink>> Videos { get; init; }
+
     /// <summary>商品ごとの画像のファイル（手元にある物。画面のカードと同じ並べ方の材料）。</summary>
     public required IReadOnlyDictionary<string, IReadOnlyList<string>> ImageFiles { get; init; }
 
@@ -87,8 +97,28 @@ public sealed class QuerySnapshot
     /// <summary>商品の検索用の文字列（画面と同じ作り方。商品名の読みは作らない＝造語変換は使わない）。<see cref="SearchGate"/> の中で呼ぶ。</summary>
     internal SearchHaystack HaystackOf(ItemRecord item)
     {
-        _haystacks ??= Items.ToDictionary(entry => entry.Id, entry => SearchText.Build(entry), StringComparer.Ordinal);
+        _haystacks ??= Items.ToDictionary(entry => entry.Id, Haystack, StringComparer.Ordinal);
         return _haystacks[item.Id];
+    }
+
+    /// <summary>
+    /// 検索用の文字列。本文（<see cref="SearchField.Main"/>）だけは、写しが説明文を落としているので、初めて探すときにファイルから読む。
+    /// 読んだ本文は畳んだ形で覚える（同じ本文を何度も探すたびに読み直さない）。本文を探さなければ読まない
+    /// </summary>
+    private SearchHaystack Haystack(ItemRecord item)
+        => new(field => SearchText.RawValues(field == SearchField.Main ? FullItem(item) : item, field), makeReadings: null) { Item = item };
+
+    /// <summary>説明文まで持った記録（ファイルの今の中身。読めなければ写しの物）。</summary>
+    private ItemRecord FullItem(ItemRecord item)
+    {
+        try
+        {
+            return _store.Items.LoadAsync(item.Id).GetAwaiter().GetResult() ?? item;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            return item;
+        }
     }
 
     /// <summary>検索欄の記法（<c>avatar:</c>・<c>has:update</c>）が見る事実。素体の索引は条件と同じ物を使う（同じ答えにするため）。</summary>
@@ -97,14 +127,16 @@ public sealed class QuerySnapshot
     public static async Task<QuerySnapshot> LoadAsync(DataStore store, CancellationToken cancellationToken = default)
     {
         var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        var items = loaded.Items.OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
+        var full = loaded.Items.OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
+        var videos = full.ToDictionary(item => item.Id, item => VideoLinks.Find(item.Booth), StringComparer.Ordinal);
+        var items = full.Select(item => item with { Booth = item.Booth with { Description = null, H2Sections = [] } }).ToList();
         var registry = store.Avatars.Load();
         var ownedItemIds = items.Where(item => item.IsOwned).Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         var shopNotes = store.ShopNotes.Load();
         var recent = store.Recent.Load();
         var notifications = store.Notifications.Load();
 
-        return new QuerySnapshot(store.Paths)
+        return new QuerySnapshot(store)
         {
             Items = items,
             ItemsById = items.ToDictionary(item => item.Id, StringComparer.Ordinal),
@@ -131,6 +163,7 @@ public sealed class QuerySnapshot
             VideoTitles = store.VideoTitles.Load()
                 .GroupBy(record => record.VideoId, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.Last().Title, StringComparer.Ordinal),
+            Videos = videos,
             ImageFiles = items.ToDictionary(item => item.Id, item => ListImages(store.Paths.ItemImagesDir(item.Id)), StringComparer.Ordinal),
         };
     }
