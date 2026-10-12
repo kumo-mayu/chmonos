@@ -177,6 +177,12 @@ public sealed record AppSettings
     public IReadOnlyList<string> WatchedFolders { get; init; } = [];
 
     /// <summary>
+    /// フォルダの置き方の指定（<c>docs/spec/folder-layout.md</c>）。未確定の自動検索が、フォルダ名を商品名・ショップ名の手掛かりに使う。
+    /// 使う人が自分の並べ方を教える物で、既定は空（推し量って作らない。置き方に合わないファイルにフォルダ名を当てると外す）。
+    /// </summary>
+    public IReadOnlyList<FolderLayoutRule> FolderLayouts { get; init; } = [];
+
+    /// <summary>
     /// 窓や取り込み画面へ落としたら、そのまま取り込みを始めるか。**既定は入**（#38・ユーザ判断）。
     /// 落とす操作自体がはっきりした指示なので、もう一度「開始」を押させる理由が無い。
     /// 走っている最中に落とした分は今の取り込みに積む。
@@ -275,7 +281,7 @@ public sealed record AppSettings
 
     /// <summary>
     /// 「すべての設定を既定に戻す」（メモ29・ユーザ判断 2026-10-04）。**使う人の環境に特有の物だけ残し、それ以外は既定に戻す。**
-    /// 残すのは取り込み元（<see cref="ImportFolders"/>）と監視するフォルダ（<see cref="WatchedFolders"/>）。
+    /// 残すのは取り込み元（<see cref="ImportFolders"/>）と監視するフォルダ（<see cref="WatchedFolders"/>）、フォルダの置き方（<see cref="FolderLayouts"/>）。
     /// アバター検出の見出し語（<see cref="AvatarSupportHeadings"/>・<see cref="AvatarIgnoredHeadings"/>）も残す（ユーザ判断 2026-10-04「ユーザの環境特有の調整です」）。
     /// 画面からは変えられず、手で書き足した語は使う人が調べて決めた物。画面のボタンで黙って消すと、何が消えたか気付けない。
     /// **画面に出していない欄は、どれも同じ理由で残す**（settings.json を手で書いて調整する値。担当AUD の点検 2026-10-04）。
@@ -288,6 +294,7 @@ public sealed record AppSettings
     {
         ImportFolders = ImportFolders,
         WatchedFolders = WatchedFolders,
+        FolderLayouts = FolderLayouts,
         AvatarSupportHeadings = AvatarSupportHeadings,
         AvatarIgnoredHeadings = AvatarIgnoredHeadings,
         GalleryHoverDelayMs = GalleryHoverDelayMs,

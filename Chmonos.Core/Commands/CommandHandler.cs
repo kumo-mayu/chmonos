@@ -1200,7 +1200,7 @@ public sealed class CommandHandler
                 // 1件ずつ間隔を空けるので待ちがそのまま目に見える
                 using (Booth.BoothClient.Prioritize(Booth.BoothPriority.Foreground))
                 {
-                    var proposal = await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress, propose.Listed);
+                    var proposal = await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress, propose.Listed, propose.Layout);
                     return new CommandResult.CandidatesProposed(proposal.Candidates, proposal.BoothUnreachable);
                 }
 

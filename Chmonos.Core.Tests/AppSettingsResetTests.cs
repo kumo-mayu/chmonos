@@ -5,7 +5,7 @@ namespace Chmonos.Core.Tests;
 /// <summary>「すべての設定を既定に戻す」（メモ29）。使う人の環境に特有の物（取り込み元・監視するフォルダ・アバター検出の見出し語）だけ残り、ほかは既定に戻る。</summary>
 public class AppSettingsResetTests
 {
-    private static readonly string[] Kept = [nameof(AppSettings.ImportFolders), nameof(AppSettings.WatchedFolders),
+    private static readonly string[] Kept = [nameof(AppSettings.ImportFolders), nameof(AppSettings.WatchedFolders), nameof(AppSettings.FolderLayouts),
         nameof(AppSettings.AvatarSupportHeadings), nameof(AppSettings.AvatarIgnoredHeadings),
         // 画面に出していない欄（settings.json を手で書いて調整する値）
         nameof(AppSettings.GalleryHoverDelayMs),
@@ -22,6 +22,7 @@ public class AppSettingsResetTests
     {
         ImportFolders = ["D:\\作り物\\取り込み元"],
         WatchedFolders = ["D:\\作り物\\監視"],
+        FolderLayouts = [new FolderLayoutRule { Root = "D:\\作り物\\置き場", ShopNameLevel = null }],
         ShowAdult = false,
         ShowSortDividers = false,
         ShowAcquiredSortDividers = true,

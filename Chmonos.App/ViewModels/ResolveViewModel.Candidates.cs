@@ -160,6 +160,15 @@ public sealed partial class ResolveViewModel
         ? "BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度「自動検索」を押してください。商品IDが分かっていれば、「商品IDを決める」に直接入れられます。"
         : "候補がありません。上の「自動検索」を押すか、「商品IDを決める」に商品IDを直接入れてください。";
 
+    /// <summary>
+    /// 設定のフォルダの置き方から、このファイルの手掛かりを組む（<c>docs/spec/folder-layout.md</c>）。指定が無ければ null。
+    /// ショップのサブドメインは検索の写し（手元の商品）から引く。読むだけなので画面から直に組む
+    /// </summary>
+    private FolderLayoutHint? LayoutHintFor(string filePath)
+        => _services.Settings.FolderLayouts.Count == 0
+            ? null
+            : FolderLayoutHint.For(filePath, _services.Settings.FolderLayouts, _main.Search.SnapshotItems());
+
     private async Task ProposeAsync()
     {
         if (SearchTargetPath is not { } searchTarget || Selected is not { } startedWith)
@@ -208,7 +217,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(searchTarget, progress, ListedPaths()), cancellationToken: stop.Token);
+                new UiCommand.ProposeCandidates(searchTarget, progress, ListedPaths(), LayoutHintFor(searchTarget)), cancellationToken: stop.Token);
 
             if (result is CommandResult.CandidatesProposed proposed)
             {

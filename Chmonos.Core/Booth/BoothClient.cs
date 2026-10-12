@@ -99,6 +99,13 @@ public interface IBoothClient
             ? SearchAsync(query, cancellationToken)
             : Task.FromResult(BoothFetchResult<string>.NotFound());
 
+    /// <summary>
+    /// ショップの商品一覧の n ページ目（<c>docs/spec/folder-layout.md</c>）。置き方の指定で分かったショップの中から、商品名のフォルダと同じ名前を探すときだけ使う。
+    /// 既定は「無い」と答える（使わない試験の作り物が、書き足さずに済むように）。
+    /// </summary>
+    Task<BoothFetchResult<string>> GetShopItemsPageAsync(string subdomain, int page, CancellationToken cancellationToken = default)
+        => Task.FromResult(BoothFetchResult<string>.NotFound());
+
     /// <summary>探しているものが見つかった時点で受信をやめる取得。</summary>
     Task<BoothFetchResult<string>> GetTextUntilAsync(
         string url,
@@ -562,6 +569,20 @@ public sealed class BoothClient : IBoothClient
         }
 
         return text.ToString();
+    }
+
+    /// <summary>
+    /// ショップの商品一覧の n ページ目。サブドメインは英数字とハイフンだけを受ける（組み立てた URL で別の所へ行かないように）。
+    /// 1ページは100KBを超えるが、商品は最後まで並ぶので全部受ける（4MBで切る。一覧のページは数百KB）
+    /// </summary>
+    public Task<BoothFetchResult<string>> GetShopItemsPageAsync(string subdomain, int page, CancellationToken cancellationToken = default)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(subdomain, "^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$") || page < 1)
+        {
+            throw new ArgumentException("ショップのサブドメインとして読めません。", nameof(subdomain));
+        }
+
+        return GetTextUntilAsync($"https://{subdomain.ToLowerInvariant()}.booth.pm/items?page={page}", _ => false, 4 * 1024 * 1024, cancellationToken);
     }
 
     /// <summary>

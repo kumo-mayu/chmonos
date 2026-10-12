@@ -28,6 +28,13 @@ public sealed class ResolutionCandidate
     public IReadOnlyList<string> Reasons { get; init; } = [];
 
     /// <summary>
+    /// <see cref="Score"/> のうち、フォルダの置き方（<c>docs/spec/folder-layout.md</c>）から足した点。並びにだけ効かせ、<see cref="IsStrong"/> には数えない。
+    /// 名前とショップが両方フォルダ名と一致した1位の外れは、ファイルが別の商品のフォルダに入っていた物で、一致の型では見分けられなかった
+    /// （置き方に合う60本で外れ1/42、合わない30本で外れ4/4。research §20）
+    /// </summary>
+    public int LayoutPoints { get; init; }
+
+    /// <summary>
     /// 自動で確定してよい水準の裏付けがあるか。
     ///
     /// 閾値を7にしているのは実測の結果。5にすると、同じ作者の別商品
@@ -35,7 +42,7 @@ public sealed class ResolutionCandidate
     /// ショップの一致はショップの証拠であって商品の証拠ではないので、
     /// 商品名側の裏付けも重ねて要求する。
     /// </summary>
-    public bool IsStrong => Score >= 7;
+    public bool IsStrong => Score - LayoutPoints >= 7;
 }
 
 /// <summary>
@@ -101,7 +108,11 @@ public sealed partial class FallbackResolver
         _bridge = bridge;
         _readings = readings;
         _avatarRegistry = avatarRegistry;
+        _shopLists = new ShopItemList(client);
     }
+
+    /// <summary>ショップの商品一覧（置き方の指定でショップが分かったとき）。起動している間だけ覚える。</summary>
+    private readonly ShopItemList _shopLists;
 
     /// <summary>検索結果の商品カード1枚。名前とショップが載っているので、通信せずに並べ直せる。</summary>
     public sealed record SearchCard(string ItemId, string Name, string ShopSubdomain);
@@ -294,11 +305,17 @@ public sealed partial class FallbackResolver
     /// 未確定の一覧にあるファイルの場所。渡せば、同じフォルダの兄弟の zip の間で変わる語（アバター名など）を
     /// 検索語から外す（<see cref="SiblingTokens"/>）。通信は増えない。
     /// </param>
+    /// <param name="layout">
+    /// 使う人が指定したフォルダの置き方から読んだフォルダ名（<c>docs/spec/folder-layout.md</c>）。渡せば、ショップの商品一覧と照らし、
+    /// 商品名のフォルダでも検索する。**ファイル名での検索も必ず回す**（置き方に合わないファイルで、フォルダ名だけに頼ると外す）。
+    /// 正解の分かる60本で、画面の1位の正解が 25 → 50 本（research §20）
+    /// </param>
     public async Task<ResolutionProposal> ProposeAsync(
         string filePath,
         CancellationToken cancellationToken = default,
         IProgress<ResolveProgress>? progress = null,
-        IReadOnlyCollection<string>? listed = null)
+        IReadOnlyCollection<string>? listed = null,
+        FolderLayoutHint? layout = null)
     {
         // 登録簿は取り込みで増えるので、押すたびに読み直す（索引を組むのは数百件で数ミリ秒）
         var avatars = _avatarRegistry is null ? null : AvatarTokens.From(_avatarRegistry(), _readings);
@@ -325,14 +342,19 @@ public sealed partial class FallbackResolver
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
+        var (layoutIds, shopListIds) = layout is null
+            ? ([], new HashSet<string>(StringComparer.Ordinal))
+            : await LayoutIdsAsync(layout, filePath, avatars, progress, cancellationToken);
+
         progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
         var (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
 
+        // 置き方から出した候補とファイル名の検索の候補を、それぞれ上位3件まで確かめる（枠を分けないと、片方が3件で埋まって他方が見られない）
         var orderedIds = direct
-            .Concat(searchIds)
+            .Concat(layoutIds.Take(MaxCandidates))
+            .Concat(searchIds.Take(MaxCandidates))
             .Distinct(StringComparer.Ordinal)
-            .Take(MaxCandidates)
             .ToList();
 
         var candidates = new List<ResolutionCandidate>();
@@ -352,7 +374,7 @@ public sealed partial class FallbackResolver
 
             if (candidate is not null)
             {
-                candidates.Add(candidate);
+                candidates.Add(WithLayout(candidate, layout, shopListIds.Contains(itemId)));
             }
         }
 
@@ -366,7 +388,9 @@ public sealed partial class FallbackResolver
         // 1本増えるうえ、出てきた候補ごとに商品JSONも取ることになる。
         // 先の検索で弱い候補が3件出ていても、引き直しの候補は別枠で3件まで確かめる
         // （枠を共有すると、弱い候補で埋まった時点で引き直しが何も足さなくなる）
-        if (!candidates.Any(candidate => candidate.IsStrong))
+        // 置き方で名前とショップ（か一覧）が揃った候補があれば、引き直さない。「確度が高い」には数えないが、
+        // 引き直しの候補（1語・別表記）はそれより弱く、問い合わせが増えるだけになる
+        if (!candidates.Any(candidate => candidate.IsStrong || candidate.LayoutPoints >= 3))
         {
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
             var firstWord = FileNameQuery.MostDistinctiveToken(filePath, SiblingTokens.NotProductName(avatars, varying));
@@ -427,7 +451,7 @@ public sealed partial class FallbackResolver
 
                     if (extra is not null)
                     {
-                        candidates.Add(extra);
+                        candidates.Add(WithLayout(extra, layout, shopListIds.Contains(extraIds[rank])));
                     }
                 }
             }
@@ -437,6 +461,90 @@ public sealed partial class FallbackResolver
         return new ResolutionProposal(
             candidates.OrderByDescending(candidate => candidate.Score).ToList(),
             BoothUnreachable: !searched && direct.Count == 0);
+    }
+
+    /// <summary>
+    /// 置き方から候補のIDを出す：ショップの商品一覧で商品名のフォルダと同じ名前の商品（ショップが分かるとき）、次に商品名のフォルダでの検索。
+    /// 一覧で見つかったIDも返す（点を足すため）。
+    /// </summary>
+    private async Task<(IReadOnlyList<string> Ids, HashSet<string> ShopListIds)> LayoutIdsAsync(
+        FolderLayoutHint layout, string filePath, AvatarTokens? avatars, IProgress<ResolveProgress>? progress, CancellationToken cancellationToken)
+    {
+        var shopListIds = new HashSet<string>(StringComparer.Ordinal);
+        var ids = new List<string>();
+        if (layout.ItemFolder is null)
+        {
+            return (ids, shopListIds);
+        }
+
+        if (layout.ShopSubdomain is { Length: > 0 } subdomain)
+        {
+            var list = await _shopLists.GetAsync(
+                subdomain,
+                page => progress?.Report(new ResolveProgress($"ショップの商品一覧を見ています（{page} ページ目）", 0, 0)),
+                cancellationToken);
+            foreach (var entry in list ?? [])
+            {
+                if (SaleDecorations.SameName(entry.Name, layout.ItemFolder, layout.ShopFolder) && shopListIds.Add(entry.ItemId))
+                {
+                    ids.Add(entry.ItemId);
+                }
+            }
+        }
+
+        // フォルダ名をファイル名の代わりに通す（検索語の整え方と並べ直しを、そのまま使う）。飾りは先に落とす
+        var folderPath = Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty,
+            SaleDecorations.Strip(layout.ItemFolder, layout.ShopFolder) + ".zip");
+        var folderQuery = FileNameQuery.ToSearchQuery(folderPath, SiblingTokens.NotProductName(avatars, null));
+        if (folderQuery.Length > 0)
+        {
+            progress?.Report(new ResolveProgress($"BOOTHを検索しています（{folderQuery}）", 0, 0));
+            ids.AddRange((await SearchIdsAsync(folderQuery, folderPath, avatars, null, cancellationToken)).Ids);
+        }
+
+        return (ids.Distinct(StringComparer.Ordinal).ToList(), shopListIds);
+    }
+
+    /// <summary>置き方の根拠の点と理由を足す（<see cref="ResolutionCandidate.LayoutPoints"/>）。</summary>
+    public static ResolutionCandidate WithLayout(ResolutionCandidate candidate, FolderLayoutHint? layout, bool inShopList)
+    {
+        if (layout is null)
+        {
+            return candidate;
+        }
+
+        var points = 0;
+        var reasons = new List<string>();
+        if (SaleDecorations.SameName(candidate.Name, layout.ItemFolder, layout.ShopFolder))
+        {
+            points += 2;
+            reasons.Add("フォルダ名が商品名と一致");
+        }
+
+        if (SaleDecorations.SameShop(candidate.ShopName, candidate.ShopSubdomain, layout.ShopFolder))
+        {
+            points += 1;
+            reasons.Add("フォルダ名がショップ名と一致");
+        }
+
+        if (inShopList)
+        {
+            points += 2;
+            reasons.Add("ショップの商品一覧に同じ名前があった");
+        }
+
+        return points == 0
+            ? candidate
+            : new ResolutionCandidate
+            {
+                ItemId = candidate.ItemId,
+                Name = candidate.Name,
+                ShopName = candidate.ShopName,
+                ShopSubdomain = candidate.ShopSubdomain,
+                Score = candidate.Score + points,
+                LayoutPoints = candidate.LayoutPoints + points,
+                Reasons = [.. candidate.Reasons, .. reasons],
+            };
     }
 
     /// <summary>

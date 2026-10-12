@@ -386,11 +386,13 @@ public abstract record UiCommand
     /// このコマンドだけ進捗の受け口を持つ。取得を1件ずつ間隔を空けて行うため
     /// 待ち時間が長く、黙って待たせるわけにいかないため。
     /// <c>Listed</c> は未確定の一覧にあるファイルの場所。同じフォルダの兄弟の zip の間で変わる語（アバター名など）を検索語から外すのに使う。
+    /// <c>Layout</c> は使う人が指定したフォルダの置き方から読んだフォルダ名（<c>docs/spec/folder-layout.md</c>）。画面が手元の商品と設定から組む（読むだけ）。
     /// </summary>
     public record ProposeCandidates(
         string FilePath,
         IProgress<Resolution.ResolveProgress>? Progress = null,
-        IReadOnlyCollection<string>? Listed = null) : UiCommand;
+        IReadOnlyCollection<string>? Listed = null,
+        Resolution.FolderLayoutHint? Layout = null) : UiCommand;
 
     /// <summary>
     /// BOOTH で見つからなくなった商品の、新しいIDの候補を探す（「IDを変える」の自動検索。ユーザ判断 2026-10-06）。
