@@ -24,7 +24,10 @@
 //       [--out <第2部の結果.tsv>] [--detail <第3部の結果.tsv>] [--names <名前>...]
 //   --second-page は、引き直しでも外れたとき最初の1語の検索の2ページ目も見る（本体の SearchSecondPage。research §19）。
 //   第3部の結果の最後の列 secondPage に、2ページ目を引いた本は「2」
-//   pairs.json は [{ "file": "...zip", "id": "123", "itemName": "...", "shop": "subdomain" }, ...]
+//   pairs.json は [{ "file": "...zip", "id": "123", "itemName": "...", "shop": "subdomain", "shopFolder": "...", "itemFolder": "..." }, ...]
+//   --query folder は、検索語にファイル名の代わりに親のフォルダ名（itemFolder）を使う（置き方を人が明示したときの案。2026-10-12）。
+//   --query folder-clean は、そのフォルダ名から販売の飾り（期間限定無料・8/5まで・○%OFF・末尾の「 - ショップ名」）を落としてから使う
+//   第3部は、置き方のフォルダ名（2段上＝ショップ、1段上＝商品名）と一致する候補を上へ並べ直した順位も出す
 //
 // 結果の TSV には正解の商品名とファイル名が入る。友人のデータで測るときは、リポジトリの外に置く。
 
@@ -60,6 +63,8 @@ var doSearch = args.Contains("--search");
 
 // 引き直しでも外れたとき、最初の1語の検索の2ページ目も見る（本体の FallbackResolver.SearchSecondPage。research §19）
 var secondPage = args.Contains("--second-page");
+var queryMode = Option("--query");
+var folderQuery = queryMode is "folder" or "folder-clean";
 var outPath = Option("--out");
 var detailPath = Option("--detail");
 var cacheDir = Option("--cache") ?? Path.Combine(Path.GetTempPath(), "chmonos-resolve-probe-cache");
@@ -313,12 +318,17 @@ if (propose is not null)
     var empty = 0;
     var missedPairs = 0;
     var missedTop1 = 0;
+    var layoutTop1 = 0;
+    var layoutStrongRight = 0;
+    var layoutStrongWrong = 0;
     var details = new List<string>();
 
     Console.WriteLine($"\n第3部（端から端まで）標本 {sample.Count} 本");
     foreach (var pair in sample)
     {
-        var fake = FakePath(pair.File);
+        var fake = FakePath(folderQuery && pair.ItemFolder is { Length: > 0 } folder
+            ? (queryMode == "folder-clean" ? Layout.StripDecorations(folder, pair.ShopFolder) : folder) + ".zip"
+            : pair.File);
         var missesBefore = client.Misses;
         var secondBefore = client.SecondPageRequests;
         var candidates = (await resolver.ProposeAsync(fake, listed: listing?.All)).Candidates;
@@ -328,6 +338,26 @@ if (propose is not null)
             missedTop1 += candidates.Count > 0 && candidates[0].ItemId == pair.Id ? 1 : 0;
         }
         var index = candidates.Select(candidate => candidate.ItemId).ToList().IndexOf(pair.Id);
+
+        // 置き方のフォルダ名で並べ直す（商品名の一致を2、ショップの一致を1。同じなら元の順）
+        var laid = candidates
+            .Select((candidate, order) => (candidate, order, bonus: Layout.Bonus(candidate, pair)))
+            .OrderByDescending(entry => entry.bonus).ThenBy(entry => entry.order)
+            .ToList();
+        var layoutIndex = laid.FindIndex(entry => entry.candidate.ItemId == pair.Id);
+        layoutTop1 += layoutIndex == 0 ? 1 : 0;
+        if (laid.Count > 0 && laid[0].bonus == 3)
+        {
+            // 商品名とショップの両方がフォルダ名と一致した1位（新しい「確度が高い」の案）
+            if (layoutIndex == 0)
+            {
+                layoutStrongRight++;
+            }
+            else
+            {
+                layoutStrongWrong++;
+            }
+        }
 
         if (candidates.Count == 0)
         {
@@ -365,6 +395,7 @@ if (propose is not null)
 
     Console.WriteLine($"  1位が正解: {top1}/{sample.Count}　候補に正解: {listed}　候補なし: {empty}");
     Console.WriteLine($"  1位が「確度が高い」: 正解 {strongRight} ／ 外れ {strongWrong}");
+    Console.WriteLine($"  置き方のフォルダ名で並べ直した1位が正解: {layoutTop1}/{sample.Count}　商品名とショップが両方一致した1位: 正解 {layoutStrongRight} ／ 外れ {layoutStrongWrong}");
     Console.WriteLine($"  BOOTH へ出た問い合わせ: {client.NetworkRequests - before} 本・控えに無く飛ばした {client.Misses} 本");
     Console.WriteLine($"  控えに無い問い合わせを含んだ本数: {missedPairs}（うち1位が正解 {missedTop1}）");
 
@@ -444,8 +475,11 @@ static void MakePairs(string storeDir, string outPath)
             {
                 if (filePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
+                    var itemFolder = Path.GetDirectoryName(filePath);
                     pairs.Add(new Pair
                     {
+                        ItemFolder = itemFolder is null ? null : Path.GetFileName(itemFolder),
+                        ShopFolder = itemFolder is null || Path.GetDirectoryName(itemFolder) is not { } shopFolder ? null : Path.GetFileName(shopFolder),
                         File = Path.GetFileName(filePath),
                         Id = item.Id,
                         ItemName = item.Booth.Name ?? item.Local.DisplayName,
@@ -517,6 +551,104 @@ sealed class Pair
     public string? ItemName { get; init; }
 
     public string? Shop { get; init; }
+
+    /// <summary>ファイルの2段上のフォルダの名前（置き方が「ショップ\商品名\ファイル」なら、ショップ名）。</summary>
+    public string? ShopFolder { get; init; }
+
+    /// <summary>ファイルの親のフォルダの名前（置き方が「ショップ\商品名\ファイル」なら、商品名）。</summary>
+    public string? ItemFolder { get; init; }
+}
+
+/// <summary>置き方のフォルダ名と候補を照らす（測るための案。本体には入れていない）。</summary>
+static class Layout
+{
+    public static int Bonus(ResolutionCandidate candidate, Pair pair)
+        => (Same(candidate.Name, pair.ItemFolder) ? 2 : 0)
+            + (Same(candidate.ShopName, pair.ShopFolder) || Same(candidate.ShopSubdomain, pair.ShopFolder) ? 1 : 0);
+
+    /// <summary>
+    /// 全角半角・大小・空白と記号を揃えて、同じか、短い方（4字以上）が長い方に含まれるか。
+    /// フォルダ名は Windows で使えない字が消え、長い名前は切られていることがあるので、含むも一致と見る
+    /// </summary>
+    public static bool Same(string? name, string? folder)
+    {
+        var a = Loose(name);
+        var b = Loose(folder);
+        if (a.Length == 0 || b.Length == 0)
+        {
+            return false;
+        }
+
+        if (a == b)
+        {
+            return true;
+        }
+
+        var (shorter, longer) = a.Length <= b.Length ? (a, b) : (b, a);
+        return shorter.Length >= 4 && longer.Contains(shorter, StringComparison.Ordinal);
+    }
+
+    // 販売の飾り：期限・値段の言葉。商品名の中身には出にくい語だけにする（友人の写しで、飾りの付いた157件中133件が今の商品名に戻り、
+    // 飾りの無い472件で落としすぎたのは3件）
+    private static readonly System.Text.RegularExpressions.Regex[] Sale =
+    [
+        new(@"\d{1,2}\s*[/月]\s*\d{1,2}\s*日?\s*(?:[(（]?[月火水木金土日][)）]?)?\s*(?:\d{1,2}\s*[:時]\s*\d{0,2}\s*分?)?\s*(?:まで|迄|~|～)"),
+        new(@"\d{1,4}\s*(?:[(（][月火水木金土日][)）])?\s*(?:まで|迄)"),
+        new(@"(?:\d+\s*(?:時間|日間|日|週間|ヶ月|か月))?\s*(?:期間|数量|時間|日数)?\s*限定\s*(?:無料|価格|セール|公開|配布|販売|特価|割引)?"),
+        new(@"\d+\s*%\s*off", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        new(@"\d+\s*%\s*(?:オフ|引き|割引)"),
+        new(@"\d+\s*円\s*(?:引き|off)", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        new(@"(?:無料|フリー)\s*(?:配布|公開|版)?"),
+        new(@"\bfree\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        new(@"\bsale\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        new(@"セール(?:中)?"), new(@"値下げ(?:中)?"), new(@"割引(?:中)?"), new(@"特価"), new(@"記念"),
+    ];
+
+    private static readonly System.Text.RegularExpressions.Regex Bracketed = new(@"[【\[［(（〈《][^【\[［(（〈《】\]］)）〉》]*[】\]］)）〉》]");
+
+    private static readonly System.Text.RegularExpressions.Regex EmptyBrackets = new(@"[【\[［(（〈《][\s\-_~～・|｜!！]*[】\]］)）〉》]");
+
+    /// <summary>
+    /// 販売の飾りを落とす。括弧と飾りを交互に、変わらなくなるまで落とす（中の曜日だけ先に落ちて外の括弧が残るため）。
+    /// 括弧の中の名前は、検索語の整え方（FileNameQuery）が別に扱うので、ここでは飾りだけの括弧を消す
+    /// </summary>
+    public static string StripDecorations(string value, string? shopFolder)
+    {
+        var text = value;
+        for (var round = 0; round < 4; round++)
+        {
+            var before = text;
+            foreach (var sale in Sale)
+            {
+                text = sale.Replace(text, " ");
+            }
+
+            text = EmptyBrackets.Replace(text, " ");
+            if (text == before)
+            {
+                break;
+            }
+        }
+
+        // 末尾の「 - ショップ名」（商品ページの題に付く）
+        var dash = text.LastIndexOf(" - ", StringComparison.Ordinal);
+        if (shopFolder is not null && dash > 0)
+        {
+            var tail = Loose(text[(dash + 3)..]);
+            var shop = Loose(shopFolder);
+            if (tail.Length > 0 && (shop.Contains(tail, StringComparison.Ordinal) || tail.Contains(shop, StringComparison.Ordinal)))
+            {
+                text = text[..dash];
+            }
+        }
+
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim(' ', '-', '_', '~', '～', '・', '|', '｜', '!', '！');
+        return cleaned.Length == 0 ? value : cleaned;
+    }
+
+    private static string Loose(string? value)
+        => new string((value ?? string.Empty).Normalize(System.Text.NormalizationForm.FormKC).ToLowerInvariant()
+            .Where(char.IsLetterOrDigit).ToArray());
 }
 
 sealed class Row
