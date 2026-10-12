@@ -32,7 +32,7 @@
 |---|---|---|
 | ◎ | `POST /v1/search` | 式で検索（下の形）。答えは一覧（要約） |
 | ◎ | `GET /v1/search/conditions` | 使える条件の種類と、それぞれの値の形（外の道具が条件の画面を組むため） |
-| ○ | `POST /v1/search/facets` | 選択肢の件数：式の結果の中で、指定した欄（カテゴリ・対応アバター・タグ…）の値ごとの件数 |
+| ◎ | `POST /v1/search/facets` | 選択肢の件数：式の結果の中で、指定した欄（カテゴリ・対応アバター・タグ…）の値ごとの件数 |
 | ○ | `GET /v1/search/explain?q=…` | 検索欄の文字列をどう読んだか（前置き・辞書で広げた別表記）。「なぜ当たったか」を説明する |
 | ○ | `GET /v1/saved-searches` | 保存した検索（式に変換した物も添える） |
 | △ | `GET /v1/search-history` | 検索の履歴 |
@@ -43,8 +43,7 @@
 |---|---|---|
 | ◎ | `GET /v1/avatars` | 登録簿（名前・呼び方・素体・所有しているか） |
 | ◎ | `GET /v1/avatars/{id}` | 1体 |
-| ◎ | `GET /v1/avatars/{id}/items` | 対応する商品。`via=direct|base|both`・`state=confirmed|candidate|all` |
-| ○ | `GET /v1/avatar-bases`・`GET /v1/avatar-bases/{name}/items` | 共通素体と、対応する商品 |
+| ○ | `GET /v1/avatar-bases` | 共通素体（属するアバター・呼び方）。対応する商品は検索で引く |
 
 ### ファイル・Unity（自動の紐付けの資産を外で使う中心）
 
@@ -64,9 +63,9 @@
 |---|---|---|
 | ◎ | `GET /v1/user-tags` | ユーザータグ（大分類・小分類・メモ・件数） |
 | ◎ | `GET /v1/attributes` | 属性（名前・メモ・件数） |
-| ○ | `GET /v1/categories` | カテゴリ（BOOTH のカテゴリと自分で入れたカテゴリ・件数） |
+| ○ | `GET /v1/categories` | カテゴリ（画面と同じ実質の1つ：自分で入れた物があればそれ、無ければ BOOTH の物。名前・親・件数） |
 | ○ | `GET /v1/booth-tags` | BOOTH のタグと件数 |
-| ◎ | `GET /v1/shops`・`GET /v1/shops/{key}`・`GET /v1/shops/{key}/items` | ショップ（名前・サブドメイン・自分で作ったショップか・星・メモ・件数） |
+| ◎ | `GET /v1/shops`・`GET /v1/shops/{key}` | ショップ（名前・サブドメイン・自分で作ったショップか・星・メモ・件数） |
 | ○ | `GET /v1/modifications`・`GET /v1/modifications/{id}` | 改変（アバター・使った商品とファイル・Unity プロジェクト・メモ） |
 | ○ | `GET /v1/unity-projects` | 改変に書いた Unity プロジェクトと、その改変 |
 | ○ | `GET /v1/notifications` | 通知（既読・解決済みの印つき） |
@@ -85,6 +84,7 @@
   "url": "https://booth.pm/ja/items/1234567",
   "shop": { "key": "example", "name": "…", "subdomain": "example", "isLocal": false, "url": "…" },
   "category": "3D衣装",
+  "categorySource": "booth",
   "boothCategory": { "id": 208, "name": "3D衣装", "parentName": "3Dモデル" },
   "boothTags": ["…"],
   "priceText": "¥ 1,500",
@@ -127,6 +127,7 @@
 }
 ```
 
+- `category` は画面と同じ実質の1つ（`ItemRecord.CategoryName`：自分で入れた物があればそれ、無ければ BOOTH の物）。`categorySource` は `booth`・`user`。BOOTH の元の値は `boothCategory`（無ければ `null`）。
 - 紐付けの `state` は `confirmed`（確認済み）・`candidate`（推定で、まだ人が選んでいない）・`rejected`（人が消した）。中の `Confirmed`・`Rejected` の2つの真偽を1つの値にした。
 - ファイルの `state` は `present`（ある）・`missing`（場所が空）・`detached`（外した）・`oldVersion`（上書きで残った古い版）。
 - アセットのファイルは場所だけ返し、中身は送らない。
@@ -158,6 +159,19 @@
 - 条件の中の「どれか・すべて」（`match`）や、対応アバターの「素体経由を含める」は条件の値として持つ。画面の「除く」は `not` で書く。
 - 条件の形は、検索の履歴に残している形（`SearchModuleState`）をそのまま出さず、API の形から変換する（中を直しても外の約束が壊れないように）。
 - `includeHidden`・`includeAdult` の既定は `true`（全部返して印を付ける）。
+
+## 選択肢の件数（`POST /v1/search/facets`）
+
+```json
+{ "where": { "…": "検索と同じ式" }, "fields": ["category", "avatar", "userTag"], "includeHidden": true, "includeAdult": true }
+```
+
+```json
+{ "category": [ { "value": "3D衣装", "count": 120 } ], "avatar": [ { "value": "7654321", "name": "…", "count": 77 } ], "userTag": [ { "value": "衣装/夏", "count": 12 } ] }
+```
+
+- 数えるのは `where` の結果の中。画面は「自分の条件は自分を除いて数える」が、式は木なので「自分」を決められない。外の道具は、数えたい欄の条件を外した式を渡す（使い方に書く）。
+- 対応アバターは「対応している」「対応の指定が無い」の件数も返す（画面の2つのチェックの数）。
 
 ## SSE（`GET /v1/events`）の出来事
 
