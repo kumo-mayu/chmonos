@@ -14,6 +14,7 @@ namespace Chmonos.Query;
     DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     WriteIndented = false)]
 [JsonSerializable(typeof(ItemDetail))]
+[JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(ItemSummary))]
 [JsonSerializable(typeof(IReadOnlyList<ItemSummary>))]
 [JsonSerializable(typeof(Search.SearchRequest))]

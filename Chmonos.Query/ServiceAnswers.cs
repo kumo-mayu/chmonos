@@ -9,8 +9,11 @@ public sealed record ItemsBatchAnswer(IReadOnlyList<ItemDetail> Items, IReadOnly
 
 /// <summary>動いているか（<c>GET /v1/health</c>。合言葉なし）。</summary>
 /// <param name="Status"><c>ok</c>（答えられる）・<c>tooNew</c>（保存の形がこの API より新しい）。</param>
-/// <param name="FailedItemIds">読めなかった商品（手で壊した JSON など）。黙って減らさず知らせる。</param>
-public sealed record HealthAnswer(string Status, DateTimeOffset LoadedAt, int ItemCount, IReadOnlyList<string> FailedItemIds);
+/// <param name="FailedItemCount">
+/// 読めなかった商品（手で壊した JSON など）の数。黙って減らさず知らせる。ID は合言葉の要る <c>/v1/failed-items</c> で返す
+/// （health は合言葉なしで答えるので、保存先の中身を入れない。点検30）。
+/// </param>
+public sealed record HealthAnswer(string Status, DateTimeOffset LoadedAt, int ItemCount, int FailedItemCount);
 
 /// <summary>バージョン（<c>GET /v1/version</c>。合言葉なし）。</summary>
 /// <param name="Api">URL のバージョン（<c>v1</c>）。</param>

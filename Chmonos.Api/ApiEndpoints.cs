@@ -13,10 +13,16 @@ internal static partial class ApiEndpoints
     {
         var json = QueryJson.Context;
 
-        app.MapGet("/v1/health", (ApiState state) => ApiHost.Json(
-            new HealthAnswer(state.TooNew ? "tooNew" : "ok", state.LoadedAt, state.Snapshot.Items.Count, state.Snapshot.FailedItemIds),
-            json.HealthAnswer))
-            .Answers<HealthAnswer>("動いているか・読み終えたか・読めなかった商品（合言葉なし）");
+        // 合言葉なしで答えるので、保存先の中身（読めなかった商品の ID）は入れない。数だけ（点検30）
+        app.MapGet("/v1/health", (ApiState state) =>
+        {
+            var snapshot = state.Snapshot;
+            return ApiHost.Json(new HealthAnswer(state.TooNew ? "tooNew" : "ok", state.LoadedAt, snapshot.Items.Count, snapshot.FailedItemIds.Count), json.HealthAnswer);
+        })
+            .Answers<HealthAnswer>("動いているか・読み終えたか・読めなかった商品の数（合言葉なし）");
+
+        app.MapGet("/v1/failed-items", (ApiState state) => ApiHost.Json(state.Snapshot.FailedItemIds, json.IReadOnlyListString))
+            .Answers<IReadOnlyList<string>>("読めなかった商品の ID（手で壊した JSON など）");
 
         app.MapGet("/v1/version", (ApiState state, ChangeFeed feed, StoreSync sync) => ApiHost.Json(
             new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice, feed.Epoch, feed.Sequence, sync.Busy),
@@ -26,8 +32,13 @@ internal static partial class ApiEndpoints
         // 変化（docs/spec/local-api.md「同期」）。外の道具は前に見た通番を送り、それより後の変化を受け取る
         app.MapGet("/v1/changes", (ChangeFeed feed, long? since, string? epoch) =>
         {
-            var changes = epoch is null || epoch == feed.Epoch ? feed.Since(since ?? 0) : null;
-            return ApiHost.Json(new ChangesAnswer(feed.Epoch, feed.Sequence, changes is null, changes ?? []), json.ChangesAnswer);
+            var (changes, sequence) = feed.Since(since ?? 0);
+            if (epoch is not null && epoch != feed.Epoch)
+            {
+                changes = null;
+            }
+
+            return ApiHost.Json(new ChangesAnswer(feed.Epoch, sequence, changes is null, changes ?? []), json.ChangesAnswer);
         })
             .Answers<ChangesAnswer>("前に見た通番より後の変化");
 
@@ -71,13 +82,18 @@ internal static partial class ApiEndpoints
                 json.SearchPage))
             .Answers<SearchPage>("商品の一覧（要約）。sort は wishCount:desc,name の形");
 
+        // どの URL も、写しは1回だけ取り、答えができるまでそれを使う（点検30：途中で差し替わると、古い商品と新しい登録簿を組み合わせる）
         app.MapGet("/v1/items/{id}", (ApiState state, string id, string? include) =>
-            ApiHost.Json(ItemMapper.Detail(FindItem(state, id), state.Snapshot, Includes.ParseItem(include)), json.ItemDetail))
+        {
+            var snapshot = state.Snapshot;
+            return ApiHost.Json(ItemMapper.Detail(FindItem(snapshot, id), snapshot, Includes.ParseItem(include)), json.ItemDetail);
+        })
             .Answers<ItemDetail>("商品1件（include で帳簿などを足す）");
 
         app.MapPost("/v1/items/batch", async (ApiState state, HttpRequest request) =>
         {
             var body = await ReadAsync(request, json.ItemsBatchRequest);
+            var snapshot = state.Snapshot;
             var includes = Includes.ParseItem(body.Include);
             var ids = body.Ids ?? [];
             if (ids.Count > SearchEngine.MaxLimit)
@@ -85,24 +101,26 @@ internal static partial class ApiEndpoints
                 throw QueryException.Invalid("invalidLimit", $"一度に引けるのは {SearchEngine.MaxLimit} 件までです。");
             }
 
-            var found = ids.Where(state.Snapshot.ItemsById.ContainsKey).Distinct(StringComparer.Ordinal)
-                .Select(id => ItemMapper.Detail(state.Snapshot.ItemsById[id], state.Snapshot, includes)).ToList();
-            var missing = ids.Where(id => !state.Snapshot.ItemsById.ContainsKey(id)).ToList();
+            var found = ids.Where(snapshot.ItemsById.ContainsKey).Distinct(StringComparer.Ordinal)
+                .Select(id => ItemMapper.Detail(snapshot.ItemsById[id], snapshot, includes)).ToList();
+            var missing = ids.Where(id => !snapshot.ItemsById.ContainsKey(id)).ToList();
             return ApiHost.Json(new ItemsBatchAnswer(found, missing), json.ItemsBatchAnswer);
         })
             .Takes<ItemsBatchRequest>().Answers<ItemsBatchAnswer>("ID をまとめて詳細を引く");
 
         app.MapGet("/v1/items/{id}/modifications", (ApiState state, string id, string? include) =>
         {
-            FindItem(state, id);
-            return ApiHost.Json(Catalogs.ModificationsUsing(state.Snapshot, id, Includes.ParseFlag(include, "detached")), json.IReadOnlyListModificationRef);
+            var snapshot = state.Snapshot;
+            FindItem(snapshot, id);
+            return ApiHost.Json(Catalogs.ModificationsUsing(snapshot, id, Includes.ParseFlag(include, "detached")), json.IReadOnlyListModificationRef);
         })
             .Answers<IReadOnlyList<ModificationRef>>("その商品を使っている改変");
 
         app.MapGet("/v1/items/{id}/notifications", (ApiState state, string id) =>
         {
-            FindItem(state, id);
-            return ApiHost.Json(Catalogs.Notifications(state.Snapshot, id), json.IReadOnlyListNotificationRef);
+            var snapshot = state.Snapshot;
+            FindItem(snapshot, id);
+            return ApiHost.Json(Catalogs.Notifications(snapshot, id), json.IReadOnlyListNotificationRef);
         })
             .Answers<IReadOnlyList<NotificationRef>>("その商品の通知");
 
@@ -172,8 +190,9 @@ internal static partial class ApiEndpoints
         // 画像の本体（ブラウザの画面のため）。返すのは写しが知っている画像の名前だけ（送られた名前で場所を組まない）
         app.MapGet("/v1/images/{itemId}/{name}", (ApiState state, string itemId, string name) =>
         {
-            FindItem(state, itemId);
-            var file = (state.Snapshot.ImageFiles.GetValueOrDefault(itemId) ?? [])
+            var snapshot = state.Snapshot;
+            FindItem(snapshot, itemId);
+            var file = (snapshot.ImageFiles.GetValueOrDefault(itemId) ?? [])
                 .FirstOrDefault(path => string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase));
             return file is not null && File.Exists(file)
                 ? Results.File(file, ContentTypeOf(file))
@@ -222,16 +241,16 @@ internal static partial class ApiEndpoints
         response.Headers.CacheControl = "no-cache";
         var aborted = context.RequestAborted;
 
-        // 先に聞き始め、取り直した分と重なった物は通番で落とす（間に起きた変化を取りこぼさない）
-        var channel = feed.Listen();
+        // 聞き始めと、その時点の通番は一緒に取る（点検30：別々に取ると、間に届いた変化を送り済みと見なして落とす）。
+        // 取り直した分と重なった物は通番で落とす
+        var (channel, sent) = feed.Listen();
         try
         {
-            var sent = feed.Sequence;
             var last = context.Request.Headers["Last-Event-ID"].ToString();
             if (last.Length > 0)
             {
                 var parts = last.Split('-', 2);
-                var replay = parts.Length == 2 && parts[0] == feed.Epoch && long.TryParse(parts[1], out var lastSeq) ? feed.Since(lastSeq) : null;
+                var replay = parts.Length == 2 && parts[0] == feed.Epoch && long.TryParse(parts[1], out var lastSeq) ? feed.Since(lastSeq).Changes : null;
                 if (replay is null)
                 {
                     await WriteEventAsync(response, feed.Epoch, new ChangeEventRef(feed.Sequence, "reloaded", [], [], null, DateTimeOffset.Now), aborted);
@@ -264,11 +283,12 @@ internal static partial class ApiEndpoints
 
                 while (channel.Reader.TryRead(out var change))
                 {
-                    if (change.Seq > sent)
+                    foreach (var outgoing in Outgoing(sent, change))
                     {
-                        await WriteEventAsync(response, feed.Epoch, change, aborted);
-                        sent = change.Seq;
+                        await WriteEventAsync(response, feed.Epoch, outgoing, aborted);
                     }
+
+                    sent = Math.Max(sent, change.Seq);
                 }
 
                 await response.Body.FlushAsync(aborted);
@@ -283,13 +303,25 @@ internal static partial class ApiEndpoints
         }
     }
 
+    /// <summary>
+    /// 送り済みの通番 <paramref name="sent"/> の後に、待ち行列から出た変化を流すときに送る物。送り済みなら何も送らない。
+    /// **通番が飛んでいたら、先に reloaded を送る**（点検30）：受け手が遅れて待ち行列があふれ、古い変化が落ちた印。
+    /// 黙って続けると、外の道具の写しが古いまま残る。
+    /// </summary>
+    internal static IReadOnlyList<ChangeEventRef> Outgoing(long sent, ChangeEventRef change)
+        => change.Seq <= sent
+            ? []
+            : change.Seq > sent + 1
+                ? [new ChangeEventRef(change.Seq - 1, "reloaded", [], [], null, change.At), change]
+                : [change];
+
     private static Task WriteEventAsync(HttpResponse response, string epoch, ChangeEventRef change, CancellationToken cancellationToken)
         => response.WriteAsync(
             $"id: {epoch}-{change.Seq}\nevent: {change.Kind}\ndata: {JsonSerializer.Serialize(change, QueryJson.Context.ChangeEventRef)}\n\n",
             cancellationToken);
 
-    private static Core.Models.ItemRecord FindItem(ApiState state, string id)
-        => state.Snapshot.ItemsById.GetValueOrDefault(id) ?? throw QueryException.NotFound("itemNotFound", $"商品が見つかりません: {id}");
+    private static Core.Models.ItemRecord FindItem(QuerySnapshot snapshot, string id)
+        => snapshot.ItemsById.GetValueOrDefault(id) ?? throw QueryException.NotFound("itemNotFound", $"商品が見つかりません: {id}");
 
     private static async Task<T> ReadAsync<T>(HttpRequest request, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type)
         where T : class

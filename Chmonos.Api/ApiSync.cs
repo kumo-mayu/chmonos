@@ -42,31 +42,37 @@ internal sealed class ChangeFeed
         }
     }
 
-    /// <summary><paramref name="since"/> の後の変化。持っていない分があれば null（全部を取り直してもらう）。</summary>
-    public IReadOnlyList<ChangeEventRef>? Since(long since)
+    /// <summary>
+    /// <paramref name="since"/> の後の変化と、その時点の通番。持っていない分があれば変化は null（全部を取り直してもらう）。
+    /// **一覧と通番は同じ錠の中で取る**（点検30）：別々に読むと、間に起きた変化が一覧に無いのに通番だけ進み、外の道具がそれを取りこぼす。
+    /// </summary>
+    public (IReadOnlyList<ChangeEventRef>? Changes, long Sequence) Since(long since)
     {
         lock (_gate)
         {
             if (since > _sequence || since < 0)
             {
-                return null;
+                return (null, _sequence);
             }
 
             var oldest = _recent.First?.Value.Seq ?? _sequence + 1;
-            return since + 1 < oldest ? null : _recent.Where(change => change.Seq > since).ToList();
+            return (since + 1 < oldest ? null : _recent.Where(change => change.Seq > since).ToList(), _sequence);
         }
     }
 
-    /// <summary>SSE の聞き手を足す。足した時点より後の変化が届く（それより前は <see cref="Since"/> で取る）。</summary>
-    public Channel<ChangeEventRef> Listen()
+    /// <summary>
+    /// SSE の聞き手を足し、足した時点の通番を返す。それより後の変化が届く（それより前は <see cref="Since"/> で取る）。
+    /// **足すのと通番を読むのは同じ錠の中**（点検30）：足した後で通番を読むと、間に届いた変化を送り済みと見なして落とす。
+    /// 聞き手が遅れて待ち行列があふれると古い物から落ちるので、受け手は通番の飛びで気付く（<see cref="Capacity"/>）。
+    /// </summary>
+    public (Channel<ChangeEventRef> Channel, long Sequence) Listen(int capacity = Capacity)
     {
-        var channel = Channel.CreateBounded<ChangeEventRef>(new BoundedChannelOptions(Capacity) { FullMode = BoundedChannelFullMode.DropOldest });
+        var channel = Channel.CreateBounded<ChangeEventRef>(new BoundedChannelOptions(capacity) { FullMode = BoundedChannelFullMode.DropOldest });
         lock (_gate)
         {
             _listeners.Add(channel);
+            return (channel, _sequence);
         }
-
-        return channel;
     }
 
     public void Stop(Channel<ChangeEventRef> channel)
@@ -208,7 +214,22 @@ internal sealed class StoreSync : IDisposable
             return;
         }
 
-        await _state.ApplyAsync(changes, _feed, cancellationToken);
+        try
+        {
+            await _state.ApplyAsync(changes, _feed, cancellationToken);
+        }
+        catch
+        {
+            // 読み直しに失敗した（ファイルがほかのアプリに開かれていた・書き換えの途中）。取り出した変化を戻し、次の知らせか見比べで読み直す。
+            // 戻さないと、その部分は次にファイルが変わるまで古いまま残る（点検30）
+            lock (_gate)
+            {
+                changes.Add(_pending);
+                _pending = changes;
+            }
+
+            throw;
+        }
     }
 
     private async Task LoopAsync(CancellationToken cancellationToken)

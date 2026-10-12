@@ -81,6 +81,9 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
             effective.Add(StoreChangeSet.Everything());
         }
 
+        // 新しい印は、読み直しが成功してから確定する（点検30）。先に確定すると、読み直しに失敗したとき
+        // 「確かめ済み」になって、2分ごとの見比べでも読み直されず、次にファイルが変わるまで古いまま残る
+        var stamps = new Dictionary<StorePart, string?>();
         foreach (var part in changes.Parts)
         {
             if (part is StorePart.Items or StorePart.Images)
@@ -92,7 +95,7 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
             var stamp = StoreChanges.StampOf(Paths, part);
             if (changes.Overflowed || !string.Equals(stamp, _stamps.GetValueOrDefault(part), StringComparison.Ordinal))
             {
-                _stamps[part] = stamp;
+                stamps[part] = stamp;
                 effective.Add(part);
             }
         }
@@ -105,12 +108,14 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
         if (effective.Parts.Contains(StorePart.ApiSettings))
         {
             AllowedOrigins = ApiFiles.ReadSettings(Paths).AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Confirm(stamps, StorePart.ApiSettings);
         }
 
         if (effective.Parts.Contains(StorePart.Format))
         {
             var wasTooNew = TooNew;
             StoreFormat = Core.Storage.StoreFormat.StoreVersion(Paths.Root);
+            Confirm(stamps, StorePart.Format);
             if (TooNew && !wasTooNew)
             {
                 feed.Publish("formatTooNew", [], [], null, Clock());
@@ -145,6 +150,10 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
 
         _snapshot = after;
         LoadedAt = Clock();
+        foreach (var part in snapshotParts)
+        {
+            Confirm(stamps, part);
+        }
         if (changes.Overflowed)
         {
             Compact();
@@ -155,6 +164,15 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
         if (reported.Count > 0)
         {
             feed.Publish("changed", reported.Select(PartName).ToList(), changedIds, null, LoadedAt);
+        }
+    }
+
+    /// <summary>読み直せた部分の新しい印を確定する。</summary>
+    private void Confirm(Dictionary<StorePart, string?> stamps, StorePart part)
+    {
+        if (stamps.TryGetValue(part, out var stamp))
+        {
+            _stamps[part] = stamp;
         }
     }
 

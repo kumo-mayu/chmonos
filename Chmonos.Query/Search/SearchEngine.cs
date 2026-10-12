@@ -73,6 +73,12 @@ public static class SearchEngine
     public const int MaxDepth = 32;
     public const int MaxLeaves = 200;
 
+    /// <summary>
+    /// 式の段（枝も葉も）の数の上限。葉だけを数えると、空の and・or を大量に並べて上限を越えられた（点検30）。
+    /// 葉の上限 200 に、それを組む枝を足しても十分に収まる数
+    /// </summary>
+    public const int MaxNodes = 500;
+
     public static IReadOnlyList<string> FacetFields { get; } = ["category", "boothTag", "shop", "avatar", "userTag", "attribute"];
 
     private static readonly CompareInfo Japanese = CultureInfo.GetCultureInfo("ja-JP").CompareInfo;
@@ -162,8 +168,8 @@ public static class SearchEngine
     {
         var context = snapshot.ConditionContext(now);
         var options = OptionsOf(textOptions);
-        var leaves = 0;
-        var compiled = where is null ? new CompiledExpression.All() : Compile(where, snapshot, context, options, ref leaves, 1);
+        var budget = new ExpressionBudget();
+        var compiled = where is null ? new CompiledExpression.All() : Compile(where, snapshot, context, options, budget, 1);
 
         // 検索用の文字列は、その対象を初めて探すときに畳んで覚える（SearchHaystack）。同時に来た問い合わせが同じ物を畳み合わないよう、1本ずつ照らす
         lock (snapshot.SearchGate)
@@ -180,12 +186,17 @@ public static class SearchEngine
         QuerySnapshot snapshot,
         SearchModuleContext context,
         SearchOptions options,
-        ref int leaves,
+        ExpressionBudget budget,
         int depth)
     {
         if (depth > MaxDepth)
         {
             throw QueryException.Invalid("expressionTooDeep", $"式が深すぎます（{MaxDepth} 段まで）。");
+        }
+
+        if (++budget.Nodes > MaxNodes)
+        {
+            throw QueryException.Invalid("expressionTooLarge", $"式が大きすぎます（and・or・not と葉を合わせて {MaxNodes} まで）。");
         }
 
         var written = (expression.And is not null ? 1 : 0) + (expression.Or is not null ? 1 : 0) + (expression.Not is not null ? 1 : 0)
@@ -200,7 +211,7 @@ public static class SearchEngine
             var children = new List<CompiledExpression>(and.Count);
             foreach (var child in and)
             {
-                children.Add(Compile(child, snapshot, context, options, ref leaves, depth + 1));
+                children.Add(Compile(child, snapshot, context, options, budget, depth + 1));
             }
 
             return new CompiledExpression.And(children);
@@ -211,7 +222,7 @@ public static class SearchEngine
             var children = new List<CompiledExpression>(or.Count);
             foreach (var child in or)
             {
-                children.Add(Compile(child, snapshot, context, options, ref leaves, depth + 1));
+                children.Add(Compile(child, snapshot, context, options, budget, depth + 1));
             }
 
             return new CompiledExpression.Or(children);
@@ -219,10 +230,10 @@ public static class SearchEngine
 
         if (expression.Not is { } not)
         {
-            return new CompiledExpression.Not(Compile(not, snapshot, context, options, ref leaves, depth + 1));
+            return new CompiledExpression.Not(Compile(not, snapshot, context, options, budget, depth + 1));
         }
 
-        if (++leaves > MaxLeaves)
+        if (++budget.Leaves > MaxLeaves)
         {
             throw QueryException.Invalid("expressionTooLarge", $"式の葉が多すぎます（{MaxLeaves} まで）。");
         }
@@ -385,6 +396,14 @@ public static class SearchEngine
             throw QueryException.Invalid("invalidCursor", "続きの印が読めません。");
         }
     }
+}
+
+/// <summary>式を組むときに数える物（葉と、枝も含めた段）。</summary>
+internal sealed class ExpressionBudget
+{
+    public int Leaves { get; set; }
+
+    public int Nodes { get; set; }
 }
 
 internal sealed record PageCursor(string Sort, IReadOnlyList<PageCursorValue> Values, string Id);

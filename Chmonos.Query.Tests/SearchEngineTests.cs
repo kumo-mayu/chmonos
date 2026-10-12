@@ -185,6 +185,19 @@ public sealed class SearchEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task 空の枝を大量に並べても_段の数の上限で断る()
+    {
+        var snapshot = await SnapshotAsync();
+
+        // 葉が1つも無いので、葉の数の上限には触れない（点検30）
+        var wide = new SearchExpression { And = Enumerable.Range(0, SearchEngine.MaxNodes).Select(_ => new SearchExpression { And = [] }).ToList() };
+        Assert.Equal("expressionTooLarge", Assert.Throws<QueryException>(() => Ids(snapshot, wide)).Code);
+
+        // 上限の中なら、空の and はすべてに当たる
+        Assert.Equal(5, Ids(snapshot, new() { And = [new() { And = [] }, new() { Or = [new() { And = [] }] }] }).Length);
+    }
+
+    [Fact]
     public async Task 並べ替えて続きの印で分けると_全部を1回ずつ返す()
     {
         var snapshot = await SnapshotAsync();
