@@ -132,6 +132,14 @@ public sealed class AppPaths
 
     public string SettingsFile => Path.Combine(Root, "settings.json");
 
+    /// <summary>外から使う API が動いている所（ポート・合言葉。API が書く）。</summary>
+    public string ApiFile => Path.Combine(Root, ApiFileName);
+
+    public const string ApiFileName = "api.json";
+
+    /// <summary>外から使う API の設定（ポート・許す住所。人と設定画面が書く）。</summary>
+    public string ApiSettingsFile => Path.Combine(Root, "api-settings.json");
+
     public string LockFile => Path.Combine(Root, "app.lock");
 
     public string ItemFile(string itemId) => Path.Combine(ItemsDir, $"{StoreIds.RequireItemId(itemId)}.json");

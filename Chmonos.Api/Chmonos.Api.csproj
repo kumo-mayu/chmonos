@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    外から使う API の実行ファイル（docs/spec/local-api.md）。中身は Chmonos.Query が作り、ここは HTTP の口と守りだけを持つ。
+    Native AOT の単体の exe にする（.NET を入れずに動き、起動が速い。ユーザ判断 2026-10-12）。
+    日本語の並べ方・かなの畳み方を使うので、言語の情報（ICU）は切らない（InvariantGlobalization を false のままにする）
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Chmonos.Api</AssemblyName>
+    <RootNamespace>Chmonos.Api</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chmonos.Query\Chmonos.Query.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Chmonos.Api.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -36,6 +36,12 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(IReadOnlyList<NotificationRef>))]
 [JsonSerializable(typeof(DisplaySettingsRef))]
 [JsonSerializable(typeof(IReadOnlyList<ConditionKindRef>))]
+[JsonSerializable(typeof(AvatarEntryRef))]
+[JsonSerializable(typeof(ItemsBatchRequest))]
+[JsonSerializable(typeof(ItemsBatchAnswer))]
+[JsonSerializable(typeof(HealthAnswer))]
+[JsonSerializable(typeof(VersionAnswer))]
+[JsonSerializable(typeof(ProblemAnswer))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {
 }
