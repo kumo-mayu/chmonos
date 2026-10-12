@@ -29,6 +29,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <!--
+      Microsoft.AspNetCore.OpenApi が引く Microsoft.OpenApi 2.0.0 には、文書を読むときに循環した参照で止まる脆弱性がある（GHSA-v5pm-xwqc-g5wc・2.7.5 で直った）。
+      API は仕様書を書くだけで読まないので通らない道だが、配る物に古い版を入れないよう、直った版を直接指定する（2026-10-12・点検30）
+    -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
   </ItemGroup>
 
 </Project>

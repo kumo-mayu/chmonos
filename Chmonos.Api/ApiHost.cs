@@ -199,6 +199,36 @@ internal static class ApiHost
             document.Info.Title = "Chmonos API";
             document.Info.Version = ApiVersion;
             document.Info.Description = ServiceText.Notice;
+
+            // 合言葉（Bearer）が要ることを仕様書に載せる。仕様書から作った道具が、合言葉の付け方を機械的に読めるように（点検30）。
+            // 合言葉なしで答える URL（OpenPaths）には付けない
+            document.Components ??= new Microsoft.OpenApi.OpenApiComponents();
+            document.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
+            document.Components.SecuritySchemes["bearer"] = new Microsoft.OpenApi.OpenApiSecurityScheme
+            {
+                Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+                Scheme = "bearer",
+                Description = "保存先の api.json の token",
+            };
+            foreach (var (path, item) in document.Paths)
+            {
+                if (OpenPaths.Contains(path))
+                {
+                    continue;
+                }
+
+                foreach (var operation in item.Operations?.Values ?? Enumerable.Empty<Microsoft.OpenApi.OpenApiOperation>())
+                {
+                    operation.Security =
+                    [
+                        new Microsoft.OpenApi.OpenApiSecurityRequirement
+                        {
+                            [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("bearer", document)] = [],
+                        },
+                    ];
+                }
+            }
+
             return Task.CompletedTask;
         }));
         builder.Services.AddSingleton(state);
@@ -309,8 +339,33 @@ internal static class ApiHost
         return JsonSerializer.SerializeAsync(context.Response.Body, problem, QueryJson.Context.ProblemAnswer);
     }
 
-    /// <summary>答えの JSON（型ごとの書き方は source generator の物。実行時に型を調べない）。</summary>
-    public static IResult Json<T>(T value, JsonTypeInfo<T> type) => Results.Json(value, type);
+    /// <summary>
+    /// 答えの JSON（型ごとの書き方は source generator の物。実行時に型を調べない）。中身から ETag を付け、
+    /// If-None-Match が同じなら 304 を返す（外の道具が変わったかを安く確かめられるように。docs/spec/local-api.md「共通の決まり」・点検30）。
+    /// </summary>
+    public static IResult Json<T>(T value, JsonTypeInfo<T> type) => new TaggedJson<T>(value, type);
+
+    /// <summary>中身の SHA-256 の頭16バイトを ETag にする（同じ答えなら同じ印。include や検索の条件が違えば中身が違うので印も違う）。</summary>
+    private sealed class TaggedJson<T>(T value, JsonTypeInfo<T> type) : IResult
+    {
+        public async Task ExecuteAsync(HttpContext context)
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(value, type);
+            var tag = $"\"{Convert.ToHexString(SHA256.HashData(bytes), 0, 16).ToLowerInvariant()}\"";
+            context.Response.Headers.ETag = tag;
+
+            // 手元の写しを使う前に、毎回確かめてもらう（写しは保存先の変化で変わる）
+            context.Response.Headers.CacheControl = "no-cache";
+            if (context.Request.Headers.IfNoneMatch.Any(value => value is not null && (value.Split(',').Any(one => one.Trim() == tag) || value.Trim() == "*")))
+            {
+                context.Response.StatusCode = StatusCodes.Status304NotModified;
+                return;
+            }
+
+            context.Response.ContentType = "application/json; charset=utf-8";
+            await context.Response.Body.WriteAsync(bytes, context.RequestAborted);
+        }
+    }
 }
 
 /// <summary>HTTP の状態の名前（problem+json の title）。</summary>

@@ -2842,7 +2842,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-Microsoft.OpenApi 2.0.0
+Microsoft.OpenApi 2.7.5
 https://github.com/Microsoft/OpenAPI.NET
 License: MIT
 ================================================================================

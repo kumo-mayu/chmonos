@@ -115,10 +115,33 @@ public sealed class ApiHostTests : IAsyncLifetime
 
         // アプリからの知らせの口は外の道具向けではないので載せない
         Assert.False(paths.TryGetProperty("/internal/busy", out _));
+        // 合言葉の要る URL にだけ、Bearer の印を付ける
+        Assert.Equal("bearer", document.GetProperty("components").GetProperty("securitySchemes").GetProperty("bearer").GetProperty("scheme").GetString());
+        Assert.True(paths.GetProperty("/v1/items/{id}").GetProperty("get").TryGetProperty("security", out _));
+        Assert.False(paths.GetProperty("/v1/health").GetProperty("get").TryGetProperty("security", out _));
+
         var schemas = document.GetProperty("components").GetProperty("schemas");
         Assert.True(schemas.TryGetProperty("ItemDetail", out var detail));
         Assert.True(detail.GetProperty("properties").TryGetProperty("compatibleAvatars", out _));
         Assert.True(schemas.TryGetProperty("SearchRequest", out _));
+    }
+
+    [Fact]
+    public async Task 答えにETagを付け_変わっていなければ304を返す()
+    {
+        var first = await _client.SendAsync(Request(HttpMethod.Get, "/v1/items/9600001"));
+        var tag = first.Headers.ETag;
+        Assert.NotNull(tag);
+
+        var again = Request(HttpMethod.Get, "/v1/items/9600001");
+        again.Headers.IfNoneMatch.Add(tag);
+        var unchanged = await _client.SendAsync(again);
+        Assert.Equal(HttpStatusCode.NotModified, unchanged.StatusCode);
+        Assert.Empty(await unchanged.Content.ReadAsByteArrayAsync());
+
+        // 頼む物（include）が違えば中身が違うので、印も違う
+        var included = await _client.SendAsync(Request(HttpMethod.Get, "/v1/items/9600001?include=avatarLinks"));
+        Assert.NotEqual(tag, included.Headers.ETag);
     }
 
     [Fact]
