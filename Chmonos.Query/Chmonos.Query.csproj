@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    外から使う API の中身（読むだけの問い合わせ層。docs/spec/local-api.md）。HTTP を持たない：
+    答えの形・保存先の読み込み・検索の式をここに置き、API の実行ファイルはこれを呼ぶだけにする（試験はここに書く）。
+    API の実行ファイルは Native AOT で組むので、ここも AOT で使える書き方にする（JSON は source generator）
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Chmonos.Core\Chmonos.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Chmonos.Query.Tests" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+</Project>

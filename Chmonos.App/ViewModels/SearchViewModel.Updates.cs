@@ -28,27 +28,12 @@ public sealed partial class SearchViewModel
     /// <summary>未読の更新がある商品か（条件「更新あり」とカードの札）。</summary>
     internal bool HasUnreadUpdate(string itemId) => _unreadUpdates.ContainsKey(itemId);
 
-    /// <summary>
-    /// 商品ごとの未読の更新の知らせのID（既読にするとき）と、知らせが含む変化の種類（条件「更新通知あり」の種類。ユーザ判断 2026-10-06）。
-    /// 種類は知らせのファイルを読んだときに1回だけ見分ける（絞り込みのたびに差を読み直さない）
-    /// </summary>
-    internal sealed record UnreadUpdate(IReadOnlyList<string> Ids, Core.Services.BoothChangeKind Kinds);
-
     /// <summary>未読の更新の知らせがあれば、その知らせが含む変化の種類（無ければ None）。</summary>
     internal Core.Services.BoothChangeKind UnreadUpdateKinds(string itemId)
         => _unreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : Core.Services.BoothChangeKind.None;
 
     /// <summary>知らせのファイルから、商品ごとの未読の更新の知らせを引く表。</summary>
-    internal static Dictionary<string, UnreadUpdate> UnreadUpdatesOf(IEnumerable<NotificationRecord> records)
-        => records
-            .Where(record => !record.IsRead && !record.IsResolved && record.Kind == NotificationKind.ItemUpdated && record.ItemId is not null)
-            .GroupBy(record => record.ItemId!, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => new UnreadUpdate(
-                    group.Select(record => record.Id).ToList(),
-                    group.Aggregate(Core.Services.BoothChangeKind.None, (kinds, record) => kinds | Core.Services.BoothChanges.KindsOf(record))),
-                StringComparer.Ordinal);
+    internal static Dictionary<string, UnreadUpdate> UnreadUpdatesOf(IEnumerable<NotificationRecord> records) => UnreadUpdates.Of(records);
 
     private (DateTime WrittenUtc, long Length) NotificationsStamp()
     {

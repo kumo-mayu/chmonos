@@ -1,0 +1,60 @@
+{
+  "id": "7000001",
+  "name": "作り物のアバター",
+  "boothName": "作り物のアバター",
+  "url": null,
+  "shop": {
+    "key": "shop-a",
+    "name": "作り物のショップ",
+    "subdomain": "shop-a",
+    "isLocal": false,
+    "url": null
+  },
+  "category": null,
+  "categorySource": null,
+  "boothCategory": null,
+  "boothTags": [],
+  "priceText": null,
+  "wishCount": 0,
+  "publishedAt": null,
+  "isAdult": false,
+  "isEndOfSale": false,
+  "isSoldOut": false,
+  "isDelisted": false,
+  "isLocalOnly": false,
+  "isHidden": false,
+  "isFavorite": false,
+  "isOwned": true,
+  "isAvatar": true,
+  "hasUpdate": false,
+  "hasBrokenArchive": false,
+  "hasMissingFiles": false,
+  "variations": [],
+  "purchases": [],
+  "acquiredAt": null,
+  "compatibleAvatars": [],
+  "avatars": [],
+  "avatarBases": [],
+  "avatarsDetectedAt": null,
+  "userTags": [],
+  "attributes": {},
+  "memo": null,
+  "files": [],
+  "folders": [
+    {
+      "path": "D:\\avatars\\a",
+      "fileCount": 3,
+      "totalBytes": 300,
+      "missingSince": null,
+      "unityPackages": [
+        "a.unitypackage"
+      ]
+    }
+  ],
+  "images": {
+    "thumbnail": null,
+    "all": []
+  },
+  "videos": [],
+  "fetchedAt": null
+}
