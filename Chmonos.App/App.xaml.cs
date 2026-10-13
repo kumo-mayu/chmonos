@@ -302,6 +302,9 @@ public partial class App : Application
     /// </summary>
     private void OpenFromTray()
     {
+        // 窓を開いている間は、強いメモリの片付けを走らせない（画面が止まる。点検36）
+        _compactor?.SetWindowShown(true);
+
         if (_mainWindow is { } window)
         {
             window.Show();
@@ -414,7 +417,7 @@ public partial class App : Application
             SaveWindowPlacement(main, mainWindow);
             e.Cancel = true;
             mainWindow.Hide();
-            _compactor?.Note();
+            _compactor?.SetWindowShown(false);
             return;
         }
 

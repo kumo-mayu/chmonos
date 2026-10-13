@@ -26,8 +26,9 @@ internal sealed class TrayIcon : IDisposable
         _tip = tip;
         _taskbarCreated = RegisterWindowMessage("TaskbarCreated");
 
-        // メッセージだけを受ける窓（画面に出ない・タスクバーにも出ない）
-        _source = new HwndSource(new HwndSourceParameters("ChmonosTray") { Width = 0, Height = 0, WindowStyle = 0, ParentWindow = new IntPtr(-3) });
+        // 見えない普通の窓（画面にもタスクバーにも出ない）。メッセージ専用の窓（HWND_MESSAGE）にしないのは、
+        // エクスプローラが作り直されたときの知らせ（TaskbarCreated）が全部の窓への知らせで、メッセージ専用の窓には届かないため（点検36）
+        _source = new HwndSource(new HwndSourceParameters("ChmonosTray") { Width = 0, Height = 0, WindowStyle = 0, ExtendedWindowStyle = WsExToolWindow });
         _source.AddHook(OnMessage);
 
         // 実行ファイルに埋めたアイコンの小さい方（通知領域の大きさ）
@@ -134,6 +135,9 @@ internal sealed class TrayIcon : IDisposable
 
         _source.Dispose();
     }
+
+    /// <summary>WS_EX_TOOLWINDOW。Alt+Tab の一覧に出さない。</summary>
+    private const int WsExToolWindow = 0x80;
 
     private const int NimAdd = 0;
     private const int NimDelete = 2;

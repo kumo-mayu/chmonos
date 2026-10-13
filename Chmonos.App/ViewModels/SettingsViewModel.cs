@@ -1889,7 +1889,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 外から使う API は同じプロセスで元の保存先を見張っている。そのまま運ぶと、元のフォルダを消す段の邪魔をし、
         // 運んでいる最中の半端な保存先を読み直し、閉じるときに元の場所へ api.json を書く。運ぶ前に止める（2026-10-13）。
         // 運べたら開き直すので新しい保存先で設定どおりに始まる。運べなかったら設定どおりに戻す
-        await _services.Api.StopAsync();
+        await _services.Api.SuspendAsync();
         var moved = false;
         try
         {
@@ -1921,7 +1921,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             if (!moved)
             {
-                _services.Api.ApplyAsync().Forget();
+                _services.Api.ResumeAsync().Forget();
             }
 
             job.Dispose();

@@ -194,11 +194,23 @@ public sealed class ImportRunner(AppServiceContainer services)
             _work.Add(later.ResolveTargets());
         }
 
+        // 立ち上げの途中に預かった頼みの履歴も残す（前は対象には入るが履歴に残らなかった。点検36）
+        var laterHistory = _afterStart.SelectMany(later => later.History).ToList();
         _afterStart.Clear();
+
+        // 外から使う API へ「取り込み中」を伝える（その間は古い答えを返し続け、終わってから読み直す）。
+        // 前は取り込み画面を通してだけ伝えていて、画面の無い起動の取り込みでは伝わらなかった（点検36・37）
+        services.Api.NoteBusy("import", "import");
         Started?.Invoke(_work);
 
         try
         {
+            // 後始末（作業集合を手放す）で覆われた所で書く（書けなくても取り込みを止めたまま残さない）
+            if (laterHistory.Count > 0)
+            {
+                await SaveHistoryAsync(laterHistory);
+            }
+
             ImportOutcome outcome;
             try
             {
@@ -234,6 +246,7 @@ public sealed class ImportRunner(AppServiceContainer services)
             _cancellation?.Dispose();
             _cancellation = null;
             _work = null;
+            services.Api.NoteBusy("import", null);
             Finished?.Invoke();
         }
     }

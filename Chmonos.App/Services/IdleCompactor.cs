@@ -22,14 +22,52 @@ internal sealed class IdleCompactor : IDisposable
         _timer = new Timer(_ => Compact(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
-    /// <summary>何かが終わった。<see cref="Quiet"/> の後に片付ける（前の予約は延ばす）。</summary>
-    public void Note() => _timer.Change(Quiet, Timeout.InfiniteTimeSpan);
+    /// <summary>
+    /// 窓を開いている間は片付けない（強い片付けは画面のスレッドも止めるので、操作の最中に固まる。点検36）。
+    /// 開いたら予約を取り消し、隠したらまた予約する
+    /// </summary>
+    private volatile bool _paused;
+
+    /// <summary>何かが終わった。<see cref="Quiet"/> の後に片付ける（前の予約は延ばす）。窓を開いている間は予約しない。</summary>
+    public void Note()
+    {
+        if (!_paused)
+        {
+            _timer.Change(Quiet, Timeout.InfiniteTimeSpan);
+        }
+    }
 
     /// <summary>指定の時間の後に片付ける（何も合図が来ないときの保険）。</summary>
-    public void NoteAfter(TimeSpan delay) => _timer.Change(delay, Timeout.InfiniteTimeSpan);
-
-    private static void Compact()
+    public void NoteAfter(TimeSpan delay)
     {
+        if (!_paused)
+        {
+            _timer.Change(delay, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    /// <summary>窓を開いた（片付けを止める）・隠した（また予約する）。</summary>
+    public void SetWindowShown(bool shown)
+    {
+        _paused = shown;
+        if (shown)
+        {
+            _timer.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+        else
+        {
+            Note();
+        }
+    }
+
+    private void Compact()
+    {
+        // 予約が走る直前に窓が開いたら片付けない
+        if (_paused)
+        {
+            return;
+        }
+
         System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
         GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }

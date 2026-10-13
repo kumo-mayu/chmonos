@@ -52,6 +52,12 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
         await _order.WaitAsync();
         try
         {
+            // 保存先を運んでいる間は始めない（止めた後に設定の変更などで始め直すと、元の保存先を見張って読み直す。点検36）
+            if (_suspended)
+            {
+                return;
+            }
+
             var settings = store.ApiSettings.Load();
             if (!settings.Enabled)
             {
@@ -70,6 +76,13 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
             try
             {
                 _server = await ApiServer.StartAsync(store, writes);
+
+                // 取り込みの途中に立て直したら、新しい待ち受けにも「取り込み中」を伝える（前は伝わらず、途中の記録を読み直した。点検36・37）
+                if (BusyKind is { } busy)
+                {
+                    _server.SetBusy(busy);
+                }
+
                 Set(ApiRunState.Running, _server.Port);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -144,7 +157,71 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
     /// アプリがまとめて書いている（取り込みなど）・書き終えた（null）を API へ伝える。その間、API は古い答えを返し続ける。
     /// API が動いていなければ何もしない。アプリの書き込みを API の都合で遅らせない
     /// </summary>
-    public void NoteBusy(string? kind) => _server?.SetBusy(kind);
+    public void NoteBusy(string? kind) => NoteBusy("app", kind);
+
+    /// <summary>
+    /// まとめて書いている作業を、知らせ手ごとに覚える（取り込みの係・主画面〔展開先の削除など〕）。どれかが書いていれば「書いている」。
+    /// 覚えておくのは、取り込みの途中に API を立て直したときにも伝えるため（点検36・37）
+    /// </summary>
+    public void NoteBusy(string source, string? kind)
+    {
+        string? before;
+        string? after;
+        lock (_busy)
+        {
+            before = BusyKindLocked();
+            if (kind is null)
+            {
+                _busy.Remove(source);
+            }
+            else
+            {
+                _busy[source] = kind;
+            }
+
+            after = BusyKindLocked();
+        }
+
+        if (before != after)
+        {
+            _server?.SetBusy(after);
+        }
+    }
+
+    private readonly Dictionary<string, string> _busy = new(StringComparer.Ordinal);
+
+    private string? BusyKindLocked() => _busy.Values.OrderBy(kind => kind, StringComparer.Ordinal).FirstOrDefault();
+
+    /// <summary>今まとめて書いている作業（無ければ null）。</summary>
+    public string? BusyKind
+    {
+        get
+        {
+            lock (_busy)
+            {
+                return BusyKindLocked();
+            }
+        }
+    }
+
+    private volatile bool _suspended;
+
+    /// <summary>
+    /// 保存先を運ぶ前に止め、運び終えるまで始めない（設定の変更や合言葉の作り直しが重なっても、元の保存先で始め直さない。点検36）。
+    /// 運べたらアプリが開き直すので戻さない。運べなかったら <see cref="ResumeAsync"/>
+    /// </summary>
+    public async Task SuspendAsync()
+    {
+        _suspended = true;
+        await StopAsync();
+    }
+
+    /// <summary>運べなかったとき：始めない印を外し、設定どおりに戻す。</summary>
+    public Task ResumeAsync()
+    {
+        _suspended = false;
+        return ApplyAsync();
+    }
 
     private void Set(ApiRunState state, int port)
     {

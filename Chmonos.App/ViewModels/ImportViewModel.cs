@@ -1344,6 +1344,13 @@ public sealed partial class ImportViewModel : ViewModelBase
         runner.HistorySaved += () => RunOnUiThread(SyncFolderLists);
         runner.OnEnded(outcome => RunOnUiThreadAsync(() => OnImportEndedAsync(outcome)));
         runner.Finished += () => RunOnUiThread(OnImportFinished);
+
+        // 画面の無い起動で取り込みが走っている間に窓を開いた。始まりの知らせは過ぎているので、今の作業集合から映す
+        // （前は走っていると映らず、中断も押せず、取り込み中に塞ぐ保存先の変更も押せた。点検36）
+        if (runner.Running is { } running)
+        {
+            OnImportStarted(running);
+        }
     }
 
     /// <summary>今の取り込みの進み具合を、1秒に10回までに間引いて出す（<see cref="Services.LatestProgress{T}"/> に理由）。</summary>
@@ -1351,6 +1358,13 @@ public sealed partial class ImportViewModel : ViewModelBase
 
     private void OnImportStarted(ImportWorkSet work)
     {
+        // 作った直後に今の作業集合から映した後、同じ取り込みの始まりの知らせが遅れて届くことがある（2回映さない）
+        if (ReferenceEquals(work, _shownWork))
+        {
+            return;
+        }
+
+        _shownWork = work;
         StackNotice = null;
 
         // 走らせ直したので、前回の中断はもう伝えることが無い
@@ -1463,8 +1477,12 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
     }
 
+    /// <summary>映している取り込みの作業集合（同じ取り込みを2回映さないため）。</summary>
+    private ImportWorkSet? _shownWork;
+
     private void OnImportFinished()
     {
+        _shownWork = null;
         _progress?.Complete();
         _progress = null;
         ClearEstimate();
