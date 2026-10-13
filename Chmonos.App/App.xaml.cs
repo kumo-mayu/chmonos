@@ -233,6 +233,7 @@ public partial class App : Application
     private MainViewModel? _main;
     private MainWindow? _mainWindow;
     private Services.TrayIcon? _tray;
+    private Services.IdleCompactor? _compactor;
 
     /// <summary>
     /// 画面を出さずに動かす（ユーザ判断 2026-10-13）。起動したときの作業は画面ありと同じ設定に従い、前の起動の登録の続きも流す。
@@ -246,6 +247,13 @@ public partial class App : Application
         _tray = new Services.TrayIcon("Chmonosはウィンドウを表示せずに動いています");
         _tray.OpenRequested += OpenFromTray;
         _tray.ExitRequested += ExitFromTray;
+
+        // 作業が静かになったら1回片付ける（画面の無い起動では、起動したときの作業のごみが片付かずに残る。IdleCompactor）
+        _compactor = new Services.IdleCompactor();
+        services.Startup.WorkEnded += _compactor.Note;
+        services.Imports.Finished += _compactor.Note;
+        services.Api.StateChanged += _compactor.Note;
+        _compactor.NoteAfter(TimeSpan.FromSeconds(20));
 
         services.SweepStaleTemporaryFilesLater();
         services.Startup.Start();
@@ -406,6 +414,7 @@ public partial class App : Application
             SaveWindowPlacement(main, mainWindow);
             e.Cancel = true;
             mainWindow.Hide();
+            _compactor?.Note();
             return;
         }
 
@@ -738,6 +747,7 @@ public partial class App : Application
         Services.UnityFocusWatch.Stop();
         ViewModels.AppTheme.Stop();
         _tray?.Dispose();
+        _compactor?.Dispose();
 
         // API を止めて api.json を「止まった」にする。止まるのを待つのは5秒まで（閉じる操作を API の都合で長く止めない）
         if (_services is { } services && !Task.Run(services.Api.StopAsync).Wait(TimeSpan.FromSeconds(5)))

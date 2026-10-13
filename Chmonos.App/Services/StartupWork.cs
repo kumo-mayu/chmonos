@@ -47,6 +47,11 @@ public sealed class StartupWork(AppServiceContainer services)
     public event Action<IReadOnlyList<string>>? ItemsSwept;
 
     /// <summary>
+    /// 作業が1つ終わった（段・見回り・アバターの画像。成否に関わらず）。画面の無い起動が、静かになってから片付けを走らせる合図にする
+    /// </summary>
+    public event Action? WorkEnded;
+
+    /// <summary>
     /// 起動したときの作業を始める。設定「起動したとき、裏で取得を始める」が止めるのは BOOTH へ行く段だけ（background-and-network.md）。
     /// 前は設定を切ると丸ごと戻り、通知の上限・ページの作り・手で直した JSON の確認まで、設定を切った人には一度も走らなかった
     /// </summary>
@@ -224,6 +229,10 @@ public sealed class StartupWork(AppServiceContainer services)
                 // 見られなくても起動は妨げない。次の起動か取り込みでまた見る
                 Core.Diagnostics.AppLog.Error("起動時の裏の作業：見つからないファイルの見回り", exception);
             }
+            finally
+            {
+                WorkEnded?.Invoke();
+            }
         }, token).Forget();
     }
 
@@ -255,6 +264,7 @@ public sealed class StartupWork(AppServiceContainer services)
             finally
             {
                 StageEnded?.Invoke();
+                WorkEnded?.Invoke();
             }
         }, token).Forget();
     }
@@ -358,6 +368,7 @@ public sealed class StartupWork(AppServiceContainer services)
         finally
         {
             StageEnded?.Invoke();
+            WorkEnded?.Invoke();
         }
     }
 
