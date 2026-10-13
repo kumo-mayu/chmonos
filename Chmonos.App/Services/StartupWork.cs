@@ -50,7 +50,26 @@ public sealed class StartupWork(AppServiceContainer services)
     /// 起動したときの作業を始める。設定「起動したとき、裏で取得を始める」が止めるのは BOOTH へ行く段だけ（background-and-network.md）。
     /// 前は設定を切ると丸ごと戻り、通知の上限・ページの作り・手で直した JSON の確認まで、設定を切った人には一度も走らなかった
     /// </summary>
-    public void Start()
+    /// <returns>
+    /// 始めたか。**プロセスで1回だけ**始める：画面の無い起動の後に窓を開くと主画面がもう一度呼ぶが、起動したときの作業は済んでいる
+    /// （呼んだ側は、起動時だけの作業〔自動の取り込み〕もしない）
+    /// </returns>
+    public bool Start()
+    {
+        if (Interlocked.Exchange(ref _started, 1) == 1)
+        {
+            return false;
+        }
+
+        StartChecksAndPrunes();
+        CheckUnreadableItems();
+        ResumePendingOperations();
+        return true;
+    }
+
+    private int _started;
+
+    private void StartChecksAndPrunes()
     {
         if (services.Settings.ResumeFetchInBackground)
         {
@@ -255,6 +274,55 @@ public sealed class StartupWork(AppServiceContainer services)
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 Core.Diagnostics.AppLog.Error("起動時の裏の作業：動画のタイトルの控えの整理", exception);
+            }
+        }).Forget();
+
+    /// <summary>
+    /// 起動したときに、読めない商品の記録を数えて通知に出す（ユーザ判断 2026-10-05）。
+    ///
+    /// 読めない記録は全件の読み込みが飛ばすので、その商品は黙って検索から消えていた。
+    /// BOOTH に問い合わせないので、設定「起動したとき、裏で取得を始める」を切っていても見る
+    /// （その設定で止まる裏の作業の段には入れない）。全件の読み込みは写しを使うので、検索の読み込みと重ねても軽い。
+    /// </summary>
+    private void CheckUnreadableItems()
+        => Task.Run(async () =>
+        {
+            try
+            {
+                var result = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DetectUnreadableItems());
+                if (result is Core.Commands.CommandResult.Counted { Count: > 0 })
+                {
+                    CountsChanged?.Invoke();
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Core.Diagnostics.AppLog.Error("起動時の裏の作業：読めない商品の記録の確認", exception);
+            }
+        }).Forget();
+
+    /// <summary>
+    /// 起動したときに、前の起動で途中で止まった操作（IDの変更・タグや属性の名前の変更）の続きを済ませる（ユーザ判断 2026-10-06「A」）。
+    ///
+    /// 途中で止まると、一部の商品や参照だけが新しい名前（ID）を指したまま残る。人が押した操作の続きで、BOOTHへは問い合わせないので、
+    /// 設定「起動したとき、裏で取得を始める」を切っていても行う（その設定で止まる裏の作業の段には入れない）。
+    /// 何か済ませたら、検索などが読み込んだ時の名前で組んであるので組み直す。続けられなかった物は通知に出る。
+    /// </summary>
+    private void ResumePendingOperations()
+        => Task.Run(async () =>
+        {
+            try
+            {
+                var result = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ResumePendingOperations());
+                if (result is Core.Commands.CommandResult.Counted { Count: > 0 })
+                {
+                    CountsChanged?.Invoke();
+                    LibraryChanged?.Invoke();
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Core.Diagnostics.AppLog.Error("起動時の裏の作業：途中で止まった操作の続き", exception);
             }
         }).Forget();
 

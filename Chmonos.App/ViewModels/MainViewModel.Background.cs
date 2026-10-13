@@ -104,10 +104,14 @@ public sealed partial class MainViewModel
     /// そのときも画面は切り替えない——起動した直後に画面が飛ぶと、しようとしていた操作の邪魔になる。
     /// 進み具合は常設の1行に出る。
     /// </summary>
-    private void StartWatchScan()
+    /// <param name="launched">
+    /// プロセスを起動したときか。画面の無い起動の後に窓を開いたときは false で、新着を見て知らせるだけにする
+    /// （自動の取り込みは「起動したとき」の設定。窓を開くたびに走らせない）
+    /// </param>
+    private void StartWatchScan(bool launched)
     {
         var watched = _services.Settings.WatchedFolders;
-        var importsOnLaunch = _services.Settings.StartImportOnLaunch;
+        var importsOnLaunch = launched && _services.Settings.StartImportOnLaunch;
 
         // 監視フォルダが無くても、自動で取り込む人には続きを見る（続きは監視フォルダと関係なく残る）
         if (watched.Count == 0 && !importsOnLaunch)

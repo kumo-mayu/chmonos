@@ -52,6 +52,19 @@ public class StartupLocalChecksTests
         app.Services.Startup.Stop();
     });
 
+    /// <summary>
+    /// 起動したときの作業はプロセスで1回だけ。画面の無い起動の後に窓を開くと主画面がもう一度始めようとするが、走らせ直さない
+    /// （⑦がもう一度問い合わせる・自動の取り込みがもう一度走るのを防ぐ）
+    /// </summary>
+    [Fact]
+    public Task 起動したときの作業は_窓を後から開いても走らせ直さない() => TestApp.Run(async app =>
+    {
+        await app.StartAsync();
+        await app.SettleAsync();
+
+        Assert.False(app.Services.Startup.Start());
+    });
+
     /// <summary>上の試験の対になる確かめ：同じ置き方で設定を入れれば⑦が問い合わせる（置き方が⑦の対象になっていること）。</summary>
     [Fact]
     public Task 裏の取得を入れていれば_同じ置き方で期限の来た商品を問い合わせる() => TestApp.Run(async app =>
