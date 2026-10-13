@@ -253,7 +253,14 @@ public sealed class AppServiceContainer : IDisposable
         // 書き込みは命令の口だけを通る。起点を API にして、「人が押した」優先度を掛けない（ユーザ判断 2026-10-13）
         (command, cancellationToken) => Commands.ExecuteAsync(command, cancellationToken: cancellationToken, origin: CommandOrigin.Api),
         write => ApiWritten?.Invoke(write),
-        itemId => IsItemBeingEdited?.Invoke(itemId) == true));
+        itemId => IsItemBeingEdited?.Invoke(itemId) == true,
+        ApiUnity ??= new Services.ApiUnitySender(this)));
+
+    /// <summary>
+    /// API の「Unity へ送る」の送り手。試験は Unity を動かさない作り物に差し替える（API を初めて使う前に入れる）。
+    /// Unity を実際に動かす確かめは、ユーザが「試して」と言ったときだけ
+    /// </summary>
+    internal Services.ApiUnitySender? ApiUnity { get; set; }
 
     /// <summary>外から使う API が書いた（主画面が受けて、検索の写しと開いている画面に知らせる。画面が無ければ誰も受けない）。</summary>
     public event Action<Chmonos.Api.ApiWrite>? ApiWritten;

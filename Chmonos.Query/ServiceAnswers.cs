@@ -39,6 +39,22 @@ public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IRe
 /// <summary>書き込みの要求：オン・オフ（お気に入り・非表示など）。</summary>
 public sealed record FlagRequest(bool Value);
 
+/// <summary>開いている Unity のエディタ（送り先を選ぶため）。<see cref="ProjectPath"/> は Hub・VCC の一覧で言い当てられたときだけ入る。</summary>
+public sealed record UnityEditorRef(int ProcessId, string? ProjectName, string? ProjectPath);
+
+/// <summary>
+/// Unity へ送る要求。送る物（<see cref="Entry"/>＝zip の中のパス、<see cref="ZipHash"/>＝どの zip か）は、商品の unitypackage が1つなら省ける。
+/// 送り先（<see cref="Project"/>＝プロジェクトのフォルダ）は、開いているエディタが1つなら省ける
+/// </summary>
+public sealed record UnitySendRequest(string? Entry, string? ZipHash, string? Project);
+
+/// <summary>
+/// Unity へ送った結果。<see cref="State"/>：sending（送っている）・imported（取り込んだ）・alreadyPresent（もう入っていた）・
+/// cancelled（Unity の取り込み画面で取り消した）・stopped（止めた）・failed（送れなかった。<see cref="Problem"/> に理由）
+/// </summary>
+public sealed record UnitySendStatus(
+    string ItemId, string Package, string Project, string State, string? Problem, DateTimeOffset StartedAt, DateTimeOffset? EndedAt);
+
 /// <summary>書き込みの要求：足跡の種類（今は <c>used</c> だけ）。</summary>
 public sealed record RecentRequest(string Kind);
 

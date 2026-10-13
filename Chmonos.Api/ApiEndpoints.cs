@@ -134,6 +134,29 @@ internal static partial class ApiEndpoints
         })
             .Takes<RecentRequest>().Produces(204).WithSummary("「使った」の足跡を打つ（書き込み）");
 
+        // Unity へ送る（ユーザ判断 2026-10-13）。送り終えるまで待たず 202 で返し、終わったら変化の知らせ（unity）で伝える
+        app.MapPost("/v1/items/{id}/send-to-unity", async (ApiState state, ApiWriter writer, ChangeFeed feed, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.UnitySendRequest);
+            writer.GuardItem(context, id, checkEditing: false);
+            var unity = writer.Unity ?? throw new QueryException(503, "unityUnavailable", "この API は Unity へ送れません。");
+            var (started, finished) = unity.Start(state.Snapshot.ItemsById[id], body);
+            _ = finished.ContinueWith(
+                task => feed.Publish("unity", [task.IsCompletedSuccessfully ? task.Result.State : "failed"], [id], null, state.Clock()),
+                TaskScheduler.Default);
+            return Results.Json(started, json.UnitySendStatus, statusCode: StatusCodes.Status202Accepted);
+        })
+            .Takes<UnitySendRequest>().Produces<UnitySendStatus>(202).WithSummary("Unity へ送る（書き込み。終わりは変化の知らせ unity と /v1/unity/last-send）");
+
+        app.MapGet("/v1/unity/editors", (ApiWriter writer) => ApiHost.Json(writer.Unity?.OpenEditors() ?? [], json.IReadOnlyListUnityEditorRef))
+            .Answers<IReadOnlyList<UnityEditorRef>>("開いている Unity のエディタ（送り先を選ぶため）");
+
+        app.MapGet("/v1/unity/last-send", (ApiWriter writer) =>
+            writer.Unity?.Last is { } last
+                ? ApiHost.Json(last, json.UnitySendStatus)
+                : throw QueryException.NotFound("noUnitySend", "API から Unity へ送ったことがありません。"))
+            .Answers<UnitySendStatus>("最後に API から Unity へ送った結果");
+
         app.MapPut("/v1/notifications/{id}/read", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.FlagRequest);

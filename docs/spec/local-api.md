@@ -56,6 +56,10 @@
   - 今ある URL（3a）：`PUT /v1/items/{id}/favorite`・`PUT /v1/items/{id}/hidden`（`{"value": true}`。答えは商品）、
     `POST /v1/items/{id}/recent`（`{"kind": "used"}` だけ。「見た」は画面が打つ）・`PUT /v1/notifications/{id}/read`（`{"value"}`）・
     `POST /v1/notifications/read`・`POST /v1/notifications/resolve`（`{"ids": […]}`。解消は消さずに印を付ける）。答えは本文なし（204）
+  - **Unity へ送る**（3a。ユーザ判断 2026-10-13）：`POST /v1/items/{id}/send-to-unity`（`{"entry"?, "zipHash"?, "project"?}`）。画面と同じ部品（`UnityImportQueue`）で送る（`ApiUnitySender`）。
+    送る物は unitypackage が1つなら省ける・送り先は開いているエディタが1つなら省ける（API は選ぶ窓を出せない。複数なら 400 `unityPackageAmbiguous`・409 `unityTargetAmbiguous`）。
+    「送りますか」の確認は出さない（Unity の取り込み画面が確認になる）。送り終えるまで待たずに 202（`state: sending`）で返し、終わりは変化の知らせ `unity` と `GET /v1/unity/last-send`。
+    送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ）。送り先は `GET /v1/unity/editors` で選ぶ。Unity を実際に動かす確かめはまだ（ユーザが「試して」と言ったとき）
   - 足跡は `UiCommand.TouchRecent` で書く（画面は裏の列で書く `RecentTracker`。書き方は同じ `RecentActivity.Touch`）
 - 書き込み以外は今までどおり読むだけ。BOOTH の 1本ずつ・1.5秒の決まりを外から破れないよう、足りない情報も取りに行かない。
 - **検索の条件は JSON の式で受ける**。画面の絞り込みの条件を葉にして、AND・OR・NOT を自由に組める（画面は条件ごとの AND だが、API はプログラムが組むので木にする）。判定は Core へ移した（`SearchModuleConditions.From` が保存した条件の形 `SearchModuleState` から判定を作る。画面の条件も同じ判定を使い、`SearchModuleConditionParityTests` で同じ商品に当たることを確かめる。2026-10-12）。API の条件の JSON はこの形へ変換する。

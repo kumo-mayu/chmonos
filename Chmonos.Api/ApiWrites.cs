@@ -13,10 +13,31 @@ public sealed record ApiWrite(string Kind, IReadOnlyList<string> Ids);
 /// <param name="Execute">命令の口。書くのは必ずここから（書き込みは UiCommand を通す決まり）。アプリは起点を API にして呼ぶ（「人が押した」優先度を掛けない）。</param>
 /// <param name="Written">書いたことをアプリ（画面）へ知らせる。画面が無ければ何もしない。</param>
 /// <param name="IsBeingEdited">その商品を編集画面で開いているか。開いていれば外から書かない（人が後から保存すると API の分が消える。ユーザ判断 2026-10-13）。</param>
+/// <param name="Unity">Unity へ送る口（アプリが持つ。Unity のエディタの窓を操作するのはアプリの部品）。無ければ送る URL は 503。</param>
 public sealed record ApiWriteHooks(
     Func<UiCommand, CancellationToken, Task<CommandResult>> Execute,
     Action<ApiWrite>? Written = null,
-    Func<string, bool>? IsBeingEdited = null);
+    Func<string, bool>? IsBeingEdited = null,
+    IApiUnity? Unity = null);
+
+/// <summary>
+/// Unity へ送る口（ユーザ判断 2026-10-13：最初の一束に入れる。取り出し・置き場・「使った」の足跡を Chmonos が受け持ち、
+/// Unity の拡張などが同じ判断を別に持たない）。送るのは時間がかかる（Unity の取り込み画面で人が考える間を待つ）ので、始めたら返る
+/// </summary>
+public interface IApiUnity
+{
+    /// <summary>開いているエディタ。</summary>
+    IReadOnlyList<UnityEditorRef> OpenEditors();
+
+    /// <summary>
+    /// 送る物と送り先を決めて送り始める。決められない・送れない（もう送っている・開いていない・選べない）なら <see cref="QueryException"/> を投げる。
+    /// 返すのは始めたときの状態と、終わったときの状態
+    /// </summary>
+    (UnitySendStatus Started, Task<UnitySendStatus> Finished) Start(Core.Models.ItemRecord item, UnitySendRequest request);
+
+    /// <summary>最後に API から頼まれた送り（無ければ null）。</summary>
+    UnitySendStatus? Last { get; }
+}
 
 /// <summary>
 /// 書き込みの URL の共通の守りと、書いた後の始末。
@@ -26,6 +47,9 @@ public sealed record ApiWriteHooks(
 /// </summary>
 internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? hooks)
 {
+    /// <summary>Unity へ送る口（アプリが渡さなければ null）。</summary>
+    public IApiUnity? Unity => hooks?.Unity;
+
     /// <summary>書いてよいかを確かめる。だめなら誤りの答えを投げる。</summary>
     public void Guard(HttpContext context)
     {
