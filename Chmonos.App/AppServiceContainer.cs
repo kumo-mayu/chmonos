@@ -260,6 +260,11 @@ public sealed class AppServiceContainer : IDisposable
     /// 消すのは10分より古い物だけなので、起動直後に裏の作業が書き始めた分とはぶつからない。
     /// ファイルを消すのは書き込みなので、保存先を運ぶ間の門（書いている数）に入ってから行う
     /// </summary>
+    /// <summary>起動したときの裏の作業。画面に依存しないので、画面の無い起動でも同じ物を回す（docs/history/headless-core-2026-10-13.md）。</summary>
+    public Services.StartupWork Startup => _startup ??= new(this);
+
+    private Services.StartupWork? _startup;
+
     public void SweepStaleTemporaryFilesLater()
         => Task.Run(async () =>
         {

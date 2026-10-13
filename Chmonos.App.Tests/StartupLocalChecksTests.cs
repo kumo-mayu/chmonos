@@ -35,6 +35,23 @@ public class StartupLocalChecksTests
         Assert.Empty(app.Booth.Requests);
     });
 
+    /// <summary>
+    /// 起動時の裏の作業は主画面が無くても回る（画面の無い起動で同じ作業を回すため。docs/history/headless-core-2026-10-13.md 段1a）。
+    /// 主画面を組まずに係だけを始め、通信しない確かめと⑦が走ることを見る
+    /// </summary>
+    [Fact]
+    public Task 主画面が無くても_起動時の裏の作業は回る() => TestApp.Run(async app =>
+    {
+        await PlaceDueItemAndHandEditAsync(app);
+        await app.ChangeSettingsAsync(settings => settings with { ResumeFetchInBackground = true });
+
+        app.Services.Startup.Start();
+
+        await UiThread.Until(() => app.Booth.Requests.Count > 0, "期限の来た商品を問い合わせる");
+        await UiThread.Until(() => app.Store.Notifications.Load().Any(record => record.Id == "hand-edit"), "手で直した JSON の確認");
+        app.Services.Startup.Stop();
+    });
+
     /// <summary>上の試験の対になる確かめ：同じ置き方で設定を入れれば⑦が問い合わせる（置き方が⑦の対象になっていること）。</summary>
     [Fact]
     public Task 裏の取得を入れていれば_同じ置き方で期限の来た商品を問い合わせる() => TestApp.Run(async app =>

@@ -114,15 +114,12 @@ public sealed partial class MainViewModel : ViewModelBase
         RefreshCounts();
         NoteInterruptedImportChanged();
         ShowStartScreen();
-        StartBacklogResume();
-        PruneVideoTitles();
-        PruneRecent();
+        ListenToStartupWork();
+        _services.Startup.Start();
         CheckUnreadableItems();
         ResumePendingOperations();
         StartWatchScan();
     }
-
-    private CancellationTokenSource? _backlog;
 
     /// <summary>
     /// 起動したときにどの画面を出すか。
