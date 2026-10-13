@@ -186,10 +186,13 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.ModificationMemberRequest);
             await GuardModificationAsync(writer, state, context, id);
-            if (string.IsNullOrEmpty(body.ItemId) || !state.Snapshot.ItemsById.TryGetValue(body.ItemId, out var item))
+            if (string.IsNullOrEmpty(body.ItemId) || !Core.Storage.StoreIds.IsItemId(body.ItemId))
             {
                 throw QueryException.NotFound("itemNotFound", $"商品 {body.ItemId} は見つかりません。");
             }
+
+            // 足す商品とファイルも保存先の今の記録で確かめる（取り込みの途中に入った商品・ファイルも足せるように。点検39）
+            var item = await CurrentItemAsync(state, body.ItemId, context);
 
             // どのファイルを使ったかは、分かるときだけ書く（推定で埋めない。分からなければ省く）。書くなら、その商品のファイルに限る
             if (body.FileHash is { Length: > 0 } hash

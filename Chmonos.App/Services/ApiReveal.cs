@@ -73,6 +73,6 @@ internal static class ApiReveal
             return Missing;
         }
 
-        return await (reveal ?? Shell.TryRevealAsync)(target) ? Opened : Missing;
+        return await (reveal ?? Shell.TryRevealExactAsync)(target) ? Opened : Missing;
     }
 }

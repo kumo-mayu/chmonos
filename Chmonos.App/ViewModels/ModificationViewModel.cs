@@ -1408,28 +1408,29 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>
     /// この改変が外（外から使う API）で書き換わった。記録を読み直して組み直し、**打っていない欄だけ**今の値に合わせる（点検38：前は古いまま残った）。
-    /// 打っている途中の欄（前の記録と違う欄）は残し、その欄の保存が後から書く（打った分を消さない）
+    /// 打っている途中の欄（前の記録と違う欄）は残し、その欄の保存が後から書く（打った分を消さない）。
+    /// 比べるのは前後の空白を除いた形（保存は空白を除いて書くので、そのまま比べると保存した後も「打っている途中」に見えた。点検39）
     /// </summary>
     internal async Task NoteChangedOutsideAsync()
     {
         var before = Record;
         await ReloadAsync();
 
-        if (_nameInput == before.Name)
+        if (_nameInput.Trim() == before.Name)
         {
             _nameInput = Record.Name;
             OnPropertyChanged(nameof(NameInput));
             OnPropertyChanged(nameof(NameChanged));
         }
 
-        if (_memoInput == (before.Memo ?? string.Empty))
+        if (_memoInput.Trim() == (before.Memo ?? string.Empty))
         {
             _memoInput = Record.Memo ?? string.Empty;
             OnPropertyChanged(nameof(MemoInput));
             OnPropertyChanged(nameof(MemoChanged));
         }
 
-        if (_blueprintInput == (before.BlueprintId ?? string.Empty))
+        if (_blueprintInput.Trim() == (before.BlueprintId ?? string.Empty))
         {
             _blueprintInput = Record.BlueprintId ?? string.Empty;
             foreach (var name in new[] { nameof(BlueprintInput), nameof(BlueprintHint), nameof(HasBlueprintHint), nameof(CanChangeAvatar) })

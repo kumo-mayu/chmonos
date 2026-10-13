@@ -123,7 +123,16 @@ public static class Shell
         return false;
     }
 
-    private static bool RevealCore(string path)
+    /// <summary>
+    /// <see cref="TryRevealAsync"/> と同じ開き方で、その場所が在るときだけ開く（親フォルダへ代わりに開かない）。
+    /// 外から使う API は「無い」を答えで伝えるので、近くを開いて「開けた」にしない（点検39：在るかを確かめた後に消えると親を開いた）
+    /// </summary>
+    public static Task<bool> TryRevealExactAsync(string? path)
+        => string.IsNullOrWhiteSpace(path) ? Task.FromResult(false) : Task.Run(() => (File.Exists(path) || Directory.Exists(path)) && RevealCore(path, allowParent: false));
+
+    private static bool RevealCore(string path) => RevealCore(path, allowParent: true);
+
+    private static bool RevealCore(string path, bool allowParent)
     {
         if (Directory.Exists(path))
         {
@@ -139,7 +148,7 @@ public static class Shell
         }
 
         var directory = Path.GetDirectoryName(path);
-        if (Directory.Exists(directory))
+        if (allowParent && Directory.Exists(directory))
         {
             OpenInExplorer($"\"{directory}\"");
             return true;

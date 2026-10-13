@@ -210,6 +210,10 @@ public sealed class ApiCurationTests
             Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PutAsync(client, $"{location}/memo", """{"memo":"夏"}""")).StatusCode);
             Assert.Equal(System.Net.HttpStatusCode.Conflict, (await PostAsync(client, "/v1/modifications", $$"""{"avatarId":"{{AvatarA}}","name":"水着"}""")).StatusCode);
 
+            // 取り込みの途中に入った商品も、使った物として足せる（点検39）
+            await app.Store.Items.SaveAsync(Make.Item("9600409", "取り込み中に入った靴"));
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PostAsync(client, $"{location}/members", """{"itemId":"9600409"}""")).StatusCode);
+
             // 取り込みの途中に足した対応アバターも、続けて消せる
             Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PostAsync(client, $"/v1/items/{Outfit}/avatars/remove", $$"""{"avatarId":"{{AvatarA}}"}""")).StatusCode);
             Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PostAsync(client, $"/v1/items/{Outfit}/avatars", $$"""{"avatarId":"{{AvatarA}}"}""")).StatusCode);
@@ -234,6 +238,12 @@ public sealed class ApiCurationTests
 
         Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"冬"}""")).StatusCode);
         await UiThread.Until(() => detail.MemoInput == "冬", "打っていないメモの欄が新しい値になる");
+
+        // 前後に空白を付けて打ち、保存し終えた欄は、打っている途中とは見ない（保存は空白を除いて書く。点検39）
+        detail.MemoInput = " 秋 ";
+        await UiThread.Until(() => detail.Record.Memo == "秋", "空白を除いて保存する");
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"冬"}""")).StatusCode);
+        await UiThread.Until(() => detail.MemoInput == "冬", "保存した後の欄は新しい値になる");
 
         detail.BlueprintInput = "avtr_打っている途中";
         Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"春"}""")).StatusCode);
