@@ -218,6 +218,9 @@ public partial class App : Application
         // 新しい版の確認（1日1回まで・設定で切れる）。窓を出してから裏で
         main.CheckForUpdatesAsync().Forget();
 
+        // 外から使う API（設定でオンのときだけ。読み込みに数秒かかるので、窓を出してから裏で）
+        _services.Api.ApplyAsync().Forget();
+
         // Unity で最後に選んでいたプロジェクトタブを覚え始める（「Unityで選択」の既定・ユーザ判断）。
         // 画面のスレッドで付ける——知らせはこのスレッドのメッセージとして届く
         Services.UnityFocusWatch.Start();
@@ -249,6 +252,9 @@ public partial class App : Application
         services.Startup.StartMissingMarksSweep();
         services.ResumeRegistrationsAsync().Forget();
         ImportOnHeadlessLaunchAsync(services).Forget();
+
+        // 外から使う API も、画面ありと同じく設定でオンのときだけ（オフならポートを開けない。ユーザ判断 2026-10-13）
+        services.Api.ApplyAsync().Forget();
     }
 
     /// <summary>
@@ -732,6 +738,13 @@ public partial class App : Application
         Services.UnityFocusWatch.Stop();
         ViewModels.AppTheme.Stop();
         _tray?.Dispose();
+
+        // API を止めて api.json を「止まった」にする。止まるのを待つのは5秒まで（閉じる操作を API の都合で長く止めない）
+        if (_services is { } services && !Task.Run(services.Api.StopAsync).Wait(TimeSpan.FromSeconds(5)))
+        {
+            Core.Diagnostics.AppLog.Warn("閉じるときの API の停止", "5秒待っても止まらなかったので諦めた");
+        }
+
         _services?.Dispose();
         base.OnExit(e);
     }

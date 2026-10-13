@@ -1040,17 +1040,15 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                        Text="開発者向けの機能です。ほかのアプリや自作のツールから、このアプリのデータを読めるようにします。使い方はマニュアルの「API」の章にあります。" />
 
-                            <Grid Margin="0,0,0,10">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="状態" Style="{StaticResource RowLabel}" Width="220" />
-                                    <TextBlock Text="{Binding ApiStatusText}" Style="{StaticResource RowLabel}"
-                                               AutomationProperties.AutomationId="Settings.ApiStatus" />
-                                </StackPanel>
-                                <Button Content="起動" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
-                                        AutomationProperties.AutomationId="Settings.StartApi"
-                                        Command="{Binding StartApiCommand}"
-                                        ToolTip="{Binding StartApiTip}" ToolTipService.ShowOnDisabled="True" />
-                            </Grid>
+                            <!-- アプリと同じプロセスで動く。オンにしたらすぐ待ち受け、オフですぐ止める（ユーザ判断 2026-10-13） -->
+                            <CheckBox Content="APIを使う" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.ApiEnabled"
+                                      IsChecked="{Binding ApiEnabled, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,10">
+                                <TextBlock Text="状態" Style="{StaticResource RowLabel}" Width="220" />
+                                <TextBlock Text="{Binding ApiStatusText}" Style="{StaticResource RowLabel}" TextWrapping="Wrap" MaxWidth="560"
+                                           AutomationProperties.AutomationId="Settings.ApiStatus" />
+                            </StackPanel>
 
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="ポート" Style="{StaticResource RowLabel}" Width="220" />
@@ -1062,10 +1060,6 @@
                             <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
                                        AutomationProperties.AutomationId="Settings.Note.ApiPort"
                                        Text="{Binding Notes[ApiPort]}" />
-                            <TextBlock Style="{StaticResource Caption}" Margin="222,0,0,6" TextWrapping="Wrap"
-                                       AutomationProperties.AutomationId="Settings.ApiRestartNote"
-                                       Text="{Binding ApiRestartNote}"
-                                       Visibility="{Binding ApiRestartNote, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
 
                             <!--
                                 画面を出さない起動（Chmonos.exe headless）の自動の取り込み。画面ありの「起動したとき…取り込む」とは別の設定

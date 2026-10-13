@@ -3,7 +3,7 @@
 > **要点**：`Chmonos.exe --headless` で、窓を出さずに核（Core のサービス一式）だけを動かす。動いていることは通知領域のアイコンで見せ、
 > 右クリックで「Chmonosを開く」「終了」。起動したときの作業・取り込み・登録の列は、画面ありと同じ係を通す。
 >
-> **経緯と段取り**：`docs/history/headless-core-2026-10-13.md`（最小の起動単位を「核＋API」にする。API を同じプロセスで動かすのは段2で、まだ）。
+> **経緯と段取り**：`docs/history/headless-core-2026-10-13.md`（最小の起動単位を「核＋API」にする。API は同じプロセスで動く：[local-api.md](local-api.md)）。
 >
 > **コード**：`App.xaml.cs`（`StartHeadless`・`OpenFromTray`・`ExitFromTray`）、`Services/TrayIcon.cs`・`StartupWork.cs`・`ImportRunner.cs`、`AppServiceContainer.Registrations`
 
@@ -22,6 +22,7 @@
 - 起動したときの作業（`StartupWork`）：画面ありと同じ設定に従う（裏の取得・通信しない確かめ・見回り・控えの片付け）。**プロセスで1回だけ**始める
 - 前の起動で終わらなかった「このIDで登録」の続きを流す（人が押した物なので）。登録の列はプロセスに1つ（`AppServiceContainer.Registrations`）
 - 新しい版の確認はしない（知らせを出す場所が無い）。窓を開いたときに回す
+- 外から使う API は、画面ありと同じく設定の「APIを使う」がオンのときだけ待ち受ける（オフならポートを開けない）
 - 自動の取り込み：API の設定 `importOnHeadlessLaunch`（設定の「API」の節。既定はオフ）。対象の決め方（監視フォルダの新着と前回の続き）と取り込みの道（`ImportRunner`）は、
   画面ありの「起動したとき…取り込む」と同じ。押してもいないので、展開先のファイルについて尋ねない（G2）
 

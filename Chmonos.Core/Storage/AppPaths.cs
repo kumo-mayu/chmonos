@@ -142,11 +142,6 @@ public sealed class AppPaths
 
     public string LockFile => Path.Combine(Root, "app.lock");
 
-    /// <summary>外から使う API の多重起動を止める錠（アプリの <see cref="LockFile"/> と同じ作り。API が開いている間だけ在る）。</summary>
-    public string ApiLockFile => Path.Combine(Root, ApiLockFileName);
-
-    public const string ApiLockFileName = "api.lock";
-
     public string ItemFile(string itemId) => Path.Combine(ItemsDir, $"{StoreIds.RequireItemId(itemId)}.json");
 
     /// <summary>

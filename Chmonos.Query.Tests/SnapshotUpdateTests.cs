@@ -32,6 +32,29 @@ public sealed class SnapshotUpdateTests : IDisposable
         return changes;
     }
 
+    /// <summary>
+    /// アプリと同じプロセスで動くときは、商品の記録をアプリの控えと共有する（docs/history/headless-core-2026-10-13.md 段2）。
+    /// 画面が説明文ごと控えに持っているので、説明文を落とした写しを別に作らない。変わらない商品は読み直しでも同じ実体のまま
+    /// </summary>
+    [Fact]
+    public async Task アプリと同じプロセスでは_商品の記録をアプリの控えと共有し_説明文も落とさない()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        await store.Items.SaveAsync(Item("9500001", "作り物の一"));
+        var appCopy = await store.Items.LoadAsync("9500001");
+
+        var shared = await QuerySnapshot.LoadAsync(store, sharesItemCache: true);
+        Assert.Same(appCopy, shared.ItemsById["9500001"]);
+        Assert.Equal("作り物の本文", shared.ItemsById["9500001"].Booth.Description);
+
+        var again = await shared.UpdateAsync(Changed((StorePart.Items, null)));
+        Assert.Same(appCopy, again.ItemsById["9500001"]);
+
+        // 別のプロセスとして読む写し（共有しない）は、今までどおり説明文を落とす
+        var separate = await QuerySnapshot.LoadAsync(new DataStore(new AppPaths(_root)));
+        Assert.Null(separate.ItemsById["9500001"].Booth.Description);
+    }
+
     [Fact]
     public async Task 変わったファイルだけを読み直し_変わらない商品は同じ記録を使い回す()
     {

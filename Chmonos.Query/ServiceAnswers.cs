@@ -36,11 +36,6 @@ public sealed record ChangeEventRef(long Seq, string Kind, IReadOnlyList<string>
 /// <param name="Reload">頼んだ通番からの変化を全部は持っていない（古すぎる・API が起動し直した）。外の道具は全部を取り直す。</param>
 public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IReadOnlyList<ChangeEventRef> Changes);
 
-/// <summary>アプリからの知らせ（<c>POST /internal/busy</c>）：まとめて書く操作の始まりと終わり。ファイルを見張っても分からないのはここだけ。</summary>
-/// <param name="State"><c>start</c> か <c>end</c>。</param>
-/// <param name="Kind">操作の種類（<c>import</c> など）。</param>
-public sealed record BusyRequest(string State, string? Kind);
-
 /// <summary>
 /// 誤りの答え（RFC 9457 <c>application/problem+json</c>）。<see cref="Code"/> は機械が読む名前で変えない。<see cref="Detail"/> は人が読む説明。
 /// </summary>

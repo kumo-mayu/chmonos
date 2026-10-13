@@ -1,23 +1,34 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    外から使う API の実行ファイル（docs/spec/local-api.md）。中身は Chmonos.Query が作り、ここは HTTP の口と守りだけを持つ。
-    配る形は .NET を同梱した1ファイルの exe（Properties/PublishProfiles/win-x64.pubxml。Native AOT にしない理由もそこ）。
-    日本語の並べ方・かなの畳み方を使うので、言語の情報（ICU）は切らない（InvariantGlobalization を false のままにする）
+    外から使う API の HTTP の口と守り（docs/spec/local-api.md）。中身は Chmonos.Query が作る。
+    アプリ（Chmonos.exe）と同じプロセスで動くライブラリ（2026-10-13。docs/history/headless-core-2026-10-13.md 段2）。
+    前は .NET を同梱した別の実行ファイル（Chmonos.Api.exe）だった。Native AOT にしなかった理由は docs/spec/local-api.md
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <OutputType>Exe</OutputType>
     <AssemblyName>Chmonos.Api</AssemblyName>
     <RootNamespace>Chmonos.Api</RootNamespace>
-    <InvariantGlobalization>false</InvariantGlobalization>
-
-    <!-- IIS 向けの web.config と、静的なファイルの一覧を作らない（Kestrel だけで動き、静的なファイルも配らない） -->
-    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
-    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- Web 用の SDK が自動で足していた名前空間（ライブラリにしたので自分で足す） -->
+  <ItemGroup>
+    <Using Include="System.Net.Http.Json" />
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Chmonos.Query\Chmonos.Query.csproj" />

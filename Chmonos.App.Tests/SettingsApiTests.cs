@@ -105,20 +105,94 @@ public sealed class SettingsApiTests
     });
 
     [Fact]
-    public Task APIが動いていなければ止まっていると言い_実行ファイルが無ければ起動を押せない() => TestApp.Run(async app =>
+    public Task APIは既定でオフで_止まっていると言う() => TestApp.Run(async app =>
     {
         var main = await app.StartAsync();
-
-        // 落ちて残った api.json（プロセスの番号が、API ではないこのプロセス）
-        JsonStore.Write(app.Services.Paths.ApiFile, new ApiEndpointRecord { Port = 39847, Token = "token", ProcessId = Environment.ProcessId });
         var settings = new SettingsViewModel(app.Services, main);
 
+        Assert.False(settings.ApiEnabled);
         Assert.Equal("止まっています。", settings.ApiStatusText);
-        Assert.Equal(string.Empty, settings.ApiRestartNote);
-        Assert.Equal(File.Exists(SettingsViewModel.ApiExecutablePath), settings.CanStartApi);
-        if (!settings.CanStartApi)
+    });
+
+    /// <summary>空いているポート（試験どうしでぶつからないよう、OS に選ばせる）。</summary>
+    private static int FreePort()
+    {
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    /// <summary>
+    /// API はアプリと同じプロセスで動く（docs/history/headless-core-2026-10-13.md 段2）。オンにしたらすぐ待ち受け、
+    /// 外の道具が読む api.json にこのプロセスの番号とポートを書く。オフにしたらすぐ止め、api.json を「止まった」にする（ユーザ判断 2026-10-13）
+    /// </summary>
+    [Fact]
+    public Task オンにするとすぐ待ち受けて答え_オフにするとすぐ止まる() => TestApp.Run(async app =>
+    {
+        var port = FreePort();
+        JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Port = port });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        try
         {
-            Assert.Equal("Chmonos.Api.exeが見つかりません。", settings.StartApiTip);
+            settings.ApiEnabled = true;
+            await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Running, "API が待ち受ける");
+
+            Assert.Equal($"ポート {port} で動いています。", settings.ApiStatusText);
+            var endpoint = JsonStore.Read<ApiEndpointRecord>(app.Services.Paths.ApiFile)!;
+            Assert.Equal((port, (int?)Environment.ProcessId), (endpoint.Port, endpoint.ProcessId));
+            using (var http = new System.Net.Http.HttpClient())
+            {
+                var health = await http.GetAsync($"http://127.0.0.1:{port}/v1/health");
+                Assert.Equal(System.Net.HttpStatusCode.OK, health.StatusCode);
+            }
+
+            settings.ApiEnabled = false;
+            await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Stopped, "API が止まる");
+
+            Assert.Equal("止まっています。", settings.ApiStatusText);
+            Assert.Null(JsonStore.Read<ApiEndpointRecord>(app.Services.Paths.ApiFile)!.ProcessId);
+            Assert.False(Saved(app).Enabled);
+        }
+        finally
+        {
+            await app.Services.Api.StopAsync();
+            settings.OnLeaving();
+        }
+    });
+
+    [Fact]
+    public Task ポートがほかに使われていれば_待ち受けられないと言い_変えれば待ち受ける() => TestApp.Run(async app =>
+    {
+        // 待ち受けられなかったことはログに残す（アプリの動き）。この試験はそれをわざと起こす
+        app.AllowLoggedFailures = true;
+        var busy = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        busy.Start();
+        var taken = ((System.Net.IPEndPoint)busy.LocalEndpoint).Port;
+        JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Port = taken });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        try
+        {
+            settings.ApiEnabled = true;
+            await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Failed, "待ち受けられない");
+            Assert.Equal(
+                $"ポート {taken} で待ち受けられませんでした。ほかのアプリが使っているときは、ポートを変えてください。",
+                settings.ApiStatusText);
+
+            // ポートを変えたら、その場で待ち受け直す（起動し直さなくてよい）
+            var free = FreePort();
+            settings.ApiPort = free;
+            await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Running, "変えたポートで待ち受ける");
+            Assert.Equal($"ポート {free} で動いています。", settings.ApiStatusText);
+        }
+        finally
+        {
+            busy.Stop();
+            await app.Services.Api.StopAsync();
+            settings.OnLeaving();
         }
     });
 
@@ -138,39 +212,5 @@ public sealed class SettingsApiTests
         Assert.Equal(40001, saved.Port);
         Assert.Equal(["http://localhost:5173"], saved.AllowedOrigins);
         Assert.True(new SettingsViewModel(app.Services, main).ApiImportOnHeadlessLaunch);
-    });
-
-    [Fact]
-    public Task 動いているかは錠で見て_止まれば画面を開き直さなくても戻る() => TestApp.Run(async app =>
-    {
-        var main = await app.StartAsync();
-        JsonStore.Write(app.Services.Paths.ApiFile, new ApiEndpointRecord { Port = 39847, Token = "token", ProcessId = Environment.ProcessId });
-
-        // 引越しで運ばれた api.json：番号は動いているプロセスでも、この保存先の錠が無ければ動いていない（点検35）
-        Assert.Equal("止まっています。", new SettingsViewModel(app.Services, main).ApiStatusText);
-
-        var interval = SettingsViewModel.ApiWatchInterval;
-        SettingsViewModel.ApiWatchInterval = TimeSpan.FromMilliseconds(20);
-        var apiLock = SingleInstanceLock.TryAcquire(app.Services.Paths.Root, app.Services.Paths.ApiLockFile);
-        var settings = new SettingsViewModel(app.Services, main);
-        try
-        {
-            Assert.Equal("ポート 39847 で動いています。", settings.ApiStatusText);
-
-            // 前は起動を確かめた所で見るのをやめ、止めても「動いています」のままだった（点検35）
-            apiLock!.Dispose();
-            for (var attempt = 0; attempt < 100 && settings.ApiStatusText != "止まっています。"; attempt++)
-            {
-                await Task.Delay(20);
-            }
-
-            Assert.Equal("止まっています。", settings.ApiStatusText);
-        }
-        finally
-        {
-            apiLock?.Dispose();
-            settings.OnLeaving();
-            SettingsViewModel.ApiWatchInterval = interval;
-        }
     });
 }

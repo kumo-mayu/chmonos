@@ -45,26 +45,6 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/events", (HttpContext context, ChangeFeed feed) => StreamEventsAsync(context, feed))
             .WithSummary("変化を SSE で流す（text/event-stream。fetch で読む）").Produces(200, contentType: "text/event-stream");
 
-        // アプリからの知らせ：まとめて書く操作の始まりと終わり（その間は古い答えを返し続ける）
-        app.MapPost("/internal/busy", async (HttpRequest request, StoreSync sync, ApiState state) =>
-        {
-            var body = await ReadAsync(request, json.BusyRequest);
-            switch (body.State)
-            {
-                case "start":
-                    sync.SetBusy(body.Kind ?? "write", state.Clock());
-                    break;
-                case "end":
-                    sync.SetBusy(null, state.Clock());
-                    break;
-                default:
-                    throw QueryException.Invalid("invalidBusy", $"state は start か end です: {body.State}");
-            }
-
-            return Results.NoContent();
-        })
-            .Takes<BusyRequest>().Produces(204).WithSummary("アプリからの知らせ：まとめて書く操作の始まりと終わり").ExcludeFromDescription();
-
         app.MapGet("/v1/display-settings", (ApiState state) => ApiHost.Json(Catalogs.DisplaySettings(state.Snapshot), json.DisplaySettingsRef))
             .Answers<DisplaySettingsRef>("使う人の表示の設定");
 

@@ -98,15 +98,14 @@ public sealed class ApiSyncTests : IAsyncLifetime
     [Fact]
     public async Task まとめて書いている間は古い答えを返し_終わってから読み直す()
     {
-        var start = await _client.PostAsync("/internal/busy", new StringContent("""{"state":"start","kind":"import"}""", Encoding.UTF8, "application/json"));
-        Assert.Equal(HttpStatusCode.NoContent, start.StatusCode);
+        _sync.SetBusy("import", DateTimeOffset.Now);
         Assert.Equal("import", (await GetAsync("/v1/version")).GetProperty("busy").GetString());
 
         await SaveAndNoteAsync(new ItemRecord { Id = "9400003", Booth = new BoothBlock { Name = "作り物の三" } });
         await _sync.ApplyPendingAsync();
         Assert.Equal(HttpStatusCode.NotFound, await StatusAsync("/v1/items/9400003"));
 
-        await _client.PostAsync("/internal/busy", new StringContent("""{"state":"end"}""", Encoding.UTF8, "application/json"));
+        _sync.SetBusy(null, DateTimeOffset.Now);
         await _sync.ApplyPendingAsync();
         Assert.Equal(HttpStatusCode.OK, await StatusAsync("/v1/items/9400003"));
 

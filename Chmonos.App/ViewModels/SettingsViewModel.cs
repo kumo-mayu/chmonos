@@ -254,6 +254,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         _leaving.Cancel();
         _main.PropertyChanged -= OnMainChanged;
         _main.StoreJobEnded -= OnStoreJobEnded;
+        _services.Api.StateChanged -= OnApiStateChanged;
     }
 
     public RelayCommand AddFolderCommand { get; }

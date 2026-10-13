@@ -90,7 +90,7 @@ internal sealed class ChangeFeed
 /// 写しを保存先に合わせる（docs/spec/local-api.md「同期」）。
 /// 変わったことはファイルの変化を見張って拾う（アプリの書き込み・削除・画像の保存のどれも同じ道で拾える）。
 /// 見張りが知らせを取りこぼしたら全部を見直し、念のため時々、商品の一覧の印も見比べる。
-/// アプリがまとめて書いている間（取り込みなど。アプリが <c>/internal/busy</c> で知らせる）は、古い答えを返し続け、終わってから読み直す。
+/// アプリがまとめて書いている間（取り込みなど。アプリが <see cref="ApiServer.SetBusy"/> で知らせる）は、古い答えを返し続け、終わってから読み直す。
 /// </summary>
 internal sealed class StoreSync : IDisposable
 {

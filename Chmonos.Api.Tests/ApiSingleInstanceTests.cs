@@ -3,7 +3,7 @@ using Chmonos.Core.Storage;
 
 namespace Chmonos.Api.Tests;
 
-/// <summary>外から使う API の多重起動（保存先ごとに1本。2026-10-13）。</summary>
+/// <summary>外から使う API の api.json の書き戻し（ほかのプロセスの記録は消さない。2026-10-13）。</summary>
 public sealed class ApiSingleInstanceTests : IDisposable
 {
     private readonly AppPaths _paths = new(Path.Combine(Path.GetTempPath(), "chmonos-api-tests", Guid.NewGuid().ToString("N")));
@@ -17,24 +17,6 @@ public sealed class ApiSingleInstanceTests : IDisposable
         catch (DirectoryNotFoundException)
         {
         }
-    }
-
-    [Fact]
-    public void 錠は1本目だけが取れ_放せば次が取れる()
-    {
-        var first = SingleInstanceLock.TryAcquire(_paths.Root, _paths.ApiLockFile);
-        Assert.NotNull(first);
-        Assert.Null(SingleInstanceLock.TryAcquire(_paths.Root, _paths.ApiLockFile));
-
-        // アプリの錠とは別（アプリと API は同じ保存先で並んで動く）
-        using (var app = SingleInstanceLock.TryAcquire(_paths))
-        {
-            Assert.NotNull(app);
-        }
-
-        first!.Dispose();
-        using var again = SingleInstanceLock.TryAcquire(_paths.Root, _paths.ApiLockFile);
-        Assert.NotNull(again);
     }
 
     [Fact]

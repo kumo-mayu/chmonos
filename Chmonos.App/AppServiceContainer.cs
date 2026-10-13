@@ -61,7 +61,6 @@ public sealed class AppServiceContainer : IDisposable
         }
 
         Paths = paths;
-        ApiNotifier = new Services.ApiNotifier(paths);
         Paths.EnsureCreated();
 
         // 裏の作業で黙って飛ばした失敗も、後から追えるように書き残す（技術的負債 2-1）
@@ -248,8 +247,10 @@ public sealed class AppServiceContainer : IDisposable
 
     public AppPaths Paths { get; }
 
-    /// <summary>外から使う API へ、取り込みの始まりと終わりを知らせる（API が動いていなければ何もしない）。</summary>
-    public Services.ApiNotifier ApiNotifier { get; }
+    /// <summary>外から使う API を、設定に合わせて同じプロセスで始める・止める。取り込みの始まりと終わりもここから伝える。</summary>
+    public Services.ApiRunner Api => _api ??= new(Store);
+
+    private Services.ApiRunner? _api;
 
     /// <summary>
     /// 書き込みの途中で落ちて残った <c>*.tmp</c> を片付ける。**窓を出した後に裏で呼ぶ**（2026-09-24）。

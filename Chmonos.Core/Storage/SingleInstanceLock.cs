@@ -17,8 +17,7 @@ public sealed class SingleInstanceLock : IDisposable
     public static SingleInstanceLock? TryAcquire(AppPaths paths) => TryAcquire(paths.Root, paths.LockFile);
 
     /// <summary>
-    /// 錠のファイルを指して取る（外から使う API は <see cref="AppPaths.ApiLockFile"/>）。取れなければ null。
-    /// 見てから書く確かめ（api.json のプロセス番号）だと、同時に2本起動したときに両方がすり抜けたので、開いたまま持つ錠にした
+    /// 錠のファイルを指して取る。取れなければ null。
     /// </summary>
     public static SingleInstanceLock? TryAcquire(string root, string lockFile)
     {

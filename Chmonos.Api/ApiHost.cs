@@ -16,16 +16,20 @@ namespace Chmonos.Api;
 /// <param name="Token">合言葉（<c>Authorization: Bearer …</c>）。</param>
 /// <param name="AllowedOrigins">CORS を許す住所（自作の Web ページ）。api-settings.json が変われば読み直す。</param>
 /// <param name="Watch">保存先のファイルの変化を見張るか（試験では切り、読み直しを直に呼ぶ）。</param>
+/// <param name="Store">
+/// アプリの保存先の一式（API がアプリと同じプロセスで動くとき）。渡せば商品の記録をアプリの控えと共有する（<see cref="QuerySnapshot.SharesItemCache"/>）
+/// </param>
 internal sealed record ApiHostOptions(
     string StoreRoot,
     int Port,
     string Token,
     IReadOnlyList<string> AllowedOrigins,
     Func<DateTimeOffset>? Clock = null,
-    bool Watch = true);
+    bool Watch = true,
+    DataStore? Store = null);
 
 /// <summary>読み込んだ写しと、答えに要る物。</summary>
-internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
+internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataStore? sharedStore = null)
 {
     private volatile QuerySnapshot? _snapshot;
 
@@ -58,7 +62,9 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
             _stamps[part] = StoreChanges.StampOf(Paths, part);
         }
 
-        _snapshot = await QuerySnapshot.LoadAsync(new DataStore(Paths), cancellationToken);
+        _snapshot = sharedStore is null
+            ? await QuerySnapshot.LoadAsync(new DataStore(Paths), cancellationToken)
+            : await QuerySnapshot.LoadAsync(sharedStore, cancellationToken, sharesItemCache: true);
         LoadedAt = Clock();
 
         // 読み終えていない部分は印を空にしておく（次の見比べで印が違うと見て読み直す。点検31）
@@ -72,9 +78,16 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock)
 
     /// <summary>
     /// 読み込みの途中で出たごみ（JSON の読み込み・説明文を落とす前の記録）を片付けて、使っていないメモリを OS へ返す。
-    /// 2,000 件で専用が 120 → 111MB（2026-10-12 に測った）。全部を読んだときだけ行う（止まる時間は問題にならない）
+    /// 2,000 件で専用が 120 → 111MB（2026-10-12 に測った）。全部を読んだときだけ行う（止まる時間は問題にならない）。
+    /// アプリと同じプロセスでは行わない（画面のスレッドも止まる。読み込みのごみはアプリのふつうの片付けに任せる）
     /// </summary>
-    private static void Compact() => GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+    private void Compact()
+    {
+        if (sharedStore is null)
+        {
+            GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        }
+    }
 
     /// <summary>
     /// 変わった部分を読み直して写しを差し替え、外へ知らせる。部分のファイルの印が変わっていなければ読み直さない。
@@ -236,7 +249,7 @@ internal static class ApiHost
             json.SerializerOptions.Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
         });
 
-        var state = new ApiState(new AppPaths(options.StoreRoot), options.Clock ?? (() => DateTimeOffset.Now));
+        var state = new ApiState(new AppPaths(options.StoreRoot), options.Clock ?? (() => DateTimeOffset.Now), options.Store);
         await state.LoadAsync(options.AllowedOrigins, cancellationToken);
         var feed = new ChangeFeed();
         var sync = new StoreSync(state, feed, options.Watch);

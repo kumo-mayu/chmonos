@@ -59,8 +59,8 @@ https://github.com/dotnet/runtime
 License: MIT
 ================================================================================
 
-Chmonos.exe と Chmonos.Api.exe は自己完結の形で組んでいて、.NET のランタイムを中に含む。
-Chmonos.exe and Chmonos.Api.exe are self-contained builds and include the .NET runtime.
+Chmonos.exe は自己完結の形で組んでいて、.NET のランタイムを中に含む。
+Chmonos.exe is a self-contained build and includes the .NET runtime.
 
 The MIT License (MIT)
 
@@ -1664,8 +1664,8 @@ https://github.com/dotnet/aspnetcore
 License: MIT
 ================================================================================
 
-Chmonos.Api.exe（外から使う API）は自己完結の形で組んでいて、.NET のランタイムに加えて ASP.NET Core のランタイムを中に含む。
-Chmonos.Api.exe (the local API) is a self-contained build and includes the ASP.NET Core runtime in addition to the .NET runtime.
+Chmonos.exe は、外から使う API のために、.NET のランタイムに加えて ASP.NET Core のランタイムも中に含む。
+Chmonos.exe also includes the ASP.NET Core runtime, in addition to the .NET runtime, for its local API.
 
 The MIT License (MIT)
 
@@ -2814,8 +2814,8 @@ https://github.com/dotnet/aspnetcore
 License: MIT
 ================================================================================
 
-Chmonos.Api.exe が仕様書（/v1/openapi.json）を作るのに使う。第三者の表示は ASP.NET Core Runtime と同じ（上の節）。
-Used by Chmonos.Api.exe to generate its specification (/v1/openapi.json). Its third-party notices are the same as the ASP.NET Core Runtime above.
+外から使う API が仕様書（/v1/openapi.json）を作るのに使う。第三者の表示は ASP.NET Core Runtime と同じ（上の節）。
+Used by the local API to generate its specification (/v1/openapi.json). Its third-party notices are the same as the ASP.NET Core Runtime above.
 
 The MIT License (MIT)
 

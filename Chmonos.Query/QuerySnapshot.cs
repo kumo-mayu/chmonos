@@ -15,16 +15,24 @@ public sealed class QuerySnapshot
 {
     private readonly DataStore _store;
 
-    private QuerySnapshot(DataStore store)
+    private QuerySnapshot(DataStore store, bool sharesItemCache)
     {
         _store = store;
         Paths = store.Paths;
+        SharesItemCache = sharesItemCache;
     }
+
+    /// <summary>
+    /// 商品の記録を、アプリの保存先の控え（<c>ItemRepository</c>）と共有しているか（API がアプリと同じプロセスで動くとき。
+    /// docs/history/headless-core-2026-10-13.md 段2）。共有していれば説明文も落とさない——画面が同じ記録を説明文ごと控えに持っているので、
+    /// 落とした写しを別に作るとかえって増える。別のプロセスで動かす（試験）ときは、控えを通さず説明文を落とす
+    /// </summary>
+    public bool SharesItemCache { get; }
 
     public AppPaths Paths { get; }
 
     /// <summary>
-    /// 読めた商品の全部（ID の順）。**説明文（本文と見出しごとの文）は落としてある**（2026-10-12・ユーザ判断）：
+    /// 読めた商品の全部（ID の順）。**説明文（本文と見出しごとの文）は落としてある**（2026-10-12・ユーザ判断。アプリと控えを共有するときは落とさない：<see cref="SharesItemCache"/>）：
     /// 一覧・検索の既定の対象・条件のどれも使わないのに、2,000 件で専用のメモリの約3割（143MB のうち 43MB）を占めていた。
     /// 本文を探すとき（<see cref="HaystackOf"/>）だけ、その商品の JSON をファイルから読む。動画のリンクは落とす前に拾っておく（<see cref="Videos"/>）
     /// </summary>
@@ -116,6 +124,11 @@ public sealed class QuerySnapshot
     /// <summary>説明文まで持った記録（ファイルの今の中身。読めなければ写しの物）。</summary>
     private ItemRecord FullItem(ItemRecord item)
     {
+        if (SharesItemCache)
+        {
+            return item;
+        }
+
         try
         {
             // Core の ItemRepository の控えを通さない（説明文ごと控えて、写しで落とした分が戻ってしまう）
@@ -136,22 +149,24 @@ public sealed class QuerySnapshot
     private IReadOnlyDictionary<string, ItemSlot> _slots = new Dictionary<string, ItemSlot>();
 
     /// <summary>保存先を全部読む。</summary>
-    public static Task<QuerySnapshot> LoadAsync(DataStore store, CancellationToken cancellationToken = default)
-        => BuildAsync(store, previous: null, StoreChangeSet.Everything(), cancellationToken);
+    /// <param name="sharesItemCache">アプリと同じプロセスで、アプリの <paramref name="store"/> を使うか（<see cref="SharesItemCache"/>）。</param>
+    public static Task<QuerySnapshot> LoadAsync(DataStore store, CancellationToken cancellationToken = default, bool sharesItemCache = false)
+        => BuildAsync(store, previous: null, StoreChangeSet.Everything(), cancellationToken, sharesItemCache);
 
     /// <summary>
     /// 変わった部分だけを読み直した、新しい写しを作る（この写しは変えない。問い合わせの途中で半分だけ新しい答えを返さないため）。
     /// 商品は変わった部分に入っていれば一覧を見直し、大きさか日時が変わったファイルだけを読む（2,000 件でも見直すのは一覧だけ）。
     /// </summary>
     public Task<QuerySnapshot> UpdateAsync(StoreChangeSet changes, CancellationToken cancellationToken = default)
-        => BuildAsync(_store, this, changes, cancellationToken);
+        => BuildAsync(_store, this, changes, cancellationToken, SharesItemCache);
 
-    private static async Task<QuerySnapshot> BuildAsync(DataStore store, QuerySnapshot? previous, StoreChangeSet changes, CancellationToken cancellationToken)
+    private static async Task<QuerySnapshot> BuildAsync(
+        DataStore store, QuerySnapshot? previous, StoreChangeSet changes, CancellationToken cancellationToken, bool sharesItemCache)
     {
         bool Need(StorePart part) => previous is null || changes.Overflowed || changes.Parts.Contains(part);
 
         var (slots, failed, touched) = Need(StorePart.Items)
-            ? await Task.Run(() => ScanItems(store.Paths, previous?._slots, cancellationToken), cancellationToken)
+            ? await Task.Run(() => ScanItems(store, sharesItemCache, previous?._slots, cancellationToken), cancellationToken)
             : (previous!._slots, previous.FailedItemIds, (IReadOnlySet<string>)new HashSet<string>());
         // ファイル名と中の ID が食い違うと、同じ ID の商品が2つ見えることがある（手で写したファイル）。1つ目だけ使う
         var items = slots.Values.Select(slot => slot.Item)
@@ -211,7 +226,7 @@ public sealed class QuerySnapshot
         }
         var ownedItemIds = items.Where(item => item.IsOwned).Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
 
-        return new QuerySnapshot(store)
+        return new QuerySnapshot(store, sharesItemCache)
         {
             _slots = slots,
             Items = items,
@@ -253,11 +268,17 @@ public sealed class QuerySnapshot
     /// 写しで説明文を落としても、控えの側に全部が残る。ここでは印と説明文を落とした記録だけを持つ。
     /// 読めないファイル（壊れた JSON）は読めなかった商品として知らせ、書きかけで開けないファイルは前の記録のまま残す（一瞬消えて見えないように）。
     /// </summary>
+    /// <remarks>
+    /// アプリと同じプロセスで動くとき（<paramref name="sharesItemCache"/>）だけは控えを通し、説明文も落とさない：画面が同じ記録を控えに持っているので、
+    /// 同じ実体を指すだけで済む（変わっていないファイルは控えが同じ実体を返すので、変わった商品の見分けもそのまま効く）
+    /// </remarks>
     private static (IReadOnlyDictionary<string, ItemSlot> Slots, IReadOnlyList<string> Failed, IReadOnlySet<string> Touched) ScanItems(
-        AppPaths paths,
+        DataStore store,
+        bool sharesItemCache,
         IReadOnlyDictionary<string, ItemSlot>? previous,
         CancellationToken cancellationToken)
     {
+        var paths = store.Paths;
         var slots = new Dictionary<string, ItemSlot>(StringComparer.Ordinal);
         var failed = new List<string>();
         var touched = new HashSet<string>(StringComparer.Ordinal);
@@ -284,7 +305,9 @@ public sealed class QuerySnapshot
 
             try
             {
-                var record = JsonStore.ReadAsync<ItemRecord>(file.FullName, cancellationToken).GetAwaiter().GetResult();
+                var record = sharesItemCache
+                    ? store.Items.LoadAsync(fileId, cancellationToken).GetAwaiter().GetResult()
+                    : JsonStore.ReadAsync<ItemRecord>(file.FullName, cancellationToken).GetAwaiter().GetResult();
 
                 // 中の ID が形を外れた商品は外す（画面と同じ。中の ID で画像や説明の場所を組むので）
                 if (record is null || !StoreIds.IsItemId(record.Id))
@@ -296,7 +319,7 @@ public sealed class QuerySnapshot
                 slots[fileId] = new ItemSlot(
                     file.Length,
                     file.LastWriteTimeUtc,
-                    record with { Booth = record.Booth with { Description = null, H2Sections = [] } },
+                    sharesItemCache ? record : record with { Booth = record.Booth with { Description = null, H2Sections = [] } },
                     VideoLinks.Find(record.Booth));
                 touched.Add(record.Id);
             }

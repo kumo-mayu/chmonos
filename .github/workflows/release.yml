@@ -81,11 +81,6 @@ jobs:
       - name: 組む
         run: dotnet publish Chmonos.App -c Release -p:PublishProfile=win-x64 -o out/Chmonos-v${{ steps.version.outputs.version }}
 
-      # 外から使う API（docs/spec/local-api.md）。アプリと同じフォルダに置く（設定の「起動」がアプリの隣を探す・バージョンをそろえる）。
-      # 辞書などの assets はアプリと同じ物なので、同じ場所に重ねて写る
-      - name: API を組む
-        run: dotnet publish Chmonos.Api -c Release -p:PublishProfile=win-x64 -o out/Chmonos-v${{ steps.version.outputs.version }}
-
       - name: 説明を添えて確かめる
         run: |
           $dir = 'out/Chmonos-v${{ steps.version.outputs.version }}'
@@ -100,7 +95,7 @@ jobs:
           [IO.File]::WriteAllText("$dir/README.txt", ($readme -replace "`r?`n", "`r`n"), [Text.UTF8Encoding]::new($false))
 
           # exe だけでは動かない（辞書は assets に置き、exe の隣を探す）。ライセンスの文も配る物に要る
-          $expected = @('Chmonos.exe', 'Chmonos.Api.exe', 'README.txt', 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt',
+          $expected = @('Chmonos.exe', 'README.txt', 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt',
                         'assets/JMdict_e.gz', 'assets/kanjidic2.xml.gz', 'assets/booth-categories.json', 'assets/README.md')
           $missing = @($expected | Where-Object { -not (Test-Path "$dir/$_") })
           if ($missing.Count -gt 0) { throw "足りない: $($missing -join ', ')" }
@@ -119,10 +114,10 @@ jobs:
           if (-not $notices.Contains(".NET Runtime $runtime")) { throw "THIRD-PARTY-NOTICES.txt に、同梱するランタイム（$runtime）の告知が無い" }
           "同梱するランタイム：$runtime（告知あり）"
 
-          # API は ASP.NET Core のランタイムも含む。同じく、告知が同梱する版と合っているかを見る
-          $apiDeps = Get-ChildItem Chmonos.Api/obj/Release -Recurse -Filter Chmonos.Api.deps.json | Select-Object -First 1
-          $apiFound = if ($apiDeps) { Select-String -LiteralPath $apiDeps.FullName -Pattern 'runtimepack\.Microsoft\.AspNetCore\.App\.Runtime\.win-x64/([0-9.]+)' | Select-Object -First 1 }
-          if (-not $apiFound) { throw '同梱した ASP.NET Core のランタイムの版が分からない（Chmonos.Api.deps.json に runtimepack の行が無い）' }
+          # 外から使う API はアプリと同じプロセスで動くので、アプリの exe が ASP.NET Core のランタイムも含む（2026-10-13。前は別の Chmonos.Api.exe）。
+          # 同じく、告知が同梱する版と合っているかを見る
+          $apiFound = Select-String -LiteralPath $deps.FullName -Pattern 'runtimepack\.Microsoft\.AspNetCore\.App\.Runtime\.win-x64/([0-9.]+)' | Select-Object -First 1
+          if (-not $apiFound) { throw '同梱した ASP.NET Core のランタイムの版が分からない（Chmonos.deps.json に runtimepack の行が無い）' }
           $aspnet = $apiFound.Matches[0].Groups[1].Value
           if (-not $notices.Contains("ASP.NET Core Runtime $aspnet")) { throw "THIRD-PARTY-NOTICES.txt に、同梱する ASP.NET Core のランタイム（$aspnet）の告知が無い" }
           "同梱する ASP.NET Core のランタイム：$aspnet（告知あり）"

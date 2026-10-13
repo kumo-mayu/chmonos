@@ -1057,7 +1057,7 @@ public sealed partial class MainViewModel : ViewModelBase
                 RelayCommand.RaiseCanExecuteChanged();
 
                 // 外から使う API は、取り込みの間は古い答えを返し続け、終わってから読み直す（docs/spec/local-api.md「同期」）
-                _services.ApiNotifier.NoteBusy(value ? "import" : null);
+                _services.Api.NoteBusy(value ? "import" : null);
                 NoteInterruptedImportChanged();
 
                 // 取り込みが終わったら（中断を含む）③待ちの印は全部外れる。

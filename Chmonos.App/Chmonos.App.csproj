@@ -10,6 +10,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Chmonos.Core\Chmonos.Core.csproj" />
+    <!--
+      外から使う API をアプリと同じプロセスで動かす（docs/history/headless-core-2026-10-13.md 段2）。
+      ASP.NET Core のランタイムも exe に入る（前は別の Chmonos.Api.exe が自分の分を持っていた）
+    -->
+    <ProjectReference Include="..\Chmonos.Api\Chmonos.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>

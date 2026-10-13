@@ -31,6 +31,12 @@ public sealed record ApiSettings
     /// <summary>決まったポートの既定。他のソフトとぶつかりにくい、登録の無い番号から選んだ。ぶつかるときは設定で変える。</summary>
     public const int DefaultPort = 39847;
 
+    /// <summary>
+    /// API を使うか。オンならアプリ（画面あり・画面無しのどちらでも）と一緒に待ち受ける。既定はオフ（ユーザ判断 2026-10-13：
+    /// ポートを開けて合言葉を持つ道具に読ませるかは使う人が選ぶ。画面無しで起動しても、オフなら立ち上げない）
+    /// </summary>
+    public bool Enabled { get; init; }
+
     public int Port { get; init; } = DefaultPort;
 
     /// <summary>
