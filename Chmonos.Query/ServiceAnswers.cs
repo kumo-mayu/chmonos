@@ -55,6 +55,24 @@ public sealed record UnitySendRequest(string? Entry, string? ZipHash, string? Pr
 public sealed record UnitySendStatus(
     string ItemId, string Package, string Project, string State, string? Problem, DateTimeOffset StartedAt, DateTimeOffset? EndedAt);
 
+/// <summary>書き込みの要求：ユーザータグ1つ（大分類と小分類）。</summary>
+public sealed record UserTagInput(string Top, IReadOnlyList<string>? Subs);
+
+/// <summary>書き込みの要求：商品のユーザータグを丸ごと置き換える。</summary>
+public sealed record UserTagsRequest(IReadOnlyList<UserTagInput> Tags);
+
+/// <summary>書き込みの要求：ユーザータグを1つ足す・外す（小分類を省くと大分類だけ）。一覧に足すときも使う。</summary>
+public sealed record UserTagChangeRequest(string Top, string? Sub);
+
+/// <summary>書き込みの要求：属性の値（0〜100。null は外して未評価に戻す）。名指しした属性だけ書く。</summary>
+public sealed record AttributesRequest(IReadOnlyDictionary<string, int?> Values);
+
+/// <summary>書き込みの要求：メモ（null か空で消す）。</summary>
+public sealed record MemoRequest(string? Memo);
+
+/// <summary>書き込みの要求：名前（属性を一覧に足す）。</summary>
+public sealed record NameRequest(string Name);
+
 /// <summary>書き込みの要求：足跡の種類（今は <c>used</c> だけ）。</summary>
 public sealed record RecentRequest(string Kind);
 

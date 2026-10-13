@@ -124,4 +124,66 @@ public sealed class ApiWriteScreenTests
             await app.Services.Api.StopAsync();
         }
     });
+
+    [Fact]
+    public Task タグと属性とメモを_一覧の綴りに寄せて_アプリの命令で書く() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(ItemId, "作り物の帽子"));
+        await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddUserTag("Outfit", "Summer"));
+        await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddAttribute("Cute"));
+        await app.StartAsync();
+        var (client, _) = await StartApiAsync(app);
+        try
+        {
+            StringContent Body(string text) => new(text, Encoding.UTF8, "application/json");
+            async Task<LocalBlock> LocalAsync() => (await app.Store.Items.LoadAsync(ItemId))!.Local;
+            async Task<string?> CodeOf(HttpResponseMessage response)
+                => System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("code").GetString();
+
+            // 一覧に無い名前は断り、何も書かない
+            var unknown = await client.PutAsync($"/v1/items/{ItemId}/user-tags", Body("""{"tags":[{"top":"Hat"}]}"""));
+            Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+            Assert.Equal("unknownUserTag", await CodeOf(unknown));
+            Assert.Empty((await LocalAsync()).UserTags);
+
+            // 綴りは一覧に寄せる。createMissing なら一覧に足して付ける
+            Assert.Equal(HttpStatusCode.OK, (await client.PutAsync(
+                $"/v1/items/{ItemId}/user-tags?createMissing=true", Body("""{"tags":[{"top":"outfit","subs":["summer"]},{"top":"Hat"}]}"""))).StatusCode);
+            Assert.Equal(["Outfit:Summer", "Hat:"], (await LocalAsync()).UserTags.Select(tag => $"{tag.Top}:{string.Join(",", tag.Subs)}"));
+            Assert.Contains(app.Store.UserTags.Load().Tops, top => top.Name == "Hat");
+
+            // 1つ足す・外す（錠の中で今の値に当てる）
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/v1/items/{ItemId}/user-tags?createMissing=true", Body("""{"top":"Outfit","sub":"Winter"}"""))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/v1/items/{ItemId}/user-tags/remove", Body("""{"top":"Outfit","sub":"Summer"}"""))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/v1/items/{ItemId}/user-tags/remove", Body("""{"top":"Hat"}"""))).StatusCode);
+            Assert.Equal(["Outfit:Winter"], (await LocalAsync()).UserTags.Select(tag => $"{tag.Top}:{string.Join(",", tag.Subs)}"));
+
+            // 属性は名指しした物だけ。0 と未評価（キーが無い）は別。null で外す
+            Assert.Equal(HttpStatusCode.OK, (await client.PatchAsync($"/v1/items/{ItemId}/attributes?createMissing=true", Body("""{"values":{"cute":80,"Sexy":0}}"""))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.PatchAsync($"/v1/items/{ItemId}/attributes", Body("""{"values":{"Sexy":null}}"""))).StatusCode);
+            var attributes = (await LocalAsync()).Attributes;
+            Assert.Equal(80, attributes["Cute"]);
+            Assert.False(attributes.ContainsKey("Sexy"));
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PatchAsync($"/v1/items/{ItemId}/attributes", Body("""{"values":{"Cute":101}}"""))).StatusCode);
+            Assert.Equal("unknownAttribute", await CodeOf(await client.PatchAsync($"/v1/items/{ItemId}/attributes", Body("""{"values":{"Cool":10}}"""))));
+
+            // メモ（空で消す）。ほかの欄は残る
+            Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/v1/items/{ItemId}/memo", Body("""{"memo":"作り物のメモ"}"""))).StatusCode);
+            Assert.Equal("作り物のメモ", (await LocalAsync()).Memo);
+            Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/v1/items/{ItemId}/memo", Body("""{"memo":""}"""))).StatusCode);
+            Assert.Null((await LocalAsync()).Memo);
+            Assert.Equal(["Outfit:Winter"], (await LocalAsync()).UserTags.Select(tag => $"{tag.Top}:{string.Join(",", tag.Subs)}"));
+
+            // 一覧に足す（既にあれば足さない）
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync("/v1/user-tags", Body("""{"top":"Shoes"}"""))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync("/v1/attributes", Body("""{"name":"Cool"}"""))).StatusCode);
+            Assert.Contains(app.Store.UserTags.Load().Tops, top => top.Name == "Shoes");
+            Assert.Contains(app.Store.Attributes.Load().Attributes, attribute => attribute.Name == "Cool");
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
+    });
 }

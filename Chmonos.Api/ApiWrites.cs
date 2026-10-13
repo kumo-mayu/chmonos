@@ -86,6 +86,15 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
         }
     }
 
+    /// <summary>命令を流すだけ（続けて別の命令を流す前段。一覧に足してから商品に付ける、など）。失敗したら 500。</summary>
+    public async Task ExecuteAsync(UiCommand command, CancellationToken cancellationToken)
+    {
+        if (await hooks!.Execute(command, cancellationToken) is CommandResult.Failed failed)
+        {
+            throw new QueryException(500, "commandFailed", failed.Message);
+        }
+    }
+
     /// <summary>
     /// 命令を流し、書いたファイルを読み直してから返す。写しを差し替えたら null、まとめて書いている途中で差し替えなかったら、その途中の種類（202 で答える）。
     /// 命令が失敗したら 500（commandFailed。詳しくは命令の文）

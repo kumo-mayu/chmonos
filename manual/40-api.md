@@ -8,7 +8,7 @@
 
 ほかのアプリや自作のツールから、Chmonos のデータを HTTP で読めるようにする機能です。プログラムを書く人に向けた機能で、ふだんの整理には使いません。
 
-- 読むだけです。データを書き換えることも、BOOTH に問い合わせることもありません。
+- はじめは読むだけです。設定で許すと、お気に入り・ユーザータグ・属性・メモなどを変えられます（[データを変える](#データを変える)）。BOOTH に問い合わせることはありません。
 - 同じ PC の中（`127.0.0.1`）からだけ使えます。
 - 答えは JSON です。名前の付け方や意味は変えない約束で、大きく変えるときは URL の `/v1/` を上げます。
 
@@ -119,6 +119,31 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - `<img src>` は合言葉を送れないので、画像は `fetch` で `/v1/images/{商品ID}/{名前}` を取り、`URL.createObjectURL` で表示します。
 - `EventSource` も合言葉を送れないので、`/v1/events` は `fetch` で流れを読みます。
 
+## データを変える
+
+（次のバージョンから）設定の「API」の「ほかのアプリからの変更を許す」をオンにすると、API からデータを変えられます。はじめはオフです。合言葉は読むときと同じです。
+
+| すること | URL | 送る物 |
+|---|---|---|
+| お気に入りにする・外す | `PUT /v1/items/{商品ID}/favorite` | `{"value": true}` |
+| 非表示にする・戻す | `PUT /v1/items/{商品ID}/hidden` | `{"value": true}` |
+| ユーザータグを付け直す | `PUT /v1/items/{商品ID}/user-tags` | `{"tags": [{"top": "衣装", "subs": ["夏"]}]}` |
+| ユーザータグを1つ足す・外す | `POST /v1/items/{商品ID}/user-tags`・`…/user-tags/remove` | `{"top": "衣装", "sub": "夏"}` |
+| 属性を付ける・外す | `PATCH /v1/items/{商品ID}/attributes` | `{"values": {"かわいさ": 80, "露出": null}}` |
+| メモを書く | `PUT /v1/items/{商品ID}/memo` | `{"memo": "…"}` |
+| ユーザータグ・属性を一覧に足す | `POST /v1/user-tags`・`POST /v1/attributes` | `{"top": "衣装"}`・`{"name": "かわいさ"}` |
+| 「使った」を記録する | `POST /v1/items/{商品ID}/recent` | `{"kind": "used"}` |
+| 通知を既読にする・解消する | `PUT /v1/notifications/{ID}/read`・`POST /v1/notifications/read`・`POST /v1/notifications/resolve` | `{"value": true}`・`{"ids": […]}` |
+| Unity へ送る | `POST /v1/items/{商品ID}/send-to-unity` | `{"entry": "…", "project": "…"}`（省けるときは `{}`） |
+
+- 変えた後の商品を答えに返します。続けて GET しても同じ答えです。
+- ユーザータグと属性の名前は、一覧にある名前に合わせます。一覧に無い名前は断ります。一覧に足してから付けるときは、URL に `?createMissing=true` を付けます。
+- 属性の `null` は「評価していない」に戻します。`0` とは別です。
+- Chmonos の編集画面で開いている商品は変えられません（`409`）。編集を終えてから送ってください。
+- 取り込みの途中は、変えたことを `202` で受け付け、取り込みが終わってから答えに入ります。
+- 「Unity へ送る」は、Unity の取り込み画面が出たところで待たずに返ります（`202`）。結果は `GET /v1/unity/last-send` と、変化の知らせ（`unity`）で分かります。送る物が複数あるときは `entry`、Unity を複数開いているときは `project` で選びます。開いているプロジェクトは `GET /v1/unity/editors` で分かります。
+- 許可した Web ページからも変えられます。
+
 ## 困ったとき
 
 | 出たこと | すること |
@@ -126,6 +151,9 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | 「ポート … で待ち受けられませんでした。」 | ほかのアプリがそのポートを使っています。設定の「API」でポートを変えてください。 |
 | `--headless` で起動しても、何も起きない | 同じデータで Chmonos が既に動いています。通知領域のアイコンを確かめてください。 |
 | `401`（`unauthorized`） | 合言葉が違います。`api.json` の `token` を送ってください。作り直した後は、新しい合言葉に替えてください。 |
+| `403`（`writesDisabled`） | 設定の「API」で「ほかのアプリからの変更を許す」をオンにしてください。 |
+| `409`（`itemBeingEdited`） | Chmonos の編集画面でその商品を開いています。編集を終えてから送ってください。 |
+| `503`（`storeBusy`） | データの保存先を移している途中です。少し待ってから送ってください。 |
 | `403`（`originNotAllowed`） | そのページの住所を、設定の「API」の「許可するWebページ」に追加してください。 |
 | `503`（`storeFormatTooNew`） | 新しいバージョンの Chmonos で使ったデータです。Chmonos を新しくしてください。 |
 

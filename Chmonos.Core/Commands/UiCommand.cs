@@ -251,6 +251,16 @@ public abstract record UiCommand
         IReadOnlyCollection<Models.LocalField> Owns) : UiCommand;
 
     /// <summary>
+    /// 商品の欄を、錠の中で今の値に当てて変える（<paramref name="Owns"/> の欄だけ）。外から使う API の足し引き（タグを1つ足す・属性を1つ書く）が使う：
+    /// 読んでから値ごと書くと、間に画面や別の要求が書いた分を消す。
+    /// <paramref name="Change"/> が null を返すと商品が無いときと同じ答え（失敗）になるので、変える物が無いときも今の値を返す（中身が同じなら書かない）
+    /// </summary>
+    public record ChangeItemLocal(
+        string ItemId,
+        Func<Models.LocalBlock, Models.LocalBlock?> Change,
+        IReadOnlyCollection<Models.LocalField> Owns) : UiCommand;
+
+    /// <summary>
     /// 確認待ちの対応アバターを確認済みにする（商品ページ・編集画面の札・右クリック・「すべて確認済みにする」）。
     /// 名指しした ID のうち、今の記録で確認待ちの物だけを錠の中で変える。
     /// </summary>

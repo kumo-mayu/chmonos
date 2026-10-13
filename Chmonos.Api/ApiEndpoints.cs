@@ -134,6 +134,103 @@ internal static partial class ApiEndpoints
         })
             .Takes<RecentRequest>().Produces(204).WithSummary("「使った」の足跡を打つ（書き込み）");
 
+        // ---- 分類（段3b。名前は一覧の綴りに寄せ、一覧に無い名前は createMissing=true のときだけ足す。ApiClassify） ----
+
+        app.MapPut("/v1/items/{id}/user-tags", async (ApiState state, ApiWriter writer, HttpContext context, string id, bool? createMissing) =>
+        {
+            var body = await ReadAsync(context.Request, json.UserTagsRequest);
+            writer.GuardItem(context, id);
+            var (tags, added) = await ApiClassify.ResolveTagsAsync(state.Snapshot, writer, body.Tags ?? [], createMissing == true, context.RequestAborted);
+            var command = new UiCommand.SaveItemLocal(id, new LocalBlock { UserTags = tags }, LocalOwners.UserTags);
+            return await ItemAfterWriteAsync(state, writer, command, id, context, added ? [state.Paths.UserTagsFile] : []);
+        })
+            .Takes<UserTagsRequest>().Answers<ItemDetail>("ユーザータグを丸ごと置き換える（書き込み。?createMissing=true で一覧に無い名前も足す）");
+
+        app.MapPost("/v1/items/{id}/user-tags", async (ApiState state, ApiWriter writer, HttpContext context, string id, bool? createMissing) =>
+        {
+            var body = await ReadAsync(context.Request, json.UserTagChangeRequest);
+            writer.GuardItem(context, id);
+            var (tags, added) = await ApiClassify.ResolveTagsAsync(
+                state.Snapshot, writer, [new UserTagInput(body.Top, body.Sub is null ? null : [body.Sub])], createMissing == true, context.RequestAborted);
+            var tag = tags[0];
+
+            // 足し引きは錠の中で今の値に当てる（読んでから丸ごと書くと、間に書かれた分を消す）
+            var command = new UiCommand.ChangeItemLocal(id, local => ApiClassify.AddTag(local, tag.Top, tag.Subs.FirstOrDefault()), LocalOwners.UserTags);
+            return await ItemAfterWriteAsync(state, writer, command, id, context, added ? [state.Paths.UserTagsFile] : []);
+        })
+            .Takes<UserTagChangeRequest>().Answers<ItemDetail>("ユーザータグを1つ足す（書き込み）");
+
+        app.MapPost("/v1/items/{id}/user-tags/remove", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.UserTagChangeRequest);
+            if (string.IsNullOrWhiteSpace(body.Top))
+            {
+                throw QueryException.Invalid("invalidName", "top を書いてください。");
+            }
+
+            writer.GuardItem(context, id);
+            var command = new UiCommand.ChangeItemLocal(id, local => ApiClassify.RemoveTag(local, body.Top, body.Sub), LocalOwners.UserTags);
+            return await ItemAfterWriteAsync(state, writer, command, id, context);
+        })
+            .Takes<UserTagChangeRequest>().Answers<ItemDetail>("ユーザータグを1つ外す（小分類を省くと大分類ごと。書き込み）");
+
+        app.MapPatch("/v1/items/{id}/attributes", async (ApiState state, ApiWriter writer, HttpContext context, string id, bool? createMissing) =>
+        {
+            var body = await ReadAsync(context.Request, json.AttributesRequest);
+            writer.GuardItem(context, id);
+            var (values, added) = await ApiClassify.ResolveAttributesAsync(
+                state.Snapshot, writer, body.Values ?? new Dictionary<string, int?>(), createMissing == true, context.RequestAborted);
+            var command = new UiCommand.ChangeItemLocal(id, local => ApiClassify.ApplyAttributes(local, values), LocalOwners.Attributes);
+            return await ItemAfterWriteAsync(state, writer, command, id, context, added ? [state.Paths.AttributesFile] : []);
+        })
+            .Takes<AttributesRequest>().Answers<ItemDetail>("属性の値を書く（名指しした物だけ。null で外す。書き込み）");
+
+        app.MapPut("/v1/items/{id}/memo", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.MemoRequest);
+            writer.GuardItem(context, id);
+            var memo = string.IsNullOrWhiteSpace(body.Memo) ? null : body.Memo;
+            var command = new UiCommand.SaveItemLocal(id, new LocalBlock { Memo = memo }, LocalOwners.ItemPageMemo);
+            return await ItemAfterWriteAsync(state, writer, command, id, context);
+        })
+            .Takes<MemoRequest>().Answers<ItemDetail>("メモを書く（null か空で消す。書き込み）");
+
+        app.MapPost("/v1/user-tags", async (ApiState state, ApiWriter writer, HttpContext context) =>
+        {
+            var body = await ReadAsync(context.Request, json.UserTagChangeRequest);
+            if (string.IsNullOrWhiteSpace(body.Top) || body.Sub is { } sub && string.IsNullOrWhiteSpace(sub))
+            {
+                throw QueryException.Invalid("invalidName", "top（と sub）を書いてください。");
+            }
+
+            writer.Guard(context);
+            if (await writer.RunAsync(new UiCommand.AddUserTag(body.Top, body.Sub), "userTags", [], [state.Paths.UserTagsFile], context.RequestAborted) is { } busy)
+            {
+                return Results.Json(new AcceptedAnswer(busy), json.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted);
+            }
+
+            return ApiHost.Json(Catalogs.UserTags(state.Snapshot), json.IReadOnlyListUserTagTopRef);
+        })
+            .Takes<UserTagChangeRequest>().Answers<IReadOnlyList<UserTagTopRef>>("ユーザータグを一覧に足す（既にあれば足さない。書き込み）");
+
+        app.MapPost("/v1/attributes", async (ApiState state, ApiWriter writer, HttpContext context) =>
+        {
+            var body = await ReadAsync(context.Request, json.NameRequest);
+            if (string.IsNullOrWhiteSpace(body.Name))
+            {
+                throw QueryException.Invalid("invalidName", "name を書いてください。");
+            }
+
+            writer.Guard(context);
+            if (await writer.RunAsync(new UiCommand.AddAttribute(body.Name), "attributes", [], [state.Paths.AttributesFile], context.RequestAborted) is { } busy)
+            {
+                return Results.Json(new AcceptedAnswer(busy), json.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted);
+            }
+
+            return ApiHost.Json(Catalogs.Attributes(state.Snapshot), json.IReadOnlyListAttributeEntryRef);
+        })
+            .Takes<NameRequest>().Answers<IReadOnlyList<AttributeEntryRef>>("属性を一覧に足す（既にあれば足さない。書き込み）");
+
         // Unity へ送る（ユーザ判断 2026-10-13）。送り終えるまで待たず 202 で返し、終わったら変化の知らせ（unity）で伝える
         app.MapPost("/v1/items/{id}/send-to-unity", async (ApiState state, ApiWriter writer, ChangeFeed feed, HttpContext context, string id) =>
         {
@@ -410,9 +507,11 @@ internal static partial class ApiEndpoints
     /// <summary>
     /// 商品に書いた後の答え：読み直した写しの商品1件。まとめて書いている途中（取り込み）なら写しを差し替えないので 202 で「受け付けた」と返す
     /// </summary>
-    private static async Task<IResult> ItemAfterWriteAsync(ApiState state, ApiWriter writer, UiCommand command, string itemId, HttpContext context)
+    /// <param name="alsoWritten">商品のほかに書いたファイル（一覧に足したときのマスタ）。読み直しに入れる。</param>
+    private static async Task<IResult> ItemAfterWriteAsync(
+        ApiState state, ApiWriter writer, UiCommand command, string itemId, HttpContext context, IReadOnlyList<string>? alsoWritten = null)
     {
-        if (await writer.RunAsync(command, "items", [itemId], [state.Paths.ItemFile(itemId)], context.RequestAborted) is { } busy)
+        if (await writer.RunAsync(command, "items", [itemId], [state.Paths.ItemFile(itemId), .. alsoWritten ?? []], context.RequestAborted) is { } busy)
         {
             return Results.Json(new AcceptedAnswer(busy), QueryJson.Context.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted);
         }

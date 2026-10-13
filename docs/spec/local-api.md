@@ -60,6 +60,11 @@
     送る物は unitypackage が1つなら省ける・送り先は開いているエディタが1つなら省ける（API は選ぶ窓を出せない。複数なら 400 `unityPackageAmbiguous`・409 `unityTargetAmbiguous`）。
     「送りますか」の確認は出さない（Unity の取り込み画面が確認になる）。送り終えるまで待たずに 202（`state: sending`）で返し、終わりは変化の知らせ `unity` と `GET /v1/unity/last-send`。
     送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ）。送り先は `GET /v1/unity/editors` で選ぶ。Unity を実際に動かす確かめはまだ（ユーザが「試して」と言ったとき）
+  - **分類**（3b）：`PUT /v1/items/{id}/user-tags`（丸ごと置き換え）・`POST /v1/items/{id}/user-tags`・`…/user-tags/remove`（1つ足す・外す。小分類を省くと大分類ごと）・
+    `PATCH /v1/items/{id}/attributes`（`{"values": {"名前": 0〜100 | null}}`。名指しした物だけ。null は外して未評価に戻す＝キーが無いのと 0 を分ける）・
+    `PUT /v1/items/{id}/memo`（null か空で消す）・`POST /v1/user-tags`・`POST /v1/attributes`（一覧に足す。既にあれば足さない）。
+    名前は一覧の綴りに寄せる（大文字小文字・前後の空白）。一覧に無い名前は既定で 400（`unknownUserTag`・`unknownAttribute`）、`?createMissing=true` なら一覧に足してから付ける。
+    足す・外す・属性は錠の中で今の値に当てる（`UiCommand.ChangeItemLocal`。読んでから丸ごと書くと、間に書かれた分を消す）
   - 足跡は `UiCommand.TouchRecent` で書く（画面は裏の列で書く `RecentTracker`。書き方は同じ `RecentActivity.Touch`）
 - 書き込み以外は今までどおり読むだけ。BOOTH の 1本ずつ・1.5秒の決まりを外から破れないよう、足りない情報も取りに行かない。
 - **検索の条件は JSON の式で受ける**。画面の絞り込みの条件を葉にして、AND・OR・NOT を自由に組める（画面は条件ごとの AND だが、API はプログラムが組むので木にする）。判定は Core へ移した（`SearchModuleConditions.From` が保存した条件の形 `SearchModuleState` から判定を作る。画面の条件も同じ判定を使い、`SearchModuleConditionParityTests` で同じ商品に当たることを確かめる。2026-10-12）。API の条件の JSON はこの形へ変換する。

@@ -594,6 +594,16 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(save.ItemId)
                     : ItemMissing();
 
+            case UiCommand.ChangeItemLocal change:
+                if (_edit is null)
+                {
+                    return MissingService("編集の保存");
+                }
+
+                return await _edit.ChangeLocalAsync(change.ItemId, change.Change, change.Owns, cancellationToken)
+                    ? new CommandResult.ItemSaved(change.ItemId)
+                    : ItemMissing();
+
             case UiCommand.ConfirmAvatars confirm:
                 if (_edit is null)
                 {

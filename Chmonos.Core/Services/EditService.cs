@@ -11,6 +11,16 @@ public interface IEditService
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 商品の欄を、錠の中で今の値に当てて変える（<paramref name="owns"/> の欄だけ。足し引きのように今の値から作る変更）。
+    /// 変え方が null を返したら書かない
+    /// </summary>
+    Task<bool> ChangeLocalAsync(
+        string itemId,
+        Func<LocalBlock, LocalBlock?> change,
+        IReadOnlyCollection<LocalField> owns,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ConfirmAvatarsAsync(
         string itemId,
         IReadOnlyCollection<string> avatarItemIds,
@@ -66,6 +76,13 @@ public sealed class EditService : IEditService
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default)
         => _store.Items.SaveLocalAsync(itemId, local, owns, cancellationToken: cancellationToken);
+
+    public Task<bool> ChangeLocalAsync(
+        string itemId,
+        Func<LocalBlock, LocalBlock?> change,
+        IReadOnlyCollection<LocalField> owns,
+        CancellationToken cancellationToken = default)
+        => _store.Items.ChangeLocalAsync(itemId, change, owns, cancellationToken);
 
     /// <summary>
     /// 確認待ちの対応アバターを確認済みにする（ユーザ判断 2026-10-06・メモ83）。**錠の中で今の一覧に当てる**——
