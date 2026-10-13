@@ -75,15 +75,18 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
             Set(ApiRunState.Starting, settings.Port);
             try
             {
-                _server = await ApiServer.StartAsync(store, writes);
+                var started = await ApiServer.StartAsync(store, writes);
 
-                // 取り込みの途中に立て直したら、新しい待ち受けにも「取り込み中」を伝える（前は伝わらず、途中の記録を読み直した。点検36・37）
-                if (BusyKind is { } busy)
+                // 取り込みの途中に立て直したら、新しい待ち受けにも「取り込み中」を伝える（前は伝わらず、途中の記録を読み直した。点検36・37）。
+                // 待ち受けを差し込むのと今の印を伝えるのを、印を覚える錠の中で1度に行う。分けると、読んだ「取り込み中」を
+                // 終わりの知らせの後に伝えてしまい、30分の上限まで外れなかった（点検38）
+                lock (_busy)
                 {
-                    _server.SetBusy(busy);
+                    _server = started;
+                    started.SetBusy(BusyKindLocked());
                 }
 
-                Set(ApiRunState.Running, _server.Port);
+                Set(ApiRunState.Running, started.Port);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -180,11 +183,12 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
             }
 
             after = BusyKindLocked();
-        }
 
-        if (before != after)
-        {
-            _server?.SetBusy(after);
+            // 伝えるのも錠の中で（錠の外だと、続けて来た2つの知らせが逆の順で届き、古い印が残った。点検38）
+            if (before != after)
+            {
+                _server?.SetBusy(after);
+            }
         }
     }
 

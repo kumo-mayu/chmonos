@@ -30,6 +30,13 @@ public sealed partial class MainViewModel
             case "modifications":
                 // 改変の画面は、窓が手前に戻ったときと同じく全部を読み直す（記録・アバター・プロジェクト）
                 (CurrentViewModel as ModificationHubViewModel)?.NoteWindowActivated();
+
+                // 開いている改変の詳細（単独の画面でも、改変の画面の右に組み込んだ物でも）。一覧の読み直しは右側を作り直さない（点検38）
+                if (CurrentModification is { } detail && write.Ids.Contains(detail.Record.Id))
+                {
+                    detail.NoteChangedOutsideAsync().Forget();
+                }
+
                 RefreshCounts();
                 break;
             case "userTags" or "attributes":

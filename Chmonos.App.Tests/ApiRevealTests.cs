@@ -27,11 +27,16 @@ public sealed class ApiRevealTests
     private static async Task<(string Outcome, List<string> Opened)> RevealAsync(TestApp app, ItemRecord item, string? path, bool exists = true)
     {
         var opened = new List<string>();
-        var outcome = await ApiReveal.RevealAsync(item, path, app.Services.Volumes, target =>
-        {
-            opened.Add(target);
-            return Task.FromResult(exists);
-        });
+        var outcome = await ApiReveal.RevealAsync(
+            item,
+            path,
+            app.Services.Volumes,
+            target =>
+            {
+                opened.Add(target);
+                return Task.FromResult(true);
+            },
+            _ => exists);
         return (outcome, opened);
     }
 
@@ -67,6 +72,9 @@ public sealed class ApiRevealTests
         await app.StartAsync();
 
         Assert.Equal(ApiReveal.NoLocation, (await RevealAsync(app, ItemWith([], []), null)).Outcome);
-        Assert.Equal(ApiReveal.Missing, (await RevealAsync(app, ItemWith([@"E:\外付け\a.zip"], []), null, exists: false)).Outcome);
+        // 無い場所は、親フォルダも開かずに「見つからない」と答える
+        var (outcome, opened) = await RevealAsync(app, ItemWith([@"E:\外付け\a.zip"], []), null, exists: false);
+        Assert.Equal(ApiReveal.Missing, outcome);
+        Assert.Empty(opened);
     });
 }

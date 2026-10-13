@@ -14,6 +14,12 @@ public sealed class ItemEditGate
     private readonly object _lock = new();
     private readonly Dictionary<string, Writing> _writing = new(StringComparer.Ordinal);
     private object? _editor;
+
+    /// <summary>
+    /// もう離れた画面（その画面からの「開いた」を受け付けない）。離れた画面の待っていた処理（「次へ」の保存の後の読み込み）が、
+    /// 後から開いた別の編集画面の印を置き換えると、今開いている商品が守られなくなった（点検38）。画面が捨てられたら一緒に消える
+    /// </summary>
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, object> _left = new();
     private string? _editingItemId;
 
     private sealed class Writing
@@ -78,6 +84,11 @@ public sealed class ItemEditGate
     {
         lock (_lock)
         {
+            if (_left.TryGetValue(editor, out _))
+            {
+                return Task.CompletedTask;
+            }
+
             _editor = editor;
             _editingItemId = itemId;
             return _writing.TryGetValue(itemId, out var writing) ? writing.Done.Task : Task.CompletedTask;
@@ -89,6 +100,7 @@ public sealed class ItemEditGate
     {
         lock (_lock)
         {
+            _left.AddOrUpdate(editor, editor);
             if (ReferenceEquals(_editor, editor))
             {
                 _editor = null;

@@ -11,7 +11,9 @@ namespace Chmonos.Api;
 /// 出すのは、人の選択をそのまま写す物と、取り返しのつく物だけ：
 /// - 対応アバター・共通素体を名指しで足す・消す（消した印を残す。画面の「消したもの」から戻せる）・確認待ちを名指しで確認済みにする。まとめての確定は出さない（推定が人を介さず確定になる）
 /// - 改変を作る・メモ・blueprint ID・Unity プロジェクト・使った物を足す・外す・戻す。改変を消す・名前を変える・使った物を完全に消すは画面に残す
-/// 変え方は画面と同じ関数（<see cref="AvatarService.WithManualAvatarLink"/> など）を通し、「消した」「確認待ち」の扱いを揃える
+/// 変え方は画面と同じ関数（<see cref="AvatarService.WithManualAvatarLink"/> など）を通し、「消した」「確認待ち」の扱いを揃える。
+/// **書く前の確かめは保存先の今の記録で行う**（API の写しは取り込みの間は古いまま。写しで確かめると、取り込みの途中に 202 で受けた書き込みを
+/// 続く要求が知らず、作った改変へ書けない・足した対応アバターを消せない・同じ名前の改変を重ねて作れた。点検38）。答えは今までどおり写しから作る
 /// </summary>
 internal static partial class ApiEndpoints
 {
@@ -25,7 +27,7 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.AvatarLinkRequest);
             using var claim = writer.GuardItem(context, id);
-            var avatar = RequireAvatar(state.Snapshot, body.AvatarId);
+            var avatar = RequireAvatar(state.Store, body.AvatarId);
             if (avatar.ItemId == id)
             {
                 throw QueryException.Invalid("selfLink", "商品を自分自身の対応アバターにはできません。");
@@ -41,7 +43,7 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.AvatarLinkRequest);
             using var claim = writer.GuardItem(context, id);
-            if (!state.Snapshot.ItemsById[id].Local.Avatars.Any(link => link.AvatarItemId == body.AvatarId && !link.Rejected))
+            if (!(await CurrentItemAsync(state, id, context)).Local.Avatars.Any(link => link.AvatarItemId == body.AvatarId && !link.Rejected))
             {
                 throw QueryException.NotFound("avatarNotLinked", "この商品にそのアバターは付いていません。");
             }
@@ -68,7 +70,7 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.BaseLinkRequest);
             using var claim = writer.GuardItem(context, id);
-            var baseName = RequireBase(state.Snapshot, body.BaseName);
+            var baseName = RequireBase(state.Store, body.BaseName);
             var command = new UiCommand.ChangeAvatarLinks(id, Bases: links => AvatarService.WithManualBaseLink(links, baseName));
             return await ItemAfterWriteAsync(state, writer, command, id, context);
         })
@@ -78,7 +80,7 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.BaseLinkRequest);
             using var claim = writer.GuardItem(context, id);
-            if (!state.Snapshot.ItemsById[id].Local.AvatarBases.Any(link =>
+            if (!(await CurrentItemAsync(state, id, context)).Local.AvatarBases.Any(link =>
                     string.Equals(link.BaseName, body.BaseName?.Trim(), StringComparison.CurrentCultureIgnoreCase) && !link.Rejected))
             {
                 throw QueryException.NotFound("baseNotLinked", "この商品にその共通素体は付いていません。");
@@ -97,43 +99,54 @@ internal static partial class ApiEndpoints
             writer.Guard(context);
 
             // アバターに限る。改変を作る命令は、登録簿に無い商品をその場でアバターとして足すので、帽子などを渡すと登録簿が汚れる
-            var avatar = RequireAvatar(state.Snapshot, body.AvatarId);
+            var avatar = RequireAvatar(state.Store, body.AvatarId);
             var name = body.Name?.Trim();
             if (string.IsNullOrEmpty(name))
             {
                 throw QueryException.Invalid("invalidName", "name を書いてください。");
             }
 
-            if (state.Snapshot.Modifications.Records.Any(record =>
-                    record.AvatarItemId == avatar.ItemId && string.Equals(record.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+            // 同じ名前の確かめと作るのを、API の作る要求どうしで1つずつにする（確かめた後に別の要求が同じ名前で作らないように。
+            // 作る命令そのものは同じ名前を許す：画面は知らせてから作らせる）
+            await CreatingModification.WaitAsync(context.RequestAborted);
+            try
             {
-                throw new QueryException(409, "modificationNameTaken", "このアバターに同じ名前の改変が既にあります。");
-            }
+                var existing = await state.Store.Modifications.LoadAllAsync(context.RequestAborted);
+                if (existing.Modifications.Any(record =>
+                        record.AvatarItemId == avatar.ItemId && string.Equals(record.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    throw new QueryException(409, "modificationNameTaken", "このアバターに同じ名前の改変が既にあります。");
+                }
 
-            var (busy, result) = await writer.RunWithResultAsync(
-                new UiCommand.CreateModification(avatar.ItemId, name),
-                "modifications",
-                result => result is CommandResult.ModificationCreated created
-                    ? ([created.Record.Id], [state.Paths.ModificationFile(created.Record.Id)])
-                    : ([], []),
-                context.RequestAborted);
-            if (result is not CommandResult.ModificationCreated made)
+                var (busy, result) = await writer.RunWithResultAsync(
+                    new UiCommand.CreateModification(avatar.ItemId, name),
+                    "modifications",
+                    result => result is CommandResult.ModificationCreated created
+                        ? ([created.Record.Id], [state.Paths.ModificationFile(created.Record.Id)])
+                        : ([], []),
+                    context.RequestAborted);
+                if (result is not CommandResult.ModificationCreated made)
+                {
+                    throw new QueryException(500, "commandFailed", "改変を作れませんでした。");
+                }
+
+                // 取り込みの途中でも ID は決まっているので、受け付けた答えにも場所を付ける
+                context.Response.Headers.Location = $"/v1/modifications/{made.Record.Id}";
+                return busy is not null
+                    ? Results.Json(new AcceptedAnswer(busy), json.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted)
+                    : Results.Json(Catalogs.Modification(state.Snapshot, made.Record.Id), json.ModificationRef, statusCode: StatusCodes.Status201Created);
+            }
+            finally
             {
-                throw new QueryException(500, "commandFailed", "改変を作れませんでした。");
+                CreatingModification.Release();
             }
-
-            // 取り込みの途中でも ID は決まっているので、受け付けた答えにも場所を付ける
-            context.Response.Headers.Location = $"/v1/modifications/{made.Record.Id}";
-            return busy is not null
-                ? Results.Json(new AcceptedAnswer(busy), json.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted)
-                : Results.Json(Catalogs.Modification(state.Snapshot, made.Record.Id), json.ModificationRef, statusCode: StatusCodes.Status201Created);
         })
             .Takes<ModificationCreateRequest>().Produces<ModificationRef>(201).WithSummary("改変を作る（アバター1体＋名前。書き込み）");
 
         app.MapPut("/v1/modifications/{id}/memo", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.MemoRequest);
-            GuardModification(writer, state, context, id);
+            await GuardModificationAsync(writer, state, context, id);
             var memo = string.IsNullOrWhiteSpace(body.Memo) ? null : body.Memo;
             return await ModificationAfterWriteAsync(state, writer, new UiCommand.SetModificationMemo(id, memo), id, context);
         })
@@ -142,7 +155,7 @@ internal static partial class ApiEndpoints
         app.MapPut("/v1/modifications/{id}/blueprint-id", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.BlueprintIdRequest);
-            GuardModification(writer, state, context, id);
+            await GuardModificationAsync(writer, state, context, id);
 
             // 画面は形が違っても保存して注意を出す（人が貼った物を捨てない）。道具が送る値は形を確かめて断る
             var blueprint = string.IsNullOrWhiteSpace(body.BlueprintId) ? null : body.BlueprintId.Trim();
@@ -158,7 +171,7 @@ internal static partial class ApiEndpoints
         app.MapPut("/v1/modifications/{id}/unity-project", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.UnityProjectRequest);
-            GuardModification(writer, state, context, id);
+            await GuardModificationAsync(writer, state, context, id);
             var path = string.IsNullOrWhiteSpace(body.Path) ? null : Path.TrimEndingDirectorySeparator(body.Path.Trim());
             if (path is not null && (!Path.IsPathFullyQualified(path) || !Directory.Exists(Path.Combine(path, "Assets"))))
             {
@@ -172,7 +185,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/modifications/{id}/members", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.ModificationMemberRequest);
-            GuardModification(writer, state, context, id);
+            await GuardModificationAsync(writer, state, context, id);
             if (string.IsNullOrEmpty(body.ItemId) || !state.Snapshot.ItemsById.TryGetValue(body.ItemId, out var item))
             {
                 throw QueryException.NotFound("itemNotFound", $"商品 {body.ItemId} は見つかりません。");
@@ -206,33 +219,46 @@ internal static partial class ApiEndpoints
             .Takes<ModificationMemberRequest>().Answers<ModificationRef>("外した物を戻す（書き込み）");
     }
 
-    /// <summary>アバターとして扱っている登録簿の項目（無い・アバターでなければ 400）。</summary>
-    private static AvatarRegistryEntry RequireAvatar(QuerySnapshot snapshot, string? avatarId)
-        => snapshot.Registry.Entries.FirstOrDefault(entry => entry.ItemId == avatarId && AvatarService.IsAvatar(entry))
+    /// <summary>API の改変を作る要求を1つずつにする（同じ名前の確かめと作るの間に、別の要求が入らないように）。</summary>
+    private static readonly SemaphoreSlim CreatingModification = new(1, 1);
+
+    /// <summary>保存先の今の商品（書く前の確かめに使う。写しは取り込みの間は古い）。</summary>
+    private static async Task<ItemRecord> CurrentItemAsync(ApiState state, string id, HttpContext context)
+        => await state.Store.Items.LoadAsync(id, context.RequestAborted)
+            ?? throw QueryException.NotFound("itemNotFound", $"商品 {id} は見つかりません。");
+
+    /// <summary>アバターとして扱っている登録簿の項目（無い・アバターでなければ 400）。保存先の今の登録簿で見る。</summary>
+    private static AvatarRegistryEntry RequireAvatar(Core.Storage.DataStore store, string? avatarId)
+        => store.Avatars.Load().Entries.FirstOrDefault(entry => entry.ItemId == avatarId && AvatarService.IsAvatar(entry))
             ?? throw QueryException.Invalid("unknownAvatar", "avatarId はアバターの管理にあるアバターの ID ではありません。/v1/avatars で確かめてください。");
 
     /// <summary>一覧にある共通素体の名前（一覧の綴りに寄せる。無ければ 400）。</summary>
-    private static string RequireBase(QuerySnapshot snapshot, string? baseName)
-        => snapshot.Registry.BaseGroups.FirstOrDefault(group => string.Equals(group.Name, baseName?.Trim(), StringComparison.CurrentCultureIgnoreCase))?.Name
+    private static string RequireBase(Core.Storage.DataStore store, string? baseName)
+        => store.Avatars.Load().BaseGroups.FirstOrDefault(group => string.Equals(group.Name, baseName?.Trim(), StringComparison.CurrentCultureIgnoreCase))?.Name
             ?? throw QueryException.Invalid("unknownBase", "baseName は共通素体の一覧にありません。/v1/avatar-bases で確かめてください。");
 
-    private static void GuardModification(ApiWriter writer, ApiState state, HttpContext context, string id)
+    /// <summary>書いてよいかと、改変が在るか（保存先の今の記録で見る。取り込みの途中に作った改変にも書けるように）。</summary>
+    private static async Task<ModificationRecord> GuardModificationAsync(ApiWriter writer, ApiState state, HttpContext context, string id)
     {
         writer.Guard(context);
-        if (state.Snapshot.Modifications.Records.All(record => record.Id != id))
+        ModificationRecord? record = null;
+        try
         {
-            throw QueryException.NotFound("modificationNotFound", $"改変 {id} は見つかりません。");
+            record = await state.Store.Modifications.LoadAsync(id, context.RequestAborted);
         }
+        catch (ArgumentException)
+        {
+            // 改変の ID の形でない（ファイルの名前にできない）。無いのと同じに答える
+        }
+
+        return record ?? throw QueryException.NotFound("modificationNotFound", $"改変 {id} は見つかりません。");
     }
 
     private static async Task<IResult> SetMemberDetachedAsync(ApiState state, ApiWriter writer, HttpContext context, string id, bool detached)
     {
         var body = await ReadAsync(context.Request, QueryJson.Context.ModificationMemberRequest);
-        GuardModification(writer, state, context, id);
-
         // 行は保存先の今の記録から選ぶ（命令は行そのもので指す。写しは取り込みの間は古い）
-        var record = await state.Store.Modifications.LoadAsync(id, context.RequestAborted)
-            ?? throw QueryException.NotFound("modificationNotFound", $"改変 {id} は見つかりません。");
+        var record = await GuardModificationAsync(writer, state, context, id);
         var matches = record.Members
             .Where(member => member.ItemId == body.ItemId && member.Detached != detached
                 && (body.FileHash is null || string.Equals(member.FileHash, body.FileHash, StringComparison.OrdinalIgnoreCase))

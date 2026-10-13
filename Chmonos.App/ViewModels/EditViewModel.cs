@@ -778,6 +778,12 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     {
         while (_index < _queue.Count)
         {
+            // 離れた後に、待っていた「次へ」の保存が終わって来た。読まない（札の側も、離れた画面の印は受け付けない。点検38）
+            if (_hasLeft)
+            {
+                return;
+            }
+
             // 読む前に「開いた」印を立て、外から使う API がこの商品へ書いている途中なら書き終えるまで待つ
             // （読んだ後に API が書くと、人の保存で API の分が消える。開いている間は API が断る。点検37）
             await _services.EditGate.BeginEditAsync(this, _queue[_index]);
@@ -1230,8 +1236,12 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     /// 離れたら数え上げを止める。止める口が無く、画面を離れても回り続けていた
     /// （今の画面かを確かめるので飛ばされはしないが、数え終わるまで古い編集画面が残る）。
     /// </summary>
+    /// <summary>画面を離れたか（離れた後に終わった待ちが、読み込みや印を立て直さないように）。</summary>
+    private bool _hasLeft;
+
     public void OnLeaving()
     {
+        _hasLeft = true;
         StopReturnTimer();
         _services.EditGate.EndEdit(this);
     }

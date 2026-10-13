@@ -193,4 +193,51 @@ public sealed class ApiCurationTests
         Assert.Equal(HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/unity-project", """{"path":null}""")).StatusCode);
         Assert.Null((await app.Store.Modifications.LoadAsync(id))!.UnityProject);
     });
+
+    /// <summary>
+    /// 取り込みの途中（写しを差し替えない間）に作った改変へ続けて書け、同じ名前は重ねて作れない（点検38：前は写しで確かめていて、404 になり、同じ名前も通った）
+    /// </summary>
+    [Fact]
+    public Task 取り込みの途中に作った改変へ続けて書け_同じ名前は断る() => Run(async (app, client) =>
+    {
+        app.Services.Api.NoteBusy("import", "import");
+        try
+        {
+            var created = await PostAsync(client, "/v1/modifications", $$"""{"avatarId":"{{AvatarA}}","name":"水着"}""");
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, created.StatusCode);
+            var location = created.Headers.Location!.OriginalString;
+
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PutAsync(client, $"{location}/memo", """{"memo":"夏"}""")).StatusCode);
+            Assert.Equal(System.Net.HttpStatusCode.Conflict, (await PostAsync(client, "/v1/modifications", $$"""{"avatarId":"{{AvatarA}}","name":"水着"}""")).StatusCode);
+
+            // 取り込みの途中に足した対応アバターも、続けて消せる
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PostAsync(client, $"/v1/items/{Outfit}/avatars/remove", $$"""{"avatarId":"{{AvatarA}}"}""")).StatusCode);
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PostAsync(client, $"/v1/items/{Outfit}/avatars", $$"""{"avatarId":"{{AvatarA}}"}""")).StatusCode);
+            Assert.Equal(System.Net.HttpStatusCode.Accepted, (await PostAsync(client, $"/v1/items/{Outfit}/avatars/remove", $$"""{"avatarId":"{{AvatarA}}"}""")).StatusCode);
+            Assert.True((await LinkAsync(app, AvatarA)).Rejected);
+        }
+        finally
+        {
+            app.Services.Api.NoteBusy("import", null);
+        }
+    });
+
+    /// <summary>開いている改変の詳細は、API が書いた値に合わせる。打っている途中の欄は残す（点検38）。</summary>
+    [Fact]
+    public Task 開いている改変の詳細は_打っていない欄だけ新しい値に合わせる() => Run(async (app, client) =>
+    {
+        var created = await PostAsync(client, "/v1/modifications", $$"""{"avatarId":"{{AvatarB}}","name":"制服"}""");
+        var id = JsonDocument.Parse(await created.Content.ReadAsStringAsync()).RootElement.GetProperty("id").GetString()!;
+        var main = app.Main!;
+        main.ShowModification((await app.Store.Modifications.LoadAsync(id))!);
+        var detail = Assert.IsType<ViewModels.ModificationViewModel>(main.CurrentViewModel);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"冬"}""")).StatusCode);
+        await UiThread.Until(() => detail.MemoInput == "冬", "打っていないメモの欄が新しい値になる");
+
+        detail.BlueprintInput = "avtr_打っている途中";
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"春"}""")).StatusCode);
+        await UiThread.Until(() => detail.MemoInput == "春", "メモはまた新しい値になる");
+        Assert.Equal("avtr_打っている途中", detail.BlueprintInput);
+    });
 }

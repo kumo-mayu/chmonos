@@ -1,3 +1,4 @@
+using System.IO;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
@@ -27,7 +28,11 @@ internal static class ApiReveal
             .Concat(item.Local.LocalFolders.Select(folder => (folder.Path, volumes.CurrentOf(folder))))
             .ToList();
 
-    public static async Task<string> RevealAsync(ItemRecord item, string? path, VolumeTable volumes, Func<string, Task<bool>>? reveal = null)
+    private static bool ExistsOnDisk(string location) => File.Exists(location) || Directory.Exists(location);
+
+    /// <param name="exists">場所が在るか（試験が差し替える）。</param>
+    public static async Task<string> RevealAsync(
+        ItemRecord item, string? path, VolumeTable volumes, Func<string, Task<bool>>? reveal = null, Func<string, bool>? exists = null)
     {
         var locations = Locations(item, volumes);
         string target;
@@ -58,6 +63,14 @@ internal static class ApiReveal
             }
 
             target = distinct[0];
+        }
+
+        // 無ければ開かない。画面の開き方は、無いと親フォルダを開いて「開けた」になるので、道具が「無い」と知れなかった（点検38）。
+        // 画面は押した人に近くを見せて助けるが、API は答えで伝え、どうするかは呼んだ側に任せる
+        exists ??= ExistsOnDisk;
+        if (!exists(target))
+        {
+            return Missing;
         }
 
         return await (reveal ?? Shell.TryRevealAsync)(target) ? Opened : Missing;

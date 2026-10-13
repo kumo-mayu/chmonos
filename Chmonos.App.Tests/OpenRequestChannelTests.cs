@@ -42,4 +42,27 @@ public sealed class OpenRequestChannelTests
         var sameRoot = new AppPaths(paths.Root.ToLowerInvariant() + Path.DirectorySeparatorChar);
         Assert.Equal(OpenRequestChannel.NameOf(paths, "open"), OpenRequestChannel.NameOf(sameRoot, "open"));
     }
+
+    /// <summary>頼みを受けている最中に終えても、片付けた合図に触れて落ちない（点検38）。</summary>
+    [Fact]
+    public void 頼みの処理の最中に終えても_落ちずに処理が終わるのを待つ()
+    {
+        var paths = NewPaths();
+        using var entered = new ManualResetEventSlim();
+        var finished = false;
+        var channel = OpenRequestChannel.Listen(paths, () =>
+        {
+            entered.Set();
+            Thread.Sleep(300);
+            finished = true;
+        });
+
+        var request = Task.Run(() => OpenRequestChannel.Request(paths, TimeSpan.FromSeconds(5)));
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+
+        channel.Dispose();
+
+        Assert.True(Volatile.Read(ref finished));
+        Assert.True(request.Wait(TimeSpan.FromSeconds(5)));
+    }
 }

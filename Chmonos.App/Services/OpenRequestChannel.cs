@@ -27,6 +27,12 @@ internal sealed class OpenRequestChannel : IDisposable
             open,
             (_, _) =>
             {
+                // 終える途中に届いた頼みは受けない（窓を開き直さない）
+                if (Volatile.Read(ref _disposed))
+                {
+                    return;
+                }
+
                 onRequest();
                 _opened.Set();
             },
@@ -70,9 +76,22 @@ internal sealed class OpenRequestChannel : IDisposable
         return $@"Local\Chmonos.{hash}.{suffix}";
     }
 
+    private bool _disposed;
+
+    /// <summary>
+    /// 待ちを外し、走っている知らせの処理が終わってから合図を片付ける。外すだけでは走っている処理を待たず、
+    /// 片付けた合図に触れて落ちた（終了と2本目の起動が重なったとき。点検38）。待つのは2秒まで（終える操作を長く止めない）
+    /// </summary>
     public void Dispose()
     {
-        _registration.Unregister(null);
+        Volatile.Write(ref _disposed, true);
+        using var unregistered = new ManualResetEvent(false);
+        if (_registration.Unregister(unregistered) && !unregistered.WaitOne(TimeSpan.FromSeconds(2)))
+        {
+            // 走っている処理が終わらない。片付けると、その処理が触れて落ちるので残す（プロセスごと終わる）
+            return;
+        }
+
         _open.Dispose();
         _opened.Dispose();
     }

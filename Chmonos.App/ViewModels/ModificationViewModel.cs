@@ -1407,6 +1407,39 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public string UpdatedText => $"更新 {Record.UpdatedAt:yyyy-MM-dd}";
 
     /// <summary>
+    /// この改変が外（外から使う API）で書き換わった。記録を読み直して組み直し、**打っていない欄だけ**今の値に合わせる（点検38：前は古いまま残った）。
+    /// 打っている途中の欄（前の記録と違う欄）は残し、その欄の保存が後から書く（打った分を消さない）
+    /// </summary>
+    internal async Task NoteChangedOutsideAsync()
+    {
+        var before = Record;
+        await ReloadAsync();
+
+        if (_nameInput == before.Name)
+        {
+            _nameInput = Record.Name;
+            OnPropertyChanged(nameof(NameInput));
+            OnPropertyChanged(nameof(NameChanged));
+        }
+
+        if (_memoInput == (before.Memo ?? string.Empty))
+        {
+            _memoInput = Record.Memo ?? string.Empty;
+            OnPropertyChanged(nameof(MemoInput));
+            OnPropertyChanged(nameof(MemoChanged));
+        }
+
+        if (_blueprintInput == (before.BlueprintId ?? string.Empty))
+        {
+            _blueprintInput = Record.BlueprintId ?? string.Empty;
+            foreach (var name in new[] { nameof(BlueprintInput), nameof(BlueprintHint), nameof(HasBlueprintHint), nameof(CanChangeAvatar) })
+            {
+                OnPropertyChanged(name);
+            }
+        }
+    }
+
+    /// <summary>
     /// 記録を読み直して画面を組み直す。
     ///
     /// 商品名は毎回引く。改変には商品IDしか持たせていないので

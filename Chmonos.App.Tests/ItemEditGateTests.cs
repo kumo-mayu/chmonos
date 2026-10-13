@@ -51,4 +51,22 @@ public sealed class ItemEditGateTests
         Assert.Equal("1", gate.EditingItemId);
         Assert.Null(gate.TryBeginApiWrite("1"));
     }
+
+    /// <summary>離れた画面の待っていた処理が後から「開いた」と言っても、今の画面の印を置き換えない（点検38）。</summary>
+    [Fact]
+    public void 離れた画面の開いたは_後から来ても受け付けない()
+    {
+        var gate = new ItemEditGate();
+        var old = new object();
+        var current = new object();
+        gate.BeginEditAsync(old, "1");
+        gate.EndEdit(old);
+        gate.BeginEditAsync(current, "2");
+
+        gate.BeginEditAsync(old, "3");
+
+        Assert.Equal("2", gate.EditingItemId);
+        Assert.Null(gate.TryBeginApiWrite("2"));
+        Assert.NotNull(gate.TryBeginApiWrite("3"));
+    }
 }
