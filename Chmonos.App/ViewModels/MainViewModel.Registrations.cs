@@ -6,42 +6,21 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public sealed partial class MainViewModel
 {
-    private RegistrationQueue? _registrations;
+    /// <summary>
+    /// 「このIDで登録」の順番待ち。1件ずつ流す。持つのはアプリの一式（画面の無い起動でも続きを流すため。docs/history/headless-core-2026-10-13.md）。
+    /// 主画面は、登録できた商品を控えと検索の写しへ足す役と、未確定の画面が受け止めなかった終わりを帯で知らせる役を受け持つ
+    /// </summary>
+    public RegistrationQueue Registrations => _services.Registrations;
 
-    /// <summary>「このIDで登録」の順番待ち。1件ずつ流す。</summary>
-    public RegistrationQueue Registrations => _registrations ??= CreateRegistrations();
+    /// <summary>主画面の役を列へ差し込む（作るときに1回）。</summary>
+    private void ListenToRegistrations()
+    {
+        _services.RegistrationSettled = NoteResolveSettledAsync;
+        Registrations.Unhandled += outcome => NoteRegistrationAwayAsync(outcome).Forget();
+    }
 
     /// <summary>自動検索の進み。走るのは1本だけ。</summary>
     public ResolveSearchState ResolveSearch { get; } = new();
-
-    private RegistrationQueue CreateRegistrations()
-    {
-        var queue = new RegistrationQueue(
-            _services.Commands,
-            () => _services.Settings.FetchIntervalMs,
-            NoteResolveSettledAsync,
-            _services.Commands.HoldAfterRegistration,
-            RegisteredBeforeAsync);
-        queue.Unhandled += outcome => NoteRegistrationAwayAsync(outcome).Forget();
-        return queue;
-    }
-
-    /// <summary>
-    /// このファイルが既にこの商品に入っているか（未確定から消えて、商品の記録が持っている）。読むだけなので命令を通さない。
-    /// 前の起動で登録の後、添えた画像を入れる前に閉じた登録を、記録から続けるときに見分ける。
-    /// </summary>
-    private async Task<bool> RegisteredBeforeAsync(string itemId, string hash)
-    {
-        if (await _services.Store.Items.LoadAsync(itemId) is not { } item
-            || !item.Local.LocalFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
-        {
-            return false;
-        }
-
-        // 未確定にまだ在るなら、商品に入っていても命令に任せる（命令が今の決まりで片付ける）
-        var unresolved = await _services.Store.Unresolved.LoadAsync();
-        return !unresolved.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
-    }
 
     /// <summary>
     /// 確定・登録した商品を控え（まとめて編集へ送る分）に足し、その商品だけを読んで検索の写しに足す。
@@ -79,23 +58,8 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>前の起動で残った登録の列を続ける。窓を出した後に呼ぶ（起動時の裏の作業とは別の列）。</summary>
-    public async Task ResumeRegistrationsAsync()
-    {
-        List<Core.Models.QueuedRegistration> saved;
-        try
-        {
-            saved = await _services.Store.RegistrationQueue.LoadAsync();
-        }
-        catch (Exception exception) when (exception is System.IO.IOException or System.Text.Json.JsonException or UnauthorizedAccessException)
-        {
-            // 読めない記録で起動を止めない。続けられないことはログに残す
-            Core.Diagnostics.AppLog.Error("登録の列の再開", exception);
-            return;
-        }
-
-        Registrations.Resume(saved);
-    }
+    /// <inheritdoc cref="AppServiceContainer.ResumeRegistrationsAsync"/>
+    public Task ResumeRegistrationsAsync() => _services.ResumeRegistrationsAsync();
 
     /// <summary>
     /// 閉じる前に、終わっていない登録があれば聞く（ユーザ判断 2026-10-05「4」）。閉じるのをやめるなら true。

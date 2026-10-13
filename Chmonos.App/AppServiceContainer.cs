@@ -270,6 +270,57 @@ public sealed class AppServiceContainer : IDisposable
 
     private Services.ImportRunner? _imports;
 
+    /// <summary>
+    /// 「このIDで登録」の順番待ち。プロセスに1つ（画面の無い起動でも前の起動の続きを流し、後から開いた窓も同じ列を映す）。
+    /// 登録できた商品を控えと検索の写しへ足すのは主画面の役で、窓を開くまでは誰も受けない（<see cref="RegistrationSettled"/>）
+    /// </summary>
+    public ViewModels.RegistrationQueue Registrations => _registrations ??= new ViewModels.RegistrationQueue(
+        Commands,
+        () => Settings.FetchIntervalMs,
+        itemId => RegistrationSettled?.Invoke(itemId) ?? Task.CompletedTask,
+        Commands.HoldAfterRegistration,
+        RegisteredBeforeAsync);
+
+    private ViewModels.RegistrationQueue? _registrations;
+
+    /// <summary>登録できた商品を、画面に知らせる前に主画面の控えと検索の写しへ足す（主画面が差し込む）。</summary>
+    public Func<string, Task>? RegistrationSettled { get; set; }
+
+    /// <summary>
+    /// このファイルが既にこの商品に入っているか（未確定から消えて、商品の記録が持っている）。読むだけなので命令を通さない。
+    /// 前の起動で登録の後、添えた画像を入れる前に閉じた登録を、記録から続けるときに見分ける。
+    /// </summary>
+    private async Task<bool> RegisteredBeforeAsync(string itemId, string hash)
+    {
+        if (await Store.Items.LoadAsync(itemId) is not { } item
+            || !item.Local.LocalFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        // 未確定にまだ在るなら、商品に入っていても命令に任せる（命令が今の決まりで片付ける）
+        var unresolved = await Store.Unresolved.LoadAsync();
+        return !unresolved.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>前の起動で残った登録の列を続ける。窓を出した後（画面の無い起動では起動の後）に呼ぶ（起動時の裏の作業とは別の列）。</summary>
+    public async Task ResumeRegistrationsAsync()
+    {
+        List<QueuedRegistration> saved;
+        try
+        {
+            saved = await Store.RegistrationQueue.LoadAsync();
+        }
+        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        {
+            // 読めない記録で起動を止めない。続けられないことはログに残す
+            Core.Diagnostics.AppLog.Error("登録の列の再開", exception);
+            return;
+        }
+
+        Registrations.Resume(saved);
+    }
+
     public void SweepStaleTemporaryFilesLater()
         => Task.Run(async () =>
         {

@@ -115,6 +115,7 @@ public sealed partial class MainViewModel : ViewModelBase
         NoteInterruptedImportChanged();
         ShowStartScreen();
         ListenToStartupWork();
+        ListenToRegistrations();
 
         // 起動したときの作業はプロセスで1回だけ。画面の無い起動の後に窓を開いたときは済んでいるので、起動時だけの自動の取り込みもしない
         var launched = _services.Startup.Start();
