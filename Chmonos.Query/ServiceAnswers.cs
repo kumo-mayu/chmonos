@@ -36,6 +36,15 @@ public sealed record ChangeEventRef(long Seq, string Kind, IReadOnlyList<string>
 /// <param name="Reload">頼んだ通番からの変化を全部は持っていない（古すぎる・API が起動し直した）。外の道具は全部を取り直す。</param>
 public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IReadOnlyList<ChangeEventRef> Changes);
 
+/// <summary>書き込みの要求：オン・オフ（お気に入り・非表示など）。</summary>
+public sealed record FlagRequest(bool Value);
+
+/// <summary>
+/// 書き込みを受け付けたが、アプリがまとめて書いている途中（取り込み）なので、答えの写しはまだ差し替えていない（202）。
+/// 終わったら変化の知らせ（SSE・changes）で伝える。<see cref="Busy"/> は何をしている途中か
+/// </summary>
+public sealed record AcceptedAnswer(string Busy);
+
 /// <summary>
 /// 誤りの答え（RFC 9457 <c>application/problem+json</c>）。<see cref="Code"/> は機械が読む名前で変えない。<see cref="Detail"/> は人が読む説明。
 /// </summary>

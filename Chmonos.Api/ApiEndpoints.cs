@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Chmonos.Core.Commands;
+using Chmonos.Core.Models;
 using Chmonos.Core.Storage;
 using Chmonos.Query;
 using Chmonos.Query.Search;
@@ -94,6 +96,19 @@ internal static partial class ApiEndpoints
             return ApiHost.Json(new ItemsBatchAnswer(found, missing), json.ItemsBatchAnswer);
         })
             .Takes<ItemsBatchRequest>().Answers<ItemsBatchAnswer>("ID をまとめて詳細を引く");
+
+        // ---- 書き込み（docs/history/headless-core-2026-10-13.md 段3。守りと始末は ApiWriter） ----
+
+        app.MapPut("/v1/items/{id}/favorite", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.FlagRequest);
+            writer.GuardItem(context, id);
+
+            // 書くのはお気に入りの欄だけ（ほかの欄は、保存の直前に読み直した今の値が残る）
+            var command = new UiCommand.SaveItemLocal(id, new LocalBlock { IsFavorite = body.Value }, LocalOwners.Favorite);
+            return await ItemAfterWriteAsync(state, writer, command, id, context);
+        })
+            .Takes<FlagRequest>().Answers<ItemDetail>("お気に入りを付ける・外す（書き込み）");
 
         app.MapGet("/v1/items/{id}/modifications", (ApiState state, string id, string? include) =>
         {
@@ -311,6 +326,20 @@ internal static partial class ApiEndpoints
 
     private static Core.Models.ItemRecord FindItem(QuerySnapshot snapshot, string id)
         => snapshot.ItemsById.GetValueOrDefault(id) ?? throw QueryException.NotFound("itemNotFound", $"商品が見つかりません: {id}");
+
+    /// <summary>
+    /// 商品に書いた後の答え：読み直した写しの商品1件。まとめて書いている途中（取り込み）なら写しを差し替えないので 202 で「受け付けた」と返す
+    /// </summary>
+    private static async Task<IResult> ItemAfterWriteAsync(ApiState state, ApiWriter writer, UiCommand command, string itemId, HttpContext context)
+    {
+        if (await writer.RunAsync(command, "items", [itemId], [state.Paths.ItemFile(itemId)], context.RequestAborted) is { } busy)
+        {
+            return Results.Json(new AcceptedAnswer(busy), QueryJson.Context.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted);
+        }
+
+        var snapshot = state.Snapshot;
+        return ApiHost.Json(ItemMapper.Detail(FindItem(snapshot, itemId), snapshot, Includes.ParseItem(null)), QueryJson.Context.ItemDetail);
+    }
 
     private static async Task<T> ReadAsync<T>(HttpRequest request, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type)
         where T : class

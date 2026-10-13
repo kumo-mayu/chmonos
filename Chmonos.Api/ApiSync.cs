@@ -212,8 +212,27 @@ internal sealed class StoreSync : IDisposable
         _signal.Release();
     }
 
-    /// <summary>貯まった変化を今すぐ読み直す（試験と時々の見比べ）。まとめて書いている途中なら何もしない。</summary>
+    /// <summary>
+    /// 読み直しを1つずつにする。同期の流れのほか、書き込みの API が書いた直後にも読み直す（書いた後の答えを新しい写しで返すため。2026-10-13）。
+    /// 2か所から同時に読み直すと、古い写しから作った新しい写しが、もう一方の結果を上書きし得る
+    /// </summary>
+    private readonly SemaphoreSlim _applying = new(1, 1);
+
+    /// <summary>貯まった変化を今すぐ読み直す（同期の流れ・書き込みの直後・試験）。まとめて書いている途中なら何もしない。</summary>
     public async Task ApplyPendingAsync(CancellationToken cancellationToken = default)
+    {
+        await _applying.WaitAsync(cancellationToken);
+        try
+        {
+            await ApplyPendingCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _applying.Release();
+        }
+    }
+
+    private async Task ApplyPendingCoreAsync(CancellationToken cancellationToken)
     {
         StoreChangeSet changes;
         lock (_gate)

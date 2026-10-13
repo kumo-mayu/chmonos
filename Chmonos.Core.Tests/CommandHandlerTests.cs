@@ -190,13 +190,36 @@ public class CommandHandlerTests
     }
 
     /// <summary>アバターの登録簿の編集を覚えておく作り物。</summary>
+    /// <summary>
+    /// 画面から来た命令には「人が押した」優先度を掛け、外から使う API から来た命令には掛けない（ユーザ判断 2026-10-13。
+    /// docs/history/headless-core-2026-10-13.md 段3）。API の命令が取り込みや人の操作を追い越さないように
+    /// </summary>
+    [Fact]
+    public async Task API_から来た命令には_人が押した優先度を掛けない()
+    {
+        var editor = new FakeAvatarEditor();
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatarEditor: editor);
+
+        await handler.ExecuteAsync(new UiCommand.RegisterAvatar("111"));
+        await handler.ExecuteAsync(new UiCommand.RegisterAvatar("111"), origin: CommandOrigin.Api);
+
+        Assert.Equal([Booth.BoothPriority.User, Booth.BoothPriority.Background], editor.Priorities);
+    }
+
     private sealed class FakeAvatarEditor : IAvatarRegistryEditor
     {
         public List<string> Calls { get; } = [];
 
         public bool RecheckSucceeds { get; set; } = true;
 
-        public Task RegisterAvatarAsync(string itemId, CancellationToken cancellationToken = default) => Note($"register {itemId}");
+        /// <summary>登録を頼まれたときの優先度（命令の入口が掛けた物）。</summary>
+        public List<Booth.BoothPriority> Priorities { get; } = [];
+
+        public Task RegisterAvatarAsync(string itemId, CancellationToken cancellationToken = default)
+        {
+            Priorities.Add(Booth.BoothClient.CurrentPriority);
+            return Note($"register {itemId}");
+        }
 
         public Task SetDisplayNameAsync(string itemId, string name, CancellationToken cancellationToken = default) => Note($"name {itemId} {name}");
 

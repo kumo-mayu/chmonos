@@ -43,6 +43,8 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(HealthAnswer))]
 [JsonSerializable(typeof(VersionAnswer))]
 [JsonSerializable(typeof(ProblemAnswer))]
+[JsonSerializable(typeof(FlagRequest))]
+[JsonSerializable(typeof(AcceptedAnswer))]
 [JsonSerializable(typeof(ChangeEventRef))]
 [JsonSerializable(typeof(ChangesAnswer))]
 public sealed partial class QueryJsonContext : JsonSerializerContext

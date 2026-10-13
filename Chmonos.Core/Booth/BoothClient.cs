@@ -373,7 +373,8 @@ public sealed class BoothClient : IBoothClient
     /// 前は取り込みの本体（②）を既定にしていたので、**段を付け忘れた問い合わせが
     /// 他を押しのける側に倒れていた**。一番下にしておけば、付け忘れは人を待たせない側に倒れる。
     /// </summary>
-    private static BoothPriority CurrentPriority => Ambient.Value ?? BoothPriority.Background;
+    /// <summary>今の流れの優先度。試験は命令の入口が掛けた優先度を見る（API から来た命令に「人が押した」を掛けないこと）。</summary>
+    internal static BoothPriority CurrentPriority => Ambient.Value ?? BoothPriority.Background;
 
     /// <summary>入っている PC の門。試験で「待ちを差し替えた物は本物の門に入らない」を確かめる。</summary>
     internal BoothMachineGate? MachineGate => _machineGate;

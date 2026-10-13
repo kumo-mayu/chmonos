@@ -19,6 +19,7 @@ namespace Chmonos.Api;
 /// <param name="Store">
 /// アプリの保存先の一式（API がアプリと同じプロセスで動くとき）。渡せば商品の記録をアプリの控えと共有する（<see cref="QuerySnapshot.SharesItemCache"/>）
 /// </param>
+/// <param name="Writes">書き込みの口（アプリが渡す）。無ければ書き込みの URL は 503 で断る。</param>
 internal sealed record ApiHostOptions(
     string StoreRoot,
     int Port,
@@ -26,7 +27,8 @@ internal sealed record ApiHostOptions(
     IReadOnlyList<string> AllowedOrigins,
     Func<DateTimeOffset>? Clock = null,
     bool Watch = true,
-    DataStore? Store = null);
+    DataStore? Store = null,
+    ApiWriteHooks? Writes = null);
 
 /// <summary>読み込んだ写しと、答えに要る物。</summary>
 internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataStore? sharedStore = null)
@@ -50,12 +52,16 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
     /// <summary>CORS を許す住所。api-settings.json が変われば入れ替える（入れ物ごと差し替えるので、照らす途中で揺れない）。</summary>
     public IReadOnlySet<string> AllowedOrigins { get; private set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>書き込みを許すか（<c>api-settings.json</c> の <c>allowWrites</c>）。変わればその場で読み直す（手で切ったらすぐ効くように）。</summary>
+    public bool AllowWrites { get; private set; }
+
     /// <summary>部分ごとのファイルの印（<see cref="StoreChanges.StampOf"/>）。変わっていない部分は読み直さず、知らせもしない。</summary>
     private readonly Dictionary<StorePart, string?> _stamps = [];
 
     public async Task LoadAsync(IReadOnlyList<string> origins, CancellationToken cancellationToken = default)
     {
         AllowedOrigins = origins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        AllowWrites = ApiFiles.ReadSettings(Paths).AllowWrites;
         StoreFormat = Core.Storage.StoreFormat.StoreVersion(Paths.Root);
         foreach (var part in Enum.GetValues<StorePart>())
         {
@@ -127,7 +133,9 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
         if (effective.Parts.Contains(StorePart.ApiSettings))
         {
-            AllowedOrigins = ApiFiles.ReadSettings(Paths).AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var apiSettings = ApiFiles.ReadSettings(Paths);
+            AllowedOrigins = apiSettings.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            AllowWrites = apiSettings.AllowWrites;
             Confirm(stamps, StorePart.ApiSettings);
         }
 
@@ -294,6 +302,7 @@ internal static class ApiHost
         builder.Services.AddSingleton(state);
         builder.Services.AddSingleton(feed);
         builder.Services.AddSingleton(sync);
+        builder.Services.AddSingleton(new ApiWriter(state, sync, options.Writes));
 
         var app = builder.Build();
         var token = Encoding.UTF8.GetBytes("Bearer " + options.Token);
@@ -340,7 +349,8 @@ internal static class ApiHost
             context.Response.Headers.Vary = "Origin";
             if (HttpMethods.IsOptions(request.Method))
             {
-                context.Response.Headers.AccessControlAllowMethods = "GET, POST";
+                // 書き込みを許しているときだけ、書く方法（PUT・PATCH・DELETE）も許す（許した住所のページからは書ける。ユーザ判断 2026-10-13）
+                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
                 context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID, If-None-Match";
                 context.Response.Headers.AccessControlMaxAge = "600";
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
@@ -461,6 +471,8 @@ internal static class ReasonPhrases
         401 => "Unauthorized",
         403 => "Forbidden",
         404 => "Not Found",
+        409 => "Conflict",
+        500 => "Internal Server Error",
         503 => "Service Unavailable",
         _ => "Error",
     };

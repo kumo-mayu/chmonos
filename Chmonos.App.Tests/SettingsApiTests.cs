@@ -257,4 +257,23 @@ public sealed class SettingsApiTests
             settings.OnLeaving();
         }
     });
+
+    [Fact]
+    public Task ほかのアプリからの変更を許すは_APIの設定へ保存し_ほかの欄は残す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Port = 40002, AllowedOrigins = ["http://localhost:5173"] });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        Assert.False(settings.ApiAllowWrites);
+
+        settings.ApiAllowWrites = true;
+        await app.SettleAsync();
+
+        var saved = Saved(app);
+        Assert.True(saved.AllowWrites);
+        Assert.Equal(40002, saved.Port);
+        Assert.Equal(["http://localhost:5173"], saved.AllowedOrigins);
+        Assert.False(saved.Enabled);
+        settings.OnLeaving();
+    });
 }

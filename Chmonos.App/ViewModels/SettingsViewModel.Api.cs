@@ -42,6 +42,23 @@ public sealed partial class SettingsViewModel
         }
     }
 
+    private bool _apiAllowWrites;
+
+    /// <summary>
+    /// 外から書き込みを許すか（<see cref="ApiSettings.AllowWrites"/>。既定はオフ）。API は設定のファイルを見て読み直すので、保存するだけでその場で効く
+    /// </summary>
+    public bool ApiAllowWrites
+    {
+        get => _apiAllowWrites;
+        set
+        {
+            if (SetField(ref _apiAllowWrites, value))
+            {
+                SaveApiAsync(settings => settings with { AllowWrites = value }).Forget();
+            }
+        }
+    }
+
     private int _apiPort = ApiSettings.DefaultPort;
 
     /// <summary>API が待つポート。1024 より下は Windows の決まったサービスが使う番号なので受けない。</summary>
@@ -112,6 +129,7 @@ public sealed partial class SettingsViewModel
     {
         var settings = _services.Store.ApiSettings.Load();
         _apiEnabled = settings.Enabled;
+        _apiAllowWrites = settings.AllowWrites;
         _apiPort = settings.Port;
         _apiImportOnHeadlessLaunch = settings.ImportOnHeadlessLaunch;
         ApiOrigins.Clear();
@@ -121,6 +139,7 @@ public sealed partial class SettingsViewModel
         }
 
         OnPropertyChanged(nameof(ApiEnabled));
+        OnPropertyChanged(nameof(ApiAllowWrites));
         OnPropertyChanged(nameof(ApiPort));
         OnPropertyChanged(nameof(ApiImportOnHeadlessLaunch));
 

@@ -25,7 +25,8 @@ public enum ApiRunState
 /// （docs/history/headless-core-2026-10-13.md 段2。ユーザ判断 2026-10-13：オンにしたらすぐ動かし、オフですぐ止める。ポートを変えたらその場で待ち受け直す）。
 /// 取り込みの始まりと終わりも、ここから直に API へ伝える（前は別のプロセスへ HTTP で送っていた）。
 /// </summary>
-public sealed class ApiRunner(DataStore store)
+/// <param name="writes">書き込みの口（アプリの命令の口・画面への知らせ）。API を始めるたびに渡す。</param>
+public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
 {
     /// <summary>始める・止めるを1つずつ（続けて押されても、待ち受けが2つ立たないように）。</summary>
     private readonly SemaphoreSlim _order = new(1, 1);
@@ -68,7 +69,7 @@ public sealed class ApiRunner(DataStore store)
             Set(ApiRunState.Starting, settings.Port);
             try
             {
-                _server = await ApiServer.StartAsync(store);
+                _server = await ApiServer.StartAsync(store, writes);
                 Set(ApiRunState.Running, _server.Port);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)

@@ -187,19 +187,24 @@ public sealed class CommandHandler
         Diagnostics.AppLog.Use(null);
     }
 
+    /// <param name="origin">
+    /// どこから来た命令か。外から使う API から来た命令には「人が押した」優先度を掛けない（ユーザ判断 2026-10-13。
+    /// docs/history/headless-core-2026-10-13.md 段3）
+    /// </param>
     public async Task<CommandResult> ExecuteAsync(
         UiCommand command,
         IProgress<ImportProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        CommandOrigin origin = CommandOrigin.App)
     {
         // 確かめ用の足跡（環境変数を付けたときだけ。Services.UiTrace）。何を押すと何が起きたかを1行で追えるようにする
         if (!Services.UiTrace.IsOn)
         {
-            return await ExecuteCoreAsync(command, progress, cancellationToken);
+            return await ExecuteCoreAsync(command, progress, origin, cancellationToken);
         }
 
-        var traced = await ExecuteCoreAsync(command, progress, cancellationToken);
-        Services.UiTrace.Write("命令", $"{command.GetType().Name} → {traced.GetType().Name}"
+        var traced = await ExecuteCoreAsync(command, progress, origin, cancellationToken);
+        Services.UiTrace.Write("命令", $"{command.GetType().Name}{(origin == CommandOrigin.Api ? "（API）" : string.Empty)} → {traced.GetType().Name}"
             + (traced is CommandResult.Failed failure ? $"：{failure.Message}" : string.Empty));
         return traced;
     }
@@ -207,12 +212,15 @@ public sealed class CommandHandler
     private async Task<CommandResult> ExecuteCoreAsync(
         UiCommand command,
         IProgress<ImportProgress>? progress,
+        CommandOrigin origin,
         CancellationToken cancellationToken)
     {
         // 人が押した操作は、取り込みより先に通す。押した人は画面の前で結果を待っている。
         // 取り込み自体（ScanFolders）は中で段ごとの優先度に切り替わるので、ここでは
         // まとめて上げてよい——内側の指定が勝つ。
-        using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.User);
+        // **外から使う API から来た命令には掛けない**：人が画面の前で待っているわけではなく、外の道具が取り込みや人の操作を
+        // 追い越さないように（入れ子の指定は内側が勝つので、外から下げることはできない。ここで掛けないのが唯一の道）
+        using var priority = origin == CommandOrigin.App ? Booth.BoothClient.Prioritize(Booth.BoothPriority.User) : null;
 
         // 保存先を丸ごと運んでいる間（引越し・置き換え・戻す）は、書き込みを待たせる（E8）。
         // **読むだけの道はここを通らない**ので、その間も画面は見られる（ユーザ判断 2026-09-20）

@@ -1044,7 +1044,12 @@
                             <CheckBox Content="APIを使う" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.ApiEnabled"
                                       IsChecked="{Binding ApiEnabled, Mode=TwoWay}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,10">
+                            <!-- 書き込み（タグ・お気に入り・Unity へ送る など）は別に許す。既定はオフ（docs/history/headless-core-2026-10-13.md 段3） -->
+                            <CheckBox Content="ほかのアプリからの変更を許す" Style="{StaticResource SettingCheck}" Margin="0,4,0,0"
+                                      AutomationProperties.AutomationId="Settings.ApiAllowWrites"
+                                      IsChecked="{Binding ApiAllowWrites, Mode=TwoWay}"
+                                      ToolTip="お気に入りやタグの変更を、API から受け付けます。" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
                                 <TextBlock Text="状態" Style="{StaticResource RowLabel}" Width="220" />
                                 <TextBlock Text="{Binding ApiStatusText}" Style="{StaticResource RowLabel}" TextWrapping="Wrap" MaxWidth="560"
                                            AutomationProperties.AutomationId="Settings.ApiStatus" />

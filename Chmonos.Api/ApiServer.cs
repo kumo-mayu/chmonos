@@ -36,7 +36,8 @@ public sealed class ApiServer : IAsyncDisposable
     /// ポートが使われていれば <see cref="IOException"/> を投げる（呼んだ側が「待てません」と言う）。
     /// </summary>
     /// <param name="store">アプリの保存先の一式。商品の記録をアプリの控えと共有する。</param>
-    public static async Task<ApiServer> StartAsync(DataStore store, CancellationToken cancellationToken = default)
+    /// <param name="writes">書き込みの口（アプリの命令の口など）。無ければ書き込みの URL は 503 で断る。</param>
+    public static async Task<ApiServer> StartAsync(DataStore store, ApiWriteHooks? writes = null, CancellationToken cancellationToken = default)
     {
         var paths = store.Paths;
         var settings = ApiFiles.ReadSettings(paths);
@@ -44,7 +45,7 @@ public sealed class ApiServer : IAsyncDisposable
         var token = string.IsNullOrEmpty(endpoint?.Token) ? ApiFiles.NewToken() : endpoint.Token;
 
         var (app, state, sync) = await ApiHost.BuildAsync(
-            new ApiHostOptions(paths.Root, settings.Port, token, settings.AllowedOrigins, Store: store),
+            new ApiHostOptions(paths.Root, settings.Port, token, settings.AllowedOrigins, Store: store, Writes: writes),
             cancellationToken);
         try
         {

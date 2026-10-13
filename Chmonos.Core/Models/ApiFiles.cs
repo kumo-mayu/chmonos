@@ -37,6 +37,13 @@ public sealed record ApiSettings
     /// </summary>
     public bool Enabled { get; init; }
 
+    /// <summary>
+    /// 外から書き込みを許すか（タグ・属性・お気に入り・Unity へ送る など。docs/history/headless-core-2026-10-13.md 段3）。既定はオフ。
+    /// 合言葉は読むのと同じ1本（同じ Windows ユーザーの道具なら api.json を読めれば2本目も読めるので、分ける効き目が小さい。ユーザ判断 2026-10-13）。
+    /// 変えたらその場で効く（API は api-settings.json の変化を見て読み直す）
+    /// </summary>
+    public bool AllowWrites { get; init; }
+
     public int Port { get; init; } = DefaultPort;
 
     /// <summary>

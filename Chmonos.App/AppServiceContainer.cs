@@ -248,7 +248,17 @@ public sealed class AppServiceContainer : IDisposable
     public AppPaths Paths { get; }
 
     /// <summary>外から使う API を、設定に合わせて同じプロセスで始める・止める。取り込みの始まりと終わりもここから伝える。</summary>
-    public Services.ApiRunner Api => _api ??= new(Store);
+    public Services.ApiRunner Api => _api ??= new(Store, new Chmonos.Api.ApiWriteHooks(
+        // 書き込みは命令の口だけを通る。起点を API にして、「人が押した」優先度を掛けない（ユーザ判断 2026-10-13）
+        (command, cancellationToken) => Commands.ExecuteAsync(command, cancellationToken: cancellationToken, origin: CommandOrigin.Api),
+        write => ApiWritten?.Invoke(write),
+        itemId => IsItemBeingEdited?.Invoke(itemId) == true));
+
+    /// <summary>外から使う API が書いた（主画面が受けて、検索の写しと開いている画面に知らせる。画面が無ければ誰も受けない）。</summary>
+    public event Action<Chmonos.Api.ApiWrite>? ApiWritten;
+
+    /// <summary>その商品を編集画面で開いているか（主画面が差し込む。開いていれば API は 409 で断る）。</summary>
+    public Func<string, bool>? IsItemBeingEdited { get; set; }
 
     private Services.ApiRunner? _api;
 
