@@ -26,6 +26,8 @@ public sealed class ApiWriteTests : IAsyncLifetime
     private DataStore _store = null!;
     private HttpClient _client = null!;
     private string? _editing;
+    private readonly List<string> _shown = [];
+    private bool _canShow = true;
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -36,12 +38,48 @@ public sealed class ApiWriteTests : IAsyncLifetime
         JsonStore.Write(_store.Paths.ApiSettingsFile, new ApiSettings { Enabled = true, AllowWrites = allowWrites, AllowedOrigins = origins ?? [] });
 
         var writes = hooks
-            ? new ApiWriteHooks(ExecuteAsync, write => { lock (_written) { _written.Add(write); } }, id => id == _editing ? null : new CancellationTokenSource())
+            ? new ApiWriteHooks(ExecuteAsync, write => { lock (_written) { _written.Add(write); } }, id => id == _editing ? null : new CancellationTokenSource(), ShowItem: ShowAsync)
             : null;
         (_app, _, _sync) = await ApiHost.BuildAsync(new ApiHostOptions(_root, 0, Token, origins ?? [], Watch: false, Store: _store, Writes: writes));
         await _app.StartAsync();
         _client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{new Uri(_app.Urls.Single()).Port}") };
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+    }
+
+    /// <summary>作り物の「画面で開く」：開いた商品を控える。</summary>
+    private Task<bool> ShowAsync(string itemId)
+    {
+        lock (_shown)
+        {
+            _shown.Add(itemId);
+        }
+
+        return Task.FromResult(_canShow);
+    }
+
+    [Fact]
+    public async Task 画面で開くは_書き込みの許しで守り_開けなければ503()
+    {
+        await StartAsync(allowWrites: false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.PostAsync($"/v1/items/{ItemId}/show", null)).StatusCode);
+        Assert.Empty(_shown);
+    }
+
+    [Fact]
+    public async Task 画面で開くは_その商品を開いて204()
+    {
+        await StartAsync(allowWrites: true);
+        _editing = ItemId;
+
+        // 編集画面で開いていても断らない（画面を移すだけで、記録は書かない）
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PostAsync($"/v1/items/{ItemId}/show", null)).StatusCode);
+        Assert.Equal([ItemId], _shown);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.PostAsync("/v1/items/9699999/show", null)).StatusCode);
+
+        _canShow = false;
+        var failed = await _client.PostAsync($"/v1/items/{ItemId}/show", null);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, failed.StatusCode);
+        Assert.Equal("windowUnavailable", await CodeOf(failed));
     }
 
     /// <summary>作り物の命令の口：欄を書く命令だけを、アプリと同じ道（持ち主を宣言した書き込み）で書く。</summary>

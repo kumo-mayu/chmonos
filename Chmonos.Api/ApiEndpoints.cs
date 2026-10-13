@@ -245,6 +245,21 @@ internal static partial class ApiEndpoints
         })
             .Takes<UnitySendRequest>().Produces<UnitySendStatus>(202).WithSummary("Unity へ送る（書き込み。終わりは変化の知らせ unity と /v1/unity/last-send）");
 
+        // 画面で開く（段4）。データは変えないが、使う人の画面を動かすので書き込みと同じ許しで守る（許した住所のページが勝手に窓を出さないように）
+        app.MapPost("/v1/items/{id}/show", async (ApiWriter writer, HttpContext context, string id) =>
+        {
+            using var claim = writer.GuardItem(context, id, checkEditing: false);
+            var show = writer.ShowItem ?? throw new QueryException(503, "windowUnavailable", "この API は画面を開けません。");
+            if (!await show(id))
+            {
+                throw new QueryException(503, "windowUnavailable", "Chmonos の画面を開けませんでした。");
+            }
+
+            Core.Diagnostics.AppLog.Note("外から使う API", "画面で開く");
+            return Results.NoContent();
+        })
+            .Produces(204).WithSummary("Chmonos の画面でこの商品のページを表示する（画面無しで動いていれば窓を開く。書き込みの許しが要る）");
+
         app.MapGet("/v1/unity/editors", (ApiWriter writer) => ApiHost.Json(writer.Unity?.OpenEditors() ?? [], json.IReadOnlyListUnityEditorRef))
             .Answers<IReadOnlyList<UnityEditorRef>>("開いている Unity のエディタ（送り先を選ぶため）");
 

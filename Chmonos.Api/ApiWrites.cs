@@ -17,11 +17,13 @@ public sealed record ApiWrite(string Kind, IReadOnlyList<string> Ids);
 /// 書き終えるまで札を持つ（その間に編集画面を開いても、読むのは書いた後になる。点検37）
 /// </param>
 /// <param name="Unity">Unity へ送る口（アプリが持つ。Unity のエディタの窓を操作するのはアプリの部品）。無ければ送る URL は 503。</param>
+/// <param name="ShowItem">窓を開いて商品のページを表示する（段4。画面無しなら窓を作る）。表示できなければ false。無ければ 503。</param>
 public sealed record ApiWriteHooks(
     Func<UiCommand, CancellationToken, Task<CommandResult>> Execute,
     Action<ApiWrite>? Written = null,
     Func<string, IDisposable?>? ClaimItem = null,
-    IApiUnity? Unity = null);
+    IApiUnity? Unity = null,
+    Func<string, Task<bool>>? ShowItem = null);
 
 /// <summary>
 /// Unity へ送る口（ユーザ判断 2026-10-13：最初の一束に入れる。取り出し・置き場・「使った」の足跡を Chmonos が受け持ち、
@@ -52,6 +54,9 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
 {
     /// <summary>Unity へ送る口（アプリが渡さなければ null）。</summary>
     public IApiUnity? Unity => hooks?.Unity;
+
+    /// <summary>画面で開く口（アプリが渡さなければ null）。</summary>
+    public Func<string, Task<bool>>? ShowItem => hooks?.ShowItem;
 
     /// <summary>書いてよいかを確かめる。だめなら誤りの答えを投げる。</summary>
     public void Guard(HttpContext context)

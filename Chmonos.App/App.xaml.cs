@@ -152,8 +152,10 @@ public partial class App : Application
 
             if (!_services.IsSingleInstance)
             {
-                // 画面を出さない起動は、既に動いていれば黙って終える（ログオン時などに二重に起動されても窓を出さない）
-                if (!_headless)
+                // 画面を出さない起動は、既に動いていれば黙って終える（ログオン時などに二重に起動されても窓を出さない）。
+                // 画面ありの起動は、動いている方に窓を開いてもらう（画面無しで動いていても開く。段4）。
+                // 返りが無ければ（合図を待たない古い版が動いている）今までどおり知らせる
+                if (!_headless && !Services.OpenRequestChannel.Request(_services.Paths, TimeSpan.FromSeconds(3)))
                 {
                     Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -195,6 +197,10 @@ public partial class App : Application
             return;
         }
 
+        // 2本目の起動からの「窓を開いて」と、外から使う API の「画面で開く」を受ける（段4）。どちらも、画面無しなら窓を作って開く
+        _openRequests = Services.OpenRequestChannel.Listen(_services.Paths, () => Dispatcher.BeginInvoke(OpenFromTray));
+        _services.ShowItemInWindow = ShowItemFromOutsideAsync;
+
         if (_headless || main is null || mainWindow is null)
         {
             StartHeadless();
@@ -233,6 +239,25 @@ public partial class App : Application
     private MainViewModel? _main;
     private MainWindow? _mainWindow;
     private Services.TrayIcon? _tray;
+
+    private Services.OpenRequestChannel? _openRequests;
+
+    /// <summary>
+    /// 外から使う API の「画面で開く」：窓を開いて（画面無しなら作って）その商品のページを表示する。表示できたら true。
+    /// API の要求のスレッドから来るので、画面のスレッドへ渡す
+    /// </summary>
+    private Task<bool> ShowItemFromOutsideAsync(string itemId)
+        => Dispatcher.InvokeAsync(async () =>
+        {
+            OpenFromTray();
+            if (_main is not { } main || await _services!.Store.Items.LoadAsync(itemId) is not { } item)
+            {
+                return false;
+            }
+
+            main.ShowItem(item);
+            return true;
+        }).Task.Unwrap();
     private Services.IdleCompactor? _compactor;
 
     /// <summary>
@@ -751,6 +776,7 @@ public partial class App : Application
         ViewModels.AppTheme.Stop();
         _tray?.Dispose();
         _compactor?.Dispose();
+        _openRequests?.Dispose();
 
         // API を止めて api.json を「止まった」にする。止まるのを待つのは5秒まで（閉じる操作を API の都合で長く止めない）
         if (_services is { } services && !Task.Run(services.Api.StopAsync).Wait(TimeSpan.FromSeconds(5)))

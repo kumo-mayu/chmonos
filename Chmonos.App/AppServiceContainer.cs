@@ -254,7 +254,8 @@ public sealed class AppServiceContainer : IDisposable
         (command, cancellationToken) => Commands.ExecuteAsync(command, cancellationToken: cancellationToken, origin: CommandOrigin.Api),
         NoteApiWrite,
         EditGate.TryBeginApiWrite,
-        ApiUnity ??= new Services.ApiUnitySender(this)));
+        ApiUnity ??= new Services.ApiUnitySender(this),
+        itemId => ShowItemInWindow?.Invoke(itemId) ?? Task.FromResult(false)));
 
     /// <summary>
     /// API の「Unity へ送る」の送り手。試験は Unity を動かさない作り物に差し替える（API を初めて使う前に入れる）。
@@ -270,6 +271,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>編集画面で開いている商品と API の書き込みの順序を決める札（開いていれば API は 409 で断る。点検37）。</summary>
     public Services.ItemEditGate EditGate { get; } = new();
+
+    /// <summary>API の「画面で開く」で、窓を開いて商品のページを表示する（App が差し込む。表示できなければ false）。</summary>
+    internal Func<string, Task<bool>>? ShowItemInWindow { get; set; }
 
     private Services.ApiRunner? _api;
 

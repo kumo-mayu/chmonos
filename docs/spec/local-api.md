@@ -66,6 +66,7 @@
     「送りますか」の確認は出さない（Unity の取り込み画面が確認になる）。送り終えるまで待たずに 202（`state: sending`）で返し、終わりは変化の知らせ `unity` と `GET /v1/unity/last-send`。
     送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ。どちらも API の起点で命令の口を通す）。送っている間（後始末まで）は次の頼みを 409 `unityBusy` で断る。送り先は `GET /v1/unity/editors` で選ぶ。結果の種類はログに1行（`Unity へ送る → imported` など）。
     実際の Unity 2022.3 で確かめた（2026-10-13・確かめ用のプロジェクトに作り物の unitypackage を送り、取り込み画面→取り込んだ→「使った」の足跡まで）
+  - **画面で開く**（段4）：`POST /v1/items/{id}/show`。窓を開いて（画面無しなら作って）商品のページを表示する。データは変えないが使う人の画面を動かすので、書き込みの許しで守る。開けなければ 503 `windowUnavailable`
   - **分類**（3b）：`PUT /v1/items/{id}/user-tags`（丸ごと置き換え）・`POST /v1/items/{id}/user-tags`・`…/user-tags/remove`（1つ足す・外す。小分類を省くと大分類ごと）・
     `PATCH /v1/items/{id}/attributes`（`{"values": {"名前": 0〜100 | null}}`。名指しした物だけ。null は外して未評価に戻す＝キーが無いのと 0 を分ける）・
     `PUT /v1/items/{id}/memo`（null か空で消す）・`POST /v1/user-tags`・`POST /v1/attributes`（一覧に足す。既にあれば足さない）。
