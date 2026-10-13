@@ -29,6 +29,8 @@
 //   --query folder-clean は、そのフォルダ名から販売の飾り（期間限定無料・8/5まで・○%OFF・末尾の「 - ショップ名」）を落としてから使う
 //   --layout は、本体の自動検索（ProposeAsync）に置き方の手掛かり（FolderLayoutHint）を渡す。ショップのサブドメインは正解の商品を除いた
 //   手元の商品から引く。--shops <ShopListProbe の控え> を渡せば、そのショップの一覧は取り直さない
+//   --layout-wrong swap|item-is-shop|other は、段を選び間違えた指定を渡す（商品名とショップ名を逆・2つ上を商品名・別の組のフォルダ名）。
+//   第3部の「並べ直した1位」は正しいフォルダ名のままで数えるので、このときは見ない
 //   第3部は、置き方のフォルダ名（2段上＝ショップ、1段上＝商品名）と一致する候補を上へ並べ直した順位も出す
 //
 // 結果の TSV には正解の商品名とファイル名が入る。友人のデータで測るときは、リポジトリの外に置く。
@@ -342,9 +344,18 @@ if (propose is not null)
         FolderLayoutHint? hint = null;
         if (layoutMode)
         {
+            // --layout-wrong は、使う人が段を選び間違えた指定を作る（合わない指定で精度が下がるかを測る。2026-10-13）
+            var other = sample[(sample.IndexOf(pair) + sample.Count / 2) % sample.Count];
+            var (itemFolder, shopFolder) = Option("--layout-wrong") switch
+            {
+                "swap" => (pair.ShopFolder, pair.ItemFolder),
+                "item-is-shop" => (pair.ShopFolder, (string?)null),
+                "other" => (other.ItemFolder, other.ShopFolder),
+                _ => (pair.ItemFolder, pair.ShopFolder),
+            };
             var subdomain = storeItems.Where(item => item.Id != pair.Id).Select(item => item.Booth.Shop)
-                .FirstOrDefault(shop => shop?.Subdomain is { Length: > 0 } && SaleDecorations.SameShop(shop.Name, shop.Subdomain, pair.ShopFolder))?.Subdomain;
-            hint = new FolderLayoutHint(pair.ItemFolder, pair.ShopFolder, subdomain);
+                .FirstOrDefault(shop => shop?.Subdomain is { Length: > 0 } && SaleDecorations.SameShop(shop.Name, shop.Subdomain, shopFolder))?.Subdomain;
+            hint = new FolderLayoutHint(itemFolder, shopFolder, subdomain);
         }
 
         var candidates = (await resolver.ProposeAsync(fake, listed: listing?.All, layout: hint)).Candidates;
