@@ -84,6 +84,11 @@ public sealed class ApiUnitySendTests
         Assert.Same(done, sender.Last);
         await app.SettleAsync();
         Assert.NotNull(app.Store.Recent.Load().Entries.Single(entry => entry.ItemId == ItemId).UsedAt);
+
+        // 何をしたかはログに1行（結果の種類だけ。商品 ID・包みの名前は書かない）
+        var noted = System.IO.File.ReadAllLines(app.Services.Paths.LogFile).Where(line => line.Contains("外から使う API", StringComparison.Ordinal)).ToList();
+        Assert.Contains(noted, line => line.Contains("Unity へ送る → imported", StringComparison.Ordinal));
+        Assert.DoesNotContain(noted, line => line.Contains(ItemId, StringComparison.Ordinal) || line.Contains("Outfit", StringComparison.Ordinal));
     });
 
     [Fact]

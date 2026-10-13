@@ -146,6 +146,9 @@ internal sealed class ApiUnitySender(
             finished = started with { State = "failed", Problem = Core.Services.FailureText.Cause(exception), EndedAt = DateTimeOffset.Now };
         }
 
+        // 外から使う API の書き込みと同じく、何をしたかをログに1行残す（Unity へ送るは UiCommand を通らないので、ここで書く）。
+        // 結果の種類だけ。商品 ID・包みの名前・プロジェクトの場所は書かない（問い合わせの中身はログに残さない決まり）
+        Core.Diagnostics.AppLog.Note("外から使う API", $"Unity へ送る → {finished.State}");
         _last = finished;
         return finished;
     }
