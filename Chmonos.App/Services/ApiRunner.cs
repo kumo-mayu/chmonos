@@ -84,6 +84,28 @@ public sealed class ApiRunner(DataStore store)
         }
     }
 
+    /// <summary>
+    /// 合言葉を作り直す。動いていれば止めて作り直し、同じ設定で待ち受け直す（古い合言葉で答える時間を残さない）。
+    /// 止まっていれば作り直すだけ（次にオンにしたときから使われる）
+    /// </summary>
+    public Task RenewTokenAsync() => Task.Run(RenewTokenCoreAsync);
+
+    private async Task RenewTokenCoreAsync()
+    {
+        await _order.WaitAsync();
+        try
+        {
+            await StopCoreAsync();
+            ApiServer.RenewToken(store.Paths);
+        }
+        finally
+        {
+            _order.Release();
+        }
+
+        await ApplyCoreAsync();
+    }
+
     /// <summary>止める（アプリを閉じるとき）。</summary>
     public async Task StopAsync()
     {

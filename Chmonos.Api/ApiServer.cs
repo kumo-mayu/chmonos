@@ -69,6 +69,16 @@ public sealed class ApiServer : IAsyncDisposable
     }
 
     /// <summary>
+    /// 合言葉を作り直して <c>api.json</c> に書く（止めてから呼ぶ。次に始めたときから新しい合言葉で答える）。
+    /// 前は別の実行ファイルの <c>--new-token</c> だった。外の道具は api.json から読み直す
+    /// </summary>
+    public static void RenewToken(AppPaths paths)
+    {
+        var port = ApiFiles.ReadEndpoint(paths)?.Port ?? ApiFiles.ReadSettings(paths).Port;
+        ApiFiles.WriteEndpoint(paths, new ApiEndpointRecord { Port = port, Token = ApiFiles.NewToken(), Version = ApiHost.AppVersion });
+    }
+
+    /// <summary>
     /// アプリがまとめて書いている（取り込みなど。<paramref name="kind"/>）・書き終えた（null）。その間、API は古い答えを返し続け、終わってから読み直す。
     /// 書いたファイルは見張りで拾うので、知らせるのはファイルを見ても分からないこの2つだけ
     /// </summary>

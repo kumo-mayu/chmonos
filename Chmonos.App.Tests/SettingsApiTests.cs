@@ -213,4 +213,48 @@ public sealed class SettingsApiTests
         Assert.Equal(["http://localhost:5173"], saved.AllowedOrigins);
         Assert.True(new SettingsViewModel(app.Services, main).ApiImportOnHeadlessLaunch);
     });
+
+    [Fact]
+    public Task 合言葉を作り直すと_止まっていれば合言葉だけ変わり_動いていれば新しい合言葉で待ち受け直す() => TestApp.Run(async app =>
+    {
+        var port = FreePort();
+        JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Port = port });
+        JsonStore.Write(app.Services.Paths.ApiFile, new ApiEndpointRecord { Port = port, Token = "old-token" });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        try
+        {
+            await settings.RenewApiTokenAsync();
+            var renewed = JsonStore.Read<ApiEndpointRecord>(app.Services.Paths.ApiFile)!;
+            Assert.NotEqual("old-token", renewed.Token);
+            Assert.Null(renewed.ProcessId);
+            Assert.Equal(Services.ApiRunState.Stopped, app.Services.Api.State);
+            Assert.Equal("合言葉を作り直しました。ツールには、保存先の api.json から読み直させてください。", settings.ApiTokenNotice);
+
+            settings.ApiEnabled = true;
+            await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Running, "API が待ち受ける");
+            var before = JsonStore.Read<ApiEndpointRecord>(app.Services.Paths.ApiFile)!.Token;
+
+            await settings.RenewApiTokenAsync();
+            Assert.Equal(Services.ApiRunState.Running, app.Services.Api.State);
+            var after = JsonStore.Read<ApiEndpointRecord>(app.Services.Paths.ApiFile)!.Token;
+            Assert.NotEqual(before, after);
+
+            using var http = new System.Net.Http.HttpClient();
+            async Task<System.Net.HttpStatusCode> ItemsWith(string token)
+            {
+                using var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, $"http://127.0.0.1:{port}/v1/items?limit=1");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                return (await http.SendAsync(request)).StatusCode;
+            }
+
+            Assert.Equal(System.Net.HttpStatusCode.Unauthorized, await ItemsWith(before!));
+            Assert.Equal(System.Net.HttpStatusCode.OK, await ItemsWith(after!));
+        }
+        finally
+        {
+            await app.Services.Api.StopAsync();
+            settings.OnLeaving();
+        }
+    });
 }

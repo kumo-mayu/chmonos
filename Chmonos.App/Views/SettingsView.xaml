@@ -1061,6 +1061,19 @@
                                        AutomationProperties.AutomationId="Settings.Note.ApiPort"
                                        Text="{Binding Notes[ApiPort]}" />
 
+                            <!-- 合言葉の作り直し（前の Chmonos.Api.exe の new-token の代わり。ユーザ判断 2026-10-13） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="合言葉" Style="{StaticResource RowLabel}" Width="220" VerticalAlignment="Center" />
+                                <Button Content="作り直す" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="Settings.RenewApiToken"
+                                        Command="{Binding RenewApiTokenCommand}"
+                                        ToolTip="今の合言葉は使えなくなります。" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" Margin="222,4,0,0" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Settings.ApiTokenNotice"
+                                       Text="{Binding ApiTokenNotice}"
+                                       Visibility="{Binding ApiTokenNotice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+
                             <!--
                                 画面を出さない起動（Chmonos.exe headless）の自動の取り込み。画面ありの「起動したとき…取り込む」とは別の設定
                                 （ユーザ判断 2026-10-13：経路は1本、設定は画面無し用を別に立てる。画面無しの起動は API を使う人の物なので、この節に置く）
