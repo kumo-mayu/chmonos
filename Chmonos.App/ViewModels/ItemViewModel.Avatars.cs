@@ -543,11 +543,7 @@ public sealed partial class ItemViewModel
     /// 検出の適合率は実測で89%。1割は誤りが出るので、消せないと噛み合わない。
     /// </summary>
     private Task RejectAvatarAsync(string avatarItemId)
-        => ChangeAvatarsAsync(links => links
-            .Select(link => link.AvatarItemId == avatarItemId
-                ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
-                : link)
-            .ToList());
+        => ChangeAvatarsAsync(links => AvatarService.WithRejectedAvatar(links, avatarItemId));
 
     /// <summary>
     /// 対応している共通素体を、この商品から消す（ユーザ判断 2026-09-21・X3/X4）。
@@ -557,11 +553,7 @@ public sealed partial class ItemViewModel
     /// （出どころを変えないと、次の検出で行ごと作り直されて印が消える）。
     /// </summary>
     private Task RejectBaseAsync(string baseName)
-        => ChangeBasesAsync(links => links
-            .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
-                ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
-                : link)
-            .ToList());
+        => ChangeBasesAsync(links => AvatarService.WithRejectedBase(links, baseName));
 
     /// <summary>消した共通素体を戻す（「消したもの」の欄の［戻す］）。</summary>
     private async Task RestoreBaseAsync(string baseName)
@@ -616,19 +608,7 @@ public sealed partial class ItemViewModel
         var shownName = AvatarNames.ShownName(match);
 
         // 一度消したものを足し直す場合は、Rejected を下ろすだけ。在るかは錠の中の今の一覧で見る
-        await ChangeAvatarsAsync(links => links.Any(link => link.AvatarItemId == match.ItemId)
-            ? links
-                .Select(link => link.AvatarItemId == match.ItemId
-                    ? link with { Source = AvatarLinkSource.Manual, Rejected = false, Confirmed = true }
-                    : link)
-                .ToList()
-            : [.. links, new AvatarLink
-            {
-                AvatarItemId = match.ItemId,
-                Name = shownName,
-                Source = AvatarLinkSource.Manual,
-                Confirmed = true,
-            }]);
+        await ChangeAvatarsAsync(links => AvatarService.WithManualAvatarLink(links, match.ItemId, shownName));
     }
 
     /// <summary>「＋ 追加」の候補に出した素体の行から素体の名前を引く表。アバターの名前と取り違えないように分けて持つ。</summary>

@@ -260,6 +260,28 @@ internal static partial class ApiEndpoints
         })
             .Produces(204).WithSummary("Chmonos の画面でこの商品のページを表示する（画面無しで動いていれば窓を開く。書き込みの許しが要る）");
 
+        // エクスプローラで開く（段4）。画面で開くと同じく、使う人の画面を動かすので書き込みの許しで守る。
+        // 場所の選び方は Unity へ送ると同じ：指定があればそれ（その商品の場所に限る）、無ければ1つだけのときだけ
+        app.MapPost("/v1/items/{id}/reveal", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.RevealRequest);
+            using var claim = writer.GuardItem(context, id, checkEditing: false);
+            var reveal = writer.Reveal ?? throw new QueryException(503, "revealUnavailable", "この API はエクスプローラで開けません。");
+            var outcome = await reveal(state.Snapshot.ItemsById[id], body.Path);
+            Core.Diagnostics.AppLog.Note("外から使う API", $"エクスプローラで開く → {outcome}");
+            return outcome switch
+            {
+                "opened" => Results.NoContent(),
+                "ambiguous" => throw QueryException.Invalid("locationAmbiguous", "この商品には場所が複数あります。path で開く場所を指定してください（商品の詳細の files と folders に場所があります）。"),
+                "noLocation" => throw QueryException.NotFound("noLocation", "この商品には、手元のファイルもフォルダもありません。"),
+                "unknownPath" => throw QueryException.NotFound("locationNotFound", "path はこの商品のファイルやフォルダの場所ではありません。"),
+                _ => throw QueryException.NotFound("locationMissing", "記録にある場所に見つかりません。外付けのドライブなら、つないでからもう一度送ってください。"),
+            };
+        })
+            .Takes<RevealRequest>().Produces(204).WithSummary("商品のファイルかフォルダをエクスプローラで開く（場所が1つなら path を省ける。書き込みの許しが要る）");
+
+        MapCurationWrites(app);
+
         app.MapGet("/v1/unity/editors", (ApiWriter writer) => ApiHost.Json(writer.Unity?.OpenEditors() ?? [], json.IReadOnlyListUnityEditorRef))
             .Answers<IReadOnlyList<UnityEditorRef>>("開いている Unity のエディタ（送り先を選ぶため）");
 

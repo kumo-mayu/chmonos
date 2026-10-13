@@ -27,6 +27,11 @@ public sealed partial class MainViewModel
                 Search.NoteMaybeRecentChanged();
                 RefreshCounts();
                 break;
+            case "modifications":
+                // 改変の画面は、窓が手前に戻ったときと同じく全部を読み直す（記録・アバター・プロジェクト）
+                (CurrentViewModel as ModificationHubViewModel)?.NoteWindowActivated();
+                RefreshCounts();
+                break;
             case "userTags" or "attributes":
                 Search.RefreshFacets();
                 RefreshCounts();

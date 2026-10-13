@@ -137,6 +137,13 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | 通知を既読にする・解消する | `PUT /v1/notifications/{ID}/read`・`POST /v1/notifications/read`・`POST /v1/notifications/resolve` | `{"value": true}`・`{"ids": […]}` |
 | Unity へ送る | `POST /v1/items/{商品ID}/send-to-unity` | `{"entry": "…", "project": "…"}`（省けるときは `{}`） |
 | Chmonos の画面で商品を表示する | `POST /v1/items/{商品ID}/show` | なし |
+| エクスプローラで開く | `POST /v1/items/{商品ID}/reveal` | `{"path": "…"}`（場所が1つなら `{}`） |
+| 対応アバターを足す・消す | `POST /v1/items/{商品ID}/avatars`・`…/avatars/remove` | `{"avatarId": "…"}` |
+| 確認待ちの対応アバターを確認済みにする | `POST /v1/items/{商品ID}/avatars/confirm` | `{"avatarIds": ["…"]}` |
+| 共通素体を足す・消す | `POST /v1/items/{商品ID}/avatar-bases`・`…/avatar-bases/remove` | `{"baseName": "…"}` |
+| 改変を作る | `POST /v1/modifications` | `{"avatarId": "…", "name": "普段着"}` |
+| 改変のメモ・blueprint ID・Unity プロジェクトを書く | `PUT /v1/modifications/{ID}/memo`・`…/blueprint-id`・`…/unity-project` | `{"memo": "…"}`・`{"blueprintId": "avtr_…"}`・`{"path": "…"}` |
+| 改変に使った物を足す・外す・戻す | `POST /v1/modifications/{ID}/members`・`…/members/detach`・`…/members/restore` | `{"itemId": "…"}` |
 
 - 変えた後の商品を答えに返します。続けて GET しても同じ答えです。
 - ユーザータグと属性の名前は、一覧にある名前に合わせます。一覧に無い名前は断ります。一覧に足してから付けるときは、URL に `?createMissing=true` を付けます。
@@ -145,6 +152,8 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - 取り込みの途中は、変えたことを `202` で受け付け、取り込みが終わってから答えに入ります。
 - 「Unity へ送る」は、Unity の取り込み画面が出たところで待たずに返ります（`202`）。結果は `GET /v1/unity/last-send` と、変化の知らせ（`unity`）で分かります。送る物が複数あるときは `entry`、Unity を複数開いているときは `project` で選びます。開いているプロジェクトは `GET /v1/unity/editors` で分かります。
 - 「Chmonos の画面で商品を表示する」は、ウィンドウを表示せずに動いているときもウィンドウを開きます。データは変えませんが、画面が切り替わるので、「ほかのアプリからの変更を許す」がオンのときだけ使えます。
+- 対応アバターを消しても、商品ページの「消したもの」から戻せます。確認待ちを確認済みにするのは、名前を挙げた物だけです。
+- 改変を消す・名前を変える、対応アバターをまとめて確認済みにする、といった操作は、Chmonos の画面で行ってください。
 - 許可した Web ページからも変えられます。
 
 ## 困ったとき

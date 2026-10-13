@@ -46,6 +46,11 @@
     実物に近い2千件では API の上乗せはぶれ（同じ条件で約40MB）に埋もれるが、検索すると +45MB（1件あたり約22KB。説明文が長い）。
     実物で件数が多い人が API で検索すると、検索用の文字列の二重持ちが効いてくる見込み（共有するかは、実物に近い大きな写しで測ってから決める）
   - 取り込みの始まりと終わりはアプリが直に伝える（`ApiServer.SetBusy`。前は HTTP の `/internal/busy`）
+- **出す範囲（ユーザ判断 2026-10-13：B）**：画面が基本で、API は手元の資産を「使う」ための一部を出す（画面の機能を全部出す A にはしない）。迷う操作は次の基準で1つずつ決める。
+  - 出す：読む・探す・変化を知る／資産を使う（Unity へ送る・「使った」・画面で開く・エクスプローラで開く）／取り返しのつく軽い書き込み（印・分類・メモ）／
+    人の選択をそのまま写す書き込み（対応アバターを名指しで足す・消す・1つずつ確認済みにする、改変に使った物を足す・外す）
+  - 画面に残す：推定をまとめて確定する／削除・名前の変更・統合／保存先を丸ごと扱う操作／BOOTH へ問い合わせる操作（取り込み・取り直し）／未確定の解決（人がファイルを確かめる作業そのもの）
+  - 理由：Chmonos の決め事の多くは「人が決める」で、全部を出すと外の道具に任せることになる。使う人の大半は API を使わない。一度出した操作は引っ込めにくいので狭い方から始める（書き込みは `UiCommand` を通るので、後から広げても作り直しは要らない）
 - **書き込みは `UiCommand` を通す**（2026-10-13。前は「読むだけ」）。決め事と段取りは `docs/history/headless-core-2026-10-13.md` の「段3」：
   - アプリが命令の口を渡す（`ApiWriteHooks`。API のライブラリはアプリを参照しない）。API から来た命令には「人が押した」優先度を掛けない（`CommandOrigin.Api`）
   - 設定の「ほかのアプリからの変更を許す」（`allowWrites`。既定オフ）で許す。合言葉は読むのと同じ1本。変えたらその場で効く。許していなければ 403 `writesDisabled`
@@ -67,6 +72,15 @@
     送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ。どちらも API の起点で命令の口を通す）。送っている間（後始末まで）は次の頼みを 409 `unityBusy` で断る。送り先は `GET /v1/unity/editors` で選ぶ。結果の種類はログに1行（`Unity へ送る → imported` など）。
     実際の Unity 2022.3 で確かめた（2026-10-13・確かめ用のプロジェクトに作り物の unitypackage を送り、取り込み画面→取り込んだ→「使った」の足跡まで）
   - **画面で開く**（段4）：`POST /v1/items/{id}/show`。窓を開いて（画面無しなら作って）商品のページを表示する。データは変えないが使う人の画面を動かすので、書き込みの許しで守る。開けなければ 503 `windowUnavailable`
+  - **エクスプローラで開く**（段4）：`POST /v1/items/{id}/reveal`（`{"path"?}`）。開き方は画面と同じ（フォルダ・zip は中を、ほかは選んだ状態で）。場所はファイル（外した物を除く）とフォルダで、
+    指定は記録の場所でも今の場所（ドライブ文字が変わった後）でもよい。省けるのは場所が1つのときだけ（400 `locationAmbiguous`）。画面で開くと同じく書き込みの許しで守る
+  - **対応アバター**（3c）：`POST /v1/items/{id}/avatars`・`…/avatars/remove`（`{"avatarId"}`。消すと消した印を残し、足し直すと確認済みで戻る）・
+    `…/avatars/confirm`（`{"avatarIds": […]}`。確認待ちのうち名指しした物だけ）・`…/avatar-bases`・`…/avatar-bases/remove`（`{"baseName"}`。一覧にある素体だけ）。
+    変え方は画面と同じ関数（`AvatarService.WithManualAvatarLink`・`WithRejectedAvatar`・`WithManualBaseLink`・`WithRejectedBase`）。アバターとして扱っている登録簿の項目だけ（400 `unknownAvatar`）
+  - **改変**（3c）：`POST /v1/modifications`（`{"avatarId", "name"}`。201 と Location。同じアバターに同じ名前があれば 409）・`PUT /v1/modifications/{id}/memo`・`…/blueprint-id`（形が違えば 400。画面は保存して注意を出すだけ）・
+    `…/unity-project`（中に Assets がある完全なパス。null で外す）・`POST …/members`（`{"itemId", "fileHash"?, "package"?, "variationId"?}`。fileHash はその商品のファイルに限る。推定で埋めない）・
+    `…/members/detach`・`…/members/restore`（行は fileHash・package・addedAt で絞る。複数当たれば 400 `memberAmbiguous`）。改変を作るのはアバターに限る（命令は登録簿に無い商品をアバターとして足すため）。
+    消す・名前を変える・使った物を完全に消す・画像は画面に残す
   - **分類**（3b）：`PUT /v1/items/{id}/user-tags`（丸ごと置き換え）・`POST /v1/items/{id}/user-tags`・`…/user-tags/remove`（1つ足す・外す。小分類を省くと大分類ごと）・
     `PATCH /v1/items/{id}/attributes`（`{"values": {"名前": 0〜100 | null}}`。名指しした物だけ。null は外して未評価に戻す＝キーが無いのと 0 を分ける）・
     `PUT /v1/items/{id}/memo`（null か空で消す）・`POST /v1/user-tags`・`POST /v1/attributes`（一覧に足す。既にあれば足さない）。

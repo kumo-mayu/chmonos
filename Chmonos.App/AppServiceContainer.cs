@@ -255,7 +255,8 @@ public sealed class AppServiceContainer : IDisposable
         NoteApiWrite,
         EditGate.TryBeginApiWrite,
         ApiUnity ??= new Services.ApiUnitySender(this),
-        itemId => ShowItemInWindow?.Invoke(itemId) ?? Task.FromResult(false)));
+        itemId => ShowItemInWindow?.Invoke(itemId) ?? Task.FromResult(false),
+        (item, path) => Services.ApiReveal.RevealAsync(item, path, Volumes)));
 
     /// <summary>
     /// API の「Unity へ送る」の送り手。試験は Unity を動かさない作り物に差し替える（API を初めて使う前に入れる）。

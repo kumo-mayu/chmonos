@@ -79,6 +79,33 @@ public sealed record RecentRequest(string Kind);
 /// <summary>書き込みの要求：ID の一覧（通知の既読・解消）。</summary>
 public sealed record IdsRequest(IReadOnlyList<string> Ids);
 
+/// <summary>書き込みの要求：対応アバター1体（商品 ID）。</summary>
+public sealed record AvatarLinkRequest(string AvatarId);
+
+/// <summary>書き込みの要求：確認待ちの対応アバターのうち、確認済みにする物（名指し。まとめての確定は出さない）。</summary>
+public sealed record AvatarConfirmRequest(IReadOnlyList<string> AvatarIds);
+
+/// <summary>書き込みの要求：共通素体1つ（名前）。</summary>
+public sealed record BaseLinkRequest(string BaseName);
+
+/// <summary>書き込みの要求：改変を作る（アバター1体＋名前）。</summary>
+public sealed record ModificationCreateRequest(string AvatarId, string Name);
+
+/// <summary>書き込みの要求：改変の blueprint ID（<c>avtr_</c>＋GUID。null か空で外す）。</summary>
+public sealed record BlueprintIdRequest(string? BlueprintId);
+
+/// <summary>エクスプローラで開く場所（省くと、場所が1つだけの商品ならそこ）。</summary>
+public sealed record RevealRequest(string? Path);
+
+/// <summary>書き込みの要求：改変の Unity プロジェクトのフォルダ（null で外す）。</summary>
+public sealed record UnityProjectRequest(string? Path);
+
+/// <summary>
+/// 書き込みの要求：改変の使った物1行。足すときは商品と、分かればファイル（zip のハッシュ・中の unitypackage）。
+/// 外す・戻すときは行を名指しする（同じ商品が2行あるときは fileHash・package・addedAt で絞る。答えの members と同じ値）
+/// </summary>
+public sealed record ModificationMemberRequest(string ItemId, long? VariationId, string? FileHash, string? Package, DateTimeOffset? AddedAt);
+
 /// <summary>
 /// 書き込みを受け付けたが、アプリがまとめて書いている途中（取り込み）なので、答えの写しはまだ差し替えていない（202）。
 /// 終わったら変化の知らせ（SSE・changes）で伝える。<see cref="Busy"/> は何をしている途中か

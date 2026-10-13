@@ -315,6 +315,40 @@ public sealed partial class AvatarService
     }
 
     /// <summary>
+    /// 対応アバターを手で足す（商品ページ・編集画面の「＋ 追加」と、外から使う API。どちらもここを通して作法を揃える）。
+    /// 足した物は Manual なので、次の検出でも消えない。一度消した物・確認待ちの物を選び直したときは、行を増やさず
+    /// 手入力・確認済みにして消した印を下ろす（在るかは錠の中の今の一覧で見る）
+    /// </summary>
+    public static IReadOnlyList<AvatarLink> WithManualAvatarLink(IReadOnlyList<AvatarLink> links, string avatarItemId, string name)
+        => links.Any(link => link.AvatarItemId == avatarItemId)
+            ? links
+                .Select(link => link.AvatarItemId == avatarItemId
+                    ? link with { Source = AvatarLinkSource.Manual, Rejected = false, Confirmed = true }
+                    : link)
+                .ToList()
+            : [.. links, new AvatarLink { AvatarItemId = avatarItemId, Name = name, Source = AvatarLinkSource.Manual, Confirmed = true }];
+
+    /// <summary>
+    /// この対応は違う、と消す。消しただけだと次の検出で復活するので、Manual に付け替えたうえで消した印を立てる
+    /// （再検出のマージは Manual の宣言だけを残して他を作り直すので、出どころを変えないと行ごと作り直されて印が消える）。
+    /// 検出の適合率は実測で89%。1割は誤りが出るので、消せないと噛み合わない
+    /// </summary>
+    public static IReadOnlyList<AvatarLink> WithRejectedAvatar(IReadOnlyList<AvatarLink> links, string avatarItemId)
+        => links
+            .Select(link => link.AvatarItemId == avatarItemId
+                ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
+                : link)
+            .ToList();
+
+    /// <summary>対応している共通素体を、この商品から消す（対応アバターと同じ形：行は残して手入力に付け替え、消した印を立てる。X3/X4）。</summary>
+    public static IReadOnlyList<AvatarBaseLink> WithRejectedBase(IReadOnlyList<AvatarBaseLink> links, string baseName)
+        => links
+            .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+                ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
+                : link)
+            .ToList();
+
+    /// <summary>
     /// 説明文の素体の候補を「違う」として消す（ユーザ判断 2026-09-29：対応アバターの消し方と同じ作法）。
     /// 商品に消した印付きの手入力の行を残す——候補は商品に付いている素体（消した物も）を出さないので二度と出ず、
     /// 「消したもの」の欄に並んで戻せる。既に行があれば何もしない（付いている物・消した物を上書きしない）

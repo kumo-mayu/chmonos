@@ -18,12 +18,16 @@ public sealed record ApiWrite(string Kind, IReadOnlyList<string> Ids);
 /// </param>
 /// <param name="Unity">Unity へ送る口（アプリが持つ。Unity のエディタの窓を操作するのはアプリの部品）。無ければ送る URL は 503。</param>
 /// <param name="ShowItem">窓を開いて商品のページを表示する（段4。画面無しなら窓を作る）。表示できなければ false。無ければ 503。</param>
+/// <param name="Reveal">
+/// 商品の場所をエクスプローラで開く（段4。場所の指定は省ける）。結果の種類（opened・noLocation・ambiguous・unknownPath・missing）を返す。無ければ 503
+/// </param>
 public sealed record ApiWriteHooks(
     Func<UiCommand, CancellationToken, Task<CommandResult>> Execute,
     Action<ApiWrite>? Written = null,
     Func<string, IDisposable?>? ClaimItem = null,
     IApiUnity? Unity = null,
-    Func<string, Task<bool>>? ShowItem = null);
+    Func<string, Task<bool>>? ShowItem = null,
+    Func<Core.Models.ItemRecord, string?, Task<string>>? Reveal = null);
 
 /// <summary>
 /// Unity へ送る口（ユーザ判断 2026-10-13：最初の一束に入れる。取り出し・置き場・「使った」の足跡を Chmonos が受け持ち、
@@ -57,6 +61,9 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
 
     /// <summary>画面で開く口（アプリが渡さなければ null）。</summary>
     public Func<string, Task<bool>>? ShowItem => hooks?.ShowItem;
+
+    /// <summary>エクスプローラで開く口（アプリが渡さなければ null）。</summary>
+    public Func<Core.Models.ItemRecord, string?, Task<string>>? Reveal => hooks?.Reveal;
 
     /// <summary>書いてよいかを確かめる。だめなら誤りの答えを投げる。</summary>
     public void Guard(HttpContext context)
@@ -129,6 +136,13 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
     /// 命令が失敗したら 500（commandFailed。詳しくは命令の文）
     /// </summary>
     public async Task<string?> RunAsync(UiCommand command, string kind, IReadOnlyList<string> ids, IEnumerable<string> writtenFiles, CancellationToken cancellationToken)
+        => (await RunWithResultAsync(command, kind, _ => (ids, writtenFiles), cancellationToken)).Busy;
+
+    /// <summary>
+    /// <see cref="RunAsync"/> と同じ。書いた物が命令の結果で決まるとき（改変を作ると ID が決まる）に、結果から ID と書いたファイルを決める
+    /// </summary>
+    public async Task<(string? Busy, CommandResult Result)> RunWithResultAsync(
+        UiCommand command, string kind, Func<CommandResult, (IReadOnlyList<string> Ids, IEnumerable<string> Files)> written, CancellationToken cancellationToken)
     {
         var result = await hooks!.Execute(command, cancellationToken);
         if (result is CommandResult.Failed failed)
@@ -136,6 +150,7 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
             throw new QueryException(500, "commandFailed", failed.Message);
         }
 
+        var (ids, writtenFiles) = written(result);
         foreach (var file in writtenFiles)
         {
             sync.Note(file);
@@ -144,10 +159,10 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
         hooks.Written?.Invoke(new ApiWrite(kind, ids));
         if (sync.Busy is { } busy)
         {
-            return busy;
+            return (busy, result);
         }
 
         // 錠を待つ間に取り込みが始まったら、差し替えずに戻る。そのときは「受け付けた」で答える（点検37）
-        return await sync.ApplyPendingAsync(cancellationToken) ? null : sync.Busy ?? "write";
+        return (await sync.ApplyPendingAsync(cancellationToken) ? null : sync.Busy ?? "write", result);
     }
 }
