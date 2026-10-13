@@ -52,6 +52,12 @@ public sealed class ApiWriteScreenTests
             Assert.Equal(HttpStatusCode.OK, (await PutFavoriteAsync(client)).StatusCode);
 
             Assert.True((await app.Store.Items.LoadAsync(ItemId))!.Local.IsFavorite);
+
+            // 本物の経路で「API から来た命令」として渡っている（「人が押した」優先度を掛けない起点）。ログに1行、中身（商品 ID）は書かない
+            var noted = System.IO.File.ReadAllLines(app.Services.Paths.LogFile).Where(line => line.Contains("外から使う API", StringComparison.Ordinal)).ToList();
+            Assert.Contains(noted, line => line.Contains("SaveItemLocal → ItemSaved", StringComparison.Ordinal));
+            Assert.DoesNotContain(noted, line => line.Contains(ItemId, StringComparison.Ordinal));
+
             await UiThread.Until(
                 () => main.Search.SnapshotItems().Single(item => item.Id == ItemId).Local.IsFavorite,
                 "検索の写しにお気に入りが映る");

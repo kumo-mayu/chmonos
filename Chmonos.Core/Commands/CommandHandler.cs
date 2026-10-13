@@ -201,12 +201,25 @@ public sealed class CommandHandler
         CommandOrigin origin = CommandOrigin.App)
     {
         // 確かめ用の足跡（環境変数を付けたときだけ。Services.UiTrace）。何を押すと何が起きたかを1行で追えるようにする
-        if (!Services.UiTrace.IsOn)
+        if (!Services.UiTrace.IsOn && origin == CommandOrigin.App)
         {
             return await ExecuteCoreAsync(command, progress, origin, cancellationToken);
         }
 
         var traced = await ExecuteCoreAsync(command, progress, origin, cancellationToken);
+
+        // 外から使う API の書き込みは、いつもログに1行残す（何が外から書かれたかを後から追えるように）。
+        // 命令の種類と結果だけ。商品 ID などの中身は書かない（問い合わせの中身はログに残さない決まり。docs/spec/local-api.md）
+        if (origin == CommandOrigin.Api)
+        {
+            Diagnostics.AppLog.Note("外から使う API", $"{command.GetType().Name} → {traced.GetType().Name}");
+        }
+
+        if (!Services.UiTrace.IsOn)
+        {
+            return traced;
+        }
+
         Services.UiTrace.Write("命令", $"{command.GetType().Name}{(origin == CommandOrigin.Api ? "（API）" : string.Empty)} → {traced.GetType().Name}"
             + (traced is CommandResult.Failed failure ? $"：{failure.Message}" : string.Empty));
         return traced;

@@ -52,6 +52,8 @@
   - 保存先を運んでいる間（引越し・書き出し・戻す）は待たせず 503 `storeBusy`（`Retry-After: 5`）。編集画面で開いている商品には 409 `itemBeingEdited`
   - 書いた後は写しを読み直してから答える（直後の GET と同じ答え）。取り込み中は写しを差し替えないので 202 と `busy` を返し、終わったら変化の知らせで伝える。読み直しは1つずつ（`StoreSync` の錠）
   - 書いたらアプリ（画面）へ知らせる（`ApiWrite`）。主画面は見回りの後と同じ道で検索の写しへ映す
+  - API から来た命令は、いつもログ（`logs/app.log`）に1行残す（`外から使う API：命令の種類 → 結果`。商品 ID などの中身は書かない）
+  - `createMissing` で一覧に足した後に商品への書き込みが失敗すると、一覧だけ増えて商品は変わらない（画面の「一覧に足してから付ける」と同じ順。受け入れる）
   - 許した住所のページからは書ける（書き込みを許しているときだけ CORS で PUT・PATCH・DELETE も許す）
   - 今ある URL（3a）：`PUT /v1/items/{id}/favorite`・`PUT /v1/items/{id}/hidden`（`{"value": true}`。答えは商品）、
     `POST /v1/items/{id}/recent`（`{"kind": "used"}` だけ。「見た」は画面が打つ）・`PUT /v1/notifications/{id}/read`（`{"value"}`）・

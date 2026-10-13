@@ -101,4 +101,8 @@ public static class AppLog
     /// <summary>失敗ではないが、後から見て分かるようにしておきたいこと。</summary>
     public static void Warn(string where, string message)
         => Volatile.Read(ref s_file)?.Write("注意", where, message);
+
+    /// <summary>失敗でも注意でもないが、誰が何をしたかを後から追えるようにしておきたいこと（外から使う API の書き込み）。</summary>
+    public static void Note(string where, string message)
+        => Volatile.Read(ref s_file)?.Write("記録", where, message);
 }

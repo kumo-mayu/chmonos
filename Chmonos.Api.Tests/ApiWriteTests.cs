@@ -197,11 +197,7 @@ public sealed class ApiWriteTests : IAsyncLifetime
     }
 }
 
-/// <summary>保存先を運ぶ間の門はプロセスに1つなので、門を閉じる試験はほかと並べずに走らせる。</summary>
-[CollectionDefinition(nameof(StoreWriteGateCollection), DisableParallelization = true)]
-public sealed class StoreWriteGateCollection;
-
-[Collection(nameof(StoreWriteGateCollection))]
+/// <summary>保存先を運ぶ間の門はプロセスに1つ。門を閉じても、ほかの試験と重ならない（この組は試験を並べずに走らせる。AssemblyInfo.cs）。</summary>
 public sealed class ApiWriteGateTests : IAsyncLifetime
 {
     private const string Token = "test-token-gate-0123456789";
