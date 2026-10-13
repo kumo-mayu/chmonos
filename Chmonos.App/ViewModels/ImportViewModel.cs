@@ -1,5 +1,6 @@
 using System.IO;
 using System.Collections.ObjectModel;
+using Chmonos.App.Services;
 using Chmonos.Core.Booth;
 using Chmonos.Core.Commands;
 using Chmonos.Core.Scanning;
@@ -37,22 +38,6 @@ public sealed partial class ImportViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
-    private CancellationTokenSource? _cancellation;
-
-    /// <summary>実行中の作業集合。走らせている最中に足せるので、ここを握っておく。</summary>
-    private ImportWorkSet? _work;
-
-    /// <summary>
-    /// 立ち上げの途中（<see cref="_work"/> が入るまで）。2本目を止めるのに要る——
-    /// その間に確認の窓と設定の保存を挟むので、待っている間に画面のメッセージが回る。
-    /// </summary>
-    private bool _starting;
-
-    /// <summary>
-    /// 立ち上げの途中に来た「始める／積む」。立ち上がったら今の一覧を積み直す（値は展開先について尋ねてよいか）。
-    /// </summary>
-    private bool? _stackAfterStart;
-
     private bool _isRunning;
     private string? _stackNotice;
     private string _phaseText = string.Empty;
@@ -67,6 +52,9 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         _services = services;
         _main = main;
+
+        // 取り込みを走らせるのは係（ImportRunner）。この画面はその知らせを映す（画面の無い起動で始まった取り込みも）
+        ListenToImports();
 
         // **対象は空から始める**（ユーザ判断 2026-09-21・G3）。
         // 前は履歴を全部「取り込み対象」に積んでいたので、1本落としたつもりでも
@@ -792,7 +780,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
 
         // 走査と解決は手元の作業で、この後の問い合わせの数もまだ分からない
-        if (_work is not { } work || report.Phase is ImportPhase.Scanning or ImportPhase.Resolving)
+        if (_services.Imports.Running is not { } work || report.Phase is ImportPhase.Scanning or ImportPhase.Resolving)
         {
             ClearEstimate();
             return;
@@ -1122,7 +1110,7 @@ public sealed partial class ImportViewModel : ViewModelBase
 
         // 実行中なら、まだ順番が来ていないものは取り下げられる。
         // 「積んだ直後に取り消したい」はこれで済むので、取り消し操作を別に作らない
-        if (_work is { } running)
+        if (_services.Imports.Running is { } running)
         {
             StackNotice = running.Remove(folder)
                 ? "今の取り込みから取り下げました。"
@@ -1130,7 +1118,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
     }
 
-    private void Cancel() => _cancellation?.Cancel();
+    private void Cancel() => _services.Imports.Cancel();
 
     private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
@@ -1259,21 +1247,6 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// 対象フォルダを設定に残す。ファイルが欠落したときの再スキャン範囲も兼ねるので、
-    /// 起動のたびに選び直させない。
-    /// </summary>
-    private async Task SaveFoldersAsync()
-    {
-        // **今回の対象を履歴へ足す**（ユーザ判断 2026-09-21・G4）。
-        // 前は「対象＝履歴」で、対象に積んだ物がそのまま次の起動の対象になっていた。
-        // 履歴は「何を読んだか」を確かめるための記録なので、ファイルも残す（監視の対象にはしない）
-        //
-        // 足すのは今回の対象だけで、この画面の履歴の写しでは書かない（技術的負債 1-1 の再発：
-        // 写しで丸ごと書いていたので、設定画面で足した取り込み元を取り込むたびに消していた）
-        var paths = Folders.ToList();
-        await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, paths));
-    }
 
     /// <summary>
     /// 自動で始めた取り込みが展開先のファイルを指していたことを、要確認に出す（G2）。
@@ -1364,54 +1337,36 @@ public sealed partial class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 走っていなければ始める。走っていれば**今の取り込みに積む**。
-    ///
-    /// 2本目を起こさないのは、取得の順序（画像より先にJSON）が2本では保てず、
-    /// どちらの進捗を出すのかも決められなくなるため。
+    /// 走っていなければ始める。走っていれば**今の取り込みに積む**（決まりは <see cref="ImportRunner"/>）。
+    /// 対象と履歴は、頼んだこの画面の一覧から決める。展開先のファイルについて尋ねるのもこの画面
     /// </summary>
     private async Task StartOrStackAsync(bool ask = true)
     {
-        if (_work is not { } running)
+        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(ask), Folders.ToList()));
+        if (added is { } count)
         {
-            // **立ち上げている最中の2度目を止める。**`_work` が入るのは、展開先の確認の窓と
-            // 設定の保存を挟んだ後。その間は画面のメッセージが回るので、2度目の押下が同じ道へ入れた。
-            // 通り抜けると取り込みが2本走り、先に終わった方の後始末が中断の口を捨てるので、
-            // 走っている方を止められなくなる
-            if (_starting)
-            {
-                // 捨てずに、立ち上がったところで積む。前は黙って弾いていたので、この間に落とした物は
-                // 一覧には載るのに今回の取り込みに入らず、帯は「終わりました」と言っていた
-                _stackAfterStart = ask || _stackAfterStart == true;
-                return;
-            }
-
-            _starting = true;
-            try
-            {
-                await RunAsync(ask);
-            }
-            finally
-            {
-                _starting = false;
-            }
-
-            return;
+            StackNotice = count == 0
+                ? "追加するものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
+                : $"{count} 件を今の取り込みに追加しました。順番が来たらスキャンします。";
         }
-
-        var added = running.Add(ResolveUnpackedTargets(ask));
-        await SaveFoldersAsync();
-
-        StackNotice = added == 0
-            ? "追加するものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
-            : $"{added} 件を今の取り込みに追加しました。順番が来たらスキャンします。";
     }
 
-    private async Task RunAsync(bool ask = true)
+    /// <summary>係から来る知らせを受ける。画面の無い起動で始まった取り込みも、ここで映す。</summary>
+    private void ListenToImports()
     {
-        var targets = ResolveUnpackedTargets(ask);
+        var runner = _services.Imports;
+        runner.Started += work => RunOnUiThread(() => OnImportStarted(work));
+        runner.Progress += report => _progress?.Report(report);
+        runner.HistorySaved += () => RunOnUiThread(SyncFolderLists);
+        runner.OnEnded(outcome => RunOnUiThreadAsync(() => OnImportEndedAsync(outcome)));
+        runner.Finished += () => RunOnUiThread(OnImportFinished);
+    }
 
-        await SaveFoldersAsync();
+    /// <summary>今の取り込みの進み具合を、1秒に10回までに間引いて出す（<see cref="Services.LatestProgress{T}"/> に理由）。</summary>
+    private Services.LatestProgress<ImportProgress>? _progress;
 
+    private void OnImportStarted(ImportWorkSet work)
+    {
         StackNotice = null;
 
         // 走らせ直したので、前回の中断はもう伝えることが無い
@@ -1425,121 +1380,112 @@ public sealed partial class ImportViewModel : ViewModelBase
         Total = 0;
         PhaseText = "準備中…";
 
-        _cancellation = new CancellationTokenSource();
-        _work = new ImportWorkSet(targets);
-        if (_stackAfterStart is { } stackAsk)
-        {
-            _stackAfterStart = null;
-            _work.Add(ResolveUnpackedTargets(stackAsk));
-        }
-
-        _main.AttachImportWork(_work);
+        _main.AttachImportWork(work);
         _requestSeconds.Clear();
         _lastRequestPhase = null;
         ClearEstimate();
 
         // 最新だけを1秒に10回まで出す（LatestProgress に理由）。走査はファイル1つごとに知らせてくるので、
         // 全部を画面のスレッドへ積むと、1回ごとに下の欄を10前後知らせ直し、通信の帯も描き直していた
-        var progress = new Services.LatestProgress<ImportProgress>(report =>
+        _progress = new Services.LatestProgress<ImportProgress>(
+            ApplyProgress,
+            ProgressInterval,
+            System.Windows.Threading.Dispatcher.CurrentDispatcher);
+    }
+
+    private void ApplyProgress(ImportProgress report)
+    {
+        // 何を待っているのかと、待たなくてよいことの両方が1行で分かるようにする。
+        // ④以降は「取得できたものから使える」が要点で、そこを書かないと
+        // 全部終わるまで待つものだと読まれてしまう。
+        // サムネイルの段に「編集できます」と書いていたが、編集できるのは③が終わった時点で、サムネイルは待たない。
+        // 段の名前から「編集できるまでにサムネイルの時間も要る」と読まれた（ユーザ判断 2026-09-27）
+        PhaseText = report.Phase switch
         {
-            // 何を待っているのかと、待たなくてよいことの両方が1行で分かるようにする。
-            // ④以降は「取得できたものから使える」が要点で、そこを書かないと
-            // 全部終わるまで待つものだと読まれてしまう。
-            // サムネイルの段に「編集できます」と書いていたが、編集できるのは③が終わった時点で、サムネイルは待たない。
-            // 段の名前から「編集できるまでにサムネイルの時間も要る」と読まれた（ユーザ判断 2026-09-27）
-            PhaseText = report.Phase switch
-            {
-                ImportPhase.Scanning => "1. ファイルをスキャン",
-                ImportPhase.Resolving => "2. 商品IDを解決",
-                ImportPhase.FetchingJson => "3. 商品の情報を取得",
-                ImportPhase.FetchingHtml => "4. 商品ページを取得",
-                // リンクだけでなくタグ・種類の名前も見ているので「タグ」を入れる（ユーザ判断）
-                ImportPhase.Detecting => "5. 商品ページとタグから対応アバターを検出",
-                ImportPhase.FetchingThumbnails => "6. サムネイルを取得。取得できたものから一覧に表示されます",
-                ImportPhase.FetchingGallery => "7. ギャラリーを取得",
-                _ => "8. ショップのアイコンを取得",
-            };
-            Current = report.Current;
-            Total = report.Total;
-            StepText = report.Step ?? string.Empty;
-            UpdateEstimate(report);
+            ImportPhase.Scanning => "1. ファイルをスキャン",
+            ImportPhase.Resolving => "2. 商品IDを解決",
+            ImportPhase.FetchingJson => "3. 商品の情報を取得",
+            ImportPhase.FetchingHtml => "4. 商品ページを取得",
+            // リンクだけでなくタグ・種類の名前も見ているので「タグ」を入れる（ユーザ判断）
+            ImportPhase.Detecting => "5. 商品ページとタグから対応アバターを検出",
+            ImportPhase.FetchingThumbnails => "6. サムネイルを取得。取得できたものから一覧に表示されます",
+            ImportPhase.FetchingGallery => "7. ギャラリーを取得",
+            _ => "8. ショップのアイコンを取得",
+        };
+        Current = report.Current;
+        Total = report.Total;
+        StepText = report.Step ?? string.Empty;
+        UpdateEstimate(report);
 
-            // 常設の1行にも同じ段と件数を出す（ユーザ指示）。取り込み画面の段の名前は長いので短い呼び名で
-            _main.BoothActivity.ReportWork(WorkSource.Import, LineLabelOf(report.Phase), report.Current, report.Total);
+        // 常設の1行にも同じ段と件数を出す（ユーザ指示）。取り込み画面の段の名前は長いので短い呼び名で
+        _main.BoothActivity.ReportWork(WorkSource.Import, LineLabelOf(report.Phase), report.Current, report.Total);
 
-            // 検出で確かめている商品は、問い合わせるまで名前が分からない。空にすると止まって見える
-            DetailText = report.Detail
-                ?? (report.Phase == ImportPhase.Detecting && report.Step is not null ? "名前を確かめています" : string.Empty);
+        // 検出で確かめている商品は、問い合わせるまで名前が分からない。空にすると止まって見える
+        DetailText = report.Detail
+            ?? (report.Phase == ImportPhase.Detecting && report.Step is not null ? "名前を確かめています" : string.Empty);
 
-            // ①で商品ができた時点で一覧へ出す（U8）。以前は1枚目が取れるまで待っていたが、
-            // 画像を自動で取るようになり、名前・ショップ・タグで探せる方が先に要る。絵の無いカードは
-            // 「画像を取得中」と出す。読んでいる途中の一覧だけは動かさない（U10）。
-            // ③待ちの商品を編集に出すかどうかも、ここで知らせ直す
-            _main.NoteImportProgress();
+        // ①で商品ができた時点で一覧へ出す（U8）。以前は1枚目が取れるまで待っていたが、
+        // 画像を自動で取るようになり、名前・ショップ・タグで探せる方が先に要る。絵の無いカードは
+        // 「画像を取得中」と出す。読んでいる途中の一覧だけは動かさない（U10）。
+        // ③待ちの商品を編集に出すかどうかも、ここで知らせ直す
+        _main.NoteImportProgress();
 
-            // 減速は取得の合間に起きるので、進捗が届くたびに見る
-            IsThrottled = _services.Client.IsThrottled;
-            if (IsThrottled)
-            {
-                OnPropertyChanged(nameof(ThrottleText));
-            }
-        },
-        ProgressInterval,
-        System.Windows.Threading.Dispatcher.CurrentDispatcher);
-
-        try
+        // 減速は取得の合間に起きるので、進捗が届くたびに見る
+        IsThrottled = _services.Client.IsThrottled;
+        if (IsThrottled)
         {
-            var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ScanFolders(_work),
-                progress,
-                _cancellation.Token);
-
-            // 残っている最新の1件を出し切ってから「完了」などで上書きする（後から届いて上書きし返さないように）
-            progress.Complete();
-            Core.Services.UiTrace.Write("速さ", $"取り込みの進み具合：届いた {progress.ReportedCount} 回のうち画面で反映した {progress.AppliedCount} 回");
-
-            if (result is CommandResult.Imported imported)
-            {
-                Summary = imported.Summary;
-                foreach (var folder in imported.Summary.UnpackedFolders.OrderByDescending(entry => entry.TotalBytes))
-                {
-                    AddUnpackedRow(folder);
-                }
-
-                OnPropertyChanged(nameof(HasUnpackedFolders));
-                RaiseSelectionChanged();
-
-                AvatarSummaryText = DescribeDetection(imported.Summary);
-
-                PhaseText = "完了";
-                DetailText = string.Empty;
-                await _main.ReloadLibraryAsync();
-
-                // 新しく見つかったアバターの1枚目を続けて取る（次の起動まで待たせない）
-                _main.StartAvatarImageSync();
-            }
-            else if (result is CommandResult.Failed failed)
-            {
-                ErrorText = failed.Message;
-                PhaseText = "失敗";
-            }
+            OnPropertyChanged(nameof(ThrottleText));
         }
-        catch (OperationCanceledException)
+    }
+
+    private async Task OnImportEndedAsync(ImportOutcome outcome)
+    {
+        // 残っている最新の1件を出し切ってから「完了」などで上書きする（後から届いて上書きし返さないように）
+        _progress?.Complete();
+
+        if (outcome is ImportOutcome.Canceled)
         {
-            progress.Complete();
             PhaseText = "中断しました";
             DetailText = "再実行すると続きから進みます。";
+            return;
         }
-        finally
+
+        if (_progress is { } progress)
         {
-            progress.Complete();
-            _cancellation?.Dispose();
-            _cancellation = null;
-            _work = null;
-            ClearEstimate();
-            IsRunning = false;
-            _main.BoothActivity.EndWork(WorkSource.Import);
+            Core.Services.UiTrace.Write("速さ", $"取り込みの進み具合：届いた {progress.ReportedCount} 回のうち画面で反映した {progress.AppliedCount} 回");
         }
+
+        if (outcome is ImportOutcome.Imported imported)
+        {
+            Summary = imported.Summary;
+            foreach (var folder in imported.Summary.UnpackedFolders.OrderByDescending(entry => entry.TotalBytes))
+            {
+                AddUnpackedRow(folder);
+            }
+
+            OnPropertyChanged(nameof(HasUnpackedFolders));
+            RaiseSelectionChanged();
+
+            AvatarSummaryText = DescribeDetection(imported.Summary);
+
+            PhaseText = "完了";
+            DetailText = string.Empty;
+            await _main.ReloadLibraryAsync();
+        }
+        else if (outcome is ImportOutcome.Failed failed)
+        {
+            ErrorText = failed.Message;
+            PhaseText = "失敗";
+        }
+    }
+
+    private void OnImportFinished()
+    {
+        _progress?.Complete();
+        _progress = null;
+        ClearEstimate();
+        IsRunning = false;
+        _main.BoothActivity.EndWork(WorkSource.Import);
     }
 
     /// <summary>

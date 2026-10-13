@@ -265,6 +265,11 @@ public sealed class AppServiceContainer : IDisposable
 
     private Services.StartupWork? _startup;
 
+    /// <summary>取り込みを走らせる係。画面からも画面の無い起動からも同じ道を通す（docs/history/headless-core-2026-10-13.md 段1b）。</summary>
+    public Services.ImportRunner Imports => _imports ??= new(this);
+
+    private Services.ImportRunner? _imports;
+
     public void SweepStaleTemporaryFilesLater()
         => Task.Run(async () =>
         {

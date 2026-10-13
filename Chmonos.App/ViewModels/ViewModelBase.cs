@@ -39,4 +39,16 @@ public abstract class ViewModelBase : INotifyPropertyChanged
             dispatcher.BeginInvoke(action);
         }
     }
+
+    /// <summary>
+    /// UIスレッドで実行し、終わるまで待てる形で返す（裏から来た知らせの後始末を、画面が済ませてから次へ進めたいとき）。
+    /// Dispatcherが無い場合（テストなど）はそのまま実行する。
+    /// </summary>
+    protected static Task RunOnUiThreadAsync(Func<Task> action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        return dispatcher is null || dispatcher.CheckAccess()
+            ? action()
+            : dispatcher.InvokeAsync(action).Task.Unwrap();
+    }
 }

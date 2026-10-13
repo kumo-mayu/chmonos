@@ -10,6 +10,29 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public class ImportScreenTests
 {
+    // ---- 取り込みの係（画面に依存しない） ----
+
+    /// <summary>
+    /// 取り込みを走らせるのは係（ImportRunner）で、画面はその知らせを映すだけ（docs/history/headless-core-2026-10-13.md 段1b）。
+    /// 画面を通さずに係へ頼んだ取り込み（画面の無い起動・後の API）も、開いている取り込み画面に結果が出て、履歴に残る
+    /// </summary>
+    [Fact]
+    public Task 係へ直に頼んだ取り込みも_画面に結果が出て_履歴に残る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var file = app.NewFile("作り物の帽子.unitypackage");
+
+        await app.Services.Imports.StartOrStackAsync(new Services.ImportRequest(() => [file], [file]));
+        await app.SettleAsync();
+
+        Assert.False(main.Import.IsRunning);
+        Assert.Equal("完了", main.Import.PhaseText);
+        Assert.NotNull(main.Import.Summary);
+        Assert.Null(app.Services.Imports.Running);
+        Assert.Contains(app.Services.Settings.ImportFolders, path => Core.Services.PathText.Same(path, file));
+        Assert.Contains(file, main.Import.History);
+    });
+
     // ---- 対応アバターの検出の結果 ----
 
     [Fact]
