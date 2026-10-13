@@ -39,6 +39,12 @@ public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IRe
 /// <summary>書き込みの要求：オン・オフ（お気に入り・非表示など）。</summary>
 public sealed record FlagRequest(bool Value);
 
+/// <summary>書き込みの要求：足跡の種類（今は <c>used</c> だけ）。</summary>
+public sealed record RecentRequest(string Kind);
+
+/// <summary>書き込みの要求：ID の一覧（通知の既読・解消）。</summary>
+public sealed record IdsRequest(IReadOnlyList<string> Ids);
+
 /// <summary>
 /// 書き込みを受け付けたが、アプリがまとめて書いている途中（取り込み）なので、答えの写しはまだ差し替えていない（202）。
 /// 終わったら変化の知らせ（SSE・changes）で伝える。<see cref="Busy"/> は何をしている途中か

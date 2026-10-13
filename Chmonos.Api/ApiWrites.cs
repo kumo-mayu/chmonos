@@ -47,7 +47,8 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
     }
 
     /// <summary>商品に書いてよいかを確かめる（在るか・編集画面で開いていないか）。</summary>
-    public void GuardItem(HttpContext context, string itemId)
+    /// <param name="checkEditing">編集画面で開いているかも見るか（商品の記録を書くとき。足跡のように商品の記録の外へ書くときは見ない）。</param>
+    public void GuardItem(HttpContext context, string itemId, bool checkEditing = true)
     {
         Guard(context);
         if (!state.Snapshot.ItemsById.ContainsKey(itemId))
@@ -55,7 +56,7 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
             throw QueryException.NotFound("itemNotFound", $"商品 {itemId} は見つかりません。");
         }
 
-        if (hooks!.IsBeingEdited?.Invoke(itemId) == true)
+        if (checkEditing && hooks!.IsBeingEdited?.Invoke(itemId) == true)
         {
             throw new QueryException(409, "itemBeingEdited", "この商品は Chmonos の編集画面で開いています。編集を終えてから、もう一度送ってください。");
         }

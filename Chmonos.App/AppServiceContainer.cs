@@ -160,6 +160,7 @@ public sealed class AppServiceContainer : IDisposable
                 ApiSettings = Store.ApiSettings,
                 PendingOperations = Store.PendingOperations,
                 MissingRecords = MissingRecords,
+                Recent = Store.Recent,
             };
 
             // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）

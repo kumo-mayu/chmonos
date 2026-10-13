@@ -110,6 +110,63 @@ internal static partial class ApiEndpoints
         })
             .Takes<FlagRequest>().Answers<ItemDetail>("お気に入りを付ける・外す（書き込み）");
 
+        app.MapPut("/v1/items/{id}/hidden", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.FlagRequest);
+            writer.GuardItem(context, id);
+            var command = new UiCommand.SaveItemLocal(id, new LocalBlock { IsHidden = body.Value }, LocalOwners.Visibility);
+            return await ItemAfterWriteAsync(state, writer, command, id, context);
+        })
+            .Takes<FlagRequest>().Answers<ItemDetail>("非表示にする・戻す（書き込み）");
+
+        // 「使った」の足跡。外の道具から Unity へ送ったときなど（ユーザ判断 2026-10-13：「使った」だけ。「見た」は画面が打つ）
+        app.MapPost("/v1/items/{id}/recent", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.RecentRequest);
+            if (body.Kind != "used")
+            {
+                throw QueryException.Invalid("invalidKind", "kind に書けるのは used だけです。");
+            }
+
+            writer.GuardItem(context, id, checkEditing: false);
+            var command = new UiCommand.TouchRecent(id, Core.Services.RecentKind.Used, DateTimeOffset.Now);
+            return await NoContentAfterWriteAsync(writer, command, "recent", [id], [state.Paths.RecentFile], context);
+        })
+            .Takes<RecentRequest>().Produces(204).WithSummary("「使った」の足跡を打つ（書き込み）");
+
+        app.MapPut("/v1/notifications/{id}/read", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
+        {
+            var body = await ReadAsync(context.Request, json.FlagRequest);
+            writer.Guard(context);
+            if (state.Snapshot.Notifications.All(record => record.Id != id))
+            {
+                throw QueryException.NotFound("notificationNotFound", $"通知 {id} は見つかりません。");
+            }
+
+            return await NoContentAfterWriteAsync(
+                writer, new UiCommand.SetNotificationRead(id, body.Value), "notifications", [id], [state.Paths.NotificationsFile], context);
+        })
+            .Takes<FlagRequest>().Produces(204).WithSummary("通知を既読・未読にする（書き込み）");
+
+        app.MapPost("/v1/notifications/read", async (ApiState state, ApiWriter writer, HttpContext context) =>
+        {
+            var ids = NotificationIds(await ReadAsync(context.Request, json.IdsRequest));
+            writer.Guard(context);
+            return await NoContentAfterWriteAsync(
+                writer, new UiCommand.MarkNotificationsRead(ids), "notifications", ids, [state.Paths.NotificationsFile], context);
+        })
+            .Takes<IdsRequest>().Produces(204).WithSummary("通知をまとめて既読にする（書き込み）");
+
+        // 解消は消さずに印を付けるだけ（「見た」と「無かった」の区別を保つ）
+        app.MapPost("/v1/notifications/resolve", async (ApiState state, ApiWriter writer, HttpContext context) =>
+        {
+            var ids = NotificationIds(await ReadAsync(context.Request, json.IdsRequest));
+            writer.Guard(context);
+            return await NoContentAfterWriteAsync(
+                writer, new UiCommand.ResolveNotifications(ids), "notifications", ids, [state.Paths.NotificationsFile], context);
+        })
+            .Takes<IdsRequest>().Produces(204).WithSummary("通知をまとめて解消済みにする（書き込み）");
+
         app.MapGet("/v1/items/{id}/modifications", (ApiState state, string id, string? include) =>
         {
             var snapshot = state.Snapshot;
@@ -340,6 +397,24 @@ internal static partial class ApiEndpoints
         var snapshot = state.Snapshot;
         return ApiHost.Json(ItemMapper.Detail(FindItem(snapshot, itemId), snapshot, Includes.ParseItem(null)), QueryJson.Context.ItemDetail);
     }
+
+    /// <summary>通知の ID の一覧（空・null の混じりは入力の誤り）。</summary>
+    private static IReadOnlyList<string> NotificationIds(IdsRequest body)
+    {
+        if (body.Ids is not { Count: > 0 } ids || ids.Any(id => string.IsNullOrEmpty(id)))
+        {
+            throw QueryException.Invalid("invalidIds", "ids に通知の ID を1つ以上書いてください。");
+        }
+
+        return ids;
+    }
+
+    /// <summary>商品の記録の外（通知・足跡）に書いた後の答え：本文なし（204）。取り込みの途中なら 202。</summary>
+    private static async Task<IResult> NoContentAfterWriteAsync(
+        ApiWriter writer, UiCommand command, string kind, IReadOnlyList<string> ids, IReadOnlyList<string> files, HttpContext context)
+        => await writer.RunAsync(command, kind, ids, files, context.RequestAborted) is { } busy
+            ? Results.Json(new AcceptedAnswer(busy), QueryJson.Context.AcceptedAnswer, statusCode: StatusCodes.Status202Accepted)
+            : Results.NoContent();
 
     private static async Task<T> ReadAsync<T>(HttpRequest request, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type)
         where T : class

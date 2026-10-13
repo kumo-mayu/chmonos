@@ -44,6 +44,8 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(VersionAnswer))]
 [JsonSerializable(typeof(ProblemAnswer))]
 [JsonSerializable(typeof(FlagRequest))]
+[JsonSerializable(typeof(RecentRequest))]
+[JsonSerializable(typeof(IdsRequest))]
 [JsonSerializable(typeof(AcceptedAnswer))]
 [JsonSerializable(typeof(ChangeEventRef))]
 [JsonSerializable(typeof(ChangesAnswer))]

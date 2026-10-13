@@ -66,6 +66,9 @@ public sealed class CommandHandler
     /// <summary>見つからない記録をまとめて消す部品。無ければ「この機能は使えません」と返す。</summary>
     public Services.MissingRecordCleaner? MissingRecords { get; init; }
 
+    /// <summary>「最近」の足跡（recent.json）。外から使う API が足跡を打つ（<see cref="UiCommand.TouchRecent"/>）。</summary>
+    public Storage.JsonFileStore<Services.RecentLog>? Recent { get; init; }
+
     /// <summary>
     /// 商品の記録が見つからなかったときの文。**保存先のフォルダそのものが無ければ、ドライブを確かめるよう言う**
     /// （実機の確かめ 2026-10-07）。USB メモリを抜いた状態でお気に入りを押すと「商品データが手元にありません」と出て、
@@ -1071,6 +1074,18 @@ public sealed class CommandHandler
                         "このファイルは外した後で別の商品に紐付けてあるので、戻せません。先にそちらの商品から外してください。"),
                     _ => new CommandResult.Failed("このファイルは、この商品から外したものではありません。"),
                 };
+
+            case UiCommand.TouchRecent touch:
+                if (Recent is null)
+                {
+                    return MissingService("足跡の保存");
+                }
+
+                // 錠は窓口（UpdateAsync）が持つ。画面の足跡（RecentTracker）・取り込みの足跡と同じ書き方
+                await Recent.UpdateAsync(
+                    log => new Services.RecentLog { Entries = Services.RecentActivity.Touch(log.Entries, touch.ItemId, touch.Kind, touch.At) },
+                    cancellationToken);
+                return new CommandResult.Done();
 
             case UiCommand.SetNotificationRead setRead:
                 if (_notifications is null)

@@ -532,6 +532,12 @@ public abstract record UiCommand
     /// <summary>要確認の既読・未読を切り替える。消さずに既読にするのは「見た」と「無かった」を分けるため。</summary>
     public record SetNotificationRead(string Id, bool IsRead) : UiCommand;
 
+    /// <summary>
+    /// 「最近」の足跡を1つ打つ（外から使う API の「使った」。docs/history/headless-core-2026-10-13.md 段3）。
+    /// 画面は足跡を裏の列で書く（<c>RecentTracker</c>。開くたびに画面を止めないため）。書き方（<see cref="Services.RecentActivity.Touch"/>）は同じ
+    /// </summary>
+    public record TouchRecent(string ItemId, Services.RecentKind Kind, DateTimeOffset At) : UiCommand;
+
     /// <summary>要確認をまとめて既読にする。</summary>
     public record MarkAllNotificationsRead : UiCommand;
 

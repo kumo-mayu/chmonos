@@ -53,7 +53,10 @@
   - 書いた後は写しを読み直してから答える（直後の GET と同じ答え）。取り込み中は写しを差し替えないので 202 と `busy` を返し、終わったら変化の知らせで伝える。読み直しは1つずつ（`StoreSync` の錠）
   - 書いたらアプリ（画面）へ知らせる（`ApiWrite`）。主画面は見回りの後と同じ道で検索の写しへ映す
   - 許した住所のページからは書ける（書き込みを許しているときだけ CORS で PUT・PATCH・DELETE も許す）
-  - 今ある URL：`PUT /v1/items/{id}/favorite`（`{"value": true}`）
+  - 今ある URL（3a）：`PUT /v1/items/{id}/favorite`・`PUT /v1/items/{id}/hidden`（`{"value": true}`。答えは商品）、
+    `POST /v1/items/{id}/recent`（`{"kind": "used"}` だけ。「見た」は画面が打つ）・`PUT /v1/notifications/{id}/read`（`{"value"}`）・
+    `POST /v1/notifications/read`・`POST /v1/notifications/resolve`（`{"ids": […]}`。解消は消さずに印を付ける）。答えは本文なし（204）
+  - 足跡は `UiCommand.TouchRecent` で書く（画面は裏の列で書く `RecentTracker`。書き方は同じ `RecentActivity.Touch`）
 - 書き込み以外は今までどおり読むだけ。BOOTH の 1本ずつ・1.5秒の決まりを外から破れないよう、足りない情報も取りに行かない。
 - **検索の条件は JSON の式で受ける**。画面の絞り込みの条件を葉にして、AND・OR・NOT を自由に組める（画面は条件ごとの AND だが、API はプログラムが組むので木にする）。判定は Core へ移した（`SearchModuleConditions.From` が保存した条件の形 `SearchModuleState` から判定を作る。画面の条件も同じ判定を使い、`SearchModuleConditionParityTests` で同じ商品に当たることを確かめる。2026-10-12）。API の条件の JSON はこの形へ変換する。
 - 検索欄の記法に、条件でしか書けない物（日付・属性・改変など）を足すのは**保留**（API とは別に考える）。

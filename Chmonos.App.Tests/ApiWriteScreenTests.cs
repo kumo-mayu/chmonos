@@ -81,4 +81,47 @@ public sealed class ApiWriteScreenTests
             await app.Services.Api.StopAsync();
         }
     });
+
+    [Fact]
+    public Task 非表示_使ったの足跡_通知の既読と解消を_アプリの命令で書く() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(ItemId, "作り物の帽子"));
+        foreach (var id in new[] { "note-a", "note-b" })
+        {
+            await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddNotification(new NotificationRecord
+            {
+                Id = id,
+                Kind = NotificationKind.UnpackedFilesImported,
+                Title = "作り物の知らせ",
+                Detail = "作り物の本文",
+                CreatedAt = DateTimeOffset.Now,
+            }));
+        }
+
+        await app.StartAsync();
+        var (client, _) = await StartApiAsync(app);
+        try
+        {
+            StringContent Body(string text) => new(text, Encoding.UTF8, "application/json");
+
+            Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/v1/items/{ItemId}/hidden", Body("""{"value":true}"""))).StatusCode);
+            Assert.True((await app.Store.Items.LoadAsync(ItemId))!.Local.IsHidden);
+
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/v1/items/{ItemId}/recent", Body("""{"kind":"used"}"""))).StatusCode);
+            Assert.NotNull(app.Store.Recent.Load().Entries.Single(entry => entry.ItemId == ItemId).UsedAt);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync($"/v1/items/{ItemId}/recent", Body("""{"kind":"viewed"}"""))).StatusCode);
+
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsync("/v1/notifications/note-a/read", Body("""{"value":true}"""))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/v1/notifications/resolve", Body("""{"ids":["note-b"]}"""))).StatusCode);
+            var notes = app.Store.Notifications.Load();
+            Assert.True(notes.Single(note => note.Id == "note-a").IsRead);
+            Assert.True(notes.Single(note => note.Id == "note-b").IsResolved);
+            Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsync("/v1/notifications/missing/read", Body("""{"value":true}"""))).StatusCode);
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
+    });
 }
