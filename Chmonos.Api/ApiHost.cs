@@ -305,6 +305,7 @@ internal static class ApiHost
         app.Lifetime.ApplicationStopping.Register(() =>
         {
             feed.Publish("stopping", [], [], null, state.Clock());
+            feed.CloseAll();
             sync.Dispose();
         });
         return (app, state, sync);

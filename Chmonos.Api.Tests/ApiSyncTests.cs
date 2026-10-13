@@ -130,6 +130,25 @@ public sealed class ApiSyncTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(again)).StatusCode);
     }
 
+    /// <summary>
+    /// SSE をつないだまま止めても、待ち受けはすぐ止まり、聞き手には「止まります」が届く（2026-10-13）。
+    /// 前は SSE の要求が切れるまで止まりを待ち、API がアプリと同じプロセスになってからはアプリの終了が待たされた
+    /// </summary>
+    [Fact]
+    public async Task SSEをつないだまま止めても_すぐ止まり_止まりますが届く()
+    {
+        using var events = await _client.GetAsync("/v1/events", HttpCompletionOption.ResponseHeadersRead);
+        using var reader = new StreamReader(await events.Content.ReadAsStreamAsync());
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        await _app!.StopAsync();
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"止まるのに {watch.Elapsed.TotalSeconds:F1} 秒かかった");
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var text = await reader.ReadToEndAsync(timeout.Token);
+        Assert.Contains("event: stopping", text);
+    }
+
     [Fact]
     public async Task SSEで変化を流し_つなぎ直すと続きから流す()
     {

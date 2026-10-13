@@ -1886,6 +1886,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         _main.BeginStoreJob(StoreJobKind.Move, replace ? "置き換えています…" : "引っ越しています…");
 
+        // 外から使う API は同じプロセスで元の保存先を見張っている。そのまま運ぶと、元のフォルダを消す段の邪魔をし、
+        // 運んでいる最中の半端な保存先を読み直し、閉じるときに元の場所へ api.json を書く。運ぶ前に止める（2026-10-13）。
+        // 運べたら開き直すので新しい保存先で設定どおりに始まる。運べなかったら設定どおりに戻す
+        await _services.Api.StopAsync();
+        var moved = false;
         try
         {
             var progress = new Progress<Core.Storage.StoreMoveProgress>(report =>
@@ -1900,8 +1905,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 new Core.Commands.UiCommand.MoveStore(source, destination, replace, progress),
                 cancellationToken: stop.Token);
 
-            return result is Core.Commands.CommandResult.StoreMoved moved
-                ? moved.Result
+            var outcome = result is Core.Commands.CommandResult.StoreMoved storeMoved
+                ? storeMoved.Result
                 : new Core.Storage.StoreMoveResult
                 {
                     Succeeded = false,
@@ -1909,9 +1914,16 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                     Bytes = 0,
                     Error = (result as Core.Commands.CommandResult.Failed)?.Message ?? "移動できませんでした。",
                 };
+            moved = outcome.Succeeded;
+            return outcome;
         }
         finally
         {
+            if (!moved)
+            {
+                _services.Api.ApplyAsync().Forget();
+            }
+
             job.Dispose();
 
             // 結果は呼び手が窓で返す（失敗の窓・開き直しの窓）ので、1行の知らせは出さない

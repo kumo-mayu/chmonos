@@ -84,6 +84,25 @@ internal sealed class ChangeFeed
 
         channel.Writer.TryComplete();
     }
+
+    /// <summary>
+    /// 止まるときに、聞き手の待ち行列を全部閉じる。SSE は届いている知らせ（「止まります」）を送り切ってから自分で終わる。
+    /// 閉じないと、SSE の要求が切れるまで待ち受けが止まらず、API がアプリと同じプロセスになってからはアプリの終了が待たされた（2026-10-13）
+    /// </summary>
+    public void CloseAll()
+    {
+        List<Channel<ChangeEventRef>> listeners;
+        lock (_gate)
+        {
+            listeners = [.. _listeners];
+            _listeners.Clear();
+        }
+
+        foreach (var listener in listeners)
+        {
+            listener.Writer.TryComplete();
+        }
+    }
 }
 
 /// <summary>
