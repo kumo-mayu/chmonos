@@ -64,4 +64,4 @@
 - 2（2026-10-13）：API をアプリと同じプロセスで動かす（`ApiServer`・`ApiRunner`）。ユーザ判断：設定の「APIを使う」でオンにしたらすぐ待ち受け、オフですぐ止める。ポートを変えたらその場で待ち受け直す。
   画面無しの起動も同じ設定に従う。`Chmonos.Api.exe`・`api.lock`・`/internal/busy`・`ApiNotifier` をやめた。商品の記録はアプリの控えと共有する（`QuerySnapshot.SharesItemCache`）。
   配る exe は 170.5 → 223.8MB（ASP.NET Core のランタイムの分）、前の `Chmonos.Api.exe`（110MB）が無くなるので合計は 280 → 224MB。
-  合言葉の作り直し（前の `--new-token`）は、当面「オフにして api.json を消してからオン」。メモリは VRChat などが動いていないときに `perf20k` で測る（まだ）
+  合言葉の作り直し（前の `--new-token`）は、当面「オフにして api.json を消してからオン」。メモリは 2026-10-13 に測った：2万件で API の上乗せは専用 約85〜100MB（別のプロセスの頃は 202MB）。API で検索すると検索用の文字列が +25MB。共有はしない（`docs/spec/local-api.md`）
