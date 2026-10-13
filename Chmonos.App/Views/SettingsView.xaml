@@ -1067,6 +1067,15 @@
                                        Text="{Binding ApiRestartNote}"
                                        Visibility="{Binding ApiRestartNote, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
 
+                            <!--
+                                画面を出さない起動（Chmonos.exe headless）の自動の取り込み。画面ありの「起動したとき…取り込む」とは別の設定
+                                （ユーザ判断 2026-10-13：経路は1本、設定は画面無し用を別に立てる。画面無しの起動は API を使う人の物なので、この節に置く）
+                            -->
+                            <CheckBox Content="ウィンドウを表示せずに起動したとき、監視フォルダの新しいファイルと前回の続きを取り込む" Style="{StaticResource SettingCheck}"
+                                      Margin="0,6,0,0"
+                                      AutomationProperties.AutomationId="Settings.ApiImportOnHeadlessLaunch"
+                                      IsChecked="{Binding ApiImportOnHeadlessLaunch, Mode=TwoWay}" />
+
                             <TextBlock Text="許可するWebページ" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        Text="ブラウザで開いた自作のページから使うときだけ追加します。" />

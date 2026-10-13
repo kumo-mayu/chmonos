@@ -123,6 +123,24 @@ public sealed class SettingsApiTests
     });
 
     [Fact]
+    public Task 画面を出さない起動の自動の取り込みは_APIの設定へ保存し_ほかの欄は残す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Port = 40001, AllowedOrigins = ["http://localhost:5173"] });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        Assert.False(settings.ApiImportOnHeadlessLaunch);
+
+        settings.ApiImportOnHeadlessLaunch = true;
+        await app.SettleAsync();
+
+        var saved = Saved(app);
+        Assert.True(saved.ImportOnHeadlessLaunch);
+        Assert.Equal(40001, saved.Port);
+        Assert.Equal(["http://localhost:5173"], saved.AllowedOrigins);
+        Assert.True(new SettingsViewModel(app.Services, main).ApiImportOnHeadlessLaunch);
+    });
+
+    [Fact]
     public Task 動いているかは錠で見て_止まれば画面を開き直さなくても戻る() => TestApp.Run(async app =>
     {
         var main = await app.StartAsync();

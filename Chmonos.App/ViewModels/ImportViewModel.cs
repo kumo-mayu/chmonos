@@ -1249,22 +1249,6 @@ public sealed partial class ImportViewModel : ViewModelBase
 
 
     /// <summary>
-    /// 自動で始めた取り込みが展開先のファイルを指していたことを、要確認に出す（G2）。
-    /// 窓で尋ねる代わりなので、**そのまま取り込んだこと**と、**後から差し替えられること**を書く。
-    /// </summary>
-    private Task NoteUnpackedFoundAsync(int count)
-        => _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddNotification(
-            new Core.Models.NotificationRecord
-            {
-                Id = "unpacked-imported",
-                Kind = Core.Models.NotificationKind.UnpackedFilesImported,
-                Title = "展開したフォルダの中のファイルを取り込みました",
-                Detail = $"zipを展開したフォルダの中のファイルを {count} 件取り込みました。"
-                    + "元のzipで取り込み直すときは、そのzipを取り込んでから「展開先フォルダの削除」で片付けてください。",
-                CreatedAt = DateTimeOffset.Now,
-            }));
-
-    /// <summary>
     /// 指定されたファイルのうち、アーカイブの展開先の中にあるものを元のzipへ差し替える。
     ///
     /// 展開先が残っていると、そのファイルが配布物そのものなのか展開したものなのかを
@@ -1280,16 +1264,16 @@ public sealed partial class ImportViewModel : ViewModelBase
     private List<string> ResolveUnpackedTargets(bool ask = true)
     {
         var targets = Folders.ToList();
+
+        // 自動で始めたときは尋ねず、そのまま取り込んで要確認に出す（G2。画面の無い起動と同じ道）
+        if (!ask)
+        {
+            return _services.Imports.TargetsWithoutAsking(targets);
+        }
+
         var origins = UnpackedFileResolver.FindOrigins(targets);
         if (origins.Count == 0)
         {
-            return targets;
-        }
-
-        if (!ask)
-        {
-            // 自動で始めたときは尋ねず、そのまま取り込んで要確認に出す（G2）
-            NoteUnpackedFoundAsync(origins.Count).Forget();
             return targets;
         }
 

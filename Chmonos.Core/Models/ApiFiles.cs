@@ -38,4 +38,11 @@ public sealed record ApiSettings
     /// 読むときは欠けた配列（null）を空として受ける（手で直した JSON で落ちないように）。
     /// </summary>
     public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+
+    /// <summary>
+    /// 画面を出さずに起動したとき（<c>--headless</c>）、監視フォルダの新しいファイルと前回の続きを取り込む。既定はオフ。
+    /// 画面ありの起動の設定（<see cref="AppSettings.StartImportOnLaunch"/>）とは別に持つ（ユーザ判断 2026-10-13：経路は1本、設定は画面無し用を別に立てる）。
+    /// 画面無しの起動は API を使う人の物なので、API の設定に置く
+    /// </summary>
+    public bool ImportOnHeadlessLaunch { get; init; }
 }

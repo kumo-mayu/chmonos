@@ -51,6 +51,21 @@ public sealed partial class SettingsViewModel
         }
     }
 
+    private bool _apiImportOnHeadlessLaunch;
+
+    /// <summary>画面を出さずに起動したとき、監視フォルダの新着と前回の続きを取り込むか（<see cref="ApiSettings.ImportOnHeadlessLaunch"/>）。</summary>
+    public bool ApiImportOnHeadlessLaunch
+    {
+        get => _apiImportOnHeadlessLaunch;
+        set
+        {
+            if (SetField(ref _apiImportOnHeadlessLaunch, value))
+            {
+                SaveApiAsync(settings => settings with { ImportOnHeadlessLaunch = value }).Forget();
+            }
+        }
+    }
+
     /// <summary>許可する Web ページ（CORS を許す住所）。</summary>
     public ObservableCollection<ApiOriginRow> ApiOrigins { get; } = [];
 
@@ -117,6 +132,7 @@ public sealed partial class SettingsViewModel
     {
         var settings = _services.Store.ApiSettings.Load();
         _apiPort = settings.Port;
+        _apiImportOnHeadlessLaunch = settings.ImportOnHeadlessLaunch;
         ApiOrigins.Clear();
         foreach (var origin in settings.AllowedOrigins ?? [])
         {
@@ -124,6 +140,7 @@ public sealed partial class SettingsViewModel
         }
 
         OnPropertyChanged(nameof(ApiPort));
+        OnPropertyChanged(nameof(ApiImportOnHeadlessLaunch));
         RefreshApiStatus();
     }
 

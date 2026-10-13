@@ -134,18 +134,9 @@ public sealed partial class MainViewModel
 
                 if (importsOnLaunch)
                 {
-                    // **対象は監視フォルダの新着と、前回の続きだけ**（ユーザ判断 2026-09-21・G1、2026-09-29）。
-                    // 取り込み画面が起動時に履歴を全部「対象」に積んでいたため、
-                    // 新着を足して走らせると履歴も丸ごと舐め直していた（設定の説明と真逆）。
-                    // 前は新着だけを見ていて、①の途中で閉じた回は走査の控えに載っているので新着に数えられず、
-                    // 続きが残っていても何も始まらなかった
-                    var targets = Core.Scanning.LaunchImportTargets.Collect(result.NewFiles, LoadImportStateOrNull());
-
-                    // 外付けを外している・消した物は積まない。積むと、取り込み画面の「見つかりません。もう一度ドロップして」が
-                    // 起動しただけで出る（ドロップしていないのに）。在るかは画面のスレッドの外で見る
-                    var present = targets
-                        .Where(path => Core.Services.DiskCheck.FileExists(path) || Core.Services.DiskCheck.FolderExists(path))
-                        .ToList();
+                    // 対象は監視フォルダの新着と前回の続きだけ（決め方は画面の無い起動と同じ。ImportRunner.LaunchTargetsAsync）。
+                    // 取り込み画面が起動時に履歴を全部「対象」に積んでいたため、新着を足して走らせると履歴も丸ごと舐め直していた（G1）
+                    var present = await _services.Imports.LaunchTargetsAsync(result.NewFiles);
                     if (present.Count == 0)
                     {
                         return;
@@ -185,20 +176,6 @@ public sealed partial class MainViewModel
                 Core.Diagnostics.AppLog.Error("監視フォルダの新着を見る", exception);
             }
         }, token).Forget();
-    }
-
-    /// <summary>取り込みの続きの記録。読めなければ「続きは無い」と同じに扱う（下の帯と同じ。起動は妨げない）。</summary>
-    private Core.Scanning.ImportState? LoadImportStateOrNull()
-    {
-        try
-        {
-            return _services.Store.ImportState.Load();
-        }
-        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
-        {
-            Core.Diagnostics.AppLog.Error("起動時の取り込み：続きの記録を読む", exception);
-            return null;
-        }
     }
 
     /// <summary>

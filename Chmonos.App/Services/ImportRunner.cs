@@ -75,6 +75,61 @@ public sealed class ImportRunner(AppServiceContainer services)
     /// </summary>
     public void OnEnded(Func<ImportOutcome, Task> listener) => _ending.Add(listener);
 
+    /// <summary>
+    /// 起動したときに取り込む対象。**監視フォルダの新着と、前回の続きだけ**（ユーザ判断 2026-09-21・G1、2026-09-29。<see cref="LaunchImportTargets"/>）。
+    /// 外付けを外している・消した物は積まない（積むと、取り込み画面の「見つかりません。もう一度ドロップして」が起動しただけで出る）。
+    /// 在るかは画面のスレッドの外で見る
+    /// </summary>
+    public Task<IReadOnlyList<string>> LaunchTargetsAsync(IReadOnlyList<string> watchedNewFiles)
+        => Task.Run<IReadOnlyList<string>>(() => LaunchImportTargets.Collect(watchedNewFiles, LoadImportStateOrNull())
+            .Where(path => Core.Services.DiskCheck.FileExists(path) || Core.Services.DiskCheck.FolderExists(path))
+            .ToList());
+
+    /// <summary>取り込みの続きの記録。読めなければ「続きは無い」と同じに扱う（下の帯と同じ。起動は妨げない）。</summary>
+    private ImportState? LoadImportStateOrNull()
+    {
+        try
+        {
+            return services.Store.ImportState.Load();
+        }
+        catch (Exception exception) when (exception is System.IO.IOException or System.Text.Json.JsonException)
+        {
+            Core.Diagnostics.AppLog.Error("起動時の取り込み：続きの記録を読む", exception);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 人に尋ねずに対象を決める（自動で始めた取り込み。ユーザ判断 2026-09-21・G2）。展開先の中のファイルを指していても、
+    /// 尋ねずにそのまま取り込み、**要確認に出して後から差し替えられる**ようにする——起動直後に、押してもいないのに応答待ちの窓が黙って出ていた
+    /// </summary>
+    public List<string> TargetsWithoutAsking(List<string> targets)
+    {
+        var origins = UnpackedFileResolver.FindOrigins(targets);
+        if (origins.Count > 0)
+        {
+            NoteUnpackedFoundAsync(origins.Count).Forget();
+        }
+
+        return targets;
+    }
+
+    /// <summary>
+    /// 自動で始めた取り込みが展開先のファイルを指していたことを、要確認に出す（G2）。
+    /// 窓で尋ねる代わりなので、**そのまま取り込んだこと**と、**後から差し替えられること**を書く。
+    /// </summary>
+    private Task NoteUnpackedFoundAsync(int count)
+        => services.Commands.ExecuteAsync(new UiCommand.AddNotification(
+            new Core.Models.NotificationRecord
+            {
+                Id = "unpacked-imported",
+                Kind = Core.Models.NotificationKind.UnpackedFilesImported,
+                Title = "展開したフォルダの中のファイルを取り込みました",
+                Detail = $"zipを展開したフォルダの中のファイルを {count} 件取り込みました。"
+                    + "元のzipで取り込み直すときは、そのzipを取り込んでから「展開先フォルダの削除」で片付けてください。",
+                CreatedAt = DateTimeOffset.Now,
+            }));
+
     /// <summary>走っていれば止める。</summary>
     public void Cancel() => _cancellation?.Cancel();
 

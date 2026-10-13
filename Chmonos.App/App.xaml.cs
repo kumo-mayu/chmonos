@@ -93,7 +93,10 @@ public partial class App : Application
         // 横ホイール（チルト）はスレッドのメッセージを見る。道具や試験のメッセージには掛けない
         Controls.HorizontalWheel.ListenForTilt();
 
-        if (!EnsureStoreReachable())
+        // 画面を出さない起動（docs/history/headless-core-2026-10-13.md）。保存先の確かめ → 初回 → 形式 → 錠 → 組み立ては、画面ありと同じ道を通す
+        _headless = e.Args.Any(arg => string.Equals(arg, HeadlessArgument, StringComparison.OrdinalIgnoreCase));
+
+        if (!EnsureStoreReachable(_headless))
         {
             Shutdown();
             return;
@@ -106,6 +109,16 @@ public partial class App : Application
         // サービス一式より先に出すのは、ここで保存先が変わり得るため
         if (Views.FirstRunWindow.IsNeeded())
         {
+            // 画面を出さない起動では保存先を決められない。勝手に作らず、先に画面ありで起動してもらう（ユーザ判断 2026-10-13）
+            if (_headless)
+            {
+                Services.Notice.Show(
+                    "ウィンドウを表示せずに起動する前に、一度ふつうに起動して、データの保存先を決めてください。",
+                    "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
             // この窓が閉じた時点では本体がまだ無い。
             // 既定（最後の窓が閉じたら終了）のままだと、そこでアプリごと終わってしまう
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -131,15 +144,20 @@ public partial class App : Application
 
         // **組み立ての途中で止まったら、知らせて終える**（外部の点検 2026-10-06）。設定の JSON が壊れているなどで
         // ここが投げると、共通の受け口が知らせて「済んだ」にするだけで、窓が1つも無いままアプリが残っていた
-        MainViewModel main;
-        MainWindow mainWindow;
+        MainViewModel? main = null;
+        MainWindow? mainWindow = null;
         try
         {
             _services = new AppServiceContainer();
 
             if (!_services.IsSingleInstance)
             {
-                Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+                // 画面を出さない起動は、既に動いていれば黙って終える（ログオン時などに二重に起動されても窓を出さない）
+                if (!_headless)
+                {
+                    Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+
                 Shutdown();
                 return;
             }
@@ -157,8 +175,11 @@ public partial class App : Application
             // 設定の表示の色。主の窓を作る前に当てる（作るときに色を読む）
             ViewModels.AppTheme.Initialize(_services);
 
-            main = new MainViewModel(_services);
-            mainWindow = new MainWindow { DataContext = main };
+            if (!_headless)
+            {
+                main = new MainViewModel(_services);
+                mainWindow = new MainWindow { DataContext = main };
+            }
         }
         catch (Exception exception)
         {
@@ -174,45 +195,15 @@ public partial class App : Application
             return;
         }
 
-        ViewModels.AppTheme.Watch(mainWindow);
-        ViewModels.AppTheme.HideUntilFirstFrame(mainWindow);
-
-        mainWindow.RestorePlacement(_services.UiState.Window);
-
-        // 閉じる直前に採る。Closed だと既に位置を失っている
-        mainWindow.Closing += (_, e) =>
+        if (_headless || main is null || mainWindow is null)
         {
-            // 保存先を運び終えて開き直すところ。書きかけと待っている保存は運ぶ前に片付けてあり、
-            // ここで書くと古い保存先へ行く（MainViewModel.IsRelocatingStore）
-            if (main.IsRelocatingStore)
-            {
-                main.StopBackgroundWork();
-                return;
-            }
+            StartHeadless();
+            return;
+        }
 
-            // 終わっていない登録があれば聞く（メモ60）。閉じても列は記録にあり、次の起動で続く
-            if (main.ShouldCancelCloseForRegistrations())
-            {
-                e.Cancel = true;
-                return;
-            }
-
-            // 待っている自動保存（メモ）を今書く（I10：打ち終えてすぐ閉じると 0.8 秒の待ちごと捨てられていた）。
-            // **書き終わるまで待つ。**投げっぱなしにすると、窓が閉じて主のスレッドが終わった時点で
-            // 書いている途中の作業が切られ、結局その回の入力だけが消えていた（2026-09-20）
-            WaitForPendingWrites(main.FlushPendingWritesAsync());
-
-            // 編集途中の入力が残っていれば尋ねる（ユーザ判断）。「移動する」「キャンセル」なら閉じない
-            if (main.ShouldCancelCloseForDrafts())
-            {
-                e.Cancel = true;
-                return;
-            }
-
-            SavePlacement(main, mainWindow);
-        };
-
-        mainWindow.Show();
+        _main = main;
+        _mainWindow = mainWindow;
+        ShowMainWindow(main, mainWindow);
 
         // 書きかけの片付けは、窓を出してから裏で（保存先の全体を再帰でたどるので、窓が出るまでの待ちに乗せない）
         _services.SweepStaleTemporaryFilesLater();
@@ -230,6 +221,208 @@ public partial class App : Application
         // Unity で最後に選んでいたプロジェクトタブを覚え始める（「Unityで選択」の既定・ユーザ判断）。
         // 画面のスレッドで付ける——知らせはこのスレッドのメッセージとして届く
         Services.UnityFocusWatch.Start();
+    }
+
+    /// <summary>画面を出さずに起動する引数。</summary>
+    public const string HeadlessArgument = "--headless";
+
+    private bool _headless;
+    private MainViewModel? _main;
+    private MainWindow? _mainWindow;
+    private Services.TrayIcon? _tray;
+
+    /// <summary>
+    /// 画面を出さずに動かす（ユーザ判断 2026-10-13）。起動したときの作業は画面ありと同じ設定に従い、前の起動の登録の続きも流す。
+    /// 新しい版の確認は、知らせを出す場所が無いので窓を開いたときに回す。動いていることは通知領域のアイコンで見せ、そこから開く・終える
+    /// </summary>
+    private void StartHeadless()
+    {
+        var services = _services!;
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        _tray = new Services.TrayIcon("Chmonosはウィンドウを表示せずに動いています");
+        _tray.OpenRequested += OpenFromTray;
+        _tray.ExitRequested += ExitFromTray;
+
+        services.SweepStaleTemporaryFilesLater();
+        services.Startup.Start();
+        services.Startup.StartMissingMarksSweep();
+        services.ResumeRegistrationsAsync().Forget();
+        ImportOnHeadlessLaunchAsync(services).Forget();
+    }
+
+    /// <summary>
+    /// 画面を出さない起動の自動の取り込み（API の設定 <see cref="Core.Models.ApiSettings.ImportOnHeadlessLaunch"/>。既定はオフ）。
+    /// 対象の決め方と取り込みの道は、画面ありの「起動したとき…取り込む」と同じ（ユーザ判断 2026-10-13：経路は1本、設定は別）。
+    /// 押してもいないので、展開先のファイルについて尋ねない（G2）
+    /// </summary>
+    private static async Task ImportOnHeadlessLaunchAsync(AppServiceContainer services)
+    {
+        try
+        {
+            if (!services.Store.ApiSettings.Load().ImportOnHeadlessLaunch)
+            {
+                return;
+            }
+
+            var found = await services.Watch.FindNewAsync(services.Settings.WatchedFolders, CancellationToken.None);
+            var targets = await services.Imports.LaunchTargetsAsync(found.NewFiles);
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            await services.Imports.StartOrStackAsync(new Services.ImportRequest(
+                () => services.Imports.TargetsWithoutAsking(targets.ToList()),
+                targets));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Core.Diagnostics.AppLog.Error("画面を出さない起動の自動の取り込み", exception);
+        }
+    }
+
+    /// <summary>
+    /// 通知領域から窓を開く。主画面は1回だけ作り、閉じたら隠して取っておく（主画面はアプリの間1つの前提で作られていて、
+    /// 作り直すと知らせを二重に受ける）。起動したときの作業は済んでいるので、主画面は走らせ直さない
+    /// </summary>
+    private void OpenFromTray()
+    {
+        if (_mainWindow is { } window)
+        {
+            window.Show();
+            if (window.WindowState == WindowState.Minimized)
+            {
+                window.WindowState = WindowState.Normal;
+            }
+
+            window.Activate();
+            return;
+        }
+
+        try
+        {
+            _main = new MainViewModel(_services!);
+            _mainWindow = new MainWindow { DataContext = _main };
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("通知領域から窓を開く", exception);
+            Services.Notice.Show(
+                "窓を開けませんでした。\n\n" + Core.Services.FailureText.Cause(exception) + "\n\n"
+                + "詳しい記録は保存先のlogs\\app.logに残しました。",
+                "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
+            _main = null;
+            _mainWindow = null;
+            return;
+        }
+
+        ShowMainWindow(_main, _mainWindow);
+        _main.CheckForUpdatesAsync().Forget();
+        Services.UnityFocusWatch.Start();
+    }
+
+    /// <summary>通知領域の「終了」。窓を開いていれば、窓を閉じるときと同じことを確かめてから終える。</summary>
+    private void ExitFromTray()
+    {
+        var services = _services!;
+        if (_main is { } main && _mainWindow is { } window)
+        {
+            if (main.ShouldCancelCloseForRegistrations())
+            {
+                return;
+            }
+
+            WaitForPendingWrites(main.FlushPendingWritesAsync());
+
+            // 書きかけを尋ねる窓の「移動する」は編集画面を開くので、窓を出してから尋ねる
+            if (main.HasDrafts())
+            {
+                OpenFromTray();
+                if (main.ShouldCancelCloseForDrafts())
+                {
+                    return;
+                }
+            }
+
+            if (window.IsVisible)
+            {
+                SaveWindowPlacement(main, window);
+            }
+
+            main.StopBackgroundWork();
+        }
+        else
+        {
+            // 窓を開いていない間も、登録の列は流れている。終わっていなければ聞く（閉じても次の起動で続く）
+            if (ViewModels.RegistrationQueue.CloseConfirm(services.Registrations.Jobs.Count, services.Registrations.SecondsLeftAll()) is { } confirm
+                && Views.ChoiceDialog.AskTwo(confirm.Title, confirm.Question, confirm.Detail, "閉じる", "閉じない") != Views.ChoiceDialogResult.First)
+            {
+                return;
+            }
+
+            WaitForPendingWrites(Task.WhenAll(services.Registrations.WhenWrittenAsync(), services.BackgroundWrites.WhenIdleAsync()));
+            services.Startup.Stop();
+        }
+
+        Shutdown();
+    }
+
+    /// <summary>主の窓を出す。閉じるときの確かめは <see cref="OnMainWindowClosing"/>。</summary>
+    private void ShowMainWindow(MainViewModel main, MainWindow mainWindow)
+    {
+        ViewModels.AppTheme.Watch(mainWindow);
+        ViewModels.AppTheme.HideUntilFirstFrame(mainWindow);
+
+        mainWindow.RestorePlacement(_services!.UiState.Window);
+
+        // 閉じる直前に採る。Closed だと既に位置を失っている
+        mainWindow.Closing += (_, e) => OnMainWindowClosing(main, mainWindow, e);
+
+        mainWindow.Show();
+    }
+
+    private void OnMainWindowClosing(MainViewModel main, MainWindow mainWindow, System.ComponentModel.CancelEventArgs e)
+    {
+        // 保存先を運び終えて開き直すところ。書きかけと待っている保存は運ぶ前に片付けてあり、
+        // ここで書くと古い保存先へ行く（MainViewModel.IsRelocatingStore）
+        if (main.IsRelocatingStore)
+        {
+            main.StopBackgroundWork();
+            return;
+        }
+
+        // 画面を出さない起動から開いた窓は、閉じたら隠すだけ（プロセスは通知領域で動き続ける）。
+        // 主画面はそのまま取っておくので、書きかけも登録の列も残る。待っている保存だけ書き、位置を覚える
+        if (_tray is not null)
+        {
+            WaitForPendingWrites(main.FlushPendingWritesAsync());
+            SaveWindowPlacement(main, mainWindow);
+            e.Cancel = true;
+            mainWindow.Hide();
+            return;
+        }
+
+        // 終わっていない登録があれば聞く（メモ60）。閉じても列は記録にあり、次の起動で続く
+        if (main.ShouldCancelCloseForRegistrations())
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        // 待っている自動保存（メモ）を今書く（I10：打ち終えてすぐ閉じると 0.8 秒の待ちごと捨てられていた）。
+        // **書き終わるまで待つ。**投げっぱなしにすると、窓が閉じて主のスレッドが終わった時点で
+        // 書いている途中の作業が切られ、結局その回の入力だけが消えていた（2026-09-20）
+        WaitForPendingWrites(main.FlushPendingWritesAsync());
+
+        // 編集途中の入力が残っていれば尋ねる（ユーザ判断）。「移動する」「キャンセル」なら閉じない
+        if (main.ShouldCancelCloseForDrafts())
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        SavePlacement(main, mainWindow);
     }
 
     /// <summary>
@@ -377,7 +570,10 @@ public partial class App : Application
     ///
     /// 既定の場所しか指していないなら、無くて当たり前なので何も聞かない（初回起動がこれ）。
     /// </summary>
-    private static bool EnsureStoreReachable()
+    /// <param name="headless">
+    /// 画面を出さない起動か。そのときは「既定の場所で開きますか」を聞かずに終える（保存先を勝手に替えない。ユーザ判断 2026-10-13）
+    /// </param>
+    private static bool EnsureStoreReachable(bool headless)
     {
         var root = StoreLocation.Resolve();
 
@@ -398,6 +594,17 @@ public partial class App : Application
         if (!AsksWhenStoreMissing(root, Directory.Exists(root.Path)))
         {
             return true;
+        }
+
+        if (headless)
+        {
+            Services.Notice.Show(
+                $"データの保存先が見つからないため、起動しませんでした。\n\n{root.Path}\n\n"
+                + "外付けのドライブや同期のアプリをつないでから、もう一度起動してください。",
+                "保存先が見つかりません",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return false;
         }
 
         var answer = Services.Notice.Show(
@@ -485,7 +692,12 @@ public partial class App : Application
         // 背景で走っている取得を先に止める。終わるのは待たない
         // （1件ずつ保存しているので、どこで止めても壊れない）
         main.StopBackgroundWork();
+        SaveWindowPlacement(main, window);
+    }
 
+    /// <summary>窓の位置と大きさを覚える（画面を出さない起動で窓を隠すときは、裏の作業は止めずにこれだけ）。</summary>
+    private static void SaveWindowPlacement(MainViewModel main, MainWindow window)
+    {
         // 窓が無ければ（閉じる途中で既に壊れているなど）覚え直さず、前回の値を残す
         if (window.CurrentPlacement() is not { } placement)
         {
@@ -519,6 +731,7 @@ public partial class App : Application
 
         Services.UnityFocusWatch.Stop();
         ViewModels.AppTheme.Stop();
+        _tray?.Dispose();
         _services?.Dispose();
         base.OnExit(e);
     }

@@ -775,6 +775,15 @@ public sealed partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 書きかけが残っているか（今の編集画面の入力も拾ってから見る）。通知領域から終えるとき、尋ねる前に窓を出すかを決める
+    /// </summary>
+    public bool HasDrafts()
+    {
+        (CurrentViewModel as EditViewModel)?.CaptureDraft();
+        return Drafts.HasAny;
+    }
+
+    /// <summary>
     /// 閉じる前に、書きかけが残っていれば尋ねる（ユーザ判断）。閉じるのをやめるなら true。
     /// 「移動する」なら、書きかけの商品だけを並べて編集画面を開く。
     /// </summary>
