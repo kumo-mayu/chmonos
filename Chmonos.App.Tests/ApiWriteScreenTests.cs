@@ -219,4 +219,52 @@ public sealed class ApiWriteScreenTests
             await app.Services.Api.StopAsync();
         }
     });
+
+    /// <summary>開いている商品ページは、API が書いた後の値で開き直す（点検37：前は古いお気に入りのまま）。</summary>
+    [Fact]
+    public Task 開いている商品ページは_APIで書いた値に開き直す() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(ItemId, "作り物の帽子"));
+        var main = await app.StartAsync();
+        main.ShowItem((await app.Store.Items.LoadAsync(ItemId))!);
+        var (client, _) = await StartApiAsync(app);
+        try
+        {
+            Assert.Equal(HttpStatusCode.OK, (await PutFavoriteAsync(client)).StatusCode);
+
+            await UiThread.Until(() => main.CurrentItemPage is { IsFavorite: true }, "開いている商品ページにお気に入りが映る");
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
+    });
+
+    /// <summary>メモを打っている途中は開き直さない（打った分が消える）。書き終えてから開き直す。</summary>
+    [Fact]
+    public Task メモを打っている途中は_開き直しを書き終えるまで待つ() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(ItemId, "作り物の帽子"));
+        var main = await app.StartAsync();
+        main.ShowItem((await app.Store.Items.LoadAsync(ItemId))!);
+        var page = main.CurrentItemPage!;
+        var (client, _) = await StartApiAsync(app);
+        try
+        {
+            page.MemoDraft = "打っている途中";
+            Assert.Equal(HttpStatusCode.OK, (await PutFavoriteAsync(client)).StatusCode);
+            await UiThread.Until(() => main.Search.SnapshotItems().Single(item => item.Id == ItemId).Local.IsFavorite, "検索の写しに映る");
+            Assert.Same(page, main.CurrentItemPage);
+
+            await page.FlushPendingWritesAsync();
+            await UiThread.Until(() => main.CurrentItemPage is { IsFavorite: true } current && !ReferenceEquals(current, page), "書き終えたら開き直す");
+            Assert.Equal("打っている途中", main.CurrentItemPage!.Memo);
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
+    });
 }

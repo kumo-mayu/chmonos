@@ -252,8 +252,8 @@ public sealed class AppServiceContainer : IDisposable
     public Services.ApiRunner Api => _api ??= new(Store, new Chmonos.Api.ApiWriteHooks(
         // 書き込みは命令の口だけを通る。起点を API にして、「人が押した」優先度を掛けない（ユーザ判断 2026-10-13）
         (command, cancellationToken) => Commands.ExecuteAsync(command, cancellationToken: cancellationToken, origin: CommandOrigin.Api),
-        write => ApiWritten?.Invoke(write),
-        itemId => IsItemBeingEdited?.Invoke(itemId) == true,
+        NoteApiWrite,
+        EditGate.TryBeginApiWrite,
         ApiUnity ??= new Services.ApiUnitySender(this)));
 
     /// <summary>
@@ -265,8 +265,11 @@ public sealed class AppServiceContainer : IDisposable
     /// <summary>外から使う API が書いた（主画面が受けて、検索の写しと開いている画面に知らせる。画面が無ければ誰も受けない）。</summary>
     public event Action<Chmonos.Api.ApiWrite>? ApiWritten;
 
-    /// <summary>その商品を編集画面で開いているか（主画面が差し込む。開いていれば API は 409 で断る）。</summary>
-    public Func<string, bool>? IsItemBeingEdited { get; set; }
+    /// <summary>API が書いたことを画面へ知らせる（書き込みの URL のほか、Unity へ送った後の足跡・印も。点検37）。</summary>
+    internal void NoteApiWrite(Chmonos.Api.ApiWrite write) => ApiWritten?.Invoke(write);
+
+    /// <summary>編集画面で開いている商品と API の書き込みの順序を決める札（開いていれば API は 409 で断る。点検37）。</summary>
+    public Services.ItemEditGate EditGate { get; } = new();
 
     private Services.ApiRunner? _api;
 

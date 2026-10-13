@@ -86,7 +86,7 @@ internal static class ApiClassify
                 $"ユーザータグ「{(sub is null ? top : $"{top} / {sub}")}」は一覧にありません。一覧に足して付けるときは createMissing=true を付けてください。");
         }
 
-        await writer.ExecuteAsync(new UiCommand.AddUserTag(top, sub), cancellationToken);
+        await writer.ExecuteAsync(new UiCommand.AddUserTag(top, sub), cancellationToken, "userTags");
     }
 
     /// <summary>
@@ -125,7 +125,7 @@ internal static class ApiClassify
                 throw QueryException.Invalid("unknownAttribute", $"属性「{name}」は一覧にありません。一覧に足して付けるときは createMissing=true を付けてください。");
             }
 
-            await writer.ExecuteAsync(new UiCommand.AddAttribute(name), cancellationToken);
+            await writer.ExecuteAsync(new UiCommand.AddAttribute(name), cancellationToken, "attributes");
             added = true;
         }
 

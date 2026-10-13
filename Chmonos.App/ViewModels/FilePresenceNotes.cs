@@ -54,8 +54,9 @@ internal static class FilePresenceNotes
     /// <remarks>
     /// 書けなくても使う操作は止めない（記録は印のためで、開く・送るの成否には関わらない）。失敗はログにだけ残す。
     /// </remarks>
+    /// <param name="origin">誰の頼みか（外から使う API の「Unity へ送る」は API。人の操作の優先度を掛けず、ログにも API と残す。点検37）。</param>
     public static async Task<ItemRecord?> NoteAsync(
-        AppServiceContainer services, ItemRecord item, IReadOnlyList<FileSighting> sightings)
+        AppServiceContainer services, ItemRecord item, IReadOnlyList<FileSighting> sightings, CommandOrigin origin = CommandOrigin.App)
     {
         if (sightings.Count == 0 || !FileMissingMarks.Differs(item.Local.LocalFiles, sightings))
         {
@@ -64,7 +65,7 @@ internal static class FilePresenceNotes
 
         try
         {
-            if (await services.Commands.ExecuteAsync(new UiCommand.NoteFilePresence(item.Id, sightings))
+            if (await services.Commands.ExecuteAsync(new UiCommand.NoteFilePresence(item.Id, sightings), origin: origin)
                 is not CommandResult.ItemSaved)
             {
                 return null;
@@ -125,6 +126,6 @@ internal static class FilePresenceNotes
 
     /// <summary>商品のファイルを見て、食い違えば書く（開く・送るが「無かった」ときの道）。</summary>
     public static async Task<ItemRecord?> LookAndNoteAsync(
-        AppServiceContainer services, ItemRecord item, IReadOnlyList<LocalFileRecord> files)
-        => files.Count == 0 ? null : await NoteAsync(services, item, await LookAsync(files, services.Volumes));
+        AppServiceContainer services, ItemRecord item, IReadOnlyList<LocalFileRecord> files, CommandOrigin origin = CommandOrigin.App)
+        => files.Count == 0 ? null : await NoteAsync(services, item, await LookAsync(files, services.Volumes), origin);
 }

@@ -778,6 +778,9 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     {
         while (_index < _queue.Count)
         {
+            // 読む前に「開いた」印を立て、外から使う API がこの商品へ書いている途中なら書き終えるまで待つ
+            // （読んだ後に API が書くと、人の保存で API の分が消える。開いている間は API が断る。点検37）
+            await _services.EditGate.BeginEditAsync(this, _queue[_index]);
             var record = await _services.Store.Items.LoadAsync(_queue[_index]);
             if (record is not null)
             {
@@ -1227,7 +1230,11 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     /// 離れたら数え上げを止める。止める口が無く、画面を離れても回り続けていた
     /// （今の画面かを確かめるので飛ばされはしないが、数え終わるまで古い編集画面が残る）。
     /// </summary>
-    public void OnLeaving() => StopReturnTimer();
+    public void OnLeaving()
+    {
+        StopReturnTimer();
+        _services.EditGate.EndEdit(this);
+    }
 
     private void OnReturnTick(object? sender, EventArgs e)
     {

@@ -9,24 +9,46 @@ public sealed partial class MainViewModel
     /// </summary>
     private void ListenToApiWrites()
     {
-        // 編集画面で開いている商品には、外から書かせない（人が後から保存すると API の分が消える。ユーザ判断 2026-10-13）。
-        // 要求のスレッドから聞かれるが、読むのは今の画面と商品の ID だけ（画面のスレッドを待つと、画面が API を待つ所で待ち合う）
-        _services.IsItemBeingEdited = itemId => (CurrentViewModel as EditViewModel)?.CurrentItemId == itemId;
-
         _services.ApiWritten += write => RunOnUiThread(() => NoteApiWrite(write));
     }
 
     private void NoteApiWrite(Chmonos.Api.ApiWrite write)
     {
+        // 種類ごとに、映している物を作り直す。前は商品の差し替えと件数だけで、「最近」の絞り込みと並び・タグや属性の候補・
+        // 開いている商品ページが古いままだった（点検37）
         switch (write.Kind)
         {
             case "items":
                 // 見回りの後と同じ：数件ならその商品だけ差し替え、多ければ全件を読み直す。件数も数え直す
                 NoteSweptItemsAsync(write.Ids).Forget();
+                NoteOpenItemChangedOutsideAsync(write.Ids).Forget();
+                break;
+            case "recent":
+                Search.NoteMaybeRecentChanged();
+                RefreshCounts();
+                break;
+            case "userTags" or "attributes":
+                Search.RefreshFacets();
+                RefreshCounts();
                 break;
             default:
                 RefreshCounts();
                 break;
+        }
+    }
+
+    /// <summary>開いている商品ページ（フォルダビュー・改変の画面に組み込んだ物も）の商品が外で書き換わったら、読み直して映す。</summary>
+    private async Task NoteOpenItemChangedOutsideAsync(IReadOnlyList<string> ids)
+    {
+        if ((CurrentItemPage ?? (CurrentViewModel as IEmbeddedItemPageHost)?.EmbeddedItemPage) is not { } page
+            || !ids.Contains(page.Item.Id))
+        {
+            return;
+        }
+
+        if (await _services.Store.Items.LoadAsync(page.Item.Id) is { } updated)
+        {
+            page.NoteChangedOutside(updated);
         }
     }
 }

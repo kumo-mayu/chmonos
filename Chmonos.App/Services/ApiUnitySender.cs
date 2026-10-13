@@ -30,6 +30,14 @@ internal sealed class ApiUnitySender(
 
     private volatile UnitySendStatus? _last;
 
+    /// <summary>
+    /// 送っている途中か（後始末まで含む）。確かめと予約を同じ錠の中で行う。前は確かめと予約が分かれていて、同時の頼みが両方 202 を受け、
+    /// 前の送りの後始末の間に次が始まると、前の結果が新しい「最後の送り」を上書きした（点検37）
+    /// </summary>
+    private bool _sending;
+
+    private readonly object _startLock = new();
+
     public UnitySendStatus? Last => _last;
 
     public IReadOnlyList<UnityEditorRef> OpenEditors()
@@ -37,18 +45,22 @@ internal sealed class ApiUnitySender(
 
     public (UnitySendStatus Started, Task<UnitySendStatus> Finished) Start(ItemRecord item, UnitySendRequest request)
     {
-        // 連続送りの最中は混ぜない。Editor.log は全エディタが共有するので、終わりを取り違える（画面と同じ門）
-        if (_isRunning())
+        lock (_startLock)
         {
-            throw new QueryException(409, "unityBusy", UnityImportQueue.BusyMessage);
+            // 連続送りの最中は混ぜない。Editor.log は全エディタが共有するので、終わりを取り違える（画面と同じ門）
+            if (_sending || _isRunning())
+            {
+                throw new QueryException(409, "unityBusy", UnityImportQueue.BusyMessage);
+            }
+
+            var package = PickPackage(item, request);
+            var (editor, project) = PickEditor(request.Project);
+
+            var started = new UnitySendStatus(item.Id, package.Name, project, "sending", null, DateTimeOffset.Now, null);
+            _sending = true;
+            _last = started;
+            return (started, Task.Run(() => SendGuardedAsync(item, editor, package, started)));
         }
-
-        var package = PickPackage(item, request);
-        var (editor, project) = PickEditor(request.Project);
-
-        var started = new UnitySendStatus(item.Id, package.Name, project, "sending", null, DateTimeOffset.Now, null);
-        _last = started;
-        return (started, Task.Run(() => SendAsync(item, editor, package, started)));
     }
 
     /// <summary>送る物：指定があればそれ（zip の中のパスと、あれば zip のハッシュで照らす）、無ければ1つしか無いときだけそれ。</summary>
@@ -104,6 +116,22 @@ internal sealed class ApiUnitySender(
         return (editors[0], _pathOf(editors[0]) ?? editors[0].ProjectName ?? string.Empty);
     }
 
+    /// <summary>送り終えたら（想定の外の例外でも）「送っている途中」を外す。外さないと、以後の送りが全部 409 になる。</summary>
+    private async Task<UnitySendStatus> SendGuardedAsync(ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package, UnitySendStatus started)
+    {
+        try
+        {
+            return await SendAsync(item, editor, package, started);
+        }
+        finally
+        {
+            lock (_startLock)
+            {
+                _sending = false;
+            }
+        }
+    }
+
     private async Task<UnitySendStatus> SendAsync(ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package, UnitySendStatus started)
     {
         UnitySendStatus finished;
@@ -126,9 +154,13 @@ internal sealed class ApiUnitySender(
             };
 
             // 「使った」の足跡。Unity へ送ったことが一番強い証拠（ユーザ判断）。取り込み画面で取り消した物は入っていないので付けない（画面と同じ）
-            if (finished.State is "imported" or "alreadyPresent")
+            // 命令の口を API の起点で通す（人の操作として扱わない・ログに API と残す。点検37）
+            if (finished.State is "imported" or "alreadyPresent"
+                && await services.Commands.ExecuteAsync(
+                    new Core.Commands.UiCommand.TouchRecent(item.Id, RecentKind.Used, DateTimeOffset.Now), origin: Core.Commands.CommandOrigin.Api)
+                    is not Core.Commands.CommandResult.Failed)
             {
-                await services.Recent.TouchAsync(item.Id, RecentKind.Used);
+                services.NoteApiWrite(new ApiWrite("recent", [item.Id]));
             }
 
             // 送れなかった理由が「zip が無い」なら記録へ（見つからなくなった日時）。理由の文では見分けず、そのファイルを見直す（画面と同じ）
@@ -137,7 +169,10 @@ internal sealed class ApiUnitySender(
                 var files = item.Local.LocalFiles
                     .Where(file => string.Equals(file.Hash, package.ZipHash, StringComparison.OrdinalIgnoreCase))
                     .ToList();
-                await ViewModels.FilePresenceNotes.LookAndNoteAsync(services, item, files);
+                if (await ViewModels.FilePresenceNotes.LookAndNoteAsync(services, item, files, Core.Commands.CommandOrigin.Api) is not null)
+                {
+                    services.NoteApiWrite(new ApiWrite("items", [item.Id]));
+                }
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
@@ -149,7 +184,15 @@ internal sealed class ApiUnitySender(
         // 外から使う API の書き込みと同じく、何をしたかをログに1行残す（Unity へ送るは UiCommand を通らないので、ここで書く）。
         // 結果の種類だけ。商品 ID・包みの名前・プロジェクトの場所は書かない（問い合わせの中身はログに残さない決まり）
         Core.Diagnostics.AppLog.Note("外から使う API", $"Unity へ送る → {finished.State}");
-        _last = finished;
+        lock (_startLock)
+        {
+            // この送りが今も「最後の送り」のときだけ結果で置き換える
+            if (ReferenceEquals(_last, started))
+            {
+                _last = finished;
+            }
+        }
+
         return finished;
     }
 }

@@ -1156,11 +1156,44 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
         if (await _services.Store.Items.LoadAsync(Item.Id) is { } saved)
         {
+            // 打っている間に外で書き換わっていたら、書き終えた今、開き直して映す（まだ打ち足していれば次の保存まで待つ）
+            if (_changedOutside && _memoDraft.Trim() == (saved.Local.Memo ?? string.Empty)
+                && (ReferenceEquals(_main.CurrentViewModel, this) || Replaced is not null))
+            {
+                _changedOutside = false;
+                ReplaceSelf(saved);
+                return;
+            }
+
             Item = saved;
             OnPropertyChanged(nameof(Memo));
             OnPropertyChanged(nameof(HasMemo));
             _main.Search.NoteItemChanged(saved);
         }
+    }
+
+    /// <summary>外（API）で書き換わったが、メモを打っている途中なので開き直しを待っている（書き終えたら開き直す）。</summary>
+    private bool _changedOutside;
+
+    /// <summary>
+    /// この商品が外（外から使う API）で書き換わった。開き直して今の値を映す（点検37：前はお気に入り・メモなどが古いまま残った）。
+    /// メモを打っている途中なら、打った分を消さないよう、書き終えるまで待ってから開き直す
+    /// </summary>
+    internal void NoteChangedOutside(ItemRecord updated)
+    {
+        // 編集画面の中の商品ページは持ち主が保存を受け持つ（開いている間は API が書かない）
+        if (!ShowsMemoEditor)
+        {
+            return;
+        }
+
+        if (_memoDraft.Trim() != (Item.Local.Memo ?? string.Empty))
+        {
+            _changedOutside = true;
+            return;
+        }
+
+        ReplaceSelf(updated);
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前に呼ぶ。I10：打ってすぐ閉じると落ちていた）。</summary>

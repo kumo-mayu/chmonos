@@ -12,12 +12,15 @@ public sealed record ApiWrite(string Kind, IReadOnlyList<string> Ids);
 /// </summary>
 /// <param name="Execute">命令の口。書くのは必ずここから（書き込みは UiCommand を通す決まり）。アプリは起点を API にして呼ぶ（「人が押した」優先度を掛けない）。</param>
 /// <param name="Written">書いたことをアプリ（画面）へ知らせる。画面が無ければ何もしない。</param>
-/// <param name="IsBeingEdited">その商品を編集画面で開いているか。開いていれば外から書かない（人が後から保存すると API の分が消える。ユーザ判断 2026-10-13）。</param>
+/// <param name="ClaimItem">
+/// 商品へ書く札を取る。編集画面で開いていれば null（外から書かない。人が後から保存すると API の分が消える。ユーザ判断 2026-10-13）。
+/// 書き終えるまで札を持つ（その間に編集画面を開いても、読むのは書いた後になる。点検37）
+/// </param>
 /// <param name="Unity">Unity へ送る口（アプリが持つ。Unity のエディタの窓を操作するのはアプリの部品）。無ければ送る URL は 503。</param>
 public sealed record ApiWriteHooks(
     Func<UiCommand, CancellationToken, Task<CommandResult>> Execute,
     Action<ApiWrite>? Written = null,
-    Func<string, bool>? IsBeingEdited = null,
+    Func<string, IDisposable?>? ClaimItem = null,
     IApiUnity? Unity = null);
 
 /// <summary>
@@ -70,9 +73,12 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
         }
     }
 
-    /// <summary>商品に書いてよいかを確かめる（在るか・編集画面で開いていないか）。</summary>
+    /// <summary>
+    /// 商品に書いてよいかを確かめ（在るか・編集画面で開いていないか）、書く札を返す。**書き終えるまで手放さない**（using で持つ）。
+    /// 入口で1回見るだけだと、見た後に開いた編集画面が古い値を読み、後の保存で API の分を消した（点検37）
+    /// </summary>
     /// <param name="checkEditing">編集画面で開いているかも見るか（商品の記録を書くとき。足跡のように商品の記録の外へ書くときは見ない）。</param>
-    public void GuardItem(HttpContext context, string itemId, bool checkEditing = true)
+    public IDisposable GuardItem(HttpContext context, string itemId, bool checkEditing = true)
     {
         Guard(context);
         if (!state.Snapshot.ItemsById.ContainsKey(itemId))
@@ -80,18 +86,36 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
             throw QueryException.NotFound("itemNotFound", $"商品 {itemId} は見つかりません。");
         }
 
-        if (checkEditing && hooks!.IsBeingEdited?.Invoke(itemId) == true)
+        if (!checkEditing || hooks!.ClaimItem is not { } claim)
         {
-            throw new QueryException(409, "itemBeingEdited", "この商品は Chmonos の編集画面で開いています。編集を終えてから、もう一度送ってください。");
+            return NoClaim.Instance;
+        }
+
+        return claim(itemId)
+            ?? throw new QueryException(409, "itemBeingEdited", "この商品は Chmonos の編集画面で開いています。編集を終えてから、もう一度送ってください。");
+    }
+
+    private sealed class NoClaim : IDisposable
+    {
+        public static readonly NoClaim Instance = new();
+
+        public void Dispose()
+        {
         }
     }
 
     /// <summary>命令を流すだけ（続けて別の命令を流す前段。一覧に足してから商品に付ける、など）。失敗したら 500。</summary>
-    public async Task ExecuteAsync(UiCommand command, CancellationToken cancellationToken)
+    /// <param name="writtenKind">書いた物の種類（画面へ知らせる。一覧に足したら候補を作り直させる。点検37）。</param>
+    public async Task ExecuteAsync(UiCommand command, CancellationToken cancellationToken, string? writtenKind = null)
     {
         if (await hooks!.Execute(command, cancellationToken) is CommandResult.Failed failed)
         {
             throw new QueryException(500, "commandFailed", failed.Message);
+        }
+
+        if (writtenKind is not null)
+        {
+            hooks.Written?.Invoke(new ApiWrite(writtenKind, []));
         }
     }
 

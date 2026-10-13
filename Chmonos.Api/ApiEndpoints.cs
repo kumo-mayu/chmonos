@@ -102,7 +102,7 @@ internal static partial class ApiEndpoints
         app.MapPut("/v1/items/{id}/favorite", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.FlagRequest);
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
 
             // 書くのはお気に入りの欄だけ（ほかの欄は、保存の直前に読み直した今の値が残る）
             var command = new UiCommand.SaveItemLocal(id, new LocalBlock { IsFavorite = body.Value }, LocalOwners.Favorite);
@@ -113,7 +113,7 @@ internal static partial class ApiEndpoints
         app.MapPut("/v1/items/{id}/hidden", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.FlagRequest);
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
             var command = new UiCommand.SaveItemLocal(id, new LocalBlock { IsHidden = body.Value }, LocalOwners.Visibility);
             return await ItemAfterWriteAsync(state, writer, command, id, context);
         })
@@ -128,7 +128,7 @@ internal static partial class ApiEndpoints
                 throw QueryException.Invalid("invalidKind", "kind に書けるのは used だけです。");
             }
 
-            writer.GuardItem(context, id, checkEditing: false);
+            using var claim = writer.GuardItem(context, id, checkEditing: false);
             var command = new UiCommand.TouchRecent(id, Core.Services.RecentKind.Used, DateTimeOffset.Now);
             return await NoContentAfterWriteAsync(writer, command, "recent", [id], [state.Paths.RecentFile], context);
         })
@@ -139,7 +139,7 @@ internal static partial class ApiEndpoints
         app.MapPut("/v1/items/{id}/user-tags", async (ApiState state, ApiWriter writer, HttpContext context, string id, bool? createMissing) =>
         {
             var body = await ReadAsync(context.Request, json.UserTagsRequest);
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
             var (tags, added) = await ApiClassify.ResolveTagsAsync(state.Store.UserTags.Load, writer, body.Tags ?? [], createMissing == true, context.RequestAborted);
             var command = new UiCommand.SaveItemLocal(id, new LocalBlock { UserTags = tags }, LocalOwners.UserTags);
             return await ItemAfterWriteAsync(state, writer, command, id, context, added ? [state.Paths.UserTagsFile] : []);
@@ -149,7 +149,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/user-tags", async (ApiState state, ApiWriter writer, HttpContext context, string id, bool? createMissing) =>
         {
             var body = await ReadAsync(context.Request, json.UserTagChangeRequest);
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
             var (tags, added) = await ApiClassify.ResolveTagsAsync(
                 state.Store.UserTags.Load, writer, [new UserTagInput(body.Top, body.Sub is null ? null : [body.Sub])], createMissing == true, context.RequestAborted);
             var tag = tags[0];
@@ -168,7 +168,7 @@ internal static partial class ApiEndpoints
                 throw QueryException.Invalid("invalidName", "top を書いてください。");
             }
 
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
             var command = new UiCommand.ChangeItemLocal(id, local => ApiClassify.RemoveTag(local, body.Top, body.Sub), LocalOwners.UserTags);
             return await ItemAfterWriteAsync(state, writer, command, id, context);
         })
@@ -177,7 +177,7 @@ internal static partial class ApiEndpoints
         app.MapPatch("/v1/items/{id}/attributes", async (ApiState state, ApiWriter writer, HttpContext context, string id, bool? createMissing) =>
         {
             var body = await ReadAsync(context.Request, json.AttributesRequest);
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
             var (values, added) = await ApiClassify.ResolveAttributesAsync(
                 state.Store.Attributes.Load, writer, body.Values ?? new Dictionary<string, int?>(), createMissing == true, context.RequestAborted);
             var command = new UiCommand.ChangeItemLocal(id, local => ApiClassify.ApplyAttributes(local, values), LocalOwners.Attributes);
@@ -188,7 +188,7 @@ internal static partial class ApiEndpoints
         app.MapPut("/v1/items/{id}/memo", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.MemoRequest);
-            writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id);
             var memo = string.IsNullOrWhiteSpace(body.Memo) ? null : body.Memo;
             var command = new UiCommand.SaveItemLocal(id, new LocalBlock { Memo = memo }, LocalOwners.ItemPageMemo);
             return await ItemAfterWriteAsync(state, writer, command, id, context);
@@ -235,7 +235,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/send-to-unity", async (ApiState state, ApiWriter writer, ChangeFeed feed, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.UnitySendRequest);
-            writer.GuardItem(context, id, checkEditing: false);
+            using var claim = writer.GuardItem(context, id, checkEditing: false);
             var unity = writer.Unity ?? throw new QueryException(503, "unityUnavailable", "この API は Unity へ送れません。");
             var (started, finished) = unity.Start(state.Snapshot.ItemsById[id], body);
             _ = finished.ContinueWith(

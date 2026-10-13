@@ -177,4 +177,35 @@ public sealed class ApiUnitySendTests
             await app.Services.Api.StopAsync();
         }
     });
+
+    /// <summary>送っている間（後始末まで）は次の頼みを断り、前の結果は自分が「最後の送り」のときだけ置き換える（点検37）。</summary>
+    [Fact]
+    public Task 送っている途中の頼みは409で断り_終われば次を受ける() => TestApp.Run(async app =>
+    {
+        var item = ItemWith(app, "Outfit.unitypackage");
+        await app.AddItemAsync(item);
+        await app.StartAsync();
+        var gate = new TaskCompletionSource();
+        var sender = new ApiUnitySender(
+            app.Services,
+            () => [new OpenUnityEditor(4242, "作り物のプロジェクト", @"C:\作り物\Project")],
+            editor => editor.ProjectPath,
+            async (_, packages, _) =>
+            {
+                await gate.Task;
+                return packages.Select(package => new UnityQueueOutcome(package, Opened: true, Problem: null)).ToList();
+            },
+            () => false);
+
+        var (first, finished) = sender.Start(item, new UnitySendRequest(null, null, null));
+        Assert.Equal(409, await CodeStatusAsync(() => sender.Start(item, new UnitySendRequest(null, null, null)), "unityBusy"));
+        Assert.Same(first, sender.Last);
+
+        gate.SetResult();
+        Assert.Equal("imported", (await finished).State);
+        Assert.Equal("imported", sender.Last!.State);
+
+        var (second, again) = sender.Start(item, new UnitySendRequest(null, null, null));
+        Assert.Equal("imported", (await again).State);
+    });
 }

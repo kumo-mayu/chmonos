@@ -36,7 +36,7 @@ public sealed class ApiWriteTests : IAsyncLifetime
         JsonStore.Write(_store.Paths.ApiSettingsFile, new ApiSettings { Enabled = true, AllowWrites = allowWrites, AllowedOrigins = origins ?? [] });
 
         var writes = hooks
-            ? new ApiWriteHooks(ExecuteAsync, write => { lock (_written) { _written.Add(write); } }, id => id == _editing)
+            ? new ApiWriteHooks(ExecuteAsync, write => { lock (_written) { _written.Add(write); } }, id => id == _editing ? null : new CancellationTokenSource())
             : null;
         (_app, _, _sync) = await ApiHost.BuildAsync(new ApiHostOptions(_root, 0, Token, origins ?? [], Watch: false, Store: _store, Writes: writes));
         await _app.StartAsync();
