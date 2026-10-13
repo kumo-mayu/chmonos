@@ -192,4 +192,31 @@ public sealed class ApiWriteScreenTests
             await app.Services.Api.StopAsync();
         }
     });
+
+    /// <summary>
+    /// 名前は API の写しではなく、保存先の今の一覧で照らす（点検37：取り込みの間は写しが古いままで、一覧にあるのに断る・綴りが分かれた）
+    /// </summary>
+    [Fact]
+    public Task 取り込みの途中に一覧へ足したタグも_今の一覧の綴りで付く() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(ItemId, "作り物の帽子"));
+        await app.StartAsync();
+        var (client, _) = await StartApiAsync(app);
+        try
+        {
+            app.Services.Api.NoteBusy("import");
+            await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddUserTag("Outfit"));
+
+            var response = await client.PutAsync($"/v1/items/{ItemId}/user-tags", new StringContent("""{"tags":[{"top":"outfit"}]}""", Encoding.UTF8, "application/json"));
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            Assert.Equal("Outfit", Assert.Single((await app.Store.Items.LoadAsync(ItemId))!.Local.UserTags).Top);
+        }
+        finally
+        {
+            app.Services.Api.NoteBusy(null);
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
+    });
 }

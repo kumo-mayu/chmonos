@@ -140,7 +140,7 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.UserTagsRequest);
             writer.GuardItem(context, id);
-            var (tags, added) = await ApiClassify.ResolveTagsAsync(state.Snapshot, writer, body.Tags ?? [], createMissing == true, context.RequestAborted);
+            var (tags, added) = await ApiClassify.ResolveTagsAsync(state.Store.UserTags.Load, writer, body.Tags ?? [], createMissing == true, context.RequestAborted);
             var command = new UiCommand.SaveItemLocal(id, new LocalBlock { UserTags = tags }, LocalOwners.UserTags);
             return await ItemAfterWriteAsync(state, writer, command, id, context, added ? [state.Paths.UserTagsFile] : []);
         })
@@ -151,7 +151,7 @@ internal static partial class ApiEndpoints
             var body = await ReadAsync(context.Request, json.UserTagChangeRequest);
             writer.GuardItem(context, id);
             var (tags, added) = await ApiClassify.ResolveTagsAsync(
-                state.Snapshot, writer, [new UserTagInput(body.Top, body.Sub is null ? null : [body.Sub])], createMissing == true, context.RequestAborted);
+                state.Store.UserTags.Load, writer, [new UserTagInput(body.Top, body.Sub is null ? null : [body.Sub])], createMissing == true, context.RequestAborted);
             var tag = tags[0];
 
             // 足し引きは錠の中で今の値に当てる（読んでから丸ごと書くと、間に書かれた分を消す）
@@ -179,7 +179,7 @@ internal static partial class ApiEndpoints
             var body = await ReadAsync(context.Request, json.AttributesRequest);
             writer.GuardItem(context, id);
             var (values, added) = await ApiClassify.ResolveAttributesAsync(
-                state.Snapshot, writer, body.Values ?? new Dictionary<string, int?>(), createMissing == true, context.RequestAborted);
+                state.Store.Attributes.Load, writer, body.Values ?? new Dictionary<string, int?>(), createMissing == true, context.RequestAborted);
             var command = new UiCommand.ChangeItemLocal(id, local => ApiClassify.ApplyAttributes(local, values), LocalOwners.Attributes);
             return await ItemAfterWriteAsync(state, writer, command, id, context, added ? [state.Paths.AttributesFile] : []);
         })

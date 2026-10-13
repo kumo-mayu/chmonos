@@ -218,13 +218,17 @@ internal sealed class StoreSync : IDisposable
     /// </summary>
     private readonly SemaphoreSlim _applying = new(1, 1);
 
-    /// <summary>貯まった変化を今すぐ読み直す（同期の流れ・書き込みの直後・試験）。まとめて書いている途中なら何もしない。</summary>
-    public async Task ApplyPendingAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 貯まった変化を今すぐ読み直す（同期の流れ・書き込みの直後・試験）。まとめて書いている途中なら写しは差し替えない。
+    /// 差し替えたか（読む物が無かったときも真）を返す。書き込みの API は、偽なら「受け付けた」（202）で答える
+    /// （前は錠を待つ間に取り込みが始まると、差し替えていないのに書けたと答えた。点検37）
+    /// </summary>
+    public async Task<bool> ApplyPendingAsync(CancellationToken cancellationToken = default)
     {
         await _applying.WaitAsync(cancellationToken);
         try
         {
-            await ApplyPendingCoreAsync(cancellationToken);
+            return await ApplyPendingCoreAsync(cancellationToken);
         }
         finally
         {
@@ -232,24 +236,36 @@ internal sealed class StoreSync : IDisposable
         }
     }
 
-    private async Task ApplyPendingCoreAsync(CancellationToken cancellationToken)
+    private async Task<bool> ApplyPendingCoreAsync(CancellationToken cancellationToken)
     {
         StoreChangeSet changes;
+        bool settingsWhileBusy;
         lock (_gate)
         {
-            if (_busy is { } busy && _state.Clock() - busy.Since < BusyLimit)
+            settingsWhileBusy = _busy is { } busy && _state.Clock() - busy.Since < BusyLimit;
+            if (!settingsWhileBusy)
             {
-                return;
+                _busy = null;
+                changes = _pending;
+                _pending = new StoreChangeSet();
             }
+            else
+            {
+                changes = new StoreChangeSet();
+            }
+        }
 
-            _busy = null;
-            changes = _pending;
-            _pending = new StoreChangeSet();
+        // まとめて書いている途中は商品の写しを差し替えない。ただし守りの設定（書き込みの許し・許す住所）は、その場で読み直す
+        // （前は取り込みが終わるまで、切った許しで書き込みを受け付けた。点検37）。変化は貯めたまま残すので、終わったら全部を読み直す
+        if (settingsWhileBusy)
+        {
+            _state.ApplySettings();
+            return false;
         }
 
         if (changes.IsEmpty)
         {
-            return;
+            return true;
         }
 
         try
@@ -268,6 +284,8 @@ internal sealed class StoreSync : IDisposable
 
             throw;
         }
+
+        return true;
     }
 
     private async Task LoopAsync(CancellationToken cancellationToken)

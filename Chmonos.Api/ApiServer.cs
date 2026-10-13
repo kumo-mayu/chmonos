@@ -47,25 +47,34 @@ public sealed class ApiServer : IAsyncDisposable
         var (app, state, sync) = await ApiHost.BuildAsync(
             new ApiHostOptions(paths.Root, settings.Port, token, settings.AllowedOrigins, Store: store, Writes: writes),
             cancellationToken);
+        // 待ち受けを始めてから記録を書き終えるまでを1つの失敗の扱いで覆う。前は記録の保存が失敗すると、動いている待ち受けを
+        // 誰も持たないまま残し、オフにしても止まらず、古い合言葉で答え続けた（点検36）
+        var started = false;
         try
         {
             await app.StartAsync(cancellationToken);
+            started = true;
+            sync.Start();
+            ApiFiles.WriteEndpoint(paths, new ApiEndpointRecord
+            {
+                Port = settings.Port,
+                Token = token,
+                ProcessId = Environment.ProcessId,
+                Version = ApiHost.AppVersion,
+                StartedAt = DateTimeOffset.Now,
+            });
         }
         catch
         {
+            if (started)
+            {
+                await app.StopAsync(CancellationToken.None);
+            }
+
             await app.DisposeAsync();
             throw;
         }
 
-        sync.Start();
-        ApiFiles.WriteEndpoint(paths, new ApiEndpointRecord
-        {
-            Port = settings.Port,
-            Token = token,
-            ProcessId = Environment.ProcessId,
-            Version = ApiHost.AppVersion,
-            StartedAt = DateTimeOffset.Now,
-        });
         return new ApiServer(app, state, sync, paths, settings.Port, token);
     }
 

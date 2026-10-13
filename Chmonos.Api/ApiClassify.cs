@@ -20,47 +20,57 @@ internal static class ApiClassify
 
     /// <summary>
     /// タグの名前を一覧に照らし、一覧の綴りにした付け方を返す。一覧に無い名前は、<paramref name="createMissing"/> なら一覧に足し、そうでなければ 400。
-    /// 同じ大分類が2回来たら小分類をまとめる
+    /// 同じ大分類が2回来たら小分類をまとめる。
+    /// **一覧は保存先の今の物を読む**（API の写しは取り込みの間は古いまま。古い一覧で決めると、一覧と商品で綴りが分かれた。点検37）。
+    /// 足した後は読み直して、一覧が決めた綴りで付ける（大文字小文字だけ違う名前が先に足されていれば、そちらに寄る）
     /// </summary>
     public static async Task<(IReadOnlyList<UserTagAssignment> Tags, bool AddedToMaster)> ResolveTagsAsync(
-        QuerySnapshot snapshot, ApiWriter writer, IEnumerable<UserTagInput> inputs, bool createMissing, CancellationToken cancellationToken)
+        Func<UserTagMaster> loadMaster, ApiWriter writer, IReadOnlyList<UserTagInput?> inputs, bool createMissing, CancellationToken cancellationToken)
     {
-        var master = snapshot.UserTagMaster;
-        var merged = new List<(string Top, List<string> Subs)>();
+        // 入力の確かめは、一覧を変える前にまとめて行う（null の要素は入力の誤り。前は 500 になった。点検37）
+        var wanted = inputs.Select(input => input is null
+                ? throw QueryException.Invalid("invalidTags", "tags に null は書けません。")
+                : (Top: Required(input.Top, "top"), Subs: (input.Subs ?? []).Select(sub => Required(sub, "subs の名前")).ToList()))
+            .ToList();
+
+        var master = loadMaster();
         var added = false;
-        foreach (var input in inputs)
+        foreach (var (top, subs) in wanted)
         {
-            var topName = Required(input.Top, "top");
-            var top = master.Tops.FirstOrDefault(known => Spell([known.Name], topName) is not null);
-            var spelledTop = top?.Name ?? topName;
-            var subs = new List<string>();
-            foreach (var sub in input.Subs ?? [])
+            var known = master.Tops.FirstOrDefault(entry => Spell([entry.Name], top) is not null);
+            var missing = subs.Where(sub => known is null || Spell(known.Subs.Select(entry => entry.Name), sub) is null).ToList();
+            if (known is null && missing.Count == 0)
             {
-                var subName = Required(sub, "subs の名前");
-                var spelledSub = top is null ? null : Spell(top.Subs.Select(known => known.Name), subName);
-                if (spelledSub is null)
-                {
-                    await AddMissingTagAsync(writer, spelledTop, subName, createMissing, cancellationToken);
-                    added = true;
-                }
-
-                subs.Add(spelledSub ?? subName);
-            }
-
-            if (top is null && subs.Count == 0)
-            {
-                await AddMissingTagAsync(writer, spelledTop, null, createMissing, cancellationToken);
+                await AddMissingTagAsync(writer, top, null, createMissing, cancellationToken);
                 added = true;
             }
 
+            foreach (var sub in missing)
+            {
+                await AddMissingTagAsync(writer, known?.Name ?? top, sub, createMissing, cancellationToken);
+                added = true;
+            }
+        }
+
+        if (added)
+        {
+            master = loadMaster();
+        }
+
+        var merged = new List<(string Top, List<string> Subs)>();
+        foreach (var (top, subs) in wanted)
+        {
+            var known = master.Tops.FirstOrDefault(entry => Spell([entry.Name], top) is not null);
+            var spelledTop = known?.Name ?? top;
+            var spelledSubs = subs.Select(sub => (known is null ? null : Spell(known.Subs.Select(entry => entry.Name), sub)) ?? sub);
             var index = merged.FindIndex(entry => string.Equals(entry.Top, spelledTop, StringComparison.CurrentCultureIgnoreCase));
             if (index < 0)
             {
-                merged.Add((spelledTop, subs.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList()));
+                merged.Add((spelledTop, spelledSubs.Distinct(StringComparer.CurrentCultureIgnoreCase).ToList()));
             }
             else
             {
-                merged[index].Subs.AddRange(subs.Where(sub => !merged[index].Subs.Contains(sub, StringComparer.CurrentCultureIgnoreCase)));
+                merged[index].Subs.AddRange(spelledSubs.Where(sub => !merged[index].Subs.Contains(sub, StringComparer.CurrentCultureIgnoreCase)));
             }
         }
 
@@ -79,50 +89,52 @@ internal static class ApiClassify
         await writer.ExecuteAsync(new UiCommand.AddUserTag(top, sub), cancellationToken);
     }
 
-    /// <summary>属性の名前を一覧に照らす（一覧に無い名前の扱いはタグと同じ）。値は 0〜100 の整数か null（外して未評価に戻す）。</summary>
+    /// <summary>
+    /// 属性の名前を一覧に照らす（一覧に無い名前の扱いと、保存先の今の一覧を読むのはタグと同じ）。値は 0〜100 の整数か null（外して未評価に戻す）。
+    /// </summary>
     public static async Task<(IReadOnlyList<(string Name, int? Value)> Values, bool AddedToMaster)> ResolveAttributesAsync(
-        QuerySnapshot snapshot, ApiWriter writer, IReadOnlyDictionary<string, int?> values, bool createMissing, CancellationToken cancellationToken)
+        Func<AttributeMaster> loadMaster, ApiWriter writer, IReadOnlyDictionary<string, int?> values, bool createMissing, CancellationToken cancellationToken)
     {
         if (values.Count == 0)
         {
             throw QueryException.Invalid("invalidValues", "values に属性を1つ以上書いてください。");
         }
 
-        var known = snapshot.AttributeMaster.Attributes.Select(attribute => attribute.Name).ToList();
-        var resolved = new List<(string, int?)>();
-        var added = false;
-        foreach (var (name, value) in values)
+        var wanted = values.Select(pair => (Name: Required(pair.Key, "属性の名前"), pair.Value)).ToList();
+        foreach (var (name, value) in wanted)
         {
-            var trimmed = Required(name, "属性の名前");
             if (value is < 0 or > 100)
             {
-                throw QueryException.Invalid("invalidValue", $"属性「{trimmed}」の値は 0〜100 の整数か null です。");
+                throw QueryException.Invalid("invalidValue", $"属性「{name}」の値は 0〜100 の整数か null です。");
             }
+        }
 
-            if (Spell(known, trimmed) is { } spelled)
+        List<string> Known() => loadMaster().Attributes.Select(attribute => attribute.Name).ToList();
+        var known = Known();
+        var added = false;
+        foreach (var (name, value) in wanted)
+        {
+            // 一覧に無い属性を外すのは、何もしないのと同じ（付いていない）
+            if (value is null || Spell(known, name) is not null)
             {
-                resolved.Add((spelled, value));
-                continue;
-            }
-
-            if (value is null)
-            {
-                // 一覧に無い属性を外すのは、何もしないのと同じ（付いていない）
-                resolved.Add((trimmed, null));
                 continue;
             }
 
             if (!createMissing)
             {
-                throw QueryException.Invalid("unknownAttribute", $"属性「{trimmed}」は一覧にありません。一覧に足して付けるときは createMissing=true を付けてください。");
+                throw QueryException.Invalid("unknownAttribute", $"属性「{name}」は一覧にありません。一覧に足して付けるときは createMissing=true を付けてください。");
             }
 
-            await writer.ExecuteAsync(new UiCommand.AddAttribute(trimmed), cancellationToken);
+            await writer.ExecuteAsync(new UiCommand.AddAttribute(name), cancellationToken);
             added = true;
-            resolved.Add((trimmed, value));
         }
 
-        return (resolved, added);
+        if (added)
+        {
+            known = Known();
+        }
+
+        return (wanted.Select(entry => (Spell(known, entry.Name) ?? entry.Name, entry.Value)).ToList(), added);
     }
 
     /// <summary>タグを1つ足す（大分類だけなら大分類だけ。既にあれば何も変えない）。</summary>

@@ -37,6 +37,11 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     public AppPaths Paths { get; } = paths;
 
+    /// <summary>保存先（書き込みの名前の照らし合わせで、写しではなく今の一覧を読む）。アプリと同じプロセスならアプリの物。</summary>
+    public DataStore Store => sharedStore ?? (_ownStore ??= new DataStore(Paths));
+
+    private DataStore? _ownStore;
+
     public Func<DateTimeOffset> Clock { get; } = clock;
 
     public DateTimeOffset LoadedAt { get; private set; }
@@ -54,6 +59,14 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     /// <summary>書き込みを許すか（<c>api-settings.json</c> の <c>allowWrites</c>）。変わればその場で読み直す（手で切ったらすぐ効くように）。</summary>
     public bool AllowWrites { get; private set; }
+
+    /// <summary>守りの設定（許す住所・書き込みの許し）を読み直す。取り込みの途中でも呼ぶ（商品の写しとは別に、すぐ効かせる）。</summary>
+    public void ApplySettings()
+    {
+        var apiSettings = ApiFiles.ReadSettings(Paths);
+        AllowedOrigins = apiSettings.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        AllowWrites = apiSettings.AllowWrites;
+    }
 
     /// <summary>部分ごとのファイルの印（<see cref="StoreChanges.StampOf"/>）。変わっていない部分は読み直さず、知らせもしない。</summary>
     private readonly Dictionary<StorePart, string?> _stamps = [];
@@ -133,9 +146,7 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
         if (effective.Parts.Contains(StorePart.ApiSettings))
         {
-            var apiSettings = ApiFiles.ReadSettings(Paths);
-            AllowedOrigins = apiSettings.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            AllowWrites = apiSettings.AllowWrites;
+            ApplySettings();
             Confirm(stamps, StorePart.ApiSettings);
         }
 

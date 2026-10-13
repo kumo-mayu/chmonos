@@ -195,6 +195,31 @@ public sealed class ApiWriteTests : IAsyncLifetime
         // 手で切ったら、その場で書けなくなる
         Assert.Equal(HttpStatusCode.Forbidden, (await PutFavoriteAsync(true)).StatusCode);
     }
+
+    [Fact]
+    public async Task タグの配列にnullが混じれば_400で断る()
+    {
+        await StartAsync(allowWrites: true);
+
+        var response = await _client.PutAsync($"/v1/items/{ItemId}/user-tags", new StringContent("""{"tags":[null]}""", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalidTags", await CodeOf(response));
+    }
+
+    [Fact]
+    public async Task 取り込みの途中でも_書き込みの許しを切ればすぐ断る()
+    {
+        await StartAsync(allowWrites: true);
+        _sync.SetBusy("import", DateTimeOffset.Now);
+
+        JsonStore.Write(_store.Paths.ApiSettingsFile, new ApiSettings { Enabled = true, AllowWrites = false });
+        _sync.Note(_store.Paths.ApiSettingsFile);
+
+        // 写しは差し替えない（取り込みの途中）が、守りの設定は読み直す
+        Assert.False(await _sync.ApplyPendingAsync());
+        Assert.Equal(HttpStatusCode.Forbidden, (await PutFavoriteAsync(true)).StatusCode);
+    }
 }
 
 /// <summary>保存先を運ぶ間の門はプロセスに1つ。門を閉じても、ほかの試験と重ならない（この組は試験を並べずに走らせる。AssemblyInfo.cs）。</summary>

@@ -118,7 +118,7 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
             return busy;
         }
 
-        await sync.ApplyPendingAsync(cancellationToken);
-        return null;
+        // 錠を待つ間に取り込みが始まったら、差し替えずに戻る。そのときは「受け付けた」で答える（点検37）
+        return await sync.ApplyPendingAsync(cancellationToken) ? null : sync.Busy ?? "write";
     }
 }
