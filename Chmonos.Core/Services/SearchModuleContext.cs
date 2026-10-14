@@ -70,9 +70,10 @@ public sealed record ModificationUsage(
             byModification[record.Id] = members;
             Collect(byAvatar, record.AvatarItemId, members);
 
-            if (!string.IsNullOrWhiteSpace(record.UnityProject))
+            // 綴りだけ違う同じ場所（区切りの向き・末尾の区切り）を1つにまとめる（照らす側も正規化して引く）
+            if (UnityProjectPath.Normalize(record.UnityProject) is { } project)
             {
-                Collect(byProject, record.UnityProject!, members);
+                Collect(byProject, project, members);
             }
         }
 
@@ -100,8 +101,14 @@ public sealed record ModificationUsage(
     public bool InModification(string modificationId, string itemId)
         => ItemIdsByModification.TryGetValue(modificationId, out var used) && used.Contains(itemId);
 
+    /// <summary>
+    /// <paramref name="projectPath"/> は <c>/</c> 区切りや末尾の区切りでもよい（<see cref="UnityProjectPath.Normalize"/>）。
+    /// 綴りがそのまま当たるときは正規化しない（商品ごとに呼ばれるので、正規化の文字の処理を毎回しない）
+    /// </summary>
     public bool InProject(string projectPath, string itemId)
-        => ItemIdsByProject.TryGetValue(projectPath, out var used) && used.Contains(itemId);
+        => (ItemIdsByProject.TryGetValue(projectPath, out var used)
+                || (UnityProjectPath.Normalize(projectPath) is { } normalized && ItemIdsByProject.TryGetValue(normalized, out used)))
+            && used.Contains(itemId);
 }
 
 /// <summary>絞り込み1回ぶんの材料。モジュールが商品を照らすときに使う。</summary>
