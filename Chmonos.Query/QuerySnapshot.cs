@@ -116,10 +116,13 @@ public sealed class QuerySnapshot
 
     /// <summary>
     /// 検索用の文字列。本文（<see cref="SearchField.Main"/>）だけは、写しが説明文を落としているので、初めて探すときにファイルから読む。
-    /// 読んだ本文は畳んだ形で覚える（同じ本文を何度も探すたびに読み直さない）。本文を探さなければ読まない
+    /// 読んだ本文は畳んだ形で覚える（同じ本文を何度も探すたびに読み直さない）。本文を探さなければ読まない。
+    /// アプリと記録を共有しているときは、画面が同じ記録の物に作った文字列を借りる（<see cref="SearchText.Remember"/>。二重に持たない）。
+    /// 借りた物は商品名の読みも作れるが、API は造語変換を使わない（<c>IncludeReadings</c> を立てない）ので答えは変わらない
     /// </summary>
     private SearchHaystack Haystack(ItemRecord item)
-        => new(field => SearchText.RawValues(field == SearchField.Main ? FullItem(item) : item, field), makeReadings: null) { Item = item };
+        => (SharesItemCache ? SearchText.RememberedFor(item) : null)
+           ?? new(field => SearchText.RawValues(field == SearchField.Main ? FullItem(item) : item, field), makeReadings: null) { Item = item };
 
     /// <summary>説明文まで持った記録（ファイルの今の中身。読めなければ写しの物）。</summary>
     private ItemRecord FullItem(ItemRecord item)

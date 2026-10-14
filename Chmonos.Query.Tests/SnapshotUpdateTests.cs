@@ -55,6 +55,34 @@ public sealed class SnapshotUpdateTests : IDisposable
         Assert.Null(separate.ItemsById["9500001"].Booth.Description);
     }
 
+    /// <summary>
+    /// アプリと記録を共有しているときは、画面が同じ記録の物に作った検索用の文字列を借り、二重に持たない（2026-10-14：実物に近い2万件で約185MB）。
+    /// 画面が覚えていない記録と、共有しない写しは自分で作る
+    /// </summary>
+    [Fact]
+    public async Task アプリと共有しているときは_画面が覚えた検索用の文字列を借りる()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        await store.Items.SaveAsync(Item("9500001", "作り物の一"));
+        await store.Items.SaveAsync(Item("9500002", "作り物の二"));
+        var appCopy = await store.Items.LoadAsync("9500001");
+        var screens = Core.Services.SearchText.Build(appCopy!);
+        Core.Services.SearchText.Remember(appCopy!, screens);
+
+        var shared = await QuerySnapshot.LoadAsync(store, sharesItemCache: true);
+        lock (shared.SearchGate)
+        {
+            Assert.Same(screens, shared.HaystackOf(shared.ItemsById["9500001"]));
+            Assert.NotNull(shared.HaystackOf(shared.ItemsById["9500002"]));
+        }
+
+        var separate = await QuerySnapshot.LoadAsync(new DataStore(new AppPaths(_root)));
+        lock (separate.SearchGate)
+        {
+            Assert.NotSame(screens, separate.HaystackOf(separate.ItemsById["9500001"]));
+        }
+    }
+
     [Fact]
     public async Task 変わったファイルだけを読み直し_変わらない商品は同じ記録を使い回す()
     {

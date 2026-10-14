@@ -165,6 +165,7 @@ public sealed partial class SearchViewModel
         _allItems[index] = item;
         _itemsById[item.Id] = item;
         _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
+        Core.Services.SearchText.Remember(item, _haystacks[item.Id]);
         _fingerprints.Remove(item.Id);
 
         if (_cards.TryGetValue(item.Id, out var old))
@@ -226,6 +227,7 @@ public sealed partial class SearchViewModel
         _allItems.Insert(Core.Services.ItemOrder.LibraryInsertIndex(_allItems, item), item);
         _itemsById[item.Id] = item;
         _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
+        Core.Services.SearchText.Remember(item, _haystacks[item.Id]);
         _fingerprints.Remove(item.Id);
 
         var card = ToCard(item);

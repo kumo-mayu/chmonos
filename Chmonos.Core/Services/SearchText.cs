@@ -11,6 +11,20 @@ namespace Chmonos.Core.Services;
 /// </summary>
 public static class SearchText
 {
+    /// <summary>
+    /// 画面が作った文字列を、記録の物ごとに覚える表。API（アプリと同じプロセス）はここから借り、同じ商品の文字列を二重に持たない
+    /// （2026-10-14 に測った：実物に近い2万件で、API で本文まで探すと二重持ちが約185MB）。
+    /// 記録は書き換えないので、同じ物なら同じ文字列でよい。保存し直して物が替われば、画面が新しく覚える。
+    /// 弱い表なので、記録が手放されれば文字列も一緒に消える（ここが記録を生かし続けない）
+    /// </summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ItemRecord, SearchHaystack> Remembered = new();
+
+    /// <summary>この記録の文字列として覚える（画面が作った・使い回した物）。</summary>
+    public static void Remember(ItemRecord item, SearchHaystack haystack) => Remembered.AddOrUpdate(item, haystack);
+
+    /// <summary>この記録の物について画面が覚えた文字列。無ければ null（借りる側が自分で作る）。</summary>
+    public static SearchHaystack? RememberedFor(ItemRecord item) => Remembered.TryGetValue(item, out var haystack) ? haystack : null;
+
     /// <param name="readings">
     /// 商品名の読みを作るもの。渡さなければ読みの欄は空になる（造語変換が効かないだけ）。
     /// </param>

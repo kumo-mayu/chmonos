@@ -504,6 +504,12 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                         : Core.Services.SearchText.Build(item, _services.KanjiReadings),
                     StringComparer.Ordinal);
 
+                // API が同じ記録の物から借りられるように覚える（使い回した文字列も、今の記録の物で）。SearchText.Remember に理由
+                foreach (var item in sortedItems)
+                {
+                    Core.Services.SearchText.Remember(item, haystacks[item.Id]);
+                }
+
                 // 画像のフォルダの更新時刻。使い回すカードは絵の並びを覚えているので、フォルダが変わった商品
                 // （商品ページで画像を消した・取り直したなど、記録は変わらずに絵だけ変わる）は読み直させる
                 var imageStamps = new Dictionary<string, DateTime>(sortedItems.Count, StringComparer.Ordinal);
