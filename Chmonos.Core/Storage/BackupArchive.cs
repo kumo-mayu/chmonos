@@ -86,7 +86,7 @@ public static class BackupArchive
             || name.EndsWith(".cache", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "location.json", StringComparison.OrdinalIgnoreCase)
-            // 外から使う API の合言葉が入る。書き出しを人に渡すと合言葉まで渡り、戻すと別の PC の古い合言葉が混ざる（2026-10-12）
+            // 外から使う API のトークンが入る。書き出しを人に渡すとトークンまで渡り、戻すと別の PC の古いトークンが混ざる（2026-10-12）
             || string.Equals(name, AppPaths.ApiFileName, StringComparison.OrdinalIgnoreCase)
             // 書き出しの途中の記録は、その回の書き出しのための物。戻すと、戻した先で知らない場所の .tmp を探しに行く
             || string.Equals(name, BackupWritingRecord.FileName, StringComparison.OrdinalIgnoreCase)

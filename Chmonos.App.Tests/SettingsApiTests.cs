@@ -215,7 +215,7 @@ public sealed class SettingsApiTests
     });
 
     [Fact]
-    public Task 合言葉を作り直すと_止まっていれば合言葉だけ変わり_動いていれば新しい合言葉で待ち受け直す() => TestApp.Run(async app =>
+    public Task トークンを作り直すと_止まっていればトークンだけ変わり_動いていれば新しいトークンで待ち受け直す() => TestApp.Run(async app =>
     {
         var port = FreePort();
         JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Port = port });
@@ -229,7 +229,7 @@ public sealed class SettingsApiTests
             Assert.NotEqual("old-token", renewed.Token);
             Assert.Null(renewed.ProcessId);
             Assert.Equal(Services.ApiRunState.Stopped, app.Services.Api.State);
-            Assert.Equal("合言葉を作り直しました。ツールには、保存先の api.json から読み直させてください。", settings.ApiTokenNotice);
+            Assert.Equal("トークンを作り直しました。ツールには、保存先の api.json から読み直させてください。", settings.ApiTokenNotice);
 
             settings.ApiEnabled = true;
             await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Running, "API が待ち受ける");

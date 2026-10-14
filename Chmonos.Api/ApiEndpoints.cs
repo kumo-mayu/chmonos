@@ -15,13 +15,13 @@ internal static partial class ApiEndpoints
     {
         var json = QueryJson.Context;
 
-        // 合言葉なしで答えるので、保存先の中身（読めなかった商品の ID）は入れない。数だけ（点検30）
+        // トークンなしで答えるので、保存先の中身（読めなかった商品の ID）は入れない。数だけ（点検30）
         app.MapGet("/v1/health", (ApiState state) =>
         {
             var snapshot = state.Snapshot;
             return ApiHost.Json(new HealthAnswer(state.TooNew ? "tooNew" : "ok", state.LoadedAt, snapshot.Items.Count, snapshot.FailedItemIds.Count), json.HealthAnswer);
         })
-            .Answers<HealthAnswer>("動いているか・読み終えたか・読めなかった商品の数（合言葉なし）");
+            .Answers<HealthAnswer>("動いているか・読み終えたか・読めなかった商品の数（トークンなし）");
 
         app.MapGet("/v1/failed-items", (ApiState state) => ApiHost.Json(state.Snapshot.FailedItemIds, json.IReadOnlyListString))
             .Answers<IReadOnlyList<string>>("読めなかった商品の ID（手で壊した JSON など）");
@@ -29,7 +29,7 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/version", (ApiState state, ChangeFeed feed, StoreSync sync) => ApiHost.Json(
             new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice, feed.Epoch, feed.Sequence, sync.Busy),
             json.VersionAnswer))
-            .Answers<VersionAnswer>("API のバージョン・保存の形・通番・まとめて書いている途中か・注意（合言葉なし）");
+            .Answers<VersionAnswer>("API のバージョン・保存の形・通番・まとめて書いている途中か・注意（トークンなし）");
 
         // 変化（docs/spec/local-api.md「同期」）。外の道具は前に見た通番を送り、それより後の変化を受け取る
         app.MapGet("/v1/changes", (ChangeFeed feed, long? since, string? epoch) =>
@@ -447,7 +447,7 @@ internal static partial class ApiEndpoints
     private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// 変化を SSE で流す。ブラウザの EventSource はヘッダ（合言葉）を付けられないので、fetch で流れを読んでもらう（docs/spec/local-api.md「ブラウザから」）。
+    /// 変化を SSE で流す。ブラウザの EventSource はヘッダ（トークン）を付けられないので、fetch で流れを読んでもらう（docs/spec/local-api.md「ブラウザから」）。
     /// つなぎ直すときは Last-Event-ID（<c>起動の名前-通番</c>）で続きから流す。持っていない分があれば reloaded を流し、全部を取り直してもらう。
     /// </summary>
     private static async Task StreamEventsAsync(HttpContext context, ChangeFeed feed)

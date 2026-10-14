@@ -102,7 +102,7 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
     }
 
     /// <summary>
-    /// 合言葉を作り直す。動いていれば止めて作り直し、同じ設定で待ち受け直す（古い合言葉で答える時間を残さない）。
+    /// トークンを作り直す。動いていれば止めて作り直し、同じ設定で待ち受け直す（古いトークンで答える時間を残さない）。
     /// 止まっていれば作り直すだけ（次にオンにしたときから使われる）
     /// </summary>
     public Task RenewTokenAsync() => Task.Run(RenewTokenCoreAsync);
@@ -211,7 +211,7 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
     private volatile bool _suspended;
 
     /// <summary>
-    /// 保存先を運ぶ前に止め、運び終えるまで始めない（設定の変更や合言葉の作り直しが重なっても、元の保存先で始め直さない。点検36）。
+    /// 保存先を運ぶ前に止め、運び終えるまで始めない（設定の変更やトークンの作り直しが重なっても、元の保存先で始め直さない。点検36）。
     /// 運べたらアプリが開き直すので戻さない。運べなかったら <see cref="ResumeAsync"/>
     /// </summary>
     public async Task SuspendAsync()

@@ -7,15 +7,15 @@ public sealed record ItemsBatchRequest(IReadOnlyList<string>? Ids, string? Inclu
 /// <param name="Missing">見つからなかった ID（送った順）。</param>
 public sealed record ItemsBatchAnswer(IReadOnlyList<ItemDetail> Items, IReadOnlyList<string> Missing);
 
-/// <summary>動いているか（<c>GET /v1/health</c>。合言葉なし）。</summary>
+/// <summary>動いているか（<c>GET /v1/health</c>。トークンなし）。</summary>
 /// <param name="Status"><c>ok</c>（答えられる）・<c>tooNew</c>（保存の形がこの API より新しい）。</param>
 /// <param name="FailedItemCount">
-/// 読めなかった商品（手で壊した JSON など）の数。黙って減らさず知らせる。ID は合言葉の要る <c>/v1/failed-items</c> で返す
-/// （health は合言葉なしで答えるので、保存先の中身を入れない。点検30）。
+/// 読めなかった商品（手で壊した JSON など）の数。黙って減らさず知らせる。ID はトークンの要る <c>/v1/failed-items</c> で返す
+/// （health はトークンなしで答えるので、保存先の中身を入れない。点検30）。
 /// </param>
 public sealed record HealthAnswer(string Status, DateTimeOffset LoadedAt, int ItemCount, int FailedItemCount);
 
-/// <summary>バージョン（<c>GET /v1/version</c>。合言葉なし）。</summary>
+/// <summary>バージョン（<c>GET /v1/version</c>。トークンなし）。</summary>
 /// <param name="Api">URL のバージョン（<c>v1</c>）。</param>
 /// <param name="App">アプリと同じ番号（同じ zip で配る）。</param>
 /// <param name="StoreFormat">保存先の形の版。</param>

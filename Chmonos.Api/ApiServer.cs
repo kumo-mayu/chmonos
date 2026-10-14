@@ -8,7 +8,7 @@ namespace Chmonos.Api;
 /// 外から使う API を、アプリと同じプロセスで動かす（docs/history/headless-core-2026-10-13.md 段2）。アプリが設定でオンのときに始め、オフで止める。
 /// 前は別の実行ファイル（<c>Chmonos.Api.exe</c>）で、アプリの書き込みの門・商品の錠をすり抜けずに書き込みを足せなかった。
 /// 同じプロセスなら、商品の記録はアプリの控えと共有し（<see cref="QuerySnapshot.SharesItemCache"/>）、取り込み中の知らせも直に受ける。
-/// 外の道具はポートと合言葉を <c>api.json</c> から読む（今までどおり）。
+/// 外の道具はポートとトークンを <c>api.json</c> から読む（今までどおり）。
 /// </summary>
 public sealed class ApiServer : IAsyncDisposable
 {
@@ -32,7 +32,7 @@ public sealed class ApiServer : IAsyncDisposable
     public int Port { get; }
 
     /// <summary>
-    /// 読み込んで待ち受けを始め、<c>api.json</c> にポートと合言葉を書く。合言葉は始めるたびには変えない（外の道具が毎回読み直さずに済むように）。
+    /// 読み込んで待ち受けを始め、<c>api.json</c> にポートとトークンを書く。トークンは始めるたびには変えない（外の道具が毎回読み直さずに済むように）。
     /// ポートが使われていれば <see cref="IOException"/> を投げる（呼んだ側が「待てません」と言う）。
     /// </summary>
     /// <param name="store">アプリの保存先の一式。商品の記録をアプリの控えと共有する。</param>
@@ -48,7 +48,7 @@ public sealed class ApiServer : IAsyncDisposable
             new ApiHostOptions(paths.Root, settings.Port, token, settings.AllowedOrigins, Store: store, Writes: writes),
             cancellationToken);
         // 待ち受けを始めてから記録を書き終えるまでを1つの失敗の扱いで覆う。前は記録の保存が失敗すると、動いている待ち受けを
-        // 誰も持たないまま残し、オフにしても止まらず、古い合言葉で答え続けた（点検36）
+        // 誰も持たないまま残し、オフにしても止まらず、古いトークンで答え続けた（点検36）
         var started = false;
         try
         {
@@ -79,7 +79,7 @@ public sealed class ApiServer : IAsyncDisposable
     }
 
     /// <summary>
-    /// 合言葉を作り直して <c>api.json</c> に書く（止めてから呼ぶ。次に始めたときから新しい合言葉で答える）。
+    /// トークンを作り直して <c>api.json</c> に書く（止めてから呼ぶ。次に始めたときから新しいトークンで答える）。
     /// 前は別の実行ファイルの <c>--new-token</c> だった。外の道具は api.json から読み直す
     /// </summary>
     public static void RenewToken(AppPaths paths)
@@ -94,7 +94,7 @@ public sealed class ApiServer : IAsyncDisposable
     /// </summary>
     public void SetBusy(string? kind) => _sync.SetBusy(kind, _state.Clock());
 
-    /// <summary>待ち受けを止め、<c>api.json</c> を「止まった」にする（合言葉は残す。次に始めたときも同じ合言葉で使えるように）。</summary>
+    /// <summary>待ち受けを止め、<c>api.json</c> を「止まった」にする（トークンは残す。次に始めたときも同じトークンで使えるように）。</summary>
     public async ValueTask DisposeAsync()
     {
         await _app.StopAsync();
@@ -122,7 +122,7 @@ internal static class ApiFiles
         }
         catch (System.Text.Json.JsonException)
         {
-            // 壊れていれば作り直す（合言葉は新しくなる）
+            // 壊れていれば作り直す（トークンは新しくなる）
             return null;
         }
     }
@@ -130,7 +130,7 @@ internal static class ApiFiles
     public static void WriteEndpoint(AppPaths paths, ApiEndpointRecord record) => JsonStore.Write(paths.ApiFile, record);
 
     /// <summary>
-    /// 止まったことを残す（合言葉は残す。次に起動したときも同じ合言葉で使えるように）。
+    /// 止まったことを残す（トークンは残す。次に起動したときも同じトークンで使えるように）。
     /// **api.json が自分の記録のときだけ**書く：ほかのプロセスが書いた記録を「止まった」で消すと、動いている API が見えなくなる
     /// </summary>
     public static void MarkStopped(AppPaths paths, int port, string token)
@@ -143,7 +143,7 @@ internal static class ApiFiles
         WriteEndpoint(paths, new ApiEndpointRecord { Port = port, Token = token, Version = ApiHost.AppVersion });
     }
 
-    /// <summary>合言葉。32バイトの乱数（推し量れない長さ）を URL に使える文字で。</summary>
+    /// <summary>トークン。32バイトの乱数（推し量れない長さ）を URL に使える文字で。</summary>
     public static string NewToken()
         => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

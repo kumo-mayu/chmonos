@@ -2,7 +2,7 @@ namespace Chmonos.Core.Models;
 
 /// <summary>
 /// 外から使う API が動いている所（保存先の <c>api.json</c>。docs/spec/local-api.md「守り」）。**API が書く。人は書かない。**
-/// 外の道具とアプリはこれを読んでつなぐ。合言葉が入るので、バックアップの書き出しには入れない。
+/// 外の道具とアプリはこれを読んでつなぐ。トークンが入るので、バックアップの書き出しには入れない。
 /// </summary>
 public sealed record ApiEndpointRecord
 {
@@ -10,7 +10,7 @@ public sealed record ApiEndpointRecord
     public int Port { get; init; }
 
     /// <summary>
-    /// 合言葉（<c>Authorization: Bearer …</c>）。起動のたびには変えない（外の道具が毎回読み直さずに済むように）。作り直す操作で変える。
+    /// トークン（<c>Authorization: Bearer …</c>）。起動のたびには変えない（外の道具が毎回読み直さずに済むように）。作り直す操作で変える。
     /// </summary>
     public string Token { get; init; } = string.Empty;
 
@@ -33,13 +33,13 @@ public sealed record ApiSettings
 
     /// <summary>
     /// API を使うか。オンならアプリ（画面あり・画面無しのどちらでも）と一緒に待ち受ける。既定はオフ（ユーザ判断 2026-10-13：
-    /// ポートを開けて合言葉を持つ道具に読ませるかは使う人が選ぶ。画面無しで起動しても、オフなら立ち上げない）
+    /// ポートを開けてトークンを持つ道具に読ませるかは使う人が選ぶ。画面無しで起動しても、オフなら立ち上げない）
     /// </summary>
     public bool Enabled { get; init; }
 
     /// <summary>
     /// 外から書き込みを許すか（タグ・属性・お気に入り・Unity へ送る など。docs/history/headless-core-2026-10-13.md 段3）。既定はオフ。
-    /// 合言葉は読むのと同じ1本（同じ Windows ユーザーの道具なら api.json を読めれば2本目も読めるので、分ける効き目が小さい。ユーザ判断 2026-10-13）。
+    /// トークンは読むのと同じ1本（同じ Windows ユーザーの道具なら api.json を読めれば2本目も読めるので、分ける効き目が小さい。ユーザ判断 2026-10-13）。
     /// 変えたらその場で効く（API は api-settings.json の変化を見て読み直す）
     /// </summary>
     public bool AllowWrites { get; init; }

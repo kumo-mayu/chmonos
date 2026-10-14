@@ -132,7 +132,7 @@ public sealed class AppPaths
 
     public string SettingsFile => Path.Combine(Root, "settings.json");
 
-    /// <summary>外から使う API が動いている所（ポート・合言葉。API が書く）。</summary>
+    /// <summary>外から使う API が動いている所（ポート・トークン。API が書く）。</summary>
     public string ApiFile => Path.Combine(Root, ApiFileName);
 
     public const string ApiFileName = "api.json";

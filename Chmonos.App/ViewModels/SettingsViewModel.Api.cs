@@ -219,7 +219,7 @@ public sealed partial class SettingsViewModel
 
     private string _apiTokenNotice = string.Empty;
 
-    /// <summary>合言葉を作り直した後の1行（外のツールに次にしてもらうこと）。</summary>
+    /// <summary>トークンを作り直した後の1行（外のツールに次にしてもらうこと）。</summary>
     public string ApiTokenNotice
     {
         get => _apiTokenNotice;
@@ -229,8 +229,8 @@ public sealed partial class SettingsViewModel
     private RelayCommand? _renewApiToken;
 
     /// <summary>
-    /// 合言葉を作り直す（前の Chmonos.Api.exe の --new-token の代わり。ユーザ判断 2026-10-13）。
-    /// 合言葉が漏れたかもしれないときに、今の合言葉を使えなくする。動いていれば新しい合言葉で待ち受け直す
+    /// トークンを作り直す（前の Chmonos.Api.exe の --new-token の代わり。ユーザ判断 2026-10-13）。
+    /// トークンが漏れたかもしれないときに、今のトークンを使えなくする。動いていれば新しいトークンで待ち受け直す
     /// </summary>
     public RelayCommand RenewApiTokenCommand => _renewApiToken ??= new RelayCommand(() => RenewApiTokenAsync().Forget());
 
@@ -239,12 +239,12 @@ public sealed partial class SettingsViewModel
         try
         {
             await _services.Api.RenewTokenAsync();
-            ApiTokenNotice = "合言葉を作り直しました。ツールには、保存先の api.json から読み直させてください。";
+            ApiTokenNotice = "トークンを作り直しました。ツールには、保存先の api.json から読み直させてください。";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            Core.Diagnostics.AppLog.Error("API の合言葉を作り直す", exception);
-            ApiTokenNotice = "合言葉を作り直せませんでした。保存先のフォルダに書き込めるかを確かめてください。";
+            Core.Diagnostics.AppLog.Error("API のトークンを作り直す", exception);
+            ApiTokenNotice = "トークンを作り直せませんでした。保存先のフォルダに書き込めるかを確かめてください。";
         }
     }
 

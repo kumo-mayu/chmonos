@@ -13,7 +13,7 @@ namespace Chmonos.Api;
 
 /// <summary>API を組む材料。</summary>
 /// <param name="Port">待つポート（0 なら空いている番号。試験で使う）。</param>
-/// <param name="Token">合言葉（<c>Authorization: Bearer …</c>）。</param>
+/// <param name="Token">トークン（<c>Authorization: Bearer …</c>）。</param>
 /// <param name="AllowedOrigins">CORS を許す住所（自作の Web ページ）。api-settings.json が変われば読み直す。</param>
 /// <param name="Watch">保存先のファイルの変化を見張るか（試験では切り、読み直しを直に呼ぶ）。</param>
 /// <param name="Store">
@@ -242,14 +242,14 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
 /// <summary>
 /// API の口（HTTP）を組む。守り（docs/spec/local-api.md「守り」「ブラウザから」）：
-/// 待つのは 127.0.0.1 だけ・Host の確かめ（DNS rebinding）・許した住所にだけ CORS・合言葉（health と version 以外）。
+/// 待つのは 127.0.0.1 だけ・Host の確かめ（DNS rebinding）・許した住所にだけ CORS・トークン（health と version 以外）。
 /// 問い合わせの中身はログに残さない（購入履歴と検索の言葉）。
 /// </summary>
 internal static class ApiHost
 {
     public const string ApiVersion = "v1";
 
-    /// <summary>合言葉なしで答える URL（動いているか・バージョン・仕様書。どれも保存先の中身は含まない）。</summary>
+    /// <summary>トークンなしで答える URL（動いているか・バージョン・仕様書。どれも保存先の中身は含まない）。</summary>
     private static readonly HashSet<string> OpenPaths = new(StringComparer.Ordinal) { "/v1/health", "/v1/version", "/v1/openapi.json" };
 
     public static string AppVersion { get; } =
@@ -279,8 +279,8 @@ internal static class ApiHost
             document.Info.Version = ApiVersion;
             document.Info.Description = ServiceText.Notice;
 
-            // 合言葉（Bearer）が要ることを仕様書に載せる。仕様書から作った道具が、合言葉の付け方を機械的に読めるように（点検30）。
-            // 合言葉なしで答える URL（OpenPaths）には付けない
+            // トークン（Bearer）が要ることを仕様書に載せる。仕様書から作った道具が、トークンの付け方を機械的に読めるように（点検30）。
+            // トークンなしで答える URL（OpenPaths）には付けない
             document.Components ??= new Microsoft.OpenApi.OpenApiComponents();
             document.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
             document.Components.SecuritySchemes["bearer"] = new Microsoft.OpenApi.OpenApiSecurityScheme
@@ -371,12 +371,12 @@ internal static class ApiHost
 
         if (!OpenPaths.Contains(request.Path.Value ?? string.Empty))
         {
-            // 合言葉は同じ長さの比べ方をする（違う所までの時間で中身を推し量られないように）
+            // トークンは同じ長さの比べ方をする（違う所までの時間で中身を推し量られないように）
             var given = Encoding.UTF8.GetBytes(request.Headers.Authorization.ToString());
             if (!CryptographicOperations.FixedTimeEquals(given, token))
             {
                 context.Response.Headers.WWWAuthenticate = "Bearer";
-                await WriteProblemAsync(context, new QueryException(401, "unauthorized", "合言葉が違います。保存先の api.json の token を Authorization: Bearer で送ってください。"));
+                await WriteProblemAsync(context, new QueryException(401, "unauthorized", "トークンが違います。保存先の api.json の token を Authorization: Bearer で送ってください。"));
                 return;
             }
 

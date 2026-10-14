@@ -1066,13 +1066,13 @@
                                        AutomationProperties.AutomationId="Settings.Note.ApiPort"
                                        Text="{Binding Notes[ApiPort]}" />
 
-                            <!-- 合言葉の作り直し（前の Chmonos.Api.exe の new-token の代わり。ユーザ判断 2026-10-13） -->
+                            <!-- トークンの作り直し（前の Chmonos.Api.exe の new-token の代わり。ユーザ判断 2026-10-13） -->
                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock Text="合言葉" Style="{StaticResource RowLabel}" Width="220" VerticalAlignment="Center" />
+                                <TextBlock Text="トークン" Style="{StaticResource RowLabel}" Width="220" VerticalAlignment="Center" />
                                 <Button Content="作り直す" Style="{StaticResource SmallButton}"
                                         AutomationProperties.AutomationId="Settings.RenewApiToken"
                                         Command="{Binding RenewApiTokenCommand}"
-                                        ToolTip="今の合言葉は使えなくなります。" />
+                                        ToolTip="今のトークンは使えなくなります。" />
                             </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" Margin="222,4,0,0" TextWrapping="Wrap"
                                        AutomationProperties.AutomationId="Settings.ApiTokenNotice"

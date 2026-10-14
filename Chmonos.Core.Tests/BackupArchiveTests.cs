@@ -21,7 +21,7 @@ public sealed class BackupArchiveTests : IDisposable
         File.WriteAllText(Path.Combine(Store, "search-bridge.cache"), "索引");
         File.WriteAllText(Path.Combine(Store, "location.json"), "{}");
 
-        // 外から使う API の合言葉。書き出しを人に渡すと合言葉まで渡るので入れない
+        // 外から使う API のトークン。書き出しを人に渡すとトークンまで渡るので入れない
         File.WriteAllText(Path.Combine(Store, "api.json"), "{\"token\":\"作り物\"}");
     }
 

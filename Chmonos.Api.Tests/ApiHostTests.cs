@@ -88,7 +88,7 @@ public sealed class ApiHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 動いているかとバージョンは_合言葉なしで答える()
+    public async Task 動いているかとバージョンは_トークンなしで答える()
     {
         var health = await JsonOf(await _client.SendAsync(Request(HttpMethod.Get, "/v1/health", token: false)));
         Assert.Equal("ok", health.GetProperty("status").GetString());
@@ -100,7 +100,7 @@ public sealed class ApiHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 仕様書は合言葉なしで返し_URLと答えの型が載っている()
+    public async Task 仕様書はトークンなしで返し_URLと答えの型が載っている()
     {
         var response = await _client.SendAsync(Request(HttpMethod.Get, "/v1/openapi.json", token: false));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -115,7 +115,7 @@ public sealed class ApiHostTests : IAsyncLifetime
 
         // アプリからの知らせの口は外の道具向けではないので載せない
         Assert.False(paths.TryGetProperty("/internal/busy", out _));
-        // 合言葉の要る URL にだけ、Bearer の印を付ける
+        // トークンの要る URL にだけ、Bearer の印を付ける
         Assert.Equal("bearer", document.GetProperty("components").GetProperty("securitySchemes").GetProperty("bearer").GetProperty("scheme").GetString());
         Assert.True(paths.GetProperty("/v1/items/{id}").GetProperty("get").TryGetProperty("security", out _));
         Assert.False(paths.GetProperty("/v1/health").GetProperty("get").TryGetProperty("security", out _));
@@ -157,7 +157,7 @@ public sealed class ApiHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 合言葉が無い_違うときは断る()
+    public async Task トークンが無い_違うときは断る()
     {
         var none = await _client.SendAsync(Request(HttpMethod.Get, "/v1/items", token: false));
         await AssertProblem(none, HttpStatusCode.Unauthorized, "unauthorized");

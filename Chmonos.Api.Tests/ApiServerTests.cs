@@ -37,7 +37,7 @@ public sealed class ApiServerTests : IDisposable
 
     /// <summary>
     /// 待ち受けを始めた後に api.json を書けなかったら、待ち受けを止めてポートを放す（点検36：前は誰も持たない待ち受けが残り、
-    /// オフにしても止まらず、古い合言葉で答え続けた）
+    /// オフにしても止まらず、古いトークンで答え続けた）
     /// </summary>
     [Fact]
     public async Task 記録を書けなければ_待ち受けを止めてポートを放す()

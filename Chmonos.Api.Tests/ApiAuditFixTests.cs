@@ -62,7 +62,7 @@ public sealed class ApiAuditFixTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 合言葉なしのhealthは読めなかった商品の数だけで_IDは合言葉の要るURLで返す()
+    public async Task トークンなしのhealthは読めなかった商品の数だけで_IDはトークンの要るURLで返す()
     {
         var health = await GetAsync("/v1/health", token: false);
         Assert.Equal(1, health.GetProperty("failedItemCount").GetInt32());
