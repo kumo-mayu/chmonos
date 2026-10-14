@@ -54,6 +54,8 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(IReadOnlyList<UnityEditorRef>))]
 [JsonSerializable(typeof(UnitySendRequest))]
 [JsonSerializable(typeof(UnitySendStatus))]
+[JsonSerializable(typeof(UnitySendPlan))]
+[JsonSerializable(typeof(ModificationSendRequest))]
 [JsonSerializable(typeof(RecentRequest))]
 [JsonSerializable(typeof(IdsRequest))]
 [JsonSerializable(typeof(AvatarLinkRequest))]

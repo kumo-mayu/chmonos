@@ -106,7 +106,7 @@ public sealed class UnityFolderPackageTests : IDisposable
         // ハッシュ無しで場所だけ（フォルダはハッシュを持たない）
         var member = new ModificationMember { ItemId = item.Id, Package = "D2.unitypackage" };
 
-        var packages = ModificationViewModel.PackagesFor(item, member);
+        var packages = ModificationSendPlan.PackagesFor(item, member);
 
         Assert.Equal(["D2"], packages.Select(package => package.Name));
         Assert.True(member.HasFile);

@@ -33,29 +33,15 @@ public sealed record VersionAnswer(string Api, string App, int StoreFormat, int 
 /// <param name="Parts">読み直した部分（<c>items</c>・<c>images</c>・<c>registry</c>・<c>userTags</c> など）。</param>
 /// <param name="ItemIds">変わった商品（増えた・直した・消えた）。</param>
 /// <param name="Busy"><c>busy</c> のとき、始まりならその種類、終わりなら null。</param>
-public sealed record ChangeEventRef(long Seq, string Kind, IReadOnlyList<string> Parts, IReadOnlyList<string> ItemIds, string? Busy, DateTimeOffset At);
+/// <param name="SendId">Unity へ送る送りの ID（<c>kind: unity</c> のときだけ。<c>/v1/unity/sends/{sendId}</c> で結果を引く）。</param>
+public sealed record ChangeEventRef(
+    long Seq, string Kind, IReadOnlyList<string> Parts, IReadOnlyList<string> ItemIds, string? Busy, DateTimeOffset At, string? SendId = null);
 
 /// <param name="Reload">頼んだ通番からの変化を全部は持っていない（古すぎる・API が起動し直した）。外の道具は全部を取り直す。</param>
 public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IReadOnlyList<ChangeEventRef> Changes);
 
 /// <summary>書き込みの要求：オン・オフ（お気に入り・非表示など）。</summary>
 public sealed record FlagRequest(bool Value);
-
-/// <summary>開いている Unity のエディタ（送り先を選ぶため）。<see cref="ProjectPath"/> は Hub・VCC の一覧で言い当てられたときだけ入る。</summary>
-public sealed record UnityEditorRef(int ProcessId, string? ProjectName, string? ProjectPath);
-
-/// <summary>
-/// Unity へ送る要求。送る物（<see cref="Entry"/>＝zip の中のパス、<see cref="ZipHash"/>＝どの zip か）は、商品の unitypackage が1つなら省ける。
-/// 送り先（<see cref="Project"/>＝プロジェクトのフォルダ）は、開いているエディタが1つなら省ける
-/// </summary>
-public sealed record UnitySendRequest(string? Entry, string? ZipHash, string? Project);
-
-/// <summary>
-/// Unity へ送った結果。<see cref="State"/>：sending（送っている）・imported（取り込んだ）・alreadyPresent（もう入っていた）・
-/// cancelled（Unity の取り込み画面で取り消した）・stopped（止めた）・failed（送れなかった。<see cref="Problem"/> に理由）
-/// </summary>
-public sealed record UnitySendStatus(
-    string ItemId, string Package, string Project, string State, string? Problem, DateTimeOffset StartedAt, DateTimeOffset? EndedAt);
 
 /// <summary>書き込みの要求：ユーザータグ1つ（大分類と小分類）。</summary>
 public sealed record UserTagInput(string Top, IReadOnlyList<string>? Subs);

@@ -3,6 +3,7 @@ using System.IO.Compression;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
 
@@ -47,7 +48,7 @@ public sealed class ModificationRecordedFileTests : IDisposable
         var item = Make.Item("9900950", "作り物の衣装").WithFiles(Make.File(other), Make.File(Path.Combine(_dir, "v1.zip")) with { Paths = [] });
         var recorded = item.Local.LocalFiles[1].Hash;
 
-        var places = ModificationViewModel.PlacesFor(item, new ModificationMember { ItemId = item.Id, FileHash = recorded, Package = "Mine_v1.unitypackage" });
+        var places = ModificationSendPlan.PlacesFor(item, new ModificationMember { ItemId = item.Id, FileHash = recorded, Package = "Mine_v1.unitypackage" });
 
         Assert.Empty(places);
     }
@@ -60,7 +61,7 @@ public sealed class ModificationRecordedFileTests : IDisposable
         var other = ZipWith("other.zip", "Other.unitypackage");
         var item = Make.Item("9900951", "作り物の髪").WithFiles(Make.File(chosen), Make.File(other));
 
-        var places = ModificationViewModel.PlacesFor(item, new ModificationMember { ItemId = item.Id, FileHash = item.Local.LocalFiles[0].Hash });
+        var places = ModificationSendPlan.PlacesFor(item, new ModificationMember { ItemId = item.Id, FileHash = item.Local.LocalFiles[0].Hash });
 
         Assert.Equal(["Chosen.unitypackage"], places.Select(place => place.Entry.EntryPath));
     }

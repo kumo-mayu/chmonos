@@ -74,6 +74,14 @@
     「送りますか」の確認は出さない（Unity の取り込み画面が確認になる）。送り終えるまで待たずに 202（`state: sending`）で返し、終わりは変化の知らせ `unity` と `GET /v1/unity/last-send`。
     送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ。どちらも API の起点で命令の口を通す）。送っている間（後始末まで）は次の頼みを 409 `unityBusy` で断る。送り先は `GET /v1/unity/editors` で選ぶ。結果の種類はログに1行（`Unity へ送る → imported` など）。
     実際の Unity 2022.3 で確かめた（2026-10-13・確かめ用のプロジェクトに作り物の unitypackage を送り、取り込み画面→取り込んだ→「使った」の足跡まで）
+  - **送りの ID・止める・まとめて送る**（2026-10-14。使い手の試作の不足 3-6・3-7・3-8・4-1）：1回の送り＝1つの状態（`UnitySendStatus`）。`sendId`・頼んだ `entry`・`zipHash` と、
+    1件ずつの結果 `steps`（商品 ID・entry・zipHash・state・problem。改変から送ると `index` も）を持つ。`GET /v1/unity/last-send`・`GET /v1/unity/sends/{sendId}`（直近16件を覚える）は同じ形。
+    変化の知らせ `unity` にも `sendId`。state の値は `UnitySendStates` の1か所：queued・sending・imported・alreadyPresent・cancelled・stopped・editorClosed・failed・skipped。
+    全体の state は1件ずつから決める（stopped ＞ editorClosed ＞ failed ＞ imported ＞ alreadyPresent ＞ cancelled）。
+    止める：`POST /v1/unity/sends/{sendId}/cancel`。送りごとの止める合図を送る部品に渡し、画面の「中止」と同じ止まり方（3秒まで待って 200、待ちきれなければ 202）。404 `unitySendNotFound`・409 `unitySendEnded`。
+    まとめて送る：`GET /v1/modifications/{id}/send-plan`（行ごとに send・choose・unavailable）と `POST /v1/modifications/{id}/send-to-unity`（`{"project"?, "choices"?: [{index, zipHash?, entry}]}`）。
+    行の決め方は画面と同じ部品（Core の `ModificationSendPlan`）。選んだ物は送る前に行へ記録し、1つの列で送る。選ぶ行に選んだ物が無ければ 400 `choiceRequired`（どの行かを言う）。
+    Unity が閉じた送りは `editorClosed` で、「使った」の足跡を付けない（前は取り込みの窓を出した後に閉じると imported と答えていた）
   - **画面で開く**（段4）：`POST /v1/items/{id}/show`。窓を開いて（画面無しなら作って）商品のページを表示する。データは変えないが使う人の画面を動かすので、書き込みの許しで守る。開けなければ 503 `windowUnavailable`
   - **エクスプローラで開く**（段4）：`POST /v1/items/{id}/reveal`（`{"path"?}`）。開き方は画面と同じ（フォルダ・zip は中を、ほかは選んだ状態で）。場所はファイル（外した物を除く）とフォルダで、
     指定は記録の場所でも今の場所（ドライブ文字が変わった後）でもよい。省けるのは場所が1つのときだけ（400 `locationAmbiguous`）。場所が無ければ親フォルダを開かずに 404 `locationMissing`（画面は近くを開いて助けるが、API は答えで伝える）。画面で開くと同じく書き込みの許しで守る

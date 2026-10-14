@@ -45,7 +45,7 @@ public sealed class ApiUnitySendTests
             services,
             () => Editors,
             editor => editor.ProjectPath,
-            (processId, packages, _) =>
+            (processId, packages, _, _) =>
             {
                 lock (Sent)
                 {
@@ -190,7 +190,7 @@ public sealed class ApiUnitySendTests
             app.Services,
             () => [new OpenUnityEditor(4242, "作り物のプロジェクト", @"C:\作り物\Project")],
             editor => editor.ProjectPath,
-            async (_, packages, _) =>
+            async (_, packages, _, _) =>
             {
                 await gate.Task;
                 return packages.Select(package => new UnityQueueOutcome(package, Opened: true, Problem: null)).ToList();
