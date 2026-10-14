@@ -94,7 +94,9 @@ public sealed class ConditionRequest
     public int? ToDays { get; init; }
 }
 
-public sealed record AttributeRangeRequest(string Name, int Min, int Max);
+/// <summary>属性の範囲。省いた側は端まで（min は 0・max は 100。属性の値は 0〜100）。</summary>
+/// <remarks>前は省けない数の欄で、省くと 0 と読んで 0〜0 を探し、黙って0件になった（2026-10-14・使い手の試作で見つかった）。値段の範囲と同じく片側を省ける</remarks>
+public sealed record AttributeRangeRequest(string Name, int? Min = null, int? Max = null);
 
 /// <param name="Subs">小分類（どれか・すべてかは <paramref name="Match"/>）。</param>
 /// <param name="NoSub">小分類を付けていない物も当てる。</param>
@@ -236,7 +238,7 @@ public static class ConditionKinds
             case SearchModuleKind.Attribute:
                 return state with
                 {
-                    Ranges = (request.Ranges ?? []).Select(range => new AttributeRange(range.Name, range.Min, range.Max)).ToList(),
+                    Ranges = (request.Ranges ?? []).Select(range => new AttributeRange(range.Name, range.Min ?? 0, range.Max ?? 100)).ToList(),
                     MatchAll = matchAll,
                 };
 

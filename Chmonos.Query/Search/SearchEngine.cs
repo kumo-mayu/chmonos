@@ -11,11 +11,13 @@ public sealed class SearchRequest
 {
     public SearchExpression? Where { get; init; }
 
+    // set にしている：コードから作る JSON の読み方は、init の欄を「来なかった欄も既定の値（false）で埋める」形で組み、= true が効かなかった
+    // （2026-10-14。省くと非表示の商品が外れた。試験 省いた非表示とR18の指定は_既定のtrueで読む）
     /// <summary>非表示にした商品も返すか（既定 true。返した物には <c>isHidden</c> の印が付く。ユーザ判断 2026-10-12）。</summary>
-    public bool IncludeHidden { get; init; } = true;
+    public bool IncludeHidden { get; set; } = true;
 
     /// <summary>R-18 の商品も返すか（既定 true。同上）。</summary>
-    public bool IncludeAdult { get; init; } = true;
+    public bool IncludeAdult { get; set; } = true;
 
     public TextOptionsRequest? TextOptions { get; init; }
 
@@ -42,9 +44,9 @@ public sealed class FacetsRequest
 {
     public SearchExpression? Where { get; init; }
 
-    public bool IncludeHidden { get; init; } = true;
+    public bool IncludeHidden { get; set; } = true;
 
-    public bool IncludeAdult { get; init; } = true;
+    public bool IncludeAdult { get; set; } = true;
 
     public TextOptionsRequest? TextOptions { get; init; }
 

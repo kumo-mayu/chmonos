@@ -92,7 +92,7 @@
 | avatar | avatar | `avatars`（ID）・`bases`（素体名）・`match`・`viaBase`（既定 true）・`matched`（既定 true）・`unspecified`（既定 false） |
 | range | wishCount・price | `min`・`max`・`source`（`paid`・`booth`）・`allVariations`・`includeUnknown`・`ignoreOutliers`（既定 true） |
 | date | publishedAt・acquiredAt | `from`・`to`（`YYYY-MM-DD`）・`scope`（`first`・`all`。入手日） |
-| attribute | attribute | `ranges`（`name`・`min`・`max`）・`match` |
+| attribute | attribute | `ranges`（`name`・`min`・`max`。省いた側は端まで＝0・100）・`match` |
 | userTag | userTag | `tags`（`top`・`subs`・`match`・`noSub`）・`match` |
 | modification | modification | `modifications`（`avatar`・`modifications`・`match`）・`match` |
 | editStatus | editStatus | `choice`（`unedited`・`edited`・`both`）・`fields`・`match` |

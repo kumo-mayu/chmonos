@@ -68,6 +68,41 @@ public sealed class SearchEngineTests : IDisposable
 
     private static SearchExpression Condition(ConditionRequest request) => new() { Condition = request };
 
+    /// <summary>
+    /// 要求で省いた「非表示・R-18 も返す」は既定の true になる（2026-10-14・使い手の試作で見つかった：省くと非表示の商品が外れ、条件「非表示」が0件だった）。
+    /// API が読むのと同じ、コードから作った読み方で読む
+    /// </summary>
+    [Fact]
+    public void 省いた非表示とR18の指定は_既定のtrueで読む()
+    {
+        var search = JsonSerializer.Deserialize("""{"where":{"text":"x"}}""", QueryJson.Context.SearchRequest)!;
+        Assert.True(search.IncludeHidden);
+        Assert.True(search.IncludeAdult);
+
+        var facets = JsonSerializer.Deserialize("{}", QueryJson.Context.FacetsRequest)!;
+        Assert.True(facets.IncludeHidden);
+        Assert.True(facets.IncludeAdult);
+
+        Assert.False(JsonSerializer.Deserialize("""{"includeHidden":false}""", QueryJson.Context.SearchRequest)!.IncludeHidden);
+    }
+
+    /// <summary>属性の範囲は、省いた側を端まで（0・100）で探す（2026-10-14・前は省くと 0 と読み、黙って0件だった）。</summary>
+    [Fact]
+    public async Task 属性の範囲は_省いた側を端までとして探す()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        await store.Items.SaveAsync(Item("9700011", "作り物の高い", local: local => local with { Attributes = new Dictionary<string, int> { ["かわいさ"] = 80 } }));
+        await store.Items.SaveAsync(Item("9700012", "作り物の低い", local: local => local with { Attributes = new Dictionary<string, int> { ["かわいさ"] = 30 } }));
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+
+        SearchExpression? Where(string range) => JsonSerializer.Deserialize(
+            """{"where":{"condition":{"kind":"attribute","ranges":[{"name":"かわいさ" """ + range + "}]}}}", QueryJson.Context.SearchRequest)!.Where;
+
+        Assert.Equal(["9700011"], Ids(snapshot, Where(""","min":50""")));
+        Assert.Equal(["9700012"], Ids(snapshot, Where(""","max":50""")));
+        Assert.Equal(["9700011", "9700012"], Ids(snapshot, Where("")));
+    }
+
     [Fact]
     public async Task 文字列と条件を_ANDとORとNOTで組める()
     {
