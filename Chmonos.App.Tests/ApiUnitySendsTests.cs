@@ -418,7 +418,9 @@ public sealed class ApiUnitySendsTests
             var change = JsonDocument.Parse(changes).RootElement.GetProperty("changes")
                 .EnumerateArray().Single(change => change.GetProperty("kind").GetString() == "unity");
             Assert.Equal(sendId, change.GetProperty("sendId").GetString());
-            Assert.Contains(Hair, change.GetProperty("itemIds").EnumerateArray().Select(itemId => itemId.GetString()));
+            var changedIds = change.GetProperty("itemIds").EnumerateArray().Select(itemId => itemId.GetString()).ToList();
+            Assert.Contains(Hair, changedIds);
+            Assert.DoesNotContain(Gone, changedIds);
         }
         finally
         {

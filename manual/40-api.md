@@ -144,6 +144,8 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | 改変を作る | `POST /v1/modifications` | `{"avatarId": "…", "name": "普段着"}` |
 | 改変のメモ・blueprint ID・Unity プロジェクトを書く | `PUT /v1/modifications/{ID}/memo`・`…/blueprint-id`・`…/unity-project` | `{"memo": "…"}`・`{"blueprintId": "avtr_…"}`・`{"path": "…"}` |
 | 改変に使った物を足す・外す・戻す | `POST /v1/modifications/{ID}/members`・`…/members/detach`・`…/members/restore` | `{"itemId": "…"}` |
+| 改変に使った物を順に Unity へ送る（次のバージョンから） | `POST /v1/modifications/{ID}/send-to-unity` | `{"choices": [{"index": 1, "entry": "…"}]}`（選ぶ物が無ければ `{}`） |
+| Unity へ送るのを止める（次のバージョンから） | `POST /v1/unity/sends/{送りのID}/cancel` | なし |
 
 - 変えた後の商品を答えに返します。続けて GET しても同じ答えです。
 - ユーザータグと属性の名前は、一覧にある名前に合わせます。一覧に無い名前は断ります。一覧に足してから付けるときは、URL に `?createMissing=true` を付けます。
@@ -151,6 +153,9 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - Chmonos の編集画面で開いている商品は変えられません（`409`）。編集を終えてから送ってください。
 - 取り込みの途中は、変えたことを `202` で受け付け、取り込みが終わってから答えに入ります。
 - 「Unity へ送る」は、Unity の取り込み画面が出たところで待たずに返ります（`202`）。結果は `GET /v1/unity/last-send` と、変化の知らせ（`unity`）で分かります。送る物が複数あるときは `entry`、Unity を複数開いているときは `project` で選びます。開いているプロジェクトは `GET /v1/unity/editors` で分かります。
+- （次のバージョンから）Unity へ送ると、答えに送りの ID（`sendId`）が付きます。結果は `GET /v1/unity/sends/{送りのID}` で分かります。`state` が `sending` の間は送っている途中です。終わると `imported`（取り込んだ）・`alreadyPresent`（もう入っていた）・`cancelled`（Unity で Cancel した）・`stopped`（止めた）・`editorClosed`（Unity が閉じた）・`failed`（送れなかった）のどれかになります。
+- （次のバージョンから）改変に使った物を順に送る前に、`GET /v1/modifications/{ID}/send-plan` で行ごとの送り方を確かめられます。`status` が `choose` の行は、`candidates` から送る物を選んで `choices` に書きます。選んだ物は、その行に記録されます。
+- （次のバージョンから）送るのを止めても、Unity に出た取り込み画面は残ります。Unity で「Cancel」を押して閉じてください。
 - 「Chmonos の画面で商品を表示する」は、ウィンドウを表示せずに動いているときもウィンドウを開きます。データは変えませんが、画面が切り替わるので、「ほかのアプリからの変更を許す」がオンのときだけ使えます。
 - 対応アバターを消しても、商品ページの「消したもの」から戻せます。確認待ちを確認済みにするのは、名前を挙げた物だけです。
 - 改変を消す・名前を変える、対応アバターをまとめて確認済みにする、といった操作は、Chmonos の画面で行ってください。

@@ -581,7 +581,13 @@ public static class UnityImportQueue
             var state = watch.Evaluate(now);
             if (state != UnityImportState.Waiting)
             {
-                return Settle(state, () => UnityEditors.IsOpen(processId));
+                var settled = Settle(state, () => UnityEditors.IsOpen(processId));
+                if (settled.EditorClosed)
+                {
+                    UiTrace.Write("Unity", $"{index + 1}/{total} 「{package.Name}」{state} と決めた瞬間に Unity が閉じていた");
+                }
+
+                return settled;
             }
 
             await Task.Delay(200, cancellationToken);

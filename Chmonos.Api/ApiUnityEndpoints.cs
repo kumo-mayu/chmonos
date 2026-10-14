@@ -100,13 +100,13 @@ internal static partial class ApiEndpoints
     private static QueryException UnitySendNotFound()
         => QueryException.NotFound("unitySendNotFound", "その送りは見つかりません。覚えているのは直近の数件だけです。");
 
-    /// <summary>送り終えたら変化の知らせ（unity）を出す。送りの ID と、送った商品を載せる。</summary>
+    /// <summary>送り終えたら変化の知らせ（unity）を出す。送りの ID と、送った商品を載せる（送らなかった行の商品は載せない）。</summary>
     private static void PublishWhenDone(ApiState state, ChangeFeed feed, UnitySendStatus started, Task<UnitySendStatus> finished)
         => _ = finished.ContinueWith(
             task =>
             {
                 var done = task.IsCompletedSuccessfully ? task.Result : started with { State = UnitySendStates.Failed };
-                var itemIds = done.Steps.Select(step => step.ItemId).Distinct(StringComparer.Ordinal).ToList();
+                var itemIds = done.Steps.Where(step => step.State != UnitySendStates.Skipped).Select(step => step.ItemId).Distinct(StringComparer.Ordinal).ToList();
                 feed.Publish("unity", [done.State], itemIds, null, state.Clock(), done.SendId);
             },
             TaskScheduler.Default);
