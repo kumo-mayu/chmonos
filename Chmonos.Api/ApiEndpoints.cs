@@ -281,6 +281,7 @@ internal static partial class ApiEndpoints
             .Takes<RevealRequest>().Produces(204).WithSummary("商品のファイルかフォルダをエクスプローラで開く（場所が1つなら path を省ける。書き込みの許しが要る）");
 
         MapCurationWrites(app);
+        MapDescription(app);
 
         app.MapGet("/v1/unity/editors", (ApiWriter writer) => ApiHost.Json(writer.Unity?.OpenEditors() ?? [], json.IReadOnlyListUnityEditorRef))
             .Answers<IReadOnlyList<UnityEditorRef>>("開いている Unity のエディタ（送り先を選ぶため）");
