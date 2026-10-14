@@ -81,6 +81,14 @@ public sealed record VideoRef(string Id, string Url, string? Title);
 
 /// <summary>一覧の1行（要約）。詳しくは <c>/v1/items/{id}</c>。</summary>
 /// <param name="AvatarIds">対応アバターの ID（画面の検索と同じ数え方。<see cref="CompatibleAvatarRef"/>）。</param>
+/// <param name="PriceText">BOOTH の値段の表示（詳細の <c>priceText</c> と同じ）。並べる欄ではない。</param>
+/// <param name="PublishedAt">並べる欄 <c>publishedAt</c> の値。</param>
+/// <param name="AcquiredAt">
+/// 並べる欄 <c>acquiredAt</c> の値（購入1件の日付のうち最も早い物、購入記録が無ければ商品の入手日）。
+/// 詳細の <c>acquiredAt</c>（商品の入手日の欄そのもの）とは違い得る。
+/// </param>
+/// <param name="WishCount">並べる欄 <c>wishCount</c> の値。</param>
+/// <param name="Paid">並べる欄 <c>paid</c> の値（自分用に払った額の合計。額を1つも入れていなければ null、無料は 0）。</param>
 public sealed record ItemSummary(
     string Id,
     string Name,
@@ -91,7 +99,12 @@ public sealed record ItemSummary(
     bool IsHidden,
     bool IsFavorite,
     IReadOnlyList<string> AvatarIds,
-    ImageRef? Thumbnail);
+    ImageRef? Thumbnail,
+    string? PriceText,
+    DateTimeOffset? PublishedAt,
+    DateOnly? AcquiredAt,
+    int WishCount,
+    long? Paid);
 
 /// <summary>商品1件（詳細）。</summary>
 public sealed record ItemDetail

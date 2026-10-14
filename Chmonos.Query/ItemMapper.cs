@@ -22,7 +22,13 @@ public static class ItemMapper
             item.Local.IsHidden,
             item.Local.IsFavorite,
             Compatible(item, snapshot).Select(avatar => avatar.AvatarId).ToList(),
-            Thumbnail(item, snapshot));
+            Thumbnail(item, snapshot),
+            item.Booth.PriceText,
+            // 並べた値をカードに添えるため。並べ替えの鍵と同じ関数で出す（別に書くと並びと食い違う）
+            Search.SortFields.PublishedAt(item),
+            Search.SortFields.AcquiredAt(item),
+            Search.SortFields.WishCount(item),
+            Search.SortFields.Paid(item));
 
     public static ItemDetail Detail(ItemRecord item, QuerySnapshot snapshot, ItemIncludes includes = ItemIncludes.None)
     {

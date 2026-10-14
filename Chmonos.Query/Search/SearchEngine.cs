@@ -310,7 +310,7 @@ public static class SearchEngine
 
     internal sealed record SortKey(string Field, bool Descending, Func<ItemRecord, QuerySnapshot, SortValue> Value);
 
-    private static List<SortKey> SortOf(IReadOnlyList<SortRequest>? requests)
+    internal static List<SortKey> SortOf(IReadOnlyList<SortRequest>? requests)
     {
         var keys = new List<SortKey>();
         foreach (var request in requests ?? [])
@@ -331,11 +331,11 @@ public static class SearchEngine
             {
                 "id" => (item, _) => new SortValue(null, item.Id),
                 "name" => (item, _) => new SortValue(null, item.DisplayName),
-                "publishedAt" => (item, _) => new SortValue(item.Booth.PublishedAt?.UtcTicks, null),
-                "acquiredAt" => (item, _) => new SortValue(PurchaseDates.EnteredEarliest(item)?.DayNumber, null),
-                "wishCount" => (item, _) => new SortValue(item.Booth.WishListsCount, null),
-                "paid" => (item, _) => new SortValue(Purchases.SelfPaidOrNull(item), null),
-                "fetchedAt" => (item, _) => new SortValue(item.Booth.FetchedAt?.UtcTicks, null),
+                "publishedAt" => (item, _) => new SortValue(SortFields.PublishedAt(item)?.UtcTicks, null),
+                "acquiredAt" => (item, _) => new SortValue(SortFields.AcquiredAt(item)?.DayNumber, null),
+                "wishCount" => (item, _) => new SortValue(SortFields.WishCount(item), null),
+                "paid" => (item, _) => new SortValue(SortFields.Paid(item), null),
+                "fetchedAt" => (item, _) => new SortValue(SortFields.FetchedAt(item)?.UtcTicks, null),
                 _ => throw QueryException.Invalid("invalidSort", $"並べられない欄です: {request.Field}"),
             };
 

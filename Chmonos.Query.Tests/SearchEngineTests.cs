@@ -221,6 +221,62 @@ public sealed class SearchEngineTests : IDisposable
         Assert.Equal(["9700001", "9700003", "9700002", "9700004", "9700005"], seen);
     }
 
+    /// <summary>
+    /// 要約に添えた並べる欄の値は、並べ替えの鍵と同じ（Web の API-GAPS G8）。入手日は購入1件の日付のうち最も早い物で、
+    /// 商品の入手日の欄とは違い得る。払った額は自分用だけで、額の無い購入しか無ければ null
+    /// </summary>
+    [Fact]
+    public async Task 要約に添えた並べる欄の値は_並べ替えの鍵と同じ()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        ItemRecord[] items =
+        [
+            // 購入の日付が商品の入手日より早い・自分用と贈った
+            Item("9600001", "作り物A", booth => booth with { PublishedAt = new DateTimeOffset(2025, 1, 2, 3, 4, 5, TimeSpan.FromHours(9)), WishListsCount = 7, PriceText = "¥ 500" },
+                local => local with
+                {
+                    AcquiredAt = new DateOnly(2025, 6, 1),
+                    Purchases =
+                    [
+                        new Purchase { Kind = PurchaseKind.ForSelf, Price = 500, PurchasedAt = new DateOnly(2025, 3, 1) },
+                        new Purchase { Kind = PurchaseKind.Given, Price = 800 },
+                    ],
+                }),
+
+            // 購入記録が無く、商品の入手日だけ
+            Item("9600002", "作り物B", local: local => local with { AcquiredAt = new DateOnly(2024, 12, 31) }),
+
+            // 額の無い購入だけ（払った額は分からない）・無料
+            Item("9600003", "作り物C", local: local => local with { Purchases = [new Purchase { Kind = PurchaseKind.ForSelf }] }),
+            Item("9600004", "作り物D", local: local => local with { Purchases = [new Purchase { Kind = PurchaseKind.ForSelf, Price = 0 }] }),
+        ];
+        foreach (var item in items)
+        {
+            await store.Items.SaveAsync(item);
+        }
+
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+        var summaries = SearchEngine.Search(snapshot, new SearchRequest(), Now).Items.ToDictionary(summary => summary.Id);
+        var keys = SearchEngine.SortOf([new("publishedAt"), new("acquiredAt"), new("wishCount"), new("paid")]);
+
+        foreach (var item in snapshot.Items)
+        {
+            var summary = summaries[item.Id];
+            Assert.Equal(keys[0].Value(item, snapshot).Number, summary.PublishedAt?.UtcTicks);
+            Assert.Equal(keys[1].Value(item, snapshot).Number, summary.AcquiredAt?.DayNumber);
+            Assert.Equal(keys[2].Value(item, snapshot).Number, summary.WishCount);
+            Assert.Equal(keys[3].Value(item, snapshot).Number, summary.Paid);
+        }
+
+        Assert.Equal(new DateOnly(2025, 3, 1), summaries["9600001"].AcquiredAt);
+        Assert.Equal(new DateOnly(2025, 6, 1), ItemMapper.Detail(snapshot.ItemsById["9600001"], snapshot).AcquiredAt);
+        Assert.Equal(500, summaries["9600001"].Paid);
+        Assert.Equal("¥ 500", summaries["9600001"].PriceText);
+        Assert.Equal(new DateOnly(2024, 12, 31), summaries["9600002"].AcquiredAt);
+        Assert.Null(summaries["9600003"].Paid);
+        Assert.Equal(0, summaries["9600004"].Paid);
+    }
+
     [Fact]
     public async Task 続きの印は_同じ並べ方にだけ使える()
     {
