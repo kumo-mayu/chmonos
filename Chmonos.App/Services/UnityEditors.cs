@@ -201,6 +201,44 @@ public static class UnityEditors
         }
     }
 
+    /// <summary>
+    /// エディタが今も開いているか：プロセスが終わっておらず、メニューを持つ主の窓が**見えている**か。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="MainWindowOf"/> は送る先を探す物なので、見えない主の窓や <see cref="Process.MainWindowHandle"/> にも落ちて「在る」と答える。
+    /// 取り込みの窓を出したまま Unity を閉じると、終わりぎわの Unity はその状態のまま後処理の行を書き、取り込んだと取り違えた（API-GAPS 4-1）。
+    /// 「取り込んだ」と決める瞬間の見直しには、こちらの厳しい方を使う
+    /// </remarks>
+    public static bool IsOpen(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            if (process.HasExited)
+            {
+                return false;
+            }
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+
+        var visible = false;
+        EnumWindows((window, _) =>
+        {
+            GetWindowThreadProcessId(window, out var owner);
+            if (owner == (uint)processId && IsWindowVisible(window) && ClassOf(window) == ContainerClass && GetMenu(window) != IntPtr.Zero)
+            {
+                visible = true;
+                return false;
+            }
+
+            return true;
+        }, IntPtr.Zero);
+        return visible;
+    }
+
     private static string ClassOf(IntPtr window)
     {
         var name = new StringBuilder(256);

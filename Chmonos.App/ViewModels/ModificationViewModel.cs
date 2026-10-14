@@ -630,8 +630,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 ? ([], null)
                 : await Task.Run(() =>
                 {
-                    var found = PackagesFor(item, row.Member);
-                    return (found, row.Member.FileHash is null && found.Count > 1 ? PackageChoiceSection.Build(item) : null);
+                    // 送る物の決め方は外から使う API と同じ部品（ModificationSendPlan）
+                    var decided = ModificationSendPlan.Decide(row.Index, row.Member, item);
+                    return (decided.Packages, decided.NeedsChoice ? PackageChoiceSection.Build(item) : null);
                 });
             if (packages.Count == 0)
             {
@@ -768,49 +769,6 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
     }
 
-    /// <summary>
-    /// この構成物で送るもの。**Unityへ送って足した分は、そのとき使った zip と unitypackage をそのまま使う**
-    /// ——版まで同じにするため（1年後に組み直すとき v1.01 と v1.06 は別物）。
-    /// 手で足した分は、どのファイルを使ったかが分からないので、今ある zip の中身を zip の順に送る。
-    /// </summary>
-    internal static IReadOnlyList<UnityPackageEntry> PackagesFor(ItemRecord item, ModificationMember member)
-        => PlacesFor(item, member).Select(place => place.Entry).ToList();
-
-    /// <summary><see cref="PackagesFor"/> に、item に書いてある入る先を添えた物（書いていなければ null）。</summary>
-    internal static IReadOnlyList<UnityPackagePlace> PlacesFor(ItemRecord item, ModificationMember member)
-    {
-        if (member.FileHash is { } hash && member.Package is { } package
-            && item.Local.OwnedFiles.FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) is { } owner
-            && owner.Paths.FirstOrDefault(File.Exists) is { } zip)
-        {
-            // 要約は zip のハッシュについて書いた物なので、記録した包みの分だけ引けば足りる（全部そろっているかは問わない）
-            var roots = owner.UnityPackages?.FirstOrDefault(summary => string.Equals(summary.Entry, package, StringComparison.Ordinal))?.Roots;
-            return [new UnityPackagePlace(new UnityPackageEntry(zip, package, 0) { ZipHash = hash }, roots)];
-        }
-
-        // 使ったファイルを記録してある物は、そのファイルが手元に無ければ送らない（外部の点検 2026-10-07）。
-        // 前は商品の送れる物全部に落ちて、別の版・別の種類のファイルを黙って送っていた（版まで同じにするための記録なのに）。
-        // 包みの名前が無い記録（手で足すときに使ったファイルを選んだ物）は、その zip の中の物だけを送る
-        if (member.FileHash is { } recorded)
-        {
-            var recordedFile = item.Local.OwnedFiles.FirstOrDefault(file => string.Equals(file.Hash, recorded, StringComparison.OrdinalIgnoreCase));
-            return recordedFile is not null && member.Package is null && recordedFile.Paths.Any(File.Exists)
-                ? [.. UnityHandoff.PlacesOf(recordedFile)]
-                : [];
-        }
-
-        // 登録したフォルダの中の物を送った記録（ハッシュ無しで場所だけ。メモ65-③）。今もフォルダに在れば、その1つを送る
-        if (member.FileHash is null && member.Package is { } folderPackage
-            && item.Local.LocalFolders
-                .SelectMany(UnityHandoff.PlacesOf)
-                .FirstOrDefault(place => string.Equals(place.Entry.EntryPath, folderPackage, StringComparison.Ordinal)) is { } inFolder)
-        {
-            return [inFolder];
-        }
-
-        return UnityImportQueue.PlacesOf(item);
-    }
-
     /// <summary>使ったもの1件を Unity のプロジェクトタブで示す（改変の画面の「Unityで選択」と同じ道・<see cref="UnityMemberSelect"/>）。</summary>
     private async Task SelectMemberInUnityAsync(ModificationMemberRowViewModel? row)
     {
@@ -833,7 +791,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     internal IReadOnlyList<ModificationMemberRowViewModel> RowsInRecordOrder() => [.. Members.OrderBy(row => row.Index)];
 
     /// <summary>「使ったものを順にUnityへ送る」で送る行（入れた順・外した行を除く）。</summary>
-    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => [.. RowsInRecordOrder().Where(row => row.IsUsed)];
+    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => [.. RowsInRecordOrder().Where(row => ModificationSendPlan.Sends(row.Member))];
 
     // ---- 使ったものを見せる順（メモ26-①・ユーザ判断 2026-10-04） ----
     //

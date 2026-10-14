@@ -22,11 +22,12 @@ internal sealed class ChangeFeed
 
     public long Sequence => Interlocked.Read(ref _sequence);
 
-    public ChangeEventRef Publish(string kind, IReadOnlyList<string> parts, IReadOnlyList<string> itemIds, string? busy, DateTimeOffset at)
+    /// <param name="sendId">Unity へ送る送りの ID（<c>unity</c> の知らせだけ）。</param>
+    public ChangeEventRef Publish(string kind, IReadOnlyList<string> parts, IReadOnlyList<string> itemIds, string? busy, DateTimeOffset at, string? sendId = null)
     {
         lock (_gate)
         {
-            var change = new ChangeEventRef(++_sequence, kind, parts, itemIds, busy, at);
+            var change = new ChangeEventRef(++_sequence, kind, parts, itemIds, busy, at, sendId);
             _recent.AddLast(change);
             if (_recent.Count > Capacity)
             {

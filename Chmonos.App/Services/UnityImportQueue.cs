@@ -162,6 +162,15 @@ public static class UnityImportQueue
     /// </summary>
     public const string StoppedBeforeWindowMessage = "送るのを中止しました。";
 
+    /// <summary>
+    /// 送っている途中でエディタが閉じたときの言い方。取り込みの窓を出した後なら、その1件は <see cref="UnityQueueOutcome.Opened"/> のまま、
+    /// 残りは出さずに、どちらもこの文を付ける（外から使う API は、この文で「Unity が閉じた」と見分ける）
+    /// </summary>
+    public const string EditorClosedMessage = "Unityが閉じられました";
+
+    /// <summary>エディタが閉じて終わった結果か。</summary>
+    public static bool IsEditorClosed(string? problem) => problem is EditorClosedMessage;
+
     /// <summary>人が止めた結果か（失敗と分けて言うため）。</summary>
     public static bool IsStopped(string? problem) => problem is StoppedMessage or StoppedBeforeWindowMessage;
 
@@ -198,9 +207,7 @@ public static class UnityImportQueue
     /// <see cref="PackagesOf"/> に、item に書いてある入る先を添えた物。zip の中の物の後に、登録したフォルダの中の物を並べる
     /// （ユーザ判断 2026-10-05・メモ65-③。展開してあるだけで中身は同じ unitypackage なので、送れない理由が無い）。
     /// </summary>
-    public static IReadOnlyList<UnityPackagePlace> PlacesOf(ItemRecord item)
-        => [.. item.Local.OwnedFiles.SelectMany(UnityHandoff.PlacesOf),
-            .. item.Local.LocalFolders.SelectMany(UnityHandoff.PlacesOf)];
+    public static IReadOnlyList<UnityPackagePlace> PlacesOf(ItemRecord item) => ModificationSendPlan.PlacesOf(item);
 
     /// <summary>
     /// Unity のファイル選択に渡す場所。zip の中の物は一時フォルダへ取り出し、登録したフォルダの中の物は**取り出さずにそのまま渡す**
@@ -240,11 +247,16 @@ public static class UnityImportQueue
     /// 順に送る。途中で続けられなくなったら（エディタが閉じた・メニューが見つからない）、
     /// 残りは理由を付けて返す。別の送信が動いていれば、何も送らずに全件を理由付きで返す。
     /// </summary>
+    /// <param name="outcomeAdded">
+    /// 1件の結果が決まるたびに呼ぶ（何番目か・結果）。外から使う API が、連続送りの途中で1件ずつの結果を見せるのに使う。
+    /// 呼ぶのは送っている側の流れの中なので、受け手は軽く済ませる
+    /// </param>
     public static async Task<IReadOnlyList<UnityQueueOutcome>> RunAsync(
         int processId,
         IReadOnlyList<UnityPackageEntry> packages,
         IProgress<UnityQueueProgress>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<int, UnityQueueOutcome>? outcomeAdded = null)
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
         {
@@ -257,7 +269,7 @@ public static class UnityImportQueue
         RunningChanged?.Invoke(true);
         try
         {
-            return await RunCoreAsync(processId, packages, progress, stop.Token);
+            return await RunCoreAsync(processId, packages, progress, stop.Token, outcomeAdded);
         }
         finally
         {
@@ -272,9 +284,16 @@ public static class UnityImportQueue
         int processId,
         IReadOnlyList<UnityPackageEntry> packages,
         IProgress<UnityQueueProgress>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<int, UnityQueueOutcome>? outcomeAdded)
     {
         var outcomes = new List<UnityQueueOutcome>();
+        void Add(UnityQueueOutcome outcome)
+        {
+            outcomes.Add(outcome);
+            outcomeAdded?.Invoke(outcomes.Count - 1, outcome);
+        }
+
         var unpacker = new TemporaryUnpacker();
         // 同じ zip の包みを続けて送るとき、中身の控えを zip ごとに1回だけ読む
         var reads = new UnityPackageReads();
@@ -301,7 +320,7 @@ public static class UnityImportQueue
         // まだ結果を積んでいない分（止めた分）を理由付きで埋める
         for (var rest = outcomes.Count; rest < packages.Count; rest++)
         {
-            outcomes.Add(new UnityQueueOutcome(packages[rest], false, stop ?? StoppedBeforeWindowMessage));
+            Add(new UnityQueueOutcome(packages[rest], false, stop ?? StoppedBeforeWindowMessage));
         }
 
         return outcomes;
@@ -313,7 +332,7 @@ public static class UnityImportQueue
             var package = packages[index];
             if (stop is not null || cancellationToken.IsCancellationRequested)
             {
-                outcomes.Add(new UnityQueueOutcome(package, false, stop ?? "途中でやめました"));
+                Add(new UnityQueueOutcome(package, false, stop ?? "途中でやめました"));
                 continue;
             }
 
@@ -328,8 +347,8 @@ public static class UnityImportQueue
             var main = MainWindowOf(processId);
             if (main == IntPtr.Zero)
             {
-                stop = "Unityが閉じられました";
-                outcomes.Add(new UnityQueueOutcome(package, false, stop));
+                stop = EditorClosedMessage;
+                Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
 
@@ -401,7 +420,7 @@ public static class UnityImportQueue
             catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
             {
                 Core.Diagnostics.AppLog.Error("Unityへ送る：zip から取り出す", exception);
-                outcomes.Add(new UnityQueueOutcome(package, false, ExtractFailureText(package, exception)));
+                Add(new UnityQueueOutcome(package, false, ExtractFailureText(package, exception)));
                 continue;
             }
 
@@ -422,7 +441,7 @@ public static class UnityImportQueue
             if (FindMenuCommand(main, UnityHandoff.CustomPackageMenuPath) is not { } command)
             {
                 stop = "Unityのメニューに「Assets > Import Package > Custom Package...」が見つかりませんでした";
-                outcomes.Add(new UnityQueueOutcome(package, false, stop));
+                Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
 
@@ -446,7 +465,7 @@ public static class UnityImportQueue
             if (dialog == IntPtr.Zero || FindFileNameBox(dialog) is not { } box)
             {
                 stop = "Unityのファイル選択の画面が表示されませんでした。Unityが作業中だった可能性があります";
-                outcomes.Add(new UnityQueueOutcome(package, false, stop));
+                Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
 
@@ -476,24 +495,24 @@ public static class UnityImportQueue
             windowPending = false;
             if (closed)
             {
-                stop = "Unityが閉じられました";
-                outcomes.Add(new UnityQueueOutcome(package, true, stop));
+                stop = EditorClosedMessage;
+                Add(new UnityQueueOutcome(package, true, stop));
                 continue;
             }
 
             switch (state)
             {
                 case UnityImportState.Imported:
-                    outcomes.Add(new UnityQueueOutcome(package, true, null));
+                    Add(new UnityQueueOutcome(package, true, null));
                     break;
                 case UnityImportState.Cancelled:
-                    outcomes.Add(new UnityQueueOutcome(package, true, null, Cancelled: true));
+                    Add(new UnityQueueOutcome(package, true, null, Cancelled: true));
                     break;
                 case UnityImportState.AlreadyPresent:
-                    outcomes.Add(new UnityQueueOutcome(package, true, null, AlreadyPresent: true));
+                    Add(new UnityQueueOutcome(package, true, null, AlreadyPresent: true));
                     break;
                 default:
-                    outcomes.Add(new UnityQueueOutcome(package, true, "取り込みが終わるのを待ちきれませんでした"));
+                    Add(new UnityQueueOutcome(package, true, "取り込みが終わるのを待ちきれませんでした"));
                     stop = "前の取り込みが終わらないので、残りは送っていません";
                     break;
             }
@@ -562,7 +581,7 @@ public static class UnityImportQueue
             var state = watch.Evaluate(now);
             if (state != UnityImportState.Waiting)
             {
-                return (state, false);
+                return Settle(state, () => UnityEditors.IsOpen(processId));
             }
 
             await Task.Delay(200, cancellationToken);
@@ -570,6 +589,20 @@ public static class UnityImportQueue
 
         return (UnityImportState.Waiting, false);
     }
+
+    /// <summary>
+    /// 見張りが決めた結果を、エディタが今も開いているかで見直す。入った（Imported・AlreadyPresent）と決めたのにエディタが閉じていれば、
+    /// 「Unity が閉じた」の側にする（API-GAPS 4-1）。
+    /// </summary>
+    /// <remarks>
+    /// 取り込みの窓を出したまま Unity ごと閉じると、窓が消え、終わりぎわの後処理の行が出るので、見張り（<see cref="UnityImportWatch"/>）は
+    /// Import と同じ出来事を見る。見張りは出来事だけで決める作りなので中は変えず、決めた瞬間にここで見直す。
+    /// Cancel は何も入っていない点で閉じたときと同じなので見直さない
+    /// </remarks>
+    internal static (UnityImportState State, bool EditorClosed) Settle(UnityImportState state, Func<bool> editorOpen)
+        => state is UnityImportState.Imported or UnityImportState.AlreadyPresent && !editorOpen()
+            ? (UnityImportState.Waiting, true)
+            : (state, false);
 
     /// <summary>最小化されていたら開く。送る前に呼ぶ（取り込み画面は人に押してもらう物なので、隠れていては困る）。</summary>
     private static void Restore(IntPtr window)

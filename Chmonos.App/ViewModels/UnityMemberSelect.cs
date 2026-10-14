@@ -52,7 +52,7 @@ internal static class UnityMemberSelect
         }
 
         // 要約が無い・欠けている商品は zip を開いて数えるので、画面のスレッドでは読まない
-        var packages = await Task.Run(() => ModificationViewModel.PackagesFor(item, member));
+        var packages = await Task.Run(() => Core.Services.ModificationSendPlan.PackagesFor(item, member));
         if (packages.Count == 0)
         {
             setStatus($"「{name}」には、Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。", failed: true);

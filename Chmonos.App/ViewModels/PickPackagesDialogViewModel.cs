@@ -94,13 +94,7 @@ public sealed class PackageChoiceSection
 
     /// <summary>記録する行。商品ページの「改変に足して送る」が作る行と同じ形。</summary>
     public IReadOnlyList<ModificationMember> CheckedMembers => Checked
-        .Select(row => new ModificationMember
-        {
-            ItemId = Item.Id,
-            VariationId = row.Owner?.VariationId,
-            FileHash = row.Owner?.Hash,
-            Package = row.Package.EntryPath,
-        })
+        .Select(row => ModificationSendPlan.MemberFor(Item.Id, row.Owner, row.Package))
         .ToList();
 
     /// <summary>

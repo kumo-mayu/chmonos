@@ -776,7 +776,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     private async Task FillDestinationAsync(HubItemDetail detail, ItemRecord? item)
     {
         // 在るかを見るのも zip の中の一覧も画面のスレッドの外で（前は画面のスレッドで zip を開いていた）
-        var places = item is null ? [] : await Task.Run(() => ModificationViewModel.PlacesFor(item, detail.Row.Member));
+        var places = item is null ? [] : await Task.Run(() => Core.Services.ModificationSendPlan.PlacesFor(item, detail.Row.Member));
         if (places.Count == 0)
         {
             detail.DestinationText = "Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。";

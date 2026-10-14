@@ -30,25 +30,6 @@ public sealed record ApiWriteHooks(
     Func<Core.Models.ItemRecord, string?, Task<string>>? Reveal = null);
 
 /// <summary>
-/// Unity へ送る口（ユーザ判断 2026-10-13：最初の一束に入れる。取り出し・置き場・「使った」の足跡を Chmonos が受け持ち、
-/// Unity の拡張などが同じ判断を別に持たない）。送るのは時間がかかる（Unity の取り込み画面で人が考える間を待つ）ので、始めたら返る
-/// </summary>
-public interface IApiUnity
-{
-    /// <summary>開いているエディタ。</summary>
-    IReadOnlyList<UnityEditorRef> OpenEditors();
-
-    /// <summary>
-    /// 送る物と送り先を決めて送り始める。決められない・送れない（もう送っている・開いていない・選べない）なら <see cref="QueryException"/> を投げる。
-    /// 返すのは始めたときの状態と、終わったときの状態
-    /// </summary>
-    (UnitySendStatus Started, Task<UnitySendStatus> Finished) Start(Core.Models.ItemRecord item, UnitySendRequest request);
-
-    /// <summary>最後に API から頼まれた送り（無ければ null）。</summary>
-    UnitySendStatus? Last { get; }
-}
-
-/// <summary>
 /// 書き込みの URL の共通の守りと、書いた後の始末。
 /// 守り：書き込みを許していなければ 403・アプリから口を受け取っていなければ 503・保存先を運んでいる間（引越し・書き出し・戻す）は待たせずに 503。
 /// 始末：書いたファイルを写しの読み直しに入れ、今すぐ読み直してから答える（直後の GET と同じ答えにする）。

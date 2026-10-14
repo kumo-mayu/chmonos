@@ -95,6 +95,22 @@ public class ModificationMemberOrderAndFilesTests
         Assert.Equal([Shader, Costume, Hair], detail.RowsToSendAll().Select(row => row.Member.ItemId));
     });
 
+    /// <summary>画面の「使ったものを順にUnityへ送る」と外から使う API は、同じ行を同じ番号で送る（行の決め方は Core の1つを共有する）。</summary>
+    [Fact]
+    public Task 順にUnityへ送る行は_外から使うAPIの送り方と同じ() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app,
+            Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"), Make.Item(Hair, "作り物の髪"));
+        await app.Services.Commands.ExecuteAsync(new UiCommand.SetModificationMemberDetached(detail.Record.Id, detail.Record.Members[1], true));
+        var record = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 3, "使ったものが並ぶ");
+
+        var planned = Core.Services.ModificationSendPlan.RowsOf(record, _ => null);
+        Assert.Equal([0, 2], reopened.RowsToSendAll().Select(row => row.Index));
+        Assert.Equal(reopened.RowsToSendAll().Select(row => row.Index), planned.Select(row => row.Index));
+    });
+
     [Fact]
     public Task 逆の順はアプリを閉じても覚え_次に開いた改変も逆の順で始まる() => TestApp.Run(async app =>
     {
