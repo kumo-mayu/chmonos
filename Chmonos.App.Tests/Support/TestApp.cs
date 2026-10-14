@@ -45,7 +45,8 @@ internal sealed class TestApp
             Booth,
             (_, _) => Task.CompletedTask,
             cleanUpTemporaryUnpacks: false,
-            kanjiReadings: SharedKanjiReadings.Value)
+            kanjiReadings: SharedKanjiReadings.Value,
+            searchBridge: SharedSearchBridge.Value)
         {
             // 実マシンに Unity Hub・VCC・ALCOM が入っているかで結果を変えない。要る試験が入れ直す
             DetectUnityTools = () => Tools,
@@ -354,6 +355,20 @@ internal sealed class TestApp
     /// </summary>
     private static readonly Lazy<KanjiReadings> SharedKanjiReadings = new(
         () => new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz")));
+
+    /// <summary>
+    /// 辞書の橋渡し（JMdict の索引）。一式で使い回し、控えは一時フォルダに残して次の回から読むだけにする——
+    /// 試験ごとの保存先に組むと、英語の語を引く試験が1件 約3秒かかっていた（2026-10-14）。
+    /// 控えの名前に辞書の大きさと更新日時を入れ、辞書が変われば別の控えを組む
+    /// </summary>
+    private static readonly Lazy<SearchBridge> SharedSearchBridge = new(() =>
+    {
+        var dictionary = new FileInfo(Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"));
+        var stamp = dictionary.Exists ? $"{dictionary.Length}-{dictionary.LastWriteTimeUtc.Ticks}" : "none";
+        var cache = Path.Combine(Path.GetTempPath(), "chmonos-app-tests", $"search-bridge-{stamp}.cache");
+        Directory.CreateDirectory(Path.GetDirectoryName(cache)!);
+        return new SearchBridge(new JapaneseDictionary(dictionary.FullName, cache));
+    });
 
     private async Task StopAsync(bool passed)
     {

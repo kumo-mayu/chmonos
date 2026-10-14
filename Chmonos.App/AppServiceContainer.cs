@@ -40,6 +40,11 @@ public sealed class AppServiceContainer : IDisposable
     /// 前回の一時展開を消すか。置き場所は保存先ごとだが、保存先ごとに分ける前の版の置き場所（全部の起動が共有する）も
     /// 一緒に片付けるので、試験からは消さない（隣で動いている前の版のアプリが、エクスプローラで開いている中身を消してしまう）
     /// </param>
+    /// <param name="searchBridge">
+    /// 辞書の橋渡し。渡さなければ保存先に索引の控えを組む（アプリの動き）。試験は一式で1つを使い回す——
+    /// 保存先は試験ごとに新しく、英語の語を引く試験は毎回 JMdict（63MB）から索引を組み直して1件 約3秒かかっていた（2026-10-14 に測った）。
+    /// 索引は組んだ後に書き換えないので、保存先が違っても同じ物を使える
+    /// </param>
     /// <param name="kanjiReadings">
     /// 漢字の読みの表。渡さなければ保存先の控えから読む（アプリの動き）。試験は一式で1つを使い回す——
     /// 控えから読むのにも1回 約16ms・4MB かかり、商品を置く試験のたびに読み直して一式の 5.8秒を占めていた（2026-10-05 に測った）。
@@ -50,7 +55,8 @@ public sealed class AppServiceContainer : IDisposable
         HttpMessageHandler? http = null,
         Func<TimeSpan, CancellationToken, Task>? boothDelay = null,
         bool cleanUpTemporaryUnpacks = true,
-        KanjiReadings? kanjiReadings = null)
+        KanjiReadings? kanjiReadings = null,
+        SearchBridge? searchBridge = null)
     {
         // 待ちを差し替えた BoothClient は、間隔を空けず、PC で1つの門にも入らない（BoothClient の組み立てに理由）。
         // 相手が作り物のときだけ許される形なので、本物の BOOTH へ出る組み立てでは受け付けない（絶対に破らない決め事1）
@@ -122,7 +128,7 @@ public sealed class AppServiceContainer : IDisposable
             Watch = new FolderWatch(Store);
 
             // 辞書は実行ファイルの隣に配られる。索引は最初に必要になったときだけ組む
-            Bridge = new SearchBridge(new JapaneseDictionary(
+            Bridge = searchBridge ?? new SearchBridge(new JapaneseDictionary(
                 Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
                 Paths.SearchBridgeCacheFile));
 
