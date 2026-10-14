@@ -174,6 +174,12 @@ public static class UnityImportQueue
     /// </summary>
     public const string EditorClosedMessage = "Unityが閉じられました";
 
+    /// <summary>
+    /// 止めた・閉じた後に送らなかった残りの行の理由。止めたことをどこで見つけても同じ文にする——前はループの先頭で見つけたときだけ
+    /// 「途中でやめました」で、人が止めたと見分けられず、外から使う API が stopped ではなく failed と答えた（点検40）
+    /// </summary>
+    internal static string RemainderReason(string? stop) => stop ?? StoppedBeforeWindowMessage;
+
     /// <summary>エディタが閉じて終わった結果か。</summary>
     public static bool IsEditorClosed(string? problem) => problem is EditorClosedMessage;
 
@@ -326,7 +332,7 @@ public static class UnityImportQueue
         // まだ結果を積んでいない分（止めた分）を理由付きで埋める
         for (var rest = outcomes.Count; rest < packages.Count; rest++)
         {
-            Add(new UnityQueueOutcome(packages[rest], false, stop ?? StoppedBeforeWindowMessage));
+            Add(new UnityQueueOutcome(packages[rest], false, RemainderReason(stop)));
         }
 
         return outcomes;
@@ -338,7 +344,7 @@ public static class UnityImportQueue
             var package = packages[index];
             if (stop is not null || cancellationToken.IsCancellationRequested)
             {
-                Add(new UnityQueueOutcome(package, false, stop ?? "途中でやめました"));
+                Add(new UnityQueueOutcome(package, false, RemainderReason(stop)));
                 continue;
             }
 

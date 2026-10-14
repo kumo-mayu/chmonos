@@ -404,6 +404,23 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task 選んだ後に外された行は置き換えず_外したままにする()
+    {
+        // 送る物を選んでいる間に人が外した行を、選んだ物で置き換えると、外した印の無い行になって戻った（点検40）
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("クラゲ"));
+        var chosen = await MemberAtAsync(id, 0);
+        await _service.SetMemberDetachedAsync(id, chosen, detached: true);
+
+        var replaced = await _service.ReplaceMemberAsync(id, chosen, [Member("クラゲ", "AAA")]);
+
+        Assert.False(replaced);
+        var member = Assert.Single((await _service.LoadAsync(id))!.Members);
+        Assert.True(member.Detached);
+        Assert.Null(member.FileHash);
+    }
+
+    [Fact]
     public async Task 別の商品の行は置き換えない()
     {
         // 選んでいる間に並びが変わると、同じ位置に別の商品が来ている

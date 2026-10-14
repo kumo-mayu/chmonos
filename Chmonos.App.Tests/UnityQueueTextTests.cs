@@ -119,4 +119,13 @@ public class UnityQueueTextTests
         Assert.False(UnityImportQueue.IsStopped("途中でやめました"));
         Assert.False(UnityImportQueue.IsStopped(null));
     }
+
+    /// <summary>止めた後に送らなかった残りの行は、どこで止めたと気付いても「止めた」と見分けられる（点検40：ループの先頭で気付くと失敗に見えた）。</summary>
+    [Fact]
+    public void 止めた後の残りの行は_どこで気付いても止めたと見分ける()
+    {
+        Assert.True(UnityImportQueue.IsStopped(UnityImportQueue.RemainderReason(null)));
+        Assert.True(UnityImportQueue.IsStopped(UnityImportQueue.RemainderReason(UnityImportQueue.StoppedMessage)));
+        Assert.True(UnityImportQueue.IsEditorClosed(UnityImportQueue.RemainderReason(UnityImportQueue.EditorClosedMessage)));
+    }
 }

@@ -305,6 +305,44 @@ internal sealed class ApiUnitySender(
         }
     }
 
+    /// <summary>
+    /// 改変から送るとき、今の記録で外されている商品の行を列から除き、その行を「送らなかった」にする。
+    /// 送る物は決めた時点の記録で選ぶので、その後に人が外した行が残っていた。同じ商品が別の外していない行にあれば送る
+    /// </summary>
+    private async Task<IReadOnlyList<Queued>> WithoutDetachedAsync(Send send, IReadOnlyList<Queued> queue)
+    {
+        if (send.Status.ModificationId is not { } modificationId)
+        {
+            return queue;
+        }
+
+        var current = await services.Store.Modifications.LoadAsync(modificationId);
+        var kept = (current?.Members ?? []).Where(member => !member.Detached).Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+        var remaining = queue.Where(entry => kept.Contains(entry.ItemId)).ToList();
+        if (remaining.Count == queue.Count)
+        {
+            return queue;
+        }
+
+        lock (_startLock)
+        {
+            var steps = send.Status.Steps.ToArray();
+            foreach (var entry in queue.Where(entry => !kept.Contains(entry.ItemId)))
+            {
+                steps[entry.Step] = steps[entry.Step] with { State = UnitySendStates.Skipped, Problem = "送る前に、改変の使ったものから外されました。" };
+            }
+
+            if (remaining.Count > 0 && steps[remaining[0].Step].State == UnitySendStates.Queued)
+            {
+                steps[remaining[0].Step] = steps[remaining[0].Step] with { State = UnitySendStates.Sending };
+            }
+
+            send.Status = send.Status with { Steps = steps };
+        }
+
+        return remaining;
+    }
+
     private async Task<UnitySendStatus> SendAsync(
         Send send, OpenUnityEditor editor, IReadOnlyList<Queued> queue, IReadOnlyList<(string ModificationId, UnityChoiceRecord Record)> records)
     {
@@ -325,8 +363,12 @@ internal sealed class ApiUnitySender(
                 }
             }
 
-            var outcomes = await _run(
-                editor.ProcessId, queue.Select(entry => entry.Package).ToList(), (index, outcome) => NoteOutcome(send, queue, index, outcome), send.Stop.Token);
+            // 送る前に改変を読み直し、決めた後に外された行の商品は送らない（点検40：外す操作と重なると、外した物まで送った）
+            queue = await WithoutDetachedAsync(send, queue);
+            var outcomes = queue.Count == 0
+                ? []
+                : await _run(
+                    editor.ProcessId, queue.Select(entry => entry.Package).ToList(), (index, outcome) => NoteOutcome(send, queue, index, outcome), send.Stop.Token);
 
             // 知らせの来なかった分（送る部品が知らせずに返した・作り物）も、返った結果で埋める
             lock (_startLock)

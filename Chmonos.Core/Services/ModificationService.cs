@@ -389,7 +389,9 @@ public sealed class ModificationService : IModificationService
                 }
 
                 var current = record.Members[index];
-                if (current.HasFile
+
+                // 決めた後に外された行は置き換えない。置き換えると外した印の無い行になり、外した物が戻った（点検40：外す操作と送る準備が重なったとき）
+                if (current.HasFile || current.Detached
                     || members.Any(member => !string.Equals(member.ItemId, current.ItemId, StringComparison.Ordinal)))
                 {
                     return record;

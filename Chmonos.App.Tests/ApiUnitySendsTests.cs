@@ -369,6 +369,11 @@ public sealed class ApiUnitySendsTests
 
             var unknown = await PostAsync(client, $"/v1/modifications/{id}/send-to-unity", """{"choices":[{"index":1,"entry":"Costume_v9.unitypackage"}]}""");
             Assert.Equal("unknownChoice", (await JsonOf(unknown)).GetProperty("code").GetString());
+
+            // 配列の中の null は 400（点検40：前は 500 になった）
+            var nulled = await PostAsync(client, $"/v1/modifications/{id}/send-to-unity", """{"choices":[null]}""");
+            Assert.Equal(HttpStatusCode.BadRequest, nulled.StatusCode);
+            Assert.Equal("invalidChoice", (await JsonOf(nulled)).GetProperty("code").GetString());
             Assert.Empty(unity.Runs);
         }
         finally

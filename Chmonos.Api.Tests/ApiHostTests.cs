@@ -144,6 +144,12 @@ public sealed class ApiHostTests : IAsyncLifetime
         Assert.DoesNotContain("detached", Required(schemas.GetProperty("ModificationMemberRef")));
         Assert.Contains("itemId", Required(schemas.GetProperty("ModificationMemberRef")));
 
+        // 要求の中の入れ子の型も、省ける欄だけを外す（点検40：最上位にしか効いていなかった）
+        var choice = Required(schemas.GetProperty("UnitySendChoice"));
+        Assert.DoesNotContain("zipHash", choice);
+        Assert.Contains("index", choice);
+        Assert.Contains("entry", choice);
+
         var send = document.GetProperty("paths").GetProperty("/v1/items/{id}/send-to-unity").GetProperty("post").GetProperty("responses");
         Assert.True(send.TryGetProperty("409", out _));
         Assert.True(send.TryGetProperty("403", out _));

@@ -87,7 +87,7 @@ internal static partial class ApiEndpoints
         })
             .Takes<ModificationSendRequest>().Produces<UnitySendStatus>(202)
             .WithSummary("改変の使ったものを順に Unity へ送る（書き込み。画面の「使ったものを順にUnityへ送る」と同じ順・同じ列。選んだ物は改変に記録する）")
-            .WithDescription($"state：{states}。誤りの code：modificationNotFound・choiceRequired・choiceNotNeeded・unknownChoice・nothingToSend・"
+            .WithDescription($"state：{states}。誤りの code：modificationNotFound・choiceRequired・choiceNotNeeded・invalidChoice・unknownChoice・nothingToSend・"
                 + "unityNotOpen・unityProjectNotOpen・unityTargetAmbiguous・unityBusy・unityUnavailable");
     }
 
@@ -184,6 +184,12 @@ internal static partial class ApiEndpoints
     /// </summary>
     private static UnityModificationSend Resolve(ModificationRecord record, IReadOnlyList<ModificationSendPlan.Row> rows, ModificationSendRequest body)
     {
+        // 配列の中の null と entry の無い選び方は、要求の誤り（400）。前は null で落ちて 500 になった（点検40）。choices そのものを省くのはよい
+        if (body.Choices is { } given && given.Any(choice => choice is null || string.IsNullOrWhiteSpace(choice.Entry)))
+        {
+            throw QueryException.Invalid("invalidChoice", "choices の中に、null か entry の無い物があります。{\"index\": 行の番号, \"entry\": \"…\"} の形で送ってください。");
+        }
+
         var choices = (body.Choices ?? []).GroupBy(choice => choice.Index).ToDictionary(group => group.Key, group => group.ToList());
         var choosing = rows.Where(row => row.Sendable && row.NeedsChoice).Select(row => row.Index).ToHashSet();
         if (choices.Keys.Where(index => !choosing.Contains(index)).Order().ToList() is { Count: > 0 } extra)

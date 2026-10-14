@@ -15,7 +15,44 @@ internal static class ApiOpenApi
     /// <summary>要求の本文の型（<c>Takes&lt;T&gt;</c> で印を付けた物）。答えの型とは「必須」の決め方が違う。</summary>
     private static readonly ConcurrentDictionary<Type, bool> RequestTypes = new();
 
-    public static void NoteRequestType(Type type) => RequestTypes[type] = true;
+    /// <summary>
+    /// 要求の型と、その欄から辿れる入れ子の型（一覧の中身も）を登録する。最上位だけだと、改変の送りの <c>choices</c> の中の <c>zipHash</c> などが
+    /// 必須のまま残った（点検40）。辿るのは Chmonos の型だけ（文字列・数・日付などの中までは見ない）
+    /// </summary>
+    public static void NoteRequestType(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        if (type.Assembly != typeof(UnitySendRequest).Assembly && type.Assembly != typeof(ApiOpenApi).Assembly
+            && type.Namespace?.StartsWith("Chmonos.", StringComparison.Ordinal) != true)
+        {
+            return;
+        }
+
+        if (!RequestTypes.TryAdd(type, true))
+        {
+            return;
+        }
+
+        foreach (var property in type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+        {
+            var member = property.PropertyType;
+            if (member != typeof(string) && member.IsGenericType)
+            {
+                foreach (var argument in member.GetGenericArguments())
+                {
+                    NoteRequestType(argument);
+                }
+            }
+            else if (member.IsArray)
+            {
+                NoteRequestType(member.GetElementType()!);
+            }
+            else
+            {
+                NoteRequestType(member);
+            }
+        }
+    }
 
     /// <summary>
     /// 「必須」を実際に合わせる。

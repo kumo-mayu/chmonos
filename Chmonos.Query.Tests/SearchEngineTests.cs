@@ -343,6 +343,12 @@ public sealed class SearchEngineTests : IDisposable
                 LocalFiles = [],
                 LocalFolders = [new LocalFolderRecord { Path = @"D:\folders\f", UnityPackages = ["f.unitypackage"], MissingSince = Now }],
             }),
+
+            // 単体の unitypackage（zip に入っていない物）も送れる（点検40：要約が無いので漏れていた）
+            Item("9600017", "単体のunitypackage", local: local => local with
+            {
+                LocalFiles = [local.LocalFiles[0] with { Paths = [@"D:\files\g.unitypackage"] }],
+            }),
         ];
         foreach (var item in items)
         {
@@ -351,16 +357,17 @@ public sealed class SearchEngineTests : IDisposable
 
         var snapshot = await QuerySnapshot.LoadAsync(store);
         var listed = Catalogs.UnityPackages(snapshot, null).Select(entry => entry.ItemId).Distinct().Order(StringComparer.Ordinal).ToArray();
-        Assert.Equal(["9600011", "9600013"], listed);
+        Assert.Equal(["9600011", "9600013", "9600017"], listed);
+        Assert.Equal("g.unitypackage", Catalogs.UnityPackages(snapshot, null).Single(entry => entry.ItemId == "9600017").Entry);
 
         string[] Search(bool? has) => SearchEngine.Search(snapshot, new SearchRequest { HasUnityPackage = has, Sort = [new("id")] }, Now)
             .Items.Select(item => item.Id).ToArray();
         Assert.Equal(listed, Search(true));
         Assert.Equal(["9600012", "9600014", "9600015", "9600016"], Search(false));
-        Assert.Equal(6, Search(null).Length);
+        Assert.Equal(7, Search(null).Length);
 
         var facets = SearchEngine.Facets(snapshot, new FacetsRequest { HasUnityPackage = true, Fields = ["category"] }, Now);
-        Assert.Equal(2, facets.Total);
+        Assert.Equal(3, facets.Total);
 
         var request = JsonSerializer.Deserialize("""{"hasUnityPackage":true}""", QueryJson.Context.SearchRequest)!;
         Assert.True(request.HasUnityPackage);

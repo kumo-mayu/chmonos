@@ -367,6 +367,14 @@ public static class Catalogs
     {
         foreach (var file in item.Local.LocalFiles.Where(file => ItemMapper.FileState(file) == "present"))
         {
+            // 単体の unitypackage（zip に入っていない物）は、そのファイルがそのまま送る物（送る側の UnityHandoff.PlacesOf と同じ）。
+            // 要約（UnityPackages）は zip の中を数えた物なので、ここに無い。前は数えず、送れるのに一覧と hasUnityPackage から漏れた（点検40）
+            if (file.Paths is [var path, ..] && path.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "file", path, Path.GetFileName(path), [], avatars);
+                continue;
+            }
+
             foreach (var package in file.UnityPackages ?? [])
             {
                 yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "file", file.Paths[0], package.Entry, package.Roots, avatars);
