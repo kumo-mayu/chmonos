@@ -405,19 +405,19 @@ internal static partial class ApiEndpoints
             .Answers<IReadOnlyList<NotificationRef>>("通知");
 
         // 画像の本体（ブラウザの画面のため）。返すのは写しが知っている画像の名前だけ（送られた名前で場所を組まない）
-        app.MapGet("/v1/images/{itemId}/{name}", (ApiState state, string itemId, string name) =>
+        app.MapGet("/v1/images/{itemId}/{name}", async (ApiState state, string itemId, string name, string? format, string? size) =>
         {
             var snapshot = state.Snapshot;
             FindItem(snapshot, itemId);
             var file = (snapshot.ImageFiles.GetValueOrDefault(itemId) ?? [])
                 .FirstOrDefault(path => string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase));
             return file is not null && File.Exists(file)
-                ? Results.File(file, ContentTypeOf(file))
+                ? await ImageAnswerAsync(file, format, size)
                 : throw QueryException.NotFound("imageNotFound", $"画像が見つかりません: {name}");
         })
-            .WithSummary("商品の画像の本体（写しが知っている名前だけ）").Produces(200, contentType: "image/webp").ProducesProblem(404);
+            .ImageAnswers("商品の画像の本体（写しが知っている名前だけ）");
 
-        app.MapGet("/v1/modifications/{id}/images/{name}", (ApiState state, string id, string name) =>
+        app.MapGet("/v1/modifications/{id}/images/{name}", async (ApiState state, string id, string name, string? format, string? size) =>
         {
             var record = state.Snapshot.Modifications.Records.FirstOrDefault(record => record.Id == id)
                 ?? throw QueryException.NotFound("modificationNotFound", $"改変が見つかりません: {id}");
@@ -425,10 +425,10 @@ internal static partial class ApiEndpoints
                 ?? throw QueryException.NotFound("imageNotFound", $"画像が見つかりません: {name}");
             var file = Path.Combine(state.Paths.ModificationImagesDir(record.Id), image.FileName);
             return SafeName().IsMatch(image.FileName) && File.Exists(file)
-                ? Results.File(file, ContentTypeOf(file))
+                ? await ImageAnswerAsync(file, format, size)
                 : throw QueryException.NotFound("imageNotFound", $"画像が見つかりません: {name}");
         })
-            .WithSummary("改変の画像の本体").Produces(200, contentType: "image/webp").ProducesProblem(404);
+            .ImageAnswers("改変の画像の本体");
     }
 
     /// <summary>仕様書の印：答えの型（JSON）と、誤りの答え（problem+json）と、短い説明。</summary>

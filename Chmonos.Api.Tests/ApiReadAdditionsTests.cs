@@ -117,4 +117,28 @@ public sealed class ApiReadAdditionsTests : IAsyncLifetime
 
         await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/items/9999999/description"), HttpStatusCode.NotFound, "itemNotFound");
     }
+
+    [Fact]
+    public async Task 画像は頼まれたときだけ_PNGやJPEGに書き直して縮める()
+    {
+        var png = await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?format=png&size=16");
+        Assert.Equal(HttpStatusCode.OK, png.StatusCode);
+        Assert.Equal("image/png", png.Content.Headers.ContentType?.MediaType);
+        var info = SixLabors.ImageSharp.Image.Identify(await png.Content.ReadAsByteArrayAsync());
+        Assert.Equal((16, 12), (info.Width, info.Height));
+
+        var jpeg = await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?format=jpeg");
+        Assert.Equal("image/jpeg", jpeg.Content.Headers.ContentType?.MediaType);
+
+        // 省けば今までどおり、元のファイルをそのまま
+        var original = await SendAsync(HttpMethod.Get, "/v1/images/9600001/5566778899.webp");
+        Assert.Equal("image/webp", original.Content.Headers.ContentType?.MediaType);
+        Assert.Equal([1, 2, 3], await original.Content.ReadAsByteArrayAsync());
+
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?format=gif"), HttpStatusCode.BadRequest, "invalidFormat");
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?size=8"), HttpStatusCode.BadRequest, "invalidSize");
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?size=4096"), HttpStatusCode.BadRequest, "invalidSize");
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?size=abc"), HttpStatusCode.BadRequest, "invalidSize");
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/images/9600001/5566778899.webp?format=png"), HttpStatusCode.UnprocessableEntity, "imageUnreadable");
+    }
 }
