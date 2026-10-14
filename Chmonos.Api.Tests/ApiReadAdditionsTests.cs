@@ -119,6 +119,35 @@ public sealed class ApiReadAdditionsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task batchのincludeは_配列でもカンマ区切りの文字列でも同じに読む()
+    {
+        var array = await JsonOf(await SendAsync(HttpMethod.Post, "/v1/items/batch", """{"ids":["9600001"],"include":["contents","meta"]}"""));
+        var text = await JsonOf(await SendAsync(HttpMethod.Post, "/v1/items/batch", """{"ids":["9600001"],"include":"contents,meta"}"""));
+        Assert.Equal(text.ToString(), array.ToString());
+        Assert.True(array.GetProperty("items")[0].TryGetProperty("meta", out _));
+
+        var none = await JsonOf(await SendAsync(HttpMethod.Post, "/v1/items/batch", """{"ids":["9600001"],"include":[]}"""));
+        Assert.False(none.GetProperty("items")[0].TryGetProperty("meta", out _));
+
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/items/batch", """{"ids":["9600001"],"include":["meta",null]}"""), HttpStatusCode.BadRequest, "invalidInclude");
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/items/batch", """{"ids":["9600001"],"include":3}"""), HttpStatusCode.BadRequest, "invalidInclude");
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/items/batch", """{"ids":["9600001"],"include":["avatars"]}"""), HttpStatusCode.BadRequest, "unknownInclude");
+    }
+
+    [Fact]
+    public async Task 送れるunitypackageを持つ商品だけに絞れる()
+    {
+        static string[] Ids(JsonElement page) => page.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()!).ToArray();
+
+        Assert.Equal(["9600001"], Ids(await JsonOf(await SendAsync(HttpMethod.Post, "/v1/search", """{"hasUnityPackage":true}"""))));
+        Assert.Equal(["9600002"], Ids(await JsonOf(await SendAsync(HttpMethod.Post, "/v1/search", """{"hasUnityPackage":false}"""))));
+        Assert.Equal(["9600001"], Ids(await JsonOf(await SendAsync(HttpMethod.Get, "/v1/items?hasUnityPackage=true"))));
+
+        var facets = await JsonOf(await SendAsync(HttpMethod.Post, "/v1/search/facets", """{"hasUnityPackage":true,"fields":["category"]}"""));
+        Assert.Equal(1, facets.GetProperty("total").GetInt32());
+    }
+
+    [Fact]
     public async Task 画像は頼まれたときだけ_PNGやJPEGに書き直して縮める()
     {
         var png = await SendAsync(HttpMethod.Get, "/v1/images/9600001/0011223344.webp?format=png&size=16");
