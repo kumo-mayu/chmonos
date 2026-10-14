@@ -245,7 +245,7 @@ internal static partial class ApiEndpoints
         })
             .Takes<UnitySendRequest>().Produces<UnitySendStatus>(202).WithSummary("Unity へ送る（書き込み。終わりは変化の知らせ unity と /v1/unity/last-send）");
 
-        // 画面で開く（段4）。データは変えないが、使う人の画面を動かすので書き込みと同じ許しで守る（許した住所のページが勝手に窓を出さないように）
+        // 画面で開く（段4）。データは変えないが、使う人の画面を動かすので書き込みと同じ許しで守る（許可したオリジンのページが勝手に窓を出さないように）
         app.MapPost("/v1/items/{id}/show", async (ApiWriter writer, HttpContext context, string id) =>
         {
             using var claim = writer.GuardItem(context, id, checkEditing: false);

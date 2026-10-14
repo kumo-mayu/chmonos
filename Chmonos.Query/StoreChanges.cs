@@ -20,7 +20,7 @@ public enum StorePart
     /// <summary>保存先の形の印（format.json）。写しではなく、答えるかどうかに効く。</summary>
     Format,
 
-    /// <summary>API の設定（api-settings.json）。写しではなく、許す住所に効く。</summary>
+    /// <summary>API の設定（api-settings.json）。写しではなく、許可するオリジンに効く。</summary>
     ApiSettings,
 }
 

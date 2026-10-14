@@ -212,7 +212,7 @@ public sealed class ApiWriteTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 許した住所のページには_書き込みを許しているときだけ書く方法も許す()
+    public async Task 許可したオリジンのページには_書き込みを許しているときだけ書く方法も許す()
     {
         const string page = "http://localhost:5173";
         await StartAsync(allowWrites: true, origins: [page]);

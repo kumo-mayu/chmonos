@@ -14,7 +14,7 @@ namespace Chmonos.Api;
 /// <summary>API を組む材料。</summary>
 /// <param name="Port">待つポート（0 なら空いている番号。試験で使う）。</param>
 /// <param name="Token">トークン（<c>Authorization: Bearer …</c>）。</param>
-/// <param name="AllowedOrigins">CORS を許す住所（自作の Web ページ）。api-settings.json が変われば読み直す。</param>
+/// <param name="AllowedOrigins">CORS を許可するオリジン（自作の Web ページ）。api-settings.json が変われば読み直す。</param>
 /// <param name="Watch">保存先のファイルの変化を見張るか（試験では切り、読み直しを直に呼ぶ）。</param>
 /// <param name="Store">
 /// アプリの保存先の一式（API がアプリと同じプロセスで動くとき）。渡せば商品の記録をアプリの控えと共有する（<see cref="QuerySnapshot.SharesItemCache"/>）
@@ -54,13 +54,13 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     public QuerySnapshot Snapshot => _snapshot ?? throw new InvalidOperationException("まだ読み込んでいません。");
 
-    /// <summary>CORS を許す住所。api-settings.json が変われば入れ替える（入れ物ごと差し替えるので、照らす途中で揺れない）。</summary>
+    /// <summary>CORS を許可するオリジン。api-settings.json が変われば入れ替える（入れ物ごと差し替えるので、照らす途中で揺れない）。</summary>
     public IReadOnlySet<string> AllowedOrigins { get; private set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>書き込みを許すか（<c>api-settings.json</c> の <c>allowWrites</c>）。変わればその場で読み直す（手で切ったらすぐ効くように）。</summary>
     public bool AllowWrites { get; private set; }
 
-    /// <summary>守りの設定（許す住所・書き込みの許し）を読み直す。取り込みの途中でも呼ぶ（商品の写しとは別に、すぐ効かせる）。</summary>
+    /// <summary>守りの設定（許可するオリジン・書き込みの許し）を読み直す。取り込みの途中でも呼ぶ（商品の写しとは別に、すぐ効かせる）。</summary>
     public void ApplySettings()
     {
         var apiSettings = ApiFiles.ReadSettings(Paths);
@@ -242,7 +242,7 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
 /// <summary>
 /// API の口（HTTP）を組む。守り（docs/spec/local-api.md「守り」「ブラウザから」）：
-/// 待つのは 127.0.0.1 だけ・Host の確かめ（DNS rebinding）・許した住所にだけ CORS・トークン（health と version 以外）。
+/// 待つのは 127.0.0.1 だけ・Host の確かめ（DNS rebinding）・許可したオリジンにだけ CORS・トークン（health と version 以外）。
 /// 問い合わせの中身はログに残さない（購入履歴と検索の言葉）。
 /// </summary>
 internal static class ApiHost
@@ -344,12 +344,12 @@ internal static class ApiHost
             return;
         }
 
-        // ブラウザのページから来た問い合わせ。許した住所（自作の画面）にだけ CORS の許可を出し、それ以外は断る
+        // ブラウザのページから来た問い合わせ。許可したオリジン（自作の画面）にだけ CORS の許可を出し、それ以外は断る
         if (request.Headers.Origin is { Count: > 0 } origin)
         {
             if (!origins.Contains(origin.ToString()))
             {
-                await WriteProblemAsync(context, new QueryException(403, "originNotAllowed", "この住所のページからは使えません。API の設定の許す住所に足してください。"));
+                await WriteProblemAsync(context, new QueryException(403, "originNotAllowed", "このオリジンからは使えません。設定の「API」の「許可するオリジン」に追加してください。"));
                 return;
             }
 
@@ -360,7 +360,7 @@ internal static class ApiHost
             context.Response.Headers.Vary = "Origin";
             if (HttpMethods.IsOptions(request.Method))
             {
-                // 書き込みを許しているときだけ、書く方法（PUT・PATCH・DELETE）も許す（許した住所のページからは書ける。ユーザ判断 2026-10-13）
+                // 書き込みを許しているときだけ、書く方法（PUT・PATCH・DELETE）も許す（許可したオリジンのページからは書ける。ユーザ判断 2026-10-13）
                 context.Response.Headers.AccessControlAllowMethods = state.AllowWrites ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
                 context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID, If-None-Match";
                 context.Response.Headers.AccessControlMaxAge = "600";

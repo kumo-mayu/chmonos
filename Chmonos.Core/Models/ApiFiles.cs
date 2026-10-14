@@ -47,7 +47,7 @@ public sealed record ApiSettings
     public int Port { get; init; } = DefaultPort;
 
     /// <summary>
-    /// CORS を許す住所（自作の Web ページ。例 <c>http://localhost:5173</c>）。空なら、ブラウザのページからは読めない。
+    /// CORS を許可するオリジン（自作の Web ページ。例 <c>http://localhost:5173</c>）。空なら、ブラウザのページからは読めない。
     /// 読むときは欠けた配列（null）を空として受ける（手で直した JSON で落ちないように）。
     /// </summary>
     public IReadOnlyList<string> AllowedOrigins { get; init; } = [];

@@ -1088,12 +1088,12 @@
                                       AutomationProperties.AutomationId="Settings.ApiImportOnHeadlessLaunch"
                                       IsChecked="{Binding ApiImportOnHeadlessLaunch, Mode=TwoWay}" />
 
-                            <TextBlock Text="許可するWebページ" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
+                            <TextBlock Text="許可するオリジン" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        Text="ブラウザで開いた自作のページから使うときだけ追加します。" />
                             <controls:SearchAddBox Width="340" HorizontalAlignment="Left"
                                                    AutomationProperties.AutomationId="Settings.ApiOriginInput"
-                                                   AutomationProperties.Name="許可するWebページ"
+                                                   AutomationProperties.Name="許可するオリジン"
                                                    Placeholder="http://localhost:5173"
                                                    Text="{Binding NewApiOrigin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                    NoticeText="{Binding ApiOriginNotice}" NoticeIsWarning="True"

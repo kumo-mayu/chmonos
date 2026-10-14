@@ -137,7 +137,7 @@ public sealed class AppPaths
 
     public const string ApiFileName = "api.json";
 
-    /// <summary>外から使う API の設定（ポート・許す住所。人と設定画面が書く）。</summary>
+    /// <summary>外から使う API の設定（ポート・許可するオリジン。人と設定画面が書く）。</summary>
     public string ApiSettingsFile => Path.Combine(Root, "api-settings.json");
 
     public string LockFile => Path.Combine(Root, "app.lock");

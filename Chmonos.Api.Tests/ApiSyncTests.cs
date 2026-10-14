@@ -115,7 +115,7 @@ public sealed class ApiSyncTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 許す住所は_APIの設定が変われば読み直す()
+    public async Task 許可するオリジンは_APIの設定が変われば読み直す()
     {
         var request = new HttpRequestMessage(HttpMethod.Get, "/v1/health");
         request.Headers.Add("Origin", "http://localhost:5173");

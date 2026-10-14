@@ -37,7 +37,7 @@ internal static partial class Scenes
     ];
 
     /// <summary>
-    /// 設定の「API」の節（2026-10-12）を開いた形。許可するWebページが2つ・追加できなかった知らせ・範囲の外のポートを丸めた知らせ。
+    /// 設定の「API」の節（2026-10-12）を開いた形。許可するオリジンが2つ・追加できなかった知らせ・範囲の外のポートを丸めた知らせ。
     /// API は動いていない（台は API を起動しない）
     /// </summary>
     /// <summary>
@@ -83,7 +83,7 @@ internal static partial class Scenes
         });
 
     private static Scene SettingsApi()
-        => new("settings-api", "設定の「API」：開いた形（許可するWebページ2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
+        => new("settings-api", "設定の「API」：開いた形（許可するオリジン2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
         {
             Chmonos.Core.Storage.JsonStore.Write(
                 context.Seed.Paths.ApiSettingsFile,
@@ -101,7 +101,7 @@ internal static partial class Scenes
             settings.AddApiOriginCommand.Execute(null);
             await context.SettleAsync();
 
-            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "許可するWebページ")) };
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "許可するオリジン")) };
         });
 
     /// <summary>

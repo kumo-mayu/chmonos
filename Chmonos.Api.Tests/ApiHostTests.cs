@@ -182,7 +182,7 @@ public sealed class ApiHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 許した住所のページにだけCORSの許可を出す()
+    public async Task 許可したオリジンのページにだけCORSの許可を出す()
     {
         var preflight = Request(HttpMethod.Options, "/v1/items", token: false);
         preflight.Headers.Add("Origin", Origin);

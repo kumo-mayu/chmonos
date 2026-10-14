@@ -94,7 +94,7 @@ public sealed partial class SettingsViewModel
         }
     }
 
-    /// <summary>許可する Web ページ（CORS を許す住所）。</summary>
+    /// <summary>許可する Web ページ（CORS を許可するオリジン）。</summary>
     public ObservableCollection<ApiOriginRow> ApiOrigins { get; } = [];
 
     private string _newApiOrigin = string.Empty;
@@ -159,7 +159,7 @@ public sealed partial class SettingsViewModel
     };
 
     /// <summary>
-    /// <c>http://localhost:5173</c> の形（http か https・場所と問い合わせの無い住所）だけを受け、ブラウザが送る形にそろえる。
+    /// <c>http://localhost:5173</c> の形（http か https・パスとクエリの無いオリジン）だけを受け、ブラウザが送る形にそろえる。
     /// 読めなければ null。
     /// </summary>
     internal static string? NormalizeOrigin(string text)
@@ -248,7 +248,7 @@ public sealed partial class SettingsViewModel
         }
     }
 
-    /// <summary>オン・オフとポートは、保存できたらすぐ API に当てる（許す住所は API が設定のファイルを見て読み直す）。</summary>
+    /// <summary>オン・オフとポートは、保存できたらすぐ API に当てる（許可するオリジンは API が設定のファイルを見て読み直す）。</summary>
     internal async Task SaveApiAndApplyAsync(Func<ApiSettings, ApiSettings> change)
     {
         if (await SaveApiAsync(change))

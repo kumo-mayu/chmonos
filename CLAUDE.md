@@ -134,6 +134,7 @@ dotnet test
 （BOOTHへ実際に問い合わせる確認は `experiments/` の実行ファイルで行う）。時計・実マシンのプロセス（Unity が動いているか）に結果が左右されるテストも書かない。
 作業の途中は、関係する試験だけを回してよい（`dotnet test Chmonos.Core.Tests --filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
 30秒を超えるようになったら、重い試験を探して直す（探し方と、重くしない書き方は `docs/dev/app-tests.md`「重くしない」）。
+App の一式だけは50秒を目安にする（結合の試験の件数で伸びていて、1か所の直しでは縮まない。ユーザ判断 2026-10-14）。
 
 画面の側（ViewModel）にも試験の一式がある（`Chmonos.App.Tests`。書き方は `docs/dev/app-tests.md`）。
 **計算で決まる物（文言・ボタンや札の出し分け・一覧に何が並ぶか・押したら何が書かれるか）は試験で確かめ、起動して撮らない。**

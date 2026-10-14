@@ -47,7 +47,7 @@ public sealed class SettingsApiTests
     });
 
     [Fact]
-    public Task 許可するWebページは_ブラウザが送る形にそろえて追加し_削除できる() => TestApp.Run(async app =>
+    public Task 許可するオリジンは_ブラウザが送る形にそろえて追加し_削除できる() => TestApp.Run(async app =>
     {
         var main = await app.StartAsync();
         var settings = new SettingsViewModel(app.Services, main);
@@ -84,7 +84,7 @@ public sealed class SettingsApiTests
     [InlineData("http://localhost:5173/app", null)]
     [InlineData("http://user@localhost:5173", null)]
     [InlineData("", null)]
-    public void 住所の形を読む(string text, string? expected) => Assert.Equal(expected, SettingsViewModel.NormalizeOrigin(text));
+    public void オリジンの形を読む(string text, string? expected) => Assert.Equal(expected, SettingsViewModel.NormalizeOrigin(text));
 
     [Fact]
     public Task 手で書いた設定と_画面が触っていない項目を消さない() => TestApp.Run(async app =>

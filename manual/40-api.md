@@ -113,7 +113,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 
 ## 自作の Web ページから使う
 
-ブラウザで開いたページから使うときは、そのページの住所を設定の「API」の「許可するWebページ」に追加します（例：`http://localhost:5173`）。追加していないページからの問い合わせは断ります。
+ブラウザで開いたページから使うときは、そのページのオリジンを設定の「API」の「許可するオリジン」に追加します（例：`http://localhost:5173`）。追加していないページからの問い合わせは断ります。
 
 - ページは `api.json` を読めないので、トークンはページに手で貼り付けてください。
 - トークンは、`fetch` の `Authorization` ヘッダで送ります。
@@ -166,7 +166,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | `403`（`writesDisabled`） | 設定の「API」で「ほかのアプリからの変更を許す」をオンにしてください。 |
 | `409`（`itemBeingEdited`） | Chmonos の編集画面でその商品を開いています。編集を終えてから送ってください。 |
 | `503`（`storeBusy`） | データの保存先を移している途中です。少し待ってから送ってください。 |
-| `403`（`originNotAllowed`） | そのページの住所を、設定の「API」の「許可するWebページ」に追加してください。 |
+| `403`（`originNotAllowed`） | そのページのオリジンを、設定の「API」の「許可するオリジン」に追加してください。 |
 | `503`（`storeFormatTooNew`） | 新しいバージョンの Chmonos で使ったデータです。Chmonos を新しくしてください。 |
 
 誤りの答えは `application/problem+json` で、`code` に決まった名前が入ります。
