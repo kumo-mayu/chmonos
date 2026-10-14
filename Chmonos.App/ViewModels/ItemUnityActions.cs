@@ -149,7 +149,7 @@ internal static class ItemUnityActions
 
         // 「使った」の足跡。Unityへ送ったことが一番強い証拠（ユーザ判断）。
         // 取り込み画面で Cancel された物は入っていないので付けない（検索の複数選択と同じ扱い）
-        if (!outcome.Cancelled)
+        if (outcome.Taken)
         {
             services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
         }

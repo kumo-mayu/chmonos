@@ -58,7 +58,8 @@
       "note": null
     }
   ],
-  "acquiredAt": null,
+  "acquiredAt": "2025-04-01",
+  "acquiredAtEntered": null,
   "compatibleAvatars": [
     {
       "avatarId": "7000001",

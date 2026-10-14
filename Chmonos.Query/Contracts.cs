@@ -84,8 +84,7 @@ public sealed record VideoRef(string Id, string Url, string? Title);
 /// <param name="PriceText">BOOTH の値段の表示（詳細の <c>priceText</c> と同じ）。並べる欄ではない。</param>
 /// <param name="PublishedAt">並べる欄 <c>publishedAt</c> の値。</param>
 /// <param name="AcquiredAt">
-/// 並べる欄 <c>acquiredAt</c> の値（購入1件の日付のうち最も早い物、購入記録が無ければ商品の入手日）。
-/// 詳細の <c>acquiredAt</c>（商品の入手日の欄そのもの）とは違い得る。
+/// 並べる欄 <c>acquiredAt</c> の値（購入1件の日付のうち最も早い物、購入記録が無ければ商品の入手日）。詳細の <c>acquiredAt</c> と同じ値。
 /// </param>
 /// <param name="WishCount">並べる欄 <c>wishCount</c> の値。</param>
 /// <param name="Paid">並べる欄 <c>paid</c> の値（自分用に払った額の合計。額を1つも入れていなければ null、無料は 0）。</param>
@@ -170,7 +169,14 @@ public sealed record ItemDetail
 
     public required IReadOnlyList<PurchaseRef> Purchases { get; init; }
 
+    /// <summary>
+    /// 入手日（画面の並べ替えと同じ：購入1件の日付のうち最も早い物、購入記録が無ければ商品の入手日の欄）。一覧の要約の <c>acquiredAt</c> と同じ値。
+    /// 前は商品の欄そのもので、要約と同じ名前なのに違う値になり得た（2026-10-14・ユーザ判断で揃えた）
+    /// </summary>
     public required DateOnly? AcquiredAt { get; init; }
+
+    /// <summary>商品の入手日の欄に入れた値そのもの（購入記録の日付を見ない）。直すときに今の値を知るため。</summary>
+    public required DateOnly? AcquiredAtEntered { get; init; }
 
     /// <summary>画面の検索と同じ数え方の対応アバター（検索の条件「対応アバター」が当てる物）。</summary>
     public required IReadOnlyList<CompatibleAvatarRef> CompatibleAvatars { get; init; }

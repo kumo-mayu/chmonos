@@ -304,7 +304,10 @@ public sealed class SearchEngineTests : IDisposable
         }
 
         Assert.Equal(new DateOnly(2025, 3, 1), summaries["9600001"].AcquiredAt);
-        Assert.Equal(new DateOnly(2025, 6, 1), ItemMapper.Detail(snapshot.ItemsById["9600001"], snapshot).AcquiredAt);
+        // 詳細の acquiredAt も要約と同じ値（2026-10-14 に揃えた）。商品の欄に入れた値そのものは acquiredAtEntered
+        var detail = ItemMapper.Detail(snapshot.ItemsById["9600001"], snapshot);
+        Assert.Equal(new DateOnly(2025, 3, 1), detail.AcquiredAt);
+        Assert.Equal(new DateOnly(2025, 6, 1), detail.AcquiredAtEntered);
         Assert.Equal(500, summaries["9600001"].Paid);
         Assert.Equal("¥ 500", summaries["9600001"].PriceText);
         Assert.Equal(new DateOnly(2024, 12, 31), summaries["9600002"].AcquiredAt);

@@ -94,7 +94,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - 非表示の商品と R-18 の商品も返します。返した商品には `isHidden`・`isAdult` が付きます。外したいときは `"includeHidden": false`・`"includeAdult": false` を送ります。
 - 続きがあるときは、答えの `nextCursor` を次の問い合わせの `cursor` に入れます。
 - （次のバージョンから）Unity へ送れる unitypackage を持つ商品だけにするときは、`"hasUnityPackage": true` を送ります。`false` なら持たない商品だけです。
-- （次のバージョンから）一覧の1件には、並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です。
+- （次のバージョンから）一覧の1件には、並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です（購入の記録が無ければ商品の入手日）。商品の詳細の `acquiredAt` も同じ値で、入手日の欄に入れた値そのものは `acquiredAtEntered` にあります。
 - （次のバージョンから）条件 `unityProject` の場所は、`/` 区切りでも、末尾に区切りがあっても当たります。
 
 ## 詳しい情報を足す

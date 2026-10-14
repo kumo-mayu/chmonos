@@ -153,6 +153,21 @@ public sealed class ApiUnitySendsTests
         Assert.Equal("failed", ApiUnitySender.StateOf(null));
     }
 
+    /// <summary>
+    /// 画面の送り（改変・検索の複数選択・商品ページ）が「使った」を付けるかは <see cref="UnityQueueOutcome.Taken"/> で決める。
+    /// 取り込みの窓を出したまま Unity ごと閉じた物は入っていないので付けない（2026-10-14。前は窓が開いて Cancel でなければ付けていた）
+    /// </summary>
+    [Fact]
+    public void 取り込まれたと見なすのは_窓が開いて_Cancelでも閉じられたのでもない物()
+    {
+        var package = new UnityPackageEntry(@"C:\作り物\a.zip", "A.unitypackage", 0);
+        Assert.True(new UnityQueueOutcome(package, true, null).Taken);
+        Assert.True(new UnityQueueOutcome(package, true, null, AlreadyPresent: true).Taken);
+        Assert.False(new UnityQueueOutcome(package, true, null, Cancelled: true).Taken);
+        Assert.False(new UnityQueueOutcome(package, true, UnityImportQueue.EditorClosedMessage).Taken);
+        Assert.False(new UnityQueueOutcome(package, false, "作り物の失敗").Taken);
+    }
+
     [Fact]
     public void 画面の結果の文は_閉じたときも今までどおり()
     {

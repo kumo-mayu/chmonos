@@ -20,6 +20,12 @@ public sealed record UnityQueueOutcome(
     UnityPackageEntry Package, bool Opened, string? Problem, bool Cancelled = false, bool AlreadyPresent = false)
 {
     /// <summary>
+    /// プロジェクトに入ったと見なせるか（「使った」の足跡を付けるか）。取り込みの窓で Cancel された物と、窓を出したまま Unity ごと閉じられた物は入っていない。
+    /// 前は送る所ごとに「窓が開いた かつ Cancel でない」と書いていて、閉じられた送りにも足跡が付いた（2026-10-14・使い手の試作の 4-1。API の側は editorClosed にして直した）
+    /// </summary>
+    public bool Taken => Opened && !Cancelled && !UnityImportQueue.IsEditorClosed(Problem);
+
+    /// <summary>
     /// 止めたときの言い方（E7）。**「n 件は送れませんでした（理由）」の括弧に入れない**——
     /// 止めた理由は文が長く、入れ子の括弧になって読めなかった（2026-09-20 に実機で見た）。
     /// </summary>

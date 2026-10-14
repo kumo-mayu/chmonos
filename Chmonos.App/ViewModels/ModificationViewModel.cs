@@ -745,7 +745,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 editor.ProcessId, queue.Select(entry => entry.Package).ToList(), progress, CancellationToken.None);
 
             // 取り込み画面で Cancel された物は入っていないので、「使った」の足跡を付けない
-            var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
+            var taken = outcomes.Where(outcome => outcome.Taken).Select(outcome => outcome.Package).ToHashSet();
             foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.ItemId).Distinct())
             {
                 _services.Recent.TouchAsync(itemId, RecentKind.Used).Forget();

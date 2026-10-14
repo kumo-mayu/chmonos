@@ -147,7 +147,7 @@ internal static class UnityMemberSelect
             services, toSend.Select(package => (item?.Id ?? member.ItemId, package)), outcomes, presenceChanged);
 
         // 「使った」の足跡。Cancel された物は入っていないので付けない（ほかの送り方と同じ）
-        if (outcomes.Any(outcome => outcome.Opened && !outcome.Cancelled))
+        if (outcomes.Any(outcome => outcome.Taken))
         {
             services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
         }

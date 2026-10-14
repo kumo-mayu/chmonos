@@ -144,7 +144,7 @@ internal static class ItemSelectionActions
 
             // 「使った」の足跡。Unityへ送ったことが一番強い証拠（Unityへ送る と同じ扱い）。
             // 取り込み画面で Cancel された物は入っていないので付けない
-            var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
+            var taken = outcomes.Where(outcome => outcome.Taken).Select(outcome => outcome.Package).ToHashSet();
             foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.Card.Item.Id).Distinct())
             {
                 services.Recent.TouchAsync(itemId, Core.Services.RecentKind.Used).Forget();

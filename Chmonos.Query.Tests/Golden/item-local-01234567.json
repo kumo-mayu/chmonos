@@ -32,6 +32,7 @@
   "variations": [],
   "purchases": [],
   "acquiredAt": null,
+  "acquiredAtEntered": null,
   "compatibleAvatars": [],
   "userTags": [],
   "attributes": {},
