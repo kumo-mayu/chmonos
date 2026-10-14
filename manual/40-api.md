@@ -65,6 +65,8 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/shops` | タグ・属性・カテゴリ・ショップと件数 |
 | `GET /v1/modifications`・`/v1/notifications` | 改変・通知 |
 | `GET /v1/changes`・`GET /v1/events` | 変わったこと（下の「変わったことを知る」） |
+| （次のバージョンから）`GET /v1/items/{id}/description` | 商品の説明文（短い説明・見出しごとの文・表示用の HTML） |
+| （次のバージョンから）`GET /v1/images/{商品ID}/{名前}?format=png&size=256` | 画像を PNG か JPEG にして、長い辺を縮めて返す（下の「画像の形式と大きさ」） |
 
 対応アバター（`compatibleAvatars`）は、検索の「対応アバター」と同じ数え方です。まだ確認していない推定の対応も入り、消した対応と説明文のリンクは入りません。
 
@@ -91,6 +93,9 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - `not` は、絞り込みの条件の「除く」と同じ動きです。価格や日付では、値の分からない商品も外します。
 - 非表示の商品と R-18 の商品も返します。返した商品には `isHidden`・`isAdult` が付きます。外したいときは `"includeHidden": false`・`"includeAdult": false` を送ります。
 - 続きがあるときは、答えの `nextCursor` を次の問い合わせの `cursor` に入れます。
+- （次のバージョンから）Unity へ送れる unitypackage を持つ商品だけにするときは、`"hasUnityPackage": true` を送ります。`false` なら持たない商品だけです。
+- （次のバージョンから）一覧の1件には、並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です。
+- （次のバージョンから）条件 `unityProject` の場所は、`/` 区切りでも、末尾に区切りがあっても当たります。
 
 ## 詳しい情報を足す
 
@@ -105,6 +110,17 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | `meta` | BOOTH の情報を最後に取った日時 |
 
 例：`/v1/items/1234567?include=avatarLinks,images`
+
+（次のバージョンから）`POST /v1/items/batch` の `include` は、`["avatarLinks", "images"]` のような配列でも送れます。
+
+## 画像の形式と大きさ
+
+（次のバージョンから）画像はふつう WebP のまま返します。WebP を読めない環境（Unity の `Texture2D.LoadImage` など）では、次を付けます。
+
+- `format`：`png` か `jpeg`。JPEG では、透けている所を白で埋めます。
+- `size`：長い辺の画素（16〜2048）。元より大きくはしません。`size` だけなら、元の形式のまま縮めます。
+
+例：`/v1/images/1234567/abcdef.webp?format=png&size=256`
 
 ## 変わったことを知る
 

@@ -120,3 +120,30 @@
 | `stopping` | API が止まる |
 
 - 切れたら `Last-Event-ID`（通番）でつなぎ直し、飛んだ分は `/v1/changes` で取る。
+
+## 2026-10-14 に足した物
+
+使い手の試作（自作の Web ページ・Unity のエディタ）が書いた不足から足した。上の表の説明文の行（「まだ」）は、ここで作った。
+
+| URL・欄 | 要求 | 答え |
+|---|---|---|
+| `GET /v1/items/{id}/description` | なし | `{ id, summary, sections: [{ heading, text }], html }`。誤りは 404 `itemNotFound`・503 `descriptionUnreadable` |
+| `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` の `?format=`・`?size=` | `format`：`png`・`jpeg`（`jpg` も同じ）。`size`：長い辺の画素 16〜2048 | 書き直した画像（`image/png`・`image/jpeg`）。誤りは 400 `invalidFormat`・`invalidSize`、422 `imageUnreadable` |
+| `ItemSummary`（一覧・検索の要約）の欄 | — | `priceText`・`publishedAt`・`acquiredAt`・`wishCount`・`paid` を足した |
+| `POST /v1/search`・`/v1/search/facets` の `hasUnityPackage`（`GET /v1/items` の `?hasUnityPackage=` も） | `true`・`false`。省けば絞らない | 絞った答え（`total`・続きの印も絞った後の数） |
+| `POST /v1/items/batch` の `include` | カンマ区切りの文字列に加え、名前の配列 | 今までと同じ。配列の中の null・数は 400 `invalidInclude` |
+
+- **説明文**：`summary` は BOOTH の商品の短い説明（画面の商品ページの説明の最初の欄）、`sections` は見出しごとの素の文（画面の見出しごとの欄と同じ `H2Sections`）、
+  `html` は保存先の `items/{id}.h2.html` そのまま（アプリの読み口 `ItemRepository.LoadDescriptionHtmlAsync`）。動く物は保存するときに取り除いてある（`H2SectionExtractor`）ので、別の無害化はしない。
+  中の画像・リンクは BOOTH の場所を指すので、ページに表示すると BOOTH へ取りに行く（外の道具の問い合わせで、Chmonos の 1本ずつの門は通らない）。
+  写しが説明文を落としているとき（アプリと控えを共有しない）は記録のファイルから読む。説明が無い商品は誤りにせず空で返し、読めないときだけ 503。
+  一覧や詳細に入れないのは、長く、写しにも持たない物だから。
+- **画像**：省けば今までどおり元のファイル（多くは WebP）。書き直すのは Core の `ImageConversion`（復号の守りは保存のときと同じ `ImageLimits.Safe`・寸法の上限）。
+  拡大はしない。`size` だけなら元の形式で縮める。JPEG は透けた所を白で埋める。範囲を 2048 までにしたのは、保存の長辺が 384（改変 768・店の帯 1200）で、それより大きく頼む理由が無いため。
+- **要約の並べる欄**：値は並べ替えの鍵と同じ関数（`SortFields`）から出す（`SearchEngineTests` で鍵と突き合わせる）。
+  `acquiredAt` は並べ替えの `acquiredAt` と同じ「購入1件の日付のうち最も早い物（購入記録が無ければ商品の入手日）」で、**詳細の `acquiredAt`（商品の入手日の欄そのもの）とは違い得る**。
+  `paid` は自分用に払った額の合計（額を1つも入れていなければ null、無料は 0）。`priceText` は詳細と同じ BOOTH の値段の表示で、並べる欄ではない。
+- **hasUnityPackage**：判断は `/v1/unitypackages` と同じ（ある zip の中と、見つかっている登録したフォルダの中。`Catalogs.HasSendablePackage`）。
+  検索の条件（`condition`）の種類にはしない（条件は画面の絞り込みと同じ物だけ。画面に無い）。非表示・R-18 と同じく、式より先に絞る。
+- **条件 `unityProject`**：場所は `UnityProjectPath.Normalize`（前後の空白・区切りを `\` に・`..` を畳む・末尾の区切りを落とす）で揃えて照らす。大文字小文字は区別しない（今までどおり）。
+  改変に結ぶ `PUT /v1/modifications/{id}/unity-project` も同じ関数で揃えてから書く。画面の条件も同じ索引（`ModificationUsage`）を引くので、画面と API は同じ答え。保存した値は書き換えない。

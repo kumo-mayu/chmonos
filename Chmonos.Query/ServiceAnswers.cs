@@ -1,8 +1,10 @@
 namespace Chmonos.Query;
 
 /// <summary>商品をまとめて引く（<c>POST /v1/items/batch</c>）。一覧から詳細へ、1件ずつ聞かずに済むように。</summary>
-/// <param name="Include">商品1件と同じ include（<c>avatarLinks,allFiles</c> など）。</param>
-public sealed record ItemsBatchRequest(IReadOnlyList<string>? Ids, string? Include = null);
+/// <param name="Include">商品1件と同じ include（<c>avatarLinks,allFiles</c> など）。名前の配列でもよい（<see cref="IncludeListConverter"/>）。</param>
+public sealed record ItemsBatchRequest(
+    IReadOnlyList<string>? Ids,
+    [property: System.Text.Json.Serialization.JsonConverter(typeof(IncludeListConverter))] string? Include = null);
 
 /// <param name="Missing">見つからなかった ID（送った順）。</param>
 public sealed record ItemsBatchAnswer(IReadOnlyList<ItemDetail> Items, IReadOnlyList<string> Missing);

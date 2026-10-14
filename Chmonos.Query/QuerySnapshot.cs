@@ -124,8 +124,12 @@ public sealed class QuerySnapshot
         => (SharesItemCache ? SearchText.RememberedFor(item) : null)
            ?? new(field => SearchText.RawValues(field == SearchField.Main ? FullItem(item) : item, field), makeReadings: null) { Item = item };
 
+    /// <summary>表示用の説明の HTML（アプリの読み口。無ければ null）。写しには持たず、頼まれたときだけ読む。</summary>
+    internal Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken)
+        => _store.Items.LoadDescriptionHtmlAsync(itemId, cancellationToken);
+
     /// <summary>説明文まで持った記録（ファイルの今の中身。読めなければ写しの物）。</summary>
-    private ItemRecord FullItem(ItemRecord item)
+    internal ItemRecord FullItem(ItemRecord item)
     {
         if (SharesItemCache)
         {

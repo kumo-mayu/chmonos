@@ -172,7 +172,8 @@ internal static partial class ApiEndpoints
         {
             var body = await ReadAsync(context.Request, json.UnityProjectRequest);
             await GuardModificationAsync(writer, state, context, id);
-            var path = string.IsNullOrWhiteSpace(body.Path) ? null : Path.TrimEndingDirectorySeparator(body.Path.Trim());
+            // 検索の条件「Unity プロジェクト」が照らすときと同じ正規化（Unity の API-GAPS 3-11）
+            var path = UnityProjectPath.Normalize(body.Path);
             if (path is not null && (!Path.IsPathFullyQualified(path) || !Directory.Exists(Path.Combine(path, "Assets"))))
             {
                 throw QueryException.Invalid("notUnityProject", "path には Unity プロジェクトのフォルダ（中に Assets がある所）を完全なパスで書いてください。");
