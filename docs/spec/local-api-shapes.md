@@ -14,7 +14,7 @@
 | `GET /v1/failed-items` | 読めなかった商品の ID（手で壊した JSON など） | 作った |
 | `GET /v1/display-settings` | 使う人の表示の設定（R-18 を表示しない・非表示の件数・消えた画像・サムネイルにする画像） | 作った |
 | `GET /v1/items`・`GET /v1/items/{id}`・`POST /v1/items/batch` | 一覧（要約）・1件（詳細）・ID をまとめて詳細 | 作った（`ItemMapper`） |
-| `GET /v1/items/{id}/description` | 説明文（見出しごとの文と表示用の HTML） | まだ |
+| `GET /v1/items/{id}/description` | 説明文（見出しごとの文と表示用の HTML） | 作った（2026-10-14。形は下の「使い手の試作から足した物」） |
 | `GET /v1/items/{id}/modifications`・`/notifications` | その商品を使っている改変・その商品の通知 | 作った |
 | `POST /v1/search` | 式で検索（下）。答えは一覧（要約）と全体の数と続きの印 | 作った（`SearchEngine`） |
 | `GET /v1/search/conditions` | 条件の種類・値の形・選択肢・切り替えの既定 | 作った |

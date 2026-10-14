@@ -273,8 +273,9 @@ internal static class ApiHost
         var feed = new ChangeFeed();
         var sync = new StoreSync(state, feed, options.Watch);
         // 仕様書（OpenAPI）はコードから作る（手で書くとコードとずれる）。答えの型の書き方は答えと同じ source generator の物
-        builder.Services.AddOpenApi("v1", openApi => openApi.AddDocumentTransformer((document, _, _) =>
+        builder.Services.AddOpenApi("v1", openApi => openApi.AddSchemaTransformer(ApiOpenApi.TransformSchema).AddDocumentTransformer((document, _, _) =>
         {
+            ApiOpenApi.AddWriteProblems(document);
             document.Info.Title = "Chmonos API";
             document.Info.Version = ApiVersion;
             document.Info.Description = ServiceText.Notice;

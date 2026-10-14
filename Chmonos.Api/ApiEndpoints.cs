@@ -421,7 +421,10 @@ internal static partial class ApiEndpoints
     /// <summary>仕様書の印：要求の本文の型（本文は自分で読むので、型を知らせる）。</summary>
     private static RouteHandlerBuilder Takes<T>(this RouteHandlerBuilder builder)
         where T : notnull
-        => builder.Accepts<T>("application/json");
+    {
+        ApiOpenApi.NoteRequestType(typeof(T));
+        return builder.Accepts<T>("application/json");
+    }
 
     /// <summary>SSE で、ほかの物が何も流れないときに送る印の間隔。間に入る物（プロキシ・ブラウザ）が、つながりを切られたと見なさないように。</summary>
     private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(15);

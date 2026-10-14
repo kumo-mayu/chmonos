@@ -35,7 +35,8 @@ public sealed record VersionAnswer(string Api, string App, int StoreFormat, int 
 /// <param name="Busy"><c>busy</c> のとき、始まりならその種類、終わりなら null。</param>
 /// <param name="SendId">Unity へ送る送りの ID（<c>kind: unity</c> のときだけ。<c>/v1/unity/sends/{sendId}</c> で結果を引く）。</param>
 public sealed record ChangeEventRef(
-    long Seq, string Kind, IReadOnlyList<string> Parts, IReadOnlyList<string> ItemIds, string? Busy, DateTimeOffset At, string? SendId = null);
+    long Seq, string Kind, IReadOnlyList<string> Parts, IReadOnlyList<string> ItemIds, string? Busy, DateTimeOffset At,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SendId = null);
 
 /// <param name="Reload">頼んだ通番からの変化を全部は持っていない（古すぎる・API が起動し直した）。外の道具は全部を取り直す。</param>
 public sealed record ChangesAnswer(string Epoch, long Sequence, bool Reload, IReadOnlyList<ChangeEventRef> Changes);

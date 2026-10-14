@@ -126,6 +126,34 @@ public sealed class ApiHostTests : IAsyncLifetime
         Assert.True(schemas.TryGetProperty("SearchRequest", out _));
     }
 
+    /// <summary>
+    /// 仕様書の「必須」と誤りの答えを、実際の受け方に合わせる（2026-10-14。仕様書から作ったコードが、省ける欄を全部送らせていた）。
+    /// 要求の省ける欄・頼んだときだけ出す欄は必須にしない。書き込みの道にも誤りの答えを載せる。送る状態の値は列挙する
+    /// </summary>
+    [Fact]
+    public async Task 仕様書は_省ける欄を必須にせず_書き込みの誤りと送る状態の値を載せる()
+    {
+        var document = await JsonOf(await _client.SendAsync(Request(HttpMethod.Get, "/v1/openapi.json", token: false)));
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+
+        static IReadOnlyList<string> Required(JsonElement schema)
+            => schema.TryGetProperty("required", out var required) ? required.EnumerateArray().Select(name => name.GetString()!).ToList() : [];
+
+        Assert.Empty(Required(schemas.GetProperty("UnitySendRequest")));
+        Assert.Empty(Required(schemas.GetProperty("RevealRequest")));
+        Assert.DoesNotContain("detached", Required(schemas.GetProperty("ModificationMemberRef")));
+        Assert.Contains("itemId", Required(schemas.GetProperty("ModificationMemberRef")));
+
+        var send = document.GetProperty("paths").GetProperty("/v1/items/{id}/send-to-unity").GetProperty("post").GetProperty("responses");
+        Assert.True(send.TryGetProperty("409", out _));
+        Assert.True(send.TryGetProperty("403", out _));
+
+        var states = schemas.GetProperty("UnitySendStatus").GetProperty("properties").GetProperty("state").GetProperty("enum")
+            .EnumerateArray().Select(value => value.GetString()).ToList();
+        Assert.Contains("imported", states);
+        Assert.Contains("editorClosed", states);
+    }
+
     [Fact]
     public async Task 答えにETagを付け_変わっていなければ304を返す()
     {
