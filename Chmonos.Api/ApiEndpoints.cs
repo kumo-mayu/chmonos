@@ -51,7 +51,7 @@ internal static partial class ApiEndpoints
             .Answers<DisplaySettingsRef>("使う人の表示の設定");
 
         // 商品
-        app.MapGet("/v1/items", (ApiState state, string? cursor, int? limit, string? sort, bool? includeHidden, bool? includeAdult) =>
+        app.MapGet("/v1/items", (ApiState state, string? cursor, int? limit, string? sort, bool? includeHidden, bool? includeAdult, bool? hasUnityPackage) =>
             ApiHost.Json(
                 SearchEngine.Search(state.Snapshot, new SearchRequest
                 {
@@ -60,6 +60,7 @@ internal static partial class ApiEndpoints
                     Sort = ParseSort(sort),
                     IncludeHidden = includeHidden ?? true,
                     IncludeAdult = includeAdult ?? true,
+                    HasUnityPackage = hasUnityPackage,
                 }, state.Clock()),
                 json.SearchPage))
             .Answers<SearchPage>("商品の一覧（要約）。sort は wishCount:desc,name の形");

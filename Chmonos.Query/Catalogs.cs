@@ -350,24 +350,36 @@ public static class Catalogs
                 continue;
             }
 
-            foreach (var file in item.Local.LocalFiles.Where(file => ItemMapper.FileState(file) == "present"))
-            {
-                foreach (var package in file.UnityPackages ?? [])
-                {
-                    result.Add(new UnityPackageEntryRef(item.Id, item.DisplayName, "file", file.Paths[0], package.Entry, package.Roots, avatars));
-                }
-            }
-
-            foreach (var folder in item.Local.LocalFolders.Where(folder => folder.MissingSince is null))
-            {
-                foreach (var entry in folder.UnityPackages)
-                {
-                    result.Add(new UnityPackageEntryRef(item.Id, item.DisplayName, "folder", folder.Path, entry, [], avatars));
-                }
-            }
+            result.AddRange(SendablePackages(item, avatars));
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// 送れる unitypackage を1つ以上持つか（検索の <c>hasUnityPackage</c>）。<see cref="UnityPackages"/> と同じ判断を使う
+    /// （別に書くと、一覧に出る商品と絞った商品が食い違う）
+    /// </summary>
+    public static bool HasSendablePackage(ItemRecord item) => SendablePackages(item, []).Any();
+
+    /// <summary>商品1件の送れる unitypackage：置き場のある zip の中と、見つかっている登録したフォルダの中。</summary>
+    private static IEnumerable<UnityPackageEntryRef> SendablePackages(ItemRecord item, IReadOnlyList<string> avatars)
+    {
+        foreach (var file in item.Local.LocalFiles.Where(file => ItemMapper.FileState(file) == "present"))
+        {
+            foreach (var package in file.UnityPackages ?? [])
+            {
+                yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "file", file.Paths[0], package.Entry, package.Roots, avatars);
+            }
+        }
+
+        foreach (var folder in item.Local.LocalFolders.Where(folder => folder.MissingSince is null))
+        {
+            foreach (var entry in folder.UnityPackages)
+            {
+                yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "folder", folder.Path, entry, [], avatars);
+            }
+        }
     }
 
     public static IReadOnlyList<ModificationRef> Modifications(QuerySnapshot snapshot, bool includeDetached = false)

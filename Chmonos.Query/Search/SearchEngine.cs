@@ -17,6 +17,12 @@ public sealed class SearchRequest
     /// <summary>R-18 の商品も返すか（既定 true。同上）。</summary>
     public bool IncludeAdult { get; init; } = true;
 
+    /// <summary>
+    /// 送れる unitypackage を持つ商品だけ（true）・持たない商品だけ（false）。省けば絞らない。判断は <c>/v1/unitypackages</c> と同じ。
+    /// 検索の条件（condition）にしないのは、条件は画面の絞り込みと同じ物だけを渡す決まりのため（画面に無い）
+    /// </summary>
+    public bool? HasUnityPackage { get; init; }
+
     public TextOptionsRequest? TextOptions { get; init; }
 
     /// <summary>並べ方。同じ値どうしは ID の順（並びは必ず一意）。</summary>
@@ -45,6 +51,9 @@ public sealed class FacetsRequest
     public bool IncludeHidden { get; init; } = true;
 
     public bool IncludeAdult { get; init; } = true;
+
+    /// <summary>送れる unitypackage を持つかで絞る（<see cref="SearchRequest.HasUnityPackage"/> と同じ）。</summary>
+    public bool? HasUnityPackage { get; init; }
 
     public TextOptionsRequest? TextOptions { get; init; }
 
@@ -92,7 +101,7 @@ public static class SearchEngine
         }
 
         var sort = SortOf(request.Sort);
-        var matched = Filter(snapshot, request.Where, request.IncludeHidden, request.IncludeAdult, request.TextOptions, now);
+        var matched = Filter(snapshot, request.Where, request.IncludeHidden, request.IncludeAdult, request.TextOptions, now, request.HasUnityPackage);
         var ordered = matched
             .Select(item => (Item: item, Key: sort.Select(key => key.Value(item, snapshot)).ToArray()))
             .ToList();
@@ -131,7 +140,7 @@ public static class SearchEngine
             }
         }
 
-        var items = Filter(snapshot, request.Where, request.IncludeHidden, request.IncludeAdult, request.TextOptions, now);
+        var items = Filter(snapshot, request.Where, request.IncludeHidden, request.IncludeAdult, request.TextOptions, now, request.HasUnityPackage);
         var context = snapshot.ConditionContext(now);
         var answer = new Dictionary<string, IReadOnlyList<FacetValue>>(StringComparer.Ordinal);
         foreach (var field in fields)
@@ -164,7 +173,8 @@ public static class SearchEngine
         bool includeHidden,
         bool includeAdult,
         TextOptionsRequest? textOptions,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        bool? hasUnityPackage = null)
     {
         var context = snapshot.ConditionContext(now);
         var options = OptionsOf(textOptions);
@@ -176,6 +186,7 @@ public static class SearchEngine
         {
             return snapshot.Items
                 .Where(item => (includeHidden || !item.Local.IsHidden) && (includeAdult || !item.Booth.IsAdult))
+                .Where(item => hasUnityPackage is not { } wanted || Catalogs.HasSendablePackage(item) == wanted)
                 .Where(item => compiled.Matches(item, negated: false))
                 .ToList();
         }

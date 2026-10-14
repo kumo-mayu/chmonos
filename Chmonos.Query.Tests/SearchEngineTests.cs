@@ -277,6 +277,57 @@ public sealed class SearchEngineTests : IDisposable
         Assert.Equal(0, summaries["9600004"].Paid);
     }
 
+    /// <summary>
+    /// 送れる unitypackage を持つかで絞る（Unity の API-GAPS 3-9）。判断は <c>/v1/unitypackages</c> と同じ：
+    /// 見つからないファイル・外したファイル・見つからないフォルダの中の物は送れないので数えない
+    /// </summary>
+    [Fact]
+    public async Task 送れるunitypackageを持つかで絞ると_unitypackagesの一覧と同じ商品に当たる()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        UnityPackageSummary[] package = [new UnityPackageSummary { Entry = "a.unitypackage", Roots = ["Assets/A"] }];
+        ItemRecord[] items =
+        [
+            Item("9600011", "zipの中にある", local: local => local with { LocalFiles = [local.LocalFiles[0] with { UnityPackages = package }] }),
+            Item("9600012", "zipの中に無い"),
+            Item("9600013", "フォルダの中にある", local: local => local with
+            {
+                LocalFiles = [],
+                LocalFolders = [new LocalFolderRecord { Path = @"D:\folders\c", UnityPackages = ["c.unitypackage"] }],
+            }),
+            Item("9600014", "見つからないzip", local: local => local with
+            {
+                LocalFiles = [local.LocalFiles[0] with { UnityPackages = package, MissingSince = Now }],
+            }),
+            Item("9600015", "外したzip", local: local => local with { LocalFiles = [local.LocalFiles[0] with { UnityPackages = package, Detached = true }] }),
+            Item("9600016", "見つからないフォルダ", local: local => local with
+            {
+                LocalFiles = [],
+                LocalFolders = [new LocalFolderRecord { Path = @"D:\folders\f", UnityPackages = ["f.unitypackage"], MissingSince = Now }],
+            }),
+        ];
+        foreach (var item in items)
+        {
+            await store.Items.SaveAsync(item);
+        }
+
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+        var listed = Catalogs.UnityPackages(snapshot, null).Select(entry => entry.ItemId).Distinct().Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(["9600011", "9600013"], listed);
+
+        string[] Search(bool? has) => SearchEngine.Search(snapshot, new SearchRequest { HasUnityPackage = has, Sort = [new("id")] }, Now)
+            .Items.Select(item => item.Id).ToArray();
+        Assert.Equal(listed, Search(true));
+        Assert.Equal(["9600012", "9600014", "9600015", "9600016"], Search(false));
+        Assert.Equal(6, Search(null).Length);
+
+        var facets = SearchEngine.Facets(snapshot, new FacetsRequest { HasUnityPackage = true, Fields = ["category"] }, Now);
+        Assert.Equal(2, facets.Total);
+
+        var request = JsonSerializer.Deserialize("""{"hasUnityPackage":true}""", QueryJson.Context.SearchRequest)!;
+        Assert.True(request.HasUnityPackage);
+    }
+
     [Fact]
     public async Task 続きの印は_同じ並べ方にだけ使える()
     {
