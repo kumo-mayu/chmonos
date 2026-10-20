@@ -1,14 +1,3 @@
 {
-  "extraKnownMarketplaces": {
-    "kumo-harness": {
-      "source": {
-        "source": "directory",
-        "path": "D:/work/ClaudeCode/claude-harness"
-      }
-    }
-  },
-  "language": "japanese",
-  "enabledPlugins": {
-    "harness@kumo-harness": true
-  }
+  "language": "japanese"
 }
