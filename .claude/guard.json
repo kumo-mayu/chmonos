@@ -1,0 +1,11 @@
+{
+  "paths": [
+    {
+      "name": "本番の location.json（%LOCALAPPDATA%\\Chmonos）",
+      "parts": ["Chmonos", "location.json"],
+      "write": "deny",
+      "shell": "ask",
+      "reason": "本番は友人のデータの写しを指していて、書き換えるとユーザーの作業場所が変わる。確かめは写しの保存先（Chmonos-sandboxes）で行う（CLAUDE.md「本番のデータを触らない」）"
+    }
+  ]
+}

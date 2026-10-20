@@ -23,7 +23,7 @@
 ## 環境変数・プロセス
 
 - `$env:X = ''` としても、変数が空文字のまま子のプロセスに渡ることがある。消したい変数は、起動する側の環境（`ProcessStartInfo.Environment`）から取り除く
-- この環境のシェルは `GIT_TERMINAL_PROMPT=0`・`GCM_INTERACTIVE=never` が最初から入っている。プッシュのときだけ上書きする（`wrap-up` スキル）
+- この環境のシェルは `GIT_TERMINAL_PROMPT=0`・`GCM_INTERACTIVE=never` が最初から入っている。プッシュのときだけ上書きする（`.claude/wrap-up.md`）
 
 ## 文字列を書き換える
 

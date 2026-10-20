@@ -17,7 +17,8 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 
 英語で書き始めたと気付いたら、その場で日本語に書き直す。サブエージェントへの指示も日本語で書き、報告も日本語で求める。
 この決まりは会話の最初に1回読まれるだけで長い会話では薄れるので、`.claude/settings.json` の `language`（japanese）と、
-ユーザが発言するたびに同じ一言を差し込むフック（`UserPromptSubmit`）でも補っている。
+ユーザが発言するたびに同じ一言を差し込むフック（harness プラグイン）でも補っている。
+全プロジェクト共通の決まりは `D:\work\ClaudeCode\CLAUDE.md`、共通の部品（仕上げ・守りのフック）は `D:\work\ClaudeCode\claude-harness` の harness プラグイン。
 
 ---
 
@@ -39,7 +40,7 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 ### 3. 本番のデータを触らない
 
 本番の保存先は `%LOCALAPPDATA%\Chmonos`。本番の `location.json` は友人のデータの写し（`Chmonos-sandboxes\friendtest`）を指している
-（ユーザが普段の作業に使う）。`location.json` は書き換えない（`.claude/hooks/guard-location.mjs` が書き込みを止め、シェルで触れるときは確認を求める）。
+（ユーザが普段の作業に使う）。`location.json` は書き換えない（harness プラグインのガードが `.claude/guard.json` に従って書き込みを止め、シェルで触れるときは確認を求める）。
 
 - 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番と friendtest では起動を断る）。
   写しの一覧と、画面ごとにどれを使うかは `.claude/skills/ui-check/sandboxes.md`
@@ -199,5 +200,6 @@ XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep 
 - Unity を実際に動かす確かめは、ユーザが「試して」と言ったときだけ
 - 作業をサブエージェントに分けて並行で直すときは `parallel-fix` スキル。サブエージェントの報告の重い指摘は、ユーザへ伝える前に自分でコードか画像を見て確かめる
 
-手順は `.claude/skills/` のスキル（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`・`public-docs`）にある。
+手順は `.claude/skills/` のスキル（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`parallel-fix`・`public-docs`）にある。
+仕上げは harness プラグインの `wrap-up` スキルで、Chmonos だけの手順（テスト・文書の表・友人のデータの点検・push のしかた）は `.claude/wrap-up.md`。
 `public-docs` が使う外のスキル（`natural-japanese`・`humanizer-ja`・`user-guide-writing`）は手元に置くだけで git では追跡しない（`.git/info/exclude`。取得元は各フォルダの `SOURCE.txt`）。

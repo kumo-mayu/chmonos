@@ -46,3 +46,5 @@ research/PdfProbe/*
 !.claude/rules/
 !.claude/settings.json
 !.claude/hooks/
+!.claude/guard.json
+!.claude/wrap-up.md
