@@ -6,7 +6,7 @@ BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプ�
 `BoothIdResolver`・`BoothZipInspector` は役目の名前なので残している。`docs/history/` の中は書かれた時点の古い名前のまま。
 
 このファイルは守ってほしい決め事。話題ごとの今の決め事は `docs/spec/`（入口は `docs/README.md`）にあり、**作業の前にその話題の spec を読む。**
-App・Core のコードを触るときは、画面と文言の決め事（`.claude/rules/screen-and-wording.md`）も読み込まれる。
+App・Core のコードを触るときは、画面と文言の決め事（`.claude/rules/screen-and-wording.md`）と前提（`.claude/rules/domain-facts.md`）も読み込まれる。
 
 日本語で書く決まり（共通の CLAUDE.md）は、英語で届く知らせ（ツールの結果・裏の作業の終わり）の直後の一言・合間の一言・サブエージェントへの指示と報告にも当てる。
 英語で書き始めたら、その場で書き直す（英語だと意図を読み違える恐れがある。ユーザ指示。`.claude/settings.json` の `language` と harness のフックでも補っている）。
@@ -139,16 +139,10 @@ App を直したら、その出し分けの試験も足す。画面で見るの�
 
 ## 覚えておくと早いこと
 
-| | |
-|---|---|
-| 梯子（取り込みの順序） | ① JSON → ② HTML → ③ 検出 → ④ 1枚目 → ⑤ 残り → ⑥ アイコン → ⑦ 期限 |
-| 所持の定義 | ファイルかフォルダを1つ以上持つこと |
-| 意味検索はしない | 埋め込みは説明できない。辞書は引いた結果を説明できる |
-| 同梱の辞書 | JMdict と KANJIDIC2（CC BY-SA 4.0）。無改変で置き、索引は手元で組む |
-| ライセンス | コード Apache-2.0 / 文書 CC BY 4.0（`LICENSE` `NOTICE` `LICENSE-docs.md`） |
-| 写しで起動すると | 起動時の裏の作業（⑦ 期限の来た商品）が BOOTH へ問い合わせる。新しいバージョンの確認が1日1回 GitHub へ聞く。写しでも同じ |
-
-リポジトリの中の地図（どのプロジェクトが何か・`mock/`・`experiments/`・直下の `research/`）は `docs/README.md` の冒頭。
+- 梯子（取り込みの順序）・所持の定義・意味検索をしない理由・同梱の辞書は `.claude/rules/domain-facts.md`（App・Core・spec を触ると読まれる）
+- ライセンス：コード Apache-2.0 / 文書 CC BY 4.0（`LICENSE` `NOTICE` `LICENSE-docs.md`）
+- 写しで起動しても、起動時の裏の作業（⑦ 期限の来た商品）が BOOTH へ問い合わせ、新しいバージョンの確認が1日1回 GitHub へ聞く
+- リポジトリの中の地図（どのプロジェクトが何か・`mock/`・`experiments/`・直下の `research/`）は `docs/README.md` の冒頭
 
 ---
 
