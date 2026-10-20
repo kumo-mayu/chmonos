@@ -2,8 +2,8 @@
 
 BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**2026-10-07 に v1.0.0 を公開した**（GitHub の Releases と BOOTH。配る zip は tag から GitHub Actions で組む：`docs/dev/signing.md`）。
 名前は **Chmonos**（2026-09-14 に「BOOTH Asset Manager」から改名。`docs/research/booth-terms.md` §4）。
-コードの名前空間（`Chmonos.App`・`Chmonos.Core`）・実行ファイル名（`Chmonos.exe`）・リポジトリ名（`chmonos`）・写しの置き場（`%LOCALAPPDATA%\Chmonos-sandboxes\<名前>`）も 2026-10-01 に新しい名前へ揃えた。
-`BoothIdResolver`・`BoothZipInspector` は役目の名前なので残している。`docs/history/` の中は書かれた時点の古い名前のまま。
+コードの名前空間（`Chmonos.App`・`Chmonos.Core`）・実行ファイル名（`Chmonos.exe`）・リポジトリ名（`chmonos`）・写しの置き場（`%LOCALAPPDATA%\Chmonos-sandboxes\<名前>`）も 2026-10-01 に新しい名前へ揃えた
+（`BoothIdResolver`・`BoothZipInspector` は役目の名前なので残す。`docs/history/` の中は書かれた時点の古い名前のまま）。
 
 このファイルは守ってほしい決め事。話題ごとの今の決め事は `docs/spec/`（入口は `docs/README.md`）にあり、**作業の前にその話題の spec を読む。**
 App・Core のコードを触るときは、画面と文言の決め事（`.claude/rules/screen-and-wording.md`）と前提（`.claude/rules/domain-facts.md`）も読み込まれる。
@@ -11,8 +11,6 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 日本語で書く決まり（共通の CLAUDE.md）は、英語で届く知らせ（ツールの結果・裏の作業の終わり）の直後の一言・合間の一言・サブエージェントへの指示と報告にも当てる。
 英語で書き始めたら、その場で書き直す（英語だと意図を読み違える恐れがある。ユーザ指示。`.claude/settings.json` の `language` と harness のフックでも補っている）。
 全プロジェクト共通の決まりは `D:\work\ClaudeCode\CLAUDE.md`、共通の部品（仕上げ・守りのフック）は `D:\work\ClaudeCode\claude-harness` の harness プラグイン。
-
----
 
 ## 絶対に破らないこと
 
@@ -47,8 +45,6 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 リポジトリに入れない・どこへも送らない。コミットメッセージ・文書・ログ・テストの作り物のデータに商品名・ファイル名・商品IDを書かない
 （「対応アバター244体の商品」のように、数と傾向だけで書く）。撮った画像も手元に置くだけ。
 サブエージェントが写しの画面から拾った名前を、報告から先へ写さない。
-
----
 
 ## 作りの決め事
 
@@ -91,8 +87,6 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 
 検出・推定で出た値（対応アバター・素体など）は候補として見せ、人が選んだときだけ入れる。
 
----
-
 ## 書き方
 
 ### コメントは「なぜ」を書く。日本語で
@@ -114,8 +108,6 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 確かめや作り物のデータのスクリプトを書く前に `docs/dev/powershell.md`（`@($null).Count` が1・空の配列が null・別名とぶつかる関数名）。
 作り物の JSON を `ConvertTo-Json` で作らない（空の配列が `null` になる）。
 
----
-
 ## 確かめ方
 
 `dotnet build`・`dotnet test`（出力の絞り方は `.claude/wrap-up.md`）。テストは本体で約2,300件、ほかに zip の読み取りと ID の特定の一式がある。全部で約16秒（2026-09-30。ビルドは別）。通信するテストを既定の一式に入れない
@@ -135,16 +127,12 @@ App を直したら、その出し分けの試験も足す。画面で見るの�
 思い込みで切り捨てない。外部の資源（辞書・API）は実データに当てて数字を出してから採否を決める（置き場は `experiments/`）。
 測り方が悪くて外れたこともある（「英語の経路は8件中0件」→ 割らずに引けば1位だった）。速さとメモリは `perf-measure` スキル。
 
----
-
 ## 覚えておくと早いこと
 
 - 梯子（取り込みの順序）・所持の定義・意味検索をしない理由・同梱の辞書は `.claude/rules/domain-facts.md`（App・Core・spec を触ると読まれる）
 - ライセンス：コード Apache-2.0 / 文書 CC BY 4.0（`LICENSE` `NOTICE` `LICENSE-docs.md`）
 - 写しで起動しても、起動時の裏の作業（⑦ 期限の来た商品）が BOOTH へ問い合わせ、新しいバージョンの確認が1日1回 GitHub へ聞く
 - リポジトリの中の地図（どのプロジェクトが何か・`mock/`・`experiments/`・直下の `research/`）は `docs/README.md` の冒頭
-
----
 
 ## 読み方（文脈を節約する）
 
@@ -156,8 +144,6 @@ App を直したら、その出し分けの試験も足す。画面で見るの�
 `docs/features.md`（1行が長い）、`Views/` の大きな XAML（`EditView`・`SearchView`・`StatsView`・`Modification*View`・`AvatarsView`・`TagManageView`・`ItemCardResources`）、
 1,200行を超える ViewModel と `Core/Services/AvatarDetector.cs`（`ItemService`・`ImportPipeline`・`SearchModules` は 2026-10-08 に担当・段・種類ごとのファイルへ分けた）。
 XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep する。
-
----
 
 ## 進め方
 
