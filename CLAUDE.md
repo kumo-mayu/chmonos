@@ -130,7 +130,7 @@ App を直したら、その出し分けの試験も足す。画面で見るの�
 `Grep` で場所を絞り（見出しは `^#{2,3} `）、`Read` の `offset`/`limit` で前後だけ読む。編集の直後や、変わっていない範囲は読み直さない。
 撮った画像は見たい所だけ切る（`Save-ChmonosShot -Region`）。同じ状態を撮り直さない。
 
-特に大きいもの：`docs/feedback/done-2026-09.md`（約390KB）、`docs/history/` の `unity-handoff.md`・`ui-revision.md`・`avatars.md`、
+特に大きいもの：`docs/feedback/done-*.md`（月ごとに数百KB）、`docs/history/` の `unity-handoff.md`・`ui-revision.md`・`avatars.md`、
 `docs/features.md`（1行が長い）、`Views/` の大きな XAML（`EditView`・`SearchView`・`StatsView`・`Modification*View`・`AvatarsView`・`TagManageView`・`ItemCardResources`）、
 1,200行を超える ViewModel と `Core/Services/AvatarDetector.cs`（`ItemService`・`ImportPipeline`・`SearchModules` は 2026-10-08 に担当・段・種類ごとのファイルへ分けた）。
 XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep する。
