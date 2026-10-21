@@ -7,15 +7,9 @@ description: Chmonos を使う人に向けた文書（公開用の README・BOOT
 
 読む人は技術に詳しくない見込みが高い（BOOTH で買ったアセットを整理したい人）。開発の文書（`CLAUDE.md`・`docs/`）の言葉づかいは持ち込まない。
 
-外から取ってきた3つのスキルを、役目を分けて使う。どれも自分からは読み込まれない設定にしてあるので、使うときに `Read` で開く。
+文体・文書の型・機械の点検は、harness プラグインの `ja-docs` スキル（種類 `public`）に任せる。このスキルには Chmonos だけの事（語彙・書かなければならない事・書いてはいけない事・BOOTH）を置く。
 
-| スキル | 受け持ち | 開く物 |
-|---|---|---|
-| `user-guide-writing`（英語） | 文書の型。前提を先に・手順ごとに「できたかの確かめ」・困ったときは手順のそば | `SKILL.md` の Step 1・6 と `references/mode-structures.md` |
-| `natural-japanese` | 文体と機械の点検 | `SKILL.md`、型は `references/doctypes/guide.md`（README）。決まりは `references/writing-constitution.md` |
-| `humanizer-ja` | 書き終えたあとの点検表 | `SKILL.md` の1〜16・18・19 |
-
-言葉は外のスキルに任せない。**画面に出ている語をそのまま使う**（読む人は画面の文字を頼りに操作する）。
+言葉は `ja-docs` に任せない。**画面に出ている語をそのまま使う**（読む人は画面の文字を頼りに操作する）。
 
 **地の文の語彙は、文書ごとに分ける**（ユーザ指示 2026-10-07）。
 - GitHub の README：**一般的な語彙**を使う（ウィンドウ・ドラッグ＆ドロップ・取得・保存先・削除・有効／無効・バックグラウンド・Project ウィンドウなど）。
@@ -27,7 +21,7 @@ description: Chmonos を使う人に向けた文書（公開用の README・BOOT
 
 ### 1. 読む人と型を決める
 
-`user-guide-writing` の型から1つ選ぶ。はじめの手順（getting-started）・1つの作業のやり方（how-to）・よくある質問（faq）。1つの文書に全部を詰めない。
+`ja-docs` の `public` の構成（user-guide-writing の型）から1つ選ぶ。はじめの手順（getting-started）・1つの作業のやり方（how-to）・よくある質問（faq）。1つの文書に全部を詰めない。
 
 ### 2. 事実を集める
 
@@ -37,18 +31,13 @@ description: Chmonos を使う人に向けた文書（公開用の README・BOOT
 
 ### 3. 書く
 
-`natural-japanese` の文体の決まり（クイックのモード）で書く。書いてから `humanizer-ja` の点検表で見直す。
+`ja-docs` の手順（種類 `public`）で書き、書き終えたら同じスキルの点検表で見直す。
 
 ### 4. 機械で点検する
 
-```bash
-uv run --no-project .claude/skills/natural-japanese/scripts/lint.py --genre business <ファイル>
-```
+`ja-docs` の台本を `--kind public` で走らせる。BOOTH の原稿は本文が囲み（```）の中にあるので `--unfence` を付ける（付けないと0件になる）。
 
-- **BOOTH の原稿は、囲み（```）を外した写しを scratchpad に作ってから当てる。**囲みの中は読み飛ばされ、0件になる（2026-10-07 に Paramroom の原稿で確かめた。囲みありは0件、外すと23件）
-- 「Q.」「A.」・URL の行頭の繰り返しは無視してよい
 - 指摘は「見る所」で、全部を直す指示ではない。読んで引っかからない文はいじらない
-- `uv` が PATH に無いときは `%LOCALAPPDATA%\Microsoft\WinGet\Packages\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\uv.exe`
 
 ### 5. 事実を落としていないか照らす
 
@@ -56,11 +45,9 @@ uv run --no-project .claude/skills/natural-japanese/scripts/lint.py --genre busi
 
 ## 使わない決まり
 
-外のスキルには、この用途に合わない決まりがある。
-
-- **体験・意見・動機を作らない。**`humanizer-ja` の「声を入れる」「17. 体温のない結論」、`natural-japanese` の採点の「人間味・体温」は使わない。作った理由などの作者の声が要るときは、ユーザに聞く。`docs/history/author-memos/` から引くのは、ユーザが良いと言ったときだけ
+- **体験・意見・動機を作らない**（`ja-docs` の書き方の決まりにもある）。作った理由などの作者の声が要るときは、ユーザに聞く。`docs/history/author-memos/` から引くのは、ユーザが良いと言ったときだけ
 - **くだけすぎない。**「思ってます」のような話し言葉の結びにしない。です・ます体で書く
-- `natural-japanese` の `semantic.py`（約1GBを取ってくる）とフルのモードの採点の繰り返しは、頼まれたときだけ
+- natural-japanese の `semantic.py`（約1GBを取ってくる）とフルのモードの採点の繰り返しは、頼まれたときだけ
 
 ## 書かなければならないこと
 
@@ -77,7 +64,7 @@ uv run --no-project .claude/skills/natural-japanese/scripts/lint.py --genre busi
 
 ## BOOTH の商品ページ
 
-Paramroom を出したときの原稿と決まりが `D:\work\ClaudeCode\avatar-image-pad\docs\booth\`（`item-page.md`・`images.md`・`zip-README.txt`）にある。型はそれに倣う。
+Paramroom を出したときの原稿と決まりが、Paramroom のリポジトリ（https://github.com/kumo-mayu/Paramroom）の `docs/booth/`（`item-page.md`・`images.md`・`zip-README.txt`）にある。型はそれに倣う。
 
 - BOOTH では Markdown が効かない。本文は素の文字で書く。`## ` 1つが BOOTH の「見出し付きセクション」1つになる
 - 外部サイトへ案内するだけの商品は、BOOTH の規約で禁止されている。zip を BOOTH にも置く

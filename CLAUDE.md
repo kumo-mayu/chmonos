@@ -151,4 +151,4 @@ XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep 
 
 手順は `.claude/skills/` のスキル（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`parallel-fix`・`public-docs`）にある。
 仕上げは harness プラグインの `wrap-up` スキルで、Chmonos だけの手順（テスト・文書の表・友人のデータの点検・push のしかた）は `.claude/wrap-up.md`。
-`public-docs` が使う外のスキル（`natural-japanese`・`humanizer-ja`・`user-guide-writing`）は手元に置くだけで git では追跡しない（`.git/info/exclude`。取得元は各フォルダの `SOURCE.txt`）。
+`public-docs` の文体・文書の型・機械の点検は、harness プラグインの `ja-docs` スキルに任せる。
