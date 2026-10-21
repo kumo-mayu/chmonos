@@ -1,4 +1,5 @@
 {
+  "public": true,
   "paths": [
     {
       "name": "本番の location.json（%LOCALAPPDATA%\\Chmonos）",
