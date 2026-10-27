@@ -4,7 +4,7 @@
 
 ```powershell
 dotnet build 2>&1 | Select-Object -Last 4          # 警告 0・エラー 0 を見る
-dotnet test --nologo; if ($LASTEXITCODE) { throw "テスト失敗" }   # 4つの一式（Core・App・zip の読み取り・ID の特定）
+dotnet test --nologo; if ($LASTEXITCODE) { throw "テスト失敗" }   # 6つの一式（Core・App・Query・Api・zip の読み取り・ID の特定）
 ```
 
 - 出力を丸ごと出さない。件数は `Select-String '合計:|失敗 '`、失敗したときだけ `Select-String 'error|失敗|Failed'` で該当の行を見る

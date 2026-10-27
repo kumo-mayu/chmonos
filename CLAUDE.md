@@ -1,6 +1,6 @@
 # Chmonos（クモノス）— AIへの指示
 
-BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**2026-10-07 に v1.0.0 を公開した**（GitHub の Releases と BOOTH。配る zip は tag から GitHub Actions で組む：`docs/dev/signing.md`）。
+BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**2026-10-07 に v1.0.0 を公開し、今の公開版は v1.1.0（2026-10-08）**（GitHub の Releases と BOOTH。配る zip は tag から GitHub Actions で組む：`docs/dev/signing.md`）。
 名前は **Chmonos**（2026-09-14 に「BOOTH Asset Manager」から改名。`docs/research/booth-terms.md` §4）。
 コードの名前空間（`Chmonos.App`・`Chmonos.Core`）・実行ファイル名（`Chmonos.exe`）・リポジトリ名（`chmonos`）・写しの置き場（`%LOCALAPPDATA%\Chmonos-sandboxes\<名前>`）も 2026-10-01 に新しい名前へ揃えた
 （`BoothIdResolver`・`BoothZipInspector` は役目の名前なので残す。`docs/history/` の中は書かれた時点の古い名前のまま）。
@@ -100,7 +100,7 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 
 ## 確かめ方
 
-`dotnet build`・`dotnet test`（出力の絞り方は `.claude/wrap-up.md`）。テストは本体で約2,300件、ほかに zip の読み取りと ID の特定の一式がある。全部で約16秒（2026-09-30。ビルドは別）。通信するテストを既定の一式に入れない
+`dotnet build`・`dotnet test`（出力の絞り方は `.claude/wrap-up.md`）。テストは本体で約2,300件、ほかに画面（App）・検索（Query）・外から使う API（Api）・zip の読み取り・ID の特定の一式がある（全部で6つ）。全部で約16秒（2026-09-30。ビルドは別）。通信するテストを既定の一式に入れない
 （BOOTHへ実際に問い合わせる確認は `experiments/` の実行ファイルで行う）。時計・実マシンのプロセス（Unity が動いているか）に結果が左右されるテストも書かない。
 作業の途中は、関係する試験だけを回してよい（`dotnet test Chmonos.Core.Tests --filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
 30秒を超えるようになったら、重い試験を探して直す（探し方と、重くしない書き方は `docs/dev/app-tests.md`「重くしない」）。
@@ -132,7 +132,7 @@ App を直したら、その出し分けの試験も足す。画面で見るの�
 
 特に大きいもの：`docs/feedback/done-*.md`（月ごとに数百KB）、`docs/history/` の `unity-handoff.md`・`ui-revision.md`・`avatars.md`、
 `docs/features.md`（1行が長い）、`Views/` の大きな XAML（`EditView`・`SearchView`・`StatsView`・`Modification*View`・`AvatarsView`・`TagManageView`・`ItemCardResources`）、
-1,200行を超える ViewModel と `Core/Services/AvatarDetector.cs`（`ItemService`・`ImportPipeline`・`SearchModules` は 2026-10-08 に担当・段・種類ごとのファイルへ分けた）。
+1,200行を超える ViewModel と `Chmonos.Core/Services/AvatarDetector.cs`（`ItemService`・`ImportPipeline`・`SearchModules` は 2026-10-08 に担当・段・種類ごとのファイルへ分けた）。
 XAML は `x:Name`・部品の名前・コメントで、C# は関数名で Grep する。
 
 ## 進め方
