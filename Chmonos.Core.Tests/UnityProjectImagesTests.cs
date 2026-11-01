@@ -199,4 +199,27 @@ public sealed class UnityProjectImagesTests : IDisposable
 
         Assert.Equal(UnityImageMatchKind.SameName, Assert.Single(MatchOf(images)).Kind);
     }
+
+    [Fact]
+    public async Task 取り込みの始めに_今ある商品の画像のzipも読み残しに入る()
+    {
+        var paths = new AppPaths(Path.Combine(_root, "store"));
+        paths.EnsureCreated();
+        var store = new DataStore(paths);
+        var images = new ZipImageStore(paths);
+        var file = ZipOf(("tex/a.png", Bytes(9)));
+        await store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9900701",
+            Local = new LocalBlock { LocalFiles = [file] },
+        });
+        var catalog = new UnityPackageCatalog(store, new UnityPackagePathStore(paths), images);
+
+        var pending = await catalog.FindPendingAsync();
+        Assert.Equal(file.Hash, Assert.Single(pending.Files).Hash);
+
+        await catalog.ReadAsync(pending.Files);
+        Assert.True(images.Has(file.Hash));
+        Assert.Empty((await catalog.FindPendingAsync()).Files);
+    }
 }

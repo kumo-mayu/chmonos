@@ -80,7 +80,10 @@ public sealed class ZipImageStore(AppPaths paths)
         return rows;
     }
 
-    private static bool HasImages(LocalFileRecord file) => !file.Detached && file.Contents.Any(UnityProjectImages.IsImage);
+    /// <summary>控えのファイルがあるか（取り込みの始めに全部のファイルを見るので、中は読まない）。</summary>
+    public bool Has(string hash) => StoreIds.IsPackageHash(hash) && File.Exists(paths.ZipImageFile(hash));
+
+    public static bool HasImages(LocalFileRecord file) => !file.Detached && file.Contents.Any(UnityProjectImages.IsImage);
 
     /// <summary>目次を読む。開けない zip（ほかのアプリが開いている・壊れている）は null で、控えない。次の機会にまた読む。</summary>
     private static IReadOnlyList<ZipImageRow>? ReadTable(string zip)

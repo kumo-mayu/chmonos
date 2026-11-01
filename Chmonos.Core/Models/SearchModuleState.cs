@@ -85,6 +85,11 @@ public sealed record SearchModuleState
     /// </summary>
     public bool IncludeFavorites { get; init; }
 
+    /// <summary>条件「Unityプロジェクト」で、今開いているプロジェクトを対象にするか。JSON を開いて読めるよう、ショップの欄と分ける。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IncludeOpenProject { get; init; }
+
     /// <summary>属性の幅（属性だけ）。</summary>
     public IReadOnlyList<AttributeRange> Ranges { get; init; } = [];
 
@@ -132,7 +137,7 @@ public sealed record SearchModuleState
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
             text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
-            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0');
+            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites || IncludeOpenProject ? '1' : '0');
             text.Append(string.Join((char)0x1E, (Toggles ?? new Dictionary<string, bool>()).OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"{pair.Key}={(pair.Value ? 1 : 0)}"))).Append(Separator);
 
             // 除くかどうかで結果が逆になるので、指紋に入れる（同じ値の「含む」と「除く」を履歴の1件にまとめない）

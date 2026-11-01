@@ -145,5 +145,6 @@
   `paid` は自分用に払った額の合計（額を1つも入れていなければ null、無料は 0）。`priceText` は詳細と同じ BOOTH の値段の表示で、並べる欄ではない。
 - **hasUnityPackage**：判断は `/v1/unitypackages` と同じ（ある zip の中と、見つかっている登録したフォルダの中。`Catalogs.HasSendablePackage`）。
   検索の条件（`condition`）の種類にはしない（条件は画面の絞り込みと同じ物だけ。画面に無い）。非表示・R-18 と同じく、式より先に絞る。
+- **中身を見る条件「Unityプロジェクト」は API に無い**（API は保存先の外を調べない）。`unityProject` は改変に紐付けた物で絞る方。
 - **条件 `unityProject`**：場所は `UnityProjectPath.Normalize`（前後の空白・区切りを `\` に・`..` を畳む・末尾の区切りを落とす）で揃えて照らす。大文字小文字は区別しない（今までどおり）。
   改変に結ぶ `PUT /v1/modifications/{id}/unity-project` も同じ関数で揃えてから書く。画面の条件も同じ索引（`ModificationUsage`）を引くので、画面と API は同じ答え。保存した値は書き換えない。

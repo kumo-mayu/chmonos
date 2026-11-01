@@ -46,7 +46,7 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
         var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var pending = loaded.Items
             .SelectMany(item => item.Local.LocalFiles
-                .Where(NeedsSummary)
+                .Where(file => NeedsSummary(file) || (images is not null && ZipImageStore.HasImages(file) && !images.Has(file.Hash)))
                 .Select(file => (ItemId: item.Id, File: file)))
             .ToList();
 

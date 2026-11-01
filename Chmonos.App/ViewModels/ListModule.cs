@@ -608,7 +608,8 @@ public sealed class ListModule : SearchModule
             Flag = _flag,
             ShowMatched = _showMatched,
             ShowUnspecified = _showUnspecified,
-            IncludeFavorites = _includeOn,
+            IncludeFavorites = _includeOn && !IsOpenProjectInclude,
+            IncludeOpenProject = _includeOn && IsOpenProjectInclude,
         };
 
     protected override void Read(SearchModuleState state)
@@ -626,7 +627,7 @@ public sealed class ListModule : SearchModule
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
         _showUnspecified = HasGroups && state.ShowUnspecified;
         _showMatched = !HasGroups || state.ShowMatched || !_showUnspecified;
-        _includeOn = HasInclude && state.IncludeFavorites;
+        _includeOn = HasInclude && (IsOpenProjectInclude ? state.IncludeOpenProject : state.IncludeFavorites);
         OnPropertyChanged(nameof(IncludeOn));
         OnPropertyChanged(nameof(HasFlag));
         OnPropertyChanged(nameof(HasReload));

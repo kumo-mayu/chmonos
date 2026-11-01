@@ -284,7 +284,7 @@ public static class SearchModuleConditions
                 showMatched,
                 showUnspecified,
                 list.IncludeMatches,
-                list.IncludeMatches is not null && state.IncludeFavorites,
+                list.IncludeMatches is not null && (kind == SearchModuleKind.UnityProjectContents ? state.IncludeOpenProject : state.IncludeFavorites),
                 list.MatchKey,
                 list.IncludeApplies);
         }
