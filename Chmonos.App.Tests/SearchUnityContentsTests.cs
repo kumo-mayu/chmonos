@@ -164,6 +164,10 @@ public class SearchUnityContentsTests
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
         Assert.False(module.HasOpenProjectRows);
         Assert.True(module.HasReload);
+
+        // 札もチェックも無くても、切り替えは隠さない（出たり消えたりすると下の欄が縦に揺れる）
+        Assert.Empty(module.Chips);
+        Assert.True(module.HasFlag);
     });
 
     [Fact]

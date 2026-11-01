@@ -1,3 +1,4 @@
+using System.IO;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
 
@@ -125,7 +126,27 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
-        new Scene("search-choice-flags", "検索の絞り込み：ギフト（購入記録の無い商品も含める）と見つからないファイル（未所持も含める）の補助のチェック", async context =>
+        new Scene("search-unity-open-projects", "検索の絞り込み：Unityプロジェクト（開いているプロジェクトのボタンが複数・とても長い名前）", async context =>
+        {
+            var (search, root) = await StartCatalogFiltersAsync(context);
+            var names = new[] { "撮影用", "作り物のアバターの改変用", "とても長い名前のプロジェクトでボタンの幅に入り切らない場合の見え方を確かめる" };
+            var editors = names.Select((name, index) =>
+            {
+                var path = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "chmonos-viewshot-projects", name)).FullName;
+                return new Chmonos.App.Services.OpenUnityEditor(index + 1, name, path);
+            }).ToList();
+            context.Services.OpenUnityEditors = () => editors;
+            context.Services.ScanUnityProject = (_, _, _, _) => Chmonos.App.Services.UnityProjectScan.Empty;
+
+            var module = (ListModule)AddModule(search, SearchModuleKind.UnityProjectContents);
+            module.IncludeOn = true;
+            search.NoteOpenProjectsMaybeChanged();
+
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
+        new Scene("search-choice-flags","検索の絞り込み：ギフト（購入記録の無い商品も含める）と見つからないファイル（未所持も含める）の補助のチェック", async context =>
         {
             var (search, root) = await StartCatalogFiltersAsync(context);
             var gift = (ChoiceModule)AddModule(search, SearchModuleKind.Gift);

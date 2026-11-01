@@ -261,7 +261,11 @@ public sealed class ListModule : SearchModule
     /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
     public string? FlagLabel { get; }
 
-    public bool HasFlag => FlagLabel is not null && (Chips.Count > 0 || (HasInclude && _includeOn));
+    /// <remarks>
+    /// プロジェクトの条件はいつも出す（ユーザ指示 2026-11-01：札やチェックしだいで出たり消えたりすると、下の欄が縦に揺れる）。
+    /// 対応アバターは今までどおり、選んでから出す
+    /// </remarks>
+    public bool HasFlag => FlagLabel is not null && (IsOpenProjectInclude || Chips.Count > 0);
 
     private readonly Func<SearchModuleContext, bool>? _includeApplies;
 
