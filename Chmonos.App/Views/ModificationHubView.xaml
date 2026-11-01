@@ -205,12 +205,16 @@
                     </Border>
                 </Button>
                 <StackPanel VerticalAlignment="Center">
-                    <Button AutomationProperties.AutomationId="ModificationsMemberLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource HubLink}" ToolTip="{Binding Name}"
-                            Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                            CommandParameter="{Binding}">
-                        <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource Text}"
-                                   TextTrimming="CharacterEllipsis" />
-                    </Button>
+                    <!--
+                        商品名を写せるように、なぞると選べて押すと開く字にする（ユーザ指摘 2026-11-01）。行の高さを揃えるため1行ぶんで切り、全文は吹き出し。
+                        キーボードでは隣の絵のボタンが同じ動きをするので、Tab の止まり先を増やさない
+                    -->
+                    <controls:SelectableLink AutomationProperties.AutomationId="ModificationsMemberLink" AutomationProperties.Name="{Binding Name}"
+                                             Style="{StaticResource SelectableBody}" FontSize="12" Foreground="{DynamicResource Text}" MaxHeight="21" Margin="-2,0,0,0"
+                                             ToolTip="{Binding Name}"
+                                             Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                             CommandParameter="{Binding}"
+                                             controls:SelectableText.Text="{Binding Name}" />
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right" Text="手元にありません" FontSize="10.5" Margin="6,0,0,0"
                                    Foreground="{DynamicResource Warn}"

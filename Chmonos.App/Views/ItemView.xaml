@@ -543,19 +543,15 @@
                                        TextWrapping="Wrap" Margin="0,6,0,0"
                                        Visibility="{Binding HasUserName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 作者名からはアプリ内のショップ画面へ。外部BOOTHには飛ばさない -->
-                            <!-- 押して開け、なぞって選べる（ユーザ判断 2026-11-01）。TextBlock の中のリンクでは字を選べない -->
-                            <RichTextBox Style="{StaticResource SelectableBody}" FontSize="13" Margin="-2,8,0,0">
-                                <FlowDocument PagePadding="0">
-                                    <Paragraph Margin="0">
-                                        <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}" ToolTip="このショップの商品を見る"
-                                                   AutomationProperties.AutomationId="ItemShopLink"
-                                                   AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
-                                                   Foreground="{DynamicResource Accent}">
-                                            <Run Text="{Binding ShopName, Mode=OneWay}" />
-                                        </Hyperlink>
-                                    </Paragraph>
-                                </FlowDocument>
-                            </RichTextBox>
+                            <!-- 押して開け、なぞって選べる（ユーザ判断 2026-11-01）。Hyperlink ではなぞれない。前のリンクと同じく Tab で止まる -->
+                            <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="13" Margin="-2,8,0,0"
+                                                     IsTabStop="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                                     Foreground="{DynamicResource Accent}"
+                                                     Command="{Binding OpenShopCommand}"
+                                                     ToolTip="このショップの商品を見る"
+                                                     AutomationProperties.AutomationId="ItemShopLink"
+                                                     AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
+                                                     controls:SelectableText.Text="{Binding ShopName}" />
 
                             <!-- 観測と入力の区別を隠さない -->
                             <TextBlock Text="{Binding UserShopNotice}" Style="{StaticResource Caption}"

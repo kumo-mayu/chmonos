@@ -46,4 +46,12 @@ public class ItemCopyPathTests
         Assert.False(page.CopyPathCommand.CanExecute(null));
         Assert.False(page.CopyPathCommand.CanExecute(string.Empty));
     });
+
+    [Theory]
+    [InlineData(false, 0, 0, true, true)]
+    [InlineData(true, 0, 0, true, false)]
+    [InlineData(false, 40, 0, true, false)]
+    [InlineData(false, 0, 0, false, false)]
+    public void 字の上を動かさずに押して_選んでいないときだけ開く(bool selected, double moveX, double moveY, bool overText, bool expected)
+        => Assert.Equal(expected, Chmonos.App.Controls.SelectableLink.IsClick(selected, new System.Windows.Vector(moveX, moveY), overText));
 }
