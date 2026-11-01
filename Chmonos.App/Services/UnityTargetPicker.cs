@@ -38,7 +38,7 @@ public static class UnityTargetPicker
     }
 
     /// <summary>複数開いているとき、どれへ送るかを選ばせる。選べなければ null。</summary>
-    private static OpenUnityEditor? Choose(string title, IReadOnlyList<OpenUnityEditor> editors)
+    public static OpenUnityEditor? Choose(string title, IReadOnlyList<OpenUnityEditor> editors)
     {
         // 一覧から選ばせる窓はファイル・unitypackage を選ぶのと共用（ListChoice）
         var picked = ListChoice.Ask(

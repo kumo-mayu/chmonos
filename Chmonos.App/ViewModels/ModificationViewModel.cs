@@ -494,21 +494,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
             // unitypackage を解くのは重い（大きな物は1件0.2秒ほど）ので裏で読む。
             // 共有の部品（lilToon など）を見分けるため、使ったものに入っている商品も含めて全部読む
-            var matches = await Task.Run(() =>
-            {
-                var paths = new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);
-                var done = 0;
-                // 同じ zip の包みは控えを1回だけ読んで配る（前は包みごとに控えを丸ごと読んでいた）
-                var reads = new UnityPackageReads();
-                foreach (var item in items)
-                {
-                    token.ThrowIfCancellationRequested();
-                    paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(reads.ReadAssets).ToList();
-                    progress.Report(++done);
-                }
-
-                return UnityProjectMatcher.Match(project, paths);
-            }, token);
+            var matches = await Task.Run(() => UnityProjectItemScan.Run(project, items, progress, token), token);
 
             // 1枚目の場所はフォルダを見るので、画面のスレッドの外で引く（結果に出る商品だけ）
             var shown = matches.Select(match => match.ItemId).ToHashSet(StringComparer.Ordinal);

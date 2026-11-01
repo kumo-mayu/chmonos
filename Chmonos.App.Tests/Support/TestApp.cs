@@ -51,6 +51,7 @@ internal sealed class TestApp
             // 実マシンに Unity Hub・VCC・ALCOM が入っているかで結果を変えない。要る試験が入れ直す
             DetectUnityTools = () => Tools,
             DiscoverUnityProjects = () => UnityProjects,
+            OpenUnityEditors = () => OpenEditors,
         };
 
         // 幅・高さを書くまでの 0.4 秒を、試験では待たない（変える試験が1件ごとに 0.4 秒延びていた）
@@ -96,6 +97,9 @@ internal sealed class TestApp
 
     /// <summary>Unity Hub・VCC の一覧にあるプロジェクト（作り物）。既定は空。</summary>
     public IReadOnlyList<UnityProjectCandidate> UnityProjects { get; set; } = [];
+
+    /// <summary>開いている Unity（既定は無し。実マシンで Unity が動いているかで結果を変えない）。</summary>
+    public IReadOnlyList<Chmonos.App.Services.OpenUnityEditor> OpenEditors { get; set; } = [];
 
     /// <summary>エクスプローラで選んだ状態で開くはずだった道（開きはしない）。</summary>
     public List<string> Revealed { get; } = [];

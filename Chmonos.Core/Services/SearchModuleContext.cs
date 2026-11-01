@@ -170,4 +170,10 @@ public sealed class SearchModuleContext
     /// アプリの外（API）からは分からないので、既定は待っていない。
     /// </summary>
     public Func<string, bool> IsAwaitingDetection { get; init; } = _ => false;
+
+    /// <summary>
+    /// そのプロジェクトの中に、その商品が入っていると分かっているか（プロジェクトの場所・商品ID）。
+    /// 調べるのは重く待てないので、画面が裏で調べた結果を渡す。API はプロジェクトの中を調べないので、既定は入っていない。
+    /// </summary>
+    public Func<string, string, bool> ProjectContains { get; init; } = (_, _) => false;
 }

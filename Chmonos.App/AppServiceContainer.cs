@@ -223,6 +223,16 @@ public sealed class AppServiceContainer : IDisposable
     /// <summary>Unity Hub・VCC の一覧から Unity のプロジェクトを集める。実マシンの一覧を読むので、試験は差し替える。</summary>
     internal Func<IReadOnlyList<UnityProjectCandidate>> DiscoverUnityProjects { get; set; } = () => UnityProjects.Discover();
 
+    /// <summary>開いている Unity を数える。実マシンのプロセスを見るので、試験は差し替える。</summary>
+    internal Func<IReadOnlyList<Services.OpenUnityEditor>> OpenUnityEditors { get; set; } = Services.UnityEditors.Open;
+
+    /// <summary>Unity が複数開いているとき、どれにするかを選ばせる。窓を出すので、試験は差し替える。</summary>
+    internal Func<string, IReadOnlyList<Services.OpenUnityEditor>, Services.OpenUnityEditor?> ChooseUnityEditor { get; set; } = Services.UnityTargetPicker.Choose;
+
+    /// <summary>プロジェクトの中に入っている商品を調べる（重いので裏で呼ぶ）。試験は作り物の結果に差し替えられる。</summary>
+    internal Func<string, IReadOnlyList<ItemRecord>, IProgress<int>?, CancellationToken, IReadOnlyList<UnityProjectMatch>> ScanUnityProject { get; set; }
+        = Services.UnityProjectItemScan.Run;
+
     /// <summary>ドラッグで変えられる画面の幅。</summary>
     public Services.PaneWidths PaneWidths { get; }
 

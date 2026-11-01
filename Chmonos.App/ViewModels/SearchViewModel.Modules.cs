@@ -40,8 +40,18 @@ public sealed partial class SearchViewModel
             // （?. で呼ぶと、聞き手がいないときに引数の AddModule ごと飛ばされるので、足してから知らせる）
             _moduleMenuEntries[info.Kind] = new SearchModuleMenuEntry(info, kind =>
             {
+                // 候補は足すたびに読み直す（プロジェクトの開け閉めは、この画面の外で変わる）
+                if (kind == SearchModuleKind.UnityProjectContents)
+                {
+                    _unityProjects = null;
+                }
+
                 var added = AddModule(kind);
                 ModuleAdded?.Invoke(added);
+                if (added is ListModule { Kind: SearchModuleKind.UnityProjectContents } contents)
+                {
+                    FillOpenProjectAsync(contents).Forget();
+                }
             });
         }
 
@@ -349,6 +359,7 @@ public sealed partial class SearchViewModel
         FavoriteShops = _favoriteShops,
         UnreadUpdateKinds = UnreadUpdateKinds,
         IsAwaitingDetection = itemId => _main?.IsAwaitingDetection(itemId) == true,
+        ProjectContains = ProjectContains,
     };
 
     /// <summary>種類ごとの照らし方（Core の一覧表。API と同じ物）を、選ぶ条件の形で渡す。選ぶ条件の照らし方は材料を使わない。</summary>
@@ -473,6 +484,7 @@ public sealed partial class SearchViewModel
         SearchModuleKind.Shop => ShopCandidates(),
         SearchModuleKind.Avatar => AvatarCandidates(),
         SearchModuleKind.UnityProject => UnityProjectCandidates(),
+        SearchModuleKind.UnityProjectContents => UnityProjectContentsCandidates(),
         SearchModuleKind.Path => FolderTree.AllFolders(_allItems, _services.Volumes.Current).Select(path => (path, path)),
         _ => [],
     };
@@ -786,6 +798,16 @@ public sealed partial class SearchViewModel
             ListMatches(kind))
         {
             TrimsMiddle = true,
+        },
+
+        // プロジェクトの中に入っている商品（ユーザ判断 2026-11-01）。調べるのは重いので裏で行い、結果はアプリを閉じるまで覚える
+        SearchModuleKind.UnityProjectContents => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
+            "Unityプロジェクトが見つかりません。プロジェクトを一度開くと表示されます。",
+            ListMatches(kind))
+        {
+            TrimsMiddle = true,
+            ReloadCommand = new RelayCommand(ReloadProjectContents),
+            ChipTextOf = ProjectNameOf,
         },
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。

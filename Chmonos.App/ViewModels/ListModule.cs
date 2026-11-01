@@ -69,7 +69,10 @@ public sealed class ListChip : ViewModelBase
     }
 
     /// <summary>乗せたときの文。矛盾しているときは、0件になることを言う（色だけでは何が起きているか分からない）。</summary>
-    public string ToolTipText => _isConflict ? $"{_text}：AND では、ほかの小分類と同時に満たす商品はありません。" : _text;
+    public string ToolTipText => _isConflict ? $"{_text}：AND では、ほかの小分類と同時に満たす商品はありません。" : FullText ?? _text;
+
+    /// <summary>札は短い名前で、吹き出しに全文を出すときの全文（プロジェクトの場所）。</summary>
+    internal string? FullText { get; init; }
 
     /// <summary>
     /// 吹き出しに添える絵（対応アバターのサムネイル。ユーザ判断 2026-10-06・メモ82）。乗せたときに初めて読む——
@@ -360,6 +363,53 @@ public sealed class ListModule : SearchModule
 
     public RelayCommand AddCommand => _add ??= new RelayCommand(parameter => Add(parameter as string));
 
+    private string _statusText = string.Empty;
+
+    /// <summary>札の下に出す状況（プロジェクトの中を調べている間の進み具合・調べられなかった理由）。空なら出さない。</summary>
+    public string StatusText
+    {
+        get => _statusText;
+        internal set
+        {
+            if (SetField(ref _statusText, value))
+            {
+                OnPropertyChanged(nameof(HasStatus));
+            }
+        }
+    }
+
+    public bool HasStatus => _statusText.Length > 0;
+
+    /// <summary>札の結果を取り直すボタン（プロジェクトの中を調べる条件だけ）。調べた結果はアプリを閉じるまで覚えるので、入れ直した後に押す。</summary>
+    public RelayCommand? ReloadCommand { get; init; }
+
+    /// <summary>
+    /// 札の文を候補の文と別にする（鍵 → 札の文。プロジェクトの条件）。候補は同じ名前を見分けるために場所まで出すが、
+    /// 札と要約に場所まで出すと長く、間を省くと名前が読めなくなった（2026-11-01 に撮って確かめた）。全文は吹き出しに出す。
+    /// </summary>
+    public Func<string, string>? ChipTextOf { get; init; }
+
+    public bool HasReload => ReloadCommand is not null && Chips.Count > 0;
+
+    /// <summary>札をこの1つに置き換える（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。</summary>
+    public void ReplaceKeys(string key, string? text)
+    {
+        var known = Chips.Any(chip => chip.Key == key);
+        foreach (var other in Chips.Where(chip => chip.Key != key).ToList())
+        {
+            Chips.Remove(other);
+        }
+
+        if (known)
+        {
+            RefreshSuggestions();
+            NotifyChanged();
+            return;
+        }
+
+        AddKey(key, text: text);
+    }
+
     /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>
     public void SetSuggestions(IEnumerable<(string Text, string Key)> entries)
     {
@@ -378,7 +428,7 @@ public sealed class ListModule : SearchModule
 
         foreach (var chip in Chips)
         {
-            if (_textOfKey.TryGetValue(chip.Key, out var text))
+            if (ChipTextOf is null && _textOfKey.TryGetValue(chip.Key, out var text))
             {
                 chip.Text = text;
             }
@@ -413,8 +463,10 @@ public sealed class ListModule : SearchModule
             return;
         }
 
-        var chip = new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
-        chip.TrimsMiddle = TrimsMiddle;
+        var chip = ChipTextOf is { } chipText
+            ? new ListChip(key, chipText(key)) { FullText = key }
+            : new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
+        chip.TrimsMiddle = TrimsMiddle && ChipTextOf is null;
         if (IconSelector is { } icon)
         {
             // 候補の頭に出す絵と同じ物を、チップの吹き出しにも添える（対応アバター。メモ82）。候補の文字から引くので、乗せた時点の文字で引く
@@ -584,5 +636,6 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(MatchModeTip));
         OnPropertyChanged(nameof(HasFlag));
+        OnPropertyChanged(nameof(HasReload));
     }
 }

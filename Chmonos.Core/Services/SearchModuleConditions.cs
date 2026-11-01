@@ -190,6 +190,9 @@ public static class SearchModuleConditions
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new(true, (item, context, key, _) => context.Modifications.InProject(key, item.Id)),
 
+        // プロジェクトの中に実際に入っている商品（ユーザ判断 2026-11-01）。調べるのは重いので、画面が裏で調べた結果を材料から引く
+        SearchModuleKind.UnityProjectContents => new(true, (item, context, key, _) => context.ProjectContains(key, item.Id)),
+
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。フォルダは比べる形に1回だけ畳む
         SearchModuleKind.Path => new(true, (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
             MatchKey: FolderTree.UnderPrefix),

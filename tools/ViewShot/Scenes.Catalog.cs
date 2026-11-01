@@ -58,7 +58,7 @@ internal static partial class Scenes
     /// （値を入れた姿は改変の画面の場面で見る）。編集状況は値を入れた姿の場面が別にある（search-edit-status）
     /// </summary>
     private static readonly HashSet<SearchModuleKind> NoSetState =
-        [SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.Unedited];
+        [SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.UnityProjectContents, SearchModuleKind.Unedited];
 
     /// <summary>
     /// 部品の型ごとに、見た目が変わる値を1つ入れる（札が積まれる・範囲が埋まる・件数が変わる）。

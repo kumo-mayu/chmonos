@@ -43,4 +43,10 @@ public enum SearchModuleKind
 
     /// <summary>要確認に未読の「商品の更新」の知らせがあるか（ユーザ指示 2026-10-02。カードの札「更新あり」と同じ数え方）。画面の名前は「更新通知あり」（2026-10-06）。</summary>
     Updated,
+
+    /// <summary>
+    /// 選んだ Unity プロジェクトの中に実際に入っているか（画面の名前は「Unityプロジェクト」。ユーザ判断 2026-11-01）。
+    /// <see cref="UnityProject"/> は「紐付けた改変に記録した商品」で、中を見ない。保存した条件の意味を変えないよう、種類を分ける
+    /// </summary>
+    UnityProjectContents,
 }

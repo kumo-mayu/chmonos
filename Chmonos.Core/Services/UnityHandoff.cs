@@ -121,6 +121,21 @@ public sealed class UnityPackageReads
         }
     }
 
+    /// <summary>
+    /// 手元から無くなった zip の中身を、控えから読む。Unity に入れた後で zip を動かす・消すのは普通の使い方で、
+    /// 「プロジェクトに入っているか」は zip が今も在るかと関係が無い（2026-11-01 に実機で、全部入っている商品が一覧から漏れた）。
+    /// 控えはハッシュで決まるので、zip が無くても読める。zip が在る物は <see cref="UnityHandoff.PlacesOf(Models.LocalFileRecord)"/> の道で読むので空を返す。
+    /// </summary>
+    public IReadOnlyList<UnityPackageAsset> StoredIfGone(Models.LocalFileRecord file) => StoredIfGone(file, File.Exists);
+
+    /// <param name="exists">ファイルが在るか（試験ではディスクを見ない物に差し替える）。</param>
+    internal IReadOnlyList<UnityPackageAsset> StoredIfGone(Models.LocalFileRecord file, Func<string, bool> exists)
+        => file.Paths.Any(exists)
+            ? []
+            : UnityHandoff.PackageEntriesIn(file)
+                .SelectMany(entry => Stored(file.Hash, entry) ?? [])
+                .ToList();
+
     internal IReadOnlyList<UnityPackageAsset> ReadZip(UnityPackageEntry package) => _readZip(package);
 
     /// <summary>zip から読んだ物を控えに足し、手元の写しにも入れる（同じ操作でもう一度引いても zip を解かない）。</summary>

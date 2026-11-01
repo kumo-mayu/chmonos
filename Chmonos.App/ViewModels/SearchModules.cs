@@ -163,7 +163,9 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したか、対応アバターを確認したかで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターだけを選ぶと、そのアバターの改変のどれかに使った商品です。", AllowsMany: true),
-        new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
+        // 名前は仮。「改変」の条件の中へ移す形を決めるまで（ユーザが検討中 2026-11-01）、中を見る新しい条件と見分けるために「改変の」を付ける
+        new(SearchModuleKind.UnityProject, "改変のUnityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
+        new(SearchModuleKind.UnityProjectContents, "Unityプロジェクト", "プロジェクトに入っている商品で絞ります。unitypackageで入れた物が対象です。", AllowsMany: true),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "Unity送信・商品閲覧・取り込みをした日で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
@@ -199,7 +201,7 @@ public static class SearchModuleCatalog
         [
             [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Favorite, SearchModuleKind.Price, SearchModuleKind.Avatar, SearchModuleKind.Hidden, SearchModuleKind.Adult],
             [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.NotOnBooth],
-            [SearchModuleKind.Modification, SearchModuleKind.Recent, SearchModuleKind.UnityProject],
+            [SearchModuleKind.Modification, SearchModuleKind.Recent, SearchModuleKind.UnityProject, SearchModuleKind.UnityProjectContents],
             [SearchModuleKind.AcquiredAt, SearchModuleKind.PublishedAt],
             [SearchModuleKind.Unedited],
         ]),
@@ -217,7 +219,7 @@ public static class SearchModuleCatalog
         new(Slider, [[SearchModuleKind.Price, SearchModuleKind.WishList, SearchModuleKind.Attribute, SearchModuleKind.Recent]]),
 
         // 広い → 狭い
-        new(Usage, [[SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject]]),
+        new(Usage, [[SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.UnityProjectContents]]),
     ];
 
     public static SearchModuleInfo Of(SearchModuleKind kind) => All.First(entry => entry.Kind == kind);

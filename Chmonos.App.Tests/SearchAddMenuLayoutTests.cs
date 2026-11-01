@@ -38,7 +38,7 @@ public class SearchAddMenuLayoutTests
             [
                 [K.UserTag, K.Attribute, K.Favorite, K.Price, K.Avatar, K.Hidden, K.Adult],
                 [K.Owned, K.Gift, K.NotOnBooth],
-                [K.Modification, K.Recent, K.UnityProject],
+                [K.Modification, K.Recent, K.UnityProject, K.UnityProjectContents],
                 [K.AcquiredAt, K.PublishedAt],
                 [K.Unedited],
             ],
@@ -58,7 +58,7 @@ public class SearchAddMenuLayoutTests
     {
         Assert.Equal([[K.PublishedAt, K.AcquiredAt]], GroupsOf(SearchModuleCatalog.Calendar));
         Assert.Equal([[K.Price, K.WishList, K.Attribute, K.Recent]], GroupsOf(SearchModuleCatalog.Slider));
-        Assert.Equal([[K.Recent, K.Modification, K.UnityProject]], GroupsOf(SearchModuleCatalog.Usage));
+        Assert.Equal([[K.Recent, K.Modification, K.UnityProject, K.UnityProjectContents]], GroupsOf(SearchModuleCatalog.Usage));
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class SearchAddMenuLayoutTests
             headings["BOOTHの情報"]);
         Assert.Equal(
             ["ユーザータグ", "属性", "お気に入り", "価格", "対応アバター", "非表示", "R-18", "―", "所持", "ギフト", "BOOTHに無い商品", "―",
-                "改変", "最近", "Unityプロジェクト", "―", "入手日", "公開日", "―", "編集状況"],
+                "改変", "最近", "改変のUnityプロジェクト", "Unityプロジェクト", "―", "入手日", "公開日", "―", "編集状況"],
             headings["商品の情報"]);
         Assert.DoesNotContain(headings.Values.SelectMany(lines => lines), line => line == "対応アバターの確認" || line == "販売終了");
     });
