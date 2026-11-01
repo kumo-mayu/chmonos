@@ -65,6 +65,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
         CopyIdCommand = new RelayCommand(CopyId);
+        CopyPathCommand = new RelayCommand(parameter => CopyPath(parameter as string), parameter => parameter is string { Length: > 0 });
         PreviousImageCommand = new RelayCommand(() => GoToImage(-1), () => CanGoPreviousImage);
         NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
         // 商品ページの中でその場で直す操作は、取り込みの③が済むまで塞ぐ（U8・U10・ユーザ判断）。
@@ -325,6 +326,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     /// <summary>この商品のIDを写す。統合先の指定に使う。</summary>
     public RelayCommand CopyIdCommand { get; }
+
+    /// <summary>ファイルやフォルダの場所を写す（場所は吹き出しにしか出ず、字を選べないため）。</summary>
+    public RelayCommand CopyPathCommand { get; }
 
     // ギャラリー。閲覧は矢印、操作は右クリックのメニュー
     public RelayCommand PreviousImageCommand { get; }
@@ -1428,6 +1432,14 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// **IDそのものだけを写す。**画面には「ID 12345」と出ているが、
     /// その飾りごと写しても貼り先で使えない。
     /// </summary>
+    private void CopyPath(string? path)
+    {
+        // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+        UnityRecordNotice = path is not null && _services.CopyText(path)
+            ? "パスをコピーしました。"
+            : "コピーできませんでした。もう一度押してください。";
+    }
+
     private void CopyId()
     {
         // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る

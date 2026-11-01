@@ -2,6 +2,5 @@
 
 ## 次にやること
 
-1. ユーザ判断待ち：`SixLabors.ImageSharp` 3.1.12 に、高と中の脆弱性の知らせが出ている（GHSA-j3p4-wp97-rph4・GHSA-gwg2-r3hj-4w44。Core が使い、配る物に入る）。版を上げるかを決め、上げるなら画像の読み書きの試験と起動で確かめる
-2. psd・tga を実際の Unity で選べるかを確かめる（png・jpg は確かめた。実物の psd・tga を用意する必要がある）
-3. テキストを選択してコピーできる範囲を増やすか考える（ユーザ 2026-11-01：予定に入れるだけ）。今選べるのは商品ページの説明文の本文（節ごと）・メモ、編集画面の説明文、知らせの窓の本文、設定の読み取り専用の欄1つだけ。ほかの字は WPF の TextBlock で選べない（Views と Controls に約1,270個）。部品は `Controls/SelectableText`
+1. psd・tga を実際の Unity で選べるかを確かめる（png・jpg は確かめた。実物の psd・tga を用意する必要がある）
+2. `SixLabors.ImageSharp` は 3.1.12 のまま（ユーザ判断 2026-11-01）。知らせ6件（GHSA-gwg2-r3hj-4w44・wmxv-xphr-5c9g・j3p4-wp97-rph4・j9gm-c75j-xc9q・jjfr-hcj7-qf5w・v76p-62qx-wwq2）は、TIFF・ICC・ヒストグラム平坦化のどれかで、今の作りでは通らない。3.2.0・4.x は Release で組むのにライセンスキーが要る（3.2.0 で実際に止まった）。新しい知らせが JPEG・PNG・GIF・WebP・BMP の読み取りに当たるなら見直す

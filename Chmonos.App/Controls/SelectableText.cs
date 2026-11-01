@@ -103,6 +103,9 @@ public static class SelectableText
         box.PreviewMouseWheel += ForwardMouseWheel;
 
         box.Document = Build(GetText(box), GetNavigator(box), GetMarkedLines(box));
+
+        // 行の高さは本文の字の大きさで決め打ちなので、商品名のような大きな字では行が詰まる。本文（12.5pt）では今までの 21 のまま
+        box.Document.LineHeight = Math.Max(box.Document.LineHeight, box.FontSize * 1.4);
     }
 
     private static void ForwardMouseWheel(object sender, MouseWheelEventArgs args)

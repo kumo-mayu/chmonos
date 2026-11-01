@@ -527,7 +527,10 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </controls:PressableBorder>
-                                <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
+                                <!-- 商品名を写せるように選べる字にする（ユーザ判断 2026-11-01）。ページ内検索は RichTextBox の字も探す -->
+                                <RichTextBox Style="{StaticResource SelectableBody}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}"
+                                             Margin="-2,0,0,0" AutomationProperties.AutomationId="ItemName" AutomationProperties.Name="{Binding Name}"
+                                             controls:SelectableText.Text="{Binding Name}" />
                             </DockPanel>
                             </Border>
                             </StackPanel>
@@ -540,15 +543,19 @@
                                        TextWrapping="Wrap" Margin="0,6,0,0"
                                        Visibility="{Binding HasUserName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 作者名からはアプリ内のショップ画面へ。外部BOOTHには飛ばさない -->
-                            <TextBlock Margin="0,8,0,0" ToolTip="このショップの商品を見る">
-                                <!-- 中身が文字の部品（TextBlock）なので、名前を付けないと空白1文字で読まれる -->
-                                <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}"
-                                           AutomationProperties.AutomationId="ItemShopLink"
-                                           AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
-                                           Foreground="{DynamicResource Accent}">
-                                    <TextBlock Text="{Binding ShopName}" FontSize="13" />
-                                </Hyperlink>
-                            </TextBlock>
+                            <!-- 押して開け、なぞって選べる（ユーザ判断 2026-11-01）。TextBlock の中のリンクでは字を選べない -->
+                            <RichTextBox Style="{StaticResource SelectableBody}" FontSize="13" Margin="-2,8,0,0">
+                                <FlowDocument PagePadding="0">
+                                    <Paragraph Margin="0">
+                                        <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}" ToolTip="このショップの商品を見る"
+                                                   AutomationProperties.AutomationId="ItemShopLink"
+                                                   AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
+                                                   Foreground="{DynamicResource Accent}">
+                                            <Run Text="{Binding ShopName, Mode=OneWay}" />
+                                        </Hyperlink>
+                                    </Paragraph>
+                                </FlowDocument>
+                            </RichTextBox>
 
                             <!-- 観測と入力の区別を隠さない -->
                             <TextBlock Text="{Binding UserShopNotice}" Style="{StaticResource Caption}"

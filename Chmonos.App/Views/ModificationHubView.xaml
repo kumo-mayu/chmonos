@@ -679,7 +679,8 @@
                             <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                         </Border>
                         <StackPanel>
-                            <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+                            <RichTextBox Style="{StaticResource SelectableBody}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Text}"
+                                         AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
                             <TextBlock Text="{Binding ShopText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
                                        Visibility="{Binding HasShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <Border Style="{StaticResource HubBadge}" Background="{DynamicResource WarnSoft}"

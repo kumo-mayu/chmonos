@@ -260,6 +260,9 @@
                                                                     <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding OpenPath}"
                                                                               AutomationProperties.AutomationId="ItemFolderOpenMenu.Explorer"
                                                                               Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                    <MenuItem Header="パスをコピー" CommandParameter="{Binding OpenPath}"
+                                                                              AutomationProperties.AutomationId="ItemFolderOpenMenu.CopyPath"
+                                                                              Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 </ContextMenu>
                                                             </Button.ContextMenu>
                                                         </Button>
@@ -433,6 +436,10 @@
                                                                           AutomationProperties.AutomationId="ItemFileOpenMenu.Explorer"
                                                                           ToolTip="このファイルのある場所を開きます。zipは展開せずに中を開きます。"
                                                                           Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                <!-- 場所は吹き出しにしか出ず、名前は押すと開くので、写す道をここに置く（ユーザ判断 2026-11-01） -->
+                                                                <MenuItem Header="パスをコピー" CommandParameter="{Binding FirstPath}"
+                                                                          AutomationProperties.AutomationId="ItemFileOpenMenu.CopyPath"
+                                                                          Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 <!--
                                                                     unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れにくい（#56）。
                                                                     一時フォルダに展開して開き、アプリを閉じると消す。「一時的に」は、元の zip の横に広げると読まれないように
@@ -504,6 +511,12 @@
                                                                             AutomationProperties.AutomationId="ItemFileOtherPathOpen"
                                                                             AutomationProperties.Name="{Binding StringFormat={}{0}をエクスプローラで開く}"
                                                                             Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                    <Button Content="パスをコピー" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                                            AutomationProperties.AutomationId="ItemFileOtherPathCopy"
+                                                                            AutomationProperties.Name="{Binding StringFormat={}{0}のパスをコピー}"
+                                                                            Command="{Binding DataContext.CopyPathCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding}" />
                                                                 </StackPanel>
