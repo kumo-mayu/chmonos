@@ -124,8 +124,7 @@
                                                                     -->
                                                                     <StackPanel VerticalAlignment="Center">
                                                                         <StackPanel Orientation="Horizontal">
-                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5" MaxWidth="560"
-                                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="11.5" Foreground="{DynamicResource Text}" MaxWidth="560" VerticalAlignment="Center" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
                                                                             <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                                                     VerticalAlignment="Center" Click="OnMenuButtonClick"
                                                                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -156,11 +155,7 @@
                                                                             Unityのどこに入るか。**取り込んだ後に何という名前で
                                                                             入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
                                                                         -->
-                                                                        <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
-                                                                                   FontSize="10.5" Foreground="{DynamicResource TextMuted}"
-                                                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
-                                                                                   ToolTip="{Binding DestinationText}"
-                                                                                   Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                        <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="10.5" Foreground="{DynamicResource TextMuted}" Margin="-2,2,0,0" controls:SelectableText.LineHeight="15" ToolTip="{Binding DestinationText}" AutomationProperties.Name="{Binding DestinationText}" controls:SelectableText.Text="{Binding DestinationText}" Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     </StackPanel>
                                                                 </Border>
                                                             </DataTemplate>

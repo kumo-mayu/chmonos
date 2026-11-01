@@ -18,6 +18,8 @@ namespace Chmonos.App.Controls;
 /// </summary>
 public sealed class PathLine : TextBlock
 {
+    internal const string CopyPathText = "パスをコピー";
+
     public static readonly DependencyProperty PathProperty = DependencyProperty.Register(
         nameof(Path), typeof(string), typeof(PathLine), new PropertyMetadata(string.Empty, (target, _) => ((PathLine)target).Fit()));
 
@@ -31,6 +33,12 @@ public sealed class PathLine : TextBlock
     public PathLine()
     {
         TextWrapping = TextWrapping.NoWrap;
+
+        // 間を省くので字をなぞって写せない。全文を写す道を右クリックに置く（ユーザ判断 2026-11-01）
+        var copy = new MenuItem { Header = CopyPathText };
+        AutomationProperties.SetAutomationId(copy, "PathLineCopy");
+        copy.Click += (_, _) => Services.ClipboardText.TrySet(Path);
+        ContextMenu = new ContextMenu { Items = { copy } };
         SizeChanged += (_, args) =>
         {
             if (args.WidthChanged)

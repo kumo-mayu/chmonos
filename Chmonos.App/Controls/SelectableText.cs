@@ -38,6 +38,25 @@ public static class SelectableText
     /// <summary>URLの末尾に紛れ込みやすい記号。リンクからは外して本文へ戻す。</summary>
     private static readonly char[] TrailingNoise = ".,;:!?。、）)】」』>".ToCharArray();
 
+    /// <summary>
+    /// 字の幅に合わせて部品の幅を決めるか。RichTextBox は横に並ぶ部品の中（幅の決まらない所）では字1つぶんまで縮むので、
+    /// ボタンと並ぶ短い名前（アバターの名前・バリエーション）では幅を決めてやる。
+    /// </summary>
+    public static readonly DependencyProperty FitWidthProperty =
+        DependencyProperty.RegisterAttached("FitWidth", typeof(bool), typeof(SelectableText), new PropertyMetadata(false, OnTextChanged));
+
+    /// <summary>行の高さ。小さな字の行で本文（21）の高さのままだと、行が間延びして一覧の高さが変わる。無ければ字の大きさから決める。</summary>
+    public static readonly DependencyProperty LineHeightProperty =
+        DependencyProperty.RegisterAttached("LineHeight", typeof(double), typeof(SelectableText), new PropertyMetadata(double.NaN, OnTextChanged));
+
+    public static bool GetFitWidth(DependencyObject element) => (bool)element.GetValue(FitWidthProperty);
+
+    public static void SetFitWidth(DependencyObject element, bool value) => element.SetValue(FitWidthProperty, value);
+
+    public static double GetLineHeight(DependencyObject element) => (double)element.GetValue(LineHeightProperty);
+
+    public static void SetLineHeight(DependencyObject element, double value) => element.SetValue(LineHeightProperty, value);
+
     public static readonly DependencyProperty TextProperty =
         DependencyProperty.RegisterAttached(
             "Text",
@@ -105,7 +124,23 @@ public static class SelectableText
         box.Document = Build(GetText(box), GetNavigator(box), GetMarkedLines(box));
 
         // 行の高さは本文の字の大きさで決め打ちなので、商品名のような大きな字では行が詰まる。本文（12.5pt）では今までの 21 のまま
-        box.Document.LineHeight = Math.Max(box.Document.LineHeight, box.FontSize * 1.4);
+        var lineHeight = GetLineHeight(box);
+        box.Document.LineHeight = double.IsNaN(lineHeight) ? Math.Max(box.Document.LineHeight, box.FontSize * 1.4) : lineHeight;
+
+        if (GetFitWidth(box))
+        {
+            var text = new FormattedText(
+                GetText(box) ?? string.Empty,
+                System.Globalization.CultureInfo.CurrentCulture,
+                box.FlowDirection,
+                new Typeface(box.FontFamily, box.FontStyle, box.FontWeight, box.FontStretch),
+                box.FontSize,
+                Brushes.Black,
+                VisualTreeHelper.GetDpi(box).PixelsPerDip);
+
+            // 内側の余白の分（押しつぶされて折り返さないように）
+            box.Width = Math.Ceiling(text.WidthIncludingTrailingWhitespace) + 10;
+        }
     }
 
     private static void ForwardMouseWheel(object sender, MouseWheelEventArgs args)

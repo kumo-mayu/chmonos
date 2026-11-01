@@ -446,7 +446,7 @@ public sealed class ListModule : SearchModule
         AddKey(key);
     }
 
-    /// <summary>札を全部外す（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。</summary>
+    /// <summary>札を全部外す（「開いているUnityで絞る」）。前の札を残すと、別のプロジェクトの商品まで混ざる。</summary>
     public void ClearKeys()
     {
         Chips.Clear();

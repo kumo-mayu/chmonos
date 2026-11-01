@@ -486,8 +486,7 @@
                             <Border BorderBrush="{DynamicResource Bad}" Background="{DynamicResource RemovedBand}" BorderThickness="3,0,0,0"
                                     Margin="-12,0,0,4" Padding="9,2" ToolTip="前の商品名です。"
                                     Visibility="{Binding HasPreviousName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <TextBlock Text="{Binding PreviousName}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextBody}"
-                                           AutomationProperties.HelpText="前の商品名" />
+                                <RichTextBox Style="{StaticResource SelectableBody}" FontSize="14" Foreground="{DynamicResource TextBody}" AutomationProperties.Name="{Binding PreviousName}" AutomationProperties.HelpText="前の商品名" controls:SelectableText.Text="{Binding PreviousName}" />
                             </Border>
                             <Border Tag="{Binding NameChange}">
                                 <Border.Style>
@@ -726,7 +725,7 @@
                                                            ToolTip="BOOTH価格です。"
                                                            Visibility="{Binding BoothPrice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
+                                                    <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="13" Foreground="{DynamicResource Text}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
                                                             Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

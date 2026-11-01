@@ -381,7 +381,7 @@
                                       Command="{Binding ClearFiltersCommand}" />
                             <Separator />
                             <!-- 条件を足して選ぶ手間なしに見る近道。行に置くと邪魔なのでここへ（ユーザ判断 2026-11-01） -->
-                            <MenuItem Header="開いているUnityの中身を表示" AutomationProperties.Name="開いているUnityの中身を表示"
+                            <MenuItem Header="開いているUnityで絞る" AutomationProperties.Name="開いているUnityで絞る"
                                       AutomationProperties.AutomationId="SearchFilterMenu.ShowOpenUnity"
                                       Command="{Binding ShowOpenUnityContentsCommand}" />
                             <Separator />

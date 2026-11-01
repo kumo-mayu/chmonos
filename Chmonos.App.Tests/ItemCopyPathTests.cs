@@ -47,6 +47,16 @@ public class ItemCopyPathTests
         Assert.False(page.CopyPathCommand.CanExecute(string.Empty));
     });
 
+    [Fact]
+    public Task 省いて出すパスは_右クリックで全文を写せる() => TestApp.Run(_ =>
+    {
+        var line = new Chmonos.App.Controls.PathLine { Path = @"D:\作り物\とても長いパス" };
+
+        var item = Assert.IsType<System.Windows.Controls.MenuItem>(Assert.Single(line.ContextMenu!.Items.Cast<object>()));
+        Assert.Equal("パスをコピー", item.Header);
+        return Task.CompletedTask;
+    });
+
     [Theory]
     [InlineData(false, 0, 0, true, true)]
     [InlineData(true, 0, 0, true, false)]

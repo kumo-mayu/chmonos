@@ -419,7 +419,7 @@
                                                             HorizontalAlignment="Left" Command="{Binding OpenItemCommand}"
                                                             AutomationProperties.AutomationId="ImportMissingResultItem"
                                                             ToolTip="商品ページを開きます。" />
-                                                    <TextBlock Text="{Binding FileName}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,3,0,0" />
+                                                    <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="-2,3,0,0" MaxHeight="17" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding FileName}" controls:SelectableText.Text="{Binding FileName}" />
                                                     <DockPanel Margin="0,2,0,0" MinHeight="16">
                                                         <TextBlock DockPanel.Dock="Left" Text="{Binding PlaceLabel}" Style="{StaticResource Caption}" TextWrapping="NoWrap" />
                                                         <!-- 場所はコードの書体（区切りが「」に見え、エクスプローラやほかの画面の場所と同じ見え方。ユーザ判断 2026-10-06） -->
@@ -477,7 +477,7 @@
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" TextWrapping="Wrap" />
+                                                                <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="12" Foreground="{DynamicResource TextMuted}" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding Path}" controls:SelectableText.Text="{Binding Path}" />
                                                                 <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0">
                                                                     <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding CountText, Mode=OneWay}" />
                                                                 </TextBlock>
@@ -686,8 +686,7 @@
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
                         Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                         Visibility="{Binding HasError, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource DangerText}" TextWrapping="Wrap"
-                               AutomationProperties.AutomationId="ImportErrorText" />
+                    <RichTextBox Style="{StaticResource SelectableBody}" FontSize="13" Foreground="{DynamicResource DangerText}" AutomationProperties.AutomationId="ImportErrorText" AutomationProperties.Name="{Binding ErrorText}" controls:SelectableText.Text="{Binding ErrorText}" />
                 </Border>
 
                 <!-- 結果 -->

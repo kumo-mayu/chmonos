@@ -155,10 +155,9 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </Button>
-                            <TextBlock Text="{Binding Name}" FontSize="21" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="21" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
                         </StackPanel>
-                        <TextBlock Text="{Binding DomainText}" Style="{StaticResource Mono}" FontSize="12"
-                                   Foreground="{DynamicResource TextFaint}" Margin="0,5,0,0" />
+                        <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="12" Foreground="{DynamicResource TextFaint}" Margin="-2,5,0,0" controls:SelectableText.FitWidth="True" HorizontalAlignment="Left" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding DomainText}" controls:SelectableText.Text="{Binding DomainText}" />
                     </StackPanel>
                 </StackPanel>
 

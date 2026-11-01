@@ -22,12 +22,22 @@ public sealed class SelectableLink : RichTextBox
     public static readonly DependencyProperty CommandParameterProperty =
         DependencyProperty.Register(nameof(CommandParameter), typeof(object), typeof(SelectableLink));
 
+    /// <summary>字の無い所を押しても開くか（行全体を押して開く所。通知の行）。</summary>
+    public static readonly DependencyProperty OpensOnBlankProperty =
+        DependencyProperty.Register(nameof(OpensOnBlank), typeof(bool), typeof(SelectableLink));
+
     private Point? _pressedAt;
 
     public SelectableLink()
     {
         // RichTextBox は押下を自分で受けて「済んだ」にするので、済んだ物も受ける
         AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(OnReleased), handledEventsToo: true);
+    }
+
+    public bool OpensOnBlank
+    {
+        get => (bool)GetValue(OpensOnBlankProperty);
+        set => SetValue(OpensOnBlankProperty, value);
     }
 
     public ICommand? Command
@@ -65,7 +75,7 @@ public sealed class SelectableLink : RichTextBox
 
         _pressedAt = null;
         var point = e.GetPosition(this);
-        if (IsClick(!Selection.IsEmpty, point - pressedAt, GetPositionFromPoint(point, snapToText: false) is not null))
+        if (IsClick(!Selection.IsEmpty, point - pressedAt, OpensOnBlank || GetPositionFromPoint(point, snapToText: false) is not null))
         {
             Open();
         }

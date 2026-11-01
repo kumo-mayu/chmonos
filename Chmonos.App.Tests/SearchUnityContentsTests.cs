@@ -9,7 +9,7 @@ using Xunit;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 条件「Unityプロジェクト」（プロジェクトの中に入っている商品）と「開いているUnityの中身を表示」。
+/// 条件「Unityプロジェクト」（プロジェクトの中に入っている商品）と「開いているUnityで絞る」。
 /// 調べる所は差し替える（実際の照らし方は <c>UnityProjectMatcherTests</c>）。作り物の商品だけを使う。
 /// </summary>
 public class SearchUnityContentsTests
