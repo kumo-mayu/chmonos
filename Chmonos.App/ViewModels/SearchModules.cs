@@ -17,7 +17,7 @@ namespace Chmonos.App.ViewModels;
 /// 範囲（スキ数・価格）と日付（公開日・入手日）だけ。1つの範囲で2つの帯は指せないので、AND でつなぐと2つ目を置く意味が無い。
 /// 除くを付けた物は和集合に入れず、除かない物の和集合からそれぞれ引く（<see cref="SearchFilterPass"/>）。ほかの種類との間は今までどおり AND。
 /// </param>
-public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false, bool OrSameKind = false, string? MenuLabel = null);
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false, bool OrSameKind = false);
 
 /// <summary>
 /// 条件の並びの決まり（純粋な関数・試験あり）。足す位置と「同じ種類の条件を隣に並べる」（ユーザ判断 2026-10-01・案の §5）。
@@ -166,8 +166,9 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したか、対応アバターを確認したかで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Modification, "アバター・改変", "改変に使った商品で絞ります。アバターだけを選ぶと、そのアバターの改変のどれかに使った商品です。", AllowsMany: true),
-        // メニューでは見出し「改変登録」の下なので短く出す。条件の見出しと要約には見出しが無いので、中を見る条件と見分けられる名前にする（ユーザ判断 2026-11-01）
-        new(SearchModuleKind.UnityProject, "改変登録のUnityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true, MenuLabel: "Unityプロジェクト"),
+        // 中を見る「Unityプロジェクト」と見分けられる短い名前（ユーザ判断 2026-11-01。前の「改変登録のUnityプロジェクト」は条件の見出しに長かった）。
+        // 種類の名前（UnityProject）は保存した状態に書くので変えない
+        new(SearchModuleKind.UnityProject, "改変プロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
         new(SearchModuleKind.UnityProjectContents, "Unityプロジェクト", "プロジェクトに入っている商品で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "Unity送信・商品閲覧・取り込みをした日で絞ります。"),
@@ -629,7 +630,7 @@ public sealed class SearchModuleMenuEntry : ViewModelBase
     public SearchModuleMenuEntry(SearchModuleInfo info, Action<SearchModuleKind> add)
     {
         Kind = info.Kind;
-        Label = info.MenuLabel ?? info.Label;
+        Label = info.Label;
         Hint = info.Hint;
         AddCommand = new RelayCommand(() => add(Kind), () => IsAvailable);
     }

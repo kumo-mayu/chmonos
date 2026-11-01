@@ -323,7 +323,6 @@ public sealed class ListModule : SearchModule
             if (SetField(ref _includeOn, value))
             {
                 OnPropertyChanged(nameof(HasFlag));
-                OnPropertyChanged(nameof(HasReload));
                 NotifyChanged();
             }
         }
@@ -403,7 +402,45 @@ public sealed class ListModule : SearchModule
     /// </summary>
     public Func<string, string>? ChipTextOf { get; init; }
 
-    public bool HasReload => ReloadCommand is not null && (Chips.Count > 0 || _includeOn);
+    public bool HasReload => ReloadCommand is not null;
+
+    /// <summary>今開いているプロジェクトのうち、まだ札に入っていない物（押すと札に入る。ユーザ指示 2026-11-01）。</summary>
+    public ObservableCollection<OpenProjectRow> OpenProjectRows { get; } = [];
+
+    public bool HasOpenProjectRows => OpenProjectRows.Count > 0;
+
+    /// <summary>並びが変わったときだけ作り直す（絞り込みのたびに呼ばれ、作り直すと押している最中のボタンが消える）。</summary>
+    internal void SetOpenProjects(IReadOnlyList<string> keys)
+    {
+        if (keys.SequenceEqual(OpenProjectRows.Select(row => row.Key), StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        OpenProjectRows.Clear();
+        foreach (var key in keys)
+        {
+            OpenProjectRows.Add(new OpenProjectRow(key, ChipTextOf?.Invoke(key) ?? key, new RelayCommand(() => PickOpenProject(key))));
+        }
+
+        OnPropertyChanged(nameof(HasOpenProjectRows));
+    }
+
+    /// <summary>
+    /// 押したプロジェクトを札にする。「今開いているプロジェクト」は切る——入れたままだと開いている全部が対象のままで、
+    /// 複数開いているときに押しても絞られない（押した効き目が見えない）。
+    /// </summary>
+    private void PickOpenProject(string key)
+    {
+        if (_includeOn)
+        {
+            _includeOn = false;
+            OnPropertyChanged(nameof(IncludeOn));
+            OnPropertyChanged(nameof(HasFlag));
+        }
+
+        AddKey(key);
+    }
 
     /// <summary>
     /// 札をこの1つだけにする。鍵が null なら札を全部外す（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。
@@ -630,7 +667,6 @@ public sealed class ListModule : SearchModule
         _includeOn = HasInclude && (IsOpenProjectInclude ? state.IncludeOpenProject : state.IncludeFavorites);
         OnPropertyChanged(nameof(IncludeOn));
         OnPropertyChanged(nameof(HasFlag));
-        OnPropertyChanged(nameof(HasReload));
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(ShowMatched));
@@ -656,6 +692,10 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(MatchModeTip));
         OnPropertyChanged(nameof(HasFlag));
-        OnPropertyChanged(nameof(HasReload));
     }
 }
+
+/// <summary>開いているプロジェクトの行。押すと条件の札に入る。</summary>
+/// <param name="Key">プロジェクトの場所（吹き出しに出す）。</param>
+/// <param name="Name">プロジェクトの名前。</param>
+public sealed record OpenProjectRow(string Key, string Name, RelayCommand AddCommand);

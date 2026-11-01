@@ -127,6 +127,46 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
+    public Task 開いているプロジェクトが並び_押すと札に入って一覧から消える() => TestApp.Run(async app =>
+    {
+        var first = NewProject(app, "projA");
+        var second = NewProject(app, "projB");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002");
+        app.Services.ScanUnityProject = (project, _, _, _) => Packages(project == UnityProjectPath.Normalize(first) ? "9900001" : "9900002");
+        app.OpenEditors = [new OpenUnityEditor(1, "projA", first), new OpenUnityEditor(2, "projB", second)];
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+
+        await UiThread.Until(() => module.OpenProjectRows.Count == 2, "2つ並ぶ");
+        await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "開いている全部が対象");
+        Assert.Equal(["projA", "projB"], module.OpenProjectRows.Select(row => row.Name));
+
+        module.OpenProjectRows[0].AddCommand.Execute(null);
+
+        // 押した物だけに絞られる（入れたままだと開いている全部が対象で、押した効き目が見えない）
+        await UiThread.Until(() => Shown(search) is ["9900001"], "押した物だけ");
+        Assert.False(module.IncludeOn);
+        Assert.Equal("projA", module.Chips.Single().DisplayText);
+        Assert.Equal(["projB"], module.OpenProjectRows.Select(row => row.Name));
+
+        module.OpenProjectRows[0].AddCommand.Execute(null);
+        await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "2つ目も足せる");
+        Assert.Empty(module.OpenProjectRows);
+        Assert.False(module.HasOpenProjectRows);
+    });
+
+    [Fact]
+    public Task Unityが開いていなければ_一覧は無く_切っていても開いていないと言う() => TestApp.Run(async app =>
+    {
+        var search = await StartWithItemsAsync(app, "9900001");
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        module.IncludeOn = false;
+
+        await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
+        Assert.False(module.HasOpenProjectRows);
+        Assert.True(module.HasReload);
+    });
+
+    [Fact]
     public void 画像の行は_見つかり方を頭に付ける()
     {
         Assert.Equal("同じ画像：Assets/a.png", ItemUnityActions.ImageRowText(new UnityImageMatch("Assets/a.png", "a.png", UnityImageMatchKind.SameImage)));
@@ -269,7 +309,7 @@ public class SearchUnityContentsTests
         await UiThread.Until(() => module.StatusText.Contains("「projA」の中を調べています"), "待つ");
         gate.Set();
         await UiThread.Until(() => Shown(search) is ["9900001"], "待つ");
-        Assert.False(module.HasStatus);
+        Assert.DoesNotContain("調べています", module.StatusText);
 
         // 関係の無い絞り直しでは調べ直さない
         module.MatchAll = true;
@@ -291,16 +331,16 @@ public class SearchUnityContentsTests
         module.IncludeOn = false;
         module.AddKey(Path.Combine(app.Root, "gone"));
 
-        await UiThread.Until(() => module.StatusText == "「gone」のフォルダが見つかりません。", "待つ");
+        await UiThread.Until(() => module.StatusText.Contains("「gone」のフォルダが見つかりません。"), "待つ");
         Assert.Empty(Shown(search));
     });
 
     [Fact]
-    public Task 改変登録のUnityプロジェクトは_今までの意味のまま別の条件で残る() => TestApp.Run(async app =>
+    public Task 改変プロジェクトは_今までの意味のまま別の条件で残る() => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
 
-        Assert.Equal("改変登録のUnityプロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProject).Label);
+        Assert.Equal("改変プロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProject).Label);
         Assert.Equal("Unityプロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProjectContents).Label);
         var old = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProject);
         Assert.False(old.HasReload);

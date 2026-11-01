@@ -910,16 +910,6 @@
                                                 <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                         </controls:ContentItemsControl>
-                                        <!-- プロジェクトの中を調べる条件だけ：調べている間の進み具合と取り直し。結果はアプリを閉じるまで覚えるので、入れ直した後に押す -->
-                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        <Button Content="読み直す" Command="{Binding ReloadCommand}" HorizontalAlignment="Left"
-                                                Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}"
-                                                FontSize="12" Margin="0,4,0,0" Padding="0,2"
-                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Reload'}"
-                                                AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}を読み直す}"
-                                                ToolTip="プロジェクトの中をもう一度調べます。"
-                                                Visibility="{Binding HasReload, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <!--
                                             選んだ値に加えて当てるかたまり（ショップの「お気に入りのショップの商品」・ユーザ指示 2026-09-16）。
                                             入れると、お気に入りのショップを全部選んだのと同じに働く。件数は他の条件を当てたうえでの数
@@ -941,6 +931,26 @@
                                                   Visibility="{Binding IsOpenProjectInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding IncludeText, Mode=OneWay}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
+                                        <!-- 開いているプロジェクトを押して札に入れる（ユーザ指示 2026-11-01）。無いときは下の状況の文が「Unityが開いていません。」と言う -->
+                                        <controls:ContentItemsControl ItemsSource="{Binding OpenProjectRows}" controls:ArrowGroup.IsEnabled="True" Margin="0,4,0,0" Focusable="False"
+                                                                      Visibility="{Binding HasOpenProjectRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Style="{StaticResource SmallButton}" Margin="0,0,4,4" MaxWidth="240" Command="{Binding AddCommand}"
+                                                            AutomationProperties.AutomationId="SearchModuleOpenProjectAdd"
+                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}を条件に追加}"
+                                                            ToolTip="{Binding Key}">
+                                                        <TextBlock Text="{Binding Name, StringFormat={}＋ {0}}" TextTrimming="CharacterEllipsis" />
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
+                                        <!-- 調べている間の進み具合と、調べられない理由 -->
+                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
                                                   AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}のすべてを満たす商品のみ}"
@@ -953,6 +963,13 @@
                                                   Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
+                                        <!-- 結果はアプリを閉じるまで覚えるので、入れ直した後に押す。文字だけではボタンに見えなかった（ユーザ指摘 2026-11-01） -->
+                                        <Button Content="読み直す" Command="{Binding ReloadCommand}" HorizontalAlignment="Left"
+                                                Style="{StaticResource SmallButton}" Margin="0,8,0,0"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Reload'}"
+                                                AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}を読み直す}"
+                                                ToolTip="プロジェクトの中をもう一度調べます。"
+                                                Visibility="{Binding HasReload, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                       </StackPanel>
 
                                       <!--

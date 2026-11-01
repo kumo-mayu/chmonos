@@ -18,8 +18,8 @@ public sealed partial class SearchViewModel
     /// <summary>「今開いているプロジェクト」の文。条件の要約にも出る。</summary>
     public const string OpenProjectIncludeLabel = "今開いているプロジェクト";
 
-    /// <summary>名前だけ一致した画像も足す切り替え。取り違えがあり得るので既定は切る（ユーザ判断 2026-11-01）。</summary>
-    public const string SameNameFlagLabel = "名前が同じ画像も含める";
+    /// <summary>名前だけ一致したファイルも足す切り替え。取り違えがあり得るので既定は切る（ユーザ判断 2026-11-01）。</summary>
+    public const string SameNameFlagLabel = "名前が同じファイルも含める";
 
     private sealed class ProjectContents
     {
@@ -107,7 +107,7 @@ public sealed partial class SearchViewModel
     /// <summary>窓が前に戻った。Unity を開いた・閉じたかもしれない。</summary>
     internal void NoteOpenProjectsMaybeChanged()
     {
-        if (ProjectContentsModules().Any(module => module.IncludeOn))
+        if (ProjectContentsModules().Any())
         {
             RefreshOpenProjectsAsync().Forget();
         }
@@ -162,7 +162,7 @@ public sealed partial class SearchViewModel
         }
 
         // 前回の状態を戻したときは、まだ開いているプロジェクトを見ていない
-        if (!_openProjectsChecked && ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
+        if (!_openProjectsChecked && ProjectContentsModules().Any())
         {
             RefreshOpenProjectsAsync().Forget();
         }
@@ -239,17 +239,18 @@ public sealed partial class SearchViewModel
     {
         foreach (var module in ProjectContentsModules())
         {
+            module.SetOpenProjects(_openProjects
+                .Where(project => module.Chips.All(chip => !string.Equals(chip.Key, project, StringComparison.OrdinalIgnoreCase)))
+                .ToList());
+
             var lines = new List<string>();
-            if (module.IncludeOn)
+            if (_unknownOpenProjects.Count > 0)
             {
-                if (_unknownOpenProjects.Count > 0)
-                {
-                    lines.AddRange(_unknownOpenProjects.Select(name => $"Unityの「{name}」は場所が分からないので調べられません。"));
-                }
-                else if (_openProjectsChecked && _openProjects.Count == 0)
-                {
-                    lines.Add("Unityが開いていません。");
-                }
+                lines.AddRange(_unknownOpenProjects.Select(name => $"Unityの「{name}」は場所が分からないので調べられません。"));
+            }
+            else if (_openProjectsChecked && _openProjects.Count == 0)
+            {
+                lines.Add("Unityが開いていません。");
             }
 
             var keys = module.Chips.Select(chip => chip.Key).Concat(module.IncludeOn ? _openProjects : []).Distinct(StringComparer.OrdinalIgnoreCase);
