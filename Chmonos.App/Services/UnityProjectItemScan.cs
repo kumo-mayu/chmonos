@@ -68,14 +68,18 @@ public static class UnityProjectItemScan
     {
         var sources = items.ToDictionary(
             item => item.Id,
-            item => (IReadOnlyList<UnityItemImage>)ImagesOf(item, images).ToList(),
+            item =>
+            {
+                token.ThrowIfCancellationRequested();
+                return (IReadOnlyList<UnityItemImage>)ImagesOf(item, images, token).ToList();
+            },
             StringComparer.Ordinal);
         token.ThrowIfCancellationRequested();
-        return UnityProjectImages.Match(UnityProjectImages.ListProject(project), sources, fromPackages, token);
+        return UnityProjectImages.Match(UnityProjectImages.ListProject(project, token), sources, fromPackages, token);
     }
 
     /// <summary>商品の画像：単体のファイル・zip の中・登録したフォルダの中（今在る物だけ）。</summary>
-    private static IEnumerable<UnityItemImage> ImagesOf(ItemRecord item, ZipImageStore images)
+    private static IEnumerable<UnityItemImage> ImagesOf(ItemRecord item, ZipImageStore images, CancellationToken token)
     {
         foreach (var file in item.Local.OwnedFiles)
         {
@@ -87,7 +91,7 @@ public static class UnityProjectItemScan
 
         foreach (var folder in item.Local.LocalFolders)
         {
-            foreach (var image in UnityProjectImages.ImagesInFolder(folder.Path))
+            foreach (var image in UnityProjectImages.ImagesInFolder(folder.Path, token))
             {
                 yield return image;
             }

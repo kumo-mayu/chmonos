@@ -486,7 +486,7 @@
                             <Border BorderBrush="{DynamicResource Bad}" Background="{DynamicResource RemovedBand}" BorderThickness="3,0,0,0"
                                     Margin="-12,0,0,4" Padding="9,2" ToolTip="前の商品名です。"
                                     Visibility="{Binding HasPreviousName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <RichTextBox Style="{StaticResource SelectableBody}" FontSize="14" Foreground="{DynamicResource TextBody}" AutomationProperties.Name="{Binding PreviousName}" AutomationProperties.HelpText="前の商品名" controls:SelectableText.Text="{Binding PreviousName}" />
+                                <RichTextBox Style="{StaticResource SelectableBody}" FontSize="14" Foreground="{DynamicResource TextBody}" AutomationProperties.Name="{Binding PreviousName}" AutomationProperties.HelpText="前の商品名" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding PreviousName}" />
                             </Border>
                             <Border Tag="{Binding NameChange}">
                                 <Border.Style>
@@ -529,7 +529,7 @@
                                 <!-- 商品名を写せるように選べる字にする（ユーザ判断 2026-11-01）。ページ内検索は RichTextBox の字も探す -->
                                 <RichTextBox Style="{StaticResource SelectableBody}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}"
                                              Margin="-2,0,0,0" AutomationProperties.AutomationId="ItemName" AutomationProperties.Name="{Binding Name}"
-                                             controls:SelectableText.Text="{Binding Name}" />
+                                             controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                             </DockPanel>
                             </Border>
                             </StackPanel>
@@ -550,7 +550,7 @@
                                                      ToolTip="このショップの商品を見る"
                                                      AutomationProperties.AutomationId="ItemShopLink"
                                                      AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
-                                                     controls:SelectableText.Text="{Binding ShopName}" />
+                                                     controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding ShopName}" />
 
                             <!-- 観測と入力の区別を隠さない -->
                             <TextBlock Text="{Binding UserShopNotice}" Style="{StaticResource Caption}"
@@ -725,7 +725,7 @@
                                                            ToolTip="BOOTH価格です。"
                                                            Visibility="{Binding BoothPrice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 <StackPanel Orientation="Horizontal">
-                                                    <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="13" Foreground="{DynamicResource Text}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
+                                                    <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="13" Foreground="{DynamicResource Text}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
                                                             Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

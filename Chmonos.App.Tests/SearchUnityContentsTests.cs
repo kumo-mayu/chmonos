@@ -171,6 +171,80 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
+    public Task 先に始めた確認が後から終わっても_新しい結果を古い結果で上書きしない() => TestApp.Run(async app =>
+    {
+        var open = NewProject(app, "projB");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002");
+        ScanFinds(app, "9900002");
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "はじめの確認が終わる");
+
+        // 1回目は遅れて「Unity は開いていない」と答え、2回目はすぐ「開いている」と答える
+        using var late = new ManualResetEventSlim();
+        var calls = 0;
+        app.Services.OpenUnityEditors = () =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                late.Wait();
+                return [];
+            }
+
+            return [new OpenUnityEditor(1, "projB", open)];
+        };
+
+        search.NoteOpenProjectsMaybeChanged();
+        await UiThread.Until(() => Volatile.Read(ref calls) == 1, "1回目が始まる");
+        search.NoteOpenProjectsMaybeChanged();
+        await UiThread.Until(() => Shown(search) is ["9900002"], "2回目の結果で絞る");
+
+        late.Set();
+        await app.SettleAsync();
+
+        Assert.Equal(["9900002"], Shown(search));
+        Assert.True(module.IsActive);
+    });
+
+    [Fact]
+    public Task 思わぬ失敗でも_調べていますのまま残らない() => TestApp.Run(async app =>
+    {
+        // わざと失敗させ、ログに残ることも確かめる
+        app.AllowLoggedFailures = true;
+        var project = NewProject(app, "projA");
+        var search = await StartWithItemsAsync(app, "9900001");
+        app.Services.ScanUnityProject = (_, _, _, _) => throw new InvalidOperationException("作り物の失敗");
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+
+        module.AddKey(UnityProjectPath.Normalize(project)!);
+
+        await UiThread.Until(() => module.StatusText.Contains("「projA」の中を調べられませんでした"), "理由を言う");
+        Assert.DoesNotContain("調べています", module.StatusText);
+        Assert.Contains(app.LoggedFailures(), line => line.Contains("作り物の失敗", StringComparison.Ordinal));
+    });
+
+    [Fact]
+    public Task 名前の中のURLは_リンクにしない() => TestApp.Run(_ =>
+    {
+        static int LinksOf(System.Windows.Controls.RichTextBox box)
+            => box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>()
+                .SelectMany(paragraph => paragraph.Inlines)
+                .OfType<System.Windows.Documents.Hyperlink>()
+                .Count();
+
+        const string text = "作り物の名前 https://example.invalid/";
+        var body = new System.Windows.Controls.RichTextBox();
+        Chmonos.App.Controls.SelectableText.SetText(body, text);
+        var name = new System.Windows.Controls.RichTextBox();
+        Chmonos.App.Controls.SelectableText.SetPlainText(name, true);
+        Chmonos.App.Controls.SelectableText.SetText(name, text);
+
+        Assert.Equal(1, LinksOf(body));
+        Assert.Equal(0, LinksOf(name));
+        Assert.Contains(text, new System.Windows.Documents.TextRange(name.Document.ContentStart, name.Document.ContentEnd).Text);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public void 画像の行は_見つかり方を頭に付ける()
     {
         Assert.Equal("同じ画像：Assets/a.png", ItemUnityActions.ImageRowText(new UnityImageMatch("Assets/a.png", "a.png", UnityImageMatchKind.SameImage)));

@@ -295,7 +295,7 @@
                                                 <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" HorizontalAlignment="Left" Padding="12,10"
                                                         Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                                     <StackPanel>
-                                                        <RichTextBox Style="{StaticResource SelectableBody}" FontSize="12.5" FontWeight="Medium" Foreground="{DynamicResource Text}" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
+                                                        <RichTextBox Style="{StaticResource SelectableBody}" FontSize="12.5" FontWeight="Medium" Foreground="{DynamicResource Text}" AutomationProperties.Name="{Binding Name}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                                                         <TextBlock Text="手元にありません。記録は残っています。" FontSize="11" Foreground="{DynamicResource Warn}"
                                                                    Margin="0,6,0,0" />
                                                     </StackPanel>

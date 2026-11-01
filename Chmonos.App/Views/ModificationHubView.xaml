@@ -214,7 +214,7 @@
                                              ToolTip="{Binding Name}"
                                              Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                              CommandParameter="{Binding}"
-                                             controls:SelectableText.Text="{Binding Name}" />
+                                             controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right" Text="手元にありません" FontSize="10.5" Margin="6,0,0,0"
                                    Foreground="{DynamicResource Warn}"
@@ -474,8 +474,8 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="28,22" MaxWidth="{StaticResource ReadingMaxWidth}">
                     <TextBlock Text="Unityプロジェクト" Style="{StaticResource SectionLabel}" />
-                    <RichTextBox Style="{StaticResource SelectableBody}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="-2,4,0,0" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
-                    <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="-2,4,0,0" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding Path}" controls:SelectableText.Text="{Binding Path}" />
+                    <RichTextBox Style="{StaticResource SelectableBody}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="-2,4,0,0" AutomationProperties.Name="{Binding Name}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
+                    <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="-2,4,0,0" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding Path}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Path}" />
                     <!--
                         「項目：値」の行で並べる（ユーザ指示 2026-09-14：版・開いているか・一覧の名前が、見出しの無い札で
                         「Unity 2022.3.22f1」「閉じています」「VCC の一覧」と内部の言い方のまま並んでいた）
@@ -683,7 +683,7 @@
                         </Border>
                         <StackPanel>
                             <RichTextBox Style="{StaticResource SelectableBody}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Text}"
-                                         AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
+                                         AutomationProperties.Name="{Binding Name}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                             <TextBlock Text="{Binding ShopText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
                                        Visibility="{Binding HasShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <Border Style="{StaticResource HubBadge}" Background="{DynamicResource WarnSoft}"

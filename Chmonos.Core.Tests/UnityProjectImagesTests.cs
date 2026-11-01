@@ -188,6 +188,39 @@ public sealed class UnityProjectImagesTests : IDisposable
     }
 
     [Fact]
+    public void 手で直した控えの欠けた行は_読まない()
+    {
+        var paths = new AppPaths(Path.Combine(_root, "store"));
+        paths.EnsureCreated();
+        const string hash = "ABCDEF0123456789";
+        Directory.CreateDirectory(paths.ZipImagesDir);
+        File.WriteAllText(paths.ZipImageFile(hash), """{"images":[null,{"path":"tex/a.png","size":3,"crc":"0000000A"}]}""");
+
+        var row = Assert.Single(new ZipImageStore(paths).Load(hash)!);
+
+        Assert.Equal("tex/a.png", row.Path);
+    }
+
+    [Fact]
+    public void 取り消すと_列挙も照らし合わせも途中で止まる()
+    {
+        var content = Bytes(9);
+        Put(@"project\Assets\a.png", content);
+        var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(content));
+        using var cancel = new CancellationTokenSource();
+        var images = UnityProjectImages.ListProject(Project);
+        cancel.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() => UnityProjectImages.ListProject(Project, cancel.Token));
+        Assert.Throws<OperationCanceledException>(() => UnityProjectImages.ImagesInFolder(Project, cancel.Token).ToList());
+        Assert.Throws<OperationCanceledException>(() => UnityProjectImages.Match(
+            images,
+            new Dictionary<string, IReadOnlyList<UnityItemImage>> { ["item"] = [new UnityItemImage("a.png", content.Length, Sha256: sha)] },
+            new HashSet<string>(),
+            cancel.Token));
+    }
+
+    [Fact]
     public void zipも控えも無ければ_名前だけで照らす()
     {
         Put(@"project\Assets\original.png", Bytes(8));

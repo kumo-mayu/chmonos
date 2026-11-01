@@ -733,7 +733,7 @@
                             <!-- 今もそこにあるとは限らない。消したzipや、別のPCで展開したzipでも記録は残る -->
                             <TextBlock Text="展開したときの元のzip" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="11" Foreground="{DynamicResource TextMuted}" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding SelectedOriginText}" controls:SelectableText.Text="{Binding SelectedOriginText}" Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="11" Foreground="{DynamicResource TextMuted}" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding SelectedOriginText}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedOriginText}" Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!--
                                 展開した中身で、元のzipが今も残っているとき。zipで登録するのが一番きれい（配布された単位と一致し、
                                 展開したフォルダは自動で対象から外れる）なので、zipへ移って普通に登録を進められるようにする（ユーザ指示 2026-09-17）

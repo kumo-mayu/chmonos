@@ -46,7 +46,10 @@ public sealed class ZipImageStore(AppPaths paths)
 
         try
         {
-            return JsonStore.Read<ZipImagesFile>(paths.ZipImageFile(hash))?.Images ?? null;
+            // 手で直した控えの欠けた行は読まない（欠けた配列を空として受けるのと同じ）
+            return JsonStore.Read<ZipImagesFile>(paths.ZipImageFile(hash))?.Images?
+                .Where(row => row is { Path.Length: > 0 })
+                .ToList();
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
         {

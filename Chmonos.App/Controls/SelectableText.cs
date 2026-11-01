@@ -49,6 +49,17 @@ public static class SelectableText
     public static readonly DependencyProperty LineHeightProperty =
         DependencyProperty.RegisterAttached("LineHeight", typeof(double), typeof(SelectableText), new PropertyMetadata(double.NaN, OnTextChanged));
 
+    /// <summary>
+    /// URL をリンクにしないか。リンクになるのは本文（説明文・メモ）だけ。名前やパスの中の URL までリンクにすると、
+    /// 選ぶつもりの字や、押してアプリ内を開く字の中に、ブラウザを開く所が混ざる（点検 2026-11-01）。
+    /// </summary>
+    public static readonly DependencyProperty PlainTextProperty =
+        DependencyProperty.RegisterAttached("PlainText", typeof(bool), typeof(SelectableText), new PropertyMetadata(false, OnTextChanged));
+
+    public static bool GetPlainText(DependencyObject element) => (bool)element.GetValue(PlainTextProperty);
+
+    public static void SetPlainText(DependencyObject element, bool value) => element.SetValue(PlainTextProperty, value);
+
     public static bool GetFitWidth(DependencyObject element) => (bool)element.GetValue(FitWidthProperty);
 
     public static void SetFitWidth(DependencyObject element, bool value) => element.SetValue(FitWidthProperty, value);
@@ -121,7 +132,7 @@ public static class SelectableText
         box.PreviewMouseWheel -= ForwardMouseWheel;
         box.PreviewMouseWheel += ForwardMouseWheel;
 
-        box.Document = Build(GetText(box), GetNavigator(box), GetMarkedLines(box));
+        box.Document = GetPlainText(box) ? BuildPlain(GetText(box)) : Build(GetText(box), GetNavigator(box), GetMarkedLines(box));
 
         // 行の高さは本文の字の大きさで決め打ちなので、商品名のような大きな字では行が詰まる。本文（12.5pt）では今までの 21 のまま
         var lineHeight = GetLineHeight(box);
@@ -164,6 +175,31 @@ public static class SelectableText
         Plain,
         Added,
         Removed,
+    }
+
+    /// <summary>字をそのまま組む（リンクにしない）。</summary>
+    private static FlowDocument BuildPlain(string? text)
+    {
+        var paragraph = new Paragraph { Margin = new Thickness(0) };
+        var lines = (text ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (index > 0)
+            {
+                paragraph.Inlines.Add(new LineBreak());
+            }
+
+            paragraph.Inlines.Add(new Run(lines[index]));
+        }
+
+        var document = new FlowDocument
+        {
+            PagePadding = new Thickness(0),
+            LineHeight = 21,
+            LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+        };
+        document.Blocks.Add(paragraph);
+        return document;
     }
 
     internal static FlowDocument Build(string? text, IInAppLinkNavigator? navigator, ILineMarks? marks = null)

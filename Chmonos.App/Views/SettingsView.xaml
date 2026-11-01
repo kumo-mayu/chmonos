@@ -1141,7 +1141,7 @@
                                        AutomationProperties.Name="Chmonos のアイコン" />
                                 <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="Chmonos（クモノス）" Style="{StaticResource SubTitle}" />
-                                    <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="-2,2,0,0" controls:SelectableText.LineHeight="16" AutomationProperties.AutomationId="Settings.Version" AutomationProperties.Name="{Binding VersionText}" controls:SelectableText.Text="{Binding VersionText}" />
+                                    <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="-2,2,0,0" controls:SelectableText.LineHeight="16" AutomationProperties.AutomationId="Settings.Version" AutomationProperties.Name="{Binding VersionText}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding VersionText}" />
                                 </StackPanel>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"

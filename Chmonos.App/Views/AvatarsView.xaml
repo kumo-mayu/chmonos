@@ -607,7 +607,7 @@
                                         -->
                                         <StackPanel Orientation="Horizontal"
                                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="4,3" MaxWidth="520" VerticalAlignment="Center" AutomationProperties.Name="{Binding SelectedName}" controls:SelectableText.Text="{Binding SelectedName}" />
+                                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="4,3" MaxWidth="520" VerticalAlignment="Center" AutomationProperties.Name="{Binding SelectedName}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedName}" />
                                             <Button AutomationProperties.AutomationId="AvatarRename" Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding StartRenameCommand}" Click="StartRename_Click"
                                                     ToolTip="このアプリで表示する名前を変えます。" />
@@ -638,7 +638,7 @@
                                         </StackPanel>
                                         <TextBlock DataContext="{Binding AvatarNameNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0"
                                                    AutomationProperties.AutomationId="AvatarNameNote" />
-                                        <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="4,2,0,0" MaxWidth="620" HorizontalAlignment="Left" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding SelectedBoothName}" controls:SelectableText.Text="{Binding SelectedBoothName}" Visibility="{Binding HasSelectedBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="4,2,0,0" MaxWidth="620" HorizontalAlignment="Left" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding SelectedBoothName}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedBoothName}" Visibility="{Binding HasSelectedBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <StackPanel Orientation="Horizontal" Margin="6,6,0,0">
                                             <!--
                                                 ID そのものを押すとコピー（メモ9-②）。商品ページの ID と同じ作り（Hyperlink・下線なし・同じ吹き出し）。

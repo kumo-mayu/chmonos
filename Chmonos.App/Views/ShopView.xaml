@@ -155,9 +155,9 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </Button>
-                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="21" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" controls:SelectableText.Text="{Binding Name}" />
+                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="21" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                         </StackPanel>
-                        <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="12" Foreground="{DynamicResource TextFaint}" Margin="-2,5,0,0" controls:SelectableText.FitWidth="True" HorizontalAlignment="Left" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding DomainText}" controls:SelectableText.Text="{Binding DomainText}" />
+                        <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="12" Foreground="{DynamicResource TextFaint}" Margin="-2,5,0,0" controls:SelectableText.FitWidth="True" HorizontalAlignment="Left" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding DomainText}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding DomainText}" />
                     </StackPanel>
                 </StackPanel>
 

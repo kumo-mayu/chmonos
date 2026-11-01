@@ -43,7 +43,7 @@ public sealed partial class SearchViewModel
                 // 候補は足すたびに読み直す（プロジェクトの開け閉めは、この画面の外で変わる）
                 if (kind == SearchModuleKind.UnityProjectContents)
                 {
-                    _unityProjects = null;
+                    ForgetUnityProjects();
                 }
 
                 var added = AddModule(kind);

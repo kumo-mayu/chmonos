@@ -52,7 +52,7 @@ public static class UnityProjectImages
     public static bool IsImage(string name) => Extensions.Contains(Path.GetExtension(name));
 
     /// <summary>プロジェクトの <c>Assets</c> の下の画像。Packages は見ない（手で置く場所ではなく、プロジェクトタブの検索にも出ない）。</summary>
-    public static IReadOnlyList<UnityProjectImage> ListProject(string project)
+    public static IReadOnlyList<UnityProjectImage> ListProject(string project, CancellationToken token = default)
     {
         var assets = Path.Combine(project, "Assets");
         if (!Directory.Exists(assets))
@@ -62,7 +62,11 @@ public static class UnityProjectImages
 
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
         return new DirectoryInfo(assets).EnumerateFiles("*", options)
-            .Where(file => IsImage(file.Name))
+            .Where(file =>
+            {
+                token.ThrowIfCancellationRequested();
+                return IsImage(file.Name);
+            })
             .Select(file => new UnityProjectImage(
                 Path.GetRelativePath(project, file.FullName).Replace('\\', '/'),
                 file.FullName,
@@ -96,7 +100,7 @@ public static class UnityProjectImages
     }
 
     /// <summary>登録したフォルダの中の画像（在るときだけ。記録に無いのでその場で並べる）。</summary>
-    public static IEnumerable<UnityItemImage> ImagesInFolder(string folder)
+    public static IEnumerable<UnityItemImage> ImagesInFolder(string folder, CancellationToken token = default)
     {
         if (!Directory.Exists(folder))
         {
@@ -105,7 +109,11 @@ public static class UnityProjectImages
 
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
         return new DirectoryInfo(folder).EnumerateFiles("*", options)
-            .Where(file => IsImage(file.Name))
+            .Where(file =>
+            {
+                token.ThrowIfCancellationRequested();
+                return IsImage(file.Name);
+            })
             .Select(file => new UnityItemImage(file.Name, file.Length, SourcePath: file.FullName))
             .ToList();
     }
@@ -177,7 +185,7 @@ public static class UnityProjectImages
     {
         if (image.Sha256 is { } sha)
         {
-            return string.Equals(ShaOf(candidate.FullPath, shas), sha, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(ShaOf(candidate.FullPath, shas, token), sha, StringComparison.OrdinalIgnoreCase);
         }
 
         if (image.Crc is { } crc)
@@ -211,7 +219,7 @@ public static class UnityProjectImages
         return crc;
     }
 
-    private static string? ShaOf(string path, Dictionary<string, string?> known)
+    private static string? ShaOf(string path, Dictionary<string, string?> known, CancellationToken token)
     {
         if (known.TryGetValue(path, out var sha))
         {
@@ -220,8 +228,18 @@ public static class UnityProjectImages
 
         try
         {
+            // 大きな画像でも途中で止められるよう、少しずつ読む
             using var stream = File.OpenRead(path);
-            sha = Convert.ToHexString(SHA256.HashData(stream));
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var buffer = new byte[1024 * 1024];
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                hash.AppendData(buffer, 0, read);
+            }
+
+            sha = Convert.ToHexString(hash.GetHashAndReset());
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

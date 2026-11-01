@@ -47,6 +47,12 @@ public sealed partial class SearchViewModel
 
     private bool _openProjectsChecked;
 
+    /// <summary>何回目の見直しか。窓に戻る・読み直すで重なり、後に始めた方が先に終わると、古い結果で上書きしてしまう。</summary>
+    private int _openProjectsGeneration;
+
+    /// <summary>候補の一覧の読み直しを頼んだ回数（読んでいる途中に頼まれたら、終わってから読み直す）。</summary>
+    private int _unityProjectsGeneration;
+
     public RelayCommand ShowOpenUnityContentsCommand { get; }
 
     private bool ProjectContains(string project, string itemId, bool sameName)
@@ -82,8 +88,16 @@ public sealed partial class SearchViewModel
         }
     }
 
+    /// <summary>候補の一覧を読み直す（プロジェクトの開け閉めは、この画面の外で変わる）。</summary>
+    private void ForgetUnityProjects()
+    {
+        _unityProjects = null;
+        _unityProjectsGeneration++;
+    }
+
     private async Task LoadUnityProjectsAsync()
     {
+        var generation = _unityProjectsGeneration;
         IReadOnlyList<UnityProjectCandidate> projects;
         try
         {
@@ -95,8 +109,14 @@ public sealed partial class SearchViewModel
             projects = [];
         }
 
-        _unityProjects = projects;
         _loadingUnityProjects = false;
+        if (generation != _unityProjectsGeneration)
+        {
+            EnsureUnityProjectsLoaded();
+            return;
+        }
+
+        _unityProjects = projects;
         foreach (var module in ProjectContentsModules().ToList())
         {
             RefreshModuleSource(module);
@@ -116,6 +136,7 @@ public sealed partial class SearchViewModel
     private async Task RefreshOpenProjectsAsync()
     {
         _openProjectsChecked = true;
+        var generation = ++_openProjectsGeneration;
         var (paths, unknown) = await Task.Run(() =>
         {
             var found = new List<string>();
@@ -134,6 +155,11 @@ public sealed partial class SearchViewModel
 
             return ((IReadOnlyList<string>)found, (IReadOnlyList<string>)names);
         });
+
+        if (generation != _openProjectsGeneration)
+        {
+            return;
+        }
 
         var same = paths.SequenceEqual(_openProjects, StringComparer.OrdinalIgnoreCase) && unknown.SequenceEqual(_unknownOpenProjects);
         _openProjects = paths;
@@ -217,8 +243,14 @@ public sealed partial class SearchViewModel
             // 「読み直す」で取り消した。新しい調べが結果を出す
             return;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception exception)
         {
+            // 何で失敗しても「調べています」のまま残さない（裏の作業なので、投げ直しても画面には届かない）
+            if (exception is not (IOException or UnauthorizedAccessException or InvalidDataException))
+            {
+                Chmonos.Core.Diagnostics.AppLog.Error("条件「Unityプロジェクト」の調べ", exception);
+            }
+
             contents.Problem = $"「{ProjectNameOf(project)}」の中を調べられませんでした。「読み直す」でやり直せます。";
         }
 
@@ -273,7 +305,7 @@ public sealed partial class SearchViewModel
         }
 
         _projectContents.Clear();
-        _unityProjects = null;
+        ForgetUnityProjects();
         foreach (var module in ProjectContentsModules().ToList())
         {
             RefreshModuleSource(module);
@@ -289,7 +321,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     private void ShowOpenUnityContents()
     {
-        _unityProjects = null;
+        ForgetUnityProjects();
         var module = ProjectContentsModules().FirstOrDefault()
             ?? (ListModule)AddModule(SearchModuleKind.UnityProjectContents, apply: false);
 
