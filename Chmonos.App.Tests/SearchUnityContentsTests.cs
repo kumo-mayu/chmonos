@@ -223,42 +223,33 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
-    public Task Unityが開いていなければ_言うだけで条件を足さない() => TestApp.Run(async app =>
+    public Task Unityが開いていなくても_押すと条件が入り_開いていないと言う() => TestApp.Run(async app =>
     {
         var search = await StartWithItemsAsync(app, "9900001");
-        var count = search.Modules.Count;
 
         search.ShowOpenUnityContentsCommand.Execute(null);
 
-        await UiThread.Until(() => app.Notices.Count > 0, "知らせが出る");
-        var notice = app.Notices.Last();
-        Assert.Contains("Unityが開いていません", notice.Text);
-        Assert.Equal(count, search.Modules.Count);
+        var module = (ListModule)search.Modules.Single(entry => entry.Kind == SearchModuleKind.UnityProjectContents);
+        await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
+        Assert.True(module.IncludeOn);
+        Assert.Empty(app.Notices);
+        Assert.Equal(["9900001"], Shown(search));
     });
 
     [Fact]
-    public Task 複数開いていれば選ばせ_選ばなければ何もしない() => TestApp.Run(async app =>
+    public Task 複数開いていても_選ばせず開いている全部を出す() => TestApp.Run(async app =>
     {
-        var chosen = NewProject(app, "projB");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
-        ScanFinds(app, "9900001");
-        app.OpenEditors = [new OpenUnityEditor(1, "projA", NewProject(app, "projA")), new OpenUnityEditor(2, "projB", chosen)];
-        var asked = 0;
-        app.Services.ChooseUnityEditor = (_, editors) =>
-        {
-            asked++;
-            return asked == 1 ? null : editors[1];
-        };
+        app.Services.ScanUnityProject = (project, _, _, _) => Packages(project.EndsWith("projA", StringComparison.OrdinalIgnoreCase) ? "9900001" : "9900002");
+        app.OpenEditors = [new OpenUnityEditor(1, "projA", NewProject(app, "projA")), new OpenUnityEditor(2, "projB", NewProject(app, "projB"))];
 
         search.ShowOpenUnityContentsCommand.Execute(null);
-        await UiThread.Until(() => asked == 1, "待つ");
-        await app.SettleAsync();
-        Assert.DoesNotContain(search.Modules, module => module.Kind == SearchModuleKind.UnityProjectContents);
 
-        search.ShowOpenUnityContentsCommand.Execute(null);
-        await UiThread.Until(() => Shown(search) is ["9900001"], "待つ");
-        var chip = ((ListModule)search.Modules.Single(module => module.Kind == SearchModuleKind.UnityProjectContents)).Chips.Single();
-        Assert.Equal(UnityProjectPath.Normalize(chosen), chip.Key);
+        await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "待つ");
+        var module = (ListModule)search.Modules.Single(entry => entry.Kind == SearchModuleKind.UnityProjectContents);
+        Assert.Empty(module.Chips);
+        Assert.True(module.IncludeOn);
+        Assert.Empty(app.Notices);
     });
 
     [Fact]
@@ -269,9 +260,8 @@ public class SearchUnityContentsTests
 
         search.ShowOpenUnityContentsCommand.Execute(null);
 
-        await UiThread.Until(() => app.Notices.Count > 0, "知らせが出る");
-        var notice = app.Notices.Last();
-        Assert.Contains("「projA」の中を調べられません", notice.Text);
+        var module = (ListModule)search.Modules.Single(entry => entry.Kind == SearchModuleKind.UnityProjectContents);
+        await UiThread.Until(() => module.StatusText.Contains("「projA」は場所が分からない"), "待つ");
     });
 
     [Fact]

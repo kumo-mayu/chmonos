@@ -380,6 +380,11 @@
                                       AutomationProperties.AutomationId="SearchFilterMenu.Clear"
                                       Command="{Binding ClearFiltersCommand}" />
                             <Separator />
+                            <!-- 条件を足して選ぶ手間なしに見る近道。行に置くと邪魔なのでここへ（ユーザ判断 2026-11-01） -->
+                            <MenuItem Header="開いているUnityの中身を表示" AutomationProperties.Name="開いているUnityの中身を表示"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.ShowOpenUnity"
+                                      Command="{Binding ShowOpenUnityContentsCommand}" />
+                            <Separator />
                             <MenuItem Header="絞り込みを折りたたむ" AutomationProperties.Name="絞り込みを折りたたむ"
                                       AutomationProperties.AutomationId="SearchFilterMenu.Collapse"
                                       Command="{Binding ToggleFilterPanelCommand}" Click="OnCollapsePanelMenuClick" />
@@ -651,15 +656,7 @@
                         </Popup>
                         </StackPanel>
 
-                        <!-- 開いている Unity の中身を、条件を足して選ぶ手間なしに見る（ユーザ判断 2026-11-01）。行が「条件を追加」と「保存した条件」で埋まるので次の段に置く -->
-                        <Button x:Name="ShowOpenUnityContentsButton" Content="開いているUnityの中身を表示" Command="{Binding ShowOpenUnityContentsCommand}"
-                                Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}" HorizontalAlignment="Left"
-                                FontSize="12.5" Margin="10,2,0,0" Padding="0,2"
-                                AutomationProperties.AutomationId="SearchShowOpenUnityContents"
-                                AutomationProperties.Name="開いているUnityの中身を表示"
-                                ToolTip="開いているUnityのプロジェクトに入っている商品を表示します。" />
-
-                        <TextBlock Text="条件がありません。「＋ 条件を追加」から追加できます。" Style="{StaticResource Caption}"
+<TextBlock Text="条件がありません。「＋ 条件を追加」から追加できます。" Style="{StaticResource Caption}"
                                    TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding HasModules, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 

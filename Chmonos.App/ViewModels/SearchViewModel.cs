@@ -155,7 +155,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         CardAddToModificationCommand = new RelayCommand(
             parameter => AddCardsToModificationAsync(AsCard(parameter)).Forget(), parameter => AsCard(parameter) is not null);
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
-        ShowOpenUnityContentsCommand = new RelayCommand(() => ShowOpenUnityContentsAsync().Forget());
+        ShowOpenUnityContentsCommand = new RelayCommand(ShowOpenUnityContents);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
         _isListMode = ItemListMode.IsList(services, "search");
 

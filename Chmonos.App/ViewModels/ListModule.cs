@@ -446,25 +446,12 @@ public sealed class ListModule : SearchModule
         AddKey(key);
     }
 
-    /// <summary>
-    /// 札をこの1つだけにする。鍵が null なら札を全部外す（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。
-    /// </summary>
-    public void ReplaceKeys(string? key)
+    /// <summary>札を全部外す（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。</summary>
+    public void ClearKeys()
     {
-        var known = Chips.Any(chip => chip.Key == key);
-        foreach (var other in Chips.Where(chip => chip.Key != key).ToList())
-        {
-            Chips.Remove(other);
-        }
-
-        if (key is null || known)
-        {
-            RefreshSuggestions();
-            NotifyChanged();
-            return;
-        }
-
-        AddKey(key);
+        Chips.Clear();
+        RefreshSuggestions();
+        NotifyChanged();
     }
 
     /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>

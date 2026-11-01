@@ -1,5 +1,4 @@
 using System.IO;
-using System.Windows;
 using Chmonos.App.Services;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
@@ -285,35 +284,11 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 「開いているUnityの中身を表示」：条件が無ければ足し、開いているプロジェクトだけで絞る。
-    /// 1つなら「今開いているプロジェクト」に、複数なら選ばせて札に入れる（どれを見たいかは押した人しか分からない）。
+    /// 「開いているUnityの中身を表示」：条件が無ければ足し、札を外して「今開いているプロジェクト」だけにする（ユーザ判断 2026-11-01）。
+    /// 複数開いていても選ばせない（どれか1つを見たいなら、条件の中のプロジェクトのボタンで足せる）。開いていない・場所が分からないことは条件の中の文が言う。
     /// </summary>
-    private async Task ShowOpenUnityContentsAsync()
+    private void ShowOpenUnityContents()
     {
-        const string title = "開いているUnityの中身";
-        var editors = await Task.Run(() => _services.OpenUnityEditors());
-        if (editors.Count == 0)
-        {
-            Notice.Show("Unityが開いていません。プロジェクトを開いてから、もう一度押してください。", title, MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if ((editors.Count == 1 ? editors[0] : _services.ChooseUnityEditor(title, editors)) is not { } editor)
-        {
-            return;
-        }
-
-        if (await Task.Run(() => UnityEditors.PathOf(editor)) is not { } path)
-        {
-            // 引けなかった理由は、入っている物の一覧の名前で言う（入っていない物まで見たかのように言わない）
-            var tools = await Task.Run(() => _services.DetectUnityTools());
-            Notice.Show(
-                $"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の中を調べられません。"
-                + UnityToolsText.NotListed(tools, _services.Settings.ProjectManager),
-                title, MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
         _unityProjects = null;
         var module = ProjectContentsModules().FirstOrDefault()
             ?? (ListModule)AddModule(SearchModuleKind.UnityProjectContents, apply: false);
@@ -322,11 +297,10 @@ public sealed partial class SearchViewModel
         module.IsEnabled = true;
         module.IsExcluded = false;
         module.IsCollapsed = false;
-        var single = editors.Count == 1;
-        module.IncludeOn = single;
-        module.ReplaceKeys(single ? null : UnityProjectPath.Normalize(path) ?? path);
+        module.IncludeOn = true;
+        module.ClearKeys();
         RefreshModuleSource(module);
         ModuleAdded?.Invoke(module);
-        await RefreshOpenProjectsAsync();
+        RefreshOpenProjectsAsync().Forget();
     }
 }
