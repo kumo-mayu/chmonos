@@ -4,7 +4,7 @@
 [← 目次へ](README.md)
 <!-- /nav:top -->
 
-（次のバージョンから）この章の機能は、次のバージョンから使えます。
+この章の機能は、v1.2.0 から使えます。
 
 ほかのアプリや自作のツールから、Chmonos のデータを HTTP で読めるようにする機能です。プログラムを書く人に向けた機能で、ふだんの整理には使いません。
 
@@ -31,7 +31,7 @@ API は Chmonos と一緒に動き、Chmonos を閉じると止まります。�
 
 - 動いている間は、タスクバーの通知領域に Chmonos のアイコンが表示されます。右クリックして「Chmonosを開く」でウィンドウを開き、「終了」で終えます。
 - 開いたウィンドウを閉じても、Chmonos は通知領域で動き続けます。
-- （次のバージョンから）動いている間に Chmonos をふつうに起動しても、ウィンドウが開きます。
+- （v1.2.0 から）動いている間に Chmonos をふつうに起動しても、ウィンドウが開きます。
 - 「APIを使う」がオフのままだと、API は待ち受けません。
 - 先に一度ふつうに起動して、データの保存先を決めておいてください。
 - 設定の「API」の「ウィンドウを表示せずに起動したとき、監視フォルダの新しいファイルと前回の続きを取り込む」をオンにすると、起動したときに取り込みを始めます。
@@ -65,8 +65,8 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/shops` | タグ・属性・カテゴリ・ショップと件数 |
 | `GET /v1/modifications`・`/v1/notifications` | 改変・通知 |
 | `GET /v1/changes`・`GET /v1/events` | 変わったこと（下の「変わったことを知る」） |
-| （次のバージョンから）`GET /v1/items/{id}/description` | 商品の説明文（短い説明・見出しごとの文・表示用の HTML） |
-| （次のバージョンから）`GET /v1/images/{商品ID}/{名前}?format=png&size=256` | 画像を PNG か JPEG にして、長い辺を縮めて返す（下の「画像の形式と大きさ」） |
+| （v1.2.0 から）`GET /v1/items/{id}/description` | 商品の説明文（短い説明・見出しごとの文・表示用の HTML） |
+| （v1.2.0 から）`GET /v1/images/{商品ID}/{名前}?format=png&size=256` | 画像を PNG か JPEG にして、長い辺を縮めて返す（下の「画像の形式と大きさ」） |
 
 対応アバター（`compatibleAvatars`）は、検索の「対応アバター」と同じ数え方です。まだ確認していない推定の対応も入り、消した対応と説明文のリンクは入りません。
 
@@ -93,9 +93,9 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - `not` は、絞り込みの条件の「除く」と同じ動きです。価格や日付では、値の分からない商品も外します。
 - 非表示の商品と R-18 の商品も返します。返した商品には `isHidden`・`isAdult` が付きます。外したいときは `"includeHidden": false`・`"includeAdult": false` を送ります。
 - 続きがあるときは、答えの `nextCursor` を次の問い合わせの `cursor` に入れます。
-- （次のバージョンから）Unity へ送れる unitypackage を持つ商品だけにするときは、`"hasUnityPackage": true` を送ります。`false` なら持たない商品だけです。
-- （次のバージョンから）一覧の1件には、並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です（購入の記録が無ければ商品の入手日）。商品の詳細の `acquiredAt` も同じ値で、入手日の欄に入れた値そのものは `acquiredAtEntered` にあります。
-- （次のバージョンから）条件 `unityProject` の場所は、`/` 区切りでも、末尾に区切りがあっても当たります。
+- （v1.2.0 から）Unity へ送れる unitypackage を持つ商品だけにするときは、`"hasUnityPackage": true` を送ります。`false` なら持たない商品だけです。
+- （v1.2.0 から）一覧の1件には、並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です（購入の記録が無ければ商品の入手日）。商品の詳細の `acquiredAt` も同じ値で、入手日の欄に入れた値そのものは `acquiredAtEntered` にあります。
+- （v1.2.0 から）条件 `unityProject` の場所は、`/` 区切りでも、末尾に区切りがあっても当たります。
 
 ## 詳しい情報を足す
 
@@ -111,11 +111,11 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 
 例：`/v1/items/1234567?include=avatarLinks,images`
 
-（次のバージョンから）`POST /v1/items/batch` の `include` は、`["avatarLinks", "images"]` のような配列でも送れます。
+（v1.2.0 から）`POST /v1/items/batch` の `include` は、`["avatarLinks", "images"]` のような配列でも送れます。
 
 ## 画像の形式と大きさ
 
-（次のバージョンから）画像はふつう WebP のまま返します。WebP を読めない環境（Unity の `Texture2D.LoadImage` など）では、次を付けます。
+（v1.2.0 から）画像はふつう WebP のまま返します。WebP を読めない環境（Unity の `Texture2D.LoadImage` など）では、次を付けます。
 
 - `format`：`png` か `jpeg`。JPEG では、透けている所を白で埋めます。
 - `size`：長い辺の画素（16〜2048）。元より大きくはしません。`size` だけなら、元の形式のまま縮めます。
@@ -138,7 +138,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 
 ## データを変える
 
-（次のバージョンから）設定の「API」の「ほかのアプリからの変更を許す」をオンにすると、API からデータを変えられます。はじめはオフです。トークンは読むときと同じです。
+（v1.2.0 から）設定の「API」の「ほかのアプリからの変更を許す」をオンにすると、API からデータを変えられます。はじめはオフです。トークンは読むときと同じです。
 
 | すること | URL | 送る物 |
 |---|---|---|
@@ -160,20 +160,20 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 | 改変を作る | `POST /v1/modifications` | `{"avatarId": "…", "name": "普段着"}` |
 | 改変のメモ・blueprint ID・Unity プロジェクトを書く | `PUT /v1/modifications/{ID}/memo`・`…/blueprint-id`・`…/unity-project` | `{"memo": "…"}`・`{"blueprintId": "avtr_…"}`・`{"path": "…"}` |
 | 改変に使った物を足す・外す・戻す | `POST /v1/modifications/{ID}/members`・`…/members/detach`・`…/members/restore` | `{"itemId": "…"}` |
-| 改変に使った物を順に Unity へ送る（次のバージョンから） | `POST /v1/modifications/{ID}/send-to-unity` | `{"choices": [{"index": 1, "entry": "…"}]}`（選ぶ物が無ければ `{}`） |
-| Unity へ送るのを止める（次のバージョンから） | `POST /v1/unity/sends/{送りのID}/cancel` | なし |
+| 改変に使った物を順に Unity へ送る（v1.2.0 から） | `POST /v1/modifications/{ID}/send-to-unity` | `{"choices": [{"index": 1, "entry": "…"}]}`（選ぶ物が無ければ `{}`） |
+| Unity へ送るのを止める（v1.2.0 から） | `POST /v1/unity/sends/{送りのID}/cancel` | なし |
 
 - 変えた後の商品を答えに返します。続けて GET しても同じ答えです。
 - 「使った」の記録・通知の既読と解消・画面で表示する・エクスプローラで開くは、本文の無い `204` で答えます。
-- 仕様書（`/v1/openapi.json`）には、書き込みの誤りの答えと、Unity へ送った結果の `state` の値も載っています（次のバージョンから）。
+- 仕様書（`/v1/openapi.json`）には、書き込みの誤りの答えと、Unity へ送った結果の `state` の値も載っています（v1.2.0 から）。
 - ユーザータグと属性の名前は、一覧にある名前に合わせます。一覧に無い名前は断ります。一覧に足してから付けるときは、URL に `?createMissing=true` を付けます。
 - 属性の `null` は「評価していない」に戻します。`0` とは別です。
 - Chmonos の編集画面で開いている商品は変えられません（`409`）。編集を終えてから送ってください。
 - 取り込みの途中は、変えたことを `202` で受け付け、取り込みが終わってから答えに入ります。
 - 「Unity へ送る」は、Unity の取り込み画面が出たところで待たずに返ります（`202`）。結果は `GET /v1/unity/last-send` と、変化の知らせ（`unity`）で分かります。送る物が複数あるときは `entry`、Unity を複数開いているときは `project` で選びます。開いているプロジェクトは `GET /v1/unity/editors` で分かります。
-- （次のバージョンから）Unity へ送ると、答えに送りの ID（`sendId`）が付きます。結果は `GET /v1/unity/sends/{送りのID}` で分かります。`state` が `sending` の間は送っている途中です。終わると `imported`（取り込んだ）・`alreadyPresent`（もう入っていた）・`cancelled`（Unity で Cancel した）・`stopped`（止めた）・`editorClosed`（Unity が閉じた）・`failed`（送れなかった）のどれかになります。
-- （次のバージョンから）改変に使った物を順に送る前に、`GET /v1/modifications/{ID}/send-plan` で行ごとの送り方を確かめられます。`status` が `choose` の行は、`candidates` から送る物を選んで `choices` に書きます。選んだ物は、その行に記録されます。
-- （次のバージョンから）送るのを止めても、Unity に出た取り込み画面は残ります。Unity で「Cancel」を押して閉じてください。
+- （v1.2.0 から）Unity へ送ると、答えに送りの ID（`sendId`）が付きます。結果は `GET /v1/unity/sends/{送りのID}` で分かります。`state` が `sending` の間は送っている途中です。終わると `imported`（取り込んだ）・`alreadyPresent`（もう入っていた）・`cancelled`（Unity で Cancel した）・`stopped`（止めた）・`editorClosed`（Unity が閉じた）・`failed`（送れなかった）のどれかになります。
+- （v1.2.0 から）改変に使った物を順に送る前に、`GET /v1/modifications/{ID}/send-plan` で行ごとの送り方を確かめられます。`status` が `choose` の行は、`candidates` から送る物を選んで `choices` に書きます。選んだ物は、その行に記録されます。
+- （v1.2.0 から）送るのを止めても、Unity に出た取り込み画面は残ります。Unity で「Cancel」を押して閉じてください。
 - 「Chmonos の画面で商品を表示する」は、ウィンドウを表示せずに動いているときもウィンドウを開きます。データは変えませんが、画面が切り替わるので、「ほかのアプリからの変更を許す」がオンのときだけ使えます。
 - 対応アバターを消しても、商品ページの「消したもの」から戻せます。確認待ちを確認済みにするのは、名前を挙げた物だけです。
 - 改変を消す・名前を変える、対応アバターをまとめて確認済みにする、といった操作は、Chmonos の画面で行ってください。
