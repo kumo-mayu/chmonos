@@ -20,7 +20,7 @@ public sealed record UnityPackagePending(IReadOnlyList<LocalFileRecord> Files, I
 ///   （<see cref="ItemRepository.SaveLocalAsync"/> は読み直して書くだけ）ので、取り込みでは①が終わってから書く</item>
 /// </list>
 /// </summary>
-public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore pathStore)
+public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore pathStore, ZipImageStore? images = null)
 {
     /// <summary>読む対象になり得るか：外していない zip で、中身の一覧に unitypackage がある。</summary>
     public static bool HasPackages(LocalFileRecord file)
@@ -62,7 +62,24 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
     /// </summary>
     public async Task<int> ReadAsync(IEnumerable<LocalFileRecord> files, CancellationToken cancellationToken = default)
     {
-        var targets = files
+        var all = files.ToList();
+
+        // 画像の目次も同じ機会に控える（解かないので軽い）。後で zip を動かしても、手で置いた画像を中身で見つけられる
+        if (images is { } imageStore)
+        {
+            await RunBelowNormalAsync(() =>
+            {
+                foreach (var file in all.DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    imageStore.LoadOrRemember(file);
+                }
+
+                return true;
+            });
+        }
+
+        var targets = all
             .Where(HasPackages)
             .DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase)
             .Select(file => (Record: file, Stored: pathStore.Load(file.Hash)))

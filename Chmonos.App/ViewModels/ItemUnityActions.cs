@@ -255,6 +255,98 @@ internal static class ItemUnityActions
         return record;
     }
 
+    /// <summary>画像の行の文。見つかり方を頭に付けて、選ぶ前に確度が分かるようにする。</summary>
+    internal static string ImageRowText(UnityImageMatch match)
+        => $"{(match.Kind == UnityImageMatchKind.SameImage ? "同じ画像" : "名前が同じ")}：{match.ProjectPath}";
+
+    /// <summary>
+    /// 商品を Unity で示す（カードと商品ページのファイルの欄）。unitypackage で入った物に加え、手で置いた画像も示す（ユーザ判断 2026-11-01）。
+    /// 画像が見つからなければ前と同じ unitypackage の道。
+    /// </summary>
+    public static async Task SelectItemAsync(AppServiceContainer services, ItemRecord item, NoticeSink notify)
+    {
+        const string title = "Unityで選択";
+        if (UnityEditors.Open().Count == 0)
+        {
+            notify("Unityが開いていません。プロジェクトを開いてから、もう一度選んでください。", failed: true);
+            return;
+        }
+
+        if (UnityTargetPicker.Pick(title) is not { } editor)
+        {
+            return;
+        }
+
+        if (await ProjectPathOf(editor) is not { } projectPath)
+        {
+            var tools = await Task.Run(() => services.DetectUnityTools());
+            notify($"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の中を調べられません。"
+                + UnityToolsText.NotListed(tools, services.Settings.ProjectManager), failed: true);
+            return;
+        }
+
+        var projectName = editor.ProjectName ?? System.IO.Path.GetFileName(projectPath);
+        notify($"「{projectName}」の中を調べています…");
+        var (images, packages) = await Task.Run(() => (
+            UnityProjectItemScan.FindImages(projectPath, item, services.ZipImages, CancellationToken.None),
+            UnityImportQueue.PackagesOf(item)));
+        notify(string.Empty);
+
+        if (images.Count == 0 && packages.Count == 0)
+        {
+            notify($"この商品の画像は、Unityの「{projectName}」に見つかりませんでした。", failed: true);
+            return;
+        }
+
+        // 同じ画像が1枚だけで unitypackage も無ければ、迷う所が無いので聞かない。名前が同じだけの物は別の画像かもしれないので見せてから
+        UnityImageMatch? image = null;
+        UnityPackageEntry? package = null;
+        if (images.Count == 1 && packages.Count == 0 && images[0].Kind == UnityImageMatchKind.SameImage)
+        {
+            image = images[0];
+        }
+        else if (images.Count == 0 && packages.Count == 1)
+        {
+            package = packages[0];
+        }
+        else
+        {
+            var picked = ListChoice.Ask(
+                title,
+                "どれを選択しますか？",
+                [.. images.Select(match => new ListChoiceItem(ImageRowText(match), match.SourceName)),
+                    .. packages.Select(entry => new ListChoiceItem(entry.Name, "unitypackage"))],
+                "これを選択");
+            if (picked is not { } index || index < 0)
+            {
+                return;
+            }
+
+            if (index < images.Count)
+            {
+                image = images[index];
+            }
+            else
+            {
+                package = packages[index - images.Count];
+            }
+        }
+
+        if (package is not null)
+        {
+            if (!await UnityMemberSelect.ShowIfPresentAsync(projectPath, projectName, editor, [package], item.Id, notify))
+            {
+                notify($"「{package.Name}」は、Unityの「{projectName}」にまだ入っていません。"
+                    + "入れるには「Unityへ送る」を選んでください。", failed: true);
+            }
+
+            return;
+        }
+
+        var outcome = await UnityProjectTab.SelectImageAsync(editor.ProcessId, image!.ProjectPath);
+        notify(outcome.Problem ?? $"{ImageRowText(image)} を選択しました。", failed: outcome.Problem is not null);
+    }
+
     /// <summary>
     /// Unity で選択する（ユーザ指示 2026-09-19：改変の画面でできる「Unity のプロジェクトタブで示す」を商品ページ・カードにも）。
     /// 相手は送り先と同じ、いま開いている Unity。**入っていなければ言うだけで、取り込みには進まない**——

@@ -246,7 +246,7 @@ public static class StoreFormat
             yield return file;
         }
 
-        foreach (var folder in new[] { "items", "modifications", "unitypackages" })
+        foreach (var folder in new[] { "items", "modifications", "unitypackages", "zipimages" })
         {
             var directory = Path.Combine(root, folder);
             if (Directory.Exists(directory))

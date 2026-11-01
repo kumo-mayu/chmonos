@@ -30,6 +30,9 @@ internal static class CardMenuState
     /// <summary>Unity の項目で、送れる unitypackage が zip にもフォルダにも無いとき（メモ65-③）。</summary>
     internal const string NoPackageTip = "手元にunitypackageがありません";
 
+    /// <summary>「Unityで選択」は手で置いた画像も示せる。</summary>
+    internal const string NoPackageOrImageTip = "手元にunitypackageも画像もありません";
+
     /// <summary>子の理由がそろわないとき、親の吹き出しに出すまとめの理由。</summary>
     internal const string AllUnavailableTip = "今は使える操作がありません";
 
@@ -91,6 +94,15 @@ internal static class CardMenuState
         => key is "SendToUnity" or "SendToUnityWithRecord" or "SelectInUnity";
 
     /// <summary>
+    /// 示せる画像があり得るか。登録したフォルダの中は記録に無いので、在るフォルダは「あり得る」とする
+    /// （メニューを開くたびにフォルダの中を並べると、大きなフォルダや HDD で待たされる）。
+    /// </summary>
+    internal static bool HasSelectableImage(ItemRecord item)
+        => item.Local.OwnedFiles.Any(file => !IsMissing(file)
+                && (file.Paths.Any(UnityProjectImages.IsImage) || file.Contents.Any(UnityProjectImages.IsImage)))
+            || item.Local.LocalFolders.Any(folder => !IsMissing(folder));
+
+    /// <summary>
     /// 子を持つ親の項目（「開く ▸」「Unity ▸」）と、その子。**子が全部押せないときは、親も押せなくして理由を言う**
     /// （ユーザ判断 2026-10-05・メモ49。子だけ薄くて親が押せると、開いてから全部押せないと分かる）。
     /// </summary>
@@ -117,6 +129,7 @@ internal static class CardMenuState
             "OpenShop" => card is { HasShop: true },
             // 手元のファイルが要る。全部見つからない商品は、どれも押せない（押しても「無い」と言うだけ。メモ65-①）
             _ when NeedsArchive(key) => card is not null && HasPresentFile(card.Item),
+            "SelectInUnity" => card is not null && (HasSendablePackage(card.Item) || HasSelectableImage(card.Item)),
             _ when NeedsPackage(key) => card is not null && HasSendablePackage(card.Item),
             _ when NeedsFiles(key) => card is not null && HasFiles(card) && !AllMissing(card.Item),
             // 選ぶ箱を持つのはカードそのものだけ（行の一覧は選びを持たない）
@@ -135,7 +148,12 @@ internal static class CardMenuState
         {
             // 子の理由が同じならそれを、違えば短くまとめた理由を言う
             var reasons = children.Select(child => Tip(child, target)).Distinct().ToList();
-            return IsEnabled(key, target) ? null : reasons.Count == 1 ? reasons[0] : AllUnavailableTip;
+            // Unity の子は「unitypackage が無い」と「unitypackage も画像も無い」に分かれるが、後の方が両方を言っている
+            return IsEnabled(key, target)
+                ? null
+                : reasons.Count == 1 ? reasons[0]
+                : reasons.Contains(NoPackageOrImageTip) && reasons.Contains(NoPackageTip) && reasons.Count == 2 ? NoPackageOrImageTip
+                : AllUnavailableTip;
         }
 
         if (IsEnabled(key, target))
@@ -177,6 +195,7 @@ internal static class CardMenuState
             _ when NeedsFiles(key) && AllMissing(card.Item) => AllMissingTip,
             // zip を持っているのに全部見つからない（フォルダは在る）商品と、そもそも zip を持たない商品を言い分ける（ユーザ判断 2026-10-05）
             _ when NeedsArchive(key) => card.Item.Local.OwnedFiles.Count > 0 ? ArchiveMissingTip : NoArchiveTip,
+            "SelectInUnity" => NoPackageOrImageTip,
             _ when NeedsPackage(key) => NoPackageTip,
             _ => null,
         };

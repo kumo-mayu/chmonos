@@ -114,7 +114,9 @@ public sealed class AppServiceContainer : IDisposable
             // 商品ページや改変の画面は zip を解く前に控えを見る
             var unityPackagePaths = new UnityPackagePathStore(Paths);
             UnityHandoff.UsePathStore(unityPackagePaths);
-            UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths);
+            ZipImages = new ZipImageStore(Paths);
+            ScanUnityProject = (project, items, progress, token) => Services.UnityProjectItemScan.RunWithImages(project, items, ZipImages, progress, token);
+            UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths, ZipImages);
 
             // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）
             Volumes = new VolumeTable(Store, new Services.VolumeReader());
@@ -230,8 +232,10 @@ public sealed class AppServiceContainer : IDisposable
     internal Func<string, IReadOnlyList<Services.OpenUnityEditor>, Services.OpenUnityEditor?> ChooseUnityEditor { get; set; } = Services.UnityTargetPicker.Choose;
 
     /// <summary>プロジェクトの中に入っている商品を調べる（重いので裏で呼ぶ）。試験は作り物の結果に差し替えられる。</summary>
-    internal Func<string, IReadOnlyList<ItemRecord>, IProgress<int>?, CancellationToken, IReadOnlyList<UnityProjectMatch>> ScanUnityProject { get; set; }
-        = Services.UnityProjectItemScan.Run;
+    internal Func<string, IReadOnlyList<ItemRecord>, IProgress<int>?, CancellationToken, Services.UnityProjectScan> ScanUnityProject { get; set; }
+
+    /// <summary>zip の中の画像の控え。</summary>
+    public ZipImageStore ZipImages { get; }
 
     /// <summary>ドラッグで変えられる画面の幅。</summary>
     public Services.PaneWidths PaneWidths { get; }

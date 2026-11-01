@@ -174,6 +174,13 @@ public sealed class SearchModuleContext
     /// <summary>
     /// そのプロジェクトの中に、その商品が入っていると分かっているか（プロジェクトの場所・商品ID）。
     /// 調べるのは重く待てないので、画面が裏で調べた結果を渡す。API はプロジェクトの中を調べないので、既定は入っていない。
+    /// 3つ目は「名前が同じ画像」でも当てるか。
     /// </summary>
-    public Func<string, string, bool> ProjectContains { get; init; } = (_, _) => false;
+    public Func<string, string, bool, bool> ProjectContains { get; init; } = (_, _, _) => false;
+
+    /// <summary>今開いているプロジェクトのどれかに、その商品が入っているか（商品ID・「名前が同じ画像」でも当てるか）。</summary>
+    public Func<string, bool, bool> OpenProjectContains { get; init; } = (_, _) => false;
+
+    /// <summary>Unity のプロジェクトが1つ以上開いていると分かっているか。</summary>
+    public bool HasOpenProject { get; init; }
 }

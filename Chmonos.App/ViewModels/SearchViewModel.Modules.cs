@@ -50,7 +50,9 @@ public sealed partial class SearchViewModel
                 ModuleAdded?.Invoke(added);
                 if (added is ListModule { Kind: SearchModuleKind.UnityProjectContents } contents)
                 {
-                    FillOpenProjectAsync(contents).Forget();
+                    // 見たいのは大抵いま開いているプロジェクト。人が足したときだけ入れておく（保存した状態を戻すときは保存した値のまま）
+                    contents.IncludeOn = true;
+                    RefreshOpenProjectsAsync().Forget();
                 }
             });
         }
@@ -360,6 +362,8 @@ public sealed partial class SearchViewModel
         UnreadUpdateKinds = UnreadUpdateKinds,
         IsAwaitingDetection = itemId => _main?.IsAwaitingDetection(itemId) == true,
         ProjectContains = ProjectContains,
+        OpenProjectContains = OpenProjectContains,
+        HasOpenProject = _openProjects.Count > 0,
     };
 
     /// <summary>種類ごとの照らし方（Core の一覧表。API と同じ物）を、選ぶ条件の形で渡す。選ぶ条件の照らし方は材料を使わない。</summary>
@@ -803,7 +807,11 @@ public sealed partial class SearchViewModel
         // プロジェクトの中に入っている商品（ユーザ判断 2026-11-01）。調べるのは重いので裏で行い、結果はアプリを閉じるまで覚える
         SearchModuleKind.UnityProjectContents => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
             "Unityプロジェクトが見つかりません。プロジェクトを一度開くと表示されます。",
-            ListMatches(kind))
+            ListMatches(kind),
+            flagLabel: SameNameFlagLabel,
+            includeLabel: OpenProjectIncludeLabel,
+            includeMatches: SearchModuleConditions.ListOf(kind)!.IncludeMatches,
+            includeApplies: SearchModuleConditions.ListOf(kind)!.IncludeApplies)
         {
             TrimsMiddle = true,
             ReloadCommand = new RelayCommand(ReloadProjectContents),

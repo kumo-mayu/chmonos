@@ -16,9 +16,9 @@ public class SearchAddMenuLayoutTests
         => SearchModuleCatalog.Menu.Single(layout => layout.Title == title).Groups;
 
     [Fact]
-    public void 見出しは_BOOTHの情報_商品の情報_ファイルの情報_カレンダー_スライダー_利用状況の順()
+    public void 見出しは_BOOTHの情報_商品の情報_ファイルの情報_改変登録_カレンダー_スライダー_利用状況の順()
         => Assert.Equal(
-            ["BOOTHの情報", "商品の情報", "ファイルの情報", "カレンダー", "スライダー", "利用状況"],
+            ["BOOTHの情報", "商品の情報", "ファイルの情報", "改変登録", "カレンダー", "スライダー", "利用状況"],
             SearchModuleCatalog.Menu.Select(layout => layout.Title));
 
     [Fact]
@@ -38,7 +38,7 @@ public class SearchAddMenuLayoutTests
             [
                 [K.UserTag, K.Attribute, K.Favorite, K.Price, K.Avatar, K.Hidden, K.Adult],
                 [K.Owned, K.Gift, K.NotOnBooth],
-                [K.Modification, K.Recent, K.UnityProject, K.UnityProjectContents],
+                [K.Recent, K.UnityProjectContents],
                 [K.AcquiredAt, K.PublishedAt],
                 [K.Unedited],
             ],
@@ -58,7 +58,8 @@ public class SearchAddMenuLayoutTests
     {
         Assert.Equal([[K.PublishedAt, K.AcquiredAt]], GroupsOf(SearchModuleCatalog.Calendar));
         Assert.Equal([[K.Price, K.WishList, K.Attribute, K.Recent]], GroupsOf(SearchModuleCatalog.Slider));
-        Assert.Equal([[K.Recent, K.Modification, K.UnityProject, K.UnityProjectContents]], GroupsOf(SearchModuleCatalog.Usage));
+        Assert.Equal([[K.Recent, K.UnityProjectContents]], GroupsOf(SearchModuleCatalog.Usage));
+        Assert.Equal([[K.Modification, K.UnityProject]], GroupsOf(SearchModuleCatalog.ModificationRecord));
     }
 
     [Fact]
@@ -83,7 +84,7 @@ public class SearchAddMenuLayoutTests
             headings["BOOTHの情報"]);
         Assert.Equal(
             ["ユーザータグ", "属性", "お気に入り", "価格", "対応アバター", "非表示", "R-18", "―", "所持", "ギフト", "BOOTHに無い商品", "―",
-                "改変", "最近", "改変のUnityプロジェクト", "Unityプロジェクト", "―", "入手日", "公開日", "―", "編集状況"],
+                "最近", "Unityプロジェクト", "―", "入手日", "公開日", "―", "編集状況"],
             headings["商品の情報"]);
         Assert.DoesNotContain(headings.Values.SelectMany(lines => lines), line => line == "対応アバターの確認" || line == "販売終了");
     });

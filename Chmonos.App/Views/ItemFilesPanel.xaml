@@ -201,6 +201,13 @@
                                             前は種類の欄の選ぶ欄の空欄が同じ「ファイルを追加…」で、出していなかった。そちらは「ファイルを選択…」に改めた）
                                         -->
                                         <!-- 上下を余白へはみ出させ、見出しの帯の高さを変えない（足す前と同じ高さで、下の行が動かない） -->
+                                        <Button Content="Unityで画像を選択…" Style="{StaticResource SmallButton}" Margin="12,-6,0,-6"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding SelectImageInUnityCommand}"
+                                                AutomationProperties.AutomationId="ItemSelectImageInUnity"
+                                                AutomationProperties.Name="Unityで画像を選択"
+                                                ToolTip="この商品の画像を、開いているUnityで選択します。"
+                                                Visibility="{Binding HasSelectableImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <Button Content="追加…" Style="{StaticResource SmallButton}" Margin="12,-6,0,-6"
                                                 VerticalAlignment="Center"
                                                 Command="{Binding AttachFilesCommand}"

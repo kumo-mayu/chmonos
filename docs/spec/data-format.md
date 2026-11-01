@@ -78,7 +78,7 @@
 ## 控え
 
 - 形式を上げる前に、保存先の JSON を `format-backups/v{古い版}-{日時}/` へ写す（同じ相対の場所に）。
-  写すのは保存先の直下の `*.json`、`items/`・`modifications/`・`unitypackages/` の `*.json`。画像・`.cache`・`logs`・`items/.prev` は写さない
+  写すのは保存先の直下の `*.json`、`items/`・`modifications/`・`unitypackages/`・`zipimages/` の `*.json`。画像・`.cache`・`logs`・`items/.prev` は写さない
   （画像は形式を持たない。控えの控えは要らない）
 - 自動では消さない。戻したくなったときに無いと困るため。消すのは設定の「データ」から
 - **設定の「データ」に「控え」の行**：他の行と同じく、容量とファイル数を最初から出す（ユーザ判断 2026-10-08）。消すのは `UiCommand.DeleteFormatBackups`。［控えを削除…］で確かめの窓

@@ -15,9 +15,15 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public sealed partial class SearchViewModel
 {
+    /// <summary>「今開いているプロジェクト」の文。条件の要約にも出る。</summary>
+    public const string OpenProjectIncludeLabel = "今開いているプロジェクト";
+
+    /// <summary>名前だけ一致した画像も足す切り替え。取り違えがあり得るので既定は切る（ユーザ判断 2026-11-01）。</summary>
+    public const string SameNameFlagLabel = "名前が同じ画像も含める";
+
     private sealed class ProjectContents
     {
-        public IReadOnlySet<string> ItemIds { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+        public UnityProjectScan Scan { get; set; } = UnityProjectScan.Empty;
 
         public bool IsScanning { get; set; } = true;
 
@@ -34,15 +40,26 @@ public sealed partial class SearchViewModel
     private IReadOnlyList<UnityProjectCandidate>? _unityProjects;
     private bool _loadingUnityProjects;
 
+    /// <summary>今開いているプロジェクトの場所（比べる形）。見直すのは足したとき・窓が前に戻ったとき・読み直すとき。</summary>
+    private IReadOnlyList<string> _openProjects = [];
+
+    /// <summary>開いているのに場所の分からないプロジェクトの名前（Hub にも VCC にも載っていない）。理由を言うために持つ。</summary>
+    private IReadOnlyList<string> _unknownOpenProjects = [];
+
+    private bool _openProjectsChecked;
+
     public RelayCommand ShowOpenUnityContentsCommand { get; }
 
-    private bool ProjectContains(string project, string itemId)
-        => _projectContents.TryGetValue(project, out var contents) && contents.ItemIds.Contains(itemId);
+    private bool ProjectContains(string project, string itemId, bool sameName)
+        => _projectContents.TryGetValue(project, out var contents) && contents.Scan.Contains(itemId, sameName);
+
+    private bool OpenProjectContains(string itemId, bool sameName)
+        => _openProjects.Any(project => ProjectContains(project, itemId, sameName));
 
     private IEnumerable<ListModule> ProjectContentsModules()
         => Modules.OfType<ListModule>().Where(module => module.Kind == SearchModuleKind.UnityProjectContents);
 
-    /// <summary>候補は Hub と VCC の一覧。開いている物を先に並べる（見たいのは大抵これ。改変の紐付けの候補と同じ）。</summary>
+    /// <summary>候補は Hub と VCC の一覧。開いている物を先に並べる（改変の紐付けの候補と同じ）。</summary>
     private IEnumerable<(string Text, string Key)> UnityProjectContentsCandidates()
     {
         EnsureUnityProjectsLoaded();
@@ -87,20 +104,81 @@ public sealed partial class SearchViewModel
         }
     }
 
-    /// <summary>効いている札のうち、まだ調べていないプロジェクトを裏で調べ始める。</summary>
+    /// <summary>窓が前に戻った。Unity を開いた・閉じたかもしれない。</summary>
+    internal void NoteOpenProjectsMaybeChanged()
+    {
+        if (ProjectContentsModules().Any(module => module.IncludeOn))
+        {
+            RefreshOpenProjectsAsync().Forget();
+        }
+    }
+
+    /// <summary>開いているプロジェクトを見直す。プロセスと一覧のファイルを見るので裏で。変わったら絞り直す。</summary>
+    private async Task RefreshOpenProjectsAsync()
+    {
+        _openProjectsChecked = true;
+        var (paths, unknown) = await Task.Run(() =>
+        {
+            var found = new List<string>();
+            var names = new List<string>();
+            foreach (var editor in _services.OpenUnityEditors())
+            {
+                if (UnityEditors.PathOf(editor) is { } path)
+                {
+                    found.Add(UnityProjectPath.Normalize(path) ?? path);
+                }
+                else
+                {
+                    names.Add(editor.ProjectName ?? "名前の分からないプロジェクト");
+                }
+            }
+
+            return ((IReadOnlyList<string>)found, (IReadOnlyList<string>)names);
+        });
+
+        var same = paths.SequenceEqual(_openProjects, StringComparer.OrdinalIgnoreCase) && unknown.SequenceEqual(_unknownOpenProjects);
+        _openProjects = paths;
+        _unknownOpenProjects = unknown;
+        foreach (var module in ProjectContentsModules())
+        {
+            module.IncludeUnavailable = paths.Count == 0;
+        }
+
+        if (same)
+        {
+            RefreshProjectStatus();
+            return;
+        }
+
+        ApplyFilters();
+    }
+
+    /// <summary>効いている札と開いているプロジェクトのうち、まだ調べていない物を裏で調べ始める。</summary>
     private void EnsureProjectContents()
     {
+        foreach (var module in ProjectContentsModules())
+        {
+            module.IncludeUnavailable = _openProjects.Count == 0;
+        }
+
+        // 前回の状態を戻したときは、まだ開いているプロジェクトを見ていない
+        if (!_openProjectsChecked && ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
+        {
+            RefreshOpenProjectsAsync().Forget();
+        }
+
         // 読み込む前に調べると、商品が0件の結果を覚えてしまう
         if (_allItems.Count == 0)
         {
             return;
         }
 
-        foreach (var key in ProjectContentsModules()
+        var keys = ProjectContentsModules()
             .Where(module => module.IsEnabled)
-            .SelectMany(module => module.Chips)
-            .Select(chip => chip.Key)
-            .ToList())
+            .SelectMany(module => module.Chips.Select(chip => chip.Key).Concat(module.IncludeOn ? _openProjects : []))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        foreach (var key in keys)
         {
             if (!_projectContents.ContainsKey(key))
             {
@@ -115,7 +193,7 @@ public sealed partial class SearchViewModel
 
     private async Task ScanProjectAsync(string project, ProjectContents contents)
     {
-        var items = _allItems.Where(item => item.HasOwnedFiles).ToList();
+        var items = _allItems.Where(item => item.IsOwned).ToList();
         contents.Total = items.Count;
         var token = contents.Cancel.Token;
         IProgress<int> progress = new Progress<int>(done =>
@@ -128,8 +206,7 @@ public sealed partial class SearchViewModel
         {
             if (await DiskCheck.FolderExistsAsync(project))
             {
-                var matches = await Task.Run(() => _services.ScanUnityProject(project, items, progress, token), token);
-                contents.ItemIds = matches.Select(match => match.ItemId).ToHashSet(StringComparer.Ordinal);
+                contents.Scan = await Task.Run(() => _services.ScanUnityProject(project, items, progress, token), token);
             }
             else
             {
@@ -162,13 +239,28 @@ public sealed partial class SearchViewModel
     {
         foreach (var module in ProjectContentsModules())
         {
-            module.StatusText = string.Join('\n', module.Chips
-                .Select(chip => _projectContents.GetValueOrDefault(chip.Key) is { } contents
+            var lines = new List<string>();
+            if (module.IncludeOn)
+            {
+                if (_unknownOpenProjects.Count > 0)
+                {
+                    lines.AddRange(_unknownOpenProjects.Select(name => $"Unityの「{name}」は場所が分からないので調べられません。"));
+                }
+                else if (_openProjectsChecked && _openProjects.Count == 0)
+                {
+                    lines.Add("Unityが開いていません。");
+                }
+            }
+
+            var keys = module.Chips.Select(chip => chip.Key).Concat(module.IncludeOn ? _openProjects : []).Distinct(StringComparer.OrdinalIgnoreCase);
+            lines.AddRange(keys
+                .Select(key => _projectContents.GetValueOrDefault(key) is { } contents
                     ? contents.Problem ?? (contents.IsScanning
-                        ? $"「{ProjectNameOf(chip.Key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
+                        ? $"「{ProjectNameOf(key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
                         : null)
                     : null)
                 .OfType<string>());
+            module.StatusText = string.Join('\n', lines);
         }
     }
 
@@ -188,28 +280,13 @@ public sealed partial class SearchViewModel
         }
 
         ApplyFilters();
+        RefreshOpenProjectsAsync().Forget();
     }
 
     /// <summary>
-    /// メニューから条件を足したとき、開いている Unity が1つならそれを入れる。
-    /// 複数なら人が候補から選ぶ（開いている物は候補の先頭にある）。
+    /// 「開いているUnityの中身を表示」：条件が無ければ足し、開いているプロジェクトだけで絞る。
+    /// 1つなら「今開いているプロジェクト」に、複数なら選ばせて札に入れる（どれを見たいかは押した人しか分からない）。
     /// </summary>
-    private async Task FillOpenProjectAsync(ListModule module)
-    {
-        var editors = await Task.Run(() => _services.OpenUnityEditors());
-        if (editors.Count != 1 || await Task.Run(() => UnityEditors.PathOf(editors[0])) is not { } path)
-        {
-            return;
-        }
-
-        // 待っている間に人が選んだ・条件を外したなら、触らない
-        if (module.Chips.Count == 0 && Modules.Contains(module))
-        {
-            module.AddKey(UnityProjectPath.Normalize(path) ?? path);
-        }
-    }
-
-    /// <summary>「開いているUnityの中身を表示」：条件が無ければ足し、開いているプロジェクトだけに置き換えて絞る。</summary>
     private async Task ShowOpenUnityContentsAsync()
     {
         const string title = "開いているUnityの中身";
@@ -244,8 +321,11 @@ public sealed partial class SearchViewModel
         module.IsEnabled = true;
         module.IsExcluded = false;
         module.IsCollapsed = false;
-        module.ReplaceKeys(UnityProjectPath.Normalize(path) ?? path, null);
+        var single = editors.Count == 1;
+        module.IncludeOn = single;
+        module.ReplaceKeys(single ? null : UnityProjectPath.Normalize(path) ?? path);
         RefreshModuleSource(module);
         ModuleAdded?.Invoke(module);
+        await RefreshOpenProjectsAsync();
     }
 }

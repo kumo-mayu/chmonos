@@ -41,6 +41,7 @@
 | `registration-queue.json` | 未確定の「このIDで登録」のまだ終わっていない列（商品ID・名前・ファイルのハッシュ・見込みの数）。次の起動で続ける（メモ60） | 未確定の画面（主画面が持つ列） |
 | `pending-operations.json` | 始めて、まだ終わっていない操作の一覧（IDの変更・タグや属性の名前の変更。種類 `kind` と、操作をもう一度当てるのに要る欄だけ）。終われば消し、次の起動で残っていれば続ける（下の「書き方」12） | `PendingOperationRunner`（命令の層） |
 | `volumes.json` | ドライブ文字と通し番号の組（`docs/spec/folder-view.md`） | 取り込み・フォルダビュー |
+| `zipimages/{zipのハッシュ}.json` | zip の中の画像の場所・大きさ・CRC（手で置いた画像を中身で見つける。中身から決まるので古くならない。消してもよい） | 取り込みの裏・プロジェクトを調べるとき |
 | `unitypackages/{zipのハッシュ}.json` | zip の中の unitypackage のパス一覧（中身から決まるので古くならない。消してもよい） | 取り込みの裏 |
 | `logs/app.log` | 失敗の書き残し（1MBで `app.old.log` へ回す。消してよい） | `AppLog` |
 

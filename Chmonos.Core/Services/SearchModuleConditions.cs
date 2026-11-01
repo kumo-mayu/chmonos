@@ -68,8 +68,9 @@ public static class SearchModuleConditions
         bool HasFlag = false,
         bool FlagDefault = false,
         Func<ItemRecord, SearchModuleContext, bool>? IsUnspecified = null,
-        Func<ItemRecord, SearchModuleContext, bool>? IncludeMatches = null,
-        Func<string, string>? MatchKey = null);
+        Func<ItemRecord, SearchModuleContext, bool, bool>? IncludeMatches = null,
+        Func<string, string>? MatchKey = null,
+        Func<SearchModuleContext, bool>? IncludeApplies = null);
 
     /// <summary>数の範囲の照らし方。</summary>
     /// <param name="Sources">数の元の鍵（価格の「払った額」「BOOTH価格」。先頭が既定）。持たない種類は空。</param>
@@ -182,7 +183,7 @@ public static class SearchModuleConditions
 
         // 1商品に1つなので AND は意味が無い。お気に入りのショップ（ショップ画面の星）は、別の条件にせずここに持つ（ユーザ指示 2026-09-16）
         SearchModuleKind.Shop => new(false, (item, _, key, _) => string.Equals(item.ShopSubdomain, key, StringComparison.OrdinalIgnoreCase),
-            IncludeMatches: (item, context) => item.ShopSubdomain is { } key && context.FavoriteShops.Contains(key)),
+            IncludeMatches: (item, context, _) => item.ShopSubdomain is { } key && context.FavoriteShops.Contains(key)),
 
         // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針（メモ82）
         SearchModuleKind.Avatar => new(true, AvatarMatches, HasFlag: true, FlagDefault: true, IsUnspecified: IsUnspecifiedAvatar),
@@ -191,7 +192,11 @@ public static class SearchModuleConditions
         SearchModuleKind.UnityProject => new(true, (item, context, key, _) => context.Modifications.InProject(key, item.Id)),
 
         // プロジェクトの中に実際に入っている商品（ユーザ判断 2026-11-01）。調べるのは重いので、画面が裏で調べた結果を材料から引く
-        SearchModuleKind.UnityProjectContents => new(true, (item, context, key, _) => context.ProjectContains(key, item.Id)),
+        // 「今開いているプロジェクト」は札と同じ扱いのかたまり。Unity が開いていない間は無いものとして扱う（使う人が札を選んでいなければ絞らない）
+        SearchModuleKind.UnityProjectContents => new(true, (item, context, key, sameName) => context.ProjectContains(key, item.Id, sameName),
+            HasFlag: true,
+            IncludeMatches: (item, context, sameName) => context.OpenProjectContains(item.Id, sameName),
+            IncludeApplies: context => context.HasOpenProject),
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。フォルダは比べる形に1回だけ畳む
         SearchModuleKind.Path => new(true, (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
@@ -280,7 +285,8 @@ public static class SearchModuleConditions
                 showUnspecified,
                 list.IncludeMatches,
                 list.IncludeMatches is not null && state.IncludeFavorites,
-                list.MatchKey);
+                list.MatchKey,
+                list.IncludeApplies);
         }
 
         if (RangeOf(kind) is { } range)

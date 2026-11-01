@@ -55,8 +55,8 @@ public static class UnityProjectTab
     /// <summary>glob の記号。パスに入っていると別の意味に読まれる（<c>[作者名]</c> が文字の組に読まれる）</summary>
     private static readonly char[] GlobSymbols = ['*', '?', '[', ']', '{', '}', '"'];
 
-    /// <summary>前に入っていた文字を消すために送る BackSpace の数。検索欄に入れる語はこれより短い</summary>
-    private const int ClearCount = 120;
+    /// <summary>前に入っていた文字を消すために送る BackSpace の数。画像のパスまで入れるので長めに取る（Windows のふつうのパスの上限は260字）</summary>
+    private const int ClearCount = 320;
 
     private const uint WmCommand = 0x0111;
     private const uint WmKeyDown = 0x0100;
@@ -214,7 +214,32 @@ public static class UnityProjectTab
     /// プロジェクトタブで <paramref name="folderPath"/>（<c>Assets/FUKA</c> のような Unity の中のパス）を開く。
     /// <paramref name="projectPath"/> はそのプロジェクトのフォルダ（結果が1件になるかをディスクで見るのに使う）。
     /// </summary>
-    public static async Task<UnityTabOutcome> SelectFolderAsync(int processId, string projectPath, string folderPath)
+    public static Task<UnityTabOutcome> SelectFolderAsync(int processId, string projectPath, string folderPath)
+        => SearchAsync(processId, () => Task.Run(() => Plan(projectPath, folderPath)), pressEnter: true);
+
+    /// <summary>
+    /// 画像の検索の語。パスで1件に絞る（同じ名前が別のフォルダにあっても取り違えない）。glob の記号は <c>?</c>（どの1字にも当たる）に置き換える。
+    /// そのままだと <c>[作者]</c> の入るパスが0件で、記号を <c>?</c> にすると1件に当たった（Unity 2022.3.22f1・作り物の画像で確かめた 2026-11-01）。
+    /// </summary>
+    internal static string ImageQuery(string imagePath)
+    {
+        var path = new StringBuilder(Normalize(imagePath));
+        foreach (var symbol in GlobSymbols)
+        {
+            path.Replace(symbol, '?');
+        }
+
+        return $"{AssetsScope}glob:\"{path}\"";
+    }
+
+    /// <summary>
+    /// プロジェクトタブで画像を選ぶ。**Enter を押さない。**↓ で選ぶと Inspector に出るが、Enter はファイルを外の編集ソフトで開く。
+    /// 0件のときは前の選択が残って見間違えるので、呼ぶ側がディスクで在ることを確かめてから呼ぶ。
+    /// </summary>
+    public static Task<UnityTabOutcome> SelectImageAsync(int processId, string imagePath)
+        => SearchAsync(processId, () => Task.FromResult<(string? Query, string? StopReason)>((ImageQuery(imagePath), null)), pressEnter: false);
+
+    private static async Task<UnityTabOutcome> SearchAsync(int processId, Func<Task<(string? Query, string? StopReason)>> plan, bool pressEnter)
     {
         IntPtr main;
         try
@@ -246,7 +271,7 @@ public static class UnityProjectTab
             await Task.Delay(800);
         }
 
-        var (query, stopReason) = await Task.Run(() => Plan(projectPath, folderPath));
+        var (query, stopReason) = await plan();
         if (query is null)
         {
             // 探しても出ないので、タブには触らない。Unity だけ手前に出して、左の木で見つけてもらう
@@ -305,7 +330,7 @@ public static class UnityProjectTab
             var opened = new List<IntPtr>();
             foreach (var tab in targets)
             {
-                if (await OpenInAsync(main, tab, query, findCommand, choose))
+                if (await OpenInAsync(main, tab, query, findCommand, choose, pressEnter))
                 {
                     opened.Add(tab);
                 }
@@ -334,7 +359,7 @@ public static class UnityProjectTab
     /// 1つのタブで検索する。<paramref name="choose"/> なら先頭を選んで開き、そうでなければ結果を出したところで止める。
     /// フォーカスを渡せなければ false。
     /// </summary>
-    private static async Task<bool> OpenInAsync(IntPtr main, IntPtr tab, string query, uint findCommand, bool choose)
+    private static async Task<bool> OpenInAsync(IntPtr main, IntPtr tab, string query, uint findCommand, bool choose, bool pressEnter)
     {
         if (!GetClientRect(tab, out var rect) || rect.Right <= 0 || rect.Bottom <= 0)
         {
@@ -379,8 +404,12 @@ public static class UnityProjectTab
         await Task.Delay(1200);
         Key(box, VkDown);
         await Task.Delay(400);
-        Key(box, VkReturn);
-        await Task.Delay(500);
+        if (pressEnter)
+        {
+            Key(box, VkReturn);
+            await Task.Delay(500);
+        }
+
         return true;
     }
 

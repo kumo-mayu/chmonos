@@ -17,7 +17,7 @@ namespace Chmonos.App.ViewModels;
 /// 範囲（スキ数・価格）と日付（公開日・入手日）だけ。1つの範囲で2つの帯は指せないので、AND でつなぐと2つ目を置く意味が無い。
 /// 除くを付けた物は和集合に入れず、除かない物の和集合からそれぞれ引く（<see cref="SearchFilterPass"/>）。ほかの種類との間は今までどおり AND。
 /// </param>
-public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false, bool OrSameKind = false);
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false, bool OrSameKind = false, string? MenuLabel = null);
 
 /// <summary>
 /// 条件の並びの決まり（純粋な関数・試験あり）。足す位置と「同じ種類の条件を隣に並べる」（ユーザ判断 2026-10-01・案の §5）。
@@ -129,6 +129,9 @@ public static class SearchModuleCatalog
     public const string BoothInfo = "BOOTHの情報";
     public const string ItemInfo = "商品の情報";
     public const string FileInfo = "ファイルの情報";
+
+    /// <summary>改変に記録した物で絞る条件の見出し。</summary>
+    public const string ModificationRecord = "改変登録";
     public const string Calendar = "カレンダー";
     public const string Slider = "スライダー";
     public const string Usage = "利用状況";
@@ -162,10 +165,10 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日か買った日で絞ります。日付を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "編集状況", "編集画面の項目を入力したか、対応アバターを確認したかで絞ります。", AllowsMany: true),
-        new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターだけを選ぶと、そのアバターの改変のどれかに使った商品です。", AllowsMany: true),
-        // 名前は仮。「改変」の条件の中へ移す形を決めるまで（ユーザが検討中 2026-11-01）、中を見る新しい条件と見分けるために「改変の」を付ける
-        new(SearchModuleKind.UnityProject, "改変のUnityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
-        new(SearchModuleKind.UnityProjectContents, "Unityプロジェクト", "プロジェクトに入っている商品で絞ります。unitypackageで入れた物が対象です。", AllowsMany: true),
+        new(SearchModuleKind.Modification, "アバター・改変", "改変に使った商品で絞ります。アバターだけを選ぶと、そのアバターの改変のどれかに使った商品です。", AllowsMany: true),
+        // メニューでは見出し「改変登録」の下なので短く出す。条件の見出しと要約には見出しが無いので、中を見る条件と見分けられる名前にする（ユーザ判断 2026-11-01）
+        new(SearchModuleKind.UnityProject, "改変登録のUnityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true, MenuLabel: "Unityプロジェクト"),
+        new(SearchModuleKind.UnityProjectContents, "Unityプロジェクト", "プロジェクトに入っている商品で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "Unity送信・商品閲覧・取り込みをした日で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
@@ -201,7 +204,7 @@ public static class SearchModuleCatalog
         [
             [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Favorite, SearchModuleKind.Price, SearchModuleKind.Avatar, SearchModuleKind.Hidden, SearchModuleKind.Adult],
             [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.NotOnBooth],
-            [SearchModuleKind.Modification, SearchModuleKind.Recent, SearchModuleKind.UnityProject, SearchModuleKind.UnityProjectContents],
+            [SearchModuleKind.Recent, SearchModuleKind.UnityProjectContents],
             [SearchModuleKind.AcquiredAt, SearchModuleKind.PublishedAt],
             [SearchModuleKind.Unedited],
         ]),
@@ -212,6 +215,9 @@ public static class SearchModuleCatalog
             [SearchModuleKind.Path],
         ]),
 
+        // 改変に記録した物で絞る条件（ユーザ判断 2026-11-01：プロジェクトの中を見る「Unityプロジェクト」とは別のまとまり）
+        new(ModificationRecord, [[SearchModuleKind.Modification, SearchModuleKind.UnityProject]]),
+
         // BOOTH に出た日 → 自分が手に入れた日
         new(Calendar, [[SearchModuleKind.PublishedAt, SearchModuleKind.AcquiredAt]]),
 
@@ -219,7 +225,7 @@ public static class SearchModuleCatalog
         new(Slider, [[SearchModuleKind.Price, SearchModuleKind.WishList, SearchModuleKind.Attribute, SearchModuleKind.Recent]]),
 
         // 広い → 狭い
-        new(Usage, [[SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.UnityProjectContents]]),
+        new(Usage, [[SearchModuleKind.Recent, SearchModuleKind.UnityProjectContents]]),
     ];
 
     public static SearchModuleInfo Of(SearchModuleKind kind) => All.First(entry => entry.Kind == kind);
@@ -623,7 +629,7 @@ public sealed class SearchModuleMenuEntry : ViewModelBase
     public SearchModuleMenuEntry(SearchModuleInfo info, Action<SearchModuleKind> add)
     {
         Kind = info.Kind;
-        Label = info.Label;
+        Label = info.MenuLabel ?? info.Label;
         Hint = info.Hint;
         AddCommand = new RelayCommand(() => add(Kind), () => IsAvailable);
     }

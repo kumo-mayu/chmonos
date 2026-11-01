@@ -615,6 +615,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
         // 開いたまま日をまたいだら、「最近」の今日・何日を数え直す
         (CurrentViewModel as SearchViewModel)?.NoteMaybeNewDay();
+
+        // Unity を開いて・閉じて戻ったら、「今開いているプロジェクト」を見直す
+        (CurrentViewModel as SearchViewModel)?.NoteOpenProjectsMaybeChanged();
     }
 
     public object? CurrentViewModel

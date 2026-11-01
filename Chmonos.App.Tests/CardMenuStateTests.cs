@@ -73,16 +73,28 @@ public class CardMenuStateTests
         Assert.False(CardMenuState.IsEnabled("Unpack", card));
         Assert.Equal("手元にzipがありません", CardMenuState.Tip("Unpack", card));
 
-        // 中に unitypackage が無いフォルダは、Unity の項目も押せない（メモ65-③）
-        foreach (var key in NeedPackage)
+        // 中に unitypackage が無いフォルダは、送る項目を押せない（メモ65-③）
+        foreach (var key in new[] { "SendToUnity", "SendToUnityWithRecord" })
         {
             Assert.False(CardMenuState.IsEnabled(key, card), key);
             Assert.Equal("手元にunitypackageがありません", CardMenuState.Tip(key, card));
         }
 
-        Assert.False(CardMenuState.IsEnabled("UnityParent", card));
-        Assert.Equal("手元にunitypackageがありません", CardMenuState.Tip("UnityParent", card));
+        // 選択はフォルダの中の画像を示せるかもしれない（中は押してから調べる）ので押せ、親も押せる
+        Assert.True(CardMenuState.IsEnabled("UnityParent", card));
     });
+
+    [Fact]
+    public void 画像が記録にある商品は_選択の候補になる()
+    {
+        var image = Make.Item("9900604", "作り物の画像").WithFiles(Make.File(@"C:\作り物\texture.png"));
+        var zip = Make.Item("9900605", "作り物のzip").WithFiles(Make.File(@"C:\作り物\texture.zip") with { Contents = ["tex/a.PSD"] });
+        var none = Make.Item("9900606", "作り物の説明").WithFiles(Make.File(@"C:\作り物\readme.zip") with { Contents = ["説明.txt"] });
+
+        Assert.True(CardMenuState.HasSelectableImage(image));
+        Assert.True(CardMenuState.HasSelectableImage(zip));
+        Assert.False(CardMenuState.HasSelectableImage(none));
+    }
 
     [Fact]
     public Task フォルダの中にunitypackageがあれば_Unityの項目は押せ_展開は押せない() => TestApp.Run(async app =>
@@ -113,7 +125,7 @@ public class CardMenuStateTests
         foreach (var key in NeedPackage.Append("UnityParent"))
         {
             Assert.False(CardMenuState.IsEnabled(key, card), key);
-            Assert.Equal("手元にunitypackageがありません", CardMenuState.Tip(key, card));
+            Assert.Equal(key is "SelectInUnity" or "UnityParent" ? CardMenuState.NoPackageOrImageTip : CardMenuState.NoPackageTip, CardMenuState.Tip(key, card));
         }
     });
 

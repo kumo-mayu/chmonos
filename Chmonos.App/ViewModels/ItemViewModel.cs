@@ -106,6 +106,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         SelectInUnityCommand = new RelayCommand(
             parameter => SelectInUnityAsync(parameter).Forget(),
             parameter => parameter is Core.Services.UnityPackageEntry);
+        SelectImageInUnityCommand = new RelayCommand(() => ItemUnityActions.SelectItemAsync(
+            _services, Item, Notices.LineOrWindow("Unityで選択", text => UnityRecordNotice = text)).Forget());
         AddToModificationCommand = new RelayCommand(() => AddToModificationAsync().Forget());
         OpenModificationCommand = new RelayCommand(
             parameter => OpenModification(parameter as UsedInModificationRowViewModel),
@@ -584,6 +586,11 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     /// <summary>unitypackage の入り先を、いま開いている Unity のプロジェクトタブで示す（入っていなければ言うだけ）。</summary>
     public RelayCommand SelectInUnityCommand { get; }
+
+    /// <summary>手で Unity へ置いた画像を示す（画像は行ごとに「Unity ▾」を持たないので、ファイルの欄に1つ）。</summary>
+    public RelayCommand SelectImageInUnityCommand { get; }
+
+    public bool HasSelectableImage => CardMenuState.HasSelectableImage(Item);
 
     public RelayCommand AddToModificationCommand { get; }
 

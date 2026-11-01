@@ -168,7 +168,7 @@ public sealed class ListModule : SearchModule
     private bool _showUnspecified;
     private int _matchedCount = -1;
     private int _unspecifiedCount = -1;
-    private readonly Func<ItemRecord, SearchModuleContext, bool>? _includeMatches;
+    private readonly Func<ItemRecord, SearchModuleContext, bool, bool>? _includeMatches;
     private readonly string? _includeLabel;
     private bool _includeOn;
     private int _includeCount = -1;
@@ -191,11 +191,13 @@ public sealed class ListModule : SearchModule
         bool flagDefault = false,
         Func<ItemRecord, SearchModuleContext, bool>? isUnspecified = null,
         string? includeLabel = null,
-        Func<ItemRecord, SearchModuleContext, bool>? includeMatches = null,
-        Func<string, string>? matchKey = null)
+        Func<ItemRecord, SearchModuleContext, bool, bool>? includeMatches = null,
+        Func<string, string>? matchKey = null,
+        Func<SearchModuleContext, bool>? includeApplies = null)
         : base(kind)
     {
         _matchKey = matchKey;
+        _includeApplies = includeApplies;
         _includeLabel = includeLabel;
         _includeMatches = includeMatches;
         AllowsAnd = allowsAnd;
@@ -259,7 +261,17 @@ public sealed class ListModule : SearchModule
     /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
     public string? FlagLabel { get; }
 
-    public bool HasFlag => FlagLabel is not null && Chips.Count > 0;
+    public bool HasFlag => FlagLabel is not null && (Chips.Count > 0 || (HasInclude && _includeOn));
+
+    private readonly Func<SearchModuleContext, bool>? _includeApplies;
+
+    /// <summary>「今開いているプロジェクト」か（お気に入りのショップと同じ作りで、文と名前だけが違う）。</summary>
+    public bool IsOpenProjectInclude => Kind == SearchModuleKind.UnityProjectContents;
+
+    public bool IsFavoriteShopInclude => HasInclude && !IsOpenProjectInclude;
+
+    /// <summary>かたまりが今は無いものか（Unity が開いていない）。無い間は、札を選んでいなければ絞らない。</summary>
+    internal bool IncludeUnavailable { get; set; }
 
     public bool Flag
     {
@@ -310,6 +322,8 @@ public sealed class ListModule : SearchModule
         {
             if (SetField(ref _includeOn, value))
             {
+                OnPropertyChanged(nameof(HasFlag));
+                OnPropertyChanged(nameof(HasReload));
                 NotifyChanged();
             }
         }
@@ -389,10 +403,12 @@ public sealed class ListModule : SearchModule
     /// </summary>
     public Func<string, string>? ChipTextOf { get; init; }
 
-    public bool HasReload => ReloadCommand is not null && Chips.Count > 0;
+    public bool HasReload => ReloadCommand is not null && (Chips.Count > 0 || _includeOn);
 
-    /// <summary>札をこの1つに置き換える（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。</summary>
-    public void ReplaceKeys(string key, string? text)
+    /// <summary>
+    /// 札をこの1つだけにする。鍵が null なら札を全部外す（「開いているUnityの中身を表示」）。前の札を残すと、別のプロジェクトの商品まで混ざる。
+    /// </summary>
+    public void ReplaceKeys(string? key)
     {
         var known = Chips.Any(chip => chip.Key == key);
         foreach (var other in Chips.Where(chip => chip.Key != key).ToList())
@@ -400,14 +416,14 @@ public sealed class ListModule : SearchModule
             Chips.Remove(other);
         }
 
-        if (known)
+        if (key is null || known)
         {
             RefreshSuggestions();
             NotifyChanged();
             return;
         }
 
-        AddKey(key, text: text);
+        AddKey(key);
     }
 
     /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>
@@ -494,7 +510,7 @@ public sealed class ListModule : SearchModule
     /// （足した直後に、何も選んでいないのに「指定が無い商品」が消えるのを避ける）。
     /// </summary>
     protected override bool HasCondition
-        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn);
+        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn && !IncludeUnavailable);
 
     protected override ItemCondition BuildCondition()
         => new ListCondition(
@@ -507,7 +523,8 @@ public sealed class ListModule : SearchModule
             _showUnspecified,
             _includeMatches,
             HasInclude && _includeOn,
-            _matchKey);
+            _matchKey,
+            _includeApplies);
 
     /// <summary>
     /// 照らすときに <c>matches</c> へ渡す鍵。畳む決まり（<c>matchKey</c>）があれば、チップごとに1回だけ畳んで覚える（案c）。
@@ -566,7 +583,7 @@ public sealed class ListModule : SearchModule
 
         if (_includeMatches is not null)
         {
-            _includeCount = items.Count(item => _includeMatches(item, context));
+            _includeCount = items.Count(item => _includeMatches(item, context, _flag));
             OnPropertyChanged(nameof(IncludeText));
         }
 
@@ -611,6 +628,8 @@ public sealed class ListModule : SearchModule
         _showMatched = !HasGroups || state.ShowMatched || !_showUnspecified;
         _includeOn = HasInclude && state.IncludeFavorites;
         OnPropertyChanged(nameof(IncludeOn));
+        OnPropertyChanged(nameof(HasFlag));
+        OnPropertyChanged(nameof(HasReload));
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(ShowMatched));

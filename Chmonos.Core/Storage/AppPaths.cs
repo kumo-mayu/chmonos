@@ -125,6 +125,11 @@ public sealed class AppPaths
     /// </summary>
     public string UnityPackagesDir => Path.Combine(Root, "unitypackages");
 
+    /// <summary>zip の中の画像の大きさと CRC の控え（<see cref="ZipImageStore"/>）。</summary>
+    public string ZipImagesDir => Path.Combine(Root, "zipimages");
+
+    public string ZipImageFile(string hash) => Path.Combine(ZipImagesDir, StoreIds.RequirePackageHash(hash).ToUpperInvariant() + ".json");
+
     public string UnityPackageFile(string hash) => Path.Combine(UnityPackagesDir, StoreIds.RequirePackageHash(hash).ToUpperInvariant() + ".json");
 
     /// <summary>中断した取り込みの記録。最後まで終われば消える。</summary>

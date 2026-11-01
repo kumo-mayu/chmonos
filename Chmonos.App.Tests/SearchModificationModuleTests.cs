@@ -136,7 +136,7 @@ public class SearchModificationModuleTests
 
         row.MatchAll = true;
         Assert.Equal(["9900112"], Shown(search));
-        Assert.Equal("改変：作り物のアバター（普段着・制服 のすべて）", module.SummaryText);
+        Assert.Equal("アバター・改変：作り物のアバター（普段着・制服 のすべて）", module.SummaryText);
 
         row.MatchAll = false;
         module.AddCommand.Execute("ほかのアバター");

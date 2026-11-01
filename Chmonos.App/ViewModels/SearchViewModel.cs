@@ -144,10 +144,13 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             AsCard(parameter), "改変に追加して送る", "これを送る",
             package => ItemUnityActions.SendWithRecordAsync(_services, AsCard(parameter)!.Item, package,
                 (text, failed) => Tell("改変に追加して送る", text, failed), SendUi)).Forget());
-        CardSelectInUnityCommand = new RelayCommand(parameter => CardUnityAsync(
-            AsCard(parameter), "Unityで選択", "これを示す",
-            package => ItemUnityActions.SelectAsync(_services, AsCard(parameter)!.Item, package,
-                (text, failed) => Tell("Unityで選択", text, failed))).Forget());
+        CardSelectInUnityCommand = new RelayCommand(parameter =>
+        {
+            if (AsCard(parameter) is { } card)
+            {
+                ItemUnityActions.SelectItemAsync(_services, card.Item, (text, failed) => Tell("Unityで選択", text, failed)).Forget();
+            }
+        });
         HideItemCommand = new RelayCommand(parameter => HideItemAsync(AsCard(parameter)).Forget());
         CardAddToModificationCommand = new RelayCommand(
             parameter => AddCardsToModificationAsync(AsCard(parameter)).Forget(), parameter => AsCard(parameter) is not null);

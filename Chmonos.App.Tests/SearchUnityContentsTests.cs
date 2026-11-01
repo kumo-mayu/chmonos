@@ -36,8 +36,11 @@ public class SearchUnityContentsTests
         return (await app.StartAsync()).Search;
     }
 
+    private static UnityProjectScan Packages(params string[] ids)
+        => new(ids.Select(id => new UnityProjectMatch(id, 1, 2)).ToList(), new Dictionary<string, IReadOnlyList<UnityImageMatch>>());
+
     private static void ScanFinds(TestApp app, params string[] ids)
-        => app.Services.ScanUnityProject = (_, _, _, _) => ids.Select(id => new UnityProjectMatch(id, 1, 2)).ToList();
+        => app.Services.ScanUnityProject = (_, _, _, _) => Packages(ids);
 
     [Fact]
     public Task 押すと_開いているプロジェクトに入っている商品だけが出る() => TestApp.Run(async app =>
@@ -51,15 +54,102 @@ public class SearchUnityContentsTests
 
         await UiThread.Until(() => Shown(search) is ["9900002"], "待つ");
         var module = Assert.IsType<ListModule>(search.Modules.Single(entry => entry.Kind == SearchModuleKind.UnityProjectContents));
-        var chip = module.Chips.Single();
-        Assert.Equal(UnityProjectPath.Normalize(project), chip.Key);
+        Assert.True(module.IncludeOn);
+        Assert.Empty(module.Chips);
+        Assert.False(module.HasStatus);
+    });
 
-        // 札と要約は名前だけで、場所は吹き出し（場所まで出すと長く、間を省くと名前が読めない）
+    [Fact]
+    public Task 札は名前だけで_場所は吹き出し() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        var search = await StartWithItemsAsync(app, "9900001");
+        ScanFinds(app, "9900001");
+
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        module.AddKey(UnityProjectPath.Normalize(project)!);
+
+        var chip = module.Chips.Single();
         Assert.Equal("projA", chip.DisplayText);
         Assert.Equal(chip.Key, chip.ToolTipText);
         Assert.True(module.HasReload);
+        await UiThread.Until(() => Shown(search) is ["9900001"], "待つ");
+    });
+
+    [Fact]
+    public Task Unityが開いていない間は_今開いているプロジェクトでは絞らず_そう言う() => TestApp.Run(async app =>
+    {
+        var search = await StartWithItemsAsync(app, "9900001");
+
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+
+        await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
+        Assert.True(module.IncludeOn);
+        Assert.False(module.IsActive);
+        Assert.Equal(["9900001"], Shown(search));
+    });
+
+    [Fact]
+    public Task Unityを開いて窓に戻ると_今開いているプロジェクトで絞り直す() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002");
+        ScanFinds(app, "9900002");
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        await UiThread.Until(() => module.StatusText.Length > 0, "開いていないと言う");
+
+        app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
+        search.NoteOpenProjectsMaybeChanged();
+
+        await UiThread.Until(() => Shown(search) is ["9900002"], "絞り直す");
+        Assert.True(module.IsActive);
         Assert.False(module.HasStatus);
     });
+
+    [Fact]
+    public Task 名前が同じ画像は_切り替えを入れたときだけ出る() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002");
+        app.Services.ScanUnityProject = (_, _, _, _) => new UnityProjectScan([], new Dictionary<string, IReadOnlyList<UnityImageMatch>>
+        {
+            ["9900001"] = [new UnityImageMatch("Assets/a.png", "a.png", UnityImageMatchKind.SameImage)],
+            ["9900002"] = [new UnityImageMatch("Assets/b.png", "b.png", UnityImageMatchKind.SameName)],
+        });
+        app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
+        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+
+        await UiThread.Until(() => Shown(search) is ["9900001"], "同じ画像だけ");
+        Assert.True(module.HasFlag);
+        module.Flag = true;
+
+        Assert.Equal(["9900001", "9900002"], Shown(search));
+    });
+
+    [Fact]
+    public void 画像の行は_見つかり方を頭に付ける()
+    {
+        Assert.Equal("同じ画像：Assets/a.png", ItemUnityActions.ImageRowText(new UnityImageMatch("Assets/a.png", "a.png", UnityImageMatchKind.SameImage)));
+        Assert.Equal("名前が同じ：Assets/a.png", ItemUnityActions.ImageRowText(new UnityImageMatch("Assets/a.png", "a.png", UnityImageMatchKind.SameName)));
+    }
+
+    [Theory]
+    [InlineData("Assets/手で置いた/a b.png", "a:assets glob:\"Assets/手で置いた/a b.png\"")]
+    [InlineData("Assets/[作者]/x{1}.png", "a:assets glob:\"Assets/?作者?/x?1?.png\"")]
+    public void 画像の検索の語は_パスで1件に絞り_記号は1字に当てる(string path, string expected)
+        => Assert.Equal(expected, UnityProjectTab.ImageQuery(path));
+
+    [Fact]
+    public void 画像の持ち方で_選択できるかが決まる()
+    {
+        var plain = Make.Item("9900001", "画像なし").WithFiles(Make.File(@"D:\files\a.zip") with { Contents = ["説明.txt"] });
+        var inZip = Make.Item("9900002", "zip の中").WithFiles(Make.File(@"D:\files\b.zip") with { Contents = ["tex/a.psd"] });
+        var single = Make.Item("9900003", "単体").WithFiles(Make.File(@"D:\files\c.png"));
+
+        Assert.False(CardMenuState.HasSelectableImage(plain));
+        Assert.True(CardMenuState.HasSelectableImage(inZip));
+        Assert.True(CardMenuState.HasSelectableImage(single));
+    }
 
     [Fact]
     public Task 押すと_前のプロジェクトの札を置き換え_切った条件も効かせる() => TestApp.Run(async app =>
@@ -68,8 +158,9 @@ public class SearchUnityContentsTests
         var open = NewProject(app, "projB");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         app.Services.ScanUnityProject = (project, _, _, _) =>
-            [new UnityProjectMatch(project == UnityProjectPath.Normalize(open) ? "9900002" : "9900001", 1, 1)];
+            Packages(project == UnityProjectPath.Normalize(open) ? "9900002" : "9900001");
         var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        module.IncludeOn = false;
         module.AddKey(UnityProjectPath.Normalize(before)!);
         module.IsExcluded = true;
         module.IsEnabled = false;
@@ -80,7 +171,8 @@ public class SearchUnityContentsTests
 
         await UiThread.Until(() => Shown(search) is ["9900002"], "待つ");
         Assert.Same(module, search.Modules.Single(entry => entry.Kind == SearchModuleKind.UnityProjectContents));
-        Assert.Equal(UnityProjectPath.Normalize(open), module.Chips.Single().Key);
+        Assert.Empty(module.Chips);
+        Assert.True(module.IncludeOn);
         Assert.True(module.IsEnabled);
         Assert.False(module.IsExcluded);
         Assert.False(module.IsCollapsed);
@@ -139,24 +231,6 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
-    public Task メニューから足すと_開いているUnityが1つならそれが入り_複数なら入らない() => TestApp.Run(async app =>
-    {
-        var project = NewProject(app, "projA");
-        var search = await StartWithItemsAsync(app, "9900001");
-        ScanFinds(app);
-        app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
-
-        var one = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
-        await UiThread.Until(() => one.Chips.Count == 1, "待つ");
-        Assert.Equal(UnityProjectPath.Normalize(project), one.Chips.Single().Key);
-
-        app.OpenEditors = [new OpenUnityEditor(1, "projA", project), new OpenUnityEditor(2, "projB", NewProject(app, "projB"))];
-        var two = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
-        await app.SettleAsync();
-        Assert.Empty(two.Chips);
-    });
-
-    [Fact]
     public Task 候補は実在するプロジェクトだけで_開いている物が先に目印付きで並ぶ() => TestApp.Run(async app =>
     {
         app.UnityProjects =
@@ -178,21 +252,22 @@ public class SearchUnityContentsTests
     {
         var project = NewProject(app, "projA");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
-        var gate = new TaskCompletionSource();
+        using var gate = new ManualResetEventSlim();
         var scans = 0;
         var found = "9900001";
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {
             scans++;
-            gate.Task.Wait();
-            return [new UnityProjectMatch(found, 1, 1)];
+            gate.Wait();
+            return Packages(found);
         };
 
         var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        module.IncludeOn = false;
         module.AddKey(UnityProjectPath.Normalize(project)!);
 
         await UiThread.Until(() => module.StatusText.Contains("「projA」の中を調べています"), "待つ");
-        gate.SetResult();
+        gate.Set();
         await UiThread.Until(() => Shown(search) is ["9900001"], "待つ");
         Assert.False(module.HasStatus);
 
@@ -213,6 +288,7 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001");
         var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
 
+        module.IncludeOn = false;
         module.AddKey(Path.Combine(app.Root, "gone"));
 
         await UiThread.Until(() => module.StatusText == "「gone」のフォルダが見つかりません。", "待つ");
@@ -220,11 +296,11 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
-    public Task 改変のUnityプロジェクトは_今までの意味のまま別の条件で残る() => TestApp.Run(async app =>
+    public Task 改変登録のUnityプロジェクトは_今までの意味のまま別の条件で残る() => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
 
-        Assert.Equal("改変のUnityプロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProject).Label);
+        Assert.Equal("改変登録のUnityプロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProject).Label);
         Assert.Equal("Unityプロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProjectContents).Label);
         var old = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProject);
         Assert.False(old.HasReload);
