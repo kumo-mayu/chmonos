@@ -530,6 +530,61 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
+    public Task フォルダを確かめられないときは_無いと言わず前回の結果を残す() => TestApp.Run(async app =>
+    {
+        var project = UnityProjectPath.Normalize(NewProject(app, "projA"))!;
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(project, Packages("9900001"));
+        await RestoreChipAsync(app, project);
+        app.Services.ProjectFolderState = _ => DiskAnswer.Unknown;
+
+        var search = (await app.StartAsync()).Search;
+
+        await UiThread.Until(() => ContentsModule(search).StatusText.Contains("調べられませんでした"), "理由を言う");
+        Assert.DoesNotContain("見つかりません", ContentsModule(search).StatusText);
+        Assert.Equal(["9900001"], Shown(search));
+
+        // 届くようになれば、読み直すで取り直せる
+        app.Services.ProjectFolderState = _ => DiskAnswer.Present;
+        ScanFinds(app, "9900002");
+        ContentsModule(search).ReloadCommand!.Execute(null);
+        await UiThread.Until(() => Shown(search) is ["9900002"], "取り直す");
+        Assert.DoesNotContain("調べられませんでした", ContentsModule(search).StatusText);
+    });
+
+    [Fact]
+    public Task 読み直しの後に終わった古い調べは_新しい結果の控えを上書きしない() => TestApp.Run(async app =>
+    {
+        var project = UnityProjectPath.Normalize(NewProject(app, "projA"))!;
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        await RestoreChipAsync(app, project);
+        using var late = new ManualResetEventSlim();
+        var scans = 0;
+        app.Services.ScanUnityProject = (_, _, _, _) =>
+        {
+            if (Interlocked.Increment(ref scans) == 1)
+            {
+                late.Wait();
+                return Packages("9900001");
+            }
+
+            return Packages("9900002");
+        };
+        var search = (await app.StartWhileWorkRunsAsync()).Search;
+        await UiThread.Until(() => Volatile.Read(ref scans) == 1, "古い調べが始まる");
+
+        ContentsModule(search).ReloadCommand!.Execute(null);
+        await UiThread.Until(() => Shown(search) is ["9900002"], "新しい結果で絞る");
+        late.Set();
+        await app.SettleAsync();
+
+        Assert.True(app.Services.UnityScans.Load(project)!.FindsSameAs(Packages("9900002")));
+        Assert.Equal(["9900002"], Shown(search));
+    });
+
+    [Fact]
     public Task フォルダが無くなったプロジェクトは_前回の結果を見せない() => TestApp.Run(async app =>
     {
         var project = Path.Combine(app.Root, "gone");

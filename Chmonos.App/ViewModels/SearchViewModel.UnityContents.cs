@@ -271,22 +271,32 @@ public sealed partial class SearchViewModel
 
         try
         {
-            if (await DiskCheck.FolderExistsAsync(project))
+            switch (await Task.Run(() => _services.ProjectFolderState(project)))
             {
-                contents.Scan = await Task.Run(
-                    () =>
-                    {
-                        var scan = _services.ScanUnityProject(project, items, progress, token);
-                        _services.UnityScans.Save(project, scan);
-                        return scan;
-                    },
-                    token);
-            }
-            else
-            {
-                // 控えは消さない（外付けのドライブなら、つなぎ直せばまた使える）。今は無いので見せもしない
-                contents.Scan = UnityProjectScan.Empty;
-                contents.Problem = $"「{ProjectNameOf(project)}」のフォルダが見つかりません。";
+                case DiskAnswer.Present:
+                    contents.Scan = await Task.Run(
+                        () =>
+                        {
+                            var scan = _services.ScanUnityProject(project, items, progress, token);
+
+                            // 「読み直す」の後に終わった古い調べが、新しい結果の控えを上書きしないように
+                            token.ThrowIfCancellationRequested();
+                            _services.UnityScans.Save(project, scan);
+                            return scan;
+                        },
+                        token);
+                    break;
+
+                case DiskAnswer.Missing:
+                    // 控えは消さない（外付けのドライブなら、つなぎ直せばまた使える）。今は無いので見せもしない
+                    contents.Scan = UnityProjectScan.Empty;
+                    contents.Problem = $"「{ProjectNameOf(project)}」のフォルダが見つかりません。";
+                    break;
+
+                default:
+                    // 拒まれた・ネットワークが答えない。無いとは言えないので、前回の結果は残す（調べに失敗したときと同じ）
+                    contents.Problem = CouldNotScanText(project);
+                    break;
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -302,7 +312,7 @@ public sealed partial class SearchViewModel
                 Chmonos.Core.Diagnostics.AppLog.Error("条件「Unityプロジェクト」の調べ", exception);
             }
 
-            contents.Problem = $"「{ProjectNameOf(project)}」の中を調べられませんでした。「読み直す」でやり直せます。";
+            contents.Problem = CouldNotScanText(project);
         }
 
         contents.IsScanning = false;
@@ -321,6 +331,9 @@ public sealed partial class SearchViewModel
             }
         }
     }
+
+    private static string CouldNotScanText(string project)
+        => $"「{ProjectNameOf(project)}」の中を調べられませんでした。「読み直す」でやり直せます。";
 
     private static string ProjectNameOf(string project) => Path.GetFileName(project.TrimEnd('\\', '/'));
 

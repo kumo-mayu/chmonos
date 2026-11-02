@@ -232,6 +232,9 @@ public sealed class AppServiceContainer : IDisposable
     /// <summary>プロジェクトの中に入っている商品を調べる（重いので裏で呼ぶ）。試験は作り物の結果に差し替えられる。</summary>
     internal Func<string, IReadOnlyList<ItemRecord>, IProgress<int>?, CancellationToken, Core.Services.UnityProjectScan> ScanUnityProject { get; set; }
 
+    /// <summary>プロジェクトのフォルダが在るか（試験が「確かめられない」を作るために差し替える）。</summary>
+    internal Func<string, Core.Services.DiskAnswer> ProjectFolderState { get; set; } = Core.Services.DiskCheck.FolderState;
+
     public UnityScanStore UnityScans { get; }
 
     /// <summary>zip の中の画像の控え。</summary>
