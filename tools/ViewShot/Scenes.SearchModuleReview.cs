@@ -136,7 +136,7 @@ internal static partial class Scenes
                 return new Chmonos.App.Services.OpenUnityEditor(index + 1, name, path);
             }).ToList();
             context.Services.OpenUnityEditors = () => editors;
-            context.Services.ScanUnityProject = (_, _, _, _) => Chmonos.App.Services.UnityProjectScan.Empty;
+            context.Services.ScanUnityProject = (_, _, _, _) => Chmonos.Core.Services.UnityProjectScan.Empty;
 
             var module = (ListModule)AddModule(search, SearchModuleKind.UnityProjectContents);
             module.IncludeOn = true;

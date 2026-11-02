@@ -115,6 +115,7 @@ public sealed class AppServiceContainer : IDisposable
             var unityPackagePaths = new UnityPackagePathStore(Paths);
             UnityHandoff.UsePathStore(unityPackagePaths);
             ZipImages = new ZipImageStore(Paths);
+            UnityScans = new UnityScanStore(Paths);
             ScanUnityProject = (project, items, progress, token) => Services.UnityProjectItemScan.RunWithImages(project, items, ZipImages, progress, token);
             UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths, ZipImages);
 
@@ -229,7 +230,9 @@ public sealed class AppServiceContainer : IDisposable
     internal Func<IReadOnlyList<Services.OpenUnityEditor>> OpenUnityEditors { get; set; } = Services.UnityEditors.Open;
 
     /// <summary>プロジェクトの中に入っている商品を調べる（重いので裏で呼ぶ）。試験は作り物の結果に差し替えられる。</summary>
-    internal Func<string, IReadOnlyList<ItemRecord>, IProgress<int>?, CancellationToken, Services.UnityProjectScan> ScanUnityProject { get; set; }
+    internal Func<string, IReadOnlyList<ItemRecord>, IProgress<int>?, CancellationToken, Core.Services.UnityProjectScan> ScanUnityProject { get; set; }
+
+    public UnityScanStore UnityScans { get; }
 
     /// <summary>zip の中の画像の控え。</summary>
     public ZipImageStore ZipImages { get; }

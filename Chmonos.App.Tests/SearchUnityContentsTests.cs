@@ -390,6 +390,160 @@ public class SearchUnityContentsTests
         Assert.Equal(2, scans);
     });
 
+    /// <summary>札で1つのプロジェクトを指した条件を、前回の状態として置く。</summary>
+    private static Task RestoreChipAsync(TestApp app, string project)
+        => app.Services.SettingsStore.UpdateUiStateAsync(state => state with
+        {
+            SearchModules = [new SearchModuleState { Kind = nameof(SearchModuleKind.UnityProjectContents), Items = [project] }],
+        });
+
+    private static ListModule ContentsModule(SearchViewModel search)
+        => (ListModule)search.Modules.Single(entry => entry.Kind == SearchModuleKind.UnityProjectContents);
+
+    [Fact]
+    public Task 起動のとき_調べ直している間は前回の結果を見せ_終わったら差し替える() => TestApp.Run(async app =>
+    {
+        var project = UnityProjectPath.Normalize(NewProject(app, "projA"))!;
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(project, Packages("9900001"));
+        await RestoreChipAsync(app, project);
+        using var gate = new ManualResetEventSlim();
+        app.Services.ScanUnityProject = (_, _, _, _) =>
+        {
+            gate.Wait();
+            return Packages("9900002");
+        };
+
+        var search = (await app.StartWhileWorkRunsAsync()).Search;
+
+        Assert.Equal(["9900001"], Shown(search));
+        Assert.Contains("「projA」の中を調べています", ContentsModule(search).StatusText);
+
+        gate.Set();
+        await UiThread.Until(() => Shown(search) is ["9900002"], "差し替える");
+        Assert.DoesNotContain("調べています", ContentsModule(search).StatusText);
+
+        // 次の起動のために、新しい結果が控えられている
+        Assert.True(app.Services.UnityScans.Load(project)!.FindsSameAs(Packages("9900002")));
+    });
+
+    [Fact]
+    public Task 起動のとき_今開いているプロジェクトの条件は_全商品を挟まず前回の結果から出す() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(UnityProjectPath.Normalize(project)!, Packages("9900001"));
+        await app.Services.SettingsStore.UpdateUiStateAsync(state => state with
+        {
+            SearchModules = [new SearchModuleState { Kind = nameof(SearchModuleKind.UnityProjectContents), IncludeOpenProject = true }],
+        });
+        using var gate = new ManualResetEventSlim();
+        app.Services.ScanUnityProject = (_, _, _, _) =>
+        {
+            gate.Wait();
+            return Packages("9900001");
+        };
+        app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
+
+        var main = await app.StartWhileWorkRunsAsync();
+
+        Assert.Equal(["9900001"], Shown(main.Search));
+        gate.Set();
+        await UiThread.Until(() => !ContentsModule(main.Search).HasStatus, "調べ終わる");
+    });
+
+    [Fact]
+    public Task 調べ直して同じ結果なら_一覧を組み直さない() => TestApp.Run(async app =>
+    {
+        var project = UnityProjectPath.Normalize(NewProject(app, "projA"))!;
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(project, Packages("9900001"));
+        await RestoreChipAsync(app, project);
+        using var gate = new ManualResetEventSlim();
+        app.Services.ScanUnityProject = (_, _, _, _) =>
+        {
+            gate.Wait();
+            return Packages("9900001");
+        };
+        var search = (await app.StartWhileWorkRunsAsync()).Search;
+        var built = 0;
+        search.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(SearchViewModel.ResultSummary))
+            {
+                built++;
+            }
+        };
+
+        gate.Set();
+        await UiThread.Until(() => !ContentsModule(search).StatusText.Contains("調べています"), "調べ終わる");
+
+        Assert.Equal(0, built);
+        Assert.Equal(["9900001"], Shown(search));
+    });
+
+    [Fact]
+    public Task 読み直すと_控えを見せず_調べた結果を待つ() => TestApp.Run(async app =>
+    {
+        var project = UnityProjectPath.Normalize(NewProject(app, "projA"))!;
+        await app.AddItemAsync(Owned("9900001"));
+        app.Services.UnityScans.Save(project, Packages("9900001"));
+        await RestoreChipAsync(app, project);
+        ScanFinds(app, "9900001");
+        var search = (await app.StartAsync()).Search;
+        await UiThread.Until(() => !ContentsModule(search).StatusText.Contains("調べています"), "調べ終わる");
+
+        using var gate = new ManualResetEventSlim();
+        app.Services.ScanUnityProject = (_, _, _, _) =>
+        {
+            gate.Wait();
+            return UnityProjectScan.Empty;
+        };
+        ContentsModule(search).ReloadCommand!.Execute(null);
+        await UiThread.Until(() => ContentsModule(search).StatusText.Contains("調べています"), "調べ始める");
+
+        // 入れ直した後に押すので、消えたはずの物を控えからまた見せない
+        Assert.Empty(Shown(search));
+        gate.Set();
+        await UiThread.Until(() => !ContentsModule(search).StatusText.Contains("調べています"), "調べ終わる");
+        Assert.Empty(Shown(search));
+    });
+
+    [Fact]
+    public Task 調べ直せなかったら_前回の結果を残して理由を言う() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var project = UnityProjectPath.Normalize(NewProject(app, "projA"))!;
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(project, Packages("9900001"));
+        await RestoreChipAsync(app, project);
+        app.Services.ScanUnityProject = (_, _, _, _) => throw new IOException("作り物の失敗");
+
+        var search = (await app.StartAsync()).Search;
+
+        await UiThread.Until(() => ContentsModule(search).StatusText.Contains("調べられませんでした"), "理由を言う");
+        Assert.Equal(["9900001"], Shown(search));
+    });
+
+    [Fact]
+    public Task フォルダが無くなったプロジェクトは_前回の結果を見せない() => TestApp.Run(async app =>
+    {
+        var project = Path.Combine(app.Root, "gone");
+        await app.AddItemAsync(Owned("9900001"));
+        app.Services.UnityScans.Save(project, Packages("9900001"));
+        await RestoreChipAsync(app, project);
+
+        var search = (await app.StartAsync()).Search;
+
+        await UiThread.Until(() => ContentsModule(search).StatusText.Contains("フォルダが見つかりません"), "理由を言う");
+        await UiThread.Until(() => Shown(search).Count == 0, "前回の結果を消す");
+        Assert.NotNull(app.Services.UnityScans.Load(project));
+    });
+
     [Fact]
     public Task フォルダが無いプロジェクトは_理由を出す() => TestApp.Run(async app =>
     {

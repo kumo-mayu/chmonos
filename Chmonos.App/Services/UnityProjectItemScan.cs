@@ -5,24 +5,6 @@ using Chmonos.Core.Storage;
 
 namespace Chmonos.App.Services;
 
-/// <summary>プロジェクトの中を調べた結果（検索の条件が持つ）。</summary>
-/// <param name="Packages">unitypackage で入っている商品。</param>
-/// <param name="Images">手で置いた画像として見つかった物（商品ごと）。</param>
-public sealed record UnityProjectScan(
-    IReadOnlyList<UnityProjectMatch> Packages,
-    IReadOnlyDictionary<string, IReadOnlyList<UnityImageMatch>> Images)
-{
-    public static UnityProjectScan Empty { get; } = new([], new Dictionary<string, IReadOnlyList<UnityImageMatch>>());
-
-    private readonly HashSet<string> _packageIds = Packages.Select(match => match.ItemId).ToHashSet(StringComparer.Ordinal);
-
-    /// <param name="sameName">「名前が同じ」だけの画像でも当てるか。</param>
-    public bool Contains(string itemId, bool sameName)
-        => _packageIds.Contains(itemId)
-            || (Images.TryGetValue(itemId, out var images)
-                && images.Any(image => sameName || image.Kind == UnityImageMatchKind.SameImage));
-}
-
 /// <summary>
 /// 手元の商品のうち、Unity プロジェクトの中に入っている物を調べる（改変の「プロジェクトの中を調べる」と検索の条件で共有する）。
 ///

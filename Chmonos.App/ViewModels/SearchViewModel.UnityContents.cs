@@ -11,6 +11,9 @@ namespace Chmonos.App.ViewModels;
 ///
 /// **調べるのは裏で、結果はアプリを閉じるまで覚える。**1回で持っている商品の全部の中身の一覧を読むので、
 /// 絞り込みのたびには調べられない。入れ直した後は「読み直す」で取り直す。
+///
+/// **前回の結果を先に見せ、裏で調べ直して差し替える**（ユーザ判断 2026-11-02）。条件は次の起動でも効くので、
+/// 控えが無いと調べ終わるまで一覧が空になる。プロジェクトの中身はアプリの外で変わるので、控えだけで済ませない。
 /// </summary>
 public sealed partial class SearchViewModel
 {
@@ -36,6 +39,13 @@ public sealed partial class SearchViewModel
     }
 
     private readonly Dictionary<string, ProjectContents> _projectContents = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>控えを読んだプロジェクト。「読み直す」は入れ直した後に押すので、消えたはずの物を控えからまた見せない。</summary>
+    private readonly HashSet<string> _savedScansRead = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>起動のときの、開いているプロジェクトの確認。これが終わるまで最初の一覧を出さない。</summary>
+    private Task? _firstOpenProjectsCheck;
+
     private IReadOnlyList<UnityProjectCandidate>? _unityProjects;
     private bool _loadingUnityProjects;
 
@@ -120,6 +130,29 @@ public sealed partial class SearchViewModel
         foreach (var module in ProjectContentsModules().ToList())
         {
             RefreshModuleSource(module);
+        }
+    }
+
+    /// <summary>
+    /// 戻した条件が「今開いているプロジェクト」を見るなら、一覧を読むのと並べて確かめ始める。
+    /// 分かる前は絞らないので、確かめる前に一覧を出すと、全商品が一瞬出てから絞られる。
+    /// </summary>
+    private void StartFirstOpenProjectsCheck()
+    {
+        if (ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
+        {
+            _firstOpenProjectsCheck = RefreshOpenProjectsAsync();
+            _firstOpenProjectsCheck.Forget();
+        }
+    }
+
+    /// <summary>最初の確認を待つ。プロセスの列挙が詰まっても一覧は出す（1秒は、ふつう数十ミリ秒で済む確認に対する余裕）。</summary>
+    private async Task WaitFirstOpenProjectsCheckAsync()
+    {
+        if (_firstOpenProjectsCheck is { } check)
+        {
+            _firstOpenProjectsCheck = null;
+            await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(1)));
         }
     }
 
@@ -208,6 +241,14 @@ public sealed partial class SearchViewModel
             if (!_projectContents.ContainsKey(key))
             {
                 var contents = new ProjectContents();
+
+                // 画面のスレッドで読むのは、この後すぐの絞り込みに間に合わせて0件を見せないため。
+                // 控えは見つかった商品の分だけの小さなファイルで、読むのはプロジェクトごとに1回だけ
+                if (_savedScansRead.Add(key) && _services.UnityScans.Load(key) is { } saved)
+                {
+                    contents.Scan = saved;
+                }
+
                 _projectContents[key] = contents;
                 ScanProjectAsync(key, contents).Forget();
             }
@@ -221,6 +262,7 @@ public sealed partial class SearchViewModel
         var items = _allItems.Where(item => item.IsOwned).ToList();
         contents.Total = items.Count;
         var token = contents.Cancel.Token;
+        var shown = contents.Scan;
         IProgress<int> progress = new Progress<int>(done =>
         {
             contents.Done = done;
@@ -231,10 +273,19 @@ public sealed partial class SearchViewModel
         {
             if (await DiskCheck.FolderExistsAsync(project))
             {
-                contents.Scan = await Task.Run(() => _services.ScanUnityProject(project, items, progress, token), token);
+                contents.Scan = await Task.Run(
+                    () =>
+                    {
+                        var scan = _services.ScanUnityProject(project, items, progress, token);
+                        _services.UnityScans.Save(project, scan);
+                        return scan;
+                    },
+                    token);
             }
             else
             {
+                // 控えは消さない（外付けのドライブなら、つなぎ直せばまた使える）。今は無いので見せもしない
+                contents.Scan = UnityProjectScan.Empty;
                 contents.Problem = $"「{ProjectNameOf(project)}」のフォルダが見つかりません。";
             }
         }
@@ -259,7 +310,15 @@ public sealed partial class SearchViewModel
         // 調べている間に「読み直す」が押されていれば、古い結果で絞り直さない
         if (_projectContents.TryGetValue(project, out var current) && ReferenceEquals(current, contents))
         {
-            ApplyFilters();
+            if (contents.Scan.FindsSameAs(shown))
+            {
+                // 控えのとおりだった。組み直すと、見ている一覧が動く
+                RefreshProjectStatus();
+            }
+            else
+            {
+                ApplyFilters();
+            }
         }
     }
 

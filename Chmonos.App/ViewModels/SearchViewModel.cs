@@ -162,6 +162,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         // 前回の条件を値まで戻す（ユーザ判断 2026-09-16 Q10。前は種類だけ戻していた）
         InitializeModules(services.UiState.SearchModules);
 
+        StartFirstOpenProjectsCheck();
         ReloadAsync().Forget();
     }
 
@@ -541,6 +542,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 // 未読の更新の知らせ（カードの札・条件「更新あり」）も同じ時点で読む
                 return (sortedItems, haystacks, fingerprints, pending, imageStamps, presence, ReadUnreadUpdates());
             });
+
+            await WaitFirstOpenProjectsCheckAsync();
 
             var noted = _notedSinceLoad;
             _allItems = sorted;

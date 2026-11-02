@@ -130,6 +130,11 @@ public sealed class AppPaths
 
     public string ZipImageFile(string hash) => Path.Combine(ZipImagesDir, StoreIds.RequirePackageHash(hash).ToUpperInvariant() + ".json");
 
+    /// <summary>プロジェクトの中を調べた結果の控え（<see cref="UnityScanStore"/>）。消してよい。</summary>
+    public const string UnityScansDirName = "unityscans";
+
+    public string UnityScanFile(string key) => Path.Combine(Root, UnityScansDirName, key + ".json");
+
     public string UnityPackageFile(string hash) => Path.Combine(UnityPackagesDir, StoreIds.RequirePackageHash(hash).ToUpperInvariant() + ".json");
 
     /// <summary>中断した取り込みの記録。最後まで終われば消える。</summary>

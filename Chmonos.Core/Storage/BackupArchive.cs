@@ -82,6 +82,12 @@ public static class BackupArchive
             return true;
         }
 
+        // プロジェクトを調べた結果の控えは調べ直せる。別の PC へ戻すと、そこに無い場所の結果になる
+        if (relativePath.StartsWith(AppPaths.UnityScansDirName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".cache", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)

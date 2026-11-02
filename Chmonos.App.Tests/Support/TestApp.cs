@@ -172,6 +172,17 @@ internal sealed class TestApp
     public MainViewModel Main => _main ?? throw new InvalidOperationException("先に StartAsync を呼んでください。");
 
     /// <summary>
+    /// 主画面を作り、最初の一覧が出るまでだけ待つ。起動のときに裏の作業を止めておいて、その間の見え方を確かめる試験用
+    /// （<see cref="StartAsync"/> は裏の作業が全部済むまで待つので、止めたままだと終わらない）。
+    /// </summary>
+    public async Task<MainViewModel> StartWhileWorkRunsAsync()
+    {
+        _main ??= new MainViewModel(Services) { CountsInterval = TimeSpan.Zero };
+        await UiThread.Until(() => !_main.Search.IsLoading, "検索の読み込みが済む");
+        return _main;
+    }
+
+    /// <summary>
     /// 主画面を作り、検索の最初の読み込みが済むまで待つ。**商品・設定は、この前に保存先へ置く**
     /// （主画面は作るときに保存先を読んで、どの画面から始めるかを決める）
     /// </summary>
