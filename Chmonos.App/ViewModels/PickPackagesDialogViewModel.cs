@@ -36,6 +36,15 @@ public sealed class PackageChoiceRow : ViewModelBase
     }
 
     internal Action? CheckedChanged { get; set; }
+
+    private bool _isVisible = true;
+
+    /// <summary>探す欄に当たっているか。外れても選んだ物は選んだまま（見えないだけ。送る数にも入る）。</summary>
+    public bool IsVisible
+    {
+        get => _isVisible;
+        internal set => SetField(ref _isVisible, value);
+    }
 }
 
 /// <summary>
@@ -69,6 +78,11 @@ public sealed class PackageChoiceGroup : ViewModelBase
         : $"{Rows.Count} 件";
 
     internal void NoteChecked() => OnPropertyChanged(nameof(CountText));
+
+    /// <summary>探す欄で中の1件でも当たっているか（当たる物の無い塊は見出しごと隠す）。</summary>
+    public bool IsVisible => Rows.Any(row => row.IsVisible);
+
+    internal void NoteVisible() => OnPropertyChanged(nameof(IsVisible));
 }
 
 /// <summary>
@@ -79,13 +93,18 @@ public sealed class PackageChoiceGroup : ViewModelBase
 /// 手元のファイルに種類が付いていることはまず無い（本人のデータ 23 個中 0 個・友人のデータ 324 個中 0 個）ので、ほとんどは zip の名前で分かれる。
 /// 種類を名前から推して出すことはしない（外れても気付けない。案 B を採らなかった）。
 /// </summary>
-public sealed class PackageChoiceSection
+public sealed class PackageChoiceSection : ViewModelBase
 {
     public required ItemRecord Item { get; init; }
 
     public string Title => Item.DisplayName;
 
     public required IReadOnlyList<PackageChoiceGroup> Groups { get; init; }
+
+    /// <summary>探す欄で中の1件でも当たっているか（当たる物の無い商品は名前ごと隠す）。</summary>
+    public bool IsVisible => Groups.Any(group => group.IsVisible);
+
+    internal void NoteVisible() => OnPropertyChanged(nameof(IsVisible));
 
     /// <summary>チェックした物。見えている順（上から）に送る。</summary>
     public IReadOnlyList<PackageChoiceRow> Checked => Groups.SelectMany(group => group.Rows).Where(row => row.IsChecked).ToList();
@@ -175,10 +194,15 @@ public sealed class PackageChoiceSection
 /// <summary>
 /// 送る unitypackage を選ぶ窓。送り先の Unity を決めた後に出す（ユーザ指示 2026-09-13：複数開いていたときの選択の後）。
 /// チェックした物は、いつもの連続送りの列に積む。
+///
+/// **探す欄と「すべて選択」「選択を解除」を持つ**（ユーザ指示 2026-11-03）。1つの商品に unitypackage が何十と入っていると、
+/// 目で探して1つずつ押すのでは選び切れない。「すべて選択」「選択を解除」は**見えている物だけ**に効く
+/// （探して絞った物をまとめて選ぶための物。見えない物まで変えると、絞った意味が無くなる）。
 /// </summary>
 public sealed class PickPackagesDialogViewModel : ViewModelBase
 {
     private readonly int _othersCount;
+    private string _filterText = string.Empty;
 
     /// <param name="headingText">どこへ送るか（紐付けと違うプロジェクトへ送るときの断りも含めて呼ぶ側で作る）。</param>
     /// <param name="othersCount">選ぶまでもなく送る物の数（候補が1つの商品・ファイルを記録済みの使ったもの）。</param>
@@ -214,9 +238,103 @@ public sealed class PickPackagesDialogViewModel : ViewModelBase
                 };
             }
         }
+
+        SelectAllCommand = new RelayCommand(() => SetVisibleChecked(true));
+        ClearSelectionCommand = new RelayCommand(() => SetVisibleChecked(false));
+        ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty);
+    }
+
+    /// <summary>探す欄の中身。名前・zip やフォルダの中の場所・塊の名前（zip の名前・バリエーション）で絞る。</summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            if (SetField(ref _filterText, value ?? string.Empty))
+            {
+                ApplyFilter();
+                OnPropertyChanged(nameof(HasFilterText));
+            }
+        }
+    }
+
+    public bool HasFilterText => FilterText.Length > 0;
+
+    /// <summary>探したが1件も当たらなかったか。</summary>
+    public bool HasNoMatch => HasFilterText && !VisibleRows.Any();
+
+    /// <summary>見えている物を全部選ぶ。</summary>
+    public RelayCommand SelectAllCommand { get; }
+
+    /// <summary>見えている物の選択を全部外す。</summary>
+    public RelayCommand ClearSelectionCommand { get; }
+
+    public RelayCommand ClearFilterCommand { get; }
+
+    private IEnumerable<PackageChoiceRow> VisibleRows
+        => Sections.SelectMany(section => section.Groups).SelectMany(group => group.Rows).Where(row => row.IsVisible);
+
+    private void SetVisibleChecked(bool value)
+    {
+        foreach (var row in VisibleRows.ToList())
+        {
+            row.IsChecked = value;
+        }
+    }
+
+    /// <summary>
+    /// 探す語を空白で区切り、**全部の語が**名前・中の場所・塊の名前のどれかに入っている物だけを見せる。
+    /// 大文字小文字・かなの種類・全角半角は区別しない（改変を選ぶ窓の探す欄と同じ）。
+    /// </summary>
+    private void ApplyFilter()
+    {
+        var words = ModificationSearchText.Words(FilterText);
+        foreach (var section in Sections)
+        {
+            foreach (var group in section.Groups)
+            {
+                foreach (var row in group.Rows)
+                {
+                    row.IsVisible = words.All(word =>
+                        ModificationSearchText.Contains(row.Name, word)
+                        || ModificationSearchText.Contains(row.Package.Folder, word)
+                        || ModificationSearchText.Contains(Path.GetFileName(row.Package.ZipPath), word)
+                        || ModificationSearchText.Contains(group.Label, word));
+                }
+
+                group.NoteVisible();
+            }
+
+            section.NoteVisible();
+        }
+
+        OnPropertyChanged(nameof(HasNoMatch));
     }
 
     public string Title { get; }
+
+    /// <summary>決めるボタンの文（既定「送る」）。</summary>
+    public string CommitText { get; init; } = "送る";
+
+    /// <summary>
+    /// その商品だけ見送るボタンの文。null なら出さない（検索の複数選択で、商品ごとに順に聞くときだけ出す）。
+    /// </summary>
+    public string? SkipText { get; init; }
+
+    public bool HasSkip => SkipText is not null;
+
+    /// <summary>見送るボタンで閉じたか（「キャンセル」は全体をやめる）。</summary>
+    public bool Skipped { get; internal set; }
+
+    /// <summary>
+    /// 窓を出す代わりに答える口。**アプリでは null のまま**（窓を出す）。試験が入れる
+    /// （窓を出すと答える人がいないので止まる。<see cref="Services.Notice.Intercept"/> と同じ）
+    /// </summary>
+    internal static Func<PickPackagesDialogViewModel, bool>? Intercept { get; set; }
+
+    /// <summary>選ばせる。「送る」なら true（チェックは各候補の <see cref="PackageChoiceRow.IsChecked"/> に残る）。</summary>
+    public static bool Ask(PickPackagesDialogViewModel model)
+        => Intercept is { } intercept ? intercept(model) : new Views.PickPackagesDialog(model).ShowDialog() == true;
 
     public string HeadingText { get; }
 

@@ -134,17 +134,18 @@ public sealed partial class SearchViewModel
 
     public RelayCommand CardSelectInUnityCommand { get; }
 
-    private async Task CardUnityAsync(ItemCardViewModel? card, string title, string okText,
-        Func<Core.Services.UnityPackageEntry, Task> run)
+    /// <summary>送る unitypackage を選ばせてから送る。2つ以上あればいくつでも選べる（ユーザ指示 2026-11-03）。</summary>
+    private async Task CardUnityAsync(ItemCardViewModel? card, string title, string headingText, string commitText,
+        Func<ItemCardViewModel, IReadOnlyList<Core.Services.UnityPackageEntry>, Task> run)
     {
         if (card is null)
         {
             return;
         }
 
-        if (await ItemFileActions.PickPackageAsync(card.Item, title, okText) is { } package)
+        if (await ItemFileActions.PickPackagesAsync(card.Item, title, headingText, commitText) is { Count: > 0 } packages)
         {
-            await run(package);
+            await run(card, packages);
         }
     }
 

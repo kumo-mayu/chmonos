@@ -138,11 +138,11 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             }
         });
         CardSendToUnityCommand = new RelayCommand(parameter => CardUnityAsync(
-            AsCard(parameter), "Unityへ送る", "これを送る",
-            package => ItemUnityActions.SendAsync(_services, AsCard(parameter)!.Item, package, SendUi, presenceChanged: NoteItemChanged)).Forget());
+            AsCard(parameter), "Unityへ送る", "Unityへ送るunitypackageを選んでください。", "送る",
+            (card, packages) => ItemUnityActions.SendAsync(_services, card.Item, packages, SendUi, presenceChanged: NoteItemChanged)).Forget());
         CardSendToUnityWithRecordCommand = new RelayCommand(parameter => CardUnityAsync(
-            AsCard(parameter), "改変に追加して送る", "これを送る",
-            package => ItemUnityActions.SendWithRecordAsync(_services, AsCard(parameter)!.Item, package,
+            AsCard(parameter), "改変に追加して送る", "改変に追加してUnityへ送るunitypackageを選んでください。", "次へ",
+            (card, packages) => ItemUnityActions.SendWithRecordAsync(_services, card.Item, packages,
                 (text, failed) => TellSent("改変に追加して送る", text, failed), SendUi)).Forget());
         CardSelectInUnityCommand = new RelayCommand(parameter =>
         {

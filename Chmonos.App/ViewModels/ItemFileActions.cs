@@ -239,12 +239,18 @@ internal static class ItemFileActions
     }
 
     /// <summary>
-    /// 商品の unitypackage から1つを選ぶ（2つ以上のときだけ聞く）。無ければ理由を出して null。
-    /// zip を開いて数えるので、画面のスレッドの外で読む
+    /// 商品の unitypackage から送る物を選ぶ（2つ以上のときだけ聞く）。無ければ理由を出して null。やめても null。
+    /// zip を開いて数えるので、画面のスレッドの外で読む。
+    ///
+    /// **いくつでも選べる**（ユーザ指示 2026-11-03）。前は1つだけ選ぶ一覧で、本体と依存物を両方入れたいときは2回送るしかなかった。
+    /// 選ぶ窓は改変から送るときと同じ物で、探す欄と「すべて選択」「選択を解除」を持ち、最初は何も選んでいない。
     /// </summary>
-    public static async Task<UnityPackageEntry?> PickPackageAsync(ItemRecord item, string title, string okText)
+    /// <param name="headingText">窓の上の1文（何をするか）。</param>
+    /// <param name="commitText">決めるボタンの文。</param>
+    public static async Task<IReadOnlyList<UnityPackageEntry>?> PickPackagesAsync(
+        ItemRecord item, string title, string headingText, string commitText)
     {
-        var packages = await Task.Run(() => UnityImportQueue.PackagesOf(item));
+        var (packages, section) = await Task.Run(() => (UnityImportQueue.PackagesOf(item), PackageChoiceSection.Build(item)));
         if (packages.Count == 0)
         {
             Services.Notice.Show(
@@ -253,25 +259,20 @@ internal static class ItemFileActions
             return null;
         }
 
-        if (packages.Count == 1)
+        // 候補が1つ（選ぶ窓は2つ以上のときだけ作る）なら聞かずに送る。
+        // 両方とも同じ候補（ModificationSendPlan.CandidatesOf：手元のファイルの中の物と、登録したフォルダの中の物）から作るので、数は食い違わない
+        if (section is null)
         {
-            return packages[0];
+            return packages;
         }
 
-        var picked = ListChoice.Ask(
-            title,
-            $"「{item.DisplayName}」にはunitypackageが {packages.Count} 件あります。どれにしますか？",
-            PackageLabels(packages),
-            okText);
-
-        return picked is { } index ? packages[index] : null;
+        var model = new PickPackagesDialogViewModel(title, headingText, [section], othersCount: 0, records: false)
+        {
+            CommitText = commitText,
+        };
+        return PickPackagesDialogViewModel.Ask(model) ? section.CheckedPackages : null;
     }
 
-    /// <summary>unitypackage を選ぶ一覧の行。名前と、どの zip のどこに入っているか（右クリックと検索の複数選択で共用）。</summary>
-    public static List<ListChoiceItem> PackageLabels(IReadOnlyList<UnityPackageEntry> packages)
-        => [.. packages.Select(package => new ListChoiceItem(
-            package.Name,
-            package.Folder.Length > 0 ? $"{Path.GetFileName(package.ZipPath)} の中の {package.Folder}" : Path.GetFileName(package.ZipPath)))];
 
     private static Target? Choose(string title, string message, IReadOnlyList<Target> targets, string okText)
     {

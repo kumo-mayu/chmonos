@@ -46,26 +46,102 @@ internal static class ItemUnityActions
     /// 1件を、選んだ Unity に送る（送る前に何をどこへ送るかを確かめる）。
     /// </summary>
     /// <param name="notify">人が止めたときに言う先（商品ページは欄の下の1行）。無ければ知らせの窓で言う。</param>
-    public static async Task SendAsync(
+    public static Task SendAsync(
         AppServiceContainer services, ItemRecord item, UnityPackageEntry package, UnitySendUi? ui = null, NoticeSink? notify = null,
+        Action<ItemRecord>? presenceChanged = null)
+        => SendAsync(services, item, [package], ui, notify, presenceChanged);
+
+    /// <summary>
+    /// 1つの商品から選んだ unitypackage を、選んだ Unity へ順に送る（カードの右クリックで複数選んだとき。ユーザ指示 2026-11-03）。
+    /// 1件なら前と同じ1件送り。
+    /// </summary>
+    public static async Task SendAsync(
+        AppServiceContainer services, ItemRecord item, IReadOnlyList<UnityPackageEntry> packages, UnitySendUi? ui = null, NoticeSink? notify = null,
         Action<ItemRecord>? presenceChanged = null)
     {
         const string title = "Unityへ送る";
 
-        if (PickTarget(title) is not { } editor)
+        if (packages.Count == 0 || PickTarget(title) is not { } editor)
         {
             return;
         }
 
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
-        if (UnitySendNotice.Confirm(
-            services,
-            $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
-            + "Unityの取り込み画面で内容を確認してから取り込めます。",
-            title))
+        var text = packages.Count == 1
+            ? $"「{packages[0].Name}」を、Unityの「{target}」に送ります。\n\n"
+                + "Unityの取り込み画面で内容を確認してから取り込めます。"
+            : $"unitypackage {packages.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
+                + "1件ずつUnityの取り込み画面が表示されます。「Import」か「Cancel」を押すと、次の1件が表示されます。";
+        if (UnitySendNotice.Confirm(services, text, title))
         {
-            await SendPickedAsync(services, item, editor, package, title, ui, notify, presenceChanged);
+            await SendPickedAsync(services, item, editor, packages, title, ui, notify, presenceChanged);
         }
+    }
+
+    /// <summary>送り先と送る物が決まった後の「Unityへ送る」（2つ以上なら順に送り、終わりに1回だけ言う）。</summary>
+    internal static async Task SendPickedAsync(
+        AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, IReadOnlyList<UnityPackageEntry> packages,
+        string title, UnitySendUi? ui, NoticeSink? notify, Action<ItemRecord>? presenceChanged = null)
+    {
+        if (packages.Count == 1)
+        {
+            await SendPickedAsync(services, item, editor, packages[0], title, ui, notify, presenceChanged);
+            return;
+        }
+
+        var (text, failed) = await SendManyAsync(services, item, editor, packages, ui, presenceChanged);
+        if (failed)
+        {
+            FrontNotice.Show(text, title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+        }
+        else if (notify is not null)
+        {
+            notify(text);
+        }
+        else
+        {
+            UnitySendNotice.Result(services, text, title);
+        }
+    }
+
+    /// <summary>
+    /// 1つの商品の unitypackage を、連続送りの列（検索の複数選択と同じ <see cref="UnityImportQueue.RunAsync"/>）で順に送る。
+    /// 1件ずつ取り込み画面を待つので、終わりの言い方も複数選択と同じにする（何件出したか・止めたか・送れなかった物と理由）。
+    /// </summary>
+    /// <returns>言う文と、送れなかった物があるか（人が止めただけなら失敗にしない）。</returns>
+    internal static async Task<(string Text, bool Failed)> SendManyAsync(
+        AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, IReadOnlyList<UnityPackageEntry> packages,
+        UnitySendUi? ui, Action<ItemRecord>? presenceChanged = null)
+    {
+        ui?.Begin($"unitypackage {packages.Count} 件をUnityへ送っています…");
+        IReadOnlyList<UnityQueueOutcome> outcomes;
+        try
+        {
+            outcomes = await UnityImportQueue.RunAsync(editor.ProcessId, packages, ui?.Progress, CancellationToken.None);
+        }
+        finally
+        {
+            ui?.End();
+        }
+
+        // 取り込み画面で Cancel された物は入っていないので、1件でも入ったときだけ「使った」の足跡を付ける
+        if (outcomes.Any(outcome => outcome.Taken))
+        {
+            services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
+        }
+
+        // 送れなかった物の zip が無ければ記録へ（1件の送り方と同じ）。窓の前に書く
+        await FilePresenceNotes.NoteFailedSendsAsync(
+            services, packages.Select(package => (item.Id, package)), outcomes, presenceChanged);
+
+        var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+        if (failed.All(outcome => UnityImportQueue.IsStopped(outcome.Problem)))
+        {
+            return (UnityQueueOutcome.Describe(outcomes), false);
+        }
+
+        return ($"{UnityQueueOutcome.DescribeShown(outcomes)}{failed.Count} 件は送れませんでした：\n\n"
+            + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)), true);
     }
 
     /// <summary>
@@ -172,13 +248,22 @@ internal static class ItemUnityActions
     /// 聞くと、記録を使っていない人の邪魔になる。分ければ、**選んだ人だけが記録の話に入る。**
     /// </summary>
     /// <returns>足した改変（足せなかった・やめたら null）。</returns>
-    public static async Task<ModificationRecord?> SendWithRecordAsync(
+    public static Task<ModificationRecord?> SendWithRecordAsync(
         AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify, UnitySendUi? ui = null,
+        Action<ItemRecord>? presenceChanged = null)
+        => SendWithRecordAsync(services, item, [package], notify, ui, presenceChanged);
+
+    /// <summary>
+    /// 1つの商品から選んだ unitypackage を、全部改変の使ったものに記録してから順に送る（カードの右クリックで複数選んだとき。ユーザ指示 2026-11-03）。
+    /// 選んだ1つずつが使ったものの1行になる（改変の画面で2つ選んだときと同じ形）。
+    /// </summary>
+    public static async Task<ModificationRecord?> SendWithRecordAsync(
+        AppServiceContainer services, ItemRecord item, IReadOnlyList<UnityPackageEntry> packages, NoticeSink notify, UnitySendUi? ui = null,
         Action<ItemRecord>? presenceChanged = null)
     {
         const string title = "改変に追加して送る";
 
-        if (PickTarget(title) is not { } editor)
+        if (packages.Count == 0 || PickTarget(title) is not { } editor)
         {
             return null;
         }
@@ -192,7 +277,9 @@ internal static class ItemUnityActions
         var model = ModificationPicking.BuildDialog(
             services,
             title,
-            $"「{package.Name}」を送って、改変に追加します。",
+            packages.Count == 1
+                ? $"「{packages[0].Name}」を送って、改変に追加します。"
+                : $"unitypackage {packages.Count} 件を送って、改変に追加します。",
             projectPath is not null
                 ? $"送り先：Unityの「{editor.ProjectName}」"
                 : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
@@ -210,23 +297,35 @@ internal static class ItemUnityActions
 
         // **記録してから送る。**送るのは Unity 側の取り込み画面を待つので時間がかかり、
         // 途中で窓を閉じられることもある。先に記録を確定させておく方が失うものが少ない
-        var owner = item.Local.OwnedFiles.FirstOrDefault(file => file.Hash == package.ZipHash);
-        var member = new ModificationMember
+        var members = packages.Select(package =>
         {
-            ItemId = item.Id,
-            VariationId = owner?.VariationId,
-            FileHash = owner?.Hash,
-            Package = package.EntryPath,
-            AddedAt = DateTimeOffset.Now,
-        };
-        if (await CommitPickedAsync(services, model, title, projectPath, member) is not { } record)
+            var owner = item.Local.OwnedFiles.FirstOrDefault(file => file.Hash == package.ZipHash);
+            return new ModificationMember
+            {
+                ItemId = item.Id,
+                VariationId = owner?.VariationId,
+                FileHash = owner?.Hash,
+                Package = package.EntryPath,
+                AddedAt = DateTimeOffset.Now,
+            };
+        }).ToList();
+        if (await CommitPickedAsync(services, model, title, projectPath, members) is not { } record)
         {
             return null;
         }
 
         // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
-        var (text, failed) = AfterRecordText(record.Name, await SendOneAsync(services, item, editor, package, title, ui, presenceChanged));
-        notify(text, failed);
+        if (packages.Count == 1)
+        {
+            var (text, failed) = AfterRecordText(record.Name, await SendOneAsync(services, item, editor, packages[0], title, ui, presenceChanged));
+            notify(text, failed);
+        }
+        else
+        {
+            var (text, failed) = await SendManyAsync(services, item, editor, packages, ui, presenceChanged);
+            notify($"「{record.Name}」に {packages.Count} 件を追加しました。{text}", failed);
+        }
+
         return record;
     }
 
@@ -235,19 +334,32 @@ internal static class ItemUnityActions
     /// どのファイル（バリエーション・unitypackage）を使ったかは、送ったときか、手で足す窓で人が選んだときだけ入る
     /// （<paramref name="member"/> を作る呼び手が決める。**推定で埋めない**）
     /// </summary>
-    public static async Task<ModificationRecord?> CommitPickedAsync(
+    public static Task<ModificationRecord?> CommitPickedAsync(
         AppServiceContainer services,
         PickModificationDialogViewModel model,
         string title,
         string? project,
         ModificationMember member)
+        => CommitPickedAsync(services, model, title, project, [member]);
+
+    /// <summary>選んだ改変に、行をいくつか足す（並べた順に後ろへ付ける）。</summary>
+    public static async Task<ModificationRecord?> CommitPickedAsync(
+        AppServiceContainer services,
+        PickModificationDialogViewModel model,
+        string title,
+        string? project,
+        IReadOnlyList<ModificationMember> members)
     {
         if (await ModificationPicking.ResolvePickedAsync(services, model, title, project) is not { } record)
         {
             return null;
         }
 
-        await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(record.Id, member));
+        foreach (var member in members)
+        {
+            await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(record.Id, member));
+        }
+
         return record;
     }
 

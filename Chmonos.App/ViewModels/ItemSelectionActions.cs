@@ -33,12 +33,14 @@ internal static class ItemSelectionActions
             return;
         }
 
-        var steps = new List<(ItemCardViewModel Card, IReadOnlyList<Core.Services.UnityPackageEntry> Packages)>();
+        var steps = new List<(ItemCardViewModel Card, IReadOnlyList<Core.Services.UnityPackageEntry> Packages, PackageChoiceSection? Choice)>();
         var nothing = new List<string>();
 
-        // zip を開いて数えるので、画面のスレッドの外で読む
-        var found = await Task.Run(() => cards.Select(card => (Card: card, Packages: Services.UnityImportQueue.PackagesOf(card.Item))).ToList());
-        foreach (var (card, packages) in found)
+        // zip を開いて数えるので、画面のスレッドの外で読む（選ぶ窓の候補も一緒に作る。2つ以上のときだけ出来る）
+        var found = await Task.Run(() => cards
+            .Select(card => (Card: card, Packages: Services.UnityImportQueue.PackagesOf(card.Item), Choice: PackageChoiceSection.Build(card.Item)))
+            .ToList());
+        foreach (var (card, packages, choice) in found)
         {
             if (packages.Count == 0)
             {
@@ -46,7 +48,7 @@ internal static class ItemSelectionActions
                 continue;
             }
 
-            steps.Add((card, packages));
+            steps.Add((card, packages, choice));
         }
 
         if (steps.Count == 0)
@@ -73,42 +75,43 @@ internal static class ItemSelectionActions
 
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
 
-        // 送れる物が2つ以上ある商品は、右クリックと同じ一覧から選ぶ窓で、1件ずつ「2/5」のように番号を付けて順に聞く
-        // （ユーザ指示 2026-09-19。前はまとめて1つの窓にチェックで並べていた）。
-        // 1つの zip に依存物と本体が入っている商品は両方要るので、一覧の最後に「全部」を置く
-        var choosing = steps.Where(step => step.Packages.Count > 1).ToList();
+        // 送れる物が2つ以上ある商品は、1件ずつ「2/5」のように番号を付けて順に聞く（ユーザ指示 2026-09-19。前はまとめて1つの窓にチェックで並べていた）。
+        // 1つの商品の中ではいくつでも選べる（ユーザ指示 2026-11-03。前は1つか「すべて」で、本体と依存物だけを選べなかった）。
+        // 窓は改変から送るときと同じ物で、探す欄と「すべて選択」「選択を解除」を持ち、最初は何も選んでいない
+        var choosing = steps.Where(step => step.Choice is not null).ToList();
         var picked = new Dictionary<ItemCardViewModel, IReadOnlyList<Core.Services.UnityPackageEntry>>();
         var notSending = new List<string>();
         for (var i = 0; i < choosing.Count; i++)
         {
-            var (card, packages) = choosing[i];
-            var labels = ItemFileActions.PackageLabels(packages);
-            labels.Add(new ListChoiceItem($"すべて（{packages.Count} 件）", "zipに入っている順に送ります。依存するものが同じzipにあるときに選びます"));
-
-            var answer = ListChoice.Ask(
+            var (card, packages, choice) = choosing[i];
+            var model = new PickPackagesDialogViewModel(
                 $"{title}（{i + 1}/{choosing.Count}）",
-                $"「{card.Name}」にはunitypackageが {packages.Count} 件あります。Unityの「{target}」へどれを送りますか？",
-                labels,
-                "これを送る",
-                skipText: "この商品を飛ばす");
-
-            if (answer is not { } index)
+                $"Unityの「{target}」へ送るunitypackageを選んでください。",
+                [choice!],
+                othersCount: 0,
+                records: false)
             {
+                SkipText = "この商品を飛ばす",
+            };
+
+            if (!PickPackagesDialogViewModel.Ask(model))
+            {
+                if (model.Skipped)
+                {
+                    notSending.Add(card.Name);
+                    continue;
+                }
+
                 return;
             }
 
-            if (index == ListChoice.Skipped)
-            {
-                notSending.Add(card.Name);
-                continue;
-            }
-
-            picked[card] = index == packages.Count ? packages : [packages[index]];
+            picked[card] = choice!.CheckedPackages;
         }
 
+        // 選んだ商品の並び（表示中の順）に、商品の中は選ぶ窓で見えている順（上から）に積む
         var queue = steps
-            .Where(step => step.Packages.Count == 1 || picked.ContainsKey(step.Card))
-            .SelectMany(step => (step.Packages.Count == 1 ? step.Packages : picked[step.Card]).Select(package => (step.Card, Package: package)))
+            .Where(step => step.Choice is null || picked.ContainsKey(step.Card))
+            .SelectMany(step => (step.Choice is null ? step.Packages : picked[step.Card]).Select(package => (step.Card, Package: package)))
             .ToList();
         if (queue.Count == 0)
         {

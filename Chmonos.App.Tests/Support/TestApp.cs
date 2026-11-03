@@ -140,6 +140,15 @@ internal sealed class TestApp
     public List<MemberFilePickViewModel> FilePicks { get; } = [];
 
     /// <summary>
+    /// 送る unitypackage を選ぶ窓への答え（窓は出ない）。既定は「キャンセル」（答えを決めていない試験で、黙って送らない）。
+    /// 選ぶ試験は、ここで行の <see cref="PackageChoiceRow.IsChecked"/> を変えてから true を返す
+    /// </summary>
+    public Func<PickPackagesDialogViewModel, bool> PickPackages { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、送る unitypackage を選ぶ窓（窓は出ない）。</summary>
+    public List<PickPackagesDialogViewModel> PackagePicks { get; } = [];
+
+    /// <summary>
     /// 「見つからないファイルを探す」の、どこを探すかの窓への答え（窓は出ない）。既定は、監視フォルダのまま「探す」。
     /// ほかの場所を足す試験は、ここで <see cref="MissingSearchScopeViewModel.AddFolders"/> を呼んでから true を返す
     /// </summary>
@@ -254,6 +263,11 @@ internal sealed class TestApp
                 return app.Answer(request);
             };
             WindowsToast.Intercept = app.Toasts.Add;
+            PickPackagesDialogViewModel.Intercept = model =>
+            {
+                app.PackagePicks.Add(model);
+                return app.PickPackages(model);
+            };
             MemberFilePickViewModel.Intercept = model =>
             {
                 app.FilePicks.Add(model);
@@ -411,6 +425,7 @@ internal sealed class TestApp
             // アプリ全体に効く静的な状態を、次の試験へ持ち越さない
             Notice.Intercept = null;
             WindowsToast.Intercept = null;
+            PickPackagesDialogViewModel.Intercept = null;
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;
