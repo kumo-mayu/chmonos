@@ -248,6 +248,18 @@ public sealed partial class MainViewModel
     public string WatchedNewText => $"監視対象に新しいファイルが {WatchedNewCount} 件あります。";
 
     /// <summary>見つかったぶんを取り込み対象に積む。押されて初めて通信が始まる。</summary>
+    /// <summary>
+    /// 起動時に見つけた新着の知らせを下げる。取り込み画面の「新しいファイルを取り込む」で今の新着を取ったので、
+    /// 古い件数の知らせを残すと、同じ物をもう一度積めてしまう
+    /// </summary>
+    public void ForgetWatchedNew()
+    {
+        WatchedNewFiles = [];
+        OnPropertyChanged(nameof(WatchedNewCount));
+        OnPropertyChanged(nameof(HasWatchedNew));
+        OnPropertyChanged(nameof(WatchedNewText));
+    }
+
     public void TakeWatchedNew()
     {
         if (!HasWatchedNew)

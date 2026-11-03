@@ -1048,6 +1048,61 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// <summary>見つかったぶんを取り込み対象へ積む。ここを押して初めて通信が始まる。</summary>
     public RelayCommand TakeWatchedNewCommand { get; }
 
+    private RelayCommand? _importWatched;
+    private bool _isCheckingWatched;
+    private string _watchImportText = string.Empty;
+
+    /// <summary>「新しいファイルを取り込む」の結果の1行。押しても何も起きなかったときこそ要る（I1）。</summary>
+    public string WatchImportText
+    {
+        get => _watchImportText;
+        private set => SetField(ref _watchImportText, value);
+    }
+
+    /// <summary>
+    /// 監視対象の新しいファイルを、今すぐ取り込む（ユーザ指示 2026-11-03）。前は起動のときに見つけた分しか取り込めず、
+    /// 開いたまま監視フォルダにファイルを置いても、起動し直すか、フォルダを落とし直すしかなかった。
+    /// 対象は起動時の自動の取り込みと同じ「まだ取り込んでいないファイル」だけ（フォルダ丸ごとを舐め直さない・G1）。
+    /// 「知らせなくてよい」と言った顔ぶれも、押したなら取り込む
+    /// </summary>
+    public RelayCommand ImportWatchedCommand => _importWatched ??= new RelayCommand(
+        () => ImportWatchedAsync().Forget(),
+        () => Watched.Count > 0 && !_isCheckingWatched && !IsRemovingUnpacked);
+
+    private async Task ImportWatchedAsync()
+    {
+        _isCheckingWatched = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        WatchImportText = "監視対象を調べています…";
+        try
+        {
+            var result = await Task.Run(() => _services.Watch.FindNewAsync(Watched.ToList()));
+            _main.ForgetWatchedNew();
+
+            if (result.NewFiles.Count == 0)
+            {
+                WatchImportText = result.MissingFolders.Count > 0
+                    ? $"新しいファイルはありません。{MainViewModel.WatchedMissingSummary(result.MissingFolders)}"
+                    : "新しいファイルはありません。";
+                return;
+            }
+
+            WatchImportText = $"新しいファイル {result.NewFiles.Count} 件を取り込みます。";
+
+            // 押した操作なので、展開先のファイルがあれば尋ねる。監視フォルダの中なので「監視しますか」は聞かない
+            AddDroppedPaths(result.NewFiles, startImmediately: true, offerWatch: false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            WatchImportText = "監視対象を読めませんでした。フォルダのある場所を確かめてください。";
+        }
+        finally
+        {
+            _isCheckingWatched = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
+
     private async Task RemoveWatchedAsync(string? folder)
     {
         if (folder is null)
