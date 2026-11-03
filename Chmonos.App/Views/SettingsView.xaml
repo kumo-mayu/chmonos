@@ -344,6 +344,17 @@
                             <CheckBox Content="編集が終わったら検索に戻る" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ReturnToSearchWhenEditDone, Mode=TwoWay}" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
+                        <TextBlock Text="Unity" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
+                            <!--
+                                何度も送る人には、毎回の確認と、Unity の手前へ戻ってくる結果の窓が邪魔になる（ユーザ判断 2026-11-03）。
+                                送れなかったとき・別のプロジェクトへ送るとき・飛ばす物があるときは、オンでも窓で出す
+                            -->
+                            <CheckBox Content="Unityへ送るとき、確認を表示せずに送り、結果をWindowsの通知で知らせる" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.QuietUnitySend"
+                                      IsChecked="{Binding QuietUnitySend, Mode=TwoWay}" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="20,2,0,0"
+                                       Text="送れなかったときと、別のプロジェクトへ送るときは、窓で知らせます。" />
+                        <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="改変" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--
                                 改変の画面の「VCCを開く」「ALCOMを開く」のどちらを出すか（ユーザ指示 2026-09-29）。

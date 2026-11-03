@@ -16,6 +16,18 @@
         塊は見出しで畳める。最初はどれにもチェックを付けない
     -->
     <Window.Resources>
+        <!-- 探す欄の ×（改変を選ぶ窓・検索画面の ClearFieldButton と同じ見た目。暗黙のボタンの見た目を当てないため明示する） -->
+        <Style x:Key="ClearFieldButton" TargetType="Button">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <!-- 塊の見出し。畳む印と名前をまとめて1つの押せる所にする（小さな印だけを狙わせない） -->
         <Style x:Key="GroupHeader" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand" />
@@ -48,19 +60,61 @@
         <TextBlock Text="{Binding HeadingText}" FontSize="12.5" TextWrapping="Wrap" Margin="0,7,0,0" />
         <TextBlock Text="{Binding NoteText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
+        <!--
+            何十件の中から選べるように、名前で探して、見えている物をまとめて選ぶ・外す（ユーザ指示 2026-11-03）。
+            「すべて選択」「選択を解除」は見えている物だけに効く
+        -->
+        <DockPanel Margin="0,12,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                <Button Content="すべて選択" Style="{StaticResource SmallButton}" Command="{Binding SelectAllCommand}"
+                        AutomationProperties.AutomationId="PickPackagesSelectAll" />
+                <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="6,0,0,0" Command="{Binding ClearSelectionCommand}"
+                        AutomationProperties.AutomationId="PickPackagesClearSelection" />
+            </StackPanel>
+            <Grid>
+                <TextBox x:Name="FilterBox" AutomationProperties.AutomationId="PickPackagesFilter"
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                         BorderBrush="{DynamicResource BorderStrong}" AutomationProperties.Name="unitypackageを探す" />
+                <TextBlock Text="名前・zipの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
+                           IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FilterText}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <!-- 打った文字を消す（検索画面と同じ ×） -->
+                <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                        Style="{StaticResource ClearFieldButton}" Command="{Binding ClearFilterCommand}"
+                        ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                        Visibility="{Binding HasFilterText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </Grid>
+        </DockPanel>
+
+        <TextBlock Text="当たるunitypackageがありません。" Style="{StaticResource Caption}" Margin="0,10,0,0"
+                   Visibility="{Binding HasNoMatch, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
         <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                Margin="0,14,0,0" Padding="10,4,4,4">
+                Margin="0,8,0,0" Padding="10,4,4,4"
+                Visibility="{Binding HasNoMatch, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
             <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto">
                 <controls:ContentItemsControl ItemsSource="{Binding Sections}" Margin="0,0,6,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:PackageChoiceSection}">
-                            <StackPanel Margin="0,6">
+                            <StackPanel Margin="0,6"
+                                        Visibility="{Binding IsVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
                                            TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
                                 <controls:ContentItemsControl ItemsSource="{Binding Groups}" Margin="0,3,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:PackageChoiceGroup}">
-                                            <StackPanel Margin="0,1">
+                                            <StackPanel Margin="0,1"
+                                                        Visibility="{Binding IsVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <ToggleButton Style="{StaticResource GroupHeader}"
                                                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                               AutomationProperties.Name="{Binding Label}">
@@ -77,6 +131,7 @@
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate DataType="{x:Type vm:PackageChoiceRow}">
                                                             <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,3"
+                                                                      Visibility="{Binding IsVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                       VerticalContentAlignment="Center"
                                                                       AutomationProperties.Name="{Binding Name}">
                                                                 <StackPanel Margin="4,0,0,0">
@@ -105,8 +160,13 @@
 
         <DockPanel Margin="0,16,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="送る" Style="{StaticResource PrimaryButton}"
-                        IsDefault="True" IsEnabled="{Binding CanCommit}" Click="OnCommit" />
+                <Button Content="{Binding CommitText}" Style="{StaticResource PrimaryButton}"
+                        AutomationProperties.AutomationId="PickPackagesCommit"
+                        IsDefault="True" IsEnabled="{Binding CanCommit}" Click="OnCommit"
+                        ToolTip="{Binding CommitHint}" ToolTipService.ShowOnDisabled="True" />
+                <Button Content="{Binding SkipText}" Margin="8,0,0,0" Click="OnSkip"
+                        AutomationProperties.AutomationId="PickPackagesSkip"
+                        Visibility="{Binding HasSkip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
             </StackPanel>
             <!-- 押せないときは理由を出す（E9） -->

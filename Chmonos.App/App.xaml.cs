@@ -775,6 +775,9 @@ public partial class App : Application
         Services.UnityFocusWatch.Stop();
         ViewModels.AppTheme.Stop();
         _tray?.Dispose();
+
+        // 通知を出している途中で閉じると、通知領域に持ち主のいないアイコンが残る（乗せるまで消えない）
+        Services.WindowsToast.Clear();
         _compactor?.Dispose();
         _openRequests?.Dispose();
 

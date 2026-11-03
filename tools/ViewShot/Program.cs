@@ -362,6 +362,9 @@ internal static class Program
                 : MessageBoxResult.Cancel;
         };
 
+        // Windows の通知も出さない（描いている人の画面の右下に出てしまう）。知らせと同じく結果に書く
+        WindowsToast.Intercept = request => context.Notices.Add($"通知「{request.Title}」{request.Text}");
+
         var buildClock = Stopwatch.StartNew();
         var shot = await scene.Build(context);
         BuildMs = buildClock.ElapsedMilliseconds;

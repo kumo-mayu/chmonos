@@ -142,7 +142,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 改変：知らせ（出る前・後）・プロジェクトの中の結果 | `modification-detail-notice-*`・`modification-hub-notice-*`・`modification-project-found` |
 | 改変：Hub・VCC・ALCOM の有無（画面と設定） | `hub-tools-*`・`settings-tools-*` |
 | 改変：窓（使ったものを足す・改変に追加・探す・絵） | `pick-member-files-dialog`・`pick-modification-*-dialog` |
-| 改変：送る unitypackage を選ぶ窓 | `catalog-dialog-pick-packages` |
+| 送る unitypackage を選ぶ窓（改変・カードの右クリック・複数選択） | `catalog-dialog-pick-packages`・`-filtered`（探して選んだ・飛ばすボタン）・`-none`（0件で送るが押せない） |
 
 ## タグの管理（11-tags）・属性の管理（12-attributes）
 

@@ -134,17 +134,18 @@ public sealed partial class SearchViewModel
 
     public RelayCommand CardSelectInUnityCommand { get; }
 
-    private async Task CardUnityAsync(ItemCardViewModel? card, string title, string okText,
-        Func<Core.Services.UnityPackageEntry, Task> run)
+    /// <summary>送る unitypackage を選ばせてから送る。2つ以上あればいくつでも選べる（ユーザ指示 2026-11-03）。</summary>
+    private async Task CardUnityAsync(ItemCardViewModel? card, string title, string headingText, string commitText,
+        Func<ItemCardViewModel, IReadOnlyList<Core.Services.UnityPackageEntry>, Task> run)
     {
         if (card is null)
         {
             return;
         }
 
-        if (await ItemFileActions.PickPackageAsync(card.Item, title, okText) is { } package)
+        if (await ItemFileActions.PickPackagesAsync(card.Item, title, headingText, commitText) is { Count: > 0 } packages)
         {
-            await run(package);
+            await run(card, packages);
         }
     }
 
@@ -163,6 +164,21 @@ public sealed partial class SearchViewModel
         // 選択の結果は Unity を手前に出した後に来るので、主の窓を戻してから言う（Unity の後ろに隠れていた）
         FrontNotice.Show(text, title, System.Windows.MessageBoxButton.OK,
             failed ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Information);
+    }
+
+    /// <summary>
+    /// Unity へ送った結果を言う。送れたことは設定しだいで Windows の通知にする（<see cref="UnitySendNotice"/>）。
+    /// 送れなかったことは <see cref="Tell"/> と同じく窓で言う。
+    /// </summary>
+    private void TellSent(string title, string text, bool failed)
+    {
+        if (failed || text.Length == 0 || text.EndsWith('…'))
+        {
+            Tell(title, text, failed);
+            return;
+        }
+
+        UnitySendNotice.Result(_services, text, title);
     }
 
     /// <summary>

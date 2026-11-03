@@ -320,6 +320,34 @@ internal static partial class Scenes
             var model = new PickPackagesDialogViewModel("Unityへ送る", "Unityの「作り物のプロジェクト」へ送ります。", [section], othersCount: 2, records: true);
             return Task.FromResult<Window>(new PickPackagesDialog(model));
         }),
+
+        DialogScene("catalog-dialog-pick-packages-filtered", "送る unitypackage を選ぶ窓：6つある商品を「body」で探して2つ選んだ所（複数選択の順に聞く形・飛ばすボタンあり）", _ =>
+        {
+            var item = FileItem("9900402", "作り物の着せ替えセット", Fake.FileRecord(
+                Fake.Zip(@"ライブラリ\pick_many.zip",
+                    "Body/Body_PC.unitypackage", "Body/Body_Quest.unitypackage", "Shader.unitypackage",
+                    "Hair/Hair_A.unitypackage", "Hair/Hair_B.unitypackage", "Accessory.unitypackage")));
+            var section = PackageChoiceSection.Build(item)
+                ?? throw new InvalidOperationException("作り物の商品から選ぶ欄が作れませんでした。");
+            var model = new PickPackagesDialogViewModel(
+                "Unityへ順に送る（2/3）", "Unityの「作り物のプロジェクト」へ送るunitypackageを選んでください。", [section], othersCount: 0, records: false)
+            {
+                SkipText = "この商品を飛ばす",
+                FilterText = "body",
+            };
+            model.SelectAllCommand.Execute(null);
+            return Task.FromResult<Window>(new PickPackagesDialog(model));
+        }),
+
+        DialogScene("catalog-dialog-pick-packages-none", "送る unitypackage を選ぶ窓：まだ何も選んでいない（送るは押せない）", _ =>
+        {
+            var item = FileItem("9900403", "作り物の小物セット", Fake.FileRecord(
+                Fake.Zip(@"ライブラリ\pick_none.zip", "Ribbon.unitypackage", "Ribbon_Quest.unitypackage", "Shader.unitypackage")));
+            var section = PackageChoiceSection.Build(item)
+                ?? throw new InvalidOperationException("作り物の商品から選ぶ欄が作れませんでした。");
+            var model = new PickPackagesDialogViewModel("Unityへ送る", "Unityへ送るunitypackageを選んでください。", [section], othersCount: 0, records: false);
+            return Task.FromResult<Window>(new PickPackagesDialog(model));
+        }),
     ];
 
     // ---- 画面の状態 ----

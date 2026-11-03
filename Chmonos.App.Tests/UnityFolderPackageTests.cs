@@ -60,8 +60,6 @@ public sealed class UnityFolderPackageTests : IDisposable
         Assert.Equal(["Sample", "Outfit"], packages.Select(package => package.Name));
         Assert.False(packages[0].InFolder);
         Assert.True(packages[1].InFolder);
-        // 候補の表記は「パッケージ名 (zip名)」の決まりに合わせ、フォルダならフォルダ名（右クリックと検索の複数選択で共用）
-        Assert.Equal(new ListChoiceItem("Outfit", "衣装A の中の Unity"), ItemFileActions.PackageLabels(packages)[1]);
     }
 
     [Fact]

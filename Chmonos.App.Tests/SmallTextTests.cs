@@ -67,30 +67,25 @@ public class SmallTextTests
     public void ユーザータグが無ければ_行は空()
         => Assert.Equal(string.Empty, ItemCardViewModel.UserTagLine([], withSubs: true));
 
-    // ---- unitypackage を選ぶ一覧の行 ----
+    // ---- unitypackage を選ぶ窓の行 ----
 
     [Fact]
-    public void unitypackageの行は_名前と_どのzipのどこに入っているかを言う()
+    public void unitypackageの行は_名前と_zipの中のどこに入っているかを言う()
     {
-        var rows = ItemFileActions.PackageLabels(
-        [
-            new UnityPackageEntry(@"D:\files\costume.zip", "costume/Costume_v1.unitypackage", 100),
-            new UnityPackageEntry(@"D:\files\costume.zip", "Shader.unitypackage", 100),
-        ]);
+        PackageChoiceRow Row(string entry) => new()
+        {
+            Package = new UnityPackageEntry(@"D:\files\costume.zip", entry, 100),
+            Owner = null,
+        };
 
-        Assert.Collection(
-            rows,
-            row =>
-            {
-                Assert.Equal("Costume_v1", row.Label);
-                Assert.Equal("costume.zip の中の costume", row.Detail);
-            },
-            row =>
-            {
-                // zip の直下にある物は、フォルダを言わない
-                Assert.Equal("Shader", row.Label);
-                Assert.Equal("costume.zip", row.Detail);
-            });
+        var nested = Row("costume/Costume_v1.unitypackage");
+        Assert.Equal("Costume_v1", nested.Name);
+        Assert.Equal("zipの中の costume", nested.FolderText);
+
+        // zip の直下にある物は、場所を言わない（zip の名前は塊の見出しにある）
+        var top = Row("Shader.unitypackage");
+        Assert.Equal("Shader", top.Name);
+        Assert.False(top.HasFolder);
     }
 
     // ---- 改変の「使ったもの」----
