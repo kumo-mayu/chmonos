@@ -829,6 +829,10 @@ public sealed class CommandHandler
                 return await RunModificationAsync(
                     () => _modifications!.AddMemberAsync(addMember.Id, addMember.Member, cancellationToken));
 
+            case UiCommand.AddModificationMembers addMembers:
+                return await RunModificationAsync(
+                    () => _modifications!.AddMembersAsync(addMembers.Id, addMembers.Members, cancellationToken));
+
             case UiCommand.SetModificationMemberDetached detachMember:
                 return await RunModificationAsync(
                     () => _modifications!.SetMemberDetachedAsync(

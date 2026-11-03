@@ -355,6 +355,9 @@ public abstract record UiCommand
     /// <summary>使ったものを足す。**末尾に付く**（並びが導入の順）</summary>
     public record AddModificationMember(string Id, Models.ModificationMember Member) : UiCommand;
 
+    /// <summary>使ったものをいくつか、1回の保存で足す。途中で失敗して一部だけ残ることが無い</summary>
+    public record AddModificationMembers(string Id, IReadOnlyList<Models.ModificationMember> Members) : UiCommand;
+
     // 使ったものを指すのは**位置ではなく行そのもの**（ユーザ判断 2026-09-21・J5）。
     // 画面は読み込んだ時点の位置を送るので、その間に並びが変わると別の行に当たっていた。
     // 並びは配列の順のまま（人が並べ替えられる）で、指し方だけを変える

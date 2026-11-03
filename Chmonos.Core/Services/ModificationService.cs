@@ -56,6 +56,15 @@ public interface IModificationService
         ModificationMember member,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 使ったものをいくつか、1回の保存で足す（並べた順に末尾へ）。1行ずつ足すと、途中で保存に失敗したとき一部だけ残り、
+    /// やり直すと先の分が2重になった（Codex の点検 2026-11-03）。全部入るか、どれも入らないか
+    /// </summary>
+    Task<bool> AddMembersAsync(
+        string id,
+        IReadOnlyList<ModificationMember> members,
+        CancellationToken cancellationToken = default);
+
     /// <summary>完全に消す。**指すのは位置ではなく行そのもの**（J5）。</summary>
     Task<bool> RemoveMemberAsync(string id, ModificationMember member, CancellationToken cancellationToken = default);
 
@@ -291,6 +300,19 @@ public sealed class ModificationService : IModificationService
             // **末尾に付ける。**並びが導入の順なので、後から来たものは後ろ
             record => record with { Members = [.. record.Members, member with { AddedAt = DateTimeOffset.Now }] },
             cancellationToken);
+
+    public Task<bool> AddMembersAsync(
+        string id,
+        IReadOnlyList<ModificationMember> members,
+        CancellationToken cancellationToken = default)
+    {
+        // 行の身元に足した日時を使う（IsSame）ので、同じ瞬間に足した行どうしもずらして見分けられるようにする
+        var now = DateTimeOffset.Now;
+        return UpdateAsync(
+            id,
+            record => record with { Members = [.. record.Members, .. members.Select((member, index) => member with { AddedAt = now.AddTicks(index) })] },
+            cancellationToken);
+    }
 
     /// <summary>
     /// 行の身元（ユーザ判断 2026-09-21・J5）。**位置では指さない**——

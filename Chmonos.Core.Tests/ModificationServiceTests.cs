@@ -286,6 +286,27 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task いくつかまとめて足すと_並べた順に末尾へ付き_行を見分けられる()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("1"));
+
+        Assert.True(await _service.AddMembersAsync(id, [Member("2", "aa"), Member("2", "aa")]));
+
+        var members = (await _service.LoadAsync(id))!.Members;
+        Assert.Equal(["1", "2", "2"], members.Select(member => member.ItemId));
+
+        // 同じ物を2つ足しても、外すときに別の行として指せる（行の身元は足した日時まで見る）
+        Assert.NotEqual(members[1].AddedAt, members[2].AddedAt);
+    }
+
+    [Fact]
+    public async Task 無い改変にまとめて足そうとすると_何も書かず失敗を返す()
+    {
+        Assert.False(await _service.AddMembersAsync("無い改変", [Member("1"), Member("2")]));
+    }
+
+    [Fact]
     public async Task 足した時刻はサービスが入れる()
     {
         var id = await NewAsync();

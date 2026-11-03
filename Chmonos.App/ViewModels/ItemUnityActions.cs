@@ -355,9 +355,27 @@ internal static class ItemUnityActions
             return null;
         }
 
-        foreach (var member in members)
+        // 1回の保存でまとめて足す。1行ずつだと途中の失敗で一部だけ残り、黙って送らずに終わり、やり直すと2重になった（Codex の点検 2026-11-03）。
+        // 足せなかったら理由を言い、送らない（記録してから送る決まりなので、記録の無いまま送らない）
+        string? problem;
+        try
         {
-            await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(record.Id, member));
+            problem = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMembers(record.Id, members))
+                is Core.Commands.CommandResult.Failed failed
+                ? failed.Message
+                : null;
+        }
+        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
+        {
+            problem = "改変のファイルを保存できませんでした。保存先のドライブと空き容量を確かめてください。";
+        }
+
+        if (problem is not null)
+        {
+            FrontNotice.Show(
+                $"「{record.Name}」に追加できませんでした。Unityへは送っていません。\n\n{problem}",
+                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return null;
         }
 
         return record;
