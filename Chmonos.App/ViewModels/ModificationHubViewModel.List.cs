@@ -43,6 +43,7 @@ public sealed partial class ModificationHubViewModel
         }
 
         Lines.ReplaceAll(_lineBuilder.Build(Groups));
+        RelayCommand.RaiseCanExecuteChanged();
         ApplyNotice();
 
         OnPropertyChanged(nameof(IsEmpty));
@@ -59,10 +60,49 @@ public sealed partial class ModificationHubViewModel
     public RelayCommand CollapseAllCommand => _collapseAllCommand ??= new RelayCommand(() => SetAllExpanded(Expandables().ToList(), false));
 
     /// <summary>
-    /// 「すべて広げる」：一番上の段（見出し。改変の見方では改変）だけを開き、開いたときと同じ姿に戻す。
-    /// 改変の中身（使ったもの）まで開くと、一覧が使ったものの数だけ伸びて見出しを追えなくなる
+    /// 「すべて広げる」：押すたびに1段ずつ広げる（ユーザ指示 2026-11-03）。畳んでいる中で一番浅い段を全部広げるので、
+    /// 1回目は見出し（改変の見方では改変）、2回目で改変の中身（使ったもの）まで広がる。
+    /// 1回で全部広げると一覧が使ったものの数だけ伸びて見出しを追えないが、見出しだけで止めると中身まで見る手段が1つずつ押すしかなかった。
+    /// 全部広がっていれば押せない
     /// </summary>
-    public RelayCommand ExpandAllCommand => _expandAllCommand ??= new RelayCommand(() => SetAllExpanded(Groups.OfType<HubExpandable>().ToList(), true));
+    public RelayCommand ExpandAllCommand => _expandAllCommand ??= new RelayCommand(
+        () =>
+        {
+            if (NextLevelToExpand() is { } targets)
+            {
+                SetAllExpanded(targets, true);
+            }
+        },
+        () => NextLevelToExpand() is not null);
+
+    /// <summary>押せないときの理由（吹き出し）。</summary>
+    public string ExpandAllDisabledReason => "すべて広がっています。";
+
+    /// <summary>
+    /// 畳んでいる中で一番浅い段の行。上の段が畳んであれば、その中の段は見えていないので、上の段だけを広げる。
+    /// 中身の無い行（畳む印の無い行）は数えない。無ければ null
+    /// </summary>
+    private IReadOnlyList<HubExpandable>? NextLevelToExpand()
+    {
+        var top = Groups.OfType<HubExpandable>().Where(row => row.HasGlyph).ToList();
+        var closedTop = top.Where(row => !row.IsExpanded).ToList();
+        if (closedTop.Count > 0)
+        {
+            return closedTop;
+        }
+
+        var closedInner = top
+            .SelectMany(row => row switch
+            {
+                HubProjectGroup project => project.Modifications,
+                HubAvatarGroup avatar => avatar.Modifications,
+                _ => [],
+            })
+            .Where(row => row.HasGlyph && !row.IsExpanded)
+            .Cast<HubExpandable>()
+            .ToList();
+        return closedInner.Count > 0 ? closedInner : null;
+    }
 
     private RelayCommand? _collapseAllCommand;
     private RelayCommand? _expandAllCommand;
@@ -83,6 +123,7 @@ public sealed partial class ModificationHubViewModel
         }
 
         CollectionSync.Apply(Lines, _lineBuilder.Build(Groups));
+        RelayCommand.RaiseCanExecuteChanged();
         ApplyNotice();
     }
 
@@ -92,6 +133,9 @@ public sealed partial class ModificationHubViewModel
         if (e.PropertyName == nameof(HubExpandable.IsExpanded) && !_expandingAll)
         {
             CollectionSync.Apply(Lines, _lineBuilder.Build(Groups));
+
+            // 「すべて広げる」を押せるかが変わる（1つずつ押して全部広げたとき）
+            RelayCommand.RaiseCanExecuteChanged();
             ApplyNotice();
         }
     }

@@ -32,7 +32,7 @@ public class ModificationHubExpandAllTests
             .Concat(hub.Groups.OfType<HubAvatarGroup>().SelectMany(group => group.Modifications));
 
     [Fact]
-    public Task すべて畳むは中身まで畳み_すべて広げるは一番上の段だけ広げる() => TestApp.Run(async app =>
+    public Task すべて畳むは中身まで畳み_すべて広げるは押すたびに1段ずつ広げ_全部広がると押せない() => TestApp.Run(async app =>
     {
         var hub = await OpenAsync(app, ModificationHubLevel.Avatar, "作り物の夏", "作り物の冬");
         var avatar = Assert.IsType<HubAvatarGroup>(Assert.Single(hub.Groups));
@@ -44,12 +44,37 @@ public class ModificationHubExpandAllTests
         Assert.Single(hub.Lines.OfType<HubAvatarLine>());
         Assert.Empty(hub.Lines.OfType<HubModLine>());
 
+        // 1回目：見出しだけ
         hub.ExpandAllCommand.Execute(null);
 
         Assert.True(avatar.IsExpanded);
         Assert.All(avatar.Modifications, mod => Assert.False(mod.IsExpanded));
         Assert.Equal(2, hub.Lines.OfType<HubModLine>().Count());
         Assert.Empty(hub.Lines.OfType<HubMemberLine>());
+
+        // 2回目：改変の中身まで
+        hub.ExpandAllCommand.Execute(null);
+
+        Assert.All(avatar.Modifications, mod => Assert.True(mod.IsExpanded));
+        Assert.Equal(2, hub.Lines.OfType<HubMemberLine>().Count());
+        Assert.False(hub.ExpandAllCommand.CanExecute(null));
+        Assert.Equal("すべて広がっています。", hub.ExpandAllDisabledReason);
+    });
+
+    [Fact]
+    public Task 見出しの一部が畳んであれば_すべて広げるは先にその見出しだけを広げる() => TestApp.Run(async app =>
+    {
+        var hub = await OpenAsync(app, ModificationHubLevel.Avatar, "作り物の春");
+        var avatar = Assert.IsType<HubAvatarGroup>(Assert.Single(hub.Groups));
+        var mod = Assert.Single(avatar.Modifications);
+        mod.IsExpanded = true;
+        avatar.IsExpanded = false;
+
+        hub.ExpandAllCommand.Execute(null);
+
+        // 中の改変は前に広げたままなので、見出しを広げれば中身まで見える。次に押せる物は無い
+        Assert.True(avatar.IsExpanded);
+        Assert.False(hub.ExpandAllCommand.CanExecute(null));
     });
 
     [Fact]

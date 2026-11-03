@@ -835,8 +835,19 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="すべて畳む" Style="{StaticResource SmallButton}" Height="30"
                                     Command="{Binding CollapseAllCommand}" AutomationProperties.AutomationId="ModificationsCollapseAll" />
-                            <Button Content="すべて広げる" Style="{StaticResource SmallButton}" Height="30" Margin="6,0,0,0"
-                                    Command="{Binding ExpandAllCommand}" AutomationProperties.AutomationId="ModificationsExpandAll" />
+                            <!-- 押すたびに1段ずつ広げる。全部広がっていれば押せず、吹き出しは押せない理由だけ -->
+                            <Button Content="すべて広げる" Height="30" Margin="6,0,0,0" ToolTipService.ShowOnDisabled="True"
+                                    Command="{Binding ExpandAllCommand}" AutomationProperties.AutomationId="ModificationsExpandAll">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="ToolTip" Value="{Binding ExpandAllDisabledReason}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
                     </controls:SplitRowPanel>
 
