@@ -1076,7 +1076,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 1つずつ押さずにまとめて畳む／開く。
     ///
     /// 見出しだけ見て目当てを探したい場面と、通して読みたい場面の両方がある。
-    /// いま1つでも開いていれば「すべて畳む」、全部畳んでいれば「すべて開く」。
+    /// いま1つでも開いていれば「すべて畳む」、全部畳んでいれば「すべて広げる」（「開く」は「Unityを開く」と取り違える。ユーザ判断 2026-11-03）。
     /// </summary>
     public RelayCommand ToggleAllSectionsCommand { get; }
 
@@ -1085,7 +1085,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public string ToggleAllSectionsText => Sections.Any(section => section.IsOpen)
         ? "すべて折りたたむ"
-        : "すべて開く";
+        : "すべて広げる";
 
     private void ToggleAllSections()
     {

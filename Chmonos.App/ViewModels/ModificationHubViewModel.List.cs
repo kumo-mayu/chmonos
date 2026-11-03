@@ -53,13 +53,13 @@ public sealed partial class ModificationHubViewModel
     private bool _expandingAll;
 
     /// <summary>
-    /// 「すべて閉じる」（ユーザ指示 2026-11-03）：見出しも改変の中身も閉じる。開いたときは見出しが全部開いていて、
+    /// 「すべて畳む」（ユーザ指示 2026-11-03）：見出しも改変の中身も閉じる。開いたときは見出しが全部開いていて、
     /// 改変が多いと目当ての見出しを探すのに流す量が多かった。
     /// </summary>
     public RelayCommand CollapseAllCommand => _collapseAllCommand ??= new RelayCommand(() => SetAllExpanded(Expandables().ToList(), false));
 
     /// <summary>
-    /// 「すべて開く」：一番上の段（見出し。改変の見方では改変）だけを開き、開いたときと同じ姿に戻す。
+    /// 「すべて広げる」：一番上の段（見出し。改変の見方では改変）だけを開き、開いたときと同じ姿に戻す。
     /// 改変の中身（使ったもの）まで開くと、一覧が使ったものの数だけ伸びて見出しを追えなくなる
     /// </summary>
     public RelayCommand ExpandAllCommand => _expandAllCommand ??= new RelayCommand(() => SetAllExpanded(Groups.OfType<HubExpandable>().ToList(), true));

@@ -5,7 +5,7 @@ using Chmonos.Core.Commands;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 改変の画面の「すべて閉じる」「すべて開く」（ユーザ指示 2026-11-03）。
+/// 改変の画面の「すべて畳む」「すべて広げる」（ユーザ指示 2026-11-03）。
 /// 開け閉めはアプリを閉じるまで覚える（<c>HubExpansion</c>・プロセスで1つ）ので、ほかの試験と重ならない商品IDを使う。
 /// </summary>
 public class ModificationHubExpandAllTests
@@ -32,7 +32,7 @@ public class ModificationHubExpandAllTests
             .Concat(hub.Groups.OfType<HubAvatarGroup>().SelectMany(group => group.Modifications));
 
     [Fact]
-    public Task すべて閉じるは中身まで閉じ_すべて開くは一番上の段だけ開く() => TestApp.Run(async app =>
+    public Task すべて畳むは中身まで畳み_すべて広げるは一番上の段だけ広げる() => TestApp.Run(async app =>
     {
         var hub = await OpenAsync(app, ModificationHubLevel.Avatar, "作り物の夏", "作り物の冬");
         var avatar = Assert.IsType<HubAvatarGroup>(Assert.Single(hub.Groups));
@@ -53,7 +53,7 @@ public class ModificationHubExpandAllTests
     });
 
     [Fact]
-    public Task 改変の見方では_すべて開くで改変の中身を開く() => TestApp.Run(async app =>
+    public Task 改変の見方では_すべて広げるで改変の中身を出す() => TestApp.Run(async app =>
     {
         var hub = await OpenAsync(app, ModificationHubLevel.Modification, "作り物の秋");
         var mod = Assert.IsType<HubModificationRow>(Assert.Single(hub.Groups));

@@ -1206,10 +1206,10 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     private IEnumerable<TagSubRow> OpenableSubs => Subs.Where(row => row.IsUsed && !row.IsHidden);
 
-    /// <summary>開ける物が全部開いていれば「すべて畳む」、1つでも畳んでいれば「すべて開く」。</summary>
+    /// <summary>開ける物が全部開いていれば「すべて畳む」、1つでも畳んでいれば「すべて広げる」（「開く」は「Unityを開く」と取り違える。ユーザ判断 2026-11-03）。</summary>
     public bool AllSubsExpanded => OpenableSubs.Any() && OpenableSubs.All(row => row.IsExpanded);
 
-    public string ToggleAllText => AllSubsExpanded ? "すべて折りたたむ" : "すべて開く";
+    public string ToggleAllText => AllSubsExpanded ? "すべて折りたたむ" : "すべて広げる";
 
     private void ToggleAll()
     {
@@ -1290,7 +1290,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
                     ExpandedSubs.Remove(key);
                 }
 
-                // 1つずつ開け閉めしても、「すべて開く／すべて畳む」の言い方を合わせる
+                // 1つずつ開け閉めしても、「すべて広げる／すべて折りたたむ」の言い方を合わせる
                 OnPropertyChanged(nameof(ToggleAllText));
             };
 

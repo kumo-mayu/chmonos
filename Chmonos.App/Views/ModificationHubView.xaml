@@ -820,7 +820,7 @@
 
                     <!-- 「読み直す」のボタンは置かない。窓が手前に戻るたびに読み直す（ユーザ判断 2026-09-13） -->
                     <!--
-                        まとめて開け閉めする（ユーザ指示 2026-11-03）。「すべて開く」は一番上の段だけ（開いたときと同じ姿）。
+                        まとめて畳む・広げる（ユーザ指示 2026-11-03。「開く・閉じる」は「Unityを開く」と取り違える）。「すべて広げる」は一番上の段だけ（開いたときと同じ姿）。
                         一覧を狭めると探す欄が数文字まで縮むので、入り切らなければボタンを次の行の右へ送る
                     -->
                     <controls:SplitRowPanel Margin="0,12,0,0" Gap="6" MinLeftWidth="220">
@@ -833,9 +833,9 @@
                                        Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                         </Grid>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="すべて閉じる" Style="{StaticResource SmallButton}" Height="30"
+                            <Button Content="すべて畳む" Style="{StaticResource SmallButton}" Height="30"
                                     Command="{Binding CollapseAllCommand}" AutomationProperties.AutomationId="ModificationsCollapseAll" />
-                            <Button Content="すべて開く" Style="{StaticResource SmallButton}" Height="30" Margin="6,0,0,0"
+                            <Button Content="すべて広げる" Style="{StaticResource SmallButton}" Height="30" Margin="6,0,0,0"
                                     Command="{Binding ExpandAllCommand}" AutomationProperties.AutomationId="ModificationsExpandAll" />
                         </StackPanel>
                     </controls:SplitRowPanel>
