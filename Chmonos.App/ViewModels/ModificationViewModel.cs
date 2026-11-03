@@ -680,19 +680,21 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         else
         {
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
-            var confirm = Services.Notice.Show(
-                where + "\n\n"
+            var text = where + "\n\n"
                 + $"unitypackage {fixedCount} 件を入れた順に送ります。"
                 + "Unityの取り込み画面で「Import」か「Cancel」を押すと、次の1件が表示されます。"
-                + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
-                title,
-                System.Windows.MessageBoxButton.OKCancel,
-                // 人が押した操作の確認はどれも Question（`ui-rules.md`・D9）。
-                // 紐付いていない別のプロジェクトへ送るときは、既定のボタンをキャンセル側に倒して止める
-                System.Windows.MessageBoxImage.Question,
-                elsewhere ? System.Windows.MessageBoxResult.Cancel : System.Windows.MessageBoxResult.OK);
+                + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty);
 
-            if (confirm != System.Windows.MessageBoxResult.OK)
+            // 人が押した操作の確認はどれも Question（`ui-rules.md`・D9）。
+            // 紐付いていない別のプロジェクトへ送るときは、既定のボタンをキャンセル側に倒して止める。
+            // その時と飛ばす物があるときは、確認を出さない設定でも聞く（読まずに進むと、思った所へ思った数が入らない）
+            var confirmed = elsewhere || nothing.Count > 0
+                ? Services.Notice.Show(
+                    text, title, System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Question,
+                    elsewhere ? System.Windows.MessageBoxResult.Cancel : System.Windows.MessageBoxResult.OK) == System.Windows.MessageBoxResult.OK
+                : UnitySendNotice.Confirm(_services, text, title);
+
+            if (!confirmed)
             {
                 return;
             }

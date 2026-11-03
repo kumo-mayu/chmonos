@@ -885,6 +885,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
+    private bool _quietUnitySend;
+
+    /// <summary>Unity へ送るとき、確認と結果の窓を出さず、結果を Windows の通知で知らせるか（ユーザ判断 2026-11-03）。</summary>
+    public bool QuietUnitySend
+    {
+        get => _quietUnitySend;
+        set { if (SetField(ref _quietUnitySend, value)) { Save(); } }
+    }
+
     private int _oscPort;
 
     /// <summary>着替えで VRChat の OSC へ送るポート。ポートとして使える 1〜65535 に丸める。</summary>
@@ -1489,6 +1498,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,
             OscPort = OscPort,
+            QuietUnitySend = QuietUnitySend,
             NotificationRetentionCount = NotificationRetentionCount,
             SearchHistoryCount = SearchHistoryCount,
             ShopBannerRecheckDays = ShopBannerRecheckDays,

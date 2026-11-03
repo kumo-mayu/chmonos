@@ -120,6 +120,14 @@ public sealed record AppSettings
     public int OscPort { get; init; } = Services.VrcOsc.DefaultPort;
 
     /// <summary>
+    /// Unity へ送るとき、送る前の確認と送った結果を窓で出さず、結果を Windows の通知で知らせるか（ユーザ判断 2026-11-03）。
+    /// 何度も送る人には、毎回の確認と、Unity の手前へ主の窓が戻ってくる結果の窓が邪魔になる。
+    /// 送れなかったときと、別のプロジェクトへ送る・飛ばす物があるときの確認は、オンでも窓で出す（読まずに進むと困る物）。
+    /// 既定は今までどおり窓
+    /// </summary>
+    public bool QuietUnitySend { get; init; }
+
+    /// <summary>
     /// サムネイルにどの役割の画像を出すか。
     ///
     /// 既定は「デフォルト」。商品ごとの★の指名が効くのはこのときだけ。

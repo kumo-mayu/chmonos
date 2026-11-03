@@ -166,6 +166,21 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// Unity へ送った結果を言う。送れたことは設定しだいで Windows の通知にする（<see cref="UnitySendNotice"/>）。
+    /// 送れなかったことは <see cref="Tell"/> と同じく窓で言う。
+    /// </summary>
+    private void TellSent(string title, string text, bool failed)
+    {
+        if (failed || text.Length == 0 || text.EndsWith('…'))
+        {
+            Tell(title, text, failed);
+            return;
+        }
+
+        UnitySendNotice.Result(_services, text, title);
+    }
+
+    /// <summary>
     /// お気に入りの星を切り替える（#70・ユーザ指示「searchのitem要素で空いている下の方に星のトグル」）。
     ///
     /// 星だけを名指しして書く。カードが抱えているのは前回の読み込み時の写しで、

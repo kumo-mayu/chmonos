@@ -143,7 +143,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         CardSendToUnityWithRecordCommand = new RelayCommand(parameter => CardUnityAsync(
             AsCard(parameter), "改変に追加して送る", "これを送る",
             package => ItemUnityActions.SendWithRecordAsync(_services, AsCard(parameter)!.Item, package,
-                (text, failed) => Tell("改変に追加して送る", text, failed), SendUi)).Forget());
+                (text, failed) => TellSent("改変に追加して送る", text, failed), SendUi)).Forget());
         CardSelectInUnityCommand = new RelayCommand(parameter =>
         {
             if (AsCard(parameter) is { } card)

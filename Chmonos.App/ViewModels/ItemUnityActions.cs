@@ -58,15 +58,11 @@ internal static class ItemUnityActions
         }
 
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
-        var answer = Services.Notice.Show(
+        if (UnitySendNotice.Confirm(
+            services,
             $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
             + "Unityの取り込み画面で内容を確認してから取り込めます。",
-            title,
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.OK);
-
-        if (answer == System.Windows.MessageBoxResult.OK)
+            title))
         {
             await SendPickedAsync(services, item, editor, package, title, ui, notify, presenceChanged);
         }
@@ -90,7 +86,7 @@ internal static class ItemUnityActions
             }
             else
             {
-                FrontNotice.Show(stopped, title);
+                UnitySendNotice.Result(services, stopped, title);
             }
         }
     }

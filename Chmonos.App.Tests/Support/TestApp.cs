@@ -116,6 +116,9 @@ internal sealed class TestApp
     /// <summary>出すはずだった知らせ・確認の窓（窓は出ない）。文言を確かめるのに使う。</summary>
     public List<NoticeRequest> Notices { get; } = [];
 
+    /// <summary>出すはずだった Windows の通知（右下には出ない）。</summary>
+    public List<ToastRequest> Toasts { get; } = [];
+
     /// <summary>
     /// 確認の窓への答え。既定は、その窓の「やめる」側（OK だけの窓は OK）——
     /// 試験が答えを決めていない確認を「はい」で進めると、消す・上書きするが黙って走る
@@ -250,6 +253,7 @@ internal sealed class TestApp
                 app.Notices.Add(request);
                 return app.Answer(request);
             };
+            WindowsToast.Intercept = app.Toasts.Add;
             MemberFilePickViewModel.Intercept = model =>
             {
                 app.FilePicks.Add(model);
@@ -406,6 +410,7 @@ internal sealed class TestApp
         {
             // アプリ全体に効く静的な状態を、次の試験へ持ち越さない
             Notice.Intercept = null;
+            WindowsToast.Intercept = null;
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;

@@ -120,17 +120,18 @@ internal static class ItemSelectionActions
         }
 
         // 数えているのは unitypackage の数（選んだ商品の数ではない）。選び終えた後に、全体で何を送るかを1回だけ確かめる
-        var confirm = Services.Notice.Show(
-            $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
+        var text = $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
             + "1件ずつUnityの取り込み画面が表示されます。「Import」か「Cancel」を押すと、次の1件が表示されます。"
             + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
-            + (notSending.Count > 0 ? $"\n飛ばすと選んだ {notSending.Count} 件は送りません。" : string.Empty),
-            title,
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.OK);
+            + (notSending.Count > 0 ? $"\n飛ばすと選んだ {notSending.Count} 件は送りません。" : string.Empty);
 
-        if (confirm != System.Windows.MessageBoxResult.OK)
+        // 飛ばす物があるときは、確認を出さない設定でも聞く（選んだ数より少なく送ることを、送る前に知らせる）
+        var confirmed = nothing.Count > 0 || notSending.Count > 0
+            ? Services.Notice.Show(text, title, System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question, System.Windows.MessageBoxResult.OK) == System.Windows.MessageBoxResult.OK
+            : UnitySendNotice.Confirm(services, text, title);
+
+        if (!confirmed)
         {
             return;
         }
@@ -164,14 +165,19 @@ internal static class ItemSelectionActions
 
             // 送っている間は Unity が手前にいるので、主の窓を戻してから言う
             // 止めたときは、1件ずつ理由を並べない（全部同じ理由なので読む物が増えるだけ。E7）
-            FrontNotice.Show(
-                onlyStopped
-                    ? shown
-                    : $"{shown}{failed.Count} 件は送れませんでした：\n\n"
+            if (onlyStopped)
+            {
+                UnitySendNotice.Result(services, shown, title);
+            }
+            else
+            {
+                FrontNotice.Show(
+                    $"{shown}{failed.Count} 件は送れませんでした：\n\n"
                         + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)),
-                title,
-                System.Windows.MessageBoxButton.OK,
-                onlyStopped ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+                    title,
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            }
         }
         finally
         {
