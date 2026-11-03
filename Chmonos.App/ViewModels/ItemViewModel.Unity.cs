@@ -99,13 +99,13 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        if (await ItemUnityActions.CommitPickedAsync(_services, model, title, project: null, files.MemberFor(Item.Id, DateTimeOffset.Now))
-            is not { } record)
+        if (await ItemUnityActions.CommitPickedAsync(_services, model, title, project: null, files.MemberFor(Item.Id, DateTimeOffset.Now), sending: false)
+            is not { } records)
         {
             return;
         }
 
-        UnityRecordNotice = $"「{record.Name}」に追加しました。";
+        UnityRecordNotice = $"{ModificationPicking.NamesText(records)}に追加しました。";
         await LoadModificationsAsync();
     }
     private string? _unityRecordNotice;

@@ -37,6 +37,39 @@ public sealed class PickModificationRowViewModel : ViewModelBase
 
     public string Name => Record.Name;
 
+    /// <summary>紐付けたプロジェクトの場所（比べる形）。紐付けていなければ空。送り先を揃える制約で比べる。</summary>
+    public string ProjectKey { get; init; } = string.Empty;
+
+    private bool _isChecked;
+    private bool _isBlocked;
+
+    /// <summary>この改変に足すか（ユーザ指示 2026-11-03：いくつでも選べる）。</summary>
+    public bool IsChecked
+    {
+        get => _isChecked;
+        set => SetField(ref _isChecked, value);
+    }
+
+    /// <summary>
+    /// 選べないか。Unity へ送るときに、先に選んだ改変と紐付けたプロジェクトが違う物（送り先は1つなので、同じプロジェクトの改変だけを一緒に選べる。ユーザ判断 2026-11-03）
+    /// </summary>
+    public bool IsBlocked
+    {
+        get => _isBlocked;
+        internal set
+        {
+            if (SetField(ref _isBlocked, value))
+            {
+                OnPropertyChanged(nameof(IsSelectable));
+            }
+        }
+    }
+
+    public bool IsSelectable => !IsBlocked;
+
+    /// <summary>選べないときの理由（吹き出し）。</summary>
+    public string BlockedReason => "先に選んだ改変と、紐付けたプロジェクトが違います。";
+
     /// <summary>どのアバターの、何が何件入っているか。同じ名前を見分けるために出す。</summary>
     public string Detail => Record.UsedMembers.Count == 0
         ? $"{AvatarText}　まだ何も入っていません"
@@ -44,7 +77,8 @@ public sealed class PickModificationRowViewModel : ViewModelBase
 }
 
 /// <summary>
-/// 「改変に足して送る」で、どの改変に積むかを選ぶ。
+/// 「改変に足して送る」で、どの改変に積むかを選ぶ。**今ある改変はいくつでも選べる**（ユーザ指示 2026-11-03）。
+/// 新しく作るのは1つだけで、今ある改変を選ぶのとどちらか一方（混ぜると、何がいくつ増えるのか読みにくい）。
 ///
 /// **1件のときも出す**（ユーザ判断）。1件なら黙って積む方が手数は少ないが、
 /// 「新しく作る」が答えの可能性がある。要らない操作が1つ増える代わりに、
@@ -54,7 +88,6 @@ public sealed class PickModificationRowViewModel : ViewModelBase
 /// </summary>
 public sealed class PickModificationDialogViewModel : ViewModelBase
 {
-    private PickModificationRowViewModel? _picked;
     private bool _makingNew;
     private string _newName = string.Empty;
     private string? _newAvatarItemId;
@@ -78,7 +111,18 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
         PickCommand = new RelayCommand(
             parameter => Pick(parameter as PickModificationRowViewModel),
-            parameter => parameter is PickModificationRowViewModel);
+            parameter => parameter is PickModificationRowViewModel { IsSelectable: true });
+
+        foreach (var row in rows)
+        {
+            row.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(PickModificationRowViewModel.IsChecked))
+                {
+                    OnPickedChanged(row);
+                }
+            };
+        }
         PickAvatarCommand = new RelayCommand(parameter => PickAvatar(parameter as string));
         ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty);
 
@@ -137,7 +181,8 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     /// <summary>
     /// 探す語を空白で区切り、**全部の語が**、改変の名前・アバターの名前・Unity プロジェクトの名前のどれかに入っている改変だけを残す。
     /// 大文字小文字・かなの種類・全角半角は区別しない（ほかの画面の探す欄と同じ）。
-    /// 選んでいた改変が外れたら選びを解く（見えない物を「追加」できてしまわないように）
+    /// 選んでいた改変が外れても**選びは残す**（「Aを探して選ぶ → Bを探して選ぶ」で使う。ユーザ指示 2026-11-03）。
+    /// 見えない選びは、ボタンの上の「選んでいる改変」に名前で出す（前は1つしか選べず、見えない物を追加しないよう解いていた）
     /// </summary>
     private void ApplyFilter()
     {
@@ -156,11 +201,6 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         foreach (var row in shown)
         {
             Rows.Add(row);
-        }
-
-        if (Picked is not null && !shown.Contains(Picked))
-        {
-            Picked = null;
         }
 
         OnPropertyChanged(nameof(HasNoMatch));
@@ -212,17 +252,55 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     /// <summary>押して確定するボタンの名前。**何が起きるかを名乗る。**</summary>
     public required string CommitLabel { get; init; }
 
-    public PickModificationRowViewModel? Picked
+    /// <summary>
+    /// Unity へ送るときに、紐付けたプロジェクトが同じ改変だけを一緒に選ばせるか（送り先は1つ。ユーザ判断 2026-11-03）。
+    /// 送り先のプロジェクトの改変だけを並べたときは、並んでいる物が全部同じなので要らない。一覧に無いプロジェクトへ送るとき（全部の改変を並べる）に入れる
+    /// </summary>
+    public bool RequireSameProject { get; init; }
+
+    /// <summary>選んだ改変（並びの順。絞って見えなくなった物も入る）。</summary>
+    public IReadOnlyList<PickModificationRowViewModel> PickedRows => _allRows.Where(row => row.IsChecked).ToList();
+
+    public IReadOnlyList<ModificationRecord> PickedRecords => PickedRows.Select(row => row.Record).ToList();
+
+    /// <summary>選んでいる改変の名前（ボタンの上の1行）。絞って見えなくなった選びもここで分かる。</summary>
+    public string PickedText => !MakingNew && PickedRows is { Count: > 0 } picked
+        ? $"選んでいる改変：{ModificationPicking.NamesText(picked.Select(row => row.Record).ToList())}"
+        : string.Empty;
+
+    public bool HasPickedText => PickedText.Length > 0;
+
+    private bool _updatingPicks;
+
+    private void OnPickedChanged(PickModificationRowViewModel row)
     {
-        get => _picked;
-        private set
+        if (_updatingPicks)
         {
-            if (SetField(ref _picked, value))
-            {
-                OnPropertyChanged(nameof(CanCommit));
-                OnPropertyChanged(nameof(CommitHint));
-                RelayCommand.RaiseCanExecuteChanged();
-            }
+            return;
+        }
+
+        if (row.IsChecked)
+        {
+            MakingNew = false;
+        }
+
+        RefreshBlocked();
+        OnPropertyChanged(nameof(CanCommit));
+        OnPropertyChanged(nameof(CommitHint));
+        OnPropertyChanged(nameof(PickedText));
+        OnPropertyChanged(nameof(HasPickedText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>先に選んだ改変と紐付けたプロジェクトが違う行を、選べなくする（<see cref="RequireSameProject"/>）。全部外せば元に戻る。</summary>
+    private void RefreshBlocked()
+    {
+        var anchor = RequireSameProject ? _allRows.FirstOrDefault(row => row.IsChecked) : null;
+        foreach (var row in _allRows)
+        {
+            row.IsBlocked = anchor is not null
+                && !row.IsChecked
+                && !string.Equals(row.ProjectKey, anchor.ProjectKey, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -234,11 +312,27 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         {
             if (SetField(ref _makingNew, value))
             {
+                // 新しく作るのと今ある改変を選ぶのは、どちらか一方
                 if (value)
                 {
-                    Picked = null;
+                    _updatingPicks = true;
+                    try
+                    {
+                        foreach (var row in _allRows)
+                        {
+                            row.IsChecked = false;
+                        }
+                    }
+                    finally
+                    {
+                        _updatingPicks = false;
+                    }
+
+                    RefreshBlocked();
                 }
 
+                OnPropertyChanged(nameof(PickedText));
+                OnPropertyChanged(nameof(HasPickedText));
                 OnPropertyChanged(nameof(PickingExisting));
                 OnPropertyChanged(nameof(CanCommit));
                 OnPropertyChanged(nameof(CommitHint));
@@ -326,7 +420,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     /// <summary>押せるか。**選んでいないのに押せると、何が起きるか分からない。**</summary>
     public bool CanCommit => MakingNew
         ? NewName.Trim().Length > 0 && NewAvatarItemId is not null
-        : Picked is not null;
+        : _allRows.Any(row => row.IsChecked);
 
     /// <summary>
     /// 押せないときに、**何が足りないか**を書く（`ui-dialogs.md`・E9）。
@@ -347,8 +441,11 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
             return;
         }
 
-        MakingNew = false;
-        Picked = row;
+        // 行を押したら選ぶ（もう一度押すと外す）。選べない行は押せない（PickCommand の CanExecute）
+        if (row.IsSelectable || row.IsChecked)
+        {
+            row.IsChecked = !row.IsChecked;
+        }
     }
 
     private void PickAvatar(string? name)

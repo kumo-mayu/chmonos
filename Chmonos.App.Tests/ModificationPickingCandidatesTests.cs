@@ -107,16 +107,75 @@ public class ModificationPickingCandidatesTests
     });
 
     [Fact]
-    public Task 絞って選んでいた改変が外れたら_選びを解いて追加できなくする() => TestApp.Run(async app =>
+    public Task 改変はいくつでも選べ_絞って見えなくなった選びも残して名前で出す() => TestApp.Run(async app =>
     {
         var model = await BuildWithModsAsync(app);
         model.PickCommand.Execute(model.Rows.Single(row => row.Name == "水着A"));
-        Assert.True(model.CanCommit);
-
         model.FilterText = "制服";
+        model.PickCommand.Execute(model.Rows.Single(row => row.Name == "制服"));
 
-        Assert.Null(model.Picked);
-        Assert.False(model.CanCommit);
+        // 「Aを探して選ぶ → Bを探して選ぶ」で使うので、見えなくなった水着Aの選びは残す
+        Assert.True(model.CanCommit);
+        Assert.Equal(["制服", "水着A"], model.PickedRecords.Select(record => record.Name));
+        Assert.Equal("選んでいる改変：「制服」「水着A」", model.PickedText);
+
+        // もう一度押すと外す
+        model.PickCommand.Execute(model.Rows.Single(row => row.Name == "制服"));
+        Assert.Equal(["水着A"], model.PickedRecords.Select(record => record.Name));
+    });
+
+    [Fact]
+    public Task 新しく作る側に切り替えると_選んでいた改変は外れる() => TestApp.Run(async app =>
+    {
+        var model = await BuildWithModsAsync(app);
+        model.PickCommand.Execute(model.Rows[0]);
+        model.PickCommand.Execute(model.Rows[1]);
+
+        model.MakingNew = true;
+
+        Assert.Empty(model.PickedRecords);
+        Assert.False(model.HasPickedText);
+
+        // 行を選び直すと、今ある改変の側へ戻る
+        model.PickCommand.Execute(model.Rows[0]);
+        Assert.False(model.MakingNew);
+    });
+
+    [Fact]
+    public Task 送り先を揃えるときは_先に選んだ改変とプロジェクトが違う改変を選べない() => TestApp.Run(async app =>
+    {
+        await app.StartAsync();
+        var model = ModificationPicking.BuildDialog(
+            app.Services, "題", "見出し", "",
+            [
+                Mod("mod-1", "2000001", "普段着", @"D:\Unity\作り物プロジェクト"),
+                Mod("mod-2", "2000001", "制服", @"D:\Unity\作り物プロジェクト\"),
+                Mod("mod-3", "2000002", "水着A", @"D:\Unity\Sandbox"),
+                Mod("mod-4", "2000002", "紐付け無し"),
+            ],
+            "既存", "決定", "空",
+            requireSameProject: true);
+
+        model.PickCommand.Execute(model.Rows.Single(row => row.Name == "普段着"));
+
+        Assert.True(model.Rows.Single(row => row.Name == "制服").IsSelectable);
+        Assert.False(model.Rows.Single(row => row.Name == "水着A").IsSelectable);
+        Assert.False(model.Rows.Single(row => row.Name == "紐付け無し").IsSelectable);
+        Assert.False(model.PickCommand.CanExecute(model.Rows.Single(row => row.Name == "水着A")));
+
+        // 外せば、また何でも選べる
+        model.PickCommand.Execute(model.Rows.Single(row => row.Name == "普段着"));
+        Assert.All(model.Rows, row => Assert.True(row.IsSelectable));
+    });
+
+    [Fact]
+    public Task 送らないときは_プロジェクトが違う改変も一緒に選べる() => TestApp.Run(async app =>
+    {
+        var model = await BuildWithModsAsync(app);
+
+        model.PickCommand.Execute(model.Rows.Single(row => row.Name == "普段着"));
+
+        Assert.All(model.Rows, row => Assert.True(row.IsSelectable));
     });
 
     [Fact]

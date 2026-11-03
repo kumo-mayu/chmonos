@@ -90,12 +90,27 @@
                     </ItemsControl.Template>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:PickModificationRowViewModel}">
-                            <Border Padding="0,5">
+                            <!--
+                                行ごとのチェック（ユーザ指示 2026-11-03：いくつでも選べる。前は行の「これに追加」で1つだけ）。行のどこを押しても選べるよう、行の中身ごとチェックにする。
+                                送るときに紐付けたプロジェクトが違う行は押せず、吹き出しで理由を言う
+                            -->
+                            <CheckBox Padding="6,0,0,0" VerticalContentAlignment="Center" Margin="2,5,0,5"
+                                      IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding IsSelectable}"
+                                      ToolTipService.ShowOnDisabled="True"
+                                      AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name}">
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="ToolTip" Value="{Binding BlockedReason}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </CheckBox.Style>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
                                     <!-- 改変の絵（メモ58）：改変の写真の1枚目 → そのアバターの絵 → 無ければ頭文字。名前と同じく見た目の飾りで、読み上げには出さない -->
@@ -123,13 +138,8 @@
                                                    Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
 
-                                    <Button AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name, StringFormat={}{0}に追加}" Grid.Column="2" Content="これに追加" Style="{StaticResource SmallButton}"
-                                            VerticalAlignment="Center"
-                                            Command="{Binding DataContext.PickCommand,
-                                                      RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}" />
                                 </Grid>
-                            </Border>
+                            </CheckBox>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </controls:ContentItemsControl>
@@ -165,6 +175,11 @@
                          ToolTip="「普段着」「制服」のような呼び分けです。" />
             </StackPanel>
         </Border>
+
+        <!-- 選んでいる改変の名前。探す欄で絞って見えなくなった選びも、ここで分かる -->
+        <TextBlock Text="{Binding PickedText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,0"
+                   AutomationProperties.AutomationId="PickModificationPicked"
+                   Visibility="{Binding HasPickedText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <!-- 押せないときは理由を出す（E9）。ボタンの列に混ぜると窓の幅からはみ出すので、1行上に置く -->
         <TextBlock Text="{Binding CommitHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"

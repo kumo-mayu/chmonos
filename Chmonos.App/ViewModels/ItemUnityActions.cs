@@ -233,12 +233,13 @@ internal static class ItemUnityActions
     /// 改変に足した後、送った結果をどう言うか。記録は送る前に済んでいるので、どの場合も「追加しました」は言う。
     /// 人が止めたときは失敗にしない（窓の ⚠ で「送れませんでした」と出ると、失敗に読めた。2026-10-02）
     /// </summary>
-    internal static (string Text, bool Failed) AfterRecordText(string recordName, SendResult sent)
+    /// <param name="names">足した改変の名前（<see cref="ModificationPicking.NamesText"/> の形。「」付き）。</param>
+    internal static (string Text, bool Failed) AfterRecordText(string names, SendResult sent)
         => sent switch
         {
-            { Sent: true } => ($"「{recordName}」に追加して、Unityへ送りました。", false),
-            { Stopped: { } stopped } => ($"「{recordName}」に追加しました。{stopped}", false),
-            _ => ($"「{recordName}」に追加しました。Unityへは送れませんでした。", true),
+            { Sent: true } => ($"{names}に追加して、Unityへ送りました。", false),
+            { Stopped: { } stopped } => ($"{names}に追加しました。{stopped}", false),
+            _ => ($"{names}に追加しました。Unityへは送れませんでした。", true),
         };
 
     /// <summary>
@@ -248,7 +249,7 @@ internal static class ItemUnityActions
     /// 聞くと、記録を使っていない人の邪魔になる。分ければ、**選んだ人だけが記録の話に入る。**
     /// </summary>
     /// <returns>足した改変（足せなかった・やめたら null）。</returns>
-    public static Task<ModificationRecord?> SendWithRecordAsync(
+    public static Task<IReadOnlyList<ModificationRecord>?> SendWithRecordAsync(
         AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify, UnitySendUi? ui = null,
         Action<ItemRecord>? presenceChanged = null)
         => SendWithRecordAsync(services, item, [package], notify, ui, presenceChanged);
@@ -257,7 +258,7 @@ internal static class ItemUnityActions
     /// 1つの商品から選んだ unitypackage を、全部改変の使ったものに記録してから順に送る（カードの右クリックで複数選んだとき。ユーザ指示 2026-11-03）。
     /// 選んだ1つずつが使ったものの1行になる（改変の画面で2つ選んだときと同じ形）。
     /// </summary>
-    public static async Task<ModificationRecord?> SendWithRecordAsync(
+    public static async Task<IReadOnlyList<ModificationRecord>?> SendWithRecordAsync(
         AppServiceContainer services, ItemRecord item, IReadOnlyList<UnityPackageEntry> packages, NoticeSink notify, UnitySendUi? ui = null,
         Action<ItemRecord>? presenceChanged = null)
     {
@@ -288,7 +289,9 @@ internal static class ItemUnityActions
             existingLabel: "このプロジェクトの改変に追加",
             commitLabel: "追加して送る",
             emptyText: "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに追加できます。",
-            ownedItems: await ModificationPicking.LoadOwnedItemsAsync(services));
+            ownedItems: await ModificationPicking.LoadOwnedItemsAsync(services),
+            // 一覧に無いプロジェクトへ送るときは全部の改変を並べるので、紐付けたプロジェクトが同じ物だけを一緒に選ばせる（送り先は1つ）
+            requireSameProject: projectPath is null);
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
@@ -309,24 +312,26 @@ internal static class ItemUnityActions
                 AddedAt = DateTimeOffset.Now,
             };
         }).ToList();
-        if (await CommitPickedAsync(services, model, title, projectPath, members) is not { } record)
+        if (await CommitPickedAsync(services, model, title, projectPath, members) is not { } picked)
         {
             return null;
         }
 
-        // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
+        // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う。
+        // 改変をいくつ選んでも送り先は同じプロジェクトなので、送るのは1回（改変ごとに送ると、同じ物の取り込み画面が何度も出る）
+        var names = ModificationPicking.NamesText(picked);
         if (packages.Count == 1)
         {
-            var (text, failed) = AfterRecordText(record.Name, await SendOneAsync(services, item, editor, packages[0], title, ui, presenceChanged));
+            var (text, failed) = AfterRecordText(names, await SendOneAsync(services, item, editor, packages[0], title, ui, presenceChanged));
             notify(text, failed);
         }
         else
         {
             var (text, failed) = await SendManyAsync(services, item, editor, packages, ui, presenceChanged);
-            notify($"「{record.Name}」に {packages.Count} 件を追加しました。{text}", failed);
+            notify($"{names}に {packages.Count} 件を追加しました。{text}", failed);
         }
 
-        return record;
+        return picked;
     }
 
     /// <summary>
@@ -334,51 +339,64 @@ internal static class ItemUnityActions
     /// どのファイル（バリエーション・unitypackage）を使ったかは、送ったときか、手で足す窓で人が選んだときだけ入る
     /// （<paramref name="member"/> を作る呼び手が決める。**推定で埋めない**）
     /// </summary>
-    public static Task<ModificationRecord?> CommitPickedAsync(
+    public static Task<IReadOnlyList<ModificationRecord>?> CommitPickedAsync(
         AppServiceContainer services,
         PickModificationDialogViewModel model,
         string title,
         string? project,
-        ModificationMember member)
-        => CommitPickedAsync(services, model, title, project, [member]);
+        ModificationMember member,
+        bool sending = true)
+        => CommitPickedAsync(services, model, title, project, [member], sending);
 
-    /// <summary>選んだ改変に、行をいくつか足す（並べた順に後ろへ付ける）。</summary>
-    public static async Task<ModificationRecord?> CommitPickedAsync(
+    /// <summary>
+    /// 選んだ改変（いくつでも。ユーザ指示 2026-11-03）に、行をいくつか足す（並べた順に後ろへ付ける）。
+    /// 改変ごとに1回の保存でまとめて足す（1行ずつだと途中の失敗で一部だけ残り、やり直すと2重になった。Codex の点検 2026-11-03）。
+    /// 改変はそれぞれ別のファイルなので、全部をまとめて1回にはできない。足せない改変があればそこで止め、
+    /// どれに足せてどれに足せなかったかを言う。送るときは送らない（記録してから送る決まりなので、記録の欠けたまま送らない）
+    /// </summary>
+    /// <param name="sending">この後に Unity へ送るか（足せなかったときに「送っていません」と言うか）。</param>
+    public static async Task<IReadOnlyList<ModificationRecord>?> CommitPickedAsync(
         AppServiceContainer services,
         PickModificationDialogViewModel model,
         string title,
         string? project,
-        IReadOnlyList<ModificationMember> members)
+        IReadOnlyList<ModificationMember> members,
+        bool sending = true)
     {
-        if (await ModificationPicking.ResolvePickedAsync(services, model, title, project) is not { } record)
+        if (await ModificationPicking.ResolvePickedAsync(services, model, title, project) is not { } records)
         {
             return null;
         }
 
-        // 1回の保存でまとめて足す。1行ずつだと途中の失敗で一部だけ残り、黙って送らずに終わり、やり直すと2重になった（Codex の点検 2026-11-03）。
-        // 足せなかったら理由を言い、送らない（記録してから送る決まりなので、記録の無いまま送らない）
-        string? problem;
-        try
+        var done = new List<ModificationRecord>();
+        foreach (var record in records)
         {
-            problem = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMembers(record.Id, members))
-                is Core.Commands.CommandResult.Failed failed
-                ? failed.Message
-                : null;
-        }
-        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
-        {
-            problem = "改変のファイルを保存できませんでした。保存先のドライブと空き容量を確かめてください。";
+            string? problem;
+            try
+            {
+                problem = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMembers(record.Id, members))
+                    is Core.Commands.CommandResult.Failed failed
+                    ? failed.Message
+                    : null;
+            }
+            catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
+            {
+                problem = "改変のファイルを保存できませんでした。保存先のドライブと空き容量を確かめてください。";
+            }
+
+            if (problem is not null)
+            {
+                var head = done.Count > 0 ? $"{ModificationPicking.NamesText(done)}には追加しました。" : string.Empty;
+                FrontNotice.Show(
+                    $"{head}「{record.Name}」に追加できませんでした。{(sending ? "Unityへは送っていません。" : string.Empty)}\n\n{problem}",
+                    title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return null;
+            }
+
+            done.Add(record);
         }
 
-        if (problem is not null)
-        {
-            FrontNotice.Show(
-                $"「{record.Name}」に追加できませんでした。Unityへは送っていません。\n\n{problem}",
-                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-            return null;
-        }
-
-        return record;
+        return done;
     }
 
     /// <summary>画像の行の文。見つかり方を頭に付けて、選ぶ前に確度が分かるようにする。</summary>

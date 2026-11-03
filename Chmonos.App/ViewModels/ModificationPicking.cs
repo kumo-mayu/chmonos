@@ -34,7 +34,8 @@ public static class ModificationPicking
         string emptyText,
         MemberFilePickViewModel? files = null,
         IReadOnlySet<string>? ownedItemIds = null,
-        IReadOnlyDictionary<string, ItemRecord>? ownedItems = null)
+        IReadOnlyDictionary<string, ItemRecord>? ownedItems = null,
+        bool requireSameProject = false)
     {
         // 持っている商品の一覧（絵のため）を渡されれば、持っているかの判定もそこから取る
         ownedItemIds ??= ownedItems?.Keys.ToHashSet(StringComparer.Ordinal);
@@ -91,6 +92,7 @@ public static class ModificationPicking
                         ? NameOf(found)
                         : record.AvatarItemId,
                 ProjectName = ModificationHubViewModel.ProjectNameOf(record.UnityProject),
+                ProjectKey = Core.Services.UnityProjectPath.Normalize(record.UnityProject) ?? string.Empty,
             })
             .ToList();
 
@@ -122,6 +124,7 @@ public static class ModificationPicking
                 string.Equals(NameOf(entry), text, StringComparison.CurrentCultureIgnoreCase))?.ItemId)
         {
             ExistingLabel = existingLabel,
+            RequireSameProject = requireSameProject,
             CommitLabel = commitLabel,
             EmptyText = emptyText,
             Files = files is { HasChoices: true } ? files : null,
@@ -141,19 +144,30 @@ public static class ModificationPicking
             : "使ったファイルは記録されません。" + howToRecord;
 
     /// <summary>
-    /// 選ばれた改変を返す。「新しく作る」なら作ってから返す。
+    /// 改変の名前を、知らせの文に入れる形にする。3つまでは並べ、それより多ければ「ほか n 件」にする（知らせが長くならないように）。
+    /// </summary>
+    public static string NamesText(IReadOnlyList<ModificationRecord> records)
+        => records.Count <= 3
+            ? string.Concat(records.Select(record => $"「{record.Name}」"))
+            : string.Concat(records.Take(2).Select(record => $"「{record.Name}」")) + $"ほか {records.Count - 2} 件";
+
+    /// <summary>
+    /// 選ばれた改変を返す（今ある改変はいくつでも。ユーザ指示 2026-11-03）。「新しく作る」なら作ってから1つだけ返す。
     /// 作れなかったときは理由を出して null を返す。
     /// </summary>
     /// <param name="project">作った改変にその場で紐付けるプロジェクト。送る先が決まっているときだけ渡す。</param>
-    public static async Task<ModificationRecord?> ResolvePickedAsync(
+    public static async Task<IReadOnlyList<ModificationRecord>?> ResolvePickedAsync(
         AppServiceContainer services,
         PickModificationDialogViewModel model,
         string title,
         string? project)
     {
-        var record = model.Picked?.Record;
+        if (!model.MakingNew)
+        {
+            return model.PickedRecords is { Count: > 0 } picked ? picked : null;
+        }
 
-        if (model.MakingNew)
+        ModificationRecord? record = null;
         {
             if (model.NewAvatarItemId is not { } avatarItemId)
             {
@@ -183,8 +197,9 @@ public static class ModificationPicking
                 title,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
+            return null;
         }
 
-        return record;
+        return [record];
     }
 }

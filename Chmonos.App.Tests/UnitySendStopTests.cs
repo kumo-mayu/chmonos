@@ -95,12 +95,12 @@ public class UnitySendStopTests
     {
         Assert.Equal(
             ("「普段着」に追加しました。送るのを中止しました。", false),
-            ItemUnityActions.AfterRecordText("普段着", new ItemUnityActions.SendResult(false, UnityImportQueue.StoppedBeforeWindowMessage)));
+            ItemUnityActions.AfterRecordText("「普段着」", new ItemUnityActions.SendResult(false, UnityImportQueue.StoppedBeforeWindowMessage)));
         Assert.Equal(
             ("「普段着」に追加しました。Unityへは送れませんでした。", true),
-            ItemUnityActions.AfterRecordText("普段着", new ItemUnityActions.SendResult(false, null)));
+            ItemUnityActions.AfterRecordText("「普段着」", new ItemUnityActions.SendResult(false, null)));
         Assert.Equal(
             ("「普段着」に追加して、Unityへ送りました。", false),
-            ItemUnityActions.AfterRecordText("普段着", new ItemUnityActions.SendResult(true, null)));
+            ItemUnityActions.AfterRecordText("「普段着」", new ItemUnityActions.SendResult(true, null)));
     }
 }

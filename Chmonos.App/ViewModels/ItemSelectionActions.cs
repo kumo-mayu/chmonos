@@ -238,17 +238,26 @@ internal static class ItemSelectionActions
             return false;
         }
 
-        if (await ModificationPicking.ResolvePickedAsync(services, model, title, project: null) is not { } record)
+        if (await ModificationPicking.ResolvePickedAsync(services, model, title, project: null) is not { } records)
         {
             return false;
         }
 
-        var added = await AddPickedAsync(services, record, cards.Select(card => card.Item).ToList(), files);
-        var skipped = cards.Count - added;
-        Services.Notice.Show(
-            skipped == 0
+        // 改変はいくつでも選べる（ユーザ指示 2026-11-03）。送らないので、紐付けたプロジェクトが違っても一緒に足せる。
+        // 改変ごとに既に入っている物を飛ばすので、言うのも改変ごと
+        var items = cards.Select(card => card.Item).ToList();
+        var lines = new List<string>();
+        foreach (var record in records)
+        {
+            var added = await AddPickedAsync(services, record, items, files);
+            var skipped = items.Count - added;
+            lines.Add(skipped == 0
                 ? $"「{record.Name}」に {added} 件を追加しました。"
-                : $"「{record.Name}」に {added} 件を追加しました。{skipped} 件は既に入っています。",
+                : $"「{record.Name}」に {added} 件を追加しました。{skipped} 件は既に入っています。");
+        }
+
+        Services.Notice.Show(
+            string.Join("\n", lines),
             title,
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
