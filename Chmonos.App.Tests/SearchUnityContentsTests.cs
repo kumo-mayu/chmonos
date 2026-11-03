@@ -383,6 +383,18 @@ public class SearchUnityContentsTests
 
         await UiThread.Until(() => !search.HasOpenUnityStatus && Shown(search).Count == 0, "待つ");
         Assert.Equal("開いているUnityのプロジェクトに入っている商品はありません。", search.EmptyHint);
+
+        // 何も変わらないまま窓に戻っても、0件の理由を見るために全商品を照らし直さない（Codex の点検 2026-11-03）
+        await app.SettleAsync();
+        var checks = search.OpenUnityEmptyChecks;
+        for (var i = 0; i < 3; i++)
+        {
+            search.NoteOpenProjectsMaybeChanged();
+            await app.SettleAsync();
+        }
+
+        Assert.Equal(checks, search.OpenUnityEmptyChecks);
+        Assert.Equal("開いているUnityのプロジェクトに入っている商品はありません。", search.EmptyHint);
     });
 
     [Fact]

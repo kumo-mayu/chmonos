@@ -86,7 +86,15 @@ public sealed partial class SearchViewModel
         }
 
         // プロジェクトの中を調べるのも待てない。調べ終えたらもう一度絞り込む
-        EnsureProjectContents();
+        _applyingFilters = true;
+        try
+        {
+            EnsureProjectContents();
+        }
+        finally
+        {
+            _applyingFilters = false;
+        }
 
         _matches = FilterMatches();
         _filteredOn = DateOnly.FromDateTime((_moduleContext?.Now ?? Clock()).LocalDateTime);

@@ -143,13 +143,26 @@ public sealed partial class SearchViewModel
     /// 全商品をもう1回照らすので、0件で、スイッチで絞っているときだけ
     /// </summary>
     private bool EmptyBecauseOfOpenUnity()
-        => OpenUnityFilterOn
-           && _matches.Count == 0
-           && _moduleContext is { } context
-           && SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), context).Matches.Count > 0;
+    {
+        if (!OpenUnityFilterOn || _matches.Count != 0 || _moduleContext is not { } context)
+        {
+            return false;
+        }
+
+        OpenUnityEmptyChecks++;
+        return SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), context).Matches.Count > 0;
+    }
+
+    /// <summary>全商品を照らし直した回数（試験が、窓に戻るたびに照らし直していないかを見る）。</summary>
+    internal int OpenUnityEmptyChecks { get; private set; }
 
     /// <summary>最後の絞り込みで決めた、スイッチで絞っているときの0件の案内。</summary>
     private string? _openUnityEmptyHint;
+
+    private const string ScanningEmptyHint = "開いているUnityの中を調べています。";
+
+    /// <summary>絞り込みの途中か。途中で呼ばれた案内の見直しは、絞り込みの最後に1回だけ決める（全件を2回照らさない）。</summary>
+    private bool _applyingFilters;
 
     /// <summary>スイッチで絞っているときの0件の案内。null ならスイッチで絞っていない。</summary>
     private string? OpenUnityEmptyHint()
@@ -161,7 +174,7 @@ public sealed partial class SearchViewModel
 
         if (_openProjects.Any(key => _projectContents.GetValueOrDefault(key) is not { IsScanning: false }))
         {
-            return "開いているUnityの中を調べています。";
+            return ScanningEmptyHint;
         }
 
         if (!EmptyBecauseOfOpenUnity())
@@ -456,12 +469,14 @@ public sealed partial class SearchViewModel
     {
         NotifyOpenUnitySwitch();
 
-        // 調べ終えて結果が控えと同じなら絞り直さない（ScanProjectAsync）。「調べています」の0件の案内はここで直す
-        if (_matches.Count == 0 && OpenUnityFilterOn)
+        // 調べ終えて結果が控えと同じなら絞り直さない（ScanProjectAsync）。「調べています」の0件の案内はここで直す。
+        // 直すのは「調べています」と言っている間だけ：窓に戻るたび・進み具合のたびに全商品を照らし直さない（Codex の点検 2026-11-03）
+        if (!_applyingFilters && _matches.Count == 0 && OpenUnityFilterOn && _openUnityEmptyHint == ScanningEmptyHint)
         {
             _openUnityEmptyHint = OpenUnityEmptyHint();
             OnPropertyChanged(nameof(EmptyHint));
         }
+
         foreach (var module in ProjectContentsModules())
         {
             module.SetOpenProjects(_openProjects
