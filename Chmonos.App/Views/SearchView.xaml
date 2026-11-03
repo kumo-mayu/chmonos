@@ -380,11 +380,6 @@
                                       AutomationProperties.AutomationId="SearchFilterMenu.Clear"
                                       Command="{Binding ClearFiltersCommand}" />
                             <Separator />
-                            <!-- 条件を足して選ぶ手間なしに見る近道。行に置くと邪魔なのでここへ（ユーザ判断 2026-11-01） -->
-                            <MenuItem Header="開いているUnityで絞る" AutomationProperties.Name="開いているUnityで絞る"
-                                      AutomationProperties.AutomationId="SearchFilterMenu.ShowOpenUnity"
-                                      Command="{Binding ShowOpenUnityContentsCommand}" />
-                            <Separator />
                             <MenuItem Header="絞り込みを折りたたむ" AutomationProperties.Name="絞り込みを折りたたむ"
                                       AutomationProperties.AutomationId="SearchFilterMenu.Collapse"
                                       Command="{Binding ToggleFilterPanelCommand}" Click="OnCollapsePanelMenuClick" />
@@ -1732,7 +1727,11 @@
             <Border DockPanel.Dock="Top" Height="78" Background="{DynamicResource Surface}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
                 <StackPanel Margin="18,9,18,0">
-                  <!-- 検索欄の右に「対象」と「オプション」（ユーザ案 2026-09-15）。どちらもトグルなので、開いたまま続けて切り替えられる -->
+                  <!--
+                      検索欄の右に「対象」と「オプション」（ユーザ案 2026-09-15）。どちらもトグルなので、開いたまま続けて切り替えられる。
+                      スイッチ「開いているUnity」は、入り切らなければ次の行の右端へ送る（同じ行に詰めると、幅 900px で検索欄が数文字の幅まで縮んだ）
+                  -->
+                  <controls:SplitRowPanel MinLeftWidth="380">
                   <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -1829,6 +1828,28 @@
                     </Menu>
                   </Grid>
 
+                    <!--
+                        開いている Unity のプロジェクトに入っている商品だけにする（ユーザ判断 2026-11-03）。パネルを畳んでも見えるよう検索欄の行に置く。
+                        Unity が開いていなければ押せない（オンを覚えたまま絞らない）。吹き出しは押せない理由だけ
+                    -->
+                    <CheckBox Content="開いているUnity" FontSize="12" Height="34"
+                              Margin="12,0,4,0" VerticalAlignment="Center"
+                              IsChecked="{Binding OpenUnityOnly, Mode=TwoWay}" IsEnabled="{Binding CanUseOpenUnity}"
+                              ToolTipService.ShowOnDisabled="True"
+                              AutomationProperties.AutomationId="SearchOpenUnitySwitch" AutomationProperties.Name="開いているUnity"
+                              AutomationProperties.HelpText="{Binding OpenUnityDisabledReason}">
+                        <CheckBox.Style>
+                            <Style TargetType="CheckBox" BasedOn="{StaticResource ToggleSwitch}">
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="ToolTip" Value="{Binding OpenUnityDisabledReason}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </CheckBox.Style>
+                    </CheckBox>
+                  </controls:SplitRowPanel>
+
                     <!-- 書き方の見本。削れてよいので、はみ出した分は切る -->
                     <StackPanel Orientation="Horizontal" ClipToBounds="True" Margin="2,5,2,0">
                         <TextBlock Style="{StaticResource Mono}" FontSize="11" Text="衣装 -無料 &quot;夏セット&quot;" />
@@ -1892,6 +1913,19 @@
                                        TextTrimming="CharacterEllipsis" MaxWidth="420" />
                         </Border>
                         <!-- なぜこの結果になったかを結果の隣で読めるようにする。幅が足りなければ省略して縮む（全文は吹き出し） -->
+                        <!--
+                            スイッチ「開いているUnity」で絞っている間の状況と「読み直す」。条件を足していないと条件の中の文とボタンが無いので、
+                            調べている間の0件を「入っていない」と読ませないこと、Unity に入れ直した後に取り直せることを、ここで受け持つ
+                        -->
+                        <Button DockPanel.Dock="Left" Content="読み直す" Style="{StaticResource SmallButton}" Height="24" Margin="12,0,0,0"
+                                VerticalAlignment="Center" Command="{Binding ReloadOpenUnityCommand}"
+                                ToolTip="開いているUnityの中を調べ直します"
+                                AutomationProperties.AutomationId="SearchOpenUnityReload" AutomationProperties.Name="開いているUnityを読み直す"
+                                Visibility="{Binding IsOpenUnityFiltering, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <TextBlock DockPanel.Dock="Left" Text="{Binding OpenUnityStatus}" Style="{StaticResource Caption}" Margin="10,0,0,0"
+                                   VerticalAlignment="Center" MaxHeight="16" TextTrimming="CharacterEllipsis" MaxWidth="360" ToolTip="{Binding OpenUnityStatus}"
+                                   AutomationProperties.AutomationId="SearchOpenUnityStatus"
+                                   Visibility="{Binding HasOpenUnityStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <TextBlock Text="{Binding FilterSummary}" Style="{StaticResource Caption}" Margin="12,0,0,0"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding FilterSummary}"
                                    Visibility="{Binding HasActiveFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

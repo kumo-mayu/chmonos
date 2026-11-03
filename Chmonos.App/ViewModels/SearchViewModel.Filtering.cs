@@ -91,6 +91,10 @@ public sealed partial class SearchViewModel
         _filteredOn = DateOnly.FromDateTime((_moduleContext?.Now ?? Clock()).LocalDateTime);
         RefreshRecentModules();
 
+        // 0件のときにスイッチのせいかを見るのは、全商品をもう1回照らす。読むたびに照らさないよう、ここで1回だけ決める
+        _openUnityEmptyHint = OpenUnityEmptyHint();
+        NotifyOpenUnitySwitch();
+
         // 別表記は「別表記でも検索」を入れているときだけ広げる。前は0件のときに自動で広げていたが、
         // 切っているのに広げると切っている意味が無い（ユーザ判断 2026-09-16）。0件の所にボタンを出す
         if (_searchAlternates)
@@ -128,7 +132,7 @@ public sealed partial class SearchViewModel
         _searchFacts = CreateSearchFacts();
 
         // 結果と選択肢の件数の材料を、全商品を1回なめて同時に作る（案b）
-        _filterPass = SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), _moduleContext);
+        _filterPass = SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item) && PassesOpenUnity(item), _moduleContext);
 
         return SortItems(_filterPass.Matches)
             .Select(item => _cards[item.Id])
@@ -265,14 +269,15 @@ public sealed partial class SearchViewModel
     /// 今どの条件で絞っているかを1行で示す。
     /// 「なぜこの結果になったか」が結果の隣で読めるようにするため。
     /// </summary>
-    public string FilterSummary => string.Join(" / ", FilterParts());
+    public string FilterSummary => string.Join(" / ", OpenUnityFilterOn ? FilterParts().Prepend("開いているUnity") : FilterParts());
 
     /// <summary>
     /// 効いている条件の数。畳んだパネルに出す。
     /// 畳むと条件そのものが見えなくなるので、数だけでも残さないと
     /// 「なぜか商品が少ない」の原因を探す場所が無くなる。
+    /// スイッチ「開いているUnity」で絞っているときも1つと数える（条件のパネルには並ばないので、数と要約にだけ出る）。
     /// </summary>
-    public int ActiveFilterCount => Modules.Count(module => module.IsActive);
+    public int ActiveFilterCount => Modules.Count(module => module.IsActive) + (OpenUnityFilterOn ? 1 : 0);
 
     /// <summary>
     /// 効いている条件を照らす単位（<see cref="SearchFilterPass"/> のまとまり）ごとに文にする。
@@ -296,6 +301,8 @@ public sealed partial class SearchViewModel
     /// </summary>
     public string EmptyHint => _allItems.Count == 0
         ? "「取り込み」からフォルダを読み込んでください"
+        : _openUnityEmptyHint is { } openUnity
+            ? openUnity
         : HasActiveFilters || _queryText.Trim().Length > 0
             ? "「条件をクリア」で全件に戻ります"
             : "「取り込み」からフォルダを読み込んでください";
@@ -336,7 +343,7 @@ public sealed partial class SearchViewModel
     private void RefreshFacetCounts()
     {
         var context = _moduleContext ??= CreateModuleContext();
-        var pass = _filterPass ??= SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), context);
+        var pass = _filterPass ??= SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item) && PassesOpenUnity(item), context);
         foreach (var module in Modules)
         {
             module.RefreshCounts(pass.OthersFor(module), context);

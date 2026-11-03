@@ -91,7 +91,7 @@ BOOTHで開く・リンクをコピー ／ 商品ページを開く・ショッ�
 - **名前で見分けられない物には AutomationId を付ける**（画面には出ない。英字）。同じ条件が2つの見出しの下に出るメニュー（`SearchAddModule.<条件の種類>`）、
   条件の中の欄（`SearchModule.<条件の種類>.<部品>`。同じ種類の2つ目から `<条件の種類>-2`、名前も「カテゴリ（2つ目）の〜」。見出しの「…」は `.Menu`、
   その行は `.Menu.Exclude`・`.Menu.Collapse`・`.Menu.MoveUp`・`.Menu.MoveDown`・`.Menu.Remove`、札は `.Excluded`、編集状況の項目は `SearchModule.Unedited.Field.<項目>`、
-  パネルの「…」は `SearchFilterMenu`・行 `SearchFilterMenu.GroupKinds`・`.Clear`・`.ShowOpenUnity`・`.Collapse`）、行ごとに並ぶボタン（`ItemFileOpenMenu`・`ResolveCandidateUse`）、
+  パネルの「…」は `SearchFilterMenu`・行 `SearchFilterMenu.GroupKinds`・`.Clear`・`.Collapse`）、行ごとに並ぶボタン（`ItemFileOpenMenu`・`ResolveCandidateUse`）、
   確かめで読みたい文（`ImportSummary.<数>`・`UnitySendText`）。頭は画面の名前（`Search`・`Item`・`Edit`・`Resolve`・`Import`・`Settings.`）で始める。一覧は XAML を `AutomationProperties.AutomationId="` で引く。
 - **名前の「_」は消えない**（2026-09-30）。WPF は、中身が文字のボタン・チェック・メニューの項目の名前から、アクセスキーの印として最初の「_」を消す（名前を付けていても。「file_000.pngを開く」が「file000.pngを開く」で読まれた）。
   消されるのと同じ決まりで先に重ねておく（`Services/AutomationNames`。部品の型に1回で掛けるので、名前を付ける所は何もしなくてよい）。名前を付けていないボタンも、中身の文字に「_」があれば同じに守る。

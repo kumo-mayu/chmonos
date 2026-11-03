@@ -155,8 +155,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         CardAddToModificationCommand = new RelayCommand(
             parameter => AddCardsToModificationAsync(AsCard(parameter)).Forget(), parameter => AsCard(parameter) is not null);
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
-        ShowOpenUnityContentsCommand = new RelayCommand(ShowOpenUnityContents);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
+        _openUnityOnly = services.UiState.SearchOpenUnityOnly;
         _isListMode = ItemListMode.IsList(services, "search");
 
         // 前回の条件を値まで戻す（ユーザ判断 2026-09-16 Q10。前は種類だけ戻していた）

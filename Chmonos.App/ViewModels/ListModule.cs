@@ -446,14 +446,6 @@ public sealed class ListModule : SearchModule
         AddKey(key);
     }
 
-    /// <summary>札を全部外す（「開いているUnityで絞る」）。前の札を残すと、別のプロジェクトの商品まで混ざる。</summary>
-    public void ClearKeys()
-    {
-        Chips.Clear();
-        RefreshSuggestions();
-        NotifyChanged();
-    }
-
     /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>
     public void SetSuggestions(IEnumerable<(string Text, string Key)> entries)
     {

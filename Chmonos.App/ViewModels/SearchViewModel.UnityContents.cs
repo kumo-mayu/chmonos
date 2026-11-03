@@ -63,7 +63,117 @@ public sealed partial class SearchViewModel
     /// <summary>候補の一覧の読み直しを頼んだ回数（読んでいる途中に頼まれたら、終わってから読み直す）。</summary>
     private int _unityProjectsGeneration;
 
-    public RelayCommand ShowOpenUnityContentsCommand { get; }
+    private bool _openUnityOnly;
+
+    /// <summary>
+    /// 検索欄の右の「開いているUnity」（ユーザ判断 2026-11-03）。前は「…」の中の近道で条件を足していたが、
+    /// 使っていると切り替えたくなる場面が多かった。条件としては並べず、ここに持つだけ。
+    /// 手で足した条件「Unityプロジェクト」とは両方に当てはまる物を出す。
+    /// </summary>
+    public bool OpenUnityOnly
+    {
+        get => _openUnityOnly;
+        set
+        {
+            if (!SetField(ref _openUnityOnly, value))
+            {
+                return;
+            }
+
+            _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
+                state => state with { SearchOpenUnityOnly = value })).Forget();
+            ApplyFilters();
+
+            // オンにしたときは開いているかを見直す（灰色にする前に Unity を閉じていたかもしれない）
+            if (value)
+            {
+                RefreshOpenProjectsAsync().Forget();
+            }
+        }
+    }
+
+    /// <summary>
+    /// スイッチを押せるか。開いていなければ灰色にし、オンのままでも絞らない（ユーザ判断 2026-11-03）。
+    /// 開き直せば、覚えておいたオンのまま絞り直す
+    /// </summary>
+    public bool CanUseOpenUnity => _openProjects.Count > 0;
+
+    /// <summary>押せないときの理由（吹き出し）。</summary>
+    public string OpenUnityDisabledReason => _unknownOpenProjects.Count > 0
+        ? "開いているUnityのプロジェクトの場所が分かりません。"
+        : "Unityが開いていません。";
+
+    /// <summary>スイッチで今絞っているか。</summary>
+    private bool OpenUnityFilterOn => _openUnityOnly && _openProjects.Count > 0;
+
+    /// <summary>スイッチで絞っているか（件数の帯の「読み直す」を出す）。</summary>
+    public bool IsOpenUnityFiltering => OpenUnityFilterOn;
+
+    /// <summary>
+    /// スイッチで絞っている間の状況（件数の帯に出す）。条件の中の文はスイッチだけで絞っているときはどこにも見えないので、
+    /// 調べている間の0件を「入っていない」と読ませないように、ここで言う
+    /// </summary>
+    public string OpenUnityStatus => !OpenUnityFilterOn
+        ? string.Empty
+        : string.Join('\n', _openProjects
+            .Select(key => _projectContents.GetValueOrDefault(key) is { } contents
+                ? contents.Problem ?? (contents.IsScanning
+                    ? $"「{ProjectNameOf(key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
+                    : null)
+                : null)
+            .OfType<string>());
+
+    public bool HasOpenUnityStatus => OpenUnityStatus.Length > 0;
+
+    /// <summary>スイッチの見た目に関わる値を知らせ直す。</summary>
+    private void NotifyOpenUnitySwitch()
+    {
+        OnPropertyChanged(nameof(CanUseOpenUnity));
+        OnPropertyChanged(nameof(OpenUnityDisabledReason));
+        OnPropertyChanged(nameof(IsOpenUnityFiltering));
+        OnPropertyChanged(nameof(OpenUnityStatus));
+        OnPropertyChanged(nameof(HasOpenUnityStatus));
+    }
+
+    /// <summary>スイッチで外した商品か（絞り込みの基礎の述語）。名前だけ同じファイルは数えない（取り違えがあり得る）。</summary>
+    private bool PassesOpenUnity(ItemRecord item) => !OpenUnityFilterOn || OpenProjectContains(item.Id, sameName: false);
+
+    /// <summary>
+    /// 0件のとき、スイッチのせいかを見る。スイッチを除いても0件なら、ほかの条件の0件として案内する。
+    /// 全商品をもう1回照らすので、0件で、スイッチで絞っているときだけ
+    /// </summary>
+    private bool EmptyBecauseOfOpenUnity()
+        => OpenUnityFilterOn
+           && _matches.Count == 0
+           && _moduleContext is { } context
+           && SearchFilterPass.Run(_allItems, Modules, item => PassesBase(item) && MatchesQuery(item), context).Matches.Count > 0;
+
+    /// <summary>最後の絞り込みで決めた、スイッチで絞っているときの0件の案内。</summary>
+    private string? _openUnityEmptyHint;
+
+    /// <summary>スイッチで絞っているときの0件の案内。null ならスイッチで絞っていない。</summary>
+    private string? OpenUnityEmptyHint()
+    {
+        if (!OpenUnityFilterOn)
+        {
+            return null;
+        }
+
+        if (_openProjects.Any(key => _projectContents.GetValueOrDefault(key) is not { IsScanning: false }))
+        {
+            return "開いているUnityの中を調べています。";
+        }
+
+        if (!EmptyBecauseOfOpenUnity())
+        {
+            // ほかの条件の0件。「条件をクリア」はスイッチを切らないので、全件には戻らないと言う
+            return "「条件をクリア」で、開いているUnityに入っている商品すべてに戻ります";
+        }
+
+        return ProjectContentsModules().Any(module => module.IsActive)
+            ? "「開いているUnity」と条件「Unityプロジェクト」の両方に入っている商品はありません。"
+            : "開いているUnityのプロジェクトに入っている商品はありません。";
+    }
 
     private bool ProjectContains(string project, string itemId, bool sameName)
         => _projectContents.TryGetValue(project, out var contents) && contents.Scan.Contains(itemId, sameName);
@@ -139,10 +249,15 @@ public sealed partial class SearchViewModel
     /// </summary>
     private void StartFirstOpenProjectsCheck()
     {
-        if (ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
+        if (_openUnityOnly || ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
         {
             _firstOpenProjectsCheck = RefreshOpenProjectsAsync();
             _firstOpenProjectsCheck.Forget();
+        }
+        else
+        {
+            // 待たずに見るだけ。スイッチを押せるか（灰色か）を決める
+            RefreshOpenProjectsAsync().Forget();
         }
     }
 
@@ -156,14 +271,11 @@ public sealed partial class SearchViewModel
         }
     }
 
-    /// <summary>窓が前に戻った。Unity を開いた・閉じたかもしれない。</summary>
-    internal void NoteOpenProjectsMaybeChanged()
-    {
-        if (ProjectContentsModules().Any())
-        {
-            RefreshOpenProjectsAsync().Forget();
-        }
-    }
+    /// <summary>
+    /// 窓が前に戻った・検索へ戻った。Unity を開いた・閉じたかもしれない。
+    /// スイッチはいつも見えているので、条件が無くても見直す（灰色を解く）。プロセスを見るだけで、裏で数十ミリ秒
+    /// </summary>
+    internal void NoteOpenProjectsMaybeChanged() => RefreshOpenProjectsAsync().Forget();
 
     /// <summary>開いているプロジェクトを見直す。プロセスと一覧のファイルを見るので裏で。変わったら絞り直す。</summary>
     private async Task RefreshOpenProjectsAsync()
@@ -208,6 +320,7 @@ public sealed partial class SearchViewModel
             return;
         }
 
+        NotifyOpenUnitySwitch();
         ApplyFilters();
     }
 
@@ -234,6 +347,7 @@ public sealed partial class SearchViewModel
         var keys = ProjectContentsModules()
             .Where(module => module.IsEnabled)
             .SelectMany(module => module.Chips.Select(chip => chip.Key).Concat(module.IncludeOn ? _openProjects : []))
+            .Concat(OpenUnityFilterOn ? _openProjects : [])
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         foreach (var key in keys)
@@ -340,6 +454,14 @@ public sealed partial class SearchViewModel
     /// <summary>札ごとの状況を条件の下に出す。調べている間の0件を「入っていない」と読ませない。</summary>
     private void RefreshProjectStatus()
     {
+        NotifyOpenUnitySwitch();
+
+        // 調べ終えて結果が控えと同じなら絞り直さない（ScanProjectAsync）。「調べています」の0件の案内はここで直す
+        if (_matches.Count == 0 && OpenUnityFilterOn)
+        {
+            _openUnityEmptyHint = OpenUnityEmptyHint();
+            OnPropertyChanged(nameof(EmptyHint));
+        }
         foreach (var module in ProjectContentsModules())
         {
             module.SetOpenProjects(_openProjects
@@ -388,23 +510,10 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 「開いているUnityで絞る」：条件が無ければ足し、札を外して「今開いているプロジェクト」だけにする（ユーザ判断 2026-11-01）。
-    /// 複数開いていても選ばせない（どれか1つを見たいなら、条件の中のプロジェクトのボタンで足せる）。開いていない・場所が分からないことは条件の中の文が言う。
+    /// スイッチだけで絞っているときの「読み直す」。条件の中の同じボタンは、条件を足していないと無いので、
+    /// Unity へ入れ直した後に取り直す道が無くなる
     /// </summary>
-    private void ShowOpenUnityContents()
-    {
-        ForgetUnityProjects();
-        var module = ProjectContentsModules().FirstOrDefault()
-            ?? (ListModule)AddModule(SearchModuleKind.UnityProjectContents, apply: false);
+    public RelayCommand ReloadOpenUnityCommand => _reloadOpenUnityCommand ??= new RelayCommand(ReloadProjectContents);
 
-        // 切ってある・除く・畳んである条件のままだと、押しても中身が見えない
-        module.IsEnabled = true;
-        module.IsExcluded = false;
-        module.IsCollapsed = false;
-        module.IncludeOn = true;
-        module.ClearKeys();
-        RefreshModuleSource(module);
-        ModuleAdded?.Invoke(module);
-        RefreshOpenProjectsAsync().Forget();
-    }
+    private RelayCommand? _reloadOpenUnityCommand;
 }

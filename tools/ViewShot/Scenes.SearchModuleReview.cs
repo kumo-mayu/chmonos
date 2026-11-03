@@ -146,6 +146,45 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
+        new Scene("search-open-unity-on", "検索：検索欄の右のスイッチ「開いているUnity」をオンにした所（開いているプロジェクトに入っている3件・件数の帯の「読み直す」と要約）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 8);
+            var path = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "chmonos-viewshot-projects", "撮影用")).FullName;
+            var main = await context.StartAsync();
+            context.Services.OpenUnityEditors = () => [new Chmonos.App.Services.OpenUnityEditor(1, "撮影用", path)];
+            context.Services.ScanUnityProject = (_, items, _, _) => new Chmonos.Core.Services.UnityProjectScan(
+                items.Take(3).Select(item => new Chmonos.Core.Services.UnityProjectMatch(item.Id, 1, 2)).ToList(),
+                new Dictionary<string, IReadOnlyList<Chmonos.Core.Services.UnityImageMatch>>());
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => main.Search.TotalCount == 8, "商品を読み終える");
+            main.Search.ShowRecentlyAddedFirst();
+            main.Search.NoteOpenProjectsMaybeChanged();
+            await SceneContext.UntilAsync(() => main.Search.CanUseOpenUnity, "スイッチが押せる");
+
+            main.Search.OpenUnityOnly = true;
+
+            await SceneContext.UntilAsync(() => main.Search.ListItems.Count() == 3, "絞る");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("search-open-unity-disabled", "検索：Unity が開いていないので、スイッチ「開いているUnity」が灰色で押せない所（オンを覚えたまま・絞らない）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 8);
+            var main = await context.StartAsync();
+            context.Services.OpenUnityEditors = () => [];
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => main.Search.TotalCount == 8, "商品を読み終える");
+            main.Search.ShowRecentlyAddedFirst();
+            main.Search.NoteOpenProjectsMaybeChanged();
+            main.Search.OpenUnityOnly = true;
+
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         new Scene("search-choice-flags","検索の絞り込み：ギフト（購入記録の無い商品も含める）と見つからないファイル（未所持も含める）の補助のチェック", async context =>
         {
             var (search, root) = await StartCatalogFiltersAsync(context);

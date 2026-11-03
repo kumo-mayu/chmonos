@@ -916,6 +916,9 @@ public sealed partial class MainViewModel : ViewModelBase
             Search.NoteMaybeNewDay();
         }
 
+        // ほかの画面にいる間に Unity を開いた・閉じたかもしれない（スイッチ「開いているUnity」の灰色）
+        Search.NoteOpenProjectsMaybeChanged();
+
         CurrentViewModel = Search;
     }
 
