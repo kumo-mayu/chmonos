@@ -71,6 +71,7 @@ public sealed partial class SearchViewModel
 
     private void ApplyFilters()
     {
+        SaveSortIfChanged();
         RefreshCardInfo();
 
         // 足跡は1回だけ読んで、この絞り込みの間は使い回す。

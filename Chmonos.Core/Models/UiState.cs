@@ -63,6 +63,12 @@ public sealed record UiState
     public IReadOnlyList<SearchModuleState>? SearchModules { get; init; }
 
     /// <summary>
+    /// 検索の表示順（ユーザ指示 2026-11-03：次の起動に引き継ぐ）。null は一度も変えていない＝入手日が新しい順。
+    /// 画面の言い方（「入手日が新しい順」）ではなく項目と向きで持つ：言い方は変えることがあり、手で開いても読める。
+    /// </summary>
+    public SearchSortState? SearchSort { get; init; }
+
+    /// <summary>
     /// 終了時のウィンドウの位置と大きさ。未保存（初回）は null。
     /// 復元時に、今あるモニタのどれとも重ならなければ捨てて中央に開く。
     /// </summary>
@@ -117,4 +123,17 @@ public sealed record UiState
     /// 「前と同じ顔ぶれなら黙る・何か増えたらまた言う」が満たせる。
     /// </summary>
     public string? DismissedWatchNew { get; init; }
+}
+
+/// <summary>検索の表示順（<see cref="UiState.SearchSort"/>）。</summary>
+public sealed record SearchSortState
+{
+    /// <summary>並べる項目（画面の <c>SortKind</c> の名前。<c>AcquiredAt</c>・<c>Name</c>・<c>Attribute</c> など）。知らない名前なら既定に戻す。</summary>
+    public string Kind { get; init; } = "AcquiredAt";
+
+    /// <summary>属性で並べるときの属性名。属性を消していたら既定に戻す。</summary>
+    public string? AttributeName { get; init; }
+
+    /// <summary>新しい順・多い順・降順か。</summary>
+    public bool Descending { get; init; } = true;
 }

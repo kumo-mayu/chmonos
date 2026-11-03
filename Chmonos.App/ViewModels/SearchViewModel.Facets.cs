@@ -98,6 +98,38 @@ public sealed partial class SearchViewModel
         }
     }
 
+    /// <summary>最後に書いた（または起動で読んだ）表示順。同じなら書かない（絞り込みのたびに書かない）。</summary>
+    private Core.Models.SearchSortState? _savedSort;
+
+    /// <summary>
+    /// 前回の表示順を戻す（ユーザ指示 2026-11-03。前は起動のたびに入手日が新しい順へ戻った）。
+    /// 項目の一覧はまだ組んでいないので、項目と向きだけ置く。組んだとき（<see cref="BuildFacets"/>）に同じ意味の項目へ繋ぎ直し、
+    /// 消した属性・知らない項目なら入手日に戻る
+    /// </summary>
+    private void RestoreSort(Core.Models.SearchSortState? saved)
+    {
+        _savedSort = saved;
+        if (saved is null || !Enum.TryParse<SortKind>(saved.Kind, out var kind) || (kind == SortKind.Attribute && saved.AttributeName is null))
+        {
+            return;
+        }
+
+        _sort = new SortOption { Label = string.Empty, Kind = kind, AttributeName = saved.AttributeName, Descending = saved.Descending };
+    }
+
+    /// <summary>表示順が前に書いた物と違えば書く。表示順を変える道は複数（ボタン・履歴・取り込みの結果から開く）あるので、絞り込みの入口で見る。</summary>
+    private void SaveSortIfChanged()
+    {
+        var now = new Core.Models.SearchSortState { Kind = _sort.Kind.ToString(), AttributeName = _sort.AttributeName, Descending = _sort.Descending };
+        if (now == (_savedSort ?? new Core.Models.SearchSortState()))
+        {
+            return;
+        }
+
+        _savedSort = now;
+        _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(state => state with { SearchSort = now })).Forget();
+    }
+
     /// <summary>
     /// 並べ替えに使う項目（ユーザ指示 2026-09-20・M5）。項目を変えると、その項目の既定の向きに戻す
     /// ——「名前」を選んだのに「新しい順」のままだと、何順なのか読めない
