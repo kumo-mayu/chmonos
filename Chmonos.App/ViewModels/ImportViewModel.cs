@@ -996,10 +996,13 @@ public sealed partial class ImportViewModel : ViewModelBase
             OfferToWatchAsync(addedFolders).Forget();
         }
 
-        // 走っていれば今の取り込みに積む。2本目は起こさない（StartOrStackAsync の決まり）
-        if (startImmediately && Folders.Count > 0)
+        // 走っていれば今の取り込みに積む。2本目は起こさない（StartOrStackAsync の決まり）。
+        // 取り込むのは今回落とした物だけ。取り込み対象の一覧は取り込みが終わっても残るので、一覧全部で始めると
+        // 前に取り込んだ物までもう一度取り込んでいた（Codex の点検 2026-11-03 の2回目）
+        var dropped = kinds.Where(kind => kind.IsFolder || kind.IsFile).Select(kind => kind.Path).ToList();
+        if (startImmediately)
         {
-            StartOrStackAsync(askAboutUnpacked).Forget();
+            StartOrStackAsync(askAboutUnpacked, dropped).Forget();
         }
     }
 
@@ -1316,9 +1319,8 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 起動直後に、押してもいないのに応答待ちの窓が黙って出ていた。
     /// 尋ねないときは指定されたファイルをそのまま取り込み、**要確認に出して後から差し替えられる**ようにする。
     /// </param>
-    private List<string> ResolveUnpackedTargets(bool ask = true)
+    private List<string> ResolveUnpackedTargets(List<string> targets, bool ask = true)
     {
-        var targets = Folders.ToList();
 
         // 自動で始めたときは尋ねず、そのまま取り込んで要確認に出す（G2。画面の無い起動と同じ道）
         if (!ask)
@@ -1379,9 +1381,11 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 走っていなければ始める。走っていれば**今の取り込みに積む**（決まりは <see cref="ImportRunner"/>）。
     /// 対象と履歴は、頼んだこの画面の一覧から決める。展開先のファイルについて尋ねるのもこの画面
     /// </summary>
-    private async Task StartOrStackAsync(bool ask = true)
+    /// <param name="only">今回の対象。無ければ取り込み対象の一覧全部（「取り込み開始」を押したとき）。</param>
+    private async Task StartOrStackAsync(bool ask = true, IReadOnlyList<string>? only = null)
     {
-        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(ask), Folders.ToList()));
+        var targets = only?.ToList() ?? Folders.ToList();
+        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), targets));
         if (added is { } count)
         {
             StackNotice = count == 0

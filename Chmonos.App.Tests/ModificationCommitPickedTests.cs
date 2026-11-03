@@ -98,17 +98,51 @@ public class ModificationCommitPickedTests
         Assert.Empty((await app.Services.Modifications.LoadAsync(later.Id))!.Members);
     });
 
+    /// <summary>
+    /// 送らない「改変に追加」（商品ページ・カード）。前は商品ページの道だけ既に入っている改変にも重ねていた
+    /// （Codex の点検 2026-11-03 の2回目）。
+    /// </summary>
     [Fact]
-    public Task 送らずに足すだけなら_送っていないとは言わない() => TestApp.Run(async app =>
+    public Task 送らずに足すときは_既に入っている改変に重ねない() => TestApp.Run(async app =>
     {
+        await app.AddItemAsync(Make.Item("1790001", "作り物のアバター"));
+        var costume = Make.Item("1790002", "作り物の衣装");
         await app.StartAsync();
+        var summer = await CreateAsync(app, "作り物の夏");
+        var winter = await CreateAsync(app, "作り物の冬");
+        await app.Services.Commands.ExecuteAsync(new Chmonos.Core.Commands.UiCommand.AddModificationMembers(
+            summer.Id, [new ModificationMember { ItemId = costume.Id }]));
+        summer = (await app.Services.Modifications.LoadAsync(summer.Id))!;
+
+        var result = await ItemSelectionActions.AddPickedAsync(
+            app.Services, [summer, winter], [costume], new MemberFilePickViewModel([costume]));
+
+        Assert.Equal("「作り物の夏」には既に入っています。\n「作り物の冬」に追加しました。", result.Text);
+        Assert.False(result.Failed);
+        Assert.Single((await app.Services.Modifications.LoadAsync(summer.Id))!.Members);
+        Assert.Single((await app.Services.Modifications.LoadAsync(winter.Id))!.Members);
+    });
+
+    /// <summary>前は商品ごとに保存して結果を見ず、消えた改変にも「追加しました」と言っていた（Codex の点検 2026-11-03 の2回目）。</summary>
+    [Fact]
+    public Task 送らずに足すときも_足せない改変で止め_足せた所までを言う() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("1790001", "作り物のアバター"));
+        var items = new[] { Make.Item("1790002", "作り物の衣装"), Make.Item("1790003", "作り物の髪") };
+        await app.StartAsync();
+        var summer = await CreateAsync(app, "作り物の夏");
         var gone = new ModificationRecord { Id = "mod-0000c003", AvatarItemId = "1790001", Name = "消された改変" };
-        var model = ModificationPicking.BuildDialog(app.Services, "題", "見出し", "", [gone], "既存", "決定", "空");
-        model.PickCommand.Execute(model.Rows[0]);
+        var later = await CreateAsync(app, "作り物の秋");
 
-        await ItemUnityActions.CommitPickedAsync(app.Services, model, "題", null, Members[0], sending: false);
+        var result = await ItemSelectionActions.AddPickedAsync(
+            app.Services, [summer, gone, later], items, new MemberFilePickViewModel(items));
 
-        Assert.DoesNotContain("Unity", Assert.Single(app.Notices).Text);
+        Assert.True(result.Failed);
+        Assert.True(result.Changed);
+        Assert.StartsWith("「作り物の夏」に 2 件を追加しました。\n「消された改変」に追加できませんでした。\n\n", result.Text);
+        Assert.DoesNotContain("Unity", result.Text);
+        Assert.Equal(2, (await app.Services.Modifications.LoadAsync(summer.Id))!.Members.Count);
+        Assert.Empty((await app.Services.Modifications.LoadAsync(later.Id))!.Members);
     });
 
     [Fact]
@@ -119,4 +153,21 @@ public class ModificationCommitPickedTests
         Assert.Equal("「あ」「い」「う」", ModificationPicking.NamesText([Mod("あ"), Mod("い"), Mod("う")]));
         Assert.Equal("「あ」「い」ほか 2 件", ModificationPicking.NamesText([Mod("あ"), Mod("い"), Mod("う"), Mod("え")]));
     }
+
+    /// <summary>窓の中の「選んでいる改変」は名前を省かない。絞って見えなくなった選びも分かるように（Codex の点検 2026-11-03 の2回目）。</summary>
+    [Fact]
+    public Task 選んでいる改変の行は_4つ以上でも名前を全部並べる() => TestApp.Run(async app =>
+    {
+        await app.StartAsync();
+        var records = new[] { "あ", "い", "う", "え" }
+            .Select(name => new ModificationRecord { Id = $"mod-{name}", AvatarItemId = "1790001", Name = name })
+            .ToList();
+        var model = ModificationPicking.BuildDialog(app.Services, "題", "見出し", "", records, "既存", "決定", "空");
+        foreach (var row in model.Rows)
+        {
+            model.PickCommand.Execute(row);
+        }
+
+        Assert.Equal("選んでいる改変：「あ」「い」「う」「え」", model.PickedText);
+    });
 }

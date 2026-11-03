@@ -335,33 +335,19 @@ internal static class ItemUnityActions
     }
 
     /// <summary>
-    /// ダイアログの答えを記録に落とす。作る側なら先に作る。作れなかったときは理由を出して null を返す。
-    /// どのファイル（バリエーション・unitypackage）を使ったかは、送ったときか、手で足す窓で人が選んだときだけ入る
-    /// （<paramref name="member"/> を作る呼び手が決める。**推定で埋めない**）
-    /// </summary>
-    public static Task<IReadOnlyList<ModificationRecord>?> CommitPickedAsync(
-        AppServiceContainer services,
-        PickModificationDialogViewModel model,
-        string title,
-        string? project,
-        ModificationMember member,
-        bool sending = true)
-        => CommitPickedAsync(services, model, title, project, [member], sending);
-
-    /// <summary>
+    /// 「改変に追加して送る」の窓の答えを記録に落とす（作る側なら先に作る）。送った物ごとに記録するので、既に入っている商品でも足す
+    /// （送らない「改変に追加」は重ねない。<see cref="ItemSelectionActions.AddPickedAsync"/>）。
     /// 選んだ改変（いくつでも。ユーザ指示 2026-11-03）に、行をいくつか足す（並べた順に後ろへ付ける）。
     /// 改変ごとに1回の保存でまとめて足す（1行ずつだと途中の失敗で一部だけ残り、やり直すと2重になった。Codex の点検 2026-11-03）。
     /// 改変はそれぞれ別のファイルなので、全部をまとめて1回にはできない。足せない改変があればそこで止め、
-    /// どれに足せてどれに足せなかったかを言う。送るときは送らない（記録してから送る決まりなので、記録の欠けたまま送らない）
+    /// どれに足せてどれに足せなかったかを言い、送らない（記録してから送る決まりなので、記録の欠けたまま送らない）
     /// </summary>
-    /// <param name="sending">この後に Unity へ送るか（足せなかったときに「送っていません」と言うか）。</param>
     public static async Task<IReadOnlyList<ModificationRecord>?> CommitPickedAsync(
         AppServiceContainer services,
         PickModificationDialogViewModel model,
         string title,
         string? project,
-        IReadOnlyList<ModificationMember> members,
-        bool sending = true)
+        IReadOnlyList<ModificationMember> members)
     {
         if (await ModificationPicking.ResolvePickedAsync(services, model, title, project) is not { } records)
         {
@@ -371,24 +357,11 @@ internal static class ItemUnityActions
         var done = new List<ModificationRecord>();
         foreach (var record in records)
         {
-            string? problem;
-            try
-            {
-                problem = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMembers(record.Id, members))
-                    is Core.Commands.CommandResult.Failed failed
-                    ? failed.Message
-                    : null;
-            }
-            catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
-            {
-                problem = "改変のファイルを保存できませんでした。保存先のドライブと空き容量を確かめてください。";
-            }
-
-            if (problem is not null)
+            if (await ItemSelectionActions.SaveMembersAsync(services, record, members) is { } problem)
             {
                 var head = done.Count > 0 ? $"{ModificationPicking.NamesText(done)}には追加しました。" : string.Empty;
                 FrontNotice.Show(
-                    $"{head}「{record.Name}」に追加できませんでした。{(sending ? "Unityへは送っていません。" : string.Empty)}\n\n{problem}",
+                    $"{head}「{record.Name}」に追加できませんでした。Unityへは送っていません。\n\n{problem}",
                     title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                 return null;
             }

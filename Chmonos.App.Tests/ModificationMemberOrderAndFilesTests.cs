@@ -254,9 +254,9 @@ public class ModificationMemberOrderAndFilesTests
         Assert.True(files.Choices[1].Selected.IsNone);
         files.Choices[1].Selected = files.Choices[1].Options[1];
 
-        var added = await ItemSelectionActions.AddPickedAsync(app.Services, created.Record, [one, two, none], files);
+        var result = await ItemSelectionActions.AddPickedAsync(app.Services, [created.Record], [one, two, none], files);
 
-        Assert.Equal(3, added);
+        Assert.Equal("「夏の改変」に 3 件を追加しました。", result.Text);
         var members = (await app.Services.Modifications.LoadAsync(created.Record.Id))!.Members;
         Assert.Equal(Make.HashOf($@"D:\files\{Shader}.zip"), members[0].FileHash);
         Assert.Equal("Body/Body.unitypackage", members[1].Package);

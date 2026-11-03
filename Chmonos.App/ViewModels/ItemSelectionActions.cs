@@ -203,11 +203,11 @@ internal static class ItemSelectionActions
     }
 
     /// <summary>
-    /// 選んだ物を1つの改変に足す。どの改変かは商品ページの「改変に足す」と同じ画面で1回だけ選ぶ。
+    /// 選んだ物を改変に足す。どの改変かは商品ページの「改変に足す」と同じ画面で1回だけ選ぶ。
     ///
     /// **既にその改変に入っている商品は重ねて足さない。**まとめて足すときは、
     /// どれが入っていたかを1件ずつ覚えていないので、同じ物が2行並ぶと記録を確かめにくい
-    /// （別の版を2回入れたいときは、商品ページから1件ずつ足せる）。
+    /// （別の版を重ねて入れたいときは、「改変に追加して送る」なら送った物ごとに記録する）。
     /// </summary>
     /// <returns>改変を書き換えたか（呼ぶ側が「着せているアバター」の絞り込みを読み直すため）。</returns>
     public static async Task<bool> AddToModificationAsync(AppServiceContainer services, IReadOnlyList<ItemCardViewModel> cards)
@@ -243,43 +243,76 @@ internal static class ItemSelectionActions
             return false;
         }
 
-        // 改変はいくつでも選べる（ユーザ指示 2026-11-03）。送らないので、紐付けたプロジェクトが違っても一緒に足せる。
-        // 改変ごとに既に入っている物を飛ばすので、言うのも改変ごと
-        var items = cards.Select(card => card.Item).ToList();
-        var lines = new List<string>();
-        foreach (var record in records)
-        {
-            var added = await AddPickedAsync(services, record, items, files);
-            var skipped = items.Count - added;
-            lines.Add(skipped == 0
-                ? $"「{record.Name}」に {added} 件を追加しました。"
-                : $"「{record.Name}」に {added} 件を追加しました。{skipped} 件は既に入っています。");
-        }
-
+        var result = await AddPickedAsync(services, records, cards.Select(card => card.Item).ToList(), files);
         Services.Notice.Show(
-            string.Join("\n", lines),
+            result.Text,
             title,
             System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
-        return true;
+            result.Failed ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Information);
+        return result.Changed;
     }
 
+    /// <summary>送らない「改変に追加」の結果。<paramref name="Changed"/> は1つでも足したか（絞り込みを読み直すため）。</summary>
+    internal sealed record AddPickedResult(string Text, bool Failed, bool Changed);
+
     /// <summary>
-    /// 窓で決めた改変に、選んだ商品を足す（窓の後ろ半分。試験はここを呼ぶ）。使ったファイルは窓で選んだ物（<paramref name="files"/>）。
-    /// 既に入っている商品は重ねて足さない。足した数を返す
+    /// 窓で決めた改変に、選んだ商品を足す（送らない「改変に追加」の後ろ半分。カードと商品ページが使い、試験もここを呼ぶ）。
+    /// 使ったファイルは窓で選んだ物（<paramref name="files"/>）。
+    ///
+    /// 改変はいくつでも選べる（ユーザ指示 2026-11-03）。送らないので、紐付けたプロジェクトが違っても一緒に足せる。
+    /// **既に入っている商品は重ねて足さない**（商品ページからも。前は商品ページの道だけ重ねていた）。
+    /// 改変ごとに1回の保存でまとめて足し、足せない改変があればそこで止めて、足せた所までを言う
+    /// （前は商品ごとに保存して失敗を見ず、足せていないのに「追加しました」と言うことがあった。Codex の点検 2026-11-03 の2回目）
     /// </summary>
-    internal static async Task<int> AddPickedAsync(
-        AppServiceContainer services, ModificationRecord record, IReadOnlyList<ItemRecord> items, MemberFilePickViewModel files)
+    internal static async Task<AddPickedResult> AddPickedAsync(
+        AppServiceContainer services,
+        IReadOnlyList<ModificationRecord> records,
+        IReadOnlyList<ItemRecord> items,
+        MemberFilePickViewModel files)
     {
-        var present = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
-        var added = 0;
-        foreach (var item in items.Where(item => present.Add(item.Id)))
+        var lines = new List<string>();
+        var changed = false;
+        foreach (var record in records)
         {
-            await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(
-                record.Id, files.MemberFor(item.Id, DateTimeOffset.Now)));
-            added++;
+            var present = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+            var now = DateTimeOffset.Now;
+            var members = items.Where(item => present.Add(item.Id)).Select(item => files.MemberFor(item.Id, now)).ToList();
+            var skipped = items.Count - members.Count;
+
+            if (members.Count > 0 && await SaveMembersAsync(services, record, members) is { } problem)
+            {
+                lines.Add($"「{record.Name}」に追加できませんでした。");
+                return new AddPickedResult($"{string.Join("\n", lines)}\n\n{problem}", Failed: true, changed);
+            }
+
+            changed |= members.Count > 0;
+            lines.Add((items.Count, members.Count) switch
+            {
+                (1, 1) => $"「{record.Name}」に追加しました。",
+                (1, _) => $"「{record.Name}」には既に入っています。",
+                (_, 0) => $"「{record.Name}」には {skipped} 件とも既に入っています。",
+                _ when skipped > 0 => $"「{record.Name}」に {members.Count} 件を追加しました。{skipped} 件は既に入っています。",
+                _ => $"「{record.Name}」に {members.Count} 件を追加しました。",
+            });
         }
 
-        return added;
+        return new AddPickedResult(string.Join("\n", lines), Failed: false, changed);
+    }
+
+    /// <summary>1つの改変に行をまとめて足す。足せなければ使う人に見せる理由を返す。</summary>
+    internal static async Task<string?> SaveMembersAsync(
+        AppServiceContainer services, ModificationRecord record, IReadOnlyList<ModificationMember> members)
+    {
+        try
+        {
+            return await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMembers(record.Id, members))
+                is Core.Commands.CommandResult.Failed failed
+                ? failed.Message
+                : null;
+        }
+        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
+        {
+            return "改変のファイルを保存できませんでした。保存先のドライブと空き容量を確かめてください。";
+        }
     }
 }

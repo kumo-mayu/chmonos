@@ -37,6 +37,29 @@ public class ImportWatchedNowTests
         await app.SettleAsync();
     });
 
+    /// <summary>
+    /// 取り込み対象の一覧は取り込みが終わっても残る。前は一覧全部で始め、前に取り込んだ物までもう一度取り込んでいた
+    /// （Codex の点検 2026-11-03 の2回目）。落としたときも同じ道を通る。
+    /// </summary>
+    [Fact]
+    public Task 一覧に前から残っている物は_取り込み直さない() => TestApp.Run(async app =>
+    {
+        var old = app.NewFile(@"old\before.zip", [1, 2, 3]);
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        main.Import.Folders.Add(old);
+        var added = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        IReadOnlyList<string>? started = null;
+        app.Services.Imports.Started += work => started ??= work.Accepted;
+
+        main.Import.ImportWatchedCommand.Execute(null);
+
+        await UiThread.Until(() => started is not null, "取り込みが始まる");
+        Assert.Equal([added], started!);
+        await app.SettleAsync();
+    });
+
     [Fact]
     public Task 監視していなければ押せない() => TestApp.Run(async app =>
     {

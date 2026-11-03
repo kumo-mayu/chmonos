@@ -263,9 +263,13 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     public IReadOnlyList<ModificationRecord> PickedRecords => PickedRows.Select(row => row.Record).ToList();
 
-    /// <summary>選んでいる改変の名前（ボタンの上の1行）。絞って見えなくなった選びもここで分かる。</summary>
+    /// <summary>
+    /// 選んでいる改変の名前（ボタンの上の行）。絞って見えなくなった選びもここで分かる。
+    /// 結果を伝える文と違い、名前を省かない（「ほか n 件」にすると、見えなくなった選びが分からない。Codex の点検 2026-11-03 の2回目）。
+    /// 長くなれば折り返す
+    /// </summary>
     public string PickedText => !MakingNew && PickedRows is { Count: > 0 } picked
-        ? $"選んでいる改変：{ModificationPicking.NamesText(picked.Select(row => row.Record).ToList())}"
+        ? $"選んでいる改変：{string.Concat(picked.Select(row => $"「{row.Record.Name}」"))}"
         : string.Empty;
 
     public bool HasPickedText => PickedText.Length > 0;

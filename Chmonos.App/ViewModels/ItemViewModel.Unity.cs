@@ -99,13 +99,23 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        if (await ItemUnityActions.CommitPickedAsync(_services, model, title, project: null, files.MemberFor(Item.Id, DateTimeOffset.Now), sending: false)
-            is not { } records)
+        if (await ModificationPicking.ResolvePickedAsync(_services, model, title, project: null) is not { } records)
         {
             return;
         }
 
-        UnityRecordNotice = $"{ModificationPicking.NamesText(records)}に追加しました。";
+        // カードの「改変に追加」と同じ道を通す。既に入っている改変には重ねず、足せない改変があればそこで止める
+        // （前は送る道の記録を使い回して重ねていた。Codex の点検 2026-11-03 の2回目）
+        var result = await ItemSelectionActions.AddPickedAsync(_services, records, [Item], files);
+        if (result.Failed)
+        {
+            FrontNotice.Show(result.Text, title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+        }
+        else
+        {
+            UnityRecordNotice = result.Text.Replace("\n", string.Empty);
+        }
+
         await LoadModificationsAsync();
     }
     private string? _unityRecordNotice;
