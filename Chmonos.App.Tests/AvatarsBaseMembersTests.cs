@@ -255,4 +255,32 @@ public sealed class AvatarsBaseMembersTests
 
         Assert.Equal(Handmade, restored.SelectedBase?.Name);
     });
+
+    /// <summary>素体の中の並べ替え（ユーザ指示 2026-11-04）。並べた順を素体に書き、「既定の順に戻す」で消す。</summary>
+    [Fact]
+    public Task 仲間をドラッグで動かすと並びを素体に書き_既定の順に戻すと消える() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        SelectBase(avatars, Handmade);
+        avatars.AddMemberCommand.Execute(Candidate(avatars, Loose));
+        await app.SettleAsync();
+        await UiThread.Until(() => MemberIds(avatars).Contains(Loose), "足したアバターが並ぶ");
+        Assert.Equal([Manual, Loose], MemberIds(avatars));
+        Assert.False(avatars.HasSelectedBaseMemberOrder);
+        Assert.False(avatars.ResetBaseMemberOrderCommand.CanExecute(null));
+
+        await avatars.MoveBaseMemberAsync(avatars.SelectedBaseMembers[1], avatars.SelectedBaseMembers[0], after: false);
+        await app.SettleAsync();
+
+        Assert.Equal([Loose, Manual], MemberIds(avatars));
+        Assert.Equal([Loose, Manual], app.Store.Avatars.Load().BaseGroups.Single(group => group.Name == Handmade).MemberOrder);
+        Assert.True(avatars.HasSelectedBaseMemberOrder);
+
+        avatars.ResetBaseMemberOrderCommand.Execute(null);
+        await app.SettleAsync();
+        await UiThread.Until(() => !avatars.HasSelectedBaseMemberOrder, "並びが消える");
+
+        Assert.Null(app.Store.Avatars.Load().BaseGroups.Single(group => group.Name == Handmade).MemberOrder);
+        Assert.Equal([Manual, Loose], MemberIds(avatars));
+    });
 }

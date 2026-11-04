@@ -1079,7 +1079,26 @@
                                         行は押せる枠（PressableBorder）にし、一覧は並び（ArrowGroup）にする（点検 2026-10-01）。
                                         前は素の枠にマウスの押し方だけを付けていて、キーボードと読み上げからは開けなかった
                                     -->
-                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,4,0,0" controls:ArrowGroup.IsEnabled="True">
+                                    <!--
+                                        並びはドラッグで変える（ユーザ指示 2026-11-04）。商品ページの対応アバターの札と、検索の対応アバターの候補がこの順を使う。
+                                        つまみと落とし先の線はタグ・属性の管理と同じ（RowReorder）。並べたときだけ「既定の順に戻す」を出す
+                                    -->
+                                    <DockPanel Margin="0,8,0,0" LastChildFill="False">
+                                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource Caption}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   Text="ドラッグで並べ替えると、商品ページと検索の候補の並びも変わります。" />
+                                        <Button DockPanel.Dock="Right" Content="既定の順に戻す" Style="{StaticResource SmallButton}"
+                                                Command="{Binding ResetBaseMemberOrderCommand}"
+                                                Visibility="{Binding HasSelectedBaseMemberOrder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                ToolTip="持っているアバターが先、ほかは名前の順に戻します。"
+                                                AutomationProperties.AutomationId="AvatarBaseMemberOrderReset" />
+                                    </DockPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,4,0,0" controls:ArrowGroup.IsEnabled="True"
+                                                                  AllowDrop="True"
+                                                                  PreviewMouseLeftButtonDown="OnBaseMembersPreviewMouseLeftButtonDown"
+                                                                  MouseMove="OnBaseMembersMouseMove"
+                                                                  DragOver="OnBaseMembersDragOver"
+                                                                  DragLeave="OnBaseMembersDragLeave"
+                                                                  Drop="OnBaseMembersDrop">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">
                                                 <controls:PressableBorder Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
@@ -1098,11 +1117,17 @@
                                                     <!-- 基本の操作は右クリックと画面の両方に置く（メモ73-②）。右クリックの「この素体から外す」と同じ命令 -->
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
-                                                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" />
-                                                        <Button Grid.Column="1" Content="外す" Style="{StaticResource DangerButton}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                        <TextBlock Style="{StaticResource ReorderGrip}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                        <ContentPresenter Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" />
+                                                        <Border Grid.ColumnSpan="3" Height="2" VerticalAlignment="Top" Margin="0,-5,0,0" Background="{DynamicResource Accent}"
+                                                                Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <Border Grid.ColumnSpan="3" Height="2" VerticalAlignment="Bottom" Margin="0,0,0,-5" Background="{DynamicResource Accent}"
+                                                                Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <Button Grid.Column="2" Content="外す" Style="{StaticResource DangerButton}" Margin="10,0,0,0" VerticalAlignment="Center"
                                                                 Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"
                                                                 ToolTip="外しても、上の欄からまた追加できます。"

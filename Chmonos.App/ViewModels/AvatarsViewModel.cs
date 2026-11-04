@@ -11,7 +11,7 @@ namespace Chmonos.App.ViewModels;
 /// **同じ名前を許してあるので、日付が見分けの手掛かり**（`docs/history/modifications.md` Q27）。
 /// </summary>
 /// <summary>一覧の1行。</summary>
-public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
+public sealed class AvatarRowViewModel : ReorderableRow, IHasItemCard
 {
     public required AvatarSummary Summary { get; init; }
 
@@ -1008,7 +1008,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     public bool ShowsBaseDetail => IsBaseMode && HasSelectedBase;
 
     /// <summary>
-    /// 選んだ素体を使っているアバター。持っているものを先に。
+    /// 選んだ素体を使っているアバター。人が並べた順、無ければ持っているものが先→名前の順（`AvatarBaseOrder`・ユーザ指示 2026-11-04）。
     /// 所属は素体の人数と同じ数え方（名前から推した仲間を含む）で引く。
     /// 手で決めた所属（BaseName）だけで引くと、「アバター 8」なのに一覧が空になった
     /// </summary>
@@ -1022,13 +1022,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     private void SyncBaseMembers()
     {
-        var wanted = SelectedBase is null
+        // 並べたか（「既定の順に戻す」を出すか）は、選んだ素体と読み直しで変わる
+        OnPropertyChanged(nameof(HasSelectedBaseMemberOrder));
+
+        IReadOnlyList<AvatarRowViewModel> wanted = SelectedBase is null
             ? []
-            : _all
-                .Where(row => SelectedBase.Summary.MemberIds.Contains(row.ItemId))
-                .OrderByDescending(row => row.IsOwned)
-                .ThenBy(row => row.Name, StringComparer.CurrentCulture)
-                .ToList();
+            : AvatarBaseOrder.Arrange(
+                SelectedBase.Summary.Group.MemberOrder,
+                _all.Where(row => SelectedBase.Summary.MemberIds.Contains(row.ItemId)),
+                row => row.ItemId,
+                row => row.IsOwned,
+                row => row.Name);
 
         // 別の素体へ移ったときは入れ替える（行が変わるのでホバーの話ではない）
         if (SelectedBase?.Name != _membersOf)

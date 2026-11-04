@@ -59,7 +59,37 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("avatars-inferred-base", "アバターの管理：名前から素体に推されているアバターの右の欄（欄は空で、下に薄い字で推した素体）", async context =>
+        // 素体の中の並べ替え（ユーザ指示 2026-11-04）。本物の道（ドラッグの落とし先で呼ぶ関数）で末尾の行を先頭へ動かし、「既定の順に戻す」が出た所
+        new Scene("avatars-base-members-ordered", "アバターの管理：素体の詳細で仲間を並べ替えた所（行の頭のつまみ・一覧の上の「既定の順に戻す」）", async context =>
+        {
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowBaseModeCommand.Execute(null);
+            avatars.SelectedBase = avatars.Bases.First(row => row.Name == "作り物の素体");
+            await context.SettleAsync();
+            foreach (var id in new[] { "9900603", "9900604" })
+            {
+                var row = avatars.Rows.First(other => other.ItemId == id);
+                await avatars.AddMemberAsync(AvatarSuggestionText.Format(row.Name, row.ItemId));
+            }
+
+            await context.SettleAsync();
+            if (avatars.SelectedBaseMembers.Count < 2)
+            {
+                throw new InvalidOperationException($"並べ替えるには仲間が2体要る：{avatars.SelectedBaseMembers.Count} 体");
+            }
+
+            var last = avatars.SelectedBaseMembers[^1];
+            await avatars.MoveBaseMemberAsync(last, avatars.SelectedBaseMembers[0], after: false);
+            await context.SettleAsync();
+            if (!avatars.HasSelectedBaseMemberOrder || avatars.SelectedBaseMembers[0].ItemId != last.ItemId)
+            {
+                throw new InvalidOperationException("並べ替えた順が残らない");
+            }
+
+            return new Shot(root);
+        }),
+
+        new Scene("avatars-inferred-base","アバターの管理：名前から素体に推されているアバターの右の欄（欄は空で、下に薄い字で推した素体）", async context =>
         {
             var (avatars, root) = await OpenBaseMembersAsync(context);
             avatars.Selected = avatars.Rows.First(row => row.ItemId == InferredMemberId);

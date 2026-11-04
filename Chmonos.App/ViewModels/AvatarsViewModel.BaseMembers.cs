@@ -127,6 +127,65 @@ public sealed partial class AvatarsViewModel
         await LoadAsync();
     }
 
+    // ── 素体の中の並べ替え（ユーザ指示 2026-11-04）──
+
+    /// <summary>この素体の中を人が並べたか。並べたときだけ「既定の順に戻す」を出す。</summary>
+    public bool HasSelectedBaseMemberOrder => SelectedBase?.Summary.Group.MemberOrder is { Count: > 0 };
+
+    /// <summary>
+    /// 一覧の行をドラッグで動かした。今の並び（見えている全員）をそのまま素体の並びとして書く。
+    /// 一覧は先に動かす（書き終えるまで行が元の位置に戻って見えないように）。書けなければ読み直して戻す
+    /// </summary>
+    public async Task MoveBaseMemberAsync(AvatarRowViewModel moved, AvatarRowViewModel target, bool after)
+    {
+        if (SelectedBase is not { } selected || ReferenceEquals(moved, target))
+        {
+            return;
+        }
+
+        var from = SelectedBaseMembers.IndexOf(moved);
+        var to = SelectedBaseMembers.IndexOf(target);
+        if (from < 0 || to < 0)
+        {
+            return;
+        }
+
+        // 取り除いた後の位置で数え直す（下へ動かすと、落とし先の位置が1つ前へずれる）
+        var insertAt = to + (after ? 1 : 0) - (from < to ? 1 : 0);
+        if (insertAt == from)
+        {
+            return;
+        }
+
+        SelectedBaseMembers.Move(from, insertAt);
+        await SaveBaseMemberOrderAsync(selected.Name, [.. SelectedBaseMembers.Select(row => row.ItemId)]);
+    }
+
+    /// <summary>並べた順を捨て、既定（持っている物が先→名前の順）に戻す。</summary>
+    public RelayCommand ResetBaseMemberOrderCommand => _resetBaseMemberOrderCommand ??= new RelayCommand(
+        () =>
+        {
+            if (SelectedBase is { } selected)
+            {
+                SaveBaseMemberOrderAsync(selected.Name, null).Forget();
+            }
+        },
+        () => HasSelectedBaseMemberOrder);
+
+    private RelayCommand? _resetBaseMemberOrderCommand;
+
+    private async Task SaveBaseMemberOrderAsync(string baseName, IReadOnlyList<string>? order)
+    {
+        await WriteAsync(new UiCommand.SetBaseMemberOrder(baseName, order), "並びを保存できませんでした。",
+            text => SelectedBase?.MemberNote.Set(text, true));
+
+        // 並びは商品ページの札と検索の候補が使う（候補を作り直す）
+        NoteRegistryChanged();
+        await LoadAsync();
+        OnPropertyChanged(nameof(HasSelectedBaseMemberOrder));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
     // ── アバターの詳細：推した素体（メモ46 決定3）──
 
     /// <summary>

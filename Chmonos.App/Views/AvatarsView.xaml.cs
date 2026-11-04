@@ -15,7 +15,32 @@ public partial class AvatarsView : UserControl
         // 共通素体の欄は候補付きの欄（`SuggestBox`）に替えた（I6）。
         // 編集できる ComboBox の癖（開いている間の Enter を自分で処理済みにする・項目の押下が親まで上がる）を
         // ここで受け直していたが、その手当てごと要らなくなった
+
+        // 素体の中の並べ替え（ユーザ指示 2026-11-04）。中身はタグ・属性の管理と共通（RowReorder）
+        _memberReorder = new Controls.RowReorder(this, () => Model?.SelectedBaseMembers ?? Enumerable.Empty<ReorderableRow>());
+        _memberReorder.Dropped += (moved, target, after) =>
+        {
+            if (Model is not null && moved is AvatarRowViewModel from && target is AvatarRowViewModel to)
+            {
+                Model.MoveBaseMemberAsync(from, to, after).Forget();
+            }
+        };
     }
+
+    private readonly Controls.RowReorder _memberReorder;
+
+    private AvatarsViewModel? Model => DataContext as AvatarsViewModel;
+
+    private void OnBaseMembersPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => _memberReorder.OnPreviewMouseLeftButtonDown(sender, e);
+
+    private void OnBaseMembersMouseMove(object sender, System.Windows.Input.MouseEventArgs e) => _memberReorder.OnMouseMove(sender, e);
+
+    private void OnBaseMembersDragOver(object sender, DragEventArgs e) => _memberReorder.OnDragOver(sender, e);
+
+    private void OnBaseMembersDragLeave(object sender, DragEventArgs e) => _memberReorder.OnDragLeave(sender, e);
+
+    private void OnBaseMembersDrop(object sender, DragEventArgs e) => _memberReorder.OnDrop(sender, e);
 
     /// <summary>「名前を変更」か名前の候補を押した直後か。欄が出たときに入力を移すかをこれで決める。</summary>
     private bool _focusNameEditor;
