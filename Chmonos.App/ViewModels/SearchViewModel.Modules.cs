@@ -549,7 +549,48 @@ public sealed partial class SearchViewModel
             return (text, AvatarKey + entry.ItemId);
         }
 
-        foreach (var (entry, name) in avatars.Where(pair => IsOwned(pair.Entry)))
+        // 共通素体ごとにまとめる設定（ユーザ指示 2026-11-04・既定はオン）では、群の中で同じ素体の仲間を隣にし、素体の中は人が並べた順にする。
+        // まとまりは名前の順で最初の仲間の位置に置く（素体の無いアバターの名前の並びを崩さない）
+        IEnumerable<(AvatarRegistryEntry Entry, string Name)> Clustered(IEnumerable<(AvatarRegistryEntry Entry, string Name)> group)
+        {
+            var list = group.ToList();
+            if (!_services.Settings.GroupAvatarsByBase)
+            {
+                return list;
+            }
+
+            var index = AvatarCompatibilityIndex.For(registry);
+            var orders = registry.BaseGroups
+                .Where(baseGroup => !baseGroup.Rejected)
+                .GroupBy(baseGroup => baseGroup.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToDictionary(baseGroup => baseGroup.Key, baseGroup => baseGroup.First().MemberOrder, StringComparer.CurrentCultureIgnoreCase);
+            var placed = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
+            var result = new List<(AvatarRegistryEntry Entry, string Name)>(list.Count);
+            foreach (var pair in list)
+            {
+                if (index.BaseNameOf(pair.Entry.ItemId) is not { } baseName)
+                {
+                    result.Add(pair);
+                    continue;
+                }
+
+                if (!placed.Add(baseName))
+                {
+                    continue;
+                }
+
+                result.AddRange(AvatarBaseOrder.Arrange(
+                    orders.GetValueOrDefault(baseName),
+                    list.Where(other => string.Equals(index.BaseNameOf(other.Entry.ItemId), baseName, StringComparison.CurrentCultureIgnoreCase)),
+                    other => other.Entry.ItemId,
+                    other => IsOwned(other.Entry),
+                    other => other.Name));
+            }
+
+            return result;
+        }
+
+        foreach (var (entry, name) in Clustered(avatars.Where(pair => IsOwned(pair.Entry))))
         {
             yield return AvatarRow(entry, name, AvatarSuggestionText.OwnedGroup);
         }
@@ -572,7 +613,7 @@ public sealed partial class SearchViewModel
             yield return (text, BaseKey + baseName);
         }
 
-        foreach (var (entry, name) in avatars.Where(pair => !IsOwned(pair.Entry)))
+        foreach (var (entry, name) in Clustered(avatars.Where(pair => !IsOwned(pair.Entry))))
         {
             yield return AvatarRow(entry, name, AvatarSuggestionText.OtherGroup);
         }
