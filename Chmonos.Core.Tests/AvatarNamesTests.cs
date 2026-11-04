@@ -54,6 +54,19 @@ public sealed class AvatarNamesTests
     public void 販売の飾りは名前にしない(string boothName, string expected)
         => Assert.Equal(expected, AvatarText.DisplayNameFrom(boothName));
 
+    /// <summary>
+    /// 括弧の中の販売の告知は、ほかの語が混ざっていても名前にしない（ユーザ判断 2026-11-04）。読みの括弧にも当てる。
+    /// 括弧の外の本文には当てない（名前そのものが書かれる所）
+    /// </summary>
+    [Theory]
+    [InlineData("【集会参加者無料配布】作り物ネイル（MA設定済み）［for Kipfel］", "作り物ネイル")]
+    [InlineData("【素体無料】ほそみくん素体【VRChat用素体】", "ほそみくん素体")]
+    [InlineData("【4/1まで発売記念価格】ミナト -Minato-【オリジナル3Dモデル】", "ミナト（Minato）")]
+    [InlineData("【SALE】ヘアピンセット！【一部無料！】", "ヘアピンセット!")]
+    [InlineData("【オリジナル3Dモデル】【Freesia】", "Freesia")]
+    public void 括弧の中の販売の告知は名前にしない(string boothName, string expected)
+        => Assert.Equal(expected, AvatarText.DisplayNameFrom(boothName));
+
     /// <summary>飾りの語は、部分全体がその語だけのときだけ落とす。名前の一部に入っていても名前は残す。</summary>
     [Theory]
     [InlineData("【オリジナル3Dモデル】Salem", "Salem")]

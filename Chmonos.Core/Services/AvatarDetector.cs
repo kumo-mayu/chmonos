@@ -516,7 +516,7 @@ public static class AvatarText
         for (var index = 0; index < segments.Count; index++)
         {
             var cleaned = Clean(segments[index].Text, out var reading);
-            if (cleaned.Length == 0 || IsNoiseSegment(cleaned))
+            if (cleaned.Length == 0 || IsNoiseSegment(cleaned) || (segments[index].IsBracket && SaleMention.IsMatch(cleaned)))
             {
                 continue;
             }
@@ -551,7 +551,7 @@ public static class AvatarText
     /// <summary>「Ciel（シエル）」の形にする。読みが無い・名前と同じ・長すぎるなら名前だけ。</summary>
     private static string WithReading(string name, string? reading)
     {
-        if (reading is not { Length: > 0 } || Normalize(reading) == Normalize(name) || IsNoiseSegment(reading))
+        if (reading is not { Length: > 0 } || Normalize(reading) == Normalize(name) || IsNoiseSegment(reading) || SaleMention.IsMatch(reading))
         {
             return name;
         }
@@ -750,6 +750,15 @@ public static class AvatarText
     /// <see cref="NoiseTokens"/> に足さず、**部分全体がこれらの語だけのときだけ**名前ではないとする。
     /// 語を部分一致で消す形に英字の短い語（sale・off・new）を足すと、「Salem」が「m」の1文字になり名前ではなくなる
     /// </summary>
+    /// <summary>
+    /// 括弧の中の販売の告知（「【集会参加者無料配布】」「【4/1まで発売記念価格】」）。飾りの語に別の語が混ざっていて
+    /// <see cref="SaleOnly"/> では落とせない形（ユーザ判断 2026-11-04）。**括弧の中身だけに当てる**——括弧の外は名前そのものが書かれる所。
+    /// 英字の語は前後が英字でないときだけ（「Salem」「Freesia」は当てない）
+    /// </summary>
+    private static readonly Regex SaleMention = new(
+        @"無料|セール|発売記念|値下げ|割引|半額|特価|期間限定|(?<![a-z])(?:sale|free|off)(?![a-z])|\d\s*%",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static readonly Regex SaleOnly = new(
         @"^(?:sale|セール|off|オフ|free|フリー|new|発売|記念|割引|値下げ|特価|半額|円|まで|迄|期間|価格|配布|公開|お試し|あり|有り|再配布|可能|加工|商用|利用|可|ok|中|renewal|リニューアル|halloween|ハロウィン|christmas|xmas|クリスマス|blackfriday|ブラックフライデー|シルバーウィーク|ゴールデンウィーク|周年|anniversary|\d)+$",
         RegexOptions.Compiled);
