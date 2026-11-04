@@ -249,12 +249,22 @@ public sealed class ChipToggle : ChipTile
 }
 
 /// <summary>
-/// 札の間に混ぜる見出し（対応アバターの「共通素体「A」」。ユーザ指示 2026-11-04：段は分けず、どの素体のまとまりかが分かるように）。
-/// 数えない札で、まとまりの札が1枚でも並んでいるときだけ出す
+/// 札の間に混ぜる見出し（対応アバターの「A 共通素体」。ユーザ指示 2026-11-04：段は分けず、どの素体のまとまりかが分かるように）。
+/// 数えない札で、まとまりの札が1枚でも並んでいるときだけ出す。
+/// 名前と添え字を分けて持つのは、すぐ下の共通素体の札（「A」の右に小さく「共通素体」）と同じ形で描くため
+/// （ユーザ指示 2026-11-04：「共通素体「A」」と「A 共通素体」が近くで混ざっていた）
 /// </summary>
 public sealed class ChipGroupLabel : ChipTile
 {
-    public required string Text { get; init; }
+    public required string Name { get; init; }
+
+    /// <summary>名前の右に小さく添える語。「共通素体なし」は名前だけで出す。</summary>
+    public string Suffix { get; init; } = string.Empty;
+
+    public bool HasSuffix => Suffix.Length > 0;
+
+    /// <summary>読み上げと比べる用の通しの文。</summary>
+    public string Text => HasSuffix ? $"{Name} {Suffix}" : Name;
 
     /// <summary>このまとまりの札。</summary>
     public required IReadOnlyList<ChipTile> Members { get; init; }

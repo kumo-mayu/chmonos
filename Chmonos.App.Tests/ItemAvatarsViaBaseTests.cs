@@ -104,7 +104,7 @@ public class ItemAvatarsViaBaseTests
 
         // 持っているアバターを含む素体が先（どちらも含むので名前の順）、素体の中は持っている物が先→名前の順、素体の無い物は最後
         Assert.Equal(
-            "［共通素体「作り物素体」］ ミナト ~カイ ~ユウ ［共通素体「別の素体」］ ~ハル ソラ ［共通素体なし］ リク",
+            "［作り物素体 共通素体］ ミナト ~カイ ~ユウ ［別の素体 共通素体］ ~ハル ソラ ［共通素体なし］ リク",
             Shown(page));
         Assert.Equal(new HashSet<string> { "カイ", "ユウ", "ハル" }, page.ViaBaseAvatars.Select(row => row.Name).ToHashSet());
         Assert.Equal("（3 体・素体経由 3 体）", page.AvatarsCountText);
@@ -117,7 +117,7 @@ public class ItemAvatarsViaBaseTests
     {
         var page = await OpenAsync(app, Item(Recorded, declaresBase: true), order: ["9800303", "9800301"]);
 
-        Assert.StartsWith("［共通素体「作り物素体」］ ~カイ ミナト ~ユウ ［", Shown(page));
+        Assert.StartsWith("［作り物素体 共通素体］ ~カイ ミナト ~ユウ ［", Shown(page));
     });
 
     [Fact]
@@ -133,7 +133,7 @@ public class ItemAvatarsViaBaseTests
     {
         var page = await OpenAsync(app, Item(Recorded, declaresBase: true), settings: s => s with { ShowAvatarsViaBase = false });
 
-        Assert.Equal("［共通素体「作り物素体」］ ミナト ［共通素体「別の素体」］ ソラ ［共通素体なし］ リク", Shown(page));
+        Assert.Equal("［作り物素体 共通素体］ ミナト ［別の素体 共通素体］ ソラ ［共通素体なし］ リク", Shown(page));
         Assert.Empty(page.ViaBaseAvatars);
         Assert.Equal("出品者が対応と書いているアバターです。", page.AvatarSectionNote);
     });
@@ -165,10 +165,10 @@ public class ItemAvatarsViaBaseTests
         var second = Enumerable.Range(30, 30).Select(Row).ToList();
         var tiles = new List<ChipTile>
         {
-            new ChipGroupLabel { Text = "共通素体「A」", Members = first },
+            new ChipGroupLabel { Name = "A", Suffix = "共通素体", Members = first },
         };
         tiles.AddRange(first);
-        var secondLabel = new ChipGroupLabel { Text = "共通素体「B」", Members = second };
+        var secondLabel = new ChipGroupLabel { Name = "B", Suffix = "共通素体", Members = second };
         tiles.Add(secondLabel);
         tiles.AddRange(second);
         var strip = new ChipStrip<ChipTile>(tile => tile, "体", "対応アバター") { IsCounted = tile => tile is AvatarRow };
