@@ -46,7 +46,7 @@ public sealed partial class ItemViewModel
         }
     }
 
-    public bool HasAvatars => Avatars.Count > 0;
+    public bool HasAvatars => Avatars.Count > 0 || ViaBaseAvatars.Count > 0;
 
     /// <summary>
     /// 札を絞り込む欄を出す境目（U26）。
@@ -80,10 +80,31 @@ public sealed partial class ItemViewModel
     /// </summary>
     public ObservableCollection<object> AvatarTiles => _avatarStrip.Tiles;
 
-    private readonly ChipStrip<AvatarRow> _avatarStrip = new(row => row, "体", "対応アバター", AvatarAddTile.Instance);
+    private readonly ChipStrip<ChipTile> _avatarStrip = new(tile => tile, "体", "対応アバター", AvatarAddTile.Instance)
+    {
+        // 素体の見出しは札の間に混ぜるが、アバターではないので「残り n 体」に数えない
+        IsCounted = tile => tile is AvatarRow,
+    };
+
+    /// <summary>並べている札（記録した対応・素体経由・素体の見出し）。並べ直すかを比べるのに持つ。</summary>
+    private IReadOnlyList<ChipTile> _avatarTileList = [];
+
+    /// <summary>
+    /// 共通素体経由で対応しているアバター（ユーザ指示 2026-11-04・設定「共通素体経由の対応アバターも表示する」）。点線の札で、記録した対応
+    /// （<see cref="Avatars"/>）とは分けて持つ。保存はしない（検索の「素体経由の対応も含める」と同じ計算を表示のたびにする）
+    /// </summary>
+    public IReadOnlyList<AvatarRow> ViaBaseAvatars { get; private set; } = [];
+
+    /// <summary>札として並べる対応アバター全部（記録した物と素体経由）。絞り込みと件数に使う。</summary>
+    private IEnumerable<AvatarRow> ShownAvatars => Avatars.Concat(ViaBaseAvatars);
 
     /// <summary>対応アバターの見出しに添える件数。畳んでいても何体あるかは分かるように。</summary>
-    public string AvatarsCountText => Avatars.Count == 0 ? string.Empty : $"（{Avatars.Count} 体）";
+    public string AvatarsCountText => (Avatars.Count, ViaBaseAvatars.Count) switch
+    {
+        (0, 0) => string.Empty,
+        (var direct, 0) => $"（{direct} 体）",
+        (var direct, var via) => $"（{direct} 体・素体経由 {via} 体）",
+    };
 
     /// <summary>
     /// 説明文から読み取っただけで、まだ確かめていない推定の数（ユーザ判断 2026-09-18）。
@@ -152,16 +173,16 @@ public sealed partial class ItemViewModel
 
     public RelayCommand StopAddAvatarCommand => _stopAddAvatarCommand ??= new RelayCommand(() => IsAddingAvatar = false);
 
-    public bool ShowsAvatarFilter => Avatars.Count > AvatarFilterThreshold;
+    public bool ShowsAvatarFilter => Avatars.Count + ViaBaseAvatars.Count > AvatarFilterThreshold;
 
-    public string AvatarFilterPlaceholder => $"アバター名で絞る（{Avatars.Count} 体）";
+    public string AvatarFilterPlaceholder => $"アバター名で絞る（{Avatars.Count + ViaBaseAvatars.Count} 体）";
 
     /// <summary>絞った結果の件数。0件のときに「無い」のか「絞り過ぎ」なのかを分ける。</summary>
     public string AvatarFilterResultText => _avatarFilter.Trim().Length == 0
         ? string.Empty
         : VisibleAvatars.Count == 0
             ? "一致するアバターはありません"
-            : $"{Avatars.Count} 体中 {VisibleAvatars.Count} 体";
+            : $"{Avatars.Count + ViaBaseAvatars.Count} 体中 {VisibleAvatars.Count} 体";
 
     private void ApplyAvatarFilter()
     {
@@ -174,26 +195,113 @@ public sealed partial class ItemViewModel
         Func<AvatarRow, bool>? match = needle.Length == 0
             ? null
             : row => compare.IndexOf(row.Name, needle, options) >= 0;
-        VisibleAvatars = match is null ? Avatars : Avatars.Where(match).ToList();
+        VisibleAvatars = match is null ? [.. ShownAvatars] : ShownAvatars.Where(match).ToList();
 
         // 札を並べるのは画面の中で重い（友人データの244体の商品で、札だけで約550ms・ユーザ指摘 2026-09-12）。
         // 畳んでいる間は作らず、多い商品は最初の一部と「残り n 体を表示」だけ（持っているアバターが先頭に来る並びのまま切る）。
         // 絞り込んでいるときは、探しているのだから一致したものを全部並べる。
         // 一致しない札も隠すだけなので、絞り込みを打ち替えても作り直さない
-        _avatarStrip.Filter(match);
+        _avatarStrip.Filter(match is null ? null : tile => tile is AvatarRow row && match(row));
 
         OnPropertyChanged(nameof(VisibleAvatars));
         OnPropertyChanged(nameof(AvatarFilterResultText));
     }
 
-    /// <summary>並べる対応アバターが同じか（札に出る中身で比べる）。</summary>
-    private static bool SameAvatars(IReadOnlyList<AvatarRow> a, IReadOnlyList<AvatarRow> b)
+    /// <summary>
+    /// 共通素体経由の札（ユーザ指示 2026-11-04）。検索の「素体経由の対応も含める」と同じ計算（<see cref="AvatarCompatibilityIndex.Resolve"/>）から、
+    /// **記録にあるアバターは除く**：消したアバター（素体の兄弟として計算に戻ってくる。人が消した物を点線で出し直さない）と、
+    /// 説明文のリンクから拾った確認待ち（もう札がある）。この商品そのもの（アバターの商品が自分の素体を宣言している）も除く
+    /// </summary>
+    private List<AvatarRow> ViaBaseRows(AvatarCompatibilityIndex compatibility, Func<string, string> nameOf, Func<string, bool> isOwned)
+    {
+        var recorded = Item.Local.Avatars.Select(link => link.AvatarItemId).ToHashSet(StringComparer.Ordinal);
+        return compatibility.Resolve(Item.Local)
+            .Where(pair => pair.Value == AvatarMatch.ViaBase && !recorded.Contains(pair.Key) && pair.Key != Item.Id)
+            .Select(pair => (AvatarRow)new ViaBaseAvatarRow
+            {
+                ItemId = pair.Key,
+                Name = nameOf(pair.Key),
+                SourceText = "共通素体",
+                BaseName = compatibility.BaseNameOf(pair.Key) ?? string.Empty,
+                IsOwned = isOwned(pair.Key),
+                IconFactory = () => AvatarIcon(pair.Key, _thumbnails.LoadForCard),
+                OpenCommand = new RelayCommand(() => OpenAvatarAsync(pair.Key).Forget()),
+            })
+            .OrderByDescending(row => row.IsOwned)
+            .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 札の並び。まとめないときは、記録した対応（持っている物が先・出品者の並び）→ 素体経由。
+    /// 共通素体ごとにまとめるとき（ユーザ指示 2026-11-04・設定「対応アバターを共通素体ごとにまとめる」）は、
+    /// 持っているアバターを含む素体 → ほかの素体（名前の順）→「共通素体なし」の順に、見出しの札を前に置いて並べる（段は分けない）。
+    /// 素体の中は人が並べた順（<see cref="AvatarBaseOrder"/>）。素体が1つも無い商品には見出しを出さない（全部の商品に「共通素体なし」が付く）
+    /// </summary>
+    internal static List<ChipTile> ArrangeAvatarTiles(
+        IReadOnlyList<AvatarRow> recorded,
+        IReadOnlyList<AvatarRow> viaBase,
+        AvatarCompatibilityIndex? grouping,
+        AvatarRegistry registry)
+    {
+        if (grouping is null)
+        {
+            return [.. recorded, .. viaBase];
+        }
+
+        string? BaseOf(AvatarRow row) => row is ViaBaseAvatarRow via && via.BaseName.Length > 0 ? via.BaseName : grouping.BaseNameOf(row.ItemId);
+
+        var all = recorded.Concat(viaBase).ToList();
+        var byBase = all
+            .Where(row => BaseOf(row) is not null)
+            .GroupBy(row => BaseOf(row)!, StringComparer.CurrentCultureIgnoreCase)
+            .OrderByDescending(group => group.Any(row => row.IsOwned))
+            .ThenBy(group => group.Key, StringComparer.CurrentCulture)
+            .ToList();
+        if (byBase.Count == 0)
+        {
+            return [.. recorded, .. viaBase];
+        }
+
+        var orders = registry.BaseGroups
+            .Where(group => !group.Rejected)
+            .GroupBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().MemberOrder, StringComparer.CurrentCultureIgnoreCase);
+
+        var tiles = new List<ChipTile>();
+        foreach (var group in byBase)
+        {
+            var members = AvatarBaseOrder.Arrange(
+                orders.GetValueOrDefault(group.Key), group, row => row.ItemId, row => row.IsOwned, row => row.Name);
+            tiles.Add(new ChipGroupLabel { Text = $"共通素体「{group.Key}」", Members = [.. members] });
+            tiles.AddRange(members);
+        }
+
+        var rest = all.Where(row => BaseOf(row) is null).ToList();
+        if (rest.Count > 0)
+        {
+            tiles.Add(new ChipGroupLabel { Text = "共通素体なし", Members = [.. rest] });
+            tiles.AddRange(rest);
+        }
+
+        return tiles;
+    }
+
+    /// <summary>並べる札が同じか（札に出る中身と並び・素体の見出しで比べる）。設定を切り替えて並びが変われば作り直す。</summary>
+    private static bool SameAvatars(IReadOnlyList<ChipTile> a, IReadOnlyList<ChipTile> b)
         => a.Count == b.Count
-            && a.Zip(b).All(pair => pair.First.ItemId == pair.Second.ItemId
-                && pair.First.Name == pair.Second.Name
-                && pair.First.SourceText == pair.Second.SourceText
-                && pair.First.IsUnconfirmed == pair.Second.IsUnconfirmed
-                && pair.First.IsOwned == pair.Second.IsOwned);
+            && a.Zip(b).All(pair => (pair.First, pair.Second) switch
+            {
+                (AvatarRow x, AvatarRow y) => x.GetType() == y.GetType()
+                    && x.ItemId == y.ItemId
+                    && x.Name == y.Name
+                    && x.SourceText == y.SourceText
+                    && x.IsUnconfirmed == y.IsUnconfirmed
+                    && x.IsOwned == y.IsOwned
+                    && (x as ViaBaseAvatarRow)?.BaseName == (y as ViaBaseAvatarRow)?.BaseName,
+                (ChipGroupLabel x, ChipGroupLabel y) => x.Text == y.Text,
+                _ => false,
+            });
 
     /// <summary>この商品が名指ししている共通素体。</summary>
     public IReadOnlyList<AvatarBaseRow> AvatarBases { get; private set; } = [];
@@ -288,7 +396,10 @@ public sealed partial class ItemViewModel
         // 「終わりました」が両方書かれて見えた。ユーザ 2026-10-06）
         ? DetectedAvatarsText
         : HasAvatars || HasAvatarBases
-        ? "出品者が対応と書いているアバターです。"
+        // 点線の札（共通素体経由）は出品者が書いた物ではないので、あるときは言い分ける（ユーザ指示 2026-11-04）
+        ? ViaBaseAvatars.Count > 0
+            ? "出品者が対応と書いているアバターです。点線は共通素体経由です。"
+            : "出品者が対応と書いているアバターです。"
         : Item.Local.AvatarsDetectedAt is null
             ? "対応アバターの判定がまだ終わっていません。"
             : "出品者の対応表明は見つかっていません。";
@@ -414,12 +525,23 @@ public sealed partial class ItemViewModel
             .OrderByDescending(row => row.IsOwned)
             .ToList();
 
+        var settings = _services.Settings;
+        var compatibility = settings.ShowAvatarsViaBase || settings.GroupAvatarsByBase
+            ? AvatarCompatibilityIndex.For(registry)
+            : null;
+        var viaBase = settings.ShowAvatarsViaBase && compatibility is not null
+            ? ViaBaseRows(compatibility, id => NameOf(id, null), id => ownedIds.Contains(id) || manuallyOwned.Contains(id))
+            : [];
+        var tiles = ArrangeAvatarTiles(rows, viaBase, settings.GroupAvatarsByBase ? compatibility : null, registry);
+
         // 何か保存するたびにここを通る（お気に入りを付けただけでも）。並べる対応アバターが変わっていなければ、
         // 作った札（全部並べた分も）をそのまま使う。作り直すと244体の商品で全部並べ直すのに約800ms掛かる
-        if (_avatarStrip.Tiles.Count == 0 || !SameAvatars(Avatars, rows))
+        if (_avatarStrip.Tiles.Count == 0 || !SameAvatars(_avatarTileList, tiles))
         {
             Avatars = rows;
-            _avatarStrip.Reset(Avatars, IsAvatarsExpanded, _avatarStrip.ShowsAll);
+            ViaBaseAvatars = viaBase;
+            _avatarTileList = tiles;
+            _avatarStrip.Reset(tiles, IsAvatarsExpanded, _avatarStrip.ShowsAll);
         }
 
         ApplyAvatarFilter();
@@ -511,7 +633,7 @@ public sealed partial class ItemViewModel
 
         foreach (var name in new[]
         {
-            nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
+            nameof(Avatars), nameof(ViaBaseAvatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
             nameof(AvatarSectionNote), nameof(AvatarSectionTip), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
             nameof(RejectedAvatars), nameof(HasRejectedAvatars), nameof(RejectedAvatarsHeader),
             nameof(AvatarsCountText), nameof(UnconfirmedAvatarCount), nameof(HasUnconfirmedAvatars),

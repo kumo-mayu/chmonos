@@ -235,6 +235,8 @@ public class CommandHandlerTests
 
         public Task SetInferClothingAsync(string name, bool infer, CancellationToken cancellationToken = default) => Note($"infer {name}");
 
+        public Task SetBaseMemberOrderAsync(string name, IReadOnlyList<string>? order, CancellationToken cancellationToken = default) => Note($"order {name}");
+
         public Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default) => Note($"baseItem {name}");
 
         public Task<int> RenameBaseAsync(string oldName, string newName, CancellationToken cancellationToken = default)

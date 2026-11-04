@@ -239,6 +239,17 @@ public sealed record AvatarBaseGroup
     public bool IsManual { get; init; }
 
     public IReadOnlyList<AvatarAlias> Aliases { get; init; } = [];
+
+    /// <summary>
+    /// 人が並べた、この素体のアバターの順（商品ID。ユーザ指示 2026-11-04）。null は並べていない（持っている物が先→名前順）。
+    /// 商品ページの対応アバター・検索の候補・素体の詳細が使う（<see cref="Services.AvatarBaseOrder"/>）。
+    ///
+    /// 人が決めた値なので保存する。名前から推した仲間も並べられる（所属は保存しないが、並びは ID で持つ）。
+    /// 今は一員でない ID が残っていても無視する（外して入れ直したら、その位置に戻る）。並べていなければ書き出さない
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? MemberOrder { get; init; }
 }
 
 public sealed record AvatarAlias

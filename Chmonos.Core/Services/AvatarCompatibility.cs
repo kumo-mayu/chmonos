@@ -49,6 +49,14 @@ public sealed class AvatarCompatibilityIndex
         _resolve = ResolveCore;
     }
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<AvatarRegistry, AvatarCompatibilityIndex> Built = new();
+
+    /// <summary>
+    /// 名簿ごとに1つを使い回す（商品ページは保存のたびに対応アバターを並べ直す。名簿は書き換えずに作り直す物なので、
+    /// 同じ名簿の索引は変わらない）。名簿が捨てられたら一緒に消える
+    /// </summary>
+    public static AvatarCompatibilityIndex For(AvatarRegistry registry) => Built.GetValue(registry, Build);
+
     public static AvatarCompatibilityIndex Build(AvatarRegistry registry)
     {
         var index = new AvatarCompatibilityIndex();

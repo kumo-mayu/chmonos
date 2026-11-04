@@ -228,6 +228,54 @@
                                         </DataTemplate>
 
                                         <!--
+                                            共通素体経由の札（ユーザ指示 2026-11-04）。記録した対応と同じ顔で並べず、点線の枠にする（素体経由は推定）。
+                                            Border は点線を描けないので、角の丸い点線の四角を下に敷く。外す・確認済みにするは無い（計算で出した物）
+                                        -->
+                                        <DataTemplate DataType="{x:Type vm:ViaBaseAvatarRow}">
+                                                <controls:PressableBorder CornerRadius="10" Margin="0,0,6,6" Cursor="Hand" Background="Transparent"
+                                                        Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                                        Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Command="{Binding OpenCommand}"
+                                                        AutomationProperties.AutomationId="ItemAvatarViaBaseChip"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
+                                                        ToolTip="{Binding ViaTooltip}" ToolTipOpening="OnChipToolTipOpening">
+                                                    <Border.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
+                                                    </Border.InputBindings>
+                                                    <Border.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="開く" Command="{Binding OpenCommand}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                                                        </ContextMenu>
+                                                    </Border.ContextMenu>
+                                                    <Grid>
+                                                        <Rectangle RadiusX="10" RadiusY="10" StrokeThickness="1" StrokeDashArray="3 2" SnapsToDevicePixels="True">
+                                                            <Rectangle.Style>
+                                                                <Style TargetType="Rectangle">
+                                                                    <Setter Property="Stroke" Value="{DynamicResource AccentBorder}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                                            <Setter Property="Stroke" Value="{DynamicResource GoodBorder}" />
+                                                                            <Setter Property="Fill" Value="{DynamicResource GoodSoft}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Rectangle.Style>
+                                                        </Rectangle>
+                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" Margin="10,4" />
+                                                    </Grid>
+                                                </controls:PressableBorder>
+                                        </DataTemplate>
+
+                                        <!-- 共通素体の見出し（ユーザ指示 2026-11-04：段は分けず、札の並びの中でどの素体のまとまりかを見せる） -->
+                                        <DataTemplate DataType="{x:Type vm:ChipGroupLabel}">
+                                                <TextBlock Text="{Binding Text}" Style="{StaticResource Caption}" FontSize="11"
+                                                           VerticalAlignment="Center" Margin="2,0,8,6"
+                                                           Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                           AutomationProperties.AutomationId="ItemAvatarBaseLabel" />
+                                        </DataTemplate>
+
+                                        <!--
                                             末尾の「＋ 追加」（ユーザ指示）。押すとその場に候補付きの入力欄を出し、すぐ打てる。
                                             出品者が書き漏らしている場合や、検出が拾えなかった場合の補い
                                         -->

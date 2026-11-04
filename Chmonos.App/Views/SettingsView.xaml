@@ -148,6 +148,15 @@
                                       IsChecked="{Binding ShowRemovedBoothImages, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ShowRemovedBoothImages"
                                       ToolTip="作者が商品ページから外した画像です。手元には残っています。" />
+                            <!-- 共通素体経由の対応アバター（ユーザ指示 2026-11-04・既定はオン）。点線の札で、記録した対応と分けて見せる -->
+                            <CheckBox Content="共通素体経由の対応アバターも表示する" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding ShowAvatarsViaBase, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ShowAvatarsViaBase"
+                                      ToolTip="同じ共通素体のアバターを、商品ページに点線の札で表示します。" />
+                            <CheckBox Content="対応アバターを共通素体ごとにまとめる" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding GroupAvatarsByBase, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.GroupAvatarsByBase"
+                                      ToolTip="商品ページの札と、検索の対応アバターの候補を、共通素体ごとに並べます。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="一覧と検索" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--

@@ -152,6 +152,9 @@ public interface IAvatarRegistryEditor
 
     Task SetInferClothingAsync(string name, bool infer, CancellationToken cancellationToken = default);
 
+    /// <summary>素体の中のアバターの並びを決める。null で並べていない状態に戻す。</summary>
+    Task SetBaseMemberOrderAsync(string name, IReadOnlyList<string>? order, CancellationToken cancellationToken = default);
+
     Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default);
 
     /// <returns>書き換えた商品の数。</returns>

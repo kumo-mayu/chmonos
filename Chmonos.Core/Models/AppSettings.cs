@@ -26,6 +26,18 @@ public sealed record AppSettings
     /// </summary>
     public bool ShowRemovedBoothImages { get; init; }
 
+    /// <summary>
+    /// 商品ページの対応アバターに、共通素体経由で対応するアバターも点線の札で並べるか（ユーザ指示 2026-11-04・既定はオン）。
+    /// 検索の「素体経由の対応も含める」で当たるのに、商品ページには書かれていない食い違いを埋める。保存はせず表示のたびに計算する
+    /// </summary>
+    public bool ShowAvatarsViaBase { get; init; } = true;
+
+    /// <summary>
+    /// 対応アバターを共通素体ごとにまとめて並べるか（ユーザ指示 2026-11-04・既定はオン）。商品ページの札と、検索の対応アバターの候補に効く。
+    /// 素体の中の順は <see cref="AvatarBaseGroup.MemberOrder"/>
+    /// </summary>
+    public bool GroupAvatarsByBase { get; init; } = true;
+
     /// <summary>非表示中の件数を検索結果に出すか。既定はオフ（人前で開いても気付かれないように）。</summary>
     public bool ShowHiddenCountInSearch { get; init; }
 

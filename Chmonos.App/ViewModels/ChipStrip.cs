@@ -51,6 +51,12 @@ public sealed class ChipStrip<TSource>
     /// <summary>画面に並べるもの。**差し替えない**——差し替えると画面が札を全部作り直す。</summary>
     public ObservableCollection<object> Tiles { get; } = [];
 
+    /// <summary>
+    /// 数える札か（「残り n 体」と、最初に並べる 40 の数え方）。null なら全部数える。
+    /// 対応アバターの素体の見出し（<see cref="ChipGroupLabel"/>）は札の間に混ぜるが、アバターではないので数えない
+    /// </summary>
+    public Func<TSource, bool>? IsCounted { get; init; }
+
     /// <summary>「残り n を表示」で全部並べているか。</summary>
     public bool ShowsAll { get; private set; }
 
@@ -120,9 +126,10 @@ public sealed class ChipStrip<TSource>
             return;
         }
 
-        var isLong = _source.Count > ChipLists.ShowAllUpTo;
+        var counted = IsCounted is null ? _source.Count : _source.Count(IsCounted);
+        var isLong = counted > ChipLists.ShowAllUpTo;
         var limited = _match is null && !ShowsAll && isLong;
-        var needed = limited ? ChipLists.PreviewCount : _source.Count;
+        var needed = limited ? CountUpTo(ChipLists.PreviewCount) : _source.Count;
 
         // 足りない分だけ作って、切り替えの札と「＋ 追加」の前に差し込む
         for (var i = _chips.Count; i < needed; i++)
@@ -134,14 +141,46 @@ public sealed class ChipStrip<TSource>
 
         for (var i = 0; i < _chips.Count; i++)
         {
+            if (_chips[i] is ChipGroupLabel)
+            {
+                continue;
+            }
+
             _chips[i].IsShown = _match is not null
                 ? _match(_source[i])
-                : !limited || i < ChipLists.PreviewCount;
+                : !limited || i < needed;
+        }
+
+        // 見出しは、まとまりの札が1枚でも並んでいるときだけ出す（絞った・40 で切った後に、見出しだけ残さない）
+        var created = _chips.ToHashSet();
+        foreach (var label in _chips.OfType<ChipGroupLabel>())
+        {
+            label.IsShown = label.Members.Any(member => created.Contains(member) && member.IsShown);
         }
 
         // 絞っている間は全部並べる決まりなので、切り替えの札は出さない
         _toggle.IsShown = _match is null && isLong;
-        _toggle.Describe(ShowsAll, _source.Count - ChipLists.PreviewCount);
+        _toggle.Describe(ShowsAll, counted - ChipLists.PreviewCount);
+    }
+
+    /// <summary>先頭から数える札を <paramref name="count"/> 枚含むまでの並びの長さ（数えない見出しも含めて作る）。</summary>
+    private int CountUpTo(int count)
+    {
+        if (IsCounted is null)
+        {
+            return Math.Min(count, _source.Count);
+        }
+
+        var seen = 0;
+        for (var i = 0; i < _source.Count; i++)
+        {
+            if (IsCounted(_source[i]) && ++seen == count)
+            {
+                return i + 1;
+            }
+        }
+
+        return _source.Count;
     }
 }
 
@@ -207,6 +246,18 @@ public sealed class ChipToggle : ChipTile
             OnPropertyChanged(nameof(Hint));
         }
     }
+}
+
+/// <summary>
+/// 札の間に混ぜる見出し（対応アバターの「共通素体「A」」。ユーザ指示 2026-11-04：段は分けず、どの素体のまとまりかが分かるように）。
+/// 数えない札で、まとまりの札が1枚でも並んでいるときだけ出す
+/// </summary>
+public sealed class ChipGroupLabel : ChipTile
+{
+    public required string Text { get; init; }
+
+    /// <summary>このまとまりの札。</summary>
+    public required IReadOnlyList<ChipTile> Members { get; init; }
 }
 
 /// <summary>BOOTHのタグの札1枚。</summary>

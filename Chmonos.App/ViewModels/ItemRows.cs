@@ -555,7 +555,7 @@ public sealed class AttributeBar
 }
 
 /// <summary>商品ページに出す対応アバター1件（出品者の宣言）。</summary>
-public sealed class AvatarRow : ChipTile
+public class AvatarRow : ChipTile
 {
     public required string ItemId { get; init; }
 
@@ -617,6 +617,19 @@ public sealed class AvatarRow : ChipTile
 
     /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
     public RelayCommand? OpenCommand { get; init; }
+}
+
+/// <summary>
+/// 共通素体経由で対応するアバターの札（ユーザ指示 2026-11-04）。点線の枠で、記録した対応と分けて見せる。
+/// 計算で出した物なので、外す・確認済みにするは持たない（押すと開くだけ）
+/// </summary>
+public sealed class ViaBaseAvatarRow : AvatarRow
+{
+    /// <summary>どの共通素体を通じて対応しているか。</summary>
+    public required string BaseName { get; init; }
+
+    public string ViaTooltip => (IsOwned ? "持っているアバターです。" : string.Empty)
+        + $"共通素体「{BaseName}」経由です。押すとこのアバターを開きます";
 }
 
 /// <summary>

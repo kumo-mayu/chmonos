@@ -373,6 +373,19 @@ public sealed partial class AvatarService
         CancellationToken cancellationToken = default)
         => await UpdateGroupAsync(name, group => group with { InferClothing = infer }, cancellationToken);
 
+    /// <summary>
+    /// 素体の中のアバターの並びを決める（ユーザ指示 2026-11-04）。空の並びは「並べていない」と同じなので null にする
+    /// （空の配列を書き出すと、並べた跡のように読める）。
+    /// </summary>
+    public async Task SetBaseMemberOrderAsync(
+        string name,
+        IReadOnlyList<string>? order,
+        CancellationToken cancellationToken = default)
+        => await UpdateGroupAsync(
+            name,
+            group => group with { MemberOrder = order is { Count: > 0 } ? order.Distinct(StringComparer.Ordinal).ToList() : null },
+            cancellationToken);
+
     /// <summary>素体グループの配布商品IDを結び付ける。</summary>
     public async Task SetBaseItemIdAsync(
         string name,

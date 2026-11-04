@@ -90,6 +90,9 @@ public abstract record UiCommand
     /// <summary>共通素体の一致から衣装の互換を広げるか。</summary>
     public record SetBaseInferClothing(string Name, bool Infer) : UiCommand;
 
+    /// <summary>共通素体の中のアバターの並びを決める（商品ID の順）。null で並べていない状態（既定の順）に戻す。</summary>
+    public record SetBaseMemberOrder(string Name, IReadOnlyList<string>? Order) : UiCommand;
+
     /// <summary>共通素体に配布商品を結ぶ。null で外す。</summary>
     public record SetBaseItemId(string Name, string? ItemId) : UiCommand;
 

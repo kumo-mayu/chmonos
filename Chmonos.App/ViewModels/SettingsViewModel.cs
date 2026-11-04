@@ -615,6 +615,24 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showRemovedBoothImages, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _showAvatarsViaBase;
+
+    /// <summary>対応アバターに共通素体経由の札も並べるか（既定はオン）。商品ページは開き直したときに読むので、知らせは要らない</summary>
+    public bool ShowAvatarsViaBase
+    {
+        get => _showAvatarsViaBase;
+        set { if (SetField(ref _showAvatarsViaBase, value)) { Save(); } }
+    }
+
+    private bool _groupAvatarsByBase;
+
+    /// <summary>対応アバターを共通素体ごとにまとめるか（既定はオン）。検索の候補にも効くので、候補を作り直す</summary>
+    public bool GroupAvatarsByBase
+    {
+        get => _groupAvatarsByBase;
+        set { if (SetField(ref _groupAvatarsByBase, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
     private bool _showHiddenCountInSearch;
     public bool ShowHiddenCountInSearch
     {
@@ -1484,6 +1502,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowCardAttributes = ShowCardAttributes,
             ShowAdult = ShowAdult,
             ShowRemovedBoothImages = ShowRemovedBoothImages,
+            ShowAvatarsViaBase = ShowAvatarsViaBase,
+            GroupAvatarsByBase = GroupAvatarsByBase,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             ShowSortDividers = ShowSortDividers,
