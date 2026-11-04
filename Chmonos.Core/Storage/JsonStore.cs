@@ -185,7 +185,7 @@ public static class JsonStore
                 using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     stream.Write(Serialize(value));
-                    stream.Flush(flushToDisk: true);
+                    stream.Flush(flushToDisk: FlushToDisk);
                 }
 
                 Replace(temporaryPath, path);
@@ -226,7 +226,7 @@ public static class JsonStore
                 await using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     await stream.WriteAsync(Serialize(value), cancellationToken);
-                    stream.Flush(flushToDisk: true);
+                    stream.Flush(flushToDisk: FlushToDisk);
                 }
 
                 await ReplaceAsync(temporaryPath, path, cancellationToken);
@@ -311,7 +311,21 @@ public static class JsonStore
     /// </summary>
     private const int ReplaceRetries = 5;
 
-    private static TimeSpan ReplaceRetryDelay(int attempt) => TimeSpan.FromMilliseconds(10 << attempt);
+    private static TimeSpan ReplaceRetryDelay(int attempt) => WaitBeforeRetry ? TimeSpan.FromMilliseconds(10 << attempt) : TimeSpan.Zero;
+
+    /// <summary>
+    /// 書いた中身をディスクへ書き出し終えるまで待つか。アプリでは常に true（電源が落ちても、据えた本体が空にならないように）。
+    /// **画面の側の試験だけが切る**（<c>TestApp</c>）：試験は使い捨ての一時フォルダに書き、電源断から守る物が無い。
+    /// 一式（1本のスレッドで順に走る）で保存が数千回あり、待ちが合わせて約4秒あった（2026-11-04 に測った）
+    /// </summary>
+    internal static bool FlushToDisk { get; set; } = true;
+
+    /// <summary>
+    /// 置き換えが共有のせいで弾かれたとき、やり直す前に待つか。アプリでは常に true。**画面の側の試験だけが切る**：
+    /// 保存の失敗を確かめる試験は、読むだけにしたファイルへ書くので必ず5回弾かれ、1件ごとに約0.3秒待っていた。
+    /// やり直す回数と、諦めた後の動きは変わらない
+    /// </summary>
+    internal static bool WaitBeforeRetry { get; set; } = true;
 
     /// <summary>
     /// 共有のせいで置き換えられなかったか。削除の共有を許さずに開かれていると、上書きの Move は
@@ -498,7 +512,7 @@ public static class JsonStore
                         await writer.WriteAsync(text.AsMemory(), cancellationToken);
                     }
 
-                    stream.Flush(flushToDisk: true);
+                    stream.Flush(flushToDisk: FlushToDisk);
                 }
 
                 await ReplaceAsync(temporaryPath, path, cancellationToken);

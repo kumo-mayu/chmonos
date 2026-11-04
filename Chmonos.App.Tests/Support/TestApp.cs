@@ -351,6 +351,11 @@ internal sealed class TestApp
 
         // 全件の読み込みの後などに頼む詰め直し（止めて GC する）を、試験では走らせない（MemoryTrim.Enabled に理由）
         MemoryTrim.Enabled = false;
+
+        // 保存の待ちを切る（JsonStore.FlushToDisk・WaitBeforeRetry に理由）。保存先は使い捨てで、電源断から守る物が無い。
+        // MemoryTrim と同じくプロセスに効くので、TestApp を使わない試験も切れたまま走る（どの試験も待ちの長さを確かめていない）
+        Chmonos.Core.Storage.JsonStore.FlushToDisk = false;
+        Chmonos.Core.Storage.JsonStore.WaitBeforeRetry = false;
     }
 
     private static void TryDelete(string directory)
