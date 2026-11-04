@@ -271,7 +271,7 @@
                                         <!--
                                             共通素体の見出し（ユーザ指示 2026-11-04：段は分けず、札の並びの中でどの素体のまとまりかを見せる）。
                                             灰色の字だけでは札の間に埋もれて見分けにくかったので、左に色の縦線を引き、名前を太くする。
-                                            字の並びは下の共通素体の札と同じ「A」＋小さく「共通素体」に揃える（前は「共通素体「A」」で、近くで2つの形が混ざっていた）。
+                                            字は素体の名前だけ（前の「共通素体「A」」は下の共通素体の札「A 共通素体」と形が混ざっていた。縦線で見出しと分かるので語は付けない）。
                                             札と違って枠を付けないのは、押せる物に見せないため
                                         -->
                                         <DataTemplate DataType="{x:Type vm:ChipGroupLabel}">
@@ -280,13 +280,8 @@
                                                         Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                         AutomationProperties.AutomationId="ItemAvatarBaseLabel"
                                                         AutomationProperties.Name="{Binding Text}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding Suffix}" FontSize="10" Margin="5,0,0,0"
-                                                                   Foreground="{DynamicResource TextFaint}" VerticalAlignment="Center"
-                                                                   Visibility="{Binding HasSuffix, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Text}" FontSize="11.5" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
                                                 </Border>
                                         </DataTemplate>
 

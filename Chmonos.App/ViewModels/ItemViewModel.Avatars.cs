@@ -273,14 +273,14 @@ public sealed partial class ItemViewModel
         {
             var members = AvatarBaseOrder.Arrange(
                 orders.GetValueOrDefault(group.Key), group, row => row.ItemId, row => row.IsOwned, row => row.Name);
-            tiles.Add(new ChipGroupLabel { Name = group.Key, Suffix = "共通素体", Members = [.. members] });
+            tiles.Add(new ChipGroupLabel { Text = group.Key, Members = [.. members] });
             tiles.AddRange(members);
         }
 
         var rest = all.Where(row => BaseOf(row) is null).ToList();
         if (rest.Count > 0)
         {
-            tiles.Add(new ChipGroupLabel { Name = "共通素体なし", Members = [.. rest] });
+            tiles.Add(new ChipGroupLabel { Text = "共通素体なし", Members = [.. rest] });
             tiles.AddRange(rest);
         }
 
