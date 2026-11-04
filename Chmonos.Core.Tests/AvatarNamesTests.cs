@@ -36,6 +36,33 @@ public sealed class AvatarNamesTests
     public void 名前が2通りなら両方並べる(string boothName, string expected)
         => Assert.Equal(expected, AvatarText.DisplayNameFrom(boothName));
 
+    /// <summary>
+    /// 頭や尻に付いた販売の飾りを名前にしない（ユーザ報告 2026-11-04：「【発売記念SALE✧】」が名前になっていた。
+    /// 形はユーザが探した BOOTH の商品名5件と、手元の写しの名簿で飾りが名前になっていた約40件から写した）。
+    /// </summary>
+    [Theory]
+    [InlineData("【発売記念SALE✧】ペッパー -Pepper- / オリジナル3Dモデル", "ペッパー（Pepper）")]
+    [InlineData("セール中『こもれび -Komorebi-』オリジナル3Dモデル", "こもれび")]
+    [InlineData("オリジナル3Dモデル『ミナモ』25日まで6000円→4800円", "ミナモ")]
+    [InlineData("【セール中！】ルミナリア-Luminaria- 【オリジナル3Dモデル】", "ルミナリア（Luminaria）")]
+    [InlineData("【9/21-28✦1000円OFF】ココア -Cocoa- / オリジナル3Dモデル", "ココア（Cocoa）")]
+    [InlineData("🖤(50%OFF)🖤 Night Saint 【17アバター対応】", "Night Saint")]
+    [InlineData("【無料版あり】ポーズ集 - 1 -【全118種】", "ポーズ集")]
+    [InlineData("【Free/無料】作り物リボン【Renewal】", "作り物リボン")]
+    [InlineData("【🎃Halloween Sale 】ANISHA【オリジナル3Dモデル】", "ANISHA")]
+    [InlineData("【オリジナル3Dモデル】New  NecoChef", "NecoChef")]
+    public void 販売の飾りは名前にしない(string boothName, string expected)
+        => Assert.Equal(expected, AvatarText.DisplayNameFrom(boothName));
+
+    /// <summary>飾りの語は、部分全体がその語だけのときだけ落とす。名前の一部に入っていても名前は残す。</summary>
+    [Theory]
+    [InlineData("【オリジナル3Dモデル】Salem", "Salem")]
+    [InlineData("【オリジナル3Dモデル】Offa", "Offa")]
+    [InlineData("【オリジナル3Dモデル】Newt", "Newt")]
+    [InlineData("【オリジナル3Dモデル】円香", "円香")]
+    public void 飾りの語を含む名前は残す(string boothName, string expected)
+        => Assert.Equal(expected, AvatarText.DisplayNameFrom(boothName));
+
     [Fact]
     public void 名前の後ろのコラボ先やショップの括弧は読みにしない()
         // 文字の種類が混ざった括弧は、名前のもう一つの書き方ではない

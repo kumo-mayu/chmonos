@@ -739,8 +739,20 @@ public static class AvatarText
         // 残りが数字だけ、または英字1文字だけなら名前ではない。漢字・かなは1文字でも名前になり得る（「梵」「萌」）
         return letters.Length == 0
             || letters.All(char.IsDigit)
-            || (letters.Length == 1 && letters[0] < 0x80);
+            || (letters.Length == 1 && letters[0] < 0x80)
+            || SaleOnly.IsMatch(letters);
     }
+
+    /// <summary>
+    /// 販売の飾りの語と数字だけでできている（「発売記念SALE✧」「9/21-28✦1000円OFF」「無料版有り」「Free/無料」）。
+    /// 商品名の頭の【…】に入り、前は名前として採っていた（ユーザ報告 2026-11-04。手元の写しの名簿 1,890件で約40件）。
+    ///
+    /// <see cref="NoiseTokens"/> に足さず、**部分全体がこれらの語だけのときだけ**名前ではないとする。
+    /// 語を部分一致で消す形に英字の短い語（sale・off・new）を足すと、「Salem」が「m」の1文字になり名前ではなくなる
+    /// </summary>
+    private static readonly Regex SaleOnly = new(
+        @"^(?:sale|セール|off|オフ|free|フリー|new|発売|記念|割引|値下げ|特価|半額|円|まで|迄|期間|価格|配布|公開|お試し|あり|有り|再配布|可能|加工|商用|利用|可|ok|中|renewal|リニューアル|halloween|ハロウィン|christmas|xmas|クリスマス|blackfriday|ブラックフライデー|シルバーウィーク|ゴールデンウィーク|周年|anniversary|\d)+$",
+        RegexOptions.Compiled);
 
     /// <summary>
     /// 商品名の頭の【…】に入りがちな、名前ではない語。
