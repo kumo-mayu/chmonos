@@ -57,7 +57,8 @@ $ChmonosForbidden = @(
   $ChmonosProduction,
   (Join-Path $env:LOCALAPPDATA 'BoothAssetManager'),            # 改名前の本番の名前。残っていたら本番の中身かもしれない
   (Join-Path $env:LOCALAPPDATA 'BoothAssetManager-friendtest'),  # 改名前の置き場。残っていたら普段開く写しかもしれない
-  (Join-Path $env:LOCALAPPDATA 'Chmonos-sandboxes\friendtest')  # ユーザが普段開く写し。確かめは -friendcheck で
+  (Join-Path $env:LOCALAPPDATA 'Chmonos-sandboxes\friendtest'),  # 前にユーザが普段開いていた友人の写し。確かめは -friendcheck で
+  'D:\storage\chmonos'  # ユーザが普段開く保存先（2026-11-06。本番の location.json が指す）
 )
 $ChmonosShotDir = Join-Path $env:TEMP 'chmonos-shots'
 # 起動したアプリの控え。**写しごとに1つ**（chmonos-ui-check\<写しの名前>.json）。
@@ -84,7 +85,7 @@ function Resolve-ChmonosStore([string]$Store) {
 }
 
 function Assert-ChmonosSandbox([string]$Root) {
-  if ($ChmonosForbidden -contains $Root) { throw "ここは確かめに使わない保存先: $Root（本番・friendtest。書いてよい写しは -friendcheck や -ui）" }
+  if ($ChmonosForbidden -contains $Root) { throw "ここは確かめに使わない保存先: $Root（本番・ユーザが普段開く保存先・friendtest。書いてよい写しは -friendcheck や -ui）" }
 }
 
 # 写しを作る。どちらかを指定する：
@@ -119,7 +120,7 @@ function New-ChmonosSandbox {
   $src = if ($From -eq 'prod') { $ChmonosProduction } else { Resolve-ChmonosStore $From }
   if (-not (Test-Path $src)) { throw "写す元が無い: $src" }
   Copy-Item $src $dst -Recurse
-  # 本番の location.json は friendtest を指している。写しに残すと、写しを開いたつもりで friendtest が開く
+  # 本番の location.json はユーザが普段開く保存先を指している。写しに残すと、写しを開いたつもりでそこが開く
   $loc = Join-Path $dst 'location.json'
   if (Test-Path $loc) { Remove-Item $loc; "写しの location.json を外した（元の保存先へ飛ばないように）" }
   "作った: $dst（元: $src）"

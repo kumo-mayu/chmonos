@@ -75,7 +75,7 @@ Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び
    （`dotnet build Chmonos.App -o <作業用フォルダ>\buildcheck`）。
 2. `Save-ProductionBaseline`
 3. 写しを選ぶ（[sandboxes.md](sandboxes.md)）。書き込む確かめなら、先に `Backup-ChmonosSandbox -Store <写し>`。
-4. `Start-ChmonosApp -Store <写し>`（本番と friendtest は断る）
+4. `Start-ChmonosApp -Store <写し>`（本番・`D:\storage\chmonos`・friendtest は断る）
 5. 操作は **AutomationId で**（`Invoke-ChmonosById`・`Set-ChmonosToggleById`・`Invoke-ChmonosMenuById`。画面に出ている ID は `Get-ChmonosIds`）。
    ID の無い物だけ名前で（`Invoke-ChmonosByName`）。まとまった操作は `Open-ChmonosItem`・`Invoke-ChmonosImport`。待つのは `Wait-*`（固定の `Start-Sleep` を並べない）。
    文言が出たかは足跡（`Get-ChmonosTrace`）で確かめる。撮るのは並び・色・大きさを見るときだけ。
@@ -115,7 +115,7 @@ Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び
 
 ## 守ること
 
-- **本番と friendtest を開かない・書かない。**ユーザが自分で開いたアプリ（環境変数なしの起動＝friendtest）はユーザの物。この道具では閉じない・操作しない。
+- **本番・`D:\storage\chmonos`（ユーザが普段開く保存先）・friendtest を開かない・書かない。**ユーザが自分で開いたアプリ（環境変数なしの起動＝`location.json` が指す `D:\storage\chmonos`）はユーザの物。この道具では閉じない・操作しない。
 - **実入力（`mouse_event`）は、使う前にユーザへ告げる。**UI Automation で届かない所だけ（[pitfalls.md](pitfalls.md)）。
 - **写しに残した変更は、戻すか報告に書く。**`Backup-ChmonosSandbox` → `Restore-ChmonosSandbox` を使えば、戻したことと一致が確かめられる。
 - **友人のデータの写しの画像・名前・ID を、どこへも送らない・文書やコミットに書かない。**数と傾向だけ書く（CLAUDE.md「友人のデータは第三者のもの」）。

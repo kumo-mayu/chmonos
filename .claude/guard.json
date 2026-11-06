@@ -6,7 +6,14 @@
       "parts": ["Chmonos", "location.json"],
       "write": "deny",
       "shell": "ask",
-      "reason": "本番は友人のデータの写しを指していて、書き換えるとユーザーの作業場所が変わる。確かめは写しの保存先（Chmonos-sandboxes）で行う（CLAUDE.md「本番のデータを触らない」）"
+      "reason": "本番はユーザーが普段使う保存先（D:\\storage\\chmonos）を指していて、書き換えるとユーザーの作業場所が変わる。確かめは写しの保存先（Chmonos-sandboxes）で行う（CLAUDE.md「本番のデータを触らない」）"
+    },
+    {
+      "name": "ユーザーが普段使う保存先（D:\\storage\\chmonos）",
+      "parts": ["storage", "chmonos"],
+      "write": "deny",
+      "shell": "ask",
+      "reason": "本番の location.json が指す、ユーザーの普段の作業の保存先（2026-11-06）。確かめは写しの保存先（Chmonos-sandboxes）で行う（CLAUDE.md「本番のデータを触らない」）"
     }
   ]
 }

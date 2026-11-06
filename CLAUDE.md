@@ -29,10 +29,10 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 
 ### 3. 本番のデータを触らない
 
-本番の保存先は `%LOCALAPPDATA%\Chmonos`。本番の `location.json` は友人のデータの写し（`Chmonos-sandboxes\friendtest`）を指している
-（ユーザが普段の作業に使う）。`location.json` は書き換えない（harness プラグインのガードが `.claude/guard.json` に従って書き込みを止め、シェルで触れるときは確認を求める）。
+本番の保存先は `%LOCALAPPDATA%\Chmonos`。本番の `location.json` は `D:\storage\chmonos` を指している（ユーザが普段の作業に使う保存先。2026-11-06 に確かめた。
+前は友人のデータの写し `Chmonos-sandboxes\friendtest` を指していた。friendtest も友人のデータなので、引き続き開かない）。`location.json` は書き換えない（harness プラグインのガードが `.claude/guard.json` に従って書き込みを止め、シェルで触れるときは確認を求める）。
 
-- 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番と friendtest では起動を断る）。
+- 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番・`D:\storage\chmonos`・friendtest では起動を断る）。
   写しの一覧と、画面ごとにどれを使うかは `.claude/skills/ui-check/sandboxes.md`
 - 確かめが終わったら `Test-ProductionUntouched` で、本番の `settings.json` の更新日時と `items/*.json` の件数が変わっていないことを確かめ、報告に書く
 - アプリの一式（`AppServiceContainer`・`MainViewModel`）を組む試験・道具は、保存先を必ず指定する（`CHMONOS_HOME`）。指定が無いと `StoreLocation.Resolve` が例外で止める。
