@@ -121,4 +121,4 @@ v1.1.0 から移るときは、新しいフォルダに展開した `Chmonos.exe
 
 書かなかったこと：`ImageSharp` は 3.1.12 のまま（ユーザ判断 2026-11-01。`docs/plan.md`）。知らせ6件は今の作りでは通らず、使う人の操作も変わらない。試験・点検の直しの細部・文書の整理。
 
-マニュアルの画像は描き直していない：変わった所が写っている画像が無かった（`showcase-filters`・`showcase-modification`・`showcase-item` を描いて見た）。
+マニュアルの画像：公開した後の点検（2026-11-06）で、`search.png`（スイッチ「開いているUnity」）と `modification.png`（「すべて畳む」「すべて広げる」）を `showcase-search`・`showcase-modification` で描き直した。`manual-v1.2.0` の印も動かした。
