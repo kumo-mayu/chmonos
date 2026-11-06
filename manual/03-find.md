@@ -142,7 +142,7 @@
 
 ## 見つかったかの確かめ
 
-探している商品のカードが一覧に出れば完了です。カードを押して商品ページを開き、次の [Unity へインポートする](04-unity.md) に進みます。
+探している商品のカードが一覧に出れば完了です。カードを押して商品ページを開き、次の [Unity で使う](04-unity.md) に進みます。
 
 ## うまくいかないとき
 
@@ -158,7 +158,7 @@
 
 ---
 
-[次の記事：Unity へインポートする →](04-unity.md)
+[次の記事：Unity で使う →](04-unity.md)
 <!-- /nav:bottom -->
 
 <!-- 画像：showcase-filters・showcase-search-hover（傘のカードを切り抜き）・showcase-list・showcase-folder（ViewShot） -->

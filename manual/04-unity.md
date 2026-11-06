@@ -1,4 +1,4 @@
-# Unity へインポートする
+# Unity で使う
 
 <!-- nav:top -->
 [← 目次へ](README.md)　｜　[← 前の記事：探す](03-find.md)
