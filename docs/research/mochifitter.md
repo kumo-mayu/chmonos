@@ -33,3 +33,17 @@ v1.3.0 の機能「変換で使える対応アバター」（`docs/plan.md` 8）
 ## 分からなかったこと
 
 本体の VCC での入れ方・プロファイルの中の詳しい作り・素体のプロファイルが別の店の同じ素体のアバターに効くか・作者の X の投稿。
+
+## 判定の手掛かり（2回目の調べ・2026-11-06。BOOTH は1本ずつ2秒空けて25回）
+
+- **unitypackage の中のパスが一番確か**：プロファイルは `Assets/OutfitRetargetingSystem/Editor/` の直下に、`{slug}`（アバターの短い英字の名前）の付いたファイルの組で入る。
+  順方向は `posediff_template_to_{slug}.json`・`deformation_template_to_{slug}.npz`・`config_template2{slug}.json`、逆方向は `posediff_{slug}_to_template.json`・`deformation_{slug}_to_template.npz`・`config_{slug}2template.json`、共通は `avatar_data_{slug}.json`・`pose_basis_{slug}.json`
+  （[他者の説明] https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai/blob/main/profile_data/README.md 。設定のファイルの名前は「任意ですが、一般的なパターン」）。
+  **友人の2つの写しの unitypackage の控え（GUID → パス）で照らした** [実測]：この場所にファイルを持つ unitypackage は 23 個、うち 22 個がこの形のプロファイルで、向きは両方 21・順だけ 1 に分かれた（名前は伏せる）。1つの unitypackage に何体分も入ることがある（本体は4体分を同梱）ので、向きは slug ごとに見る。
+- **`avatar_data_{slug}.json` の欄**：`name`・`defaultFBXPath`（例 `Assets/Nagi/FBX/Nagi.fbx`）・`meshName`・`height`・`basePose`・`blendshapes`。向きの欄は無い。slug は商品名と直には合わない（`beryl4` など）ので、アバターへ結ぶなら `defaultFBXPath` を、持っているアバターの unitypackage のパスと照らす [他者実測：公開されたファイル]
+- **BOOTH の JSON**：プロファイルの商品は 13 件すべてにタグ「もちふぃった〜」（U+301C。商品名は「～」U+FF5E、半角「~」の物もある）。カテゴリは「3Dツール・システム」か「3Dモデル（その他）」で、アバター（同梱）は「3Dキャラクター」。
+  バリエーション名に向きを書く例（「<X用>順変換プロファイル」「エク用(for Eku) 順方向」）。タグがあっても同梱とは限らない（タグの付いた商品 1,040 件のほとんどはアバター）[実測]
+- **商品名**：検索の上位 180 件でプロファイル 31 件、別の検索と合わせて 43 件。向きの語が名前にある物 39/43（「両変換」29・「双方向」3・「順/逆変換」3・「両方向」2・「逆変換対応」1・「順方向のみ」1）。最大の配り手は「プロファイル」でなく「対応データ」と書く（28 件）[実測]
+- **外の一覧**：有志の一覧（https://mochi.vr-chat.kr/ 、データ https://github.com/rnfkvkejr32/mochifitter_list の `data/profiles.json`）が動いている。1,721 件（1件＝アバター1体）、向きは順のみ 1,381・両方 312・逆のみ 9、`bodyBase`（素体）は 128 件に値あり、配り方はアバター同梱 761・無料 719・単体有料 224 [実測]。
+  LICENSE が無く、使い回してよいかは書いていない。元の一覧（https://github.com/eringiriri/mochifitter_list 、MIT）は 2026-02-21 に終わった
+- **SuperMochiFitter** は本体の中のフォルダの名前（変換の実行ファイル）で、別の商品ではない [推測：パスから]
