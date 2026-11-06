@@ -114,6 +114,7 @@
 
 | ファイル | 中身 |
 |---|---|
+| [mochifitter.md](research/mochifitter.md) | 衣装の変換ツール もちふぃった～ とプロファイルの単位・向き（v1.3.0 の「変換」の下調べ） |
 | [id-resolution.md](research/id-resolution.md) | zip → 商品IDの特定（18本・319本での実測） |
 | [zip-linking.md](research/zip-linking.md)・[zip-linking-followup.md](research/zip-linking-followup.md) | 並行調査（PDF・CSV・他ツールのDB） |
 | [fuzzy-search.md](research/fuzzy-search.md) | 曖昧検索・類義語の調査（入れない推し） |
