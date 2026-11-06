@@ -63,3 +63,17 @@ v1.3.0 の機能「変換で使える対応アバター」（`docs/plan.md` 8）
 - 4つとも、アバターや素体の FBX は同梱していない（Cilia Base は約 1GB だが中身は全部プロファイルのファイル）。前の調べの「素体の FBX を同梱」は、この4つには当たらない
 - 共通素体用かアバター用かは、中身からは分からない。`defaultFBXPath` が指すのは素体の FBX（Cilia Base）かアバターの FBX かの違いだけなので、FBX を持つ商品が何か（アバターか、共通素体の商品か）で見分けるか、人に決めてもらう
 - アバターへのつなぎ方の見込み：2人目の友人の写しで、本体同梱の4体と template を除く slug 17 個のうち 12 個は、持っているアバターの unitypackage に、slug を名前やフォルダに含む FBX があった（slug で探した場合。`defaultFBXPath` の完全一致は、写しに zip が無く確かめていない）
+
+### 共通素体用の例：まめふれんず（もち山金魚さん公式の順変換・2026-11-06 にユーザが購入）
+
+`MochiFitter_MameFriends_Forward_1.0.0.zip`：`Editor/` 直下・順だけ（`config_template2mamefriends`）。`avatar_data_mamefriends.json` の `name` は `MameFriends`（素体の名前）、`defaultFBXPath` は `Assets/MOCHIYAMA/Mamehinata/FBX/Mamehinata.fbx`（素体を使うアバター「まめひなた」の FBX）[実測]。
+- **素体用のプロファイルでも、FBX は代表のアバター1体を指す**（ユーザの見立てどおり）。FBX だけでつなぐと「まめひなた用」になり、素体の仲間には広がらない（狭い側に外れるので、誤って広げることは無い）
+- 素体用だと分かる手掛かりは、slug・`name` がアバター名でなく素体の名前（`MameFriends`）なこと。FBX のアバターが共通素体に入っていて、`name` がアバター名と違えば「素体用かも」と聞ける
+- ファイル名の slug の大文字小文字が揃っていない（`avatar_data_mamefriends`・`pose_basis_MameFriends`）。比べるときは大文字小文字を無視する
+
+### Chmonos が今持っている物（2026-11-06）
+
+- 商品の記録（`items/{id}.json`）には unitypackage の中身は無い
+- `unitypackages/{zipのハッシュ}.json` に、zip の中の unitypackage ごとの「GUID → Unity 上のパス」が全部ある（ファイルの中身は無い）。プロファイルかどうかと向きは、これだけで分かる
+- `avatar_data_*.json` の中身（`defaultFBXPath`）は控えていない。取り込みのときに `UnityPackageInspector` が 2MB までの `.json` を手掛かりとして読んでいるが、残さない。使うなら、slug → FBX のパスを控えに足す（読むのは取り込みのとき。zip が手元にある物だけ）
+- アバターの FBX のパスは、アバターの商品の unitypackage の控えにあるので、`defaultFBXPath` と完全一致で照らせる
