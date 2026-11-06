@@ -11,6 +11,8 @@ Chmonos は BOOTH で買ったアセット（アバター・衣装など）を�
 | v1.1.0 | https://github.com/kumo-mayu/chmonos/tree/manual-v1.1.0/manual |
 | v1.0.0 | https://github.com/kumo-mayu/chmonos/tree/v1.0.0/manual |
 
+前のバージョンのアプリは [GitHub の Releases](https://github.com/kumo-mayu/chmonos/releases) から取れます。
+
 > 非公式のアプリケーションです。ピクシブ株式会社（BOOTH・pixiv の運営）が作成・配布しているものではありません。
 > 「BOOTH」「pixiv」はピクシブ株式会社の登録商標です。
 
