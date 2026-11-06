@@ -4,7 +4,7 @@
 [← 目次へ](README.md)
 <!-- /nav:top -->
 
-この章の機能は、v1.2.0 から使えます。
+この章の機能は v1.2.0 から使えます。
 
 ほかのアプリや自作のツールから、Chmonos のデータを HTTP で読めるようにする機能です。プログラムを書く人に向けた機能で、ふだんの整理には使いません。
 
@@ -30,9 +30,9 @@ API は Chmonos と一緒に動き、Chmonos を閉じると止まります。�
 ウィンドウを開かずに API を使いたいときは、`Chmonos.exe --headless` で起動します。ショートカットの「リンク先」の末尾に ` --headless` を足しておくと便利です。
 
 - 動いている間はタスクバーの通知領域に Chmonos のアイコンが表示されます。右クリックして「Chmonosを開く」でウィンドウを開き、「終了」で終えます。
-- 開いたウィンドウを閉じても、Chmonos は通知領域で動き続けます。
+- 開いたウィンドウを閉じても Chmonos は通知領域で動き続けます。
 - （v1.2.0 から）動いている間に Chmonos をふつうに起動してもウィンドウが開きます。
-- 「APIを使う」がオフのままだと、API は待ち受けません。
+- 「APIを使う」がオフのままだと API は待ち受けません。
 - 先に一度ふつうに起動して、データの保存先を決めておいてください。
 - 設定の「API」の「ウィンドウを表示せずに起動したとき、監視フォルダの新しいファイルと前回の続きを取り込む」をオンにすると、起動したときに取り込みを始めます。
 
@@ -111,7 +111,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 
 例：`/v1/items/1234567?include=avatarLinks,images`
 
-（v1.2.0 から）`POST /v1/items/batch` の `include` は、`["avatarLinks", "images"]` のような配列でも送れます。
+（v1.2.0 から）`POST /v1/items/batch` の `include` は `["avatarLinks", "images"]` のような配列でも送れます。
 
 ## 画像の形式と大きさ
 
@@ -132,7 +132,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 ブラウザで開いたページから使うときは、そのページのオリジンを設定の「API」の「許可するオリジン」に追加します（例：`http://localhost:5173`）。追加していないページからの問い合わせは断ります。
 
 - ページは `api.json` を読めないので、トークンはページに手で貼り付けてください。
-- トークンは、`fetch` の `Authorization` ヘッダで送ります。
+- トークンは `fetch` の `Authorization` ヘッダで送ります。
 - `<img src>` はトークンを送れないので、画像は `fetch` で `/v1/images/{商品ID}/{名前}` を取り、`URL.createObjectURL` で表示します。
 - `EventSource` もトークンを送れないので、`/v1/events` は `fetch` で流れを読みます。
 

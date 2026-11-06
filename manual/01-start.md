@@ -21,7 +21,7 @@
 1. [GitHub の Releases](https://github.com/kumo-mayu/chmonos/releases) か [BOOTH](https://kumo-mayu.booth.pm/items/8952335) から、`Chmonos-v1.2.0.zip` をダウンロードします
 2. zip を右クリックして「すべて展開」を選び、好きな場所に展開します
 
-展開すると、`Chmonos-v1.2.0` フォルダの中に `Chmonos.exe` と `assets` フォルダなどが並びます。
+展開すると `Chmonos-v1.2.0` フォルダの中に `Chmonos.exe` と `assets` フォルダなどが並びます。
 
 > **zip の中から直接開かないでください。**`assets` フォルダには検索に使う辞書が入っています。zip のまま起動すると辞書が正しく読み込まれないことがあります。
 > アプリの場所を変える際には `Chmonos-v1.2.0` フォルダごと、中身を変えずに移動してください。
