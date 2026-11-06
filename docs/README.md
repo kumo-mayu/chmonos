@@ -64,6 +64,7 @@
 | [item-page.md](spec/item-page.md) | 商品ページ、画像（自分で足す・サムネイルの指名）、手元のファイル、購入記録、編集画面 |
 | [avatars.md](spec/avatars.md) | 対応アバターの検出、登録簿、所有アバター |
 | [avatar-bases.md](spec/avatar-bases.md) | 共通素体、相性の3段階、商品ページの素体経由の札と素体ごとのまとめ・素体の中の並び |
+| [conversion.md](spec/conversion.md) | **下書き（v1.3.0・全部［案］）**：変換ツール（もちふぃった～）のプロファイルで使える対応アバター。変換扱い・判定の段・画面 |
 | [modifications.md](spec/modifications.md) | 改変の記録（構成物・画像・Unity プロジェクト）、改変の画面、「Unityで選択」 |
 | [unity.md](spec/unity.md) | Unity への受け渡し（窓を名指しして送る・連続送り・入り先・プロジェクトタブ・VCC） |
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |
