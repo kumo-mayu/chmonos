@@ -47,3 +47,19 @@ v1.3.0 の機能「変換で使える対応アバター」（`docs/plan.md` 8）
 - **外の一覧**：有志の一覧（https://mochi.vr-chat.kr/ 、データ https://github.com/rnfkvkejr32/mochifitter_list の `data/profiles.json`）が動いている。1,721 件（1件＝アバター1体）、向きは順のみ 1,381・両方 312・逆のみ 9、`bodyBase`（素体）は 128 件に値あり、配り方はアバター同梱 761・無料 719・単体有料 224 [実測]。
   LICENSE が無く、使い回してよいかは書いていない。元の一覧（https://github.com/eringiriri/mochifitter_list 、MIT）は 2026-02-21 に終わった
 - **SuperMochiFitter** は本体の中のフォルダの名前（変換の実行ファイル）で、別の商品ではない [推測：パスから]
+
+## 無料のプロファイル4つの中身（2026-11-06・ユーザが取ってきた物。`DLforTest/`、中身は手元で読んだだけ）
+
+| 物 | 向き（ユーザの把握） | 置き場 | 判定（パスから） | `defaultFBXPath` |
+|---|---|---|---|---|
+| Fel | 順 | `Editor/` 直下 | 順（`config_template2fel`・`posediff_template_to_fel`） | `Assets/Fel/Fel.fbx` |
+| Puruwuff（slug `pw`） | 順 | `Editor/` 直下 | 順 | `Assets/Takko/Puruwuff/vrchat/fbx/pw_base.fbx` |
+| Salt | 両方 | `Editor/salt/` | 両方（`config_salt2template` と `config_template2salt`） | `Assets/Amatousagi/Salt/FBX/Salt.fbx` |
+| Cilia Base（共通素体） | 両方 | `Editor/GeneratedProfiles/ciliabase/` | 両方 | `Assets/Cilia Base by 23Mink/Cilia Base by 23Mink.fbx` |
+
+[実測] 4つとも、向きの判定はユーザの把握と合った。分かった事：
+- **置き場は `Editor/` の直下とは限らない**（サブフォルダ `salt/`・`GeneratedProfiles/ciliabase/` もある）。判定は「`OutfitRetargetingSystem/Editor/` の下のどこか」で見る
+- slug は `avatar_data_{slug}.json` の名前から取れる。`name` の欄は大文字小文字が違うことがある（`Salt`・`Ciliabase`）
+- 4つとも、アバターや素体の FBX は同梱していない（Cilia Base は約 1GB だが中身は全部プロファイルのファイル）。前の調べの「素体の FBX を同梱」は、この4つには当たらない
+- 共通素体用かアバター用かは、中身からは分からない。`defaultFBXPath` が指すのは素体の FBX（Cilia Base）かアバターの FBX かの違いだけなので、FBX を持つ商品が何か（アバターか、共通素体の商品か）で見分けるか、人に決めてもらう
+- アバターへのつなぎ方の見込み：2人目の友人の写しで、本体同梱の4体と template を除く slug 17 個のうち 12 個は、持っているアバターの unitypackage に、slug を名前やフォルダに含む FBX があった（slug で探した場合。`defaultFBXPath` の完全一致は、写しに zip が無く確かめていない）
