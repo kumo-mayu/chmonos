@@ -171,6 +171,32 @@ public class VariationTargetsTests
         Assert.True(saved.Single(target => target.VariationId == 4).All);
     });
 
+    /// <summary>
+    /// 触らずに保存したら、向き先を書き込みに入れない（変えた項目だけを書く決まり。並びが変わると、開いている間に別の画面が書いた値を古い写しで戻す）。
+    /// 確かめは、保存の前に記録の向き先を書き換えておき、保存の後もそのまま残っていること
+    /// </summary>
+    [Fact]
+    public Task 向き先を触らずに保存しても_記録の向き先を書き戻さない() => TestApp.Run(async app =>
+    {
+        var edit = await OpenEditAsync(app, Outfit(local => local with
+        {
+            VariationTargets =
+            [
+                new VariationTarget { VariationId = 1, Bases = ["作り物素体"], Avatars = ["9800321"] },
+                new VariationTarget { VariationId = 4, All = true },
+            ],
+        }));
+
+        var changed = new VariationTarget { VariationId = 2, Avatars = ["9800312"] };
+        await app.Store.Items.ChangeLocalAsync(ItemId, local => local with { VariationTargets = [changed] }, LocalOwners.VariationTargets);
+
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+
+        var saved = (await app.Store.Items.LoadAsync(ItemId))!.Local.VariationTargets;
+        Assert.Equal([2L], saved.Select(target => target.VariationId));
+    });
+
     [Fact]
     public Task バリエーションが1つの商品には_対応の欄を付けない() => TestApp.Run(async app =>
     {

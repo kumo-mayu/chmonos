@@ -133,6 +133,12 @@ public class SearchModuleConditionParityTests
                     new SearchModuleState { Kind = name, Items = ["avatar:7000001"], ShowUnspecified = true },
                     new SearchModuleState { Kind = name, ShowMatched = false, ShowUnspecified = true },
                     new SearchModuleState { Kind = name, Items = ["avatar:7000002"], Flag = false, Exclude = true },
+                    new SearchModuleState
+                    {
+                        Kind = name,
+                        Items = ["avatar:7000001"],
+                        Toggles = new Dictionary<string, bool> { [SearchModuleConditions.OwnedVariationsToggle] = true },
+                    },
                 ]),
             SearchModuleKind.WishList => Ranges(name, null),
             SearchModuleKind.Price => Ranges(name, SearchModuleConditions.PaidSource).Concat(Ranges(name, SearchModuleConditions.BoothSource)),
