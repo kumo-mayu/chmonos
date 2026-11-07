@@ -106,6 +106,7 @@ public sealed partial class SettingsViewModel
         _showAvatarsViaBase = settings.ShowAvatarsViaBase;
         _groupAvatarsByBase = settings.GroupAvatarsByBase;
         _useDetectedVariationTargets = settings.UseDetectedVariationTargets;
+        _showVariationTargetsForUnpurchased = settings.ShowVariationTargetsForUnpurchased;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
         _showSortDividers = settings.ShowSortDividers;

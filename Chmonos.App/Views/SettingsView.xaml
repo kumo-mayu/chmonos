@@ -162,6 +162,11 @@
                                       IsChecked="{Binding UseDetectedVariationTargets, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.UseDetectedVariationTargets"
                                       ToolTip="切ると、編集の画面で決めたバリエーションの対応だけで見分けます。" />
+                            <!-- 既定はオフ（ユーザ指示 2026-11-07「画面がうるさいので購入品以外は出さなくても良い」） -->
+                            <CheckBox Content="買っていないバリエーションにも対応の欄を表示する" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding ShowVariationTargetsForUnpurchased, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ShowVariationTargetsForUnpurchased"
+                                      ToolTip="編集の画面の、購入したバリエーションの欄に効きます。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="一覧と検索" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--

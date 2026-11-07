@@ -171,7 +171,10 @@ public sealed partial class EditViewModel
                 useDetected ? ChoicesOf(record.Local.DetectedVariationTargets.FirstOrDefault(target => target.VariationId == id)) : [],
                 decided is { HasRejections: true }
                     ? ChoicesOf(new VariationTarget { VariationId = id, Avatars = decided.RejectedAvatars ?? [], Bases = decided.RejectedBases ?? [] })
-                    : []);
+                    : [])
+            {
+                ShowsUnpurchased = _services.Settings.ShowVariationTargetsForUnpurchased,
+            };
             row.Targets.IsPurchased = row.IsPurchased;
         }
     }

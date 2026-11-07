@@ -45,6 +45,12 @@ public sealed record AppSettings
     /// </summary>
     public bool UseDetectedVariationTargets { get; init; } = true;
 
+    /// <summary>
+    /// 編集の画面で、買っていないバリエーションの行にも対応の欄を見せるか（ユーザ指示 2026-11-07・既定はオフ：画面がうるさい）。
+    /// 見せないときも場所は残し、買った印を付けたときに下の行が縦にずれないようにする
+    /// </summary>
+    public bool ShowVariationTargetsForUnpurchased { get; init; }
+
     /// <summary>非表示中の件数を検索結果に出すか。既定はオフ（人前で開いても気付かれないように）。</summary>
     public bool ShowHiddenCountInSearch { get; init; }
 

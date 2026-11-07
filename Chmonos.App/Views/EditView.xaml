@@ -854,8 +854,8 @@
 
                                                     <!--
                                                         このバリエーションがどのアバター・共通素体向けか（ユーザ判断 2026-11-06・docs/spec/conversion.md）。
-                                                        全部の行に付けられるが、買っていない行では効き目が無いので薄くする（ユーザ判断 2026-11-07）。
-                                                        人が積んだ札が無い間は、名前から見つけた向き先を薄い字で出す（それが効いている）
+                                                        買っていない行は既定で隠す（ユーザ指示 2026-11-07「画面がうるさい」）。隠しても場所は残し、買った印を付けたときに下が縦にずれないようにする（Hidden）。
+                                                        設定で見せる物にしたときは、効き目が無いので薄くする
                                                     -->
                                                     <StackPanel Margin="22,8,0,0" DataContext="{Binding Targets}"
                                                                 Visibility="{Binding DataContext.HasTargets, RelativeSource={RelativeSource AncestorType=Border}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -868,7 +868,7 @@
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </StackPanel.Style>
-                                                        <DockPanel>
+                                                        <DockPanel Visibility="{Binding IsShown, Converter={x:Static vm:BoolToHiddenConverter.Instance}}">
                                                             <TextBlock DockPanel.Dock="Left" Text="対応" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                                        ToolTip="このバリエーションが、どのアバター向けかです。" />
                                                             <!-- まだ決めていない印（ユーザ判断 2026-11-07・案A）。ファイルのバリエーション分けの「未指定」と同じ札。買った行だけ -->

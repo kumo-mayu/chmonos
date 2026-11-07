@@ -226,6 +226,32 @@ public class VariationTargetTests
         }
     }
 
+    /// <summary>「フルセット」などアバター名の無い全部入りの行は、対応アバター全部向け（ユーザ指示 2026-11-07）。「セット」だけは当てない</summary>
+    [Fact]
+    public void フルセットの行は_対応アバター全部向けにする()
+    {
+        var index = AvatarNameIndex.Build(new AvatarRegistry
+        {
+            Entries = [new AvatarRegistryEntry { ItemId = "kuuta", DisplayName = "くうた", Category = "3Dキャラクター" }],
+        });
+
+        var found = AvatarDetector.ScanVariations(index, [],
+        [
+            (1, "くうた用"),
+            (2, "✦ Full set"),
+            (3, "フルパック -full pack-"),
+            (4, "All 20 + Hair"),
+            (5, "くうた用 Fullset"),
+            (6, "カジュアルセット"),
+            (7, "Small"),
+        ]);
+
+        Assert.Equal([2L, 3L, 4L], found.Where(target => target.All).Select(target => target.VariationId));
+        Assert.Equal(["kuuta"], found.Single(target => target.VariationId == 5).Avatars);
+        Assert.False(found.Single(target => target.VariationId == 5).All);
+        Assert.DoesNotContain(found, target => target.VariationId is 6 or 7);
+    }
+
     [Fact]
     public void 検索の_持っているバリエーションの分だけ_は持っていない分の商品を落とす()
     {

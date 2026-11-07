@@ -296,6 +296,28 @@ public class VariationTargetsTests
         Assert.Empty(again.Candidates);
     });
 
+    /// <summary>買っていない行の欄は既定で隠し（場所は残す）、印を付けると見せる。設定で買っていない行にも見せられる（ユーザ指示 2026-11-07）</summary>
+    [Fact]
+    public Task 買っていない行の対応の欄は既定で隠し_設定で見せる() => TestApp.Run(async app =>
+    {
+        var edit = await OpenEditAsync(app, Outfit());
+        var sora = edit.Variations.Single(row => row.Name == "ソラ用");
+        Assert.True(edit.Variations.Single(row => row.Name == "ミナト用").Targets!.IsShown);
+        Assert.False(sora.Targets!.IsShown);
+
+        sora.IsPurchased = true;
+        Assert.True(sora.Targets.IsShown);
+    });
+
+    [Fact]
+    public Task 設定で_買っていない行にも対応の欄を見せる() => TestApp.Run(async app =>
+    {
+        await app.ChangeSettingsAsync(settings => settings with { ShowVariationTargetsForUnpurchased = true });
+        var edit = await OpenEditAsync(app, Outfit());
+
+        Assert.True(edit.Variations.Single(row => row.Name == "ソラ用").Targets!.IsShown);
+    });
+
     [Fact]
     public Task バリエーションが1つの商品には_対応の欄を付けない() => TestApp.Run(async app =>
     {

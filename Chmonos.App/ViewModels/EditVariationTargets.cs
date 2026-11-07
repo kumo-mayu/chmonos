@@ -116,9 +116,18 @@ public sealed class VariationTargetsInput : ViewModelBase
             if (SetField(ref _isPurchased, value))
             {
                 OnPropertyChanged(nameof(StateText));
+                OnPropertyChanged(nameof(IsShown));
             }
         }
     }
+
+    /// <summary>買っていない行にも欄を見せるか（設定。既定は見せない・ユーザ指示 2026-11-07「画面がうるさいので購入品以外は出さなくても良い」）。</summary>
+    public bool ShowsUnpurchased { get; init; }
+
+    /// <summary>
+    /// 欄を見せるか。見せないときも場所は残す（買った印を付けたときに欄が出て、下の行が縦にずれないように。ユーザ指示 2026-11-07）
+    /// </summary>
+    public bool IsShown => _isPurchased || ShowsUnpurchased;
 
     /// <summary>
     /// まだ決めていないことの印（ユーザ判断 2026-11-07・案A：ファイルのバリエーション分けの「未指定」と同じオレンジの札）。

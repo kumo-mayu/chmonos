@@ -1414,6 +1414,17 @@ public static class AvatarDetector
     /// バリエーションが1つ以下の商品は、分ける意味が無いので返さない（全部の対応アバターがその1つの物）。
     /// アバターの照らしは <see cref="ScanNames"/> と同じ含有、共通素体は <see cref="ScanBaseDeclarations(ParsedDescription, IEnumerable{string}, IEnumerable{string}, IEnumerable{AvatarBaseGroup}, IReadOnlyList{string})"/> の名前の照らしと同じ。
     /// </summary>
+    /// <summary>
+    /// 対応アバター全部向けのバリエーションの名前（ユーザ指示 2026-11-07「フルセットなどの表現は一般的なので…対応アバター全てとして自動推定」）。
+    /// 友人の写し2つのバリエーション名 1,944 個（バリエーションが2つ以上の商品）で測って決めた：
+    /// 「フルセット」「Fullset・Full set」「Full pack・フルパック」は大半が対応アバター全部入りの行（支援版の「Fullset と同じ内容」も含む）。
+    /// 「all」は英字の単語のときだけ（「All 20」「for ALL」。「All (4 Colors)」のように色の全部も当たるが、そういう商品は他の行にアバターの向き先が無いので見分けに効かない）。
+    /// **「セット」だけは入れない**：73 個の多くが「カジュアルセット」「make セット」など衣装の組み合わせの意味だった
+    /// </summary>
+    private static readonly Regex FullSetName = new(
+        @"フル\s*セット|フル\s*パック|full[\s\-_]*(set|pack|package)|全セット|全部入り|全部まとめ|全アバター|(?<![a-z])all(?![a-z])",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     public static IReadOnlyList<VariationTarget> ScanVariations(
         AvatarNameIndex index,
         IEnumerable<AvatarBaseGroup> groups,
@@ -1454,6 +1465,11 @@ public static class AvatarDetector
             if (avatars.Count > 0 || bases.Count > 0)
             {
                 found.Add(new VariationTarget { VariationId = group.Key, Avatars = avatars, Bases = bases });
+            }
+            else if (group.Any(variation => FullSetName.IsMatch(variation.Name)))
+            {
+                // アバター名の無い「フルセット」は対応アバター全部向け。アバター名があれば（「〇〇用 Fullset」）そのアバター向けのまま
+                found.Add(new VariationTarget { VariationId = group.Key, All = true });
             }
         }
 

@@ -633,6 +633,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _useDetectedVariationTargets, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _showVariationTargetsForUnpurchased;
+
+    /// <summary>編集の画面で、買っていないバリエーションにも対応の欄を見せるか（既定はオフ）。編集の画面は開くたびに読むので、知らせは要らない</summary>
+    public bool ShowVariationTargetsForUnpurchased
+    {
+        get => _showVariationTargetsForUnpurchased;
+        set { if (SetField(ref _showVariationTargetsForUnpurchased, value)) { Save(); } }
+    }
+
     private bool _groupAvatarsByBase;
 
     /// <summary>対応アバターを共通素体ごとにまとめるか（既定はオン）。検索の候補にも効くので、候補を作り直す</summary>
@@ -1514,6 +1523,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowAvatarsViaBase = ShowAvatarsViaBase,
             GroupAvatarsByBase = GroupAvatarsByBase,
             UseDetectedVariationTargets = UseDetectedVariationTargets,
+            ShowVariationTargetsForUnpurchased = ShowVariationTargetsForUnpurchased,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             ShowSortDividers = ShowSortDividers,
