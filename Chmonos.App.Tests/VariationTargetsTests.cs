@@ -124,7 +124,7 @@ public class VariationTargetsTests
     });
 
     [Fact]
-    public Task 編集の画面では_全部の行に対応の欄を付け_名前からの対応を薄く見せる() => TestApp.Run(async app =>
+    public Task 編集の画面では_全部の行に対応の欄を付け_名前から見つけた対応を確認待ちの札で出す() => TestApp.Run(async app =>
     {
         var edit = await OpenEditAsync(app, Outfit(local => local with
         {
@@ -133,13 +133,16 @@ public class VariationTargetsTests
 
         var minato = edit.Variations.Single(row => row.Name == "ミナト用").Targets!;
         Assert.Equal(["作り物素体（共通素体）"], minato.Chips.Select(chip => chip.Text));
-        Assert.False(minato.ShowsDetected);
+        // ミナト用は名前ではミナト。人が素体に決めたので、ミナトは確認待ちの札として残るが効いていない
+        Assert.False(Assert.Single(minato.Candidates).IsEffective);
 
         // 買っていない行にも付けられる。人が決めていなければ、名前から見つけた対応が効いていることを見せる
         var sora = edit.Variations.Single(row => row.Name == "ソラ用").Targets!;
         Assert.False(edit.Variations.Single(row => row.Name == "ソラ用").IsPurchased);
-        Assert.True(sora.ShowsDetected);
-        Assert.Equal("ソラ", sora.DetectedText);
+        var candidate = Assert.Single(sora.Candidates);
+        Assert.Equal("ソラ", candidate.Text);
+        Assert.True(candidate.IsEffective);
+        Assert.StartsWith("名前から見つけました（未確認）", candidate.Tooltip);
 
         // 候補は対応アバター全部・素体・アバター。積んだ物は候補から外れる
         Assert.Equal("対応アバターすべて", minato.Suggestions[0]);
@@ -148,16 +151,19 @@ public class VariationTargetsTests
         Assert.Contains("ユウ", minato.Suggestions);
 
         // 「セット」は名前から何も見つからない
-        Assert.False(edit.Variations.Single(row => row.Name == "セット").Targets!.ShowsDetected);
+        Assert.Empty(edit.Variations.Single(row => row.Name == "セット").Targets!.Candidates);
     });
 
     [Fact]
-    public Task 編集の画面で積んだ対応と_名前から決めた対応を_保存で書く() => TestApp.Run(async app =>
+    public Task 編集の画面で積んだ対応と_確認待ちから確認した対応を_保存で書く() => TestApp.Run(async app =>
     {
         var edit = await OpenEditAsync(app, Outfit());
 
         edit.Variations.Single(row => row.Name == "セット").Targets!.AddCommand.Execute("対応アバターすべて");
-        edit.Variations.Single(row => row.Name == "ソラ用").Targets!.AcceptDetectedCommand.Execute(null);
+        var sora = edit.Variations.Single(row => row.Name == "ソラ用").Targets!;
+        sora.Candidates.Single().ConfirmCommand.Execute(null);
+        Assert.Empty(sora.Candidates);
+        Assert.Equal(["ソラ"], sora.Chips.Select(chip => chip.Text));
         var riku = edit.Variations.Single(row => row.Name == "リク用").Targets!;
         riku.AddCommand.Execute("リク");
         riku.Chips.Single().RemoveCommand.Execute(null);

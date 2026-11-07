@@ -875,7 +875,7 @@
                                                                                  Placeholder="アバターを追加" Margin="8,0,0,0"
                                                                                  AutomationProperties.AutomationId="EditVariationTargetInput"
                                                                                  AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=Border}, StringFormat={}{0}の対応アバターを追加}" />
-                                                            <Grid VerticalAlignment="Center">
+                                                            <WrapPanel VerticalAlignment="Center">
                                                                 <controls:ContentItemsControl ItemsSource="{Binding Chips}" controls:ArrowGroup.IsEnabled="True">
                                                                     <ItemsControl.ItemsPanel>
                                                                         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -901,19 +901,55 @@
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </controls:ContentItemsControl>
-                                                                <StackPanel Orientation="Horizontal"
-                                                                            Visibility="{Binding ShowsDetected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                    <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                                               AutomationProperties.AutomationId="EditVariationTargetDetected"
-                                                                               ToolTip="バリエーションの名前から見つけた対応です。追加すると置き換わります。">
-                                                                        <Run Text="{Binding DetectedText, Mode=OneWay}" /><Run Text="（名前から）" />
-                                                                    </TextBlock>
-                                                                    <Button Content="この内容で決める" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                                                            Command="{Binding AcceptDetectedCommand}"
-                                                                            AutomationProperties.AutomationId="EditVariationTargetAccept"
-                                                                            ToolTip="名前から見つけた対応を、決めた対応として残します。" />
-                                                                </StackPanel>
-                                                            </Grid>
+                                                                <!--
+                                                                    名前から見つけた、まだ確認していない対応（ユーザ指摘 2026-11-07：前の「〇〇（名前から）」の字と「この内容で決める」が分かりにくく、ボタンが押せる見た目でなかった）。
+                                                                    商品ページの対応アバターの確認待ちと同じ形：頭に点、乗せたときとフォーカスがあるときは点を ✓ に替える。札を押しても確認済みになる
+                                                                -->
+                                                                <controls:ContentItemsControl ItemsSource="{Binding Candidates}" controls:ArrowGroup.IsEnabled="True">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <controls:PressableBorder Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                                                    BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,2,5,2" Cursor="Hand"
+                                                                                    Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                                                                    Command="{Binding ConfirmCommand}"
+                                                                                    AutomationProperties.AutomationId="EditVariationTargetCandidate"
+                                                                                    AutomationProperties.Name="{Binding Text, StringFormat={}{0}を確認済みにする}"
+                                                                                    ToolTip="{Binding Tooltip}">
+                                                                                <Border.InputBindings>
+                                                                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ConfirmCommand}" />
+                                                                                </Border.InputBindings>
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center">
+                                                                                        <Ellipse Width="6" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="{DynamicResource Warn}">
+                                                                                            <Ellipse.Style>
+                                                                                                <Style TargetType="Ellipse">
+                                                                                                    <Style.Triggers>
+                                                                                                        <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                                                            <Setter Property="Opacity" Value="0" />
+                                                                                                        </DataTrigger>
+                                                                                                        <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                                                            <Setter Property="Opacity" Value="0" />
+                                                                                                        </DataTrigger>
+                                                                                                    </Style.Triggers>
+                                                                                                </Style>
+                                                                                            </Ellipse.Style>
+                                                                                        </Ellipse>
+                                                                                        <Button Content="✓" ContentTemplate="{StaticResource CheckGlyph}" Padding="0" FontSize="11" HorizontalAlignment="Center"
+                                                                                                Height="16" Background="Transparent" BorderThickness="0"
+                                                                                                Cursor="Hand" Foreground="{DynamicResource Good}" Focusable="False"
+                                                                                                Command="{Binding ConfirmCommand}"
+                                                                                                ToolTip="確認済みにします。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
+                                                                                    </Grid>
+                                                                                    <TextBlock Text="{Binding Text}" FontSize="11.5" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
+                                                                                </StackPanel>
+                                                                            </controls:PressableBorder>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </controls:ContentItemsControl>
+                                                            </WrapPanel>
                                                         </DockPanel>
                                                     </StackPanel>
                                                 </StackPanel>

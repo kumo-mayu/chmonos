@@ -19,6 +19,23 @@ public enum VariationTargetKind
 /// <summary>向き先の候補1件（入力欄に出す字と、選んだときに積む物）。</summary>
 public sealed record VariationTargetChoice(string Text, VariationTargetKind Kind, string Key);
 
+/// <summary>名前から見つけた、まだ確認していない向き先の札1枚（商品ページの対応アバターの確認待ちと同じ形）。</summary>
+public sealed class VariationTargetCandidate
+{
+    public required VariationTargetChoice Choice { get; init; }
+
+    public string Text => Choice.Text;
+
+    /// <summary>確認済みの札が無く、この札がそのまま効いているか。</summary>
+    public bool IsEffective { get; init; }
+
+    public string Tooltip => IsEffective
+        ? "名前から見つけました（未確認）。押すと確認済みにします。"
+        : "名前から見つけました。押すと追加します。";
+
+    public required RelayCommand ConfirmCommand { get; init; }
+}
+
 /// <summary>積んだ向き先の札1枚。</summary>
 public sealed class VariationTargetChip
 {
@@ -32,8 +49,9 @@ public sealed class VariationTargetChip
 /// <summary>
 /// 編集の画面の「購入したバリエーション」の1行の、向き先の欄（<c>docs/spec/conversion.md</c>「バリエーションとアバターの結び付き」）。
 ///
-/// 人が積んだ札があればそれが向き先。無ければ、検出した向き先（バリエーションの名前から）を薄い字で見せ、そのまま効いていることを言う
-/// （設定で検出を使わないときは見せない）。「この内容で決める」で、検出の向き先を人が決めた物として写せる。
+/// 人が積んだ札（確認済み）があればそれが向き先。検出した向き先（バリエーションの名前から）は、商品ページの対応アバターの確認待ちと同じ形の札で
+/// 最初から並べる（頭に点・乗せると ✓。ユーザ指摘 2026-11-07：前の「〇〇（名前から）」の字と「この内容で決める」が分かりにくく、ボタンが押せる見た目でなかった）。
+/// 押すと確認済みの札になる。確認済みの札が無い間は、確認待ちの札がそのまま効く（設定で検出を使わないときは並べない）。
 /// 候補は商品の対応アバター・その共通素体・「対応アバターすべて」だけ——対応に無いアバターを向き先にしても、見分けに効かない。
 /// </summary>
 public sealed class VariationTargetsInput : ViewModelBase
@@ -49,7 +67,6 @@ public sealed class VariationTargetsInput : ViewModelBase
         _choices = choices;
         _detected = detected;
         AddCommand = new RelayCommand(parameter => Add(parameter as string));
-        AcceptDetectedCommand = new RelayCommand(AcceptDetected);
 
         foreach (var choice in decided)
         {
@@ -61,18 +78,14 @@ public sealed class VariationTargetsInput : ViewModelBase
 
     public ObservableCollection<VariationTargetChip> Chips { get; } = [];
 
+    /// <summary>名前から見つけた、まだ確認していない向き先（確認済みの札に無い物）。</summary>
+    public ObservableCollection<VariationTargetCandidate> Candidates { get; } = [];
+
     public ObservableCollection<string> Suggestions { get; } = [];
 
     public bool HasChips => Chips.Count > 0;
 
-    /// <summary>人が決めていない間に効いている、名前から見つけた向き先（「くうた・まめふれんず」）。</summary>
-    public string DetectedText => string.Join("・", _detected.Select(choice => choice.Text));
-
-    public bool ShowsDetected => Chips.Count == 0 && _detected.Count > 0;
-
     public RelayCommand AddCommand { get; }
-
-    public RelayCommand AcceptDetectedCommand { get; }
 
     public void Add(string? text)
     {
@@ -86,9 +99,9 @@ public sealed class VariationTargetsInput : ViewModelBase
         Changed();
     }
 
-    private void AcceptDetected()
+    private void Confirm(VariationTargetChoice choice)
     {
-        foreach (var choice in _detected.Where(choice => Chips.All(chip => chip.Choice != choice)))
+        if (Chips.All(chip => chip.Choice != choice))
         {
             Push(choice);
         }
@@ -115,11 +128,23 @@ public sealed class VariationTargetsInput : ViewModelBase
     {
         RefreshSuggestions();
         OnPropertyChanged(nameof(HasChips));
-        OnPropertyChanged(nameof(ShowsDetected));
     }
 
     private void RefreshSuggestions()
     {
+        // 確認待ちの札は、確認済みの札が無い間は効いている。吹き出しで言い分ける
+        Candidates.Clear();
+        var effective = Chips.Count == 0;
+        foreach (var choice in _detected.Where(choice => Chips.All(chip => chip.Choice != choice)))
+        {
+            Candidates.Add(new VariationTargetCandidate
+            {
+                Choice = choice,
+                IsEffective = effective,
+                ConfirmCommand = new RelayCommand(() => Confirm(choice)),
+            });
+        }
+
         Suggestions.Clear();
         foreach (var choice in _choices.Where(choice => Chips.All(chip => chip.Choice != choice)))
         {
