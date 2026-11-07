@@ -100,7 +100,8 @@ internal static partial class Scenes
                             new Purchase { VariationId = 4, NameSnapshot = "セット", Price = 3500 },
                         ]
                         : [new Purchase { VariationId = 1, NameSnapshot = "ミナト用", Price = 1500 }],
-                    VariationTargets = [new VariationTarget { VariationId = 1, Bases = ["作り物素体"] }],
+                    // ミナト用は、名前から見つけたミナトを外して素体に決めた（外した札がグレーで残る）
+                    VariationTargets = [new VariationTarget { VariationId = 1, Bases = ["作り物素体"], RejectedAvatars = ["9800301"] }],
                     DetectedVariationTargets =
                     [
                         new VariationTarget { VariationId = 1, Avatars = ["9800301"] },

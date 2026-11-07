@@ -88,11 +88,19 @@ public class VariationTargetsTests
     }
 
     private static async Task<EditViewModel> OpenEditAsync(TestApp app, ItemRecord item)
+        => (await OpenEditWithMainAsync(app, item)).Edit;
+
+    private static async Task<(MainViewModel Main, EditViewModel Edit)> OpenEditWithMainAsync(TestApp app, ItemRecord item)
     {
         await app.Store.Avatars.SaveAsync(Registry());
         await app.AddItemAsync(item);
         await app.ChangeSettingsAsync(settings => settings with { ReturnToSearchWhenEditDone = false });
         var main = await app.StartAsync();
+        return (main, await ShowEditAsync(app, main));
+    }
+
+    private static async Task<EditViewModel> ShowEditAsync(TestApp app, MainViewModel main)
+    {
         main.ShowEditCommand.Execute(null);
         await app.SettleAsync();
         return Assert.IsType<EditViewModel>(main.CurrentViewModel);
@@ -172,7 +180,10 @@ public class VariationTargetsTests
         await app.SettleAsync();
 
         var saved = (await app.Store.Items.LoadAsync(ItemId))!.Local.VariationTargets;
-        Assert.Equal([2L, 4L], saved.Select(target => target.VariationId).Order());
+        // リク用は名前から見つけたリクを足してから外したので、外した記録だけの行になる
+        Assert.Equal([2L, 3L, 4L], saved.Select(target => target.VariationId).Order());
+        Assert.Equal(["9800321"], saved.Single(target => target.VariationId == 3).RejectedAvatars);
+        Assert.Empty(saved.Single(target => target.VariationId == 3).Avatars);
         Assert.Equal(["9800311"], saved.Single(target => target.VariationId == 2).Avatars);
         Assert.True(saved.Single(target => target.VariationId == 4).All);
     });
@@ -245,6 +256,44 @@ public class VariationTargetsTests
 
         set.Targets.AddCommand.Execute("対応アバターすべて");
         Assert.Null(set.Targets.StateText);
+    });
+
+    /// <summary>
+    /// 外した候補は覚えて、次に開いてもグレーの札で出す（ユーザ指摘 2026-11-07：確認してから外した候補が、また確認待ちで出ていた）。
+    /// 確認してから ✕ で外した物も、確認待ちのまま × で外した物も同じ
+    /// </summary>
+    [Fact]
+    public Task 外した候補は_次に開いてもグレーの札で出し_押すと戻る() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenEditWithMainAsync(app, Outfit());
+        var minato = edit.Variations.Single(row => row.Name == "ミナト用").Targets!;
+        minato.Candidates.Single().ConfirmCommand.Execute(null);
+        minato.Chips.Single().RemoveCommand.Execute(null);
+        edit.Variations.Single(row => row.Name == "ソラ用").Targets!.Candidates.Single().RejectCommand.Execute(null);
+
+        // 外した札だけの行は、何も選んでいない
+        var rejected = Assert.Single(minato.Candidates);
+        Assert.True(rejected.IsRejected);
+        Assert.Equal("未選択", minato.StateText);
+
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+
+        var saved = (await app.Store.Items.LoadAsync(ItemId))!.Local;
+        Assert.Equal(["9800301"], saved.VariationTargets.Single(target => target.VariationId == 1).RejectedAvatars);
+        Assert.Equal(["9800311"], saved.VariationTargets.Single(target => target.VariationId == 2).RejectedAvatars);
+
+        // 外した行は人が決めた行なので、名前から見つけた対応で薄くしない（ミナト用を持っているが、向き先が無い＝見分けない）
+        var page = new ItemViewModel((await app.Store.Items.LoadAsync(ItemId))!, app.Services, main, main.Thumbnails);
+        Assert.DoesNotContain(page.AvatarTiles.OfType<AvatarRow>(), row => row.IsOtherVariation);
+
+        // 開き直しても外したまま。押すと確認済みに戻る
+        var reopened = await ShowEditAsync(app, main);
+        var again = reopened.Variations.Single(row => row.Name == "ミナト用").Targets!;
+        Assert.True(Assert.Single(again.Candidates).IsRejected);
+        again.Candidates.Single().ConfirmCommand.Execute(null);
+        Assert.Equal(["ミナト"], again.Chips.Select(chip => chip.Text));
+        Assert.Empty(again.Candidates);
     });
 
     [Fact]

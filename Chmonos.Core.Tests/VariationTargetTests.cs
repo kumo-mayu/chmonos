@@ -89,6 +89,18 @@ public class VariationTargetTests
         Assert.Empty(Index().UnownedVariationAvatars(given, includeDetected: true));
     }
 
+    /// <summary>名前から見つけた物を全部外した行は人が決めた行なので、検出の行を使わない（向き先が無いので、持っていれば見分けない）</summary>
+    [Fact]
+    public void 名前から見つけた物を外しただけの行も_検出に勝つ()
+    {
+        var local = Outfit(Mame) with
+        {
+            VariationTargets = [new VariationTarget { VariationId = Mame, RejectedAvatars = ["kipfel"] }],
+        };
+
+        Assert.Empty(Index().UnownedVariationAvatars(local, includeDetected: true));
+    }
+
     [Fact]
     public void 人が決めた向き先が_同じバリエーションの検出に勝つ()
     {

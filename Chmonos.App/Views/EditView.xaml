@@ -912,6 +912,7 @@
                                                                 <!--
                                                                     名前から見つけた、まだ確認していない対応（ユーザ指摘 2026-11-07：前の「〇〇（名前から）」の字と「この内容で決める」が分かりにくく、ボタンが押せる見た目でなかった）。
                                                                     商品ページの対応アバターの確認待ちと同じ形：頭に点、乗せたときとフォーカスがあるときは点を ✓ に替える。札を押しても確認済みになる
+                                                                    一度決めた行で外した候補はグレーの札で残し（点も ✓ ✕ も無い）、押すと確認済みに戻す（ユーザ指摘 2026-11-07：外した候補が、また確認待ちで出ていた）
                                                                 -->
                                                                 <controls:ContentItemsControl ItemsSource="{Binding Candidates}" controls:ArrowGroup.IsEnabled="True">
                                                                     <ItemsControl.ItemsPanel>
@@ -919,18 +920,31 @@
                                                                     </ItemsControl.ItemsPanel>
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate>
-                                                                            <controls:PressableBorder Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                                            <controls:PressableBorder
                                                                                     BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,2,5,2" Cursor="Hand"
                                                                                     Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                                                                     Command="{Binding ConfirmCommand}"
                                                                                     AutomationProperties.AutomationId="EditVariationTargetCandidate"
                                                                                     AutomationProperties.Name="{Binding Text, StringFormat={}{0}を確認済みにする}"
                                                                                     ToolTip="{Binding Tooltip}">
+                                                                                <Border.Style>
+                                                                                    <Style TargetType="Border">
+                                                                                        <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+                                                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsRejected}" Value="True">
+                                                                                                <Setter Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                                                                                <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Border.Style>
                                                                                 <Border.InputBindings>
                                                                                     <MouseBinding MouseAction="LeftClick" Command="{Binding ConfirmCommand}" />
                                                                                 </Border.InputBindings>
                                                                                 <StackPanel Orientation="Horizontal">
-                                                                                    <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center">
+                                                                                    <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center"
+                                                                                          Visibility="{Binding IsPending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                                         <Ellipse Width="6" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="{DynamicResource Warn}">
                                                                                             <Ellipse.Style>
                                                                                                 <Style TargetType="Ellipse">
@@ -951,7 +965,27 @@
                                                                                                 Command="{Binding ConfirmCommand}"
                                                                                                 ToolTip="確認済みにします。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
                                                                                     </Grid>
-                                                                                    <TextBlock Text="{Binding Text}" FontSize="11.5" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
+                                                                                    <TextBlock Text="{Binding Text}" FontSize="11.5" VerticalAlignment="Center">
+                                                                                        <TextBlock.Style>
+                                                                                            <Style TargetType="TextBlock">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding IsRejected}" Value="True">
+                                                                                                        <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </TextBlock.Style>
+                                                                                    </TextBlock>
+                                                                                    <!-- 商品ページの確認待ちの札と同じく、違う対応を外す ×。外した札には無い（押せば戻る） -->
+                                                                                    <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                                                            Height="16" Background="Transparent" BorderThickness="0" Focusable="False"
+                                                                                            Cursor="Hand" Foreground="{DynamicResource TextMuted}"
+                                                                                            Command="{Binding RejectCommand}"
+                                                                                            Visibility="{Binding IsPending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                                            AutomationProperties.AutomationId="EditVariationTargetReject"
+                                                                                            AutomationProperties.Name="{Binding Text, StringFormat={}{0}を外す}"
+                                                                                            ToolTip="違う対応として外します。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
                                                                                 </StackPanel>
                                                                             </controls:PressableBorder>
                                                                         </DataTemplate>

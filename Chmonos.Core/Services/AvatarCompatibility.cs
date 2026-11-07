@@ -249,9 +249,17 @@ public sealed class AvatarCompatibilityIndex
             }
         }
 
-        foreach (var target in local.VariationTargets.Where(target => !target.IsEmpty && target.VariationId is not null))
+        foreach (var target in local.VariationTargets.Where(target => target.VariationId is not null))
         {
-            targets[target.VariationId!.Value] = target;
+            if (!target.IsEmpty)
+            {
+                targets[target.VariationId!.Value] = target;
+            }
+            else if (target.HasRejections)
+            {
+                // 名前から見つけた物を全部外した行：人が決めた行なので検出の行を使わない。向き先が無いので、持っていれば見分けない
+                targets.Remove(target.VariationId!.Value);
+            }
         }
 
         if ((targets.Count == 0 && !unselectedOwned) || owned.Any(id => !targets.ContainsKey(id)))

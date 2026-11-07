@@ -111,9 +111,26 @@ public sealed record VariationTarget
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool All { get; init; }
 
+    /// <summary>
+    /// 人が「違う」と外した、名前から見つけた向き先（アバターの商品 ID）。次に開いたときも候補に戻さず、外したことを見せる
+    /// （ユーザ指摘 2026-11-07：確認してから外した候補が、また確認待ちで出ていた）。人が決めた行だけが持つ。無ければ書き出さない
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? RejectedAvatars { get; init; }
+
+    /// <summary>人が外した、名前から見つけた共通素体（名前）。<see cref="RejectedAvatars"/> と同じ。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? RejectedBases { get; init; }
+
     /// <summary>何も向き先が無いか（空の行は持たない）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsEmpty => !All && Avatars.Count == 0 && Bases.Count == 0;
+
+    /// <summary>人が外した候補があるか。向き先が空でも、外した記録があれば人が決めた行（検出の行に勝つ）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasRejections => RejectedAvatars is { Count: > 0 } || RejectedBases is { Count: > 0 };
 }
 
 /// <summary>

@@ -164,10 +164,14 @@ public sealed partial class EditViewModel
         foreach (var row in Variations)
         {
             var id = row.VariationId;
+            var decided = record.Local.VariationTargets.FirstOrDefault(target => target.VariationId == id);
             row.Targets = new VariationTargetsInput(
                 choices,
-                ChoicesOf(record.Local.VariationTargets.FirstOrDefault(target => target.VariationId == id)),
-                useDetected ? ChoicesOf(record.Local.DetectedVariationTargets.FirstOrDefault(target => target.VariationId == id)) : []);
+                ChoicesOf(decided),
+                useDetected ? ChoicesOf(record.Local.DetectedVariationTargets.FirstOrDefault(target => target.VariationId == id)) : [],
+                decided is { HasRejections: true }
+                    ? ChoicesOf(new VariationTarget { VariationId = id, Avatars = decided.RejectedAvatars ?? [], Bases = decided.RejectedBases ?? [] })
+                    : []);
             row.Targets.IsPurchased = row.IsPurchased;
         }
     }
