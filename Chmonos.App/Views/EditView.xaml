@@ -22,9 +22,6 @@
             テンプレートと Style を行のテンプレートの中に書くと、行の数だけ作られる。友人のデータのバリエーション52行の商品で、
             編集画面を開いて描き終えるまでが約0.35秒延びた（実測 2026-11-07。VM は数ミリ秒で、延びたのは開いた直後の配置の1回）。ここに置いて行からは参照だけにする
         -->
-        <DataTemplate x:Key="VariationTargetsHidden">
-            <Border Height="30" />
-        </DataTemplate>
         <DataTemplate x:Key="VariationTargetsShown">
             <DockPanel>
                 <DockPanel.Style>
@@ -162,20 +159,19 @@
             </DockPanel>
         </DataTemplate>
         <!--
-            買っていない行は既定で隠す（ユーザ指示 2026-11-07「画面がうるさい」）。隠した行は欄の部品を組まず、1行分（入力欄の高さ30）の場所だけ取る。
-            買った印を付けたときに下が縦にずれないように。札が2行に折り返す行だけは、欄が出たときに1行分下がる。
-            欄の要らない行（Targets が無い）は場所も取らない
+            買っていない行は既定で隠す（ユーザ指示 2026-11-07「画面がうるさい」）。隠した行は部品を組まず、場所も取らない
+            （ユーザ判断 2026-11-07：大量に並ぶ欄なので、畳みを開いたときのスクロール量を増やさない）。
+            出す行も、開いた後に上から少しずつ組む（Targets.IsReady。EditViewModel の BuildTargetsGradually）。
+            テンプレートは出すときにだけ当てる（畳んだままの要素にもテンプレートを持たせると、組まれ得るので）
         -->
         <Style x:Key="VariationTargetsHost" TargetType="ContentControl">
             <Setter Property="Margin" Value="22,8,0,0" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
-            <Setter Property="ContentTemplate" Value="{StaticResource VariationTargetsHidden}" />
+            <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding Targets}" Value="{x:Null}">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding Targets.IsShown}" Value="True">
+                <DataTrigger Binding="{Binding Targets.ShowsSection}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
                     <Setter Property="ContentTemplate" Value="{StaticResource VariationTargetsShown}" />
                 </DataTrigger>
             </Style.Triggers>

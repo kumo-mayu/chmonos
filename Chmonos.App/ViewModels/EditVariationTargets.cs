@@ -115,8 +115,16 @@ public sealed class VariationTargetsInput : ViewModelBase
         {
             if (SetField(ref _isPurchased, value))
             {
+                // 人が印を付けた行は、後回しにせずその場で組む（押した行の欄が出ないと、効いたか分からない）
+                if (value)
+                {
+                    _isReady = true;
+                }
+
                 OnPropertyChanged(nameof(StateText));
                 OnPropertyChanged(nameof(IsShown));
+                OnPropertyChanged(nameof(IsReady));
+                OnPropertyChanged(nameof(ShowsSection));
             }
         }
     }
@@ -125,9 +133,31 @@ public sealed class VariationTargetsInput : ViewModelBase
     public bool ShowsUnpurchased { get; init; }
 
     /// <summary>
-    /// 欄を見せるか。見せないときも場所は残す（買った印を付けたときに欄が出て、下の行が縦にずれないように。ユーザ指示 2026-11-07）
+    /// 欄を見せるか。見せない行は場所も取らない（ユーザ判断 2026-11-07：行が大量に並ぶ欄なので、畳みを開いたときのスクロール量を増やさない。
+    /// 買った印を付けて欄が出るときに下の行がずれるのは受け入れる）
     /// </summary>
     public bool IsShown => _isPurchased || ShowsUnpurchased;
+
+    private bool _isReady;
+
+    /// <summary>
+    /// 欄の部品を組んでよいか。編集画面が開いた後に上の行から順に立てる（<see cref="EditViewModel"/> の BuildTargetsGradually）。
+    /// 全部の行を開いたときにまとめて組むと、バリエーション52行の商品で開くのが約0.35秒延びた（実測 2026-11-07）
+    /// </summary>
+    public bool IsReady
+    {
+        get => _isReady;
+        set
+        {
+            if (SetField(ref _isReady, value))
+            {
+                OnPropertyChanged(nameof(ShowsSection));
+            }
+        }
+    }
+
+    /// <summary>画面に欄を出すか。</summary>
+    public bool ShowsSection => IsShown && _isReady;
 
     /// <summary>
     /// まだ決めていないことの印（ユーザ判断 2026-11-07・案A：ファイルのバリエーション分けの「未指定」と同じオレンジの札）。

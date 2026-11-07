@@ -177,6 +177,72 @@ public sealed partial class EditViewModel
             };
             row.Targets.IsPurchased = row.IsPurchased;
         }
+
+        BuildTargetsGradually();
+    }
+
+    /// <summary>読み直すたびに増やす。前の商品の分の後回しが、次の商品の行に効かないように。</summary>
+    private int _targetsGeneration;
+
+    /// <summary>開いたときにその場で組む行の数。開いた画面に見えている分を目安にした（1行がおおよそ60〜90の高さ）。</summary>
+    private const int TargetsFirstBatch = 8;
+
+    /// <summary>
+    /// 後回しの1回で組む行の数。友人のデータでは欄1つが約7ミリ秒（52行で約0.35秒）なので、4行なら1回が2コマ（33ミリ秒）ほどに収まり、
+    /// 間で打った入力・スクロールが待たされない
+    /// </summary>
+    private const int TargetsStep = 4;
+
+    /// <summary>
+    /// 欄を上の行から少しずつ組む（ユーザ指示 2026-11-07：買っていない行も全部出す設定の人に、まとめて組んで開くのを遅らせない）。
+    /// 見えている所だけ組む作りにしないのは、この一覧が画面全体のスクロールの中にあり、一覧の仮想化が効かないため
+    /// </summary>
+    private void BuildTargetsGradually()
+    {
+        var generation = ++_targetsGeneration;
+        var waiting = Variations
+            .Select(row => row.Targets)
+            .OfType<VariationTargetsInput>()
+            // 隠す行は組まない（買った印を付けたときに、その行だけその場で組む）
+            .Where(targets => targets.IsShown && !targets.IsReady)
+            .ToList();
+
+        foreach (var targets in waiting.Take(TargetsFirstBatch))
+        {
+            targets.IsReady = true;
+        }
+
+        if (waiting.Count <= TargetsFirstBatch)
+        {
+            return;
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null)
+        {
+            waiting.ForEach(targets => targets.IsReady = true);
+            return;
+        }
+
+        void Next(int from)
+        {
+            if (generation != _targetsGeneration)
+            {
+                return;
+            }
+
+            foreach (var targets in waiting.Skip(from).Take(TargetsStep))
+            {
+                targets.IsReady = true;
+            }
+
+            if (from + TargetsStep < waiting.Count)
+            {
+                dispatcher.BeginInvoke(DispatcherPriority.Background, () => Next(from + TargetsStep));
+            }
+        }
+
+        dispatcher.BeginInvoke(DispatcherPriority.Background, () => Next(TargetsFirstBatch));
     }
 
     /// <summary>

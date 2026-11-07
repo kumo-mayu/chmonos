@@ -296,26 +296,47 @@ public class VariationTargetsTests
         Assert.Empty(again.Candidates);
     });
 
-    /// <summary>買っていない行の欄は既定で隠し（場所は残す）、印を付けると見せる。設定で買っていない行にも見せられる（ユーザ指示 2026-11-07）</summary>
+    /// <summary>
+    /// 買っていない行の欄は既定で隠し（部品を組まず、場所も取らない）、印を付けるとその場で見せる（ユーザ判断 2026-11-07）
+    /// </summary>
     [Fact]
-    public Task 買っていない行の対応の欄は既定で隠し_設定で見せる() => TestApp.Run(async app =>
+    public Task 買っていない行の対応の欄は既定で隠し_印を付けるとその場で出す() => TestApp.Run(async app =>
     {
         var edit = await OpenEditAsync(app, Outfit());
         var sora = edit.Variations.Single(row => row.Name == "ソラ用");
-        Assert.True(edit.Variations.Single(row => row.Name == "ミナト用").Targets!.IsShown);
+        Assert.True(edit.Variations.Single(row => row.Name == "ミナト用").Targets!.ShowsSection);
         Assert.False(sora.Targets!.IsShown);
+        Assert.False(sora.Targets.ShowsSection);
 
         sora.IsPurchased = true;
-        Assert.True(sora.Targets.IsShown);
+
+        // 後回しにせず、押した行の欄はすぐ出る
+        Assert.True(sora.Targets.ShowsSection);
     });
 
+    /// <summary>
+    /// 全部出す設定でも、開いたときにまとめて組まず、上から少しずつ組み終える（ユーザ指示 2026-11-07）。
+    /// 途中の様子（最初の8行だけ）は、待つ道具が後回しの処理も進めてしまうので、ここでは見ない。開く速さは実測で見た
+    /// </summary>
     [Fact]
-    public Task 設定で_買っていない行にも対応の欄を見せる() => TestApp.Run(async app =>
+    public Task 設定で_買っていない行にも対応の欄を見せる_多い行も全部組み終える() => TestApp.Run(async app =>
     {
         await app.ChangeSettingsAsync(settings => settings with { ShowVariationTargetsForUnpurchased = true });
-        var edit = await OpenEditAsync(app, Outfit());
+        var many = Outfit();
+        many = many with
+        {
+            Booth = many.Booth with
+            {
+                Variations = [.. Enumerable.Range(1, 30).Select(id => new BoothVariation { Id = id, Name = $"版{id}", Price = 1500 })],
+            },
+        };
 
-        Assert.True(edit.Variations.Single(row => row.Name == "ソラ用").Targets!.IsShown);
+        var edit = await OpenEditAsync(app, many);
+        await app.SettleAsync();
+
+        var rows = edit.Variations.Where(row => row.HasTargets).ToList();
+        Assert.True(rows.Count > 8);
+        Assert.All(rows, row => Assert.True(row.Targets!.ShowsSection));
     });
 
     [Fact]
