@@ -160,9 +160,10 @@ public sealed partial class EditViewModel
         }
 
         var useDetected = _services.Settings.UseDetectedVariationTargets;
-        foreach (var row in Variations.Where(row => row.VariationId is not null))
+        // 「バリエーションを選ばない購入」の行（null）にも付ける（ユーザ指摘 2026-11-07）。名前が無いので検出の札は出ない
+        foreach (var row in Variations)
         {
-            var id = row.VariationId!.Value;
+            var id = row.VariationId;
             row.Targets = new VariationTargetsInput(
                 choices,
                 ChoicesOf(record.Local.VariationTargets.FirstOrDefault(target => target.VariationId == id)),
@@ -176,16 +177,16 @@ public sealed partial class EditViewModel
     /// </summary>
     private List<VariationTarget> BuildVariationTargets(ItemRecord record)
     {
-        var shown = Variations.Where(row => row.Targets is not null && row.VariationId is not null).ToList();
+        var shown = Variations.Where(row => row.Targets is not null).ToList();
         if (shown.Count == 0)
         {
             return [.. record.Local.VariationTargets];
         }
 
-        var shownIds = shown.Select(row => row.VariationId!.Value).ToHashSet();
+        var shownIds = shown.Select(row => row.VariationId).ToHashSet();
         return
         [
-            .. shown.Select(row => row.Targets!.ToTarget(row.VariationId!.Value)).OfType<VariationTarget>(),
+            .. shown.Select(row => row.Targets!.ToTarget(row.VariationId)).OfType<VariationTarget>(),
             .. record.Local.VariationTargets.Where(target => !shownIds.Contains(target.VariationId)),
         ];
     }

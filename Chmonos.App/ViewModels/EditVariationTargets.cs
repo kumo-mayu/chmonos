@@ -153,7 +153,7 @@ public sealed class VariationTargetsInput : ViewModelBase
     }
 
     /// <summary>人が決めた向き先の行。札が無ければ null（行を持たない＝検出に任せる）。</summary>
-    public VariationTarget? ToTarget(long variationId)
+    public VariationTarget? ToTarget(long? variationId)
         => Chips.Count == 0
             ? null
             : new VariationTarget

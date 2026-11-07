@@ -91,7 +91,11 @@ public sealed record AvatarBaseLink
 /// </summary>
 public sealed record VariationTarget
 {
-    public required long VariationId { get; init; }
+    /// <summary>
+    /// どのバリエーションか。**null は「バリエーションを選ばない購入」**（ユーザ指摘 2026-11-07：種類の分からない購入でも、何のアバター向けに買ったかは言える）。
+    /// 人が決めた行だけが null を持つ（検出はバリエーションの名前から引くので、いつも ID がある）。
+    /// </summary>
+    public required long? VariationId { get; init; }
 
     /// <summary>向き先のアバター（商品 ID）。</summary>
     public IReadOnlyList<string> Avatars { get; init; } = [];

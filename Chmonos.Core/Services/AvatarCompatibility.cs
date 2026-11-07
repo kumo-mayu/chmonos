@@ -228,7 +228,13 @@ public sealed class AvatarCompatibilityIndex
             .Select(purchase => purchase.VariationId!.Value)
             .Concat(local.OwnedFiles.Where(file => file.VariationId is not null).Select(file => file.VariationId!.Value))
             .ToHashSet();
-        if (owned.Count == 0)
+
+        // バリエーションを選ばない購入に人が向き先を付けていれば、それも持っている分に数える（ユーザ指摘 2026-11-07）。
+        // 付けていなければ前と同じく数えない（何のバリエーションか言えない購入で、持っている分を広げも狭めもしない）
+        var unselected = local.VariationTargets.FirstOrDefault(target => target.VariationId is null && !target.IsEmpty);
+        var unselectedOwned = unselected is not null
+            && local.Purchases.Any(purchase => purchase.Kind != PurchaseKind.Given && purchase.VariationId is null);
+        if (owned.Count == 0 && !unselectedOwned)
         {
             return none;
         }
@@ -237,18 +243,18 @@ public sealed class AvatarCompatibilityIndex
         var targets = new Dictionary<long, VariationTarget>();
         if (includeDetected)
         {
-            foreach (var target in local.DetectedVariationTargets.Where(target => !target.IsEmpty))
+            foreach (var target in local.DetectedVariationTargets.Where(target => !target.IsEmpty && target.VariationId is not null))
             {
-                targets[target.VariationId] = target;
+                targets[target.VariationId!.Value] = target;
             }
         }
 
-        foreach (var target in local.VariationTargets.Where(target => !target.IsEmpty))
+        foreach (var target in local.VariationTargets.Where(target => !target.IsEmpty && target.VariationId is not null))
         {
-            targets[target.VariationId] = target;
+            targets[target.VariationId!.Value] = target;
         }
 
-        if (targets.Count == 0 || owned.Any(id => !targets.ContainsKey(id)))
+        if ((targets.Count == 0 && !unselectedOwned) || owned.Any(id => !targets.ContainsKey(id)))
         {
             return none;
         }
@@ -265,6 +271,13 @@ public sealed class AvatarCompatibilityIndex
             {
                 reached.UnionWith(expanded);
             }
+        }
+
+        if (unselectedOwned)
+        {
+            var expanded = Expand(unselected!, resolved);
+            bound.UnionWith(expanded);
+            reached.UnionWith(expanded);
         }
 
         var unowned = resolved.Keys.Where(avatar => bound.Contains(avatar) && !reached.Contains(avatar)).ToHashSet(StringComparer.Ordinal);

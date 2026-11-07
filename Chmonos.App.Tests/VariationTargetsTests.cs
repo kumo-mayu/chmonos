@@ -204,6 +204,27 @@ public class VariationTargetsTests
     });
 
     [Fact]
+    public Task バリエーションを選ばない購入の行にも_対応を付けて保存できる() => TestApp.Run(async app =>
+    {
+        var edit = await OpenEditAsync(app, Outfit(local => local with
+        {
+            Purchases = [new Purchase { VariationId = null, NameSnapshot = null, Price = 1500 }],
+        }));
+
+        var unselected = edit.Variations.Single(row => row.VariationId is null);
+        Assert.True(unselected.HasTargets);
+        Assert.Empty(unselected.Targets!.Candidates);
+        unselected.Targets.AddCommand.Execute("ソラ");
+
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+
+        var saved = Assert.Single((await app.Store.Items.LoadAsync(ItemId))!.Local.VariationTargets);
+        Assert.Null(saved.VariationId);
+        Assert.Equal(["9800311"], saved.Avatars);
+    });
+
+    [Fact]
     public Task バリエーションが1つの商品には_対応の欄を付けない() => TestApp.Run(async app =>
     {
         var single = Outfit();

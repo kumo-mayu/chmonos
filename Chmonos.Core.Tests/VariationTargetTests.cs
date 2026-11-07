@@ -70,6 +70,25 @@ public class VariationTargetTests
         Assert.Equal(["kuuta"], Index().UnownedVariationAvatars(file, includeDetected: true));
     }
 
+    /// <summary>種類の分からない購入でも、人が何のアバター向けかを付けていれば、持っている分に数える（ユーザ指摘 2026-11-07）</summary>
+    [Fact]
+    public void バリエーションを選ばない購入に付けた向き先も_持っている分に数える()
+    {
+        var local = Outfit() with
+        {
+            Purchases = [new Purchase { VariationId = null }],
+            VariationTargets = [new VariationTarget { VariationId = null, Avatars = ["kuuta"] }],
+        };
+        Assert.Equal(["kipfel", "mamehinata"], Index().UnownedVariationAvatars(local, includeDetected: true).Order());
+
+        // 付けていなければ前と同じく数えない（持っているバリエーションが分からない）
+        Assert.Empty(Index().UnownedVariationAvatars(local with { VariationTargets = [] }, includeDetected: true));
+
+        // 贈った購入は持っている分に入れない
+        var given = local with { Purchases = [new Purchase { VariationId = null, Kind = PurchaseKind.Given }] };
+        Assert.Empty(Index().UnownedVariationAvatars(given, includeDetected: true));
+    }
+
     [Fact]
     public void 人が決めた向き先が_同じバリエーションの検出に勝つ()
     {
