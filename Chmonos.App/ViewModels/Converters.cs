@@ -17,21 +17,6 @@ public sealed class BoolToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
-/// 偽なら隠すが、場所は残す（<see cref="Visibility.Hidden"/>）。印を付けたときに要素が出入りして、下の行が縦にずれないようにする
-/// （編集の画面のバリエーションの対応。ユーザ指示 2026-11-07）。
-/// </summary>
-public sealed class BoolToHiddenConverter : IValueConverter
-{
-    public static readonly BoolToHiddenConverter Instance = new();
-
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is true ? Visibility.Visible : Visibility.Hidden;
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-
-/// <summary>
 /// 空文字のときだけ見せる。入力欄に重ねる placeholder に使う。
 ///
 /// **空欄は「入力を求めている」と読まれる。**既定が決まっているなら、
