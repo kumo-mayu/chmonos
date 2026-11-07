@@ -224,6 +224,29 @@ public class VariationTargetsTests
         Assert.Equal(["9800311"], saved.Avatars);
     });
 
+    /// <summary>決めていない印（ユーザ判断 2026-11-07・案A）：買った行だけに、何も無ければ「未選択」、確認待ちだけなら「未確認」</summary>
+    [Fact]
+    public Task 買った行だけに_決めていない印を出す() => TestApp.Run(async app =>
+    {
+        var edit = await OpenEditAsync(app, Outfit());
+        var minato = edit.Variations.Single(row => row.Name == "ミナト用");
+        var set = edit.Variations.Single(row => row.Name == "セット");
+        var sora = edit.Variations.Single(row => row.Name == "ソラ用");
+
+        Assert.Equal("未確認", minato.Targets!.StateText);
+        Assert.Null(set.Targets!.StateText);
+        Assert.Null(sora.Targets!.StateText);
+
+        set.IsPurchased = true;
+        Assert.Equal("未選択", set.Targets.StateText);
+
+        minato.Targets.Candidates.Single().ConfirmCommand.Execute(null);
+        Assert.Null(minato.Targets.StateText);
+
+        set.Targets.AddCommand.Execute("対応アバターすべて");
+        Assert.Null(set.Targets.StateText);
+    });
+
     [Fact]
     public Task バリエーションが1つの商品には_対応の欄を付けない() => TestApp.Run(async app =>
     {

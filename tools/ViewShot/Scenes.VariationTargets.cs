@@ -25,7 +25,7 @@ internal static partial class Scenes
 
         new Scene("edit-variation-targets", "編集画面：購入したバリエーションの行ごとの対応（人が決めた札・名前から見つけた対応・買っていない行は薄い）", async context =>
         {
-            var item = await SeedVariationOutfitAsync(context);
+            var item = await SeedVariationOutfitAsync(context, editStates: true);
             var main = await context.StartAsync();
             await main.ShowEditAsync([item.Id]);
             var edit = context.Screen<EditViewModel>();
@@ -37,7 +37,7 @@ internal static partial class Scenes
         }),
     ];
 
-    private static async Task<ItemRecord> SeedVariationOutfitAsync(SceneContext context)
+    private static async Task<ItemRecord> SeedVariationOutfitAsync(SceneContext context, bool editStates = false)
     {
         static AvatarRegistryEntry Avatar(string id, string name, string? baseName) => new()
         {
@@ -92,7 +92,14 @@ internal static partial class Scenes
                 {
                     Avatars = [Link("9800301", "ミナト"), Link("9800311", "ソラ"), Link("9800321", "リク")],
                     AvatarsDetectedAt = DateTimeOffset.Now,
-                    Purchases = [new Purchase { VariationId = 1, NameSnapshot = "ミナト用", Price = 1500 }],
+                    // 編集の画面では、決めていない印の2つ（ソラ用＝確認待ちだけで「未確認」・セット＝何も無く「未選択」）も見せるため、買った行を足す
+                    Purchases = editStates
+                        ? [
+                            new Purchase { VariationId = 1, NameSnapshot = "ミナト用", Price = 1500 },
+                            new Purchase { VariationId = 2, NameSnapshot = "ソラ用", Price = 1500 },
+                            new Purchase { VariationId = 4, NameSnapshot = "セット", Price = 3500 },
+                        ]
+                        : [new Purchase { VariationId = 1, NameSnapshot = "ミナト用", Price = 1500 }],
                     VariationTargets = [new VariationTarget { VariationId = 1, Bases = ["作り物素体"] }],
                     DetectedVariationTargets =
                     [

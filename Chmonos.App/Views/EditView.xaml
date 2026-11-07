@@ -871,6 +871,14 @@
                                                         <DockPanel>
                                                             <TextBlock DockPanel.Dock="Left" Text="対応" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                                        ToolTip="このバリエーションが、どのアバター向けかです。" />
+                                                            <!-- まだ決めていない印（ユーザ判断 2026-11-07・案A）。ファイルのバリエーション分けの「未指定」と同じ札。買った行だけ -->
+                                                            <Border DockPanel.Dock="Left" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
+                                                                    BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,0,7,0" VerticalAlignment="Center"
+                                                                    ToolTip="{Binding StateTip}"
+                                                                    AutomationProperties.AutomationId="EditVariationTargetState"
+                                                                    Visibility="{Binding StateText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}">
+                                                                <TextBlock Text="{Binding StateText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                            </Border>
                                                             <controls:SuggestBox DockPanel.Dock="Right" Width="170" Source="{Binding Suggestions}" CommitCommand="{Binding AddCommand}"
                                                                                  Placeholder="アバターを追加" Margin="8,0,0,0"
                                                                                  AutomationProperties.AutomationId="EditVariationTargetInput"

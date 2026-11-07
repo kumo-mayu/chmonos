@@ -85,6 +85,31 @@ public sealed class VariationTargetsInput : ViewModelBase
 
     public bool HasChips => Chips.Count > 0;
 
+    private bool _isPurchased;
+
+    /// <summary>この行を買ったか。決めていない印は買った行だけに出す（買っていない行は持っている分の見分けに効かないので、騒がない）。</summary>
+    public bool IsPurchased
+    {
+        get => _isPurchased;
+        set
+        {
+            if (SetField(ref _isPurchased, value))
+            {
+                OnPropertyChanged(nameof(StateText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// まだ決めていないことの印（ユーザ判断 2026-11-07・案A：ファイルのバリエーション分けの「未指定」と同じオレンジの札）。
+    /// 確認済みの札も確認待ちの札も無ければ「未選択」、確認待ちの札だけなら「未確認」。買っていない行と、決めた行は null
+    /// </summary>
+    public string? StateText => !_isPurchased || Chips.Count > 0 ? null : Candidates.Count > 0 ? "未確認" : "未選択";
+
+    public string StateTip => Candidates.Count > 0
+        ? "名前から見つけた対応を確認していません。札を押すと確認済みにします。"
+        : "どのアバター向けかを決めていません。右の欄から追加します。";
+
     public RelayCommand AddCommand { get; }
 
     public void Add(string? text)
@@ -128,6 +153,8 @@ public sealed class VariationTargetsInput : ViewModelBase
     {
         RefreshSuggestions();
         OnPropertyChanged(nameof(HasChips));
+        OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(StateTip));
     }
 
     private void RefreshSuggestions()

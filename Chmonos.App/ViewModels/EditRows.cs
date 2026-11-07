@@ -144,6 +144,11 @@ public sealed class OrderedVariationInput : ViewModelBase
 
     internal void NotePurchasedChanged()
     {
+        if (Targets is not null)
+        {
+            Targets.IsPurchased = IsPurchased;
+        }
+
         OnPropertyChanged(nameof(CanAddPurchase));
         RelayCommand.RaiseCanExecuteChanged();
         PurchasedChanged?.Invoke();

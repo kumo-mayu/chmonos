@@ -168,6 +168,7 @@ public sealed partial class EditViewModel
                 choices,
                 ChoicesOf(record.Local.VariationTargets.FirstOrDefault(target => target.VariationId == id)),
                 useDetected ? ChoicesOf(record.Local.DetectedVariationTargets.FirstOrDefault(target => target.VariationId == id)) : []);
+            row.Targets.IsPurchased = row.IsPurchased;
         }
     }
 
