@@ -236,8 +236,22 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     public static bool IsRedetectDue(DateTimeOffset? detectedAt, int intervalDays, DateTimeOffset now)
         => detectedAt is not { } last || now - last >= TimeSpan.FromDays(Math.Max(1, intervalDays));
 
+    /// <summary>
+    /// 検出の決まりの版。検出が新しい物を記録するようになったら上げる。登録簿の版（<see cref="AvatarRegistry.DetectionRevision"/>）がこれより古ければ、
+    /// 起動時に間隔を待たずに1回だけ検出し直す——上げた直後の今ある商品に、新しい物が次の検出まで入らないため。
+    /// 1：バリエーションごとの対応（<see cref="LocalBlock.DetectedVariationTargets"/>・v1.3.0・ユーザ判断 2026-11-07）
+    /// </summary>
+    public const int DetectionRevision = 1;
+
     /// <inheritdoc cref="IsRedetectDue(DateTimeOffset?, int, DateTimeOffset)"/>
-    public bool IsRedetectDue() => IsRedetectDue(_store.Avatars.Load().DetectedAt, _settings.AvatarDetectRecheckDays, DateTimeOffset.Now);
+    public bool IsRedetectDue()
+    {
+        var registry = _store.Avatars.Load();
+
+        // 一度も検出していない保存先は、今までどおり日時の側で決まる（DetectedAt が無ければ検出する）
+        return (registry.DetectedAt is not null && registry.DetectionRevision < DetectionRevision)
+            || IsRedetectDue(registry.DetectedAt, _settings.AvatarDetectRecheckDays, DateTimeOffset.Now);
+    }
 
     /// <summary>
     /// この登録簿の項目をアバターとして扱うか。
@@ -1415,6 +1429,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         return new AvatarRegistry
         {
             DetectedAt = DateTimeOffset.Now,
+            DetectionRevision = DetectionRevision,
             Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
             BaseGroups = groups.Values.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
         };
@@ -1454,6 +1469,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         return new AvatarRegistry
         {
             DetectedAt = latest.DetectedAt,
+            DetectionRevision = latest.DetectionRevision,
             Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
             BaseGroups = latest.BaseGroups,
         };

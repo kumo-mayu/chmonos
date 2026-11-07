@@ -104,6 +104,13 @@ public sealed class AvatarRegistry
     /// </summary>
     public DateTimeOffset? DetectedAt { get; init; }
 
+    /// <summary>
+    /// 最後のライブラリ全体の検出が、どの版の決まりで書いたか（<see cref="Services.AvatarService.DetectionRevision"/>）。
+    /// 検出が新しい物を記録するようになったら版を上げ、起動時に1回だけ検出し直す（v1.3.0 のバリエーションごとの対応・ユーザ判断 2026-11-07）。
+    /// 欄の無い登録簿は 0。**登録簿を書き直す所はこれも引き継ぐ**（<see cref="DetectedAt"/> と同じ）
+    /// </summary>
+    public int DetectionRevision { get; init; }
+
     public IReadOnlyList<AvatarRegistryEntry> Entries { get; init; } = [];
 
     /// <summary>共通素体のグループ。名前をキーにする（BOOTH商品とは限らないため）。</summary>

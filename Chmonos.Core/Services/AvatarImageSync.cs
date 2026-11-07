@@ -235,6 +235,7 @@ public sealed class AvatarImageSync
             latest => new AvatarRegistry
             {
                 DetectedAt = latest.DetectedAt,
+                DetectionRevision = latest.DetectionRevision,
                 Entries = latest.Entries
                     .Select(entry => pending.TryGetValue(entry.ItemId, out var url) ? entry with { ImageUrl = url } : entry)
                     .ToList(),

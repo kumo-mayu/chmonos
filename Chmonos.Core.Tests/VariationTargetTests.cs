@@ -164,8 +164,20 @@ public class VariationTargetTests
                 Local = new LocalBlock(),
             });
 
-            await new AvatarService(store, new AppSettings()).DetectAsync();
+            // 前の版で検出した保存先（つい先ほど検出していても、版が古ければ起動時に1回だけ検出し直す）
+            await store.Avatars.UpdateAsync(registry => new AvatarRegistry
+            {
+                DetectedAt = DateTimeOffset.Now,
+                Entries = registry.Entries,
+                BaseGroups = registry.BaseGroups,
+            });
+            var service = new AvatarService(store, new AppSettings());
+            Assert.True(service.IsRedetectDue());
 
+            await service.DetectAsync();
+
+            Assert.Equal(AvatarService.DetectionRevision, store.Avatars.Load().DetectionRevision);
+            Assert.False(service.IsRedetectDue());
             var targets = (await store.Items.LoadAsync("999"))!.Local.DetectedVariationTargets;
             Assert.Equal([10L, 20L], targets.Select(target => target.VariationId));
             Assert.Equal(["1111"], targets[0].Avatars);

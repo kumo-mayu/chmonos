@@ -614,6 +614,7 @@ public sealed class ModificationService : IModificationService
                 : new AvatarRegistry
                 {
                     DetectedAt = registry.DetectedAt,
+                    DetectionRevision = registry.DetectionRevision,
                     Entries = registry.Entries
                         .Append(new AvatarRegistryEntry
                         {

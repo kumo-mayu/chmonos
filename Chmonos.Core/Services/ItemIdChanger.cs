@@ -461,6 +461,7 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
                         ? new AvatarRegistry
                         {
                             DetectedAt = registry.DetectedAt,
+                            DetectionRevision = registry.DetectionRevision,
                             Entries = entries,
                             BaseGroups = groups,
                         }

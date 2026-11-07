@@ -636,6 +636,7 @@ public sealed partial class AvatarService
         => new()
         {
             DetectedAt = registry.DetectedAt,
+            DetectionRevision = registry.DetectionRevision,
             Entries = entries.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
             BaseGroups = groups.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
         };
