@@ -409,6 +409,39 @@ internal static partial class Scenes
             Width = 1600,
         },
 
+        // アバターごとの unitypackage が数十個入った衣装（2026-11-07：多い一覧を、見えている分から作る直しの確かめと、組む時間の比べ）
+        new Scene("item-files-many", "商品ページの手元のファイル：ファイル30個と、Unityへ送れるもの40個のフォルダ", async context =>
+        {
+            var folder = Fake.Folder(@"展開物\avatar_outfits");
+            var packages = Enumerable.Range(1, 40).Select(number => $"Outfit_Avatar{number:D2}.unitypackage").ToList();
+            foreach (var package in packages)
+            {
+                Fake.PlainFile($@"展開物\avatar_outfits\{package}");
+            }
+
+            var item = await context.Fake.ItemAsync("9900109", "作り物の衣装（アバター40体分）", record => record with
+            {
+                Local = record.Local with
+                {
+                    LocalFolders = [new LocalFolderRecord { Path = folder, FileCount = 40, TotalBytes = 400_000_000, UnityPackages = packages }],
+                    LocalFiles = [.. Enumerable.Range(1, 30).Select(number => Fake.FileRecord(Fake.Zip($@"ライブラリ\outfit_part{number:D2}.zip", "outfit.unitypackage")))],
+                },
+            });
+
+            var main = await context.StartAsync();
+            main.ShowItem(item);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var page = context.Screen<ItemViewModel>();
+            await SceneContext.UntilAsync(() => page.LocalFolders.Any(row => row.HasUnityPackages), "フォルダの行に Unity へ送れるものが並ぶ");
+
+            return new Shot(root) { Focus = () => Look.View<ItemFilesPanel>(root) };
+        })
+        {
+            Width = 1600,
+        },
+
         new Scene("item-page", "商品ページの全体：絵3枚・タグ・手元のファイル1つ", async context =>
         {
             var item = await context.Fake.ItemAsync(

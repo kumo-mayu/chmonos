@@ -86,6 +86,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 対応アバター29体・共通素体 | `item-page-avatars` |
 | 確認待ちの対応アバター（見出しの［すべて確認済みにする］・札にフォーカスして ✓） | `item-page-avatars-unconfirmed`・`item-page-avatars-unconfirmed-focus` |
 | 手元のファイルの状態（在る・壊れた・見つからない・外したドライブ・2箇所） | `item-files-states` |
+| 手元のファイルが多い商品（ファイル30個・Unityへ送れるもの40個。見えている分から作る直しの確かめ） | `item-files-many` |
 | 長い説明（開いた・畳んだ・流した・最後・縦長） | `item-page-long`・`item-page-long-*` |
 | 読み込み中（最初の1コマ） | `item-page-long-first-frame` |
 | 流した位置を保つ（次・戻る・進む・開き直す） | `item-page-next-after-scroll`・`item-page-back-*`・`item-page-forward-after-back`・`item-page-reopen-after-scroll`・`item-page-files-*` |

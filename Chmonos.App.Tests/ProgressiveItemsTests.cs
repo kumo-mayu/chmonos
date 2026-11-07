@@ -212,6 +212,25 @@ public class ProgressiveItemsTests
     });
 
     [Fact]
+    public Task 足し終えた一覧への1件の足し引きは_ほかの行を作り直さない() => UiThread.Run(async () =>
+    {
+        // ファイルを ✕ で外したとき。行を全部作り直すと、キーボードの焦点が窓へ落ちる
+        using var host = new Host();
+        var source = new System.Collections.ObjectModel.ObservableCollection<object>(Numbers(5));
+        host.Bind(source);
+        host.Layout();
+        var kept = host.List.ItemContainerGenerator.ContainerFromIndex(3);
+
+        source.RemoveAt(1);
+        source.Insert(0, 99);
+        host.Layout();
+
+        Assert.Equal(new object[] { 99, 0, 2, 3, 4 }, host.List.Items.Cast<object>());
+        Assert.Same(kept, host.List.ItemContainerGenerator.ContainerFromIndex(3));
+        await Idle();
+    });
+
+    [Fact]
     public Task 別の一覧へ結び替えた後は_前の一覧の足し引きを写さない() => UiThread.Run(async () =>
     {
         using var host = new Host();

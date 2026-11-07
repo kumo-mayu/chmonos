@@ -125,6 +125,16 @@ public static class ProgressiveItems
             return;
         }
 
+        // 足し終えた一覧への1件の足し引き（ファイルを1つ外した・足した）は、写しにもそのまま当てる。
+        // 丸ごと作り直すと行の部品が全部作り直され、✕ で外した後にキーボードの焦点が窓へ落ちる（点検 2026-10-01 と同じ形）
+        if (args.Action != NotifyCollectionChangedAction.Reset
+            && !Active.Any(feeder => ReferenceEquals(feeder.List, list))
+            && list.ItemsSource is ObservableCollection<object> target
+            && Mirror(target, args))
+        {
+            return;
+        }
+
         // Normal の段は配置と描画より先に回るので、作り直した最初のコマは、全部を1回で作ったときと同じになる
         list.SetValue(RebuildPendingProperty, true);
         list.Dispatcher.BeginInvoke(DispatcherPriority.Normal, () =>
@@ -135,6 +145,39 @@ public static class ProgressiveItems
                 Start(list, source as IEnumerable);
             }
         });
+    }
+
+    /// <summary>元への足し引きを写しへ当てる。位置が合わない（写しが元とずれている）ときは false で、作り直しに回す。</summary>
+    private static bool Mirror(ObservableCollection<object> target, NotifyCollectionChangedEventArgs args)
+    {
+        switch (args.Action)
+        {
+            case NotifyCollectionChangedAction.Add when args.NewItems is { } added && args.NewStartingIndex is var at && at >= 0 && at <= target.Count:
+                for (var index = 0; index < added.Count; index++)
+                {
+                    target.Insert(at + index, added[index]!);
+                }
+
+                return true;
+            case NotifyCollectionChangedAction.Remove when args.OldItems is { } removed && args.OldStartingIndex is var from && from >= 0
+                && from + removed.Count <= target.Count:
+                for (var index = 0; index < removed.Count; index++)
+                {
+                    target.RemoveAt(from);
+                }
+
+                return true;
+            case NotifyCollectionChangedAction.Replace when args.NewItems is { Count: 1 } replaced && args.NewStartingIndex is var spot
+                && spot >= 0 && spot < target.Count:
+                target[spot] = replaced[0]!;
+                return true;
+            case NotifyCollectionChangedAction.Move when args.OldItems is { Count: 1 } && args.OldStartingIndex is var old && args.NewStartingIndex is var to
+                && old >= 0 && old < target.Count && to >= 0 && to < target.Count:
+                target.Move(old, to);
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static void Start(ItemsControl list, IEnumerable? newSource)

@@ -112,7 +112,7 @@
                                                     <TextBlock Text="{Binding UnityPackageNote}" Style="{StaticResource Caption}"
                                                                Margin="10,0,0,5" TextWrapping="Wrap"
                                                                Visibility="{Binding HasManyUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <controls:ContentItemsControl ItemsSource="{Binding UnityPackageRows}">
+                                                    <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding UnityPackageRows}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Border BorderBrush="{DynamicResource AccentBorder}" BorderThickness="2,0,0,0"
@@ -217,7 +217,7 @@
                             <!-- 外したファイルを戻すの失敗。1行ぶんの場所は常に取る（出入りで下の行が動かないように） -->
                             <controls:AreaNoticeLine DataContext="{Binding FilesNotice}" Margin="16,0,16,0" />
                             <!-- フォルダとして所有しているもの。zipが残っていない展開済みの配布物 -->
-                            <controls:ContentItemsControl ItemsSource="{Binding LocalFolders}" controls:ArrowGroup.IsEnabled="True"
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding LocalFolders}" controls:ArrowGroup.IsEnabled="True"
                                           Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -303,7 +303,7 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
 
-                            <controls:ContentItemsControl ItemsSource="{Binding LocalFiles}" controls:ArrowGroup.IsEnabled="True">
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding LocalFiles}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
