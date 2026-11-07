@@ -81,7 +81,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - `ContentPresenter` は中身を自分の DataContext にする。`<ContentPresenter Content="{Binding Row}" Margin="{Binding InnerMargin}"/>` の Margin は
   行ではなく中身を見て黙って効かない。余白は外の `Border` に付ける（改変の左の一覧で、行の間が4pxずつ詰まっていた）
 - 裏から細かく届く進み具合は、最新だけを間引いて出す（`Services/LatestProgress`。`Progress<T>` は全部を画面のスレッドへ積む）
-- 検索の View は1つを持ち回す（`Views/SearchViewHost`）。View に状態を足すときは、離れる（Unloaded）・戻る（Loaded）が何度も来る前提で書く
+- 検索の View は1つを持ち回す（`Views/SearchViewHost`）。View に状態を足すときは、離れる（Unloaded）・戻る（Loaded）が何度も来る前提で書く。商品ページの View も同じ（`Views/ItemViewHost`・2026-11-07）
 - **DataTemplate で出す画面は、同じ型の ViewModel に替わるとき View を作り直さない**（DataContext だけが替わる）。
   View だけが持つ状態（スクロールの位置・フォーカス・コードに持つ控え）は前の物のまま残る（フォルダビューで商品を選び直すと、流した位置 645px が次の商品に残った。2026-09-30）。
   結び付けで ViewModel から来る物は入れ替わる。入力欄の取り消しの履歴は、結び付けで文字が替わると捨てられる。

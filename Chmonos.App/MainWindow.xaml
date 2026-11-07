@@ -20,8 +20,9 @@
         <DataTemplate DataType="{x:Type vm:ImportViewModel}">
             <views:ImportView />
         </DataTemplate>
+        <!-- 商品ページも作り直さず1つを持ち回す（ItemViewHost に理由） -->
         <DataTemplate DataType="{x:Type vm:ItemViewModel}">
-            <views:ItemView />
+            <views:ItemViewHost />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:EditViewModel}">
             <views:EditView />
