@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -71,6 +72,14 @@ public static class ProgressiveItems
     /// <summary>足している途中の一覧。全部が要る所が、待たずに足し切るために持つ（済んだら外すので、画面を握り続けない）。</summary>
     private static readonly List<Feeder> Active = [];
 
+    /// <summary>元の一覧の足し引きを聞いている印（同じ一覧へ二重に付けない）。</summary>
+    private static readonly DependencyProperty WatchedProperty =
+        DependencyProperty.RegisterAttached("Watched", typeof(INotifyCollectionChanged), typeof(ProgressiveItems), new PropertyMetadata(null));
+
+    /// <summary>作り直しを頼んである印（Clear と Add が続けて来ても、作り直しは1回にまとめる）。</summary>
+    private static readonly DependencyProperty RebuildPendingProperty =
+        DependencyProperty.RegisterAttached("RebuildPending", typeof(bool), typeof(ProgressiveItems), new PropertyMetadata(false));
+
     private static void OnSourceChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
     {
         if (element is not ItemsControl list)
@@ -78,11 +87,63 @@ public static class ProgressiveItems
             return;
         }
 
+        Watch(list, args.NewValue as INotifyCollectionChanged);
+        Start(list, args.NewValue as IEnumerable);
+    }
+
+    /// <summary>
+    /// 元の一覧が後から足し引きされるとき（編集画面は次の商品へ進むたびに同じ一覧を作り直す・商品ページは更新の印で行を並べ直す）、
+    /// 写した一覧を作り直す。前は渡された時点で写すだけで、差し替える一覧（説明の見出し）にしか使えなかった。
+    /// 聞くのは弱い参照で：一覧は VM が持ち、画面より長く生きることがある（強く聞くと、閉じた画面が VM に掴まれて残る）
+    /// </summary>
+    private static void Watch(ItemsControl list, INotifyCollectionChanged? source)
+    {
+        if (list.GetValue(WatchedProperty) is INotifyCollectionChanged old)
+        {
+            CollectionChangedEventManager.RemoveHandler(old, OnSourceItemsChanged);
+            Lists.Remove(old);
+        }
+
+        list.SetValue(WatchedProperty, source);
+        if (source is not null)
+        {
+            Lists.AddOrUpdate(source, new WeakReference<ItemsControl>(list));
+            CollectionChangedEventManager.AddHandler(source, OnSourceItemsChanged);
+        }
+    }
+
+    /// <summary>元の一覧→それを写している画面の一覧。弱い表なので、どちらも掴まない。</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<INotifyCollectionChanged, WeakReference<ItemsControl>> Lists = new();
+
+    private static void OnSourceItemsChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    {
+        if (sender is not INotifyCollectionChanged source
+            || !Lists.TryGetValue(source, out var reference)
+            || !reference.TryGetTarget(out var list)
+            || (bool)list.GetValue(RebuildPendingProperty))
+        {
+            return;
+        }
+
+        // Normal の段は配置と描画より先に回るので、作り直した最初のコマは、全部を1回で作ったときと同じになる
+        list.SetValue(RebuildPendingProperty, true);
+        list.Dispatcher.BeginInvoke(DispatcherPriority.Normal, () =>
+        {
+            list.ClearValue(RebuildPendingProperty);
+            if (ReferenceEquals(list.GetValue(WatchedProperty), source))
+            {
+                Start(list, source as IEnumerable);
+            }
+        });
+    }
+
+    private static void Start(ItemsControl list, IEnumerable? newSource)
+    {
         // 前の分が足している途中なら止める（元が差し替わった）
         Active.RemoveAll(feeder => ReferenceEquals(feeder.List, list));
 
         var target = new ObservableCollection<object>();
-        if (args.NewValue is not IEnumerable source)
+        if (newSource is not IEnumerable source)
         {
             list.ItemsSource = target;
             return;

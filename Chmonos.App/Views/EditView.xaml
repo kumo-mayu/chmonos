@@ -873,7 +873,11 @@
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
                                            ToolTip="空欄は0円として記録します。2回買ったときは［＋］で追加します。" />
 
-                                <controls:ContentItemsControl ItemsSource="{Binding Variations}">
+                                <!--
+                                    行は見えている分だけ先に作り、残りは画面が出てから1行ずつ足す（ProgressiveItems。ユーザ指示 2026-11-07）。
+                                    1行に入力欄・選ぶ欄・ボタンがあり、友人のデータのバリエーション52行の商品では、この欄だけで開くときの固まりが約0.35〜0.5秒あった（実測）
+                                -->
+                                <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">

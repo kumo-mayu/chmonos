@@ -695,7 +695,8 @@
                                 </Grid>
                                 </Border>
                             </Border>
-                            <controls:ContentItemsControl ItemsSource="{Binding Variations}"
+                            <!-- 行は見えている分だけ先に作り、残りは後から足す（ProgressiveItems。1行に選べる文字の箱があり、多い商品で重い・ユーザ指示 2026-11-07） -->
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Variations}"
                                           Visibility="{Binding IsVariationsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <!--

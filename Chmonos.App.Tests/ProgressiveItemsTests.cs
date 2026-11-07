@@ -186,6 +186,47 @@ public class ProgressiveItemsTests
         Assert.Equal(before, after.Take(before.Count));
     });
 
+    [Fact]
+    public Task 元の一覧が後から作り直されたら_写しも作り直し_分けて足す() => UiThread.Run(async () =>
+    {
+        // 編集画面は次の商品へ進むたびに、同じ一覧を空にして入れ直す（ユーザ指示 2026-11-07：バリエーションの行）
+        using var host = new Host();
+        var source = new System.Collections.ObjectModel.ObservableCollection<object>(Numbers(3));
+        host.Bind(source);
+        host.Layout();
+        Assert.Equal(3, host.List.Items.Count);
+
+        source.Clear();
+        foreach (var number in Enumerable.Range(1000, Rows))
+        {
+            source.Add(number);
+        }
+
+        // 作り直しは配置より前の段で1回にまとめ、見える分だけ先に足す
+        await Dispatcher.Yield(DispatcherPriority.Normal);
+        host.Layout();
+        Assert.Equal(FirstRows, host.List.Items.Count);
+
+        await Idle();
+        Assert.Equal(Enumerable.Range(1000, Rows).Cast<object>(), host.List.Items.Cast<object>());
+    });
+
+    [Fact]
+    public Task 別の一覧へ結び替えた後は_前の一覧の足し引きを写さない() => UiThread.Run(async () =>
+    {
+        using var host = new Host();
+        var old = new System.Collections.ObjectModel.ObservableCollection<object>(Numbers(3));
+        host.Bind(old);
+        host.Layout();
+
+        var next = Enumerable.Range(1000, 2).Cast<object>().ToList();
+        host.Bind(next);
+        old.Add(99);
+        await Idle();
+
+        Assert.Equal(next, host.List.Items.Cast<object>());
+    });
+
     private static List<object> Numbers(int count) => Enumerable.Range(0, count).Cast<object>().ToList();
 
     private static async Task Idle() => await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
@@ -239,7 +280,7 @@ public class ProgressiveItemsTests
 
         public ItemsControl List { get; }
 
-        public void Bind(List<object> source) => ProgressiveItems.SetSource(List, source);
+        public void Bind(System.Collections.IEnumerable source) => ProgressiveItems.SetSource(List, source);
 
         public void Layout() => Root.UpdateLayout();
 
