@@ -157,6 +157,11 @@
                                       IsChecked="{Binding GroupAvatarsByBase, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.GroupAvatarsByBase"
                                       ToolTip="商品ページの札と、検索の対応アバターの候補を、共通素体ごとに並べます。" />
+                            <!-- 持っていないバリエーションの分の見分け（ユーザ判断 2026-11-07・既定はオン）。切ると編集の画面で決めた対応だけで見分ける -->
+                            <CheckBox Content="持っていないバリエーションの分を、名前からも見分ける" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding UseDetectedVariationTargets, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.UseDetectedVariationTargets"
+                                      ToolTip="切ると、編集の画面で決めたバリエーションの対応だけで見分けます。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="一覧と検索" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--

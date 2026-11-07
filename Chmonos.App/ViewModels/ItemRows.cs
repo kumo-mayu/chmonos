@@ -569,6 +569,15 @@ public class AvatarRow : ChipTile
     /// <summary>このアバターを持っているか（U25）。札を「所持」の緑にして先頭へ寄せる。</summary>
     public bool IsOwned { get; init; }
 
+    /// <summary>
+    /// 持っていないバリエーション向けか（<c>docs/spec/conversion.md</c>「バリエーションとアバターの結び付き」）。札を薄くし、吹き出しで言う。
+    /// 隠さないのは、向き先がバリエーションの名前から推した値のことがあるため
+    /// </summary>
+    public bool IsOtherVariation { get; init; }
+
+    /// <summary>吹き出しの頭に足す一言。</summary>
+    protected string VariationNote => IsOtherVariation ? "持っていないバリエーション向けです。" : string.Empty;
+
     private System.Windows.Media.Imaging.BitmapSource? _icon;
     private bool _iconLoaded;
 
@@ -597,7 +606,7 @@ public class AvatarRow : ChipTile
     /// 常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
     /// 所持は色だけに頼らず、ここでも言葉で言う。
     /// </summary>
-    public string SourceTooltip => (IsOwned ? "持っているアバターです。" : string.Empty)
+    public string SourceTooltip => VariationNote + (IsOwned ? "持っているアバターです。" : string.Empty)
         + (IsManual
             // 手で足した物と、検出の物を「確認済みにする」で確かめた物（出どころを手入力に付け替える）。
             // 「手入力から読み取りました」では、確かめた物が読み取った物に聞こえる（ユーザ判断 2026-10-06）
@@ -628,7 +637,7 @@ public sealed class ViaBaseAvatarRow : AvatarRow
     /// <summary>どの共通素体を通じて対応しているか。</summary>
     public required string BaseName { get; init; }
 
-    public string ViaTooltip => (IsOwned ? "持っているアバターです。" : string.Empty)
+    public string ViaTooltip => VariationNote + (IsOwned ? "持っているアバターです。" : string.Empty)
         + $"共通素体「{BaseName}」経由です。押すとこのアバターを開きます";
 }
 

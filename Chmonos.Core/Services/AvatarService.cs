@@ -772,6 +772,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             var scan = candidates[item.Id];
             var links = BuildLinks(scan, entries);
             var bases = BuildBaseLinks(scan);
+            var variationTargets = BuildVariationTargets(scan, entries);
 
             // 全件を先に読んでから順に書くので、書く頃には手元の写しが古い（友人データの初回で約37分）。
             // 名指し（LocalOwners.Detection）が守るのは**他の**項目だけなので、
@@ -785,11 +786,13 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                     var mergedBases = MergeBaseLinks(current.AvatarBases, bases);
 
                     return SameLinks(current.Avatars, merged) && SameBaseLinks(current.AvatarBases, mergedBases)
+                        && SameVariationTargets(current.DetectedVariationTargets, variationTargets)
                         ? null
                         : current with
                         {
                             Avatars = merged,
                             AvatarBases = mergedBases,
+                            DetectedVariationTargets = variationTargets,
                             AvatarsDetectedAt = DateTimeOffset.Now,
                         };
                 },
@@ -963,6 +966,9 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
         /// <summary>h2 を使わずに書かれた対応の一覧（本文中の対応行・平文・長い一覧）から拾ったID。</summary>
         public IReadOnlyList<string> SupportLists { get; init; } = [];
+
+        /// <summary>バリエーションの名前ごとに当たったアバター・共通素体（<see cref="AvatarDetector.ScanVariations"/>）。アバターかの絞りは書くときに当てる。</summary>
+        public IReadOnlyList<VariationTarget> Variations { get; init; } = [];
     }
 
     /// <summary>
@@ -997,20 +1003,24 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         string context,
         IReadOnlyDictionary<string, (long Length, DateTime LastWriteUtc)> htmlStamps)
     {
+        // 購入の記録の名前だけでなく、どのバリエーションを指すかも鍵に入れる（ID だけ直した記録で、バリエーションごとの当たりが古いまま残らないように）
         var variationNames = VariationNamesOf(item);
+        var key = variationNames
+            .Concat(item.Local.Purchases.Select(purchase => purchase.VariationId?.ToString() ?? "-"))
+            .ToList();
         (long, DateTime)? html = htmlStamps.TryGetValue(item.Id, out var stamp) ? stamp : null;
 
         if (_scans.TryGetValue(item.Id, out var kept)
             && ReferenceEquals(kept.Booth, item.Booth)
             && kept.Html == html
             && string.Equals(kept.Context, context, StringComparison.Ordinal)
-            && kept.VariationNames.SequenceEqual(variationNames, StringComparer.Ordinal))
+            && kept.VariationNames.SequenceEqual(key, StringComparer.Ordinal))
         {
             return kept.Scan;
         }
 
         var scan = ScanItem(item, variationNames, index, groups);
-        _scans[item.Id] = new KeptScan(item.Booth, variationNames, html, context, scan);
+        _scans[item.Id] = new KeptScan(item.Booth, key, html, context, scan);
         return scan;
     }
 
@@ -1066,6 +1076,29 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         }
     }
 
+    /// <summary>
+    /// バリエーションの ID と名前の組。BOOTH の今のバリエーションに、購入の記録にしか残っていない（BOOTH から消えた）物を足す。
+    /// 消えたバリエーションも、買った人の手元ではどのアバター向けかが要る。
+    /// </summary>
+    private static List<(long Id, string Name)> VariationPairsOf(ItemRecord item)
+    {
+        var pairs = item.Booth.Variations
+            .Where(variation => !string.IsNullOrWhiteSpace(variation.Name))
+            .Select(variation => (variation.Id, variation.Name!))
+            .ToList();
+        var present = item.Booth.Variations.Select(variation => variation.Id).ToHashSet();
+
+        foreach (var purchase in item.Local.Purchases)
+        {
+            if (purchase.VariationId is { } id && !present.Contains(id) && !string.IsNullOrWhiteSpace(purchase.NameSnapshot))
+            {
+                pairs.Add((id, purchase.NameSnapshot));
+            }
+        }
+
+        return pairs;
+    }
+
     // 購入したvariationがあればそれを先に見る。買った版がそのままアバター名になっている
     private static List<string> VariationNamesOf(ItemRecord item)
         => item.Local.Purchases
@@ -1103,6 +1136,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                 .ToList(),
             SupportLists = AvatarDetector.ScanLists(
                 parsed, item.Id, index, SupportHeadings, _settings.AvatarIgnoredHeadings),
+            Variations = AvatarDetector.ScanVariations(index, groups, VariationPairsOf(item)),
         };
     }
 
@@ -1187,6 +1221,31 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
         return links.Values.ToList();
     }
+
+    /// <summary>
+    /// バリエーションごとの当たりから、アバターでない商品（衣装・ツールの名前に当たった物）を落とす。
+    /// 対応アバターの宣言（<see cref="BuildLinks"/>）と同じ絞り。落として空になった行は持たない。
+    /// </summary>
+    private static List<VariationTarget> BuildVariationTargets(
+        ItemScan scan,
+        IReadOnlyDictionary<string, AvatarRegistryEntry> entries)
+        => scan.Variations
+            .Select(target => target with
+            {
+                Avatars = target.Avatars
+                    .Where(id => entries.TryGetValue(id, out var entry) && IsAvatar(entry))
+                    .ToList(),
+            })
+            .Where(target => !target.IsEmpty)
+            .ToList();
+
+    /// <summary>中身で比べる（record の既定の比べ方は並びを参照で比べるので、同じ当たりでも毎回書いてしまう）。</summary>
+    public static bool SameVariationTargets(IReadOnlyList<VariationTarget> a, IReadOnlyList<VariationTarget> b)
+        => a.Count == b.Count
+            && a.Zip(b).All(pair => pair.First.VariationId == pair.Second.VariationId
+                && pair.First.All == pair.Second.All
+                && pair.First.Avatars.SequenceEqual(pair.Second.Avatars, StringComparer.Ordinal)
+                && pair.First.Bases.SequenceEqual(pair.Second.Bases, StringComparer.CurrentCultureIgnoreCase));
 
     private static List<AvatarBaseLink> BuildBaseLinks(ItemScan scan)
         => scan.BaseNames

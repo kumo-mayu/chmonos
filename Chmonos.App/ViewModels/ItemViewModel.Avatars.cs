@@ -212,7 +212,8 @@ public sealed partial class ItemViewModel
     /// **記録にあるアバターは除く**：消したアバター（素体の兄弟として計算に戻ってくる。人が消した物を点線で出し直さない）と、
     /// 説明文のリンクから拾った確認待ち（もう札がある）。この商品そのもの（アバターの商品が自分の素体を宣言している）も除く
     /// </summary>
-    private List<AvatarRow> ViaBaseRows(AvatarCompatibilityIndex compatibility, Func<string, string> nameOf, Func<string, bool> isOwned)
+    private List<AvatarRow> ViaBaseRows(
+        AvatarCompatibilityIndex compatibility, Func<string, string> nameOf, Func<string, bool> isOwned, Func<string, bool> isOtherVariation)
     {
         var recorded = Item.Local.Avatars.Select(link => link.AvatarItemId).ToHashSet(StringComparer.Ordinal);
         return compatibility.Resolve(Item.Local)
@@ -224,6 +225,7 @@ public sealed partial class ItemViewModel
                 SourceText = "共通素体",
                 BaseName = compatibility.BaseNameOf(pair.Key) ?? string.Empty,
                 IsOwned = isOwned(pair.Key),
+                IsOtherVariation = isOtherVariation(pair.Key),
                 IconFactory = () => AvatarIcon(pair.Key, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(pair.Key).Forget()),
             })
@@ -298,6 +300,7 @@ public sealed partial class ItemViewModel
                     && x.SourceText == y.SourceText
                     && x.IsUnconfirmed == y.IsUnconfirmed
                     && x.IsOwned == y.IsOwned
+                    && x.IsOtherVariation == y.IsOtherVariation
                     && (x as ViaBaseAvatarRow)?.BaseName == (y as ViaBaseAvatarRow)?.BaseName,
                 (ChipGroupLabel x, ChipGroupLabel y) => x.Text == y.Text,
                 _ => false,
@@ -448,7 +451,21 @@ public sealed partial class ItemViewModel
 
         if (SameAvatars(Item.Local, reloaded.Local))
         {
-            Item = Item with { Local = Item.Local with { AvatarsDetectedAt = reloaded.Local.AvatarsDetectedAt } };
+            // 対応アバターが同じでも、バリエーションごとの向き先は変わり得る（名簿にアバターが足された）。札の薄さに効くので、変わっていれば並べ直す
+            var targetsChanged = !AvatarService.SameVariationTargets(Item.Local.DetectedVariationTargets, reloaded.Local.DetectedVariationTargets);
+            Item = Item with
+            {
+                Local = Item.Local with
+                {
+                    AvatarsDetectedAt = reloaded.Local.AvatarsDetectedAt,
+                    DetectedVariationTargets = reloaded.Local.DetectedVariationTargets,
+                },
+            };
+            if (targetsChanged)
+            {
+                BuildAvatars();
+            }
+
             OnPropertyChanged(nameof(AvatarSectionNote));
             OnPropertyChanged(nameof(AvatarSectionTip));
             return;
@@ -477,6 +494,7 @@ public sealed partial class ItemViewModel
             {
                 Avatars = detected.Local.Avatars,
                 AvatarBases = detected.Local.AvatarBases,
+                DetectedVariationTargets = detected.Local.DetectedVariationTargets,
                 AvatarsDetectedAt = detected.Local.AvatarsDetectedAt,
             },
         };
@@ -503,6 +521,12 @@ public sealed partial class ItemViewModel
             .Select(entry => entry.ItemId)
             .ToHashSet(StringComparer.Ordinal);
 
+        var settings = _services.Settings;
+
+        // 持っていないバリエーションの分（アバターごとにバリエーションで売っている衣装）。消さずに薄く出す——向き先は推した値のことがある
+        var otherVariation = AvatarCompatibilityIndex.For(registry)
+            .UnownedVariationAvatars(Item.Local, settings.UseDetectedVariationTargets);
+
         var rows = Item.Local.Avatars
             .Where(link => !link.Rejected)
             .Select(link => new AvatarRow
@@ -510,6 +534,7 @@ public sealed partial class ItemViewModel
                 ItemId = link.AvatarItemId,
                 Name = NameOf(link.AvatarItemId, link.Name),
                 SourceText = SourceLabel(link.Source),
+                IsOtherVariation = otherVariation.Contains(link.AvatarItemId),
                 IsManual = link.Source == AvatarLinkSource.Manual,
                 IsUnconfirmed = !link.Confirmed,
                 IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
@@ -523,14 +548,14 @@ public sealed partial class ItemViewModel
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(link.AvatarItemId).Forget()),
             })
             .OrderByDescending(row => row.IsOwned)
+            .ThenBy(row => row.IsOtherVariation)
             .ToList();
 
-        var settings = _services.Settings;
         var compatibility = settings.ShowAvatarsViaBase || settings.GroupAvatarsByBase
             ? AvatarCompatibilityIndex.For(registry)
             : null;
         var viaBase = settings.ShowAvatarsViaBase && compatibility is not null
-            ? ViaBaseRows(compatibility, id => NameOf(id, null), id => ownedIds.Contains(id) || manuallyOwned.Contains(id))
+            ? ViaBaseRows(compatibility, id => NameOf(id, null), id => ownedIds.Contains(id) || manuallyOwned.Contains(id), otherVariation.Contains)
             : [];
         var tiles = ArrangeAvatarTiles(rows, viaBase, settings.GroupAvatarsByBase ? compatibility : null, registry);
 

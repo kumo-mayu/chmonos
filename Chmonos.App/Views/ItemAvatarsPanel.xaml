@@ -156,6 +156,10 @@
                                                                     <Setter Property="Background" Value="{DynamicResource GoodSoft}" />
                                                                     <Setter Property="BorderBrush" Value="{DynamicResource GoodBorder}" />
                                                                 </DataTrigger>
+                                                                <!-- 持っていないバリエーション向け（アバターごとに売っている衣装）。隠さず薄くする（向き先は推した値のことがある） -->
+                                                                <DataTrigger Binding="{Binding IsOtherVariation}" Value="True">
+                                                                    <Setter Property="Opacity" Value="0.45" />
+                                                                </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>
@@ -240,6 +244,15 @@
                                                         AutomationProperties.AutomationId="ItemAvatarViaBaseChip"
                                                         AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
                                                         ToolTip="{Binding ViaTooltip}" ToolTipOpening="OnChipToolTipOpening">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOtherVariation}" Value="True">
+                                                                    <Setter Property="Opacity" Value="0.45" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
                                                     <Border.InputBindings>
                                                         <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
                                                     </Border.InputBindings>

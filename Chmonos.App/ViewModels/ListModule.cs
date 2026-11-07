@@ -289,6 +289,31 @@ public sealed class ListModule : SearchModule
         }
     }
 
+    private bool _ownedVariationsOnly;
+
+    /// <summary>
+    /// 対応アバターの「持っているバリエーションの分だけ」（ユーザ判断 2026-11-06・既定は切）。アバターごとにバリエーションで売っている衣装で、
+    /// 持っていない分のアバターでは当てない。使い回しの Flag は「素体経由の対応も含める」が持つので、名前で持つ（<see cref="SearchModuleConditions.OwnedVariationsToggle"/>）
+    /// </summary>
+    public bool HasOwnedVariations => Kind == SearchModuleKind.Avatar && Chips.Count > 0;
+
+    public bool OwnedVariationsOnly
+    {
+        get => _ownedVariationsOnly;
+        set
+        {
+            if (SetField(ref _ownedVariationsOnly, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>照らす決まり。「持っているバリエーションの分だけ」なら、保存した状態から作る条件（<see cref="SearchModuleConditions.From"/>）と同じに重ねる</summary>
+    private Func<ItemRecord, SearchModuleContext, string, bool, bool> EffectiveMatches => _ownedVariationsOnly && Kind == SearchModuleKind.Avatar
+        ? (item, context, key, flag) => _matches(item, context, key, flag) && SearchModuleConditions.InOwnedVariation(item, context, key)
+        : _matches;
+
     /// <summary>
     /// 「出すもの」の2つのチェックを出すか（対応アバターだけ）。
     ///
@@ -537,7 +562,7 @@ public sealed class ListModule : SearchModule
             Chips.Select(chip => chip.Key).ToList(),
             _matchAll && AllowsAnd,
             _flag,
-            _matches,
+            EffectiveMatches,
             _isUnspecified,
             _showMatched,
             _showUnspecified,
@@ -570,7 +595,8 @@ public sealed class ListModule : SearchModule
                 .Concat(HasInclude && _includeOn ? [_includeLabel!] : Array.Empty<string>());
             return JoinValues(values, _matchAll && AllowsAnd)
                 + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
-                + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty);
+                + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty)
+                + (HasOwnedVariations && _ownedVariationsOnly ? "（持っているバリエーションの分だけ）" : string.Empty);
         }
     }
 
@@ -580,6 +606,8 @@ public sealed class ListModule : SearchModule
         _matchAll = false;
         _flag = _flagDefault;
         _showMatched = true;
+        _ownedVariationsOnly = false;
+        OnPropertyChanged(nameof(OwnedVariationsOnly));
         _showUnspecified = false;
         _includeOn = false;
         OnPropertyChanged(nameof(MatchAll));
@@ -598,7 +626,7 @@ public sealed class ListModule : SearchModule
         foreach (var chip in Chips)
         {
             chip.Count = items.Count(item => (_isUnspecified is null || !_isUnspecified(item, context))
-                && _matches(item, context, MatchKey(chip), _flag));
+                && EffectiveMatches(item, context, MatchKey(chip), _flag));
         }
 
         if (_includeMatches is not null)
@@ -630,6 +658,9 @@ public sealed class ListModule : SearchModule
             ShowUnspecified = _showUnspecified,
             IncludeFavorites = _includeOn && !IsOpenProjectInclude,
             IncludeOpenProject = _includeOn && IsOpenProjectInclude,
+            Toggles = Kind == SearchModuleKind.Avatar
+                ? new Dictionary<string, bool> { [SearchModuleConditions.OwnedVariationsToggle] = _ownedVariationsOnly }
+                : state.Toggles,
         };
 
     protected override void Read(SearchModuleState state)
@@ -643,6 +674,9 @@ public sealed class ListModule : SearchModule
         // AND を持たない種類（ショップ・カテゴリ・BOOTHタグ）に書かれた AND は読まない（照らすときも見ないが、書き戻すと残り続ける）
         _matchAll = AllowsAnd && state.MatchAll;
         _flag = FlagLabel is null ? _flagDefault : state.Flag;
+        _ownedVariationsOnly = Kind == SearchModuleKind.Avatar
+            && state.Toggles is { } toggles && toggles.TryGetValue(SearchModuleConditions.OwnedVariationsToggle, out var ownedOnly) && ownedOnly;
+        OnPropertyChanged(nameof(OwnedVariationsOnly));
 
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
         _showUnspecified = HasGroups && state.ShowUnspecified;
@@ -675,6 +709,7 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(MatchModeDimmed));
         OnPropertyChanged(nameof(MatchModeTip));
         OnPropertyChanged(nameof(HasFlag));
+        OnPropertyChanged(nameof(HasOwnedVariations));
     }
 }
 

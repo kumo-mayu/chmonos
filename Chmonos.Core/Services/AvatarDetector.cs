@@ -1407,6 +1407,60 @@ public static class AvatarDetector
             .ToList();
 
     /// <summary>
+    /// バリエーションごとに、名前に入っているアバター・共通素体を引く（<c>docs/spec/conversion.md</c>「バリエーションとアバターの結び付き」）。
+    ///
+    /// <see cref="ScanNames"/> は商品の対応アバターを集めるために、どのバリエーションから当たったかを捨てている。
+    /// アバターごとに分けて売っている衣装で「持っている分」を見分けるには、その対応が要る。
+    /// バリエーションが1つ以下の商品は、分ける意味が無いので返さない（全部の対応アバターがその1つの物）。
+    /// アバターの照らしは <see cref="ScanNames"/> と同じ含有、共通素体は <see cref="ScanBaseDeclarations(ParsedDescription, IEnumerable{string}, IEnumerable{string}, IEnumerable{AvatarBaseGroup}, IReadOnlyList{string})"/> の名前の照らしと同じ。
+    /// </summary>
+    public static IReadOnlyList<VariationTarget> ScanVariations(
+        AvatarNameIndex index,
+        IEnumerable<AvatarBaseGroup> groups,
+        IReadOnlyList<(long Id, string Name)> variations)
+    {
+        if (variations.Select(variation => variation.Id).Distinct().Count() < 2)
+        {
+            return [];
+        }
+
+        var lookup = AvatarBaseKeys.Lookup(groups);
+        var found = new List<VariationTarget>();
+
+        foreach (var group in variations.GroupBy(variation => variation.Id))
+        {
+            var avatars = new List<string>();
+            var bases = new List<string>();
+
+            foreach (var (_, name) in group)
+            {
+                foreach (var id in index.FindAvatars(name))
+                {
+                    if (!avatars.Contains(id, StringComparer.Ordinal))
+                    {
+                        avatars.Add(id);
+                    }
+                }
+
+                foreach (var baseName in AvatarBaseKeys.GroupsIn(name, lookup))
+                {
+                    if (!bases.Contains(baseName, StringComparer.CurrentCultureIgnoreCase))
+                    {
+                        bases.Add(baseName);
+                    }
+                }
+            }
+
+            if (avatars.Count > 0 || bases.Count > 0)
+            {
+                found.Add(new VariationTarget { VariationId = group.Key, Avatars = avatars, Bases = bases });
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
     /// タグとvariation名を既知の名前と突き合わせる。
     ///
     /// タグは「くうた対応」のように接尾辞が付くので落としてから、**完全一致で**引く。

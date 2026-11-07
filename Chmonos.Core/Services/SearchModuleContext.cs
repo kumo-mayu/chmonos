@@ -183,4 +183,10 @@ public sealed class SearchModuleContext
 
     /// <summary>Unity のプロジェクトが1つ以上開いていると分かっているか。</summary>
     public bool HasOpenProject { get; init; }
+
+    /// <summary>
+    /// 対応アバターの「持っているバリエーションの分だけ」で、検出したバリエーションの向き先も使うか（設定 <see cref="Models.AppSettings.UseDetectedVariationTargets"/>）。
+    /// 既定は設定の既定と同じ。
+    /// </summary>
+    public bool UseDetectedVariationTargets { get; init; } = true;
 }

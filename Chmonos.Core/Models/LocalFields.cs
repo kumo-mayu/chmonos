@@ -20,6 +20,8 @@ public enum LocalField
     Avatars,
     AvatarBases,
     AvatarsDetectedAt,
+    VariationTargets,
+    DetectedVariationTargets,
     Purchases,
     LocalFiles,
     LocalFolders,
@@ -69,6 +71,9 @@ public static class LocalFields
                 LocalField.Avatars => result with { Avatars = incoming.Avatars },
                 LocalField.AvatarBases => result with { AvatarBases = incoming.AvatarBases },
                 LocalField.AvatarsDetectedAt => result with { AvatarsDetectedAt = incoming.AvatarsDetectedAt },
+                LocalField.VariationTargets => result with { VariationTargets = incoming.VariationTargets },
+                LocalField.DetectedVariationTargets =>
+                    result with { DetectedVariationTargets = incoming.DetectedVariationTargets },
                 LocalField.Purchases => result with { Purchases = incoming.Purchases },
                 LocalField.LocalFiles => result with { LocalFiles = incoming.LocalFiles },
                 LocalField.LocalFolders => result with { LocalFolders = incoming.LocalFolders },
@@ -131,6 +136,7 @@ public static class LocalOwners
         LocalField.Attributes,
         LocalField.Memo,
         LocalField.Purchases,
+        LocalField.VariationTargets,
         LocalField.AcquiredAt,
         LocalField.NotifyOnUpdate,
         LocalField.IsHidden,
@@ -145,7 +151,11 @@ public static class LocalOwners
         LocalField.Avatars,
         LocalField.AvatarBases,
         LocalField.AvatarsDetectedAt,
+        LocalField.DetectedVariationTargets,
     ];
+
+    /// <summary>バリエーションごとの向き先を人が決める操作（編集の画面・変換扱いの画面）。</summary>
+    public static readonly IReadOnlyCollection<LocalField> VariationTargets = [LocalField.VariationTargets];
 
     /// <summary>素体の対応宣言だけを直す操作。</summary>
     public static readonly IReadOnlyCollection<LocalField> AvatarBases = [LocalField.AvatarBases];

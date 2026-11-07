@@ -125,6 +125,14 @@ public sealed class OrderedVariationInput : ViewModelBase
 
     public bool HasExtras => Extras.Count > 0;
 
+    /// <summary>
+    /// このバリエーションがどのアバター・共通素体向けか（ユーザ判断 2026-11-06）。買っていない行にも付けられる（向き先は商品の事実）。
+    /// バリエーションが2つ以上あり、対応アバターがある商品だけ。無ければ null で、欄を出さない
+    /// </summary>
+    public VariationTargetsInput? Targets { get; set; }
+
+    public bool HasTargets => Targets is not null;
+
     /// <summary>この版をもう1回買った記録を足す。</summary>
     public RelayCommand? AddPurchaseCommand { get; set; }
 

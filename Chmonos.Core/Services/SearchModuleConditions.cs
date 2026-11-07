@@ -41,6 +41,12 @@ public static class SearchModuleConditions
     /// <summary>対応アバターの積んだ値の頭（共通素体の名前）。</summary>
     public const string BaseKey = "base:";
 
+    /// <summary>
+    /// 対応アバターの「持っているバリエーションの分だけ」の切り替えの名前（<see cref="SearchModuleState.Toggles"/>。既定は切・ユーザ判断 2026-11-06）。
+    /// 使い回しの Flag は「素体経由の対応も含める」が持っているので、名前で分ける
+    /// </summary>
+    public const string OwnedVariationsToggle = "ownedVariationsOnly";
+
     /// <summary>入手日を最初の購入だけで見る（状態の <c>choice</c> の値。既定）。</summary>
     public const string FirstPurchase = "first";
 
@@ -275,11 +281,15 @@ public static class SearchModuleConditions
             var groups = list.IsUnspecified is not null;
             var showUnspecified = groups && state.ShowUnspecified;
             var showMatched = !groups || state.ShowMatched || !showUnspecified;
+            Func<ItemRecord, SearchModuleContext, string, bool, bool> matches = kind == SearchModuleKind.Avatar
+                && state.Toggles is { } toggles && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly
+                    ? (item, context, key, flag) => list.Matches(item, context, key, flag) && InOwnedVariation(item, context, key)
+                    : list.Matches;
             return new ListCondition(
                 state.Items,
                 list.AllowsAnd && state.MatchAll,
                 list.HasFlag ? state.Flag : list.FlagDefault,
-                list.Matches,
+                matches,
                 list.IsUnspecified,
                 showMatched,
                 showUnspecified,
@@ -492,5 +502,34 @@ public static class SearchModuleConditions
 
         var members = context.Compatibility.MembersOf(baseName);
         return members.Count > 0 && members.Any(resolved.ContainsKey);
+    }
+
+    /// <summary>
+    /// 選んだアバター（共通素体）が、持っていないバリエーションの分だけではないか（「持っているバリエーションの分だけ」）。
+    /// 見分けられない商品（持っているバリエーションが分からない・向き先の無いバリエーションを持っている）は落とさない——
+    /// <see cref="AvatarCompatibilityIndex.UnownedVariationAvatars"/> が空を返す。共通素体は、仲間の全員が持っていない分のときだけ落とす
+    /// </summary>
+    public static bool InOwnedVariation(ItemRecord item, SearchModuleContext context, string key)
+    {
+        var unowned = context.Compatibility.UnownedVariationAvatars(item.Local, context.UseDetectedVariationTargets);
+        if (unowned.Count == 0)
+        {
+            return true;
+        }
+
+        if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
+        {
+            return !unowned.Contains(key[AvatarKey.Length..]);
+        }
+
+        if (key.StartsWith(BaseKey, StringComparison.Ordinal))
+        {
+            // 商品の対応に入っている仲間だけで見る（対応に無い仲間は「持っていない分」にも入らないので、全員で見ると落とせない）
+            var resolved = context.Compatibility.Resolve(item.Local);
+            var reached = context.Compatibility.MembersOf(key[BaseKey.Length..]).Where(resolved.ContainsKey).ToList();
+            return reached.Count == 0 || !reached.All(unowned.Contains);
+        }
+
+        return true;
     }
 }

@@ -970,6 +970,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             Category = string.IsNullOrWhiteSpace(CategoryInput) ? null : CategoryInput.Trim(),
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
             Purchases = ordered,
+            VariationTargets = BuildVariationTargets(record),
             // 人が打つ書き方を広く受ける（I3。`DateText` は検索の日付の欄と同じ読み取り）。
             // 前は `DateOnly.TryParse` だけで、読めない書き方は黙って空になり、支出の統計から静かに落ちていた
             AcquiredAt = ParseDate(AcquiredAt),

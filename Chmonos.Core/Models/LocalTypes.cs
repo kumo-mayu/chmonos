@@ -83,6 +83,36 @@ public sealed record AvatarBaseLink
 }
 
 /// <summary>
+/// 1つのバリエーションが、どのアバター・共通素体向けか（<c>docs/spec/conversion.md</c>「バリエーションとアバターの結び付き」）。
+///
+/// 衣装をアバターごとのバリエーションで売っている商品で、持っている分の対応アバターを見分けるために持つ。
+/// 人が決めた物（<see cref="LocalBlock.VariationTargets"/>）と検出した物（<see cref="LocalBlock.DetectedVariationTargets"/>）で同じ形を使う。
+/// アバターは商品 ID、共通素体は名前で持つ（<see cref="AvatarLink"/> と <see cref="AvatarBaseLink"/> を分けているのと同じ理由。素体には商品 ID が無いことがある）。
+/// </summary>
+public sealed record VariationTarget
+{
+    public required long VariationId { get; init; }
+
+    /// <summary>向き先のアバター（商品 ID）。</summary>
+    public IReadOnlyList<string> Avatars { get; init; } = [];
+
+    /// <summary>向き先の共通素体（名前）。その仲間全員に効く。</summary>
+    public IReadOnlyList<string> Bases { get; init; } = [];
+
+    /// <summary>
+    /// 商品の対応アバター全部向け（全部入りのセットの行など）。アバターを1体ずつ並べると、対応アバターが後で増えたときに置いて行かれる。
+    /// 立っていなければ書き出さない。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool All { get; init; }
+
+    /// <summary>何も向き先が無いか（空の行は持たない）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsEmpty => !All && Avatars.Count == 0 && Bases.Count == 0;
+}
+
+/// <summary>
 /// その購入が誰のためのものだったか。
 ///
 /// JSONには日本語で書く。この値は「自分用か、贈ったか、貰ったか」という

@@ -89,6 +89,19 @@ public sealed record LocalBlock
     public DateTimeOffset? AvatarsDetectedAt { get; init; }
 
     /// <summary>
+    /// 人が決めた、バリエーションごとの向き先（編集の画面の「購入したバリエーション」。ユーザ判断 2026-11-06）。
+    /// 同じバリエーションに検出の値（<see cref="DetectedVariationTargets"/>）があっても、こちらを使う。
+    /// </summary>
+    public IReadOnlyList<VariationTarget> VariationTargets { get; init; } = [];
+
+    /// <summary>
+    /// 検出した、バリエーションごとの向き先（バリエーションの名前にアバター・共通素体の名前が入っている物）。
+    /// BOOTH の内容と名簿から決まり、再検出で作り直す。人が「違う」と言う場所は持たない——人が決めた
+    /// <see cref="VariationTargets"/> を置けば、そちらが勝つ。
+    /// </summary>
+    public IReadOnlyList<VariationTarget> DetectedVariationTargets { get; init; } = [];
+
+    /// <summary>
     /// 購入記録。買った1回が1レコード。BOOTH側からvariationが消えても残す。
     /// 同じvariationが複数行あってよい（同じものを何度も買う・複数人に贈る）。
     /// </summary>

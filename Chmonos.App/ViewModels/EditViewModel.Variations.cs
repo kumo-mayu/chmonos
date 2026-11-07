@@ -89,11 +89,105 @@ public sealed partial class EditViewModel
             });
         }
 
+        AttachTargets(record);
+
         // ここから先の変更はユーザ操作。価格の自動入力を許可する
         foreach (var input in Variations)
         {
             input.IsInitialized = true;
         }
+    }
+
+    // ---- バリエーションの向き先（ユーザ判断 2026-11-06・docs/spec/conversion.md） ----
+
+    /// <summary>
+    /// 行ごとに向き先の欄を付ける。バリエーションが2つ以上あり、対応アバターがある商品だけ——1つなら全部の対応がその1つの物で、
+    /// 対応アバターが無ければ選ぶ物が無い。候補は商品の対応アバター（素体経由を含む）・その共通素体・「対応アバターすべて」
+    /// </summary>
+    private void AttachTargets(ItemRecord record)
+    {
+        if (record.Booth.Variations.Count < 2)
+        {
+            return;
+        }
+
+        var registry = _services.CachedAvatars.Load();
+        var compatibility = AvatarCompatibilityIndex.For(registry);
+        var resolved = compatibility.Resolve(record.Local);
+        if (resolved.Count == 0)
+        {
+            return;
+        }
+
+        var names = AvatarNames.Map(registry.Entries);
+        string NameOf(string id) => names.TryGetValue(id, out var name) ? name : id;
+        string BaseText(string name) => $"{name}（共通素体）";
+
+        var all = new VariationTargetChoice("対応アバターすべて", VariationTargetKind.All, string.Empty);
+        var baseNames = resolved.Keys
+            .Select(compatibility.BaseNameOf)
+            .Concat(record.Local.AvatarBases.Where(link => !link.Rejected).Select(link => link.BaseName))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Order(StringComparer.CurrentCulture);
+        var choices = new List<VariationTargetChoice> { all };
+        choices.AddRange(baseNames.Select(name => new VariationTargetChoice(BaseText(name), VariationTargetKind.Base, name)));
+        choices.AddRange(resolved.Keys
+            .Select(id => new VariationTargetChoice(NameOf(id), VariationTargetKind.Avatar, id))
+            .OrderBy(choice => choice.Text, StringComparer.CurrentCulture));
+
+        // 記録の行を候補の形に。対応から外れたアバター・素体も、人が決めた物なので札にして残す（消すかは人が決める）
+        List<VariationTargetChoice> ChoicesOf(VariationTarget? target)
+        {
+            if (target is null)
+            {
+                return [];
+            }
+
+            var list = new List<VariationTargetChoice>();
+            if (target.All)
+            {
+                list.Add(all);
+            }
+
+            list.AddRange(target.Bases.Select(name => choices.FirstOrDefault(choice => choice.Kind == VariationTargetKind.Base
+                    && string.Equals(choice.Key, name, StringComparison.CurrentCultureIgnoreCase))
+                ?? new VariationTargetChoice(BaseText(name), VariationTargetKind.Base, name)));
+            list.AddRange(target.Avatars.Select(id => choices.FirstOrDefault(choice => choice.Kind == VariationTargetKind.Avatar && choice.Key == id)
+                ?? new VariationTargetChoice(NameOf(id), VariationTargetKind.Avatar, id)));
+            return list;
+        }
+
+        var useDetected = _services.Settings.UseDetectedVariationTargets;
+        foreach (var row in Variations.Where(row => row.VariationId is not null))
+        {
+            var id = row.VariationId!.Value;
+            row.Targets = new VariationTargetsInput(
+                choices,
+                ChoicesOf(record.Local.VariationTargets.FirstOrDefault(target => target.VariationId == id)),
+                useDetected ? ChoicesOf(record.Local.DetectedVariationTargets.FirstOrDefault(target => target.VariationId == id)) : []);
+        }
+    }
+
+    /// <summary>
+    /// 保存する向き先。行の無いバリエーション（BOOTH から消え、買った記録も無い）の分は、記録のまま残す
+    /// （画面に出ていない物を、出ていないからと消さない）
+    /// </summary>
+    private List<VariationTarget> BuildVariationTargets(ItemRecord record)
+    {
+        var shown = Variations.Where(row => row.Targets is not null && row.VariationId is not null).ToList();
+        if (shown.Count == 0)
+        {
+            return [.. record.Local.VariationTargets];
+        }
+
+        var shownIds = shown.Select(row => row.VariationId!.Value).ToHashSet();
+        return
+        [
+            .. shown.Select(row => row.Targets!.ToTarget(row.VariationId!.Value)).OfType<VariationTarget>(),
+            .. record.Local.VariationTargets.Where(target => !shownIds.Contains(target.VariationId)),
+        ];
     }
 
     // ---- ファイルに種類を付ける（#40） ----

@@ -204,6 +204,106 @@ public sealed class AvatarCompatibilityIndex
         return result;
     }
 
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<LocalBlock, IReadOnlySet<string>> _unownedWithDetected = new();
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<LocalBlock, IReadOnlySet<string>> _unownedManualOnly = new();
+
+    /// <summary>
+    /// 対応アバター（<see cref="Resolve"/>）のうち、**持っていないバリエーションの分**（<c>docs/spec/conversion.md</c>「バリエーションとアバターの結び付き」）。
+    ///
+    /// どれかのバリエーションの向き先に入っていて、持っているバリエーションの向き先のどれにも入っていない物。
+    /// 持っているバリエーションが分からないとき、または持っているバリエーションのどれかに向き先が無いときは空——
+    /// 「本体」のような名前の行を持っていると、何を持っているかが言えない。薄くしすぎる側に倒すと、着られる物を隠してしまう。
+    /// <paramref name="includeDetected"/> が偽なら、人が決めた向き先だけを使う（設定。人が決めていない行は向き先が無い扱い）。
+    /// </summary>
+    public IReadOnlySet<string> UnownedVariationAvatars(LocalBlock local, bool includeDetected)
+        => (includeDetected ? _unownedWithDetected : _unownedManualOnly)
+            .GetValue(local, block => UnownedCore(block, includeDetected));
+
+    private IReadOnlySet<string> UnownedCore(LocalBlock local, bool includeDetected)
+    {
+        var none = (IReadOnlySet<string>)new HashSet<string>(StringComparer.Ordinal);
+
+        var owned = local.Purchases
+            .Where(purchase => purchase.Kind != PurchaseKind.Given && purchase.VariationId is not null)
+            .Select(purchase => purchase.VariationId!.Value)
+            .Concat(local.OwnedFiles.Where(file => file.VariationId is not null).Select(file => file.VariationId!.Value))
+            .ToHashSet();
+        if (owned.Count == 0)
+        {
+            return none;
+        }
+
+        // 人が決めた行が、同じバリエーションの検出の行に勝つ
+        var targets = new Dictionary<long, VariationTarget>();
+        if (includeDetected)
+        {
+            foreach (var target in local.DetectedVariationTargets.Where(target => !target.IsEmpty))
+            {
+                targets[target.VariationId] = target;
+            }
+        }
+
+        foreach (var target in local.VariationTargets.Where(target => !target.IsEmpty))
+        {
+            targets[target.VariationId] = target;
+        }
+
+        if (targets.Count == 0 || owned.Any(id => !targets.ContainsKey(id)))
+        {
+            return none;
+        }
+
+        var resolved = Resolve(local);
+        var bound = new HashSet<string>(StringComparer.Ordinal);
+        var reached = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (id, target) in targets)
+        {
+            var expanded = Expand(target, resolved);
+            bound.UnionWith(expanded);
+            if (owned.Contains(id))
+            {
+                reached.UnionWith(expanded);
+            }
+        }
+
+        var unowned = resolved.Keys.Where(avatar => bound.Contains(avatar) && !reached.Contains(avatar)).ToHashSet(StringComparer.Ordinal);
+        return unowned.Count == 0 ? none : unowned;
+    }
+
+    /// <summary>
+    /// 向き先を、素体経由と同じに広げる。アバターはその素体の仲間へ（「衣装の互換を広げない」にした組は広げない）、
+    /// 共通素体はその仲間全員へ（人が素体を名指しした行は、素体向けという意味なので広げない組でも広げる）。
+    /// </summary>
+    private HashSet<string> Expand(VariationTarget target, IReadOnlyDictionary<string, AvatarMatch> resolved)
+    {
+        if (target.All)
+        {
+            return resolved.Keys.ToHashSet(StringComparer.Ordinal);
+        }
+
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var avatar in target.Avatars)
+        {
+            result.Add(avatar);
+
+            var group = _baseOfItemId.TryGetValue(avatar, out var ofItem) ? ofItem
+                : _baseOfAvatar.TryGetValue(avatar, out var ofAvatar) ? ofAvatar
+                : null;
+            if (group is not null && !_noInfer.Contains(group))
+            {
+                result.UnionWith(MembersOf(group));
+            }
+        }
+
+        foreach (var baseName in target.Bases)
+        {
+            result.UnionWith(MembersOf(baseName));
+        }
+
+        return result;
+    }
+
     /// <summary>1体のアバターについての相性。</summary>
     public AvatarMatch MatchFor(LocalBlock local, string avatarItemId)
         => Resolve(local).TryGetValue(avatarItemId, out var match) ? match : AvatarMatch.Unknown;

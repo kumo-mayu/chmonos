@@ -38,6 +38,13 @@ public sealed record AppSettings
     /// </summary>
     public bool GroupAvatarsByBase { get; init; } = true;
 
+    /// <summary>
+    /// 持っているバリエーションの分を見分けるとき、検出したバリエーションの向き先（名前にアバター名が入っている物）も使うか
+    /// （ユーザ判断 2026-11-07・既定はオン）。オフなら、人が編集の画面で決めた向き先だけを使う。
+    /// 商品ページの薄い札と、検索の「持っているバリエーションの分だけ」の両方に効く（<c>docs/spec/conversion.md</c>）
+    /// </summary>
+    public bool UseDetectedVariationTargets { get; init; } = true;
+
     /// <summary>非表示中の件数を検索結果に出すか。既定はオフ（人前で開いても気付かれないように）。</summary>
     public bool ShowHiddenCountInSearch { get; init; }
 

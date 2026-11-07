@@ -851,6 +851,71 @@
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </controls:ContentItemsControl>
+
+                                                    <!--
+                                                        このバリエーションがどのアバター・共通素体向けか（ユーザ判断 2026-11-06・docs/spec/conversion.md）。
+                                                        全部の行に付けられるが、買っていない行では効き目が無いので薄くする（ユーザ判断 2026-11-07）。
+                                                        人が積んだ札が無い間は、名前から見つけた向き先を薄い字で出す（それが効いている）
+                                                    -->
+                                                    <StackPanel Margin="22,8,0,0" DataContext="{Binding Targets}"
+                                                                Visibility="{Binding DataContext.HasTargets, RelativeSource={RelativeSource AncestorType=Border}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DataContext.IsPurchased, RelativeSource={RelativeSource AncestorType=Border}}" Value="False">
+                                                                        <Setter Property="Opacity" Value="0.55" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
+                                                        <DockPanel>
+                                                            <TextBlock DockPanel.Dock="Left" Text="対応" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                       ToolTip="このバリエーションが、どのアバター向けかです。" />
+                                                            <controls:SuggestBox DockPanel.Dock="Right" Width="170" Source="{Binding Suggestions}" CommitCommand="{Binding AddCommand}"
+                                                                                 Placeholder="アバターを追加" Margin="8,0,0,0"
+                                                                                 AutomationProperties.AutomationId="EditVariationTargetInput"
+                                                                                 AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=Border}, StringFormat={}{0}の対応アバターを追加}" />
+                                                            <Grid VerticalAlignment="Center">
+                                                                <controls:ContentItemsControl ItemsSource="{Binding Chips}" controls:ArrowGroup.IsEnabled="True">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                                                    BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,2,5,2">
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <TextBlock Text="{Binding Text}" FontSize="11.5" Foreground="{DynamicResource AccentText}" />
+                                                                                    <controls:PressableBorder Margin="7,0,0,0" Cursor="Hand" VerticalAlignment="Center"
+                                                                                            Focusable="True" FocusVisualStyle="{StaticResource SmallFocusVisual}"
+                                                                                            Command="{Binding RemoveCommand}"
+                                                                                            AutomationProperties.AutomationId="EditVariationTargetRemove"
+                                                                                            AutomationProperties.Name="{Binding Text, StringFormat={}{0}を外す}">
+                                                                                        <Border.InputBindings>
+                                                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding RemoveCommand}" />
+                                                                                        </Border.InputBindings>
+                                                                                        <TextBlock Text="✕" FontSize="10" Foreground="{DynamicResource ChipRemove}" />
+                                                                                    </controls:PressableBorder>
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </controls:ContentItemsControl>
+                                                                <StackPanel Orientation="Horizontal"
+                                                                            Visibility="{Binding ShowsDetected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                    <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                               AutomationProperties.AutomationId="EditVariationTargetDetected"
+                                                                               ToolTip="バリエーションの名前から見つけた対応です。追加すると置き換わります。">
+                                                                        <Run Text="{Binding DetectedText, Mode=OneWay}" /><Run Text="（名前から）" />
+                                                                    </TextBlock>
+                                                                    <Button Content="この内容で決める" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                            Command="{Binding AcceptDetectedCommand}"
+                                                                            AutomationProperties.AutomationId="EditVariationTargetAccept"
+                                                                            ToolTip="名前から見つけた対応を、決めた対応として残します。" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DockPanel>
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>

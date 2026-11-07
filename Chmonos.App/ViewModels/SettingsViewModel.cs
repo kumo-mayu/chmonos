@@ -624,6 +624,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showAvatarsViaBase, value)) { Save(); } }
     }
 
+    private bool _useDetectedVariationTargets;
+
+    /// <summary>持っていないバリエーションの分を、バリエーションの名前からも見分けるか（既定はオン・ユーザ判断 2026-11-07）。検索の絞り込みにも効くので、一覧を読み直す</summary>
+    public bool UseDetectedVariationTargets
+    {
+        get => _useDetectedVariationTargets;
+        set { if (SetField(ref _useDetectedVariationTargets, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
     private bool _groupAvatarsByBase;
 
     /// <summary>対応アバターを共通素体ごとにまとめるか（既定はオン）。検索の候補にも効くので、候補を作り直す</summary>
@@ -1504,6 +1513,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowRemovedBoothImages = ShowRemovedBoothImages,
             ShowAvatarsViaBase = ShowAvatarsViaBase,
             GroupAvatarsByBase = GroupAvatarsByBase,
+            UseDetectedVariationTargets = UseDetectedVariationTargets,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             ShowSortDividers = ShowSortDividers,
