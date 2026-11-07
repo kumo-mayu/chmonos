@@ -250,7 +250,9 @@ public sealed class AvatarNameIndex
             // カタカナだけの名前は、前後がカタカナでないときだけ当てる。
             // 表示名を読める短い名前（リース）に直すと、「先行リリース」の中に当たった（友人のデータ、2026-09-11）。
             // 英字の語境界と同じ考え。「カリン対応」「カリンちゃん」は前後が漢字・ひらがななので当たる
-            if (IsKatakanaWord(alias) && !Regex.IsMatch(lower, $@"(?<![\p{{IsKatakana}}ー]){Regex.Escape(alias)}(?![\p{{IsKatakana}}ー])"))
+            // 前後を見る文字は名前に使う文字（ァ〜ヺ・ー）だけ。Unicode のカタカナの区画（\p{IsKatakana}）は区切りの「・」（U+30FB）も含むので、
+            // 「シフォン・ショコラ対応」の両方の名前が当たらなかった（2026-11-07・友人の写しのバリエーション名で見つけた）
+            if (IsKatakanaWord(alias) && !Regex.IsMatch(lower, $@"(?<![ァ-ヺー]){Regex.Escape(alias)}(?![ァ-ヺー])"))
             {
                 continue;
             }

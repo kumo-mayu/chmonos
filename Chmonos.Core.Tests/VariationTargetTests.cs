@@ -126,6 +126,29 @@ public class VariationTargetTests
         Assert.Equal(["kipfel", "mamehinata"], Index().UnownedVariationAvatars(decided, includeDetected: false).Order());
     }
 
+    /// <summary>
+    /// 1つのバリエーション名に複数のアバター（「〇〇・△△対応」）。区切りの「・」は Unicode のカタカナの区画に入るので、
+    /// 前後がカタカナでない名前だけ当てる決まりで両方とも落ちていた（2026-11-07・友人の写しで見つけた）。「先行リリース」の中の「リース」は今までどおり当てない
+    /// </summary>
+    [Fact]
+    public void 中黒でつないだ複数のアバター名を_両方とも拾う()
+    {
+        var index = AvatarNameIndex.Build(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "a", DisplayName = "シフォン", Category = "3Dキャラクター" },
+                new AvatarRegistryEntry { ItemId = "b", DisplayName = "ショコラ", Category = "3Dキャラクター" },
+                new AvatarRegistryEntry { ItemId = "c", DisplayName = "リース", Category = "3Dキャラクター" },
+            ],
+        });
+
+        var found = AvatarDetector.ScanVariations(index, [], [(1, "シフォン・ショコラ対応"), (2, "先行リリース版"), (3, "ショコラ用")]);
+
+        Assert.Equal(["a", "b"], found.Single(target => target.VariationId == 1).Avatars.Order());
+        Assert.DoesNotContain(found, target => target.VariationId == 2);
+    }
+
     [Fact]
     public void バリエーションが1つの商品は_バリエーションごとに分けない()
     {
