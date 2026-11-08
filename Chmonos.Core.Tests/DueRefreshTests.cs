@@ -260,6 +260,23 @@ public class DueRefreshTests : IDisposable
         Assert.Equal(["9900009", "9900010"], _items.Refreshed);
     }
 
+    /// <summary>
+    /// **1回の起動で取り直す件数に頭打ちが無い**（ユーザ判断 2026-11-06。前は 200 件まで）。
+    /// 人が押した操作は門が先に通すので、⑦が長く続いても待たされない。頭打ちがあると、大きいライブラリでは残りが増え続けた
+    /// </summary>
+    [Fact]
+    public async Task RefreshesEveryDueItemInOneRunEvenPastTheOldCapOf200()
+    {
+        var now = DateTimeOffset.Now;
+        for (var i = 0; i < 205; i++)
+        {
+            await SaveAsync((9800000 + i).ToString(System.Globalization.CultureInfo.InvariantCulture), now.AddDays(-1 - i));
+        }
+
+        Assert.Equal(205, await _due.RunAsync());
+        Assert.Equal(205, _items.Refreshed.Count);
+    }
+
     /// <summary>期限の来たものが無ければ、何も呼ばない。</summary>
     [Fact]
     public async Task DoesNothingWhenNothingIsDue()
