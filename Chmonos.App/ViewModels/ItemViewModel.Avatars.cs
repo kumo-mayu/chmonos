@@ -212,6 +212,29 @@ public sealed partial class ItemViewModel
     /// **記録にあるアバターは除く**：消したアバター（素体の兄弟として計算に戻ってくる。人が消した物を点線で出し直さない）と、
     /// 説明文のリンクから拾った確認待ち（もう札がある）。この商品そのもの（アバターの商品が自分の素体を宣言している）も除く
     /// </summary>
+    /// <summary>変換経由の札。記録にあるアバター（消した物を含む）と、この商品そのものは除く（素体経由の札と同じ）。</summary>
+    private List<ViaConversionAvatarRow> ViaConversionRows(
+        AvatarCompatibilityIndex compatibility, Func<string, string> nameOf, Func<string, bool> isOwned)
+    {
+        var recorded = Item.Local.Avatars.Select(link => link.AvatarItemId).ToHashSet(StringComparer.Ordinal);
+        return _main.Search.ConversionIndexFor(compatibility).Resolve(Item.Local)
+            .Where(pair => !recorded.Contains(pair.Key) && pair.Key != Item.Id)
+            .Select(pair => new ViaConversionAvatarRow
+            {
+                ItemId = pair.Key,
+                Name = nameOf(pair.Key),
+                SourceText = "変換",
+                SourceName = nameOf(pair.Value.SourceAvatarItemId),
+                OtherSources = pair.Value.OtherSources,
+                IsOwned = isOwned(pair.Key),
+                IconFactory = () => AvatarIcon(pair.Key, _thumbnails.LoadForCard),
+                OpenCommand = new RelayCommand(() => OpenAvatarAsync(pair.Key).Forget()),
+            })
+            .OrderByDescending(row => row.IsOwned)
+            .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
     private List<AvatarRow> ViaBaseRows(
         AvatarCompatibilityIndex compatibility, Func<string, string> nameOf, Func<string, bool> isOwned, Func<string, bool> isOtherVariation)
     {
@@ -310,6 +333,14 @@ public sealed partial class ItemViewModel
     public IReadOnlyList<AvatarBaseRow> AvatarBases { get; private set; } = [];
 
     public bool HasAvatarBases => AvatarBases.Count > 0;
+
+    /// <summary>
+    /// 変換経由で使えるアバター（docs/spec/conversion.md・設定「変換経由の対応アバターも表示する」）。共通素体の段の下に別の段で並べる。
+    /// 直接対応・素体経由で既に並ぶアバターは計算で除いてある（ConversionIndex）。保存はしない
+    /// </summary>
+    public IReadOnlyList<ViaConversionAvatarRow> ViaConversionAvatars { get; private set; } = [];
+
+    public bool HasViaConversionAvatars => ViaConversionAvatars.Count > 0;
 
     /// <summary>
     /// 説明文に「〇〇共通素体」と書かれていて、この商品にまだ付いていない素体（ユーザ判断 2026-09-29）。
@@ -570,6 +601,12 @@ public sealed partial class ItemViewModel
         }
 
         ApplyAvatarFilter();
+
+        ViaConversionAvatars = settings.ShowAvatarsViaConversion
+            ? ViaConversionRows(compatibility ?? AvatarCompatibilityIndex.For(registry), id => NameOf(id, null), id => ownedIds.Contains(id) || manuallyOwned.Contains(id))
+            : [];
+        OnPropertyChanged(nameof(ViaConversionAvatars));
+        OnPropertyChanged(nameof(HasViaConversionAvatars));
 
         AvatarBases = Item.Local.AvatarBases
             .Where(link => !link.Rejected)

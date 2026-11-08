@@ -291,6 +291,17 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// 商品ページの対応アバターの札を「所持」の色にするのに使う（U25）。
     /// 検索画面は起動時に全商品を読んでいるので、札のために200件以上を読み直さない
     /// </summary>
+    /// <summary>
+    /// 変換経由の索引（docs/spec/conversion.md）を、手元の全商品から組む。商品ページの「変換経由」の段に使う。
+    /// 組むのはプロファイルの商品（変換扱いを持つ物）だけを拾う1周で、手元の数千件でも軽いので、開くたびに組む（控えると、変換扱いを変えたときに古くなる）
+    /// </summary>
+    internal Core.Services.ConversionIndex ConversionIndexFor(Core.Services.AvatarCompatibilityIndex compatibility)
+        => Core.Services.ConversionIndex.Build(
+            compatibility,
+            _allItems,
+            _services.Settings.IncludeUnconfirmedConversion,
+            _services.Settings.UseDetectedVariationTargets);
+
     public IReadOnlySet<string> OwnedItemIds() => _allItems
         .Where(item => item.IsOwned)
         .Select(item => item.Id)

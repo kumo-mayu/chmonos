@@ -105,6 +105,8 @@ public sealed partial class SettingsViewModel
         _showRemovedBoothImages = settings.ShowRemovedBoothImages;
         _showAvatarsViaBase = settings.ShowAvatarsViaBase;
         _groupAvatarsByBase = settings.GroupAvatarsByBase;
+        _showAvatarsViaConversion = settings.ShowAvatarsViaConversion;
+        _includeUnconfirmedConversion = settings.IncludeUnconfirmedConversion;
         _exposeScreenToAutomation = settings.ExposeScreenToAutomation;
         _useDetectedVariationTargets = settings.UseDetectedVariationTargets;
         _showVariationTargetsForUnpurchased = settings.ShowVariationTargetsForUnpurchased;

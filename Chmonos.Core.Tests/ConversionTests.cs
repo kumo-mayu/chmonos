@@ -254,6 +254,34 @@ public class ConversionTests
         Assert.Equal(new ConversionRoute("9000001", 1), routes["9000005"]);
     }
 
+    // ---- 検索の「変換で使える物も含める」 ----
+
+    [Fact]
+    public void 検索の_変換で使える物も含める_を入れたときだけ_変換経由のアバターで当たる()
+    {
+        var clothing = Item("9300001", avatars: ["9000001"]);
+        var items = new[]
+        {
+            clothing,
+            Item("9200001", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Reverse = true, Confirmed = true })),
+            Item("9200003", conversion: Profile(new ConversionTarget { BaseName = "作り物素体", Forward = true, Confirmed = true })),
+        };
+        var context = new SearchModuleContext(() => Compat, ModificationUsage.Empty, RecentTimes.Empty, null, DateTimeOffset.Now) { Items = items };
+
+        bool Hits(string key, bool viaConversion) => SearchModuleConditions.From(new SearchModuleState
+        {
+            Kind = "Avatar",
+            Items = [key],
+            Flag = true,
+            Toggles = new Dictionary<string, bool> { [SearchModuleConditions.ViaConversionToggle] = viaConversion },
+        })!.Matches(clothing, context);
+
+        Assert.False(Hits("avatar:9000003", viaConversion: false));
+        Assert.True(Hits("avatar:9000003", viaConversion: true));
+        Assert.True(Hits("base:作り物素体", viaConversion: true));
+        Assert.False(Hits("avatar:9000002", viaConversion: true));
+    }
+
     // ---- データの形 ----
 
     [Fact]

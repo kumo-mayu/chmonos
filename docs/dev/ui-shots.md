@@ -85,6 +85,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 絵が無い・持っていない・BOOTHから消えた・隠した（メモあり） | `catalog-item-no-images`・`catalog-item-not-owned`・`catalog-item-delisted`・`catalog-item-hidden` |
 | 対応アバター29体・共通素体 | `item-page-avatars` |
 | 確認待ちの対応アバター（見出しの［すべて確認済みにする］・札にフォーカスして ✓） | `item-page-avatars-unconfirmed`・`item-page-avatars-unconfirmed-focus` |
+| 変換経由の段（持っているプロファイルで変換できる見込みのアバター） | `item-page-avatars-via-conversion` |
 | 手元のファイルの状態（在る・壊れた・見つからない・外したドライブ・2箇所） | `item-files-states` |
 | 手元のファイルが多い商品（ファイル30個・Unityへ送れるもの40個。見えている分から作る直しの確かめ） | `item-files-many` |
 | 長い説明（開いた・畳んだ・流した・最後・縦長） | `item-page-long`・`item-page-long-*` |

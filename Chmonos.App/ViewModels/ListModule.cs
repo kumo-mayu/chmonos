@@ -309,9 +309,27 @@ public sealed class ListModule : SearchModule
         }
     }
 
-    /// <summary>照らす決まり。「持っているバリエーションの分だけ」なら、保存した状態から作る条件（<see cref="SearchModuleConditions.From"/>）と同じに重ねる</summary>
-    private Func<ItemRecord, SearchModuleContext, string, bool, bool> EffectiveMatches => _ownedVariationsOnly && Kind == SearchModuleKind.Avatar
-        ? (item, context, key, flag) => _matches(item, context, key, flag) && SearchModuleConditions.InOwnedVariation(item, context, key)
+    private bool _viaConversion;
+
+    /// <summary>
+    /// 対応アバターの「変換で使える物も含める」（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06）。
+    /// 持っているプロファイルで変換できる見込みの商品も当てる。名前で持つ（<see cref="SearchModuleConditions.ViaConversionToggle"/>）
+    /// </summary>
+    public bool ViaConversion
+    {
+        get => _viaConversion;
+        set
+        {
+            if (SetField(ref _viaConversion, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>照らす決まり。切り替えは、保存した状態から作る条件（<see cref="SearchModuleConditions.From"/>）と同じに重ねる</summary>
+    private Func<ItemRecord, SearchModuleContext, string, bool, bool> EffectiveMatches => Kind == SearchModuleKind.Avatar
+        ? SearchModuleConditions.AvatarMatches(_matches, _viaConversion, _ownedVariationsOnly)
         : _matches;
 
     /// <summary>
@@ -596,6 +614,7 @@ public sealed class ListModule : SearchModule
             return JoinValues(values, _matchAll && AllowsAnd)
                 + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
                 + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty)
+                + (HasOwnedVariations && _viaConversion ? "（変換で使える物も含める）" : string.Empty)
                 + (HasOwnedVariations && _ownedVariationsOnly ? "（持っているバリエーションの分だけ）" : string.Empty);
         }
     }
@@ -608,6 +627,8 @@ public sealed class ListModule : SearchModule
         _showMatched = true;
         _ownedVariationsOnly = false;
         OnPropertyChanged(nameof(OwnedVariationsOnly));
+        _viaConversion = false;
+        OnPropertyChanged(nameof(ViaConversion));
         _showUnspecified = false;
         _includeOn = false;
         OnPropertyChanged(nameof(MatchAll));
@@ -659,7 +680,11 @@ public sealed class ListModule : SearchModule
             IncludeFavorites = _includeOn && !IsOpenProjectInclude,
             IncludeOpenProject = _includeOn && IsOpenProjectInclude,
             Toggles = Kind == SearchModuleKind.Avatar
-                ? new Dictionary<string, bool> { [SearchModuleConditions.OwnedVariationsToggle] = _ownedVariationsOnly }
+                ? new Dictionary<string, bool>
+                {
+                    [SearchModuleConditions.OwnedVariationsToggle] = _ownedVariationsOnly,
+                    [SearchModuleConditions.ViaConversionToggle] = _viaConversion,
+                }
                 : state.Toggles,
         };
 
@@ -677,6 +702,9 @@ public sealed class ListModule : SearchModule
         _ownedVariationsOnly = Kind == SearchModuleKind.Avatar
             && state.Toggles is { } toggles && toggles.TryGetValue(SearchModuleConditions.OwnedVariationsToggle, out var ownedOnly) && ownedOnly;
         OnPropertyChanged(nameof(OwnedVariationsOnly));
+        _viaConversion = Kind == SearchModuleKind.Avatar
+            && state.Toggles is { } conversionToggles && conversionToggles.TryGetValue(SearchModuleConditions.ViaConversionToggle, out var viaConversion) && viaConversion;
+        OnPropertyChanged(nameof(ViaConversion));
 
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
         _showUnspecified = HasGroups && state.ShowUnspecified;

@@ -48,6 +48,7 @@ internal static partial class Scenes
         .. CardBadges,
         .. AvatarConfirmScenes,
         .. AvatarViaBaseScenes,
+        .. AvatarViaConversionScenes,
         .. VariationTargetScenes,
         .. ShopScenes,
         .. ShopPerfScenes,

@@ -139,6 +139,12 @@ public class SearchModuleConditionParityTests
                         Items = ["avatar:7000001"],
                         Toggles = new Dictionary<string, bool> { [SearchModuleConditions.OwnedVariationsToggle] = true },
                     },
+                    new SearchModuleState
+                    {
+                        Kind = name,
+                        Items = ["avatar:7000002"],
+                        Toggles = new Dictionary<string, bool> { [SearchModuleConditions.ViaConversionToggle] = true },
+                    },
                 ]),
             SearchModuleKind.WishList => Ranges(name, null),
             SearchModuleKind.Price => Ranges(name, SearchModuleConditions.PaidSource).Concat(Ranges(name, SearchModuleConditions.BoothSource)),

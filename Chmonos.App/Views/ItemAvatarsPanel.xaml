@@ -361,6 +361,59 @@
                                 </controls:ContentItemsControl>
 
                                 <!--
+                                    変換経由（docs/spec/conversion.md「衣装の商品ページの「変換経由」段」・ユーザ案 2026-11-06）。共通素体の段の下に別の段で置き、
+                                    持っているプロファイルで変換できる見込みのアバターを並べる。段の名前は「変換経由」（「使える」は約束しすぎ）。
+                                    札は素体経由と同じ点線の枠（計算で出した推定。外す・確認済みにするは無い）。数は多くないので部品で組む
+                                -->
+                                <StackPanel Margin="0,4,0,0"
+                                            Visibility="{Binding HasViaConversionAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="変換経由" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding ViaConversionAvatars}" controls:ArrowGroup.IsEnabled="True">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:ViaConversionAvatarRow}">
+                                                <controls:PressableBorder CornerRadius="10" Margin="0,0,6,6" Cursor="Hand" Background="Transparent"
+                                                        Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                                        Command="{Binding OpenCommand}"
+                                                        AutomationProperties.AutomationId="ItemAvatarViaConversionChip"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
+                                                        ToolTip="{Binding ViaTooltip}">
+                                                    <Border.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
+                                                    </Border.InputBindings>
+                                                    <Border.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="開く" Command="{Binding OpenCommand}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                                                        </ContextMenu>
+                                                    </Border.ContextMenu>
+                                                    <Grid>
+                                                        <Rectangle RadiusX="10" RadiusY="10" StrokeThickness="1" StrokeDashArray="3 2" SnapsToDevicePixels="True">
+                                                            <Rectangle.Style>
+                                                                <Style TargetType="Rectangle">
+                                                                    <Setter Property="Stroke" Value="{DynamicResource AccentBorder}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                                            <Setter Property="Stroke" Value="{DynamicResource GoodBorder}" />
+                                                                            <Setter Property="Fill" Value="{DynamicResource GoodSoft}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Rectangle.Style>
+                                                        </Rectangle>
+                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" Margin="10,4" />
+                                                    </Grid>
+                                                </controls:PressableBorder>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+                                </StackPanel>
+
+                                <!--
                                     説明文に「〇〇共通素体」と書かれた素体の候補（ユーザ判断 2026-09-29）。
                                     「共通素体ではありません」のような書き方の揺れを規則で吸収しきれないので、自動では入れない。
                                     札の形は共通素体の札に揃え、押したときだけ入れる。推定を確定と同じ顔で出さないよう、塗らずに枠だけにして見出しの下に分ける

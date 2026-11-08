@@ -624,6 +624,24 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showAvatarsViaBase, value)) { Save(); } }
     }
 
+    private bool _showAvatarsViaConversion;
+
+    /// <summary>対応アバターに変換経由の札も並べるか（既定はオン・docs/spec/conversion.md）。商品ページは開き直したときに読むので、知らせは要らない</summary>
+    public bool ShowAvatarsViaConversion
+    {
+        get => _showAvatarsViaConversion;
+        set { if (SetField(ref _showAvatarsViaConversion, value)) { Save(); } }
+    }
+
+    private bool _includeUnconfirmedConversion;
+
+    /// <summary>変換経由の計算に、確認していないプロファイルのつなぎ先も使うか（既定はオフ）。検索の「変換で使える物も含める」にも効くので、一覧を読み直す</summary>
+    public bool IncludeUnconfirmedConversion
+    {
+        get => _includeUnconfirmedConversion;
+        set { if (SetField(ref _includeUnconfirmedConversion, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
     private bool _useDetectedVariationTargets;
 
     /// <summary>持っていないバリエーションの分を、バリエーションの名前からも見分けるか（既定はオン・ユーザ判断 2026-11-07）。検索の絞り込みにも効くので、一覧を読み直す</summary>
@@ -1547,6 +1565,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowRemovedBoothImages = ShowRemovedBoothImages,
             ShowAvatarsViaBase = ShowAvatarsViaBase,
             GroupAvatarsByBase = GroupAvatarsByBase,
+            ShowAvatarsViaConversion = ShowAvatarsViaConversion,
+            IncludeUnconfirmedConversion = IncludeUnconfirmedConversion,
             ExposeScreenToAutomation = ExposeScreenToAutomation,
             UseDetectedVariationTargets = UseDetectedVariationTargets,
             ShowVariationTargetsForUnpurchased = ShowVariationTargetsForUnpurchased,

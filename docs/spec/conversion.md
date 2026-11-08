@@ -1,7 +1,8 @@
 # 変換で使える対応アバター（下書き・v1.3.0）
 
 **この文書は、印の無い所が［案］**（2026-11-06。ユーザが読んで意見を返す。決まった所から［決定］に変える）。
-**作った所（2026-11-08・Core だけ。画面はまだ）**：データの形（`local.conversion`）・プロファイルの見分け（`ProfileFiles`）・つなぎ先の推し方（`ConversionInference`。(a)(c)(d)(e)。(b) の FBX の場所はまだ読んでいない）・変換経由の計算（`ConversionIndex`）・推した値を確認待ちで書く見回り（`ConversionScan`。取り込みの終わりと起動時）・設定の2つの値（`showAvatarsViaConversion`・`includeUnconfirmedConversion`。画面にはまだ無い）。
+**作った所（2026-11-08・Core だけ。画面はまだ）**：データの形（`local.conversion`）・プロファイルの見分け（`ProfileFiles`）・つなぎ先の推し方（`ConversionInference`。(a)(c)(d)(e)。(b) の FBX の場所はまだ読んでいない）・変換経由の計算（`ConversionIndex`）・推した値を確認待ちで書く見回り（`ConversionScan`。取り込みの終わりと起動時）・設定の2つの値（`showAvatarsViaConversion`・`includeUnconfirmedConversion`）。
+画面で作った所（同じ日）：設定の2項目・検索の「変換で使える物も含める」（API の `viaConversion`）・商品ページの「変換経由」の段（共通素体の段の下・素体経由と同じ点線の札・吹き出しは「「A」用を、プロファイルで変換できる見込みです。」）。**変換扱いを人が決める画面（商品ページの「変換扱い」の欄・アバターの管理の「変換」）はまだ**ので、今は確認したつなぎ先が作れず、既定の設定では変換経由は出ない。
 ユーザ指示「ユーザ環境で変換可能な対応関係を保持してそれを用いて対応アバターによる絞り込みに対応させたい」（`docs/plan.md` 8）。
 もちふぃった～の事実と、写しで確かめた数は `docs/research/mochifitter.md`。**VRChat の使い方として分からない所は［要確認］にしてユーザに聞く**（推して決めない）。
 

@@ -39,6 +39,9 @@ public sealed class ConditionRequest
     /// <summary>対応アバター：持っているバリエーションの分だけで照らすか（既定 false。画面の「持っているバリエーションの分だけ」）。</summary>
     public bool? OwnedVariationsOnly { get; init; }
 
+    /// <summary>対応アバター：変換で使える物も含めるか（既定 false。画面の「変換で使える物も含める」）。</summary>
+    public bool? ViaConversion { get; init; }
+
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>
     public bool? Matched { get; init; }
 
@@ -193,7 +196,11 @@ public static class ConditionKinds
                     Flag = request.ViaBase ?? true,
                     ShowMatched = showMatched,
                     ShowUnspecified = showUnspecified,
-                    Toggles = new Dictionary<string, bool> { [SearchModuleConditions.OwnedVariationsToggle] = request.OwnedVariationsOnly ?? false },
+                    Toggles = new Dictionary<string, bool>
+                    {
+                        [SearchModuleConditions.OwnedVariationsToggle] = request.OwnedVariationsOnly ?? false,
+                        [SearchModuleConditions.ViaConversionToggle] = request.ViaConversion ?? false,
+                    },
                 };
 
             case SearchModuleKind.Category or SearchModuleKind.BoothTag or SearchModuleKind.Shop or SearchModuleKind.UnityProject or SearchModuleKind.Path:

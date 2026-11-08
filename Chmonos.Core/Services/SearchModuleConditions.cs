@@ -47,6 +47,11 @@ public static class SearchModuleConditions
     /// </summary>
     public const string OwnedVariationsToggle = "ownedVariationsOnly";
 
+    /// <summary>
+    /// 対応アバターの「変換で使える物も含める」の切り替えの名前（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06：入にすると、更新しただけで今の絞り込みの結果が増える）。
+    /// </summary>
+    public const string ViaConversionToggle = "viaConversion";
+
     /// <summary>入手日を最初の購入だけで見る（状態の <c>choice</c> の値。既定）。</summary>
     public const string FirstPurchase = "first";
 
@@ -281,10 +286,11 @@ public static class SearchModuleConditions
             var groups = list.IsUnspecified is not null;
             var showUnspecified = groups && state.ShowUnspecified;
             var showMatched = !groups || state.ShowMatched || !showUnspecified;
-            Func<ItemRecord, SearchModuleContext, string, bool, bool> matches = kind == SearchModuleKind.Avatar
-                && state.Toggles is { } toggles && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly
-                    ? (item, context, key, flag) => list.Matches(item, context, key, flag) && InOwnedVariation(item, context, key)
-                    : list.Matches;
+            var toggles = kind == SearchModuleKind.Avatar ? state.Toggles : null;
+            var matches = AvatarMatches(
+                list.Matches,
+                toggles is not null && toggles.TryGetValue(ViaConversionToggle, out var viaConversion) && viaConversion,
+                toggles is not null && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly);
             return new ListCondition(
                 state.Items,
                 list.AllowsAnd && state.MatchAll,
@@ -502,6 +508,39 @@ public static class SearchModuleConditions
 
         var members = context.Compatibility.MembersOf(baseName);
         return members.Count > 0 && members.Any(resolved.ContainsKey);
+    }
+
+    /// <summary>
+    /// 対応アバターの照らし方に、2つの切り替えを重ねる（画面の条件と保存した状態から作る条件で同じにする）。
+    /// 変換経由は直接対応・素体経由で当たらなかったときに足し、「持っているバリエーションの分だけ」はその後で落とす
+    /// </summary>
+    public static Func<ItemRecord, SearchModuleContext, string, bool, bool> AvatarMatches(
+        Func<ItemRecord, SearchModuleContext, string, bool, bool> matches, bool viaConversion, bool ownedOnly)
+    {
+        var result = viaConversion
+            ? (item, context, key, flag) => matches(item, context, key, flag) || ViaConversion(item, context, key)
+            : matches;
+        return ownedOnly
+            ? (item, context, key, flag) => result(item, context, key, flag) && InOwnedVariation(item, context, key)
+            : result;
+    }
+
+    /// <summary>選んだアバター（共通素体）が、この商品から変換経由で使えるか（<see cref="ConversionIndex"/>）。共通素体は仲間のどれかが使えれば当たる</summary>
+    public static bool ViaConversion(ItemRecord item, SearchModuleContext context, string key)
+    {
+        var routes = context.Conversion.Resolve(item.Local);
+        if (routes.Count == 0)
+        {
+            return false;
+        }
+
+        if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
+        {
+            return routes.ContainsKey(key[AvatarKey.Length..]);
+        }
+
+        return key.StartsWith(BaseKey, StringComparison.Ordinal)
+            && context.Compatibility.MembersOf(key[BaseKey.Length..]).Any(routes.ContainsKey);
     }
 
     /// <summary>

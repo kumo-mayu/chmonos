@@ -189,4 +189,12 @@ public sealed class SearchModuleContext
     /// 既定は設定の既定と同じ。
     /// </summary>
     public bool UseDetectedVariationTargets { get; init; } = true;
+
+    /// <summary>変換経由の計算に、確認していないつなぎ先も使うか（設定 <see cref="Models.AppSettings.IncludeUnconfirmedConversion"/>）。既定は設定の既定と同じ</summary>
+    public bool IncludeUnconfirmedConversion { get; init; }
+
+    private ConversionIndex? _conversion;
+
+    /// <summary>変換経由の索引（docs/spec/conversion.md）。「変換で使える物も含める」で絞るときだけ、手元の商品の全部（<see cref="Items"/>）から作る</summary>
+    public ConversionIndex Conversion => _conversion ??= ConversionIndex.Build(Compatibility, Items, IncludeUnconfirmedConversion, UseDetectedVariationTargets);
 }

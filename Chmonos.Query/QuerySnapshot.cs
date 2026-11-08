@@ -100,6 +100,7 @@ public sealed class QuerySnapshot
         FavoriteShops = FavoriteShops,
         UnreadUpdateKinds = itemId => UnreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : BoothChangeKind.None,
         UseDetectedVariationTargets = Settings.UseDetectedVariationTargets,
+        IncludeUnconfirmedConversion = Settings.IncludeUnconfirmedConversion,
     };
 
     /// <summary>検索用の文字列を照らす間に取る錠（文字列は対象を初めて探すときに畳んで覚えるので、同時に畳み合わない）。</summary>

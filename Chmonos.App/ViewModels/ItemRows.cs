@@ -642,6 +642,24 @@ public sealed class ViaBaseAvatarRow : AvatarRow
 }
 
 /// <summary>
+/// 変換経由で使えるアバターの札（docs/spec/conversion.md「衣装の商品ページの「変換経由」段」）。点線の枠で、記録した対応・素体経由と分けて見せる。
+/// 計算で出した物なので、外す・確認済みにするは持たない（押すと開くだけ）
+/// </summary>
+public sealed class ViaConversionAvatarRow : AvatarRow
+{
+    /// <summary>元にできる対応アバター（逆方向のプロファイルを持つ物）の名前。</summary>
+    public required string SourceName { get; init; }
+
+    /// <summary>ほかに元にできる対応アバターの数。</summary>
+    public int OtherSources { get; init; }
+
+    public string ViaTooltip => VariationNote + (IsOwned ? "持っているアバターです。" : string.Empty)
+        + $"「{SourceName}」用を、プロファイルで変換できる見込みです。"
+        + (OtherSources > 0 ? $"ほかに {OtherSources} 体のアバター用からも変換できます。" : string.Empty)
+        + "押すとこのアバターを開きます";
+}
+
+/// <summary>
 /// 畳める欄の開き具合。商品ページと編集画面で共通にし、商品を移っても保つ（アプリを閉じるまで・ユーザ指示 2026-09-12）。
 /// 既定は開く——畳むのは多過ぎる商品を見たときの操作で、普段は見えている方が早い。
 /// </summary>
