@@ -219,6 +219,10 @@ public sealed class StartupWork(AppServiceContainer services)
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 var written = await services.MissingMarks.SweepAsync(token);
                 Core.Services.UiTrace.Write("速さ", $"起動時の見回り：見つからなくなった日時を {written.Count} 件の商品に書いた（{watch.ElapsedMilliseconds} ms）");
+
+                // 変換ツールのプロファイルの見回りも続けて（docs/spec/conversion.md）。前の版で取り込んだプロファイルにも、ここで確認待ちのつなぎ先が付く。
+                // BOOTH に問い合わせず、控えを読むのはプロファイルらしい商品だけ
+                await services.Conversion.RunAsync(token);
                 if (written.Count > 0)
                 {
                     ItemsSwept?.Invoke(written);

@@ -39,6 +39,18 @@ public sealed record AppSettings
     public bool GroupAvatarsByBase { get; init; } = true;
 
     /// <summary>
+    /// 商品ページの対応アバターに、変換経由で使えるアバターも並べるか（<c>docs/spec/conversion.md</c>「設定」・既定は入・ユーザ判断 2026-11-06）。
+    /// 素体経由と同じ作りで、保存はせず表示のたびに計算する（<see cref="Services.ConversionIndex"/>）
+    /// </summary>
+    public bool ShowAvatarsViaConversion { get; init; } = true;
+
+    /// <summary>
+    /// 変換経由の計算に、確認していない（自動で推した）プロファイルのつなぎ先も使うか（既定は切・ユーザ判断 2026-11-06「基本不要」）。
+    /// 推定を勝手に入れない決まりのため、既定では人が決めたつなぎ先だけを使う
+    /// </summary>
+    public bool IncludeUnconfirmedConversion { get; init; }
+
+    /// <summary>
     /// 読み上げソフト・自動操作（UI Automation）に、主の窓の中身を伝えるか（ユーザ判断 2026-11-08・既定はオン）。
     /// 伝えている間は、画面を組むたびに読み上げ用の木も組み直す。読み取るソフトが常駐しているだけで乗り、
     /// 商品ページを開くのに 約178ms → 切ると約133ms（実入力だけで操作して測った。2026-11-08）。

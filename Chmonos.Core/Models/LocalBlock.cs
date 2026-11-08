@@ -102,6 +102,14 @@ public sealed record LocalBlock
     public IReadOnlyList<VariationTarget> DetectedVariationTargets { get; init; } = [];
 
     /// <summary>
+    /// この商品を、衣装の変換ツールのプロファイルとして扱うか（変換扱い。<c>docs/spec/conversion.md</c>）。
+    /// 既定（自動に任せて、つなぎ先も無い）なら null で、書き出さない。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ConversionSetting? Conversion { get; init; }
+
+    /// <summary>
     /// 購入記録。買った1回が1レコード。BOOTH側からvariationが消えても残す。
     /// 同じvariationが複数行あってよい（同じものを何度も買う・複数人に贈る）。
     /// </summary>

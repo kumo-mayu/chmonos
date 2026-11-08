@@ -214,6 +214,7 @@ public sealed partial class ImportPipeline : IImportPipeline
 
     /// <summary>unitypackage の中身を裏で読む。渡されなければ読まない（使うときに zip を解く）。</summary>
     private readonly Services.UnityPackageCatalog? _unityPackages;
+    private readonly Services.ConversionScan? _conversion;
 
     /// <summary>ドライブ文字と通し番号の組を控える。渡されなければ控えない。</summary>
     private readonly Services.VolumeTable? _volumes;
@@ -243,7 +244,8 @@ public sealed partial class ImportPipeline : IImportPipeline
         Services.IAvatarService? avatars = null,
         Services.UnityPackageCatalog? unityPackages = null,
         Services.VolumeTable? volumes = null,
-        Services.MissingMarksSweep? missingMarks = null)
+        Services.MissingMarksSweep? missingMarks = null,
+        Services.ConversionScan? conversion = null)
     {
         _store = store;
         _client = client;
@@ -253,6 +255,7 @@ public sealed partial class ImportPipeline : IImportPipeline
         _unityPackages = unityPackages;
         _volumes = volumes;
         _missingMarks = missingMarks ?? new Services.MissingMarksSweep(store, volumes: volumes);
+        _conversion = conversion;
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
@@ -457,6 +460,20 @@ public sealed partial class ImportPipeline : IImportPipeline
 
         // 取り込みが終わったと言うのは、裏で読んでいた unitypackage も書き終えてから
         await Task.WhenAll(unityWork);
+
+        // 変換ツールのプロファイルを見分けて、つなぎ先を確認待ちで書く（docs/spec/conversion.md）。中身のパスの控えと対応アバターの検出（③）が
+        // 揃ってから推す（推す手掛かりに、商品の対応アバター・共通素体を使う）。見られなくても取り込みは止めない（次の起動でまた見る）
+        if (_conversion is { } conversion)
+        {
+            try
+            {
+                await conversion.RunAsync(cancellationToken);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Diagnostics.AppLog.Error("取り込みの裏の作業：変換ツールのプロファイルの見回り", exception);
+            }
+        }
 
         // 走査の控えから、今回の取り込み元の下で無くなったパスを落とす（移した・消したファイルの控えが際限なく残っていた）。
         // つながっていないボリュームの上は落とさない（ScanCacheIndex.RemoveMissingUnder）
