@@ -12,6 +12,78 @@
         商品ページと編集画面で同じ部品を使う（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
         DataContext は ItemViewModel（編集画面では、今開いている商品の分）
     -->
+    <UserControl.Resources>
+        <!--
+            対応アバターの札の中身（印・名前・✓・×）と右クリックのメニュー。札（AvatarChip）は普段は枠と名前を自分で描き、
+            乗せたとき・キーボードで止まったときに、ここから中身を作る（2026-11-08：対応40体の商品で、札を組む約25ms・読み上げの木の約25msが開くたびに乗っていた）。
+            ✓・× は札（祖先の Border）に乗せている間・札にフォーカスがある間だけ出る
+        -->
+        <DataTemplate x:Key="AvatarChipContent" DataType="{x:Type vm:AvatarRow}">
+            <StackPanel Orientation="Horizontal">
+                <!--
+                    推定を確定と同じ顔で出さない、は守る。
+                    ただし語ではなく印にして、幅を取らない形にする。
+
+                    確認待ちの推定を確認済みにする ✓ は、この印と同じ場所に重ね、乗せたとき・フォーカスがあるときだけ
+                    印と入れ替える（ユーザ判断 2026-10-06・メモ83。前は手で足す・戻すときしか確認済みにならなかった）。
+                    × の横に並べると、乗せていない間も場所を取って確認待ちの札だけ横に長くなり、狭い列で1行に1枚しか入らなかった。
+                    確認済みの札には置かない（押す物が無い）。右クリックのメニューにも同じ命令を置く（基本の操作は画面と右クリックの両方）
+                -->
+                <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center"
+                      Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <Ellipse Width="6" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Fill="{DynamicResource Warn}">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Style.Triggers>
+                                    <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                        <Setter Property="Opacity" Value="0" />
+                                    </DataTrigger>
+                                    <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                                        <Setter Property="Opacity" Value="0" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <Button Content="✓" ContentTemplate="{StaticResource CheckGlyph}" Padding="0" FontSize="11" HorizontalAlignment="Center"
+                            Height="16" Background="Transparent" BorderThickness="0"
+                            Cursor="Hand" Foreground="{DynamicResource Good}"
+                            Command="{Binding ConfirmCommand}"
+                            AutomationProperties.AutomationId="ItemAvatarConfirm"
+                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}を確認済みにする}"
+                            ToolTip="確認済みにします。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
+                </Grid>
+                <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                <!--
+                    検出の適合率は実測で89%。1割は誤りが出るので消せる必要がある。
+                    乗せたときと、札にキーボードのフォーカスがあるときだけ出して、普段は宣言そのものを読ませる
+                    （RevealOnHoverOrFocusButton。Tab で札に止まると出て、もう一度 Tab で × に移れる）。
+                -->
+                <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                        Height="16" Background="Transparent" BorderThickness="0"
+                        Cursor="Hand" Foreground="{DynamicResource TextMuted}"
+                        Command="{Binding RejectCommand}"
+                        AutomationProperties.AutomationId="ItemAvatarReject"
+                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
+                        ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
+            </StackPanel>
+        </DataTemplate>
+        <!-- 札の操作を右クリックにも置く。項目は全部出し、できない物は押せなくして理由を言う（右クリックの決まり） -->
+        <DataTemplate x:Key="AvatarChipMenu" DataType="{x:Type vm:AvatarRow}">
+            <ContextMenu>
+                <MenuItem Header="開く" Command="{Binding OpenCommand}"
+                          AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                <MenuItem Header="確認済みにする" Command="{Binding ConfirmCommand}"
+                          AutomationProperties.AutomationId="ItemAvatarMenu.Confirm"
+                          controls:MenuTips.Disabled="確認済みです" />
+                <Separator />
+                <MenuItem Header="外す" Command="{Binding RejectCommand}" Style="{StaticResource DangerMenuItem}"
+                          AutomationProperties.AutomationId="ItemAvatarMenu.Reject"
+                          ToolTip="再検出しても戻らず、「消したもの」から戻せます。" />
+            </ContextMenu>
+        </DataTemplate>
+    </UserControl.Resources>
                     <!--
                         対応アバター。出品者の宣言（上）と、自分が着せている記録（下）を分ける。
                         混ぜると「誰が言っていることなのか」が分からなくなる。
@@ -140,96 +212,13 @@
                                                 -->
                                                 <!-- 押せる札は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
                                                 <!-- 札は Tab で止まれ、Enter・Space で開く（カードと同じ。止まると × も出る） -->
-                                                <controls:PressableBorder BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
+                                                <!-- 札の色・名前・押したときの命令は、札が行から入れる（結び付けを使わない。AvatarChip） -->
+                                                <controls:AvatarChip BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
                                                         Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                                         Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                        Command="{Binding OpenCommand}"
+                                                        ContentTemplate="{StaticResource AvatarChipContent}" MenuTemplate="{StaticResource AvatarChipMenu}"
                                                         AutomationProperties.AutomationId="ItemAvatarChip"
-                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
-                                                        ToolTip="{Binding SourceTooltip}" ToolTipOpening="OnChipToolTipOpening">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
-                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsOwned}" Value="True">
-                                                                    <Setter Property="Background" Value="{DynamicResource GoodSoft}" />
-                                                                    <Setter Property="BorderBrush" Value="{DynamicResource GoodBorder}" />
-                                                                </DataTrigger>
-                                                                <!-- 持っていないバリエーション向け（アバターごとに売っている衣装）。隠さず薄くする（向き先は推した値のことがある） -->
-                                                                <DataTrigger Binding="{Binding IsOtherVariation}" Value="True">
-                                                                    <Setter Property="Opacity" Value="0.45" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <Border.InputBindings>
-                                                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
-                                                    </Border.InputBindings>
-                                                    <!-- 札の操作を右クリックにも置く。項目は全部出し、できない物は押せなくして理由を言う（右クリックの決まり） -->
-                                                    <Border.ContextMenu>
-                                                        <ContextMenu>
-                                                            <MenuItem Header="開く" Command="{Binding OpenCommand}"
-                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
-                                                            <MenuItem Header="確認済みにする" Command="{Binding ConfirmCommand}"
-                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Confirm"
-                                                                      controls:MenuTips.Disabled="確認済みです" />
-                                                            <Separator />
-                                                            <MenuItem Header="外す" Command="{Binding RejectCommand}" Style="{StaticResource DangerMenuItem}"
-                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.Reject"
-                                                                      ToolTip="再検出しても戻らず、「消したもの」から戻せます。" />
-                                                        </ContextMenu>
-                                                    </Border.ContextMenu>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <!--
-                                                            推定を確定と同じ顔で出さない、は守る。
-                                                            ただし語ではなく印にして、幅を取らない形にする。
-
-                                                            確認待ちの推定を確認済みにする ✓ は、この印と同じ場所に重ね、乗せたとき・フォーカスがあるときだけ
-                                                            印と入れ替える（ユーザ判断 2026-10-06・メモ83。前は手で足す・戻すときしか確認済みにならなかった）。
-                                                            × の横に並べると、乗せていない間も場所を取って確認待ちの札だけ横に長くなり、狭い列で1行に1枚しか入らなかった。
-                                                            確認済みの札には置かない（押す物が無い）。右クリックのメニューにも同じ命令を置く（基本の操作は画面と右クリックの両方）
-                                                        -->
-                                                        <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center"
-                                                              Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <Ellipse Width="6" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                     Fill="{DynamicResource Warn}">
-                                                                <Ellipse.Style>
-                                                                    <Style TargetType="Ellipse">
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
-                                                                                <Setter Property="Opacity" Value="0" />
-                                                                            </DataTrigger>
-                                                                            <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
-                                                                                <Setter Property="Opacity" Value="0" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </Ellipse.Style>
-                                                            </Ellipse>
-                                                            <Button Content="✓" ContentTemplate="{StaticResource CheckGlyph}" Padding="0" FontSize="11" HorizontalAlignment="Center"
-                                                                    Height="16" Background="Transparent" BorderThickness="0"
-                                                                    Cursor="Hand" Foreground="{DynamicResource Good}"
-                                                                    Command="{Binding ConfirmCommand}"
-                                                                    AutomationProperties.AutomationId="ItemAvatarConfirm"
-                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}を確認済みにする}"
-                                                                    ToolTip="確認済みにします。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
-                                                        </Grid>
-                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
-                                                        <!--
-                                                            検出の適合率は実測で89%。1割は誤りが出るので消せる必要がある。
-                                                            乗せたときと、札にキーボードのフォーカスがあるときだけ出して、普段は宣言そのものを読ませる
-                                                            （RevealOnHoverOrFocusButton。Tab で札に止まると出て、もう一度 Tab で × に移れる）。
-                                                        -->
-                                                        <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
-                                                                Height="16" Background="Transparent" BorderThickness="0"
-                                                                Cursor="Hand" Foreground="{DynamicResource TextMuted}"
-                                                                Command="{Binding RejectCommand}"
-                                                                AutomationProperties.AutomationId="ItemAvatarReject"
-                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
-                                                                ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
-                                                    </StackPanel>
-                                                </controls:PressableBorder>
+                                                        ToolTipOpening="OnChipToolTipOpening" />
                                         </DataTemplate>
 
                                         <!--

@@ -18,7 +18,7 @@ namespace Chmonos.App.Controls;
 /// 名前は置き場所が AutomationProperties.Name で付ける（付けないと、名前の無いボタンになる）。
 /// キーボードで止まれるようにするかは置き場所が決める（Focusable）。止まれる枠は Enter・Space で「押す」と同じことが起きる。
 /// </summary>
-public sealed class PressableBorder : Border
+public class PressableBorder : Border
 {
     public static readonly DependencyProperty CommandProperty = DependencyProperty.Register(
         nameof(Command), typeof(ICommand), typeof(PressableBorder));

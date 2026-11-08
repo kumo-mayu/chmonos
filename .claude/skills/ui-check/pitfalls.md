@@ -23,6 +23,8 @@ Get-ChmonosTrace -Saved tagcheck -Kind 命令          # 前の起動の分（�
 - GridView の一覧（リスト表示）の行は `ListItem` ではなく `DataItem`。改変の画面のように1画面に複数の一覧があると、別の一覧の行も混ざる。行の中の固有のボタン（「Unity ▾」など）で絞る
 - 仮想化した一覧は画面に見えている行しか数えない。「畳んだら減るはず」を数で確かめると、下の行が見えて逆に増える。畳んだ中の行が在るか無いかで見る
 - 画面の外の要素は四角が空か無限大になる。座標に使う前に `Get-ChmonosCenter` を通す
+- 商品ページ・編集画面の対応アバターの札（`ItemAvatarChip`）は、乗せるか止まるまで中身を作らない（`Controls/AvatarChip`）。
+  札の ✓・×（`ItemAvatarConfirm`・`ItemAvatarReject`）と右クリックのメニューは、先にその札へフォーカスを置く（UI Automation の `SetFocus`）と出る
 - 持ち主付きの窓（`ShowDialog` の窓・知らせの窓）は主の窓の子として出る（デスクトップの直下には無い）。撮るときは `-Element` に Window の要素を渡す。
   知らせの窓は、主の窓より前やアプリが後ろにいたときは持ち主なしでデスクトップの直下に出る（`Get-ChmonosDialog` は両方を探す）
 - 「はい・いいえ」だけの知らせの窓は Esc も × も効かない（MessageBox と同じ）。閉じるにはどちらかのボタンを押す（`Close-ChmonosDialog -Button`）
