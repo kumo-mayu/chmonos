@@ -167,6 +167,19 @@
                                       IsChecked="{Binding ShowVariationTargetsForUnpurchased, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ShowVariationTargetsForUnpurchased"
                                       ToolTip="編集の画面の、購入したバリエーションの欄に効きます。" />
+                            <!--
+                                読み上げソフト・自動操作に画面の中身を伝えるか（ユーザ判断 2026-11-08・既定はオン）。読み取るソフトが常駐しているだけで、
+                                画面を組むたびに読み上げ用の木の組み直しが乗る（商品ページを開くのに約25%）。効くのは起動し直してから（MainWindow.ExposesContent）。
+                                ここに「今すぐ再起動」を置かないのは、編集途中の入力が黙って消えるため（保存先の移動は先に保存を頼んでいる）
+                            -->
+                            <CheckBox Content="読み上げソフトや自動操作に画面の内容を伝える" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding ExposeScreenToAutomation, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ExposeScreenToAutomation"
+                                      ToolTip="オフにすると、画面の切り替えが少し速くなります。" />
+                            <TextBlock Style="{StaticResource FieldNotice}" Margin="26,0,0,6" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Settings.AutomationRestartNote"
+                                       Text="{Binding AutomationRestartNote}"
+                                       Visibility="{Binding AutomationRestartNote, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="一覧と検索" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--

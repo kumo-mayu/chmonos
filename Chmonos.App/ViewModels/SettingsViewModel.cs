@@ -642,6 +642,31 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showVariationTargetsForUnpurchased, value)) { Save(); } }
     }
 
+    private bool _exposeScreenToAutomation;
+
+    /// <summary>読み上げソフト・自動操作に画面の中身を伝えるか（既定はオン・ユーザ判断 2026-11-08）。効くのはアプリを開き直してから（MainWindow.ExposesContent）</summary>
+    public bool ExposeScreenToAutomation
+    {
+        get => _exposeScreenToAutomation;
+        set
+        {
+            if (SetField(ref _exposeScreenToAutomation, value))
+            {
+                OnPropertyChanged(nameof(AutomationNeedsRestart));
+                OnPropertyChanged(nameof(AutomationRestartNote));
+                Save();
+            }
+        }
+    }
+
+    /// <summary>切り替えた値が、今動いている窓の値と違う（再起動するまで効かない）。押した後に何も変わらないように見えないよう、再起動の案内を出す</summary>
+    public bool AutomationNeedsRestart => _exposeScreenToAutomation != MainWindow.ExposesContent;
+
+    /// <summary>再起動の案内。切るときは、切った後に起きること（読み上げソフトで読めない）も言う。空なら出さない</summary>
+    public string AutomationRestartNote => !AutomationNeedsRestart ? string.Empty
+        : _exposeScreenToAutomation ? "アプリを再起動すると反映されます。"
+        : "アプリを再起動すると反映されます。オフの間は、読み上げソフトで画面を読めません。";
+
     private bool _groupAvatarsByBase;
 
     /// <summary>対応アバターを共通素体ごとにまとめるか（既定はオン）。検索の候補にも効くので、候補を作り直す</summary>
@@ -1522,6 +1547,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowRemovedBoothImages = ShowRemovedBoothImages,
             ShowAvatarsViaBase = ShowAvatarsViaBase,
             GroupAvatarsByBase = GroupAvatarsByBase,
+            ExposeScreenToAutomation = ExposeScreenToAutomation,
             UseDetectedVariationTargets = UseDetectedVariationTargets,
             ShowVariationTargetsForUnpurchased = ShowVariationTargetsForUnpurchased,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,

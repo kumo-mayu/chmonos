@@ -8,6 +8,22 @@ namespace Chmonos.App;
 
 public partial class MainWindow : Window
 {
+    /// <summary>
+    /// 読み上げソフト・自動操作（UI Automation）に、窓の中身を伝えるか（設定の <c>ExposeScreenToAutomation</c>。起動のときに決める）。
+    /// 伝えない間は、窓が「中身は無い」と答える。WPF は読み取る側から聞かれた部品の木を、配置のたびに組み直して知らせる。
+    /// 読み取るソフトが常駐しているだけで乗り、商品ページを開くのに約45ms（約25%）かかっていた（2026-11-08。実入力だけで操作して測った）
+    /// </summary>
+    internal static bool ExposesContent { get; set; } = true;
+
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer()
+        => ExposesContent ? base.OnCreateAutomationPeer() : new ContentlessPeer(this);
+
+    /// <summary>窓そのもの（題・閉じる）は伝え、中身の部品は伝えない。</summary>
+    private sealed class ContentlessPeer(Window owner) : System.Windows.Automation.Peers.WindowAutomationPeer(owner)
+    {
+        protected override List<System.Windows.Automation.Peers.AutomationPeer>? GetChildrenCore() => null;
+    }
+
     public MainWindow()
     {
         InitializeComponent();

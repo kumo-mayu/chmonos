@@ -177,6 +177,9 @@ public partial class App : Application
             // 設定の表示の色。主の窓を作る前に当てる（作るときに色を読む）
             ViewModels.AppTheme.Initialize(_services);
 
+            // 読み上げソフト・自動操作に中身を伝えるか。起動のときに1回だけ読む（途中で切り替えると、読み上げている最中に途切れる）
+            Chmonos.App.MainWindow.ExposesContent = _services.Settings.ExposeScreenToAutomation;
+
             if (!_headless)
             {
                 main = new MainViewModel(_services);
