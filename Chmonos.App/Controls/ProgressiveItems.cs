@@ -242,7 +242,8 @@ public static class ProgressiveItems
             list.LayoutUpdated -= onLayout;
             if (feeder.Pending.Count > 0)
             {
-                list.Dispatcher.BeginInvoke(DispatcherPriority.Background, () => Feed(feeder));
+                // 残りは最初の絵を描いた後から（Background に積むだけでは、絵の前に割り込むことがある：AfterRender）
+                AfterRender.Run(() => Feed(feeder));
             }
             else
             {
@@ -330,7 +331,8 @@ public static class ProgressiveItems
     /// </summary>
     public static bool FeedAllNow(DependencyObject? scope = null)
     {
-        var fed = false;
+        // 隠している欄（DeferredSection）も出す。出した欄の中の一覧は、次の配置で足し始めるので、呼んだ側が並べてからもう一度呼ぶ
+        var fed = DeferredSection.ReleaseAllNow(scope);
         foreach (var feeder in Active.ToList())
         {
             if (scope is Visual visual && !ReferenceEquals(visual, feeder.List) && !visual.IsAncestorOf(feeder.List))
