@@ -679,7 +679,7 @@
                                 <TextBlock Text="画像を取って保存する" />
                             </CheckBox>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
-                                       Text="切ると取り込みがかなり速くなり、一覧とギャラリーが文字だけになります。検索・絞り込み・統計はこれまで通り使えます。入れ直すと、使っていない間に少しずつ取得します。" />
+                                       Text="切ると保存する容量が小さくなり、取り込みも速くなります。一覧とギャラリーは文字だけになります。検索・絞り込み・統計はこれまで通り使えます。入れ直すと、使っていない間に少しずつ取得します。" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
                                 <TextBlock Text="BOOTHへの問い合わせ間隔" Style="{StaticResource RowLabel}" Width="220" />

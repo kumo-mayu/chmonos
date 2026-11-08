@@ -65,7 +65,7 @@
                 <TextBlock Text="画像を取って保存する（おすすめ）" />
             </CheckBox>
             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="24,6,0,0"
-                       Text="オフにすると取り込みがかなり速くなり、一覧とギャラリーは文字だけになります。" />
+                       Text="オフにすると保存する容量が小さくなり、取り込みも速くなります。一覧とギャラリーは文字だけになります。" />
         </StackPanel>
     </DockPanel>
 </Window>
