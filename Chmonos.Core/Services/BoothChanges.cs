@@ -333,4 +333,10 @@ public enum BoothChangeKind
 
     /// <summary>ページ内容の変更（商品名・画像・説明文。更新履歴の見出しは除く）。</summary>
     Page = 16,
+
+    /// <summary>
+    /// 使っている商品の中身の更新（<c>docs/spec/used-updates.md</c>）。知らせの差からは作らず、商品の控えと使っているかで決まる。
+    /// アプリの検索だけ（使っているかは Unity のプロジェクトを見るアプリの見張りが答えるので、API には出さない・ユーザ判断 2026-11-09）。
+    /// </summary>
+    UsedContent = 32,
 }

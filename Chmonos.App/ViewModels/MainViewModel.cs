@@ -121,6 +121,8 @@ public sealed partial class MainViewModel : ViewModelBase
         // 使っている商品の見張り（docs/spec/used-updates.md）。検索の写しを読み終えるたびに調べ直す
         UsedItems = new UsedItemsWatch(_services, () => Search.SnapshotItems());
         Search.ItemsLoaded += (_, _) => UsedItems.RequestAsync().Forget();
+        Search.IsUsedItem = id => UsedItems.Current.Of(id).IsUsed;
+        UsedItems.Changed += (_, _) => RunOnUiThread(Search.NoteUsedItemsChanged);
 
         // 改変を書いたら改変の数だけ数え直す（錠の中から来るので、裏へ回す。プロジェクトは調べ直さない）
         _services.Store.Modifications.Written += () => Task.Run(() => UsedItems.NoteModificationsChangedAsync()).Forget();

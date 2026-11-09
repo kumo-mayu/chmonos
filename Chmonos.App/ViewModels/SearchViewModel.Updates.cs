@@ -28,9 +28,32 @@ public sealed partial class SearchViewModel
     /// <summary>未読の更新がある商品か（条件「更新あり」とカードの札）。</summary>
     internal bool HasUnreadUpdate(string itemId) => _unreadUpdates.ContainsKey(itemId);
 
-    /// <summary>未読の更新の知らせがあれば、その知らせが含む変化の種類（無ければ None）。</summary>
+    /// <summary>
+    /// 未読の更新の知らせがあれば、その知らせが含む変化の種類（無ければ None）。
+    /// 使っている商品に新しい版が出ていれば（<c>docs/spec/used-updates.md</c>）、通知を読んでいても「使っている商品の中身の更新」を足す。
+    /// </summary>
     internal Core.Services.BoothChangeKind UnreadUpdateKinds(string itemId)
-        => _unreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : Core.Services.BoothChangeKind.None;
+    {
+        var kinds = _unreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : Core.Services.BoothChangeKind.None;
+        if (_itemsById.TryGetValue(itemId, out var item) && item.Local.HasPendingContentUpdate && IsUsedItem(itemId))
+        {
+            kinds |= Core.Services.BoothChangeKind.UsedContent;
+        }
+
+        return kinds;
+    }
+
+    /// <summary>改変か Unity のプロジェクトで使っている商品か（主の画面が見張りの答えを渡す）。</summary>
+    internal Func<string, bool> IsUsedItem { get; set; } = _ => false;
+
+    /// <summary>使っている商品の答えが変わった。条件「更新通知あり」があれば絞り直す。</summary>
+    internal void NoteUsedItemsChanged()
+    {
+        if (Modules.Any(module => module is UpdateNoticeModule))
+        {
+            ApplyFilters();
+        }
+    }
 
     /// <summary>知らせのファイルから、商品ごとの未読の更新の知らせを引く表。</summary>
     internal static Dictionary<string, UnreadUpdate> UnreadUpdatesOf(IEnumerable<NotificationRecord> records) => UnreadUpdates.Of(records);

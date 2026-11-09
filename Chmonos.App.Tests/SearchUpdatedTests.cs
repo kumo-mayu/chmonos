@@ -136,12 +136,12 @@ public class SearchUpdatedTests
 
         Assert.Equal("更新通知あり", module.Label);
         Assert.Equal(["更新通知ありのみ", "更新通知なしのみ", "両方"], module.Options.Select(option => option.Label));
-        Assert.Equal(["中身の更新", "バリエーション", "価格", "販売の状態", "ページ内容の変更"], module.Kinds.Select(kind => kind.Label));
+        Assert.Equal(["中身の更新", "使っている商品の中身の更新", "バリエーション", "価格", "販売の状態", "ページ内容の変更"], module.Kinds.Select(kind => kind.Label));
         Assert.All(module.Kinds, kind => Assert.True(kind.IsOn));
         Assert.Equal(["9900081", "9900082", "9900083"], Shown());
 
         // 既読の知らせは見ない。種類の横の件数は未読の知らせだけで数える
-        Assert.Equal([1, 0, 1, 0, 1], module.Kinds.Select(kind => kind.Count));
+        Assert.Equal([1, 0, 0, 1, 0, 1], module.Kinds.Select(kind => kind.Count));
 
         foreach (var kind in module.Kinds.Where(kind => kind.Label != "中身の更新"))
         {
@@ -232,7 +232,7 @@ public class SearchUpdatedTests
 
         var saved = await app.Services.SettingsStore.UpdateUiStateAsync(state => state);
         var state = Assert.Single(saved.SearchModules!, state => state.Kind == nameof(SearchModuleKind.Updated));
-        Assert.Equal(["content", "variations", "sale", "page"], state.Fields);
+        Assert.Equal(["content", "used", "variations", "sale", "page"], state.Fields);
 
         var back = Assert.IsType<UpdateNoticeModule>(Assert.Single((await app.StartAsync()).Search.Modules, m => m.Kind == SearchModuleKind.Updated));
         Assert.False(back.Kinds.Single(kind => kind.Label == "価格").IsOn);

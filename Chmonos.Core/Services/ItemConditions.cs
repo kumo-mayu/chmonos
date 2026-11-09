@@ -376,6 +376,13 @@ public sealed class UpdateNoticeCondition(
 
     public static BoothChangeKind AllMask { get; } = AllKinds.Aggregate(BoothChangeKind.None, (all, kind) => all | kind);
 
+    /// <summary>
+    /// アプリの検索の並び：API の5つに「使っている商品の中身の更新」を足す（API には出さない・ユーザ判断 2026-11-09）。
+    /// 中身の更新の隣に置く（同じ更新履歴の変化から来るので）。
+    /// </summary>
+    public static IReadOnlyList<BoothChangeKind> AppKinds { get; } =
+        [BoothChangeKind.Content, BoothChangeKind.UsedContent, BoothChangeKind.Variations, BoothChangeKind.Price, BoothChangeKind.Sale, BoothChangeKind.Page];
+
     public override bool IsActive => key != NeutralKey;
 
     public override bool Matches(ItemRecord item, SearchModuleContext context) => MatchesKey(item, context, key);
@@ -399,6 +406,7 @@ public sealed class UpdateNoticeCondition(
         BoothChangeKind.Variations => "variations",
         BoothChangeKind.Price => "price",
         BoothChangeKind.Sale => "sale",
+        BoothChangeKind.UsedContent => "used",
         _ => "page",
     };
 
@@ -406,7 +414,7 @@ public sealed class UpdateNoticeCondition(
     public static BoothChangeKind Parse(IEnumerable<string> names)
     {
         var kinds = names
-            .Select(name => AllKinds.FirstOrDefault(kind => KeyOf(kind) == name))
+            .Select(name => AppKinds.FirstOrDefault(kind => KeyOf(kind) == name))
             .Aggregate(BoothChangeKind.None, (all, kind) => all | kind);
         return kinds == BoothChangeKind.None ? AllMask : kinds;
     }

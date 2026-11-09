@@ -21,7 +21,7 @@ public sealed class UpdateNoticeModule : SearchModule
     private const string NeutralKey = UpdateNoticeCondition.NeutralKey;
 
     /// <summary>画面の並び（ユーザ判断の並び）。</summary>
-    internal static IReadOnlyList<BoothChangeKind> AllKinds => UpdateNoticeCondition.AllKinds;
+    internal static IReadOnlyList<BoothChangeKind> AllKinds => UpdateNoticeCondition.AppKinds;
 
     private readonly Func<string, BoothChangeKind> _kindsOf;
     private ChoiceOption _selected;
@@ -258,12 +258,14 @@ public sealed class ChangeKindToggle : ViewModelBase
     {
         BoothChangeKind.Content => "説明文の更新履歴が変わった商品です。",
         BoothChangeKind.Page => "商品名・画像・説明文が変わった商品です。更新履歴は除きます。",
+        BoothChangeKind.UsedContent => "改変やUnityプロジェクトで使っている商品の新しい版です。",
         _ => null,
     };
 
     public static string LabelOf(BoothChangeKind kind) => kind switch
     {
         BoothChangeKind.Content => "中身の更新",
+        BoothChangeKind.UsedContent => "使っている商品の中身の更新",
         BoothChangeKind.Variations => "バリエーション",
         BoothChangeKind.Price => "価格",
         BoothChangeKind.Sale => "販売の状態",

@@ -59,6 +59,31 @@ public class UsedUpdatePromptTests
     });
 
     [Fact]
+    public Task 検索の更新通知ありで_使っている商品の中身の更新だけに絞れる() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(Avatar, "作り物のアバター"));
+        await app.AddItemAsync(UpdatedCostume());
+        await app.AddItemAsync(Make.Item("9907403", "作り物の使っていない衣装") is var other
+            ? other with { Local = other.Local with { ContentUpdate = UsedUpdates.Found(other.Local, DateTimeOffset.Now) } }
+            : other);
+        var main = await app.StartAsync();
+        await AddModificationAsync(app, fileHash: null);
+        await main.UsedItems.RequestAsync();
+        await app.SettleAsync();
+
+        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(main.Search, Core.Models.SearchModuleKind.Updated);
+        foreach (var kind in module.Kinds.Where(kind => kind.Kind != BoothChangeKind.UsedContent))
+        {
+            kind.IsOn = false;
+        }
+
+        await app.SettleAsync();
+
+        // 通知は無い（読んだ・切っている）が、使っている商品に新しい版が出ている物だけ
+        Assert.Equal([Costume], main.Search.ListItems.Select(card => card.Item.Id));
+    });
+
+    [Fact]
     public Task 使っていない商品には帯を出さない() => TestApp.Run(async app =>
     {
         await app.AddItemAsync(UpdatedCostume());
