@@ -55,7 +55,8 @@
                         どちらも札に乗せたとき・札にフォーカスがあるときだけ出す。右クリックにも同じ操作を置く。
                         狭い列では、名前と向き／つなぎ先の2つの塊で折り返す（塊の中では切らない）
                     -->
-                    <WrapPanel Margin="0,0,0,4" AutomationProperties.AutomationId="ItemConversionRow">
+                    <StackPanel Margin="0,0,0,4" AutomationProperties.AutomationId="ItemConversionRow">
+                    <WrapPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,8,2">
                             <TextBlock Text="{Binding ProfileText}" Style="{StaticResource Mono}" MinWidth="110" VerticalAlignment="Center"
                                        Visibility="{Binding HasProfile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -90,6 +91,7 @@
                                     Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                     AutomationProperties.AutomationId="ItemConversionTarget"
                                     AutomationProperties.Name="{Binding TargetText}"
+                                    ToolTip="{Binding TooltipText}" ToolTipOpening="OnTargetToolTipOpening"
                                     Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <Border.ContextMenu>
                                     <ContextMenu>
@@ -148,6 +150,11 @@
                                                  Visibility="{Binding HasTarget, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </WrapPanel>
+                    <!-- 推した理由（アバターの管理の「変換」だけ・ユーザ判断 2026-11-09）。名前の列の頭に揃えて、行の下に小さく出す -->
+                    <TextBlock Text="{Binding ReasonText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,4"
+                               AutomationProperties.AutomationId="ItemConversionReason"
+                               Visibility="{Binding HasReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </StackPanel>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

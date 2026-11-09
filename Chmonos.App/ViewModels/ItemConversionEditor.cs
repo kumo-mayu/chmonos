@@ -15,15 +15,22 @@ public sealed class ItemConversionEditor : ViewModelBase
     private readonly AppServiceContainer _services;
     private readonly Func<UiCommand, Task> _run;
     private readonly Func<bool> _isLocked;
+    private readonly Func<string, System.Windows.Media.ImageSource?>? _iconOf;
     private ItemRecord? _item;
 
     /// <param name="run">命令を通して、書いた後に <see cref="Show"/> で今の記録を渡し直す道（持ち主が持つ）。</param>
     /// <param name="isLocked">書き込めない間（商品ページの編集の錠）。</param>
-    public ItemConversionEditor(AppServiceContainer services, Func<UiCommand, Task> run, Func<bool> isLocked)
+    /// <param name="iconOf">商品 ID から、その商品の1枚目の絵（つなぎ先の札に乗せたときに出す。読むのは乗せたときだけ）。</param>
+    public ItemConversionEditor(
+        AppServiceContainer services,
+        Func<UiCommand, Task> run,
+        Func<bool> isLocked,
+        Func<string, System.Windows.Media.ImageSource?>? iconOf = null)
     {
         _services = services;
         _run = run;
         _isLocked = isLocked;
+        _iconOf = iconOf;
         SetModeCommand = new RelayCommand(
             parameter =>
             {
@@ -119,6 +126,59 @@ public sealed class ItemConversionEditor : ViewModelBase
                 ? $"{baseName}（共通素体）"
                 : target.AvatarItemId is { } id ? names.TryGetValue(id, out var name) ? name : id : string.Empty;
 
+        // 札に乗せたときの絵：アバターはその商品の絵、共通素体は素体の商品（無ければ仲間のアバターの1体目）の絵
+        Func<System.Windows.Media.ImageSource?>? IconFactory(ConversionTarget target)
+        {
+            if (_iconOf is not { } iconOf)
+            {
+                return null;
+            }
+
+            var itemId = target.AvatarItemId
+                ?? registry.BaseGroups.FirstOrDefault(group => string.Equals(group.Name, target.BaseName, StringComparison.CurrentCultureIgnoreCase))?.ItemId
+                ?? registry.Entries.FirstOrDefault(entry => string.Equals(entry.BaseName, target.BaseName, StringComparison.CurrentCultureIgnoreCase))?.ItemId;
+            return itemId is null ? null : () => iconOf(itemId);
+        }
+
+        // 推した理由（アバターの管理の「変換」だけ・ユーザ判断 2026-11-09）。見回りと同じ推し方をその場で回し、手掛かりを文にする
+        var suggestions = ShowsReasons && item is not null
+            ? ConversionInference.Suggest(item, profiles, registry, AvatarCompatibilityIndex.For(registry))
+                .ToDictionary(suggestion => suggestion.Profile.Slug, StringComparer.OrdinalIgnoreCase)
+            : [];
+
+        string ReasonOf(ConversionTarget target)
+            => target.Slug is { } slug
+                && suggestions.TryGetValue(slug, out var suggestion)
+                && suggestion.Target is { } suggested
+                && ConversionEdits.IsSameRow(suggested, target)
+                    ? "推した理由：" + CluesText(suggestion.Clues, names)
+                    : string.Empty;
+
+        // つなぎ先の無い行の訳。推せる手掛かりがあっても、人が外した物なら外したと言う（見回りが推さないのはそのため）。
+        // 外してもいないのに推せる物は、まだ見回りが通っていない（取り込みの途中など）ので、推せる先を言う
+        string EmptyReason(ProfileSlug profile)
+        {
+            if (!ShowsReasons || !suggestions.TryGetValue(profile.Slug, out var suggestion))
+            {
+                return string.Empty;
+            }
+
+            if (suggestion.Conflicting)
+            {
+                return "推していません：読み取った情報が食い違います・" + CluesText(suggestion.Clues, names);
+            }
+
+            if (suggestion.Target is not { } suggested)
+            {
+                return "推していません：推す元になる情報がありません";
+            }
+
+            var rejected = (setting?.Targets ?? []).Any(target => target.Rejected && ConversionEdits.IsSameRow(target, suggested));
+            return rejected
+                ? $"外したつなぎ先：{TargetName(suggested)}・推した理由：{CluesText(suggestion.Clues, names)}"
+                : $"推せるつなぎ先：{TargetName(suggested)}・理由：{CluesText(suggestion.Clues, names)}";
+        }
+
         // 人が外したつなぎ先は出さない（そのプロファイルは選ぶ欄に戻る）。行は保存に残り、見回りが同じ物を推すのを止める
         var targets = (setting?.Targets ?? []).Where(target => !target.Rejected).ToList();
         var rows = new List<ConversionTargetRow>();
@@ -127,16 +187,16 @@ public sealed class ItemConversionEditor : ViewModelBase
             var mine = targets.Where(target => string.Equals(target.Slug, profile.Slug, StringComparison.OrdinalIgnoreCase)).ToList();
             if (mine.Count == 0)
             {
-                rows.Add(EmptyRow(profile));
+                rows.Add(EmptyRow(profile, EmptyReason(profile)));
             }
 
-            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target))));
+            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target))));
         }
 
         // 中のファイルから見つからない（zip を外した・slug の分からない）つなぎ先も、外せるように出す
         rows.AddRange(targets
             .Where(target => !profiles.Any(profile => string.Equals(profile.Slug, target.Slug, StringComparison.OrdinalIgnoreCase)))
-            .Select(target => TargetRow(target, TargetName(target))));
+            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target))));
 
         Rows = rows;
         UnconfirmedTargets = targets.Where(target => !target.Confirmed).ToList();
@@ -165,20 +225,53 @@ public sealed class ItemConversionEditor : ViewModelBase
         Raise();
     }
 
-    private ConversionTargetRow EmptyRow(ProfileSlug profile) => new()
+    /// <summary>
+    /// 推した理由を行の下に出すか（アバターの管理の「変換」で入れる。ユーザ判断 2026-11-09「こちらの画面には推した理由は出しておきましょう」）。
+    /// 商品ページでは出さない（1件を見に来た所で、決める材料を並べる画面ではない）。
+    /// </summary>
+    public bool ShowsReasons { get; init; }
+
+    /// <summary>商品の1枚目の絵を引く道（アバターの管理と同じ引き方。検索の写しに無い商品は絵が無い）。</summary>
+    public static Func<string, System.Windows.Media.ImageSource?> IconsFrom(AppServiceContainer services, MainViewModel main)
+        => itemId => AvatarImageSync.IconPath(services.Paths, itemId, main.Search.FindItem(itemId), services.Settings.ShowRemovedBoothImages) is { } path
+            ? main.Thumbnails.LoadForCard(path)
+            : null;
+
+    /// <summary>手掛かりを「商品の対応素体「A」・この商品がアバター本体」の形で並べる（同じ文は1つにまとめる）。</summary>
+    internal static string CluesText(IReadOnlyList<ConversionClue> clues, IReadOnlyDictionary<string, string> names)
+    {
+        string Avatar(string? id) => id is not null && names.TryGetValue(id, out var name) ? name : id ?? string.Empty;
+        return string.Join("・", clues
+            .Select(clue => clue.Kind switch
+            {
+                ConversionClueKind.ItemIsAvatar => "この商品がアバター本体",
+                ConversionClueKind.DetectedBase => $"商品の対応素体「{clue.BaseName}」",
+                ConversionClueKind.DetectedAvatar => $"商品の対応アバター「{Avatar(clue.AvatarItemId)}」",
+                ConversionClueKind.SlugIsBaseName => $"プロファイルの名前が素体「{clue.BaseName}」と同じ",
+                _ => string.Empty,
+            })
+            .Where(text => text.Length > 0)
+            .Distinct(StringComparer.Ordinal));
+    }
+
+    private ConversionTargetRow EmptyRow(ProfileSlug profile, string reason) => new()
     {
         ProfileText = profile.Slug,
         DirectionText = DirectionText(profile.Forward, profile.Reverse),
+        ReasonText = reason,
         ChooseCommand = new RelayCommand(
             parameter => ChooseAsync(profile, parameter as string).Forget(),
             _ => !_isLocked()),
     };
 
-    private ConversionTargetRow TargetRow(ConversionTarget target, string name) => new()
+    private ConversionTargetRow TargetRow(ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory) => new()
     {
         ProfileText = target.Slug ?? string.Empty,
         DirectionText = DirectionText(target.Forward, target.Reverse),
         TargetText = name,
+        ReasonText = reason,
+        IconFactory = iconFactory,
+        TooltipText = target.Confirmed ? name : $"{name}：推した値です。確認すると変換経由に使います。",
         HasTarget = true,
         IsUnconfirmed = !target.Confirmed,
         ConfirmCommand = new RelayCommand(
@@ -269,6 +362,9 @@ public sealed class ItemConversionEditor : ViewModelBase
         OnPropertyChanged(nameof(UnconfirmedCount));
         OnPropertyChanged(nameof(UnsetCount));
         RaiseMode();
+
+        // 持ち主のボタン（推した通りに決めて次へ）が、確認待ちの有無で押せるかを変えるため
+        RelayCommand.RaiseCanExecuteChanged();
     }
 }
 
@@ -286,6 +382,17 @@ public sealed class ConversionTargetRow
     public bool HasTarget { get; init; }
 
     public bool HasProfile => ProfileText.Length > 0;
+
+    /// <summary>推した理由（アバターの管理の「変換」だけ）。無ければ空。</summary>
+    public string ReasonText { get; init; } = string.Empty;
+
+    public bool HasReason => ReasonText.Length > 0;
+
+    /// <summary>札に乗せたときの絵を読む（乗せたときだけ読む。行ごとに先に読むと、18 個入りの商品で開くのが遅れる）。</summary>
+    public Func<System.Windows.Media.ImageSource?>? IconFactory { get; init; }
+
+    /// <summary>札に乗せたときの字（名前と、確認待ちなら何をすれば使われるか）。</summary>
+    public string TooltipText { get; init; } = string.Empty;
 
     /// <summary>自動で推して、まだ人が確かめていない。変換経由の計算には（既定では）使わない。</summary>
     public bool IsUnconfirmed { get; init; }

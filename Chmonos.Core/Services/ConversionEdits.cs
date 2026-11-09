@@ -110,7 +110,7 @@ public static class ConversionEdits
     /// <summary>
     /// 画面に出した行と、今の値の行が同じ物か。確認済みかと向きは比べない（確かめる・向きを変える操作は、その2つを変えるため）。
     /// </summary>
-    internal static bool IsSameRow(ConversionTarget a, ConversionTarget b)
+    public static bool IsSameRow(ConversionTarget a, ConversionTarget b)
         => SamePlace(a, b) && SameText(a.Slug, b.Slug);
 
     private static bool SamePlace(ConversionTarget a, ConversionTarget b)

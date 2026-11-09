@@ -66,19 +66,32 @@ public sealed partial class AvatarsViewModel
             if (SetField(ref _selectedConversion, value))
             {
                 ConversionEditor.Show(value?.Item);
+                SelectedConversionImage = value is null ? null : ItemConversionEditor.IconsFrom(_services, _main)(value.ItemId);
+                OnPropertyChanged(nameof(SelectedConversionImage));
+                OnPropertyChanged(nameof(HasSelectedConversionImage));
                 OnPropertyChanged(nameof(ShowsConversionDetail));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
     }
 
+    /// <summary>選んだ商品の1枚目の絵（ユーザ指示 2026-11-09：プロファイルの多くは、想定するアバターが商品の絵に写っている）。選んだときだけ読む。</summary>
+    public System.Windows.Media.ImageSource? SelectedConversionImage { get; private set; }
+
+    public bool HasSelectedConversionImage => SelectedConversionImage is not null;
+
     /// <summary>右の「変換扱い」の欄。商品ページと同じ部品で、書いた後は一覧の行と検索の写しも直す。</summary>
-    public ItemConversionEditor ConversionEditor => _conversionEditor ??= new ItemConversionEditor(_services, RunConversionCommandAsync, () => false);
+    public ItemConversionEditor ConversionEditor => _conversionEditor ??= new ItemConversionEditor(
+        _services, RunConversionCommandAsync, () => false, ItemConversionEditor.IconsFrom(_services, _main))
+    {
+        ShowsReasons = true,
+    };
 
     /// <summary>確認待ちのつなぎ先を全部確認済みにして、次の決めていない商品へ（Ctrl+Enter。未確定の「この内容で決める」と同じ流れ）。</summary>
     public RelayCommand DecideSuggestedCommand => _decideSuggestedCommand ??= new RelayCommand(
         () => DecideSuggestedAsync().Forget(),
-        () => IsConversionMode && SelectedConversion is not null);
+        // 確認待ちが無ければ押せない（ユーザ判断 2026-11-09。押しても次へ進むだけで、「後で」と見分けが付かなかった）
+        () => IsConversionMode && SelectedConversion is not null && ConversionEditor.UnconfirmedTargets.Count > 0);
 
     private RelayCommand? _decideSuggestedCommand;
 

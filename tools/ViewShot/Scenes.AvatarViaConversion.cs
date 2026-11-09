@@ -71,8 +71,10 @@ internal static partial class Scenes
                         },
                     ],
                     Conversion = conversion,
+                    // 推した理由の例：商品の対応素体から（見回りと同じ推し方で出す）
+                    AvatarBases = id == "9900221" ? [new AvatarBaseLink { BaseName = "作り物の素体", Confirmed = true }] : [],
                 },
-            });
+            }, images: 1);
         }
 
         await ProfileAsync("9900221", "作り物のプロファイル（まとめ）", 'D', ["fakeaoi", "fakebase", "fakemomo"], new ConversionSetting
@@ -98,6 +100,9 @@ internal static partial class Scenes
         var avatars = context.Screen<Chmonos.App.ViewModels.AvatarsViewModel>();
         await SceneContext.UntilAsync(() => !avatars.IsLoading && avatars.HasConversionItems, "変換の一覧ができる");
         avatars.ShowConversionModeCommand.Execute(null);
+
+        // 推した理由と絵が出る商品を選んでおく
+        avatars.SelectedConversion = avatars.ConversionItems.Cast<ConversionItemRowViewModel>().First(row => row.ItemId == "9900221");
         await context.SettleAsync();
         return new Shot(root);
     }

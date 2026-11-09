@@ -99,6 +99,9 @@ public class ItemConversionSettingTests
         Assert.Equal("逆方向", suggested.DirectionText);
         Assert.True(suggested.IsUnconfirmed);
 
+        // 推した理由は商品ページには出さない（アバターの管理の「変換」だけ）
+        Assert.All(page.Conversion.Rows, row => Assert.False(row.HasReason));
+
         Assert.Contains("アオイ", page.Conversion.TargetSuggestions);
         Assert.Contains("作り物の素体（共通素体）", page.Conversion.TargetSuggestions);
     });

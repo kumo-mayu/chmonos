@@ -207,6 +207,49 @@ public class AvatarsConversionTests
     }
 
     [Fact]
+    public Task 確認待ちが無い商品では_推した通りに決めて次へは押せない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        Assert.True(avatars.DecideSuggestedCommand.CanExecute(null));
+
+        avatars.SelectedConversion = Row(avatars, "9900864");
+
+        Assert.False(avatars.DecideSuggestedCommand.CanExecute(null));
+        Assert.True(avatars.LaterCommand.CanExecute(null));
+    });
+
+    [Fact]
+    public Task 推した理由を行の下に出し_推せなかった行には推していない訳を出す() => TestApp.Run(async app =>
+    {
+        // 商品の対応素体から推したつなぎ先（見回りと同じ推し方で、手掛かりが1つ）
+        await SaveProfileAsync(app, "9900866", "作り物のプロファイルF", "fakef", new ConversionSetting
+        {
+            Targets = [new ConversionTarget { BaseName = "作り物の素体", Forward = true, Slug = "fakef" }],
+        });
+        var item = (await app.Store.Items.LoadAsync("9900866"))!;
+        await app.Store.Items.SaveAsync(item with
+        {
+            Local = item.Local with { AvatarBases = [new AvatarBaseLink { BaseName = "作り物の素体", Confirmed = true }] },
+        });
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+
+        avatars.SelectedConversion = Row(avatars, "9900866");
+        Assert.Equal("推した理由：商品の対応素体「作り物の素体」", Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
+
+        // 外すと選ぶ欄に戻り、推せる手掛かりはあるが外した、と言う（見回りが推し直さない訳）
+        Assert.Single(avatars.ConversionEditor.Rows).RemoveCommand!.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(
+            "外したつなぎ先：作り物の素体（共通素体）・推した理由：商品の対応素体「作り物の素体」",
+            Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
+
+        avatars.SelectedConversion = Row(avatars, "9900864");
+        Assert.Equal("推していません：推す元になる情報がありません", Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
+    });
+
+    [Fact]
     public Task 後では_何も書かずに次の決めていない商品へ進む() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);
