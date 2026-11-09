@@ -60,7 +60,7 @@ public sealed class ProfileModule : SearchModule
     }
 
     /// <summary>
-    /// 「もう一方の候補も含める」（既定は切・ユーザ判断 2026-11-09）。片方の欄だけ入れたときに、空の側を「持っている物全部」として
+    /// 「組み合わせられるプロファイルも含める」（既定は切・ユーザ判断 2026-11-09）。片方の欄だけ入れたときに、空の側を「持っている物全部」として
     /// 反対の向きのプロファイルも出す（変換先だけなら元として使える物、変換元だけなら先として使える物）。
     /// </summary>
     public bool ShowCounterpart
@@ -75,8 +75,29 @@ public sealed class ProfileModule : SearchModule
         }
     }
 
-    /// <summary>「もう一方の候補も含める」が効くのは、片方の欄だけ入れたとき。それ以外は押せなくする（場所は残して縦に揺らさない）。</summary>
+    /// <summary>「組み合わせられるプロファイルも含める」が効くのは、片方の欄だけ入れたとき。それ以外は押せなくする（場所は残して縦に揺らさない）。</summary>
     public bool CounterpartApplies => (Source.Chips.Count == 0) != (Destination.Chips.Count == 0);
+
+    private bool _requireBoth;
+
+    /// <summary>
+    /// 「両方に当たるものだけ」（既定は切・ユーザ判断 2026-11-09）。両方の欄に入れたときに、変換元と変換先の両方を1つの商品でまかなえる物
+    /// （素体用の物・何体分もまとめた物）だけにする。欄の中の AND は置かない（商品1件に B 用と C 用の両方が入っている物はまれで、0件を「持っていない」と読み違える）
+    /// </summary>
+    public bool RequireBoth
+    {
+        get => _requireBoth;
+        set
+        {
+            if (SetField(ref _requireBoth, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>「両方に当たるものだけ」が効くのは、両方の欄に入れたとき。</summary>
+    public bool BothApplies => Source.Chips.Count > 0 && Destination.Chips.Count > 0;
 
     /// <summary>両方の欄に入れたときの「そろっているか」の1行。手元の全部のプロファイルで見る（絞り込みの結果ではない）。</summary>
     public string StatusText
@@ -100,6 +121,7 @@ public sealed class ProfileModule : SearchModule
     private void OnSideChanged()
     {
         OnPropertyChanged(nameof(CounterpartApplies));
+        OnPropertyChanged(nameof(BothApplies));
         NotifyChanged();
     }
 
@@ -107,7 +129,7 @@ public sealed class ProfileModule : SearchModule
     protected override bool HasCondition => true;
 
     protected override ItemCondition BuildCondition()
-        => new ProfileCondition(SourceKeys, DestinationKeys, _viaBase, _includeUnconfirmed, _showCounterpart);
+        => new ProfileCondition(SourceKeys, DestinationKeys, _viaBase, _includeUnconfirmed, _showCounterpart, _requireBoth);
 
     /// <summary>
     /// 札の数（その札で当たるプロファイルの数。欄の向きで数える）と、そろっているかの1行を直す。
@@ -138,13 +160,13 @@ public sealed class ProfileModule : SearchModule
         }
 
         var missing = Source.Chips.Where(chip => !condition.Has(all, chip.Key, reverse: true, context))
-            .Select(chip => $"変換元「{chip.Text}」の逆方向")
+            .Select(chip => $"「{chip.Text}」の衣装を変換するプロファイル")
             .Concat(Destination.Chips.Where(chip => !condition.Has(all, chip.Key, reverse: false, context))
-                .Select(chip => $"変換先「{chip.Text}」の順方向"))
+                .Select(chip => $"「{chip.Text}」に着せるプロファイル"))
             .ToList();
         return missing.Count == 0
             ? "変換に要るプロファイルはそろっています。"
-            : string.Join("・", missing) + "のプロファイルがありません。";
+            : string.Join("と", missing) + "がありません。";
     }
 
     protected override string SummaryBody
@@ -170,7 +192,8 @@ public sealed class ProfileModule : SearchModule
             return string.Join("・", parts)
                 + (_viaBase ? string.Empty : "（素体経由を除く）")
                 + (_includeUnconfirmed ? string.Empty : "（確認したものだけ）")
-                + (_showCounterpart && CounterpartApplies ? "（もう一方の候補も含める）" : string.Empty);
+                + (_showCounterpart && CounterpartApplies ? "（組み合わせられるプロファイルも含める）" : string.Empty)
+                + (_requireBoth && BothApplies ? "（両方に当たるものだけ）" : string.Empty);
         }
     }
 
@@ -181,6 +204,9 @@ public sealed class ProfileModule : SearchModule
         _viaBase = true;
         _includeUnconfirmed = true;
         _showCounterpart = false;
+        _requireBoth = false;
+        OnPropertyChanged(nameof(RequireBoth));
+        OnPropertyChanged(nameof(BothApplies));
         OnPropertyChanged(nameof(ViaBase));
         OnPropertyChanged(nameof(IncludeUnconfirmed));
         OnPropertyChanged(nameof(ShowCounterpart));
@@ -197,6 +223,7 @@ public sealed class ProfileModule : SearchModule
             {
                 [SearchModuleConditions.IncludeUnconfirmedToggle] = _includeUnconfirmed,
                 [SearchModuleConditions.CounterpartToggle] = _showCounterpart,
+                [SearchModuleConditions.RequireBothToggle] = _requireBoth,
             },
         };
 
@@ -227,6 +254,11 @@ public sealed class ProfileModule : SearchModule
         OnPropertyChanged(nameof(IncludeUnconfirmed));
         OnPropertyChanged(nameof(ShowCounterpart));
         OnPropertyChanged(nameof(CounterpartApplies));
+        _requireBoth = state.Toggles is { } bothToggles
+            && bothToggles.TryGetValue(SearchModuleConditions.RequireBothToggle, out var requireBoth)
+            && requireBoth;
+        OnPropertyChanged(nameof(RequireBoth));
+        OnPropertyChanged(nameof(BothApplies));
     }
 
     /// <summary>アバターの管理・アバターの商品ページから開くとき：その欄に札を1つ入れる（絞り直しは呼び手がまとめて）。</summary>

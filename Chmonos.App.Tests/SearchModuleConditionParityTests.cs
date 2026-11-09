@@ -170,6 +170,7 @@ public class SearchModuleConditionParityTests
                 new() { Kind = name, Items = ["from:avatar:7000001"], Flag = true },
                 new() { Kind = name, Items = ["from:avatar:7000001"], Flag = true, Toggles = new Dictionary<string, bool> { [SearchModuleConditions.IncludeUnconfirmedToggle] = false } },
                 new() { Kind = name, Items = ["from:avatar:7000002", "to:avatar:7000001"], Flag = false },
+                new() { Kind = name, Items = ["from:avatar:7000001", "to:avatar:7000002"], Flag = true, Toggles = new Dictionary<string, bool> { [SearchModuleConditions.RequireBothToggle] = true } },
                 new() { Kind = name, Items = ["to:avatar:7000001"], Flag = true, Toggles = new Dictionary<string, bool> { [SearchModuleConditions.CounterpartToggle] = true } },
             ],
             SearchModuleKind.WishList => Ranges(name, null),

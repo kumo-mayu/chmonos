@@ -1021,7 +1021,7 @@
                                                              IconSelector="{Binding Source.IconSelector}" InfoSelector="{Binding Source.InfoSelector}" GroupHeadings="{Binding Source.GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Source'}"
                                                              AutomationProperties.Name="変換元のアバターか共通素体"
-                                                             ToolTip="衣装が対応しているアバターです。逆方向のプロファイルで当てます。" />
+                                                             ToolTip="着せたい衣装が対応しているアバターです。" />
                                         <controls:ContentItemsControl ItemsSource="{Binding Source.Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,6,0,0" Focusable="False"
                                                                       ItemTemplate="{StaticResource SearchChipTemplate}">
                                             <ItemsControl.ItemsPanel>
@@ -1035,7 +1035,7 @@
                                                              IconSelector="{Binding Destination.IconSelector}" InfoSelector="{Binding Destination.InfoSelector}" GroupHeadings="{Binding Destination.GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Destination'}"
                                                              AutomationProperties.Name="変換先のアバターか共通素体"
-                                                             ToolTip="着せたいアバターです。順方向のプロファイルで当てます。" />
+                                                             ToolTip="着せたいアバターです。" />
                                         <controls:ContentItemsControl ItemsSource="{Binding Destination.Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,6,0,0" Focusable="False"
                                                                       ItemTemplate="{StaticResource SearchChipTemplate}">
                                             <ItemsControl.ItemsPanel>
@@ -1064,7 +1064,7 @@
                                         <CheckBox IsChecked="{Binding ShowCounterpart, Mode=TwoWay}" Margin="0,4,0,0"
                                                   IsEnabled="{Binding CounterpartApplies}" ToolTipService.ShowOnDisabled="True"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Counterpart'}"
-                                                  AutomationProperties.Name="もう一方の候補も含める">
+                                                  AutomationProperties.Name="組み合わせられるプロファイルも含める">
                                             <CheckBox.Style>
                                                 <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
                                                     <Setter Property="ToolTip" Value="空の欄の側に使えるプロファイルも表示します。" />
@@ -1076,7 +1076,25 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </CheckBox.Style>
-                                            <TextBlock Text="もう一方の候補も含める" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="組み合わせられるプロファイルも含める" FontSize="12" Foreground="{DynamicResource Text}" />
+                                        </CheckBox>
+                                        <!-- 両方の欄に入れたときに効く（ユーザ判断 2026-11-09・既定は切）。1つの商品で両方をまかなえる物（素体用・まとめ売り）だけ -->
+                                        <CheckBox IsChecked="{Binding RequireBoth, Mode=TwoWay}" Margin="0,4,0,0"
+                                                  IsEnabled="{Binding BothApplies}" ToolTipService.ShowOnDisabled="True"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.RequireBoth'}"
+                                                  AutomationProperties.Name="両方に当たるものだけ">
+                                            <CheckBox.Style>
+                                                <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                                                    <Setter Property="ToolTip" Value="1つの商品で、変換元と変換先の両方に使えるものだけにします。" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="ToolTip" Value="両方の欄に入れると選べます。" />
+                                                            <Setter Property="Opacity" Value="0.45" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                            <TextBlock Text="両方に当たるものだけ" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>

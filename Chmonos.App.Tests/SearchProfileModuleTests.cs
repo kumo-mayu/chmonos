@@ -87,7 +87,14 @@ public class SearchProfileModuleTests
         // キキの順方向は無い
         module.Destination.AddCommand.Execute(Text(Kiki, "キキ"));
         await app.SettleAsync();
-        Assert.Equal("変換先「キキ（9800403）」の順方向のプロファイルがありません。", module.StatusText);
+        Assert.Equal("「キキ（9800403）」に着せるプロファイルがありません。", module.StatusText);
+
+        // 両方に当たるものだけ：1つの商品で、アオイの衣装の変換とキキ・モモへの着せ替えの両方をまかなえる物は無い
+        Assert.False(module.RequireBoth);
+        Assert.True(module.BothApplies);
+        module.RequireBoth = true;
+        await app.SettleAsync();
+        Assert.Empty(Shown(main));
     });
 
     [Fact]

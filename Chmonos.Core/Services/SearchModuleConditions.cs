@@ -59,10 +59,16 @@ public static class SearchModuleConditions
     public const string IncludeUnconfirmedToggle = "includeUnconfirmed";
 
     /// <summary>
-    /// 条件「プロファイル」の「もう一方の候補も含める」の切り替えの名前（既定は切・ユーザ判断 2026-11-09）。
+    /// 条件「プロファイル」の「組み合わせられるプロファイルも含める」の切り替えの名前（既定は切・ユーザ判断 2026-11-09）。
     /// 片方の欄だけ入れたときに、空の側を「持っている物全部」として、反対の向きのプロファイルも出す。
     /// </summary>
     public const string CounterpartToggle = "showCounterpart";
+
+    /// <summary>
+    /// 条件「プロファイル」の「両方に当たる物だけ」の切り替えの名前（既定は切・ユーザ判断 2026-11-09）。両方の欄に入れたときに、
+    /// 変換元の逆方向と変換先の順方向を1つの商品で両方まかなえる物（素体用の物・何体分もまとめた物）だけにする。
+    /// </summary>
+    public const string RequireBothToggle = "requireBoth";
 
     /// <summary>条件「プロファイル」の「変換元」の欄の値の頭（続きは対応アバターと同じ avatar:ID・base:名前）。逆方向で当てる。</summary>
     public const string SourceKey = "from:";
@@ -604,7 +610,7 @@ public static class SearchModuleConditions
 
     /// <summary>
     /// 保存した状態から条件「プロファイル」を作る。値は「変換元」（from:）と「変換先」（to:）の欄に分けて Items に積む。
-    /// 「素体経由を含める」は使い回しの Flag（既定は入）、確認待ち（既定は入）ともう一方の候補（既定は切）は名前で持つ。
+    /// 「素体経由を含める」は使い回しの Flag（既定は入）、確認待ち（既定は入）・組み合わせられるプロファイル（既定は切）・両方に当たる物だけ（既定は切）は名前で持つ。
     /// </summary>
     private static ProfileCondition ProfileFrom(SearchModuleState state)
     {
@@ -614,7 +620,8 @@ public static class SearchModuleConditions
             state.Items.Where(key => key.StartsWith(DestinationKey, StringComparison.Ordinal)).Select(key => key[DestinationKey.Length..]).ToList(),
             ViaBase: state.Flag,
             IncludeUnconfirmed: toggles is null || !toggles.TryGetValue(IncludeUnconfirmedToggle, out var unconfirmed) || unconfirmed,
-            ShowCounterpart: toggles is not null && toggles.TryGetValue(CounterpartToggle, out var counterpart) && counterpart);
+            ShowCounterpart: toggles is not null && toggles.TryGetValue(CounterpartToggle, out var counterpart) && counterpart,
+            RequireBoth: toggles is not null && toggles.TryGetValue(RequireBothToggle, out var requireBoth) && requireBoth);
     }
 
     /// <summary>
@@ -646,7 +653,8 @@ public static class SearchModuleConditions
 /// <summary>
 /// 条件「プロファイル」（ユーザ判断 2026-11-09・docs/spec/conversion.md「検索」の案B）。A 用の衣装を B に着せるには、A の逆方向と B の順方向が要る。
 /// 「変換元」の欄は逆方向、「変換先」の欄は順方向で当てる。両方入れたら、どちらかに当たる物（和）を出す（そろっているかは画面が1行で言う）。
-/// 片方だけ入れたときは、その向きの物だけ。「もう一方の候補も含める」を入れると、空の側を「持っている物全部」として反対の向きの物も出す。
+/// 「両方に当たる物だけ」を入れると、両方の欄に当たる物（1つの商品で変換元と変換先の両方をまかなえる物）だけにする。
+/// 片方だけ入れたときは、その向きの物だけ。「組み合わせられるプロファイルも含める」を入れると、空の側を「持っている物全部」として反対の向きの物も出す。
 /// 両方空なら、プロファイルの商品すべて。どの場合も、プロファイルの商品でない物と「扱わない」にした物は出さない。
 /// </summary>
 /// <param name="Sources">変換元の値（avatar:ID・base:名前）。</param>
@@ -656,7 +664,8 @@ public sealed class ProfileCondition(
     IReadOnlyList<string> Destinations,
     bool ViaBase,
     bool IncludeUnconfirmed,
-    bool ShowCounterpart) : ItemCondition
+    bool ShowCounterpart,
+    bool RequireBoth = false) : ItemCondition
 {
     public IReadOnlyList<string> Sources { get; } = Sources;
 
@@ -680,6 +689,11 @@ public sealed class ProfileCondition(
         var targets = TargetsOf(item);
         var asSource = Sources.Count > 0 && MatchesAny(targets, Sources, reverse: true, context);
         var asDestination = Destinations.Count > 0 && MatchesAny(targets, Destinations, reverse: false, context);
+        if (RequireBoth && Sources.Count > 0 && Destinations.Count > 0)
+        {
+            return asSource && asDestination;
+        }
+
         if (asSource || asDestination)
         {
             return true;

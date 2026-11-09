@@ -204,6 +204,7 @@ public sealed class SearchEngineTests : IDisposable
         Assert.True(state.Flag);
         Assert.True(state.Toggles![Chmonos.Core.Services.SearchModuleConditions.IncludeUnconfirmedToggle]);
         Assert.False(state.Toggles![Chmonos.Core.Services.SearchModuleConditions.CounterpartToggle]);
+        Assert.False(state.Toggles![Chmonos.Core.Services.SearchModuleConditions.RequireBothToggle]);
 
         var empty = ConditionKinds.ToState(new ConditionRequest { Kind = "profile", ViaBase = false, IncludeUnconfirmed = false, ShowCounterpart = true });
         Assert.Empty(empty.Items);

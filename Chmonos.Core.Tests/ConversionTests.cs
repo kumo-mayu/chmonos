@@ -354,6 +354,29 @@ public class ConversionTests
     }
 
     [Fact]
+    public void 条件プロファイルは_両方に当たる物だけを入れると_1つの商品で変換元と変換先の両方をまかなえる物だけにする()
+    {
+        bool Hits(ItemRecord item, bool requireBoth)
+        {
+            var context = new SearchModuleContext(() => Compat, ModificationUsage.Empty, RecentTimes.Empty, null, DateTimeOffset.Now) { Items = [item] };
+            var condition = SearchModuleConditions.From(new SearchModuleState
+            {
+                Kind = "Profile",
+                Items = [SearchModuleConditions.SourceKey + "avatar:9000003", SearchModuleConditions.DestinationKey + "avatar:9000004"],
+                Flag = true,
+                Toggles = new Dictionary<string, bool> { [SearchModuleConditions.RequireBothToggle] = requireBoth },
+            })!;
+            return condition.Matches(item, context);
+        }
+
+        // 素体用の両方向の物は、ツムギ（元）とヒナタ（先）の両方をまかなえる
+        Assert.True(Hits(BothForBase, requireBoth: true));
+        var reverseOnlyTsumugi = Item("9200016", conversion: Profile(new ConversionTarget { AvatarItemId = "9000003", Reverse = true, Confirmed = true }));
+        Assert.True(Hits(reverseOnlyTsumugi, requireBoth: false));
+        Assert.False(Hits(reverseOnlyTsumugi, requireBoth: true));
+    }
+
+    [Fact]
     public void 条件プロファイルは_素体経由を切ると素体のプロファイルを当てない()
     {
         Assert.False(ProfileHits(BothForBase, [], ["avatar:9000003"], viaBase: false));

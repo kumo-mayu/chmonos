@@ -57,8 +57,11 @@ public sealed class ConditionRequest
     /// <summary>プロファイル：変換先の共通素体の名前。</summary>
     public IReadOnlyList<string>? DestinationBases { get; init; }
 
-    /// <summary>プロファイル：片方だけ送ったとき、空の側の候補（反対の向きの物）も当てるか（既定 false。画面の「もう一方の候補も含める」）。</summary>
+    /// <summary>プロファイル：片方だけ送ったとき、空の側の候補（反対の向きの物）も当てるか（既定 false。画面の「組み合わせられるプロファイルも含める」）。</summary>
     public bool? ShowCounterpart { get; init; }
+
+    /// <summary>プロファイル：両方送ったとき、1つの商品で変換元と変換先の両方に当たる物だけにするか（既定 false。画面の「両方に当たるものだけ」）。</summary>
+    public bool? RequireBoth { get; init; }
 
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>
     public bool? Matched { get; init; }
@@ -239,6 +242,7 @@ public static class ConditionKinds
                     {
                         [SearchModuleConditions.IncludeUnconfirmedToggle] = request.IncludeUnconfirmed ?? true,
                         [SearchModuleConditions.CounterpartToggle] = request.ShowCounterpart ?? false,
+                        [SearchModuleConditions.RequireBothToggle] = request.RequireBoth ?? false,
                     },
                 };
 
