@@ -46,6 +46,7 @@ dotnet run --project tools/ViewShot -- diff $env:TEMP\chmonos-shots\before $env:
 **場面を足す**：`tools/ViewShot/Scenes.*.cs` に書いて登録する（書き方は `Scenes.cs` の冒頭）。作り物のデータ（`Fake`）を保存先に書き、
 `context.StartAsync()` で ViewModel を組み、目当ての画面へ移って、ViewModel の値で状態を作る。外から作れない状態（取り込みの結果・一時展開の進み具合）は
 `Backdoor.cs` に入れ方を足す。直す画面に場面が無ければ、直す前に場面を足す（次に同じ所を直す人も使える）。
+候補付きの欄（`SuggestBox`）にフォーカスが入ったまま候補の小窓が開いていると、撮り終えた後に道具が終わらない（窓を閉じるときにマウスの掴みを放す所で WPF の後始末が固まる。2026-11-09 の `search-profile`）。撮る前に `Keyboard.ClearFocus()` で閉じる
 
 **この台で確かめられない物**（アプリを起動して確かめる）：
 

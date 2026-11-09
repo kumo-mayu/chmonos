@@ -89,6 +89,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 変換扱いの欄（確認したつなぎ先・確認待ち・選ぶ欄。狭い幅では3択と行が折り返す） | `item-page-conversion-setting` |
 | アバターの管理の変換（決めていない・決めた・扱わないの群と、右の変換扱いの欄・次へ進むボタン） | `avatars-conversion` |
 | 推した通りにまとめて決める窓（商品ごとの見出しとチェック） | `catalog-dialog-confirm-conversions` |
+| 検索の条件「プロファイル」（変換元・変換先の2欄・着せるプロファイルが無いと言う1行・チェック4つ） | `search-profile` |
 | 手元のファイルの状態（在る・壊れた・見つからない・外したドライブ・2箇所） | `item-files-states` |
 | 手元のファイルが多い商品（ファイル30個・Unityへ送れるもの40個。見えている分から作る直しの確かめ） | `item-files-many` |
 | 長い説明（開いた・畳んだ・流した・最後・縦長） | `item-page-long`・`item-page-long-*` |

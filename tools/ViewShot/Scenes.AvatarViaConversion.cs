@@ -34,6 +34,43 @@ internal static partial class Scenes
             ]);
             return Task.FromResult<System.Windows.Window>(new ConfirmConversionsDialog(model));
         }),
+        new Scene("search-profile", "検索の条件「プロファイル」：変換元にアオイ、変換先にモモとキキ（キキに着せるプロファイルが無いと1行で言う。チェック4つ）", async context =>
+        {
+            static AvatarRegistryEntry Avatar(string id, string name) => new()
+            {
+                ItemId = id,
+                BoothName = $"作り物のアバター「{name}」",
+                DisplayName = name,
+                Category = "3Dキャラクター",
+            };
+
+            await context.Seed.Avatars.SaveAsync(new AvatarRegistry { Entries = [Avatar("9800401", "アオイ"), Avatar("9800402", "モモ"), Avatar("9800403", "キキ")] });
+            Task<ItemRecord> ProfileAsync(string id, string name, ConversionTarget target)
+                => context.Fake.ItemAsync(id, name, record => record with
+                {
+                    Local = record.Local with { Conversion = new ConversionSetting { Targets = [target] } },
+                });
+
+            await ProfileAsync("9900241", "作り物のプロファイル（アオイ・逆方向）", new ConversionTarget { AvatarItemId = "9800401", Reverse = true, Confirmed = true });
+            await ProfileAsync("9900242", "作り物のプロファイル（モモ・順方向）", new ConversionTarget { AvatarItemId = "9800402", Forward = true, Confirmed = true });
+
+            var main = await context.StartAsync();
+            await SceneContext.UntilAsync(() => !main.Search.IsLoading && main.Search.TotalCount == 2, "商品を読み終える");
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var module = (ProfileModule)AddModule(main.Search, SearchModuleKind.Profile);
+            module.Source.AddKey("avatar:9800401", text: "アオイ（9800401）");
+            module.Destination.AddKey("avatar:9800402", text: "モモ（9800402）");
+            module.Destination.AddKey("avatar:9800403", text: "キキ（9800403）");
+            await context.SettleAsync();
+
+            // 条件を足すと最初の入力欄にフォーカスが入り、候補の一覧（小窓）が開く。開いたまま終わると、窓を閉じるときにマウスの掴みを放す所で
+            // WPF の後始末が固まる（道具が終わらなかった）。撮りたいのは条件の欄なので、フォーカスを外して一覧を閉じてから撮る
+            System.Windows.Input.Keyboard.ClearFocus();
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
         new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", AvatarsConversionAsync),
     ];
 
