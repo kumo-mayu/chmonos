@@ -43,7 +43,7 @@ public sealed class StartupWork(AppServiceContainer services)
     /// <summary>要確認などの件数が変わり得る。</summary>
     public event Action? CountsChanged;
 
-    /// <summary>見回りが見つからなくなった日時を書いた商品。</summary>
+    /// <summary>起動時の見回りが書いた商品（見つからなくなった日時・変換扱いの推した値）。</summary>
     public event Action<IReadOnlyList<string>>? ItemsSwept;
 
     /// <summary>
@@ -222,10 +222,14 @@ public sealed class StartupWork(AppServiceContainer services)
 
                 // 変換ツールのプロファイルの見回りも続けて（docs/spec/conversion.md）。前の版で取り込んだプロファイルにも、ここで確認待ちのつなぎ先が付く。
                 // BOOTH に問い合わせず、控えを読むのはプロファイルらしい商品だけ
-                await services.Conversion.RunAsync(token);
-                if (written.Count > 0)
+                var converted = await services.Conversion.RunAsync(token);
+
+                // どちらの見回りが書いた商品も、検索の写しへ知らせる（起動時は検索が先に全件を読んでいるので、
+                // 知らせないと商品ページの「変換扱い」に推した値が出ず、決まっていない行に見えた。実データで確かめた 2026-11-09）
+                var changed = written.Union(converted, StringComparer.Ordinal).ToList();
+                if (changed.Count > 0)
                 {
-                    ItemsSwept?.Invoke(written);
+                    ItemsSwept?.Invoke(changed);
                 }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)

@@ -72,7 +72,7 @@ public sealed class ConversionScanTests : IDisposable
 
         var written = await new ConversionScan(_store, _packages).RunAsync();
 
-        Assert.Equal(1, written);
+        Assert.Equal(["9400001"], written);
         var conversion = (await _store.Items.LoadAsync("9400001"))!.Local.Conversion;
         Assert.Equal(
             [new ConversionTarget { AvatarItemId = "9400001", Forward = true, Reverse = true, Slug = "kohaku", Confirmed = false }],
@@ -88,7 +88,7 @@ public sealed class ConversionScanTests : IDisposable
 
         var written = await new ConversionScan(_store, _packages).RunAsync();
 
-        Assert.Equal(0, written);
+        Assert.Empty(written);
         Assert.Equal([mine], (await _store.Items.LoadAsync("9400002"))!.Local.Conversion!.Targets);
     }
 
@@ -98,8 +98,8 @@ public sealed class ConversionScanTests : IDisposable
         await SaveProfileItemAsync("9400003");
         var scan = new ConversionScan(_store, _packages);
 
-        Assert.Equal(1, await scan.RunAsync());
-        Assert.Equal(0, await scan.RunAsync());
+        Assert.Single(await scan.RunAsync());
+        Assert.Empty(await scan.RunAsync());
     }
 
     [Fact]

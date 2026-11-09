@@ -17,7 +17,7 @@ public class ItemConversionSettingTests
 
     private static readonly ConversionTarget SuggestedBase = new() { BaseName = "作り物の素体", Reverse = true, Slug = "fakebase" };
 
-    private static async Task<ItemViewModel> OpenAsync(TestApp app, ConversionSetting? conversion, bool withFiles = true)
+    private static async Task<ItemViewModel> OpenAsync(TestApp app, ConversionSetting? conversion, bool withFiles = true, bool isAvatar = false)
     {
         await app.Store.Avatars.SaveAsync(new AvatarRegistry
         {
@@ -38,6 +38,12 @@ public class ItemConversionSettingTests
         }
 
         var item = Make.Item(ProfileId, "作り物のプロファイル");
+        if (isAvatar)
+        {
+            // アバター本体の商品は、中のプロファイルのつなぎ先をその商品自身と推す（手掛かり (a)）
+            item = item with { Booth = item.Booth! with { Category = new BoothCategory { Id = 1, Name = "3Dキャラクター" } } };
+        }
+
         item = item with
         {
             Local = item.Local with
@@ -149,5 +155,24 @@ public class ItemConversionSettingTests
         Assert.Equal([confirmed], (await SavedAsync(app))!.Targets);
         Assert.True(page.IsConversionNotProfile);
         Assert.Equal("今の扱い：プロファイルとして扱わない（手動で指定）", page.ConversionStateText);
+    });
+
+    [Fact]
+    public Task 起動時の見回りが推した値は_検索の写しに届き_開いた商品ページに確認待ちで出る() => TestApp.Run(async app =>
+    {
+        // 検索は見回りより先に全件を読む。見回りが書いた後に知らせないと、開いたページは推す前の記録で組まれ、全部が選ぶ欄に見えた（実データで 2026-11-09）
+        await OpenAsync(app, conversion: null, isAvatar: true);
+        var main = app.Main;
+        Assert.Null(main.Search.ListItems.Single(card => card.Item.Id == ProfileId).Item.Local.Conversion);
+
+        main.StartMissingMarksSweep();
+        await app.SettleAsync();
+        await UiThread.Until(
+            () => main.Search.ListItems.Single(card => card.Item.Id == ProfileId).Item.Local.Conversion is not null,
+            "見回りの推した値が検索の写しに入る");
+
+        var page = new ItemViewModel(main.Search.ListItems.Single(card => card.Item.Id == ProfileId).Item, app.Services, main, main.Thumbnails);
+        Assert.All(page.ConversionRows, row => Assert.True(row.HasTarget && row.IsUnconfirmed));
+        Assert.Equal(2, page.ConversionRows.Count);
     });
 }

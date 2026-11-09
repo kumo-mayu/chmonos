@@ -41,13 +41,16 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
         return ProfileFiles.Scan(paths);
     }
 
-    /// <summary>手元の全商品を見て、変換扱いの推した値を書き直す。書いた商品の数を返す。</summary>
-    public async Task<int> RunAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 手元の全商品を見て、変換扱いの推した値を書き直す。書いた商品の ID を返す
+    /// （起動時は検索が先に全件を読んでいるので、呼び手が写しへ知らせる。知らせないと、開いた商品ページに推した値が出ない）。
+    /// </summary>
+    public async Task<IReadOnlyList<string>> RunAsync(CancellationToken cancellationToken = default)
     {
         var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = store.Avatars.Load();
         var compatibility = AvatarCompatibilityIndex.For(registry);
-        var written = 0;
+        var written = new List<string>();
 
         foreach (var item in loaded.Items)
         {
@@ -67,7 +70,7 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
                 LocalOwners.Conversion,
                 cancellationToken))
             {
-                written++;
+                written.Add(item.Id);
             }
         }
 
