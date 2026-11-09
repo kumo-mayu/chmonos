@@ -13,11 +13,12 @@ public sealed class ThumbnailFailedCacheTests
     public void 読めなかった覚えが増えても_予算の内に収まる()
     {
         var loader = new ThumbnailLoader(budgetMegabytes: 1);
-        // 予算は最低でも16MBに切り上げられる。場所の名前を長くして1件を約2KBにし、2万件（約40MB）で予算を超えさせる
-        var folder = Path.Combine(Path.GetTempPath(), "bam-thumb-missing-" + new string('x', 1000));
+        // 予算は最低でも16MBに切り上げられる。場所の名前を長くして1件を約16KBにし、2,500件（約40MB）で予算を超えさせる。
+        // 前は1件約2KB・2万件で、無い場所を2万回見に行くのに約1.4秒かかっていた（App の一式でいちばん重い試験だった）
+        var folder = Path.Combine(Path.GetTempPath(), "bam-thumb-missing-" + new string('x', 8000));
 
         // 無い場所は読めない画像として覚える
-        const int tried = 20_000;
+        const int tried = 2_500;
         for (var index = 0; index < tried; index++)
         {
             Assert.Null(loader.Load(Path.Combine(folder, $"missing-{index:00000}.png")));

@@ -241,6 +241,8 @@ public sealed class ApiCurationTests
 
         // 前後に空白を付けて打ち、保存し終えた欄は、打っている途中とは見ない（保存は空白を除いて書く。点検39）
         detail.MemoInput = " 秋 ";
+        // 打ち終えるのを待つ間（0.8秒）は待たずに、待っている保存を今書かせる（この試験だけで約1.1秒かかっていた）
+        await detail.FlushPendingWritesAsync();
         await UiThread.Until(() => detail.Record.Memo == "秋", "空白を除いて保存する");
         Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"冬"}""")).StatusCode);
         await UiThread.Until(() => detail.MemoInput == "冬", "保存した後の欄は新しい値になる");
