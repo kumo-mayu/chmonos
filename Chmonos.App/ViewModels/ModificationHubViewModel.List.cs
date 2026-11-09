@@ -48,7 +48,13 @@ public sealed partial class ModificationHubViewModel
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(HasBehindModifications));
+        OnPropertyChanged(nameof(OnlyBehindText));
     }
+
+    /// <summary>「新しい版が出たものだけ」の間は、新しい版が出た改変だけに絞る。</summary>
+    private IReadOnlyList<ModificationRecord> Behind(IReadOnlyList<ModificationRecord> records)
+        => OnlyBehind ? records.Where(IsBehind).ToList() : records;
 
     /// <summary>まとめて開け閉めしている間。1行ごとに平らな行を組み直さず、終わってから1回だけ組む。</summary>
     private bool _expandingAll;
@@ -178,10 +184,10 @@ public sealed partial class ModificationHubViewModel
     {
         foreach (var candidate in _projects)
         {
-            var records = RecordsOf(candidate.Path);
+            var records = Behind(RecordsOf(candidate.Path));
             var nameHit = query.Length == 0 || Hit(candidate.Name, query);
             var shown = nameHit ? records : records.Where(record => Hit(record.Name, query)).ToList();
-            if (!nameHit && shown.Count == 0)
+            if ((!nameHit || OnlyBehind) && shown.Count == 0)
             {
                 continue;
             }
@@ -195,7 +201,7 @@ public sealed partial class ModificationHubViewModel
 
         // 紐付けていない改変も、この見方から辿れるようにする（見方を変えないと見つからない改変を作らない）
         var unlinked = _records
-            .Where(record => !record.HasUnityProject && (query.Length == 0 || Hit(record.Name, query)))
+            .Where(record => !record.HasUnityProject && (query.Length == 0 || Hit(record.Name, query)) && (!OnlyBehind || IsBehind(record)))
             .OrderByDescending(record => record.UpdatedAt)
             .ToList();
         if (unlinked.Count > 0)
@@ -231,11 +237,12 @@ public sealed partial class ModificationHubViewModel
             .ThenByDescending(entry => entry.Records.FirstOrDefault()?.UpdatedAt ?? DateTimeOffset.MinValue)
             .ThenBy(entry => AvatarNameOf(entry.Id), StringComparer.CurrentCulture);
 
-        foreach (var (id, records) in ids)
+        foreach (var (id, all) in ids)
         {
+            var records = Behind(all);
             var nameHit = query.Length == 0 || AvatarHit(id, query);
             var shown = nameHit ? records : records.Where(record => Hit(record.Name, query)).ToList();
-            if (!nameHit && shown.Count == 0)
+            if ((!nameHit || OnlyBehind) && shown.Count == 0)
             {
                 continue;
             }
@@ -255,7 +262,7 @@ public sealed partial class ModificationHubViewModel
     /// <summary>改変の見方。新しく触ったものから。改変そのものが見出しなので、使ったものを開いて出す。</summary>
     private void BuildModifications(string query)
     {
-        foreach (var record in _records.OrderByDescending(record => record.UpdatedAt))
+        foreach (var record in Behind(_records).OrderByDescending(record => record.UpdatedAt))
         {
             if (query.Length > 0
                 && !Hit(record.Name, query)

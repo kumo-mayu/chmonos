@@ -118,6 +118,9 @@ public sealed class HubMemberRow : ViewModelBase, IHubNoticeTarget
 
     public required bool IsMissing { get; init; }
 
+    /// <summary>使ったファイルより新しい版が出ている行（docs/spec/used-updates.md）。</summary>
+    public bool IsBehind { get; init; }
+
     public string ItemId => Member.ItemId;
 
     /// <summary>「Unityで選択」の相手。改変に紐付けたプロジェクト。</summary>
@@ -183,6 +186,13 @@ public sealed class HubModificationRow(string key, bool openByDefault, bool forc
 
     public string CountText => Members.Count == 0 ? "使ったものはまだありません" : $"使ったもの {Members.Count}";
 
+    /// <summary>新しい版が出ている使ったものの数（ユーザ指示 2026-11-09：中を開かなくても、ツリーで分かるように）。</summary>
+    public int BehindCount => Members.Count(member => member.IsBehind);
+
+    public bool HasBehind => BehindCount > 0;
+
+    public string BehindText => $"新しい版 {BehindCount}";
+
     public string? IconPath { get; init; }
 
     public ThumbnailLoader? Thumbnails { get; init; }
@@ -241,6 +251,13 @@ public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOp
 
     public string CountText => Modifications.Count == 0 ? string.Empty : $"改変 {Modifications.Count}";
 
+    /// <summary>新しい版が出た物を使っている改変の数（畳んでいても分かるように）。</summary>
+    public int BehindCount => Modifications.Count(modification => modification.HasBehind);
+
+    public bool HasBehind => BehindCount > 0;
+
+    public string BehindText => $"新しい版 {BehindCount}";
+
     protected override bool CanExpand => Modifications.Count > 0;
 }
 
@@ -259,6 +276,13 @@ public sealed class HubAvatarGroup(string key, bool openByDefault, bool forceOpe
     public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
 
     public string CountText => Modifications.Count == 0 ? "改変なし" : $"改変 {Modifications.Count}";
+
+    /// <summary>新しい版が出た物を使っている改変の数（畳んでいても分かるように）。</summary>
+    public int BehindCount => Modifications.Count(modification => modification.HasBehind);
+
+    public bool HasBehind => BehindCount > 0;
+
+    public string BehindText => $"新しい版 {BehindCount}";
 
     public string? IconPath { get; init; }
 
@@ -525,6 +549,7 @@ internal sealed class ModificationRowBuilder(
 
             // 手元に無くても記録は残す。そのとき使ったのは事実
             IsMissing = item is null || !item.IsOwned,
+            IsBehind = item is not null && Core.Services.UsedUpdates.IsMemberBehind(item, member),
             ThumbnailPath = item is null ? null : ItemThumbnailPath(item),
             Thumbnails = thumbnails,
         };

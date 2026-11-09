@@ -83,6 +83,53 @@ public class UsedUpdatePromptTests
         Assert.Equal([Costume], main.Search.ListItems.Select(card => card.Item.Id));
     });
 
+    /// <summary>ユーザ指示 2026-11-09：改変の画面で、中を開かなくても左のツリーで分かるように。</summary>
+    [Fact]
+    public Task 改変の画面の左のツリーで_改変の見出しとアバターの見出しに新しい版の数を出す() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(Avatar, "作り物のアバター"));
+        var costume = UpdatedCostume();
+        await app.AddItemAsync(costume);
+        var main = await app.StartAsync();
+        await AddModificationAsync(app, fileHash: costume.Local.LocalFiles[0].Hash);
+
+        var byModification = new ModificationHubViewModel(app.Services, main, main.Thumbnails, ModificationHubLevel.Modification);
+        await UiThread.Until(() => byModification.EmptyText != "読み込んでいます…", "改変の画面の読み込みが済む");
+        var row = Assert.IsType<HubModificationRow>(Assert.Single(byModification.Groups));
+        Assert.Equal("新しい版 1", row.BehindText);
+        Assert.True(Assert.Single(row.Members).IsBehind);
+
+        var byAvatar = new ModificationHubViewModel(app.Services, main, main.Thumbnails, ModificationHubLevel.Avatar);
+        await UiThread.Until(() => byAvatar.EmptyText != "読み込んでいます…", "改変の画面の読み込みが済む");
+        var avatar = Assert.IsType<HubAvatarGroup>(Assert.Single(byAvatar.Groups));
+        Assert.True(avatar.HasBehind);
+        Assert.Equal("新しい版 1", avatar.BehindText);
+    });
+
+    [Fact]
+    public Task 新しい版が出たものだけにすると_その改変だけが並ぶ() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(Avatar, "作り物のアバター"));
+        var costume = UpdatedCostume();
+        await app.AddItemAsync(costume);
+        await app.AddItemAsync(Make.Item("9907404", "作り物の髪"));
+        var main = await app.StartAsync();
+        await AddModificationAsync(app, fileHash: costume.Local.LocalFiles[0].Hash);
+        var created = Assert.IsType<CommandResult.ModificationCreated>(
+            await app.Services.Commands.ExecuteAsync(new UiCommand.CreateModification(Avatar, "作り物の別の改変")));
+        await app.Services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(created.Record.Id, new ModificationMember { ItemId = "9907404" }));
+
+        var hub = new ModificationHubViewModel(app.Services, main, main.Thumbnails, ModificationHubLevel.Modification);
+        await UiThread.Until(() => hub.EmptyText != "読み込んでいます…", "改変の画面の読み込みが済む");
+        Assert.Equal(2, hub.Groups.Count);
+        Assert.True(hub.HasBehindModifications);
+        Assert.Equal("新しい版が出たものだけ（1）", hub.OnlyBehindText);
+
+        hub.OnlyBehind = true;
+
+        Assert.Equal("作り物の改変", Assert.IsType<HubModificationRow>(Assert.Single(hub.Groups)).Record.Name);
+    });
+
     [Fact]
     public Task 使っていない商品には帯を出さない() => TestApp.Run(async app =>
     {

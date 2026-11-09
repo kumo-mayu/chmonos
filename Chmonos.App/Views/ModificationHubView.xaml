@@ -216,6 +216,13 @@
                                              CommandParameter="{Binding}"
                                              controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                     <DockPanel>
+                        <!-- 使ったファイルより新しい版が出ている行（右の詳しい内容の札と同じ） -->
+                        <Border DockPanel.Dock="Left" BorderBrush="{DynamicResource Warn}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,0,6,0"
+                                VerticalAlignment="Center" AutomationProperties.AutomationId="ModificationsMemberBehind"
+                                ToolTip="使ったファイルより新しい版があります。"
+                                Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="新しい版あり" FontSize="10" Foreground="{DynamicResource Warn}" />
+                        </Border>
                         <TextBlock DockPanel.Dock="Right" Text="手元にありません" FontSize="10.5" Margin="6,0,0,0"
                                    Foreground="{DynamicResource Warn}"
                                    Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -304,6 +311,13 @@
                                        TextDecorations="Underline" />
                         </Button>
                         <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                        <!-- 新しい版が出た物を使っている数（ユーザ指示 2026-11-09：中を開かなくてもツリーで分かるように。docs/spec/used-updates.md） -->
+                        <Border BorderBrush="{DynamicResource Warn}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ModificationsBehind" AutomationProperties.Name="{Binding BehindText}"
+                                ToolTip="新しい版が出た物を使っている数です。"
+                                Visibility="{Binding HasBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding BehindText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                        </Border>
                     </WrapPanel>
                     <TextBlock Text="{Binding MemoText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                                Margin="0,1,0,0"
@@ -365,6 +379,13 @@
                             <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,0,8,0"
                                        TextWrapping="Wrap" />
                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                            <!-- 新しい版が出た物を使っている数（ユーザ指示 2026-11-09：中を開かなくてもツリーで分かるように。docs/spec/used-updates.md） -->
+                            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ModificationsBehind" AutomationProperties.Name="{Binding BehindText}"
+                                    ToolTip="新しい版が出た物を使っている数です。"
+                                    Visibility="{Binding HasBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding BehindText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                            </Border>
                         </WrapPanel>
                         <!-- 「Unityを開く」の結果。出ていない間は場所を取らない（行の下が1度だけ下がる） -->
                         <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
@@ -449,6 +470,13 @@
                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                             <TextBlock Text="{Binding OwnedText}" Style="{StaticResource Caption}" Margin="0,0,8,0" />
                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                            <!-- 新しい版が出た物を使っている数（ユーザ指示 2026-11-09：中を開かなくてもツリーで分かるように。docs/spec/used-updates.md） -->
+                            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ModificationsBehind" AutomationProperties.Name="{Binding BehindText}"
+                                    ToolTip="新しい版が出た物を使っている数です。"
+                                    Visibility="{Binding HasBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding BehindText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                            </Border>
                         </StackPanel>
                     </StackPanel>
                 </DockPanel>
@@ -850,6 +878,15 @@
                             </Button>
                         </StackPanel>
                     </controls:SplitRowPanel>
+
+                    <!--
+                        新しい版が出たものを使っている改変だけにする（ユーザ指示 2026-11-09。探す欄の下）。
+                        1件も無ければ出さない（押しても空になるだけ）。入れている間は、0件になっても外せるよう出したまま
+                    -->
+                    <CheckBox Content="{Binding OnlyBehindText}" IsChecked="{Binding OnlyBehind}" Margin="0,8,0,0"
+                              AutomationProperties.AutomationId="ModificationsOnlyBehind"
+                              ToolTip="使ったものに新しい版が出た改変だけを並べます。"
+                              Visibility="{Binding HasBehindModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 </StackPanel>
 

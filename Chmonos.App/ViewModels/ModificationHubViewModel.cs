@@ -190,6 +190,35 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     public bool HasQuery => Query.Length > 0;
 
+    private bool _onlyBehind;
+
+    /// <summary>
+    /// 「新しい版が出たものだけ」（ユーザ指示 2026-11-09）：使ったものに新しい版が出た改変だけを並べる（見出しは、その改変を含む物だけ）。
+    /// 覚えない（開き直すと全部に戻る。探すときだけ使う絞り込み）。
+    /// </summary>
+    public bool OnlyBehind
+    {
+        get => _onlyBehind;
+        set
+        {
+            if (SetField(ref _onlyBehind, value))
+            {
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>使ったものに新しい版が出た改変の数。0 ならチェックを出さない。</summary>
+    public int BehindModificationCount => _records.Count(IsBehind);
+
+    public bool HasBehindModifications => BehindModificationCount > 0 || OnlyBehind;
+
+    public string OnlyBehindText => $"新しい版が出たものだけ（{BehindModificationCount}）";
+
+    /// <summary>使ったもの（外した行を除く）のどれかに、使ったファイルより新しい版が出ているか（<see cref="UsedUpdates.IsMemberBehind"/>）。</summary>
+    private bool IsBehind(ModificationRecord record)
+        => record.Members.Any(member => _items.TryGetValue(member.ItemId, out var item) && UsedUpdates.IsMemberBehind(item, member));
+
     public string QueryPlaceholder => Level switch
     {
         ModificationHubLevel.Project => "プロジェクト名・改変名から探す",
@@ -213,6 +242,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// <summary>空のときに次にやることを書く。</summary>
     public string EmptyText => _loadFailure ?? (_isLoading
         ? "読み込んでいます…"
+        : OnlyBehind
+            ? "新しい版が出たものを使っている改変はありません。チェックを外すと全部に戻ります。"
         : Query.Trim().Length > 0
             ? $"「{Query.Trim()}」に当てはまるものはありません。"
             : Level switch
