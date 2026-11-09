@@ -63,7 +63,7 @@ App・Core を触ると `.claude/rules/` の画面と文言の決め事・前提
 ## 読み方（文脈を節約する）
 
 `Grep` で場所を絞り（見出しは `^#{2,3} `、XAML は `x:Name`・部品の名前、C# は関数名）、`Read` の `offset`/`limit` で前後だけ読む。
-特に大きい物：`docs/feedback/done-*.md`、`docs/history/` の `unity-handoff.md`・`ui-revision.md`・`avatars.md`、`docs/features.md`、`Views/` の大きな XAML、1,200行を超える ViewModel と `AvatarDetector.cs`。
+特に大きい物：`docs/feedback/done-*.md`（探す時は索引 `done-index.md` を Grep）、`docs/history/` の `unity-handoff.md`・`ui-revision.md`・`avatars.md`、`docs/features.md`、`Views/` の大きな XAML、1,200行を超える ViewModel と `AvatarDetector.cs`。
 
 ## 進め方
 

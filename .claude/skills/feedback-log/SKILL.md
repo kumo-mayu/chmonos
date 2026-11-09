@@ -32,7 +32,12 @@ description: 画面への意見を docs/feedback/open.md に記録し、直し�
 3. **確かめる前に「確かめた」と書かない**（書いてから確かめたことがある）。
 4. `done-YYYY-MM.md` は数百KBになり、日付の順に並んでいない所もある。**丸ごと読まない。**
    `Grep` で見出し（`^#{2,3} `）を出し、足したい日付の節の近くだけ `offset`/`limit` で読んでから足す。
-5. 月が変わったら `done-YYYY-MM.md` を新しく作り、`docs/README.md` の索引と `open.md` の冒頭の案内を直す。
+5. 足したら `node .claude/skills/feedback-log/scripts/done-index.mjs` で `done-index.md`（見出しの1件1行の索引。`ファイル:行` 付き）を作り直し、done と一緒に commit する。手で直さない。
+6. 月が変わったら `done-YYYY-MM.md` を新しく作り、`docs/README.md` の索引と `open.md` の冒頭の案内を直す（`done-index.md` には台本が自動で足す）。
+
+## 過去の直した記録を探す
+
+`docs/feedback/done-index.md` を語で Grep し、当たった行の `ファイル:行` を Read の `offset` で開く。done を直に Grep するより、件名で当てやすい。
 
 ## 友人のデータ
 
