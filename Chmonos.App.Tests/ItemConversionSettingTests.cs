@@ -238,4 +238,16 @@ public class ItemConversionSettingTests
                 new ProfileSource("fake", "C.unitypackage", "a.zip"),
             ]));
     }
+
+    [Fact]
+    public void 推した理由の文は_FBXの場所の手掛かりも言う()
+    {
+        var names = new Dictionary<string, string> { ["9800401"] = "アオイ" };
+
+        var text = ItemConversionEditor.CluesText(
+            [new ConversionClue(ConversionClueKind.FbxAvatar, "9800401", null), new ConversionClue(ConversionClueKind.DetectedBase, null, "作り物の素体")],
+            names);
+
+        Assert.Equal("FBX の場所が「アオイ」と同じ・商品の対応素体「作り物の素体」", text);
+    }
 }

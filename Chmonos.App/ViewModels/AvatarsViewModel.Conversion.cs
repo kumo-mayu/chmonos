@@ -82,7 +82,7 @@ public sealed partial class AvatarsViewModel
 
     /// <summary>右の「変換扱い」の欄。商品ページと同じ部品で、書いた後は一覧の行と検索の写しも直す。</summary>
     public ItemConversionEditor ConversionEditor => _conversionEditor ??= new ItemConversionEditor(
-        _services, RunConversionCommandAsync, () => false, ItemConversionEditor.IconsFrom(_services, _main))
+        _services, RunConversionCommandAsync, () => false, ItemConversionEditor.IconsFrom(_services, _main), _main.Search.FindItem)
     {
         ShowsReasons = true,
     };

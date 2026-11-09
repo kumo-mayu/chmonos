@@ -197,11 +197,17 @@ public static class ConversionNames
 /// <summary>推したつなぎ先1つと、その手掛かり（変換扱いの画面で「商品の対応素体から」と見せる）。</summary>
 public sealed record ConversionSuggestion(ProfileSlug Profile, ConversionTarget? Target, IReadOnlyList<ConversionClue> Clues, bool Conflicting);
 
-/// <summary>つなぎ先の手掛かりの種類（<c>conversion.md</c>「つなぎ先」の (a)〜(e)。(b) の FBX の場所はまだ読んでいない）。</summary>
+/// <summary>つなぎ先の手掛かりの種類（<c>conversion.md</c>「つなぎ先」の (a)〜(e)）。</summary>
 public enum ConversionClueKind
 {
     /// <summary>(a) 商品のカテゴリが「3Dキャラクター」：その商品自身（アバター本体に同梱のプロファイル）。</summary>
     ItemIsAvatar,
+
+    /// <summary>
+    /// (b) プロファイルの <c>avatar_data</c> の FBX の場所が、持っているアバターの unitypackage の中身にある：そのアバター（2026-11-09）。
+    /// 素体用のプロファイルでも代表のアバターの FBX を指すので、素体の手掛かりと合わされば素体用として推す（Agree）。
+    /// </summary>
+    FbxAvatar,
 
     /// <summary>(c) 商品から検出された対応の共通素体。</summary>
     DetectedBase,
@@ -226,11 +232,13 @@ public static class ConversionInference
     private const string AvatarCategory = "3Dキャラクター";
 
     /// <summary>商品の中のプロファイル（slug ごと）について、つなぎ先を推す。</summary>
+    /// <param name="fbxAvatars">slug → FBX の場所が中身にあるアバターの商品 ID（手掛かり (b)。<see cref="ConversionScan.FbxAvatarsOf"/>）。</param>
     public static IReadOnlyList<ConversionSuggestion> Suggest(
         ItemRecord item,
         IReadOnlyList<ProfileSlug> profiles,
         AvatarRegistry registry,
-        AvatarCompatibilityIndex compatibility)
+        AvatarCompatibilityIndex compatibility,
+        IReadOnlyDictionary<string, string>? fbxAvatars = null)
     {
         var entries = registry.Entries.ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
         var groups = registry.BaseGroups.Where(group => !group.Rejected && !string.IsNullOrWhiteSpace(group.Name)).ToList();
@@ -252,6 +260,12 @@ public static class ConversionInference
         {
             var slugKeys = ConversionNames.SlugKeys(profile.Slug);
             var clues = new List<ConversionClue>();
+
+            // (b) FBX の場所が持っているアバターの中身と同じ（slug → アバターの商品 ID は呼び手が控えから引いて渡す）
+            if (fbxAvatars is not null && fbxAvatars.TryGetValue(profile.Slug, out var fbxAvatar))
+            {
+                clues.Add(new ConversionClue(ConversionClueKind.FbxAvatar, fbxAvatar, null));
+            }
 
             if (isAvatar)
             {

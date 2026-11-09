@@ -14,6 +14,25 @@ public sealed class UnityPackagePathsFile
     /// GUID は、利用者がプロジェクトの中でフォルダを移した・名前を変えた物を見つけるのに使う（<see cref="UnityProjectGuids"/>）。
     /// </summary>
     public Dictionary<string, Dictionary<string, string>> Packages { get; init; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 変換ツールのプロファイルの <c>avatar_data_{slug}.json</c> から読んだ物（slug → 名前・FBX の場所。docs/spec/conversion.md「データの形」）。
+    /// 中身から決まるので古くならない。読んでいない（プロファイルを含まない・まだ読んでいない）なら null で、書き出さない。
+    /// 読んで何も無かったときは空（もう一度読まない）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, ProfileAvatarData>? Profiles { get; init; }
+}
+
+/// <summary>プロファイル1つの <c>avatar_data_{slug}.json</c> の欄のうち、つなぎ先を推すのに使う物。</summary>
+public sealed record ProfileAvatarData
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+
+    /// <summary>代表のアバターの FBX の場所（<c>Assets/…/X.fbx</c>）。持っているアバターの unitypackage の中身と照らす（推す手掛かり (b)）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? DefaultFbxPath { get; init; }
 }
 
 /// <summary>
@@ -104,11 +123,58 @@ public sealed class UnityPackagePathStore(AppPaths paths)
                 return;
             }
 
-            await JsonStore.WriteAsync(paths.UnityPackageFile(hash), ToFile(packages), cancellationToken);
+            await JsonStore.WriteAsync(paths.UnityPackageFile(hash), ToFile(packages, ProfilesOnFile(hash)), cancellationToken);
         }
         finally
         {
             gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// プロファイルの欄を読む（<see cref="UnityPackagePathsFile.Profiles"/>）。まだ読んでいなければ null、読んで何も無ければ空。
+    /// slug は大文字小文字を区別しない（ファイル名の大文字小文字が揃っていない物がある・docs/research/mochifitter.md）。
+    /// </summary>
+    public IReadOnlyDictionary<string, ProfileAvatarData>? LoadProfiles(string hash)
+        => ProfilesOnFile(hash) is { } profiles
+            ? new Dictionary<string, ProfileAvatarData>(profiles, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+    /// <summary>プロファイルの欄を書く（中身の一覧はそのまま残す）。控えが無い・読めないときは書かない（中身の一覧を先に作る）。</summary>
+    public async Task SaveProfilesAsync(string hash, IReadOnlyDictionary<string, ProfileAvatarData> profiles, CancellationToken cancellationToken = default)
+    {
+        if (!StoreIds.IsPackageHash(hash))
+        {
+            return;
+        }
+
+        var gate = LockFor(hash);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (IsTooNew(hash) || Load(hash) is not { } packages)
+            {
+                return;
+            }
+
+            await JsonStore.WriteAsync(paths.UnityPackageFile(hash), ToFile(packages, profiles), cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>控えのファイルに書いてあるプロファイルの欄（読めなければ null）。書き直すときに残すために読む。</summary>
+    private Dictionary<string, ProfileAvatarData>? ProfilesOnFile(string hash)
+    {
+        try
+        {
+            return JsonStore.Read<UnityPackagePathsFile>(paths.UnityPackageFile(hash))?.Profiles;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 
@@ -138,7 +204,7 @@ public sealed class UnityPackagePathStore(AppPaths paths)
             var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
                 ?? new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);
             packages[entry] = assets;
-            JsonStore.Write(paths.UnityPackageFile(hash), ToFile(packages));
+            JsonStore.Write(paths.UnityPackageFile(hash), ToFile(packages, ProfilesOnFile(hash)));
         }
         finally
         {
@@ -146,7 +212,10 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         }
     }
 
-    private static UnityPackagePathsFile ToFile(IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> packages)
+    /// <summary>書く形にする。プロファイルの欄は書き直しで消さないよう、呼び手が今の値を渡す（中身の一覧を書き直す取り込みの裏・商品ページは欄を知らない）。</summary>
+    private static UnityPackagePathsFile ToFile(
+        IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> packages,
+        IReadOnlyDictionary<string, ProfileAvatarData>? profiles)
         => new()
         {
             Packages = packages.ToDictionary(
@@ -156,6 +225,7 @@ public sealed class UnityPackagePathStore(AppPaths paths)
                     .GroupBy(asset => asset.Guid, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(group => group.Key, group => group.First().Path, StringComparer.OrdinalIgnoreCase),
                 StringComparer.Ordinal),
+            Profiles = profiles is null ? null : new Dictionary<string, ProfileAvatarData>(profiles, StringComparer.OrdinalIgnoreCase),
         };
 
     // 丸ごと書く（非同期）と1つ足す（同期）が同じ錠を取るので、どちらからも使える SemaphoreSlim にする

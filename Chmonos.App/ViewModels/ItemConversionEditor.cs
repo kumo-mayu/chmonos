@@ -16,6 +16,9 @@ public sealed class ItemConversionEditor : ViewModelBase
     private readonly Func<UiCommand, Task> _run;
     private readonly Func<bool> _isLocked;
     private readonly Func<string, System.Windows.Media.ImageSource?>? _iconOf;
+
+    /// <summary>商品 ID から手元の商品（推した理由の (b) で、持っているアバターの中身を引く）。</summary>
+    private readonly Func<string, ItemRecord?>? _findItem;
     private ItemRecord? _item;
 
     /// <param name="run">命令を通して、書いた後に <see cref="Show"/> で今の記録を渡し直す道（持ち主が持つ）。</param>
@@ -25,12 +28,14 @@ public sealed class ItemConversionEditor : ViewModelBase
         AppServiceContainer services,
         Func<UiCommand, Task> run,
         Func<bool> isLocked,
-        Func<string, System.Windows.Media.ImageSource?>? iconOf = null)
+        Func<string, System.Windows.Media.ImageSource?>? iconOf = null,
+        Func<string, ItemRecord?>? findItem = null)
     {
         _services = services;
         _run = run;
         _isLocked = isLocked;
         _iconOf = iconOf;
+        _findItem = findItem;
         SetModeCommand = new RelayCommand(
             parameter =>
             {
@@ -163,7 +168,8 @@ public sealed class ItemConversionEditor : ViewModelBase
 
         // 推した理由（アバターの管理の「変換」だけ・ユーザ判断 2026-11-09）。見回りと同じ推し方をその場で回し、手掛かりを文にする
         var suggestions = ShowsReasons && item is not null
-            ? ConversionInference.Suggest(item, profiles, registry, AvatarCompatibilityIndex.For(registry))
+            ? ConversionInference.Suggest(item, profiles, registry, AvatarCompatibilityIndex.For(registry),
+                _findItem is { } find ? _services.Conversion.FbxAvatarsOf(item, _services.Conversion.FbxIndex(registry, find)) : null)
                 .ToDictionary(suggestion => suggestion.Profile.Slug, StringComparer.OrdinalIgnoreCase)
             : [];
 
@@ -313,6 +319,7 @@ public sealed class ItemConversionEditor : ViewModelBase
             .Select(clue => clue.Kind switch
             {
                 ConversionClueKind.ItemIsAvatar => "この商品がアバター本体",
+                ConversionClueKind.FbxAvatar => $"FBX の場所が「{Avatar(clue.AvatarItemId)}」と同じ",
                 ConversionClueKind.DetectedBase => $"商品の対応素体「{clue.BaseName}」",
                 ConversionClueKind.DetectedAvatar => $"商品の対応アバター「{Avatar(clue.AvatarItemId)}」",
                 ConversionClueKind.SlugIsBaseName => $"プロファイルの名前が素体「{clue.BaseName}」と同じ",

@@ -45,6 +45,95 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
     }
 
     /// <summary>
+    /// プロファイルの <c>avatar_data</c> の欄を、まだ控えていなければ zip から読んで控える（docs/spec/conversion.md「データの形」）。
+    /// 前の版で取り込んだプロファイルにも、見回りのときに1回だけ読む（ユーザ判断 2026-11-06：裏で1回読み直す）。読んで何も無ければ空を控えて、もう読まない。
+    /// zip が手元に無い物・開けない物は控えない（次の見回りでまた試す）。
+    /// </summary>
+    public async Task EnsureProfileDataAsync(ItemRecord item, CancellationToken cancellationToken = default)
+    {
+        foreach (var file in item.Local.LocalFiles)
+        {
+            if (file.Detached
+                || file.UnityPackages is not { } summaries
+                || !ProfileFiles.MayHoldProfiles(summaries.SelectMany(summary => summary.Roots))
+                || packages.Load(file.Hash) is not { } stored
+                || packages.LoadProfiles(file.Hash) is not null)
+            {
+                continue;
+            }
+
+            if (!ProfileDataReader.HasAvatarData(stored))
+            {
+                await packages.SaveProfilesAsync(file.Hash, new Dictionary<string, ProfileAvatarData>(), cancellationToken);
+                continue;
+            }
+
+            var zip = file.Paths.FirstOrDefault(path => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path));
+            if (zip is not null && ProfileDataReader.Read(zip, stored) is { } read)
+            {
+                await packages.SaveProfilesAsync(file.Hash, read, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>
+    /// FBX の場所 → それを中身に持つアバターの商品 ID（手掛かり (b) の照らし先）。アバターとして扱う登録簿の行のうち、
+    /// 手元に商品があり、中身の控えがある物だけ（持っていないアバターは FBX の場所が分からない）。
+    /// </summary>
+    public IReadOnlyDictionary<string, string> FbxIndex(AvatarRegistry registry, Func<string, ItemRecord?> findItem)
+    {
+        var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
+        {
+            if (findItem(entry.ItemId) is not { } avatarItem)
+            {
+                continue;
+            }
+
+            foreach (var file in avatarItem.Local.LocalFiles.Where(file => !file.Detached && file.UnityPackages is { Count: > 0 }))
+            {
+                if (packages.Load(file.Hash) is not { } stored)
+                {
+                    continue;
+                }
+
+                foreach (var asset in stored.Values.SelectMany(assets => assets))
+                {
+                    if (asset.Path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        index.TryAdd(asset.Path.Replace('\\', '/'), entry.ItemId);
+                    }
+                }
+            }
+        }
+
+        return index;
+    }
+
+    /// <summary>この商品のプロファイル（slug）ごとに、FBX の場所が中身にあるアバター（手掛かり (b)）。控えた欄だけを見る（zip は開かない）。</summary>
+    public IReadOnlyDictionary<string, string> FbxAvatarsOf(ItemRecord item, IReadOnlyDictionary<string, string> fbxIndex)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (fbxIndex.Count == 0)
+        {
+            return result;
+        }
+
+        foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached))
+        {
+            foreach (var (slug, data) in packages.LoadProfiles(file.Hash) ?? new Dictionary<string, ProfileAvatarData>())
+            {
+                if (data.DefaultFbxPath is { } fbx && fbxIndex.TryGetValue(fbx, out var avatar))
+                {
+                    result.TryAdd(slug, avatar);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// プロファイル（slug）ごとに、入っている unitypackage と、それを含む手元のファイルの名前（ユーザ指示 2026-11-09：
     /// アバターとプロファイルのセット商品では、アバター扱いと変換扱いのどちらの話か分かりにくいので、どのファイルの物かを添える）。
     /// 同じ slug が複数の unitypackage に入っていれば（FBX の場所だけ違えて配る物）全部返す。
@@ -85,6 +174,11 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
         var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = store.Avatars.Load();
         var compatibility = AvatarCompatibilityIndex.For(registry);
+
+        // FBX の場所の照らし先は、プロファイルの商品が1つでもあるときだけ作る（アバターの中身の控えを読むので）
+        // 同じ ID が2件あると ToDictionary が投げるので、先の1件を使う（改変の画面の組み方と同じ）
+        var byId = loaded.Items.GroupBy(item => item.Id, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var fbxIndex = new Lazy<IReadOnlyDictionary<string, string>>(() => FbxIndex(registry, id => byId.GetValueOrDefault(id)));
         var written = new List<string>();
         var rooted = 0;
         var unreadable = 0;
@@ -94,6 +188,10 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
             cancellationToken.ThrowIfCancellationRequested();
             var mayHold = MayHoldProfiles(item);
             var profiles = mayHold ? ProfilesOf(item) : [];
+            if (profiles.Count > 0)
+            {
+                await EnsureProfileDataAsync(item, cancellationToken);
+            }
 
             // 置き場はあるのにプロファイルのファイルが1つも見つからない商品を数える（ファイル名の決まりが変わった疑い）。
             // 中身の控えが無い物は、読めていないだけなので数えない
@@ -112,7 +210,7 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
                 continue;
             }
 
-            var suggestions = ConversionInference.Suggest(item, profiles, registry, compatibility);
+            var suggestions = ConversionInference.Suggest(item, profiles, registry, compatibility, FbxAvatarsOf(item, fbxIndex.Value));
             if (await store.Items.ChangeLocalAsync(
                 item.Id,
                 local => Apply(local.Conversion, suggestions) is var next && next != local.Conversion ? local with { Conversion = next } : null,

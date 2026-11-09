@@ -190,4 +190,88 @@ public sealed class ConversionScanTests : IDisposable
 
         Assert.Null(Alert());
     }
+
+    // ---- 推す手掛かり (b)：avatar_data の FBX の場所（2026-11-09） ----
+
+    /// <summary>本物と同じ形の unitypackage（tar.gz・guid/asset と guid/pathname）。guid は並びの番号。</summary>
+    private static byte[] MakeUnityPackage(params (string Path, string Body)[] assets)
+    {
+        using var memory = new MemoryStream();
+        using (var gzip = new System.IO.Compression.GZipStream(memory, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        using (var tar = new System.Formats.Tar.TarWriter(gzip, System.Formats.Tar.TarEntryFormat.Pax, leaveOpen: true))
+        {
+            for (var index = 0; index < assets.Length; index++)
+            {
+                var guid = index.ToString("x32");
+                tar.WriteEntry(new System.Formats.Tar.PaxTarEntry(System.Formats.Tar.TarEntryType.RegularFile, $"{guid}/asset")
+                {
+                    DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(assets[index].Body)),
+                });
+                tar.WriteEntry(new System.Formats.Tar.PaxTarEntry(System.Formats.Tar.TarEntryType.RegularFile, $"{guid}/pathname")
+                {
+                    DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(assets[index].Path + "\n00")),
+                });
+            }
+        }
+
+        return memory.ToArray();
+    }
+
+    [Fact]
+    public async Task プロファイルのFBXの場所が持っているアバターの中身にあれば_そのアバターにつなぎ_控えに欄を残す()
+    {
+        // 持っているアバター：中身に FBX がある（控えだけでよい）
+        const string avatarHash = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        _packages.Add(avatarHash, "Avatar.unitypackage", [new UnityPackageAsset("00000000000000000000000000000009", "Assets/Fake/Kohaku/Kohaku.fbx")]);
+        await _store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [new AvatarRegistryEntry { ItemId = "9400090", DisplayName = "作り物", Category = "3Dキャラクター" }],
+        });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9400090",
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "作り物のアバター", Category = new BoothCategory { Id = 1, Name = "3Dキャラクター" } },
+            Local = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = avatarHash, Paths = [@"D:\fake\avatar.zip"], SizeBytes = 1, UnityPackages = [new UnityPackageSummary { Entry = "Avatar.unitypackage", Roots = ["Assets/Fake"] }] }],
+            },
+        });
+
+        // プロファイルの商品：アバターでない・対応も無いので、手掛かりは FBX の場所だけ
+        const string profileHash = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+        (string, string)[] assets =
+        [
+            ("Assets/OutfitRetargetingSystem/Editor/config_template2kohaku.json", "{}"),
+            ("Assets/OutfitRetargetingSystem/Editor/avatar_data_kohaku.json", """{"name":"Kohaku","defaultFBXPath":"Assets/Fake/Kohaku/Kohaku.fbx","meshName":"Body"}"""),
+        ];
+        var zipPath = Path.Combine(_root, "profile.zip");
+        using (var stream = File.Create(zipPath))
+        using (var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            using var writer = archive.CreateEntry("Profile.unitypackage").Open();
+            writer.Write(MakeUnityPackage(assets));
+        }
+
+        _packages.Add(profileHash, "Profile.unitypackage", assets.Select((asset, index) => new UnityPackageAsset(index.ToString("x32"), asset.Item1)).ToList());
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9400091",
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "作り物のプロファイル" },
+            Local = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = profileHash, Paths = [zipPath], SizeBytes = 1, UnityPackages = [new UnityPackageSummary { Entry = "Profile.unitypackage", Roots = ["Assets/OutfitRetargetingSystem"] }] }],
+            },
+        });
+
+        await new ConversionScan(_store, _packages).RunAsync();
+
+        var target = Assert.Single((await _store.Items.LoadAsync("9400091"))!.Local.Conversion!.Targets);
+        Assert.Equal("9400090", target.AvatarItemId);
+        Assert.False(target.Confirmed);
+
+        // 控えに欄が残り、中身の一覧を書き直しても消えない
+        Assert.Equal("Assets/Fake/Kohaku/Kohaku.fbx", _packages.LoadProfiles(profileHash)!["Kohaku"].DefaultFbxPath);
+        _packages.Add(profileHash, "Other.unitypackage", [new UnityPackageAsset("00000000000000000000000000000077", "Assets/Other.txt")]);
+        Assert.NotNull(_packages.LoadProfiles(profileHash));
+    }
 }
