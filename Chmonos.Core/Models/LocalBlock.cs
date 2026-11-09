@@ -153,7 +153,7 @@ public sealed record LocalBlock
     private static bool IsHeld(LocalFileRecord file) => !file.Detached && !file.IsOldVersion;
 
     /// <summary>
-    /// 所持か。**ファイルかフォルダを1つ以上持つこと**（CLAUDE.md の定義。外したファイル・上書きで残った古い版は数えない）。
+    /// 所持か。**ファイルかフォルダを1つ以上持つこと**（`.claude/rules/domain-facts.md` の定義。外したファイル・上書きで残った古い版は数えない）。
     /// 検索・改変・統計・ショップ・アバターが同じ答えを使うよう、ここ1か所で決める。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
