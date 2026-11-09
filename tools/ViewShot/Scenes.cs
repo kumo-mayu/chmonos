@@ -50,6 +50,7 @@ internal static partial class Scenes
         .. AvatarViaBaseScenes,
         .. AvatarViaConversionScenes,
         .. UsedUpdateScenes,
+        .. ItemOpenPerfScenes,
         .. VariationTargetScenes,
         .. ShopScenes,
         .. ShopPerfScenes,
