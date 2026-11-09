@@ -261,4 +261,38 @@ public class AvatarsConversionTests
         Assert.Equal("9900864", avatars.SelectedConversion!.ItemId);
         Assert.False((await app.Store.Items.LoadAsync("9900861"))!.Local.Conversion!.Targets.Single().Confirmed);
     });
+
+    [Fact]
+    public Task BOOTHで開くは_選んだ商品があるときだけ押せる() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.SelectedConversion = null;
+        Assert.False(avatars.OpenConversionBoothCommand.CanExecute(null));
+
+        avatars.SelectedConversion = Row(avatars, "9900862");
+
+        Assert.True(avatars.OpenConversionBoothCommand.CanExecute(null));
+    });
+
+    /// <summary>ユーザ指示 2026-11-09：変換から商品ページへ行って戻ると、アバターの見方で開き直していた。</summary>
+    [Fact]
+    public Task 変換から商品ページを開いて戻ると_変換の見方で同じ商品を選んで開き直す() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        avatars.SelectedConversion = Row(avatars, "9900862");
+
+        avatars.OpenConversionItemCommand.Execute(null);
+        await UiThread.Until(() => app.Main.CurrentViewModel is ItemViewModel, "商品ページが開く");
+        Assert.Equal("← アバターの管理に戻る", app.Main.BackButtonText);
+
+        app.Main.GoBack();
+        var restored = Assert.IsType<AvatarsViewModel>(app.Main.CurrentViewModel);
+        Assert.True(restored.IsConversionMode);
+        Assert.False(restored.ShowsAvatarDetail);
+        await UiThread.Until(() => restored.SelectedConversion is not null, "変換の一覧ができる");
+
+        Assert.True(restored.IsConversionMode);
+        Assert.Equal("9900862", restored.SelectedConversion!.ItemId);
+    });
 }

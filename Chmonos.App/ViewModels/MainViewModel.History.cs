@@ -313,6 +313,8 @@ public sealed partial class MainViewModel
         // 開き直すと一覧が先頭に戻り、商品を1件見て戻るたびに探し直していた
         ShopViewModel shop => ShopEntry(shop.Shop, shop.CaptureState()),
         ModificationViewModel modification => ModificationEntry(Shorten(modification.Record.Name), modification.Record.Id),
+        // 変換を見ていたなら、変換の見方と選んでいた商品で戻す（ユーザ指示 2026-11-09。控えずに、アバターの見方で開き直していた）
+        AvatarsViewModel { IsConversionMode: true } avatars => new HistoryEntry("アバターの管理", RestoreConversion(avatars.SelectedConversion?.ItemId)),
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId, avatars.IsBaseMode ? avatars.SelectedBase?.Name : null)),
         ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
         ShopsViewModel shops => ShopsEntry(shops.CaptureListAnchor()),
@@ -566,6 +568,10 @@ public sealed partial class MainViewModel
     /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
     private Action RestoreAvatars(string? selectedId, string? baseName)
         => selectedId is null && baseName is null ? ShowAvatars : () => ShowAvatarAt(selectedId, baseName);
+
+    /// <summary>アバター画面の「変換」は、選んでいた商品を選んだ状態で戻す。</summary>
+    private Action RestoreConversion(string? selectedId)
+        => () => CurrentViewModel = new AvatarsViewModel(_services, this, openConversion: true, selectConversionItemId: selectedId);
 
     /// <summary>
     /// 商品ページは開き直した時点の中身で出す（覚えた時の中身は、その後の編集で古くなっている）。

@@ -22,6 +22,7 @@ public sealed partial class AvatarsViewModel
     private ConversionItemRowViewModel? _selectedConversion;
     private ItemConversionEditor? _conversionEditor;
     private int _conversionBuild;
+    private string? _openConversionWith;
 
     /// <summary>左の一覧に、変換ツールのプロファイルを持つ商品を並べているか。</summary>
     public bool IsConversionMode
@@ -120,6 +121,25 @@ public sealed partial class AvatarsViewModel
         () => SelectedConversion is not null);
 
     private RelayCommand? _openConversionItemCommand;
+
+    /// <summary>
+    /// BOOTH の商品ページを開く（ユーザ指示 2026-11-09）。どのアバター向けかは、商品の説明や他の絵を見て決めることが多い。
+    /// 手元だけの商品は BOOTH のページが無いので押せない。
+    /// </summary>
+    public RelayCommand OpenConversionBoothCommand => _openConversionBoothCommand ??= new RelayCommand(
+        () =>
+        {
+            if (ConversionBoothPage() is { } url)
+            {
+                Services.Shell.OpenUrl(url);
+            }
+        },
+        () => ConversionBoothPage() is not null);
+
+    private RelayCommand? _openConversionBoothCommand;
+
+    private string? ConversionBoothPage()
+        => SelectedConversion?.Item is { } item ? Core.Booth.BoothLinks.ItemPage(item) : null;
 
     private async Task DecideSuggestedAsync()
     {
@@ -320,7 +340,9 @@ public sealed partial class AvatarsViewModel
                             return;
                         }
 
-                        var keepId = SelectedConversion?.ItemId;
+                        // 戻るで開き直したときは、控えた商品を選ぶ（初めの1回だけ）
+                        var keepId = SelectedConversion?.ItemId ?? _openConversionWith;
+                        _openConversionWith = null;
                         _conversionItems = task.Result.Select(pair => ConversionItemRowViewModel.Create(pair.Item, pair.Profiles)).ToList();
                         ArrangeConversionItems(keep: null);
                         _selectedConversion = null;

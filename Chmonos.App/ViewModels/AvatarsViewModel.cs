@@ -453,12 +453,21 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// <param name="selectBaseName">
     /// 戻るで素体の詳細へ戻すとき、開いておく素体（共通素体の見方で開く）。
     /// </param>
-    public AvatarsViewModel(AppServiceContainer services, MainViewModel main, string? selectItemId = null, string? selectBaseName = null)
+    /// <param name="openConversion">戻るで「変換」へ戻すとき、変換の見方で開く。</param>
+    /// <param name="selectConversionItemId">そのとき選んでおく商品（一覧から消えていれば、決めていない最初の商品）。</param>
+    public AvatarsViewModel(
+        AppServiceContainer services,
+        MainViewModel main,
+        string? selectItemId = null,
+        string? selectBaseName = null,
+        bool openConversion = false,
+        string? selectConversionItemId = null)
     {
         _services = services;
         _main = main;
         _openWith = selectItemId;
         _openBaseWith = selectBaseName;
+        _openConversionWith = selectConversionItemId;
 
         // ほかの長い作業（書き出し・移動・候補の検索など）が走っている間は押せない。帯は1本しか持てないので、
         // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
@@ -523,6 +532,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 既定のビューに見出しを付ける。ListBoxはこのビューを通して並べる
         System.Windows.Data.CollectionViewSource.GetDefaultView(Rows).GroupDescriptions.Add(
             new System.Windows.Data.PropertyGroupDescription(nameof(AvatarRowViewModel.GroupName)));
+
+        // 読み終わるまでアバターの見方で見えないよう、先に変換の見方にしておく（一覧は読み終わってから並ぶ）
+        if (openConversion)
+        {
+            IsConversionMode = true;
+        }
 
         LoadAsync().Forget();
     }
