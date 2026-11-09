@@ -118,6 +118,10 @@ public sealed partial class MainViewModel : ViewModelBase
         ListenToRegistrations();
         ListenToApiWrites();
 
+        // 使っている商品の見張り（docs/spec/used-updates.md）。検索の写しを読み終えるたびに調べ直す
+        UsedItems = new UsedItemsWatch(_services, () => Search.SnapshotItems());
+        Search.ItemsLoaded += (_, _) => UsedItems.RequestAsync().Forget();
+
         // 起動したときの作業はプロセスで1回だけ。画面の無い起動の後に窓を開いたときは済んでいるので、起動時だけの自動の取り込みもしない
         var launched = _services.Startup.Start();
         StartWatchScan(launched);
@@ -393,6 +397,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public SearchViewModel Search { get; }
 
+    /// <summary>商品を使っている改変と Unity のプロジェクト（使っている商品の更新の促し）。</summary>
+    public UsedItemsWatch UsedItems { get; }
+
     public ImportViewModel Import { get; }
 
     public RelayCommand ShowSearchCommand { get; }
@@ -618,6 +625,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
         // Unity を開いて・閉じて戻ったら、「今開いているプロジェクト」を見直す
         (CurrentViewModel as SearchViewModel)?.NoteOpenProjectsMaybeChanged();
+
+        // Unity で入れて戻ったら、使っている商品の促しを見直す（開いているプロジェクトだけ調べ直す）
+        UsedItems.RequestAsync().Forget();
     }
 
     public object? CurrentViewModel

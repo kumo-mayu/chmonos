@@ -63,6 +63,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     private Dictionary<string, (DateTime Stamp, bool HasImage)> _imagePresence = new(StringComparer.Ordinal);
 
     private List<ItemRecord> _allItems = [];
+
+    /// <summary>全件を読み終えて写しを差し替えたとき（使っている商品の見張りが、持っている商品で調べ直す）。</summary>
+    public event EventHandler? ItemsLoaded;
     private List<ItemCardViewModel> _matches = [];
     private string _queryText = string.Empty;
     private Core.Services.SearchNode _queryNode = new Core.Services.SearchNode.All();
@@ -559,6 +562,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
 
             var noted = _notedSinceLoad;
             _allItems = sorted;
+            ItemsLoaded?.Invoke(this, EventArgs.Empty);
             var byId = new Dictionary<string, ItemRecord>(sorted.Count, StringComparer.Ordinal);
             foreach (var item in sorted)
             {
