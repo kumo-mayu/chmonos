@@ -6,8 +6,10 @@ namespace Chmonos.Core.Services;
 /// <summary>ナビに出す件数のうち、ファイルから数える物。</summary>
 /// <param name="Unresolved">未確定の数。</param>
 /// <param name="Unread">未読で解消していない知らせの数。</param>
-/// <param name="StructureAlert">BOOTH側の作りが変わった疑いの知らせ（解消していない一番新しい物）の本文。無ければ空。</param>
-public sealed record NavCounts(int Unresolved, int Unread, string StructureAlert);
+/// <param name="StructureAlert">アプリ全体の話の知らせ（BOOTH側の作りの変化・プロファイルが読めない。解消していない一番新しい物）の本文。無ければ空。</param>
+/// <param name="AlertTitle">その知らせの見出し（帯に出す）。</param>
+/// <param name="AlertKind">その知らせの種類（押したときの説明を種類で変える）。</param>
+public sealed record NavCounts(int Unresolved, int Unread, string StructureAlert, string AlertTitle = "", NotificationKind? AlertKind = null);
 
 /// <summary>
 /// 1つの JSON ファイルの印（在るか・大きさ・更新日時・このアプリの書き込みの数）。同じ間は中身が変わっていないとみなす。
@@ -125,13 +127,13 @@ public sealed class NavCountReader
                 unread++;
             }
 
-            if (record.Kind == NotificationKind.PageStructureChanged
+            if (record.Kind is NotificationKind.PageStructureChanged or NotificationKind.ProfileFilesUnreadable
                 && (alert is null || record.CreatedAt > alert.CreatedAt))
             {
                 alert = record;
             }
         }
 
-        return new NavCounts(unresolved, unread, alert?.Detail ?? string.Empty);
+        return new NavCounts(unresolved, unread, alert?.Detail ?? string.Empty, alert?.Title ?? string.Empty, alert?.Kind);
     }
 }

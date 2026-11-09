@@ -1078,7 +1078,7 @@ public sealed class InboxViewModel : ViewModelBase
         foreach (var group in rows
             // アプリ全体の話（取得できる情報の形式の変化）は、商品1件ごとの話と並べない。
             // ナビの「設定」の上の帯で知らせる（ユーザ判断 2026-09-18）
-            .Where(row => row.Record.Kind != NotificationKind.PageStructureChanged)
+            .Where(row => row.Record.Kind is not (NotificationKind.PageStructureChanged or NotificationKind.ProfileFilesUnreadable))
             .GroupBy(row => row.Record.Kind)
             // 重要が混ざっている種類を先に、その次は新しい知らせがある種類から（ユーザ判断 2026-09-18）。
             // 種類の宣言順では、何から読めばよいかが伝わらなかった
@@ -1202,6 +1202,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanVariationLink => "消えたバリエーション",
         NotificationKind.VariationBackOnBooth => "復活したバリエーション",
         NotificationKind.PageStructureChanged => "取得できる情報の形式の変化",
+        NotificationKind.ProfileFilesUnreadable => "変換ツールのプロファイルの読み取り",
         NotificationKind.ArchiveFoundForFolder => "zipを入手した",
         NotificationKind.ItemBackOnBooth => "非公開商品の復活",
         NotificationKind.UnpackedFilesImported => "展開先のファイルを取り込んだ",
@@ -1217,6 +1218,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanTag => "タグの管理・属性の管理から消えたか名前が変わったものを、商品がまだ参照しています。",
         NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指すバリエーションが、BOOTH側から消えました。",
         NotificationKind.VariationBackOnBooth => "消えていたバリエーションが、BOOTHにまた出てきました。",
+        NotificationKind.ProfileFilesUnreadable => "変換ツールのプロファイルを読み取れなくなったかもしれません。",
         NotificationKind.PageStructureChanged => "BOOTHの情報の形式が変わったかもしれません。対応アバターの検出と検索に使える情報が減ります。",
         NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を登録しています。片方の登録を外すまで、同じ中身を二重に数えます。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",

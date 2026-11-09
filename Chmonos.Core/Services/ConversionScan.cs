@@ -86,11 +86,25 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
         var registry = store.Avatars.Load();
         var compatibility = AvatarCompatibilityIndex.For(registry);
         var written = new List<string>();
+        var rooted = 0;
+        var unreadable = 0;
 
         foreach (var item in loaded.Items)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var profiles = MayHoldProfiles(item) ? ProfilesOf(item) : [];
+            var mayHold = MayHoldProfiles(item);
+            var profiles = mayHold ? ProfilesOf(item) : [];
+
+            // 置き場はあるのにプロファイルのファイルが1つも見つからない商品を数える（ファイル名の決まりが変わった疑い）。
+            // 中身の控えが無い物は、読めていないだけなので数えない
+            if (mayHold && HasStoredPaths(item))
+            {
+                rooted++;
+                if (profiles.Count == 0)
+                {
+                    unreadable++;
+                }
+            }
 
             // プロファイルが無くなった（zip を外した）商品も、前に推した確認待ちの値を消すために通す
             if (profiles.Count == 0 && item.Local.Conversion is not { Targets.Count: > 0 })
@@ -109,7 +123,64 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
             }
         }
 
+        await UpdateUnreadableAlertAsync(rooted, unreadable, cancellationToken);
         return written;
+    }
+
+    /// <summary>
+    /// 帯の知らせを出すのは、置き場を含む商品が <see cref="UnreadableMinimum"/> 件以上で、その半分以上でプロファイルが見つからないとき（ユーザ判断 2026-11-09）。
+    /// 変換ツールの本体のように、置き場はあってもプロファイルを含まない商品が少しはあるので、1件だけでは鳴らさない。
+    /// 前の件数を覚えておかずに済み、初めて取り込んだときにも気付ける
+    /// </summary>
+    internal const int UnreadableMinimum = 3;
+
+    private const string UnreadableAlertId = "profile-files";
+
+    private bool HasStoredPaths(ItemRecord item)
+        => item.Local.LocalFiles.Any(file => !file.Detached && file.UnityPackages is { Count: > 0 } && packages.Load(file.Hash) is not null);
+
+    /// <summary>ナビの「設定」の上の帯の知らせを出す・消す（読めるようになれば自分で消える。BOOTH の作りの変化の知らせと同じ）。</summary>
+    private Task UpdateUnreadableAlertAsync(int rooted, int unreadable, CancellationToken cancellationToken)
+    {
+        var suspect = unreadable >= UnreadableMinimum && unreadable * 2 >= rooted;
+        var detail = $"変換ツールのフォルダを含む {rooted} 件のうち {unreadable} 件で、プロファイルのファイルが見つかりませんでした。";
+        return store.Notifications.TryUpdateAsync(
+            records =>
+            {
+                var existing = records.FindIndex(record => record.Id == UnreadableAlertId);
+                if (suspect)
+                {
+                    if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
+                    {
+                        return null;
+                    }
+
+                    if (existing >= 0)
+                    {
+                        records.RemoveAt(existing);
+                    }
+
+                    records.Add(new NotificationRecord
+                    {
+                        Id = UnreadableAlertId,
+                        Kind = NotificationKind.ProfileFilesUnreadable,
+                        Title = "変換ツールのプロファイルを読み取れなくなったかもしれません",
+                        Detail = detail,
+                        CreatedAt = DateTimeOffset.Now,
+                        IsStrong = true,
+                    });
+                    return records;
+                }
+
+                if (existing < 0 || records[existing].IsResolved)
+                {
+                    return null;
+                }
+
+                records[existing] = records[existing] with { IsResolved = true };
+                return records;
+            },
+            cancellationToken);
     }
 
     /// <summary>

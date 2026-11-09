@@ -1293,6 +1293,8 @@ public sealed partial class MainViewModel : ViewModelBase
                     UnresolvedCount = counts.Unresolved;
                     UnreadCount = counts.Unread;
                     StructureAlert = counts.StructureAlert;
+                    StructureAlertTitle = counts.AlertTitle;
+                    _structureAlertKind = counts.AlertKind;
                 });
             })
             .Forget();
@@ -1328,12 +1330,28 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private RelayCommand? _showStructureAlertCommand;
 
+    /// <summary>
+    /// 帯の見出し（知らせの見出し。BOOTH の作りの変化か、変換ツールのプロファイルが読めないか）。
+    /// 2つ目の知らせ（プロファイル・2026-11-09）を足したときに、記録の見出しを出す形にした
+    /// </summary>
+    public string StructureAlertTitle
+    {
+        get => _structureAlertTitle;
+        private set => SetField(ref _structureAlertTitle, value);
+    }
+
+    private string _structureAlertTitle = string.Empty;
+
+    private NotificationKind? _structureAlertKind;
+
     public RelayCommand ShowStructureAlertCommand => _showStructureAlertCommand ??= new RelayCommand(
         () => Services.Notice.Show(
-            StructureAlert
-                + "\n\n対応アバターの検出と検索に使える情報が減りますが、手元のデータはそのままです。"
-                + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは消えます。",
-            "BOOTHの情報の形式が変わったかもしれません",
+            StructureAlert + (_structureAlertKind == NotificationKind.ProfileFilesUnreadable
+                ? "\n\n変換ツールの更新で、プロファイルのファイル名の決まりが変わったかもしれません。変換経由の対応アバターと検索の条件「プロファイル」に使える情報が減りますが、手元のデータはそのままです。"
+                    + "\nアプリの更新で読めるようになれば、この知らせは消えます。"
+                : "\n\n対応アバターの検出と検索に使える情報が減りますが、手元のデータはそのままです。"
+                    + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは消えます。"),
+            StructureAlertTitle.Length > 0 ? StructureAlertTitle : "BOOTHの情報の形式が変わったかもしれません",
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information));
 }

@@ -557,7 +557,7 @@
             </Grid>
 
                 <!--
-                    BOOTHから取れる情報の形が変わった疑い（ユーザ判断 2026-09-18）。商品1件ごとの話と
+                    BOOTHから取れる情報の形が変わった疑い（ユーザ判断 2026-09-18）と、変換ツールのプロファイルを読めなくなった疑い（2026-11-09）。商品1件ごとの話と
                     同列に並べると埋もれるので、要確認の束ではなくここに出す。アプリ全体の話なので設定の上。
                     設定と同じく送らずに見せておく
                 -->
@@ -567,7 +567,7 @@
                         Foreground="{DynamicResource RailNoticeText}"
                         Command="{Binding ShowStructureAlertCommand}"
                         AutomationProperties.AutomationId="StructureAlert"
-                        AutomationProperties.Name="BOOTHの情報の形式が変わったかもしれません"
+                        AutomationProperties.Name="{Binding StructureAlertTitle}"
                         ToolTip="{Binding StructureAlert}"
                         Visibility="{Binding HasStructureAlert, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!--
@@ -578,7 +578,7 @@
                         <Border DockPanel.Dock="Left" Width="3" CornerRadius="2" Margin="0,1,8,1"
                                 Background="{DynamicResource RailNoticeEdge}" />
                         <Grid>
-                            <TextBlock Text="BOOTHの情報の形式が変わったかもしれません" Width="150" TextWrapping="Wrap" LineHeight="16"
+                            <TextBlock Text="{Binding StructureAlertTitle}" Width="150" TextWrapping="Wrap" LineHeight="16"
                                        Foreground="{DynamicResource RailNoticeText}"
                                        Style="{StaticResource NavExpandedOnly}" />
                             <TextBlock Text="!" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"

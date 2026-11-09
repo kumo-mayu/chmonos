@@ -53,6 +53,13 @@ public enum NotificationKind
     /// やりかけの記録は残してあり、次の起動でまた続ける。済んだら解消済みにする。ID は <c>pending-operation:{記録のID}</c>
     /// </summary>
     UnfinishedOperation,
+
+    /// <summary>
+    /// 変換ツールの置き場（OutfitRetargetingSystem）を含む商品の多くで、プロファイルのファイルが見つからない（ユーザ判断 2026-11-09）。
+    /// 変換ツールの更新でファイル名の決まりが変わると、プロファイルが黙って0件になるため。**アプリ全体の話**なので、
+    /// <see cref="PageStructureChanged"/> と同じくナビの「設定」の上の帯で知らせ、要確認の束には出さない。読めるようになれば自分で消える。
+    /// </summary>
+    ProfileFilesUnreadable,
 }
 
 /// <summary>

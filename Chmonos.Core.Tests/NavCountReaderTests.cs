@@ -80,12 +80,27 @@ public sealed class NavCountReaderTests : IDisposable
             Notice("6", kind: NotificationKind.PageStructureChanged, detail: "解消済み", minutes: 3, isResolved: true),
         ]);
 
-        Assert.Equal(new NavCounts(3, 1, "新しい"), counts);
+        Assert.Equal((3, 1, "新しい", NotificationKind.PageStructureChanged), (counts.Unresolved, counts.Unread, counts.StructureAlert, counts.AlertKind));
+    }
+
+    /// <summary>変換ツールのプロファイルを読めなくなった知らせも、BOOTH の作りの変化と同じ帯に出す（2026-11-09）。新しい方を見出しごと渡す。</summary>
+    [Fact]
+    public async Task ProfileFilesAlertUsesTheSameBand()
+    {
+        await _store.Notifications.SaveAsync(
+        [
+            Notice("1", kind: NotificationKind.PageStructureChanged, detail: "古い", minutes: 1),
+            Notice("2", kind: NotificationKind.ProfileFilesUnreadable, detail: "読めない", minutes: 2) with { Title = "プロファイルの見出し" },
+        ]);
+
+        var counts = new NavCountReader(_store).Read();
+
+        Assert.Equal(("読めない", "プロファイルの見出し", NotificationKind.ProfileFilesUnreadable), (counts.StructureAlert, counts.AlertTitle, counts.AlertKind));
     }
 
     [Fact]
     public void NoFilesCountsNothing()
-        => Assert.Equal(new NavCounts(0, 0, string.Empty), new NavCountReader(_store).Read());
+        => Assert.Equal(new NavCounts(0, 0, string.Empty, string.Empty, null), new NavCountReader(_store).Read());
 
     [Fact]
     public async Task UnchangedFilesAreNotReadAgain()
