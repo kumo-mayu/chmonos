@@ -42,6 +42,9 @@ public sealed class ConditionRequest
     /// <summary>対応アバター：変換で使える物も含めるか（既定 false。画面の「変換で使える物も含める」）。</summary>
     public bool? ViaConversion { get; init; }
 
+    /// <summary>プロファイル：自動で推して確認していないつなぎ先も当てるか（既定 true。画面の「確認待ちも含める」）。</summary>
+    public bool? IncludeUnconfirmed { get; init; }
+
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>
     public bool? Matched { get; init; }
 
@@ -130,6 +133,7 @@ public static class ConditionKinds
         ("userTag", SearchModuleKind.UserTag),
         ("attribute", SearchModuleKind.Attribute),
         ("avatar", SearchModuleKind.Avatar),
+        ("profile", SearchModuleKind.Profile),
         ("favorite", SearchModuleKind.Favorite),
         ("acquiredAt", SearchModuleKind.AcquiredAt),
         ("hidden", SearchModuleKind.Hidden),
@@ -200,6 +204,19 @@ public static class ConditionKinds
                     {
                         [SearchModuleConditions.OwnedVariationsToggle] = request.OwnedVariationsOnly ?? false,
                         [SearchModuleConditions.ViaConversionToggle] = request.ViaConversion ?? false,
+                    },
+                };
+
+            // 変換ツールのプロファイル（画面の「プロファイル」）。アバター・素体を送らなければ、プロファイルの商品すべて
+            case SearchModuleKind.Profile:
+                return state with
+                {
+                    Items = [.. (request.Avatars ?? []).Select(id => SearchModuleConditions.AvatarKey + id), .. (request.Bases ?? []).Select(name => SearchModuleConditions.BaseKey + name)],
+                    MatchAll = matchAll,
+                    Flag = request.ViaBase ?? true,
+                    Toggles = new Dictionary<string, bool>
+                    {
+                        [SearchModuleConditions.IncludeUnconfirmedToggle] = request.IncludeUnconfirmed ?? true,
                     },
                 };
 

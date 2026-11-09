@@ -80,6 +80,23 @@ public class SearchModuleConditionParityTests
         };
 
         // BOOTHに無い商品（仮のID）・壊れた zip
+        // 変換ツールのプロファイル（条件「プロファイル」）：確認したつなぎ先と、推した（確認待ちの）つなぎ先
+        var profile = Make.Item("9800005", "作り物のプロファイル");
+        yield return profile with
+        {
+            Local = profile.Local with
+            {
+                Conversion = new ConversionSetting
+                {
+                    Targets =
+                    [
+                        new ConversionTarget { AvatarItemId = "7000002", Forward = true, Confirmed = true },
+                        new ConversionTarget { AvatarItemId = "7000001", Reverse = true },
+                    ],
+                },
+            },
+        };
+
         yield return Make.Item(LocalItemId.For("0123456789abcdef"), "作り物の自作").WithFiles(Make.File(@"E:\own\pack.zip", archiveBroken: true));
     }
 
@@ -146,6 +163,15 @@ public class SearchModuleConditionParityTests
                         Toggles = new Dictionary<string, bool> { [SearchModuleConditions.ViaConversionToggle] = true },
                     },
                 ]),
+            SearchModuleKind.Profile =>
+            [
+                new() { Kind = name },
+                new() { Kind = name, Items = ["avatar:7000001"] },
+                new() { Kind = name, Items = ["avatar:7000001"], Toggles = new Dictionary<string, bool> { [SearchModuleConditions.IncludeUnconfirmedToggle] = false } },
+                new() { Kind = name, Items = ["avatar:7000002", "avatar:7000001"], MatchAll = true, Flag = false },
+                new() { Kind = name, Items = ["avatar:7000002"], Exclude = true },
+                new() { Kind = name, Exclude = true },
+            ],
             SearchModuleKind.WishList => Ranges(name, null),
             SearchModuleKind.Price => Ranges(name, SearchModuleConditions.PaidSource).Concat(Ranges(name, SearchModuleConditions.BoothSource)),
             SearchModuleKind.PublishedAt or SearchModuleKind.AcquiredAt => Dates(name),

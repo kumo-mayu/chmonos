@@ -2491,6 +2491,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         _main.ShowSearch();
     }
 
+    /// <summary>このアバターに関連するプロファイルを検索で見る（ユーザ判断 2026-11-09）。</summary>
+    public RelayCommand ShowProfilesCommand => _showProfilesCommand ??= new RelayCommand(
+        () =>
+        {
+            if (Selected is { } row)
+            {
+                _main.Search.ShowProfilesOf(row.ItemId, row.Name);
+                _main.ShowSearch();
+            }
+        },
+        () => Selected is not null);
+
+    private RelayCommand? _showProfilesCommand;
+
     // ---- カードの操作（IItemCardHost） ----
     // カード表示のカードは、枠の Tag にこの画面が入る。受け先が無いと、星・中クリック・Enter が黙って効かなかった
     // （タグ・属性の管理と同じ直し・01aaac3）。星は検索画面の物をそのまま借りる

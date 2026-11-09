@@ -488,7 +488,7 @@ public sealed partial class SearchViewModel
             .Select(name => (name, name)),
         SearchModuleKind.BoothTag => _boothTagNames.Select(name => (name, name)),
         SearchModuleKind.Shop => ShopCandidates(),
-        SearchModuleKind.Avatar => AvatarCandidates(),
+        SearchModuleKind.Avatar or SearchModuleKind.Profile => AvatarCandidates(),
         SearchModuleKind.UnityProject => UnityProjectCandidates(),
         SearchModuleKind.UnityProjectContents => UnityProjectContentsCandidates(),
         SearchModuleKind.Path => FolderTree.AllFolders(_allItems, _services.Volumes.Current).Select(path => (path, path)),
@@ -810,6 +810,18 @@ public sealed partial class SearchViewModel
             "アバターがまだ見つかっていません。アバターの管理から検出できます。", ListMatches(kind),
             "素体経由の対応も含める", flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
             isUnspecified: SearchModuleConditions.ListOf(kind)!.IsUnspecified)
+        {
+            IconSelector = AvatarIconSelector,
+            InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
+            GroupHeadings = AvatarSuggestionText.Headings,
+        },
+
+        // 変換ツールのプロファイル（ユーザ判断 2026-11-09）。候補は対応アバターと同じ（アバターと共通素体）。
+        // 何も選ばないときはプロファイルの商品すべて。素体経由・確認待ちは既定で含める（探すための条件なので広めに出す）
+        SearchModuleKind.Profile => new ListModule(kind, allowsAnd: true, "名前、ID、素体で絞り込む",
+            "アバターがまだ見つかっていません。アバターの管理から検出できます。", ListMatches(kind),
+            "素体経由を含める", flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
+            emptyMatches: SearchModuleConditions.ListOf(kind)!.EmptyMatches)
         {
             IconSelector = AvatarIconSelector,
             InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),

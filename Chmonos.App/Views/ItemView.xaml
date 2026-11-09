@@ -1017,6 +1017,12 @@
                                                     AutomationProperties.AutomationId="ItemOpenInAvatars"
                                                     Command="{Binding OpenInAvatarsCommand}"
                                                     Visibility="{Binding IsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <!-- このアバターに関連するプロファイル（ユーザ判断 2026-11-09）。検索の条件「プロファイル」に入れて開く -->
+                                            <Button Content="プロファイルを検索で開く" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                                    AutomationProperties.AutomationId="ItemShowProfiles"
+                                                    Command="{Binding ShowProfilesCommand}"
+                                                    Visibility="{Binding IsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    ToolTip="このアバターと、その素体のプロファイルを検索で開きます。" />
                                             <Button Content="登録を外す" Style="{StaticResource DangerButton}" Margin="7,0,0,0"
                                                     AutomationProperties.AutomationId="ItemUnregisterAvatar"
                                                     Command="{Binding UnregisterCommand}"

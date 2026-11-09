@@ -52,6 +52,12 @@ public static class SearchModuleConditions
     /// </summary>
     public const string ViaConversionToggle = "viaConversion";
 
+    /// <summary>
+    /// 条件「プロファイル」の「確認待ちも含める」の切り替えの名前（既定は入・ユーザ判断 2026-11-09：探すための条件なので、推したつなぎ先も出す）。
+    /// 人が外したつなぎ先は、入でも切でも当てない。
+    /// </summary>
+    public const string IncludeUnconfirmedToggle = "includeUnconfirmed";
+
     /// <summary>入手日を最初の購入だけで見る（状態の <c>choice</c> の値。既定）。</summary>
     public const string FirstPurchase = "first";
 
@@ -81,7 +87,8 @@ public static class SearchModuleConditions
         Func<ItemRecord, SearchModuleContext, bool>? IsUnspecified = null,
         Func<ItemRecord, SearchModuleContext, bool, bool>? IncludeMatches = null,
         Func<string, string>? MatchKey = null,
-        Func<SearchModuleContext, bool>? IncludeApplies = null);
+        Func<SearchModuleContext, bool>? IncludeApplies = null,
+        Func<ItemRecord, SearchModuleContext, bool>? EmptyMatches = null);
 
     /// <summary>数の範囲の照らし方。</summary>
     /// <param name="Sources">数の元の鍵（価格の「払った額」「BOOTH価格」。先頭が既定）。持たない種類は空。</param>
@@ -209,6 +216,11 @@ public static class SearchModuleConditions
             IncludeMatches: (item, context, sameName) => context.OpenProjectContains(item.Id, sameName),
             IncludeApplies: context => context.HasOpenProject),
 
+        // 変換ツールのプロファイル（ユーザ判断 2026-11-09）。積む値は対応アバターと同じ（avatar:ID・base:名前）。
+        // 補助の切り替えは「素体経由を含める」（既定は入）。アバターを選ばないときは、プロファイルの商品すべてに絞る
+        SearchModuleKind.Profile => new(true, ProfileMatches(includeUnconfirmed: true), HasFlag: true, FlagDefault: true,
+            EmptyMatches: (item, _) => IsProfileItem(item)),
+
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。フォルダは比べる形に1回だけ畳む
         SearchModuleKind.Path => new(true, (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
             MatchKey: FolderTree.UnderPrefix),
@@ -286,11 +298,13 @@ public static class SearchModuleConditions
             var groups = list.IsUnspecified is not null;
             var showUnspecified = groups && state.ShowUnspecified;
             var showMatched = !groups || state.ShowMatched || !showUnspecified;
-            var toggles = kind == SearchModuleKind.Avatar ? state.Toggles : null;
-            var matches = AvatarMatches(
-                list.Matches,
-                toggles is not null && toggles.TryGetValue(ViaConversionToggle, out var viaConversion) && viaConversion,
-                toggles is not null && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly);
+            var toggles = kind is SearchModuleKind.Avatar or SearchModuleKind.Profile ? state.Toggles : null;
+            var matches = kind == SearchModuleKind.Profile
+                ? ProfileMatches(toggles is null || !toggles.TryGetValue(IncludeUnconfirmedToggle, out var unconfirmed) || unconfirmed)
+                : AvatarMatches(
+                    list.Matches,
+                    toggles is not null && toggles.TryGetValue(ViaConversionToggle, out var viaConversion) && viaConversion,
+                    toggles is not null && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly);
             return new ListCondition(
                 state.Items,
                 list.AllowsAnd && state.MatchAll,
@@ -302,7 +316,8 @@ public static class SearchModuleConditions
                 list.IncludeMatches,
                 list.IncludeMatches is not null && (kind == SearchModuleKind.UnityProjectContents ? state.IncludeOpenProject : state.IncludeFavorites),
                 list.MatchKey,
-                list.IncludeApplies);
+                list.IncludeApplies,
+                list.EmptyMatches);
         }
 
         if (RangeOf(kind) is { } range)
@@ -570,5 +585,49 @@ public static class SearchModuleConditions
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// 変換ツールのプロファイルの商品か（条件「プロファイル」で何も選ばないときに当てる物。商品ページの「変換扱い」の欄を出す商品と同じ見分け）。
+    /// 中のファイルにプロファイルの場所がある（控えは読まない。入る先の一番上だけで見る）か、変換扱いを持つ物。「扱わない」にした物は除く。
+    /// </summary>
+    public static bool IsProfileItem(ItemRecord item)
+        => item.Local.Conversion?.Mode != ConversionMode.NotProfile
+            && (ConversionScan.MayHoldProfiles(item)
+                || item.Local.Conversion is { Mode: ConversionMode.Profile }
+                || item.Local.Conversion?.Targets.Any(target => !target.Rejected && !target.IsEmpty) == true);
+
+    /// <summary>
+    /// 条件「プロファイル」の照らし方（ユーザ判断 2026-11-09）。プロファイルの商品で、つなぎ先が選んだアバター・共通素体に当たる物。
+    /// 「素体経由を含める」（<paramref name="viaBase"/> に渡る使い回しの Flag）が入なら、アバターを選んだときはその共通素体につないだ物も、
+    /// 共通素体を選んだときはその仲間のアバターにつないだ物も当てる（変換経由の計算と同じ広げ方）。人が外したつなぎ先は当てない。
+    /// </summary>
+    /// <param name="includeUnconfirmed">確認待ち（自動で推した）つなぎ先も当てるか（「確認待ちも含める」・既定は入）。</param>
+    public static Func<ItemRecord, SearchModuleContext, string, bool, bool> ProfileMatches(bool includeUnconfirmed)
+        => (item, context, key, viaBase) => IsProfileItem(item)
+            && (item.Local.Conversion?.Targets ?? []).Any(target => !target.Rejected
+                && !target.IsEmpty
+                && (target.Confirmed || includeUnconfirmed)
+                && ProfileTargetMatches(target, key, viaBase, context.Compatibility));
+
+    private static bool ProfileTargetMatches(ConversionTarget target, string key, bool viaBase, AvatarCompatibilityIndex compatibility)
+    {
+        if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
+        {
+            var avatar = key[AvatarKey.Length..];
+            return string.Equals(target.AvatarItemId, avatar, StringComparison.Ordinal)
+                || (viaBase && target.BaseName is { } baseName
+                    && string.Equals(compatibility.BaseNameOf(avatar), baseName, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        if (key.StartsWith(BaseKey, StringComparison.Ordinal))
+        {
+            var baseName = key[BaseKey.Length..];
+            return string.Equals(target.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+                || (viaBase && target.AvatarItemId is { } avatar
+                    && string.Equals(compatibility.BaseNameOf(avatar), baseName, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        return false;
     }
 }

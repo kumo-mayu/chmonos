@@ -161,6 +161,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
+        new(SearchModuleKind.Profile, "プロファイル", "変換ツールのプロファイルを、どのアバター・共通素体の物かで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日か買った日で絞ります。日付を入れていない商品は外れます。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
@@ -203,7 +204,8 @@ public static class SearchModuleCatalog
         ]),
         new(ItemInfo,
         [
-            [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Favorite, SearchModuleKind.Price, SearchModuleKind.Avatar, SearchModuleKind.Hidden, SearchModuleKind.Adult],
+            // プロファイルは対応アバターの隣：どちらも「どのアバターの物か」で引く（ユーザ判断 2026-11-09）
+            [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Favorite, SearchModuleKind.Price, SearchModuleKind.Avatar, SearchModuleKind.Profile, SearchModuleKind.Hidden, SearchModuleKind.Adult],
             [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.NotOnBooth],
             [SearchModuleKind.Recent, SearchModuleKind.UnityProjectContents],
             [SearchModuleKind.AcquiredAt, SearchModuleKind.PublishedAt],

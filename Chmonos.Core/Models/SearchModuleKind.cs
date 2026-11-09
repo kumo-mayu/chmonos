@@ -49,4 +49,10 @@ public enum SearchModuleKind
     /// <see cref="UnityProject"/> は「紐付けた改変に記録した商品」で、中を見ない。保存した条件の意味を変えないよう、種類を分ける
     /// </summary>
     UnityProjectContents,
+
+    /// <summary>
+    /// 変換ツールのプロファイルの商品を、つなぎ先のアバター・共通素体で絞る（画面の名前は「プロファイル」。ユーザ判断 2026-11-09）。
+    /// アバターを選ばないときは、プロファイルの商品すべて（扱わないにした物は除く）。docs/spec/conversion.md「検索」
+    /// </summary>
+    Profile,
 }

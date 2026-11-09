@@ -297,6 +297,69 @@ public class ConversionTests
         Assert.False(Hits("avatar:9000002", viaConversion: true));
     }
 
+    // ---- 検索の条件「プロファイル」（ユーザ判断 2026-11-09） ----
+
+    private static bool ProfileHits(ItemRecord item, IReadOnlyList<string> keys, bool viaBase = true, bool includeUnconfirmed = true)
+    {
+        var context = new SearchModuleContext(() => Compat, ModificationUsage.Empty, RecentTimes.Empty, null, DateTimeOffset.Now) { Items = [item] };
+        var condition = SearchModuleConditions.From(new SearchModuleState
+        {
+            Kind = "Profile",
+            Items = keys,
+            Flag = viaBase,
+            Toggles = new Dictionary<string, bool> { [SearchModuleConditions.IncludeUnconfirmedToggle] = includeUnconfirmed },
+        })!;
+        condition.Prepare(context);
+        return condition.IsActive && condition.Matches(item, context);
+    }
+
+    [Fact]
+    public void 条件プロファイルは_アバターを選ぶと_そのアバターとその素体につないだプロファイルに当たる()
+    {
+        var toAvatar = Item("9200011", conversion: Profile(new ConversionTarget { AvatarItemId = "9000003", Forward = true, Confirmed = true }));
+        var toBase = Item("9200012", conversion: Profile(new ConversionTarget { BaseName = "作り物素体", Forward = true, Confirmed = true }));
+        var toOther = Item("9200013", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true, Confirmed = true }));
+
+        Assert.True(ProfileHits(toAvatar, ["avatar:9000003"]));
+        Assert.True(ProfileHits(toBase, ["avatar:9000003"]));
+        Assert.False(ProfileHits(toOther, ["avatar:9000003"]));
+
+        // 素体経由を切ると、そのアバターにつないだ物だけ
+        Assert.False(ProfileHits(toBase, ["avatar:9000003"], viaBase: false));
+
+        // 素体を選ぶと、素体につないだ物と（素体経由が入なら）仲間のアバターにつないだ物
+        Assert.True(ProfileHits(toBase, ["base:作り物素体"]));
+        Assert.True(ProfileHits(toAvatar, ["base:作り物素体"]));
+        Assert.False(ProfileHits(toAvatar, ["base:作り物素体"], viaBase: false));
+    }
+
+    [Fact]
+    public void 条件プロファイルは_確認待ちを既定で含め_切ると確認済みだけ_外した物はどちらでも当てない()
+    {
+        var suggested = Item("9200021", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true }));
+        var rejected = Item("9200022", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true, Confirmed = true, Rejected = true }));
+
+        Assert.True(ProfileHits(suggested, ["avatar:9000001"]));
+        Assert.False(ProfileHits(suggested, ["avatar:9000001"], includeUnconfirmed: false));
+        Assert.False(ProfileHits(rejected, ["avatar:9000001"]));
+    }
+
+    [Fact]
+    public void 条件プロファイルは_何も選ばないと_プロファイルの商品すべてに絞り_扱わない物は除く()
+    {
+        var profile = Item("9200031", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true }));
+        var notProfile = Item("9200032", conversion: new ConversionSetting
+        {
+            Mode = ConversionMode.NotProfile,
+            Targets = [new ConversionTarget { AvatarItemId = "9000001", Forward = true }],
+        });
+        var clothing = Item("9300031", avatars: ["9000001"]);
+
+        Assert.True(ProfileHits(profile, []));
+        Assert.False(ProfileHits(notProfile, []));
+        Assert.False(ProfileHits(clothing, []));
+    }
+
     // ---- データの形 ----
 
     [Fact]

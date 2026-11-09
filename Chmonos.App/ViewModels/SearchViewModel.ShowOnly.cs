@@ -50,6 +50,18 @@ public sealed partial class SearchViewModel
         FinishShowOnly();
     }
 
+    /// <summary>
+    /// このアバターに関連するプロファイルの商品だけを出す（ユーザ判断 2026-11-09：アバターの管理の詳細と、アバターの商品ページからの導線）。
+    /// 条件「プロファイル」に、このアバターを入れる。素体経由・確認待ちは条件の既定（どちらも入）のまま
+    /// </summary>
+    public void ShowProfilesOf(string avatarItemId, string displayName)
+    {
+        ClearFilters(apply: false);
+        EnsureModule<ListModule>(SearchModuleKind.Profile)
+            .AddKey(AvatarKey + avatarItemId, notify: false, text: AvatarSuggestionText.Format(displayName, avatarItemId));
+        FinishShowOnly();
+    }
+
     /// <summary>このショップの商品だけで絞り込む。ショップ画面からの導線（#55）。</summary>
     public void ShowOnlyShop(string shopKey, string shopName)
     {

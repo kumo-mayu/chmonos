@@ -479,7 +479,14 @@ public static class Catalogs
 
                 if (SearchModuleConditions.ListOf(kind) is { } list)
                 {
-                    return new ConditionKindRef(name, kind == SearchModuleKind.Avatar ? "avatar" : "list", null, null, list.AllowsAnd, null);
+                    // プロファイルは対応アバターと同じくアバター・素体を積むが、受ける欄が違う（viaConversion などを持たず、includeUnconfirmed を持つ）
+                    var shape = kind switch
+                    {
+                        SearchModuleKind.Avatar => "avatar",
+                        SearchModuleKind.Profile => "profile",
+                        _ => "list",
+                    };
+                    return new ConditionKindRef(name, shape, null, null, list.AllowsAnd, null);
                 }
 
                 return kind switch

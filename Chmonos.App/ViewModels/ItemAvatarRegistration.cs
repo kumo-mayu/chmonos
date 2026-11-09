@@ -47,8 +47,20 @@ public sealed class ItemAvatarRegistration : ViewModelBase
                 _main.ShowAvatar(id);
             }
         }, () => _isAvatar);
+        // このアバターに関連するプロファイルを検索で見る（ユーザ判断 2026-11-09）。アバターとして扱っているときだけ
+        ShowProfilesCommand = new RelayCommand(() =>
+        {
+            if (_itemId is { } id && _isAvatar && !JustChanged)
+            {
+                var entry = _services.CachedAvatars.Load().Entries.FirstOrDefault(candidate => candidate.ItemId == id);
+                _main.Search.ShowProfilesOf(id, entry is null ? id : AvatarNames.ShownName(entry));
+                _main.ShowSearch();
+            }
+        }, () => _isAvatar);
         Show(itemId);
     }
+
+    public RelayCommand ShowProfilesCommand { get; }
 
     /// <summary>
     /// 状態が変わった直後に新しく出たボタンを受け付けない間（ユーザ確認 2026-10-07）。「アバターとして登録」をダブルクリックすると、

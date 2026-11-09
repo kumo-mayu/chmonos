@@ -36,7 +36,7 @@ public class SearchAddMenuLayoutTests
     public void 商品の情報の群()
         => Assert.Equal(
             [
-                [K.UserTag, K.Attribute, K.Favorite, K.Price, K.Avatar, K.Hidden, K.Adult],
+                [K.UserTag, K.Attribute, K.Favorite, K.Price, K.Avatar, K.Profile, K.Hidden, K.Adult],
                 [K.Owned, K.Gift, K.NotOnBooth],
                 [K.Recent, K.UnityProjectContents],
                 [K.AcquiredAt, K.PublishedAt],
@@ -83,7 +83,7 @@ public class SearchAddMenuLayoutTests
             ["カテゴリ", "BOOTHタグ", "R-18", "―", "価格", "スキ数", "有料・無料", "―", "ショップ", "対応アバター", "―", "公開日", "公開状況", "更新通知あり"],
             headings["BOOTHの情報"]);
         Assert.Equal(
-            ["ユーザータグ", "属性", "お気に入り", "価格", "対応アバター", "非表示", "R-18", "―", "所持", "ギフト", "BOOTHに無い商品", "―",
+            ["ユーザータグ", "属性", "お気に入り", "価格", "対応アバター", "プロファイル", "非表示", "R-18", "―", "所持", "ギフト", "BOOTHに無い商品", "―",
                 "最近", "Unityプロジェクト", "―", "入手日", "公開日", "―", "編集状況"],
             headings["商品の情報"]);
         Assert.DoesNotContain(headings.Values.SelectMany(lines => lines), line => line == "対応アバターの確認" || line == "販売終了");

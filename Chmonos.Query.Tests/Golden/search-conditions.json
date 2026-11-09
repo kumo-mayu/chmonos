@@ -139,6 +139,14 @@
     "fields": null
   },
   {
+    "kind": "profile",
+    "shape": "profile",
+    "choices": null,
+    "options": null,
+    "allowsAll": true,
+    "fields": null
+  },
+  {
     "kind": "favorite",
     "shape": "choice",
     "choices": [

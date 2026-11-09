@@ -188,6 +188,22 @@ public sealed class SearchEngineTests : IDisposable
         Assert.Equal(["9700001", "9700002", "9700003", "9700004"], Ids(snapshot, Condition(new() { Kind = "avatar", Matched = false, Unspecified = true })));
     }
 
+    [Fact]
+    public void プロファイルは_アバターと素体を積み_素体経由と確認待ちは既定で含める()
+    {
+        var state = ConditionKinds.ToState(new ConditionRequest { Kind = "profile", Avatars = ["7000001"], Bases = ["作り物素体"] });
+
+        Assert.Equal(nameof(SearchModuleKind.Profile), state.Kind);
+        Assert.Equal(["avatar:7000001", "base:作り物素体"], state.Items);
+        Assert.True(state.Flag);
+        Assert.True(state.Toggles![Chmonos.Core.Services.SearchModuleConditions.IncludeUnconfirmedToggle]);
+
+        var confirmedOnly = ConditionKinds.ToState(new ConditionRequest { Kind = "profile", ViaBase = false, IncludeUnconfirmed = false });
+        Assert.Empty(confirmedOnly.Items);
+        Assert.False(confirmedOnly.Flag);
+        Assert.False(confirmedOnly.Toggles![Chmonos.Core.Services.SearchModuleConditions.IncludeUnconfirmedToggle]);
+    }
+
     [Theory]
     [InlineData("""{"condition":{"kind":"無い種類"}}""", "unknownCondition")]
     [InlineData("""{"condition":{"kind":"favorite","choice":"maybe"}}""", "invalidChoice")]
