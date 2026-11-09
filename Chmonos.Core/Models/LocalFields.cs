@@ -23,6 +23,7 @@ public enum LocalField
     VariationTargets,
     DetectedVariationTargets,
     Conversion,
+    ContentUpdate,
     Purchases,
     LocalFiles,
     LocalFolders,
@@ -76,6 +77,7 @@ public static class LocalFields
                 LocalField.DetectedVariationTargets =>
                     result with { DetectedVariationTargets = incoming.DetectedVariationTargets },
                 LocalField.Conversion => result with { Conversion = incoming.Conversion },
+                LocalField.ContentUpdate => result with { ContentUpdate = incoming.ContentUpdate },
                 LocalField.Purchases => result with { Purchases = incoming.Purchases },
                 LocalField.LocalFiles => result with { LocalFiles = incoming.LocalFiles },
                 LocalField.LocalFolders => result with { LocalFolders = incoming.LocalFolders },
@@ -161,6 +163,9 @@ public static class LocalOwners
 
     /// <summary>変換扱い（人が決める操作と、自動で推した値を書く見回り。推した値は確認済みの行を残して書き直す：ConversionScan）。</summary>
     public static readonly IReadOnlyCollection<LocalField> Conversion = [LocalField.Conversion];
+
+    /// <summary>中身の更新の控え（取り直しで見つけて書く・商品ページの「確認した」）。</summary>
+    public static readonly IReadOnlyCollection<LocalField> ContentUpdate = [LocalField.ContentUpdate];
 
     /// <summary>素体の対応宣言だけを直す操作。</summary>
     public static readonly IReadOnlyCollection<LocalField> AvatarBases = [LocalField.AvatarBases];

@@ -57,7 +57,7 @@
 - **購入記録（`Purchases`）は自立した記録**：種類のID・買ったときの名前・価格・ギフトかどうか。BOOTH から種類が消えても消さず、`ExistsOnBooth=false` にする（支出には数える）。
   `ExistsOnBooth` は書く側が毎回 `Booth.Variations` から計算し直す（編集画面と再取得が同じ式で書くので食い違わない）。
 - **価格とギフトは種類ごと**。商品の購入額はその合計。
-- **バリエーションの向き先**（v1.3.0・`docs/spec/conversion.md`）：人が決めた `variationTargets` と、検出が書く `detectedVariationTargets`。1行は `variationId`（null＝バリエーションを選ばない購入）・`avatars`（商品 ID）・`bases`（共通素体の名前）・`all`（対応アバター全部向け。立っていなければ書かない）・`rejectedAvatars`・`rejectedBases`（人が外した、名前から見つけた物。無ければ書かない）。同じバリエーションに両方あれば人が決めた方を使う。持っているバリエーションの分の見分けは保存せず、その場で計算する（`AvatarCompatibilityIndex.UnownedVariationAvatars`）
+- **バリエーションの向き先**（v1.3.0・`docs/spec/conversion.md`）：人が決めた `variationTargets` と、検出が書く `detectedVariationTargets`。1行は `variationId`（null＝バリエーションを選ばない購入）・`avatars`（商品 ID）・`bases`（共通素体の名前）・`all`（対応アバター全部向け。立っていなければ書かない）・`rejectedAvatars`・`rejectedBases`（人が外した、名前から見つけた物。無ければ書かない）。同じバリエーションに両方あれば人が決めた方を使う。持っているバリエーションの分の見分けは保存せず、その場で計算する（`AvatarCompatibilityIndex.UnownedVariationAvatars`）。中身の更新の控え `contentUpdate` は `used-updates.md`
 - **購入記録ごとの日付**（`purchasedAt`・`DateOnly?`。空なら書かない。メモ45・ユーザ判断 2026-10-05）。空のときは商品の日付（入手日）を使い、**空を推定で埋めない**。
   決まりは Core の `PurchaseDates` 1か所：購入1件の日付＝欄があればそれ・無ければ商品の日付（場面によって、入手日が空ならファイルの日付で代える／代えない）。
   商品を1つの日付で並べる場面の**代表の日付＝購入1件の日付のうち最も早い物**（購入記録が無ければ商品の日付。入手日は「最初に手に入れた日」の意味で使ってきた）。

@@ -110,6 +110,30 @@ public sealed record LocalBlock
     public ConversionSetting? Conversion { get; init; }
 
     /// <summary>
+    /// BOOTH で見つけた「中身の更新」の控え（<c>docs/spec/used-updates.md</c>）。見つけていなければ null で、書き出さない。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ContentUpdate? ContentUpdate { get; init; }
+
+    /// <summary>
+    /// 中身の更新を見つけた後に、新しいファイルかフォルダを取り込んだか（控えに無いハッシュのファイル・見つけた後に登録したフォルダ）。
+    /// 計算で出せるので書き出さない。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasFilesNewerThanUpdate
+        => ContentUpdate is { } update
+            && (LocalFiles.Any(file => IsHeld(file) && !update.FilesBefore.Contains(file.Hash, StringComparer.OrdinalIgnoreCase))
+                || LocalFolders.Any(folder => folder.RegisteredAt > update.FoundAt));
+
+    /// <summary>
+    /// 商品として更新を促すか：中身の更新を見つけていて、「確認した」を押しておらず、その後に新しいファイルを取り込んでいない。
+    /// 使っているか（改変・Unity のプロジェクト）はここでは見ない（アプリの外で変わるので、見せる所で組む）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasPendingContentUpdate => ContentUpdate is { CheckedAt: null } && !HasFilesNewerThanUpdate;
+
+    /// <summary>
     /// 購入記録。買った1回が1レコード。BOOTH側からvariationが消えても残す。
     /// 同じvariationが複数行あってよい（同じものを何度も買う・複数人に贈る）。
     /// </summary>

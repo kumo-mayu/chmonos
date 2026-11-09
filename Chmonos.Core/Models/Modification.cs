@@ -55,6 +55,14 @@ public sealed record ModificationMember
     /// <remarks>登録したフォルダの中の物はハッシュが無く、包みの場所だけを持つ（<see cref="Package"/>）ので、それも記録ありと数える。</remarks>
     [JsonIgnore]
     public bool HasFile => FileHash is not null || Package is not null;
+
+    /// <summary>
+    /// この改変で、使ったものの更新の促しに「確認した」を押した日時（改変ごと・ユーザ判断 2026-11-09）。
+    /// 商品の控え（<see cref="ContentUpdate.FoundAt"/>）より後なら、その更新はこの改変では促さない。後でまた更新が来れば出る。
+    /// 押していなければ書き出さない。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? UpdateCheckedAt { get; init; }
 }
 
 /// <summary>改変に貼った画像1枚。商品の <see cref="UserImage"/> と同じ持ち方。</summary>
