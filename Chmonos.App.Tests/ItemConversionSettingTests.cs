@@ -130,7 +130,7 @@ public class ItemConversionSettingTests
     });
 
     [Fact]
-    public Task 外すと_最後のつなぎ先なら変換扱いを書き出さない() => TestApp.Run(async app =>
+    public Task 外すと_外した印を付けて残し_その行は選ぶ欄に戻る() => TestApp.Run(async app =>
     {
         var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
 
@@ -138,7 +138,36 @@ public class ItemConversionSettingTests
 
         await app.SettleAsync();
 
-        Assert.Null(await SavedAsync(app));
+        Assert.True(Assert.Single((await SavedAsync(app))!.Targets).Rejected);
+        var row = Assert.Single(page.ConversionRows, row => row.ProfileText == "fakebase");
+        Assert.False(row.HasTarget);
+    });
+
+    [Fact]
+    public Task 向きを右クリックで変えると_確認済みで保存し_印が移る() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
+        var before = page.ConversionRows.Single(row => row.ProfileText == "fakebase");
+        Assert.True(before.IsReverse);
+
+        before.SetDirectionCommand!.Execute("both");
+        await app.SettleAsync();
+
+        var saved = Assert.Single((await SavedAsync(app))!.Targets);
+        Assert.True(saved.Forward && saved.Reverse && saved.Confirmed);
+        var after = page.ConversionRows.Single(row => row.ProfileText == "fakebase");
+        Assert.True(after.IsBoth);
+        Assert.Equal("両方向", after.DirectionText);
+    });
+
+    [Fact]
+    public Task つなぎ先の無い行は_向きを変えられない() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, conversion: null);
+
+        var open = page.ConversionRows.Single(row => row.ProfileText == "fakeaoi");
+        Assert.False(open.HasTarget);
+        Assert.Null(open.SetDirectionCommand);
     });
 
     [Fact]

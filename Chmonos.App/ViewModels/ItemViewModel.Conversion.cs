@@ -87,7 +87,8 @@ public partial class ItemViewModel
                 ? $"{baseName}（共通素体）"
                 : target.AvatarItemId is { } id ? names.TryGetValue(id, out var name) ? name : id : string.Empty;
 
-        var targets = setting?.Targets ?? [];
+        // 人が外したつなぎ先は出さない（そのプロファイルは選ぶ欄に戻る）。行は保存に残り、見回りが同じ物を推すのを止める
+        var targets = (setting?.Targets ?? []).Where(target => !target.Rejected).ToList();
         var rows = new List<ConversionTargetRow>();
         foreach (var profile in profiles)
         {
@@ -151,8 +152,33 @@ public partial class ItemViewModel
             () => ChangeConversionAsync(ConversionEdits.Confirm(target)).Forget(),
             () => !IsEditLocked && !target.Confirmed),
         RemoveCommand = new RelayCommand(
-            () => ChangeConversionAsync(ConversionEdits.Remove(target)).Forget(),
+            () => ChangeConversionAsync(ConversionEdits.Reject(target)).Forget(),
             () => !IsEditLocked),
+        Direction = (target.Forward, target.Reverse) switch
+        {
+            (true, true) => "both",
+            (true, false) => "forward",
+            (false, true) => "reverse",
+            _ => string.Empty,
+        },
+
+        // 向きはふつう中のファイルの名前で決まるので、変える口は右クリックだけに置く（ユーザ判断 2026-11-09「普通は使わない」）
+        SetDirectionCommand = new RelayCommand(
+            parameter =>
+            {
+                (bool Forward, bool Reverse)? chosen = parameter as string switch
+                {
+                    "forward" => (true, false),
+                    "reverse" => (false, true),
+                    "both" => (true, true),
+                    _ => null,
+                };
+                if (chosen is { } direction && (direction.Forward, direction.Reverse) != (target.Forward, target.Reverse))
+                {
+                    ChangeConversionAsync(ConversionEdits.SetDirection(target, direction.Forward, direction.Reverse)).Forget();
+                }
+            },
+            _ => !IsEditLocked),
     };
 
     /// <summary>選ぶ欄で決めたつなぎ先を書く。候補に無い名前は何もしない（候補から選ぶ欄）。</summary>
@@ -219,4 +245,16 @@ public sealed class ConversionTargetRow
 
     /// <summary>つなぎ先の決まっていない行の、選ぶ欄の確定（引数は選んだ候補の文字列）。</summary>
     public RelayCommand? ChooseCommand { get; init; }
+
+    /// <summary>今の向き（"forward"・"reverse"・"both"）。右クリックの項目のどれに印を付けるかに使う。つなぎ先の無い行は空。</summary>
+    public string Direction { get; init; } = string.Empty;
+
+    public bool IsForward => Direction == "forward";
+
+    public bool IsReverse => Direction == "reverse";
+
+    public bool IsBoth => Direction == "both";
+
+    /// <summary>向きの右クリックの項目（引数は "forward"・"reverse"・"both"）。つなぎ先の無い行は持たない（押せない）。</summary>
+    public RelayCommand? SetDirectionCommand { get; init; }
 }

@@ -67,7 +67,7 @@ public sealed class ConversionIndex
             var unowned = compatibility.UnownedVariationAvatars(item.Local, includeDetectedVariations);
             foreach (var target in conversion.Targets)
             {
-                if (target.IsEmpty || (!target.Confirmed && !includeUnconfirmed))
+                if (target.IsEmpty || target.Rejected || (!target.Confirmed && !includeUnconfirmed))
                 {
                     continue;
                 }

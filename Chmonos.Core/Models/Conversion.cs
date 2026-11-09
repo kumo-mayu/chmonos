@@ -65,6 +65,13 @@ public sealed record ConversionTarget
     /// </summary>
     public bool Confirmed { get; init; }
 
+    /// <summary>
+    /// 人が外した（ユーザ判断 2026-11-09「ユーザが外したんですから次からも外れているべき」）。行は残し、見回りが同じつなぎ先を
+    /// また推さないようにする。変換経由の計算には使わない。対応アバターの <see cref="AvatarLink.Rejected"/> と同じ考え方。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Rejected { get; init; }
+
     /// <summary>つなぎ先が無い（アバターも素体も持たない）。</summary>
     [JsonIgnore]
     public bool IsEmpty => string.IsNullOrWhiteSpace(AvatarItemId) && string.IsNullOrWhiteSpace(BaseName);

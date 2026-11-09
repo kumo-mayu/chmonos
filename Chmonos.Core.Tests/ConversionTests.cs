@@ -180,6 +180,21 @@ public class ConversionTests
     }
 
     [Fact]
+    public void 人が外したつなぎ先は_変換経由に使わない()
+    {
+        var items = new[]
+        {
+            Item("9200001", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Reverse = true, Confirmed = true })),
+            Item("9200002", conversion: Profile(new ConversionTarget { AvatarItemId = "9000002", Forward = true, Confirmed = true, Rejected = true })),
+        };
+
+        var routes = ConversionIndex.Build(Compat, items, includeUnconfirmed: true, includeDetectedVariations: true)
+            .Resolve(Item("9300001", avatars: ["9000001"]).Local);
+
+        Assert.Empty(routes);
+    }
+
+    [Fact]
     public void 素体につないだ順は仲間全員に効き_アバターにつないだ順はそのアバターだけ()
     {
         var items = new[]

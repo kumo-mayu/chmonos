@@ -70,11 +70,36 @@ public class ConversionEditsTests
     }
 
     [Fact]
-    public void 最後のつなぎ先を外すと_書き出さない形にする()
+    public void 外すと_行は残して外した印を付ける()
     {
-        Assert.Null(ConversionEdits.Remove(Suggested)(WithSuggestion()));
+        var row = Assert.Single(ConversionEdits.Reject(Suggested)(WithSuggestion())!.Targets);
 
-        var notProfile = new ConversionSetting { Mode = ConversionMode.NotProfile, Targets = [Suggested] };
-        Assert.Empty(ConversionEdits.Remove(Suggested)(notProfile)!.Targets);
+        Assert.True(row.Rejected);
+        Assert.True(row.Confirmed);
+    }
+
+    [Fact]
+    public void 外した物と別のつなぎ先を選んでも_外した印は残り_同じ物を選び直すと印が消える()
+    {
+        var rejected = ConversionEdits.Reject(Suggested)(WithSuggestion());
+
+        var other = ConversionEdits.Choose("fakebase", forward: false, reverse: true, avatarItemId: "9800402", baseName: null)(rejected);
+        Assert.Equal(2, other!.Targets.Count);
+        Assert.Contains(other.Targets, target => target.Rejected && target.BaseName == "作り物の素体");
+
+        var again = ConversionEdits.Choose("fakebase", forward: false, reverse: true, avatarItemId: null, baseName: "作り物の素体")(rejected);
+        var row = Assert.Single(again!.Targets);
+        Assert.False(row.Rejected);
+    }
+
+    [Fact]
+    public void 見回りは_外したつなぎ先を推さず_外した行も消さない()
+    {
+        var rejected = ConversionEdits.Reject(Suggested)(WithSuggestion());
+        var suggestion = new ConversionSuggestion(new ProfileSlug("fakebase", Forward: false, Reverse: true), Suggested, [], Conflicting: false);
+
+        var next = ConversionScan.Apply(rejected, [suggestion]);
+
+        Assert.Same(rejected, next);
     }
 }

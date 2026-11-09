@@ -78,24 +78,27 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
     }
 
     /// <summary>
-    /// 今の変換扱いに、推した値を当てる。確認したつなぎ先は残し、確認待ちの物は今回の推した値に置き換える
-    /// （同じプロファイル（slug）に確認したつなぎ先があれば、その slug は推さない）。何も決めていない形になれば null（書き出さない）。
-    /// 変わらなければ、渡された値をそのまま返す（書かずに済ませるため）。
+    /// 今の変換扱いに、推した値を当てる。人が決めた行（確認した・外した）は残し、確認待ちの物は今回の推した値に置き換える
+    /// （同じプロファイル（slug）に確認したつなぎ先があれば、その slug は推さない。人が外したつなぎ先は、同じ物を推さない）。
+    /// 何も決めていない形になれば null（書き出さない）。変わらなければ、渡された値をそのまま返す（書かずに済ませるため）。
     /// </summary>
     internal static ConversionSetting? Apply(ConversionSetting? current, IReadOnlyList<ConversionSuggestion> suggestions)
     {
-        var confirmed = current?.Targets.Where(target => target.Confirmed).ToList() ?? [];
-        var confirmedSlugs = confirmed
-            .Where(target => target.Slug is not null)
+        var decided = current?.Targets.Where(target => target.Confirmed || target.Rejected).ToList() ?? [];
+        var confirmedSlugs = decided
+            .Where(target => !target.Rejected && target.Slug is not null)
             .Select(target => target.Slug!)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rejected = decided.Where(target => target.Rejected).ToList();
 
         var suggested = suggestions
-            .Where(suggestion => suggestion.Target is not null && !confirmedSlugs.Contains(suggestion.Profile.Slug))
+            .Where(suggestion => suggestion.Target is { } target
+                && !confirmedSlugs.Contains(suggestion.Profile.Slug)
+                && !rejected.Any(gone => ConversionEdits.IsSameRow(gone, target)))
             .Select(suggestion => suggestion.Target!)
             .ToList();
 
-        var next = new ConversionSetting { Mode = current?.Mode ?? ConversionMode.Auto, Targets = [.. confirmed, .. suggested] };
+        var next = new ConversionSetting { Mode = current?.Mode ?? ConversionMode.Auto, Targets = [.. decided, .. suggested] };
         if (next.IsDefault)
         {
             return current is null ? null : current.IsDefault ? current : null;

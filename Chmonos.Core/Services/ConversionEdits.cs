@@ -20,6 +20,7 @@ public static class ConversionEdits
 
     /// <summary>
     /// プロファイル1つ（<paramref name="slug"/>）のつなぎ先を決める。その slug の行（確認待ちも）を、確認済みの1行に置き換える。
+    /// ほかのつなぎ先に付けた外した印は残す（選んだ物を後で外したときに、前に外した物をまた推さないように）。
     /// slug が分からない（null）ときは、同じつなぎ先の行を置き換えて足す。
     /// </summary>
     public static Func<ConversionSetting?, ConversionSetting?> Choose(
@@ -42,9 +43,8 @@ public static class ConversionEdits
         return current =>
         {
             var targets = (current?.Targets ?? [])
-                .Where(target => slug is not null
-                    ? !SameText(target.Slug, slug)
-                    : !(target.Slug is null && SamePlace(target, chosen)))
+                .Where(target => !IsSameRow(target, chosen)
+                    && (slug is null || !SameText(target.Slug, slug) || target.Rejected))
                 .Append(chosen)
                 .ToList();
             return Normalize((current ?? new ConversionSetting()) with { Targets = targets });
@@ -60,38 +60,29 @@ public static class ConversionEdits
         => current => Map(current, target, found => found with { Forward = forward, Reverse = reverse, Confirmed = true });
 
     /// <summary>
-    /// つなぎ先を外す。確認待ちの行を外しても、次の見回りでまた推す（推した値は候補として見せ続ける）。
-    /// 推しを止めたいときは、つなぎ先を選び直すか「プロファイルとして扱わない」にする。
+    /// つなぎ先を外す。行は消さずに外した印を付け、次の見回りでも同じ物を推さない（ユーザ判断 2026-11-09）。
+    /// そのプロファイルには、選ぶ欄からほかのつなぎ先を選べる（同じ物を選び直せば印は消える）。
     /// </summary>
-    public static Func<ConversionSetting?, ConversionSetting?> Remove(ConversionTarget target)
-        => current =>
-        {
-            if (current is null)
-            {
-                return null;
-            }
-
-            var targets = current.Targets.Where(candidate => !SameRow(candidate, target)).ToList();
-            return targets.Count == current.Targets.Count ? current : Normalize(current with { Targets = targets });
-        };
+    public static Func<ConversionSetting?, ConversionSetting?> Reject(ConversionTarget target)
+        => current => Map(current, target, found => found with { Rejected = true, Confirmed = true });
 
     private static ConversionSetting? Map(ConversionSetting? current, ConversionTarget target, Func<ConversionTarget, ConversionTarget> change)
     {
-        if (current is null || !current.Targets.Any(candidate => SameRow(candidate, target)))
+        if (current is null || !current.Targets.Any(candidate => IsSameRow(candidate, target)))
         {
             return current;
         }
 
         return current with
         {
-            Targets = current.Targets.Select(candidate => SameRow(candidate, target) ? change(candidate) : candidate).ToList(),
+            Targets = current.Targets.Select(candidate => IsSameRow(candidate, target) ? change(candidate) : candidate).ToList(),
         };
     }
 
     /// <summary>
     /// 画面に出した行と、今の値の行が同じ物か。確認済みかと向きは比べない（確かめる・向きを変える操作は、その2つを変えるため）。
     /// </summary>
-    private static bool SameRow(ConversionTarget a, ConversionTarget b)
+    internal static bool IsSameRow(ConversionTarget a, ConversionTarget b)
         => SamePlace(a, b) && SameText(a.Slug, b.Slug);
 
     private static bool SamePlace(ConversionTarget a, ConversionTarget b)
