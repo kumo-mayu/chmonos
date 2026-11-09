@@ -68,6 +68,11 @@ public sealed class ItemConversionEditor : ViewModelBase
 
     public bool IsNotProfile => Mode == ConversionMode.NotProfile;
 
+    /// <summary>全部の行が同じファイルの物のとき、その1行（「入っているファイル：…」）。行ごとには出さない。</summary>
+    public string CommonSourceText { get; private set; } = string.Empty;
+
+    public bool HasCommonSource => CommonSourceText.Length > 0;
+
     /// <summary>今の扱いを文で（ボタンは変える操作だけにする。アバターの管理の「アバターかどうか」と同じ作り）。</summary>
     public string StateText { get; private set; } = string.Empty;
 
@@ -112,6 +117,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         if (!ShowsConversion)
         {
             Rows = [];
+            CommonSourceText = string.Empty;
             UnconfirmedTargets = [];
             StateText = string.Empty;
             Raise();
@@ -139,6 +145,13 @@ public sealed class ItemConversionEditor : ViewModelBase
                 ?? registry.Entries.FirstOrDefault(entry => string.Equals(entry.BaseName, target.BaseName, StringComparison.CurrentCultureIgnoreCase))?.ItemId;
             return itemId is null ? null : () => iconOf(itemId);
         }
+
+        // 入っているファイル（slug ごと）。控えを読むのは、プロファイルを持つかもしれない商品だけ（ProfilesOf と同じふるい）
+        var sources = item is not null && ConversionScan.MayHoldProfiles(item)
+            ? _services.Conversion.ProfileSourcesOf(item)
+                .GroupBy(source => source.Slug, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => SourceText(group.ToList()), StringComparer.OrdinalIgnoreCase)
+            : [];
 
         // 推した理由（アバターの管理の「変換」だけ・ユーザ判断 2026-11-09）。見回りと同じ推し方をその場で回し、手掛かりを文にする
         var suggestions = ShowsReasons && item is not null
@@ -198,6 +211,22 @@ public sealed class ItemConversionEditor : ViewModelBase
             .Where(target => !profiles.Any(profile => string.Equals(profile.Slug, target.Slug, StringComparison.OrdinalIgnoreCase)))
             .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target))));
 
+        foreach (var row in rows)
+        {
+            row.SourceText = sources.GetValueOrDefault(row.ProfileText) ?? string.Empty;
+        }
+
+        // 全部の行が同じファイルの物なら、見出しの下に1回だけ出す（同じ文が行ごとに並ぶと読みにくい。ほとんどの商品はファイル1つ）
+        var distinctSources = rows.Select(row => row.SourceText).Where(text => text.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        CommonSourceText = distinctSources.Count == 1 && rows.All(row => row.SourceText.Length > 0) ? distinctSources[0] : string.Empty;
+        if (CommonSourceText.Length > 0)
+        {
+            foreach (var row in rows)
+            {
+                row.SourceText = string.Empty;
+            }
+        }
+
         Rows = rows;
         UnconfirmedTargets = targets.Where(target => !target.Confirmed).ToList();
         StateText = (setting?.Mode ?? ConversionMode.Auto) switch
@@ -236,6 +265,26 @@ public sealed class ItemConversionEditor : ViewModelBase
         => itemId => AvatarImageSync.IconPath(services.Paths, itemId, main.Search.FindItem(itemId), services.Settings.ShowRemovedBoothImages) is { } path
             ? main.Thumbnails.LoadForCard(path)
             : null;
+
+    /// <summary>
+    /// 入っているファイルを1行に：「profile.zip の Profile.unitypackage」（unitypackage をそのまま置いた物は名前1つ）。
+    /// 同じプロファイルが何個もの unitypackage に入っていれば、1つ目と「ほか n 個」（FBX の場所だけ違えて配る物で、全部並べると長い）。
+    /// </summary>
+    internal static string SourceText(IReadOnlyList<ProfileSource> sources)
+    {
+        var places = sources
+            .Select(source => string.IsNullOrEmpty(source.FileName) || string.Equals(source.FileName, source.PackageName, StringComparison.OrdinalIgnoreCase)
+                ? source.PackageName
+                : $"{source.FileName} の {source.PackageName}")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return places.Count switch
+        {
+            0 => string.Empty,
+            1 => "入っているファイル：" + places[0],
+            _ => $"入っているファイル：{places[0]} ほか {places.Count - 1} 個",
+        };
+    }
 
     /// <summary>手掛かりを「商品の対応素体「A」・この商品がアバター本体」の形で並べる（同じ文は1つにまとめる）。</summary>
     internal static string CluesText(IReadOnlyList<ConversionClue> clues, IReadOnlyDictionary<string, string> names)
@@ -357,6 +406,8 @@ public sealed class ItemConversionEditor : ViewModelBase
     {
         OnPropertyChanged(nameof(ShowsConversion));
         OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(CommonSourceText));
+        OnPropertyChanged(nameof(HasCommonSource));
         OnPropertyChanged(nameof(Rows));
         OnPropertyChanged(nameof(TargetSuggestions));
         OnPropertyChanged(nameof(UnconfirmedCount));
@@ -385,6 +436,14 @@ public sealed class ConversionTargetRow
 
     /// <summary>推した理由（アバターの管理の「変換」だけ）。無ければ空。</summary>
     public string ReasonText { get; init; } = string.Empty;
+
+    /// <summary>
+    /// プロファイルが入っているファイル（「profile.zip の Profile.unitypackage」。ユーザ指示 2026-11-09：アバターとプロファイルのセット商品で、
+    /// アバター扱いと変換扱いのどちらの話か分かりにくかった）。中のファイルから見つからない行は空。
+    /// </summary>
+    public string SourceText { get; internal set; } = string.Empty;
+
+    public bool HasSource => SourceText.Length > 0;
 
     public bool HasReason => ReasonText.Length > 0;
 

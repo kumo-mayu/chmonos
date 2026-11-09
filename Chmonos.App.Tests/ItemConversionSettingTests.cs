@@ -93,6 +93,9 @@ public class ItemConversionSettingTests
         var open = Assert.Single(page.Conversion.Rows, row => row.ProfileText == "fakeaoi");
         Assert.False(open.HasTarget);
         Assert.Equal("順方向", open.DirectionText);
+        // どの行も同じファイルの物なので、見出しの下に1回だけ出し、行ごとには出さない
+        Assert.Equal("入っているファイル：profile.zip の Profile.unitypackage", page.Conversion.CommonSourceText);
+        Assert.All(page.Conversion.Rows, row => Assert.False(row.HasSource));
 
         var suggested = Assert.Single(page.Conversion.Rows, row => row.ProfileText == "fakebase");
         Assert.Equal("作り物の素体（共通素体）", suggested.TargetText);
@@ -207,4 +210,20 @@ public class ItemConversionSettingTests
         Assert.All(page.Conversion.Rows, row => Assert.True(row.HasTarget && row.IsUnconfirmed));
         Assert.Equal(2, page.Conversion.Rows.Count);
     });
+
+    [Fact]
+    public void 入っているファイルは_unitypackageをそのまま置いた物は名前1つ_何個もあれば1つ目とほかの数()
+    {
+        Assert.Equal(
+            "入っているファイル：Profile.unitypackage",
+            ItemConversionEditor.SourceText([new ProfileSource("fake", "Profile.unitypackage", "Profile.unitypackage")]));
+        Assert.Equal(
+            "入っているファイル：a.zip の A.unitypackage ほか 2 個",
+            ItemConversionEditor.SourceText(
+            [
+                new ProfileSource("fake", "A.unitypackage", "a.zip"),
+                new ProfileSource("fake", "B.unitypackage", "a.zip"),
+                new ProfileSource("fake", "C.unitypackage", "a.zip"),
+            ]));
+    }
 }

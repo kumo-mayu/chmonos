@@ -20,8 +20,13 @@
     </UserControl.Resources>
     <StackPanel>
         <TextBlock Text="変換扱い" Style="{StaticResource SectionLabel}" />
-        <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" Margin="0,3,0,8"
+        <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
                    AutomationProperties.AutomationId="ItemConversionState" />
+        <!-- 全部のプロファイルが同じファイルの物なら、ここに1回だけ（行ごとに同じ文を並べない） -->
+        <TextBlock Text="{Binding CommonSourceText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                   AutomationProperties.AutomationId="ItemConversionCommonSource"
+                   Visibility="{Binding HasCommonSource, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        <Border Height="8" />
         <!--
             ボタンの字は短くする（ユーザ判断 2026-11-09）。上に「変換扱い」の見出しがあるので「扱う」で通じる。
             右の列を狭くしても（列の幅 約370）3つが1行に入るように。前の長い字は約400 要り、3つ目が次の行に落ちて角がそろわなかった
@@ -150,6 +155,13 @@
                                                  Visibility="{Binding HasTarget, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </WrapPanel>
+                    <!--
+                        入っているファイル（ユーザ指示 2026-11-09：アバターとプロファイルのセット商品で、アバター扱いと変換扱いのどちらの話か分かりにくかった）。
+                        プロファイルの名前の下に、どの zip のどの unitypackage かを小さく出す
+                    -->
+                    <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,2"
+                               AutomationProperties.AutomationId="ItemConversionSource"
+                               Visibility="{Binding HasSource, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 推した理由（アバターの管理の「変換」だけ・ユーザ判断 2026-11-09）。名前の列の頭に揃えて、行の下に小さく出す -->
                     <TextBlock Text="{Binding ReasonText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,4"
                                AutomationProperties.AutomationId="ItemConversionReason"

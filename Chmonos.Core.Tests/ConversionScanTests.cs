@@ -66,6 +66,17 @@ public sealed class ConversionScanTests : IDisposable
     }
 
     [Fact]
+    public async Task プロファイルごとに_入っているunitypackageとファイルの名前を返す()
+    {
+        await SaveProfileItemAsync("9400001");
+        var item = (await _store.Items.LoadAsync("9400001"))!;
+
+        var source = Assert.Single(new ConversionScan(_store, _packages).ProfileSourcesOf(item));
+
+        Assert.Equal(new ProfileSource("kohaku", "Profile.unitypackage", "profile.zip"), source);
+    }
+
+    [Fact]
     public async Task 手元のプロファイルから_つなぎ先を確認待ちで書く()
     {
         await SaveProfileItemAsync("9400001");

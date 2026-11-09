@@ -3,6 +3,9 @@ using Chmonos.Core.Storage;
 
 namespace Chmonos.Core.Services;
 
+/// <summary>プロファイル1つが入っている所：unitypackage の名前と、それを含む手元のファイル（zip か unitypackage そのもの）の名前。</summary>
+public sealed record ProfileSource(string Slug, string PackageName, string FileName);
+
 /// <summary>
 /// 手元の商品の中から変換ツールのプロファイルを見つけ、つなぎ先を推して、変換扱いに**確認待ち**として書く（<c>docs/spec/conversion.md</c>「判定」）。
 ///
@@ -39,6 +42,38 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
         }
 
         return ProfileFiles.Scan(paths);
+    }
+
+    /// <summary>
+    /// プロファイル（slug）ごとに、入っている unitypackage と、それを含む手元のファイルの名前（ユーザ指示 2026-11-09：
+    /// アバターとプロファイルのセット商品では、アバター扱いと変換扱いのどちらの話か分かりにくいので、どのファイルの物かを添える）。
+    /// 同じ slug が複数の unitypackage に入っていれば（FBX の場所だけ違えて配る物）全部返す。
+    /// </summary>
+    public IReadOnlyList<ProfileSource> ProfileSourcesOf(ItemRecord item)
+    {
+        var sources = new List<ProfileSource>();
+        foreach (var file in item.Local.LocalFiles)
+        {
+            if (file.Detached
+                || file.UnityPackages is not { } summaries
+                || !ProfileFiles.MayHoldProfiles(summaries.SelectMany(summary => summary.Roots))
+                || packages.Load(file.Hash) is not { } stored)
+            {
+                continue;
+            }
+
+            var fileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0]) : string.Empty;
+            foreach (var (entry, assets) in stored)
+            {
+                var packageName = Path.GetFileName(entry.Replace('\\', '/').TrimEnd('/'));
+                foreach (var profile in ProfileFiles.Scan(assets.Select(asset => asset.Path)))
+                {
+                    sources.Add(new ProfileSource(profile.Slug, packageName, fileName));
+                }
+            }
+        }
+
+        return sources;
     }
 
     /// <summary>
