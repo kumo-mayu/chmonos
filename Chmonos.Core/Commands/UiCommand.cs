@@ -364,6 +364,18 @@ public abstract record UiCommand
     /// <summary>Unityプロジェクトを紐付ける。null で外す</summary>
     public record SetModificationProject(string Id, string? Path) : UiCommand;
 
+    /// <summary>
+    /// 使ったものの更新の促しに、この改変で「確認した」を押す（改変ごと・ユーザ判断 2026-11-09・<c>docs/spec/used-updates.md</c>）。
+    /// その商品の行（外した行を除く）に今の日時を書く。後でまた更新が来れば、行の札はまた出る。
+    /// </summary>
+    public record CheckModificationUpdate(string Id, string ItemId) : UiCommand;
+
+    /// <summary>
+    /// 商品ページの「確認した」：中身の更新の促しを、この商品では消す（<c>docs/spec/used-updates.md</c>）。
+    /// 控えが無ければ何もしない。改変の行の札は改変ごとに確認するので、ここでは消さない。
+    /// </summary>
+    public record CheckContentUpdate(string ItemId) : UiCommand;
+
     /// <summary>使ったものを足す。**末尾に付く**（並びが導入の順）</summary>
     public record AddModificationMember(string Id, Models.ModificationMember Member) : UiCommand;
 

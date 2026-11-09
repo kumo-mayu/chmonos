@@ -152,7 +152,15 @@ public sealed class ModificationRepository
         {
             _cache.TryRemove(record.Id, out _);
         }
+
+        Written?.Invoke();
     }
+
+    /// <summary>
+    /// 改変を書いた・消したとき（錠の中から来る。受け手は重い事をせず、裏へ回す）。
+    /// 使っている商品の見張りが、改変の数を数え直すために聞く（改変の画面・Unity からの受け取り・API のどこから書いても届くように、置き場で知らせる）。
+    /// </summary>
+    public event Action? Written;
 
     /// <summary>
     /// 1件を読み直して書き換える。**読んでから書くまでを錠の中に入れる。**
@@ -352,6 +360,8 @@ public sealed class ModificationRepository
         {
             gate.Release();
         }
+
+        Written?.Invoke();
     }
 
     private void DeleteLocked(string id, string file, string images)

@@ -283,6 +283,14 @@
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="外した" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
+                                                    <!-- 使ったファイルより新しい版が出ている行（docs/spec/used-updates.md・行ごと・ユーザ判断 2026-11-09） -->
+                                                    <Border DockPanel.Dock="Left" BorderBrush="{DynamicResource Warn}" BorderThickness="1" CornerRadius="4" Padding="6,1"
+                                                            Margin="0,0,8,0" VerticalAlignment="Center"
+                                                            AutomationProperties.AutomationId="ModificationMemberBehind"
+                                                            ToolTip="使ったファイルより新しい版があります。"
+                                                            Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="新しい版あり" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                    </Border>
                                                     <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                 </DockPanel>
@@ -339,6 +347,12 @@
                                                             ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <!-- 新しい版の札を、この改変では消す（今の版のまま使う。改変ごと・ユーザ判断 2026-11-09） -->
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberCheckUpdate" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の新しい版を確認した}" Content="確認した" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
+                                                            ToolTip="この改変では今の版のまま使います。"
+                                                            Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.CheckMemberUpdateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <!-- 外した行だけ：戻す／完全に消す（ユーザ指示 2026-09-19：改変ではもう一段、紐付けを完全に解く削除を置く） -->
                                                     <Button AutomationProperties.AutomationId="ModificationMemberRestore" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を戻す}" Content="戻す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"

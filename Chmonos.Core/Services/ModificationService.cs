@@ -39,6 +39,9 @@ public interface IModificationService
 
     Task<bool> SetMemoAsync(string id, string? memo, CancellationToken cancellationToken = default);
 
+    /// <summary>使ったものの更新の促しに、この改変で「確認した」を押す。その商品の行（外した行を除く）に日時を書く。</summary>
+    Task<bool> CheckUpdateAsync(string id, string itemId, DateTimeOffset now, CancellationToken cancellationToken = default);
+
     /// <summary>VRChat の blueprint ID（<c>avtr_…</c>）。空なら外す。</summary>
     Task<bool> SetBlueprintIdAsync(string id, string? blueprintId, CancellationToken cancellationToken = default);
 
@@ -270,6 +273,17 @@ public sealed class ModificationService : IModificationService
             ? Task.FromResult(false)
             : UpdateAsync(id, record => record with { Name = trimmed }, cancellationToken);
     }
+
+    public Task<bool> CheckUpdateAsync(string id, string itemId, DateTimeOffset now, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record => record with
+            {
+                Members = record.Members
+                    .Select(member => member.ItemId == itemId && !member.Detached ? member with { UpdateCheckedAt = now } : member)
+                    .ToList(),
+            },
+            cancellationToken);
 
     public Task<bool> SetMemoAsync(string id, string? memo, CancellationToken cancellationToken = default)
         => UpdateAsync(

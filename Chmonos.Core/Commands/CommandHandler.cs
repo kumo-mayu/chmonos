@@ -829,6 +829,27 @@ public sealed class CommandHandler
                     () => _modifications!.RenameAsync(rename.Id, rename.Name, cancellationToken),
                     "名前を入れてください。");
 
+            case UiCommand.CheckModificationUpdate checkUpdate:
+                return await RunModificationAsync(
+                    () => _modifications!.CheckUpdateAsync(checkUpdate.Id, checkUpdate.ItemId, DateTimeOffset.Now, cancellationToken));
+
+            case UiCommand.CheckContentUpdate checkContent:
+                if (_edit is null)
+                {
+                    return MissingService("更新の確認");
+                }
+
+                var checkedAt = DateTimeOffset.Now;
+                return await _edit.ChangeLocalAsync(
+                        checkContent.ItemId,
+                        local => local.ContentUpdate is { CheckedAt: null } update
+                            ? local with { ContentUpdate = update with { CheckedAt = checkedAt } }
+                            : local,
+                        Models.LocalOwners.ContentUpdate,
+                        cancellationToken)
+                    ? new CommandResult.ItemSaved(checkContent.ItemId)
+                    : ItemMissing();
+
             case UiCommand.SetModificationMemo memo:
                 return await RunModificationAsync(
                     () => _modifications!.SetMemoAsync(memo.Id, memo.Memo, cancellationToken));

@@ -137,6 +137,36 @@
         </Border>
 
         <!--
+            使っている商品に新しい版が出たら促す帯（docs/spec/used-updates.md・ユーザ判断 2026-11-06）。
+            既読とは別：通知を読んでも、新しい版を取り込むか「確認した」を押すまで残す。高さは下の帯と同じ1行
+        -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Border BorderThickness="3,0,0,0" BorderBrush="{DynamicResource Warn}" Margin="20,8" Padding="10,0,0,0" Height="28">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding UsedUpdateText}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding UsedUpdateText}" AutomationProperties.AutomationId="ItemUsedUpdateText" />
+                    <Button Grid.Column="1" Content="更新履歴を見る" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemShowUpdateHistory"
+                            Command="{Binding ShowUpdateHistoryCommand}"
+                            Visibility="{Binding HasUpdateHistorySection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="説明文の更新履歴までスクロールします。" />
+                    <Button Grid.Column="2" Content="確認した" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemCheckContentUpdate"
+                            Command="{Binding CheckContentUpdateCommand}"
+                            ToolTip="この帯を消します。次の更新でまた出ます。" />
+                </Grid>
+            </Border>
+        </Border>
+
+        <!--
             BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
             流す本文の外に置くのは、下へ流しても「既読にする」に届くように。
             変わった所を並べ、押すとそこまで流す（メモ17⑤）。**帯の高さは1行に決める**：並びは折り返さず、入り切らない分は

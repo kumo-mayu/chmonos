@@ -122,6 +122,9 @@ public sealed partial class MainViewModel : ViewModelBase
         UsedItems = new UsedItemsWatch(_services, () => Search.SnapshotItems());
         Search.ItemsLoaded += (_, _) => UsedItems.RequestAsync().Forget();
 
+        // 改変を書いたら改変の数だけ数え直す（錠の中から来るので、裏へ回す。プロジェクトは調べ直さない）
+        _services.Store.Modifications.Written += () => Task.Run(() => UsedItems.NoteModificationsChangedAsync()).Forget();
+
         // 起動したときの作業はプロセスで1回だけ。画面の無い起動の後に窓を開いたときは済んでいるので、起動時だけの自動の取り込みもしない
         var launched = _services.Startup.Start();
         StartWatchScan(launched);

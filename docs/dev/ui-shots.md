@@ -88,6 +88,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 変換経由の段（持っているプロファイルで変換できる見込みのアバター） | `item-page-avatars-via-conversion` |
 | 変換扱いの欄（確認したつなぎ先・確認待ち・選ぶ欄。狭い幅では3択と行が折り返す） | `item-page-conversion-setting` |
 | アバターの管理の変換（決めていない・決めた・扱わないの群と、右の変換扱いの欄・次へ進むボタン） | `avatars-conversion` |
+| 使っている商品の新しい版の帯（改変2件で使っている・更新履歴を見る・確認した） | `item-page-used-update` |
 | 推した通りにまとめて決める窓（商品ごとの見出しとチェック） | `catalog-dialog-confirm-conversions` |
 | 検索の条件「プロファイル」（変換元・変換先の2欄・着せるプロファイルが無いと言う1行・チェック4つ） | `search-profile` |
 | 手元のファイルの状態（在る・壊れた・見つからない・外したドライブ・2箇所） | `item-files-states` |

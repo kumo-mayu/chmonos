@@ -156,6 +156,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // 変わった所の印（メモ7-①）。開く時点で当てる（後から当てると上の帯が後から現れて本文を押し下げる。メモ17）。
         // 編集画面の中では出さない（入力の場で、既読の操作を混ぜない）
         LoadChanges();
+        ListenToUsedItems();
     }
 
     public ItemRecord Item { get; private set; }

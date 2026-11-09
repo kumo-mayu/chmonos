@@ -73,6 +73,9 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
 
     public bool IsUsed => !Member.Detached;
 
+    /// <summary>使ったファイルより新しい版が出ている行（<see cref="Core.Services.UsedUpdates.IsMemberBehind"/>）。</summary>
+    public bool IsBehind { get; init; }
+
     // **端では矢印を押せなくする。**押せるのに何も起きないボタンは嘘になる。
     // 前・後ろは見えている並びの向き（逆の順なら、見えている前＝記録の後ろ）
     public bool CanMoveBack => Reversed ? Index < Total - 1 : Index > 0;
@@ -1425,6 +1428,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 // 手元に無くても記録は残す。そのとき使ったのは事実
                 IsMissing = item is null || !item.IsOwned,
 
+                // 使ったファイルより新しい版が出ているか（行ごと・docs/spec/used-updates.md）
+                IsBehind = item is not null && UsedUpdates.IsMemberBehind(item, member),
+
                 VariationText = VariationLabel(member, item),
 
                 Card = item is null ? null : _main.Search.CreateCard(item),
@@ -1784,6 +1790,29 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// 前は外すと確かめずに行ごと消え、どのファイル・どの unitypackage を使ったかの記録も戻らなかった（動線の洗い出し B1）。
     /// 印を付けるだけなので確かめない（戻せる）
     /// </summary>
+    /// <summary>新しい版の札を、この改変では消す（今の版のまま使う。改変ごと・ユーザ判断 2026-11-09）。</summary>
+    public RelayCommand CheckMemberUpdateCommand => _checkMemberUpdate ??= new RelayCommand(
+        parameter => CheckMemberUpdateAsync(parameter as ModificationMemberRowViewModel).Forget(),
+        parameter => parameter is ModificationMemberRowViewModel { IsBehind: true });
+
+    private RelayCommand? _checkMemberUpdate;
+
+    private async Task CheckMemberUpdateAsync(ModificationMemberRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.CheckModificationUpdate(Record.Id, row.Member.ItemId));
+        if (result is CommandResult.Failed failed)
+        {
+            MembersNotice.Set(failed.Message, true);
+        }
+
+        await ReloadAsync();
+    }
+
     private async Task SetMemberDetachedAsync(ModificationMemberRowViewModel? row, bool detached)
     {
         if (row is null)

@@ -41,10 +41,24 @@ public sealed class UsedItemsWatch
     public event EventHandler? Changed;
 
     /// <summary>調べ直しを頼む（起動の後・窓に戻ったとき・改変を書いたとき）。重なった依頼は1回にまとめる。</summary>
-    public Task RequestAsync(CancellationToken cancellationToken = default) => _refresh.RequestAsync(cancellationToken);
+    public Task RequestAsync(CancellationToken cancellationToken = default)
+    {
+        Interlocked.Exchange(ref _scanRequested, 1);
+        return _refresh.RequestAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// 改変を書いたとき：改変だけ読み直す（プロジェクトは調べ直さない）。改変の画面で足す・外すたびに、
+    /// 開いているプロジェクトを数秒かけて調べ直さないため。
+    /// </summary>
+    public Task NoteModificationsChangedAsync(CancellationToken cancellationToken = default) => _refresh.RequestAsync(cancellationToken);
+
+    /// <summary>プロジェクトを調べ直す依頼が来ているか（1＝来ている）。改変だけの依頼と1回にまとまったときも、来ていれば調べる。</summary>
+    private int _scanRequested;
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
+        var scan = Interlocked.Exchange(ref _scanRequested, 0) == 1;
         var modifications = (await _services.Store.Modifications.LoadAllAsync(cancellationToken)).Modifications;
         var open = await Task.Run(OpenProjects, cancellationToken);
         var targets = modifications
@@ -78,8 +92,14 @@ public sealed class UsedItemsWatch
         // 検索の写しを読み終える前は商品が無い。ここで調べると「何も入っていない」を調べ済みにしてしまうので、控えのまま待つ
         // （読み終えると検索が知らせて、また頼まれる）
         var owned = _items().Where(item => item.IsOwned).ToList();
-        if (owned.Count == 0)
+        if (!scan || owned.Count == 0)
         {
+            // 調べなかった依頼は、次の依頼で調べる（読み終える前の依頼を落とさない）
+            if (scan)
+            {
+                Interlocked.Exchange(ref _scanRequested, 1);
+            }
+
             return;
         }
 
@@ -97,13 +117,13 @@ public sealed class UsedItemsWatch
                 continue;
             }
 
-            var scan = await Task.Run(() => ScanOrNull(project, owned, cancellationToken), cancellationToken);
+            var result = await Task.Run(() => ScanOrNull(project, owned, cancellationToken), cancellationToken);
             lock (_sync)
             {
                 _scanned.Add(project);
-                if (scan is not null)
+                if (result is not null)
                 {
-                    _scans[project] = scan;
+                    _scans[project] = result;
                 }
             }
 
