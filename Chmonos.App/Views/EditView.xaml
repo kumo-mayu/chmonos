@@ -675,10 +675,21 @@
                         手元のファイルの欄は、外す・フォルダの登録を外す・エクスプローラで開くだけを出す
                         （Unityへ送る・展開して開くは商品ページ。編集画面はJSONに関わる操作と確かめたいものを見せる所）
                     -->
-                    <views:ItemAvatarsPanel DataContext="{Binding ItemPage}" />
-                    <views:ItemFilesPanel DataContext="{Binding ItemPage}" />
+                    <!--
+                        最初の画面に見えないときは、次の商品へ移った後、絵を出してから作る（商品ページと同じ DeferredSection・2026-11-09）。
+                        900×800 の窓で次の商品へ移るのが約20ms（対応207体で約131→約106ms）速くなった。大きい窓では欄が最初の画面に入るので変わらない。
+                        中身の DataContext は入れ物が渡す（中身に直に結ぶと、移るたびにその場で作り直す）
+                    -->
+                    <controls:DeferredSection DataContext="{Binding ItemPage}">
+                        <views:ItemAvatarsPanel />
+                    </controls:DeferredSection>
+                    <controls:DeferredSection DataContext="{Binding ItemPage}">
+                        <views:ItemFilesPanel />
+                    </controls:DeferredSection>
                     <!-- 説明文に載っている YouTube の動画。商品ページと同じ部品（ユーザ判断 2026-09-29） -->
-                    <views:ItemVideosPanel DataContext="{Binding ItemPage}" />
+                    <controls:DeferredSection DataContext="{Binding ItemPage}">
+                        <views:ItemVideosPanel />
+                    </controls:DeferredSection>
 
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
                         <StackPanel>
