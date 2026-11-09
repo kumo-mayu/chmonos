@@ -193,8 +193,7 @@ public sealed class ListModule : SearchModule
         string? includeLabel = null,
         Func<ItemRecord, SearchModuleContext, bool, bool>? includeMatches = null,
         Func<string, string>? matchKey = null,
-        Func<SearchModuleContext, bool>? includeApplies = null,
-        Func<ItemRecord, SearchModuleContext, bool>? emptyMatches = null)
+        Func<SearchModuleContext, bool>? includeApplies = null)
         : base(kind)
     {
         _matchKey = matchKey;
@@ -209,7 +208,6 @@ public sealed class ListModule : SearchModule
         _flagDefault = flagDefault;
         _flag = flagDefault;
         _isUnspecified = isUnspecified;
-        _emptyMatches = emptyMatches;
     }
 
     public ObservableCollection<string> Suggestions { get; } = [];
@@ -329,37 +327,10 @@ public sealed class ListModule : SearchModule
         }
     }
 
-    /// <summary>値を選んでいないときに当てる決まり（条件「プロファイル」：プロファイルの商品すべて）。無い種類は選ぶまで絞らない。</summary>
-    private readonly Func<ItemRecord, SearchModuleContext, bool>? _emptyMatches;
-
-    private bool _includeUnconfirmed = true;
-
-    /// <summary>条件「プロファイル」の「確認待ちも含める」を出すか。</summary>
-    public bool HasIncludeUnconfirmed => Kind == SearchModuleKind.Profile;
-
-    /// <summary>
-    /// 条件「プロファイル」の「確認待ちも含める」（既定は入・ユーザ判断 2026-11-09）。切ると、人が確認したつなぎ先だけで当てる。
-    /// 名前で持つ（<see cref="SearchModuleConditions.IncludeUnconfirmedToggle"/>）
-    /// </summary>
-    public bool IncludeUnconfirmed
-    {
-        get => _includeUnconfirmed;
-        set
-        {
-            if (SetField(ref _includeUnconfirmed, value))
-            {
-                NotifyChanged();
-            }
-        }
-    }
-
     /// <summary>照らす決まり。切り替えは、保存した状態から作る条件（<see cref="SearchModuleConditions.From"/>）と同じに重ねる</summary>
-    private Func<ItemRecord, SearchModuleContext, string, bool, bool> EffectiveMatches => Kind switch
-    {
-        SearchModuleKind.Avatar => SearchModuleConditions.AvatarMatches(_matches, _viaConversion, _ownedVariationsOnly),
-        SearchModuleKind.Profile => SearchModuleConditions.ProfileMatches(_includeUnconfirmed),
-        _ => _matches,
-    };
+    private Func<ItemRecord, SearchModuleContext, string, bool, bool> EffectiveMatches => Kind == SearchModuleKind.Avatar
+        ? SearchModuleConditions.AvatarMatches(_matches, _viaConversion, _ownedVariationsOnly)
+        : _matches;
 
     /// <summary>
     /// 「出すもの」の2つのチェックを出すか（対応アバターだけ）。
@@ -602,7 +573,7 @@ public sealed class ListModule : SearchModule
     /// （足した直後に、何も選んでいないのに「指定が無い商品」が消えるのを避ける）。
     /// </summary>
     protected override bool HasCondition
-        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn && !IncludeUnavailable) || _emptyMatches is not null;
+        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn && !IncludeUnavailable);
 
     protected override ItemCondition BuildCondition()
         => new ListCondition(
@@ -616,8 +587,7 @@ public sealed class ListModule : SearchModule
             _includeMatches,
             HasInclude && _includeOn,
             _matchKey,
-            _includeApplies,
-            _emptyMatches);
+            _includeApplies);
 
     /// <summary>
     /// 照らすときに <c>matches</c> へ渡す鍵。畳む決まり（<c>matchKey</c>）があれば、チップごとに1回だけ畳んで覚える（案c）。
@@ -640,16 +610,8 @@ public sealed class ListModule : SearchModule
             }
 
             var values = Chips.Select(chip => chip.Text)
-                .Concat(HasInclude && _includeOn ? [_includeLabel!] : Array.Empty<string>())
-                .ToList();
-            if (values.Count == 0 && _emptyMatches is not null)
-            {
-                // 選ぶ前はつなぎ先を見ない（プロファイルの商品かどうかだけ）ので、確認待ちの切り替えは書かない
-                return "プロファイルの商品すべて";
-            }
-
+                .Concat(HasInclude && _includeOn ? [_includeLabel!] : Array.Empty<string>());
             return JoinValues(values, _matchAll && AllowsAnd)
-                + (HasIncludeUnconfirmed && !_includeUnconfirmed ? "（確認したものだけ）" : string.Empty)
                 + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
                 + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty)
                 + (HasOwnedVariations && _viaConversion ? "（変換で使える物も含める）" : string.Empty)
@@ -667,8 +629,6 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(OwnedVariationsOnly));
         _viaConversion = false;
         OnPropertyChanged(nameof(ViaConversion));
-        _includeUnconfirmed = true;
-        OnPropertyChanged(nameof(IncludeUnconfirmed));
         _showUnspecified = false;
         _includeOn = false;
         OnPropertyChanged(nameof(MatchAll));
@@ -725,9 +685,7 @@ public sealed class ListModule : SearchModule
                     [SearchModuleConditions.OwnedVariationsToggle] = _ownedVariationsOnly,
                     [SearchModuleConditions.ViaConversionToggle] = _viaConversion,
                 }
-                : Kind == SearchModuleKind.Profile
-                    ? new Dictionary<string, bool> { [SearchModuleConditions.IncludeUnconfirmedToggle] = _includeUnconfirmed }
-                    : state.Toggles,
+                : state.Toggles,
         };
 
     protected override void Read(SearchModuleState state)
@@ -747,13 +705,6 @@ public sealed class ListModule : SearchModule
         _viaConversion = Kind == SearchModuleKind.Avatar
             && state.Toggles is { } conversionToggles && conversionToggles.TryGetValue(SearchModuleConditions.ViaConversionToggle, out var viaConversion) && viaConversion;
         OnPropertyChanged(nameof(ViaConversion));
-
-        // 確認待ちも含めるは既定が入なので、状態に書いていなければ入
-        _includeUnconfirmed = Kind != SearchModuleKind.Profile
-            || state.Toggles is not { } profileToggles
-            || !profileToggles.TryGetValue(SearchModuleConditions.IncludeUnconfirmedToggle, out var includeUnconfirmed)
-            || includeUnconfirmed;
-        OnPropertyChanged(nameof(IncludeUnconfirmed));
 
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
         _showUnspecified = HasGroups && state.ShowUnspecified;

@@ -375,6 +375,18 @@ public sealed partial class SearchViewModel
         return (item, key, flag) => matches(item, SearchModuleContext.Unused, key, flag);
     }
 
+    /// <summary>
+    /// 条件「プロファイル」の欄1つ（変換元・変換先）。候補・札は対応アバターと同じ部品で、照らすのは持ち主（<see cref="ProfileModule"/>）。
+    /// この部品の照らし方は使わない（向きを持たないため）
+    /// </summary>
+    private ListModule ProfileSide(string placeholder) => new(SearchModuleKind.Profile, allowsAnd: false, placeholder,
+        "アバターがまだ見つかっていません。アバターの管理から検出できます。", (_, _, _, _) => false)
+    {
+        IconSelector = AvatarIconSelector,
+        InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
+        GroupHeadings = AvatarSuggestionText.Headings,
+    };
+
     private static Func<ItemRecord, SearchModuleContext, string, bool, bool> ListMatches(SearchModuleKind kind)
         => SearchModuleConditions.ListOf(kind)!.Matches;
 
@@ -403,6 +415,10 @@ public sealed partial class SearchViewModel
         {
             case ListModule list:
                 list.SetSuggestions(CandidatesFor(list.Kind));
+                break;
+            case ProfileModule profile:
+                profile.Source.SetSuggestions(CandidatesFor(SearchModuleKind.Profile));
+                profile.Destination.SetSuggestions(CandidatesFor(SearchModuleKind.Profile));
                 break;
             case AttributeModule attribute:
                 attribute.SetNames(_attributeNames);
@@ -816,17 +832,9 @@ public sealed partial class SearchViewModel
             GroupHeadings = AvatarSuggestionText.Headings,
         },
 
-        // 変換ツールのプロファイル（ユーザ判断 2026-11-09）。候補は対応アバターと同じ（アバターと共通素体）。
-        // 何も選ばないときはプロファイルの商品すべて。素体経由・確認待ちは既定で含める（探すための条件なので広めに出す）
-        SearchModuleKind.Profile => new ListModule(kind, allowsAnd: true, "名前、ID、素体で絞り込む",
-            "アバターがまだ見つかっていません。アバターの管理から検出できます。", ListMatches(kind),
-            "素体経由を含める", flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
-            emptyMatches: SearchModuleConditions.ListOf(kind)!.EmptyMatches)
-        {
-            IconSelector = AvatarIconSelector,
-            InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
-            GroupHeadings = AvatarSuggestionText.Headings,
-        },
+        // 変換ツールのプロファイル（ユーザ判断 2026-11-09・案B）。「変換元」（逆方向）と「変換先」（順方向）の2つの欄。
+        // 欄の候補は対応アバターと同じ（アバターと共通素体）。何も選ばないときはプロファイルの商品すべて
+        SearchModuleKind.Profile => new ProfileModule(ProfileSide("変換元のアバターか共通素体"), ProfileSide("変換先のアバターか共通素体")),
 
         SearchModuleKind.Favorite => new ChoiceModule(kind,
             [new("favorite", "お気に入りのみ"), new("other", "お気に入り以外のみ"), new("both", "両方")],

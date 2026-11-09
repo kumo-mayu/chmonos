@@ -52,13 +52,16 @@ public sealed partial class SearchViewModel
 
     /// <summary>
     /// このアバターに関連するプロファイルの商品だけを出す（ユーザ判断 2026-11-09：アバターの管理の詳細と、アバターの商品ページからの導線）。
-    /// 条件「プロファイル」に、このアバターを入れる。素体経由・確認待ちは条件の既定（どちらも入）のまま
+    /// 条件「プロファイル」の変換元と変換先の両方に、このアバターを入れる：このアバターの逆方向（このアバター用の衣装を持っていく）と
+    /// 順方向（このアバターに着せる）の両方が出る。素体経由・確認待ちは条件の既定（どちらも入）のまま
     /// </summary>
     public void ShowProfilesOf(string avatarItemId, string displayName)
     {
         ClearFilters(apply: false);
-        EnsureModule<ListModule>(SearchModuleKind.Profile)
-            .AddKey(AvatarKey + avatarItemId, notify: false, text: AvatarSuggestionText.Format(displayName, avatarItemId));
+        var module = EnsureModule<ProfileModule>(SearchModuleKind.Profile);
+        var text = AvatarSuggestionText.Format(displayName, avatarItemId);
+        module.AddQuietly(toSource: true, AvatarKey + avatarItemId, text);
+        module.AddQuietly(toSource: false, AvatarKey + avatarItemId, text);
         FinishShowOnly();
     }
 

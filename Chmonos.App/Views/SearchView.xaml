@@ -959,14 +959,6 @@
                                             対応アバターだけ。持っているプロファイルで変換できる見込みの商品も当てる（docs/spec/conversion.md「検索」・ユーザ判断 2026-11-06：
                                             「素体経由の対応も含める」の隣・既定は切。入にすると、更新しただけで今の絞り込みの結果が増える）
                                         -->
-                                        <!-- 条件「プロファイル」だけ。自動で推したつなぎ先も当てるか（ユーザ判断 2026-11-09・既定は入） -->
-                                        <CheckBox IsChecked="{Binding IncludeUnconfirmed, Mode=TwoWay}" Margin="0,4,0,0"
-                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeUnconfirmed'}"
-                                                  AutomationProperties.Name="確認待ちも含める"
-                                                  ToolTip="自動で推して、まだ確認していないつなぎ先も含めます。"
-                                                  Visibility="{Binding HasIncludeUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="確認待ちも含める" FontSize="12" Foreground="{DynamicResource Text}" />
-                                        </CheckBox>
                                         <CheckBox IsChecked="{Binding ViaConversion, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ViaConversion'}"
                                                   AutomationProperties.Name="変換で使える物も含める"
@@ -1013,6 +1005,79 @@
                                                          Foreground="{DynamicResource Text}" />
                                           </CheckBox>
                                       </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+
+                                <!--
+                                    条件「プロファイル」（ユーザ判断 2026-11-09・docs/spec/conversion.md「検索」の案B）。
+                                    「変換元」は逆方向、「変換先」は順方向で当てる。欄の候補と札は対応アバターと同じ部品（中の ListModule）。
+                                    両方に入れたら、どちらの向きが手元に無いかを1行で言う
+                                -->
+                                <DataTemplate DataType="{x:Type vm:ProfileModule}">
+                                    <StackPanel>
+                                        <TextBlock Text="変換元" Style="{StaticResource Caption}" Margin="0,0,0,3" />
+                                        <controls:SuggestBox Source="{Binding Source.Suggestions}" AllowNew="False"
+                                                             CommitCommand="{Binding Source.AddCommand}" Placeholder="{Binding Source.Placeholder}"
+                                                             IconSelector="{Binding Source.IconSelector}" InfoSelector="{Binding Source.InfoSelector}" GroupHeadings="{Binding Source.GroupHeadings}"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Source'}"
+                                                             AutomationProperties.Name="変換元のアバターか共通素体"
+                                                             ToolTip="衣装が対応しているアバターです。逆方向のプロファイルで当てます。" />
+                                        <controls:ContentItemsControl ItemsSource="{Binding Source.Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,6,0,0" Focusable="False"
+                                                                      ItemTemplate="{StaticResource SearchChipTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </controls:ContentItemsControl>
+
+                                        <TextBlock Text="変換先" Style="{StaticResource Caption}" Margin="0,8,0,3" />
+                                        <controls:SuggestBox Source="{Binding Destination.Suggestions}" AllowNew="False"
+                                                             CommitCommand="{Binding Destination.AddCommand}" Placeholder="{Binding Destination.Placeholder}"
+                                                             IconSelector="{Binding Destination.IconSelector}" InfoSelector="{Binding Destination.InfoSelector}" GroupHeadings="{Binding Destination.GroupHeadings}"
+                                                             AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Destination'}"
+                                                             AutomationProperties.Name="変換先のアバターか共通素体"
+                                                             ToolTip="着せたいアバターです。順方向のプロファイルで当てます。" />
+                                        <controls:ContentItemsControl ItemsSource="{Binding Destination.Chips}" controls:ArrowGroup.IsEnabled="True" Margin="0,6,0,0" Focusable="False"
+                                                                      ItemTemplate="{StaticResource SearchChipTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </controls:ContentItemsControl>
+
+                                        <!-- 両方の欄に入れたときだけ：変換に要るプロファイルがそろっているか（手元の全部で見る） -->
+                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Status'}"
+                                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                        <CheckBox IsChecked="{Binding ViaBase, Mode=TwoWay}" Margin="0,8,0,0"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
+                                                  AutomationProperties.Name="素体経由を含める"
+                                                  ToolTip="選んだアバターの共通素体のプロファイルも含めます。">
+                                            <TextBlock Text="素体経由を含める" FontSize="12" Foreground="{DynamicResource Text}" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding IncludeUnconfirmed, Mode=TwoWay}" Margin="0,4,0,0"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeUnconfirmed'}"
+                                                  AutomationProperties.Name="確認待ちも含める"
+                                                  ToolTip="自動で推して、まだ確認していないつなぎ先も含めます。">
+                                            <TextBlock Text="確認待ちも含める" FontSize="12" Foreground="{DynamicResource Text}" />
+                                        </CheckBox>
+                                        <!-- 片方の欄だけ入れたときに効く（ユーザ判断 2026-11-09・既定は切）。効かない間は押せなくし、場所は残す -->
+                                        <CheckBox IsChecked="{Binding ShowCounterpart, Mode=TwoWay}" Margin="0,4,0,0"
+                                                  IsEnabled="{Binding CounterpartApplies}" ToolTipService.ShowOnDisabled="True"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Counterpart'}"
+                                                  AutomationProperties.Name="もう一方の候補も含める">
+                                            <CheckBox.Style>
+                                                <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                                                    <Setter Property="ToolTip" Value="空の欄の側に使えるプロファイルも表示します。" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="ToolTip" Value="片方の欄だけに入れると選べます。" />
+                                                            <Setter Property="Opacity" Value="0.45" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                            <TextBlock Text="もう一方の候補も含める" FontSize="12" Foreground="{DynamicResource Text}" />
+                                        </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>
 

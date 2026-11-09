@@ -297,40 +297,80 @@ public class ConversionTests
         Assert.False(Hits("avatar:9000002", viaConversion: true));
     }
 
-    // ---- 検索の条件「プロファイル」（ユーザ判断 2026-11-09） ----
+    // ---- 検索の条件「プロファイル」（ユーザ判断 2026-11-09・案B：変換元は逆方向、変換先は順方向） ----
 
-    private static bool ProfileHits(ItemRecord item, IReadOnlyList<string> keys, bool viaBase = true, bool includeUnconfirmed = true)
+    private static bool ProfileHits(
+        ItemRecord item,
+        IReadOnlyList<string> from,
+        IReadOnlyList<string> to,
+        bool viaBase = true,
+        bool includeUnconfirmed = true,
+        bool counterpart = false)
     {
         var context = new SearchModuleContext(() => Compat, ModificationUsage.Empty, RecentTimes.Empty, null, DateTimeOffset.Now) { Items = [item] };
         var condition = SearchModuleConditions.From(new SearchModuleState
         {
             Kind = "Profile",
-            Items = keys,
+            Items = [.. from.Select(key => SearchModuleConditions.SourceKey + key), .. to.Select(key => SearchModuleConditions.DestinationKey + key)],
             Flag = viaBase,
-            Toggles = new Dictionary<string, bool> { [SearchModuleConditions.IncludeUnconfirmedToggle] = includeUnconfirmed },
+            Toggles = new Dictionary<string, bool>
+            {
+                [SearchModuleConditions.IncludeUnconfirmedToggle] = includeUnconfirmed,
+                [SearchModuleConditions.CounterpartToggle] = counterpart,
+            },
         })!;
         condition.Prepare(context);
         return condition.IsActive && condition.Matches(item, context);
     }
 
+    private static readonly ItemRecord ForwardToTsumugi = Item("9200011", conversion: Profile(new ConversionTarget { AvatarItemId = "9000003", Forward = true, Confirmed = true }));
+    private static readonly ItemRecord ReverseFromTayuta = Item("9200012", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Reverse = true, Confirmed = true }));
+    private static readonly ItemRecord BothForBase = Item("9200013", conversion: Profile(new ConversionTarget { BaseName = "作り物素体", Forward = true, Reverse = true, Confirmed = true }));
+
     [Fact]
-    public void 条件プロファイルは_アバターを選ぶと_そのアバターとその素体につないだプロファイルに当たる()
+    public void 条件プロファイルは_変換先には順方向_変換元には逆方向で当たる()
     {
-        var toAvatar = Item("9200011", conversion: Profile(new ConversionTarget { AvatarItemId = "9000003", Forward = true, Confirmed = true }));
-        var toBase = Item("9200012", conversion: Profile(new ConversionTarget { BaseName = "作り物素体", Forward = true, Confirmed = true }));
-        var toOther = Item("9200013", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true, Confirmed = true }));
+        // 変換先だけ：ツムギに着せる順方向（ツムギ自身と、ツムギの素体の物）
+        Assert.True(ProfileHits(ForwardToTsumugi, [], ["avatar:9000003"]));
+        Assert.True(ProfileHits(BothForBase, [], ["avatar:9000003"]));
+        Assert.False(ProfileHits(ReverseFromTayuta, [], ["avatar:9000003"]));
 
-        Assert.True(ProfileHits(toAvatar, ["avatar:9000003"]));
-        Assert.True(ProfileHits(toBase, ["avatar:9000003"]));
-        Assert.False(ProfileHits(toOther, ["avatar:9000003"]));
+        // 変換元だけ：タユタ用の衣装を持っていく逆方向
+        Assert.True(ProfileHits(ReverseFromTayuta, ["avatar:9000001"], []));
+        Assert.False(ProfileHits(ForwardToTsumugi, ["avatar:9000001"], []));
 
-        // 素体経由を切ると、そのアバターにつないだ物だけ
-        Assert.False(ProfileHits(toBase, ["avatar:9000003"], viaBase: false));
+        // 逆方向しか無い物は、そのアバターを変換先に入れても当たらない
+        var reverseOnlyTsumugi = Item("9200014", conversion: Profile(new ConversionTarget { AvatarItemId = "9000003", Reverse = true, Confirmed = true }));
+        Assert.False(ProfileHits(reverseOnlyTsumugi, [], ["avatar:9000003"]));
+    }
 
-        // 素体を選ぶと、素体につないだ物と（素体経由が入なら）仲間のアバターにつないだ物
-        Assert.True(ProfileHits(toBase, ["base:作り物素体"]));
-        Assert.True(ProfileHits(toAvatar, ["base:作り物素体"]));
-        Assert.False(ProfileHits(toAvatar, ["base:作り物素体"], viaBase: false));
+    [Fact]
+    public void 条件プロファイルは_両方入れると_変換元の逆方向と変換先の順方向のどちらかに当たる物を出す()
+    {
+        Assert.True(ProfileHits(ReverseFromTayuta, ["avatar:9000001"], ["avatar:9000003"]));
+        Assert.True(ProfileHits(ForwardToTsumugi, ["avatar:9000001"], ["avatar:9000003"]));
+        Assert.False(ProfileHits(Item("9200015", conversion: Profile(new ConversionTarget { AvatarItemId = "9000002", Forward = true, Confirmed = true })),
+            ["avatar:9000001"], ["avatar:9000003"]));
+    }
+
+    [Fact]
+    public void 条件プロファイルは_素体経由を切ると素体のプロファイルを当てない()
+    {
+        Assert.False(ProfileHits(BothForBase, [], ["avatar:9000003"], viaBase: false));
+        Assert.True(ProfileHits(BothForBase, [], ["base:作り物素体"], viaBase: false));
+        Assert.True(ProfileHits(ForwardToTsumugi, [], ["base:作り物素体"]));
+        Assert.False(ProfileHits(ForwardToTsumugi, [], ["base:作り物素体"], viaBase: false));
+    }
+
+    [Fact]
+    public void 条件プロファイルは_もう一方の候補も出すと_空の側を持っている物全部として反対の向きも出す()
+    {
+        // 変換先だけ入れたとき：元として使える（逆方向を持つ）物も出す。場面「どのアバター用の衣装でも B に」
+        Assert.False(ProfileHits(ReverseFromTayuta, [], ["avatar:9000003"]));
+        Assert.True(ProfileHits(ReverseFromTayuta, [], ["avatar:9000003"], counterpart: true));
+
+        // 変換元だけ入れたとき：先として使える（順方向を持つ）物も出す。場面「A 用の衣装をどれに着せられるか」
+        Assert.True(ProfileHits(ForwardToTsumugi, ["avatar:9000001"], [], counterpart: true));
     }
 
     [Fact]
@@ -339,25 +379,23 @@ public class ConversionTests
         var suggested = Item("9200021", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true }));
         var rejected = Item("9200022", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true, Confirmed = true, Rejected = true }));
 
-        Assert.True(ProfileHits(suggested, ["avatar:9000001"]));
-        Assert.False(ProfileHits(suggested, ["avatar:9000001"], includeUnconfirmed: false));
-        Assert.False(ProfileHits(rejected, ["avatar:9000001"]));
+        Assert.True(ProfileHits(suggested, [], ["avatar:9000001"]));
+        Assert.False(ProfileHits(suggested, [], ["avatar:9000001"], includeUnconfirmed: false));
+        Assert.False(ProfileHits(rejected, [], ["avatar:9000001"]));
     }
 
     [Fact]
     public void 条件プロファイルは_何も選ばないと_プロファイルの商品すべてに絞り_扱わない物は除く()
     {
-        var profile = Item("9200031", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Forward = true }));
         var notProfile = Item("9200032", conversion: new ConversionSetting
         {
             Mode = ConversionMode.NotProfile,
             Targets = [new ConversionTarget { AvatarItemId = "9000001", Forward = true }],
         });
-        var clothing = Item("9300031", avatars: ["9000001"]);
 
-        Assert.True(ProfileHits(profile, []));
-        Assert.False(ProfileHits(notProfile, []));
-        Assert.False(ProfileHits(clothing, []));
+        Assert.True(ProfileHits(ForwardToTsumugi, [], []));
+        Assert.False(ProfileHits(notProfile, [], []));
+        Assert.False(ProfileHits(Item("9300031", avatars: ["9000001"]), [], []));
     }
 
     // ---- データの形 ----

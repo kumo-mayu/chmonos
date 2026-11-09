@@ -45,6 +45,21 @@ public sealed class ConditionRequest
     /// <summary>プロファイル：自動で推して確認していないつなぎ先も当てるか（既定 true。画面の「確認待ちも含める」）。</summary>
     public bool? IncludeUnconfirmed { get; init; }
 
+    /// <summary>プロファイル：変換元のアバターの商品 ID（逆方向で当てる）。</summary>
+    public IReadOnlyList<string>? SourceAvatars { get; init; }
+
+    /// <summary>プロファイル：変換元の共通素体の名前。</summary>
+    public IReadOnlyList<string>? SourceBases { get; init; }
+
+    /// <summary>プロファイル：変換先のアバターの商品 ID（順方向で当てる）。</summary>
+    public IReadOnlyList<string>? DestinationAvatars { get; init; }
+
+    /// <summary>プロファイル：変換先の共通素体の名前。</summary>
+    public IReadOnlyList<string>? DestinationBases { get; init; }
+
+    /// <summary>プロファイル：片方だけ送ったとき、空の側の候補（反対の向きの物）も当てるか（既定 false。画面の「もう一方の候補も含める」）。</summary>
+    public bool? ShowCounterpart { get; init; }
+
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>
     public bool? Matched { get; init; }
 
@@ -207,16 +222,23 @@ public static class ConditionKinds
                     },
                 };
 
-            // 変換ツールのプロファイル（画面の「プロファイル」）。アバター・素体を送らなければ、プロファイルの商品すべて
+            // 変換ツールのプロファイル（画面の「プロファイル」・案B）。変換元は逆方向、変換先は順方向で当てる。どちらも送らなければ、プロファイルの商品すべて
             case SearchModuleKind.Profile:
+                static IEnumerable<string> Keys(string side, IReadOnlyList<string>? avatars, IReadOnlyList<string>? bases)
+                    => (avatars ?? []).Select(id => side + SearchModuleConditions.AvatarKey + id)
+                        .Concat((bases ?? []).Select(name => side + SearchModuleConditions.BaseKey + name));
                 return state with
                 {
-                    Items = [.. (request.Avatars ?? []).Select(id => SearchModuleConditions.AvatarKey + id), .. (request.Bases ?? []).Select(name => SearchModuleConditions.BaseKey + name)],
-                    MatchAll = matchAll,
+                    Items =
+                    [
+                        .. Keys(SearchModuleConditions.SourceKey, request.SourceAvatars, request.SourceBases),
+                        .. Keys(SearchModuleConditions.DestinationKey, request.DestinationAvatars, request.DestinationBases),
+                    ],
                     Flag = request.ViaBase ?? true,
                     Toggles = new Dictionary<string, bool>
                     {
                         [SearchModuleConditions.IncludeUnconfirmedToggle] = request.IncludeUnconfirmed ?? true,
+                        [SearchModuleConditions.CounterpartToggle] = request.ShowCounterpart ?? false,
                     },
                 };
 

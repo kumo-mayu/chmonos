@@ -58,6 +58,18 @@ public static class SearchModuleConditions
     /// </summary>
     public const string IncludeUnconfirmedToggle = "includeUnconfirmed";
 
+    /// <summary>
+    /// 条件「プロファイル」の「もう一方の候補も含める」の切り替えの名前（既定は切・ユーザ判断 2026-11-09）。
+    /// 片方の欄だけ入れたときに、空の側を「持っている物全部」として、反対の向きのプロファイルも出す。
+    /// </summary>
+    public const string CounterpartToggle = "showCounterpart";
+
+    /// <summary>条件「プロファイル」の「変換元」の欄の値の頭（続きは対応アバターと同じ avatar:ID・base:名前）。逆方向で当てる。</summary>
+    public const string SourceKey = "from:";
+
+    /// <summary>条件「プロファイル」の「変換先」の欄の値の頭。順方向で当てる。</summary>
+    public const string DestinationKey = "to:";
+
     /// <summary>入手日を最初の購入だけで見る（状態の <c>choice</c> の値。既定）。</summary>
     public const string FirstPurchase = "first";
 
@@ -87,8 +99,7 @@ public static class SearchModuleConditions
         Func<ItemRecord, SearchModuleContext, bool>? IsUnspecified = null,
         Func<ItemRecord, SearchModuleContext, bool, bool>? IncludeMatches = null,
         Func<string, string>? MatchKey = null,
-        Func<SearchModuleContext, bool>? IncludeApplies = null,
-        Func<ItemRecord, SearchModuleContext, bool>? EmptyMatches = null);
+        Func<SearchModuleContext, bool>? IncludeApplies = null);
 
     /// <summary>数の範囲の照らし方。</summary>
     /// <param name="Sources">数の元の鍵（価格の「払った額」「BOOTH価格」。先頭が既定）。持たない種類は空。</param>
@@ -216,11 +227,6 @@ public static class SearchModuleConditions
             IncludeMatches: (item, context, sameName) => context.OpenProjectContains(item.Id, sameName),
             IncludeApplies: context => context.HasOpenProject),
 
-        // 変換ツールのプロファイル（ユーザ判断 2026-11-09）。積む値は対応アバターと同じ（avatar:ID・base:名前）。
-        // 補助の切り替えは「素体経由を含める」（既定は入）。アバターを選ばないときは、プロファイルの商品すべてに絞る
-        SearchModuleKind.Profile => new(true, ProfileMatches(includeUnconfirmed: true), HasFlag: true, FlagDefault: true,
-            EmptyMatches: (item, _) => IsProfileItem(item)),
-
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。フォルダは比べる形に1回だけ畳む
         SearchModuleKind.Path => new(true, (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
             MatchKey: FolderTree.UnderPrefix),
@@ -298,13 +304,11 @@ public static class SearchModuleConditions
             var groups = list.IsUnspecified is not null;
             var showUnspecified = groups && state.ShowUnspecified;
             var showMatched = !groups || state.ShowMatched || !showUnspecified;
-            var toggles = kind is SearchModuleKind.Avatar or SearchModuleKind.Profile ? state.Toggles : null;
-            var matches = kind == SearchModuleKind.Profile
-                ? ProfileMatches(toggles is null || !toggles.TryGetValue(IncludeUnconfirmedToggle, out var unconfirmed) || unconfirmed)
-                : AvatarMatches(
-                    list.Matches,
-                    toggles is not null && toggles.TryGetValue(ViaConversionToggle, out var viaConversion) && viaConversion,
-                    toggles is not null && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly);
+            var toggles = kind == SearchModuleKind.Avatar ? state.Toggles : null;
+            var matches = AvatarMatches(
+                list.Matches,
+                toggles is not null && toggles.TryGetValue(ViaConversionToggle, out var viaConversion) && viaConversion,
+                toggles is not null && toggles.TryGetValue(OwnedVariationsToggle, out var ownedOnly) && ownedOnly);
             return new ListCondition(
                 state.Items,
                 list.AllowsAnd && state.MatchAll,
@@ -316,8 +320,7 @@ public static class SearchModuleConditions
                 list.IncludeMatches,
                 list.IncludeMatches is not null && (kind == SearchModuleKind.UnityProjectContents ? state.IncludeOpenProject : state.IncludeFavorites),
                 list.MatchKey,
-                list.IncludeApplies,
-                list.EmptyMatches);
+                list.IncludeApplies);
         }
 
         if (RangeOf(kind) is { } range)
@@ -377,6 +380,7 @@ public static class SearchModuleConditions
                 state.MatchAll,
                 (itemId, context) => context.UnreadUpdateKinds(itemId)),
             SearchModuleKind.Recent => RecentFrom(state),
+            SearchModuleKind.Profile => ProfileFrom(state),
             _ => null,
         };
     }
@@ -597,20 +601,27 @@ public static class SearchModuleConditions
                 || item.Local.Conversion is { Mode: ConversionMode.Profile }
                 || item.Local.Conversion?.Targets.Any(target => !target.Rejected && !target.IsEmpty) == true);
 
-    /// <summary>
-    /// 条件「プロファイル」の照らし方（ユーザ判断 2026-11-09）。プロファイルの商品で、つなぎ先が選んだアバター・共通素体に当たる物。
-    /// 「素体経由を含める」（<paramref name="viaBase"/> に渡る使い回しの Flag）が入なら、アバターを選んだときはその共通素体につないだ物も、
-    /// 共通素体を選んだときはその仲間のアバターにつないだ物も当てる（変換経由の計算と同じ広げ方）。人が外したつなぎ先は当てない。
-    /// </summary>
-    /// <param name="includeUnconfirmed">確認待ち（自動で推した）つなぎ先も当てるか（「確認待ちも含める」・既定は入）。</param>
-    public static Func<ItemRecord, SearchModuleContext, string, bool, bool> ProfileMatches(bool includeUnconfirmed)
-        => (item, context, key, viaBase) => IsProfileItem(item)
-            && (item.Local.Conversion?.Targets ?? []).Any(target => !target.Rejected
-                && !target.IsEmpty
-                && (target.Confirmed || includeUnconfirmed)
-                && ProfileTargetMatches(target, key, viaBase, context.Compatibility));
 
-    private static bool ProfileTargetMatches(ConversionTarget target, string key, bool viaBase, AvatarCompatibilityIndex compatibility)
+    /// <summary>
+    /// 保存した状態から条件「プロファイル」を作る。値は「変換元」（from:）と「変換先」（to:）の欄に分けて Items に積む。
+    /// 「素体経由を含める」は使い回しの Flag（既定は入）、確認待ち（既定は入）ともう一方の候補（既定は切）は名前で持つ。
+    /// </summary>
+    private static ProfileCondition ProfileFrom(SearchModuleState state)
+    {
+        var toggles = state.Toggles;
+        return new ProfileCondition(
+            state.Items.Where(key => key.StartsWith(SourceKey, StringComparison.Ordinal)).Select(key => key[SourceKey.Length..]).ToList(),
+            state.Items.Where(key => key.StartsWith(DestinationKey, StringComparison.Ordinal)).Select(key => key[DestinationKey.Length..]).ToList(),
+            ViaBase: state.Flag,
+            IncludeUnconfirmed: toggles is null || !toggles.TryGetValue(IncludeUnconfirmedToggle, out var unconfirmed) || unconfirmed,
+            ShowCounterpart: toggles is not null && toggles.TryGetValue(CounterpartToggle, out var counterpart) && counterpart);
+    }
+
+    /// <summary>
+    /// プロファイルのつなぎ先が、選んだアバター・共通素体（avatar:ID・base:名前）に当たるか。素体経由が入なら、
+    /// アバターを選んだときはその共通素体につないだ物も、共通素体を選んだときは仲間のアバターにつないだ物も当てる（変換経由の計算と同じ広げ方）。
+    /// </summary>
+    public static bool ProfileTargetMatches(ConversionTarget target, string key, bool viaBase, AvatarCompatibilityIndex compatibility)
     {
         if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
         {
@@ -630,4 +641,65 @@ public static class SearchModuleConditions
 
         return false;
     }
+}
+
+/// <summary>
+/// 条件「プロファイル」（ユーザ判断 2026-11-09・docs/spec/conversion.md「検索」の案B）。A 用の衣装を B に着せるには、A の逆方向と B の順方向が要る。
+/// 「変換元」の欄は逆方向、「変換先」の欄は順方向で当てる。両方入れたら、どちらかに当たる物（和）を出す（そろっているかは画面が1行で言う）。
+/// 片方だけ入れたときは、その向きの物だけ。「もう一方の候補も含める」を入れると、空の側を「持っている物全部」として反対の向きの物も出す。
+/// 両方空なら、プロファイルの商品すべて。どの場合も、プロファイルの商品でない物と「扱わない」にした物は出さない。
+/// </summary>
+/// <param name="Sources">変換元の値（avatar:ID・base:名前）。</param>
+/// <param name="Destinations">変換先の値。</param>
+public sealed class ProfileCondition(
+    IReadOnlyList<string> Sources,
+    IReadOnlyList<string> Destinations,
+    bool ViaBase,
+    bool IncludeUnconfirmed,
+    bool ShowCounterpart) : ItemCondition
+{
+    public IReadOnlyList<string> Sources { get; } = Sources;
+
+    public IReadOnlyList<string> Destinations { get; } = Destinations;
+
+    /// <summary>足しただけでも絞る（何も選ばないときは、プロファイルの商品すべて・ユーザ判断 2026-11-09）。</summary>
+    public override bool IsActive => true;
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context)
+    {
+        if (!SearchModuleConditions.IsProfileItem(item))
+        {
+            return false;
+        }
+
+        if (Sources.Count == 0 && Destinations.Count == 0)
+        {
+            return true;
+        }
+
+        var targets = TargetsOf(item);
+        var asSource = Sources.Count > 0 && MatchesAny(targets, Sources, reverse: true, context);
+        var asDestination = Destinations.Count > 0 && MatchesAny(targets, Destinations, reverse: false, context);
+        if (asSource || asDestination)
+        {
+            return true;
+        }
+
+        // 片方だけ入れたとき：空の側の候補（反対の向きを持つ物）も出す
+        return ShowCounterpart && (Sources.Count == 0 || Destinations.Count == 0)
+            && targets.Any(target => Sources.Count == 0 ? target.Reverse : target.Forward);
+    }
+
+    /// <summary>その欄の値1つについて、要る向きのプロファイルを手元に持っているか（そろっているかの1行に使う）。</summary>
+    public bool Has(IEnumerable<ItemRecord> items, string key, bool reverse, SearchModuleContext context)
+        => items.Any(item => SearchModuleConditions.IsProfileItem(item) && MatchesAny(TargetsOf(item), [key], reverse, context));
+
+    private List<ConversionTarget> TargetsOf(ItemRecord item)
+        => (item.Local.Conversion?.Targets ?? [])
+            .Where(target => !target.Rejected && !target.IsEmpty && (target.Confirmed || IncludeUnconfirmed))
+            .ToList();
+
+    private bool MatchesAny(IReadOnlyList<ConversionTarget> targets, IReadOnlyList<string> keys, bool reverse, SearchModuleContext context)
+        => targets.Any(target => (reverse ? target.Reverse : target.Forward)
+            && keys.Any(key => SearchModuleConditions.ProfileTargetMatches(target, key, ViaBase, context.Compatibility)));
 }

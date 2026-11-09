@@ -189,19 +189,27 @@ public sealed class SearchEngineTests : IDisposable
     }
 
     [Fact]
-    public void プロファイルは_アバターと素体を積み_素体経由と確認待ちは既定で含める()
+    public void プロファイルは_変換元と変換先の欄に分けて積み_素体経由と確認待ちは既定で含める()
     {
-        var state = ConditionKinds.ToState(new ConditionRequest { Kind = "profile", Avatars = ["7000001"], Bases = ["作り物素体"] });
+        var state = ConditionKinds.ToState(new ConditionRequest
+        {
+            Kind = "profile",
+            SourceAvatars = ["7000001"],
+            DestinationAvatars = ["7000002"],
+            DestinationBases = ["作り物素体"],
+        });
 
         Assert.Equal(nameof(SearchModuleKind.Profile), state.Kind);
-        Assert.Equal(["avatar:7000001", "base:作り物素体"], state.Items);
+        Assert.Equal(["from:avatar:7000001", "to:avatar:7000002", "to:base:作り物素体"], state.Items);
         Assert.True(state.Flag);
         Assert.True(state.Toggles![Chmonos.Core.Services.SearchModuleConditions.IncludeUnconfirmedToggle]);
+        Assert.False(state.Toggles![Chmonos.Core.Services.SearchModuleConditions.CounterpartToggle]);
 
-        var confirmedOnly = ConditionKinds.ToState(new ConditionRequest { Kind = "profile", ViaBase = false, IncludeUnconfirmed = false });
-        Assert.Empty(confirmedOnly.Items);
-        Assert.False(confirmedOnly.Flag);
-        Assert.False(confirmedOnly.Toggles![Chmonos.Core.Services.SearchModuleConditions.IncludeUnconfirmedToggle]);
+        var empty = ConditionKinds.ToState(new ConditionRequest { Kind = "profile", ViaBase = false, IncludeUnconfirmed = false, ShowCounterpart = true });
+        Assert.Empty(empty.Items);
+        Assert.False(empty.Flag);
+        Assert.False(empty.Toggles![Chmonos.Core.Services.SearchModuleConditions.IncludeUnconfirmedToggle]);
+        Assert.True(empty.Toggles![Chmonos.Core.Services.SearchModuleConditions.CounterpartToggle]);
     }
 
     [Theory]

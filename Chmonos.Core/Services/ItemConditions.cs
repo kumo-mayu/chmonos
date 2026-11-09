@@ -71,15 +71,8 @@ public sealed class ListCondition(
     Func<ItemRecord, SearchModuleContext, bool, bool>? includeMatches = null,
     bool includeOn = false,
     Func<string, string>? matchKey = null,
-    Func<SearchModuleContext, bool>? includeApplies = null,
-    Func<ItemRecord, SearchModuleContext, bool>? emptyMatches = null) : ItemCondition
+    Func<SearchModuleContext, bool>? includeApplies = null) : ItemCondition
 {
-    /// <summary>
-    /// 値を1つも選んでいないときにも絞り、この決まりで当てる（条件「プロファイル」：選ぶ前はプロファイルの商品すべて・ユーザ判断 2026-11-09）。
-    /// 無い種類は、値を選んで初めて絞る（今までどおり）。
-    /// </summary>
-    private bool EmptyApplies => emptyMatches is not null && keys.Count == 0;
-
     private bool _includeApplies = true;
 
     private readonly IReadOnlyList<string> _matchKeys = matchKey is null ? keys : keys.Select(matchKey).ToList();
@@ -94,15 +87,10 @@ public sealed class ListCondition(
     /// 「指定が無い商品だけ」はアバターを選んでいなくても絞る。それ以外は、値を選んで初めて絞る
     /// （足した直後に、何も選んでいないのに「指定が無い商品」が消えるのを避ける）。
     /// </summary>
-    public override bool IsActive => keys.Count > 0 || (HasGroups && !showMatched && showUnspecified) || IncludeOn || EmptyApplies;
+    public override bool IsActive => keys.Count > 0 || (HasGroups && !showMatched && showUnspecified) || IncludeOn;
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
     {
-        if (EmptyApplies)
-        {
-            return emptyMatches!(item, context);
-        }
-
         if (isUnspecified is not null && isUnspecified(item, context))
         {
             // 指定が無い商品は、選んだアバターと照らさない。出すかどうかだけ
