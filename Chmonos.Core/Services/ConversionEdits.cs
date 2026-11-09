@@ -94,6 +94,13 @@ public static class ConversionEdits
     public static Func<ConversionSetting?, ConversionSetting?> Reject(ConversionTarget target)
         => current => Map(current, target, found => found with { Rejected = true, Confirmed = true });
 
+    /// <summary>
+    /// 外したつなぎ先を戻す（「外したつなぎ先」の一覧の「戻す」・ユーザ判断 2026-11-09）。人が決めた値なので確認済みで戻す
+    /// （対応アバターの「消したもの」の「戻す」と同じ）。
+    /// </summary>
+    public static Func<ConversionSetting?, ConversionSetting?> Restore(ConversionTarget target)
+        => current => Map(current, target, found => found with { Rejected = false, Confirmed = true });
+
     private static ConversionSetting? Map(ConversionSetting? current, ConversionTarget target, Func<ConversionTarget, ConversionTarget> change)
     {
         if (current is null || !current.Targets.Any(candidate => IsSameRow(candidate, target)))

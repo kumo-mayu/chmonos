@@ -170,6 +170,36 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <!--
+            外したつなぎ先（ユーザ判断 2026-11-09）。対応アバターの「消したもの」と同じく、普段は畳んで末尾に置き、1件ずつ戻せる。
+            戻すと確認済みになる（人が決めた値なので）
+        -->
+        <Expander Style="{DynamicResource TriangleExpander}" Header="{Binding RejectedHeader}" Margin="0,6,0,0"
+                  AutomationProperties.AutomationId="ItemConversionRejectedExpander"
+                  Visibility="{Binding HasRejected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <ItemsControl ItemsSource="{Binding RejectedRows}" Margin="4,6,0,0" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:RejectedConversionRow}">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="{Binding ProfileText}" Style="{StaticResource Mono}" MinWidth="110" VerticalAlignment="Center" />
+                            <TextBlock Text="→" Style="{StaticResource Caption}" Margin="8,0" VerticalAlignment="Center" />
+                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                    BorderThickness="1" CornerRadius="10" Padding="9,2">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding TargetText}" FontSize="11.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextMuted}" />
+                                    <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            AutomationProperties.AutomationId="ItemConversionRestore"
+                                            AutomationProperties.Name="{Binding TargetText, StringFormat={}{0}を戻す}"
+                                            Command="{Binding RestoreCommand}"
+                                            ToolTip="このつなぎ先を戻します。確認済みになります。" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Expander>
         <controls:AreaNoticeLine DataContext="{Binding Notice}" />
     </StackPanel>
 </UserControl>

@@ -91,6 +91,13 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// <summary>今見せている確認待ちのつなぎ先（「推した通りに決める」が名指しする行。見せた物だけを確かめる）。</summary>
     public IReadOnlyList<ConversionTarget> UnconfirmedTargets { get; private set; } = [];
 
+    /// <summary>人が外したつなぎ先（畳んだ「外したつなぎ先」の一覧。行ごとに「戻す」）。</summary>
+    public IReadOnlyList<RejectedConversionRow> RejectedRows { get; private set; } = [];
+
+    public bool HasRejected => RejectedRows.Count > 0;
+
+    public string RejectedHeader => $"外したつなぎ先（{RejectedRows.Count}）";
+
     /// <summary>書けなかったときだけ出る1行。</summary>
     public AreaNotice Notice { get; } = new();
 
@@ -119,6 +126,7 @@ public sealed class ItemConversionEditor : ViewModelBase
             Rows = [];
             CommonSourceText = string.Empty;
             UnconfirmedTargets = [];
+            RejectedRows = [];
             StateText = string.Empty;
             Raise();
             return;
@@ -229,6 +237,17 @@ public sealed class ItemConversionEditor : ViewModelBase
 
         Rows = rows;
         UnconfirmedTargets = targets.Where(target => !target.Confirmed).ToList();
+
+        // 外したつなぎ先は、畳んだ一覧に出して戻せるようにする（ユーザ判断 2026-11-09。対応アバターの「消したもの」と同じ形）
+        RejectedRows = (setting?.Targets ?? [])
+            .Where(target => target.Rejected && !target.IsEmpty)
+            .Select(target => new RejectedConversionRow
+            {
+                ProfileText = target.Slug ?? string.Empty,
+                TargetText = TargetName(target),
+                RestoreCommand = new RelayCommand(() => ChangeAsync(ConversionEdits.Restore(target)).Forget(), () => !_isLocked()),
+            })
+            .ToList();
         StateText = (setting?.Mode ?? ConversionMode.Auto) switch
         {
             ConversionMode.Profile => "今の扱い：プロファイルとして扱う（手動で指定）",
@@ -412,6 +431,9 @@ public sealed class ItemConversionEditor : ViewModelBase
         OnPropertyChanged(nameof(TargetSuggestions));
         OnPropertyChanged(nameof(UnconfirmedCount));
         OnPropertyChanged(nameof(UnsetCount));
+        OnPropertyChanged(nameof(RejectedRows));
+        OnPropertyChanged(nameof(HasRejected));
+        OnPropertyChanged(nameof(RejectedHeader));
         RaiseMode();
 
         // 持ち主のボタン（推した通りに決めて次へ）が、確認待ちの有無で押せるかを変えるため
@@ -474,4 +496,14 @@ public sealed class ConversionTargetRow
 
     /// <summary>向きの右クリックの項目（引数は "forward"・"reverse"・"both"）。つなぎ先の無い行は持たない（押せない）。</summary>
     public RelayCommand? SetDirectionCommand { get; init; }
+}
+
+/// <summary>「外したつなぎ先」の一覧の1行。</summary>
+public sealed class RejectedConversionRow
+{
+    public string ProfileText { get; init; } = string.Empty;
+
+    public string TargetText { get; init; } = string.Empty;
+
+    public RelayCommand? RestoreCommand { get; init; }
 }

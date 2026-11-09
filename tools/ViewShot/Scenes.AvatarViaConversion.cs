@@ -153,6 +153,8 @@ internal static partial class Scenes
                         [
                             new ConversionTarget { AvatarItemId = "9800401", Forward = true, Reverse = true, Slug = "fakeaoi", Confirmed = true },
                             new ConversionTarget { BaseName = "作り物の素体", Reverse = true, Slug = "fakebase" },
+                            // 外したつなぎ先（畳んだ一覧に出る）
+                            new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakemomo", Confirmed = true, Rejected = true },
                         ],
                     },
                 },

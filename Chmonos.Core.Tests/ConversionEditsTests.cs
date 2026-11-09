@@ -88,6 +88,17 @@ public class ConversionEditsTests
     }
 
     [Fact]
+    public void 外したつなぎ先を戻すと_印を外して確認済みにする()
+    {
+        var rejected = ConversionEdits.Reject(Suggested)(WithSuggestion());
+
+        var row = Assert.Single(ConversionEdits.Restore(Suggested)(rejected)!.Targets);
+
+        Assert.False(row.Rejected);
+        Assert.True(row.Confirmed);
+    }
+
+    [Fact]
     public void 外すと_行は残して外した印を付ける()
     {
         var row = Assert.Single(ConversionEdits.Reject(Suggested)(WithSuggestion())!.Targets);

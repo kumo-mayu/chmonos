@@ -147,6 +147,18 @@ public class ItemConversionSettingTests
         Assert.True(Assert.Single((await SavedAsync(app))!.Targets).Rejected);
         var row = Assert.Single(page.Conversion.Rows, row => row.ProfileText == "fakebase");
         Assert.False(row.HasTarget);
+
+        // 外した物は畳んだ一覧に出て、「戻す」で確認済みに戻る
+        Assert.Equal("外したつなぎ先（1）", page.Conversion.RejectedHeader);
+        var rejected = Assert.Single(page.Conversion.RejectedRows);
+        Assert.Equal("作り物の素体（共通素体）", rejected.TargetText);
+        rejected.RestoreCommand!.Execute(null);
+        await app.SettleAsync();
+
+        var restored = Assert.Single((await SavedAsync(app))!.Targets);
+        Assert.False(restored.Rejected);
+        Assert.True(restored.Confirmed);
+        Assert.False(page.Conversion.HasRejected);
     });
 
     [Fact]
