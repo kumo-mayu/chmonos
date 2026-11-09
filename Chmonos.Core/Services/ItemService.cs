@@ -297,6 +297,9 @@ public sealed class ItemService : IItemService
             return RefreshOutcome.Missing;
         }
 
+        // 人が押した取り直しなら、JSON と商品ページの2本を門を離さずに続けて通す（ユーザ判断 2026-11-09・計画の 9）。
+        // ⑦が走っている間は、1本目と2本目の隙に⑦が割り込み、取り直しが約3秒待たされていた。⑦の取り直しでは何もしない
+        using var hold = BoothClient.HoldForUserOperation();
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
 
         if (jsonResult.Status == BoothFetchStatus.NotFound)
@@ -328,6 +331,9 @@ public sealed class ItemService : IItemService
         }
 
         var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
+
+        // この操作の問い合わせはここまで。後の検出し直し（知らないアバターの問い合わせ）や画像は、ほかの段と並んで通る
+        hold.Dispose();
 
         // **商品ページが一時的な不調で取れなかったら、JSON が取れなかったときと同じく何も書かずに不調として返す**
         // （外部の点検 2026-10-07）。前は見出しを空にしたまま「取れた」として保存し、予定も普段どおり進めていた。

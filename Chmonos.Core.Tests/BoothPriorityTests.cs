@@ -167,4 +167,100 @@ public class BoothPriorityTests
             await Task.Delay(5);
         }
     }
+
+    // ---- 人が押した1つの操作の問い合わせを、門を離さずに続けて通す（ユーザ判断 2026-11-09・計画の 9） ----
+
+    /// <summary>人が押した操作が2本を順に出す。1本目が終わってから2本目を頼む（取り直しの JSON と商品ページと同じ形）。</summary>
+    private static Task UserOperation(BoothClient client, bool hold)
+        => Task.Run(async () =>
+        {
+            using var _ = BoothClient.Prioritize(BoothPriority.User);
+            using var held = hold ? BoothClient.HoldForUserOperation() : null;
+            await client.GetItemJsonAsync("1");
+            await client.GetItemJsonAsync("2");
+        });
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task 人が押した操作の2本目は_持っていれば待っている期限の取り直しより先に通る(bool hold)
+    {
+        var handler = new BlockingHandler();
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
+
+        var user = UserOperation(client, hold);
+        await handler.FirstArrived.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // 1本目の間に⑦が並ぶ
+        var due = Start(client, BoothPriority.Background, "7");
+        await WaitUntilQueued(client, 1);
+
+        handler.Release();
+        await Task.WhenAll(user, due).WaitAsync(TimeSpan.FromSeconds(10));
+
+        // 持っていれば人の2本が続き、持っていなければ（前の動き）隙に⑦が入る
+        string[] expected = hold
+            ? [BoothClient.ItemJsonUrl("1"), BoothClient.ItemJsonUrl("2"), BoothClient.ItemJsonUrl("7")]
+            : [BoothClient.ItemJsonUrl("1"), BoothClient.ItemJsonUrl("7"), BoothClient.ItemJsonUrl("2")];
+        Assert.Equal(expected, handler.Requests);
+    }
+
+    [Fact]
+    public async Task 期限の取り直しは持たず_2本の隙に人が押した操作が入る()
+    {
+        var handler = new BlockingHandler();
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
+
+        // ⑦の段で持とうとしても持たない（持つと人の操作がその分待たされる）
+        var due = Task.Run(async () =>
+        {
+            using var _ = BoothClient.Prioritize(BoothPriority.Background);
+            using var held = BoothClient.HoldForUserOperation();
+            await client.GetItemJsonAsync("7");
+            await client.GetItemJsonAsync("8");
+        });
+        await handler.FirstArrived.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var user = Start(client, BoothPriority.User, "1");
+        await WaitUntilQueued(client, 1);
+
+        handler.Release();
+        await Task.WhenAll(user, due).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal([BoothClient.ItemJsonUrl("7"), BoothClient.ItemJsonUrl("1"), BoothClient.ItemJsonUrl("8")], handler.Requests);
+    }
+
+    [Fact]
+    public async Task 範囲を抜けたら門を放し_次の問い合わせが通る()
+    {
+        var handler = new CountingHandler();
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
+
+        await Task.Run(async () =>
+        {
+            using var _ = BoothClient.Prioritize(BoothPriority.User);
+            using (BoothClient.HoldForUserOperation())
+            {
+                await client.GetItemJsonAsync("1");
+                await client.GetItemJsonAsync("2");
+            }
+        });
+
+        // 範囲の外の1本が止まらずに通る（放し忘れると、ここで門の前に並んだまま止まる）
+        await Start(client, BoothPriority.Background, "3").WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(3, handler.Count);
+    }
+
+    private sealed class CountingHandler : HttpMessageHandler
+    {
+        private int _count;
+
+        public int Count => _count;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _count);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+    }
 }

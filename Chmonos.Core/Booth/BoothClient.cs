@@ -382,6 +382,146 @@ public sealed class BoothClient : IBoothClient
     /// <summary>順番待ちの本数。溜まり具合を見るためのもので、判断には使わない。</summary>
     public int WaitingRequestCount => _gate.WaitingCount;
 
+    private static readonly AsyncLocal<OperationHold?> Hold = new();
+
+    /// <summary>
+    /// 人が押した1つの操作（「商品情報を取り直す」の JSON と商品ページなど）の問い合わせを、門を離さずに続けて通す（ユーザ判断 2026-11-09・計画の 9）。
+    ///
+    /// 門は1本ごとに放すので、1本目が終わって2本目を頼むまでの一瞬に、待っている⑦の1本が先に通っていた。
+    /// ⑦が走っている間の取り直しが 2.1〜2.5秒 → 5.3〜5.8秒になった [実測 2026-11-09]。
+    /// この範囲の中では、最初の1本で門に入り、範囲を抜けるまで持ち続ける。**間隔（1.5秒）と PC の門は1本ごとに今どおり守る**
+    /// （持つのはこのアプリの中の順番だけ）。範囲の中でも1本ずつしか通さない。
+    /// 人が押した段（<see cref="BoothPriority.User"/> 以上）でなければ何もしない：⑦や取り込みが持つと、人の操作がその分待たされる。
+    /// </summary>
+    public static IDisposable HoldForUserOperation()
+    {
+        if (CurrentPriority > BoothPriority.User || Hold.Value is not null)
+        {
+            return NoHold.Instance;
+        }
+
+        var hold = new OperationHold();
+        Hold.Value = hold;
+        return new HoldScope(hold);
+    }
+
+    private sealed class NoHold : IDisposable
+    {
+        public static NoHold Instance { get; } = new();
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class HoldScope(OperationHold hold) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (ReferenceEquals(Hold.Value, hold))
+            {
+                Hold.Value = null;
+            }
+
+            hold.Close();
+        }
+    }
+
+    /// <summary>1つの操作が持っている門。範囲の中の問い合わせを1本ずつ通し、範囲を抜けて最後の1本が終わったら門を放す。</summary>
+    private sealed class OperationHold
+    {
+        private readonly object _sync = new();
+
+        /// <summary>範囲の中で1本ずつにする錠（門を持ったまま2本が同時に出ないように）。</summary>
+        public SemaphoreSlim Turn { get; } = new(1, 1);
+
+        private PriorityGate? _gate;
+        private bool _busy;
+        private bool _closed;
+
+        /// <summary>この操作が門を持っているか、持てるか。別の取得の道具（試験の組み立て）の門なら、持たずに今までどおり通す。</summary>
+        public bool Covers(PriorityGate gate)
+        {
+            lock (_sync)
+            {
+                return !_closed && (_gate is null || ReferenceEquals(_gate, gate));
+            }
+        }
+
+        /// <summary>範囲の中の1本が門を使い始める。まだ門に入っていなければ入る。</summary>
+        public async Task BeginAsync(PriorityGate gate, BoothPriority priority, CancellationToken cancellationToken)
+        {
+            await Turn.WaitAsync(cancellationToken);
+            try
+            {
+                bool enter;
+                lock (_sync)
+                {
+                    enter = _gate is null;
+                }
+
+                if (enter)
+                {
+                    await gate.EnterAsync(priority, cancellationToken);
+                    lock (_sync)
+                    {
+                        _gate = gate;
+                    }
+                }
+
+                lock (_sync)
+                {
+                    _busy = true;
+                }
+            }
+            catch
+            {
+                Turn.Release();
+                throw;
+            }
+        }
+
+        /// <summary>範囲の中の1本が終わった。範囲を抜けた後なら門を放す。</summary>
+        public void End()
+        {
+            PriorityGate? release = null;
+            lock (_sync)
+            {
+                _busy = false;
+                if (_closed)
+                {
+                    release = _gate;
+                    _gate = null;
+                }
+            }
+
+            release?.Release();
+            Turn.Release();
+        }
+
+        /// <summary>範囲を抜けた。問い合わせの途中でなければ、ここで門を放す（途中なら、その1本が終わるときに放す）。</summary>
+        public void Close()
+        {
+            PriorityGate? release = null;
+            lock (_sync)
+            {
+                if (_closed)
+                {
+                    return;
+                }
+
+                _closed = true;
+                if (!_busy)
+                {
+                    release = _gate;
+                    _gate = null;
+                }
+            }
+
+            release?.Release();
+        }
+    }
+
     public int CurrentIntervalMs => SyncedIntervalMs();
 
     /// <summary>設定より広げている最中か。**床を踏んだ分は「広げた」ではない**（設定が下限より短いだけ）。</summary>
@@ -714,7 +854,16 @@ public sealed class BoothClient : IBoothClient
         // 期限は送る直前から数える（門の順番待ち・間隔の待ちは入れない）。本文を読み終えるまで効かせる
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        await _gate.EnterAsync(CurrentPriority, cancellationToken);
+        // 人が押した1つの操作の中なら、その操作が持っている門で通す（2本目以降は並び直さない。HoldForUserOperation）
+        var hold = Hold.Value is { } held && held.Covers(_gate) ? held : null;
+        if (hold is not null)
+        {
+            await hold.BeginAsync(_gate, CurrentPriority, cancellationToken);
+        }
+        else
+        {
+            await _gate.EnterAsync(CurrentPriority, cancellationToken);
+        }
 
         // PC の門を握った物。握るのは間隔を待ち終えてからで、問い合わせが終わるまで持つ（この間、ほかのアプリは出られない）
         BoothMachineGate.Turn? turn = null;
@@ -881,7 +1030,14 @@ public sealed class BoothClient : IBoothClient
 
             // 握ったまま間隔を待たない。次の1本が間隔を待つ間に、ほかのアプリが握って中身を読める
             turn?.Dispose();
-            _gate.Release();
+            if (hold is not null)
+            {
+                hold.End();
+            }
+            else
+            {
+                _gate.Release();
+            }
 
             // 直列なので、ゲートを出た時点で「何もしていない」に戻せる。
             // 次の1本がすぐ入るならそちらが上書きする
