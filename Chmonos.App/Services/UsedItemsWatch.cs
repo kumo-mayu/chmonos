@@ -88,6 +88,7 @@ public sealed class UsedItemsWatch
         }
 
         Publish(modifications);
+        Core.Services.UiTrace.Write("見張り", $"使っている商品：改変 {modifications.Count}・調べる先 {targets.Count}（開いている {open.Count}）・調べ直す {scan}");
 
         // 検索の写しを読み終える前は商品が無い。ここで調べると「何も入っていない」を調べ済みにしてしまうので、控えのまま待つ
         // （読み終えると検索が知らせて、また頼まれる）
