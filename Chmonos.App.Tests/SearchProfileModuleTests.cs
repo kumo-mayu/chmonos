@@ -89,7 +89,7 @@ public class SearchProfileModuleTests
         await app.SettleAsync();
         Assert.Equal("「キキ（9800403）」に着せるプロファイルがありません。", module.StatusText);
 
-        // 両方に当たるものだけ：1つの商品で、アオイの衣装の変換とキキ・モモへの着せ替えの両方をまかなえる物は無い
+        // 単体で変換できるものだけ：1つの商品で、アオイの衣装の変換とキキ・モモへの着せ替えの両方をまかなえる物は無い
         Assert.False(module.RequireBoth);
         Assert.True(module.BothApplies);
         module.RequireBoth = true;

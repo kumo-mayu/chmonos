@@ -60,7 +60,7 @@ public sealed class ConditionRequest
     /// <summary>プロファイル：片方だけ送ったとき、空の側の候補（反対の向きの物）も当てるか（既定 false。画面の「組み合わせられるプロファイルも含める」）。</summary>
     public bool? ShowCounterpart { get; init; }
 
-    /// <summary>プロファイル：両方送ったとき、1つの商品で変換元と変換先の両方に当たる物だけにするか（既定 false。画面の「両方に当たるものだけ」）。</summary>
+    /// <summary>プロファイル：両方送ったとき、1つの商品で変換元から変換先への変換が済むものだけにするか（既定 false。画面の「単体で変換できるものだけ」）。</summary>
     public bool? RequireBoth { get; init; }
 
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>

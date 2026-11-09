@@ -1082,10 +1082,10 @@
                                         <CheckBox IsChecked="{Binding RequireBoth, Mode=TwoWay}" Margin="0,4,0,0"
                                                   IsEnabled="{Binding BothApplies}" ToolTipService.ShowOnDisabled="True"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.RequireBoth'}"
-                                                  AutomationProperties.Name="両方に当たるものだけ">
+                                                  AutomationProperties.Name="単体で変換できるものだけ">
                                             <CheckBox.Style>
                                                 <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
-                                                    <Setter Property="ToolTip" Value="1つの商品で、変換元と変換先の両方に使えるものだけにします。" />
+                                                    <Setter Property="ToolTip" Value="変換元から変換先への変換が、この商品だけで済むものに絞ります。" />
                                                     <Style.Triggers>
                                                         <Trigger Property="IsEnabled" Value="False">
                                                             <Setter Property="ToolTip" Value="両方の欄に入れると選べます。" />
@@ -1094,7 +1094,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </CheckBox.Style>
-                                            <TextBlock Text="両方に当たるものだけ" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="単体で変換できるものだけ" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>

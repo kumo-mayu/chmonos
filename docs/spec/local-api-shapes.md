@@ -90,7 +90,7 @@
 | choice | saleStatus・adult・owned・gift・freePaid・favorite・hidden・brokenZip・missingFile・notOnBooth | `choice`（先頭が既定）・`options`（補助の切り替えを名前で） |
 | list | category・boothTag・shop・unityProject・path | `values`・`match`（`any`・`all`。AND を持たない種類は OR）・`includeFavoriteShops`（shop） |
 | avatar | avatar | `avatars`（ID）・`bases`（素体名）・`match`・`viaBase`（既定 true）・`ownedVariationsOnly`（既定 false・持っているバリエーションの分だけ）・`viaConversion`（既定 false・変換で使える物も含める）・`matched`（既定 true）・`unspecified`（既定 false） |
-| profile | profile | `sourceAvatars`・`sourceBases`（変換元・逆方向で当てる）・`destinationAvatars`・`destinationBases`（変換先・順方向）・`viaBase`（既定 true）・`includeUnconfirmed`（既定 true・確認待ちも含める）・`showCounterpart`（既定 false・片方だけのとき、組み合わせられるプロファイルも）・`requireBoth`（既定 false・両方送ったとき、1つの商品で両方に当たる物だけ）。何も送らなければプロファイルの商品すべて。欄の中は OR だけ（2026-11-09） |
+| profile | profile | `sourceAvatars`・`sourceBases`（変換元・逆方向で当てる）・`destinationAvatars`・`destinationBases`（変換先・順方向）・`viaBase`（既定 true）・`includeUnconfirmed`（既定 true・確認待ちも含める）・`showCounterpart`（既定 false・片方だけのとき、組み合わせられるプロファイルも）・`requireBoth`（既定 false・両方送ったとき、単体で変換できるものだけ）。何も送らなければプロファイルの商品すべて。欄の中は OR だけ（2026-11-09） |
 | range | wishCount・price | `min`・`max`・`source`（`paid`・`booth`）・`allVariations`・`includeUnknown`・`ignoreOutliers`（既定 true） |
 | date | publishedAt・acquiredAt | `from`・`to`（`YYYY-MM-DD`）・`scope`（`first`・`all`。入手日） |
 | attribute | attribute | `ranges`（`name`・`min`・`max`。省いた側は端まで＝0・100）・`match` |
