@@ -127,7 +127,11 @@ public sealed class AppServiceContainer : IDisposable
             // 変換ツールのプロファイルの見回り（docs/spec/conversion.md）。控えから見分けるので zip は開かない。取り込みの終わりと起動時の見回りで使う
             Conversion = new ConversionScan(Store, unityPackagePaths);
             Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes, MissingMarks, Conversion);
-            Items = new ItemService(Store, Client, Images, () => Settings);
+            Items = new ItemService(Store, Client, Images, () => Settings)
+            {
+                // 取り直しで中身の更新を見つけたら、検出し直してから促す更新かを見分ける（docs/spec/used-updates.md）
+                UsedUpdates = new UsedUpdateRecorder(Store, token => Avatars.DetectAsync(cancellationToken: token)),
+            };
             Backlog = new ImageBacklog(Store, Images);
             AvatarImages = new AvatarImageSync(Store, Client, Images);
             Watch = new FolderWatch(Store);

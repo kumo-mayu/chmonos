@@ -266,6 +266,12 @@ public sealed class ItemService : IItemService
 
     private readonly BoothChangeNotes _changeNotes;
 
+    /// <summary>
+    /// 取り直しで中身の更新を見つけたときに控えを書く物。対応アバターの検出を使うので、組み立てる側が後から入れる
+    /// （検出の側は商品の取り直しを使わないが、作る順で輪にならないように）。無ければ控えを書かない（試験の多く）。
+    /// </summary>
+    public UsedUpdateRecorder? UsedUpdates { get; set; }
+
     private readonly UserImageEditor _userImages;
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
@@ -389,6 +395,20 @@ public sealed class ItemService : IItemService
         await _changeNotes.NoteBackOnBoothAsync(existing, booth, cancellationToken);
         await _changeNotes.NoteVariationLinksAsync(existing, booth, cancellationToken);
         await _changeNotes.NoteChangesAsync(existing, booth, cancellationToken);
+
+        // 使っている商品の更新の促し（docs/spec/used-updates.md）。検出し直しを含むので最後に。
+        // 失敗しても取り直しは済んでいるので、ログに残して成功として返す（⑦の打ち切りに数えない）
+        if (UsedUpdates is { } recorder)
+        {
+            try
+            {
+                await recorder.NoteAsync(existing, booth, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Diagnostics.AppLog.Error("中身の更新の控え", exception);
+            }
+        }
 
         // **画像はここで落とさない。**梯子の規則をここだけ破らないため。
         // 落とすと「①②が画像より先」の外側に画像の取得が生まれる。
