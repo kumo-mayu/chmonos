@@ -177,6 +177,21 @@ public sealed class SavedSearchRenameTests : IDisposable
     }
 
     [Fact]
+    public async Task 共通素体の名前を変えると_条件プロファイルの変換元と変換先の素体の鍵も変わる()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry { BaseGroups = [new AvatarBaseGroup { Name = "素体A" }] });
+        await SaveAsync(new SearchHistoryEntry
+        {
+            Name = "保存",
+            Modules = [new SearchModuleState { Kind = "Profile", Items = ["from:base:素体A", "to:base:素体A", "to:avatar:123", "to:base:素体C"] }],
+        });
+
+        await _handler.ExecuteAsync(new UiCommand.RenameBase("素体A", "素体B"));
+
+        Assert.Equal(["from:base:素体B", "to:base:素体B", "to:avatar:123", "to:base:素体C"], _store.SavedSearches.Load().Entries.Single().Modules.Single().Items);
+    }
+
+    [Fact]
     public async Task 共通素体を消しても_保存した検索の条件は残す()
     {
         await _store.Avatars.SaveAsync(new AvatarRegistry { BaseGroups = [new AvatarBaseGroup { Name = "素体A" }] });

@@ -322,13 +322,26 @@ public static class SavedSearches
             return entries.ToList();
         }
 
-        return RewriteModules(entries, AvatarKind, module => module with
+        var avatars = RewriteModules(entries, AvatarKind, module => module with
+        {
+            Items = module.Items.Select(key => RenamedBaseKey(key, string.Empty, oldName, target)).Distinct(StringComparer.Ordinal).ToList(),
+        });
+
+        // 条件「プロファイル」も、変換元（from:）・変換先（to:）の欄の素体名を付いていかせる（2026-11-09。前は対応アバターの条件だけだった）
+        return RewriteModules(avatars, ProfileKind, module => module with
         {
             Items = module.Items
-                .Select(key => key.StartsWith(BaseKeyPrefix, StringComparison.Ordinal) && SameTag(key[BaseKeyPrefix.Length..], oldName)
-                    ? BaseKeyPrefix + target
-                    : key)
-                .Distinct(StringComparer.Ordinal).ToList(),
+                .Select(key => RenamedBaseKey(RenamedBaseKey(key, SearchModuleConditions.SourceKey, oldName, target), SearchModuleConditions.DestinationKey, oldName, target))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
         });
     }
+
+    private const string ProfileKind = "Profile";
+
+    /// <summary>頭（<paramref name="side"/>。対応アバターは空）の後ろが「base:旧名」なら「base:新名」にする。</summary>
+    private static string RenamedBaseKey(string key, string side, string oldName, string newName)
+        => key.StartsWith(side + BaseKeyPrefix, StringComparison.Ordinal) && SameTag(key[(side.Length + BaseKeyPrefix.Length)..], oldName)
+            ? side + BaseKeyPrefix + newName
+            : key;
 }
