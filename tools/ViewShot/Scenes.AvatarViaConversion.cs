@@ -12,7 +12,83 @@ internal static partial class Scenes
     private static IEnumerable<Scene> AvatarViaConversionScenes =>
     [
         new Scene("item-page-avatars-via-conversion", "商品ページ：変換経由の段（持っているプロファイルで変換できる見込みのアバター）", ViaConversionAsync),
+        new Scene("item-page-conversion-setting", "商品ページ：変換扱いの欄（中のプロファイルごとのつなぎ先・確認待ち・選ぶ欄）", ConversionSettingAsync),
     ];
+
+    /// <summary>
+    /// プロファイルの商品ページの「変換扱い」の欄。中に作り物のプロファイルが3つ：確認したつなぎ先・推した（確認待ちの）つなぎ先・決まっていない物（選ぶ欄）。
+    /// </summary>
+    private static async Task<Shot> ConversionSettingAsync(SceneContext context)
+    {
+        const string hash = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+        await context.Seed.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "9800401", BoothName = "作り物のアバター「アオイ」", DisplayName = "アオイ", Category = "3Dキャラクター", BaseName = "作り物の素体" },
+            ],
+            BaseGroups = [new AvatarBaseGroup { Name = "作り物の素体" }],
+        });
+        new Chmonos.Core.Storage.UnityPackagePathStore(Chmonos.Core.Storage.AppPaths.Default).Add(hash, "Profile.unitypackage",
+        [
+            new Chmonos.Core.Services.UnityPackageAsset("00000000000000000000000000000001", "Assets/OutfitRetargetingSystem/Editor/config_template2fakeaoi.json"),
+            new Chmonos.Core.Services.UnityPackageAsset("00000000000000000000000000000002", "Assets/OutfitRetargetingSystem/Editor/config_fakeaoi2template.json"),
+            new Chmonos.Core.Services.UnityPackageAsset("00000000000000000000000000000003", "Assets/OutfitRetargetingSystem/Editor/config_fakebase2template.json"),
+            new Chmonos.Core.Services.UnityPackageAsset("00000000000000000000000000000004", "Assets/OutfitRetargetingSystem/Editor/config_template2fakemomo.json"),
+        ]);
+
+        var item = await context.Fake.ItemAsync(
+            "9900211",
+            "作り物のプロファイル",
+            record => record with
+            {
+                Local = record.Local with
+                {
+                    LocalFiles =
+                    [
+                        new LocalFileRecord
+                        {
+                            Hash = hash,
+                            Paths = [@"D:\fake\profile.zip"],
+                            SizeBytes = 1,
+                            Contents = ["Profile.unitypackage"],
+                            UnityPackages = [new UnityPackageSummary { Entry = "Profile.unitypackage", Roots = ["Assets/OutfitRetargetingSystem"] }],
+                        },
+                    ],
+                    Conversion = new ConversionSetting
+                    {
+                        Targets =
+                        [
+                            new ConversionTarget { AvatarItemId = "9800401", Forward = true, Reverse = true, Slug = "fakeaoi", Confirmed = true },
+                            new ConversionTarget { BaseName = "作り物の素体", Reverse = true, Slug = "fakebase" },
+                        ],
+                    },
+                },
+            },
+            images: 1);
+
+        var main = await context.StartAsync();
+        await SceneContext.UntilAsync(() => !main.Search.IsLoading, "商品を読み終える");
+        main.ShowItem(item);
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+
+        // 欄はページの末尾の「記録していること」の中にあるので、末尾まで送ってから撮る
+        if (Look.View<ItemView>(root) is { } page && Look.Named<System.Windows.Controls.ScrollViewer>(page, "Body") is { } body)
+        {
+            body.ScrollToEnd();
+            await context.PresentAsync(root);
+        }
+
+        return new Shot(root)
+        {
+            Focus = () => Look.All<System.Windows.Controls.TextBlock>(root)
+                .FirstOrDefault(text => System.Windows.Automation.AutomationProperties.GetAutomationId(text) == "ItemConversionState") is { } state
+                    ? Look.Ancestor<System.Windows.Controls.Border>(state)
+                    : null,
+            FocusMargin = 8,
+        };
+    }
 
     private static async Task<Shot> ViaConversionAsync(SceneContext context)
     {

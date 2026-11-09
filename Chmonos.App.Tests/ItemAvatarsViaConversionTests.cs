@@ -90,6 +90,24 @@ public class ItemAvatarsViaConversionTests
     });
 
     [Fact]
+    public Task プロファイルの商品ページで確認すると_開き直した衣装に変換経由が出る() => TestApp.Run(async app =>
+    {
+        var before = await OpenAsync(app, confirmed: false);
+        Assert.Empty(before.ViaConversionAvatars);
+
+        var profile = (await app.Store.Items.LoadAsync("9900892"))!;
+        var profilePage = new ItemViewModel(profile, app.Services, app.Main, app.Main.Thumbnails);
+        Assert.True(profilePage.ShowsConversion);
+        Assert.Single(profilePage.ConversionRows).ConfirmCommand!.Execute(null);
+        await app.SettleAsync();
+
+        // 検索の写しに知らせてあるので、全件を読み直さなくても次に開いたときに出る
+        var clothing = (await app.Store.Items.LoadAsync(ClothingId))!;
+        var after = new ItemViewModel(clothing, app.Services, app.Main, app.Main.Thumbnails);
+        Assert.Equal("モモ", Assert.Single(after.ViaConversionAvatars).Name);
+    });
+
+    [Fact]
     public Task 設定で切ると_変換経由の段を出さない() => TestApp.Run(async app =>
     {
         var page = await OpenAsync(app, confirmed: true, settings => settings with { ShowAvatarsViaConversion = false });

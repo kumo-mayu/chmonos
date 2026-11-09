@@ -711,6 +711,9 @@ public sealed partial class ItemViewModel
         {
             OnPropertyChanged(name);
         }
+
+        // 変換扱いの欄も同じ時に組み直す（書いた後の読み直し・取り込みの後など、対応アバターを組み直す道を全部通るため）
+        BuildConversion(registry, names);
     }
 
     private static string SourceLabel(AvatarLinkSource source) => source switch

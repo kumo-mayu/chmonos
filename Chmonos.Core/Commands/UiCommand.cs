@@ -279,6 +279,15 @@ public abstract record UiCommand
         Func<IReadOnlyList<Models.AvatarLink>, IReadOnlyList<Models.AvatarLink>>? Avatars = null,
         Func<IReadOnlyList<Models.AvatarBaseLink>, IReadOnlyList<Models.AvatarBaseLink>>? Bases = null) : UiCommand;
 
+    /// <summary>
+    /// 商品の「変換扱い」（プロファイルとして扱うか・つなぎ先）を変える（商品ページの「変換扱い」の欄。<c>docs/spec/conversion.md</c>）。
+    /// 変え方を渡し、**錠の中で今の値に当てる**（開いている間に見回りが推した値を書き直していても、古い写しで戻さない）。
+    /// 変え方は <see cref="Services.ConversionEdits"/> の関数で作る（何も決めていない形を null に揃える）
+    /// </summary>
+    public record ChangeConversion(
+        string ItemId,
+        Func<Models.ConversionSetting?, Models.ConversionSetting?> Change) : UiCommand;
+
     /// <summary>userTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
     public record AddUserTag(string Top, string? Sub = null) : UiCommand;
 

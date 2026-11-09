@@ -637,6 +637,22 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(changeLinks.ItemId)
                     : ItemMissing();
 
+            case UiCommand.ChangeConversion changeConversion:
+                if (_edit is null)
+                {
+                    return MissingService("変換扱いの変更");
+                }
+
+                return await _edit.ChangeLocalAsync(
+                        changeConversion.ItemId,
+                        local => changeConversion.Change(local.Conversion) is var next && next != local.Conversion
+                            ? local with { Conversion = next }
+                            : local,
+                        Models.LocalOwners.Conversion,
+                        cancellationToken)
+                    ? new CommandResult.ItemSaved(changeConversion.ItemId)
+                    : ItemMissing();
+
             case UiCommand.AddUserTag addTag:
                 if (_edit is null)
                 {

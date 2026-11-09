@@ -1031,6 +1031,81 @@
                                                    Visibility="{Binding Notice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                     </StackPanel>
                                 </WrapPanel>
+
+                                <!--
+                                    変換扱い（docs/spec/conversion.md「画面」・ユーザ判断 2026-11-09）。プロファイルのファイルを持つ商品だけに出す。
+                                    3択とボタン行が「アバター」の欄の横幅に入らないので、並びの下に置く（仕様は「隣か下」）。
+                                    今の扱いは文で出し、繋がったボタンは変える操作だけ（アバターの管理の「アバターかどうか」と同じ作り）
+                                -->
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding ShowsConversion, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="変換扱い" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding ConversionStateText}" Style="{StaticResource Caption}" Margin="0,3,0,8"
+                                               AutomationProperties.AutomationId="ItemConversionState" />
+                                    <!-- 右の列を狭くすると3つが1行に入らない（列の幅 約370 で約400 要る）。切れずに折り返す -->
+                                    <WrapPanel HorizontalAlignment="Left">
+                                        <controls:CommandRadioButton Content="自動の判定に任せる" GroupName="ItemConversionMode" Style="{StaticResource SegmentFirst}"
+                                                                     Command="{Binding SetConversionModeCommand}" CommandParameter="auto"
+                                                                     IsChecked="{Binding IsConversionAuto, Mode=OneWay}"
+                                                                     AutomationProperties.AutomationId="ItemConversionMode.Auto"
+                                                                     ToolTip="中にプロファイルのファイルがあれば、プロファイルとして扱います。" />
+                                        <controls:CommandRadioButton Content="プロファイルとして扱う" GroupName="ItemConversionMode" Style="{StaticResource SegmentMiddle}"
+                                                                     Command="{Binding SetConversionModeCommand}" CommandParameter="profile"
+                                                                     IsChecked="{Binding IsConversionProfile, Mode=OneWay}"
+                                                                     AutomationProperties.AutomationId="ItemConversionMode.Profile" />
+                                        <controls:CommandRadioButton Content="プロファイルとして扱わない" GroupName="ItemConversionMode" Style="{StaticResource SegmentLast}"
+                                                                     Command="{Binding SetConversionModeCommand}" CommandParameter="notProfile"
+                                                                     IsChecked="{Binding IsConversionNotProfile, Mode=OneWay}"
+                                                                     AutomationProperties.AutomationId="ItemConversionMode.NotProfile"
+                                                                     ToolTip="変換経由の対応アバターに使わなくなります。" />
+                                    </WrapPanel>
+
+                                    <!-- 中のプロファイルごとの行：名前・向き・つなぎ先（決まっていなければ選ぶ欄）・確認待ちの印 -->
+                                    <ItemsControl ItemsSource="{Binding ConversionRows}" Margin="0,10,0,0" Focusable="False"
+                                                  AutomationProperties.AutomationId="ItemConversionRows">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:ConversionTargetRow}">
+                                                <!--
+                                                    狭い列では、名前と向き／つなぎ先／ボタンの3つの塊で折り返す（塊の中では切らない）。
+                                                    1行に収まる幅では、名前と向きの幅を揃えて、つなぎ先の頭を縦に並べる
+                                                -->
+                                                <WrapPanel Margin="0,0,0,6" AutomationProperties.AutomationId="ItemConversionRow">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,8,2">
+                                                    <TextBlock Text="{Binding ProfileText}" Style="{StaticResource Mono}" MinWidth="110" VerticalAlignment="Center"
+                                                               Visibility="{Binding HasProfile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <TextBlock Text="{Binding DirectionText}" Style="{StaticResource Caption}" MinWidth="50" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                                    <TextBlock Text="→" Style="{StaticResource Caption}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding TargetText}" VerticalAlignment="Center"
+                                                               Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <controls:SuggestBox Width="220"
+                                                                         Source="{Binding DataContext.ConversionTargetSuggestions,
+                                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                         CommitCommand="{Binding ChooseCommand}"
+                                                                         AllowNew="False" Placeholder="つなぎ先のアバターか共通素体"
+                                                                         AutomationProperties.AutomationId="ItemConversionChoose"
+                                                                         Visibility="{Binding HasTarget, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                    <TextBlock Text="確認待ち" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}" Margin="10,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                                    <Button Content="確認済みにする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                            Command="{Binding ConfirmCommand}"
+                                                            AutomationProperties.AutomationId="ItemConversionConfirm"
+                                                            Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            ToolTip="変換経由の対応アバターに使います。" />
+                                                    <Button Content="外す" Style="{StaticResource DangerButton}" Margin="7,0,0,0"
+                                                            Command="{Binding RemoveCommand}"
+                                                            AutomationProperties.AutomationId="ItemConversionRemove"
+                                                            Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <controls:AreaNoticeLine DataContext="{Binding ConversionNotice}" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </controls:DeferredSection>
