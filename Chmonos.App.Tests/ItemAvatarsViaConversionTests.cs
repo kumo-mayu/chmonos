@@ -65,6 +65,22 @@ public class ItemAvatarsViaConversionTests
     });
 
     [Fact]
+    public Task 見出しの件数は_商品の対応の数に変換経由で増える数を足した形() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, confirmed: true);
+
+        Assert.Equal("（1+1 体）", page.AvatarsCountText);
+    });
+
+    [Fact]
+    public Task 変換経由を表示しない設定では_件数も前の形() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, confirmed: true, settings => settings with { ShowAvatarsViaConversion = false });
+
+        Assert.Equal("（1 体）", page.AvatarsCountText);
+    });
+
+    [Fact]
     public Task 確認していないつなぎ先は_既定では使わない() => TestApp.Run(async app =>
     {
         var page = await OpenAsync(app, confirmed: false);

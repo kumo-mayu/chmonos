@@ -98,12 +98,19 @@ public sealed partial class ItemViewModel
     /// <summary>札として並べる対応アバター全部（記録した物と素体経由）。絞り込みと件数に使う。</summary>
     private IEnumerable<AvatarRow> ShownAvatars => Avatars.Concat(ViaBaseAvatars);
 
-    /// <summary>対応アバターの見出しに添える件数。畳んでいても何体あるかは分かるように。</summary>
-    public string AvatarsCountText => (Avatars.Count, ViaBaseAvatars.Count) switch
+    /// <summary>
+    /// 対応アバターの見出しに添える件数。畳んでいても何体あるかは分かるように。
+    /// 変換経由で増える数は「n+m 体」の形で足す（ユーザ判断 2026-11-09：n は商品の対応の数、m は変換経由で増える数）。
+    /// 変換経由の段は直接対応・素体経由で並ぶアバターを除いてあるので、m はそのまま増える数になる。
+    /// 段を出さない設定（「変換経由の対応アバターも表示する」を切る）では m は 0 で、前と同じ形になる
+    /// </summary>
+    public string AvatarsCountText => (Avatars.Count, ViaBaseAvatars.Count, ViaConversionAvatars.Count) switch
     {
-        (0, 0) => string.Empty,
-        (var direct, 0) => $"（{direct} 体）",
-        (var direct, var via) => $"（{direct} 体・素体経由 {via} 体）",
+        (0, 0, 0) => string.Empty,
+        (var direct, 0, 0) => $"（{direct} 体）",
+        (var direct, var via, 0) => $"（{direct} 体・素体経由 {via} 体）",
+        (var direct, 0, var conversion) => $"（{direct}+{conversion} 体）",
+        (var direct, var via, var conversion) => $"（{direct}+{conversion} 体・素体経由 {via} 体）",
     };
 
     /// <summary>
