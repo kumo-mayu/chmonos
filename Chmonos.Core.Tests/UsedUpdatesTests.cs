@@ -120,4 +120,90 @@ public class UsedUpdatesTests
         Assert.False(item.Local.HasPendingContentUpdate);
         Assert.False(UsedUpdates.IsMemberBehind(item, new ModificationMember { ItemId = "1", FileHash = "A" }));
     }
+
+    // ---- 特定のアバター向けの更新（ユーザ判断 2026-11-09）。名前・ID は作り物 ----
+
+    private static readonly Dictionary<string, IReadOnlyList<string>> AvatarNames = new()
+    {
+        ["A1"] = ["アオイ"],
+        ["A2"] = ["ルリ"],
+    };
+
+    private static readonly Dictionary<string, IReadOnlyList<string>> BaseNames = new() { ["作り物の素体"] = ["作り物の素体"] };
+
+    private static NotificationDiff History(params string[] added) => new()
+    {
+        Field = "更新履歴",
+        Lines = added.Select(text => new NotificationLine { Kind = NotificationLineKind.Added, Text = text }).ToList(),
+    };
+
+    [Fact]
+    public void 更新の行が全部アバターの名前を含めば_そのアバター向けになる()
+    {
+        var targets = UsedUpdateKind.TargetsOf([History("2026/09/12 アオイくんの瞳の縁を再修正しました。", "ver1.1")], AvatarNames, BaseNames);
+
+        Assert.Equal(["A1"], targets!.Avatars);
+        Assert.Empty(targets.Bases);
+    }
+
+    [Fact]
+    public void 名前の無い更新の行が1行でもあれば全部向け()
+    {
+        Assert.Null(UsedUpdateKind.TargetsOf([History("アオイの瞳を修正", "影のマスクを追加")], AvatarNames, BaseNames));
+    }
+
+    [Fact]
+    public void 共通素体の名前でも向き先になる()
+    {
+        var targets = UsedUpdateKind.TargetsOf([History("作り物の素体用のメッシュを修正")], AvatarNames, BaseNames);
+
+        Assert.Equal(["作り物の素体"], targets!.Bases);
+    }
+
+    [Fact]
+    public void 特定のアバター向けの更新は_そのアバターか同じ素体のアバターの改変だけに当たる()
+    {
+        var registry = new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "A1", DisplayName = "アオイ" },
+                new AvatarRegistryEntry { ItemId = "A2", DisplayName = "ルリ" },
+                new AvatarRegistryEntry { ItemId = "A3", DisplayName = "モモ", BaseName = "作り物の素体" },
+            ],
+        };
+        var forAoi = UsedUpdates.Found(new LocalBlock(), Found, new UpdateTargets(["A1"], []));
+        var forBase = UsedUpdates.Found(new LocalBlock(), Found, new UpdateTargets([], ["作り物の素体"]));
+
+        Assert.True(UsedUpdates.AppliesTo(forAoi, "A1", registry));
+        Assert.False(UsedUpdates.AppliesTo(forAoi, "A2", registry));
+        Assert.True(UsedUpdates.AppliesTo(forAoi, null, registry));
+        Assert.True(UsedUpdates.AppliesTo(forBase, "A3", registry));
+        Assert.False(UsedUpdates.AppliesTo(forBase, "A1", registry));
+    }
+
+    [Fact]
+    public void 使っている所は_特定のアバター向けならそのアバターの改変と_アバターの分からないプロジェクトだけ数える()
+    {
+        var registry = new AvatarRegistry();
+        var local = new LocalBlock { LocalFiles = [File("A")] };
+        var item = Item(local with { ContentUpdate = UsedUpdates.Found(local, Found, new UpdateTargets(["A1"], [])) });
+        ModificationRecord Mod(string id, string avatar, string? project = null) => new()
+        {
+            Id = id,
+            AvatarItemId = avatar,
+            Name = id,
+            UnityProject = project,
+            Members = [new ModificationMember { ItemId = "1" }],
+        };
+        var scan = new UnityProjectScan([new UnityProjectMatch("1", 1, 1)], new Dictionary<string, IReadOnlyList<UnityImageMatch>>());
+
+        var used = new UsedItems(
+            [Mod("m1", "A1"), Mod("m2", "A2", @"D:\p2")],
+            new Dictionary<string, UnityProjectScan> { [@"D:\p2"] = scan, [@"D:\open"] = scan });
+
+        // 改変は A1 の分だけ。プロジェクトは A2 の改変に紐付いた p2 を除き、紐付きの無い open だけ
+        Assert.Equal(new UsedBy(1, 1), used.Of(item, registry));
+        Assert.Equal(new UsedBy(2, 2), used.Of("1"));
+    }
 }

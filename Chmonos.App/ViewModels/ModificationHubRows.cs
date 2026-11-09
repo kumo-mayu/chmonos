@@ -549,7 +549,7 @@ internal sealed class ModificationRowBuilder(
 
             // 手元に無くても記録は残す。そのとき使ったのは事実
             IsMissing = item is null || !item.IsOwned,
-            IsBehind = item is not null && Core.Services.UsedUpdates.IsMemberBehind(item, member),
+            IsBehind = item is not null && Core.Services.UsedUpdates.IsMemberBehind(item, member, record.AvatarItemId, services.Store.Avatars.Load()),
             ThumbnailPath = item is null ? null : ItemThumbnailPath(item),
             Thumbnails = thumbnails,
         };

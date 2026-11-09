@@ -217,7 +217,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     /// <summary>使ったもの（外した行を除く）のどれかに、使ったファイルより新しい版が出ているか（<see cref="UsedUpdates.IsMemberBehind"/>）。</summary>
     private bool IsBehind(ModificationRecord record)
-        => record.Members.Any(member => _items.TryGetValue(member.ItemId, out var item) && UsedUpdates.IsMemberBehind(item, member));
+        => record.Members.Any(member => _items.TryGetValue(member.ItemId, out var item)
+            && UsedUpdates.IsMemberBehind(item, member, record.AvatarItemId, _services.Store.Avatars.Load()));
 
     public string QueryPlaceholder => Level switch
     {

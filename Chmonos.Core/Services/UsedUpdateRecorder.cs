@@ -45,8 +45,8 @@ public sealed class UsedUpdateRecorder
             return;
         }
 
-        var names = await AvatarNamesAsync(item, cancellationToken);
-        if (!UsedUpdateKind.ShouldPrompt(diffs, names))
+        var (prompt, targets) = await ClassifyAsync(item, diffs, cancellationToken);
+        if (!prompt)
         {
             return;
         }
@@ -54,7 +54,7 @@ public sealed class UsedUpdateRecorder
         var now = DateTimeOffset.Now;
         await _store.Items.ChangeLocalAsync(
             item.Id,
-            local => local with { ContentUpdate = UsedUpdates.Found(local, now) },
+            local => local with { ContentUpdate = UsedUpdates.Found(local, now, targets) },
             LocalOwners.ContentUpdate,
             cancellationToken);
     }
@@ -88,7 +88,8 @@ public sealed class UsedUpdateRecorder
                 continue;
             }
 
-            if (!UsedUpdateKind.ShouldPrompt(note.Diffs ?? [], await AvatarNamesAsync(item, cancellationToken)))
+            var (prompt, targets) = await ClassifyAsync(item, note.Diffs ?? [], cancellationToken);
+            if (!prompt)
             {
                 continue;
             }
@@ -98,7 +99,7 @@ public sealed class UsedUpdateRecorder
                     item.Id,
                     local => local.ContentUpdate is { } current && current.FoundAt >= noted
                         ? local
-                        : local with { ContentUpdate = UsedUpdates.Found(local, now) },
+                        : local with { ContentUpdate = UsedUpdates.Found(local, now, targets) },
                     LocalOwners.ContentUpdate,
                     cancellationToken))
             {
@@ -114,14 +115,34 @@ public sealed class UsedUpdateRecorder
     /// </summary>
     internal async Task<IReadOnlyList<string>> AvatarNamesAsync(ItemRecord item, CancellationToken cancellationToken)
     {
+        var (avatars, bases) = await NamesByTargetAsync(item, cancellationToken);
+        return [.. avatars.Values.SelectMany(names => names), .. bases.Values.SelectMany(names => names)];
+    }
+
+    /// <summary>促す更新か、どのアバター・素体向けか（<see cref="UsedUpdateKind.TargetsOf"/>・ユーザ判断 2026-11-09）。</summary>
+    private async Task<(bool Prompt, UpdateTargets? Targets)> ClassifyAsync(
+        ItemRecord item, IReadOnlyList<NotificationDiff> diffs, CancellationToken cancellationToken)
+    {
+        var (avatars, bases) = await NamesByTargetAsync(item, cancellationToken);
+        var all = avatars.Values.Concat(bases.Values).SelectMany(names => names).ToList();
+        return UsedUpdateKind.ShouldPrompt(diffs, all)
+            ? (true, UsedUpdateKind.TargetsOf(diffs, avatars, bases))
+            : (false, null);
+    }
+
+    /// <summary>対応アバターごと・共通素体ごとの名前（表示名・BOOTH の名前・別名）。</summary>
+    private async Task<(Dictionary<string, IReadOnlyList<string>> Avatars, Dictionary<string, IReadOnlyList<string>> Bases)> NamesByTargetAsync(
+        ItemRecord item, CancellationToken cancellationToken)
+    {
         var registry = await _store.Avatars.LoadAsync(cancellationToken);
         // 登録簿は手で直せる JSON なので、同じ ID・名前が2つあっても止まらないよう先の物を使う
         var entries = registry.Entries.DistinctBy(entry => entry.ItemId).ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
-        var bases = registry.BaseGroups.DistinctBy(group => group.Name).ToDictionary(group => group.Name, StringComparer.Ordinal);
+        var groups = registry.BaseGroups.DistinctBy(group => group.Name).ToDictionary(group => group.Name, StringComparer.Ordinal);
 
-        var names = new List<string>();
-        foreach (var link in item.Local.Avatars)
+        var avatars = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        foreach (var link in item.Local.Avatars.DistinctBy(link => link.AvatarItemId))
         {
+            var names = new List<string>();
             AddIf(names, link.Name);
             if (entries.TryGetValue(link.AvatarItemId, out var entry))
             {
@@ -129,18 +150,24 @@ public sealed class UsedUpdateRecorder
                 AddIf(names, entry.BoothName);
                 names.AddRange(entry.Aliases.Select(alias => alias.Text));
             }
+
+            avatars[link.AvatarItemId] = names;
         }
 
-        foreach (var link in item.Local.AvatarBases)
+        var bases = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        foreach (var link in item.Local.AvatarBases.DistinctBy(link => link.BaseName))
         {
+            var names = new List<string>();
             AddIf(names, link.BaseName);
-            if (bases.TryGetValue(link.BaseName, out var group))
+            if (groups.TryGetValue(link.BaseName, out var group))
             {
                 names.AddRange(group.Aliases.Select(alias => alias.Text));
             }
+
+            bases[link.BaseName] = names;
         }
 
-        return names;
+        return (avatars, bases);
     }
 
     private static void AddIf(List<string> names, string? name)

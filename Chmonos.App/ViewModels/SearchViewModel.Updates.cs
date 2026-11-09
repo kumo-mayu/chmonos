@@ -35,7 +35,7 @@ public sealed partial class SearchViewModel
     internal Core.Services.BoothChangeKind UnreadUpdateKinds(string itemId)
     {
         var kinds = _unreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : Core.Services.BoothChangeKind.None;
-        if (_itemsById.TryGetValue(itemId, out var item) && item.Local.HasPendingContentUpdate && IsUsedItem(itemId))
+        if (_itemsById.TryGetValue(itemId, out var item) && item.Local.HasPendingContentUpdate && IsUsedItem(item))
         {
             kinds |= Core.Services.BoothChangeKind.UsedContent;
         }
@@ -44,7 +44,7 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>改変か Unity のプロジェクトで使っている商品か（主の画面が見張りの答えを渡す）。</summary>
-    internal Func<string, bool> IsUsedItem { get; set; } = _ => false;
+    internal Func<ItemRecord, bool> IsUsedItem { get; set; } = _ => false;
 
     /// <summary>使っている商品の答えが変わった。条件「更新通知あり」があれば絞り直す。</summary>
     internal void NoteUsedItemsChanged()

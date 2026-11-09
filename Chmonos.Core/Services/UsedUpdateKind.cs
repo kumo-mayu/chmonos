@@ -16,6 +16,9 @@ namespace Chmonos.Core.Services;
 /// 行が1つでも「追加」と言い切れなければ促す。足した行が上限で切れている・行の差を持たない古い形の知らせも促す。
 /// アバターの新しい版への対応（「〇〇 Ver1.3.0 に対応」）は更新に数える（ユーザ判断 2026-11-06：アバターを上げた人には要る）。
 /// </summary>
+/// <summary>特定のアバター・共通素体向けの更新の、向き先（<see cref="UsedUpdateKind.TargetsOf"/>）。</summary>
+public sealed record UpdateTargets(IReadOnlyList<string> Avatars, IReadOnlyList<string> Bases);
+
 public static class UsedUpdateKind
 {
     /// <summary>
@@ -64,6 +67,62 @@ public static class UsedUpdateKind
         }
 
         return additions > 0;
+    }
+
+    /// <summary>
+    /// 更新がどのアバター向けか（ユーザ判断 2026-11-09：「〇〇くんの瞳の縁を再修正」は、そのアバターで使っている人にだけ促す）。
+    /// 更新の行（追加でも日付だけでもない行）が**全部**どれかの対応アバター・共通素体の名前を含むときだけ、その名前の物を返す。
+    /// 名前の無い更新の行が1行でもあれば、全部向けとして null（迷えば促す側）。足した行が切れている・行の差が無いときも null。
+    /// </summary>
+    /// <param name="avatarNames">対応アバターの商品ID → 名前（表示名・BOOTH の名前・別名）。</param>
+    /// <param name="baseNames">対応している共通素体の名前 → 名前（素体の名前・別名）。</param>
+    public static UpdateTargets? TargetsOf(
+        IReadOnlyList<NotificationDiff> diffs,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> avatarNames,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> baseNames)
+    {
+        static Dictionary<string, List<string>> Folded(IReadOnlyDictionary<string, IReadOnlyList<string>> names)
+            => names.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Select(Fold).Where(name => name.Length >= MinNameLength).Distinct(StringComparer.Ordinal).ToList(),
+                StringComparer.Ordinal);
+
+        var avatars = Folded(avatarNames);
+        var bases = Folded(baseNames);
+        var all = avatars.Values.Concat(bases.Values).SelectMany(names => names).Distinct(StringComparer.Ordinal).ToList();
+
+        var forAvatars = new HashSet<string>(StringComparer.Ordinal);
+        var forBases = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var diff in diffs.Where(diff => Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field)))
+        {
+            if (diff.Lines is null || diff.MoreAdded is > 0)
+            {
+                return null;
+            }
+
+            foreach (var line in diff.Lines.Where(line => line.Kind == NotificationLineKind.Added))
+            {
+                if (Classify(line.Text, all) != LineKind.Other)
+                {
+                    continue;
+                }
+
+                var folded = Fold(line.Text);
+                var hitAvatars = avatars.Where(pair => pair.Value.Any(name => folded.Contains(name, StringComparison.Ordinal))).Select(pair => pair.Key).ToList();
+                var hitBases = bases.Where(pair => pair.Value.Any(name => folded.Contains(name, StringComparison.Ordinal))).Select(pair => pair.Key).ToList();
+                if (hitAvatars.Count == 0 && hitBases.Count == 0)
+                {
+                    return null;
+                }
+
+                forAvatars.UnionWith(hitAvatars);
+                forBases.UnionWith(hitBases);
+            }
+        }
+
+        return forAvatars.Count == 0 && forBases.Count == 0
+            ? null
+            : new UpdateTargets([.. forAvatars.Order(StringComparer.Ordinal)], [.. forBases.Order(StringComparer.Ordinal)]);
     }
 
     /// <summary>

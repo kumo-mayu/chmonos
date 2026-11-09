@@ -1429,7 +1429,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 IsMissing = item is null || !item.IsOwned,
 
                 // 使ったファイルより新しい版が出ているか（行ごと・docs/spec/used-updates.md）
-                IsBehind = item is not null && UsedUpdates.IsMemberBehind(item, member),
+                IsBehind = item is not null && UsedUpdates.IsMemberBehind(item, member, Record.AvatarItemId, _services.Store.Avatars.Load()),
 
                 VariationText = VariationLabel(member, item),
 

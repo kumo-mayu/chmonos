@@ -70,7 +70,7 @@ public sealed partial class ItemViewModel
     /// <summary>開いたときに今の答えを当て、見張りの答えが変わるたびに出し直す。このページを離れたら聞くのをやめる。</summary>
     private void ListenToUsedItems()
     {
-        _usedBy = _main.UsedItems.Current.Of(Item.Id);
+        _usedBy = _main.UsedItems.Current.Of(Item, _services.Store.Avatars.Load());
         if (!_listensToUsedItems)
         {
             _listensToUsedItems = true;
@@ -89,7 +89,7 @@ public sealed partial class ItemViewModel
                 return;
             }
 
-            var next = _main.UsedItems.Current.Of(Item.Id);
+            var next = _main.UsedItems.Current.Of(Item, _services.Store.Avatars.Load());
             if (next != _usedBy)
             {
                 _usedBy = next;
