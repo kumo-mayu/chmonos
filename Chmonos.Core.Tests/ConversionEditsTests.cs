@@ -70,6 +70,24 @@ public class ConversionEditsTests
     }
 
     [Fact]
+    public void まとめて確認は_名指しした確認待ちだけを確認済みにする()
+    {
+        var other = new ConversionTarget { AvatarItemId = "9800401", Reverse = true, Slug = "fakeaoi" };
+        var notShown = new ConversionTarget { AvatarItemId = "9800402", Forward = true, Slug = "fakemomo" };
+        var next = ConversionEdits.ConfirmMany([Suggested, other])(new ConversionSetting { Targets = [Suggested, other, notShown] });
+
+        Assert.Equal([true, true, false], next!.Targets.Select(target => target.Confirmed));
+    }
+
+    [Fact]
+    public void まとめて確認は_外した行を確認済みに戻さない()
+    {
+        var rejected = ConversionEdits.Reject(Suggested)(WithSuggestion());
+
+        Assert.Same(rejected, ConversionEdits.ConfirmMany([Suggested])(rejected));
+    }
+
+    [Fact]
     public void 外すと_行は残して外した印を付ける()
     {
         var row = Assert.Single(ConversionEdits.Reject(Suggested)(WithSuggestion())!.Targets);

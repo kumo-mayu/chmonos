@@ -8,6 +8,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:AvatarsViewModel}">
+    <!-- 変換を見ているときの「推した通りに決めて次へ」。一覧に止まっていても効くよう画面に置く（変換を見ていないときは押せない） -->
+    <UserControl.InputBindings>
+        <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding DecideSuggestedCommand}" />
+    </UserControl.InputBindings>
     <UserControl.Resources>
       <ResourceDictionary>
         <!-- 一覧の行の右クリックは、カードと同じメニュー（ユーザ指示 2026-09-20・M2） -->
@@ -401,7 +405,7 @@
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ModeButton}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsBaseMode}" Value="False">
+                                            <DataTrigger Binding="{Binding IsAvatarMode}" Value="True">
                                                 <Setter Property="FontWeight" Value="Bold" />
                                                 <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                                 <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
@@ -424,11 +428,27 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+                            <!-- 変換ツールのプロファイルの変換扱いを、未確定のように順に決める（docs/spec/conversion.md・ユーザ判断 2026-11-06） -->
+                            <Button Content="{Binding ConversionModeText}" Command="{Binding ShowConversionModeCommand}" Margin="6,0,0,0"
+                                    AutomationProperties.AutomationId="AvatarsConversionMode"
+                                    ToolTip="変換ツールのプロファイルが、どのアバター・共通素体の物かを決めます。">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ModeButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsConversionMode}" Value="True">
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
 
                         <!-- 一覧をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4） -->
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,4,14,0"
-                                    Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                    Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <controls:CommandRadioButton Content="カード" GroupName="AvatarsView" Style="{StaticResource SegmentFirst}"
                                          IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
                                          ToolTip="絵の大きなカードで並べます" />
@@ -438,7 +458,7 @@
                         </StackPanel>
 
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
-                              Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                              Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                  AutomationProperties.Name="名前・ID・呼び方で探す"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
@@ -479,7 +499,7 @@
 
                         <!-- アバターの一覧の右下の大きさのスライダー（検索と同じ。メモ10-④ 2026-10-02）。素体を見ているときは出さない -->
                         <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False"
-                                        Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                        Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                         <!--
                             一覧は1つのListBoxにまとめ、所有／未所有はグループ見出しで分ける。
@@ -499,7 +519,7 @@
                                      BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
                                      HorizontalContentAlignment="Stretch"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                     Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <!-- リストかカードかは、渡す型そのものを替える（メモ9-①。AvatarCard の上の説明） -->
                                 <ListBox.Style>
                                     <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
@@ -557,6 +577,52 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
+
+                            <!--
+                                変換ツールのプロファイルを持つ商品（ユーザ判断 2026-11-09：決めていない物を上に群で分ける）。
+                                行は字だけ（多くても数十件。絵を読ませない）。決めていない行には「確認待ち 3・未設定 2」の数を添える
+                            -->
+                            <ListBox ItemsSource="{Binding ConversionItems}" SelectedItem="{Binding SelectedConversion, Mode=TwoWay}"
+                                     ItemContainerStyle="{StaticResource AvatarBaseRowStyle}"
+                                     BorderThickness="0" Background="Transparent" Margin="14,12,14,14"
+                                     HorizontalContentAlignment="Stretch"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     AutomationProperties.AutomationId="AvatarsConversionList"
+                                     Visibility="{Binding IsConversionMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ListBox.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.ContainerStyle>
+                                            <Style TargetType="GroupItem">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="GroupItem">
+                                                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" Margin="0,8,0,2">
+                                                                <Expander.Header>
+                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4"><Run Text="{Binding Name, Mode=OneWay}" /><Run Text="（" /><Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text="）" /></TextBlock>
+                                                                </Expander.Header>
+                                                                <ItemsPresenter />
+                                                            </Expander>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </GroupStyle.ContainerStyle>
+                                    </GroupStyle>
+                                </ListBox.GroupStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ConversionItemRowViewModel}">
+                                        <StackPanel Margin="0,3,0,5">
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}" Margin="0,2,0,0"
+                                                       Visibility="{Binding HasBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
+                                       Visibility="{Binding ShowsNoConversionItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                       Text="変換ツールのプロファイルを含む商品はまだありません。取り込むと、ここに並びます。" />
 
                             <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
                                        Visibility="{Binding ShowsNoBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
@@ -1141,6 +1207,37 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
+
+                        <!--
+                            変換を見ているときの右の欄（ユーザ判断 2026-11-09：商品ページの「変換扱い」の欄を使い回し、下に決めて次へ進むボタン）。
+                            Ctrl+Enter は「推した通りに決めて次へ」（未確定の「この内容で決める」と同じキー）
+                        -->
+                        <Border Style="{StaticResource Card}" Padding="22,18"
+                                Visibility="{Binding ShowsConversionDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,14">
+                                    <Button DockPanel.Dock="Right" Content="商品ページを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Top"
+                                            Command="{Binding OpenConversionItemCommand}"
+                                            AutomationProperties.AutomationId="AvatarsConversionOpenItem" />
+                                    <TextBlock Text="{Binding SelectedConversion.Name}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,12,0" />
+                                </DockPanel>
+                                <views:ItemConversionPanel DataContext="{Binding ConversionEditor}" />
+                                <WrapPanel Margin="0,16,0,0">
+                                    <Button Content="推した通りに決めて次へ" Style="{StaticResource PrimaryButton}" Margin="0,0,8,6"
+                                            Command="{Binding DecideSuggestedCommand}"
+                                            AutomationProperties.AutomationId="AvatarsConversionDecide"
+                                            ToolTip="確認待ちを確認済みにして、次の商品へ進みます。" />
+                                    <Button Content="プロファイルではない" Margin="0,0,8,6"
+                                            Command="{Binding MarkNotProfileCommand}"
+                                            AutomationProperties.AutomationId="AvatarsConversionNotProfile"
+                                            ToolTip="プロファイルとして扱わないようにして、次の商品へ進みます。" />
+                                    <Button Content="後で" Margin="0,0,8,6"
+                                            Command="{Binding LaterCommand}"
+                                            AutomationProperties.AutomationId="AvatarsConversionLater"
+                                            ToolTip="何も変えずに、次の商品へ進みます。" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </controls:PaneGrid>

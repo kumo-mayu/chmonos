@@ -55,6 +55,34 @@ public static class ConversionEdits
     public static Func<ConversionSetting?, ConversionSetting?> Confirm(ConversionTarget target)
         => current => Map(current, target, found => found with { Confirmed = true });
 
+    /// <summary>
+    /// 名指しした確認待ちのつなぎ先を、まとめて確認済みにする（アバターの管理の「変換」の「推した通りに決めて次へ」と「推した通りにまとめて決める」）。
+    /// 名指しは人が見た行だけ：押す前に見せた後で見回りが推し直した行は、見ていないので確かめない（推定を勝手に入れない）。
+    /// </summary>
+    public static Func<ConversionSetting?, ConversionSetting?> ConfirmMany(IReadOnlyCollection<ConversionTarget> targets)
+        => current =>
+        {
+            if (current is null || targets.Count == 0)
+            {
+                return current;
+            }
+
+            var changed = false;
+            var next = current.Targets
+                .Select(candidate =>
+                {
+                    if (candidate.Confirmed || candidate.Rejected || !targets.Any(target => IsSameRow(candidate, target)))
+                    {
+                        return candidate;
+                    }
+
+                    changed = true;
+                    return candidate with { Confirmed = true };
+                })
+                .ToList();
+            return changed ? current with { Targets = next } : current;
+        };
+
     /// <summary>つなぎ先の向き（順方向・逆方向）を変える。人が決めた値なので確認済みにする。</summary>
     public static Func<ConversionSetting?, ConversionSetting?> SetDirection(ConversionTarget target, bool forward, bool reverse)
         => current => Map(current, target, found => found with { Forward = forward, Reverse = reverse, Confirmed = true });

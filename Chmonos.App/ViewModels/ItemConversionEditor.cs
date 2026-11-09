@@ -76,6 +76,9 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// <summary>つなぎ先の決まっていないプロファイルの数。</summary>
     public int UnsetCount => Rows.Count(row => !row.HasTarget);
 
+    /// <summary>今見せている確認待ちのつなぎ先（「推した通りに決める」が名指しする行。見せた物だけを確かめる）。</summary>
+    public IReadOnlyList<ConversionTarget> UnconfirmedTargets { get; private set; } = [];
+
     /// <summary>書けなかったときだけ出る1行。</summary>
     public AreaNotice Notice { get; } = new();
 
@@ -102,6 +105,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         if (!ShowsConversion)
         {
             Rows = [];
+            UnconfirmedTargets = [];
             StateText = string.Empty;
             Raise();
             return;
@@ -135,6 +139,7 @@ public sealed class ItemConversionEditor : ViewModelBase
             .Select(target => TargetRow(target, TargetName(target))));
 
         Rows = rows;
+        UnconfirmedTargets = targets.Where(target => !target.Confirmed).ToList();
         StateText = (setting?.Mode ?? ConversionMode.Auto) switch
         {
             ConversionMode.Profile => "今の扱い：プロファイルとして扱う（手動で指定）",

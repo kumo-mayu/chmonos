@@ -379,6 +379,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             OnPropertyChanged(name);
         }
+
+        // 変換の一覧も検索の写しから作るので、読み終えたら作り直す（検索より先に開くと空のまま）
+        if (!_main.Search.IsLoading)
+        {
+            RefreshConversionItems();
+        }
     }
 
     private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -807,24 +813,44 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             if (SetField(ref _isBaseMode, value))
             {
-                OnPropertyChanged(nameof(ShowsAvatarDetail));
-                OnPropertyChanged(nameof(ShowsNoBases));
-                OnPropertyChanged(nameof(ShowsBaseDetail));
+                if (value)
+                {
+                    IsConversionMode = false;
+                }
+
+                RaiseModes();
             }
         }
+    }
+
+    /// <summary>アバターを見ているか（共通素体も変換も見ていない）。既定。</summary>
+    public bool IsAvatarMode => !IsBaseMode && !IsConversionMode;
+
+    private void RaiseModes()
+    {
+        OnPropertyChanged(nameof(IsAvatarMode));
+        OnPropertyChanged(nameof(ShowsAvatarDetail));
+        OnPropertyChanged(nameof(ShowsNoBases));
+        OnPropertyChanged(nameof(ShowsBaseDetail));
+        OnPropertyChanged(nameof(ShowsConversionDetail));
+        OnPropertyChanged(nameof(ShowsNoConversionItems));
     }
 
     public string AvatarModeText => $"アバター（{_all.Count}）";
 
     public string BaseModeText => $"共通素体（{Bases.Count}）";
 
-    /// <summary>右にアバターの詳細を出すか。素体を見ているときは出さない。</summary>
-    public bool ShowsAvatarDetail => HasSelection && !IsBaseMode;
+    /// <summary>右にアバターの詳細を出すか。素体・変換を見ているときは出さない。</summary>
+    public bool ShowsAvatarDetail => HasSelection && IsAvatarMode;
 
     /// <summary>素体を見ようとしたが1つも無いとき。空欄ではなく作り方を出す。</summary>
     public bool ShowsNoBases => IsBaseMode && !HasBases;
 
-    public RelayCommand ShowAvatarModeCommand => _showAvatarModeCommand ??= new RelayCommand(() => IsBaseMode = false);
+    public RelayCommand ShowAvatarModeCommand => _showAvatarModeCommand ??= new RelayCommand(() =>
+    {
+        IsBaseMode = false;
+        IsConversionMode = false;
+    });
 
     public RelayCommand ShowBaseModeCommand => _showBaseModeCommand ??= new RelayCommand(() => IsBaseMode = true);
 
@@ -1110,6 +1136,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             }
 
             IsBaseMode = false;
+            IsConversionMode = false;
             Selected = row;
         },
         parameter => parameter is AvatarRowViewModel);
@@ -1678,6 +1705,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             IsLoading = false;
             Rebuild();
+            RefreshConversionItems();
 
             // 戻るで素体の詳細へ戻すとき。素体が消えていたら（戻る前に消した）アバターの見方のまま
             if (openBase && SelectedBase?.Name == selectedBaseName)

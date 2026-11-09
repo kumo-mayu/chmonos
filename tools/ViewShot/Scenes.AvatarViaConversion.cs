@@ -13,7 +13,73 @@ internal static partial class Scenes
     [
         new Scene("item-page-avatars-via-conversion", "商品ページ：変換経由の段（持っているプロファイルで変換できる見込みのアバター）", ViaConversionAsync),
         new Scene("item-page-conversion-setting", "商品ページ：変換扱いの欄（中のプロファイルごとのつなぎ先・確認待ち・選ぶ欄）", ConversionSettingAsync),
+        new Scene("avatars-conversion", "アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", AvatarsConversionAsync),
     ];
+
+    /// <summary>アバターの管理の「変換」。プロファイルの商品4つ（推した・つなぎ先が無い・決めた・扱わない）。最初の決めていない商品を選んだ所。</summary>
+    private static async Task<Shot> AvatarsConversionAsync(SceneContext context)
+    {
+        await context.Seed.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "9800401", BoothName = "作り物のアバター「アオイ」", DisplayName = "アオイ", Category = "3Dキャラクター", BaseName = "作り物の素体" },
+            ],
+            BaseGroups = [new AvatarBaseGroup { Name = "作り物の素体" }],
+        });
+
+        async Task ProfileAsync(string id, string name, char hashChar, string[] slugs, ConversionSetting? conversion)
+        {
+            var hash = new string(hashChar, 64);
+            new Chmonos.Core.Storage.UnityPackagePathStore(Chmonos.Core.Storage.AppPaths.Default).Add(hash, "Profile.unitypackage",
+                slugs.Select((slug, index) => new Chmonos.Core.Services.UnityPackageAsset(
+                    $"{index + 1:D32}", $"Assets/OutfitRetargetingSystem/Editor/config_template2{slug}.json")).ToList());
+            await context.Fake.ItemAsync(id, name, record => record with
+            {
+                Local = record.Local with
+                {
+                    LocalFiles =
+                    [
+                        new LocalFileRecord
+                        {
+                            Hash = hash,
+                            Paths = [$@"D:\fake\{id}.zip"],
+                            SizeBytes = 1,
+                            Contents = ["Profile.unitypackage"],
+                            UnityPackages = [new UnityPackageSummary { Entry = "Profile.unitypackage", Roots = ["Assets/OutfitRetargetingSystem"] }],
+                        },
+                    ],
+                    Conversion = conversion,
+                },
+            });
+        }
+
+        await ProfileAsync("9900221", "作り物のプロファイル（まとめ）", 'D', ["fakeaoi", "fakebase", "fakemomo"], new ConversionSetting
+        {
+            Targets =
+            [
+                new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakeaoi", Confirmed = true },
+                new ConversionTarget { BaseName = "作り物の素体", Forward = true, Slug = "fakebase" },
+            ],
+        });
+        await ProfileAsync("9900222", "作り物のプロファイル（つなぎ先なし）", 'E', ["fakekiki"], null);
+        await ProfileAsync("9900223", "作り物のプロファイル（決めた）", 'F', ["fakeaoi"], new ConversionSetting
+        {
+            Targets = [new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakeaoi", Confirmed = true }],
+        });
+        await ProfileAsync("9900224", "作り物の変換ツール", 'A', ["fakesample"], new ConversionSetting { Mode = ConversionMode.NotProfile });
+
+        var main = await context.StartAsync();
+        await SceneContext.UntilAsync(() => !main.Search.IsLoading && main.Search.TotalCount == 4, "商品を読み終える");
+        main.ShowAvatarsCommand.Execute(null);
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+        var avatars = context.Screen<Chmonos.App.ViewModels.AvatarsViewModel>();
+        await SceneContext.UntilAsync(() => !avatars.IsLoading && avatars.HasConversionItems, "変換の一覧ができる");
+        avatars.ShowConversionModeCommand.Execute(null);
+        await context.SettleAsync();
+        return new Shot(root);
+    }
 
     /// <summary>
     /// プロファイルの商品ページの「変換扱い」の欄。中に作り物のプロファイルが3つ：確認したつなぎ先・推した（確認待ちの）つなぎ先・決まっていない物（選ぶ欄）。
