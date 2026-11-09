@@ -77,8 +77,8 @@ public class ItemConversionSettingTests
     {
         var page = await OpenAsync(app, conversion: null, withFiles: false);
 
-        Assert.False(page.ShowsConversion);
-        Assert.Empty(page.ConversionRows);
+        Assert.False(page.Conversion.ShowsConversion);
+        Assert.Empty(page.Conversion.Rows);
     });
 
     [Fact]
@@ -86,21 +86,21 @@ public class ItemConversionSettingTests
     {
         var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
 
-        Assert.True(page.ShowsConversion);
-        Assert.Equal("今の扱い：プロファイル（自動の判定）", page.ConversionStateText);
-        Assert.True(page.IsConversionAuto);
+        Assert.True(page.Conversion.ShowsConversion);
+        Assert.Equal("今の扱い：プロファイル（自動の判定）", page.Conversion.StateText);
+        Assert.True(page.Conversion.IsAuto);
 
-        var open = Assert.Single(page.ConversionRows, row => row.ProfileText == "fakeaoi");
+        var open = Assert.Single(page.Conversion.Rows, row => row.ProfileText == "fakeaoi");
         Assert.False(open.HasTarget);
         Assert.Equal("順方向", open.DirectionText);
 
-        var suggested = Assert.Single(page.ConversionRows, row => row.ProfileText == "fakebase");
+        var suggested = Assert.Single(page.Conversion.Rows, row => row.ProfileText == "fakebase");
         Assert.Equal("作り物の素体（共通素体）", suggested.TargetText);
         Assert.Equal("逆方向", suggested.DirectionText);
         Assert.True(suggested.IsUnconfirmed);
 
-        Assert.Contains("アオイ", page.ConversionTargetSuggestions);
-        Assert.Contains("作り物の素体（共通素体）", page.ConversionTargetSuggestions);
+        Assert.Contains("アオイ", page.Conversion.TargetSuggestions);
+        Assert.Contains("作り物の素体（共通素体）", page.Conversion.TargetSuggestions);
     });
 
     [Fact]
@@ -108,12 +108,12 @@ public class ItemConversionSettingTests
     {
         var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
 
-        page.ConversionRows.Single(row => row.ProfileText == "fakebase").ConfirmCommand!.Execute(null);
+        page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").ConfirmCommand!.Execute(null);
 
         await app.SettleAsync();
 
         Assert.True((await SavedAsync(app))!.Targets.Single().Confirmed);
-        Assert.False(page.ConversionRows.Single(row => row.ProfileText == "fakebase").IsUnconfirmed);
+        Assert.False(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IsUnconfirmed);
     });
 
     [Fact]
@@ -121,7 +121,7 @@ public class ItemConversionSettingTests
     {
         var page = await OpenAsync(app, conversion: null);
 
-        page.ConversionRows.Single(row => row.ProfileText == "fakeaoi").ChooseCommand!.Execute("アオイ");
+        page.Conversion.Rows.Single(row => row.ProfileText == "fakeaoi").ChooseCommand!.Execute("アオイ");
 
         await app.SettleAsync();
 
@@ -134,12 +134,12 @@ public class ItemConversionSettingTests
     {
         var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
 
-        page.ConversionRows.Single(row => row.ProfileText == "fakebase").RemoveCommand!.Execute(null);
+        page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").RemoveCommand!.Execute(null);
 
         await app.SettleAsync();
 
         Assert.True(Assert.Single((await SavedAsync(app))!.Targets).Rejected);
-        var row = Assert.Single(page.ConversionRows, row => row.ProfileText == "fakebase");
+        var row = Assert.Single(page.Conversion.Rows, row => row.ProfileText == "fakebase");
         Assert.False(row.HasTarget);
     });
 
@@ -147,7 +147,7 @@ public class ItemConversionSettingTests
     public Task 向きを右クリックで変えると_確認済みで保存し_印が移る() => TestApp.Run(async app =>
     {
         var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
-        var before = page.ConversionRows.Single(row => row.ProfileText == "fakebase");
+        var before = page.Conversion.Rows.Single(row => row.ProfileText == "fakebase");
         Assert.True(before.IsReverse);
 
         before.SetDirectionCommand!.Execute("both");
@@ -155,7 +155,7 @@ public class ItemConversionSettingTests
 
         var saved = Assert.Single((await SavedAsync(app))!.Targets);
         Assert.True(saved.Forward && saved.Reverse && saved.Confirmed);
-        var after = page.ConversionRows.Single(row => row.ProfileText == "fakebase");
+        var after = page.Conversion.Rows.Single(row => row.ProfileText == "fakebase");
         Assert.True(after.IsBoth);
         Assert.Equal("両方向", after.DirectionText);
     });
@@ -165,7 +165,7 @@ public class ItemConversionSettingTests
     {
         var page = await OpenAsync(app, conversion: null);
 
-        var open = page.ConversionRows.Single(row => row.ProfileText == "fakeaoi");
+        var open = page.Conversion.Rows.Single(row => row.ProfileText == "fakeaoi");
         Assert.False(open.HasTarget);
         Assert.Null(open.SetDirectionCommand);
     });
@@ -176,14 +176,14 @@ public class ItemConversionSettingTests
         var confirmed = SuggestedBase with { Confirmed = true };
         var page = await OpenAsync(app, new ConversionSetting { Targets = [confirmed] });
 
-        page.SetConversionModeCommand.Execute("notProfile");
+        page.Conversion.SetModeCommand.Execute("notProfile");
 
         await app.SettleAsync();
 
         Assert.Equal(ConversionMode.NotProfile, (await SavedAsync(app))!.Mode);
         Assert.Equal([confirmed], (await SavedAsync(app))!.Targets);
-        Assert.True(page.IsConversionNotProfile);
-        Assert.Equal("今の扱い：プロファイルとして扱わない（手動で指定）", page.ConversionStateText);
+        Assert.True(page.Conversion.IsNotProfile);
+        Assert.Equal("今の扱い：プロファイルとして扱わない（手動で指定）", page.Conversion.StateText);
     });
 
     [Fact]
@@ -201,7 +201,7 @@ public class ItemConversionSettingTests
             "見回りの推した値が検索の写しに入る");
 
         var page = new ItemViewModel(main.Search.ListItems.Single(card => card.Item.Id == ProfileId).Item, app.Services, main, main.Thumbnails);
-        Assert.All(page.ConversionRows, row => Assert.True(row.HasTarget && row.IsUnconfirmed));
-        Assert.Equal(2, page.ConversionRows.Count);
+        Assert.All(page.Conversion.Rows, row => Assert.True(row.HasTarget && row.IsUnconfirmed));
+        Assert.Equal(2, page.Conversion.Rows.Count);
     });
 }

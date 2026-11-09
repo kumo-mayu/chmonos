@@ -1,0 +1,156 @@
+<UserControl x:Class="Chmonos.App.Views.ItemConversionPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:controls="clr-namespace:Chmonos.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemConversionEditor}">
+    <!--
+        「変換扱い」の欄（docs/spec/conversion.md「画面」）。商品ページとアバターの管理の「変換」で同じ部品を使う（ユーザ判断 2026-11-09）。
+        DataContext は ItemConversionEditor。今の扱いは文で出し、繋がったボタンは変える操作だけ（アバターの管理の「アバターかどうか」と同じ作り）
+    -->
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ManageResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <StackPanel>
+        <TextBlock Text="変換扱い" Style="{StaticResource SectionLabel}" />
+        <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" Margin="0,3,0,8"
+                   AutomationProperties.AutomationId="ItemConversionState" />
+        <!--
+            ボタンの字は短くする（ユーザ判断 2026-11-09）。上に「変換扱い」の見出しがあるので「扱う」で通じる。
+            右の列を狭くしても（列の幅 約370）3つが1行に入るように。前の長い字は約400 要り、3つ目が次の行に落ちて角がそろわなかった
+        -->
+        <WrapPanel HorizontalAlignment="Left">
+            <controls:CommandRadioButton Content="自動の判定" GroupName="ItemConversionMode" Style="{StaticResource SegmentFirst}"
+                                         Command="{Binding SetModeCommand}" CommandParameter="auto"
+                                         IsChecked="{Binding IsAuto, Mode=OneWay}"
+                                         AutomationProperties.AutomationId="ItemConversionMode.Auto"
+                                         ToolTip="中にプロファイルのファイルがあれば、プロファイルとして扱います。" />
+            <controls:CommandRadioButton Content="扱う" GroupName="ItemConversionMode" Style="{StaticResource SegmentMiddle}"
+                                         Command="{Binding SetModeCommand}" CommandParameter="profile"
+                                         IsChecked="{Binding IsProfile, Mode=OneWay}"
+                                         AutomationProperties.AutomationId="ItemConversionMode.Profile"
+                                         ToolTip="プロファイルとして扱います。" />
+            <controls:CommandRadioButton Content="扱わない" GroupName="ItemConversionMode" Style="{StaticResource SegmentLast}"
+                                         Command="{Binding SetModeCommand}" CommandParameter="notProfile"
+                                         IsChecked="{Binding IsNotProfile, Mode=OneWay}"
+                                         AutomationProperties.AutomationId="ItemConversionMode.NotProfile"
+                                         ToolTip="変換経由の対応アバターに使わなくなります。" />
+        </WrapPanel>
+
+        <!-- 中のプロファイルごとの行：名前・向き・つなぎ先の札（決まっていなければ選ぶ欄） -->
+        <ItemsControl ItemsSource="{Binding Rows}" Margin="0,10,0,0" Focusable="False"
+                      AutomationProperties.AutomationId="ItemConversionRows">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:ConversionTargetRow}">
+                    <!--
+                        1行に収める（ユーザ指摘 2026-11-09：「確認済みにする」「外す」の文字のボタンで行が2段・3段になっていた）。
+                        つなぎ先は対応アバターの確認待ちの札と同じ形にする：確認待ちは頭に点、✓ は点と同じ場所に、× は名前の後ろに、
+                        どちらも札に乗せたとき・札にフォーカスがあるときだけ出す。右クリックにも同じ操作を置く。
+                        狭い列では、名前と向き／つなぎ先の2つの塊で折り返す（塊の中では切らない）
+                    -->
+                    <WrapPanel Margin="0,0,0,4" AutomationProperties.AutomationId="ItemConversionRow">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,8,2">
+                            <TextBlock Text="{Binding ProfileText}" Style="{StaticResource Mono}" MinWidth="110" VerticalAlignment="Center"
+                                       Visibility="{Binding HasProfile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!--
+                                向きはふつう中のファイルの名前で決まるので、変える口は右クリックだけ（ユーザ判断 2026-11-09）。
+                                字の無い所でも右クリックが効くよう、地を透明で塗る。つなぎ先の無い行は押せなくして理由を言う（右クリックの決まり）
+                            -->
+                            <TextBlock Text="{Binding DirectionText}" Style="{StaticResource Caption}" MinWidth="50" Margin="8,0,0,0" VerticalAlignment="Center"
+                                       Background="Transparent" AutomationProperties.AutomationId="ItemConversionDirection">
+                                <TextBlock.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="順方向" Command="{Binding SetDirectionCommand}" CommandParameter="forward"
+                                                  IsChecked="{Binding IsForward, Mode=OneWay}" IsEnabled="{Binding HasTarget}"
+                                                  controls:MenuTips.Disabled="つなぎ先を選ぶと変えられます"
+                                                  AutomationProperties.AutomationId="ItemConversionDirection.Forward" />
+                                        <MenuItem Header="逆方向" Command="{Binding SetDirectionCommand}" CommandParameter="reverse"
+                                                  IsChecked="{Binding IsReverse, Mode=OneWay}" IsEnabled="{Binding HasTarget}"
+                                                  controls:MenuTips.Disabled="つなぎ先を選ぶと変えられます"
+                                                  AutomationProperties.AutomationId="ItemConversionDirection.Reverse" />
+                                        <MenuItem Header="両方向" Command="{Binding SetDirectionCommand}" CommandParameter="both"
+                                                  IsChecked="{Binding IsBoth, Mode=OneWay}" IsEnabled="{Binding HasTarget}"
+                                                  controls:MenuTips.Disabled="つなぎ先を選ぶと変えられます"
+                                                  AutomationProperties.AutomationId="ItemConversionDirection.Both" />
+                                    </ContextMenu>
+                                </TextBlock.ContextMenu>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                            <TextBlock Text="→" Style="{StaticResource Caption}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <Border BorderThickness="1" CornerRadius="10" Padding="9,3" VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                    Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                    AutomationProperties.AutomationId="ItemConversionTarget"
+                                    AutomationProperties.Name="{Binding TargetText}"
+                                    Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="確認済みにする" Command="{Binding ConfirmCommand}"
+                                                  AutomationProperties.AutomationId="ItemConversionMenu.Confirm"
+                                                  controls:MenuTips.Disabled="確認済みです" />
+                                        <Separator />
+                                        <MenuItem Header="外す" Command="{Binding RemoveCommand}" Style="{StaticResource DangerMenuItem}"
+                                                  AutomationProperties.AutomationId="ItemConversionMenu.Remove"
+                                                  ToolTip="次に自動で推すときも、このつなぎ先は使いません。" />
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel Orientation="Horizontal">
+                                    <!-- 確認待ちの印。乗せたとき・フォーカスがあるときは、同じ場所の ✓ と入れ替える（対応アバターの札と同じ） -->
+                                    <Grid Width="13" Margin="-3,0,3,0" VerticalAlignment="Center"
+                                          Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <Ellipse Width="6" Height="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 Fill="{DynamicResource Warn}">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                            <Setter Property="Opacity" Value="0" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                            <Setter Property="Opacity" Value="0" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <Button Content="✓" ContentTemplate="{StaticResource CheckGlyph}" Padding="0" FontSize="11" HorizontalAlignment="Center"
+                                                Height="16" Background="Transparent" BorderThickness="0"
+                                                Cursor="Hand" Foreground="{DynamicResource Good}"
+                                                Command="{Binding ConfirmCommand}"
+                                                AutomationProperties.AutomationId="ItemConversionConfirm"
+                                                AutomationProperties.Name="{Binding TargetText, StringFormat={}{0}を確認済みにする}"
+                                                ToolTip="確認済みにします。変換経由に使います。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
+                                    </Grid>
+                                    <TextBlock Text="{Binding TargetText}" FontSize="11.5" VerticalAlignment="Center" />
+                                    <Button Content="×" ContentTemplate="{StaticResource CrossGlyph}" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                            Height="16" Background="Transparent" BorderThickness="0"
+                                            Cursor="Hand" Foreground="{DynamicResource TextMuted}"
+                                            Command="{Binding RemoveCommand}"
+                                            AutomationProperties.AutomationId="ItemConversionRemove"
+                                            AutomationProperties.Name="{Binding TargetText, StringFormat={}{0}を外す}"
+                                            ToolTip="外します。次に自動で推すときも使いません。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
+                                </StackPanel>
+                            </Border>
+                            <controls:SuggestBox Width="220"
+                                                 Source="{Binding DataContext.TargetSuggestions,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                 CommitCommand="{Binding ChooseCommand}"
+                                                 AllowNew="False" Placeholder="つなぎ先のアバターか共通素体"
+                                                 AutomationProperties.AutomationId="ItemConversionChoose"
+                                                 Visibility="{Binding HasTarget, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                        </StackPanel>
+                    </WrapPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <controls:AreaNoticeLine DataContext="{Binding Notice}" />
+    </StackPanel>
+</UserControl>

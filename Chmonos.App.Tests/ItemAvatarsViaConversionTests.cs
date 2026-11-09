@@ -97,8 +97,8 @@ public class ItemAvatarsViaConversionTests
 
         var profile = (await app.Store.Items.LoadAsync("9900892"))!;
         var profilePage = new ItemViewModel(profile, app.Services, app.Main, app.Main.Thumbnails);
-        Assert.True(profilePage.ShowsConversion);
-        Assert.Single(profilePage.ConversionRows).ConfirmCommand!.Execute(null);
+        Assert.True(profilePage.Conversion.ShowsConversion);
+        Assert.Single(profilePage.Conversion.Rows).ConfirmCommand!.Execute(null);
         await app.SettleAsync();
 
         // 検索の写しに知らせてあるので、全件を読み直さなくても次に開いたときに出る
