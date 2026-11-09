@@ -107,6 +107,59 @@ public sealed class UsedUpdateRecorderTests : IDisposable
         Assert.NotNull(await NoteAsync(before, "2026/10/01 v1.0 公開\n2026/11/01 v1.1 不具合を修正"));
     }
 
+    private async Task SaveNoteAsync(string added, bool isRead = false)
+        => await _store.Notifications.SaveAsync(
+        [
+            new NotificationRecord
+            {
+                Id = $"item-updated:{ItemId}",
+                Kind = NotificationKind.ItemUpdated,
+                ItemId = ItemId,
+                Title = "作り物の衣装",
+                Detail = "更新履歴",
+                CreatedAt = DateTimeOffset.Now.AddDays(-2),
+                IsStrong = true,
+                IsRead = isRead,
+                Diffs =
+                [
+                    new NotificationDiff
+                    {
+                        Field = "更新履歴",
+                        Lines = [new NotificationLine { Kind = NotificationLineKind.Added, Text = added }],
+                    },
+                ],
+            },
+        ]);
+
+    [Fact]
+    public async Task 未読の中身の更新の知らせから一度だけ控えを作る()
+    {
+        await SaveAsync();
+        await SaveNoteAsync("2026/11/01 v1.1 不具合を修正");
+        var recorder = new UsedUpdateRecorder(_store, Detect);
+
+        Assert.Equal([ItemId], await recorder.FillFromNotificationsAsync(CancellationToken.None));
+        var first = (await _store.Items.LoadAsync(ItemId))!.Local.ContentUpdate;
+        Assert.NotNull(first);
+
+        // 2回目は知らせより新しい控えがあるので書かない（印を持たずに、何回走っても同じ）
+        Assert.Empty(await recorder.FillFromNotificationsAsync(CancellationToken.None));
+        Assert.Equal(first!.FoundAt, (await _store.Items.LoadAsync(ItemId))!.Local.ContentUpdate!.FoundAt);
+        Assert.Equal(0, _detections);
+    }
+
+    [Theory]
+    [InlineData("2026/11/01 アオイ用Prefabを追加", false)]
+    [InlineData("2026/11/01 v1.1 不具合を修正", true)]
+    public async Task 追加だけの知らせと既読の知らせからは作らない(string added, bool isRead)
+    {
+        await SaveAsync();
+        await SaveNoteAsync(added, isRead);
+
+        Assert.Empty(await new UsedUpdateRecorder(_store, Detect).FillFromNotificationsAsync(CancellationToken.None));
+        Assert.Null((await _store.Items.LoadAsync(ItemId))!.Local.ContentUpdate);
+    }
+
     [Fact]
     public async Task 更新履歴が動いていなければ検出もしない()
     {

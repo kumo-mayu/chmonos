@@ -60,6 +60,56 @@ public sealed class UsedUpdateRecorder
     }
 
     /// <summary>
+    /// 未読の「中身の更新」の知らせから、控えの無い商品に控えを作る（v1.3.0 に上げたとき・ユーザ判断 2026-11-09）。起動時の見回りで呼ぶ。
+    /// 印は持たず、毎回「知らせより新しい控えが無い商品」だけを見るので、何回走っても同じになる
+    /// （作った控えは知らせより新しい。「確認した」を押した控えも残るので作り直さない。既読にした知らせは見ない）。
+    /// 検出し直しはしない（BOOTH に問い合わせない見回りなので）。見分けは今の対応アバターの名前で行う。
+    /// 控えるファイルは今持っている物（上げる前に新しい版を取り込んでいても、それは分からない）。
+    /// </summary>
+    /// <returns>控えを書いた商品。</returns>
+    public async Task<IReadOnlyList<string>> FillFromNotificationsAsync(CancellationToken cancellationToken)
+    {
+        var notes = (await _store.Notifications.LoadAsync(cancellationToken))
+            .Where(note => note.Kind == NotificationKind.ItemUpdated && note.IsStrong && !note.IsRead && !note.IsResolved && note.ItemId is not null)
+            .ToList();
+
+        var written = new List<string>();
+        foreach (var note in notes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await _store.Items.LoadAsync(note.ItemId!, cancellationToken) is not { } item)
+            {
+                continue;
+            }
+
+            var noted = note.UpdatedAt ?? note.CreatedAt;
+            if (item.Local.ContentUpdate is { } existing && existing.FoundAt >= noted)
+            {
+                continue;
+            }
+
+            if (!UsedUpdateKind.ShouldPrompt(note.Diffs ?? [], await AvatarNamesAsync(item, cancellationToken)))
+            {
+                continue;
+            }
+
+            var now = DateTimeOffset.Now;
+            if (await _store.Items.ChangeLocalAsync(
+                    item.Id,
+                    local => local.ContentUpdate is { } current && current.FoundAt >= noted
+                        ? local
+                        : local with { ContentUpdate = UsedUpdates.Found(local, now) },
+                    LocalOwners.ContentUpdate,
+                    cancellationToken))
+            {
+                written.Add(item.Id);
+            }
+        }
+
+        return written;
+    }
+
+    /// <summary>
     /// 商品の今の対応アバターと共通素体の名前（表示名・BOOTH の名前・別名）。更新履歴の行に名前だけが並ぶ形を見分けるのに使う。
     /// </summary>
     internal async Task<IReadOnlyList<string>> AvatarNamesAsync(ItemRecord item, CancellationToken cancellationToken)

@@ -224,6 +224,13 @@ public sealed class StartupWork(AppServiceContainer services)
                 // BOOTH に問い合わせず、控えを読むのはプロファイルらしい商品だけ
                 var converted = await services.Conversion.RunAsync(token);
 
+                // 未読の中身の更新の知らせから、使っている商品の更新の控えを作る（docs/spec/used-updates.md・v1.3.0 に上げたとき）。
+                // 知らせより新しい控えがある商品は見ないので、毎回走っても同じ。BOOTH には問い合わせない
+                if (services.Items.UsedUpdates is { } recorder)
+                {
+                    converted = converted.Union(await recorder.FillFromNotificationsAsync(token), StringComparer.Ordinal).ToList();
+                }
+
                 // どちらの見回りが書いた商品も、検索の写しへ知らせる（起動時は検索が先に全件を読んでいるので、
                 // 知らせないと商品ページの「変換扱い」に推した値が出ず、決まっていない行に見えた。実データで確かめた 2026-11-09）
                 var changed = written.Union(converted, StringComparer.Ordinal).ToList();
