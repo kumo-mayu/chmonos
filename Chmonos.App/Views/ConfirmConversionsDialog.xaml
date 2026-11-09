@@ -1,0 +1,59 @@
+<Window x:Class="Chmonos.App.Views.ConfirmConversionsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Chmonos.App.Controls"
+        xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:ConfirmConversionsDialogViewModel}"
+        Title="推した通りにまとめて決める"
+        Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Surface}">
+    <!--
+        推したつなぎ先をまとめて確認済みにする（docs/spec/conversion.md・ユーザ判断 2026-11-09）。商品ごとの見出しの下に、確認待ちのつなぎ先をチェック付きで並べる。
+        最初は全部にチェックを付け、外したい物だけ外させる。1行目に何が起きるか、2行目に取り返しがつくか（ui-dialogs.md）
+    -->
+    <StackPanel Margin="22,18">
+        <TextBlock Text="チェックを付けたつなぎ先を確認済みにし、変換経由に使います。" TextWrapping="Wrap" />
+        <TextBlock Text="確認済みにした後も、商品ごとに外せます。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,12" />
+
+        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6">
+            <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto" Padding="12,8">
+                <controls:ContentItemsControl ItemsSource="{Binding Sections}" AutomationProperties.AutomationId="ConfirmConversionsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ConfirmConversionsSection}">
+                            <StackPanel Margin="0,4,0,6">
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                <controls:ContentItemsControl ItemsSource="{Binding Rows}" Margin="12,2,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ConfirmConversionsRow}">
+                                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,3" VerticalContentAlignment="Center"
+                                                      AutomationProperties.AutomationId="ConfirmConversionsRow"
+                                                      AutomationProperties.Name="{Binding Text}">
+                                                <TextBlock Text="{Binding Text}" FontSize="12" Margin="4,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="440"
+                                                           ToolTip="{Binding Text}" />
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </controls:ContentItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <DockPanel Margin="0,16,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="{Binding CommitText}" Style="{StaticResource PrimaryButton}"
+                        AutomationProperties.AutomationId="ConfirmConversionsCommit"
+                        IsDefault="True" IsEnabled="{Binding CanCommit}" Click="OnCommit" />
+                <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
+            </StackPanel>
+            <!-- 押せないときは理由を出す（E9） -->
+            <TextBlock Text="{Binding CommitHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+        </DockPanel>
+    </StackPanel>
+</Window>

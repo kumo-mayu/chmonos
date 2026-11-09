@@ -1,4 +1,5 @@
 using Chmonos.App.Views;
+using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
 
 namespace ViewShot;
@@ -13,7 +14,27 @@ internal static partial class Scenes
     [
         new Scene("item-page-avatars-via-conversion", "商品ページ：変換経由の段（持っているプロファイルで変換できる見込みのアバター）", ViaConversionAsync),
         new Scene("item-page-conversion-setting", "商品ページ：変換扱いの欄（中のプロファイルごとのつなぎ先・確認待ち・選ぶ欄）", ConversionSettingAsync),
-        new Scene("avatars-conversion", "アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", AvatarsConversionAsync),
+        DialogScene("catalog-dialog-confirm-conversions", "推した通りにまとめて決める窓：商品2つ・つなぎ先3つ（1つはチェックを外した所）", _ =>
+        {
+            ConfirmConversionsRow Row(string text, bool isChecked = true) => new()
+            {
+                Target = new ConversionTarget { AvatarItemId = "9800401", Forward = true },
+                Text = text,
+                IsChecked = isChecked,
+            };
+            var model = new ConfirmConversionsDialogViewModel(
+            [
+                new ConfirmConversionsSection
+                {
+                    ItemId = "9900231",
+                    Name = "作り物のプロファイル（まとめ）",
+                    Rows = [Row("fakeaoi（順方向）→ アオイ"), Row("fakebase（逆方向）→ 作り物の素体（共通素体）", isChecked: false)],
+                },
+                new ConfirmConversionsSection { ItemId = "9900232", Name = "作り物のプロファイル（モモ）", Rows = [Row("fakemomo（両方向）→ モモ")] },
+            ]);
+            return Task.FromResult<System.Windows.Window>(new ConfirmConversionsDialog(model));
+        }),
+        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", AvatarsConversionAsync),
     ];
 
     /// <summary>アバターの管理の「変換」。プロファイルの商品4つ（推した・つなぎ先が無い・決めた・扱わない）。最初の決めていない商品を選んだ所。</summary>

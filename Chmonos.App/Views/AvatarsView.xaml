@@ -446,6 +446,18 @@
                             </Button>
                         </StackPanel>
 
+                        <!--
+                            推した通りにまとめて決める（ユーザ判断 2026-11-09）。押すと対象を全部並べた窓を出し、外したい物はチェックを外せる。
+                            確認待ちが無ければ押せない（数が 0 と出る）
+                        -->
+                        <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0"
+                                    Visibility="{Binding IsConversionMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <Button Content="{Binding BulkText}" Command="{Binding BulkConfirmCommand}" HorizontalAlignment="Left"
+                                    AutomationProperties.AutomationId="AvatarsConversionBulk"
+                                    ToolTip="確認待ちを一覧で見て、まとめて確認済みにします。" />
+                            <controls:AreaNoticeLine DataContext="{Binding BulkNotice}" />
+                        </StackPanel>
+
                         <!-- 一覧をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4） -->
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,4,14,0"
                                     Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -584,7 +596,7 @@
                             -->
                             <ListBox ItemsSource="{Binding ConversionItems}" SelectedItem="{Binding SelectedConversion, Mode=TwoWay}"
                                      ItemContainerStyle="{StaticResource AvatarBaseRowStyle}"
-                                     BorderThickness="0" Background="Transparent" Margin="14,12,14,14"
+                                     BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
                                      HorizontalContentAlignment="Stretch"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      AutomationProperties.AutomationId="AvatarsConversionList"

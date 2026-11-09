@@ -133,6 +133,80 @@ public class AvatarsConversionTests
     });
 
     [Fact]
+    public Task まとめて決めると_窓でチェックを残した物だけを確認済みにする() => TestApp.Run(async app =>
+    {
+        // 推したつなぎ先が2つの商品を足す（片方のチェックを外す）
+        await SaveProfileAsync(app, "9900865", "作り物のプロファイルE", "fakee", new ConversionSetting
+        {
+            Targets =
+            [
+                new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakee" },
+                new ConversionTarget { AvatarItemId = "9800401", Reverse = true, Slug = "fakee2" },
+            ],
+        });
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        Assert.Equal("推した通りにまとめて決める（3 件）", avatars.BulkText);
+
+        ConfirmConversionsDialogViewModel? shown = null;
+        ConfirmConversionsDialogViewModel.Intercept = model =>
+        {
+            shown = model;
+            model.Sections.Single(section => section.ItemId == "9900865").Rows.Single(row => row.Target.Slug == "fakee2").IsChecked = false;
+            return true;
+        };
+        try
+        {
+            avatars.BulkConfirmCommand.Execute(null);
+            await app.SettleAsync();
+        }
+        finally
+        {
+            ConfirmConversionsDialogViewModel.Intercept = null;
+        }
+
+        // 窓には扱わない商品を出さず、最初は全部にチェックが付いている
+        Assert.Equal(["9900861", "9900865"], shown!.Sections.Select(section => section.ItemId).Order());
+        Assert.True((await app.Store.Items.LoadAsync("9900861"))!.Local.Conversion!.Targets.Single().Confirmed);
+        var e = (await app.Store.Items.LoadAsync("9900865"))!.Local.Conversion!.Targets;
+        Assert.Equal([true, false], e.Select(target => target.Confirmed));
+        Assert.Equal("推した通りにまとめて決める（1 件）", avatars.BulkText);
+    });
+
+    [Fact]
+    public Task まとめて決める窓でキャンセルすると_何も書かない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+
+        ConfirmConversionsDialogViewModel.Intercept = _ => false;
+        try
+        {
+            avatars.BulkConfirmCommand.Execute(null);
+            await app.SettleAsync();
+        }
+        finally
+        {
+            ConfirmConversionsDialogViewModel.Intercept = null;
+        }
+
+        Assert.False((await app.Store.Items.LoadAsync("9900861"))!.Local.Conversion!.Targets.Single().Confirmed);
+    });
+
+    [Fact]
+    public void まとめて決める窓は_チェックが無いと押せず理由を言う()
+    {
+        var row = new ConfirmConversionsRow { Target = SuggestedA, Text = "fakea（順方向）→ アオイ" };
+        var model = new ConfirmConversionsDialogViewModel([new ConfirmConversionsSection { ItemId = "9900861", Name = "作り物", Rows = [row] }]);
+        Assert.Equal("確認済みにする（1 件）", model.CommitText);
+
+        row.IsChecked = false;
+
+        Assert.False(model.CanCommit);
+        Assert.Equal("チェックが1つもありません。", model.CommitHint);
+    }
+
+    [Fact]
     public Task 後では_何も書かずに次の決めていない商品へ進む() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);

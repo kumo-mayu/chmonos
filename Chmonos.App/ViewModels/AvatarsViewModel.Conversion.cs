@@ -149,24 +149,133 @@ public sealed partial class AvatarsViewModel
             ConversionEditor.Notice.Warn($"保存できませんでした。{FailureText.Cause(exception)}");
         }
 
-        if (await _services.Store.Items.LoadAsync(change.ItemId) is not { } reloaded)
+        await AfterConversionWriteAsync([change.ItemId]);
+    }
+
+    /// <summary>書いた商品を読み直し、検索の写し・一覧の行・右の欄を今の値に合わせる。</summary>
+    private async Task AfterConversionWriteAsync(IReadOnlyCollection<string> itemIds)
+    {
+        foreach (var itemId in itemIds)
         {
-            return;
+            if (await _services.Store.Items.LoadAsync(itemId) is not { } reloaded)
+            {
+                continue;
+            }
+
+            _main.Search.NoteItemChanged(reloaded);
+            if (_conversionItems.FirstOrDefault(candidate => candidate.ItemId == reloaded.Id) is { } row)
+            {
+                row.Update(reloaded, ProfilesOf(reloaded));
+            }
         }
 
-        _main.Search.NoteItemChanged(reloaded);
-        var row = _conversionItems.FirstOrDefault(candidate => candidate.ItemId == reloaded.Id);
-        if (row is null)
-        {
-            return;
-        }
-
-        row.Update(reloaded, ProfilesOf(reloaded));
         ArrangeConversionItems(keep: SelectedConversion);
-        if (ReferenceEquals(SelectedConversion, row))
+        if (SelectedConversion is { } selected)
         {
-            ConversionEditor.Show(reloaded);
+            ConversionEditor.Show(selected.Item);
         }
+
+        RaiseBulk();
+    }
+
+    // ---- 推した通りにまとめて決める（ユーザ判断 2026-11-09「押すと一覧の窓を出して外せる」） ----
+
+    /// <summary>まとめて決められる確認待ちのつなぎ先の数（扱わないにした商品と、人が外した物は数えない）。</summary>
+    public int BulkCount => _conversionItems
+        .Where(row => row.Group != NotProfileGroup)
+        .Sum(row => UnconfirmedOf(row.Item).Count);
+
+    public string BulkText => $"推した通りにまとめて決める（{BulkCount} 件）";
+
+    public RelayCommand BulkConfirmCommand => _bulkConfirmCommand ??= new RelayCommand(
+        () => BulkConfirmAsync().Forget(),
+        () => IsConversionMode && BulkCount > 0);
+
+    private RelayCommand? _bulkConfirmCommand;
+
+    private static IReadOnlyList<ConversionTarget> UnconfirmedOf(ItemRecord item)
+        => (item.Local.Conversion?.Targets ?? []).Where(target => !target.Confirmed && !target.Rejected).ToList();
+
+    private async Task BulkConfirmAsync()
+    {
+        var registry = _services.CachedAvatars.Load();
+        var names = AvatarNames.Map(registry.Entries);
+        string TargetName(ConversionTarget target)
+            => target.BaseName is { } baseName
+                ? $"{baseName}（共通素体）"
+                : target.AvatarItemId is { } id ? names.TryGetValue(id, out var name) ? name : id : string.Empty;
+        string Direction(ConversionTarget target) => (target.Forward, target.Reverse) switch
+        {
+            (true, true) => "両方向",
+            (true, false) => "順方向",
+            (false, true) => "逆方向",
+            _ => "向きが分かりません",
+        };
+
+        var sections = _conversionItems
+            .Where(row => row.Group != NotProfileGroup && UnconfirmedOf(row.Item).Count > 0)
+            .Select(row => new ConfirmConversionsSection
+            {
+                ItemId = row.ItemId,
+                Name = row.Name,
+                Rows = UnconfirmedOf(row.Item)
+                    .Select(target => new ConfirmConversionsRow
+                    {
+                        Target = target,
+                        Text = $"{(target.Slug is { } slug ? slug + "（" + Direction(target) + "）" : Direction(target))} → {TargetName(target)}",
+                    })
+                    .ToList(),
+            })
+            .ToList();
+        if (sections.Count == 0)
+        {
+            return;
+        }
+
+        var model = new ConfirmConversionsDialogViewModel(sections);
+        if (!ConfirmConversionsDialogViewModel.Ask(model))
+        {
+            return;
+        }
+
+        var written = new List<string>();
+        foreach (var section in sections)
+        {
+            var chosen = section.Rows.Where(row => row.IsChecked).Select(row => row.Target).ToList();
+            if (chosen.Count == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                var result = await _services.Commands.ExecuteAsync(new UiCommand.ChangeConversion(section.ItemId, ConversionEdits.ConfirmMany(chosen)));
+                if (result is CommandResult.Failed failed)
+                {
+                    BulkNotice.Warn(failed.Message);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // 1件書けなくても残りは続ける（書けた分は確認済みのまま。書けなかった物は一覧に確認待ちで残る）
+                Core.Diagnostics.AppLog.Error("変換扱いをまとめて決める", exception);
+                BulkNotice.Warn($"保存できなかった商品があります。{FailureText.Cause(exception)}");
+            }
+
+            written.Add(section.ItemId);
+        }
+
+        await AfterConversionWriteAsync(written);
+    }
+
+    /// <summary>まとめて決めるボタンの下の1行（書けなかったときだけ）。</summary>
+    public AreaNotice BulkNotice { get; } = new();
+
+    private void RaiseBulk()
+    {
+        OnPropertyChanged(nameof(BulkCount));
+        OnPropertyChanged(nameof(BulkText));
+        RelayCommand.RaiseCanExecuteChanged();
     }
 
     /// <summary>
@@ -206,6 +315,7 @@ public sealed partial class AvatarsViewModel
                             ?? (IsConversionMode ? FirstUndecided() : null);
                         OnPropertyChanged(nameof(ConversionModeText));
                         OnPropertyChanged(nameof(HasConversionItems));
+                        RaiseBulk();
                         RaiseModes();
                     });
                 },
