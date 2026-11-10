@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using Chmonos.Core.Commands;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
@@ -7,17 +6,8 @@ using Chmonos.Core.Services;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>属性1件。平均も出すのは、値の入り方が偏っていないか見えるようにするため。</summary>
-public sealed class AttributeMasterRow : ReorderableRow
+public sealed class AttributeMasterRow : ManageMasterRow
 {
-    private bool _isSelected;
-
-    public required string Name { get; init; }
-
-    /// <summary>保存したら書き換える。読み込み時の値のままだと、選び直したときに古いメモが出る。</summary>
-    public string? Memo { get; set; }
-
-    public required int ItemCount { get; init; }
-
     public double? Average { get; init; }
 
     public string ItemCountText => ItemCount == 0 ? "未評価" : $"{ItemCount}";
@@ -32,12 +22,6 @@ public sealed class AttributeMasterRow : ReorderableRow
     /// **並べるだけで、値は保存しない。**触らなかった行は書き出されない。
     /// </summary>
     public required bool IsDefault { get; init; }
-
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set => SetField(ref _isSelected, value);
-    }
 }
 
 /// <summary>マスタに無いのにitemが参照している属性。要確認は知らせるだけで、直せるのはここ。</summary>
@@ -57,76 +41,32 @@ public sealed class OrphanAttributeRow : ViewModelBase
 }
 
 /// <summary>
-/// 属性の管理画面。タグの管理と同じ作りにしてある（一覧＋詳細、件数から検索へ、
-/// マスタに無い参照の修復、ドラッグでの並べ替え）。
+/// 属性の管理画面。タグの管理と同じ作り（一覧＋詳細、件数から検索へ、マスタに無い参照の修復、ドラッグでの並べ替え）で、
+/// 共通の所は <see cref="ManageViewModelBase{TRow, TOrphan}"/> が持つ。
 ///
 /// 違いはitem側が名前だけでなく 0〜100 の値を持つこと。統合すると
 /// 「両方に値が入っているitemでどちらを残すか」が出るので、そこだけ聞く。
 /// </summary>
-public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, IItemCardHost, IItemImagesListener
+public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMasterRow, OrphanAttributeRow>
 {
     private readonly AppServiceContainer _services;
-
-    private ManageItemView? _itemView;
-
-    /// <summary>商品をカードで出すかリストで出すか（M4）。ほかの画面と同じ切り替え。</summary>
-    private ManageItemView ItemView => _itemView ??= new ManageItemView(_services, "attribute", () =>
-    {
-        OnPropertyChanged(nameof(IsCardMode));
-        OnPropertyChanged(nameof(IsListMode));
-        RebuildLines();
-    });
-
-    public bool IsCardMode => ItemView.IsCardMode;
-
-    public bool IsListMode => ItemView.IsListMode;
-
-    private RelayCommand? _showCards;
-    private RelayCommand? _showList;
-
-    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => ItemView.Set(false));
-
-    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => ItemView.Set(true));
-    private PaneColumn? _listPane;
-
-    /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "attributes.list");
     private readonly MainViewModel _main;
 
-    private List<AttributeMasterRow> _all = [];
-    private AttributeMasterRow? _selected;
-    private string _filterText = string.Empty;
-    private string _memoDraft = string.Empty;
-
     public AttributeManageViewModel(AppServiceContainer services, MainViewModel main)
+        : base(services, main, "attribute", "attributes.list", ParseSort(services.UiState.AttributeSort, TagSortMode.Manual))
     {
         _services = services;
         _main = main;
 
-        AddCommand = new RelayCommand(() => AddAsync(FilterText).Forget());
-        SubmitFilterCommand = new RelayCommand(() => SubmitFilterAsync().Forget());
-        AskRenameCommand = new RelayCommand(() => AskRenameAsync().Forget(), () => Selected is not null);
-        DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
-
-        // メモは押さずに残す（タグの管理・ショップ・アバターと揃える。ユーザ指示 2026-09-19）
-        _memo = new MemoAutoSave<AttributeMasterRow>(SaveMemoAsync);
+        // メモは押さずに残す（タグの管理・ショップ・アバターと揃える。ユーザ指示 2026-09-19）。部品は土台が持つ
         ToggleDefaultCommand = new RelayCommand(() => ToggleDefaultAsync().Forget(), () => Selected is not null);
-        RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
-        ShowItemsCommand = new RelayCommand(
-            () => _main.ShowItemsWithAttribute(Selected!.Name),
-            () => Selected is { ItemCount: > 0 });
-
-        _sort = services.UiState.AttributeSort switch
-        {
-            "name" => TagSortMode.Name,
-            "count" => TagSortMode.Count,
-            _ => TagSortMode.Manual,
-        };
 
         // 読み終わる前から、頭（状況の文・一覧に無い属性）と下の枠を出しておく
         RebuildLines();
         ReloadAsync().Forget();
     }
+
+    protected override string KindName => "属性";
 
     /// <summary>
     /// 選んでいた属性と、この属性を持つ商品を開いていたかを覚える（タグの管理と同じ。商品ページから戻ると先頭に戻ってしまう）。
@@ -136,76 +76,38 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
     private static bool _lastItemsExpanded;
 
-    private TagSortMode _sort;
+    protected override string? LastSelectedName
+    {
+        get => _lastSelected;
+        set => _lastSelected = value;
+    }
+
+    /// <summary>左の一覧（`attributes.json` の並び）。</summary>
+    public ObservableCollection<AttributeMasterRow> Rows => VisibleRows;
+
+    /// <summary>マスタにある全属性。マスタに無い参照の寄せ先はこちらを候補にする。</summary>
+    public ObservableCollection<string> AllNames { get; } = [];
 
     /// <summary>
     /// 並べ方（ユーザ指示 2026-09-19：タグの管理と揃える）。選ぶと `attributes.json` の並びも同じ順に書き換える
     /// ——検索と編集の候補がこの並びをそのまま使うので、画面だけ並べ替えると食い違う
     /// </summary>
-    public TagSortMode Sort
-    {
-        get => _sort;
-        set
-        {
-            if (!SetField(ref _sort, value))
-            {
-                return;
-            }
+    protected override void SaveSort(string saved)
+        => _main.SaveUiStateAsync(state => state with { AttributeSort = saved }).Forget();
 
-            var saved = value switch
-            {
-                TagSortMode.Name => "name",
-                TagSortMode.Count => "count",
-                _ => "manual",
-            };
+    protected override async Task ReorderBySortAsync()
+        => await _services.Commands.ExecuteAsync(new UiCommand.ReorderAttributes(
+            SortNames(AllRows.Select(row => (row.Name, row.ItemCount)))));
 
-            _main.SaveUiStateAsync(state => state with { AttributeSort = saved }).Forget();
-            ApplySortAsync().Forget();
-        }
-    }
+    protected override UiCommand AddCommandFor(string name) => new UiCommand.AddAttribute(name);
 
-    public bool SortsByName
-    {
-        get => Sort == TagSortMode.Name;
-        set { if (value) { Sort = TagSortMode.Name; } }
-    }
+    protected override UiCommand MemoCommandFor(AttributeMasterRow row, string memo) => new UiCommand.SetAttributeMemo(row.Name, memo);
 
-    public bool SortsByCount
-    {
-        get => Sort == TagSortMode.Count;
-        set { if (value) { Sort = TagSortMode.Count; } }
-    }
+    protected override UiCommand ReorderCommandFor(IReadOnlyList<string> order) => new UiCommand.ReorderAttributes(order);
 
-    public bool SortsManually
-    {
-        get => Sort == TagSortMode.Manual;
-        set { if (value) { Sort = TagSortMode.Manual; } }
-    }
+    protected override string RewriteLogLabel => "属性の書き換え";
 
-    /// <summary>今の並べ方で `attributes.json` を並べ替える。手で並べた順のときは、人が置いた順を触らない。</summary>
-    private async Task ApplySortAsync()
-    {
-        foreach (var name in new[] { nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
-        {
-            OnPropertyChanged(name);
-        }
-
-        if (Sort == TagSortMode.Manual)
-        {
-            return;
-        }
-
-        var order = (Sort == TagSortMode.Count
-                ? _all.OrderByDescending(row => row.ItemCount).ThenBy(row => row.Name, StringComparer.CurrentCulture)
-                : _all.OrderBy(row => row.Name, StringComparer.CurrentCulture))
-            .Select(row => row.Name)
-            .ToList();
-
-        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAttributes(order));
-        await ReloadAsync();
-        _main.RefreshMasters();
-    }
-
+    protected override void ShowItemsOf(string name) => _main.ShowItemsWithAttribute(name);
 
     /// <summary>
     /// この属性を持つ商品（ユーザ指示 2026-09-19：タグの管理の小分類の中身と揃える）。
@@ -214,45 +116,21 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     public ObservableCollection<TagItemRow> Items { get; } = [];
 
     /// <summary>
-    /// 右側に並べる平らな一覧（仮想化の単位）。先頭はこの画面そのもの（属性の札・商品の見出し）、
-    /// 続いて開いた商品の段（<see cref="ManageItemLine"/>）、最後に下の枠（<see cref="ManageFoot"/>）。
-    /// 商品を WrapPanel に全部並べていた頃は、2000件の属性を開くと約8秒固まった（2026-09-24）
+    /// 右側の平らな一覧（<see cref="ManageViewModelBase{TRow, TOrphan}.Lines"/>）の間には、開いた商品の段（<see cref="ManageItemLine"/>）だけを挟む。
+    /// 商品を WrapPanel に全部並べていた頃は、2000件の属性を開くと約8秒固まった（2026-09-24）。
+    /// 組み直しはその場で行う（タグの管理のように知らせが続かない）
     /// </summary>
-    public ObservableCollection<object> Lines { get; } = [];
-
-    private ManageFoot? _foot;
-
-    /// <summary>中の商品を並べられる幅。0 はまだ測っていない（段に切れないので、段を並べない）。</summary>
-    private double _itemsWidth;
-
-    /// <summary>中の商品を並べられる幅を受け取る（View が一覧の幅から枠の分を引いて渡す）。段の数が変わるときだけ切り直す。</summary>
-    public void SetItemsWidth(double width)
-    {
-        if (Math.Abs(width - _itemsWidth) < 0.5)
-        {
-            return;
-        }
-
-        var before = (Cards: ManageItemLayout.ColumnsFor(_itemsWidth, Services.CardMetrics.SlotWidth), List: ManageItemLayout.ColumnsFor(_itemsWidth, ManageItemLayout.ListSlotWidth));
-        var measured = _itemsWidth > 0;
-        _itemsWidth = width;
-        var after = (Cards: ManageItemLayout.ColumnsFor(width, Services.CardMetrics.SlotWidth), List: ManageItemLayout.ColumnsFor(width, ManageItemLayout.ListSlotWidth));
-        if (!measured || before != after)
-        {
-            RebuildLines();
-        }
-    }
+    protected override void RequestLines() => RebuildLines();
 
     /// <summary>開き具合・表示の切り替え・向き・幅から段を組み直す。同じ中身の段は使い回す（見えている部品を作り直さない）。</summary>
     private void RebuildLines()
     {
-        _foot ??= new ManageFoot(this);
         var target = new List<object> { this };
 
-        if (HasSelection && _isItemsExpanded && _itemsWidth > 0 && Items.Count > 0)
+        if (HasSelection && _isItemsExpanded && ItemsWidth > 0 && Items.Count > 0)
         {
             var card = IsCardMode;
-            var columns = ManageItemLayout.ColumnsFor(_itemsWidth, card ? Services.CardMetrics.SlotWidth : ManageItemLayout.ListSlotWidth);
+            var columns = ManageItemLayout.ColumnsFor(ItemsWidth, card ? Services.CardMetrics.SlotWidth : ManageItemLayout.ListSlotWidth);
 
             // カードは前も WrapPanel で、向きの切り替えを持たなかった（向きはリストだけ）
             var previous = ManageItemLayout.IndexByFirst(Lines);
@@ -263,7 +141,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             }
         }
 
-        target.Add(_foot);
+        target.Add(Foot);
         CollectionSync.Apply(Lines, target);
     }
 
@@ -359,33 +237,27 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         set => ItemsFlowVertical = !value;
     }
 
-    private string _itemFilter = string.Empty;
-
-    /// <summary>この属性を持つ商品の中を探す。書き方は検索画面と同じ（ユーザ指示 2026-09-19）。</summary>
-    public string ItemFilter
+    /// <summary>この属性を持つ商品の中を探す（<see cref="ManageViewModelBase{TRow, TOrphan}.ItemFilter"/>）。</summary>
+    protected override void OnItemFilterChanged()
     {
-        get => _itemFilter;
-        set
-        {
-            if (SetField(ref _itemFilter, value ?? string.Empty))
-            {
-                OnPropertyChanged(nameof(HasItemFilter));
-
-                // 探している間は開いて見せる。空にしたら、覚えている開き方に戻す
-                _isItemsExpanded = HasItemFilter || _lastItemsExpanded;
-                OnPropertyChanged(nameof(IsItemsExpanded));
-                RebuildItems();
-            }
-        }
+        // 探している間は開いて見せる。空にしたら、覚えている開き方に戻す
+        _isItemsExpanded = HasItemFilter || _lastItemsExpanded;
+        OnPropertyChanged(nameof(IsItemsExpanded));
+        RebuildItems();
     }
-
-    public bool HasItemFilter => _itemFilter.Trim().Length > 0;
 
     private int _itemFilterHits;
 
-    public string ItemFilterResultText => HasItemFilter
-        ? $"「{_itemFilter.Trim()}」に当たる商品 {_itemFilterHits} 件"
+    public override string ItemFilterResultText => HasItemFilter
+        ? $"「{ItemFilter.Trim()}」に当たる商品 {_itemFilterHits} 件"
         : string.Empty;
+
+    /// <summary>商品の一覧は同じ条件なら作り直さない作り（<c>_builtKey</c>）なので、鍵を捨ててから作る。</summary>
+    protected override void RefilterItemsForSearchFacts()
+    {
+        _builtKey = null;
+        RebuildItems();
+    }
 
     /// <summary>
     /// 今の <see cref="Items"/> が何を出しているか（属性・探す語・向き）。同じなら作り直さない。
@@ -413,7 +285,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             return;
         }
 
-        var key = $"{row.Name}\n{_itemFilter.Trim()}\n{_itemsAscending}";
+        var key = $"{row.Name}\n{ItemFilter.Trim()}\n{_itemsAscending}";
         if (key == _builtKey)
         {
             return;
@@ -421,7 +293,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
         _builtKey = key;
 
-        var filter = ItemTextFilter.Create(_itemFilter, _main.Search.CreateSearchFacts());
+        var filter = ItemTextFilter.Create(ItemFilter, _main.Search.CreateSearchFacts());
         var found = _main.Search.SnapshotItems()
             .Select(item => (Item: item, Value: ValueOf(item, row.Name)))
             .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)));
@@ -492,7 +364,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         var key = attribute + "\n" + item.Id;
         if (!_rowCache.TryGetValue(key, out var entry))
         {
-            entry = CreateItemRow(item, value);
+            // 絵の引き方はタグの管理（改変の一覧）と同じ
+            entry = CreateItemRow(item, ThumbnailPathOf(item), $"{value} %");
             _rowCache[key] = entry;
         }
 
@@ -513,108 +386,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         return null;
     }
 
-    /// <summary>中に出す商品1件。絵の引き方はタグの管理（改変の一覧）と同じ。</summary>
-    private TagItemRow CreateItemRow(ItemRecord item, int value)
-    {
-        var builder = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>());
-
-        var entry = new TagItemRow
-        {
-            ItemId = item.Id,
-            Name = item.DisplayName,
-            ShopName = item.Booth.Shop?.Name ?? string.Empty,
-            ValueText = $"{value} %",
-            ThumbnailPath = builder.ItemThumbnailPath(item),
-            Thumbnails = _main.Thumbnails,
-            CardFactory = () => _main.Search.CardFor(item.Id),
-        };
-
-        _itemRows.Add(entry);
-        entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
-        return entry;
-    }
-
-    /// <summary>作った商品の行。画像が届いたときに引き直す先（タグの管理と同じ）。</summary>
-    private readonly ItemRowRegistry<TagItemRow> _itemRows = new(row => row.ItemId);
-
-    void IItemImagesListener.NoteItemImagesSaved(string itemId)
-    {
-        var rows = _itemRows.Find(itemId);
-        if (rows.Count == 0)
-        {
-            return;
-        }
-
-        var path = _main.Search.FindItem(itemId) is { } item
-            ? new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>()).ItemThumbnailPath(item)
-            : null;
-        foreach (var row in rows)
-        {
-            row.RefreshImages(path);
-        }
-    }
-
-    // ---- カードの操作（検索画面と同じ・IItemCardHost） ----
-    // この属性を持つ商品のカードは、枠の Tag にこの画面が入る。受け先が無いと、右クリックのメニューは出るのに押しても何も起きなかった。
-    // 中身は検索画面の物をそのまま借りる（タグの管理・ショップ・フォルダビュー・改変と同じ形）
-
-    public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
-
-    public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
-
-    public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
-
-    /// <summary>
-    /// 右クリックのメニューの命令。「改変に追加…」は選びがこの画面に無いので押した1件だけ（検索の命令のまま）。
-    /// 非表示にするだけ差し替える：書くのは検索画面と同じ命令で、検索の写しを読み直し終えてからこの画面を組み直す
-    /// （中の商品は検索の写しから引くので、先に組み直すと古い商品のまま残る）
-    /// </summary>
-    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search) with
-    {
-        HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget()),
-    };
-
-    private CardMenuCommands? _menuCommands;
-
-    private async Task HideItemAsync(ItemCardViewModel? card)
-    {
-        await _main.Search.HideItemAsync(card);
-        await ReloadAsync();
-    }
-
-    public ObservableCollection<AttributeMasterRow> Rows { get; } = [];
-
-    public ObservableCollection<OrphanAttributeRow> Orphans { get; } = [];
-
-    /// <summary>改名の寄せ先候補。既存を選べば統合、無い語を入れれば単なる改名になる。</summary>
-    public ObservableCollection<string> OtherNames { get; } = [];
-
-    /// <summary>マスタにある全属性。マスタに無い参照の寄せ先はこちらを候補にする。</summary>
-    public ObservableCollection<string> AllNames { get; } = [];
-
-    /// <summary>戻る（V2・V3）。ナビから入っても直前の画面へ戻れる。</summary>
-    public MainViewModel Main => _main;
-
-    public RelayCommand AddCommand { get; }
-
-    /// <summary>
-    /// 欄で Enter。打った名前の属性が無ければ足し、あればそれを選ぶ。
-    /// 左の欄は検索と追加の1本（ユーザ指示 2026-10-02）。候補は並べず、足せるときだけ欄の下に「追加」の1行を出す
-    /// </summary>
-    public RelayCommand SubmitFilterCommand { get; }
-
-    /// <summary>名前を変える窓を出す（タグの管理と同じ窓。既にある名前を選ぶと統合）。</summary>
-    public RelayCommand AskRenameCommand { get; }
-
-    public RelayCommand DeleteCommand { get; }
-
-    private readonly MemoAutoSave<AttributeMasterRow> _memo;
-
-    /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => _memo.FlushAsync();
-
-    private bool _rebuildingList;
-
     /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
     public RelayCommand ToggleDefaultCommand { get; }
 
@@ -622,73 +393,22 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         ? "最初から並べるのをやめる"
         : "編集画面に最初から並べる";
 
-    public RelayCommand RefreshCommand { get; }
+    protected override void ClearNoticesOfPrevious() => DefaultNotice.Clear();
 
-    public RelayCommand ShowItemsCommand { get; }
-
-    public AttributeMasterRow? Selected
+    protected override void OnSelectionChanged()
     {
-        get => _selected;
-        set
-        {
-            if (_selected == value || (_rebuildingList && value is null))
-            {
-                return;
-            }
+        OnPropertyChanged(nameof(ItemsHeaderText));
+        OnPropertyChanged(nameof(ExpandToolTip));
+        OnPropertyChanged(nameof(ShowsUnusedReason));
+        OnPropertyChanged(nameof(ToggleDefaultText));
 
-            // 待っているメモは、移る前に今の属性へ書き切る。移ってからだと、移った先の名前で書いてしまう
-            _memo.Flush();
-
-            if (_selected is not null)
-            {
-                _selected.IsSelected = false;
-            }
-
-            var previousName = _selected?.Name;
-            _selected = value;
-
-            // 読み直しで同じ名前の行に選び直しただけなら、今出している知らせは残す（名前の変更・切り替えの結果が消えてしまう）。
-            // 別の属性へ移ったときは、前の属性の話なので消す
-            if (!string.Equals(previousName, value?.Name, StringComparison.CurrentCultureIgnoreCase))
-            {
-                NameNotice.Clear();
-                DefaultNotice.Clear();
-            }
-
-            if (_selected is not null)
-            {
-                _selected.IsSelected = true;
-                _lastSelected = _selected.Name;
-            }
-
-            // 選び直しで欄を入れ替えるときは、自動保存を走らせない
-            _memo.Replace(() => MemoDraft = _selected?.Memo ?? string.Empty);
-
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(HasSelection));
-            OnPropertyChanged(nameof(SelectedName));
-            OnPropertyChanged(nameof(SelectedUsageText));
-            OnPropertyChanged(nameof(SelectedIsUsed));
-            OnPropertyChanged(nameof(ShowItemsToolTip));
-            OnPropertyChanged(nameof(ItemsHeaderText));
-            OnPropertyChanged(nameof(ExpandToolTip));
-            OnPropertyChanged(nameof(ShowsUnusedReason));
-            OnPropertyChanged(nameof(ToggleDefaultText));
-
-            // 開き方は属性をまたいで持つ（小分類を開いたまま見比べるのと同じ）。探している語もそのまま当てる
-            _isItemsExpanded = SelectedIsUsed && (HasItemFilter || _lastItemsExpanded);
-            OnPropertyChanged(nameof(IsItemsExpanded));
-            RebuildItems();
-            OnPropertyChanged(nameof(SelectedIsDefault));
-            OnPropertyChanged(nameof(DefaultNote));
-            RebuildOtherNames();
-            RelayCommand.RaiseCanExecuteChanged();
-        }
+        // 開き方は属性をまたいで持つ（小分類を開いたまま見比べるのと同じ）。探している語もそのまま当てる
+        _isItemsExpanded = SelectedIsUsed && (HasItemFilter || _lastItemsExpanded);
+        OnPropertyChanged(nameof(IsItemsExpanded));
+        RebuildItems();
+        OnPropertyChanged(nameof(SelectedIsDefault));
+        OnPropertyChanged(nameof(DefaultNote));
     }
-
-    public bool HasSelection => Selected is not null;
-
-    public bool SelectedIsUsed => Selected is { ItemCount: > 0 };
 
     public bool SelectedIsDefault => Selected?.IsDefault == true;
 
@@ -697,138 +417,28 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         ? "編集画面に最初から並びます。値を動かすまで保存されません。"
         : "編集画面に最初から並べておけます。値を動かすまで保存されません。";
 
-    public string SelectedName => Selected?.Name ?? string.Empty;
-
-    public string SelectedUsageText => Selected is null
+    public override string SelectedUsageText => Selected is null
         ? string.Empty
         : Selected.ItemCount == 0
             ? "まだどの商品にも付いていません。編集画面で値を入れると、ここに件数が表示されます。"
             : $"{Selected.ItemCount} 件の商品に付いています（{Selected.AverageText}）";
 
-    public string ShowItemsToolTip => SelectedIsUsed
+    public override string ShowItemsToolTip => SelectedIsUsed
         ? "この属性を持つ商品を、検索で開きます。"
         : "この属性はまだどの商品にも付いていません。編集画面で値を入れると開けます。";
 
-    /// <summary>
-    /// 検索画面の事実が変わった（<see cref="MainViewModel.NoteSearchFactsChanged"/>）。検索欄の式が事実を見るときだけ絞り直す。
-    /// 商品の一覧は同じ条件なら作り直さない作り（<c>_builtKey</c>）なので、鍵を捨ててから作る
-    /// </summary>
-    internal void RefilterForSearchFacts()
-    {
-        if (DependsOnFacts(_filterText))
-        {
-            Rebuild();
-        }
-
-        if (DependsOnFacts(_itemFilter))
-        {
-            _builtKey = null;
-            RebuildItems();
-            OnPropertyChanged(nameof(ItemFilterResultText));
-        }
-    }
-
-    private static bool DependsOnFacts(string text)
-        => !string.IsNullOrWhiteSpace(text) && SearchQuery.DependsOnFacts(SearchQuery.Parse(text));
-
-    public string FilterText
-    {
-        get => _filterText;
-        set
-        {
-            if (SetField(ref _filterText, value ?? string.Empty))
-            {
-                // 打ち直したら前の「既にあります」は古い（消えるだけで、欄の下の場所は空けたまま）
-                AddNoticeText = string.Empty;
-                Rebuild();
-            }
-        }
-    }
-
-    /// <summary>欄に打った名前の属性が既にあれば、その行。空白と大文字小文字は問わない（足すときの「既にあります」と同じ照らし方）</summary>
-    private AttributeMasterRow? TypedExisting
-    {
-        get
-        {
-            var typed = NameText.Normalize(_filterText);
-            return typed.Length == 0
-                ? null
-                : _all.FirstOrDefault(row => string.Equals(row.Name, typed, StringComparison.CurrentCultureIgnoreCase));
-        }
-    }
-
-    private string _addNoticeText = string.Empty;
-    private bool _addNoticeIsWarning = true;
-
-    /// <summary>
-    /// 欄のすぐ下の1行。名前が空・長すぎる・既にある（打ち直しが要る）と、足せた（済んだこと）を言う。
-    /// 欄の側が1行分の場所を常に取ってあるので、出ても消えても下の一覧は動かない
-    /// </summary>
-    public string AddNoticeText
-    {
-        get => _addNoticeText;
-        private set => SetField(ref _addNoticeText, value);
-    }
-
-    /// <summary>欄の下の知らせが、打ち直しや別の操作の要る物か（要る物は警告の色、済んだことはふつうの色）。</summary>
-    public bool AddNoticeIsWarning
-    {
-        get => _addNoticeIsWarning;
-        private set => SetField(ref _addNoticeIsWarning, value);
-    }
-
-    private void SayAdd(string text, bool warning)
-    {
-        AddNoticeIsWarning = warning;
-        AddNoticeText = text;
-    }
-
-    public string MemoDraft
-    {
-        get => _memoDraft;
-        set
-        {
-            if (SetField(ref _memoDraft, value))
-            {
-                OnPropertyChanged(nameof(MemoChanged));
-                _memo.Edited(Selected, value);
-            }
-        }
-    }
-
-    public bool MemoChanged => Selected is not null && MemoDraft != (Selected.Memo ?? string.Empty);
-
-    public bool HasOrphans => Orphans.Count > 0;
-
-    /// <summary>
-    /// 左の一覧が空のとき、真っ白にせず次にやることを書く（`ui-rules.md`・E1）。
-    /// **探して0件と、そもそも1つも無いのを言い分ける**（タグの管理と同じ）。
-    /// </summary>
-    public bool IsEmpty => Rows.Count == 0;
-
-    public string EmptyText => HasFilter
+    /// <summary>**探して0件と、そもそも1つも無いのを言い分ける**（タグの管理と同じ）。</summary>
+    public override string EmptyText => HasFilter
         ? "探している言葉に当てはまる属性がありません。言葉を変えるか、絞り込みを消してください。"
         : "属性はまだありません。上の欄に名前を入れて追加すると、編集画面でその評価を付けられるようになります。";
 
-    public string HeaderText => $"属性 {_all.Count} 件";
-
-    /// <summary>
-    /// 操作の結果の知らせは、押した所の近くに出す（`notice-placement-2026-10-03.md`）。右の欄の先頭の1行にまとめて出していたのをやめた。
-    /// 欄の下（足す欄の誤りと「既にあります」）は AddNoticeText、名前の近くは <see cref="NameNotice"/>、
-    /// 「最初から並べる」の切り替えはそのボタンの下の <see cref="DefaultNotice"/>、
-    /// 一覧の見出しの近く（行ごと消える操作と、一覧に無い属性の直し）は <see cref="ListNotice"/>。
-    /// メモの自動保存の成功は出さない（欄が残るので足りる。設定と同じ）
-    /// </summary>
-    public AreaNotice NameNotice { get; } = new();
-
+    /// <summary>「最初から並べる」の切り替えの知らせ。そのボタンの下に出す（ほかの出し先は土台の <see cref="ManageViewModelBase{TRow, TOrphan}.NameNotice"/> など）。</summary>
     public AreaNotice DefaultNotice { get; } = new();
 
-    public AreaNotice ListNotice { get; } = new();
-
-    public async Task ReloadAsync()
+    public override async Task ReloadAsync()
     {
         // 古いファイルを読まないよう、待っているメモを書き終えてから読む
-        await _memo.FlushAsync();
+        await MemoSaver.FlushAsync();
 
         // 名前の変更・統合・削除の後は、行の名前や値が変わっているかもしれないので、使い回しの控えを捨てる
         _rowCache.Clear();
@@ -841,9 +451,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         RunOnUiThread(() =>
         {
             var counts = usage.ToDictionary(entry => entry.Name, StringComparer.CurrentCultureIgnoreCase);
-            var keep = Selected?.Name;
 
-            _all = master.Attributes.Select(definition => new AttributeMasterRow
+            var rows = master.Attributes.Select(definition => new AttributeMasterRow
             {
                 Name = definition.Name,
                 Memo = definition.Memo,
@@ -853,85 +462,45 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             }).ToList();
 
             AllNames.Clear();
-            foreach (var row in _all)
+            foreach (var row in rows)
             {
                 AllNames.Add(row.Name);
             }
 
-            Orphans.Clear();
-            foreach (var orphan in orphans)
-            {
-                Orphans.Add(CreateOrphanRow(orphan));
-            }
-
-            Rebuild();
-            OnPropertyChanged(nameof(HeaderText));
-            OnPropertyChanged(nameof(HasOrphans));
-
-            Selected = _all.FirstOrDefault(row => row.Name == (keep ?? _lastSelected)) ?? Rows.FirstOrDefault();
+            ShowLoaded(rows, () => orphans.Select(CreateOrphanRow));
         });
     }
 
     /// <summary>
-    /// 左の一覧を絞る。名前とメモに加え、**この属性を付けた（評価した）商品の名前でも当てる**（メモ57 2026-10-05）。
+    /// 左の一覧の当たり方。名前とメモに加え、**この属性を付けた（評価した）商品の名前でも当てる**（メモ57 2026-10-05）。
     /// 属性は各属性の下に商品が並ぶので、商品名で探して属性が出ても何で当たったか分かる（タグの管理は二重構造で
-    /// 分かりにくかったので、名前とメモだけのまま。メモ21-② 2026-10-03）。何で当たったかは「商品 n 件」と出す。
-    /// 書き方は検索画面と同じ
+    /// 分かりにくかったので、名前とメモだけのまま。メモ21-② 2026-10-03）。何で当たったかは「商品 n 件」と出す
     /// </summary>
-    private void Rebuild()
+    protected override Func<AttributeMasterRow, string?> CreateMatcher(ItemTextFilter filter)
     {
-        var filter = ItemTextFilter.Create(_filterText, _main.Search.CreateSearchFacts());
-        var itemHits = filter is null ? null : CountItemHitsByAttribute(filter);
-
-        // 作り直す間は、一覧が書き戻す「選択なし」を受けない（タグの管理と同じ。探すたびに右が空になっていた）
-        _rebuildingList = true;
-        try
+        var itemHits = CountItemHitsByAttribute(filter);
+        return row =>
         {
-            Rows.Clear();
-
-            foreach (var row in _all)
+            if (filter.MatchesNameOrMemo(row.Name, null))
             {
-                row.MatchReason = string.Empty;
-                if (filter is null || filter.MatchesNameOrMemo(row.Name, null))
-                {
-                    Rows.Add(row);
-                    continue;
-                }
-
-                var reasons = new List<string>();
-                if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
-                {
-                    reasons.Add("メモ");
-                }
-
-                if (itemHits!.TryGetValue(row.Name, out var hits) && hits > 0)
-                {
-                    reasons.Add($"商品 {hits} 件");
-                }
-
-                if (reasons.Count > 0)
-                {
-                    row.MatchReason = string.Join("・", reasons);
-                    Rows.Add(row);
-                }
+                return string.Empty;
             }
-        }
-        finally
-        {
-            _rebuildingList = false;
-        }
 
-        var typedExisting = TypedExisting;
-        foreach (var row in _all)
-        {
-            row.IsNameMatch = ReferenceEquals(row, typedExisting);
-        }
+            var reasons = new List<string>();
 
-        OnPropertyChanged(nameof(Selected));
-        OnPropertyChanged(nameof(HasFilter));
-        OnPropertyChanged(nameof(FilterResultText));
-        OnPropertyChanged(nameof(IsEmpty));
-        OnPropertyChanged(nameof(EmptyText));
+            // 入力中のメモも照らす（保存を待たない）。選んでいる属性の下書きは、行の Memo にまだ入っていない
+            if (filter.MatchesNameOrMemo(row.Name, ReferenceEquals(row, Selected) ? MemoDraft : row.Memo))
+            {
+                reasons.Add("メモ");
+            }
+
+            if (itemHits.TryGetValue(row.Name, out var hits) && hits > 0)
+            {
+                reasons.Add($"商品 {hits} 件");
+            }
+
+            return reasons.Count > 0 ? string.Join("・", reasons) : null;
+        };
     }
 
     /// <summary>属性ごとに、その属性を付けた商品のうち検索の語に当たる件数。1回の走査で全属性ぶん数える</summary>
@@ -954,23 +523,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         return hits;
     }
 
-    public bool HasFilter => _filterText.Trim().Length > 0;
-
-    public string FilterResultText => HasFilter
-        ? $"「{_filterText.Trim()}」に当たる属性 {Rows.Count} 件"
-        : string.Empty;
-
-    private void RebuildOtherNames()
-    {
-        OtherNames.Clear();
-        foreach (var name in _all
-            .Where(row => Selected is null || row.Name != Selected.Name)
-            .Select(row => row.Name))
-        {
-            OtherNames.Add(name);
-        }
-    }
-
     private OrphanAttributeRow CreateOrphanRow(OrphanAttribute orphan)
     {
         var row = new OrphanAttributeRow { Name = orphan.Name, ItemCount = orphan.ItemCount };
@@ -980,93 +532,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         row.RemoveCommand = new RelayCommand(() => RemoveOrphanAsync(row).Forget());
 
         return row;
-    }
-
-    /// <summary>
-    /// 並べ替える。並びは検索の候補にも編集の候補にもそのまま出るので、
-    /// 「よく使う順」に置けること自体が機能になる。itemの値には触らない。
-    /// </summary>
-    public async Task MoveAsync(AttributeMasterRow moved, AttributeMasterRow target, bool after)
-    {
-        // 「候補の並べ替え」のときだけ動かす（メモ10-⑤ 2026-10-02。並べ方を勝手に切り替えない）
-        if (!SortsManually)
-        {
-            return;
-        }
-
-        var order = _all.Select(row => row.Name).ToList();
-
-        var from = order.IndexOf(moved.Name);
-        if (from < 0 || moved.Name == target.Name)
-        {
-            return;
-        }
-
-        order.RemoveAt(from);
-
-        var at = order.IndexOf(target.Name);
-        var to = after ? at + 1 : at;
-        if (at < 0 || to == from)
-        {
-            return;
-        }
-
-        order.Insert(to, moved.Name);
-
-        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAttributes(order));
-        await ReloadAsync();
-        _main.RefreshMasters();
-    }
-
-    private async Task SubmitFilterAsync()
-    {
-        var existing = TypedExisting;
-        if (existing is not null)
-        {
-            Selected = existing;
-            return;
-        }
-
-        await AddAsync(FilterText);
-    }
-
-    private async Task AddAsync(string? name)
-    {
-        // 改行やタブは空白に寄せて1行にする（I13）
-        var trimmed = NameText.Normalize(name);
-
-        // 空のまま押したときに黙って終わらない（I1）
-        if (trimmed.Length == 0)
-        {
-            SayAdd("属性の名前を入れてから押してください。", warning: true);
-            return;
-        }
-
-        if (NameText.IsTooLong(trimmed))
-        {
-            SayAdd(NameText.TooLongMessage("属性の名前"), warning: true);
-            return;
-        }
-
-        // 既にある名前は足されない。**足していないのに「追加しました」と言わない**（I2）
-        if (_all.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            SayAdd($"「{trimmed}」は既にあります。", warning: true);
-            Selected = _all.FirstOrDefault(row =>
-                string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
-            return;
-        }
-
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(trimmed));
-        // 足せたら欄を空ける（続けて足せるように）。空にすると絞り込みも外れ、足した属性が一覧に並ぶ
-        FilterText = string.Empty;
-        await ReloadAsync();
-        _main.RefreshMasters();
-        Selected = _all.FirstOrDefault(row =>
-            string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
-
-        // 欄を空けると打ち直しの扱いで知らせが消えるので、空けた後に出す
-        SayAdd($"「{trimmed}」を追加しました。", warning: false);
     }
 
     /// <summary>
@@ -1088,17 +553,17 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             + "\nこの操作は元に戻せません。",
             "属性を統合する");
 
-    /// <summary>
-    /// 改名。既にある名前を指すと統合になる。
-    /// 統合では両方に値が入っているitemが出るので、そのときだけどちらを残すか聞く。
-    /// </summary>
     /// <summary>試験の口：統合の件数を数える処理を差し替える（数えている間に選び直す場面を作る）。</summary>
     internal Func<string, string, Task<AttributeMergePreview>>? PreviewMergeForTest { get; set; }
 
     /// <summary>試験の口：統合の窓に答える（窓を出すと答える人がいないので止まる）。true で統合する。</summary>
     internal static Func<MergeAttributeDialogViewModel, bool>? MergeDialogIntercept { get; set; }
 
-    internal async Task RenameAsync(string? newName)
+    /// <summary>
+    /// 改名。既にある名前を指すと統合になる。
+    /// 統合では両方に値が入っているitemが出るので、そのときだけどちらを残すか聞く。
+    /// </summary>
+    internal override async Task RenameAsync(string? newName)
     {
         var target = newName?.Trim();
         if (Selected is not { } source || string.IsNullOrEmpty(target)
@@ -1110,7 +575,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         // **始めた時の属性に固定する**（外部の点検 2026-10-06）。統合の件数を数える間（商品を全部読む）に一覧で別の属性を
         // 選び直せるので、待った後に Selected を読み直すと、数えた属性とは別の属性を統合し、その評価値を失っていた
         var sourceName = source.Name;
-        var merging = _all.Any(row => string.Equals(row.Name, target, StringComparison.CurrentCultureIgnoreCase));
+        var merging = AllRows.Any(row => string.Equals(row.Name, target, StringComparison.CurrentCultureIgnoreCase));
         var keep = AttributeMergeValue.KeepTarget;
 
         if (merging)
@@ -1139,7 +604,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
         // 名前を変えただけなら名前の近く。統合は片方の行が消えるので、一覧の見出しの近く
         var notice = merging ? ListNotice : NameNotice;
-        var result = await RewriteAttributesAsync(
+        var result = await RewriteAsync(
             new UiCommand.RenameAttribute(sourceName, target, keep), "名前を変更できませんでした。", notice);
 
         string? done = null;
@@ -1153,7 +618,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         var next = target;
         await ReloadAsync();
         _main.RefreshMasters();
-        Selected = _all.FirstOrDefault(row =>
+        Selected = AllRows.FirstOrDefault(row =>
             string.Equals(row.Name, next, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
 
         // 名前が変わると選び直しで名前の近くの知らせが消えるので、選び直した後に出す
@@ -1169,7 +634,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     /// 削除。マスタから消すだけだとitem側に参照が残るので、評価も一緒に外す。
     /// 属性はuserTagと違って「未設定」が既定なので、空になっても編集の対象には戻らない。
     /// </summary>
-    private async Task DeleteAsync()
+    protected override async Task DeleteSelectedAsync()
     {
         if (Selected is null)
         {
@@ -1187,7 +652,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             return;
         }
 
-        var result = await RewriteAttributesAsync(new UiCommand.DeleteAttribute(Selected.Name), "削除できませんでした。", ListNotice);
+        var result = await RewriteAsync(new UiCommand.DeleteAttribute(Selected.Name), "削除できませんでした。", ListNotice);
         if (result is CommandResult.AttributesRewritten rewritten)
         {
             ListNotice.Show($"削除し、{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました。");
@@ -1197,59 +662,6 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         await ReloadAsync();
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();
-    }
-
-    /// <summary>
-    /// 改名・削除の命令を送り、できなかったら呼び手の渡した出し先（<paramref name="failureNotice"/>）に出す。
-    /// 前は画面の1行に一律で出していたので、押した所から離れた所に失敗が出ていた。
-    ///
-    /// 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
-    /// 前は押しても何も起きなかったように見えた。「できなかった」の結果も受けずに捨てていた。
-    /// 例外でも読み直しは続ける——途中まで書き換えた商品があり得るので、今の数を見せる
-    /// </summary>
-    private async Task<CommandResult?> RewriteAttributesAsync(UiCommand command, string failedText, AreaNotice failureNotice)
-    {
-        try
-        {
-            var result = await _services.Commands.ExecuteAsync(command);
-            if (result is CommandResult.Failed failed)
-            {
-                failureNotice.Warn(failed.Message);
-            }
-
-            return result;
-        }
-        catch (Exception exception)
-        {
-            Core.Diagnostics.AppLog.Error("属性の書き換え", exception);
-            failureNotice.Warn(failedText + Core.Services.FailureText.Cause(exception));
-            return null;
-        }
-    }
-
-    /// <summary>打った時点の属性へ書く（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
-    private async Task SaveMemoAsync(AttributeMasterRow row, string memo)
-    {
-        // 読み直すと打っている途中の欄が戻るので読み直さず、行の値だけ書き換える（タグの管理と同じ）
-        row.Memo = memo;
-        await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeMemo(row.Name, memo));
-    }
-
-    /// <summary>名前を変える窓を出してから実行する。既にある名前を選ぶと統合になる。</summary>
-    private async Task AskRenameAsync()
-    {
-        if (Selected is null)
-        {
-            return;
-        }
-
-        var model = new RenameTagDialogViewModel("属性", Selected.Name, Selected.ItemCount, OtherNames.ToList());
-        if (new Views.RenameTagDialog(model).ShowDialog() != true)
-        {
-            return;
-        }
-
-        await RenameAsync(model.Target);
     }
 
     /// <summary>
@@ -1338,16 +750,4 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();
     }
-
-    /// <summary>
-    /// 人が押した操作の確認（アイコンは Question で揃える。`ui-rules.md`・D9）。
-    /// 既定はキャンセル。Enterを押しただけで消えないようにする。
-    /// </summary>
-    private static bool Confirm(string message, string caption)
-        => Services.Notice.Show(
-            message,
-            caption,
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Question,
-            MessageBoxResult.Cancel) == MessageBoxResult.OK;
 }
