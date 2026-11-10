@@ -4,7 +4,7 @@
 > 名前の変更・統合・削除は付いている商品の書き換えを伴い、押す前に件数を言う。**2つの画面の操作感は揃える**（ユーザ指示 2026-09-19）。
 >
 > **コード**：`App/Views/TagManageView.xaml`・`AttributeManageView.xaml`・`ManageResources.xaml`（共用の部品）・`Controls/SearchSyntaxHint`・`Core/Services/ItemTextFilter.cs`・`RenameTagDialog`（名前の変更の窓。3つで共用）・`MoveSubDialog`・`MergeAttributeDialog`、
-> `App/ViewModels/TagManageViewModel.cs`・`AttributeManageViewModel.cs`、`Core/Services/UserTagService.cs`、
+> `App/ViewModels/ManageViewModelBase.cs`（2画面の共通の土台）・`TagManageViewModel.cs`・`AttributeManageViewModel.cs`、`Core/Services/UserTagService.cs`、
 > `Core/Commands/UiCommand.cs`（`AddUserTag`・`RenameUserTag`・`DeleteUserTag`・`SetUserTagMemo`・`ReorderUserTags`・`MoveUserTagSub`・`*Attribute*`）
 >
 > **経緯**：`docs/feedback/done-2026-09.md`「タグの管理：…」の4節（2026-09-18）と「タグの管理と属性の管理を揃える」（2026-09-19）。作ったのは 2026-09-08（`features.md`）
@@ -17,6 +17,12 @@
   例外は設定画面の保存先の説明（人がファイルを開いて直せることを伝える場所なので、そこだけは言う）。
 
 ## 画面の形（両方に共通）
+
+- 共通の作りは土台 `ManageViewModelBase<行, 一覧に無い名前の行>` が1つで持つ（2026-11-10・R3。前は2つの ViewModel に同じ名前の約70個を写していた）：
+  左の欄（検索と追加・「既にあります」）・並べ方とドラッグ・選び直しと知らせの消し方・メモの自動保存・名前を変える窓・書き換えの失敗の出し先・カードとリストの切り替え・中の商品の行・カードの右クリック。
+  各画面に残すのは、小分類の段（タグ）と値 0〜100・最初から並べる（属性）、それに呼ぶ命令と確認の文が違う物（読み直し・名前の変更と削除の本体・一覧に無い名前の3操作）。
+  左の一覧の当たり方（タグは小分類の名前とメモ、属性は付けた商品の名前）と、右の一覧の組み直し（タグはまとめて後で、属性はその場で）も各画面が決める。
+  画面が結ぶ名前（`Tops`・`Rows`・`AddTopCommand`・`AddCommand` など）は前のまま
 
 - 左：一覧（検索と追加を1本にした欄・行）。欄の作法は `ui-input.md`（欄の右に「追加」・同じ名前なら欄の下に「既にあります」）。行は名前と件数（件数が0なら「未使用」）。ドラッグで並べ替えられる（検索の絞り込みと編集の候補も同じ並びを使う）。
 - 右：選んだものの中身。**使える幅いっぱいを使う**（上限を付けると広い画面で中央に寄り、左の一覧との間に大きな空白ができた。2026-09-19）。
