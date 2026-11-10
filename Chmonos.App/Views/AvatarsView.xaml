@@ -152,53 +152,6 @@
 
         <!-- 見る物の切り替えボタン（U16）。今見ている方を太字と色で示す -->
         <!-- 改変の行の見た目は改変の画面と同じ（ユーザ指示 2026-09-17：アバターの管理の改変を改変の画面のアバターの項目に揃える） -->
-        <!--
-            文字だけのボタン。暗黙の Button スタイルは中央揃えと枠を持っていて上書きが効かないので、型ごと差し替える
-        -->
-        <Style x:Key="HubLink" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="Transparent">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 畳む印。中身の無い行では印が空になる（ExpandGlyph） -->
-        <Style x:Key="HubToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="18" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <!--
-                            三角は文字（▸▾）ではなく図形で描く。文字は小さく描かれる字形で、字を 11 → 14 に上げても見た目がほとんど変わらなかった
-                            （ユーザ指摘 2026-09-13「折り畳みの三角が少し小さいかも」）。幅18の枠の真ん中に置くのは同じ（縦線を三角の真下に下ろしている）
-                        -->
-                        <!-- 押せる範囲は行の高さいっぱい（ユーザ指摘 2026-10-04「当たり判定が感覚より小さい」）。以前は改変の行で、上に寄せて下げた三角の枠だけ（18×9）が押せた。枠を行の高さに伸ばし、三角の位置だけ Padding で下げる -->
-                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
-                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
-                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                  Visibility="{Binding HasGlyph, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L9,0 L4.5,6 Z" />
-                                <Setter TargetName="Mark" Property="Width" Value="9" />
-                                <Setter TargetName="Mark" Property="Height" Value="6" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style x:Key="ModeButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
             <Setter Property="Padding" Value="12,4" />
         </Style>
@@ -284,9 +237,8 @@
                                         <KeyBinding Key="Enter" Command="{Binding SetItemIdCommand}" />
                                     </TextBox.InputBindings>
                                 </TextBox>
-                                <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                           Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                           Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                             </Grid>
                             <Button AutomationProperties.AutomationId="AvatarBaseSetItemId" Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
@@ -475,9 +427,8 @@
                                  AutomationProperties.Name="名前・ID・呼び方で探す"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
-                            <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                       VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                       Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                            <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                       Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                         </Grid>
 
                         <!--
@@ -499,9 +450,8 @@
                                     </TextBox.InputBindings>
                                 </TextBox>
                                 <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す（上の検索の欄と同じ） -->
-                                <TextBlock Text="追加する共通素体の名前" Margin="11,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                           Visibility="{Binding NewBaseName, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                <TextBlock Text="追加する共通素体の名前" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                           Visibility="{Binding NewBaseName, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                             </Grid>
                         </DockPanel>
 
@@ -963,9 +913,8 @@
                                                 <KeyBinding Key="Enter" Command="{Binding CreateModificationCommand}" />
                                             </TextBox.InputBindings>
                                         </TextBox>
-                                        <TextBlock Text="新しい改変の名前（例：普段着）" Margin="10,0,0,0" IsHitTestVisible="False"
-                                                   VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                                   Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                        <TextBlock Text="新しい改変の名前（例：普段着）" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                                   Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                     </Grid>
                                     <Button Content="作る" AutomationProperties.Name="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding CreateModificationCommand}" />

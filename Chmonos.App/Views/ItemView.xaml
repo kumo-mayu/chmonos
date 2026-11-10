@@ -232,7 +232,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button x:Name="MoreChangesButton" Grid.Column="2" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
+                    <Button Grid.Column="2" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
                             AutomationProperties.AutomationId="ItemMoreChanges"
                             Visibility="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}"
                             ToolTip="変わったところをすべて表示します。"
@@ -270,7 +270,7 @@
         </Border>
 
         <!--
-            **横にも送れるようにする。**左の列が660px固定なので、窓が狭いと
+            **横にも送れるようにする。**左の列には下限（LeftPane.MinPixels）があるので、窓が狭いと
             右の列（商品名・ID・種類・対応アバター・ローカルファイル）が
             幅0まで潰れて**到達できなくなる**（900pxで実測）。
             横スクロールを出せば、狭くても必ず届く。
@@ -290,11 +290,11 @@
                 その結果、窓が十分広くても右の列が窓の外まで伸びていた
                 （タグ10個の商品で実測 約2900px）。
 
-                下限（1060 = 660 + 320 + 余白と内側の余白）を割ったときだけ横スクロールが出る。
+                下限（BodyMinWidth = 左の列の最小 + 右の列の最小 320 + 余白と内側の余白。単独の画面では左の最小 + 400）を割ったときだけ横スクロールが出る。
                 余白を外の枠に持たせるのは、`Margin` だと幅に上積みされて
                 いつでも横スクロールが出てしまうため
             -->
-            <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth・LeftColumnWidth） -->
+            <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth） -->
             <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
                     Width="{Binding ViewportWidth, ElementName=Body}">
             <!-- 覚えた左の幅は窓が狭いと頭打ちにする（右の最小 320 を割らないように。PaneGrid） -->
@@ -1035,36 +1035,9 @@
                                         アバターとして登録する（ユーザ判断 2026-10-07）。作者がカテゴリを3Dキャラクターにしていないアバターは、
                                         登録簿に載らず扱いを変える場所が無かった。押した時にすぐ登録簿へ書く（商品ページと編集ページで同じ部品）
                                     -->
-                                    <StackPanel DataContext="{Binding AvatarRegistration}" Margin="0,0,0,10">
+                                    <StackPanel Margin="0,0,0,10">
                                         <TextBlock Text="アバター" Style="{StaticResource SectionLabel}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                            <Button Content="アバターとして登録" Style="{StaticResource SmallButton}"
-                                                    AutomationProperties.AutomationId="ItemRegisterAvatar"
-                                                    Command="{Binding RegisterCommand}"
-                                                    Visibility="{Binding IsAvatar, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
-                                                    ToolTip="アバターの管理の一覧に載り、衣装の対応アバターを見分けるのに使います。" />
-                                            <Button Content="アバターの管理で開く" Style="{StaticResource SmallButton}"
-                                                    AutomationProperties.AutomationId="ItemOpenInAvatars"
-                                                    Command="{Binding OpenInAvatarsCommand}"
-                                                    Visibility="{Binding IsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            <!-- このアバターに関連するプロファイル（ユーザ判断 2026-11-09）。検索の条件「プロファイル」に入れて開く -->
-                                            <Button Content="プロファイルを検索で開く" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                                    AutomationProperties.AutomationId="ItemShowProfiles"
-                                                    Command="{Binding ShowProfilesCommand}"
-                                                    Visibility="{Binding IsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                    ToolTip="このアバターと、その素体のプロファイルを検索で開きます。" />
-                                            <Button Content="登録を外す" Style="{StaticResource DangerButton}" Margin="7,0,0,0"
-                                                    AutomationProperties.AutomationId="ItemUnregisterAvatar"
-                                                    Command="{Binding UnregisterCommand}"
-                                                    Visibility="{Binding IsManual, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                    ToolTip="自動の判定に戻します。" />
-                                            <!-- 押しても欄の高さが変わらないよう、ボタンと同じ行の右に出す（ユーザ指摘 2026-10-07。前はボタンの上に出入りして並びがずれた） -->
-                                            <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                                       Visibility="{Binding StateText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding Notice}" Style="{StaticResource FieldNotice}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="260"
-                                                   HorizontalAlignment="Left"
-                                                   Visibility="{Binding Notice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                        <views:AvatarRegistrationPanel DataContext="{Binding AvatarRegistration}" IdPrefix="Item" ShowsProfilesButton="True" />
                                     </StackPanel>
                                 </WrapPanel>
 

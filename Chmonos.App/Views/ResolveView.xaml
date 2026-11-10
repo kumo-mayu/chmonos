@@ -13,18 +13,6 @@
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
-        <!-- 入力が残る欄を消す ×（検索画面の ClearFieldButton と同じ見た目）。暗黙のボタンの見た目（高さ32など）を当てないため明示する -->
-        <Style x:Key="ClearFieldButton" TargetType="Button">
-            <Setter Property="Content" Value="×" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
         <!--
             登録している間の帯（ユーザ指示 2026-09-29：押した後に何も出ず、どうなっているのか分からなかった）。
             押したボタンのすぐ下に出すので、置く所ごとに Visibility だけを変えて使い回す。中身は画面の ViewModel に結ぶ
@@ -106,7 +94,7 @@
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
 
-        <!-- フォルダビューに組み込んだときは上の帯と左の一覧を隠す（ShowsChrome・ListColumnWidth） -->
+        <!-- フォルダビューに組み込んだときは上の帯と左の一覧を隠す（ShowsChrome） -->
         <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -377,8 +365,7 @@
                                                                         <TextBlock Text="zipの中身" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                                     </Border>
                                                                     <!-- 展開元のzipが無いフォルダ。畳んでいても分かるように見出しに出す -->
-                                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                                            BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
+                                                                    <Border Style="{StaticResource BadgeWarn}" Margin="0,0,7,0"
                                                                             VerticalAlignment="Center"
                                                                             Visibility="{Binding Items[0].IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                         <TextBlock Text="zipが無い" FontSize="10" Foreground="{DynamicResource Warn}" />
@@ -539,16 +526,14 @@
                                                 取り込みで zip として開けなかった物（途中で切れたダウンロードなど）。前は普通の未確定と見分けられなかった
                                                 （大容量の確かめ 問題4・ユーザ判断 2026-09-30）。ほかの札は「確かめてほしい」の黄、これは直さないと使えないので赤
                                             -->
-                                            <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                            <Border Style="{StaticResource BadgeBad}" Margin="0,0,5,0"
                                                     ToolTip="zipを開けませんでした。ダウンロードし直してください。"
                                                     Visibility="{Binding IsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}"
                                                            AutomationProperties.AutomationId="ResolveRowBrokenZip" />
                                             </Border>
                                             <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
-                                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                            <Border Style="{StaticResource BadgeWarn}" Margin="0,0,5,0"
                                                     Visibility="{Binding ShowsCandidateCount, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}"
                                                            AutomationProperties.AutomationId="ResolveRowCandidateCount" />
@@ -557,8 +542,7 @@
                                                 取り込みが BOOTH に聞いて「無い」と答えられた行（ユーザ判断 2026-10-06）。「自動候補」の代わりに出す
                                                 （候補は読み取れたIDの1件で、それが非公開。選ぶと、そのIDのまま登録する形が初めから出ている）
                                             -->
-                                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                            <Border Style="{StaticResource BadgeWarn}" Margin="0,0,5,0"
                                                     ToolTip="読み取れた商品IDが、BOOTHで見つかりませんでした。"
                                                     Visibility="{Binding IsNotOnBooth, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="BOOTHで非公開" FontSize="10" Foreground="{DynamicResource Warn}"
@@ -827,8 +811,7 @@
                                         <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}"
                                                    VerticalAlignment="Center" />
                                         <!-- 状態はチップにする。文で出すと「だから登録できない」に読める -->
-                                        <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                                                BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="8,0,0,0"
+                                        <Border Style="{StaticResource BadgeGood}" Margin="8,0,0,0"
                                                 Visibility="{Binding IsPreviewOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding PreviewOwnedNote}" FontSize="10"
                                                        Foreground="{DynamicResource Good}" />
@@ -842,7 +825,7 @@
                             </Border>
 
                             <!-- 非公開のつもりで添えた画像が、聞き直したら公開されていた行だけ。登録と一緒に自分で足した画像として入る。外せる -->
-                            <StackPanel x:Name="OverturnedImages" Margin="0,10,0,0"
+                            <StackPanel Margin="0,10,0,0"
                                         AllowDrop="True" PreviewDragOver="OnLocalBoxPreviewDragOver" PreviewDrop="OnLocalBoxPreviewDrop"
                                         Visibility="{Binding ShowsOverturnedImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="画像" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
@@ -1026,7 +1009,7 @@
                                                Text="非公開・削除済みで商品IDが分からないもの。名前を付けて手元の商品として登録します。" />
 
                                     <TextBlock Text="名前" Style="{StaticResource SectionLabel}" Margin="0,12,0,5" />
-                                    <TextBox x:Name="LocalNameBox" Height="32" VerticalContentAlignment="Center" Padding="8,0"
+                                    <TextBox Height="32" VerticalContentAlignment="Center" Padding="8,0"
                                              AutomationProperties.AutomationId="ResolveLocalName" AutomationProperties.Name="登録する名前"
                                              Text="{Binding LocalNameInput, UpdateSourceTrigger=PropertyChanged}" />
                                     <StackPanel Margin="0,8,0,0"

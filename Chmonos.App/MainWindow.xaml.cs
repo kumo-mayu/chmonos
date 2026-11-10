@@ -438,25 +438,6 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private static T? FindDescendant<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
-            if (child is T found)
-            {
-                return found;
-            }
-
-            if (FindDescendant<T>(child) is { } deeper)
-            {
-                return deeper;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>
     /// 貼り付けもドロップと同じ扱い。マウスだけで完結させたいならドロップ、
     /// キーボードが使えるなら貼り付けの方が速い。

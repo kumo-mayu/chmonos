@@ -389,7 +389,7 @@
                         </Grid.ColumnDefinitions>
                         <Border x:Name="Box" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}" Margin="1" VerticalAlignment="Center">
-                            <Grid x:Name="MarkGrid">
+                            <Grid>
                                 <Path x:Name="Mark" Opacity="0" Margin="1" Stretch="None" Fill="{DynamicResource CheckMark}"
                                       Data="F1 M 9.97498,1.22334L 4.6983,9.09834L 4.52164,9.09834L 0,5.19331L 1.27664,3.52165L 4.255,6.08833L 8.33331,1.52588e-005L 9.97498,1.22334 Z" />
                                 <Rectangle x:Name="Indeterminate" Opacity="0" Margin="2" Fill="{DynamicResource CheckMark}" />
@@ -573,7 +573,7 @@
                                 <Border.Effect>
                                     <DropShadowEffect Color="{DynamicResource PopupShadowColor}" BlurRadius="6" ShadowDepth="2" Direction="315" />
                                 </Border.Effect>
-                                <ScrollViewer x:Name="DropDownScroll">
+                                <ScrollViewer>
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"
                                                     SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
                                 </ScrollViewer>
@@ -689,6 +689,40 @@
         <Setter Property="Background" Value="{DynamicResource Surface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
         <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    </Style>
+
+    <!--
+        カードの行の一覧（検索・フォルダの右・ショップ・ショップ一覧）の共通の設定。CardRowsListBox が自分の Style にこの鍵を当てる
+        （暗黙の見た目は型がぴったり同じ部品にしか当たらないので、ListBox の見た目はここで継ぐ）。
+        画面ごとに違うのは余白・縦の流し方・仮想化の有無だけで、それは使う側が要素に書く
+    -->
+    <Style x:Key="CardRowsListBoxStyle" TargetType="controls:CardRowsListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="18,4,18,18" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <ContentPresenter />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ListView">

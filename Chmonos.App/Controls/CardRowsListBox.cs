@@ -25,8 +25,9 @@ public sealed class CardRowsListBox : ListBox
 
     public CardRowsListBox()
     {
-        // 暗黙の見た目（Themes/Controls.xaml の ListBox）は、型がぴったり同じ部品にしか当たらない。ListBox の見た目を名指しで引く
-        SetResourceReference(StyleProperty, typeof(ListBox));
+        // 暗黙の見た目（Themes/Controls.xaml の ListBox）は、型がぴったり同じ部品にしか当たらない。
+        // ListBox の見た目を継いだ、カードの一覧の共通の設定（同じ所の CardRowsListBoxStyle）を名指しで引く
+        SetResourceReference(StyleProperty, "CardRowsListBoxStyle");
 
         // カードの一覧は Tab で1回だけ入り、中は矢印でカードからカードへ移る（ユーザ判断 2026-10-01）。
         // 前は1枚ずつ Tab で止まり、検索の結果を抜けて下の「絞り込みを折りたたむ」へ行くのに、見えているカードの数だけ押した。

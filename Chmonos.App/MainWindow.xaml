@@ -331,7 +331,7 @@
             <Grid Background="Transparent" Cursor="Hand">
                 <Border x:Name="Fade" Background="{DynamicResource Rail}">
                     <Border.OpacityMask>
-                        <LinearGradientBrush x:Name="FadeMask" StartPoint="0,0" EndPoint="0,1">
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                             <GradientStop Color="{x:Static Colors.Black}" Offset="0" />
                             <GradientStop Color="Transparent" Offset="1" />
                         </LinearGradientBrush>

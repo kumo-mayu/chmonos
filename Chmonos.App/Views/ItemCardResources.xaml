@@ -433,14 +433,12 @@
                                                 -->
                                                 <controls:BadgeOverflowPanel Grid.Column="1" HorizontalAlignment="Right" Margin="6,0,0,0">
                                                     <controls:StatusBadge controls:BadgeOverflowPanel.Label="所持"
-                                                            Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
+                                                            Style="{StaticResource BadgeGood}"
                                                             Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
                                                     </controls:StatusBadge>
                                                     <controls:StatusBadge controls:BadgeOverflowPanel.Label="未編集"
-                                                            Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
+                                                            Style="{StaticResource BadgeWarn}"
                                                             controls:BadgeOverflowPanel.Tip="まだユーザータグを付けていません"
                                                             Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
@@ -454,15 +452,13 @@
                                                             Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
                                                     <controls:StatusBadge controls:BadgeOverflowPanel.Label="取り込み中"
-                                                            Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
+                                                            Style="{StaticResource BadgeAccent}"
                                                             controls:BadgeOverflowPanel.Tip="取り込みの途中です。対応アバターの検出が終わると編集できます"
                                                             Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
                                                     </controls:StatusBadge>
                                                     <controls:StatusBadge controls:BadgeOverflowPanel.Label="{Binding MissingBadgeText}"
-                                                            Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                                                            BorderThickness="1" CornerRadius="9" Padding="7,1"
+                                                            Style="{StaticResource BadgeBad}"
                                                             controls:BadgeOverflowPanel.Tip="{Binding MissingBadgeTip}"
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="{Binding MissingBadgeText}" FontSize="10" Foreground="{DynamicResource Bad}" />
@@ -1040,19 +1036,16 @@
         <Grid VerticalAlignment="Center">
             <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <!-- 左から字の少ない順（カードと同じ。未所持は所持と同じ所。ユーザ判断 2026-10-06）。リストは折り返すので丸にはしないが、読む順をカードとそろえる -->
-                <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                <Border Style="{StaticResource BadgeGood}" Margin="0,1,4,1"
                         Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="所持" FontSize="10" Foreground="{DynamicResource Good}" />
                 </Border>
-                <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                <Border Style="{StaticResource BadgeBad}" Margin="0,1,4,1"
                         ToolTip="手元にファイルがありません"
                         Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未所持" FontSize="10" Foreground="{DynamicResource Bad}" />
                 </Border>
-                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだユーザータグを付けていません"
+                <Border Style="{StaticResource BadgeWarn}" Margin="0,1,4,1" ToolTip="まだユーザータグを付けていません"
                         Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未編集" FontSize="10" Foreground="{DynamicResource Warn}" />
                 </Border>
@@ -1062,14 +1055,12 @@
                         AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
                         ToolTip="通知に更新があります。押すとその通知を開きます。"
                         Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                <Border Style="{StaticResource BadgeAccent}" Margin="0,1,4,1"
                         ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"
                         Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="取り込み中" FontSize="10" Foreground="{DynamicResource Accent}" />
                 </Border>
-                <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                <Border Style="{StaticResource BadgeBad}" Margin="0,1,4,1"
                         ToolTip="{Binding MissingBadgeTip}"
                         Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="{Binding MissingBadgeText}" FontSize="10" Foreground="{DynamicResource Bad}" />
@@ -1079,8 +1070,7 @@
                         Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
-                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
-                        CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
+                <Border Style="{StaticResource BadgeWarn}" Margin="6,0,0,0" VerticalAlignment="Center"
                         ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
                         Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未確定あり" FontSize="10" Foreground="{DynamicResource Warn}" />

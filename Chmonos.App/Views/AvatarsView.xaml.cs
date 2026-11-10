@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using Chmonos.App.Controls;
 using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Views;
@@ -88,7 +89,7 @@ public partial class AvatarsView : UserControl
             {
                 if (group.Items.Contains(selected)
                     && list.ItemContainerGenerator.ContainerFromItem(group) is GroupItem container
-                    && FindChild<Expander>(container) is { IsExpanded: false } expander)
+                    && VisualTreeFinder.FindDescendant<Expander>(container) is { IsExpanded: false } expander)
                 {
                     expander.IsExpanded = true;
                 }
@@ -115,23 +116,4 @@ public partial class AvatarsView : UserControl
         }
     }
 
-    private static T? FindChild<T>(DependencyObject parent)
-        where T : DependencyObject
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is T found)
-            {
-                return found;
-            }
-
-            if (FindChild<T>(child) is { } deeper)
-            {
-                return deeper;
-            }
-        }
-
-        return null;
-    }
 }

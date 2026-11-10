@@ -144,7 +144,7 @@
         -->
         <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto">
             <!-- 幅を窓に合わせる理由は商品ページと同じ（無限幅で測ると折り返さない） -->
-            <!-- 改変の画面の右側に組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth・LeftColumnWidth） -->
+            <!-- 改変の画面の右側に組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth） -->
             <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
                     Width="{Binding ViewportWidth, ElementName=Body}">
             <!-- 覚えた左の幅は窓が狭いと頭打ちにする（右の最小 320 を割らないように。PaneGrid） -->

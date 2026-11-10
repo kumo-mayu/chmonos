@@ -91,8 +91,7 @@
                                     <TextBlock Text="{Binding ShopText}" Style="{StaticResource Caption}" Margin="0,0,6,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="240"
                                                Visibility="{Binding HasShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                            BorderThickness="1" CornerRadius="9" Padding="7,0" VerticalAlignment="Center"
+                                    <Border Style="{StaticResource BadgeAccent}" VerticalAlignment="Center"
                                             ToolTip="今の商品と同じショップの商品です。"
                                             Visibility="{Binding IsSameShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="同じショップ" FontSize="10" Foreground="{DynamicResource AccentText}"

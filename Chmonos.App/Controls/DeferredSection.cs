@@ -59,7 +59,7 @@ public sealed class DeferredSection : Decorator
             return;
         }
 
-        var scroller = FindScroller(this);
+        var scroller = VisualTreeFinder.FindPageScroller(this);
         var startsAtTop = scroller is not null && (scroller.VerticalOffset <= 0 || ProgressiveItems.GetReturnsToTop(scroller));
         // 載り終わる（Loaded）前でも分ける。検索から開くと、画面を載せ直す途中で商品が替わる（ItemViewHost）
         if (next is null || _shown is null || !startsAtTop)
@@ -99,7 +99,7 @@ public sealed class DeferredSection : Decorator
         var best = double.PositiveInfinity;
         foreach (var section in Held.ToList())
         {
-            if (FindScroller(section) is not { ViewportHeight: > 0, Content: UIElement content } scroller || !section.IsVisible || !content.IsAncestorOf(section))
+            if (VisualTreeFinder.FindPageScroller(section) is not { ViewportHeight: > 0, Content: UIElement content } scroller || !section.IsVisible || !content.IsAncestorOf(section))
             {
                 // 測れない（ページから外れた・欄ごと隠れた）。分ける理由が無いので出す
                 section.Release();
@@ -149,7 +149,7 @@ public sealed class DeferredSection : Decorator
             return;
         }
 
-        Held.MinBy(section => FindScroller(section)?.Content is UIElement content && content.IsAncestorOf(section)
+        Held.MinBy(section => VisualTreeFinder.FindPageScroller(section)?.Content is UIElement content && content.IsAncestorOf(section)
             ? section.TranslatePoint(default, content).Y
             : double.NegativeInfinity)!.Release();
 
@@ -198,16 +198,4 @@ public sealed class DeferredSection : Decorator
         return released;
     }
 
-    private static ScrollViewer? FindScroller(DependencyObject element)
-    {
-        for (var node = VisualTreeHelper.GetParent(element); node is not null; node = VisualTreeHelper.GetParent(node))
-        {
-            if (node is ScrollViewer { TemplatedParent: null } scroller)
-            {
-                return scroller;
-            }
-        }
-
-        return null;
-    }
 }

@@ -1,7 +1,7 @@
 <!--
     明るい色の表。暗い色の表（Dark.xaml）と同じ鍵を持つ。画面は鍵でしか色を指さない（docs/spec/ui-colors.md）。
     値はモックで決めた配色と、画面に直に書いていた色をそのまま移したもの。鍵を足すときは Dark.xaml にも同じ鍵を足す
-    （片方に無いと、その色の間だけ参照が空になって黙って透明になる。ThemeTests が鍵の揃いを見る）
+    （片方に無いと、その色の間だけ参照が空になって黙って透明になる。ThemeTableTests（Chmonos.Core.Tests）が鍵の揃いを見る）
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">

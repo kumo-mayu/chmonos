@@ -246,7 +246,7 @@ public partial class SearchView : UserControl
 
         // View を持ち回すようになってからは、戻ってきた時点で一覧はもう覚えた位置にいる（SearchViewHost）。
         // 送り直しを待つ印を立てると、届いた知らせが来ないまま最初の数秒の操作を覚え損ねるので立てない
-        if (FindChild<ScrollViewer>(list) is { } current && Math.Abs(current.VerticalOffset - wanted) <= 1)
+        if (VisualTreeFinder.FindDescendant<ScrollViewer>(list) is { } current && Math.Abs(current.VerticalOffset - wanted) <= 1)
         {
             return;
         }
@@ -259,7 +259,7 @@ public partial class SearchView : UserControl
             System.Windows.Threading.DispatcherPriority.Loaded,
             () =>
             {
-                if (FindChild<ScrollViewer>(list) is { } viewer)
+                if (VisualTreeFinder.FindDescendant<ScrollViewer>(list) is { } viewer)
                 {
                     viewer.ScrollToVerticalOffset(_restoreTarget);
                 }
@@ -300,25 +300,6 @@ public partial class SearchView : UserControl
         }
     }
 
-    private static T? FindChild<T>(DependencyObject parent)
-        where T : DependencyObject
-    {
-        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
-            if (child is T found)
-            {
-                return found;
-            }
-
-            if (FindChild<T>(child) is { } deeper)
-            {
-                return deeper;
-            }
-        }
-
-        return null;
-    }
 
     /// <summary>Tab の行き先を決める部品の名前。</summary>
     public enum TabStop { FilterMenu, ClearFilters, Toggle, AddModule }

@@ -20,53 +20,6 @@
             <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
         <!--
-            文字だけのボタン。暗黙の Button スタイルは中央揃えと枠を持っていて上書きが効かないので、型ごと差し替える
-        -->
-        <Style x:Key="HubLink" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="Transparent">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 畳む印。中身の無い行では印が空になる（ExpandGlyph） -->
-        <Style x:Key="HubToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="18" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <!--
-                            三角は文字（▸▾）ではなく図形で描く。文字は小さく描かれる字形で、字を 11 → 14 に上げても見た目がほとんど変わらなかった
-                            （ユーザ指摘 2026-09-13「折り畳みの三角が少し小さいかも」）。幅18の枠の真ん中に置くのは同じ（縦線を三角の真下に下ろしている）
-                        -->
-                        <!-- 押せる範囲は行の高さいっぱい（ユーザ指摘 2026-10-04「当たり判定が感覚より小さい」）。以前は改変の行で、上に寄せて下げた三角の枠だけ（18×9）が押せた。枠を行の高さに伸ばし、三角の位置だけ Padding で下げる -->
-                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
-                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
-                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                  Visibility="{Binding HasGlyph, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L9,0 L4.5,6 Z" />
-                                <Setter TargetName="Mark" Property="Width" Value="9" />
-                                <Setter TargetName="Mark" Property="Height" Value="6" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!--
             見方の切り替え（ユーザ指示 2026-09-13：「繋がった一つの四角で3つに分かれていて、それぞれの領域を押すとそれが選択される」）。
             選べるのは1つだけ、という意味は RadioButton のままで、見た目だけ区切りの付いた1つの枠にする。
             WPF の ClipToBounds は角丸で切らないので、塗りの角丸は両端の区画にだけ Tag で渡す。
@@ -367,8 +320,7 @@
                                        Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
                         </Button>
                         <WrapPanel Margin="0,2,0,0">
-                            <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
-                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,6,0"
+                            <Border Style="{StaticResource BadgeGood}" Margin="0,0,6,0"
                                     Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="開いている" FontSize="10" Foreground="{DynamicResource Good}" />
                             </Border>
@@ -856,8 +808,7 @@
                             <TextBox Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
                                      VerticalContentAlignment="Center" Padding="7,0"
                                      AutomationProperties.Name="{Binding QueryPlaceholder}" />
-                            <TextBlock Text="{Binding QueryPlaceholder}" IsHitTestVisible="False" Margin="10,0,0,0"
-                                       VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}"
+                            <TextBlock Text="{Binding QueryPlaceholder}" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
                                        Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                         </Grid>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

@@ -1,0 +1,61 @@
+<UserControl x:Class="Chmonos.App.Views.AvatarRegistrationPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemAvatarRegistration}">
+    <!--
+        「アバターとして登録」の欄の中身（見出しは置き場ごとの形があるので、使う側が上に置く）。
+        アバターとして登録する（ユーザ判断 2026-10-07）。作者がカテゴリを3Dキャラクターにしていないアバターは、
+        登録簿に載らず扱いを変える場所が無かった。押した時にすぐ登録簿へ書く。商品ページと編集画面で同じ部品（2026-11-10 に1つにした）。
+        DataContext は ItemAvatarRegistration。
+        ・IdPrefix：自動操作の名前（AutomationId）の頭。商品ページは Item、編集画面は Edit（「ItemRegisterAvatar」「EditRegisterAvatar」）
+        ・ShowsProfilesButton：「プロファイルを検索で開く」を出すか。商品ページだけに出すのは意図した違い（docs/spec/conversion.md）
+    -->
+    <StackPanel>
+        <StackPanel.Resources>
+            <!-- 出すのは、アバターで、かつ使う側が出すと言ったときだけ（Visibility を要素に直に書くと、この条件が効かなくなる） -->
+            <Style x:Key="ProfilesButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsAvatar}" Value="True" />
+                            <Condition Binding="{Binding ShowsProfilesButton, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="Visibility" Value="Visible" />
+                    </MultiDataTrigger>
+                </Style.Triggers>
+            </Style>
+        </StackPanel.Resources>
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+            <Button Content="アバターとして登録" Style="{StaticResource SmallButton}"
+                    AutomationProperties.AutomationId="{Binding IdPrefix, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0}RegisterAvatar}"
+                    Command="{Binding RegisterCommand}"
+                    Visibility="{Binding IsAvatar, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
+                    ToolTip="アバターの管理の一覧に載り、衣装の対応アバターを見分けるのに使います。" />
+            <Button Content="アバターの管理で開く" Style="{StaticResource SmallButton}"
+                    AutomationProperties.AutomationId="{Binding IdPrefix, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0}OpenInAvatars}"
+                    Command="{Binding OpenInAvatarsCommand}"
+                    Visibility="{Binding IsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            <!-- このアバターに関連するプロファイル（ユーザ判断 2026-11-09）。検索の条件「プロファイル」に入れて開く -->
+            <Button Content="プロファイルを検索で開く" Style="{StaticResource ProfilesButton}" Margin="7,0,0,0"
+                    AutomationProperties.AutomationId="{Binding IdPrefix, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0}ShowProfiles}"
+                    Command="{Binding ShowProfilesCommand}"
+                    ToolTip="このアバターと、その素体のプロファイルを検索で開きます。" />
+            <Button Content="登録を外す" Style="{StaticResource DangerButton}" Margin="7,0,0,0"
+                    AutomationProperties.AutomationId="{Binding IdPrefix, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0}UnregisterAvatar}"
+                    Command="{Binding UnregisterCommand}"
+                    Visibility="{Binding IsManual, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                    ToolTip="自動の判定に戻します。" />
+            <!-- 押しても欄の高さが変わらないよう、ボタンと同じ行の右に出す（ユーザ指摘 2026-10-07。前はボタンの上に出入りして並びがずれた） -->
+            <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
+                       Visibility="{Binding StateText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+        </StackPanel>
+        <TextBlock Text="{Binding Notice}" Style="{StaticResource FieldNotice}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="260"
+                   HorizontalAlignment="Left"
+                   Visibility="{Binding Notice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+    </StackPanel>
+</UserControl>
