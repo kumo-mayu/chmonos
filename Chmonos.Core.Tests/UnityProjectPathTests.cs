@@ -48,4 +48,15 @@ public sealed class UnityProjectPathTests
 
         Assert.False(usage.InProject(@"D:\unity\Other", "1000001"));
     }
+
+    /// <summary>改変の側の比べ（<see cref="ModificationService.SamePath"/>）も検索と同じ揃え方を使う。前は区切りの向きの違いで別物と見た。</summary>
+    [Theory]
+    [InlineData(@"D:\unity\Sample", "D:/unity/Sample/", true)]
+    [InlineData(@"D:\Unity\sample\", @"d:\unity\Sample", true)]
+    [InlineData(@"D:\unity\other\..\Sample", @"D:\unity\Sample", true)]
+    [InlineData(@"D:\unity\Sample", @"D:\unity\Other", false)]
+    [InlineData("", "", false)]
+    [InlineData(null, null, false)]
+    public void 改変の側の比べも綴りの揺れを吸収する(string? a, string? b, bool same)
+        => Assert.Equal(same, ModificationService.SamePath(a, b));
 }
