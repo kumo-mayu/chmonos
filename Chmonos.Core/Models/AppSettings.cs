@@ -294,7 +294,7 @@ public sealed record AppSettings
 
     /// <summary>
     /// 通知の保管に使う容量（MB。ユーザ判断 2026-11-10：既定 50・上限なし・0 なら保管しない）。
-    /// 消すのはアプリを閉じるときだけで、超えていれば古い月から丸ごと消す（<see cref="Storage.NotificationArchive.TrimAsync"/>）。
+    /// 消すのはアプリを閉じるときだけで、超えていれば古い月から丸ごと消す。最後の1つの月は消さずに新しい側の半分を残す（<see cref="Storage.NotificationArchive.TrimAsync"/>）。
     /// </summary>
     public int NotificationArchiveMegabytes { get; init; } = 50;
 

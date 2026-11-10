@@ -685,7 +685,7 @@
                                            VerticalAlignment="Center" Margin="16,0,0,0" />
                             </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="222,2,0,0"
-                                       Text="件数を超えた古い通知を保管します。容量を超えた分は、アプリを閉じるときに古い月から削除します。" />
+                                       Text="件数を超えた古い通知を保管します。容量を超えた分は、アプリを閉じるときに古い通知から削除します。" />
                             <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
                                        AutomationProperties.AutomationId="Settings.Note.NotificationArchiveMegabytes"
                                        Text="{Binding Notes[NotificationArchiveMegabytes]}" />

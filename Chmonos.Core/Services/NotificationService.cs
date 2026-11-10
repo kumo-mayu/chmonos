@@ -28,8 +28,8 @@ public interface INotificationService
     /// <summary>上限を超えた分を保管庫へ移す。起動時に1回呼ぶ（足すときは上限を見ていない）。</summary>
     Task<int> PruneAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>保管庫が容量を超えていたら古い月から消す。アプリを閉じるときに1回だけ呼ぶ。</summary>
-    Task<int> TrimArchiveAsync(CancellationToken cancellationToken = default);
+    /// <summary>保管庫が容量を超えていたら古い月から消す（最後の1つは新しい側の半分を残す）。アプリを閉じるときに1回だけ呼ぶ。</summary>
+    Task<NotificationArchiveTrim> TrimArchiveAsync(CancellationToken cancellationToken = default);
 
     /// <summary>手で直した JSON の食い違いを要確認に出す（J2・L6）。</summary>
     Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default);
@@ -398,14 +398,15 @@ public sealed class NotificationService : INotificationService
     }
 
     /// <summary>
-    /// 保管庫が容量を超えていたら、古い月から丸ごと消す。**アプリを閉じるときに1回だけ呼ぶ**（`UiCommand.TrimNotificationArchive`）。
+    /// 保管庫が容量を超えていたら、古い月から丸ごと消す（最後の1つは消さずに新しい側の半分を残す）。
+    /// **アプリを閉じるときに1回だけ呼ぶ**（`UiCommand.TrimNotificationArchive`）。
     /// 設定で容量を小さくしてから戻しても、閉じるまでは消えないようにするため（ユーザ判断 2026-11-10）。
     /// </summary>
     /// <remarks>手で負の数を書かれた設定では消さない（<see cref="AppSettings.NotificationArchiveBytes"/>）。</remarks>
-    public Task<int> TrimArchiveAsync(CancellationToken cancellationToken = default)
+    public Task<NotificationArchiveTrim> TrimArchiveAsync(CancellationToken cancellationToken = default)
         => _settings.NotificationArchiveBytes is { } capacity
             ? _store.NotificationArchive.TrimAsync(capacity, cancellationToken)
-            : Task.FromResult(0);
+            : Task.FromResult(NotificationArchiveTrim.None);
 
     /// <summary>
     /// 手で直した JSON の食い違いを要確認に出す（ユーザ判断 2026-09-21・J2/L6）。

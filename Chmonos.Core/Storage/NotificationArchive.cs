@@ -11,6 +11,15 @@ namespace Chmonos.Core.Storage;
 public sealed record NotificationArchiveRead(IReadOnlyList<NotificationRecord> Records, int UnreadableLines);
 
 /// <summary>
+/// 閉じるときの整理の結果（ログに書く）。<c>HalvedMonth</c> は最後に残った月を削りに行ったときだけ入る。
+/// <c>StillOver</c> は、整理しても容量を超えたままのとき（件数が1以下・読めない月・見積もりが2回外れた）。
+/// </summary>
+public sealed record NotificationArchiveTrim(int DeletedFiles, string? HalvedMonth, int DroppedRecords, int KeptRecords, bool StillOver)
+{
+    public static NotificationArchiveTrim None { get; } = new(0, null, 0, 0, StillOver: false);
+}
+
+/// <summary>
 /// 知らせの保管庫（<c>notification-archive/yyyy-MM.jsonl.gz</c>。ユーザ判断 2026-11-10）。
 ///
 /// 通知に残す件数を超えた古い既読・解消済みを、捨てる代わりにここへ移す。商品の更新の履歴は後から作り直せないため。
@@ -247,13 +256,21 @@ public sealed class NotificationArchive
         }
     }
 
+    /// <summary>試験だけが使う：月を半分に書き直した回数（書き直しが1回で済むことを確かめる）。</summary>
+    internal int RewritesForTests { get; private set; }
+
+    /// <summary>試験だけが使う：半分に書き直す途中（残す行を半分ほど書いたところ）で呼ぶ。</summary>
+    internal Func<Task>? MidRewriteForTests { get; set; }
+
     /// <summary>
     /// 合計が容量を超えていたら、古い月のファイルから丸ごと消す（月の途中は消さない）。0 なら全部消す。
     /// 呼ぶのはアプリを閉じるときの1回だけ（設定で容量を小さくしてから戻しても、閉じるまでは消えない）。
-    /// 新しい月1つだけで容量を超えるときも消す：容量は使う人が決めた上限なので、超えたまま残さない。
+    ///
+    /// **最後に残った1つを消すことになるときは消さずに、その月の新しい側の半分を残す**（ユーザ判断 2026-11-10：
+    /// 保管を使っている人は、保管した知らせがどこかに残っていると考えている。丸ごと消すと全部無くなる）。
+    /// 半分でも超えるなら 1/4・1/8…と下げるが、何回半分にするかは先に数えて決め、書き直しは1回にする（<see cref="HalveAsync"/>）。
     /// </summary>
-    /// <returns>消したファイルの数。</returns>
-    public async Task<int> TrimAsync(long capacityBytes, CancellationToken cancellationToken = default)
+    public async Task<NotificationArchiveTrim> TrimAsync(long capacityBytes, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -262,30 +279,190 @@ public sealed class NotificationArchive
             var total = files.Sum(file => file.Length);
             if (capacityBytes > 0 && total <= capacityBytes)
             {
-                return 0;
+                return NotificationArchiveTrim.None;
             }
 
-            // 引越し・バックアップが保存先を運んでいる間は消さない（運んだ一覧と突き合わせが食い違う）
-            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
             var deleted = 0;
-            foreach (var file in files)
-            {
-                if (capacityBytes > 0 && total <= capacityBytes)
-                {
-                    break;
-                }
+            MonthFile? last = null;
 
-                File.Delete(file.Path);
-                total -= file.Length;
-                deleted++;
+            // 引越し・バックアップが保存先を運んでいる間は消さない（運んだ一覧と突き合わせが食い違う）。
+            // 門は消す間だけ持つ：書き直しは JsonStore.WriteStreamAsync が自分で門に入るので、持ったまま呼ぶと
+            // その間に引越しが門を閉じたとき、互いに待ち合って止まる
+            using (await StoreWriteGate.EnterAsync(cancellationToken))
+            {
+                for (var index = 0; index < files.Count; index++)
+                {
+                    if (capacityBytes > 0 && total <= capacityBytes)
+                    {
+                        break;
+                    }
+
+                    // 容量 0 は「保管しない」を選んだ値なので、最後の1つも消す
+                    if (capacityBytes > 0 && index == files.Count - 1)
+                    {
+                        last = files[index];
+                        break;
+                    }
+
+                    File.Delete(files[index].Path);
+                    total -= files[index].Length;
+                    deleted++;
+                }
             }
 
-            return deleted;
+            return last is null
+                ? new NotificationArchiveTrim(deleted, null, 0, 0, StillOver: false)
+                : await HalveAsync(last, capacityBytes, deleted, cancellationToken);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// 最後の1つの月を、容量に収まるまで新しい側の半分（1/2・1/4…）だけ残して書き直す。
+    ///
+    /// - **何回半分にするかは先に決める。**1回流して件数を数え、「今の大きさ × 残す件数 ÷ 件数」が容量以下になるまで残す件数を半分にする。
+    ///   縮め直すと1件ずつ足したときより小さくなる（2026-11-10 に約25%）ので、この見積もりは多めに見ている。
+    ///   見積もりが外れてまだ超えていれば、書いた物をもう一度だけ数えて同じことをする。それでも超えるときはそのまま残す（呼び手がログに書く）。
+    /// - **ちょうど容量いっぱいまでは残さない。**半分ずつなら削った後に空きができ、閉じるたびに削る処理が走らない。
+    /// - **流しながら書く。**全部を載せると 50MB・約3万9千件の月で作業セットが 507MB になった（流すと 38MB。2026-11-10 に測った）。
+    /// - 「新しい側」はファイルの中の位置（足した順）で決める。並べ替えると全部を載せることになる。月の中は概ね作った順に足されている。
+    /// - 件数が1以下・中身が読めない（gzip でない）ときは書き直さずに残す。読めない物を消すと、手で取り出せたかもしれない物まで失う。
+    /// </summary>
+    private async Task<NotificationArchiveTrim> HalveAsync(MonthFile file, long capacityBytes, int deleted, CancellationToken cancellationToken)
+    {
+        var dropped = 0;
+        var kept = 0;
+
+        // 見積もりが外れたときにもう一度だけ（2回で収まらないのは、1行がとても大きいなど作り物に近い場合だけ）
+        for (var pass = 0; pass < 2; pass++)
+        {
+            var length = new FileInfo(file.Path).Length;
+            if (length <= capacityBytes)
+            {
+                break;
+            }
+
+            var count = await CountRecordLinesAsync(file.Path, cancellationToken);
+            if (count <= 1)
+            {
+                break;
+            }
+
+            var keep = count;
+            do
+            {
+                keep = (keep + 1) / 2;
+            }
+            while (keep > 1 && length * keep / count > capacityBytes);
+
+            var skip = count - keep;
+            await RewriteNewestAsync(file.Path, skip, keep, cancellationToken);
+            RewritesForTests++;
+            dropped += skip;
+            kept = keep;
+        }
+
+        return new NotificationArchiveTrim(deleted, file.Month, dropped, kept, StillOver: new FileInfo(file.Path).Length > capacityBytes);
+    }
+
+    /// <summary>
+    /// 月のファイルを流して、版の行と空行を除いた行を、そのときの版と一緒に返す。数える回と書き直す回で同じ数え方にするため1つにする。
+    /// gzip が途中で壊れていたら、そこまでで終える（読む口と同じ）。
+    /// </summary>
+    private static async IAsyncEnumerable<(string Line, int Version)> RecordLinesAsync(
+        string path, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await using var stream = JsonStore.OpenShared(path);
+        await using var gzip = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gzip, new UTF8Encoding(false));
+        var version = StoreFormat.Unversioned;
+        while (true)
+        {
+            string? line;
+            try
+            {
+                line = await reader.ReadLineAsync(cancellationToken);
+            }
+            catch (InvalidDataException)
+            {
+                yield break;
+            }
+
+            if (line is null)
+            {
+                yield break;
+            }
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            if (VersionLine(line) is { } stamped)
+            {
+                version = stamped;
+                continue;
+            }
+
+            yield return (line, version);
+        }
+    }
+
+    private static async Task<int> CountRecordLinesAsync(string path, CancellationToken cancellationToken)
+    {
+        var count = 0;
+        await foreach (var _ in RecordLinesAsync(path, cancellationToken))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// 前から <paramref name="skip"/> 行を読み飛ばし、残りを新しい1本の gzip に書いて据える（足すときと同じ守り：一時ファイルに書いてから据える）。
+    ///
+    /// 行は解かずにそのまま写す。読めない行（壊れた行・新しい版の行・知らない種類）も、残す側にあれば残す：
+    /// 新しい版の行は新しいアプリなら読め、壊れた行も手で直せば読めるかもしれない。解いて書き直すと、知らない欄を落とす。
+    /// 同じ行が2回あってもそのまま写す（読む口が1つにまとめる）。
+    /// 版の行は先頭に1つ置き、残す行の中で版が変わる所にだけ足す（版の違う行を今の版と偽らない）。
+    /// </summary>
+    private async Task RewriteNewestAsync(string path, int skip, int keep, CancellationToken cancellationToken)
+    {
+        await JsonStore.WriteStreamAsync(
+            path,
+            async (target, token) =>
+            {
+                await using var gzip = new GZipStream(target, CompressionLevel.Optimal, leaveOpen: true);
+                await using var writer = new StreamWriter(gzip, new UTF8Encoding(false), leaveOpen: true) { NewLine = "\n" };
+                var index = 0;
+                int? written = null;
+                await foreach (var (line, version) in RecordLinesAsync(path, token))
+                {
+                    if (index++ < skip)
+                    {
+                        continue;
+                    }
+
+                    if (written != version)
+                    {
+                        await writer.WriteAsync($"{{\"{StoreFormat.VersionProperty}\":{version}}}\n");
+                        written = version;
+                    }
+
+                    await writer.WriteAsync(line);
+                    await writer.WriteAsync('\n');
+                    if (index - skip == keep / 2 && MidRewriteForTests is { } stop)
+                    {
+                        await writer.FlushAsync(token);
+                        await stop();
+                    }
+                }
+            },
+            cancellationToken);
     }
 
     private sealed record MonthFile(string Month, string Path, long Length);

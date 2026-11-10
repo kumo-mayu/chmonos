@@ -218,7 +218,7 @@ public sealed class NotificationArchiveTests : IDisposable
         File.WriteAllText(Path.Combine(Archive.Directory, "使う人のメモ.txt"), "消さない");
 
         // 1MB：合計 1.6MB から古い2つを消すと 0.8MB
-        Assert.Equal(2, await Create(megabytes: 1).TrimArchiveAsync());
+        Assert.Equal(2, (await Create(megabytes: 1).TrimArchiveAsync()).DeletedFiles);
 
         Assert.Equal(["2026-10", "2026-11"], Archive.Months());
         Assert.True(File.Exists(Path.Combine(Archive.Directory, "使う人のメモ.txt")));
@@ -230,7 +230,7 @@ public sealed class NotificationArchiveTests : IDisposable
         WriteMonth("2026-10", 400_000);
         WriteMonth("2026-11", 400_000);
 
-        Assert.Equal(0, await Create(megabytes: 1).TrimArchiveAsync());
+        Assert.Equal(NotificationArchiveTrim.None, await Create(megabytes: 1).TrimArchiveAsync());
 
         Assert.Equal(["2026-10", "2026-11"], Archive.Months());
     }
@@ -241,7 +241,7 @@ public sealed class NotificationArchiveTests : IDisposable
         WriteMonth("2026-10", 1000);
         WriteMonth("2026-11", 1000);
 
-        Assert.Equal(2, await Create(megabytes: 0).TrimArchiveAsync());
+        Assert.Equal(2, (await Create(megabytes: 0).TrimArchiveAsync()).DeletedFiles);
 
         Assert.Empty(Archive.Months());
     }
@@ -258,7 +258,7 @@ public sealed class NotificationArchiveTests : IDisposable
         var service = Create(retention: 2, megabytes: -1);
 
         Assert.Equal(1, await service.PruneAsync());
-        Assert.Equal(0, await service.TrimArchiveAsync());
+        Assert.Equal(NotificationArchiveTrim.None, await service.TrimArchiveAsync());
 
         Assert.Equal(["2026-08", "2026-09"], Archive.Months());
     }
@@ -273,6 +273,184 @@ public sealed class NotificationArchiveTests : IDisposable
         await Create(retention: 2, megabytes: 1).PruneAsync();
 
         Assert.Equal(["2026-08", "2026-09"], Archive.Months());
+    }
+
+    /// <summary>
+    /// 最後に残った月まで消すことになるときは消さずに、新しい側の半分を残す（ユーザ判断 2026-11-10）。
+    /// 古い月は今どおり丸ごと消える。
+    /// </summary>
+    [Fact]
+    public async Task 最後の1つは消さずに新しい側の半分を残し_古い月は丸ごと消える()
+    {
+        await AppendMonthAsync(2026, 8, 50);
+        var length = await AppendMonthAsync(2026, 9, 200);
+
+        var trim = await Archive.TrimAsync(length * 7 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(1, "2026-09", 100, 100, StillOver: false), trim);
+        Assert.Equal(["2026-09"], Archive.Months());
+        var read = await Archive.ReadAsync("2026-09");
+        Assert.Equal(Enumerable.Range(100, 100).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(0, read.UnreadableLines);
+        Assert.Equal(1, Archive.RewritesForTests);
+        Assert.True(new FileInfo(Archive.FileFor("2026-09")).Length <= length * 7 / 10);
+    }
+
+    [Fact]
+    public async Task 古い月を消して収まれば_最後の月は書き直さない()
+    {
+        await AppendMonthAsync(2026, 8, 50);
+        var length = await AppendMonthAsync(2026, 9, 100);
+        var before = await File.ReadAllBytesAsync(Archive.FileFor("2026-09"));
+
+        var trim = await Archive.TrimAsync(length);
+
+        Assert.Equal(new NotificationArchiveTrim(1, null, 0, 0, StillOver: false), trim);
+        Assert.Equal(before, await File.ReadAllBytesAsync(Archive.FileFor("2026-09")));
+        Assert.Equal(0, Archive.RewritesForTests);
+    }
+
+    /// <summary>半分で足りなければ 1/4 まで下げる。何回半分にするかは先に数えて決め、書き直しは1回。</summary>
+    [Fact]
+    public async Task 半分で足りなければ4分の1まで下げ_書き直しは1回()
+    {
+        var length = await AppendMonthAsync(2026, 9, 200);
+
+        var trim = await Archive.TrimAsync(length * 3 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 150, 50, StillOver: false), trim);
+        Assert.Equal(1, Archive.RewritesForTests);
+        Assert.True(new FileInfo(Archive.FileFor("2026-09")).Length <= length * 3 / 10);
+        Assert.Equal(Enumerable.Range(150, 50).Select(i => Id(2026, 9, i)), (await Archive.ReadAsync("2026-09")).Records.Select(record => record.Id));
+    }
+
+    [Fact]
+    public async Task 容量が0なら_最後の1つも消す()
+    {
+        await AppendMonthAsync(2026, 9, 10);
+
+        Assert.Equal(new NotificationArchiveTrim(1, null, 0, 0, StillOver: false), await Archive.TrimAsync(0));
+
+        Assert.Empty(Archive.Months());
+    }
+
+    /// <summary>書き直しは一時ファイルに書いてから据える。途中で止まっても元の月は全部読め、書きかけは残らない。</summary>
+    [Fact]
+    public async Task 書き直しの途中で止まっても_元の月が読める()
+    {
+        var length = await AppendMonthAsync(2026, 9, 200);
+        Archive.MidRewriteForTests = () => throw new IOException("止めた");
+
+        await Assert.ThrowsAsync<IOException>(() => Archive.TrimAsync(length * 7 / 10));
+
+        Archive.MidRewriteForTests = null;
+        Assert.Equal(200, (await Archive.ReadAsync("2026-09")).Records.Count);
+        Assert.Equal(["2026-09.jsonl.gz"], Directory.EnumerateFiles(Archive.Directory).Select(Path.GetFileName));
+    }
+
+    /// <summary>中身が読めない月（gzip でない）は、最後の1つなら消さずに残す。手で取り出せたかもしれない物を消さない。</summary>
+    [Fact]
+    public async Task 読めない最後の月は_容量を超えていても残す()
+    {
+        WriteMonth("2026-09", 4000);
+
+        var trim = await Archive.TrimAsync(1000);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 0, 0, StillOver: true), trim);
+        Assert.Equal(["2026-09"], Archive.Months());
+    }
+
+    /// <summary>
+    /// 残す側の行は解かずにそのまま写す：壊れた行・新しい版の行も残る（読む口が今どおり飛ばして数える）。
+    /// 版の行は先頭に1つと、残す行の中で版が変わる所にだけ置く。
+    /// </summary>
+    [Fact]
+    public async Task 残す側の読めない行と版の違う行は_そのまま残る()
+    {
+        var text = new StringBuilder().Append("{\"formatVersion\":2}\n");
+        for (var i = 0; i < 10; i++)
+        {
+            text.Append(OneLine(Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with { Detail = Guid.NewGuid().ToString("N") })).Append('\n');
+        }
+
+        text.Append("{壊れた行\n")
+            .Append($"{{\"formatVersion\":{StoreFormat.Current + 1}}}\n")
+            .Append(OneLine(Record("newer", At(2026, 9, 20)))).Append('\n');
+        Directory.CreateDirectory(Archive.Directory);
+        await using (var file = File.Create(Archive.FileFor("2026-09")))
+        await using (var gzip = new GZipStream(file, CompressionLevel.Optimal))
+        {
+            await gzip.WriteAsync(Encoding.UTF8.GetBytes(text.ToString()));
+        }
+
+        // 12行のうち新しい側の6行が残る
+        var trim = await Archive.TrimAsync(new FileInfo(Archive.FileFor("2026-09")).Length - 1);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 6, 6, StillOver: false), trim);
+        var lines = await GunzipLinesAsync(Archive.FileFor("2026-09"));
+        Assert.Equal("{\"formatVersion\":2}", lines[0]);
+        Assert.Equal("{壊れた行", lines[5]);
+        Assert.Equal($"{{\"formatVersion\":{StoreFormat.Current + 1}}}", lines[6]);
+        Assert.Equal(8, lines.Count);
+        var read = await Archive.ReadAsync("2026-09");
+        Assert.Equal(Enumerable.Range(6, 4).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(2, read.UnreadableLines);
+    }
+
+    /// <summary>
+    /// 見積もりは件数の比なので、新しい側の行が大きいと外れる。外れたらもう一度だけ数えて書き直す。
+    /// 古い側10件は小さく、新しい側10件は大きい：1回目に10件残してもまだ超え、2回目に5件まで下がって収まる。
+    /// </summary>
+    [Fact]
+    public async Task 見積もりが外れたら_もう一度だけ書き直して収める()
+    {
+        var length = await AppendSizedAsync(small: 10, large: 10, guidsPerLarge: 40);
+
+        var trim = await Archive.TrimAsync(length * 6 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 15, 5, StillOver: false), trim);
+        Assert.Equal(2, Archive.RewritesForTests);
+        Assert.Equal(Enumerable.Range(15, 5).Select(i => Id(2026, 9, i)), (await Archive.ReadAsync("2026-09")).Records.Select(record => record.Id));
+    }
+
+    /// <summary>2回書き直しても超えるときは、それ以上は削らずに残す（呼び手がログに書く）。</summary>
+    [Fact]
+    public async Task 二回書き直しても超えるなら_それ以上は削らずに残す()
+    {
+        var length = await AppendSizedAsync(small: 30, large: 2, guidsPerLarge: 200);
+
+        var trim = await Archive.TrimAsync(length * 6 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 24, 8, StillOver: true), trim);
+        Assert.Equal(2, Archive.RewritesForTests);
+        Assert.Equal(8, (await Archive.ReadAsync("2026-09")).Records.Count);
+    }
+
+    /// <summary>古い側に小さい知らせ、新しい側に大きい知らせ（説明に Guid を並べて縮みにくくする）を1つの束で足す。</summary>
+    private async Task<long> AppendSizedAsync(int small, int large, int guidsPerLarge)
+    {
+        await Archive.AppendAsync(
+            Enumerable.Range(0, small + large)
+                .Select(i => Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with
+                {
+                    Detail = string.Concat(Enumerable.Range(0, i < small ? 1 : guidsPerLarge).Select(_ => Guid.NewGuid().ToString("N"))),
+                })
+                .ToList());
+        return new FileInfo(Archive.FileFor("2026-09")).Length;
+    }
+
+    private static string Id(int year, int month, int index) => $"{year}-{month:D2}-{index:D4}";
+
+    private static string OneLine(NotificationRecord record) => Json(record).Replace("\r", string.Empty).Replace("\n", string.Empty);
+
+    /// <summary>作り物の知らせを1つの月へ足し、ファイルの大きさを返す。説明に Guid を入れて、件数と大きさがほぼ比例するようにする。</summary>
+    private async Task<long> AppendMonthAsync(int year, int month, int count)
+    {
+        await Archive.AppendAsync(
+            Enumerable.Range(0, count)
+                .Select(i => Record(Id(year, month, i), At(year, month, 1).AddMinutes(i)) with { Detail = Guid.NewGuid().ToString("N") })
+                .ToList());
+        return new FileInfo(Archive.FileFor($"{year:D4}-{month:D2}")).Length;
     }
 
     [Fact]
