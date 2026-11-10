@@ -90,4 +90,63 @@ public sealed class AttributeMergeSelectionTests
             AttributeManageViewModel.MergeDialogIntercept = null;
         }
     });
+
+    private static async Task<AttributeManageViewModel> OpenWithOrphanAsync(TestApp app)
+    {
+        await app.Store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "寄せ先" }] });
+        await app.AddItemAsync(Rated("9900001", "外の属性", 40));
+        var main = await app.StartAsync();
+        main.ShowAttributeManageCommand.Execute(null);
+        var attributes = Assert.IsType<AttributeManageViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => attributes.HasOrphans, "一覧に無い属性が出る");
+        return attributes;
+    }
+
+    /// <summary>
+    /// 一覧に無い属性を一覧の属性へ統合する道も、統合の窓（どちらの値を残すか）を通る。
+    /// 前は窓を直に出していて試験の口を通らず、この道は試験で確かめられなかった（2026-11-10）
+    /// </summary>
+    [Fact]
+    public Task 一覧に無い属性を統合すると_窓を通って値が寄せ先へ移る() => TestApp.Run(async app =>
+    {
+        var attributes = await OpenWithOrphanAsync(app);
+        string? shownFor = null;
+        string? shownTo = null;
+        AttributeManageViewModel.MergeDialogIntercept = model => { shownFor = model.From; shownTo = model.To; return true; };
+        app.Answer = request => request.Button == System.Windows.MessageBoxButton.YesNo ? System.Windows.MessageBoxResult.Yes : System.Windows.MessageBoxResult.OK;
+        try
+        {
+            attributes.Orphans.Single().MergeCommand!.Execute("寄せ先");
+            await UiThread.Until(() => !attributes.HasOrphans, "一覧に無い名前が消える");
+
+            Assert.Equal("外の属性", shownFor);
+            Assert.Equal("寄せ先", shownTo);
+            Assert.Equal(40, (await app.Store.Items.LoadAsync("9900001"))!.Local.Attributes["寄せ先"]);
+            Assert.Equal("「寄せ先」に統合し、1 件の商品を書き換えました。", attributes.ListNotice.Text);
+        }
+        finally
+        {
+            AttributeManageViewModel.MergeDialogIntercept = null;
+        }
+    });
+
+    [Fact]
+    public Task 一覧に無い属性の統合を窓でやめると_何も書き換えない() => TestApp.Run(async app =>
+    {
+        var attributes = await OpenWithOrphanAsync(app);
+        AttributeManageViewModel.MergeDialogIntercept = _ => false;
+        try
+        {
+            attributes.Orphans.Single().MergeCommand!.Execute("寄せ先");
+            await app.SettleAsync();
+
+            Assert.True(attributes.HasOrphans);
+            Assert.Equal(40, (await app.Store.Items.LoadAsync("9900001"))!.Local.Attributes["外の属性"]);
+            Assert.Equal(string.Empty, attributes.ListNotice.Text);
+        }
+        finally
+        {
+            AttributeManageViewModel.MergeDialogIntercept = null;
+        }
+    });
 }

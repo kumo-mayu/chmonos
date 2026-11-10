@@ -709,15 +709,15 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
         }
 
         var preview = await _services.Attributes.PreviewMergeAsync(row.Name, name);
-        var dialog = new Views.MergeAttributeDialog(
-            new MergeAttributeDialogViewModel(row.Name, name, preview));
 
-        if (dialog.ShowDialog() != true)
+        // 名前の変更での統合と同じく、試験の口を通す（窓を直に出すと、この道は試験で確かめられなかった）
+        var mergeModel = new MergeAttributeDialogViewModel(row.Name, name, preview);
+        if (!(MergeDialogIntercept?.Invoke(mergeModel) ?? new Views.MergeAttributeDialog(mergeModel).ShowDialog() == true))
         {
             return;
         }
 
-        var keep = ((MergeAttributeDialogViewModel)dialog.DataContext).Keep;
+        var keep = mergeModel.Keep;
 
         // 統合はもう一度聞く（D5）
         if (!ConfirmMerge(row.Name, name, preview, keep))
