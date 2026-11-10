@@ -51,6 +51,12 @@ public static class BoothUrlExtractor
         @"^https?://booth\.pximg\.net/(?:c/[^/]+/)?[0-9a-f-]{36}/i/(?<id>\d+)/",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // ダウンロードの入口。Firefox などは HostUrl にリダイレクト前のこちらを書くことがある（docs/research/id-resolution.md）。
+    // 例: https://booth.pm/downloadables/7905648
+    private static readonly Regex DownloadablesUrlRegex = new(
+        @"^https?://booth\.pm(?:/" + LanguagePattern + @")?/downloadables/(?<dl>\d+)(?![0-9])",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private static readonly char[] TrailingPunctuation = { '.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'' };
 
     /// <summary>
@@ -78,6 +84,59 @@ public static class BoothUrlExtractor
 
         var imageMatch = ImageUrlRegex.Match(trimmed);
         return imageMatch.Success ? imageMatch.Groups["id"].Value : null;
+    }
+
+    /// <summary>
+    /// BOOTH のダウンロードの URL（配布 CDN・<c>booth.pm/downloadables/…</c>）なら、ダウンロードの ID と（CDN なら）商品 ID を返す。そうでなければ null。
+    /// 値は正規表現の組から取り出す。URL そのものは返さない——CDN の URL には署名付きのクエリが付くので、記録へ写さないため。
+    /// </summary>
+    public static BoothDownloadUrl? TryParseDownloadUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        var trimmed = TrimUrl(url);
+        var cdn = CdnUrlRegex.Match(trimmed);
+        if (cdn.Success && long.TryParse(cdn.Groups["dl"].Value, out var cdnId))
+        {
+            return new BoothDownloadUrl(cdnId, cdn.Groups["id"].Value);
+        }
+
+        var entry = DownloadablesUrlRegex.Match(trimmed);
+        return entry.Success && long.TryParse(entry.Groups["dl"].Value, out var entryId)
+            ? new BoothDownloadUrl(entryId, null)
+            : null;
+    }
+
+    /// <summary>
+    /// BOOTH の商品ページの URL なら、<c>https://booth.pm/ja/items/123</c>・<c>https://shop.booth.pm/items/123</c> の形に組み直して返す。そうでなければ null。
+    /// 組み直すのは、クエリ・断片・後ろに続くパスを記録へ写さないため（ショップの段と言語の段は元のまま）。
+    /// ショップでないサブドメイン（accounts・配布の置き場など）の物は返さない。
+    /// </summary>
+    public static string? TryNormalizeItemPageUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        var match = ItemUrlRegex.Match(TrimUrl(url));
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var sub = match.Groups["sub"];
+        if (sub.Success && IsReservedSubdomain(sub.Value))
+        {
+            return null;
+        }
+
+        var host = sub.Success ? $"{sub.Value.ToLowerInvariant()}.booth.pm" : "booth.pm";
+        var lang = match.Groups["lang"];
+        return $"https://{host}{(lang.Success ? "/" + lang.Value.ToLowerInvariant() : "")}/items/{match.Groups["id"].Value}";
     }
 
     /// <summary>

@@ -233,6 +233,8 @@ public static class LocalReferences
         "LocalFiles[].ArchiveBroken",
         "LocalFiles[].MissingSince",
         "LocalFiles[].RegisteredAt",
+        "LocalFiles[].DownloadSource.DownloadableId",
+        "LocalFiles[].DownloadSource.ItemUrl",
         "LocalFiles[].Replaced.Path",
         "LocalFiles[].Replaced.At",
         "LocalFiles[].Volumes",

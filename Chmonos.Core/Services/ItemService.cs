@@ -768,6 +768,10 @@ public sealed class ItemService : IItemService
 
         // 商品のファイルとして記録した日（未確定に出た日 FirstSeenAt ではない）。既に持つ行なら突き合わせが元の日時を保つ
         RegisteredAt = DateTimeOffset.Now,
+
+        // 未確定の記録に残っているダウンロード元を運ぶ。何も無ければ未読のままにし、起動時の見回りにファイルを1回読ませる
+        // （古い未確定の記録は、ダウンロード元を読まずに作られたことがある。空と書くと二度と読まない）
+        DownloadSource = DownloadSources.From(target.ZoneHostUrl, target.ZoneReferrerUrl) is { IsEmpty: false } source ? source : null,
     };
 
     public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)

@@ -334,6 +334,18 @@ public sealed record LocalFileRecord
     public DateTimeOffset? RegisteredAt { get; init; }
 
     /// <summary>
+    /// ダウンロード元の記録（Zone.Identifier）から読んだ BOOTH のダウンロードの ID と商品ページ（ユーザ判断 2026-11-10・v1.3.0 から）。
+    /// **null はまだ読んでいない**（前からの行。起動時の見回り <see cref="Services.DownloadSourceSweep"/> が1回だけ読む）。
+    /// 読んだが BOOTH の物でなかった・印が無かったときは中身の空の物（<c>{}</c>）を書き、もう読まない。
+    /// </summary>
+    /// <remarks>
+    /// 印は USB・クラウド・NTFS でないドライブへ写したり、zip を解いたりすると消えるので、後で「どのバリエーションのファイルか」
+    /// 「BOOTH で上げ直された前か後か」を知りたくなっても作り直せない。読んだ時に残す。署名付きの URL は丸ごと残さない（<see cref="Models.DownloadSource"/>）。
+    /// 今ある行を書き直すとき・ID の付け替えでは元の値を保つ（<c>LocalFileMerger</c>）。画面・API には今は出さない。
+    /// </remarks>
+    public DownloadSource? DownloadSource { get; init; }
+
+    /// <summary>
     /// 同じ場所で新しい中身に置き換わった古い版の印（2026-10-05・file-lifecycle.md 点検の8・ユーザ判断 8-A）。無ければ書き出さない。
     /// 販売者の更新版を同じ名前で上書きすると、取り込みが古い中身の記録から場所を外す（<c>ImportPipeline.DropReplacedPathsAsync</c>）。
     /// 印が無いと場所の空いた記録が「見つかりません」と数えられ続け、「探す」も毎回探して見つからないと言っていた。
@@ -364,6 +376,24 @@ public sealed record LocalFileRecord
     /// 1件の記録の場所がディスクをまたぐため。ディスクを見た結果なので計算では出せない。
     /// </remarks>
     public IReadOnlyDictionary<string, string>? Volumes { get; init; }
+}
+
+/// <summary>
+/// ファイルをどの BOOTH のダウンロードから落としたか（<see cref="LocalFileRecord.DownloadSource"/>）。両方空なら「読んだが分からなかった」。
+/// 残すのは数字と組み直した商品ページの URL だけ。配布 CDN の URL には署名付きのクエリが付くので、そのままは残さない。
+/// 作り方は <see cref="Services.DownloadSources"/>。
+/// </summary>
+public sealed record DownloadSource
+{
+    /// <summary>BOOTH のダウンロードの ID（配布ファイルごとの番号。上げ直すと変わる）。</summary>
+    public long? DownloadableId { get; init; }
+
+    /// <summary>商品ページの URL（<c>https://booth.pm/ja/items/…</c>・<c>https://&lt;shop&gt;.booth.pm/items/…</c>）。</summary>
+    public string? ItemUrl { get; init; }
+
+    /// <summary>読んだが何も分からなかったか。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsEmpty => DownloadableId is null && ItemUrl is null;
 }
 
 /// <summary>古い版がどこで、いつ置き換わったか（<see cref="LocalFileRecord.Replaced"/>）。</summary>

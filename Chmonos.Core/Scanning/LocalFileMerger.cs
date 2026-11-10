@@ -199,6 +199,9 @@ public static class LocalFileMerger
                 ? other
                 : current.RegisteredAt,
 
+            // ダウンロード元は今ある行が知っていれば保つ。空・未読なら、同じ中身について今読んだ方を入れる（推した値ではない）
+            DownloadSource = DownloadSources.Combine(current.DownloadSource, discovered.DownloadSource),
+
             // 場所が残るかは上（Merge）で見て決める。残らなければ古い版のまま
             Replaced = current.Replaced,
 
