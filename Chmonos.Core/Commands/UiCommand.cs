@@ -365,6 +365,13 @@ public abstract record UiCommand
     public record SetModificationProject(string Id, string? Path) : UiCommand;
 
     /// <summary>
+    /// Unity プロジェクトの場所を付け替える（フォルダを移した・名前を変えた。ユーザ判断 2026-11-10）。
+    /// 改変の紐付け・プロジェクトを調べた控え・保存した検索の条件の、<paramref name="From"/> を <paramref name="To"/> に替える。
+    /// 結果は <see cref="CommandResult.UnityProjectRelocated"/>
+    /// </summary>
+    public record RelocateUnityProject(string From, string To) : UiCommand;
+
+    /// <summary>
     /// 使ったものの更新の促しに、この改変で「確認した」を押す（改変ごと・ユーザ判断 2026-11-09・<c>docs/spec/used-updates.md</c>）。
     /// その商品の行（外した行を除く）に今の日時を書く。後でまた更新が来れば、行の札はまた出る。
     /// </summary>
@@ -699,6 +706,9 @@ public abstract record CommandResult
 
     /// <summary>改変の一覧が変わった（作った・消した）</summary>
     public record ModificationsChanged() : CommandResult;
+
+    /// <summary>Unity プロジェクトの場所を付け替えた。どこまで書けたかを持つ（途中で書けなかった物があっても、書けた分は戻さない）</summary>
+    public record UnityProjectRelocated(Services.UnityProjectRelocation Result) : CommandResult;
 
     /// <summary>設定を書いた。書いた後の設定を持つ。</summary>
     public record SettingsChanged(Models.AppSettings Settings) : CommandResult;

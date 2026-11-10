@@ -529,4 +529,34 @@ public sealed partial class SearchViewModel
     public RelayCommand ReloadOpenUnityCommand => _reloadOpenUnityCommand ??= new RelayCommand(ReloadProjectContents);
 
     private RelayCommand? _reloadOpenUnityCommand;
+
+    /// <summary>
+    /// Unity プロジェクトの場所を付け替えた（改変の画面。ユーザ判断 2026-11-10）のを、今の検索の条件の札にも当てる。
+    /// 書き換え方は保存した検索と同じ関数（<see cref="SavedSearches.RelocateUnityProject(SearchModuleState, string, string)"/>）。
+    /// 札の鍵は作った後に変えられないので、条件を状態に書き出して書き換え、読み直す。返すのは書き換えた条件の数
+    /// </summary>
+    internal int RelocateUnityProject(string from, string to)
+    {
+        var changed = 0;
+        foreach (var module in Modules.OfType<ListModule>())
+        {
+            var state = module.Save();
+            var relocated = SavedSearches.RelocateUnityProject(state, from, to);
+            if (!ReferenceEquals(state, relocated))
+            {
+                module.Load(relocated);
+                changed++;
+            }
+        }
+
+        if (changed > 0)
+        {
+            // 改変プロジェクトの条件は改変の記録で照らすので、付け替えた後の記録を読み直す（新しい場所で当たるように）
+            NoteModificationsChanged();
+            SaveModulesLater();
+            ApplyFilters();
+        }
+
+        return changed;
+    }
 }

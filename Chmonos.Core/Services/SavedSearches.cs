@@ -339,6 +339,58 @@ public static class SavedSearches
 
     private const string ProfileKind = "Profile";
 
+    // ---- Unity プロジェクトの場所の付け替えに付いていく（ユーザ判断 2026-11-10） ----
+    // 条件「改変プロジェクト」（UnityProject）と「Unityプロジェクト」（UnityProjectContents）は、プロジェクトを場所の文字で指す。
+    // フォルダを移した後も古い場所のままだと、呼び出したとき黙って0件になる
+
+    private static readonly IReadOnlySet<string> UnityProjectKinds = new HashSet<string>(StringComparer.Ordinal)
+    {
+        nameof(SearchModuleKind.UnityProject),
+        nameof(SearchModuleKind.UnityProjectContents),
+    };
+
+    /// <summary>
+    /// 条件1つの中の <paramref name="from"/> を <paramref name="to"/> に替える（綴りの揺れは <see cref="UnityProjectPath.Normalize"/> で見る）。
+    /// 付け替えた先が既に札にあれば重ねない。Unity プロジェクトの種類でなければ、当たらなければ、同じ物を返す（書き換えたかを参照で見分ける）
+    /// </summary>
+    public static SearchModuleState RelocateUnityProject(SearchModuleState module, string from, string to)
+    {
+        if (!UnityProjectKinds.Contains(module.Kind) || !module.Items.Any(key => ModificationService.SamePath(key, from)))
+        {
+            return module;
+        }
+
+        return module with
+        {
+            Items = module.Items
+                .Select(key => ModificationService.SamePath(key, from) ? to : key)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+        };
+    }
+
+    /// <summary>保存した検索の全部に <see cref="RelocateUnityProject(SearchModuleState, string, string)"/> を当てる。並びと名前は触らない。</summary>
+    public static IReadOnlyList<SearchHistoryEntry> RelocateUnityProject(
+        IEnumerable<SearchHistoryEntry> entries, string from, string to, out int changed)
+    {
+        var count = 0;
+        var result = entries
+            .Select(entry =>
+            {
+                var modules = entry.Modules.Select(module => RelocateUnityProject(module, from, to)).ToList();
+                if (modules.SequenceEqual(entry.Modules, ReferenceEqualityComparer.Instance))
+                {
+                    return entry;
+                }
+
+                count++;
+                return entry with { Modules = modules };
+            })
+            .ToList();
+        changed = count;
+        return result;
+    }
+
     /// <summary>頭（<paramref name="side"/>。対応アバターは空）の後ろが「base:旧名」なら「base:新名」にする。</summary>
     private static string RenamedBaseKey(string key, string side, string oldName, string newName)
         => key.StartsWith(side + BaseKeyPrefix, StringComparison.Ordinal) && SameTag(key[(side.Length + BaseKeyPrefix.Length)..], oldName)

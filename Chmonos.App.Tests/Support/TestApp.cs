@@ -181,6 +181,11 @@ internal sealed class TestApp
     public Func<IReadOnlyList<string>?> PickAttachFiles { get; set; } = () => null;
 
     /// <summary>
+    /// 改変の画面の「場所を付け替える…」のフォルダを選ぶ窓への答え（窓は出ない）。引数は古い場所。既定は何も選ばずに閉じた（null）。
+    /// </summary>
+    public Func<string, string?> PickProjectFolder { get; set; } = _ => null;
+
+    /// <summary>
     /// ログに「失敗」が残っても試験を落とさない。投げっぱなしの仕事（<c>Forget()</c>）の失敗はログにしか出ないので、
     /// 既定では残っていたら落とす。失敗する道そのものを確かめる試験だけが true にする
     /// </summary>
@@ -295,6 +300,7 @@ internal sealed class TestApp
                 return app.Choose(request);
             };
             ItemViewModel.PickFilesToAttachIntercept = () => app.PickAttachFiles();
+            ModificationHubViewModel.PickFolderIntercept = from => app.PickProjectFolder(from);
             ChangeItemIdDialogViewModel.Intercept = model =>
             {
                 app.ChangeIdDialogs.Add(model);
@@ -450,6 +456,7 @@ internal sealed class TestApp
             ChoiceQuestion.Intercept = null;
             ResetSettingsDialogViewModel.Intercept = null;
             ItemViewModel.PickFilesToAttachIntercept = null;
+            ModificationHubViewModel.PickFolderIntercept = null;
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();

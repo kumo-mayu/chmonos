@@ -48,6 +48,12 @@ public interface IModificationService
     /// <summary>Unityプロジェクトを紐付ける。null で外す。</summary>
     Task<bool> SetProjectAsync(string id, string? path, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// プロジェクトの場所を付け替える（移した・名前を変えた）。**錠の中で、今の紐付け先がまだ <paramref name="from"/> のときだけ**
+    /// <paramref name="to"/> に書く。返すのは書き換えたか（改変が無い・別の先に紐付け直されていた、は false）
+    /// </summary>
+    Task<bool> RelocateProjectAsync(string id, string from, string to, CancellationToken cancellationToken = default);
+
     // ---- 構成物 ----
 
     /// <summary>
@@ -302,6 +308,26 @@ public sealed class ModificationService : IModificationService
             id,
             record => record with { UnityProject = string.IsNullOrWhiteSpace(path) ? null : path.Trim() },
             cancellationToken);
+
+    public async Task<bool> RelocateProjectAsync(string id, string from, string to, CancellationToken cancellationToken = default)
+    {
+        // 画面が読んだ写しで決めずに、錠の中の今の値で見る。付け替えを押すまでの間に、別の画面で紐付け直されていることがある
+        var changed = false;
+        var found = await _store.Modifications.UpdateAsync(
+            id,
+            record =>
+            {
+                if (!SamePath(record.UnityProject, from))
+                {
+                    return record;
+                }
+
+                changed = true;
+                return record with { UnityProject = to, UpdatedAt = DateTimeOffset.Now };
+            },
+            cancellationToken);
+        return found && changed;
+    }
 
     // ---- 構成物 ----
 
