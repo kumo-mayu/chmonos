@@ -28,6 +28,12 @@ public sealed class DeferredCardHost : ContentControl
 
     internal bool IsRealized => _realized;
 
+    /// <summary>
+    /// 一度中身を作ったことのある商品（カードの ViewModel）。入れ物が作り直されたとき、後回しにせずその場で作る目印。
+    /// 弱い参照の表なので、一覧から消えたカードを持ち続けない
+    /// </summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, object> RealizedBefore = new();
+
     public DeferredCardHost()
     {
         Focusable = false;
@@ -38,6 +44,17 @@ public sealed class DeferredCardHost : ContentControl
         {
             if (!_realized && !ViewportHold.GetIsHeld(this))
             {
+                // 前に一度作った商品のカードで、ほかに作る順番を待つカードも無ければ、その場で作る（2026-11-10）。
+                // 上へ1段流すたびに、WPF の一覧が一番下の行の入れ物を作り直していた。後回しにすると、次に画面のスレッドが
+                // 空くまでの1コマだけ中身の無い枠が見え、一番下のカードが点滅した（ユーザの報告。ホイールで4回撮って3回出た）。
+                // 1枚なら約2ms。初めて見る行がまとめて入るとき（速く流している）は今どおり4枚ずつ後回しにする
+                if (DataContext is { } item && CardBuildQueue.IsIdle && RealizedBefore.TryGetValue(item, out _)
+                    && CardBuildQueue.TryTakeImmediateSlot(Dispatcher))
+                {
+                    Realize();
+                    return;
+                }
+
                 CardBuildQueue.Enqueue(this);
             }
         };
@@ -111,6 +128,10 @@ public sealed class DeferredCardHost : ContentControl
         }
 
         _realized = true;
+        if (DataContext is { } item)
+        {
+            RealizedBefore.AddOrUpdate(item, RealizedBefore);
+        }
 
         // 中身を渡すのは作るときだけ。先に渡すと、見た目が当たるまでの間に型の名前を出す文字の部品が作られて見えてしまう
         ContentTemplate = RealTemplate;
@@ -129,6 +150,38 @@ internal static class CardBuildQueue
 
     private static readonly Queue<DeferredCardHost> Pending = new();
     private static bool _scheduled;
+
+    /// <summary>作る順番を待つカードが無い（まとめて入ってくる最中ではない）。</summary>
+    public static bool IsIdle => Pending.Count == 0 && !_scheduled;
+
+    private static int _immediateThisTurn;
+    private static bool _immediateResetScheduled;
+
+    /// <summary>
+    /// 後回しにせずその場で作ってよいか。1回の画面の仕事（次に画面のスレッドが空くまで）で <see cref="CardsPerPass"/> 枚まで。
+    /// 前に見た行を速く戻すと、作り直す入れ物がまとめて入る。全部その場で作ると、後回しにした理由の固まり（1回で100〜200ms）が戻るので、
+    /// 後回しの1回分と同じ量（約8ms）を超えた分は今どおり順番待ちに回す
+    /// </summary>
+    public static bool TryTakeImmediateSlot(Dispatcher dispatcher)
+    {
+        if (_immediateThisTurn >= CardsPerPass)
+        {
+            return false;
+        }
+
+        _immediateThisTurn++;
+        if (!_immediateResetScheduled)
+        {
+            _immediateResetScheduled = true;
+            dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+            {
+                _immediateThisTurn = 0;
+                _immediateResetScheduled = false;
+            });
+        }
+
+        return true;
+    }
 
     public static void Enqueue(DeferredCardHost host)
     {
