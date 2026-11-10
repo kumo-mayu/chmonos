@@ -186,7 +186,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         Folders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FoldersCountText));
 
         AddFolderCommand = new RelayCommand(AddFolder);
-        OpenRootCommand = new RelayCommand(OpenRoot);
+        OpenRootCommand = new RelayCommand(() => OpenRootAsync().Forget());
         ChangeRootCommand = new RelayCommand(() => ChangeRootAsync().Forget(), () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
         // 門は1つなので、移動とも重ねない（重ねた方は門の前で待つだけで、押した顔をして進まない）。
@@ -2589,17 +2589,13 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         System.Windows.Application.Current.Shutdown();
     }
 
-    private void OpenRoot()
+    /// <summary>
+    /// 保存先をエクスプローラで開く。開き方はアプリで1つ（<see cref="Services.Shell"/>・ui-rules.md）。
+    /// 保存先が無いときに親を開くと別の場所を保存先と見誤るので、在るときだけ開く
+    /// </summary>
+    private async Task OpenRootAsync()
     {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = RootPath,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        if (!await Services.Shell.TryRevealExactAsync(RootPath))
         {
             DataStatus = "フォルダを開けませんでした。";
         }

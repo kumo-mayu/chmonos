@@ -222,14 +222,8 @@ internal static class ItemFileActions
 
         if (result is CommandResult.Unpacked unpacked)
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo { FileName = unpacked.Folder, UseShellExecute = true });
-            }
-            catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-            {
-                // 開けなくてもアプリは動き続ける
-            }
+            // 開き方はアプリで1つ（Shell。ui-rules.md）。開けなくてもアプリは動き続ける
+            Shell.Reveal(unpacked.Folder);
         }
         else if (result is CommandResult.Failed failed)
         {
