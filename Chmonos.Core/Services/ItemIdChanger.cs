@@ -179,8 +179,7 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
         // 元の商品は移し終えた後で消えている。ここまでで落ちても、中身は移した先に残っている
         // （両方に出るのは二重に見えるが、消えてしまうよりはるかによい）
 
-        // 外した印はファイルの行と一緒に移した先へ移っている（ItemIdChange.Merge）。
-        // 以前は別の detached.json をここで読み替えていた
+        // 外した印はファイルの行と一緒に移した先へ移っている（ItemIdChange.Merge）ので、ここで読み替える物は無い
 
         await MoveModificationsAsync(fromId, toId, cancellationToken);
         await MoveReferencesAsync(fromId, toId, cancellationToken);

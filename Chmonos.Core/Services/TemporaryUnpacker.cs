@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace Chmonos.Core.Services;
@@ -76,7 +75,7 @@ public sealed class TemporaryUnpacker
     public static string RootFor(string storeRoot, string? area = null)
     {
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(storeRoot)).ToUpperInvariant();
-        var key = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(full)))[..8];
+        var key = Storage.ShortHash.Of(full);
         return Path.Combine(area ?? TemporaryArea, $"{FolderNamePrefix}-{key}");
     }
 
@@ -458,12 +457,12 @@ public sealed class TemporaryUnpacker
     public const int MaxUnityPath = 259;
 
     private static string ShortStamp(string entryPath)
-        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(entryPath)))[..8];
+        => Storage.ShortHash.Of(entryPath);
 
     private static string Stamp(FileInfo info)
     {
         var seed = $"{info.FullName.ToUpperInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(seed)))[..8];
+        return Storage.ShortHash.Of(seed);
     }
 }
 
