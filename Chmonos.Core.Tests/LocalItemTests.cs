@@ -285,12 +285,12 @@ public class LocalItemTests : IDisposable
     {
         var item = new ItemRecord
         {
-            Id = "5927710",
+            Id = "9900123",
             Booth = new BoothBlock(),
             Local = new LocalBlock(),
         };
 
-        Assert.Equal("https://booth.pm/ja/items/5927710", BoothLinks.ItemPage(item));
+        Assert.Equal("https://booth.pm/ja/items/9900123", BoothLinks.ItemPage(item));
     }
 
     /// <summary>
