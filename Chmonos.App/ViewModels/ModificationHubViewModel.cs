@@ -560,7 +560,10 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             .Select(record => record.UnityProject)
             .OfType<string>()
             .Where(path => !found.Any(candidate => ModificationService.SamePath(candidate.Path, path)))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+
+            // 同じ場所の綴りの違い（末尾の区切り・/ と \）を1つにする。生の文字列で除くと、同じプロジェクトが2行並んだ
+            // （付け替えの担当が見つけた・2026-11-10）。比べ方は改変の側の SamePath と同じ
+            .DistinctBy(path => UnityProjectPath.Normalize(path), StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (missing.Count == 0)

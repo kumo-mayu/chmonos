@@ -74,6 +74,22 @@ public class ModificationHubRelocateTests
 
     // ---- 出し分け ----
 
+    /// <summary>
+    /// 同じ場所を綴りの違い（末尾の区切り）で指す改変があっても、プロジェクトの行は1つ（2026-11-10。前は生の文字列で除いて2行並んだ）
+    /// </summary>
+    [Fact]
+    public Task 綴りだけ違う同じ場所は_プロジェクトの行が1つになる() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900001", "作り物のアバター"));
+        var gone = MissingProject(app, "作り物の古いプロジェクト");
+        await CreateModificationAsync(app, "作り物の改変の甲", gone);
+        await CreateModificationAsync(app, "作り物の改変の乙", gone + Path.DirectorySeparatorChar);
+
+        var (hub, _) = await OpenHubAsync(app);
+
+        Assert.Single(hub.Groups.OfType<HubProjectGroup>(), group => ModificationService.SamePath(group.Path, gone));
+    });
+
     [Fact]
     public Task 見つからないプロジェクトの行だけ_付け替えのボタンの印が立つ() => TestApp.Run(async app =>
     {
