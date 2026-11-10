@@ -1305,7 +1305,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             return;
         }
 
-        if (BoothClient.PageUrlFor(_item) is not { } url)
+        if (BoothLinks.ItemPage(_item) is not { } url)
         {
             return;
         }

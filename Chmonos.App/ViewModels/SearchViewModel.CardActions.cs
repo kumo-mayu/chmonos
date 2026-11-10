@@ -62,7 +62,7 @@ public sealed partial class SearchViewModel
         if (card is not null)
         {
             // BOOTHに無い商品には送り先が無い（押しても何も起きないのが正しい）
-            if (Core.Booth.BoothClient.PageUrlFor(card.Item) is { } url)
+            if (Core.Booth.BoothLinks.ItemPage(card.Item) is { } url)
             {
                 Shell.OpenUrl(url);
             }
@@ -82,7 +82,7 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        if (Core.Booth.BoothClient.PageUrlFor(card.Item) is not { } url)
+        if (Core.Booth.BoothLinks.ItemPage(card.Item) is not { } url)
         {
             return;
         }

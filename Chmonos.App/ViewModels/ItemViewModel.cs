@@ -1456,7 +1456,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     private void OpenBooth()
     {
-        if (BoothClient.PageUrlFor(Item) is { } url)
+        if (BoothLinks.ItemPage(Item) is { } url)
         {
             Services.Shell.OpenUrl(url);
         }

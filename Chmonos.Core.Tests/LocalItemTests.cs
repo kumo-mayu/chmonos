@@ -276,7 +276,7 @@ public class LocalItemTests : IDisposable
         await SeedUnresolvedAsync();
         var item = await _store.Items.LoadAsync((await _service.RegisterLocalItemAsync(Hash, "謎の衣装"))!);
 
-        Assert.Null(BoothClient.PageUrlFor(item!));
+        Assert.Null(BoothLinks.ItemPage(item!));
     }
 
     /// <summary>普通の商品にはちゃんと出る（上のテストが常にnullを返しても通らないように）。</summary>
@@ -290,7 +290,7 @@ public class LocalItemTests : IDisposable
             Local = new LocalBlock(),
         };
 
-        Assert.Equal("https://booth.pm/ja/items/5927710", BoothClient.PageUrlFor(item));
+        Assert.Equal("https://booth.pm/ja/items/5927710", BoothLinks.ItemPage(item));
     }
 
     /// <summary>
