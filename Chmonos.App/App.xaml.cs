@@ -800,9 +800,10 @@ public partial class App : Application
     /// 通知の保管庫が容量を超えていたら古い月から消す・最後の月は新しい側の半分を残す（ユーザ判断 2026-11-10：消すのは閉じるときだけ）。
     /// 錠を持つアプリだけが行う（同じ保存先を開いた2つ目が、使っている最中の保管庫を消さない）。
     /// 引越しの後は門が開かないので行わない（次に正しく閉じたときに、合計で見て消す）。
-    /// 消すのはファイルを数個なので普通は一瞬。門が閉じている（バックアップ中など）ときに閉じる操作を長く止めないよう、3秒で諦める。
-    /// 最後の1つの月を半分に書き直すとき（50MB の月で約2.4秒。2026-11-10 に測った）は、3秒を超えると書き直しをやめる。
-    /// 一時ファイルに書いてから据えるので、やめても元の月はそのまま残る。
+    /// 消すのはファイルを数個なので普通は一瞬。門が閉じている（バックアップ中など）ときに閉じる操作を長く止めないよう、門を待つのは3秒で諦める。
+    /// 最後の1つの月を半分に書き直すときは、門の3秒とは別に60秒まで待つ（ユーザ判断 2026-11-10。50MB の月で約3.0秒かかり、
+    /// 3秒の中に入れていたときはほぼ毎回打ち切られて削られなかった）。窓を閉じた後に走るので、待つ間は画面に見えない。
+    /// 一時ファイルに書いてから据えるので、打ち切っても元の月はそのまま残る。
     /// </summary>
     private void TrimNotificationArchive()
     {
@@ -811,18 +812,26 @@ public partial class App : Application
             return;
         }
 
-        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var rewriteLimit = TimeSpan.FromSeconds(60);
+        using var gateLimit = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         try
         {
-            if (!Task.Run(() => services.Commands.ExecuteAsync(new Core.Commands.UiCommand.TrimNotificationArchive(), cancellationToken: limit.Token))
-                .Wait(TimeSpan.FromSeconds(4)))
+            var trim = new Core.Commands.UiCommand.TrimNotificationArchive(rewriteLimit);
+            if (!Task.Run(() => services.Commands.ExecuteAsync(trim, cancellationToken: gateLimit.Token))
+                .Wait(rewriteLimit + TimeSpan.FromSeconds(5)))
             {
-                Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "4秒待っても終わらなかったので諦めた");
+                Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "65秒待っても終わらなかったので諦めた");
             }
         }
-        catch (AggregateException exception) when (exception.InnerException is OperationCanceledException)
+        catch (AggregateException exception) when (exception.InnerException is OperationCanceledException canceled)
         {
-            Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "3秒待っても書き込みの門が開かなかったので諦めた");
+            // どちらの上限で止まったかで、ログの原因を分ける（前は書き直しの打ち切りも「門が開かなかった」と書いていた）。
+            // 門の3秒は書き直しの途中でも時間が来れば立つので、立っているかではなく、どの取り消しで止まったかで見る
+            Core.Diagnostics.AppLog.Warn(
+                "閉じるときの通知の保管庫の整理",
+                canceled.CancellationToken == gateLimit.Token
+                    ? "3秒待っても書き込みの門が開かなかったので諦めた"
+                    : "最後の月を半分に書き直すのが60秒で終わらなかったので打ち切った（元の月はそのまま）");
         }
         catch (Exception exception)
         {

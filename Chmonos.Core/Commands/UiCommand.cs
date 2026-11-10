@@ -627,7 +627,11 @@ public abstract record UiCommand
     /// 通知の保管庫が設定の容量を超えていたら、古い月から丸ごと消す。最後に残った月は消さずに新しい側の半分を残す（ユーザ判断 2026-11-10）。
     /// **アプリを閉じるときに1回だけ送る**（人の操作ではないが、保存先に書く操作なので命令を通す。動画のタイトルの整理と同じ）。
     /// </summary>
-    public record TrimNotificationArchive : UiCommand;
+    /// <param name="RewriteLimit">
+    /// 最後の月を半分に書き直す間の上限。門が開くのを待つ上限（呼び手の取り消し）とは分ける：
+    /// 50MB の月の書き直しは約3秒かかり（2026-11-10 に測った）、門を待つための短い上限に入れるとほぼ毎回打ち切られていた。null なら呼び手の取り消しだけ
+    /// </param>
+    public record TrimNotificationArchive(TimeSpan? RewriteLimit = null) : UiCommand;
 
     /// <summary>
     /// 外から使う API の設定（api-settings.json）を変える（設定の「API」・2026-10-12）。設定と同じく変え方を関数で渡し、

@@ -29,7 +29,8 @@ public interface INotificationService
     Task<int> PruneAsync(CancellationToken cancellationToken = default);
 
     /// <summary>保管庫が容量を超えていたら古い月から消す（最後の1つは新しい側の半分を残す）。アプリを閉じるときに1回だけ呼ぶ。</summary>
-    Task<NotificationArchiveTrim> TrimArchiveAsync(CancellationToken cancellationToken = default);
+    /// <param name="rewriteCancellationToken">最後の月を半分に書き直す間だけの取り消し（<see cref="NotificationArchive.TrimAsync"/>）。</param>
+    Task<NotificationArchiveTrim> TrimArchiveAsync(CancellationToken cancellationToken = default, CancellationToken? rewriteCancellationToken = null);
 
     /// <summary>手で直した JSON の食い違いを要確認に出す（J2・L6）。</summary>
     Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default);
@@ -403,9 +404,9 @@ public sealed class NotificationService : INotificationService
     /// 設定で容量を小さくしてから戻しても、閉じるまでは消えないようにするため（ユーザ判断 2026-11-10）。
     /// </summary>
     /// <remarks>手で負の数を書かれた設定では消さない（<see cref="AppSettings.NotificationArchiveBytes"/>）。</remarks>
-    public Task<NotificationArchiveTrim> TrimArchiveAsync(CancellationToken cancellationToken = default)
+    public Task<NotificationArchiveTrim> TrimArchiveAsync(CancellationToken cancellationToken = default, CancellationToken? rewriteCancellationToken = null)
         => _settings.NotificationArchiveBytes is { } capacity
-            ? _store.NotificationArchive.TrimAsync(capacity, cancellationToken)
+            ? _store.NotificationArchive.TrimAsync(capacity, cancellationToken, rewriteCancellationToken)
             : Task.FromResult(NotificationArchiveTrim.None);
 
     /// <summary>

@@ -270,7 +270,13 @@ public sealed class NotificationArchive
     /// 保管を使っている人は、保管した知らせがどこかに残っていると考えている。丸ごと消すと全部無くなる）。
     /// 半分でも超えるなら 1/4・1/8…と下げるが、何回半分にするかは先に数えて決め、書き直しは1回にする（<see cref="HalveAsync"/>）。
     /// </summary>
-    public async Task<NotificationArchiveTrim> TrimAsync(long capacityBytes, CancellationToken cancellationToken = default)
+    /// <param name="cancellationToken">門（この保管庫の錠と保存先の書き込みの門）が開くのを待つ間と、月を消す間の取り消し。</param>
+    /// <param name="rewriteCancellationToken">
+    /// 最後の月を半分に書き直す間の取り消し。無ければ <paramref name="cancellationToken"/>。
+    /// 閉じるときは門を待つのを短く（閉じる操作を長く止めない）、書き直しは長く（50MB の月で約3秒）したいので分ける
+    /// </param>
+    public async Task<NotificationArchiveTrim> TrimAsync(
+        long capacityBytes, CancellationToken cancellationToken = default, CancellationToken? rewriteCancellationToken = null)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -312,7 +318,7 @@ public sealed class NotificationArchive
 
             return last is null
                 ? new NotificationArchiveTrim(deleted, null, 0, 0, StillOver: false)
-                : await HalveAsync(last, capacityBytes, deleted, cancellationToken);
+                : await HalveAsync(last, capacityBytes, deleted, rewriteCancellationToken ?? cancellationToken);
         }
         finally
         {

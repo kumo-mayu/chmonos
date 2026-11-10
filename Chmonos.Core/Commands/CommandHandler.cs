@@ -1030,11 +1030,12 @@ public sealed class CommandHandler
                     return new CommandResult.Failed($"バックアップを書き出せませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
-            case UiCommand.TrimNotificationArchive:
+            case UiCommand.TrimNotificationArchive trim:
                 try
                 {
+                    using var rewriteLimit = trim.RewriteLimit is { } limit ? new CancellationTokenSource(limit) : null;
                     var trimmed = await (_notifications ?? throw new InvalidOperationException("通知の保存先が渡されていません。"))
-                        .TrimArchiveAsync(cancellationToken);
+                        .TrimArchiveAsync(cancellationToken, rewriteLimit?.Token);
                     if (trimmed.DeletedFiles > 0)
                     {
                         Diagnostics.AppLog.Note("通知の保管", $"容量を超えたので、古い月のファイルを {trimmed.DeletedFiles} 個消しました。");

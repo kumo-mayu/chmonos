@@ -348,6 +348,41 @@ public sealed class NotificationArchiveTests : IDisposable
         Assert.Equal(["2026-09.jsonl.gz"], Directory.EnumerateFiles(Archive.Directory).Select(Path.GetFileName));
     }
 
+    /// <summary>
+    /// 門を待つ上限と、書き直しの上限は別（ユーザ判断 2026-11-10）。閉じるときは門を3秒・書き直しを60秒にする。
+    /// 書き直しの途中で門の上限が来ても、書き直しは最後まで進む（前は1つの3秒に両方が入り、50MB の月でほぼ毎回打ち切られた）
+    /// </summary>
+    [Fact]
+    public async Task 書き直しの途中で門の上限が来ても_書き直しは最後まで進む()
+    {
+        var length = await AppendMonthAsync(2026, 9, 200);
+        using var gate = new CancellationTokenSource();
+        using var rewrite = new CancellationTokenSource();
+        Archive.MidRewriteForTests = () => { gate.Cancel(); return Task.CompletedTask; };
+
+        var trim = await Archive.TrimAsync(length * 7 / 10, gate.Token, rewrite.Token);
+
+        Archive.MidRewriteForTests = null;
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 100, 100, StillOver: false), trim);
+        Assert.Equal(100, (await Archive.ReadAsync("2026-09")).Records.Count);
+    }
+
+    [Fact]
+    public async Task 書き直しの上限が来たら_打ち切って元の月を残す()
+    {
+        var length = await AppendMonthAsync(2026, 9, 200);
+        using var gate = new CancellationTokenSource();
+        using var rewrite = new CancellationTokenSource();
+        Archive.MidRewriteForTests = () => { rewrite.Cancel(); return Task.CompletedTask; };
+
+        var canceled = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Archive.TrimAsync(length * 7 / 10, gate.Token, rewrite.Token));
+
+        Archive.MidRewriteForTests = null;
+        Assert.Equal(rewrite.Token, canceled.CancellationToken);
+        Assert.Equal(200, (await Archive.ReadAsync("2026-09")).Records.Count);
+        Assert.Equal(["2026-09.jsonl.gz"], Directory.EnumerateFiles(Archive.Directory).Select(Path.GetFileName));
+    }
+
     /// <summary>中身が読めない月（gzip でない）は、最後の1つなら消さずに残す。手で取り出せたかもしれない物を消さない。</summary>
     [Fact]
     public async Task 読めない最後の月は_容量を超えていても残す()
