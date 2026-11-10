@@ -30,7 +30,7 @@ public static class UnresolvedOrigin
     /// 先に読み直していた——9月前半の版が CP932 の ReferrerUrl を UTF-8 として読み、日本語が U+FFFD に化けたまま
     /// 保存していたための救済だった。だが未確定の画面を開くたび・ナビの札が数え直すたびに、未確定の件数ぶん
     /// ディスクを読むことになる（印の無い6万件で約0.8秒・印のある2万件で約3.2秒。docs/research/large-files-2026-09-30.md）。
-    /// 公開前なので古い記録には合わせない。Zone.Identifier を読むのは取り込みの走査で記録を作るときだけで、
+    /// v1.0.0 より前の記録なので合わせない。Zone.Identifier を読むのは取り込みの走査で記録を作るときだけで、
     /// 化けた値の残る記録は、その取り込み元を取り込み直せば今の読み方の値で書き直される。
     /// </summary>
     public static ArchiveOrigin? For(UnresolvedFile file)

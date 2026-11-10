@@ -95,13 +95,13 @@ public sealed record SearchModuleState
 
     /// <summary>
     /// ユーザータグの大分類ごとの条件（ユーザータグだけ・2026-09-28）。大分類どうしの結び方は <see cref="MatchAll"/>。
-    /// 前は <see cref="Items"/> に「大分類」「大分類›小分類」の鍵を積んでいた。その形の状態は読まない（公開前なので読み替えを作らない）。
+    /// 前は <see cref="Items"/> に「大分類」「大分類›小分類」の鍵を積んでいた。その形の状態は読まない（v1.0.0 より前の形なので読み替えを作らない）。
     /// </summary>
     public IReadOnlyList<UserTagCondition> UserTags { get; init; } = [];
 
     /// <summary>
     /// 改変のアバターごとの条件（改変だけ・ユーザ判断 2026-10-06）。アバターどうしの結び方は <see cref="MatchAll"/>。
-    /// 前は <see cref="Items"/> に「avatar:…」「mod:…」の鍵を積んでいた。その形の状態は読まない（公開前なので読み替えを作らない）。
+    /// 前は <see cref="Items"/> に「avatar:…」「mod:…」の鍵を積んでいた。その形の状態は読まない（v1.0.0 より前の形なので読み替えを作らない）。
     /// </summary>
     public IReadOnlyList<ModificationCondition> Modifications { get; init; } = [];
 

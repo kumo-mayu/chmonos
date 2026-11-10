@@ -10,7 +10,7 @@ namespace Chmonos.Core.Tests;
 /// 購入記録（purchases）の読み書き。
 ///
 /// 以前はここに旧形式（orderedVariations）の読み替えの試験もあったが、読み替えそのものを外した
-/// （2026-09-12・ユーザ判断：公開前は今の形に合わないデータの側を問題にする）。
+/// （2026-09-12・ユーザ判断：v1.0.0 より前の形には合わせず、合わないデータの側を問題にする）。
 /// </summary>
 public class PurchaseMigrationTests : IDisposable
 {

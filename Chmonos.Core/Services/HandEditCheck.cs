@@ -20,7 +20,7 @@ public sealed record HandEditIssue
 /// 起きたときに**黙って落ちない・黙って別のファイルに書かない**ことと、
 /// 「どこの何がどう食い違っているか」を人に伝えることを分けて持つ。
 ///
-/// **こちらから直さない**（`docs/spec/data-model.md`：公開前は合っていないデータの方を問題にする）。
+/// **こちらから直さない**（`docs/spec/data-model.md`：合っていないデータの方を問題にする）。
 /// 直し方（消す・書き換える・取り込み直す）は人が決める。
 /// </summary>
 public static class HandEditCheck

@@ -26,7 +26,7 @@ public enum SearchModuleKind
     Unedited,
 
     // 「対応アバターの確認」（AvatarUnconfirmed・2026-09-18）は、編集状況の項目の1つにした（ユーザ判断 2026-10-06）。
-    // 種類ごと消したので、前に保存した状態のその条件は読めずに飛ばされる（公開前なので救済はしない）
+    // 種類ごと消したので、前に保存した状態のその条件は読めずに飛ばされる（v1.0.0 より前の形なので救済はしない）
     Modification,
     UnityProject,
     Path,
