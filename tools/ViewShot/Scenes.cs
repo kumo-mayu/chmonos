@@ -30,6 +30,7 @@ internal static partial class Scenes
         .. AvatarSuggestScenes,
         .. ManageRowMenuScenes,
         .. ModificationDuplicateScenes,
+        .. ProjectRelocateScenes,
         .. DragEdgeScrollScenes,
         .. AvatarScenes,
         .. AvatarBaseMemberScenes,

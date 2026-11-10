@@ -241,7 +241,7 @@ public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOp
         ? "既に開いていれば、そのUnityを手前に出します。"
         : Candidate is null
             ? "プロジェクトに紐付いていないので開けません。"
-            : "紐付けたフォルダが見つかりません。改変の右側で紐付け直してください。";
+            : "フォルダが見つかりません。「場所を付け替える…」で選び直せます。";
 
     public string DetailText => Candidate is null
         ? "改変の右側でプロジェクトを紐付けると、そのプロジェクトの下に並びます"
@@ -323,7 +323,7 @@ public sealed class HubProjectDetail : IHubNoticeTarget
     /// <summary>押せないときの理由も出す（`ui-rules.md`・E11）。</summary>
     public string OpenProjectHint => Exists
         ? "既に開いていれば、そのUnityを手前に出します。"
-        : "このフォルダが見つかりません。改変の右側で紐付け直してください。";
+        : "フォルダが見つかりません。「場所を付け替える…」で選び直せます。";
 
     public bool IsMissing => !Candidate.Exists;
 

@@ -90,6 +90,27 @@ public sealed class UnityScanStore(AppPaths paths)
         }
     }
 
+    /// <summary>
+    /// プロジェクトの場所を付け替えたとき、控えを新しい場所の物にする（ユーザ判断 2026-11-10）。返すのは写したか。
+    ///
+    /// **消さずに写す。**中身は商品 ID・数と、プロジェクトの中の相対パス（<c>Assets/…</c>）だけで、置き場所に依らない。
+    /// 移した直後に条件「Unityプロジェクト」や使っている商品の見張りを開いても、調べ終わるまで空にならない。
+    /// 写した控えも答えの正本ではない（見せた後に必ず調べ直して差し替える）ので、古くても壊れない。
+    /// 新しい場所に読める控えが既にあれば写さない：その場所を調べた物の方が正しい（別の改変が使うプロジェクトへ統合したとき）。
+    /// 古い場所の控えは残す：右クリックから付け替えたときは古いフォルダがまだ在り、条件や見張りがそちらを見ていれば使う。
+    /// 指す物が無くなれば読まれないだけで、1ファイル数KB。保存先から消しても壊れない（<see cref="UnityScanStore"/>）
+    /// </summary>
+    public bool CopyTo(string from, string to)
+    {
+        if (Load(to) is not null || Load(from) is not { } scan)
+        {
+            return false;
+        }
+
+        Save(to, scan);
+        return true;
+    }
+
     /// <summary>場所をそのまま名前にすると、区切りや長さでファイルにできない。16桁あれば手元のプロジェクトの数ではぶつからず、ぶつかっても中の場所を照らして読まない。</summary>
     private static string FileKey(string project)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(project.ToUpperInvariant())))[..16];

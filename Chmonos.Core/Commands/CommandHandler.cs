@@ -66,6 +66,9 @@ public sealed class CommandHandler
     /// <summary>見つからない記録をまとめて消す部品。無ければ「この機能は使えません」と返す。</summary>
     public Services.MissingRecordCleaner? MissingRecords { get; init; }
 
+    /// <summary>プロジェクトの中を調べた控え（unityscans）。場所の付け替えで新しい場所へ写す。無ければ写さない（次に調べ直すだけ）。</summary>
+    public Storage.UnityScanStore? UnityScans { private get; init; }
+
     /// <summary>「最近」の足跡（recent.json）。外から使う API が足跡を打つ（<see cref="UiCommand.TouchRecent"/>）。</summary>
     public Storage.JsonFileStore<Services.RecentLog>? Recent { get; init; }
 
@@ -874,6 +877,14 @@ public sealed class CommandHandler
                 return await RunModificationAsync(
                     () => _modifications!.SetProjectAsync(project.Id, project.Path, cancellationToken));
 
+            case UiCommand.RelocateUnityProject relocate:
+                if (_modifications is null)
+                {
+                    return MissingService("改変の編集");
+                }
+
+                return await RelocateUnityProjectAsync(_modifications, relocate.From, relocate.To, cancellationToken);
+
             case UiCommand.AddModificationMember addMember:
                 return await RunModificationAsync(
                     () => _modifications!.AddMemberAsync(addMember.Id, addMember.Member, cancellationToken));
@@ -1546,6 +1557,74 @@ public sealed class CommandHandler
         }
 
         Diagnostics.BackgroundWork.Run("ファイルを付けた後の unitypackage の読み込み", () => catalog.FillItemAsync(itemId));
+    }
+
+    /// <summary>
+    /// Unity プロジェクトの場所を付け替える（ユーザ判断 2026-11-10・<c>docs/spec/modifications.md</c>「Unity プロジェクト」）。
+    ///
+    /// 新しい場所は頭で1回だけ揃えて、全部に同じ文字列で書く。条件の札は文字で照らし、控えは文字のハッシュを名前にするので、
+    /// 綴りが1か所でも違うと黙って外れる。
+    /// 控え → 改変 → 保存した検索の順に書く：改変を書くと見張り（<c>UsedItemsWatch</c>）が改変を読み直すので、その前に控えを置いておく。
+    /// 改変は1件ずつ書き、書けなかった物は数えて次へ進む（1件の失敗で残りを古い場所のままにしない）
+    /// </summary>
+    private async Task<CommandResult> RelocateUnityProjectAsync(
+        IModificationService modifications, string from, string to, CancellationToken cancellationToken)
+    {
+        if (Services.UnityProjectPath.Normalize(from) is not { } oldPath || Services.UnityProjectPath.Normalize(to) is not { } newPath)
+        {
+            return new CommandResult.Failed("場所が空です。");
+        }
+
+        var scanCopied = UnityScans?.CopyTo(oldPath, newPath) ?? false;
+
+        var moved = 0;
+        var failed = 0;
+        foreach (var record in (await modifications.LoadAllAsync(cancellationToken)).Modifications
+                     .Where(record => Services.ModificationService.SamePath(record.UnityProject, oldPath)))
+        {
+            try
+            {
+                if (await modifications.RelocateProjectAsync(record.Id, oldPath, newPath, cancellationToken))
+                {
+                    moved++;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Diagnostics.AppLog.Error("改変のプロジェクトの場所の付け替え", exception);
+                failed++;
+            }
+        }
+
+        var saved = 0;
+        var savedFailed = false;
+        if (_settings is not null)
+        {
+            try
+            {
+                await _settings.ChangeSavedSearchesAsync(
+                    list => new Services.SavedSearchList
+                    {
+                        Entries = Services.SavedSearches.RelocateUnityProject(list.Entries, oldPath, newPath, out saved),
+                    },
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Diagnostics.AppLog.Error("保存した検索のプロジェクトの場所の付け替え", exception);
+                saved = 0;
+                savedFailed = true;
+            }
+        }
+
+        return new CommandResult.UnityProjectRelocated(new Services.UnityProjectRelocation
+        {
+            Modifications = moved,
+            FailedModifications = failed,
+            SavedSearches = saved,
+            SavedSearchesFailed = savedFailed,
+            ScanCopied = scanCopied,
+        });
     }
 
     private async Task<CommandResult> RunModificationAsync(

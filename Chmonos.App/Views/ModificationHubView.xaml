@@ -294,7 +294,21 @@
 
         <!-- Unityプロジェクトの見出し -->
         <DataTemplate x:Key="HubProjectHeader" DataType="{x:Type vm:HubProjectGroup}">
-            <Border Style="{StaticResource HubPressableHeader}">
+            <Border Style="{StaticResource HubPressableHeader}"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    ContextMenuService.IsEnabled="{Binding IsProject}">
+                <!--
+                    右クリック（ユーザ判断 2026-11-10）：見つかるプロジェクトでも場所を付け替えられる（同じ名前で残った古いフォルダを片付ける前など）。
+                    紐付けていない改変の見出しには付け替える先が無いので、メニューを開かない（空のメニューを出さない）
+                -->
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="場所を付け替える…" AutomationProperties.AutomationId="ProjectRowMenu.Relocate"
+                                  Command="{Binding PlacementTarget.Tag.RelocateProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Path}"
+                                  ToolTip="移した先のフォルダを選び、改変と検索の条件を付け替えます。" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick"
                                   Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -339,7 +353,17 @@
                                 <TextBlock Text="{Binding BehindText}" FontSize="10" Foreground="{DynamicResource Warn}" />
                             </Border>
                         </WrapPanel>
-                        <!-- 「Unityを開く」の結果。出ていない間は場所を取らない（行の下が1度だけ下がる） -->
+                        <!--
+                            フォルダが見つからない行だけに出す（ユーザ判断 2026-11-10）。見つかる行は右クリックから。
+                            「Unityを開く」の横に並べると、幅900で左の欄（約300）に収まらず、プロジェクトの名前が数文字で切れた。見出しの下の段に置く
+                        -->
+                        <Button AutomationProperties.AutomationId="ModificationsProjectRelocate" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の場所を付け替える}" Content="場所を付け替える…" Style="{StaticResource SmallButton}"
+                                HorizontalAlignment="Left" Margin="0,5,0,0"
+                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                Command="{Binding DataContext.RelocateProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Path}"
+                                ToolTip="移した先のフォルダを選び、改変と検索の条件を付け替えます。" />
+                        <!-- 「Unityを開く」「場所を付け替える…」の結果。出ていない間は場所を取らない（行の下が1度だけ下がる） -->
                         <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
                                    Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </StackPanel>
@@ -527,6 +551,12 @@
                         <Button AutomationProperties.AutomationId="ModificationsDetailOpenFolder" Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="8,0,0,0" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}" />
+                        <!-- 見つからないときだけ（左の行と同じ）。吹き出しの「場所を付け替える…で選び直せます」が、右の欄からも押せるように -->
+                        <Button AutomationProperties.AutomationId="ModificationsDetailRelocate" Content="場所を付け替える…" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                Command="{Binding DataContext.RelocateProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Path}"
+                                ToolTip="移した先のフォルダを選び、改変と検索の条件を付け替えます。" />
                     </WrapPanel>
                     <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
 
