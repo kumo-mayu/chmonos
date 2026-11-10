@@ -136,6 +136,15 @@ public sealed class CandidateSearchCacheTests : IDisposable
     }
 
     [Fact]
+    public void 壊れた控えは控えなしとして読み_投げない()
+    {
+        File.WriteAllText(_paths.UnresolvedSearchesFile, "{");
+
+        Assert.Null(_cache.Find(@"D:\dl\a.zip"));
+        Assert.Empty(_cache.Targets());
+    }
+
+    [Fact]
     public async Task 控えは引越し_書き出しと戻す_形式を上げる前の控えに付いていく()
     {
         await _cache.AddIfMissingAsync(@"D:\dl\衣装.zip", ["h1"], Found("100"), First);

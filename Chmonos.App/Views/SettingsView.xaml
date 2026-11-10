@@ -619,7 +619,7 @@
                                 <TextBlock Text="未確定の候補を先に検索しておく" />
                             </CheckBox>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
-                                       Text="ほかの取得が無いときに、未確定のファイルの自動検索を新しい順に進めます。未確定の画面では、待たずに候補が表示されます。取り込みの間は止まります。" />
+                                       Text="ほかの取得が無いときに、未確定のファイルの自動検索を新しい順に進めます。未確定の画面では、待たずに候補が表示されます。" />
 
                             <!-- BOOTH 以外への通信なので、勝手に通信していると見えるものには止める手段を付ける（ユーザ判断 2026-10-08） -->
                             <CheckBox Style="{StaticResource SettingCheck}"

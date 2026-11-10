@@ -175,6 +175,40 @@ public class ResolvePrefetchTests
         Assert.Equal(0, app.Booth.SearchCount);
     });
 
+    [Fact]
+    public Task 起動したとき始めなかった先回りは_ほかの設定を保存しても始まらない() => TestApp.Run(async app =>
+    {
+        var path = app.NewFile(@"dl\SampleHat.zip");
+        await app.Store.Unresolved.SaveAsync([Unresolved(path)]);
+        app.Booth.SearchFinds(FileNameQuery.ToSearchQuery(path));
+        await app.ChangeSettingsAsync(settings => settings with { PrefetchCandidateSearch = true });
+        await app.StartAsync();
+
+        // 設定の保存は別の項目でも起きる（取り込みの履歴など）。入のまま書いただけでは始めない
+        await app.ChangeSettingsAsync(settings => settings with { ShowAdult = !settings.ShowAdult });
+        await UiThread.Settle();
+
+        Assert.Null(app.Services.Startup.PrefetchRunning);
+        Assert.Equal(0, app.Booth.SearchCount);
+    });
+
+    [Fact]
+    public Task 控えのファイルが壊れていても_行を選べて自動検索のまま() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var path = app.NewFile(@"dl\作り物の衣装.zip");
+        await app.Store.Unresolved.SaveAsync([Unresolved(path)]);
+        await File.WriteAllTextAsync(app.Store.Paths.UnresolvedSearchesFile, "{");
+
+        var (_, resolve) = await OpenResolveAsync(app);
+        resolve.Selected = resolve.Files.Single();
+        await app.SettleAsync();
+
+        Assert.Equal("自動検索", resolve.ProposeButtonText);
+        Assert.False(resolve.HasSearched);
+        Assert.Contains(app.LoggedFailures(), line => line.Contains("控え", StringComparison.Ordinal));
+    });
+
     /// <summary>止める・続けるの決まりは Core の試験（CandidatePrefetchTests）。ここは取り込みの係の知らせがつながっていること</summary>
     [Fact]
     public Task 取り込みの間は先回りを止め_終わったら続ける() => TestApp.Run(async app =>

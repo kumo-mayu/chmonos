@@ -12,7 +12,8 @@ namespace Chmonos.App.Services;
 /// <list type="bullet">
 /// <item>**起動したときの⑦が終わってから始める**。「起動したとき、裏で取得を始める」がオフなら起動したときは始めない
 ///   （その設定は裏で BOOTH へ行く作業を止める物で、先回りもその1つ）。設定を入れたときは、その場で始める。</item>
-/// <item>設定を切ったら、走っている検索を止める。閉じるときも止める。</item>
+/// <item>設定を切ったら、走っている検索を止める。閉じるときも止める。**設定を書いただけでは始めない**（切から入に変わったときだけ）。</item>
+/// <item>取り込みが終わったら、走り終えていても始め直す（増えた未確定を引く）。この起動で走らせてよいときだけ。</item>
 /// <item>取り込みが始まったら止め、終わったら続ける（画面の無い起動の取り込みも同じ係から知らせが来る）。</item>
 /// </list>
 /// 人の操作ではないので <c>UiCommand</c> を通さない（起動時の裏の作業と同じ例外）。通すと入口が「人が押した」優先度を掛ける。
@@ -26,6 +27,16 @@ public sealed partial class StartupWork
 
     /// <summary>起動したときの裏の取得（⑦まで）が済んだか。済むまでは、設定が入っていても先回りを始めない。</summary>
     private bool _startupFetchDone;
+
+    /// <summary>
+    /// この起動で先回りを走らせてよいか。⑦が終わったとき（裏の取得がオンの起動）か、設定を切から入に変えたときに立つ。
+    /// **設定を書いただけでは立てない**：設定の保存は別の項目（取り込みの履歴など）でも起きるので、入のまま書くたびに始めると、
+    /// 「起動したとき、裏で取得を始める」がオフの起動でも、何かを保存した時点で始まってしまう
+    /// </summary>
+    private volatile bool _prefetchArmed;
+
+    /// <summary>直前に見た設定の値（切から入に変わったかを見る）。</summary>
+    private bool _prefetchSetting;
 
     /// <summary>先回りが引く行（直前に組んだ一覧）。対象ごとの手掛かり（兄弟・置き方）を、人が押したときと同じに組むため</summary>
     private PrefetchPlan _plan = PrefetchPlan.Empty;
@@ -53,20 +64,32 @@ public sealed partial class StartupWork
 
     private void ListenForPrefetch()
     {
+        _prefetchSetting = services.Settings.PrefetchCandidateSearch;
         services.SettingsStore.Changed += settings =>
         {
-            if (settings.PrefetchCandidateSearch)
+            var turnedOn = settings.PrefetchCandidateSearch && !_prefetchSetting;
+            var turnedOff = !settings.PrefetchCandidateSearch && _prefetchSetting;
+            _prefetchSetting = settings.PrefetchCandidateSearch;
+            if (turnedOn)
             {
+                _prefetchArmed = true;
                 StartPrefetch();
             }
-            else
+            else if (turnedOff)
             {
+                _prefetchArmed = false;
                 StopPrefetch();
             }
         };
 
         services.Imports.Started += _ => Prefetch.Pause();
-        services.Imports.Finished += Prefetch.Resume;
+        services.Imports.Finished += () =>
+        {
+            Prefetch.Resume();
+
+            // 走り終えた後の取り込みで増えた未確定も引く（走っている途中なら、続きが一覧を組み直して拾う）
+            StartPrefetch();
+        };
         if (services.Imports.Running is not null)
         {
             Prefetch.Pause();
@@ -79,14 +102,15 @@ public sealed partial class StartupWork
         _startupFetchDone = true;
         if (startPrefetch)
         {
+            _prefetchArmed = true;
             StartPrefetch();
         }
     }
 
-    /// <summary>設定が入っていて、起動したときの取得が済んでいれば始める。走っていれば何もしない。</summary>
+    /// <summary>設定が入っていて、起動したときの取得が済み、この起動で走らせてよければ始める。走っていれば何もしない。</summary>
     private void StartPrefetch()
     {
-        if (!services.Settings.PrefetchCandidateSearch || !_startupFetchDone)
+        if (!services.Settings.PrefetchCandidateSearch || !_startupFetchDone || !_prefetchArmed)
         {
             return;
         }

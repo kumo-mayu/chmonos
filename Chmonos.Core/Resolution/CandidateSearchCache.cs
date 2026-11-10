@@ -46,11 +46,11 @@ public sealed class CandidateSearchCache(JsonFileStore<CandidateSearchFile> stor
 
     /// <summary>対象の控え。無ければ null。</summary>
     public CandidateSearchEntry? Find(string target)
-        => store.Load().Searches.FirstOrDefault(entry => SameTarget(entry.Target, target));
+        => Read().Searches.FirstOrDefault(entry => SameTarget(entry.Target, target));
 
     /// <summary>控えのある対象の場所（先回りが飛ばす物）。</summary>
     public IReadOnlySet<string> Targets()
-        => store.Load().Searches.Select(entry => entry.Target).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        => Read().Searches.Select(entry => entry.Target).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// 先回りの結果を控える。**控えが既にあれば書かない**（最初に取った物を使い続ける。先回りの間に人が引いた結果も消さない）。
@@ -138,7 +138,7 @@ public sealed class CandidateSearchCache(JsonFileStore<CandidateSearchFile> stor
     private Task<bool> PruneAsync(Func<string, bool> keep, CancellationToken cancellationToken)
     {
         // 控えが無いのに書き直さない（ファイルを作らない）
-        if (store.Load().Searches.Count == 0)
+        if (Read().Searches.Count == 0)
         {
             return Task.FromResult(false);
         }
@@ -168,6 +168,30 @@ public sealed class CandidateSearchCache(JsonFileStore<CandidateSearchFile> stor
             },
             cancellationToken);
     }
+
+    /// <summary>
+    /// 読む。**壊れた・新しすぎる控えは「控えなし」として読み、ログに1回残す**——未確定の画面は行を選ぶたびに画面のスレッドで読むので、
+    /// 投げると選ぶたびに落ちる。書き換え（錠の中の読み直し）は今までどおり投げるので、壊れたファイルを黙って上書きはしない
+    /// （控えは引き直せる物だが、人が直せる形を消さない。直すか消すまで先回りも書かない）
+    /// </summary>
+    private CandidateSearchFile Read()
+    {
+        try
+        {
+            return store.Load();
+        }
+        catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException or UnauthorizedAccessException or FormatTooNewException)
+        {
+            if (Interlocked.Exchange(ref _readFailureLogged, 1) == 0)
+            {
+                Diagnostics.AppLog.Error("未確定の自動検索の控えを読む", exception);
+            }
+
+            return new CandidateSearchFile();
+        }
+    }
+
+    private int _readFailureLogged;
 
     private static bool SameTarget(string left, string right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }

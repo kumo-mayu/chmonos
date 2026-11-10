@@ -162,7 +162,10 @@ public sealed class SettingsService : ISettingsService
         var written = await _store.Settings.UpdateAsync(
             current => change(current).Normalized(),
             written => Current = written,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+
+        // 続きを呼んだスレッド（画面）へ戻さない：前は書き込みの Task をそのまま返していて、同期で待つ呼び手が居ても固まらなかった。
+        // 受け手（先回りの始め・止め）は画面のスレッドを前提にしない
         Changed?.Invoke(written);
         return written;
     }
