@@ -609,6 +609,18 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
                                        Text="残りの画像・持っていないアバターの画像・商品の更新の確認・対応アバターの検出し直しを、押さなくても進めます。オフでも、押して始めた取得と取り込みは止まりません。" />
 
+                            <!--
+                                未確定の自動検索の先回り（ユーザ判断 2026-11-10：既定はオフ・設定でオンオフ）。未確定が数百件あると数十分ほど BOOTH へ問い合わせ続けるので、
+                                使う人が選んで入れる。入れるとその場で始まり、切るとその場で止まる。ほかの取得を待たせないことと、取り込みの間は止まることを書く
+                            -->
+                            <CheckBox Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.PrefetchCandidateSearch"
+                                      IsChecked="{Binding PrefetchCandidateSearch, Mode=TwoWay}">
+                                <TextBlock Text="未確定の候補を先に検索しておく" />
+                            </CheckBox>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
+                                       Text="ほかの取得が無いときに、未確定のファイルの自動検索を新しい順に進めます。未確定の画面では、待たずに候補が表示されます。取り込みの間は止まります。" />
+
                             <!-- BOOTH 以外への通信なので、勝手に通信していると見えるものには止める手段を付ける（ユーザ判断 2026-10-08） -->
                             <CheckBox Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.CheckForUpdates"

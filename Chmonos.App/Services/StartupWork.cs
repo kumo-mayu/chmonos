@@ -24,7 +24,7 @@ namespace Chmonos.App.Services;
 /// 邪魔をしてまで知らせる価値がない（どちらも次の起動でまた試す）。**ログには残す。**
 /// **段ごとに受け止める。**前は1つの try でつないでいて、⑤で落ちると⑦まで何も言わずに止まっていた（技術的負債 2-3）。
 /// </summary>
-public sealed class StartupWork(AppServiceContainer services)
+public sealed partial class StartupWork(AppServiceContainer services)
 {
     private CancellationTokenSource? _backlog;
 
@@ -66,6 +66,7 @@ public sealed class StartupWork(AppServiceContainer services)
             return false;
         }
 
+        ListenForPrefetch();
         StartChecksAndPrunes();
         CheckUnreadableItems();
         ResumePendingOperations();
@@ -82,6 +83,8 @@ public sealed class StartupWork(AppServiceContainer services)
         }
         else
         {
+            // 裏の取得を切っていれば⑦も走らない。先回りは起動したときには始めず、設定で入れ直したときから始める（StartupWork.Prefetch）
+            MarkStartupFetchDone(startPrefetch: false);
             var token = Token();
             Task.Run(async () =>
             {
@@ -110,7 +113,11 @@ public sealed class StartupWork(AppServiceContainer services)
     public bool StartNow() => StartBacklog(force: true);
 
     /// <summary>閉じるときに裏の作業を止める。</summary>
-    public void Stop() => _backlog?.Cancel();
+    public void Stop()
+    {
+        _backlog?.Cancel();
+        StopPrefetch();
+    }
 
     private CancellationToken Token() => (_backlog ??= new CancellationTokenSource()).Token;
 
@@ -169,6 +176,9 @@ public sealed class StartupWork(AppServiceContainer services)
 
                 // ⑦で商品ページが変わっていれば要確認が増える。件数を出し直す
                 CountsChanged?.Invoke();
+
+                // 未確定の自動検索の先回りは、起動したときの⑦が終わってから（ユーザ判断 2026-11-11）。設定がオフなら始めない
+                MarkStartupFetchDone(startPrefetch: true);
             }
             catch (OperationCanceledException)
             {

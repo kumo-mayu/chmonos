@@ -41,7 +41,10 @@ public sealed class ResolutionCandidate
     /// （ショップ名は一致するが商品が違う）が「裏付けあり」に紛れ込んだ。
     /// ショップの一致はショップの証拠であって商品の証拠ではないので、
     /// 商品名側の裏付けも重ねて要求する。
+    ///
+    /// 点数から計算で出せるので、控え（<see cref="CandidateSearchCache"/>）には書かない。
     /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsStrong => Score - LayoutPoints >= 7;
 }
 

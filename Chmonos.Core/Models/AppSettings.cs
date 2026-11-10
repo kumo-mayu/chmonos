@@ -270,6 +270,13 @@ public sealed record AppSettings
     public bool ResumeFetchInBackground { get; init; } = true;
 
     /// <summary>
+    /// 未確定の自動検索を、通信の門が空いているときに先回りして走らせ、結果を控えるか（ユーザ判断 2026-11-10・plan 21）。
+    /// **既定はオフ**：未確定が数百件あると、1件あたり数本で数十分ほど門を使う。量の多い通信を黙って始めないため、使う人が選んで入れる。
+    /// 「起動したとき、裏で取得を始める」がオフなら起動したときは始めない（その設定が止める裏の取得の1つ）
+    /// </summary>
+    public bool PrefetchCandidateSearch { get; init; }
+
+    /// <summary>
     /// 新しい版を確かめるか（ユーザ判断 2026-10-08）。1日1回まで GitHub の Releases に問い合わせる。
     /// BOOTH 以外への通信なので、勝手に通信していると見えるものには止める手段を付ける
     /// </summary>

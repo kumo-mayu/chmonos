@@ -155,13 +155,23 @@ public sealed class SettingsService : ISettingsService
     /// 別の画面が同時に別の項目を書いても消し合わない（同じファイルへの書き込みも重ならない・技術的負債 1-4）。
     /// 画面からは <see cref="Commands.UiCommand.ChangeSettings"/> で呼ぶ。
     /// </summary>
-    public Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default)
+    public async Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default)
+    {
         // 手元の値は錠の中で差し替える。錠の外だと、2本の保存が重なったときに先に書いた方が後から代入され、
         // ディスクより古い設定を持ち続けていた
-        => _store.Settings.UpdateAsync(
+        var written = await _store.Settings.UpdateAsync(
             current => change(current).Normalized(),
             written => Current = written,
             cancellationToken);
+        Changed?.Invoke(written);
+        return written;
+    }
+
+    /// <summary>
+    /// 設定を書いた。始め・止めをその場で効かせたい作業（未確定の自動検索の先回り）が受ける。
+    /// 合図は書いたスレッドから来る（画面のスレッドとは限らない）。受け手は軽く済ませる
+    /// </summary>
+    public event Action<AppSettings>? Changed;
 
     /// <summary>
     /// 検索の履歴を変える。前は検索画面と設定画面が読んだ写しを丸ごと書いていた（技術的負債 3-1）。

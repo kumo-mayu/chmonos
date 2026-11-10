@@ -54,7 +54,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         ? OtherSearchHint
         : _main.IsLongJobRunning
             ? _main.LongJobBlockedNote
-            : "このファイル名でBOOTHを検索し、下の「候補」に表示します。";
+            : HasCachedSearch
+                ? "BOOTHで検索し直し、候補を新しい結果に置き換えます。"
+                : "このファイル名でBOOTHを検索し、下の「候補」に表示します。";
 
     /// <summary>ユーザの例「ほかの商品の検索を進めています。」を ui-wording で整えた（行はまだ商品ではないのでファイルと言う）。</summary>
     internal const string OtherSearchHint = "ほかのファイルの候補を検索中です。終わるか、下の帯で中止してからお試しください。";
@@ -238,7 +240,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
 
         // 片付いた物の検索の結果は、もう選ばれないので忘れる（開いている間に膨らみ続けないように）
-        RememberedSearches.Forget(rows.Select(row => row.File.Hash));
+        ForgetSearches(rows.Select(row => row.File.Hash));
 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
@@ -703,11 +705,11 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var remaining = reloaded.Rows.Select(row => row.File.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (_scope is null)
         {
-            RememberedSearches.KeepOnly(remaining);
+            KeepSearchesOf(remaining);
         }
         else
         {
-            RememberedSearches.Forget(Files.Select(row => row.File.Hash).Where(hash => !remaining.Contains(hash)));
+            ForgetSearches(Files.Select(row => row.File.Hash).Where(hash => !remaining.Contains(hash)));
         }
 
         Files.ReplaceAll(reloaded.Rows);
@@ -1280,7 +1282,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             Files.Remove(settledRow);
             visible.Remove(settledRow);
-            RememberedSearches.Forget([settledRow.File.Hash]);
+            ForgetSearches([settledRow.File.Hash]);
         }
 
         OnPropertyChanged(nameof(RemainingCount));

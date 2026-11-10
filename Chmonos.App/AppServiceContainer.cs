@@ -152,6 +152,8 @@ public sealed class AppServiceContainer : IDisposable
             // 登録簿を渡すと、ファイル名の中のアバターの名前を検索語から外す（「商品名_アバター名」で AND 検索が0件になっていた。
             // 2026-09-29 の再調整で最も効いた分）。押すたびに読み直すので、検出で登録簿が増えればそのまま効く
             Resolver = new FallbackResolver(Client, Bridge, KanjiReadings, () => Store.Avatars.Load());
+            // 未確定の自動検索の控え（先回りと再検索。ユーザ判断 2026-11-11）。書くのは先回り（裏の作業）と命令（再検索・片付いた物を外す）だけ
+            CandidateSearches = new CandidateSearchCache(Store.UnresolvedSearches);
             Edit = new EditService(Store);
             Notifications = new NotificationService(Store, () => Settings);
             UserTags = new UserTagService(Store);
@@ -171,6 +173,7 @@ public sealed class AppServiceContainer : IDisposable
                 storeRoot: Paths.Root)
             {
                 RegistrationQueue = Store.RegistrationQueue,
+                CandidateSearches = CandidateSearches,
                 ApiSettings = Store.ApiSettings,
                 PendingOperations = Store.PendingOperations,
                 MissingRecords = MissingRecords,
@@ -479,6 +482,9 @@ public sealed class AppServiceContainer : IDisposable
     public ItemService Items { get; }
 
     public FallbackResolver Resolver { get; }
+
+    /// <summary>未確定の自動検索の控え（<c>unresolved-searches.json</c>）。読むのは画面から直に、書くのは命令と先回り。</summary>
+    public CandidateSearchCache CandidateSearches { get; }
 
     public EditService Edit { get; }
 

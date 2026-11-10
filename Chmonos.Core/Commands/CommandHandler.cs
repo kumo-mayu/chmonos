@@ -37,6 +37,9 @@ public sealed class CommandHandler
     /// <summary>まだ終わっていない登録の列（registration-queue.json。メモ60）。組み立ての引数を増やさないよう、作るときに入れる。</summary>
     public Storage.JsonFileStore<List<Models.QueuedRegistration>>? RegistrationQueue { private get; init; }
 
+    /// <summary>未確定の自動検索の控え（unresolved-searches.json。ユーザ判断 2026-11-11）。無ければ控えを読み書きしない（試験の一部の組み立て）。</summary>
+    public Resolution.CandidateSearchCache? CandidateSearches { private get; init; }
+
     /// <summary>外から使う API の設定の置き場（<see cref="UiCommand.ChangeApiSettings"/>）。</summary>
     public Storage.JsonFileStore<Models.ApiSettings>? ApiSettings { private get; init; }
 
@@ -1354,8 +1357,32 @@ public sealed class CommandHandler
                 using (Booth.BoothClient.Prioritize(Booth.BoothPriority.Foreground))
                 {
                     var proposal = await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress, propose.Listed, propose.Layout);
+
+                    // 控えのある対象なら「再検索」なので、新しい結果で置き換える（ユーザ判断 2026-11-11）。控えの無い対象には書かない。
+                    // 届かなかった結果では置き換えない（前の控えの方が役に立つ）
+                    if (CandidateSearches is { } searches)
+                    {
+                        await searches.ReplaceIfPresentAsync(
+                            propose.FilePath, propose.Owners ?? [], proposal, DateTimeOffset.Now, CancellationToken.None);
+                    }
+
                     return new CommandResult.CandidatesProposed(proposal.Candidates, proposal.BoothUnreachable);
                 }
+
+            case UiCommand.ForgetCandidateSearches forget:
+                if (CandidateSearches is { } cached)
+                {
+                    if (forget.Remaining is { } remaining)
+                    {
+                        await cached.KeepOnlyAsync(remaining, cancellationToken);
+                    }
+                    else
+                    {
+                        await cached.ForgetAsync(forget.Hashes, cancellationToken);
+                    }
+                }
+
+                return new CommandResult.Done();
 
             case UiCommand.FindReplacementItem find:
                 if (_resolver is null)

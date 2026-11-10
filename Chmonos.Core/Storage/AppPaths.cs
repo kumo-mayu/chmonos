@@ -118,6 +118,12 @@ public sealed class AppPaths
     /// <summary>未確定の画面で押して、まだ終わっていない登録の列（<see cref="Models.QueuedRegistration"/>）。次の起動で続ける</summary>
     public string RegistrationQueueFile => Path.Combine(Root, "registration-queue.json");
 
+    /// <summary>
+    /// 未確定の自動検索の控え（<see cref="Resolution.CandidateSearchCache"/>・ユーザ判断 2026-11-11）。保存先の直下の .json なので、
+    /// 引越し・書き出し・形式を上げる前の控えにそのまま付いていく
+    /// </summary>
+    public string UnresolvedSearchesFile => Path.Combine(Root, "unresolved-searches.json");
+
     /// <summary>始めて、まだ終わっていない操作（IDの変更・タグや属性の名前の変更。<see cref="Models.PendingOperation"/>）。次の起動で続ける</summary>
     public string PendingOperationsFile => Path.Combine(Root, "pending-operations.json");
 

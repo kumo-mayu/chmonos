@@ -111,20 +111,29 @@ public sealed partial class ResolveViewModel
     /// zipが今もその場所にあれば、中の unitypackage も手掛かりとして読まれる。
     /// バナーからも候補カードからも同じ対象になるようにここへ集約する。
     /// </summary>
-    public string? SearchTargetPath => Selected is null || Selected.File.Paths.Count == 0
-        ? null
-        : Selected.Origin is { } origin
-            ? origin.ArchivePath
-            : Selected.IsArchiveContent && RegisterTargetFolder is { } folder
-                ? folder
-                : Selected.File.Paths[0];
+    public string? SearchTargetPath => Selected is null ? null : SearchTargetFor(Selected);
 
     /// <summary>
     /// 検索の対象が展開物の根のフォルダか（<see cref="SearchTargetPath"/> の決め方と同じ条件）。ディスクを見て決めない：
     /// フォルダが消えた・ドライブを外した後に「ファイル」と見て、置き方の段がずれた（点検34）
     /// </summary>
-    public bool SearchTargetIsFolder => Selected is not null && Selected.File.Paths.Count > 0
-        && Selected.Origin is null && Selected.IsArchiveContent && RegisterTargetFolder is not null;
+    public bool SearchTargetIsFolder => Selected is not null && SearchTargetIsFolderFor(Selected);
+
+    /// <summary>
+    /// 行から検索の対象を決める。**画面と先回り（<see cref="Services.StartupWork"/>）で1つの決め方を使う**——別々に書くと鍵がずれて、
+    /// 先回りの控えが画面に出ない。元のzipが分からない展開物の根は、登録の対象のフォルダ（<see cref="RegisterTargetFolder"/>）と同じく行の
+    /// <see cref="UnresolvedRow.UnpackRoot"/>（元のzipが分かる中身は、元zipの名前で引くので共通のフォルダは要らない）
+    /// </summary>
+    internal static string? SearchTargetFor(UnresolvedRow row) => row.File.Paths.Count == 0
+        ? null
+        : row.Origin is { } origin
+            ? origin.ArchivePath
+            : row.IsArchiveContent && row.UnpackRoot is { } folder
+                ? folder
+                : row.File.Paths[0];
+
+    internal static bool SearchTargetIsFolderFor(UnresolvedRow row) => row.File.Paths.Count > 0
+        && row.Origin is null && row.IsArchiveContent && row.UnpackRoot is not null;
 
     public string SearchTargetText => SearchTargetPath is null
         ? string.Empty
@@ -162,10 +171,15 @@ public sealed partial class ResolveViewModel
         }
     }
 
-    /// <summary>候補が0件のときに出す文。届かなかったときは次の一手が違う。</summary>
+    /// <summary>
+    /// 候補が0件のときに出す文。届かなかったときは次の一手が違う。
+    /// ボタンの名前は控えがあれば「再検索」なので、文の中の名前もそれに合わせる（ユーザ判断 2026-11-11）。
+    /// </summary>
     public string CandidatesEmptyText => BoothUnreachable
-        ? "BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度「自動検索」を押してください。商品IDが分かっていれば、「商品IDを決める」に直接入れられます。"
-        : "候補がありません。上の「自動検索」を押すか、「商品IDを決める」に商品IDを直接入れてください。";
+        ? $"BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度「{ProposeButtonText}」を押してください。商品IDが分かっていれば、「商品IDを決める」に直接入れられます。"
+        : HasCachedSearch
+            ? "前に検索したときは、候補がありませんでした。上の「再検索」を押すか、「商品IDを決める」に商品IDを直接入れてください。"
+            : "候補がありません。上の「自動検索」を押すか、「商品IDを決める」に商品IDを直接入れてください。";
 
     /// <summary>
     /// 設定のフォルダの置き方から、このファイルの手掛かりを組む（<c>docs/spec/folder-layout.md</c>）。指定が無ければ null。
@@ -250,7 +264,9 @@ public sealed partial class ResolveViewModel
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(searchTarget, progress, ListedPaths(), await LayoutHintForAsync(searchTarget, searchTargetIsFolder)), cancellationToken: stop.Token);
+                new UiCommand.ProposeCandidates(
+                    searchTarget, progress, ListedPaths(), await LayoutHintForAsync(searchTarget, searchTargetIsFolder), SearchOwners(startedWith)),
+                cancellationToken: stop.Token);
 
             if (result is CommandResult.CandidatesProposed proposed)
             {
@@ -288,8 +304,11 @@ public sealed partial class ResolveViewModel
     /// アバターごとに分けた zip の間で変わる語（アバター名）を検索語から外すのに使う（<see cref="SiblingTokens"/>）。
     /// 展開した中身の元のzipも入れる（zip を消していても、名前は兄弟の手掛かりになる）。
     /// </summary>
-    private List<string> ListedPaths()
-        => Files
+    private List<string> ListedPaths() => ListedPathsIn(Files);
+
+    /// <summary><see cref="ListedPaths"/> の決め方。先回りも、人が押したときと同じ兄弟を渡す。</summary>
+    internal static List<string> ListedPathsIn(IEnumerable<UnresolvedRow> rows)
+        => rows
             .SelectMany(row => row.Origin is { } origin ? row.File.Paths.Append(origin.ArchivePath) : row.File.Paths)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();

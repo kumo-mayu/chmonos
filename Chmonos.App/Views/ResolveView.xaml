@@ -769,11 +769,12 @@
                         <StackPanel>
                             <!--
                                 自動検索はここと候補の欄にも置く（ユーザ指示 2026-10-02：「商品IDを決める」と候補に重なってあってよい）。
-                                IDを決めようとしてここまで来た人が、上の「分かっていること」へ戻らずに押せるように。動きは見出しの横の物と同じ
+                                IDを決めようとしてここまで来た人が、上の「分かっていること」へ戻らずに押せるように。動きは見出しの横の物と同じ。
+                                控え（先回り・前の再検索）があれば名前は「再検索」（ユーザ判断 2026-11-11。押すと引き直して控えを置き換える）
                             -->
                             <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
                                 <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <Button Content="自動検索" Style="{StaticResource SmallButton}"
+                                <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}"
                                         AutomationProperties.AutomationId="ResolveProposeInDecision"
                                         ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
                                         Command="{Binding ProposeCommand}" />
@@ -904,7 +905,7 @@
                             <controls:SplitRowPanel Margin="0,0,0,10" Gap="10" MinLeftWidth="1000">
                                 <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
                                 <WrapPanel>
-                                    <Button Content="自動検索" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
+                                    <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
                                             AutomationProperties.AutomationId="ResolveProposeInCandidates"
                                             ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
                                             Command="{Binding ProposeCommand}" />

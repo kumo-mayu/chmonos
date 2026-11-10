@@ -214,7 +214,7 @@ public sealed partial class ResolveViewModel
             visible.Remove(row);
         }
 
-        RememberedSearches.Forget(rows.Select(row => row.File.Hash));
+        ForgetSearches(rows.Select(row => row.File.Hash));
 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
@@ -235,6 +235,7 @@ public sealed partial class ResolveViewModel
         Queue.Finished += OnQueueFinished;
         _main.ResolveSearch.PropertyChanged += OnSearchStateChanged;
         _main.ResolveSearch.Ended += OnSearchEnded;
+        _services.CandidateSearches.Remembered += OnCandidateSearchRemembered;
     }
 
     private void UnsubscribeQueue()
@@ -243,5 +244,6 @@ public sealed partial class ResolveViewModel
         Queue.Finished -= OnQueueFinished;
         _main.ResolveSearch.PropertyChanged -= OnSearchStateChanged;
         _main.ResolveSearch.Ended -= OnSearchEnded;
+        _services.CandidateSearches.Remembered -= OnCandidateSearchRemembered;
     }
 }

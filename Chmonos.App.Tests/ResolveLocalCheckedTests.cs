@@ -188,7 +188,8 @@ public class ResolveLocalCheckedTests
             .Where(element => element.Name.LocalName == "Button" && (string?)element.Attribute("Command") == "{Binding ProposeCommand}")
             .ToList();
         Assert.Equal(2, propose.Count);
-        Assert.All(propose, button => Assert.Equal("自動検索", (string?)button.Attribute("Content")));
+        // 名前は控えがあれば「再検索」に変わる（ユーザ判断 2026-11-11）ので、2つとも同じ名前の口を見る
+        Assert.All(propose, button => Assert.Equal("{Binding ProposeButtonText}", (string?)button.Attribute("Content")));
 
         string? CardOf(XElement button) => button.Ancestors()
             .Select(ancestor => (string?)ancestor.Attribute(x + "Name"))

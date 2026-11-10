@@ -879,6 +879,18 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _resumeFetchInBackground, value)) { Save(); } }
     }
 
+    private bool _prefetchCandidateSearch;
+
+    /// <summary>
+    /// 未確定の自動検索を、通信の門が空いているときに先回りして進めるか（既定はオフ・ユーザ判断 2026-11-10）。
+    /// 入れるとその場で始め、切るとその場で止める（裏の作業の係が設定の書き込みを受ける。<see cref="Services.StartupWork"/>）。
+    /// </summary>
+    public bool PrefetchCandidateSearch
+    {
+        get => _prefetchCandidateSearch;
+        set { if (SetField(ref _prefetchCandidateSearch, value)) { Save(); } }
+    }
+
     private bool _checkForUpdates;
 
     /// <summary>新しい版を確かめるか（1日1回まで GitHub に問い合わせる）。</summary>
@@ -1644,6 +1656,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowEditQueueStrip = ShowEditQueueStrip,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,
             ResumeFetchInBackground = ResumeFetchInBackground,
+            PrefetchCandidateSearch = PrefetchCandidateSearch,
             CheckForUpdates = CheckForUpdates,
             SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,

@@ -93,6 +93,27 @@ public sealed partial class ResolveViewModel
         }
     }
 
+    /// <summary>
+    /// 片付いたファイルの検索の結果を忘れる。開いている間の覚えと、保存先の控え（ユーザ判断 2026-11-11：決まったら控えも消す）の両方から。
+    /// 控えは書き込みなので命令を通す。待たない（一覧の差し替えを止めない）
+    /// </summary>
+    private void ForgetSearches(IEnumerable<string> fileHashes)
+    {
+        var hashes = fileHashes.ToList();
+        RememberedSearches.Forget(hashes);
+        if (hashes.Count > 0)
+        {
+            _services.Commands.ExecuteAsync(new UiCommand.ForgetCandidateSearches(hashes)).Forget();
+        }
+    }
+
+    /// <summary>一覧を全件読み直した。未確定に残っていないファイルを、覚えと控えの持ち主から外す。</summary>
+    private void KeepSearchesOf(IReadOnlySet<string> remaining)
+    {
+        RememberedSearches.KeepOnly(remaining);
+        _services.Commands.ExecuteAsync(new UiCommand.ForgetCandidateSearches([], remaining)).Forget();
+    }
+
     /// <summary>今の候補の欄に並べている、自動検索の分の行。検索し直したとき・結果が届いたときに、この分だけ入れ替える。</summary>
     private readonly List<CandidateRow> _searchRows = [];
 
@@ -101,30 +122,91 @@ public sealed partial class ResolveViewModel
     /// それ以外は1件ごとに対象が違う（同じフォルダの別のファイルはファイル名で引く）ので、その1件だけ。
     /// 今の一覧に残っている物だけを数える——検索の間に片付いた物を持ち主にしない
     /// </summary>
-    private List<string> SearchOwners(UnresolvedRow row)
+    private List<string> SearchOwners(UnresolvedRow row) => SearchOwnersIn(row, Files);
+
+    /// <summary><see cref="SearchOwners"/> の決め方。先回り（<see cref="Services.StartupWork"/>）も同じ持ち主で控える。</summary>
+    internal static List<string> SearchOwnersIn(UnresolvedRow row, IEnumerable<UnresolvedRow> rows)
         => row.IsExpandedContent || row.IsArchiveContent
-            ? Files.Where(other => (other.IsExpandedContent || other.IsArchiveContent)
+            ? rows.Where(other => (other.IsExpandedContent || other.IsArchiveContent)
                     && string.Equals(other.GroupKey, row.GroupKey, StringComparison.OrdinalIgnoreCase))
                 .Select(other => other.File.Hash)
                 .ToList()
-            : Files.Where(other => string.Equals(other.File.Hash, row.File.Hash, StringComparison.OrdinalIgnoreCase))
+            : rows.Where(other => string.Equals(other.File.Hash, row.File.Hash, StringComparison.OrdinalIgnoreCase))
                 .Select(other => other.File.Hash)
                 .ToList();
 
-    /// <summary>選んだ物に覚えた検索の結果があれば出す。無ければ「まだ探していない」に戻す。問い合わせはしない。</summary>
+    /// <summary>
+    /// 選んだ物に覚えた検索の結果があれば出す。無ければ控え（先回り・前の起動の再検索。<see cref="Core.Resolution.CandidateSearchCache"/>）を、
+    /// それも無ければ「まだ探していない」に戻す。問い合わせはしない。
+    /// 開いている間に覚えた結果を先に見る：控えより後に押して引いた物なので新しい
+    /// </summary>
     private void ShowRememberedSearch()
     {
         _searchRows.Clear();
+        OnPropertyChanged(nameof(HasCachedSearch));
+        OnPropertyChanged(nameof(ProposeButtonText));
 
-        if (SearchTargetPath is { } target && RememberedSearches.Find(target) is { } remembered)
+        if (SearchTargetPath is { } target)
         {
-            ShowSearchResult(remembered);
-            return;
+            if (RememberedSearches.Find(target) is { } remembered)
+            {
+                ShowSearchResult(remembered);
+                return;
+            }
+
+            if (_services.CandidateSearches.Find(target) is { } cached)
+            {
+                ShowCachedSearch(cached);
+                return;
+            }
         }
 
         HasSearched = false;
         BoothUnreachable = false;
     }
+
+    /// <summary>控えを候補の欄に出す。**待たずに出す**（ユーザ判断 2026-11-11）。古くなっても引き直さず、押したときだけ引き直す。</summary>
+    private void ShowCachedSearch(Core.Resolution.CandidateSearchEntry cached)
+    {
+        ShowSearchResult(new CommandResult.CandidatesProposed(cached.Candidates));
+        StatusText = cached.Candidates.Count == 0
+            ? string.Empty
+            : $"{cached.SearchedAt.ToLocalTime():M月d日}に検索した候補を {cached.Candidates.Count} 件表示しています。";
+        OnPropertyChanged(nameof(HasCachedSearch));
+        OnPropertyChanged(nameof(ProposeButtonText));
+        OnPropertyChanged(nameof(CandidatesEmptyText));
+        OnPropertyChanged(nameof(ProposeHint));
+    }
+
+    /// <summary>
+    /// 選んだ物に控えがあるか。あれば「自動検索」を「再検索」にする（ユーザ判断 2026-11-11）。
+    /// 開いている間に押して引いた結果だけのときは「自動検索」のまま（控えに書かないので、次に開いたときは無い）
+    /// </summary>
+    public bool HasCachedSearch => SearchTargetPath is { } target && _services.CandidateSearches.Find(target) is not null;
+
+    /// <summary>候補を探すボタンの名前。控えがあれば押すと引き直して置き換えるので「再検索」。</summary>
+    public string ProposeButtonText => HasCachedSearch ? "再検索" : "自動検索";
+
+    /// <summary>
+    /// 先回りが控えを書いた（裏のスレッドから来る）。選んでいる対象の分で、まだ何も出していなければ、待たずに出す。
+    /// 開いている間に押して引いた結果を出しているときは、そちらの方が新しいので差し替えない
+    /// </summary>
+    private void OnCandidateSearchRemembered(string target) => RunOnUiThread(() =>
+    {
+        if (!string.Equals(SearchTargetPath, target, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!IsSearching && RememberedSearches.Find(target) is null && _services.CandidateSearches.Find(target) is { } cached)
+        {
+            ShowCachedSearch(cached);
+            return;
+        }
+
+        OnPropertyChanged(nameof(HasCachedSearch));
+        OnPropertyChanged(nameof(ProposeButtonText));
+    });
 
     /// <summary>検索の結果を候補の欄と状態の1行に出す。前に出していた検索の分は入れ替える（押し直すと重なっていた）。</summary>
     private void ShowSearchResult(CommandResult.CandidatesProposed proposed)
@@ -149,5 +231,11 @@ public sealed partial class ResolveViewModel
         StatusText = proposed.Candidates.Count == 0
             ? string.Empty
             : $"候補を {proposed.Candidates.Count} 件見つけました。";
+
+        // 再検索で控えが置き換わった・控えの無い対象を引いた。ボタンの名前と空の文を今の控えに合わせる
+        OnPropertyChanged(nameof(HasCachedSearch));
+        OnPropertyChanged(nameof(ProposeButtonText));
+        OnPropertyChanged(nameof(CandidatesEmptyText));
+        OnPropertyChanged(nameof(ProposeHint));
     }
 }

@@ -294,6 +294,8 @@ public sealed class DataStore
         UiState = new JsonFileStore<UiState>(paths.UiStateFile);
         UpdateCheck = new JsonFileStore<Services.UpdateCheckRecord>(paths.UpdateCheckFile);
         RegistrationQueue = new JsonFileStore<List<QueuedRegistration>>(paths.RegistrationQueueFile);
+        // 未確定の画面が行を選ぶたびに画面のスレッドで読む。中身は init だけの型なので共有する
+        UnresolvedSearches = new JsonFileStore<Resolution.CandidateSearchFile>(paths.UnresolvedSearchesFile, shareLoaded: true);
         PendingOperations = new JsonFileStore<List<PendingOperation>>(paths.PendingOperationsFile);
     }
 
@@ -302,6 +304,9 @@ public sealed class DataStore
 
     /// <summary>まだ終わっていない登録の列。次の起動で同じ順に続ける（ユーザ判断 2026-10-05 メモ60）。</summary>
     public JsonFileStore<List<QueuedRegistration>> RegistrationQueue { get; }
+
+    /// <summary>未確定の自動検索の控え（先回り・再検索。ユーザ判断 2026-11-11）。読み書きは <see cref="Resolution.CandidateSearchCache"/> を通す</summary>
+    public JsonFileStore<Resolution.CandidateSearchFile> UnresolvedSearches { get; }
 
     public AppPaths Paths { get; }
 

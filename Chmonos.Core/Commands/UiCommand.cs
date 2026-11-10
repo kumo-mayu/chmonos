@@ -431,12 +431,23 @@ public abstract record UiCommand
     /// 待ち時間が長く、黙って待たせるわけにいかないため。
     /// <c>Listed</c> は未確定の一覧にあるファイルの場所。同じフォルダの兄弟の zip の間で変わる語（アバター名など）を検索語から外すのに使う。
     /// <c>Layout</c> は使う人が指定したフォルダの置き方から読んだフォルダ名（<c>docs/spec/folder-layout.md</c>）。画面が手元の商品と設定から組む（読むだけ）。
+    /// <c>Owners</c> はこの対象で引く未確定のファイルのハッシュ。**控えのある対象なら、結果で控えを置き換える**（「再検索」。ユーザ判断 2026-11-11）。
+    /// 控えの無い対象には書かない。
     /// </summary>
     public record ProposeCandidates(
         string FilePath,
         IProgress<Resolution.ResolveProgress>? Progress = null,
         IReadOnlyCollection<string>? Listed = null,
-        Resolution.FolderLayoutHint? Layout = null) : UiCommand;
+        Resolution.FolderLayoutHint? Layout = null,
+        IReadOnlyCollection<string>? Owners = null) : UiCommand;
+
+    /// <summary>
+    /// 決まった・外した・未確定から消えたファイルを、自動検索の控えの持ち主から外す（持ち主の居なくなった控えは消す）。
+    /// <c>Remaining</c> を渡したときは、<c>Hashes</c> ではなく「未確定に残っているファイル」だけを残す（一覧を全件読み直したとき）。
+    /// </summary>
+    public record ForgetCandidateSearches(
+        IReadOnlyCollection<string> Hashes,
+        IReadOnlySet<string>? Remaining = null) : UiCommand;
 
     /// <summary>
     /// BOOTH で見つからなくなった商品の、新しいIDの候補を探す（「IDを変える」の自動検索。ユーザ判断 2026-10-06）。
