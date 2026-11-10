@@ -115,15 +115,6 @@ internal static class UnfinishedCopyPrompt
     private static string What(UnfinishedCopyKind kind)
         => kind == UnfinishedCopyKind.Restore ? "前にバックアップから戻す処理" : "前の引越し";
 
-    private static void OpenFolder(string folder)
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            Core.Diagnostics.AppLog.Error("写しかけのフォルダを開く", exception);
-        }
-    }
+    // 開き方はアプリで1つ（ui-rules.md）。試験の差し替えも同じ入口で効く
+    private static void OpenFolder(string folder) => Services.Shell.Reveal(folder);
 }

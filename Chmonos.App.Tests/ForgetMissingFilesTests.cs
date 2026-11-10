@@ -31,6 +31,10 @@ public sealed class ForgetMissingFilesTests
         await app.SettleAsync();
 
         var asked = Assert.Single(app.Notices, request => request.Caption == "見つからないファイルの記録を削除");
+
+        // 人が押した操作の確認は Question。戻せないことは既定のボタンをキャンセルに倒して止める（ui-dialogs.md D9）
+        Assert.Equal(MessageBoxImage.Question, asked.Icon);
+        Assert.Equal(MessageBoxResult.Cancel, asked.DefaultResult);
         Assert.StartsWith("2 商品の、見つからないファイル 2 件・フォルダ 0 件の記録を削除します。", asked.Text);
         Assert.Contains("2 商品は、未所持になります。", asked.Text);
         Assert.Equal("2 商品から、見つからないファイル 2 件・フォルダ 0 件の記録を削除しました。", settings.ForgetMissingNote);

@@ -133,16 +133,13 @@ public static class UnityEditors
 
     // ---- 主の窓 ----
 
-    private const string ContainerClass = "UnityContainerWndClass";
+    private const string ContainerClass = Win32Windows.UnityContainerClass;
 
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
-    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
     [DllImport("user32.dll")] private static extern IntPtr GetMenu(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int max);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
 
     /// <summary>
     /// エディタの主の窓（メニューを持つ窓）。無ければ <see cref="Process.MainWindowHandle"/>、それも無ければ 0。
@@ -160,8 +157,7 @@ public static class UnityEditors
         var hidden = IntPtr.Zero;
         EnumWindows((window, _) =>
         {
-            GetWindowThreadProcessId(window, out var owner);
-            if (owner != (uint)processId || ClassOf(window) != ContainerClass || GetMenu(window) == IntPtr.Zero)
+            if (Win32Windows.ProcessOf(window) != (uint)processId || ClassOf(window) != ContainerClass || GetMenu(window) == IntPtr.Zero)
             {
                 return true;
             }
@@ -227,8 +223,7 @@ public static class UnityEditors
         var visible = false;
         EnumWindows((window, _) =>
         {
-            GetWindowThreadProcessId(window, out var owner);
-            if (owner == (uint)processId && IsWindowVisible(window) && ClassOf(window) == ContainerClass && GetMenu(window) != IntPtr.Zero)
+            if (Win32Windows.ProcessOf(window) == (uint)processId && IsWindowVisible(window) && ClassOf(window) == ContainerClass && GetMenu(window) != IntPtr.Zero)
             {
                 visible = true;
                 return false;
@@ -239,17 +234,7 @@ public static class UnityEditors
         return visible;
     }
 
-    private static string ClassOf(IntPtr window)
-    {
-        var name = new StringBuilder(256);
-        GetClassName(window, name, name.Capacity);
-        return name.ToString();
-    }
+    private static string ClassOf(IntPtr window) => Win32Windows.ClassOf(window);
 
-    private static string TitleOf(IntPtr window)
-    {
-        var text = new StringBuilder(512);
-        GetWindowText(window, text, text.Capacity);
-        return text.ToString();
-    }
+    private static string TitleOf(IntPtr window) => Win32Windows.TitleOf(window);
 }

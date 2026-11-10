@@ -69,7 +69,6 @@ public static class UnityProjectTab
     private const uint VkReturn = 0x0D;
     private const uint VkEnd = 0x23;
     private const uint VkDown = 0x28;
-    private const int SwRestore = 9;
 
     private delegate bool EnumProc(IntPtr window, IntPtr parameter);
 
@@ -82,26 +81,6 @@ public static class UnityProjectTab
         public int Bottom;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct GuiThreadInfo
-    {
-        public int Size;
-        public int Flags;
-        public IntPtr Active;
-        public IntPtr Focus;
-        public IntPtr Capture;
-        public IntPtr MenuOwner;
-        public IntPtr MoveSize;
-        public IntPtr Caret;
-        public Rect CaretRect;
-    }
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
-
     /// <summary>
     /// **Unicode 版で呼ぶ。**文字の指定が無いと ANSI 版（PostMessageA）に結び付き、日本語の文字が化けた
     /// （<c>[試]重複</c> が <c>[f]^</c> になった・実機）。
@@ -113,16 +92,7 @@ public static class UnityProjectTab
     private static extern uint MapVirtualKey(uint code, uint mapType);
 
     [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr window);
-
-    [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr window);
-
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr window, int command);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr window);
 
     [DllImport("user32.dll")]
     private static extern bool GetClientRect(IntPtr window, out Rect rect);
@@ -265,9 +235,8 @@ public static class UnityProjectTab
         }
 
         // 最小化したままでは、タブへ送った押下が効かなかった（§13-6）
-        if (IsIconic(main))
+        if (Win32Windows.RestoreIfMinimized(main))
         {
-            ShowWindow(main, SwRestore);
             await Task.Delay(800);
         }
 
@@ -275,7 +244,7 @@ public static class UnityProjectTab
         if (query is null)
         {
             // 探しても出ないので、タブには触らない。Unity だけ手前に出して、左の木で見つけてもらう
-            SetForegroundWindow(main);
+            Win32Windows.SetForeground(main);
             return new(null, string.Empty, stopReason, Searched: false);
         }
 
@@ -351,7 +320,7 @@ public static class UnityProjectTab
             }
         }
 
-        SetForegroundWindow(main);
+        Win32Windows.SetForeground(main);
         return new(null, where, stopReason);
     }
 
@@ -433,8 +402,7 @@ public static class UnityProjectTab
 
         EnumWindows((window, _) =>
         {
-            GetWindowThreadProcessId(window, out var owner);
-            if (owner == processId)
+            if (Win32Windows.ProcessOf(window) == processId)
             {
                 Check(window, IntPtr.Zero);
                 EnumChildWindows(window, Check, IntPtr.Zero);
@@ -447,12 +415,7 @@ public static class UnityProjectTab
     }
 
     /// <summary>Unity の画面のスレッドで、いまフォーカスを持っている窓。別のプロセスでも OS が答える。</summary>
-    private static IntPtr FocusOf(IntPtr window)
-    {
-        var thread = GetWindowThreadProcessId(window, out _);
-        var info = new GuiThreadInfo { Size = Marshal.SizeOf<GuiThreadInfo>() };
-        return GetGUIThreadInfo(thread, ref info) ? info.Focus : IntPtr.Zero;
-    }
+    private static IntPtr FocusOf(IntPtr window) => Win32Windows.FocusOf(window);
 
     private static void Key(IntPtr window, uint virtualKey)
     {

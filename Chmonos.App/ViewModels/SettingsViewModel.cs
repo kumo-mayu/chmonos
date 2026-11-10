@@ -186,7 +186,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         Folders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FoldersCountText));
 
         AddFolderCommand = new RelayCommand(AddFolder);
-        OpenRootCommand = new RelayCommand(OpenRoot);
+        OpenRootCommand = new RelayCommand(() => OpenRootAsync().Forget());
         ChangeRootCommand = new RelayCommand(() => ChangeRootAsync().Forget(), () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
         // 門は1つなので、移動とも重ねない（重ねた方は門の前で待つだけで、押した顔をして進まない）。
@@ -1229,7 +1229,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             + "削除した控えは元に戻せません。前のバージョンの Chmonos に戻すときに使うものです。",
             "控えを削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
         if (answer != System.Windows.MessageBoxResult.OK)
         {
@@ -1715,7 +1715,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 + "削除した記録は元に戻せません。",
                 "見つからないファイルの記録を削除",
                 System.Windows.MessageBoxButton.OKCancel,
-                System.Windows.MessageBoxImage.Warning,
+                System.Windows.MessageBoxImage.Question,
                 System.Windows.MessageBoxResult.Cancel);
             if (answer != System.Windows.MessageBoxResult.OK)
             {
@@ -2516,17 +2516,26 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         return dialog.ShowDialog() == true ? dialog.FolderName : null;
     }
 
-    private void Restart()
+    /// <summary>
+    /// 開き直して、次の保存先で動かす（保存先の「今すぐ再起動」と、運び終えた後の開き直しの1か所）。
+    /// 開き直せなくても閉じる：選んだ保存先は次の起動から効くので、閉じて手で開いてもらえば足りる。
+    /// 運んだ後は古い場所で続けると書いた物が消える。前は「今すぐ再起動」だけ、開き直せないと黙って何もしなかった
+    /// </summary>
+    private static void Relaunch(string title)
     {
-        var exe = Environment.ProcessPath;
-        if (exe is null)
+        if (!Services.Shell.StartSelf())
         {
-            return;
+            Services.Notice.Show(
+                "自動で開き直せませんでした。アプリを閉じます。もう一度開いてください。",
+                title,
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
         }
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
         System.Windows.Application.Current.Shutdown();
     }
+
+    private void Restart() => Relaunch("今すぐ再起動");
 
     /// <summary>
     /// 保存先を運ぶ前の片付け。運び終えると開き直すので（ユーザ判断 2026-09-23）、
@@ -2571,35 +2580,16 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
 
-        var exe = Environment.ProcessPath;
-        if (exe is null)
-        {
-            // 開き直す手立てが無い。古い場所で続けさせると書いた物が消えるので、閉じて手で開いてもらう
-            Services.Notice.Show(
-                "自動で開き直せませんでした。アプリを閉じます。もう一度開いてください。",
-                title,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-        }
-        else
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
-        }
-
-        System.Windows.Application.Current.Shutdown();
+        Relaunch(title);
     }
 
-    private void OpenRoot()
+    /// <summary>
+    /// 保存先をエクスプローラで開く。開き方はアプリで1つ（<see cref="Services.Shell"/>・ui-rules.md）。
+    /// 保存先が無いときに親を開くと別の場所を保存先と見誤るので、在るときだけ開く
+    /// </summary>
+    private async Task OpenRootAsync()
     {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = RootPath,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        if (!await Services.Shell.TryRevealExactAsync(RootPath))
         {
             DataStatus = "フォルダを開けませんでした。";
         }

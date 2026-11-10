@@ -175,6 +175,7 @@
         -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+          <StackPanel>
             <Border BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
                 <Border.Style>
                     <!-- 線の色は変わった所の中身で決める（足しただけ＝緑・消しただけ＝赤・それ以外＝橙。メモ53②） -->
@@ -267,6 +268,14 @@
                             ToolTip="印を消して、通知も既読にします。" />
                 </Grid>
             </Border>
+            <!--
+                「既読にする」の失敗（ui-empty-and-errors.md「知らせの置き場」。前は窓だった）。
+                帯は1行の高さに決めてある（ユーザ指示 2026-10-03）ので、出ていない間は場所を取らない。
+                書けなかったときだけの知らせで、出るのは押した直後（本文が動いても、押した人が何が起きたか分かる）
+            -->
+            <controls:AreaNoticeLine DataContext="{Binding ChangesNotice}" Margin="33,-6,20,6"
+                                     Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+          </StackPanel>
         </Border>
 
         <!--

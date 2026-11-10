@@ -13,10 +13,8 @@ namespace Chmonos.App.Services;
 internal static class FrontNotice
 {
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr processId);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint attach, uint to, bool doAttach);
-    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr window);
 
     public static MessageBoxResult Show(
@@ -53,12 +51,12 @@ internal static class FrontNotice
         }
 
         var me = GetCurrentThreadId();
-        var them = GetWindowThreadProcessId(foreground, IntPtr.Zero);
+        var them = Win32Windows.ThreadOf(foreground);
         var attached = them != 0 && them != me && AttachThreadInput(me, them, true);
         try
         {
             BringWindowToTop(handle);
-            SetForegroundWindow(handle);
+            Win32Windows.SetForeground(handle);
             owner.Activate();
         }
         finally

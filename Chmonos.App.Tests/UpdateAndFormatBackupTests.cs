@@ -123,6 +123,10 @@ public class UpdateAndFormatBackupTests
         // 窓で「やめる」と消さない（既定の答え）
         settings.DeleteFormatBackupsCommand.Execute(null);
         Assert.Contains("元に戻せません", app.Notices.Last().Text);
+
+        // 人が押した操作の確認は Question。戻せないことは既定のボタンをキャンセルに倒して止める（ui-dialogs.md D9）
+        Assert.Equal(MessageBoxImage.Question, app.Notices.Last().Icon);
+        Assert.Equal(MessageBoxResult.Cancel, app.Notices.Last().DefaultResult);
         Assert.True(Directory.Exists(Path.Combine(root, StoreFormat.BackupsDirName)));
 
         app.Answer = _ => MessageBoxResult.OK;

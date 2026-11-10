@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace Chmonos.App.Services;
 
@@ -29,15 +28,6 @@ public enum AppOpenResult
 /// </summary>
 internal static class DesktopAppLaunch
 {
-    /// <summary><c>SW_RESTORE</c>。最小化されていても出す。</summary>
-    private const int Restore = 9;
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr window);
-
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr window, int command);
-
     /// <summary>
     /// 開く。既に開いていれば手前に出す。
     ///
@@ -63,8 +53,8 @@ internal static class DesktopAppLaunch
                             continue;
                         }
 
-                        ShowWindow(window, Restore);
-                        return SetForegroundWindow(window)
+                        // 最小化のときだけ戻す（最大化した VCC を手前に出すだけで小さくしない）
+                        return Win32Windows.BringToFront(window)
                             ? AppOpenResult.BroughtToFront
                             : AppOpenResult.AlreadyOpenNotFront;
                     }

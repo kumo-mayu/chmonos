@@ -100,7 +100,7 @@ internal sealed class TrayIcon : IDisposable
             SetMenuDefaultItem(menu, OpenCommand, 0);
 
             // 前に出しておかないと、メニューの外を押しても閉じない（Windows の決まり）
-            SetForegroundWindow(_source.Handle);
+            Win32Windows.SetForeground(_source.Handle);
             GetCursorPos(out var point);
             var chosen = TrackPopupMenuEx(menu, TpmReturnCmd | TpmRightButton, point.X, point.Y, _source.Handle, IntPtr.Zero);
             switch (chosen)
@@ -209,9 +209,6 @@ internal sealed class TrayIcon : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool DestroyMenu(IntPtr menu);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr hwnd);
 
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out Point point);

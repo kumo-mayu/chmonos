@@ -235,7 +235,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>IDのコピー・IDを変えるの結果（IDの行の下）。</summary>
     public AreaNotice IdNotice { get; } = new();
 
-    /// <summary>外したファイルを戻すの失敗（ファイルの欄の下）。</summary>
+    /// <summary>外したファイルを戻す・一時的に展開して開くの失敗（ファイルの欄の下）。</summary>
     public AreaNotice FilesNotice { get; } = new();
 
     /// <summary>共通素体を足す・対応アバターの保存の失敗（対応アバターの欄の下）。</summary>
@@ -246,6 +246,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     /// <summary>「検索から除く」の保存の失敗（そのチェックの下）。</summary>
     public AreaNotice VisibilityNotice { get; } = new();
+
+    /// <summary>変わったところの帯の「既読にする」の失敗（帯の下）。</summary>
+    public AreaNotice ChangesNotice { get; } = new();
 
     private async Task RefreshAsync()
     {
@@ -1113,7 +1116,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     private string _memoDraft = string.Empty;
     private string _memoSaveText = string.Empty;
-    private Debounced? _saveMemo;
+    private MemoAutoSave<string>? _memoSave;
 
     /// <summary>
     /// 商品のメモ。**ここで書けて、押さずに残る**（ユーザ判断 2026-09-20・I9）。
@@ -1133,7 +1136,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             {
                 // 打っている間は待ち、止まってから1回書く（ほかのメモと同じ 0.8 秒）
                 MemoSaveText = "書いています…";
-                (_saveMemo ??= new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync)).Request();
+                (_memoSave ??= new MemoAutoSave<string>(SaveMemoAsync)).Edited(Item.Id, _memoDraft);
             }
         }
     }
@@ -1156,11 +1159,12 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public bool HasMemoSaveText => MemoSaveText.Length > 0;
 
-    private async Task SaveMemoAsync()
+    /// <summary>打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。この画面は商品1つの物なので、持ち主はいつも同じ商品。</summary>
+    private async Task SaveMemoAsync(string itemId, string text)
     {
-        var memo = _memoDraft.Trim();
+        var memo = text.Trim();
         var result = await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(
-            Item.Id,
+            itemId,
             Item.Local with { Memo = memo.Length == 0 ? null : memo },
             LocalOwners.ItemPageMemo));
 
@@ -1209,7 +1213,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前に呼ぶ。I10：打ってすぐ閉じると落ちていた）。</summary>
-    public Task FlushPendingWritesAsync() => _saveMemo?.RunNowAsync() ?? Task.CompletedTask;
+    public Task FlushPendingWritesAsync() => _memoSave?.FlushAsync() ?? Task.CompletedTask;
 
     public IReadOnlyList<AttributeBar> Attributes { get; private set; } = [];
 
@@ -1233,12 +1237,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         get
         {
             var acquired = AcquiredDateResolver.Resolve(Item);
-            if (acquired.Value is not { } date)
-            {
-                return "-";
-            }
-
-            return acquired.IsFallback ? $"{date:yyyy-MM-dd}（ファイルの日付）" : date.ToString("yyyy-MM-dd");
+            return Core.Models.DisplayText.AcquiredDate(acquired.Value, acquired.IsFallback);
         }
     }
 

@@ -181,4 +181,40 @@ public static class DisplayText
         var child = childName.Trim();
         return string.IsNullOrWhiteSpace(parentName) ? child : $"{parentName.Trim()} / {child}";
     }
+
+    /// <summary>日付が無いときに出す印。商品ページ・ショップ・ショップの一覧で揃える（前は「-」「—」「入手日なし」に割れていた）。</summary>
+    public const string NoDate = "—";
+
+    /// <summary>
+    /// 入手日。ファイルの日付で代えた日は、<paramref name="markFallback"/> のときそうと書く。
+    /// 手で入れた日と同じ顔で出すと、記録として信用できなくなる。
+    /// 印を文の外（※と吹き出し）で付ける所は <paramref name="markFallback"/> を偽にする
+    /// </summary>
+    public static string AcquiredDate(DateOnly? date, bool isFallback, bool markFallback = true)
+    {
+        if (date is not { } value)
+        {
+            return NoDate;
+        }
+
+        var text = value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        return isFallback && markFallback ? text + "（ファイルの日付）" : text;
+    }
+
+    /// <summary>
+    /// フォルダ（Unity のプロジェクトを含む）の名前。パスの最後の部分を出す。
+    /// 末尾の区切りは「\」「/」どちらも外す（記録には両方が混ざる）。
+    /// ドライブの直下（<c>E:\</c>）は名前が空になるので、パスのまま返す——空の「」を出すと何を指すのか分からない。
+    /// パスが無いときは空
+    /// </summary>
+    public static string FolderName(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
+        return name.Length > 0 ? name : path;
+    }
 }

@@ -482,8 +482,9 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        // 展開して開く処理はカードの右クリックと共用（ItemFileActions）
-        await ItemFileActions.UnpackAndOpenAsync(_services, zip);
+        // 展開して開く処理はカードの右クリックと共用（ItemFileActions）。失敗は押した行のあるファイルの欄の下へ
+        FilesNotice.Clear();
+        await ItemFileActions.UnpackAndOpenAsync(_services, zip, (text, failed) => FilesNotice.Set(text, failed));
     }
 
     /// <summary>
@@ -503,7 +504,7 @@ public sealed partial class ItemViewModel
         // 行を出した後で外付けを外すと、記録の場所も親フォルダも無く、押しても黙って何も起きなかった
         if (!await Shell.TryRevealAsync(path))
         {
-            TellNotFound(Path.GetFileName(path.TrimEnd('\\', '/')), "エクスプローラで開く");
+            TellNotFound(Core.Models.DisplayText.FolderName(path), "エクスプローラで開く");
         }
 
         // 開けても、近くのフォルダを開いただけでファイルは無いことがある（Shell.TryRevealAsync は親を開く）。

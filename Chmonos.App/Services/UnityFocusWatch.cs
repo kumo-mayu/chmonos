@@ -42,50 +42,15 @@ public static class UnityFocusWatch
 
     private const string ProjectBrowserName = "UnityEditor.ProjectBrowser";
     private const string GuiViewClass = "UnityGUIViewWndClass";
-    private const string ContainerClass = "UnityContainerWndClass";
+    private const string ContainerClass = Win32Windows.UnityContainerClass;
 
     private delegate void WinEventProc(IntPtr hook, uint eventType, IntPtr window, int objectId, int childId, uint thread, uint time);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Rect
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct GuiThreadInfo
-    {
-        public int Size;
-        public int Flags;
-        public IntPtr Active;
-        public IntPtr Focus;
-        public IntPtr Capture;
-        public IntPtr MenuOwner;
-        public IntPtr MoveSize;
-        public IntPtr Caret;
-        public Rect CaretRect;
-    }
 
     [DllImport("user32.dll")]
     private static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc callback, uint processId, uint threadId, uint flags);
 
     [DllImport("user32.dll")]
     private static extern bool UnhookWinEvent(IntPtr hook);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern int GetClassName(IntPtr window, StringBuilder text, int max);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
 
     /// <summary>知らせの受け口。捨てられると知らせの途中で落ちるので、見張っている間は持っておく。</summary>
     private static WinEventProc? s_callback;
@@ -221,11 +186,10 @@ public static class UnityFocusWatch
                         continue;
                     }
 
-                    var thread = GetWindowThreadProcessId(process.MainWindowHandle, out _);
-                    var info = new GuiThreadInfo { Size = Marshal.SizeOf<GuiThreadInfo>() };
-                    if (GetGUIThreadInfo(thread, ref info) && info.Focus != IntPtr.Zero && IsProjectBrowser(info.Focus))
+                    var focus = Win32Windows.FocusOf(process.MainWindowHandle);
+                    if (focus != IntPtr.Zero && IsProjectBrowser(focus))
                     {
-                        LastByProcess[process.Id] = info.Focus;
+                        LastByProcess[process.Id] = focus;
                     }
                 }
             }
@@ -240,22 +204,9 @@ public static class UnityFocusWatch
     /// <c>UnityEditor.ConsoleWindow</c> に変わる・§13-6）
     /// </summary>
     internal static bool IsProjectBrowser(IntPtr window)
-    {
-        var name = new StringBuilder(64);
-        GetWindowText(window, name, name.Capacity);
-        return name.ToString() == ProjectBrowserName && ClassOf(window) == GuiViewClass;
-    }
+        => Win32Windows.TitleOf(window) == ProjectBrowserName && ClassOf(window) == GuiViewClass;
 
-    private static string ClassOf(IntPtr window)
-    {
-        var className = new StringBuilder(64);
-        GetClassName(window, className, className.Capacity);
-        return className.ToString();
-    }
+    private static string ClassOf(IntPtr window) => Win32Windows.ClassOf(window);
 
-    private static int ProcessOf(IntPtr window)
-    {
-        GetWindowThreadProcessId(window, out var processId);
-        return (int)processId;
-    }
+    private static int ProcessOf(IntPtr window) => (int)Win32Windows.ProcessOf(window);
 }

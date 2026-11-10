@@ -165,7 +165,7 @@ public sealed class HubModificationRow(string key, bool openByDefault, bool forc
 
     public string? ProjectPath => Record.UnityProject;
 
-    public string ProjectName => ModificationHubViewModel.ProjectNameOf(Record.UnityProject);
+    public string ProjectName => Core.Models.DisplayText.FolderName(Record.UnityProject);
 
     /// <summary>アバターの見方の中では出さない（見出しがそのアバター）。</summary>
     public bool ShowsAvatar { get; init; }
@@ -333,8 +333,6 @@ public sealed class HubProjectDetail : IHubNoticeTarget
 
     public string OpenText => IsOpen ? "開いています" : "閉じています";
 
-    public string LastWriteText => Candidate.LastWrite is { } time ? $"最後に触った日 {time.ToLocalTime():yyyy-MM-dd}" : string.Empty;
-
     // ---- 右ビューの「項目：値」の行（ユーザ指示 2026-09-14：版・開いているか・一覧の名前が、内部の言い方のまま札で並んでいた） ----
 
     /// <summary>状態の値。フォルダが無ければそれを言う（開いている・閉じているより先に困ること）。</summary>
@@ -466,7 +464,7 @@ public sealed class HubItemDetail : ViewModelBase, IHubNoticeTarget
     public bool IsMissing => Row.IsMissing;
 
     public string ProjectText => Row.ProjectPath is { } path
-        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{ModificationHubViewModel.ProjectNameOf(path)}」を対象にします。"
+        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{Core.Models.DisplayText.FolderName(path)}」を対象にします。"
         : "この改変はUnityプロジェクトに紐付いていないので、「Unityで選択」は使えません。改変を開いて紐付けてください。";
 
     public string? ThumbnailPath { get; init; }
@@ -591,7 +589,7 @@ internal sealed class ModificationRowBuilder(
     private static string? FolderNameOf(ModificationMember member, ItemRecord? item)
         => member.Package is { } package
             && item?.Local.LocalFolders.FirstOrDefault(folder => (folder.UnityPackages ?? []).Contains(package, StringComparer.Ordinal)) is { } owner
-            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(owner.Path))
+            ? Core.Models.DisplayText.FolderName(owner.Path)
             : null;
 
     public string? AvatarIconPath(string id)

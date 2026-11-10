@@ -190,8 +190,6 @@ public sealed class NotificationRow : ViewModelBase
 
     public event Action<NotificationRow>? ReadChanged;
 
-    public RelayCommand? ToggleReadCommand { get; set; }
-
     public RelayCommand? OpenItemCommand { get; set; }
 }
 
@@ -601,7 +599,6 @@ public sealed class InboxViewModel : ViewModelBase
         };
 
         row.ReadChanged += OnRowReadChanged;
-        row.ToggleReadCommand = new RelayCommand(() => row.IsRead = !row.IsRead);
         row.OpenItemCommand = new RelayCommand(() => OpenItemAsync(row.ItemId).Forget(), () => row.HasItem);
         row.ActionCommand = new RelayCommand(() => ActAsync(row).Forget(), () => row.HasAction);
 

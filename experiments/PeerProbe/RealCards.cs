@@ -75,4 +75,22 @@ public sealed class ProbeHost : IItemCardHost
         ProbeLog.Lines.Add($"入れ物の画面: お気に入りを切り替える（{card.Name}）");
         return Task.CompletedTask;
     }
+
+    // 右クリックのメニューは開かない（見えない窓からでもポップアップは画面に出る）ので、押されたことだけ控える
+    public CardMenuCommands MenuCommands { get; } = new()
+    {
+        OpenBoothCommand = Logged("BOOTHで開く"),
+        CopyLinkCommand = Logged("リンクをコピー"),
+        OpenShopCommand = Logged("ショップを開く"),
+        EditItemCommand = Logged("編集画面を開く"),
+        CardAddToModificationCommand = Logged("改変に追加"),
+        RevealCommand = Logged("エクスプローラで開く"),
+        CardUnpackCommand = Logged("一時的に展開して開く"),
+        CardSendToUnityCommand = Logged("Unityへ送る"),
+        CardSendToUnityWithRecordCommand = Logged("改変に追加して送る"),
+        CardSelectInUnityCommand = Logged("Unityで選択"),
+        HideItemCommand = Logged("非表示にする"),
+    };
+
+    private static RelayCommand Logged(string name) => new(() => ProbeLog.Lines.Add($"入れ物の画面: メニューの{name}"));
 }

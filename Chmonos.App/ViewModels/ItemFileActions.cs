@@ -109,7 +109,7 @@ internal static class ItemFileActions
             .Concat(item.Local.LocalFolders
                 .Select(folder => services.Volumes.CurrentOf(folder))
                 .Where(DiskCheck.FolderExists)
-                .Select(folder => new Target(folder, new ListChoiceItem($"{Path.GetFileName(folder.TrimEnd('\\', '/'))}（フォルダ）", folder))))
+                .Select(folder => new Target(folder, new ListChoiceItem($"{Core.Models.DisplayText.FolderName(folder)}（フォルダ）", folder))))
             .ToList());
 
         // 窓を出す前に書く（窓の間に検索の印が古いまま残らないように）
@@ -164,7 +164,11 @@ internal static class ItemFileActions
     /// zip を一時フォルダへ展開してエクスプローラで開く（#56）。unitypackage でない配布物（テクスチャ等）を Unity に入れるため。
     /// アプリを閉じると消す
     /// </summary>
-    public static async Task UnpackAndOpenAsync(AppServiceContainer services, string zip)
+    /// <param name="tell">
+    /// 失敗の言い先。押した行のある画面（商品ページのファイルの欄）はその下へ出す（ui-empty-and-errors.md「知らせの置き場」）。
+    /// 行を持たないカードの右クリックは渡さず、窓で言う
+    /// </param>
+    public static async Task UnpackAndOpenAsync(AppServiceContainer services, string zip, NoticeSink? tell = null)
     {
         // 展開の途中の2度押しは弾く（大容量の確かめ #3・2026-09-30。要確認の「商品情報を取り直す」と同じ守り・40b3863）。
         // 1本目が終われば開くので、2本目まで通すとエクスプローラが2つ開く。
@@ -221,17 +225,17 @@ internal static class ItemFileActions
 
         if (result is CommandResult.Unpacked unpacked)
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo { FileName = unpacked.Folder, UseShellExecute = true });
-            }
-            catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-            {
-                // 開けなくてもアプリは動き続ける
-            }
+            // 開き方はアプリで1つ（Shell。ui-rules.md）。開けなくてもアプリは動き続ける
+            Shell.Reveal(unpacked.Folder);
         }
         else if (result is CommandResult.Failed failed)
         {
+            if (tell is not null)
+            {
+                tell(failed.Message, failed: true);
+                return;
+            }
+
             Services.Notice.Show(failed.Message, "一時的に展開して開く",
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         }

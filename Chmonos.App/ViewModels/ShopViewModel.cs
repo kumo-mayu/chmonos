@@ -23,7 +23,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     private List<ItemCardViewModel> _all = [];
     private bool _isFavorite;
     private string _memo = string.Empty;
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<string> _memoSave;
 
     public ShopViewModel(
         ShopSummary shop,
@@ -42,7 +42,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
         // カードかリストか（ユーザ指示 2026-09-15：検索画面と同じ見方に）。どちらで出すかはショップ画面として覚える
         _isListMode = ItemListMode.IsList(services, "shop");
-        HideItemCommand = new RelayCommand(parameter =>
+        _hideItem = new RelayCommand(parameter =>
         {
             if (parameter is ItemCardViewModel card)
             {
@@ -81,7 +81,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         ToggleFavoriteCommand = new RelayCommand(() => ToggleFavoriteAsync().Forget());
 
         // 打つたびに書かず、止まってから1回（画面を離れても待ちは残るので、書き漏れない）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memoSave = new MemoAutoSave<string>(SaveMemoAsync);
 
         ReloadAsync().Forget();
     }
@@ -119,7 +119,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             {
                 OnPropertyChanged(nameof(MemoFirstLine));
                 OnPropertyChanged(nameof(HasMemoLine));
-                _saveMemo.Request();
+                _memoSave.Edited(Shop.Subdomain, _memo);
             }
         }
     }
@@ -158,7 +158,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
+    public Task FlushPendingWritesAsync() => _memoSave.FlushAsync();
 
     private async Task ToggleFavoriteAsync()
     {
@@ -167,9 +167,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         await SaveNoteAsync(current => current with { IsFavorite = next });
     }
 
-    private Task SaveMemoAsync()
+    /// <summary>打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。この画面はショップ1つの物なので、持ち主はいつも同じ店。</summary>
+    private Task SaveMemoAsync(string subdomain, string memo)
     {
-        var memo = _memo;
         return SaveNoteAsync(current => current with { Memo = string.IsNullOrWhiteSpace(memo) ? null : memo });
     }
 
@@ -320,8 +320,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public bool ShowsBack => _main.CanGoBack;
 
     /// <summary>
-    /// BOOTH のショップページを開く。カードの右クリックの「BOOTHで開く」（商品ページ）は同じ画面から
-    /// OpenBoothCommand の名前で引くので、名前を分けてある
+    /// BOOTH のショップページを開く。カードの右クリックの「BOOTHで開く」（商品ページ。<see cref="MenuCommands"/>）とは別の物なので、
+    /// 名前を分けてある
     /// </summary>
     public RelayCommand OpenShopPageCommand { get; }
 
@@ -611,7 +611,16 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     public string SpentText => $"¥{Shop.SpentYen:N0}";
 
-    public string LastAcquiredText => Shop.LastAcquiredAt?.ToString("yyyy-MM-dd") ?? "—";
+    // ファイルの日付で代えた日は、文の外（※と吹き出し）で示す（ショップの一覧と同じ）
+    public string LastAcquiredText => Core.Models.DisplayText.AcquiredDate(Shop.LastAcquiredAt, Shop.LastAcquiredIsFallback, markFallback: false);
+
+    /// <summary>
+    /// ファイルの日付で代えた日は※を付ける。手入力と同じ顔で出さない（ショップの一覧・カードの入手日と同じ。
+    /// 前は上の段の「最終購入」だけ印が無かった）
+    /// </summary>
+    public bool LastAcquiredIsFallback => Shop.LastAcquiredIsFallback;
+
+    public string LastAcquiredTooltip => ShopCardViewModel.FallbackTooltip(Shop.LastAcquiredIsFallback);
 
     public string SizeText => Core.Models.DisplayText.Size(_totalBytes);
 
@@ -677,49 +686,22 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
     }
 
-    // 右クリックのメニューはカードの Tag（＝この画面）から同じ名前で引く。中身は検索画面の物をそのまま使う
-    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+    /// <summary>
+    /// カードの右クリックのメニュー。「開く」「Unity」も含めて検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）。差し替えるのは2つ：
+    /// 「改変に追加…」は、選んでいる最中に選んだ物の上で押したら選んだ全部（帯の「改変に追加…」と同じ）。
+    /// 「非表示にする」は、この画面の一覧からもその場で外す
+    /// </summary>
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search) with
+    {
+        CardAddToModificationCommand = new RelayCommand(
+            parameter => ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(SearchViewModel.AsCard(parameter), SelectedCards())).Forget(),
+            parameter => SearchViewModel.AsCard(parameter) is not null),
+        HideItemCommand = _hideItem,
+    };
 
-    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+    private CardMenuCommands? _menuCommands;
 
-    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
-
-    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
-
-    public RelayCommand RevealCommand => _main.Search.RevealCommand;
-
-
-    // 右クリックの「開く」「Unity」は検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）
-
-    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
-
-
-    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
-
-
-    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
-
-
-
-    /// <summary>右クリックの「改変に追加…」。選んでいる最中に選んだ物の上で押したら、選んだ全部（帯の「改変に追加…」と同じ）。</summary>
-
-
-    public RelayCommand CardAddToModificationCommand => _cardAddToModification ??= new RelayCommand(
-
-
-        parameter => ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(SearchViewModel.AsCard(parameter), SelectedCards())).Forget(),
-
-
-        parameter => SearchViewModel.AsCard(parameter) is not null);
-
-
-
-    private RelayCommand? _cardAddToModification;
-
-
-    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
-
-    public RelayCommand HideItemCommand { get; }
+    private readonly RelayCommand _hideItem;
 
     // ---- カードかリストか（検索画面・フォルダビューと同じ作り） ----
 
@@ -1120,15 +1102,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         Shell.OpenUrl(Core.Booth.BoothLinks.ShopPage(Shop.Url));
     }
 
-    /// <summary>
-    /// ファイルの日付で代えた入手日は、そうと書く。
-    /// 手で入れた日と同じ顔で出すと、記録として信用できなくなる。
-    /// </summary>
-    private static string AcquiredText(ShopItem entry) => entry.AcquiredAt is not { } date
-        ? "入手日なし"
-        : entry.AcquiredIsFallback
-            ? date.ToString("yyyy-MM-dd") + "（ファイルの日付）"
-            : date.ToString("yyyy-MM-dd");
+    /// <summary>カードの2行目の入手日。ファイルの日付で代えた日は文の中でそうと書く（カードには吹き出しの場所が無い）。</summary>
+    private static string AcquiredText(ShopItem entry) => Core.Models.DisplayText.AcquiredDate(entry.AcquiredAt, entry.AcquiredIsFallback);
 
 }
 

@@ -109,7 +109,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
 
         // メモは押さずに残す（タグの管理・ショップ・アバターと揃える。ユーザ指示 2026-09-19）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memo = new MemoAutoSave<AttributeMasterRow>(SaveMemoAsync);
         ToggleDefaultCommand = new RelayCommand(() => ToggleDefaultAsync().Forget(), () => Selected is not null);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
@@ -564,36 +564,17 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
     public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
 
-    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
-
-    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
-
-    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
-
-    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
-
-    public RelayCommand RevealCommand => _main.Search.RevealCommand;
-
-    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
-
-    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
-
-    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
-
-
-    /// <summary>右クリックの「改変に追加…」。選びはこの画面に無いので、押した1件だけ（検索の画面と同じ命令）。</summary>
-
-    public RelayCommand CardAddToModificationCommand => _main.Search.CardAddToModificationCommand;
-
-    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
-
-    private RelayCommand? _hideItem;
-
     /// <summary>
-    /// 非表示にする。書くのは検索画面と同じ命令で、検索の写しを読み直し終えてからこの画面を組み直す
+    /// 右クリックのメニューの命令。「改変に追加…」は選びがこの画面に無いので押した1件だけ（検索の命令のまま）。
+    /// 非表示にするだけ差し替える：書くのは検索画面と同じ命令で、検索の写しを読み直し終えてからこの画面を組み直す
     /// （中の商品は検索の写しから引くので、先に組み直すと古い商品のまま残る）
     /// </summary>
-    public RelayCommand HideItemCommand => _hideItem ??= new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search) with
+    {
+        HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget()),
+    };
+
+    private CardMenuCommands? _menuCommands;
 
     private async Task HideItemAsync(ItemCardViewModel? card)
     {
@@ -627,13 +608,11 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
 
     public RelayCommand DeleteCommand { get; }
 
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<AttributeMasterRow> _memo;
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
+    public Task FlushPendingWritesAsync() => _memo.FlushAsync();
 
-    private bool _memoPending;
-    private bool _swappingMemo;
     private bool _rebuildingList;
 
     /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
@@ -658,7 +637,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             }
 
             // 待っているメモは、移る前に今の属性へ書き切る。移ってからだと、移った先の名前で書いてしまう
-            FlushMemo();
+            _memo.Flush();
 
             if (_selected is not null)
             {
@@ -683,9 +662,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             }
 
             // 選び直しで欄を入れ替えるときは、自動保存を走らせない
-            _swappingMemo = true;
-            MemoDraft = _selected?.Memo ?? string.Empty;
-            _swappingMemo = false;
+            _memo.Replace(() => MemoDraft = _selected?.Memo ?? string.Empty);
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelection));
@@ -814,12 +791,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             if (SetField(ref _memoDraft, value))
             {
                 OnPropertyChanged(nameof(MemoChanged));
-
-                if (!_swappingMemo)
-                {
-                    _memoPending = true;
-                    _saveMemo.Request();
-                }
+                _memo.Edited(Selected, value);
             }
         }
     }
@@ -856,11 +828,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
     public async Task ReloadAsync()
     {
         // 古いファイルを読まないよう、待っているメモを書き終えてから読む
-        if (_memoPending)
-        {
-            _saveMemo.Cancel();
-            await SaveMemoAsync();
-        }
+        await _memo.FlushAsync();
 
         // 名前の変更・統合・削除の後は、行の名前や値が変わっているかもしれないので、使い回しの控えを捨てる
         _rowCache.Clear();
@@ -1259,28 +1227,10 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
         }
     }
 
-    /// <summary>待っているメモを今書く。選び直す前に呼ぶ。</summary>
-    private void FlushMemo()
+    /// <summary>打った時点の属性へ書く（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
+    private async Task SaveMemoAsync(AttributeMasterRow row, string memo)
     {
-        if (!_memoPending)
-        {
-            return;
-        }
-
-        _saveMemo.Cancel();
-        SaveMemoAsync().Forget();
-    }
-
-    private async Task SaveMemoAsync()
-    {
-        _memoPending = false;
-        if (Selected is not { } row)
-        {
-            return;
-        }
-
         // 読み直すと打っている途中の欄が戻るので読み直さず、行の値だけ書き換える（タグの管理と同じ）
-        var memo = MemoDraft;
         row.Memo = memo;
         await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeMemo(row.Name, memo));
     }

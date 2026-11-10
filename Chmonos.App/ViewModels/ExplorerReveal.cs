@@ -46,10 +46,8 @@ internal static class ExplorerReveal
 
     private static void NotFound(string path)
     {
-        // ドライブの根（E:\）は名前が空になるので、道のまま言う
-        var name = Path.GetFileName(path.TrimEnd('\\', '/'));
         Notice.Show(
-            $"「{(name.Length > 0 ? name : path)}」が、記録にある場所に見つかりません。\n\n"
+            $"「{Core.Models.DisplayText.FolderName(path)}」が、記録にある場所に見つかりません。\n\n"
             + "外付けのドライブなら、つないでからもう一度お試しください。",
             "エクスプローラで開く",
             System.Windows.MessageBoxButton.OK,

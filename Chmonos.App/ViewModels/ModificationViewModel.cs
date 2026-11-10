@@ -226,7 +226,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         _memoInput = record.Memo ?? string.Empty;
         _blueprintInput = record.BlueprintId ?? string.Empty;
         _saveName = new Debounced(TimeSpan.FromMilliseconds(800), SaveNameAsync);
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memo = new MemoAutoSave<string>(SaveMemoAsync);
         _saveBlueprint = new Debounced(TimeSpan.FromMilliseconds(800), SaveBlueprintAsync);
         ChangeAvatarCommand = new RelayCommand(() => ChangeAvatarAsync().Forget());
 
@@ -641,7 +641,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var linkedName = Record.UnityProject is { } project
-            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(project))
+            ? Core.Models.DisplayText.FolderName(project)
             : null;
 
         // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
@@ -876,39 +876,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
 
-    // カードの右クリックのメニュー（ItemCardResources の CardMenu が Tag から名前で引く）
-    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+    /// <summary>
+    /// カードの右クリックのメニュー。「開く」「Unity」も含めて検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）。
+    /// 「改変に追加…」は選びがこの画面に無いので押した1件だけ
+    /// </summary>
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search);
 
-    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
-
-    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
-
-    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
-
-    public RelayCommand RevealCommand => _main.Search.RevealCommand;
-
-
-    // 右クリックの「開く」「Unity」は検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）
-
-    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
-
-
-    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
-
-
-    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
-
-
-
-    /// <summary>右クリックの「改変に追加…」。選びはこの画面に無いので、押した1件だけ（検索の画面と同じ命令）。</summary>
-
-
-    public RelayCommand CardAddToModificationCommand => _main.Search.CardAddToModificationCommand;
-
-
-    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
-
-    public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
+    private CardMenuCommands? _menuCommands;
 
     public bool HasMembers => Members.Count > 0;
 
@@ -1157,12 +1131,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     // 名前・メモ・blueprint ID は押さずに残す（ユーザ指示 2026-09-19：タグ・属性・アバター・ショップのメモと揃える）。
     // 打ち止めてから 0.8 秒で書く。待ちの間に別の改変へ移っても、この画面の値とこの改変の ID で書くので取り違えない
     private readonly Debounced _saveName;
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<string> _memo;
     private readonly Debounced _saveBlueprint;
 
     /// <summary>待っている名前・メモ・blueprint ID を今書く（画面を離れる前・閉じる前）。</summary>
     public Task FlushPendingWritesAsync()
-        => Task.WhenAll(_saveName.RunNowAsync(), _saveMemo.RunNowAsync(), _saveBlueprint.RunNowAsync());
+        => Task.WhenAll(_saveName.RunNowAsync(), _memo.FlushAsync(), _saveBlueprint.RunNowAsync());
 
     public string NameInput
     {
@@ -1191,7 +1165,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             if (SetField(ref _memoInput, value))
             {
                 OnPropertyChanged(nameof(MemoChanged));
-                _saveMemo.Request();
+                _memo.Edited(Record.Id, value);
             }
         }
     }
@@ -1278,9 +1252,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public bool HasProject => Record.HasUnityProject;
 
     /// <summary>紐付けたプロジェクトの名前。フォルダ名で出す（パスは長すぎる）。</summary>
-    public string ProjectName => Record.UnityProject is { } path
-        ? Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-        : string.Empty;
+    public string ProjectName => Core.Models.DisplayText.FolderName(Record.UnityProject);
 
     public string ProjectPath => Record.UnityProject ?? string.Empty;
 
@@ -1680,16 +1652,16 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await RefreshRecordAsync();
     }
 
-    private async Task SaveMemoAsync()
+    /// <summary>打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。この画面は改変1つの物なので、持ち主はいつも同じ改変。</summary>
+    private async Task SaveMemoAsync(string modificationId, string memo)
     {
-        if (!MemoChanged)
+        if (memo == (Record.Memo ?? string.Empty))
         {
             return;
         }
 
-        var memo = MemoInput;
         var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.SetModificationMemo(Record.Id, memo));
+            new UiCommand.SetModificationMemo(modificationId, memo));
 
         MemoNotice.Set(result is CommandResult.Failed failed ? failed.Message : string.Empty, true);
         await RefreshRecordAsync();

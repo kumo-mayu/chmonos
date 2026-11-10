@@ -118,7 +118,7 @@ public sealed partial class SearchViewModel
         : string.Join('\n', _openProjects
             .Select(key => _projectContents.GetValueOrDefault(key) is { } contents
                 ? contents.Problem ?? (contents.IsScanning
-                    ? $"「{ProjectNameOf(key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
+                    ? $"「{Core.Models.DisplayText.FolderName(key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
                     : null)
                 : null)
             .OfType<string>());
@@ -417,7 +417,7 @@ public sealed partial class SearchViewModel
                 case DiskAnswer.Missing:
                     // 控えは消さない（外付けのドライブなら、つなぎ直せばまた使える）。今は無いので見せもしない
                     contents.Scan = UnityProjectScan.Empty;
-                    contents.Problem = $"「{ProjectNameOf(project)}」のフォルダが見つかりません。";
+                    contents.Problem = $"「{Core.Models.DisplayText.FolderName(project)}」のフォルダが見つかりません。";
                     break;
 
                 default:
@@ -460,9 +460,7 @@ public sealed partial class SearchViewModel
     }
 
     private static string CouldNotScanText(string project)
-        => $"「{ProjectNameOf(project)}」の中を調べられませんでした。「読み直す」でやり直せます。";
-
-    private static string ProjectNameOf(string project) => Path.GetFileName(project.TrimEnd('\\', '/'));
+        => $"「{Core.Models.DisplayText.FolderName(project)}」の中を調べられませんでした。「読み直す」でやり直せます。";
 
     /// <summary>札ごとの状況を条件の下に出す。調べている間の0件を「入っていない」と読ませない。</summary>
     private void RefreshProjectStatus()
@@ -497,7 +495,7 @@ public sealed partial class SearchViewModel
             lines.AddRange(keys
                 .Select(key => _projectContents.GetValueOrDefault(key) is { } contents
                     ? contents.Problem ?? (contents.IsScanning
-                        ? $"「{ProjectNameOf(key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
+                        ? $"「{Core.Models.DisplayText.FolderName(key)}」の中を調べています…（{contents.Done}/{contents.Total}）"
                         : null)
                     : null)
                 .OfType<string>());

@@ -170,7 +170,7 @@ public sealed class ModificationModule : SearchModule
             {
                 var text = Unique(shared.Contains(record.Name) ? $"{record.Name}（{_avatarNames[id]}）" : record.Name, $"{record.Name}（{_avatarNames[id]}）");
                 _entries[text] = (id, record.Id);
-                _candidates[text] = new Candidate(record.Name, _avatarNames[id], ProjectNameOf(record), aliasesOf(id), 1);
+                _candidates[text] = new Candidate(record.Name, _avatarNames[id], Core.Models.DisplayText.FolderName(record.UnityProject), aliasesOf(id), 1);
                 _order.Add(text);
             }
         }
@@ -206,9 +206,6 @@ public sealed class ModificationModule : SearchModule
 
         return candidate;
     }
-
-    internal static string ProjectNameOf(ModificationRecord record)
-        => record.HasUnityProject ? System.IO.Path.GetFileName(record.UnityProject!.TrimEnd('\\', '/')) : string.Empty;
 
     private ModificationRecord? FindRecord(string avatar, string id)
         => _byAvatar.TryGetValue(avatar, out var list) ? list.FirstOrDefault(record => record.Id == id) : null;

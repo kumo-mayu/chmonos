@@ -374,11 +374,7 @@ public sealed partial class ImportViewModel
 
         foreach (var place in places)
         {
-            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(place));
-            if (name.Length == 0)
-            {
-                name = place;
-            }
+            var name = Core.Models.DisplayText.FolderName(place);
 
             var kind = watchedFolders.Any(watched => Core.Services.PathText.Same(watched, place)) ? "監視フォルダ" : "フォルダ";
             yield return $"{kind}「{name}」は{ending}";
