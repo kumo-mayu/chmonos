@@ -21,8 +21,6 @@ public sealed record ArchiveOrigin(string ArchiveName, string ArchivePath);
 /// </summary>
 public static class UnresolvedOrigin
 {
-    private static readonly string[] ArchiveExtensions = [".zip", ".rar", ".7z"];
-
     /// <summary>
     /// 元zipを割り出す。分からなければ null（呼び出し側はフォルダで束ねる）。
     ///
@@ -82,5 +80,5 @@ public static class UnresolvedOrigin
     }
 
     private static bool IsArchive(string path)
-        => ArchiveExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+        => Services.ArchiveFiles.IsArchive(path);
 }

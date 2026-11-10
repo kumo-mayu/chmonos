@@ -112,9 +112,9 @@ public static partial class FileNameQuery
         }
 
         // 「○○.unitypackage.zip」のような二重の拡張子
-        if (name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+        if (name.EndsWith(Services.UnityHandoff.PackageExtension, StringComparison.OrdinalIgnoreCase))
         {
-            name = name[..^".unitypackage".Length];
+            name = name[..^Services.UnityHandoff.PackageExtension.Length];
         }
 
         // 括弧の中が名前だけで、落とすと何も残らないときは括弧だけ外す

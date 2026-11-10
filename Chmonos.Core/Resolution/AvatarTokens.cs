@@ -77,7 +77,7 @@ public sealed class AvatarTokens
                     ? kanjiReadings.Of(key)
                     : [];
 
-            foreach (var reading in keyReadings.Select(ToHiragana).Where(reading => reading.Length >= MinReadingLength))
+            foreach (var reading in keyReadings.Select(Search.Kana.ToHiragana).Where(reading => reading.Length >= MinReadingLength))
             {
                 foreach (var id in ids)
                 {
@@ -154,10 +154,7 @@ public sealed class AvatarTokens
         set.Add(id);
     }
 
-    private static bool IsKana(char c) => c is >= 'ぁ' and <= 'ゖ' or >= 'ァ' and <= 'ヶ' or 'ー';
+    private static bool IsKana(char c) => Search.Kana.IsKanaOrLongVowel(c);
 
     private static bool IsKanji(char c) => c is >= '一' and <= '鿿' or '々';
-
-    private static string ToHiragana(string text)
-        => string.Concat(text.Select(c => c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c));
 }

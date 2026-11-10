@@ -87,8 +87,8 @@ public class RomajiReadingTests
     [Fact]
     public void ConvertsToKatakana()
     {
-        Assert.Equal("タマクラゲ", RomajiReading.ToKatakana("たまくらげ"));
-        Assert.Equal("サメ", RomajiReading.ToKatakana("さめ"));
+        Assert.Equal("タマクラゲ", Kana.ToKatakana("たまくらげ"));
+        Assert.Equal("サメ", Kana.ToKatakana("さめ"));
     }
 
     /// <summary>

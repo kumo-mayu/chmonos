@@ -73,5 +73,5 @@ public static class AlternateQueries
 
     /// <summary>漢字かかなを含むか。全角のラテン文字（ＳＩＧ）を後ろに回すために見る。</summary>
     private static bool IsJapanese(string text)
-        => text.Any(c => c is >= '一' and <= '鿿' or >= 'ぁ' and <= 'ゖ' or >= 'ァ' and <= 'ヶ');
+        => text.Any(c => c is >= '一' and <= '鿿' || Search.Kana.IsHiragana(c) || Search.Kana.IsKatakana(c));
 }

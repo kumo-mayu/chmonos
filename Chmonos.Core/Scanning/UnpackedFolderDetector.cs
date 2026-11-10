@@ -24,8 +24,6 @@ public sealed class UnpackedFolder
 /// </summary>
 public static class UnpackedFolderDetector
 {
-    private static readonly string[] ArchiveExtensions = [".zip", ".rar", ".7z"];
-
     /// <summary>
     /// フォルダ名が、同じ場所にあるアーカイブの名前と一致するか。
     /// 一致すればそのアーカイブの展開先とみなす。
@@ -40,7 +38,7 @@ public static class UnpackedFolderDetector
         foreach (var fileName in siblingFileNames)
         {
             var extension = System.IO.Path.GetExtension(fileName);
-            if (!ArchiveExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            if (!Services.ArchiveFiles.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             {
                 continue;
             }

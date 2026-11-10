@@ -128,7 +128,7 @@ IEnumerable<string> Kana(string word)
 
     var hiragana = ToHiragana(word);
     yield return hiragana;
-    yield return RomajiReading.ToKatakana(hiragana);
+    yield return Chmonos.Core.Search.Kana.ToKatakana(hiragana);
     foreach (var form in dictionary.ByReading(hiragana))
     {
         yield return form;

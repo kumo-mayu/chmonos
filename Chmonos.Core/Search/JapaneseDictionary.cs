@@ -376,13 +376,13 @@ public sealed class JapaneseDictionary
         var readings = kanji.Count == 0
             ? []
             : kana
-                .Select(entry => ToHiragana(entry.Text))
+                .Select(entry => Kana.ToHiragana(entry.Text))
                 .Where(IsKana)
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
 
         var allKana = kana
-            .Select(entry => ToHiragana(entry.Text))
+            .Select(entry => Kana.ToHiragana(entry.Text))
             .Where(IsKana)
             .Distinct(StringComparer.Ordinal)
             .ToList();
@@ -482,19 +482,9 @@ public sealed class JapaneseDictionary
         return text.All(c => c is >= 'a' and <= 'z' or ' ' or '\'' or '-') ? text : null;
     }
 
-    private static string ToHiragana(string text)
-    {
-        var builder = new StringBuilder(text.Length);
-        foreach (var c in text)
-        {
-            builder.Append(c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c);
-        }
-
-        return builder.ToString();
-    }
-
+    /// <summary>ひらがな（と長音）だけの読みか。カタカナは先に <see cref="Kana.ToHiragana(string)"/> で寄せてから見る。</summary>
     private static bool IsKana(string text)
-        => text.Length > 0 && text.All(c => c is >= 'ぁ' and <= 'ゖ' or 'ー');
+        => text.Length > 0 && text.All(c => Kana.IsHiragana(c) || c == 'ー');
 
     // ---- キャッシュ ----
     //

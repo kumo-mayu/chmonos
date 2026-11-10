@@ -438,7 +438,7 @@ public sealed class KanjiReadings
                     else if (type == "ja_on")
                     {
                         // 音読みはカタカナで書かれている。索引はひらがなに寄せる
-                        on.Add(ToHiragana(text));
+                        on.Add(Kana.ToHiragana(text));
                     }
 
                     continue;
@@ -452,18 +452,8 @@ public sealed class KanjiReadings
         return (literal, kun.Concat(on).ToList(), kun.Count);
     }
 
-    private static string ToHiragana(string text)
-    {
-        var builder = new StringBuilder(text.Length);
-        foreach (var c in text)
-        {
-            builder.Append(c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c);
-        }
-
-        return builder.ToString();
-    }
-
     private static bool IsKanji(char c) => c is >= '一' and <= '鿿' or '々';
 
-    private static bool IsHiragana(char c) => c is >= 'ぁ' and <= 'ゖ' or 'ー';
+    // 漢字とひらがなの続く区間を切る所なので、長音も区間に含める
+    private static bool IsHiragana(char c) => Kana.IsHiragana(c) || c == 'ー';
 }

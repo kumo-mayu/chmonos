@@ -354,7 +354,7 @@ public static class UnityHandoff
 
         // 単体の unitypackage は、そのファイルを取り出さずにそのまま渡す（ユーザ判断 2026-10-07）。登録したフォルダの中の物と同じ道
         // （置いてあるフォルダを包みとみなす InFolder）。前は zip でなければ送る物が無く、取り込んでも送れない行になった
-        if (zip is not null && zip.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase)
+        if (zip is not null && zip.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase)
             && Path.GetDirectoryName(zip) is { Length: > 0 } folder)
         {
             return [new UnityPackagePlace(new UnityPackageEntry(folder, Path.GetFileName(zip), file.SizeBytes) { InFolder = true }, null)];

@@ -190,7 +190,7 @@ public sealed class AppPaths
             ShopIconsDir,
             thumbnailUrl is null
                 ? $"{Sanitize(subdomain)}.webp"
-                : $"{Sanitize(subdomain)}_{ShortHash(thumbnailUrl)}.webp");
+                : $"{Sanitize(subdomain)}_{ShortHash.Of(thumbnailUrl)}.webp");
 
     /// <summary>
     /// 手元にあるショップのアイコンを探す。
@@ -218,13 +218,6 @@ public sealed class AppPaths
     /// 店ごとに <see cref="FindShopIcon"/> を呼ぶと置き場を店の数だけ列挙してしまう。
     /// </summary>
     public ShopIconIndex ReadShopIconIndex() => ShopIconIndex.Read(ShopIconsDir);
-
-    /// <summary>元URLから短いハッシュを作る。同じURLなら常に同じ名前になる。</summary>
-    private static string ShortHash(string value)
-    {
-        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexString(hash)[..8].ToLowerInvariant();
-    }
 
     public string ShopBannerFile(string subdomain)
         => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}_banner.webp");

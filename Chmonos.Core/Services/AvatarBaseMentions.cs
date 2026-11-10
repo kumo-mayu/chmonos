@@ -123,7 +123,7 @@ public static class AvatarBaseMentions
         // 助詞の前がひらがななら名前の一部とみなす（「まめふれんず」「りりか」のような名前を割らない）
         for (var index = name.Length - 2; index >= 1; index--)
         {
-            if (Particles.Contains(name[index]) && !IsHiragana(name[index - 1]))
+            if (Particles.Contains(name[index]) && !Search.Kana.IsHiragana(name[index - 1]))
             {
                 name = name[(index + 1)..];
                 break;
@@ -131,7 +131,7 @@ public static class AvatarBaseMentions
         }
 
         // 「〇〇の共通素体」の「の」
-        if (name.Length >= 2 && Particles.Contains(name[^1]) && !IsHiragana(name[^2]))
+        if (name.Length >= 2 && Particles.Contains(name[^1]) && !Search.Kana.IsHiragana(name[^2]))
         {
             name = name[..^1];
         }
@@ -144,6 +144,4 @@ public static class AvatarBaseMentions
 
         return name;
     }
-
-    private static bool IsHiragana(char ch) => ch is >= 'ぁ' and <= 'ゖ';
 }

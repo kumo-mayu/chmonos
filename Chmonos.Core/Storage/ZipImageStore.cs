@@ -69,7 +69,7 @@ public sealed class ZipImageStore(AppPaths paths)
         }
 
         if (!HasImages(file) || !StoreIds.IsPackageHash(file.Hash)
-            || file.Paths.FirstOrDefault(path => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path)) is not { } zip)
+            || Services.ArchiveFiles.FirstExistingZip(file.Paths) is not { } zip)
         {
             return null;
         }

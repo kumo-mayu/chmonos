@@ -236,10 +236,7 @@ public sealed class NameCollation : IComparer<string>
                 continue;
             }
 
-            if (c is >= 'ァ' and <= 'ヶ')
-            {
-                c = (char)(c - 0x60);
-            }
+            c = Search.Kana.ToHiragana(c);
 
             if (!char.IsLetterOrDigit(c))
             {

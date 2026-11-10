@@ -137,8 +137,7 @@ internal static class ItemFileActions
         const string title = "一時的に展開して開く";
 
         var zips = await Task.Run(() => item.Local.OwnedFiles
-            .Select(file => file.Paths.Select(path => services.Volumes.CurrentOf(file, path)).FirstOrDefault(path =>
-                path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && DiskCheck.FileExists(path)))
+            .Select(file => ArchiveFiles.FirstExistingZip(file.Paths.Select(path => services.Volumes.CurrentOf(file, path)), DiskCheck.FileExists))
             .OfType<string>()
             .Select(path => new Target(path, new ListChoiceItem(Path.GetFileName(path), Path.GetDirectoryName(path))))
             .ToList());
