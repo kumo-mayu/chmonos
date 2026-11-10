@@ -93,9 +93,6 @@ public sealed class AppServiceContainer : IDisposable
             if (IsSingleInstance && cleanUpTemporaryUnpacks)
             {
                 new TemporaryUnpacker().CleanUp();
-
-                // 保存先ごとに分ける前の版が残した物も片付ける。今の版はそこに何も置かないので、どの保存先の起動が消してもよい
-                TemporaryUnpacker.RemoveLegacyRoot();
             }
             // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
             SettingsStore = new SettingsService(Store);

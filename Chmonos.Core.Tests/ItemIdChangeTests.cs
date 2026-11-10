@@ -494,6 +494,85 @@ public class ItemIdChangeTests : IDisposable
         Assert.Contains(plan.Dropped, thing => thing.Text.Contains("手で指定した", StringComparison.Ordinal));
     }
 
+    // ---- v1.3.0 で足した欄（洗い出し 2026-11-10・D3） ----
+
+    /// <summary>
+    /// ほかの商品のバリエーションの対応・変換のつなぎ先・新しい版の向き先が元のIDを指していれば、移した先へ付け替える。
+    /// 前は対応アバターだけで、ほかの欄は消えたIDを指したまま残った。対応アバターを持たず、ほかの欄だけで指している商品も書き換える
+    /// </summary>
+    [Fact]
+    public async Task MovesWhatOtherItemsPointAtInTheVariationConversionAndUpdateTargets()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9900301",
+            Booth = new BoothBlock(),
+            Local = new LocalBlock
+            {
+                VariationTargets = [new VariationTarget { VariationId = 1, Avatars = [LocalId], RejectedAvatars = [LocalId] }],
+                DetectedVariationTargets = [new VariationTarget { VariationId = 1, Avatars = [LocalId] }],
+                Conversion = new ConversionSetting
+                {
+                    Targets = [new ConversionTarget { AvatarItemId = LocalId, Reverse = true, Confirmed = true }],
+                },
+                ContentUpdate = new ContentUpdate { FoundAt = DateTimeOffset.UnixEpoch, ForAvatars = [LocalId] },
+            },
+        });
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        var other = (await _store.Items.LoadAsync("9900301"))!.Local;
+        Assert.Equal([RealId], other.VariationTargets[0].Avatars);
+        Assert.Equal([RealId], other.VariationTargets[0].RejectedAvatars!);
+        Assert.Equal([RealId], other.DetectedVariationTargets[0].Avatars);
+        Assert.Equal(RealId, Assert.Single(other.Conversion!.Targets).AvatarItemId);
+        Assert.Equal([RealId], other.ContentUpdate!.ForAvatars!);
+    }
+
+    /// <summary>
+    /// まとめるとき、変換扱いは合わせる（移した先の行を残し、無い行を足す）。元の商品が自分自身をつなぎ先にしていた行は移した先を指す。
+    /// バリエーションの対応は元の商品のバリエーションを指すので持って行かず、下見で名指しする
+    /// </summary>
+    [Fact]
+    public async Task MergingCarriesTheConversionButNamesTheDroppedVariationTargets()
+    {
+        await SaveTargetAsync(new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets = [new ConversionTarget { BaseName = "素体A", Slug = "a", Forward = true, Confirmed = true }],
+            },
+        });
+        await SaveLocalItemAsync(new LocalBlock
+        {
+            LocalFiles = [File("aaa")],
+            VariationTargets = [new VariationTarget { VariationId = 5, Avatars = ["9900302"] }],
+            Conversion = new ConversionSetting
+            {
+                Mode = ConversionMode.Profile,
+                Targets =
+                [
+                    new ConversionTarget { BaseName = "素体A", Slug = "a", Reverse = true },
+                    new ConversionTarget { AvatarItemId = LocalId, Slug = "b", Forward = true, Confirmed = true },
+                ],
+            },
+        });
+
+        var plan = await _service.PlanItemIdChangeAsync(LocalId, RealId);
+        Assert.Contains(plan!.Dropped, thing => thing.Reason == DroppedReason.VariationLink && thing.Text.Contains("対応", StringComparison.Ordinal));
+
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Empty(moved.VariationTargets);
+        Assert.Equal(ConversionMode.Profile, moved.Conversion!.Mode);
+        Assert.Collection(
+            moved.Conversion.Targets,
+            row => Assert.True(row is { BaseName: "素体A", Forward: true, Reverse: false, Confirmed: true }),
+            row => Assert.Equal(RealId, row.AvatarItemId));
+    }
+
     /// <summary>下見では何も書かない。押す前に消えていては困る。</summary>
     [Fact]
     public async Task WritesNothingWhilePlanning()

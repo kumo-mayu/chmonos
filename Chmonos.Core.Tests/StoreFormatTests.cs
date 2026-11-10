@@ -114,6 +114,40 @@ public class StoreFormatTests : IDisposable
         Assert.Equal("作り物", JsonStore.Read<ItemRecord>(PathOf("item.json"))!.Booth.Name);
     }
 
+    /// <summary>
+    /// 版 1（v1.0.0〜v1.2.0）が書いたファイルは、版 2 へ移し替えて読める。中身は変わらない（1→2 は欄を足しただけ。洗い出し 2026-11-10・D1）。
+    /// 移し替えの関数を表に足し忘れると、版 1 のファイルが全部読めなくなる
+    /// </summary>
+    [Fact]
+    public async Task 版1のファイルを中身を変えずに読める()
+    {
+        var json = "{\"formatVersion\": 1, \"id\": \"1000001\", \"booth\": {\"name\": \"作り物\"}, "
+            + "\"local\": {\"memo\": \"覚え書き\", \"avatarBases\": [{\"baseName\": \"素体A\", \"confirmed\": true}], "
+            + "\"purchases\": [{\"price\": 500}]}}";
+        File.WriteAllText(PathOf("item.json"), json);
+
+        foreach (var item in new[] { JsonStore.Read<ItemRecord>(PathOf("item.json"))!, (await JsonStore.ReadAsync<ItemRecord>(PathOf("item.json")))! })
+        {
+            Assert.Equal("作り物", item.Booth.Name);
+            Assert.Equal("覚え書き", item.Local.Memo);
+            Assert.Equal("素体A", Assert.Single(item.Local.AvatarBases).BaseName);
+            Assert.Equal(500, Assert.Single(item.Local.Purchases).Price);
+        }
+
+        // 書き直すと今の版になる
+        JsonStore.Write(PathOf("item.json"), JsonStore.Read<ItemRecord>(PathOf("item.json"))!);
+        Assert.Equal(StoreFormat.Current, StoreFormat.VersionOf(File.ReadAllBytes(PathOf("item.json"))));
+    }
+
+    /// <summary>版 1 の保存先（印の無い v1.0.0 の物も）は、控えを取ってから開く「古いが読める」になる。v1.2.0 は版 2 の保存先を開かない</summary>
+    [Fact]
+    public void 版1の保存先は古いが読める()
+    {
+        Assert.Equal(2, StoreFormat.Current);
+        Assert.Equal(StoreFormat.Verdict.Older, StoreFormat.Check(1));
+        Assert.Equal(StoreFormat.Verdict.Older, StoreFormat.Check(StoreFormat.StoreVersion(_root)));
+    }
+
     /// <summary>メモ帳で直すと付く UTF-8 の印（BOM）があっても読める（点検26：バイト列で読むようにして読めなくなっていた）</summary>
     [Fact]
     public async Task BOM付きのJSONを読める()

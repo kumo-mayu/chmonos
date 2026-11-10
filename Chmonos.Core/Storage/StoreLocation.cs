@@ -39,7 +39,7 @@ public static class StoreLocation
 {
     /// <summary>既定の保存先。<c>location.json</c> もここに置く。</summary>
     // 2026-09-14 に BoothAssetManager から改名（公式の BOOTH Library Manager と取り違えられないよう・docs/research/booth-terms.md）。
-    // 公開前なので古い名前のフォルダは読み替えない。持っている人は手でフォルダ名を変える
+    // v1.0.0 より前の名前なので、古い名前のフォルダは読み替えない。持っている人は手でフォルダ名を変える
     //
     // 環境変数 CHMONOS_DEFAULT_HOME があれば、そこを既定の場所として扱う（location.json もそこに置く）。
     // 引越しの最後の「location.json を書き換えて開き直す」は、置き場が本番に固定だと試験で通せなかった（2026-10-06）。

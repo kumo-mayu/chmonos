@@ -67,7 +67,7 @@ public static class ItemImageOrder
 
         // ② 自分で足した分。**消えたものより前**に置く（観測 → 入力 → 消えたもの）。
         // 記録の順（足した順・手で並べ替えた順）なので、**新しく足した絵は必ず末尾に付く**（ユーザ判断 2026-09-12）。
-        // 記録に無い自分の画像（古いデータ）を時刻順で先に並べる補正は外した（公開前は古いデータに合わせない・ユーザ判断）
+        // 記録に無い自分の画像（古いデータ）を時刻順で先に並べる補正は外した（v1.0.0 より前の形のデータには合わせない・ユーザ判断）
         foreach (var userImage in userImages ?? [])
         {
             var path = System.IO.Path.Combine(directory, userImage.FileName);

@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Chmonos.Core.Storage;
 
-namespace Chmonos.Core.Storage;
+// テスターの1人のための一度きりの直しなので、アプリ（Chmonos.Core）には置かず道具の中に持つ（ユーザ判断 2026-11-10・洗い出し Q4）
+namespace NullPriceFix;
 
 /// <summary>商品の記録1件の、額の空いた購入記録の数。</summary>
 /// <param name="FileName">記録のファイルの名前（<c>{商品ID}.json</c>）。</param>

@@ -155,7 +155,7 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
                 // **合わせるのは錠の中で読み直した今の値**（技術的負債 1-5）。
                 // 移すのは手元の記録の全部なので、全項目の持ち主として書く。
                 // 購入記録は移した先のvariation一覧で照合し直される（保存側）。指していない記録は支出にそのまま数える
-                LocalBlock? Merge(LocalBlock current) => ItemIdChange.Merge(source.Local, current, skipped);
+                LocalBlock? Merge(LocalBlock current) => ItemIdChange.Merge(source.Local, current, skipped, fromId, toId);
                 var beforeWrite = RecordBeforeMerge(source.Local, record, () => refused = ItemIdChangeOutcome.NotRecorded);
 
                 // 手元にも BOOTH にも無ければ新しく作る。在るかは移す先の錠の中で見る——取れなかった間に、
@@ -284,7 +284,7 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
                             return null;
                         }
 
-                        return ItemIdChange.Merge(source.Local, current, skipped);
+                        return ItemIdChange.Merge(source.Local, current, skipped, fromId, toId);
                     }
 
                     var merged = await store.Items.ChangeLocalAsync(
@@ -329,7 +329,8 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
             RegistryEntry = registry.Entries.Any(entry => entry.ItemId == fromId),
             BaseGroups = [.. registry.BaseGroups.Where(group => group.ItemId == fromId).Select(group => group.Name)],
             LinkingItems = [.. items.Items
-                .Where(item => item.Local.Avatars.Any(link => link.AvatarItemId == fromId))
+                // 書き換えるときと同じ表で見る。対応アバターだけで集めると、続きがほかの欄だけで指している商品を書き換えない
+                .Where(item => LocalReferences.Uses(item.Local, LocalReferenceKind.ItemId, LocalReferences.SameItemId(fromId)))
                 .Select(item => item.Id)
                 .Order(StringComparer.Ordinal)],
         };
@@ -497,22 +498,19 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
             },
             cancellationToken);
 
-        // 他の商品が対応アバターとして指している分
+        // 他の商品が指している分（対応アバター・バリエーションの対応・変換のつなぎ先・新しい版の向き先。LocalReferences の表）。
+        // 前は対応アバターだけで、ほかの欄は消えたIDを指したまま残った（洗い出し 2026-11-10・D3）。
+        // 書き換える欄の持ち主を全部名乗る（名乗らない欄は、錠の中で今の値に重ねるときに書き換えた分が落ちる）
+        var matches = LocalReferences.SameItemId(fromId);
         var loaded = await store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         foreach (var item in loaded.Items.Where(item =>
-            item.Local.Avatars.Any(link => link.AvatarItemId == fromId)
+            LocalReferences.Uses(item.Local, LocalReferenceKind.ItemId, matches)
             && (only is null || only.LinkingItems.Contains(item.Id, StringComparer.Ordinal))))
         {
             await store.Items.ChangeLocalAsync(
                 item.Id,
-                current => current.Avatars.Any(link => link.AvatarItemId == fromId)
-                    ? current with
-                    {
-                        Avatars = [.. current.Avatars
-                            .Select(link => link.AvatarItemId == fromId ? link with { AvatarItemId = toId } : link)],
-                    }
-                    : null,
-                LocalOwners.SupportedAvatars,
+                current => LocalReferences.Rewrite(current, LocalReferenceKind.ItemId, matches, toId),
+                LocalReferences.OwnersOf(LocalReferenceKind.ItemId),
                 cancellationToken);
         }
     }

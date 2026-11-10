@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using Chmonos.Core.Storage;
+using NullPriceFix;
 
 // 購入記録の額の空欄を 0 に書き換える（ユーザ指示 2026-10-06）。
 //

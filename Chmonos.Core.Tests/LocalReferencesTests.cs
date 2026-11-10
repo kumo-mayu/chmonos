@@ -1,0 +1,246 @@
+using System.Collections;
+using System.Reflection;
+using System.Text.Json.Serialization;
+using Chmonos.Core.Models;
+using Xunit;
+
+namespace Chmonos.Core.Tests;
+
+/// <summary>
+/// 別の商品 ID・共通素体の名前を持つ <c>local</c> の欄の表（<see cref="LocalReferences"/>・洗い出し 2026-11-10 D2・D3）。
+/// 欄を足したときに表へ載せ忘れると、素体の改名・削除と商品 ID の付け替えが、その欄だけ古い名前・ID を指したまま残す。
+/// </summary>
+public sealed class LocalReferencesTests
+{
+    /// <summary>
+    /// <see cref="LocalBlock"/> と中の型の、保存する欄を全部たどり、どの欄も表の「持つ」か「持たない」のどちらかに載っている。
+    /// 載っていなければ、その欄が商品 ID か素体の名前を持つかを決めて、どちらかに足す。
+    /// </summary>
+    [Fact]
+    public void EveryStoredFieldIsOnTheTable()
+    {
+        var stored = StoredPaths(typeof(LocalBlock), prefix: "").ToHashSet(StringComparer.Ordinal);
+        var holds = LocalReferences.Fields.Select(field => field.Path).ToHashSet(StringComparer.Ordinal);
+
+        var missing = stored.Where(path => !holds.Contains(path) && !LocalReferences.HoldsNeither.Contains(path)).Order().ToList();
+        Assert.True(missing.Count == 0, "表に無い欄：" + string.Join("、", missing));
+
+        // 表に残った古い名前（消した・名前を変えた欄）も見つける
+        var stale = holds.Concat(LocalReferences.HoldsNeither).Where(path => !stored.Contains(path)).Order().ToList();
+        Assert.True(stale.Count == 0, "もう無い欄：" + string.Join("、", stale));
+
+        var both = holds.Intersect(LocalReferences.HoldsNeither).ToList();
+        Assert.True(both.Count == 0, "両方に載った欄：" + string.Join("、", both));
+    }
+
+    /// <summary>
+    /// 欄を書き換えるときに名乗る持ち主が、その欄の持ち主と合っている。合っていないと、錠の中で今の値に重ねるときに書き換えた分が落ちる。
+    /// </summary>
+    [Fact]
+    public void EachFieldNamesTheOwnerThatWritesIt()
+    {
+        foreach (var field in LocalReferences.Fields)
+        {
+            var top = field.Path.Split('.', '[')[0];
+            Assert.Equal(top, field.Owner.ToString());
+        }
+    }
+
+    /// <summary>素体の名前を持つ欄は、改名で全部書き換わる。</summary>
+    [Fact]
+    public void RenamingABaseRewritesEveryFieldThatHoldsIt()
+    {
+        var local = Everything(itemId: "9900001", baseName: "素体A");
+
+        var renamed = LocalReferences.Rewrite(local, LocalReferenceKind.BaseName, LocalReferences.SameBaseName("素体a"), "素体B");
+
+        Assert.NotNull(renamed);
+        foreach (var field in LocalReferences.Fields.Where(field => field.Kind == LocalReferenceKind.BaseName))
+        {
+            Assert.Equal(["素体B"], field.Values(renamed!).Distinct());
+        }
+    }
+
+    /// <summary>商品 ID を持つ欄は、付け替えで全部書き換わる。</summary>
+    [Fact]
+    public void ChangingAnItemIdRewritesEveryFieldThatHoldsIt()
+    {
+        var local = Everything(itemId: "9900001", baseName: "素体A");
+
+        var moved = LocalReferences.Rewrite(local, LocalReferenceKind.ItemId, LocalReferences.SameItemId("9900001"), "9900002");
+
+        Assert.NotNull(moved);
+        foreach (var field in LocalReferences.Fields.Where(field => field.Kind == LocalReferenceKind.ItemId))
+        {
+            Assert.Equal(["9900002"], field.Values(moved!).Distinct());
+        }
+    }
+
+    /// <summary>当てはまる値が無ければ書かない（null）。</summary>
+    [Fact]
+    public void ReturnsNullWhenNothingMatches()
+        => Assert.Null(LocalReferences.Rewrite(
+            Everything(itemId: "9900001", baseName: "素体A"), LocalReferenceKind.BaseName, LocalReferences.SameBaseName("素体Z"), "素体B"));
+
+    /// <summary>
+    /// 素体を消すと、その素体だけを向き先にしていたバリエーションの行と変換のつなぎ先は消える（空の行は持たない）。
+    /// 外した記録が残る行は人が決めた行として残す。新しい版の向き先は、空にすると「全部向け」に変わるので残す。
+    /// </summary>
+    [Fact]
+    public void DeletingABaseDropsRowsLeftEmptyButKeepsTheUpdateTargeted()
+    {
+        var local = new LocalBlock
+        {
+            AvatarBases = [new AvatarBaseLink { BaseName = "素体A" }, new AvatarBaseLink { BaseName = "素体B" }],
+            VariationTargets =
+            [
+                new VariationTarget { VariationId = 1, Bases = ["素体A"] },
+                new VariationTarget { VariationId = 2, Bases = ["素体A", "素体B"] },
+                new VariationTarget { VariationId = 3, Bases = ["素体A"], RejectedAvatars = ["9900009"] },
+            ],
+            Conversion = new ConversionSetting
+            {
+                Targets = [new ConversionTarget { BaseName = "素体A", Forward = true, Confirmed = true }],
+            },
+            ContentUpdate = new ContentUpdate { FoundAt = DateTimeOffset.UnixEpoch, ForBases = ["素体A"] },
+        };
+
+        var deleted = LocalReferences.Rewrite(local, LocalReferenceKind.BaseName, LocalReferences.SameBaseName("素体A"), null)!;
+
+        Assert.Equal(["素体B"], deleted.AvatarBases.Select(link => link.BaseName));
+        Assert.Equal([2L, 3L], deleted.VariationTargets.Select(target => target.VariationId!.Value));
+        Assert.Equal(["素体B"], deleted.VariationTargets[0].Bases);
+        Assert.Empty(deleted.VariationTargets[1].Bases);
+        Assert.Null(deleted.Conversion);
+        Assert.Equal(["素体A"], deleted.ContentUpdate!.ForBases);
+    }
+
+    /// <summary>改名で同じ物が2つになったら1つに畳む（素体の統合）。</summary>
+    [Fact]
+    public void MergingTwoBasesFoldsTheDuplicates()
+    {
+        var local = new LocalBlock
+        {
+            VariationTargets = [new VariationTarget { VariationId = 1, Bases = ["素体A", "素体B"] }],
+            Conversion = new ConversionSetting
+            {
+                Targets =
+                [
+                    new ConversionTarget { BaseName = "素体B", Slug = "x", Confirmed = true },
+                    new ConversionTarget { BaseName = "素体A", Slug = "x" },
+                ],
+            },
+        };
+
+        var merged = LocalReferences.Rewrite(local, LocalReferenceKind.BaseName, LocalReferences.SameBaseName("素体A"), "素体B")!;
+
+        Assert.Equal(["素体B"], merged.VariationTargets[0].Bases);
+        Assert.True(Assert.Single(merged.Conversion!.Targets).Confirmed);
+    }
+
+    /// <summary>表のどの欄にも同じ名前・ID が入った <c>local</c>。</summary>
+    private static LocalBlock Everything(string itemId, string baseName)
+    {
+        var target = new VariationTarget
+        {
+            VariationId = 1,
+            Avatars = [itemId],
+            Bases = [baseName],
+            RejectedAvatars = [itemId],
+            RejectedBases = [baseName],
+        };
+
+        var local = new LocalBlock
+        {
+            Avatars = [new AvatarLink { AvatarItemId = itemId }],
+            AvatarBases = [new AvatarBaseLink { BaseName = baseName }],
+            VariationTargets = [target],
+            DetectedVariationTargets = [target],
+            Conversion = new ConversionSetting
+            {
+                Targets =
+                [
+                    new ConversionTarget { AvatarItemId = itemId, Slug = "a" },
+                    new ConversionTarget { BaseName = baseName, Slug = "b" },
+                ],
+            },
+            ContentUpdate = new ContentUpdate { FoundAt = DateTimeOffset.UnixEpoch, ForAvatars = [itemId], ForBases = [baseName] },
+        };
+
+        // 表に欄を足したのに、ここで値を入れ忘れると、書き換わったかを確かめられない
+        foreach (var field in LocalReferences.Fields)
+        {
+            Assert.NotEmpty(field.Values(local));
+        }
+
+        return local;
+    }
+
+    /// <summary>
+    /// 保存する欄の道を全部返す。計算で出す欄（<see cref="JsonIgnoreAttribute"/> の条件なし）は書かないので除く。
+    /// 文字・数・日時・列挙・辞書はそこで止め、配列は <c>[]</c> を付けて中の型へ、Chmonos の型は中へ降りる。
+    /// </summary>
+    private static IEnumerable<string> StoredPaths(Type type, string prefix)
+    {
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetIndexParameters().Length > 0
+                || property.GetCustomAttribute<JsonIgnoreAttribute>() is { Condition: JsonIgnoreCondition.Always })
+            {
+                continue;
+            }
+
+            var path = prefix + property.Name;
+            var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            var element = ElementOf(propertyType);
+            if (element is not null)
+            {
+                if (IsOurs(element))
+                {
+                    foreach (var inner in StoredPaths(element, path + "[]."))
+                    {
+                        yield return inner;
+                    }
+                }
+                else
+                {
+                    yield return path;
+                }
+            }
+            else if (IsOurs(propertyType))
+            {
+                foreach (var inner in StoredPaths(propertyType, path + "."))
+                {
+                    yield return inner;
+                }
+            }
+            else
+            {
+                yield return path;
+            }
+        }
+    }
+
+    /// <summary>配列の中の型。辞書と文字は配列として扱わない（鍵と値は1つの欄として見る）。</summary>
+    private static Type? ElementOf(Type type)
+    {
+        if (type == typeof(string) || !typeof(IEnumerable).IsAssignableFrom(type))
+        {
+            return null;
+        }
+
+        if (type.GetInterfaces().Append(type).Any(face => face.IsGenericType && face.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)))
+        {
+            return null;
+        }
+
+        return type.IsArray
+            ? type.GetElementType()
+            : type.GetInterfaces().Append(type)
+                .FirstOrDefault(face => face.IsGenericType && face.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                ?.GetGenericArguments()[0];
+    }
+
+    private static bool IsOurs(Type type)
+        => type.IsClass && type != typeof(string) && type.Namespace?.StartsWith("Chmonos", StringComparison.Ordinal) == true;
+}

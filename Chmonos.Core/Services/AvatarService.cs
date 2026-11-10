@@ -1160,7 +1160,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     /// 前は既定の語を必ず混ぜていたので、`settings.json` から消しても次の検出で戻り、
     /// **足すことしかできなかった**（対になる「読まない見出し」は消せるので、作りが揃っていなかった）。
     /// 混ぜていたのは「既定に語を足したときに今の利用者へ届ける」ためだが、
-    /// 公開前なので古い設定に合わせる必要は無い（`docs/spec/data-model.md`）。
+    /// 変えたのは v1.0.0 より前で、それより前の設定に合わせる必要は無い（`docs/spec/data-model.md`）。
     /// 欄ごと消した・壊れた場合は、読むときに空として受けるので既定に戻す。
     /// </summary>
     private IReadOnlyList<string> SupportHeadings

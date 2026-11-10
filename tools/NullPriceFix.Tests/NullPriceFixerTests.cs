@@ -1,9 +1,10 @@
 using System.Text.Json.Nodes;
 using Chmonos.Core.Models;
 using Chmonos.Core.Storage;
+using NullPriceFix;
 using Xunit;
 
-namespace Chmonos.Core.Tests;
+namespace NullPriceFix.Tests;
 
 /// <summary>
 /// 購入記録の額の空欄を 0 にする道具（tools/NullPriceFix）の中身。ほかの人の保存先を書き換える物なので、

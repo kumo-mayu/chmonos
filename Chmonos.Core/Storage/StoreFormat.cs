@@ -16,8 +16,11 @@ public static class StoreFormat
     /// <summary>
     /// 書く形式の版。**欄の名前・意味・型を変える、欄を消す、保存する列挙に値を足す、配列を包む**ときに1つ上げ、
     /// <see cref="Migrations"/> に1つ前の版から直す関数を足す。省略できる欄を足すだけなら上げない。
+    /// 2 は v1.3.0（ユーザ判断 2026-11-10・洗い出し D1）：知らせに新しい種類（<c>ProfileFilesUnreadable</c>）を足し、商品に
+    /// 変換扱い・バリエーションの対応・新しい版の控えを足した。1 のままだと v1.2.0 で開けてしまい、知らせのファイルが丸ごと読めず、
+    /// 商品を保存するたびに新しい欄が消える
     /// </summary>
-    public const int Current = 1;
+    public const int Current = 2;
 
     /// <summary>読める最も古い版。上げると、それより古いデータは開かない（移し替えの関数を消すとき）。</summary>
     public const int OldestReadable = 1;
@@ -39,9 +42,22 @@ public static class StoreFormat
 
     /// <summary>
     /// 1つ前の版から直す関数（鍵は直した後の版）。読むときに古い順に当てる。型ごとに分けたいときは、関数の中で型を見る。
-    /// 今は版 1 しか無いので空
+    /// **null は「中身を変えない」**：その段だけなら木に読み直さず、そのまま読む（<see cref="LeavesAsIs"/>）。
+    /// 書き直されない古いファイルは読むたびに移し替えを通るので、変えない段で毎回木を作ると、全件を読むたびに遅くなる
     /// </summary>
-    private static readonly IReadOnlyDictionary<int, Func<JsonNode, Type, JsonNode>> Migrations = new Dictionary<int, Func<JsonNode, Type, JsonNode>>();
+    private static readonly IReadOnlyDictionary<int, Func<JsonNode, Type, JsonNode>?> Migrations = new Dictionary<int, Func<JsonNode, Type, JsonNode>?>
+    {
+        // 1 → 2 は中身を変えない。2 で足したのは省略できる欄と列挙の値だけで、版 1 のファイルはそのまま版 2 として読める。
+        // 上げたのは古い版（v1.2.0 まで）に開かせないため（保存先の印で止まる）
+        [2] = null,
+    };
+
+    /// <summary>
+    /// その版のファイルを、移し替えずにそのまま読めるか（読める範囲で、今の版までの段がどれも中身を変えない）。
+    /// 段の関数を表に足し忘れると、ここで <see cref="KeyNotFoundException"/> になり、古い版のファイルが読めないと分かる
+    /// </summary>
+    internal static bool LeavesAsIs(int from)
+        => from >= OldestReadable && Enumerable.Range(from + 1, Math.Max(0, Current - from)).All(version => Migrations[version] is null);
 
     /// <summary>
     /// 版の欄を持てる型か。いちばん外側が配列・辞書の物（JSON の配列か、鍵が自由なオブジェクト）は持てないので 1 とみなす。
@@ -142,7 +158,10 @@ public static class StoreFormat
 
         for (var version = from + 1; version <= Current; version++)
         {
-            node = Migrations[version](node, type);
+            if (Migrations[version] is { } migrate)
+            {
+                node = migrate(node, type);
+            }
         }
 
         return node;
@@ -221,7 +240,7 @@ public static class StoreFormat
         => JsonStore.Write(Path.Combine(root, MarkerFileName), new Marker { WrittenBy = appVersion });
 
     /// <summary>
-    /// 形式を上げる前の控えを取る。保存先の直下と items・modifications・unitypackages の JSON を、
+    /// 形式を上げる前の控えを取る。保存先の直下と items・modifications・unitypackages・zipimages の JSON を、
     /// <c>format-backups/v{古い版}-{日時}/</c> の同じ相対の場所へ写す。写した先のフォルダを返す。
     /// 画像・.cache・logs・items/.prev は写さない（画像は形式を持たず、控えの控えは要らない）
     /// </summary>

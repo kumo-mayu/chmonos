@@ -7,7 +7,7 @@ namespace Chmonos.Core.Tests;
 
 /// <summary>
 /// 手で直した JSON の食い違いを見つけて知らせる（J2・L6）。
-/// **こちらから直さない**——公開前は、合っていないデータの方を問題にして直し方を聞く。
+/// **こちらから直さない**——合っていないデータの方を問題にして直し方を聞く。
 /// </summary>
 public class HandEditCheckTests : IDisposable
 {

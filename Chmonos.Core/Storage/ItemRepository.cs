@@ -63,7 +63,7 @@ public sealed class ItemRepository
     public bool Exists(string itemId) => StoreIds.IsItemId(itemId) && File.Exists(_paths.ItemFile(itemId));
 
     /// <summary>
-    /// 1件を読む。**古い形の読み替えはしない**（公開前は、今の形に合わないデータの側を問題にする・ユーザ判断 2026-09-12）。
+    /// 1件を読む。**v1.0.0 より前の形の読み替えはしない**（合わないデータの側を問題にする・ユーザ判断 2026-09-12。配った版の形は形式の版と移し替えで読む）。
     /// 以前は旧形式の購入記録（orderedVariations）を読むたびに purchases へ移していた。
     ///
     /// ファイルが前に読んだときと同じ（大きさと更新日時）なら、読んだ写しを返す（<see cref="_cache"/>）。

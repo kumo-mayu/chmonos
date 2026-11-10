@@ -36,7 +36,7 @@ Chmonos を閉じて、`backup-null-price-日時` の中の `.json` を、保存
 
 ## 作る人へ
 
-中身は `Chmonos.Core/Storage/NullPriceFixer.cs`（試験は `Chmonos.Core.Tests/NullPriceFixerTests.cs`）。配る形は
+中身は `tools/NullPriceFix/NullPriceFixer.cs`（試験は `tools/NullPriceFix.Tests`。既定の `dotnet test` の一式に入る）。アプリ（`Chmonos.Core`）には置かない（2026-11-10）。配る形は
 `dotnet publish tools/NullPriceFix -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:DebugType=embedded -o <出し先>`（.NET の入っていない PC でも動く）。
 
 渡すときは、出し先の `assets` フォルダを消し（この道具は辞書を使わない）、`package/` の3つ（ダブルクリック用の
