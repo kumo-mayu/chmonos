@@ -134,6 +134,11 @@ public sealed partial class SearchViewModel
 
     public RelayCommand CardSelectInUnityCommand { get; }
 
+    /// <summary>右クリックのメニューの命令（IItemCardHost）。検索画面は自分の命令そのもの。ほかの画面はこれを借りて差し替える。</summary>
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(this);
+
+    private CardMenuCommands? _menuCommands;
+
     /// <summary>送る unitypackage を選ばせてから送る。2つ以上あればいくつでも選べる（ユーザ指示 2026-11-03）。</summary>
     private async Task CardUnityAsync(ItemCardViewModel? card, string title, string headingText, string commitText,
         Func<ItemCardViewModel, IReadOnlyList<Core.Services.UnityPackageEntry>, Task> run)

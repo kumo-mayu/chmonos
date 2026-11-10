@@ -42,7 +42,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
         // カードかリストか（ユーザ指示 2026-09-15：検索画面と同じ見方に）。どちらで出すかはショップ画面として覚える
         _isListMode = ItemListMode.IsList(services, "shop");
-        HideItemCommand = new RelayCommand(parameter =>
+        _hideItem = new RelayCommand(parameter =>
         {
             if (parameter is ItemCardViewModel card)
             {
@@ -320,8 +320,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public bool ShowsBack => _main.CanGoBack;
 
     /// <summary>
-    /// BOOTH のショップページを開く。カードの右クリックの「BOOTHで開く」（商品ページ）は同じ画面から
-    /// OpenBoothCommand の名前で引くので、名前を分けてある
+    /// BOOTH のショップページを開く。カードの右クリックの「BOOTHで開く」（商品ページ。<see cref="MenuCommands"/>）とは別の物なので、
+    /// 名前を分けてある
     /// </summary>
     public RelayCommand OpenShopPageCommand { get; }
 
@@ -686,49 +686,22 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
     }
 
-    // 右クリックのメニューはカードの Tag（＝この画面）から同じ名前で引く。中身は検索画面の物をそのまま使う
-    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+    /// <summary>
+    /// カードの右クリックのメニュー。「開く」「Unity」も含めて検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）。差し替えるのは2つ：
+    /// 「改変に追加…」は、選んでいる最中に選んだ物の上で押したら選んだ全部（帯の「改変に追加…」と同じ）。
+    /// 「非表示にする」は、この画面の一覧からもその場で外す
+    /// </summary>
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search) with
+    {
+        CardAddToModificationCommand = new RelayCommand(
+            parameter => ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(SearchViewModel.AsCard(parameter), SelectedCards())).Forget(),
+            parameter => SearchViewModel.AsCard(parameter) is not null),
+        HideItemCommand = _hideItem,
+    };
 
-    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+    private CardMenuCommands? _menuCommands;
 
-    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
-
-    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
-
-    public RelayCommand RevealCommand => _main.Search.RevealCommand;
-
-
-    // 右クリックの「開く」「Unity」は検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）
-
-    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
-
-
-    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
-
-
-    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
-
-
-
-    /// <summary>右クリックの「改変に追加…」。選んでいる最中に選んだ物の上で押したら、選んだ全部（帯の「改変に追加…」と同じ）。</summary>
-
-
-    public RelayCommand CardAddToModificationCommand => _cardAddToModification ??= new RelayCommand(
-
-
-        parameter => ItemSelectionActions.AddToModificationAsync(_services, ItemSelectionActions.CardsForMenu(SearchViewModel.AsCard(parameter), SelectedCards())).Forget(),
-
-
-        parameter => SearchViewModel.AsCard(parameter) is not null);
-
-
-
-    private RelayCommand? _cardAddToModification;
-
-
-    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
-
-    public RelayCommand HideItemCommand { get; }
+    private readonly RelayCommand _hideItem;
 
     // ---- カードかリストか（検索画面・フォルダビューと同じ作り） ----
 

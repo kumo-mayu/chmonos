@@ -2537,28 +2537,15 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
 
-    // ---- 一覧の行の右クリック（ユーザ指示 2026-09-20・M2）。中身は検索画面と同じ命令を借りる ----
+    /// <summary>
+    /// 一覧の行・カードの右クリック（ユーザ指示 2026-09-20・M2）。中身は検索画面と同じ命令を借りる。
+    /// 「改変に追加…」は選びがこの画面に無いので押した1件だけ。
+    /// 「BOOTHで開く」だけ、詳細の欄のボタンと同じこの画面の命令にする（行を渡されても商品の番号を引ける）
+    /// </summary>
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search) with
+    {
+        OpenBoothCommand = OpenBoothCommand,
+    };
 
-    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
-
-    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
-
-    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
-
-    public RelayCommand RevealCommand => _main.Search.RevealCommand;
-
-    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
-
-    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
-
-    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
-
-
-    /// <summary>右クリックの「改変に追加…」。選びはこの画面に無いので、押した1件だけ（検索の画面と同じ命令）。</summary>
-
-    public RelayCommand CardAddToModificationCommand => _main.Search.CardAddToModificationCommand;
-
-    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
-
-    public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
+    private CardMenuCommands? _menuCommands;
 }

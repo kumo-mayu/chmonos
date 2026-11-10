@@ -2010,36 +2010,17 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
 
-    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
-
-    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
-
-    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
-
-    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
-
-    public RelayCommand RevealCommand => _main.Search.RevealCommand;
-
-    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
-
-    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
-
-    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
-
-
-    /// <summary>右クリックの「改変に追加…」。選びはこの画面に無いので、押した1件だけ（検索の画面と同じ命令）。</summary>
-
-    public RelayCommand CardAddToModificationCommand => _main.Search.CardAddToModificationCommand;
-
-    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
-
-    private RelayCommand? _hideItem;
-
     /// <summary>
-    /// 非表示にする。書くのは検索画面と同じ命令で、検索の写しを読み直し終えてからこの画面を組み直す
+    /// 右クリックのメニューの命令。「改変に追加…」は選びがこの画面に無いので押した1件だけ（検索の命令のまま）。
+    /// 非表示にするだけ差し替える：書くのは検索画面と同じ命令で、検索の写しを読み直し終えてからこの画面を組み直す
     /// （小分類の中の商品は検索の写しから引くので、先に組み直すと古い商品のまま残る）
     /// </summary>
-    public RelayCommand HideItemCommand => _hideItem ??= new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
+    public CardMenuCommands MenuCommands => _menuCommands ??= CardMenuCommands.BorrowedFrom(_main.Search) with
+    {
+        HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget()),
+    };
+
+    private CardMenuCommands? _menuCommands;
 
     private async Task HideItemAsync(ItemCardViewModel? card)
     {
