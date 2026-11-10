@@ -104,6 +104,13 @@ public partial class FirstRunWindow : Window
             return;
         }
 
+        // 新しいバージョンで使われている場所は、何も書く前にここで断る（書いてからだと次の起動で止まり、選び直せない）
+        if (ViewModels.FirstRunStoreCheck.RefusalFor(picked) is { } refusal)
+        {
+            Services.Notice.Show(refusal, "この場所は使えません", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         // 既に別のライブラリが入っている場所を選んだら、そちらを開くことになる。
         // 黙って混ざるより、選び直す機会を出す
         if (StoreLocation.LooksLikeStore(picked))
