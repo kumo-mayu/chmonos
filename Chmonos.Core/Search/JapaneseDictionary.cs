@@ -684,7 +684,10 @@ public sealed class JapaneseDictionary
             Directory.CreateDirectory(directory);
         }
 
-        var temp = _cachePath + ".tmp";
+        // 書きかけの名前はプロセスごとに分ける。同じ控えを2つのプロセスが同時に組むことがある
+        // （画面の側の試験は3つのプロセスに分けて並べて走らせ、控えが無い初回は3つとも組む）。
+        // 名前が同じだと、書きかけを取り合って片方が IOException で落ちる
+        var temp = $"{_cachePath}.{Environment.ProcessId}.tmp";
         using (var writer = new StreamWriter(temp, false, new UTF8Encoding(false)))
         {
             writer.WriteLine($"bridge\t{CacheVersion}\t{DictionaryStamp()}");
@@ -699,7 +702,22 @@ public sealed class JapaneseDictionary
             }
         }
 
-        File.Move(temp, _cachePath, overwrite: true);
+        try
+        {
+            File.Move(temp, _cachePath, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 別のプロセスが同じ控えを置いた直後か、読んでいる最中。中身は同じ辞書から組んだ物なので、
+            // 置けなくても次からはそちらを読めばよい。書きかけだけ片付ける
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     private static void WriteSection(TextWriter writer, PackedIndex index)
