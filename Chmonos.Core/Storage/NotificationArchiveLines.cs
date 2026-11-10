@@ -12,7 +12,7 @@ namespace Chmonos.Core.Storage;
 /// </summary>
 internal sealed class ArchiveLineScan
 {
-    /// <summary>速い読みで、gzip の誤り（CRC の不一致・deflate の誤り）が出た、または最後の行が改行で終わらなかった。</summary>
+    /// <summary>速い読みで、gzip の誤り（CRC の不一致・deflate の誤り）が出た、最後の行が改行で終わらなかった、またはファイルの終わりまで引かなかった。</summary>
     public bool Broken { get; set; }
 
     /// <summary>速い読みで通ったバイト列の中の、このアプリが書くメンバーの頭（<c>1F 8B 08 00</c> と時刻 0）の数。</summary>
@@ -27,7 +27,8 @@ internal sealed class ArchiveLineScan
     /// <summary>
     /// 速い読みが全部を読み切ったか。GZipStream は、メンバーの後ろが gzip の頭でないと（頭の1バイトが壊れた等）
     /// 黙って読み終える（.NET 10 で 2026-11-10 に確かめた）。例外が無いだけでは後ろを落としたかが分からないので、
-    /// 版の行（メンバーごとに1行目）の数とメンバーの頭の数が合うことも見る。
+    /// ファイルの終わりまで引いたこと（引いたバッファの外の後ろ）と、版の行（メンバーごとに1行目）の数とメンバーの頭の数が合うこと
+    /// （引いたバッファの中の後ろ）も見る。
     /// 手で作った gzip（名前や時刻の入った頭）・版の行がメンバーの途中にある物は合わず、正確な読みに回る（遅いが正しい）。
     /// </summary>
     public bool Intact => !Broken && VersionLines == Headers;
@@ -108,8 +109,10 @@ internal static class NotificationArchiveLines
             ArrayPool<byte>.Shared.Return(buffer);
         }
 
-        // 改行で終わらない最後の行は、切れたメンバーの書きかけ（このアプリは行を必ず改行で終える）
-        scan.Broken = splitter.HasPartial;
+        // 改行で終わらない最後の行は、切れたメンバーの書きかけ（このアプリは行を必ず改行で終える）。
+        // GZipStream は、メンバーの後ろが gzip の頭でないと、その先を元のストリームから引かずに読み終える。
+        // 引いたバッファ（8KB）の中に次の頭が無いと頭の数では気づけないので、ファイルの終わりまで引いたかも見る
+        scan.Broken = splitter.HasPartial || counting.Pulled < file.Length;
         scan.Headers = counting.Headers;
     }
 
@@ -464,6 +467,9 @@ internal static class NotificationArchiveLines
 
         public int Headers { get; private set; }
 
+        /// <summary>元のストリームから引いたバイト数。</summary>
+        public long Pulled { get; private set; }
+
         public override bool CanRead => true;
 
         public override bool CanSeek => false;
@@ -493,6 +499,8 @@ internal static class NotificationArchiveLines
             {
                 return 0;
             }
+
+            Pulled += read.Length;
 
             // 前の読みとの継ぎ目にまたがる頭（前の終わりの7バイトまで＋今の頭の7バイトまで）
             var head = Math.Min(read.Length, Header.Length - 1);

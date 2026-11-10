@@ -585,15 +585,58 @@ public sealed class NotificationArchiveTests : IDisposable
         Assert.Equal(0, Archive.PreciseReadsForTests);
     }
 
-    /// <summary>知らせを1件ずつ（かたまり1つずつ）足し、各かたまりの頭の位置と、最後にファイルの大きさを返す。</summary>
-    private async Task<List<long>> AppendOneByOneAsync(int count, int firstIndex = 0)
+    /// <summary>
+    /// GZipStream が元のストリームから1回に引く大きさ（8KB）より大きいかたまりでも、頭が壊れたら後ろを落としたことに気づく。
+    /// 引いたバッファの中に次の頭が無いと、頭の数だけでは合ってしまうので、ファイルの終わりまで引いたかも見る。
+    /// </summary>
+    [Fact]
+    public async Task 入力のバッファより大きいかたまりの頭が壊れても_後ろを読み続ける()
+    {
+        var starts = await AppendOneByOneAsync(5, detailBytes: 20_000);
+        Assert.True(starts[3] - starts[2] > 16 * 1024);
+        Damage(Archive.FileFor("2026-09"), starts[2], starts[3], "header");
+
+        var read = await Archive.ReadAsync("2026-09");
+
+        Assert.Equal(new[] { 0, 1, 3, 4 }.Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(1, read.UnreadableBlocks);
+    }
+
+    /// <summary>
+    /// 読む区切り（GZipStream の 8KB・行に分ける 64KB）を何度もまたぐ壊れていない月は、速い読みだけで読み切る
+    /// （頭の数え方が継ぎ目で数え違えると、ふつうの月が毎回遅い読みに回る）。
+    /// </summary>
+    [Fact]
+    public async Task 区切りをまたぐ壊れていない月は_速い読みだけで読む()
+    {
+        var sizes = new[] { 10, 3000, 9000, 500, 70_000, 1, 4100, 20_000, 7, 66_000, 12 };
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            await AppendOneByOneAsync(1, firstIndex: i, detailBytes: sizes[i]);
+        }
+
+        var read = await Archive.ReadAsync("2026-09");
+
+        Assert.Equal(Enumerable.Range(0, sizes.Length).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(0, read.UnreadableBlocks);
+        Assert.Equal(0, Archive.PreciseReadsForTests);
+    }
+
+    /// <summary>
+    /// 知らせを1件ずつ（かたまり1つずつ）足し、各かたまりの頭の位置と、最後にファイルの大きさを返す。
+    /// 説明は種を決めた乱数の16進（縮みにくく、壊し方が回ごとに変わらない）。
+    /// </summary>
+    private async Task<List<long>> AppendOneByOneAsync(int count, int firstIndex = 0, int detailBytes = 16)
     {
         var path = Archive.FileFor("2026-09");
+        var random = new Random(firstIndex * 7919 + detailBytes);
         var starts = new List<long>();
         for (var i = firstIndex; i < firstIndex + count; i++)
         {
             starts.Add(File.Exists(path) ? new FileInfo(path).Length : 0);
-            await Archive.AppendAsync([Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with { Detail = Guid.NewGuid().ToString("N") }]);
+            var detail = new byte[detailBytes];
+            random.NextBytes(detail);
+            await Archive.AppendAsync([Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with { Detail = Convert.ToHexString(detail) }]);
         }
 
         starts.Add(new FileInfo(path).Length);
