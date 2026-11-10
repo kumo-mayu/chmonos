@@ -74,8 +74,9 @@ public static class LocalShopKey
 
         var subdomain = match.Groups[1].Value.ToLowerInvariant();
 
-        // booth.pm 自身のページ（https://booth.pm/ja/items/...）はショップではない
-        return subdomain is "www" or "accounts" ? null : subdomain;
+        // booth.pm 自身のページ・管理画面・配布の置き場（www・accounts・manage・asset・s1〜s6）はショップではない。
+        // 除く一覧は落とした時の読み方（BoothUrlExtractor）と1つにする。前はここだけ www と accounts しか除かず、manage.booth.pm を貼るとショップとして受けた
+        return BoothZipInspector.BoothUrlExtractor.IsReservedSubdomain(subdomain) ? null : subdomain;
     }
 
     private static readonly Regex ShopUrlRegex = new(

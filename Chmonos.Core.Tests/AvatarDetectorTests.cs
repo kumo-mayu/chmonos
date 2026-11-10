@@ -88,6 +88,26 @@ public class AvatarDetectorTests
     }
 
     /// <summary>
+    /// 言語の段が2字でない URL（<c>/zh-cn/items/…</c>）も、2字の物と同じに読む（BoothUrlExtractor と同じ。洗い出し B11）。
+    /// 前は ID だけ別の道で拾えても、URL の残りが名前の手掛かりに混ざった
+    /// </summary>
+    [Fact]
+    public void ReadsUrlsWithLongLanguageSegments()
+    {
+        var html = """
+            <h2>対応アバター</h2>
+            <p>作り物A https://booth.pm/zh-cn/items/1111<br>
+            作り物B https://booth.pm/zh-tw/items/2222</p>
+            """;
+
+        var scan = AvatarDetector.ScanDescription(html, "999", Support, Ignored);
+
+        Assert.Equal(["1111", "2222"], scan.Support.Select(hit => hit.ItemId));
+        Assert.Equal("作り物A", scan.Support[0].NameHint);
+        Assert.Equal("作り物B", scan.Support[1].NameHint);
+    }
+
+    /// <summary>
     /// クレジット節は読まない。宣伝画像に使ったモデルへの謝辞で、
     /// 実測では34件中0件しかアバターではなかった。
     /// </summary>

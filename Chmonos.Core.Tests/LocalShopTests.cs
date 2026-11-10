@@ -76,6 +76,9 @@ public class LocalShopTests : IDisposable
     [InlineData("https://booth.pm/ja/items/123")]
     [InlineData("ほとぎ屋")]
     [InlineData("https://example.com/")]
+    [InlineData("https://manage.booth.pm/items")]
+    [InlineData("asset.booth.pm")]
+    [InlineData("https://s3.booth.pm/")]
     [InlineData("")]
     [InlineData(null)]
     public void RefusesToGuessFromSomethingElse(string? text)
