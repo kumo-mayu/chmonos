@@ -128,4 +128,7 @@ WPF の既定（Aero2）は色を型の中に直に持つので、色の表の�
 - **欄を消す ×**：`ClearFieldButton`（土台の `Button` を継ぐので、乗せた色はアプリの型の色）
 - **確認待ちの印**：`UnconfirmedDot`・`ConfirmMarkButton`・`RejectMarkButton`（対応アバターの札と変換のつなぎ先の札）
 - **文字だけのボタンと畳む三角**：`HubLink`・`HubToggle`（`ManageResources.xaml`）。並べ替えの行の型は `ReorderRowTemplate`
+- **リストの行の見た目**：`ListRowBase`（`Views/ItemCardResources.xaml`）。余白・高さ・右クリックの結び付け・境目の線・乗せたときの薄い灰だけを持つ。
+  検索・ショップ・フォルダの行（`ItemListRowStyle`）と改変の使ったものの行（`MemberListRowStyle`）が `BasedOn` で継ぎ、押したときの動き（`EventSetter`）と選んだ行の薄い青は継ぐ側に置く
+  （改変の行は名前と右端のボタンだけが押せる）。乗せたときの色を型の Trigger に置かない（型の Trigger は Style の Trigger に勝ち、継ぐ側の「選んだ」が負ける）
 - **カードの行の一覧**：`CardRowsListBoxStyle`（`Themes/Controls.xaml`。`CardRowsListBox` が自分で当てる。余白・縦の流し方・仮想化の有無だけ画面が上書きする）

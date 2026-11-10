@@ -787,6 +787,40 @@
     </DataTemplate>
 
     <!--
+        リストの行の見た目の土台（検索・ショップ・フォルダのリストと、改変の「使ったもの」のリストが BasedOn で継ぐ）。
+        余白・高さ・右クリックの結び付け・境目の線・乗せたときの薄い灰だけを持ち、押したときの動き（EventSetter）と選んだ行の色は持たない。
+        改変の行は「名前と右端のボタンだけ押せる」ので、押す動きまで共有すると行のどこを押しても開いてしまう。
+        背景は Row が TemplateBinding で受け、乗せたときと選んだときは Style の Trigger で替える
+        （テンプレートの Trigger は Style の Trigger に勝つので、テンプレートに乗せたときを置くと、継ぐ側の「選んだ」が負ける）。
+        右クリックは行から Card を取り出す（SearchViewModel.AsCard）ので、Tag に一覧の DataContext を渡す
+    -->
+    <Style x:Key="ListRowBase" TargetType="ListViewItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="Transparent" />
+        <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29）。絵がこの高さに合わせて大きさを変える -->
+        <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
+        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
+        <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="Row" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                            Padding="0,5">
+                        <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
+                                              VerticalAlignment="Stretch" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceAlt}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
         リストの行。押す・右クリック・中クリックはカードと同じ（入れ物の画面は Tag から引く）。
         フォルダの行（フォルダビュー）は押すとそのフォルダへ移り、右クリックのメニューは出さない
     -->
@@ -794,33 +828,8 @@
         行の見た目は自前にする（ユーザ指摘 2026-09-14：既定の乗せたときの青い枠と塗りが強すぎた）。
         行の境目に細い線を引き、乗せたときは薄い灰、選んだ行（まとめて操作）は薄い青
     -->
-    <Style x:Key="ItemListRowStyle" TargetType="ListViewItem"><Setter Property="AutomationProperties.AutomationId" Value="ItemListRow" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="VerticalContentAlignment" Value="Stretch" />
-        <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29）。絵がこの高さに合わせて大きさを変える -->
-        <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
+    <Style x:Key="ItemListRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource ListRowBase}"><Setter Property="AutomationProperties.AutomationId" Value="ItemListRow" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
-        <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ListViewItem">
-                    <Border x:Name="Row" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                            Padding="0,5">
-                        <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
-                                              VerticalAlignment="Stretch" />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource SurfaceAlt}" />
-                        </Trigger>
-                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource AccentSoft}" />
-                        </DataTrigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
         <EventSetter Event="MouseLeftButtonUp" Handler="OnListRowClick" />
         <EventSetter Event="MouseDown" Handler="OnCardMouseDown" />
         <!-- 行に止まって Enter・Space で押したのと同じこと（カードと揃える） -->
@@ -832,6 +841,10 @@
         <!-- 読み上げに型の名前（…ItemCardViewModel）が出ていた。商品・フォルダの名前で名乗る -->
         <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
         <Style.Triggers>
+            <!-- 選んだ行（まとめて操作）は薄い青。土台の「乗せたとき」より後ろに置いて勝たせる -->
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+            </DataTrigger>
             <DataTrigger Binding="{Binding IsFolder}" Value="True">
                 <Setter Property="ContextMenu" Value="{x:Null}" />
             </DataTrigger>

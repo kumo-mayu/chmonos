@@ -42,36 +42,13 @@
             </Style>
 
             <!-- 使ったもののリストの行。見た目は検索のリストと同じ（境目の線・乗せると薄い灰）。押す操作は名前と右端のボタンに置く -->
-            <Style x:Key="MemberListRowStyle" TargetType="ListViewItem">
+            <!--
+                余白・高さ・右クリック（カード表示と同じ・ユーザ指示 2026-09-20・M1）・線・乗せたときは土台 ListRowBase（ItemCardResources）から継ぐ
+            -->
+            <Style x:Key="MemberListRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource ListRowBase}">
                 <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。使ったものの名前を読ませる -->
                 <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
                 <Setter Property="AutomationProperties.AutomationId" Value="ModificationMemberRow" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29） -->
-                <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
-                <!--
-                    カード表示と同じ右クリック（ユーザ指示 2026-09-20・M1：表示を切り替えただけで操作が消えていた）。
-                    行はカードそのものではないので、メニューは行から Card を取り出す（SearchViewModel.AsCard）
-                -->
-                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
-                <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ListViewItem">
-                            <Border x:Name="Row" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                                    Padding="0,5">
-                                <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
-                                                      VerticalAlignment="Stretch" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource SurfaceAlt}" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
