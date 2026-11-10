@@ -126,6 +126,7 @@ public sealed partial class SettingsViewModel
         _oscPort = settings.OscPort;
         _quietUnitySend = settings.QuietUnitySend;
         _notificationRetentionCount = settings.NotificationRetentionCount;
+        _notificationArchiveMegabytes = settings.NotificationArchiveMegabytes;
         _searchHistoryCount = settings.SearchHistoryCount;
         _fetchIntervalMs = settings.FetchIntervalMs;
         _imageMaxEdgePixels = settings.ImageMaxEdgePixels;

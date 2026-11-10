@@ -999,6 +999,69 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
+    private int _notificationArchiveMegabytes;
+
+    /// <summary>
+    /// 通知の保管に使う容量（MB。ユーザ判断 2026-11-10：上限なし・0 なら保管しない）。
+    /// **負の数は 0 に丸めない**：0 は「閉じるときに保管庫を全部消す」なので、打ち間違いで保管庫が消える。前の値のままにして欄の下で言う。
+    /// 値を変えても、消すのは閉じるときだけ（小さくしてから戻せば何も消えない）。
+    /// </summary>
+    public int NotificationArchiveMegabytes
+    {
+        get => _notificationArchiveMegabytes;
+        set
+        {
+            if (value < 0)
+            {
+                Notes[nameof(NotificationArchiveMegabytes)] = NotificationArchiveNegativeNote;
+                OnPropertyChanged();
+                return;
+            }
+
+            Notes[nameof(NotificationArchiveMegabytes)] = string.Empty;
+            if (SetField(ref _notificationArchiveMegabytes, value)) { Save(); }
+        }
+    }
+
+    internal const string NotificationArchiveNegativeNote = "通知の保管に使う容量には、0 以上の数を入れてください。";
+
+    private (int Months, long Bytes)? _notificationArchive;
+    private bool _notificationArchiveLoaded;
+
+    /// <summary>今の保管庫の大きさ。件数は全部を解かないと数えられないので、月の数を出す。</summary>
+    public string NotificationArchiveUsageText => NotificationArchiveText(_notificationArchiveLoaded, _notificationArchive);
+
+    internal static string NotificationArchiveText(bool loaded, (int Months, long Bytes)? usage)
+        => !loaded
+            ? "…"
+            : usage switch
+            {
+                null => "読めませんでした",
+                { Months: 0 } => "保管している通知はありません",
+                var (months, bytes) => $"保管中：{Core.Models.DisplayText.Size(bytes)} / {months:N0} か月分",
+            };
+
+    private async Task LoadNotificationArchiveAsync()
+    {
+        (int Months, long Bytes)? usage;
+        try
+        {
+            usage = await Task.Run(() => _services.Store.NotificationArchive.Usage());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("通知の保管庫の大きさを数える", exception);
+            usage = null;
+        }
+
+        RunOnUiThread(() =>
+        {
+            _notificationArchive = usage;
+            _notificationArchiveLoaded = true;
+            OnPropertyChanged(nameof(NotificationArchiveUsageText));
+        });
+    }
+
     private int _searchHistoryCount;
 
     /// <summary>
@@ -1350,6 +1413,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         var usage = await _services.SettingsStore.LoadUsageAsync(_leaving.Token);
         await LoadFormatBackupsAsync();
+        await LoadNotificationArchiveAsync();
         var hidden = await _services.SettingsStore.LoadHiddenAsync();
         var excluded = await _services.SettingsStore.LoadExcludedAsync();
         var detached = await _services.SettingsStore.LoadDetachedAsync();
@@ -1586,6 +1650,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             OscPort = OscPort,
             QuietUnitySend = QuietUnitySend,
             NotificationRetentionCount = NotificationRetentionCount,
+            NotificationArchiveMegabytes = NotificationArchiveMegabytes,
             SearchHistoryCount = SearchHistoryCount,
             ShopBannerRecheckDays = ShopBannerRecheckDays,
             AvatarDetectRecheckDays = AvatarDetectRecheckDays,

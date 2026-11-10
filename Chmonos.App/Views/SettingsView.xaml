@@ -668,6 +668,27 @@
                             <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
                                        AutomationProperties.AutomationId="Settings.Note.NotificationRetentionCount"
                                        Text="{Binding Notes[NotificationRetentionCount]}" />
+
+                            <!--
+                                件数を超えた古い既読・解消済みは、捨てずに保管庫へ移す（ユーザ判断 2026-11-10）。
+                                消すのは閉じるときだけなので、そのことは欄の下の1文で言う（小さくしただけでは消えない）
+                            -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                                <TextBlock Text="通知の保管に使う容量" Style="{StaticResource RowLabel}" Width="220" />
+                                <TextBox Style="{StaticResource NumberBox}"
+                                         AutomationProperties.AutomationId="Settings.NotificationArchiveMegabytes" AutomationProperties.Name="通知の保管に使う容量"
+                                         Text="{Binding NotificationArchiveMegabytes, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                <TextBlock Text="MB" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                                <TextBlock Text="（0 で保管しない）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                <TextBlock Text="{Binding NotificationArchiveUsageText}" Style="{StaticResource Mono}" FontSize="12"
+                                           AutomationProperties.AutomationId="Settings.NotificationArchiveUsage"
+                                           VerticalAlignment="Center" Margin="16,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="222,2,0,0"
+                                       Text="件数を超えた古い通知を保管します。容量を超えた分は、アプリを閉じるときに古い月から削除します。" />
+                            <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
+                                       AutomationProperties.AutomationId="Settings.Note.NotificationArchiveMegabytes"
+                                       Text="{Binding Notes[NotificationArchiveMegabytes]}" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="画像と通信" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                     <!--

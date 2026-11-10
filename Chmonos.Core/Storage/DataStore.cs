@@ -277,6 +277,7 @@ public sealed class DataStore
         // 入れ物は呼び手が足し引きするので複製して渡す。写しが持つ量は1000件で約570KB（stress-manage で測った）、
         // 知らせは2000件で古い既読から捨てるので、多くても約1.1MB
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile, copyOnLoad: list => [.. list]);
+        NotificationArchive = new NotificationArchive(paths.NotificationArchiveDir);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
         SavedSearches = new JsonFileStore<Services.SavedSearchList>(paths.SavedSearchesFile);
         // 足跡は「最近」で絞る・並べるたびに画面のスレッドで読まれる。中身は init だけの型なので共有する
@@ -322,6 +323,9 @@ public sealed class DataStore
     public JsonFileStore<List<ExcludedEntry>> Excluded { get; }
 
     public JsonFileStore<List<NotificationRecord>> Notifications { get; }
+
+    /// <summary>通知に残す件数を超えた知らせの保管庫（月ごとの gzip）。</summary>
+    public NotificationArchive NotificationArchive { get; }
 
     /// <summary>検索の履歴。商品を開いたときに1件積む</summary>
     public JsonFileStore<Services.SearchHistoryList> SearchHistory { get; }

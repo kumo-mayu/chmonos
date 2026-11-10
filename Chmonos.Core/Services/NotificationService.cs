@@ -25,8 +25,11 @@ public interface INotificationService
     /// <summary>説明文の見出しが取れなくなっていないかを調べる。取れていれば前の知らせを解消済みにする。</summary>
     Task<bool> DetectPageStructureAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>上限を超えた分を落とす。起動時に1回呼ぶ（足すときは上限を見ていない）。</summary>
+    /// <summary>上限を超えた分を保管庫へ移す。起動時に1回呼ぶ（足すときは上限を見ていない）。</summary>
     Task<int> PruneAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>保管庫が容量を超えていたら古い月から消す。アプリを閉じるときに1回だけ呼ぶ。</summary>
+    Task<int> TrimArchiveAsync(CancellationToken cancellationToken = default);
 
     /// <summary>手で直した JSON の食い違いを要確認に出す（J2・L6）。</summary>
     Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default);
@@ -39,7 +42,7 @@ public interface INotificationService
 /// 要確認（<c>notifications.json</c>）の読み書き。
 ///
 /// 確認しても消さずに既読にするのは、「見た」ことと「無かったこと」を分けるため。
-/// 溜まり続けないよう、上限を超えたら古い既読から捨てる。未読は捨てない
+/// 溜まり続けないよう、上限を超えたら古い既読から保管庫（<see cref="NotificationArchive"/>）へ移す。未読は移さない
 /// （未読を落とすと、気付かないまま消えたことにも気付けない）。
 /// </summary>
 public sealed class NotificationService : INotificationService
@@ -68,17 +71,17 @@ public sealed class NotificationService : INotificationService
     /// 1件足す。**同じIDの未読があれば差し替える**（溜めても読む手間が増えるだけ。商品の更新の知らせと同じ作法）。
     /// </summary>
     public Task AddAsync(NotificationRecord record, CancellationToken cancellationToken = default)
-        => _store.Notifications.UpdateAsync(
+        => ChangeAsync(
             records =>
             {
                 records.RemoveAll(entry => entry.Id == record.Id && !entry.IsRead);
                 records.Add(record);
-                return Pruned(records);
+                return records;
             },
             cancellationToken);
 
     public Task<bool> SetReadAsync(string id, bool isRead, CancellationToken cancellationToken = default)
-        => _store.Notifications.TryUpdateAsync(
+        => TryChangeAsync(
             records =>
             {
                 var index = records.FindIndex(record => record.Id == id);
@@ -88,7 +91,7 @@ public sealed class NotificationService : INotificationService
                 }
 
                 records[index] = records[index] with { IsRead = isRead };
-                return Pruned(records);
+                return records;
             },
             cancellationToken);
 
@@ -110,7 +113,7 @@ public sealed class NotificationService : INotificationService
         CancellationToken cancellationToken)
     {
         var changed = 0;
-        await _store.Notifications.TryUpdateAsync(
+        await TryChangeAsync(
             records =>
             {
                 changed = 0;
@@ -125,7 +128,7 @@ public sealed class NotificationService : INotificationService
                     changed++;
                 }
 
-                return changed == 0 ? null : Pruned(records);
+                return changed == 0 ? null : records;
             },
             cancellationToken);
 
@@ -206,7 +209,7 @@ public sealed class NotificationService : INotificationService
         var stillBroken = wanted.Select(record => record.Id).ToHashSet(StringComparer.Ordinal);
         var added = 0;
 
-        await _store.Notifications.TryUpdateAsync(
+        await TryChangeAsync(
             records =>
             {
                 added = 0;
@@ -255,7 +258,7 @@ public sealed class NotificationService : INotificationService
                     }
                 }
 
-                return added > 0 || resolved > 0 ? Pruned(records) : null;
+                return added > 0 || resolved > 0 ? records : null;
             },
             cancellationToken);
 
@@ -307,7 +310,7 @@ public sealed class NotificationService : INotificationService
         // 見出し（何が起きたか）は Title と帯が言うので、ここは件数の事実だけにする
         var detail = $"最近取り直した {recent.Count} 件のうち {broken} 件で、説明の見出しを読み取れませんでした。";
 
-        await _store.Notifications.TryUpdateAsync(
+        await TryChangeAsync(
             records =>
             {
                 var existing = records.FindIndex(record => record.Id == id);
@@ -333,7 +336,7 @@ public sealed class NotificationService : INotificationService
                         IsStrong = true,
                     });
 
-                    return Pruned(records);
+                    return records;
                 }
 
                 // 読み取りが戻ったら、帯は自分で消える
@@ -343,7 +346,7 @@ public sealed class NotificationService : INotificationService
                 }
 
                 records[existing] = records[existing] with { IsResolved = true };
-                return Pruned(records);
+                return records;
             },
             cancellationToken);
 
@@ -375,7 +378,7 @@ public sealed class NotificationService : INotificationService
     }
 
     /// <summary>
-    /// 上限を超えた分を落とす。
+    /// 上限を超えた分を保管庫へ移す（保管の容量が 0 なら捨てる）。
     ///
     /// 足すときは上限を見ていない（足す側は `SaveAsync` を直に呼ぶ）ので、
     /// 放っておくと上限を超えたまま増える。起動時に1回ここを通す（ユーザ判断 2026-09-18）
@@ -383,18 +386,23 @@ public sealed class NotificationService : INotificationService
     public async Task<int> PruneAsync(CancellationToken cancellationToken = default)
     {
         var dropped = 0;
-        await _store.Notifications.TryUpdateAsync(
-            records =>
+        await _store.Notifications.TryUpdateAwaitingAsync(
+            async records =>
             {
-                var before = records.Count;
-                Prune(records);
-                dropped = before - records.Count;
+                dropped = await PruneAsync(records, cancellationToken);
                 return dropped == 0 ? null : records;
             },
             cancellationToken);
 
         return dropped;
     }
+
+    /// <summary>
+    /// 保管庫が容量を超えていたら、古い月から丸ごと消す。**アプリを閉じるときに1回だけ呼ぶ**（`UiCommand.TrimNotificationArchive`）。
+    /// 設定で容量を小さくしてから戻しても、閉じるまでは消えないようにするため（ユーザ判断 2026-11-10）。
+    /// </summary>
+    public Task<int> TrimArchiveAsync(CancellationToken cancellationToken = default)
+        => _store.NotificationArchive.TrimAsync(_settings.NotificationArchiveBytes, cancellationToken);
 
     /// <summary>
     /// 手で直した JSON の食い違いを要確認に出す（ユーザ判断 2026-09-21・J2/L6）。
@@ -409,7 +417,7 @@ public sealed class NotificationService : INotificationService
         const string id = "hand-edit";
         var changed = 0;
 
-        await _store.Notifications.TryUpdateAsync(
+        await TryChangeAsync(
             records =>
             {
                 var existing = records.FindIndex(record => record.Id == id);
@@ -423,7 +431,7 @@ public sealed class NotificationService : INotificationService
                     }
 
                     records[existing] = records[existing] with { IsResolved = true };
-                    return Pruned(records);
+                    return records;
                 }
 
                 // 保存する文と同じ物で比べる。案内の文を足す前の文で比べていたので一致することが無く、
@@ -455,7 +463,7 @@ public sealed class NotificationService : INotificationService
                 });
 
                 changed = issues.Count;
-                return Pruned(records);
+                return records;
             },
             cancellationToken);
 
@@ -479,7 +487,7 @@ public sealed class NotificationService : INotificationService
             .ToDictionary(failure => UnreadableItemPrefix + failure.ItemId, StringComparer.Ordinal);
         var added = 0;
 
-        await _store.Notifications.TryUpdateAsync(
+        await TryChangeAsync(
             records =>
             {
                 var changed = false;
@@ -522,7 +530,7 @@ public sealed class NotificationService : INotificationService
                     changed = true;
                 }
 
-                return changed ? Pruned(records) : null;
+                return changed ? records : null;
             },
             cancellationToken);
 
@@ -547,22 +555,41 @@ public sealed class NotificationService : INotificationService
         ];
     }
 
-    private List<NotificationRecord> Pruned(List<NotificationRecord> records)
-    {
-        Prune(records);
-        return records;
-    }
+    /// <summary>変えて、上限を超えた分を移してから書く（<paramref name="change"/> は必ず書く物を返す）。</summary>
+    private Task ChangeAsync(Func<List<NotificationRecord>, List<NotificationRecord>> change, CancellationToken cancellationToken)
+        => TryChangeAsync(change, cancellationToken);
 
     /// <summary>
-    /// 上限を超えた分を落とす。
-    /// 捨てるのは既読か解消済みの古い方だけ。未読の宿題を落とすと、気付かないまま消えたことにも気付けない。
+    /// 変えて（null なら書かない）、上限を超えた分を保管庫へ移してから書く。
+    /// **保管庫に書けてから notifications.json から外す**：逆の順だと、間で落ちたときに知らせがどこにも無くなる。
+    /// 間で落ちたときは両方に残り、次に上限を見たときにもう一度足されるが、読む口が同じ行を1つにまとめる。
     /// </summary>
-    private void Prune(List<NotificationRecord> records)
+    private Task<bool> TryChangeAsync(Func<List<NotificationRecord>, List<NotificationRecord>?> change, CancellationToken cancellationToken)
+        => _store.Notifications.TryUpdateAwaitingAsync(
+            async records =>
+            {
+                if (change(records) is not { } changed)
+                {
+                    return null;
+                }
+
+                await PruneAsync(changed, cancellationToken);
+                return changed;
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// 上限を超えた分を保管庫へ移す（保管の容量が 0 なら捨てる。ユーザ判断 2026-11-10）。
+    /// 外すのは既読か解消済みの古い方だけ。未読の宿題を外すと、気付かないまま消えたことにも気付けない（保管庫へも入れない）。
+    /// 保管庫に書けなかったら（ディスクが一杯・開かれている）、この回は外さない：既読にするなどの操作は失敗させず、次の回にまた試す。
+    /// </summary>
+    /// <returns>外した数。</returns>
+    private async Task<int> PruneAsync(List<NotificationRecord> records, CancellationToken cancellationToken)
     {
         var limit = Math.Max(1, _settings.NotificationRetentionCount);
         if (records.Count <= limit)
         {
-            return;
+            return 0;
         }
 
         var excess = records.Count - limit;
@@ -572,9 +599,29 @@ public sealed class NotificationService : INotificationService
             .Take(excess)
             .ToList();
 
+        if (droppable.Count == 0)
+        {
+            return 0;
+        }
+
+        if (_settings.NotificationArchiveBytes > 0)
+        {
+            try
+            {
+                await _store.NotificationArchive.AppendAsync(droppable, cancellationToken);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.AppLog.Warn("通知の保管", $"保管庫に書けなかったので、この回は通知から外しませんでした：{exception.Message}");
+                return 0;
+            }
+        }
+
         foreach (var record in droppable)
         {
             records.Remove(record);
         }
+
+        return droppable.Count;
     }
 }

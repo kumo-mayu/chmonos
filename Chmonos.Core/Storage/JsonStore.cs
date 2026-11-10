@@ -263,6 +263,40 @@ public static class JsonStore
     }
 
     /// <summary>
+    /// JSON 以外の中身（知らせの保管庫の gzip）を、JSON と同じ道で書く：ファイルごとの錠・書き込みの門・一時ファイルへ書いて
+    /// ディスクへ書き出してから据える。<paramref name="write"/> が途中で投げたら一時ファイルを捨て、本体は前の中身のまま残る。
+    /// </summary>
+    internal static async Task WriteStreamAsync(string path, Func<Stream, CancellationToken, Task> write, CancellationToken cancellationToken)
+    {
+        var gate = GateFor(path);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+            var temporaryPath = PrepareTemporary(path);
+            try
+            {
+                await using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    await write(stream, cancellationToken);
+                    stream.Flush(flushToDisk: FlushToDisk);
+                }
+
+                await ReplaceAsync(temporaryPath, path, cancellationToken);
+            }
+            catch (Exception failure)
+            {
+                DiscardTemporary(temporaryPath, failure);
+                throw;
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
     /// 本体を控えの場所へ写す。写しも一時ファイルから据える（途中で止まって半端な控えを残さない）。
     /// 控えのディスクへの書き出し（Flush）はしない：本体は書き出し済みで、控えが要るのは本体が後から壊れたときだけ。
     /// </summary>
