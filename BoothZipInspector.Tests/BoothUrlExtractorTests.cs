@@ -127,4 +127,47 @@ public class BoothUrlExtractorTests
     [Fact]
     public void ShopDoesNotMatchLongerHost()
         => Assert.Null(BoothUrlExtractor.FindShopSubdomainIn("https://shop-a.booth.pm.evil.com/"));
+
+    // ---- ダウンロード元の記録に残す値（作り物の番号） ----
+
+    [Fact]
+    public void ReadsDownloadIdAndItemIdFromSignedCdnUrl()
+    {
+        var parsed = BoothUrlExtractor.TryParseDownloadUrl(
+            "https://s9.booth.pm/00000000-1111-2222-3333-444444444444/f/1234567/7654321/作り物_v1.zip?Expires=1&Signature=abc&Key-Pair-Id=xyz");
+
+        Assert.Equal(new BoothDownloadUrl(7654321, "1234567"), parsed);
+    }
+
+    [Theory]
+    [InlineData("https://booth.pm/downloadables/7654321")]
+    [InlineData("https://booth.pm/ja/downloadables/7654321?x=1")]
+    public void ReadsDownloadIdFromDownloadablesUrl(string url)
+        => Assert.Equal(new BoothDownloadUrl(7654321, null), BoothUrlExtractor.TryParseDownloadUrl(url));
+
+    [Theory]
+    [InlineData("https://booth.pm.evil.com/downloadables/7654321")]
+    [InlineData("https://example.com/f/1234567/7654321/a.zip")]
+    [InlineData("https://accounts.booth.pm/")]
+    [InlineData("C:\\Users\\a\\Downloads\\作り物.zip")]
+    [InlineData(null)]
+    public void DoesNotReadDownloadFromOtherUrls(string? url)
+        => Assert.Null(BoothUrlExtractor.TryParseDownloadUrl(url));
+
+    [Theory]
+    [InlineData("https://booth.pm/ja/items/1234567", "https://booth.pm/ja/items/1234567")]
+    [InlineData("http://booth.pm/ja/items/1234567?utm=x#top", "https://booth.pm/ja/items/1234567")]
+    [InlineData("https://Shop-A.booth.pm/items/1234567/edit", "https://shop-a.booth.pm/items/1234567")]
+    [InlineData("https://booth.pm/zh-cn/items/1234567", "https://booth.pm/zh-cn/items/1234567")]
+    public void NormalizesItemPageUrl(string url, string expected)
+        => Assert.Equal(expected, BoothUrlExtractor.TryNormalizeItemPageUrl(url));
+
+    [Theory]
+    [InlineData("https://booth.pm.evil.com/ja/items/1234567")]
+    [InlineData("https://accounts.booth.pm/items/1234567")]
+    [InlineData("https://accounts.booth.pm/library")]
+    [InlineData("https://s9.booth.pm/00000000-1111-2222-3333-444444444444/f/1234567/7654321/a.zip")]
+    [InlineData("https://example.com/items/1234567")]
+    public void DoesNotNormalizeOtherUrls(string url)
+        => Assert.Null(BoothUrlExtractor.TryNormalizeItemPageUrl(url));
 }

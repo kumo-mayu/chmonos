@@ -412,6 +412,9 @@ internal sealed class LocalFileEditor(DataStore store)
 
                     // 新しい行になるときだけ残る（既に持つ行なら突き合わせが元の日時を保つ）
                     RegisteredAt = DateTimeOffset.Now,
+
+                    // 取り込みと同じく、結ぶこの時にダウンロード元を読んで残す（印は写す・解くと消える）
+                    DownloadSource = DownloadSources.From(BoothZipInspector.ZoneIdentifierReader.Read(path)),
                 };
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

@@ -220,6 +220,20 @@ public sealed class StartupWork(AppServiceContainer services)
                 var written = await services.MissingMarks.SweepAsync(token);
                 Core.Services.UiTrace.Write("速さ", $"起動時の見回り：見つからなくなった日時を {written.Count} 件の商品に書いた（{watch.ElapsedMilliseconds} ms）");
 
+                // まだ読んでいないファイルの行に、ダウンロード元を1回だけ読んで書く（docs/spec/import.md・ユーザ判断 2026-11-10）。
+                // 画面に出さない欄なので、書いた商品を検索の写しへは知らせない。BOOTH には問い合わせない
+                // 失敗しても後の見回り（変換・更新の控え）は止めない。読めなかった行は次の起動でまた見る
+                try
+                {
+                    watch.Restart();
+                    var sourced = await services.DownloadSourceSweep.SweepAsync(token);
+                    Core.Services.UiTrace.Write("速さ", $"起動時の見回り：ダウンロード元を {sourced.Count} 件の商品に書いた（{watch.ElapsedMilliseconds} ms）");
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    Core.Diagnostics.AppLog.Error("起動時の裏の作業：ダウンロード元の見回り", exception);
+                }
+
                 // 変換ツールのプロファイルの見回りも続けて（docs/spec/conversion.md）。前の版で取り込んだプロファイルにも、ここで確認待ちのつなぎ先が付く。
                 // BOOTH に問い合わせず、控えを読むのはプロファイルらしい商品だけ
                 var converted = await services.Conversion.RunAsync(token);

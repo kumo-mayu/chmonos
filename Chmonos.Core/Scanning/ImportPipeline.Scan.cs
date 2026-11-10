@@ -272,6 +272,9 @@ public sealed partial class ImportPipeline
 
             var zone = ZoneIdentifierReader.Read(file.Path);
 
+            // 商品のファイルの行に残す分（ユーザ判断 2026-11-10）。印は写す・解くと消えるので、読んだこの時に残す
+            var downloadSource = Services.DownloadSources.From(zone);
+
             // このファイルの場所を、記録にまだ持っていない持ち主へ足す予定に積む（書くのは RelinkMovedFilesAsync）。
             // **開けなかった印が今の答えと違う持ち主にも積む**（ユーザ判断 2026-09-30）：手で結んだ壊れた zip は場所が変わらないので、
             // 積まないと印を書く機会が無い。逆（印があるのに今回は開けた）は、開けて中身の一覧が取れたときだけ——
@@ -300,6 +303,9 @@ public sealed partial class ImportPipeline
 
                         // 持ち主の行が既にあれば突き合わせが元の日時を保つ。書くまでに行が消されていたときだけ、新しい行の日時になる
                         RegisteredAt = DateTimeOffset.Now,
+
+                        // 今読んだダウンロード元。持ち主の行が未読・空のときだけ、突き合わせが入れる
+                        DownloadSource = downloadSource,
                     });
                 }
             }
@@ -325,6 +331,7 @@ public sealed partial class ImportPipeline
 
                     // 新しい行になるときだけ残る（商品が既に持つ中身なら、突き合わせが元の日時を保つ）
                     RegisteredAt = DateTimeOffset.Now,
+                    DownloadSource = downloadSource,
                 };
 
                 if (!filesByItemId.TryGetValue(candidates[0].ItemId, out var list))

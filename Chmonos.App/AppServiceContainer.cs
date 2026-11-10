@@ -121,6 +121,8 @@ public sealed class AppServiceContainer : IDisposable
             // 見つからなくなった日時の見回りは、取り込みと起動時の見回りで1つを分け合う（1本ずつ回して重ならないように。ユーザ判断 2026-10-05）
             // 控えた文字に別のディスクが来ている間は、その上を「つながっていない」と同じに扱う（2026-10-05・点検の2）
             MissingMarks = new MissingMarksSweep(Store, volumes: Volumes);
+            // 前からのファイルの行にダウンロード元を1回だけ読んで埋める（ユーザ判断 2026-11-10）。見方は見つからない印の見回りと同じ作り
+            DownloadSourceSweep = new DownloadSourceSweep(Store, () => new FilePresenceProbe(volumes: Volumes.Snapshot()));
             // 変換ツールのプロファイルの見回り（docs/spec/conversion.md）。控えから見分けるので zip は開かない。取り込みの終わりと起動時の見回りで使う
             Conversion = new ConversionScan(Store, unityPackagePaths);
             Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes, MissingMarks, Conversion);
@@ -395,6 +397,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>記録しているファイルとフォルダの場所を見て、見つからなくなった日時を付け外しする（取り込みと起動時の見回り）。</summary>
     public MissingMarksSweep MissingMarks { get; }
+
+    /// <summary>まだ読んでいないファイルの行に、ダウンロード元を読んで書く起動時の見回り。</summary>
+    public DownloadSourceSweep DownloadSourceSweep { get; }
 
     /// <summary>手元のプロファイルを見つけ、変換扱いのつなぎ先を確認待ちで書く見回り。</summary>
     public ConversionScan Conversion { get; }
