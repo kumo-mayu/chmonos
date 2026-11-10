@@ -890,9 +890,26 @@ public sealed class BoothClient : IBoothClient
         // （OperationCanceledException）や想定外の例外で抜けると古い時刻のまま残り、
         // 次の1本が 1.5 秒を空けずに出得た（絶対に破らない決め事1）
         var sent = false;
+
+        // このアプリの門を今持っているか。⑧が譲るときに一度放すので、finally が放すかをこれで決める（二重に放すと、門が誰も持たずに開く）
+        var inGate = true;
         try
         {
             turn = await WaitForTurnAsync(target, attempt, cancellationToken);
+
+            // **⑧（未確定の自動検索の先回り）は、間隔を待ち終えたときに誰かが並んでいれば譲る**（ユーザ判断 2026-11-11）。
+            // 門は間隔を待つ間も持つので、門が空いているときに⑧が入ると、待っている1.5秒の間に押された操作が⑧の1本の後ろになる。
+            // 送る前なので、譲っても最後の問い合わせの時刻は動かない（次の人は待たずに出られる）
+            while (hold is null && CurrentPriority == BoothPriority.Prefetch && _gate.WaitingCount > 0)
+            {
+                turn?.Dispose();
+                turn = null;
+                inGate = false;
+                _gate.Release();
+                await _gate.EnterAsync(CurrentPriority, cancellationToken);
+                inGate = true;
+                turn = await WaitForTurnAsync(target, attempt, cancellationToken);
+            }
 
             Report(new BoothActivity
             {
@@ -1051,7 +1068,7 @@ public sealed class BoothClient : IBoothClient
             {
                 hold.End();
             }
-            else
+            else if (inGate)
             {
                 _gate.Release();
             }

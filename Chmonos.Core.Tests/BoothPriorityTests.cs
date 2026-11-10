@@ -251,6 +251,88 @@ public class BoothPriorityTests
         Assert.Equal(3, handler.Count);
     }
 
+    // ---- ⑧ 未確定の自動検索の先回り（ユーザ判断 2026-11-11）：間隔を待つ間に並んだ人の操作に譲る ----
+
+    /// <summary>
+    /// 門は間隔を待つ間も持つので、門が空いているときに入った1本は、待っている間に押された操作より先に出る（⑦はそのまま）。
+    /// ⑧だけは、待ち終えたときに誰かが並んでいれば譲って並び直す。**先回りが人の操作より先に門を取らないこと。**
+    /// 時計は止め、待ちは差し替えて1回目の待ちで止めておく（実時間には頼らない）
+    /// </summary>
+    [Theory]
+    [InlineData(BoothPriority.Prefetch, new[] { "1", "3", "2" })]
+    [InlineData(BoothPriority.Background, new[] { "1", "2", "3" })]
+    public async Task 先回りは間隔を待つ間に並んだ人の操作へ譲る(BoothPriority low, string[] expected)
+    {
+        var handler = new RecordingHandler();
+        var waiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var go = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blocking = false;
+        var settings = new AppSettings { FetchIntervalMs = 1500 };
+        var client = new BoothClient(
+            new HttpClient(handler),
+            () => settings,
+            async (_, token) =>
+            {
+                if (Volatile.Read(ref blocking))
+                {
+                    waiting.TrySetResult();
+                    await go.Task.WaitAsync(token);
+                }
+            },
+            machineGate: null,
+            new StoppedClock());
+
+        // 1本目で最後の問い合わせの時刻が付く。次の1本は間隔を待つ
+        await Start(client, BoothPriority.Metadata, "1").WaitAsync(TimeSpan.FromSeconds(5));
+
+        Volatile.Write(ref blocking, true);
+        var background = Start(client, low, "2");
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // 低い段が門を持って間隔を待っている間に、人が押した
+        var user = Start(client, BoothPriority.User, "3");
+        await WaitUntilQueued(client, 1);
+
+        go.TrySetResult();
+        await Task.WhenAll(background, user).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(expected.Select(BoothClient.ItemJsonUrl), handler.Requests);
+    }
+
+    /// <summary>進まない時計。間隔は毎回まるごと残っているので、待ちを差し替えた所でだけ進む（実時間に左右されない）</summary>
+    private sealed class StoppedClock : TimeProvider
+    {
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => 100 * TimeSpan.TicksPerSecond;
+    }
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        private readonly List<string> _requests = [];
+
+        public List<string> Requests
+        {
+            get
+            {
+                lock (_requests)
+                {
+                    return [.. _requests];
+                }
+            }
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            lock (_requests)
+            {
+                _requests.Add(request.RequestUri!.ToString());
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+    }
+
     private sealed class CountingHandler : HttpMessageHandler
     {
         private int _count;
