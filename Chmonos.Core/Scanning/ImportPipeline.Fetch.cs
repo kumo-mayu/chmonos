@@ -173,14 +173,16 @@ public sealed partial class ImportPipeline
                 {
                     Id = itemId,
                     Booth = booth,
-                    Local = new LocalBlock
-                    {
-                        // 見方を渡すのは、見つけた場所にディスクの通し番号を書くため（点検の3）
-                        LocalFiles = LocalFileMerger.Merge([], discovered, presence),
-                        NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
-                        LastFetchedAt = DateTimeOffset.Now,
-                        NextFetchDueAt = NextFetchDue(itemId),
-                    },
+                    Local = Services.FetchRecord.Fetched(
+                        new LocalBlock
+                        {
+                            // 見方を渡すのは、見つけた場所にディスクの通し番号を書くため（点検の3）
+                            LocalFiles = LocalFileMerger.Merge([], discovered, presence),
+                            NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
+                        },
+                        itemId,
+                        _settings,
+                        DateTimeOffset.Now),
                 };
 
                 // 1件ずつ保存する。ここで中断しても、取れたぶんはそのまま残る。
@@ -406,13 +408,6 @@ public sealed partial class ImportPipeline
                 Scanning = scanning,
             },
             cancellationToken);
-
-    /// <summary>
-    /// 次回の取得予定。全itemが同じ日に期限切れにならないよう、商品IDから決まるばらつきを足す。
-    /// 乱数ではなくIDから決めているのは、同じitemなら何度計算しても（起動し直しても）同じ日になるようにするため（<see cref="RefreshJitter"/>）。
-    /// </summary>
-    private DateTimeOffset NextFetchDue(string itemId)
-        => DateTimeOffset.Now.AddDays(_settings.RefreshIntervalDays + RefreshJitter.Days(itemId, _settings.RefreshJitterDays));
 
     /// <summary>
     /// 商品へ紐付けたファイルを、未確定のファイルへ戻す。
