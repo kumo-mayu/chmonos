@@ -153,7 +153,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         RevealCommand = new RelayCommand(RevealSelected, () => HasSelection);
         CopyFileNameCommand = new RelayCommand(CopyFileName, () => HasSelection);
         OpenImportCommand = new RelayCommand(_main.ShowImport);
-        RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
 
         ReloadAsync().Forget();
@@ -227,8 +226,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             || Compare.IndexOf(row.DirectoryText, word, Loose) >= 0
             || (row.Origin is { } origin && Compare.IndexOf(origin.ArchiveName, word, Loose) >= 0));
     }
-
-    public RelayCommand RegisterFolderCommand { get; }
 
     public RelayCommand ClearChecksCommand { get; }
 

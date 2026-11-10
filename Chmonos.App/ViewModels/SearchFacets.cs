@@ -302,9 +302,6 @@ public sealed class SearchHistorySlot
     /// <summary>名前を付けたものは落とさないので、印を出して区別する。</summary>
     public bool IsNamed => Entry.IsNamed;
 
-    /// <summary>いつ使ったか。同じ見え方の条件が並んだときの手掛かり。</summary>
-    public string UsedText => Entry.UsedAt == default ? string.Empty : Entry.UsedAt.ToString("MM-dd HH:mm");
-
     public RelayCommand ApplyCommand { get; }
 
     public RelayCommand RemoveCommand { get; }

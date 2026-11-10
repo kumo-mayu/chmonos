@@ -475,8 +475,6 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         _main.PropertyChanged += OnMainChanged;
         _main.Search.PropertyChanged += OnSearchChanged;
         ClearQueryCommand = new RelayCommand(() => Query = string.Empty);
-        SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
-
         // 候補付きの欄から決める（I6）。候補を押しても、打った新しい名前を Enter で決めても、ここへ来る
         PickBaseCommand = new RelayCommand(parameter =>
         {
@@ -553,8 +551,6 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     public ObservableCollection<string> BaseNames { get; } = [];
 
     public RelayCommand DetectCommand { get; }
-
-    public RelayCommand SetBaseCommand { get; }
 
     /// <summary>候補付きの欄から共通素体を決める（I6）。</summary>
     public RelayCommand PickBaseCommand { get; }

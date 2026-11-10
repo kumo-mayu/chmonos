@@ -163,7 +163,7 @@ public sealed class AvatarsNoticePlacementTests
 
         // 共通素体
         avatars.BaseInput = "  ";
-        avatars.SetBaseCommand.Execute(null);
+        avatars.PickBaseCommand.Execute(avatars.BaseInput);
         await app.SettleAsync();
         Assert.Equal("共通素体の名前を入れてから押してください。", avatars.BaseFieldNote.Text);
         avatars.BaseInput = "作り物の素体";
