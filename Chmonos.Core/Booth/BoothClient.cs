@@ -4,6 +4,11 @@ using Chmonos.Core.Models;
 
 namespace Chmonos.Core.Booth;
 
+/// <summary>
+/// 問い合わせの結果の大分け。一時的な失敗の中の見分け（つながらない・5xx・429・受け取らずに捨てた）は
+/// <see cref="BoothFetchResult{T}"/> の印（<c>IsUnreachable</c>・<c>IsServerError</c>・<c>IsRateLimited</c>・<c>IsRejected</c>）で持つ
+/// （洗い出し Q12・2026-11-10：形は変えず、説明だけ今に合わせる）。
+/// </summary>
 public enum BoothFetchStatus
 {
     Success,
@@ -11,7 +16,10 @@ public enum BoothFetchStatus
     /// <summary>404。非公開・削除の判定カウントに数える唯一の結果。</summary>
     NotFound,
 
-    /// <summary>タイムアウト・5xx・接続失敗。BOOTH側の一時的な不調なので非公開とは判定しない。</summary>
+    /// <summary>
+    /// 404 以外の失敗（つながらない・タイムアウト・5xx・429・読めない応答・受け取らずに捨てた応答）。非公開とは判定しない。
+    /// どれだったかは結果の印で見分ける（画面の言い分けと、打ち切り・再試行の扱いが違うため）。
+    /// </summary>
     TemporaryFailure,
 }
 

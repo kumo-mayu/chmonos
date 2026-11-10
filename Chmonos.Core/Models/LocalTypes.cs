@@ -286,7 +286,7 @@ public sealed record LocalFileRecord
     /// 「この商品から外した」印（ユーザ判断 2026-09-12）。**外しても行は消さない。**
     /// 手掛かりでこの商品に紐付いていたこと自体は確かなので、消すと何を外したのかが見えなくなる。
     /// 印の付いたファイルは所持・容量・検索・Unityへ送る対象に数えず（<see cref="LocalBlock.OwnedFiles"/>）、
-    /// 取り込みはこの商品へ戻さない。以前は別の detached.json に持っていた。
+    /// 取り込みはこの商品へ戻さない。印はファイルの行に持つ（ファイルの行と一緒に移り、商品 ID の付け替え・まとめでも離れない）。
     /// 外していなければ書き出さない（全ファイルに false が並ぶと読みにくい）。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore(

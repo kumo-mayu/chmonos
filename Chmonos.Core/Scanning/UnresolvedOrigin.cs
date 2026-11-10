@@ -51,7 +51,7 @@ public static class UnresolvedOrigin
             return null;
         }
 
-        // 旧版は末尾の NUL を落とさずに保存していた
+        // v1.0.0 が末尾の NUL を落とさずに unresolved.json へ書いた記録のため。配った版の記録なので、読み替えを消さない
         var value = referrerUrl.Trim().TrimEnd('\0').Trim();
 
         // ブラウザで落としたファイルの ReferrerUrl は商品ページのURLで、zipではない。

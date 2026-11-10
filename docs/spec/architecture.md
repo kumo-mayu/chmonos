@@ -51,7 +51,7 @@
 - **画面のスレッドで門を同期で待たない**（2026-09-23）。取り込みは画面のスレッドの文脈で進むので、その中の同期の保存
   （unitypackage の控え・商品の削除）が門を待つと画面が止まり、門を開ける後始末も画面のスレッドへ戻るのを待って、互いに待ち合って固まった。
   画面から来得る保存と削除は非同期（`EnterAsync`）にし、門を持つ命令（書き出し・戻す・引越し）は**取るのも放すのも `Task.Run` の中**で行う。
-  同期の `StoreWriteGate.Enter` を通るのは `JsonStore.Write` だけで、呼び手は初回の窓・CLI・裏のスレッドで読む控えの1件に限る。
+  同期の `StoreWriteGate.Enter` を通るのは `JsonStore.Write` だけで、呼び手は初回の窓・起動時の保存先の印（`StoreFormat.MarkCurrent`）・CLI・API の待ち受けの記録（`ApiServer.WriteEndpoint`）・裏のスレッドで書く控え（unitypackage の中身・Unity プロジェクトを調べた結果・zip の中の絵）・値段の欠けの直し（`NullPriceFixer`）に限る（2026-11-10 に今の形に合わせた）。
   固まる形は、画面のスレッドの代わりに1本のスレッドで回す文脈を使う試験で再現している（`StoreGateCommandTests`）。
 - **画面を開くついでの小さな書き込みも門を通す**（2026-09-23）：取り込みの続きを捨てる（`DiscardInterruptedImport`）、
   通知を開くたびの参照切れの知らせ（`DetectOrphanReferences`）、フォルダビューを開くたびのドライブ文字の控え（`ObserveVolumes`）。
