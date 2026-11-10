@@ -25,7 +25,7 @@ public class SearchChoiceModulesTests
 
         foreach (var kind in SearchModuleCatalog.All.Select(info => info.Kind))
         {
-            if (SearchModuleMenuTests.Add(search, kind) is not ChoiceModule choice)
+            if (SearchModules.Add(search, kind) is not ChoiceModule choice)
             {
                 continue;
             }
@@ -45,8 +45,8 @@ public class SearchChoiceModulesTests
     {
         var search = (await app.StartAsync()).Search;
 
-        Assert.Equal(["所持のみ", "未所持のみ", "両方"], ((ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Owned)).Options.Select(option => option.Label));
-        Assert.Equal(["非表示のみ", "表示している商品のみ", "両方"], ((ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Hidden)).Options.Select(option => option.Label));
+        Assert.Equal(["所持のみ", "未所持のみ", "両方"], ((ChoiceModule)SearchModules.Add(search, SearchModuleKind.Owned)).Options.Select(option => option.Label));
+        Assert.Equal(["非表示のみ", "表示している商品のみ", "両方"], ((ChoiceModule)SearchModules.Add(search, SearchModuleKind.Hidden)).Options.Select(option => option.Label));
     });
 
     private static async Task<SearchViewModel> StartEndOfSaleAsync(TestApp app)
@@ -70,7 +70,7 @@ public class SearchChoiceModulesTests
     public Task 公開状況は_本物のIDの商品だけを分け_仮IDの商品は両方のときだけ出す() => TestApp.Run(async app =>
     {
         var search = await StartEndOfSaleAsync(app);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.EndOfSale);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.EndOfSale);
 
         // 名前は「公開状況」（ユーザ判断 2026-10-06。前は「販売終了」）。要約の頭も同じ名前
         Assert.Equal("公開状況", module.Label);
@@ -107,7 +107,7 @@ public class SearchChoiceModulesTests
     public Task ギフトは3つで_両方を持たず_既定はギフトした() => TestApp.Run(async app =>
     {
         var search = await StartGiftAsync(app);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Gift);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.Gift);
 
         Assert.Equal(["ギフトした", "ギフトされた", "購入した"], module.Options.Select(option => option.Label));
         Assert.Equal(["9900011"], Shown(search));
@@ -124,7 +124,7 @@ public class SearchChoiceModulesTests
     public Task ギフトの購入記録の無い商品も含めるは_既定で切り_どの選択肢でも足せる() => TestApp.Run(async app =>
     {
         var search = await StartGiftAsync(app);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Gift);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.Gift);
 
         Assert.False(module.Flag);
         foreach (var key in new[] { "given", "received", "bought" })
@@ -162,7 +162,7 @@ public class SearchChoiceModulesTests
         });
         await app.AddItemAsync(item with { Id = "9900025" });
         var search = (await app.StartAsync()).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.FreePaid);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.FreePaid);
 
         Assert.Equal(["すべて無料", "無料版と有料版がある", "有料のみ", "すべて"], module.Options.Select(option => option.Label));
         Assert.Equal(["9900021", "9900024"], Shown(search));
@@ -197,7 +197,7 @@ public class SearchChoiceModulesTests
         // 仮IDの商品（BOOTHに無い商品）も BOOTH の価格を持たないが、BOOTH の物ではないので入れない
         await app.AddItemAsync(item with { Id = "local-9900029" });
         var search = (await app.StartAsync()).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.FreePaid);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.FreePaid);
 
         Assert.True(module.HasFlag);
         Assert.False(module.Flag);
@@ -225,7 +225,7 @@ public class SearchChoiceModulesTests
         await app.AddItemAsync(Make.Item("9900083", "見つかる"));
         await app.AddItemAsync(Make.Item("9900084", "持っていない").WithFiles());
         var search = (await app.StartAsync()).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Owned);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.Owned);
 
         Assert.True(module.HasFlag);
         Assert.False(module.Flag);
@@ -260,7 +260,7 @@ public class SearchChoiceModulesTests
         await app.AddItemAsync(Make.Item("9900032", "すべて見つからない").WithFiles(gone with { Hash = Make.HashOf("other") }));
         await app.AddItemAsync(Make.Item("9900033", "見つかる"));
         var search = (await app.StartAsync()).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.MissingFile);
 
         Assert.True(module.HasFlag);
         Assert.True(module.Flag);
@@ -287,7 +287,7 @@ public class SearchChoiceModulesTests
 
         foreach (var kind in new[] { SearchModuleKind.Category, SearchModuleKind.BoothTag })
         {
-            var module = (ListModule)SearchModuleMenuTests.Add(search, kind);
+            var module = (ListModule)SearchModules.Add(search, kind);
             module.AddKey("A");
             module.AddKey("B");
             Assert.False(module.AllowsAnd);
@@ -295,7 +295,7 @@ public class SearchChoiceModulesTests
             module.RemoveCommand!.Execute(null);
         }
 
-        var tags = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.BoothTag);
+        var tags = (ListModule)SearchModules.Add(search, SearchModuleKind.BoothTag);
         tags.AddKey("タグA");
         tags.AddKey("タグB");
         tags.MatchAll = true;
@@ -342,7 +342,7 @@ public class SearchChoiceModulesTests
         await app.AddItemAsync(Make.Item("9900053", "作り物C", shop: "ccc-shop"));
         await app.Store.ShopNotes.SaveAsync([new ShopNoteRecord { Subdomain = "ccc-shop", IsFavorite = true }]);
         var search = (await app.StartAsync()).Search;
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Shop);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Shop);
 
         Assert.Equal(["ccc-shop（ccc-shop）", "aaa-shop（aaa-shop）", "bbb-shop（bbb-shop）"], module.Suggestions);
         var rows = SuggestBox.Arrange(module.Suggestions.ToList(), string.Empty, 0, module.InfoSelector);
@@ -358,8 +358,8 @@ public class SearchChoiceModulesTests
     public Task 対応アバターの札は吹き出しに絵を添え_ほかの条件の札は添えない() => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
-        var avatar = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Avatar);
-        var category = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+        var avatar = (ListModule)SearchModules.Add(search, SearchModuleKind.Avatar);
+        var category = (ListModule)SearchModules.Add(search, SearchModuleKind.Category);
         avatar.AddKey("avatar:9900061", text: "作り物のアバター（9900061）");
         category.AddKey("衣装");
 
@@ -402,8 +402,8 @@ public class SearchChoiceModulesTests
         var search = (await app.StartAsync()).Search;
 
         Assert.True(SearchModuleCatalog.Of(SearchModuleKind.Unedited).AllowsMany);
-        var tags = (UneditedModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Unedited);
-        var memo = (UneditedModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Unedited);
+        var tags = (UneditedModule)SearchModules.Add(search, SearchModuleKind.Unedited);
+        var memo = (UneditedModule)SearchModules.Add(search, SearchModuleKind.Unedited);
         Assert.NotSame(tags, memo);
 
         // 2つ目は「メモが未入力」だけを見る
@@ -418,9 +418,9 @@ public class SearchChoiceModulesTests
     public Task ファイルの場所とUnityプロジェクトは_候補と札の長い文の間を省き_ほかは末尾を切る() => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
-        var path = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Path);
-        var project = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProject);
-        var category = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+        var path = (ListModule)SearchModules.Add(search, SearchModuleKind.Path);
+        var project = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProject);
+        var category = (ListModule)SearchModules.Add(search, SearchModuleKind.Category);
         path.AddKey(@"D:\作り物\とても長い名前のフォルダ\さらに奥のフォルダ\最後のフォルダ");
         category.AddKey("衣装");
 
@@ -451,7 +451,7 @@ public class SearchChoiceModulesTests
     public Task 前の版の使い回しのFlagは_後から足した切り替えとして読まない(SearchModuleKind kind, string key, bool defaultOn) => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, kind);
+        var module = (ChoiceModule)SearchModules.Add(search, kind);
         var old = module.Save() with { Flag = true, Toggles = null };
 
         module.Load(old);

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    画面の側の試験のうち、ファイル名が S〜Z で始まる物を、別のプロセスで走らせるためのプロジェクト。
+    試験のファイルは Chmonos.App.Tests に置いたまま、ここからは参照するだけ（分け方の理由は Chmonos.App.Tests.csproj）。
+    試験を書く人はここを触らない。Chmonos.App.Tests に足せば、頭文字で自動的にどれかへ入る
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Chmonos.App.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Chmonos.App.Tests\AssemblyInfo.cs" Link="AssemblyInfo.cs" />
+    <Compile Include="..\Chmonos.App.Tests\Support\**\*.cs" Link="Support\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Chmonos.App.Tests\S*.cs;..\Chmonos.App.Tests\T*.cs;..\Chmonos.App.Tests\U*.cs;..\Chmonos.App.Tests\V*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="..\Chmonos.App.Tests\W*.cs;..\Chmonos.App.Tests\X*.cs;..\Chmonos.App.Tests\Y*.cs;..\Chmonos.App.Tests\Z*.cs" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chmonos.App\Chmonos.App.csproj" />
+  </ItemGroup>
+
+</Project>

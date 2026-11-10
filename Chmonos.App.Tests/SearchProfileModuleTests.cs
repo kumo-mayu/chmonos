@@ -49,7 +49,7 @@ public class SearchProfileModuleTests
     {
         var main = await StartAsync(app);
 
-        var module = (ProfileModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.Profile);
+        var module = (ProfileModule)SearchModules.Add(main.Search, SearchModuleKind.Profile);
         await app.SettleAsync();
 
         Assert.Equal(["9900881", "9900882"], Shown(main));
@@ -64,7 +64,7 @@ public class SearchProfileModuleTests
     public Task 変換元は逆方向_変換先は順方向で当て_両方入れるとそろっているかを言う() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (ProfileModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.Profile);
+        var module = (ProfileModule)SearchModules.Add(main.Search, SearchModuleKind.Profile);
 
         module.Destination.AddCommand.Execute(Text(Momo, "モモ"));
         await app.SettleAsync();
@@ -101,7 +101,7 @@ public class SearchProfileModuleTests
     public Task 確認待ちを切ると_推しただけのつなぎ先では当てない() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (ProfileModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.Profile);
+        var module = (ProfileModule)SearchModules.Add(main.Search, SearchModuleKind.Profile);
         module.Source.AddCommand.Execute(Text(Aoi, "アオイ"));
         await app.SettleAsync();
         Assert.Equal(["9900881"], Shown(main));
@@ -152,7 +152,7 @@ public class SearchProfileModuleTests
     public Task 保存した状態から読み直すと_欄と切り替えが戻る() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (ProfileModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.Profile);
+        var module = (ProfileModule)SearchModules.Add(main.Search, SearchModuleKind.Profile);
         module.Source.AddCommand.Execute(Text(Aoi, "アオイ"));
         module.ViaBase = false;
         module.IncludeUnconfirmed = false;

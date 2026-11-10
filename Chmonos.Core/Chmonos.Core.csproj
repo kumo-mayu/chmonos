@@ -29,6 +29,9 @@
     <InternalsVisibleTo Include="Chmonos.Core.Tests" />
     <!-- 画面の側の試験は、保存の待ちを切るためだけに使う（JsonStore.FlushToDisk・WaitBeforeRetry） -->
     <InternalsVisibleTo Include="Chmonos.App.Tests" />
+    <!-- 画面の側の試験の残り2つ（頭文字で分けて別のプロセスで走らせる。Chmonos.App.Tests.csproj） -->
+    <InternalsVisibleTo Include="Chmonos.App.Tests.IR" />
+    <InternalsVisibleTo Include="Chmonos.App.Tests.SZ" />
     <!--
       2つのプロセスから BOOTH の門を叩く確かめ（experiments/BoothGateProbe。相手は手元の作り物のサーバ）。
       門を選んで BoothClient を組む口は外に出していない（本物の BOOTH を相手に別の門を渡す作り方を残さないため）ので、ここにだけ見せる

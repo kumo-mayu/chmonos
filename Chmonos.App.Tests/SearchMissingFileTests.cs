@@ -36,7 +36,7 @@ public class SearchMissingFileTests
     public Task ある_を選ぶと_置き場の無いファイルを持つ商品だけが並ぶ() => TestApp.Run(async app =>
     {
         var search = (await StartAsync(app)).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.MissingFile);
 
         Pick(module, "missing");
         Assert.Equal(["1000001", "1000002"], ShownIds(search));
@@ -52,7 +52,7 @@ public class SearchMissingFileTests
     public Task カードの印と条件は_同じ商品を指す() => TestApp.Run(async app =>
     {
         var search = (await StartAsync(app)).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.MissingFile);
         Pick(module, "both");
 
         var marked = search.ListItems.Where(card => card.HasMissingFile).Select(card => card.Item.Id).Order().ToList();
@@ -65,7 +65,7 @@ public class SearchMissingFileTests
     public Task 件数と要約が出る() => TestApp.Run(async app =>
     {
         var search = (await StartAsync(app)).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.MissingFile);
 
         Pick(module, "missing");
 
@@ -77,7 +77,7 @@ public class SearchMissingFileTests
     public Task 条件は保存され_読み直しても同じ絞り込みになる() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(main.Search, SearchModuleKind.MissingFile);
         Pick(module, "missing");
         await main.FlushPendingWritesAsync();
 
@@ -96,7 +96,7 @@ public class SearchMissingFileTests
     public Task 置き場が付いた後に読み直すと_条件の結果から外れる() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(main.Search, SearchModuleKind.MissingFile);
         Pick(module, "missing");
         Assert.Equal(["1000001", "1000002"], ShownIds(main.Search));
 
@@ -133,7 +133,7 @@ public class SearchMissingFileTests
         await app.AddItemAsync(WithFolder("1000011", "無くなったフォルダの商品", DateTimeOffset.UnixEpoch));
         await app.AddItemAsync(WithFolder("1000012", "フォルダの商品", null));
         var search = (await app.StartAsync()).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.MissingFile);
 
         Pick(module, "both");
         Assert.Equal(["1000011"], search.ListItems.Where(card => card.HasMissingFile).Select(card => card.Item.Id));

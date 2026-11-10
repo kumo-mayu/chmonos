@@ -6,6 +6,9 @@
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="Chmonos.App.Tests" />
+    <!-- 画面の側の試験の残り2つ（頭文字で分けて別のプロセスで走らせる。Chmonos.App.Tests.csproj） -->
+    <InternalsVisibleTo Include="Chmonos.App.Tests.IR" />
+    <InternalsVisibleTo Include="Chmonos.App.Tests.SZ" />
   </ItemGroup>
 
   <ItemGroup>

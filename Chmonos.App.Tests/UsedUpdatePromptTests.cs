@@ -71,7 +71,7 @@ public class UsedUpdatePromptTests
         await main.UsedItems.RequestAsync();
         await app.SettleAsync();
 
-        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(main.Search, Core.Models.SearchModuleKind.Updated);
+        var module = (UpdateNoticeModule)SearchModules.Add(main.Search, Core.Models.SearchModuleKind.Updated);
         foreach (var kind in module.Kinds.Where(kind => kind.Kind != BoothChangeKind.UsedContent))
         {
             kind.IsOn = false;

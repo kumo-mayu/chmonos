@@ -23,7 +23,7 @@ public class SearchAvatarBaseCandidatesTests
         });
         var search = (await app.StartAsync()).Search;
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Avatar);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Avatar);
 
         Assert.Contains("作り物の甲素体（共通素体）", module.Suggestions);
         Assert.DoesNotContain("作り物の乙素体（共通素体）", module.Suggestions);
@@ -57,7 +57,7 @@ public class SearchAvatarBaseCandidatesTests
         await app.ChangeSettingsAsync(settings => settings with { GroupAvatarsByBase = grouping });
         var search = (await app.StartAsync()).Search;
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Avatar);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Avatar);
 
         var avatars = module.Suggestions
             .Where(text => !text.EndsWith("（共通素体）", StringComparison.Ordinal))

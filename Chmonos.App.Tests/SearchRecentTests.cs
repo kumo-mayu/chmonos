@@ -311,7 +311,7 @@ public class SearchRecentTests
         var search = main.Search;
         search.Clock = () => Now;
 
-        var recent = (RecentModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Recent);
+        var recent = (RecentModule)SearchModules.Add(search, SearchModuleKind.Recent);
         recent.Selected = recent.Options.First(option => option.Key == "viewed");
         SetRange(recent, 0, 0);
         await app.SettleAsync();
@@ -339,7 +339,7 @@ public class SearchRecentTests
         var search = main.Search;
         search.Clock = () => Now;
 
-        var recent = (RecentModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Recent);
+        var recent = (RecentModule)SearchModules.Add(search, SearchModuleKind.Recent);
         recent.Selected = recent.Options.First(option => option.Key == "viewed");
         await app.SettleAsync();
 
@@ -381,7 +381,7 @@ public class SearchRecentTests
         var search = main.Search;
         search.Clock = () => Now;
 
-        var recent = (RecentModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Recent);
+        var recent = (RecentModule)SearchModules.Add(search, SearchModuleKind.Recent);
         await app.SettleAsync();
 
         Assert.Equal(3, recent.Histogram.Sum(bar => bar.Height > 0 ? 1 : 0));

@@ -117,7 +117,7 @@ public class SearchPriceUnpricedTests
         await app.AddItemAsync(item with { Local = item.Local with { Purchases = [new Purchase { Price = 500 }] } });
         await app.AddItemAsync(item with { Id = "9900612" });
         var search = (await app.StartAsync()).Search;
-        var module = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Price);
+        var module = (RangeModule)SearchModules.Add(search, SearchModuleKind.Price);
 
         Assert.True(module.SupportsUnpriced);
         Assert.Equal(["9900611"], search.ListItems.Select(card => card.Item.Id));
@@ -131,7 +131,7 @@ public class SearchPriceUnpricedTests
     {
         // ユーザ判断 2026-10-06：BOOTH価格に切り替えた間も「払った額が未設定」と出ると、何が無い商品を足すのか食い違う
         var search = (await app.StartAsync()).Search;
-        var price = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Price);
+        var price = (RangeModule)SearchModules.Add(search, SearchModuleKind.Price);
 
         Assert.Equal("払った額が未設定の商品も表示", price.UnpricedLabel);
 

@@ -805,7 +805,7 @@ public class ImportAndResolveFlowTests
         }));
         await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [Path.GetDirectoryName(Path.GetDirectoryName(moved))!] });
         var main = await app.StartAsync();
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(main.Search, SearchModuleKind.MissingFile);
         module.Selected = module.Options.Single(option => option.Key == "missing");
         Assert.Equal(["1000001"], main.Search.ListItems.Select(card => card.Item.Id));
 

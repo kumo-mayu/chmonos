@@ -255,7 +255,7 @@ public class SearchModuleConditionParityTests
         }
 
         var search = (await app.StartAsync()).Search;
-        var module = SearchModuleMenuTests.Add(search, kind);
+        var module = SearchModules.Add(search, kind);
         var context = search.CreateModuleContext();
 
         var states = States(kind).ToList();
@@ -295,7 +295,7 @@ public class SearchModuleConditionParityTests
                 continue;
             }
 
-            var module = (ChoiceModule)SearchModuleMenuTests.Add(search, kind);
+            var module = (ChoiceModule)SearchModules.Add(search, kind);
             Assert.Equal(spec.Keys, module.Options.Select(option => option.Key));
 
             // 足したときの補助の切り替えは Core の既定と同じ値で状態に書かれる

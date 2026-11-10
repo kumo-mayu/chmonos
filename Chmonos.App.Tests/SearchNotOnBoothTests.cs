@@ -29,7 +29,7 @@ public class SearchNotOnBoothTests
     public Task 三つの選択肢で_仮のIDの商品だけ_BOOTHの商品だけ_両方が並ぶ() => TestApp.Run(async app =>
     {
         var search = (await StartAsync(app)).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.NotOnBooth);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.NotOnBooth);
 
         Pick(module, "local");
         Assert.Equal(["BOOTHに無い商品A", "BOOTHに無い商品B"], ShownNames(search));
@@ -47,7 +47,7 @@ public class SearchNotOnBoothTests
     public Task 件数と要約が出る() => TestApp.Run(async app =>
     {
         var search = (await StartAsync(app)).Search;
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(search, SearchModuleKind.NotOnBooth);
+        var module = (ChoiceModule)SearchModules.Add(search, SearchModuleKind.NotOnBooth);
 
         Pick(module, "local");
 
@@ -59,7 +59,7 @@ public class SearchNotOnBoothTests
     public Task 条件は保存され_読み直しても同じ絞り込みになる() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.NotOnBooth);
+        var module = (ChoiceModule)SearchModules.Add(main.Search, SearchModuleKind.NotOnBooth);
         Pick(module, "local");
         await main.FlushPendingWritesAsync();
 

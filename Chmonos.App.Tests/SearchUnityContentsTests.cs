@@ -148,7 +148,7 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001");
         ScanFinds(app, "9900001");
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         module.AddKey(UnityProjectPath.Normalize(project)!);
 
         var chip = module.Chips.Single();
@@ -163,7 +163,7 @@ public class SearchUnityContentsTests
     {
         var search = await StartWithItemsAsync(app, "9900001");
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
         Assert.True(module.IncludeOn);
@@ -177,7 +177,7 @@ public class SearchUnityContentsTests
         var project = NewProject(app, "projA");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         ScanFinds(app, "9900002");
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         await UiThread.Until(() => module.StatusText.Length > 0, "開いていないと言う");
 
         app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
@@ -199,7 +199,7 @@ public class SearchUnityContentsTests
             ["9900002"] = [new UnityImageMatch("Assets/b.png", "b.png", UnityImageMatchKind.SameName)],
         });
         app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => Shown(search) is ["9900001"], "同じ画像だけ");
         Assert.True(module.HasFlag);
@@ -216,7 +216,7 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         app.Services.ScanUnityProject = (project, _, _, _) => Packages(project == UnityProjectPath.Normalize(first) ? "9900001" : "9900002");
         app.OpenEditors = [new OpenUnityEditor(1, "projA", first), new OpenUnityEditor(2, "projB", second)];
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => module.OpenProjectRows.Count == 2, "2つ並ぶ");
         await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "開いている全部が対象");
@@ -240,7 +240,7 @@ public class SearchUnityContentsTests
     public Task Unityが開いていなければ_一覧は無く_切っていても開いていないと言う() => TestApp.Run(async app =>
     {
         var search = await StartWithItemsAsync(app, "9900001");
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         module.IncludeOn = false;
 
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
@@ -258,7 +258,7 @@ public class SearchUnityContentsTests
         var open = NewProject(app, "projB");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         ScanFinds(app, "9900002");
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "はじめの確認が終わる");
 
         // 1回目は遅れて「Unity は開いていない」と答え、2回目はすぐ「開いている」と答える
@@ -295,7 +295,7 @@ public class SearchUnityContentsTests
         var project = NewProject(app, "projA");
         var search = await StartWithItemsAsync(app, "9900001");
         app.Services.ScanUnityProject = (_, _, _, _) => throw new InvalidOperationException("作り物の失敗");
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         module.AddKey(UnityProjectPath.Normalize(project)!);
 
@@ -359,7 +359,7 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         app.Services.ScanUnityProject = (project, _, _, _) =>
             Packages(project == UnityProjectPath.Normalize(open) ? "9900002" : "9900001");
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         module.IncludeOn = false;
         module.AddKey(UnityProjectPath.Normalize(other)!);
         await UiThread.Until(() => Shown(search) is ["9900001"], "条件だけ");
@@ -465,7 +465,7 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001");
         app.OpenEditors = [new OpenUnityEditor(1, "projA", null, IsAmbiguous: true)];
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => module.StatusText.Contains("「projA」は場所が分からない"), "待つ");
     });
@@ -481,7 +481,7 @@ public class SearchUnityContentsTests
         ];
         var search = await StartWithItemsAsync(app, "9900001");
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => module.Suggestions.Count > 0, "待つ");
         Assert.Equal([@"open（開いています・D:\p\open）", @"closed（D:\p\closed）"], module.Suggestions);
@@ -502,7 +502,7 @@ public class SearchUnityContentsTests
             return Packages(found);
         };
 
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         module.IncludeOn = false;
         module.AddKey(UnityProjectPath.Normalize(project)!);
 
@@ -735,7 +735,7 @@ public class SearchUnityContentsTests
     public Task フォルダが無いプロジェクトは_理由を出す() => TestApp.Run(async app =>
     {
         var search = await StartWithItemsAsync(app, "9900001");
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProjectContents);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         module.IncludeOn = false;
         module.AddKey(Path.Combine(app.Root, "gone"));
@@ -751,7 +751,7 @@ public class SearchUnityContentsTests
 
         Assert.Equal("改変プロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProject).Label);
         Assert.Equal("Unityプロジェクト", SearchModuleCatalog.Of(SearchModuleKind.UnityProjectContents).Label);
-        var old = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.UnityProject);
+        var old = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProject);
         Assert.False(old.HasReload);
     });
 }

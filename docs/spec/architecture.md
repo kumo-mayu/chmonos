@@ -169,7 +169,7 @@
 
 ## 試験とビルド
 
-- `dotnet build`・`dotnet test`（本体 `Chmonos.Core.Tests` が2,200件超、画面の側 `Chmonos.App.Tests` が約280件）。
+- `dotnet build`・`dotnet test`（本体 `Chmonos.Core.Tests` が2,200件超、画面の側 `Chmonos.App.Tests` が約1,900件で、頭文字で3つのプロセスに分けて走らせる。`docs/dev/app-tests.md`）。
   **通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。画面の側の試験は、通信の出口を作り物に差し替えて組む。
   待ちを差し替えた `BoothClient`（`TestWait.None`）は PC で1つの門に入らない（本物の門を書き換えない・その PC でアプリが動いているかで結果が変わらない）。
   待ちを差し替えない組み立て（アプリ・コマンドライン・評価台・道具）は必ず入る。**通信の出口が本物のまま待ちだけを差し替える組み立ては `AppServiceContainer` が断る。**

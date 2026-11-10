@@ -42,9 +42,9 @@ public class SearchRemoveModuleTests
     {
         var search = await StartAsync(app);
         search.IsListMode = true;
-        var tags = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.BoothTag);
+        var tags = (ListModule)SearchModules.Add(search, SearchModuleKind.BoothTag);
         tags.AddKey("夏");
-        var empty = SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+        var empty = SearchModules.Add(search, SearchModuleKind.Category);
         var before = search.DisplayItems;
 
         empty.RemoveCommand!.Execute(null);
@@ -58,7 +58,7 @@ public class SearchRemoveModuleTests
     {
         var search = await StartAsync(app);
         search.IsListMode = true;
-        var tags = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.BoothTag);
+        var tags = (ListModule)SearchModules.Add(search, SearchModuleKind.BoothTag);
         tags.AddKey("夏");
         var before = search.DisplayItems;
 

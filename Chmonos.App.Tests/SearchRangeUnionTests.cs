@@ -131,11 +131,11 @@ public class SearchRangeUnionTests
         await app.AddItemAsync(Likes(1, 10, acquired: new DateOnly(2026, 1, 1)));
         var search = (await app.StartAsync()).Search;
 
-        SearchModuleMenuTests.Add(search, kind);
+        SearchModules.Add(search, kind);
         var entry = search.ModuleMenu.SelectMany(heading => heading.Entries).OfType<SearchModuleMenuEntry>().First(menu => menu.Kind == kind);
 
         Assert.True(entry.IsAvailable);
-        SearchModuleMenuTests.Add(search, kind);
+        SearchModules.Add(search, kind);
         Assert.Equal(2, search.Modules.Count(module => module.Kind == kind));
     });
 
@@ -147,13 +147,13 @@ public class SearchRangeUnionTests
         await app.AddItemAsync(Likes(3, 3000));
         var search = (await app.StartAsync()).Search;
 
-        var low = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.WishList);
+        var low = (RangeModule)SearchModules.Add(search, SearchModuleKind.WishList);
         low.MinText = "0";
         low.MaxText = "400";
-        var high = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.WishList);
+        var high = (RangeModule)SearchModules.Add(search, SearchModuleKind.WishList);
         high.MinText = "1000";
         high.MaxText = "2000";
-        var cut = (RangeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.WishList);
+        var cut = (RangeModule)SearchModules.Add(search, SearchModuleKind.WishList);
         cut.MinText = "1400";
         cut.MaxText = "1600";
         cut.IsExcluded = true;

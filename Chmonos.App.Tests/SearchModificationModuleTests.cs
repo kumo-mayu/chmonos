@@ -60,7 +60,7 @@ public class SearchModificationModuleTests
         }
 
         var search = (await app.StartAsync()).Search;
-        var module = (ModificationModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Modification);
+        var module = (ModificationModule)SearchModules.Add(search, SearchModuleKind.Modification);
         await UiThread.Until(() => module.Suggestions.Count > 0, "改変の候補が読まれる");
         return (search, module, ids);
     }
@@ -162,7 +162,7 @@ public class SearchModificationModuleTests
         Assert.True(condition.MatchAll);
         Assert.Empty(state.Items);
 
-        var back = (ModificationModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Modification);
+        var back = (ModificationModule)SearchModules.Add(search, SearchModuleKind.Modification);
         back.Load(state);
         Assert.Equal(["制服", "普段着"], back.Rows.Single().Chips.Select(chip => chip.Text));
         Assert.True(back.Rows.Single().MatchAll);

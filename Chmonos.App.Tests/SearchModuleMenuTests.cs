@@ -11,14 +11,7 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public class SearchModuleMenuTests
 {
-    /// <summary>「＋ 条件を追加」から足す（人が押すのと同じ口）。</summary>
-    internal static SearchModule Add(SearchViewModel search, SearchModuleKind kind)
-    {
-        var before = search.Modules.ToList();
-        search.ModuleMenu.SelectMany(heading => heading.Entries).OfType<SearchModuleMenuEntry>()
-            .First(entry => entry.Kind == kind).AddCommand.Execute(null);
-        return search.Modules.Except(before).Single();
-    }
+    private static SearchModule Add(SearchViewModel search, SearchModuleKind kind) => SearchModules.Add(search, kind);
 
     private static async Task<SearchViewModel> StartAsync(TestApp app)
     {

@@ -55,7 +55,7 @@ public class MissingMarksSweepTests
         Assert.Equal("自分で書いたメモ", saved.Local.Memo);
 
         // 検索の条件「見つからないファイル」でも絞れる
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(main.Search, SearchModuleKind.MissingFile);
         module.Selected = module.Options.Single(option => option.Key == "missing");
         Assert.Equal(["1000001", "1000003"], main.Search.ListItems.Select(card => card.Item.Id).Order());
 

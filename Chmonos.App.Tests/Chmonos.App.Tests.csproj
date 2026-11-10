@@ -24,6 +24,19 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!--
+    試験はこのフォルダに全部置き、ファイル名の頭文字で3つのプロジェクトに分けて別々のプロセスで走らせる
+    （A〜H はここ、I〜R は Chmonos.App.Tests.IR、S〜Z は Chmonos.App.Tests.SZ。Support/ と AssemblyInfo.cs は3つとも持つ）。
+    1つのプロセスの中では並べられない（画面のスレッドと Application は1つ。AssemblyInfo.cs）ので、プロセスを分ける。
+    2026-11-10 に測った：一式を1本で 53〜58秒、2本で約36秒、3本で約31秒、4本で約27秒。
+    3本にしたのは、頭文字で切ると時間が A〜H 15・I〜R 19・S〜Z 19秒とそろい、4本だと S（検索の試験が固まる）だけで15秒になって割れないため。
+    ここで外すのは他の2つが持つ頭文字。どれにも当たらない名前のファイルはここに残るので、試験が抜け落ちることはない
+  -->
+  <ItemGroup>
+    <Compile Remove="I*.cs;J*.cs;K*.cs;L*.cs;M*.cs;N*.cs;O*.cs;P*.cs;Q*.cs;R*.cs" />
+    <Compile Remove="S*.cs;T*.cs;U*.cs;V*.cs;W*.cs;X*.cs;Y*.cs;Z*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Chmonos.App\Chmonos.App.csproj" />
   </ItemGroup>

@@ -116,7 +116,7 @@ public class AvatarSuggestGroupsTests
             ],
         });
         var search = (await app.StartAsync()).Search;
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Avatar);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Avatar);
 
         var groupOf = module.Suggestions.ToDictionary(text => text, text => module.InfoSelector!(text)!.Group);
 

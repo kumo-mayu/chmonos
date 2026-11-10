@@ -165,7 +165,7 @@ public class SearchEditStatusTests
         await app.AddItemAsync(Make.Item("1000001", "作り物の衣装"));
         var search = (await app.StartAsync()).Search;
 
-        var module = SearchModuleMenuTests.Add(search, SearchModuleKind.Unedited);
+        var module = SearchModules.Add(search, SearchModuleKind.Unedited);
 
         Assert.IsType<UneditedModule>(module);
         Assert.Equal("編集状況", module.Label);

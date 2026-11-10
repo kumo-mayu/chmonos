@@ -11,7 +11,7 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public class SearchModuleManyTests
 {
-    private static SearchModule Add(SearchViewModel search, SearchModuleKind kind) => SearchModuleMenuTests.Add(search, kind);
+    private static SearchModule Add(SearchViewModel search, SearchModuleKind kind) => SearchModules.Add(search, kind);
 
     private static SearchModuleKind[] Kinds(SearchViewModel search) => search.Modules.Select(module => module.Kind).ToArray();
 

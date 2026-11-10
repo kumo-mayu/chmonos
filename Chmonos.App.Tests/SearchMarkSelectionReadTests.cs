@@ -54,7 +54,7 @@ public class SearchMarkSelectionReadTests
     {
         var main = await StartAsync(app);
         var search = main.Search;
-        SearchModuleMenuTests.Add(search, SearchModuleKind.Updated);
+        SearchModules.Add(search, SearchModuleKind.Updated);
         Assert.Equal(["1000001", "1000002"], search.ListItems.Select(card => card.Item.Id).Order());
         await UiThread.Until(() => main.UnreadCount == 3, "ナビの通知の数を読む");
 

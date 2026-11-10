@@ -48,7 +48,7 @@ public class FileMissingSinceTests
         Assert.True(CardOf(main, "1000001").HasMissingFile);
         // 在るファイルもあるので「一部見つからない」（全部のときと札を分ける。メモ65 の②）
         Assert.Equal("一部見つからない", CardOf(main, "1000001").MissingBadgeText);
-        var module = (ChoiceModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.MissingFile);
+        var module = (ChoiceModule)SearchModules.Add(main.Search, SearchModuleKind.MissingFile);
         module.Selected = module.Options.Single(option => option.Key == "missing");
         Assert.Equal(["1000001"], main.Search.ListItems.Select(card => card.Item.Id));
     });

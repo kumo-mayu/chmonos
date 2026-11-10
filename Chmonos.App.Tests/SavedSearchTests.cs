@@ -32,7 +32,7 @@ public class SavedSearchTests
 
     private static void UseCategory(SearchViewModel search, string category)
     {
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Category);
         module.AddKey(category);
     }
 
@@ -363,7 +363,7 @@ public class SavedSearchTests
         await app.AddItemAsync(item);
         var main = await app.StartAsync();
         var search = main.Search;
-        var module = (ListModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Category);
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Category);
 
         search.NoteItemChanged(item with { Local = item.Local with { Category = "新しいカテゴリ" } });
         await app.SettleAsync();

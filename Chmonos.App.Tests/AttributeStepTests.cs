@@ -77,7 +77,7 @@ public class AttributeStepTests
         await app.AddItemAsync(Make.Item("9900603", "作り物（未評価）"));
         var search = (await app.StartAsync()).Search;
 
-        var module = (AttributeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Attribute);
+        var module = (AttributeModule)SearchModules.Add(search, SearchModuleKind.Attribute);
         module.AddRow("質感");
 
         var row = Assert.Single(module.Rows);

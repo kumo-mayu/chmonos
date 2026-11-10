@@ -87,7 +87,7 @@ public class SearchUpdatedTests
     public Task 条件の更新通知ありで絞れ_既読にすると外れる() => TestApp.Run(async app =>
     {
         var search = (await StartAsync(app)).Search;
-        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Updated);
+        var module = (UpdateNoticeModule)SearchModules.Add(search, SearchModuleKind.Updated);
 
         Assert.Equal("updated", module.Selected.Key);
         Assert.Equal(["1000001"], search.ListItems.Select(card => card.Item.Id));
@@ -131,7 +131,7 @@ public class SearchUpdatedTests
             WithFields(Updated("d", "9900085", isRead: true), Core.Services.BoothChanges.SaleField),
         ]);
         var search = (await app.StartAsync()).Search;
-        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Updated);
+        var module = (UpdateNoticeModule)SearchModules.Add(search, SearchModuleKind.Updated);
         List<string> Shown() => [.. search.ListItems.Select(card => card.Item.Id).Order(StringComparer.Ordinal)];
 
         Assert.Equal("更新通知あり", module.Label);
@@ -179,7 +179,7 @@ public class SearchUpdatedTests
             WithFields(Updated("d", "9900093"), Core.Services.BoothChanges.VariationsField),
         ]);
         var search = (await app.StartAsync()).Search;
-        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(search, SearchModuleKind.Updated);
+        var module = (UpdateNoticeModule)SearchModules.Add(search, SearchModuleKind.Updated);
         List<string> Shown() => [.. search.ListItems.Select(card => card.Item.Id).Order(StringComparer.Ordinal)];
         foreach (var kind in module.Kinds.Where(kind => kind.Label is not ("価格" or "バリエーション")))
         {
@@ -226,7 +226,7 @@ public class SearchUpdatedTests
     public Task 更新通知ありの種類は保存され_読み直しても同じ() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app);
-        var module = (UpdateNoticeModule)SearchModuleMenuTests.Add(main.Search, SearchModuleKind.Updated);
+        var module = (UpdateNoticeModule)SearchModules.Add(main.Search, SearchModuleKind.Updated);
         module.Kinds.Single(kind => kind.Label == "価格").IsOn = false;
         await main.FlushPendingWritesAsync();
 

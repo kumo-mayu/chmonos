@@ -49,7 +49,7 @@ public class SearchPurchaseDateTests
     {
         var search = await StartAsync(app);
 
-        var module = (DateModule)SearchModuleMenuTests.Add(search, SearchModuleKind.AcquiredAt);
+        var module = (DateModule)SearchModules.Add(search, SearchModuleKind.AcquiredAt);
         Assert.Equal(DateModule.FirstPurchase, module.PurchaseScope?.Key);
         module.SinceText = "2025-03";
         module.TillText = "2025-03";
@@ -65,7 +65,7 @@ public class SearchPurchaseDateTests
     {
         var search = await StartAsync(app);
 
-        var module = (DateModule)SearchModuleMenuTests.Add(search, SearchModuleKind.AcquiredAt);
+        var module = (DateModule)SearchModules.Add(search, SearchModuleKind.AcquiredAt);
         module.SinceText = "2025-03";
         module.TillText = "2025-03";
         module.IsExcluded = true;
@@ -108,7 +108,7 @@ public class SearchPurchaseDateTests
     {
         var search = await StartAsync(app);
 
-        var module = (DateModule)SearchModuleMenuTests.Add(search, SearchModuleKind.AcquiredAt);
+        var module = (DateModule)SearchModules.Add(search, SearchModuleKind.AcquiredAt);
         ChooseAll(module);
         module.SinceText = "2025-03";
         module.TillText = "2025-03";
@@ -122,7 +122,7 @@ public class SearchPurchaseDateTests
     {
         var search = await StartAsync(app);
 
-        var module = (DateModule)SearchModuleMenuTests.Add(search, SearchModuleKind.AcquiredAt);
+        var module = (DateModule)SearchModules.Add(search, SearchModuleKind.AcquiredAt);
         ChooseAll(module);
         module.SinceText = "2025-03";
         module.TillText = "2025-03";
@@ -138,7 +138,7 @@ public class SearchPurchaseDateTests
     {
         var search = await StartAsync(app);
 
-        var module = (DateModule)SearchModuleMenuTests.Add(search, SearchModuleKind.AcquiredAt);
+        var module = (DateModule)SearchModules.Add(search, SearchModuleKind.AcquiredAt);
 
         Assert.Equal("2024-06-01", module.SinceText);
         Assert.Equal("2025-03-20", module.TillText);
