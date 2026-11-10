@@ -1241,12 +1241,13 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         }
     }
 
+    // 無いときの印は、すぐ上の入手日と同じ「—」にそろえる（並ぶ3行で記号が割れないように。ユーザ判断 2026-11-10）
     public string LastFetchedText => Item.Local.LastFetchedAt is null
-        ? "-"
+        ? Core.Models.DisplayText.NoDate
         : Item.Local.LastFetchedAt.Value.ToString("yyyy-MM-dd");
 
     public string NextFetchText => Item.Local.NextFetchDueAt is null
-        ? "-"
+        ? Core.Models.DisplayText.NoDate
         : Item.Local.NextFetchDueAt.Value.ToString("yyyy-MM-dd");
 
     public bool NotifyOnUpdate => Item.Local.NotifyOnUpdate;

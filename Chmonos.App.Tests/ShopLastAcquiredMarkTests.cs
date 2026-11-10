@@ -38,4 +38,23 @@ public class ShopLastAcquiredMarkTests
         Assert.False(shop.LastAcquiredIsFallback);
         Assert.Equal(string.Empty, shop.LastAcquiredTooltip);
     });
+
+    /// <summary>
+    /// 入手日が無いとき、見出しのある上の段は「—」、見出しの無いカードの2行目は「入手日なし」と言葉で書く（ユーザ判断 2026-11-10）
+    /// </summary>
+    [Fact]
+    public Task 入手日が無ければ_上の段は印で_カードの2行目は言葉で書く() => TestApp.Run(async app =>
+    {
+        // 所持していない商品はショップの画面で既定では隠れるので、ファイルの記録は持たせる。
+        // そのファイルは手元に無いので、ファイルの日付でも代えられない
+        var gone = Path.Combine(Path.GetTempPath(), "chmonos-shop-no-date-" + Guid.NewGuid().ToString("N"), "作り物.zip");
+        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装").WithFiles(Make.File(gone)));
+        var main = await app.StartAsync();
+        await main.ShowShopAsync("sample-shop");
+        var shop = Assert.IsType<ShopViewModel>(main.CurrentViewModel);
+
+        Assert.Equal("—", shop.LastAcquiredText);
+        var card = Assert.Single(shop.ListItems.OfType<ItemCardViewModel>());
+        Assert.Equal("入手日なし", card.ShopName);
+    });
 }

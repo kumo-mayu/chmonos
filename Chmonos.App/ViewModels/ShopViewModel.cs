@@ -1102,8 +1102,14 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         Shell.OpenUrl(Core.Booth.BoothLinks.ShopPage(Shop.Url));
     }
 
-    /// <summary>カードの2行目の入手日。ファイルの日付で代えた日は文の中でそうと書く（カードには吹き出しの場所が無い）。</summary>
-    private static string AcquiredText(ShopItem entry) => Core.Models.DisplayText.AcquiredDate(entry.AcquiredAt, entry.AcquiredIsFallback);
+    /// <summary>
+    /// カードの2行目の入手日。ファイルの日付で代えた日は文の中でそうと書く（カードには吹き出しの場所が無い）。
+    /// 無いときは「入手日なし」と言葉で書く：この行には見出しが無く、「—」だけでは何が無いのか分からない
+    /// （検索の区切りの札と同じ言い方。ユーザ判断 2026-11-10）
+    /// </summary>
+    private static string AcquiredText(ShopItem entry) => entry.AcquiredAt is null
+        ? "入手日なし"
+        : Core.Models.DisplayText.AcquiredDate(entry.AcquiredAt, entry.AcquiredIsFallback);
 
 }
 

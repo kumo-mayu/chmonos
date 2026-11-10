@@ -182,7 +182,10 @@ public static class DisplayText
         return string.IsNullOrWhiteSpace(parentName) ? child : $"{parentName.Trim()} / {child}";
     }
 
-    /// <summary>日付が無いときに出す印。商品ページ・ショップ・ショップの一覧で揃える（前は「-」「—」「入手日なし」に割れていた）。</summary>
+    /// <summary>
+    /// 日付が無いときに出す印。見出しの付いた欄（商品ページの入手日・最後に取得・次の取得、ショップの最終購入）で揃える。
+    /// 見出しの無い所（ショップのカードの2行目）は「入手日なし」と言葉で書く（ユーザ判断 2026-11-10）
+    /// </summary>
     public const string NoDate = "—";
 
     /// <summary>
