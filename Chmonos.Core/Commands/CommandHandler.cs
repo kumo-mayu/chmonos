@@ -525,7 +525,7 @@ public sealed class CommandHandler
                 return await _items.RemoveUserImageAsync(
                     removeImage.ItemId, removeImage.FileName, cancellationToken)
                     ? new CommandResult.ItemSaved(removeImage.ItemId)
-                    : new CommandResult.Failed("対象の商品が見つかりませんでした。");
+                    : ItemMissing();
 
             case UiCommand.MoveUserImage moveImage:
                 return await _items.MoveUserImageAsync(
@@ -536,9 +536,15 @@ public sealed class CommandHandler
             case UiCommand.PinThumbnail pin:
                 return await _items.PinThumbnailAsync(pin.ItemId, pin.FileName, cancellationToken)
                     ? new CommandResult.ItemSaved(pin.ItemId)
-                    : new CommandResult.Failed("対象の商品が見つかりませんでした。");
+                    : ItemMissing();
 
             case UiCommand.SetImageRole imageRole:
+                // サービスの false は「名前が空」と「商品が無い」の2つ。名前が空なのは画面の誤りで、商品は無事なので言い分ける
+                if (string.IsNullOrWhiteSpace(imageRole.FileName))
+                {
+                    return new CommandResult.Failed("対象の画像が見つかりませんでした。");
+                }
+
                 return await _items.SetImageRoleAsync(
                     imageRole.ItemId,
                     imageRole.FileName,
@@ -546,7 +552,7 @@ public sealed class CommandHandler
                     imageRole.IsUserAdded,
                     cancellationToken)
                     ? new CommandResult.ItemSaved(imageRole.ItemId)
-                    : new CommandResult.Failed("対象の商品が見つかりませんでした。");
+                    : ItemMissing();
 
             case UiCommand.RefreshItem refresh:
                 var outcome = await _items.RefreshAsync(refresh.ItemId, cancellationToken);
