@@ -84,16 +84,28 @@ public static class JsonStore
             throw new FormatTooNewException(path, version);
         }
 
-        if (version == StoreFormat.Current)
+        // 中身を変えない段だけなら（1 → 2 など）、木に読み直さずにそのまま読む
+        if (version == StoreFormat.Current || StoreFormat.LeavesAsIs(version))
         {
             return JsonSerializer.Deserialize<T>(json, Options);
         }
 
-        var node = System.Text.Json.Nodes.JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+        System.Text.Json.Nodes.JsonNode? node;
+        try
         {
-            CommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true,
-        });
+            node = System.Text.Json.Nodes.JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            });
+        }
+        catch (JsonException)
+        {
+            // 壊れた JSON は版を決められず読める下限（今の版より古い）になり、ここへ来る。木で読むと例外の型（JsonReaderException）が
+            // 今の版の読み方と変わるので、今の版と同じ読み方で同じ例外を出す（壊れた記録の扱いとログを揃える。形式を 2 に上げて初めて通る道）
+            return JsonSerializer.Deserialize<T>(json, Options);
+        }
+
         return node is null ? null : StoreFormat.Migrate(node, version, typeof(T), path).Deserialize<T>(Options);
     }
 
