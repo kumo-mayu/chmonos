@@ -38,7 +38,7 @@ public sealed record NotificationArchiveTrim(int DeletedFiles, string? HalvedMon
 /// - **版はメンバーごとの1行目に置く**（<c>{"formatVersion":N}</c>）。形式を上げた後に古い月のファイルへ足しても、
 ///   行ごとにどの版で書いたかが分かる。ファイル名は月だけにして、並べ替えと消す順に使う。
 /// </summary>
-public sealed class NotificationArchive
+public sealed partial class NotificationArchive
 {
     public const string DirName = "notification-archive";
 

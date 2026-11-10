@@ -647,7 +647,7 @@ public sealed class NotificationArchiveTests : IDisposable
     /// [start, end) のかたまりを壊す。content：中ほどの1バイトを書き換える／crc：尾の CRC を書き換える／
     /// truncate：中ほどから終わりまでを切り取る（後ろのかたまりは続く）／header：頭の1バイトを書き換える。
     /// </summary>
-    private static void Damage(string path, long start, long end, string kind)
+    internal static void Damage(string path, long start, long end, string kind)
     {
         var bytes = File.ReadAllBytes(path).ToList();
         var middle = (int)(start + (end - start) / 2);
