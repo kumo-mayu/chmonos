@@ -322,6 +322,18 @@ public sealed record LocalFileRecord
     public DateTimeOffset? MissingSince { get; init; }
 
     /// <summary>
+    /// この商品のファイルとして最初に記録した日時（ユーザ判断 2026-11-10・v1.3.0 から）。フォルダの <see cref="LocalFolderRecord.RegisteredAt"/> と同じ名前・意味。
+    /// **無ければ分からない**（v1.3.0 より前に記録したファイル）。推して埋めない——ファイルの更新日時や商品の入手日で代えると、記録した日と見分けが付かなくなる。
+    /// </summary>
+    /// <remarks>
+    /// 前は「いつ取り込んだか」が記録に無く、更新の促しは見つけた時に持っていたファイルを控えて代えていた（<see cref="ContentUpdate.FilesBefore"/>）。
+    /// 後で使い道が増えたときに作り直せないので、人の入力の手間が無いこの欄を先に持つ（使い道はまだ決めていない。画面には出さない）。
+    /// 書くのは行が新しくできたとき（取り込み・未確定から選ぶ・手で足す・落とす）だけ。今ある行を書き直す（場所を足す・外す・戻す・測り直す）ときと、
+    /// 商品 ID の付け替え・まとめで移すときは元の日時を保つ（<c>LocalFileMerger</c> が今ある行の日時を残す）。
+    /// </remarks>
+    public DateTimeOffset? RegisteredAt { get; init; }
+
+    /// <summary>
     /// 同じ場所で新しい中身に置き換わった古い版の印（2026-10-05・file-lifecycle.md 点検の8・ユーザ判断 8-A）。無ければ書き出さない。
     /// 販売者の更新版を同じ名前で上書きすると、取り込みが古い中身の記録から場所を外す（<c>ImportPipeline.DropReplacedPathsAsync</c>）。
     /// 印が無いと場所の空いた記録が「見つかりません」と数えられ続け、「探す」も毎回探して見つからないと言っていた。

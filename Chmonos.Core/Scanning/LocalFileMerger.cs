@@ -192,6 +192,13 @@ public static class LocalFileMerger
             // 見つかったかは上（Merge）で場所を見て決める。ここで落とすと、つながっていないドライブの上の場所しか無い物まで消える
             MissingSince = current.MissingSince,
 
+            // 記録した日時は今ある行の物を保つ（場所を足しても、ID の付け替え・まとめで移しても、最初に記録した日は変わらない）。
+            // 今ある行が持たない（v1.3.0 より前の行）なら空のまま——見つけた方の今の時刻を入れると、記録した日を推して埋めることになる。
+            // 両方が持てば早い方（ID のまとめで、移す元の方が先に記録していた）
+            RegisteredAt = current.RegisteredAt is { } known && discovered.RegisteredAt is { } other && other < known
+                ? other
+                : current.RegisteredAt,
+
             // 場所が残るかは上（Merge）で見て決める。残らなければ古い版のまま
             Replaced = current.Replaced,
 

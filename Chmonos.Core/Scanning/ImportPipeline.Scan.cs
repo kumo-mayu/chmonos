@@ -297,6 +297,9 @@ public sealed partial class ImportPipeline
                         SizeBytes = file.SizeBytes,
                         Contents = contents,
                         ArchiveBroken = broken,
+
+                        // 持ち主の行が既にあれば突き合わせが元の日時を保つ。書くまでに行が消されていたときだけ、新しい行の日時になる
+                        RegisteredAt = DateTimeOffset.Now,
                     });
                 }
             }
@@ -319,6 +322,9 @@ public sealed partial class ImportPipeline
 
                     // ダウンロード元の記録から商品が決まると未確定を通らない。開けなかった事実は商品の記録に持っていく
                     ArchiveBroken = broken,
+
+                    // 新しい行になるときだけ残る（商品が既に持つ中身なら、突き合わせが元の日時を保つ）
+                    RegisteredAt = DateTimeOffset.Now,
                 };
 
                 if (!filesByItemId.TryGetValue(candidates[0].ItemId, out var list))
