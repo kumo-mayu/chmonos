@@ -13,7 +13,6 @@
 | `Chmonos.Query/` | 外から使う API の中身（読むだけの問い合わせ層。HTTP を持たない）：保存先の写し・答えの形・検索の式・選択肢の件数・読み直し（`docs/spec/local-api.md`） |
 | `Chmonos.Api/` | 外から使う API の実行ファイル（`Chmonos.Api.exe`。HTTP の口と守り・同期）。配る形は `Properties/PublishProfiles/win-x64.pubxml` |
 | `Chmonos.Query.Tests/`・`Chmonos.Api.Tests/` | 問い合わせ層の試験（答えの見本 `Golden/`）と、API を本当に待ち受けさせて叩く試験 |
-| `Chmonos.Cli/` | データ層を実データで試す足場。配布物ではない |
 | `BoothZipInspector/`・`BoothIdResolver/`（と `.Tests`） | zip の手掛かり読み・商品IDの特定のライブラリ（本体が使う） |
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |

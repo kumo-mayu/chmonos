@@ -51,7 +51,7 @@
 - **画面のスレッドで門を同期で待たない**（2026-09-23）。取り込みは画面のスレッドの文脈で進むので、その中の同期の保存
   （unitypackage の控え・商品の削除）が門を待つと画面が止まり、門を開ける後始末も画面のスレッドへ戻るのを待って、互いに待ち合って固まった。
   画面から来得る保存と削除は非同期（`EnterAsync`）にし、門を持つ命令（書き出し・戻す・引越し）は**取るのも放すのも `Task.Run` の中**で行う。
-  同期の `StoreWriteGate.Enter` を通るのは `JsonStore.Write` だけで、呼び手は初回の窓・CLI・裏のスレッドで読む控えの1件に限る。
+  同期の `StoreWriteGate.Enter` を通るのは `JsonStore.Write` だけで、呼び手は初回の窓・裏のスレッドで読む控えの1件に限る。
   固まる形は、画面のスレッドの代わりに1本のスレッドで回す文脈を使う試験で再現している（`StoreGateCommandTests`）。
 - **画面を開くついでの小さな書き込みも門を通す**（2026-09-23）：取り込みの続きを捨てる（`DiscardInterruptedImport`）、
   通知を開くたびの参照切れの知らせ（`DetectOrphanReferences`）、フォルダビューを開くたびのドライブ文字の控え（`ObserveVolumes`）。
@@ -172,7 +172,7 @@
 - `dotnet build`・`dotnet test`（本体 `Chmonos.Core.Tests` が2,200件超、画面の側 `Chmonos.App.Tests` が約1,900件で、頭文字で3つのプロセスに分けて走らせる。`docs/dev/app-tests.md`）。
   **通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。画面の側の試験は、通信の出口を作り物に差し替えて組む。
   待ちを差し替えた `BoothClient`（`TestWait.None`）は PC で1つの門に入らない（本物の門を書き換えない・その PC でアプリが動いているかで結果が変わらない）。
-  待ちを差し替えない組み立て（アプリ・コマンドライン・評価台・道具）は必ず入る。**通信の出口が本物のまま待ちだけを差し替える組み立ては `AppServiceContainer` が断る。**
+  待ちを差し替えない組み立て（アプリ・評価台・道具）は必ず入る。**通信の出口が本物のまま待ちだけを差し替える組み立ては `AppServiceContainer` が断る。**
 - **試験のための口は、既定をアプリの動きのままにする**：`AppServiceContainer` の引数付きの入口（保存先・通信の出口・待ち）と
   実マシンを調べる関数（`DetectUnityTools`・`DiscoverUnityProjects`）、`Notice.Intercept`（窓を出す代わりに文を受ける）、
   `FireAndForget.Pending`（投げっぱなしの作業の数）。アプリはどれも触らない。
