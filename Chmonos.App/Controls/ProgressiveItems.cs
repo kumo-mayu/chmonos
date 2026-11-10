@@ -196,7 +196,7 @@ public static class ProgressiveItems
 
         // 使い回された画面で、前の中身の流した位置が残るとき。分けると、最初の配置では一覧が空で流せる長さが足りず、
         // 位置が手前へ詰められる（詰められた位置は、行を足しても戻らない）。前と同じく全部をその場で足す
-        if (FindScroller(list) is { VerticalOffset: > 0 } scroller && !GetReturnsToTop(scroller))
+        if (VisualTreeFinder.FindPageScroller(list) is { VerticalOffset: > 0 } scroller && !GetReturnsToTop(scroller))
         {
             Drain(feeder);
             list.ItemsSource = target;
@@ -222,7 +222,7 @@ public static class ProgressiveItems
                 return;
             }
 
-            var scroller = feeder.Scroller ??= FindScroller(list);
+            var scroller = feeder.Scroller ??= VisualTreeFinder.FindPageScroller(list);
             if (!list.IsVisible || scroller is not { ViewportHeight: > 0, Content: UIElement content })
             {
                 list.LayoutUpdated -= onLayout;
@@ -268,19 +268,6 @@ public static class ProgressiveItems
         return bottom < scroller.ViewportHeight + LookAhead;
     }
 
-    private static ScrollViewer? FindScroller(DependencyObject element)
-    {
-        for (var node = VisualTreeHelper.GetParent(element); node is not null; node = VisualTreeHelper.GetParent(node))
-        {
-            // 部品の型の中の流す部品（一覧や箱が自分で持つ物）ではなく、画面に置いた「ページを流す部品」を探す
-            if (node is ScrollViewer { TemplatedParent: null } scroller)
-            {
-                return scroller;
-            }
-        }
-
-        return null;
-    }
 
     /// <summary>
     /// 1行足して、続きを頼む。Background の段は入力と描画より後なので、間に流す操作とコマが通り、1回の止まりは1行ぶんで済む。

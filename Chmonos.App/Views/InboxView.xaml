@@ -171,7 +171,7 @@
                                     前は乗せた・離れたの知らせで出し入れしていたので、キーボードからは届かなかった。
                                     中のボタンにフォーカスが移っても、行の中にある間は消えない
                                 -->
-                                <StackPanel x:Name="RowActions" Orientation="Horizontal" Margin="14,0,0,0"
+                                <StackPanel Orientation="Horizontal" Margin="14,0,0,0"
                                             VerticalAlignment="Center">
                                     <StackPanel.Style>
                                         <Style TargetType="StackPanel">

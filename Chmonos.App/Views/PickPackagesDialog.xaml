@@ -16,18 +16,6 @@
         塊は見出しで畳める。最初はどれにもチェックを付けない
     -->
     <Window.Resources>
-        <!-- 探す欄の ×（改変を選ぶ窓・検索画面の ClearFieldButton と同じ見た目。暗黙のボタンの見た目を当てないため明示する） -->
-        <Style x:Key="ClearFieldButton" TargetType="Button">
-            <Setter Property="Content" Value="×" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
         <!-- 塊の見出し。畳む印と名前をまとめて1つの押せる所にする（小さな印だけを狙わせない） -->
         <Style x:Key="GroupHeader" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand" />

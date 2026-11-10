@@ -117,3 +117,15 @@ WPF の既定（Aero2）は色を型の中に直に持つので、色の表の�
 - **知らせと確認の窓**は自前の窓（`Views/NoticeWindow`。2026-09-29）で、面・文字・印を表の鍵で描く。印は情報・質問が `AccentFill`、警告が `Warn`、エラーが `BadFill`。
   決まりは [ui-dialogs.md](ui-dialogs.md)「知らせの窓」
 - **白いまま残る物**：ファイルとフォルダを選ぶ窓（Windows が描く）
+
+## 共通の部品のスタイル（`App.xaml`・`Views/ManageResources.xaml`。2026-11-10 に写しを寄せた）
+
+画面ごとに同じ XAML を写さず、ここから引く。色は上の鍵のまま。
+
+- **状態の札**（所持・未編集・取り込み中・見つからない・未確定など。丸い角の細長い枠）：`BadgeGood`・`BadgeWarn`・`BadgeBad`・`BadgeAccent`（`Border` のスタイル。地・枠・角丸 9・余白 7,1）。
+  文字の色は中の `TextBlock` に付ける。外の余白・縦の置き方は置き場ごとに書く。前は余白が 7,0 と 7,1（と 6,0）に割れていたので 7,1 に寄せた
+- **入力欄の中の案内文**：`InputPlaceholder`（`TextBlock`。字 12・`TextFaint`・当たり判定なし）。左の余白は重ねる先の `TextBox` の `Padding` に合わせる（Padding 7 → 10、8 → 11）ので含めず、置き場ごとに書く
+- **欄を消す ×**：`ClearFieldButton`（土台の `Button` を継ぐので、乗せた色はアプリの型の色）
+- **確認待ちの印**：`UnconfirmedDot`・`ConfirmMarkButton`・`RejectMarkButton`（対応アバターの札と変換のつなぎ先の札）
+- **文字だけのボタンと畳む三角**：`HubLink`・`HubToggle`（`ManageResources.xaml`）。並べ替えの行の型は `ReorderRowTemplate`
+- **カードの行の一覧**：`CardRowsListBoxStyle`（`Themes/Controls.xaml`。`CardRowsListBox` が自分で当てる。余白・縦の流し方・仮想化の有無だけ画面が上書きする）

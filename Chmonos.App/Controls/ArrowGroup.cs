@@ -124,7 +124,7 @@ public static class ArrowGroup
         private UIElement? _stop;
         private bool _queued;
 
-        // 並びの止まり先を持っていた行の型（商品の段など）。Tab で並びから出るとき、この型の行は作らせずに飛ばす（PrepareTabOut）
+        // 並びの止まり先を持っていた行の型（商品の段など）。Tab で並びから出るとき、この型の行は作らせずに飛ばす（TabOutTarget）
         private readonly HashSet<Type> _memberTypes = [];
 
         public void Attach()

@@ -492,9 +492,7 @@
                                     <TextBox x:Name="NameBox" Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.Name="商品名"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
-                                    <TextBlock Text="{Binding NamePlaceholder}" IsHitTestVisible="False"
-                                               VerticalAlignment="Center" Margin="10,0,10,0"
-                                               Foreground="{DynamicResource TextFaint}" FontSize="12.5"
+                                    <TextBlock Text="{Binding NamePlaceholder}" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}"
                                                TextTrimming="CharacterEllipsis"
                                                Visibility="{Binding Text, ElementName=NameBox,
                                                             Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
@@ -519,9 +517,7 @@
                                     <TextBox x:Name="ShopBox" Text="{Binding ShopNameInput, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.Name="ショップ"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
-                                    <TextBlock Text="{Binding ShopPlaceholder}" IsHitTestVisible="False"
-                                               VerticalAlignment="Center" Margin="10,0,10,0"
-                                               Foreground="{DynamicResource TextFaint}" FontSize="12.5"
+                                    <TextBlock Text="{Binding ShopPlaceholder}" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}"
                                                TextTrimming="CharacterEllipsis"
                                                Visibility="{Binding Text, ElementName=ShopBox,
                                                             Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
@@ -568,9 +564,7 @@
                                              AutomationProperties.Name="ショップのURL"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
                                     <!-- URLの形は placeholder で見せる。ここは既定が無く、実際に入力を求めている -->
-                                    <TextBlock Text="ショップのURL（https://〇〇.booth.pm/）" IsHitTestVisible="False"
-                                               VerticalAlignment="Center" Margin="10,0,10,0"
-                                               Foreground="{DynamicResource TextFaint}" FontSize="12.5"
+                                    <TextBlock Text="ショップのURL（https://〇〇.booth.pm/）" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}"
                                                TextTrimming="CharacterEllipsis"
                                                Visibility="{Binding Text, ElementName=ShopUrlBox,
                                                             Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
@@ -612,9 +606,7 @@
                                     <TextBox x:Name="CategoryBox" Text="{Binding CategoryInput, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.Name="カテゴリ"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
-                                    <TextBlock Text="{Binding CategoryPlaceholder}" IsHitTestVisible="False"
-                                               VerticalAlignment="Center" Margin="10,0,10,0"
-                                               Foreground="{DynamicResource TextFaint}" FontSize="12.5"
+                                    <TextBlock Text="{Binding CategoryPlaceholder}" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}"
                                                TextTrimming="CharacterEllipsis"
                                                Visibility="{Binding Text, ElementName=CategoryBox,
                                                             Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
@@ -871,8 +863,7 @@
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock FontWeight="Bold" FontSize="13" VerticalAlignment="Center"><Run Text="購入したバリエーション" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
                                     <!-- 印が1つも無ければ、畳んでいても見出しで分かるようにする（ユーザ指示 2026-09-13） -->
-                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
-                                            CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    <Border Style="{StaticResource BadgeWarn}" Margin="8,0,0,0" VerticalAlignment="Center"
                                             ToolTip="買ったバリエーションに印を付けてください。"
                                             Visibility="{Binding IsPurchaseUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="未選択" FontSize="11" Foreground="{DynamicResource Warn}" />
@@ -923,9 +914,8 @@
                                                                      AutomationProperties.AutomationId="EditVariationPrice"
                                                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の払った額}"
                                                                      VerticalContentAlignment="Center" />
-                                                            <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
-                                                                       Foreground="{DynamicResource TextFaint}"
-                                                                       Visibility="{Binding Price, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                                            <TextBlock Text="0" Margin="12,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                                                       Visibility="{Binding Price, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                                         </Grid>
                                                         <!-- BOOTH の値段が無い行（種類を指さない購入・消えた版）は「現在 -」になるだけなので出さない -->
                                                         <TextBlock Text="{Binding ListPriceText, StringFormat=現在 {0}}" Style="{StaticResource Caption}"
@@ -957,8 +947,7 @@
                                                                      AutomationProperties.AutomationId="EditVariationPurchasedAt"
                                                                      ToolTip="2026-09-20 の形で入れてください。"
                                                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の日付}" />
-                                                            <TextBlock Text="入手日と同じ" Margin="9,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
-                                                                       Foreground="{DynamicResource TextFaint}"
+                                                            <TextBlock Text="入手日と同じ" Margin="9,0,0,0" Style="{StaticResource InputPlaceholder}"
                                                                        Visibility="{Binding Text, ElementName=PurchasedAtBox, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                                         </Grid>
                                                         <!-- 「＋」だけではファイルの結び付けか追加購入か分からなかった（ユーザ指摘）。何が起きるかを名乗らせる -->
@@ -988,9 +977,8 @@
                                                                                  AutomationProperties.AutomationId="EditExtraPrice"
                                                                                  AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の払った額}"
                                                                                  VerticalContentAlignment="Center" />
-                                                                        <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
-                                                                                   Foreground="{DynamicResource TextFaint}"
-                                                                                   Visibility="{Binding Price, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                                                        <TextBlock Text="0" Margin="12,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                                                                   Visibility="{Binding Price, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                                                     </Grid>
                                                                     <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
                                                                               Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
@@ -1010,8 +998,7 @@
                                                                                  AutomationProperties.AutomationId="EditExtraPurchasedAt"
                                                                                  ToolTip="2026-09-20 の形で入れてください。"
                                                                                  AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の日付}" />
-                                                                        <TextBlock Text="入手日と同じ" Margin="9,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
-                                                                                   Foreground="{DynamicResource TextFaint}"
+                                                                        <TextBlock Text="入手日と同じ" Margin="9,0,0,0" Style="{StaticResource InputPlaceholder}"
                                                                                    Visibility="{Binding Text, ElementName=ExtraPurchasedAtBox, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                                                     </Grid>
                                                                     <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
@@ -1059,8 +1046,7 @@
                             <Expander.Header>
                                 <DockPanel>
                                     <!-- 種類を選んでいないファイルがあれば、畳んでいても見出しで分かるようにする（「購入した種類」と同じ・ユーザ指示 2026-09-13） -->
-                                    <Border DockPanel.Dock="Right" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                            BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource BadgeWarn}" Margin="8,0,0,0" VerticalAlignment="Center"
                                             ToolTip="ファイルごとにバリエーションを選んでください。"
                                             Visibility="{Binding IsFileSortUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="未選択" FontSize="11" Foreground="{DynamicResource Warn}" />
@@ -1131,8 +1117,7 @@
                                                                       AutomationProperties.Name="{Binding FileChoiceAutomationName}"
                                                                       ToolTip="このバリエーションのファイルを選びます。同じバリエーションに複数付けられます。" />
                                                             <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
-                                                            <TextBlock Text="{Binding FileChoiceHint}" IsHitTestVisible="False" FontSize="11.5"
-                                                                       Foreground="{DynamicResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
+                                                            <TextBlock Text="{Binding FileChoiceHint}" Margin="8,0,24,0" Style="{StaticResource InputPlaceholder}"
                                                                        Visibility="{Binding Text, ElementName=FileChoiceBox,
                                                                                     Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                                         </Grid>
@@ -1211,9 +1196,7 @@
                                      AutomationProperties.Name="入手日"
                                      ToolTip="2026-09-20 の形で入れてください。"
                                      VerticalContentAlignment="Center" Padding="8,0" />
-                            <TextBlock Text="{Binding AcquiredHintText}" IsHitTestVisible="False"
-                                       VerticalAlignment="Center" Margin="10,0,10,0"
-                                       Foreground="{DynamicResource TextFaint}" FontSize="12.5"
+                            <TextBlock Text="{Binding AcquiredHintText}" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}"
                                        TextTrimming="CharacterEllipsis"
                                        Visibility="{Binding Text, ElementName=AcquiredBox,
                                                     Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
@@ -1228,31 +1211,10 @@
                             アバターとして登録する（ユーザ判断 2026-10-07）。作者がカテゴリを3Dキャラクターにしていないアバターは、
                             登録簿に載らず扱いを変える場所が無かった。押した時にすぐ登録簿へ書く（商品ページと編集ページで同じ部品）
                         -->
-                        <StackPanel DataContext="{Binding AvatarRegistration}" Margin="0,0,0,0">
+                        <StackPanel Margin="0,0,0,0">
                             <!-- 見出しはこの画面のほかの欄（入手日など）と同じ形 -->
                             <TextBlock Text="アバター" FontWeight="Bold" FontSize="13" Margin="0,18,0,2" />
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                <Button Content="アバターとして登録" Style="{StaticResource SmallButton}"
-                                        AutomationProperties.AutomationId="EditRegisterAvatar"
-                                        Command="{Binding RegisterCommand}"
-                                        Visibility="{Binding IsAvatar, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
-                                        ToolTip="アバターの管理の一覧に載り、衣装の対応アバターを見分けるのに使います。" />
-                                <Button Content="アバターの管理で開く" Style="{StaticResource SmallButton}"
-                                        AutomationProperties.AutomationId="EditOpenInAvatars"
-                                        Command="{Binding OpenInAvatarsCommand}"
-                                        Visibility="{Binding IsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                <Button Content="登録を外す" Style="{StaticResource DangerButton}" Margin="7,0,0,0"
-                                        AutomationProperties.AutomationId="EditUnregisterAvatar"
-                                        Command="{Binding UnregisterCommand}"
-                                        Visibility="{Binding IsManual, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="自動の判定に戻します。" />
-                                <!-- 押しても欄の高さが変わらないよう、ボタンと同じ行の右に出す（ユーザ指摘 2026-10-07。前はボタンの上に出入りして並びがずれた） -->
-                                <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                           Visibility="{Binding StateText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding Notice}" Style="{StaticResource FieldNotice}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="260"
-                                       HorizontalAlignment="Left"
-                                       Visibility="{Binding Notice, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                            <views:AvatarRegistrationPanel DataContext="{Binding AvatarRegistration}" IdPrefix="Edit" Margin="0,2,0,0" />
                         </StackPanel>
 
                         <!--

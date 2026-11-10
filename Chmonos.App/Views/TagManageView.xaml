@@ -95,7 +95,7 @@
                         <TextBlock Text="メモ" Margin="10,0,0,0"
                                    IsHitTestVisible="False" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFaint}" FontSize="11.5"
-                                   Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                   Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                 </Grid>
 
                 <StackPanel Grid.Column="1">
@@ -275,31 +275,7 @@
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="Root" Background="Transparent"
-                                                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
-                                                <Grid>
-                                                    <ContentPresenter />
-                                                    <!-- ドラッグ中に、どこへ落ちるかを示す線 -->
-                                                    <Border Height="2" VerticalAlignment="Top" Background="{DynamicResource Accent}"
-                                                            Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Accent}"
-                                                            Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                </Grid>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter Property="Template" Value="{StaticResource ReorderRowTemplate}" />
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
@@ -558,9 +534,8 @@
                                              AutomationProperties.Name="この大分類の中を小分類・商品で探す"
                                              ToolTip="小分類の名前・メモと、商品名・ショップ名・メモでも探します。"
                                              Padding="9,6" BorderBrush="{DynamicResource BorderStrong}" />
-                                    <TextBlock Text="この大分類の中を小分類・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                               Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                    <TextBlock Text="この大分類の中を小分類・商品で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                               Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                 </Grid>
 
                                     <!--
@@ -571,7 +546,7 @@
                                             Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
                                             BorderThickness="1">
                                         <StackPanel Orientation="Horizontal">
-                                            <ToggleButton x:Name="AddSubToggle" Width="30" Height="30" Cursor="Hand"
+                                            <ToggleButton AutomationProperties.AutomationId="AddSubToggle" Width="30" Height="30" Cursor="Hand"
                                                           Focusable="False" IsChecked="{Binding IsAddingSub, Mode=TwoWay}"
                                                           AutomationProperties.Name="小分類を追加"
                                                           ToolTipService.InitialShowDelay="250"

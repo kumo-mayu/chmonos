@@ -53,8 +53,7 @@
                                         <WrapPanel Margin="0,8,0,0">
                                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                                             <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
-                                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
-                                                    CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
+                                            <Border Style="{StaticResource BadgeWarn}" Margin="6,0,0,0" VerticalAlignment="Center"
                                                     ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
                                                     Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="未確定あり" FontSize="10" Foreground="{DynamicResource Warn}" />
@@ -88,14 +87,12 @@
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 <!-- 未確定を出していないとき：件数と案内は出さず、あることだけ（ユーザ指示 2026-09-15） -->
-                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
-                        CornerRadius="9" Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                <Border Style="{StaticResource BadgeWarn}" Margin="8,0,0,0" VerticalAlignment="Center"
                         ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
                         Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未確定あり" FontSize="10" Foreground="{DynamicResource Warn}" />
                 </Border>
-                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
-                        CornerRadius="9" Padding="7,0" Margin="8,0,0,0"
+                <Border Style="{StaticResource BadgeWarn}" Margin="8,0,0,0"
                         Visibility="{Binding IsOffline, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="取り外しているか、見つかりません" FontSize="11" Foreground="{DynamicResource Warn}" />
                 </Border>
@@ -183,8 +180,7 @@
                     <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
                              VerticalContentAlignment="Center" Padding="7,0"
                              AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
-                    <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" IsHitTestVisible="False" Margin="10,0,10,0"
-                               VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}" TextTrimming="CharacterEllipsis"
+                    <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                 </Grid>
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
@@ -212,29 +208,8 @@
 
             <!-- カードの行の一覧。Tab で1回だけ入り、中は矢印でカードからカードへ移る（CardRowsListBox が並び ArrowGroup になる。ユーザ判断 2026-10-01） -->
             <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
-            <controls:CardRowsListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
-                     Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                     Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     VirtualizingPanel.IsVirtualizing="True"
-                     VirtualizingPanel.VirtualizationMode="Recycling"
-                     VirtualizingPanel.ScrollUnit="Pixel">
-                <controls:CardRowsListBox.ItemContainerStyle>
-                    <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0" />
-                        <Setter Property="Focusable" Value="False" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <ContentPresenter />
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </controls:CardRowsListBox.ItemContainerStyle>
+            <controls:CardRowsListBox ItemsSource="{Binding Rows}"
+                     Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <controls:CardRowsListBox.ItemTemplate>
                     <DataTemplate>
                         <controls:CardRowItems ItemsSource="{Binding Cards}" Focusable="False">

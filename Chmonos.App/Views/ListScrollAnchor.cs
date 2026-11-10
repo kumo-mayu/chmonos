@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Chmonos.App.Controls;
 using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Views;
@@ -14,7 +15,7 @@ internal static class ListScrollAnchor
     /// <summary>今の位置を読む。先頭にいるとき・まだ組めていないときは null（戻すときも先頭のままでよい）。</summary>
     /// <param name="keyOf">一覧の項目（行・カード）から鍵を引く。行なら先頭のカードの鍵。</param>
     public static ListAnchor? Capture(ItemsControl list, Func<object, string?> keyOf)
-        => FindDescendant<ScrollViewer>(list) is { } viewer ? Capture(viewer, list, keyOf) : null;
+        => VisualTreeFinder.FindDescendantBreadthFirst<ScrollViewer>(list) is { } viewer ? Capture(viewer, list, keyOf) : null;
 
     /// <summary>
     /// 一覧を外の ScrollViewer の中に置いているとき（ショップの中：1本のスクロール）の読み出し。
@@ -74,7 +75,7 @@ internal static class ListScrollAnchor
         }
 
         list.UpdateLayout();
-        if (FindDescendant<ScrollViewer>(list) is not { } viewer)
+        if (VisualTreeFinder.FindDescendantBreadthFirst<ScrollViewer>(list) is not { } viewer)
         {
             return;
         }
@@ -140,29 +141,6 @@ internal static class ListScrollAnchor
     private static Panel? FindItemsHost(ItemsControl list)
     {
         // 行の中の一覧（カードを横に並べる ItemsControl）の板も IsItemsHost なので、持ち主で見分ける
-        return FindDescendant<Panel>(list, panel => panel.IsItemsHost && ReferenceEquals(ItemsControl.GetItemsOwner(panel), list));
-    }
-
-    private static T? FindDescendant<T>(DependencyObject root, Func<T, bool>? match = null)
-        where T : DependencyObject
-    {
-        var queue = new Queue<DependencyObject>();
-        queue.Enqueue(root);
-        while (queue.Count > 0)
-        {
-            var node = queue.Dequeue();
-            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
-            {
-                var child = VisualTreeHelper.GetChild(node, i);
-                if (child is T found && (match is null || match(found)))
-                {
-                    return found;
-                }
-
-                queue.Enqueue(child);
-            }
-        }
-
-        return null;
+        return VisualTreeFinder.FindDescendantBreadthFirst<Panel>(list, panel => panel.IsItemsHost && ReferenceEquals(ItemsControl.GetItemsOwner(panel), list));
     }
 }

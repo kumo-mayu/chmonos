@@ -109,7 +109,7 @@ public sealed class HeightGrip : Thumb
     /// </summary>
     internal void FollowIntoView()
     {
-        var scroller = FindAncestor<ScrollViewer>(this);
+        var scroller = VisualTreeFinder.FindAncestor<ScrollViewer>(this);
         if (scroller is null)
         {
             return;
@@ -127,18 +127,6 @@ public sealed class HeightGrip : Thumb
     internal static double OverflowBelow(double gripBottom, double viewportHeight) =>
         Math.Max(0, gripBottom - viewportHeight);
 
-    private static T? FindAncestor<T>(DependencyObject from) where T : DependencyObject
-    {
-        for (var node = VisualTreeHelper.GetParent(from); node is not null; node = VisualTreeHelper.GetParent(node))
-        {
-            if (node is T found)
-            {
-                return found;
-            }
-        }
-
-        return null;
-    }
 
     /// <summary>ドラッグを始めた。今の欄の高さから数える（試験からも呼ぶ）。</summary>
     internal void BeginResize() => _dragged = Target?.ActualHeight ?? Length;

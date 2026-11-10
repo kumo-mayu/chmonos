@@ -286,27 +286,11 @@
             -->
             <!-- カードの行の一覧。Tab で1回だけ入り、中は矢印でカードからカードへ移る（CardRowsListBox が並び ArrowGroup になる。ユーザ判断 2026-10-01） -->
             <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
-            <controls:CardRowsListBox x:Name="CardList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+            <controls:CardRowsListBox x:Name="CardList" ItemsSource="{Binding Rows}"
                      Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                     Padding="24,6,24,24" HorizontalContentAlignment="Stretch"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     Padding="24,6,24,24"
                      ScrollViewer.VerticalScrollBarVisibility="Disabled" controls:ForwardWheel.IsEnabled="True"
                      VirtualizingPanel.IsVirtualizing="False" controls:ViewportHold.IsHeld="True">
-                <controls:CardRowsListBox.ItemContainerStyle>
-                    <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0" />
-                        <Setter Property="Focusable" Value="False" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <ContentPresenter />
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </controls:CardRowsListBox.ItemContainerStyle>
                 <controls:CardRowsListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid>
@@ -406,7 +390,7 @@
                     <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                 </DockPanel>
-                <TextBlock Grid.Column="1" x:Name="CompactMemo" Text="{Binding MemoFirstLine}" Margin="14,0,0,0" FontSize="12.5"
+                <TextBlock Grid.Column="1" Text="{Binding MemoFirstLine}" Margin="14,0,0,0" FontSize="12.5"
                            Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            Visibility="{Binding HasMemoLine, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                            AutomationProperties.AutomationId="ShopCompactMemo">

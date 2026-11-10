@@ -189,8 +189,8 @@ public class UiThreadTests
         Assert.Equal(Visibility.Collapsed, Convert(EmptyToCollapsedConverter.Instance, null));
         Assert.Equal(Visibility.Visible, Convert(EmptyToCollapsedConverter.Instance, "文"));
 
-        Assert.Equal(Visibility.Visible, Convert(EmptyToVisibleConverter.Instance, ""));
-        Assert.Equal(Visibility.Collapsed, Convert(EmptyToVisibleConverter.Instance, "文"));
+        Assert.Equal(Visibility.Visible, Convert(EmptyToVisibilityConverter.Instance, ""));
+        Assert.Equal(Visibility.Collapsed, Convert(EmptyToVisibilityConverter.Instance, "文"));
 
         Assert.Equal(false, Convert(InverseBoolConverter.Instance, true));
         Assert.Equal(true, Convert(InverseBoolConverter.Instance, false));

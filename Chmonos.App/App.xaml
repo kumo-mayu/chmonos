@@ -362,8 +362,63 @@
         </Style>
 
         <!--
-            **取り返しのつかない操作のボタン**（ユーザ判断 2026-09-20・V4）。
-            赤系にするのは改変の「削除」だけで、同じ強さの操作が普通の顔で並んでいた。
+            状態の札（丸い角の細長い枠。所持・未編集・取り込み中・見つからないなど）。色は意味ごとの 3 色の組（地・枠・文字）で、
+            文字の色は中の TextBlock に付ける。余白は 7,1（カードの札が最も多く、ほかの画面は 6〜7,0 と割れていたので寄せた。2026-11-10）。
+            外の余白・縦の置き方は置き場ごとに要素へ書く
+        -->
+        <Style x:Key="BadgeBase" TargetType="Border">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="7,1" />
+        </Style>
+        <Style x:Key="BadgeGood" TargetType="Border" BasedOn="{StaticResource BadgeBase}">
+            <Setter Property="Background" Value="{DynamicResource GoodSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GoodBorder}" />
+        </Style>
+        <Style x:Key="BadgeWarn" TargetType="Border" BasedOn="{StaticResource BadgeBase}">
+            <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
+        </Style>
+        <Style x:Key="BadgeBad" TargetType="Border" BasedOn="{StaticResource BadgeBase}">
+            <Setter Property="Background" Value="{DynamicResource BadSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+        </Style>
+        <Style x:Key="BadgeAccent" TargetType="Border" BasedOn="{StaticResource BadgeBase}">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
+        </Style>
+
+        <!--
+            入力欄の中に重ねる案内文（空のときだけ出す）。余白は含めない：左の余白は重ねる先の TextBox の Padding に
+            合わせる（Padding 7 なら 10、8 なら 11。枠 1＋Padding＋字の左の約2）ので、置き場ごとに要素へ書く。
+            字は 12（以前は 12・12.5・11.5 に割れていて、12 が最も多かった。2026-11-10）
+        -->
+        <Style x:Key="InputPlaceholder" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+        </Style>
+
+        <!--
+            入力が残る欄を消す ×（ユーザ指示 2026-09-16：消せることが分かるように）。検索・未確定・改変や梱包を選ぶ窓の4画面で共通。
+            土台の型を継いで乗せたときの色をアプリの型にそろえる（継がないと Windows の既定の型が当たり、乗せると水色になった）。
+            土台の高さ 32・枠は欄の中の × には大きいので、高さは中身任せ、地と枠は透明にする
+        -->
+        <Style x:Key="ClearFieldButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            **消す・初期に戻す・外す操作のボタン**（V4。ユーザ判断 2026-09-20 で改変の「削除」から始め、2026-10-05 に
+            「戻せるかに関わらず赤」へ広げた。対象と例外は docs/spec/ui-rules.md）。同じ強さの操作が普通の顔で並ぶと見分けられなかった。
             色は「見つからない」と同じ異常の色（`Bad`）に揃える
         -->
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
@@ -481,7 +536,51 @@
             </Style.Triggers>
         </Style>
 
-        <!-- 右クリックの中の、取り返しのつかない項目（V4）。ボタンと同じ色にする -->
+        <!--
+            確認待ち（検出・推定で出た物を、人がまだ確かめていない）の札の印（対応アバターの札・変換のつなぎ先の札で共通）。
+            点は、札（祖先の Border）に乗せている間・札にフォーカスがある間は消え、同じ場所の ✓ と入れ替わる
+        -->
+        <Style x:Key="UnconfirmedDot" TargetType="Ellipse">
+            <Setter Property="Width" Value="6" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Fill" Value="{DynamicResource Warn}" />
+            <Style.Triggers>
+                <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                    <Setter Property="Opacity" Value="0" />
+                </DataTrigger>
+                <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                    <Setter Property="Opacity" Value="0" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ConfirmMarkButton" TargetType="Button" BasedOn="{StaticResource RevealOnHoverOrFocusButton}">
+            <Setter Property="Content" Value="✓" />
+            <Setter Property="ContentTemplate" Value="{StaticResource CheckGlyph}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource Good}" />
+        </Style>
+        <Style x:Key="RejectMarkButton" TargetType="Button" BasedOn="{StaticResource RevealOnHoverOrFocusButton}">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="ContentTemplate" Value="{StaticResource CrossGlyph}" />
+            <Setter Property="Margin" Value="7,0,0,0" />
+            <Setter Property="Padding" Value="3,0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+        </Style>
+
+        <!-- 右クリックの中の、消す・初期に戻す・外す項目（V4。戻せるかに関わらず赤）。ボタンと同じ色にする -->
         <Style x:Key="DangerMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>

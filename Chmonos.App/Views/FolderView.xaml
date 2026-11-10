@@ -17,6 +17,7 @@
         <!-- 木の行の右クリックは、カードと同じメニュー（ユーザ指示 2026-09-20・M3） -->
         <ResourceDictionary.MergedDictionaries>
             <views:ItemCardResources />
+            <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
         <!-- 畳む印。行を選ばずに開け閉めする -->
         <Style x:Key="FolderGlyph" TargetType="Button">
@@ -39,21 +40,6 @@
                                 <Setter TargetName="Mark" Property="Height" Value="6" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 文字だけのボタン -->
-        <Style x:Key="FolderLink" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="Transparent">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
-                        </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -147,14 +133,14 @@
             <WrapPanel>
                 <TextBlock Text="{Binding MissingText}" FontSize="10.5" Foreground="{DynamicResource Warn}" Margin="0,0,8,0"
                            Visibility="{Binding HasMissingText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource FolderLink}" Margin="0,0,8,0"
+                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource HubLink}" Margin="0,0,8,0"
                         Visibility="{Binding HasOthers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.ShowOtherCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="同じ中身のファイルが置いてある、もう1つの場所へ移ります">
                     <TextBlock Text="{Binding OthersText}" FontSize="10.5" Foreground="{DynamicResource Accent}" TextDecorations="Underline" />
                 </Button>
                 <!-- zip の横の展開したフォルダ（ユーザ判断：zip の下に薄く出す） -->
-                <Button AutomationProperties.AutomationId="FolderRowRevealExtracted" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の展開したフォルダを開く}" Style="{StaticResource FolderLink}"
+                <Button AutomationProperties.AutomationId="FolderRowRevealExtracted" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の展開したフォルダを開く}" Style="{StaticResource HubLink}"
                         Visibility="{Binding HasExtracted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.RevealExtractedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="横にある、このzipを展開したフォルダをエクスプローラで開きます">
@@ -292,8 +278,7 @@
                         <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged, Delay=250}" Height="30"
                                  VerticalContentAlignment="Center" Padding="7,0"
                                  AutomationProperties.Name="ファイル名・商品名・フォルダ名で絞り込む" />
-                        <TextBlock Text="ファイル名・商品名・フォルダ名で絞り込む" IsHitTestVisible="False" Margin="10,0,0,0"
-                                   VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}"
+                        <TextBlock Text="ファイル名・商品名・フォルダ名で絞り込む" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                     </Grid>
                     <!--

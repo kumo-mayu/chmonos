@@ -147,30 +147,7 @@
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="Root" Background="Transparent"
-                                                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
-                                                <Grid>
-                                                    <ContentPresenter />
-                                                    <Border Height="2" VerticalAlignment="Top" Background="{DynamicResource Accent}"
-                                                            Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Accent}"
-                                                            Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                </Grid>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter Property="Template" Value="{StaticResource ReorderRowTemplate}" />
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
@@ -402,9 +379,8 @@
                                              AutomationProperties.Name="この属性を持つ商品の中を探す"
                                          Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                          IsEnabled="{Binding SelectedIsUsed}" />
-                                <TextBlock Text="この属性を持つ商品の中を探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
-                                           Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                <TextBlock Text="この属性を持つ商品の中を探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                           Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                             </Grid>
                             <controls:SearchSyntaxHint Margin="32,6,0,0" />
                             <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="32,4,0,0"
