@@ -265,6 +265,12 @@
             <Setter Property="Background" Value="{DynamicResource Surface}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}" />
             <Setter Property="Cursor" Value="Hand" />
+            <!--
+                乗せたときの地と枠の色の口（Controls/ButtonColors）。色だけ違うボタンは型を写さず、ここを差し替える。
+                枠の既定は「そのボタンの今の枠」＝乗せても枠の色は変わらない
+            -->
+            <Setter Property="controls:ButtonColors.HoverBackground" Value="{DynamicResource SurfaceAlt}" />
+            <Setter Property="controls:ButtonColors.HoverBorderBrush" Value="{Binding BorderBrush, RelativeSource={RelativeSource Self}}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -289,7 +295,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="Background" Value="{Binding Path=(controls:ButtonColors.HoverBackground), RelativeSource={RelativeSource TemplatedParent}}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{Binding Path=(controls:ButtonColors.HoverBorderBrush), RelativeSource={RelativeSource TemplatedParent}}" />
                             </Trigger>
                             <!--
                                 無効の表現は薄さだけに頼らない。0.45まで落とすと何のボタンか読めなくなる。
@@ -316,37 +323,11 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <!--
                 乗せたときは青を濃くする。土台のボタンは乗せると地を薄い灰にするので、そのままだと青が消えて
-                白い文字が読めなくなっていた（ユーザ指摘 2026-09-14）。文字の決まり・押せないときの見た目は土台と同じ
+                白い文字が読めなくなっていた（ユーザ指摘 2026-09-14）。型は土台のものを使い、乗せた色の口だけ差し替える
+                （型を写していたころは、土台を直しても青いボタンに届かなかった。2026-11-10）
             -->
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1" CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}">
-                                <ContentPresenter.Resources>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    </Style>
-                                </ContentPresenter.Resources>
-                            </ContentPresenter>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentHover}" />
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentHover}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.75" />
-                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Border}" />
-                                <Setter Property="Cursor" Value="Arrow" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="controls:ButtonColors.HoverBackground" Value="{DynamicResource AccentHover}" />
+            <Setter Property="controls:ButtonColors.HoverBorderBrush" Value="{DynamicResource AccentHover}" />
         </Style>
 
         <!--
