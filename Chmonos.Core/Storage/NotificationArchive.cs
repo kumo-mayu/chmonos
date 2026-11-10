@@ -7,14 +7,18 @@ using Chmonos.Core.Models;
 
 namespace Chmonos.Core.Storage;
 
-/// <summary>保管庫から読んだ知らせと、読めなかった行の数（知らずに捨てないよう数を返す）。</summary>
-public sealed record NotificationArchiveRead(IReadOnlyList<NotificationRecord> Records, int UnreadableLines);
+/// <summary>
+/// 保管庫から読んだ知らせと、読めなかった行の数（知らずに捨てないよう数を返す）。
+/// <c>UnreadableBlocks</c> は gzip が壊れていて飛ばした所の数（行の数とは別に数える：1か所に何件あったかは分からない）。
+/// </summary>
+public sealed record NotificationArchiveRead(IReadOnlyList<NotificationRecord> Records, int UnreadableLines, int UnreadableBlocks = 0);
 
 /// <summary>
 /// 閉じるときの整理の結果（ログに書く）。<c>HalvedMonth</c> は最後に残った月を削りに行ったときだけ入る。
 /// <c>StillOver</c> は、整理しても容量を超えたままのとき（件数が1以下・読めない月・見積もりが2回外れた）。
+/// <c>UnreadableBlocks</c> は、最後の月を数えたときに gzip が壊れていて飛ばした所の数（書き直した後の月には残らない）。
 /// </summary>
-public sealed record NotificationArchiveTrim(int DeletedFiles, string? HalvedMonth, int DroppedRecords, int KeptRecords, bool StillOver)
+public sealed record NotificationArchiveTrim(int DeletedFiles, string? HalvedMonth, int DroppedRecords, int KeptRecords, bool StillOver, int UnreadableBlocks = 0)
 {
     public static NotificationArchiveTrim None { get; } = new(0, null, 0, 0, StillOver: false);
 }
@@ -143,6 +147,7 @@ public sealed class NotificationArchive
     /// 月を指定して知らせを並べる（作った順）。<paramref name="itemId"/> を渡せばその商品の物だけ。
     /// 読めない行（壊れた行・このアプリより新しい版の行・知らない種類）は飛ばして数える。1行のために月ごと読めなくしない。
     /// 足すのに失敗してやり直した分などで同じ行が2回あれば、1つにまとめる。
+    /// gzip が途中で壊れていたら、壊れたかたまりだけ飛ばして後ろを読み続け、飛ばした所の数を返す（<see cref="NotificationArchiveLines"/>）。
     /// </summary>
     public async Task<NotificationArchiveRead> ReadAsync(string month, string? itemId = null, CancellationToken cancellationToken = default)
     {
@@ -152,44 +157,26 @@ public sealed class NotificationArchive
             return new NotificationArchiveRead([], 0);
         }
 
+        var scan = new ArchiveLineScan();
+        var read = await CollectAsync(path, itemId, precise: false, scan, cancellationToken);
+        if (!scan.Intact)
+        {
+            // 速い読みの結果は捨てて頭から読み直す（途中から継ぐと、どこまで出したかを推し量ることになり誤りの元）
+            scan = new ArchiveLineScan();
+            read = await CollectAsync(path, itemId, precise: true, scan, cancellationToken);
+        }
+
+        return read with { UnreadableBlocks = scan.DamagedBlocks };
+    }
+
+    private async Task<NotificationArchiveRead> CollectAsync(string path, string? itemId, bool precise, ArchiveLineScan scan, CancellationToken cancellationToken)
+    {
         var records = new List<NotificationRecord>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var unreadable = 0;
-        var version = StoreFormat.Unversioned;
 
-        await using var stream = JsonStore.OpenShared(path);
-        await using var gzip = new GZipStream(stream, CompressionMode.Decompress);
-        using var reader = new StreamReader(gzip, new UTF8Encoding(false));
-        while (true)
+        await foreach (var (line, version) in RecordLinesAsync(path, precise, scan, cancellationToken))
         {
-            string? line;
-            try
-            {
-                line = await reader.ReadLineAsync(cancellationToken);
-            }
-            catch (InvalidDataException)
-            {
-                // gzip が途中で壊れている（手で切った・ディスクの事故）。そこまでに読めた分は返す
-                unreadable++;
-                break;
-            }
-
-            if (line is null)
-            {
-                break;
-            }
-
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                continue;
-            }
-
-            if (VersionLine(line) is { } stamped)
-            {
-                version = stamped;
-                continue;
-            }
-
             if (version > StoreFormat.Current)
             {
                 unreadable++;
@@ -336,11 +323,13 @@ public sealed class NotificationArchive
     /// - **流しながら書く。**全部を載せると 50MB・約3万9千件の月で作業セットが 507MB になった（流すと 38MB。2026-11-10 に測った）。
     /// - 「新しい側」はファイルの中の位置（足した順）で決める。並べ替えると全部を載せることになる。月の中は概ね作った順に足されている。
     /// - 件数が1以下・中身が読めない（gzip でない）ときは書き直さずに残す。読めない物を消すと、手で取り出せたかもしれない物まで失う。
+    /// - 途中の壊れたかたまりは飛ばして数え、書き直しでは除く（ユーザ判断 2026-11-10。前は壊れた所で数え終え、新しい側が消えた）。
     /// </summary>
     private async Task<NotificationArchiveTrim> HalveAsync(MonthFile file, long capacityBytes, int deleted, CancellationToken cancellationToken)
     {
         var dropped = 0;
         var kept = 0;
+        var damaged = 0;
 
         // 見積もりが外れたときにもう一度だけ（2回で収まらないのは、1行がとても大きいなど作り物に近い場合だけ）
         for (var pass = 0; pass < 2; pass++)
@@ -351,7 +340,10 @@ public sealed class NotificationArchive
                 break;
             }
 
-            var count = await CountRecordLinesAsync(file.Path, cancellationToken);
+            var (count, precise, blocks) = await CountRecordLinesAsync(file.Path, cancellationToken);
+
+            // 書き直した後の月は壊れていないので、2回目の数えでは 0 になる。最初に数えたときの数を返す
+            damaged = Math.Max(damaged, blocks);
             if (count <= 1)
             {
                 break;
@@ -365,43 +357,36 @@ public sealed class NotificationArchive
             while (keep > 1 && length * keep / count > capacityBytes);
 
             var skip = count - keep;
-            await RewriteNewestAsync(file.Path, skip, keep, cancellationToken);
+            await RewriteNewestAsync(file.Path, skip, keep, precise, cancellationToken);
             RewritesForTests++;
             dropped += skip;
             kept = keep;
         }
 
-        return new NotificationArchiveTrim(deleted, file.Month, dropped, kept, StillOver: new FileInfo(file.Path).Length > capacityBytes);
+        return new NotificationArchiveTrim(deleted, file.Month, dropped, kept, StillOver: new FileInfo(file.Path).Length > capacityBytes, damaged);
     }
 
+    /// <summary>試験だけが使う：正確な読み（壊れたかたまりを飛ばす読み）に入った回数（壊れていない月では 0 のままであることを確かめる）。</summary>
+    internal int PreciseReadsForTests { get; private set; }
+
     /// <summary>
-    /// 月のファイルを流して、版の行と空行を除いた行を、そのときの版と一緒に返す。数える回と書き直す回で同じ数え方にするため1つにする。
-    /// gzip が途中で壊れていたら、そこまでで終える（読む口と同じ）。
+    /// 月のファイルを流して、版の行と空行を除いた行を、そのときの版と一緒に返す。読む口・数える回・書き直す回で同じ数え方にするため1つにする。
+    /// <paramref name="precise"/> が偽なら速い読み（読み終えたら <see cref="ArchiveLineScan.Intact"/> を見て、壊れていたら呼び手が正確な読みでやり直す）。
     /// </summary>
-    private static async IAsyncEnumerable<(string Line, int Version)> RecordLinesAsync(
-        string path, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    private async IAsyncEnumerable<(string Line, int Version)> RecordLinesAsync(
+        string path, bool precise, ArchiveLineScan scan, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await using var stream = JsonStore.OpenShared(path);
-        await using var gzip = new GZipStream(stream, CompressionMode.Decompress);
-        using var reader = new StreamReader(gzip, new UTF8Encoding(false));
-        var version = StoreFormat.Unversioned;
-        while (true)
+        if (precise)
         {
-            string? line;
-            try
-            {
-                line = await reader.ReadLineAsync(cancellationToken);
-            }
-            catch (InvalidDataException)
-            {
-                yield break;
-            }
+            PreciseReadsForTests++;
+        }
 
-            if (line is null)
-            {
-                yield break;
-            }
-
+        var lines = precise
+            ? NotificationArchiveLines.PreciseAsync(path, scan, cancellationToken)
+            : NotificationArchiveLines.FastAsync(path, scan, cancellationToken);
+        var version = StoreFormat.Unversioned;
+        await foreach (var line in lines)
+        {
             if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
@@ -410,6 +395,7 @@ public sealed class NotificationArchive
             if (VersionLine(line) is { } stamped)
             {
                 version = stamped;
+                scan.VersionLines++;
                 continue;
             }
 
@@ -417,54 +403,104 @@ public sealed class NotificationArchive
         }
     }
 
-    private static async Task<int> CountRecordLinesAsync(string path, CancellationToken cancellationToken)
+    /// <summary>
+    /// 残す件数を決めるために行を数える。速い読みで壊れていたら正確な読みで数え直し、どちらで数えたかを返す。
+    /// 書き直す回は同じ読み方で流す（速い読みと正確な読みでは、壊れた所で出る行が違い得る。同じ読み方なら件数と残す範囲がずれない）。
+    /// 同じ行が2回あっても2行と数える：書き直しでもそのまま写すので、数えと写しが揃う（読む口が1つにまとめる）。
+    /// </summary>
+    private async Task<(int Count, bool Precise, int DamagedBlocks)> CountRecordLinesAsync(string path, CancellationToken cancellationToken)
     {
+        var scan = new ArchiveLineScan();
         var count = 0;
-        await foreach (var _ in RecordLinesAsync(path, cancellationToken))
+        await foreach (var _ in RecordLinesAsync(path, precise: false, scan, cancellationToken))
         {
             count++;
         }
 
-        return count;
+        if (scan.Intact)
+        {
+            return (count, false, 0);
+        }
+
+        scan = new ArchiveLineScan();
+        count = 0;
+        await foreach (var _ in RecordLinesAsync(path, precise: true, scan, cancellationToken))
+        {
+            count++;
+        }
+
+        return (count, true, scan.DamagedBlocks);
     }
 
     /// <summary>
-    /// 前から <paramref name="skip"/> 行を読み飛ばし、残りを新しい1本の gzip に書いて据える（足すときと同じ守り：一時ファイルに書いてから据える）。
+    /// 前から <paramref name="skip"/> 行を読み飛ばし、残りを新しい gzip に書いて据える（足すときと同じ守り：一時ファイルに書いてから据える）。
+    /// 壊れたかたまりは数えたときと同じ読み方（<paramref name="precise"/>）で飛ばすので、書き直した月は壊れていない月になる。
     ///
     /// 行は解かずにそのまま写す。読めない行（壊れた行・新しい版の行・知らない種類）も、残す側にあれば残す：
     /// 新しい版の行は新しいアプリなら読め、壊れた行も手で直せば読めるかもしれない。解いて書き直すと、知らない欄を落とす。
     /// 同じ行が2回あってもそのまま写す（読む口が1つにまとめる）。
-    /// 版の行は先頭に1つ置き、残す行の中で版が変わる所にだけ足す（版の違う行を今の版と偽らない）。
+    /// 版の行は先頭に1つ置き、残す行の中で版が変わる所では**新しいメンバーを始めて**その1行目に置く（版の違う行を今の版と偽らない）。
+    /// メンバーごとに版の行が1行目に1つ、という形を保つと、速い読みが「全部を読み切ったか」を版の行とメンバーの頭の数で確かめられる。
     /// </summary>
-    private async Task RewriteNewestAsync(string path, int skip, int keep, CancellationToken cancellationToken)
+    private async Task RewriteNewestAsync(string path, int skip, int keep, bool precise, CancellationToken cancellationToken)
     {
         await JsonStore.WriteStreamAsync(
             path,
             async (target, token) =>
             {
-                await using var gzip = new GZipStream(target, CompressionLevel.Optimal, leaveOpen: true);
-                await using var writer = new StreamWriter(gzip, new UTF8Encoding(false), leaveOpen: true) { NewLine = "\n" };
-                var index = 0;
-                int? written = null;
-                await foreach (var (line, version) in RecordLinesAsync(path, token))
+                GZipStream? gzip = null;
+                StreamWriter? writer = null;
+                try
                 {
-                    if (index++ < skip)
+                    var scan = new ArchiveLineScan();
+                    var index = 0;
+                    int? written = null;
+                    await foreach (var (line, version) in RecordLinesAsync(path, precise, scan, token))
                     {
-                        continue;
+                        if (index++ < skip)
+                        {
+                            continue;
+                        }
+
+                        if (written != version)
+                        {
+                            if (writer is not null)
+                            {
+                                await writer.DisposeAsync();
+                                await gzip!.DisposeAsync();
+                            }
+
+                            gzip = new GZipStream(target, CompressionLevel.Optimal, leaveOpen: true);
+                            writer = new StreamWriter(gzip, new UTF8Encoding(false), leaveOpen: true) { NewLine = "\n" };
+                            await writer.WriteAsync($"{{\"{StoreFormat.VersionProperty}\":{version}}}\n");
+                            written = version;
+                        }
+
+                        await writer!.WriteAsync(line);
+                        await writer.WriteAsync('\n');
+                        if (index - skip == keep / 2 && MidRewriteForTests is { } stop)
+                        {
+                            await writer.FlushAsync(token);
+                            await stop();
+                        }
                     }
 
-                    if (written != version)
+                    // 数えたときは壊れていなかったのに、写す間に読み方が変わった（錠の中なので起きないはず）。据えずに元の月を残す
+                    if (!precise && !scan.Intact)
                     {
-                        await writer.WriteAsync($"{{\"{StoreFormat.VersionProperty}\":{version}}}\n");
-                        written = version;
+                        throw new InvalidDataException("通知の保管庫の月を書き直す間に、中身が変わりました。");
+                    }
+                }
+                finally
+                {
+                    if (writer is not null)
+                    {
+                        await writer.DisposeAsync();
                     }
 
-                    await writer.WriteAsync(line);
-                    await writer.WriteAsync('\n');
-                    if (index - skip == keep / 2 && MidRewriteForTests is { } stop)
+                    if (gzip is not null)
                     {
-                        await writer.FlushAsync(token);
-                        await stop();
+                        await gzip.DisposeAsync();
                     }
                 }
             },
