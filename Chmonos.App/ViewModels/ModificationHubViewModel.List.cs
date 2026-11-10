@@ -267,7 +267,7 @@ public sealed partial class ModificationHubViewModel
             if (query.Length > 0
                 && !Hit(record.Name, query)
                 && !Hit(AvatarNameOf(record.AvatarItemId), query)
-                && !Hit(ProjectNameOf(record.UnityProject), query))
+                && !Hit(Core.Models.DisplayText.FolderName(record.UnityProject), query))
             {
                 continue;
             }
@@ -323,11 +323,6 @@ public sealed partial class ModificationHubViewModel
 
         return _items.TryGetValue(id, out var item) ? item.DisplayName : id;
     }
-
-    /// <summary>プロジェクトの名前はフォルダ名（Unity の窓の題に出るのもフォルダ名）。</summary>
-    public static string ProjectNameOf(string? path) => string.IsNullOrWhiteSpace(path)
-        ? string.Empty
-        : Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
 
     private string? AvatarIconPath(string id) => Rows.AvatarIconPath(id);
 }

@@ -611,7 +611,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     public string SpentText => $"¥{Shop.SpentYen:N0}";
 
-    public string LastAcquiredText => Shop.LastAcquiredAt?.ToString("yyyy-MM-dd") ?? "—";
+    // ファイルの日付で代えた日は、文の外（※と吹き出し）で示す（ショップの一覧と同じ）
+    public string LastAcquiredText => Core.Models.DisplayText.AcquiredDate(Shop.LastAcquiredAt, Shop.LastAcquiredIsFallback, markFallback: false);
 
     public string SizeText => Core.Models.DisplayText.Size(_totalBytes);
 
@@ -1120,15 +1121,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         Shell.OpenUrl(Core.Booth.BoothLinks.ShopPage(Shop.Url));
     }
 
-    /// <summary>
-    /// ファイルの日付で代えた入手日は、そうと書く。
-    /// 手で入れた日と同じ顔で出すと、記録として信用できなくなる。
-    /// </summary>
-    private static string AcquiredText(ShopItem entry) => entry.AcquiredAt is not { } date
-        ? "入手日なし"
-        : entry.AcquiredIsFallback
-            ? date.ToString("yyyy-MM-dd") + "（ファイルの日付）"
-            : date.ToString("yyyy-MM-dd");
+    /// <summary>カードの2行目の入手日。ファイルの日付で代えた日は文の中でそうと書く（カードには吹き出しの場所が無い）。</summary>
+    private static string AcquiredText(ShopItem entry) => Core.Models.DisplayText.AcquiredDate(entry.AcquiredAt, entry.AcquiredIsFallback);
 
 }
 

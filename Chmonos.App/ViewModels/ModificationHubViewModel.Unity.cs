@@ -43,7 +43,7 @@ public sealed partial class ModificationHubViewModel
         }
 
         var result = UnityLaunch.OpenProject(path);
-        var text = await UnityOpenText.ForAsync(_services, result, ProjectNameOf(path));
+        var text = await UnityOpenText.ForAsync(_services, result, Core.Models.DisplayText.FolderName(path));
 
         // 開けなかった結果は別の操作が要るので警告の色で出す。プロジェクトの行と右の詳細は同じ鍵なので、両方に出る
         ShowNotice(

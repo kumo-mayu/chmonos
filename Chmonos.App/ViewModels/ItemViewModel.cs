@@ -1233,12 +1233,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         get
         {
             var acquired = AcquiredDateResolver.Resolve(Item);
-            if (acquired.Value is not { } date)
-            {
-                return "-";
-            }
-
-            return acquired.IsFallback ? $"{date:yyyy-MM-dd}（ファイルの日付）" : date.ToString("yyyy-MM-dd");
+            return Core.Models.DisplayText.AcquiredDate(acquired.Value, acquired.IsFallback);
         }
     }
 

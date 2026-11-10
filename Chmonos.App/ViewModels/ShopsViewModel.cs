@@ -96,7 +96,8 @@ public sealed class ShopCardViewModel : ViewModelBase
 
     public string SpentText => $"¥{Shop.SpentYen:N0}";
 
-    public string LastAcquiredText => Shop.LastAcquiredAt?.ToString("yyyy-MM-dd") ?? "—";
+    // ファイルの日付で代えた日は、文の外（※と吹き出し）で示す
+    public string LastAcquiredText => Core.Models.DisplayText.AcquiredDate(Shop.LastAcquiredAt, Shop.LastAcquiredIsFallback, markFallback: false);
 
     /// <summary>ファイルの日付で代えた日は、そうと分かるようにする。手入力と同じ顔で出さない。</summary>
     public bool LastAcquiredIsFallback => Shop.LastAcquiredIsFallback;

@@ -211,14 +211,6 @@ public class ModificationHubToolsTests
     public void 開いた結果は_VCCとALCOMで同じ文にアプリの名前を入れる(AppOpenResult result, string app, string expected)
         => Assert.Equal(expected, ModificationHubViewModel.OpenResultText(result, app));
 
-    [Theory]
-    [InlineData(@"D:\unity\SampleProject", "SampleProject")]
-    [InlineData(@"D:\unity\SampleProject\", "SampleProject")]
-    [InlineData("", "")]
-    [InlineData(null, "")]
-    public void プロジェクトの名前はフォルダ名(string? path, string expected)
-        => Assert.Equal(expected, ModificationHubViewModel.ProjectNameOf(path));
-
     private static async Task<ModificationHubViewModel> OpenHubAsync(
         TestApp app, ModificationHubLevel level = ModificationHubLevel.Project)
     {

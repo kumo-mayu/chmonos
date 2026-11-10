@@ -685,7 +685,7 @@ public sealed partial class SearchViewModel
             .Select(record => record.UnityProject!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(path => path, StringComparer.CurrentCulture)
-            .Select(path => ($"{System.IO.Path.GetFileName(path.TrimEnd('\\', '/'))}（{path}）", path));
+            .Select(path => ($"{Core.Models.DisplayText.FolderName(path)}（{path}）", path));
     }
 
     private const string AvatarKey = SearchModuleConditions.AvatarKey;
@@ -878,7 +878,7 @@ public sealed partial class SearchViewModel
         {
             TrimsMiddle = true,
             ReloadCommand = new RelayCommand(ReloadProjectContents),
-            ChipTextOf = ProjectNameOf,
+            ChipTextOf = Core.Models.DisplayText.FolderName,
         },
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。

@@ -91,7 +91,7 @@ public static class ModificationPicking
                     is { } found
                         ? NameOf(found)
                         : record.AvatarItemId,
-                ProjectName = ModificationHubViewModel.ProjectNameOf(record.UnityProject),
+                ProjectName = Core.Models.DisplayText.FolderName(record.UnityProject),
                 ProjectKey = Core.Services.UnityProjectPath.Normalize(record.UnityProject) ?? string.Empty,
             })
             .ToList();

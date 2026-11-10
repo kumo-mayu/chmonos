@@ -235,8 +235,7 @@ public sealed partial class MainViewModel
         _ => $"監視フォルダが {folders.Count} 個見つかりません。",
     };
 
-    private static string FolderName(string path)
-        => Path.GetFileName(Path.TrimEndingDirectorySeparator(path)) is { Length: > 0 } name ? name : path;
+    private static string FolderName(string path) => Core.Models.DisplayText.FolderName(path);
 
     /// <summary>監視対象で見つかった、まだ見ていないファイル。</summary>
     public IReadOnlyList<string> WatchedNewFiles { get; private set; } = [];

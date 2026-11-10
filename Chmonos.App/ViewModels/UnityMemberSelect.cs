@@ -38,7 +38,7 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        var projectName = ModificationHubViewModel.ProjectNameOf(project);
+        var projectName = Core.Models.DisplayText.FolderName(project);
         if (!await DiskCheck.FolderExistsAsync(project))
         {
             setStatus($"紐付けたプロジェクト「{projectName}」のフォルダが見つかりません。", failed: true);

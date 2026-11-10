@@ -43,7 +43,7 @@ public sealed class FolderViewEntry
     /// <summary>zip の横にある、展開したフォルダ（ユーザ判断：zip の下に薄く出す）。</summary>
     public string? ExtractedFolder { get; set; }
 
-    public string Name => System.IO.Path.GetFileName(Path.TrimEnd('\\')) is { Length: > 0 } name ? name : Path;
+    public string Name => Core.Models.DisplayText.FolderName(Path);
 }
 
 /// <summary>木の1つのフォルダ（記録したパスから組む。ディスクは読み回らない）。</summary>
@@ -1581,8 +1581,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     }
 
     /// <summary>フォルダの名前だけ（ドライブの直下などで名前が無ければパスのまま）。</summary>
-    private static string LeafName(string path)
-        => System.IO.Path.GetFileName(path.TrimEnd('\\')) is { Length: > 0 } name ? name : path;
+    private static string LeafName(string path) => Core.Models.DisplayText.FolderName(path);
 
     private static string? ParentOf(string path)
     {

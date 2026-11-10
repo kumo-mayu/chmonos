@@ -199,4 +199,31 @@ public class DisplayTextTests
         var cleared = item with { Local = item.Local with { DisplayName = null } };
         Assert.Equal("鳥", cleared.DisplayName);
     }
+
+    /// <summary>入手日の書き方は商品ページ・ショップ・ショップの一覧・ショップのカードで1つ（前は4通りで、無いときの印も割れていた）。</summary>
+    [Fact]
+    public void 入手日は_無ければ印_ファイルの日付なら文の中か外でそうと示す()
+    {
+        var date = new DateOnly(2026, 3, 4);
+        Assert.Equal("—", DisplayText.AcquiredDate(null, isFallback: false));
+        Assert.Equal("—", DisplayText.AcquiredDate(null, isFallback: true));
+        Assert.Equal("2026-03-04", DisplayText.AcquiredDate(date, isFallback: false));
+        Assert.Equal("2026-03-04（ファイルの日付）", DisplayText.AcquiredDate(date, isFallback: true));
+
+        // ※と吹き出しで示す所（ショップの上の段・一覧）は、文には足さない
+        Assert.Equal("2026-03-04", DisplayText.AcquiredDate(date, isFallback: true, markFallback: false));
+    }
+
+    /// <summary>フォルダ・プロジェクトの名前。ドライブの直下で空の「」にならない（前は十数か所の式の一部が空を返した）。</summary>
+    [Theory]
+    [InlineData(@"D:\unity\SampleProject", "SampleProject")]
+    [InlineData(@"D:\unity\SampleProject\", "SampleProject")]
+    [InlineData("D:/unity/SampleProject/", "SampleProject")]
+    [InlineData(@"E:\", @"E:\")]
+    [InlineData("E:", "E:")]
+    [InlineData("", "")]
+    [InlineData("  ", "")]
+    [InlineData(null, "")]
+    public void フォルダの名前は最後の部分_無ければパスのまま(string? path, string expected)
+        => Assert.Equal(expected, DisplayText.FolderName(path));
 }

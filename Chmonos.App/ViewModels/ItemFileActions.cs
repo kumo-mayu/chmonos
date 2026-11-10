@@ -109,7 +109,7 @@ internal static class ItemFileActions
             .Concat(item.Local.LocalFolders
                 .Select(folder => services.Volumes.CurrentOf(folder))
                 .Where(DiskCheck.FolderExists)
-                .Select(folder => new Target(folder, new ListChoiceItem($"{Path.GetFileName(folder.TrimEnd('\\', '/'))}（フォルダ）", folder))))
+                .Select(folder => new Target(folder, new ListChoiceItem($"{Core.Models.DisplayText.FolderName(folder)}（フォルダ）", folder))))
             .ToList());
 
         // 窓を出す前に書く（窓の間に検索の印が古いまま残らないように）

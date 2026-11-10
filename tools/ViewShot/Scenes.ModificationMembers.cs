@@ -90,7 +90,7 @@ internal static partial class Scenes
                     Members = [.. Enumerable.Range(0, members).Select(index => new ModificationMember { ItemId = $"99001{index:00}" })],
                 },
                 AvatarText = avatar,
-                ProjectName = ModificationHubViewModel.ProjectNameOf(project),
+                ProjectName = Chmonos.Core.Models.DisplayText.FolderName(project),
             };
 
             var model = new PickModificationDialogViewModel(
@@ -132,7 +132,7 @@ internal static partial class Scenes
                     Members = [.. Enumerable.Range(0, members).Select(index => new ModificationMember { ItemId = $"99001{index:00}" })],
                 },
                 AvatarText = avatar,
-                ProjectName = ModificationHubViewModel.ProjectNameOf(project),
+                ProjectName = Chmonos.Core.Models.DisplayText.FolderName(project),
                 ProjectKey = Chmonos.Core.Services.UnityProjectPath.Normalize(project) ?? string.Empty,
             };
 

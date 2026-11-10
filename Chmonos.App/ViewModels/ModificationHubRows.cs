@@ -165,7 +165,7 @@ public sealed class HubModificationRow(string key, bool openByDefault, bool forc
 
     public string? ProjectPath => Record.UnityProject;
 
-    public string ProjectName => ModificationHubViewModel.ProjectNameOf(Record.UnityProject);
+    public string ProjectName => Core.Models.DisplayText.FolderName(Record.UnityProject);
 
     /// <summary>アバターの見方の中では出さない（見出しがそのアバター）。</summary>
     public bool ShowsAvatar { get; init; }
@@ -466,7 +466,7 @@ public sealed class HubItemDetail : ViewModelBase, IHubNoticeTarget
     public bool IsMissing => Row.IsMissing;
 
     public string ProjectText => Row.ProjectPath is { } path
-        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{ModificationHubViewModel.ProjectNameOf(path)}」を対象にします。"
+        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{Core.Models.DisplayText.FolderName(path)}」を対象にします。"
         : "この改変はUnityプロジェクトに紐付いていないので、「Unityで選択」は使えません。改変を開いて紐付けてください。";
 
     public string? ThumbnailPath { get; init; }
@@ -591,7 +591,7 @@ internal sealed class ModificationRowBuilder(
     private static string? FolderNameOf(ModificationMember member, ItemRecord? item)
         => member.Package is { } package
             && item?.Local.LocalFolders.FirstOrDefault(folder => (folder.UnityPackages ?? []).Contains(package, StringComparer.Ordinal)) is { } owner
-            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(owner.Path))
+            ? Core.Models.DisplayText.FolderName(owner.Path)
             : null;
 
     public string? AvatarIconPath(string id)

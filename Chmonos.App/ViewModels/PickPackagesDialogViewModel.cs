@@ -163,7 +163,7 @@ public sealed class PackageChoiceSection : ViewModelBase
             foreach (var place in UnityHandoff.PlacesOf(folder))
             {
                 candidates.Add((new PackageChoiceRow { Package = place.Entry, Owner = null },
-                    $"folder:{folder.Path}", $"フォルダ：{Path.GetFileName(Path.TrimEndingDirectorySeparator(folder.Path))}",
+                    $"folder:{folder.Path}", $"フォルダ：{Core.Models.DisplayText.FolderName(folder.Path)}",
                     variations.Count + fileOrder));
             }
 

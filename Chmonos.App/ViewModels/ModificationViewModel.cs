@@ -641,7 +641,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var linkedName = Record.UnityProject is { } project
-            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(project))
+            ? Core.Models.DisplayText.FolderName(project)
             : null;
 
         // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
@@ -1278,9 +1278,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public bool HasProject => Record.HasUnityProject;
 
     /// <summary>紐付けたプロジェクトの名前。フォルダ名で出す（パスは長すぎる）。</summary>
-    public string ProjectName => Record.UnityProject is { } path
-        ? Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-        : string.Empty;
+    public string ProjectName => Core.Models.DisplayText.FolderName(Record.UnityProject);
 
     public string ProjectPath => Record.UnityProject ?? string.Empty;
 
