@@ -240,33 +240,6 @@ public sealed class TemporaryUnpackerTests : IDisposable
     }
 
     /// <summary>
-    /// 保存先ごとに分ける前の版が残した物（置き場所の直下の展開と、Unity へ送る前の取り出し）は、起動のときに片付ける。
-    /// 今の版の、保存先ごとの置き場所には触れない。
-    /// </summary>
-    [Fact]
-    public void 分ける前の置き場所に残った物を片付ける()
-    {
-        var area = Path.Combine(_dir, "area");
-        var legacy = Path.Combine(area, "unpacked");
-        Directory.CreateDirectory(Path.Combine(legacy, "old-1a2b3c4d"));
-        File.WriteAllText(Path.Combine(legacy, "old-1a2b3c4d", "a.txt"), "a");
-        File.WriteAllText(Path.Combine(legacy, "old-1a2b3c4d.done"), "done");
-        Directory.CreateDirectory(Path.Combine(legacy, "packages", "5e6f7a8b"));
-        File.WriteAllText(Path.Combine(legacy, "packages", "5e6f7a8b", "p.unitypackage"), "p");
-
-        var current = new TemporaryUnpacker(TemporaryUnpacker.RootFor(Path.Combine(_dir, "store-a"), area));
-        var kept = current.Unpack(MakeZip("kept.zip", ("a.txt", "a")));
-
-        Assert.True(TemporaryUnpacker.RemoveLegacyRoot(area));
-
-        Assert.False(Directory.Exists(legacy));
-        Assert.True(File.Exists(Path.Combine(kept, "a.txt")));
-
-        // 残っていなくても失敗にしない（毎回の起動で呼ぶ）
-        Assert.True(TemporaryUnpacker.RemoveLegacyRoot(area));
-    }
-
-    /// <summary>
     /// 置き場所を渡さない組み立て（命令と、Unity へ送る列）は、伝えられた保存先の置き場所を使う。
     /// 閉じるときの片付けと同じ場所でないと、展開した物が残る。
     /// </summary>

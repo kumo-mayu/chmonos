@@ -28,8 +28,8 @@ public sealed class TemporaryUnpacker
     /// </summary>
     public static string TemporaryArea { get; } = Path.Combine(Path.GetTempPath(), "Chmonos");
 
-    /// <summary>保存先ごとに分ける前の置き場所（全部の保存先が1つを使っていた）。起動のときに片付けるためだけに知っている。</summary>
-    private const string LegacyFolderName = "unpacked";
+    /// <summary>置き場所の名前の頭。後ろに保存先の印を付ける（<see cref="RootFor"/>）。</summary>
+    private const string FolderNamePrefix = "unpacked";
 
     /// <summary>このプロセスが開いている保存先の置き場所。<see cref="UseStore"/> が決める。</summary>
     private static volatile string? _rootOfStore;
@@ -77,16 +77,8 @@ public sealed class TemporaryUnpacker
     {
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(storeRoot)).ToUpperInvariant();
         var key = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(full)))[..8];
-        return Path.Combine(area ?? TemporaryArea, $"{LegacyFolderName}-{key}");
+        return Path.Combine(area ?? TemporaryArea, $"{FolderNamePrefix}-{key}");
     }
-
-    /// <summary>
-    /// 保存先ごとに分ける前の置き場所を消す。前の版が残した物を片付けるだけで、今の版はここに何も置かない。
-    /// 開いたままの物があって消せなければ、次の起動でまた試す。
-    /// </summary>
-    /// <returns>残っていないか（無かった・消せた）。</returns>
-    public static bool RemoveLegacyRoot(string? area = null)
-        => new TemporaryUnpacker(Path.Combine(area ?? TemporaryArea, LegacyFolderName)).CleanUp();
 
     /// <summary>
     /// そのパスが、このアプリの一時の場所の中か。取り込みで拾わないために見る。
