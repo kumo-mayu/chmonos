@@ -440,7 +440,7 @@ public class ConversionTests
 
         Assert.Contains("\"mode\": \"profile\"", json, StringComparison.Ordinal);
         Assert.DoesNotContain("avatarItemId", json, StringComparison.Ordinal);
-        Assert.Equal(local.Conversion, JsonSerializer.Deserialize<LocalBlock>(json, JsonStore.Options)!.Conversion with { Targets = local.Conversion.Targets });
+        Assert.Equal(local.Conversion, JsonSerializer.Deserialize<LocalBlock>(json, JsonStore.Options)!.Conversion! with { Targets = local.Conversion!.Targets });
         Assert.Equal(local.Conversion.Targets, JsonSerializer.Deserialize<LocalBlock>(json, JsonStore.Options)!.Conversion!.Targets);
     }
 

@@ -45,7 +45,7 @@ public sealed class OpenRequestChannelTests
 
     /// <summary>頼みを受けている最中に終えても、片付けた合図に触れて落ちない（点検38）。</summary>
     [Fact]
-    public void 頼みの処理の最中に終えても_落ちずに処理が終わるのを待つ()
+    public async Task 頼みの処理の最中に終えても_落ちずに処理が終わるのを待つ()
     {
         var paths = NewPaths();
         using var entered = new ManualResetEventSlim();
@@ -63,6 +63,6 @@ public sealed class OpenRequestChannelTests
         channel.Dispose();
 
         Assert.True(Volatile.Read(ref finished));
-        Assert.True(request.Wait(TimeSpan.FromSeconds(5)));
+        Assert.Same(request, await Task.WhenAny(request, Task.Delay(TimeSpan.FromSeconds(5))));
     }
 }

@@ -20,7 +20,7 @@ public sealed class ItemEditGateTests
     }
 
     [Fact]
-    public void 書いている途中に開いた編集画面は_書き終えるまで読まずに待つ()
+    public async Task 書いている途中に開いた編集画面は_書き終えるまで読まずに待つ()
     {
         var gate = new ItemEditGate();
         var first = gate.TryBeginApiWrite("1")!;
@@ -34,7 +34,7 @@ public sealed class ItemEditGateTests
         Assert.False(waiting.IsCompleted);
 
         second.Dispose();
-        Assert.True(waiting.Wait(TimeSpan.FromSeconds(5)));
+        Assert.Same(waiting, await Task.WhenAny(waiting, Task.Delay(TimeSpan.FromSeconds(5))));
     }
 
     [Fact]
