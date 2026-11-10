@@ -397,6 +397,48 @@ public sealed class NotificationArchiveTests : IDisposable
         Assert.Equal(2, read.UnreadableLines);
     }
 
+    /// <summary>
+    /// 見積もりは件数の比なので、新しい側の行が大きいと外れる。外れたらもう一度だけ数えて書き直す。
+    /// 古い側10件は小さく、新しい側10件は大きい：1回目に10件残してもまだ超え、2回目に5件まで下がって収まる。
+    /// </summary>
+    [Fact]
+    public async Task 見積もりが外れたら_もう一度だけ書き直して収める()
+    {
+        var length = await AppendSizedAsync(small: 10, large: 10, guidsPerLarge: 40);
+
+        var trim = await Archive.TrimAsync(length * 6 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 15, 5, StillOver: false), trim);
+        Assert.Equal(2, Archive.RewritesForTests);
+        Assert.Equal(Enumerable.Range(15, 5).Select(i => Id(2026, 9, i)), (await Archive.ReadAsync("2026-09")).Records.Select(record => record.Id));
+    }
+
+    /// <summary>2回書き直しても超えるときは、それ以上は削らずに残す（呼び手がログに書く）。</summary>
+    [Fact]
+    public async Task 二回書き直しても超えるなら_それ以上は削らずに残す()
+    {
+        var length = await AppendSizedAsync(small: 30, large: 2, guidsPerLarge: 200);
+
+        var trim = await Archive.TrimAsync(length * 6 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 24, 8, StillOver: true), trim);
+        Assert.Equal(2, Archive.RewritesForTests);
+        Assert.Equal(8, (await Archive.ReadAsync("2026-09")).Records.Count);
+    }
+
+    /// <summary>古い側に小さい知らせ、新しい側に大きい知らせ（説明に Guid を並べて縮みにくくする）を1つの束で足す。</summary>
+    private async Task<long> AppendSizedAsync(int small, int large, int guidsPerLarge)
+    {
+        await Archive.AppendAsync(
+            Enumerable.Range(0, small + large)
+                .Select(i => Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with
+                {
+                    Detail = string.Concat(Enumerable.Range(0, i < small ? 1 : guidsPerLarge).Select(_ => Guid.NewGuid().ToString("N"))),
+                })
+                .ToList());
+        return new FileInfo(Archive.FileFor("2026-09")).Length;
+    }
+
     private static string Id(int year, int month, int index) => $"{year}-{month:D2}-{index:D4}";
 
     private static string OneLine(NotificationRecord record) => Json(record).Replace("\r", string.Empty).Replace("\n", string.Empty);
