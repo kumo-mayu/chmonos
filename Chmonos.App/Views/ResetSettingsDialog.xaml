@@ -1,0 +1,36 @@
+<Window x:Class="Chmonos.App.Views.ResetSettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:ResetSettingsDialogViewModel}"
+        Title="設定を既定に戻す"
+        Width="480" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        AutomationProperties.AutomationId="ResetSettingsDialog"
+        Background="{DynamicResource Surface}">
+    <!--
+        設定を既定に戻す確認（ユーザ判断 2026-11-10）。標準の知らせの窓にチェックを足せないので専用の窓にした。
+        作法は ui-dialogs.md：キャンセルは右端・Esc でキャンセル・既定のボタンはキャンセル側（枠だけ青）。
+        戻す側は消す・初期化する操作なので赤（DangerButton）
+    -->
+    <StackPanel Margin="22,20">
+        <TextBlock Text="{x:Static vm:ResetSettingsDialogViewModel.Body}" TextWrapping="Wrap" />
+
+        <CheckBox IsChecked="{Binding KeepArchiveCapacity, Mode=TwoWay}" Foreground="{DynamicResource Text}"
+                  Margin="0,16,0,0"
+                  AutomationProperties.AutomationId="ResetKeepArchiveCapacity"
+                  AutomationProperties.Name="{x:Static vm:ResetSettingsDialogViewModel.KeepArchiveCapacityText}">
+            <TextBlock Text="{x:Static vm:ResetSettingsDialogViewModel.KeepArchiveCapacityText}" TextWrapping="Wrap" />
+        </CheckBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="既定に戻す" Style="{StaticResource DangerButton}" MinWidth="88"
+                    AutomationProperties.AutomationId="ResetSettingsConfirm" Click="OnReset" />
+            <Button Content="キャンセル" MinWidth="88" Margin="8,0,0,0" IsCancel="True" IsDefault="True"
+                    BorderBrush="{DynamicResource Accent}" Click="OnCancel" />
+        </StackPanel>
+    </StackPanel>
+</Window>
