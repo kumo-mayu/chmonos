@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using Chmonos.Core.Services;
 
 namespace Chmonos.App.Services;
@@ -52,15 +51,6 @@ public enum UnityOpenResult
 /// </summary>
 public static class UnityLaunch
 {
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr window);
-
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr window, int command);
-
-    /// <summary><c>SW_RESTORE</c>。最小化されていても出す。</summary>
-    private const int Restore = 9;
-
     /// <summary>
     /// Unity Hub が入れたエディタの置き場所。
     ///
@@ -340,10 +330,9 @@ public static class UnityLaunch
                 var window = UnityEditors.MainWindowOf(running.Id);
                 if (window != IntPtr.Zero)
                 {
-                    ShowWindow(window, Restore);
-
+                    // 最小化のときだけ戻す（最大化した Unity を手前に出すだけで小さくしない）。
                     // 断られても「手前に出しました」と言っていた。戻り値を見て言い分ける
-                    return SetForegroundWindow(window)
+                    return Win32Windows.BringToFront(window)
                         ? UnityOpenResult.BroughtToFront
                         : UnityOpenResult.AlreadyOpenNotFront;
                 }

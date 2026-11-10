@@ -88,9 +88,6 @@ public static class UnityImportQueue
     private const uint WmSetText = 0x000C;
     private const int IdOk = 1;
 
-    /// <summary><c>SW_RESTORE</c>。最小化を解いて元の大きさに戻す。</summary>
-    private const int SwRestore = 9;
-
     /// <summary>Windows 標準のファイル選択で、ファイル名の欄を包む部品の番号（§9-4b）。</summary>
     private const int FileNameControlId = 1148;
 
@@ -198,14 +195,8 @@ public static class UnityImportQueue
     [DllImport("user32.dll")] private static extern IntPtr GetDlgItem(IntPtr dialog, int id);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? className, string? title);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
-    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
-    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
-    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
-    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int max);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
 
     /// <summary>この商品の zip と登録したフォルダに入っている、Unity へ送れるもの（zip に入っている順、その後にフォルダの中の物）。</summary>
     /// <remarks>
@@ -625,17 +616,15 @@ public static class UnityImportQueue
     /// <summary>最小化されていたら開く。送る前に呼ぶ（取り込み画面は人に押してもらう物なので、隠れていては困る）。</summary>
     private static void Restore(IntPtr window)
     {
-        if (!IsIconic(window))
+        // 最小化でなければ手前にも出さない（送る最中に人が別の窓で作業していれば、そちらを奪わない）
+        if (Win32Windows.RestoreIfMinimized(window))
         {
-            return;
+            Win32Windows.SetForeground(window);
         }
-
-        ShowWindow(window, SwRestore);
-        SetForegroundWindow(window);
     }
 
     private static bool IsImportWindow(IntPtr window)
-        => ClassOf(window) == "UnityContainerWndClass" && TitleOf(window) == ImportWindowTitle;
+        => ClassOf(window) == Win32Windows.UnityContainerClass && TitleOf(window) == ImportWindowTitle;
 
     private static bool IsProgressTitle(string title)
         => ProgressTitles.Any(prefix => title.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
@@ -716,27 +705,16 @@ public static class UnityImportQueue
         return IntPtr.Zero;
     }
 
-    private static string ClassOf(IntPtr window)
-    {
-        var name = new StringBuilder(128);
-        GetClassName(window, name, name.Capacity);
-        return name.ToString();
-    }
+    private static string ClassOf(IntPtr window) => Win32Windows.ClassOf(window);
 
-    private static string TitleOf(IntPtr window)
-    {
-        var text = new StringBuilder(256);
-        GetWindowText(window, text, text.Capacity);
-        return text.ToString();
-    }
+    private static string TitleOf(IntPtr window) => Win32Windows.TitleOf(window);
 
     private static HashSet<IntPtr> VisibleWindows(int processId)
     {
         var windows = new HashSet<IntPtr>();
         EnumWindows((window, _) =>
         {
-            GetWindowThreadProcessId(window, out var owner);
-            if (owner == processId && IsWindowVisible(window))
+            if (Win32Windows.ProcessOf(window) == processId && IsWindowVisible(window))
             {
                 windows.Add(window);
             }
