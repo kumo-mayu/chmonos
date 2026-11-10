@@ -1048,6 +1048,16 @@ public sealed class CommandHandler
                             $"最後に残った {trimmed.HalvedMonth} は消さずに、古い側の {trimmed.DroppedRecords} 件を削って新しい側の {trimmed.KeptRecords} 件を残しました。");
                     }
 
+                    if (trimmed.UnreadableBlocks > 0)
+                    {
+                        // 中身は書かない（壊れた所の数だけ）。書き直したときは壊れた所を除いて書いたので、月はもう壊れていない
+                        Diagnostics.AppLog.Note(
+                            "通知の保管",
+                            trimmed.DroppedRecords > 0
+                                ? $"{trimmed.HalvedMonth} の中で {trimmed.UnreadableBlocks} か所読めなかったので、そこを除いて書き直しました。"
+                                : $"{trimmed.HalvedMonth} の中で {trimmed.UnreadableBlocks} か所読めませんでした（書き直さずに残しました）。");
+                    }
+
                     if (trimmed.StillOver)
                     {
                         // 消すと保管した知らせが全部無くなるので、超えたまま残す（ユーザ判断 2026-11-10）

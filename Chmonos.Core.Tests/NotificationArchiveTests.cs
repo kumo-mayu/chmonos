@@ -391,8 +391,10 @@ public sealed class NotificationArchiveTests : IDisposable
 
         var trim = await Archive.TrimAsync(1000);
 
-        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 0, 0, StillOver: true), trim);
+        // 読めない所が1か所あったことはログに書けるよう返す
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 0, 0, StillOver: true, UnreadableBlocks: 1), trim);
         Assert.Equal(["2026-09"], Archive.Months());
+        Assert.Equal(4000, new FileInfo(Archive.FileFor("2026-09")).Length);
     }
 
     /// <summary>
@@ -405,7 +407,9 @@ public sealed class NotificationArchiveTests : IDisposable
         var text = new StringBuilder().Append("{\"formatVersion\":2}\n");
         for (var i = 0; i < 10; i++)
         {
-            text.Append(OneLine(Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with { Detail = Guid.NewGuid().ToString("N") })).Append('\n');
+            // 説明を大きくする：書き直しは版の変わる所でメンバーを分けるので、その頭と尾の分で半分が容量を超えないように
+            var detail = string.Concat(Enumerable.Range(0, 20).Select(_ => Guid.NewGuid().ToString("N")));
+            text.Append(OneLine(Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with { Detail = detail })).Append('\n');
         }
 
         text.Append("{壊れた行\n")
@@ -427,9 +431,245 @@ public sealed class NotificationArchiveTests : IDisposable
         Assert.Equal("{壊れた行", lines[5]);
         Assert.Equal($"{{\"formatVersion\":{StoreFormat.Current + 1}}}", lines[6]);
         Assert.Equal(8, lines.Count);
+        // 書き直した月は、版の変わる所でメンバーを分けてあるので、速い読みだけで読み切れる
+        var precise = Archive.PreciseReadsForTests;
         var read = await Archive.ReadAsync("2026-09");
         Assert.Equal(Enumerable.Range(6, 4).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
         Assert.Equal(2, read.UnreadableLines);
+        Assert.Equal(0, read.UnreadableBlocks);
+        Assert.Equal(precise, Archive.PreciseReadsForTests);
+    }
+
+    /// <summary>
+    /// 1件ずつのかたまりの真ん中の1つが壊れても、その1件だけ欠けて前後は読める（ユーザ判断 2026-11-10「壊れたかたまりだけ飛ばす」）。
+    /// 頭の1バイトが壊れたときは、GZipStream が例外を出さずに黙って読み終えるので、後ろを落としたことに気づけるかも見る。
+    /// </summary>
+    [Theory]
+    [InlineData("content")]
+    [InlineData("crc")]
+    [InlineData("truncate")]
+    [InlineData("header")]
+    public async Task 一件ずつのかたまりの1つが壊れても_その1件だけ欠けて前後は読める(string damage)
+    {
+        var starts = await AppendOneByOneAsync(9);
+        Damage(Archive.FileFor("2026-09"), starts[4], starts[5], damage);
+
+        var read = await Archive.ReadAsync("2026-09");
+
+        Assert.Equal(Enumerable.Range(0, 9).Where(i => i != 4).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(0, read.UnreadableLines);
+        Assert.Equal(1, read.UnreadableBlocks);
+    }
+
+    /// <summary>
+    /// 数える回と書き直しも同じ読み方で壊れたかたまりを飛ばす。前は壊れた所で数え終え、新しい側（壊れた所より後ろ）が消えた。
+    /// 書き直した月は壊れていない月になる。
+    /// </summary>
+    [Theory]
+    [InlineData("content")]
+    [InlineData("crc")]
+    [InlineData("truncate")]
+    [InlineData("header")]
+    public async Task 一件ずつのかたまりの1つが壊れても_書き直しで新しい側が残る(string damage)
+    {
+        var starts = await AppendOneByOneAsync(9);
+        var path = Archive.FileFor("2026-09");
+        Damage(path, starts[4], starts[5], damage);
+
+        // 読める8件のうち新しい側の4件を残す
+        var trim = await Archive.TrimAsync(new FileInfo(path).Length * 7 / 10);
+
+        Assert.Equal(new NotificationArchiveTrim(0, "2026-09", 4, 4, StillOver: false, UnreadableBlocks: 1), trim);
+        var precise = Archive.PreciseReadsForTests;
+        var read = await Archive.ReadAsync("2026-09");
+        Assert.Equal(Enumerable.Range(5, 4).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(0, read.UnreadableBlocks);
+        Assert.Equal(precise, Archive.PreciseReadsForTests);
+    }
+
+    /// <summary>
+    /// 書き直した1本の大きなかたまりの中が壊れていたら、壊れた所より前の行は読め、後ろは救えない。
+    /// その後ろに足したかたまりは読み続ける。
+    /// </summary>
+    [Fact]
+    public async Task 大きなかたまりの中が壊れても_前の行と後ろのかたまりは読める()
+    {
+        var path = Archive.FileFor("2026-09");
+        var random = new Random(20261110);
+        var text = new StringBuilder().Append($"{{\"formatVersion\":{StoreFormat.Current}}}\n");
+        for (var i = 0; i < 3000; i++)
+        {
+            var detail = Convert.ToHexString(Enumerable.Range(0, 32).Select(_ => (byte)random.Next(256)).ToArray());
+            text.Append(OneLine(Record(Id(2026, 9, i), At(2026, 9, 1).AddSeconds(i)) with { Detail = detail })).Append('\n');
+        }
+
+        Directory.CreateDirectory(Archive.Directory);
+        await using (var file = File.Create(path))
+        await using (var gzip = new GZipStream(file, CompressionLevel.Optimal))
+        {
+            await gzip.WriteAsync(Encoding.UTF8.GetBytes(text.ToString()));
+        }
+
+        var bigEnd = new FileInfo(path).Length;
+        for (var i = 3000; i < 3003; i++)
+        {
+            await Archive.AppendAsync([Record(Id(2026, 9, i), At(2026, 9, 2).AddSeconds(i))]);
+        }
+
+        Damage(path, 0, bigEnd, "content");
+
+        var read = await Archive.ReadAsync("2026-09");
+
+        var ids = read.Records.Select(record => record.Id).ToList();
+        var before = ids.TakeWhile(id => string.CompareOrdinal(id, Id(2026, 9, 3000)) < 0).ToList();
+        Assert.InRange(before.Count, 1, 2999);
+        Assert.Equal(Enumerable.Range(0, before.Count).Select(i => Id(2026, 9, i)), before);
+        Assert.Equal(Enumerable.Range(3000, 3).Select(i => Id(2026, 9, i)), ids.Skip(before.Count));
+        Assert.Equal(1, read.UnreadableBlocks);
+    }
+
+    /// <summary>
+    /// かたまりの中身に gzip の頭と同じバイト列が偶然あっても、そこを頭と取り違えない（読み直して尾が合わなければ次の候補へ）。
+    /// 格納（縮めない）で書くと、中身のバイト列がそのままファイルに現れる。
+    /// </summary>
+    [Fact]
+    public async Task 中身に頭と同じバイト列があっても_取り違えない()
+    {
+        var path = Archive.FileFor("2026-09");
+        using (var buffer = new MemoryStream())
+        {
+            buffer.Write(Encoding.UTF8.GetBytes($"{{\"formatVersion\":{StoreFormat.Current}}}\n{OneLine(Record(Id(2026, 9, 0), At(2026, 9, 1)))}\n"));
+            buffer.Write([0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x01, 0x02, (byte)'\n']);
+            buffer.Write(Encoding.UTF8.GetBytes($"{OneLine(Record(Id(2026, 9, 1), At(2026, 9, 1).AddMinutes(1)))}\n"));
+            Directory.CreateDirectory(Archive.Directory);
+            await using var file = File.Create(path);
+            await using var gzip = new GZipStream(file, CompressionLevel.NoCompression);
+            await gzip.WriteAsync(buffer.ToArray());
+        }
+
+        var starts = new List<long> { new FileInfo(path).Length };
+        for (var i = 2; i < 5; i++)
+        {
+            await Archive.AppendAsync([Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i))]);
+            starts.Add(new FileInfo(path).Length);
+        }
+
+        // 壊れていないとき：頭の数が合わないので正確な読みに回るが、結果は同じ
+        var whole = await Archive.ReadAsync("2026-09");
+        Assert.Equal(Enumerable.Range(0, 5).Select(i => Id(2026, 9, i)), whole.Records.Select(record => record.Id));
+        Assert.Equal(1, whole.UnreadableLines);
+        Assert.Equal(0, whole.UnreadableBlocks);
+
+        // 後ろのかたまりの1つ（3件目）を壊す
+        Damage(path, starts[1], starts[2], "content");
+        var read = await Archive.ReadAsync("2026-09");
+        Assert.Equal(new[] { 0, 1, 2, 4 }.Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(1, read.UnreadableLines);
+        Assert.Equal(1, read.UnreadableBlocks);
+    }
+
+    /// <summary>壊れていない月は、前と同じく1本の GZipStream で読み、壊れた所を探す読みには入らない（速さを落とさない）。</summary>
+    [Fact]
+    public async Task 壊れていない月は_速い読みだけで読む()
+    {
+        await AppendMonthAsync(2026, 9, 200);
+        await AppendOneByOneAsync(5, firstIndex: 200);
+
+        var read = await Archive.ReadAsync("2026-09");
+        var trim = await Archive.TrimAsync(new FileInfo(Archive.FileFor("2026-09")).Length * 7 / 10);
+
+        Assert.Equal(205, read.Records.Count);
+        Assert.Equal(0, read.UnreadableBlocks);
+        Assert.Equal(0, trim.UnreadableBlocks);
+        Assert.Equal(1, Archive.RewritesForTests);
+        Assert.Equal(0, Archive.PreciseReadsForTests);
+    }
+
+    /// <summary>
+    /// GZipStream が元のストリームから1回に引く大きさ（8KB）より大きいかたまりでも、頭が壊れたら後ろを落としたことに気づく。
+    /// 引いたバッファの中に次の頭が無いと、頭の数だけでは合ってしまうので、ファイルの終わりまで引いたかも見る。
+    /// </summary>
+    [Fact]
+    public async Task 入力のバッファより大きいかたまりの頭が壊れても_後ろを読み続ける()
+    {
+        var starts = await AppendOneByOneAsync(5, detailBytes: 20_000);
+        Assert.True(starts[3] - starts[2] > 16 * 1024);
+        Damage(Archive.FileFor("2026-09"), starts[2], starts[3], "header");
+
+        var read = await Archive.ReadAsync("2026-09");
+
+        Assert.Equal(new[] { 0, 1, 3, 4 }.Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(1, read.UnreadableBlocks);
+    }
+
+    /// <summary>
+    /// 読む区切り（GZipStream の 8KB・行に分ける 64KB）を何度もまたぐ壊れていない月は、速い読みだけで読み切る
+    /// （頭の数え方が継ぎ目で数え違えると、ふつうの月が毎回遅い読みに回る）。
+    /// </summary>
+    [Fact]
+    public async Task 区切りをまたぐ壊れていない月は_速い読みだけで読む()
+    {
+        var sizes = new[] { 10, 3000, 9000, 500, 70_000, 1, 4100, 20_000, 7, 66_000, 12 };
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            await AppendOneByOneAsync(1, firstIndex: i, detailBytes: sizes[i]);
+        }
+
+        var read = await Archive.ReadAsync("2026-09");
+
+        Assert.Equal(Enumerable.Range(0, sizes.Length).Select(i => Id(2026, 9, i)), read.Records.Select(record => record.Id));
+        Assert.Equal(0, read.UnreadableBlocks);
+        Assert.Equal(0, Archive.PreciseReadsForTests);
+    }
+
+    /// <summary>
+    /// 知らせを1件ずつ（かたまり1つずつ）足し、各かたまりの頭の位置と、最後にファイルの大きさを返す。
+    /// 説明は種を決めた乱数の16進（縮みにくく、壊し方が回ごとに変わらない）。
+    /// </summary>
+    private async Task<List<long>> AppendOneByOneAsync(int count, int firstIndex = 0, int detailBytes = 16)
+    {
+        var path = Archive.FileFor("2026-09");
+        var random = new Random(firstIndex * 7919 + detailBytes);
+        var starts = new List<long>();
+        for (var i = firstIndex; i < firstIndex + count; i++)
+        {
+            starts.Add(File.Exists(path) ? new FileInfo(path).Length : 0);
+            var detail = new byte[detailBytes];
+            random.NextBytes(detail);
+            await Archive.AppendAsync([Record(Id(2026, 9, i), At(2026, 9, 1).AddMinutes(i)) with { Detail = Convert.ToHexString(detail) }]);
+        }
+
+        starts.Add(new FileInfo(path).Length);
+        return starts;
+    }
+
+    /// <summary>
+    /// [start, end) のかたまりを壊す。content：中ほどの1バイトを書き換える／crc：尾の CRC を書き換える／
+    /// truncate：中ほどから終わりまでを切り取る（後ろのかたまりは続く）／header：頭の1バイトを書き換える。
+    /// </summary>
+    private static void Damage(string path, long start, long end, string kind)
+    {
+        var bytes = File.ReadAllBytes(path).ToList();
+        var middle = (int)(start + (end - start) / 2);
+        switch (kind)
+        {
+            case "content":
+                bytes[middle] ^= 0x55;
+                break;
+            case "crc":
+                bytes[(int)end - 8] ^= 0xFF;
+                break;
+            case "truncate":
+                bytes.RemoveRange(middle, (int)end - middle);
+                break;
+            case "header":
+                bytes[(int)start] = 0x00;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+
+        File.WriteAllBytes(path, bytes.ToArray());
     }
 
     /// <summary>
