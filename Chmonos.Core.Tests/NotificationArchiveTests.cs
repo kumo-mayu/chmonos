@@ -246,6 +246,23 @@ public sealed class NotificationArchiveTests : IDisposable
         Assert.Empty(Archive.Months());
     }
 
+    /// <summary>
+    /// 設定の JSON に手で負の数を書かれても、閉じるときに全部消さない（0 は「全部消す」なので、0 に寄せない）。
+    /// 上限を超えた分は捨てずに保管する。
+    /// </summary>
+    [Fact]
+    public async Task 手で負の数を書かれた設定では_消さずに保管する()
+    {
+        WriteMonth("2026-08", 1000);
+        await _store.Notifications.SaveAsync([Record("a", At(2026, 9, 1)), Record("b", At(2026, 9, 2)), Record("c", At(2026, 9, 3))]);
+        var service = Create(retention: 2, megabytes: -1);
+
+        Assert.Equal(1, await service.PruneAsync());
+        Assert.Equal(0, await service.TrimArchiveAsync());
+
+        Assert.Equal(["2026-08", "2026-09"], Archive.Months());
+    }
+
     /// <summary>消すのは閉じるときだけ。上限を超えた分を移すときは、容量を超えていても消さない（小さくしてから戻しても消えない）。</summary>
     [Fact]
     public async Task 移すときは容量を超えていても消さない()

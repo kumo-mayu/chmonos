@@ -812,12 +812,20 @@ public partial class App : Application
         using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         try
         {
-            Task.Run(() => services.Commands.ExecuteAsync(new Core.Commands.UiCommand.TrimNotificationArchive(), cancellationToken: limit.Token))
-                .Wait(TimeSpan.FromSeconds(4));
+            if (!Task.Run(() => services.Commands.ExecuteAsync(new Core.Commands.UiCommand.TrimNotificationArchive(), cancellationToken: limit.Token))
+                .Wait(TimeSpan.FromSeconds(4)))
+            {
+                Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "4秒待っても終わらなかったので諦めた");
+            }
         }
         catch (AggregateException exception) when (exception.InnerException is OperationCanceledException)
         {
             Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "3秒待っても書き込みの門が開かなかったので諦めた");
+        }
+        catch (Exception exception)
+        {
+            // 閉じる道なので、何が起きても後の片付け（サービスの破棄）を飛ばさない。消せなかった分は次に閉じるときに消える
+            Core.Diagnostics.AppLog.Error("閉じるときの通知の保管庫の整理", exception);
         }
     }
 }

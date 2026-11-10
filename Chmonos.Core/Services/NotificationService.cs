@@ -401,8 +401,11 @@ public sealed class NotificationService : INotificationService
     /// 保管庫が容量を超えていたら、古い月から丸ごと消す。**アプリを閉じるときに1回だけ呼ぶ**（`UiCommand.TrimNotificationArchive`）。
     /// 設定で容量を小さくしてから戻しても、閉じるまでは消えないようにするため（ユーザ判断 2026-11-10）。
     /// </summary>
+    /// <remarks>手で負の数を書かれた設定では消さない（<see cref="AppSettings.NotificationArchiveBytes"/>）。</remarks>
     public Task<int> TrimArchiveAsync(CancellationToken cancellationToken = default)
-        => _store.NotificationArchive.TrimAsync(_settings.NotificationArchiveBytes, cancellationToken);
+        => _settings.NotificationArchiveBytes is { } capacity
+            ? _store.NotificationArchive.TrimAsync(capacity, cancellationToken)
+            : Task.FromResult(0);
 
     /// <summary>
     /// 手で直した JSON の食い違いを要確認に出す（ユーザ判断 2026-09-21・J2/L6）。
@@ -604,7 +607,8 @@ public sealed class NotificationService : INotificationService
             return 0;
         }
 
-        if (_settings.NotificationArchiveBytes > 0)
+        // 0 だけが「保管しない」。手で書いた負の数（null）は捨てずに保管する側に倒す
+        if (_settings.NotificationArchiveBytes is not 0)
         {
             try
             {

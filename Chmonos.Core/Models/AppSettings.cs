@@ -298,9 +298,12 @@ public sealed record AppSettings
     /// </summary>
     public int NotificationArchiveMegabytes { get; init; } = 50;
 
-    /// <summary>保管の容量をバイトで。手で負の数を書かれても保管しない側（0）に寄せる。</summary>
+    /// <summary>
+    /// 保管の容量をバイトで。**手で負の数を書かれたら null**（読めない値）。画面の欄は負の数を断るが、JSON は手で直せる。
+    /// 0 に寄せると「閉じるときに全部消す」になるので、壊さない側（保管はする・閉じるときは消さない）に倒す。
+    /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public long NotificationArchiveBytes => Math.Max(0, (long)NotificationArchiveMegabytes) * 1024 * 1024;
+    public long? NotificationArchiveBytes => NotificationArchiveMegabytes < 0 ? null : (long)NotificationArchiveMegabytes * 1024 * 1024;
 
     /// <summary>
     /// 検索の履歴を残す件数。
