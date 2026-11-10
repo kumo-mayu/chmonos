@@ -1,3 +1,5 @@
+using Chmonos.Core.Services;
+
 namespace Chmonos.App.ViewModels;
 
 /// <summary>アバターの管理：右の詳細の見直し（ユーザ指示 2026-09-17）。所有・共通素体・呼ばれ方・アバターかどうか。</summary>
@@ -21,8 +23,8 @@ public sealed partial class AvatarsViewModel
         {
             var typed = BaseInput.Trim();
             return typed.Length == 0
-                   || string.Equals(typed, Selected?.Summary.Entry.BaseName, StringComparison.CurrentCultureIgnoreCase)
-                   || BaseNames.Any(name => string.Equals(name, typed, StringComparison.CurrentCultureIgnoreCase))
+                   || AvatarBaseNames.Same(typed, Selected?.Summary.Entry.BaseName)
+                   || BaseNames.Any(name => AvatarBaseNames.Same(name, typed))
                 ? string.Empty
                 : $"Enterで新しい素体『{typed}』を作って入れます";
         }

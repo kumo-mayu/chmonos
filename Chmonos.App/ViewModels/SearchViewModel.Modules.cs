@@ -86,7 +86,7 @@ public sealed partial class SearchViewModel
         {
             foreach (var state in saved)
             {
-                // 読めない種類（名前を変えた・無くした）は黙って飛ばす。公開前なので古い名前の読み替えは作らない。
+                // 読めない種類（名前を変えた・無くした）は黙って飛ばす。v1.0.0 より前に変えた名前の読み替えは作らない（配った版の種類の名前は変えていない）。
                 // 1つまでの種類が2つ書かれていたら、2つ目は飛ばす（手で直した JSON。報告は要らない画面の状態）。
                 // 並びは保存した並びのまま（設定の「同じ種類のすぐ下」は、人が新しく足すときの決まり）
                 if (Enum.TryParse<SearchModuleKind>(state.Kind, out var kind)
@@ -580,8 +580,8 @@ public sealed partial class SearchViewModel
             var index = AvatarCompatibilityIndex.For(registry);
             var orders = registry.BaseGroups
                 .Where(baseGroup => !baseGroup.Rejected)
-                .GroupBy(baseGroup => baseGroup.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToDictionary(baseGroup => baseGroup.Key, baseGroup => baseGroup.First().MemberOrder, StringComparer.CurrentCultureIgnoreCase);
+                .GroupBy(baseGroup => baseGroup.Name, AvatarBaseNames.Comparer)
+                .ToDictionary(baseGroup => baseGroup.Key, baseGroup => baseGroup.First().MemberOrder, AvatarBaseNames.Comparer);
             var placed = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
             var result = new List<(AvatarRegistryEntry Entry, string Name)>(list.Count);
             foreach (var pair in list)
@@ -599,7 +599,7 @@ public sealed partial class SearchViewModel
 
                 result.AddRange(AvatarBaseOrder.Arrange(
                     orders.GetValueOrDefault(baseName),
-                    list.Where(other => string.Equals(index.BaseNameOf(other.Entry.ItemId), baseName, StringComparison.CurrentCultureIgnoreCase)),
+                    list.Where(other => AvatarBaseNames.Same(index.BaseNameOf(other.Entry.ItemId), baseName)),
                     other => other.Entry.ItemId,
                     other => IsOwned(other.Entry),
                     other => other.Name));

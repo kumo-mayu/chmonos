@@ -286,7 +286,7 @@ public sealed partial class ItemViewModel
         var all = recorded.Concat(viaBase).ToList();
         var byBase = all
             .Where(row => BaseOf(row) is not null)
-            .GroupBy(row => BaseOf(row)!, StringComparer.CurrentCultureIgnoreCase)
+            .GroupBy(row => BaseOf(row)!, AvatarBaseNames.Comparer)
             .OrderByDescending(group => group.Any(row => row.IsOwned))
             .ThenBy(group => group.Key, StringComparer.CurrentCulture)
             .ToList();
@@ -756,7 +756,7 @@ public sealed partial class ItemViewModel
         // （一覧に無い素体を商品に付けても、検索でつなぐ先が無い）。
         // 一覧から削除した素体は足し直さない——削除は人が決めたことで、商品の行を戻しただけで一覧に復活させない
         var known = _services.CachedAvatars.Load().BaseGroups
-            .Any(group => string.Equals(group.Name, baseName, StringComparison.CurrentCultureIgnoreCase));
+            .Any(group => AvatarBaseNames.Same(group.Name, baseName));
         if (!known)
         {
             await AddMentionedBaseAsync(new AvatarBaseMention(baseName, IsRegistered: false));
@@ -764,7 +764,7 @@ public sealed partial class ItemViewModel
         }
 
         await ChangeBasesAsync(links => links
-            .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+            .Select(link => AvatarBaseNames.Same(link.BaseName, baseName)
                 ? link with { Rejected = false, Confirmed = true }
                 : link)
             .ToList());

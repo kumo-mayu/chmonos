@@ -979,7 +979,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         // 一覧にある名前なら書かずに、その素体を選んで見せる（大文字小文字を変えて打っても同じ素体）
-        if (Bases.FirstOrDefault(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase)) is { } existing)
+        if (Bases.FirstOrDefault(row => AvatarBaseNames.Same(row.Name, name)) is { } existing)
         {
             AddBaseNote.Warn($"共通素体「{existing.Name}」は既にあります。");
             SelectedBase = existing;
@@ -1019,7 +1019,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         await LoadAsync();
 
         // 足した素体を右に出す。名前は一覧の表記に合わせる（大文字小文字を変えて打っても同じ素体）
-        SelectedBase = Bases.FirstOrDefault(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase))
+        SelectedBase = Bases.FirstOrDefault(row => AvatarBaseNames.Same(row.Name, name))
             ?? SelectedBase;
     }
 
@@ -1580,7 +1580,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             // 数ではなく名前で並べる（U19）。「他の 3 体」ではどのアバターか分からず、入れてよいかを判断できない
             var siblings = _all
                 .Where(row => row.ItemId != Selected.ItemId
-                    && string.Equals(row.Summary.Entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase))
+                    && AvatarBaseNames.Same(row.Summary.Entry.BaseName, name))
                 .Select(row => row.Name)
                 .ToList();
 

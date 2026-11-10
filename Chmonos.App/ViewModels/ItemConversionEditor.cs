@@ -39,7 +39,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         SetModeCommand = new RelayCommand(
             parameter =>
             {
-                ConversionMode? mode = parameter as string switch
+                ConversionMode? mode = (parameter as string) switch
                 {
                     "auto" => ConversionMode.Auto,
                     "profile" => ConversionMode.Profile,
@@ -154,8 +154,8 @@ public sealed class ItemConversionEditor : ViewModelBase
             }
 
             var itemId = target.AvatarItemId
-                ?? registry.BaseGroups.FirstOrDefault(group => string.Equals(group.Name, target.BaseName, StringComparison.CurrentCultureIgnoreCase))?.ItemId
-                ?? registry.Entries.FirstOrDefault(entry => string.Equals(entry.BaseName, target.BaseName, StringComparison.CurrentCultureIgnoreCase))?.ItemId;
+                ?? registry.BaseGroups.FirstOrDefault(group => AvatarBaseNames.Same(group.Name, target.BaseName))?.ItemId
+                ?? registry.Entries.FirstOrDefault(entry => AvatarBaseNames.Same(entry.BaseName, target.BaseName))?.ItemId;
             return itemId is null ? null : () => iconOf(itemId);
         }
 
@@ -367,7 +367,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         SetDirectionCommand = new RelayCommand(
             parameter =>
             {
-                (bool Forward, bool Reverse)? chosen = parameter as string switch
+                (bool Forward, bool Reverse)? chosen = (parameter as string) switch
                 {
                     "forward" => (true, false),
                     "reverse" => (false, true),

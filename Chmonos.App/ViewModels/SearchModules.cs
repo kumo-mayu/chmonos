@@ -600,7 +600,7 @@ public abstract class SearchModule : ReorderableRow
             return null;
         }
 
-        var folded = text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
+        var folded = Nfkc.Fold(text).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
         return int.TryParse(folded, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
     }
 
@@ -615,7 +615,7 @@ public abstract class SearchModule : ReorderableRow
             return null;
         }
 
-        var folded = text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
+        var folded = Nfkc.Fold(text).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
         return long.TryParse(folded, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
     }
 }
