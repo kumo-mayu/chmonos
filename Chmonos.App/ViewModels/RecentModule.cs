@@ -25,7 +25,12 @@ public enum RecentPeriod
 /// 「それより前もすべて」になる（状態の上限は空）。範囲を変えて選んでいた日数がはみ出したら端へ寄せる——端は「それより前もすべて」なので、
 /// 結果は広がるだけで、選んでいた商品は消えない。
 ///
-/// **記録の無い商品**：除かないときは外す（どの日数にも入らない）。除くときは出す——「除く＝除かないときに当てはまる物、以外」のまま。
+/// **表示するもの**（ユーザ判断 2026-11-10・案X）：対応アバターと同じ2つのチェック「記録のある商品」「記録の無い商品」。
+/// 足したときは記録のある商品だけ、「条件をクリア」で両方（何も絞らない）。帯と期間は記録のある商品だけに効く。
+/// 前はクリアしても記録のある商品だけに戻り、記録の無い商品が絞られたまま0件になることがあった（ユーザ指摘 2026-11-10）。
+/// 「記録の無い商品だけ」にすると、一度も Unity へ送っていない商品などを探せる。
+///
+/// **除く**は「除かないときに当てはまる物、以外」のまま。記録のある商品だけで除くと、記録の無い商品は出る——
 /// 範囲・日付の条件は値の分からない商品を除くときも外すが、ここで記録が無いのは「分からない」ではなく「まだしていない」なので、
 /// 「最近30日に開いた物を除く」には一度も開いていない物も入るのが読みどおり（表は `SearchRecentTests`）。
 /// </summary>
@@ -57,6 +62,12 @@ public sealed class RecentModule : SearchModule
     private IReadOnlyCollection<ItemRecord> _items = [];
     private DateTimeOffset _now = DateTimeOffset.Now;
     private bool _hasRecords;
+    private bool _showRecorded = true;
+    private bool _showUnrecorded;
+
+    /// <summary>各かたまりの件数（他の条件を当てたうえで）。まだ数えていなければ -1 で、数を添えない。</summary>
+    private int _recordedCount = -1;
+    private int _unrecordedCount = -1;
 
     /// <summary>選んだ種類の記録のうち、いちばん古い日数（全期間の右端）。</summary>
     private int _oldest;
@@ -304,21 +315,96 @@ public sealed class RecentModule : SearchModule
         ? "この順で並んでいます。"
         : $"表示順を「{DateLabel(SelectedKind)}が新しい順」にします。";
 
-    /// <summary>足しただけで絞る（記録の無い商品が外れる）。数の範囲と同じく、足すこと自体が「この記録で選ぶ」という意思表示。</summary>
-    protected override bool HasCondition => true;
+    /// <summary>記録のある商品（日数が範囲に入る物）を出すか。切ると、帯と期間は意味を持たない（薄くする）。</summary>
+    public bool ShowRecorded
+    {
+        get => _showRecorded;
+        set => SetGroup(ref _showRecorded, value, other: _showUnrecorded);
+    }
+
+    /// <summary>記録の無い商品（一度もその記録が付いていない商品）を出すか。</summary>
+    public bool ShowUnrecorded
+    {
+        get => _showUnrecorded;
+        set => SetGroup(ref _showUnrecorded, value, other: _showRecorded);
+    }
+
+    public string RecordedLabel => _recordedCount < 0 ? "記録のある商品" : $"記録のある商品（{_recordedCount}）";
+
+    public string UnrecordedLabel => _unrecordedCount < 0 ? "記録の無い商品" : $"記録の無い商品（{_unrecordedCount}）";
+
+    /// <summary>
+    /// **最後の1つは外させない**（対応アバターと同じ）。両方を切ると何も出ない。切ろうとした印は、画面に戻すために通知だけ出す。
+    /// </summary>
+    private void SetGroup(ref bool field, bool value, bool other)
+    {
+        if (field == value)
+        {
+            return;
+        }
+
+        if (value || other)
+        {
+            field = value;
+        }
+
+        OnPropertyChanged(nameof(ShowRecorded));
+        OnPropertyChanged(nameof(ShowUnrecorded));
+        if (field == value)
+        {
+            OnPropertyChanged(nameof(SummaryText));
+            NotifyChanged();
+        }
+    }
+
+    /// <summary>
+    /// 足しただけで絞る（記録のある商品だけ＝記録の無い商品が外れる）。数の範囲と同じく、足すこと自体が「この記録で選ぶ」という意思表示。
+    /// 両方に印が入って範囲が端から端のときだけ絞らない（「条件をクリア」の後の姿）。
+    /// </summary>
+    protected override bool HasCondition => RecentCondition.IsFiltering(_low, _high, _showRecorded, _showUnrecorded);
 
     public override bool SupportsExclude => true;
 
     /// <summary>暦の日で何日前か（今日＝0）。先の時刻（時計のずれ）は今日に数える。</summary>
     public static int DaysAgo(DateTimeOffset at, DateTimeOffset now) => RecentCondition.DaysAgo(at, now);
 
-    protected override ItemCondition BuildCondition() => new RecentCondition(SelectedKind, _low, _high);
+    protected override ItemCondition BuildCondition() => new RecentCondition(SelectedKind, _low, _high, _showRecorded, _showUnrecorded);
 
     protected override string SummaryHead => $"{Label}（{_selected.Label}）";
 
     protected override string SummaryJoiner => " ";
 
-    protected override string SummaryBody => RangeText;
+    protected override string SummaryBody => !_showRecorded
+        ? "記録の無い商品だけ"
+        : _showUnrecorded ? $"{RangeText}（記録の無い商品も含める）" : RangeText;
+
+    /// <summary>
+    /// 各かたまりが「他の条件を当てたうえで」何件か（対応アバターと同じ）。記録のある商品は日数の範囲に入る物だけを数える
+    /// （印を入れたら増える数を見せる。範囲の外も数えると、入れても出ない商品まで数に入る）。
+    /// </summary>
+    public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
+    {
+        var kind = SelectedKind;
+        var condition = new RecentCondition(kind, _low, _high);
+        var recorded = 0;
+        var unrecorded = 0;
+        foreach (var item in items)
+        {
+            if (context.Recent.Of(item.Id, kind) is not { } at)
+            {
+                unrecorded++;
+            }
+            else if (condition.InRange(DaysAgo(at, context.Now)))
+            {
+                recorded++;
+            }
+        }
+
+        _recordedCount = recorded;
+        _unrecordedCount = unrecorded;
+        OnPropertyChanged(nameof(RecordedLabel));
+        OnPropertyChanged(nameof(UnrecordedLabel));
+    }
 
     /// <summary>
     /// 手元の商品と足跡と今を受け取り、帯を描き直す。検索側が読み込み・絞り直しのたびに呼ぶ。
@@ -471,11 +557,18 @@ public sealed class RecentModule : SearchModule
         NotifyChangedSoon();
     }
 
-    /// <summary>足したときの姿（記録のある商品すべて）に戻す。記録の種類と帯の範囲は残す（何で見るか・どう見るかは値ではない）。</summary>
+    /// <summary>
+    /// 何も絞らない姿（両方に印・端から端）にする（ユーザ判断 2026-11-10「1-A」）。前は足したときの姿（記録のある商品だけ）に戻していて、
+    /// クリアしても記録の無い商品が絞られたままだった。記録の種類と帯の範囲は残す（何で見るか・どう見るかは値ではない）。
+    /// </summary>
     public override void Clear()
     {
         _low = 0;
         _high = null;
+        _showRecorded = true;
+        _showUnrecorded = true;
+        OnPropertyChanged(nameof(ShowRecorded));
+        OnPropertyChanged(nameof(ShowUnrecorded));
         OnPropertyChanged(nameof(LowDays));
         OnPropertyChanged(nameof(HighDays));
         OnPropertyChanged(nameof(LowPosition));
@@ -510,6 +603,8 @@ public sealed class RecentModule : SearchModule
         Period = KeyOf(_period),
         Min = _low.ToString(CultureInfo.InvariantCulture),
         Max = _high?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+        ShowMatched = _showRecorded,
+        ShowUnspecified = _showUnrecorded,
     };
 
     protected override void Read(SearchModuleState state)
@@ -518,6 +613,12 @@ public sealed class RecentModule : SearchModule
         _period = PeriodOf(state.Period);
         _low = ParseNumber(state.Min) is >= 0 and var low ? low : 0;
         _high = ParseNumber(state.Max) is >= 0 and var high ? Math.Max(high, _low) : null;
+
+        // 欄の無い前の版の状態は既定（記録のある商品だけ）で読む。両方切った状態は作らない（Core の RecentFrom と同じ）
+        _showUnrecorded = state.ShowUnspecified;
+        _showRecorded = state.ShowMatched || !_showUnrecorded;
+        OnPropertyChanged(nameof(ShowRecorded));
+        OnPropertyChanged(nameof(ShowUnrecorded));
 
         // 区切った範囲の右端より先の上限は「それより前もすべて」と同じに読む（画面のつまみも右端に出る）
         if (_period != RecentPeriod.All)

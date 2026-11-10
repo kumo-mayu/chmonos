@@ -402,7 +402,12 @@ public static class SearchModuleConditions
 
         var low = ParseNumber(state.Min) is >= 0 and var from ? from : 0;
         int? high = ParseNumber(state.Max) is >= 0 and var to ? Math.Max(to, low) : null;
-        return new RecentCondition(kind, low, high);
+
+        // 「表示するもの」は対応アバターと同じ欄（showMatched＝記録のある商品・showUnspecified＝記録の無い商品）。
+        // 欄の無い前の版の状態は既定（記録のある商品だけ）で読め、前と同じ結果になる。両方切った状態は作らない
+        var showUnrecorded = state.ShowUnspecified;
+        var showRecorded = state.ShowMatched || !showUnrecorded;
+        return new RecentCondition(kind, low, high, showRecorded, showUnrecorded);
     }
 
     /// <summary>全角の数字・カンマ・円記号が混ざっていても数として読む。読めなければ null。</summary>

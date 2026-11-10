@@ -198,6 +198,9 @@ public class SearchModuleConditionParityTests
             [
                 new() { Kind = name, Choice = "viewed", Min = "0", Max = "7" },
                 new() { Kind = name, Choice = "added", Min = "3", Max = string.Empty, Exclude = true },
+                new() { Kind = name, Choice = "viewed", Min = "0", Max = "7", ShowUnspecified = true },
+                new() { Kind = name, Choice = "used", Min = "0", Max = string.Empty, ShowMatched = false, ShowUnspecified = true },
+                new() { Kind = name, Choice = "viewed", Min = "0", Max = "7", ShowMatched = false, ShowUnspecified = true, Exclude = true },
             ],
             _ => [],
         };

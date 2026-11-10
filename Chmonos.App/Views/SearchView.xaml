@@ -1534,6 +1534,20 @@
                                                   DisplayMemberPath="Label" Height="28" FontSize="12.5"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Choice'}"
                                                   AutomationProperties.Name="何の記録で絞るか" />
+                                        <!--
+                                            帯と期間は記録のある商品だけに効く（ユーザ判断 2026-11-10・案X）。「記録の無い商品だけ」を出すときは意味を持たないので、
+                                            対応アバターの欄と同じく薄くして触れなくする。記録の種類の欄は生かす（「記録が無い」がどの記録の話かを決める）
+                                        -->
+                                        <StackPanel IsEnabled="{Binding ShowRecorded}">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ShowRecorded}" Value="False">
+                                                        <Setter Property="Opacity" Value="0.45" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
                                         <!-- 4つは同じ幅に並べる（つながったボタン。並べ替えの向きと同じ部品） -->
                                         <UniformGrid Rows="1" Columns="4" Margin="0,6,0,0">
                                             <RadioButton Style="{StaticResource SegmentFirst}" Content="一週間" IsChecked="{Binding IsWeek, Mode=TwoWay}"
@@ -1590,6 +1604,27 @@
                                             <TextBlock DockPanel.Dock="Left" Text="{Binding MinimumLabel}" Style="{StaticResource Caption}" />
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding MaximumLabel}" Style="{StaticResource Caption}" />
                                         </DockPanel>
+                                        </StackPanel>
+                                        <!--
+                                            表示するもの（ユーザ判断 2026-11-10・案X。対応アバターと同じ作り）。足したときは上だけ、「条件をクリア」で両方（何も絞らない）。
+                                            件数は他の条件を当てたうえでの数（上は日数の範囲に入る物）。最後の1つは外せない
+                                        -->
+                                        <StackPanel Margin="0,8,0,0">
+                                            <TextBlock Text="表示するもの" Style="{StaticResource Caption}" Margin="0,0,0,3" />
+                                            <CheckBox IsChecked="{Binding ShowRecorded, Mode=TwoWay}"
+                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ShowRecorded'}"
+                                                      AutomationProperties.Name="{Binding NameSuffix, StringFormat={}記録のある商品を表示{0}}"
+                                                      ToolTip="選んだ期間に記録のある商品を表示します。">
+                                                <TextBlock Text="{Binding RecordedLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            </CheckBox>
+                                            <CheckBox IsChecked="{Binding ShowUnrecorded, Mode=TwoWay}" Margin="0,3,0,0"
+                                                      AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ShowUnrecorded'}"
+                                                      AutomationProperties.Name="{Binding NameSuffix, StringFormat={}記録の無い商品を表示{0}}"
+                                                      ToolTip="この記録がまだ無い商品も表示します。">
+                                                <TextBlock Text="{Binding UnrecordedLabel}" FontSize="12" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource Text}" />
+                                            </CheckBox>
+                                        </StackPanel>
                                         <Button Content="新しい順に並べる" Command="{Binding SortCommand}" IsEnabled="{Binding CanSort}"
                                                 HorizontalAlignment="Left" Height="28" FontSize="12" Padding="10,0" Margin="0,8,0,0"
                                                 ToolTip="{Binding SortHint}" ToolTipService.ShowOnDisabled="True"

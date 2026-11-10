@@ -105,6 +105,17 @@ internal static partial class Scenes
             return FiltersShot(context.MainWindow());
         }),
 
+        new Scene("search-recent-unrecorded", "検索の絞り込み：最近（表示するもの：記録の無い商品だけ・帯と期間が薄くなる）", async context =>
+        {
+            var search = await StartRecentAsync(context);
+            var recent = (RecentModule)AddModule(search, SearchModuleKind.Recent);
+            recent.Selected = recent.Options.First(option => option.Key == "viewed");
+            recent.ShowUnrecorded = true;
+            recent.ShowRecorded = false;
+            await context.SettleAsync();
+            return FiltersShot(context.MainWindow());
+        }),
+
         new Scene("edit-attributes", "編集画面：属性の欄（1%刻みの値 37%・62%・100%と、並べてあるだけの行）", async context =>
         {
             await context.Seed.Attributes.SaveAsync(new AttributeMaster

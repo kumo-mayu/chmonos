@@ -420,23 +420,37 @@ public sealed class UpdateNoticeCondition(
     }
 }
 
-/// <summary>最近（足跡の日が、何日前から何日前までに入るか）。足跡の無い商品は当たらない。</summary>
+/// <summary>
+/// 最近（足跡の日が、何日前から何日前までに入るか）。商品を「記録のある商品」と「記録の無い商品」に分け、どちらを出すかを選ぶ
+/// （ユーザ判断 2026-11-10・案X。対応アバターの「表示するもの」と同じ作り）。日数の範囲は記録のある商品だけに効く。
+/// </summary>
 /// <param name="high">何日前まで。null はそれより前もすべて。</param>
-public sealed class RecentCondition(RecentKind kind, int low, int? high) : ItemCondition
+/// <param name="showRecorded">記録のある商品（日数が範囲に入る物）を出すか。</param>
+/// <param name="showUnrecorded">記録の無い商品を出すか。</param>
+public sealed class RecentCondition(RecentKind kind, int low, int? high, bool showRecorded = true, bool showUnrecorded = false) : ItemCondition
 {
-    /// <summary>足しただけで絞る（記録の無い商品が外れる）。数の範囲と同じく、足すこと自体が「この記録で選ぶ」という意思表示。</summary>
-    public override bool IsActive => true;
+    /// <summary>
+    /// 両方に印が入って範囲が端から端なら、何も絞らない（「条件をクリア」の後の姿）。
+    /// 記録のある商品だけのときは、範囲が端から端でも記録の無い商品が外れるので絞る（足すこと自体が「この記録で選ぶ」という意思表示）。
+    /// </summary>
+    public override bool IsActive => IsFiltering(low, high, showRecorded, showUnrecorded);
+
+    /// <summary>何か絞っているか。画面の条件（<c>RecentModule</c>）も同じ式で見る。</summary>
+    public static bool IsFiltering(int low, int? high, bool showRecorded, bool showUnrecorded)
+        => !(showRecorded && showUnrecorded && low == 0 && high is null);
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
     {
         if (context.Recent.Of(item.Id, kind) is not { } at)
         {
-            return false;
+            return showUnrecorded;
         }
 
-        var days = DaysAgo(at, context.Now);
-        return days >= low && (high is not { } limit || days <= limit);
+        return showRecorded && InRange(DaysAgo(at, context.Now));
     }
+
+    /// <summary>日数が範囲に入るか（「記録のある商品」の件数を数えるときにも使う）。</summary>
+    public bool InRange(int days) => days >= low && (high is not { } limit || days <= limit);
 
     /// <summary>暦の日で何日前か（今日＝0）。先の時刻（時計のずれ）は今日に数える。</summary>
     public static int DaysAgo(DateTimeOffset at, DateTimeOffset now)

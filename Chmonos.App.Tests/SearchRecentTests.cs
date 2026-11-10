@@ -272,18 +272,185 @@ public class SearchRecentTests
         Assert.Equal(state.Fingerprint, (state with { Period = "all" }).Fingerprint);
     }
 
+    /// <summary>
+    /// 「条件をクリア」で何も絞らない形になる（ユーザ判断 2026-11-10「1-A」・案X）。前は記録のある商品すべてに戻り、
+    /// 記録の無い商品が絞られたまま0件になることがあった。記録の種類と帯の範囲は残す
+    /// </summary>
     [Fact]
-    public void 条件をクリアすると記録のある商品すべてに戻り_種類と帯の範囲は残る()
+    public void 条件をクリアすると両方に印が入り何も絞らない_種類と帯の範囲は残る()
     {
         var module = Viewed(RecentPeriod.Year);
         SetRange(module, 7, 28);
 
         module.Clear();
 
+        Assert.True(module.ShowRecorded);
+        Assert.True(module.ShowUnrecorded);
+        Assert.False(module.IsActive);
+        Assert.Equal("絞っていません", module.CollapsedSummary);
         Assert.Equal("記録あり", module.RangeText);
         Assert.Equal(RecentPeriod.Year, module.Period);
         Assert.Equal("viewed", module.Selected.Key);
+        Assert.Equal([.. DaysAgo.Select(days => days.ToString(System.Globalization.CultureInfo.InvariantCulture)), "なし"], Passing(module));
     }
+
+    [Fact]
+    public void 足したときは記録のある商品だけに印が入る()
+    {
+        var module = Viewed();
+
+        Assert.True(module.ShowRecorded);
+        Assert.False(module.ShowUnrecorded);
+        Assert.DoesNotContain("なし", Passing(module));
+    }
+
+    /// <summary>
+    /// 表示するものの3つの印の付け方と、除くときの表。除くは「除かないときに当てはまる物、以外」のまま。
+    /// 帯と期間は記録のある商品だけに効く（下だけのときは範囲を見ない）
+    /// </summary>
+    [Theory]
+    [InlineData(true, false, 0, 6, false, "0,1,6", "今日〜6日前")]
+    [InlineData(true, true, 0, 6, false, "0,1,6,なし", "今日〜6日前（記録の無い商品も含める）")]
+    [InlineData(false, true, 0, 6, false, "なし", "記録の無い商品だけ")]
+    [InlineData(false, true, 0, null, false, "なし", "記録の無い商品だけ")]
+    [InlineData(true, true, 0, 6, true, "7,8,28,29,30,40,400", "今日〜6日前（記録の無い商品も含める）")]
+    [InlineData(false, true, 0, 6, true, "0,1,6,7,8,28,29,30,40,400", "記録の無い商品だけ")]
+    public void 表示するもので_記録の無い商品を含める_だけにする(bool recorded, bool unrecorded, int low, int? high, bool exclude, string expected, string body)
+    {
+        var module = Viewed();
+        SetRange(module, low, high);
+        module.ShowUnrecorded = unrecorded;
+        module.ShowRecorded = recorded;
+        module.IsExcluded = exclude;
+
+        Assert.True(module.IsActive);
+        Assert.Equal(expected.Split(','), Passing(module));
+        Assert.Equal($"{(exclude ? "除く：" : string.Empty)}最近（商品閲覧） {body}", module.SummaryText);
+    }
+
+    [Fact]
+    public void 記録の無い商品だけのとき_記録の種類を変えると出る商品も変わる()
+    {
+        var module = Viewed();
+        module.ShowUnrecorded = true;
+        module.ShowRecorded = false;
+        Assert.Equal(["なし"], Passing(module));
+
+        // 送った記録は1件も無いので、全部が「記録の無い商品」
+        module.Selected = module.Options.First(option => option.Key == "used");
+        Assert.Equal(Items.Length, Passing(module).Length);
+    }
+
+    [Fact]
+    public void 表示するものの最後の1つは外せない()
+    {
+        var module = Viewed();
+
+        module.ShowRecorded = false;
+        Assert.True(module.ShowRecorded);
+
+        module.ShowUnrecorded = true;
+        module.ShowRecorded = false;
+        module.ShowUnrecorded = false;
+        Assert.True(module.ShowUnrecorded);
+        Assert.False(module.ShowRecorded);
+    }
+
+    [Fact]
+    public void 件数は_範囲に入る記録のある商品と_記録の無い商品()
+    {
+        var module = Viewed();
+        Assert.Equal("記録のある商品", module.RecordedLabel);
+
+        SetRange(module, 0, 6);
+        module.RefreshCounts(Items, Context);
+
+        Assert.Equal("記録のある商品（3）", module.RecordedLabel);
+        Assert.Equal("記録の無い商品（1）", module.UnrecordedLabel);
+    }
+
+    [Fact]
+    public void 状態に表示するものを書き_読み戻すと同じ条件になる()
+    {
+        var module = Viewed();
+        SetRange(module, 0, 6);
+        module.ShowUnrecorded = true;
+
+        var state = module.Save();
+        Assert.True(state.ShowMatched);
+        Assert.True(state.ShowUnspecified);
+
+        // 含めるかどうかで結果が変わるので、指紋も違う
+        Assert.NotEqual(state.Fingerprint, (state with { ShowUnspecified = false }).Fingerprint);
+
+        var open = new RecentModule();
+        open.Load(state);
+        open.SetRecords(Times, Items, Now);
+        Assert.True(open.ShowRecorded);
+        Assert.True(open.ShowUnrecorded);
+        Assert.Equal(["0", "1", "6", "なし"], Passing(open));
+
+        // 外から使う API と同じ判定（Core）でも同じ結果
+        var condition = SearchModuleConditions.From(state)!;
+        Assert.Equal(Passing(open), Items.Where(item => condition.Matches(item, Context))
+            .Select(item => item.Id == NoRecord ? "なし" : (int.Parse(item.Id, System.Globalization.CultureInfo.InvariantCulture) - 9900000).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    /// <summary>
+    /// 前の版が書いた状態（表示するものの欄が無い）は、記録のある商品だけ（前と同じ結果）で読む。
+    /// 両方を切った状態を手で書かれても、記録のある商品を出す側に戻す
+    /// </summary>
+    [Theory]
+    [InlineData("""{"kind":"Recent","choice":"viewed","period":"month","min":"0","max":"6"}""", true, false, "0,1,6")]
+    [InlineData("""{"kind":"Recent","choice":"viewed","period":"month","min":"0","max":"","showMatched":false,"showUnspecified":false}""", true, false, "0,1,6,7,8,28,29,30,40,400")]
+    public void 前の版の状態は記録のある商品だけで読む(string json, bool recorded, bool unrecorded, string expected)
+    {
+        var state = System.Text.Json.JsonSerializer.Deserialize<SearchModuleState>(json, Chmonos.Core.Storage.JsonStore.Options)!;
+
+        var module = new RecentModule();
+        module.Load(state);
+        module.SetRecords(Times, Items, Now);
+
+        Assert.Equal(recorded, module.ShowRecorded);
+        Assert.Equal(unrecorded, module.ShowUnrecorded);
+        Assert.True(module.IsActive);
+        Assert.Equal(expected.Split(','), Passing(module));
+
+        var condition = SearchModuleConditions.From(state)!;
+        Assert.DoesNotContain(Items.Single(item => item.Id == NoRecord), Items.Where(item => condition.Matches(item, Context)));
+    }
+
+    /// <summary>
+    /// 検索の画面で「条件をクリア」すると、記録の無い商品も出る（ユーザ指摘 2026-11-10：Unity送信・一か月の条件があると、クリアしても0件のままだった）。
+    /// クリアした後も、足跡を読んで件数を数える（読まないと記録のある商品が0件に見える）
+    /// </summary>
+    [Fact]
+    public Task 検索で条件をクリアすると_記録の無い商品も出て_件数も正しい() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900651", "作り物 送った"));
+        await app.AddItemAsync(Make.Item("9900652", "作り物 送っていない甲"));
+        await app.AddItemAsync(Make.Item("9900653", "作り物 送っていない乙"));
+        await app.Services.Recent.TouchAsync("9900651", RecentKind.Used, Now.AddDays(-2));
+        var main = await app.StartAsync();
+        var search = main.Search;
+        search.Clock = () => Now;
+
+        var recent = (RecentModule)SearchModules.Add(search, SearchModuleKind.Recent);
+        SetRange(recent, 0, 0);
+        await UiThread.Until(() => search.ResultSummary == "0 件", "今日に送った商品は無い");
+
+        search.ClearFiltersCommand.Execute(null);
+        await UiThread.Until(() => search.ResultSummary == "3 件", "クリアで全部出る");
+
+        Assert.False(recent.IsActive);
+        Assert.Equal("記録のある商品（1）", recent.RecordedLabel);
+        Assert.Equal("記録の無い商品（2）", recent.UnrecordedLabel);
+
+        // 記録の無い商品だけにすると、一度も送っていない商品を探せる
+        recent.ShowRecorded = false;
+        await UiThread.Until(() => search.ResultSummary == "2 件", "送っていない商品だけ");
+        Assert.Equal("最近（Unity送信） 記録の無い商品だけ", search.FilterSummary);
+    });
 
     [Fact]
     public void 上下のつまみは越えられない()
