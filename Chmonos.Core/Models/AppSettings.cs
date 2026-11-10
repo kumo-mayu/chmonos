@@ -289,8 +289,21 @@ public sealed record AppSettings
     /// </summary>
     public int DelistedRecheckDays { get; init; } = 30;
 
-    /// <summary>要確認の履歴を残す件数。超えたら古い既読から捨てる。</summary>
+    /// <summary>要確認の履歴を残す件数。超えたら古い既読・解消済みを保管庫へ移す（保管の容量が 0 なら捨てる）。</summary>
     public int NotificationRetentionCount { get; init; } = 200;
+
+    /// <summary>
+    /// 通知の保管に使う容量（MB。ユーザ判断 2026-11-10：既定 50・上限なし・0 なら保管しない）。
+    /// 消すのはアプリを閉じるときだけで、超えていれば古い月から丸ごと消す（<see cref="Storage.NotificationArchive.TrimAsync"/>）。
+    /// </summary>
+    public int NotificationArchiveMegabytes { get; init; } = 50;
+
+    /// <summary>
+    /// 保管の容量をバイトで。**手で負の数を書かれたら null**（読めない値）。画面の欄は負の数を断るが、JSON は手で直せる。
+    /// 0 に寄せると「閉じるときに全部消す」になるので、壊さない側（保管はする・閉じるときは消さない）に倒す。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long? NotificationArchiveBytes => NotificationArchiveMegabytes < 0 ? null : (long)NotificationArchiveMegabytes * 1024 * 1024;
 
     /// <summary>
     /// 検索の履歴を残す件数。

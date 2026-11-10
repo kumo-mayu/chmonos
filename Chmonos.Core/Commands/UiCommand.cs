@@ -624,6 +624,12 @@ public abstract record UiCommand
     public record DeleteFormatBackups : UiCommand;
 
     /// <summary>
+    /// 通知の保管庫が設定の容量を超えていたら、古い月から丸ごと消す（ユーザ判断 2026-11-10）。
+    /// **アプリを閉じるときに1回だけ送る**（人の操作ではないが、保存先に書く操作なので命令を通す。動画のタイトルの整理と同じ）。
+    /// </summary>
+    public record TrimNotificationArchive : UiCommand;
+
+    /// <summary>
     /// 外から使う API の設定（api-settings.json）を変える（設定の「API」・2026-10-12）。設定と同じく変え方を関数で渡し、
     /// ディスクの今の値に錠の中で当てる（手でファイルを書き換えていても、画面が触っていない項目を古い値で消さない）。
     /// </summary>

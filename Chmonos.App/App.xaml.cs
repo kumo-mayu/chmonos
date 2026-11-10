@@ -790,7 +790,42 @@ public partial class App : Application
             Core.Diagnostics.AppLog.Warn("閉じるときの API の停止", "5秒待っても止まらなかったので諦めた");
         }
 
+        TrimNotificationArchive();
+
         _services?.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// 通知の保管庫が容量を超えていたら古い月から消す（ユーザ判断 2026-11-10：消すのは閉じるときだけ）。
+    /// 錠を持つアプリだけが行う（同じ保存先を開いた2つ目が、使っている最中の保管庫を消さない）。
+    /// 引越しの後は門が開かないので行わない（次に正しく閉じたときに、合計で見て消す）。
+    /// 消すのはファイルを数個なので普通は一瞬。門が閉じている（バックアップ中など）ときに閉じる操作を長く止めないよう、3秒で諦める。
+    /// </summary>
+    private void TrimNotificationArchive()
+    {
+        if (_services is not { IsSingleInstance: true } services || Core.Storage.StoreWriteGate.IsClosedForRestart)
+        {
+            return;
+        }
+
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
+        {
+            if (!Task.Run(() => services.Commands.ExecuteAsync(new Core.Commands.UiCommand.TrimNotificationArchive(), cancellationToken: limit.Token))
+                .Wait(TimeSpan.FromSeconds(4)))
+            {
+                Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "4秒待っても終わらなかったので諦めた");
+            }
+        }
+        catch (AggregateException exception) when (exception.InnerException is OperationCanceledException)
+        {
+            Core.Diagnostics.AppLog.Warn("閉じるときの通知の保管庫の整理", "3秒待っても書き込みの門が開かなかったので諦めた");
+        }
+        catch (Exception exception)
+        {
+            // 閉じる道なので、何が起きても後の片付け（サービスの破棄）を飛ばさない。消せなかった分は次に閉じるときに消える
+            Core.Diagnostics.AppLog.Error("閉じるときの通知の保管庫の整理", exception);
+        }
     }
 }

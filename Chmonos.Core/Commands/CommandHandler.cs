@@ -1030,6 +1030,25 @@ public sealed class CommandHandler
                     return new CommandResult.Failed($"バックアップを書き出せませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
+            case UiCommand.TrimNotificationArchive:
+                try
+                {
+                    var trimmed = await (_notifications ?? throw new InvalidOperationException("通知の保存先が渡されていません。"))
+                        .TrimArchiveAsync(cancellationToken);
+                    if (trimmed > 0)
+                    {
+                        Diagnostics.AppLog.Note("通知の保管", $"容量を超えたので、古い月のファイルを {trimmed} 個消しました。");
+                    }
+
+                    return new CommandResult.Done();
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // 消せなかった分は、次に閉じるときにまた消す（合計で見るので取りこぼさない）
+                    Diagnostics.AppLog.Error("通知の保管庫の整理", exception);
+                    return new CommandResult.Failed($"通知の保管庫を整理できませんでした。{Services.FailureText.Cause(exception)}");
+                }
+
             case UiCommand.DeleteFormatBackups:
                 if (_storeRoot is null)
                 {

@@ -55,6 +55,11 @@ public sealed class AppPaths
 
     public string NotificationsFile => Path.Combine(Root, "notifications.json");
 
+    /// <summary>通知に残す件数を超えた古い既読・解消済みの保管庫（月ごとの <c>yyyy-MM.jsonl.gz</c>。<see cref="Storage.NotificationArchive"/>）。</summary>
+    public const string NotificationArchiveDirName = NotificationArchive.DirName;
+
+    public string NotificationArchiveDir => Path.Combine(Root, NotificationArchiveDirName);
+
     /// <summary>検索の履歴。人が読めるので、要らない行を手で消せる</summary>
     public string SearchHistoryFile => Path.Combine(Root, "search-history.json");
 
