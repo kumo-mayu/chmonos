@@ -165,7 +165,11 @@ internal static class ItemFileActions
     /// zip を一時フォルダへ展開してエクスプローラで開く（#56）。unitypackage でない配布物（テクスチャ等）を Unity に入れるため。
     /// アプリを閉じると消す
     /// </summary>
-    public static async Task UnpackAndOpenAsync(AppServiceContainer services, string zip)
+    /// <param name="tell">
+    /// 失敗の言い先。押した行のある画面（商品ページのファイルの欄）はその下へ出す（ui-empty-and-errors.md「知らせの置き場」）。
+    /// 行を持たないカードの右クリックは渡さず、窓で言う
+    /// </param>
+    public static async Task UnpackAndOpenAsync(AppServiceContainer services, string zip, NoticeSink? tell = null)
     {
         // 展開の途中の2度押しは弾く（大容量の確かめ #3・2026-09-30。要確認の「商品情報を取り直す」と同じ守り・40b3863）。
         // 1本目が終われば開くので、2本目まで通すとエクスプローラが2つ開く。
@@ -227,6 +231,12 @@ internal static class ItemFileActions
         }
         else if (result is CommandResult.Failed failed)
         {
+            if (tell is not null)
+            {
+                tell(failed.Message, failed: true);
+                return;
+            }
+
             Services.Notice.Show(failed.Message, "一時的に展開して開く",
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         }

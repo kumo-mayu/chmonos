@@ -235,7 +235,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>IDのコピー・IDを変えるの結果（IDの行の下）。</summary>
     public AreaNotice IdNotice { get; } = new();
 
-    /// <summary>外したファイルを戻すの失敗（ファイルの欄の下）。</summary>
+    /// <summary>外したファイルを戻す・一時的に展開して開くの失敗（ファイルの欄の下）。</summary>
     public AreaNotice FilesNotice { get; } = new();
 
     /// <summary>共通素体を足す・対応アバターの保存の失敗（対応アバターの欄の下）。</summary>
@@ -246,6 +246,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     /// <summary>「検索から除く」の保存の失敗（そのチェックの下）。</summary>
     public AreaNotice VisibilityNotice { get; } = new();
+
+    /// <summary>変わったところの帯の「既読にする」の失敗（帯の下）。</summary>
+    public AreaNotice ChangesNotice { get; } = new();
 
     private async Task RefreshAsync()
     {

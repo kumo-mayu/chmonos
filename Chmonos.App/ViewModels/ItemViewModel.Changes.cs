@@ -291,10 +291,25 @@ public sealed partial class ItemViewModel
         try
         {
             // 要確認の画面の「この束を既読にする」と同じ命令。保存を待ってから数え直す（待たずに数えるとナビの数が1つ古いまま残った）
-            if (await _services.Commands.ExecuteAsync(new UiCommand.MarkNotificationsRead(ids)) is CommandResult.Failed failed)
+            // 失敗は押した帯のすぐ下に出す（ui-empty-and-errors.md「知らせの置き場」。前は窓だった）
+            // 書けなかったとき（知らせのファイルを外のアプリが掴んでいる・読み取り専用）は命令が例外で返るので、ここで受けて同じ所に出す。
+            // 受けないと画面全体の「問題が起きました」の窓になり、どの操作の話か分からない
+            ChangesNotice.Clear();
+            CommandResult result;
+            try
             {
-                Services.Notice.Show(failed.Message, "既読にする",
-                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                result = await _services.Commands.ExecuteAsync(new UiCommand.MarkNotificationsRead(ids));
+            }
+            catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
+            {
+                Core.Diagnostics.AppLog.Error("更新の知らせを既読にする", exception);
+                ChangesNotice.Warn("既読にできませんでした。" + Core.Services.FailureText.Cause(exception));
+                return;
+            }
+
+            if (result is CommandResult.Failed failed)
+            {
+                ChangesNotice.Warn(failed.Message);
                 return;
             }
 

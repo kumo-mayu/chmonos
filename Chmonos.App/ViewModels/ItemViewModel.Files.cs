@@ -484,8 +484,9 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        // 展開して開く処理はカードの右クリックと共用（ItemFileActions）
-        await ItemFileActions.UnpackAndOpenAsync(_services, zip);
+        // 展開して開く処理はカードの右クリックと共用（ItemFileActions）。失敗は押した行のあるファイルの欄の下へ
+        FilesNotice.Clear();
+        await ItemFileActions.UnpackAndOpenAsync(_services, zip, (text, failed) => FilesNotice.Set(text, failed));
     }
 
     /// <summary>
