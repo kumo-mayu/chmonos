@@ -1,5 +1,3 @@
-using Chmonos.Core.Services;
-
 namespace Chmonos.Core.Models;
 
 /// <summary>参照の種類。<see cref="LocalReferences"/> の表の列。</summary>
@@ -310,7 +308,7 @@ public static class LocalReferences
         var targets = new List<ConversionTarget>();
         foreach (var target in setting.Targets.Select(change).OfType<ConversionTarget>())
         {
-            if (!targets.Any(kept => ConversionEdits.IsSameRow(kept, target)))
+            if (!targets.Any(kept => ConversionTarget.SameRow(kept, target)))
             {
                 targets.Add(target);
             }

@@ -43,7 +43,7 @@ public static class ConversionEdits
         return current =>
         {
             var targets = (current?.Targets ?? [])
-                .Where(target => !IsSameRow(target, chosen)
+                .Where(target => !ConversionTarget.SameRow(target, chosen)
                     && (slug is null || !SameText(target.Slug, slug) || target.Rejected))
                 .Append(chosen)
                 .ToList();
@@ -71,7 +71,7 @@ public static class ConversionEdits
             var next = current.Targets
                 .Select(candidate =>
                 {
-                    if (candidate.Confirmed || candidate.Rejected || !targets.Any(target => IsSameRow(candidate, target)))
+                    if (candidate.Confirmed || candidate.Rejected || !targets.Any(target => ConversionTarget.SameRow(candidate, target)))
                     {
                         return candidate;
                     }
@@ -103,29 +103,18 @@ public static class ConversionEdits
 
     private static ConversionSetting? Map(ConversionSetting? current, ConversionTarget target, Func<ConversionTarget, ConversionTarget> change)
     {
-        if (current is null || !current.Targets.Any(candidate => IsSameRow(candidate, target)))
+        if (current is null || !current.Targets.Any(candidate => ConversionTarget.SameRow(candidate, target)))
         {
             return current;
         }
 
         return current with
         {
-            Targets = current.Targets.Select(candidate => IsSameRow(candidate, target) ? change(candidate) : candidate).ToList(),
+            Targets = current.Targets.Select(candidate => ConversionTarget.SameRow(candidate, target) ? change(candidate) : candidate).ToList(),
         };
     }
 
-    /// <summary>
-    /// 画面に出した行と、今の値の行が同じ物か。確認済みかと向きは比べない（確かめる・向きを変える操作は、その2つを変えるため）。
-    /// </summary>
-    public static bool IsSameRow(ConversionTarget a, ConversionTarget b)
-        => SamePlace(a, b) && SameText(a.Slug, b.Slug);
-
-    private static bool SamePlace(ConversionTarget a, ConversionTarget b)
-        => string.Equals(a.AvatarItemId, b.AvatarItemId, StringComparison.Ordinal)
-            && SameText(a.BaseName, b.BaseName);
-
-    private static bool SameText(string? a, string? b)
-        => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    private static bool SameText(string? a, string? b) => ConversionTarget.SameText(a, b);
 
     private static ConversionSetting? Normalize(ConversionSetting setting)
         => setting.IsDefault ? null : setting;

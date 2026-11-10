@@ -177,7 +177,7 @@ public sealed class ItemConversionEditor : ViewModelBase
             => target.Slug is { } slug
                 && suggestions.TryGetValue(slug, out var suggestion)
                 && suggestion.Target is { } suggested
-                && ConversionEdits.IsSameRow(suggested, target)
+                && ConversionTarget.SameRow(suggested, target)
                     ? "推した理由：" + CluesText(suggestion.Clues, names)
                     : string.Empty;
 
@@ -200,7 +200,7 @@ public sealed class ItemConversionEditor : ViewModelBase
                 return "推していません：推す元になる情報がありません";
             }
 
-            var rejected = (setting?.Targets ?? []).Any(target => target.Rejected && ConversionEdits.IsSameRow(target, suggested));
+            var rejected = (setting?.Targets ?? []).Any(target => target.Rejected && ConversionTarget.SameRow(target, suggested));
             return rejected
                 ? $"外したつなぎ先：{TargetName(suggested)}・推した理由：{CluesText(suggestion.Clues, names)}"
                 : $"推せるつなぎ先：{TargetName(suggested)}・理由：{CluesText(suggestion.Clues, names)}";

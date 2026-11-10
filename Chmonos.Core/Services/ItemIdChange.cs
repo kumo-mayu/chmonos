@@ -449,7 +449,7 @@ public static class ItemIdChange
 
     /// <summary>
     /// 変換扱いを合わせる。扱い（自動・プロファイル・扱わない）は、移した先が決めていればそちら、自動のままなら移す元の物。
-    /// つなぎ先は移した先の行を先に、移す元の行のうち同じ行（<see cref="ConversionEdits.IsSameRow"/>）が無い物を足す（同じ行は移した先の確認・外した印を残す）。
+    /// つなぎ先は移した先の行を先に、移す元の行のうち同じ行（<see cref="ConversionTarget.SameRow"/>）が無い物を足す（同じ行は移した先の確認・外した印を残す）。
     /// 移す元が自分自身をつなぎ先にしていた行（カテゴリが「3Dキャラクター」の商品の推し方）は、移した先を指すように直す
     /// </summary>
     private static ConversionSetting? MergeConversion(ConversionSetting? source, ConversionSetting? target, string fromId, string toId)
@@ -465,7 +465,7 @@ public static class ItemIdChange
         var rows = (target?.Targets ?? []).ToList();
         foreach (var row in moved)
         {
-            if (!rows.Any(kept => ConversionEdits.IsSameRow(kept, row)))
+            if (!rows.Any(kept => ConversionTarget.SameRow(kept, row)))
             {
                 rows.Add(row);
             }

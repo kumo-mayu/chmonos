@@ -298,7 +298,7 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
         var suggested = suggestions
             .Where(suggestion => suggestion.Target is { } target
                 && !confirmedSlugs.Contains(suggestion.Profile.Slug)
-                && !rejected.Any(gone => ConversionEdits.IsSameRow(gone, target)))
+                && !rejected.Any(gone => ConversionTarget.SameRow(gone, target)))
             .Select(suggestion => suggestion.Target!)
             .ToList();
 

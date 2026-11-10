@@ -75,4 +75,17 @@ public sealed record ConversionTarget
     /// <summary>つなぎ先が無い（アバターも素体も持たない）。</summary>
     [JsonIgnore]
     public bool IsEmpty => string.IsNullOrWhiteSpace(AvatarItemId) && string.IsNullOrWhiteSpace(BaseName);
+
+    /// <summary>
+    /// 画面に出した行と、今の値の行が同じ物か。確認済みかと向きは比べない（確かめる・向きを変える操作は、その2つを変えるため）。
+    /// データの形の側に置く：別の物を指す欄の表（<see cref="LocalReferences"/>）も使うので、前のようにサービスの側に置くと、データの形がサービスを呼ぶ向きになる
+    /// </summary>
+    public static bool SameRow(ConversionTarget a, ConversionTarget b)
+        => string.Equals(a.AvatarItemId, b.AvatarItemId, StringComparison.Ordinal)
+            && SameText(a.BaseName, b.BaseName)
+            && SameText(a.Slug, b.Slug);
+
+    /// <summary>素体の名前と中のプロファイルの名前は、大文字小文字を区別せずに比べる（手で書いた JSON の揺れを同じ行として扱う）。</summary>
+    internal static bool SameText(string? a, string? b)
+        => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }
