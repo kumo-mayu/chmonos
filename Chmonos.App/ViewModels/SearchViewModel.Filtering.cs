@@ -370,9 +370,10 @@ public sealed partial class SearchViewModel
     ///
     /// 積んでいなければ読まない。関係の無い検索でファイルを開く理由が無い。
     /// 積んでいれば、絞っていない間（「条件をクリア」の後の両方に印）も読む——「記録のある商品（n）」「記録の無い商品（n）」の件数に要る。
-    /// 読まないと、記録のある商品が0件・記録の無い商品が全件と数えてしまう。
+    /// 読まないと、記録のある商品が0件・記録の無い商品が全件と数えてしまう。左のチェックを外した間も、件数と帯は出ているので読む
+    /// （帯は <see cref="RefreshRecentModules"/> がどのみち足跡を読むので、重さは変わらない）。
     /// </summary>
-    private bool NeedsRecent() => Modules.Any(module => module is RecentModule { IsEnabled: true, HasDisabledReason: false });
+    private bool NeedsRecent() => Modules.Any(module => module is RecentModule);
 
     /// <summary>足跡を1回だけ読んで3種類に分ける（前は種類ごとに読み直していた）。</summary>
     private RecentTimes LoadRecentTimes() => _services.Recent.AllTimes();

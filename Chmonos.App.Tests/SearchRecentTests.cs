@@ -450,6 +450,12 @@ public class SearchRecentTests
         recent.ShowRecorded = false;
         await UiThread.Until(() => search.ResultSummary == "2 件", "送っていない商品だけ");
         Assert.Equal("最近（Unity送信） 記録の無い商品だけ", search.FilterSummary);
+
+        // 左のチェックを外して効かせない間も、件数は足跡から数える
+        recent.IsEnabled = false;
+        await UiThread.Until(() => search.ResultSummary == "3 件", "効かせないと全部出る");
+        Assert.Equal("記録のある商品（1）", recent.RecordedLabel);
+        Assert.Equal("記録の無い商品（2）", recent.UnrecordedLabel);
     });
 
     [Fact]
