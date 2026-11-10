@@ -115,6 +115,23 @@ public class CardMenuStateTests
     });
 
     [Fact]
+    public Task 単体のunitypackageだけの商品は_Unityの項目が押せ_見つからなければ押せない() => TestApp.Run(async app =>
+    {
+        // unity.md・ユーザ判断 2026-10-07：zip に入っていない unitypackage もそのまま送れる。前はカードだけ zip の中身の一覧を見ていて押せなかった
+        await app.AddItemAsync(Make.Item("9900608", "作り物の衣装G").WithFiles(Make.File(@"D:\files\g.unitypackage")));
+        await app.AddItemAsync(Make.Item("9900609", "作り物の衣装H").WithFiles(Make.File(@"D:\files\h.unitypackage") with { MissingSince = DateTimeOffset.Now }));
+        var main = await app.StartAsync();
+        var present = main.Search.ListItems.Single(card => card.Item.Id == "9900608");
+        var missing = main.Search.ListItems.Single(card => card.Item.Id == "9900609");
+
+        foreach (var key in NeedPackage.Append("UnityParent"))
+        {
+            Assert.True(CardMenuState.IsEnabled(key, present), key);
+            Assert.False(CardMenuState.IsEnabled(key, missing), key);
+        }
+    });
+
+    [Fact]
     public Task unitypackageの無いzipだけの商品は_Unityの項目を押せず理由を言う() => TestApp.Run(async app =>
     {
         await app.AddItemAsync(Make.Item("9900603", "作り物のテクスチャ"));

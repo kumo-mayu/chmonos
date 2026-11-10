@@ -163,7 +163,7 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
         var hashes = (local.LocalFiles ?? [])
             .Where(file => !file.Detached
                 && !file.IsOldVersion
-                && (file.Paths.Count == 0 || file.MissingSince is not null)
+                && file.IsRecordedMissing
                 && (file.Paths.Count == 0 || probe.Of(file) == FilePresence.Missing))
             .Select(file => file.Hash)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -179,7 +179,7 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
     {
         var keptFiles = (local.LocalFiles ?? [])
             .Where(file => !(targets.Hashes.Contains(file.Hash) && !file.Detached && !file.IsOldVersion
-                && (file.Paths.Count == 0 || file.MissingSince is not null)))
+                && file.IsRecordedMissing))
             .ToList();
         var keptFolders = (local.LocalFolders ?? [])
             .Where(folder => !(targets.Folders.Contains(folder.Path) && folder.MissingSince is not null))

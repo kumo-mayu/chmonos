@@ -430,6 +430,51 @@ public static class UnityHandoff
             .Take(MaxPackages)
             .ToList();
 
+    /// <summary>
+    /// 商品が Unity へ送れる unitypackage を1つ以上持つか。**記録だけで決め、ディスクを見ない**
+    /// （カードの右クリックは開くたびに引き直し、検索の <c>hasUnityPackage</c> は全商品に当てる。大きなフォルダや HDD で待たせない）。
+    /// 送る本体（<see cref="PlacesOf(Models.LocalFileRecord)"/>）が送る物と同じ種類を数える：単体の unitypackage・zip の中の物・登録したフォルダの中の物。
+    /// 見つからないと記録された物は除く（押しても「無い」と言うだけになる）。
+    /// 前はカードと Query が別々に書いていて、カードは単体の unitypackage を数えず（送れるのに押せない）、Query は zip の中身の一覧を見なかった。
+    /// </summary>
+    public static bool HasRecordedPackage(Models.ItemRecord item)
+        => item.Local.OwnedFiles.Any(file => !file.IsRecordedMissing && (IsStandalonePackage(file) || RecordedPackagesIn(file).Count > 0))
+            || item.Local.LocalFolders.Any(folder => folder.MissingSince is null && (folder.UnityPackages ?? []).Count > 0);
+
+    /// <summary>
+    /// zip に入っていない unitypackage そのものの記録か（ユーザ判断 2026-10-07。そのファイルがそのまま送る物）。
+    /// 場所はどれも同じ中身（同じハッシュ）なので1つ目で見る。
+    /// </summary>
+    public static bool IsStandalonePackage(Models.LocalFileRecord file)
+        => file.Paths is [var path, ..] && path.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 記録から分かる、zip の中の unitypackage と入る先（zip でない物は空）。ディスクを見ない。
+    /// 中身の一覧（<see cref="Models.LocalFileRecord.Contents"/>）を正にして zip の中の順に並べ、要約に載っている物は入る先を添える。
+    /// 要約は取り込みの裏で後から書くので、まだ無い物（入る先は空）も中身の一覧から出す——そうしないと、送れるのに一覧に出ない間ができる。
+    /// 中身の一覧が無い古い記録は要約をそのまま使う。
+    /// </summary>
+    public static IReadOnlyList<Models.UnityPackageSummary> RecordedPackagesIn(Models.LocalFileRecord file)
+    {
+        // 送る本体も zip でない物の中は見ない（PlacesOf）。.7z などの中身の一覧に unitypackage があっても送れない
+        if (file.Paths is not [var path, ..] || !path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        var summaries = file.UnityPackages ?? [];
+        var entries = PackageEntriesIn(file);
+        if (entries.Count == 0)
+        {
+            return summaries;
+        }
+
+        var byEntry = summaries
+            .GroupBy(summary => summary.Entry, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        return entries.Select(entry => byEntry.GetValueOrDefault(entry) ?? new Models.UnityPackageSummary { Entry = entry }).ToList();
+    }
+
     private static void Remember((string Zip, string Entry) key, FileInfo? zip, IReadOnlyList<UnityPackageAsset> assets)
     {
         if (zip is not { Exists: true } || assets.Count == 0)

@@ -334,6 +334,15 @@ public sealed record LocalFileRecord
     public bool IsOldVersion => Replaced is not null && Paths.Count == 0;
 
     /// <summary>
+    /// 記録の上で「見つからない」か：場所が空か、見つからなくなった日時が付いている。**記録だけで決め、ディスクは見ない。**
+    /// つながっていないドライブの上の物は日時が付かない（無くなったのではなく、今は見えないだけ）ので数えない。
+    /// 古い版（<see cref="IsOldVersion"/>）も場所が空なので true になる——呼ぶ側が先に外したファイル・古い版を除く
+    /// （<see cref="LocalBlock.OwnedFiles"/> など）。カードの札・メニュー・掃除・Query で同じ式を写していたので1つにした。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsRecordedMissing => Paths.Count == 0 || MissingSince is not null;
+
+    /// <summary>
     /// 場所ごとの、そのファイルが載っているディスク（場所 → ボリュームの通し番号。2026-10-05・点検の3・ユーザ判断 3-A）。
     /// 読み方・書き足し方は <see cref="Services.PlaceVolumes"/>。分からない場所（ネットワークの共有など）は載らず、無ければ書き出さない。
     /// </summary>

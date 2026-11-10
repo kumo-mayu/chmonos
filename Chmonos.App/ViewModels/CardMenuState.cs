@@ -43,39 +43,18 @@ internal static class CardMenuState
     internal static bool HasFiles(ItemCardViewModel card)
         => card.Item.IsOwned;
 
-    /// <summary>
-    /// 記録の上で「見つからない」ファイルか（場所が空か、見つからなくなった日時が付いている）。
-    ///
-    /// **ここで自分で決める**（`ItemRecord.HasMissingFile` を使わない）：あちらは「1つでも無いか」で、カードの札・検索の条件・統計が同じ数になるよう
-    /// 数え方が変わり得る。ここが知りたいのは「在る物が1つも無いか」で、問いが違う。
-    /// **記録だけで決め、ディスクは見ない**（メニューは開くたびに引き直す）。つながっていないドライブの上の物は日時が付かない
-    /// （無くなったのではなく、今は見えないだけ）ので「見つからない」に数えず、今までどおり押せる——押せば「取り外しているドライブ」と言う
-    /// </summary>
-    internal static bool IsMissing(LocalFileRecord file) => file.Paths.Count == 0 || file.MissingSince is not null;
-
-    /// <summary>記録の上で「見つからない」フォルダか（取り込みか見回りが無いと見た日時が付いている）。</summary>
-    internal static bool IsMissing(LocalFolderRecord folder) => folder.MissingSince is not null;
-
-    /// <summary>
-    /// 持っているファイル・フォルダが**全部**見つからないか（ユーザ判断 2026-10-05・メモ65-①）。1つでも在れば false。
-    /// 持っていない商品も false（そちらは「手元にファイルがありません」で言う）。
-    /// </summary>
-    internal static bool AllMissing(ItemRecord item)
-        => item.IsOwned
-            && item.Local.OwnedFiles.All(IsMissing)
-            && item.Local.LocalFolders.All(IsMissing);
+    // 「見つからない」は記録だけで決め、ディスクは見ない（メニューは開くたびに引き直す）。1ファイルの式は LocalFileRecord.IsRecordedMissing、
+    // 全部見つからないか（ユーザ判断 2026-10-05・メモ65-①）は ItemRecord.HasAllFilesMissing（カードの札と同じ答え）。
+    // つながっていないドライブの上の物は日時が付かないので「見つからない」に数えず、今までどおり押せる——押せば「取り外しているドライブ」と言う
 
     /// <summary>見つからないと記録されていない、外していないファイル（展開に使える zip）があるか。</summary>
-    private static bool HasPresentFile(ItemRecord item) => item.Local.OwnedFiles.Any(file => !IsMissing(file));
+    private static bool HasPresentFile(ItemRecord item) => item.Local.OwnedFiles.Any(file => !file.IsRecordedMissing);
 
     /// <summary>
-    /// Unity へ送れる unitypackage を、見つからないと記録されていない zip かフォルダに持っているか（メモ65-③）。
-    /// zip は中身の一覧（`contents`）、フォルダは数えたときの一覧（`unityPackages`）で見る。どちらも記録で、ディスクを見ない
-    /// （フォルダの中を開くたびに並べると、大きなフォルダや HDD でメニューが待たされる）。
+    /// Unity へ送れる unitypackage を、見つからないと記録されていない所に持っているか（メモ65-③）。
+    /// 単体の unitypackage も送れる（unity.md・ユーザ判断 2026-10-07）。数え方は Query の <c>hasUnityPackage</c> と同じ1つ（<see cref="UnityHandoff.HasRecordedPackage"/>）。
     /// </summary>
-    internal static bool HasSendablePackage(ItemRecord item)
-        => item.Local.OwnedFiles.Any(file => !IsMissing(file) && UnityHandoff.PackageEntriesIn(file).Count > 0)
-            || item.Local.LocalFolders.Any(folder => !IsMissing(folder) && (folder.UnityPackages ?? []).Count > 0);
+    internal static bool HasSendablePackage(ItemRecord item) => UnityHandoff.HasRecordedPackage(item);
 
     private static bool NeedsFiles(string key)
         => key is "Reveal" or "Unpack" or "SendToUnity" or "SendToUnityWithRecord" or "SelectInUnity";
@@ -98,9 +77,9 @@ internal static class CardMenuState
     /// （メニューを開くたびにフォルダの中を並べると、大きなフォルダや HDD で待たされる）。
     /// </summary>
     internal static bool HasSelectableImage(ItemRecord item)
-        => item.Local.OwnedFiles.Any(file => !IsMissing(file)
+        => item.Local.OwnedFiles.Any(file => !file.IsRecordedMissing
                 && (file.Paths.Any(UnityProjectImages.IsImage) || file.Contents.Any(UnityProjectImages.IsImage)))
-            || item.Local.LocalFolders.Any(folder => !IsMissing(folder));
+            || item.Local.LocalFolders.Any(folder => folder.MissingSince is null);
 
     /// <summary>
     /// 子を持つ親の項目（「開く ▸」「Unity ▸」）と、その子。**子が全部押せないときは、親も押せなくして理由を言う**
@@ -131,7 +110,7 @@ internal static class CardMenuState
             _ when NeedsArchive(key) => card is not null && HasPresentFile(card.Item),
             "SelectInUnity" => card is not null && (HasSendablePackage(card.Item) || HasSelectableImage(card.Item)),
             _ when NeedsPackage(key) => card is not null && HasSendablePackage(card.Item),
-            _ when NeedsFiles(key) => card is not null && HasFiles(card) && !AllMissing(card.Item),
+            _ when NeedsFiles(key) => card is not null && HasFiles(card) && !card.Item.HasAllFilesMissing,
             // 選ぶ箱を持つのはカードそのものだけ（行の一覧は選びを持たない）
             "Select" => target is ItemCardViewModel,
             "ShowUpdate" => target is ItemCardViewModel { HasUpdate: true, ShowUpdateCommand: not null },
@@ -192,7 +171,7 @@ internal static class CardMenuState
                 ? "未読の更新の通知はありません"
                 : "この画面では使えません",
             _ when NeedsFiles(key) && !HasFiles(card) => NoFilesTip,
-            _ when NeedsFiles(key) && AllMissing(card.Item) => AllMissingTip,
+            _ when NeedsFiles(key) && card.Item.HasAllFilesMissing => AllMissingTip,
             // zip を持っているのに全部見つからない（フォルダは在る）商品と、そもそも zip を持たない商品を言い分ける（ユーザ判断 2026-10-05）
             _ when NeedsArchive(key) => card.Item.Local.OwnedFiles.Count > 0 ? ArchiveMissingTip : NoArchiveTip,
             "SelectInUnity" => NoPackageOrImageTip,
