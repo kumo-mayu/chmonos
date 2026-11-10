@@ -23,6 +23,13 @@ public sealed class NotificationRow : ViewModelBase
     public bool HasItem => !string.IsNullOrEmpty(Record.ItemId);
 
     /// <summary>
+    /// 保管した通知の行か（ユーザ案 2026-11-10：読むだけ）。既読の丸と行のボタンを出さず、読んだ行の薄さも掛けない
+    /// （保管した物は全部が既読か解消済みなので、薄くしても何も見分けられない）。
+    /// 束に分けずに新しい順に並べるので、何が起きた知らせかを日時の前に種類（<see cref="KindText"/>）で言う
+    /// </summary>
+    public bool IsArchived { get; init; }
+
+    /// <summary>
     /// 行の頭の商品の絵（ユーザ指示 2026-10-06「通知画面にもアイコンが必要だろう」）。商品を指さない知らせは null で、絵の列ごと出さない
     /// （束は種類ごとなので、同じ束の中で頭がずれることはない。種類の絵を置いても束の見出しと同じことを言うだけ）。
     /// </summary>
@@ -360,7 +367,8 @@ public sealed class InboxViewModel : ViewModelBase
         set => SetField(ref _focusLine, value);
     }
 
-    public InboxViewModel(AppServiceContainer services, MainViewModel main, string? focusItemId = null)
+    /// <param name="archive">保管した通知の見方で開く（戻る・進むで開き直すとき）。月と「商品名で絞る」の中身を持つ。</param>
+    public InboxViewModel(AppServiceContainer services, MainViewModel main, string? focusItemId = null, (string? Month, string? NameFilter)? archive = null)
     {
         _services = services;
         _main = main;
@@ -371,9 +379,46 @@ public sealed class InboxViewModel : ViewModelBase
 
         MarkAllReadCommand = new RelayCommand(() => MarkAllReadAsync().Forget(), () => UnreadCount > 0);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
+        ShowArchiveCommand = new RelayCommand(() => ShowArchive());
+        LeaveArchiveCommand = new RelayCommand(LeaveArchive);
 
         ReloadAsync().Forget();
+        if (archive is { } open)
+        {
+            ShowArchive(open.Month, open.NameFilter);
+        }
     }
+
+    /// <summary>
+    /// 保管した通知の見方（ユーザ案 2026-11-10）。null なら今の通知。同じ画面の中の切り替えで、別の画面にはしない
+    /// （ナビの「通知」のまま。アバターの管理の変換の見方と同じ形）。今の通知の一覧は持ったままなので、戻ると読み直さずに元の所が出る
+    /// </summary>
+    public InboxArchiveViewModel? Archive
+    {
+        get => _archive;
+        private set
+        {
+            if (SetField(ref _archive, value))
+            {
+                OnPropertyChanged(nameof(IsArchiveMode));
+            }
+        }
+    }
+
+    private InboxArchiveViewModel? _archive;
+
+    public bool IsArchiveMode => _archive is not null;
+
+    /// <summary>上の段の「保管した通知」。</summary>
+    public RelayCommand ShowArchiveCommand { get; }
+
+    /// <summary>保管した通知の見方の「通知に戻る」。</summary>
+    public RelayCommand LeaveArchiveCommand { get; }
+
+    private void ShowArchive(string? month = null, string? nameFilter = null)
+        => Archive = new InboxArchiveViewModel(_services, CreateArchivedRow, month, nameFilter);
+
+    private void LeaveArchive() => Archive = null;
 
     public ObservableCollection<NotificationGroup> Groups { get; } = [];
 
@@ -603,6 +648,42 @@ public sealed class InboxViewModel : ViewModelBase
         row.ActionCommand = new RelayCommand(() => ActAsync(row).Forget(), () => row.HasAction);
 
         return row;
+    }
+
+    /// <summary>
+    /// 保管した通知の行。今の通知と同じ形（題・札・絵・日時）で、読むだけ：既読の切り替えと行のボタンは付けない（ユーザ案 2026-11-10）。
+    /// 商品ページを開くのは読む操作なので残す（戻ると保管した通知の同じ月に戻る）
+    /// </summary>
+    private NotificationRow CreateArchivedRow(NotificationRecord record)
+    {
+        var row = new NotificationRow
+        {
+            Record = record,
+            KindText = KindLabel(record.Kind),
+            IsRead = record.IsRead,
+            IsArchived = true,
+            Picture = PictureOf(record),
+        };
+
+        row.OpenItemCommand = new RelayCommand(() => OpenArchivedItemAsync(row.ItemId).Forget(), () => row.HasItem);
+        return row;
+    }
+
+    /// <summary>保管した通知から商品を開く。商品が無いときは言うだけで、保管した通知は書き換えない（今の通知と違い、解消済みにする先が無い）。</summary>
+    private async Task OpenArchivedItemAsync(string? itemId)
+    {
+        if (itemId is null)
+        {
+            return;
+        }
+
+        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
+        {
+            _main.ShowItem(item);
+            return;
+        }
+
+        Archive?.Notice.Warn("この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。");
     }
 
     /// <summary>

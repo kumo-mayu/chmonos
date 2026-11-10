@@ -322,6 +322,8 @@ public sealed partial class MainViewModel
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
         ResolveViewModel => new HistoryEntry("未確定", ShowResolve),
+        // 保管した通知を見ていたなら、その月と絞りで戻す（商品ページを開いて戻ると、今の通知へ落ちないように）
+        InboxViewModel { Archive: { } archive } => ArchiveEntry(archive.SelectedMonth?.Month, archive.NameFilter),
         InboxViewModel => new HistoryEntry("通知", ShowInbox),
         TagManageViewModel => new HistoryEntry("タグの管理", ShowTagManage),
         AttributeManageViewModel => new HistoryEntry("属性の管理", ShowAttributeManage),
@@ -355,6 +357,13 @@ public sealed partial class MainViewModel
         => new("改変", () => ShowModifications(level, selection));
 
     private HistoryEntry FolderEntry(FolderRowRef? row) => new("フォルダ", () => ShowFolders(row));
+
+    /// <summary>
+    /// 保管した通知の見方を、月と「商品名で絞る」の中身だけで控える。見方そのもの（月の目録と読んだ行）を抱えると、
+    /// 履歴に残る間ずっと目録（50MB の月で約10MB）を持ち続ける。戻ったら目録は作り直す
+    /// </summary>
+    private HistoryEntry ArchiveEntry(string? month, string nameFilter)
+        => new("保管した通知", () => CurrentViewModel = new InboxViewModel(_services, this, archive: (month, nameFilter)));
 
     /// <summary>
     /// 編集画面の中で商品を移るとき、今の商品を履歴に積む（ユーザ指示 2026-09-12：

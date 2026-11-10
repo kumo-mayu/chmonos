@@ -50,6 +50,10 @@
                                 <DataTrigger Binding="{Binding HasItem}" Value="True">
                                     <Setter Property="Cursor" Value="Hand" />
                                 </DataTrigger>
+                                <!-- 保管した通知は全部が既読か解消済みなので、薄くしても見分けにならない -->
+                                <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                    <Setter Property="Opacity" Value="1" />
+                                </DataTrigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Background" Value="{DynamicResource SurfaceAlt}" />
                                 </Trigger>
@@ -72,7 +76,9 @@
                             行の操作のボタンと違って常に見えている部品なので、行にフォーカスが無くても届く。Enter・Space で切り替わる（ボタンの既定）。
                             名前は、どの行の物かと、今押すと起きることを入れる（ToggleButton は「オン・オフ」しか言わない）
                         -->
+                        <!-- 保管した通知は読むだけ（ユーザ案 2026-11-10）。既読の丸は出さない -->
                         <ToggleButton Grid.Column="0" Width="16" Height="16" Margin="0,2,11,0"
+                                      Visibility="{Binding IsArchived, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                                       VerticalAlignment="Top" Cursor="Hand" FocusVisualStyle="{StaticResource SmallFocusVisual}"
                                       AutomationProperties.AutomationId="InboxRowRead"
                                       AutomationProperties.Name="{Binding ReadButtonName}"
@@ -164,6 +170,10 @@
                                 日時の行をボタンの高さ（28）で確保しておき、その中に出す
                             -->
                             <StackPanel Orientation="Horizontal" MinHeight="28" Margin="0,6,0,0">
+                                <!-- 保管した通知は束に分けずに並べるので、何が起きた知らせかを日時の前に言う -->
+                                <TextBlock Text="{Binding KindText, StringFormat={}{0}・}" Style="{StaticResource Caption}"
+                                           FontSize="11" VerticalAlignment="Center"
+                                           Visibility="{Binding IsArchived, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Caption}"
                                            FontSize="11" VerticalAlignment="Center" ToolTip="{Binding CreatedTip}" />
                                 <!--
@@ -210,12 +220,40 @@
                     </Grid>
                 </controls:PressableBorder>
         </DataTemplate>
+
+                        <!--
+                            知らせ1件。束の枠の左右の線（束の最後の行では枠の下を閉じ、次の束との間を空ける）。
+                            今の通知と保管した通知の両方の一覧で使うので、一覧の中ではなくここに置く
+                        -->
+                        <DataTemplate DataType="{x:Type vm:InboxRowLine}">
+                            <Border x:Name="Frame" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
+                                    BorderThickness="1,0,1,0">
+                                <Grid>
+                                    <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource InboxRowTemplate}" />
+                                    <!-- 指した商品の行の左の縦線（メモ51）。行を押せる範囲には入れない -->
+                                    <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource Accent}"
+                                            IsHitTestVisible="False"
+                                            Visibility="{Binding Row.IsTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                </Grid>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Row.IsTarget}" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource TargetBand}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                    <Setter TargetName="Frame" Property="BorderThickness" Value="1,0,1,1" />
+                                    <Setter TargetName="Frame" Property="CornerRadius" Value="0,0,8,8" />
+                                    <Setter TargetName="Frame" Property="Margin" Value="0,0,0,16" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
 
         <!-- 狭いと見出し・件数・チェックが重なっていたので、入り切らないとき右の操作を次の段へ送る（SplitRowPanel。2026-10-02 メモ6-④） -->
         <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
-                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding IsArchiveMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
             <controls:SplitRowPanel Margin="20,8" MinLeftWidth="320" Gap="8" VerticalAlignment="Center">
                 <DockPanel VerticalAlignment="Center" MinHeight="35">
                     <TextBlock DockPanel.Dock="Left" Text="通知" FontWeight="Bold" VerticalAlignment="Center" />
@@ -231,12 +269,125 @@
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
                     <Button Content="すべて既読にする" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding MarkAllReadCommand}" />
+                    <!-- 保管した古い通知を、同じ画面で月ごとに読む見方へ（ユーザ案 2026-11-10） -->
+                    <Button Content="保管した通知" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            AutomationProperties.AutomationId="InboxShowArchive"
+                            ToolTip="通知に残す件数を超えて保管した古い通知を、月ごとに表示します。"
+                            Command="{Binding ShowArchiveCommand}" />
                 </StackPanel>
             </controls:SplitRowPanel>
         </Border>
 
-        <!-- 空表示は一覧に重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->
+        <!-- 保管した通知の見方の上の段：戻る・件数（左）と、月・商品名で絞る（右） -->
+        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding IsArchiveMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <controls:SplitRowPanel Margin="20,8" MinLeftWidth="320" Gap="8" VerticalAlignment="Center">
+                <DockPanel VerticalAlignment="Center" MinHeight="35">
+                    <Button DockPanel.Dock="Left" Content="← 通知に戻る" Style="{StaticResource SmallButton}"
+                            AutomationProperties.AutomationId="InboxLeaveArchive"
+                            Command="{Binding LeaveArchiveCommand}" VerticalAlignment="Center" />
+                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
+                    <TextBlock DockPanel.Dock="Left" Text="保管した通知" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0"
+                            Visibility="{Binding Archive.HasMonths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                    <TextBlock Text="{Binding Archive.CountText}" Style="{StaticResource Mono}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Visibility="{Binding Archive.HasMonths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                    <ComboBox Width="130" VerticalAlignment="Center" Margin="0,0,8,0"
+                              AutomationProperties.AutomationId="InboxArchiveMonth" AutomationProperties.Name="表示する月"
+                              ItemsSource="{Binding Archive.Months}" SelectedItem="{Binding Archive.SelectedMonth, Mode=TwoWay}"
+                              DisplayMemberPath="Label" />
+                    <Grid Width="220">
+                        <TextBox x:Name="ArchiveFilterBox" Padding="6,3" VerticalAlignment="Center"
+                                 AutomationProperties.AutomationId="InboxArchiveFilter" AutomationProperties.Name="商品名で絞る"
+                                 Text="{Binding Archive.NameFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
+                        <TextBlock Text="商品名で絞る" IsHitTestVisible="False"
+                                   Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFaint}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=ArchiveFilterBox}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </StackPanel>
+            </controls:SplitRowPanel>
+        </Border>
+
+        <!-- 保管した通知の一覧。今の通知の一覧と重ね、見方で出し分ける -->
         <Grid>
+        <Grid DataContext="{Binding Archive}"
+              Visibility="{Binding DataContext.IsArchiveMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="20,0"
+                        Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource EmptyTitle}" />
+                <TextBlock Text="{Binding EmptyNote}" Style="{StaticResource EmptyNote}" Margin="0,6,0,0"
+                           Visibility="{Binding HasEmptyNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </StackPanel>
+
+            <DockPanel>
+                <!-- 続きを読んでいる間。一覧の外の下に置く（一覧の中に足すと、読み終えて消えるときに行が動く） -->
+                <TextBlock DockPanel.Dock="Bottom" Text="読み込んでいます…" Style="{StaticResource Caption}"
+                           HorizontalAlignment="Center" Margin="0,4,0,8"
+                           Visibility="{Binding IsLoadingMore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!-- 今の通知と同じく仮想化する。終わりに近づいたら続きの100件を読む（InboxView.xaml.cs） -->
+                <controls:ContentItemsControl x:Name="ArchiveList" ItemsSource="{Binding Lines}" controls:ArrowGroup.IsEnabled="True" Focusable="False"
+                                              VirtualizingPanel.IsVirtualizing="True"
+                                              VirtualizingPanel.VirtualizationMode="Recycling"
+                                              VirtualizingPanel.ScrollUnit="Pixel"
+                                              ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.Template>
+                        <ControlTemplate TargetType="ItemsControl">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          Padding="20" CanContentScroll="True">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="MaxWidth" Value="{StaticResource ReadingMaxWidth}" />
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                    <ItemsControl.Resources>
+                        <!-- 先頭の行：月の見出し（行の枠の上側）。読めない所があればここで言う -->
+                        <DataTemplate DataType="{x:Type vm:ArchiveHeadLine}">
+                            <StackPanel>
+                                <controls:AreaNoticeLine DataContext="{Binding Archive.Notice}" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding Archive.DamageText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                           Visibility="{Binding Archive.HasDamage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
+                                        BorderThickness="1,1,1,1" CornerRadius="8,8,0,0" Padding="18,13">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="新しい順" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Archive.MonthLabel}" FontWeight="Bold" FontSize="13"
+                                                   Foreground="{DynamicResource Text}" />
+                                    </DockPanel>
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.Resources>
+                </controls:ContentItemsControl>
+            </DockPanel>
+        </Grid>
+
+        <!-- 空表示は一覧に重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->
+        <Grid Visibility="{Binding IsArchiveMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <TextBlock Text="{Binding EmptyText}" Style="{StaticResource EmptyTitle}" />
@@ -401,32 +552,10 @@
                             </DataTemplate.Triggers>
                         </DataTemplate>
 
-                        <!-- 知らせ1件。束の枠の左右の線（束の最後の行では枠の下を閉じ、次の束との間を空ける） -->
-                        <DataTemplate DataType="{x:Type vm:InboxRowLine}">
-                            <Border x:Name="Frame" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
-                                    BorderThickness="1,0,1,0">
-                                <Grid>
-                                    <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource InboxRowTemplate}" />
-                                    <!-- 指した商品の行の左の縦線（メモ51）。行を押せる範囲には入れない -->
-                                    <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource Accent}"
-                                            IsHitTestVisible="False"
-                                            Visibility="{Binding Row.IsTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                </Grid>
-                            </Border>
-                            <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding Row.IsTarget}" Value="True">
-                                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource TargetBand}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsLast}" Value="True">
-                                    <Setter TargetName="Frame" Property="BorderThickness" Value="1,0,1,1" />
-                                    <Setter TargetName="Frame" Property="CornerRadius" Value="0,0,8,8" />
-                                    <Setter TargetName="Frame" Property="Margin" Value="0,0,0,16" />
-                                </DataTrigger>
-                            </DataTemplate.Triggers>
-                        </DataTemplate>
                     </ItemsControl.Resources>
                 </controls:ContentItemsControl>
             </DockPanel>
+        </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

@@ -97,7 +97,17 @@ public sealed partial class MainViewModel : ViewModelBase
         ShowImportCommand = new RelayCommand(Unless<ImportViewModel>(ShowImport));
         ShowEditCommand = new RelayCommand(() => ShowEditAsync().Forget());
         ShowResolveCommand = new RelayCommand(Unless<ResolveViewModel>(ShowResolve));
-        ShowInboxCommand = new RelayCommand(Unless<InboxViewModel>(ShowInbox));
+        // 保管した通知を見ているときにナビの「通知」を押したら、今の通知へ戻す（同じ画面の中の切り替えなので、画面は替えない）
+        ShowInboxCommand = new RelayCommand(() =>
+        {
+            if (CurrentViewModel is InboxViewModel { IsArchiveMode: true } inbox)
+            {
+                inbox.LeaveArchiveCommand.Execute(null);
+                return;
+            }
+
+            Unless<InboxViewModel>(ShowInbox)();
+        });
         ShowShopsCommand = new RelayCommand(Unless<ShopsViewModel>(ShowShops));
         ShowStatsCommand = new RelayCommand(Unless<StatsViewModel>(ShowStats));
         ShowAvatarsCommand = new RelayCommand(Unless<AvatarsViewModel>(ShowAvatars));

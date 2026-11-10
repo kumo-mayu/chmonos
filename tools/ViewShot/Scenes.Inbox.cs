@@ -326,6 +326,85 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 保管した通知を読む見方を足したとき（2026-11-11）：上の段（戻る・件数・月・商品名で絞る）と、種類を日時の前に言う読むだけの行
+        new Scene("inbox-archive", "通知：保管した通知の見方。月の見出しの下に新しい順の行（既読の丸と行のボタンが無く、種類を日時の前に）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900502", "作り物のワンピース");
+            var day = new DateTimeOffset(2026, 10, 20, 21, 0, 0, TimeSpan.FromHours(9));
+            await context.Seed.NotificationArchive.AppendAsync(
+            [
+                new NotificationRecord
+                {
+                    Id = "archive-1",
+                    Kind = NotificationKind.ItemUpdated,
+                    ItemId = item.Id,
+                    Title = "作り物のワンピース",
+                    Detail = "価格が変わりました。",
+                    Diffs = [new NotificationDiff { Field = "価格", Before = "¥ 1,500", After = "¥ 1,800" }],
+                    CreatedAt = day.AddDays(-3),
+                    IsRead = true,
+                },
+                new NotificationRecord
+                {
+                    Id = "archive-2",
+                    Kind = NotificationKind.ItemBackOnBooth,
+                    ItemId = item.Id,
+                    Title = "作り物のワンピース",
+                    Detail = "商品情報を取り直せます。",
+                    CreatedAt = day.AddDays(-5),
+                    IsRead = true,
+                },
+                new NotificationRecord
+                {
+                    Id = "archive-3",
+                    Kind = NotificationKind.OrphanTag,
+                    Title = "タグ「冬服」がどの一覧にもありません",
+                    Detail = "ユーザータグ：冬服",
+                    CreatedAt = day.AddDays(-9),
+                    IsResolved = true,
+                },
+            ]);
+            await context.Seed.NotificationArchive.AppendAsync(
+            [
+                new NotificationRecord
+                {
+                    Id = "archive-sep",
+                    Kind = NotificationKind.ItemUpdated,
+                    ItemId = item.Id,
+                    Title = "作り物のワンピース",
+                    Detail = "説明が変わりました。",
+                    CreatedAt = day.AddMonths(-1),
+                    IsRead = true,
+                },
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            inbox.ShowArchiveCommand.Execute(null);
+            await SceneContext.UntilAsync(() => inbox.Archive?.Lines.OfType<InboxRowLine>().Count() == 3, "保管した通知の行が3つ並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        // 保管した通知が1つも無いとき（保管しない設定）。空の表示が並ぶようにする方法を言うことを見る
+        new Scene("inbox-archive-empty", "通知：保管した通知が無いとき（保管の容量が 0）の空の表示", async context =>
+        {
+            var main = await context.StartAsync(settings => settings with { NotificationArchiveMegabytes = 0 });
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            inbox.ShowArchiveCommand.Execute(null);
+            await SceneContext.UntilAsync(() => inbox.Archive?.IsEmpty == true && inbox.Archive.EmptyTitle == "保管した通知はありません", "空の表示が出る");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         // 行の名前と ID を付けたときに、木（peers）と見た目の前後を比べるために足した（2026-09-30）
         new Scene("stats", "統計：作り物の商品8件（よく買っているショップ・ディスク使用量の内訳の行）", async context =>
         {

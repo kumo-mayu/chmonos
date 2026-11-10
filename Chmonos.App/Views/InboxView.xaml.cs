@@ -16,6 +16,23 @@ public partial class InboxView : UserControl
         InitializeComponent();
         DataContextChanged += (_, _) => Attach(DataContext as InboxViewModel);
         Loaded += (_, _) => BringFocusLine();
+
+        // 一覧の中の ScrollViewer は見方を切り替えるまで作られないので、上がってくる知らせで受ける
+        ArchiveList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnArchiveScrolled));
+    }
+
+    /// <summary>
+    /// 保管した通知を流して終わりに近づいたら、続きの100件を読む（ユーザ案 2026-11-10「流したら続きを読む」）。
+    /// 終わりに着いてから読むと待ちが見えるので、画面1枚ぶん手前で読み始める。
+    /// 中身の高さが変わったときにも呼ばれるので、最初の100件が画面に収まって流せないときも、そのまま続きを読む
+    /// </summary>
+    private void OnArchiveScrolled(object sender, ScrollChangedEventArgs e)
+    {
+        if (_viewModel?.Archive is { HasMore: true, IsLoadingMore: false } archive
+            && e.VerticalOffset + e.ViewportHeight * 2 >= e.ExtentHeight)
+        {
+            archive.LoadMoreAsync().Forget();
+        }
     }
 
     private void Attach(InboxViewModel? viewModel)
