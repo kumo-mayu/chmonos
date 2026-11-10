@@ -303,8 +303,7 @@ public sealed partial class ItemViewModel
 
         var rows = LocalFiles.Where(row => !row.IsDetached).ToList();
         var unpackable = await Task.Run(() => rows
-            .Select(row => row.Paths.Any(path =>
-                path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Core.Services.DiskCheck.FileExists(path)))
+            .Select(row => Core.Services.ArchiveFiles.FirstExistingZip(row.Paths, Core.Services.DiskCheck.FileExists) is not null)
             .ToList());
 
         for (var i = 0; i < rows.Count; i++)
@@ -470,8 +469,7 @@ public sealed partial class ItemViewModel
     private async Task UnpackAsync(LocalFileRow? row)
     {
         // 在るかは画面のスレッドの外で見る（技術的負債 4-2）
-        var zip = row is null ? null : await Task.Run(() => row.Paths.FirstOrDefault(path =>
-            path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Core.Services.DiskCheck.FileExists(path)));
+        var zip = row is null ? null : await Task.Run(() => Core.Services.ArchiveFiles.FirstExistingZip(row.Paths, Core.Services.DiskCheck.FileExists));
         if (zip is null)
         {
             // 行を出した後で外付けを外すと、押しても黙って何も起きなかった（カードの右クリックは言っていた）

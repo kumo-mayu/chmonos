@@ -4,6 +4,11 @@ using Chmonos.Core.Models;
 
 namespace Chmonos.Core.Booth;
 
+/// <summary>
+/// 問い合わせの結果の大分け。一時的な失敗の中の見分け（つながらない・5xx・429・受け取らずに捨てた）は
+/// <see cref="BoothFetchResult{T}"/> の印（<c>IsUnreachable</c>・<c>IsServerError</c>・<c>IsRateLimited</c>・<c>IsRejected</c>）で持つ
+/// （洗い出し Q12・2026-11-10：形は変えず、説明だけ今に合わせる）。
+/// </summary>
 public enum BoothFetchStatus
 {
     Success,
@@ -11,7 +16,10 @@ public enum BoothFetchStatus
     /// <summary>404。非公開・削除の判定カウントに数える唯一の結果。</summary>
     NotFound,
 
-    /// <summary>タイムアウト・5xx・接続失敗。BOOTH側の一時的な不調なので非公開とは判定しない。</summary>
+    /// <summary>
+    /// 404 以外の失敗（つながらない・タイムアウト・5xx・429・読めない応答・受け取らずに捨てた応答）。非公開とは判定しない。
+    /// どれだったかは結果の印で見分ける（画面の言い分けと、打ち切り・再試行の扱いが違うため）。
+    /// </summary>
     TemporaryFailure,
 }
 
@@ -562,16 +570,25 @@ public sealed class BoothClient : IBoothClient
 
     public static string ItemJsonUrl(string itemId) => $"https://booth.pm/ja/items/{itemId}.json";
 
+    /// <summary>
+    /// 商品ページの URL（問い合わせに使う素の形。ID を確かめない）。画面から開く・写すリンクは <see cref="BoothLinks.ItemPage(ItemRecord)"/> を使う
+    /// （BOOTH に無い商品と番号でない ID を外す入口を1つにするため。前は <c>PageUrlFor</c> という同じ物の別名もあった）。
+    /// </summary>
     public static string ItemPageUrl(string itemId) => $"https://booth.pm/ja/items/{itemId}";
 
     /// <summary>
-    /// この商品のBOOTHページ。**BOOTHに無い商品として登録したものには無い（null）。**
-    ///
-    /// 仮IDでURLを組むと、存在しない商品の404ページへ送ることになる。
-    /// 「BOOTHで開く」も「リンクをコピー」も、ここがnullなら出さない。
-    /// 記録の <c>booth.url</c> は使わず、商品ID から作る（手で直せる JSON の URL を外のアプリへ渡さない。<see cref="BoothLinks"/>）。
+    /// ショップの商品一覧の URL。<paramref name="page"/> を省けば1ページ目を <c>?page</c> 無しで（バナー・アイコンを読む所が使う形）。
+    /// サブドメインは英数字とハイフンだけを受け、それ以外は null（組み立てた URL で別の所へ行かないように）。
+    /// 前は一覧を組む所が3つあり、サブドメインを確かめるのは1つだけだった。
     /// </summary>
-    public static string? PageUrlFor(ItemRecord item) => BoothLinks.ItemPage(item);
+    public static string? ShopItemsUrl(string? subdomain, int? page = null)
+        => subdomain is not null && ShopSubdomain.IsMatch(subdomain) && page is null or >= 1
+            ? $"https://{subdomain.ToLowerInvariant()}.booth.pm/items" + (page is { } number ? $"?page={number}" : string.Empty)
+            : null;
+
+    // ホスト名の1区切りの長さの上限は63字（RFC 1035）
+    private static readonly System.Text.RegularExpressions.Regex ShopSubdomain = new(
+        "^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     public static string SearchUrl(string query) => $"https://booth.pm/ja/search/{Uri.EscapeDataString(query)}";
 
@@ -718,12 +735,12 @@ public sealed class BoothClient : IBoothClient
     /// </summary>
     public Task<BoothFetchResult<string>> GetShopItemsPageAsync(string subdomain, int page, CancellationToken cancellationToken = default)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(subdomain, "^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$") || page < 1)
+        if (ShopItemsUrl(subdomain, page) is not { } url)
         {
             throw new ArgumentException("ショップのサブドメインとして読めません。", nameof(subdomain));
         }
 
-        return GetTextUntilAsync($"https://{subdomain.ToLowerInvariant()}.booth.pm/items?page={page}", _ => false, 4 * 1024 * 1024, cancellationToken);
+        return GetTextUntilAsync(url, _ => false, 4 * 1024 * 1024, cancellationToken);
     }
 
     /// <summary>

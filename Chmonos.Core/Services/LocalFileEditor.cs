@@ -607,7 +607,7 @@ internal sealed class LocalFileEditor(DataStore store)
     /// **行は消さずに外した印（<see cref="LocalFileRecord.Detached"/>）を付ける**（ユーザ判断 2026-09-12）。
     /// 手掛かりでこの商品に紐付いていたこと自体は確かなので、消すと何を外したのかが見えなくなる。
     /// 印は、手掛かりから商品IDが決まるファイルが**次の取り込みで同じ商品へ戻ってしまう**のも止める
-    /// （外す操作が要るのはまさに手掛かりが間違っている場合）。以前は別の detached.json に持っていた。
+    /// （外す操作が要るのはまさに手掛かりが間違っている場合）。
     /// </summary>
     public async Task<DetachOutcome> DetachFileAsync(
         string itemId,

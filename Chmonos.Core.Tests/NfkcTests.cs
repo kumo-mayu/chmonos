@@ -113,4 +113,28 @@ public class NfkcTests
         _ = MoneyText.Parse(text);
         _ = RomajiReading.Readings(text);
     }
+
+    /// <summary>
+    /// NFKC を直に呼んでいた5か所（2026-11-10 の洗い出し B5）も、片割れで落ちず、片割れを落とした形で続ける。
+    /// どれも名前・説明・打った数など、外から来た文字を受ける
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(BrokenQueries))]
+    public void FoldersThatUsedToCallNormalizeDoNotThrow(string text)
+    {
+        _ = UsedUpdateKind.Fold(text);
+        _ = ConversionNames.SlugKeys(text);
+        _ = ConversionNames.NameKeys([text]);
+        _ = SearchModuleConditions.ParseAmount(text);
+        _ = NameCollation.BuildKey(text, readings: null);
+        _ = Resolution.SaleDecorations.Loose(text);
+    }
+
+    [Fact]
+    public void FoldersDropOnlyTheLoneHalf()
+    {
+        Assert.Equal(UsedUpdateKind.Fold("猫"), UsedUpdateKind.Fold(LoneHigh));
+        Assert.Equal(1200L, SearchModuleConditions.ParseAmount("１，２００" + "\uD83D"));
+        Assert.Equal(Resolution.SaleDecorations.Loose("猫"), Resolution.SaleDecorations.Loose(LoneLow));
+    }
 }

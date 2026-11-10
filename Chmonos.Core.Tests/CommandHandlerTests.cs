@@ -120,7 +120,7 @@ public class CommandHandlerTests
             string itemId,
             string fileName,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
+            => Task.FromResult(ItemFound);
 
         public Task<bool> MoveUserImageAsync(
             string itemId,
@@ -133,7 +133,7 @@ public class CommandHandlerTests
             string itemId,
             string? fileName,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
+            => Task.FromResult(ItemFound);
 
         public Task<bool> SetImageRoleAsync(
             string itemId,
@@ -141,7 +141,7 @@ public class CommandHandlerTests
             Models.ImageRole role,
             bool isUserAdded,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
+            => Task.FromResult(ItemFound);
 
         public Task<ItemIdChangePlan?> PlanItemIdChangeAsync(
             string fromId,
@@ -630,5 +630,30 @@ public class CommandHandlerTests
 
         Assert.Contains("保存先のフォルダが見つかりません", whenGone.Message);
         Assert.Equal("対象の商品データが手元にありません。", whenHere.Message);
+    }
+
+    /// <summary>画像の3つの命令も、商品が無いときはほかの命令と同じ文（ドライブの案内を含む）を言う。前はここだけ古い文だった（洗い出し B6）</summary>
+    [Fact]
+    public async Task 画像の命令も_商品が無いときはほかの命令と同じ文を言う()
+    {
+        var missingRoot = Path.Combine(Path.GetTempPath(), "bam-missing-root-" + Guid.NewGuid().ToString("N"));
+        var gone = new CommandHandler(new FakeImportPipeline(), new FakeItemService { ItemFound = false }, storeRoot: missingRoot);
+        UiCommand[] commands =
+        [
+            new UiCommand.RemoveUserImage("100", "user-1.webp"),
+            new UiCommand.PinThumbnail("100", "user-1.webp"),
+            new UiCommand.SetImageRole("100", "user-1.webp", Models.ImageRole.Other, IsUserAdded: true),
+        ];
+
+        foreach (var command in commands)
+        {
+            var failed = Assert.IsType<CommandResult.Failed>(await gone.ExecuteAsync(command));
+            Assert.Contains("保存先のフォルダが見つかりません", failed.Message);
+        }
+
+        // 画像の名前が空なのは商品の問題ではないので、商品が無いとは言わない
+        var here = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), storeRoot: Path.GetTempPath());
+        var blank = Assert.IsType<CommandResult.Failed>(await here.ExecuteAsync(new UiCommand.SetImageRole("100", " ", Models.ImageRole.Other, IsUserAdded: true)));
+        Assert.Equal("対象の画像が見つかりませんでした。", blank.Message);
     }
 }

@@ -68,7 +68,7 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
                 continue;
             }
 
-            var zip = file.Paths.FirstOrDefault(path => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path));
+            var zip = ArchiveFiles.FirstExistingZip(file.Paths);
             if (zip is not null && ProfileDataReader.Read(zip, stored) is { } read)
             {
                 await packages.SaveProfilesAsync(file.Hash, read, cancellationToken);

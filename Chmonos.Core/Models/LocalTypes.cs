@@ -286,7 +286,7 @@ public sealed record LocalFileRecord
     /// 「この商品から外した」印（ユーザ判断 2026-09-12）。**外しても行は消さない。**
     /// 手掛かりでこの商品に紐付いていたこと自体は確かなので、消すと何を外したのかが見えなくなる。
     /// 印の付いたファイルは所持・容量・検索・Unityへ送る対象に数えず（<see cref="LocalBlock.OwnedFiles"/>）、
-    /// 取り込みはこの商品へ戻さない。以前は別の detached.json に持っていた。
+    /// 取り込みはこの商品へ戻さない。印はファイルの行に持つ（ファイルの行と一緒に移り、商品 ID の付け替え・まとめでも離れない）。
     /// 外していなければ書き出さない（全ファイルに false が並ぶと読みにくい）。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore(
@@ -332,6 +332,15 @@ public sealed record LocalFileRecord
     /// <summary>古い版として場所が残っていないか。場所がまた足されたら（古い版を別の所で見つけた）、印があっても古い版ではない。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsOldVersion => Replaced is not null && Paths.Count == 0;
+
+    /// <summary>
+    /// 記録の上で「見つからない」か：場所が空か、見つからなくなった日時が付いている。**記録だけで決め、ディスクは見ない。**
+    /// つながっていないドライブの上の物は日時が付かない（無くなったのではなく、今は見えないだけ）ので数えない。
+    /// 古い版（<see cref="IsOldVersion"/>）も場所が空なので true になる——呼ぶ側が先に外したファイル・古い版を除く
+    /// （<see cref="LocalBlock.OwnedFiles"/> など）。カードの札・メニュー・掃除・Query で同じ式を写していたので1つにした。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsRecordedMissing => Paths.Count == 0 || MissingSince is not null;
 
     /// <summary>
     /// 場所ごとの、そのファイルが載っているディスク（場所 → ボリュームの通し番号。2026-10-05・点検の3・ユーザ判断 3-A）。

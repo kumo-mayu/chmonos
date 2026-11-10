@@ -468,14 +468,14 @@ public sealed class ShopService : IShopService
             return new ShopImageRefresh { Failed = true };
         }
 
-        if (_client is null)
+        if (_client is null || BoothClient.ShopItemsUrl(subdomain) is not { } itemsUrl)
         {
             return new ShopImageRefresh { Failed = true };
         }
 
         // バナーとアイコンの両方が見つかったら、そこで受信をやめる
         var result = await _client.GetTextUntilAsync(
-            $"https://{subdomain}.booth.pm/items",
+            itemsUrl,
             html => FindBanner(html).Success && IconPattern.IsMatch(html),
             cancellationToken: cancellationToken);
 
@@ -557,13 +557,13 @@ public sealed class ShopService : IShopService
             return new BannerLookup(BannerLookupStatus.Failed, null);
         }
 
-        if (_client is null)
+        if (_client is null || BoothClient.ShopItemsUrl(subdomain) is not { } itemsUrl)
         {
             return new BannerLookup(BannerLookupStatus.Failed, null);
         }
 
         var result = await _client.GetTextUntilAsync(
-            $"https://{subdomain}.booth.pm/items",
+            itemsUrl,
             html => FindBanner(html).Success,
             cancellationToken: cancellationToken);
 

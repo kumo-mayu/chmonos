@@ -51,7 +51,7 @@ public static class UnityPackageInspector
 
             foreach (var entry in archive.Entries)
             {
-                if (!entry.Name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+                if (!entry.Name.EndsWith(Services.UnityHandoff.PackageExtension, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

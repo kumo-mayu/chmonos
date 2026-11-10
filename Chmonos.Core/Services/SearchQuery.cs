@@ -241,7 +241,7 @@ public sealed class SearchHaystack
 
     /// <summary>畳んだうえで、カタカナをひらがなに寄せた文字列（「ひらがなとカタカナを区別しない」とき）。</summary>
     public string FoldedIgnoringKana(SearchField field)
-        => _foldedKana[(int)field] ??= SearchQuery.ToHiragana(Folded(field));
+        => _foldedKana[(int)field] ??= Search.Kana.ToHiragana(Folded(field));
 }
 
 /// <summary>
@@ -282,7 +282,7 @@ public abstract record SearchNode
         /// <summary>
         /// 畳んだ語のカタカナをひらがなに寄せた物。前は商品×対象ごとに作り直していた（ひらがなとカタカナを区別しないとき・読みを見るとき）。
         /// </summary>
-        internal string Hiragana => _hiragana.Of(Text, SearchQuery.ToHiragana);
+        internal string Hiragana => _hiragana.Of(Text, Search.Kana.ToHiragana);
     }
 
     public sealed record Not(SearchNode Inner) : SearchNode;
@@ -342,18 +342,6 @@ public static class SearchQuery
     /// </summary>
     public static string Normalize(string? text)
         => string.IsNullOrEmpty(text) ? string.Empty : Nfkc.Fold(text).ToLowerInvariant();
-
-    /// <summary>カタカナをひらがなに寄せる（長音・記号はそのまま）。</summary>
-    public static string ToHiragana(string text)
-    {
-        var builder = new StringBuilder(text.Length);
-        foreach (var c in text)
-        {
-            builder.Append(c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c);
-        }
-
-        return builder.ToString();
-    }
 
     /// <summary>
     /// 読む語の長さの上限。括弧と「-」は1つごとに1段深く読み進めるので、括弧を数千個貼るとスタックが溢れて落ちた（点検 2026-09-28）。

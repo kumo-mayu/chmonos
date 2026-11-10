@@ -94,7 +94,7 @@ public sealed class ImagePipeline
     public bool SavesImages => _settings.SaveImages;
 
     /// <summary>元URLから保存名を導く。同じURLなら常に同じ名前になる。</summary>
-    public static string FileNameFor(string originalUrl) => $"{ShortHash(originalUrl)}.webp";
+    public static string FileNameFor(string originalUrl) => $"{Storage.ShortHash.Of(originalUrl)}.webp";
 
     /// <summary>
     /// 「取りに行ったが404だった」印の名前。
@@ -103,7 +103,7 @@ public sealed class ImagePipeline
     /// 画像と同じハッシュを使うので、作者が画像を差し替えれば別の名前になり、
     /// 古い印は自然に効かなくなる。
     /// </summary>
-    public static string MissingMarkerFor(string originalUrl) => $"{ShortHash(originalUrl)}.missing";
+    public static string MissingMarkerFor(string originalUrl) => $"{Storage.ShortHash.Of(originalUrl)}.missing";
 
     /// <summary>
     /// 「404ではないが取れなかった」印の名前（ユーザ判断 2026-09-21・G6）。
@@ -113,21 +113,16 @@ public sealed class ImagePipeline
     /// 404 と違って「もう取りに行く先が無い」とは言えないので、**日時つきで一定期間だけ休む**
     /// （ショップのバナーの「調べた日時」と同じ考え方）。日時はファイルの更新日時をそのまま使う。
     /// </summary>
-    public static string RetryMarkerFor(string originalUrl) => $"{ShortHash(originalUrl)}.retry";
+    public static string RetryMarkerFor(string originalUrl) => $"{Storage.ShortHash.Of(originalUrl)}.retry";
 
     /// <summary>
     /// 取れなかった画像を、次に取りに行くまで休む日数。
     ///
-    /// **商品の取り直しの既定（7日）と同じ。**取れなかった理由（相手の不調・権限・壊れた画像）が
-    /// 消えたかどうかは、商品ページを取り直すのと同じ頻度で確かめれば足りる。
+    /// **7日に固定する**（設定の取り直しの間隔には連動させない。洗い出し Q7・2026-11-10）。値は商品の取り直しの既定（7日）にそろえた：
+    /// 取れなかった理由（相手の不調・権限・壊れた画像）が消えたかは、その頻度で確かめれば足りる。
+    /// 設定で取り直しの間隔を変えても、ここは変わらない。
     /// </summary>
     private const int RetryAfterDays = 7;
-
-    private static string ShortHash(string originalUrl)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(originalUrl));
-        return Convert.ToHexString(hash)[..8].ToLowerInvariant();
-    }
 
     public string FilePathFor(string itemId, string originalUrl)
         => Path.Combine(_paths.ItemImagesDir(itemId), FileNameFor(originalUrl));

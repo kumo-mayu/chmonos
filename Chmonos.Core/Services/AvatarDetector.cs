@@ -885,7 +885,8 @@ public static class AvatarDetector
     // リンク抽出では取れないので、本文そのものに当てる
     private static readonly Regex ItemUrlPattern = new(
         // URL全体を飲み込む。手前の文字列を別名の材料にするので、scheme とホストも含めて消したい
-        @"(?:https?://)?(?:[a-z0-9-]+\.)*booth\.pm/(?:[a-z]{2}/)?items/(?<id>\d+)",
+        // 言語の段は zh-cn なども受ける（BoothUrlExtractor と同じ。前は2字だけで、中国語のページの URL が名前の材料に残った）
+        @"(?:https?://)?(?:[a-z0-9-]+\.)*booth\.pm/(?:" + BoothZipInspector.BoothUrlExtractor.LanguagePattern + @"/)?items/(?<id>\d+)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
@@ -1021,7 +1022,7 @@ public static class AvatarDetector
         => System.Net.WebUtility.HtmlDecode(TagPattern.Replace(html, " "));
 
     private static readonly Regex AnyItemUrl = new(
-        @"booth\.pm/(?:[a-z]{2}/)?items/(?<id>\d+)",
+        @"booth\.pm/(?:" + BoothZipInspector.BoothUrlExtractor.LanguagePattern + @"/)?items/(?<id>\d+)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>本文中で見出しの代わりに使われる行。「🌙 【対応アバター】」「◆対応アバターリスト」など。</summary>
@@ -1457,7 +1458,7 @@ public static class AvatarDetector
 
                 foreach (var baseName in AvatarBaseKeys.GroupsIn(name, lookup))
                 {
-                    if (!bases.Contains(baseName, StringComparer.CurrentCultureIgnoreCase))
+                    if (!bases.Contains(baseName, AvatarBaseNames.Comparer))
                     {
                         bases.Add(baseName);
                     }

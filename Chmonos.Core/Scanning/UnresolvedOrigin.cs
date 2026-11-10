@@ -21,8 +21,6 @@ public sealed record ArchiveOrigin(string ArchiveName, string ArchivePath);
 /// </summary>
 public static class UnresolvedOrigin
 {
-    private static readonly string[] ArchiveExtensions = [".zip", ".rar", ".7z"];
-
     /// <summary>
     /// 元zipを割り出す。分からなければ null（呼び出し側はフォルダで束ねる）。
     ///
@@ -53,7 +51,7 @@ public static class UnresolvedOrigin
             return null;
         }
 
-        // 旧版は末尾の NUL を落とさずに保存していた
+        // v1.0.0 が末尾の NUL を落とさずに unresolved.json へ書いた記録のため。配った版の記録なので、読み替えを消さない
         var value = referrerUrl.Trim().TrimEnd('\0').Trim();
 
         // ブラウザで落としたファイルの ReferrerUrl は商品ページのURLで、zipではない。
@@ -82,5 +80,5 @@ public static class UnresolvedOrigin
     }
 
     private static bool IsArchive(string path)
-        => ArchiveExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+        => Services.ArchiveFiles.IsArchive(path);
 }

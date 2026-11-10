@@ -114,7 +114,7 @@ public sealed record ItemRecord
     /// </summary>
     [JsonIgnore]
     public bool HasMissingFile
-        => Local.LocalFiles.Any(file => !file.Detached && !file.IsOldVersion && (file.Paths.Count == 0 || file.MissingSince is not null))
+        => Local.LocalFiles.Any(file => !file.Detached && !file.IsOldVersion && file.IsRecordedMissing)
         || Local.LocalFolders.Any(folder => folder.MissingSince is not null);
 
     /// <summary>
@@ -124,7 +124,7 @@ public sealed record ItemRecord
     [JsonIgnore]
     public bool HasAllFilesMissing
         => HasMissingFile
-        && Local.OwnedFiles.All(file => file.Paths.Count == 0 || file.MissingSince is not null)
+        && Local.OwnedFiles.All(file => file.IsRecordedMissing)
         && Local.LocalFolders.All(folder => folder.MissingSince is not null);
 
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>

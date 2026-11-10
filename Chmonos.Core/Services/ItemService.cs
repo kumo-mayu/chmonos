@@ -375,13 +375,7 @@ public sealed class ItemService : IItemService
         // Purchases の ExistsOnBooth も、新しいvariation一覧からそこで入れ直される。
         await _store.Items.SaveLocalAsync(
             itemId,
-            existing.Local with
-            {
-                ConsecutiveNotFoundCount = 0,
-                IsDelisted = false,
-                LastFetchedAt = DateTimeOffset.Now,
-                NextFetchDueAt = NextDue(itemId),
-            },
+            FetchRecord.Fetched(existing.Local, itemId, _settings, DateTimeOffset.Now),
             LocalOwners.Fetch,
             booth,
             cancellationToken);
@@ -585,16 +579,12 @@ public sealed class ItemService : IItemService
             return (null, Booth.BoothFetchStatus.TemporaryFailure);
         }
 
+        var fetchedAt = DateTimeOffset.Now;
         var item = new ItemRecord
         {
             Id = itemId,
             Booth = fetched,
-            Local = new LocalBlock
-            {
-                NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
-                LastFetchedAt = DateTimeOffset.Now,
-                NextFetchDueAt = NextDue(itemId),
-            },
+            Local = FetchRecord.Fetched(new LocalBlock { NotifyOnUpdate = _settings.NotifyOnUpdateByDefault }, itemId, _settings, fetchedAt),
         };
 
         // **「無い」と判断した時点と書く時点がずれている**（取り込みの①と同じ・L13）。
@@ -606,13 +596,7 @@ public sealed class ItemService : IItemService
         await _store.Items.CreateOrChangeLocalAsync(
             itemId,
             () => item,
-            local => local with
-            {
-                ConsecutiveNotFoundCount = 0,
-                IsDelisted = false,
-                LastFetchedAt = item.Local.LastFetchedAt,
-                NextFetchDueAt = item.Local.NextFetchDueAt,
-            },
+            local => FetchRecord.Fetched(local, itemId, _settings, fetchedAt),
             LocalOwners.Fetch,
             cancellationToken,
             booth: item.Booth);
@@ -1163,15 +1147,7 @@ public sealed class ItemService : IItemService
     /// 商品IDから決めるので、同じ商品は毎回同じ側にずれる。
     /// </summary>
     private DateTimeOffset NextDue(string itemId, int consecutiveNotFound = 0)
-    {
-        var days = consecutiveNotFound >= _settings.NotFoundThreshold
-            ? _settings.DelistedRecheckDays
-            : _settings.RefreshIntervalDays;
-
-        // 取り込みの側と同じ、起動をまたいで変わらないずらし方（RefreshJitter）。前は string.GetHashCode で、
-        // 起動し直すたびに同じ商品でも違う日になっていた（file-lifecycle.md 気になった所19の残り）
-        return DateTimeOffset.Now.AddDays(days + RefreshJitter.Days(itemId, _settings.RefreshJitterDays));
-    }
+        => FetchRecord.NextDue(itemId, _settings, DateTimeOffset.Now, consecutiveNotFound);
 
 }
 

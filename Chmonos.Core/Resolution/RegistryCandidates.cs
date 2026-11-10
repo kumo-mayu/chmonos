@@ -109,8 +109,9 @@ public static class RegistryCandidates
     /// <summary>
     /// 数が、前後を数字に挟まれずに現れるか。前は部分一致だったので、短い商品ID（12345）が
     /// 別の数（ファイル名の中の 7123456 や日付の 20231234）の中に当たり、無関係なアバターが最高点で出ていた（点検 2026-09-23）。
+    /// 版番号の中（「ver2.1.0」）の数も当てる。候補検索の <c>FallbackResolver.ContainsNumberOutsideVersion</c> はそこを外すので、同じ名前にしない。
     /// </summary>
-    private static bool ContainsNumber(string text, string number)
+    private static bool ContainsStandaloneNumber(string text, string number)
     {
         if (number.Length == 0)
         {
@@ -143,7 +144,7 @@ public static class RegistryCandidates
         SearchBridge? bridge,
         KanjiReadings? readings)
     {
-        if (ContainsNumber(fileName, entry.ItemId))
+        if (ContainsStandaloneNumber(fileName, entry.ItemId))
         {
             return (entry.ItemId, 100);
         }

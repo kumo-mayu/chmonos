@@ -30,7 +30,7 @@ public static class ArchiveContentDetector
     /// 展開物の中にあることを示すファイル。
     /// いずれも「配布された一式の一部」であって、単体で売られる形ではない。
     /// </summary>
-    private static readonly string[] MarkerExtensions = [".unitypackage"];
+    private static readonly string[] MarkerExtensions = [Services.UnityHandoff.PackageExtension];
 
     /// <summary>親をたどる深さの上限。これを超えると別の商品の木に踏み込む恐れがある。</summary>
     private const int MaxDepth = 6;

@@ -125,7 +125,7 @@ public sealed class NameCollation : IComparer<string>
         }
 
         // 全角の英数字・半角のカタカナを寄せる（ＡＢＣ→ABC・ｱ→ア）
-        var text = name.Normalize(NormalizationForm.FormKC);
+        var text = Nfkc.Fold(name);
 
         var body = SkipLeadingBrackets(text, out var bracketContents);
         var key = Fold(body, readings);
@@ -236,10 +236,7 @@ public sealed class NameCollation : IComparer<string>
                 continue;
             }
 
-            if (c is >= 'ァ' and <= 'ヶ')
-            {
-                c = (char)(c - 0x60);
-            }
+            c = Search.Kana.ToHiragana(c);
 
             if (!char.IsLetterOrDigit(c))
             {

@@ -62,7 +62,7 @@ public sealed partial class FallbackResolver
     /// <param name="previousName">前の商品名（自分で付けた名前か、BOOTHの名前）。無ければファイルの名前から始める。</param>
     /// <param name="shopSubdomain">今の商品のショップ。同じショップの札に使う。</param>
     /// <param name="paths">手元のファイルとフォルダの場所。</param>
-    public async Task<ReplacementProposal> FindReplacementAsync(
+    internal async Task<ReplacementProposal> FindReplacementAsync(
         string fromId,
         string? previousName,
         string? shopSubdomain,

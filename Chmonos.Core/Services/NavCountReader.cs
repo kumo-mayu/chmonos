@@ -44,7 +44,7 @@ public sealed record NavReading(NavCounts Counts, JsonFileStamp UnresolvedStamp,
 /// **2つのファイル（<c>unresolved.json</c>・<c>notifications.json</c>）が前に数えたときと同じなら読まずに前の数を返す。**
 /// 片方だけ変わった回は、変わった方だけ読む。
 /// 取り込み中は③待ちの数が変わるたび（商品1件あたり約2回）に数え直しが頼まれ、そのたびに2つを読んでいた
-/// （知らせは上限2000件で約1MB。stress-manage の1000件で1回 約2ms・割り当て 720KB）。
+/// （知らせは既定で200件まで残し、設定で5000件まで増やせる。2000件で約1MB。stress-manage の1000件で1回 約2ms・割り当て 720KB）。
 /// 取り込みが書くのは商品と画像で、この2つはほとんど変わらない。
 ///
 /// 「同じ」は大きさ・更新日時と、このアプリの書き込みの数（<see cref="JsonFileStore{T}.WriteCount"/>）で見る。

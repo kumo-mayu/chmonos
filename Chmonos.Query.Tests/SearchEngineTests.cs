@@ -374,6 +374,12 @@ public sealed class SearchEngineTests : IDisposable
             {
                 LocalFiles = [local.LocalFiles[0] with { Paths = [@"D:\files\g.unitypackage"] }],
             }),
+
+            // 要約をまだ書いていない zip も、中身の一覧にあれば送れる（カードの右クリックと同じ判断。入る先は分からないので空）
+            Item("9600018", "要約がまだのzip", local: local => local with
+            {
+                LocalFiles = [local.LocalFiles[0] with { Contents = ["Unity/h.unitypackage", "readme.txt"] }],
+            }),
         ];
         foreach (var item in items)
         {
@@ -382,17 +388,20 @@ public sealed class SearchEngineTests : IDisposable
 
         var snapshot = await QuerySnapshot.LoadAsync(store);
         var listed = Catalogs.UnityPackages(snapshot, null).Select(entry => entry.ItemId).Distinct().Order(StringComparer.Ordinal).ToArray();
-        Assert.Equal(["9600011", "9600013", "9600017"], listed);
+        Assert.Equal(["9600011", "9600013", "9600017", "9600018"], listed);
         Assert.Equal("g.unitypackage", Catalogs.UnityPackages(snapshot, null).Single(entry => entry.ItemId == "9600017").Entry);
+        var unsummarized = Catalogs.UnityPackages(snapshot, null).Single(entry => entry.ItemId == "9600018");
+        Assert.Equal("Unity/h.unitypackage", unsummarized.Entry);
+        Assert.Empty(unsummarized.Roots);
 
         string[] Search(bool? has) => SearchEngine.Search(snapshot, new SearchRequest { HasUnityPackage = has, Sort = [new("id")] }, Now)
             .Items.Select(item => item.Id).ToArray();
         Assert.Equal(listed, Search(true));
         Assert.Equal(["9600012", "9600014", "9600015", "9600016"], Search(false));
-        Assert.Equal(7, Search(null).Length);
+        Assert.Equal(8, Search(null).Length);
 
         var facets = SearchEngine.Facets(snapshot, new FacetsRequest { HasUnityPackage = true, Fields = ["category"] }, Now);
-        Assert.Equal(3, facets.Total);
+        Assert.Equal(4, facets.Total);
 
         var request = JsonSerializer.Deserialize("""{"hasUnityPackage":true}""", QueryJson.Context.SearchRequest)!;
         Assert.True(request.HasUnityPackage);

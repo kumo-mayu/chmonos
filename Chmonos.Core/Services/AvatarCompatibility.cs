@@ -30,9 +30,9 @@ public enum AvatarMatch
 public sealed class AvatarCompatibilityIndex
 {
     private readonly Dictionary<string, string> _baseOfAvatar = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, List<string>> _membersOfBase = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly Dictionary<string, List<string>> _membersOfBase = new(AvatarBaseNames.Comparer);
     private readonly Dictionary<string, string> _baseOfItemId = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _noInfer = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly HashSet<string> _noInfer = new(AvatarBaseNames.Comparer);
 
     /// <summary>
     /// 商品ごとに展開した結果。検索画面は1打鍵ごとに、選択肢の件数を数えるだけでも全商品を2〜3回展開していて、
@@ -147,7 +147,7 @@ public sealed class AvatarCompatibilityIndex
     private IReadOnlyDictionary<string, AvatarMatch> ResolveCore(LocalBlock local)
     {
         var result = new Dictionary<string, AvatarMatch>(StringComparer.Ordinal);
-        var basesToExpand = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
+        var basesToExpand = new HashSet<string>(AvatarBaseNames.Comparer);
 
         foreach (var link in local.Avatars)
         {

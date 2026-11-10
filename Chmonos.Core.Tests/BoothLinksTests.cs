@@ -22,7 +22,7 @@ public class BoothLinksTests
     [InlineData("https://evil.example.com/items/9900001")]
     [InlineData(null)]
     public void 商品ページは記録のURLを使わず商品IDから作る(string? recorded)
-        => Assert.Equal("https://booth.pm/ja/items/9900001", BoothClient.PageUrlFor(Item("9900001", recorded)));
+        => Assert.Equal("https://booth.pm/ja/items/9900001", BoothLinks.ItemPage(Item("9900001", recorded)));
 
     [Theory]
     [InlineData("local-0a1b2c3d")]
@@ -31,7 +31,7 @@ public class BoothLinksTests
     [InlineData("9900001?x=1")]
     [InlineData("")]
     public void 番号でない商品IDからは商品ページを作らない(string id)
-        => Assert.Null(BoothClient.PageUrlFor(Item(id, "https://booth.pm/ja/items/9900001")));
+        => Assert.Null(BoothLinks.ItemPage(Item(id, "https://booth.pm/ja/items/9900001")));
 
     [Theory]
     [InlineData("https://booth.pm/")]

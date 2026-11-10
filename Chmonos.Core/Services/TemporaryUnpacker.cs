@@ -131,8 +131,8 @@ public sealed class TemporaryUnpacker
         // 2本目が1本目の書きかけ（終わった印がまだ無い）を「途中で止まった展開」と見て消し、
         // 1本目が自分の消された・掴まれたファイルで失敗して「別のアプリがファイルを開いています」と出していた（掴んでいたのはこのアプリ）。
         // 2本目は1本目を待ち、終わった印を見てそのまま返す。印を作る元の値（場所・大きさ・更新時刻）が同じなら展開先も同じなので、
-        // 展開先の名前で錠を分ける（別の zip の展開は待たせない）。錠は展開ごとに作らず持ち続ける——数は押した zip の数だけ
-        var gate = Gates.GetOrAdd(Path.GetFullPath(destination).ToUpperInvariant(), _ => new SemaphoreSlim(1, 1));
+        // 展開先の名前で錠を分ける（別の zip の展開は待たせない）。使っている人がいなくなった錠は捨てる（KeyedGate。前は押した zip の数だけ持ち続けた）
+        var gate = Gates.For(Path.GetFullPath(destination));
         // 錠を待っている間の中止は、ここで投げて出る。**錠を持たないうちは展開先に触らない**
         // （先に入っている1本の書きかけを消すと、2本目が書きかけを消していたときと同じ壊れ方になる）
         gate.Wait(cancellationToken);
@@ -148,7 +148,7 @@ public sealed class TemporaryUnpacker
     }
 
     /// <summary>展開先ごとの錠。命令は展開のたびに新しい <see cref="TemporaryUnpacker"/> を作るので、インスタンスをまたいで持つ。</summary>
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> Gates = new();
+    private static readonly Storage.KeyedGate<string> Gates = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>錠に入った直後に呼ぶ（試験で、1本目が展開している最中に2本目を押した状況を作る）。</summary>
     internal Action? OnGateEntered { get; init; }
@@ -341,7 +341,7 @@ public sealed class TemporaryUnpacker
         // **同じ取り出し先は1本ずつ**（一時展開と同じ錠）。送信は1列なので今は重ならないが、重なると2本目が
         // 1本目の書きかけ（同じ「.part」）を開こうとして「別のアプリがファイルを開いています」になる。
         // 在るかを見るのも錠の中——待っている間に1本目が書き終えていれば、それをそのまま返す
-        var gate = Gates.GetOrAdd(Path.GetFullPath(target).ToUpperInvariant(), _ => new SemaphoreSlim(1, 1));
+        var gate = Gates.For(Path.GetFullPath(target));
         gate.Wait(cancellationToken);
         try
         {

@@ -40,7 +40,7 @@ public static class UsedUpdates
 
         return update.ForBases is { Count: > 0 } bases
             && registry.Entries.FirstOrDefault(entry => entry.ItemId == avatarItemId)?.BaseName is { } baseName
-            && bases.Contains(baseName, StringComparer.Ordinal);
+            && bases.Contains(baseName, AvatarBaseNames.Comparer);
     }
 
     /// <summary>

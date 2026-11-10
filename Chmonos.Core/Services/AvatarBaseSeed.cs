@@ -120,7 +120,7 @@ public static class AvatarBaseSeed
     public static int Merge(List<AvatarBaseGroup> groups)
     {
         var known = groups.Select(group => group.Name)
-            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+            .ToHashSet(AvatarBaseNames.Comparer);
 
         var added = 0;
 

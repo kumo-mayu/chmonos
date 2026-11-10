@@ -163,7 +163,7 @@ public static partial class SaleDecorations
         }
 
         var builder = new StringBuilder(value.Length);
-        foreach (var rune in value.Normalize(NormalizationForm.FormKC).ToLowerInvariant().EnumerateRunes())
+        foreach (var rune in Services.Nfkc.Fold(value).ToLowerInvariant().EnumerateRunes())
         {
             var category = Rune.GetUnicodeCategory(rune);
             if (Rune.IsLetterOrDigit(rune) || category == UnicodeCategory.LetterNumber || category == UnicodeCategory.OtherNumber)

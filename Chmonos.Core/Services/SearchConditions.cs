@@ -90,7 +90,7 @@ public sealed class SearchFacts
                 .ToArray(),
             StringComparer.Ordinal);
 
-        _baseNames = new Dictionary<string, string[]>(StringComparer.CurrentCultureIgnoreCase);
+        _baseNames = new Dictionary<string, string[]>(AvatarBaseNames.Comparer);
         foreach (var group in registry.BaseGroups.Where(group => !group.Rejected && !string.IsNullOrWhiteSpace(group.Name)))
         {
             _baseNames[group.Name] = group.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text).Prepend(group.Name).Select(SearchQuery.Normalize).ToArray();

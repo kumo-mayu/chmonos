@@ -28,4 +28,25 @@ public sealed class RefreshJitterTests
 
         Assert.Equal(0, RefreshJitter.Days("9900001", 0));
     }
+
+    /// <summary>
+    /// 取れたときの記録と予定日は1か所（<see cref="FetchRecord"/>）で決める。404 が続いた商品は販売終了の確かめ直しの間隔で見る
+    /// </summary>
+    [Fact]
+    public void FetchRecordWritesTheSameScheduleForEveryCaller()
+    {
+        var settings = new Models.AppSettings();
+        var now = new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.FromHours(9));
+        var jitter = RefreshJitter.Days("9900001", settings.RefreshJitterDays);
+
+        Assert.Equal(now.AddDays(settings.RefreshIntervalDays + jitter), FetchRecord.NextDue("9900001", settings, now));
+        Assert.Equal(now.AddDays(settings.DelistedRecheckDays + jitter), FetchRecord.NextDue("9900001", settings, now, settings.NotFoundThreshold));
+
+        var fetched = FetchRecord.Fetched(new Models.LocalBlock { ConsecutiveNotFoundCount = 3, IsDelisted = true, Memo = "人のメモ" }, "9900001", settings, now);
+        Assert.Equal(0, fetched.ConsecutiveNotFoundCount);
+        Assert.False(fetched.IsDelisted);
+        Assert.Equal(now, fetched.LastFetchedAt);
+        Assert.Equal(FetchRecord.NextDue("9900001", settings, now), fetched.NextFetchDueAt);
+        Assert.Equal("人のメモ", fetched.Memo);
+    }
 }

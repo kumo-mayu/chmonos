@@ -87,8 +87,7 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
 
             // 新しいバージョンが書いた控えは、読めなくても zip を解き直さない（書けないので、取り込みのたびに解き直すだけになる）
             .Where(target => !pathStore.IsTooNew(target.Record.Hash))
-            .Select(target => (target.Record, target.Stored, Zip: target.Record.Paths.FirstOrDefault(path =>
-                path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path))))
+            .Select(target => (target.Record, target.Stored, Zip: ArchiveFiles.FirstExistingZip(target.Record.Paths)))
             .Where(target => target.Zip is not null)
             .OrderBy(target => target.Record.SizeBytes)
             .ToList();

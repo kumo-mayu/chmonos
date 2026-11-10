@@ -151,7 +151,7 @@ public static class ItemMapper
 
     /// <summary>ファイルの状態（<see cref="FileRef.State"/>）。見つからないの数え方はカードの印と同じ（<see cref="ItemRecord.HasMissingFile"/>）。</summary>
     internal static string FileState(LocalFileRecord file)
-        => file.Detached ? "detached" : file.IsOldVersion ? "oldVersion" : file.Paths.Count == 0 || file.MissingSince is not null ? "missing" : "present";
+        => file.Detached ? "detached" : file.IsOldVersion ? "oldVersion" : file.IsRecordedMissing ? "missing" : "present";
 
     /// <summary>画面のカードと同じ並べ方・同じ1枚目（<see cref="ItemImageOrder"/>）。</summary>
     private static (ImageRef? Thumbnail, IReadOnlyList<ImageRef> All) Images(ItemRecord item, QuerySnapshot snapshot)

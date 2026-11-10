@@ -419,7 +419,7 @@ public static class SearchModuleConditions
     private static string? Fold(string? text)
         => string.IsNullOrWhiteSpace(text)
             ? null
-            : text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
+            : Nfkc.Fold(text).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
 
     private static DateOnly? PublishedDate(ItemRecord item)
         => item.Booth.PublishedAt is { } at ? DateOnly.FromDateTime(at.LocalDateTime) : null;
@@ -521,7 +521,7 @@ public static class SearchModuleConditions
         // 共通素体：素体への対応を宣言している商品。素体経由を含めるなら、素体に属するアバターに対応している商品も
         var baseName = key[BaseKey.Length..];
         if (item.Local.AvatarBases.Any(link => !link.Rejected
-            && string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)))
+            && AvatarBaseNames.Same(link.BaseName, baseName)))
         {
             return true;
         }
@@ -635,15 +635,15 @@ public static class SearchModuleConditions
             var avatar = key[AvatarKey.Length..];
             return string.Equals(target.AvatarItemId, avatar, StringComparison.Ordinal)
                 || (viaBase && target.BaseName is { } baseName
-                    && string.Equals(compatibility.BaseNameOf(avatar), baseName, StringComparison.CurrentCultureIgnoreCase));
+                    && AvatarBaseNames.Same(compatibility.BaseNameOf(avatar), baseName));
         }
 
         if (key.StartsWith(BaseKey, StringComparison.Ordinal))
         {
             var baseName = key[BaseKey.Length..];
-            return string.Equals(target.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+            return AvatarBaseNames.Same(target.BaseName, baseName)
                 || (viaBase && target.AvatarItemId is { } avatar
-                    && string.Equals(compatibility.BaseNameOf(avatar), baseName, StringComparison.CurrentCultureIgnoreCase));
+                    && AvatarBaseNames.Same(compatibility.BaseNameOf(avatar), baseName));
         }
 
         return false;

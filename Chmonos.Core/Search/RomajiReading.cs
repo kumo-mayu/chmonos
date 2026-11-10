@@ -198,16 +198,4 @@ public static class RomajiReading
             .ThenBy(pair => pair.Item1, StringComparer.Ordinal)
             .ToArray();
     }
-
-    /// <summary>ひらがなをカタカナに寄せる。文字コードを足すだけで、辞書は要らない。</summary>
-    public static string ToKatakana(string hiragana)
-    {
-        var builder = new StringBuilder(hiragana.Length);
-        foreach (var c in hiragana)
-        {
-            builder.Append(c is >= 'ぁ' and <= 'ゖ' ? (char)(c + 0x60) : c);
-        }
-
-        return builder.ToString();
-    }
 }

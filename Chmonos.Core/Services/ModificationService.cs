@@ -578,12 +578,13 @@ public sealed class ModificationService : IModificationService
     /// <summary>
     /// 同じプロジェクトを指しているか。
     ///
-    /// Windowsのパスは大文字小文字を区別せず、末尾の区切りも揺れる。
-    /// 素の文字列比較だと、同じプロジェクトを別物と見て取り逃す。
+    /// Windowsのパスは大文字小文字を区別せず、末尾の区切りも揺れる。Unity の <c>Application.dataPath</c> は <c>/</c> 区切りで返す。
+    /// 素の文字列比較だと、同じプロジェクトを別物と見て取り逃す。綴りの揃え方は検索の条件・API と同じ <see cref="UnityProjectPath.Normalize"/>
+    /// （前は末尾の区切りだけを落としていて、<c>/</c> と <c>\</c> の違いで検索とずれた）。空は何とも同じでない。
     /// </summary>
     public static bool SamePath(string? a, string? b)
-        => a is not null && b is not null
-        && string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+        => UnityProjectPath.Normalize(a) is { } left && UnityProjectPath.Normalize(b) is { } right
+        && string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 1件を読んで、書き換えて、書き戻す。

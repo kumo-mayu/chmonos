@@ -111,11 +111,11 @@ internal sealed class KeyedGate<TKey>
             }
         }
 
-        public void Wait()
+        public void Wait(CancellationToken cancellationToken = default)
         {
             try
             {
-                _entry.Gate.Wait();
+                _entry.Gate.Wait(cancellationToken);
             }
             catch
             {

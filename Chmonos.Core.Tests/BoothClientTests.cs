@@ -496,4 +496,15 @@ public class BoothClientTests
     {
         Assert.Equal(expected, BoothClient.ItemPageUrl(itemId));
     }
+
+    /// <summary>ショップの一覧の URL は1つの入口で組み、サブドメインの形でない物からは組まない（別の所へ行く URL を作らない）。</summary>
+    [Theory]
+    [InlineData("sample-shop", null, "https://sample-shop.booth.pm/items")]
+    [InlineData("Sample-Shop", 2, "https://sample-shop.booth.pm/items?page=2")]
+    [InlineData("evil.com/x", null, null)]
+    [InlineData("-shop", null, null)]
+    [InlineData("sample-shop", 0, null)]
+    [InlineData(null, null, null)]
+    public void BuildsShopItemsUrl(string? subdomain, int? page, string? expected)
+        => Assert.Equal(expected, BoothClient.ShopItemsUrl(subdomain, page));
 }

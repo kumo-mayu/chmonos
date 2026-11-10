@@ -5,8 +5,7 @@ namespace Chmonos.Core.Scanning;
 /// <summary>
 /// 「このファイルはこの商品のものではない」の一覧を引く。
 ///
-/// 外した印（<see cref="LocalFileRecord.Detached"/>）は商品のJSONの中にあるので、全商品から集める
-/// （以前は別の detached.json に持っていた）。
+/// 外した印（<see cref="LocalFileRecord.Detached"/>）は商品のJSONの中にあるので、全商品から集める。
 ///
 /// 除外（<see cref="ExclusionFilter"/>）と違い、ファイルを管理から外すわけではない。
 /// **その商品への紐付けだけ**を止める。他の商品には自由に紐付いてよい。

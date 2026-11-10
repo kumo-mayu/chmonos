@@ -92,7 +92,7 @@ public static class UsedUpdateKind
         var all = avatars.Values.Concat(bases.Values).SelectMany(names => names).Distinct(StringComparer.Ordinal).ToList();
 
         var forAvatars = new HashSet<string>(StringComparer.Ordinal);
-        var forBases = new HashSet<string>(StringComparer.Ordinal);
+        var forBases = new HashSet<string>(AvatarBaseNames.Comparer);
         foreach (var diff in diffs.Where(diff => Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field)))
         {
             if (diff.Lines is null || diff.MoreAdded is > 0)
@@ -206,7 +206,7 @@ public static class UsedUpdateKind
     /// </summary>
     internal static string Fold(string text)
     {
-        var decomposed = text.Normalize(NormalizationForm.FormKC).Normalize(NormalizationForm.FormD);
+        var decomposed = Nfkc.Fold(text).Normalize(NormalizationForm.FormD);
         var builder = new StringBuilder(decomposed.Length);
         foreach (var c in decomposed)
         {

@@ -17,11 +17,17 @@ public static class BoothUrlExtractor
         @"https?://[^\s""'<>\]\)\u3000-\u303F\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]+",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    /// <summary>
+    /// 商品ページの URL の言語の段（<c>ja</c>・<c>en</c>・<c>zh-cn</c>・<c>zh-tw</c> など）。商品の URL を読む所はこれを使う
+    /// （前は検出の側が2字だけを受け、説明文の <c>/zh-cn/items/…</c> に当たらなかった）。
+    /// </summary>
+    public const string LanguagePattern = "[a-z]{2}(?:-[a-z]{2})?";
+
     // ID の後ろは「数字でない」だけを見る。前は [/?#] か末尾を求めていたので、
     // 「…/items/1234567です」のように文が続くと取れなかった。数字でないことは要る——
     // 見ないと 12345678 の先頭の 1234567 に当たってしまう
     private static readonly Regex ItemUrlRegex = new(
-        @"^https?://(?:(?<sub>[a-zA-Z0-9][a-zA-Z0-9-]*)\.)?booth\.pm(?:/(?<lang>[a-z]{2}(?:-[a-z]{2})?))?/items/(?<id>\d+)(?![0-9])",
+        @"^https?://(?:(?<sub>[a-zA-Z0-9][a-zA-Z0-9-]*)\.)?booth\.pm(?:/(?<lang>" + LanguagePattern + @"))?/items/(?<id>\d+)(?![0-9])",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ShopUrlRegex = new(
@@ -138,6 +144,9 @@ public static class BoothUrlExtractor
     /// <summary>ショップではないサブドメイン。ここを開いても手持ちは出てこない。</summary>
     private static readonly HashSet<string> ReservedSubdomains =
         new(StringComparer.OrdinalIgnoreCase) { "accounts", "manage", "www", "asset", "s1", "s2", "s3", "s4", "s5", "s6" };
+
+    /// <summary>ショップではない BOOTH のサブドメイン（管理画面・配布の置き場など）か。ショップの URL を読む所はこれで外す。</summary>
+    public static bool IsReservedSubdomain(string subdomain) => ReservedSubdomains.Contains(subdomain);
 
     /// <summary>
     /// 1つのURL文字列を分類してBoothClueを返す。BOOTH関連でなければnull。

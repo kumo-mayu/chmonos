@@ -357,25 +357,26 @@ public static class Catalogs
     }
 
     /// <summary>
-    /// 送れる unitypackage を1つ以上持つか（検索の <c>hasUnityPackage</c>）。<see cref="UnityPackages"/> と同じ判断を使う
-    /// （別に書くと、一覧に出る商品と絞った商品が食い違う）
+    /// 送れる unitypackage を1つ以上持つか（検索の <c>hasUnityPackage</c>）。カードの右クリックと同じ1つの判断（<see cref="UnityHandoff.HasRecordedPackage"/>）を使い、
+    /// <see cref="UnityPackages"/> の一覧も同じ記録（<see cref="UnityHandoff.RecordedPackagesIn"/>）から作る（別に書くと、一覧に出る商品と絞った商品が食い違う）
     /// </summary>
-    public static bool HasSendablePackage(ItemRecord item) => SendablePackages(item, []).Any();
+    public static bool HasSendablePackage(ItemRecord item) => UnityHandoff.HasRecordedPackage(item);
 
-    /// <summary>商品1件の送れる unitypackage：置き場のある zip の中と、見つかっている登録したフォルダの中。</summary>
+    /// <summary>商品1件の送れる unitypackage：単体の物・置き場のある zip の中・見つかっている登録したフォルダの中。</summary>
     private static IEnumerable<UnityPackageEntryRef> SendablePackages(ItemRecord item, IReadOnlyList<string> avatars)
     {
-        foreach (var file in item.Local.LocalFiles.Where(file => ItemMapper.FileState(file) == "present"))
+        foreach (var file in item.Local.OwnedFiles.Where(file => !file.IsRecordedMissing))
         {
             // 単体の unitypackage（zip に入っていない物）は、そのファイルがそのまま送る物（送る側の UnityHandoff.PlacesOf と同じ）。
-            // 要約（UnityPackages）は zip の中を数えた物なので、ここに無い。前は数えず、送れるのに一覧と hasUnityPackage から漏れた（点検40）
-            if (file.Paths is [var path, ..] && path.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+            // 前は数えず、送れるのに一覧と hasUnityPackage から漏れた（点検40）
+            if (UnityHandoff.IsStandalonePackage(file))
             {
-                yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "file", path, Path.GetFileName(path), [], avatars);
+                yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "file", file.Paths[0], Path.GetFileName(file.Paths[0]), [], avatars);
                 continue;
             }
 
-            foreach (var package in file.UnityPackages ?? [])
+            // 要約がまだ書かれていない zip も、中身の一覧から出す（入る先は空）。前は要約だけを見ていて、取り込みの裏が読むまで一覧から漏れた
+            foreach (var package in UnityHandoff.RecordedPackagesIn(file))
             {
                 yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "file", file.Paths[0], package.Entry, package.Roots, avatars);
             }
@@ -383,7 +384,7 @@ public static class Catalogs
 
         foreach (var folder in item.Local.LocalFolders.Where(folder => folder.MissingSince is null))
         {
-            foreach (var entry in folder.UnityPackages)
+            foreach (var entry in folder.UnityPackages ?? [])
             {
                 yield return new UnityPackageEntryRef(item.Id, item.DisplayName, "folder", folder.Path, entry, [], avatars);
             }

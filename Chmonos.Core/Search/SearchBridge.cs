@@ -109,7 +109,7 @@ public sealed class SearchBridge
                 foreach (var reading in RomajiReading.Readings(word))
                 {
                     Add(reading, BridgeRoute.Reading);
-                    Add(RomajiReading.ToKatakana(reading), BridgeRoute.Katakana);
+                    Add(Kana.ToKatakana(reading), BridgeRoute.Katakana);
 
                     if (options.Kanji)
                     {
@@ -137,7 +137,7 @@ public sealed class SearchBridge
             // ── 外来語として英語を引く（カタカナで打った語） ──
             if (options.JapaneseToEnglish)
             {
-                foreach (var english in _dictionary.ByKana(Services.SearchQuery.ToHiragana(word)))
+                foreach (var english in _dictionary.ByKana(Kana.ToHiragana(word)))
                 {
                     Add(english, BridgeRoute.Japanese);
                 }
@@ -201,9 +201,10 @@ public sealed class SearchBridge
         }
     }
 
-    private static bool IsKana(char c) => c is >= 'ぁ' and <= 'ゖ' or >= 'ァ' and <= 'ヶ' or 'ー';
+    private static bool IsKana(char c) => Kana.IsKanaOrLongVowel(c);
 
-    private static bool IsAllHiragana(string text) => text.All(c => c is >= 'ぁ' and <= 'ゖ' or 'ー');
+    private static bool IsAllHiragana(string text) => text.All(c => Kana.IsHiragana(c) || c == 'ー');
 
-    private static bool IsAllKatakana(string text) => text.All(c => c is >= 'ァ' and <= 'ヶ' or 'ー' or '・');
+    // 外来語のカタカナ語は「・」で区切ることがある（「ドロップ・ショルダー」）ので、区切りもカタカナの語に数える
+    private static bool IsAllKatakana(string text) => text.All(c => Kana.IsKatakana(c) || c is 'ー' or '・');
 }

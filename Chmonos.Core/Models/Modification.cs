@@ -175,6 +175,6 @@ public static class ModificationId
         return Prefix + Convert.ToHexStringLower(hash)[..HashLength];
     }
 
-    public static bool IsModification(string? id)
+    internal static bool IsModification(string? id)
         => id is not null && id.StartsWith(Prefix, StringComparison.Ordinal);
 }

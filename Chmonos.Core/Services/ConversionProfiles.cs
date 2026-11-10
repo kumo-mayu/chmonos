@@ -114,7 +114,7 @@ public static class ConversionNames
             keys.Add(letters);
             foreach (var reading in Search.RomajiReading.Readings(letters))
             {
-                keys.Add(Search.RomajiReading.ToKatakana(reading));
+                keys.Add(Search.Kana.ToKatakana(reading));
             }
         }
 
@@ -149,7 +149,7 @@ public static class ConversionNames
 
             foreach (Match kana in KanaRun.Matches(name))
             {
-                var key = ToKatakana(kana.Value).Replace("ー", string.Empty, StringComparison.Ordinal);
+                var key = Search.Kana.ToKatakana(kana.Value).Replace("ー", string.Empty, StringComparison.Ordinal);
                 if (key.Length >= 2)
                 {
                     keys.Add(key);
@@ -171,23 +171,12 @@ public static class ConversionNames
     private static string AsciiKey(string text)
     {
         var builder = new StringBuilder(text.Length);
-        foreach (var c in text.Normalize(NormalizationForm.FormKC))
+        foreach (var c in Nfkc.Fold(text))
         {
             if (char.IsAsciiLetterOrDigit(c))
             {
                 builder.Append(char.ToLowerInvariant(c));
             }
-        }
-
-        return builder.ToString();
-    }
-
-    private static string ToKatakana(string text)
-    {
-        var builder = new StringBuilder(text.Length);
-        foreach (var c in text)
-        {
-            builder.Append(c is >= 'ぁ' and <= 'ゖ' ? (char)(c + ('ァ' - 'ぁ')) : c);
         }
 
         return builder.ToString();
@@ -327,7 +316,7 @@ public static class ConversionInference
             return null;
         }
 
-        var bases = clues.Where(clue => clue.BaseName is not null).Select(clue => clue.BaseName!).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+        var bases = clues.Where(clue => clue.BaseName is not null).Select(clue => clue.BaseName!).Distinct(AvatarBaseNames.Comparer).ToList();
         var avatars = clues.Where(clue => clue.AvatarItemId is not null).Select(clue => clue.AvatarItemId!).Distinct(StringComparer.Ordinal).ToList();
 
         if (bases.Count > 1 || (bases.Count == 0 && avatars.Count > 1))
@@ -339,7 +328,7 @@ public static class ConversionInference
         if (bases.Count == 1)
         {
             var baseName = bases[0];
-            if (avatars.All(avatar => string.Equals(compatibility.BaseNameOf(avatar), baseName, StringComparison.CurrentCultureIgnoreCase)))
+            if (avatars.All(avatar => AvatarBaseNames.Same(compatibility.BaseNameOf(avatar), baseName)))
             {
                 return new ConversionTarget { BaseName = baseName };
             }

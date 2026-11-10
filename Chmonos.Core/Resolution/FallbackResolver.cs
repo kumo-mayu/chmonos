@@ -215,7 +215,7 @@ public sealed partial class FallbackResolver
                     score += 1;
                 }
 
-                if (numbers.Any(number => ContainsNumber(card.Name, number)))
+                if (numbers.Any(number => ContainsNumberOutsideVersion(card.Name, number)))
                 {
                     score += 3;
                 }
@@ -271,7 +271,7 @@ public sealed partial class FallbackResolver
     /// 商品名の版番号（「ver2.1.0」）の中の数字にも当てない。検索カードの名前を切らずに読むようにしたら、
     /// 版番号を名前に書く商品がシリーズの番号の3点を取り、正解の上に来た（2026-09-29）。
     /// </summary>
-    private static bool ContainsNumber(string text, string number)
+    private static bool ContainsNumberOutsideVersion(string text, string number)
         => Regex.IsMatch(text, $@"(?<![0-9]|[0-9]\.){Regex.Escape(number)}(?![0-9]|\.[0-9])");
 
     /// <summary>
@@ -707,7 +707,7 @@ public sealed partial class FallbackResolver
         }
 
         if (itemName is not null && significantNumbers is not null
-            && significantNumbers.Any(number => ContainsNumber(itemName, number)))
+            && significantNumbers.Any(number => ContainsNumberOutsideVersion(itemName, number)))
         {
             score += 1;
             reasons.Add("ファイル名の番号が商品名と一致");

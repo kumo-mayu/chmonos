@@ -228,9 +228,10 @@ public sealed class UnityPackagePathStore(AppPaths paths)
             Profiles = profiles is null ? null : new Dictionary<string, ProfileAvatarData>(profiles, StringComparer.OrdinalIgnoreCase),
         };
 
-    // 丸ごと書く（非同期）と1つ足す（同期）が同じ錠を取るので、どちらからも使える SemaphoreSlim にする
-    private static SemaphoreSlim LockFor(string hash) => s_locks.GetOrAdd(hash, static _ => new SemaphoreSlim(1, 1));
+    // 丸ごと書く（非同期）と1つ足す（同期）が同じ錠を取るので、どちらからも待てる KeyedGate（中は SemaphoreSlim）にする。
+    // 使っている人がいなくなった錠は捨てる（前は読んだ zip のハッシュの数だけ溜まり続けた）
+    private static KeyedGate<string>.Handle LockFor(string hash) => s_locks.For(hash);
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> s_locks
+    private static readonly KeyedGate<string> s_locks
         = new(StringComparer.OrdinalIgnoreCase);
 }
