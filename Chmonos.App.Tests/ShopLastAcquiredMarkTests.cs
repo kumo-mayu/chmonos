@@ -45,12 +45,13 @@ public class ShopLastAcquiredMarkTests
     [Fact]
     public Task 入手日が無ければ_上の段は印で_カードの2行目は言葉で書く() => TestApp.Run(async app =>
     {
-        // 入手日もファイルも無い商品。所持していないので、「所持しているものだけ」を切って見る
-        // （手元に無いファイルの記録を持たせる形は、起動の見回りが見つからない印を付けるかどうかで結果が揺れた）
+        // 入手日もファイルも無い商品。所持していないので、「所持しているものだけ」を切って見る。
+        // カードは裏で読むので、読み終えるのを待つ（待たないと、一式の中で走らせたときだけ空のまま読んでいた）
         await app.AddItemAsync(Make.Item("1000001", "作り物の衣装"));
         var main = await app.StartAsync();
         await main.ShowShopAsync("sample-shop");
         var shop = Assert.IsType<ShopViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => shop.IsListReady, "ショップの商品を読む");
         shop.OwnedOnly = false;
 
         Assert.Equal("—", shop.LastAcquiredText);
