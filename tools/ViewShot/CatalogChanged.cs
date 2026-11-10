@@ -45,6 +45,7 @@ internal static class CatalogChanged
         ("PickMember", ["10-modifications"]), ("PickPackages", ["10-modifications"]),
         ("TagManage", ["11-tags"]), ("UserTag", ["11-tags", "03-item", "04-edit"]), ("MoveSub", ["11-tags"]), ("RenameTag", ["11-tags"]),
         ("AttributeManage", ["12-attributes"]), ("Attribute", ["12-attributes", "04-edit"]),
+        ("ManageViewModelBase", ["11-tags", "12-attributes"]), ("ManageMasterRow", ["11-tags", "12-attributes"]),
         ("Inbox", ["13-inbox"]),
         ("Stats", ["14-stats"]),
         ("Settings", ["15-settings"]), ("Backup", ["15-settings", "16-nav-bands"]),
