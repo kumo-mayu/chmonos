@@ -54,6 +54,17 @@ internal static partial class Scenes
             Height = null,
         },
 
+        // 設定を既定に戻す確認の窓（既定はチェックがオン）。通知の保管の容量だけ残すチェック付き
+        new Scene("reset-settings-dialog", "設定を既定に戻す窓：通知の保管の容量を残すチェック（既定はオン）・既定のボタンはキャンセル", context =>
+        {
+            var window = new Chmonos.App.Views.ResetSettingsDialog(new Chmonos.App.ViewModels.ResetSettingsDialogViewModel());
+            return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
         new Scene("missing-search-scope-empty", "見つからないファイルを探す窓：監視フォルダが無い（空の文・「探す」が押せない理由）", context =>
         {
             var model = new Chmonos.App.ViewModels.MissingSearchScopeViewModel([]);

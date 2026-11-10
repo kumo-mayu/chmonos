@@ -356,8 +356,11 @@ public sealed record AppSettings
     /// **既定の側から組む**（<c>new AppSettings()</c> に残す物だけ写す）。欄を足したら黙って既定に戻る側に倒れる。
     /// 環境に特有の欄を足したときは、ここに名指しで足す（試験 <c>AppSettingsResetTests</c> が、残す欄の一覧を固定している）
     /// </summary>
-    public AppSettings ResetToDefaults() => new()
+    public AppSettings ResetToDefaults(bool keepNotificationArchiveCapacity = false) => new()
     {
+        // 通知の保管の容量は、大きくしていた人が既定の 50MB に戻すと閉じるときに保管庫が削られる。
+        // 窓のチェックで今の値を残せる（ユーザ判断 2026-11-10）。呼び方の既定は戻す側
+        NotificationArchiveMegabytes = keepNotificationArchiveCapacity ? NotificationArchiveMegabytes : new AppSettings().NotificationArchiveMegabytes,
         ImportFolders = ImportFolders,
         WatchedFolders = WatchedFolders,
         FolderLayouts = FolderLayouts,

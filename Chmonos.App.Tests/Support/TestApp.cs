@@ -154,6 +154,12 @@ internal sealed class TestApp
     /// </summary>
     public Func<MissingSearchScopeViewModel, bool> PickSearchScope { get; set; } = _ => true;
 
+    /// <summary>「すべての設定を既定に戻す」の窓への答え（窓は出ない）。既定は「キャンセル」。チェックは窓の既定のまま渡る。</summary>
+    public Func<ResetSettingsDialogViewModel, bool> AnswerResetSettings { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、既定に戻す窓（窓は出ない）。</summary>
+    public List<ResetSettingsDialogViewModel> ResetSettingsDialogs { get; } = [];
+
     /// <summary>出すはずだった、どこを探すかの窓（窓は出ない）。</summary>
     public List<MissingSearchScopeViewModel> SearchScopes { get; } = [];
 
@@ -277,6 +283,11 @@ internal sealed class TestApp
             {
                 app.SearchScopes.Add(model);
                 return app.PickSearchScope(model);
+            };
+            ResetSettingsDialogViewModel.Intercept = model =>
+            {
+                app.ResetSettingsDialogs.Add(model);
+                return app.AnswerResetSettings(model);
             };
             ChoiceQuestion.Intercept = request =>
             {
@@ -437,6 +448,7 @@ internal sealed class TestApp
             // Run で差し替えた口は全部ここで戻す（点検24：この2つだけ戻しておらず、TestApp を使わない試験が
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
             ChoiceQuestion.Intercept = null;
+            ResetSettingsDialogViewModel.Intercept = null;
             ItemViewModel.PickFilesToAttachIntercept = null;
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);

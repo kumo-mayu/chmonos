@@ -18,6 +18,7 @@ public class SettingsResetAllTests
             ImportFolders = [@"D:\作り物\取り込み元"],
             WatchedFolders = [@"D:\作り物\監視"],
             ShowAdult = false,
+            NotificationArchiveMegabytes = 500,
             ReturnToSearchWhenEditDone = false,
             RefreshIntervalDays = 30,
             FetchIntervalMs = 9000,
@@ -36,7 +37,7 @@ public class SettingsResetAllTests
     {
         var settings = await OpenWithChangedSettingsAsync(app);
         Assert.False(settings.ShowAdult);
-        app.Answer = _ => MessageBoxResult.OK;
+        app.AnswerResetSettings = _ => true;
 
         settings.ResetAllSettingsCommand.Execute(null);
         await UiThread.Until(() => settings.ResetNote.Length > 0, "既定に戻し終わる");
@@ -71,7 +72,7 @@ public class SettingsResetAllTests
     public Task 窓でキャンセルすると_何も変えない() => TestApp.Run(async app =>
     {
         var settings = await OpenWithChangedSettingsAsync(app);
-        app.Answer = _ => MessageBoxResult.Cancel;
+        app.AnswerResetSettings = _ => false;
 
         settings.ResetAllSettingsCommand.Execute(null);
         await app.SettleAsync();
@@ -86,16 +87,70 @@ public class SettingsResetAllTests
     public Task 確かめの窓は_何が戻り何が戻らないかと_元に戻せないことを言う() => TestApp.Run(async app =>
     {
         var settings = await OpenWithChangedSettingsAsync(app);
-        app.Answer = _ => MessageBoxResult.Cancel;
 
         settings.ResetAllSettingsCommand.Execute(null);
 
-        var notice = Assert.Single(app.Notices);
-        Assert.Equal(MessageBoxButton.OKCancel, notice.Button);
-        Assert.Equal(MessageBoxResult.Cancel, notice.DefaultResult);
-        Assert.Contains("すべて既定に戻します", notice.Text);
-        Assert.Contains("取り込み元・監視するフォルダ", notice.Text);
-        Assert.Contains("画面にない細かな調整", notice.Text);
-        Assert.Contains("そのままです。\n\nこの操作は元に戻せません。", notice.Text);
+        // 標準の知らせの窓ではなく専用の窓（チェックを持つ）
+        Assert.Empty(app.Notices);
+        var dialog = Assert.Single(app.ResetSettingsDialogs);
+        Assert.Contains("すべて既定に戻します", ResetSettingsDialogViewModel.Body);
+        Assert.Contains("取り込み元・監視するフォルダ", ResetSettingsDialogViewModel.Body);
+        Assert.Contains("画面にない細かな調整", ResetSettingsDialogViewModel.Body);
+        Assert.Contains("保管している通知も消えません。", ResetSettingsDialogViewModel.Body);
+        Assert.EndsWith("\n\nこの操作は元に戻せません。", ResetSettingsDialogViewModel.Body);
+        Assert.Equal("通知の保管に使う容量はそのままにする", ResetSettingsDialogViewModel.KeepArchiveCapacityText);
+        Assert.True(dialog.KeepArchiveCapacity, "窓の既定はオン");
+    });
+
+    [Fact]
+    public Task チェックがオンで戻すと_保管の容量は残り_ほかは既定になる() => TestApp.Run(async app =>
+    {
+        var settings = await OpenWithChangedSettingsAsync(app);
+        app.AnswerResetSettings = _ => true; // 窓の既定（オン）のまま「既定に戻す」
+
+        settings.ResetAllSettingsCommand.Execute(null);
+        await UiThread.Until(() => settings.ResetNote.Length > 0, "既定に戻し終わる");
+        await app.SettleAsync();
+
+        Assert.Equal(500, app.Services.Settings.NotificationArchiveMegabytes);
+        Assert.Equal(500, settings.NotificationArchiveMegabytes);
+        Assert.True(app.Services.Settings.ShowAdult);
+        Assert.Equal(7, app.Services.Settings.RefreshIntervalDays);
+    });
+
+    [Fact]
+    public Task チェックをオフにして戻すと_保管の容量も50に戻る() => TestApp.Run(async app =>
+    {
+        var settings = await OpenWithChangedSettingsAsync(app);
+        app.AnswerResetSettings = model =>
+        {
+            model.KeepArchiveCapacity = false;
+            return true;
+        };
+
+        settings.ResetAllSettingsCommand.Execute(null);
+        await UiThread.Until(() => settings.ResetNote.Length > 0, "既定に戻し終わる");
+        await app.SettleAsync();
+
+        Assert.Equal(50, app.Services.Settings.NotificationArchiveMegabytes);
+        Assert.Equal(50, settings.NotificationArchiveMegabytes);
+        Assert.True(app.Services.Settings.ShowAdult);
+    });
+
+    [Fact]
+    public Task キャンセルなら_チェックがオフでも保管の容量を変えない() => TestApp.Run(async app =>
+    {
+        var settings = await OpenWithChangedSettingsAsync(app);
+        app.AnswerResetSettings = model =>
+        {
+            model.KeepArchiveCapacity = false;
+            return false;
+        };
+
+        settings.ResetAllSettingsCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal(500, app.Services.Settings.NotificationArchiveMegabytes);
+        Assert.False(app.Services.Settings.ShowAdult);
     });
 }

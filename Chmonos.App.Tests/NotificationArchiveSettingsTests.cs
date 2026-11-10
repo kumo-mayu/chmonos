@@ -17,6 +17,7 @@ public sealed class NotificationArchiveSettingsTests
     {
         Assert.Equal(50, new AppSettings().NotificationArchiveMegabytes);
         Assert.Equal(50, (new AppSettings() with { NotificationArchiveMegabytes = 3 }).ResetToDefaults().NotificationArchiveMegabytes);
+        Assert.Equal(3, (new AppSettings() with { NotificationArchiveMegabytes = 3 }).ResetToDefaults(keepNotificationArchiveCapacity: true).NotificationArchiveMegabytes);
     }
 
     [Theory]

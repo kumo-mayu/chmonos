@@ -124,11 +124,11 @@ internal static partial class Scenes
             settings.AssignShortcut(settings.ShortcutRows[0], "Ctrl+Shift+F9");
             await context.SettleAsync();
 
-            var before = Chmonos.App.Services.Notice.Intercept;
-            Chmonos.App.Services.Notice.Intercept = request =>
+            var before = Chmonos.App.ViewModels.ResetSettingsDialogViewModel.Intercept;
+            Chmonos.App.ViewModels.ResetSettingsDialogViewModel.Intercept = request =>
             {
-                context.Notices.Add($"「{request.Caption}」{request.Text}");
-                return done ? System.Windows.MessageBoxResult.OK : System.Windows.MessageBoxResult.Cancel;
+                context.Notices.Add($"「設定を既定に戻す」{Chmonos.App.ViewModels.ResetSettingsDialogViewModel.Body}［{Chmonos.App.ViewModels.ResetSettingsDialogViewModel.KeepArchiveCapacityText}：{request.KeepArchiveCapacity}］");
+                return done;
             };
             settings.ResetAllSettingsCommand.Execute(null);
             if (done)
@@ -136,7 +136,7 @@ internal static partial class Scenes
                 await SceneContext.UntilAsync(() => settings.ResetNote.Length > 0, "既定に戻し終わる");
             }
 
-            Chmonos.App.Services.Notice.Intercept = before;
+            Chmonos.App.ViewModels.ResetSettingsDialogViewModel.Intercept = before;
             await context.SettleAsync();
             Console.WriteLine($"  外れ値：表示 {settings.ShowAdult}・取り直す間隔 {settings.RefreshIntervalDays} 日・通信の間隔 {settings.FetchIntervalMs} ms・画像を保存 {settings.SaveImages}・取り込み元 {settings.Folders.Count} 件");
 

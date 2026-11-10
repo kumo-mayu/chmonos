@@ -29,21 +29,14 @@ public sealed partial class SettingsViewModel
     /// </summary>
     private void ResetAllSettings()
     {
-        var answer = Services.Notice.Show(
-            "表示・画面の幅・操作・ショートカット・取り込みの動き・画像・通信の間隔の設定を、すべて既定に戻します。\n\n"
-            + "取り込み元・監視するフォルダ・非表示にしたもの・保存先と、画面にない細かな調整は、そのままです。\n\n"
-            + "この操作は元に戻せません。",
-            "設定を既定に戻す",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Cancel);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
+        // 標準の知らせの窓にはチェックを足せないので専用の窓。通知の保管の容量だけ残すチェックが付く（既定はオン）
+        var dialog = new ResetSettingsDialogViewModel();
+        if (!ResetSettingsDialogViewModel.Ask(dialog))
         {
             return;
         }
 
-        ResetAllSettingsAsync().Forget();
+        ResetAllSettingsAsync(dialog.KeepArchiveCapacity).Forget();
     }
 
     /// <summary>
@@ -51,10 +44,10 @@ public sealed partial class SettingsViewModel
     /// 表示の大きさ・色・カードの幅は、それぞれ自分の値を持って自分で書く部品なので、その値も既定へ戻す
     /// （書く値は今と同じ既定なので、重ねて書いても食い違わない）
     /// </summary>
-    internal async Task ResetAllSettingsAsync()
+    internal async Task ResetAllSettingsAsync(bool keepArchiveCapacity = false)
     {
         Status = string.Empty;
-        if (!await SaveAsync(settings => settings.ResetToDefaults()))
+        if (!await SaveAsync(settings => settings.ResetToDefaults(keepArchiveCapacity)))
         {
             // 書けなかった（窓で知らせてある）。画面の値は保存してある値のまま。画面の幅なども戻さない
             return;
