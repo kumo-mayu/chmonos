@@ -1035,9 +1035,22 @@ public sealed class CommandHandler
                 {
                     var trimmed = await (_notifications ?? throw new InvalidOperationException("通知の保存先が渡されていません。"))
                         .TrimArchiveAsync(cancellationToken);
-                    if (trimmed > 0)
+                    if (trimmed.DeletedFiles > 0)
                     {
-                        Diagnostics.AppLog.Note("通知の保管", $"容量を超えたので、古い月のファイルを {trimmed} 個消しました。");
+                        Diagnostics.AppLog.Note("通知の保管", $"容量を超えたので、古い月のファイルを {trimmed.DeletedFiles} 個消しました。");
+                    }
+
+                    if (trimmed.DroppedRecords > 0)
+                    {
+                        Diagnostics.AppLog.Note(
+                            "通知の保管",
+                            $"最後に残った {trimmed.HalvedMonth} は消さずに、古い側の {trimmed.DroppedRecords} 件を削って新しい側の {trimmed.KeptRecords} 件を残しました。");
+                    }
+
+                    if (trimmed.StillOver)
+                    {
+                        // 消すと保管した知らせが全部無くなるので、超えたまま残す（ユーザ判断 2026-11-10）
+                        Diagnostics.AppLog.Note("通知の保管", $"{trimmed.HalvedMonth} は容量を超えたままです（これ以上は削らずに残しました）。");
                     }
 
                     return new CommandResult.Done();
