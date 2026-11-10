@@ -98,13 +98,24 @@ public sealed class DownloadSourceSweep(
         return written;
     }
 
-    /// <summary>記録の中身が今ある場所を1つ見つけて読む。同じ中身と言える場所が無ければ null（書かない）。</summary>
+    /// <summary>
+    /// 記録の中身が今ある場所を順に読み、BOOTH の値が読めた最初の物を返す。どこにも値が無ければ、読めた場所があり、
+    /// 見に行けない場所（つながっていないドライブ・確かめられない場所）が無いときだけ空の物（読んだ印）。それ以外は null（書かない）。
+    /// </summary>
+    /// <remarks>
+    /// 1か所目が印の無い写し（USB・クラウドから戻した物）で、2か所目が元のダウンロードということがある。1か所目の空で印を付けると、元の場所を二度と読まない。
+    /// 外付けの上の場所も同じで、つながったときに読めるよう未読のまま残す。
+    /// </remarks>
     private DownloadSource? ReadOne(LocalFileRecord file, FilePresenceProbe probe, IReadOnlyDictionary<string, ScanCacheEntry> cached)
     {
+        var readEmpty = false;
+        var unseen = false;
         foreach (var path in file.Paths)
         {
-            if (probe.PlaceOf(path, volume: PlaceVolumes.Of(file, path)) != FilePresence.Present)
+            var presence = probe.PlaceOf(path, volume: PlaceVolumes.Of(file, path));
+            if (presence != FilePresence.Present)
             {
+                unseen |= presence is FilePresence.OnDetachedDrive or FilePresence.Unverifiable;
                 continue;
             }
 
@@ -118,6 +129,7 @@ public sealed class DownloadSourceSweep(
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
+                unseen = true;
                 continue;
             }
 
@@ -134,9 +146,15 @@ public sealed class DownloadSourceSweep(
                 continue;
             }
 
-            return DownloadSources.From(_readZone(path));
+            var source = DownloadSources.From(_readZone(path));
+            if (!source.IsEmpty)
+            {
+                return source;
+            }
+
+            readEmpty = true;
         }
 
-        return null;
+        return readEmpty && !unseen ? new DownloadSource() : null;
     }
 }

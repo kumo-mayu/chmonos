@@ -37,9 +37,11 @@ public static class DownloadSources
         => zone.Found ? From(zone.HostUrl, zone.ReferrerUrl) : new DownloadSource();
 
     /// <summary>
-    /// 今ある行と見つけた行を合わせる（<c>LocalFileMerger</c>）。今ある行が何か知っていればそれを保ち、空か未読なら見つけた方。
+    /// 今ある行と見つけた行を合わせる（<c>LocalFileMerger</c>）。今ある行が何か知っていればそれを保ち、空か未読なら見つけた方が値を持つときだけ入れる。
     /// 同じハッシュ（同じ中身）の記録なので、見つけた方の値は推した値ではなく、その中身について読んだ事実。
+    /// **見つけた方が空（印の無い写し）でも、未読の行を「読んだ」にしない**：USB・クラウドから写した物が先に取り込まれると、
+    /// 元のダウンロードの場所を読む前に印が付き、見回りがもう読まなくなる。
     /// </summary>
     public static DownloadSource? Combine(DownloadSource? current, DownloadSource? discovered)
-        => current is { IsEmpty: false } ? current : discovered ?? current;
+        => current is not { IsEmpty: false } && discovered is { IsEmpty: false } ? discovered : current;
 }

@@ -212,13 +212,46 @@ public class FileDownloadSourceTests : IDisposable
         LocalFileRecord Row(string hash, DownloadSource? source) => new() { Hash = hash, Paths = [@"Z:\x\" + hash + ".zip"], SizeBytes = 1, DownloadSource = source };
 
         var merged = LocalFileMerger.MergeByHand(
-            [Row("AA", Known), Row("BB", null), Row("CC", new DownloadSource()), Row("DD", Known)],
-            [Row("AA", read), Row("BB", read), Row("CC", read), Row("DD", new DownloadSource())]);
+            [Row("AA", Known), Row("BB", null), Row("CC", new DownloadSource()), Row("DD", Known), Row("EE", null)],
+            [Row("AA", read), Row("BB", read), Row("CC", read), Row("DD", new DownloadSource()), Row("EE", new DownloadSource())]);
 
         Assert.Equal(Known, merged.Single(file => file.Hash == "AA").DownloadSource);
         Assert.Equal(read, merged.Single(file => file.Hash == "BB").DownloadSource);
         Assert.Equal(read, merged.Single(file => file.Hash == "CC").DownloadSource);
         Assert.Equal(Known, merged.Single(file => file.Hash == "DD").DownloadSource);
+
+        // 印の無い写しを見つけても、未読の行を「読んだ」にしない（元のダウンロードの場所を見回りが読めるように）
+        Assert.Null(merged.Single(file => file.Hash == "EE").DownloadSource);
+    }
+
+    [Fact]
+    public async Task 未読の行に印の無い写しを取り込んでも未読のまま()
+    {
+        var (copy, hash) = await MakeZipAsync("usb-copy.zip");
+        await SaveItemAsync(new LocalFileRecord { Hash = hash, Paths = [Path.Combine(_root, "前の場所", "usb-copy.zip")], SizeBytes = new FileInfo(copy).Length });
+
+        await _pipeline.RunAsync(new ImportWorkSet([_source]));
+
+        var file = await FileOfAsync(hash);
+        Assert.Contains(copy, file.Paths, StringComparer.OrdinalIgnoreCase);
+        Assert.Null(file.DownloadSource);
+    }
+
+    [Fact]
+    public async Task 見回りは印の無い写しの後ろにある元のダウンロードも読む()
+    {
+        var (copy, hash) = await MakeZipAsync("same.zip", folder: Path.Combine(_root, "写し"));
+        var original = Path.Combine(_root, "元", "same.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(original)!);
+        File.Copy(copy, original);
+        File.WriteAllText(original + ":Zone.Identifier", $"[ZoneTransfer]\r\nZoneId=3\r\nHostUrl={CdnUrl}\r\n");
+        await SaveItemAsync(new LocalFileRecord { Hash = hash, Paths = [copy, original], SizeBytes = new FileInfo(copy).Length });
+
+        var (sweep, reads) = NewSweep();
+        await sweep.SweepAsync();
+
+        Assert.Equal(2, reads.Count);
+        Assert.Equal(DownloadId, (await FileOfAsync(hash)).DownloadSource?.DownloadableId);
     }
 
     [Fact]
