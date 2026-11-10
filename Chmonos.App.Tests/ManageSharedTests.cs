@@ -1,3 +1,4 @@
+using System.IO;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
@@ -74,6 +75,58 @@ public class ManageSharedTests
 
         Assert.Equal(1, tags.TopCount);
         Assert.Equal("「外の大分類」を 1 件の商品から外しました。1 件はユーザータグが空になり、未編集に戻りました。", tags.ListNotice.Text);
+    });
+
+    /// <summary>
+    /// 一覧に無い名前の操作も、できなかったときは一覧の見出しの近くに失敗を出す（ユーザ判断 2026-11-10。前は何も出なかった）。
+    /// 商品の JSON を読み取り専用にして書き換えを失敗させる
+    /// </summary>
+    [Fact]
+    public Task タグの一覧に無い大分類を外せなかったら_一覧の見出しの近くに失敗を出す() => TestApp.Run(async app =>
+    {
+        app.Answer = _ => System.Windows.MessageBoxResult.OK;
+        app.AllowLoggedFailures = true;
+        var tags = await OpenTagsAsync(app, TaggedItem("外の大分類"), OneTop());
+        await UiThread.Until(() => tags.HasOrphans, "一覧に無い大分類が出る");
+
+        var itemFile = app.Services.Paths.ItemFile("1000001");
+        File.SetAttributes(itemFile, FileAttributes.ReadOnly);
+        try
+        {
+            tags.Orphans.Single().RemoveCommand!.Execute(null);
+            await UiThread.Until(() => tags.ListNotice.Text.Length > 0, "失敗が出る");
+        }
+        finally
+        {
+            File.SetAttributes(itemFile, FileAttributes.Normal);
+        }
+
+        Assert.True(tags.ListNotice.IsWarning);
+        Assert.StartsWith("外せませんでした。", tags.ListNotice.Text, StringComparison.Ordinal);
+    });
+
+    [Fact]
+    public Task 属性の一覧に無い属性を外せなかったら_一覧の見出しの近くに失敗を出す() => TestApp.Run(async app =>
+    {
+        app.Answer = _ => System.Windows.MessageBoxResult.OK;
+        app.AllowLoggedFailures = true;
+        var attributes = await OpenAttributesAsync(app, RatedItem("外の属性", 40), OneAttribute());
+        await UiThread.Until(() => attributes.HasOrphans, "一覧に無い属性が出る");
+
+        var itemFile = app.Services.Paths.ItemFile("1000001");
+        File.SetAttributes(itemFile, FileAttributes.ReadOnly);
+        try
+        {
+            attributes.Orphans.Single().RemoveCommand!.Execute(null);
+            await UiThread.Until(() => attributes.ListNotice.Text.Length > 0, "失敗が出る");
+        }
+        finally
+        {
+            File.SetAttributes(itemFile, FileAttributes.Normal);
+        }
+
+        Assert.True(attributes.ListNotice.IsWarning);
+        Assert.StartsWith("外せませんでした。", attributes.ListNotice.Text, StringComparison.Ordinal);
     });
 
     [Fact]

@@ -1271,8 +1271,9 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
 
         var drop = ((MoveSubDialogViewModel)dialog.DataContext).DropEmptySourceTop;
 
-        var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.MoveUserTagSub(row.Top, row.Name, to, drop));
+        // できなかったときは押した小分類の段の下に出す（ほかの書き換えと同じ道。前は何も出なかった）
+        var result = await RewriteAsync(
+            new UiCommand.MoveUserTagSub(row.Top, row.Name, to, drop), "移せませんでした。", SubNotice);
 
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
@@ -1399,11 +1400,16 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
     /// <summary>参照だけ残っている名前を、そのままマスタへ作る。名前が正しかった場合の直し方。</summary>
     private async Task AddOrphanToMasterAsync(OrphanTagRow row)
     {
-        await _services.Commands.ExecuteAsync(row.IsSub
-            ? new UiCommand.AddUserTag(row.Top, row.Sub)
-            : new UiCommand.AddUserTag(row.Top));
+        // 一覧に無い名前の3つの操作も、できなかったときは一覧の見出しの近くに出す（前は何も出ず、できたと言っていた）
+        var result = await RewriteAsync(
+            row.IsSub ? new UiCommand.AddUserTag(row.Top, row.Sub) : new UiCommand.AddUserTag(row.Top),
+            "一覧に追加できませんでした。",
+            ListNotice);
 
-        ListNotice.Show($"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
+        if (result is not null and not CommandResult.Failed)
+        {
+            ListNotice.Show($"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
+        }
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }
@@ -1424,9 +1430,10 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(row.IsSub
-            ? new UiCommand.RenameUserTag(row.Top, row.Sub, name)
-            : new UiCommand.RenameUserTag(row.Top, null, name));
+        var result = await RewriteAsync(
+            row.IsSub ? new UiCommand.RenameUserTag(row.Top, row.Sub, name) : new UiCommand.RenameUserTag(row.Top, null, name),
+            "統合できませんでした。",
+            ListNotice);
 
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
@@ -1451,9 +1458,10 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(row.IsSub
-            ? new UiCommand.DeleteUserTag(row.Top, row.Sub)
-            : new UiCommand.DeleteUserTag(row.Top));
+        var result = await RewriteAsync(
+            row.IsSub ? new UiCommand.DeleteUserTag(row.Top, row.Sub) : new UiCommand.DeleteUserTag(row.Top),
+            "外せませんでした。",
+            ListNotice);
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             ListNotice.Show(rewritten.Result.ItemsLeftUntagged > 0

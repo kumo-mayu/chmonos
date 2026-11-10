@@ -688,8 +688,13 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
 
     private async Task AddOrphanToMasterAsync(OrphanAttributeRow row)
     {
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(row.Name));
-        ListNotice.Show($"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
+        // 一覧に無い名前の3つの操作も、できなかったときは一覧の見出しの近くに出す（前は何も出ず、できたと言っていた）
+        var result = await RewriteAsync(new UiCommand.AddAttribute(row.Name), "一覧に追加できませんでした。", ListNotice);
+        if (result is not null and not CommandResult.Failed)
+        {
+            ListNotice.Show($"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。");
+        }
+
         await ReloadAsync();
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();
@@ -720,7 +725,7 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAttribute(row.Name, name, keep));
+        var result = await RewriteAsync(new UiCommand.RenameAttribute(row.Name, name, keep), "統合できませんでした。", ListNotice);
         if (result is CommandResult.AttributesRewritten rewritten)
         {
             ListNotice.Show($"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。");
@@ -740,7 +745,7 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(row.Name));
+        var result = await RewriteAsync(new UiCommand.DeleteAttribute(row.Name), "外せませんでした。", ListNotice);
         if (result is CommandResult.AttributesRewritten rewritten)
         {
             ListNotice.Show($"「{row.Name}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。");
