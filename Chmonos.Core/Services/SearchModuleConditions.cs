@@ -419,7 +419,7 @@ public static class SearchModuleConditions
     private static string? Fold(string? text)
         => string.IsNullOrWhiteSpace(text)
             ? null
-            : text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
+            : Nfkc.Fold(text).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
 
     private static DateOnly? PublishedDate(ItemRecord item)
         => item.Booth.PublishedAt is { } at ? DateOnly.FromDateTime(at.LocalDateTime) : null;

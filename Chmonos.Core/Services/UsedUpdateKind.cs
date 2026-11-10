@@ -206,7 +206,7 @@ public static class UsedUpdateKind
     /// </summary>
     internal static string Fold(string text)
     {
-        var decomposed = text.Normalize(NormalizationForm.FormKC).Normalize(NormalizationForm.FormD);
+        var decomposed = Nfkc.Fold(text).Normalize(NormalizationForm.FormD);
         var builder = new StringBuilder(decomposed.Length);
         foreach (var c in decomposed)
         {

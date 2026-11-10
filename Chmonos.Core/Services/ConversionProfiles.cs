@@ -171,7 +171,7 @@ public static class ConversionNames
     private static string AsciiKey(string text)
     {
         var builder = new StringBuilder(text.Length);
-        foreach (var c in text.Normalize(NormalizationForm.FormKC))
+        foreach (var c in Nfkc.Fold(text))
         {
             if (char.IsAsciiLetterOrDigit(c))
             {
