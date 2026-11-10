@@ -23,7 +23,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     private List<ItemCardViewModel> _all = [];
     private bool _isFavorite;
     private string _memo = string.Empty;
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<string> _memoSave;
 
     public ShopViewModel(
         ShopSummary shop,
@@ -81,7 +81,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         ToggleFavoriteCommand = new RelayCommand(() => ToggleFavoriteAsync().Forget());
 
         // 打つたびに書かず、止まってから1回（画面を離れても待ちは残るので、書き漏れない）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memoSave = new MemoAutoSave<string>(SaveMemoAsync);
 
         ReloadAsync().Forget();
     }
@@ -119,7 +119,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             {
                 OnPropertyChanged(nameof(MemoFirstLine));
                 OnPropertyChanged(nameof(HasMemoLine));
-                _saveMemo.Request();
+                _memoSave.Edited(Shop.Subdomain, _memo);
             }
         }
     }
@@ -158,7 +158,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
+    public Task FlushPendingWritesAsync() => _memoSave.FlushAsync();
 
     private async Task ToggleFavoriteAsync()
     {
@@ -167,9 +167,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         await SaveNoteAsync(current => current with { IsFavorite = next });
     }
 
-    private Task SaveMemoAsync()
+    /// <summary>打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。この画面はショップ1つの物なので、持ち主はいつも同じ店。</summary>
+    private Task SaveMemoAsync(string subdomain, string memo)
     {
-        var memo = _memo;
         return SaveNoteAsync(current => current with { Memo = string.IsNullOrWhiteSpace(memo) ? null : memo });
     }
 

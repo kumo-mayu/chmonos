@@ -226,7 +226,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         _memoInput = record.Memo ?? string.Empty;
         _blueprintInput = record.BlueprintId ?? string.Empty;
         _saveName = new Debounced(TimeSpan.FromMilliseconds(800), SaveNameAsync);
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memo = new MemoAutoSave<string>(SaveMemoAsync);
         _saveBlueprint = new Debounced(TimeSpan.FromMilliseconds(800), SaveBlueprintAsync);
         ChangeAvatarCommand = new RelayCommand(() => ChangeAvatarAsync().Forget());
 
@@ -1131,12 +1131,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     // 名前・メモ・blueprint ID は押さずに残す（ユーザ指示 2026-09-19：タグ・属性・アバター・ショップのメモと揃える）。
     // 打ち止めてから 0.8 秒で書く。待ちの間に別の改変へ移っても、この画面の値とこの改変の ID で書くので取り違えない
     private readonly Debounced _saveName;
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<string> _memo;
     private readonly Debounced _saveBlueprint;
 
     /// <summary>待っている名前・メモ・blueprint ID を今書く（画面を離れる前・閉じる前）。</summary>
     public Task FlushPendingWritesAsync()
-        => Task.WhenAll(_saveName.RunNowAsync(), _saveMemo.RunNowAsync(), _saveBlueprint.RunNowAsync());
+        => Task.WhenAll(_saveName.RunNowAsync(), _memo.FlushAsync(), _saveBlueprint.RunNowAsync());
 
     public string NameInput
     {
@@ -1165,7 +1165,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             if (SetField(ref _memoInput, value))
             {
                 OnPropertyChanged(nameof(MemoChanged));
-                _saveMemo.Request();
+                _memo.Edited(Record.Id, value);
             }
         }
     }
@@ -1652,16 +1652,16 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await RefreshRecordAsync();
     }
 
-    private async Task SaveMemoAsync()
+    /// <summary>打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。この画面は改変1つの物なので、持ち主はいつも同じ改変。</summary>
+    private async Task SaveMemoAsync(string modificationId, string memo)
     {
-        if (!MemoChanged)
+        if (memo == (Record.Memo ?? string.Empty))
         {
             return;
         }
 
-        var memo = MemoInput;
         var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.SetModificationMemo(Record.Id, memo));
+            new UiCommand.SetModificationMemo(modificationId, memo));
 
         MemoNotice.Set(result is CommandResult.Failed failed ? failed.Message : string.Empty, true);
         await RefreshRecordAsync();

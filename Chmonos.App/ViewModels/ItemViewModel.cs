@@ -1116,7 +1116,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     private string _memoDraft = string.Empty;
     private string _memoSaveText = string.Empty;
-    private Debounced? _saveMemo;
+    private MemoAutoSave<string>? _memoSave;
 
     /// <summary>
     /// 商品のメモ。**ここで書けて、押さずに残る**（ユーザ判断 2026-09-20・I9）。
@@ -1136,7 +1136,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             {
                 // 打っている間は待ち、止まってから1回書く（ほかのメモと同じ 0.8 秒）
                 MemoSaveText = "書いています…";
-                (_saveMemo ??= new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync)).Request();
+                (_memoSave ??= new MemoAutoSave<string>(SaveMemoAsync)).Edited(Item.Id, _memoDraft);
             }
         }
     }
@@ -1159,11 +1159,12 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public bool HasMemoSaveText => MemoSaveText.Length > 0;
 
-    private async Task SaveMemoAsync()
+    /// <summary>打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。この画面は商品1つの物なので、持ち主はいつも同じ商品。</summary>
+    private async Task SaveMemoAsync(string itemId, string text)
     {
-        var memo = _memoDraft.Trim();
+        var memo = text.Trim();
         var result = await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(
-            Item.Id,
+            itemId,
             Item.Local with { Memo = memo.Length == 0 ? null : memo },
             LocalOwners.ItemPageMemo));
 
@@ -1212,7 +1213,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     }
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前に呼ぶ。I10：打ってすぐ閉じると落ちていた）。</summary>
-    public Task FlushPendingWritesAsync() => _saveMemo?.RunNowAsync() ?? Task.CompletedTask;
+    public Task FlushPendingWritesAsync() => _memoSave?.FlushAsync() ?? Task.CompletedTask;
 
     public IReadOnlyList<AttributeBar> Attributes { get; private set; } = [];
 

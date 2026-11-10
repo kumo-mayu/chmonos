@@ -506,7 +506,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     private string _filterText = string.Empty;
     private string _memoDraft = string.Empty;
     private bool _isBusy;
-    private bool _swappingMemo;
     private bool _rebuildingList;
 
     public TagManageViewModel(AppServiceContainer services, MainViewModel main)
@@ -531,7 +530,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             () => Selected is { ItemCount: > 0 });
 
         // メモは押さずに残す（ユーザ指示 2026-09-18。ショップ・アバターと同じ）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memo = new MemoAutoSave<TagTopRow>(SaveMemoAsync);
         _saveSubMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveSubMemosAsync);
 
         _sort = services.UiState.TagSort switch
@@ -544,11 +543,11 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         ReloadAsync().Forget();
     }
 
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<TagTopRow> _memo;
     private readonly Debounced _saveSubMemo;
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => Task.WhenAll(_saveMemo.RunNowAsync(), _saveSubMemo.RunNowAsync());
+    public Task FlushPendingWritesAsync() => Task.WhenAll(_memo.FlushAsync(), _saveSubMemo.RunNowAsync());
 
     /// <summary>
     /// 並べ方（ユーザ指示 2026-09-18）。既定は名前順。
@@ -727,9 +726,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             }
 
             // 選び直しで欄を入れ替えるときは、自動保存を走らせない
-            _swappingMemo = true;
-            MemoDraft = _selected?.Memo ?? string.Empty;
-            _swappingMemo = false;
+            _memo.Replace(() => MemoDraft = _selected?.Memo ?? string.Empty);
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelection));
@@ -922,11 +919,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
                 OnPropertyChanged(nameof(MemoChanged));
 
                 // 押さずに残す（ユーザ指示 2026-09-18）。選び直しで欄を入れ替えたときは書かない
-                if (!_swappingMemo)
-                {
-                    _memoPending = true;
-                    _saveMemo.Request();
-                }
+                _memo.Edited(Selected, value);
             }
         }
     }
@@ -1847,7 +1840,6 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         await _main.ReloadLibraryAsync();
     }
 
-    private bool _memoPending;
     private bool _subMemoPending;
 
     /// <summary>
@@ -1858,28 +1850,22 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     /// <summary>
     /// 書く値は最初の await より前に控えるので、待たずに選び直しても控えた方が書かれる。
-    /// 読み直すときは、古いファイルを読まないよう書き終わるまで待つ
+    /// 読み直すときは、古いファイルを読まないよう書き終わるまで待つ。
+    /// 小分類のメモは行ごとに打ちかけを持ち、変わった行を全部書く作りなので、大分類の部品（<see cref="MemoAutoSave{TOwner}"/>）とは別に待つ
     /// </summary>
     private async Task FlushMemosAsync()
     {
-        var top = _memoPending ? SaveMemoAsync() : Task.CompletedTask;
+        var top = _memo.FlushAsync();
         var subs = _subMemoPending ? SaveSubMemosAsync() : Task.CompletedTask;
-        _saveMemo.Cancel();
         _saveSubMemo.Cancel();
         await Task.WhenAll(top, subs);
     }
 
-    private async Task SaveMemoAsync()
+    /// <summary>打った時点の大分類へ書く（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
+    private async Task SaveMemoAsync(TagTopRow row, string memo)
     {
-        _memoPending = false;
-        if (Selected is not { } row)
-        {
-            return;
-        }
-
         // 読み直すと打っている途中の欄が戻るので、ここでは読み直さない（ショップ・アバターと同じ）。
         // 代わりに行の値を書き換えて、選び直したときに古いメモが出ないようにする
-        var memo = MemoDraft;
         row.Memo = memo;
         await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(row.Name, null, memo));
     }

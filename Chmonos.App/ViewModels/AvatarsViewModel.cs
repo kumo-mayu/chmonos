@@ -486,7 +486,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         });
         ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget(), CanClearBase);
         AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _memo = new MemoAutoSave<string>(SaveMemoAsync);
         RenameCommand = new RelayCommand(() => RenameAsync().Forget());
         UseNameSuggestionCommand = new RelayCommand(
             parameter =>
@@ -1264,23 +1264,18 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             // 押さなくても残す（ユーザ指示 2026-09-17）。打っている間は待ち、止まってから1回書く。
             // 選び直しで欄を入れ替えたときは書かない
-            if (SetField(ref _memoInput, value ?? string.Empty) && !_swappingMemo && Selected is { } row)
+            if (SetField(ref _memoInput, value ?? string.Empty))
             {
-                _memoItemId = row.ItemId;
-                _saveMemo.Request();
+                // 持ち主は打った時点のアバター。待ちの間に別のアバターへ移っても、元のアバターに書く
+                _memo.Edited(Selected?.ItemId, _memoInput);
             }
         }
     }
 
-    private readonly Debounced _saveMemo;
+    private readonly MemoAutoSave<string> _memo;
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
-
-    /// <summary>書くのを待っているメモの持ち主。待ちの間に別のアバターへ移っても、元のアバターに書くため</summary>
-    private string? _memoItemId;
-
-    private bool _swappingMemo;
+    public Task FlushPendingWritesAsync() => _memo.FlushAsync();
 
     /// <summary>
     /// このセッションで書いたメモ。保存のたびに一覧を読み直すと、打っている途中の欄が保存した時点の文に戻るので読み直さない。
@@ -1306,7 +1301,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             if (!ReferenceEquals(value, _selected))
             {
-                FlushMemo();
+                _memo.Flush();
 
                 // 読み直しで同じアバターの新しい行へ選び直すときは残す（書いた直後の知らせが消える）
                 if (_selected?.ItemId != value?.ItemId)
@@ -1344,10 +1339,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 NameInput = draft?.Name ?? value?.Name ?? string.Empty;
                 // 打ちかけの名前があれば欄のまま戻す（I5）。無ければ文字で出す
                 IsEditingName = value is not null && NameInput != value.Name;
-                _swappingMemo = true;
-                MemoInput = value is null ? string.Empty
-                    : _writtenMemos.TryGetValue(value.ItemId, out var written) ? written : value.Summary.Entry.Memo ?? string.Empty;
-                _swappingMemo = false;
+                _memo.Replace(() => MemoInput = value is null ? string.Empty
+                    : _writtenMemos.TryGetValue(value.ItemId, out var written) ? written : value.Summary.Entry.Memo ?? string.Empty);
 
                 foreach (var name in new[]
                 {
@@ -2238,27 +2231,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
     }
 
-    /// <summary>待っているメモを今書く。別のアバターへ移る前に呼ぶ（移ってからだと、移った先の欄の文になる）</summary>
-    private void FlushMemo()
+    /// <summary>打った時点のアバターへ、打った時点の文を書く（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
+    private async Task SaveMemoAsync(string itemId, string memo)
     {
-        if (_memoItemId is null)
-        {
-            return;
-        }
-
-        _saveMemo.Cancel();
-        SaveMemoAsync().Forget();
-    }
-
-    private async Task SaveMemoAsync()
-    {
-        if (_memoItemId is not { } itemId)
-        {
-            return;
-        }
-
-        _memoItemId = null;
-        var memo = _memoInput;
         _writtenMemos[itemId] = memo;
 
         // 保存できたときは何も出さない（自動で残す欄）。書けなかったときは、別のアバターへ移った後だと欄の下に出しても
