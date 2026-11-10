@@ -8,6 +8,8 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   枠の太さは上書きしても効かない（左の色の帯のような飾りは中身の側に置く）。高さを中身に合わせたいときは `Height="Auto"` を明示する
 - `DockPanel` の子は既定で `Dock="Left"` に落ちる。`Dock="Bottom"` の子は**書いた順に下から積む**（ナビの帯が「設定」の下に出た。帯は「設定」のボタンより後に書く）
 - `ContentControl` に見た目（`ContentTemplate`）を当てる前に中身を渡すと、型の名前を出す文字の部品が作られて見える
+- **リストの行の型は `ListRowBase` を `BasedOn` で継ぐ**（`ItemListRowStyle`・`MemberListRowStyle`）。写して増やさない。押す動き（`EventSetter`）は継ぐ側に残す：改変の行は名前と右端のボタンだけが押せるので、行全体の押す動きまで共有しない。
+  `ControlTemplate.Triggers` の値は Style の Trigger に勝つ。乗せたときの色を型に置くと、継ぐ側の DataTrigger（選んだ行）で上書きできない
 - 同じ要素に同じ属性を2回書くと MC3000 でビルドが落ちる（`Foreground` を Style と要素の両方に書いたとき）
 - `TextBlock` の中のリンク（`Hyperlink`）に付けた `ToolTip` は出ない（説明文の `RichTextBox` の中のリンクは出る。2026-10-01 に乗せて確かめた）。**囲む `TextBlock` に付ける**（商品ページの ID の「クリックすると商品IDをコピーします」が、付いていたのに出ていなかった。2026-09-29）
 - **型（ControlTemplate）を自前にしても、Windows の既定の見た目（テーマのスタイル）の指定は残る。**`Expander` は透明な 1px の枠（`BorderThickness=1`）を持つので、
