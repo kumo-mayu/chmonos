@@ -458,4 +458,44 @@ public class AvatarDetectFetchTests : IDisposable
         Assert.Equal(latest.DetectedAt, merged.DetectedAt);
         Assert.Single(merged.BaseGroups);
     }
+
+    /// <summary>
+    /// 手で押す再確認も、検出の確かめ直しと同じ写し方をする（Q3・2026-11-10）：別名と1枚目の URL も書き、
+    /// 人が付けた名前・メモはそのまま。前は再確認だけ名前とカテゴリしか書かなかった
+    /// </summary>
+    [Fact]
+    public async Task 手で押す再確認も_別名と1枚目のURLを書き_人の値は残す()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [new AvatarRegistryEntry { ItemId = "3001", Category = null, DisplayName = "手で付けた名前", Memo = "メモ" }],
+        });
+        var client = new ScriptedClient
+        {
+            Answer = _ => BoothFetchResult<string>.Success(
+                """
+                {"name":"作り物アバター ミント","category":{"name":"3Dキャラクター"},"shop":{"name":"テストの店"},
+                 "tags":[{"name":"ミント"}],"images":[{"original":"https://booth.pximg.net/a/i/3001/one.jpg"}]}
+                """),
+        };
+
+        var status = await new AvatarService(_store, client: client).RecheckAsync("3001");
+
+        Assert.Equal(BoothFetchStatus.Success, status);
+        var entry = Entry("3001")!;
+        Assert.Equal("作り物アバター ミント", entry.BoothName);
+        Assert.Equal("3Dキャラクター", entry.Category);
+        Assert.Equal("https://booth.pximg.net/a/i/3001/one.jpg", entry.ImageUrl);
+        Assert.Contains(entry.Aliases, alias => alias.Text == "ミント");
+        Assert.Equal("手で付けた名前", entry.DisplayName);
+        Assert.Equal("メモ", entry.Memo);
+
+        // 404 になったらカテゴリを外し、人の値と別名は残す
+        client.Answer = _ => BoothFetchResult<string>.NotFound();
+        Assert.Equal(BoothFetchStatus.NotFound, await new AvatarService(_store, client: client).RecheckAsync("3001"));
+        var gone = Entry("3001")!;
+        Assert.Null(gone.Category);
+        Assert.Equal("手で付けた名前", gone.DisplayName);
+        Assert.Contains(gone.Aliases, alias => alias.Text == "ミント");
+    }
 }

@@ -893,19 +893,23 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     private static AvatarRegistryEntry? Answered(string id, BoothFetchResult<string> fetched, AvatarRegistryEntry? known)
     {
         var fresh = AnsweredFresh(id, fetched);
-        if (known is null || fresh is null)
+        return known is null || fresh is null ? fresh : Refreshed(known, fresh, fetched.Status == BoothFetchStatus.NotFound);
+    }
+
+    /// <summary>
+    /// 問い合わせ直した答え（<see cref="AnsweredFresh"/>）を、今ある項目に重ねる。検出の確かめ直しと、手で押す再確認（<c>RecheckAsync</c>）の両方がここを通る
+    /// （前は再確認だけ別に書いていて、別名と1枚目の URL を書かなかった。Q3・ユーザ判断 2026-11-10 で1つにした）。
+    /// 人が付けた名前・メモ・素体は項目ごと引き継ぐ（作り直すと、最後に重ねるまでの間に消えて見える）。表示名も書かない（#54）。
+    /// </summary>
+    private static AvatarRegistryEntry Refreshed(AvatarRegistryEntry known, AvatarRegistryEntry fresh, bool notFound)
+    {
+        // 404。カテゴリは観測できないので外し、確かめた日だけ進める（検出が確かめ直す404の項目は、もともとカテゴリが無い）
+        if (notFound)
         {
-            return fresh;
+            return known with { Category = null, CheckedAt = fresh.CheckedAt };
         }
 
-        // 確かめ直した404の項目（IsNotFoundRecheckDue）。まだ404なら確かめた日だけ進める。
-        // 人が付けた名前・メモ・素体は項目ごと引き継ぐ（作り直すと、最後に重ねるまでの間に消えて見える）
-        if (fetched.Status == BoothFetchStatus.NotFound)
-        {
-            return known with { CheckedAt = fresh.CheckedAt };
-        }
-
-        // 再公開されていた。名前・カテゴリを埋める
+        // 再公開されていた・今も在る。名前・カテゴリを埋める
         return known with
         {
             BoothName = fresh.BoothName,

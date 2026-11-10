@@ -566,40 +566,16 @@ public sealed partial class AvatarService
 
         var fetched = await _client.GetItemJsonAsync(itemId, cancellationToken);
 
-        if (fetched.Status == Booth.BoothFetchStatus.NotFound)
-        {
-            await UpdateEntryAsync(
-                itemId,
-                entry => entry with { Category = null, CheckedAt = DateTimeOffset.Now },
-                cancellationToken);
-            return Booth.BoothFetchStatus.NotFound;
-        }
-
-        if (!fetched.IsSuccess || fetched.Value is null)
-        {
-            // **届かなかったことをそのまま返す**（E3）。画面は「確認できませんでした」の一言で片付けていた
-            return Booth.BoothFetchStatus.TemporaryFailure;
-        }
-
-        // 読めない応答も「届かなかった」と同じ扱い（E3 と同じく画面は確認できなかったと出す）
-        if (Booth.BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
+        // 答えの読み方と項目への重ね方は検出の確かめ直しと同じ（AnsweredFresh・Refreshed。別名・1枚目の URL も書く。Q3）。
+        // 何も決められない答え（届かなかった・読めない応答）は「届かなかった」をそのまま返す（E3。画面は「確認できませんでした」と出す）
+        if (AnsweredFresh(itemId, fetched) is not { } fresh)
         {
             return Booth.BoothFetchStatus.TemporaryFailure;
         }
 
-        await UpdateEntryAsync(
-            itemId,
-            entry => entry with
-            {
-                BoothName = booth.Name,
-                // 表示名は書かない（手で付けた名前はそのまま、無ければ正式名から計算する #54）
-                ShopName = booth.Shop?.Name ?? entry.ShopName,
-                Category = booth.Category?.Name,
-                CheckedAt = DateTimeOffset.Now,
-            },
-            cancellationToken);
-
-        return Booth.BoothFetchStatus.Success;
+        var notFound = fetched.Status == Booth.BoothFetchStatus.NotFound;
+        await UpdateEntryAsync(itemId, entry => Refreshed(entry, fresh, notFound), cancellationToken);
+        return notFound ? Booth.BoothFetchStatus.NotFound : Booth.BoothFetchStatus.Success;
     }
 
     private async Task UpdateEntryAsync(
