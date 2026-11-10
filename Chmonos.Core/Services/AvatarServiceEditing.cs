@@ -465,8 +465,8 @@ public sealed partial class AvatarService
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
-        return loaded.Items.Count(item => item.Local.AvatarBases.Any(link =>
-            string.Equals(link.BaseName, name, StringComparison.CurrentCultureIgnoreCase)));
+        // 改名・削除が書き換える欄（LocalReferences の表）と同じ物で数える。対応の宣言だけで数えると、確認に出す数が書き換える数より少なくなる
+        return loaded.Items.Count(item => LocalReferences.Uses(item.Local, LocalReferenceKind.BaseName, LocalReferences.SameBaseName(name)));
     }
 
     /// <summary>
@@ -642,7 +642,9 @@ public sealed partial class AvatarService
         };
 
     /// <summary>
-    /// 全itemの素体宣言を書き換える。名前で参照しているので改名・削除に追随が要る。
+    /// 全itemの、素体の名前を持つ欄（<see cref="LocalReferences"/> の表）を書き換える。名前で参照しているので改名・削除に追随が要る。
+    /// 前は対応の宣言（<c>avatarBases</c>）だけを直していて、バリエーションの対応・変換のつなぎ先・新しい版の向き先が
+    /// 消えた名前を指したまま残った（改名すると変換経由が黙って効かなくなる。洗い出し 2026-11-10・D2）。
     /// 1284件の小さなJSONなら実測で1秒もかからない（userTagの改名と同じ判断）。
     /// </summary>
     private async Task<int> RewriteBaseNameInItemsAsync(
@@ -651,19 +653,18 @@ public sealed partial class AvatarService
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var matches = LocalReferences.SameBaseName(oldName);
         var updated = 0;
 
-        foreach (var item in loaded.Items)
+        foreach (var item in loaded.Items.Where(item => LocalReferences.Uses(item.Local, LocalReferenceKind.BaseName, matches)))
         {
             // 全件を先に読んでから順に書く。書く頃には写しが古いので、**書き換えを書く直前の値に当てる**
-            // （名指しは他の項目を守るだけで、素体の対応そのものは守らない）。持っていなければ書かない
+            // （名指しは他の項目を守るだけで、素体の対応そのものは守らない）。持っていなければ書かない。
+            // 書き換える欄の持ち主を全部名乗る（名乗らない欄は、錠の中で今の値に重ねるときに書き換えた分が落ちる）
             var written = await _store.Items.ChangeLocalAsync(
                 item.Id,
-                current => current.AvatarBases.Any(link =>
-                    string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase))
-                        ? current with { AvatarBases = Rename(current.AvatarBases) }
-                        : null,
-                LocalOwners.AvatarBases,
+                current => LocalReferences.Rewrite(current, LocalReferenceKind.BaseName, matches, newName),
+                LocalReferences.OwnersOf(LocalReferenceKind.BaseName),
                 cancellationToken);
 
             if (written)
@@ -673,14 +674,5 @@ public sealed partial class AvatarService
         }
 
         return updated;
-
-        IReadOnlyList<AvatarBaseLink> Rename(IReadOnlyList<AvatarBaseLink> links)
-            => newName is null
-                ? [.. links.Where(link => !string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase))]
-                : [.. links
-                    .Select(link => string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)
-                        ? link with { BaseName = newName }
-                        : link)
-                    .DistinctBy(link => link.BaseName, StringComparer.CurrentCultureIgnoreCase)];
     }
 }

@@ -173,7 +173,7 @@ public sealed record ItemIdReferences
     /// <summary>元のIDを素体そのものとして指していた素体のグループの名前。</summary>
     public IReadOnlyList<string> BaseGroups { get; init; } = [];
 
-    /// <summary>元のIDを対応アバターとして指していた商品の ID。</summary>
+    /// <summary>元のIDを指していた商品の ID（対応アバター・バリエーションの対応・変換のつなぎ先・新しい版の向き先。<see cref="LocalReferences"/> の表）。</summary>
     public IReadOnlyList<string> LinkingItems { get; init; } = [];
 }
 
@@ -219,8 +219,20 @@ public static class ItemIdChange
             });
         }
 
-        // 検出したもの。この商品の説明文から取ったので、新しい商品では取り直す
-        var avatarCount = source.Local.Avatars.Count + source.Local.AvatarBases.Count;
+        // バリエーションごとの対応（人が決めた分）。元の商品のバリエーションIDを指すので、購入記録と同じく持って行けない。
+        // バリエーションを選ばない購入の行もここで捨てる（移した先の購入と突き合わせられず、どれの対応かを言えない）
+        var variationTargets = source.Local.VariationTargets.Count;
+        if (variationTargets > 0)
+        {
+            dropped.Add(new DroppedThing
+            {
+                Reason = DroppedReason.VariationLink,
+                Text = $"バリエーション {variationTargets} 件の対応の指定",
+            });
+        }
+
+        // 検出したもの。この商品の説明文から取ったので、新しい商品では取り直す（バリエーションの名前から見つけた対応も同じ）
+        var avatarCount = source.Local.Avatars.Count + source.Local.AvatarBases.Count + source.Local.DetectedVariationTargets.Count;
         if (avatarCount > 0)
         {
             var manual = source.Local.Avatars.Count(link => link.Source == AvatarLinkSource.Manual);
@@ -249,13 +261,15 @@ public static class ItemIdChange
             });
         }
 
-        // 取得の状態。新しい商品のものが正しい
-        if (source.Booth.WasEverFetched || source.Local.LastFetchedAt is not null)
+        // 取得の状態。新しい商品のものが正しい。BOOTH で見つけた新しい版の控えも、元の商品の更新履歴から取った物なので同じ
+        if (source.Booth.WasEverFetched || source.Local.LastFetchedAt is not null || source.Local.ContentUpdate is not null)
         {
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.FetchState,
-                Text = "BOOTHから取得した情報と、最終取得・次回予定・販売終了の印",
+                Text = source.Local.ContentUpdate is null
+                    ? "BOOTHから取得した情報と、最終取得・次回予定・販売終了の印"
+                    : "BOOTHから取得した情報と、最終取得・次回予定・販売終了・新しい版の印",
             });
         }
 
@@ -327,7 +341,9 @@ public static class ItemIdChange
     /// 持っていない項目だけ、移す側から引き継ぐ。
     /// </summary>
     /// <param name="skipped">移さない購入記録の番号（二重計上と判断したもの）。</param>
-    public static LocalBlock Merge(LocalBlock source, LocalBlock target, IReadOnlySet<int> skipped)
+    /// <param name="fromId">移す元のID。移す元が自分自身を指していた所（変換のつなぎ先）を移した先へ向け直すのに使う。</param>
+    /// <param name="toId">移した先のID。</param>
+    public static LocalBlock Merge(LocalBlock source, LocalBlock target, IReadOnlySet<int> skipped, string fromId, string toId)
     {
         var purchases = source.Purchases
             .Where((_, index) => !skipped.Contains(index))
@@ -423,7 +439,44 @@ public static class ItemIdChange
             LocalFolders = folders,
             UserImages = images,
             ImageRoles = roles,
+
+            // 変換扱いは合わせる（洗い出し 2026-11-10・D3）。前は黙って捨てていた。
+            // バリエーションの対応（VariationTargets）は元の商品のバリエーションIDを指すので持って行かない（下見で名指しする）。
+            // 新しい版の控え（ContentUpdate）は移した先の物のまま（元の商品の更新履歴から取った物で、移した先には当たらない）
+            Conversion = MergeConversion(source.Conversion, target.Conversion, fromId, toId),
         };
+    }
+
+    /// <summary>
+    /// 変換扱いを合わせる。扱い（自動・プロファイル・扱わない）は、移した先が決めていればそちら、自動のままなら移す元の物。
+    /// つなぎ先は移した先の行を先に、移す元の行のうち同じ行（<see cref="ConversionEdits.IsSameRow"/>）が無い物を足す（同じ行は移した先の確認・外した印を残す）。
+    /// 移す元が自分自身をつなぎ先にしていた行（カテゴリが「3Dキャラクター」の商品の推し方）は、移した先を指すように直す
+    /// </summary>
+    private static ConversionSetting? MergeConversion(ConversionSetting? source, ConversionSetting? target, string fromId, string toId)
+    {
+        if (source is null)
+        {
+            return target;
+        }
+
+        var moved = source.Targets
+            .Select(row => string.Equals(row.AvatarItemId, fromId, StringComparison.Ordinal) ? row with { AvatarItemId = toId } : row)
+            .ToList();
+        var rows = (target?.Targets ?? []).ToList();
+        foreach (var row in moved)
+        {
+            if (!rows.Any(kept => ConversionEdits.IsSameRow(kept, row)))
+            {
+                rows.Add(row);
+            }
+        }
+
+        var merged = new ConversionSetting
+        {
+            Mode = target is { Mode: not ConversionMode.Auto } ? target.Mode : source.Mode,
+            Targets = rows,
+        };
+        return merged.IsDefault ? null : merged;
     }
 
     /// <summary>

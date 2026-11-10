@@ -121,6 +121,65 @@ public class AvatarBaseRenameTests : IDisposable
     public void ADeletedBasesNameIsNotAMergeWhenOnlyListedNamesArePassed()
         => Assert.Null(AvatarBaseRename.MergeTarget(["素体A"], "素体A", "消した素体"));
 
+    /// <summary>
+    /// 改名は、対応の宣言だけでなく、バリエーションの対応・変換のつなぎ先・新しい版の向き先も書き換える（洗い出し 2026-11-10・D2）。
+    /// 前は対応の宣言だけで、改名すると変換経由が黙って効かなくなった。宣言を持たず、ほかの欄だけで名指ししている商品も書き換える
+    /// </summary>
+    [Fact]
+    public async Task RenamingRewritesTheVariationConversionAndUpdateTargetsToo()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry { BaseGroups = [new AvatarBaseGroup { Name = "素体A" }] });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "10",
+            Booth = new BoothBlock(),
+            Local = ReferencingEverywhere("素体A"),
+        });
+
+        Assert.Equal(1, await _service.CountItemsUsingBaseAsync("素体A"));
+        Assert.Equal(1, await _service.RenameBaseAsync("素体A", "素体C"));
+
+        var local = (await _store.Items.LoadAsync("10"))!.Local;
+        Assert.Equal(["素体C"], local.VariationTargets[0].Bases);
+        Assert.Equal(["素体C"], local.VariationTargets[0].RejectedBases!);
+        Assert.Equal(["素体C"], local.DetectedVariationTargets[0].Bases);
+        Assert.Equal("素体C", Assert.Single(local.Conversion!.Targets).BaseName);
+        Assert.Equal(["素体C"], local.ContentUpdate!.ForBases!);
+    }
+
+    /// <summary>削除は、その素体だけを向き先にしていたバリエーションの行と、変換のつなぎ先を消す（対応の宣言から消すのと同じ）。</summary>
+    [Fact]
+    public async Task DeletingRemovesTheBaseFromTheVariationAndConversionTargets()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry { BaseGroups = [new AvatarBaseGroup { Name = "素体A" }] });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "10",
+            Booth = new BoothBlock(),
+            Local = ReferencingEverywhere("素体A") with { ContentUpdate = null },
+        });
+
+        Assert.Equal(1, await _service.DeleteBaseAsync("素体A"));
+
+        var local = (await _store.Items.LoadAsync("10"))!.Local;
+        Assert.Empty(local.DetectedVariationTargets);
+        Assert.Null(local.Conversion);
+
+        // 外した記録からも消えた名前を外す。向き先も外した物も無くなった行は持たない
+        Assert.Empty(local.VariationTargets);
+    }
+
+    private static LocalBlock ReferencingEverywhere(string baseName) => new()
+    {
+        VariationTargets = [new VariationTarget { VariationId = 1, Bases = [baseName], RejectedBases = [baseName] }],
+        DetectedVariationTargets = [new VariationTarget { VariationId = 1, Bases = [baseName] }],
+        Conversion = new ConversionSetting
+        {
+            Targets = [new ConversionTarget { BaseName = baseName, Forward = true, Confirmed = true }],
+        },
+        ContentUpdate = new ContentUpdate { FoundAt = DateTimeOffset.UnixEpoch, ForBases = [baseName] },
+    };
+
     private async Task SaveItemAsync(string id, string baseName)
         => await _store.Items.SaveAsync(new ItemRecord
         {
