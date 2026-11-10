@@ -71,6 +71,23 @@ public sealed class KeyedGateTests
         Assert.Equal(0, gate.Count);
     }
 
+    /// <summary>同期で待つ口（一時展開・包みの控え）も、取り消した人の分を数から外す。</summary>
+    [Fact]
+    public async Task ACancelledSyncWaiterDoesNotLeaveTheKeyBehind()
+    {
+        var gate = new KeyedGate<string>(StringComparer.OrdinalIgnoreCase);
+        var holder = gate.For("A");
+        await holder.WaitAsync();
+
+        using var cancel = new CancellationTokenSource();
+        cancel.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => gate.For("a").Wait(cancel.Token));
+
+        Assert.Equal(1, gate.Count);
+        holder.Release();
+        Assert.Equal(0, gate.Count);
+    }
+
     /// <summary>見出しの正規化は計算で出せるので JSON に書かない。前に書かれたファイルに残っていても読める。</summary>
     [Fact]
     public void NormalizedHeadingIsNotWrittenAndOldFilesStillRead()

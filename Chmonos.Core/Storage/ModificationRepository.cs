@@ -35,7 +35,8 @@ public sealed class ModificationRepository
     /// </summary>
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedRecord> _cache = new(StringComparer.Ordinal);
 
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
+    // 改変の ID ごとの錠。使っている人がいなくなった錠は捨てる（KeyedGate。前は触った改変の数だけ溜まり続けた）
+    private readonly KeyedGate<string> _locks = new(StringComparer.Ordinal);
 
     /// <summary>控えの1件。参照で比べるためにクラスにしている（<see cref="ReadThroughAsync"/> の <c>TryUpdate</c>）。</summary>
     private sealed class CachedRecord(long length, DateTime lastWriteUtc, ModificationRecord record)
@@ -200,7 +201,7 @@ public sealed class ModificationRepository
         }
     }
 
-    private SemaphoreSlim LockFor(string id) => _locks.GetOrAdd(id, static _ => new SemaphoreSlim(1, 1));
+    private KeyedGate<string>.Handle LockFor(string id) => _locks.For(id);
 
     /// <summary>
     /// 全部読む。**新しく作った順（作成日時の降順）**で返す。
