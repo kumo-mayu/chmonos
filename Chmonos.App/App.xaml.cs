@@ -490,7 +490,7 @@ public partial class App : Application
             Core.Diagnostics.AppLog.Error("保存データの形式の版を読む", exception);
             var answer = Services.Notice.Show(
                 $"保存先の {StoreFormat.MarkerFileName} が壊れていて、データの形式を確かめられないため、開けませんでした。\n\n"
-                + $"新しいバージョンの Chmonos でこのデータを使ったことがなければ、{StoreFormat.MarkerFileName} を削除すると開けます。"
+                + $"新しいバージョンのChmonosでこのデータを使ったことがなければ、{StoreFormat.MarkerFileName} を削除すると開けます。"
                 + "使ったことがあれば、新しいバージョンで開いてください。\n\n"
                 + "［はい］保存先をエクスプローラで開きます。\n"
                 + "［いいえ］何もせずに終了します。",
@@ -517,7 +517,7 @@ public partial class App : Application
         {
             case StoreFormat.Verdict.TooNew:
                 var answer = Services.Notice.Show(
-                    "このデータは、新しいバージョンの Chmonos で使われています。このバージョンでは開けません。\n\n"
+                    "このデータは、新しいバージョンのChmonosで使われています。このバージョンでは開けません。\n\n"
                     + "［はい］ダウンロードページを開きます。新しいバージョンを入れてから開いてください。\n"
                     + "［いいえ］何もせずに終了します。",
                     "新しいバージョンのデータです",
