@@ -1229,7 +1229,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             + "削除した控えは元に戻せません。前のバージョンの Chmonos に戻すときに使うものです。",
             "控えを削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
         if (answer != System.Windows.MessageBoxResult.OK)
         {
@@ -1715,7 +1715,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 + "削除した記録は元に戻せません。",
                 "見つからないファイルの記録を削除",
                 System.Windows.MessageBoxButton.OKCancel,
-                System.Windows.MessageBoxImage.Warning,
+                System.Windows.MessageBoxImage.Question,
                 System.Windows.MessageBoxResult.Cancel);
             if (answer != System.Windows.MessageBoxResult.OK)
             {
