@@ -385,6 +385,7 @@ internal static partial class Scenes
 
             var inbox = context.Screen<InboxViewModel>();
             inbox.ShowArchiveCommand.Execute(null);
+            inbox = context.Screen<InboxViewModel>();
             await SceneContext.UntilAsync(() => inbox.Archive?.Lines.OfType<InboxRowLine>().Count() == 3, "保管した通知の行が3つ並ぶ");
             await context.SettleAsync();
             return new Shot(root);
@@ -400,8 +401,60 @@ internal static partial class Scenes
 
             var inbox = context.Screen<InboxViewModel>();
             inbox.ShowArchiveCommand.Execute(null);
+            inbox = context.Screen<InboxViewModel>();
             await SceneContext.UntilAsync(() => inbox.Archive?.IsEmpty == true && inbox.Archive.EmptyTitle == "保管した通知はありません", "空の表示が出る");
             await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        // 流して続きを読む配線を、実際の一覧で確かめる（2026-11-11）：落ち着いた後は100件のまま（行の中の部品のスクロールの知らせで読み進めない）、
+        // 終わりまで流して初めて続きの100件を読む。数が合わなければ撮らずに止まる
+        new Scene("inbox-archive-scroll", "通知：保管した通知250件を終わりまで流し、続きの100件を読んだ所", async context =>
+        {
+            var day = new DateTimeOffset(2026, 10, 20, 21, 0, 0, TimeSpan.FromHours(9));
+            await context.Seed.NotificationArchive.AppendAsync(
+                Enumerable.Range(0, 250).Select(i => new NotificationRecord
+                {
+                    Id = $"archive-{i:D3}",
+                    Kind = NotificationKind.ItemUpdated,
+                    Title = $"作り物の衣装 {i:D3}",
+                    Detail = "価格：500 → 800",
+                    CreatedAt = day.AddMinutes(-i),
+                    IsRead = true,
+                }).ToList());
+
+            var main = await context.StartAsync();
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            context.Screen<InboxViewModel>().ShowArchiveCommand.Execute(null);
+            var archive = context.Screen<InboxViewModel>().Archive!;
+            await SceneContext.UntilAsync(() => archive.Rows.Count == 100, "最初の100件が並ぶ");
+            await context.SettleAsync();
+            await context.PresentAsync(root);
+            await context.SettleAsync();
+            if (archive.Rows.Count != 100)
+            {
+                throw new InvalidOperationException($"流していないのに続きを読んだ（{archive.Rows.Count} 件）");
+            }
+
+            var view = Look.View<Chmonos.App.Views.InboxView>(root) ?? throw new InvalidOperationException("通知の画面が見つからない");
+            var list = view is not null
+                ? Look.Named<Chmonos.App.Controls.ContentItemsControl>(view, "ArchiveList")
+                : null;
+            var scroll = list?.ScrollHost ?? throw new InvalidOperationException("保管した通知の一覧が見つからない");
+            scroll.ScrollToEnd();
+            await context.PresentAsync(root);
+            // 終わりへ跳ぶと、足した行の高さが見積もりから実際の高さに替わる間も終わりの近くに居るので、もう1回読むことがある（250件なら全部）
+            await SceneContext.UntilAsync(() => archive.Rows.Count >= 200 && !archive.IsLoadingMore, "続きの100件を読む");
+            await context.SettleAsync();
+            await context.PresentAsync(root);
+            if (archive.Rows.Count < 200)
+            {
+                throw new InvalidOperationException($"終わりまで流しても続きを読まない（{archive.Rows.Count} 件）");
+            }
+
             return new Shot(root);
         }),
 

@@ -97,16 +97,13 @@ public sealed partial class MainViewModel : ViewModelBase
         ShowImportCommand = new RelayCommand(Unless<ImportViewModel>(ShowImport));
         ShowEditCommand = new RelayCommand(() => ShowEditAsync().Forget());
         ShowResolveCommand = new RelayCommand(Unless<ResolveViewModel>(ShowResolve));
-        // 保管した通知を見ているときにナビの「通知」を押したら、今の通知へ戻す（同じ画面の中の切り替えなので、画面は替えない）
+        // 保管した通知を見ているときにナビの「通知」を押したら、今の通知を開く（同じ通知の画面でも見方が違う）
         ShowInboxCommand = new RelayCommand(() =>
         {
-            if (CurrentViewModel is InboxViewModel { IsArchiveMode: true } inbox)
+            if (CurrentViewModel is not InboxViewModel { IsArchiveMode: false })
             {
-                inbox.LeaveArchiveCommand.Execute(null);
-                return;
+                ShowInbox();
             }
-
-            Unless<InboxViewModel>(ShowInbox)();
         });
         ShowShopsCommand = new RelayCommand(Unless<ShopsViewModel>(ShowShops));
         ShowStatsCommand = new RelayCommand(Unless<StatsViewModel>(ShowStats));
@@ -578,6 +575,9 @@ public sealed partial class MainViewModel : ViewModelBase
     public bool HasUnread => UnreadCount > 0;
 
     public void ShowInbox() => CurrentViewModel = new InboxViewModel(_services, this);
+
+    /// <summary>保管した通知の見方で通知の画面を開く（いちばん新しい月）。履歴に積むので、戻るで今の通知へ戻る。</summary>
+    public void ShowInboxArchive() => CurrentViewModel = new InboxViewModel(_services, this, archive: (null, null));
 
     /// <summary>要確認を開き、その商品の「商品の更新」の知らせまで送る（ショップの「更新あり」から）。</summary>
     public void ShowInboxFor(string itemId) => CurrentViewModel = new InboxViewModel(_services, this, itemId);

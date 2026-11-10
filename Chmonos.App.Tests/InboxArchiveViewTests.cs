@@ -28,9 +28,10 @@ public sealed class InboxArchiveViewTests
     private static async Task<(InboxViewModel Inbox, InboxArchiveViewModel Archive)> OpenArchiveAsync(TestApp app)
     {
         var main = await app.StartAsync();
-        var inbox = new InboxViewModel(app.Services, main);
+        main.ShowInbox();
         await app.SettleAsync();
-        inbox.ShowArchiveCommand.Execute(null);
+        ((InboxViewModel)main.CurrentViewModel!).ShowArchiveCommand.Execute(null);
+        var inbox = Assert.IsType<InboxViewModel>(main.CurrentViewModel);
         var archive = inbox.Archive!;
         await archive.Pending;
         return (inbox, archive);
@@ -176,23 +177,35 @@ public sealed class InboxArchiveViewTests
         Assert.Equal("設定の「通知の保管に使う容量」を0より大きくすると、古い通知をここに保管します。", archive.EmptyNote);
     });
 
+    /// <summary>「戻る」（Alt+←・マウスの戻る）で今の通知へ戻る（ユーザ案 2026-11-10）。「← 通知に戻る」とナビの「通知」でも今の通知が開く。</summary>
     [Fact]
-    public Task 通知に戻ると今の通知の見方に戻り_ナビの通知でも戻る() => TestApp.Run(async app =>
+    public Task 戻るで今の通知へ戻り_通知に戻るとナビの通知でも今の通知が開く() => TestApp.Run(async app =>
     {
         await app.Store.NotificationArchive.AppendAsync([Record("old", At(10, 1))]);
         var main = await app.StartAsync();
         main.ShowInbox();
         var inbox = Assert.IsType<InboxViewModel>(main.CurrentViewModel);
-
-        inbox.ShowArchiveCommand.Execute(null);
-        Assert.True(inbox.IsArchiveMode);
-        inbox.LeaveArchiveCommand.Execute(null);
         Assert.False(inbox.IsArchiveMode);
 
         inbox.ShowArchiveCommand.Execute(null);
+        var archive = Assert.IsType<InboxViewModel>(main.CurrentViewModel);
+        Assert.True(archive.IsArchiveMode);
+        Assert.Equal("← 通知に戻る", main.BackButtonText);
+        main.GoBack();
+        Assert.False(Assert.IsType<InboxViewModel>(main.CurrentViewModel).IsArchiveMode);
+
+        ((InboxViewModel)main.CurrentViewModel!).ShowArchiveCommand.Execute(null);
+        ((InboxViewModel)main.CurrentViewModel!).LeaveArchiveCommand.Execute(null);
+        Assert.False(Assert.IsType<InboxViewModel>(main.CurrentViewModel).IsArchiveMode);
+
+        ((InboxViewModel)main.CurrentViewModel!).ShowArchiveCommand.Execute(null);
         main.ShowInboxCommand.Execute(null);
-        Assert.Same(inbox, main.CurrentViewModel);
-        Assert.False(inbox.IsArchiveMode);
+        Assert.False(Assert.IsType<InboxViewModel>(main.CurrentViewModel).IsArchiveMode);
+
+        // 今の通知でナビの「通知」を押しても開き直さない
+        var current = main.CurrentViewModel;
+        main.ShowInboxCommand.Execute(null);
+        Assert.Same(current, main.CurrentViewModel);
     });
 
     /// <summary>保管した通知から商品ページを開いて戻ると、保管した通知の同じ月と絞りに戻る（今の通知へ落ちない）。</summary>
@@ -202,12 +215,11 @@ public sealed class InboxArchiveViewTests
         await app.AddItemAsync(Make.Item("9900601", "作り物の衣装"));
         await app.Store.NotificationArchive.AppendAsync([Record("oct", At(10, 1))]);
         await app.Store.NotificationArchive.AppendAsync([Record("sep", At(9, 1))]);
-        var main = await app.StartAsync();
-        main.ShowInbox();
+        var (_, opened) = await OpenArchiveAsync(app);
+        var main = app.Main;
         var inbox = Assert.IsType<InboxViewModel>(main.CurrentViewModel);
-        inbox.ShowArchiveCommand.Execute(null);
-        await inbox.Archive!.Pending;
-        inbox.Archive.SelectedMonth = inbox.Archive.Months[1];
+        Assert.Same(opened, inbox.Archive);
+        inbox.Archive!.SelectedMonth = inbox.Archive.Months[1];
         inbox.Archive.NameFilter = "衣装";
         await inbox.Archive.Pending;
 

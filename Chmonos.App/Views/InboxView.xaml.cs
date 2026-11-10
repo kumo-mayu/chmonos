@@ -28,6 +28,13 @@ public partial class InboxView : UserControl
     /// </summary>
     private void OnArchiveScrolled(object sender, ScrollChangedEventArgs e)
     {
+        // 行の中の部品（選べる文字など）の ScrollViewer からも上がってくる。それは位置 0・高さが中身と同じなので、
+        // 受けると行が作られるたびに続きを読み、月を丸ごと読むのと同じになる。一覧そのものの ScrollViewer だけを見る
+        if (e.OriginalSource is not ScrollViewer scroll || !ReferenceEquals(scroll.TemplatedParent, ArchiveList))
+        {
+            return;
+        }
+
         if (_viewModel?.Archive is { HasMore: true, IsLoadingMore: false } archive
             && e.VerticalOffset + e.ViewportHeight * 2 >= e.ExtentHeight)
         {

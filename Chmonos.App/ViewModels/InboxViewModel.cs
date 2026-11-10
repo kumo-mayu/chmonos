@@ -379,46 +379,34 @@ public sealed class InboxViewModel : ViewModelBase
 
         MarkAllReadCommand = new RelayCommand(() => MarkAllReadAsync().Forget(), () => UnreadCount > 0);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
-        ShowArchiveCommand = new RelayCommand(() => ShowArchive());
-        LeaveArchiveCommand = new RelayCommand(LeaveArchive);
+        // 見方の切り替えは画面の履歴に積む（ユーザ案 2026-11-10「戻るで今の通知へ」）。Alt+←・マウスの戻るで今の通知へ戻れるように、
+        // 同じ画面の中で差し替えずに、見方を決めた通知の画面を開き直す
+        ShowArchiveCommand = new RelayCommand(main.ShowInboxArchive);
+        LeaveArchiveCommand = new RelayCommand(main.ShowInbox);
 
-        ReloadAsync().Forget();
         if (archive is { } open)
         {
-            ShowArchive(open.Month, open.NameFilter);
+            // 保管した通知の見方では今の通知を並べないので、読み込みと検出は走らせない（今の通知へ戻るときに開き直す）
+            Archive = new InboxArchiveViewModel(_services, CreateArchivedRow, open.Month, open.NameFilter);
+            return;
         }
+
+        ReloadAsync().Forget();
     }
 
     /// <summary>
-    /// 保管した通知の見方（ユーザ案 2026-11-10）。null なら今の通知。同じ画面の中の切り替えで、別の画面にはしない
-    /// （ナビの「通知」のまま。アバターの管理の変換の見方と同じ形）。今の通知の一覧は持ったままなので、戻ると読み直さずに元の所が出る
+    /// 保管した通知の見方（ユーザ案 2026-11-10）。null なら今の通知。ナビは「通知」のままで、見た目は同じ画面の中の切り替え。
+    /// 見方を変えるときは通知の画面を開き直して履歴に積む（<see cref="MainViewModel.ShowInboxArchive"/>）
     /// </summary>
-    public InboxArchiveViewModel? Archive
-    {
-        get => _archive;
-        private set
-        {
-            if (SetField(ref _archive, value))
-            {
-                OnPropertyChanged(nameof(IsArchiveMode));
-            }
-        }
-    }
+    public InboxArchiveViewModel? Archive { get; }
 
-    private InboxArchiveViewModel? _archive;
-
-    public bool IsArchiveMode => _archive is not null;
+    public bool IsArchiveMode => Archive is not null;
 
     /// <summary>上の段の「保管した通知」。</summary>
     public RelayCommand ShowArchiveCommand { get; }
 
-    /// <summary>保管した通知の見方の「通知に戻る」。</summary>
+    /// <summary>保管した通知の見方の「← 通知に戻る」。</summary>
     public RelayCommand LeaveArchiveCommand { get; }
-
-    private void ShowArchive(string? month = null, string? nameFilter = null)
-        => Archive = new InboxArchiveViewModel(_services, CreateArchivedRow, month, nameFilter);
-
-    private void LeaveArchive() => Archive = null;
 
     public ObservableCollection<NotificationGroup> Groups { get; } = [];
 
