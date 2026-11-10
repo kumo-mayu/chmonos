@@ -179,8 +179,14 @@
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="最終購入" Style="{StaticResource SectionLabel}" />
-                        <TextBlock Text="{Binding LastAcquiredText}" Style="{StaticResource Mono}"
-                                   FontSize="22" FontWeight="Bold" Margin="0,4,0,0" />
+                        <!-- ファイルの日付で代えたものは、手入力と同じ顔で出さない（ショップの一覧と同じ※と吹き出し） -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0" ToolTip="{Binding LastAcquiredTooltip}">
+                            <TextBlock Text="{Binding LastAcquiredText}" Style="{StaticResource Mono}"
+                                       FontSize="22" FontWeight="Bold" />
+                            <TextBlock Text="※" FontSize="12" Foreground="{DynamicResource TextFaint}"
+                                       Margin="3,0,0,0" VerticalAlignment="Center"
+                                       Visibility="{Binding LastAcquiredIsFallback, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </Grid>
@@ -418,16 +424,22 @@
                 </TextBlock>
                 </Grid>
                 <!-- 集計は元の段と同じ4つを、見出しを小さくして1行に -->
-                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12.5">
-                    <Run Text="所持" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
-                    <Run Text="{Binding OwnedText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
-                    <Run Text="購入総額" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
-                    <Run Text="{Binding SpentText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
-                    <Run Text="容量" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
-                    <Run Text="{Binding SizeText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
-                    <Run Text="最終購入" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
-                    <Run Text="{Binding LastAcquiredText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" />
-                </TextBlock>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center" FontSize="12.5">
+                        <Run Text="所持" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                        <Run Text="{Binding OwnedText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
+                        <Run Text="購入総額" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                        <Run Text="{Binding SpentText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
+                        <Run Text="容量" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                        <Run Text="{Binding SizeText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" /><Run Text="   " />
+                        <Run Text="最終購入" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                        <Run Text="{Binding LastAcquiredText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontWeight="Bold" />
+                    </TextBlock>
+                    <!-- 上の段と同じ※。吹き出しは※にだけ付ける（ほかの集計の上で出さない） -->
+                    <TextBlock Text="※" FontSize="10" Foreground="{DynamicResource TextFaint}"
+                               Margin="3,0,0,0" VerticalAlignment="Center" ToolTip="{Binding LastAcquiredTooltip}"
+                               Visibility="{Binding LastAcquiredIsFallback, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </StackPanel>
             </Grid>
         </Border>
         </Grid>

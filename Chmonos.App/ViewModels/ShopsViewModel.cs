@@ -102,7 +102,10 @@ public sealed class ShopCardViewModel : ViewModelBase
     /// <summary>ファイルの日付で代えた日は、そうと分かるようにする。手入力と同じ顔で出さない。</summary>
     public bool LastAcquiredIsFallback => Shop.LastAcquiredIsFallback;
 
-    public string LastAcquiredTooltip => Shop.LastAcquiredIsFallback
+    public string LastAcquiredTooltip => FallbackTooltip(Shop.LastAcquiredIsFallback);
+
+    /// <summary>※に乗せたときの吹き出し。ショップの一覧とショップの上の段で同じ文にする。</summary>
+    internal static string FallbackTooltip(bool isFallback) => isFallback
         ? "入手日が未入力なので、ファイルの日付を表示しています。"
         : string.Empty;
 

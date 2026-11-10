@@ -614,6 +614,14 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     // ファイルの日付で代えた日は、文の外（※と吹き出し）で示す（ショップの一覧と同じ）
     public string LastAcquiredText => Core.Models.DisplayText.AcquiredDate(Shop.LastAcquiredAt, Shop.LastAcquiredIsFallback, markFallback: false);
 
+    /// <summary>
+    /// ファイルの日付で代えた日は※を付ける。手入力と同じ顔で出さない（ショップの一覧・カードの入手日と同じ。
+    /// 前は上の段の「最終購入」だけ印が無かった）
+    /// </summary>
+    public bool LastAcquiredIsFallback => Shop.LastAcquiredIsFallback;
+
+    public string LastAcquiredTooltip => ShopCardViewModel.FallbackTooltip(Shop.LastAcquiredIsFallback);
+
     public string SizeText => Core.Models.DisplayText.Size(_totalBytes);
 
     /// <summary>所持しているものだけに絞る。既定は全部（情報だけのものも見せる）。</summary>
