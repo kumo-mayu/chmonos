@@ -92,6 +92,8 @@ internal static partial class Scenes
 
         new Scene("perf-inbox-500", "計測：知らせ500件（商品ごとに1件・全部に絵）を開いて流す", context => InboxPerfAsync(context, 500, images: true)),
         new Scene("perf-inbox-500-noimages", "計測：知らせ500件（商品に絵が無い。枠と頭文字だけ）", context => InboxPerfAsync(context, 500, images: false)),
+        // 未読は上限で外さないので数千件まで溜まり得る（docs/plan.md 20）。その時に開く速さとメモリを見る
+        new Scene("perf-inbox-5000", "計測：知らせ5,000件（商品ごとに1件・全部に絵）を開いて流す", context => InboxPerfAsync(context, 5000, images: true)),
     ];
 
     private static async Task<Shot> InboxPerfAsync(SceneContext context, int count, bool images)
