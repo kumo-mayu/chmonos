@@ -45,13 +45,13 @@ public class ShopLastAcquiredMarkTests
     [Fact]
     public Task 入手日が無ければ_上の段は印で_カードの2行目は言葉で書く() => TestApp.Run(async app =>
     {
-        // 所持していない商品はショップの画面で既定では隠れるので、ファイルの記録は持たせる。
-        // そのファイルは手元に無いので、ファイルの日付でも代えられない
-        var gone = Path.Combine(Path.GetTempPath(), "chmonos-shop-no-date-" + Guid.NewGuid().ToString("N"), "作り物.zip");
-        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装").WithFiles(Make.File(gone)));
+        // 入手日もファイルも無い商品。所持していないので、「所持しているものだけ」を切って見る
+        // （手元に無いファイルの記録を持たせる形は、起動の見回りが見つからない印を付けるかどうかで結果が揺れた）
+        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装"));
         var main = await app.StartAsync();
         await main.ShowShopAsync("sample-shop");
         var shop = Assert.IsType<ShopViewModel>(main.CurrentViewModel);
+        shop.OwnedOnly = false;
 
         Assert.Equal("—", shop.LastAcquiredText);
         var card = Assert.Single(shop.ListItems.OfType<ItemCardViewModel>());
