@@ -2516,17 +2516,26 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         return dialog.ShowDialog() == true ? dialog.FolderName : null;
     }
 
-    private void Restart()
+    /// <summary>
+    /// 開き直して、次の保存先で動かす（保存先の「今すぐ再起動」と、運び終えた後の開き直しの1か所）。
+    /// 開き直せなくても閉じる：選んだ保存先は次の起動から効くので、閉じて手で開いてもらえば足りる。
+    /// 運んだ後は古い場所で続けると書いた物が消える。前は「今すぐ再起動」だけ、開き直せないと黙って何もしなかった
+    /// </summary>
+    private static void Relaunch(string title)
     {
-        var exe = Environment.ProcessPath;
-        if (exe is null)
+        if (!Services.Shell.StartSelf())
         {
-            return;
+            Services.Notice.Show(
+                "自動で開き直せませんでした。アプリを閉じます。もう一度開いてください。",
+                title,
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
         }
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
         System.Windows.Application.Current.Shutdown();
     }
+
+    private void Restart() => Relaunch("今すぐ再起動");
 
     /// <summary>
     /// 保存先を運ぶ前の片付け。運び終えると開き直すので（ユーザ判断 2026-09-23）、
@@ -2571,22 +2580,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
 
-        var exe = Environment.ProcessPath;
-        if (exe is null)
-        {
-            // 開き直す手立てが無い。古い場所で続けさせると書いた物が消えるので、閉じて手で開いてもらう
-            Services.Notice.Show(
-                "自動で開き直せませんでした。アプリを閉じます。もう一度開いてください。",
-                title,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-        }
-        else
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
-        }
-
-        System.Windows.Application.Current.Shutdown();
+        Relaunch(title);
     }
 
     /// <summary>

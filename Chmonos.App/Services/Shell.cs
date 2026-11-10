@@ -160,21 +160,30 @@ public static class Shell
     private static void OpenInExplorer(string arguments)
         => TryStart(new ProcessStartInfo("explorer.exe", arguments) { UseShellExecute = true });
 
-    private static void TryStart(ProcessStartInfo startInfo)
+    /// <summary>
+    /// このアプリをもう1つ起こす（設定の「今すぐ再起動」と、保存先を運んだ後の開き直し）。起こせたかを返す。
+    /// 起こせなかったときの知らせは呼び手が出す（閉じるかどうかは場面で違う）
+    /// </summary>
+    public static bool StartSelf()
+        => Environment.ProcessPath is { } exe && TryStart(new ProcessStartInfo(exe) { UseShellExecute = true });
+
+    private static bool TryStart(ProcessStartInfo startInfo)
     {
         if (StartOverride.Value is { } replaced)
         {
             replaced(startInfo);
-            return;
+            return true;
         }
 
         try
         {
             Process.Start(startInfo);
+            return true;
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             // 開けなくてもアプリは動き続ける
+            return false;
         }
     }
 }
