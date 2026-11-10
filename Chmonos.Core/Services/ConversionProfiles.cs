@@ -316,7 +316,7 @@ public static class ConversionInference
             return null;
         }
 
-        var bases = clues.Where(clue => clue.BaseName is not null).Select(clue => clue.BaseName!).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+        var bases = clues.Where(clue => clue.BaseName is not null).Select(clue => clue.BaseName!).Distinct(AvatarBaseNames.Comparer).ToList();
         var avatars = clues.Where(clue => clue.AvatarItemId is not null).Select(clue => clue.AvatarItemId!).Distinct(StringComparer.Ordinal).ToList();
 
         if (bases.Count > 1 || (bases.Count == 0 && avatars.Count > 1))
@@ -328,7 +328,7 @@ public static class ConversionInference
         if (bases.Count == 1)
         {
             var baseName = bases[0];
-            if (avatars.All(avatar => string.Equals(compatibility.BaseNameOf(avatar), baseName, StringComparison.CurrentCultureIgnoreCase)))
+            if (avatars.All(avatar => AvatarBaseNames.Same(compatibility.BaseNameOf(avatar), baseName)))
             {
                 return new ConversionTarget { BaseName = baseName };
             }

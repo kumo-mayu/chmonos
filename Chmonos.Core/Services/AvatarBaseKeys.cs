@@ -99,7 +99,7 @@ public static partial class AvatarBaseKeys
         var lookup = new Dictionary<string, string>(StringComparer.Ordinal);
         var all = groups.ToList();
         all.AddRange(AvatarBaseSeed.Groups.Where(seed =>
-            !all.Any(group => string.Equals(group.Name, seed.Name, StringComparison.CurrentCultureIgnoreCase))));
+            !all.Any(group => AvatarBaseNames.Same(group.Name, seed.Name))));
 
         foreach (var group in all.Where(group => !string.IsNullOrWhiteSpace(group.Name)))
         {

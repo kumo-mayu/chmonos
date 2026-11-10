@@ -63,7 +63,7 @@ public static class AvatarBaseMentions
         var live = AvatarBaseKeys.Lookup(groups.Where(group => !group.Rejected));
         var registered = groups.Where(group => !group.Rejected)
             .Select(group => group.Name)
-            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+            .ToHashSet(AvatarBaseNames.Comparer);
         var deleted = groups.Where(group => group.Rejected)
             .SelectMany(group => group.Aliases.Select(alias => alias.Text).Prepend(group.Name))
             .Select(AvatarBaseKeys.Key)

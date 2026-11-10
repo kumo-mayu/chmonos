@@ -542,7 +542,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var seenAs = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
         var nameHints = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
         var aliasCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
-        var baseAliasCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.CurrentCultureIgnoreCase);
+        var baseAliasCounts = new Dictionary<string, Dictionary<string, int>>(AvatarBaseNames.Comparer);
 
         var done = 0;
         foreach (var item in loaded.Items)
@@ -1299,7 +1299,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     {
         var manual = existing.Where(link => link.Source == AvatarLinkSource.Manual).ToList();
         var manualNames = manual.Select(link => link.BaseName)
-            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+            .ToHashSet(AvatarBaseNames.Comparer);
 
         return manual
             .Concat(detected.Where(link => !manualNames.Contains(link.BaseName)))
@@ -1415,8 +1415,8 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
         // 素体のグループは、検出が新しく作ったものだけを足す。
         // 写しにあって最新に無いものは、その間に人が消したか改名したもの
-        var beforeGroups = snapshot.BaseGroups.Select(group => group.Name).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
-        var groups = new Dictionary<string, AvatarBaseGroup>(StringComparer.CurrentCultureIgnoreCase);
+        var beforeGroups = snapshot.BaseGroups.Select(group => group.Name).ToHashSet(AvatarBaseNames.Comparer);
+        var groups = new Dictionary<string, AvatarBaseGroup>(AvatarBaseNames.Comparer);
         foreach (var group in latest.BaseGroups)
         {
             groups.TryAdd(group.Name, group);

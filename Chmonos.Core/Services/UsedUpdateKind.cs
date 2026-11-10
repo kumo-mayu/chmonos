@@ -92,7 +92,7 @@ public static class UsedUpdateKind
         var all = avatars.Values.Concat(bases.Values).SelectMany(names => names).Distinct(StringComparer.Ordinal).ToList();
 
         var forAvatars = new HashSet<string>(StringComparer.Ordinal);
-        var forBases = new HashSet<string>(StringComparer.Ordinal);
+        var forBases = new HashSet<string>(AvatarBaseNames.Comparer);
         foreach (var diff in diffs.Where(diff => Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field)))
         {
             if (diff.Lines is null || diff.MoreAdded is > 0)

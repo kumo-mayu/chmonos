@@ -1458,7 +1458,7 @@ public static class AvatarDetector
 
                 foreach (var baseName in AvatarBaseKeys.GroupsIn(name, lookup))
                 {
-                    if (!bases.Contains(baseName, StringComparer.CurrentCultureIgnoreCase))
+                    if (!bases.Contains(baseName, AvatarBaseNames.Comparer))
                     {
                         bases.Add(baseName);
                     }

@@ -21,9 +21,9 @@ public sealed class ConversionIndex
 {
     private readonly AvatarCompatibilityIndex _compatibility;
     private readonly HashSet<string> _reverseAvatars = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _reverseBases = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly HashSet<string> _reverseBases = new(AvatarBaseNames.Comparer);
     private readonly HashSet<string> _forwardAvatars = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _forwardBases = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly HashSet<string> _forwardBases = new(AvatarBaseNames.Comparer);
 
     /// <summary>
     /// 商品ごとに計算した結果。検索は1打鍵ごとに全商品を数え直すので、同じ記録の答えは使い回す（<see cref="AvatarCompatibilityIndex"/> と同じ）。

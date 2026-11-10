@@ -137,7 +137,7 @@ public sealed class UsedUpdateRecorder
         var registry = await _store.Avatars.LoadAsync(cancellationToken);
         // 登録簿は手で直せる JSON なので、同じ ID・名前が2つあっても止まらないよう先の物を使う
         var entries = registry.Entries.DistinctBy(entry => entry.ItemId).ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
-        var groups = registry.BaseGroups.DistinctBy(group => group.Name).ToDictionary(group => group.Name, StringComparer.Ordinal);
+        var groups = registry.BaseGroups.DistinctBy(group => group.Name, AvatarBaseNames.Comparer).ToDictionary(group => group.Name, AvatarBaseNames.Comparer);
 
         var avatars = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         foreach (var link in item.Local.Avatars.DistinctBy(link => link.AvatarItemId))
@@ -154,8 +154,8 @@ public sealed class UsedUpdateRecorder
             avatars[link.AvatarItemId] = names;
         }
 
-        var bases = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-        foreach (var link in item.Local.AvatarBases.DistinctBy(link => link.BaseName))
+        var bases = new Dictionary<string, IReadOnlyList<string>>(AvatarBaseNames.Comparer);
+        foreach (var link in item.Local.AvatarBases.DistinctBy(link => link.BaseName, AvatarBaseNames.Comparer))
         {
             var names = new List<string>();
             AddIf(names, link.BaseName);

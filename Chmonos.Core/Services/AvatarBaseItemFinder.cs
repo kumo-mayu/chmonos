@@ -32,7 +32,7 @@ public static class AvatarBaseItemFinder
         return entries
             .Where(entry => entry.BoothName is { } boothName
                 && !string.Equals(entry.Category, CharacterCategory, StringComparison.Ordinal)
-                && !string.Equals(entry.BaseName, group.Name, StringComparison.CurrentCultureIgnoreCase)
+                && !AvatarBaseNames.Same(entry.BaseName, group.Name)
                 && names.Any(name => boothName.Contains(name, StringComparison.CurrentCultureIgnoreCase)))
             .ToList();
     }

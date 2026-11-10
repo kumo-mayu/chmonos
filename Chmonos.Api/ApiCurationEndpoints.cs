@@ -81,7 +81,7 @@ internal static partial class ApiEndpoints
             var body = await ReadAsync(context.Request, json.BaseLinkRequest);
             using var claim = writer.GuardItem(context, id);
             if (!(await CurrentItemAsync(state, id, context)).Local.AvatarBases.Any(link =>
-                    string.Equals(link.BaseName, body.BaseName?.Trim(), StringComparison.CurrentCultureIgnoreCase) && !link.Rejected))
+                    Core.Services.AvatarBaseNames.Same(link.BaseName, body.BaseName?.Trim()) && !link.Rejected))
             {
                 throw QueryException.NotFound("baseNotLinked", "この商品にその共通素体は付いていません。");
             }
@@ -238,7 +238,7 @@ internal static partial class ApiEndpoints
 
     /// <summary>一覧にある共通素体の名前（一覧の綴りに寄せる。無ければ 400）。</summary>
     private static string RequireBase(Core.Storage.DataStore store, string? baseName)
-        => store.Avatars.Load().BaseGroups.FirstOrDefault(group => string.Equals(group.Name, baseName?.Trim(), StringComparison.CurrentCultureIgnoreCase))?.Name
+        => store.Avatars.Load().BaseGroups.FirstOrDefault(group => Core.Services.AvatarBaseNames.Same(group.Name, baseName?.Trim()))?.Name
             ?? throw QueryException.Invalid("unknownBase", "baseName は共通素体の一覧にありません。/v1/avatar-bases で確かめてください。");
 
     /// <summary>書いてよいかと、改変が在るか（保存先の今の記録で見る。取り込みの途中に作った改変にも書けるように）。</summary>

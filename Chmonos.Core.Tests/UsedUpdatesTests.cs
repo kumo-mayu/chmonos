@@ -180,6 +180,10 @@ public class UsedUpdatesTests
         Assert.True(UsedUpdates.AppliesTo(forAoi, null, registry));
         Assert.True(UsedUpdates.AppliesTo(forBase, "A3", registry));
         Assert.False(UsedUpdates.AppliesTo(forBase, "A1", registry));
+
+        // 素体の名前は大文字小文字だけの違いを同じ素体とみなす（AvatarBaseNames。前はここだけ Ordinal で、別の素体と見ていた）
+        var latin = new AvatarRegistry { Entries = [new AvatarRegistryEntry { ItemId = "A4", DisplayName = "作り物", BaseName = "SampleBody" }] };
+        Assert.True(UsedUpdates.AppliesTo(UsedUpdates.Found(new LocalBlock(), Found, new UpdateTargets([], ["samplebody"])), "A4", latin));
     }
 
     [Fact]
