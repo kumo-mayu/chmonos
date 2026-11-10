@@ -765,6 +765,9 @@ public sealed class ItemService : IItemService
         SizeBytes = target.SizeBytes,
         Contents = target.Contents,
         ArchiveBroken = target.ArchiveBroken,
+
+        // 商品のファイルとして記録した日（未確定に出た日 FirstSeenAt ではない）。既に持つ行なら突き合わせが元の日時を保つ
+        RegisteredAt = DateTimeOffset.Now,
     };
 
     public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)

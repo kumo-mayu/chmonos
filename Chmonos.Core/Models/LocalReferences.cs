@@ -232,6 +232,7 @@ public static class LocalReferences
         "LocalFiles[].Detached",
         "LocalFiles[].ArchiveBroken",
         "LocalFiles[].MissingSince",
+        "LocalFiles[].RegisteredAt",
         "LocalFiles[].Replaced.Path",
         "LocalFiles[].Replaced.At",
         "LocalFiles[].Volumes",

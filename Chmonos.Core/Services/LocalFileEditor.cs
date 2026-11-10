@@ -409,6 +409,9 @@ internal sealed class LocalFileEditor(DataStore store)
                     SizeBytes = size,
                     Contents = contents,
                     ArchiveBroken = broken,
+
+                    // 新しい行になるときだけ残る（既に持つ行なら突き合わせが元の日時を保つ）
+                    RegisteredAt = DateTimeOffset.Now,
                 };
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
