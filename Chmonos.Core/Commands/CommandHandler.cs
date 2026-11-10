@@ -74,9 +74,11 @@ public sealed class CommandHandler
     /// （実機の確かめ 2026-10-07）。USB メモリを抜いた状態でお気に入りを押すと「商品データが手元にありません」と出て、
     /// 記録は無事なのに、使う人からは消えたように見えた
     /// </summary>
+    private bool StoreRootMissing() => _storeRoot is { } rootPath && !Directory.Exists(rootPath);
+
     private CommandResult.Failed ItemMissing()
-        => _storeRoot is { } rootPath && !Directory.Exists(rootPath)
-            ? new CommandResult.Failed("保存先のフォルダが見つかりません。ドライブがつながっているか、Googleドライブなどの同期のアプリが動いているかを確かめて、もう一度押してください。")
+        => StoreRootMissing()
+            ?new CommandResult.Failed("保存先のフォルダが見つかりません。ドライブがつながっているか、Googleドライブなどの同期のアプリが動いているかを確かめて、もう一度押してください。")
             : new CommandResult.Failed("対象の商品データが手元にありません。");
 
     public CommandHandler(
@@ -531,7 +533,11 @@ public sealed class CommandHandler
                 return await _items.MoveUserImageAsync(
                     moveImage.ItemId, moveImage.FileName, moveImage.Delta, cancellationToken)
                     ? new CommandResult.ItemSaved(moveImage.ItemId)
-                    : new CommandResult.Failed("これ以上は動かせません。");
+                    : StoreRootMissing()
+                        ? ItemMissing()
+                        // サービスの false は「端なので動かせない」と「商品が無い」の両方。押せるのは画面に出ている画像なので、
+                        // 起きやすいのは前者。後者で実際に起きるのは保存先のドライブが外れたときで、そこだけは見分けて案内する
+                        : new CommandResult.Failed("これ以上は動かせません。");
 
             case UiCommand.PinThumbnail pin:
                 return await _items.PinThumbnailAsync(pin.ItemId, pin.FileName, cancellationToken)

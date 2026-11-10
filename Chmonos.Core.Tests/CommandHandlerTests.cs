@@ -127,7 +127,7 @@ public class CommandHandlerTests
             string fileName,
             int delta,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
+            => Task.FromResult(ItemFound);
 
         public Task<bool> PinThumbnailAsync(
             string itemId,
@@ -655,5 +655,23 @@ public class CommandHandlerTests
         var here = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), storeRoot: Path.GetTempPath());
         var blank = Assert.IsType<CommandResult.Failed>(await here.ExecuteAsync(new UiCommand.SetImageRole("100", " ", Models.ImageRole.Other, IsUserAdded: true)));
         Assert.Equal("対象の画像が見つかりませんでした。", blank.Message);
+    }
+
+    /// <summary>
+    /// 画像を動かせなかったとき、保存先のドライブが外れていればその案内を、そうでなければ端で動かせないと言う。
+    /// サービスの false は両方を含むので、見分けられるのは保存先が在るかだけ
+    /// </summary>
+    [Fact]
+    public async Task 画像を動かせないとき_保存先が外れていればドライブの案内を言う()
+    {
+        var missingRoot = Path.Combine(Path.GetTempPath(), "bam-missing-root-" + Guid.NewGuid().ToString("N"));
+        var gone = new CommandHandler(new FakeImportPipeline(), new FakeItemService { ItemFound = false }, storeRoot: missingRoot);
+        var here = new CommandHandler(new FakeImportPipeline(), new FakeItemService { ItemFound = false }, storeRoot: Path.GetTempPath());
+
+        var whenGone = Assert.IsType<CommandResult.Failed>(await gone.ExecuteAsync(new UiCommand.MoveUserImage("100", "user-1.webp", 1)));
+        var atEdge = Assert.IsType<CommandResult.Failed>(await here.ExecuteAsync(new UiCommand.MoveUserImage("100", "user-1.webp", 1)));
+
+        Assert.Contains("保存先のフォルダが見つかりません", whenGone.Message);
+        Assert.Equal("これ以上は動かせません。", atEdge.Message);
     }
 }
