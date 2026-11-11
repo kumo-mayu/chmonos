@@ -259,6 +259,66 @@ public class TextMenuTests
         Assert.Null(name.ContextMenu);
     });
 
+    /// <summary>商品ページの形：左クリックの行き先がメニューの相手を兼ねる。</summary>
+    private sealed class PageHost : IInAppLinkNavigator, ITextMenuHost
+    {
+        public bool CanNavigate(Uri uri) => false;
+
+        public void Navigate(Uri uri)
+        {
+        }
+
+        public bool IsInLibrary(string itemId) => itemId == "1000002";
+
+        public void OpenItem(string itemId)
+        {
+        }
+
+        public void RegisterItems(IReadOnlyList<string> itemIds)
+        {
+        }
+    }
+
+    [Fact]
+    public Task 開くときは_箱の選んだ範囲と右クリックしたリンクと相手から組む() => UiThread.Run(() =>
+    {
+        // 商品ページの形：Navigator だけを結ぶ
+        var page = new PageHost();
+        var body = new RichTextBox();
+        SelectableText.SetNavigator(body, page);
+        SelectableText.SetText(body, Description);
+        body.Selection.Select(At(body.Document, "上着"), At(body.Document, " と "));
+
+        var (plan, host) = TextMenu.Compose(body, TextMenuPlan.LinkAt(At(body.Document, ShopItemLink, 3)));
+        Assert.Same(page, host);
+        Assert.Equal("BOOTHで開く / リンクをコピー / | / 商品ページを開く / | / コピー / 選んだ範囲の商品をまとめて登録…", Show(plan));
+        Assert.Equal(["1000001", "1000002"], plan.SelectedItemIds);
+        Assert.StartsWith("上着 https://booth.pm/ja/items/1000001", plan.SelectedText, StringComparison.Ordinal);
+
+        // 編集画面の形：MenuHost だけを結ぶ（左クリックの行き先は無いまま）
+        var edit = new RichTextBox();
+        var editHost = new Host();
+        SelectableText.SetMenuHost(edit, editHost);
+        SelectableText.SetText(edit, Description);
+        var (editPlan, editTarget) = TextMenu.Compose(edit, null);
+        Assert.Same(editHost, editTarget);
+        Assert.Null(SelectableText.GetNavigator(edit));
+        Assert.Equal("(コピー) / (選んだ範囲の商品をまとめて登録…)", Show(editPlan));
+    });
+
+    [Fact]
+    public Task 押された字からリンクをたどる() => UiThread.Run(() =>
+    {
+        var document = SelectableText.Build(Description, navigator: null);
+        var link = document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<Hyperlink>().First();
+
+        Assert.Same(link, TextMenu.LinkFrom(link.Inlines.FirstInline));
+        Assert.Same(link, TextMenu.LinkFrom(link));
+        Assert.Null(TextMenu.LinkFrom(document.Blocks.FirstBlock));
+        Assert.Null(TextMenu.LinkFrom(new RichTextBox()));
+        Assert.Null(TextMenu.LinkFrom(null));
+    });
+
     // ---- 押したとき ----
 
     [Fact]

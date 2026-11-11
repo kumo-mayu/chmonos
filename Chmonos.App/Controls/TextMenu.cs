@@ -214,9 +214,13 @@ internal static class TextMenu
             box.ContextMenu = menu;
         }
 
-        box.ContextMenuOpening -= OnOpening;
-        box.ContextMenuOpening += OnOpening;
+        // 済んだ印の付いた出来事でも受ける。RichTextBox の中の処理（文字の編集の部品）が先に受けて済んだ印を付ける枝があると、
+        // 組み直しが呼ばれず、使い回すメニューに前回のリンク・前回の範囲の項目が残る（押すと前の商品を登録の窓に出す）
+        box.RemoveHandler(FrameworkElement.ContextMenuOpeningEvent, OpeningHandler);
+        box.AddHandler(FrameworkElement.ContextMenuOpeningEvent, OpeningHandler, handledEventsToo: true);
     }
+
+    private static readonly ContextMenuEventHandler OpeningHandler = OnOpening;
 
     private static void OnOpening(object sender, ContextMenuEventArgs e)
     {
@@ -225,15 +229,37 @@ internal static class TextMenu
             return;
         }
 
-        // キーボード（Shift+F10）から開いたときは、マウスの位置ではなく選んだ所の頭で見る
-        var position = e.CursorLeft < 0
-            ? box.Selection.Start
-            : box.GetPositionFromPoint(Mouse.GetPosition(box), snapToText: false);
-        var link = TextMenuPlan.LinkAt(position)?.NavigateUri?.OriginalString;
+        // キーボード（Shift+F10）から開いたときは、マウスの位置ではなく選んだ所の頭で見る。
+        // マウスのときは、押された物（リンクの中の字）から先にたどる。位置から引くと、リンクの端の半文字で外の位置を返すことがある
+        var link = e.CursorLeft < 0
+            ? TextMenuPlan.LinkAt(box.Selection.Start)
+            : LinkFrom(e.OriginalSource as DependencyObject) ?? TextMenuPlan.LinkAt(box.GetPositionFromPoint(Mouse.GetPosition(box), snapToText: false));
+        var (plan, host) = Compose(box, link);
+        Fill(menu, plan, host);
+    }
+
+    /// <summary>
+    /// 開く箱と右クリックしたリンクから、並びと相手を決める。相手は <see cref="SelectableText.MenuHostProperty"/>、無ければ左クリックの行き先（商品ページ）が兼ねる。
+    /// </summary>
+    internal static (TextMenuPlan Plan, ITextMenuHost? Host) Compose(RichTextBox box, Hyperlink? link)
+    {
         var fragments = TextMenuPlan.SelectedFragments(box.Document, box.Selection.Start, box.Selection.End);
         var host = SelectableText.GetMenuHost(box) ?? SelectableText.GetNavigator(box) as ITextMenuHost;
+        return (TextMenuPlan.Build(link?.NavigateUri?.OriginalString, box.Selection.Text, fragments, host), host);
+    }
 
-        Fill(menu, TextMenuPlan.Build(link, box.Selection.Text, fragments, host), host);
+    /// <summary>押された物からたどったリンク。本文の字（Run）の親をたどる。</summary>
+    internal static Hyperlink? LinkFrom(DependencyObject? source)
+    {
+        for (var node = source; node is TextElement element; node = element.Parent)
+        {
+            if (element is Hyperlink link)
+            {
+                return link;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>組んだ並びで、メニューの中身を入れ替える。試験は開かずにここで組んだ項目を読む。</summary>
