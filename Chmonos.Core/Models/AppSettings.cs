@@ -193,6 +193,12 @@ public sealed record AppSettings
     /// </summary>
     public int GalleryHoverDelayMs { get; init; } = 150;
 
+    /// <summary>
+    /// 商品ページと編集画面の「手元のファイル」の表示順（ユーザ指示 2026-11-11）。既定は記録の順（前からの並び）。
+    /// 古い settings.json には欄が無く、そのとき既定になる（形式の版は上げない）
+    /// </summary>
+    public FileOrder FileOrder { get; init; } = FileOrder.Added;
+
     // --- 編集 ---
 
     /// <summary>編集キューを終えたあと、自動で検索画面へ戻るか。</summary>

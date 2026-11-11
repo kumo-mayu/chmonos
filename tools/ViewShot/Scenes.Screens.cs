@@ -442,6 +442,36 @@ internal static partial class Scenes
             Width = 1600,
         },
 
+        // 設定の「ファイルの表示順」（2026-11-11）。記録の順は v10・v2・v1.9・Readme・外した物
+        new Scene("item-files-by-version", "商品ページの手元のファイル：表示順を「バージョンを考えた名前順」にした形（外した物は後ろ）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900110", "作り物の衣装（版が3つ）", record => record with
+            {
+                Local = record.Local with
+                {
+                    LocalFiles =
+                    [
+                        Fake.FileRecord(Fake.Zip(@"ライブラリ\Sample_Ver2.10.0.zip", "outfit.unitypackage")),
+                        Fake.FileRecord(Fake.Zip(@"ライブラリ\Sample_Ver2.9.0.zip", "outfit.unitypackage")),
+                        Fake.FileRecord(Fake.Zip(@"ライブラリ\Sample_Ver2.10.1.zip", "outfit.unitypackage")),
+                        Fake.FileRecord(Fake.Zip(@"ライブラリ\Old_Sample.zip", "outfit.unitypackage")) with { Detached = true },
+                        Fake.FileRecord(Fake.Zip(@"ライブラリ\Readme_Sample.zip", "readme.txt")),
+                    ],
+                },
+            });
+
+            var main = await context.StartAsync(settings => settings with { FileOrder = FileOrder.NameWithVersion });
+            main.ShowItem(item);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ItemFilesPanel>(root) };
+        })
+        {
+            Width = 1600,
+        },
+
         new Scene("item-page", "商品ページの全体：絵3枚・タグ・手元のファイル1つ", async context =>
         {
             var item = await context.Fake.ItemAsync(

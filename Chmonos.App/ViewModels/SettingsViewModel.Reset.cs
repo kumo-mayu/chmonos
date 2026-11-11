@@ -109,6 +109,7 @@ public sealed partial class SettingsViewModel
         _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
+        _fileOrder = settings.FileOrder;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
         _showEditQueueStrip = settings.ShowEditQueueStrip;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;

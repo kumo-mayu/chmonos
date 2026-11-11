@@ -319,6 +319,20 @@
                                        Text="商品を開いたときに1件残ります。同じ条件は連続して保存されません。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="商品ページと編集" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
+                            <!--
+                                「手元のファイル」の表示順（ユーザ指示 2026-11-11）。並べ方は Core の LocalFileOrder。
+                                3つでもプルダウンにするのは、ほかの設定の選択肢（表示の色・サムネイル）と同じ形にするため
+                            -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="ファイルの表示順" Style="{StaticResource RowLabel}" Width="220" />
+                                <ComboBox Width="200" ItemsSource="{x:Static vm:SettingsViewModel.FileOrders}"
+                                          DisplayMemberPath="Label"
+                                          AutomationProperties.AutomationId="Settings.FileOrder"
+                                          AutomationProperties.Name="ファイルの表示順"
+                                          SelectedItem="{Binding SelectedFileOrder, Mode=TwoWay}" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,8"
+                                       Text="「バージョンを考えた名前順」では、名前の中の数を数として比べ、v1.9の後にv1.10を並べます。" />
                             <CheckBox Content="ギャラリーをマウスを乗せたまま切り替える" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding GallerySwitchOnHover, Mode=TwoWay}" />
                             <CheckBox Content="編集画面の上に、続く商品を小さな絵で並べる" Style="{StaticResource SettingCheck}"

@@ -180,8 +180,9 @@ public sealed partial class ItemViewModel
 
     private void BuildLocalFiles()
     {
-        // 外したファイルは灰色で後ろに残す（ユーザ判断 2026-09-12）。持っているファイルを先に
-        foreach (var file in Item.Local.LocalFiles.OrderBy(file => file.Detached))
+        // 外したファイルは灰色で後ろに残す（ユーザ判断 2026-09-12）。持っているファイルを先に。
+        // その中の順は設定の「ファイルの表示順」（ユーザ指示 2026-11-11）。編集画面も同じ部品なので、ここ1か所で両方が変わる
+        foreach (var file in Core.Services.LocalFileOrder.Sort(Item.Local.LocalFiles, _services.Settings.FileOrder))
         {
             var variation = file.VariationId is null
                 ? null
@@ -196,9 +197,8 @@ public sealed partial class ItemViewModel
             {
                 Hash = file.Hash,
                 // 古い版は場所が空なので、置き換わった場所の名前で出す（新しい版の行と同じ名前が並び、どの版の物か分かる）
-                FileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0])
-                    : file.IsOldVersion ? Path.GetFileName(file.Replaced!.Path)
-                    : "(見つかりません)",
+                // 並べた名前と同じ物を出す（LocalFileOrder.NameOf）
+                FileName = Core.Services.LocalFileOrder.NameOf(file) ?? "(見つかりません)",
                 IsOldVersion = file.IsOldVersion,
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 // 開く・在るかの確かめは今の場所で（ドライブ文字が変わった分は読み替える）。記録のパスは書き換えない

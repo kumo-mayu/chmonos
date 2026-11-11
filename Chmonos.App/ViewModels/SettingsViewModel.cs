@@ -18,6 +18,17 @@ public sealed class ThumbnailRoleOption
     public override string ToString() => Label;
 }
 
+/// <summary>「手元のファイル」の表示順の選択肢（<see cref="SettingsViewModel.FileOrders"/>）。</summary>
+public sealed class FileOrderOption
+{
+    public required FileOrder Value { get; init; }
+
+    public required string Label { get; init; }
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
+}
+
 /// <summary>改変の画面から開くアプリの選択肢。見つからない方は選べない。</summary>
 public sealed class ProjectManagerOption : ViewModelBase
 {
@@ -842,6 +853,39 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         OnPropertyChanged(nameof(ProjectManagerShown));
     }
 
+    private FileOrder _fileOrder;
+
+    /// <summary>
+    /// 商品ページと編集画面の「手元のファイル」の表示順（ユーザ指示 2026-11-11）。
+    /// 商品ページは開くたびに作り直すので、保存の後に開いた画面から効く（設定の画面を開いている間、商品ページは無い）
+    /// </summary>
+    public FileOrder FileOrder
+    {
+        get => _fileOrder;
+        set
+        {
+            if (SetField(ref _fileOrder, value))
+            {
+                OnPropertyChanged(nameof(SelectedFileOrder));
+                Save();
+            }
+        }
+    }
+
+    public static IReadOnlyList<FileOrderOption> FileOrders { get; } =
+    [
+        new FileOrderOption { Value = Core.Models.FileOrder.Added, Label = "追加した順" },
+        new FileOrderOption { Value = Core.Models.FileOrder.Name, Label = "名前順" },
+        new FileOrderOption { Value = Core.Models.FileOrder.NameWithVersion, Label = "バージョンを考えた名前順" },
+    ];
+
+    public FileOrderOption SelectedFileOrder
+    {
+        // 手で書いた知らない値は既定の行に見せる（保存は選び直したときだけ）
+        get => FileOrders.FirstOrDefault(option => option.Value == FileOrder) ?? FileOrders[0];
+        set { if (value is not null) { FileOrder = value.Value; } }
+    }
+
     private bool _gallerySwitchOnHover;
     public bool GallerySwitchOnHover
     {
@@ -1652,6 +1696,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowAcquiredSortDividers = ShowAcquiredSortDividers,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
+            FileOrder = FileOrder,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
             ShowEditQueueStrip = ShowEditQueueStrip,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,

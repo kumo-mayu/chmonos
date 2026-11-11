@@ -34,7 +34,23 @@ internal static partial class Scenes
         SettingsNotes("settings-notes-after", "設定：知らせが出た後（欄の下・ボタンの下・見出しの横。ほかの物は動かない）", shown: true),
         SettingsApi(),
         SettingsFolderLayouts(),
+        SettingsFileOrder(),
     ];
+
+    /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウン（2026-11-11）。「バージョンを考えた名前順」を選んだ形</summary>
+    private static Scene SettingsFileOrder()
+        => new("settings-file-order", "設定の「商品ページと編集」：ファイルの表示順（バージョンを考えた名前順を選んだ形）", async context =>
+        {
+            var main = await context.StartAsync(settings => settings with { FileOrder = Chmonos.Core.Models.FileOrder.NameWithVersion });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "商品ページと編集")) };
+        });
 
     /// <summary>
     /// 設定の「API」の節（2026-10-12）を開いた形。許可するオリジンが2つ・追加できなかった知らせ・範囲の外のポートを丸めた知らせ。
