@@ -150,6 +150,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 改変：Hub・VCC・ALCOM の有無（画面と設定） | `hub-tools-*`・`settings-tools-*` |
 | 改変：窓（使ったものを足す・改変に追加・探す・絵） | `pick-member-files-dialog`・`pick-modification-*-dialog` |
 | 送る unitypackage を選ぶ窓（改変・カードの右クリック・複数選択） | `catalog-dialog-pick-packages`・`-filtered`（探して選んだ・飛ばすボタン）・`-none`（0件で送るが押せない） |
+| コピーした商品をまとめて登録する窓（計画 26） | `catalog-dialog-register-pasted`（ライブラリにある行・外した行・長い名前）・`-all-known`（すべてある・登録が押せない） |
 
 ## タグの管理（11-tags）・属性の管理（12-attributes）
 
@@ -181,7 +182,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 |---|---|
 | ナビ：低い窓・畳む・送る・フォーカス | `nav-low-*`・`nav-focus` |
 | ナビ：数の札（未確定・未編集・通知） | `catalog-nav-badges` |
-| 下の帯：同梱の辞書などが無い・一時展開・バックアップ（中・数える・済み・失敗）・戻す | `band-unpacking(-two)`・`band-missing-assets`・`band-backup-*`・`band-restore-running` |
+| 下の帯：同梱の辞書などが無い・一時展開・バックアップ（中・数える・済み・失敗）・戻す・落とした URL の登録（1件・まとめて） | `band-unpacking(-two)`・`band-registering-dropped`・`band-registering-batch`・`band-missing-assets`・`band-backup-*`・`band-restore-running` |
 | 主の窓の知らせの帯（隠した・離れたページの操作・取り込みを始められない・監視をやめた） | `catalog-notice-hidden`・`catalog-notice-changed-away`・`catalog-notice-import-not-started`・`catalog-notice-folder-removed` |
 | 知らせの窓（OK/キャンセル・はい/いいえ・エラー） | `notice-okcancel-long`・`notice-yesno-warning`・`notice-error-short` |
 | 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three` |

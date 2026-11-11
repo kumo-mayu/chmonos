@@ -104,6 +104,29 @@ internal static class Backdoor
     }
 
     /// <summary>
+    /// 下の帯：落とした・貼った URL の商品を登録している最中（計画 26）。<paramref name="total"/> が 0 なら1件の登録、
+    /// 1以上ならまとめての登録の n/N と「中止」。実際に登録するには BOOTH の返事を止める作り物が要るので、控えを直に入れる。
+    /// </summary>
+    public static void ShowDroppedRegistering(MainViewModel main, int done, int total)
+    {
+        if (total > 0)
+        {
+            var batchType = typeof(MainViewModel).GetNestedType("PastedBatch", Hidden)
+                ?? throw Missing(typeof(MainViewModel), "入れ子の型 PastedBatch");
+            var batch = Activator.CreateInstance(batchType, nonPublic: true)
+                ?? throw Missing(batchType, "コンストラクタ");
+            batchType.GetProperty("Total")!.SetValue(batch, total);
+            batchType.GetProperty("Done")!.SetValue(batch, done);
+            SetField(main, "_batch", batch);
+        }
+
+        SetField(main, "_droppedRegistering", 1);
+        var notify = typeof(MainViewModel).GetMethod("NotifyDroppedRegistering", Hidden)
+            ?? throw Missing(typeof(MainViewModel), "NotifyDroppedRegistering()");
+        notify.Invoke(main, null);
+    }
+
+    /// <summary>
     /// 未確定の「商品IDを決める」の欄で登録している最中の帯。実際に登録するには BOOTH の返事を止める作り物が要るので、控えを直に入れる。
     /// <paramref name="left"/> は BOOTH への問い合わせの残り（目安の時間は本体が間隔から出す）。
     /// </summary>

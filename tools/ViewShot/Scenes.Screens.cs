@@ -544,6 +544,20 @@ internal static partial class Scenes
         }),
     ];
 
+    private static Scene DroppedRegisteringBand(string name, string title, int done, int total)
+        => new(name, title, async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            Backdoor.ShowDroppedRegistering(main, done, total);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.DroppedRegisteringText)), FocusMargin = 24 };
+        });
+
     private static IEnumerable<Scene> Bands =>
     [
         // 2026-10-07：zip の中から開くなどで assets が無いと、検索の一部が黙って効かなかった
@@ -559,6 +573,11 @@ internal static partial class Scenes
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.MissingAssetsText)), FocusMargin = 24 };
         }),
+
+        DroppedRegisteringBand("band-registering-dropped", "下の帯：落とした URL の商品を1件登録している最中（中止は出ない）", done: 0, total: 0),
+
+        // 計画 26：まとめての登録は n/N と「中止」。帯の高さが「中止」で変わらないかも見る
+        DroppedRegisteringBand("band-registering-batch", "下の帯：コピーした商品をまとめて登録している最中（3/11・中止）", done: 2, total: 11),
 
         Unpacking("band-unpacking", "下の帯：一時展開の進み具合（1本・長いzip名・半分まで）", main =>
             Backdoor.ShowUnpacking(
