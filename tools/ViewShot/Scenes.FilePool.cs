@@ -51,9 +51,54 @@ internal static partial class Scenes
                 pool.Threshold = 3;
                 return Task.CompletedTask;
             }),
+
+        FilePoolAfterChanges,
     ];
 
-    private static Scene FilePoolScene(string name, string title, Func<FilePoolViewModel, SceneContext, Task> arrange)
+    /// <summary>
+    /// 窓を載せた後に付ける・外す・ほかの道の書き込みで読み直す（ほかの場面は載せる前に並べ終えるので、表示した後の組み直しを通らない）。
+    /// 選ぶ欄が空にならないこと・行と「外す」の結び付けが空でないことを、撮る前に確かめる（外れていたら場面ごと失敗にする）
+    /// </summary>
+    private static Scene FilePoolAfterChanges => FilePoolScene(
+        "file-pool-after-changes",
+        "ファイルの割り振り：表示した後に、付ける→外す→ほかの道で書き込み（読み直し）を通した姿（結果の1行・選ぶ欄・結び付けを確かめる）",
+        arrange: null,
+        afterPresent: async (pool, context, root) =>
+        {
+            await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartBId));
+            pool.Groups.SelectMany(group => group.Files).First(file => file.CanCheck).IsChecked = true;
+            await pool.AttachAsync();
+            await pool.DetachAsync(pool.Items.Single(row => row.Id == PoolPartAId).Files.FirstOrDefault());
+            await context.Seed.Items.ChangeLocalAsync(
+                PoolPartAId, local => local with { Memo = "読み直しを起こすための作り物のメモ" }, [LocalField.Memo]);
+            await context.SettleAsync();
+
+            var combos = Look.All<System.Windows.Controls.ComboBox>(root).ToList();
+            if (combos.Count < 2 || combos.Any(combo => combo.SelectedItem is null))
+            {
+                throw new InvalidOperationException("付いている商品の数の欄か比べ方の欄が空になりました。");
+            }
+
+            await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
+            await context.SettleAsync();
+            var detach = Look.All<System.Windows.Controls.Button>(root).Where(button => (string?)button.Content == "外す").ToList();
+            if (detach.Count == 0 || detach.Any(button => button.Command is null))
+            {
+                throw new InvalidOperationException("「外す」のボタンに命令が結び付いていません。");
+            }
+
+            var rows = Look.All<Chmonos.App.Controls.PressableBorder>(root).ToList();
+            if (rows.Count == 0 || rows.Any(row => row.Command is null))
+            {
+                throw new InvalidOperationException("左の商品の行に命令が結び付いていません。");
+            }
+        });
+
+    private static Scene FilePoolScene(
+        string name,
+        string title,
+        Func<FilePoolViewModel, SceneContext, Task>? arrange,
+        Func<FilePoolViewModel, SceneContext, System.Windows.FrameworkElement, Task>? afterPresent = null)
         => new(name, title, async context =>
         {
             static LocalFileRecord File(string name, params string[] contents) => new()
@@ -82,11 +127,19 @@ internal static partial class Scenes
             var main = await context.StartAsync();
             var pool = new FilePoolViewModel(context.Services, main, [PoolSetId, PoolPartAId, PoolPartBId, "9900884"]);
             await pool.ReloadAsync();
-            await arrange(pool, context);
+            if (arrange is not null)
+            {
+                await arrange(pool, context);
+            }
 
             var root = SceneContext.Unwrap(new FilePoolWindow(pool));
             await context.PresentAsync(root);
             await context.SettleAsync();
+            if (afterPresent is not null)
+            {
+                await afterPresent(pool, context, root);
+            }
+
             return new Shot(root);
         })
         {
