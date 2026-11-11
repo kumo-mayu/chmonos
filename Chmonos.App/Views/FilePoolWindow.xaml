@@ -221,7 +221,28 @@
                                                               CommandParameter="{Binding}" />
                                             </controls:PressableBorder.InputBindings>
                                             <DockPanel>
-                                                <ContentPresenter DockPanel.Dock="Left" Content="{Binding Picture}" VerticalAlignment="Center" Focusable="False" />
+                                                <!--
+                                                    絵に乗せると大きめの絵と商品名（ユーザ指摘 2026-11-11「他の商品サムネアイコンと同様に」）。
+                                                    フォルダビューの商品の絵・改変の使ったもの・タグの管理の商品と同じ吹き出し（180px・待ち 300ms・Surface の地）と、
+                                                    同じ読み方（HoverImage：開いたときに初めてカードの大きさで読む）。左の一覧なので、大きな絵は右へ出す。
+                                                    吹き出しは外の Border に付ける（ContentPresenter は中身を自分の DataContext にするので、商品名に届かない）
+                                                -->
+                                                <Border DockPanel.Dock="Left" VerticalAlignment="Center" Background="Transparent"
+                                                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
+                                                    <Border.ToolTip>
+                                                        <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
+                                                            <StackPanel Width="180">
+                                                                <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
+                                                                        Visibility="{Binding Picture.HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                    <Image Source="{Binding Picture.HoverImage}" Stretch="Uniform" />
+                                                                </Border>
+                                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                                           Foreground="{DynamicResource Text}" />
+                                                            </StackPanel>
+                                                        </ToolTip>
+                                                    </Border.ToolTip>
+                                                    <ContentPresenter Content="{Binding Picture}" Focusable="False" />
+                                                </Border>
                                                 <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
                                                            VerticalAlignment="Center" Margin="8,0,0,0" />
                                                 <!-- 付ける先の印。色だけだと、広げた行が並ぶと区切りの色と見分けにくい -->

@@ -290,6 +290,13 @@ public class FilePoolWindowTests
         Assert.Null(bare.Path);
         Assert.Null(bare.Image);
 
+        // 乗せたときの大きめの絵（ほかの一覧の HoverImage と同じ読み方）。絵の無い商品は枠を出さず名前だけ
+        Assert.True(dressed.HasHoverImage);
+        Assert.False(bare.HasHoverImage);
+        Assert.Null(bare.HoverImage);
+        _ = dressed.HoverImage;
+        await UiThread.Until(() => dressed.HoverImage is not null, "大きめの絵が届く");
+
         // 読み直しても行と絵は使い回す
         await pool.ReloadAsync();
         Assert.Same(dressed, Row(pool, "9900804").Picture);

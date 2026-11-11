@@ -85,6 +85,18 @@ public sealed class ResultThumbnail : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 乗せたときに出す大きめの絵（ファイルの割り振りの左の行。ユーザ指摘 2026-11-11「他の商品サムネアイコンと同様に」）。
+    /// フォルダビュー・改変の一覧・タグの管理の <c>HoverImage</c> と同じく、吹き出しが開いたときに初めてカードの大きさで読む
+    /// （行の 36 の枠の大きさで読んだ絵を 180 に引き伸ばすとぼやける。行を作るたびに読むとメモリを食う）。場所がまだ決まっていなければ無し
+    /// </summary>
+    public BitmapSource? HoverImage => _path is { } path && _loader is not null
+        ? _loader.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    /// <summary>吹き出しに絵の枠を出すか。絵の無い商品は名前だけにする（ほかの一覧の吹き出しと同じ）。</summary>
+    public bool HasHoverImage => _path is not null;
+
     private async Task ResolveAsync()
     {
         try
@@ -97,6 +109,8 @@ public sealed class ResultThumbnail : ViewModelBase
         }
 
         OnPropertyChanged(nameof(Image));
+        OnPropertyChanged(nameof(HoverImage));
+        OnPropertyChanged(nameof(HasHoverImage));
     }
 
     /// <summary>
