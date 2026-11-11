@@ -1006,6 +1006,22 @@ public sealed class CommandHandler
 
                 return new CommandResult.FileAttached(attached);
 
+            case UiCommand.AttachRecordedFile attachRecorded:
+                var attachedRecord = await _items.AttachRecordedFileAsync(
+                    attachRecorded.ItemId,
+                    attachRecorded.Hash,
+                    attachRecorded.SourceItemId,
+                    attachRecorded.LiftExclusion,
+                    attachRecorded.OtherHolders,
+                    cancellationToken);
+                if (attachedRecord.Result == Services.FileAttachResult.Attached)
+                {
+                    // 写した記録が入り先をまだ読んでいなければ読む（AttachFile と同じ）。読んであれば中で何もしない
+                    FillUnityPackagesInBackground(attachRecorded.ItemId);
+                }
+
+                return new CommandResult.FileAttached(attachedRecord);
+
             case UiCommand.UnregisterFolder unregister:
                 return await _items.UnregisterFolderAsync(unregister.ItemId, unregister.FolderPath, cancellationToken)
                     ? new CommandResult.ItemSaved(unregister.ItemId)

@@ -577,6 +577,19 @@ public abstract record UiCommand
         Services.OtherHolders OtherHolders = Services.OtherHolders.Ask) : UiCommand;
 
     /// <summary>
+    /// <paramref name="SourceItemId"/> の記録にあるファイル（<paramref name="Hash"/>）を、記録を写してこの商品に結ぶ
+    /// （ファイルの割り振りのサブ画面・plan 30。結果は <see cref="CommandResult.FileAttached"/>）。
+    /// <see cref="AttachFile"/> と違ってファイルを読まないので、見つからないファイルも付けられ、大きい zip を読み直さない。
+    /// 除外・ほかの持ち主の扱いは <see cref="AttachFile"/> と同じ（割り振る画面は <c>Share</c> で呼ぶ）。
+    /// </summary>
+    public record AttachRecordedFile(
+        string ItemId,
+        string Hash,
+        string SourceItemId,
+        bool LiftExclusion = false,
+        Services.OtherHolders OtherHolders = Services.OtherHolders.Ask) : UiCommand;
+
+    /// <summary>
     /// zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。
     /// 中止したときは結果を返さず、<see cref="OperationCanceledException"/> を投げる（書きかけは消してある）。
     /// </summary>

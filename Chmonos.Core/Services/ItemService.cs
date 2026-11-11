@@ -101,6 +101,18 @@ public interface IItemService
         OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// ほかの商品の記録にあるファイルを、記録を写してこの商品に結ぶ（ファイルの割り振り・plan 30）。ディスクは読まない。
+    /// 事情（除外・ほかの持ち主）は <see cref="AttachFileAsync"/> と同じに、何も書かずに返す。
+    /// </summary>
+    Task<FileAttachOutcome> AttachRecordedFileAsync(
+        string itemId,
+        string hash,
+        string sourceItemId,
+        bool liftExclusion = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
+        CancellationToken cancellationToken = default);
+
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
 
     /// <summary>
@@ -948,6 +960,16 @@ public sealed class ItemService : IItemService
         OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default)
         => _localFiles.AttachFileAsync(itemId, path, liftExclusion, otherHolders, cancellationToken);
+
+    /// <inheritdoc cref="LocalFileEditor.AttachRecordedFileAsync"/>
+    public Task<FileAttachOutcome> AttachRecordedFileAsync(
+        string itemId,
+        string hash,
+        string sourceItemId,
+        bool liftExclusion = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
+        CancellationToken cancellationToken = default)
+        => _localFiles.AttachRecordedFileAsync(itemId, hash, sourceItemId, liftExclusion, otherHolders, cancellationToken);
 
     /// <inheritdoc cref="LocalFileEditor.SetFileVariationsAsync"/>
     public Task<bool> SetFileVariationsAsync(

@@ -164,7 +164,18 @@ public sealed class ItemRepository
         {
             _cache.TryRemove(item.Id, out _);
         }
+
+        Written?.Invoke(item.Id);
     }
+
+    /// <summary>
+    /// 商品を書いた・消したとき（商品の ID。**錠の中から来る**ので、受け手は重い事をせず画面のスレッドや裏へ回す）。
+    /// 選んだ商品の間でファイルを割り振るサブ画面（plan 30）が、開いている間にほかの画面・取り込み・API が
+    /// その商品を書き換えたのを知って読み直すために聞く。書く道は命令・取り込み・裏の取得・API と多いので、
+    /// 道ごとに知らせを足すより、置き場で1つにする（改変の <see cref="ModificationRepository.Written"/> と同じ考え）。
+    /// 取り込みでは数百回鳴るので、受け手は ID で絞る。
+    /// </summary>
+    public event Action<string>? Written;
 
     /// <summary>
     /// 組み直した結果が今の中身と同じなら書かない。**呼んだ側への答え（書いたか）は変えない**——
@@ -963,6 +974,9 @@ public sealed class ItemRepository
         {
             TryDeleteDirectory(imagesDir);
         }
+
+        // 消したのも書き換え（サブ画面は、選んだ商品が消えたのを知って一覧から外す）
+        Written?.Invoke(itemId);
     }
 
     /// <summary>

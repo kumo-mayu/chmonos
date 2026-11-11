@@ -215,6 +215,7 @@ public sealed partial class ItemViewModel
         FileAttachResult.AlreadyAttached => $"「{outcome.FileName}」は、もうこの商品に紐付いています。",
         FileAttachResult.FileMissing => $"「{outcome.FileName}」が見つかりません。移動したか削除した可能性があります。",
         FileAttachResult.FileUnreadable => $"「{outcome.FileName}」を読めませんでした。ほかのアプリが開いている可能性があります。",
+        FileAttachResult.RecordMissing => $"「{outcome.FileName}」の記録が見つかりませんでした。",
 
         // 聞いた後でまた別の事情が返った（間に除外・登録された）。黙って進めず、そのままにする
         FileAttachResult.Excluded or FileAttachResult.OwnedElsewhere

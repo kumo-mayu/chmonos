@@ -29,6 +29,12 @@ public enum FileAttachResult
     /// 持ち主は人が決めたことなので、聞かずには増やしも替えもしない（画面が聞いて <see cref="OtherHolders"/> を決めて呼び直す）。
     /// </summary>
     OwnedElsewhere,
+
+    /// <summary>
+    /// 写す元の商品の記録に、このファイル（ハッシュ）が無い（元の商品が消された・記録が片付けられた）。何も書いていない。
+    /// 記録から付ける道（<c>UiCommand.AttachRecordedFile</c>）だけが返す。
+    /// </summary>
+    RecordMissing,
 }
 
 /// <param name="FileName">見せる用のファイル名。</param>

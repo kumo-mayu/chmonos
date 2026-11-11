@@ -91,6 +91,9 @@ public class DueRefreshTests : IDisposable
         public Task<FileAttachOutcome> AttachFileAsync(string itemId, string path, bool liftExclusion = false, OtherHolders otherHolders = OtherHolders.Ask, CancellationToken cancellationToken = default)
             => Task.FromResult(new FileAttachOutcome(FileAttachResult.Attached, "x.zip"));
 
+        public Task<FileAttachOutcome> AttachRecordedFileAsync(string itemId, string hash, string sourceItemId, bool liftExclusion = false, OtherHolders otherHolders = OtherHolders.Ask, CancellationToken cancellationToken = default)
+            => Task.FromResult(new FileAttachOutcome(FileAttachResult.Attached, "x.zip"));
+
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)
             => Task.FromResult(true);
 

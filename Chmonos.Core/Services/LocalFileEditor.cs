@@ -368,6 +368,97 @@ internal sealed class LocalFileEditor(DataStore store)
     }
 
     /// <summary>
+    /// ほかの商品の記録にあるファイルを、その記録を写してこの商品に結ぶ（選んだ商品の間でファイルを割り振るサブ画面・plan 30）。
+    ///
+    /// <see cref="AttachFileAsync"/> は場所を受けてハッシュを取り直すので、見つからないファイルは付けられず、何 GB の zip を
+    /// 付けるたびに読み直す。割り振る画面は記録にある物を商品の間で付け外しするだけで、中身は記録が知っている。
+    /// **ディスクは読まない**（場所が在るかを見るのは、人の登録と同じ足し方 <see cref="Scanning.LocalFileMerger.MergeByHand"/> の中だけ）。
+    ///
+    /// 写すのは中身の事実（ハッシュ・場所・大きさ・中の一覧・unitypackage の入り先・壊れた印・見つからない日時・ダウンロード元・ディスクの番号）。
+    /// 商品ごとに持つ欄（種類・外した印・記録した日時・古い版の印。shared-files.md「データ」）は写さず、記録した日時は今にする。
+    /// 元の行は外した印の付いた行でもよい（割り振る画面で、選んだ商品の最後の1件から外した物を、別の商品へ付け直せるように）。
+    /// 除外・ほかの持ち主・錠・後の片付け（未確定から消す）は <see cref="AttachFileAsync"/> と同じ。
+    /// </summary>
+    /// <param name="sourceItemId">記録を写す元の商品。画面の写しではなく、ここで今の記録を読む。</param>
+    public async Task<FileAttachOutcome> AttachRecordedFileAsync(
+        string itemId,
+        string hash,
+        string sourceItemId,
+        bool liftExclusion = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
+        CancellationToken cancellationToken = default)
+    {
+        bool Same(LocalFileRecord file) => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase);
+
+        // 元の商品は錠を取らずに読む（読むのは書き込みの済んだ写しなので、錠の中で読まなくても半端な物は来ない）。
+        // 付ける先の錠の中で元の錠を取ると、2つの錠を同時に持つことになる。外していない行を先に選ぶ（外した行は場所が古いことがある）
+        var source = await store.Items.LoadAsync(sourceItemId, cancellationToken);
+        var original = source?.Local.LocalFiles.Where(Same).OrderBy(file => file.Detached).FirstOrDefault();
+        var name = original?.Paths.Count > 0 ? Path.GetFileName(original.Paths[0]) : hash;
+
+        if (!store.Items.Exists(itemId))
+        {
+            return new FileAttachOutcome(FileAttachResult.ItemMissing, name);
+        }
+
+        if (original is null)
+        {
+            return new FileAttachOutcome(FileAttachResult.RecordMissing, name);
+        }
+
+        switch (await HandAttachBlockAsync(itemId, original.Hash, liftExclusion, otherHolders, cancellationToken))
+        {
+            case { Excluded: true }:
+                return new FileAttachOutcome(FileAttachResult.Excluded, name);
+            case { Holders: { Count: > 0 } holders }:
+                return new FileAttachOutcome(FileAttachResult.OwnedElsewhere, name) { Holders = holders };
+        }
+
+        var record = new LocalFileRecord
+        {
+            Hash = original.Hash,
+            Paths = original.Paths,
+            SizeBytes = original.SizeBytes,
+            Contents = original.Contents,
+            UnityPackages = original.UnityPackages,
+            ArchiveBroken = original.ArchiveBroken,
+            MissingSince = original.MissingSince,
+            DownloadSource = original.DownloadSource,
+            Volumes = original.Volumes,
+
+            // 新しい行になるときだけ残る（既に外した行を持っていれば、突き合わせがその行の日時を保つ）
+            RegisteredAt = DateTimeOffset.Now,
+        };
+
+        // 外さずに持っていれば書かない（同じ物を2回付けた・間にほかの画面で付けた）。場所は見ない：同じ中身なら同じファイル
+        var already = false;
+        var written = await store.Items.ChangeLocalAsync(
+            itemId,
+            current =>
+            {
+                already = current.LocalFiles.Any(file => !file.Detached && Same(file));
+                return already
+                    ? null
+                    : current with { LocalFiles = Scanning.LocalFileMerger.MergeByHand(current.LocalFiles, [record]) };
+            },
+            [LocalField.LocalFiles],
+            cancellationToken);
+
+        if (already)
+        {
+            return new FileAttachOutcome(FileAttachResult.AlreadyAttached, name);
+        }
+
+        if (!written)
+        {
+            return new FileAttachOutcome(FileAttachResult.ItemMissing, name);
+        }
+
+        await AfterHandAttachAsync(itemId, record.Hash, liftExclusion, otherHolders, cancellationToken);
+        return new FileAttachOutcome(FileAttachResult.Attached, name);
+    }
+
+    /// <summary>
     /// 人が選んだファイル1本を読み、商品のファイルの記録にする（錠の外で呼ぶ。大きいファイルはハッシュに数秒かかる）。
     /// 読めなければ null。中身の一覧は zip だけ読む（取り込みの <c>InspectFile</c> と同じ）。
     /// </summary>
