@@ -77,6 +77,16 @@ internal static partial class Scenes
                 return Task.CompletedTask;
             }),
 
+        FilePoolScene(
+            "file-pool-wide-left",
+            "ファイルの割り振り：境目をドラッグして左を広げた比率（3:2）で開き直した姿",
+            async (pool, _) =>
+            {
+                FilePoolWindow.LastColumns = (new System.Windows.GridLength(3, System.Windows.GridUnitType.Star),
+                    new System.Windows.GridLength(2, System.Windows.GridUnitType.Star));
+                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
+            }),
+
         FilePoolAfterChanges,
         FilePoolMany,
     ];

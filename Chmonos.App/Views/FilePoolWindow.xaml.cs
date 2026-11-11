@@ -15,6 +15,15 @@ public partial class FilePoolWindow : Window, ISubWindowHandle
 {
     private static Rect? s_lastBounds;
 
+    /// <summary>
+    /// 左右の比率（境目のドラッグ）。位置と同じくアプリを閉じるまで覚え、ファイルには書かない。
+    /// 画素ではなく ＊ の比で持つ：窓の大きさを戻したときに、比率のまま広がる
+    /// </summary>
+    internal static (GridLength Left, GridLength Right)? LastColumns { get; set; }
+
+    private static readonly GridLength DefaultLeft = new(2, GridUnitType.Star);
+    private static readonly GridLength DefaultRight = new(3, GridUnitType.Star);
+
     internal FilePoolWindow(FilePoolViewModel model)
     {
         InitializeComponent();
@@ -34,8 +43,24 @@ public partial class FilePoolWindow : Window, ISubWindowHandle
             Height = bounds.Height;
         }
 
+        if (LastColumns is { } columns)
+        {
+            LeftColumn.Width = columns.Left;
+            RightColumn.Width = columns.Right;
+        }
+
+        Splitter.ResetCommand = new RelayCommand(() =>
+        {
+            LeftColumn.Width = DefaultLeft;
+            RightColumn.Width = DefaultRight;
+        });
+
         // 位置は閉じる直前に採る（Closed の後は RestoreBounds が空になる。主の窓と同じ）
-        Closing += (_, _) => s_lastBounds = RestoreBounds.IsEmpty ? null : RestoreBounds;
+        Closing += (_, _) =>
+        {
+            s_lastBounds = RestoreBounds.IsEmpty ? null : RestoreBounds;
+            LastColumns = (LeftColumn.Width, RightColumn.Width);
+        };
         Closed += (_, _) => model.NoteWindowClosed();
     }
 
