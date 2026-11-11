@@ -204,6 +204,10 @@ public partial class App : Application
         _openRequests = Services.OpenRequestChannel.Listen(_services.Paths, () => Dispatcher.BeginInvoke(OpenFromTray));
         _services.ShowItemInWindow = ShowItemFromOutsideAsync;
 
+        // 動いている Chmonos の一覧に札を書く（外の道具が api.json を見つけるため）。多重起動の錠を取り、形式を決めた後の1本目だけ。
+        // 画面の有無で分かれる前に書き、API を始める前に購読する（始めた知らせでポートを書き直す）
+        _running = _services.RecordRunning(_headless || main is null || mainWindow is null, Core.Storage.RunningInstances.Directory);
+
         if (_headless || main is null || mainWindow is null)
         {
             StartHeadless();
@@ -244,6 +248,9 @@ public partial class App : Application
     private Services.TrayIcon? _tray;
 
     private Services.OpenRequestChannel? _openRequests;
+
+    /// <summary>動いている Chmonos の一覧の、このプロセスの札（閉じるときに消す）。</summary>
+    private Core.Storage.RunningInstanceRecorder? _running;
 
     /// <summary>
     /// 外から使う API の「画面で開く」：窓を開いて（画面無しなら作って）その商品のページを表示する。表示できたら true。
@@ -796,6 +803,9 @@ public partial class App : Application
         {
             Core.Diagnostics.AppLog.Warn("閉じるときの API の停止", "5秒待っても止まらなかったので諦めた");
         }
+
+        // 一覧の札は API を止めた後に消す（先に消すと、止まる知らせで「ポート無し」の札を書き直して残る。消した後は書き直さない作りだが、順も合わせる）
+        _running?.Dispose();
 
         TrimNotificationArchive();
 

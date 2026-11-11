@@ -311,6 +311,35 @@ public sealed class AppServiceContainer : IDisposable
     private Services.ApiRunner? _api;
 
     /// <summary>
+    /// 動いている Chmonos の一覧に、このプロセスの札を書く（docs/spec/running-instances.md）。画面あり・画面無しのどちらも App の起動の同じ所から呼ぶ。
+    /// API が待ち受けを始めた・止めた・ポートを変えたら書き直す（待とうとしただけの番号は書かない：始める途中・始められなかったときは null）。
+    /// 消すのは呼んだ側（閉じるときに Dispose）。置き場が無ければ（試験・道具で環境変数が無い）書かずに null
+    /// </summary>
+    /// <param name="directory">置き場。アプリは <see cref="RunningInstances.Directory"/>、試験は一時フォルダを渡す。</param>
+    internal RunningInstanceRecorder? RecordRunning(bool headless, string? directory)
+    {
+        int? ListeningPort() => Api.State == Services.ApiRunState.Running ? Api.Port : null;
+
+        var recorder = RunningInstanceRecorder.Start(directory, new RunningInstanceRecord
+        {
+            ProcessId = Environment.ProcessId,
+            StartedAt = RunningInstances.CurrentProcessStartedAt(),
+            StoreRoot = Paths.Root,
+            Port = ListeningPort(),
+            ApiFile = Paths.ApiFile,
+            ExePath = Environment.ProcessPath,
+            Version = Services.AppVersion.Text,
+            Headless = headless,
+        });
+        if (recorder is not null)
+        {
+            Api.StateChanged += () => recorder.UpdatePort(ListeningPort);
+        }
+
+        return recorder;
+    }
+
+    /// <summary>
     /// 書き込みの途中で落ちて残った <c>*.tmp</c> を片付ける。**窓を出した後に裏で呼ぶ**（2026-09-24）。
     ///
     /// 本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い。

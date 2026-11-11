@@ -49,6 +49,39 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - トークンは起動のたびには変わりません。漏れたかもしれないときは、設定の「API」の「トークン」の「作り直す」を押します。今のトークンは使えなくなるので、ツールには `api.json` から読み直させてください。
 - `api.json` はバックアップの書き出しには入りません。
 
+### 動いている Chmonos を探す（次のバージョンから）
+
+保存先を変えている人や、Chmonos を2つ以上動かしている人に向けたツールでは、`api.json` の場所を決め打ちせずに探せます。動いている Chmonos は、それぞれ `%LOCALAPPDATA%\Chmonos-running\` に `<プロセスの番号>.json` を置きます。
+
+```json
+{
+  "processId": 12345,
+  "startedAt": "2026-11-11T09:00:00.1234567+09:00",
+  "storeRoot": "D:\\Chmonos",
+  "port": 39847,
+  "apiFile": "D:\\Chmonos\\api.json",
+  "exePath": "C:\\Tools\\Chmonos\\Chmonos.exe",
+  "version": "1.3.0",
+  "headless": false
+}
+```
+
+- トークンはここにはありません。`apiFile` の `api.json` から読みます。
+- `port` が `null` のときは API が止まっています（「APIを使う」がオフ・ポートが使われていて待ち受けられなかった）。
+- Chmonos を閉じると消えます。Chmonos が落ちたときは残ることがあるので、`processId` のプロセスが動いていて、始まった時刻が `startedAt` と1秒以内かを確かめてから使います。残った物は、次に Chmonos を起動したときに片付きます。
+- 2つ以上あるときは `storeRoot` で選びます。
+
+```powershell
+$running = Get-ChildItem "$env:LOCALAPPDATA\Chmonos-running\*.json" | ForEach-Object { Get-Content $_ -Raw | ConvertFrom-Json } |
+  Where-Object {
+    $p = Get-Process -Id $_.processId -ErrorAction SilentlyContinue
+    $p -and [math]::Abs(($p.StartTime - ([datetimeoffset]$_.startedAt).LocalDateTime).TotalSeconds) -le 1
+  }
+$one = $running | Where-Object port | Select-Object -First 1
+$api = Get-Content $one.apiFile -Raw | ConvertFrom-Json
+Invoke-RestMethod "http://127.0.0.1:$($one.port)/v1/version" -Headers @{ Authorization = "Bearer $($api.token)" }
+```
+
 ## 主な URL
 
 すべての URL と答えの形は仕様書 `/v1/openapi.json`（OpenAPI）にあります。多くの言語でここから問い合わせのコードを作れます。
