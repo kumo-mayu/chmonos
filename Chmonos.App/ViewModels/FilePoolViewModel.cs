@@ -598,7 +598,8 @@ public sealed class FilePoolViewModel : ViewModelBase
     /// サブ画面の商品を押した：付ける先に選び、メインの画面でその商品ページを開く
     /// （ユーザ指示 2026-11-11「人間がやったのと同じ経路（ページ遷移の履歴に登録する形）で開く」）。
     /// 開くのは今の記録（検索の写しではなく置き場から読む。付けた直後でも新しい姿で開く）。
-    /// フォーカスはサブ画面に残す（続けて割り振る。メインの窓を前に出すと、サブ画面が後ろに隠れることがある）
+    /// フォーカスはサブ画面に残す（続けて割り振る。メインの窓を前に出すと、サブ画面が後ろに隠れることがある）。
+    /// 開く位置はその商品を最後に離れたときの位置（<see cref="MainViewModel.ShowItemFromSubWindow"/>。行き来して見比べるため）
     /// </summary>
     internal async Task OpenItemAsync(FilePoolItemRow? row)
     {
@@ -610,7 +611,7 @@ public sealed class FilePoolViewModel : ViewModelBase
         SelectedItem = row;
         if (await _services.Store.Items.LoadAsync(row.Id) is { } item)
         {
-            _main.ShowItem(item);
+            _main.ShowItemFromSubWindow(item);
         }
     }
 

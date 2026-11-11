@@ -193,6 +193,68 @@ public class FilePoolWindowTests
         Assert.All(pool.Items, row => Assert.True(row.IsExpanded));
     });
 
+    // ---- メインの画面で開く位置 ----
+
+    private static ItemViewModel Page(MainViewModel main) => Assert.IsType<ItemViewModel>(main.CurrentViewModel);
+
+    [Fact]
+    public Task 左から開く商品ページは_商品ごとに最後に離れた位置で開き_初めては先頭から() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+
+        // a を初めて開く：先頭から（戻す位置は無い）
+        await pool.OpenItemAsync(Row(pool, SetId));
+        Assert.False(Page(main).ArrivedByHistory);
+        Page(main).ScrollReader = () => 800;
+
+        // b を初めて開く：先頭から（a の位置を引き継がない）
+        await pool.OpenItemAsync(Row(pool, PartAId));
+        Assert.Equal(PartAId, Page(main).Item.Id);
+        Assert.False(Page(main).ArrivedByHistory);
+        Assert.Null(Page(main).TakeRestoreScrollOffset());
+        Page(main).ScrollReader = () => 300;
+
+        // a に戻る：a を離れたときの位置
+        await pool.OpenItemAsync(Row(pool, SetId));
+        Assert.Equal(SetId, Page(main).Item.Id);
+        Assert.Equal(800, Page(main).TakeRestoreScrollOffset());
+        Page(main).ScrollReader = () => 950;
+
+        // b へ：b の位置
+        await pool.OpenItemAsync(Row(pool, PartAId));
+        Assert.Equal(300, Page(main).TakeRestoreScrollOffset());
+        Page(main).ScrollReader = () => 320;
+
+        // 今出ている商品を押し直したときは、今の位置のまま
+        await pool.OpenItemAsync(Row(pool, PartAId));
+        Assert.Equal(320, Page(main).TakeRestoreScrollOffset());
+        Page(main).ScrollReader = () => 320;
+
+        // 戻るは今までどおり履歴の1件ごとの位置（a を2回目に離れた 950）
+        main.GoBack();
+        await UiThread.Until(() => main.CurrentViewModel is ItemViewModel page && page.Item.Id == PartAId && page.ArrivedByHistory, "戻るで1つ前が開く");
+        await app.SettleAsync();
+        Assert.Equal(320, Page(main).TakeRestoreScrollOffset());
+        Page(main).ScrollReader = () => 320;
+        main.GoBack();
+        await UiThread.Until(() => main.CurrentViewModel is ItemViewModel page && page.Item.Id == SetId, "戻るで a が開く");
+        await app.SettleAsync();
+        Assert.Equal(950, Page(main).TakeRestoreScrollOffset());
+
+        // 検索など、サブ画面の外から進むときは今までどおり先頭から
+        Page(main).ScrollReader = () => 400;
+        main.ShowItem((await app.Store.Items.LoadAsync(PartAId))!);
+        Assert.Null(Page(main).TakeRestoreScrollOffset());
+
+        // サブ画面の外から開いて流した後も、サブ画面から開くと覚えている
+        Page(main).ScrollReader = () => 640;
+        await pool.OpenItemAsync(Row(pool, SetId));
+        Assert.Equal(400, Page(main).TakeRestoreScrollOffset());
+        await pool.OpenItemAsync(Row(pool, PartAId));
+        Assert.Equal(640, Page(main).TakeRestoreScrollOffset());
+    });
+
     // ---- 左の商品の絵 ----
 
     [Fact]

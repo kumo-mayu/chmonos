@@ -661,6 +661,13 @@ public sealed partial class MainViewModel : ViewModelBase
                 Remember(_currentViewModel);
             }
 
+            // 商品ページを離れるたびに、商品ごとの流した位置を控える（サブ画面から開くときに戻す。ShowItemFromSubWindow）。
+            // 履歴の控えとは別：履歴は1件ごとで、同じ商品でも開いた回ごとに違う位置を持つ
+            if (_currentViewModel is ItemViewModel { IsEmbedded: false } leavingItem && !ReferenceEquals(leavingItem, value))
+            {
+                _itemScrollById[leavingItem.Item.Id] = leavingItem.CaptureScrollOffset();
+            }
+
             // 新しい画面へ移ったら「進む」は捨てる（ブラウザと同じ。枝分かれした先は決まらない）
             if (navigation == Navigation.Push && !ReferenceEquals(_currentViewModel, value))
             {
@@ -858,6 +865,28 @@ public sealed partial class MainViewModel : ViewModelBase
         => CurrentViewModel = new ModificationViewModel(record, _services, this, Thumbnails);
 
     public void ShowItem(Core.Models.ItemRecord item) => ShowItem(item, restoreScrollOffset: null);
+
+    /// <summary>
+    /// 商品ごとの、最後に離れたときの流した位置（商品 ID → px）。主の窓の商品ページを離れるたびに書き、サブ画面から開くときだけ読む。
+    /// 保存先には書かず、アプリを閉じれば消える（画面の履歴の位置と同じ扱い）。1件は数十バイトで、見た商品の数しか増えない
+    /// </summary>
+    private readonly Dictionary<string, double> _itemScrollById = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// サブ画面（ファイルの割り振り）から商品ページを開く。進むのと同じく履歴に積むが、流した位置は**その商品を最後に離れたときの位置**から
+    /// （ユーザ指示 2026-11-11「スクロール量の保持は商品ごとに独立」：a を流して b を開き、a に戻ったら a の流した位置で開いてほしい）。
+    /// 初めて開く商品は先頭から。検索などから進むときは今までどおり先頭から（item-page.md）
+    /// </summary>
+    public void ShowItemFromSubWindow(Core.Models.ItemRecord item)
+    {
+        // 今出ている商品を押し直したときも、離れる前の位置を控えてから読む（控えるのは差し替えの中なので、先に読む）
+        if (CurrentViewModel is ItemViewModel { IsEmbedded: false } current)
+        {
+            _itemScrollById[current.Item.Id] = current.CaptureScrollOffset();
+        }
+
+        ShowItem(item, _itemScrollById.TryGetValue(item.Id, out var offset) ? offset : null);
+    }
 
     /// <param name="restoreScrollOffset">
     /// 戻る・進むで開き直すときの、離れたときの流した位置（画面の履歴の控えが持つ）。ほかの入口は null。
