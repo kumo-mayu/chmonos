@@ -877,6 +877,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         new FileOrderOption { Value = Core.Models.FileOrder.Added, Label = "追加した順" },
         new FileOrderOption { Value = Core.Models.FileOrder.Name, Label = "名前順" },
         new FileOrderOption { Value = Core.Models.FileOrder.NameWithVersion, Label = "バージョンを考えた名前順" },
+        new FileOrderOption { Value = Core.Models.FileOrder.Newest, Label = "新しい順" },
+        new FileOrderOption { Value = Core.Models.FileOrder.Largest, Label = "大きい順" },
     ];
 
     public FileOrderOption SelectedFileOrder

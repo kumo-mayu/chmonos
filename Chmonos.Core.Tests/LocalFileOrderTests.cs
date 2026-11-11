@@ -91,6 +91,37 @@ public class LocalFileOrderTests
     }
 
     [Fact]
+    public void 新しい順は記録した日時の新しい順_日時の無い記録は後ろに記録の順で_外したファイルはさらに後ろ()
+    {
+        static DateTimeOffset Day(int day) => new(2026, 11, day, 12, 0, 0, TimeSpan.FromHours(9));
+        var files = new[]
+        {
+            File("old1.zip"),
+            File("mid.zip") with { RegisteredAt = Day(5) },
+            File("detached.zip", detached: true) with { RegisteredAt = Day(30) },
+            File("old2.zip"),
+            File("new.zip") with { RegisteredAt = Day(10) },
+        };
+
+        Assert.Equal(["new.zip", "mid.zip", "old1.zip", "old2.zip", "detached.zip"], Names(LocalFileOrder.Sort(files, FileOrder.Newest)));
+    }
+
+    [Fact]
+    public void 大きい順は大きさの大きい順_同じ大きさは記録の順_外したファイルは後ろ()
+    {
+        var files = new[]
+        {
+            File("small.zip") with { SizeBytes = 10 },
+            File("big-detached.zip", detached: true) with { SizeBytes = 999 },
+            File("same1.zip") with { SizeBytes = 50 },
+            File("big.zip") with { SizeBytes = 100 },
+            File("same2.zip") with { SizeBytes = 50 },
+        };
+
+        Assert.Equal(["big.zip", "same1.zip", "same2.zip", "small.zip", "big-detached.zip"], Names(LocalFileOrder.Sort(files, FileOrder.Largest)));
+    }
+
+    [Fact]
     public void 古い版は置き換わった場所の名前で並ぶ()
     {
         var old = new LocalFileRecord

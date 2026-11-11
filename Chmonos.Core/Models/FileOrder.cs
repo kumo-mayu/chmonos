@@ -14,4 +14,13 @@ public enum FileOrder
 
     /// <summary>ファイル名の順で、名前の中の数を数として比べる（v1.9 → v1.10、Ver2.9.0 → Ver2.19.0）。</summary>
     NameWithVersion,
+
+    /// <summary>
+    /// 記録した日時（<see cref="LocalFileRecord.RegisteredAt"/>）の新しい順（ユーザ判断 2026-11-11）。
+    /// 日時は v1.3.0 から書くので、無い記録はその後ろに記録の順で置く（日時を推して埋めない）。
+    /// </summary>
+    Newest,
+
+    /// <summary>大きさ（<see cref="LocalFileRecord.SizeBytes"/>）の大きい順（ユーザ判断 2026-11-11）。同じ大きさは記録の順。</summary>
+    Largest,
 }

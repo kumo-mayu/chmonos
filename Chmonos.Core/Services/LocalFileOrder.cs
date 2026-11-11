@@ -32,13 +32,29 @@ public static class LocalFileOrder
             : file.Replaced is { } replaced ? Path.GetFileName(replaced.Path)
             : null;
 
-    /// <summary>行の順に並べる。外したファイルは後ろ（ユーザ判断 2026-09-12）。<see cref="FileOrder.Added"/> は記録の順のまま。</summary>
+    /// <summary>
+    /// 行の順に並べる。外したファイルはどの順でも後ろ（ユーザ判断 2026-09-12）。<see cref="FileOrder.Added"/> は記録の順のまま。
+    /// 同じ順位の物は記録の順（並べ替えは安定）。
+    /// </summary>
     public static IReadOnlyList<LocalFileRecord> Sort(IEnumerable<LocalFileRecord> files, FileOrder order)
     {
         var byDetached = files.OrderBy(file => file.Detached);
-        if (order == FileOrder.Added)
+        switch (order)
         {
-            return byDetached.ToList();
+            case FileOrder.Name:
+            case FileOrder.NameWithVersion:
+                break;
+            case FileOrder.Newest:
+                // 日時の無い記録（v1.3.0 より前）は後ろへ。並べ替えは安定なので、その中は記録の順のまま
+                return byDetached
+                    .ThenBy(file => file.RegisteredAt is null)
+                    .ThenByDescending(file => file.RegisteredAt)
+                    .ToList();
+            case FileOrder.Largest:
+                return byDetached.ThenByDescending(file => file.SizeBytes).ToList();
+            default:
+                // 追加した順と、手で書いた知らない値
+                return byDetached.ToList();
         }
 
         var versions = order == FileOrder.NameWithVersion;
