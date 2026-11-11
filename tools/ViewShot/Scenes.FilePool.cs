@@ -20,15 +20,16 @@ internal static partial class Scenes
         FilePoolScene(
             "file-pool",
             "ファイルの割り振り：付ける先に単品Bを選び、左はセットだけ畳む。「2 以下」で組を1つ広げて2つにチェック（中の unitypackage の見出し・1つだけの組は見出し無し）",
-            async (pool, _) =>
+            (pool, _) =>
             {
-                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartBId));
+                pool.SelectItem(pool.Items.Single(row => row.Id == PoolPartBId));
                 pool.Items.Single(row => row.Id == PoolSetId).IsExpanded = false;
                 pool.Threshold = 2;
                 var group = pool.Groups.Single(group => group.Name == "SampleShop");
                 group.IsExpanded = true;
                 group.Files[0].IsChecked = true;
                 group.Files[1].IsChecked = true;
+                return Task.CompletedTask;
             }),
 
         FilePoolScene(
@@ -36,7 +37,7 @@ internal static partial class Scenes
             "ファイルの割り振り：セットを付ける先に選び、下に付いているファイルと「外す」。上着は畳む。「2 以上」で絞り、付ける先が持つ行は押せない・消えた商品の1行",
             async (pool, context) =>
             {
-                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
+                pool.SelectItem(pool.Items.Single(row => row.Id == PoolSetId));
                 pool.Items.Single(row => row.Id == PoolPartAId).IsExpanded = false;
                 pool.Filter = HolderCountFilter.AtLeast;
                 pool.Threshold = 2;
@@ -47,24 +48,26 @@ internal static partial class Scenes
         FilePoolScene(
             "file-pool-nothing-shown",
             "ファイルの割り振り：左をすべて畳み、付ける先（上着）も畳んだまま。絞りで何も出ない（「3 のみ」）",
-            async (pool, _) =>
+            (pool, _) =>
             {
-                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartAId));
+                pool.SelectItem(pool.Items.Single(row => row.Id == PoolPartAId));
                 pool.CollapseAllItemsCommand.Execute(null);
                 pool.Filter = HolderCountFilter.Exactly;
                 pool.Threshold = 3;
+                return Task.CompletedTask;
             }),
 
         FilePoolScene(
             "file-pool-filtered",
             "ファイルの割り振り：左を「上着」、右を「sampleshop」で探した姿（右は「4 以下」と重なる・付ける先は隠れても残る）",
-            async (pool, _) =>
+            (pool, _) =>
             {
-                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartBId));
+                pool.SelectItem(pool.Items.Single(row => row.Id == PoolPartBId));
                 pool.ItemFilterText = "上着";
                 pool.Threshold = 4;
                 pool.FileFilterText = "sampleshop";
                 pool.Groups.Single(group => group.Name == "SampleShop").IsExpanded = true;
+                return Task.CompletedTask;
             }),
 
         FilePoolScene(
@@ -80,11 +83,12 @@ internal static partial class Scenes
         FilePoolScene(
             "file-pool-wide-left",
             "ファイルの割り振り：境目をドラッグして左を広げた比率（3:2）で開き直した姿",
-            async (pool, _) =>
+            (pool, _) =>
             {
                 FilePoolWindow.LastColumns = (new System.Windows.GridLength(3, System.Windows.GridUnitType.Star),
                     new System.Windows.GridLength(2, System.Windows.GridUnitType.Star));
-                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
+                pool.SelectItem(pool.Items.Single(row => row.Id == PoolSetId));
+                return Task.CompletedTask;
             }),
 
         FilePoolDragged("file-pool-drag-left-min", "ファイルの割り振り：境目を左いっぱいへドラッグした姿（左の最小）", -2000),
@@ -101,7 +105,11 @@ internal static partial class Scenes
     private static Scene FilePoolDragged(string name, string title, double delta) => FilePoolScene(
         name,
         title,
-        arrange: async (pool, _) => await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId)),
+        arrange: (pool, _) =>
+        {
+            pool.SelectItem(pool.Items.Single(row => row.Id == PoolSetId));
+            return Task.CompletedTask;
+        },
         afterPresent: async (pool, context, root) =>
         {
             var splitter = Look.All<Chmonos.App.Controls.PaneSplitter>(root).Single();
@@ -179,7 +187,7 @@ internal static partial class Scenes
         arrange: null,
         afterPresent: async (pool, context, root) =>
         {
-            await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartBId));
+            pool.SelectItem(pool.Items.Single(row => row.Id == PoolPartBId));
             pool.Groups.SelectMany(group => group.Files).First(file => file.CanCheck).IsChecked = true;
             await pool.AttachAsync();
             await pool.DetachAsync(pool.Items.Single(row => row.Id == PoolPartAId).Files.FirstOrDefault());
@@ -193,7 +201,7 @@ internal static partial class Scenes
                 throw new InvalidOperationException("付いている商品の数の欄か比べ方の欄が空になりました。");
             }
 
-            await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
+            pool.SelectItem(pool.Items.Single(row => row.Id == PoolSetId));
             await context.SettleAsync();
             var detach = Look.All<System.Windows.Controls.Button>(root).Where(button => (string?)button.Content == "外す").ToList();
             if (detach.Count == 0 || detach.Any(button => button.Command is null))

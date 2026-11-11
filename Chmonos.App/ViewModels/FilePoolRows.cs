@@ -72,8 +72,11 @@ public sealed class FilePoolItemRow : ViewModelBase
 
     public string FileCountText => Files.Count == 0 ? "ファイルなし" : $"ファイル {Files.Count} 個";
 
-    /// <summary>行を押すと何が起きるか（読み上げの名前）。</summary>
-    public string OpenName => $"{Name}を選び、メインの画面で開く";
+    /// <summary>行を押すと何が起きるか（読み上げの名前）。付ける先に選ぶだけで、メインの画面は動かさない。</summary>
+    public string SelectName => $"{Name}を付ける先に選ぶ";
+
+    /// <summary>行の「商品ページを開く」の読み上げの名前（どの商品のボタンかを言う。行ごとに同じ字のボタンが並ぶ）。</summary>
+    public string OpenPageName => $"{Name}の商品ページを開く";
 
     internal void Update(ItemRecord item)
     {
@@ -81,7 +84,8 @@ public sealed class FilePoolItemRow : ViewModelBase
         {
             Name = item.DisplayName;
             OnPropertyChanged(nameof(Name));
-            OnPropertyChanged(nameof(OpenName));
+            OnPropertyChanged(nameof(SelectName));
+            OnPropertyChanged(nameof(OpenPageName));
             OnPropertyChanged(nameof(ExpandName));
         }
 

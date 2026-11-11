@@ -168,10 +168,10 @@ public class FilePoolWindowTests
         Assert.Equal("作り物のセットのファイルを広げる", Row(pool, SetId).ExpandName);
 
         // 付ける先に選んでも開閉は変わらず、畳んだ行を選んでも広がらない
-        await pool.OpenItemAsync(Row(pool, SetId));
+        pool.SelectItem(Row(pool, SetId));
         Assert.Equal(SetId, pool.SelectedItem?.Id);
         Assert.False(Row(pool, SetId).IsExpanded);
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        pool.SelectItem(Row(pool, PartAId));
         Assert.Equal([false, true, true], pool.Items.Select(row => row.IsExpanded));
 
         pool.CollapseAllItemsCommand.Execute(null);
@@ -198,36 +198,36 @@ public class FilePoolWindowTests
     private static ItemViewModel Page(MainViewModel main) => Assert.IsType<ItemViewModel>(main.CurrentViewModel);
 
     [Fact]
-    public Task 左から開く商品ページは_商品ごとに最後に離れた位置で開き_初めては先頭から() => TestApp.Run(async app =>
+    public Task 商品ページを開くで開くページは_商品ごとに最後に離れた位置で開き_初めては先頭から() => TestApp.Run(async app =>
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
 
         // a を初めて開く：先頭から（戻す位置は無い）
-        await pool.OpenItemAsync(Row(pool, SetId));
+        await pool.OpenItemPageAsync(Row(pool, SetId));
         Assert.False(Page(main).ArrivedByHistory);
         Page(main).ScrollReader = () => 800;
 
         // b を初めて開く：先頭から（a の位置を引き継がない）
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        await pool.OpenItemPageAsync(Row(pool, PartAId));
         Assert.Equal(PartAId, Page(main).Item.Id);
         Assert.False(Page(main).ArrivedByHistory);
         Assert.Null(Page(main).TakeRestoreScrollOffset());
         Page(main).ScrollReader = () => 300;
 
         // a に戻る：a を離れたときの位置
-        await pool.OpenItemAsync(Row(pool, SetId));
+        await pool.OpenItemPageAsync(Row(pool, SetId));
         Assert.Equal(SetId, Page(main).Item.Id);
         Assert.Equal(800, Page(main).TakeRestoreScrollOffset());
         Page(main).ScrollReader = () => 950;
 
         // b へ：b の位置
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        await pool.OpenItemPageAsync(Row(pool, PartAId));
         Assert.Equal(300, Page(main).TakeRestoreScrollOffset());
         Page(main).ScrollReader = () => 320;
 
         // 今出ている商品を押し直したときは、今の位置のまま
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        await pool.OpenItemPageAsync(Row(pool, PartAId));
         Assert.Equal(320, Page(main).TakeRestoreScrollOffset());
         Page(main).ScrollReader = () => 320;
 
@@ -249,10 +249,52 @@ public class FilePoolWindowTests
 
         // サブ画面の外から開いて流した後も、サブ画面から開くと覚えている
         Page(main).ScrollReader = () => 640;
-        await pool.OpenItemAsync(Row(pool, SetId));
+        await pool.OpenItemPageAsync(Row(pool, SetId));
         Assert.Equal(400, Page(main).TakeRestoreScrollOffset());
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        await pool.OpenItemPageAsync(Row(pool, PartAId));
         Assert.Equal(640, Page(main).TakeRestoreScrollOffset());
+    });
+
+    [Fact]
+    public Task 行を押すと付ける先に選ぶだけでメインの画面は動かず_商品ページを開くでは付ける先を替えずに開いて履歴に積む() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        var before = main.CurrentViewModel;
+        var couldGoBack = main.CanGoBack;
+
+        // 行を押す（命令の道）：付ける先が替わるだけ。メインの画面も履歴もそのまま
+        pool.SelectItemCommand.Execute(Row(pool, SetId));
+        await app.SettleAsync();
+        Assert.Equal(SetId, pool.SelectedItem?.Id);
+        Assert.Same(before, main.CurrentViewModel);
+        Assert.Equal(couldGoBack, main.CanGoBack);
+        Assert.Equal("作り物のセットを付ける先に選ぶ", Row(pool, SetId).SelectName);
+
+        // 別の商品の「商品ページを開く」：その商品ページが開き、前の画面が履歴に積まれる。付ける先はセットのまま
+        pool.OpenItemPageCommand.Execute(Row(pool, PartAId));
+        await UiThread.Until(() => main.CurrentViewModel is ItemViewModel page && page.Item.Id == PartAId, "商品ページが開く");
+        Assert.Equal(SetId, pool.SelectedItem?.Id);
+        Assert.True(main.CanGoBack);
+        Assert.Equal("作り物の上着の商品ページを開く", Row(pool, PartAId).OpenPageName);
+
+        // 流して別の商品を開き、戻ってくると流した位置から（商品ごとの位置。サブ画面から開く道を通っている）
+        Page(main).ScrollReader = () => 500;
+        await pool.OpenItemPageAsync(Row(pool, PartBId));
+        Assert.Equal(SetId, pool.SelectedItem?.Id);
+        await pool.OpenItemPageAsync(Row(pool, PartAId));
+        Assert.Equal(500, Page(main).TakeRestoreScrollOffset());
+
+        // 開いた後に行を押して付ける先を替えても、メインの画面は今の商品ページのまま
+        var shown = main.CurrentViewModel;
+        pool.SelectItem(Row(pool, PartBId));
+        await app.SettleAsync();
+        Assert.Equal(PartBId, pool.SelectedItem?.Id);
+        Assert.Same(shown, main.CurrentViewModel);
+
+        // 戻るで、開く前の画面へ順に戻れる（人が開いたのと同じ履歴）
+        main.GoBack();
+        await UiThread.Until(() => main.CurrentViewModel is ItemViewModel page && page.Item.Id == PartBId, "戻るで1つ前の商品ページ");
     });
 
     // ---- 左の商品の絵 ----
@@ -309,7 +351,7 @@ public class FilePoolWindowTests
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
-        await pool.OpenItemAsync(Row(pool, PartBId));
+        pool.SelectItem(Row(pool, PartBId));
         var poolBefore = Shown(pool).Select(file => file.Hash).ToList();
 
         // 「スカート」をひらがな・半角カナで打っても当たる
@@ -391,7 +433,7 @@ public class FilePoolWindowTests
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
-        await pool.OpenItemAsync(Row(pool, PartBId));
+        pool.SelectItem(Row(pool, PartBId));
 
         Shown(pool).Single(file => file.FileName == "Other.zip").IsChecked = true;
         pool.FileFilterText = "skirt";
@@ -417,8 +459,11 @@ public class FilePoolWindowTests
         Assert.False(pool.CanAttach);
         Assert.Equal("左の一覧で、付ける先の商品を選んでください。", pool.AttachHint);
 
-        await pool.OpenItemAsync(Row(pool, PartBId));
+        pool.SelectItem(Row(pool, PartBId));
         Assert.Equal("付けるファイルにチェックを入れてください。", pool.AttachHint);
+
+        // 付けた先をメインの画面で見ている（行を押すだけでは開かないので、商品ページを開くで開く）
+        await pool.OpenItemPageAsync(Row(pool, PartBId));
 
         Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip").IsChecked = true;
         Assert.True(pool.CanAttach);
@@ -453,7 +498,7 @@ public class FilePoolWindowTests
         var pool = await OpenAsync(app, main);
         pool.Threshold = 3;
 
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        pool.SelectItem(Row(pool, PartAId));
 
         var top = Shown(pool).Single(file => file.FileName == "SampleShop_Top.zip");
         Assert.False(top.CanCheck);
@@ -469,7 +514,7 @@ public class FilePoolWindowTests
         await app.Store.Excluded.SaveAsync([new ExcludedEntry { Hash = Other.Hash, ExcludedAt = DateTimeOffset.Now }]);
         var pool = await OpenAsync(app, main);
 
-        await pool.OpenItemAsync(Row(pool, PartBId));
+        pool.SelectItem(Row(pool, PartBId));
         Shown(pool).Single(file => file.FileName == "Other.zip").IsChecked = true;
         await pool.AttachAsync();
 
@@ -484,7 +529,7 @@ public class FilePoolWindowTests
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        pool.SelectItem(Row(pool, PartAId));
 
         await pool.DetachAsync(Assert.Single(Row(pool, PartAId).Files));
 
@@ -506,7 +551,7 @@ public class FilePoolWindowTests
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
-        await pool.OpenItemAsync(Row(pool, SetId));
+        pool.SelectItem(Row(pool, SetId));
         var skirt = Row(pool, SetId).Files.Single(file => file.FileName == "SampleShop_Skirt.zip");
 
         // 既定の答えはキャンセル：何も変わらない
@@ -525,7 +570,7 @@ public class FilePoolWindowTests
         Assert.Equal("どの商品にも付いていません", zero.HolderText);
 
         // 作り物の場所はディスクに無いので未確定には出ない。付け直せることだけを見る
-        await pool.OpenItemAsync(Row(pool, PartBId));
+        pool.SelectItem(Row(pool, PartBId));
         Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip").IsChecked = true;
         await pool.AttachAsync();
 
@@ -559,7 +604,7 @@ public class FilePoolWindowTests
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        pool.SelectItem(Row(pool, PartAId));
 
         await app.Store.Items.DeleteAsync(PartAId);
         await app.SettleAsync();
@@ -573,20 +618,25 @@ public class FilePoolWindowTests
     // ---- 主の窓 ----
 
     [Fact]
-    public Task 商品を押すと主の窓がその商品ページを開き_画面の履歴に積む() => TestApp.Run(async app =>
+    public Task 商品ページを開くは主の窓でその商品ページを開き_画面の履歴に積む() => TestApp.Run(async app =>
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
         Assert.True(main.IsSearchActive);
         Assert.False(main.CanGoBack);
 
-        await pool.OpenItemAsync(Row(pool, SetId));
+        // 行を押すだけでは主の窓は検索のまま
+        pool.SelectItem(Row(pool, SetId));
+        Assert.True(main.IsSearchActive);
+        Assert.False(main.CanGoBack);
+
+        await pool.OpenItemPageAsync(Row(pool, SetId));
         Assert.Equal(SetId, main.CurrentItemPage!.Item.Id);
-        Assert.Same(Row(pool, SetId), pool.SelectedItem);
         Assert.True(main.CanGoBack);
 
-        await pool.OpenItemAsync(Row(pool, PartAId));
+        await pool.OpenItemPageAsync(Row(pool, PartAId));
         Assert.Equal(PartAId, main.CurrentItemPage!.Item.Id);
+        Assert.Same(Row(pool, SetId), pool.SelectedItem);
 
         main.GoBack();
         Assert.Equal(SetId, main.CurrentItemPage!.Item.Id);
@@ -629,7 +679,7 @@ public class FilePoolWindowTests
     {
         var main = await StartWithSetAsync(app);
         var pool = await OpenAsync(app, main);
-        await pool.OpenItemAsync(Row(pool, PartBId));
+        pool.SelectItem(Row(pool, PartBId));
 
         // 同じ選び方：入れ替えずに前に出すだけ（付ける先を残す）
         main.ShowFilePool([SetId, PartAId, PartBId]);

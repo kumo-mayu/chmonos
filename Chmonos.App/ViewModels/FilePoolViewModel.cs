@@ -70,7 +70,8 @@ public sealed class FilePoolViewModel : ViewModelBase
 
         AttachCommand = new RelayCommand(() => AttachAsync().Forget(), () => CanAttach);
         DetachCommand = new RelayCommand(parameter => DetachAsync(parameter as FilePoolHeldFile).Forget());
-        OpenItemCommand = new RelayCommand(parameter => OpenItemAsync(parameter as FilePoolItemRow).Forget());
+        SelectItemCommand = new RelayCommand(parameter => SelectItem(parameter as FilePoolItemRow));
+        OpenItemPageCommand = new RelayCommand(parameter => OpenItemPageAsync(parameter as FilePoolItemRow).Forget());
         ExpandAllItemsCommand = new RelayCommand(() => SetAllItemsExpanded(true));
         CollapseAllItemsCommand = new RelayCommand(() => SetAllItemsExpanded(false));
         ExpandAllCommand = new RelayCommand(() => SetAllExpanded(true));
@@ -267,7 +268,11 @@ public sealed class FilePoolViewModel : ViewModelBase
 
     public RelayCommand DetachCommand { get; }
 
-    public RelayCommand OpenItemCommand { get; }
+    /// <summary>左の商品の行を押す：付ける先に選ぶ（メインの画面は動かさない）。</summary>
+    public RelayCommand SelectItemCommand { get; }
+
+    /// <summary>左の行の「商品ページを開く」：メインの画面で開く（付ける先は替えない）。</summary>
+    public RelayCommand OpenItemPageCommand { get; }
 
     /// <summary>左の商品の下のファイルをすべて広げる（右の組の「すべて広げる」とは別の物）。</summary>
     public RelayCommand ExpandAllItemsCommand { get; }
@@ -599,20 +604,32 @@ public sealed class FilePoolViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// サブ画面の商品を押した：付ける先に選び、メインの画面でその商品ページを開く
-    /// （ユーザ指示 2026-11-11「人間がやったのと同じ経路（ページ遷移の履歴に登録する形）で開く」）。
+    /// 左の商品の行を押した：付ける先に選ぶだけで、メインの画面は動かさない
+    /// （ユーザ指摘 2026-11-11「付ける先の商品画面を常に見たいわけではない…付ける先とは独立して管理する」。
+    /// 前は選ぶたびにメインの画面も開いていて、見比べていたページが付ける先を替えるたびに替わった）。
+    /// </summary>
+    internal void SelectItem(FilePoolItemRow? row)
+    {
+        if (row is not null)
+        {
+            SelectedItem = row;
+        }
+    }
+
+    /// <summary>
+    /// 行の「商品ページを開く」：メインの画面でその商品ページを開く。付ける先は替えない（上の指摘。見るのと付けるのは別に決める）。
+    /// 道は人が開くのと同じ（ユーザ指示 2026-11-11「人間がやったのと同じ経路（ページ遷移の履歴に登録する形）で開く」）。
     /// 開くのは今の記録（検索の写しではなく置き場から読む。付けた直後でも新しい姿で開く）。
     /// フォーカスはサブ画面に残す（続けて割り振る。メインの窓を前に出すと、サブ画面が後ろに隠れることがある）。
     /// 開く位置はその商品を最後に離れたときの位置（<see cref="MainViewModel.ShowItemFromSubWindow"/>。行き来して見比べるため）
     /// </summary>
-    internal async Task OpenItemAsync(FilePoolItemRow? row)
+    internal async Task OpenItemPageAsync(FilePoolItemRow? row)
     {
         if (row is null)
         {
             return;
         }
 
-        SelectedItem = row;
         if (await _services.Store.Items.LoadAsync(row.Id) is { } item)
         {
             _main.ShowItemFromSubWindow(item);

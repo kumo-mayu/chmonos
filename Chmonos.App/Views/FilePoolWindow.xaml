@@ -13,7 +13,7 @@
         Background="{DynamicResource Surface}">
     <!--
         選んだ商品の間でファイルを割り振るサブ画面（plan 30）。主の窓を塞がない別の窓（docs/spec/ui-subwindows.md）。
-        左：選んだ商品（押すと付ける先に選び、メインの画面でその商品を開く）。三角で広げた商品の下に付いているファイルと「外す」（開閉は付ける先と別）。
+        左：選んだ商品（押すと付ける先に選ぶ。行の「商品ページを開く」でメインの画面に開く）。三角で広げた商品の下に付いているファイルと「外す」（開閉は付ける先と別）。
         右：選んだ商品のファイルの溜まり。名前の頭で組にして畳み、組ごと・1つずつチェックする。下の「付ける」で左の商品に付ける
     -->
     <Window.Resources>
@@ -24,8 +24,8 @@
         </ResourceDictionary.MergedDictionaries>
 
         <!--
-            左の商品の行の開閉の三角（右の組の TriangleExpander と同じ丸と三角）。行の押せる所（付ける先に選ぶ・メインの画面で開く）の外に置く：
-            中に置くと、畳んだだけで付ける先が替わり、メインの画面も動く
+            左の商品の行の開閉の三角（右の組の TriangleExpander と同じ丸と三角）。行の押せる所（付ける先に選ぶ）の外に置く：
+            中に置くと、畳んだだけで付ける先が替わる
         -->
         <Style x:Key="RowExpandToggle" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand" />
@@ -153,7 +153,7 @@
             <DockPanel Grid.Column="0">
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                     <TextBlock Text="{Binding ItemsHeading}" FontWeight="SemiBold" />
-                    <TextBlock Text="商品を押すと付ける先に選び、メインの画面でその商品を開きます。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    <TextBlock Text="商品を押すと付ける先に選びます。「商品ページを開く」はメインの画面で開きます。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
                     <Grid Margin="0,6,0,0">
                         <TextBox Text="{Binding ItemFilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
                                  BorderBrush="{DynamicResource BorderStrong}"
@@ -209,15 +209,25 @@
                                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource RowExpandToggle}" VerticalAlignment="Center" Margin="2,0,4,0"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       AutomationProperties.Name="{Binding ExpandName}" />
+                                        <!--
+                                            メインの画面で商品ページを開くのはこのボタンだけ。付ける先（行を押す）とは別に持つ
+                                            （ユーザ指摘 2026-11-11「付ける先の商品画面を常に見たいわけではない…付ける先とは独立して管理する」）。
+                                            行の押せる所の外に置く：中に置くと、開くだけのつもりで付ける先も替わる
+                                        -->
+                                        <Button DockPanel.Dock="Right" Content="商品ページを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,2,0"
+                                                Command="{Binding DataContext.OpenItemPageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="メインの画面でこの商品のページを開きます。"
+                                                AutomationProperties.Name="{Binding OpenPageName}" AutomationProperties.AutomationId="FilePoolOpenItemPage" />
                                         <controls:PressableBorder x:Name="Head" Focusable="True" Cursor="Hand" CornerRadius="4" Padding="6,4"
                                                                   Background="Transparent"
-                                                                  Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                  Command="{Binding DataContext.SelectItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                   CommandParameter="{Binding}"
                                                                   FocusVisualStyle="{StaticResource RowFocusVisual}"
-                                                                  AutomationProperties.Name="{Binding OpenName}">
+                                                                  AutomationProperties.Name="{Binding SelectName}">
                                             <controls:PressableBorder.InputBindings>
                                                 <MouseBinding MouseAction="LeftClick"
-                                                              Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                              Command="{Binding DataContext.SelectItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                               CommandParameter="{Binding}" />
                                             </controls:PressableBorder.InputBindings>
                                             <DockPanel>
@@ -243,15 +253,22 @@
                                                     </Border.ToolTip>
                                                     <ContentPresenter Content="{Binding Picture}" Focusable="False" />
                                                 </Border>
-                                                <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
-                                                           VerticalAlignment="Center" Margin="8,0,0,0" />
-                                                <!-- 付ける先の印。色だけだと、広げた行が並ぶと区切りの色と見分けにくい -->
-                                                <Border x:Name="TargetBadge" DockPanel.Dock="Right" Style="{StaticResource BadgeAccent}" VerticalAlignment="Center"
-                                                        Margin="8,0,0,0" Visibility="Collapsed">
-                                                    <TextBlock Text="付ける先" FontSize="{StaticResource FontSizeBadge}" Foreground="{DynamicResource AccentText}" />
-                                                </Border>
-                                                <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                <!--
+                                                    名前を1行目に1本で置き、札と数は2行目へ（36 の絵の高さに2行が収まる）。
+                                                    右に「商品ページを開く」を足したら、1行に並べたままでは左の最小の幅（300）で名前が1字も残らなかった（撮って確かめた）
+                                                -->
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSmall}"
+                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                        <!-- 付ける先の印。色だけだと、広げた行が並ぶと区切りの色と見分けにくい -->
+                                                        <Border x:Name="TargetBadge" Style="{StaticResource BadgeAccent}" VerticalAlignment="Center"
+                                                                Margin="0,0,6,0" Visibility="Collapsed">
+                                                            <TextBlock Text="付ける先" FontSize="{StaticResource FontSizeBadge}" Foreground="{DynamicResource AccentText}" />
+                                                        </Border>
+                                                        <TextBlock Text="{Binding FileCountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </StackPanel>
                                             </DockPanel>
                                         </controls:PressableBorder>
                                         </DockPanel>
