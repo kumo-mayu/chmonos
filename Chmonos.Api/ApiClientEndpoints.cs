@@ -71,7 +71,7 @@ internal static class ApiClientEndpoints
             NoStore(context);
             return Results.Json(new ClientRequestAccepted(requestId, ApiClientRequests.Pending), json.ClientRequestAccepted, statusCode: StatusCodes.Status202Accepted);
         })
-            .Accepts<ClientRequestBody>("application/json")
+            .Takes<ClientRequestBody>()
             .Produces<ClientRequestAccepted>(StatusCodes.Status202Accepted, "application/json")
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
@@ -93,7 +93,7 @@ internal static class ApiClientEndpoints
             NoStore(context);
             return Results.Json(answer, json.ClientResultAnswer);
         })
-            .Accepts<ClientResultRequest>("application/json")
+            .Takes<ClientResultRequest>()
             .Produces<ClientResultAnswer>(StatusCodes.Status200OK, "application/json")
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("許しの結果を取る（トークンなし。許されたら、そのソフトだけのトークンを1回だけ返す。wait 秒まで決まるのを待つ）");
@@ -111,6 +111,14 @@ internal static class ApiClientEndpoints
     }
 
     private static void NoStore(HttpContext context) => context.Response.Headers.CacheControl = "no-store";
+
+    /// <summary>仕様書の印：要求の本文の型（省ける欄を必須にしないよう、ほかの道と同じく型を知らせる）。</summary>
+    private static RouteHandlerBuilder Takes<T>(this RouteHandlerBuilder builder)
+        where T : notnull
+    {
+        ApiOpenApi.NoteRequestType(typeof(T));
+        return builder.Accepts<T>("application/json");
+    }
 
     private static async Task<T> ReadAsync<T>(HttpRequest request, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type)
         where T : class

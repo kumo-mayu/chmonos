@@ -54,9 +54,9 @@
 |---|---|---|
 | `marks` | お気に入り・非表示 | `PUT …/favorite`・`…/hidden` |
 | `recent` | 「使った」の記録 | `POST …/recent` |
-| `notifications` | 通知の既読 | `PUT /v1/notifications/{id}/read`・`POST /v1/notifications/read`・`…/resolve` |
+| `notifications` | 通知の既読・解消 | `PUT /v1/notifications/{id}/read`・`POST /v1/notifications/read`・`…/resolve` |
 | `tags` | タグ・属性・メモ | 商品の `user-tags`・`attributes`・`memo`、一覧に足す `POST /v1/user-tags`・`/v1/attributes` |
-| `avatars` | 対応アバター | `…/avatars`・`…/avatars/remove`・`…/avatars/confirm`・`…/avatar-bases`・`…/avatar-bases/remove` |
+| `avatars` | 対応アバター・共通素体 | `…/avatars`・`…/avatars/remove`・`…/avatars/confirm`・`…/avatar-bases`・`…/avatar-bases/remove` |
 | `modifications` | 改変 | `POST /v1/modifications`・改変の `memo`・`blueprint-id`・`unity-project`・`members`（足す・外す・戻す） |
 | `unity` | Unityへ送る | `POST …/send-to-unity`（商品・改変）・`/v1/unity/sends/{sendId}/cancel` |
 | `open` | 画面・エクスプローラで開く | `POST …/show`・`…/reveal`（データは変えないが、使う人の画面を動かす） |
@@ -70,7 +70,10 @@
 
 - まず `api.json` のトークンを今までどおり同じ長さの比べ方で照らし、外れたら `Bearer ` の後ろの SHA-256 でソフトの索引を引く（ハッシュは送られた値から予め作れないので、引く時間から控えを推し量れない）。トークンは256ビットの乱数なので、塩や遅いハッシュは要らない。
 - 誰の要求かを要求に添え（`ApiCallerInfo`）、命令の口のログの1行に「（ソフト「名前」）」「（api.json のトークン）」を添える（`Core/Commands/ApiCaller`。要求の間だけ持つ値なので、要求の中から裏へ渡した作業にも引き継ぐ）。画面で開く・エクスプローラで開くの1行にも添える。
+  Unity へ送るの結果の1行と、送った後の足跡・印の命令にも名前が付く（送りは要求の中で `Task.Run` で始めるので、要求の値が送りごとに引き継がれる。コードを読んで確かめた。試験はまだ）。
 - 取り消し・権限の変更は、設定の画面が書いた直後に API へ読み直させる（`ApiRunner.ReloadClients`）。ファイルを手で書いたときも、見張りが `api-settings.json` と同じ部分として拾い、取り込みの途中でもすぐ読み直す。
+  **制限**：取り消す前から開いている SSE（`/v1/events`）は流れ続ける（流すのは変わった物の種類と ID だけ。つなぎ直すと 401）。切るかは [要確認]。
+- 止めるとき（オフ・ポートの変更・トークンの作り直し・閉じる）は、聞いている窓を閉じ、結果を待っている問い合わせも `pending` で解く（解かないと、待ち受けを止めるのが待ちの終わりまで約30秒止まった。試験で確かめた）。
 - **最後に使った日時**は、前に書いてから10分経ったときだけ書く（要求ごとに書くと、SSE をつないだ道具の問い合わせのたびに保存先へ書き、見張りが読み直す。一覧で見る目安には10分の粗さで足りる）。
 
 ## exe の引き方
@@ -87,7 +90,8 @@
 ```
 
 - 保存先の直下。**形式の版は上げない**（新しいファイルを足すだけ。古い版は知らないファイルを読まず、消しもしない。[data-format.md](data-format.md)）。いちばん外側をオブジェクトにして版を書き、種類は列挙ではなく文字列で持つ（種類を足すたびに形式を上げずに済む。知らない種類は読むときに捨てる）。
-- 書くのは2つの道：許す・最後に使った日時は API が自分の控えとして書く（`api.json` と同じ。人の操作は窓で済んでいる）。権限の変更・取り消しは設定の画面が `UiCommand.ChangeApiClients` で書く。どちらも同じ入れ物の錠の中で今の値に当てる。
+- 書くのは2つの道：許す・最後に使った日時は API が自分の控えとして書く（`api.json` と同じく `UiCommand` を通さない。人の操作は窓で済んでいて、書くのはトークンの受け渡しと使った印だけ。
+  保存先を運ぶ間の門も通らないが、API は運ぶ前に止まるので重ならない）。権限の変更・取り消しは設定の画面が `UiCommand.ChangeApiClients` で書く。どちらも同じ入れ物の錠の中で今の値に当てる。
 - 読めない（手で壊した JSON）ときは、誰のソフトのトークンも通さない（空として扱い、ログに残す）。
 - **引越し**（保存先ごと運ぶ）・**形式を上げる前の控え**（直下の `*.json`）には入る。
 - **書き出しと「すべてを戻す」には入れない**（`api.json` と同じ。`BackupArchive`）。許しはその PC の exe へ人が出した物で、別の PC へ戻すと人が見ていない許しが生き返る。exe のパスには Windows のユーザー名も入る。戻した後は、ソフトが求め直す。[要確認] 戻した後も同じ PC なら許しを残したい、という声があれば考え直す。

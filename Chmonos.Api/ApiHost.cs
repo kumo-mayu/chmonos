@@ -302,7 +302,7 @@ internal static class ApiHost
             {
                 Type = Microsoft.OpenApi.SecuritySchemeType.Http,
                 Scheme = "bearer",
-                Description = "保存先の api.json の token",
+                Description = "保存先の api.json の token か、/v1/clients/request で許しを求めて受け取ったトークン",
             };
             foreach (var (path, item) in document.Paths)
             {

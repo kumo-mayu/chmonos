@@ -423,9 +423,10 @@ internal sealed class ApiUnitySender(
 
         // 外から使う API の書き込みと同じく、何をしたかをログに1行残す（Unity へ送るは UiCommand を通らないので、ここで書く）。
         // 結果の種類だけ。商品 ID・包みの名前・プロジェクトの場所は書かない（問い合わせの中身はログに残さない決まり）
-        Core.Diagnostics.AppLog.Note("外から使う API", started.ModificationId is null
+        // どのソフトの送りかも添える。送りは要求の中で Task.Run で始めるので、要求の値（ApiCaller）が送りごとに引き継がれる
+        Core.Diagnostics.AppLog.Note("外から使う API", (started.ModificationId is null
             ? $"Unity へ送る → {finished.State}"
-            : $"改変の使ったものを Unity へ送る（{queue.Count} 件）→ {finished.State}");
+            : $"改変の使ったものを Unity へ送る（{queue.Count} 件）→ {finished.State}") + Core.Commands.ApiCaller.LogSuffix);
 
         // 終わりを見せるのは、足跡と印を書き終えてから（終わったと見た外の道具が、すぐ検索の recent で引けるように）
         lock (_startLock)

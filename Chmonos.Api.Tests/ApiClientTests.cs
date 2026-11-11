@@ -348,6 +348,44 @@ public sealed class ApiClientTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task 止めるときは_結果を待っている問い合わせを解いて_すぐ止まる()
+    {
+        await StartAsync();
+        var requestId = await RequestIdAsync("作り物の道具", "marks");
+        await _approvals.NextAsync();
+
+        // 人が答えないまま、道具が30秒待つ問い合わせを出している
+        var waiting = _client.PostAsync("/v1/clients/request/result", Json(JsonSerializer.Serialize(new { requestId, wait = 30 })));
+        await Task.Delay(300);
+
+        var watch = Stopwatch.StartNew();
+        await _app!.StopAsync();
+        var answer = await waiting.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"止まるのに {watch.Elapsed.TotalSeconds:0.0} 秒かかりました。");
+        Assert.Equal("pending", (await BodyOf(answer)).GetProperty("state").GetString());
+
+        await _app.DisposeAsync();
+        _app = null;
+    }
+
+    [Fact]
+    public async Task 仕様書では_許しを求める道はトークンなしで_省ける欄は必須にしない()
+    {
+        await StartAsync();
+        var document = await BodyOf(await _client.GetAsync("/v1/openapi.json"));
+        var request = document.GetProperty("paths").GetProperty("/v1/clients/request").GetProperty("post");
+        Assert.False(request.TryGetProperty("security", out _));
+        Assert.True(document.GetProperty("paths").GetProperty("/v1/clients/me").GetProperty("get").TryGetProperty("security", out _));
+
+        static IEnumerable<string?> Required(JsonElement schemas, string name)
+            => schemas.GetProperty(name).TryGetProperty("required", out var required) ? required.EnumerateArray().Select(value => value.GetString()) : [];
+
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+        Assert.Equal(["name"], Required(schemas, "ClientRequestBody"));
+        Assert.Equal(["requestId"], Required(schemas, "ClientResultRequest"));
+    }
+
+    [Fact]
     public async Task 知らない合言葉は404()
     {
         await StartAsync();

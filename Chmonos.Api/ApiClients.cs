@@ -291,11 +291,16 @@ internal sealed class ApiClientRequests
 
         if (wait > TimeSpan.Zero && !entry.Decided.Task.IsCompleted)
         {
+            // API が止まるときは待ちを解く（解かないと、待ち受けを止めるのがこの待ちの終わりまで止まる。SSE を閉じるのと同じ）
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stop.Token);
             try
             {
-                await entry.Decided.Task.WaitAsync(wait, cancellationToken);
+                await entry.Decided.Task.WaitAsync(wait, linked.Token);
             }
             catch (TimeoutException)
+            {
+            }
+            catch (OperationCanceledException) when (_stop.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
             }
         }
@@ -408,6 +413,11 @@ internal sealed class ApiClientRequests
     /// </summary>
     public void Stop()
     {
+        if (_stop.IsCancellationRequested)
+        {
+            return;
+        }
+
         _stop.Cancel();
         _queue.Writer.TryComplete();
     }

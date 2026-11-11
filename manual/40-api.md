@@ -45,7 +45,7 @@ $api = Get-Content "$env:LOCALAPPDATA\Chmonos\api.json" -Raw | ConvertFrom-Json
 Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ Authorization = "Bearer $($api.token)" }
 ```
 
-- `/v1/health`・`/v1/version`・`/v1/openapi.json` はトークンなしで答えます。
+- `/v1/health`・`/v1/version`・`/v1/openapi.json` はトークンなしで答えます（次のバージョンから、許可を求める `/v1/clients/request`・`/v1/clients/request/result` も）。
 - トークンは起動のたびには変わりません。漏れたかもしれないときは、設定の「API」の「トークン」の「作り直す」を押します。今のトークンは使えなくなるので、ツールには `api.json` から読み直させてください。
 - `api.json` はバックアップの書き出しには入りません。
 
@@ -248,7 +248,7 @@ if ($result.state -eq "approved") {
 - （v1.2.0 から）Unity へ送ると答えに送りの ID（`sendId`）が付きます。結果は `GET /v1/unity/sends/{送りのID}` で分かります。`state` が `sending` の間は送っている途中です。終わると `imported`（取り込んだ）・`alreadyPresent`（もう入っていた）・`cancelled`（Unity で Cancel した）・`stopped`（止めた）・`editorClosed`（Unity が閉じた）・`failed`（送れなかった）のどれかになります。
 - （v1.2.0 から）改変に使った物を順に送る前に、`GET /v1/modifications/{ID}/send-plan` で行ごとの送り方を確かめられます。`status` が `choose` の行は、`candidates` から送る物を選んで `choices` に書きます。選んだ物はその行に記録されます。
 - （v1.2.0 から）送るのを止めても、Unity に出た取り込み画面は残ります。Unity で「Cancel」を押して閉じてください。
-- 「Chmonos の画面で商品を表示する」はウィンドウを表示せずに動いているときもウィンドウを開きます。データは変えませんが、画面が切り替わるので、「ほかのアプリからの変更を許す」がオンのときだけ使えます。
+- 「Chmonos の画面で商品を表示する」はウィンドウを表示せずに動いているときもウィンドウを開きます。データは変えませんが、画面が切り替わるので、「ほかのアプリからの変更を許す」がオンのときだけ使えます（次のバージョンから、ソフトごとの許可では `open`）。
 - 対応アバターを消しても商品ページの「消したもの」から戻せます。確認待ちを確認済みにするのは名前を挙げた物だけです。
 - 改変を消す・名前を変える、対応アバターをまとめて確認済みにする、といった操作は、Chmonos の画面で行ってください。
 - 許可した Web ページからも変えられます。

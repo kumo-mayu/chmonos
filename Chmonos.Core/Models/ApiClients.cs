@@ -83,9 +83,9 @@ public static class ApiScopes
     {
         Marks => "お気に入り・非表示",
         Recent => "「使った」の記録",
-        Notifications => "通知の既読",
+        Notifications => "通知の既読・解消",
         Tags => "タグ・属性・メモ",
-        Avatars => "対応アバター",
+        Avatars => "対応アバター・共通素体",
         Modifications => "改変",
         Unity => "Unityへ送る",
         Open => "画面・エクスプローラで開く",
