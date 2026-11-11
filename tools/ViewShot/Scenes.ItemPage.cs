@@ -238,6 +238,14 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        new Scene("modification-item-compact-header", "改変の画面：組み込んだ商品ページを流して、商品名の段が隠れた所（1行の見出し）", async context =>
+        {
+            await SeedLongItemAsync(context);
+            var root = await OpenHubMemberAsync(context, member: 0);
+            await ScrollBodyAsync(context, root, OtherOffset);
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
+        }),
+
         // 説明が短く、右の列が長い商品。右の列の行（zip の中の Unity へ送れる物）は裏で読んで後から届くので、
         // 戻った直後は流せる長さが足りない。届いてから位置が合うことを見る（下の2枚は、どちらも最後のカードの下端まで流れているはず）。
         new Scene("item-page-files-end", "商品ページ：説明が短くファイルの多い商品を、最後まで流した所（item-page-files-back の見本）", async context =>

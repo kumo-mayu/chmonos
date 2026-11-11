@@ -153,6 +153,35 @@ public class ItemCompactHeaderTests
         Assert.Null(none.ThumbnailTile);
     });
 
+    [Fact]
+    public Task 画面内検索は_重ねた見出しの名前を探さない() => UiThread.Run(() =>
+    {
+        // 見出しの名前は下の中身にある名前の写し。探すと同じ名前が2回当たり、写しの方へ印が飛ぶ
+        var page = new TextBlock { Text = "作り物の衣装" };
+        var bar = new Border { Child = new TextBlock { Text = "作り物の衣装" } };
+        Views.FindInPage.SetIsSkipped(bar, true);
+        var root = new StackPanel();
+        root.Children.Add(page);
+        root.Children.Add(bar);
+
+        using var source = new HwndSource(new HwndSourceParameters("ItemCompactHeaderTests")
+        {
+            WindowStyle = unchecked((int)0x80000000), // WS_POPUP だけ（出さない）
+            ExtendedWindowStyle = 0x00000080, // WS_EX_TOOLWINDOW
+            PositionX = -30000,
+            PositionY = -30000,
+            Width = 1,
+            Height = 1,
+        })
+        {
+            RootVisual = root,
+        };
+        Settle(root);
+
+        var match = Assert.Single(Views.FindInPage.Find(root, "衣装"));
+        Assert.Same(page, match.Owner);
+    });
+
     /// <summary>
     /// 上に 100 の空き、名前の段（高さ40）、下に長い中身を積んだ流す部品と、重ねる帯を、出さない窓口に載せる。
     /// </summary>
