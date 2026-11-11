@@ -288,8 +288,48 @@ public class ItemFileRowTests
 
         var row = Assert.Single(page.LocalFiles);
         Assert.False(row.CanReattach);
-        Assert.Equal("「作り物の髪型」に紐付けてあるので戻せません。先にそちらから外してください。", row.ReattachTip);
+        Assert.Equal("「作り物の髪型」に紐付けてあるので戻せません。「追加…」から両方に付けられます。", row.ReattachTip);
     });
+
+    /// <summary>商品ページの［追加…］で、ほかの商品が持つファイルに「両方に付ける」を選ぶと、向こうに残してこちらにも付く（plan 27）。</summary>
+    [Fact]
+    public Task 追加でほかの商品が持つファイルに両方に付けるを選ぶと_向こうに残してこちらにも付く() => TestApp.Run(async app =>
+    {
+        var file = app.NewFile("shared.zip");
+        var item = Make.Item("1000001", "作り物の衣装");
+        var owner = Make.Item("1000002", "作り物のセット").WithFiles(
+            new LocalFileRecord { Hash = await Core.Scanning.FileHasher.ComputeSha256Async(file), Paths = [file], SizeBytes = 1 });
+        await app.AddItemAsync(item);
+        await app.AddItemAsync(owner);
+        var main = await app.StartAsync();
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+        app.PickAttachFiles = () => [file];
+        ChoiceRequest? asked = null;
+        app.Choose = request =>
+        {
+            asked = request;
+            return Views.ChoiceDialogResult.Third;
+        };
+
+        page.AttachFilesCommand.Execute(null);
+        await UiThread.Until(() => page.LocalFiles.Count == 2, "紐付ける");
+
+        Assert.Equal("両方に付ける", asked!.Third);
+        Assert.False(Assert.Single((await app.Store.Items.LoadAsync("1000001"))!.Local.LocalFiles, row => row.Paths.Contains(file)).Detached);
+        Assert.False(Assert.Single((await app.Store.Items.LoadAsync("1000002"))!.Local.LocalFiles).Detached);
+    });
+
+    /// <summary>外す確かめの窓は、ほかの商品にも付けていれば、未確定ではなくそちらに残ることと戻し方を言う。</summary>
+    [Fact]
+    public void 外す確かめの文は_ほかの商品にも付けていればそちらに残ると言う()
+    {
+        Assert.Contains("未確定に戻り", ItemViewModel.DetachQuestion("a.zip", []));
+        var shared = ItemViewModel.DetachQuestion("a.zip", ["作り物のセット"]);
+        Assert.Contains("「作り物のセット」には登録されたまま残ります。", shared);
+        Assert.Contains("「両方に付ける」を押します。", shared);
+        Assert.DoesNotContain("未確定", shared);
+        Assert.Contains("ほか 1 件の商品には登録されたまま残ります。", ItemViewModel.DetachQuestion("a.zip", ["A", "B"]));
+    }
     // ---- 「開く ▾」「Unity ▾」は出したまま、押せないときは理由を言う（ユーザ判断 2026-10-04）----
 
     [Theory]

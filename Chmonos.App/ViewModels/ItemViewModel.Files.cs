@@ -189,7 +189,7 @@ public sealed partial class ItemViewModel
             // zip の中の unitypackage は、行を出した後で画面のスレッドの外で読む（LoadUnityPackagesAsync・技術的負債 4-2）
             IReadOnlyList<Core.Services.UnityPackageEntry> packages = [];
 
-            // 外した後で別の商品へ紐付けてあれば戻せない（同じファイルが2つの商品の持ち物になる）
+            // 外した後で別の商品へ紐付けてあれば戻せない（窓を出さない操作で黙って2つの商品の持ち物にしない。両方に付けるのは［追加…］の窓で選んだときだけ・plan 27）
             var owner = file.Detached ? _main.Search.FindFileOwner(file.Hash, Item.Id) : null;
 
             LocalFiles.Add(new LocalFileRow
@@ -211,7 +211,7 @@ public sealed partial class ItemViewModel
                 CanReattach = file.Detached && owner is null,
                 ReattachTip = owner is null
                     ? "このファイルをこの商品に戻します。未確定からは消えます。"
-                    : $"「{owner.DisplayName}」に紐付けてあるので戻せません。先にそちらから外してください。",
+                    : $"「{owner.DisplayName}」に紐付けてあるので戻せません。「追加…」から両方に付けられます。",
                 UnityPackageRows = [],
             });
         }

@@ -750,6 +750,27 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // （編集画面なら、編集の順番の中の商品を移した先に差し替える）
         ReplaceSelf(await _services.Store.Items.LoadAsync(toId));
     }
+    /// <summary>
+    /// 「この商品から外す」の確かめの本文。ほかの商品にも付けているなら、未確定ではなくそちらに残ることと、戻し方を言う
+    /// （ほかの商品が持つ間は「この商品に戻す」が通らないので、［追加…］で選び直して「両方に付ける」）。
+    /// </summary>
+    internal static string DetachQuestion(string fileName, IReadOnlyList<string> otherHolderNames)
+    {
+        if (otherHolderNames.Count == 0)
+        {
+            return $"{fileName} をこの商品から外します。\n\n"
+                + "ファイルは削除しません。未確定に戻り、正しい商品を選び直せます。\n"
+                + "「この商品に戻す」で元に戻せます。";
+        }
+
+        var who = otherHolderNames.Count == 1
+            ? $"「{otherHolderNames[0]}」"
+            : $"「{otherHolderNames[0]}」ほか {otherHolderNames.Count - 1} 件の商品";
+        return $"{fileName} をこの商品から外します。\n\n"
+            + $"ファイルは削除しません。{who}には登録されたまま残ります。\n"
+            + $"戻すときは「追加…」でファイルを選び、「{(otherHolderNames.Count == 1 ? "両方に付ける" : "すべてに付ける")}」を押します。";
+    }
+
     private async Task DetachFileAsync(LocalFileRow? row)
     {
         if (row is null)
@@ -757,10 +778,15 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             return;
         }
 
+        // ほかの商品にも付けている（両方に付けた）ファイルは未確定に戻らない（plan 27・shared-files.md）。行き先を言い分ける。
+        // 持ち主は検索の写しで見る（画面のスレッドで取り出す。命令は錠の中の今の値でもう一度見る）
+        var otherHolders = _main.Search.SnapshotItems()
+            .Where(other => other.Id != Item.Id && other.Local.AttachedFiles.Any(
+                file => string.Equals(file.Hash, row.Hash, StringComparison.OrdinalIgnoreCase)))
+            .Select(other => other.DisplayName)
+            .ToList();
         var answer = Services.Notice.Show(
-            $"{row.FileName} をこの商品から外します。\n\n"
-            + "ファイルは削除しません。未確定に戻り、正しい商品を選び直せます。\n"
-            + "「この商品に戻す」で元に戻せます。",
+            DetachQuestion(row.FileName, otherHolders),
             "この商品から外す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

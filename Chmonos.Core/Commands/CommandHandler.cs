@@ -1206,7 +1206,7 @@ public sealed class CommandHandler
                 {
                     Services.ReattachOutcome.Reattached => new CommandResult.ItemSaved(reattach.ItemId),
                     Services.ReattachOutcome.OwnedElsewhere => new CommandResult.Failed(
-                        "このファイルは外した後で別の商品に紐付けてあるので、戻せません。先にそちらの商品から外してください。"),
+                        "このファイルはほかの商品に紐付けてあるので、戻せません。「追加…」でファイルを選ぶと、両方に付けられます。"),
                     _ => new CommandResult.Failed("このファイルは、この商品から外したものではありません。"),
                 };
 
