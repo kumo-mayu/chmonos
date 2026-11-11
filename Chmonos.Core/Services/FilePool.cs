@@ -17,13 +17,16 @@ public sealed record PooledFile(
 {
     /// <summary>重複回数：選んだ商品の中で、このファイルを持つ商品の数（ユーザ判断 2026-11-11 plan 30「選んだ商品の中で数える」）。</summary>
     public int HolderCount => HolderIds.Count;
+
+    /// <summary>zip の中のファイル名の一覧（最初に見つかった持ち主の記録の物）。組の見出しに中の unitypackage の名前を添えるのに使う。</summary>
+    public IReadOnlyList<string> Contents { get; init; } = [];
 }
 
 /// <summary>
 /// 選んだ商品の間でファイルを割り振る画面（plan 30）の材料：選んだ商品が持つファイルを1つの溜まりにし、
 /// 中身ごとに持ち主と重複回数を返す。**読むだけ**で、付ける・外すは命令（<c>UiCommand.AttachFile</c> の
 /// <see cref="OtherHolders.Share"/>・<c>UiCommand.DetachFile</c>）で行う。
-/// 頭文字での組分けは、実際のデータで区切り方を測ってから決める（plan 30）ので、ここでは持たない。
+/// 名前の頭での組分けと重複回数の絞りは <see cref="FilePoolGroups"/>。
 /// </summary>
 public static class FilePool
 {
@@ -61,7 +64,10 @@ public static class FilePool
                     paths.Count > 0 ? Path.GetFileName(paths[0]) : null,
                     entry.First.SizeBytes,
                     paths,
-                    entry.Holders);
+                    entry.Holders)
+                {
+                    Contents = entry.First.Contents,
+                };
             })
             .OrderBy(file => file.FileName is null)
             .ThenBy(file => file.FileName, StringComparer.CurrentCultureIgnoreCase)
