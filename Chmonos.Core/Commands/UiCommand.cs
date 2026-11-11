@@ -670,6 +670,12 @@ public abstract record UiCommand
     /// </summary>
     public record ChangeApiSettings(Func<Models.ApiSettings, Models.ApiSettings> Change) : UiCommand;
 
+    /// <summary>
+    /// 外から使う API に許したソフトの一覧（api-clients.json）を変える（設定の「つないでいるソフト」：権限を変える・取り消す。plan 31）。
+    /// 許す・使った日時は API が同じ入れ物の錠の中で書くので、丸ごと書き戻さず、今の値に当てる関数で渡す
+    /// </summary>
+    public record ChangeApiClients(Func<Models.ApiClientList, Models.ApiClientList> Change) : UiCommand;
+
     /// <summary>新しい版の確認の記録を変える（新しい版の帯を × で閉じた版を覚える。ユーザ判断 2026-10-08）。</summary>
     public record ChangeUpdateCheck(Func<Services.UpdateCheckRecord, Services.UpdateCheckRecord> Change) : UiCommand;
 

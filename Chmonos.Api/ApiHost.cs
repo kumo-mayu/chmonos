@@ -28,7 +28,8 @@ internal sealed record ApiHostOptions(
     Func<DateTimeOffset>? Clock = null,
     bool Watch = true,
     DataStore? Store = null,
-    ApiWriteHooks? Writes = null);
+    ApiWriteHooks? Writes = null,
+    IConnectionOwners? Owners = null);
 
 /// <summary>読み込んだ写しと、答えに要る物。</summary>
 internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataStore? sharedStore = null)
@@ -43,6 +44,11 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
     private DataStore? _ownStore;
 
     public Func<DateTimeOffset> Clock { get; } = clock;
+
+    /// <summary>許したソフトの控え（plan 31）。設定と同じく、取り込みの途中でもすぐ読み直す。</summary>
+    public ApiClientBook Clients => _clients ??= new ApiClientBook(() => Store, Clock);
+
+    private ApiClientBook? _clients;
 
     public DateTimeOffset LoadedAt { get; private set; }
 
@@ -66,6 +72,7 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
         var apiSettings = ApiFiles.ReadSettings(Paths);
         AllowedOrigins = apiSettings.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
         AllowWrites = apiSettings.AllowWrites;
+        Clients.Reload();
     }
 
     /// <summary>部分ごとのファイルの印（<see cref="StoreChanges.StampOf"/>）。変わっていない部分は読み直さず、知らせもしない。</summary>
@@ -75,6 +82,7 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
     {
         AllowedOrigins = origins.ToHashSet(StringComparer.OrdinalIgnoreCase);
         AllowWrites = ApiFiles.ReadSettings(Paths).AllowWrites;
+        Clients.Reload();
         StoreFormat = Core.Storage.StoreFormat.StoreVersion(Paths.Root);
         foreach (var part in Enum.GetValues<StorePart>())
         {
@@ -249,8 +257,14 @@ internal static class ApiHost
 {
     public const string ApiVersion = "v1";
 
-    /// <summary>トークンなしで答える URL（動いているか・バージョン・仕様書。どれも保存先の中身は含まない）。</summary>
-    private static readonly HashSet<string> OpenPaths = new(StringComparer.Ordinal) { "/v1/health", "/v1/version", "/v1/openapi.json" };
+    /// <summary>
+    /// トークンなしで答える URL（動いているか・バージョン・仕様書。どれも保存先の中身は含まない）。
+    /// 許しを求める2本も、トークンを持たないソフトが来る道なのでトークンなし（返すのは人が許したときのトークンだけ。plan 31）
+    /// </summary>
+    private static readonly HashSet<string> OpenPaths = new(StringComparer.Ordinal)
+    {
+        "/v1/health", "/v1/version", "/v1/openapi.json", ApiClientEndpoints.RequestPath, ApiClientEndpoints.ResultPath,
+    };
 
     public static string AppVersion { get; } =
         typeof(ApiHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
@@ -315,16 +329,21 @@ internal static class ApiHost
         builder.Services.AddSingleton(feed);
         builder.Services.AddSingleton(sync);
         builder.Services.AddSingleton(new ApiWriter(state, sync, options.Writes));
+        var requests = new ApiClientRequests(options.Writes?.Approvals, state.Clients, state.Clock);
+        builder.Services.AddSingleton(requests);
+        builder.Services.AddSingleton(options.Owners ?? TcpConnectionOwners.Instance);
 
         var app = builder.Build();
         var token = Encoding.UTF8.GetBytes("Bearer " + options.Token);
         app.Use((context, next) => GuardAsync(context, next, token, state));
         ApiEndpoints.Map(app);
+        ApiClientEndpoints.Map(app);
         app.MapOpenApi("/v1/openapi.json");
 
-        // 止まるときは SSE の聞き手に知らせてから、見張りを止める
+        // 止まるときは SSE の聞き手に知らせてから、見張りを止める。許しを聞いている窓も閉じる
         app.Lifetime.ApplicationStopping.Register(() =>
         {
+            requests.Stop();
             feed.Publish("stopping", [], [], null, state.Clock());
             feed.CloseAll();
             sync.Dispose();
@@ -362,7 +381,9 @@ internal static class ApiHost
             if (HttpMethods.IsOptions(request.Method))
             {
                 // 書き込みを許しているときだけ、書く方法（PUT・PATCH・DELETE）も許す（許可したオリジンのページからは書ける。ユーザ判断 2026-10-13）
-                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
+                // 事前の確かめにはトークンが付かないので誰か分からない。古いトークンの許しか、書き込みを許したソフトが1つでもあれば許す
+                // （本当に書けるかは本番の要求でトークンの権限を見る）
+                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites || state.Clients.AnyWrites ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
                 context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID, If-None-Match";
                 context.Response.Headers.AccessControlMaxAge = "600";
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
@@ -372,14 +393,30 @@ internal static class ApiHost
 
         if (!OpenPaths.Contains(request.Path.Value ?? string.Empty))
         {
-            // トークンは同じ長さの比べ方をする（違う所までの時間で中身を推し量られないように）
-            var given = Encoding.UTF8.GetBytes(request.Headers.Authorization.ToString());
-            if (!CryptographicOperations.FixedTimeEquals(given, token))
+            // api.json のトークン（古い1本）は同じ長さの比べ方をする（違う所までの時間で中身を推し量られないように）。
+            // 外れたら、ソフトごとのトークンをハッシュで引く（plan 31）
+            var authorization = request.Headers.Authorization.ToString();
+            ApiCallerInfo caller;
+            if (CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(authorization), token))
+            {
+                caller = ApiCallerInfo.Legacy;
+            }
+            else if (state.Clients.Find(authorization) is { } client)
+            {
+                caller = new ApiCallerInfo(client);
+                state.Clients.Touch(client);
+            }
+            else
             {
                 context.Response.Headers.WWWAuthenticate = "Bearer";
-                await WriteProblemAsync(context, new QueryException(401, "unauthorized", "トークンが違います。保存先の api.json の token を Authorization: Bearer で送ってください。"));
+                await WriteProblemAsync(context, new QueryException(401, "unauthorized", "トークンが違います。保存先の api.json の token か、許可を求めて受け取ったトークンを Authorization: Bearer で送ってください。"));
                 return;
             }
+
+            context.Items[ApiCallerInfo.ItemKey] = caller;
+
+            // 書き込みのログ（命令の口の1行）に、どのソフトが書いたかを添える。要求の間だけ持つ値なので、ほかの要求には混ざらない
+            Core.Commands.ApiCaller.Label = caller.Label;
 
             if (state.TooNew)
             {
@@ -484,6 +521,7 @@ internal static class ReasonPhrases
         403 => "Forbidden",
         404 => "Not Found",
         409 => "Conflict",
+        429 => "Too Many Requests",
         500 => "Internal Server Error",
         503 => "Service Unavailable",
         _ => "Error",

@@ -161,6 +161,11 @@ public sealed class AppPaths
     /// <summary>外から使う API の設定（ポート・許可するオリジン。人と設定画面が書く）。</summary>
     public string ApiSettingsFile => Path.Combine(Root, "api-settings.json");
 
+    /// <summary>外から使う API に許したソフトの一覧（トークンのハッシュ・権限。docs/spec/api-clients.md）。</summary>
+    public string ApiClientsFile => Path.Combine(Root, ApiClientsFileName);
+
+    public const string ApiClientsFileName = "api-clients.json";
+
     public string LockFile => Path.Combine(Root, "app.lock");
 
     public string ItemFile(string itemId) => Path.Combine(ItemsDir, $"{StoreIds.RequireItemId(itemId)}.json");

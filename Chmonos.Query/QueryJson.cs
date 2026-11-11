@@ -67,6 +67,11 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(RevealRequest))]
 [JsonSerializable(typeof(ModificationMemberRequest))]
 [JsonSerializable(typeof(AcceptedAnswer))]
+[JsonSerializable(typeof(ClientRequestBody))]
+[JsonSerializable(typeof(ClientRequestAccepted))]
+[JsonSerializable(typeof(ClientResultRequest))]
+[JsonSerializable(typeof(ClientResultAnswer))]
+[JsonSerializable(typeof(ClientSelfAnswer))]
 [JsonSerializable(typeof(ChangeEventRef))]
 [JsonSerializable(typeof(ChangesAnswer))]
 public sealed partial class QueryJsonContext : JsonSerializerContext

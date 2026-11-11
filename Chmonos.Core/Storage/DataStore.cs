@@ -286,6 +286,7 @@ public sealed class DataStore
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ShopNotes = new JsonFileStore<List<ShopNoteRecord>>(paths.ShopNotesFile);
         ApiSettings = new JsonFileStore<ApiSettings>(paths.ApiSettingsFile);
+        ApiClients = new JsonFileStore<ApiClientList>(paths.ApiClientsFile);
         VideoTitles = new JsonFileStore<List<VideoTitleRecord>>(paths.VideoTitlesFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
@@ -352,6 +353,9 @@ public sealed class DataStore
 
     /// <summary>外から使う API の設定（ポート・許可する Web ページ。設定画面と、手で書いたファイルの両方から変わる）。</summary>
     public JsonFileStore<ApiSettings> ApiSettings { get; }
+
+    /// <summary>外から使う API に許したソフトの一覧（許す・使った日時は API が、権限の変更・取り消しは設定画面が書く）。</summary>
+    public JsonFileStore<ApiClientList> ApiClients { get; }
 
     /// <summary>YouTube の動画のタイトルの控え。30日を過ぎたら取り直すか消す（<see cref="Services.VideoTitleBook"/>）。</summary>
     public JsonFileStore<List<VideoTitleRecord>> VideoTitles { get; }

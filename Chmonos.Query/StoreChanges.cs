@@ -133,6 +133,8 @@ public static class StoreChanges
             "video-titles.json" => StorePart.VideoTitles,
             "format.json" => StorePart.Format,
             "api-settings.json" => StorePart.ApiSettings,
+            // 許したソフトの一覧も、写しではなく守りに効く。設定と同じく取り込み中でもすぐ読み直す（取り消しをすぐ効かせる）
+            "api-clients.json" => StorePart.ApiSettings,
             _ => null,
         };
         return part is { } found ? (found, null) : null;
@@ -179,6 +181,14 @@ public static class StoreChanges
             return null;
         }
 
+        // API の設定の部分は、設定と許したソフトの一覧の2つのファイルを1つの印にする（どちらが変わっても読み直す）
+        return part == StorePart.ApiSettings
+            ? $"{StampOfFile(path)}|{StampOfFile(paths.ApiClientsFile)}"
+            : StampOfFile(path);
+    }
+
+    private static string StampOfFile(string path)
+    {
         var info = new FileInfo(path);
         return info.Exists ? $"{info.Length}:{info.LastWriteTimeUtc.Ticks}" : "none";
     }

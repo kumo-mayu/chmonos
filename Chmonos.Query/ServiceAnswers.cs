@@ -101,6 +101,24 @@ public sealed record ModificationMemberRequest(string ItemId, long? VariationId,
 /// </summary>
 public sealed record AcceptedAnswer(string Busy);
 
+/// <summary>ソフトが許しを求める（plan 31。トークンなしで受ける）。<see cref="Scopes"/> は欲しい書き込みの種類（読むのはいつも許す）。</summary>
+public sealed record ClientRequestBody(string Name, IReadOnlyList<string>? Scopes);
+
+/// <summary>許しを求めたのを受け付けた（202）。<see cref="RequestId"/> は結果を取る合言葉なので、URL に入れず本文で送り返してもらう。</summary>
+public sealed record ClientRequestAccepted(string RequestId, string State);
+
+/// <summary>結果を取る。<see cref="Wait"/> は決まるまで待つ秒（0〜30。省けば待たない）。</summary>
+public sealed record ClientResultRequest(string RequestId, int? Wait);
+
+/// <summary>
+/// 結果（<see cref="State"/>：pending・approved・denied・delivered）。トークンは approved の1回だけ入る。
+/// 2回目からは delivered で、トークンは入らない（Chmonos はハッシュしか持たない）
+/// </summary>
+public sealed record ClientResultAnswer(string State, string? Token, string? ClientId, IReadOnlyList<string>? Scopes);
+
+/// <summary>今のトークンが誰で、何を許されているか（<c>GET /v1/clients/me</c>）。<see cref="Kind"/> は legacy（api.json のトークン）・client。</summary>
+public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Name, IReadOnlyList<string> Scopes);
+
 /// <summary>
 /// 誤りの答え（RFC 9457 <c>application/problem+json</c>）。<see cref="Code"/> は機械が読む名前で変えない。<see cref="Detail"/> は人が読む説明。
 /// </summary>

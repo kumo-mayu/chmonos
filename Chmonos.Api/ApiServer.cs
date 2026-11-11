@@ -94,6 +94,18 @@ public sealed class ApiServer : IAsyncDisposable
     /// </summary>
     public void SetBusy(string? kind) => _sync.SetBusy(kind, _state.Clock());
 
+    /// <summary>
+    /// 許したソフトの一覧を今すぐ読み直す（設定の画面で権限を変えた・取り消した直後。見張りの300ms を待たずに効かせる）
+    /// </summary>
+    public void ReloadClients() => _state.Clients.Reload();
+
+    /// <summary>許したソフトの一覧を読み直した（許した・使った日時を書いた・設定で変えた）。裏のスレッドから来る。</summary>
+    public event Action? ClientsChanged
+    {
+        add => _state.Clients.Changed += value;
+        remove => _state.Clients.Changed -= value;
+    }
+
     /// <summary>待ち受けを止め、<c>api.json</c> を「止まった」にする（トークンは残す。次に始めたときも同じトークンで使えるように）。</summary>
     public async ValueTask DisposeAsync()
     {

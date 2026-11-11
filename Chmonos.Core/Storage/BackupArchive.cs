@@ -94,6 +94,9 @@ public static class BackupArchive
             || string.Equals(name, "location.json", StringComparison.OrdinalIgnoreCase)
             // 外から使う API のトークンが入る。書き出しを人に渡すとトークンまで渡り、戻すと別の PC の古いトークンが混ざる（2026-10-12）
             || string.Equals(name, AppPaths.ApiFileName, StringComparison.OrdinalIgnoreCase)
+            // 許したソフトの一覧も入れない（2026-11-11）。許しはその PC の exe へ人が出した物で、別の PC へ戻すと人が見ていない許しが生き返る。
+            // exe のパスには Windows のユーザー名も入る。戻した後は、ソフトが求め直す
+            || string.Equals(name, AppPaths.ApiClientsFileName, StringComparison.OrdinalIgnoreCase)
             // 書き出しの途中の記録は、その回の書き出しのための物。戻すと、戻した先で知らない場所の .tmp を探しに行く
             || string.Equals(name, BackupWritingRecord.FileName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, InfoFileName, StringComparison.OrdinalIgnoreCase)

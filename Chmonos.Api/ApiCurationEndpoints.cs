@@ -26,7 +26,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/avatars", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.AvatarLinkRequest);
-            using var claim = writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id, ApiScopes.Avatars);
             var avatar = RequireAvatar(state.Store, body.AvatarId);
             if (avatar.ItemId == id)
             {
@@ -42,7 +42,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/avatars/remove", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.AvatarLinkRequest);
-            using var claim = writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id, ApiScopes.Avatars);
             if (!(await CurrentItemAsync(state, id, context)).Local.Avatars.Any(link => link.AvatarItemId == body.AvatarId && !link.Rejected))
             {
                 throw QueryException.NotFound("avatarNotLinked", "この商品にそのアバターは付いていません。");
@@ -61,7 +61,7 @@ internal static partial class ApiEndpoints
                 throw QueryException.Invalid("invalidIds", "avatarIds に確認済みにするアバターの ID を1つ以上書いてください。");
             }
 
-            using var claim = writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id, ApiScopes.Avatars);
             return await ItemAfterWriteAsync(state, writer, new UiCommand.ConfirmAvatars(id, ids), id, context);
         })
             .Takes<AvatarConfirmRequest>().Answers<ItemDetail>("確認待ちの対応アバターを、名指しした物だけ確認済みにする（書き込み）");
@@ -69,7 +69,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/avatar-bases", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.BaseLinkRequest);
-            using var claim = writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id, ApiScopes.Avatars);
             var baseName = RequireBase(state.Store, body.BaseName);
             var command = new UiCommand.ChangeAvatarLinks(id, Bases: links => AvatarService.WithManualBaseLink(links, baseName));
             return await ItemAfterWriteAsync(state, writer, command, id, context);
@@ -79,7 +79,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/avatar-bases/remove", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.BaseLinkRequest);
-            using var claim = writer.GuardItem(context, id);
+            using var claim = writer.GuardItem(context, id, ApiScopes.Avatars);
             if (!(await CurrentItemAsync(state, id, context)).Local.AvatarBases.Any(link =>
                     Core.Services.AvatarBaseNames.Same(link.BaseName, body.BaseName?.Trim()) && !link.Rejected))
             {
@@ -96,7 +96,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/modifications", async (ApiState state, ApiWriter writer, HttpContext context) =>
         {
             var body = await ReadAsync(context.Request, json.ModificationCreateRequest);
-            writer.Guard(context);
+            writer.Guard(context, ApiScopes.Modifications);
 
             // アバターに限る。改変を作る命令は、登録簿に無い商品をその場でアバターとして足すので、帽子などを渡すと登録簿が汚れる
             var avatar = RequireAvatar(state.Store, body.AvatarId);
@@ -244,7 +244,7 @@ internal static partial class ApiEndpoints
     /// <summary>書いてよいかと、改変が在るか（保存先の今の記録で見る。取り込みの途中に作った改変にも書けるように）。</summary>
     private static async Task<ModificationRecord> GuardModificationAsync(ApiWriter writer, ApiState state, HttpContext context, string id)
     {
-        writer.Guard(context);
+        writer.Guard(context, ApiScopes.Modifications);
         ModificationRecord? record = null;
         try
         {

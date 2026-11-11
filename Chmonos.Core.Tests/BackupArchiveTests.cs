@@ -24,6 +24,9 @@ public sealed class BackupArchiveTests : IDisposable
         // 外から使う API のトークン。書き出しを人に渡すとトークンまで渡るので入れない
         File.WriteAllText(Path.Combine(Store, "api.json"), "{\"token\":\"作り物\"}");
 
+        // 許したソフトの一覧。許しはその PC の exe へ出した物で、別の PC へ戻すと人が見ていない許しが生き返る（plan 31）
+        File.WriteAllText(Path.Combine(Store, AppPaths.ApiClientsFileName), "{\"clients\":[]}");
+
         // プロジェクトを調べた結果の控え。調べ直せて、別の PC では当てにならない
         Directory.CreateDirectory(Path.Combine(Store, AppPaths.UnityScansDirName));
         File.WriteAllText(Path.Combine(Store, AppPaths.UnityScansDirName, "0123456789ABCDEF.json"), "{}");

@@ -43,6 +43,9 @@ public sealed class CommandHandler
     /// <summary>外から使う API の設定の置き場（<see cref="UiCommand.ChangeApiSettings"/>）。</summary>
     public Storage.JsonFileStore<Models.ApiSettings>? ApiSettings { private get; init; }
 
+    /// <summary>外から使う API に許したソフトの一覧の置き場（<see cref="UiCommand.ChangeApiClients"/>）。</summary>
+    public Storage.JsonFileStore<Models.ApiClientList>? ApiClients { private get; init; }
+
     /// <summary>
     /// やりかけの記録（pending-operations.json）。IDの変更・タグや属性の名前の変更を、この記録で囲んで走らせる。
     /// 無ければ記録せずに走らせる（保存先を持たない一部の試験の組み立て）。組み立ての引数を増やさないよう、作るときに入れる。
@@ -220,7 +223,7 @@ public sealed class CommandHandler
         // 命令の種類と結果だけ。商品 ID などの中身は書かない（問い合わせの中身はログに残さない決まり。docs/spec/local-api.md）
         if (origin == CommandOrigin.Api)
         {
-            Diagnostics.AppLog.Note("外から使う API", $"{command.GetType().Name} → {traced.GetType().Name}");
+            Diagnostics.AppLog.Note("外から使う API", $"{command.GetType().Name} → {traced.GetType().Name}{ApiCaller.LogSuffix}");
         }
 
         if (!Services.UiTrace.IsOn)
@@ -374,6 +377,12 @@ public sealed class CommandHandler
                 // 手で書いた JSON の欠けた配列（null）を空として受けてから変える
                 await (ApiSettings ?? throw new InvalidOperationException("API の設定の保存先が渡されていません。"))
                     .UpdateAsync(current => api.Change(current with { AllowedOrigins = current.AllowedOrigins ?? [] }), cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.ChangeApiClients clients:
+                // 手で書いた JSON の欠けた配列（null）を空として受けてから変える
+                await (ApiClients ?? throw new InvalidOperationException("API のソフトの一覧の保存先が渡されていません。"))
+                    .UpdateAsync(current => clients.Change(current with { Clients = current.Clients ?? [] }), cancellationToken);
                 return new CommandResult.Done();
 
             case UiCommand.ChangeUpdateCheck update:

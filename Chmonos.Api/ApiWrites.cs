@@ -21,13 +21,15 @@ public sealed record ApiWrite(string Kind, IReadOnlyList<string> Ids);
 /// <param name="Reveal">
 /// 商品の場所をエクスプローラで開く（段4。場所の指定は省ける）。結果の種類（opened・noLocation・ambiguous・unknownPath・missing）を返す。無ければ 503
 /// </param>
+/// <param name="Approvals">ソフトの許しを人に聞く口（plan 31）。無ければ許しを求められても 503 で断る。</param>
 public sealed record ApiWriteHooks(
     Func<UiCommand, CancellationToken, Task<CommandResult>> Execute,
     Action<ApiWrite>? Written = null,
     Func<string, IDisposable?>? ClaimItem = null,
     IApiUnity? Unity = null,
     Func<string, Task<bool>>? ShowItem = null,
-    Func<Core.Models.ItemRecord, string?, Task<string>>? Reveal = null);
+    Func<Core.Models.ItemRecord, string?, Task<string>>? Reveal = null,
+    IApiClientApprovals? Approvals = null);
 
 /// <summary>
 /// 書き込みの URL の共通の守りと、書いた後の始末。
@@ -46,10 +48,24 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
     /// <summary>エクスプローラで開く口（アプリが渡さなければ null）。</summary>
     public Func<Core.Models.ItemRecord, string?, Task<string>>? Reveal => hooks?.Reveal;
 
-    /// <summary>書いてよいかを確かめる。だめなら誤りの答えを投げる。</summary>
-    public void Guard(HttpContext context)
+    /// <summary>
+    /// 書いてよいかを確かめる。だめなら誤りの答えを投げる。
+    /// api.json のトークン（古い1本）は今までどおり「ほかのアプリからの変更を許す」（<c>allowWrites</c>）で決め、
+    /// ソフトごとのトークンは、そのソフトに人が許した書き込みの種類（<paramref name="scope"/>）で決める（plan 31。allowWrites は見ない）
+    /// </summary>
+    /// <param name="scope">この道の書き込みの種類（<see cref="Core.Models.ApiScopes"/>）。省けない：入れ忘れた道が黙って通らないように。</param>
+    public void Guard(HttpContext context, string scope)
     {
-        if (!state.AllowWrites)
+        var caller = ApiCallerInfo.Of(context);
+        if (caller.Client is { } client)
+        {
+            if (!client.Scopes.Contains(scope, StringComparer.Ordinal))
+            {
+                throw new QueryException(403, "scopeNotGranted",
+                    $"このソフトには「{Core.Models.ApiScopes.Label(scope)}」の変更が許されていません（{scope}）。Chmonos の設定の「API」の「つないでいるソフト」で許してください。");
+            }
+        }
+        else if (!state.AllowWrites)
         {
             throw new QueryException(403, "writesDisabled", "書き込みが許されていません。Chmonos の設定の「API」で書き込みを許してください。");
         }
@@ -71,9 +87,9 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
     /// 入口で1回見るだけだと、見た後に開いた編集画面が古い値を読み、後の保存で API の分を消した（点検37）
     /// </summary>
     /// <param name="checkEditing">編集画面で開いているかも見るか（商品の記録を書くとき。足跡のように商品の記録の外へ書くときは見ない）。</param>
-    public IDisposable GuardItem(HttpContext context, string itemId, bool checkEditing = true)
+    public IDisposable GuardItem(HttpContext context, string itemId, string scope, bool checkEditing = true)
     {
-        Guard(context);
+        Guard(context, scope);
         if (!state.Snapshot.ItemsById.ContainsKey(itemId))
         {
             throw QueryException.NotFound("itemNotFound", $"商品 {itemId} は見つかりません。");

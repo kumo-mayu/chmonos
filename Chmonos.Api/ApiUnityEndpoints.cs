@@ -21,7 +21,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/items/{id}/send-to-unity", async (ApiState state, ApiWriter writer, ChangeFeed feed, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.UnitySendRequest);
-            using var claim = writer.GuardItem(context, id, checkEditing: false);
+            using var claim = writer.GuardItem(context, id, ApiScopes.Unity, checkEditing: false);
             var unity = writer.Unity ?? throw new QueryException(503, "unityUnavailable", "この API は Unity へ送れません。");
             var (started, finished) = unity.Start(state.Snapshot.ItemsById[id], body);
             PublishWhenDone(state, feed, started, finished);
@@ -53,7 +53,7 @@ internal static partial class ApiEndpoints
         // 待ちきれなければ（中身の読み取りやプロジェクトの走査は、始まると最後まで走る）止めると頼んだ時点の状態を 202 で返す
         app.MapPost("/v1/unity/sends/{sendId}/cancel", async (ApiWriter writer, HttpContext context, string sendId) =>
         {
-            writer.Guard(context);
+            writer.Guard(context, ApiScopes.Unity);
             var unity = writer.Unity ?? throw new QueryException(503, "unityUnavailable", "この API は Unity へ送れません。");
             var (current, finished) = unity.Cancel(sendId);
             if (await Task.WhenAny(finished, Task.Delay(CancelWait, context.RequestAborted)) == finished && finished.IsCompletedSuccessfully)
@@ -78,7 +78,7 @@ internal static partial class ApiEndpoints
         app.MapPost("/v1/modifications/{id}/send-to-unity", async (ApiState state, ApiWriter writer, ChangeFeed feed, HttpContext context, string id) =>
         {
             var body = await ReadAsync(context.Request, json.ModificationSendRequest);
-            writer.Guard(context);
+            writer.Guard(context, ApiScopes.Unity);
             var unity = writer.Unity ?? throw new QueryException(503, "unityUnavailable", "この API は Unity へ送れません。");
             var (record, rows) = await PlanAsync(state, id, context.RequestAborted);
             var (started, finished) = unity.StartModification(Resolve(record, rows, body));
