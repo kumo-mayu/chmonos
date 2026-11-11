@@ -174,15 +174,16 @@ public sealed record StatsSnapshot
     /// </summary>
     public required int UnpricedItemCount { get; init; }
 
-    /// <summary>同じ中身を1回だけ数えた容量。「持っているアセットの大きさ」。</summary>
+    /// <summary>同じ中身を1回だけ数えた容量。「持っているアセットの大きさ」。2つ以上の商品に付けたファイルも1回（<see cref="LibrarySizes.Owned"/>）。</summary>
     public required long LogicalBytes { get; init; }
 
-    /// <summary>重複コピーを含む、実際にドライブを占有している量。</summary>
+    /// <summary>重複コピーを含む、実際にドライブを占有している量。同じ場所を2つ以上の商品が持てば1回（<see cref="LibrarySizes.OnDisk"/>）。</summary>
     public required long PhysicalBytes { get; init; }
 
     /// <summary>
     /// うち重複コピーの分（在る記録の、2つ目からの場所）。前は <see cref="PhysicalBytes"/> と <see cref="LogicalBytes"/> の差だったが、
     /// 実占有が見つからない物を数えなくなった（点検の7）ので、差では見つからない分だけ小さく（負にも）なる。
+    /// 商品をまたいだ別の場所の写しも数える（2026-11-11。前は1商品の中だけ。<see cref="LibrarySizes.DuplicateOnDisk"/>）。
     /// </summary>
     public long DuplicateBytes { get; init; }
 
@@ -191,7 +192,7 @@ public sealed record StatsSnapshot
     ///
     /// **合計だけでは触る場所が分からない。**<see cref="DuplicateBytes"/> は
     /// 「どれだけ重複しているか」しか言えず、
-    /// しかも1商品の中しか見ていないので商品またぎを取り逃していた。
+    /// しかも前は1商品の中しか見ていないので商品またぎを取り逃していた（2026-11-11 からは数える）。
     /// </summary>
     public IReadOnlyList<DuplicateGroup> Duplicates { get; init; } = [];
 
@@ -368,9 +369,6 @@ public sealed class StatsService : IStatsService
         var gifted = 0;
         var free = 0;
         var unpriced = 0;
-        var logical = 0L;
-        var physical = 0L;
-        var duplicate = 0L;
         var undatedSpent = 0L;
         var undated = 0;
         var fallbackDated = 0;
@@ -379,7 +377,7 @@ public sealed class StatsService : IStatsService
         var months = new Dictionary<string, (long Spent, int Count)>(StringComparer.Ordinal);
         var years = new Dictionary<string, (long Spent, int Count)>(StringComparer.Ordinal);
         var shops = new Dictionary<string, (string Name, long Spent, int Count)>(StringComparer.OrdinalIgnoreCase);
-        var categories = new Dictionary<string, (long Bytes, int Count)>(StringComparer.CurrentCulture);
+        var categories = new Dictionary<string, List<ItemRecord>>(StringComparer.CurrentCulture);
         var avatars = new Dictionary<string, int>(StringComparer.Ordinal);
 
         // 素体経由の展開は相性の索引に任せる（検索・商品ページと同じ規則で数えるため）
@@ -399,10 +397,7 @@ public sealed class StatsService : IStatsService
                 unpriced++;
             }
 
-            var itemPhysical = PhysicalSizeOf(item);
-            logical += LogicalSizeOf(item);
-            physical += itemPhysical;
-            duplicate += item.DuplicateDiskBytes;
+            // 容量の合計はループの外で LibrarySizes がまとめて出す（1つのファイルを2つの商品に付けられるので、商品ごとの値を足すと二重に数える・2026-11-11）
 
             // 支出は購入1件ごとに、その購入の日付の月へ入れる（メモ45）。商品の合計を1つの月へ入れると、
             // 後から別の種類を買い足した月に支出が出ない。贈った分は自分用の支出に入れないので、置く月も決めない
@@ -452,8 +447,14 @@ public sealed class StatsService : IStatsService
             var category = string.IsNullOrWhiteSpace(item.CategoryName)
                 ? "カテゴリなし"
                 : item.CategoryName!;
-            var bucket = categories.TryGetValue(category, out var size) ? size : (Bytes: 0L, Count: 0);
-            categories[category] = (bucket.Bytes + itemPhysical, bucket.Count + 1);
+            // 棒の大きさは、カテゴリに入る商品をまとめて数える（同じカテゴリの2つの商品に付けたファイルを2回数えない）
+            if (!categories.TryGetValue(category, out var members))
+            {
+                members = [];
+                categories[category] = members;
+            }
+
+            members.Add(item);
 
             CountAvatars(item, compatibility, avatars, ref withoutAvatar);
         }
@@ -470,9 +471,9 @@ public sealed class StatsService : IStatsService
             GivenSpentYen = items.Sum(Purchases.GivenSpendOf),
             FreeCount = free,
             UnpricedItemCount = unpriced,
-            LogicalBytes = logical,
-            PhysicalBytes = physical,
-            DuplicateBytes = duplicate,
+            LogicalBytes = LibrarySizes.Owned(owned),
+            PhysicalBytes = LibrarySizes.OnDisk(owned),
+            DuplicateBytes = LibrarySizes.DuplicateOnDisk(owned),
 
             // 所持しているものだけを見る。手元に無いものは容量を食っていない
             Duplicates = DuplicateFinder.Find(owned),
@@ -494,13 +495,14 @@ public sealed class StatsService : IStatsService
                 })
                 .ToList(),
             Categories = categories
-                .OrderByDescending(pair => pair.Value.Bytes)
+                .Select(pair => (pair.Key, Bytes: LibrarySizes.OnDisk(pair.Value), pair.Value.Count))
+                .OrderByDescending(pair => pair.Bytes)
                 .Select(pair => new StatsSizeBar
                 {
                     Key = pair.Key,
                     Label = pair.Key,
-                    Bytes = pair.Value.Bytes,
-                    ItemCount = pair.Value.Count,
+                    Bytes = pair.Bytes,
+                    ItemCount = pair.Count,
                 })
                 .ToList(),
             Avatars = avatarBars,
@@ -665,17 +667,4 @@ public sealed class StatsService : IStatsService
 
     private static bool IsOwned(ItemRecord item)
         => item.IsOwned;
-
-    /// <summary>同じ中身を1回だけ数えた大きさ。商品ページに出している容量と同じ求め方。</summary>
-    private static long LogicalSizeOf(ItemRecord item)
-        => item.Local.OwnedFiles
-            .DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase)
-            .Sum(file => file.SizeBytes)
-            + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
-
-    /// <summary>
-    /// ドライブが実際に食われている量。同じ中身を2箇所に置いていれば2回分数える。
-    /// 「どれだけ空けられるか」を知りたい時に要るのはこちら。在る場所だけを数える（<see cref="ItemRecord.ActualDiskBytes"/>・点検の7）。
-    /// </summary>
-    private static long PhysicalSizeOf(ItemRecord item) => item.ActualDiskBytes;
 }

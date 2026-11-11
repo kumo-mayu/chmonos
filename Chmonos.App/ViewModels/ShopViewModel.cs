@@ -984,7 +984,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         RunOnUiThread(() =>
         {
             _excluded = excluded;
-            _totalBytes = entries.Sum(entry => entry.SizeBytes);
+            // 合計は同じ中身を1回だけ数える（このショップの2つの商品に付けたファイルを2回数えない・2026-11-11 plan 27）。カードの値は商品ごとのまま
+            _totalBytes = Core.Services.LibrarySizes.Owned(entries.Select(entry => entry.Item));
 
             _all = entries.Select(entry => new ItemCardViewModel(
                 entry.Item,
