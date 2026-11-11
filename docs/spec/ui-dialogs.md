@@ -8,6 +8,7 @@
 
 - **Esc でどの窓も閉じられる**（D1）。やめる側のボタンに `IsCancel="True"` を付ける。
   ボタンを置かない窓（初回の窓）は code-behind で Esc を受け、×と同じに閉じる。
+  API の許しの窓も code-behind で Esc を受ける（［拒否］に `IsCancel` を付けると Esc でも拒否を押したことになり、止めるまでの回数に数えてしまう。[api-clients.md](api-clients.md)）。
 - **Enter で決められる**（D2）。主のボタンに `IsDefault="True"` を付ける。
   入れる物が足りない窓は、そのボタンの `IsEnabled` を条件に結ぶ（空欄の Enter は何も起こさない）。
 - 例外は**意図を聞く三択**（`ChoiceDialog`）。どちらの意図か分からないから聞いているので、Enter で片方に倒さない。

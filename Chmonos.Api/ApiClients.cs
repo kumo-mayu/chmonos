@@ -519,8 +519,9 @@ internal sealed class ApiClientRequests
                 }
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        catch (Exception exception)
         {
+            // 書けない以外（読み直しの知らせを受けた側の例外など）も受ける。1つでも抜けると窓の流れが終わり、後の求めが全部 pending のまま残る
             Core.Diagnostics.AppLog.Error("外から使う API の、拒否の回数を書く", exception);
         }
     }
