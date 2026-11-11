@@ -568,9 +568,13 @@ public sealed class FilePoolViewModel : ViewModelBase
         RelayCommand.RaiseCanExecuteChanged();
     }
 
+    /// <summary>
+    /// 見えている商品だけを開け閉めする（右の組の「すべて広げる」も見えている組だけ）。探す欄で隠した商品まで変えると、
+    /// 文字を消したときに、触っていない商品の開閉が変わっている
+    /// </summary>
     private void SetAllItemsExpanded(bool expanded)
     {
-        foreach (var row in Items)
+        foreach (var row in ShownItems)
         {
             row.IsExpanded = expanded;
         }

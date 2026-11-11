@@ -322,6 +322,10 @@ public class FilePoolWindowTests
         Assert.Equal([0, 1, 2, 3], pool.ThresholdChoices);
         Assert.Equal(poolBefore, Shown(pool).Select(file => file.Hash));
 
+        // 「すべて畳む」は見えている商品だけ（右の組のボタンと同じ）
+        pool.CollapseAllItemsCommand.Execute(null);
+        Assert.Equal([true, false, true], pool.Items.Select(row => row.IsExpanded));
+
         pool.ItemFilterText = "無い名前";
         Assert.Empty(pool.ShownItems);
         Assert.Equal("当たる商品はありません。探す文字を変えてください。", pool.ItemsEmptyText);
