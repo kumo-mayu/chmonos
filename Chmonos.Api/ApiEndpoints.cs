@@ -269,6 +269,7 @@ internal static partial class ApiEndpoints
 
         MapCurationWrites(app);
         MapDescription(app);
+        MapStored(app);
         MapUnity(app);
 
         app.MapPut("/v1/notifications/{id}/read", async (ApiState state, ApiWriter writer, HttpContext context, string id) =>

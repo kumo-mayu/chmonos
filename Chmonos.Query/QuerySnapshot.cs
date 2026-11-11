@@ -126,6 +126,20 @@ public sealed class QuerySnapshot
         => (SharesItemCache ? SearchText.RememberedFor(item) : null)
            ?? new(field => SearchText.RawValues(field == SearchField.Main ? FullItem(item) : item, field), makeReadings: null) { Item = item };
 
+    /// <summary>保存先（控えのファイルを読むだけに使う。書かない）。</summary>
+    internal DataStore Store => _store;
+
+    private ILookup<string, (ItemRecord Item, LocalFileRecord File)>? _filesByHash;
+
+    /// <summary>
+    /// ハッシュ → それを持つ商品とファイルの行（外した物・古い版も）。控え（<c>unitypackages/</c>・<c>zipimages/</c>）の鍵は zip のハッシュなので、
+    /// 商品へ戻すのに引く。初めて引くときに作り、写しと一緒に捨てる（写しは作った後に変わらない）。
+    /// </summary>
+    internal ILookup<string, (ItemRecord Item, LocalFileRecord File)> FilesByHash
+        => LazyInitializer.EnsureInitialized(ref _filesByHash, () => Items
+            .SelectMany(item => item.Local.LocalFiles.Select(file => (Item: item, File: file)))
+            .ToLookup(pair => pair.File.Hash, StringComparer.OrdinalIgnoreCase));
+
     /// <summary>表示用の説明の HTML（アプリの読み口。無ければ null）。写しには持たず、頼まれたときだけ読む。</summary>
     internal Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken)
         => _store.Items.LoadDescriptionHtmlAsync(itemId, cancellationToken);

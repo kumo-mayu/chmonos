@@ -48,6 +48,7 @@
 | [data-format.md](spec/data-format.md) | 保存データの形式の版（ファイルごと・保存先ごと）、起動したときの確かめ、形式を上げる前の控え、新しい版の確認 |
 | [local-api.md](spec/local-api.md) | 外から使う API：アプリと同じプロセスがローカルの HTTP で答える（設定でオン）、読むだけ、同期・守り・ブラウザから・共通の決まり |
 | [local-api-shapes.md](spec/local-api-shapes.md) | 外から使う API の URL の一覧（広めの案）・商品1件の形・検索の式（AND・OR・NOT）・SSE の出来事 |
+| [local-api-stored.md](spec/local-api-stored.md) | 外から使う API で手元に控えた情報を読む道：unitypackage の中身と GUID の逆引き（持ち方とメモリの計測）ほか、控えごとの URL・形・出す範囲 |
 | [api-clients.md](spec/api-clients.md) | 外から使う API のソフトごとの許し：許しを求める流れ・窓・書き込みの種類・ハッシュの控え（`api-clients.json`）・設定の「つないでいるソフト」・古い `api.json` のトークンの扱い |
 | [running-instances.md](spec/running-instances.md) | 動いている Chmonos の一覧：保存先によらない置き場に1本ごとの札（保存先・ポート・api.json の場所・exe）。トークンは書かない・落ちた残りの片付け・読む側の手引き |
 | [headless.md](spec/headless.md) | 画面を出さずに動かす（--headless）：起動の守り・通知領域のアイコン・窓を開く／閉じる／終える・画面に依存しない係 |

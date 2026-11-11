@@ -50,6 +50,11 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     private ApiClientBook? _clients;
 
+    /// <summary>GUID → unitypackage の控えの表（plan 32）。初めて引くときに作り、控えのフォルダが変わったら作り直す。写しとは別に持つ（控えは見張りの対象ではない）。</summary>
+    public PackageGuidIndex PackageGuids => LazyInitializer.EnsureInitialized(ref _packageGuids, () => new PackageGuidIndex(Paths));
+
+    private PackageGuidIndex? _packageGuids;
+
     public DateTimeOffset LoadedAt { get; private set; }
 
     /// <summary>保存先の形の版（読めた印。印が無ければ 1）。</summary>

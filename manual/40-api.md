@@ -199,6 +199,54 @@ if ($result.state -eq "approved") {
 
 例：`/v1/images/1234567/abcdef.webp?format=png&size=256`
 
+## 手元に控えた情報を読む（次のバージョンから）
+
+Chmonos が取り込みのときに控えた情報を読めます。どれも読むだけなので、許可を求めたツールなら変更の種類を許していなくても使えます。
+
+| URL | 答え |
+|---|---|
+| `GET /v1/items/{id}/unitypackage-assets` | 商品の zip の中の unitypackage ごとの中身（GUID と `Assets/…` のパス）。まだ読んでいない unitypackage は `assets` が `null` です |
+| `POST /v1/unitypackages/lookup` | GUID（1000件まで）が入っている unitypackage と商品 |
+
+- 中身を控えるのは zip の中の unitypackage だけです。zip に入っていない unitypackage と、登録したフォルダの中の物は出ません。
+- 同じ GUID が複数の商品に入っていれば（同梱のシェーダーなど）、全部を返します。
+
+### Missing になった参照から、入れ直す商品を探す
+
+Unity のプロジェクトのシーンやプレハブが指しているのに、プロジェクトのどこにも無い GUID を集めて、Chmonos に問い合わせる例です。
+
+```powershell
+$api = Get-Content "$env:LOCALAPPDATA\Chmonos\api.json" -Raw | ConvertFrom-Json
+$headers = @{ Authorization = "Bearer $($api.token)" }
+$project = "D:\Unity\MyAvatar"   # Assets フォルダを持つ所
+
+# プロジェクトにある GUID（.meta に書かれた物。パッケージの物も含める）
+$known = @{}
+foreach ($dir in "Assets", "Packages", "Library\PackageCache") {
+    if (-not (Test-Path "$project\$dir")) { continue }
+    Get-ChildItem "$project\$dir" -Recurse -Filter *.meta -File |
+        Select-String -Pattern '^guid: ([0-9a-f]{32})' |
+        ForEach-Object { $known[$_.Matches[0].Groups[1].Value] = $true }
+}
+
+# シーン・プレハブ・マテリアルなどが指している GUID のうち、プロジェクトに無い物（Unity の組み込みの 0000… は除く）
+$missing = Get-ChildItem "$project\Assets" -Recurse -File -Include *.unity, *.prefab, *.mat, *.asset, *.controller, *.anim |
+    Select-String -Pattern 'guid: ([0-9a-f]{32})' -AllMatches |
+    ForEach-Object { $_.Matches | ForEach-Object { $_.Groups[1].Value } } |
+    Where-Object { -not $known.ContainsKey($_) -and -not $_.StartsWith('00000000000000') } |
+    Sort-Object -Unique
+
+if (@($missing).Count -gt 0) {
+    $body = @{ guids = @($missing) } | ConvertTo-Json
+    $answer = Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/unitypackages/lookup" -Method Post -Headers $headers -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
+    $answer.found | Sort-Object itemId, entry -Unique | Format-Table itemName, entry, fileState
+    "見つからなかった GUID：$(@($answer.missing).Count) 件"
+}
+```
+
+- 答えの `zipHash` と `entry` は、そのまま `POST /v1/items/{id}/send-to-unity` に渡せます。
+- `fileState` が `detached`（管理から外した）や `oldVersion`（上書きで残った古い版）の物も返します。入れ直すときは `present` の物を選んでください。
+
 ## 変わったことを知る
 
 - `GET /v1/changes?since=<通番>&epoch=<名前>`：前に見た時点より後に変わったことを返します。通番と名前は `/v1/version` の `sequence`・`epoch` にあります。答えの `reload` が `true` のときは、変わったことを全部は追えていないので、全部を取り直してください。
