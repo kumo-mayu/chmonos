@@ -16,7 +16,10 @@ public partial class PickMemberFilesDialog : Window
         if (repick)
         {
             CommitButton.Content = "変更";
-            ContextText.Text = "「選ばない」にすると、使ったファイルの記録を消します。";
+            // 取り返しがつくかを1行で言う（ui-dialogs.md の D4）。手元に無い記録は、替えると一覧から選び直せない
+            ContextText.Text = model.HasNotice
+                ? "「選ばない」にすると記録を削除します。今の記録は、替えると戻せません。"
+                : "「選ばない」にすると記録を削除します。同じ手順で選び直せます。";
             NoticeText.Text = model.Notice;
             NoticeText.Visibility = model.HasNotice ? Visibility.Visible : Visibility.Collapsed;
         }

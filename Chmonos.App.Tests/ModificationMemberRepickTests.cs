@@ -159,7 +159,7 @@ public class ModificationMemberRepickTests
         var members = await RepickAsync(app, detail, choice => choice.Selected = choice.Options[0]);
 
         Assert.False(Assert.Single(members).HasFile);
-        Assert.Equal("「作り物の衣装」の使ったファイルの記録を消しました。", detail.MembersNotice.Text);
+        Assert.Equal("「作り物の衣装」の使ったファイルの記録を削除しました。", detail.MembersNotice.Text);
         Assert.Equal("どのファイルを使ったかは分かりません", detail.Members[0].SourceText);
     });
 
@@ -202,6 +202,35 @@ public class ModificationMemberRepickTests
         Assert.Equal(2, app.FilePicks.Count);
         Assert.Equal(before, (await app.Services.Modifications.LoadAsync(detail.Record.Id))!.UpdatedAt);
         Assert.Equal(string.Empty, detail.MembersNotice.Text);
+    });
+
+    [Fact]
+    public Task 改変の画面の左の一覧から選び直すと_行の下で言い_右の詳細の行も今の記録になる() => TestApp.Run(async app =>
+    {
+        // 行は中身（ファイルの欄を含む）で指すので、右の詳細が古い行のままだと、そこでの外す・送るが当たらない
+        var detail = await OpenAsync(app, Costumes(Zip(OldZip, "v1"), Zip(NewZip, "v2")), Recorded(OldZip, "v1/Costume.unitypackage"));
+        var hub = new ModificationHubViewModel(app.Services, app.Main, app.Main.Thumbnails, ModificationHubLevel.Modification);
+        await UiThread.Until(() => hub.EmptyText != "読み込んでいます…", "改変の画面の読み込みが済む");
+        hub.ExpandAllCommand.Execute(null);
+        await UiThread.Until(() => hub.Lines.OfType<HubMemberLine>().Any(), "使ったものの行が並ぶ");
+        hub.ShowModificationCommand.Execute(detail.Record);
+        var right = Assert.IsType<ModificationViewModel>(hub.Detail);
+        await UiThread.Until(() => right.Members.Count == 1, "右に使ったものが並ぶ");
+
+        app.PickFiles = model =>
+        {
+            model.Choices[0].Selected = model.Choices[0].Options.Single(option => option.Text == "Costume.unitypackage (costume-v2.zip)");
+            return true;
+        };
+        var row = hub.Lines.OfType<HubMemberLine>().Single().Row;
+        hub.RepickMemberFilesCommand.Execute(row);
+        await UiThread.Until(() => right.Members.Count == 1 && right.Members[0].Member.FileHash == Make.HashOf(NewZip), "右の行が今の記録になる");
+        await app.SettleAsync();
+
+        var line = hub.Lines.OfType<HubMemberLine>().Single().Row;
+        Assert.Equal("Costume.unitypackage (costume-v2.zip)", line.FileText);
+        Assert.Equal("「作り物の衣装」の使ったファイルを変更しました。", line.Notice.Text);
+        Assert.Equal("v2/Costume.unitypackage", Assert.Single((await app.Services.Modifications.LoadAsync(detail.Record.Id))!.Members).Package);
     });
 
     [Fact]

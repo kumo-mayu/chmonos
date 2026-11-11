@@ -335,7 +335,7 @@ public static class MemberFileRepick
         }
 
         return (picked.Count == 0
-            ? $"「{name}」の使ったファイルの記録を消しました。"
+            ? $"「{name}」の使ったファイルの記録を削除しました。"
             : $"「{name}」の使ったファイルを変更しました。", false);
     }
 }

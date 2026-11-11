@@ -95,6 +95,19 @@ public sealed partial class ModificationHubViewModel
         }
 
         await RefreshRecordsAsync();
+
+        // 右に出している物も今の記録に合わせる。行は中身（ファイルの欄を含む）で指すので、古い行のままだと右の外す・送るが当たらない
+        switch (Detail)
+        {
+            case ModificationViewModel modification when modification.Record.Id == row.Record.Id:
+                await modification.NoteChangedOutsideAsync();
+                break;
+            case HubItemDetail shown when shown.Row.Record.Id == row.Record.Id && shown.Row.Index == row.Index
+                && FindRecord(row.Record.Id) is { } owner && row.Index < owner.Members.Count:
+                ShowMember(MemberRow(owner, owner.Members[row.Index], row.Index));
+                break;
+        }
+
         ShowNotice(row.NoticeKey, text, warning: failed);
     }
 }
