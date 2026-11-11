@@ -58,6 +58,11 @@ public sealed record UnityPackageRef(string Entry, IReadOnlyList<string> Roots);
 /// </param>
 /// <param name="Replaced">上書きされた古い版なら、上書きした物の場所と日時。</param>
 /// <param name="UnityPackages">中の <c>.unitypackage</c>。まだ調べていなければ null（空は「調べて、無かった」）。</param>
+/// <param name="RegisteredAt">この商品のファイルとして最初に記録した日時。v1.3.0 より前に記録した物は null（推して埋めない）。</param>
+/// <param name="DownloadSource">
+/// ダウンロード元の記録（Zone.Identifier）から読んだ BOOTH のダウンロード。**null はまだ読んでいない**、
+/// 中の2つが null の物は「読んだが BOOTH の物と分からなかった」（保存の記録の区別をそのまま返す）。
+/// </param>
 /// <param name="Contents">zip の中のファイルの一覧（長くなり得る）。<c>include=contents</c> のときだけ。</param>
 public sealed record FileRef(
     string Hash,
@@ -69,12 +74,20 @@ public sealed record FileRef(
     bool IsArchiveBroken,
     ReplacedRef? Replaced,
     IReadOnlyList<UnityPackageRef>? UnityPackages,
+    DateTimeOffset? RegisteredAt,
+    DownloadSourceRef? DownloadSource,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Contents);
 
 public sealed record ReplacedRef(string Path, DateTimeOffset At);
 
+/// <summary>ファイルを落とした BOOTH のダウンロード（<see cref="FileRef.DownloadSource"/>）。</summary>
+/// <param name="DownloadableId">BOOTH のダウンロードの ID（配布ファイルごとの番号。上げ直すと変わる）。</param>
+/// <param name="ItemUrl">商品ページの URL。</param>
+public sealed record DownloadSourceRef(long? DownloadableId, string? ItemUrl);
+
 /// <summary>商品として登録したフォルダ（zip が無く、展開した物だけが残っている物）。</summary>
-public sealed record FolderRef(string Path, int FileCount, long TotalBytes, DateTimeOffset? MissingSince, IReadOnlyList<string> UnityPackages);
+/// <param name="RegisteredAt">この商品のフォルダとして記録した日時（記録に無ければ null）。</param>
+public sealed record FolderRef(string Path, int FileCount, long TotalBytes, DateTimeOffset? MissingSince, IReadOnlyList<string> UnityPackages, DateTimeOffset? RegisteredAt);
 
 /// <summary>説明文に貼られた動画。題は取ってあれば。</summary>
 public sealed record VideoRef(string Id, string Url, string? Title);

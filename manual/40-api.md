@@ -186,6 +186,8 @@ if ($result.state -eq "approved") {
 
 例：`/v1/items/1234567?include=avatarLinks,images`
 
+（次のバージョンから）ファイルの1件には、Chmonos に最初に記録した日時（`registeredAt`）と、ダウンロード元の記録から読んだ BOOTH のダウンロード（`downloadSource` の `downloadableId`・`itemUrl`）も入ります。古いバージョンで記録したファイルの `registeredAt` は `null` です。`downloadSource` が `null` ならまだ読んでいません。中の2つが `null` なら、読んだけれど BOOTH から落とした物と分かりませんでした。フォルダの1件にも `registeredAt` が入ります。
+
 （v1.2.0 から）`POST /v1/items/batch` の `include` は `["avatarLinks", "images"]` のような配列でも送れます。
 
 ## 画像の形式と大きさ

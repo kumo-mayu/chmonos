@@ -76,8 +76,10 @@ public sealed class ItemAnswerGoldenTests : IDisposable
                         Hash = new string('A', 64), Paths = [@"D:\assets\costume.zip"], SizeBytes = 1000, VariationId = 11,
                         Contents = ["costume/costume.unitypackage", "costume/readme.txt"],
                         UnityPackages = [new UnityPackageSummary { Entry = "costume/costume.unitypackage", Roots = ["Assets/Costume"] }],
+                        RegisteredAt = Jst(2026, 8, 15),
+                        DownloadSource = new DownloadSource { DownloadableId = 5550001, ItemUrl = "https://shop-a.booth.pm/items/9800001" },
                     },
-                    new LocalFileRecord { Hash = new string('B', 64), Paths = [], SizeBytes = 10, MissingSince = Jst(2026, 9, 1) },
+                    new LocalFileRecord { Hash = new string('B', 64), Paths = [], SizeBytes = 10, MissingSince = Jst(2026, 9, 1), DownloadSource = new DownloadSource() },
                     new LocalFileRecord { Hash = new string('C', 64), Paths = [@"D:\assets\extra.zip"], SizeBytes = 20, Detached = true },
                     new LocalFileRecord
                     {
@@ -94,7 +96,10 @@ public sealed class ItemAnswerGoldenTests : IDisposable
         {
             Id = "7000001",
             Booth = new BoothBlock { Name = "作り物のアバター", Shop = new BoothShop { Name = "作り物のショップ", Subdomain = "shop-a" } },
-            Local = new LocalBlock { LocalFolders = [new LocalFolderRecord { Path = @"D:\avatars\a", FileCount = 3, TotalBytes = 300, UnityPackages = ["a.unitypackage"] }] },
+            Local = new LocalBlock
+            {
+                LocalFolders = [new LocalFolderRecord { Path = @"D:\avatars\a", FileCount = 3, TotalBytes = 300, UnityPackages = ["a.unitypackage"], RegisteredAt = Jst(2026, 7, 1) }],
+            },
         });
 
         // BOOTHに無い商品・自分で作ったショップと自分で入れたカテゴリ・ファイルを持たない

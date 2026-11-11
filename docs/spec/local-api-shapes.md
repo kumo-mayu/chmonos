@@ -59,6 +59,7 @@
 - **対応アバター** `compatibleAvatars` は画面の検索と同じ数え方（人が消した紐付けと説明文のリンクを除き、**人が確認していない推定は数える**。`match` は `direct`・`viaBase`）。
   確認済みだけを対応として返すと、検索の答えと食い違う。一覧の要約の `avatarIds` も同じ物。
 - ファイルの `state` は `present`・`missing`（と、頼んだときの `detached`・`oldVersion`）。`unityPackages` が null はまだ調べていない（空は調べて無かった）。中身は送らず場所だけ。
+- ファイルの `registeredAt`（最初に記録した日時。v1.3.0 より前の物は null）・`downloadSource`（null はまだ読んでいない・中が両方 null は読んだが分からなかった）、フォルダの `registeredAt` は 2026-11-11 に足した（plan 32）。zip の中の一覧は `include=contents`。
 - サムネイルは画面のカードと同じ1枚（設定に従う）。画像の `origin` は `booth`・`user`・`orphaned`、`role` は `booth`・`modified`・`other`。
 - 購入の `kind` は `self`・`given`・`received`（保存の JSON の日本語の値ではなく、変えない英字）。
 

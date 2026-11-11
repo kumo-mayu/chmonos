@@ -156,7 +156,7 @@
 
 ## ダウンロード元の記録を行に残す（`downloadSource`・ユーザ判断 2026-11-10・v1.3.0 から）
 
-- ファイルの行（`LocalFiles[]`）に、Zone.Identifier から読んだ **BOOTH のダウンロードの ID** と**商品ページの URL** を残す（`{ "downloadableId": 数字, "itemUrl": "https://booth.pm/ja/items/…" }`）。印は USB・クラウド・NTFS でないドライブへ写す・zip を解くと消えるので、後で「どのバリエーションのファイルか」「上げ直された前か後か」を知りたくなっても作り直せない。画面・API には今は出さない。形式の版は上げない（省略できる欄）。
+- ファイルの行（`LocalFiles[]`）に、Zone.Identifier から読んだ **BOOTH のダウンロードの ID** と**商品ページの URL** を残す（`{ "downloadableId": 数字, "itemUrl": "https://booth.pm/ja/items/…" }`）。印は USB・クラウド・NTFS でないドライブへ写す・zip を解くと消えるので、後で「どのバリエーションのファイルか」「上げ直された前か後か」を知りたくなっても作り直せない。画面には今は出さない。API の商品の答えには `files[].downloadSource` で出す（2026-11-11・plan 32。null はまだ読んでいない、中が両方 null は読んだが分からなかった）。形式の版は上げない（省略できる欄）。
 - 残すのは数字と、正規表現の組から組み直した URL だけ（`DownloadSources`・`BoothUrlExtractor.TryParseDownloadUrl`・`TryNormalizeItemPageUrl`）。署名付きの CDN の URL・クエリ・BOOTH 以外のホストは残さない。Chrome・Edge は商品ページの URL を書かない（ReferrerUrl は `accounts.booth.pm` の頭だけ）ので、CDN の URL の商品 ID から `https://booth.pm/ja/items/{ID}` の形で組む。Brave・エクスプローラーで解いた中身からは何も残らない。
 - **null はまだ読んでいない、`{}` は読んだが BOOTH の物でなかった・印が無かった**（もう読まない）。
 - 書く所：取り込みが行を作る・場所を足すとき（読んだ値）、手で結ぶ・落とす（結ぶ時に読む）、未確定から選ぶ（未確定の記録の `zoneHostUrl`・`zoneReferrerUrl` から。何も無ければ未読のまま）。今ある行が値を持てば保ち（場所の追加・ID の付け替え・まとめ）、未読か `{}` なら今読んだ値を入れる（同じ中身について読んだ事実なので、推した値ではない。`LocalFileMerger`）。今読んだ方が空（印の無い写し）なら未読の行は未読のまま（元のダウンロードの場所を見回りが読めるように）。

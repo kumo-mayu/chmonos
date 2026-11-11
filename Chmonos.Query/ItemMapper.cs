@@ -82,7 +82,9 @@ public static class ItemMapper
                 .Select(file => File(file, includes.HasFlag(ItemIncludes.Contents)))
                 .ToList(),
             Folders = local.LocalFolders.Select(folder => new FolderRef(
-                folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages)).ToList(),
+                folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages,
+                // 手で書いた記録で欄が欠けると既定値（西暦1年）になる。日時として返さず「無い」にする
+                folder.RegisteredAt == default ? null : folder.RegisteredAt)).ToList(),
             Thumbnail = Thumbnail(item, snapshot),
             Videos = (snapshot.Videos.GetValueOrDefault(item.Id) ?? [])
                 .Select(video => new VideoRef(video.VideoId, video.Url, snapshot.VideoTitles.GetValueOrDefault(video.VideoId)))
@@ -147,6 +149,8 @@ public static class ItemMapper
             file.ArchiveBroken,
             file.Replaced is { } replaced ? new ReplacedRef(replaced.Path, replaced.At) : null,
             file.UnityPackages?.Select(package => new UnityPackageRef(package.Entry, package.Roots)).ToList(),
+            file.RegisteredAt,
+            file.DownloadSource is { } source ? new DownloadSourceRef(source.DownloadableId, source.ItemUrl) : null,
             contents ? file.Contents : null);
 
     /// <summary>ファイルの状態（<see cref="FileRef.State"/>）。見つからないの数え方はカードの印と同じ（<see cref="ItemRecord.HasMissingFile"/>）。</summary>

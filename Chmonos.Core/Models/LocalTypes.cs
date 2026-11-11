@@ -327,7 +327,7 @@ public sealed record LocalFileRecord
     /// </summary>
     /// <remarks>
     /// 前は「いつ取り込んだか」が記録に無く、更新の促しは見つけた時に持っていたファイルを控えて代えていた（<see cref="ContentUpdate.FilesBefore"/>）。
-    /// 後で使い道が増えたときに作り直せないので、人の入力の手間が無いこの欄を先に持つ（使い道はまだ決めていない。画面には出さない）。
+    /// 後で使い道が増えたときに作り直せないので、人の入力の手間が無いこの欄を先に持つ（使い道はまだ決めていない。画面には出さない。API の商品の答えには出す：2026-11-11・plan 32）。
     /// 書くのは行が新しくできたとき（取り込み・未確定から選ぶ・手で足す・落とす）だけ。今ある行を書き直す（場所を足す・外す・戻す・測り直す）ときと、
     /// 商品 ID の付け替え・まとめで移すときは元の日時を保つ（<c>LocalFileMerger</c> が今ある行の日時を残す）。
     /// </remarks>
@@ -341,7 +341,7 @@ public sealed record LocalFileRecord
     /// <remarks>
     /// 印は USB・クラウド・NTFS でないドライブへ写したり、zip を解いたりすると消えるので、後で「どのバリエーションのファイルか」
     /// 「BOOTH で上げ直された前か後か」を知りたくなっても作り直せない。読んだ時に残す。署名付きの URL は丸ごと残さない（<see cref="Models.DownloadSource"/>）。
-    /// 今ある行を書き直すとき・ID の付け替えでは元の値を保つ（<c>LocalFileMerger</c>）。画面・API には今は出さない。
+    /// 今ある行を書き直すとき・ID の付け替えでは元の値を保つ（<c>LocalFileMerger</c>）。画面には今は出さない。API の商品の答えには出す（2026-11-11・plan 32）。
     /// </remarks>
     public DownloadSource? DownloadSource { get; init; }
 

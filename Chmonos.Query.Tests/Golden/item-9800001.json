@@ -105,7 +105,12 @@
             "Assets/Costume"
           ]
         }
-      ]
+      ],
+      "registeredAt": "2026-08-15T12:00:00+09:00",
+      "downloadSource": {
+        "downloadableId": 5550001,
+        "itemUrl": "https://shop-a.booth.pm/items/9800001"
+      }
     },
     {
       "hash": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
@@ -116,7 +121,12 @@
       "missingSince": "2026-09-01T12:00:00+09:00",
       "isArchiveBroken": false,
       "replaced": null,
-      "unityPackages": null
+      "unityPackages": null,
+      "registeredAt": null,
+      "downloadSource": {
+        "downloadableId": null,
+        "itemUrl": null
+      }
     }
   ],
   "folders": [],
