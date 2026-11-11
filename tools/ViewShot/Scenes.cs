@@ -68,6 +68,7 @@ internal static partial class Scenes
         .. Parts,
         .. CatalogScenes,
         .. ShowcaseScenes,
+        .. FilePoolScenes,
     ];
 
     public static Scene Find(string name)
