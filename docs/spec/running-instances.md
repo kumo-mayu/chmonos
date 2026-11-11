@@ -1,6 +1,6 @@
 # 動いている Chmonos の一覧
 
-> **要点**：動いている Chmonos は、保存先によらない決まった場所（`%LOCALAPPDATA%\Chmonos-running\`）に、1本ごとに `<プロセスの番号>.json` の札を書く（2026-11-11。plan 33）。
+> **要点**：動いている Chmonos は、保存先によらない決まった場所（`%LOCALAPPDATA%\Chmonos.Shared\running\`）に、1本ごとに `<プロセスの番号>.json` の札を書く（2026-11-11。plan 33）。
 > 外の道具は、ここを読めば、どの保存先のアプリが動いていて、どの `api.json` を読めばよいかが分かる。**トークンは書かない**（場所だけを指す）。
 > API の決め事は [local-api.md](local-api.md)、画面を出さない起動は [headless.md](headless.md)。
 
@@ -11,11 +11,12 @@
 
 ## 置き場（2026-11-11 に決めた）
 
-- `%LOCALAPPDATA%\Chmonos-running\`。`%LOCALAPPDATA%\Chmonos\running\` の案は退けた：
+- `%LOCALAPPDATA%\Chmonos.Shared\running\`。BOOTH の門（`booth-gate.txt`。[background-and-network.md](background-and-network.md)）と同じ「保存先によらない、PC で1つ」の置き場に揃えた（ユーザ判断 2026-11-11。初めは隣に `Chmonos-running` を作っていたが、門の置き場を見落としていただけで、分ける理由は無かった）。門のファイルとは `running` のフォルダで分ける。
+- `%LOCALAPPDATA%\Chmonos\running\` の案は退けた：
   - `location.json` の無い人では、`%LOCALAPPDATA%\Chmonos` が保存先そのもの（`StoreRootSource.Default`）。その下に置くと、
     引越し（`StoreMover`。元の中身を全部運んでから消す）・置き換え（中身を `_置き換え前-…` へ退ける）・戻す先の「空か」の確かめ（`StoreLocation.IsEmpty`）が、
-    ほかのアプリ（写しで開いた物）の札まで運ぶ・消す・「空でない」で断る。除く名前を各所に足すより、どの保存先にもならない隣のフォルダの方が漏れが無い。
-  - 本番の決まり（CLAUDE.md の3・`.claude/guard.json`）が守るのは `location.json` と普段の保存先で、隣のフォルダはどちらにも当たらない。`location.json` は読みも書きもしない。
+    ほかのアプリ（写しで開いた物）の札まで運ぶ・消す・「空でない」で断る。除く名前を各所に足すより、どの保存先にもならないフォルダの方が漏れが無い。
+  - 本番の決まり（CLAUDE.md の3・`.claude/guard.json`）が守るのは `location.json` と普段の保存先で、`Chmonos.Shared` はどちらにも当たらない。`location.json` は読みも書きもしない。
   - `%TEMP%` は、Windows の掃除（ストレージ センサー）が動いているアプリの札まで消し得るので使わない。
 - **写しの保存先で起動したアプリ（`CHMONOS_HOME`・`CHMONOS_DEFAULT_HOME`）も同じ場所に書く**。読む側は保存先で見分ける。
 - 置き場を差し替える環境変数は `CHMONOS_RUNNING_DIR`（試験・確かめの道具）。
@@ -53,7 +54,7 @@
 
 ## 読む側の手引き
 
-1. `%LOCALAPPDATA%\Chmonos-running\*.json` を全部読む（名前が数字でない・読めないファイルは飛ばす）。
+1. `%LOCALAPPDATA%\Chmonos.Shared\running\*.json` を全部読む（名前が数字でない・読めないファイルは飛ばす）。
 2. 生きているかを確かめる：`processId` のプロセスがあり、その始まりの時刻が `startedAt` と1秒以内なら動いている。そうでなければ落ちた残り（無視する。消すのは Chmonos に任せてよい）。
 3. 保存先（`storeRoot`）で選ぶ。確かめ用の写しも並ぶので、決め打ちせず使う人に選ばせるか、保存先を設定で持つ。
 4. `port` が `null` なら API はオフ（設定の「API」で「APIを使う」をオンにしてもらう）。

@@ -51,7 +51,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 
 ### 動いている Chmonos を探す（次のバージョンから）
 
-保存先を変えている人や、Chmonos を2つ以上動かしている人に向けたツールでは、`api.json` の場所を決め打ちせずに探せます。動いている Chmonos は、それぞれ `%LOCALAPPDATA%\Chmonos-running\` に `<プロセスの番号>.json` を置きます。
+保存先を変えている人や、Chmonos を2つ以上動かしている人に向けたツールでは、`api.json` の場所を決め打ちせずに探せます。動いている Chmonos は、それぞれ `%LOCALAPPDATA%\Chmonos.Shared\running\` に `<プロセスの番号>.json` を置きます。
 
 ```json
 {
@@ -72,7 +72,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 - 2つ以上あるときは `storeRoot` で選びます。
 
 ```powershell
-$running = Get-ChildItem "$env:LOCALAPPDATA\Chmonos-running\*.json" | ForEach-Object { Get-Content $_ -Raw | ConvertFrom-Json } |
+$running = Get-ChildItem "$env:LOCALAPPDATA\Chmonos.Shared\running\*.json" | ForEach-Object { Get-Content $_ -Raw | ConvertFrom-Json } |
   Where-Object {
     $p = Get-Process -Id $_.processId -ErrorAction SilentlyContinue
     $p -and [math]::Abs(($p.StartTime - ([datetimeoffset]$_.startedAt).LocalDateTime).TotalSeconds) -le 1

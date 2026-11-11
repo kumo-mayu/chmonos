@@ -135,6 +135,6 @@
       - 未確定の自動検索の控え
     - 使い道の例：Missing の GUID から、入れ直す商品を引く。
     - 商品の答えに、zip の中の一覧・ダウンロード元・登録した日時が出ているかを確かめる [要確認]
-33. 済み（2026-11-11）：動いている Chmonos の一覧を `%LOCALAPPDATA%\Chmonos-running\<プロセスの番号>.json` に出す（保存先・ポート・`api.json` の場所・exe・版・始めた時刻・画面の有無。トークンは書かない）。
+33. 済み（2026-11-11）：動いている Chmonos の一覧を `%LOCALAPPDATA%\Chmonos.Shared\running\<プロセスの番号>.json` に出す（BOOTH の門と同じ置き場。初めの `Chmonos-running` から 2026-11-11 に移した。保存先・ポート・`api.json` の場所・exe・版・始めた時刻・画面の有無。トークンは書かない）。
     API を開いた・閉じた・ポートを変えたら書き直し、正しく閉じたら消し、落ちた残りは次の起動が片付ける。`%LOCALAPPDATA%\Chmonos` の下にしなかった理由と読む側の手引きは `docs/spec/running-instances.md`。
     31 の流れ（許しを求める先のポート）の入口にもなる。

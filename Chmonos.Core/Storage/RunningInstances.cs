@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 namespace Chmonos.Core.Storage;
 
 /// <summary>
-/// 動いている Chmonos の1本（<c>%LOCALAPPDATA%\Chmonos-running\&lt;プロセスの番号&gt;.json</c>。docs/spec/running-instances.md）。
+/// 動いている Chmonos の1本（<c>%LOCALAPPDATA%\Chmonos.Shared\running\&lt;プロセスの番号&gt;.json</c>。docs/spec/running-instances.md）。
 /// 外の道具が、どの保存先のアプリが動いていて、どの <c>api.json</c> を読めばよいかを知るための札。**トークンは書かない**（場所だけを指す）。
 /// </summary>
 public sealed record RunningInstanceRecord
@@ -41,17 +41,23 @@ public sealed record RunningInstanceRecord
 /// <summary>
 /// 動いている Chmonos の一覧の置き場（保存先によらない決まった場所）。1本ごとに1ファイル。
 ///
-/// 置き場は <c>%LOCALAPPDATA%\Chmonos-running</c>。<c>%LOCALAPPDATA%\Chmonos</c>（<c>location.json</c> の置き場）の下にしないのは、
+/// 置き場は <c>%LOCALAPPDATA%\Chmonos.Shared\running</c>。BOOTH の門（<c>Booth.BoothMachineGate</c>）と同じ「保存先によらない、PC で1つ」の置き場に揃える
+/// （ユーザ判断 2026-11-11。前は隣に <c>Chmonos-running</c> を作っていたが、同じ役目のフォルダが2つになるだけだった）。
+/// <c>%LOCALAPPDATA%\Chmonos</c>（<c>location.json</c> の置き場）の下にしないのは、
 /// location.json の無い人ではそこが保存先そのものだから：引越しは元の中身を全部運んでから消し、置き換え・戻すは中身を退け、
 /// 戻す先は空であることを求める（<see cref="StoreMover"/>・<see cref="BackupArchive"/>・<see cref="StoreLocation.IsEmpty"/>）。
-/// 下に置くと、ほかのアプリ（写しで開いた物）の札まで運ぶ・消す・「空でない」で断ることになる。隣のフォルダならどの保存先にもならない
+/// 下に置くと、ほかのアプリ（写しで開いた物）の札まで運ぶ・消す・「空でない」で断ることになる。
+/// 門のファイル（開いたまま錠で握る）とは <c>running</c> のフォルダで分ける
 /// </summary>
 public static class RunningInstances
 {
     /// <summary>置き場を差し替える環境変数（試験・確かめの道具）。</summary>
     public const string DirectoryVariable = "CHMONOS_RUNNING_DIR";
 
-    public const string FolderName = "Chmonos-running";
+    /// <summary>PC で1つの置き場（BOOTH の門と同じ親）。</summary>
+    public const string SharedFolderName = "Chmonos.Shared";
+
+    public const string FolderName = "running";
 
     /// <summary>
     /// 札を書く置き場。環境変数があればそこ。無ければ、アプリ本体として起動したときだけ本物の場所（写しの保存先で開いた確かめのアプリも並ぶ）。
@@ -62,7 +68,7 @@ public static class RunningInstances
         => Environment.GetEnvironmentVariable(DirectoryVariable) is { } value && !string.IsNullOrWhiteSpace(value)
             ? Path.GetFullPath(value.Trim())
             : StoreLocation.AllowsUserStore
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), FolderName)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), SharedFolderName, FolderName)
                 : null;
 
     /// <summary>
