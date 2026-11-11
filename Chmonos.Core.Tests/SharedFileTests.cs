@@ -230,10 +230,10 @@ public sealed class SharedFileTests : IDisposable
 
     /// <summary>
     /// 見つからないファイルの掃除は、ファイルが無いという全体の事実で決まるので、持つ商品の両方から記録を消す。
-    /// 窓の数は商品ごとの記録の数（同じファイルでも2件）。
+    /// 窓の件数はファイルの数（同じハッシュは2つの商品が持っていても1件。ユーザ判断 2026-11-11）。
     /// </summary>
     [Fact]
-    public async Task 見つからない記録の掃除は持つ商品の両方から消す()
+    public async Task 見つからない記録の掃除は持つ商品の両方から消し_同じファイルは1件と数える()
     {
         var gone = Path.Combine(_root, "消えた", "作り物_セット.zip");
         LocalFileRecord Missing() => new() { Hash = "H-SHARED", Paths = [gone], SizeBytes = 3, MissingSince = DateTimeOffset.Now.AddDays(-1) };
@@ -241,11 +241,35 @@ public sealed class SharedFileTests : IDisposable
         await SaveItemAsync(PartId, Missing());
 
         var cleaner = new MissingRecordCleaner(_store);
-        var done = await cleaner.ForgetAsync(await cleaner.PlanAsync());
+        var plan = await cleaner.PlanAsync();
+        var done = await cleaner.ForgetAsync(plan);
 
-        Assert.Equal(new MissingRecordCleanup(Items: 2, Files: 2, Folders: 0, Unowned: 2), done);
+        Assert.Equal(new MissingRecordCleanup(Items: 2, Files: 1, Folders: 0, Unowned: 2), plan.Counts);
+        Assert.Equal(new MissingRecordCleanup(Items: 2, Files: 1, Folders: 0, Unowned: 2), done);
         Assert.Empty((await LocalOfAsync(SetId)).LocalFiles);
         Assert.Empty((await LocalOfAsync(PartId)).LocalFiles);
+    }
+
+    /// <summary>別々のファイルなら、2つの商品で2件と数える（同じハッシュだけを1件にまとめる）。</summary>
+    [Fact]
+    public async Task 見つからない記録の掃除は別々のファイルなら2件と数える()
+    {
+        LocalFileRecord Missing(string hash, string name) => new()
+        {
+            Hash = hash,
+            Paths = [Path.Combine(_root, "消えた", name)],
+            SizeBytes = 3,
+            MissingSince = DateTimeOffset.Now.AddDays(-1),
+        };
+        await SaveItemAsync(SetId, Missing("H-SET", "作り物_セット.zip"));
+        await SaveItemAsync(PartId, Missing("H-PART", "作り物_単品.zip"));
+
+        var cleaner = new MissingRecordCleaner(_store);
+        var plan = await cleaner.PlanAsync();
+        var done = await cleaner.ForgetAsync(plan);
+
+        Assert.Equal(new MissingRecordCleanup(Items: 2, Files: 2, Folders: 0, Unowned: 2), plan.Counts);
+        Assert.Equal(new MissingRecordCleanup(Items: 2, Files: 2, Folders: 0, Unowned: 2), done);
     }
 
     [Fact]

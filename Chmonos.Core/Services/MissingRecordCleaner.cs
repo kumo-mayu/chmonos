@@ -5,7 +5,10 @@ namespace Chmonos.Core.Services;
 
 /// <summary>見つからない記録を消した（消す）数。</summary>
 /// <param name="Items">記録を消した商品の数。</param>
-/// <param name="Files">消したファイルの記録の数。</param>
+/// <param name="Files">
+/// 消したファイルの数（同じハッシュは1件）。1つのファイルを2つ以上の商品が持てる（ユーザ判断 2026-11-11）ので、
+/// 商品ごとの記録の数で数えると、窓が同じファイルを2件と言ってしまう。
+/// </param>
 /// <param name="Folders">消したフォルダの記録の数。</param>
 /// <param name="Unowned">消した後に手元のファイルが無くなる（未所持になる）商品の数。</param>
 /// <param name="Failed">書けずに消せなかった商品の数（消す時だけ）。</param>
@@ -48,7 +51,8 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
             {
                 var probe = _newProbe();
                 var targets = new Dictionary<string, MissingRecordTargets>(StringComparer.Ordinal);
-                int files = 0, folders = 0, unowned = 0;
+                var hashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                int folders = 0, unowned = 0;
                 foreach (var item in load.Items.Where(item => item.HasMissingFile))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -59,12 +63,12 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
                     }
 
                     targets[item.Id] = found;
-                    files += found.Hashes.Count;
+                    hashes.UnionWith(found.Hashes);
                     folders += found.Folders.Count;
                     unowned += item.Local.IsOwned && !Strip(item.Local, found)!.IsOwned ? 1 : 0;
                 }
 
-                return new MissingRecordPlan(new MissingRecordCleanup(targets.Count, files, folders, unowned), targets);
+                return new MissingRecordPlan(new MissingRecordCleanup(targets.Count, hashes.Count, folders, unowned), targets);
             },
             cancellationToken);
     }
@@ -80,7 +84,8 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
     {
         var probe = _newProbe();
         var forgottenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        int items = 0, files = 0, folders = 0, unowned = 0, failed = 0;
+        var forgottenHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int items = 0, folders = 0, unowned = 0, failed = 0;
         foreach (var (itemId, planned) in plan.Targets)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -127,7 +132,7 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
                 var removedFiles = before.LocalFiles.Where(file => !after.LocalFiles.Contains(file)).ToList();
                 var removedFolders = before.LocalFolders.Where(folder => !after.LocalFolders.Contains(folder)).ToList();
                 items++;
-                files += removedFiles.Count;
+                forgottenHashes.UnionWith(removedFiles.Select(file => file.Hash));
                 folders += removedFolders.Count;
                 unowned += before.IsOwned && !after.IsOwned ? 1 : 0;
                 forgottenPaths.UnionWith(removedFiles.SelectMany(file => file.Paths));
@@ -154,7 +159,7 @@ public sealed class MissingRecordCleaner(DataStore store, Func<FilePresenceProbe
             }
         }
 
-        return new MissingRecordCleanup(items, files, folders, unowned, failed);
+        return new MissingRecordCleanup(items, forgottenHashes.Count, folders, unowned, failed);
     }
 
     /// <summary>「無い」と確かめられた、消してよい記録（ディスクを見る。錠の外で呼ぶ）。</summary>
