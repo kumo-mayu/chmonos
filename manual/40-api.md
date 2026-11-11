@@ -82,6 +82,45 @@ $api = Get-Content $one.apiFile -Raw | ConvertFrom-Json
 Invoke-RestMethod "http://127.0.0.1:$($one.port)/v1/version" -Headers @{ Authorization = "Bearer $($api.token)" }
 ```
 
+### ソフトごとに許可を求める（次のバージョンから）
+
+ツールが `api.json` を読まずに、自分だけのトークンを受け取る方法です。ツールが許可を求めると、Chmonos の画面に「APIの利用の許可」の窓が開き、使う人が［許可］か［拒否］を選びます。許可したときだけ、そのツールにトークンを1回だけ返します。
+
+1. `POST /v1/clients/request` に、ツールの名前と、変えたいデータの種類を送ります（トークンは要りません）。答えの `requestId` を覚えておきます。
+2. `POST /v1/clients/request/result` に `requestId` を送り、結果を受け取ります。`wait` に秒（30まで）を書くと、決まるまでその秒数だけ待ちます。`state` が `pending` の間は送り直します。
+3. `state` が `approved` なら `token` がトークンです。この答えは1回だけで、次からは `delivered`（トークンなし）になります。なくしたときは、もう一度許可を求めます。`denied` なら拒否されました。
+
+```powershell
+$base = "http://127.0.0.1:39847"
+$ask = Invoke-RestMethod "$base/v1/clients/request" -Method Post -ContentType "application/json" `
+  -Body (@{ name = "My Organizer"; scopes = @("marks", "tags") } | ConvertTo-Json)
+do {
+  $result = Invoke-RestMethod "$base/v1/clients/request/result" -Method Post -ContentType "application/json" `
+    -Body (@{ requestId = $ask.requestId; wait = 25 } | ConvertTo-Json)
+} while ($result.state -eq "pending")
+if ($result.state -eq "approved") {
+  Invoke-RestMethod "$base/v1/clients/me" -Headers @{ Authorization = "Bearer $($result.token)" }
+}
+```
+
+- データを読むのは、許可されたツールならいつでもできます。`scopes` は変えたいデータの種類で、窓で使う人が外すこともあります。何が許されたかは `GET /v1/clients/me` で分かります。
+
+  | 名前 | 変えられるもの |
+  |---|---|
+  | `marks` | お気に入り・非表示 |
+  | `recent` | 「使った」の記録 |
+  | `notifications` | 通知の既読・解消 |
+  | `tags` | ユーザータグ・属性・メモ |
+  | `avatars` | 対応アバター・共通素体 |
+  | `modifications` | 改変 |
+  | `unity` | Unity へ送る・止める |
+  | `open` | Chmonos の画面で表示する・エクスプローラで開く |
+
+- 許可したツールは、設定の「API」の「つないでいるソフト」に並びます。変えられる種類を後から変えたり、許可を取り消したりできます。
+- Chmonos のウィンドウを開いていないとき（`--headless` で動かしているとき）は、すぐに断ります（`503`・`approvalUnavailable`）。ウィンドウを開いてから、もう一度求めてください。
+- Web ページから求めるときは、そのページのオリジンを「許可するオリジン」に追加しておきます。
+- 今までの `api.json` のトークンも、これまでどおり使えます。
+
 ## 主な URL
 
 すべての URL と答えの形は仕様書 `/v1/openapi.json`（OpenAPI）にあります。多くの言語でここから問い合わせのコードを作れます。
@@ -173,6 +212,8 @@ Invoke-RestMethod "http://127.0.0.1:$($one.port)/v1/version" -Headers @{ Authori
 
 （v1.2.0 から）設定の「API」の「ほかのアプリからの変更を許す」をオンにすると、API からデータを変えられます。はじめはオフです。トークンは読むときと同じです。
 
+（次のバージョンから）この設定は「api.jsonのトークンからの変更を許す」になり、`api.json` のトークンにだけ効きます。[ソフトごとに許可を求めた](#ソフトごとに許可を求める次のバージョンから)ツールは、許可された種類だけを変えられます（この設定には左右されません）。
+
 | すること | URL | 送る物 |
 |---|---|---|
 | お気に入りにする・外す | `PUT /v1/items/{商品ID}/favorite` | `{"value": true}` |
@@ -219,7 +260,9 @@ Invoke-RestMethod "http://127.0.0.1:$($one.port)/v1/version" -Headers @{ Authori
 | 「ポート … で待ち受けられませんでした。」 | ほかのアプリがそのポートを使っています。設定の「API」でポートを変えてください。 |
 | `--headless` で起動しても何も起きない | 同じデータで Chmonos が既に動いています。通知領域のアイコンを確かめてください。 |
 | `401`（`unauthorized`） | トークンが違います。`api.json` の `token` を送ってください。作り直した後は新しいトークンに替えてください。 |
-| `403`（`writesDisabled`） | 設定の「API」で「ほかのアプリからの変更を許す」をオンにしてください。 |
+| `403`（`writesDisabled`） | 設定の「API」で「ほかのアプリからの変更を許す」（次のバージョンから「api.jsonのトークンからの変更を許す」）をオンにしてください。 |
+| `403`（`scopeNotGranted`）（次のバージョンから） | そのツールには、その種類の変更が許されていません。設定の「API」の「つないでいるソフト」でチェックを入れてください。 |
+| `503`（`approvalUnavailable`）（次のバージョンから） | Chmonos のウィンドウを開いてから、もう一度許可を求めてください。 |
 | `409`（`itemBeingEdited`） | Chmonos の編集画面でその商品を開いています。編集を終えてから送ってください。 |
 | `503`（`storeBusy`） | データの保存先を移している途中です。少し待ってから送ってください。 |
 | `403`（`originNotAllowed`） | そのページのオリジンを設定の「API」の「許可するオリジン」に追加してください。 |

@@ -99,11 +99,32 @@ internal static partial class Scenes
         });
 
     private static Scene SettingsApi()
-        => new("settings-api", "設定の「API」：開いた形（許可するオリジン2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
+        => new("settings-api", "設定の「API」：開いた形（つないでいるソフト2つ・許可するオリジン2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
         {
             Chmonos.Core.Storage.JsonStore.Write(
                 context.Seed.Paths.ApiSettingsFile,
                 new Chmonos.Core.Models.ApiSettings { AllowedOrigins = ["http://localhost:5173", "https://example.test"] });
+
+            // つないでいるソフト（plan 31）：使ったことのある道具と、ブラウザのページ（exe を確かめられなかった・長いパス）
+            Chmonos.Core.Storage.JsonStore.Write(
+                context.Seed.Paths.ApiClientsFile,
+                new Chmonos.Core.Models.ApiClientList
+                {
+                    Clients =
+                    [
+                        new Chmonos.Core.Models.ApiClientRecord
+                        {
+                            Id = "a1", Name = "作り物の整理ツール", ExePath = @"C:\Tools\SampleOrganizer\SampleOrganizer.exe",
+                            Scopes = [Chmonos.Core.Models.ApiScopes.Marks, Chmonos.Core.Models.ApiScopes.Tags],
+                            TokenHash = new string('0', 64), GrantedAt = DateTimeOffset.Now.AddDays(-3), LastUsedAt = DateTimeOffset.Now.AddHours(-2),
+                        },
+                        new Chmonos.Core.Models.ApiClientRecord
+                        {
+                            Id = "b2", Name = "作り物のWebページ", Origin = "http://localhost:5173",
+                            TokenHash = new string('1', 64), GrantedAt = DateTimeOffset.Now.AddDays(-1),
+                        },
+                    ],
+                });
             var main = await context.StartAsync();
             main.ShowSettings();
             var settings = context.Screen<SettingsViewModel>();

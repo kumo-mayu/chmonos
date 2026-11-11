@@ -1158,11 +1158,14 @@
                             <CheckBox Content="APIを使う" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.ApiEnabled"
                                       IsChecked="{Binding ApiEnabled, Mode=TwoWay}" />
-                            <!-- 書き込み（タグ・お気に入り・Unity へ送る など）は別に許す。既定はオフ（docs/history/headless-core-2026-10-13.md 段3） -->
-                            <CheckBox Content="ほかのアプリからの変更を許す" Style="{StaticResource SettingCheck}" Margin="0,4,0,0"
+                            <!--
+                                書き込み（タグ・お気に入り・Unity へ送る など）は別に許す。既定はオフ（docs/history/headless-core-2026-10-13.md 段3）。
+                                2026-11-11 からは api.json のトークン（古い1本）にだけ効く。ソフトごとのトークンは下の「つないでいるソフト」で許す（plan 31）
+                            -->
+                            <CheckBox Content="api.jsonのトークンからの変更を許す" Style="{StaticResource SettingCheck}" Margin="0,4,0,0"
                                       AutomationProperties.AutomationId="Settings.ApiAllowWrites"
                                       IsChecked="{Binding ApiAllowWrites, Mode=TwoWay}"
-                                      ToolTip="お気に入りやタグの変更を、API から受け付けます。" />
+                                      ToolTip="ソフトごとの許可は「つないでいるソフト」で選びます。" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
                                 <TextBlock Text="状態" Style="{StaticResource RowLabel}" Width="220" />
                                 <TextBlock Text="{Binding ApiStatusText}" Style="{StaticResource RowLabel}" TextWrapping="Wrap" MaxWidth="560"
@@ -1201,6 +1204,58 @@
                                       Margin="0,6,0,0"
                                       AutomationProperties.AutomationId="Settings.ApiImportOnHeadlessLaunch"
                                       IsChecked="{Binding ApiImportOnHeadlessLaunch, Mode=TwoWay}" />
+
+                            <!--
+                                つないでいるソフト（plan 31）。許しを求めて人が許したソフトの一覧。ソフトごとに書き込みの種類を変える・取り消す・最後に使った日時を見る。
+                                読み取りはどのソフトもできるので、チェックは書き込みの種類だけ
+                            -->
+                            <TextBlock Text="つないでいるソフト" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Text="APIの利用を許可したソフトです。データの読み取りはどのソフトもできます。チェックした変更だけを許可します。" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       AutomationProperties.AutomationId="Settings.ApiClientsEmpty"
+                                       Text="許可したソフトはありません。ソフトが許可を求めると、確かめる窓が開きます。"
+                                       Visibility="{Binding HasApiClients, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                            <ItemsControl ItemsSource="{Binding ApiClients}" Margin="0,0,0,6">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ApiClientRow}">
+                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Text}" />
+                                                    <TextBlock Text="{Binding WhereText}" Style="{StaticResource Mono}" FontSize="11.5" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                                    <TextBlock Text="{Binding LastUsedText}" Style="{StaticResource Caption}" Margin="0,3,0,6" />
+                                                    <ItemsControl ItemsSource="{Binding Scopes}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type vm:ApiScopeChoice}">
+                                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,0,14,4"
+                                                                          Foreground="{DynamicResource Text}"
+                                                                          AutomationProperties.AutomationId="Settings.ApiClientScope"
+                                                                          AutomationProperties.Name="{Binding Label}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="取り消す" Style="{StaticResource DangerButton}" VerticalAlignment="Top" Margin="10,0,0,0"
+                                                        AutomationProperties.AutomationId="Settings.ApiClientRevoke"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}の許可を取り消す}"
+                                                        ToolTip="このソフトはAPIを使えなくなります。"
+                                                        Command="{Binding RevokeCommand}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
                             <TextBlock Text="許可するオリジン" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"

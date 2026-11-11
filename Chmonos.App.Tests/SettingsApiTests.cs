@@ -276,4 +276,96 @@ public sealed class SettingsApiTests
         Assert.False(saved.Enabled);
         settings.OnLeaving();
     });
+
+    private static ApiClientRecord FakeClient(string id, string name, params string[] scopes) => new()
+    {
+        Id = id,
+        Name = name,
+        ExePath = @"C:\作り物\" + name + ".exe",
+        Scopes = scopes,
+        TokenHash = new string('0', 63) + id[^1],
+        GrantedAt = new DateTimeOffset(2026, 11, 11, 9, 0, 0, TimeSpan.FromHours(9)),
+    };
+
+    [Fact]
+    public Task つないでいるソフトは_権限のチェックで書き換え_ほかのソフトとほかの欄は残す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具", ApiScopes.Marks), FakeClient("b2", "別の作り物", ApiScopes.Unity)],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        Assert.True(settings.HasApiClients);
+        var row = settings.ApiClients.First();
+        Assert.Equal("作り物の道具", row.Name);
+        Assert.Equal("まだ使っていません", row.LastUsedText);
+
+        // 並びはいつも全部の種類。持っている物だけにチェック
+        Assert.Equal(ApiScopes.All, row.Scopes.Select(choice => choice.Scope));
+        Assert.Equal([ApiScopes.Marks], row.Scopes.Where(choice => choice.IsChecked).Select(choice => choice.Scope));
+
+        row.Scopes.Single(choice => choice.Scope == ApiScopes.Tags).IsChecked = true;
+        row.Scopes.Single(choice => choice.Scope == ApiScopes.Marks).IsChecked = false;
+        await app.SettleAsync();
+
+        var saved = app.Services.Store.ApiClients.Load().Clients;
+        Assert.Equal([ApiScopes.Tags], saved.Single(client => client.Id == "a1").Scopes);
+        Assert.Equal([ApiScopes.Unity], saved.Single(client => client.Id == "b2").Scopes);
+        Assert.Equal(new string('0', 63) + "1", saved.Single(client => client.Id == "a1").TokenHash);
+        settings.OnLeaving();
+    });
+
+    [Fact]
+    public Task つないでいるソフトの取り消しは_確かめてから控えから消す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具", ApiScopes.Marks), FakeClient("b2", "別の作り物")],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        var answer = false;
+        settings.ConfirmRevokeApiClient = _ => answer;
+
+        settings.ApiClients.First().RevokeCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(2, app.Services.Store.ApiClients.Load().Clients.Count);
+
+        answer = true;
+        settings.ApiClients.First().RevokeCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(["b2"], app.Services.Store.ApiClients.Load().Clients.Select(client => client.Id));
+        Assert.Equal(["別の作り物"], settings.ApiClients.Select(row => row.Name));
+        settings.OnLeaving();
+    });
+
+    [Fact]
+    public void 許しの窓は_求められた種類を既定でチェックし_外した物は許さない()
+    {
+        var model = new ApiClientApprovalViewModel(new Chmonos.Api.ApiClientRequestInfo(
+            "作り物の道具", null, "http://localhost:5173", [ApiScopes.Marks, ApiScopes.Unity], Replaces: true));
+
+        Assert.Equal("「作り物の道具」がAPIの利用を求めています", model.Heading);
+        Assert.Equal("確かめられませんでした", model.ExePathText);
+        Assert.False(model.HasExePath);
+        Assert.True(model.HasOrigin);
+        Assert.All(model.Scopes, choice => Assert.True(choice.IsChecked));
+
+        model.Scopes.Single(choice => choice.Scope == ApiScopes.Unity).IsChecked = false;
+        var decision = model.Approve();
+        Assert.True(decision.Approved);
+        Assert.Equal([ApiScopes.Marks], decision.Scopes);
+    }
+
+    [Fact]
+    public Task 許したソフトが無ければ_空の文を出す() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        Assert.False(settings.HasApiClients);
+        Assert.Empty(settings.ApiClients);
+        settings.OnLeaving();
+    });
 }

@@ -203,6 +203,7 @@ public partial class App : Application
         // 2本目の起動からの「窓を開いて」と、外から使う API の「画面で開く」を受ける（段4）。どちらも、画面無しなら窓を作って開く
         _openRequests = Services.OpenRequestChannel.Listen(_services.Paths, () => Dispatcher.BeginInvoke(OpenFromTray));
         _services.ShowItemInWindow = ShowItemFromOutsideAsync;
+        _services.MainWindowForApprovals = () => _mainWindow;
 
         // 動いている Chmonos の一覧に札を書く（外の道具が api.json を見つけるため）。多重起動の錠を取り、形式を決めた後の1本目だけ。
         // 画面の有無で分かれる前に書き、API を始める前に購読する（始めた知らせでポートを書き直す）

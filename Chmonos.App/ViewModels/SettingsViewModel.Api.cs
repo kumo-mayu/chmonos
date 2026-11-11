@@ -145,6 +145,100 @@ public sealed partial class SettingsViewModel
 
         // 状態は API の係が知らせる（裏のスレッドから来る）。画面を離れたら外す（OnLeaving）
         _services.Api.StateChanged += OnApiStateChanged;
+
+        LoadApiClients();
+        _services.Api.ClientsChanged += OnApiClientsChanged;
+    }
+
+    /// <summary>許しを求めて許したソフト（plan 31）。設定の「つないでいるソフト」。</summary>
+    public ObservableCollection<ApiClientRow> ApiClients { get; } = [];
+
+    public bool HasApiClients => ApiClients.Count > 0;
+
+    /// <summary>
+    /// 一覧を読む（読むだけなので UiCommand を通さない）。許した・使った日時を書いたと API が知らせたら読み直す。
+    /// 中身が同じなら作り直さない（使った日時の書き込みのたびに並びが作り直されて、チェックの途中の手触りが崩れないように）
+    /// </summary>
+    internal void LoadApiClients()
+    {
+        IReadOnlyList<ApiClientRecord> clients;
+        try
+        {
+            clients = _services.Store.ApiClients.Load().Clients ?? [];
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Core.Diagnostics.AppLog.Error("API の許したソフトの一覧を読む", exception);
+            clients = [];
+        }
+
+        var rows = clients.Where(client => client is not null && !string.IsNullOrEmpty(client.Id)).ToList();
+        if (rows.Count == ApiClients.Count && rows.Zip(ApiClients).All(pair => pair.Second.Matches(pair.First)))
+        {
+            return;
+        }
+
+        ApiClients.Clear();
+        foreach (var client in rows)
+        {
+            ApiClients.Add(new ApiClientRow(client, ChangeApiClientScope, RevokeApiClient));
+        }
+
+        OnPropertyChanged(nameof(HasApiClients));
+    }
+
+    private void OnApiClientsChanged() => RunOnUiThread(LoadApiClients);
+
+    /// <summary>種類のチェックを変えたら、そのソフトの権限を書き換え、動いている API にすぐ読み直させる。</summary>
+    private void ChangeApiClientScope(ApiClientRow row, ApiScopeChoice choice)
+        => SaveApiClientsAsync(list => list with
+        {
+            Clients = list.Clients.Select(client => client.Id != row.Id
+                ? client
+                : client with
+                {
+                    Scopes = choice.IsChecked
+                        ? ApiScopes.All.Where(scope => scope == choice.Scope || client.Scopes.Contains(scope)).ToList()
+                        : client.Scopes.Where(scope => scope != choice.Scope).ToList(),
+                }).ToList(),
+        }).Forget();
+
+    /// <summary>取り消しの確かめ（試験で差し替える）。true なら取り消す。</summary>
+    internal Func<ApiClientRow, bool> ConfirmRevokeApiClient { get; set; } = row => Services.Notice.Show(
+        $"「{row.Name}」の許可を取り消します。\n\n"
+        + "このソフトは、もう一度許可を求めて許可されるまでAPIを使えません。元に戻せません。",
+        "許可の取り消し",
+        System.Windows.MessageBoxButton.OKCancel,
+        System.Windows.MessageBoxImage.Question,
+        System.Windows.MessageBoxResult.Cancel) == System.Windows.MessageBoxResult.OK;
+
+    private void RevokeApiClient(ApiClientRow row)
+    {
+        if (!ConfirmRevokeApiClient(row))
+        {
+            return;
+        }
+
+        ApiClients.Remove(row);
+        OnPropertyChanged(nameof(HasApiClients));
+        SaveApiClientsAsync(list => list with { Clients = list.Clients.Where(client => client.Id != row.Id).ToList() }).Forget();
+    }
+
+    internal async Task<bool> SaveApiClientsAsync(Func<ApiClientList, ApiClientList> change)
+    {
+        try
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeApiClients(change));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Status = "APIの設定を保存できませんでした。保存先のフォルダに書き込めるかを確かめてください。";
+            return false;
+        }
+
+        // 取り消し・権限の変更は、見張りの知らせを待たずに効かせる
+        _services.Api.ReloadClients();
+        return true;
     }
 
     private void OnApiStateChanged() => RunOnUiThread(() => OnPropertyChanged(nameof(ApiStatusText)));
@@ -257,6 +351,43 @@ public sealed partial class SettingsViewModel
         }
     }
 
+}
+
+/// <summary>
+/// つないでいるソフトの1行（名前・exe かオリジン・最後に使った日時・書き込みの種類のチェック・取り消す）。
+/// </summary>
+public sealed class ApiClientRow
+{
+    private readonly ApiClientRecord _record;
+
+    public ApiClientRow(ApiClientRecord record, Action<ApiClientRow, ApiScopeChoice> scopeChanged, Action<ApiClientRow> revoke)
+    {
+        _record = record;
+        Scopes = ApiScopes.All.Select(scope => new ApiScopeChoice(scope, record.Scopes?.Contains(scope) == true, choice => scopeChanged(this, choice))).ToList();
+        RevokeCommand = new RelayCommand(() => revoke(this));
+    }
+
+    public string Id => _record.Id;
+
+    public string Name => _record.Name;
+
+    /// <summary>実行ファイル（確かめられなかったときはそう書く）。ブラウザのページならオリジンも添える。</summary>
+    public string WhereText => _record.Origin is { } origin
+        ? $"{_record.ExePath ?? "実行ファイルは確かめられませんでした"}\n{origin}"
+        : _record.ExePath ?? "実行ファイルは確かめられませんでした";
+
+    public string LastUsedText => _record.LastUsedAt is { } used
+        ? $"最後に使った日時：{used.ToLocalTime():yyyy/MM/dd HH:mm}"
+        : "まだ使っていません";
+
+    public IReadOnlyList<ApiScopeChoice> Scopes { get; }
+
+    public RelayCommand RevokeCommand { get; }
+
+    /// <summary>同じ記録を映しているか（作り直すかを決める）。</summary>
+    internal bool Matches(ApiClientRecord record) => _record == record
+        || (_record.Id == record.Id && _record.Name == record.Name && _record.ExePath == record.ExePath && _record.Origin == record.Origin
+            && _record.LastUsedAt == record.LastUsedAt && (_record.Scopes ?? []).SequenceEqual(record.Scopes ?? []));
 }
 
 /// <summary>許可する Web ページの1行。</summary>

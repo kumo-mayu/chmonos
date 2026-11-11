@@ -175,6 +175,7 @@ public sealed class AppServiceContainer : IDisposable
                 RegistrationQueue = Store.RegistrationQueue,
                 CandidateSearches = CandidateSearches,
                 ApiSettings = Store.ApiSettings,
+                ApiClients = Store.ApiClients,
                 PendingOperations = Store.PendingOperations,
                 MissingRecords = MissingRecords,
                 Recent = Store.Recent,
@@ -288,7 +289,12 @@ public sealed class AppServiceContainer : IDisposable
         EditGate.TryBeginApiWrite,
         ApiUnity ??= new Services.ApiUnitySender(this),
         itemId => ShowItemInWindow?.Invoke(itemId) ?? Task.FromResult(false),
-        (item, path) => Services.ApiReveal.RevealAsync(item, path, Volumes)));
+        (item, path) => Services.ApiReveal.RevealAsync(item, path, Volumes),
+        // ソフトの許しは主の窓で聞く（窓が見えていなければ断る。plan 31）
+        new Services.ApiClientApprovalPrompt(() => MainWindowForApprovals?.Invoke())));
+
+    /// <summary>許しを聞く窓の持ち主になる主の窓（App が差し込む。画面のスレッドで呼ぶ。画面無しでまだ開いていなければ null）。</summary>
+    internal Func<System.Windows.Window?>? MainWindowForApprovals { get; set; }
 
     /// <summary>
     /// API の「Unity へ送る」の送り手。試験は Unity を動かさない作り物に差し替える（API を初めて使う前に入れる）。

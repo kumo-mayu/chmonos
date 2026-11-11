@@ -41,6 +41,16 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
     /// <summary>状態が変わった。裏のスレッドから来るので、画面は画面のスレッドへ渡す。</summary>
     public event Action? StateChanged;
 
+    /// <summary>許したソフトの一覧が変わったかもしれない（許した・使った日時を書いた）。裏のスレッドから来る。</summary>
+    public event Action? ClientsChanged;
+
+    private void OnClientsChanged() => ClientsChanged?.Invoke();
+
+    /// <summary>
+    /// 設定の画面でソフトの権限を変えた・取り消した後に、動いている API へすぐ読み直させる（止まっていれば何もしない。次に始めるときに読む）
+    /// </summary>
+    public void ReloadClients() => _server?.ReloadClients();
+
     /// <summary>
     /// 今の設定に合わせる。オフなら止め、オンで止まっていれば始め、ポートが違えば待ち受け直す。
     /// 読み込みに時間がかかる（2万件で数秒）ので、画面のスレッドを塞がないよう裏で回す
@@ -85,6 +95,8 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
                     _server = started;
                     started.SetBusy(BusyKindLocked());
                 }
+
+                started.ClientsChanged += OnClientsChanged;
 
                 Set(ApiRunState.Running, started.Port);
             }
@@ -146,6 +158,7 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
         }
 
         _server = null;
+        server.ClientsChanged -= OnClientsChanged;
         try
         {
             await server.DisposeAsync();
