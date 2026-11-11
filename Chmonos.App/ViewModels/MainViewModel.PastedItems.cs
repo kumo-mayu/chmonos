@@ -126,7 +126,7 @@ public sealed partial class MainViewModel
 
         if (batch.Registered.Count > 0)
         {
-            await ReloadLibraryAsync();
+            RefreshCounts();
         }
 
         ReportBatch(batch);
@@ -158,9 +158,12 @@ public sealed partial class MainViewModel
                 return;
         }
 
+        // 1件ごとに、済んだ所で検索の写しへ足す（計画 28）。登録は1枚目の画像までで終わり、残りの画像は列が済んでから裏で届く。
+        // 前は列が全部済んでから全件を読み直していたので、何十件のうち先に済んだ物も最後まで検索に出なかった
         if (await _services.Store.Items.LoadAsync(itemId) is { } added)
         {
             batch.Registered.Add(added);
+            Search.NoteItemSaved(added);
         }
     }
 

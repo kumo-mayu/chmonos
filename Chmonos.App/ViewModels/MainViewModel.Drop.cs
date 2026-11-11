@@ -430,12 +430,15 @@ public sealed partial class MainViewModel
             return;
         }
 
-        await ReloadLibraryAsync();
-
-        // 登録は BOOTH の順番を待つので、終わる頃には別の画面を見ていることがある。そこで商品ページへ移ると、
-        // 検索を進めていた画面が勝手に替わる（ユーザ指摘 2026-09-15）。移らずに下の帯で開くかを聞く
+        // 登録は1枚目の画像までで終わり、残りの画像は裏で届く（計画 28）。済んだ所で、検索の写しへ1件だけ足すのと帯を同時に出す。
+        // 全件の読み直しは2000件で数秒かかり、その間は帯も出なかった（未確定の登録と同じ足し方。NoteResolveSettledAsync）
         if (await _services.Store.Items.LoadAsync(itemId) is { } added)
         {
+            Search.NoteItemSaved(added);
+            RefreshCounts();
+
+            // 登録は BOOTH の順番を待つので、終わる頃には別の画面を見ていることがある。そこで商品ページへ移ると、
+            // 検索を進めていた画面が勝手に替わる（ユーザ指摘 2026-09-15）。移らずに下の帯で開くかを聞く
             NoteRegistered(added);
         }
     }

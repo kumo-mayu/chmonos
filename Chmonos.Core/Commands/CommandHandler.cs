@@ -435,8 +435,10 @@ public sealed class CommandHandler
                     await _items.FetchImagesAsync(fetchImages.ItemId, cancellationToken));
 
             case UiCommand.RegisterItem register:
-                // 失敗の種類で文を分ける（E3）。待てば直るのか、待っても無いのかで次の一手が違う
-                return await _items.RegisterItemAsync(register.ItemId, cancellationToken) switch
+                // 失敗の種類で文を分ける（E3）。待てば直るのか、待っても無いのかで次の一手が違う。
+                // 1枚目までで登録を終え、残りの画像は⑤の段で裏に取る（未確定の「このIDで登録」と同じ。計画 28）。
+                // 全部取ってから終えていた頃は、画像の多い商品だと1枚ずつ門を通す間ずっと、検索にも帯にも出なかった（ユーザ指摘 2026-11-11）
+                return await _items.RegisterItemAsync(register.ItemId, cancellationToken, galleryLater: true) switch
                 {
                     Booth.BoothFetchStatus.Success => new CommandResult.ItemSaved(register.ItemId),
                     Booth.BoothFetchStatus.NotFound => new CommandResult.RegisterFailed(

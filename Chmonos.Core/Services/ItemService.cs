@@ -65,7 +65,8 @@ public interface IItemService
 
     /// <summary>ファイルを持たない商品として登録する。既にあれば何もしない。</summary>
     /// <summary>BOOTH から取って商品を作る。**失敗の種類をそのまま返す**（E3：見つからないのと一時的に届かないは次の一手が違う）。</summary>
-    Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default);
+    /// <param name="galleryLater">画像は1枚目までで登録を終え、残りを⑤の段で裏に取る（<see cref="ItemService.FetchNewItemAsync"/>）。</param>
+    Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default, bool galleryLater = false);
 
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
@@ -463,14 +464,15 @@ public sealed class ItemService : IItemService
     /// ——どちらもファイルが手元に来ないので、取り込みからは入れない。
     /// </summary>
     /// <returns>登録できたか。既に持っている商品なら true（何もしない）。</returns>
-    public async Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+    public async Task<Booth.BoothFetchStatus> RegisterItemAsync(
+        string itemId, CancellationToken cancellationToken = default, bool galleryLater = false)
     {
         if (await _store.Items.LoadAsync(itemId, cancellationToken) is not null)
         {
             return Booth.BoothFetchStatus.Success;
         }
 
-        return (await FetchNewItemAsync(itemId, cancellationToken)).Status;
+        return (await FetchNewItemAsync(itemId, cancellationToken, galleryLater: galleryLater)).Status;
     }
 
     /// <summary>
@@ -560,8 +562,9 @@ public sealed class ItemService : IItemService
     /// 数え方は問い合わせる物だけ（画像の側は <see cref="ImagePipeline.SyncAsync(string, IReadOnlyList{BoothImage}, BoothOutageWatch?, CancellationToken, IProgress{int}?)"/>）。
     /// </param>
     /// <param name="galleryLater">
-    /// 画像は1枚目だけを取り、残りを⑤の段で裏に頼む（<see cref="RemainingImageRequests.Request"/>）。未確定の「このIDで登録」だけが使う
-    /// （登録の列で後ろの登録を待たせるのはこの道だけ。ID の付け替え・ファイルを持たない登録・フォルダの登録は今までどおり全部取る）。
+    /// 画像は1枚目だけを取り、残りを⑤の段で裏に頼む（<see cref="RemainingImageRequests.Request"/>）。人が登録を待つ道が使う：
+    /// 未確定の「このIDで登録」と、ファイルを持たない登録（落とした URL・まとめての登録。計画 28）。
+    /// ID の付け替え・フォルダの登録・壊れた記録の作り直しは今までどおり全部取る。
     /// </param>
     internal async Task<(ItemRecord? Item, Booth.BoothFetchStatus Status)> FetchNewItemAsync(
         string itemId, CancellationToken cancellationToken, IProgress<int>? requestsLeft = null, bool galleryLater = false)

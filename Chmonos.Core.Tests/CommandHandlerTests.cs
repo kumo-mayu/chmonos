@@ -60,7 +60,7 @@ public class CommandHandlerTests
 
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 
-        public Task<Chmonos.Core.Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+        public Task<Chmonos.Core.Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default, bool galleryLater = false)
             => Task.FromResult(Chmonos.Core.Booth.BoothFetchStatus.Success);
 
         public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);

@@ -59,7 +59,7 @@ public class DueRefreshTests : IDisposable
                 : Task.FromResult(Outcomes.GetValueOrDefault(itemId, RefreshOutcome.Updated));
         }
 
-        public Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+        public Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default, bool galleryLater = false)
             => Task.FromResult(Booth.BoothFetchStatus.Success);
 
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default)
