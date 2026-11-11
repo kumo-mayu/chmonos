@@ -348,6 +348,29 @@ internal static partial class Scenes
             var model = new PickPackagesDialogViewModel("Unityへ送る", "Unityへ送るunitypackageを選んでください。", [section], othersCount: 0, records: false);
             return Task.FromResult<Window>(new PickPackagesDialog(model));
         }),
+
+        // コピーした物の中の商品をまとめて登録する窓（計画 26）。番号と名前は作り物
+        DialogScene("catalog-dialog-register-pasted", "まとめて登録の窓：6件のうち2件はライブラリにある（チェックを外して押せない）・1件は外した所", _ =>
+        {
+            var model = new RegisterPastedItemsDialogViewModel(
+            [
+                ("9900601", null),
+                ("9900602", "作り物のワンピース（ライブラリにある物）"),
+                ("9900603", null),
+                ("9900604", null),
+                ("9900605", "作り物の靴とソックスのセット・とても長い名前の商品は端で省いて吹き出しで全部を見せる"),
+                ("9900606", null),
+            ]);
+            model.Rows[3].IsChecked = false;
+            return Task.FromResult<Window>(new RegisterPastedItemsDialog(model));
+        }),
+
+        DialogScene("catalog-dialog-register-pasted-all-known", "まとめて登録の窓：見つかった2件がすべてライブラリにある（登録は押せない）", _ =>
+            Task.FromResult<Window>(new RegisterPastedItemsDialog(new RegisterPastedItemsDialogViewModel(
+            [
+                ("9900611", "作り物の上着"),
+                ("9900612", "作り物のスカート"),
+            ])))),
     ];
 
     // ---- 画面の状態 ----
