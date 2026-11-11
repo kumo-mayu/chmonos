@@ -77,6 +77,7 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(IReadOnlyList<PackageContentsRef>))]
 [JsonSerializable(typeof(GuidLookupRequest))]
 [JsonSerializable(typeof(GuidLookupAnswer))]
+[JsonSerializable(typeof(IReadOnlyList<UnityScanRef>))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {
 }

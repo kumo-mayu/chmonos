@@ -87,6 +87,19 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
             ["orphan.unitypackage"] = [new(GuidOrphan, "Assets/Orphan/a.prefab")],
         });
 
+        var scans = new UnityScanStore(_store.Paths);
+        scans.Save(@"D:\Unity\Avatar", new UnityProjectScan(
+            [new UnityProjectMatch("9600002", 3, 4), new UnityProjectMatch("9600001", 1, 4), new UnityProjectMatch("9699999", 1, 1)],
+            new Dictionary<string, IReadOnlyList<UnityImageMatch>>
+            {
+                ["9600001"] = [new UnityImageMatch("Assets/Tex/a.png", "a.png", UnityImageMatchKind.SameImage), new UnityImageMatch("Assets/Tex/b.png", "b.png", UnityImageMatchKind.SameName)],
+            }));
+        scans.Save(@"C:\Unity\Other", UnityProjectScan.Empty);
+
+        // 別の場所の名前で写された控え（中の場所とファイルの名前が合わない）は読まない
+        File.Copy(_store.Paths.UnityScanFile(Directory.GetFiles(Path.Combine(_root, AppPaths.UnityScansDirName)).Select(Path.GetFileNameWithoutExtension).First()!),
+            _store.Paths.UnityScanFile("0000000000000000"));
+
         await _store.ApiClients.SaveAsync(new ApiClientList
         {
             Clients = [new ApiClientRecord { Id = "reader", Name = "読むだけの道具", Scopes = [], TokenHash = ApiClientBook.HashOf(ReaderToken) }],
@@ -197,6 +210,29 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
 
         var answer = await JsonOf(await SendAsync(HttpMethod.Post, "/v1/unitypackages/lookup", body));
         Assert.Equal("Assets/Old/new.mat", answer.GetProperty("found").EnumerateArray().Single().GetProperty("path").GetString());
+    }
+
+    [Fact]
+    public async Task プロジェクトを調べた結果は_控えごとに商品と割合と手で置いた画像を返す()
+    {
+        var all = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/unity-scans"));
+        Assert.Equal([@"C:\Unity\Other", @"D:\Unity\Avatar"], all.EnumerateArray().Select(scan => scan.GetProperty("project").GetString()));
+
+        var scan = all[1];
+        Assert.True(scan.GetProperty("savedAt").GetDateTimeOffset() > DateTimeOffset.Now.AddMinutes(-5));
+        var items = scan.GetProperty("items").EnumerateArray()
+            .Select(item => (item.GetProperty("itemId").GetString(), item.GetProperty("present").GetInt32(), item.GetProperty("total").GetInt32(), item.GetProperty("ratio").GetDouble()))
+            .ToList();
+        Assert.Equal([("9600002", 3, 4, 0.75), ("9600001", 1, 4, 0.25), ("9699999", 1, 1, 1.0)], items);
+
+        // もう無い商品は名前が null（控えの行は潰さない）
+        Assert.Equal("作り物の冬服", scan.GetProperty("items")[0].GetProperty("itemName").GetString());
+        Assert.Equal(JsonValueKind.Null, scan.GetProperty("items")[2].GetProperty("itemName").ValueKind);
+        Assert.Equal(["sameImage", "sameName"], scan.GetProperty("images").EnumerateArray().Select(image => image.GetProperty("kind").GetString()));
+
+        // 場所は条件 unityProject と同じ揃え方で照らす（/ 区切り・末尾の区切り・大文字小文字）
+        var one = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/unity-scans?project=d:/unity/avatar/"));
+        Assert.Equal(@"D:\Unity\Avatar", one.EnumerateArray().Single().GetProperty("project").GetString());
     }
 
     [Fact]

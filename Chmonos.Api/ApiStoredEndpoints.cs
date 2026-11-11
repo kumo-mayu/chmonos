@@ -26,5 +26,9 @@ internal static partial class ApiEndpoints
             return ApiHost.Json(state.PackageGuids.Lookup(state.Snapshot, guids), json.GuidLookupAnswer);
         })
             .Takes<GuidLookupRequest>().Answers<GuidLookupAnswer>("GUID をまとめて引き、入っている unitypackage と商品を返す（Missing の参照から入れ直す商品を探す）");
+
+        app.MapGet("/v1/unity-scans", (ApiState state, string? project) =>
+            ApiHost.Json(UnityScans.All(state.Snapshot, project), json.IReadOnlyListUnityScanRef))
+            .Answers<IReadOnlyList<UnityScanRef>>("Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像。savedAt の時点の物で、API は調べ直さない）");
     }
 }

@@ -39,3 +39,15 @@ GUID → 控えの番号だけを持つ表（`PackageGuidIndex`。GUID は 128 �
 | `ui` の控えを25倍にした作り物（GUID を書き換えた） | 2,000（10MB） | 79,700 | 349ms | 355ms・28ms・+4.7MB | +34MB |
 
 `stress-realcat` は控えが5つしか無く測らなかった。引く時間の多くは、控えのフォルダの印を見る列挙と、当たった控えを読み直す分。パスまで持つと7倍のメモリになるので、番号だけにした。
+
+## Unity プロジェクトを調べた結果（`unityscans/<場所のハッシュ>.json`）
+
+| URL | 要求 | 答え |
+|---|---|---|
+| `GET /v1/unity-scans?project=` | `project` は省ける | `[{ project, savedAt, items: [{ itemId, itemName, present, total, ratio }], images: [{ itemId, itemName, projectPath, sourceName, kind }] }]` |
+
+- 画面の条件「Unityプロジェクト」と「使っている商品」が調べた結果の控え（`UnityScanStore`）。**答えの正本ではない**：プロジェクトの中はアプリの外で変わり、画面は見せた後に調べ直す。API は保存先の外を調べないので、控えをそのまま返し、いつの物かを `savedAt`（控えのファイルを書いた日時）で添える。
+- 全部を並べる読み口は Core に足した（`UnityScanStore.LoadAll`）。1つずつは `Load` と同じ確かめ（中の場所とファイルの名前が合うか）を通し、手で写した控えは読まない。
+- `items` は画面の並び（入っている割合の高い順）。`present`・`total` は照合（`UnityProjectMatcher`）の数で、共有の部品は数えない。`ratio` は `UnityProjectMatch.Ratio`。もう無い商品の行も消さず、`itemName` を null にする。
+- `images` の `kind` は `sameImage`（大きさと中身が同じ）・`sameName`（名前だけ同じ）。画面の「名前が同じ物も含める」の切り替えは API では当てない（区別を潰さずに返す）。
+- `project` は条件 `unityProject` と同じ `UnityProjectPath.Normalize` で揃え、大文字小文字を区別せずに照らす。

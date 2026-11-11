@@ -27,6 +27,7 @@
 | `GET /v1/files/lookup?path=`・`?hash=` | ファイル・フォルダから商品を逆に引く | 作った |
 | `GET /v1/unitypackages?avatar=` | 手元の `.unitypackage` と、その商品・対応アバター | 作った |
 | `GET /v1/items/{id}/unitypackage-assets`・`POST /v1/unitypackages/lookup` | 包みの中身（GUID → パス）・GUID から包みと商品を逆に引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
+| `GET /v1/unity-scans` | Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | まだ |
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/booth-tags` | 分類と件数（マスタに無いのに付いている物も返す） | 作った |
 | `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
@@ -149,6 +150,6 @@
   `paid` は自分用に払った額の合計（額を1つも入れていなければ null、無料は 0）。`priceText` は詳細と同じ BOOTH の値段の表示で、並べる欄ではない。
 - **hasUnityPackage**：判断は `/v1/unitypackages` とカードの右クリックと同じ（単体の unitypackage・ある zip の中（要約がまだなら中身の一覧から）・見つかっている登録したフォルダの中。`UnityHandoff.HasRecordedPackage`）。
   検索の条件（`condition`）の種類にはしない（条件は画面の絞り込みと同じ物だけ。画面に無い）。非表示・R-18 と同じく、式より先に絞る。
-- **中身を見る条件「Unityプロジェクト」は API に無い**（API は保存先の外を調べない）。`unityProject` は改変に紐付けた物で絞る方。
+- **中身を見る条件「Unityプロジェクト」は API に無い**（API は保存先の外を調べない）。`unityProject` は改変に紐付けた物で絞る方。画面が前に調べた結果の控えは `GET /v1/unity-scans` で読める（2026-11-11。調べ直さない。[local-api-stored.md](local-api-stored.md)）。
 - **条件 `unityProject`**：場所は `UnityProjectPath.Normalize`（前後の空白・区切りを `\` に・`..` を畳む・末尾の区切りを落とす）で揃えて照らす。大文字小文字は区別しない（今までどおり）。改変の画面の比べ（`ModificationService.SamePath`）も同じ揃え方（2026-11-10）。
   改変に結ぶ `PUT /v1/modifications/{id}/unity-project` も同じ関数で揃えてから書く。画面の条件も同じ索引（`ModificationUsage`）を引くので、画面と API は同じ答え。保存した値は書き換えない。

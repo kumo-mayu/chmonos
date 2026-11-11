@@ -68,6 +68,49 @@ public sealed class UnityScanStore(AppPaths paths)
     }
 
     /// <summary>
+    /// 読める控えの全部（外から使う API が並べる。plan 32）。1つずつは <see cref="Load"/> と同じ確かめ（中の場所とファイルの名前が合うか）を通す。
+    /// <paramref name="SavedAt"/> はファイルを書いた日時（控えは答えの正本ではないので、いつ調べた物かを添える）。
+    /// </summary>
+    public IReadOnlyList<(string Project, UnityProjectScan Scan, DateTimeOffset SavedAt)> LoadAll()
+    {
+        var result = new List<(string, UnityProjectScan, DateTimeOffset)>();
+        var directory = new DirectoryInfo(Path.Combine(paths.Root, AppPaths.UnityScansDirName));
+        try
+        {
+            if (!directory.Exists)
+            {
+                return result;
+            }
+
+            foreach (var file in directory.EnumerateFiles("*.json"))
+            {
+                string? project;
+                try
+                {
+                    project = JsonStore.Read<UnityScanFile>(file.FullName)?.Project;
+                }
+                catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                // 別の場所の名前で写された控え（手で写した）は Load と同じく読まない
+                if (project is null || !string.Equals(FileKey(project) + ".json", file.Name, StringComparison.OrdinalIgnoreCase) || Load(project) is not { } scan)
+                {
+                    continue;
+                }
+
+                result.Add((project, scan, new DateTimeOffset(file.LastWriteTime)));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// 控える。書けなくても調べた結果は使えるので、失敗は呼び手へ伝えない（次の起動で空から調べるだけ）。
     /// 同期なのは、呼び手が調べる裏のスレッドだから（画面のスレッドから呼ばない）。
     /// </summary>
