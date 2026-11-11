@@ -33,6 +33,8 @@ public sealed record UnityRootLocation(string Root, bool Moved);
 ///
 /// **2つ以上の商品に同じパスか同じ GUID で入っているファイルは数えない。**lilToon を同梱したアバターのように、
 /// 共有の部品を持つ商品は多い。数えると、lilToon が入っているだけで同梱した全商品が候補に出る。
+/// ただし、それらの商品が**同じ unitypackage**（同じハッシュの zip の、同じ場所の物）から持っているなら数える
+/// （セットと単品に同じ zip を付けた。ユーザ判断 2026-11-11。見分け方は <see cref="UnityPackageContents"/>）。
 ///
 /// **欲しい物だけを選んで取り込むのは普通の使い方**なので、1つでもあれば候補に出し、割合で並べる。
 /// </summary>
@@ -47,23 +49,46 @@ public static class UnityProjectMatcher
         IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> items,
         Func<string, bool>? exists = null,
         Func<IReadOnlyDictionary<string, string>>? guids = null)
+        => Match(
+            projectPath,
+            items.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<UnityPackageContents>)[new UnityPackageContents(null, pair.Value)]),
+            exists,
+            guids);
+
+    /// <param name="items">
+    /// 商品ごとの、unitypackage ごとの中身。どの unitypackage かが分かる物（<see cref="UnityPackageContents.Source"/>）は、
+    /// 同じ unitypackage を持つ商品どうしで共有の部品と見ない（セットと単品に同じ zip を付けた、など）。
+    /// </param>
+    public static IReadOnlyList<UnityProjectMatch> Match(
+        string projectPath,
+        IReadOnlyDictionary<string, IReadOnlyList<UnityPackageContents>> items,
+        Func<string, bool>? exists = null,
+        Func<IReadOnlyDictionary<string, string>>? guids = null)
     {
         exists ??= File.Exists;
         var disk = new Disk(projectPath, exists, guids);
 
-        var files = items.ToDictionary(
-            pair => pair.Key,
-            pair => pair.Value.Where(asset => IsFilePath(asset.Path)).DistinctBy(asset => asset.Path, StringComparer.OrdinalIgnoreCase).ToList());
+        // 商品ごとのファイル1つずつに、それが入っていた unitypackage の印を集める（同じ商品の2つの包みに同じ物があってもよい）
+        var entries = items
+            .SelectMany(pair => pair.Value.SelectMany(contents => contents.Assets
+                .Where(asset => IsFilePath(asset.Path))
+                .Select(asset => new Entry(pair.Key, asset, contents.Source))))
+            .ToList();
+        var byItem = entries.ToLookup(entry => entry.ItemId, StringComparer.Ordinal);
+        var files = items.Keys.ToDictionary(
+            itemId => itemId,
+            itemId => byItem[itemId].Select(entry => entry.Asset)
+                .DistinctBy(asset => asset.Path, StringComparer.OrdinalIgnoreCase).ToList());
 
         // 共有の部品は、同じパスで入っていても、同じ GUID で入っていても数えない（取り込むと同じ1つのファイルになる）
-        var pathOwners = CountOwners(files, asset => asset.Path);
-        var guidOwners = CountOwners(files.ToDictionary(pair => pair.Key, pair => pair.Value.Where(asset => asset.Guid.Length > 0).ToList()), asset => asset.Guid);
+        var sharedPaths = SharedKeys(entries, entry => entry.Asset.Path);
+        var sharedGuids = SharedKeys(entries.Where(entry => entry.Asset.Guid.Length > 0), entry => entry.Asset.Guid);
 
         var matches = new List<UnityProjectMatch>();
         foreach (var (itemId, assets) in files)
         {
             var own = assets
-                .Where(asset => pathOwners[asset.Path] == 1 && (asset.Guid.Length == 0 || guidOwners[asset.Guid] == 1))
+                .Where(asset => !sharedPaths.Contains(asset.Path) && (asset.Guid.Length == 0 || !sharedGuids.Contains(asset.Guid)))
                 .ToList();
             if (own.Count == 0)
             {
@@ -155,12 +180,41 @@ public static class UnityProjectMatcher
         return new UnityRootLocation(best, true);
     }
 
-    private static Dictionary<string, int> CountOwners(
-        Dictionary<string, List<UnityPackageAsset>> files, Func<UnityPackageAsset, string> key)
-        => files
-            .SelectMany(pair => pair.Value.Select(asset => (Key: key(asset), Item: pair.Key)))
-            .GroupBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Select(entry => entry.Item).Distinct().Count(), StringComparer.OrdinalIgnoreCase);
+    private sealed record Entry(string ItemId, UnityPackageAsset Asset, string? Source);
+
+    /// <summary>
+    /// 共有の部品と見るパス（または GUID）：2つ以上の商品が持ち、**その全部の商品が持つ同じ unitypackage が無い**物。
+    ///
+    /// 全部の商品が同じ unitypackage から持っているなら、その中身はそれらの商品のどれにとっても自分の物なので数える
+    /// （セットと単品に同じ zip を付けた。数えないと両方とも候補から落ちる。ユーザ判断 2026-11-11）。
+    /// 1つでも別の unitypackage から持つ商品があれば、同梱の部品（lilToon など）と見て今までどおり数えない。
+    /// 「包みの数が2以上」と数えないのは、1つの商品が2つの包みに同じ物を持つだけで落ちるため（それは今まで数えていた）。
+    /// 印の無い物（<see cref="UnityPackageContents.Source"/> が null）は、その商品だけの印と見て、ほかのどれとも一致させない。
+    /// </summary>
+    private static HashSet<string> SharedKeys(IEnumerable<Entry> entries, Func<Entry, string> key)
+        => entries
+            .GroupBy(key, StringComparer.OrdinalIgnoreCase)
+            .Where(group =>
+            {
+                var sourcesByItem = group
+                    .GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
+                    .Select(item => item.Select(entry => entry.Source ?? "\0" + item.Key).ToHashSet(StringComparer.Ordinal))
+                    .ToList();
+                if (sourcesByItem.Count < 2)
+                {
+                    return false;
+                }
+
+                var common = new HashSet<string>(sourcesByItem[0], StringComparer.Ordinal);
+                foreach (var sources in sourcesByItem.Skip(1))
+                {
+                    common.IntersectWith(sources);
+                }
+
+                return common.Count == 0;
+            })
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Unity 上のパスのうちファイルか。unitypackage はフォルダにも pathname を持つので、拡張子の有無で分ける。

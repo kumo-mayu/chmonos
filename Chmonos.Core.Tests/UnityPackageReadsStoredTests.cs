@@ -31,6 +31,30 @@ public sealed class UnityPackageReadsStoredTests
     }
 
     [Fact]
+    public void 無くなったzipの包みには_zipが在るときと同じ印を付ける()
+    {
+        // 片方の商品の zip だけ無くなっても、同じ unitypackage と見分けられる（UnityProjectMatcher が共有の部品と取り違えない）
+        var contents = Reads(("a/本体.unitypackage", "Assets/A/本体.fbx"), ("a/追加.unitypackage", "Assets/A/追加.fbx"))
+            .StoredContentsIfGone(Zip, _ => false);
+        var present = new UnityPackageEntry(@"D:\作り物\a.zip", "a/本体.unitypackage", 0) { ZipHash = "abc" };
+
+        Assert.Equal(2, contents.Count);
+        Assert.Equal(UnityPackageContents.SourceOf(present, Zip), contents[0].Source);
+        Assert.NotEqual(contents[0].Source, contents[1].Source);
+    }
+
+    [Fact]
+    public void フォルダの中の物には印を付けず_単体のunitypackageはファイルのハッシュで見分ける()
+    {
+        var inFolder = new UnityPackageEntry(@"D:\作り物\展開", "本体.unitypackage", 0) { InFolder = true };
+        var single = new LocalFileRecord { Hash = "DEF", Paths = [@"D:\作り物\本体.unitypackage"], SizeBytes = 1 };
+        var renamed = new UnityPackageEntry(@"D:\別の所", "本体 (1).unitypackage", 0) { InFolder = true };
+
+        Assert.Null(UnityPackageContents.SourceOf(inFolder, null));
+        Assert.Equal(UnityPackageContents.SourceOf(inFolder, single), UnityPackageContents.SourceOf(renamed, single));
+    }
+
+    [Fact]
     public void zipが在れば_別の道で読むので空()
         => Assert.Empty(Reads(("a/本体.unitypackage", "Assets/A/本体.fbx")).StoredIfGone(Zip, _ => true));
 

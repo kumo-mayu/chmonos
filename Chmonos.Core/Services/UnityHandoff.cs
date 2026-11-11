@@ -56,6 +56,31 @@ public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long Si
 /// <param name="Path">Unity 上のパス（<c>Assets/FUKA/…</c>）。</param>
 public sealed record UnityPackageAsset(string Guid, string Path);
 
+/// <summary>
+/// 商品が持つ unitypackage 1つの中身と、どの unitypackage か（<see cref="UnityProjectMatcher"/> が共有の部品を見分けるのに使う）。
+///
+/// 同じ zip をセットと単品の両方に付けられる（2026-11-11・<c>docs/spec/shared-files.md</c>）ので、
+/// 「2つの商品に同じパスで入っている」だけでは、同梱の部品（lilToon など）か、同じ unitypackage を持っているだけかを見分けられない。
+/// 中身の控え（<c>unitypackages/&lt;ハッシュ&gt;.json</c>）に書き出す <see cref="UnityPackageAsset"/> には足さず、包む型を別にする。
+/// </summary>
+/// <param name="Source">
+/// 同じ中身かを見分ける印（包んでいる手元のファイルのハッシュと、zip の中の場所）。分からない物（登録したフォルダの中の物はハッシュを持たない）は null で、
+/// ほかのどれとも同じと見ない（今までどおり共有の部品として数えない側に倒す）。
+/// </param>
+public sealed record UnityPackageContents(string? Source, IReadOnlyList<UnityPackageAsset> Assets)
+{
+    /// <summary>
+    /// 印を組む。<paramref name="owner"/> は包んでいる手元のファイル（<see cref="ModificationSendPlan.CandidatesOf"/> の持ち主。フォルダの中の物は null）。
+    /// zip の中の物は zip のハッシュと zip の中の場所、単体の unitypackage（<see cref="UnityPackageEntry.InFolder"/> で渡す）はそのファイルのハッシュだけで決める
+    /// （置き場所の名前が商品ごとに違っても、中身が同じなら同じ物）。
+    /// zip が無くなった道（<see cref="UnityPackageReads.StoredContentsIfGone"/>）と同じ印になるよう、組み方はここ1つにする。
+    /// </summary>
+    public static string? SourceOf(UnityPackageEntry package, Models.LocalFileRecord? owner)
+        => owner is null || string.IsNullOrEmpty(owner.Hash) ? null : SourceOf(owner.Hash, package.InFolder ? string.Empty : package.EntryPath);
+
+    internal static string SourceOf(string fileHash, string entry) => fileHash.ToLowerInvariant() + "|" + entry;
+}
+
 /// <summary>zip の中の unitypackage 1つと、入る先（<see cref="UnityHandoff.PlacesOf(Models.LocalFileRecord)"/>）。</summary>
 /// <param name="Roots">
 /// 入る先の一番上（<see cref="UnityHandoff.DestinationRoots"/> の形）。item に書いてあればそれ、無ければ null（使う側が読んで埋める）。
@@ -130,11 +155,21 @@ public sealed class UnityPackageReads
 
     /// <param name="exists">ファイルが在るか（試験ではディスクを見ない物に差し替える）。</param>
     internal IReadOnlyList<UnityPackageAsset> StoredIfGone(Models.LocalFileRecord file, Func<string, bool> exists)
+        => StoredContentsIfGone(file, exists).SelectMany(contents => contents.Assets).ToList();
+
+    /// <summary><see cref="StoredIfGone(Models.LocalFileRecord)"/> を包みごとに分け、どの unitypackage かを添えた物。</summary>
+    public IReadOnlyList<UnityPackageContents> StoredContentsIfGone(Models.LocalFileRecord file) => StoredContentsIfGone(file, File.Exists);
+
+    internal IReadOnlyList<UnityPackageContents> StoredContentsIfGone(Models.LocalFileRecord file, Func<string, bool> exists)
         => file.Paths.Any(exists)
             ? []
             : UnityHandoff.PackageEntriesIn(file)
-                .SelectMany(entry => Stored(file.Hash, entry) ?? [])
+                .Select(entry => new UnityPackageContents(UnityPackageContents.SourceOf(file.Hash, entry), Stored(file.Hash, entry) ?? []))
                 .ToList();
+
+    /// <summary><see cref="ReadAssets"/> に、どの unitypackage かを添えた物。<paramref name="owner"/> は包んでいる手元のファイル（フォルダの中の物は null）。</summary>
+    public UnityPackageContents ReadContents(UnityPackageEntry package, Models.LocalFileRecord? owner)
+        => new(UnityPackageContents.SourceOf(package, owner), ReadAssets(package));
 
     internal IReadOnlyList<UnityPackageAsset> ReadZip(UnityPackageEntry package) => _readZip(package);
 

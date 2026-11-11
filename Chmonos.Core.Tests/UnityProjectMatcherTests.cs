@@ -69,6 +69,92 @@ public sealed class UnityProjectMatcherTests
         Assert.Equal((1, 1), (only.Present, only.Total));
     }
 
+    // ---- 同じ unitypackage を持つ商品どうし（ユーザ判断 2026-11-11） ----
+
+    private static UnityPackageContents Package(string source, params string[] paths)
+        => new(source, paths.Select(path => new UnityPackageAsset(GuidOf(path), path)).ToList());
+
+    private static IReadOnlyList<UnityProjectMatch> Match(
+        Dictionary<string, IReadOnlyList<UnityPackageContents>> items, Func<string, bool> exists)
+        => UnityProjectMatcher.Match(Project, items, exists, () => NoGuids);
+
+    [Fact]
+    public void セットと単品が同じパッケージを持てば両方とも候補に出す()
+    {
+        // 同じ zip をセットと単品の両方に付けた。中身は共有の部品ではない
+        var items = new Dictionary<string, IReadOnlyList<UnityPackageContents>>
+        {
+            ["set"] = [Package("zip1|a/Sweater.unitypackage", "Assets/K/Sweater.fbx", "Assets/K/Sweater.mat"), Package("zip1|a/Pants.unitypackage", "Assets/K/Pants.fbx")],
+            ["single"] = [Package("zip1|a/Sweater.unitypackage", "Assets/K/Sweater.fbx", "Assets/K/Sweater.mat")],
+        };
+
+        var matches = Match(items, Has("Assets/K/Sweater.fbx", "Assets/K/Sweater.mat"));
+
+        Assert.Equal(["single", "set"], matches.Select(match => match.ItemId));
+        Assert.Equal((2, 2), (matches[0].Present, matches[0].Total));
+        Assert.Equal((2, 3), (matches[1].Present, matches[1].Total));
+    }
+
+    [Fact]
+    public void 別々のパッケージに入った同じ部品は今どおり数えない()
+    {
+        var items = new Dictionary<string, IReadOnlyList<UnityPackageContents>>
+        {
+            ["avatarA"] = [Package("zipA|A.unitypackage", "Assets/lilToon/Shader/lts.shader", "Assets/A/A.fbx")],
+            ["avatarB"] = [Package("zipB|B.unitypackage", "Assets/lilToon/Shader/lts.shader", "Assets/B/B.fbx")],
+        };
+
+        var only = Assert.Single(Match(items, Has("Assets/lilToon/Shader/lts.shader", "Assets/B/B.fbx")));
+
+        Assert.Equal("avatarB", only.ItemId);
+        Assert.Equal((1, 1), (only.Present, only.Total));
+    }
+
+    [Fact]
+    public void 同じパッケージを持つ商品と別のパッケージの商品が混ざっても_同梱の部品だけを外す()
+    {
+        // セットと単品は同じ zip。別の商品の zip にも lilToon が入っている
+        var setPackage = Package("zip1|a/Avatar.unitypackage", "Assets/lilToon/Shader/lts.shader", "Assets/A/A.fbx", "Assets/A/A.mat");
+        var items = new Dictionary<string, IReadOnlyList<UnityPackageContents>>
+        {
+            ["set"] = [setPackage],
+            ["single"] = [setPackage],
+            ["other"] = [Package("zip2|Other.unitypackage", "Assets/lilToon/Shader/lts.shader", "Assets/O/O.fbx")],
+        };
+
+        var matches = Match(items, Has("Assets/lilToon/Shader/lts.shader", "Assets/A/A.fbx", "Assets/O/O.fbx"));
+
+        Assert.Equal((1, 2), matches.Where(match => match.ItemId == "set").Select(match => (match.Present, match.Total)).Single());
+        Assert.Equal((1, 2), matches.Where(match => match.ItemId == "single").Select(match => (match.Present, match.Total)).Single());
+        Assert.Equal((1, 1), matches.Where(match => match.ItemId == "other").Select(match => (match.Present, match.Total)).Single());
+    }
+
+    [Fact]
+    public void 一つの商品が二つのパッケージに同じ物を持ち_片方を別の商品と共有しても数える()
+    {
+        // 「包みの数が2以上」で数えると、ここで落ちる
+        var items = new Dictionary<string, IReadOnlyList<UnityPackageContents>>
+        {
+            ["set"] = [Package("zip1|Full.unitypackage", "Assets/K/Sweater.fbx"), Package("zip1|Lite.unitypackage", "Assets/K/Sweater.fbx")],
+            ["single"] = [Package("zip1|Full.unitypackage", "Assets/K/Sweater.fbx")],
+        };
+
+        Assert.Equal(["set", "single"], Match(items, Has("Assets/K/Sweater.fbx")).Select(match => match.ItemId).Order());
+    }
+
+    [Fact]
+    public void どのパッケージか分からない物は同じと見ない()
+    {
+        // 登録したフォルダの中の物はハッシュを持たない（印が null）。同じパスなら今どおり共有の部品として数えない
+        var items = new Dictionary<string, IReadOnlyList<UnityPackageContents>>
+        {
+            ["set"] = [new UnityPackageContents(null, [new UnityPackageAsset(GuidOf("Assets/K/S.fbx"), "Assets/K/S.fbx")])],
+            ["single"] = [new UnityPackageContents(null, [new UnityPackageAsset(GuidOf("Assets/K/S.fbx"), "Assets/K/S.fbx")])],
+        };
+
+        Assert.Empty(Match(items, Has("Assets/K/S.fbx")));
+    }
+
     [Fact]
     public void Packagesに入る物も数える()
     {
