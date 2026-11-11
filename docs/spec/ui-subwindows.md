@@ -25,7 +25,7 @@
 - 持ち主は主の窓：主の窓の手前に出て、主の窓を畳むと一緒に畳まれる。タスクバーには出さない。
 - **主の窓が閉じる・隠れるときは、主の側から明示して閉じる**（`App.OnMainWindowClosing` → `MainViewModel.CloseSubWindows`）。持ち主に任せると、画面を出さない起動から開いた窓は閉じても隠すだけ（[headless.md](headless.md)）なのでサブ画面が残り、保存先を運んだ後の開き直しでは古い保存先のまま残り得る。書きかけを聞いて「キャンセル」したときは閉じない。
 - 閉じるのは右下の「閉じる」・Esc・×。閉じたら置き場の知らせを外す（置き場はアプリの間生きている）。
-- 大きさは変えられる（最小 680×420）。位置と大きさはアプリを閉じるまで覚え、`ui-state.json` には書かない（形を変えない）。最初は主の窓の中央に 940×640（表示の大きさを掛ける）。
+- 大きさは変えられる（最小 720×420。中の左右の最小 300・360 と境目・余白が収まる幅）。位置と大きさはアプリを閉じるまで覚え、`ui-state.json` には書かない（形を変えない）。最初は主の窓の中央に 940×640（表示の大きさを掛ける）。
 - 中の左右の比率は境目（`PaneSplitter`。主の画面の境目と同じ部品）のドラッグで変え、ダブルクリックで元に戻す。比率（＊の比）も位置と同じくアプリを閉じるまで覚え、`ui-state.json` には書かない（主の画面の `paneWidths` とは別）。
 - フォーカス：サブ画面で商品を押しても、フォーカスはサブ画面に残す（主の窓を前に出すと、続けて割り振れない）。
 
@@ -45,4 +45,4 @@
 ## 試験と撮影
 
 - 試験は窓を作らない：`FilePoolViewModel.OpenIntercept` を `TestApp` が差し替え、作り物の窓（前に出した回数・閉じる）を控える。
-- 撮影台は窓を出さずに中身を載せる（`Scenes.FilePool.cs`。`file-pool`・`-set-selected`・`-nothing-shown`・`-filtered`・`-filtered-none`・`-many`・`-wide-left`・`-after-changes`）。
+- 撮影台は窓を出さずに中身を載せる（`Scenes.FilePool.cs`。`file-pool`・`-set-selected`・`-nothing-shown`・`-filtered`・`-filtered-none`・`-many`・`-wide-left`・`-drag-left-min`・`-drag-right-min`・`-after-changes`）。

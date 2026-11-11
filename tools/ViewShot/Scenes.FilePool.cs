@@ -87,9 +87,51 @@ internal static partial class Scenes
                 await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
             }),
 
+        FilePoolDragged("file-pool-drag-left-min", "ファイルの割り振り：境目を左いっぱいへドラッグした姿（左の最小）", -2000),
+        FilePoolDragged("file-pool-drag-right-min", "ファイルの割り振り：境目を右いっぱいへドラッグした姿（右の最小）", 2000),
+
         FilePoolAfterChanges,
         FilePoolMany,
     ];
+
+    /// <summary>
+    /// 境目をドラッグした後の姿。境目（GridSplitter）にドラッグの始まり・動き・終わりの知らせを直に送る（台では実際のマウスを使わない）。
+    /// 動いた後も両列が＊のままで、最小の幅で止まることを撮る前に確かめる
+    /// </summary>
+    private static Scene FilePoolDragged(string name, string title, double delta) => FilePoolScene(
+        name,
+        title,
+        arrange: async (pool, _) => await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId)),
+        afterPresent: async (pool, context, root) =>
+        {
+            var splitter = Look.All<Chmonos.App.Controls.PaneSplitter>(root).Single();
+            var grid = (System.Windows.Controls.Grid)splitter.Parent;
+            var before = grid.ColumnDefinitions[0].ActualWidth;
+            splitter.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0)
+            {
+                RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragStartedEvent,
+            });
+            splitter.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(delta, 0)
+            {
+                RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragDeltaEvent,
+            });
+            splitter.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(delta, 0, false)
+            {
+                RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragCompletedEvent,
+            });
+            await context.SettleAsync();
+
+            var left = grid.ColumnDefinitions[0];
+            var right = grid.ColumnDefinitions[2];
+            if (left.ActualWidth == before || !left.Width.IsStar || !right.Width.IsStar
+                || left.ActualWidth < left.MinWidth - 0.5 || right.ActualWidth < right.MinWidth - 0.5)
+            {
+                throw new InvalidOperationException(
+                    $"境目が動いていないか、最小を割りました（左 {before:0}→{left.ActualWidth:0}・{left.Width}、右 {right.ActualWidth:0}・{right.Width}）。");
+            }
+
+            Console.WriteLine($"MEASURE left={left.ActualWidth:0} right={right.ActualWidth:0}");
+        });
 
     /// <summary>
     /// 選んだ商品が多いとき（40件・絵のある物と無い物が交互）。左の一覧が仮想化されていて、見えない商品の行を作らない（絵を読まない）ことを、撮る前に確かめる

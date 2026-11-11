@@ -8,7 +8,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:FilePoolViewModel}"
         Title="{Binding Title}"
-        Width="940" Height="640" MinWidth="680" MinHeight="420"
+        Width="940" Height="640" MinWidth="720" MinHeight="420"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Surface}">
     <!--
@@ -135,12 +135,14 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <!--
-                    左右の比率は間の境目のドラッグで変える（ユーザ指摘 2026-11-11）。最小は、左が商品の行（三角・絵・名前の数文字・ファイルの数）の 240、
-                    右が絞りの1行（付いている商品の数が [n] [以下] のファイルを表示）を折り返さずに収める 320。窓の最小 680 から余白と境目を引くと両方が収まる
+                    左右の比率は間の境目のドラッグで変える（ユーザ指摘 2026-11-11）。最小は撮って決めた（file-pool-drag-*）：
+                    左 300 は、付ける先の行（三角・絵・「付ける先」の札・ファイルの数）に名前が数文字残る幅（240 では名前が「..」だけになった）。
+                    右 360 は、絞りの1行（付いている商品の数が [n] [以下] のファイルを表示）が約340を使うので、折り返さずに収まる幅（320 では2行に割れた）。
+                    窓の最小 720 は、この2つ＋境目 16＋左右の余白 36
                 -->
-                <ColumnDefinition x:Name="LeftColumn" Width="2*" MinWidth="240" />
+                <ColumnDefinition x:Name="LeftColumn" Width="2*" MinWidth="300" />
                 <ColumnDefinition Width="16" />
-                <ColumnDefinition x:Name="RightColumn" Width="3*" MinWidth="320" />
+                <ColumnDefinition x:Name="RightColumn" Width="3*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
             <!-- 境目。主の画面の境目と同じ部品（乗せると色が付く・ダブルクリックで元の比率） -->

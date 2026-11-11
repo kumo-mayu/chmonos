@@ -151,7 +151,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 改変：窓（使ったものを足す・改変に追加・探す・絵） | `pick-member-files-dialog`・`pick-modification-*-dialog` |
 | 送る unitypackage を選ぶ窓（改変・カードの右クリック・複数選択） | `catalog-dialog-pick-packages`・`-filtered`（探して選んだ・飛ばすボタン）・`-none`（0件で送るが押せない） |
 | コピーした商品をまとめて登録する窓（計画 26） | `catalog-dialog-register-pasted`（ライブラリにある行・外した行・長い名前）・`-all-known`（すべてある・登録が押せない） |
-| ファイルの割り振り（サブ画面・計画 30） | `file-pool`（付ける先を選び組を広げてチェック・左は一部を畳む）・`-set-selected`（付いているファイルと「外す」・消えた商品の1行・押せない行）・`-nothing-shown`（絞りで何も出ない・左をすべて畳む）・`-filtered`／`-filtered-none`（左右の探す欄）・`-many`（40件・絵と頭文字・左は見えている行だけ作る）・`-wide-left`（境目で変えた比率で開き直す）・`-after-changes`（表示した後の付け外しと読み直し） |
+| ファイルの割り振り（サブ画面・計画 30） | `file-pool`（付ける先を選び組を広げてチェック・左は一部を畳む）・`-set-selected`（付いているファイルと「外す」・消えた商品の1行・押せない行）・`-nothing-shown`（絞りで何も出ない・左をすべて畳む）・`-filtered`／`-filtered-none`（左右の探す欄）・`-many`（40件・絵と頭文字・左は見えている行だけ作る）・`-wide-left`（境目で変えた比率で開き直す）・`-drag-left-min`／`-drag-right-min`（境目をドラッグして左右の最小で止まる）・`-after-changes`（表示した後の付け外しと読み直し） |
 
 ## タグの管理（11-tags）・属性の管理（12-attributes）
 
