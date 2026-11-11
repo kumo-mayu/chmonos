@@ -147,6 +147,48 @@ public class FilePoolWindowTests
         return Task.CompletedTask;
     }
 
+    // ---- 左の商品の開閉 ----
+
+    [Fact]
+    public Task 左の商品は最初すべて広げ_1件ずつとすべてで開閉でき_付ける先とは連動しない() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+
+        Assert.All(pool.Items, row => Assert.True(row.IsExpanded));
+        Assert.Equal("作り物のセットのファイルを折りたたむ", Row(pool, SetId).ExpandName);
+
+        // 1件だけ畳む
+        Row(pool, SetId).IsExpanded = false;
+        Assert.Equal([false, true, true], pool.Items.Select(row => row.IsExpanded));
+        Assert.Equal("作り物のセットのファイルを広げる", Row(pool, SetId).ExpandName);
+
+        // 付ける先に選んでも開閉は変わらず、畳んだ行を選んでも広がらない
+        await pool.OpenItemAsync(Row(pool, SetId));
+        Assert.Equal(SetId, pool.SelectedItem?.Id);
+        Assert.False(Row(pool, SetId).IsExpanded);
+        await pool.OpenItemAsync(Row(pool, PartAId));
+        Assert.Equal([false, true, true], pool.Items.Select(row => row.IsExpanded));
+
+        pool.CollapseAllItemsCommand.Execute(null);
+        Assert.All(pool.Items, row => Assert.False(row.IsExpanded));
+        Assert.Equal(PartAId, pool.SelectedItem?.Id);
+
+        // 読み直しでも開閉と付ける先は残る
+        Row(pool, PartBId).IsExpanded = true;
+        await pool.ReloadAsync();
+        Assert.Equal([false, false, true], pool.Items.Select(row => row.IsExpanded));
+        Assert.Equal(PartAId, pool.SelectedItem?.Id);
+
+        pool.ExpandAllItemsCommand.Execute(null);
+        Assert.All(pool.Items, row => Assert.True(row.IsExpanded));
+        Assert.Equal(PartAId, pool.SelectedItem?.Id);
+
+        // 右の組の「すべて広げる」は左に響かない
+        pool.CollapseAllCommand.Execute(null);
+        Assert.All(pool.Items, row => Assert.True(row.IsExpanded));
+    });
+
     // ---- 付ける ----
 
     [Fact]

@@ -19,10 +19,11 @@ internal static partial class Scenes
     [
         FilePoolScene(
             "file-pool",
-            "ファイルの割り振り：付ける先に単品Bを選び、「2 以下」で組を1つ広げて2つにチェック（中の unitypackage の見出し・1つだけの組は見出し無し）",
+            "ファイルの割り振り：付ける先に単品Bを選び、左はセットだけ畳む。「2 以下」で組を1つ広げて2つにチェック（中の unitypackage の見出し・1つだけの組は見出し無し）",
             async (pool, _) =>
             {
                 await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartBId));
+                pool.Items.Single(row => row.Id == PoolSetId).IsExpanded = false;
                 pool.Threshold = 2;
                 var group = pool.Groups.Single(group => group.Name == "SampleShop");
                 group.IsExpanded = true;
@@ -32,10 +33,11 @@ internal static partial class Scenes
 
         FilePoolScene(
             "file-pool-set-selected",
-            "ファイルの割り振り：セットを選び、下に付いているファイルと「外す」。「2 以上」で絞り、付ける先が持つ行は押せない・消えた商品の1行",
+            "ファイルの割り振り：セットを付ける先に選び、下に付いているファイルと「外す」。上着は畳む。「2 以上」で絞り、付ける先が持つ行は押せない・消えた商品の1行",
             async (pool, context) =>
             {
                 await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolSetId));
+                pool.Items.Single(row => row.Id == PoolPartAId).IsExpanded = false;
                 pool.Filter = HolderCountFilter.AtLeast;
                 pool.Threshold = 2;
                 await context.Seed.Items.DeleteAsync("9900884");
@@ -44,12 +46,13 @@ internal static partial class Scenes
 
         FilePoolScene(
             "file-pool-nothing-shown",
-            "ファイルの割り振り：絞りで何も出ない（「3 のみ」）と、付けるが押せない理由",
-            (pool, _) =>
+            "ファイルの割り振り：左をすべて畳み、付ける先（上着）も畳んだまま。絞りで何も出ない（「3 のみ」）",
+            async (pool, _) =>
             {
+                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartAId));
+                pool.CollapseAllItemsCommand.Execute(null);
                 pool.Filter = HolderCountFilter.Exactly;
                 pool.Threshold = 3;
-                return Task.CompletedTask;
             }),
 
         FilePoolAfterChanges,

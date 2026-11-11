@@ -69,6 +69,8 @@ public sealed class FilePoolViewModel : ViewModelBase
         AttachCommand = new RelayCommand(() => AttachAsync().Forget(), () => CanAttach);
         DetachCommand = new RelayCommand(parameter => DetachAsync(parameter as FilePoolHeldFile).Forget());
         OpenItemCommand = new RelayCommand(parameter => OpenItemAsync(parameter as FilePoolItemRow).Forget());
+        ExpandAllItemsCommand = new RelayCommand(() => SetAllItemsExpanded(true));
+        CollapseAllItemsCommand = new RelayCommand(() => SetAllItemsExpanded(false));
         ExpandAllCommand = new RelayCommand(() => SetAllExpanded(true));
         CollapseAllCommand = new RelayCommand(() => SetAllExpanded(false));
         ClearChecksCommand = new RelayCommand(ClearChecks);
@@ -212,6 +214,11 @@ public sealed class FilePoolViewModel : ViewModelBase
     public RelayCommand DetachCommand { get; }
 
     public RelayCommand OpenItemCommand { get; }
+
+    /// <summary>左の商品の下のファイルをすべて広げる（右の組の「すべて広げる」とは別の物）。</summary>
+    public RelayCommand ExpandAllItemsCommand { get; }
+
+    public RelayCommand CollapseAllItemsCommand { get; }
 
     public RelayCommand ExpandAllCommand { get; }
 
@@ -475,6 +482,14 @@ public sealed class FilePoolViewModel : ViewModelBase
         OnPropertyChanged(nameof(AttachText));
         OnPropertyChanged(nameof(AttachHint));
         RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    private void SetAllItemsExpanded(bool expanded)
+    {
+        foreach (var row in Items)
+        {
+            row.IsExpanded = expanded;
+        }
     }
 
     private void SetAllExpanded(bool expanded)

@@ -7,6 +7,7 @@ namespace Chmonos.App.ViewModels;
 public sealed class FilePoolItemRow : ViewModelBase
 {
     private bool _isSelected;
+    private bool _isExpanded = true;
     private IReadOnlyList<FilePoolHeldFile> _files = [];
 
     public FilePoolItemRow(string id, string name)
@@ -19,12 +20,32 @@ public sealed class FilePoolItemRow : ViewModelBase
 
     public string Name { get; private set; }
 
-    /// <summary>付ける先として選んでいるか。選んだ行だけ、付いているファイルを下に並べる。</summary>
+    /// <summary>付ける先として選んでいるか。色と札で示すだけで、下のファイルの開閉（<see cref="IsExpanded"/>）とは連動しない。</summary>
     public bool IsSelected
     {
         get => _isSelected;
         set => SetField(ref _isSelected, value);
     }
+
+    /// <summary>
+    /// 付いているファイルを下に並べるか。既定は広げる（ユーザ指摘 2026-11-11「選択したものだけが開くのではなく全て開いたり個別で閉じたり」）。
+    /// 付ける先とは別に持つ：付ける先を選び直すたびに開閉が変わると、見比べていた商品の行が畳まれて見失う。
+    /// 行は読み直しでも使い回すので、開閉はここに持てば残る
+    /// </summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetField(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(ExpandName));
+            }
+        }
+    }
+
+    /// <summary>三角の読み上げの名前（押すと起きること）。</summary>
+    public string ExpandName => IsExpanded ? $"{Name}のファイルを折りたたむ" : $"{Name}のファイルを広げる";
 
     /// <summary>この商品に付いているファイル（外した・古い版は除く。所持の答えと同じ）。</summary>
     public IReadOnlyList<FilePoolHeldFile> Files
@@ -54,6 +75,7 @@ public sealed class FilePoolItemRow : ViewModelBase
             Name = item.DisplayName;
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(OpenName));
+            OnPropertyChanged(nameof(ExpandName));
         }
 
         Files = item.Local.OwnedFiles
