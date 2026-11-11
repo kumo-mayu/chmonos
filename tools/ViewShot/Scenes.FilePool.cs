@@ -55,6 +55,28 @@ internal static partial class Scenes
                 pool.Threshold = 3;
             }),
 
+        FilePoolScene(
+            "file-pool-filtered",
+            "ファイルの割り振り：左を「上着」、右を「sampleshop」で探した姿（右は「4 以下」と重なる・付ける先は隠れても残る）",
+            async (pool, _) =>
+            {
+                await pool.OpenItemAsync(pool.Items.Single(row => row.Id == PoolPartBId));
+                pool.ItemFilterText = "上着";
+                pool.Threshold = 4;
+                pool.FileFilterText = "sampleshop";
+                pool.Groups.Single(group => group.Name == "SampleShop").IsExpanded = true;
+            }),
+
+        FilePoolScene(
+            "file-pool-filtered-none",
+            "ファイルの割り振り：左右とも探す文字に何も当たらない",
+            (pool, _) =>
+            {
+                pool.ItemFilterText = "当たらない名前";
+                pool.FileFilterText = "当たらない名前";
+                return Task.CompletedTask;
+            }),
+
         FilePoolAfterChanges,
     ];
 

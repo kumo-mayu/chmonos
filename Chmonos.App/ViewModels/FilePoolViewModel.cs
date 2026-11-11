@@ -50,6 +50,8 @@ public sealed class FilePoolViewModel : ViewModelBase
     private readonly HashSet<string> _expanded = new(StringComparer.CurrentCultureIgnoreCase);
 
     private FilePoolItemRow? _selected;
+    private string _itemFilterText = string.Empty;
+    private string _fileFilterText = string.Empty;
     private int _threshold = 1;
     private HolderCountFilter _filter = HolderCountFilter.AtMost;
     private string _resultText = string.Empty;
@@ -74,6 +76,8 @@ public sealed class FilePoolViewModel : ViewModelBase
         ExpandAllCommand = new RelayCommand(() => SetAllExpanded(true));
         CollapseAllCommand = new RelayCommand(() => SetAllExpanded(false));
         ClearChecksCommand = new RelayCommand(ClearChecks);
+        ClearItemFilterCommand = new RelayCommand(() => ItemFilterText = string.Empty);
+        ClearFileFilterCommand = new RelayCommand(() => FileFilterText = string.Empty);
     }
 
     /// <summary>窓が閉じた（主の窓が1つだけ持つ控えを外すため）。</summary>
@@ -88,9 +92,59 @@ public sealed class FilePoolViewModel : ViewModelBase
 
     public ObservableCollection<FilePoolItemRow> Items { get; } = [];
 
+    /// <summary>
+    /// 左に出す商品（<see cref="Items"/> を探す欄で絞った物）。<see cref="Items"/> は選んだ商品の全部のまま：
+    /// 見出しの数・n の選択肢・右の溜まりは、左の絞りで変えない（隠れた商品のファイルまで溜まりから消えると、割り振る物を見落とす）
+    /// </summary>
+    public ObservableCollection<FilePoolItemRow> ShownItems { get; } = [];
+
     public ObservableCollection<FilePoolGroupRow> Groups { get; } = [];
 
     public string ItemsHeading => $"選んだ商品（{Items.Count}）";
+
+    /// <summary>左の探す欄。商品名で絞る（照らし方はほかの探す欄と同じ：大文字小文字・かなの種類・全角半角を区別しない。空白で区切った語の全部）。</summary>
+    public string ItemFilterText
+    {
+        get => _itemFilterText;
+        set
+        {
+            if (SetField(ref _itemFilterText, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(HasItemFilterText));
+                ApplyItemFilter();
+            }
+        }
+    }
+
+    public bool HasItemFilterText => ItemFilterText.Length > 0;
+
+    /// <summary>左の探す欄で1件も当たらないときの1行。</summary>
+    public string ItemsEmptyText { get; private set; } = string.Empty;
+
+    public bool HasItemsEmptyText => ItemsEmptyText.Length > 0;
+
+    /// <summary>
+    /// 右の探す欄。ファイル名と組の名前で絞る（語ごとに、どちらかに入っていればよい）。付いている商品の数の絞りと重ねて効く。
+    /// 組は数で絞った後に作り、組の中の行を文字で絞る（組の名前で当たれば組の全部が残る。ファイル名で1つだけ残った組は、見出しの無い1行になる）
+    /// </summary>
+    public string FileFilterText
+    {
+        get => _fileFilterText;
+        set
+        {
+            if (SetField(ref _fileFilterText, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(HasFileFilterText));
+                RebuildPool();
+            }
+        }
+    }
+
+    public bool HasFileFilterText => FileFilterText.Length > 0;
+
+    public RelayCommand ClearItemFilterCommand { get; }
+
+    public RelayCommand ClearFileFilterCommand { get; }
 
     /// <summary>付ける先。左で押した商品。</summary>
     public FilePoolItemRow? SelectedItem
@@ -372,6 +426,21 @@ public sealed class FilePoolViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(ItemsHeading));
+        ApplyItemFilter();
+    }
+
+    /// <summary>
+    /// 左の探す欄で <see cref="ShownItems"/> を寄せる（差分で：作り直すと、広げた行の部品と読んだ絵を作り直す）。
+    /// 付ける先は隠れても外さない（探す語を変えただけで付ける先が消えると、付けるボタンが黙って押せなくなる）
+    /// </summary>
+    private void ApplyItemFilter()
+    {
+        var words = ModificationSearchText.Words(_itemFilterText);
+        var shown = Items.Where(row => words.All(word => ModificationSearchText.Contains(row.Name, word))).ToList();
+        CollectionSync.Apply(ShownItems, shown);
+        ItemsEmptyText = Items.Count > 0 && shown.Count == 0 ? "当たる商品はありません。探す文字を変えてください。" : string.Empty;
+        OnPropertyChanged(nameof(ItemsEmptyText));
+        OnPropertyChanged(nameof(HasItemsEmptyText));
     }
 
     /// <summary>
@@ -427,11 +496,16 @@ public sealed class FilePoolViewModel : ViewModelBase
             .ThenBy(file => file.Hash, StringComparer.Ordinal)
             .ToList();
         var target = SelectedItem?.Id;
+        var words = ModificationSearchText.Words(_fileFilterText);
+        var matched = 0;
 
         Groups.Clear();
         foreach (var group in FilePoolGroups.Of(shown))
         {
+            var groupName = group.Name.Length > 0 ? group.Name : UnnamedFileText;
             var rows = group.Files
+                .Where(file => words.All(word => ModificationSearchText.Contains(file.FileName ?? UnnamedFileText, word)
+                    || ModificationSearchText.Contains(groupName, word)))
                 .Select(file =>
                 {
                     var row = new FilePoolFileRow(
@@ -445,12 +519,19 @@ public sealed class FilePoolViewModel : ViewModelBase
                     return row;
                 })
                 .ToList();
-            Groups.Add(new FilePoolGroupRow(group, rows, _expanded.Contains(group.Name.Length > 0 ? group.Name : UnnamedFileText)));
+            if (rows.Count == 0)
+            {
+                continue;
+            }
+
+            matched += rows.Count;
+            Groups.Add(new FilePoolGroupRow(group, rows, _expanded.Contains(groupName)));
         }
 
-        PoolCountText = shown.Count == pool.Count ? $"{pool.Count} 個" : $"{pool.Count} 個のうち {shown.Count} 個を表示";
+        PoolCountText = matched == pool.Count ? $"{pool.Count} 個" : $"{pool.Count} 個のうち {matched} 個を表示";
         EmptyText = pool.Count == 0 ? "選んだ商品に付いているファイルはありません。"
             : shown.Count == 0 ? "条件に合うファイルはありません。付いている商品の数を変えてください。"
+            : matched == 0 ? "当たるファイルはありません。探す文字を変えてください。"
             : string.Empty;
         OnPropertyChanged(nameof(PoolCountText));
         OnPropertyChanged(nameof(EmptyText));

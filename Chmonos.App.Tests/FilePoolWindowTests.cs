@@ -189,6 +189,106 @@ public class FilePoolWindowTests
         Assert.All(pool.Items, row => Assert.True(row.IsExpanded));
     });
 
+    // ---- 探す欄 ----
+
+    [Fact]
+    public Task 左の探す欄は商品名で絞り_かなの種類と全角半角を区別せず_右と付ける先は変えない() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        await pool.OpenItemAsync(Row(pool, PartBId));
+        var poolBefore = Shown(pool).Select(file => file.Hash).ToList();
+
+        // 「スカート」をひらがな・半角カナで打っても当たる
+        pool.ItemFilterText = "すかーと";
+        Assert.Equal([PartBId], pool.ShownItems.Select(row => row.Id));
+        pool.ItemFilterText = "ｽｶｰﾄ";
+        Assert.Equal([PartBId], pool.ShownItems.Select(row => row.Id));
+
+        // 語は全部当たる物だけ
+        pool.ItemFilterText = "作り物　上着";
+        Assert.Equal([PartAId], pool.ShownItems.Select(row => row.Id));
+        Assert.False(pool.HasItemsEmptyText);
+
+        // 付ける先が隠れても外さない。見出しの数・n の選択肢・右の溜まりは選んだ商品の全部のまま
+        Assert.Equal(PartBId, pool.SelectedItem?.Id);
+        Assert.Equal("選んだ商品（3）", pool.ItemsHeading);
+        Assert.Equal([0, 1, 2, 3], pool.ThresholdChoices);
+        Assert.Equal(poolBefore, Shown(pool).Select(file => file.Hash));
+
+        pool.ItemFilterText = "無い名前";
+        Assert.Empty(pool.ShownItems);
+        Assert.Equal("当たる商品はありません。探す文字を変えてください。", pool.ItemsEmptyText);
+
+        // 読み直しでも絞りは残る
+        await pool.ReloadAsync();
+        Assert.Empty(pool.ShownItems);
+
+        pool.ClearItemFilterCommand.Execute(null);
+        Assert.Equal([SetId, PartAId, PartBId], pool.ShownItems.Select(row => row.Id));
+        Assert.False(pool.HasItemsEmptyText);
+    });
+
+    [Fact]
+    public Task 右の探す欄はファイル名と組の名前で絞り_付いている商品の数の絞りと重なる() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        pool.Threshold = 3;
+
+        // ファイル名：大文字小文字・全角半角を区別しない。組の中で1つだけ残った組は見出しの無い1行になる
+        pool.FileFilterText = "ｓｋｉｒｔ";
+        var skirt = Assert.Single(Shown(pool));
+        Assert.Equal("SampleShop_Skirt.zip", skirt.FileName);
+        Assert.True(Assert.Single(pool.Groups).IsSingle);
+        Assert.Equal("3 個のうち 1 個を表示", pool.PoolCountText);
+
+        // 組の名前で当たれば組の全部が残る
+        pool.FileFilterText = "sampleshop";
+        Assert.Equal(["SampleShop_Skirt.zip", "SampleShop_Top.zip"], Shown(pool).Select(file => file.FileName));
+        Assert.Equal("SampleShop", Assert.Single(pool.Groups).Name);
+
+        // 数の絞りと重なる：上着はセットと単品Aの2件に付いているので「1 以下」では隠れる
+        pool.Threshold = 1;
+        Assert.Equal(["SampleShop_Skirt.zip"], Shown(pool).Select(file => file.FileName));
+        Assert.Equal("3 個のうち 1 個を表示", pool.PoolCountText);
+
+        // 文字で全部隠れたときは、変えるのは文字だと言う
+        pool.FileFilterText = "無いファイル";
+        Assert.Empty(pool.Groups);
+        Assert.Equal("当たるファイルはありません。探す文字を変えてください。", pool.EmptyText);
+
+        // 数で全部隠れたときは、今までどおり数を変えるように言う
+        pool.Filter = HolderCountFilter.Exactly;
+        pool.Threshold = 3;
+        Assert.Equal("条件に合うファイルはありません。付いている商品の数を変えてください。", pool.EmptyText);
+
+        pool.ClearFileFilterCommand.Execute(null);
+        pool.Filter = HolderCountFilter.AtMost;
+        Assert.Equal(3, Shown(pool).Count());
+        Assert.Equal("3 個", pool.PoolCountText);
+    });
+
+    [Fact]
+    public Task 右の探す欄で隠れたチェックは控えに残り_付けるのは見えている行だけ() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        await pool.OpenItemAsync(Row(pool, PartBId));
+
+        Shown(pool).Single(file => file.FileName == "Other.zip").IsChecked = true;
+        pool.FileFilterText = "skirt";
+        Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip").IsChecked = true;
+        Assert.Equal(1, pool.CheckedCount);
+
+        await pool.AttachAsync();
+        Assert.Equal([Skirt.Hash], (await LocalOfAsync(app, PartBId)).OwnedFiles.Select(file => file.Hash));
+
+        // 隠れていたチェックは、文字を消すと戻る
+        pool.FileFilterText = string.Empty;
+        Assert.True(Shown(pool).Single(file => file.FileName == "Other.zip").IsChecked);
+    });
+
     // ---- 付ける ----
 
     [Fact]

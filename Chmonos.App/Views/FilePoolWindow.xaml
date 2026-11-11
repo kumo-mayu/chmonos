@@ -130,6 +130,17 @@
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                     <TextBlock Text="{Binding ItemsHeading}" FontWeight="SemiBold" />
                     <TextBlock Text="商品を押すと付ける先に選び、メインの画面でその商品を開きます。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    <Grid Margin="0,6,0,0">
+                        <TextBox Text="{Binding ItemFilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                                 BorderBrush="{DynamicResource BorderStrong}"
+                                 AutomationProperties.Name="選んだ商品を探す" AutomationProperties.AutomationId="FilePoolItemFilter" />
+                        <TextBlock Text="商品名で探す" Margin="12,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                   Visibility="{Binding HasItemFilterText, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                        <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                                Style="{StaticResource ClearFieldButton}" Command="{Binding ClearItemFilterCommand}"
+                                ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                                Visibility="{Binding HasItemFilterText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </Grid>
                     <WrapPanel Margin="0,4,0,0">
                         <Button Content="すべて広げる" Style="{StaticResource SmallButton}" Margin="0,2,6,2" Command="{Binding ExpandAllItemsCommand}"
                                 AutomationProperties.Name="選んだ商品のファイルをすべて広げる" AutomationProperties.AutomationId="FilePoolExpandItems" />
@@ -141,8 +152,11 @@
                                Visibility="{Binding HasRemoved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
                 <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="4">
+                    <Grid>
+                    <TextBlock Text="{Binding ItemsEmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="6"
+                               Visibility="{Binding HasItemsEmptyText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                        <controls:ContentItemsControl ItemsSource="{Binding Items}" AutomationProperties.AutomationId="FilePoolItems">
+                        <controls:ContentItemsControl ItemsSource="{Binding ShownItems}" AutomationProperties.AutomationId="FilePoolItems">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:FilePoolItemRow}">
                                     <StackPanel>
@@ -222,6 +236,7 @@
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
                     </ScrollViewer>
+                    </Grid>
                 </Border>
             </DockPanel>
 
@@ -241,6 +256,20 @@
                               VerticalAlignment="Center" Margin="0,2,6,2"
                               AutomationProperties.Name="数の比べ方" AutomationProperties.AutomationId="FilePoolFilter" />
                     <TextBlock Text="のファイルを表示" VerticalAlignment="Center" FontSize="{StaticResource FontSizeSmall}" Margin="0,2,14,2" />
+                </WrapPanel>
+                <!-- 探す欄は付いている商品の数の絞りと重ねて効く -->
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <TextBox Text="{Binding FileFilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                             BorderBrush="{DynamicResource BorderStrong}"
+                             AutomationProperties.Name="選んだ商品のファイルを探す" AutomationProperties.AutomationId="FilePoolFileFilter" />
+                    <TextBlock Text="ファイル名・組の名前で探す" Margin="12,0,0,0" Style="{StaticResource InputPlaceholder}"
+                               Visibility="{Binding HasFileFilterText, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                            Style="{StaticResource ClearFieldButton}" Command="{Binding ClearFileFilterCommand}"
+                            ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                            Visibility="{Binding HasFileFilterText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </Grid>
+                <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                     <Button Content="すべて広げる" Style="{StaticResource SmallButton}" Margin="0,2,6,2" Command="{Binding ExpandAllCommand}"
                             AutomationProperties.Name="ファイルの組をすべて広げる" AutomationProperties.AutomationId="FilePoolExpandGroups" />
                     <Button Content="すべて畳む" Style="{StaticResource SmallButton}" Margin="0,2,6,2" Command="{Binding CollapseAllCommand}"
