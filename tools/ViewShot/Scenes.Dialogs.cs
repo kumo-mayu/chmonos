@@ -83,11 +83,11 @@ internal static partial class Scenes
             Height = null,
         },
 
-        // exe を確かめられず、変更を求めていない（読み取りだけ）
-        new Scene("api-client-approval-readonly", "APIの利用の許可の窓：exe を確かめられなかった・読み取りだけ", context =>
+        // exe を確かめられず、変更を求めていない（読み取りだけ）。2回拒否されていて、次の拒否で止まる
+        new Scene("api-client-approval-readonly", "APIの利用の許可の窓：exe を確かめられなかった・読み取りだけ・あと1回拒否すると止める", context =>
         {
             var model = new Chmonos.App.ViewModels.ApiClientApprovalViewModel(new Chmonos.Api.ApiClientRequestInfo(
-                "読むだけの道具", null, null, [], Replaces: false));
+                "読むだけの道具", null, null, [], Replaces: false, RefusalsLeft: 1));
             var window = new Chmonos.App.Views.ApiClientApprovalDialog(model, owner: null);
             return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
         })

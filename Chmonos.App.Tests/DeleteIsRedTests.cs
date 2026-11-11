@@ -15,8 +15,11 @@ public class DeleteIsRedTests
 {
     private static readonly string[] DeleteWords = ["削除", "消す", "既定に戻す", "ごみ箱", "捨てる", "元の幅に戻す", "外す", "片付ける"];
 
-    /// <summary>「除外」は「外す」を含んで見えるが赤にしない物（下の本文で除く）。消す操作に見えても、入力欄を空にするだけの物（赤にしない）。</summary>
-    private static readonly string[] NotDelete = ["絞り込みを消す", "条件をクリア", "この条件を外す", "サムネイルの指名を外す"];
+    /// <summary>
+    /// 「除外」は「外す」を含んで見えるが赤にしない物（下の本文で除く）。消す操作に見えても、入力欄を空にするだけの物（赤にしない）。
+    /// API の「止めを外す」は止めを解いて、また許可を聞けるようにする操作で、何も失わない（2026-11-11・docs/spec/api-clients.md）
+    /// </summary>
+    private static readonly string[] NotDelete = ["絞り込みを消す", "条件をクリア", "この条件を外す", "サムネイルの指名を外す", "止めを外す"];
 
     [Fact]
     public void 削除や初期化の名前のボタンと項目は_赤の型を使う()

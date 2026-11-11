@@ -161,18 +161,19 @@ public sealed partial class SettingsViewModel
     /// </summary>
     internal void LoadApiClients()
     {
-        IReadOnlyList<ApiClientRecord> clients;
+        ApiClientList list;
         try
         {
-            clients = _services.Store.ApiClients.Load().Clients ?? [];
+            list = _services.Store.ApiClients.Load();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
             Core.Diagnostics.AppLog.Error("API の許したソフトの一覧を読む", exception);
-            clients = [];
+            list = new ApiClientList();
         }
 
-        var rows = clients.Where(client => client is not null && !string.IsNullOrEmpty(client.Id)).ToList();
+        LoadApiBlocked(list);
+        var rows = (list.Clients ?? []).Where(client => client is not null && !string.IsNullOrEmpty(client.Id)).ToList();
         if (rows.Count == ApiClients.Count && rows.Zip(ApiClients).All(pair => pair.Second.Matches(pair.First)))
         {
             return;
@@ -188,6 +189,89 @@ public sealed partial class SettingsViewModel
     }
 
     private void OnApiClientsChanged() => RunOnUiThread(LoadApiClients);
+
+    /// <summary>拒否が続いて止めているソフト（2026-11-11）。設定の「止めているソフト」。</summary>
+    public ObservableCollection<ApiBlockedRow> ApiBlockedClients { get; } = [];
+
+    public bool HasApiBlockedClients => ApiBlockedClients.Count > 0;
+
+    private int _apiRefusalLimit = ApiClientList.DefaultRefusalLimit;
+
+    /// <summary>
+    /// 続けて拒否したら止める回数（0 なら数えず、止めもしない）。上限の10は、それより多く拒否を押す人は止めを使わないのと同じで、
+    /// 大きな数を打ち間違えて事実上止まらないのに気付かない、を避けるため
+    /// </summary>
+    public int ApiRefusalLimit
+    {
+        get => _apiRefusalLimit;
+        set
+        {
+            var clamped = Clamped(value, 0, 10, "止めるまでの拒否の回数", " 回", nameof(ApiRefusalLimit));
+            if (SetField(ref _apiRefusalLimit, clamped))
+            {
+                SaveRefusalLimitAsync(clamped).Forget();
+            }
+            else if (clamped != value)
+            {
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private async Task SaveRefusalLimitAsync(int limit)
+    {
+        // 0 は「覚えない」：今の止めと数えた回数も消す（0 は今までと同じに毎回聞く形。止めの記録を残すと、上限を戻したときに人が見ていない止めが生き返る）
+        var saved = await SaveApiClientsAsync(list => list with
+        {
+            RefusalLimit = limit,
+            Refusals = limit == 0 ? [] : list.Refusals ?? [],
+        });
+
+        // 一覧を書いた後の値で出し直す（API が止まっていると、読み直しの知らせが来ない）
+        if (saved)
+        {
+            LoadApiClients();
+        }
+    }
+
+    /// <summary>止めているソフトの一覧と上限を、控えから出し直す（同じなら作り直さない）。</summary>
+    private void LoadApiBlocked(ApiClientList list)
+    {
+        if (_apiRefusalLimit != list.RefusalLimit)
+        {
+            _apiRefusalLimit = Math.Max(0, list.RefusalLimit);
+            OnPropertyChanged(nameof(ApiRefusalLimit));
+        }
+
+        // 回数が上限に届いていない（1〜2回拒否した）ソフトは出さない：まだ窓は出るので、人が外す物が無い。数だけ控えに覚える
+        var blocked = list.RefusalLimit <= 0
+            ? []
+            : (list.Refusals ?? []).Where(refusal => refusal is not null && refusal.BlockedAt is not null && !string.IsNullOrEmpty(refusal.Name)).ToList();
+        if (blocked.Count == ApiBlockedClients.Count && blocked.Zip(ApiBlockedClients).All(pair => pair.Second.Record == pair.First))
+        {
+            return;
+        }
+
+        ApiBlockedClients.Clear();
+        foreach (var refusal in blocked)
+        {
+            ApiBlockedClients.Add(new ApiBlockedRow(refusal, UnblockApiClient));
+        }
+
+        OnPropertyChanged(nameof(HasApiBlockedClients));
+    }
+
+    /// <summary>止めを外す：回数も0に戻す（記録ごと消す）。次の求めでまた窓が出る。確かめは出さない（取り返しがつく：また拒否すれば止まる）。</summary>
+    private void UnblockApiClient(ApiBlockedRow row)
+    {
+        ApiBlockedClients.Remove(row);
+        OnPropertyChanged(nameof(HasApiBlockedClients));
+        var record = row.Record;
+        SaveApiClientsAsync(list => list with
+        {
+            Refusals = (list.Refusals ?? []).Where(refusal => refusal is not null && !refusal.IsSame(record.Name, record.ExePath, record.Origin)).ToList(),
+        }).Forget();
+    }
 
     /// <summary>種類のチェックを変えたら、そのソフトの権限を書き換え、動いている API にすぐ読み直させる。</summary>
     private void ChangeApiClientScope(ApiClientRow row, ApiScopeChoice choice)
@@ -388,6 +472,29 @@ public sealed class ApiClientRow
     internal bool Matches(ApiClientRecord record) => _record == record
         || (_record.Id == record.Id && _record.Name == record.Name && _record.ExePath == record.ExePath && _record.Origin == record.Origin
             && _record.LastUsedAt == record.LastUsedAt && (_record.Scopes ?? []).SequenceEqual(record.Scopes ?? []));
+}
+
+/// <summary>止めているソフトの1行（名前・exe かオリジン・止めた日時・止めを外す）。</summary>
+public sealed class ApiBlockedRow
+{
+    public ApiBlockedRow(ApiClientRefusal record, Action<ApiBlockedRow> unblock)
+    {
+        Record = record;
+        UnblockCommand = new RelayCommand(() => unblock(this));
+    }
+
+    internal ApiClientRefusal Record { get; }
+
+    public string Name => Record.Name;
+
+    /// <summary>つないでいるソフトの行と同じ書き方。</summary>
+    public string WhereText => Record.Origin is { } origin
+        ? $"{Record.ExePath ?? "実行ファイルは確かめられませんでした"}\n{origin}"
+        : Record.ExePath ?? "実行ファイルは確かめられませんでした";
+
+    public string BlockedText => $"止めた日時：{(Record.BlockedAt ?? Record.LastRefusedAt).ToLocalTime():yyyy/MM/dd HH:mm}";
+
+    public RelayCommand UnblockCommand { get; }
 }
 
 /// <summary>許可する Web ページの1行。</summary>

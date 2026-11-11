@@ -1,14 +1,17 @@
 using System.Windows;
+using System.Windows.Input;
 using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Views;
 
 public partial class ApiClientApprovalDialog : Window
 {
+    private readonly ApiClientApprovalViewModel _model;
+
     public ApiClientApprovalDialog(ApiClientApprovalViewModel model, Window? owner)
     {
         InitializeComponent();
-        DataContext = model;
+        DataContext = _model = model;
 
         // 主の窓が最小化されていると、持ち主にした窓も一緒に隠れる。そのときは持ち主にせず、タスクバーに出して気付けるようにする
         if (owner is { WindowState: not WindowState.Minimized } && owner != this)
@@ -27,5 +30,25 @@ public partial class ApiClientApprovalDialog : Window
 
     private void OnApprove(object sender, RoutedEventArgs e) => DialogResult = true;
 
-    private void OnDeny(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void OnDeny(object sender, RoutedEventArgs e)
+    {
+        _model.Refuse();
+        DialogResult = false;
+    }
+
+    /// <summary>
+    /// Esc は許さずに閉じるが、拒否には数えない（2026-11-11）。［拒否］の IsCancel にすると Esc でも Click が走り、
+    /// 押した拒否と見分けられない。後で決めようと閉じただけで止める回数が進まないように、ここで分ける
+    /// </summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            DialogResult = false;
+            return;
+        }
+
+        base.OnPreviewKeyDown(e);
+    }
 }

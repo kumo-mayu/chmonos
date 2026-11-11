@@ -50,6 +50,7 @@ public sealed class ApiClientApprovalViewModel : ViewModelBase
         Origin = request.Origin;
         Replaces = request.Replaces;
         Scopes = request.Scopes.Select(scope => new ApiScopeChoice(scope, isChecked: true)).ToList();
+        LastRefusal = request.RefusalsLeft == 1;
     }
 
     public string Name { get; }
@@ -74,6 +75,24 @@ public sealed class ApiClientApprovalViewModel : ViewModelBase
 
     public bool HasScopes => Scopes.Count > 0;
 
+    /// <summary>
+    /// 次に拒否すると止まるか（「あと1回」を出す）。2回以上残っているときは出さない：
+    /// 毎回の窓に回数を並べると、許すかを決める文が埋もれる。知らせが要るのは、次の拒否で窓が出なくなる時だけ
+    /// </summary>
+    public bool LastRefusal { get; }
+
     /// <summary>許したときの答え（チェックした種類だけ）。</summary>
     public ApiClientDecision Approve() => new(true, Scopes.Where(choice => choice.IsChecked).Select(choice => choice.Scope).ToList());
+
+    /// <summary>人が［拒否］を押したか（ボタン・フォーカスのある所で Enter。Esc・×・Alt+F4 は押していない）。</summary>
+    public bool Refused { get; private set; }
+
+    public void Refuse() => Refused = true;
+
+    /// <summary>
+    /// 窓の結果を答えにする。拒否に数えるのは［拒否］を押したときだけ（2026-11-11）。
+    /// 閉じた・Esc は「答えなかった」：止める回数に数えると、後で決めようと閉じただけで止まってしまう
+    /// </summary>
+    public ApiClientDecision Decide(bool? dialogResult)
+        => dialogResult == true ? Approve() : Refused ? ApiClientDecision.Refusal : ApiClientDecision.Dismissed;
 }

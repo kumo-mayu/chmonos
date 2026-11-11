@@ -174,7 +174,7 @@ public sealed class ApiClientTests : IAsyncLifetime
     {
         await StartAsync();
         var requestId = await RequestIdAsync("作り物の道具", "marks");
-        (await _approvals.NextAsync()).Answer(ApiClientDecision.Denied);
+        (await _approvals.NextAsync()).Answer(ApiClientDecision.Refusal);
 
         var result = await ResultAsync(requestId);
         Assert.Equal("denied", result.GetProperty("state").GetString());
@@ -311,12 +311,15 @@ public sealed class ApiClientTests : IAsyncLifetime
         // 1つ目に答えるまで、2つ目の窓は出ない
         await Task.Delay(200);
         Assert.Equal(1, _approvals.AskedCount);
-        asked.Answer(ApiClientDecision.Denied);
+        asked.Answer(ApiClientDecision.Refusal);
 
         var next = await _approvals.NextAsync();
         Assert.Equal("別の作り物", next.Info.Name);
         Assert.Equal(1, _approvals.MaxConcurrent);
-        next.Answer(ApiClientDecision.Denied);
+        next.Answer(ApiClientDecision.Refusal);
+
+        // 拒否の回数を書き終えるまで待つ（片付けで保存先を消すのと重ならないように）
+        await ResultAsync(other);
     }
 
     [Fact]
@@ -364,8 +367,176 @@ public sealed class ApiClientTests : IAsyncLifetime
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"止まるのに {watch.Elapsed.TotalSeconds:0.0} 秒かかりました。");
         Assert.Equal("pending", (await BodyOf(answer)).GetProperty("state").GetString());
 
+        // API が止まって窓が閉じたのは、人の拒否ではないので数えない
+        Assert.Empty(_store.ApiClients.Load().Refusals);
+
         await _app.DisposeAsync();
         _app = null;
+    }
+
+    private IReadOnlyList<ApiClientRefusal> Refusals => _store.ApiClients.Load().Refusals;
+
+    /// <summary>求めて、窓に <paramref name="decision"/> で答え、結果（denied など）まで取る。窓に出た物を返す。</summary>
+    private async Task<ApiClientRequestInfo> AnswerAsync(string name, ApiClientDecision decision)
+    {
+        var requestId = await RequestIdAsync(name, "marks");
+        var asked = await _approvals.NextAsync();
+        asked.Answer(decision);
+        await ResultAsync(requestId);
+        return asked.Info;
+    }
+
+    [Fact]
+    public async Task 拒否を押すたびに数え_上限に届いたら窓を出さずに403で断る()
+    {
+        await StartAsync();
+
+        // 窓が「あと何回」を知る（3回目の窓が「あと1回」）
+        Assert.Equal(3, (await AnswerAsync("作り物の道具", ApiClientDecision.Refusal)).RefusalsLeft);
+        Assert.Equal(1, Assert.Single(Refusals).Count);
+        Assert.Null(Refusals.Single().BlockedAt);
+        Assert.Equal(2, (await AnswerAsync("作り物の道具", ApiClientDecision.Refusal)).RefusalsLeft);
+        _now = _now.AddMinutes(5);
+        Assert.Equal(1, (await AnswerAsync("作り物の道具", ApiClientDecision.Refusal)).RefusalsLeft);
+
+        var saved = Assert.Single(Refusals);
+        Assert.Equal((3, _now, (DateTimeOffset?)_now, FakeExe), (saved.Count, saved.LastRefusedAt, saved.BlockedAt, saved.ExePath));
+
+        var response = await RequestAsync("作り物の道具", "marks");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("requestBlocked", await CodeOf(response));
+        Assert.Equal(3, _approvals.AskedCount);
+
+        // 画面を出していないときも、止めているほうを答える（画面を開いても窓は出ないので）
+        _approvals.CanAsk = false;
+        Assert.Equal("requestBlocked", await CodeOf(await RequestAsync("作り物の道具", "marks")));
+        _approvals.CanAsk = true;
+
+        // 別のソフト（名前が違う）は止めない
+        Assert.Equal(3, (await AnswerAsync("別の作り物", ApiClientDecision.Refusal)).RefusalsLeft);
+
+        // 控えには名前・場所・回数・日時だけ（トークンに当たる物は無い）
+        var text = await File.ReadAllTextAsync(_store.Paths.ApiClientsFile);
+        Assert.DoesNotContain("token", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task 許可したら回数を0に戻す()
+    {
+        await StartAsync();
+        await AnswerAsync("作り物の道具", ApiClientDecision.Refusal);
+        await AnswerAsync("作り物の道具", ApiClientDecision.Refusal);
+        Assert.Equal(2, Assert.Single(Refusals).Count);
+
+        // トークンを受け取りに来なくても、人が許した時点で0に戻す
+        var requestId = await RequestIdAsync("作り物の道具", "marks");
+        var asked = await _approvals.NextAsync();
+        Assert.Equal(1, asked.Info.RefusalsLeft);
+        asked.Answer(new ApiClientDecision(true, [ApiScopes.Marks]));
+        await WaitForAsync(() => Refusals.Count == 0);
+
+        await ResultAsync(requestId);
+        Assert.Equal(3, (await AnswerAsync("作り物の道具", ApiClientDecision.Refusal)).RefusalsLeft);
+        Assert.Equal(1, Assert.Single(Refusals).Count);
+
+        // 求め直しを拒否しても、前に許したトークンの行はそのまま（止めるのは新しい求めだけ）
+        Assert.Single(_store.ApiClients.Load().Clients);
+    }
+
+    [Fact]
+    public async Task 止めを外すと_また窓が出る()
+    {
+        await StartAsync();
+        for (var index = 0; index < 3; index++)
+        {
+            await AnswerAsync("作り物の道具", ApiClientDecision.Refusal);
+        }
+
+        Assert.Equal("requestBlocked", await CodeOf(await RequestAsync("作り物の道具", "marks")));
+
+        // 設定の画面と同じ道：控えから記録を消して、API に読み直させる
+        await _store.ApiClients.UpdateAsync(list => list with { Refusals = [] });
+        _state.Clients.Reload();
+
+        Assert.Equal(3, (await AnswerAsync("作り物の道具", ApiClientDecision.Refusal)).RefusalsLeft);
+        Assert.Equal(1, Assert.Single(Refusals).Count);
+    }
+
+    [Fact]
+    public async Task 上限が0なら_拒否を覚えず毎回窓を出す()
+    {
+        Directory.CreateDirectory(_root);
+        JsonStore.Write(new AppPaths(_root).ApiClientsFile, new ApiClientList { RefusalLimit = 0 });
+        await StartAsync();
+
+        for (var index = 0; index < 4; index++)
+        {
+            Assert.Null((await AnswerAsync("作り物の道具", ApiClientDecision.Refusal)).RefusalsLeft);
+        }
+
+        Assert.Empty(Refusals);
+        Assert.Equal(4, _approvals.AskedCount);
+
+        // 手で書いた止めの記録があっても、0 なら止めない
+        await _store.ApiClients.UpdateAsync(list => list with
+        {
+            Refusals = [new ApiClientRefusal { Name = "作り物の道具", ExePath = FakeExe, Count = 3, LastRefusedAt = _now, BlockedAt = _now }],
+        });
+        _state.Clients.Reload();
+        Assert.Equal(HttpStatusCode.Accepted, (await RequestAsync("作り物の道具", "marks")).StatusCode);
+    }
+
+    [Fact]
+    public async Task 窓を閉じた_聞けなかったは拒否に数えない()
+    {
+        await StartAsync();
+        for (var index = 0; index < 4; index++)
+        {
+            Assert.Equal(3, (await AnswerAsync("作り物の道具", ApiClientDecision.Dismissed)).RefusalsLeft);
+        }
+
+        Assert.Empty(Refusals);
+    }
+
+    [Fact]
+    public void 今ある控え_拒否の欄が無い物は_上限3で記録なしとして読む()
+    {
+        Directory.CreateDirectory(_root);
+        var paths = new AppPaths(_root);
+        File.WriteAllText(paths.ApiClientsFile, """{ "version": 1, "clients": [] }""");
+        var list = new DataStore(paths).ApiClients.Load();
+        Assert.Equal(3, list.RefusalLimit);
+        Assert.Empty(list.Refusals ?? []);
+    }
+
+    [Fact]
+    public async Task 求めが重なったとき_同じソフトの求めは1回の拒否に数え_列に残った止めたソフトの求めは窓を出さずに断る()
+    {
+        await StartAsync();
+
+        // 同じソフトから答える前に重ねて来た求めは1つにまとめるので、1回の拒否は1回に数える
+        var first = await RequestIdAsync("作り物の道具", "marks");
+        Assert.Equal(first, await RequestIdAsync("作り物の道具", "marks"));
+        (await _approvals.NextAsync()).Answer(ApiClientDecision.Refusal);
+        await ResultAsync(first);
+        Assert.Equal(1, Assert.Single(Refusals).Count);
+
+        // 別のソフトの窓を開いている間に、作り物の道具の求めが列に並ぶ。その間に止まった（設定や別の道で）
+        var other = await RequestIdAsync("別の作り物", "tags");
+        var otherAsked = await _approvals.NextAsync();
+        var queued = await RequestIdAsync("作り物の道具", "marks");
+        await _store.ApiClients.UpdateAsync(list => list with
+        {
+            Refusals = [new ApiClientRefusal { Name = "作り物の道具", ExePath = FakeExe, Count = 3, LastRefusedAt = _now, BlockedAt = _now }],
+        });
+        _state.Clients.Reload();
+        otherAsked.Answer(ApiClientDecision.Dismissed);
+        await ResultAsync(other);
+
+        // 列に残っていた求めは、窓を出さずに断る（数は足さない）
+        Assert.Equal("denied", (await ResultAsync(queued)).GetProperty("state").GetString());
+        Assert.Equal(2, _approvals.AskedCount);
+        Assert.Equal(3, Assert.Single(Refusals).Count);
     }
 
     [Fact]

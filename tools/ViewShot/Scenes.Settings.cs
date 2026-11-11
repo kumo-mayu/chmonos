@@ -99,7 +99,7 @@ internal static partial class Scenes
         });
 
     private static Scene SettingsApi()
-        => new("settings-api", "設定の「API」：開いた形（つないでいるソフト2つ・許可するオリジン2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
+        => new("settings-api", "設定の「API」：開いた形（つないでいるソフト2つ・止めているソフト2つ・許可するオリジン2つ・追加できなかった知らせ・ポートを丸めた知らせ）", async context =>
         {
             Chmonos.Core.Storage.JsonStore.Write(
                 context.Seed.Paths.ApiSettingsFile,
@@ -123,6 +123,22 @@ internal static partial class Scenes
                             Id = "b2", Name = "作り物のWebページ", Origin = "http://localhost:5173",
                             TokenHash = new string('1', 64), GrantedAt = DateTimeOffset.Now.AddDays(-1),
                         },
+                    ],
+
+                    // 止めているソフト（2026-11-11）：道具とブラウザのページ。1回だけ拒否した物は一覧に出ない
+                    Refusals =
+                    [
+                        new Chmonos.Core.Models.ApiClientRefusal
+                        {
+                            Name = "作り物の自動化ツール", ExePath = @"C:\Tools\SampleAutomation\SampleAutomation.exe",
+                            Count = 3, LastRefusedAt = DateTimeOffset.Now.AddHours(-5), BlockedAt = DateTimeOffset.Now.AddHours(-5),
+                        },
+                        new Chmonos.Core.Models.ApiClientRefusal
+                        {
+                            Name = "作り物の別のページ", Origin = "https://example.test",
+                            Count = 3, LastRefusedAt = DateTimeOffset.Now.AddMinutes(-30), BlockedAt = DateTimeOffset.Now.AddMinutes(-30),
+                        },
+                        new Chmonos.Core.Models.ApiClientRefusal { Name = "1回拒否した作り物", Count = 1, LastRefusedAt = DateTimeOffset.Now },
                     ],
                 });
             var main = await context.StartAsync();

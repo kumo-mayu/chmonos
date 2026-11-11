@@ -14,12 +14,21 @@ namespace Chmonos.Api;
 /// <param name="Origin">ブラウザのページから求めたときのオリジン（許可したオリジンの決まりを通った物だけ）。</param>
 /// <param name="Scopes">欲しい書き込みの種類（<see cref="ApiScopes"/>。知っている物だけ）。</param>
 /// <param name="Replaces">前に許した同じソフト（名前・exe・オリジンが同じ）がある。許すと前のトークンは使えなくなる。</param>
-public sealed record ApiClientRequestInfo(string Name, string? ExePath, string? Origin, IReadOnlyList<string> Scopes, bool Replaces);
+/// <param name="RefusalsLeft">あと何回拒否したら止めるか（上限が0で数えないときは null）。窓が「あと1回」を言うため。</param>
+public sealed record ApiClientRequestInfo(string Name, string? ExePath, string? Origin, IReadOnlyList<string> Scopes, bool Replaces, int? RefusalsLeft = null);
 
-/// <summary>人の答え。許したときの <see cref="Scopes"/> は、人が選んだ書き込みの種類（求められた物のうち、窓で外さなかった物）。</summary>
-public sealed record ApiClientDecision(bool Approved, IReadOnlyList<string> Scopes)
+/// <summary>
+/// 人の答え。許したときの <see cref="Scopes"/> は、人が選んだ書き込みの種類（求められた物のうち、窓で外さなかった物）。
+/// 許さなかった答えは2つに分ける：人が［拒否］を押した（<see cref="Refused"/>。止めるまでの回数に数える）と、
+/// 答えずに閉じた・API が止まって閉じた・聞けなかった（<see cref="Dismissed"/>。人が決めていないので数えない）。ソフトへの答えはどちらも denied
+/// </summary>
+public sealed record ApiClientDecision(bool Approved, IReadOnlyList<string> Scopes, bool Refused = false)
 {
-    public static ApiClientDecision Denied { get; } = new(false, []);
+    /// <summary>答えなかった（窓を閉じた・API が止まった・聞けなかった）。拒否に数えない。</summary>
+    public static ApiClientDecision Dismissed { get; } = new(false, []);
+
+    /// <summary>人が［拒否］を押した。拒否に数える。</summary>
+    public static ApiClientDecision Refusal { get; } = new(false, [], Refused: true);
 }
 
 /// <summary>
@@ -66,9 +75,10 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
     /// </summary>
     internal static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(10);
 
-    private sealed record Index(IReadOnlyDictionary<string, ApiClientRecord> ByHash, IReadOnlyList<ApiClientRecord> All);
+    private sealed record Index(
+        IReadOnlyDictionary<string, ApiClientRecord> ByHash, IReadOnlyList<ApiClientRecord> All, IReadOnlyList<ApiClientRefusal> Refusals, int RefusalLimit);
 
-    private volatile Index _index = new(new Dictionary<string, ApiClientRecord>(StringComparer.Ordinal), []);
+    private volatile Index _index = new(new Dictionary<string, ApiClientRecord>(StringComparer.Ordinal), [], [], ApiClientList.DefaultRefusalLimit);
 
     /// <summary>ソフトごとに、最後に使った日時を最後に書いた時刻（書く間隔を空けるため）。</summary>
     private readonly ConcurrentDictionary<string, DateTimeOffset> _touched = new(StringComparer.Ordinal);
@@ -106,7 +116,9 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
             byHash.TryAdd(client.TokenHash.ToLowerInvariant(), client);
         }
 
-        _index = new Index(byHash, clients);
+        // 拒否の記録より前の控えには欄が無いので、null は空として受ける
+        var refusals = (list.Refusals ?? []).Where(refusal => refusal is not null && !string.IsNullOrEmpty(refusal.Name)).ToList();
+        _index = new Index(byHash, clients, refusals, Math.Max(0, list.RefusalLimit));
         Changed?.Invoke();
     }
 
@@ -128,12 +140,79 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
     public static string HashOf(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
     /// <summary>前に許した同じソフト（名前・exe・オリジンが同じ）があるか。</summary>
-    public bool HasSame(string name, string? exePath, string? origin) => _index.All.Any(client => Same(client, name, exePath, origin));
+    public bool HasSame(string name, string? exePath, string? origin) => _index.All.Any(client => client.IsSame(name, exePath, origin));
 
-    private static bool Same(ApiClientRecord client, string name, string? exePath, string? origin)
-        => string.Equals(client.Name, name, StringComparison.Ordinal)
-            && string.Equals(client.ExePath, exePath, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(client.Origin, origin, StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// 拒否が続いて止めているソフトか（窓を出さずに断る）。上限が0のときは止めない
+    /// （0 にすると設定の画面が止めの記録も消すが、手で書いた控えでも、0 は「今までと同じに毎回聞く」にそろえる）
+    /// </summary>
+    public bool IsBlocked(string name, string? exePath, string? origin)
+    {
+        var index = _index;
+        return index.RefusalLimit > 0 && index.Refusals.Any(refusal => refusal.BlockedAt is not null && refusal.IsSame(name, exePath, origin));
+    }
+
+    /// <summary>あと何回拒否したら止めるか（上限が0なら null）。</summary>
+    public int? RefusalsLeft(string name, string? exePath, string? origin)
+    {
+        var index = _index;
+        if (index.RefusalLimit <= 0)
+        {
+            return null;
+        }
+
+        var count = index.Refusals.FirstOrDefault(refusal => refusal.IsSame(name, exePath, origin))?.Count ?? 0;
+
+        // 上限を下げた後は、数がもう上限を超えていることがある。次の拒否で止まるので「あと1回」にそろえる
+        return Math.Max(1, index.RefusalLimit - count);
+    }
+
+    /// <summary>
+    /// 人が［拒否］を押した：回数を1つ足し、上限に届いたら止める。上限が0なら数えない（覚えない）。
+    /// 控えの今の値に当てる（設定の画面が同時に止めを外しても、外した後の値に足す）
+    /// </summary>
+    public async Task RefuseAsync(string name, string? exePath, string? origin, DateTimeOffset now)
+    {
+        await store().ApiClients.UpdateAsync(list =>
+        {
+            var limit = list.RefusalLimit;
+            if (limit <= 0)
+            {
+                return list;
+            }
+
+            var refusals = (list.Refusals ?? []).Where(refusal => refusal is not null).ToList();
+            var before = refusals.FirstOrDefault(refusal => refusal.IsSame(name, exePath, origin));
+            var count = (before?.Count ?? 0) + 1;
+            var after = new ApiClientRefusal
+            {
+                Name = name,
+                ExePath = exePath,
+                Origin = origin,
+                Count = count,
+                LastRefusedAt = now,
+                BlockedAt = before?.BlockedAt ?? (count >= limit ? now : null),
+            };
+            return list with { Refusals = [.. refusals.Where(refusal => !ReferenceEquals(refusal, before)), after] };
+        });
+        Reload();
+    }
+
+    /// <summary>許可したら、そのソフトの拒否の記録を消す（回数を0に戻す。ユーザの言葉 2026-11-11「一度許可したらカウントリセット」）。</summary>
+    public async Task ForgetRefusalsAsync(string name, string? exePath, string? origin)
+    {
+        // 記録が無ければ書かない（許すたびに控えを書いて、見張りに読み直させない）
+        if (!_index.Refusals.Any(refusal => refusal.IsSame(name, exePath, origin)))
+        {
+            return;
+        }
+
+        await store().ApiClients.UpdateAsync(list => list with
+        {
+            Refusals = (list.Refusals ?? []).Where(refusal => refusal is not null && !refusal.IsSame(name, exePath, origin)).ToList(),
+        });
+        Reload();
+    }
 
     /// <summary>
     /// 許したソフトを控えに足す（前に許した同じソフトの行は置き換える：トークンを失くして求め直したときに、古い行が溜まらないように）。
@@ -144,7 +223,7 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
         await store().ApiClients.UpdateAsync(
             list => list with
             {
-                Clients = [.. (list.Clients ?? []).Where(client => !Same(client, record.Name, record.ExePath, record.Origin)), record],
+                Clients = [.. (list.Clients ?? []).Where(client => !client.IsSame(record.Name, record.ExePath, record.Origin)), record],
             },
             cancellationToken);
         Reload();
@@ -366,12 +445,18 @@ internal sealed class ApiClientRequests
         {
             await foreach (var entry in _queue.Reader.ReadAllAsync(_stop.Token))
             {
+                var info = entry.Info;
+
+                // 前の窓の拒否で止まったソフトの求めが列に残っていたら、窓を出さずに断る（拒否の書き込みは前の回で済んでいる）。
+                // 窓を出す直前の回数で「あと1回」を言い直す（列に入れた時の数は、前の窓の拒否より古いことがある）
+                var blocked = _book.IsBlocked(info.Name, info.ExePath, info.Origin);
+                info = info with { RefusalsLeft = _book.RefusalsLeft(info.Name, info.ExePath, info.Origin) };
                 ApiClientDecision decision;
                 try
                 {
-                    decision = _approvals is { CanAsk: true } approvals
-                        ? await approvals.AskAsync(entry.Info, _stop.Token)
-                        : ApiClientDecision.Denied;
+                    decision = !blocked && _approvals is { CanAsk: true } approvals
+                        ? await approvals.AskAsync(info, _stop.Token)
+                        : ApiClientDecision.Dismissed;
                 }
                 catch (OperationCanceledException) when (_stop.IsCancellationRequested)
                 {
@@ -380,8 +465,11 @@ internal sealed class ApiClientRequests
                 catch (Exception exception)
                 {
                     Core.Diagnostics.AppLog.Error("外から使う API の許しを聞く", exception);
-                    decision = ApiClientDecision.Denied;
+                    decision = ApiClientDecision.Dismissed;
                 }
+
+                // 回数を書き終えてから結果を知らせる（先に知らせると、ソフトがすぐ求め直したときに数える前の回数で窓が出る）
+                await RememberAsync(info, decision);
 
                 lock (_lock)
                 {
@@ -396,7 +484,9 @@ internal sealed class ApiClientRequests
 
                 if (!decision.Approved)
                 {
-                    Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{entry.Info.Name}」の求めを断った");
+                    Core.Diagnostics.AppLog.Note(
+                        "外から使う API",
+                        blocked ? $"ソフト「{info.Name}」の求めを、止めているので断った" : $"ソフト「{info.Name}」の求めを断った");
                 }
 
                 entry.Decided.TrySetResult();
@@ -404,6 +494,34 @@ internal sealed class ApiClientRequests
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    /// <summary>
+    /// 拒否を数える・許可で0に戻す。数えるのは人が［拒否］を押したときだけ（閉じた・API が止まった・聞けなかったは数えない）。
+    /// 書けなくても流れは止めない（止めると、後の求めが全部 pending のまま残る）。ログに残す
+    /// </summary>
+    private async Task RememberAsync(ApiClientRequestInfo info, ApiClientDecision decision)
+    {
+        try
+        {
+            if (decision.Approved)
+            {
+                // 0に戻すのは人が［許可］を押した時（トークンを受け取りに来なくても、人は許している）
+                await _book.ForgetRefusalsAsync(info.Name, info.ExePath, info.Origin);
+            }
+            else if (decision.Refused)
+            {
+                await _book.RefuseAsync(info.Name, info.ExePath, info.Origin, _clock());
+                if (_book.IsBlocked(info.Name, info.ExePath, info.Origin))
+                {
+                    Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{info.Name}」は拒否が続いたので、次から窓を出さずに断る");
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Core.Diagnostics.AppLog.Error("外から使う API の、拒否の回数を書く", exception);
         }
     }
 

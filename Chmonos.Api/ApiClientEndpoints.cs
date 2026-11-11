@@ -53,18 +53,27 @@ internal static class ApiClientEndpoints
                 }
             }
 
+            // 接続を開いた exe は、答えを返す前に引く（返して接続が閉じると TCP の表から消える）。
+            // ブラウザのページなら、オリジンも添える（許可したオリジンの決まりは守りで通っている）。
+            // 止めているかを見るのに要るので、画面の有無より先に引く
+            var exePath = owners.ExePathOf(context.Connection.LocalPort, context.Connection.RemotePort);
+            var origin = context.Request.Headers.Origin is { Count: > 0 } header ? header.ToString() : null;
+
+            // 人が拒否を続けたソフトは、窓を出さずに断る（2026-11-11。人が設定で止めを外せば、また聞く）
+            if (state.Clients.IsBlocked(name, exePath, origin))
+            {
+                throw new QueryException(403, "requestBlocked", "このソフトの求めは、拒否が続いたため止めています。Chmonos の設定の「API」で止めを外してから、もう一度求めてください。");
+            }
+
             // 画面を出していない（--headless で窓が無い）なら、待たせずに断る（まとめ役の判断 2026-11-11）
             if (!requests.CanAsk)
             {
                 throw new QueryException(503, "approvalUnavailable", "Chmonos の画面を開いてから、もう一度求めてください。");
             }
 
-            // 接続を開いた exe は、答えを返す前に引く（返して接続が閉じると TCP の表から消える）。
-            // ブラウザのページなら、オリジンも添える（許可したオリジンの決まりは守りで通っている）
-            var exePath = owners.ExePathOf(context.Connection.LocalPort, context.Connection.RemotePort);
-            var origin = context.Request.Headers.Origin is { Count: > 0 } header ? header.ToString() : null;
             var orderedScopes = ApiScopes.All.Where(scopes.Contains).ToList();
-            var requestId = requests.Submit(new ApiClientRequestInfo(name, exePath, origin, orderedScopes, state.Clients.HasSame(name, exePath, origin)))
+            var requestId = requests.Submit(new ApiClientRequestInfo(
+                    name, exePath, origin, orderedScopes, state.Clients.HasSame(name, exePath, origin), state.Clients.RefusalsLeft(name, exePath, origin)))
                 ?? throw new QueryException(429, "tooManyRequests", "答えを待っている求めが多すぎます。先の求めに答えてから、もう一度求めてください。");
 
             Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{name}」が許しを求めた");
@@ -74,6 +83,7 @@ internal static class ApiClientEndpoints
             .Takes<ClientRequestBody>()
             .Produces<ClientRequestAccepted>(StatusCodes.Status202Accepted, "application/json")
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .WithSummary("ソフトが許しを求める（トークンなし。Chmonos の画面に窓を出し、人が許すか拒否するかを選ぶ）");
 

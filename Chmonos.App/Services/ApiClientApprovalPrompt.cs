@@ -36,20 +36,20 @@ internal sealed class ApiClientApprovalPrompt(Func<Window?> mainWindow) : IApiCl
     {
         if (Application.Current?.Dispatcher is not { } dispatcher || dispatcher.HasShutdownStarted)
         {
-            return Task.FromResult(ApiClientDecision.Denied);
+            return Task.FromResult(ApiClientDecision.Dismissed);
         }
 
         return dispatcher.InvokeAsync(() =>
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                return ApiClientDecision.Denied;
+                return ApiClientDecision.Dismissed;
             }
 
             var model = new ApiClientApprovalViewModel(request);
             var dialog = new ApiClientApprovalDialog(model, mainWindow());
 
-            // API が止まったら（オフにした・閉じる）窓を閉じる。答えは拒否
+            // API が止まったら（オフにした・閉じる）窓を閉じる。人が決めていないので、拒否には数えない
             using var registration = cancellationToken.Register(() => dispatcher.BeginInvoke(() =>
             {
                 if (dialog.IsVisible)
@@ -57,7 +57,8 @@ internal sealed class ApiClientApprovalPrompt(Func<Window?> mainWindow) : IApiCl
                     dialog.DialogResult = false;
                 }
             }));
-            return dialog.ShowDialog() == true && !cancellationToken.IsCancellationRequested ? model.Approve() : ApiClientDecision.Denied;
+            var shown = dialog.ShowDialog();
+            return cancellationToken.IsCancellationRequested ? ApiClientDecision.Dismissed : model.Decide(shown);
         }).Task;
     }
 }

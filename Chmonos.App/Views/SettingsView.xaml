@@ -1257,6 +1257,53 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
+                            <!--
+                                止めているソフト（2026-11-11・docs/spec/api-clients.md）。人が［拒否］を続けて押したソフトは、窓を出さずに断る。
+                                ここで止めを外すと回数も0に戻り、次の求めでまた窓が出る。上限に届いていない（1〜2回拒否した）ソフトは出さない
+                            -->
+                            <TextBlock Text="止めているソフト" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Text="拒否が続いたソフトです。止めている間は、窓を開かずに断ります。" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="止めるまでの拒否の回数" Style="{StaticResource RowLabel}" Width="220" />
+                                <TextBox Style="{StaticResource NumberBox}"
+                                         AutomationProperties.AutomationId="Settings.ApiRefusalLimit" AutomationProperties.Name="止めるまでの拒否の回数"
+                                         Text="{Binding ApiRefusalLimit, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                <TextBlock Text="（0にすると止めません）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldWarning}" Margin="222,0,0,6"
+                                       AutomationProperties.AutomationId="Settings.Note.ApiRefusalLimit"
+                                       Text="{Binding Notes[ApiRefusalLimit]}" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,8"
+                                       AutomationProperties.AutomationId="Settings.ApiBlockedEmpty"
+                                       Text="止めているソフトはありません。"
+                                       Visibility="{Binding HasApiBlockedClients, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                            <ItemsControl ItemsSource="{Binding ApiBlockedClients}" Margin="0,2,0,6">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ApiBlockedRow}">
+                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Text}" />
+                                                    <TextBlock Text="{Binding WhereText}" Style="{StaticResource Mono}" FontSize="11.5" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                                    <TextBlock Text="{Binding BlockedText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="止めを外す" Style="{StaticResource SmallButton}" VerticalAlignment="Top" Margin="10,0,0,0"
+                                                        AutomationProperties.AutomationId="Settings.ApiUnblock"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}の止めを外す}"
+                                                        ToolTip="次に求められたとき、また確かめる窓を開きます。"
+                                                        Command="{Binding UnblockCommand}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
                             <TextBlock Text="許可するオリジン" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        Text="ブラウザで開いた自作のページから使うときだけ追加します。" />

@@ -366,6 +366,96 @@ public sealed class SettingsApiTests
         var settings = new SettingsViewModel(app.Services, main);
         Assert.False(settings.HasApiClients);
         Assert.Empty(settings.ApiClients);
+        Assert.False(settings.HasApiBlockedClients);
+        Assert.Equal(ApiClientList.DefaultRefusalLimit, settings.ApiRefusalLimit);
         settings.OnLeaving();
     });
+
+    private static ApiClientRefusal FakeRefusal(string name, int count, bool blocked) => new()
+    {
+        Name = name,
+        ExePath = @"C:\作り物\" + name + ".exe",
+        Count = count,
+        LastRefusedAt = new DateTimeOffset(2026, 11, 11, 10, 0, 0, TimeSpan.FromHours(9)),
+        BlockedAt = blocked ? new DateTimeOffset(2026, 11, 11, 10, 0, 0, TimeSpan.FromHours(9)) : null,
+    };
+
+    [Fact]
+    public Task 止めているソフトだけを並べ_止めを外すと回数ごと消し_ほかの記録と許しは残す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具", ApiScopes.Marks)],
+            Refusals = [FakeRefusal("止めた作り物", 3, blocked: true), FakeRefusal("1回拒否した作り物", 1, blocked: false), FakeRefusal("別の止めた作り物", 3, blocked: true)],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        // 上限に届いていない（まだ窓が出る）ソフトは出さない
+        Assert.Equal(["止めた作り物", "別の止めた作り物"], settings.ApiBlockedClients.Select(row => row.Name));
+        Assert.Equal(@"C:\作り物\止めた作り物.exe", settings.ApiBlockedClients[0].WhereText);
+        Assert.StartsWith("止めた日時：", settings.ApiBlockedClients[0].BlockedText);
+
+        settings.ApiBlockedClients[0].UnblockCommand.Execute(null);
+        await app.SettleAsync();
+
+        var saved = app.Services.Store.ApiClients.Load();
+        Assert.Equal(["1回拒否した作り物", "別の止めた作り物"], saved.Refusals.Select(refusal => refusal.Name));
+        Assert.Equal(["a1"], saved.Clients.Select(client => client.Id));
+        Assert.Equal(["別の止めた作り物"], settings.ApiBlockedClients.Select(row => row.Name));
+        settings.OnLeaving();
+    });
+
+    [Theory]
+    [InlineData(5, 5)]
+    [InlineData(-1, 0)]
+    [InlineData(99, 10)]
+    public Task 止めるまでの回数は_範囲に丸めて控えに書き_0なら今の止めと回数も消す(int typed, int saved) => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Refusals = [FakeRefusal("止めた作り物", 3, blocked: true), FakeRefusal("1回拒否した作り物", 1, blocked: false)],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        settings.ApiRefusalLimit = typed;
+        await app.SettleAsync();
+
+        var list = app.Services.Store.ApiClients.Load();
+        Assert.Equal(saved, settings.ApiRefusalLimit);
+        Assert.Equal(saved, list.RefusalLimit);
+        Assert.Equal(saved == 0 ? 0 : 2, list.Refusals.Count);
+        Assert.Equal(saved == 0 ? 0 : 1, settings.ApiBlockedClients.Count);
+        Assert.Equal(
+            typed == saved ? string.Empty : $"止めるまでの拒否の回数に入れられるのは 0〜10 回です。{saved} 回にしました。",
+            settings.Notes[nameof(SettingsViewModel.ApiRefusalLimit)]);
+        settings.OnLeaving();
+    });
+
+    [Fact]
+    public void 許しの窓は_拒否を押したときだけ拒否に数え_閉じたときは数えない()
+    {
+        var info = new Chmonos.Api.ApiClientRequestInfo("作り物の道具", null, null, [], Replaces: false);
+
+        // × や Esc で閉じた（DialogResult は false か null）
+        Assert.Equal(Chmonos.Api.ApiClientDecision.Dismissed, new ApiClientApprovalViewModel(info).Decide(false));
+        Assert.Equal(Chmonos.Api.ApiClientDecision.Dismissed, new ApiClientApprovalViewModel(info).Decide(null));
+
+        var refused = new ApiClientApprovalViewModel(info);
+        refused.Refuse();
+        var decision = refused.Decide(false);
+        Assert.False(decision.Approved);
+        Assert.True(decision.Refused);
+
+        Assert.True(new ApiClientApprovalViewModel(info).Decide(true).Approved);
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(null, false)]
+    public void 許しの窓は_次の拒否で止まるときだけ知らせる(int? left, bool shown)
+        => Assert.Equal(shown, new ApiClientApprovalViewModel(
+            new Chmonos.Api.ApiClientRequestInfo("作り物の道具", null, null, [], Replaces: false, RefusalsLeft: left)).LastRefusal);
 }

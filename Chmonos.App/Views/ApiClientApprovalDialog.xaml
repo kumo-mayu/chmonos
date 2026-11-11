@@ -13,7 +13,8 @@
         Background="{DynamicResource Surface}">
     <!--
         ソフトが API の許しを求めてきたときの窓（plan 31・docs/spec/api-clients.md）。
-        頼んでいないのに出る窓なので、Enter と Esc はどちらも「拒否」（打っている途中の Enter で許してしまわないように）
+        頼んでいないのに出る窓なので、Enter は「拒否」（打っている途中の Enter で許してしまわないように）。
+        Esc と × は許さずに閉じるが、拒否には数えない（2026-11-11。数えるのは［拒否］を押したときだけ。コードの OnPreviewKeyDown）
     -->
     <StackPanel Margin="22,20">
         <TextBlock Text="{Binding Heading}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap"
@@ -55,13 +56,19 @@
                    Style="{StaticResource FieldWarning}" TextWrapping="Wrap" Margin="0,12,0,0"
                    Visibility="{Binding Replaces, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+        <!-- 次の拒否で止まるときだけ言う（2026-11-11。止めると窓が出なくなり、人が気付く場が無くなるので、その前に1度だけ） -->
+        <TextBlock Text="このソフトはあと1回拒否すると、次から窓を開かずに断ります。"
+                   Style="{StaticResource FieldWarning}" TextWrapping="Wrap" Margin="0,12,0,0"
+                   AutomationProperties.AutomationId="ApiApproval.LastRefusal"
+                   Visibility="{Binding LastRefusal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
         <TextBlock Text="許可した後も、設定の「API」で変更や取り消しができます。"
                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,0" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Content="許可" Style="{StaticResource PrimaryButton}"
                     AutomationProperties.AutomationId="ApiApproval.Approve" Click="OnApprove" />
-            <Button x:Name="DenyButton" Content="拒否" Margin="8,0,0,0" IsDefault="True" IsCancel="True"
+            <Button x:Name="DenyButton" Content="拒否" Margin="8,0,0,0" IsDefault="True"
                     AutomationProperties.AutomationId="ApiApproval.Deny" Click="OnDeny" />
         </StackPanel>
     </StackPanel>

@@ -11,6 +11,47 @@ public sealed record ApiClientList
     public int Version { get; init; } = 1;
 
     public IReadOnlyList<ApiClientRecord> Clients { get; init; } = [];
+
+    /// <summary>既定の、止めるまでの拒否の回数（ユーザの言葉 2026-11-11「デフォルトで3回拒否したら止める形が良いかも」）。</summary>
+    public const int DefaultRefusalLimit = 3;
+
+    /// <summary>
+    /// 続けて拒否したら止める回数（設定の「API」で変える。0 なら拒否を数えず、止めもしない）。
+    /// 許しの控えと同じファイルに置く：止めの記録と同じ錠で読み書きでき、引越し・書き出しの扱いも同じになる（docs/spec/api-clients.md）
+    /// </summary>
+    public int RefusalLimit { get; init; } = DefaultRefusalLimit;
+
+    /// <summary>人が［拒否］を押したソフトの記録（2026-11-11）。許可したら、そのソフトの行は消す。今ある控えに無い欄なので、読むときは null を空として受ける。</summary>
+    public IReadOnlyList<ApiClientRefusal> Refusals { get; init; } = [];
+}
+
+/// <summary>
+/// 続けて拒否したソフト1つ（同じソフトの決め方は許しと同じ：名前・exe・オリジン）。トークンは無いので、名前・場所・回数・日時だけを持つ。
+/// </summary>
+public sealed record ApiClientRefusal
+{
+    public string Name { get; init; } = string.Empty;
+
+    public string? ExePath { get; init; }
+
+    public string? Origin { get; init; }
+
+    /// <summary>続けて拒否した回数（許可したら行ごと消すので、0 には戻さない）。</summary>
+    public int Count { get; init; }
+
+    public DateTimeOffset LastRefusedAt { get; init; }
+
+    /// <summary>
+    /// 止めた日時（回数が上限に届いた時。止めていなければ null）。回数と上限から計算せずに持つ：
+    /// 後で上限を上げても、人が見ていないうちに止めが外れて窓が出始めないように。一覧に日時も出す
+    /// </summary>
+    public DateTimeOffset? BlockedAt { get; init; }
+
+    /// <summary>このソフトか（名前は大文字と小文字も分け、exe とオリジンは分けない。許しの控えと同じ）。</summary>
+    public bool IsSame(string name, string? exePath, string? origin)
+        => string.Equals(Name, name, StringComparison.Ordinal)
+            && string.Equals(ExePath, exePath, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(Origin, origin, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>許したソフト1つ。</summary>
@@ -41,6 +82,12 @@ public sealed record ApiClientRecord
 
     /// <summary>最後に使った日時（まだなら null）。書くのは間引く（<c>ApiClientBook</c>）ので、分単位の目安。</summary>
     public DateTimeOffset? LastUsedAt { get; init; }
+
+    /// <summary>このソフトか（名前・exe・オリジンが同じ）。</summary>
+    public bool IsSame(string name, string? exePath, string? origin)
+        => string.Equals(Name, name, StringComparison.Ordinal)
+            && string.Equals(ExePath, exePath, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(Origin, origin, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
