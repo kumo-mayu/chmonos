@@ -42,6 +42,14 @@ internal static partial class ApiEndpoints
         })
             .Takes<ZipImagesLookupRequest>().Answers<ZipImagesLookupAnswer>("画像の CRC-32 と大きさから、同じ画像が入っている zip と商品を引く（1000件まで）");
 
+        app.MapGet("/v1/notifications/archive", (ApiState state) =>
+            ApiHost.Json(ArchivedNotifications.Months(state.Snapshot), json.IReadOnlyListString))
+            .Answers<IReadOnlyList<string>>("通知の保管庫にある月（YYYY-MM・新しい順）");
+
+        app.MapGet("/v1/notifications/archive/{month}", async (ApiState state, string month, string? name, string? cursor, int? limit, CancellationToken cancellationToken) =>
+            ApiHost.Json(await state.ArchivedNotifications.PageAsync(state.Snapshot, month, name, cursor, limit, cancellationToken), json.ArchivedNotificationsPage))
+            .Answers<ArchivedNotificationsPage>("保管した通知を1か月ずつ（新しい順・name で商品名を絞る・cursor で続き）。誤り：404 monthNotFound");
+
         app.MapGet("/v1/unity-scans", (ApiState state, string? project) =>
             ApiHost.Json(UnityScans.All(state.Snapshot, project), json.IReadOnlyListUnityScanRef))
             .Answers<IReadOnlyList<UnityScanRef>>("Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像。savedAt の時点の物で、API は調べ直さない）");

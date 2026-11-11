@@ -128,6 +128,21 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
             new UnresolvedFile { Hash = HashUnresolved, Paths = [@"D:\inbox\unknown.zip"], SizeBytes = 5, ModifiedAtUtc = at, FirstSeenAt = at },
         ]);
 
+        // 通知の保管庫：9月に3件（うち2件は夏服）、10月に1件
+        NotificationRecord Archived(string id, string title, int month, int day, int hour = 0, DateTimeOffset? updated = null)
+            => new()
+            {
+                Id = id, Kind = NotificationKind.ItemUpdated, ItemId = "9600001", Title = title, Detail = "作り物の変化",
+                CreatedAt = new DateTimeOffset(2026, month, day, hour, 0, 0, TimeSpan.FromHours(9)), UpdatedAt = updated, IsRead = true,
+            };
+        await _store.NotificationArchive.AppendAsync(
+        [
+            Archived("n-1", "作り物の夏服", 9, 1),
+            Archived("n-2", "作り物の冬服", 9, 2),
+            Archived("n-3", "作り物の夏服", 9, 3, updated: new DateTimeOffset(2026, 9, 20, 0, 0, 0, TimeSpan.FromHours(9))),
+            Archived("n-4", "作り物の夏服", 10, 5),
+        ]);
+
         await _store.ApiClients.SaveAsync(new ApiClientList
         {
             Clients = [new ApiClientRecord { Id = "reader", Name = "読むだけの道具", Scopes = [], TokenHash = ApiClientBook.HashOf(ReaderToken) }],
@@ -323,6 +338,33 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
         await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": [{"crc": "00000001", "size": 0}]}"""), HttpStatusCode.BadRequest, "invalidImage");
         await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": [null]}"""), HttpStatusCode.BadRequest, "invalidImage");
         await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": []}"""), HttpStatusCode.BadRequest, "invalidImages");
+    }
+
+    [Fact]
+    public async Task 保管した通知は_月ごとに新しい順で何件かずつ返し_商品名で絞れる()
+    {
+        var months = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/notifications/archive"));
+        Assert.Equal(["2026-10", "2026-09"], months.EnumerateArray().Select(month => month.GetString()));
+
+        // 並びは最後に変わった日時の新しい順（画面と同じ）。後から変わった n-3 が先
+        var first = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-09?limit=2"));
+        Assert.Equal(3, first.GetProperty("total").GetInt32());
+        Assert.Equal(["n-3", "n-2"], first.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()));
+        Assert.Equal("itemUpdated", first.GetProperty("items")[0].GetProperty("kind").GetString());
+        Assert.True(first.GetProperty("items")[0].GetProperty("isRead").GetBoolean());
+
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        var second = await JsonOf(await SendAsync(HttpMethod.Get, $"/v1/notifications/archive/2026-09?limit=2&cursor={cursor}"));
+        Assert.Equal(["n-1"], second.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()));
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
+
+        // 商品名で絞る（画面の「商品名で絞る」と同じ NotificationArchiveIndex.Matching）
+        var summer = await JsonOf(await SendAsync(HttpMethod.Get, $"/v1/notifications/archive/2026-09?name={Uri.EscapeDataString("夏服")}"));
+        Assert.Equal(["n-3", "n-1"], summer.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()));
+
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-01"), HttpStatusCode.NotFound, "monthNotFound");
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-09?cursor=abc"), HttpStatusCode.BadRequest, "invalidCursor");
+        await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-09?limit=0"), HttpStatusCode.BadRequest, "invalidLimit");
     }
 
     [Fact]

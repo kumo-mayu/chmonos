@@ -60,6 +60,11 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     private ZipImageIndex? _zipImages;
 
+    /// <summary>通知の保管庫を読む口（最後に読んだ月の目録を覚える。plan 32）。</summary>
+    public ArchivedNotifications ArchivedNotifications => LazyInitializer.EnsureInitialized(ref _archivedNotifications, () => new ArchivedNotifications());
+
+    private ArchivedNotifications? _archivedNotifications;
+
     public DateTimeOffset LoadedAt { get; private set; }
 
     /// <summary>保存先の形の版（読めた印。印が無ければ 1）。</summary>

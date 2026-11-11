@@ -76,3 +76,17 @@ GUID → 控えの番号だけを持つ表（`PackageGuidIndex`。GUID は 128 �
 - 照らし方は画面の「手で置いた画像を見つける」（`UnityProjectImages`）と同じ：**大きさが同じで CRC-32 が同じ物**を同じ画像とする（大きさだけ・名前だけの一致は返さない）。CRC は zip の目次の値なので、外の道具はファイルの CRC-32 を自分で数えて送る。
 - 表は GUID と同じ持ち方（鍵は大きさと CRC を並べた 128 ビット。`HashKeyedIndex`）。`ui` の写しの目録は7つで、測るほどの差が出ないので測っていない。
 - CRC は大文字の16進8桁に揃えて返す（目録の書き方）。同じ画像が複数の zip・商品にあれば全部返す。
+
+## 通知の保管庫（`notification-archive/<YYYY-MM>.jsonl.gz`）
+
+| URL | 要求 | 答え |
+|---|---|---|
+| `GET /v1/notifications/archive` | なし | 保管庫にある月（`YYYY-MM`・新しい順。画面の月を選ぶ欄と同じ） |
+| `GET /v1/notifications/archive/{month}?name=&cursor=&limit=` | `limit` は 1〜200（既定 100） | `{ month, items: [通知], total, nextCursor, unreadableLines, unreadableBlocks }`。誤り 404 `monthNotFound`・400 `invalidCursor`・`invalidLimit` |
+
+- 画面の「保管した通知」（plan 24・[notifications.md](notifications.md)）と同じ読み口：月の目録（`IndexAsync`）・商品名で絞る（`Matching`）・1ページ分だけ中身を読む（`ReadEntriesAsync`）。並びも同じ（最後に変わった日時の新しい順・同じ日時は後から保管した物が先）。
+- 通知1件の形は `/v1/notifications` と同じ（`Catalogs.NotificationOf` を共有）。保管した物は既読か解消済みだけ。
+- 月はある物だけ受ける（送られた文字で場所を組まない）。月をまたいで並べる道は作らない（画面も月ごと。月を流し直す重さが月の数だけ増える）。
+- 続きの印は最後に返した1件の（日時・行の位置）。並びはこの2つで一意。中身は約束にしない。
+- 目録は最後に読んだ1か月分だけ、月のファイルの大きさと日時が同じ間は使い回す（`ArchivedNotifications`）：ページを送るたびに月を頭から流し直すと、大きな月（容量の既定は 50MB）では1ページごとに全部を解くことになる。目録は位置・ID・題・日時だけで本文を持たない。写しに保管庫のある物が無く、大きさは測っていない。
+- 容量を超えたときの整理（閉じるときなど）で月が書き直される。書き直しの後は目録を作り直すので、前の続きの印は同じ（日時・位置）より後ろから続く（行の位置が変わると、飛ぶ・重なることがある。画面も同じ）。

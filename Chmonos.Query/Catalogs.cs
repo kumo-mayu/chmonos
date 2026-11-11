@@ -443,17 +443,21 @@ public static class Catalogs
             .Where(record => itemId is null || record.ItemId == itemId)
             .OrderByDescending(record => record.CreatedAt)
             .ThenBy(record => record.Id, StringComparer.Ordinal)
-            .Select(record => new NotificationRef(
-                record.Id,
-                JsonNamingPolicy.CamelCase.ConvertName(record.Kind.ToString()),
-                record.ItemId,
-                record.Title,
-                record.Detail,
-                record.CreatedAt,
-                record.UpdatedAt,
-                record.IsRead,
-                record.IsResolved))
+            .Select(NotificationOf)
             .ToList();
+
+    /// <summary>通知1件の答え（今の通知と保管した通知で同じ形）。</summary>
+    internal static NotificationRef NotificationOf(NotificationRecord record)
+        => new(
+            record.Id,
+            JsonNamingPolicy.CamelCase.ConvertName(record.Kind.ToString()),
+            record.ItemId,
+            record.Title,
+            record.Detail,
+            record.CreatedAt,
+            record.UpdatedAt,
+            record.IsRead,
+            record.IsResolved);
 
     public static DisplaySettingsRef DisplaySettings(QuerySnapshot snapshot)
         => new(

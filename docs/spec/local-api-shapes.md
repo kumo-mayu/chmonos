@@ -35,6 +35,7 @@
 | `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
 | `GET /v1/modifications`・`/{id}`・`/v1/unity-projects` | 改変・Unity プロジェクト | 作った |
 | `GET /v1/notifications` | 通知（既読・片付けた印つき） | 作った（変化の中身はまだ） |
+| `GET /v1/notifications/archive`・`/archive/{month}` | 保管した通知（月ごと・新しい順・商品名で絞る・続きの印）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | まだ |
 | `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 作った |
 
