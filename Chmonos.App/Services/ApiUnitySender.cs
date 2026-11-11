@@ -14,13 +14,17 @@ namespace Chmonos.App.Services;
 /// - 送り先は、エディタが1つだけ開いていればそれ、複数ならプロジェクトを指定してもらう（画面は選ぶ窓を出すが、API は窓を出せない）
 /// - 「送りますか」の確認は出さない。Unity の取り込み画面で中身を確かめてから取り込む作りなので、そこが確認になる
 /// - 送り終えるまで待たずに返る（取り込み画面で人が考える間、最大30分待つ）。終わりは送りの ID で引く状態と変化の知らせで伝える
+/// - 送り先の VPM と同じ GUID の物は、画面は窓で聞くが、API は聞けないので **送らずに 409 <c>vpmOverlap</c>** で返す（plan 40）。
+///   承知で送るときは要求に <c>allowVpmOverlap: true</c>。答えに重なりを添えて送る案は採らなかった：202 を返した時点で取り込み画面が出ており、
+///   頼んだ側が読んで止める前に、人が Import を押せば VPM が上書きされる
 /// </summary>
 internal sealed class ApiUnitySender(
     AppServiceContainer services,
     Func<IReadOnlyList<OpenUnityEditor>>? openEditors = null,
     Func<OpenUnityEditor, string?>? pathOf = null,
     ApiUnitySender.UnityRun? run = null,
-    Func<bool>? isRunning = null) : IApiUnity
+    Func<bool>? isRunning = null,
+    Func<string, IReadOnlyList<UnityPackageEntry>, IReadOnlyList<VpmOverlapPackage>>? findVpmOverlaps = null) : IApiUnity
 {
     /// <summary>送る部品（試験は Unity を動かさない作り物に差し替える）。1件の結果が決まるたびに知らせ、止める合図を受ける。</summary>
     internal delegate Task<IReadOnlyList<UnityQueueOutcome>> UnityRun(
@@ -36,7 +40,11 @@ internal sealed class ApiUnitySender(
     private readonly Func<IReadOnlyList<OpenUnityEditor>> _openEditors = openEditors ?? UnityEditors.Open;
     private readonly Func<OpenUnityEditor, string?> _pathOf = pathOf ?? (editor => editor.ProjectPath ?? UnityEditors.PathOf(editor));
     private readonly UnityRun _run = run ?? ((processId, packages, outcomeAdded, cancellationToken)
-        => UnityImportQueue.RunAsync(processId, packages, null, cancellationToken, outcomeAdded));
+        => UnityImportQueue.RunAsync(processId, packages, null, cancellationToken, outcomeAdded, askVpm: false));
+
+    /// <summary>VPM との重なりを照らす（試験は作り物に差し替える）。控えを読むだけで、zip は解かない。</summary>
+    private readonly Func<string, IReadOnlyList<UnityPackageEntry>, IReadOnlyList<VpmOverlapPackage>> _findVpmOverlaps = findVpmOverlaps
+        ?? ((project, packages) => VpmOverlaps.FindInProject(project, packages, new UnityPackageReads()));
     private readonly Func<bool> _isRunning = isRunning ?? (() => UnityImportQueue.IsRunning);
 
     /// <summary>覚えている送り（古い順）。中身の書き換えは <see cref="_startLock"/> の中で行う。</summary>
@@ -92,6 +100,7 @@ internal sealed class ApiUnitySender(
             ThrowIfBusy();
             var package = PickPackage(item, request);
             var (editor, project) = PickEditor(request.Project, null);
+            ThrowIfVpmOverlap(project, [package], request.AllowVpmOverlap);
             var step = StepOf(null, item.Id, package, UnitySendStates.Sending, null);
             var status = new UnitySendStatus(
                 NewId(), item.Id, null, package.Name, package.EntryPath, package.ZipHash, project, UnitySendStates.Sending, null, DateTimeOffset.Now, null, [step]);
@@ -123,6 +132,7 @@ internal sealed class ApiUnitySender(
                 }
             }
 
+            ThrowIfVpmOverlap(project, queue.Select(entry => entry.Package).ToList(), send.AllowVpmOverlap);
             var status = new UnitySendStatus(
                 NewId(), null, send.Record.Id, null, null, null, project, UnitySendStates.Sending, null, DateTimeOffset.Now, null, steps);
             return Begin(status, editor, queue, send.Records.Select(record => (send.Record.Id, record)).ToList());
@@ -153,6 +163,32 @@ internal sealed class ApiUnitySender(
 
     private static UnitySendStep StepOf(int? index, string itemId, UnityPackageEntry package, string state, string? problem)
         => new(index, itemId, package.Name, package.EntryPath, package.ZipHash, state, problem);
+
+    /// <summary>
+    /// 送り先の VPM と同じ GUID の物があれば、送らずに 409 で返す（承知していれば送る）。送り先の場所が分からない（題から言い当てられない）ときは照らせないので送る。
+    /// 文には重なる包み・VPM・数・場所を全部書く（誤りの形は code と文だけなので、頼んだ側が人に見せられるように）
+    /// </summary>
+    private void ThrowIfVpmOverlap(string project, IReadOnlyList<UnityPackageEntry> packages, bool allowed)
+    {
+        if (allowed || !Path.IsPathFullyQualified(project))
+        {
+            return;
+        }
+
+        var found = _findVpmOverlaps(project, packages);
+        if (found.Count == 0)
+        {
+            return;
+        }
+
+        var lines = found.Select(hit => $"「{hit.Entry.Name}」："
+            + string.Join("・", hit.Overlaps.Select(overlap => $"{overlap.Package.Shown}（{overlap.Package.Name}）と同じファイルが {overlap.Count} 個"
+                + (overlap.Root is { } root ? $"・場所 {root}" : string.Empty))));
+        throw new QueryException(409, "vpmOverlap",
+            "送り先のプロジェクトに VPM で入っている物と同じ GUID のファイルがあります。取り込むと VPM のファイルが上書きされます。"
+            + string.Join(" ", lines)
+            + " 承知で送るときは allowVpmOverlap を true にしてください。Unity の取り込み画面で、その場所のチェックを外すと避けられます。");
+    }
 
     private void ThrowIfBusy()
     {

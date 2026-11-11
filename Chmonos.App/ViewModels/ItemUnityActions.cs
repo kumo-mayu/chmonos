@@ -111,13 +111,13 @@ internal static class ItemUnityActions
     /// <returns>言う文と、送れなかった物があるか（人が止めただけなら失敗にしない）。</returns>
     internal static async Task<(string Text, bool Failed)> SendManyAsync(
         AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, IReadOnlyList<UnityPackageEntry> packages,
-        UnitySendUi? ui, Action<ItemRecord>? presenceChanged = null)
+        UnitySendUi? ui, Action<ItemRecord>? presenceChanged = null, bool askVpm = true)
     {
         ui?.Begin($"unitypackage {packages.Count} 件をUnityへ送っています…");
         IReadOnlyList<UnityQueueOutcome> outcomes;
         try
         {
-            outcomes = await UnityImportQueue.RunAsync(editor.ProcessId, packages, ui?.Progress, CancellationToken.None);
+            outcomes = await UnityImportQueue.RunAsync(editor.ProcessId, packages, ui?.Progress, CancellationToken.None, askVpm: askVpm);
         }
         finally
         {
@@ -179,7 +179,7 @@ internal static class ItemUnityActions
     /// </summary>
     internal static async Task<SendResult> SendOneAsync(
         AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
-        string title, UnitySendUi? ui, Action<ItemRecord>? presenceChanged = null)
+        string title, UnitySendUi? ui, Action<ItemRecord>? presenceChanged = null, bool askVpm = true)
     {
         // 1件でも進み具合を出す（E10）。出す先を持っている画面だけが渡す
         ui?.Begin($"「{package.Name}」をUnityへ送っています…");
@@ -187,7 +187,7 @@ internal static class ItemUnityActions
         try
         {
             outcomes = await UnityImportQueue.RunAsync(
-                editor.ProcessId, [package], ui?.Progress, CancellationToken.None);
+                editor.ProcessId, [package], ui?.Progress, CancellationToken.None, askVpm: askVpm);
         }
         finally
         {
@@ -271,6 +271,15 @@ internal static class ItemUnityActions
 
         // 送り先のプロジェクトの改変に絞る。一覧に無いプロジェクトなら絞らずに全部出す（**推定で絞ると、正しい改変が消える**）
         var projectPath = await ProjectPathOf(editor);
+
+        // VPM との重なりは記録の前に聞く（plan 40）。記録してから送る決まりなので、送る列の中で聞くと、やめても記録だけ残る。
+        // やめたら何もしない（何も起きていないのは見れば分かる）。飛ばした物は記録にも入れない
+        if (await UnityVpmGuard.FilterAsync(projectPath, packages) is not { Count: > 0 } screened)
+        {
+            return null;
+        }
+
+        packages = screened;
         var records = projectPath is not null
             ? await services.Modifications.LoadForProjectAsync(projectPath)
             : (await services.Modifications.LoadAllAsync()).Modifications;
@@ -322,12 +331,12 @@ internal static class ItemUnityActions
         var names = ModificationPicking.NamesText(picked);
         if (packages.Count == 1)
         {
-            var (text, failed) = AfterRecordText(names, await SendOneAsync(services, item, editor, packages[0], title, ui, presenceChanged));
+            var (text, failed) = AfterRecordText(names, await SendOneAsync(services, item, editor, packages[0], title, ui, presenceChanged, askVpm: false));
             notify(text, failed);
         }
         else
         {
-            var (text, failed) = await SendManyAsync(services, item, editor, packages, ui, presenceChanged);
+            var (text, failed) = await SendManyAsync(services, item, editor, packages, ui, presenceChanged, askVpm: false);
             notify($"{names}に {packages.Count} 件を追加しました。{text}", failed);
         }
 

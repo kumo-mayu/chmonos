@@ -355,6 +355,7 @@
 | unitypackage の中の名前（pathname）は、項目 4,096バイト・1行目 1,024字までだけ読み、超えた項目は扱わない | 1行丸ごと読んでいたので、改行の無い巨大な名前を掴むと、その大きさの文字列を作るまで読み続けた。上限は手元の実物の最長（99字）の10倍（外部の点検） | 実装済み（2026-10-06） | docs/spec/unity.md・Core/Resolution/UnityPackagePathname.cs |
 | 一時展開と、Unity へ送る前の取り出しが失敗したとき、書きかけをその場で消す。消せなかった物は今までどおり残し、失敗の文は元の原因のまま | 前は次に押すかアプリを閉じるまで書きかけが残り、空き容量が足りなくて失敗した人の空きを食っていた | 実装済み | ユーザ判断 2026-09-30（4A）・`docs/spec/unity.md`・TemporaryUnpacker |
 | Unity プロジェクトの VPM を読むだけで控える（`vpm-manifest.json` の `dependencies` と `locked`・`Packages/*/package.json`。手で置いた埋め込みの物も）。プロジェクトの中を調べる時に一緒に読み、調べた結果の控えに書く。改変の画面のプロジェクトの右の欄に「VPM」として1つ1行で並べ、API の `/v1/unity-scans` にも出す | VPM で入っている lilToon と同じ GUID の物を unitypackage で取り込むと、Unity は VPM のファイルを黙って上書きした（`docs/research/vpm-duplicate-guid.md`）。送る前に重なりを言うために、どのフォルダがどの VPM かを持つ（ユーザ案・plan 40） | 実装済み（2026-11-11。試験 VpmPackagesTests・ModificationHubVpmTests・ApiStoredReadTests。確かめ用のプロジェクトで9本を読めた） | docs/spec/unity-vpm.md |
+| 「Unityへ送る」の前に、送る unitypackage の GUID（中身の控え）と送り先の `Packages/` の VPM の `.meta` の GUID を照らし、重なれば窓で言う（VPM の名前・数・取り込み画面でチェックを外す場所。1件なら［送る］［やめる］、連続なら［送る］［これを飛ばす］［残りすべてを中止］）。「改変に追加して送る」は記録の前に聞く。API は送らずに 409 `vpmOverlap`（`allowVpmOverlap: true` で送る）。中身の控えが無い包みは照らさずに送る | 取り込むと VPM のファイルが黙って上書きされ、Unity も VCC も言わない。取り込み画面でチェックを外せば避けられる（ユーザ判断 2026-11-11「作りましょう」・plan 40） | 実装済み（2026-11-11。試験 VpmOverlapsTests・UnityVpmGuardTests・ApiUnitySendTests。窓は描画で確かめた。実際の Unity では送っていない） | docs/spec/unity-vpm.md |
 
 ## アバター・共通素体
 

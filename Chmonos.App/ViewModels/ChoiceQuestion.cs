@@ -1,7 +1,10 @@
 namespace Chmonos.App.ViewModels;
 
-/// <summary>選ぶ窓（<see cref="Views.ChoiceDialog"/>）に出す中身（試験が受けて答える）。<paramref name="Third"/> が null なら2つ＋キャンセル。</summary>
-internal sealed record ChoiceRequest(string Title, string Question, string Detail, string First, string Second, string? Third = null);
+/// <summary>
+/// 選ぶ窓（<see cref="Views.ChoiceDialog"/>）に出す中身（試験が受けて答える）。<paramref name="Third"/> が null なら2つ＋キャンセル。
+/// <paramref name="LastCancels"/> なら「キャンセル」を並べず、最後の選択肢がやめる側（Esc と × もそれ）。
+/// </summary>
+internal sealed record ChoiceRequest(string Title, string Question, string Detail, string First, string Second, string? Third = null, bool LastCancels = false);
 
 /// <summary>
 /// 選ぶ窓を出す口。窓は答える人がいないと止まるので、試験だけが窓の手前で受ける（<see cref="Intercept"/>）。
@@ -15,9 +18,13 @@ internal static class ChoiceQuestion
     public static Views.ChoiceDialogResult Ask(ChoiceRequest request)
         => Intercept is { } intercept
             ? intercept(request)
-            : request.Third is { } third
-                ? Views.ChoiceDialog.Ask(request.Title, request.Question, request.Detail, request.First, request.Second, third)
-                : Views.ChoiceDialog.Ask(request.Title, request.Question, request.Detail, request.First, request.Second);
+            : (request.Third, request.LastCancels) switch
+            {
+                ({ } third, true) => Views.ChoiceDialog.AskThree(request.Title, request.Question, request.Detail, request.First, request.Second, third),
+                (null, true) => Views.ChoiceDialog.AskTwo(request.Title, request.Question, request.Detail, request.First, request.Second),
+                ({ } third, false) => Views.ChoiceDialog.Ask(request.Title, request.Question, request.Detail, request.First, request.Second, third),
+                (null, false) => Views.ChoiceDialog.Ask(request.Title, request.Question, request.Detail, request.First, request.Second),
+            };
 
     /// <summary>
     /// ファイルがほかの商品に付いているときに聞く中身（ユーザ判断 2026-10-05：断るだけにせず、開くか付け直すかを選ばせる）。

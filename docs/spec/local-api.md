@@ -73,7 +73,7 @@
   - **Unity へ送る**（3a。ユーザ判断 2026-10-13）：`POST /v1/items/{id}/send-to-unity`（`{"entry"?, "zipHash"?, "project"?}`）。画面と同じ部品（`UnityImportQueue`）で送る（`ApiUnitySender`）。
     送る物は unitypackage が1つなら省ける・送り先は開いているエディタが1つなら省ける（API は選ぶ窓を出せない。複数なら 400 `unityPackageAmbiguous`・409 `unityTargetAmbiguous`）。
     「送りますか」の確認は出さない（Unity の取り込み画面が確認になる）。送り終えるまで待たずに 202（`state: sending`）で返し、終わりは変化の知らせ `unity` と `GET /v1/unity/last-send`。
-    送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ。どちらも API の起点で命令の口を通す）。送っている間（後始末まで）は次の頼みを 409 `unityBusy` で断る。送り先は `GET /v1/unity/editors` で選ぶ。結果の種類はログに1行（`Unity へ送る → imported` など）。
+    送れたら「使った」の足跡、送れなかったら「見つからない」の印を確かめ直す（画面と同じ。どちらも API の起点で命令の口を通す）。送っている間（後始末まで）は次の頼みを 409 `unityBusy` で断る。送り先の VPM と同じ GUID の物があれば送らずに 409 `vpmOverlap`（`allowVpmOverlap: true` で送る。改変から送るときも。[unity-vpm.md](unity-vpm.md)）。送り先は `GET /v1/unity/editors` で選ぶ。結果の種類はログに1行（`Unity へ送る → imported` など）。
     実際の Unity 2022.3 で確かめた（2026-10-13・確かめ用のプロジェクトに作り物の unitypackage を送り、取り込み画面→取り込んだ→「使った」の足跡まで）
   - **送りの ID・止める・まとめて送る**（2026-10-14。使い手の試作の不足 3-6・3-7・3-8・4-1）：1回の送り＝1つの状態（`UnitySendStatus`）。`sendId`・頼んだ `entry`・`zipHash` と、
     1件ずつの結果 `steps`（商品 ID・entry・zipHash・state・problem。改変から送ると `index` も）を持つ。`GET /v1/unity/last-send`・`GET /v1/unity/sends/{sendId}`（直近16件を覚える）は同じ形。

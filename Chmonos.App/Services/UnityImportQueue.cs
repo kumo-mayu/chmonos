@@ -181,7 +181,8 @@ public static class UnityImportQueue
     public static bool IsEditorClosed(string? problem) => problem is EditorClosedMessage;
 
     /// <summary>人が止めた結果か（失敗と分けて言うため）。</summary>
-    public static bool IsStopped(string? problem) => problem is StoppedMessage or StoppedBeforeWindowMessage;
+    public static bool IsStopped(string? problem)
+        => problem is StoppedMessage or StoppedBeforeWindowMessage or UnityVpmGuard.SkippedMessage or UnityVpmGuard.DeclinedMessage;
 
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
@@ -254,12 +255,17 @@ public static class UnityImportQueue
     /// 1件の結果が決まるたびに呼ぶ（何番目か・結果）。外から使う API が、連続送りの途中で1件ずつの結果を見せるのに使う。
     /// 呼ぶのは送っている側の流れの中なので、受け手は軽く済ませる
     /// </param>
+    /// <param name="askVpm">
+    /// 送る前に VPM との重なりを窓で聞くか（plan 40・<see cref="UnityVpmGuard"/>）。画面の送りはどれも聞く。聞かないのは、
+    /// 窓を出せない外から使う API（自分で照らして 409 で返す）と、記録の前に聞き終えた「改変に追加して送る」
+    /// </param>
     public static async Task<IReadOnlyList<UnityQueueOutcome>> RunAsync(
         int processId,
         IReadOnlyList<UnityPackageEntry> packages,
         IProgress<UnityQueueProgress>? progress,
         CancellationToken cancellationToken,
-        Action<int, UnityQueueOutcome>? outcomeAdded = null)
+        Action<int, UnityQueueOutcome>? outcomeAdded = null,
+        bool askVpm = true)
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
         {
@@ -272,7 +278,7 @@ public static class UnityImportQueue
         RunningChanged?.Invoke(true);
         try
         {
-            return await RunCoreAsync(processId, packages, progress, stop.Token, outcomeAdded);
+            return await RunCoreAsync(processId, packages, progress, stop.Token, outcomeAdded, askVpm);
         }
         finally
         {
@@ -288,7 +294,8 @@ public static class UnityImportQueue
         IReadOnlyList<UnityPackageEntry> packages,
         IProgress<UnityQueueProgress>? progress,
         CancellationToken cancellationToken,
-        Action<int, UnityQueueOutcome>? outcomeAdded)
+        Action<int, UnityQueueOutcome>? outcomeAdded,
+        bool askVpm)
     {
         var outcomes = new List<UnityQueueOutcome>();
         void Add(UnityQueueOutcome outcome)
@@ -304,6 +311,7 @@ public static class UnityImportQueue
         var windowPending = false;
 
         string? project = null;
+        var vpm = VpmScreen.None;
 
         try
         {
@@ -311,6 +319,20 @@ public static class UnityImportQueue
             // **止める口の内側で引く**（メモ3-②の試験で見つけた）。帯の「中止」は送り始めた瞬間から出ているので、
             // ここで止めると、外に置いていた頃は中止が呼んだ側へ例外のまま抜け、「残りは理由を付けて返す」約束が破れていた
             project = await Task.Run(() => UnityEditors.PathOf(processId), cancellationToken);
+
+            // 送る前に、送り先の VPM と同じ GUID の物が無いかを1回で照らし、重なる包みだけ聞く（plan 40）。
+            // 1件ずつ取り込み画面を待つ間に聞くと、Unity の窓と入れ替わりに出て読みにくい。選ぶ窓と同じく、送り始める前に聞き終える
+            if (askVpm && project is not null)
+            {
+                progress?.Report(new UnityQueueProgress(1, packages.Count, UnityVpmGuard.CheckingText));
+                ProgressChanged?.Invoke(UnityVpmGuard.CheckingText);
+                vpm = await UnityVpmGuard.ScreenAsync(project, packages, reads, cancellationToken);
+                if (vpm.Cancelled)
+                {
+                    stop = UnityVpmGuard.DeclinedMessage;
+                }
+            }
+
             await RunLoopAsync();
         }
         catch (OperationCanceledException)
@@ -336,6 +358,12 @@ public static class UnityImportQueue
             if (stop is not null || cancellationToken.IsCancellationRequested)
             {
                 Add(new UnityQueueOutcome(package, false, RemainderReason(stop)));
+                continue;
+            }
+
+            if (vpm.Skipped.Contains(index))
+            {
+                Add(new UnityQueueOutcome(package, false, UnityVpmGuard.SkippedMessage));
                 continue;
             }
 

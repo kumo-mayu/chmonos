@@ -7,7 +7,14 @@ public sealed record UnityEditorRef(int ProcessId, string? ProjectName, string? 
 /// Unity へ送る要求。送る物（<see cref="Entry"/>＝zip の中のパス、<see cref="ZipHash"/>＝どの zip か）は、商品の unitypackage が1つなら省ける。
 /// 送り先（<see cref="Project"/>＝プロジェクトのフォルダ）は、開いているエディタが1つなら省ける
 /// </summary>
-public sealed record UnitySendRequest(string? Entry, string? ZipHash, string? Project);
+public sealed record UnitySendRequest(string? Entry, string? ZipHash, string? Project)
+{
+    /// <summary>
+    /// 送り先の VPM と同じ GUID の物があっても送るか（plan 40）。既定は送らずに 409 <c>vpmOverlap</c> で返す
+    /// （取り込むと VPM のファイルが上書きされる。API は窓で聞けないので、承知したことを頼む側に書いてもらう）。
+    /// </summary>
+    public bool AllowVpmOverlap { get; init; }
+}
 
 /// <summary>
 /// Unity へ送る送りと、その1件ずつの状態の値。**取りうる値はここだけで決める**（API の答え・変化の知らせ・説明文が同じ物を指す）。
@@ -110,7 +117,11 @@ public sealed record UnitySendStatus(
 public sealed record UnitySendChoice(int Index, string? ZipHash, string Entry);
 
 /// <summary>改変の使ったものを順に Unity へ送る要求。送り先を省くと、改変に紐付けたプロジェクトが開いていればそこ、無ければ開いている1つ。</summary>
-public sealed record ModificationSendRequest(string? Project, IReadOnlyList<UnitySendChoice>? Choices);
+public sealed record ModificationSendRequest(string? Project, IReadOnlyList<UnitySendChoice>? Choices)
+{
+    /// <summary>送り先の VPM と同じ GUID の物があっても送るか（<see cref="UnitySendRequest.AllowVpmOverlap"/> と同じ）。</summary>
+    public bool AllowVpmOverlap { get; init; }
+}
 
 /// <summary>送る物1つ（送る物・選ぶ候補）。</summary>
 public sealed record UnitySendTarget(string Package, string Entry, string? ZipHash, bool InFolder);

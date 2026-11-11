@@ -48,4 +48,8 @@ public sealed record UnityChoiceRecord(int Index, ModificationMember Member, IRe
 /// <summary>改変から送る中身（API が保存先の今の記録で決めて、アプリの送り手へ渡す）。</summary>
 /// <param name="Project">送り先の指定（null なら、紐付けたプロジェクトが開いていればそこ、無ければ開いている1つ）。</param>
 public sealed record UnityModificationSend(
-    ModificationRecord Record, IReadOnlyList<UnityModificationStep> Steps, IReadOnlyList<UnityChoiceRecord> Records, string? Project);
+    ModificationRecord Record, IReadOnlyList<UnityModificationStep> Steps, IReadOnlyList<UnityChoiceRecord> Records, string? Project)
+{
+    /// <summary>送り先の VPM と同じ GUID の物があっても送るか（<see cref="ModificationSendRequest.AllowVpmOverlap"/>）。</summary>
+    public bool AllowVpmOverlap { get; init; }
+}

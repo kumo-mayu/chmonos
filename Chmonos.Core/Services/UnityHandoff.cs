@@ -131,6 +131,13 @@ public sealed class UnityPackageReads
     public IReadOnlyList<string> ReadDestinations(UnityPackageEntry package)
         => UnityHandoff.DestinationRoots(ReadAssets(package).Select(asset => asset.Path));
 
+    /// <summary>
+    /// 控えにある、この包みの中身だけ。**zip を解かない・控えに書き足さない**（控えが無ければ null）。
+    /// 送る前に VPM との重なりを照らすのに使う（plan 40）。単体の unitypackage・フォルダの中の物はハッシュが無く、控えも作らないので null
+    /// </summary>
+    public IReadOnlyList<UnityPackageAsset>? StoredOnly(UnityPackageEntry package)
+        => !package.InFolder && package.ZipHash is { } hash ? Stored(hash, package.EntryPath) : null;
+
     /// <summary>控えにある、この包みの中身。控えに無ければ null。同じ zip の控えは読み直さない。</summary>
     internal IReadOnlyList<UnityPackageAsset>? Stored(string hash, string entry)
     {

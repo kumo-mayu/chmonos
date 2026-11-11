@@ -238,8 +238,29 @@ internal static partial class Scenes
         return NewChoice(request.Title, request.Question, request.Detail, request.First, request.Second, request.Third);
     }
 
+    /// <summary>
+    /// 送る前に VPM との重なりを言う窓（plan 40）。中身は画面と同じ <see cref="Chmonos.App.Services.UnityVpmGuard.Question"/> から作る。
+    /// キャンセルを並べない形（最後の選択肢がやめる側）は、AskTwo・AskThree と同じくキャンセルのボタンを畳む
+    /// </summary>
+    private static Window NewVpmOverlap(int count, bool many, params VpmOverlap[] overlaps)
+    {
+        var entry = new UnityPackageEntry(@"D:\files\作り物の衣装.zip", "作り物の衣装_v1.2.unitypackage", 1) { ZipHash = "AAAA" };
+        var request = Chmonos.App.Services.UnityVpmGuard.Question(new VpmOverlapPackage(0, entry, overlaps), 1, count, many);
+        var dialog = NewChoice(request.Title, request.Question, request.Detail, request.First, request.Second, request.Third);
+        ((System.Windows.Controls.Button)dialog.FindName("CancelButton")).Visibility = Visibility.Collapsed;
+        return dialog;
+    }
+
+    private static readonly VpmPackage SceneShader = new("com.example.toon", "作り物トゥーン", "2.3.3", "com.example.toon", true);
+
     private static IEnumerable<Scene> CatalogDialogs =>
     [
+        DialogScene("catalog-dialog-vpm-overlap", "送る前の VPM との重なりの窓：1件を送る（送る・やめる）", _ => Task.FromResult(NewVpmOverlap(
+            1, false, new VpmOverlap(SceneShader, 312, "Assets/作り物トゥーン")))),
+
+        DialogScene("catalog-dialog-vpm-overlap-many", "送る前の VPM との重なりの窓：連続で送る（1/3・送る・これを飛ばす・残りすべてを中止）・場所がまとまらない", _ => Task.FromResult(NewVpmOverlap(
+            3, true, new VpmOverlap(SceneShader, 40, null), new VpmOverlap(new VpmPackage("com.example.tool", "作り物の道具", "1.0.0", "com.example.tool", true), 3, "Assets/Tools")))),
+
         DialogScene("catalog-dialog-choice-two", "2択の窓：2つの選択肢とキャンセル・説明の文あり", _ => Task.FromResult(NewChoice(
             "取り込み方を選ぶ",
             "このフォルダの中身をどう取り込みますか？",

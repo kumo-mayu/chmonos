@@ -30,7 +30,8 @@ internal static partial class ApiEndpoints
             .Takes<UnitySendRequest>().Produces<UnitySendStatus>(202)
             .WithSummary("Unity へ送る（書き込み。終わりは変化の知らせ unity と /v1/unity/sends/{sendId}）")
             .WithDescription($"state：{states}。誤りの code：noUnityPackage・unityPackageNotFound・unityPackageAmbiguous・unityNotOpen・"
-                + "unityProjectNotOpen・unityTargetAmbiguous・unityBusy・unityUnavailable・itemNotFound");
+                + "unityProjectNotOpen・unityTargetAmbiguous・unityBusy・unityUnavailable・itemNotFound・vpmOverlap"
+                + "（送り先に VPM で入っている物と同じ GUID のファイルがある。取り込むと VPM のファイルが上書きされる。承知で送るときは allowVpmOverlap: true）");
 
         app.MapGet("/v1/unity/editors", (ApiWriter writer) => ApiHost.Json(writer.Unity?.OpenEditors() ?? [], json.IReadOnlyListUnityEditorRef))
             .Answers<IReadOnlyList<UnityEditorRef>>("開いている Unity のエディタ（送り先を選ぶため）");
@@ -88,7 +89,7 @@ internal static partial class ApiEndpoints
             .Takes<ModificationSendRequest>().Produces<UnitySendStatus>(202)
             .WithSummary("改変の使ったものを順に Unity へ送る（書き込み。画面の「使ったものを順にUnityへ送る」と同じ順・同じ列。選んだ物は改変に記録する）")
             .WithDescription($"state：{states}。誤りの code：modificationNotFound・choiceRequired・choiceNotNeeded・invalidChoice・unknownChoice・nothingToSend・"
-                + "unityNotOpen・unityProjectNotOpen・unityTargetAmbiguous・unityBusy・unityUnavailable");
+                + "unityNotOpen・unityProjectNotOpen・unityTargetAmbiguous・unityBusy・unityUnavailable・vpmOverlap（承知で送るときは allowVpmOverlap: true）");
     }
 
     /// <summary>
@@ -247,6 +248,6 @@ internal static partial class ApiEndpoints
             throw QueryException.NotFound("nothingToSend", "使ったものの中に、Unity へ送れるもの（手元の zip やフォルダの中の .unitypackage）がありません。");
         }
 
-        return new UnityModificationSend(record, steps, records, body.Project);
+        return new UnityModificationSend(record, steps, records, body.Project) { AllowVpmOverlap = body.AllowVpmOverlap };
     }
 }

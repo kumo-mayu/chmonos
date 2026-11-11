@@ -41,6 +41,11 @@ public sealed class ApiUnitySendTests
 
         public Func<UnityPackageEntry, UnityQueueOutcome> Outcome { get; set; } = package => new UnityQueueOutcome(package, Opened: true, Problem: null);
 
+        /// <summary>送り先の VPM との重なり（既定は無し）。照らした送り先を控える。</summary>
+        public Func<IReadOnlyList<UnityPackageEntry>, IReadOnlyList<VpmOverlapPackage>> Overlaps { get; set; } = _ => [];
+
+        public List<string> CheckedProjects { get; } = [];
+
         public ApiUnitySender SenderFor(AppServiceContainer services) => new(
             services,
             () => Editors,
@@ -54,8 +59,54 @@ public sealed class ApiUnitySendTests
 
                 return Task.FromResult<IReadOnlyList<UnityQueueOutcome>>(packages.Select(Outcome).ToList());
             },
-            () => Busy);
+            () => Busy,
+            (project, packages) =>
+            {
+                CheckedProjects.Add(project);
+                return Overlaps(packages);
+            });
     }
+
+    private static IReadOnlyList<VpmOverlapPackage> ShaderOverlap(IReadOnlyList<UnityPackageEntry> packages)
+        => [new VpmOverlapPackage(0, packages[0], [new VpmOverlap(new VpmPackage("com.example.shader", "作り物シェーダー", "2.0.1", "com.example.shader", true), 12, "Assets/Shader")])];
+
+    [Fact]
+    public Task 送り先のVPMと重なれば_送らずに409で返し_承知の印があれば送る() => TestApp.Run(async app =>
+    {
+        var item = ItemWith(app, "Outfit.unitypackage");
+        await app.AddItemAsync(item);
+        await app.StartAsync();
+        var unity = new FakeUnity { Overlaps = ShaderOverlap };
+        unity.Editors.Add(new OpenUnityEditor(4242, "作り物のプロジェクト", @"C:\作り物\Project"));
+        var sender = unity.SenderFor(app.Services);
+
+        var exception = Assert.Throws<QueryException>(() => sender.Start(item, new UnitySendRequest(null, null, null)));
+        Assert.Equal((409, "vpmOverlap"), (exception.Status, exception.Code));
+        Assert.Contains("作り物シェーダー（com.example.shader）と同じファイルが 12 個・場所 Assets/Shader", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(unity.Sent);
+        Assert.Null(sender.Last);
+        Assert.Equal([@"C:\作り物\Project"], unity.CheckedProjects);
+
+        var (_, finished) = sender.Start(item, new UnitySendRequest(null, null, null) { AllowVpmOverlap = true });
+        Assert.Equal("imported", (await finished).State);
+        Assert.Single(unity.Sent);
+    });
+
+    [Fact]
+    public Task 送り先の場所が分からないエディタには_照らさずに送る() => TestApp.Run(async app =>
+    {
+        var item = ItemWith(app, "Outfit.unitypackage");
+        await app.AddItemAsync(item);
+        await app.StartAsync();
+        var unity = new FakeUnity { Overlaps = ShaderOverlap };
+        unity.Editors.Add(new OpenUnityEditor(4242, "作り物のプロジェクト", null));
+        var sender = unity.SenderFor(app.Services);
+
+        var (_, finished) = sender.Start(item, new UnitySendRequest(null, null, null));
+
+        Assert.Equal("imported", (await finished).State);
+        Assert.Empty(unity.CheckedProjects);
+    });
 
     private static async Task<int> CodeStatusAsync(Func<object> act, string code)
     {
@@ -164,7 +215,13 @@ public sealed class ApiUnitySendTests
             var editors = JsonDocument.Parse(await client.GetStringAsync("/v1/unity/editors")).RootElement;
             Assert.Equal(4242, editors[0].GetProperty("processId").GetInt32());
 
-            var response = await client.PostAsync($"/v1/items/{ItemId}/send-to-unity", new StringContent("{}", Encoding.UTF8, "application/json"));
+            // VPM と重なると 409。承知の印（allowVpmOverlap）は JSON の欄で受ける
+            unity.Overlaps = ShaderOverlap;
+            var refused = await client.PostAsync($"/v1/items/{ItemId}/send-to-unity", new StringContent("{}", Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+            Assert.Equal("vpmOverlap", JsonDocument.Parse(await refused.Content.ReadAsStringAsync()).RootElement.GetProperty("code").GetString());
+
+            var response = await client.PostAsync($"/v1/items/{ItemId}/send-to-unity", new StringContent("""{"allowVpmOverlap": true}""", Encoding.UTF8, "application/json"));
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
             Assert.Equal("sending", JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("state").GetString());
 

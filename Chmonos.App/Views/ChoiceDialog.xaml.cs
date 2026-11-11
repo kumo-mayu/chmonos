@@ -58,6 +58,19 @@ public partial class ChoiceDialog : Window
         return answer == ChoiceDialogResult.Cancel ? ChoiceDialogResult.Second : answer;
     }
 
+    /// <summary>
+    /// 3つの選択肢だけで尋ねる（キャンセルを並べない）。3つ目が「やめる」側の答えのとき（送る・これを飛ばす・残りすべてを中止）に使う。
+    /// Esc と × は3つ目と同じに扱う（<see cref="AskTwo"/> と同じ考え）。
+    /// </summary>
+    public static ChoiceDialogResult AskThree(string title, string question, string detail, string first, string second, string third)
+    {
+        var dialog = new ChoiceDialog(title, question, detail, first, second, third);
+        dialog.CancelButton.Visibility = Visibility.Collapsed;
+        dialog.ThirdButton.IsCancel = true;
+        var answer = Show(dialog);
+        return answer == ChoiceDialogResult.Cancel ? ChoiceDialogResult.Third : answer;
+    }
+
     /// <summary>3つの選択肢とキャンセルで尋ねる。既定のボタンを置かないのは2択と同じ。</summary>
     public static ChoiceDialogResult Ask(
         string title, string question, string detail, string first, string second, string third)
