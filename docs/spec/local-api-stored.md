@@ -51,3 +51,17 @@ GUID → 控えの番号だけを持つ表（`PackageGuidIndex`。GUID は 128 �
 - `items` は画面の並び（入っている割合の高い順）。`present`・`total` は照合（`UnityProjectMatcher`）の数で、共有の部品は数えない。`ratio` は `UnityProjectMatch.Ratio`。もう無い商品の行も消さず、`itemName` を null にする。
 - `images` の `kind` は `sameImage`（大きさと中身が同じ）・`sameName`（名前だけ同じ）。画面の「名前が同じ物も含める」の切り替えは API では当てない（区別を潰さずに返す）。
 - `project` は条件 `unityProject` と同じ `UnityProjectPath.Normalize` で揃え、大文字小文字を区別せずに照らす。
+
+## ファイルのハッシュ（`scan-cache.json`）
+
+| URL | 要求 | 答え |
+|---|---|---|
+| `POST /v1/files/lookup` | `{ "hashes"?: [ … ], "paths"?: [ … ] }`（合わせて1〜200件） | `{ hashes: [{ key, owners }], paths: [{ key, owners }] }`。`owners` は `GET /v1/files/lookup` の答えと同じ（見つからなければ空）。誤り 400 `invalidLookup`・`invalidIds`・`invalidLimit` |
+| `POST /v1/files/locations` | `{ "hashes": [ … ] }`（1〜200件） | `{ found: [{ hash, path, sizeBytes, modifiedAt, owner }], missing: [hash] }`。誤り 400 `invalidHashes`・`invalidIds`・`invalidLimit` |
+
+- まとめて引く道は、1件ずつの GET と同じ関数（`Catalogs.LookupFiles`）を送った順に当てるだけ（同じ問いの答え方を2つ持たない）。外した物も状態つきで返すのも同じ。
+- 場所を引く道は、取り込みがハッシュを数えた控え（`ScanCacheEntry`：場所・大きさ・更新日時・ハッシュ）を読む。場所は最後に数えたときの物で、今そこに在るかは見ない。ドライブ文字は読み替えない（[local-api.md](local-api.md)「未決」）。
+- **出す範囲**：控えには登録したフォルダの中で数えた全部の物が載るが、出すのは**商品のファイル（`owner: item`）と、商品が決まっていないファイル（`owner: unresolved`）の場所だけ**。
+  外したファイル（使う人が「資産ではない」とした物）と、どこにも属さない物は出さず、`missing` に入れる（控えに無い物と見分けない。出さない物があることを答えから推せないように）。
+  守りは今の `GET /v1/files/lookup` と同じ（`127.0.0.1` だけ・トークン必須・送られたハッシュも答えもログに残さない）。商品が決まっていないファイルの場所は、未確定の自動検索の控え（下）の `target` でも出る物と同じ範囲。
+- 控えが読めない（手で壊した）ときは無いのと同じにする（作り直せる控えなので答えを止めない）。控えは要求ごとに読む（今の写しの規模で数十KB。大きくなったら持ち方を測り直す）。

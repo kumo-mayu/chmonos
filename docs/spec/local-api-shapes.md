@@ -25,6 +25,7 @@
 | `GET /v1/avatars`・`/v1/avatars/{id}` | 登録簿（名前・素体・持っているか・対応する商品の数・絵の場所） | 作った |
 | `GET /v1/avatar-bases` | 共通素体（属するアバター・呼び方） | 作った |
 | `GET /v1/files/lookup?path=`・`?hash=` | ファイル・フォルダから商品を逆に引く | 作った |
+| `POST /v1/files/lookup`・`POST /v1/files/locations` | ハッシュ・場所をまとめて逆に引く・ハッシュから最後に数えた場所を引く。形と出す範囲は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/unitypackages?avatar=` | 手元の `.unitypackage` と、その商品・対応アバター | 作った |
 | `GET /v1/items/{id}/unitypackage-assets`・`POST /v1/unitypackages/lookup` | 包みの中身（GUID → パス）・GUID から包みと商品を逆に引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/unity-scans` | Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |

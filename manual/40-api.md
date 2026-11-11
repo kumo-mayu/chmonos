@@ -207,6 +207,8 @@ Chmonos が取り込みのときに控えた情報を読めます。どれも読
 |---|---|
 | `GET /v1/items/{id}/unitypackage-assets` | 商品の zip の中の unitypackage ごとの中身（GUID と `Assets/…` のパス）。まだ読んでいない unitypackage は `assets` が `null` です |
 | `POST /v1/unitypackages/lookup` | GUID（1000件まで）が入っている unitypackage と商品 |
+| `POST /v1/files/lookup` | ハッシュ（`hashes`）・場所（`paths`）を合わせて200件まで送り、それぞれがどの商品の物かを返す（`GET /v1/files/lookup` をまとめた物） |
+| `POST /v1/files/locations` | ハッシュ（200件まで）から、Chmonos が最後に数えたときの場所を返す。出すのは商品のファイルと、商品が決まっていないファイルだけで、管理から外したファイルは出しません |
 | `GET /v1/unity-scans` | 検索の条件「Unityプロジェクト」などで前に調べた、プロジェクトに入っている商品と割合（`?project=` で1つに絞れます）。`savedAt` の時点の結果で、API は調べ直しません |
 
 - 中身を控えるのは zip の中の unitypackage だけです。zip に入っていない unitypackage と、登録したフォルダの中の物は出ません。

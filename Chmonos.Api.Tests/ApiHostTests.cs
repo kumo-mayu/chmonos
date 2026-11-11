@@ -108,10 +108,14 @@ public sealed class ApiHostTests : IAsyncLifetime
 
         Assert.Equal("Chmonos API", document.GetProperty("info").GetProperty("title").GetString());
         var paths = document.GetProperty("paths");
-        foreach (var path in new[] { "/v1/items/{id}", "/v1/search", "/v1/search/facets", "/v1/files/lookup", "/v1/changes", "/v1/events", "/v1/items/{id}/unitypackage-assets", "/v1/unitypackages/lookup", "/v1/unity-scans" })
+        foreach (var path in new[] { "/v1/items/{id}", "/v1/search", "/v1/search/facets", "/v1/files/lookup", "/v1/changes", "/v1/events", "/v1/items/{id}/unitypackage-assets", "/v1/unitypackages/lookup", "/v1/unity-scans", "/v1/files/locations" })
         {
             Assert.True(paths.TryGetProperty(path, out _), path);
         }
+
+        // 1件ずつ引く GET と、まとめて引く POST の両方が載る（plan 32）
+        Assert.True(paths.GetProperty("/v1/files/lookup").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/v1/files/lookup").TryGetProperty("post", out _));
 
         // アプリからの知らせの口は外の道具向けではないので載せない
         Assert.False(paths.TryGetProperty("/internal/busy", out _));
