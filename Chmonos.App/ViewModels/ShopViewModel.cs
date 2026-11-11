@@ -823,6 +823,14 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     public string SelectionText => $"{SelectedCount} 件を選択中";
 
+    /// <summary>ファイルを割り振れるか（検索の画面と同じ。帯は3つの画面で同じ型）。</summary>
+    public bool CanOpenFilePool => SelectedCount >= 2;
+
+    public RelayCommand OpenFilePoolCommand => _openFilePool ??= new RelayCommand(
+        () => _main.ShowFilePool(SelectedCards().Select(card => card.Item.Id).ToList()));
+
+    private RelayCommand? _openFilePool;
+
     /// <summary>選んだ物に未読の更新があるか（検索の画面と同じ出し方）。</summary>
     public bool HasSelectedUpdates => _all.Any(card => card.IsSelected && card.HasUpdate);
 
@@ -893,6 +901,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         OnPropertyChanged(nameof(HasSelectedUpdates));
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(CanOpenFilePool));
 
         var selecting = HasSelection;
         foreach (var card in _all)

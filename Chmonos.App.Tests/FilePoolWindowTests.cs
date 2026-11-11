@@ -1,0 +1,373 @@
+using System.Windows;
+using Chmonos.App.Tests.Support;
+using Chmonos.App.ViewModels;
+using Chmonos.Core.Commands;
+using Chmonos.Core.Models;
+using Chmonos.Core.Services;
+
+namespace Chmonos.App.Tests;
+
+/// <summary>
+/// 選んだ商品の間でファイルを割り振るサブ画面（plan 30）。窓は作らず、ViewModel と主の窓のつながりを見る（窓は ViewShot で撮る）。
+/// 商品・ファイルの名前と番号は作り物。
+/// </summary>
+public class FilePoolWindowTests
+{
+    private const string SetId = "9900801";
+    private const string PartAId = "9900802";
+    private const string PartBId = "9900803";
+
+    private static readonly LocalFileRecord Top = Make.File(@"D:\files\SampleShop_Top.zip") with
+    {
+        Contents = ["SampleShop_Top.unitypackage", "readme.txt"],
+    };
+
+    private static readonly LocalFileRecord Skirt = Make.File(@"D:\files\SampleShop_Skirt.zip") with
+    {
+        Contents = ["Skirt/SampleShop_Skirt.unitypackage"],
+    };
+
+    private static readonly LocalFileRecord Other = Make.File(@"D:\files\Other.zip");
+
+    /// <summary>セット（3つ持つ）・単品A（上着だけをセットと共有）・単品B（何も無い）。</summary>
+    private static async Task<MainViewModel> StartWithSetAsync(TestApp app)
+    {
+        await app.AddItemAsync(Make.Item(SetId, "作り物のセット").WithFiles(Top, Skirt, Other));
+        await app.AddItemAsync(Make.Item(PartAId, "作り物の上着").WithFiles(Top));
+        await app.AddItemAsync(Make.Item(PartBId, "作り物のスカート").WithFiles());
+        return await app.StartAsync();
+    }
+
+    private static async Task<FilePoolViewModel> OpenAsync(TestApp app, MainViewModel main, params string[] ids)
+    {
+        main.ShowFilePool(ids.Length > 0 ? ids : [SetId, PartAId, PartBId]);
+        await app.SettleAsync();
+        return main.FilePool!;
+    }
+
+    private static IEnumerable<FilePoolFileRow> Shown(FilePoolViewModel pool) => pool.Groups.SelectMany(group => group.Files);
+
+    private static FilePoolItemRow Row(FilePoolViewModel pool, string id) => pool.Items.Single(row => row.Id == id);
+
+    private static async Task<LocalBlock> LocalOfAsync(TestApp app, string id) => (await app.Store.Items.LoadAsync(id))!.Local;
+
+    // ---- 入口 ----
+
+    [Fact]
+    public Task 検索で2件以上選ぶと帯から開け_1件では押せない() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var cards = main.Search.ListItems.ToList();
+
+        cards[0].IsSelected = true;
+        Assert.False(main.Search.CanOpenFilePool);
+
+        cards[1].IsSelected = true;
+        Assert.True(main.Search.CanOpenFilePool);
+        main.Search.OpenFilePoolCommand.Execute(null);
+        await app.SettleAsync();
+
+        var window = Assert.Single(app.SubWindows);
+        Assert.Equal(
+            new[] { cards[0].Item.Id, cards[1].Item.Id }.Order(),
+            window.Model.Items.Select(row => row.Id).Order());
+
+        // 選択は外さない（割り振りながら一覧も使う）
+        Assert.True(main.Search.HasSelection);
+    });
+
+    // ---- 溜まり・重複回数・絞り ----
+
+    [Fact]
+    public Task 溜まりは選んだ商品の中で重複回数を数え_既定は1以下を表示する() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+
+        Assert.Equal("選んだ商品（3）", pool.ItemsHeading);
+        Assert.Equal(["ファイル 3 個", "ファイル 1 個", "ファイルなし"], pool.Items.Select(row => row.FileCountText));
+        Assert.Equal(1, pool.Threshold);
+        Assert.Equal(HolderCountFilter.AtMost, pool.Filter);
+        Assert.Equal([0, 1, 2, 3], pool.ThresholdChoices);
+
+        // 上着はセットと単品Aの2件に付いているので、1以下では隠れる
+        Assert.Equal(["Other.zip", "SampleShop_Skirt.zip"], Shown(pool).Select(file => file.FileName));
+        Assert.Equal("3 個のうち 2 個を表示", pool.PoolCountText);
+        Assert.All(Shown(pool), file => Assert.Equal("1 件に付いています", file.HolderText));
+
+        pool.Filter = HolderCountFilter.AtLeast;
+        pool.Threshold = 2;
+        var top = Assert.Single(Shown(pool));
+        Assert.Equal("SampleShop_Top.zip", top.FileName);
+        Assert.Equal("2 件に付いています", top.HolderText);
+        Assert.Equal("作り物のセット\n作り物の上着", top.HoldersTip);
+
+        pool.Filter = HolderCountFilter.Exactly;
+        pool.Threshold = 3;
+        Assert.Empty(pool.Groups);
+        Assert.Equal("条件に合うファイルはありません。付いている商品の数を変えてください。", pool.EmptyText);
+    });
+
+    [Fact]
+    public Task 名前の頭が同じファイルは組にして畳み_見出しに中のunitypackageを添える() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        pool.Threshold = 3;
+
+        Assert.Equal(["Other", "SampleShop"], pool.Groups.Select(group => group.Name));
+        var single = pool.Groups[0];
+        Assert.True(single.IsSingle);
+
+        var group = pool.Groups[1];
+        Assert.False(group.IsSingle);
+        Assert.False(group.IsExpanded);
+        Assert.Equal("SampleShop（2）", group.HeaderText);
+        Assert.Equal("unitypackage：SampleShop_Skirt、SampleShop_Top", group.PackagesText);
+
+        // 組のチェックで中を全部選び、1つ外すと中間になる
+        group.IsChecked = true;
+        Assert.All(group.Files, file => Assert.True(file.IsChecked));
+        group.Files[0].IsChecked = false;
+        Assert.Null(group.IsChecked);
+
+        // 開いた組とチェックは、絞りを変えて組み直しても残る
+        group.IsExpanded = true;
+        pool.Threshold = 2;
+        pool.Threshold = 3;
+        Assert.True(pool.Groups[1].IsExpanded);
+        Assert.Equal([false, true], pool.Groups[1].Files.Select(file => file.IsChecked));
+    });
+
+    [Fact]
+    public Task 中のunitypackageが4つ以上なら3つまで書き残りは数で言う()
+    {
+        Assert.Equal("unitypackage：A、B、C ほか 2 個", FilePoolGroupRow.PackagesTextOf(["A", "B", "C", "D", "E"]));
+        Assert.Equal(string.Empty, FilePoolGroupRow.PackagesTextOf([]));
+        return Task.CompletedTask;
+    }
+
+    // ---- 付ける ----
+
+    [Fact]
+    public Task 付けると選んだ商品に付き_元の商品からは外さず_主の窓の写しにも映る() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+
+        Assert.False(pool.CanAttach);
+        Assert.Equal("左の一覧で、付ける先の商品を選んでください。", pool.AttachHint);
+
+        await pool.OpenItemAsync(Row(pool, PartBId));
+        Assert.Equal("付けるファイルにチェックを入れてください。", pool.AttachHint);
+
+        Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip").IsChecked = true;
+        Assert.True(pool.CanAttach);
+        Assert.Equal("1 個を付ける", pool.AttachText);
+        Assert.Equal("付ける先：作り物のスカート", pool.AttachHint);
+
+        await pool.AttachAsync();
+        await app.SettleAsync();
+
+        Assert.Equal("1 個のファイルを「作り物のスカート」に付けました。", pool.ResultText);
+        Assert.Equal([Skirt.Hash], (await LocalOfAsync(app, PartBId)).OwnedFiles.Select(file => file.Hash));
+        Assert.Contains((await LocalOfAsync(app, SetId)).OwnedFiles, file => file.Hash == Skirt.Hash);
+
+        // 2件に付いたので、1以下からは消える。付けた先の下に並ぶ
+        Assert.DoesNotContain(Shown(pool), file => file.FileName == "SampleShop_Skirt.zip");
+        Assert.Equal(["SampleShop_Skirt.zip"], Row(pool, PartBId).Files.Select(file => file.FileName));
+        Assert.Equal(0, pool.CheckedCount);
+
+        // 主の窓の検索の写しにも、開いている商品ページにも映る
+        await UiThread.Until(
+            () => main.Search.FindItem(PartBId)!.Local.OwnedFiles.Any(file => file.Hash == Skirt.Hash),
+            "検索の写しに付けたファイルが映る");
+        await UiThread.Until(
+            () => main.CurrentItemPage is { } page && page.LocalFiles.Any(file => file.Hash == Skirt.Hash),
+            "開いている商品ページに付けたファイルが映る");
+    });
+
+    [Fact]
+    public Task 付ける先がもう持つファイルはチェックできない() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        pool.Threshold = 3;
+
+        await pool.OpenItemAsync(Row(pool, PartAId));
+
+        var top = Shown(pool).Single(file => file.FileName == "SampleShop_Top.zip");
+        Assert.False(top.CanCheck);
+        Assert.Equal("この商品に付いています", top.HolderText);
+        top.IsChecked = true;
+        Assert.False(top.IsChecked);
+    });
+
+    [Fact]
+    public Task 除外したファイルは解かずに付けずに_そう言う() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        await app.Store.Excluded.SaveAsync([new ExcludedEntry { Hash = Other.Hash, ExcludedAt = DateTimeOffset.Now }]);
+        var pool = await OpenAsync(app, main);
+
+        await pool.OpenItemAsync(Row(pool, PartBId));
+        Shown(pool).Single(file => file.FileName == "Other.zip").IsChecked = true;
+        await pool.AttachAsync();
+
+        Assert.Equal("「Other.zip」は管理対象から除外しているので、付けませんでした。", pool.ResultText);
+        Assert.Empty((await LocalOfAsync(app, PartBId)).LocalFiles);
+    });
+
+    // ---- 外す ----
+
+    [Fact]
+    public Task ほかの商品にも付いていれば聞かずに外し_重複回数が減る() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        await pool.OpenItemAsync(Row(pool, PartAId));
+
+        await pool.DetachAsync(Assert.Single(Row(pool, PartAId).Files));
+
+        Assert.Empty(app.Notices);
+        Assert.Equal("「SampleShop_Top.zip」を「作り物の上着」から外しました。", pool.ResultText);
+        Assert.Empty(Row(pool, PartAId).Files);
+
+        // 商品は消さない。上着はセットだけになったので、1以下に出る
+        Assert.NotNull(await app.Store.Items.LoadAsync(PartAId));
+        Assert.Contains(Shown(pool), file => file.FileName == "SampleShop_Top.zip");
+    });
+
+    /// <summary>
+    /// どの商品にも付かなくなるときだけ聞く（未確定に表示される）。外した物は 0 件で溜まりに残り、別の商品へ付け直せる。
+    /// 付け直すと未確定から消える。
+    /// </summary>
+    [Fact]
+    public Task 最後の1件から外すときだけ聞き_外した物は0件で残って付け直せる() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        await pool.OpenItemAsync(Row(pool, SetId));
+        var skirt = Row(pool, SetId).Files.Single(file => file.FileName == "SampleShop_Skirt.zip");
+
+        // 既定の答えはキャンセル：何も変わらない
+        await pool.DetachAsync(skirt);
+        var asked = Assert.Single(app.Notices);
+        Assert.Equal(
+            "「SampleShop_Skirt.zip」を「作り物のセット」から外しますか？\nほかの商品に付いていないので、未確定に表示されます。この画面でほかの商品に付け直せます。",
+            asked.Text);
+        Assert.Contains((await LocalOfAsync(app, SetId)).OwnedFiles, file => file.Hash == Skirt.Hash);
+
+        app.Answer = _ => MessageBoxResult.OK;
+        await pool.DetachAsync(skirt);
+
+        var zero = Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip");
+        Assert.Equal(0, zero.HolderCount);
+        Assert.Equal("どの商品にも付いていません", zero.HolderText);
+
+        // 作り物の場所はディスクに無いので未確定には出ない。付け直せることだけを見る
+        await pool.OpenItemAsync(Row(pool, PartBId));
+        Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip").IsChecked = true;
+        await pool.AttachAsync();
+
+        Assert.Equal([Skirt.Hash], (await LocalOfAsync(app, PartBId)).OwnedFiles.Select(file => file.Hash));
+    });
+
+    // ---- ほかの画面の変更を映す・消えた商品 ----
+
+    [Fact]
+    public Task 開いている間にほかの画面や取り込みが書き換えると読み直す() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+
+        // 商品ページと同じ命令で外す（サブ画面を通らない道）
+        await app.Services.Commands.ExecuteAsync(new UiCommand.DetachFile(PartAId, Top.Hash));
+        await app.SettleAsync();
+        Assert.Equal("ファイルなし", Row(pool, PartAId).FileCountText);
+
+        // 取り込みのように置き場へ直に書く
+        var added = Make.File(@"D:\files\SampleShop_Hat.zip");
+        await app.Store.Items.ChangeLocalAsync(
+            PartBId, local => local with { LocalFiles = [.. local.LocalFiles, added] }, [LocalField.LocalFiles]);
+        await app.SettleAsync();
+        Assert.Contains(Shown(pool), file => file.FileName == "SampleShop_Hat.zip");
+        Assert.Equal("ファイル 1 個", Row(pool, PartBId).FileCountText);
+    });
+
+    [Fact]
+    public Task 選んだ商品が削除されたら一覧から外し_そう言う() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        await pool.OpenItemAsync(Row(pool, PartAId));
+
+        await app.Store.Items.DeleteAsync(PartAId);
+        await app.SettleAsync();
+
+        Assert.Equal([SetId, PartBId], pool.Items.Select(row => row.Id));
+        Assert.Equal("削除された商品 1 件を一覧から外しました。", pool.RemovedText);
+        Assert.Null(pool.SelectedItem);
+        Assert.Equal([0, 1, 2], pool.ThresholdChoices);
+    });
+
+    // ---- 主の窓 ----
+
+    [Fact]
+    public Task 商品を押すと主の窓がその商品ページを開き_画面の履歴に積む() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        Assert.True(main.IsSearchActive);
+        Assert.False(main.CanGoBack);
+
+        await pool.OpenItemAsync(Row(pool, SetId));
+        Assert.Equal(SetId, main.CurrentItemPage!.Item.Id);
+        Assert.Same(Row(pool, SetId), pool.SelectedItem);
+        Assert.True(main.CanGoBack);
+
+        await pool.OpenItemAsync(Row(pool, PartAId));
+        Assert.Equal(PartAId, main.CurrentItemPage!.Item.Id);
+
+        main.GoBack();
+        Assert.Equal(SetId, main.CurrentItemPage!.Item.Id);
+        main.GoBack();
+        Assert.True(main.IsSearchActive);
+    });
+
+    [Fact]
+    public Task 開くのは1つだけで_2回目は前に出し_違う選び方なら入れ替える() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        await pool.OpenItemAsync(Row(pool, PartBId));
+
+        // 同じ選び方：入れ替えずに前に出すだけ（付ける先を残す）
+        main.ShowFilePool([SetId, PartAId, PartBId]);
+        await app.SettleAsync();
+        var window = Assert.Single(app.SubWindows);
+        Assert.Equal(1, window.BroughtToFront);
+        Assert.Same(pool, main.FilePool);
+        Assert.Equal(PartBId, pool.SelectedItem?.Id);
+
+        // 違う選び方：同じ窓のまま中身を入れ替える
+        main.ShowFilePool([SetId, PartAId]);
+        await app.SettleAsync();
+        Assert.Single(app.SubWindows);
+        Assert.Equal(2, window.BroughtToFront);
+        Assert.Equal([SetId, PartAId], pool.Items.Select(row => row.Id));
+        Assert.Null(pool.SelectedItem);
+
+        // 閉じたら控えを外し、置き場の知らせも聞かない。次はまた新しく開く
+        window.Close();
+        Assert.Null(main.FilePool);
+        await app.Store.Items.DeleteAsync(PartAId);
+        await app.SettleAsync();
+        Assert.Equal(2, pool.Items.Count);
+
+        main.ShowFilePool([SetId, PartBId]);
+        await app.SettleAsync();
+        Assert.Equal(2, app.SubWindows.Count);
+        Assert.NotSame(pool, main.FilePool);
+    });
+}

@@ -138,6 +138,15 @@ public sealed partial class SearchViewModel
 
     public string SelectionText => $"{SelectedCount} 件を選択中";
 
+    /// <summary>ファイルを割り振れるか。1件だけでは割り振る相手がいない（plan 30）。</summary>
+    public bool CanOpenFilePool => SelectedCount >= 2;
+
+    /// <summary>選んだ商品の間でファイルを割り振るサブ画面を開く（plan 30）。選択は外さない（割り振りながら一覧も使う）。</summary>
+    public RelayCommand OpenFilePoolCommand => _openFilePool ??= new RelayCommand(
+        () => _main?.ShowFilePool(SelectedCards().Select(card => card.Item.Id).ToList()));
+
+    private RelayCommand? _openFilePool;
+
     /// <summary>選んだ物に未読の更新があるか。無ければ帯と右クリックの「既読にする」を出さない（カードの右クリックの「既読にする」と同じ出し方）。</summary>
     public bool HasSelectedUpdates => _cards.Values.Any(card => card.IsSelected && card.HasUpdate);
 
@@ -160,6 +169,7 @@ public sealed partial class SearchViewModel
         OnPropertyChanged(nameof(HasSelectedUpdates));
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(CanOpenFilePool));
 
         // 1件でも選ぶと「選ぶ操作」が主になる。カード全体が選択の的になり、
         // 中を見るのは専用のボタンへ移る（カードごとに知らせる必要がある）

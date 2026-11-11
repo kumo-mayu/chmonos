@@ -718,6 +718,26 @@
                             AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
+                    <!--
+                        選んだ商品の間でファイルを割り振るサブ画面（plan 30）。別の窓が開くだけで聞き返さないので「…」は付けない（ui-dialogs.md）。
+                        1件では割り振る相手がいないので押せなくし、吹き出しで言う
+                    -->
+                    <Button Content="ファイルを割り振る" Margin="0,2,10,2"
+                            AutomationProperties.AutomationId="SelectionBar.FilePool"
+                            Command="{Binding OpenFilePoolCommand}"
+                            IsEnabled="{Binding CanOpenFilePool, FallbackValue=False}"
+                            ToolTipService.ShowOnDisabled="True">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                <Setter Property="ToolTip" Value="選んだ商品のファイルを、別の窓で商品の間に付け外しします。" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="ToolTip" Value="2件以上の商品を選ぶと使えます。" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                     <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="0,2"
                             AutomationProperties.AutomationId="SelectionBar.Edit"
                             Command="{Binding SendSelectionToEditCommand}" />

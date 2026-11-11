@@ -55,6 +55,7 @@
 | [background-and-network.md](spec/background-and-network.md) | BOOTH への通信の決め事、優先度、起動時の裏の作業、失敗の書き残し（`logs/app.log`） |
 | [id-resolution.md](spec/id-resolution.md) | 商品IDの手掛かり、ファイル名からの自動検索、未確定の画面、「この商品から外す」 |
 | [shared-files.md](spec/shared-files.md) | 1つのファイルを2つ以上の商品に付ける：付けるときの窓（付け直す・両方に付ける）、片方の操作がもう片方にどう効くか、容量の合計を1回だけ数える |
+| [file-pool.md](spec/file-pool.md) | ファイルの割り振り（サブ画面）：選んだ商品のファイルの溜まり・付いている商品の数の絞り・名前の頭での組・記録から付ける・外す |
 | [folder-layout.md](spec/folder-layout.md) | フォルダの置き方（1つ上が商品名・2つ上がショップ名など）を指定して、自動検索の手掛かりにする |
 | [private-items.md](spec/private-items.md) | BOOTH に無い商品（仮ID `local-`）、人が入れる名前・カテゴリ・ショップ、「IDを変更」 |
 | [search.md](spec/search.md) | 文字列の構文、表記をまたぐ辞書、結果のカード（絞り込みは下） |
@@ -76,6 +77,7 @@
 | [ui-writing.md](spec/ui-writing.md) | 画面の文言の書き方（1つの文言に載せるもの・長さ・要素ごとの型・正確さを落とさない） |
 | [ui-terms.md](spec/ui-terms.md) | 画面の用語表（内部の言葉・同じ操作の動詞・使わない語・揃える表記・まだ決めていない揺れ）。`tools/wording.mjs` が読む |
 | [ui-dialogs.md](spec/ui-dialogs.md) | 別の窓（ダイアログ）の Enter・Esc、ボタンの並びと名前、取り返しの一文、確認と失敗のアイコン |
+| [ui-subwindows.md](spec/ui-subwindows.md) | サブ画面（主の窓を塞がない別の窓）：何をサブ画面にするか・1種類につき1つ・閉じ方・キー・開いている間に記録が変わったとき |
 | [ui-input.md](spec/ui-input.md) | 候補の付け方、Enter で決める範囲、名前の変え方、メモの保存、編集画面の保存の分かれ方、右クリックのメニュー、読み上げの名前 |
 | [ui-keyboard.md](spec/ui-keyboard.md) | キーの割り当て（Ctrl+F・Ctrl+Enter・Alt+矢印など）、キーボードだけで進める決まり（並び・止まり直し・条件の2段の止まり・乗せたときだけ出すボタン） |
 | [ui-empty-and-errors.md](spec/ui-empty-and-errors.md) | 空の表示の3通りの書き分け、押せない理由の表示、知らせずに捨てない失敗、エラーの型、利用者に見せない文、知らせの置き場の共通の決まり |

@@ -446,6 +446,14 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     public string SelectionText => $"{SelectedCount} 件を選択中";
 
+    /// <summary>ファイルを割り振れるか（検索の画面と同じ。帯は3つの画面で同じ型なので、どこから押しても同じサブ画面が開く）。</summary>
+    public bool CanOpenFilePool => SelectedCount >= 2;
+
+    public RelayCommand OpenFilePoolCommand => _openFilePool ??= new RelayCommand(
+        () => _main.ShowFilePool(SelectedCards().Select(card => card.Item.Id).ToList()));
+
+    private RelayCommand? _openFilePool;
+
     /// <summary>選んだカード。表示中の並びを先に、探し直して見えなくなった物を後に（検索画面と同じ）。</summary>
     private List<ItemCardViewModel> SelectedCards()
     {
@@ -506,6 +514,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         OnPropertyChanged(nameof(HasSelectedUpdates));
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(CanOpenFilePool));
 
         var selecting = HasSelection;
         foreach (var card in _cards.Values)

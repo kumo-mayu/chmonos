@@ -169,6 +169,27 @@ internal sealed class TestApp
     /// <summary>出すはずだった、既定に戻す窓（窓は出ない）。</summary>
     public List<ResetSettingsDialogViewModel> ResetSettingsDialogs { get; } = [];
 
+    /// <summary>出すはずだったサブ画面（ファイルの割り振り）の窓。窓は作らず、前に出した回数と閉じるを控える。</summary>
+    public List<FakeSubWindow> SubWindows { get; } = [];
+
+    /// <summary>サブ画面の窓の作り物。<see cref="Close"/> で窓の × と同じに閉じる。</summary>
+    public sealed class FakeSubWindow(FilePoolViewModel model) : ISubWindowHandle
+    {
+        public FilePoolViewModel Model { get; } = model;
+
+        public int BroughtToFront { get; private set; }
+
+        public bool IsClosed { get; private set; }
+
+        public void BringToFront() => BroughtToFront++;
+
+        public void Close()
+        {
+            IsClosed = true;
+            Model.NoteWindowClosed();
+        }
+    }
+
     /// <summary>出すはずだった、どこを探すかの窓（窓は出ない）。</summary>
     public List<MissingSearchScopeViewModel> SearchScopes { get; } = [];
 
@@ -307,6 +328,12 @@ internal sealed class TestApp
             {
                 app.ResetSettingsDialogs.Add(model);
                 return app.AnswerResetSettings(model);
+            };
+            FilePoolViewModel.OpenIntercept = model =>
+            {
+                var window = new FakeSubWindow(model);
+                app.SubWindows.Add(window);
+                return window;
             };
             ChoiceQuestion.Intercept = request =>
             {
@@ -470,6 +497,14 @@ internal sealed class TestApp
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
             ChoiceQuestion.Intercept = null;
             ResetSettingsDialogViewModel.Intercept = null;
+
+            // 開いたままのサブ画面は閉じる（置き場の知らせを外す。次の試験へ持ち越さない）
+            foreach (var window in SubWindows.Where(window => !window.IsClosed))
+            {
+                window.Close();
+            }
+
+            FilePoolViewModel.OpenIntercept = null;
             ItemViewModel.PickFilesToAttachIntercept = null;
             ModificationHubViewModel.PickFolderIntercept = null;
             AppLog.Use(null);

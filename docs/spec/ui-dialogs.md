@@ -2,6 +2,7 @@
 
 画面の中の決まりは [ui-rules.md](ui-rules.md)。ここは**別の窓で聞く・言う**ときの決まり
 （ユーザ判断 2026-09-20。洗い出しの D1〜D11・`docs/feedback/ui-consistency-2026-09-20.md`）。
+主の窓を止めずに横で使う別の窓（サブ画面）の決まりは [ui-subwindows.md](ui-subwindows.md)。キーのうち「Esc で閉じる」は同じで、「Enter で決める」ボタンは置かない。
 
 ## キー
 
