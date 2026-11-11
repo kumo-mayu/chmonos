@@ -31,6 +31,7 @@
 | `POST /v1/zip-images/lookup` | 画像の CRC と大きさから、それが入っている zip と商品を引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/unity-scans` | Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | まだ |
+| `GET /v1/unresolved/candidates?hash=` | 未確定の自動検索の控え（対象ごとの候補）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/booth-tags` | 分類と件数（マスタに無いのに付いている物も返す） | 作った |
 | `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
 | `GET /v1/modifications`・`/{id}`・`/v1/unity-projects` | 改変・Unity プロジェクト | 作った |

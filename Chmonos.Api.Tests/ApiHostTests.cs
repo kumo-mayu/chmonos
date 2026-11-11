@@ -108,7 +108,7 @@ public sealed class ApiHostTests : IAsyncLifetime
 
         Assert.Equal("Chmonos API", document.GetProperty("info").GetProperty("title").GetString());
         var paths = document.GetProperty("paths");
-        foreach (var path in new[] { "/v1/items/{id}", "/v1/search", "/v1/search/facets", "/v1/files/lookup", "/v1/changes", "/v1/events", "/v1/items/{id}/unitypackage-assets", "/v1/unitypackages/lookup", "/v1/unity-scans", "/v1/files/locations", "/v1/zip-images/lookup", "/v1/notifications/archive/{month}" })
+        foreach (var path in new[] { "/v1/items/{id}", "/v1/search", "/v1/search/facets", "/v1/files/lookup", "/v1/changes", "/v1/events", "/v1/items/{id}/unitypackage-assets", "/v1/unitypackages/lookup", "/v1/unity-scans", "/v1/files/locations", "/v1/zip-images/lookup", "/v1/notifications/archive/{month}", "/v1/unresolved/candidates" })
         {
             Assert.True(paths.TryGetProperty(path, out _), path);
         }

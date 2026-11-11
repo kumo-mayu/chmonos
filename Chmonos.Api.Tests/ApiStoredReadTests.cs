@@ -128,6 +128,24 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
             new UnresolvedFile { Hash = HashUnresolved, Paths = [@"D:\inbox\unknown.zip"], SizeBytes = 5, ModifiedAtUtc = at, FirstSeenAt = at },
         ]);
 
+        // 未確定の自動検索の控え：2つの対象（1つ目は未確定のファイル2つで引く）
+        await _store.UnresolvedSearches.SaveAsync(new Chmonos.Core.Resolution.CandidateSearchFile
+        {
+            Searches =
+            [
+                new Chmonos.Core.Resolution.CandidateSearchEntry
+                {
+                    Target = @"D:\inbox\unknown.zip", Files = [HashUnresolved, HashOther], SearchedAt = at,
+                    Candidates =
+                    [
+                        new Chmonos.Core.Resolution.ResolutionCandidate { ItemId = "9600009", Name = "作り物の候補", ShopName = "作り物のショップ", Score = 9, Reasons = ["名前が一致"] },
+                        new Chmonos.Core.Resolution.ResolutionCandidate { ItemId = "9600010", Score = 8, LayoutPoints = 3 },
+                    ],
+                },
+                new Chmonos.Core.Resolution.CandidateSearchEntry { Target = @"C:\inbox\a", Files = [HashOrphan], SearchedAt = at },
+            ],
+        });
+
         // 通知の保管庫：9月に3件（うち2件は夏服）、10月に1件
         NotificationRecord Archived(string id, string title, int month, int day, int hour = 0, DateTimeOffset? updated = null)
             => new()
@@ -365,6 +383,27 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
         await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-01"), HttpStatusCode.NotFound, "monthNotFound");
         await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-09?cursor=abc"), HttpStatusCode.BadRequest, "invalidCursor");
         await AssertProblem(await SendAsync(HttpMethod.Get, "/v1/notifications/archive/2026-09?limit=0"), HttpStatusCode.BadRequest, "invalidLimit");
+    }
+
+    [Fact]
+    public async Task 未確定の自動検索の控えは_対象ごとの候補を返し_ファイルで絞れる()
+    {
+        var all = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/unresolved/candidates"));
+        Assert.Equal([@"C:\inbox\a", @"D:\inbox\unknown.zip"], all.EnumerateArray().Select(entry => entry.GetProperty("target").GetString()));
+
+        var one = await JsonOf(await SendAsync(HttpMethod.Get, $"/v1/unresolved/candidates?hash={HashOther.ToLowerInvariant()}"));
+        var entry = one.EnumerateArray().Single();
+        Assert.Equal([HashUnresolved, HashOther], entry.GetProperty("files").EnumerateArray().Select(hash => hash.GetString()));
+        var candidates = entry.GetProperty("candidates");
+        Assert.Equal(["9600009", "9600010"], candidates.EnumerateArray().Select(candidate => candidate.GetProperty("itemId").GetString()));
+
+        // 確かさは Core の値（フォルダの置き方の点は数えない）
+        Assert.True(candidates[0].GetProperty("isStrong").GetBoolean());
+        Assert.False(candidates[1].GetProperty("isStrong").GetBoolean());
+        Assert.Equal(["名前が一致"], candidates[0].GetProperty("reasons").EnumerateArray().Select(reason => reason.GetString()));
+        Assert.Equal(JsonValueKind.Null, candidates[1].GetProperty("name").ValueKind);
+
+        Assert.Equal(0, (await JsonOf(await SendAsync(HttpMethod.Get, $"/v1/unresolved/candidates?hash={HashA}"))).GetArrayLength());
     }
 
     [Fact]

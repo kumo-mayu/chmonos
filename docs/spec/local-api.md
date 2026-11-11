@@ -1,7 +1,7 @@
 # 外から使う API
 
 > **要点**：Chmonos の手元の資産（自動の紐付けで決まった対応アバター・素体・手元のファイル・タグ・属性）を、何の言語からでも読めるように、**アプリと同じプロセスがローカルの HTTP で答える**（2026-10-12・ユーザ判断。2026-10-13 に別の実行ファイルから移した）。書き込みは設定で許したときだけ（段3で足している途中）。BOOTH へは問い合わせない。
-> この文書は決めたこと（起動・同期・守り・共通の決まり）。URL と答えの形は [local-api-shapes.md](local-api-shapes.md)。画面を出さずに動かす起動は [headless.md](headless.md)。
+> この文書は決めたこと（起動・同期・守り・共通の決まり）。URL と答えの形は [local-api-shapes.md](local-api-shapes.md)。画面を出さずに動かす起動は [headless.md](headless.md)。手元に控えた情報（unitypackage の中身など）を読む道は [local-api-stored.md](local-api-stored.md)。
 
 ## 決めたこと（2026-10-12）
 

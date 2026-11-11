@@ -116,16 +116,10 @@
     設定の「つないでいるソフト」で権限を変える・取り消す・最後に使った日時を見る。書き込みのログにソフトの名前を添える。
     - まとめ役が決めた事（ユーザ離席中。変えられる形にした）：窓を開いていない（`--headless`）ときはすぐ断る・古い `api.json` のトークンと `allowWrites` は今どおり（いずれ消すかは [要確認]）・窓は1つずつで同じソフトの重ねた求めは1つに・ブラウザは許可したオリジンだけ。
     - 画面で見ていただく所：許しの窓の文言と既定（Enter・Esc は拒否）、設定の一覧の並び、「api.jsonのトークンからの変更を許す」への言い換え。
-32. [採用]（ユーザ指摘 2026-11-11「手元にGUIDなどを控えているのにそれをAPIで公開していませんね」）手元に控えた情報を読む道を足す。31 の権限に乗せる。
-    - 価値の高い順：
-      - unitypackage の中身の表（GUID → パス。`unitypackages/`。ほかのソフトが作るには、全部の zip と tar.gz を解く必要がある）
-      - Unity プロジェクトの照合の結果（`unityscans/`）
-      - ファイルのハッシュの控え（`scan-cache.json`。今は `/v1/files/lookup` で1件ずつだけ）
-      - zip の中の絵の目録（`zipimages/`。CRC で、どの zip に入っているかを引ける）
-      - 通知の保管庫（作り直せない更新の履歴）
-      - 未確定の自動検索の控え
-    - 使い道の例：Missing の GUID から、入れ直す商品を引く。
-    - 商品の答えに、zip の中の一覧・ダウンロード元・登録した日時が出ているかを確かめる [要確認]
+32. 済み（2026-11-11）：手元に控えた情報を読む道を足した（`docs/spec/local-api-stored.md`。どれも読むだけで、どのトークンでも読める）。unitypackage の中身（`/v1/items/{id}/unitypackage-assets`）と GUID の逆引き（`POST /v1/unitypackages/lookup`。1000件まで・GUID と控えの番号だけを持つ表で、ui の写しを25倍にした作り物の2,000個の控えでも +4.7MB・引く 28ms）、
+    Unity プロジェクトを調べた結果の控え（`/v1/unity-scans`）、ファイルの逆引きをまとめて・ハッシュから場所（`POST /v1/files/lookup`・`/v1/files/locations`。場所は商品のファイルと未確定の物だけ）、zip の中の絵（`POST /v1/zip-images/lookup`）、
+    通知の保管庫（`/v1/notifications/archive/{month}`）、未確定の自動検索の控え（`/v1/unresolved/candidates`）。商品の答えにファイルの `registeredAt`・`downloadSource` とフォルダの `registeredAt` を足した（zip の中の一覧は前から `include=contents`）。manual に Missing の GUID から商品を引く PowerShell の例。
+    - 残した事：未確定のファイルの一覧そのもの（`/v1/unresolved`）は出していない（何を出すかを別に決める）。単体の unitypackage・登録したフォルダの中の物は中身の控えが無く、逆引きに出ない。
 33. 済み（2026-11-11）：動いている Chmonos の一覧を `%LOCALAPPDATA%\Chmonos.Shared\running\<プロセスの番号>.json` に出す（BOOTH の門と同じ置き場。初めの `Chmonos-running` から 2026-11-11 に移した。保存先・ポート・`api.json` の場所・exe・版・始めた時刻・画面の有無。トークンは書かない）。
     API を開いた・閉じた・ポートを変えたら書き直し、正しく閉じたら消し、落ちた残りは次の起動が片付ける。`%LOCALAPPDATA%\Chmonos` の下にしなかった理由と読む側の手引きは `docs/spec/running-instances.md`。
     31 の流れ（許しを求める先のポート）の入口にもなる。

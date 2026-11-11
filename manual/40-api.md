@@ -212,6 +212,7 @@ Chmonos が取り込みのときに控えた情報を読めます。どれも読
 | `POST /v1/zip-images/lookup` | 画像の CRC-32（16進8桁）と大きさ（バイト数）を1000件まで送り、同じ画像が入っている zip と商品を返す。Unity に手で置いた画像がどの商品の物かを調べるときに使います |
 | `GET /v1/notifications/archive` | 保管した通知のある月（新しい順） |
 | `GET /v1/notifications/archive/{月}?name=…` | その月に保管した通知（例 `/v1/notifications/archive/2026-10`）。通知の画面の「保管した通知」と同じ並びで、`name` で商品名を絞れます。続きは答えの `nextCursor` を `cursor` に入れて取ります |
+| `GET /v1/unresolved/candidates?hash=…` | 商品が決まっていないファイルを BOOTH で探した結果の控え（探した対象ごとの候補）。`hash` でファイル1つに絞れます。候補は推定なので、商品を決めるのは Chmonos の画面で行います |
 | `GET /v1/unity-scans` | 検索の条件「Unityプロジェクト」などで前に調べた、プロジェクトに入っている商品と割合（`?project=` で1つに絞れます）。`savedAt` の時点の結果で、API は調べ直しません |
 
 - 中身を控えるのは zip の中の unitypackage だけです。zip に入っていない unitypackage と、登録したフォルダの中の物は出ません。

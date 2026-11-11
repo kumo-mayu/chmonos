@@ -50,6 +50,10 @@ internal static partial class ApiEndpoints
             ApiHost.Json(await state.ArchivedNotifications.PageAsync(state.Snapshot, month, name, cursor, limit, cancellationToken), json.ArchivedNotificationsPage))
             .Answers<ArchivedNotificationsPage>("保管した通知を1か月ずつ（新しい順・name で商品名を絞る・cursor で続き）。誤り：404 monthNotFound");
 
+        app.MapGet("/v1/unresolved/candidates", (ApiState state, string? hash) =>
+            ApiHost.Json(UnresolvedCandidates.All(state.Snapshot, hash), json.IReadOnlyListCandidateSearchRef))
+            .Answers<IReadOnlyList<CandidateSearchRef>>("未確定の自動検索の控え（検索した対象ごとの候補。hash で未確定のファイル1つに絞る。推定なので決まった物ではない）");
+
         app.MapGet("/v1/unity-scans", (ApiState state, string? project) =>
             ApiHost.Json(UnityScans.All(state.Snapshot, project), json.IReadOnlyListUnityScanRef))
             .Answers<IReadOnlyList<UnityScanRef>>("Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像。savedAt の時点の物で、API は調べ直さない）");
