@@ -37,8 +37,10 @@ public static class VpmOverlaps
         IReadOnlyList<VpmPackage> vpm,
         Func<IReadOnlyDictionary<string, string>> projectGuids)
     {
+        // manifest に無い埋め込みの物は数えない：unitypackage が自分で Packages/ に置いた物（package.json を同梱する物もある）で、
+        // 入れ直すたびに「VPMが上書きされます」と言うと、入れたい物そのもののチェックを外させてしまう
         var byFolder = vpm
-            .Where(package => package.Folder is { Length: > 0 })
+            .Where(package => package.InManifest && package.Folder is { Length: > 0 })
             .GroupBy(package => package.Folder!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         if (byFolder.Count == 0)
@@ -63,7 +65,10 @@ public static class VpmOverlaps
                 if (folders.Contains(asset.Path)
                     || !guids.TryGetValue(asset.Guid, out var projectPath)
                     || PackageFolder(projectPath) is not { } folder
-                    || !byFolder.TryGetValue(folder, out var owner))
+                    || !byFolder.TryGetValue(folder, out var owner)
+                    // 同じ Packages/<フォルダ> の中へ入れる物は、その包み自身を入れ直す物（VPM の配布元が出す unitypackage 版など）。
+                    // 「Packages/… のチェックを外して」は入れたい物を外させる文になるので言わない
+                    || PackageFolder(asset.Path) is { } own && string.Equals(own, folder, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

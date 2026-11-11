@@ -750,7 +750,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             await FilePresenceNotes.NoteFailedSendsAsync(
                 _services, queue.Select(entry => (entry.ItemId, entry.Package)), outcomes, _main.Search.NoteItemChanged);
 
-            UnityQueueText = UnityQueueOutcome.Describe(outcomes);
+            // VPM の窓でやめたときは何も起きていないので、1行を残さない（plan 40）
+            UnityQueueText = UnityQueueOutcome.AllDeclined(outcomes) ? string.Empty : UnityQueueOutcome.Describe(outcomes);
         }
         finally
         {

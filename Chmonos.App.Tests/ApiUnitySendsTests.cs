@@ -42,6 +42,9 @@ public sealed class ApiUnitySendsTests
 
         public Func<UnityPackageEntry, UnityQueueOutcome> Outcome { get; set; } = package => new UnityQueueOutcome(package, Opened: true, Problem: null);
 
+        /// <summary>送り先の VPM と重なる包み（entry の名前。既定は無し）。</summary>
+        public HashSet<string> VpmOverlapping { get; } = [];
+
         public ApiUnitySender SenderFor(AppServiceContainer services) => new(
             services,
             () => Editors,
@@ -76,8 +79,42 @@ public sealed class ApiUnitySendsTests
 
                 return outcomes;
             },
-            () => false);
+            () => false,
+            (_, packages) => packages
+                .Select((package, index) => (package, index))
+                .Where(entry => VpmOverlapping.Contains(entry.package.EntryPath))
+                .Select(entry => new VpmOverlapPackage(entry.index, entry.package,
+                    [new VpmOverlap(new VpmPackage("com.example.shader", "作り物シェーダー", "2.0.1", "com.example.shader", true), 4, null)]))
+                .ToList());
     }
+
+    [Fact]
+    public Task 改変から送るときも_VPMと重なれば409で送らず_承知の印があれば送る() => TestApp.Run(async app =>
+    {
+        var (id, _, costumeZip) = await MakeModificationAsync(app);
+        var unity = new FakeUnity();
+        unity.VpmOverlapping.Add("Shader.unitypackage");
+        using var client = await StartApiAsync(app, unity);
+        try
+        {
+            var body = $$"""{"choices":[{"index":1,"zipHash":"{{costumeZip.Hash}}","entry":"Costume_v2.unitypackage"}]}""";
+            var refused = await PostAsync(client, $"/v1/modifications/{id}/send-to-unity", body);
+            Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+            var error = await JsonOf(refused);
+            Assert.Equal("vpmOverlap", error.GetProperty("code").GetString());
+            Assert.Contains("「Shader」：作り物シェーダー（com.example.shader）と同じファイルが 4 個", error.GetProperty("detail").GetString(), StringComparison.Ordinal);
+            Assert.Empty(unity.Runs);
+
+            var allowed = await PostAsync(client, $"/v1/modifications/{id}/send-to-unity", body.Replace("{\"choices\"", "{\"allowVpmOverlap\":true,\"choices\""));
+            Assert.Equal(HttpStatusCode.Accepted, allowed.StatusCode);
+            await UiThread.Until(() => app.Services.ApiUnity!.Last?.EndedAt is not null, "送り終える");
+            Assert.Contains("Shader.unitypackage", Assert.Single(unity.Runs));
+        }
+        finally
+        {
+            await app.Services.Api.StopAsync();
+        }
+    });
 
     /// <summary>zip 1つに unitypackage を入れた手元のファイル（中身は空。送る物を数えるのに zip を開くので、本当に zip を作る）。</summary>
     private static LocalFileRecord ZipWith(TestApp app, string name, params string[] packages)

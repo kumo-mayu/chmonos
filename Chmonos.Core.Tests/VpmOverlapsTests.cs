@@ -52,6 +52,19 @@ public sealed class VpmOverlapsTests
     }
 
     [Fact]
+    public void manifestに無い埋め込みの物と_同じPackagesのフォルダへ入れ直す物は_重なりと数えない()
+    {
+        // unitypackage が自分で Packages/ に置いた物（package.json を同梱）。入れ直すたびに言うと、入れたい物を外させてしまう
+        var embedded = Shader with { InManifest = false };
+        IReadOnlyList<UnityPackageAsset> intoAssets = [new(Guid(1), "Assets/S/a.shader")];
+        Assert.Empty(VpmOverlaps.Find([Entry("outfit")], _ => intoAssets, [embedded], () => Project));
+
+        // VPM の物でも、同じ Packages/<フォルダ> の中へ入れる包みは、その包み自身の入れ直し
+        IReadOnlyList<UnityPackageAsset> intoSame = [new(Guid(1), "Packages/com.example.shader/Shader/a.shader")];
+        Assert.Empty(VpmOverlaps.Find([Entry("outfit")], _ => intoSame, [Shader], () => Project));
+    }
+
+    [Fact]
     public void Assetsの直下に散らばるときは_場所を言わない()
     {
         IReadOnlyList<UnityPackageAsset> assets = [new(Guid(1), "Assets/a.shader"), new(Guid(4), "Assets/Tools/t.cs"), new(Guid(2), "Assets/Other/b.shader")];

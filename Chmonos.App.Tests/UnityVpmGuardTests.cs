@@ -119,7 +119,41 @@ public sealed class UnityVpmGuardTests
 
         var sent = new UnityQueueOutcome(Entry("衣装A"), true, null);
         var skipped = new UnityQueueOutcome(Entry("衣装B"), false, UnityVpmGuard.SkippedMessage);
-        Assert.Equal("1 件をUnityへ順に送りました。残り 1 件は送っていません。VPMと同じファイルがあるので、飛ばしました。", UnityQueueOutcome.Describe([sent, skipped]));
+        Assert.Equal("1 件をUnityへ順に送りました。1 件はVPMと同じファイルがあるので飛ばしました。", UnityQueueOutcome.Describe([sent, skipped]));
+        Assert.Empty(UnityQueueOutcome.FailedNotChosen([sent, skipped]));
+    }
+
+    [Fact]
+    public void 飛ばした後に中止したときは_残った取り込み画面の閉じ方を隠さない()
+    {
+        var skipped = new UnityQueueOutcome(Entry("衣装A"), false, UnityVpmGuard.SkippedMessage);
+        var stopped = new UnityQueueOutcome(Entry("衣装B"), false, UnityImportQueue.StoppedMessage);
+
+        Assert.Equal(
+            $"0 件をUnityへ順に送りました。1 件はVPMと同じファイルがあるので飛ばしました。残り 1 件は送っていません。{UnityImportQueue.StoppedMessage}",
+            UnityQueueOutcome.Describe([skipped, stopped]));
+    }
+
+    [Fact]
+    public void 何も送らずにやめたときは_やめたことだけを持ち_呼び手は黙れる()
+    {
+        IReadOnlyList<UnityQueueOutcome> declined =
+            [new(Entry("衣装A"), false, UnityVpmGuard.DeclinedMessage), new(Entry("衣装B"), false, UnityVpmGuard.DeclinedMessage)];
+
+        Assert.True(UnityQueueOutcome.AllDeclined(declined));
+        Assert.Equal(UnityVpmGuard.DeclinedMessage, UnityQueueOutcome.Describe(declined));
+        Assert.False(UnityQueueOutcome.AllDeclined([new(Entry("衣装A"), false, UnityImportQueue.StoppedBeforeWindowMessage)]));
+        Assert.False(UnityQueueOutcome.AllDeclined([]));
+    }
+
+    [Fact]
+    public void 飛ばした物と本当の失敗が混ざっても_失敗の一覧には失敗だけを並べる()
+    {
+        var skipped = new UnityQueueOutcome(Entry("衣装A"), false, UnityVpmGuard.SkippedMessage);
+        var broken = new UnityQueueOutcome(Entry("衣装B"), false, "zipから取り出せませんでした。");
+
+        Assert.Equal([broken], UnityQueueOutcome.FailedNotChosen([skipped, broken]));
+        Assert.Equal("0 件をUnityへ順に送りました。1 件はVPMと同じファイルがあるので飛ばしました。1 件は送れませんでした（zipから取り出せませんでした。）。", UnityQueueOutcome.Describe([skipped, broken]));
     }
 
     [Fact]

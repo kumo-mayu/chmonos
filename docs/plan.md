@@ -138,7 +138,7 @@
     数えるのはマウスで［拒否］をクリックしたときだけ（Enter・Space・Esc・×は数えない。Enter はユーザ判断 2026-11-11）。上限は設定で0〜10（0は数えない）。設定の「止めているソフト」で外す。記録は `api-clients.json`（`docs/spec/api-clients.md`）。
 40. 済み（2026-11-11）：Unity プロジェクトの VPM を読むだけで控え（manifest の `dependencies`・`locked` と `Packages/*/package.json`。プロジェクトを調べる時に一緒に読んで `unityscans/` に足す。形式の版は上げない）、改変の画面のプロジェクトの右の欄と `/v1/unity-scans` に出す。
     「Unityへ送る」の前に、送る unitypackage の GUID（中身の控え）と送り先の `Packages/` の `.meta` の GUID を照らし、重なれば窓で言う（1件は［送る］［やめる］、連続は［送る］［これを飛ばす］［残りすべてを中止］。既定のボタンは置かない）。API は送らずに 409 `vpmOverlap`（`allowVpmOverlap: true` で送る）。
-    `.meta` は送る時に読む（確かめ用のプロジェクトの `Packages/` に 2,588 個。表を作る最初の1回が約2秒、2回目から 37ms。「Unityで選択」と同じ表を使い回す）。決め事は `docs/spec/unity-vpm.md`（ユーザ判断 2026-11-11「作りましょう」）。
+    `.meta` は送る時に読む（確かめ用のプロジェクトの `Packages/` に 2,588 個。表を作る最初の1回が約2秒（`Assets/` だけ冷えた値。全部冷えた値は測っていない）、2回目から 37ms。「Unityで選択」と同じ表を使い回す）。決め事は `docs/spec/unity-vpm.md`（ユーザ判断 2026-11-11「作りましょう」）。
     - まだ：Unity の取り込み画面で、重なる物がどう並ぶか [要確認]。実際の Unity で送って窓を見ていない（試験と描画だけ）。
 39. 済み（2026-11-11・ユーザ指示「改変画面でunitypackageの版を人が変えられないかもしれない。これを変更可能にしたい」）：改変の使ったものの行で、記録した使ったファイル（zip＝版・unitypackage）を選び直せるようにした。入口は改変の詳細の使ったファイルの字の隣の「選び直す…」と、改変の画面の左の一覧の右クリック。新しい版の札の行には「新しい版を選ぶ…」。命令は `UiCommand.ChangeModificationMemberFiles`。決め事は `docs/spec/modifications.md`。
     - 案（作っていない）：外から使う API の改変の members に「使ったファイルを替える」を足し、同じ命令を通す。作るかはユーザに聞く。

@@ -31,8 +31,22 @@ public sealed record UnityQueueOutcome(
     /// </summary>
     public static string Describe(IReadOnlyList<UnityQueueOutcome> outcomes)
     {
+        if (AllDeclined(outcomes))
+        {
+            return UnityVpmGuard.DeclinedMessage;
+        }
+
         var shown = DescribeShown(outcomes);
-        var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+
+        // VPM と重なるので飛ばした物は、止めた物・送れなかった物と分けて数える（plan 40）。
+        // 混ぜると、飛ばした後に「中止」を押したとき、残った取り込み画面の閉じ方が飛ばしの文に隠れる
+        var skipped = outcomes.Count(outcome => outcome.Problem == UnityVpmGuard.SkippedMessage);
+        if (skipped > 0)
+        {
+            shown += $"{skipped} 件はVPMと同じファイルがあるので飛ばしました。";
+        }
+
+        var failed = outcomes.Where(outcome => !outcome.Opened && outcome.Problem != UnityVpmGuard.SkippedMessage).ToList();
         if (failed.Count == 0)
         {
             return shown;
@@ -43,6 +57,17 @@ public sealed record UnityQueueOutcome(
             ? $"{shown}残り {failed.Count} 件は送っていません。{failed[0].Problem}"
             : $"{shown}{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
     }
+
+    /// <summary>
+    /// 送る前の VPM の窓で、何も送らずにやめたか（plan 40）。人が窓で選んだ直後で、何も起きていないのは見れば分かるので、
+    /// 呼び手は結果を言わない（「やめました」の窓をもう1枚出さない）
+    /// </summary>
+    public static bool AllDeclined(IReadOnlyList<UnityQueueOutcome> outcomes)
+        => outcomes.Count > 0 && outcomes.All(outcome => outcome.Problem == UnityVpmGuard.DeclinedMessage);
+
+    /// <summary>送れなかった物のうち、人が選んで送らなかった物（飛ばした・やめた）を除いた物。失敗の一覧に並べる。</summary>
+    public static IReadOnlyList<UnityQueueOutcome> FailedNotChosen(IReadOnlyList<UnityQueueOutcome> outcomes)
+        => outcomes.Where(outcome => !outcome.Opened && outcome.Problem is not (UnityVpmGuard.SkippedMessage or UnityVpmGuard.DeclinedMessage)).ToList();
 
     /// <summary>
     /// 何件の取り込み画面を出したかの1文。複数を順に送った後の知らせ（検索の複数選択・改変の「使ったものを順にUnityへ送る」）で共用する。

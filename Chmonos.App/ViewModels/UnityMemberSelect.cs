@@ -152,6 +152,13 @@ internal static class UnityMemberSelect
             services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
         }
 
+        // VPM の窓でやめた（plan 40）：押した直後なので言わない
+        if (UnityQueueOutcome.AllDeclined(outcomes))
+        {
+            setStatus(string.Empty);
+            return recorded;
+        }
+
         var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
         setStatus(
             failed.Count > 0

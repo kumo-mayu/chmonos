@@ -90,6 +90,12 @@ internal static class ItemUnityActions
         }
 
         var (text, failed) = await SendManyAsync(services, item, editor, packages, ui, presenceChanged);
+        if (text.Length == 0)
+        {
+            // VPM の窓でやめた（何も送っていない）。窓で選んだ直後なので言わない
+            return;
+        }
+
         if (failed)
         {
             FrontNotice.Show(text, title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
@@ -134,7 +140,13 @@ internal static class ItemUnityActions
         await FilePresenceNotes.NoteFailedSendsAsync(
             services, packages.Select(package => (item.Id, package)), outcomes, presenceChanged);
 
-        var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+        // VPM の窓でやめた：言う文は無い（呼び手は空なら黙る）
+        if (UnityQueueOutcome.AllDeclined(outcomes))
+        {
+            return (string.Empty, false);
+        }
+
+        var failed = UnityQueueOutcome.FailedNotChosen(outcomes);
         if (failed.All(outcome => UnityImportQueue.IsStopped(outcome.Problem)))
         {
             return (UnityQueueOutcome.Describe(outcomes), false);
@@ -152,7 +164,8 @@ internal static class ItemUnityActions
         AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
         string title, UnitySendUi? ui, NoticeSink? notify, Action<ItemRecord>? presenceChanged = null)
     {
-        if (await SendOneAsync(services, item, editor, package, title, ui, presenceChanged) is { Stopped: { } stopped })
+        // VPM の窓で「やめる」を押したときは、押した直後なので言わない（plan 40）
+        if (await SendOneAsync(services, item, editor, package, title, ui, presenceChanged) is { Stopped: { } stopped } && stopped != UnityVpmGuard.DeclinedMessage)
         {
             // 止めたのは人なので、失敗の顔（⚠）で出さない。まとめて送るときと同じ文で言う。
             // 取り込み画面が残ったときは閉じ方も要るので、黙りはしない

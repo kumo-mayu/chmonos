@@ -159,9 +159,15 @@ internal static class ItemSelectionActions
             await FilePresenceNotes.NoteFailedSendsAsync(
                 services, queue.Select(entry => (entry.Card.Item.Id, entry.Package)), outcomes, presenceChanged);
 
-            var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+            var failed = UnityQueueOutcome.FailedNotChosen(outcomes);
             var shown = UnityQueueOutcome.Describe(outcomes);
             setQueueText(string.Empty);
+
+            // VPM の窓でやめた（何も送っていない）。窓で選んだ直後なので、もう1枚出さない（plan 40）
+            if (UnityQueueOutcome.AllDeclined(outcomes))
+            {
+                return;
+            }
 
             // 止めただけ（送れなかった物が全部、人が止めた分）なら失敗ではない。警告の印にすると失敗に読める
             // （1件だけ送るのを止めたときと同じ扱い。ユーザ判断 2026-10-02「おすすめで良い」）
