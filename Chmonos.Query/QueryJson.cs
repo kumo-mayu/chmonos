@@ -82,6 +82,8 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(FilesLookupAnswer))]
 [JsonSerializable(typeof(FileLocationsRequest))]
 [JsonSerializable(typeof(FileLocationsAnswer))]
+[JsonSerializable(typeof(ZipImagesLookupRequest))]
+[JsonSerializable(typeof(ZipImagesLookupAnswer))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {
 }

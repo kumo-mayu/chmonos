@@ -55,6 +55,11 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     private PackageGuidIndex? _packageGuids;
 
+    /// <summary>大きさと CRC → zip の中の絵の目録の表（plan 32）。GUID の表と同じ持ち方。</summary>
+    public ZipImageIndex ZipImages => LazyInitializer.EnsureInitialized(ref _zipImages, () => new ZipImageIndex(Paths));
+
+    private ZipImageIndex? _zipImages;
+
     public DateTimeOffset LoadedAt { get; private set; }
 
     /// <summary>保存先の形の版（読めた印。印が無ければ 1）。</summary>

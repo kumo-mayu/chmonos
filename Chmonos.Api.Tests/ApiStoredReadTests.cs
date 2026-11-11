@@ -102,6 +102,18 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
         File.Copy(_store.Paths.UnityScanFile(Directory.GetFiles(Path.Combine(_root, AppPaths.UnityScansDirName)).Select(Path.GetFileNameWithoutExtension).First()!),
             _store.Paths.UnityScanFile("0000000000000000"));
 
+        // zip の中の絵の目録：同じ画像（大きさと CRC）が2つの zip にある・大きさだけ同じで CRC の違う物・商品へ戻せない zip
+        JsonStore.Write(_store.Paths.ZipImageFile(HashA), new ZipImagesFile
+        {
+            Images =
+            [
+                new ZipImageRow { Path = "summer/tex/body.png", Size = 4096, Crc = "1A2B3C4D" },
+                new ZipImageRow { Path = "summer/tex/other.png", Size = 4096, Crc = "0BADF00D" },
+            ],
+        });
+        JsonStore.Write(_store.Paths.ZipImageFile(HashB), new ZipImagesFile { Images = [new ZipImageRow { Path = "winter/body copy.png", Size = 4096, Crc = "1a2b3c4d" }] });
+        JsonStore.Write(_store.Paths.ZipImageFile(HashOrphan), new ZipImagesFile { Images = [new ZipImageRow { Path = "orphan.png", Size = 10, Crc = "00000001" }] });
+
         // ハッシュを数えた控え：商品のファイル（2か所）・商品が決まっていないファイル・どこにも属さない物（外した物など）
         var at = new DateTimeOffset(2026, 10, 1, 3, 0, 0, TimeSpan.Zero);
         await _store.ScanCache.SaveAsync(
@@ -289,6 +301,28 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
         Assert.Equal([HashOther, HashOrphan], answer.GetProperty("missing").EnumerateArray().Select(hash => hash.GetString()));
 
         await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/files/locations", """{"hashes": []}"""), HttpStatusCode.BadRequest, "invalidHashes");
+    }
+
+    [Fact]
+    public async Task zipの中の絵は_大きさとCRCが同じ物を全部の商品から引く()
+    {
+        var body = """{"images": [{"crc": "1a2b3c4d", "size": 4096}, {"crc": "1A2B3C4D", "size": 4097}, {"crc": "00000001", "size": 10}]}""";
+        var answer = await JsonOf(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", body));
+
+        var found = answer.GetProperty("found").EnumerateArray()
+            .Select(row => (row.GetProperty("crc").GetString(), row.GetProperty("itemId").GetString(), row.GetProperty("path").GetString()))
+            .ToList();
+        Assert.Equal([("1A2B3C4D", "9600001", "summer/tex/body.png"), ("1A2B3C4D", "9600002", "winter/body copy.png")], found);
+
+        // 大きさが違えば CRC が同じでも別の画像（画面の照らし方と同じ）。商品へ戻せない zip の物は見つからない
+        Assert.Equal(
+            [("1A2B3C4D", 4097L), ("00000001", 10L)],
+            answer.GetProperty("missing").EnumerateArray().Select(row => (row.GetProperty("crc").GetString(), row.GetProperty("size").GetInt64())));
+
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": [{"crc": "xyz", "size": 1}]}"""), HttpStatusCode.BadRequest, "invalidImage");
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": [{"crc": "00000001", "size": 0}]}"""), HttpStatusCode.BadRequest, "invalidImage");
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": [null]}"""), HttpStatusCode.BadRequest, "invalidImage");
+        await AssertProblem(await SendAsync(HttpMethod.Post, "/v1/zip-images/lookup", """{"images": []}"""), HttpStatusCode.BadRequest, "invalidImages");
     }
 
     [Fact]

@@ -100,28 +100,27 @@ public static class PackageContents
 }
 
 /// <summary>
-/// GUID → それが入っている unitypackage の控え（zip のハッシュ）の表。全部の控えを読んで作り、控えのフォルダが変わるまで使い回す。
-///
-/// **持つのは GUID と控えの番号だけ**（パスも商品も持たない）。パスは当たった控えだけを読み直して取り、商品は要求ごとの写しで引く。
-/// 控えのフォルダの印（数・大きさの合計・最新の日時）は要求ごとに見る（取り込みの裏が書き足すのを、見張りの対象に足さずに拾うため）。
-/// 測った数は docs/spec/local-api-stored.md。
+/// GUID → それが入っている unitypackage の控え（zip のハッシュ）の表（<see cref="HashKeyedIndex"/>。GUID は32桁の16進なので 128 ビットの数で持つ）。
+/// パスと entry は当たった控えだけを読み直して取り、商品は要求ごとの写しで引く。測った数は docs/spec/local-api-stored.md。
 /// </summary>
-public sealed class PackageGuidIndex(AppPaths paths)
+public sealed class PackageGuidIndex
 {
-    private readonly object _gate = new();
-    private string? _stamp;
-    private string[] _hashes = [];
+    private readonly UnityPackagePathStore _store;
+    private readonly HashKeyedIndex _index;
 
-    // GUID は32桁の16進なので 128 ビットの数で持つ（文字列で持つより1件あたり小さい）。
-    // 1つの控えにしか無い GUID がほとんどなので、2つ目からは別の表に分ける（全部に一覧を持たせると1件ごとに配列の分が増える）
-    private Dictionary<UInt128, int> _first = [];
-    private Dictionary<UInt128, List<int>> _more = [];
+    public PackageGuidIndex(AppPaths paths)
+    {
+        _store = new UnityPackagePathStore(paths);
+        _index = new HashKeyedIndex(
+            paths.UnityPackagesDir,
+            hash => _store.Load(hash)?.Values.SelectMany(assets => assets).Select(asset => KeyOf(asset.Guid.ToLowerInvariant())).OfType<UInt128>().ToList());
+    }
 
     /// <summary>表にある GUID の数（測るため）。</summary>
-    public int GuidCount { get { lock (_gate) { return _first.Count; } } }
+    public int GuidCount => _index.KeyCount;
 
     /// <summary>読んだ控えの数（測るため）。</summary>
-    public int FileCount { get { lock (_gate) { return _hashes.Length; } } }
+    public int FileCount => _index.FileCount;
 
     internal static UInt128? KeyOf(string guid)
         => guid.Length == 32 && UInt128.TryParse(guid, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var value) ? value : null;
@@ -129,15 +128,13 @@ public sealed class PackageGuidIndex(AppPaths paths)
     /// <summary>GUID をまとめて引く（<paramref name="guids"/> は <see cref="PackageContents.NormalizeGuids"/> を通した物）。</summary>
     public GuidLookupAnswer Lookup(QuerySnapshot snapshot, IReadOnlyList<string> guids)
     {
-        var (hashes, places) = Places(guids);
-        var store = new UnityPackagePathStore(paths);
+        var places = _index.Find(guids.Select(guid => KeyOf(guid)).OfType<UInt128>());
 
         // 当たった控えだけを1回ずつ読み、GUID のパスと entry を取る
         var hits = new Dictionary<string, List<(string Hash, string Entry, string Path)>>(StringComparer.Ordinal);
-        foreach (var fileIndex in places.Values.SelectMany(list => list).Distinct())
+        foreach (var hash in places.Values.SelectMany(list => list).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var hash = hashes[fileIndex];
-            if (store.Load(hash) is not { } packages)
+            if (_store.Load(hash) is not { } packages)
             {
                 continue;
             }
@@ -147,7 +144,7 @@ public sealed class PackageGuidIndex(AppPaths paths)
                 foreach (var asset in assets)
                 {
                     var guid = asset.Guid.ToLowerInvariant();
-                    if (places.TryGetValue(guid, out var wanted) && wanted.Contains(fileIndex))
+                    if (KeyOf(guid) is { } key && places.TryGetValue(key, out var wanted) && wanted.Contains(hash, StringComparer.OrdinalIgnoreCase))
                     {
                         (hits.TryGetValue(guid, out var list) ? list : hits[guid] = []).Add((hash, entry, asset.Path));
                     }
@@ -177,90 +174,5 @@ public sealed class PackageGuidIndex(AppPaths paths)
         }
 
         return new GuidLookupAnswer(found, missing);
-    }
-
-    /// <summary>GUID ごとの、入っている控えの番号。表は錠の中で今の控えに合わせてから引く。</summary>
-    private (string[] Hashes, Dictionary<string, List<int>> Places) Places(IReadOnlyList<string> guids)
-    {
-        lock (_gate)
-        {
-            Refresh();
-            var places = new Dictionary<string, List<int>>(StringComparer.Ordinal);
-            foreach (var guid in guids)
-            {
-                if (KeyOf(guid) is not { } key || places.ContainsKey(guid) || !_first.TryGetValue(key, out var first))
-                {
-                    continue;
-                }
-
-                places[guid] = [first, .. _more.GetValueOrDefault(key) ?? []];
-            }
-
-            return (_hashes, places);
-        }
-    }
-
-    /// <summary>控えのフォルダの印が変わっていれば、表を作り直す。</summary>
-    private void Refresh()
-    {
-        var files = ListFiles();
-        var stamp = $"{files.Count}:{files.Sum(file => file.Length)}:{(files.Count == 0 ? 0 : files.Max(file => file.LastWriteTimeUtc.Ticks))}";
-        if (stamp == _stamp)
-        {
-            return;
-        }
-
-        var store = new UnityPackagePathStore(paths);
-        var hashes = new List<string>(files.Count);
-        var first = new Dictionary<UInt128, int>();
-        var more = new Dictionary<UInt128, List<int>>();
-        foreach (var file in files)
-        {
-            var hash = Path.GetFileNameWithoutExtension(file.Name);
-            if (store.Load(hash) is not { } packages)
-            {
-                continue;
-            }
-
-            var index = hashes.Count;
-            hashes.Add(hash);
-            foreach (var asset in packages.Values.SelectMany(assets => assets))
-            {
-                if (KeyOf(asset.Guid.ToLowerInvariant()) is not { } key)
-                {
-                    continue;
-                }
-
-                if (!first.TryAdd(key, index) && first[key] != index)
-                {
-                    var list = more.TryGetValue(key, out var known) ? known : more[key] = [];
-                    if (!list.Contains(index))
-                    {
-                        list.Add(index);
-                    }
-                }
-            }
-        }
-
-        first.TrimExcess();
-        _hashes = [.. hashes];
-        _first = first;
-        _more = more;
-        _stamp = stamp;
-    }
-
-    private List<FileInfo> ListFiles()
-    {
-        try
-        {
-            var directory = new DirectoryInfo(paths.UnityPackagesDir);
-            return directory.Exists
-                ? directory.EnumerateFiles("*.json").Where(file => StoreIds.IsPackageHash(Path.GetFileNameWithoutExtension(file.Name))).ToList()
-                : [];
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return [];
-        }
     }
 }

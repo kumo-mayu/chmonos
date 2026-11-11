@@ -35,6 +35,13 @@ internal static partial class ApiEndpoints
             ApiHost.Json(FileLocations.Locations(state.Snapshot, await ReadAsync(request, json.FileLocationsRequest)), json.FileLocationsAnswer))
             .Takes<FileLocationsRequest>().Answers<FileLocationsAnswer>("ハッシュから、最後に数えたときの場所を引く（商品のファイルと、商品が決まっていないファイルだけ）");
 
+        app.MapPost("/v1/zip-images/lookup", async (ApiState state, HttpRequest request) =>
+        {
+            var body = await ReadAsync(request, json.ZipImagesLookupRequest);
+            return ApiHost.Json(state.ZipImages.Lookup(state.Snapshot, ZipImageIndex.Normalize(body.Images)), json.ZipImagesLookupAnswer);
+        })
+            .Takes<ZipImagesLookupRequest>().Answers<ZipImagesLookupAnswer>("画像の CRC-32 と大きさから、同じ画像が入っている zip と商品を引く（1000件まで）");
+
         app.MapGet("/v1/unity-scans", (ApiState state, string? project) =>
             ApiHost.Json(UnityScans.All(state.Snapshot, project), json.IReadOnlyListUnityScanRef))
             .Answers<IReadOnlyList<UnityScanRef>>("Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像。savedAt の時点の物で、API は調べ直さない）");
