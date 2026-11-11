@@ -83,10 +83,14 @@ public sealed class RegisterPastedItemsDialogViewModel : ViewModelBase
         ? $"見つかった {Rows.Count} 件は、すべてライブラリにあります。"
         : $"{Rows.Count} 件の商品が見つかりました。登録する商品を選んでください。";
 
-    /// <summary>通信が起きることと、ファイルは来ないこと（ui-writing「正確さを落とさない」）。すべてある時は何も起きないので出さない。</summary>
+    /// <summary>
+    /// 通信が起きること・ファイルは来ないこと（ui-writing「正確さを落とさない」）と、取り返しがつくか（ui-dialogs D4）。
+    /// 商品の記録を消す操作は無く、戻す道は非表示だけなので、そう書く。すべてある時は何も起きないので出さない。
+    /// </summary>
     public string NoteText => AllKnown
         ? string.Empty
-        : "BOOTHから情報を取得して、ファイルを持たない商品として登録します。ファイルはダウンロードしません。";
+        : "BOOTHから情報だけを取得して、ファイルを持たない商品として登録します。\n"
+            + "登録は取り消せません。不要な商品は、カードの右クリックで非表示にできます。";
 
     public bool HasNote => !AllKnown;
 

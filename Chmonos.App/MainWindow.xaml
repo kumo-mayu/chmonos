@@ -774,7 +774,7 @@
                 <DockPanel MinHeight="26">
                     <!-- まとめての登録（計画 26）の間だけ。残りをやめる。今の1件は済むまで待つ -->
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
-                            VerticalAlignment="Center" Margin="10,0,0,0"
+                            VerticalAlignment="Center" Margin="10,2,0,2"
                             Command="{Binding StopBatchRegisteringCommand}"
                             Visibility="{Binding CanStopBatchRegistering, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             AutomationProperties.AutomationId="BatchRegisterStop"

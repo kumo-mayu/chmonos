@@ -80,6 +80,11 @@ public class PastedItemsRegisterTests
         Assert.Equal("3 件の商品が見つかりました。登録する商品を選んでください。", dialog.HeadingText);
         Assert.Equal("2 件を登録", dialog.CommitText);
 
+        // 通信が起きることと、取り返しがつくか（D4）を押す前に言う
+        Assert.Equal(
+            "BOOTHから情報だけを取得して、ファイルを持たない商品として登録します。\n登録は取り消せません。不要な商品は、カードの右クリックで非表示にできます。",
+            dialog.NoteText);
+
         // 手元にある物は、チェックしようとしても入らない
         dialog.Rows[1].IsChecked = true;
         Assert.False(dialog.Rows[1].IsChecked);
