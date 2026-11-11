@@ -3,7 +3,7 @@
 > **要点**：1つのファイル（同じハッシュ）を2つ以上の商品の持ち物にできる。人がファイルを付けるとき、ほかの商品が持っていれば窓で「その商品を開く」「この商品に付け直す」「両方に付ける」を選ぶ。
 > 片方への操作は、その商品の記録だけを変える。ファイルそのもの（場所が増えた・無くなった）と除外の一覧は全体に効く。容量の合計は同じ中身・同じ場所を1回だけ数える。
 >
-> **コード**：`Core/Services/LocalFileEditor.cs`（`AttachFileAsync`・`SwapFolderForArchiveAsync`・`DetachFileAsync`）・`ArchiveSwapOutcome.cs` の `OtherHolders`・`LibrarySizes`、`App/ViewModels/ChoiceQuestion.cs`
+> **コード**：`Core/Services/LocalFileEditor.cs`（`AttachFileAsync`・`SwapFolderForArchiveAsync`・`DetachFileAsync`）・`ArchiveSwapOutcome.cs` の `OtherHolders`・`LibrarySizes`・`FilePool`、`App/ViewModels/ChoiceQuestion.cs`
 >
 > **経緯**：`docs/plan.md` 27（ユーザ判断 2026-11-11「一つのファイルを複数の商品に紐付け出来るようにしましょうか。」）。使い道はセット商品（買った記録を持つ）と中身の各商品の両方を「持っている」にすること（plan 26 の続き）。
 > 2026-10-05 に、人が付けるときは「付け直す」だけにした（前は聞かずに2つの商品の持ち物にし、容量を二重に数えていた）。容量を1回だけ数えるようにしたので、両方に付ける道を足した。
@@ -48,6 +48,11 @@
   そのため、商品ごと・カテゴリごと・ショップごとの値を足すと全体の合計より大きくなることがある（両方のカテゴリに入っている物なので、カテゴリどうしでは重なる）。
 - 件数（所持の数・ショップの件数）は商品の数なので、共有で変わらない。重複の一覧（`DuplicateFinder`）は場所で数えるので、同じ場所を2つの商品が持つだけなら出ない。
 
+## 30（選んだ商品の間でファイルを割り振る画面）のための口
+
+- `FilePool.Of(選んだ商品)`：選んだ商品が持つファイルを中身ごとに1行にし、名前・大きさ・場所・持ち主・重複回数（選んだ商品の中で数える）を返す。読むだけ。組分け（頭文字）はまだ持たない。
+- 付けるのは窓を出さずに `UiCommand.AttachFile(商品, 場所, OtherHolders: Share)`、外すのは `UiCommand.DetachFile`。
+  [要確認] `AttachFile` は場所を受けてハッシュを取り直し、ファイルが在ることを求める。溜まりの記録から付ける（見つからない物・大きい zip を何度も読まない）には、ハッシュで付ける命令が要るかもしれない。30 を作るときに決める。
 
 ## 気になっていること
 
