@@ -84,13 +84,27 @@ public sealed class ApiClientApprovalViewModel : ViewModelBase
     /// <summary>許したときの答え（チェックした種類だけ）。</summary>
     public ApiClientDecision Approve() => new(true, Scopes.Where(choice => choice.IsChecked).Select(choice => choice.Scope).ToList());
 
-    /// <summary>人が［拒否］を押したか（ボタン・フォーカスのある所で Enter。Esc・×・Alt+F4 は押していない）。</summary>
+    /// <summary>
+    /// 止めるまでの回数に数える拒否か。数えるのは、マウス（タッチもマウスの押下として来る）で［拒否］をクリックしたときだけ（ユーザ判断 2026-11-11）。
+    /// Enter・Space は数えない：窓が開くと［拒否］にフォーカスがあるので、別の所へ打っている途中のキーが当たっただけで止まり得る。
+    /// Esc・×・Alt+F4 は押していない
+    /// </summary>
     public bool Refused { get; private set; }
 
-    public void Refuse() => Refused = true;
+    /// <summary>今の押下がマウスか（押し下げで立て、キーを押したら下ろす。押したまま外へずらして放し、後で Space を押したときに数えないように）。</summary>
+    private bool _pointerPressed;
+
+    /// <summary>［拒否］の上でマウスのボタンを押し下げた。</summary>
+    public void NotePointerDown() => _pointerPressed = true;
+
+    /// <summary>窓でキーが押された（Enter・Space で［拒否］が押されるより先に来る）。</summary>
+    public void NoteKey() => _pointerPressed = false;
+
+    /// <summary>［拒否］が押された。マウスのクリックなら回数に数える。ソフトへの答えはどちらも denied。</summary>
+    public void Deny() => Refused = _pointerPressed;
 
     /// <summary>
-    /// 窓の結果を答えにする。拒否に数えるのは［拒否］を押したときだけ（2026-11-11）。
+    /// 窓の結果を答えにする。拒否に数えるのはマウスで［拒否］をクリックしたときだけ（ユーザ判断 2026-11-11）。
     /// 閉じた・Esc は「答えなかった」：止める回数に数えると、後で決めようと閉じただけで止まってしまう
     /// </summary>
     public ApiClientDecision Decide(bool? dialogResult)

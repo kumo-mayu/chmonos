@@ -19,7 +19,7 @@ public sealed record ApiClientRequestInfo(string Name, string? ExePath, string? 
 
 /// <summary>
 /// 人の答え。許したときの <see cref="Scopes"/> は、人が選んだ書き込みの種類（求められた物のうち、窓で外さなかった物）。
-/// 許さなかった答えは2つに分ける：人が［拒否］を押した（<see cref="Refused"/>。止めるまでの回数に数える）と、
+/// 許さなかった答えは2つに分ける：人が［拒否］をマウスでクリックした（<see cref="Refused"/>。止めるまでの回数に数える）と、
 /// 答えずに閉じた・API が止まって閉じた・聞けなかった（<see cref="Dismissed"/>。人が決めていないので数えない）。ソフトへの答えはどちらも denied
 /// </summary>
 public sealed record ApiClientDecision(bool Approved, IReadOnlyList<string> Scopes, bool Refused = false)
@@ -27,7 +27,7 @@ public sealed record ApiClientDecision(bool Approved, IReadOnlyList<string> Scop
     /// <summary>答えなかった（窓を閉じた・API が止まった・聞けなかった）。拒否に数えない。</summary>
     public static ApiClientDecision Dismissed { get; } = new(false, []);
 
-    /// <summary>人が［拒否］を押した。拒否に数える。</summary>
+    /// <summary>人が［拒否］をマウスでクリックした。拒否に数える（キーで押したときは数えない。窓の側が見分ける）。</summary>
     public static ApiClientDecision Refusal { get; } = new(false, [], Refused: true);
 }
 
@@ -498,7 +498,7 @@ internal sealed class ApiClientRequests
     }
 
     /// <summary>
-    /// 拒否を数える・許可で0に戻す。数えるのは人が［拒否］を押したときだけ（閉じた・API が止まった・聞けなかったは数えない）。
+    /// 拒否を数える・許可で0に戻す。数えるのは人が［拒否］をマウスでクリックしたときだけ（キーで押した・閉じた・API が止まった・聞けなかったは数えない）。
     /// 書けなくても流れは止めない（止めると、後の求めが全部 pending のまま残る）。ログに残す
     /// </summary>
     private async Task RememberAsync(ApiClientRequestInfo info, ApiClientDecision decision)

@@ -434,7 +434,7 @@ public sealed class SettingsApiTests
     });
 
     [Fact]
-    public void 許しの窓は_拒否を押したときだけ拒否に数え_閉じたときは数えない()
+    public void 許しの窓は_マウスで拒否をクリックしたときだけ拒否に数え_キーと閉じたときは数えない()
     {
         var info = new Chmonos.Api.ApiClientRequestInfo("作り物の道具", null, null, [], Replaces: false);
 
@@ -442,11 +442,26 @@ public sealed class SettingsApiTests
         Assert.Equal(Chmonos.Api.ApiClientDecision.Dismissed, new ApiClientApprovalViewModel(info).Decide(false));
         Assert.Equal(Chmonos.Api.ApiClientDecision.Dismissed, new ApiClientApprovalViewModel(info).Decide(null));
 
-        var refused = new ApiClientApprovalViewModel(info);
-        refused.Refuse();
-        var decision = refused.Decide(false);
+        // マウスで［拒否］をクリックした
+        var clicked = new ApiClientApprovalViewModel(info);
+        clicked.NotePointerDown();
+        clicked.Deny();
+        var decision = clicked.Decide(false);
         Assert.False(decision.Approved);
         Assert.True(decision.Refused);
+
+        // Enter・Space で［拒否］が押された（押すより先にキーが来る）。ソフトへの答えは denied だが数えない
+        var keyed = new ApiClientApprovalViewModel(info);
+        keyed.NoteKey();
+        keyed.Deny();
+        Assert.Equal(Chmonos.Api.ApiClientDecision.Dismissed, keyed.Decide(false));
+
+        // ［拒否］の上で押したまま外へずらして放し、後で Space を押した
+        var dragged = new ApiClientApprovalViewModel(info);
+        dragged.NotePointerDown();
+        dragged.NoteKey();
+        dragged.Deny();
+        Assert.False(dragged.Decide(false).Refused);
 
         Assert.True(new ApiClientApprovalViewModel(info).Decide(true).Approved);
     }
