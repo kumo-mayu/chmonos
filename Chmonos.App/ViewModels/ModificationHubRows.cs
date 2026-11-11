@@ -350,6 +350,43 @@ public sealed class HubProjectDetail : IHubNoticeTarget
 
     public bool HasLastWrite => Candidate.LastWrite is not null;
 
+    /// <summary>
+    /// 入っている VPM（plan 40）。プロジェクトを調べた控えから読む（<see cref="Core.Storage.UnityScanStore"/>）。
+    /// null は、まだ調べていない（改変に紐付けておらず、開いてもいないプロジェクトは調べない）。
+    /// </summary>
+    public IReadOnlyList<Core.Services.VpmPackage>? Vpm { get; init; }
+
+    /// <summary>「VPM」の行の値。1つ1行で「表示名 版」。</summary>
+    public string VpmValue => VpmText(Vpm);
+
+    /// <summary>
+    /// 行の値を組む（試験が直に呼ぶ）。manifest に無い埋め込みの物と、manifest にあってフォルダが無い物には、そうと添える
+    /// （どちらも VCC・ALCOM の一覧と見比べたときに食い違って見える）。
+    /// </summary>
+    internal static string VpmText(IReadOnlyList<Core.Services.VpmPackage>? packages)
+    {
+        if (packages is null)
+        {
+            return "Unityで開くと表示されます。";
+        }
+
+        if (packages.Count == 0)
+        {
+            return "ありません。";
+        }
+
+        return string.Join("\n", packages.Select(package =>
+        {
+            var line = package.Version is { } version ? $"{package.Shown} {version}" : package.Shown;
+            return package switch
+            {
+                { Folder: null } => $"{line}：フォルダが見つかりません",
+                { InManifest: false } => $"{line}：手で置いたもの",
+                _ => line,
+            };
+        }));
+    }
+
     public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
 
     public bool HasModifications => Modifications.Count > 0;

@@ -503,6 +503,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.Resources>
                             <Style x:Key="ProjectInfoLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -546,6 +547,13 @@
                                    Visibility="{Binding HasLastWrite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastWriteValue}" Style="{StaticResource ProjectInfoValue}"
                                    Visibility="{Binding HasLastWrite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                        <!--
+                            入っている VPM（plan 40）。1つ1行。行は多くても十数本（確かめ用のプロジェクトで9本）なので畳まない。
+                            見出しは値の1行目にそろえる（値が何行にもなるので、真ん中に置くと見出しが浮く）
+                        -->
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="VPM" Style="{StaticResource ProjectInfoLabel}" VerticalAlignment="Top" />
+                        <TextBlock AutomationProperties.AutomationId="ModificationsDetailVpm" Grid.Row="4" Grid.Column="1" Text="{Binding VpmValue}" Style="{StaticResource ProjectInfoValue}" LineHeight="18" />
                     </Grid>
                     <!--
                         外のアプリ・エクスプローラを開くのは**どの画面でも小さいボタン**（ユーザ判断 2026-09-20・V1）。

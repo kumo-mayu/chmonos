@@ -7,6 +7,12 @@ public sealed record UnityProjectScan(
     IReadOnlyList<UnityProjectMatch> Packages,
     IReadOnlyDictionary<string, IReadOnlyList<UnityImageMatch>> Images)
 {
+    /// <summary>
+    /// <c>Packages/</c> に入っているパッケージ（VPM と埋め込み。plan 40）。**null は読んでいない**（この欄の無い前の控え・作り物の調べ）。
+    /// 空は「読んだが1つも無い」。照合の結果ではないので <see cref="FindsSameAs"/> には入れない（変わっても一覧を組み直さない）。
+    /// </summary>
+    public IReadOnlyList<VpmPackage>? Vpm { get; init; }
+
     public static UnityProjectScan Empty { get; } = new([], new Dictionary<string, IReadOnlyList<UnityImageMatch>>());
 
     private readonly HashSet<string> _packageIds = Packages.Select(match => match.ItemId).ToHashSet(StringComparer.Ordinal);

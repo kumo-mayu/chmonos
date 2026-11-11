@@ -354,6 +354,7 @@
 | Unity へ送る前の zip からの取り出しを、書き出しの途中でも「中止」で止める（書きかけは消す。もう一度送ると最初から取り出し直す）。取り出しが長いときだけ、送る帯の文を「1/3：「…」をzipから取り出しています… 120.5 MB / 2.3 GB」に替える | 前は1件を書き切ってから止まり、数GBの unitypackage を遅いディスクで送ると「中止」を押してから長く待たされ、その間「送っています…」のまま動かなかった。すぐ終わる取り出しで文を替えると読めない速さで入れ替わるので、始まって1秒経ち、残りも1秒以上掛かりそうなときだけ替える | 実装済み（画面の確かめは統合の側） | ユーザ判断 2026-09-30（2B）・`docs/spec/unity.md`・TemporaryUnpacker.ExtractEntry・UnityImportQueue・DisplayText.ShowsUnityExtracting |
 | unitypackage の中の名前（pathname）は、項目 4,096バイト・1行目 1,024字までだけ読み、超えた項目は扱わない | 1行丸ごと読んでいたので、改行の無い巨大な名前を掴むと、その大きさの文字列を作るまで読み続けた。上限は手元の実物の最長（99字）の10倍（外部の点検） | 実装済み（2026-10-06） | docs/spec/unity.md・Core/Resolution/UnityPackagePathname.cs |
 | 一時展開と、Unity へ送る前の取り出しが失敗したとき、書きかけをその場で消す。消せなかった物は今までどおり残し、失敗の文は元の原因のまま | 前は次に押すかアプリを閉じるまで書きかけが残り、空き容量が足りなくて失敗した人の空きを食っていた | 実装済み | ユーザ判断 2026-09-30（4A）・`docs/spec/unity.md`・TemporaryUnpacker |
+| Unity プロジェクトの VPM を読むだけで控える（`vpm-manifest.json` の `dependencies` と `locked`・`Packages/*/package.json`。手で置いた埋め込みの物も）。プロジェクトの中を調べる時に一緒に読み、調べた結果の控えに書く。改変の画面のプロジェクトの右の欄に「VPM」として1つ1行で並べ、API の `/v1/unity-scans` にも出す | VPM で入っている lilToon と同じ GUID の物を unitypackage で取り込むと、Unity は VPM のファイルを黙って上書きした（`docs/research/vpm-duplicate-guid.md`）。送る前に重なりを言うために、どのフォルダがどの VPM かを持つ（ユーザ案・plan 40） | 実装済み（2026-11-11。試験 VpmPackagesTests・ModificationHubVpmTests・ApiStoredReadTests。確かめ用のプロジェクトで9本を読めた） | docs/spec/unity-vpm.md |
 
 ## アバター・共通素体
 

@@ -44,13 +44,14 @@ GUID → 控えの番号だけを持つ表（`PackageGuidIndex`。GUID は 128 �
 
 | URL | 要求 | 答え |
 |---|---|---|
-| `GET /v1/unity-scans?project=` | `project` は省ける | `[{ project, savedAt, items: [{ itemId, itemName, present, total, ratio }], images: [{ itemId, itemName, projectPath, sourceName, kind }] }]` |
+| `GET /v1/unity-scans?project=` | `project` は省ける | `[{ project, savedAt, items: [{ itemId, itemName, present, total, ratio }], images: [{ itemId, itemName, projectPath, sourceName, kind }], vpm: [{ name, displayName, version, folder, inManifest }] \| null }]` |
 
 - 画面の条件「Unityプロジェクト」と「使っている商品」が調べた結果の控え（`UnityScanStore`）。**答えの正本ではない**：プロジェクトの中はアプリの外で変わり、画面は見せた後に調べ直す。API は保存先の外を調べないので、控えをそのまま返し、いつの物かを `savedAt`（控えのファイルを書いた日時）で添える。
 - 全部を並べる読み口は Core に足した（`UnityScanStore.LoadAll`）。1つずつは `Load` と同じ確かめ（中の場所とファイルの名前が合うか）を通し、手で写した控えは読まない。
 - `items` は画面の並び（入っている割合の高い順）。`present`・`total` は照合（`UnityProjectMatcher`）の数で、共有の部品は数えない。`ratio` は `UnityProjectMatch.Ratio`。もう無い商品の行も消さず、`itemName` を null にする。
 - `images` の `kind` は `sameImage`（大きさと中身が同じ）・`sameName`（名前だけ同じ）。画面の「名前が同じ物も含める」の切り替えは API では当てない（区別を潰さずに返す）。
 - `project` は条件 `unityProject` と同じ `UnityProjectPath.Normalize` で揃え、大文字小文字を区別せずに照らす。
+- `vpm` は同じ時に読んだ `Packages/` のパッケージ（plan 40・[unity-vpm.md](unity-vpm.md)）。**null は読んでいない**（この欄を足す前の控え）で、空の配列（1つも無い）と分ける。`folder` が null の物は manifest にだけあり、`inManifest` が false の物は手で置いた埋め込みの物。
 
 ## ファイルのハッシュ（`scan-cache.json`）
 

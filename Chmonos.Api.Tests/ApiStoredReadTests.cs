@@ -95,7 +95,10 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
             new Dictionary<string, IReadOnlyList<UnityImageMatch>>
             {
                 ["9600001"] = [new UnityImageMatch("Assets/Tex/a.png", "a.png", UnityImageMatchKind.SameImage), new UnityImageMatch("Assets/Tex/b.png", "b.png", UnityImageMatchKind.SameName)],
-            }));
+            })
+        {
+            Vpm = [new VpmPackage("com.example.shader", "作り物のシェーダー", "1.2.3", "com.example.shader", true), new VpmPackage("com.example.tool", null, "0.1.0", null, true)],
+        });
         scans.Save(@"C:\Unity\Other", UnityProjectScan.Empty);
 
         // 別の場所の名前で写された控え（中の場所とファイルの名前が合わない）は読まない
@@ -290,6 +293,13 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
         Assert.Equal("作り物の冬服", scan.GetProperty("items")[0].GetProperty("itemName").GetString());
         Assert.Equal(JsonValueKind.Null, scan.GetProperty("items")[2].GetProperty("itemName").ValueKind);
         Assert.Equal(["sameImage", "sameName"], scan.GetProperty("images").EnumerateArray().Select(image => image.GetProperty("kind").GetString()));
+
+        // Packages の VPM（plan 40）。フォルダの無い物は folder が null。読んでいない控え（VPM の欄が無い）は null で返し、空と分ける
+        var vpm = scan.GetProperty("vpm").EnumerateArray()
+            .Select(package => (package.GetProperty("name").GetString(), package.GetProperty("displayName").GetString(), package.GetProperty("version").GetString(), package.GetProperty("folder").GetString(), package.GetProperty("inManifest").GetBoolean()))
+            .ToList();
+        Assert.Equal([("com.example.shader", "作り物のシェーダー", "1.2.3", "com.example.shader", true), ("com.example.tool", null, "0.1.0", null, true)], vpm);
+        Assert.Equal(JsonValueKind.Null, all[0].GetProperty("vpm").ValueKind);
 
         // 場所は条件 unityProject と同じ揃え方で照らす（/ 区切り・末尾の区切り・大文字小文字）
         var one = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/unity-scans?project=d:/unity/avatar/"));

@@ -18,7 +18,70 @@ internal static partial class Scenes
     [
         ProjectRelocateScene("hub-project-missing", "改変の画面（プロジェクトの見方）：フォルダが見つからないプロジェクトの行と、それを選んだ右の欄", 1280),
         ProjectRelocateScene("hub-project-missing-narrow", "改変の画面（プロジェクトの見方）：フォルダが見つからないプロジェクトの行・窓の最小の幅", 900),
+        ProjectVpmScene(),
     ];
+
+    /// <summary>
+    /// 右の欄の「VPM」の行（plan 40）。作り物のプロジェクトのフォルダに manifest と package.json を置き、調べた控えも先に書く
+    /// （右の欄は控えから読む。起動後の見張りが調べ直しても、同じフォルダを読むので同じ中身になる）。
+    /// 名前は作り物。manifest にだけある物（フォルダが無い）と、manifest に無い埋め込みの物も1つずつ置く
+    /// </summary>
+    private static Scene ProjectVpmScene()
+        => new("hub-project-vpm", "改変の画面（プロジェクトの見方）：右の欄の VPM の行", async context =>
+        {
+            await SeedModificationsAsync(context);
+            var project = Fake.Folder(@"ユニティ\MinatoSummer");
+            var packages = Path.Combine(project, "Packages");
+            Directory.CreateDirectory(packages);
+            File.WriteAllText(Path.Combine(packages, "vpm-manifest.json"), """
+                {
+                  "dependencies": {
+                    "com.example.avatars": { "version": "3.10.4" },
+                    "com.example.shader": { "version": "2.3.3" },
+                    "com.example.missing": { "version": "1.0.0" }
+                  },
+                  "locked": {
+                    "com.example.avatars": { "version": "3.10.4", "dependencies": {} },
+                    "com.example.shader": { "version": "2.3.3", "dependencies": {} },
+                    "com.example.missing": { "version": "1.0.0", "dependencies": {} },
+                    "com.example.framework": { "version": "1.13.1", "dependencies": {} }
+                  }
+                }
+                """);
+            foreach (var (folder, name, display, version) in new[]
+                     {
+                         ("com.example.avatars", "com.example.avatars", "作り物 SDK - Avatars", "3.10.4"),
+                         ("com.example.shader", "com.example.shader", "作り物トゥーン", "2.3.3"),
+                         ("com.example.framework", "com.example.framework", "作り物フレームワーク", "1.13.1"),
+                         ("MyTool", "com.example.mytool", "手で置いた作り物の道具", "0.2.0"),
+                     })
+            {
+                Directory.CreateDirectory(Path.Combine(packages, folder));
+                File.WriteAllText(Path.Combine(packages, folder, "package.json"),
+                    $$"""{ "name": "{{name}}", "displayName": "{{display}}", "version": "{{version}}" }""");
+            }
+
+            new Chmonos.Core.Storage.UnityScanStore(Chmonos.Core.Storage.AppPaths.Default).Save(
+                Chmonos.Core.Services.UnityProjectPath.Normalize(project)!,
+                Chmonos.Core.Services.UnityProjectScan.Empty with { Vpm = Chmonos.Core.Services.VpmPackages.Read(project) });
+
+            var main = await context.StartAsync();
+            UseTools(context, ToolCombinations[1].Tools, []);
+            main.ShowModifications(ModificationHubLevel.Project, new ModificationHubSelection(ModificationHubSelectionKind.Project, project));
+            await UntilHubLoadedAsync(main);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var hub = context.Screen<ModificationHubViewModel>();
+            await SceneContext.UntilAsync(() => hub.Detail is HubProjectDetail { Vpm: not null }, "右にプロジェクトと VPM が出る");
+            await context.SettleAsync();
+            Console.WriteLine($"  VPM：{((HubProjectDetail)hub.Detail!).Vpm!.Count} 個");
+            return new Shot(root) { Focus = () => Look.View<ModificationHubView>(root), FocusMargin = 0 };
+        })
+        {
+            Width = 1280,
+            Height = 760,
+        };
 
     private static Scene ProjectRelocateScene(string name, string title, int width)
         => new(name, title, async context =>

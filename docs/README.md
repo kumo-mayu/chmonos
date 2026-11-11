@@ -72,6 +72,7 @@
 | [conversion.md](spec/conversion.md) | **下書き（v1.3.0・全部［案］）**：変換ツール（もちふぃった～）のプロファイルで使える対応アバター。変換扱い・判定の段・画面 |
 | [modifications.md](spec/modifications.md) | 改変の記録（構成物・画像・Unity プロジェクト）、改変の画面、「Unityで選択」 |
 | [unity.md](spec/unity.md) | Unity への受け渡し（窓を名指しして送る・連続送り・入り先・プロジェクトタブ・VCC） |
+| [unity-vpm.md](spec/unity-vpm.md) | Unity プロジェクトの VPM（読むだけで控える・改変の画面に並べる） |
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |
 | [ui-rules.md](spec/ui-rules.md) | ナビ、並べ替えの出し方、窓と画面の状態、画面の幅、ドロップ、キー |
 | [used-updates.md](spec/used-updates.md) | **作っている途中（v1.3.0）**：使っている商品（改変・Unity のプロジェクト）の更新を促す。追加だけの更新の見分け・控え・消える条件 |

@@ -1,0 +1,194 @@
+using System.Text.Json;
+
+namespace Chmonos.Core.Services;
+
+/// <summary>
+/// Unity プロジェクトの <c>Packages/</c> に入っているパッケージ1つ（plan 40・ユーザ判断 2026-11-11）。
+/// </summary>
+/// <param name="Name">パッケージの名前（<c>jp.lilxyzw.liltoon</c>）。</param>
+/// <param name="DisplayName"><c>package.json</c> の表示名（<c>lilToon</c>）。読めなければ null。</param>
+/// <param name="Version">版。フォルダがあれば <c>package.json</c> の版（実際に入っている物）、無ければ manifest に書かれた版。</param>
+/// <param name="Folder"><c>Packages/</c> の下のフォルダの名前。フォルダが無ければ null（manifest にだけ書かれている）。</param>
+/// <param name="InManifest"><c>vpm-manifest.json</c> の <c>dependencies</c> か <c>locked</c> に書かれているか。書かれていないのは、手で置いた埋め込みの物。</param>
+public sealed record VpmPackage(string Name, string? DisplayName, string? Version, string? Folder, bool InManifest)
+{
+    /// <summary>人に見せる名前（表示名、無ければ名前）。計算で出せるので控えに書かない。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Shown => string.IsNullOrWhiteSpace(DisplayName) ? Name : DisplayName;
+}
+
+/// <summary>
+/// Unity プロジェクトに VPM（VCC・ALCOM）で入っているパッケージを読む。**読むだけで、入れる・消す・版を変えるはしない。**
+///
+/// なぜ控えるか：VPM で入っている物と同じ GUID・違う中身の物を unitypackage で取り込むと、Unity は <c>Assets/</c> に作らず、
+/// <c>Packages/</c> の中の VPM のファイルを黙って上書きする（2026-11-11 に確かめた。<c>docs/research/vpm-duplicate-guid.md</c>）。
+/// 送る前に重なりを言うには、どのフォルダがどの VPM かを知っている必要がある。
+///
+/// 読む物は2つ：
+/// - <c>Packages/vpm-manifest.json</c> の <c>dependencies</c>（人が入れた物）と <c>locked</c>（それが連れてきた物）。
+///   **<c>locked</c> も読む**：確かめ用のプロジェクトで、Modular Avatar が連れてきた NDMF は <c>locked</c> にだけ書かれていた。
+///   <c>dependencies</c> だけ見ると、それを「手で置いた物」と取り違える。
+/// - <c>Packages/*/package.json</c>：manifest に無い、手で置いた埋め込みの物も拾う（unitypackage で上書きされるのは同じ）。
+/// </summary>
+public static class VpmPackages
+{
+    /// <summary>読み取りの上限。手元の manifest は 1.4KB・package.json は 1KB ほど。壊れた巨大なファイルで止まらないため、桁を大きく外れた物は読まない。</summary>
+    private const long MaxJsonBytes = 1024 * 1024;
+
+    /// <summary>ディスクから読む。フォルダが無い・読めない物は飛ばす（読めた分だけ返す）。</summary>
+    public static IReadOnlyList<VpmPackage> Read(string projectPath)
+    {
+        var packages = Path.Combine(projectPath, "Packages");
+        var folders = new List<(string Folder, string? PackageJson)>();
+        try
+        {
+            if (!Directory.Exists(packages))
+            {
+                return [];
+            }
+
+            foreach (var folder in Directory.EnumerateDirectories(packages))
+            {
+                var name = Path.GetFileName(folder);
+
+                // 隠しフォルダ（.git など）は Unity もパッケージとして読まない
+                if (name.StartsWith('.'))
+                {
+                    continue;
+                }
+
+                folders.Add((name, ReadText(Path.Combine(folder, "package.json"))));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 一覧の途中で読めなくなっても、読めた分は使う
+        }
+
+        return Parse(ReadText(Path.Combine(packages, "vpm-manifest.json")), folders);
+    }
+
+    /// <summary>
+    /// 読んだ中身から組む（ディスクを見ない。試験はここを使う）。
+    /// <paramref name="folders"/> は <c>Packages/</c> の下のフォルダの名前と、その <c>package.json</c> の中身（無ければ null）。
+    /// <c>package.json</c> を持たないフォルダはパッケージではない（Unity も読まない）ので並べない。
+    /// 壊れた JSON・欠けた欄は無いのと同じに扱う。並びは見せる名前の順。
+    /// </summary>
+    public static IReadOnlyList<VpmPackage> Parse(string? manifestJson, IReadOnlyList<(string Folder, string? PackageJson)> folders)
+    {
+        var manifest = ParseManifest(manifestJson);
+
+        // フォルダの名前はふつうパッケージの名前と同じだが、手で置いた物は違うことがある。package.json の名前を正とする
+        var onDisk = new Dictionary<string, (string Folder, string? DisplayName, string? Version)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (folder, packageJson) in folders)
+        {
+            if (packageJson is null || ParsePackageJson(packageJson) is not { } info)
+            {
+                continue;
+            }
+
+            onDisk.TryAdd(string.IsNullOrWhiteSpace(info.Name) ? folder : info.Name, (folder, info.DisplayName, info.Version));
+        }
+
+        var result = new List<VpmPackage>();
+        foreach (var (name, version) in manifest)
+        {
+            result.Add(onDisk.Remove(name, out var disk)
+                ? new VpmPackage(name, disk.DisplayName, disk.Version ?? version, disk.Folder, InManifest: true)
+                : new VpmPackage(name, null, version, null, InManifest: true));
+        }
+
+        result.AddRange(onDisk.Select(pair => new VpmPackage(pair.Key, pair.Value.DisplayName, pair.Value.Version, pair.Value.Folder, InManifest: false)));
+        return result
+            .OrderBy(package => package.Shown, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(package => package.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>manifest の名前と版（<c>locked</c> の版が先。無ければ <c>dependencies</c> の版）。読めなければ空。</summary>
+    private static IReadOnlyList<(string Name, string? Version)> ParseManifest(string? json)
+    {
+        var versions = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var order = new List<string>();
+        if (json is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return [];
+            }
+
+            // dependencies を先に並べ、locked で版を上書きする（locked が実際に解決した版）
+            foreach (var section in new[] { "dependencies", "locked" })
+            {
+                if (!document.RootElement.TryGetProperty(section, out var entries) || entries.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                foreach (var entry in entries.EnumerateObject())
+                {
+                    if (string.IsNullOrWhiteSpace(entry.Name))
+                    {
+                        continue;
+                    }
+
+                    var version = entry.Value.ValueKind == JsonValueKind.Object ? StringOf(entry.Value, "version") : null;
+                    if (!versions.ContainsKey(entry.Name))
+                    {
+                        order.Add(entry.Name);
+                        versions[entry.Name] = version;
+                    }
+                    else if (version is not null)
+                    {
+                        versions[entry.Name] = version;
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+
+        return order.Select(name => (name, versions[name])).ToList();
+    }
+
+    private static (string? Name, string? DisplayName, string? Version)? ParsePackageJson(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                ? (StringOf(document.RootElement, "name"), StringOf(document.RootElement, "displayName"), StringOf(document.RootElement, "version"))
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? StringOf(JsonElement element, string property)
+        => element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String && value.GetString() is { Length: > 0 } text
+            ? text.Trim()
+            : null;
+
+    private static string? ReadText(string path)
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            return file.Exists && file.Length <= MaxJsonBytes ? File.ReadAllText(path) : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+}

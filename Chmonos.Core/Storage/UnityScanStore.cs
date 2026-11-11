@@ -15,6 +15,12 @@ public sealed class UnityScanFile
 
     /// <summary>商品ごとの、手で置いた画像。</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<UnityImageMatch>>? Images { get; init; }
+
+    /// <summary>
+    /// <c>Packages/</c> に入っているパッケージ（plan 40）。**欠けていれば読んでいない**（この欄を足す前の控え）。
+    /// 足しただけで形式の版は上げない：控えは消しても調べ直すだけの写しで、欠けた欄は「まだ読んでいない」と読めば足りる。
+    /// </summary>
+    public IReadOnlyList<VpmPackage>? Vpm { get; init; }
 }
 
 /// <summary>unitypackage で入っている商品1つ。</summary>
@@ -59,7 +65,9 @@ public sealed class UnityScanStore(AppPaths paths)
                     pair => pair.Key,
                     pair => (IReadOnlyList<UnityImageMatch>)pair.Value.Where(match => match is { ProjectPath.Length: > 0 }).ToList(),
                     StringComparer.Ordinal);
-            return new UnityProjectScan(packages, images);
+            // 手で直した控えの名前の無い行は読まない
+            var vpm = file.Vpm?.Where(package => package is { Name.Length: > 0 }).ToList();
+            return new UnityProjectScan(packages, images) { Vpm = vpm };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -125,6 +133,7 @@ public sealed class UnityScanStore(AppPaths paths)
                     .Select(match => new UnityScanPackageRow { ItemId = match.ItemId, Present = match.Present, Total = match.Total })
                     .ToList(),
                 Images = scan.Images,
+                Vpm = scan.Vpm,
             });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

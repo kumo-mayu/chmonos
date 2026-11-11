@@ -8,7 +8,19 @@ namespace Chmonos.Query;
 /// <param name="SavedAt">控えを書いた日時。**答えの正本ではない**：プロジェクトの中はアプリの外で変わり、画面は見せた後に調べ直す。API は調べ直さない。</param>
 /// <param name="Items">unitypackage で入っている商品（画面の並び＝入っている割合の高い順）。</param>
 /// <param name="Images">手で置いた画像として見つかった物。</param>
-public sealed record UnityScanRef(string Project, DateTimeOffset SavedAt, IReadOnlyList<UnityScanItemRef> Items, IReadOnlyList<UnityScanImageRef> Images);
+/// <param name="Vpm">
+/// <c>Packages/</c> に入っているパッケージ（plan 40。VPM と、manifest に無い埋め込みの物）。**null はまだ読んでいない**（この欄を足す前の控え）。
+/// 照合と同じ時に読んだ物で、API は読み直さない
+/// </param>
+public sealed record UnityScanRef(
+    string Project, DateTimeOffset SavedAt, IReadOnlyList<UnityScanItemRef> Items, IReadOnlyList<UnityScanImageRef> Images, IReadOnlyList<UnityScanVpmRef>? Vpm);
+
+/// <param name="Name">パッケージの名前（<c>jp.lilxyzw.liltoon</c>）。</param>
+/// <param name="DisplayName"><c>package.json</c> の表示名。読めなければ null。</param>
+/// <param name="Version">フォルダがあれば <c>package.json</c> の版、無ければ manifest の版。</param>
+/// <param name="Folder"><c>Packages/</c> の下のフォルダの名前。manifest にだけ書かれていてフォルダが無ければ null。</param>
+/// <param name="InManifest"><c>vpm-manifest.json</c> の <c>dependencies</c> か <c>locked</c> にあるか（無いのは手で置いた埋め込みの物）。</param>
+public sealed record UnityScanVpmRef(string Name, string? DisplayName, string? Version, string? Folder, bool InManifest);
 
 /// <param name="ItemName">商品の表示名。商品がもう無ければ null。</param>
 /// <param name="Present">プロジェクトに見つかったアセットの数（共有の部品は数えない。<see cref="UnityProjectMatcher"/>）。</param>
@@ -42,7 +54,8 @@ public static class UnityScans
                     .SelectMany(pair => pair.Value.Select(image => new UnityScanImageRef(
                         pair.Key, NameOf(pair.Key), image.ProjectPath, image.SourceName,
                         image.Kind == UnityImageMatchKind.SameImage ? "sameImage" : "sameName")))
-                    .ToList()))
+                    .ToList(),
+                entry.Scan.Vpm?.Select(package => new UnityScanVpmRef(package.Name, package.DisplayName, package.Version, package.Folder, package.InManifest)).ToList()))
             .ToList();
     }
 }
