@@ -93,6 +93,9 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
         IsMissing = IsMissing,
         VariationText = VariationText,
         Card = Card,
+
+        // 写し漏らすと、逆の順にした途端に新しい版の札と「新しい版を選ぶ…」が消えた
+        IsBehind = IsBehind,
         Reversed = reversed,
     };
 
@@ -1769,6 +1772,42 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         parameter => parameter is ModificationMemberRowViewModel { IsBehind: true });
 
     private RelayCommand? _checkMemberUpdate;
+
+    /// <summary>
+    /// 記録した使ったファイルを選び直す（ユーザ指示 2026-11-11：版を人が変えられない）。外した行も選び直せる（外した印は保つ）
+    /// </summary>
+    public RelayCommand RepickMemberFilesCommand => _repickMemberFiles ??= new RelayCommand(
+        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel, preferNewVersion: false).Forget(),
+        parameter => parameter is ModificationMemberRowViewModel);
+
+    private RelayCommand? _repickMemberFiles;
+
+    /// <summary>
+    /// 新しい版の札の行で、新しい版のファイルを選んだ状態で選び直しの窓を開く（docs/spec/used-updates.md）。
+    /// 「確認した」は今の版のまま使うとき、こちらは新しい版に替えたとき
+    /// </summary>
+    public RelayCommand PickNewVersionCommand => _pickNewVersion ??= new RelayCommand(
+        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel, preferNewVersion: true).Forget(),
+        parameter => parameter is ModificationMemberRowViewModel { IsBehind: true });
+
+    private RelayCommand? _pickNewVersion;
+
+    private async Task RepickMemberFilesAsync(ModificationMemberRowViewModel? row, bool preferNewVersion)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var (text, failed) = await MemberFileRepick.RunAsync(_services, Record.Id, row.Member, row.Name, preferNewVersion);
+        if (text is null)
+        {
+            return;
+        }
+
+        MembersNotice.Set(text, failed);
+        await ReloadAsync();
+    }
 
     private async Task CheckMemberUpdateAsync(ModificationMemberRowViewModel? row)
     {

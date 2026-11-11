@@ -98,6 +98,17 @@ public interface IModificationService
         IReadOnlyList<ModificationMember> members,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 記録した使ったファイルを、人が選び直す（ユーザ指示 2026-11-11：版を人が変えられない）。
+    /// 0件なら記録を空に戻し、2件以上ならその行の場所に並べる。<see cref="ReplaceMemberAsync"/> と違い、記録のある行・外した行も書き換える
+    /// （選び直すのが目的。外した印は保つ）。替えるのはファイルの欄（ハッシュ・unitypackage・種類）だけ。
+    /// </summary>
+    Task<MemberFilesChange> ChangeMemberFilesAsync(
+        string id,
+        ModificationMember member,
+        IReadOnlyList<ModificationMemberFile> files,
+        CancellationToken cancellationToken = default);
+
     // ---- 画像 ----
 
     /// <summary>画像を足す。商品と同じ圧縮を通す。読めなければ null。</summary>
@@ -469,6 +480,55 @@ public sealed class ModificationService : IModificationService
             cancellationToken);
 
         return saved && replaced;
+    }
+
+    public async Task<MemberFilesChange> ChangeMemberFilesAsync(
+        string id,
+        ModificationMember member,
+        IReadOnlyList<ModificationMemberFile> files,
+        CancellationToken cancellationToken = default)
+    {
+        var outcome = MemberFilesChange.RowMissing;
+        var saved = await UpdateAsync(
+            id,
+            record =>
+            {
+                // 錠の中で今の値に当てる。画面が読んだ後にほかで消された・選び直された行は、見つからないので書かない
+                var index = record.Members.ToList().FindIndex(entry => IsSame(entry, member));
+                if (index < 0)
+                {
+                    outcome = MemberFilesChange.RowMissing;
+                    return record;
+                }
+
+                var current = record.Members[index];
+
+                // ファイル以外の欄（足した日時・外した印・確認した日時）は元の行から写す。同じ物を2回選んでも1行にまとめる
+                var chosen = files
+                    .Distinct()
+                    .Select(file => current with { FileHash = file.FileHash, Package = file.Package, VariationId = file.VariationId })
+                    .ToList();
+                if (chosen.Count == 0)
+                {
+                    chosen.Add(current with { FileHash = null, Package = null, VariationId = null });
+                }
+
+                var others = record.Members.Where((_, position) => position != index).ToList();
+                if (chosen.Any(row => others.Any(other => IsSame(other, row))))
+                {
+                    outcome = MemberFilesChange.Collides;
+                    return record;
+                }
+
+                var list = record.Members.ToList();
+                list.RemoveAt(index);
+                list.InsertRange(index, chosen);
+                outcome = MemberFilesChange.Changed;
+                return record with { Members = list };
+            },
+            cancellationToken);
+
+        return saved ? outcome : MemberFilesChange.ModificationMissing;
     }
 
     // ---- 画像 ----

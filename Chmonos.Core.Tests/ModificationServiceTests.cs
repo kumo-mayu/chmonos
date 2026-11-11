@@ -465,6 +465,101 @@ public sealed class ModificationServiceTests : IDisposable
         Assert.Null(Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
     }
 
+    // ---- 使ったファイルの選び直し（ユーザ指示 2026-11-11：版を人が変えられない） ----
+
+    [Fact]
+    public async Task 選び直すとファイルの欄だけが替わり_ほかの欄と並びは残る()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("前"));
+        await _service.AddMemberAsync(id, new ModificationMember { ItemId = "クラゲ", FileHash = "OLD", Package = "Old/old.unitypackage", VariationId = 1 });
+        await _service.AddMemberAsync(id, Member("後"));
+        await _service.CheckUpdateAsync(id, "クラゲ", DateTimeOffset.Now);
+        await _service.SetMemberDetachedAsync(id, await MemberAtAsync(id, 1), detached: true);
+        var before = await MemberAtAsync(id, 1);
+
+        var result = await _service.ChangeMemberFilesAsync(id, before, [new ModificationMemberFile("NEW", "New/new.unitypackage", 2)]);
+
+        var members = (await _service.LoadAsync(id))!.Members;
+        Assert.Equal(MemberFilesChange.Changed, result);
+        Assert.Equal(["前", "クラゲ", "後"], members.Select(member => member.ItemId));
+        var changed = members[1];
+        Assert.Equal(("NEW", "New/new.unitypackage", (long?)2), (changed.FileHash, changed.Package, changed.VariationId));
+        Assert.Equal(before.AddedAt, changed.AddedAt);
+        Assert.True(changed.Detached);
+        Assert.Equal(before.UpdateCheckedAt, changed.UpdateCheckedAt);
+        Assert.NotNull(changed.UpdateCheckedAt);
+    }
+
+    [Fact]
+    public async Task 選ばないで選び直すと記録が空に戻る()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, new ModificationMember { ItemId = "クラゲ", FileHash = "OLD", Package = "Old/old.unitypackage", VariationId = 1 });
+
+        var result = await _service.ChangeMemberFilesAsync(id, await MemberAtAsync(id, 0), []);
+
+        var member = Assert.Single((await _service.LoadAsync(id))!.Members);
+        Assert.Equal(MemberFilesChange.Changed, result);
+        Assert.False(member.HasFile);
+        Assert.Null(member.VariationId);
+    }
+
+    [Fact]
+    public async Task 選び直しで2つ選ぶとその行の場所に2行並ぶ()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("前"));
+        await _service.AddMemberAsync(id, Member("クラゲ", "OLD"));
+        await _service.AddMemberAsync(id, Member("後"));
+        var before = await MemberAtAsync(id, 1);
+
+        var result = await _service.ChangeMemberFilesAsync(id, before,
+        [
+            new ModificationMemberFile("NEW", "New/dependency.unitypackage", null),
+            new ModificationMemberFile("NEW", "New/main.unitypackage", null),
+        ]);
+
+        var members = (await _service.LoadAsync(id))!.Members;
+        Assert.Equal(MemberFilesChange.Changed, result);
+        Assert.Equal(["前", "クラゲ", "クラゲ", "後"], members.Select(member => member.ItemId));
+        Assert.Equal(["New/dependency.unitypackage", "New/main.unitypackage"], members.Skip(1).Take(2).Select(member => member.Package));
+        Assert.All(members.Skip(1).Take(2), member => Assert.Equal(before.AddedAt, member.AddedAt));
+    }
+
+    [Fact]
+    public async Task ほかで消された行には選び直しを書かない()
+    {
+        // 窓を開いている間に別の画面で削除された行を、選んだ物で生き返らせない
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("クラゲ", "OLD"));
+        var chosen = await MemberAtAsync(id, 0);
+        await _service.RemoveMemberAsync(id, chosen);
+
+        var result = await _service.ChangeMemberFilesAsync(id, chosen, [new ModificationMemberFile("NEW", null, null)]);
+
+        Assert.Equal(MemberFilesChange.RowMissing, result);
+        Assert.Empty((await _service.LoadAsync(id))!.Members);
+    }
+
+    [Fact]
+    public async Task 分けた2行の片方をもう片方と同じにすると書かない()
+    {
+        // 同じ商品・同じ足した日時・同じファイルの行が2つになると、行を中身で指す外す・並べ替えが別の行に当たる
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("クラゲ", "OLD"));
+        await _service.ChangeMemberFilesAsync(id, await MemberAtAsync(id, 0),
+        [
+            new ModificationMemberFile("NEW", "a.unitypackage", null),
+            new ModificationMemberFile("NEW", "b.unitypackage", null),
+        ]);
+
+        var result = await _service.ChangeMemberFilesAsync(id, await MemberAtAsync(id, 1), [new ModificationMemberFile("NEW", "a.unitypackage", null)]);
+
+        Assert.Equal(MemberFilesChange.Collides, result);
+        Assert.Equal(["a.unitypackage", "b.unitypackage"], (await _service.LoadAsync(id))!.Members.Select(member => member.Package));
+    }
+
     [Fact]
     public async Task 範囲外の位置を指しても壊さない()
     {

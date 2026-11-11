@@ -7,18 +7,22 @@
         Background="{DynamicResource Surface}">
     <!--
         改変の詳細で、使ったものを名前で足すときの窓（メモ26-②）。どのファイルを使ったかを選べる。
-        選ばずに「追加」を押せば今までどおり空のまま足す（飛ばせる）
+        選ばずに「追加」を押せば今までどおり空のまま足す（飛ばせる）。
+        使ったものの行の「使ったファイルを選び直す…」でも同じ窓を使う（ユーザ指示 2026-11-11）。そのときはボタンが「変更」で、
+        今の記録が一覧に無ければ一覧の上に1行で言う
     -->
     <StackPanel Margin="22,20">
         <TextBlock x:Name="TitleText" FontWeight="Bold" FontSize="14" />
         <TextBlock x:Name="HeadingText" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
-        <TextBlock Text="使ったファイルを選ぶと記録します。選ばなくても追加できます。" Style="{StaticResource Caption}"
+        <TextBlock x:Name="ContextText" Text="使ったファイルを選ぶと記録します。選ばなくても追加できます。" Style="{StaticResource Caption}"
                    TextWrapping="Wrap" Margin="0,3,0,0" />
+        <TextBlock x:Name="NoticeText" FontSize="12" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" Margin="0,12,0,0"
+                   AutomationProperties.AutomationId="MemberFileRepickNotice" Visibility="Collapsed" />
 
         <views:MemberFilePicker x:Name="Picker" Margin="0,16,0,0" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Content="追加" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnCommit" />
+            <Button x:Name="CommitButton" Content="追加" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnCommit" />
             <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
         </StackPanel>
     </StackPanel>

@@ -46,6 +46,38 @@ internal static partial class Scenes
             Height = null,
         },
 
+        new Scene("modification-member-repick", "改変の詳細：使ったものの行の「選び直す…」と、新しい版の行の「新しい版を選ぶ…」（カード）", async context =>
+            await RepickDetailShotAsync(context, list: false))
+        {
+            Width = 1280,
+            Height = 1500,
+        },
+
+        new Scene("modification-member-repick-list", "改変の詳細：使ったものの行の「選び直す…」（リスト）", async context =>
+            await RepickDetailShotAsync(context, list: true))
+        {
+            Width = 1280,
+            Height = 1500,
+        },
+
+        new Scene("repick-member-files-dialog", "使ったファイルを選び直す窓：記録した版の zip が手元に無い（一覧の上の1行・今の記録のまま・2つ目の欄）", context =>
+        {
+            var item = TwoPackageItem("9900401", "作り物の衣装セット");
+            var member = new ModificationMember
+            {
+                ItemId = item.Id,
+                FileHash = Fake.FileRecord(@"D:\作り物\costume_full_v1.0.zip").Hash,
+                Package = "Costume/Costume_Body.unitypackage",
+            };
+            var model = MemberFilePickViewModel.ForRepick(member, item.DisplayName, item);
+            var window = new PickMemberFilesDialog(model, MemberFileRepick.Title, $"「{item.DisplayName}」で使ったファイルを選びます。", repick: true);
+            return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
         new Scene("pick-modification-files-dialog", "改変に追加の窓：選んだ3件をまとめて足す（商品ごとの使ったファイル・1つだけの商品は選んである）", context =>
         {
             var items = new[]
@@ -177,6 +209,70 @@ internal static partial class Scenes
         Booth = new BoothBlock { Name = name },
         Local = new LocalBlock { LocalFiles = [file] },
     };
+
+    /// <summary>
+    /// 選び直しの入口（ユーザ指示 2026-11-11）。衣装は古い版の zip を記録していて、新しい版の zip が手元に来ている（新しい版の札と「新しい版を選ぶ…」が出る）
+    /// </summary>
+    private static async Task<Shot> RepickDetailShotAsync(SceneContext context, bool list)
+    {
+        var avatar = await context.Fake.ItemAsync("9900201", "作り物のアバター「ミナト」", record => record with
+        {
+            Local = record.Local with { LocalFiles = [Fake.FileRecord(Fake.Zip(@"ライブラリ\minato_v1.0.zip", "minato.unitypackage"))] },
+        });
+        var shader = await context.Fake.ItemAsync("9900211", "作り物のシェーダー", record => record with
+        {
+            Local = record.Local with { LocalFiles = [Fake.FileRecord(Fake.Zip(@"ライブラリ\shader_v2.zip", "shader.unitypackage"))] },
+        });
+        var oldZip = Fake.FileRecord(Fake.Zip(@"ライブラリ\costume_full_v1.2.zip", "costume.unitypackage"));
+        var newZip = Fake.FileRecord(Fake.Zip(@"ライブラリ\costume_full_v1.3.zip", "costume.unitypackage"));
+        var costume = await context.Fake.ItemAsync("9900212", "作り物の衣装セット", record => record with
+        {
+            Local = record.Local with
+            {
+                LocalFiles = [oldZip, newZip],
+                ContentUpdate = new ContentUpdate { FoundAt = DateTimeOffset.Now.AddDays(-1), FilesBefore = [oldZip.Hash] },
+            },
+        });
+        await context.Seed.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [new AvatarRegistryEntry { ItemId = avatar.Id, DisplayName = "ミナト", BoothName = avatar.Booth.Name }],
+        });
+
+        var created = new DateTimeOffset(2026, 9, 20, 21, 0, 0, TimeSpan.FromHours(9));
+        var id = ModificationId.For(avatar.Id, "夏の普段着", created);
+        await context.Seed.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = id,
+            AvatarItemId = avatar.Id,
+            Name = "夏の普段着",
+            CreatedAt = created,
+            UpdatedAt = created,
+            Members =
+            [
+                new ModificationMember { ItemId = shader.Id, AddedAt = created },
+                new ModificationMember { ItemId = costume.Id, FileHash = oldZip.Hash, Package = "costume.unitypackage", AddedAt = created },
+            ],
+        });
+
+        var main = await context.StartAsync();
+        main.ShowModifications(
+            ModificationHubLevel.Modification,
+            new ModificationHubSelection(ModificationHubSelectionKind.Modification, id));
+        await UntilHubLoadedAsync(main);
+        var root = context.MainWindow();
+        await context.PresentAsync(root);
+
+        await UntilModificationShownAsync(context, root);
+        var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
+        await SceneContext.UntilAsync(() => detail.Members.Count == 2, "使ったものが並ぶ");
+        if (list)
+        {
+            detail.ShowListCommand.Execute(null);
+        }
+
+        await context.SettleAsync();
+        return new Shot(root);
+    }
 
     /// <summary>使ったもの3件（入れた順：シェーダー → 衣装 → 髪）の改変。衣装だけ使ったファイルを記録してある。</summary>
     private static async Task<string> SeedMemberOrderAsync(SceneContext context)

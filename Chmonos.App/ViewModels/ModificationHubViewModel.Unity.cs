@@ -73,4 +73,28 @@ public sealed partial class ModificationHubViewModel
             await RefreshRecordsAsync();
         }
     }
+
+    /// <summary>左の一覧の使ったものの右クリック「使ったファイルを選び直す…」（右の改変の詳細と同じ窓と命令）。</summary>
+    public RelayCommand RepickMemberFilesCommand => _repickMemberFiles ??= new RelayCommand(
+        parameter => RepickMemberFilesAsync(parameter as HubMemberRow).Forget(),
+        parameter => parameter is HubMemberRow);
+
+    private RelayCommand? _repickMemberFiles;
+
+    private async Task RepickMemberFilesAsync(HubMemberRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var (text, failed) = await MemberFileRepick.RunAsync(_services, row.Record.Id, row.Member, row.Name);
+        if (text is null)
+        {
+            return;
+        }
+
+        await RefreshRecordsAsync();
+        ShowNotice(row.NoticeKey, text, warning: failed);
+    }
 }

@@ -65,6 +65,30 @@ public sealed record ModificationMember
     public DateTimeOffset? UpdateCheckedAt { get; init; }
 }
 
+/// <summary>
+/// 使ったものの行に記録する「どのファイルか」だけの組（選び直しの命令が運ぶ。<c>docs/spec/modifications.md</c>）。
+/// 行のほかの欄（足した日時・外した印・確認した日時）は持たない：選び直しはファイルの欄だけを替え、ほかは元の行のまま残す
+/// </summary>
+public sealed record ModificationMemberFile(string? FileHash, string? Package, long? VariationId);
+
+/// <summary>使ったファイルを選び直した結果。画面が「行が無い」と「ほかの行と区別できなくなる」を言い分けるために分ける。</summary>
+public enum MemberFilesChange
+{
+    Changed,
+
+    /// <summary>選んでいる間にほかで消された・並びが変わって、指した行が無い。</summary>
+    RowMissing,
+
+    /// <summary>
+    /// 書くと同じ商品・同じ足した日時・同じファイルの行が2つになる（2行に分けた行の片方を、もう片方と同じにしたとき）。
+    /// 行は位置でなく中身で指すので、見分けられない2行ができると、後の外す・並べ替えが別の行に当たる
+    /// </summary>
+    Collides,
+
+    /// <summary>改変そのものが無い（消された）。</summary>
+    ModificationMissing,
+}
+
 /// <summary>改変に貼った画像1枚。商品の <see cref="UserImage"/> と同じ持ち方。</summary>
 public sealed record ModificationImage
 {

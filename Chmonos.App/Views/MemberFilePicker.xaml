@@ -26,6 +26,16 @@
                                       DisplayMemberPath="Text"
                                       AutomationProperties.AutomationId="MemberFilePick"
                                       AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイル}" />
+                            <!-- 選び直しの窓だけ：同じ商品から2つ入れたとき（依存物と本体）に、2つ目を選ぶと行を2つに分けて記録する -->
+                            <StackPanel Margin="0,10,0,0"
+                                        Visibility="{Binding AllowsSecond, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="同じ商品から2つ入れたときは、2つ目も選びます。" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Second, Mode=TwoWay}"
+                                          DisplayMemberPath="Text"
+                                          AutomationProperties.AutomationId="MemberFilePickSecond"
+                                          AutomationProperties.Name="{Binding Name, StringFormat={}{0}の2つ目の使ったファイル}" />
+                            </StackPanel>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

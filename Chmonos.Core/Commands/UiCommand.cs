@@ -408,6 +408,14 @@ public abstract record UiCommand
     public record RecordModificationMemberFiles(
         string Id, Models.ModificationMember Member, IReadOnlyList<Models.ModificationMember> Members) : UiCommand;
 
+    /// <summary>
+    /// 記録した使ったファイルを人が選び直す（ユーザ指示 2026-11-11）。<c>Files</c> が空なら記録を空に戻し、2つならその行の場所に2行並ぶ。
+    /// 上の <see cref="RecordModificationMemberFiles"/> は「記録の無い行に、送るときに選んだ物を入れる」専用で、記録のある行・外した行は書かない
+    /// （送る道の競合の守り）。選び直しはその守りを外すので、命令を分けた
+    /// </summary>
+    public record ChangeModificationMemberFiles(
+        string Id, Models.ModificationMember Member, IReadOnlyList<Models.ModificationMemberFile> Files) : UiCommand;
+
     /// <summary>改変に画像を足す。商品と同じ圧縮を通す</summary>
     public record AddModificationImage(string Id, byte[] Bytes) : UiCommand;
 

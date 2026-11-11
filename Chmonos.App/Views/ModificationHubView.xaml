@@ -108,7 +108,16 @@
 
         <!-- 使ったもの1件（ファイル単位） -->
         <DataTemplate DataType="{x:Type vm:HubMemberRow}">
-            <Border Style="{StaticResource HubPressableRow}">
+            <Border Style="{StaticResource HubPressableRow}"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                <!-- 右クリック（改変の行の「複製」と同じ形）。記録した使ったファイルを選び直す（ユーザ指示 2026-11-11） -->
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="使ったファイルを選び直す…" AutomationProperties.AutomationId="ModificationsMemberMenu.Repick"
+                                  Command="{Binding PlacementTarget.Tag.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick"
                                   Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

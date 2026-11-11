@@ -268,6 +268,17 @@
                                                             Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="新しい版あり" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
+                                                    <!--
+                                                        使ったファイルを選び直す（ユーザ指示 2026-11-11：版を人が変えられない）。使ったファイルの字の隣に置く：
+                                                        操作の段はカードの幅いっぱいで足せず（下の「新しい版を確認した」のコメント）、「Unity ▾」は外した行で出ない
+                                                    -->
+                                                    <Button DockPanel.Dock="Right" Content="選び直す…" Style="{StaticResource HyperlinkButton}" FontSize="11"
+                                                            Margin="6,0,0,0" VerticalAlignment="Center"
+                                                            AutomationProperties.AutomationId="ModificationMemberRepick"
+                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイルを選び直す}"
+                                                            ToolTip="使ったファイルを選び直します。"
+                                                            Command="{Binding DataContext.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
                                                     <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                 </DockPanel>
@@ -341,12 +352,21 @@
                                                     新しい版の札を、この改変では消す（今の版のまま使う。改変ごと・ユーザ判断 2026-11-09）。
                                                     操作の段はカードの幅いっぱいなので、そこに足すと隣のカードへはみ出した（実データで確かめた 2026-11-09）。段を分ける
                                                 -->
-                                                <Button AutomationProperties.AutomationId="ModificationMemberCheckUpdate" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の新しい版を確認した}" Content="新しい版を確認した" Style="{StaticResource SmallButton}"
-                                                        HorizontalAlignment="Left" Margin="0,6,0,0"
-                                                        ToolTip="この改変では今の版のまま使います。"
-                                                        Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                        Command="{Binding DataContext.CheckMemberUpdateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                <!-- 新しい版に替えたとき：新しい版のファイルを選んだ状態で選び直しの窓を開く（docs/spec/used-updates.md） -->
+                                                <!-- カードの幅では2つが並ばず折り返す。折り返した段どうしが付かないよう、下に間を取る -->
+                                                <WrapPanel Margin="0,6,0,-5" Width="{DynamicResource CardWidth}" HorizontalAlignment="Left"
+                                                           Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberCheckUpdate" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の新しい版を確認した}" Content="新しい版を確認した" Style="{StaticResource SmallButton}"
+                                                            Margin="0,0,5,5"
+                                                            ToolTip="この改変では今の版のまま使います。"
+                                                            Command="{Binding DataContext.CheckMemberUpdateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberPickNewVersion" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の新しい版を選ぶ}" Content="新しい版を選ぶ…" Style="{StaticResource SmallButton}"
+                                                            Margin="0,0,0,5"
+                                                            ToolTip="使ったファイルを新しい版に替えます。"
+                                                            Command="{Binding DataContext.PickNewVersionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </WrapPanel>
                                             </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -420,8 +440,18 @@
                                                                     </TextBlock>
                                                                 </Button>
                                                                 <!-- 使ったファイル。列にすると狭い左の列からはみ出すので、名前の下に置く（改変の画面の行と同じ形） -->
-                                                                <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
-                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                                <DockPanel Margin="0,2,0,0">
+                                                                    <!-- 選び直す（カードと同じく使ったファイルの字の隣。操作の列は幅が決まっていて足せない） -->
+                                                                    <Button DockPanel.Dock="Right" Content="選び直す…" Style="{StaticResource HyperlinkButton}" FontSize="11"
+                                                                            Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                            AutomationProperties.AutomationId="ModificationMemberRepick"
+                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイルを選び直す}"
+                                                                            ToolTip="使ったファイルを選び直します。"
+                                                                            Command="{Binding DataContext.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                    <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}"
+                                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                                </DockPanel>
                                                                 <WrapPanel Margin="0,3,0,0">
                                                                     <!-- 外した行の印（カードと同じ） -->
                                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"

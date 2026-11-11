@@ -929,6 +929,21 @@ public sealed class CommandHandler
                         recordFiles.Id, recordFiles.Member, recordFiles.Members, cancellationToken),
                     "使ったファイルを記録できませんでした。選んでいる間に、改変の使ったものが変わった可能性があります。");
 
+            case UiCommand.ChangeModificationMemberFiles changeFiles:
+                if (_modifications is null)
+                {
+                    return MissingService("改変の編集");
+                }
+
+                return await _modifications.ChangeMemberFilesAsync(
+                        changeFiles.Id, changeFiles.Member, changeFiles.Files, cancellationToken) switch
+                {
+                    Models.MemberFilesChange.Changed => new CommandResult.ModificationsChanged(),
+                    Models.MemberFilesChange.RowMissing => new CommandResult.Failed("選んでいる間にこの行が変わったため、記録を変えませんでした。"),
+                    Models.MemberFilesChange.Collides => new CommandResult.Failed("同じファイルの行がほかにあるため、記録を変えませんでした。"),
+                    _ => new CommandResult.Failed("対象の改変が見つかりませんでした。"),
+                };
+
             case UiCommand.AddModificationImage addImage2:
                 if (_modifications is null)
                 {
