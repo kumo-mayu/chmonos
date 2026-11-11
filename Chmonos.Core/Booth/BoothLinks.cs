@@ -66,6 +66,16 @@ public static class BoothLinks
             : null;
     }
 
+    /// <summary>
+    /// BOOTH のページ（<c>booth.pm</c>・<c>*.booth.pm</c> の http/https）か。説明文のリンクの右クリックで、
+    /// 「BOOTHで開く」と「ブラウザで開く」を言い分ける（計画 29）。開いてよいかの判断ではない（それは <c>Shell.OpenUrl</c>）。
+    /// </summary>
+    public static bool IsBoothPage(string? url)
+        => !string.IsNullOrWhiteSpace(url)
+            && Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+            && IsBoothHost(uri.Host);
+
     private static bool IsBoothHost(string host)
         => host.Equals("booth.pm", StringComparison.OrdinalIgnoreCase)
             || (host.EndsWith(".booth.pm", StringComparison.OrdinalIgnoreCase)

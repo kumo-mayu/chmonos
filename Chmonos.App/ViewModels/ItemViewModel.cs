@@ -18,7 +18,7 @@ namespace Chmonos.App.ViewModels;
 /// 商品ページ。BOOTHの商品ページを参考にしつつ、ローカルの情報から組み立てる。
 /// 閲覧専用にしているのは決定事項（編集はEdit画面へ一本化し、保存経路を1つに保つ）。
 /// </summary>
-public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGalleryHost, IPendingWrites
+public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, ITextMenuHost, IGalleryHost, IPendingWrites
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -1452,6 +1452,17 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             _main.ShowItem(record);
         }
     }
+
+    // ---- 説明文の右クリック（計画 29）----
+
+    bool ITextMenuHost.IsInLibrary(string itemId) => _services.Store.Items.Exists(itemId);
+
+    void ITextMenuHost.OpenItem(string itemId) => OpenLinkedItemAsync(itemId).Forget();
+
+    /// <summary>
+    /// 説明文から見つけた商品を、貼り付けたときと同じ一覧の窓に並べて登録する（計画 26 の道。1件ずつ門を通し、人が押した優先度は命令の入口で掛かる）。
+    /// </summary>
+    void ITextMenuHost.RegisterItems(IReadOnlyList<string> itemIds) => _main.ChooseFoundItemsToRegisterAsync(itemIds).Forget();
 
     /// <summary>
     /// 商品IDをクリップボードへ。

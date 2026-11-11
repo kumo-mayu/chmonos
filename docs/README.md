@@ -64,6 +64,7 @@
 | [search-recent.md](spec/search-recent.md) | 検索の条件「最近」：最後にそれをしてからの日数の帯とスライダ2本・帯の範囲（一週間〜全期間）・はみ出しの寄せ方・除くと記録の無い商品・表示順のボタン |
 | [search-saved.md](spec/search-saved.md) | 保存した検索：保存する物・「条件を追加」の隣のボタンから開く一覧・保存の小窓・呼び出して置き換える決まり・キーボード |
 | [item-page.md](spec/item-page.md) | 商品ページ、画像（自分で足す・サムネイルの指名）、手元のファイル、購入記録、編集画面 |
+| [item-page-text-menu.md](spec/item-page-text-menu.md) | 説明文・メモの右クリック：リンクを開く・コピー・商品として登録、選んだ範囲の商品をまとめて登録（26 の窓） |
 | [avatars.md](spec/avatars.md) | 対応アバターの検出、登録簿、所有アバター |
 | [avatar-bases.md](spec/avatar-bases.md) | 共通素体、相性の3段階、商品ページの素体経由の札と素体ごとのまとめ・素体の中の並び |
 | [conversion.md](spec/conversion.md) | **下書き（v1.3.0・全部［案］）**：変換ツール（もちふぃった～）のプロファイルで使える対応アバター。変換扱い・判定の段・画面 |

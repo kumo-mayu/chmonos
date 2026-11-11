@@ -44,6 +44,7 @@ public sealed class PastedItemRow : ViewModelBase
 
 /// <summary>
 /// コピーした物（何行かを選んだ文・HTML）から見つけた2件以上の商品を、まとめて登録する窓（計画 26・ユーザ判断 2026-11-11）。
+/// 商品ページの説明文の右クリックからは、1件でも通す（計画 29）。
 /// 出てきた順に並べ、ライブラリに無い物にチェックを付けて開く。ある物はチェックを外して並べる（見つかったことは見せる）。
 /// </summary>
 public sealed class RegisterPastedItemsDialogViewModel : ViewModelBase
@@ -73,15 +74,24 @@ public sealed class RegisterPastedItemsDialogViewModel : ViewModelBase
 
     public IReadOnlyList<PastedItemRow> Rows { get; }
 
-    public string Title => "商品をまとめて登録";
+    /// <summary>1件（説明文の右クリックのリンク1つ。計画 29）では「まとめて」が浮くので外す。</summary>
+    public string Title => Rows.Count == 1 ? "商品を登録" : "商品をまとめて登録";
 
     private int NewCount => Rows.Count(row => !row.IsKnown);
 
     public bool AllKnown => NewCount == 0;
 
-    public string HeadingText => AllKnown
-        ? $"見つかった {Rows.Count} 件は、すべてライブラリにあります。"
-        : $"{Rows.Count} 件の商品が見つかりました。登録する商品を選んでください。";
+    /// <summary>
+    /// 1件だけの窓は、説明文の右クリックから来る（計画 29。貼り付けの1件は窓を通さない）。
+    /// 「すべて」「選んでください」は1件では浮くので、言い方を変える。
+    /// </summary>
+    public string HeadingText => (Rows.Count, AllKnown) switch
+    {
+        (1, true) => "この商品は、ライブラリにあります。",
+        (1, false) => "この商品を登録します。",
+        (_, true) => $"見つかった {Rows.Count} 件は、すべてライブラリにあります。",
+        _ => $"{Rows.Count} 件の商品が見つかりました。登録する商品を選んでください。",
+    };
 
     /// <summary>
     /// 通信が起きること・ファイルは来ないこと（ui-writing「正確さを落とさない」）と、取り返しがつくか（ui-dialogs D4）。

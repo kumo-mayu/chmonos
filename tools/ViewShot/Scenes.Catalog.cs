@@ -388,6 +388,13 @@ internal static partial class Scenes
                 ("9900611", "作り物の上着"),
                 ("9900612", "作り物のスカート"),
             ])))),
+
+        // 説明文の右クリック「商品として登録…」から来る1件の窓（計画 29）。メニューそのものは別の窓に出るので撮れない
+        DialogScene("catalog-dialog-register-pasted-one", "まとめて登録の窓：説明文の右クリックから1件（見出しは1件の言い方・まとめて選ぶボタンは出さない）", _ =>
+            Task.FromResult<Window>(new RegisterPastedItemsDialog(new RegisterPastedItemsDialogViewModel(
+            [
+                ("9900621", null),
+            ])))),
     ];
 
     // ---- 画面の状態 ----

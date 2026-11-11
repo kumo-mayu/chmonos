@@ -52,6 +52,14 @@ public sealed partial class MainViewModel
     });
 
     /// <summary>
+    /// 商品ページの説明文の右クリックから（計画 29）。選んだ範囲の商品も、リンク1つの「商品として登録…」も、件数に依らずこの窓を通す。
+    /// 貼り付けの1件（今まで通りの「登録しますか」）へは送らない：右クリックは押す前に「登録」を選んでいるので、
+    /// 聞き返しは何が起きるか（通信・取り消せない）を言う窓1つでよく、その文は一覧の窓が持っている。
+    /// </summary>
+    internal Task ChooseFoundItemsToRegisterAsync(IReadOnlyList<string> itemIds)
+        => itemIds.Count == 0 ? Task.CompletedTask : ChooseItemsToRegisterAsync(itemIds);
+
+    /// <summary>
     /// 見つけた商品を一覧で見せ、選んだ物を登録する。
     /// ライブラリにある物は、チェックを外して並べる（見つかったことは見せる。登録しても何も変わらない）。
     /// </summary>
@@ -225,7 +233,7 @@ public sealed partial class MainViewModel
             lines.Add(string.Empty);
             lines.Add("「取得できなかった商品」");
             lines.Add("商品ID " + string.Join("、", unreachable));
-            lines.Add("通信を確かめて、少し待ってからもう一度貼り付けてください。");
+            lines.Add("通信を確かめて、少し待ってからもう一度お試しください。");
         }
 
         if (stopped > 0)

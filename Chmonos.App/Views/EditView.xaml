@@ -692,9 +692,11 @@
                         <StackPanel>
                             <TextBlock Text="商品説明" FontWeight="Bold" Margin="0,0,0,10" />
                             <!-- 高さの上限は人が変えられる（ユーザ指摘 2026-10-02 メモ4）。下の縁のつまみで変え、ダブルクリックで既定の 360 に戻す -->
+                            <!-- 右クリック（リンクの商品・選んだ範囲の商品を登録。計画 29）だけを商品ページに渡す。左クリックの行き先（Navigator）は結ばず、今までどおりブラウザで開く -->
                             <RichTextBox x:Name="DescriptionBox" Style="{StaticResource SelectableBody}" MaxHeight="{Binding DescriptionHeight}"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         controls:SelectableText.Text="{Binding DescriptionPreview}" />
+                                         controls:SelectableText.Text="{Binding DescriptionPreview}"
+                                         controls:SelectableText.MenuHost="{Binding ItemPage}" />
                             <controls:HeightGrip Margin="0,2,0,-10" Target="{Binding ElementName=DescriptionBox}"
                                                  Length="{Binding DescriptionHeight}"
                                                  MinLength="{Binding DescriptionMinHeight}" MaxLength="{Binding DescriptionMaxHeight}"

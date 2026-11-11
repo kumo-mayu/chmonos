@@ -84,6 +84,17 @@ public static class SelectableText
             new PropertyMetadata(null, OnNavigatorChanged));
 
     /// <summary>
+    /// 右クリックから商品を開く・登録する相手（計画 29）。無ければ <see cref="NavigatorProperty"/> が兼ねる（商品ページ）。
+    /// 編集画面の説明文は、左クリックの行き先を変えずにメニューだけ付けるので、こちらだけを結ぶ。
+    /// </summary>
+    public static readonly DependencyProperty MenuHostProperty =
+        DependencyProperty.RegisterAttached("MenuHost", typeof(ITextMenuHost), typeof(SelectableText), new PropertyMetadata(null));
+
+    public static ITextMenuHost? GetMenuHost(DependencyObject element) => (ITextMenuHost?)element.GetValue(MenuHostProperty);
+
+    public static void SetMenuHost(DependencyObject element, ITextMenuHost? value) => element.SetValue(MenuHostProperty, value);
+
+    /// <summary>
     /// 帯を付ける行（<see cref="ILineMarks"/>）。商品ページで、BOOTH の更新で足された行と消えた行を本文の上で示す（メモ13-②・メモ17）。
     /// 無ければ今までと同じ1つの段落で組む
     /// </summary>
@@ -133,6 +144,13 @@ public static class SelectableText
         box.PreviewMouseWheel += ForwardMouseWheel;
 
         box.Document = GetPlainText(box) ? BuildPlain(GetText(box)) : Build(GetText(box), GetNavigator(box), GetMarkedLines(box));
+
+        // リンクにする本文（説明文・メモ）にだけ、リンクと選んだ範囲の商品を扱う右クリックを付ける（計画 29）。
+        // 名前やパスの短い字は、今までどおり RichTextBox の既定のメニュー（コピー）のまま
+        if (!GetPlainText(box))
+        {
+            TextMenu.Attach(box);
+        }
 
         // 行の高さは本文の字の大きさで決め打ちなので、商品名のような大きな字では行が詰まる。本文（12.5pt）では今までの 21 のまま
         var lineHeight = GetLineHeight(box);
