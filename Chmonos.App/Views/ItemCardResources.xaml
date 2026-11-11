@@ -729,7 +729,7 @@
                             ToolTipService.ShowOnDisabled="True">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
-                                <Setter Property="ToolTip" Value="選んだ商品のファイルを、別の窓で商品の間に付け外しします。" />
+                                <Setter Property="ToolTip" Value="選んだ商品のファイルを、別のウィンドウで商品の間に付け外しします。" />
                                 <Style.Triggers>
                                     <Trigger Property="IsEnabled" Value="False">
                                         <Setter Property="ToolTip" Value="2件以上の商品を選ぶと使えます。" />

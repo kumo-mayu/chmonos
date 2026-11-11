@@ -254,7 +254,7 @@ public class FilePoolWindowTests
         await pool.DetachAsync(skirt);
         var asked = Assert.Single(app.Notices);
         Assert.Equal(
-            "「SampleShop_Skirt.zip」を「作り物のセット」から外しますか？\nほかの商品に付いていないので、未確定に表示されます。この画面でほかの商品に付け直せます。",
+            "「SampleShop_Skirt.zip」を「作り物のセット」から外しますか？\nどの商品にも付いていない状態になります。ファイルが手元にあれば未確定に表示されます。この画面でほかの商品に付け直せます。",
             asked.Text);
         Assert.Contains((await LocalOfAsync(app, SetId)).OwnedFiles, file => file.Hash == Skirt.Hash);
 
@@ -333,6 +333,36 @@ public class FilePoolWindowTests
         Assert.Equal(SetId, main.CurrentItemPage!.Item.Id);
         main.GoBack();
         Assert.True(main.IsSearchActive);
+    });
+
+    /// <summary>主の窓が閉じる・隠れるとき（App.OnMainWindowClosing が呼ぶ）に閉じる。持ち主任せにしない（隠すだけの窓ではサブ画面が残る）。</summary>
+    [Fact]
+    public Task 主の窓が閉じるときはサブ画面も閉じ_開いていなければ何もしない() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        main.CloseSubWindows();
+
+        await OpenAsync(app, main);
+        var window = Assert.Single(app.SubWindows);
+
+        main.CloseSubWindows();
+
+        Assert.True(window.IsClosed);
+        Assert.Null(main.FilePool);
+    });
+
+    [Fact]
+    public Task 同じ商品を順だけ変えて開き直しても_チェックは残す() => TestApp.Run(async app =>
+    {
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        Shown(pool).First().IsChecked = true;
+
+        main.ShowFilePool([PartBId, SetId, PartAId]);
+        await app.SettleAsync();
+
+        Assert.Equal(1, pool.CheckedCount);
+        Assert.Equal(1, Assert.Single(app.SubWindows).BroughtToFront);
     });
 
     [Fact]

@@ -1016,7 +1016,8 @@ public sealed class CommandHandler
                     cancellationToken);
                 if (attachedRecord.Result == Services.FileAttachResult.Attached)
                 {
-                    // 写した記録が入り先をまだ読んでいなければ読む（AttachFile と同じ）。読んであれば中で何もしない
+                    // AttachFile と同じ後処理。控え（unitypackages/<ハッシュ>.json）のある zip は解き直さないが、画像の目次の読み込みと
+                    // 記録への当て直しは毎回走る（割り振る画面で n 個付けると、同じ商品に n 本。どれも裏の低い優先度で、控えから読むだけ）
                     FillUnityPackagesInBackground(attachRecorded.ItemId);
                 }
 

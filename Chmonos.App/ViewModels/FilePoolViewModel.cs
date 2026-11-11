@@ -131,7 +131,10 @@ public sealed class FilePoolViewModel : ViewModelBase
     }
 
     /// <summary>n の選択肢（0 から選んだ商品の数まで。0 はどの商品にも付いていない物）。</summary>
-    public IReadOnlyList<int> ThresholdChoices => Enumerable.Range(0, Math.Max(Items.Count, 1) + 1).ToList();
+    /// <remarks>
+    /// 商品の数が変わったときだけ作り直す。読み直しのたびに新しい一覧を渡すと、選ぶ欄が選んでいた値を外して空に見えることがある
+    /// </remarks>
+    public IReadOnlyList<int> ThresholdChoices { get; private set; } = [0, 1];
 
     public HolderCountFilter Filter
     {
@@ -229,8 +232,9 @@ public sealed class FilePoolViewModel : ViewModelBase
     /// </summary>
     internal void Reopen(IReadOnlyList<string> itemIds)
     {
+        // 並びは選んだ順なので、同じ商品を選び直して順だけ違っても同じ選び方とみなす（チェックを消さない）
         var ids = itemIds.Distinct(StringComparer.Ordinal).ToList();
-        if (!ids.SequenceEqual(_ids))
+        if (!new HashSet<string>(ids, StringComparer.Ordinal).SetEquals(_ids))
         {
             _ids = ids;
             _seen.Clear();
@@ -347,14 +351,20 @@ public sealed class FilePoolViewModel : ViewModelBase
             OnPropertyChanged(nameof(SelectedItem));
         }
 
-        if (_threshold > Items.Count)
+        var top = Math.Max(Items.Count, 1);
+        if (ThresholdChoices.Count != top + 1)
         {
-            _threshold = Math.Max(Items.Count, 0);
+            ThresholdChoices = Enumerable.Range(0, top + 1).ToList();
+            OnPropertyChanged(nameof(ThresholdChoices));
+        }
+
+        if (_threshold > top)
+        {
+            _threshold = top;
             OnPropertyChanged(nameof(Threshold));
         }
 
         OnPropertyChanged(nameof(ItemsHeading));
-        OnPropertyChanged(nameof(ThresholdChoices));
     }
 
     /// <summary>
@@ -587,8 +597,9 @@ public sealed class FilePoolViewModel : ViewModelBase
         if (!heldElsewhere)
         {
             var answer = Services.Notice.Show(
+                // 未確定に出すのはファイルが手元に在るときだけ（DetachFileAsync）。画面のスレッドでディスクを見ないので言い分けない
                 $"「{file.FileName}」を「{file.ItemName}」から外しますか？\n"
-                + "ほかの商品に付いていないので、未確定に表示されます。この画面でほかの商品に付け直せます。",
+                + "どの商品にも付いていない状態になります。ファイルが手元にあれば未確定に表示されます。この画面でほかの商品に付け直せます。",
                 "この商品から外す",
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Question,

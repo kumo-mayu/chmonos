@@ -34,11 +34,9 @@ public partial class FilePoolWindow : Window, ISubWindowHandle
             Height = bounds.Height;
         }
 
-        Closed += (_, _) =>
-        {
-            s_lastBounds = RestoreBounds.IsEmpty ? null : RestoreBounds;
-            model.NoteWindowClosed();
-        };
+        // 位置は閉じる直前に採る（Closed の後は RestoreBounds が空になる。主の窓と同じ）
+        Closing += (_, _) => s_lastBounds = RestoreBounds.IsEmpty ? null : RestoreBounds;
+        Closed += (_, _) => model.NoteWindowClosed();
     }
 
     /// <summary>作って出す。主の窓は止めない（Show。ShowDialog にしない）。</summary>
