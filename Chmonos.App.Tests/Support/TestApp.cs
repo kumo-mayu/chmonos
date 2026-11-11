@@ -154,6 +154,15 @@ internal sealed class TestApp
     /// </summary>
     public Func<MissingSearchScopeViewModel, bool> PickSearchScope { get; set; } = _ => true;
 
+    /// <summary>
+    /// コピーした商品をまとめて登録する窓への答え（窓は出ない）。既定は「キャンセル」（答えを決めていない試験で、黙って BOOTH に問い合わせない）。
+    /// 選び直す試験は、ここで行の <see cref="PastedItemRow.IsChecked"/> を変えてから true を返す
+    /// </summary>
+    public Func<RegisterPastedItemsDialogViewModel, bool> AnswerPastedItems { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、まとめて登録する窓。</summary>
+    public List<RegisterPastedItemsDialogViewModel> PastedItemDialogs { get; } = [];
+
     /// <summary>「すべての設定を既定に戻す」の窓への答え（窓は出ない）。既定は「キャンセル」。チェックは窓の既定のまま渡る。</summary>
     public Func<ResetSettingsDialogViewModel, bool> AnswerResetSettings { get; set; } = _ => false;
 
@@ -274,6 +283,11 @@ internal sealed class TestApp
                 return app.Answer(request);
             };
             WindowsToast.Intercept = app.Toasts.Add;
+            RegisterPastedItemsDialogViewModel.Intercept = model =>
+            {
+                app.PastedItemDialogs.Add(model);
+                return app.AnswerPastedItems(model);
+            };
             PickPackagesDialogViewModel.Intercept = model =>
             {
                 app.PackagePicks.Add(model);
@@ -448,6 +462,7 @@ internal sealed class TestApp
             Notice.Intercept = null;
             WindowsToast.Intercept = null;
             PickPackagesDialogViewModel.Intercept = null;
+            RegisterPastedItemsDialogViewModel.Intercept = null;
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;

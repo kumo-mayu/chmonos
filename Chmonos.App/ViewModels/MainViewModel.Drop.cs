@@ -16,7 +16,8 @@ public sealed partial class MainViewModel
     /// **勝手に処理を始めない。**ファイルは取り込みの対象に積むだけで、実行は押してから。
     /// 持っていない商品のURLは、外部への通信を伴うので必ず尋ねる。
     /// </summary>
-    public async Task HandleDropAsync(IReadOnlyList<string>? paths, string? text, bool hasBitmap = false)
+    /// <param name="html">ブラウザが置いた CF_HTML（見出しごと）。リンク先の商品をまとめて拾うためだけに使う（計画 26）。</param>
+    public async Task HandleDropAsync(IReadOnlyList<string>? paths, string? text, bool hasBitmap = false, string? html = null)
     {
         // 判断は Core 側の規則に任せる。画面を立ち上げずに確かめられるようにするため。
         //
@@ -31,12 +32,12 @@ public sealed partial class MainViewModel
         // 改変を見ている間は zip も BOOTH の URL も落とせなかった
         var modification = CurrentModification;
         var decision = CurrentItemPage is not null
-            ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists)
+            ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists, html: html)
             : modification is not null
-                ? Core.Services.DropRouting.DecideOnModification(paths, text, hasBitmap, _services.Store.Items.Exists)
+                ? Core.Services.DropRouting.DecideOnModification(paths, text, hasBitmap, _services.Store.Items.Exists, html)
                 : resolve is { HasSelection: true }
-                    ? Core.Services.DropRouting.DecideOnResolve(paths, text, _services.Store.Items.Exists)
-                    : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
+                    ? Core.Services.DropRouting.DecideOnResolve(paths, text, _services.Store.Items.Exists, html)
+                    : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists, html);
 
         switch (decision.Action)
         {
@@ -87,6 +88,10 @@ public sealed partial class MainViewModel
 
             case Core.Services.DropAction.OfferToRegister:
                 await OfferToRegisterAsync(decision.ItemId!);
+                return;
+
+            case Core.Services.DropAction.ChooseItemsToRegister:
+                await ChooseItemsToRegisterAsync(decision.ItemIds!);
                 return;
 
             case Core.Services.DropAction.OpenShop:
@@ -340,9 +345,14 @@ public sealed partial class MainViewModel
 
     public bool IsRegisteringDropped => _droppedRegistering > 0;
 
-    public string DroppedRegisteringText => _droppedRegistering > 1
-        ? $"{_droppedRegistering} 件の商品を登録しています…"
-        : "商品を登録しています…";
+    /// <summary>まとめての登録が動いている間は、その進み具合を先に言う（計画 26。1件ずつの登録の文は今のまま）。</summary>
+    public string DroppedRegisteringText => _batch is { } batch
+        ? batch.Stopping
+            ? "登録を中止しています…"
+            : $"商品を登録しています… {Math.Min(batch.Done + 1, batch.Total)}/{batch.Total}"
+        : _droppedRegistering > 1
+            ? $"{_droppedRegistering} 件の商品を登録しています…"
+            : "商品を登録しています…";
 
     private void BeginDroppedRegistering()
     {
@@ -360,6 +370,7 @@ public sealed partial class MainViewModel
     {
         OnPropertyChanged(nameof(IsRegisteringDropped));
         OnPropertyChanged(nameof(DroppedRegisteringText));
+        OnPropertyChanged(nameof(CanStopBatchRegistering));
     }
 
     /// <summary>

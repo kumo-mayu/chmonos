@@ -170,6 +170,52 @@ public static class BoothUrlExtractor
     }
 
     /// <summary>
+    /// 商品ページの URL（<c>booth.pm/ja/items/123</c>・<c>shop.booth.pm/items/123</c>）なら商品IDを返す。そうでなければ null。
+    /// <see cref="TryExtractItemId"/> と違い、商品の画像（pximg）と配布の置き場の URL は数えない——
+    /// まとめて拾うときに数えると、ページの絵や購入履歴のダウンロードの行が「商品」として並ぶ。
+    /// ショップでないサブドメイン（accounts など）の物も外す。
+    /// </summary>
+    public static string? TryExtractItemPageId(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        var match = ItemUrlRegex.Match(TrimUrl(url));
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var sub = match.Groups["sub"];
+        return sub.Success && IsReservedSubdomain(sub.Value) ? null : match.Groups["id"].Value;
+    }
+
+    /// <summary>
+    /// 文字列の中の商品ページの URL から、商品IDを**全部**、出てきた順に重ねずに返す（<see cref="TryExtractItemPageId"/> の線）。
+    /// 何行かを選んでコピーした文には、商品が何件も入っている。
+    /// </summary>
+    public static IReadOnlyList<string> FindItemPageIdsIn(string? text)
+    {
+        var found = new List<string>();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return found;
+        }
+
+        foreach (Match match in UrlScanRegex.Matches(text))
+        {
+            if (TryExtractItemPageId(match.Value) is { } id && !found.Contains(id))
+            {
+                found.Add(id);
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
     /// 文字列の中から最初のショップのサブドメインを探す。商品が見つからなかったときの受け皿。
     /// ショップのトップだけでなく、配下のページ（/items/… 以外）も同じショップとして読む。
     /// </summary>

@@ -230,7 +230,7 @@ public partial class MainWindow : Window
         var hasBitmap = e.Data.GetDataPresent(DataFormats.Bitmap);
 
         e.Handled = true;
-        Handle(main, paths, ReadText(e.Data), hasBitmap);
+        Handle(main, paths, ReadText(e.Data), hasBitmap, ReadHtml(e.Data));
     }
 
     /// <summary>
@@ -263,7 +263,7 @@ public partial class MainWindow : Window
 
                 if (!string.IsNullOrWhiteSpace(value))
                 {
-                    return format == DataFormats.Html ? StripHtmlHeader(value) : value;
+                    return format == DataFormats.Html ? Core.Services.PastedItemIds.StripHtmlHeader(value) : value;
                 }
             }
             catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException or NotSupportedException)
@@ -276,21 +276,33 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// CF_HTML の見出しを落として本体だけにする。
+    /// CF_HTML を見出しごと読む（無ければ null）。リンク先の商品を拾うためだけに使う（計画 26）。
     ///
-    /// 見出しには <c>SourceURL:</c>（掴んだ場所のページURL）が入っている。
-    /// 落とさないと、掴んだリンクより先にそちらが当たり、**別の商品を開く**。
+    /// <see cref="ReadText"/> の読む順は変えない：何行かを選んだ物には素の文も入るので、そちらが先に読まれ、
+    /// HTML のリンク先（ショップの一覧・購入履歴の商品）はそこからは拾えない。順を入れ替えると1件のときの動きまで変わるので、別に読んで渡す。
+    /// 見出しの <c>SourceURL:</c> を落とすのは Core（<see cref="Core.Services.PastedItemIds"/>）。
     /// </summary>
-    private static string StripHtmlHeader(string html)
+    internal static string? ReadHtml(IDataObject data)
     {
-        var start = html.IndexOf("<!--StartFragment-->", StringComparison.OrdinalIgnoreCase);
-        if (start >= 0)
+        try
         {
-            return html[(start + "<!--StartFragment-->".Length)..];
-        }
+            if (!data.GetDataPresent(DataFormats.Html))
+            {
+                return null;
+            }
 
-        var body = html.IndexOf("<html", StringComparison.OrdinalIgnoreCase);
-        return body >= 0 ? html[body..] : html;
+            // CF_HTML は UTF-8 のバイト列だが、WPF は文字列にして返す（読めない形なら次へ進むのと同じく諦める）
+            return data.GetData(DataFormats.Html) switch
+            {
+                string text when !string.IsNullOrWhiteSpace(text) => text,
+                System.IO.MemoryStream stream => System.Text.Encoding.UTF8.GetString(stream.ToArray()).TrimEnd('\0'),
+                _ => null,
+            };
+        }
+        catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -303,11 +315,12 @@ public partial class MainWindow : Window
         MainViewModel main,
         IReadOnlyList<string>? paths,
         string? text,
-        bool hasBitmap = false)
+        bool hasBitmap = false,
+        string? html = null)
     {
         try
         {
-            await main.HandleDropAsync(paths, text, hasBitmap);
+            await main.HandleDropAsync(paths, text, hasBitmap, html);
         }
         catch (Exception exception)
         {
@@ -499,6 +512,7 @@ public partial class MainWindow : Window
         // URLの形式だけが置かれることがある（ブラウザからのコピーがそう）
         List<string>? paths;
         string? text;
+        string? html;
         bool hasBitmap;
         try
         {
@@ -513,6 +527,7 @@ public partial class MainWindow : Window
                 : null;
 
             text = ReadText(data);
+            html = ReadHtml(data);
 
             // スクリーンショットは絵そのものとして置かれる。
             // 商品ページならこれをそのまま画像として足せる
@@ -528,7 +543,7 @@ public partial class MainWindow : Window
         if (paths is { Count: > 0 } || hasBitmap || !string.IsNullOrWhiteSpace(text))
         {
             e.Handled = true;
-            Handle(main, paths, text, hasBitmap);
+            Handle(main, paths, text, hasBitmap, html);
         }
     }
 }

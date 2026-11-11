@@ -170,4 +170,23 @@ public class BoothUrlExtractorTests
     [InlineData("https://example.com/items/1234567")]
     public void DoesNotNormalizeOtherUrls(string url)
         => Assert.Null(BoothUrlExtractor.TryNormalizeItemPageUrl(url));
+
+    // ---- まとめて拾うときは商品ページだけ（計画 26。作り物の番号） ----
+
+    [Theory]
+    [InlineData("https://booth.pm/ja/items/1234567", "1234567")]
+    [InlineData("https://shop-a.booth.pm/items/1234567?x=1", "1234567")]
+    [InlineData("https://booth.pximg.net/c/300x300/00000000-1111-2222-3333-444444444444/i/1234567/a.jpg", null)]
+    [InlineData("https://s9.booth.pm/00000000-1111-2222-3333-444444444444/f/1234567/7654321/a.zip", null)]
+    [InlineData("https://accounts.booth.pm/items/1234567", null)]
+    [InlineData("https://shop-a.booth.pm/", null)]
+    public void ItemPageIdCountsOnlyItemPages(string url, string? expected)
+        => Assert.Equal(expected, BoothUrlExtractor.TryExtractItemPageId(url));
+
+    [Fact]
+    public void FindsAllItemPageIdsInOrderWithoutRepeats()
+        => Assert.Equal(
+            ["1234568", "1234567"],
+            BoothUrlExtractor.FindItemPageIdsIn(
+                "（https://booth.pm/ja/items/1234568）と https://shop-a.booth.pm/items/1234567、https://booth.pm/en/items/1234568 と絵 https://booth.pximg.net/00000000-1111-2222-3333-444444444444/i/1234569/a.jpg"));
 }

@@ -439,10 +439,12 @@ public sealed class CommandHandler
                 return await _items.RegisterItemAsync(register.ItemId, cancellationToken) switch
                 {
                     Booth.BoothFetchStatus.Success => new CommandResult.ItemSaved(register.ItemId),
-                    Booth.BoothFetchStatus.NotFound => new CommandResult.Failed(
-                        $"商品 {register.ItemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。"),
-                    _ => new CommandResult.Failed(
-                        $"商品 {register.ItemId} をBOOTHから取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。"),
+                    Booth.BoothFetchStatus.NotFound => new CommandResult.RegisterFailed(
+                        $"商品 {register.ItemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。",
+                        NotOnBooth: true),
+                    _ => new CommandResult.RegisterFailed(
+                        $"商品 {register.ItemId} をBOOTHから取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。",
+                        NotOnBooth: false),
                 };
 
             case UiCommand.AssignItemId assign:

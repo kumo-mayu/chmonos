@@ -772,6 +772,13 @@ public abstract record CommandResult
 
     public record Failed(string Message) : CommandResult;
 
+    /// <summary>
+    /// <see cref="UiCommand.RegisterItem"/> が登録できなかった。<see cref="Failed"/> として扱える（1件の登録はそのまま文を出す）。
+    /// まとめての登録は、BOOTHに無いのか届かなかったのかで分けて1つの窓にまとめるので、文を読み解かずに分けられるよう種類を添える。
+    /// </summary>
+    /// <param name="NotOnBooth">BOOTHが「その商品は無い」と答えた（IDが違う・非公開・削除）。false は届かなかった（待てば取れることがある）。</param>
+    public record RegisterFailed(string Message, bool NotOnBooth) : Failed(Message);
+
     /// <summary>一時フォルダへ展開した。</summary>
     public record Unpacked(string Folder) : CommandResult;
 

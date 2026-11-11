@@ -771,12 +771,20 @@
             <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding IsRegisteringDropped, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <StackPanel Orientation="Horizontal" Height="26">
+                <DockPanel MinHeight="26">
+                    <!-- まとめての登録（計画 26）の間だけ。残りをやめる。今の1件は済むまで待つ -->
+                    <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
+                            VerticalAlignment="Center" Margin="10,0,0,0"
+                            Command="{Binding StopBatchRegisteringCommand}"
+                            Visibility="{Binding CanStopBatchRegistering, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            AutomationProperties.AutomationId="BatchRegisterStop"
+                            AutomationProperties.Name="残りの商品の登録を中止"
+                            ToolTip="残りの商品の登録をやめます。登録済みの商品はそのままです。" />
                     <ProgressBar Background="{DynamicResource AccentBorder}" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center" IsIndeterminate="True" />
                     <TextBlock Text="{Binding DroppedRegisteringText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
                                AutomationProperties.AutomationId="DroppedRegisteringText"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
+                </DockPanel>
             </Border>
 
             <!--

@@ -38,6 +38,12 @@ public enum DropAction
     /// （ユーザ指示 2026-10-06。作者が同じ物を新しいIDで出し直すと、取り込みでは古い商品へ行く）。
     /// </summary>
     AskAttachOrImport,
+
+    /// <summary>
+    /// 商品が2件以上入っていた（何行かを選んでコピーした文・HTML）。一覧で見せて、登録する物を選ばせる（計画 26・ユーザ判断 2026-11-11）。
+    /// 商品は <see cref="DropDecision.ItemIds"/>。1件だけなら今まで通り（開く・登録するかを尋ねる）。
+    /// </summary>
+    ChooseItemsToRegister,
 }
 
 public readonly record struct DropDecision(
@@ -46,7 +52,10 @@ public readonly record struct DropDecision(
     string? Shop = null,
 
     /// <summary>BOOTHの画像そのものが落ちてきた場合のURL。取りに行くのは呼ぶ側。</summary>
-    string? ImageUrl = null);
+    string? ImageUrl = null,
+
+    /// <summary>まとめて見せる商品（<see cref="DropAction.ChooseItemsToRegister"/> のときだけ）。出てきた順。</summary>
+    IReadOnlyList<string>? ItemIds = null);
 
 /// <summary>
 /// ウィンドウに落とされた／貼られたものの行き先を決める。
@@ -60,16 +69,25 @@ public readonly record struct DropDecision(
 public static class DropRouting
 {
     /// <param name="isKnown">その商品IDを既にライブラリが持っているか。</param>
+    /// <param name="html">ブラウザが置いた CF_HTML（見出しごと）。リンク先の商品を拾うためだけに読む。</param>
     public static DropDecision Decide(
         IReadOnlyList<string>? paths,
         string? text,
-        Func<string, bool> isKnown)
+        Func<string, bool> isKnown,
+        string? html = null)
     {
         // ファイルが先。URLとファイルが同時に来ることは無いが、来たならファイルを採る
         // （ファイルは実体で、URLは参照。実体の方が意図がはっきりしている）
         if (paths is { Count: > 0 })
         {
             return new DropDecision(DropAction.Import, null);
+        }
+
+        // 2件以上なら選ばせる。1件以下のときは、下の今までの規則を素の文だけで当てる——
+        // HTML のリンクから1件だけ拾えた（リンクの字だけをコピーした）ときに動きを変えない（ユーザ判断：1件は今のまま）
+        if (PastedItemIds.Collect(text, html) is { Count: >= 2 } many)
+        {
+            return new DropDecision(DropAction.ChooseItemsToRegister, null, ItemIds: many);
         }
 
         if (BoothItemId.Parse(text) is { } itemId)
@@ -97,14 +115,17 @@ public static class DropRouting
     public static DropDecision DecideOnResolve(
         IReadOnlyList<string>? paths,
         string? text,
-        Func<string, bool> isKnown)
+        Func<string, bool> isKnown,
+        string? html = null)
     {
+        // 商品が何件あっても、素の文の最初の1件を選んだファイルの商品IDとして入れる（今まで通り）。
+        // この画面で落とすのは「このファイルはこの商品」と言うためで、まとめて登録の一覧を出すと作業が途切れる
         if (paths is not { Count: > 0 } && BoothItemId.Parse(text) is { } itemId)
         {
             return new DropDecision(DropAction.UseAsItemId, itemId);
         }
 
-        return Decide(paths, text, isKnown);
+        return Decide(paths, text, isKnown, html);
     }
 
     /// <summary>
@@ -116,7 +137,8 @@ public static class DropRouting
         IReadOnlyList<string>? paths,
         string? text,
         bool hasBitmap,
-        Func<string, bool> isKnown)
+        Func<string, bool> isKnown,
+        string? html = null)
     {
         if (paths is { Count: > 0 } && paths.All(LooksLikeImage))
         {
@@ -128,7 +150,7 @@ public static class DropRouting
             return new DropDecision(DropAction.AddPhotoToModification, null);
         }
 
-        return Decide(paths, text, isKnown);
+        return Decide(paths, text, isKnown, html);
     }
 
     /// <summary>画像として扱える拡張子。中身を読むのは足す側の仕事で、ここは振り分けだけ。</summary>
@@ -163,7 +185,8 @@ public static class DropRouting
         string? text,
         bool hasBitmap,
         Func<string, bool> isKnown,
-        Func<string, bool>? isFolder = null)
+        Func<string, bool>? isFolder = null,
+        string? html = null)
     {
         isFolder ??= Directory.Exists;
 
@@ -188,8 +211,8 @@ public static class DropRouting
 
         if (!hasImage)
         {
-            // 画像が来ていないなら、今まで通りの規則で決める
-            return Decide(paths, text, isKnown);
+            // 画像が来ていないなら、今まで通りの規則で決める（商品が2件以上なら、選ばせる一覧）
+            return Decide(paths, text, isKnown, html);
         }
 
         // BOOTH由来か。商品IDが読めるなら、どちらの意図かは決まらない

@@ -62,6 +62,13 @@ public sealed partial class MainViewModel
         Enqueue(new ItemNotice(item.Id, $"「{item.DisplayName}」を登録しました。", "登録した商品を開く", ItemNoticeKind.Registered));
     }
 
+    /// <summary>
+    /// まとめて登録し終えた（計画 26）。件数で言い、開くのは並べた先頭の1件。
+    /// 1件ずつの登録と違い、出ている登録の知らせがあっても待たせて出す——まとめて押した操作の結果を黙って捨てない。
+    /// </summary>
+    private void NoteRegisteredMany(Core.Models.ItemRecord first, int count)
+        => Enqueue(new ItemNotice(first.Id, $"{count} 件の商品を登録しました。", "最初の商品を開く", ItemNoticeKind.Registered));
+
     private void NoteRegistrationFailed(string itemName)
         => Enqueue(new ItemNotice(string.Empty, $"「{itemName}」を登録できませんでした。", "未確定を開く", ItemNoticeKind.RegistrationFailed));
 
