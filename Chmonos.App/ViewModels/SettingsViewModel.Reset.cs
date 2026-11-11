@@ -110,6 +110,7 @@ public sealed partial class SettingsViewModel
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _fileOrder = settings.FileOrder;
+        _fileOrderDescending = settings.FileOrderDescending;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
         _showEditQueueStrip = settings.ShowEditQueueStrip;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;

@@ -37,11 +37,11 @@ internal static partial class Scenes
         SettingsFileOrder(),
     ];
 
-    /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウン（2026-11-11）。「バージョンを考えた名前順」を選んだ形</summary>
+    /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウンと向きの繋がったボタン（2026-11-11）。「バージョンを考えた名前順」の降順を選んだ形</summary>
     private static Scene SettingsFileOrder()
-        => new("settings-file-order", "設定の「商品ページと編集」：ファイルの表示順（バージョンを考えた名前順を選んだ形）", async context =>
+        => new("settings-file-order", "設定の「商品ページと編集」：ファイルの表示順と向き（バージョンを考えた名前順の降順を選んだ形）", async context =>
         {
-            var main = await context.StartAsync(settings => settings with { FileOrder = Chmonos.Core.Models.FileOrder.NameWithVersion });
+            var main = await context.StartAsync(settings => settings with { FileOrder = Chmonos.Core.Models.FileOrder.NameWithVersion, FileOrderDescending = true });
             main.ShowSettings();
             var settings = context.Screen<SettingsViewModel>();
             var root = context.MainWindow();

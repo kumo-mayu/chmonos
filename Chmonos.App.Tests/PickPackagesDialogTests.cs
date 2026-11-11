@@ -51,31 +51,34 @@ public sealed class PickPackagesDialogTests : IDisposable
 
     private PickPackagesDialogViewModel Dialog(params string[] packages)
     {
-        var section = PackageChoiceSection.Build(ItemWith("9900801", "衣装", packages), FileOrder.Added)!;
+        var section = PackageChoiceSection.Build(ItemWith("9900801", "衣装", packages), FileSort.Default)!;
         return new PickPackagesDialogViewModel("Unityへ送る", "Unityへ送るunitypackageを選んでください。", [section], othersCount: 0, records: false);
     }
 
     [Theory]
-    [InlineData(FileOrder.Added, new[] { "Sample_v10", "Sample_v2", "Base" })]
-    [InlineData(FileOrder.Name, new[] { "Base", "Sample_v10", "Sample_v2" })]
-    [InlineData(FileOrder.NameWithVersion, new[] { "Base", "Sample_v2", "Sample_v10" })]
-    public void 候補は設定のファイルの表示順に並ぶ(FileOrder order, string[] expected)
+    [InlineData(FileOrder.Added, false, new[] { "Sample_v10", "Sample_v2", "Base" })]
+    [InlineData(FileOrder.Added, true, new[] { "Base", "Sample_v2", "Sample_v10" })]
+    [InlineData(FileOrder.Name, false, new[] { "Base", "Sample_v10", "Sample_v2" })]
+    [InlineData(FileOrder.NameWithVersion, false, new[] { "Base", "Sample_v2", "Sample_v10" })]
+    [InlineData(FileOrder.NameWithVersion, true, new[] { "Sample_v10", "Sample_v2", "Base" })]
+    [InlineData(FileOrder.Size, true, new[] { "Sample_v2", "Base", "Sample_v10" })]
+    public void 候補は設定のファイルの表示順と向きに並ぶ(FileOrder order, bool descending, string[] expected)
     {
-        // 設定の「ファイルの表示順」（ユーザ判断 2026-11-11）。商品ページの手元のファイルと同じ順。記録の順は v10・v2・Base
+        // 設定の「ファイルの表示順」（ユーザ判断 2026-11-11）。商品ページの手元のファイルと同じ順。記録の順は v10・v2・Base、大きさは 1・3・2
         var folder = Path.Combine(_root, "単体");
         Directory.CreateDirectory(folder);
-        var files = new[] { "Sample_v10.unitypackage", "Sample_v2.unitypackage", "Base.unitypackage" }
-            .Select(name =>
+        var files = new[] { ("Sample_v10.unitypackage", 1L), ("Sample_v2.unitypackage", 3L), ("Base.unitypackage", 2L) }
+            .Select(pair =>
             {
-                var path = Path.Combine(folder, name);
+                var path = Path.Combine(folder, pair.Item1);
                 File.WriteAllBytes(path, [1, 2, 3]);
-                return new LocalFileRecord { Hash = Make.HashOf(name), Paths = [path], SizeBytes = 3 };
+                return new LocalFileRecord { Hash = Make.HashOf(pair.Item1), Paths = [path], SizeBytes = pair.Item2 };
             })
             .ToList();
         var item = Make.Item("9900805", "作り物の衣装");
         item = item with { Local = item.Local with { LocalFiles = files } };
 
-        var section = PackageChoiceSection.Build(item, order)!;
+        var section = PackageChoiceSection.Build(item, new FileSort(order, descending))!;
 
         Assert.Equal(expected, section.Groups.SelectMany(group => group.Rows).Select(row => row.Package.Name));
     }
@@ -164,7 +167,7 @@ public sealed class PickPackagesDialogTests : IDisposable
             return true;
         };
 
-        var picked = await ItemFileActions.PickPackagesAsync(item, "Unityへ送る", "Unityへ送るunitypackageを選んでください。", "送る", FileOrder.Added);
+        var picked = await ItemFileActions.PickPackagesAsync(item, "Unityへ送る", "Unityへ送るunitypackageを選んでください。", "送る", FileSort.Default);
 
         Assert.Single(app.PackagePicks);
         Assert.Equal(["Body", "Hair"], picked!.Select(package => package.Name));
@@ -176,13 +179,13 @@ public sealed class PickPackagesDialogTests : IDisposable
         await app.StartAsync();
 
         var single = await ItemFileActions.PickPackagesAsync(
-            ItemWith("9900803", "衣装3", "Only.unitypackage"), "Unityへ送る", "選んでください。", "送る", FileOrder.Added);
+            ItemWith("9900803", "衣装3", "Only.unitypackage"), "Unityへ送る", "選んでください。", "送る", FileSort.Default);
         Assert.Equal(["Only"], single!.Select(package => package.Name));
         Assert.Empty(app.PackagePicks);
 
         // 既定の答えは「キャンセル」
         var cancelled = await ItemFileActions.PickPackagesAsync(
-            ItemWith("9900804", "衣装4", "A.unitypackage", "B.unitypackage"), "Unityへ送る", "選んでください。", "送る", FileOrder.Added);
+            ItemWith("9900804", "衣装4", "A.unitypackage", "B.unitypackage"), "Unityへ送る", "選んでください。", "送る", FileSort.Default);
         Assert.Null(cancelled);
     });
 

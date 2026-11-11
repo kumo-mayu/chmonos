@@ -321,7 +321,8 @@
                         <TextBlock Text="商品ページと編集" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--
                                 「手元のファイル」の表示順（ユーザ指示 2026-11-11）。並べ方は Core の LocalFileOrder。
-                                3つでもプルダウンにするのは、ほかの設定の選択肢（表示の色・サムネイル）と同じ形にするため
+                                並べる物と向きを分ける（ユーザ判断 2026-11-11。検索の表示順と同じ分け方・ui-rules.md「並べ替えの出し方」）：
+                                並べる物は4つなのでプルダウン、向きは2つなので繋がったボタン。向きの語は並べる物で変わる
                             -->
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="ファイルの表示順" Style="{StaticResource RowLabel}" Width="220" />
@@ -330,6 +331,20 @@
                                           AutomationProperties.AutomationId="Settings.FileOrder"
                                           AutomationProperties.Name="ファイルの表示順"
                                           SelectedItem="{Binding SelectedFileOrder, Mode=TwoWay}" />
+                                <Grid Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <RadioButton Grid.Column="0" GroupName="SettingsFileOrderDirection" Style="{StaticResource SegmentFirst}"
+                                                 Content="{Binding FileOrderDescendingLabel}" MinWidth="72"
+                                                 IsChecked="{Binding FileOrderDescending, Mode=TwoWay}"
+                                                 AutomationProperties.AutomationId="Settings.FileOrderDescending" />
+                                    <RadioButton Grid.Column="1" GroupName="SettingsFileOrderDirection" Style="{StaticResource SegmentLast}"
+                                                 Content="{Binding FileOrderAscendingLabel}" MinWidth="72"
+                                                 IsChecked="{Binding FileOrderAscending, Mode=TwoWay}"
+                                                 AutomationProperties.AutomationId="Settings.FileOrderAscending" />
+                                </Grid>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,8"
                                        Text="「バージョンを考えた名前順」では、名前の中の数を数として比べ、v1.9の後にv1.10を並べます。" />

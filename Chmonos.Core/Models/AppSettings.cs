@@ -195,9 +195,20 @@ public sealed record AppSettings
 
     /// <summary>
     /// 商品ページと編集画面の「手元のファイル」の表示順（ユーザ指示 2026-11-11）。既定は記録の順（前からの並び）。
-    /// 古い settings.json には欄が無く、そのとき既定になる（形式の版は上げない）
+    /// 古い settings.json には欄が無く、そのとき既定になる（形式の版は上げない）。読めない値も既定（<see cref="FileOrderJsonConverter"/>）
     /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(FileOrderJsonConverter))]
     public FileOrder FileOrder { get; init; } = FileOrder.Added;
+
+    /// <summary>
+    /// <see cref="FileOrder"/> の向き（ユーザ判断 2026-11-11）。false は追加した順なら古い物が上・名前なら昇順・大きさなら小さい物が上。
+    /// 並べる物と別の欄にする（並べる物ごとに選択肢を倍に増やさない。検索の表示順と同じ分け方）
+    /// </summary>
+    public bool FileOrderDescending { get; init; }
+
+    /// <summary>並べる物と向きの組（計算で出せる値なので書き出さない）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public FileSort FileSort => new(FileOrder, FileOrderDescending);
 
     // --- 編集 ---
 

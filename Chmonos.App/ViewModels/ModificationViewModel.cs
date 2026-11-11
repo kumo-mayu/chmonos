@@ -615,7 +615,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
             // 包みの一覧は item の要約から引くが、要約が無い・欠けている商品は zip を開いて数える。
             // 1GB 級の zip が HDD にあると止まって見えるので、画面のスレッドでは読まない
-            var fileOrder = _services.Settings.FileOrder;
+            var fileOrder = _services.Settings.FileSort;
             var (packages, choice) = item is null
                 ? ([], null)
                 : await Task.Run(() =>

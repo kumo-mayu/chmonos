@@ -285,11 +285,11 @@ public sealed partial class EditViewModel
     private Dictionary<string, string> _hashByPath = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 「ファイルごとの種類」と種類ごとの選ぶ欄の名前の並べ方。設定の「ファイルの表示順」が名前の2つの順のときだけそれに従い、
+    /// 「ファイルごとの種類」と種類ごとの選ぶ欄の名前の並べ方。設定の「ファイルの表示順」が名前の2つの順のときだけそれと向きに従い、
     /// ほかの順では今までの名前順のまま（ユーザ判断 2026-11-11：追加した順を当てると、既定で今の並びが変わる）
     /// </summary>
     private IComparer<string> FileNameOrder()
-        => Core.Services.LocalFileOrder.NameComparer(_services.Settings.FileOrder) ?? StringComparer.CurrentCulture;
+        => Core.Services.LocalFileOrder.NameComparer(_services.Settings.FileSort) ?? StringComparer.CurrentCulture;
 
     private static List<(string Hash, string Name)> FilesOf(ItemRecord record)
         => record.Local.OwnedFiles

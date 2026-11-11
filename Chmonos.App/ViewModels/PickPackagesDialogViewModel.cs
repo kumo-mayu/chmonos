@@ -127,7 +127,7 @@ public sealed class PackageChoiceSection : ViewModelBase
     /// 設定の「ファイルの表示順」（ユーザ判断 2026-11-11）。商品ページの手元のファイルと同じ順で zip を並べる
     /// （同じ商品の中で、ページと窓でファイルの順が違うと探し直すことになる）。バリエーションの塊は BOOTH の種類の順のまま
     /// </param>
-    public static PackageChoiceSection? Build(ItemRecord item, FileOrder displayOrder)
+    public static PackageChoiceSection? Build(ItemRecord item, FileSort displayOrder)
     {
         var variations = item.Booth.Variations;
         var candidates = new List<(PackageChoiceRow Row, string Key, string Label, int Order)>();

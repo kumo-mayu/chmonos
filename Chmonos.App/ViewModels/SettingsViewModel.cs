@@ -866,10 +866,59 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             if (SetField(ref _fileOrder, value))
             {
+                // 並べる物を変えたら、その物の既定の向きに戻す（ui-rules.md「並べ替えの出し方」。名前を選んだのに「大きい順」の向きのまま、にしない）
+                _fileOrderDescending = FileSort.DefaultDescending(value);
                 OnPropertyChanged(nameof(SelectedFileOrder));
+                NoteFileOrderDirection();
                 Save();
             }
         }
+    }
+
+    private bool _fileOrderDescending;
+
+    /// <summary>並べる物の向き（ユーザ判断 2026-11-11）。繋がったボタンの左（新しい順・降順・大きい順）。</summary>
+    public bool FileOrderDescending
+    {
+        get => _fileOrderDescending;
+        set
+        {
+            if (SetField(ref _fileOrderDescending, value))
+            {
+                OnPropertyChanged(nameof(FileOrderAscending));
+                Save();
+            }
+        }
+    }
+
+    /// <summary>繋がったボタンの右。外れる側の知らせ（false）では何もしない（左の側が書く）。</summary>
+    public bool FileOrderAscending
+    {
+        get => !_fileOrderDescending;
+        set { if (value) { FileOrderDescending = false; } }
+    }
+
+    // 向きの言い方は並べる物ごとに変える（ui-rules.md「並べ替えの出し方」：日付は新しい順／古い順、容量は大きい順／小さい順、名前は昇順／降順）
+    public string FileOrderDescendingLabel => FileOrder switch
+    {
+        Core.Models.FileOrder.Added => "新しい順",
+        Core.Models.FileOrder.Size => "大きい順",
+        _ => "降順",
+    };
+
+    public string FileOrderAscendingLabel => FileOrder switch
+    {
+        Core.Models.FileOrder.Added => "古い順",
+        Core.Models.FileOrder.Size => "小さい順",
+        _ => "昇順",
+    };
+
+    private void NoteFileOrderDirection()
+    {
+        OnPropertyChanged(nameof(FileOrderDescending));
+        OnPropertyChanged(nameof(FileOrderAscending));
+        OnPropertyChanged(nameof(FileOrderDescendingLabel));
+        OnPropertyChanged(nameof(FileOrderAscendingLabel));
     }
 
     public static IReadOnlyList<FileOrderOption> FileOrders { get; } =
@@ -877,8 +926,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         new FileOrderOption { Value = Core.Models.FileOrder.Added, Label = "追加した順" },
         new FileOrderOption { Value = Core.Models.FileOrder.Name, Label = "名前順" },
         new FileOrderOption { Value = Core.Models.FileOrder.NameWithVersion, Label = "バージョンを考えた名前順" },
-        new FileOrderOption { Value = Core.Models.FileOrder.Newest, Label = "新しい順" },
-        new FileOrderOption { Value = Core.Models.FileOrder.Largest, Label = "大きい順" },
+        new FileOrderOption { Value = Core.Models.FileOrder.Size, Label = "大きさ順" },
     ];
 
     public FileOrderOption SelectedFileOrder
@@ -1699,6 +1747,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             FileOrder = FileOrder,
+            FileOrderDescending = FileOrderDescending,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
             ShowEditQueueStrip = ShowEditQueueStrip,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,

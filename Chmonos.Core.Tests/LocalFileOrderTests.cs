@@ -72,42 +72,52 @@ public class LocalFileOrderTests
 
     // ---- 行の並べ方 ----
 
-    [Fact]
-    public void 追加した順は記録の順のまま_外したファイルだけ後ろ()
-    {
-        var files = new[] { File("c_v10.zip"), File("a.zip", detached: true), File("c_v2.zip"), File("b.zip") };
+    private static FileSort Up(FileOrder order) => new(order, Descending: false);
 
-        Assert.Equal(["c_v10.zip", "c_v2.zip", "b.zip", "a.zip"], Names(LocalFileOrder.Sort(files, FileOrder.Added)));
+    private static FileSort Down(FileOrder order) => new(order, Descending: true);
+
+    [Fact]
+    public void 追加した順は記録の順_逆向きは記録の順を逆にするだけ_外したファイルはどちらでも後ろ()
+    {
+        // 日時の無い古い記録と、日時のある新しい記録が混ざっていても、日時は見ない
+        var files = new[]
+        {
+            File("c_v10.zip"),
+            File("a.zip", detached: true),
+            File("c_v2.zip") with { RegisteredAt = DateTimeOffset.UnixEpoch },
+            File("b.zip"),
+            File("z.zip", detached: true),
+        };
+
+        Assert.Equal(["c_v10.zip", "c_v2.zip", "b.zip", "a.zip", "z.zip"], Names(LocalFileOrder.Sort(files, Up(FileOrder.Added))));
+        Assert.Equal(["b.zip", "c_v2.zip", "c_v10.zip", "z.zip", "a.zip"], Names(LocalFileOrder.Sort(files, Down(FileOrder.Added))));
+        Assert.Equal(["c_v10.zip", "c_v2.zip", "b.zip", "a.zip", "z.zip"], Names(LocalFileOrder.Sort(files, FileSort.Default)));
     }
 
     [Fact]
-    public void 名前の順でも外したファイルは後ろ_名前の無いファイルは組の後ろ()
+    public void 名前の順は向きを反転でき_外したファイルと名前の無いファイルはどちらでも後ろ()
     {
         var missing = new LocalFileRecord { Hash = "MISSING", Paths = [], SizeBytes = 1 };
         var files = new[] { File("c_v10.zip"), missing, File("a.zip", detached: true), File("c_v2.zip"), File("b.zip") };
 
-        Assert.Equal(["b.zip", "c_v10.zip", "c_v2.zip", "(無し)", "a.zip"], Names(LocalFileOrder.Sort(files, FileOrder.Name)));
-        Assert.Equal(["b.zip", "c_v2.zip", "c_v10.zip", "(無し)", "a.zip"], Names(LocalFileOrder.Sort(files, FileOrder.NameWithVersion)));
+        Assert.Equal(["b.zip", "c_v10.zip", "c_v2.zip", "(無し)", "a.zip"], Names(LocalFileOrder.Sort(files, Up(FileOrder.Name))));
+        Assert.Equal(["c_v2.zip", "c_v10.zip", "b.zip", "(無し)", "a.zip"], Names(LocalFileOrder.Sort(files, Down(FileOrder.Name))));
+        Assert.Equal(["b.zip", "c_v2.zip", "c_v10.zip", "(無し)", "a.zip"], Names(LocalFileOrder.Sort(files, Up(FileOrder.NameWithVersion))));
+        Assert.Equal(["c_v10.zip", "c_v2.zip", "b.zip", "(無し)", "a.zip"], Names(LocalFileOrder.Sort(files, Down(FileOrder.NameWithVersion))));
     }
 
     [Fact]
-    public void 新しい順は記録した日時の新しい順_日時の無い記録は後ろに記録の順で_外したファイルはさらに後ろ()
+    public void 寄せると同じ名前は_向きによらず元の名前の符号の順()
     {
-        static DateTimeOffset Day(int day) => new(2026, 11, day, 12, 0, 0, TimeSpan.FromHours(9));
-        var files = new[]
-        {
-            File("old1.zip"),
-            File("mid.zip") with { RegisteredAt = Day(5) },
-            File("detached.zip", detached: true) with { RegisteredAt = Day(30) },
-            File("old2.zip"),
-            File("new.zip") with { RegisteredAt = Day(10) },
-        };
+        // 「Ａ.zip」（全角）と「a.zip」と「A.zip」は寄せると同じ。逆向きでもこの3つの中の順は変えない
+        var files = new[] { File("a.zip"), File("Ａ.zip"), File("b.zip"), File("A.zip") };
 
-        Assert.Equal(["new.zip", "mid.zip", "old1.zip", "old2.zip", "detached.zip"], Names(LocalFileOrder.Sort(files, FileOrder.Newest)));
+        Assert.Equal(["A.zip", "a.zip", "Ａ.zip", "b.zip"], Names(LocalFileOrder.Sort(files, Up(FileOrder.Name))));
+        Assert.Equal(["b.zip", "A.zip", "a.zip", "Ａ.zip"], Names(LocalFileOrder.Sort(files, Down(FileOrder.Name))));
     }
 
     [Fact]
-    public void 大きい順は大きさの大きい順_同じ大きさは記録の順_外したファイルは後ろ()
+    public void 大きさ順は向きを反転でき_同じ大きさは向きによらず記録の順_外したファイルは後ろ()
     {
         var files = new[]
         {
@@ -118,7 +128,20 @@ public class LocalFileOrderTests
             File("same2.zip") with { SizeBytes = 50 },
         };
 
-        Assert.Equal(["big.zip", "same1.zip", "same2.zip", "small.zip", "big-detached.zip"], Names(LocalFileOrder.Sort(files, FileOrder.Largest)));
+        Assert.Equal(["big.zip", "same1.zip", "same2.zip", "small.zip", "big-detached.zip"], Names(LocalFileOrder.Sort(files, Down(FileOrder.Size))));
+        Assert.Equal(["small.zip", "same1.zip", "same2.zip", "big.zip", "big-detached.zip"], Names(LocalFileOrder.Sort(files, Up(FileOrder.Size))));
+    }
+
+    [Fact]
+    public void 名前だけの一覧の比べ方は名前の2つの順だけ_向きも当てる()
+    {
+        string[] names = ["Sample_v10.zip", "Base.zip", "Sample_v2.zip"];
+
+        Assert.Null(LocalFileOrder.NameComparer(Up(FileOrder.Added)));
+        Assert.Null(LocalFileOrder.NameComparer(Down(FileOrder.Size)));
+        Assert.Equal(["Base.zip", "Sample_v2.zip", "Sample_v10.zip"], names.Order(LocalFileOrder.NameComparer(Up(FileOrder.NameWithVersion))!));
+        Assert.Equal(["Sample_v10.zip", "Sample_v2.zip", "Base.zip"], names.Order(LocalFileOrder.NameComparer(Down(FileOrder.NameWithVersion))!));
+        Assert.Equal(["Sample_v2.zip", "Sample_v10.zip", "Base.zip"], names.Order(LocalFileOrder.NameComparer(Down(FileOrder.Name))!));
     }
 
     [Fact]
@@ -133,18 +156,44 @@ public class LocalFileOrderTests
         };
 
         Assert.Equal("Sample_v1.zip", LocalFileOrder.NameOf(old));
-        Assert.Equal(["Sample_v1.zip", "Sample_v2.zip"], Names(LocalFileOrder.Sort([File("Sample_v2.zip"), old], FileOrder.NameWithVersion)));
+        Assert.Equal(["Sample_v1.zip", "Sample_v2.zip"], Names(LocalFileOrder.Sort([File("Sample_v2.zip"), old], Up(FileOrder.NameWithVersion))));
     }
 
     // ---- 設定 ----
 
     [Fact]
-    public void 欄の無い古いsettingsは追加した順で読み_選んだ順は名前で書いて読み戻せる()
+    public void 欄の無い古いsettingsは追加した順の古い順で読み_並べる物と向きは別の欄で書いて読み戻せる()
     {
-        Assert.Equal(FileOrder.Added, JsonSerializer.Deserialize<AppSettings>("""{ "cardWidth": 228 }""", JsonStore.Options)!.FileOrder);
+        var old = JsonSerializer.Deserialize<AppSettings>("""{ "cardWidth": 228 }""", JsonStore.Options)!;
+        Assert.Equal(FileSort.Default, old.FileSort);
 
-        var json = JsonSerializer.Serialize(new AppSettings { FileOrder = FileOrder.NameWithVersion }, JsonStore.Options);
+        var json = JsonSerializer.Serialize(new AppSettings { FileOrder = FileOrder.NameWithVersion, FileOrderDescending = true }, JsonStore.Options);
         Assert.Contains("\"fileOrder\": \"nameWithVersion\"", json);
-        Assert.Equal(FileOrder.NameWithVersion, JsonSerializer.Deserialize<AppSettings>(json, JsonStore.Options)!.FileOrder);
+        Assert.Contains("\"fileOrderDescending\": true", json);
+        Assert.DoesNotContain("fileSort", json);
+        Assert.Equal(new FileSort(FileOrder.NameWithVersion, true), JsonSerializer.Deserialize<AppSettings>(json, JsonStore.Options)!.FileSort);
+    }
+
+    [Theory]
+    [InlineData("\"newest\"")]   // まだ配っていない間に書いた値（今は追加した順の逆向き）
+    [InlineData("\"largest\"")]
+    [InlineData("\"作り物\"")]
+    [InlineData("7")]
+    [InlineData("null")]
+    public void 読めない並べる物は既定に戻し_ほかの欄は読める(string value)
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>($$"""{ "fileOrder": {{value}}, "cardWidth": 300 }""", JsonStore.Options)!;
+
+        Assert.Equal(FileOrder.Added, settings.FileOrder);
+        Assert.Equal(300, settings.CardWidth);
+    }
+
+    [Fact]
+    public void 並べる物を選び直したときの既定の向きは_大きさだけ大きい物が上()
+    {
+        Assert.False(FileSort.DefaultDescending(FileOrder.Added));
+        Assert.False(FileSort.DefaultDescending(FileOrder.Name));
+        Assert.False(FileSort.DefaultDescending(FileOrder.NameWithVersion));
+        Assert.True(FileSort.DefaultDescending(FileOrder.Size));
     }
 }

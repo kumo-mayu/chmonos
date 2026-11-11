@@ -182,7 +182,7 @@ public sealed partial class ItemViewModel
     {
         // 外したファイルは灰色で後ろに残す（ユーザ判断 2026-09-12）。持っているファイルを先に。
         // その中の順は設定の「ファイルの表示順」（ユーザ指示 2026-11-11）。編集画面も同じ部品なので、ここ1か所で両方が変わる
-        foreach (var file in Core.Services.LocalFileOrder.Sort(Item.Local.LocalFiles, _services.Settings.FileOrder))
+        foreach (var file in Core.Services.LocalFileOrder.Sort(Item.Local.LocalFiles, _services.Settings.FileSort))
         {
             var variation = file.VariationId is null
                 ? null

@@ -4,11 +4,11 @@ using Chmonos.Core.Models;
 namespace Chmonos.Core.Services;
 
 /// <summary>
-/// 「手元のファイル」の行の並べ方（設定の <see cref="AppSettings.FileOrder"/>・ユーザ指示 2026-11-11）。
-/// 商品ページと編集画面は同じ部品（ItemFilesPanel）で、行はどちらもここで並べる。
+/// 「手元のファイル」の行の並べ方（設定の <see cref="AppSettings.FileSort"/>・ユーザ指示 2026-11-11）。
+/// 商品ページと編集画面は同じ部品（ItemFilesPanel）で、行はどちらもここで並べる。Unity へ送る物を選ぶ窓も同じ。
 ///
 /// **名前は行に出しているファイル名**（記録に表示名は無い）：記録の1つ目の場所のファイル名、古い版は置き換わった場所のファイル名。
-/// 名前の無い物（場所の残っていないファイル）は、その組の後ろに記録の順で置く。
+/// 名前の無い物（場所の残っていないファイル）は、どの向きでもその組の後ろに置く。
 ///
 /// 比べる前の寄せ方は検索の名前の並び（<see cref="NameCollation"/>）に合わせる：全角の英数字は半角、半角のカナは全角（NFKC）、
 /// 英字は大文字小文字を区別せず、カタカナはひらがなに寄せる。ただし次の2つは合わせない。
@@ -19,7 +19,10 @@ namespace Chmonos.Core.Services;
 /// 読みの辞書を持ち回らずに済む（漢字は字の符号の順）</item>
 /// </list>
 /// 拡張子は後で比べる（A_v1.2.zip と A_v1.2.1.zip を、拡張子の「z」と数字の「1」の比べで決めないため）。
-/// 寄せた名前が同じなら元の名前の符号の順、それも同じなら記録の順（並べ替えは安定）。
+///
+/// **同じ値の物は、向きによらず毎回同じ順**（ユーザ判断 2026-11-11）：向きを当てるのは並べる値（寄せた名前・大きさ）だけで、
+/// 寄せた名前が同じなら元の名前の符号の順、それも同じ・大きさが同じなら記録の順（どちらも昇りのまま）。
+/// 逆向きにしたとき同じ値の物まで逆になると、向きを切り替えるたびに同じ大きさの2つが入れ替わって見える。
 /// </summary>
 public static class LocalFileOrder
 {
@@ -33,56 +36,73 @@ public static class LocalFileOrder
             : null;
 
     /// <summary>
-    /// 行の順に並べる。外したファイルはどの順でも後ろ（ユーザ判断 2026-09-12）。<see cref="FileOrder.Added"/> は記録の順のまま。
-    /// 同じ順位の物は記録の順（並べ替えは安定）。
+    /// 行の順に並べる。外したファイルはどの順・どの向きでも後ろ（ユーザ判断 2026-09-12）。
+    /// 追加した順の逆向きは記録の順を逆にするだけ（<c>registeredAt</c> は v1.3.0 より前の記録に無く、混ざると並べられないので使わない）。
     /// </summary>
-    public static IReadOnlyList<LocalFileRecord> Sort(IEnumerable<LocalFileRecord> files, FileOrder order)
+    public static IReadOnlyList<LocalFileRecord> Sort(IEnumerable<LocalFileRecord> files, FileSort sort)
     {
-        var byDetached = files.OrderBy(file => file.Detached);
-        switch (order)
+        var indexed = files.Select((file, index) => (File: file, Index: index)).ToList();
+        var byDetached = indexed.OrderBy(entry => entry.File.Detached);
+
+        IOrderedEnumerable<(LocalFileRecord File, int Index)> sorted;
+        switch (sort.Order)
         {
             case FileOrder.Name:
             case FileOrder.NameWithVersion:
+                var versions = sort.Order == FileOrder.NameWithVersion;
+                var keys = Comparer<FileNameKey>.Create((x, y) => sort.Descending ? y.CompareTo(x) : x.CompareTo(y));
+                sorted = byDetached
+                    .ThenBy(entry => NameOf(entry.File) is null)
+                    .ThenBy(entry => KeyOf(NameOf(entry.File) ?? string.Empty, versions), keys)
+                    .ThenBy(entry => NameOf(entry.File), StringComparer.Ordinal);
                 break;
-            case FileOrder.Newest:
-                // 日時の無い記録（v1.3.0 より前）は後ろへ。並べ替えは安定なので、その中は記録の順のまま
-                return byDetached
-                    .ThenBy(file => file.RegisteredAt is null)
-                    .ThenByDescending(file => file.RegisteredAt)
-                    .ToList();
-            case FileOrder.Largest:
-                return byDetached.ThenByDescending(file => file.SizeBytes).ToList();
+            case FileOrder.Size:
+                sorted = sort.Descending
+                    ? byDetached.ThenByDescending(entry => entry.File.SizeBytes)
+                    : byDetached.ThenBy(entry => entry.File.SizeBytes);
+                break;
             default:
-                // 追加した順と、手で書いた知らない値
-                return byDetached.ToList();
+                // 追加した順（と手で書いた知らない値）。向きはここだけ記録の順そのものに当てる
+                return (sort.Descending ? byDetached.ThenByDescending(entry => entry.Index) : byDetached.ThenBy(entry => entry.Index))
+                    .Select(entry => entry.File)
+                    .ToList();
         }
 
-        var versions = order == FileOrder.NameWithVersion;
-        return byDetached
-            .ThenBy(file => NameOf(file) is null)
-            .ThenBy(file => KeyOf(NameOf(file) ?? string.Empty, versions))
-            .ToList();
+        return sorted.ThenBy(entry => entry.Index).Select(entry => entry.File).ToList();
     }
 
-    /// <summary>2つのファイル名を比べる（試験と、名前だけを並べる呼び手のため）。</summary>
-    public static int Compare(string x, string y, bool versions) => KeyOf(x, versions).CompareTo(KeyOf(y, versions));
+    /// <summary>2つのファイル名を比べる（昇り）。寄せた名前が同じなら元の名前の符号の順（試験と、名前だけを並べる呼び手のため）。</summary>
+    public static int Compare(string x, string y, bool versions)
+    {
+        var byKey = KeyOf(x, versions).CompareTo(KeyOf(y, versions));
+        return byKey != 0 ? byKey : string.CompareOrdinal(x, y);
+    }
 
     /// <summary>
-    /// 名前だけを持つ一覧（編集画面の「ファイルごとの種類」など）を、設定の名前の2つの順で並べる比べ方。
-    /// 名前で並べない順（追加した順・新しい順・大きい順）では null（呼び手は今までの並びのまま）。
+    /// 名前だけを持つ一覧（編集画面の「ファイルごとの種類」など）を、設定の名前の2つの順と向きで並べる比べ方。
+    /// 名前で並べない物（追加した順・大きさ順）では null（呼び手は今までの並びのまま）。
+    /// 寄せた名前が同じ物は、向きによらず元の名前の符号の順（<see cref="Sort"/> と同じ決まり）。
     /// </summary>
-    public static IComparer<string>? NameComparer(FileOrder order) => order switch
+    public static IComparer<string>? NameComparer(FileSort sort)
     {
-        FileOrder.Name => Comparer<string>.Create((x, y) => Compare(x, y, versions: false)),
-        FileOrder.NameWithVersion => Comparer<string>.Create((x, y) => Compare(x, y, versions: true)),
-        _ => null,
-    };
+        if (sort.Order is not (FileOrder.Name or FileOrder.NameWithVersion))
+        {
+            return null;
+        }
+
+        var versions = sort.Order == FileOrder.NameWithVersion;
+        return Comparer<string>.Create((x, y) =>
+        {
+            var byKey = sort.Descending ? KeyOf(y, versions).CompareTo(KeyOf(x, versions)) : KeyOf(x, versions).CompareTo(KeyOf(y, versions));
+            return byKey != 0 ? byKey : string.CompareOrdinal(x, y);
+        });
+    }
 
     private static FileNameKey KeyOf(string name, bool versions)
     {
         var extension = Path.GetExtension(name);
         var stem = name[..^extension.Length];
-        return new FileNameKey(Fold(stem), Fold(extension), name, versions);
+        return new FileNameKey(Fold(stem), Fold(extension), versions);
     }
 
     /// <summary>NFKC・小文字・ひらがなに寄せ、英数字とかな以外の続きを区切りの字1つにする。</summary>
@@ -106,18 +126,13 @@ public static class LocalFileOrder
         return builder.ToString();
     }
 
-    private readonly record struct FileNameKey(string Stem, string Extension, string Name, bool Versions) : IComparable<FileNameKey>
+    /// <summary>寄せた名前（拡張子の前と拡張子）。元の名前の符号の順は向きを当てないので、ここでは比べない。</summary>
+    private readonly record struct FileNameKey(string Stem, string Extension, bool Versions) : IComparable<FileNameKey>
     {
         public int CompareTo(FileNameKey other)
         {
             var byStem = Part(Stem, other.Stem);
-            if (byStem != 0)
-            {
-                return byStem;
-            }
-
-            var byExtension = Part(Extension, other.Extension);
-            return byExtension != 0 ? byExtension : string.CompareOrdinal(Name, other.Name);
+            return byStem != 0 ? byStem : Part(Extension, other.Extension);
         }
 
         // 数字の続きを数で比べるのは検索の名前の並びと同じ道（先頭の 0 は読まない：v01 と v1 は同じ数）

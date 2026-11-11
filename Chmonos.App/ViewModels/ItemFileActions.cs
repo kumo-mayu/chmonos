@@ -252,7 +252,7 @@ internal static class ItemFileActions
     /// <param name="commitText">決めるボタンの文。</param>
     /// <param name="fileOrder">設定の「ファイルの表示順」。窓の zip をこの順に並べる（<see cref="PackageChoiceSection.Build"/>）。</param>
     public static async Task<IReadOnlyList<UnityPackageEntry>?> PickPackagesAsync(
-        ItemRecord item, string title, string headingText, string commitText, FileOrder fileOrder)
+        ItemRecord item, string title, string headingText, string commitText, FileSort fileOrder)
     {
         var (packages, section) = await Task.Run(() => (UnityImportQueue.PackagesOf(item), PackageChoiceSection.Build(item, fileOrder)));
         if (packages.Count == 0)

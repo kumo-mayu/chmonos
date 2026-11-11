@@ -37,7 +37,7 @@ internal static class ItemSelectionActions
         var nothing = new List<string>();
 
         // zip を開いて数えるので、画面のスレッドの外で読む（選ぶ窓の候補も一緒に作る。2つ以上のときだけ出来る）
-        var fileOrder = services.Settings.FileOrder;
+        var fileOrder = services.Settings.FileSort;
         var found = await Task.Run(() => cards
             .Select(card => (Card: card, Packages: Services.UnityImportQueue.PackagesOf(card.Item), Choice: PackageChoiceSection.Build(card.Item, fileOrder)))
             .ToList());

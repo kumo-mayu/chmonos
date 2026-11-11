@@ -44,15 +44,18 @@ public class EditFileOrderTests
     }
 
     [Theory]
-    [InlineData(FileOrder.Added, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
-    [InlineData(FileOrder.Newest, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
-    [InlineData(FileOrder.Largest, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
-    [InlineData(FileOrder.Name, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
-    [InlineData(FileOrder.NameWithVersion, new[] { "Base.zip", "Sample_v2.zip", "Sample_v10.zip" })]
-    public Task 名前の2つの順だけ設定に従い_ほかは今までの名前順(FileOrder order, string[] expected) => TestApp.Run(async app =>
+    // 名前の2つの順以外は、向きがどちらでも今までの名前順（A→Z）のまま
+    [InlineData(FileOrder.Added, false, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
+    [InlineData(FileOrder.Added, true, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
+    [InlineData(FileOrder.Size, true, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
+    [InlineData(FileOrder.Name, false, new[] { "Base.zip", "Sample_v10.zip", "Sample_v2.zip" })]
+    [InlineData(FileOrder.Name, true, new[] { "Sample_v2.zip", "Sample_v10.zip", "Base.zip" })]
+    [InlineData(FileOrder.NameWithVersion, false, new[] { "Base.zip", "Sample_v2.zip", "Sample_v10.zip" })]
+    [InlineData(FileOrder.NameWithVersion, true, new[] { "Sample_v10.zip", "Sample_v2.zip", "Base.zip" })]
+    public Task 名前の2つの順だけ設定と向きに従い_ほかは今までの名前順(FileOrder order, bool descending, string[] expected) => TestApp.Run(async app =>
     {
         await app.AddItemAsync(TwoVariations());
-        await app.ChangeSettingsAsync(settings => settings with { ReturnToSearchWhenEditDone = false, FileOrder = order });
+        await app.ChangeSettingsAsync(settings => settings with { ReturnToSearchWhenEditDone = false, FileOrder = order, FileOrderDescending = descending });
         var main = await app.StartAsync();
         main.ShowEditCommand.Execute(null);
         await app.SettleAsync();

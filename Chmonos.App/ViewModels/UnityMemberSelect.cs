@@ -101,7 +101,7 @@ internal static class UnityMemberSelect
 
         IReadOnlyList<UnityPackageEntry> toSend = packages;
         var recorded = false;
-        if (member.FileHash is null && packages.Count > 1 && await Task.Run(() => PackageChoiceSection.Build(item, services.Settings.FileOrder)) is { } choice)
+        if (member.FileHash is null && packages.Count > 1 && await Task.Run(() => PackageChoiceSection.Build(item, services.Settings.FileSort)) is { } choice)
         {
             // どのファイルを使ったか記録が無く、送れる物が2つ以上ある。全部送ると古い版や別の種類まで入るので選ばせ、
             // 選んだ物をこの行に記録する（ユーザ判断 2026-09-13）

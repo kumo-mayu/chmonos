@@ -82,5 +82,44 @@ public class ItemFileOrderTests
         string[] byVersion = ["Base.zip", "Sample_v2.zip", "Sample_v10.zip", "Another.zip"];
         Assert.Equal(byVersion, item);
         Assert.Equal(byVersion, edit);
+
+        // 向きを反転すると両方が逆になる。外したファイルは後ろのまま
+        settings.FileOrderDescending = true;
+        await app.SettleAsync();
+        Assert.True(app.Services.Settings.FileOrderDescending);
+        (item, edit) = await ShownAsync(app, main);
+        string[] byVersionDown = ["Sample_v10.zip", "Sample_v2.zip", "Base.zip", "Another.zip"];
+        Assert.Equal(byVersionDown, item);
+        Assert.Equal(byVersionDown, edit);
+    });
+
+    [Fact]
+    public Task 向きの語は並べる物で変わり_並べる物を選び直すとその既定の向きに戻る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        // 既定は追加した順の古い順（今までの並び）
+        Assert.Equal(FileOrder.Added, settings.FileOrder);
+        Assert.True(settings.FileOrderAscending);
+        Assert.Equal(("新しい順", "古い順"), (settings.FileOrderDescendingLabel, settings.FileOrderAscendingLabel));
+
+        settings.FileOrderDescending = true;
+        settings.SelectedFileOrder = SettingsViewModel.FileOrders.Single(option => option.Value == FileOrder.Name);
+        Assert.False(settings.FileOrderDescending);
+        Assert.Equal(("降順", "昇順"), (settings.FileOrderDescendingLabel, settings.FileOrderAscendingLabel));
+
+        settings.SelectedFileOrder = SettingsViewModel.FileOrders.Single(option => option.Value == FileOrder.Size);
+        Assert.True(settings.FileOrderDescending);
+        Assert.Equal(("大きい順", "小さい順"), (settings.FileOrderDescendingLabel, settings.FileOrderAscendingLabel));
+        await app.SettleAsync();
+        Assert.Equal(new FileSort(FileOrder.Size, true), app.Services.Settings.FileSort);
+
+        // 右のボタン（外れる側の知らせの false）は何も変えない
+        settings.FileOrderAscending = false;
+        Assert.True(settings.FileOrderDescending);
+        settings.FileOrderAscending = true;
+        await app.SettleAsync();
+        Assert.Equal(new FileSort(FileOrder.Size, false), app.Services.Settings.FileSort);
     });
 }
