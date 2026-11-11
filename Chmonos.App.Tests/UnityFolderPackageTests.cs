@@ -116,7 +116,7 @@ public sealed class UnityFolderPackageTests : IDisposable
     {
         var item = WithFolders(Make.Item("9900704", "作り物の衣装E").WithFiles(), Folder("衣装E", "E1.unitypackage", "Sub/E2.unitypackage"));
 
-        var section = PackageChoiceSection.Build(item)!;
+        var section = PackageChoiceSection.Build(item, FileOrder.Added)!;
 
         var group = Assert.Single(section.Groups);
         Assert.Equal("フォルダ：衣装E", group.Label);

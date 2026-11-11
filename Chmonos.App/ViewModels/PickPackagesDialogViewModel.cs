@@ -123,14 +123,18 @@ public sealed class PackageChoiceSection : ViewModelBase
     /// 数えていて、1GB 級の zip が HDD にあると窓が出るまで止まって見えた。要約が無い・欠けているときだけ zip を読むが、
     /// それでも止まらないよう**画面のスレッドで呼ばない**（呼び手が裏へ出す）。
     /// </summary>
-    public static PackageChoiceSection? Build(ItemRecord item)
+    /// <param name="displayOrder">
+    /// 設定の「ファイルの表示順」（ユーザ判断 2026-11-11）。商品ページの手元のファイルと同じ順で zip を並べる
+    /// （同じ商品の中で、ページと窓でファイルの順が違うと探し直すことになる）。バリエーションの塊は BOOTH の種類の順のまま
+    /// </param>
+    public static PackageChoiceSection? Build(ItemRecord item, FileOrder displayOrder)
     {
         var variations = item.Booth.Variations;
         var candidates = new List<(PackageChoiceRow Row, string Key, string Label, int Order)>();
         var fileOrder = 0;
 
-        // 手元のファイルの順に見る（全部送っていたときの順 UnityImportQueue.PackagesOf と同じ）
-        foreach (var file in item.Local.OwnedFiles)
+        // 手元のファイルの表示順に見る。追加した順なら、全部送っていたときの順（UnityImportQueue.PackagesOf）と同じ
+        foreach (var file in LocalFileOrder.Sort(item.Local.OwnedFiles, displayOrder))
         {
             var places = UnityHandoff.PlacesOf(file);
             if (places.Count > 0)

@@ -148,7 +148,7 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        if (await ItemFileActions.PickPackagesAsync(card.Item, title, headingText, commitText) is { Count: > 0 } packages)
+        if (await ItemFileActions.PickPackagesAsync(card.Item, title, headingText, commitText, _services.Settings.FileOrder) is { Count: > 0 } packages)
         {
             await run(card, packages);
         }

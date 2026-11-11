@@ -332,7 +332,7 @@ internal static partial class Scenes
             // 選ぶ欄は、在る zip の中を数えて作る（記録の上の中身だけでは作らない）ので、本当に zip を置く
             var item = FileItem("9900401", "作り物の衣装セット", Fake.FileRecord(
                 Fake.Zip(@"ライブラリ\pick_packages.zip", "Costume/Costume_Body.unitypackage", "Costume/Costume_Option.unitypackage")));
-            var section = PackageChoiceSection.Build(item)
+            var section = PackageChoiceSection.Build(item, Chmonos.Core.Models.FileOrder.Added)
                 ?? throw new InvalidOperationException("作り物の商品から選ぶ欄が作れませんでした（unitypackage が2つ無い）。");
             var model = new PickPackagesDialogViewModel("Unityへ送る", "Unityの「作り物のプロジェクト」へ送ります。", [section], othersCount: 2, records: true);
             return Task.FromResult<Window>(new PickPackagesDialog(model));
@@ -344,7 +344,7 @@ internal static partial class Scenes
                 Fake.Zip(@"ライブラリ\pick_many.zip",
                     "Body/Body_PC.unitypackage", "Body/Body_Quest.unitypackage", "Shader.unitypackage",
                     "Hair/Hair_A.unitypackage", "Hair/Hair_B.unitypackage", "Accessory.unitypackage")));
-            var section = PackageChoiceSection.Build(item)
+            var section = PackageChoiceSection.Build(item, Chmonos.Core.Models.FileOrder.Added)
                 ?? throw new InvalidOperationException("作り物の商品から選ぶ欄が作れませんでした。");
             var model = new PickPackagesDialogViewModel(
                 "Unityへ順に送る（2/3）", "Unityの「作り物のプロジェクト」へ送るunitypackageを選んでください。", [section], othersCount: 0, records: false)
@@ -360,7 +360,7 @@ internal static partial class Scenes
         {
             var item = FileItem("9900403", "作り物の小物セット", Fake.FileRecord(
                 Fake.Zip(@"ライブラリ\pick_none.zip", "Ribbon.unitypackage", "Ribbon_Quest.unitypackage", "Shader.unitypackage")));
-            var section = PackageChoiceSection.Build(item)
+            var section = PackageChoiceSection.Build(item, Chmonos.Core.Models.FileOrder.Added)
                 ?? throw new InvalidOperationException("作り物の商品から選ぶ欄が作れませんでした。");
             var model = new PickPackagesDialogViewModel("Unityへ送る", "Unityへ送るunitypackageを選んでください。", [section], othersCount: 0, records: false);
             return Task.FromResult<Window>(new PickPackagesDialog(model));

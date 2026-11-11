@@ -51,8 +51,33 @@ public sealed class PickPackagesDialogTests : IDisposable
 
     private PickPackagesDialogViewModel Dialog(params string[] packages)
     {
-        var section = PackageChoiceSection.Build(ItemWith("9900801", "衣装", packages))!;
+        var section = PackageChoiceSection.Build(ItemWith("9900801", "衣装", packages), FileOrder.Added)!;
         return new PickPackagesDialogViewModel("Unityへ送る", "Unityへ送るunitypackageを選んでください。", [section], othersCount: 0, records: false);
+    }
+
+    [Theory]
+    [InlineData(FileOrder.Added, new[] { "Sample_v10", "Sample_v2", "Base" })]
+    [InlineData(FileOrder.Name, new[] { "Base", "Sample_v10", "Sample_v2" })]
+    [InlineData(FileOrder.NameWithVersion, new[] { "Base", "Sample_v2", "Sample_v10" })]
+    public void 候補は設定のファイルの表示順に並ぶ(FileOrder order, string[] expected)
+    {
+        // 設定の「ファイルの表示順」（ユーザ判断 2026-11-11）。商品ページの手元のファイルと同じ順。記録の順は v10・v2・Base
+        var folder = Path.Combine(_root, "単体");
+        Directory.CreateDirectory(folder);
+        var files = new[] { "Sample_v10.unitypackage", "Sample_v2.unitypackage", "Base.unitypackage" }
+            .Select(name =>
+            {
+                var path = Path.Combine(folder, name);
+                File.WriteAllBytes(path, [1, 2, 3]);
+                return new LocalFileRecord { Hash = Make.HashOf(name), Paths = [path], SizeBytes = 3 };
+            })
+            .ToList();
+        var item = Make.Item("9900805", "作り物の衣装");
+        item = item with { Local = item.Local with { LocalFiles = files } };
+
+        var section = PackageChoiceSection.Build(item, order)!;
+
+        Assert.Equal(expected, section.Groups.SelectMany(group => group.Rows).Select(row => row.Package.Name));
     }
 
     private static IEnumerable<PackageChoiceRow> Rows(PickPackagesDialogViewModel model)
@@ -139,7 +164,7 @@ public sealed class PickPackagesDialogTests : IDisposable
             return true;
         };
 
-        var picked = await ItemFileActions.PickPackagesAsync(item, "Unityへ送る", "Unityへ送るunitypackageを選んでください。", "送る");
+        var picked = await ItemFileActions.PickPackagesAsync(item, "Unityへ送る", "Unityへ送るunitypackageを選んでください。", "送る", FileOrder.Added);
 
         Assert.Single(app.PackagePicks);
         Assert.Equal(["Body", "Hair"], picked!.Select(package => package.Name));
@@ -151,13 +176,13 @@ public sealed class PickPackagesDialogTests : IDisposable
         await app.StartAsync();
 
         var single = await ItemFileActions.PickPackagesAsync(
-            ItemWith("9900803", "衣装3", "Only.unitypackage"), "Unityへ送る", "選んでください。", "送る");
+            ItemWith("9900803", "衣装3", "Only.unitypackage"), "Unityへ送る", "選んでください。", "送る", FileOrder.Added);
         Assert.Equal(["Only"], single!.Select(package => package.Name));
         Assert.Empty(app.PackagePicks);
 
         // 既定の答えは「キャンセル」
         var cancelled = await ItemFileActions.PickPackagesAsync(
-            ItemWith("9900804", "衣装4", "A.unitypackage", "B.unitypackage"), "Unityへ送る", "選んでください。", "送る");
+            ItemWith("9900804", "衣装4", "A.unitypackage", "B.unitypackage"), "Unityへ送る", "選んでください。", "送る", FileOrder.Added);
         Assert.Null(cancelled);
     });
 

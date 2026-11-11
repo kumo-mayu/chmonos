@@ -250,10 +250,11 @@ internal static class ItemFileActions
     /// </summary>
     /// <param name="headingText">窓の上の1文（何をするか）。</param>
     /// <param name="commitText">決めるボタンの文。</param>
+    /// <param name="fileOrder">設定の「ファイルの表示順」。窓の zip をこの順に並べる（<see cref="PackageChoiceSection.Build"/>）。</param>
     public static async Task<IReadOnlyList<UnityPackageEntry>?> PickPackagesAsync(
-        ItemRecord item, string title, string headingText, string commitText)
+        ItemRecord item, string title, string headingText, string commitText, FileOrder fileOrder)
     {
-        var (packages, section) = await Task.Run(() => (UnityImportQueue.PackagesOf(item), PackageChoiceSection.Build(item)));
+        var (packages, section) = await Task.Run(() => (UnityImportQueue.PackagesOf(item), PackageChoiceSection.Build(item, fileOrder)));
         if (packages.Count == 0)
         {
             Services.Notice.Show(
