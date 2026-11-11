@@ -218,7 +218,7 @@ internal sealed class LocalFileEditor(DataStore store)
         string itemId,
         string folderPath,
         bool liftExclusion = false,
-        bool takeFromOtherItems = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default)
     {
         var item = await store.Items.LoadAsync(itemId, cancellationToken);
@@ -253,7 +253,7 @@ internal sealed class LocalFileEditor(DataStore store)
         }
 
         var hash = record.Hash;
-        switch (await HandAttachBlockAsync(itemId, hash, liftExclusion, takeFromOtherItems, cancellationToken))
+        switch (await HandAttachBlockAsync(itemId, hash, liftExclusion, otherHolders, cancellationToken))
         {
             case { Excluded: true }:
                 return new ArchiveSwapOutcome(ArchiveSwapResult.Excluded, name);
@@ -284,7 +284,7 @@ internal sealed class LocalFileEditor(DataStore store)
         }
 
         // 未確定に同じzipが居たなら、行き先が決まったので外す（除外を解く・ほかの商品から外すも、こちらに付けた後で）
-        await AfterHandAttachAsync(itemId, hash, liftExclusion, takeFromOtherItems, cancellationToken);
+        await AfterHandAttachAsync(itemId, hash, liftExclusion, otherHolders, cancellationToken);
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
 
         return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name);
@@ -305,7 +305,7 @@ internal sealed class LocalFileEditor(DataStore store)
         string itemId,
         string path,
         bool liftExclusion = false,
-        bool takeFromOtherItems = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default)
     {
         var name = Path.GetFileName(path);
@@ -328,7 +328,7 @@ internal sealed class LocalFileEditor(DataStore store)
             return new FileAttachOutcome(FileAttachResult.FileUnreadable, name);
         }
 
-        switch (await HandAttachBlockAsync(itemId, record.Hash, liftExclusion, takeFromOtherItems, cancellationToken))
+        switch (await HandAttachBlockAsync(itemId, record.Hash, liftExclusion, otherHolders, cancellationToken))
         {
             case { Excluded: true }:
                 return new FileAttachOutcome(FileAttachResult.Excluded, name);
@@ -363,7 +363,7 @@ internal sealed class LocalFileEditor(DataStore store)
             return new FileAttachOutcome(FileAttachResult.ItemMissing, name);
         }
 
-        await AfterHandAttachAsync(itemId, record.Hash, liftExclusion, takeFromOtherItems, cancellationToken);
+        await AfterHandAttachAsync(itemId, record.Hash, liftExclusion, otherHolders, cancellationToken);
         return new FileAttachOutcome(FileAttachResult.Attached, name);
     }
 
@@ -429,10 +429,11 @@ internal sealed class LocalFileEditor(DataStore store)
     /// <summary>
     /// 除外とほかの持ち主は、人が決めたこと。黙って上書きせず、何も書かずに返して画面に聞かせる（ユーザ判断 2026-10-05・
     /// file-lifecycle.md「気になった所」7）。前は見ずに付けていたので、除外した zip が除外のまま持ち物になり、
-    /// ほかの商品が持つ zip は2つの商品の持ち物になって容量も二重に数えていた
+    /// ほかの商品が持つ zip は聞かれないまま2つの商品の持ち物になっていた（容量の合計も二重に数えていた。今は <see cref="LibrarySizes"/> が1回にする）。
+    /// 2つの商品に持たせるのは、人が「両方に付ける」（<see cref="OtherHolders.Share"/>）を選んだときだけ（ユーザ判断 2026-11-11）
     /// </summary>
     private async Task<HandAttachBlock> HandAttachBlockAsync(
-        string itemId, string hash, bool liftExclusion, bool takeFromOtherItems, CancellationToken cancellationToken)
+        string itemId, string hash, bool liftExclusion, OtherHolders otherHolders, CancellationToken cancellationToken)
     {
         var excluded = await store.Excluded.LoadAsync(cancellationToken);
         if (!liftExclusion && excluded.Any(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)))
@@ -440,7 +441,7 @@ internal sealed class LocalFileEditor(DataStore store)
             return new HandAttachBlock(true, []);
         }
 
-        if (takeFromOtherItems)
+        if (otherHolders != OtherHolders.Ask)
         {
             return new HandAttachBlock(false, []);
         }
@@ -449,12 +450,13 @@ internal sealed class LocalFileEditor(DataStore store)
     }
 
     /// <summary>
-    /// こちらに付けた後の片付け：頼まれていれば除外を解き、ほかの商品から外し、未確定から消す。
+    /// こちらに付けた後の片付け：頼まれていれば除外を解き、付け直すなら（<see cref="OtherHolders.TakeOver"/>）ほかの商品から外し、未確定から消す。
+    /// 両方に付けるとき（<see cref="OtherHolders.Share"/>）は、ほかの商品の記録に触れない。
     /// 除外を解くのも、ほかの商品から外すのも、こちらに付けられた後。逆にすると、付ける前に商品が消されていたとき
     /// 除外も持ち主も失ったファイルが残る。この順なら、途中で落ちても二重に持つだけで、どこからも消えない
     /// </summary>
     private async Task AfterHandAttachAsync(
-        string itemId, string hash, bool liftExclusion, bool takeFromOtherItems, CancellationToken cancellationToken)
+        string itemId, string hash, bool liftExclusion, OtherHolders otherHolders, CancellationToken cancellationToken)
     {
         if (liftExclusion)
         {
@@ -465,7 +467,7 @@ internal sealed class LocalFileEditor(DataStore store)
                 cancellationToken);
         }
 
-        if (takeFromOtherItems)
+        if (otherHolders == OtherHolders.TakeOver)
         {
             // 見てから書くまでに持ち主が変わっていることがあるので、それぞれの錠の中で今の一覧に印を付ける（DetachFileAsync と同じ形）。
             // 行は消さずに外した印にする：手掛かりが指せば次の取り込みでそちらへ戻ってしまうのを止め、商品ページで「この商品に戻す」もできる。
@@ -635,8 +637,16 @@ internal sealed class LocalFileEditor(DataStore store)
         }
 
         // 実体が残っているものだけ未確定へ戻す。
-        // 既に消えているファイルを並べても、紐付け直す相手がいない
+        // 既に消えているファイルを並べても、紐付け直す相手がいない。
+        // ほかの商品がまだ持つ（両方に付けていた）ファイルも戻さない（2026-11-11・plan 27）：外したのはこの商品の記録だけで、
+        // ファイルの行き先は決まっている。未確定に出すと、そこから除外・別の商品への登録ができてしまい、持っている商品の手元の物まで変わる
+        // （出しても未確定を開いたときの均し ReconcileUnresolvedAsync が消すので、一瞬だけ見える物にもなっていた）
         var alive = target.Paths.Where(File.Exists).ToList();
+        if (alive.Count > 0 && (await OtherHoldersAsync(itemId, hash, cancellationToken)).Count > 0)
+        {
+            alive = [];
+        }
+
         if (alive.Count > 0)
         {
             var modified = DateTimeOffset.Now;
@@ -737,8 +747,9 @@ internal sealed class LocalFileEditor(DataStore store)
 
     /// <summary>
     /// 外したファイルをこの商品に戻す（商品ページの灰色の行の「この商品に戻す」・ユーザ判断 2026-09-12）。
-    /// 未確定からは取り除く。**外した後で別の商品へ紐付け直していたら戻さない**——同じファイルが
-    /// 2つの商品の持ち物になり、容量も二重に数える。
+    /// 未確定からは取り除く。**外した後で別の商品へ紐付け直していたら戻さない**——戻すと同じファイルが
+    /// 2つの商品の持ち物になる。持ち主を増やすのは、人が窓で「両方に付ける」（<see cref="OtherHolders.Share"/>）を選んだときだけにする
+    /// （この操作は窓を出さないので、黙って共有にしない。2026-11-11。前の理由だった容量の二重の数えは <see cref="LibrarySizes"/> で無くなった）。
     /// </summary>
     public async Task<ReattachOutcome> ReattachFileAsync(
         string itemId,

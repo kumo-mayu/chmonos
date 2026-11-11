@@ -186,7 +186,7 @@ public class FileAttachTests : IDisposable
         Assert.True(holder.LosesLastFile);
         Assert.Empty((await LocalOfAsync(ItemId)).LocalFiles);
 
-        var taken = await _service.AttachFileAsync(ItemId, zip, takeFromOtherItems: true);
+        var taken = await _service.AttachFileAsync(ItemId, zip, otherHolders: OtherHolders.TakeOver);
 
         Assert.Equal(FileAttachResult.Attached, taken.Result);
         Assert.False(Assert.Single((await LocalOfAsync(ItemId)).LocalFiles).Detached);

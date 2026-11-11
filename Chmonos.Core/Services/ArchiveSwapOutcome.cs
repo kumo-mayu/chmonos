@@ -26,10 +26,31 @@ public enum ArchiveSwapResult
 
     /// <summary>
     /// ほかの商品が zip を持っている（外していない）。何も書いていない。持ち主は <see cref="ArchiveSwapOutcome.Holders"/>。
-    /// 同じファイルを2つの商品の持ち物にすると容量も二重に数えるので、聞かずには付けない
-    /// （画面が「その商品を開く」か「こちらに付け直す」を聞く。ユーザ判断 2026-10-05）。
+    /// 持ち主は人が決めたことなので、聞かずには増やしも替えもしない（画面が「その商品を開く」「両方に付ける」「この商品に付け直す」を聞く。
+    /// ユーザ判断 2026-10-05・2026-11-11）。
     /// </summary>
     OwnedElsewhere,
+}
+
+/// <summary>
+/// 付けるファイルをほかの商品が持っていたときにどうするか（<see cref="LocalFileEditor.AttachFileAsync"/>・
+/// <see cref="LocalFileEditor.SwapFolderForArchiveAsync"/>）。人が窓で選んだ答え。
+/// 2つの真偽で持つと「付け直す」と「残す」を両方立てられてしまうので、1つの値にする。
+/// </summary>
+public enum OtherHolders
+{
+    /// <summary>決めていない。ほかの商品が持てば何も書かずに <c>OwnedElsewhere</c> で返す（画面が聞く）。</summary>
+    Ask,
+
+    /// <summary>ほかの商品から外して（外した印を付けて）、この商品に付ける（「この商品に付け直す」）。</summary>
+    TakeOver,
+
+    /// <summary>
+    /// ほかの商品にも残したまま、この商品にも付ける（「両方に付ける」・ユーザ判断 2026-11-11 plan 27）。
+    /// セット商品と中身の各商品のように、1つのファイルが2つ以上の商品の物であるときに使う。
+    /// 容量の合計は商品をまたいで同じ中身・同じ場所を1回だけ数える（<see cref="LibrarySizes"/>）。
+    /// </summary>
+    Share,
 }
 
 /// <param name="ArchiveName">見せる用のzipのファイル名。分からなければ null。</param>
@@ -40,5 +61,5 @@ public sealed record ArchiveSwapOutcome(ArchiveSwapResult Result, string? Archiv
 }
 
 /// <summary>zip を持っているほかの商品。</summary>
-/// <param name="LosesLastFile">付け直すと、この商品の手元の物（外していないファイルとフォルダ）が無くなるか。窓で先に言うため。</param>
+/// <param name="LosesLastFile">付け直す（<see cref="OtherHolders.TakeOver"/>）と、この商品の手元の物（外していないファイルとフォルダ）が無くなるか。窓で先に言うため。</param>
 public sealed record ArchiveHolder(string ItemId, string Name, bool LosesLastFile);

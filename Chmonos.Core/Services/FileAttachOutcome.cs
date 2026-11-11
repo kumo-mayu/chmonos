@@ -26,7 +26,7 @@ public enum FileAttachResult
 
     /// <summary>
     /// ほかの商品が持っている（外していない）。何も書いていない。持ち主は <see cref="FileAttachOutcome.Holders"/>。
-    /// 同じファイルを2つの商品の持ち物にすると容量も二重に数えるので、聞かずには付けない。
+    /// 持ち主は人が決めたことなので、聞かずには増やしも替えもしない（画面が聞いて <see cref="OtherHolders"/> を決めて呼び直す）。
     /// </summary>
     OwnedElsewhere,
 }

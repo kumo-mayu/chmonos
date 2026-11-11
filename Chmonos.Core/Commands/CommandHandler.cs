@@ -993,11 +993,11 @@ public sealed class CommandHandler
             case UiCommand.SwapFolderForArchive swap:
                 return new CommandResult.ArchiveSwapped(
                     await _items.SwapFolderForArchiveAsync(
-                        swap.ItemId, swap.FolderPath, swap.LiftExclusion, swap.TakeFromOtherItems, cancellationToken));
+                        swap.ItemId, swap.FolderPath, swap.LiftExclusion, swap.OtherHolders, cancellationToken));
 
             case UiCommand.AttachFile attach:
                 var attached = await _items.AttachFileAsync(
-                    attach.ItemId, attach.Path, attach.LiftExclusion, attach.TakeFromOtherItems, cancellationToken);
+                    attach.ItemId, attach.Path, attach.LiftExclusion, attach.OtherHolders, cancellationToken);
                 if (attached.Result == Services.FileAttachResult.Attached)
                 {
                     // 登録の後と同じに、中の unitypackage を裏で読む（Unity へ送る候補。商品ページは後から届いた分を出す）

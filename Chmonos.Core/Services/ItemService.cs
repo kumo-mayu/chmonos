@@ -81,24 +81,24 @@ public interface IItemService
     /// <summary>
     /// 展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。
     /// <paramref name="liftExclusion"/>：除外した zip なら除外を解いて付ける（人が窓で頼んだときだけ）。
-    /// <paramref name="takeFromOtherItems"/>：ほかの商品が持つ zip なら、そちらから外してこちらに付ける（人が窓で頼んだときだけ）。
+    /// <paramref name="otherHolders"/>：ほかの商品が持つ zip なら、そちらから外して付けるか・両方に付けるか（人が窓で選んだとき・選ぶ画面で決めたときだけ）。
     /// </summary>
     Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
         string itemId,
         string folderPath,
         bool liftExclusion = false,
-        bool takeFromOtherItems = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 商品ページから、選んだ・落としたファイルをこの商品に結ぶ（ユーザ指示 2026-10-06）。事情（除外・ほかの持ち主）は
-    /// 「zipで登録し直す」と同じに、何も書かずに返す。<paramref name="liftExclusion"/>・<paramref name="takeFromOtherItems"/> は人が窓で頼んだときだけ。
+    /// 「zipで登録し直す」と同じに、何も書かずに返す。<paramref name="liftExclusion"/>・<paramref name="otherHolders"/> は人が窓で頼んだときだけ。
     /// </summary>
     Task<FileAttachOutcome> AttachFileAsync(
         string itemId,
         string path,
         bool liftExclusion = false,
-        bool takeFromOtherItems = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default);
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null);
@@ -936,18 +936,18 @@ public sealed class ItemService : IItemService
         string itemId,
         string folderPath,
         bool liftExclusion = false,
-        bool takeFromOtherItems = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default)
-        => _localFiles.SwapFolderForArchiveAsync(itemId, folderPath, liftExclusion, takeFromOtherItems, cancellationToken);
+        => _localFiles.SwapFolderForArchiveAsync(itemId, folderPath, liftExclusion, otherHolders, cancellationToken);
 
     /// <inheritdoc cref="LocalFileEditor.AttachFileAsync"/>
     public Task<FileAttachOutcome> AttachFileAsync(
         string itemId,
         string path,
         bool liftExclusion = false,
-        bool takeFromOtherItems = false,
+        OtherHolders otherHolders = OtherHolders.Ask,
         CancellationToken cancellationToken = default)
-        => _localFiles.AttachFileAsync(itemId, path, liftExclusion, takeFromOtherItems, cancellationToken);
+        => _localFiles.AttachFileAsync(itemId, path, liftExclusion, otherHolders, cancellationToken);
 
     /// <inheritdoc cref="LocalFileEditor.SetFileVariationsAsync"/>
     public Task<bool> SetFileVariationsAsync(

@@ -321,11 +321,28 @@ public class FolderRegistrationTests : IDisposable
         Assert.True(holder.LosesLastFile);
         Assert.Empty((await _store.Items.LoadAsync("9900123"))!.Local.LocalFiles);
 
-        var taken = await _service.SwapFolderForArchiveAsync("9900123", folder, takeFromOtherItems: true);
+        var taken = await _service.SwapFolderForArchiveAsync("9900123", folder, otherHolders: OtherHolders.TakeOver);
 
         Assert.Equal(ArchiveSwapResult.Registered, taken.Result);
         Assert.False(Assert.Single((await _store.Items.LoadAsync("9900123"))!.Local.LocalFiles).Detached);
         Assert.True(Assert.Single((await _store.Items.LoadAsync("9900124"))!.Local.LocalFiles).Detached);
+    }
+
+    /// <summary>両方に付けると頼まれたら、この商品に付けてフォルダの登録を外し、ほかの商品の記録には触れない（plan 27）。</summary>
+    [Fact]
+    public async Task ほかの商品が持つzipは両方に付けると頼まれたら向こうに残して付ける()
+    {
+        var (folder, archive, hash) = await FolderWithArchiveAsync("9900123");
+        await SaveItemAsync("9900124");
+        await SetFilesAsync("9900124", new LocalFileRecord { Hash = hash, Paths = [archive], SizeBytes = 1 });
+
+        var shared = await _service.SwapFolderForArchiveAsync("9900123", folder, otherHolders: OtherHolders.Share);
+
+        Assert.Equal(ArchiveSwapResult.Registered, shared.Result);
+        var mine = (await _store.Items.LoadAsync("9900123"))!.Local;
+        Assert.False(Assert.Single(mine.LocalFiles).Detached);
+        Assert.Empty(mine.LocalFolders);
+        Assert.False(Assert.Single((await _store.Items.LoadAsync("9900124"))!.Local.LocalFiles).Detached);
     }
 
     /// <summary>ほかの商品が外している zip は、その商品の持ち物ではないので聞かずに付ける。</summary>

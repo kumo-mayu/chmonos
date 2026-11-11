@@ -232,6 +232,12 @@ internal static partial class Scenes
         return (Window)constructor.Invoke([title, question, detail, first, second, third]);
     }
 
+    private static Window NewOwnedElsewhere(IReadOnlyList<ArchiveHolder> holders)
+    {
+        var request = ChoiceQuestion.OwnedElsewhere("ファイルを紐付ける", "作り物_衣装A_v1.2.zip", holders);
+        return NewChoice(request.Title, request.Question, request.Detail, request.First, request.Second, request.Third);
+    }
+
     private static IEnumerable<Scene> CatalogDialogs =>
     [
         DialogScene("catalog-dialog-choice-two", "2択の窓：2つの選択肢とキャンセル・説明の文あり", _ => Task.FromResult(NewChoice(
@@ -250,7 +256,18 @@ internal static partial class Scenes
             "古い方を残す",
             "両方とも残す"))),
 
-        DialogScene("catalog-dialog-rename-tag", "分類の名前を変える窓：まだ入力していない（統合先の候補3つ）", _ => Task.FromResult<Window>(
+        // ほかの商品が持つファイルを付けるときの窓（plan 27・2026-11-11 に「両方に付ける」を足した）。中身は画面と同じ ChoiceQuestion から作る
+        DialogScene("catalog-dialog-owned-elsewhere", "ほかの商品が持つファイルの窓：持ち主1件・付け直すと向こうに残らない", _ => Task.FromResult(NewOwnedElsewhere(
+            [new ArchiveHolder("9900001", "作り物のセット（衣装3点）", LosesLastFile: true)]))),
+
+        DialogScene("catalog-dialog-owned-elsewhere-many", "ほかの商品が持つファイルの窓：持ち主3件（「すべてに付ける」）", _ => Task.FromResult(NewOwnedElsewhere(
+            [
+                new ArchiveHolder("9900001", "作り物のセット（衣装3点）", LosesLastFile: false),
+                new ArchiveHolder("9900002", "作り物の衣装A", LosesLastFile: true),
+                new ArchiveHolder("9900003", "作り物の衣装B", LosesLastFile: false),
+            ]))),
+
+        DialogScene("catalog-dialog-rename-tag","分類の名前を変える窓：まだ入力していない（統合先の候補3つ）", _ => Task.FromResult<Window>(
             new RenameTagDialog(new RenameTagDialogViewModel("大分類", "かわいい", 128, ["可愛い", "カワイイ", "きれい"])))),
 
         DialogScene("catalog-dialog-rename-tag-merge", "分類の名前を変える窓：今ある名前を選んで統合になる所", _ =>

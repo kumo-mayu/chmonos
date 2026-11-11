@@ -85,10 +85,10 @@ public class DueRefreshTests : IDisposable
         public Task<FolderRelocation> RelocateFolderAsync(string itemId, string fromPath, string toPath, CancellationToken cancellationToken = default)
             => Task.FromResult(FolderRelocation.Moved);
 
-        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, bool liftExclusion = false, bool takeFromOtherItems = false, CancellationToken cancellationToken = default)
+        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, bool liftExclusion = false, OtherHolders otherHolders = OtherHolders.Ask, CancellationToken cancellationToken = default)
             => Task.FromResult(new ArchiveSwapOutcome(ArchiveSwapResult.Registered, "x.zip"));
 
-        public Task<FileAttachOutcome> AttachFileAsync(string itemId, string path, bool liftExclusion = false, bool takeFromOtherItems = false, CancellationToken cancellationToken = default)
+        public Task<FileAttachOutcome> AttachFileAsync(string itemId, string path, bool liftExclusion = false, OtherHolders otherHolders = OtherHolders.Ask, CancellationToken cancellationToken = default)
             => Task.FromResult(new FileAttachOutcome(FileAttachResult.Attached, "x.zip"));
 
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default, IProgress<int>? requestsLeft = null)

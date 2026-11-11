@@ -136,6 +136,53 @@ public class InboxArchiveSwapTests
         Assert.StartsWith("「作り物_v1.zip」で登録し直しました。", inbox.ListNotice.Text);
     });
 
+    /// <summary>3つ目の「両方に付ける」は、向こうにも残してこちらにも付ける（plan 27・2026-11-11）。</summary>
+    [Fact]
+    public Task ほかの商品が持つzipで_両方に付けるを選ぶと_向こうに残してこちらにも付ける() => TestApp.Run(async app =>
+    {
+        var (folder, hash) = await PrepareAsync(app);
+        await app.AddItemAsync(Make.Item(OtherId, "作り物の別商品").WithFiles(
+            new LocalFileRecord { Hash = hash, Paths = [folder + ".zip"], SizeBytes = 1 }));
+        var (_, inbox, row) = await OpenAsync(app);
+
+        ChoiceRequest? asked = null;
+        ChoiceQuestion.Intercept = request =>
+        {
+            asked = request;
+            return ChoiceDialogResult.Third;
+        };
+        try
+        {
+            await PressAsync(app, row);
+        }
+        finally
+        {
+            ChoiceQuestion.Intercept = null;
+        }
+
+        Assert.Equal("両方に付ける", asked!.Third);
+        Assert.Contains("「作り物の別商品」にも残したまま、この商品にも登録します。", asked.Detail);
+        Assert.False(Assert.Single((await LocalOfAsync(app, ItemId)).LocalFiles).Detached);
+        Assert.False(Assert.Single((await LocalOfAsync(app, OtherId)).LocalFiles).Detached);
+        Assert.StartsWith("「作り物_v1.zip」で登録し直しました。", inbox.ListNotice.Text);
+    });
+
+    /// <summary>持ち主が2件以上なら「両方」ではないので「すべてに付ける」と言う。</summary>
+    [Fact]
+    public void 持ち主が2件以上なら_すべてに付けると言う()
+    {
+        var request = ChoiceQuestion.OwnedElsewhere(
+            "zipで登録し直す",
+            "作り物_v1.zip",
+            [new Core.Services.ArchiveHolder("1", "作り物A", false), new Core.Services.ArchiveHolder("2", "作り物B", false)]);
+
+        Assert.Equal("すべてに付ける", request.Third);
+        Assert.Contains("「作り物A」ほか 1 件の商品にも残したまま", request.Detail);
+        Assert.Equal(Core.Services.OtherHolders.Share, ChoiceQuestion.Answer(ChoiceDialogResult.Third));
+        Assert.Equal(Core.Services.OtherHolders.TakeOver, ChoiceQuestion.Answer(ChoiceDialogResult.Second));
+        Assert.Null(ChoiceQuestion.Answer(ChoiceDialogResult.First));
+    }
+
     [Fact]
     public Task ほかの商品が持つzipで_その商品を開くを選ぶと_何も変えずにその商品ページへ() => TestApp.Run(async app =>
     {

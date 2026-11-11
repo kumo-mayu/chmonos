@@ -170,7 +170,7 @@ public sealed partial class ItemViewModel
 
                 command = command with { LiftExclusion = true };
             }
-            else if (pending.Result == FileAttachResult.OwnedElsewhere && !command.TakeFromOtherItems && pending.Holders.Count > 0)
+            else if (pending.Result == FileAttachResult.OwnedElsewhere && command.OtherHolders == OtherHolders.Ask && pending.Holders.Count > 0)
             {
                 var choice = ChoiceQuestion.Ask(ChoiceQuestion.OwnedElsewhere("ファイルを紐付ける", pending.FileName, pending.Holders));
                 if (choice == Views.ChoiceDialogResult.First)
@@ -178,12 +178,14 @@ public sealed partial class ItemViewModel
                     return new AttachStep(false, null, [], pending.Holders[0].ItemId);
                 }
 
-                if (choice != Views.ChoiceDialogResult.Second)
+                if (ChoiceQuestion.Answer(choice) is not { } answer)
                 {
                     return new AttachStep(false, null, [], null);
                 }
 
-                command = command with { TakeFromOtherItems = true };
+                command = command with { OtherHolders = answer };
+
+                // 両方に付けたときも、向こうの商品の「ほかの商品にもある」は変わり得るので知らせる（検索の写しを古いまま残さない）
                 takenFrom = pending.Holders;
             }
             else

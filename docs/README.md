@@ -54,6 +54,7 @@
 | [missing-search.md](spec/missing-search.md) | 取り込み画面の「見つからないファイルを探す」：探す範囲の窓、結び直し・日時の書き方、登録したフォルダの候補と差し替え |
 | [background-and-network.md](spec/background-and-network.md) | BOOTH への通信の決め事、優先度、起動時の裏の作業、失敗の書き残し（`logs/app.log`） |
 | [id-resolution.md](spec/id-resolution.md) | 商品IDの手掛かり、ファイル名からの自動検索、未確定の画面、「この商品から外す」 |
+| [shared-files.md](spec/shared-files.md) | 1つのファイルを2つ以上の商品に付ける：付けるときの窓（付け直す・両方に付ける）、片方の操作がもう片方にどう効くか、容量の合計を1回だけ数える |
 | [folder-layout.md](spec/folder-layout.md) | フォルダの置き方（1つ上が商品名・2つ上がショップ名など）を指定して、自動検索の手掛かりにする |
 | [private-items.md](spec/private-items.md) | BOOTH に無い商品（仮ID `local-`）、人が入れる名前・カテゴリ・ショップ、「IDを変更」 |
 | [search.md](spec/search.md) | 文字列の構文、表記をまたぐ辞書、結果のカード（絞り込みは下） |

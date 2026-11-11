@@ -22,6 +22,8 @@ internal static class ChoiceQuestion
     /// <summary>
     /// ファイルがほかの商品に付いているときに聞く中身（ユーザ判断 2026-10-05：断るだけにせず、開くか付け直すかを選ばせる）。
     /// 付け直すと向こうの手元の物が無くなるなら、押す前に言う。
+    /// 3つ目に「両方に付ける」（向こうにも残す。ユーザ判断 2026-11-11 plan 27）。答えは First＝開く・Second＝付け直す・Third＝両方に付ける
+    /// （<see cref="Answer"/>）。持ち主が2件以上なら「両方」ではないので「すべてに付ける」と言う。
     /// </summary>
     public static ChoiceRequest OwnedElsewhere(string title, string fileName, IReadOnlyList<Core.Services.ArchiveHolder> holders)
     {
@@ -29,6 +31,7 @@ internal static class ChoiceQuestion
         var who = holders.Count == 1 ? $"「{first.Name}」" : $"「{first.Name}」ほか {holders.Count - 1} 件の商品";
         var emptied = holders.Where(holder => holder.LosesLastFile).Select(holder => $"「{holder.Name}」").ToList();
         var emptiedText = emptied.Count == 0 ? string.Empty : $"{string.Join("・", emptied)}にはファイルが残りません。\n";
+        var share = holders.Count == 1 ? "両方に付ける" : "すべてに付ける";
 
         return new ChoiceRequest(
             title,
@@ -37,8 +40,22 @@ internal static class ChoiceQuestion
             + "「この商品に付け直す」\n"
             + $"{who}から外して、この商品に登録します。\n"
             + emptiedText
-            + "戻すときは、この商品から外してから、元の商品で「この商品に戻す」を押します。",
+            + "戻すときは、この商品から外してから、元の商品で「この商品に戻す」を押します。\n\n"
+            + $"「{share}」\n"
+            + $"{who}にも残したまま、この商品にも登録します。\n"
+            + "あとでこの商品から外せます。",
             "その商品を開く",
-            "この商品に付け直す");
+            "この商品に付け直す",
+            share);
     }
+
+    /// <summary>
+    /// <see cref="OwnedElsewhere"/> の答えを、命令に渡す値にする。開く・キャンセルは null（呼ぶ側が扱う）。
+    /// </summary>
+    public static Core.Services.OtherHolders? Answer(Views.ChoiceDialogResult choice) => choice switch
+    {
+        Views.ChoiceDialogResult.Second => Core.Services.OtherHolders.TakeOver,
+        Views.ChoiceDialogResult.Third => Core.Services.OtherHolders.Share,
+        _ => null,
+    };
 }

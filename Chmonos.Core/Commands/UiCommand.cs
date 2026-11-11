@@ -556,25 +556,25 @@ public abstract record UiCommand
     /// <summary>
     /// 展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。
     /// zip が除外してある・ほかの商品が持つときは、何も書かずにそう返る。窓で聞いて頼まれたときだけ、
-    /// <paramref name="LiftExclusion"/>（除外を解いて付ける）・<paramref name="TakeFromOtherItems"/>（ほかの商品から外して付ける）を立てて呼び直す。
+    /// <paramref name="LiftExclusion"/>（除外を解いて付ける）・<paramref name="OtherHolders"/>（ほかの商品から外して付ける・両方に付ける）を決めて呼び直す。
     /// </summary>
     public record SwapFolderForArchive(
         string ItemId,
         string FolderPath,
         bool LiftExclusion = false,
-        bool TakeFromOtherItems = false) : UiCommand;
+        Services.OtherHolders OtherHolders = Services.OtherHolders.Ask) : UiCommand;
 
     /// <summary>
     /// 商品ページで選んだ・落としたファイルを、この商品に結ぶ（結果は <see cref="CommandResult.FileAttached"/>）。
     /// 作者が同じ物を新しいIDで出し直したとき、ファイルの手掛かりは古いIDを指すので、取り込みでは結べない（ユーザ指示 2026-10-06）。
     /// 除外している・ほかの商品が持つときは、何も書かずにそう返る。窓で聞いて頼まれたときだけ、
-    /// <paramref name="LiftExclusion"/>・<paramref name="TakeFromOtherItems"/> を立てて呼び直す（<see cref="SwapFolderForArchive"/> と同じ）。
+    /// <paramref name="LiftExclusion"/>・<paramref name="OtherHolders"/> を決めて呼び直す（<see cref="SwapFolderForArchive"/> と同じ）。
     /// </summary>
     public record AttachFile(
         string ItemId,
         string Path,
         bool LiftExclusion = false,
-        bool TakeFromOtherItems = false) : UiCommand;
+        Services.OtherHolders OtherHolders = Services.OtherHolders.Ask) : UiCommand;
 
     /// <summary>
     /// zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。

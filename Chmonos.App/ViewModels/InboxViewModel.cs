@@ -946,7 +946,7 @@ public sealed class InboxViewModel : ViewModelBase
                 command = command with { LiftExclusion = true };
             }
             else if (pending.Result == Core.Services.ArchiveSwapResult.OwnedElsewhere
-                     && !command.TakeFromOtherItems && pending.Holders.Count > 0)
+                     && command.OtherHolders == Core.Services.OtherHolders.Ask && pending.Holders.Count > 0)
             {
                 var choice = ChoiceQuestion.Ask(ChoiceQuestion.OwnedElsewhere("zipで登録し直す", pending.ArchiveName ?? string.Empty, pending.Holders));
                 if (choice == Views.ChoiceDialogResult.First)
@@ -956,13 +956,13 @@ public sealed class InboxViewModel : ViewModelBase
                     return;
                 }
 
-                if (choice != Views.ChoiceDialogResult.Second)
+                if (ChoiceQuestion.Answer(choice) is not { } answer)
                 {
                     rowNotice.Clear();
                     return;
                 }
 
-                command = command with { TakeFromOtherItems = true };
+                command = command with { OtherHolders = answer };
                 takenFrom = pending.Holders;
             }
             else
