@@ -67,6 +67,17 @@ public static class LocalFileOrder
     /// <summary>2つのファイル名を比べる（試験と、名前だけを並べる呼び手のため）。</summary>
     public static int Compare(string x, string y, bool versions) => KeyOf(x, versions).CompareTo(KeyOf(y, versions));
 
+    /// <summary>
+    /// 名前だけを持つ一覧（編集画面の「ファイルごとの種類」など）を、設定の名前の2つの順で並べる比べ方。
+    /// 名前で並べない順（追加した順・新しい順・大きい順）では null（呼び手は今までの並びのまま）。
+    /// </summary>
+    public static IComparer<string>? NameComparer(FileOrder order) => order switch
+    {
+        FileOrder.Name => Comparer<string>.Create((x, y) => Compare(x, y, versions: false)),
+        FileOrder.NameWithVersion => Comparer<string>.Create((x, y) => Compare(x, y, versions: true)),
+        _ => null,
+    };
+
     private static FileNameKey KeyOf(string name, bool versions)
     {
         var extension = Path.GetExtension(name);

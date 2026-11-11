@@ -284,6 +284,13 @@ public sealed partial class EditViewModel
     /// <summary>ファイルの場所→ハッシュ。「追加…」で紐付いた場所を、種類に結ぶハッシュへ引く。</summary>
     private Dictionary<string, string> _hashByPath = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 「ファイルごとの種類」と種類ごとの選ぶ欄の名前の並べ方。設定の「ファイルの表示順」が名前の2つの順のときだけそれに従い、
+    /// ほかの順では今までの名前順のまま（ユーザ判断 2026-11-11：追加した順を当てると、既定で今の並びが変わる）
+    /// </summary>
+    private IComparer<string> FileNameOrder()
+        => Core.Services.LocalFileOrder.NameComparer(_services.Settings.FileOrder) ?? StringComparer.CurrentCulture;
+
     private static List<(string Hash, string Name)> FilesOf(ItemRecord record)
         => record.Local.OwnedFiles
             .Where(file => file.Paths.Count > 0)
@@ -517,7 +524,7 @@ public sealed partial class EditViewModel
                 .Select(row => new VariationChoice(row.VariationId, row.Name)));
         }
 
-        foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
+        foreach (var (hash, name) in _files.OrderBy(file => file.Name, FileNameOrder()))
         {
             // 選べるのは買った種類と「指定しない」だけ（ユーザ指示）
             var current = auto ?? EffectiveVariation(hash);
@@ -565,7 +572,7 @@ public sealed partial class EditViewModel
             {
                 if (row.VariationId == autoId)
                 {
-                    foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
+                    foreach (var (hash, name) in _files.OrderBy(file => file.Name, FileNameOrder()))
                     {
                         row.LinkedFiles.Add(new FileLinkInput { Hash = hash, Name = name });
                     }
@@ -581,7 +588,7 @@ public sealed partial class EditViewModel
                 continue;
             }
 
-            foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
+            foreach (var (hash, name) in _files.OrderBy(file => file.Name, FileNameOrder()))
             {
                 var current = EffectiveVariation(hash);
                 if (current == row.VariationId)
@@ -612,7 +619,7 @@ public sealed partial class EditViewModel
                         : looksLike ? "名前が似ています" : string.Empty);
                 })
                 .OrderByDescending(entry => entry.LooksLike)
-                .ThenBy(entry => entry.File.Name, StringComparer.CurrentCulture);
+                .ThenBy(entry => entry.File.Name, FileNameOrder());
 
             foreach (var entry in choices)
             {

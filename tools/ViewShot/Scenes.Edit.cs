@@ -56,6 +56,49 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
         }),
 
+        // 設定の「ファイルの表示順」をバージョンを考えた名前順にした形（2026-11-11）。記録の順は v10・v2・Base
+        new Scene("edit-file-sort-by-version", "編集画面：バリエーション分けの「ファイルごと」を、表示順「バージョンを考えた名前順」で開いた所", async context =>
+        {
+            var item = await context.Fake.ItemAsync(
+                "9900403",
+                "作り物の衣装（ファイルの表示順の確かめ）",
+                record => record with
+                {
+                    Booth = record.Booth! with
+                    {
+                        Variations =
+                        [
+                            new BoothVariation { Id = 1, Name = "本体", Price = 1500, Type = "downloadable" },
+                            new BoothVariation { Id = 2, Name = "テクスチャ", Price = 500, Type = "downloadable" },
+                        ],
+                    },
+                    Local = record.Local with
+                    {
+                        Purchases =
+                        [
+                            new Purchase { VariationId = 1, NameSnapshot = "本体", Price = 1500 },
+                            new Purchase { VariationId = 2, NameSnapshot = "テクスチャ", Price = 500 },
+                        ],
+                        LocalFiles =
+                        [
+                            Fake.FileRecord(Fake.Zip(@"ライブラリ\Sample_v10.zip")),
+                            Fake.FileRecord(Fake.Zip(@"ライブラリ\Sample_v2.zip")),
+                            Fake.FileRecord(Fake.Zip(@"ライブラリ\Base.zip")),
+                        ],
+                    },
+                });
+
+            var main = await context.StartAsync(settings => settings with { FileOrder = FileOrder.NameWithVersion });
+            await main.ShowEditAsync([item.Id]);
+            var edit = context.Screen<EditViewModel>();
+            edit.IsPurchasesExpanded = true;
+            edit.IsFileSortExpanded = true;
+            await SceneContext.UntilAsync(() => edit.FileSortRows.Count == 3, "ファイルごとの行が並ぶ");
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
+        }),
+
         new Scene("edit-purchase-dates", "編集画面：購入記録の行の日付の欄（メモ45。1件目に日付あり・2件目の贈った行・空欄の行と入手日と同じの薄い字）", async context =>
         {
             var item = await context.Fake.ItemAsync(
