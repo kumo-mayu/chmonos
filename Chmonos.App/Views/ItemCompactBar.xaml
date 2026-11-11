@@ -1,0 +1,85 @@
+<UserControl x:Class="Chmonos.App.Views.ItemCompactBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Chmonos.App.Controls"
+             xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             Height="52" VerticalAlignment="Top" Visibility="Collapsed"
+             xmlns:views="clr-namespace:Chmonos.App.Views"
+             views:FindInPage.IsSkipped="True">
+    <!--
+        商品ページと編集の画面の左で、商品名の段が流れ去ったら上に重ねる1行の見出し（ユーザ指示 2026-11-11。ショップの1行の見出しと同じ考え）。
+        出し入れは Controls/CompactHeaderTracker。高さは決め打ち（CompactHeader.Height と揃える）で、重ねるだけなので出入りで中身は動かない。
+        並びは「小さな絵・星・商品名・ショップ名」。星を名前の前に置くのは商品ページの頭の段・ショップの1行の見出しと同じ（メモ55）。
+        値段やボタンは足さない（どの商品を見ているかが分かれば足りる。操作は上の帯にある）
+    -->
+    <Border x:Name="Root" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+        <Grid Margin="20,0" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 検索のカードと同じ1枚（ItemViewModel.ThumbnailTile）。画像の無い商品は空の枠（星と名前の位置を商品で変えない） -->
+            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7" ClipToBounds="True"
+                    Background="{DynamicResource AccentSoft}">
+                <Image Source="{Binding Page.ThumbnailTile.Image}" Stretch="UniformToFill" />
+            </Border>
+
+            <!-- 名前が長いときは名前だけを詰め、星は名前の前に残す（左寄せの DockPanel は中身の幅までしか広がらない） -->
+            <DockPanel Grid.Column="1" Margin="12,0,16,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <Button DockPanel.Dock="Left" DataContext="{Binding Page}" Command="{Binding ToggleFavoriteCommand}"
+                        Margin="0,0,6,0" Cursor="Hand" VerticalAlignment="Center" ToolTip="{Binding FavoriteTip}"
+                        AutomationProperties.AutomationId="{Binding IdPrefix, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0}CompactFavorite}"
+                        AutomationProperties.Name="{Binding FavoriteTip}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="Transparent" Padding="2,0">
+                                <ContentPresenter />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17" RenderTransform="{StaticResource StarNudgeCompact}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Star}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button>
+                <!-- 字の大きさはショップの1行の見出しの名前と揃える -->
+                <TextBlock Text="{Binding ItemName}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip="{Binding ItemName}" />
+            </DockPanel>
+
+            <!--
+                ショップ名は右の端。商品名が長くても消えないよう、幅に上限を付けて「…」で切る。
+                商品ページでは頭の段と同じく押すとショップの画面へ（ShopCommand）。編集の画面の頭の段はただの字なので、ここも字だけ
+            -->
+            <Button Grid.Column="2" Command="{Binding ShopCommand}" Cursor="Hand" VerticalAlignment="Center" MaxWidth="260" Height="Auto"
+                    ToolTip="このショップの商品を見る"
+                    AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShopLink}"
+                    AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
+                    Visibility="{Binding HasShopCommand, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+                <TextBlock Text="{Binding ShopName}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource Accent}"
+                           TextTrimming="CharacterEllipsis" />
+            </Button>
+            <TextBlock Grid.Column="2" Text="{Binding ShopName}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource Accent}"
+                       VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShopName}"
+                       AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShop}"
+                       Visibility="{Binding HasShopCommand, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+        </Grid>
+    </Border>
+</UserControl>

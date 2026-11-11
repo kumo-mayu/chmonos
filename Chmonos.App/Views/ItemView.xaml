@@ -289,8 +289,12 @@
 
             Tag は「結び付けが届いたか」の目印（ItemView.xaml.cs の ApplyRestore）。作りたての画面では、
             最初の配置の時点で結び付けがまだ届いていないので、流した位置を戻すのをそこまで待つ
+
+            商品名の段が流れ去ったら、1行の見出し（CompactBar）を上に重ねる（ユーザ指示 2026-11-11。ショップの中と同じ考え）。
+            重ねた帯の下へも Tab・画面内検索で流せるように、帯の高さを教えられる ScrollViewer にしてある（InsetScrollViewer）
         -->
-        <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
+        <Grid>
+        <controls:InsetScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
                       Tag="{Binding}">
             <!--
                 **幅を窓に合わせる。**横に送れるScrollViewerは中身を「幅は無限」
@@ -1063,6 +1067,11 @@
                 </StackPanel>
             </controls:PaneGrid>
             </Border>
-        </ScrollViewer>
+        </controls:InsetScrollViewer>
+
+        <!-- 名前と星・絵は商品ページの持ち主から。ショップ名は頭の段と同じく押すとショップの画面へ -->
+        <views:ItemCompactBar x:Name="CompactBar" Page="{Binding}" ItemName="{Binding Name}" ShopName="{Binding ShopName}"
+                              ShopCommand="{Binding OpenShopCommand}" IdPrefix="Item" />
+        </Grid>
     </DockPanel>
 </UserControl>

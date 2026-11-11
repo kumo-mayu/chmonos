@@ -396,7 +396,12 @@
                                    ResetCommand="{Binding RightPane.ResetCommand}" />
 
             <!-- 左：何を編集しているかが分かるだけの控えめな表示 -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="20">
+            <!--
+                商品名の段が流れ去ったら、1行の見出し（LeftCompactBar）を左の列の上に重ねる（ユーザ指示 2026-11-11。商品ページ・ショップの中と同じ考え）。
+                右の入力の列は別に流れるので、重ねるのは左だけ
+            -->
+            <Grid Grid.Column="0">
+            <controls:InsetScrollViewer x:Name="LeftScroll" VerticalScrollBarVisibility="Auto" Padding="20">
                 <StackPanel>
                     <!--
                         左右で保存のしかたが違う（左は押した時点・右は「保存して次へ」）。
@@ -425,7 +430,7 @@
                                 お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。商品ページと同じ位置・同じ見た目）。
                                 押すとその場で保存する（右の入力の「保存して次へ」を待たない）
                             -->
-                            <DockPanel Margin="0,6,0,0">
+                            <DockPanel x:Name="NameRow" Margin="0,6,0,0">
                                 <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す -->
                                 <!-- Tab で止まり、Enter・Space で入れる・外す（点検 2026-10-01：商品ページの星と同じく、キーボードからは届かなかった） -->
                                 <controls:PressableBorder DockPanel.Dock="Left" DataContext="{Binding ItemPage}" VerticalAlignment="Top"
@@ -698,7 +703,12 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-            </ScrollViewer>
+            </controls:InsetScrollViewer>
+
+            <!-- 名前とショップ名は左の頭の段と同じ出どころ（入力欄に打った内容を映す）。星と絵は商品ページの持ち主から。ショップ名はただの字（頭の段と同じ） -->
+            <views:ItemCompactBar x:Name="LeftCompactBar" Page="{Binding ItemPage}" ItemName="{Binding Name}" ShopName="{Binding ShopName}"
+                                  IdPrefix="Edit" />
+            </Grid>
 
             <!-- 右：入力 -->
             <Border Grid.Column="1" Background="{DynamicResource Surface}"

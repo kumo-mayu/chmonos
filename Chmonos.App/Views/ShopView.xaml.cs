@@ -27,15 +27,7 @@ public partial class ShopView : UserControl
         }
 
         // 1行の見出しの上のホイールも、全体を流す（見出しは流す中身の外に重ねてあるので、そのままでは受け手が無い）
-        CompactBar.MouseWheel += (_, e) =>
-        {
-            ShopScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
-            {
-                RoutedEvent = MouseWheelEvent,
-                Source = CompactBar,
-            });
-            e.Handled = true;
-        };
+        Controls.CompactHeader.ForwardWheel(CompactBar, ShopScroll);
 
         // カードの大きさ（一覧の右下のスライダー）が変わったら列を割り直す。一覧の幅は変わらないので SizeChanged は来ない。
         // 知らせは静的なので、出ている間だけ聞く（離れた画面を掴んだままにしない）
@@ -177,7 +169,7 @@ public partial class ShopView : UserControl
 
         // 行が本来いる位置は、並べ終えた枠で見る（下げた分を含めない）
         var rowTop = LayoutInformation.GetLayoutSlot(StickyRow).Top;
-        var shift = ShopViewModel.StickyShift(offset, rowTop, ShopViewModel.CompactHeaderHeight);
+        var shift = ShopViewModel.StickyShift(offset, rowTop, Controls.CompactHeader.Height);
         StickyShift.Y = shift;
 
         // 止まっている間だけ、下の商品との境の線を引く。流れてくる商品が行の下に隠れて、境が分からなくなるため
@@ -199,7 +191,7 @@ public partial class ShopView : UserControl
         CompactBar.Margin = new Thickness(0, 0, Math.Max(0, ShopScroll.ActualWidth - ShopScroll.ViewportWidth), 0);
 
         // 矢印キーで移ったカードを、重なった帯の下まで流す（InsetScrollViewer）
-        ShopScroll.TopInset = (shop.IsHeaderCompact ? ShopViewModel.CompactHeaderHeight : 0) + (stuck ? StickyRow.ActualHeight : 0);
+        ShopScroll.TopInset = (shop.IsHeaderCompact ? Controls.CompactHeader.Height : 0) + (stuck ? StickyRow.ActualHeight : 0);
     }
 
     // ---- 見方・絞り・列数が変わっても、見ていた商品を同じ高さに残す（ユーザ判断 2026-10-03：画面を跳ねさせない） ----
@@ -252,7 +244,7 @@ public partial class ShopView : UserControl
             else if (!ListScrollAnchor.Restore(ShopScroll, VisibleList(shop), anchor, KeysOf))
             {
                 // 見ていた商品が絞りで無くなった。商品の先頭（止めた行のすぐ下）へ。上の段が見えているときはそのまま
-                var listTop = LayoutInformation.GetLayoutSlot(StickyRow).Top - ShopViewModel.CompactHeaderHeight;
+                var listTop = LayoutInformation.GetLayoutSlot(StickyRow).Top - Controls.CompactHeader.Height;
                 ShopScroll.ScrollToVerticalOffset(Math.Min(_carryOffset, Math.Max(0, listTop)));
             }
 

@@ -568,10 +568,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     // ---- 上の段と商品の一覧は1つのスクロール（2026-10-03 のメモ24） ----
     // 前は商品の一覧だけが流れ、上の段（バナー・見出し・メモ）は流した量に合わせて別に詰めていた（メモ7-⑤・メモ19）。
     // 一覧と上の段が別々に動いて見えるので、全体を1つのスクロールにした。名前の段が流れ去ったら、
-    // 「アイコン・名前・星・集計」の1行を上に**重ねて**出す。重ねるので、出入りで中身は動かない
-
-    /// <summary>1行の見出しの高さ（ShopView.xaml の CompactBar の Height と揃える）。「商品」の行が止まる高さにもなる。</summary>
-    internal const double CompactHeaderHeight = 52;
+    // 「アイコン・名前・星・集計」の1行を上に**重ねて**出す。重ねるので、出入りで中身は動かない。
+    // 出す境目と高さは、商品ページ・編集の画面と同じ物（Controls.CompactHeader。2026-11-11）
 
     private bool _isHeaderCompact;
 
@@ -585,13 +583,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     /// <summary>全体が流れた。1行の見出しを出すかを決める。</summary>
     /// <param name="offset">流れの位置（一番上が0）。</param>
     /// <param name="nameBottom">名前の段の下端（流す中身の上からの位置）。</param>
-    public void NoteScrolled(double offset, double nameBottom) => IsHeaderCompact = ShowsCompactHeader(offset, nameBottom);
-
-    /// <summary>
-    /// 1行の見出しを出すか：名前の段の下端が上端に着いたとき。名前の段が見えている間は同じ物が2つ並ぶので出さない。
-    /// 段の下端がまだ測れていない間（0以下）は出さない。端数（拡大率・画素の丸め）は0.5まで一番上として扱う
-    /// </summary>
-    internal static bool ShowsCompactHeader(double offset, double nameBottom) => nameBottom > 0 && offset >= nameBottom - 0.5;
+    public void NoteScrolled(double offset, double nameBottom) => IsHeaderCompact = Controls.CompactHeader.Shows(offset, nameBottom);
 
     /// <summary>
     /// 「このショップの商品」の行をどれだけ下へずらすか。行が上端（1行の見出しのすぐ下）に着くまでは0、着いたら流した分だけ下げて止める。

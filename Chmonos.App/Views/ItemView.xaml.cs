@@ -20,10 +20,16 @@ public partial class ItemView : UserControl
     /// <summary>最初の1回を当て終えたか（<see cref="ApplyRestore"/>）。ここから先は、伸びた知らせに乗せて送り直すだけ。</summary>
     private bool _restoreApplied;
 
+    /// <summary>商品名の段が流れ去ったら重ねる1行の見出し（ショップの中と同じ考え。ユーザ指示 2026-11-11）。</summary>
+    private readonly CompactHeaderTracker _compactHeader;
+
     public ItemView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+
+        // 出す境目は商品名の段（星と名前）の下端。ショップ名の行はその下にあり、帯にも出すので、境目に含めない
+        _compactHeader = new CompactHeaderTracker(Body, NameAnchor, CompactBar);
 
         // 人が触ったら、戻す先を追うのをやめる。触った後に中身が伸びて（見出しを開いた・ファイルを足した）、
         // 前の位置へ引き戻されると、見ている所が勝手に動く。時計で打ち切らないのは、読み込みの長さが商品で違うため
@@ -274,9 +280,9 @@ public partial class ItemView : UserControl
             return;
         }
 
-        // 行き先の少し上（見出しの帯の線が上端に貼り付かないように）
+        // 行き先の少し上（見出しの帯の線が上端に貼り付かないように）。流した先で1行の見出しが出るなら、その下に出す
         var top = element.TransformToAncestor(Body).Transform(new Point(0, 0)).Y + Body.VerticalOffset;
-        Body.ScrollToVerticalOffset(Math.Max(0, top - 12));
+        Body.ScrollToVerticalOffset(CompactHeader.RevealOffset(top, 12, _compactHeader.AnchorBottom));
     }
 
     /// <summary>既読にする前に測った、見ている所より上で消える帯の高さ。</summary>

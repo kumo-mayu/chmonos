@@ -137,6 +137,31 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
         }),
 
+        // 左の商品名の段が流れ去ったら、左の列の上に1行の見出しを重ねる（ユーザ指示 2026-11-11。商品ページと同じ）
+        new Scene("edit-scrolled", "編集画面：左の列を流して、商品名の段が隠れた所（左の上に1行の見出しが重なる。星はお気に入り）", async context =>
+        {
+            var item = await context.Fake.ItemAsync(
+                "9900404",
+                "作り物の衣装（編集画面の1行の見出しの確かめ・名前の長い商品）",
+                record => record with
+                {
+                    Booth = record.Booth! with { Description = LongBody("9900404") },
+                    Local = record.Local with { IsFavorite = true },
+                },
+                images: 3);
+
+            var main = await context.StartAsync();
+            await main.ShowEditAsync([item.Id]);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await context.SettleAsync();
+
+            var left = Look.View<EditView>(root) is { } view ? Look.Named<System.Windows.Controls.ScrollViewer>(view, "LeftScroll") : null;
+            left?.ScrollToVerticalOffset(900);
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
+        }),
+
         // 編集画面で入れた購入の日付が、商品ページの購入の札にどう出るか（メモ45）。場面の置き場を増やさないよう編集画面の並びに置く
         new Scene("item-page-purchase-dates", "商品ページ：バリエーションの欄だけ（購入の日付を入れた札は頭に日付・空の札はそのまま）", async context =>
         {

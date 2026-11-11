@@ -31,7 +31,7 @@ public class ShopOneScrollTests
     [InlineData(10, 0, false)]
     public void 名前の段の下端が上端に着いたら_1行の見出しを出す(double offset, double nameBottom, bool expected)
     {
-        Assert.Equal(expected, ShopViewModel.ShowsCompactHeader(offset, nameBottom));
+        Assert.Equal(expected, CompactHeader.Shows(offset, nameBottom));
     }
 
     [Theory]
@@ -96,8 +96,14 @@ public class ShopOneScrollTests
     [InlineData(100, 200, 50, 120, 180, 70)]
     // 下にはみ出すなら、下端を合わせる
     [InlineData(100, 200, 50, 250, 350, 150)]
-    // 画面（帯の下から下端まで）より高い物は、頭を帯の下に合わせる
+    // 下にある、画面（帯の下から下端まで）より高い物は、頭を帯の下に合わせる
     [InlineData(0, 200, 50, 400, 700, 350)]
+    // 見える範囲（帯の下 150〜300）を上下とも覆う高い物（商品ページの長い説明の箱）は動かさない。押して読んでいた途中から頭へ飛ばない
+    [InlineData(100, 200, 50, 0, 900, -1)]
+    // 頭が帯に隠れているだけで、見える範囲を覆っている高い物も動かさない
+    [InlineData(100, 200, 50, 120, 400, -1)]
+    // 上にある高い物は、下端を画面の下に合わせる（WPF の既定と同じ。いちばん少なく流す）
+    [InlineData(500, 200, 50, 0, 600, 400)]
     // 上へ流しても 0 より前へは行かない
     [InlineData(30, 200, 50, 10, 70, 0)]
     // 帯が無ければ、見えている範囲そのまま

@@ -19,7 +19,7 @@
                 <!-- バナーを畳む三角（TriangleExpander）。商品ページ・編集画面と同じ物を使う -->
                 <ResourceDictionary Source="ManageResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <TranslateTransform x:Key="StarNudgeCompact" Y="4" />        </ResourceDictionary>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{DynamicResource Bg}">
@@ -329,10 +329,10 @@
 
         <!--
             1行の見出し。名前の段が流れ去ったら、スクロールの上に重ねて出す（ユーザ判断 2026-10-03）。重ねるので、出入りで中身は動かない。
-            高さは決め打ち（ShopViewModel.CompactHeaderHeight と揃える）——「このショップの商品」の行が、このすぐ下で止まる。
+            高さは決め打ち（Controls.CompactHeader.Height と揃える）——「このショップの商品」の行が、このすぐ下で止まる。
             右はスクロールバーの幅だけ空ける（バーを隠さない。ShopView.xaml.cs）
         -->
-        <Border x:Name="CompactBar" Height="52" VerticalAlignment="Top" Background="{DynamicResource Surface}"
+        <Border x:Name="CompactBar" Height="52" VerticalAlignment="Top" Background="{DynamicResource Surface}" views:FindInPage.IsSkipped="True"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding IsHeaderCompact, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Grid Margin="24,0" VerticalAlignment="Center">

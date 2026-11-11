@@ -2,7 +2,7 @@
 
 > **要点**：ショップの中（バナー・1行の見出し・商品の一覧）の並べ方とスクロール、戻る・進むでの位置の戻し方。ショップの一覧の幅などは [ui-rules.md](ui-rules.md) の「画面の幅」。
 >
-> **コード**：`App/ViewModels/ShopViewModel.cs`（`MemoFirstLine`・`ShowsCompactHeader`）・`ViewportHold`・`InsetScrollViewer`・`NoScrollOnClick`・`ListAnchor`・`StickyShift`
+> **コード**：`App/ViewModels/ShopViewModel.cs`（`MemoFirstLine`・`IsHeaderCompact`）・`Controls/CompactHeader`（境目と高さ。商品ページ・編集の画面と共有）・`ViewportHold`・`InsetScrollViewer`・`NoScrollOnClick`・`ListAnchor`・`StickyShift`
 >
 > **経緯**：`docs/feedback/done-2026-10.md`（メモ24・28・40）、`docs/feedback/done-2026-09.md`（バナーの畳み・位置の戻し）
 
@@ -21,7 +21,7 @@
 
 ### 1行の見出し
 
-- 名前の段が流れ去ったら、「アイコン・星・名前・集計」の1行の見出し（星は名前の前。商品ページと同じ並び。名前の段も同じ。メモ55・2026-10-05。ショップ一覧のカードの星は絵の上の右上に重ねる別の作りなので動かさない）を**重ねて**出す（高さ52。重ねるだけで中身の大きさは変えないので、出入りで動かない。`ShopViewModel.ShowsCompactHeader`）。
+- 名前の段が流れ去ったら、「アイコン・星・名前・集計」の1行の見出し（星は名前の前。商品ページと同じ並び。名前の段も同じ。メモ55・2026-10-05。ショップ一覧のカードの星は絵の上の右上に重ねる別の作りなので動かさない）を**重ねて**出す（高さ52。重ねるだけで中身の大きさは変えないので、出入りで動かない。`CompactHeader.Shows`。商品ページと編集の画面の1行の見出しも同じ物を使う〔[item-page.md](item-page.md)〕）。
 - **メモの先頭1行を、名前の右に薄い文字で出す**（メモ28・2026-10-04。`ShopViewModel.MemoFirstLine`）。
   - 出すのは、**字のある最初の行**（空行から書き始めたメモで見出しが空に見えないように）。
   - 入り切らなければ「…」で切り、乗せると全文を出す。
@@ -40,6 +40,7 @@
 ### キー・クリック
 
 - 矢印キーで移ったカードは、重なった帯の下まで流す（`InsetScrollViewer`）。マウスで押したカードは流さない（`NoScrollOnClick`）。
+  流し方は WPF の既定（最小限）と同じで、見える範囲の上端だけ帯の下に下げる。見える範囲を覆う高い物は動かさない（2026-11-11。商品ページの長い説明の箱を押して先頭へ飛ばないように）。1行の見出しは画面内検索で探さない（下の名前と2回当たるため）。
 - 矢印の左右は段の中だけ、上下と End・Home は段の番号で移る（検索と同じ。遠い段は流してから作る）。
 
 ## 戻る・進むで位置を戻す（ユーザ判断 2026-09-28）

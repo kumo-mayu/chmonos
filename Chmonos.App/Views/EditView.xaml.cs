@@ -23,6 +23,10 @@ public partial class EditView : UserControl
         InitializeComponent();
 
         DataContextChanged += OnDataContextChanged;
+
+        // 左の商品名の段が流れ去ったら、1行の見出しを重ねる（商品ページと同じ。ユーザ指示 2026-11-11）。
+        // 次の商品へ進んでも左の流れの位置は残るので、名前の段の高さ・流れの位置が変わるたびに測り直す（CompactHeaderTracker）
+        _ = new Controls.CompactHeaderTracker(LeftScroll, NameRow, LeftCompactBar);
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

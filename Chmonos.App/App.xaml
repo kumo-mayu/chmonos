@@ -107,6 +107,12 @@
         <sys:Double x:Key="FontSizeHeading">14</sys:Double>
         <sys:Double x:Key="FontSizeTitle">20</sys:Double>
 
+        <!--
+            1行の見出し（ショップ・商品ページ・編集の画面。Controls/CompactHeader）の星（17）を下げる量。
+            ★ の字は上下の中心が字の枠より上にあり、中央ぞろえにしても名前（日本語の字）より上に見える。枠は動かさず絵だけ下げる（メモ66）
+        -->
+        <TranslateTransform x:Key="StarNudgeCompact" Y="4" />
+
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Text}" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />

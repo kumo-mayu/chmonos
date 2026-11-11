@@ -64,6 +64,12 @@ public sealed partial class ItemViewModel
         }
     }
 
+    /// <summary>
+    /// 1行の見出し（流して商品名が隠れたら上に重ねる。Controls/CompactHeader）に出す小さな絵の1枚。検索のカードと同じ選び方。
+    /// 画像が無ければ null（見出しは空の枠を出す）。
+    /// </summary>
+    public GalleryImage? ThumbnailTile { get; private set; }
+
     /// <summary>何枚目か。**2枚以上のときだけ出す**（空なら丸ごと隠す。1枚の「1 / 1」や、0枚の文字の無い黒い丸は要らない・U11 と同じ決まり）。</summary>
     public string GalleryCounter => Images.Count <= 1 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
 
@@ -243,6 +249,15 @@ public sealed partial class ItemViewModel
             tile.LoadTile(_thumbnails);
             Images.Add(tile);
         }
+
+        // 1行の見出しの小さな絵は、検索のカード・編集の帯と同じ1枚（指名・役割の設定を見る）。どの商品かを絵で見分ける所なので、
+        // ギャラリーで今見ている1枚（送ると替わる）にはしない。絵は一覧の小さな絵を使う（同じ読み込みに乗る）
+        var thumbnail = ItemImageOrder.Thumbnail(
+            ordered, Item.Local.ThumbnailImage, _services.Settings.ThumbnailRole, Item.Local.ImageRoles);
+        ThumbnailTile = thumbnail is null
+            ? null
+            : Images.FirstOrDefault(image => string.Equals(image.Path, thumbnail, StringComparison.OrdinalIgnoreCase));
+        OnPropertyChanged(nameof(ThumbnailTile));
 
         // 最初に出すのはサムネイルに指名した1枚。無ければ並びの1枚目。
         // 検索カードに出ている絵と、開いたときに見える絵を揃える

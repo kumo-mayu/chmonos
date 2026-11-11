@@ -5,7 +5,8 @@ using System.Windows.Media;
 namespace Chmonos.App.Controls;
 
 /// <summary>
-/// 上に別の部品を**重ねて**出す ScrollViewer（ショップの中：1行の見出しと、止まった「商品」の行を中身の上に重ねる）。
+/// 上に別の部品を**重ねて**出す ScrollViewer（ショップの中：1行の見出しと、止まった「商品」の行を中身の上に重ねる。
+/// 商品ページと編集の画面の左：1行の見出しを重ねる。<see cref="CompactHeaderTracker"/>）。
 ///
 /// 重ねた部品の下に隠れた所まで流しても、WPF の「見える所まで流して」（<see cref="FrameworkElement.BringIntoView()"/>）は
 /// 隠れていることを知らず、「見えている」と答える。矢印キーでカードを移ったとき、重ねた帯の下にカードが残る。
@@ -102,7 +103,10 @@ public sealed class InsetScrollViewer : ScrollViewer
 
     /// <summary>
     /// 帯の下に出す流れの位置。もう出ていれば null（動かさない）。
-    /// 画面（帯の下から下端まで）より高い物は、上端を帯の下に合わせる（全体は見せられないので、頭から見せる）
+    /// 動かし方は WPF の既定（最小限だけ流す）と同じで、見える範囲の上端だけを帯の下に下げる。帯が無ければ既定とまったく同じに動く。
+    /// 下にある、画面（帯の下から下端まで）より高い物は、上端を帯の下に合わせる（全体は見せられないので、頭から見せる）。
+    /// **見える範囲を覆っている高い物は動かさない**（2026-11-11）：商品ページの説明の箱のように画面より高い字の箱は、
+    /// 中を押すとフォーカスを受けて「見える所まで」を頼む。頭へ送ると、読んでいた途中から先頭へ飛ぶ
     /// </summary>
     /// <param name="offset">今の流れの位置。</param>
     /// <param name="viewport">見えている高さ。</param>
@@ -118,12 +122,22 @@ public sealed class InsetScrollViewer : ScrollViewer
             return null;
         }
 
-        if (bottom - top >= viewport - inset || top < visibleTop)
+        var above = top < visibleTop && bottom < visibleBottom;
+        var below = bottom > visibleBottom && top > visibleTop;
+        var larger = bottom - top >= visibleBottom - visibleTop;
+        if ((above && !larger) || (below && larger))
         {
             return Math.Max(0, top - inset);
         }
 
-        return bottom - viewport;
+        if (above || below)
+        {
+            // 上にある高い物は、下端を画面の下に合わせる（いちばん少なく流して、見える所を広げる）。下にある低い物も同じ
+            return Math.Max(0, bottom - viewport);
+        }
+
+        // 見える範囲を上下とも覆っている
+        return null;
     }
 
     // 文の中の Run のような見た目の木に居ない物は、論理の木で上へ出る

@@ -23,6 +23,17 @@ public static class FindInPage
     /// <summary>ひらがな・カタカナ、全角・半角、大文字・小文字は区別しない。アバター名の絞り込みと揃える。</summary>
     public const CompareOptions Options = CompareOptions.IgnoreCase | CompareOptions.IgnoreKanaType | CompareOptions.IgnoreWidth;
 
+    /// <summary>
+    /// 探さない部品の印。流して名前が隠れたら上に重ねる1行の見出し（ショップ・商品ページ・編集の画面）は、
+    /// 下の中身にある名前の写しなので、探すと同じ名前が2回当たり、写しの方へ印が飛ぶ（2026-11-11）
+    /// </summary>
+    public static readonly DependencyProperty IsSkippedProperty = DependencyProperty.RegisterAttached(
+        "IsSkipped", typeof(bool), typeof(FindInPage), new PropertyMetadata(false));
+
+    public static bool GetIsSkipped(DependencyObject element) => (bool)element.GetValue(IsSkippedProperty);
+
+    public static void SetIsSkipped(DependencyObject element, bool value) => element.SetValue(IsSkippedProperty, value);
+
     public static List<FindMatch> Find(DependencyObject root, string needle)
     {
         var matches = new List<FindMatch>();
@@ -37,7 +48,7 @@ public static class FindInPage
 
         void Walk(DependencyObject node)
         {
-            if (node is UIElement { IsVisible: false })
+            if (node is UIElement { IsVisible: false } || GetIsSkipped(node))
             {
                 return;
             }
