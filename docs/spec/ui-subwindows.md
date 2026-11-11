@@ -44,4 +44,4 @@
 ## 試験と撮影
 
 - 試験は窓を作らない：`FilePoolViewModel.OpenIntercept` を `TestApp` が差し替え、作り物の窓（前に出した回数・閉じる）を控える。
-- 撮影台は窓を出さずに中身を載せる（`Scenes.FilePool.cs`。`file-pool`・`-set-selected`・`-nothing-shown`）。
+- 撮影台は窓を出さずに中身を載せる（`Scenes.FilePool.cs`。`file-pool`・`-set-selected`・`-nothing-shown`・`-filtered`・`-filtered-none`・`-many`・`-after-changes`）。

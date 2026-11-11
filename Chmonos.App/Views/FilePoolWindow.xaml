@@ -57,6 +57,20 @@
             </Setter>
         </Style>
 
+        <!--
+            左の商品の行の頭の絵。通知の行（InboxView の ResultThumbnail の型）と同じ作りで、行が1行の名前なので枠は小さく 36。
+            絵が届くまで・絵の無い商品は頭文字
+        -->
+        <DataTemplate DataType="{x:Type vm:ResultThumbnail}">
+            <Border Width="36" Height="36" CornerRadius="4" Margin="0,0,10,0" Background="{DynamicResource ThumbBack}" ClipToBounds="True">
+                <Grid>
+                    <TextBlock Text="{Binding Initial}" FontSize="{StaticResource FontSizeHeading}" Foreground="{DynamicResource TextMuted}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Source="{Binding Image}" Stretch="UniformToFill" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <!-- 右の溜まりのファイル1行。1つだけの組は見出しを出さずにこの行だけを出す -->
         <DataTemplate x:Key="PoolFileRow" DataType="{x:Type vm:FilePoolFileRow}">
             <Border Style="{StaticResource ButtonListRow}" Padding="4,3">
@@ -155,8 +169,28 @@
                     <Grid>
                     <TextBlock Text="{Binding ItemsEmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="6"
                                Visibility="{Binding HasItemsEmptyText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                        <controls:ContentItemsControl ItemsSource="{Binding ShownItems}" AutomationProperties.AutomationId="FilePoolItems">
+                    <!--
+                        商品の行で仮想化する（通知の一覧と同じ形）：見えない商品の行は作らず、絵も読まない。外の ScrollViewer の中に置くと
+                        仮想化が効かず、選んだ商品の全部の絵を読む（docs/dev/wpf.md「一覧と速さ」）。広げた行は高さが違うので画素で流す
+                    -->
+                        <controls:ContentItemsControl ItemsSource="{Binding ShownItems}" AutomationProperties.AutomationId="FilePoolItems"
+                                                      VirtualizingPanel.IsVirtualizing="True"
+                                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                                      VirtualizingPanel.ScrollUnit="Pixel"
+                                                      ScrollViewer.CanContentScroll="True">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                                                  CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:FilePoolItemRow}">
                                     <StackPanel>
@@ -165,7 +199,7 @@
                                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource RowExpandToggle}" VerticalAlignment="Center" Margin="2,0,4,0"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       AutomationProperties.Name="{Binding ExpandName}" />
-                                        <controls:PressableBorder x:Name="Head" Focusable="True" Cursor="Hand" CornerRadius="4" Padding="8,6"
+                                        <controls:PressableBorder x:Name="Head" Focusable="True" Cursor="Hand" CornerRadius="4" Padding="6,4"
                                                                   Background="Transparent"
                                                                   Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                   CommandParameter="{Binding}"
@@ -177,6 +211,7 @@
                                                               CommandParameter="{Binding}" />
                                             </controls:PressableBorder.InputBindings>
                                             <DockPanel>
+                                                <ContentPresenter DockPanel.Dock="Left" Content="{Binding Picture}" VerticalAlignment="Center" Focusable="False" />
                                                 <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
                                                            VerticalAlignment="Center" Margin="8,0,0,0" />
                                                 <!-- 付ける先の印。色だけだと、広げた行が並ぶと区切りの色と見分けにくい -->
@@ -184,7 +219,7 @@
                                                         Margin="8,0,0,0" Visibility="Collapsed">
                                                     <TextBlock Text="付ける先" FontSize="{StaticResource FontSizeBadge}" Foreground="{DynamicResource AccentText}" />
                                                 </Border>
-                                                <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSmall}"
+                                                <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                             </DockPanel>
                                         </controls:PressableBorder>
@@ -235,7 +270,6 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
-                    </ScrollViewer>
                     </Grid>
                 </Border>
             </DockPanel>

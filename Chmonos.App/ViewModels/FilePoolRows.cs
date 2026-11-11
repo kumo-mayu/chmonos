@@ -20,6 +20,13 @@ public sealed class FilePoolItemRow : ViewModelBase
 
     public string Name { get; private set; }
 
+    /// <summary>
+    /// 行の頭の商品の絵（ユーザ指摘 2026-11-11「選んだ商品にはサムネを着けましょう」）。通知の行と同じ作り：画面が行を作って読んだときに初めて、
+    /// 絵の場所を裏で決めて縮めて読む（左の一覧は仮想化してあり、見えない行は何も読まない）。絵が無い商品は頭文字。
+    /// 行は読み直しでも使い回すので、場所を決め直さない
+    /// </summary>
+    public ResultThumbnail? Picture { get; init; }
+
     /// <summary>付ける先として選んでいるか。色と札で示すだけで、下のファイルの開閉（<see cref="IsExpanded"/>）とは連動しない。</summary>
     public bool IsSelected
     {

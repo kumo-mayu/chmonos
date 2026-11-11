@@ -390,7 +390,10 @@ public sealed class FilePoolViewModel : ViewModelBase
         {
             if (!byId.TryGetValue(item.Id, out var row))
             {
-                row = new FilePoolItemRow(item.Id, item.DisplayName);
+                row = new FilePoolItemRow(item.Id, item.DisplayName)
+                {
+                    Picture = ResultThumbnail.ForItem(_services, _main.Thumbnails, item.Id, item.DisplayName),
+                };
             }
 
             row.Update(item);

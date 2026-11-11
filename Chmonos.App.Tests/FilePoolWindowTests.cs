@@ -1,9 +1,13 @@
+using System.IO;
 using System.Windows;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Commands;
+using Chmonos.Core.Images;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Chmonos.App.Tests;
 
@@ -187,6 +191,46 @@ public class FilePoolWindowTests
         // 右の組の「すべて広げる」は左に響かない
         pool.CollapseAllCommand.Execute(null);
         Assert.All(pool.Items, row => Assert.True(row.IsExpanded));
+    });
+
+    // ---- 左の商品の絵 ----
+
+    [Fact]
+    public Task 左の商品の絵は読まれるまで決めず_絵の無い商品は頭文字で_読み直しでも決め直さない() => TestApp.Run(async app =>
+    {
+        // 絵を1枚持つ商品（作り物の 4×4 の絵）
+        var item = Make.Item("9900804", "作り物の髪飾り");
+        item = item with { Booth = item.Booth with { Images = [new BoothImage { OriginalUrl = "https://sample.invalid/9900804/a.png" }] } };
+        var directory = app.Services.Paths.ItemImagesDir(item.Id);
+        Directory.CreateDirectory(directory);
+        var file = Path.Combine(directory, ImagePipeline.FileNameFor(item.Booth.Images[0].OriginalUrl));
+        using (var image = new Image<Rgba32>(4, 4))
+        {
+            image.SaveAsWebp(file);
+        }
+
+        await app.AddItemAsync(item);
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main, SetId, "9900804");
+
+        var dressed = Row(pool, "9900804").Picture!;
+        var bare = Row(pool, SetId).Picture!;
+        Assert.Equal("作", dressed.Initial);
+
+        // 画面が行を作って絵を読むまでは、商品の記録を読みに行かない
+        Assert.Null(dressed.Path);
+
+        _ = dressed.Image;
+        _ = bare.Image;
+        await UiThread.Until(() => dressed.Path is not null, "絵の場所が決まる");
+        await app.SettleAsync();
+        Assert.Equal(file, dressed.Path);
+        Assert.Null(bare.Path);
+        Assert.Null(bare.Image);
+
+        // 読み直しても行と絵は使い回す
+        await pool.ReloadAsync();
+        Assert.Same(dressed, Row(pool, "9900804").Picture);
     });
 
     // ---- 探す欄 ----

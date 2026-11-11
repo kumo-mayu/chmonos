@@ -78,7 +78,44 @@ internal static partial class Scenes
             }),
 
         FilePoolAfterChanges,
+        FilePoolMany,
     ];
+
+    /// <summary>
+    /// 選んだ商品が多いとき（40件・絵のある物と無い物が交互）。左の一覧が仮想化されていて、見えない商品の行を作らない（絵を読まない）ことを、撮る前に確かめる
+    /// </summary>
+    private static Scene FilePoolMany => new(
+        "file-pool-many",
+        "ファイルの割り振り：選んだ商品40件（絵のある商品と頭文字の商品）。左は見えている行だけを作る",
+        async context =>
+        {
+            var ids = new List<string>();
+            for (var i = 0; i < 40; i++)
+            {
+                var id = (9900900 + i).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                ids.Add(id);
+                await context.Fake.ItemAsync(id, $"作り物の衣装{i + 1:00}", images: i % 2 == 0 ? 1 : 0);
+            }
+
+            var main = await context.StartAsync();
+            var pool = new FilePoolViewModel(context.Services, main, ids);
+            await pool.ReloadAsync();
+            var root = SceneContext.Unwrap(new FilePoolWindow(pool));
+            await context.PresentAsync(root);
+            await context.SettleAsync();
+
+            var made = Look.All<Chmonos.App.Controls.PressableBorder>(root).Count();
+            if (made == 0 || made >= ids.Count)
+            {
+                throw new InvalidOperationException($"左の一覧が仮想化されていません（作った行 {made}・商品 {ids.Count}）。");
+            }
+
+            return new Shot(root);
+        })
+    {
+        Width = 924,
+        Height = 600,
+    };
 
     /// <summary>
     /// 窓を載せた後に付ける・外す・ほかの道の書き込みで読み直す（ほかの場面は載せる前に並べ終えるので、表示した後の組み直しを通らない）。
@@ -146,7 +183,7 @@ internal static partial class Scenes
                 Local = item.Local with { LocalFiles = [top, skirt, socks, hair, boots, manual] },
             });
             await context.Fake.ItemAsync(PoolPartAId, "作り物の上着", item => item with { Local = item.Local with { LocalFiles = [top] } });
-            await context.Fake.ItemAsync(PoolPartBId, "作り物のスカート（単品）とても長い名前の商品は端で省く");
+            await context.Fake.ItemAsync(PoolPartBId, "作り物のスカート（単品）とても長い名前の商品は端で省く", images: 0);
             await context.Fake.ItemAsync("9900884", "作り物の靴下", item => item with { Local = item.Local with { LocalFiles = [socks] } });
 
             var main = await context.StartAsync();
