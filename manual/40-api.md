@@ -56,7 +56,7 @@ Invoke-RestMethod "http://127.0.0.1:$($api.port)/v1/items?limit=5" -Headers @{ A
 ```json
 {
   "processId": 12345,
-  "startedAt": "2026-11-11T09:00:00.1234567+09:00",
+  "startedAt": "2026-11-11T09:00:00.12+09:00",
   "storeRoot": "D:\\Chmonos",
   "port": 39847,
   "apiFile": "D:\\Chmonos\\api.json",

@@ -27,7 +27,7 @@
 ```json
 {
   "processId": 12345,
-  "startedAt": "2026-11-11T09:00:00.1234567+09:00",
+  "startedAt": "2026-11-11T09:00:00.12+09:00",
   "storeRoot": "D:\\作り物\\Chmonos",
   "port": 39847,
   "apiFile": "D:\\作り物\\Chmonos\\api.json",

@@ -41,9 +41,10 @@ public sealed class RunningInstancesTests : IDisposable
             return;
         }
 
-        Assert.False(StoreLocation.AllowsUserStore);
-        Assert.Null(RunningInstances.Directory);
-        Assert.Null(RunningInstanceRecorder.Start(RunningInstances.Directory, Record(Environment.ProcessId, @"D:\作り物\保存先")));
+        // 置き場は1回だけ読み、書く側には null を渡す（読んだ後に印が変わっても、本物の置き場へ書く窓を作らない）
+        var directory = RunningInstances.Directory;
+        Assert.Null(directory);
+        Assert.Null(RunningInstanceRecorder.Start(null, Record(Environment.ProcessId, @"D:\作り物\保存先")));
     }
 
     [Fact]
@@ -103,7 +104,7 @@ public sealed class RunningInstancesTests : IDisposable
         Assert.False(RunningInstances.IsAlive(MissingProcessId, null));
 
         // 壊れた札（プロセスが無い）・確かめられない札・ほかのファイル
-        File.WriteAllText(Path.Combine(_directory, "4000004.json"), "{ 壊れている");
+        File.WriteAllText(RunningInstances.FileFor(_directory, 4_000_004), "{ 壊れている");
         RunningInstances.Write(_directory, Record(4_000_008, @"D:\作り物\分からない"));
         RunningInstances.Write(_directory, Record(4_000_012, @"D:\作り物\別のプログラム"));
         File.WriteAllText(Path.Combine(_directory, "readme.json"), "{}");
@@ -118,7 +119,7 @@ public sealed class RunningInstancesTests : IDisposable
         using var recorder = RunningInstanceRecorder.Start(_directory, Record(Environment.ProcessId, @"D:\作り物\今"), Judge)!;
 
         Assert.False(File.Exists(RunningInstances.FileFor(_directory, MissingProcessId)));
-        Assert.False(File.Exists(Path.Combine(_directory, "4000004.json")));
+        Assert.False(File.Exists(RunningInstances.FileFor(_directory, 4_000_004)));
         Assert.False(File.Exists(RunningInstances.FileFor(_directory, 4_000_012)));
         Assert.True(File.Exists(RunningInstances.FileFor(_directory, 4_000_008)));
         Assert.True(File.Exists(Path.Combine(_directory, "readme.json")));
