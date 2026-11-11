@@ -434,6 +434,7 @@ public partial class App : Application
         if (main.IsRelocatingStore)
         {
             main.StopBackgroundWork();
+            main.CloseSubWindows();
             return;
         }
 
@@ -444,6 +445,9 @@ public partial class App : Application
             WaitForPendingWrites(main.FlushPendingWritesAsync());
             SaveWindowPlacement(main, mainWindow);
             e.Cancel = true;
+
+            // 隠すだけでは、持ち主の窓のサブ画面は残る。明示して閉じる
+            main.CloseSubWindows();
             mainWindow.Hide();
             _compactor?.SetWindowShown(false);
             return;
@@ -469,6 +473,9 @@ public partial class App : Application
         }
 
         SavePlacement(main, mainWindow);
+
+        // 閉じると決まった所で閉じる（書きかけを聞いて「キャンセル」なら、上で戻るのでサブ画面も残る）
+        main.CloseSubWindows();
     }
 
     /// <summary>
