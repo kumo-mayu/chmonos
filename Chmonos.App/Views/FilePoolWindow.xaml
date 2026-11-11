@@ -153,7 +153,7 @@
             <DockPanel Grid.Column="0">
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                     <TextBlock Text="{Binding ItemsHeading}" FontWeight="SemiBold" />
-                    <TextBlock Text="商品を押すと付ける先に選びます。「商品ページを開く」はメインの画面で開きます。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    <TextBlock Text="商品を押すと付ける先に選びます。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
                     <Grid Margin="0,6,0,0">
                         <TextBox Text="{Binding ItemFilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
                                  BorderBrush="{DynamicResource BorderStrong}"
@@ -204,22 +204,18 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:FilePoolItemRow}">
                                     <StackPanel>
-                                        <DockPanel>
+                                        <!-- 三角・行・ボタンを見た順に書く（Tab も左から順に止まる。DockPanel では右のボタンを行より先に書くことになり、行より先に止まった） -->
+                                        <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
                                         <!-- 開閉は三角だけで行う。付ける先（行を押す）とは別に持つ -->
-                                        <ToggleButton DockPanel.Dock="Left" Style="{StaticResource RowExpandToggle}" VerticalAlignment="Center" Margin="2,0,4,0"
+                                        <ToggleButton Grid.Column="0" Style="{StaticResource RowExpandToggle}" VerticalAlignment="Center" Margin="2,0,4,0"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       AutomationProperties.Name="{Binding ExpandName}" />
-                                        <!--
-                                            メインの画面で商品ページを開くのはこのボタンだけ。付ける先（行を押す）とは別に持つ
-                                            （ユーザ指摘 2026-11-11「付ける先の商品画面を常に見たいわけではない…付ける先とは独立して管理する」）。
-                                            行の押せる所の外に置く：中に置くと、開くだけのつもりで付ける先も替わる
-                                        -->
-                                        <Button DockPanel.Dock="Right" Content="商品ページを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,2,0"
-                                                Command="{Binding DataContext.OpenItemPageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                ToolTip="メインの画面でこの商品のページを開きます。"
-                                                AutomationProperties.Name="{Binding OpenPageName}" AutomationProperties.AutomationId="FilePoolOpenItemPage" />
-                                        <controls:PressableBorder x:Name="Head" Focusable="True" Cursor="Hand" CornerRadius="4" Padding="6,4"
+                                        <controls:PressableBorder Grid.Column="1" x:Name="Head" Focusable="True" Cursor="Hand" CornerRadius="4" Padding="6,4"
                                                                   Background="Transparent"
                                                                   Command="{Binding DataContext.SelectItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                   CommandParameter="{Binding}"
@@ -260,18 +256,30 @@
                                                 <StackPanel VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSmall}"
                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                                    <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                    <!-- 狭いときは数を「…」で省く（横に並べる StackPanel は省かずに途中で切れた） -->
+                                                    <DockPanel Margin="0,1,0,0">
                                                         <!-- 付ける先の印。色だけだと、広げた行が並ぶと区切りの色と見分けにくい -->
-                                                        <Border x:Name="TargetBadge" Style="{StaticResource BadgeAccent}" VerticalAlignment="Center"
+                                                        <Border x:Name="TargetBadge" DockPanel.Dock="Left" Style="{StaticResource BadgeAccent}" VerticalAlignment="Center"
                                                                 Margin="0,0,6,0" Visibility="Collapsed">
                                                             <TextBlock Text="付ける先" FontSize="{StaticResource FontSizeBadge}" Foreground="{DynamicResource AccentText}" />
                                                         </Border>
-                                                        <TextBlock Text="{Binding FileCountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                                    </StackPanel>
+                                                        <TextBlock Text="{Binding FileCountText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
                                                 </StackPanel>
                                             </DockPanel>
                                         </controls:PressableBorder>
-                                        </DockPanel>
+                                        <!--
+                                            メインの画面で商品ページを開くのはこのボタンだけ。付ける先（行を押す）とは別に持つ
+                                            （ユーザ指摘 2026-11-11「付ける先の商品画面を常に見たいわけではない…付ける先とは独立して管理する」）。
+                                            行の押せる所の外に置く：中に置くと、開くだけのつもりで付ける先も替わる
+                                        -->
+                                        <Button Grid.Column="2" Content="商品ページを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,2,0"
+                                                Command="{Binding DataContext.OpenItemPageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="メインの画面でこの商品のページを開きます。"
+                                                AutomationProperties.Name="{Binding OpenPageName}" AutomationProperties.AutomationId="FilePoolOpenItemPage" />
+                                        </Grid>
 
                                         <!-- 広げた商品の下に、付いているファイルを並べる -->
                                         <StackPanel x:Name="Held" Visibility="Collapsed" Margin="44,0,4,6">
