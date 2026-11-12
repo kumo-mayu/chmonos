@@ -128,6 +128,58 @@ public class SearchUnityContentsTests
         await UiThread.Until(() => !search.HasOpenUnityStatus, "調べ終わる");
     });
 
+    /// <summary>
+    /// 起動では、検索の画面を作るときと、主画面がそれを出すときの2回、開いているかを見直す（後の方が前の方を古いとして捨てる）。
+    /// 後の見直しが一覧の読み込みより遅れても、最初の一覧は絞ってから出す。前は前の見直しだけを待っていたので、
+    /// 後の方が少し遅れるだけで全商品が一瞬出て、「調べています」も出なかった（2026-11-12）。
+    /// 遅れは時計で作らず、一覧を出す側が待ちに着いたときに後の見直しを放して作る
+    /// </summary>
+    [Fact]
+    public Task 起動の見直しが重なって後の方が遅れても_最初の一覧から絞る() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(UnityProjectPath.Normalize(project)!, Packages("9900002"));
+        await app.Services.SettingsStore.UpdateUiStateAsync(state => state with { SearchOpenUnityOnly = true });
+        ScanFinds(app, "9900002");
+        IReadOnlyList<OpenUnityEditor> editors = [new OpenUnityEditor(1, "projA", project)];
+        using var second = new Gate();
+        var calls = 0;
+
+        // 3回目より後（読み込みの後の、使っている商品の見張りなど）は止めない。見直しは裏のスレッドから来る
+        app.Services.OpenUnityEditors = () =>
+        {
+            if (Interlocked.Increment(ref calls) == 2)
+            {
+                second.Wait();
+            }
+
+            return editors;
+        };
+
+        var starting = app.StartWhileWorkRunsAsync();
+        var search = app.Main.Search;
+        search.FirstOpenProjectsLimit = () =>
+        {
+            second.Set();
+            return Task.Delay(TimeSpan.FromSeconds(30));
+        };
+        IReadOnlyList<string>? first = null;
+        search.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(SearchViewModel.IsLoading) && !search.IsLoading)
+            {
+                first ??= Shown(search);
+            }
+        };
+
+        await starting;
+
+        // 見終わった後の一覧ではなく、読み込みが済んだ瞬間の一覧を見る（後の見直しが当たれば、すぐに絞られてしまう）
+        Assert.Equal(["9900002"], first);
+    });
+
     [Fact]
     public Task スイッチを押すと_オンかオフかを覚える() => TestApp.Run(async app =>
     {

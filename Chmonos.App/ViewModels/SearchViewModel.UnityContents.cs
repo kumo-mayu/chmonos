@@ -43,8 +43,12 @@ public sealed partial class SearchViewModel
     /// <summary>控えを読んだプロジェクト。「読み直す」は入れ直した後に押すので、消えたはずの物を控えからまた見せない。</summary>
     private readonly HashSet<string> _savedScansRead = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>起動のときの、開いているプロジェクトの確認。これが終わるまで最初の一覧を出さない。</summary>
-    private Task? _firstOpenProjectsCheck;
+    /// <summary>
+    /// 起動のときに、開いているプロジェクトが最初に当たったら解ける。これが解けるまで最初の一覧を出さない。
+    /// 起動の見直しの1本目を待つのでは足りない：主画面が検索を出すときにもう1本見直し、1本目はそれに古いとして捨てられるので、
+    /// 2本目が少し遅れるだけで、何も当たらないまま一覧が出ていた（2026-11-12）。どの見直しが当てても解けるようにする
+    /// </summary>
+    private TaskCompletionSource? _firstOpenProjectsApplied;
 
     private IReadOnlyList<UnityProjectCandidate>? _unityProjects;
     private bool _loadingUnityProjects;
@@ -264,23 +268,28 @@ public sealed partial class SearchViewModel
     {
         if (_openUnityOnly || ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
         {
-            _firstOpenProjectsCheck = RefreshOpenProjectsAsync();
-            _firstOpenProjectsCheck.Forget();
+            // 続きを別に回すのは、当てた見直しの途中（絞り直す前）に一覧を出す側の続きが割り込まないため
+            _firstOpenProjectsApplied = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         }
-        else
-        {
-            // 待たずに見るだけ。スイッチを押せるか（灰色か）を決める
-            RefreshOpenProjectsAsync().Forget();
-        }
+
+        // 待たないときも見る。スイッチを押せるか（灰色か）を決める
+        RefreshOpenProjectsAsync().Forget();
     }
 
-    /// <summary>最初の確認を待つ。プロセスの列挙が詰まっても一覧は出す（1秒は、ふつう数十ミリ秒で済む確認に対する余裕）。</summary>
+    /// <summary>
+    /// 最初の確認を待つ上限。プロセスの列挙が詰まっても一覧は出す（1秒は、ふつう数十ミリ秒で済む確認に対する余裕）。
+    /// 試験は、一覧を出す側が待ちに着いた瞬間を知るために差し替える（時計に頼らず、見直しの終わる順を作る）
+    /// </summary>
+    internal Func<Task> FirstOpenProjectsLimit { get; set; } = () => Task.Delay(TimeSpan.FromSeconds(1));
+
     private async Task WaitFirstOpenProjectsCheckAsync()
     {
-        if (_firstOpenProjectsCheck is { } check)
+        // 待つのは起動の1回だけ（上限で抜けた後の読み直しで、毎回待たせない）。
+        // 外すのは待ち終えてから：先に外すと、待っている間に当てた見直しが解く相手を見失う
+        if (_firstOpenProjectsApplied is { } applied)
         {
-            _firstOpenProjectsCheck = null;
-            await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(1)));
+            await Task.WhenAny(applied.Task, FirstOpenProjectsLimit());
+            _firstOpenProjectsApplied = null;
         }
     }
 
@@ -295,6 +304,23 @@ public sealed partial class SearchViewModel
     {
         _openProjectsChecked = true;
         var generation = ++_openProjectsGeneration;
+        try
+        {
+            await ApplyOpenProjectsAsync(generation);
+        }
+        finally
+        {
+            // 最新の見直しが終われば、当てたときも失敗したときも最初の一覧を待たせない（失敗したら後から当てる見直しが無い）。
+            // 古いとして捨てた見直しでは解かない：後に始めた方がまだ当てていない
+            if (generation == _openProjectsGeneration)
+            {
+                _firstOpenProjectsApplied?.TrySetResult();
+            }
+        }
+    }
+
+    private async Task ApplyOpenProjectsAsync(int generation)
+    {
         var (paths, unknown) = await Task.Run(() =>
         {
             var found = new List<string>();
