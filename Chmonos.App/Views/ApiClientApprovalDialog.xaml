@@ -39,7 +39,7 @@
         <TextBlock Text="許可する変更" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
         <TextBlock Text="データの読み取りは、許可するといつでもできます。"
                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,6" />
-        <TextBlock Text="変更は求めていません。読み取りだけを許可します。" Style="{StaticResource Caption}" TextWrapping="Wrap"
+        <TextBlock Text="{Binding NoScopesText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                    Visibility="{Binding HasScopes, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
         <controls:ContentItemsControl ItemsSource="{Binding Scopes}"
                                       Visibility="{Binding HasScopes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -52,6 +52,23 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </controls:ContentItemsControl>
+
+        <!-- 見られる操作（plan 44）。データを変えないので「変更」とは分けて並べる。求めていなければ節ごと出さない -->
+        <StackPanel Visibility="{Binding HasWatches, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="知らせる操作" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
+            <TextBlock Text="チェックした操作をしたとき、このソフトに知らせます。"
+                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,6" />
+            <controls:ContentItemsControl ItemsSource="{Binding Watches}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:ApiScopeChoice}">
+                        <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,0,0,4"
+                                  Foreground="{DynamicResource Text}"
+                                  AutomationProperties.AutomationId="ApiApproval.Watch"
+                                  AutomationProperties.Name="{Binding Label}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </controls:ContentItemsControl>
+        </StackPanel>
 
         <TextBlock Text="前に許可したソフトです。許可すると、前のトークンは使えなくなります。"
                    Style="{StaticResource FieldWarning}" TextWrapping="Wrap" Margin="0,12,0,0"

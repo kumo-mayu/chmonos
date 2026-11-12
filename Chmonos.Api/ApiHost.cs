@@ -29,7 +29,8 @@ internal sealed record ApiHostOptions(
     bool Watch = true,
     DataStore? Store = null,
     ApiWriteHooks? Writes = null,
-    IConnectionOwners? Owners = null);
+    IConnectionOwners? Owners = null,
+    PluginEventHub? Plugins = null);
 
 /// <summary>読み込んだ写しと、答えに要る物。</summary>
 internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataStore? sharedStore = null)
@@ -348,17 +349,24 @@ internal static class ApiHost
         builder.Services.AddSingleton(requests);
         builder.Services.AddSingleton(options.Owners ?? TcpConnectionOwners.Instance);
 
+        // 出来事の列はアプリが持つ（API を始め直しても購読を保つ）。渡されなければ（試験・道具）この API だけの列
+        var plugins = options.Plugins ?? new PluginEventHub(state.Clock);
+        builder.Services.AddSingleton(plugins);
+        plugins.Attach(state.Clients);
+
         var app = builder.Build();
         var token = Encoding.UTF8.GetBytes("Bearer " + options.Token);
         app.Use((context, next) => GuardAsync(context, next, token, state));
         ApiEndpoints.Map(app);
         ApiClientEndpoints.Map(app);
+        PluginEndpoints.Map(app);
         app.MapOpenApi("/v1/openapi.json");
 
         // 止まるときは SSE の聞き手に知らせてから、見張りを止める。許しを聞いている窓も閉じる
         app.Lifetime.ApplicationStopping.Register(() =>
         {
             requests.Stop();
+            plugins.Detach(state.Clients);
             feed.Publish("stopping", [], [], null, state.Clock());
             feed.CloseAll();
             sync.Dispose();
@@ -396,9 +404,9 @@ internal static class ApiHost
             if (HttpMethods.IsOptions(request.Method))
             {
                 // 書き込みを許しているときだけ、書く方法（PUT・PATCH・DELETE）も許す（許可したオリジンのページからは書ける。ユーザ判断 2026-10-13）
-                // 事前の確かめにはトークンが付かないので誰か分からない。古いトークンの許しか、書き込みを許したソフトが1つでもあれば許す
+                // 事前の確かめにはトークンが付かないので誰か分からない。古いトークンの許しか、書き込みか見張りを許したソフトが1つでもあれば許す
                 // （本当に書けるかは本番の要求でトークンの権限を見る）
-                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites || state.Clients.AnyWrites ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
+                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites || state.Clients.AnyScopes ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
                 context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID, If-None-Match";
                 context.Response.Headers.AccessControlMaxAge = "600";
                 context.Response.StatusCode = StatusCodes.Status204NoContent;

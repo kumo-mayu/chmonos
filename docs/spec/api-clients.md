@@ -101,7 +101,23 @@
 - 書き込みの守り（`ApiWriter.Guard`）は種類を**省けない引数**で受ける（入れ忘れた道が黙って通らないように）。足りなければ 403 `scopeNotGranted`。古いトークンは今までどおり 403 `writesDisabled`。
 - 1つの道に1つの種類。Unity へ送った後の「使った」の足跡・改変の行の記録は、送るの一部として `unity` だけで許す。
 - 読むのは種類を問わず許す（SSE も）。
-- ブラウザの事前の確かめ（OPTIONS）にはトークンが付かないので、`allowWrites` か、書き込みを1つでも許したソフトがあれば、書く方法（PUT・PATCH・DELETE）も許す。本当に書けるかは本番の要求で見る。
+- ブラウザの事前の確かめ（OPTIONS）にはトークンが付かないので、`allowWrites` か、書き込みか見張りを1つでも許したソフトがあれば、書く方法（PUT・PATCH・DELETE）も許す（見張りだけのページも購読を PUT で送る）。本当に書けるかは本番の要求で見る。
+
+## 見張りの種類（2026-11-12・plan 44 の①）
+
+画面の操作をソフトへ知らせる種類（[plugins.md](plugins.md)）。書き込みではないが、使う人の操作を外へ出すので、書き込みと同じく許しの窓で人が選ぶ（ユーザ判断 2026-11-12「選ばせましょう」）。
+名前は `watch.` と出来事の種類。書き込みと同じ `scopes` で求め、同じ `scopes` の欄に控える（知らない種類は読むときに捨てる決まりのまま。古い版は見張りを知らずに捨てる）。
+
+| 名前 | 画面の名前 | 購読できる種類 |
+|---|---|---|
+| `watch.itemOpened` | 商品ページを開いたこと | `itemOpened` |
+| `watch.selectionChanged` | 選んだ商品 | `selectionChanged` |
+| `watch.importFinished` | 取り込みが終わったこと | `importFinished` |
+
+- 許しの窓は「許可する変更」の下に「知らせる操作」の節を分けて並べる（データを変えない物を「変更」に混ぜない）。求めたのが見張りだけなら「変更は求めていません。」（「読み取りだけ」とは言わない）。
+- 設定の「つないでいるソフト」も、書き込みのチェックの下に「知らせる操作」のチェックを並べる。外すとその場で購読も外れる。
+- 一覧は `ApiScopes.Writes`・`Watches`、控えに書ける全部は `All`（権限を書き換えるときはこの順で並べ直す。書き込みだけで並べ直すと見張りの許しが黙って消える）。
+- `GET /v1/clients/me` の古いトークンの答えに見張りは入らない（古いトークンは出来事の流れを使えない）。
 
 ## トークンを照らす
 
@@ -123,7 +139,7 @@
 
 ```json
 { "version": 1, "clients": [ { "id": "…", "name": "作り物の道具", "exePath": "C:\\作り物\\Tool.exe", "origin": null,
-  "scopes": ["marks", "tags"], "tokenHash": "<SHA-256 の16進>", "grantedAt": "…", "lastUsedAt": null } ],
+  "scopes": ["marks", "tags"], "tokenHash": "<SHA-256 の16進>", "grantedAt": "…", "lastUsedAt": null, "lastPolledAt": null } ],
   "refusalLimit": 3,
   "refusals": [ { "name": "…", "exePath": "…", "origin": null, "count": 3, "lastRefusedAt": "…", "blockedAt": "…" } ] }
 ```

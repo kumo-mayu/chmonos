@@ -116,6 +116,8 @@ if ($result.state -eq "approved") {
   | `unity` | Unity へ送る・止める |
   | `open` | Chmonos の画面で表示する・エクスプローラで開く |
 
+  次のバージョンから、画面の操作を知る `watch.` で始まる種類も求められます（[画面の操作を知る](#画面の操作を知る次のバージョンから)）。
+
 - 許可したツールは、設定の「API」の「つないでいるソフト」に並びます。変えられる種類を後から変えたり、許可を取り消したりできます。
 - （次のバージョンから）窓で「拒否」を続けて3回押したツールは止めます。止めたツールが許可を求めると、窓を開かずにすぐ断ります（`403`・`requestBlocked`）。
   止めたツールは設定の「API」の「止めているソフト」に並び、「止めを外す」でまた求められるようになります。一度許可すると、拒否の回数は0に戻ります。数えるのはマウスで「拒否」をクリックしたときだけです。キーボードで押したときや、窓を閉じただけのときは数えません。
@@ -259,6 +261,37 @@ if (@($missing).Count -gt 0) {
 - `GET /v1/changes?since=<通番>&epoch=<名前>`：前に見た時点より後に変わったことを返します。通番と名前は `/v1/version` の `sequence`・`epoch` にあります。答えの `reload` が `true` のときは、変わったことを全部は追えていないので、全部を取り直してください。
 - `GET /v1/events`：変わったことを Server-Sent Events で流します。つなぎ直すときは、最後に受けた `id` を `Last-Event-ID` で送ると、続きから流れます。
 
+### 画面の操作を知る（次のバージョンから）
+
+使う人が Chmonos で商品ページを開いた・商品を選んだ・取り込みが終わった、をツールが知る方法です。[ソフトごとに許可を求めた](#ソフトごとに許可を求める次のバージョンから)ツールだけが使えます（`api.json` のトークンでは `403`・`clientTokenRequired`）。
+
+1. 許可を求めるときに、`scopes` に知りたい操作を入れます。窓の「知らせる操作」で、使う人が外すこともあります。
+
+   | 名前 | 知らせること | 届く中身 |
+   |---|---|---|
+   | `watch.itemOpened` | 商品ページを開いた | `itemOpened.itemId` |
+   | `watch.selectionChanged` | 検索・フォルダ・ショップで選んだ商品が変わった | `selectionChanged` の `screen`（`search`・`folder`・`shop`）・`itemIds`（1000件まで）・`count`（選んだ数）・`truncated`（1000件で切ったか） |
+   | `watch.importFinished` | 取り込みが終わった | `importFinished` の `outcome`（`imported`・`failed`・`cancelled`）と件数 |
+
+2. `PUT /v1/plugin/subscriptions` に `{"kinds": ["itemOpened", "selectionChanged"]}` を送ります（`watch.` を付けない名前）。許されていない種類があると `403`（`scopeNotGranted`）です。空の配列で止めます。
+3. `GET /v1/plugin/events?after=<通番>&wait=30&epoch=<名前>` を繰り返します。届いていればすぐ、無ければ `wait` 秒（30まで）待ってから答えます。答えの `last` を次の `after` に、`epoch` を次の `epoch` にします。
+   - `reset` が `true` のときは、Chmonos が起動し直しました。もう一度 2. から送ってください。
+   - `dropped` が 0 でないときは、取りに来ない間にあふれて、その数だけ届けられませんでした。
+
+```powershell
+$headers = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod "$base/v1/plugin/subscriptions" -Method Put -Headers $headers -ContentType "application/json" -Body '{"kinds":["itemOpened"]}'
+$after = 0; $epoch = $null
+while ($true) {
+  $answer = Invoke-RestMethod "$base/v1/plugin/events?after=$after&wait=30&epoch=$epoch" -Headers $headers
+  foreach ($event in $answer.events) { "$($event.kind) $($event.itemOpened.itemId)" }
+  $after = $answer.last; $epoch = $answer.epoch
+}
+```
+
+- 選んだ商品は、選び終えてから少し後（0.3秒ほど）にまとめて届きます。
+- 設定の「API」の「つないでいるソフト」で「知らせる操作」のチェックを外すと、その場で届かなくなります。
+
 ## 自作の Web ページから使う
 
 ブラウザで開いたページから使うときは、そのページのオリジンを設定の「API」の「許可するオリジン」に追加します（例：`http://localhost:5173`）。追加していないページからの問い合わせは断ります。
@@ -323,6 +356,7 @@ if (@($missing).Count -gt 0) {
 | `401`（`unauthorized`） | トークンが違います。`api.json` の `token` を送ってください。作り直した後は新しいトークンに替えてください。 |
 | `403`（`writesDisabled`） | 設定の「API」で「ほかのアプリからの変更を許す」（次のバージョンから「api.jsonのトークンからの変更を許す」）をオンにしてください。 |
 | `403`（`scopeNotGranted`）（次のバージョンから） | そのツールには、その種類の変更が許されていません。設定の「API」の「つないでいるソフト」でチェックを入れてください。 |
+| `403`（`clientTokenRequired`）（次のバージョンから） | 画面の操作を知るには、ソフトごとに許可を求めて受け取ったトークンを使ってください。 |
 | `503`（`approvalUnavailable`）（次のバージョンから） | Chmonos のウィンドウを開いてから、もう一度許可を求めてください。 |
 | `403`（`requestBlocked`）（次のバージョンから） | 使う人が拒否を続けたので止めています。設定の「API」の「止めているソフト」で止めを外してから、もう一度許可を求めてください。 |
 | `409`（`itemBeingEdited`） | Chmonos の編集画面でその商品を開いています。編集を終えてから送ってください。 |

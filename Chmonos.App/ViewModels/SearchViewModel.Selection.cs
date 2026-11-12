@@ -180,6 +180,9 @@ public sealed partial class SearchViewModel
         }
 
         RelayCommand.RaiseCanExecuteChanged();
+
+        // 購読しているソフトへ（plan 44）。ID は流すときに読む
+        _services.PluginSelection.Note("search", () => Services.PluginSelectionBatcher.SelectedIds(_matches, _cards.Values));
     }
 
     /// <summary>今の絞り込み結果を全部選ぶ（帯の「すべて選択」・Ctrl+A）。画面に出ていないものは選ばない。</summary>

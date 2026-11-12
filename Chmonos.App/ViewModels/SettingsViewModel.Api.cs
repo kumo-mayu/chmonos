@@ -447,7 +447,8 @@ public sealed class ApiClientRow
     public ApiClientRow(ApiClientRecord record, Action<ApiClientRow, ApiScopeChoice> scopeChanged, Action<ApiClientRow> revoke)
     {
         _record = record;
-        Scopes = ApiScopes.All.Select(scope => new ApiScopeChoice(scope, record.Scopes?.Contains(scope) == true, choice => scopeChanged(this, choice))).ToList();
+        Scopes = ApiScopes.Writes.Select(scope => new ApiScopeChoice(scope, record.Scopes?.Contains(scope) == true, choice => scopeChanged(this, choice))).ToList();
+        Watches = ApiScopes.Watches.Select(scope => new ApiScopeChoice(scope, record.Scopes?.Contains(scope) == true, choice => scopeChanged(this, choice))).ToList();
         RevokeCommand = new RelayCommand(() => revoke(this));
     }
 
@@ -465,6 +466,9 @@ public sealed class ApiClientRow
         : "まだ使っていません";
 
     public IReadOnlyList<ApiScopeChoice> Scopes { get; }
+
+    /// <summary>知らせる操作のチェック（plan 44。全部の種類を並べ、許している物にチェック。外すとその場で購読も止まる）。</summary>
+    public IReadOnlyList<ApiScopeChoice> Watches { get; }
 
     public RelayCommand RevokeCommand { get; }
 

@@ -900,6 +900,13 @@ public sealed partial class MainViewModel : ViewModelBase
             _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed).Forget();
         }
 
+        // 購読しているソフトへ「商品ページを開いた」（plan 44）。開き直し（取り直し・API が書いた後）では出さない：
+        // API の書き込みで開き直すたびに出すと、ソフトが受けて書く → 開き直し → また出す、の輪になる
+        if (_nextNavigation is not Navigation.Replace)
+        {
+            _services.PluginEvents.PublishItemOpened(item.Id);
+        }
+
         // 流した位置の決まり（ItemViewModel.Scroll.cs）：開き直し（履歴に積まない差し替え）は今の位置を保ち、
         // 戻る・進むは控えの位置へ、どちらでもなければ先頭から。画面へ差し込む前に伝える（View は差し込まれた時点で読む）
         CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails)

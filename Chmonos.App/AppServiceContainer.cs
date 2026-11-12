@@ -293,7 +293,7 @@ public sealed class AppServiceContainer : IDisposable
         itemId => ShowItemInWindow?.Invoke(itemId) ?? Task.FromResult(false),
         (item, path) => Services.ApiReveal.RevealAsync(item, path, Volumes),
         // ソフトの許しは主の窓で聞く（窓が見えていなければ断る。plan 31）
-        new Services.ApiClientApprovalPrompt(() => MainWindowForApprovals?.Invoke())));
+        new Services.ApiClientApprovalPrompt(() => MainWindowForApprovals?.Invoke())), PluginEvents);
 
     /// <summary>許しを聞く窓の持ち主になる主の窓（App が差し込む。画面のスレッドで呼ぶ。画面無しでまだ開いていなければ null）。</summary>
     internal Func<System.Windows.Window?>? MainWindowForApprovals { get; set; }
@@ -317,6 +317,17 @@ public sealed class AppServiceContainer : IDisposable
     internal Func<string, Task<bool>>? ShowItemInWindow { get; set; }
 
     private Services.ApiRunner? _api;
+
+    /// <summary>複数選択の変化をまとめてソフトへ知らせる係（plan 44。誰も購読していなければ何もしない）。</summary>
+    internal Services.PluginSelectionBatcher PluginSelection => _pluginSelection ??= new(PluginEvents);
+
+    /// <summary>
+    /// ソフトへの出来事の列（plan 44）。API の係（<see cref="Api"/>）とは別に持つ：画面が出来事を出すたびに API の係を作ると、
+    /// 試験が API を初めて使う前に差し替える部品（<see cref="ApiUnity"/>）より先に本物で組んでしまう
+    /// </summary>
+    public Chmonos.Api.PluginEventHub PluginEvents { get; } = new();
+
+    private Services.PluginSelectionBatcher? _pluginSelection;
 
     /// <summary>
     /// 動いている Chmonos の一覧に、このプロセスの札を書く（docs/spec/running-instances.md）。画面あり・画面無しのどちらも App の起動の同じ所から呼ぶ。

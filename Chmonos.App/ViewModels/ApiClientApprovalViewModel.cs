@@ -3,7 +3,7 @@ using Chmonos.Core.Models;
 
 namespace Chmonos.App.ViewModels;
 
-/// <summary>書き込みの種類1つのチェック（許しの窓と、設定の「つないでいるソフト」の行）。</summary>
+/// <summary>書き込みか見張りの種類1つのチェック（許しの窓と、設定の「つないでいるソフト」の行）。</summary>
 public sealed class ApiScopeChoice : ViewModelBase
 {
     private bool _isChecked;
@@ -49,7 +49,8 @@ public sealed class ApiClientApprovalViewModel : ViewModelBase
         HasExePath = request.ExePath is not null;
         Origin = request.Origin;
         Replaces = request.Replaces;
-        Scopes = request.Scopes.Select(scope => new ApiScopeChoice(scope, isChecked: true)).ToList();
+        Scopes = request.Scopes.Where(ApiScopes.IsWrite).Select(scope => new ApiScopeChoice(scope, isChecked: true)).ToList();
+        Watches = request.Scopes.Where(ApiScopes.IsWatch).Select(scope => new ApiScopeChoice(scope, isChecked: true)).ToList();
         LastRefusal = request.RefusalsLeft == 1;
     }
 
@@ -76,13 +77,24 @@ public sealed class ApiClientApprovalViewModel : ViewModelBase
     public bool HasScopes => Scopes.Count > 0;
 
     /// <summary>
+    /// 求められた見張りの種類（plan 44。既定はすべてチェック）。見張りは書き込みではないが、使う人の操作を外へ出すので、人が選ぶ（ユーザ判断 2026-11-12）。
+    /// 書き込みと分けて並べる：「変更」の下に置くと、データを変えない物まで変更に見える
+    /// </summary>
+    public IReadOnlyList<ApiScopeChoice> Watches { get; }
+
+    public bool HasWatches => Watches.Count > 0;
+
+    /// <summary>変更を求めていないときの1行。見張りを求めているなら「読み取りだけ」とは言わない（見張りも許すので、嘘になる）。</summary>
+    public string NoScopesText => HasWatches ? "変更は求めていません。" : "変更は求めていません。読み取りだけを許可します。";
+
+    /// <summary>
     /// 次に拒否すると止まるか（「あと1回」を出す）。2回以上残っているときは出さない：
     /// 毎回の窓に回数を並べると、許すかを決める文が埋もれる。知らせが要るのは、次の拒否で窓が出なくなる時だけ
     /// </summary>
     public bool LastRefusal { get; }
 
     /// <summary>許したときの答え（チェックした種類だけ）。</summary>
-    public ApiClientDecision Approve() => new(true, Scopes.Where(choice => choice.IsChecked).Select(choice => choice.Scope).ToList());
+    public ApiClientDecision Approve() => new(true, Scopes.Concat(Watches).Where(choice => choice.IsChecked).Select(choice => choice.Scope).ToList());
 
     /// <summary>
     /// 止めるまでの回数に数える拒否か。数えるのは、マウス（タッチもマウスの押下として来る）で［拒否］をクリックしたときだけ（ユーザ判断 2026-11-11）。

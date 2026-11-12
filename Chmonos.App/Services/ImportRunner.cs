@@ -1,3 +1,4 @@
+using Chmonos.Api;
 using Chmonos.Core.Commands;
 using Chmonos.Core.Scanning;
 
@@ -203,6 +204,7 @@ public sealed class ImportRunner(AppServiceContainer services)
         services.Api.NoteBusy("import", "import");
         Started?.Invoke(_work);
 
+        ImportOutcome? finished = null;
         try
         {
             // 後始末（作業集合を手放す）で覆われた所で書く（書けなくても取り込みを止めたまま残さない）
@@ -230,6 +232,8 @@ public sealed class ImportRunner(AppServiceContainer services)
                 outcome = new ImportOutcome.Canceled();
             }
 
+            finished = outcome;
+
             foreach (var listener in _ending)
             {
                 await listener(outcome);
@@ -247,7 +251,35 @@ public sealed class ImportRunner(AppServiceContainer services)
             _cancellation = null;
             _work = null;
             services.Api.NoteBusy("import", null);
+            PublishFinished(finished);
             Finished?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 購読しているソフトへ「取り込みが終わった」（plan 44）。「取り込み中」を解いた後に出す（API の写しの読み直しは、この後に始まる）。
+    /// 中身は結果の種類と件数だけ：壊れた zip の商品名・失敗の文・パスは使う人の持ち物なので載せない
+    /// </summary>
+    private void PublishFinished(ImportOutcome? outcome)
+    {
+        var hub = services.PluginEvents;
+        if (!hub.Watches(PluginEventHub.ImportFinished))
+        {
+            return;
+        }
+
+        var import = outcome switch
+        {
+            ImportOutcome.Imported { Summary: var summary } => new Chmonos.Query.PluginImport("imported", summary.ItemsAdded, summary.ItemsAlreadyKnown, summary.UnresolvedFiles),
+            ImportOutcome.Failed => new Chmonos.Query.PluginImport("failed", null, null, null),
+            ImportOutcome.Canceled => new Chmonos.Query.PluginImport("cancelled", null, null, null),
+
+            // 結果の分からない終わり（ほかの命令の答え・始める前の失敗）は知らせない
+            _ => null,
+        };
+        if (import is not null)
+        {
+            hub.PublishImport(import);
         }
     }
 

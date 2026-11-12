@@ -88,8 +88,14 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
 
     public IReadOnlyList<ApiClientRecord> All => _index.All;
 
-    /// <summary>書き込みを1つでも許したソフトがあるか（ブラウザの事前の確かめで、書く方法を許すか）。</summary>
-    public bool AnyWrites => _index.All.Any(client => client.Scopes.Count > 0);
+    /// <summary>
+    /// 書き込みか見張りを1つでも許したソフトがあるか（ブラウザの事前の確かめで、書く方法を許すか）。
+    /// 見張りだけ許したページも、購読を PUT で送るので数に入れる（plan 44）
+    /// </summary>
+    public bool AnyScopes => _index.All.Any(client => client.Scopes.Count > 0);
+
+    /// <summary>今の控えの、この ID のソフト（取り消されていれば null）。出来事を積むたびに今の許しを見るため。</summary>
+    public ApiClientRecord? ById(string clientId) => _index.All.FirstOrDefault(client => client.Id == clientId);
 
     /// <summary>読み直す。読めなければ（手で壊した JSON）誰のトークンも通さない（空として扱い、ログに残す）。</summary>
     public void Reload()
@@ -244,13 +250,34 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
         _ = TouchCoreAsync(client.Id, now);
     }
 
-    private async Task TouchCoreAsync(string clientId, DateTimeOffset now)
+    /// <summary>ソフトごとに、最後に取りに来た日時を最後に書いた時刻。</summary>
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _polled = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 出来事を取りに来た印（plan 44）。控えに書くのは使った日時と同じく <see cref="TouchInterval"/> ごと：
+    /// 取りに来るのは長く待つ問い合わせの繰り返しで、何も起きなければ30秒ごと、起きればもっと頻繁に来る。正確な時刻は列（<see cref="PluginEventHub"/>）がメモリに持つ
+    /// </summary>
+    public void NotePolled(ApiClientRecord client)
+    {
+        var now = clock();
+        var last = _polled.GetOrAdd(client.Id, client.LastPolledAt ?? DateTimeOffset.MinValue);
+        if (now - last < TouchInterval || !_polled.TryUpdate(client.Id, now, last))
+        {
+            return;
+        }
+
+        _ = TouchCoreAsync(client.Id, now, polled: true);
+    }
+
+    private async Task TouchCoreAsync(string clientId, DateTimeOffset now, bool polled = false)
     {
         try
         {
             await store().ApiClients.UpdateAsync(list => list with
             {
-                Clients = (list.Clients ?? []).Select(client => client.Id == clientId ? client with { LastUsedAt = now } : client).ToList(),
+                Clients = (list.Clients ?? [])
+                    .Select(client => client.Id != clientId ? client : polled ? client with { LastPolledAt = now } : client with { LastUsedAt = now })
+                    .ToList(),
             });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
@@ -424,7 +451,7 @@ internal sealed class ApiClientRequests
             throw;
         }
 
-        Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{record.Name}」を許した（書き込み：{(record.Scopes.Count == 0 ? "なし" : string.Join("・", record.Scopes))}）");
+        Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{record.Name}」を許した（許したこと：{(record.Scopes.Count == 0 ? "読み取りだけ" : string.Join("・", record.Scopes))}）");
         return new ClientResultAnswer(Approved, token, record.Id, record.Scopes);
     }
 

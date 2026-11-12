@@ -120,6 +120,38 @@ public sealed record ClientResultAnswer(string State, string? Token, string? Cli
 public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Name, IReadOnlyList<string> Scopes);
 
 /// <summary>
+/// ソフトへの出来事1つ（<c>GET /v1/plugin/events</c>。plan 44・docs/spec/plugins.md）。<see cref="Seq"/> はソフトごとの通番（起動ごとに 1 から）。
+/// 中身は種類と同じ名前の欄に入れ、ほかの種類の欄は null（項目を省かない決まり）
+/// </summary>
+public sealed record PluginEvent(
+    long Seq, string Epoch, string Kind, DateTimeOffset At, PluginItemOpened? ItemOpened, PluginSelection? SelectionChanged, PluginImport? ImportFinished);
+
+/// <summary>商品ページを開いた。</summary>
+public sealed record PluginItemOpened(string ItemId);
+
+/// <summary>
+/// 複数選択が変わった（まとめてから流す）。<see cref="Screen"/>：search・folder・shop。<see cref="ItemIds"/> は先頭から上限まで、
+/// <see cref="Count"/> は選んだ全部の数、<see cref="Truncated"/> は上限で切ったか
+/// </summary>
+public sealed record PluginSelection(string Screen, IReadOnlyList<string> ItemIds, int Count, bool Truncated);
+
+/// <summary>取り込みが終わった。<see cref="Outcome"/>：imported・failed・cancelled。件数は imported のときだけ入る。</summary>
+public sealed record PluginImport(string Outcome, int? ItemsAdded, int? ItemsAlreadyKnown, int? UnresolvedFiles);
+
+/// <summary>
+/// 出来事の答え。<see cref="Last"/> は返した中の最後の通番（無ければ送られた after。次はこれを after に）。
+/// <see cref="Reset"/> は起動の名前が変わった・after が先へ行きすぎていたので頭から返した印（購読を送り直してもらう）。
+/// <see cref="Dropped"/> は列があふれて渡せなかった数
+/// </summary>
+public sealed record PluginEventsAnswer(string Epoch, long Last, bool Reset, long Dropped, IReadOnlyList<PluginEvent> Events);
+
+/// <summary>購読（丸ごと置き換える。空で止める）。</summary>
+public sealed record PluginSubscriptionsBody(IReadOnlyList<string>? Kinds);
+
+/// <summary>購読の答え。<see cref="Last"/> は今の最後の通番（ここから after にすれば、これより後だけを受ける）。</summary>
+public sealed record PluginSubscriptionsAnswer(string Epoch, long Last, IReadOnlyList<string> Kinds);
+
+/// <summary>
 /// 誤りの答え（RFC 9457 <c>application/problem+json</c>）。<see cref="Code"/> は機械が読む名前で変えない。<see cref="Detail"/> は人が読む説明。
 /// </summary>
 public sealed record ProblemAnswer(string Type, string Title, int Status, string Detail, string Code);

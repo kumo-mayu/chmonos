@@ -534,6 +534,9 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         }
 
         RelayCommand.RaiseCanExecuteChanged();
+
+        // 購読しているソフトへ（plan 44）。ID は流すときに読む
+        _services.PluginSelection.Note("folder", () => Services.PluginSelectionBatcher.SelectedIds(_listItems.OfType<ItemCardViewModel>(), _cards.Values));
     }
 
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----

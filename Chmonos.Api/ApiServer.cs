@@ -37,7 +37,8 @@ public sealed class ApiServer : IAsyncDisposable
     /// </summary>
     /// <param name="store">アプリの保存先の一式。商品の記録をアプリの控えと共有する。</param>
     /// <param name="writes">書き込みの口（アプリの命令の口など）。無ければ書き込みの URL は 503 で断る。</param>
-    public static async Task<ApiServer> StartAsync(DataStore store, ApiWriteHooks? writes = null, CancellationToken cancellationToken = default)
+    /// <param name="plugins">ソフトへの出来事の列（アプリが1つ持ち、始め直しても購読を保つ。plan 44）。無ければこの API だけの列。</param>
+    public static async Task<ApiServer> StartAsync(DataStore store, ApiWriteHooks? writes = null, PluginEventHub? plugins = null, CancellationToken cancellationToken = default)
     {
         var paths = store.Paths;
         var settings = ApiFiles.ReadSettings(paths);
@@ -45,7 +46,7 @@ public sealed class ApiServer : IAsyncDisposable
         var token = string.IsNullOrEmpty(endpoint?.Token) ? ApiFiles.NewToken() : endpoint.Token;
 
         var (app, state, sync) = await ApiHost.BuildAsync(
-            new ApiHostOptions(paths.Root, settings.Port, token, settings.AllowedOrigins, Store: store, Writes: writes),
+            new ApiHostOptions(paths.Root, settings.Port, token, settings.AllowedOrigins, Store: store, Writes: writes, Plugins: plugins),
             cancellationToken);
         // 待ち受けを始めてから記録を書き終えるまでを1つの失敗の扱いで覆う。前は記録の保存が失敗すると、動いている待ち受けを
         // 誰も持たないまま残し、オフにしても止まらず、古いトークンで答え続けた（点検36）

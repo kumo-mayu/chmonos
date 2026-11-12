@@ -113,7 +113,7 @@ internal static class ApiClientEndpoints
             var caller = ApiCallerInfo.Of(context);
             var answer = caller.Client is { } client
                 ? new ClientSelfAnswer("client", client.Id, client.Name, ["read", .. client.Scopes])
-                : new ClientSelfAnswer("legacy", null, null, state.AllowWrites ? ["read", .. ApiScopes.All] : ["read"]);
+                : new ClientSelfAnswer("legacy", null, null, state.AllowWrites ? ["read", .. ApiScopes.Writes] : ["read"]);
             return ApiHost.Json(answer, json.ClientSelfAnswer);
         })
             .Produces<ClientSelfAnswer>(StatusCodes.Status200OK, "application/json")

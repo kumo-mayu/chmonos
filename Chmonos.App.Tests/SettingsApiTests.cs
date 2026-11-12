@@ -303,7 +303,8 @@ public sealed class SettingsApiTests
         Assert.Equal("まだ使っていません", row.LastUsedText);
 
         // 並びはいつも全部の種類。持っている物だけにチェック
-        Assert.Equal(ApiScopes.All, row.Scopes.Select(choice => choice.Scope));
+        Assert.Equal(ApiScopes.Writes, row.Scopes.Select(choice => choice.Scope));
+        Assert.Equal(ApiScopes.Watches, row.Watches.Select(choice => choice.Scope));
         Assert.Equal([ApiScopes.Marks], row.Scopes.Where(choice => choice.IsChecked).Select(choice => choice.Scope));
 
         row.Scopes.Single(choice => choice.Scope == ApiScopes.Tags).IsChecked = true;
@@ -340,6 +341,52 @@ public sealed class SettingsApiTests
         Assert.Equal(["別の作り物"], settings.ApiClients.Select(row => row.Name));
         settings.OnLeaving();
     });
+
+    [Fact]
+    public Task 知らせる操作のチェックは_書き込みの許しと並べて残す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具", ApiScopes.Marks, ApiScopes.WatchItemOpened)],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        var row = settings.ApiClients.Single();
+        Assert.Equal([ApiScopes.WatchItemOpened], row.Watches.Where(choice => choice.IsChecked).Select(choice => choice.Scope));
+
+        // 書き込みのチェックを入れても見張りの許しは消えない（並べ直しは全部の種類の順）
+        row.Scopes.Single(choice => choice.Scope == ApiScopes.Tags).IsChecked = true;
+        await app.SettleAsync();
+        Assert.Equal([ApiScopes.Marks, ApiScopes.Tags, ApiScopes.WatchItemOpened], app.Services.Store.ApiClients.Load().Clients.Single().Scopes);
+
+        row = settings.ApiClients.Single();
+        row.Watches.Single(choice => choice.Scope == ApiScopes.WatchImportFinished).IsChecked = true;
+        row.Watches.Single(choice => choice.Scope == ApiScopes.WatchItemOpened).IsChecked = false;
+        await app.SettleAsync();
+        Assert.Equal([ApiScopes.Marks, ApiScopes.Tags, ApiScopes.WatchImportFinished], app.Services.Store.ApiClients.Load().Clients.Single().Scopes);
+        settings.OnLeaving();
+    });
+
+    [Fact]
+    public void 許しの窓は_知らせる操作を変更と分けて並べ_チェックした物だけ許す()
+    {
+        var model = new ApiClientApprovalViewModel(new Chmonos.Api.ApiClientRequestInfo(
+            "作り物の道具", null, null, [ApiScopes.Marks, ApiScopes.WatchItemOpened, ApiScopes.WatchSelectionChanged], Replaces: false));
+
+        Assert.Equal([ApiScopes.Marks], model.Scopes.Select(choice => choice.Scope));
+        Assert.Equal([ApiScopes.WatchItemOpened, ApiScopes.WatchSelectionChanged], model.Watches.Select(choice => choice.Scope));
+        Assert.True(model.HasWatches);
+
+        model.Watches.Single(choice => choice.Scope == ApiScopes.WatchSelectionChanged).IsChecked = false;
+        Assert.Equal([ApiScopes.Marks, ApiScopes.WatchItemOpened], model.Approve().Scopes);
+
+        // 見張りだけを求めたときは「読み取りだけ」と言わない
+        var watchOnly = new ApiClientApprovalViewModel(new Chmonos.Api.ApiClientRequestInfo("作り物の道具", null, null, [ApiScopes.WatchImportFinished], Replaces: false));
+        Assert.False(watchOnly.HasScopes);
+        Assert.Equal("変更は求めていません。", watchOnly.NoScopesText);
+        Assert.Equal("変更は求めていません。読み取りだけを許可します。", new ApiClientApprovalViewModel(
+            new Chmonos.Api.ApiClientRequestInfo("作り物の道具", null, null, [], Replaces: false)).NoScopesText);
+    }
 
     [Fact]
     public void 許しの窓は_求められた種類を既定でチェックし_外した物は許さない()

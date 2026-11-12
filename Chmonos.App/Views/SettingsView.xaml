@@ -1207,11 +1207,11 @@
 
                             <!--
                                 つないでいるソフト（plan 31）。許しを求めて人が許したソフトの一覧。ソフトごとに書き込みの種類を変える・取り消す・最後に使った日時を見る。
-                                読み取りはどのソフトもできるので、チェックは書き込みの種類だけ
+                                読み取りはどのソフトもできるので、チェックは書き込みと知らせる操作（plan 44）の種類だけ
                             -->
                             <TextBlock Text="つないでいるソフト" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                       Text="APIの利用を許可したソフトです。データの読み取りはどのソフトもできます。チェックした変更だけを許可します。" />
+                                       Text="APIの利用を許可したソフトです。データの読み取りはどのソフトもできます。チェックした変更と知らせだけを許可します。" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        AutomationProperties.AutomationId="Settings.ApiClientsEmpty"
                                        Text="許可したソフトはありません。ソフトが許可を求めると、確かめる窓が開きます。"
@@ -1241,6 +1241,23 @@
                                                                 <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,0,14,4"
                                                                           Foreground="{DynamicResource Text}"
                                                                           AutomationProperties.AutomationId="Settings.ApiClientScope"
+                                                                          AutomationProperties.Name="{Binding Label}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <!-- 知らせる操作（plan 44）。データを変えないので、変更のチェックとは行を分ける -->
+                                                    <TextBlock Text="知らせる操作" Style="{StaticResource Caption}" Margin="0,2,0,3" />
+                                                    <ItemsControl ItemsSource="{Binding Watches}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type vm:ApiScopeChoice}">
+                                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,0,14,4"
+                                                                          Foreground="{DynamicResource Text}"
+                                                                          AutomationProperties.AutomationId="Settings.ApiClientWatch"
                                                                           AutomationProperties.Name="{Binding Label}" />
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>

@@ -26,7 +26,8 @@ public enum ApiRunState
 /// 取り込みの始まりと終わりも、ここから直に API へ伝える（前は別のプロセスへ HTTP で送っていた）。
 /// </summary>
 /// <param name="writes">書き込みの口（アプリの命令の口・画面への知らせ）。API を始めるたびに渡す。</param>
-public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
+/// <param name="plugins">ソフトへの出来事の列（plan 44。アプリが1つ持つ。無ければこの係だけの列）。</param>
+public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null, PluginEventHub? plugins = null)
 {
     /// <summary>始める・止めるを1つずつ（続けて押されても、待ち受けが2つ立たないように）。</summary>
     private readonly SemaphoreSlim _order = new(1, 1);
@@ -34,6 +35,12 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
     private volatile ApiServer? _server;
 
     public ApiRunState State { get; private set; } = ApiRunState.Stopped;
+
+    /// <summary>
+    /// ソフトへの出来事の列（plan 44）。アプリの起動の間1つだけ持つ：API を始め直しても（ポートの変更・トークンの作り直し）購読と通番を保つ。
+    /// 画面は <see cref="PluginEventHub.Watches"/> を見てから出来事を作る（API が止まっている・誰も購読していなければ何もしない）
+    /// </summary>
+    public PluginEventHub Plugins { get; } = plugins ?? new();
 
     /// <summary>待っている（待とうとした）ポート。</summary>
     public int Port { get; private set; }
@@ -85,7 +92,7 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null)
             Set(ApiRunState.Starting, settings.Port);
             try
             {
-                var started = await ApiServer.StartAsync(store, writes);
+                var started = await ApiServer.StartAsync(store, writes, Plugins);
 
                 // 取り込みの途中に立て直したら、新しい待ち受けにも「取り込み中」を伝える（前は伝わらず、途中の記録を読み直した。点検36・37）。
                 // 待ち受けを差し込むのと今の印を伝えるのを、印を覚える錠の中で1度に行う。分けると、読んだ「取り込み中」を

@@ -911,6 +911,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
 
         RelayCommand.RaiseCanExecuteChanged();
+
+        // 購読しているソフトへ（plan 44）。ID は流すときに読む
+        _services.PluginSelection.Note("shop", () => Services.PluginSelectionBatcher.SelectedIds(_matches, _all));
     }
 
     public IReadOnlyList<object> ListItems => _listItems;

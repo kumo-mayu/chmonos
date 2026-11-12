@@ -70,7 +70,7 @@ public sealed record ApiClientRecord
     public string? Origin { get; init; }
 
     /// <summary>
-    /// 許した書き込みの種類（<see cref="ApiScopes"/> の名前）。読むのはいつも許す。
+    /// 許した書き込みと見張りの種類（<see cref="ApiScopes"/> の名前）。読むのはいつも許す。
     /// 列挙ではなく文字列で持つ：種類を足すたびに保存先の形式の版を上げずに済むように（知らない名前は読むときに捨てる）
     /// </summary>
     public IReadOnlyList<string> Scopes { get; init; } = [];
@@ -82,6 +82,12 @@ public sealed record ApiClientRecord
 
     /// <summary>最後に使った日時（まだなら null）。書くのは間引く（<c>ApiClientBook</c>）ので、分単位の目安。</summary>
     public DateTimeOffset? LastUsedAt { get; init; }
+
+    /// <summary>
+    /// 最後に出来事を取りに来た日時（<c>GET /v1/plugin/events</c>。plan 44。まだなら null）。書くのは使った日時と同じく10分ごとに間引く。
+    /// 「応答していない」を決めるのは API がメモリに持つ正確な時刻で、これは次に起動するまでの目安
+    /// </summary>
+    public DateTimeOffset? LastPolledAt { get; init; }
 
     /// <summary>このソフトか（名前・exe・オリジンが同じ）。</summary>
     public bool IsSame(string name, string? exePath, string? origin)
@@ -120,10 +126,40 @@ public static class ApiScopes
     /// <summary>Chmonos の画面・エクスプローラで開く（データは変えないが、使う人の画面を動かす）。</summary>
     public const string Open = "open";
 
-    /// <summary>画面に並べる順（軽い物から）。</summary>
-    public static IReadOnlyList<string> All { get; } = [Marks, Recent, Notifications, Tags, Avatars, Modifications, Unity, Open];
+    /// <summary>
+    /// 見張り：商品ページを開いた、をソフトへ知らせる（plan 44・docs/spec/plugins.md）。見張りは書き込みではないが、使う人の操作を外へ出すので人が選んで許す
+    /// （ユーザ判断 2026-11-12「選ばせましょう」）。名前は <c>watch.</c> と出来事の種類（<c>/v1/plugin/subscriptions</c> の <c>kinds</c>）
+    /// </summary>
+    public const string WatchItemOpened = WatchPrefix + "itemOpened";
+
+    /// <summary>見張り：検索・フォルダの右側・ショップの複数選択が変わった。</summary>
+    public const string WatchSelectionChanged = WatchPrefix + "selectionChanged";
+
+    /// <summary>見張り：取り込みが終わった。</summary>
+    public const string WatchImportFinished = WatchPrefix + "importFinished";
+
+    public const string WatchPrefix = "watch.";
+
+    /// <summary>書き込みの種類（画面に並べる順。軽い物から）。</summary>
+    public static IReadOnlyList<string> Writes { get; } = [Marks, Recent, Notifications, Tags, Avatars, Modifications, Unity, Open];
+
+    /// <summary>見張りの種類（画面に並べる順）。</summary>
+    public static IReadOnlyList<string> Watches { get; } = [WatchItemOpened, WatchSelectionChanged, WatchImportFinished];
+
+    /// <summary>
+    /// 控えに書ける種類の全部（書き込み → 見張りの順）。権限を書き換えるときもこの順で並べ直す
+    /// （書き込みだけで並べ直すと、チェックを1つ入れた時に見張りの許しが黙って消える）
+    /// </summary>
+    public static IReadOnlyList<string> All { get; } = [.. Writes, .. Watches];
 
     public static bool IsKnown(string scope) => All.Contains(scope, StringComparer.Ordinal);
+
+    public static bool IsWrite(string scope) => Writes.Contains(scope, StringComparer.Ordinal);
+
+    public static bool IsWatch(string scope) => Watches.Contains(scope, StringComparer.Ordinal);
+
+    /// <summary>出来事の種類（<c>itemOpened</c> など）を見るのに要る許しの名前。</summary>
+    public static string WatchOf(string kind) => WatchPrefix + kind;
 
     /// <summary>画面に出す名前（窓と設定の一覧）。</summary>
     public static string Label(string scope) => scope switch
@@ -136,6 +172,9 @@ public static class ApiScopes
         Modifications => "改変",
         Unity => "Unityへ送る",
         Open => "画面・エクスプローラで開く",
+        WatchItemOpened => "商品ページを開いたこと",
+        WatchSelectionChanged => "選んだ商品",
+        WatchImportFinished => "取り込みが終わったこと",
         _ => scope,
     };
 }
