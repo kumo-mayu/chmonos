@@ -28,8 +28,9 @@
     <SolidColorBrush x:Key="Text" Color="#e6e8ec" />
     <SolidColorBrush x:Key="TextBody" Color="#c9cdd4" />
     <SolidColorBrush x:Key="TextMuted" Color="#a3aab6" />
-    <!-- 明るい表の TextFaint は白地で 2.6:1 と弱いが、暗い表では AA（4.5:1）に届く所まで上げた -->
-    <SolidColorBrush x:Key="TextFaint" Color="#868e9b" />
+    <!-- 面だけでなく、一覧の乗せた行・選んだ行・札・一段上げた箱の上でも AA（4.5:1）に届く所まで上げた（2026-11-12）。
+         前の #868e9b は面で 4.9:1 だったが、アバターの一覧で選んだ行の「推した素体」が 3.5:1 だった -->
+    <SolidColorBrush x:Key="TextFaint" Color="#949ca9" />
 
     <!-- ===== 強調（青） ===== -->
     <!-- 面の上の青は明るく寄せる（明るい表の #3767a6 のままだと暗い地で 2.9:1 しかない） -->
@@ -38,6 +39,9 @@
     <SolidColorBrush x:Key="AccentSoft" Color="#1f2e44" />
     <SolidColorBrush x:Key="AccentBorder" Color="#36507a" />
     <SolidColorBrush x:Key="AccentSoftText" Color="#c6d3e6" />
+    <!-- 文の中のリンク。Accent（#6fa5ee・面で 6.4:1）より一段明るくし、本文の中で読む長い URL を面で 7.7:1、
+         変わった行の帯・選んだ行の地でも 5.5:1 以上にする。色味は Accent と同じ青（色相 213°）で、所持の緑のリンクと並べて見分ける -->
+    <SolidColorBrush x:Key="Link" Color="#82b6f7" />
     <!-- 白い文字を載せる青は濃いまま。乗せたときは一段明るくするが、白が 4.5:1 を切らない所で止める -->
     <SolidColorBrush x:Key="AccentFill" Color="#35699f" />
     <SolidColorBrush x:Key="AccentHover" Color="#3f76b0" />
@@ -89,7 +93,8 @@
     <SolidColorBrush x:Key="RailHover" Color="#1c2028" />
     <SolidColorBrush x:Key="RailText" Color="#cfd4dd" />
     <SolidColorBrush x:Key="RailTextActive" Color="#ffffff" />
-    <SolidColorBrush x:Key="RailLabel" Color="#6b7483" />
+    <!-- ナビの見出し（ライブラリ・作業・管理）は小さい字なので、部品の 3:1 でなく本文の 4.5:1 で見る -->
+    <SolidColorBrush x:Key="RailLabel" Color="#7f8797" />
     <SolidColorBrush x:Key="RailTitle" Color="#ffffff" />
     <SolidColorBrush x:Key="RailSubtitle" Color="#8f98a8" />
     <SolidColorBrush x:Key="RailMuted" Color="#848d9c" />
@@ -166,7 +171,8 @@
     <SolidColorBrush x:Key="ToolTipText" Color="#e6e8ec" />
     <SolidColorBrush x:Key="ListHoverBack" Color="#262f3c" />
     <SolidColorBrush x:Key="ListHoverBorder" Color="#34445a" />
-    <SolidColorBrush x:Key="ListSelectedBack" Color="#1f3a5c" />
+    <!-- 選んだ行は明るさでなく青みと枠（ListSelectedBorder）で示す。明るくすると載せる薄い字・青い字が沈む（TextFaint 4.7:1・Accent 5.1:1 の所） -->
+    <SolidColorBrush x:Key="ListSelectedBack" Color="#1c3250" />
     <SolidColorBrush x:Key="ListSelectedBorder" Color="#3f6ea8" />
     <SolidColorBrush x:Key="ListSelectedInactiveBack" Color="#2c313a" />
     <SolidColorBrush x:Key="ListSelectedInactiveBorder" Color="#3a404b" />
@@ -195,5 +201,7 @@
     <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#e6e8ec" />
     <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#1b1e23" />
     <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#e6e8ec" />
-    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#868e9b" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#949ca9" />
+    <!-- 既定の Hyperlink の色。Windows の #0066cc は暗い面で 2.9:1 しかない（説明文のリンクがこれで出ていた。2026-11-12） -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.HotTrackBrushKey}" Color="#82b6f7" />
 </ResourceDictionary>

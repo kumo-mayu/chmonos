@@ -98,6 +98,15 @@ public class ThemeTableTests
     [InlineData("TextMuted", "AccentSoft", 4.5)]
     [InlineData("TextFaint", "Surface", 4.5)]
     [InlineData("TextFaint", "Bg", 4.5)]
+    // 薄い字は一覧の行（乗せた・選んだ）・札・一段上げた箱の上にも載る（アバターの一覧の推した素体など。2026-11-12）
+    [InlineData("TextFaint", "SurfaceAlt", 4.5)]
+    [InlineData("TextFaint", "ChipBack", 4.5)]
+    [InlineData("TextFaint", "ListHoverBack", 4.5)]
+    [InlineData("TextFaint", "ListSelectedBack", 4.5)]
+    [InlineData("TextMuted", "ListSelectedBack", 4.5)]
+    [InlineData("Accent", "ListSelectedBack", 4.5)]
+    // ナビの見出しは小さい字なので本文の比で見る
+    [InlineData("RailLabel", "Rail", 4.5)]
     [InlineData("Accent", "Surface", 4.5)]
     [InlineData("Accent", "Bg", 4.5)]
     [InlineData("Accent", "AccentSoft", 4.5)]
@@ -108,6 +117,19 @@ public class ThemeTableTests
     [InlineData("Accent", "TargetBand", 3)]
     [InlineData("AccentText", "Surface", 4.5)]
     [InlineData("AccentText", "AccentSoft", 4.5)]
+    // 文の中のリンク（2026-11-12）。説明文は面・変わった行の帯の上に、文字リンクのボタンは一覧の行の上にも載る。
+    // 所持の商品へのリンクは Good で出るので、帯の上の Good も本文の 4.5:1 で見る
+    [InlineData("Link", "Surface", 4.5)]
+    [InlineData("Link", "Bg", 4.5)]
+    [InlineData("Link", "SurfaceAlt", 4.5)]
+    [InlineData("Link", "AddedBand", 4.5)]
+    [InlineData("Link", "RemovedBand", 4.5)]
+    [InlineData("Link", "ChangedBand", 4.5)]
+    [InlineData("Link", "TargetBand", 4.5)]
+    [InlineData("Link", "ListHoverBack", 4.5)]
+    [InlineData("Link", "ListSelectedBack", 4.5)]
+    [InlineData("Good", "AddedBand", 4.5)]
+    [InlineData("Good", "RemovedBand", 4.5)]
     [InlineData("AccentSoftText", "AccentSoft", 4.5)]
     [InlineData("OnAccent", "AccentFill", 4.5)]
     [InlineData("OnAccent", "AccentHover", 4.5)]
@@ -174,7 +196,6 @@ public class ThemeTableTests
     [InlineData("RowDivider", "TargetBand", 3)]
     [InlineData("ChipRemove", "ChipBack", 3)]
     [InlineData("Accent", "BarTrack", 3)]
-    [InlineData("RailLabel", "Rail", 3)]
     public void 暗い表の文字と地はAAを満たす(string foreground, string background, double required)
     {
         var dark = Table("Dark.xaml");
@@ -191,6 +212,11 @@ public class ThemeTableTests
     [InlineData("AdultText", "Surface", 4.5)]
     [InlineData("AdultText", "ListHoverBack", 4.5)]
     [InlineData("AdultText", "ListSelectedBack", 4.5)]
+    [InlineData("Link", "Surface", 4.5)]
+    [InlineData("Link", "Bg", 4.5)]
+    [InlineData("Link", "AddedBand", 4.5)]
+    [InlineData("Link", "RemovedBand", 4.5)]
+    [InlineData("Link", "ChangedBand", 4.5)]
     public void 明るい表の足した色はAAを満たす(string foreground, string background, double required)
     {
         var light = Table("Light.xaml");

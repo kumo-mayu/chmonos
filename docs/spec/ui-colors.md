@@ -25,7 +25,7 @@
   Windows の白い型に戻る（`SettingCheck`・`NumberBox`・メニューの項目のスタイル）
 - **小窓の地**は `DialogFit.Prepare` が、書いていなければ `Surface` を指す（書かないと Windows の既定の白で出る）
 
-## 鍵（130。ほかに Windows の色の置き換え5つ）
+## 鍵（131。ほかに Windows の色の置き換え6つ）
 
 値は表のファイルにある。役割ごとに並べ、各行にコメントで何に使うかを書いてある。
 
@@ -33,7 +33,7 @@
 |---|---|
 | 面 | `Bg`（画面の地）・`Surface`（カード・帯・窓）・`SurfaceAlt`（乗せた・押せない・一段下げた箱）・`Border`・`BorderStrong`・`Divider`（カードの中の行の線）・`RowDivider`（通知の商品の行どうしの線。暗い表は `Surface`・`TargetBand` の上で 3:1、明るい表は `Border` と同じ。メモ67）・`BarTrack`（棒と進み具合の空き）・`InputBack` |
 | 文字 | `Text`・`TextBody`（説明文・数の列）・`TextMuted`・`TextFaint` |
-| 強調（青） | `Accent`（面の上の青：リンク・選んだ枠・線・棒）・`AccentText`（青の文字の小さな札）・`AccentSoft`・`AccentBorder`・`AccentSoftText`（AccentSoft の上の文字）・`AccentFill`・`AccentHover`（白い文字の地と、乗せたとき）・`OnAccent`・`AccentOverlay`（絵の上の青の札）・`TargetBand`（通知の画面で指した商品の行の地。左の縦線は `Accent`。メモ51） |
+| 強調（青） | `Accent`（面の上の青：選んだ枠・線・棒）・`Link`（文の中のリンクと文字リンクのボタン。暗い表は Accent より一段明るい #82b6f7。説明文のリンクはコードで組む文書の中なので `SelectableText` が鍵を当てる。Windows の `HotTrack` も同じ値で置き換える）・`AccentText`（青の文字の小さな札）・`AccentSoft`・`AccentBorder`・`AccentSoftText`（AccentSoft の上の文字）・`AccentFill`・`AccentHover`（白い文字の地と、乗せたとき）・`OnAccent`・`AccentOverlay`（絵の上の青の札）・`TargetBand`（通知の画面で指した商品の行の地。左の縦線は `Accent`。メモ51） |
 | 状態 | `Good`／`GoodSoft`／`GoodBorder`／`GoodFill`、`Warn`／`WarnSoft`／`WarnBorder`、`Bad`／`BadSoft`／`BadBorder`／`BadFill`、`DangerText`／`DangerBorder`（消す・初期化する操作。戻せるかに関わらず）、`PurchasedText`／`PurchasedSoft`／`PurchasedBorder`（購入の札。灰色。緑・赤は BOOTH で変わった所だけに使う。メモ53）、`Unread`／`UnreadSoft`／`UnreadBorder`／`UnreadFill`（通知の未読。カード・リストの札「更新あり」もこの色で、青の「取り込み中」と丸でも見分ける・2026-10-06）、`AdultText`（カード・リストの名前の頭の「R-18」。ピンク。赤は消す操作の色、紫寄りの `Unread` と見分ける。メモ82）、`NeedsWorkFill`（ナビの未確定・未:n）、`Star` |
 | 札 | `ChipBack`・`ChipText`・`ChipBorder`・`ChipRemove` |
 | ナビ | `Rail`・`RailActive`・`RailHover`・`RailText`・`RailTextActive`・`RailLabel`・`RailTitle`・`RailSubtitle`・`RailMuted`・`RailIntro`（初回の窓）・`RailButtonDimBorder`・`RailNoticeBack`／`Frame`／`Edge`／`Text` |
@@ -65,7 +65,7 @@
 - 面は3段で、上の段ほど明るい：`Bg` #15171c → `Surface` #1e2127 → `SurfaceAlt` #272b32。入力欄は一段沈める（`InputBack` #17191e）。ナビは地より沈める（`Rail` #101216）
 - 面の上の色は明るく寄せる：`Accent` #6fa5ee（明るい表の #3767a6 のままだと暗い面で 2.9:1）・`Good` #5cc497・`Warn` #e3b36b・`Bad` #f08d8d・`Unread` #b4a2f2（2026-10-06 に赤みのピンク #e694c3 から紫寄りへ。カードの札を丸にすると「見つからない」の赤・R-18 のピンクと見分けにくかった。明るい表は #5b44a8）
 - 白い文字の地（`〜Fill`）は濃いまま。`AccentHover` は乗せると明るくなるが、白が 4.5:1 を切らない #3f76b0 で止めた
-- `TextFaint` は暗い表で AA まで上げた（#868e9b、4.9:1）
+- `TextFaint` は暗い表で AA まで上げた（#949ca9。面で 5.8:1、一覧の選んだ行・乗せた行・札の上でも 4.5:1。2026-11-12 に #868e9b から。選んだ行で 3.5:1 だった）。一覧の選んだ行の地 `ListSelectedBack` は #1c3250 に沈め、明るさでなく青みと枠で示す。ナビの見出し `RailLabel` は小さい字なので 4.5:1（#7f8797）
 - **明るい表も AA に揃えた**（ユーザ判断 2026-09-29）。今の色を移しただけでは10組（`TextFaint`・`TextMuted`・`Good`・`Star`・`InputBorder`・`ScrollThumb`・ナビの見出し）が届かなかったので、
   色味を保ったまま届く所まで最小限だけ濃く（ナビの上は明るく）した。`TextFaint`（#6a6f78）は `TextMuted` とほぼ同じ濃さになるが、
   使う所（入力欄の中の例・つまみ）は大きさと置き場所で見分けられるので、そのままにした（ユーザ確認済み）
@@ -78,6 +78,7 @@
 | TextMuted / Surface | 6.9 | | Good / Surface | 7.5 |
 | TextFaint / Surface | 4.9 | | Warn / Surface | 8.4 |
 | Accent / Surface | 6.4 | | Bad / Surface | 6.8 |
+| Link / Surface | 7.7 | | Link / AddedBand | 6.9 |
 | AccentText / AccentSoft | 7.5 | | Unread / Surface | 7.2 |
 | MenuText / MenuHover | 8.9 | | InputBorder / InputBack（部品） | 3.4 |
 | RailText / Rail | 12.6 | | ScrollThumb / ScrollTrack（部品） | 3.2 |

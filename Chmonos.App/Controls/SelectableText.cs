@@ -350,6 +350,9 @@ public static class SelectableText
             return link;
         }
 
+        // 鍵を局所に当てる。App.xaml の Hyperlink の型のスタイルは、コードで組んだこの文書のリンクには届かず、
+        // Windows の既定の #0066cc（暗い面で 2.9:1）で出ていた（2026-11-12）
+        link.SetResourceReference(TextElement.ForegroundProperty, "Link");
         link.ToolTip = url;
         link.RequestNavigate += OpenInBrowser;
         return link;

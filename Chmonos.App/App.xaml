@@ -239,8 +239,9 @@
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         </Style>
 
+        <!-- 説明文の中のリンク（コードで組む文書の中）にはこの型のスタイルが届かないので、そちらは SelectableText が同じ鍵を当てる -->
         <Style TargetType="Hyperlink">
-            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+            <Setter Property="Foreground" Value="{DynamicResource Link}" />
             <Setter Property="TextDecorations" Value="Underline" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
@@ -251,7 +252,7 @@
             並びの外で行の数だけ Tab が止まっていた（見つからないファイルの「取り込みを開く」）。ボタンにすると並びの中の物になる
         -->
         <Style x:Key="HyperlinkButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+            <Setter Property="Foreground" Value="{DynamicResource Link}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{DynamicResource SmallFocusVisual}" />
             <Setter Property="Template">
