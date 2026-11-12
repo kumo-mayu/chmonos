@@ -65,7 +65,7 @@ public sealed class FolderBrowserFolderCard
 /// 文字で探しているときは、**この下の全部**から探す（どこにあったか覚えていないときに探せるように）。
 /// 非表示・R-18 を出さない設定は、検索画面・ショップの画面と同じ決め事で外す。
 /// </summary>
-public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImagesListener
+public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImagesListener, ICardClickSelectionHost
 {
     /// <summary>カード1枚ぶんの幅（カード228＋間14）。検索画面と同じ。</summary>
     private static double CardSlotWidth => CardMetrics.SlotWidth;
@@ -464,11 +464,20 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     public void ClearSelection() => ChangeSelectionTogether(() =>
     {
+        _clickSelection.Forget();
         foreach (var card in _cards.Values.Where(card => card.IsSelected).ToList())
         {
             card.IsSelected = false;
         }
     });
+
+    private readonly CardClickSelection _clickSelection = new();
+
+    /// <summary>Ctrl・Shift+クリックで選ぶ（検索画面と同じ）。範囲は右の欄の並びの商品だけ（フォルダは選べないので飛ばす）</summary>
+    public bool SelectByClick(ItemCardViewModel card, bool control, bool shift)
+        => _clickSelection.Click(card, control, shift, _listItems.OfType<ItemCardViewModel>().ToList(), _cards.Values, ChangeSelectionTogether);
+
+    public void NoteSelectionAnchor(ItemCardViewModel card) => _clickSelection.NoteAnchor(card);
 
     private bool _batchingSelection;
 

@@ -114,12 +114,53 @@ public partial class ItemCardResources : ResourceDictionary
     /// 何も選んでいないときは商品ページへ移る（普段の主操作）。
     /// 1件でも選んでいるときは選択の切り替えにする。選んでいる最中に
     /// 少しずれただけで別画面へ飛ばされると、操作が途切れてしまうため。
+    /// Ctrl・Shift を押しながらなら、選んでいなくても選ぶ（Explorer と同じ。ユーザ指示 2026-11-12）。
     /// </summary>
     private void OnCardClick(object sender, MouseButtonEventArgs e)
     {
         // マウスで開いたなら、戻ったときに止まり直す必要は無い（止まる印が急に出ると驚く）
         _returnTo = null;
+        if (SelectByModifiedClick(sender))
+        {
+            e.Handled = true;
+            return;
+        }
+
         ActivateCard(sender);
+    }
+
+    /// <summary>
+    /// Ctrl・Shift を押しながらのクリックを選ぶ操作として画面へ渡す。渡したら true（商品ページは開かない）。
+    /// 修飾キーはマウスのクリックでだけ見る：Enter・Space は修飾キー付きを受けない（<see cref="IsActivateKey"/>）、
+    /// 読み上げの「押す」には修飾キーが無い
+    /// </summary>
+    private static bool SelectByModifiedClick(object sender)
+    {
+        var modifiers = Keyboard.Modifiers;
+        var control = modifiers.HasFlag(ModifierKeys.Control);
+        var shift = modifiers.HasFlag(ModifierKeys.Shift);
+        return (control || shift)
+            && sender is FrameworkElement { DataContext: ItemCardViewModel card }
+            && HostOf(sender) is ICardClickSelectionHost host
+            && host.SelectByClick(card, control, shift);
+    }
+
+    /// <summary>左上のチェック・リストの選ぶ列で1件を切り替えた。次の Shift+クリックの起点にする</summary>
+    private void OnSelectBoxClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card } && HostOf(sender) is ICardClickSelectionHost host)
+        {
+            host.NoteSelectionAnchor(card);
+        }
+    }
+
+    /// <summary>右クリックのメニューの「選ぶ」。チェックと同じく次の Shift+クリックの起点にする</summary>
+    private void OnMenuSelectClick(object sender, RoutedEventArgs e)
+    {
+        if (MenuTarget(sender) is { Host: ICardClickSelectionHost host } target)
+        {
+            host.NoteSelectionAnchor(target.Card);
+        }
     }
 
     /// <summary>
@@ -153,6 +194,7 @@ public partial class ItemCardResources : ResourceDictionary
         if (card.IsSelectionMode)
         {
             card.IsSelected = !card.IsSelected;
+            (HostOf(sender) as ICardClickSelectionHost)?.NoteSelectionAnchor(card);
             return;
         }
 
@@ -161,11 +203,17 @@ public partial class ItemCardResources : ResourceDictionary
 
     /// <summary>
     /// リストの行のクリック（ユーザ指示 2026-09-14）。商品の行はカードと同じ（選んでいる最中は選択の切り替え、ほかは商品ページ）。
-    /// フォルダの行（フォルダビュー）はそのフォルダへ移る
+    /// フォルダの行（フォルダビュー）はそのフォルダへ移る。Ctrl・Shift+クリックもカードと同じ（フォルダの行は選べないので今までどおり移る）
     /// </summary>
     private void OnListRowClick(object sender, MouseButtonEventArgs e)
     {
         _returnTo = null;
+        if (SelectByModifiedClick(sender))
+        {
+            e.Handled = true;
+            return;
+        }
+
         ActivateRow(sender);
     }
 

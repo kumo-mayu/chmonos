@@ -53,7 +53,7 @@
                   Command="{Binding PlacementTarget.Tag.MenuCommands.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <Separator />
         <!-- 行の一覧（アバターは1つだけ選ぶ）には選ぶ箱が無いので、出したまま押せない -->
-        <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
+        <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select" Click="OnMenuSelectClick"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Select}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Select}" />
         <!--
@@ -187,10 +187,12 @@
                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7">
                 <!--
                     カード全体でも切り替わるが、状態を示す印としても要る。
-                    キーボードでは止まらない：選んでいる最中はカードの Enter・Space が同じ切り替えで、選び始めるのは右クリックのメニューの「選ぶ」。
-                    止まる物にすると、選んでいる間は全部のカードに出るので、カードの一覧の矢印がカードと箱を交互に通る
+                    キーボードでは止まらない：選んでいる最中はカードの Enter・Space が同じ切り替えで、キーで選び始めるのは右クリックのメニューの「選ぶ」
+                    （マウスなら Ctrl・Shift+クリックでも選び始められる。2026-11-12）。
+                    止まる物にすると、選んでいる間は全部のカードに出るので、カードの一覧の矢印がカードと箱を交互に通る。
+                    押したら次の Shift+クリックの起点にする（OnSelectBoxClick）
                 -->
-                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Focusable="False"
+                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Focusable="False" Click="OnSelectBoxClick"
                           AutomationProperties.AutomationId="ItemCardSelect"
                           AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}">
                     <CheckBox.LayoutTransform>
@@ -963,7 +965,7 @@
         <!-- 選ぶ列を持たない画面（ショップ画面）では列の幅が 0 になるが、チェックははみ出して絵に重なって見えた。丸ごと隠す -->
         <Grid Style="{StaticResource ItemListCellFill}"
               Visibility="{Binding DataContext.ListColumns.HasSelect, RelativeSource={RelativeSource AncestorType=ListView}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
+            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center" Click="OnSelectBoxClick"
                       Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                       AutomationProperties.AutomationId="ItemListSelect"
                       AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}"

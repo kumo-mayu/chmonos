@@ -12,7 +12,7 @@ namespace Chmonos.App.ViewModels;
 /// BOOTHのショップにある全商品ではない。取りに行っていないものは存在自体を知らないので、
 /// その旨は画面に書いておく（件数を全商品数と誤解されると数字の意味が変わる）。
 /// </summary>
-public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen, IItemImagesListener
+public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen, IItemImagesListener, ICardClickSelectionHost
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -843,11 +843,20 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     public void ClearSelection() => ChangeSelectionTogether(() =>
     {
+        _clickSelection.Forget();
         foreach (var card in _all.Where(card => card.IsSelected).ToList())
         {
             card.IsSelected = false;
         }
     });
+
+    private readonly CardClickSelection _clickSelection = new();
+
+    /// <summary>Ctrl・Shift+クリックで選ぶ（検索画面と同じ）。範囲は見えている並び（「所持しているものだけ」で絞った後）</summary>
+    public bool SelectByClick(ItemCardViewModel card, bool control, bool shift)
+        => _clickSelection.Click(card, control, shift, _matches, _all, ChangeSelectionTogether);
+
+    public void NoteSelectionAnchor(ItemCardViewModel card) => _clickSelection.NoteAnchor(card);
 
     private bool _batchingSelection;
 

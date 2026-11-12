@@ -193,11 +193,20 @@ public sealed partial class SearchViewModel
 
     public void ClearSelection() => ChangeSelectionTogether(() =>
     {
+        _clickSelection.Forget();
         foreach (var card in _cards.Values.Where(card => card.IsSelected).ToList())
         {
             card.IsSelected = false;
         }
     });
+
+    private readonly CardClickSelection _clickSelection = new();
+
+    /// <summary>Ctrl・Shift+クリックで選ぶ（Explorer に揃える。<see cref="CardClickSelection"/>）。範囲は検索の結果の並び（札は含まない）</summary>
+    public bool SelectByClick(ItemCardViewModel card, bool control, bool shift)
+        => _clickSelection.Click(card, control, shift, _matches, _cards.Values, ChangeSelectionTogether);
+
+    public void NoteSelectionAnchor(ItemCardViewModel card) => _clickSelection.NoteAnchor(card);
 
     private bool _batchingSelection;
 
