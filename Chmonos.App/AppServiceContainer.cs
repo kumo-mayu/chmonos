@@ -113,9 +113,10 @@ public sealed class AppServiceContainer : IDisposable
             UnityHandoff.UsePathStore(unityPackagePaths);
             ZipImages = new ZipImageStore(Paths);
             UnityScans = new UnityScanStore(Paths);
-            // VPM の控えも同じ時に読む（plan 40）。manifest と package.json の十数個だけで、商品の照合に比べて軽い
+            // VPM の控えも同じ時に読む（plan 40）。manifest と package.json の十数個だけで、商品の照合に比べて軽い。
+            // 全部を読めなかったときは null にして、控えの前の VPM と履歴を残す（欠けた読みを「外した」と記録しない）
             ScanUnityProject = (project, items, progress, token) => Services.UnityProjectItemScan.RunWithImages(project, items, ZipImages, progress, token)
-                with { Vpm = Core.Services.VpmPackages.Read(project) };
+                with { Vpm = Core.Services.VpmPackages.TryRead(project) };
             UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths, ZipImages);
 
             // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）

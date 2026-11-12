@@ -3,7 +3,7 @@
 > **要点**：Unity プロジェクトに VPM（VCC・ALCOM）で入っているパッケージを**読むだけで控え**、同じ GUID の物を unitypackage で送る前に窓で言う（入れる・消す・版を変えるはしない。plan 40・ユーザ判断 2026-11-11「作りましょう」）。
 > きっかけは、VPM で入っている物と同じ GUID・違う中身の物を unitypackage で取り込むと、Unity が `Assets/` に作らず `Packages/` の中の VPM のファイルを黙って上書きすること（[実測]・`docs/research/vpm-duplicate-guid.md`）。
 >
-> **コード**：`Core/Services/VpmPackages.cs`（読む）・`VpmOverlaps.cs`（照らす）・`UnityProjectScan.Vpm`・`Storage/UnityScanStore`（控え）、`App/Services/UnityVpmGuard.cs`（聞く）・`UnityImportQueue`・`ApiUnitySender`（409）・`ViewModels/ModificationHubRows.cs`（`HubProjectDetail.VpmText`）
+> **コード**：`Core/Services/VpmPackages.cs`（読む）・`VpmHistory.cs`（履歴）・`VpmOverlaps.cs`（照らす）・`UnityProjectScan.Vpm`・`Storage/UnityScanStore`（控え）、`App/Services/UnityVpmGuard.cs`（聞く）・`UnityImportQueue`・`ApiUnitySender`（409）・`ViewModels/ModificationHubRows.cs`（`HubProjectDetail.VpmText`）・`HubVpmRows.cs`（行）
 >
 > 送る前の決め事（Unity への受け渡しの全体）は [unity.md](unity.md)、改変の画面は [modifications.md](modifications.md)。
 
@@ -22,12 +22,33 @@
 - **プロジェクトの中を調べる時と同じ時**（`AppServiceContainer.ScanUnityProject`。検索の条件「Unityプロジェクト」・使っている商品の見張り）に読み、調べた結果の控え（`unityscans/`）の `vpm` に書く。
 - **形式の版は上げない**：控えは消しても調べ直すだけの写しで、欄の無い前の控えは「まだ読んでいない」（`Vpm` が null）と読めば足りる。空の配列は「読んだが1つも無い」。
 - 照合の結果ではないので、`FindsSameAs`（一覧を組み直すか）には入れない。場所の付け替えでは、控えごと新しい場所へ写る（[modifications.md](modifications.md)「場所を付け替える」）。
+- **全部を読めなかったときは null**（`VpmPackages.TryRead`）：`Packages/` が無い（ドライブが外れた・プロジェクトでない）・一覧の途中で読めなくなった・manifest が在るのに読めない（VCC が書いている最中）。
+  控える時に null なら、前の控えの `vpm` と履歴をそのまま残す（欠けた読みを「外した」と記録しない）。送る前の照らしは今までどおり読めた分だけで照らす（`Read`）。
+
+## 履歴（`vpmHistory`。ユーザ判断 2026-11-12「作りましょう」）
+
+- `vpm` は調べるたびに今の姿で書き直すが、**履歴は前の控えから引き継いで足す**（`UnityScanStore.Save` の中で `VpmHistories.Advance`。呼び手は渡さない＝呼び手の写しは古いことがある。書くのは1本ずつ）。
+- 形：`vpmHistory: [{ name, displayName, changes: [{ from, version, removed }] }]`。`changes` は古い順で、最後の行が今の状態。外した行は `removed: true`（`version` は書かない）。
+  - **`to` は持たない**：次の行の `from` で分かる（計算で出せる値は書かない）。外したのは「パッケージに1つの removed」ではなく1行にする（外した→また入った→外した、の間が残る）。版の null を外した印にしない（版の読めない物が入っていることがある）。
+  - **`from` は秒までの日時**（手元の時刻帯）。改変の記録（`addedAt` は日時）と照らして「その時の版」を引けるように。画面は日付だけ。
+  - `displayName` は最後に読めた物（外した後も名前で見せる）。並びは名前の順。
+- **日時は Chmonos が調べて気付いた時**で、入れた時ではない。`package.json` の更新日時は使わない（展開し直しで変わる）。画面では「見つけた日」と言う。
+- 足す行：版が変わった（上下は解釈せず、文字列の違いだけ）・無くなった・また入った。入っている物の版が読めない（null）ときは前の版を変えない。manifest にだけある物（フォルダが無い）は「入っている」に数える（VCC の入れ替えの途中に当たっても「外した」にしない）。
+- 上限は置かない（1プロジェクト数十個で、変わるのはまれ）。
+- **欄の無い前の控えは「履歴なし」**で、次に調べた時の姿を最初の1行にする。それより前は作らない（前の `vpm` にあって今無い物も「外した」と書かない）。形式の版は上げない。
+- 前の控えが在るのに読めない（IO の失敗）ときは控えを書かない（書くと履歴が消える）。壊れた控え・別のプロジェクトの控え（名前がぶつかった）は新しく始める。
+- 場所の付け替え（`CopyTo`）は履歴もそのまま写し、行は足さない。
+- **控えのうち履歴だけは調べ直しても作れない**。`unityscans/` はバックアップに入れていない（消しても調べ直すだけ、の前提のまま。[要確認] 履歴のためにバックアップへ入れるかは決めていない）。
+- 次に使う所：`VpmHistories.StateAt`・`VersionsAt`（ある時に入っていた VPM と版）。改変ごとに使った物を記録した時の版を引くのに使える。
 
 ## 見せる所
 
 - **改変の画面のプロジェクトの右の欄**の「VPM」の行。1つ1行で「表示名 版」（表示名が無ければ名前）。並びは見せる名前の順。
   manifest にあってフォルダが無い物には「：フォルダが見つかりません」、manifest に無い物には「：手で置いたもの」と添える（どちらも VCC・ALCOM の一覧と見比べたときに食い違って見える）。
-  行は多くても十数本なので畳まない。見出しは値の1行目にそろえる。
+  行の一覧は多くても十数本なので畳まない。見出しは値の1行目にそろえる。
+- 行の右に、今の状態を見つけた日を薄く「2026-11-11から」（吹き出し「Chmonosが見つけた日です。」）。前の状態があれば行の頭の三角で広げ、新しい順に「2.3.2　2026-10-01〜2026-11-11」「外していた　…〜…」を薄く並べる（2026-11-12）。
+  並びのどれかが三角を持てば、三角の無い行も三角の幅だけ下げて名前の頭を揃える。履歴の無い前の控えでは日付を出さない。
+- 外したもの（履歴の最後が外した物）は、行の下に畳んだ「外したもの {n} 件」にまとめ、開くと薄い文字で「表示名 最後の版　2026-10-15に外した」。前の状態は同じく三角で広げる。
 - 控えが無い（改変に紐付けておらず、開いてもいないプロジェクトは調べない）ときは「Unityで開くと表示されます。」、1つも無ければ「ありません。」。
 - 読むのは右の欄を出す時（控えの小さなファイルを画面のスレッドで読む）。出している間に調べ直しが終わっても差し替えない（選び直すと新しい物）。
 
@@ -71,3 +92,4 @@
 ## 外から使う API
 
 - `GET /v1/unity-scans` の答えに `vpm: [{ name, displayName, version, folder, inManifest }] | null` を足した（[local-api-stored.md](local-api-stored.md)）。null は読んでいない。API は読み直さない。
+- 履歴も `vpmHistory: [{ name, displayName, changes: [{ from, version, removed }] }] | null` で返す（2026-11-12）。null は履歴なし。外した行の `version` は null。

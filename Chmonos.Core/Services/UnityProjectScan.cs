@@ -13,6 +13,12 @@ public sealed record UnityProjectScan(
     /// </summary>
     public IReadOnlyList<VpmPackage>? Vpm { get; init; }
 
+    /// <summary>
+    /// VPM ごとの履歴（ユーザ判断 2026-11-12）。控えから読んだ時だけ入る（<see cref="Storage.UnityScanStore.Load"/>）。null は履歴なし（欄の無い前の控え）。
+    /// **控えるときは見ない**：履歴は控えのファイルの側で前から引き継いで足す（呼び手が持つ写しは古いことがある）。
+    /// </summary>
+    public IReadOnlyList<VpmPackageHistory>? VpmHistory { get; init; }
+
     public static UnityProjectScan Empty { get; } = new([], new Dictionary<string, IReadOnlyList<UnityImageMatch>>());
 
     private readonly HashSet<string> _packageIds = Packages.Select(match => match.ItemId).ToHashSet(StringComparer.Ordinal);

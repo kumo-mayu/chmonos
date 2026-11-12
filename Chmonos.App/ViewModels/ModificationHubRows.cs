@@ -356,8 +356,28 @@ public sealed class HubProjectDetail : IHubNoticeTarget
     /// </summary>
     public IReadOnlyList<Core.Services.VpmPackage>? Vpm { get; init; }
 
+    /// <summary>VPM ごとの履歴（ユーザ判断 2026-11-12）。控えから読む。null は履歴なし（欄の無い前の控え）で、日付と前の版を出さない。</summary>
+    public IReadOnlyList<Core.Services.VpmPackageHistory>? VpmHistory { get; init; }
+
     /// <summary>「VPM」の行の値。1つ1行で「表示名 版」。</summary>
     public string VpmValue => VpmText(Vpm);
+
+    /// <summary>行で並べる時（1つ以上ある）は、文の値を出さない。</summary>
+    public bool HasVpmValue => Vpm is not { Count: > 0 };
+
+    private HubVpmRows? _vpmRows;
+
+    private HubVpmRows Rows => _vpmRows ??= HubVpmRows.Build(Vpm, VpmHistory);
+
+    /// <summary>今入っている VPM の行。</summary>
+    public IReadOnlyList<HubVpmRow> VpmRows => Rows.Current;
+
+    /// <summary>外したもの（履歴にあって今は無い物）。畳んでおく。</summary>
+    public IReadOnlyList<HubVpmRow> VpmRemovedRows => Rows.Removed;
+
+    public bool HasVpmRemoved => Rows.Removed.Count > 0;
+
+    public string VpmRemovedTitle => $"外したもの {Rows.Removed.Count} 件";
 
     /// <summary>
     /// 行の値を組む（試験が直に呼ぶ）。manifest に無い埋め込みの物と、manifest にあってフォルダが無い物には、そうと添える
@@ -375,16 +395,19 @@ public sealed class HubProjectDetail : IHubNoticeTarget
             return "ありません。";
         }
 
-        return string.Join("\n", packages.Select(package =>
+        return string.Join("\n", packages.Select(VpmLine));
+    }
+
+    /// <summary>1つの行の文（「表示名 版」と、VCC・ALCOM の一覧と食い違って見える物への添え書き）。</summary>
+    internal static string VpmLine(Core.Services.VpmPackage package)
+    {
+        var line = package.Version is { } version ? $"{package.Shown} {version}" : package.Shown;
+        return package switch
         {
-            var line = package.Version is { } version ? $"{package.Shown} {version}" : package.Shown;
-            return package switch
-            {
-                { Folder: null } => $"{line}：フォルダが見つかりません",
-                { InManifest: false } => $"{line}：手で置いたもの",
-                _ => line,
-            };
-        }));
+            { Folder: null } => $"{line}：フォルダが見つかりません",
+            { InManifest: false } => $"{line}：手で置いたもの",
+            _ => line,
+        };
     }
 
     public required IReadOnlyList<HubModificationRow> Modifications { get; init; }

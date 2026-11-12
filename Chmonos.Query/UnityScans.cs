@@ -12,8 +12,22 @@ namespace Chmonos.Query;
 /// <c>Packages/</c> に入っているパッケージ（plan 40。VPM と、manifest に無い埋め込みの物）。**null はまだ読んでいない**（この欄を足す前の控え）。
 /// 照合と同じ時に読んだ物で、API は読み直さない
 /// </param>
+/// <param name="VpmHistory">
+/// VPM ごとの履歴（ユーザ判断 2026-11-12）。外した物も残る。**null は履歴なし**（この欄を足す前の控えで、まだ調べ直していない）。
+/// </param>
 public sealed record UnityScanRef(
-    string Project, DateTimeOffset SavedAt, IReadOnlyList<UnityScanItemRef> Items, IReadOnlyList<UnityScanImageRef> Images, IReadOnlyList<UnityScanVpmRef>? Vpm);
+    string Project, DateTimeOffset SavedAt, IReadOnlyList<UnityScanItemRef> Items, IReadOnlyList<UnityScanImageRef> Images, IReadOnlyList<UnityScanVpmRef>? Vpm,
+    IReadOnlyList<UnityScanVpmHistoryRef>? VpmHistory);
+
+/// <param name="Name">パッケージの名前。</param>
+/// <param name="DisplayName">最後に読めた表示名。</param>
+/// <param name="Changes">古い順。最後の行が今の状態。終わりの時は次の行の <c>from</c>。</param>
+public sealed record UnityScanVpmHistoryRef(string Name, string? DisplayName, IReadOnlyList<UnityScanVpmChangeRef> Changes);
+
+/// <param name="From">Chmonos が調べて気付いた時（入れた時ではない）。</param>
+/// <param name="Version">その時の版。外した行と、読めなかった物は null。</param>
+/// <param name="Removed">プロジェクトから無くなった行か。</param>
+public sealed record UnityScanVpmChangeRef(DateTimeOffset From, string? Version, bool Removed);
 
 /// <param name="Name">パッケージの名前（<c>jp.lilxyzw.liltoon</c>）。</param>
 /// <param name="DisplayName"><c>package.json</c> の表示名。読めなければ null。</param>
@@ -55,7 +69,10 @@ public static class UnityScans
                         pair.Key, NameOf(pair.Key), image.ProjectPath, image.SourceName,
                         image.Kind == UnityImageMatchKind.SameImage ? "sameImage" : "sameName")))
                     .ToList(),
-                entry.Scan.Vpm?.Select(package => new UnityScanVpmRef(package.Name, package.DisplayName, package.Version, package.Folder, package.InManifest)).ToList()))
+                entry.Scan.Vpm?.Select(package => new UnityScanVpmRef(package.Name, package.DisplayName, package.Version, package.Folder, package.InManifest)).ToList(),
+                entry.Scan.VpmHistory?.Select(history => new UnityScanVpmHistoryRef(
+                    history.Name, history.DisplayName,
+                    history.Changes.Select(change => new UnityScanVpmChangeRef(change.From, change.Version, change.Removed)).ToList())).ToList()))
             .ToList();
     }
 }

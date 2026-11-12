@@ -549,11 +549,74 @@
                                    Visibility="{Binding HasLastWrite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                         <!--
-                            入っている VPM（plan 40）。1つ1行。行は多くても十数本（確かめ用のプロジェクトで9本）なので畳まない。
-                            見出しは値の1行目にそろえる（値が何行にもなるので、真ん中に置くと見出しが浮く）
+                            入っている VPM（plan 40）。1つ1行。行は多くても十数本（確かめ用のプロジェクトで9本）なので、行の一覧は畳まない。
+                            見出しは値の1行目にそろえる（値が何行にもなるので、真ん中に置くと見出しが浮く）。
+                            行ごとに見つけた日を添え、前の版があれば三角で広げる。外したものはまとめて畳み、薄く出す（ユーザ判断 2026-11-12）
                         -->
                         <TextBlock Grid.Row="4" Grid.Column="0" Text="VPM" Style="{StaticResource ProjectInfoLabel}" VerticalAlignment="Top" />
-                        <TextBlock AutomationProperties.AutomationId="ModificationsDetailVpm" Grid.Row="4" Grid.Column="1" Text="{Binding VpmValue}" Style="{StaticResource ProjectInfoValue}" LineHeight="18" />
+                        <StackPanel Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ModificationsDetailVpm">
+                            <StackPanel.Resources>
+                                <!-- 1つの行の文（名前と版・見つけた日）。外したものは名前も薄く -->
+                                <DataTemplate x:Key="VpmRowText" DataType="{x:Type vm:HubVpmRow}">
+                                    <TextBlock FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource Text}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRemoved}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                        <Run Text="{Binding Text, Mode=OneWay}" /><Run Text="　" /><Run Text="{Binding SinceText, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="11.5"
+                                             ToolTip="Chmonosが見つけた日です。" />
+                                    </TextBlock>
+                                </DataTemplate>
+                                <DataTemplate x:Key="VpmRow" DataType="{x:Type vm:HubVpmRow}">
+                                    <Grid Margin="0,1">
+                                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                                  AutomationProperties.Name="{Binding ExpandName}"
+                                                  Visibility="{Binding HasPast, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <Expander.Header>
+                                                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource VpmRowText}" />
+                                            </Expander.Header>
+                                            <ItemsControl ItemsSource="{Binding PastLines}" Margin="30,0,0,4" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding}" FontSize="11.5" Foreground="{DynamicResource TextMuted}" Margin="0,1" TextWrapping="Wrap" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Expander>
+                                        <!-- 前の版の無い行。並びのどれかが三角を持てば、三角の幅（22 + 8）だけ下げて名前の頭を揃える -->
+                                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource VpmRowText}"
+                                                          Visibility="{Binding HasPast, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                            <ContentPresenter.Style>
+                                                <Style TargetType="ContentPresenter">
+                                                    <Setter Property="Margin" Value="0,2" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AlignWithToggle}" Value="True">
+                                                            <Setter Property="Margin" Value="30,2,0,2" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ContentPresenter.Style>
+                                        </ContentPresenter>
+                                    </Grid>
+                                </DataTemplate>
+                            </StackPanel.Resources>
+                            <TextBlock Text="{Binding VpmValue}" Style="{StaticResource ProjectInfoValue}"
+                                       Visibility="{Binding HasVpmValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <ItemsControl ItemsSource="{Binding VpmRows}" ItemTemplate="{StaticResource VpmRow}" Margin="0,1,0,0" Focusable="False" />
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,4,0,0" AutomationProperties.Name="{Binding VpmRemovedTitle}"
+                                      Visibility="{Binding HasVpmRemoved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Expander.Header>
+                                    <TextBlock Text="{Binding VpmRemovedTitle}" FontSize="12.5" Foreground="{DynamicResource TextMuted}" />
+                                </Expander.Header>
+                                <ItemsControl ItemsSource="{Binding VpmRemovedRows}" ItemTemplate="{StaticResource VpmRow}" Margin="30,2,0,0" Focusable="False" />
+                            </Expander>
+                        </StackPanel>
                     </Grid>
                     <!--
                         外のアプリ・エクスプローラを開くのは**どの画面でも小さいボタン**（ユーザ判断 2026-09-20・V1）。

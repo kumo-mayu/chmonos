@@ -301,6 +301,15 @@ public sealed class ApiStoredReadTests : IAsyncLifetime
         Assert.Equal([("com.example.shader", "作り物のシェーダー", "1.2.3", "com.example.shader", true), ("com.example.tool", null, "0.1.0", null, true)], vpm);
         Assert.Equal(JsonValueKind.Null, all[0].GetProperty("vpm").ValueKind);
 
+        // VPM ごとの履歴（2026-11-12）。初めて控えた時の姿が最初の行。読んでいない控えは null
+        var history = scan.GetProperty("vpmHistory").EnumerateArray().ToList();
+        Assert.Equal(["com.example.shader", "com.example.tool"], history.Select(entry => entry.GetProperty("name").GetString()));
+        var change = Assert.Single(history[0].GetProperty("changes").EnumerateArray());
+        Assert.Equal("1.2.3", change.GetProperty("version").GetString());
+        Assert.False(change.GetProperty("removed").GetBoolean());
+        Assert.True(change.GetProperty("from").GetDateTimeOffset() > DateTimeOffset.Now.AddMinutes(-5));
+        Assert.Equal(JsonValueKind.Null, all[0].GetProperty("vpmHistory").ValueKind);
+
         // 場所は条件 unityProject と同じ揃え方で照らす（/ 区切り・末尾の区切り・大文字小文字）
         var one = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/unity-scans?project=d:/unity/avatar/"));
         Assert.Equal(@"D:\Unity\Avatar", one.EnumerateArray().Single().GetProperty("project").GetString());

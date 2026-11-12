@@ -36,15 +36,27 @@ public static class VpmPackages
     private const long MaxJsonBytes = 1024 * 1024;
 
     /// <summary>ディスクから読む。フォルダが無い・読めない物は飛ばす（読めた分だけ返す）。</summary>
-    public static IReadOnlyList<VpmPackage> Read(string projectPath)
+    public static IReadOnlyList<VpmPackage> Read(string projectPath) => ReadCore(projectPath).Packages;
+
+    /// <summary>
+    /// ディスクから読む。**全部を読めたと言えないときは null**：<c>Packages/</c> が無い（ドライブが外れた・プロジェクトでない）、
+    /// 一覧の途中で読めなくなった、manifest が在るのに読めない。
+    /// 控えの履歴（<see cref="VpmHistories"/>）は、欠けた読みを「全部消えた」と記録しないよう、null のときは前の控えを残す。
+    /// 送る前の照らし（<see cref="Read"/>）は、読めた分だけで照らす方を取る（照らせない物は黙って送る決まり）。
+    /// </summary>
+    public static IReadOnlyList<VpmPackage>? TryRead(string projectPath)
+        => ReadCore(projectPath) is { Complete: true } read ? read.Packages : null;
+
+    private static (IReadOnlyList<VpmPackage> Packages, bool Complete) ReadCore(string projectPath)
     {
         var packages = Path.Combine(projectPath, "Packages");
         var folders = new List<(string Folder, string? PackageJson)>();
+        var complete = true;
         try
         {
             if (!Directory.Exists(packages))
             {
-                return [];
+                return ([], false);
             }
 
             foreach (var folder in Directory.EnumerateDirectories(packages))
@@ -63,9 +75,15 @@ public static class VpmPackages
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // 一覧の途中で読めなくなっても、読めた分は使う
+            complete = false;
         }
 
-        return Parse(ReadText(Path.Combine(packages, "vpm-manifest.json")), folders);
+        var manifestPath = Path.Combine(packages, "vpm-manifest.json");
+        var manifest = ReadText(manifestPath);
+
+        // VCC が書いている最中などで在るのに読めないと、manifest にだけある物が「消えた」と見える
+        complete &= manifest is not null || !File.Exists(manifestPath);
+        return (Parse(manifest, folders), complete);
     }
 
     /// <summary>

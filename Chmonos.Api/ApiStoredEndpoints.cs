@@ -56,6 +56,6 @@ internal static partial class ApiEndpoints
 
         app.MapGet("/v1/unity-scans", (ApiState state, string? project) =>
             ApiHost.Json(UnityScans.All(state.Snapshot, project), json.IReadOnlyListUnityScanRef))
-            .Answers<IReadOnlyList<UnityScanRef>>("Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像・Packages に入っている VPM。savedAt の時点の物で、API は調べ直さない）");
+            .Answers<IReadOnlyList<UnityScanRef>>("Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像・Packages に入っている VPM とその履歴。savedAt の時点の物で、API は調べ直さない）");
     }
 }

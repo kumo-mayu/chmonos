@@ -61,9 +61,10 @@ internal static partial class Scenes
                     $$"""{ "name": "{{name}}", "displayName": "{{display}}", "version": "{{version}}" }""");
             }
 
+            var normalized = Chmonos.Core.Services.UnityProjectPath.Normalize(project)!;
             new Chmonos.Core.Storage.UnityScanStore(Chmonos.Core.Storage.AppPaths.Default).Save(
-                Chmonos.Core.Services.UnityProjectPath.Normalize(project)!,
-                Chmonos.Core.Services.UnityProjectScan.Empty with { Vpm = Chmonos.Core.Services.VpmPackages.Read(project) });
+                normalized, Chmonos.Core.Services.UnityProjectScan.Empty with { Vpm = Chmonos.Core.Services.VpmPackages.Read(project) });
+            SeedVpmHistory(normalized);
 
             var main = await context.StartAsync();
             UseTools(context, ToolCombinations[1].Tools, []);
@@ -73,15 +74,51 @@ internal static partial class Scenes
             await context.PresentAsync(root);
 
             var hub = context.Screen<ModificationHubViewModel>();
-            await SceneContext.UntilAsync(() => hub.Detail is HubProjectDetail { Vpm: not null }, "右にプロジェクトと VPM が出る");
+            await SceneContext.UntilAsync(() => hub.Detail is HubProjectDetail { Vpm: not null, HasVpmRemoved: true }, "右にプロジェクトと VPM が出る");
+
+            // 前の版を広げた行と、外したものを開いた所を撮る（畳んだ姿は他の行で見える）
+            var detail = (HubProjectDetail)hub.Detail!;
+            detail.VpmRows.First(row => row.HasPast).IsExpanded = true;
+            var removed = Look.All<Expander>(root).Single(expander => expander.DataContext == detail && expander.Header is TextBlock);
+            removed.IsExpanded = true;
             await context.SettleAsync();
-            Console.WriteLine($"  VPM：{((HubProjectDetail)hub.Detail!).Vpm!.Count} 個");
+            Console.WriteLine($"  VPM：{detail.Vpm!.Count} 個・外したもの {detail.VpmRemovedRows.Count} 個");
             return new Shot(root) { Focus = () => Look.View<ModificationHubView>(root), FocusMargin = 0 };
         })
         {
             Width = 1280,
             Height = 760,
         };
+
+    /// <summary>
+    /// 控えに VPM の履歴を書き込む（ユーザ判断 2026-11-12）。日付は決めた作り物。
+    /// **最後の行はフォルダの中身と同じにする**：起動後の見張りが調べ直して控えると、違う物には今日の行が足され、撮る日で絵が変わる
+    /// </summary>
+    private static void SeedVpmHistory(string project)
+    {
+        static Chmonos.Core.Services.VpmHistoryEntry At(string day, string? version, bool removed = false)
+            => new(DateTimeOffset.Parse($"{day}T21:00:00+09:00", System.Globalization.CultureInfo.InvariantCulture), version, removed);
+
+        var file = Directory.GetFiles(Path.Combine(Chmonos.Core.Storage.AppPaths.Default.Root, Chmonos.Core.Storage.AppPaths.UnityScansDirName))
+            .Single(path => Chmonos.Core.Storage.JsonStore.Read<Chmonos.Core.Storage.UnityScanFile>(path)?.Project == project);
+        var saved = Chmonos.Core.Storage.JsonStore.Read<Chmonos.Core.Storage.UnityScanFile>(file)!;
+        Chmonos.Core.Storage.JsonStore.Write(file, new Chmonos.Core.Storage.UnityScanFile
+        {
+            Project = saved.Project,
+            Packages = saved.Packages,
+            Images = saved.Images,
+            Vpm = saved.Vpm,
+            VpmHistory =
+            [
+                new("com.example.avatars", "作り物 SDK - Avatars", [At("2026-08-30", "3.9.0"), At("2026-10-15", "3.10.4")]),
+                new("com.example.framework", "作り物フレームワーク", [At("2026-10-15", "1.13.1")]),
+                new("com.example.missing", null, [At("2026-09-20", "1.0.0")]),
+                new("com.example.mytool", "手で置いた作り物の道具", [At("2026-11-05", "0.2.0")]),
+                new("com.example.oldtool", "外した作り物の道具", [At("2026-09-20", "1.4.0"), At("2026-10-15", null, removed: true)]),
+                new("com.example.shader", "作り物トゥーン", [At("2026-09-20", "2.3.2"), At("2026-10-28", null, removed: true), At("2026-11-02", "2.3.3")]),
+            ],
+        });
+    }
 
     private static Scene ProjectRelocateScene(string name, string title, int width)
         => new(name, title, async context =>

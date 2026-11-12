@@ -691,12 +691,14 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         var candidate = _projects.FirstOrDefault(entry => ModificationService.SamePath(entry.Path, path))
             ?? UnityProjects.Describe(path, UnityProjectSource.None);
 
+        // 控えは見つかった商品と VPM の分だけの小さなファイル。検索の条件と同じく画面のスレッドで読む（開いた時に空を見せない）
+        var saved = _services.UnityScans.Load(UnityProjectPath.Normalize(candidate.Path) ?? candidate.Path);
         Detail = new HubProjectDetail
         {
             Candidate = candidate,
             SourceValue = UnityToolsText.SourceValue(candidate.Source, Tools, _services.Settings.ProjectManager),
-            // 控えは見つかった商品と VPM の分だけの小さなファイル。検索の条件と同じく画面のスレッドで読む（開いた時に空を見せない）
-            Vpm = _services.UnityScans.Load(UnityProjectPath.Normalize(candidate.Path) ?? candidate.Path)?.Vpm,
+            Vpm = saved?.Vpm,
+            VpmHistory = saved?.VpmHistory,
             Modifications = RecordsOf(candidate.Path).Select(record => ModRow(record, ModificationHubLevel.Project, false)).ToList(),
         };
     }
