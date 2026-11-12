@@ -65,6 +65,9 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
         public bool Removed { get; set; }
     }
 
+    /// <summary>今つないでいる API があるか（試験）。</summary>
+    internal bool IsAttached => _book is not null;
+
     /// <summary>この種類を誰かが購読しているか（API が動いていなければ false）。画面はこれを見てから出来事を作る。</summary>
     public bool Watches(string kind) => _book is not null && _watched.Contains(kind);
 
@@ -180,10 +183,11 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
             while (true)
             {
                 Task signal;
+                TimeSpan remaining;
                 lock (_lock)
                 {
                     var answer = AnswerOf(subscriber, after, epoch);
-                    var remaining = until - DateTime.UtcNow;
+                    remaining = until - DateTime.UtcNow;
                     if (answer.Events.Count > 0 || answer.Reset || answer.Dropped > 0 || subscriber.Removed || remaining <= TimeSpan.Zero || cancellationToken.IsCancellationRequested)
                     {
                         return answer;
@@ -194,14 +198,11 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
 
                 try
                 {
-                    await signal.WaitAsync(until - DateTime.UtcNow, cancellationToken);
+                    // 錠の中で出した正の残りを渡す（錠の外で計り直すと、負の小さな値が「いつまでも待つ」に読まれ得る）
+                    await signal.WaitAsync(remaining, cancellationToken);
                 }
                 catch (TimeoutException)
                 {
-                }
-                catch (ArgumentOutOfRangeException)
-                {
-                    // 錠を出てから待ち始めるまでに時間が尽きた（負の待ち時間）。次の回で空を返す
                 }
                 catch (OperationCanceledException)
                 {

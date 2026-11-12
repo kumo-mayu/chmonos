@@ -51,7 +51,11 @@ public sealed class ApiServerTests : IDisposable
         JsonStore.Write(_paths.ApiFile, new ApiEndpointRecord { Port = port, Token = "old-token" });
         File.SetAttributes(_paths.ApiFile, FileAttributes.ReadOnly);
 
-        await Assert.ThrowsAnyAsync<Exception>(() => ApiServer.StartAsync(store));
+        var plugins = new PluginEventHub();
+        await Assert.ThrowsAnyAsync<Exception>(() => ApiServer.StartAsync(store, plugins: plugins));
+
+        // 始められなかった API の控えに、ソフトへの列がつながったまま残らない（残ると止まっているのに画面が出来事を作る。plan 44）
+        Assert.False(plugins.IsAttached);
 
         var again = new TcpListener(IPAddress.Loopback, port);
         again.Start();

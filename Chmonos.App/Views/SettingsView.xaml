@@ -1211,7 +1211,7 @@
                             -->
                             <TextBlock Text="つないでいるソフト" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                       Text="APIの利用を許可したソフトです。データの読み取りはどのソフトもできます。チェックした変更と知らせだけを許可します。" />
+                                       Text="APIの利用を許可したソフトです。データの読み取りはどのソフトもできます。チェックした変更と知らせる操作だけを許可します。" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        AutomationProperties.AutomationId="Settings.ApiClientsEmpty"
                                        Text="許可したソフトはありません。ソフトが許可を求めると、確かめる窓が開きます。"

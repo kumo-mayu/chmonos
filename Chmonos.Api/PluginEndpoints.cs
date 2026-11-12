@@ -26,7 +26,8 @@ internal static class PluginEndpoints
             // API が止まるときは待ちを解く（解かないと、待ち受けを止めるのが待ちの終わりまで約30秒止まる。許しの結果を待つのと同じ）
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, lifetime.ApplicationStopping);
             var answer = await hub.WaitAsync(
-                client.Id, after ?? 0, epoch, TimeSpan.FromSeconds(Math.Clamp(wait ?? 0, 0, PluginEventHub.MaxWaitSeconds)), linked.Token);
+                // 空の epoch（`epoch=`）は送っていないのと同じ：初めて聞くソフトが前の値を持たないまま送っても、起動し直しと取り違えない
+                client.Id, after ?? 0, string.IsNullOrEmpty(epoch) ? null : epoch, TimeSpan.FromSeconds(Math.Clamp(wait ?? 0, 0, PluginEventHub.MaxWaitSeconds)), linked.Token);
 
             // 中身は使う人の操作なので、間に入る物に残させない（ETag も付けない：毎回違う答え）
             NoStore(context);

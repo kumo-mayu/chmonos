@@ -73,6 +73,9 @@ public sealed class ApiServer : IAsyncDisposable
             }
 
             await app.DisposeAsync();
+
+            // 始められなかった（ポートが塞がっている）：列を控えから外す。外さないと、止まっているのに画面が出来事を作り続ける
+            plugins?.Detach(state.Clients);
             throw;
         }
 

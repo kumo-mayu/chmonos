@@ -178,6 +178,9 @@ public sealed class PluginEventTests : IAsyncLifetime
         Assert.Equal(new long[] { 1L, 2L }, SeqsOf(ahead));
 
         Assert.False((await EventsAsync(after: 1, epoch: _hub.Epoch)).GetProperty("reset").GetBoolean());
+
+        // 空の名前（初めて聞くソフトが前の値を持たずに `epoch=` を送った）は、送っていないのと同じ
+        Assert.False((await EventsAsync(after: 1, epoch: string.Empty)).GetProperty("reset").GetBoolean());
     }
 
     [Fact]
