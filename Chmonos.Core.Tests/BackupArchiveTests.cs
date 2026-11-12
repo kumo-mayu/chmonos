@@ -27,7 +27,7 @@ public sealed class BackupArchiveTests : IDisposable
         // 許したソフトの一覧。許しはその PC の exe へ出した物で、別の PC へ戻すと人が見ていない許しが生き返る（plan 31）
         File.WriteAllText(Path.Combine(Store, AppPaths.ApiClientsFileName), "{\"clients\":[]}");
 
-        // プロジェクトを調べた結果の控え。調べ直せて、別の PC では当てにならない
+        // プロジェクトを調べた結果の控え。VPM の履歴は作り直せないので入れる（2026-11-12）
         Directory.CreateDirectory(Path.Combine(Store, AppPaths.UnityScansDirName));
         File.WriteAllText(Path.Combine(Store, AppPaths.UnityScansDirName, "0123456789ABCDEF.json"), "{}");
     }
@@ -56,8 +56,8 @@ public sealed class BackupArchiveTests : IDisposable
 
         var result = BackupArchive.Export(Store, zip, includeImages: true);
 
-        Assert.Equal(["backup-info.json", "images/111/a.webp", "items/111.json", "settings.json"], EntriesOf(zip));
-        Assert.Equal(3, result.Files);
+        Assert.Equal(["backup-info.json", "images/111/a.webp", "items/111.json", "settings.json", "unityscans/0123456789ABCDEF.json"], EntriesOf(zip));
+        Assert.Equal(4, result.Files);
     }
 
     /// <summary>
@@ -239,8 +239,9 @@ public sealed class BackupArchiveTests : IDisposable
 
         var files = BackupArchive.Restore(zip, destination);
 
-        Assert.Equal(3, files);
+        Assert.Equal(4, files);
         Assert.Equal("{\"id\":\"111\"}", File.ReadAllText(Path.Combine(destination, "items", "111.json")));
+        Assert.True(File.Exists(Path.Combine(destination, AppPaths.UnityScansDirName, "0123456789ABCDEF.json")));
         Assert.True(StoreLocation.LooksLikeStore(destination));
         Assert.False(File.Exists(Path.Combine(destination, BackupArchive.InfoFileName)));
     }
@@ -271,7 +272,7 @@ public sealed class BackupArchiveTests : IDisposable
 
         // 作った展開先ごと消える
         Assert.False(Directory.Exists(destination));
-        Assert.Equal(3, BackupArchive.Restore(zip, destination));
+        Assert.Equal(4, BackupArchive.Restore(zip, destination));
     }
 
     /// <summary>選んだ空のフォルダは消さずに、空に戻す（人が作って選んだフォルダなので）。</summary>

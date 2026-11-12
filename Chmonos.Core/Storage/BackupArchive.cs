@@ -82,11 +82,9 @@ public static class BackupArchive
             return true;
         }
 
-        // プロジェクトを調べた結果の控えは調べ直せる。別の PC へ戻すと、そこに無い場所の結果になる
-        if (relativePath.StartsWith(AppPaths.UnityScansDirName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
+        // プロジェクトを調べた結果の控え（unityscans/）は入れる（ユーザ判断 2026-11-12「入れましょう」）。
+        // 見つかった商品は調べ直せるが、VPM の履歴は前の控えから引き継いで足す物で、消すと作り直せない。
+        // 別の PC へ戻すと、そこに無い場所の控えが残るが、その場所のプロジェクトが無ければ使われないだけで害は無い
 
         return name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".cache", StringComparison.OrdinalIgnoreCase)
