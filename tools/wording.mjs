@@ -1,5 +1,5 @@
 // 画面に出る文を App と Core から集めて、書き方の決まりに外れていそうな所に印を付ける。
-// 決まりは docs/spec/ui-writing.md、語の表は docs/spec/ui-terms.md（表はここから読む）。
+// 決まりは docs/spec/ui-writing.md、語の表は docs/spec/ui-terms.md と ui-terms-avoid.md（表はここから読む）。
 // 使い方は .claude/skills/ui-wording/SKILL.md。素の Node で動かす（依存を足さない）。
 //
 //   node tools/wording.mjs                 画面ごと・印ごとの数
@@ -121,13 +121,18 @@ for (const file of files) {
 
 // ---- 用語表を読む --------------------------------------------------------------
 
-const termsFile = path.join(repo, 'docs/spec/ui-terms.md');
-const terms = fs.readFileSync(termsFile, 'utf8').split(/\r?\n/);
+// 用語表は200行の決まりで2つに分けてある（入口の ui-terms.md と、使わない語・揃える表記の ui-terms-avoid.md）。
+// 表がどちらへ移っても読み落とさないよう、両方を読んで見出しで探す。ファイルの境目では表を切る
+const termsFiles = ['docs/spec/ui-terms.md', 'docs/spec/ui-terms-avoid.md'];
+const termsDocs = termsFiles.map((f) => fs.readFileSync(path.join(repo, f), 'utf8').split(/\r?\n/));
 function table(heading) {
-  const start = terms.findIndex((l) => l.trim() === `## ${heading}`);
-  if (start < 0) throw new Error(`${termsFile} に「## ${heading}」がありません`);
+  const matches = termsDocs.flatMap((lines) => {
+    const i = lines.findIndex((l) => l.trim() === `## ${heading}`);
+    return i < 0 ? [] : [lines.slice(i + 1)];
+  });
+  if (matches.length !== 1) throw new Error(`${termsFiles.join('・')} に「## ${heading}」が${matches.length ? '2つあります' : 'ありません'}`);
   const out = [];
-  for (const l of terms.slice(start + 1)) {
+  for (const l of matches[0]) {
     if (l.startsWith('## ')) break;
     if (!l.startsWith('|') || /^\|[-| ]+\|$/.test(l)) continue;
     const cells = l.slice(1, -1).split(/(?<!\\)\|/).map((c) => c.trim());

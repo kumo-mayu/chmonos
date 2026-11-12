@@ -91,7 +91,7 @@ public static class SearchModuleOrder
 /// <summary>
 /// AND／OR の言い方（ユーザ判断 2026-10-06・メモ82「AND と OR の言い方はモジュール間で共有」）。
 /// 形はどの条件も「AND にするか」のチェック1つで、切れば OR。条件ごとに言い方を書くと揃わなくなるので、ここ1か所に置く。
-/// 「すべて」はかなで書く（`docs/spec/ui-terms.md` の揃える表記）。
+/// 「すべて」はかなで書く（`docs/spec/ui-terms-avoid.md` の揃える表記）。
 /// </summary>
 public static class MatchModeText
 {

@@ -82,7 +82,8 @@
 | [shops.md](spec/shops.md) | ショップの中：バナーの畳み・1本のスクロール・1行の見出しとメモ・一覧の仮想化・戻る進むでの位置の戻し |
 | [ui-colors.md](spec/ui-colors.md) | 色の表（明るい・暗い）の鍵と役割、色を直に書かない決まり、表示の色の切り替え、暗い表のコントラスト、標準の部品の見た目 |
 | [ui-writing.md](spec/ui-writing.md) | 画面の文言の書き方（1つの文言に載せるもの・長さ・要素ごとの型・正確さを落とさない） |
-| [ui-terms.md](spec/ui-terms.md) | 画面の用語表（内部の言葉・同じ操作の動詞・使わない語・揃える表記・まだ決めていない揺れ）。`tools/wording.mjs` が読む |
+| [ui-terms.md](spec/ui-terms.md) | 画面の用語表の入口（内部の言葉・同じ操作の動詞・決めた呼び方）。`tools/wording.mjs` が読む |
+| [ui-terms-avoid.md](spec/ui-terms-avoid.md) | 画面の用語表の続き（使わない語・揃える表記・まだ決めていない揺れ）。`tools/wording.mjs` が読んで印を付ける |
 | [ui-dialogs.md](spec/ui-dialogs.md) | 別の窓（ダイアログ）の Enter・Esc、ボタンの並びと名前、取り返しの一文、確認と失敗のアイコン |
 | [ui-subwindows.md](spec/ui-subwindows.md) | サブ画面（主の窓を塞がない別の窓）：何をサブ画面にするか・1種類につき1つ・閉じ方・キー・開いている間に記録が変わったとき |
 | [ui-input.md](spec/ui-input.md) | 候補の付け方、Enter で決める範囲、名前の変え方、メモの保存、編集画面の保存の分かれ方、右クリックのメニュー、読み上げの名前 |
