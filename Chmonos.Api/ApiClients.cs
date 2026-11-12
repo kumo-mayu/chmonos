@@ -128,12 +128,6 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
 
     public IReadOnlyList<ApiClientRecord> All => _index.All;
 
-    /// <summary>
-    /// 書き込みか見張りを1つでも許したソフトがあるか（ブラウザの事前の確かめで、書く方法を許すか）。
-    /// 見張りだけ許したページも、購読を PUT で送るので数に入れる（plan 44）
-    /// </summary>
-    public bool AnyScopes => _index.All.Any(client => client.Scopes.Count > 0);
-
     /// <summary>今の控えの、この ID のソフト（取り消されていれば null）。出来事を積むたびに今の許しを見るため。</summary>
     public ApiClientRecord? ById(string clientId) => _index.All.FirstOrDefault(client => client.Id == clientId);
 
@@ -595,6 +589,13 @@ internal sealed class ApiClientRequests
         IReadOnlyList<PluginMenuItemRef> declaration;
         lock (_lock)
         {
+            // 取り下げた（控えと同じ宣言を送り直した・消えるだけにした）求めは列に残っているが、窓を出さずに飛ばす
+            // （出すと、取り下げた宣言を後で聞き、送り直すと2回聞くことになる）
+            if (!_menus.TryGetValue(entry.ClientId, out var latest) || !ReferenceEquals(latest, entry))
+            {
+                return true;
+            }
+
             entry.Shown = true;
             declaration = entry.Declaration;
         }

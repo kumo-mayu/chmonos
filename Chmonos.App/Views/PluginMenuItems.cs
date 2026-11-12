@@ -80,6 +80,23 @@ internal static class PluginMenuItems
         menu.Items.Add(root);
     }
 
+    /// <summary>
+    /// 「ほかのソフト ▾」のボタンの下に、その時の中身でメニューを開く。閉じたらボタンから外す：残すと、ボタンの右クリックで
+    /// 前に作ったメニュー（前の選択・前の商品）が開き、古い物を送ってしまう
+    /// </summary>
+    public static void OpenOnce(Button button, ContextMenu menu, System.Windows.RoutedEventArgs e)
+    {
+        button.ContextMenu = menu;
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(button.ContextMenu, menu))
+            {
+                button.ContextMenu = null;
+            }
+        };
+        Controls.MenuButton.OpenBelow(button, e);
+    }
+
     private static MenuItem EntryItem(PluginMenuService service, PluginMenuSoftware software, PluginMenuEntry entry, string where, IReadOnlyList<string> itemIds)
     {
         var item = Item(entry.Label, entry.Reason, software.Name, "PluginMenu.Item");

@@ -7,4 +7,7 @@ public interface IPluginSelectionSource
 {
     /// <summary>選んでいる商品の ID（表示の並びの順。選択の出来事と同じ並べ方）。</summary>
     IReadOnlyList<string> SelectedItemIdsForPlugins();
+
+    /// <summary>ほかのソフトの項目の係（帯のボタンを出すか・押したときの組み立て）。</summary>
+    Services.PluginMenuService PluginMenus { get; }
 }

@@ -429,13 +429,16 @@ public partial class ItemCardResources : ResourceDictionary
             var card = menu.PlacementTarget is FrameworkElement { DataContext: var context }
                 ? context as ItemCardViewModel ?? (context as IHasItemCard)?.Card
                 : null;
-            PluginMenuItems.AttachTo(menu, PluginMenusOf(menu), card?.Item.Id);
+            PluginMenuItems.AttachTo(menu, PluginMenusOf(menu.PlacementTarget), card?.Item.Id);
         }
     }
 
-    /// <summary>ほかのソフトの項目の係（主の窓の画面が持つ。主の窓の外・試験の台では無い）。</summary>
-    internal static Services.PluginMenuService? PluginMenusOf(DependencyObject? _)
-        => (Application.Current?.MainWindow?.DataContext as MainViewModel)?.PluginMenus;
+    /// <summary>
+    /// ほかのソフトの項目の係（カードを置いた窓の主画面が持つ。主の窓の外・試験の台では無い）。
+    /// <c>Application.MainWindow</c> は使わない：最初に作った窓（保存先の確かめ・既に起動している、の窓）を指すことがある
+    /// </summary>
+    internal static Services.PluginMenuService? PluginMenusOf(DependencyObject? target)
+        => target is null ? null : (Window.GetWindow(target)?.DataContext as MainViewModel)?.PluginMenus;
 
     /// <summary>
     /// 複数選択の帯の「ほかのソフト ▾」（plan 44 の②）。帯を項目で長くしないよう、いつも1つのボタンに畳み、押すとソフトごとの段を開く。
@@ -443,11 +446,12 @@ public partial class ItemCardResources : ResourceDictionary
     /// </summary>
     private void OnPluginSelectionClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { DataContext: IPluginSelectionSource source } button || PluginMenusOf(button) is not { } service)
+        if (sender is not Button { DataContext: IPluginSelectionSource source } button)
         {
             return;
         }
 
+        var service = source.PluginMenus;
         var ids = source.SelectedItemIdsForPlugins();
         var menu = new ContextMenu();
         foreach (var item in PluginMenuItems.SoftwareItems(service, service.Build(Chmonos.Api.PluginMenus.WhereSelection, ids), Chmonos.Api.PluginMenus.WhereSelection, ids))
@@ -460,8 +464,7 @@ public partial class ItemCardResources : ResourceDictionary
             return;
         }
 
-        button.ContextMenu = menu;
-        Controls.MenuButton.OpenBelow(button, e);
+        PluginMenuItems.OpenOnce(button, menu, e);
     }
 
     /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>

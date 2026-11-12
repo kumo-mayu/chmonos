@@ -288,8 +288,7 @@ public partial class ItemView : UserControl
             return;
         }
 
-        button.ContextMenu = menu;
-        MenuButton.OpenBelow(button, e);
+        PluginMenuItems.OpenOnce(button, menu, e);
     }
 
     /// <summary>↓・Alt+↓ でも開く（「開く ▾」と同じ）。</summary>

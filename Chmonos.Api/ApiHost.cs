@@ -407,9 +407,9 @@ internal static class ApiHost
             if (HttpMethods.IsOptions(request.Method))
             {
                 // 書き込みを許しているときだけ、書く方法（PUT・PATCH・DELETE）も許す（許可したオリジンのページからは書ける。ユーザ判断 2026-10-13）
-                // 事前の確かめにはトークンが付かないので誰か分からない。古いトークンの許しか、書き込みか見張りを許したソフトが1つでもあれば許す
-                // （本当に書けるかは本番の要求でトークンの権限を見る）
-                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites || state.Clients.AnyScopes ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
+                // 事前の確かめにはトークンが付かないので誰か分からない。古いトークンの許しか、許したソフトが1つでもあれば許す
+                // （本当に書けるかは本番の要求でトークンの権限を見る）。読み取りだけのソフトも、項目の宣言を PUT で送る（plan 44 の②）
+                context.Response.Headers.AccessControlAllowMethods = state.AllowWrites || state.Clients.All.Count > 0 ? "GET, POST, PUT, PATCH, DELETE" : "GET, POST";
                 context.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type, Last-Event-ID, If-None-Match";
                 context.Response.Headers.AccessControlMaxAge = "600";
                 context.Response.StatusCode = StatusCodes.Status204NoContent;

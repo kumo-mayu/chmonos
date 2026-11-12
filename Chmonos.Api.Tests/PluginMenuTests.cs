@@ -288,6 +288,29 @@ public sealed class PluginMenuTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task 窓を待っている間に控えと同じ宣言へ戻したら_取り下げて後で聞かない()
+    {
+        await ApproveFirstAsync(Preview);
+
+        // 別のソフトの窓が開いている間に、変えた宣言を送ってから、控えと同じ宣言を送り直す
+        var otherPut = PutMenuAsync(new { items = new[] { Export } }, OtherToken);
+        var otherAsked = await _approvals.NextAsync();
+        var changed = new { id = "preview", label = "プレビューする", where = new[] { "item" } };
+        Assert.Equal(HttpStatusCode.Accepted, (await PutMenuAsync(new { items = new[] { changed } })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await PutMenuAsync(new { items = new[] { Preview } })).StatusCode);
+
+        otherAsked.Answer(new ApiClientDecision(true, []));
+        await otherPut;
+        await WaitUntilAsync(() => _hub.MenusFor(PluginMenus.WhereSelection, []).Count == 2);
+        await Task.Delay(300);
+
+        Assert.Equal(2, _approvals.AskedCount);
+        Assert.Equal("衣装をプレビュー", _hub.MenusFor(PluginMenus.WhereItem, [])[0].Items[0].Label);
+        var state = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/plugin/menu", ToolToken));
+        Assert.Equal("approved", state.GetProperty("state").GetString());
+    }
+
+    [Fact]
     public async Task 消えるだけなら聞かずに効かせる()
     {
         await ApproveFirstAsync(Preview, Export);
