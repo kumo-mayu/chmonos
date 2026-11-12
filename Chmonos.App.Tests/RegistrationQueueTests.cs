@@ -437,6 +437,10 @@ public class RegistrationQueueTests
         var main = await app.StartAsync();
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
+        // 待ちには上限を付ける。放すのは下の finally だが、試験の本体が戻らないまま UiThread.Run が60秒で見切ると finally に届かない。
+        // 止めている間に挟む UiThread.Until（10秒で「来ない」と決める）は1本なので、それより長く、60秒より短い30秒にする。
+        // 上限なしだと、錠を握ったまま裏の仕事が残り、投げっぱなしの仕事の数が0に戻らず後の試験が20秒ずつ待って落ちる（2026-11-12）
+        var limit = TimeSpan.FromSeconds(30);
         Task? holding = null;
         main.Registrations.Changed += () =>
         {
@@ -447,11 +451,18 @@ public class RegistrationQueueTests
                     _ =>
                     {
                         entered.Set();
-                        release.Wait();
+                        if (!release.Wait(limit))
+                        {
+                            throw new TimeoutException("試験が錠を放しませんでした。");
+                        }
+
                         return null;
                     },
                     []));
-                entered.Wait();
+                if (!entered.Wait(limit))
+                {
+                    throw new TimeoutException("錠の中の書き込みが始まりませんでした。");
+                }
             }
         };
 

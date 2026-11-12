@@ -101,9 +101,16 @@ public class UiThreadTests
         }
 
         WorkAsync().Forget();
-        Assert.Equal(before + 1, FireAndForget.Pending);
+        try
+        {
+            Assert.Equal(before + 1, FireAndForget.Pending);
+        }
+        finally
+        {
+            // 判定が外れても放す。放さないと数が0に戻らず、後の試験が全部20秒ずつ待って落ちる（2026-11-12）
+            gate.TrySetResult();
+        }
 
-        gate.SetResult();
         await UiThread.Settle();
 
         Assert.True(done);
@@ -126,9 +133,16 @@ public class UiThreadTests
             await gate.Task;
             done = true;
         });
-        Assert.True(FireAndForget.Pending > 0);
+        try
+        {
+            Assert.True(FireAndForget.Pending > 0);
+        }
+        finally
+        {
+            // 判定が外れても放す（上の試験と同じ理由）
+            gate.TrySetResult();
+        }
 
-        gate.SetResult();
         await UiThread.Settle();
 
         Assert.True(done);

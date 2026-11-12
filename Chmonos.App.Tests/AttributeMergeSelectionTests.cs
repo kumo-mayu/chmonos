@@ -55,6 +55,8 @@ public sealed class AttributeMergeSelectionTests
         }
         finally
         {
+            // 数え終わりを返す前に判定が外れても、名前を変える仕事を待たせたまま残さない（2026-11-12）
+            counting.TrySetCanceled();
             AttributeManageViewModel.MergeDialogIntercept = null;
         }
     });

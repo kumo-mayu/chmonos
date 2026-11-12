@@ -534,6 +534,8 @@ public sealed class ApiUnitySendsTests
         }
         finally
         {
+            // 止める頼みに届く前に判定が外れても、止めておいた送りを放す（放さないと裏の仕事が残る。2026-11-12）
+            unity.Gate?.TrySetResult();
             await app.Services.Api.StopAsync();
         }
     });

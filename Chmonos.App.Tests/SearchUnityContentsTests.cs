@@ -14,6 +14,35 @@ namespace Chmonos.App.Tests;
 /// </summary>
 public class SearchUnityContentsTests
 {
+    /// <summary>
+    /// 差し替えた裏の調べを、試験が放すまで止めておく栓。**試験が途中で落ちても、抜けるとき（Dispose）に必ず開く**。
+    /// 前は ManualResetEventSlim を上限なしで待たせ、判定の後で Set していたので、判定が外れると裏の仕事が止まったまま残り、
+    /// 投げっぱなしの仕事の数（プロセスで1つ）が0に戻らず、後の試験が全部20秒ずつ待って落ちた（2026-11-12、SZ の一式が2時間止まった）。
+    /// Dispose で中の ManualResetEventSlim を捨てないのは、開いた直後にまだ Wait から抜けていない裏の仕事に、捨てた物を触らせないため
+    /// </summary>
+    private sealed class Gate : IDisposable
+    {
+        /// <summary>
+        /// 裏の調べが待つ上限。止めている間に挟む UiThread.Until（1本10秒で「来ない」と決める）は多くて2本（late の試験）なので20秒より長く、
+        /// 試験の本体が戻らないときに UiThread.Run が見切る60秒より短くする。本体が固まったままでも、裏の仕事はそれより先に例外で抜ける
+        /// </summary>
+        private static readonly TimeSpan Limit = TimeSpan.FromSeconds(30);
+
+        private readonly ManualResetEventSlim _opened = new();
+
+        public void Wait()
+        {
+            if (!_opened.Wait(Limit))
+            {
+                throw new TimeoutException($"試験が {Limit.TotalSeconds:0} 秒たっても裏の調べを放しませんでした。");
+            }
+        }
+
+        public void Set() => _opened.Set();
+
+        public void Dispose() => _opened.Set();
+    }
+
     private static ItemRecord Owned(string id) => Make.Item(id, $"商品{id}");
 
     private static IReadOnlyList<string> Shown(SearchViewModel search)
@@ -81,7 +110,7 @@ public class SearchUnityContentsTests
         await app.AddItemAsync(Owned("9900002"));
         app.Services.UnityScans.Save(UnityProjectPath.Normalize(project)!, Packages("9900002"));
         await app.Services.SettingsStore.UpdateUiStateAsync(state => state with { SearchOpenUnityOnly = true });
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {
             gate.Wait();
@@ -115,7 +144,7 @@ public class SearchUnityContentsTests
     {
         var project = NewProject(app, "projA");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         var scans = 0;
         var found = "9900001";
         app.Services.ScanUnityProject = (_, _, _, _) =>
@@ -262,7 +291,7 @@ public class SearchUnityContentsTests
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "はじめの確認が終わる");
 
         // 1回目は遅れて「Unity は開いていない」と答え、2回目はすぐ「開いている」と答える
-        using var late = new ManualResetEventSlim();
+        using var late = new Gate();
         var calls = 0;
         app.Services.OpenUnityEditors = () =>
         {
@@ -492,7 +521,7 @@ public class SearchUnityContentsTests
     {
         var project = NewProject(app, "projA");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         var scans = 0;
         var found = "9900001";
         app.Services.ScanUnityProject = (_, _, _, _) =>
@@ -540,7 +569,7 @@ public class SearchUnityContentsTests
         await app.AddItemAsync(Owned("9900002"));
         app.Services.UnityScans.Save(project, Packages("9900001"));
         await RestoreChipAsync(app, project);
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {
             gate.Wait();
@@ -571,7 +600,7 @@ public class SearchUnityContentsTests
         {
             SearchModules = [new SearchModuleState { Kind = nameof(SearchModuleKind.UnityProjectContents), IncludeOpenProject = true }],
         });
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {
             gate.Wait();
@@ -594,7 +623,7 @@ public class SearchUnityContentsTests
         await app.AddItemAsync(Owned("9900002"));
         app.Services.UnityScans.Save(project, Packages("9900001"));
         await RestoreChipAsync(app, project);
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {
             gate.Wait();
@@ -628,7 +657,7 @@ public class SearchUnityContentsTests
         var search = (await app.StartAsync()).Search;
         await UiThread.Until(() => !ContentsModule(search).StatusText.Contains("調べています"), "調べ終わる");
 
-        using var gate = new ManualResetEventSlim();
+        using var gate = new Gate();
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {
             gate.Wait();
@@ -692,7 +721,7 @@ public class SearchUnityContentsTests
         await app.AddItemAsync(Owned("9900001"));
         await app.AddItemAsync(Owned("9900002"));
         await RestoreChipAsync(app, project);
-        using var late = new ManualResetEventSlim();
+        using var late = new Gate();
         var scans = 0;
         app.Services.ScanUnityProject = (_, _, _, _) =>
         {

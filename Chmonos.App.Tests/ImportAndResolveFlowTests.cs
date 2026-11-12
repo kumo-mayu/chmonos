@@ -847,18 +847,36 @@ public class ImportAndResolveFlowTests
         var row = resolve.Files.First();
         await PreviewAsync(app, resolve, "1000001");
 
+        // 数える裏の仕事は、判定が外れても finally で必ず放す。放さずに試験が終わると、投げっぱなしの仕事の数が0に戻らず、
+        // 後の試験が全部20秒ずつ待って落ちる（2026-11-12）。待ちの上限30秒は、止めている間に挟む UiThread.Until（10秒で見切る）1本より長く、
+        // 試験の本体が戻らないときに UiThread.Run が見切る60秒（そのときは finally に届かない）より短くした
         using var counting = new ManualResetEventSlim();
-        resolve.MeasureFolderForTest = (_, _) => { counting.Wait(); return (2, 10); };
-        app.Answer = _ => MessageBoxResult.OK;
-        resolve.RegisterFolderOfCommand.Execute(row.GroupKey);
+        resolve.MeasureFolderForTest = (_, _) =>
+        {
+            if (!counting.Wait(TimeSpan.FromSeconds(30)))
+            {
+                throw new TimeoutException("試験が数える仕事を放しませんでした。");
+            }
 
-        // 数えている間に、一覧で行を選び直し（下見が消える）、別の商品の下見を出す（作業中も押せる「候補を使う」と同じ道）
-        resolve.Selected = resolve.Files.Last();
-        Assert.Null(resolve.Preview);
-        resolve.ItemIdInput = "1000002";
-        resolve.PreviewCommand.Execute(null);
-        await UiThread.Until(() => resolve.Preview?.Id == "1000002", "別の商品の下見");
-        counting.Set();
+            return (2, 10);
+        };
+        app.Answer = _ => MessageBoxResult.OK;
+        try
+        {
+            resolve.RegisterFolderOfCommand.Execute(row.GroupKey);
+
+            // 数えている間に、一覧で行を選び直し（下見が消える）、別の商品の下見を出す（作業中も押せる「候補を使う」と同じ道）
+            resolve.Selected = resolve.Files.Last();
+            Assert.Null(resolve.Preview);
+            resolve.ItemIdInput = "1000002";
+            resolve.PreviewCommand.Execute(null);
+            await UiThread.Until(() => resolve.Preview?.Id == "1000002", "別の商品の下見");
+        }
+        finally
+        {
+            counting.Set();
+        }
+
         await app.SettleAsync();
 
         Assert.Empty(app.Notices);

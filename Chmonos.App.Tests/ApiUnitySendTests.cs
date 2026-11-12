@@ -255,10 +255,17 @@ public sealed class ApiUnitySendTests
             () => false);
 
         var (first, finished) = sender.Start(item, new UnitySendRequest(null, null, null));
-        Assert.Equal(409, await CodeStatusAsync(() => sender.Start(item, new UnitySendRequest(null, null, null)), "unityBusy"));
-        Assert.Same(first, sender.Last);
+        try
+        {
+            Assert.Equal(409, await CodeStatusAsync(() => sender.Start(item, new UnitySendRequest(null, null, null)), "unityBusy"));
+            Assert.Same(first, sender.Last);
+        }
+        finally
+        {
+            // 判定が外れても送りを放す。止めたまま試験が終わると、裏の仕事が残って後の試験の後始末を待たせる（2026-11-12）
+            gate.TrySetResult();
+        }
 
-        gate.SetResult();
         Assert.Equal("imported", (await finished).State);
         Assert.Equal("imported", sender.Last!.State);
 
