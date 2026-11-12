@@ -554,7 +554,7 @@
                             行ごとに見つけた日を添え、前の版があれば三角で広げる。外したものはまとめて畳み、薄く出す（ユーザ判断 2026-11-12）
                         -->
                         <TextBlock Grid.Row="4" Grid.Column="0" Text="VPM" Style="{StaticResource ProjectInfoLabel}" VerticalAlignment="Top" />
-                        <StackPanel Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ModificationsDetailVpm">
+                        <StackPanel Grid.Row="4" Grid.Column="1">
                             <StackPanel.Resources>
                                 <!-- 1つの行の文（名前と版・見つけた日）。外したものは名前も薄く -->
                                 <DataTemplate x:Key="VpmRowText" DataType="{x:Type vm:HubVpmRow}">
@@ -608,7 +608,8 @@
                             </StackPanel.Resources>
                             <TextBlock Text="{Binding VpmValue}" Style="{StaticResource ProjectInfoValue}"
                                        Visibility="{Binding HasVpmValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <ItemsControl ItemsSource="{Binding VpmRows}" ItemTemplate="{StaticResource VpmRow}" Margin="0,1,0,0" Focusable="False" />
+                            <!-- 名前は UI Automation に出る一覧に付ける（StackPanel は出ない） -->
+                            <ItemsControl AutomationProperties.AutomationId="ModificationsDetailVpm" ItemsSource="{Binding VpmRows}" ItemTemplate="{StaticResource VpmRow}" Margin="0,1,0,0" Focusable="False" />
                             <Expander Style="{StaticResource TriangleExpander}" Margin="0,4,0,0" AutomationProperties.Name="{Binding VpmRemovedTitle}"
                                       Visibility="{Binding HasVpmRemoved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <Expander.Header>

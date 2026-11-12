@@ -69,7 +69,16 @@ public static class VpmPackages
                     continue;
                 }
 
-                folders.Add((name, ReadText(Path.Combine(folder, "package.json"))));
+                var packageJsonPath = Path.Combine(folder, "package.json");
+                var packageJson = ReadText(packageJsonPath);
+
+                // 在るのに読めない・壊れている（展開の途中など）。manifest に無い埋め込みの物が、その回だけ「外した」と記録されないように
+                if (packageJson is null ? File.Exists(packageJsonPath) : ParsePackageJson(packageJson) is null)
+                {
+                    complete = false;
+                }
+
+                folders.Add((name, packageJson));
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

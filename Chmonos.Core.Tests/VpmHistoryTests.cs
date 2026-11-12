@@ -104,6 +104,34 @@ public sealed class VpmHistoryTests : IDisposable
     }
 
     [Fact]
+    public void package_jsonが在るのに壊れているときは_読めなかったとする()
+    {
+        var folder = Path.Combine(_project, "Packages", "MyTool");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "package.json"), "{ 書きかけ");
+
+        Assert.Null(VpmPackages.TryRead(_project));
+        Assert.Empty(VpmPackages.Read(_project));
+    }
+
+    [Fact]
+    public void 前の控えが在るのに読めないときは_書かずに履歴を残す()
+    {
+        _clock.Now = Day1;
+        SaveVpm(Package("com.example.shader", "2.3.2"));
+        var file = Assert.Single(Directory.GetFiles(Path.Combine(_paths.Root, AppPaths.UnityScansDirName)));
+
+        // ほかのプロセスが開いたまま（読めない）
+        _clock.Now = Day1.AddDays(1);
+        using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            SaveVpm();
+        }
+
+        Assert.Equal([("2.3.2", false)], States(History("com.example.shader")));
+    }
+
+    [Fact]
     public void 入っている物の版が読めないときは_前の版を変えない()
     {
         _clock.Now = Day1;
