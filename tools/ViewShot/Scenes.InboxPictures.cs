@@ -151,6 +151,32 @@ internal static partial class Scenes
         Console.WriteLine(FormattableString.Invariant(
             $"PERF scroll extent={scroll.ExtentHeight:F0} steps={steps.Count} total_ms={steps.Sum():F0} max_ms={(steps.Count == 0 ? 0 : steps.Max()):F1} over33={steps.Count(ms => ms > 33)}"));
         Console.WriteLine($"PERF mem end_mb={PrivateMb()}");
+
+        // 通知の画面から離れたとき、行と絵を放すか（ユーザ指示 2026-11-12「メモリは開放されるようになっているかだけ確認」）。
+        // 画面の履歴が前の画面を持ち続けるなら、ここで弱い参照が生き残る
+        // async の中のローカルは裏の欄に残り続けるので、弱い参照を取ったら明示して手放す
+        var weakInbox = new WeakReference(inbox);
+        var weakView = new WeakReference(view);
+        inbox = null!;
+        view = null!;
+        scroll = null!;
+        var managedBefore = GC.GetTotalMemory(true) / 1024 / 1024;
+        await LeaveInboxAsync(context, main);
+        Console.WriteLine(FormattableString.Invariant(
+            $"PERF leave inbox_vm_alive={weakInbox.IsAlive} inbox_view_alive={weakView.IsAlive} managed_mb_before={managedBefore} managed_mb_after={GC.GetTotalMemory(true) / 1024 / 1024} private_mb={PrivateMb()}"));
         return new Shot(root);
+    }
+
+    private static async Task LeaveInboxAsync(SceneContext context, MainViewModel main)
+    {
+        main.ShowSearchCommand.Execute(null);
+        await context.SettleAsync();
+        await Stage.IdleAsync();
+        for (var i = 0; i < 3; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            await Stage.IdleAsync();
+        }
     }
 }
