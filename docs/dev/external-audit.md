@@ -2,7 +2,7 @@
 
 harness の `external-audit` スキルが、共通の雛形（`read.md`・`attack.md`）の `{{…}}` にこの節を入れて Codex に渡す。
 節の名前は変えない。2026-10-06 に作った読むだけの指示書（`external-audit-prompt.md`）から、共通の部分を除いて移した（2026-10-21）。
-attack はまだしていないので、attack だけの節は置いていない。するときに足す。
+attack だけの節（使わない部品・試験の置き場）は、初めて attack をかけるときに足した（2026-11-13）。
 
 ## アプリの種類
 
@@ -19,6 +19,8 @@ WPF / .NET 10。2026-10-07 に v1.0.0 を公開しました（GitHub の Release
 
 - `Chmonos.Core/`：保存・取り込み・BOOTH への問い合わせ・検索・ID の特定（UI を持たない）
 - `Chmonos.App/`：WPF の画面と ViewModel
+- `Chmonos.Api/`：同じ PC のほかのソフトに向けた HTTP の API（`127.0.0.1` だけ・ソフトごとのトークン・プラグインのメニューと出来事。`docs/spec/local-api.md`・`api-clients.md`・`plugins.md`・`plugins-menu.md`）
+- `Chmonos.Query/`・`Chmonos.Cli/`：検索の式と、画面無しで使う入口
 - `*.Tests/`：xUnit の試験
 - `tools/`・`experiments/`：道具と計測
 - 決め事：`CLAUDE.md`（最初に読む）、`docs/spec/*.md`（入口は `docs/README.md`。最初に読む）、`docs/dev/file-lifecycle.md`
@@ -36,6 +38,17 @@ WPF / .NET 10。2026-10-07 に v1.0.0 を公開しました（GitHub の Release
 
 - `dotnet build` と `dotnet test`（既定の一式。通信しない・作り物のデータだけ）
 - BOOTH（booth.pm・pximg）へは問い合わせない。`experiments/` の実行ファイルの多くは本物の BOOTH へ問い合わせるので走らせない
+
+## 使わない部品（attack だけ）
+
+- `Process`（`Process.Start` を含む）・`UseShellExecute`・`Clipboard`・`Registry`・Windows の通知
+- 外への通信（`HttpClient` を外のホストへ・`BoothClient` を本物の BOOTH へ）。API の試験が `127.0.0.1` の上で自分の作った API に話しかけるのはよい（`Chmonos.Api.Tests` の既存の試験と同じ形）
+- 保存先を決める部品を指定なしで使う物（`StoreLocation.Resolve` を `CHMONOS_HOME` なしで・`location.json` を読む書く）。保存先は必ず試験の中で作る一時フォルダを渡す
+- `UnpackedFolderRemover` などのごみ箱へ送る部品を、一時フォルダの外へ向ける物
+
+## 試験の置き場（attack だけ）
+
+`Chmonos.Core.Tests/Robustness/`・`Chmonos.Api.Tests/Robustness/`（どちらも新しく作る。App の ViewModel を試すなら `Chmonos.App.Tests/Robustness/`）
 
 ## 狙う所
 
@@ -86,10 +99,27 @@ WPF / .NET 10。2026-10-07 に v1.0.0 を公開しました（GitHub の Release
 - Unity Hub・VCC・ALCOM が無い・壊れて残っている・別の版
 - 管理者でない・会社の PC で権限が絞られている
 
+### G. 同じ PC のほかのソフトから来る物（ローカル API・プラグイン）
+
+- 守り（`docs/spec/local-api.md`「守り」：`127.0.0.1` だけ・トークン必須・中身をログに残さない・BOOTH へ問い合わせない・書き込みは `UiCommand`）が、どこかの道で外れる。
+  ブラウザのページからの要求（Origin・Host の偽装・DNS の付け替え）・トークン無し・取り消したトークン・別のソフトのトークンで、読める・書ける・他のソフトの宣言や出来事を見られる
+- 許可を求める窓（`ApiClients`・`ApiClientEndpoints`・`ApiClientApprovalPrompt`）：求めの連打・断られた後の繰り返し・名前に改行や長い文字・同時の求めで、窓が積み重なる・画面が固まる・別のソフトの許可を取ってしまう
+- プラグインのメニュー（`PluginMenus`・`PluginEndpoints`・`PluginMenuService`）：上限（最上位16・全部32・名前40字・2段）を越える宣言、変えた宣言の許し直しを飛ばす道、取り除くだけの宣言の扱い、許しを待つ間の古い宣言、`api-clients.json` の `menu` が壊れている・手で書き換えられた
+- プラグインの出来事（`PluginEvents`）：1ソフト256件の列があふれる・`after`・`epoch` の偽り・長い待ち（`wait`）を同時に多数・結果の返し（`/events/{seq}/result`）の取り違え・期限（10分・最後の32件）を外れた返し・別のソフトの出来事への返し
+- 動いている Chmonos の札（`RunningInstances`・`%LOCALAPPDATA%\Chmonos.Shared\running`）：落ちた後に残った札・同じポートを別のプロセスが使う・札の書き換えで、ほかのソフトが別の物へトークンを送る
+- 許したソフトの記録（`api-clients.json`）の書き込みが、保存先の書き込みの錠や引越し・戻すと食い違う
+
+### H. 前回の点検（2026-11-03）より後に入った保存の物
+
+- 通知の控え（`NotificationArchive`・`NotificationArchiveLines`・`NotificationArchivePages`）：途中で切れた行・大きな控え・同時の書き足し
+- Unity プロジェクトの読み取りの記録（`UnityScanStore`・`VpmHistory`・`VpmPackages`）：日付付きの VPM の移り変わり（`vpmHistory`）と改変ごとの控え（`vpmSnapshots`）。壊れた `vpm-manifest.json`・時計が戻る・同じ読み取りの繰り返しで履歴が膨らむ。バックアップに `unityscans/` を入れた（`BackupArchive`）ので、戻すときの食い違い
+- 商品の新しい欄（`conversion`・`variationTargets`・`contentUpdate`）と、それを書き換える道（改名・ID の付け替え・まとめる）。`docs/feedback/review-2026-11-10.md` の D2・D3 は直した（commit 885a454f）ので、その直しに漏れが無いか
+- 候補の先読み（`CandidatePrefetch`・`StartupWork.Prefetch`・`CandidateSearchCache`）と `BoothClient` の変更が、1本ずつ・1.5秒の決まりを破らないか
+
 ## 既に分かっていること
 
 - 決め事どおりの振る舞いは指摘にしない。例：v1.0.0 より前の形のデータに合わせる変更をしない（配った版の形は形式の版と移し替えで読む）。推定した値は勝手に入れない
-- 既に記録した物：`docs/feedback/open.md`・`docs/feedback/review-*.md`・`docs/feedback/behavior-*.md`・`docs/feedback/done-2026-10.md`
+- 既に記録した物：`docs/feedback/open.md`・`docs/feedback/review-*.md`（2026-11-01〜03 の Codex の点検3回と、11-10 の洗い出しを含む）・`docs/feedback/behavior-*.md`・`docs/feedback/done-2026-10.md`・`docs/feedback/done-2026-11.md`
 - 2026-10-06〜07 に読むだけの点検を21回かけ、10-13 にも段ごとにかけた（36・37 回目）。記録だけにした物の扱いは `docs/dev/release-handoff-2026-10-07.md`
 
 ## 重大度
