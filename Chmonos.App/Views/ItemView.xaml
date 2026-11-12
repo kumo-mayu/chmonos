@@ -338,9 +338,10 @@
                     </Grid>
 
                     <!-- 説明文。欄ごと畳める（ユーザ指示 2026-09-14）。畳んだかどうかは商品を移っても保つ -->
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
+                    <!-- 欄の中の Tab は見た目の上から下の順に手でつなぐ（計画 37。DescriptionTabs） -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18" PreviewKeyDown="OnDescriptionPreviewKeyDown">
                         <Grid>
-                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}"
+                        <Expander x:Name="DescriptionExpander" Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}"
                                   AutomationProperties.AutomationId="ItemDescriptionExpander" AutomationProperties.Name="商品説明">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
@@ -485,7 +486,12 @@
                             説明は長いことがある（1商品で画面6枚ぶん流れるものがある）。見出しだけ見て目当てを探せるように、
                             見出しごとにまとめて畳める。欄を開いているときだけ出す（欄の見出しの右に重ねる）
                         -->
-                        <Button Content="{Binding ToggleAllSectionsText}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        <!--
+                            書いた順では見出しの並びの後ろになるので、Tab の流れから外し、欄の三角の次に手でつなぐ（計画 37。DescriptionTabs）。
+                            そのままだと、節の本文や見出しから Tab を押すと、ここ（欄の頭）へ流れ戻った
+                        -->
+                        <Button x:Name="ToggleAllSections" Content="{Binding ToggleAllSectionsText}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                KeyboardNavigation.IsTabStop="False"
                                 AutomationProperties.AutomationId="ItemToggleAllSections"
                                 Command="{Binding ToggleAllSectionsCommand}">
                             <Button.Style>

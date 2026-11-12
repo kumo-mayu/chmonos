@@ -233,6 +233,25 @@ public partial class ItemView : UserControl
         }
     }
 
+    /// <summary>説明の欄の中の Tab を、見た目の上から下の順にする（計画 37。決め方は <see cref="DescriptionTabs"/>）。</summary>
+    private void OnDescriptionPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        var modifiers = System.Windows.Input.Keyboard.Modifiers;
+        if (e.Handled || e.Key != System.Windows.Input.Key.Tab
+            || modifiers is not (System.Windows.Input.ModifierKeys.None or System.Windows.Input.ModifierKeys.Shift))
+        {
+            return;
+        }
+
+        var focused = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
+        var backward = modifiers == System.Windows.Input.ModifierKeys.Shift;
+        if (DescriptionTabs.Target(DescriptionExpander, ToggleAllSections, SectionList, focused, backward) is { } target)
+        {
+            target.Focus();
+            e.Handled = true;
+        }
+    }
+
     // ---- BOOTH で変わった所（メモ17） ----
 
     /// <summary>上の帯の「ほか n 件」：入り切らなかった分も含めて、変わった所を全部並べる。</summary>
