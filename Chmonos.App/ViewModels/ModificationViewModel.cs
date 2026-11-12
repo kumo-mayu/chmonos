@@ -1447,7 +1447,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         // 今の VPM は改変の画面のプロジェクトの欄と同じ控えから取る（2つの画面で食い違わない。Packages を開くたびに数えない）
         var record = Record;
-        var scan = record.UnityProject is { Length: > 0 } project ? await Task.Run(() => _services.UnityScans.Load(project)) : null;
+        var scan = record.UnityProject is { Length: > 0 } project ? await Task.Run(() => _services.UnityScans.Load(Core.Services.UnityProjectPath.Normalize(project) ?? project)) : null;
         RecordedVpm = RecordedVpmView.Build(record, scan?.Vpm, scan?.VpmHistory);
 
         foreach (var name in new[]

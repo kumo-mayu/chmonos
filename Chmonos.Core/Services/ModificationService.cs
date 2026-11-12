@@ -751,7 +751,8 @@ public sealed class ModificationService : IModificationService
         }
 
         var packages = await Task.Run(
-            () => VpmPackages.TryRead(project) ?? new UnityScanStore(_store.Paths).Load(project)?.Vpm,
+            // 控えは揃えた綴りの場所で書かれる（見張り・検索の条件）ので、紐付けの綴り（「/」区切り・末尾の区切り）のままでは引けない
+            () => VpmPackages.TryRead(project) ?? new UnityScanStore(_store.Paths).Load(UnityProjectPath.Normalize(project) ?? project)?.Vpm,
             cancellationToken);
         return (project, packages?
             .Select(package => new ModificationVpmPackage(package.Name, package.DisplayName, package.Version))

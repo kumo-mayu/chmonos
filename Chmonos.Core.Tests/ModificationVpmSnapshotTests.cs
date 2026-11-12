@@ -192,6 +192,21 @@ public sealed class ModificationVpmSnapshotTests : IDisposable
     }
 
     [Fact]
+    public async Task 紐付けの綴りが揃っていなくても調べた控えを引く()
+    {
+        // 控えは見張りと同じく揃えた綴りの場所で書く。紐付けは「/」区切り・末尾の区切り付きで持つことがある
+        new UnityScanStore(_store.Paths).Save(UnityProjectPath.Normalize(_project)!, UnityProjectScan.Empty with
+        {
+            Vpm = [new VpmPackage("jp.lilxyzw.liltoon", "lilToon", "2.3.1", "jp.lilxyzw.liltoon", InManifest: true)],
+        });
+        var record = await CreateAsync(_project.Replace('\\', '/') + "/");
+
+        await _commands.ExecuteAsync(new UiCommand.AddModificationMember(record.Id, Member("1001")));
+
+        Assert.Equal("jp.lilxyzw.liltoon=2.3.1", Versions(Assert.Single((await LoadAsync(record.Id)).RecordedVpm)));
+    }
+
+    [Fact]
     public async Task 同じ中身なら足さず_版が変われば足し_表示名だけの違いでは足さない()
     {
         WriteVpm(("jp.lilxyzw.liltoon", "lilToon", "2.3.2"));

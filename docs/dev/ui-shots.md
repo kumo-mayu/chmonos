@@ -149,6 +149,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 改変：知らせ（出る前・後）・プロジェクトの中の結果 | `modification-detail-notice-*`・`modification-hub-notice-*`・`modification-project-found` |
 | 改変：Hub・VCC・ALCOM の有無（画面と設定） | `hub-tools-*`・`settings-tools-*` |
 | 改変：プロジェクトの右の欄の VPM の行（フォルダの無い物・手で置いた物を含む。plan 40） | `hub-project-vpm` |
+| 改変：詳細の「記録した時のVPM」（控えた写しと今の違い・控えの無い改変を履歴から補った姿。plan 46） | `modification-recorded-vpm`・`modification-recorded-vpm-history` |
 | 送る前の VPM との重なりの窓（1件・連続で2つの VPM に重なり場所を1行ずつ並べる。plan 40） | `catalog-dialog-vpm-overlap`・`-many` |
 | 改変：窓（使ったものを足す・改変に追加・探す・絵） | `pick-member-files-dialog`・`pick-modification-*-dialog` |
 | 改変：使ったファイルを選び直す窓（欄を足した・上限まで足した）と、詳細の「Unity ▾」（外した行を含む・カード・リスト） | `repick-member-files-dialog`・`repick-member-files-dialog-full`・`modification-member-repick`・`modification-member-repick-list` |
