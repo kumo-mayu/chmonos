@@ -124,7 +124,8 @@ public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Nam
 /// 中身は種類と同じ名前の欄に入れ、ほかの種類の欄は null（項目を省かない決まり）
 /// </summary>
 public sealed record PluginEvent(
-    long Seq, string Epoch, string Kind, DateTimeOffset At, PluginItemOpened? ItemOpened, PluginSelection? SelectionChanged, PluginImport? ImportFinished);
+    long Seq, string Epoch, string Kind, DateTimeOffset At, PluginItemOpened? ItemOpened, PluginSelection? SelectionChanged, PluginImport? ImportFinished,
+    PluginMenuPressed? Menu = null);
 
 /// <summary>商品ページを開いた。</summary>
 public sealed record PluginItemOpened(string ItemId);
@@ -150,6 +151,49 @@ public sealed record PluginSubscriptionsBody(IReadOnlyList<string>? Kinds);
 
 /// <summary>購読の答え。<see cref="Last"/> は今の最後の通番（ここから after にすれば、これより後だけを受ける）。</summary>
 public sealed record PluginSubscriptionsAnswer(string Epoch, long Last, IReadOnlyList<string> Kinds);
+
+/// <summary>
+/// ソフトが足す項目1つ（<c>PUT /v1/plugin/menu</c>。plan 44 の②・docs/spec/plugins-menu.md）。子を持つ項目は下の段を開くだけで、
+/// <see cref="Where"/>・<see cref="Needs"/> は空、<see cref="When"/> は null
+/// </summary>
+public sealed record PluginMenuItemRef(
+    string Id, string Label, IReadOnlyList<string> Where, PluginMenuWhenRef? When, IReadOnlyList<string> Needs, IReadOnlyList<PluginMenuItemRef> Children);
+
+/// <summary>押せる条件（書いた物が全部合うときだけ押せる。null は見ない）。</summary>
+public sealed record PluginMenuWhenRef(bool? HasUnityPackage, bool? Owned, bool? HasAvatar, string? Category);
+
+/// <summary>
+/// 宣言の答え。<see cref="State"/>：approved（控えた宣言のとおり）・pending（人に聞いている。<see cref="Pending"/> が聞いている宣言）・
+/// denied（送った宣言を人が許さなかった。控えた前の宣言のまま）。<see cref="Items"/> は今出している（人が許した）宣言
+/// </summary>
+public sealed record PluginMenuAnswer(string State, IReadOnlyList<PluginMenuItemRef> Items, IReadOnlyList<PluginMenuItemRef>? Pending);
+
+/// <summary>
+/// 項目が押された（<c>kind: "menu"</c>）。<see cref="Id"/> は押した項目の ID、<see cref="Where"/> は item・selection。
+/// <see cref="Items"/> は押した時点の商品（選択なら表示の並びの順）で、宣言の needs の欄だけ詰め、ほかは null
+/// </summary>
+public sealed record PluginMenuPressed(string Id, string Where, IReadOnlyList<PluginMenuTarget> Items);
+
+/// <summary>
+/// 押された商品1つ。形はほかの読み取りと同じ（<c>/v1/items/{id}</c> の name・shop・category・files・folders・compatibleAvatars・userTags、
+/// <c>/v1/unitypackages</c> の1行）。needs に無い欄は null（頼んでいない）、頼んで無ければ []
+/// </summary>
+public sealed record PluginMenuTarget(
+    string ItemId,
+    string? Name,
+    ShopRef? Shop,
+    string? Category,
+    IReadOnlyList<FileRef>? Files,
+    IReadOnlyList<FolderRef>? Folders,
+    IReadOnlyList<UnityPackageEntryRef>? UnityPackages,
+    IReadOnlyList<CompatibleAvatarRef>? Avatars,
+    IReadOnlyList<UserTagRef>? Tags);
+
+/// <summary>押した項目の結果（<c>POST /v1/plugin/events/{seq}/result</c>）。<see cref="Epoch"/> は書けば今の起動と照らす。</summary>
+public sealed record PluginResultBody(bool? Ok, string? Message, string? Epoch);
+
+/// <summary>結果を受けた答え（帯に出した文。切った後の物）。</summary>
+public sealed record PluginResultAnswer(long Seq, bool Ok, string Message);
 
 /// <summary>
 /// 誤りの答え（RFC 9457 <c>application/problem+json</c>）。<see cref="Code"/> は機械が読む名前で変えない。<see cref="Detail"/> は人が読む説明。

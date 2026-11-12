@@ -292,6 +292,48 @@ while ($true) {
 - 選んだ商品は、選び終えてから少し後（0.3秒ほど）にまとめて届きます。
 - 設定の「API」の「つないでいるソフト」で「知らせる操作」のチェックを外すと、その場で届かなくなります。
 
+### メニューに項目を足す（次のバージョンから）
+
+ツールが、商品の右クリック・商品ページ・複数選択の帯の「ほかのソフト」に項目を足し、押されたら商品の情報を受け取る方法です。[ソフトごとに許可を求めた](#ソフトごとに許可を求める次のバージョンから)ツールだけが使えます。
+
+1. `PUT /v1/plugin/menu` に項目を送ります。丸ごと置き換わり、空の `items` で消えます。
+
+   ```json
+   { "items": [
+     { "id": "preview", "label": "衣装をプレビュー", "where": ["item", "selection"],
+       "when": { "hasUnityPackage": true }, "needs": ["name", "files", "unityPackages"] },
+     { "id": "export", "label": "書き出す", "children": [
+       { "id": "export-csv", "label": "CSV", "where": ["selection"], "needs": ["name"] } ] }
+   ]}
+   ```
+
+   - `where`：出す場所。`item`（商品の右クリックと商品ページ）・`selection`（複数選択の帯）。
+   - `when`：押せる条件。`hasUnityPackage`・`owned`・`hasAvatar`（`true`・`false`）と `category`（カテゴリの名前）。合わない商品では灰色になります。複数選択では、選んだ商品がすべて合うときだけ押せます。
+   - `needs`：押されたときに届ける情報。`itemId`（いつも届きます）・`name`・`shop`・`category`・`files`（ファイルとフォルダ）・`unityPackages`・`avatars`・`tags`。形は `/v1/items/{id}`・`/v1/unitypackages` と同じです。
+   - `children`：下の段（2段まで）。下の段を持つ項目には `where`・`when`・`needs` を書きません。
+   - 項目は1段目に16個、下の段も合わせて32個まで。`label` は40字までです。
+2. 初めて送ったときと、項目を足した・変えたときは、Chmonos に「メニューの項目の許可」の窓が開き、`202`（`pending`）で答えます。使う人が許可するまでは、前の項目のまま出ます。同じ内容を送り直しただけなら聞かれないので、起動のたびに送ってかまいません。項目を減らすだけのときも聞かれません。今の状態は `GET /v1/plugin/menu` の `state`（`approved`・`pending`・`denied`）で分かります。
+3. [画面の操作を知る](#画面の操作を知る次のバージョンから)と同じ `GET /v1/plugin/events` を繰り返します。購読していなくても、押されると `kind` が `menu` の出来事が届きます。`menu.id` が押された項目、`menu.items` が商品の並び（頼んでいない情報は `null`）です。
+   ツールが60秒より長く取りに来ていないと、項目は灰色になり「応答していません」と出ます。
+4. 終わったら `POST /v1/plugin/events/{seq}/result` に `{"ok": true, "message": "プレビューを開きました"}` を送ります。Chmonos の下の帯の「送りました」が「ツールの名前：送った文」に替わります（100字まで。押してから10分以内）。
+
+```powershell
+Invoke-RestMethod "$base/v1/plugin/menu" -Method Put -Headers $headers -ContentType "application/json; charset=utf-8" `
+  -Body ([Text.Encoding]::UTF8.GetBytes('{"items":[{"id":"show","label":"IDを表示","where":["item"]}]}'))
+$after = 0; $epoch = $null
+while ($true) {
+  $answer = Invoke-RestMethod "$base/v1/plugin/events?after=$after&wait=30&epoch=$epoch" -Headers $headers
+  foreach ($event in $answer.events | Where-Object kind -eq "menu") {
+    $ids = ($event.menu.items | ForEach-Object itemId) -join ","
+    Invoke-RestMethod "$base/v1/plugin/events/$($event.seq)/result" -Method Post -Headers $headers -ContentType "application/json; charset=utf-8" `
+      -Body ([Text.Encoding]::UTF8.GetBytes((@{ ok = $true; message = "受け取りました：$ids"; epoch = $answer.epoch } | ConvertTo-Json)))
+  }
+  $after = $answer.last; $epoch = $answer.epoch
+}
+```
+
+- 窓で「拒否」を続けて押すと、許可を求めるときと同じく止められ、項目も出なくなります。設定の「API」で許可を取り消したときも消えます。
+
 ## 自作の Web ページから使う
 
 ブラウザで開いたページから使うときは、そのページのオリジンを設定の「API」の「許可するオリジン」に追加します（例：`http://localhost:5173`）。追加していないページからの問い合わせは断ります。
@@ -359,6 +401,7 @@ while ($true) {
 | `403`（`clientTokenRequired`）（次のバージョンから） | 画面の操作を知るには、ソフトごとに許可を求めて受け取ったトークンを使ってください。 |
 | `503`（`approvalUnavailable`）（次のバージョンから） | Chmonos のウィンドウを開いてから、もう一度許可を求めてください。 |
 | `403`（`requestBlocked`）（次のバージョンから） | 使う人が拒否を続けたので止めています。設定の「API」の「止めているソフト」で止めを外してから、もう一度許可を求めてください。 |
+| `404`（`eventNotFound`）（次のバージョンから） | 結果を返す通番が見つかりません。押されてから10分を過ぎたか、Chmonos が起動し直しました（`epoch` が変わります）。 |
 | `409`（`itemBeingEdited`） | Chmonos の編集画面でその商品を開いています。編集を終えてから送ってください。 |
 | `503`（`storeBusy`） | データの保存先を移している途中です。少し待ってから送ってください。 |
 | `403`（`originNotAllowed`） | そのページのオリジンを設定の「API」の「許可するオリジン」に追加してください。 |

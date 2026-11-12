@@ -369,6 +369,10 @@ public static class Catalogs
     /// </summary>
     public static bool HasSendablePackage(ItemRecord item) => UnityHandoff.HasRecordedPackage(item);
 
+    /// <summary>商品1件の送れる unitypackage（<see cref="UnityPackages"/> と同じ形。ソフトの項目が押されたときに詰める。plan 44 の②）。</summary>
+    public static IReadOnlyList<UnityPackageEntryRef> UnityPackagesOf(ItemRecord item, QuerySnapshot snapshot)
+        => SendablePackages(item, snapshot.Compatibility.Resolve(item.Local).Keys.Order(StringComparer.Ordinal).ToList()).ToList();
+
     /// <summary>商品1件の送れる unitypackage：単体の物・置き場のある zip の中・見つかっている登録したフォルダの中。</summary>
     private static IEnumerable<UnityPackageEntryRef> SendablePackages(ItemRecord item, IReadOnlyList<string> avatars)
     {

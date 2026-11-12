@@ -44,7 +44,23 @@ public interface IApiClientApprovals
 
     /// <summary>窓を出して聞く。取り消されたら（API が止まる）窓を閉じて拒否で返す。</summary>
     Task<ApiClientDecision> AskAsync(ApiClientRequestInfo request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 許したソフトが項目の宣言を変えた：足す・変わる・消える項目を並べて聞く（plan 44 の②）。答えの分け方は <see cref="AskAsync"/> と同じ。
+    /// 既定は聞かずに「答えなかった」（窓を持たない口は、宣言を変えさせない）
+    /// </summary>
+    Task<ApiClientDecision> AskMenuAsync(PluginMenuRequestInfo request, CancellationToken cancellationToken)
+        => Task.FromResult(ApiClientDecision.Dismissed);
 }
+
+/// <summary>項目の宣言を変えたいソフト（窓に出す物）。</summary>
+/// <param name="Name">ソフトの名前（許した時の物）。</param>
+/// <param name="ExePath">許した時の exe（引けなかったら null）。</param>
+/// <param name="Origin">ブラウザのページなら、許した時のオリジン。</param>
+/// <param name="Change">前の宣言から変わった所。</param>
+/// <param name="IsFirst">前に許した宣言が無い（窓の見出しを「足そうとしています」にする）。</param>
+/// <param name="RefusalsLeft">あと何回拒否したら止めるか（許しの窓と同じ）。</param>
+public sealed record PluginMenuRequestInfo(string Name, string? ExePath, string? Origin, PluginMenuChange Change, bool IsFirst, int? RefusalsLeft = null);
 
 /// <summary>今の要求が誰か（<see cref="ApiHost"/> の守りが決めて、要求に添える）。</summary>
 /// <param name="Client">ソフトごとのトークンなら、そのソフト。api.json のトークン（古い1本）なら null。</param>
@@ -76,9 +92,33 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
     internal static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(10);
 
     private sealed record Index(
-        IReadOnlyDictionary<string, ApiClientRecord> ByHash, IReadOnlyList<ApiClientRecord> All, IReadOnlyList<ApiClientRefusal> Refusals, int RefusalLimit);
+        IReadOnlyDictionary<string, ApiClientRecord> ByHash,
+        IReadOnlyList<ApiClientRecord> All,
+        IReadOnlyList<ApiClientRefusal> Refusals,
+        int RefusalLimit,
+        IReadOnlyDictionary<string, IReadOnlyList<PluginMenuItemRef>> Menus);
 
-    private volatile Index _index = new(new Dictionary<string, ApiClientRecord>(StringComparer.Ordinal), [], [], ApiClientList.DefaultRefusalLimit);
+    private volatile Index _index = new(
+        new Dictionary<string, ApiClientRecord>(StringComparer.Ordinal), [], [], ApiClientList.DefaultRefusalLimit,
+        new Dictionary<string, IReadOnlyList<PluginMenuItemRef>>(StringComparer.Ordinal));
+
+    /// <summary>
+    /// 人が許した項目の宣言（plan 44 の②。無ければ空）。読み直すときに入口と同じ検証を通して作っておく
+    /// （右クリックのたびに検証し直さない。手で書いた控えの合わない宣言は出さない）
+    /// </summary>
+    public IReadOnlyList<PluginMenuItemRef> MenuOf(string clientId) => _index.Menus.GetValueOrDefault(clientId) ?? [];
+
+    /// <summary>許した項目の宣言を控えに書く（人が許した・消えるだけの変更）。同じ錠の中で今の行に当て、行が取り消されていれば書かない。</summary>
+    public async Task SetMenuAsync(string clientId, IReadOnlyList<PluginMenuItemRef> items)
+    {
+        await store().ApiClients.UpdateAsync(list => list with
+        {
+            Clients = (list.Clients ?? [])
+                .Select(client => client.Id != clientId ? client : client with { Menu = items.Count == 0 ? null : PluginMenus.ToRecords(items) })
+                .ToList(),
+        });
+        Reload();
+    }
 
     /// <summary>ソフトごとに、最後に使った日時を最後に書いた時刻（書く間隔を空けるため）。</summary>
     private readonly ConcurrentDictionary<string, DateTimeOffset> _touched = new(StringComparer.Ordinal);
@@ -124,7 +164,13 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
 
         // 拒否の記録より前の控えには欄が無いので、null は空として受ける
         var refusals = (list.Refusals ?? []).Where(refusal => refusal is not null && !string.IsNullOrEmpty(refusal.Name)).ToList();
-        _index = new Index(byHash, clients, refusals, Math.Max(0, list.RefusalLimit));
+        var menus = new Dictionary<string, IReadOnlyList<PluginMenuItemRef>>(StringComparer.Ordinal);
+        foreach (var client in clients.Where(client => client.Menu is { Count: > 0 }))
+        {
+            menus.TryAdd(client.Id, PluginMenus.FromRecords(client.Menu));
+        }
+
+        _index = new Index(byHash, clients, refusals, Math.Max(0, list.RefusalLimit), menus);
         Changed?.Invoke();
     }
 
@@ -309,7 +355,7 @@ internal sealed class ApiClientRequests
 
     private readonly object _lock = new();
     private readonly Dictionary<string, Entry> _byId = new(StringComparer.Ordinal);
-    private readonly Channel<Entry> _queue = Channel.CreateUnbounded<Entry>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly Channel<object> _queue = Channel.CreateUnbounded<object>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource _stop = new();
     private readonly IApiClientApprovals? _approvals;
     private readonly ApiClientBook _book;
@@ -360,7 +406,7 @@ internal sealed class ApiClientRequests
                 return same.Id;
             }
 
-            if (waiting.Count >= MaxPending)
+            if (waiting.Count + _menus.Count >= MaxPending)
             {
                 return null;
             }
@@ -465,13 +511,190 @@ internal sealed class ApiClientRequests
         }
     }
 
+    /// <summary>項目の宣言の聞き直し1つ（ソフトごとに、まだ窓を出していない物は1つにまとめる）。</summary>
+    private sealed class MenuEntry(string clientId, IReadOnlyList<PluginMenuItemRef> declaration)
+    {
+        public string ClientId { get; } = clientId;
+
+        /// <summary>聞く宣言。窓を出すまでに同じソフトが送り直したら、新しい方に差し替える（古い宣言を聞いても、すぐ聞き直しになる）。</summary>
+        public IReadOnlyList<PluginMenuItemRef> Declaration { get; set; } = declaration;
+
+        public bool Shown { get; set; }
+    }
+
+    /// <summary>窓をまだ出していない・出している宣言（ソフトの ID ごとに最後の1つ）。</summary>
+    private readonly Dictionary<string, MenuEntry> _menus = new(StringComparer.Ordinal);
+
+    /// <summary>ソフトごとの最後の聞き直しの結果（denied を GET で返すため。起動の間だけ）。</summary>
+    private readonly Dictionary<string, string> _menuStates = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 宣言の聞き直しを列に入れる。同じソフトの窓をまだ出していない求めがあれば、その宣言を差し替える。列が溢れていれば false。
+    /// 窓を出している最中に別の宣言が来たら、後ろに並べる（出している窓の宣言は変えない：人が見ている物と違う物を許させない）
+    /// </summary>
+    public bool SubmitMenu(string clientId, IReadOnlyList<PluginMenuItemRef> declaration)
+    {
+        lock (_lock)
+        {
+            if (_menus.TryGetValue(clientId, out var waiting) && !waiting.Shown)
+            {
+                waiting.Declaration = declaration;
+                return true;
+            }
+
+            if (_byId.Values.Count(entry => entry.State == Pending) + _menus.Count >= MaxPending)
+            {
+                return false;
+            }
+
+            var entry = new MenuEntry(clientId, declaration);
+            _menus[clientId] = entry;
+            _menuStates[clientId] = Pending;
+            _queue.Writer.TryWrite(entry);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 聞き直しを取り下げる（控えと同じ宣言を送り直した。まだ窓を出していなければ聞かない）。
+    /// 出している窓は閉じない（人が答えれば、その答えのとおりにする）
+    /// </summary>
+    public void WithdrawMenu(string clientId)
+    {
+        lock (_lock)
+        {
+            if (_menus.TryGetValue(clientId, out var waiting) && !waiting.Shown)
+            {
+                _menus.Remove(clientId);
+            }
+
+            _menuStates.Remove(clientId);
+        }
+    }
+
+    /// <summary>このソフトの宣言の状態（pending・denied・approved）と、聞いている宣言。</summary>
+    public (string State, IReadOnlyList<PluginMenuItemRef>? Pending) MenuStateOf(string clientId)
+    {
+        lock (_lock)
+        {
+            if (_menus.TryGetValue(clientId, out var waiting))
+            {
+                return (Pending, waiting.Declaration);
+            }
+
+            return (_menuStates.GetValueOrDefault(clientId) ?? Approved, null);
+        }
+    }
+
+    /// <summary>
+    /// 宣言の聞き直しを1つ聞く。許したら控えに書き、拒否なら前の宣言のまま（拒否の数え方は許しの窓と同じ）。
+    /// 止まった（API を止める）ときは false
+    /// </summary>
+    private async Task<bool> AskMenuAsync(MenuEntry entry)
+    {
+        IReadOnlyList<PluginMenuItemRef> declaration;
+        lock (_lock)
+        {
+            entry.Shown = true;
+            declaration = entry.Declaration;
+        }
+
+        var state = Denied;
+        var client = _book.ById(entry.ClientId);
+        try
+        {
+            if (client is null)
+            {
+                // 列に並んでいる間に取り消された
+                return true;
+            }
+
+            var current = _book.MenuOf(entry.ClientId);
+            var change = PluginMenus.Diff(current, declaration);
+            if (PluginMenus.Same(current, declaration))
+            {
+                state = Approved;
+                return true;
+            }
+
+            if (change.OnlyRemoves)
+            {
+                await _book.SetMenuAsync(entry.ClientId, declaration);
+                state = Approved;
+                return true;
+            }
+
+            var blocked = _book.IsBlocked(client.Name, client.ExePath, client.Origin);
+            var info = new PluginMenuRequestInfo(
+                client.Name, client.ExePath, client.Origin, change, current.Count == 0, _book.RefusalsLeft(client.Name, client.ExePath, client.Origin));
+            ApiClientDecision decision;
+            try
+            {
+                decision = !blocked && _approvals is { CanAsk: true } approvals
+                    ? await approvals.AskMenuAsync(info, _stop.Token)
+                    : ApiClientDecision.Dismissed;
+            }
+            catch (OperationCanceledException) when (_stop.IsCancellationRequested)
+            {
+                return false;
+            }
+            catch (Exception exception)
+            {
+                Core.Diagnostics.AppLog.Error("外から使う API の、項目の宣言の許しを聞く", exception);
+                decision = ApiClientDecision.Dismissed;
+            }
+
+            await RememberAsync(new ApiClientRequestInfo(client.Name, client.ExePath, client.Origin, [], true), decision);
+            if (decision.Approved)
+            {
+                // 聞いている間に取り消されていたら書かない（SetMenuAsync は今の行にだけ当てる）
+                await _book.SetMenuAsync(entry.ClientId, declaration);
+                state = Approved;
+            }
+
+            Core.Diagnostics.AppLog.Note(
+                "外から使う API",
+                $"ソフト「{client.Name}」の項目の宣言を{(decision.Approved ? "許した" : blocked ? "止めているので断った" : "許さなかった")}（足す {change.Added.Count}・変わる {change.Changed.Count}・消える {change.Removed.Count}）");
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            // 控えに書けなくても流れは止めない（止めると後の求めが全部 pending のまま残る）
+            Core.Diagnostics.AppLog.Error("外から使う API の、項目の宣言を書く", exception);
+            return true;
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                if (_menus.TryGetValue(entry.ClientId, out var latest) && ReferenceEquals(latest, entry))
+                {
+                    _menus.Remove(entry.ClientId);
+                    _menuStates[entry.ClientId] = state;
+                }
+            }
+        }
+    }
+
     /// <summary>窓を1つずつ出す流れ。止まるときは今の窓を閉じ、残りは答えずに捨てる（結果を取りに来ても見つからない）。</summary>
     private async Task AskLoopAsync()
     {
         try
         {
-            await foreach (var entry in _queue.Reader.ReadAllAsync(_stop.Token))
+            await foreach (var queued in _queue.Reader.ReadAllAsync(_stop.Token))
             {
+                // 項目の宣言の聞き直しも同じ1本の流れで聞く（窓を重ねない・数え方を揃える）
+                if (queued is MenuEntry menu)
+                {
+                    if (!await AskMenuAsync(menu))
+                    {
+                        return;
+                    }
+
+                    continue;
+                }
+
+                var entry = (Entry)queued;
                 var info = entry.Info;
 
                 // 前の窓の拒否で止まったソフトの求めが列に残っていたら、窓を出さずに断る（拒否の書き込みは前の回で済んでいる）。

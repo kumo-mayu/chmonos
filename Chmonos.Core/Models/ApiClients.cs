@@ -89,11 +89,59 @@ public sealed record ApiClientRecord
     /// </summary>
     public DateTimeOffset? LastPolledAt { get; init; }
 
+    /// <summary>
+    /// 人が許した、右クリックなどに足す項目の宣言（plan 44 の②・docs/spec/plugins-menu.md。まだ宣言していなければ null）。
+    /// 控えに書くのは、ソフトが起動していない間も灰色で出し、宣言が変わったら人に聞き直すため（ユーザ判断 2026-11-12）。
+    /// 許しの行に持たせる：取り消すと行ごと消え、求め直して行を置き換えたら宣言も消える（新しいトークンのソフトには、もう一度聞く）
+    /// </summary>
+    public IReadOnlyList<PluginMenuItemRecord>? Menu { get; init; }
+
     /// <summary>このソフトか（名前・exe・オリジンが同じ）。</summary>
     public bool IsSame(string name, string? exePath, string? origin)
         => string.Equals(Name, name, StringComparison.Ordinal)
             && string.Equals(ExePath, exePath, StringComparison.OrdinalIgnoreCase)
             && string.Equals(Origin, origin, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// ソフトが足す項目1つ（<c>PUT /v1/plugin/menu</c> の <c>items</c> の1つと同じ形）。
+/// 子を持つ項目は下の段を開くだけで、<see cref="Where"/>・<see cref="When"/>・<see cref="Needs"/> を持たない（入口で断る）
+/// </summary>
+public sealed record PluginMenuItemRecord
+{
+    /// <summary>ソフトが付けた項目の ID（押されたらこの ID で知らせる）。</summary>
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>画面に出す名前（ソフトが付けた物）。</summary>
+    public string Label { get; init; } = string.Empty;
+
+    /// <summary>出す場所（<c>item</c>・<c>selection</c>）。</summary>
+    public IReadOnlyList<string> Where { get; init; } = [];
+
+    /// <summary>押せる条件（無ければいつも押せる）。</summary>
+    public PluginMenuWhen? When { get; init; }
+
+    /// <summary>押されたときに詰める情報の名前（<c>itemId</c>・<c>name</c>・<c>files</c> など）。</summary>
+    public IReadOnlyList<string> Needs { get; init; } = [];
+
+    /// <summary>下の段（2段まで）。</summary>
+    public IReadOnlyList<PluginMenuItemRecord> Children { get; init; } = [];
+}
+
+/// <summary>項目を押せる条件。書いた物が全部合うときだけ押せる（書いていない物は見ない）。</summary>
+public sealed record PluginMenuWhen
+{
+    /// <summary>送れる unitypackage を持つか（検索の <c>hasUnityPackage</c> と同じ判断）。</summary>
+    public bool? HasUnityPackage { get; init; }
+
+    /// <summary>所持しているか（ファイルかフォルダを1つ以上持つ）。</summary>
+    public bool? Owned { get; init; }
+
+    /// <summary>対応アバターがあるか（画面の検索と同じ数え方）。</summary>
+    public bool? HasAvatar { get; init; }
+
+    /// <summary>カテゴリの名前（画面と同じ実質の1つ）。</summary>
+    public string? Category { get; init; }
 }
 
 /// <summary>

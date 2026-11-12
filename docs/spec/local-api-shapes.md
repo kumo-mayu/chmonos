@@ -12,6 +12,7 @@
 | `GET /v1/openapi.json` | 仕様書（OpenAPI。コードから作る。トークンなし） | 作った |
 | `POST /v1/clients/request`・`POST /v1/clients/request/result`・`GET /v1/clients/me` | 許しを求める（トークンなし。202 と `requestId`）・結果を取る（トークンなし。`wait` 秒まで待つ。許されたらトークンを1回だけ）・今のトークンの権限。形は [api-clients.md](api-clients.md) | 作った（2026-11-11） |
 | `GET /v1/plugin/events?after=&wait=&epoch=`・`PUT /v1/plugin/subscriptions` | ソフトへの出来事（ソフトのトークンだけ。`after` より後を返し、無ければ `wait` 秒〔0〜30〕待つ）・見る画面の操作を選ぶ（`{"kinds": […]}`。許しの窓で許した種類だけ）。形は [plugins.md](plugins.md) | 作った（2026-11-12） |
+| `GET`・`PUT /v1/plugin/menu`・`POST /v1/plugin/events/{seq}/result` | 右クリックなどに足す項目の宣言（ソフトのトークンだけ。足す・変わるときは人に聞き直して 202 `pending`）・押された項目の結果を返す（下の帯の文が替わる）。形は [plugins-menu.md](plugins-menu.md) | 作った（2026-11-12） |
 | `GET /v1/changes?since=`・`GET /v1/events` | 変化の一覧と SSE | 作った |
 | `GET /v1/failed-items` | 読めなかった商品の ID（手で壊した JSON など） | 作った |
 | `GET /v1/display-settings` | 使う人の表示の設定（R-18 を表示しない・非表示の件数・消えた画像・サムネイルにする画像） | 作った |

@@ -79,7 +79,103 @@ internal static class PluginEndpoints
             .WithSummary("見る画面の操作を選ぶ（ソフトのトークンで。丸ごと置き換え、空の配列で止める。許しの窓で許した種類だけ）");
 
         ApiOpenApi.NoteRequestType(typeof(PluginSubscriptionsBody));
+
+        app.MapGet(MenuPath, (ApiState state, ApiClientRequests requests, HttpContext context) =>
+        {
+            var client = RequireClient(context);
+            var (stateName, pending) = requests.MenuStateOf(client.Id);
+            NoStore(context);
+            return Results.Json(new PluginMenuAnswer(stateName, state.Clients.MenuOf(client.Id), pending), json.PluginMenuAnswer);
+        })
+            .Produces<PluginMenuAnswer>(StatusCodes.Status200OK, "application/json")
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .WithSummary("今出している項目の宣言と、人に聞いている宣言（ソフトのトークンで）");
+
+        app.MapPut(MenuPath, async (ApiState state, ApiClientRequests requests, HttpContext context) =>
+        {
+            var client = RequireClient(context);
+            IReadOnlyList<PluginMenuItemRef> items;
+            try
+            {
+                using var document = await JsonDocument.ParseAsync(context.Request.Body, cancellationToken: context.RequestAborted);
+                items = PluginMenus.Parse(document.RootElement);
+            }
+            catch (JsonException)
+            {
+                throw QueryException.Invalid("invalidJson", "送られた JSON が読めません。");
+            }
+
+            var current = state.Clients.MenuOf(client.Id);
+            NoStore(context);
+
+            // 同じ宣言の送り直しは聞かない（ソフトは起動のたびに送ってよい。ユーザ判断 2026-11-12）。聞いている途中の別の宣言も取り下げる
+            if (PluginMenus.Same(current, items))
+            {
+                requests.WithdrawMenu(client.Id);
+                return Results.Json(new PluginMenuAnswer(ApiClientRequests.Approved, current, null), json.PluginMenuAnswer);
+            }
+
+            // 消えるだけなら聞かずに効かせる（出す物が減るだけで、人が見ていない項目は増えない。空の items で消すのも同じ）
+            var change = PluginMenus.Diff(current, items);
+            if (change.OnlyRemoves)
+            {
+                requests.WithdrawMenu(client.Id);
+                await state.Clients.SetMenuAsync(client.Id, items);
+                Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{client.Name}」が項目を消した（{change.Removed.Count}個）");
+                return Results.Json(new PluginMenuAnswer(ApiClientRequests.Approved, items, null), json.PluginMenuAnswer);
+            }
+
+            // 拒否が続いて止めたソフトは窓を出さずに断る（許しを求めるのと同じ数え方・同じ文）
+            if (state.Clients.IsBlocked(client.Name, client.ExePath, client.Origin))
+            {
+                throw new QueryException(403, "requestBlocked", "このソフトの求めは、拒否が続いたため止めています。Chmonos の設定の「API」で止めを外してから、もう一度求めてください。");
+            }
+
+            if (!requests.CanAsk)
+            {
+                throw new QueryException(503, "approvalUnavailable", "Chmonos の画面を開いてから、もう一度送ってください。");
+            }
+
+            if (!requests.SubmitMenu(client.Id, items))
+            {
+                throw new QueryException(429, "tooManyRequests", "答えを待っている求めが多すぎます。先の求めに答えてから、もう一度送ってください。");
+            }
+
+            Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{client.Name}」が項目の宣言を変えたいと求めた");
+            return Results.Json(new PluginMenuAnswer(ApiClientRequests.Pending, current, items), json.PluginMenuAnswer, statusCode: StatusCodes.Status202Accepted);
+        })
+            .Produces<PluginMenuAnswer>(StatusCodes.Status200OK, "application/json")
+            .Produces<PluginMenuAnswer>(StatusCodes.Status202Accepted, "application/json")
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .WithSummary("右クリックなどに足す項目を宣言する（ソフトのトークンで。丸ごと置き換え。足す・変わるときは人に聞き直し、許すまでは前の宣言のまま）");
+
+        app.MapPost(ResultPath, async (PluginEventHub hub, HttpContext context, long seq) =>
+        {
+            var client = RequireClient(context);
+            var body = await JsonSerializer.DeserializeAsync(context.Request.Body, json.PluginResultBody)
+                ?? throw QueryException.Invalid("invalidJson", "送られた JSON が空です。");
+            if (body.Ok is not { } ok)
+            {
+                throw QueryException.Invalid("invalidRequest", "ok に true か false を書いてください。");
+            }
+
+            NoStore(context);
+            return Results.Json(hub.AcceptResult(client, seq, string.IsNullOrEmpty(body.Epoch) ? null : body.Epoch, ok, body.Message), json.PluginResultAnswer);
+        })
+            .Accepts<PluginResultBody>("application/json")
+            .Produces<PluginResultAnswer>(StatusCodes.Status200OK, "application/json")
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("押された項目の結果を返す（ソフトのトークンで。Chmonos は下の帯の「送りました」をこの文に差し替える）");
+
+        ApiOpenApi.NoteRequestType(typeof(PluginResultBody));
     }
+
+    public const string MenuPath = "/v1/plugin/menu";
+
+    public const string ResultPath = "/v1/plugin/events/{seq:long}/result";
 
     /// <summary>ソフトごとのトークンの要求か。api.json のトークンはどのソフトか分からず、列を決められないので断る。</summary>
     private static ApiClientRecord RequireClient(HttpContext context)

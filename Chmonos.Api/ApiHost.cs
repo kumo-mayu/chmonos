@@ -76,6 +76,9 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     public QuerySnapshot Snapshot => _snapshot ?? throw new InvalidOperationException("まだ読み込んでいません。");
 
+    /// <summary>今の写し（まだ読んでいなければ null）。画面のスレッドから項目の条件を見るとき、投げずに確かめるため。</summary>
+    public QuerySnapshot? CurrentSnapshot => _snapshot;
+
     /// <summary>CORS を許可するオリジン。api-settings.json が変われば入れ替える（入れ物ごと差し替えるので、照らす途中で揺れない）。</summary>
     public IReadOnlySet<string> AllowedOrigins { get; private set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -352,7 +355,7 @@ internal static class ApiHost
         // 出来事の列はアプリが持つ（API を始め直しても購読を保つ）。渡されなければ（試験・道具）この API だけの列
         var plugins = options.Plugins ?? new PluginEventHub(state.Clock);
         builder.Services.AddSingleton(plugins);
-        plugins.Attach(state.Clients);
+        plugins.Attach(state.Clients, () => state.CurrentSnapshot);
 
         var app = builder.Build();
         var token = Encoding.UTF8.GetBytes("Bearer " + options.Token);
