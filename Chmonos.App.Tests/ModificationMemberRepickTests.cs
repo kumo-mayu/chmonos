@@ -45,9 +45,10 @@ public class ModificationMemberRepickTests
         Assert.True(choice.Options[0].IsNone);
         Assert.False(model.HasNotice);
 
-        // 2つ目の欄は「選ばない」から（依存物と本体を両方入れたときだけ選ぶ）
-        Assert.True(choice.AllowsSecond);
-        Assert.True(choice.Second.IsNone);
+        // 欄は1つから。選べる物が2つ以上なので欄を足せる（依存物と本体を両方入れたとき）
+        Assert.Single(choice.Slots);
+        Assert.True(choice.AllowsMore);
+        Assert.True(choice.CanAddSlot);
     }
 
     [Fact]
@@ -102,6 +103,120 @@ public class ModificationMemberRepickTests
         // 新しい版の中で1つに決まらなければ、今の記録のまま開く（推定で入れない）
         var unknown = Recorded(OldZip, "v1/Other.unitypackage");
         Assert.True(MemberFilePickViewModel.ForRepick(unknown, "作り物の衣装", item, preferNewVersion: true).Choices[0].Selected.Matches(unknown));
+    }
+
+    // ---- 欄を足す・削除する（ユーザ指示 2026-11-12「二つまでしか選べないのは変」） ----
+
+    [Fact]
+    public void 欄は選べる物の数まで足せ_それより先は足さない()
+    {
+        var member = Recorded(OldZip, "v1/Costume.unitypackage");
+        var choice = MemberFilePickViewModel.ForRepick(member, "作り物の衣装", Costumes(Zip(OldZip, "v1"), Zip(NewZip, "v2"))).Choices[0];
+
+        Assert.Equal(4, choice.MaxSlots);
+        Assert.NotNull(choice.AddSlot());
+        Assert.NotNull(choice.AddSlot());
+        Assert.NotNull(choice.AddSlot());
+        Assert.False(choice.CanAddSlot);
+        Assert.Null(choice.AddSlot());
+        Assert.Equal(4, choice.Slots.Count);
+
+        // 足した欄は「選ばない」から（推定で埋めない）
+        Assert.All(choice.Slots.Skip(1), slot => Assert.True(slot.Selected.IsNone));
+    }
+
+    [Fact]
+    public void 今の記録のままも選べる物の1つに数える()
+    {
+        var member = Recorded(OldZip, "v1/Costume.unitypackage");
+        var choice = MemberFilePickViewModel.ForRepick(member, "作り物の衣装", Costumes(Make.File(OldZip, detached: true), Zip(NewZip, "v2"))).Choices[0];
+
+        Assert.Equal(3, choice.MaxSlots);
+    }
+
+    [Fact]
+    public void 選べる物が1つなら欄を足す口を出さない()
+    {
+        var choice = new MemberFilePickViewModel([Make.Item(Costume, "作り物の衣装")]).Choices[0];
+
+        Assert.Equal(1, choice.MaxSlots);
+        Assert.False(choice.AllowsMore);
+        Assert.Null(choice.AddSlot());
+    }
+
+    [Fact]
+    public void ほかの欄で選んだ物は押せず_選ぼうとしても前の選びのまま()
+    {
+        var member = Recorded(OldZip, "v1/Costume.unitypackage");
+        var choice = MemberFilePickViewModel.ForRepick(member, "作り物の衣装", Costumes(Zip(OldZip, "v1"))).Choices[0];
+        var second = choice.AddSlot()!;
+
+        var taken = second.Entries.Single(entry => entry.Option.Matches(member));
+        Assert.False(taken.IsSelectable);
+        Assert.True(second.Entries[0].IsSelectable);
+
+        second.SelectedEntry = taken;
+        Assert.True(second.Selected.IsNone);
+
+        // 「選ばない」はいくつの欄でも選べる
+        choice.Selected = choice.Options[0];
+        Assert.True(choice.Selected.IsNone);
+        Assert.True(taken.IsSelectable);
+    }
+
+    [Fact]
+    public void 欄の選びはnullで消えない()
+    {
+        // 並べる物の出し入れの途中で ComboBox が null を書く。受けると、ほかの欄を変えただけで選びが消える
+        var member = Recorded(OldZip, "v1/Costume.unitypackage");
+        var choice = MemberFilePickViewModel.ForRepick(member, "作り物の衣装", Costumes(Zip(OldZip, "v1"))).Choices[0];
+
+        choice.Slots[0].SelectedEntry = null;
+
+        Assert.True(choice.Selected.Matches(member));
+    }
+
+    [Fact]
+    public void 欄を削除すると選んだ物も外れ_最後の1つは削除しない()
+    {
+        var member = Recorded(OldZip, "v1/Costume.unitypackage");
+        var choice = MemberFilePickViewModel.ForRepick(member, "作り物の衣装", Costumes(Zip(OldZip, "v1"))).Choices[0];
+        Assert.False(choice.Slots[0].CanRemove);
+
+        var second = choice.AddSlot()!;
+        second.Selected = choice.Options.Single(option => option.Label == "Dependency.unitypackage");
+        Assert.True(choice.Slots[0].CanRemove);
+        Assert.Equal(2, choice.Picked.Count);
+
+        choice.RemoveSlotCommand.Execute(choice.Slots[0]);
+        Assert.Equal("Dependency.unitypackage", Assert.Single(choice.Picked).Label);
+        Assert.False(second.CanRemove);
+
+        choice.RemoveSlot(second);
+        Assert.Single(choice.Slots);
+    }
+
+    [Fact]
+    public void 記録する行は欄の順で_選ばなかった欄は数えない()
+    {
+        var choice = MemberFilePickViewModel.ForRepick(
+            new ModificationMember { ItemId = Costume, AddedAt = DateTimeOffset.Now }, "作り物の衣装", Costumes(Zip(OldZip, "v1"), Zip(NewZip, "v2"))).Choices[0];
+        choice.Selected = choice.Options.Single(option => option.Text == "Costume.unitypackage (costume-v2.zip)");
+        choice.AddSlot();
+        choice.AddSlot()!.Selected = choice.Options.Single(option => option.Text == "Dependency.unitypackage (costume-v1.zip)");
+
+        var at = DateTimeOffset.Now;
+        var members = choice.ToMembers(at);
+        Assert.Equal(["v2/Costume.unitypackage", "v1/Dependency.unitypackage"], members.Select(member => member.Package));
+        Assert.All(members, member => Assert.Equal(at, member.AddedAt));
+
+        // 全部「選ばない」ならファイルの欄が空の1行
+        foreach (var slot in choice.Slots)
+        {
+            slot.Selected = MemberFileOption.None;
+        }
+
+        Assert.False(Assert.Single(choice.ToMembers(at)).HasFile);
     }
 
     // ---- 選び直すと記録が替わる ----
@@ -174,12 +289,27 @@ public class ModificationMemberRepickTests
         var members = await RepickAsync(app, detail, choice =>
         {
             choice.Selected = choice.Options.Single(option => option.Text == "Dependency.unitypackage (costume-v2.zip)");
-            choice.Second = choice.Options.Single(option => option.Text == "Costume.unitypackage (costume-v2.zip)");
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Text == "Costume.unitypackage (costume-v2.zip)");
         });
 
         Assert.Equal(["v2/Dependency.unitypackage", "v2/Costume.unitypackage"], members.Select(member => member.Package));
         Assert.All(members, member => Assert.True(member.Detached));
         Assert.Equal(members[0].AddedAt, members[1].AddedAt);
+    });
+
+    [Fact]
+    public Task 三つ選ぶとその行の場所に3行並ぶ() => TestApp.Run(async app =>
+    {
+        var detail = await OpenAsync(app, Costumes(Zip(OldZip, "v1"), Zip(NewZip, "v2")), Recorded(OldZip, "v1/Costume.unitypackage"));
+
+        var members = await RepickAsync(app, detail, choice =>
+        {
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Text == "Dependency.unitypackage (costume-v2.zip)");
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Text == "Costume.unitypackage (costume-v2.zip)");
+        });
+
+        Assert.Equal(["v1/Costume.unitypackage", "v2/Dependency.unitypackage", "v2/Costume.unitypackage"], members.Select(member => member.Package));
+        Assert.Equal(3, detail.Members.Count);
     });
 
     [Fact]

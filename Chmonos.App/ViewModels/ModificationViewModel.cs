@@ -1751,9 +1751,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
+        // 欄を足して2つ以上選べば、その数だけ行が入る。1回の保存でまとめて足す（途中で失敗して一部だけ残らない）
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.AddModificationMembers(
             Record.Id,
-            files.MemberFor(item.Id, DateTimeOffset.Now)));
+            files.MembersFor(item.Id, DateTimeOffset.Now)));
 
         AddNotice.Set(
             result is CommandResult.Failed failed ? failed.Message : $"「{item.DisplayName}」を追加しました。",

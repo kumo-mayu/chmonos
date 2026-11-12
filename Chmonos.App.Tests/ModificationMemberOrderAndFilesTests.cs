@@ -231,10 +231,31 @@ public class ModificationMemberOrderAndFilesTests
         var files = new MemberFilePickViewModel([item]);
 
         Assert.False(files.HasChoices);
-        var member = files.MemberFor(Costume, DateTimeOffset.Now);
+        var member = Assert.Single(files.MembersFor(Costume, DateTimeOffset.Now));
         Assert.Null(member.FileHash);
         Assert.Null(member.Package);
     }
+
+    [Fact]
+    public Task 名前で足す窓で欄を足して2つ選ぶと_選んだ順に2行入る() => TestApp.Run(async app =>
+    {
+        // ユーザ指示 2026-11-12「二つまでしか選べないのは変」：足す窓でも欄を足せる（依存物と本体を両方入れた商品）
+        var (_, detail) = await OpenAsync(app, [], [TwoPackages(Costume, "作り物の衣装")]);
+        app.PickFiles = model =>
+        {
+            var choice = model.Choices.Single();
+            choice.Selected = choice.Options.Single(option => option.Label == "Option.unitypackage");
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Label == "Body.unitypackage");
+            return true;
+        };
+
+        detail.AddMemberCommand.Execute("作り物の衣装");
+        await UiThread.Until(() => detail.Members.Count == 2, "2行足される");
+
+        var members = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!.Members;
+        Assert.Equal(["Option/Option.unitypackage", "Body/Body.unitypackage"], members.Select(member => member.Package));
+        Assert.Equal("「作り物の衣装」を追加しました。", detail.AddNotice.Text);
+    });
     [Fact]
     public Task まとめて足すときは_商品ごとに選んだ物が入り_選べるファイルの無い商品は行を出さない() => TestApp.Run(async app =>
     {
@@ -261,6 +282,31 @@ public class ModificationMemberOrderAndFilesTests
         Assert.Equal(Make.HashOf($@"D:\files\{Shader}.zip"), members[0].FileHash);
         Assert.Equal("Body/Body.unitypackage", members[1].Package);
         Assert.Null(members[2].FileHash);
+    });
+
+    [Fact]
+    public Task まとめて足すときに欄を足した商品は選んだ数だけ行が入り_知らせは商品の数で言う() => TestApp.Run(async app =>
+    {
+        var one = Make.Item(Shader, "作り物のシェーダー");
+        var two = TwoPackages(Costume, "作り物の衣装");
+        await app.AddItemAsync(Make.Item(Avatar, "作り物のアバター"));
+        await app.StartAsync();
+        var created = Assert.IsType<CommandResult.ModificationCreated>(
+            await app.Services.Commands.ExecuteAsync(new UiCommand.CreateModification(Avatar, "夏の改変")));
+
+        var files = new MemberFilePickViewModel([one, two]);
+        Assert.False(files.Choices[0].AllowsMore);
+        files.Choices[1].Selected = files.Choices[1].Options[1];
+        files.Choices[1].AddSlot()!.Selected = files.Choices[1].Options[2];
+
+        var result = await ItemSelectionActions.AddPickedAsync(app.Services, [created.Record], [one, two], files);
+
+        Assert.Equal("「夏の改変」に 2 件を追加しました。", result.Text);
+        var members = (await app.Services.Modifications.LoadAsync(created.Record.Id))!.Members;
+        Assert.Equal([Shader, Costume, Costume], members.Select(member => member.ItemId));
+        Assert.Equal(["Body/Body.unitypackage", "Option/Option.unitypackage"], members.Skip(1).Select(member => member.Package));
+        // 同じ商品の2行も、足した日時で見分けられる（行を中身で指す）
+        Assert.NotEqual(members[1].AddedAt, members[2].AddedAt);
     });
 
     [Fact]

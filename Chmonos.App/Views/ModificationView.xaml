@@ -268,17 +268,6 @@
                                                             Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="新しい版あり" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
-                                                    <!--
-                                                        使ったファイルを選び直す（ユーザ指示 2026-11-11：版を人が変えられない）。使ったファイルの字の隣に置く：
-                                                        操作の段はカードの幅いっぱいで足せず（下の「新しい版を確認した」のコメント）、「Unity ▾」は外した行で出ない
-                                                    -->
-                                                    <Button DockPanel.Dock="Right" Content="選び直す…" Style="{StaticResource HyperlinkButton}" FontSize="11"
-                                                            Margin="6,0,0,0" VerticalAlignment="Center"
-                                                            AutomationProperties.AutomationId="ModificationMemberRepick"
-                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイルを選び直す}"
-                                                            ToolTip="使ったファイルを選び直します。"
-                                                            Command="{Binding DataContext.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}" />
                                                     <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                 </DockPanel>
@@ -302,52 +291,61 @@
                                                            Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                                 <!-- カードは左から右へ並ぶので、並べ替えは左右の矢印（ユーザ指摘 2026-09-14。リストは縦なので上下のまま） -->
-                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                                    <Button Content="◀" Style="{StaticResource SmallButton}" ToolTip="{Binding MoveBackHint}"
+                                                <!-- 外した行は「Unity ▾」（選び直し）・戻す・削除でカードの幅を越えるので、削除を次の段へ折り返す -->
+                                                <WrapPanel Margin="0,6,0,-4" Width="{DynamicResource CardWidth}" HorizontalAlignment="Left">
+                                                    <Button Content="◀" Style="{StaticResource SmallButton}" Margin="0,0,0,4" ToolTip="{Binding MoveBackHint}"
                                                                 AutomationProperties.AutomationId="MemberMoveBack"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を前へ移動}"
                                                             ToolTipService.ShowOnDisabled="True"
                                                             IsEnabled="{Binding CanMoveBack}"
                                                             Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="▶" Style="{StaticResource SmallButton}" Margin="5,0,0,0" ToolTip="{Binding MoveForwardHint}"
+                                                    <Button Content="▶" Style="{StaticResource SmallButton}" Margin="5,0,0,4" ToolTip="{Binding MoveForwardHint}"
                                                                 AutomationProperties.AutomationId="MemberMoveForward"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を後ろへ移動}"
                                                             ToolTipService.ShowOnDisabled="True"
                                                             IsEnabled="{Binding CanMoveForward}"
                                                             Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <!-- Unity へのインポートと選択の2択（ユーザ指示 2026-09-14。「開く」はやめ、商品ページはカードを押すと開く） -->
-                                                    <Button AutomationProperties.AutomationId="ModificationMemberUnityMenu" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}" Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
-                                                            Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    <!--
+                                                        Unity へのインポートと選択（ユーザ指示 2026-09-14。「開く」はやめ、商品ページはカードを押すと開く）と、
+                                                        使ったファイルの選び直し（ユーザ指示 2026-11-12：選び直す画面は「Unity ▾」にまとめてよい。前は使ったファイルの字の隣の「選び直す…」）。
+                                                        外した行も選び直せるので、外した行にも出し、送る・選択だけを隠す
+                                                    -->
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberUnityMenu" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}" Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,4" Click="OnUnityMenuClick"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="Unityへ送るか、Unityのプロジェクトタブで選択します">
+                                                            ToolTip="Unityへ送る・選択と、使ったファイルの選び直しをします">
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
                                                                 <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Send" Header="Unityへ送る" CommandParameter="{Binding}"
+                                                                          Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                           Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Select" Header="Unityで選択" CommandParameter="{Binding}"
+                                                                          Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                           Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                <Separator Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Repick" Header="使ったファイルを選び直す…" CommandParameter="{Binding}"
+                                                                          Command="{Binding PlacementTarget.Tag.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                             </ContextMenu>
                                                         </Button.ContextMenu>
                                                     </Button>
-                                                    <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource DangerButton}" Margin="5,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource DangerButton}" Margin="5,0,0,4"
                                                             ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <!-- 外した行だけ：戻す／完全に消す（ユーザ指示 2026-09-19：改変ではもう一段、紐付けを完全に解く削除を置く） -->
-                                                    <Button AutomationProperties.AutomationId="ModificationMemberRestore" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を戻す}" Content="戻す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberRestore" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を戻す}" Content="戻す" Style="{StaticResource SmallButton}" Margin="10,0,0,4"
                                                             ToolTip="この改変の使ったものに戻します。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button AutomationProperties.AutomationId="ModificationMemberDelete" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を削除}" Content="削除" Style="{StaticResource DangerButton}" Margin="5,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberDelete" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を削除}" Content="削除" Style="{StaticResource DangerButton}" Margin="5,0,0,4"
                                                             ToolTip="この改変から完全に削除します。使ったファイルの記録も消え、元に戻せません。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                </StackPanel>
+                                                </WrapPanel>
                                                 <!--
                                                     新しい版の札を、この改変では消す（今の版のまま使う。改変ごと・ユーザ判断 2026-11-09）。
                                                     操作の段はカードの幅いっぱいなので、そこに足すと隣のカードへはみ出した（実データで確かめた 2026-11-09）。段を分ける
@@ -440,18 +438,8 @@
                                                                     </TextBlock>
                                                                 </Button>
                                                                 <!-- 使ったファイル。列にすると狭い左の列からはみ出すので、名前の下に置く（改変の画面の行と同じ形） -->
-                                                                <DockPanel Margin="0,2,0,0">
-                                                                    <!-- 選び直す（カードと同じく使ったファイルの字の隣。操作の列は幅が決まっていて足せない） -->
-                                                                    <Button DockPanel.Dock="Right" Content="選び直す…" Style="{StaticResource HyperlinkButton}" FontSize="11"
-                                                                            Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                            AutomationProperties.AutomationId="ModificationMemberRepick"
-                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイルを選び直す}"
-                                                                            ToolTip="使ったファイルを選び直します。"
-                                                                            Command="{Binding DataContext.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                            CommandParameter="{Binding}" />
-                                                                    <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}"
-                                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
-                                                                </DockPanel>
+                                                                <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                                 <WrapPanel Margin="0,3,0,0">
                                                                     <!-- 外した行の印（カードと同じ） -->
                                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
@@ -475,8 +463,11 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <!-- 操作は右端にまとめる（ユーザ指示 2026-09-14）。並べ替え・Unity へのインポートと選択・外す -->
-                                            <GridViewColumn Header="操作" Width="216">
+                                            <!--
+                                                操作は右端にまとめる（ユーザ指示 2026-09-14）。並べ替え・「Unity ▾」（送る・選択・選び直し）・外す。
+                                                幅は外した行（▲▼・Unity ▾・戻す・削除）が収まる所：216 では外した行にも「Unity ▾」を出したら削除が切れた（2026-11-12）
+                                            -->
+                                            <GridViewColumn Header="操作" Width="264">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">
@@ -495,16 +486,21 @@
                                                                         IsEnabled="{Binding CanMoveForward}"
                                                                         Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
+                                                                <!-- カードと同じ。外した行にも出し、選び直しだけを残す -->
                                                                 <Button AutomationProperties.AutomationId="ModificationMemberUnityMenu" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}" Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
-                                                                        Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        ToolTip="Unityへ送るか、Unityのプロジェクトタブで選択します">
+                                                                        ToolTip="Unityへ送る・選択と、使ったファイルの選び直しをします">
                                                                     <Button.ContextMenu>
                                                                         <ContextMenu>
                                                                             <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Send" Header="Unityへ送る" CommandParameter="{Binding}"
+                                                                                      Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                                       Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                             <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Select" Header="Unityで選択" CommandParameter="{Binding}"
+                                                                                      Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                                       Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                            <Separator Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                            <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Repick" Header="使ったファイルを選び直す…" CommandParameter="{Binding}"
+                                                                                      Command="{Binding PlacementTarget.Tag.RepickMemberFilesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                         </ContextMenu>
                                                                     </Button.ContextMenu>
                                                                 </Button>

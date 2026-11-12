@@ -90,21 +90,24 @@ public sealed class MemberFileOption
     }
 }
 
-/// <summary>商品1つぶんの「使ったファイル」の選び。</summary>
+/// <summary>
+/// 商品1つぶんの「使ったファイル」の選び。欄は人が足したり消したりできる（ユーザ指示 2026-11-12「二つまでしか選べないのは変」）。
+///
+/// 欄を1つ足すごとに、その商品の行が1つ増える（依存物と本体が同じ zip にあって両方入れた、を2行で記録するのと同じ形）。
+/// 欄の数の上限は選べる物の数（「選ばない」を除く）。**同じファイルを2つの欄で選べない**：同じ商品・同じ足した日時・同じファイルの
+/// 行が2つになると、行を中身で指す作り（J5）で見分けられない。
+/// </summary>
 public sealed class MemberFileChoice : ViewModelBase
 {
-    private MemberFileOption _selected;
-    private MemberFileOption _second = MemberFileOption.None;
+    private RelayCommand? _addSlot;
+    private RelayCommand? _removeSlot;
 
     /// <param name="candidates">選べるファイル（「選ばない」を除く）。</param>
     public MemberFileChoice(ItemRecord item, IReadOnlyList<MemberFileOption> candidates)
-    {
-        Item = item;
-        Options = [MemberFileOption.None, .. candidates];
-
         // **1つだけなら最初から選んでおく**（ユーザ判断 2026-10-04）。窓で人が見て確定するので、推定で埋めるのとは違う。
         // 2つ以上なら、どれかに寄せると外れても気付きにくいので選ばない
-        _selected = candidates.Count == 1 ? candidates[0] : MemberFileOption.None;
+        : this(item, [MemberFileOption.None, .. candidates], candidates.Count == 1 ? candidates[0] : MemberFileOption.None)
+    {
     }
 
     /// <summary>選び直しの窓の1行（<see cref="MemberFilePickViewModel.ForRepick"/>）。最初に選ぶ物は呼び手が決める。</summary>
@@ -112,49 +115,201 @@ public sealed class MemberFileChoice : ViewModelBase
     {
         Item = item;
         Options = options;
-        _selected = selected;
-        AllowsSecond = options.Count(option => !option.IsNone) >= 2;
+        MaxSlots = options.Count(option => !option.IsNone);
+        Slots.Add(new MemberFileSlot(this, selected));
+        Refresh();
     }
 
     public ItemRecord Item { get; }
 
     public string Name => Item.DisplayName;
 
+    /// <summary>選べる物（先頭は「選ばない」）。どの欄にも同じ物が並び、ほかの欄で選んだ物は押せない。</summary>
     public IReadOnlyList<MemberFileOption> Options { get; }
 
+    /// <summary>選ぶ欄。最初は1つ。</summary>
+    public System.Collections.ObjectModel.ObservableCollection<MemberFileSlot> Slots { get; } = [];
+
+    /// <summary>欄の数の上限（選べる物の数）。全部の欄で別の物を選べば、それ以上は足しても選ぶ物が無い。</summary>
+    public int MaxSlots { get; }
+
+    /// <summary>欄を足す口を出すか（選べる物が2つ以上のときだけ。1つなら欄は1つで足りる）。</summary>
+    public bool AllowsMore => MaxSlots >= 2;
+
+    public bool CanAddSlot => Slots.Count < MaxSlots;
+
+    /// <summary>1つ目の欄の選び（欄が1つだけの使い方と試験のための近道）。</summary>
     public MemberFileOption Selected
     {
-        get => _selected;
-        set => SetField(ref _selected, value ?? MemberFileOption.None);
+        get => Slots[0].Selected;
+        set => Slots[0].Selected = value;
     }
+
+    /// <summary>欄を1つ足す。足した欄は「選ばない」から始める（推定で埋めない）。上限なら足さずに null。</summary>
+    public MemberFileSlot? AddSlot()
+    {
+        if (!CanAddSlot)
+        {
+            return null;
+        }
+
+        var slot = new MemberFileSlot(this, MemberFileOption.None);
+        Slots.Add(slot);
+        Refresh();
+        return slot;
+    }
+
+    /// <summary>欄を消す。最後の1つは消さない（「選ばない」にすれば記録を空にできる）。</summary>
+    public void RemoveSlot(MemberFileSlot slot)
+    {
+        if (Slots.Count <= 1 || !Slots.Remove(slot))
+        {
+            return;
+        }
+
+        Refresh();
+    }
+
+    public RelayCommand AddSlotCommand => _addSlot ??= new RelayCommand(() => AddSlot());
+
+    public RelayCommand RemoveSlotCommand => _removeSlot ??= new RelayCommand(parameter =>
+    {
+        if (parameter is MemberFileSlot slot)
+        {
+            RemoveSlot(slot);
+        }
+    });
+
+    /// <summary>ほかの欄で選んでいる物か（「選ばない」はいくつの欄でもよい）。</summary>
+    internal bool IsTakenByOther(MemberFileSlot slot, MemberFileOption option)
+        => !option.IsNone && Slots.Any(other => !ReferenceEquals(other, slot) && SameFile(other.Selected, option));
+
+    /// <summary>欄の選びが変わったとき。ほかの欄の押せない印と、足す・消す口を今の欄に合わせる。</summary>
+    internal void Refresh()
+    {
+        foreach (var slot in Slots)
+        {
+            slot.RefreshTaken();
+            slot.CanRemove = Slots.Count > 1;
+        }
+
+        OnPropertyChanged(nameof(CanAddSlot));
+        OnPropertyChanged(nameof(Selected));
+    }
+
+    private static bool SameFile(MemberFileOption a, MemberFileOption b)
+        => string.Equals(a.FileHash, b.FileHash, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(a.Package, b.Package, StringComparison.Ordinal);
 
     /// <summary>
-    /// 2つ目の欄を出すか（選び直しの窓だけ）。依存物と本体が同じ zip にあって両方入れたとき、1行を2行に分けて記録する
-    /// （送るときに2つ選んだのと同じ形）。足す窓は1つのままにする：足した後に選び直せるので、足す窓を重くしない
+    /// 選んだファイル（欄の順。「選ばない」を除き、同じ物は1つにまとめる）。0件なら記録を空に戻す。
+    /// 欄で同じ物を選べないようにしてあっても、ここでもまとめる（画面を通らない呼び手と、選びの途中の食い違いの守り）
     /// </summary>
-    public bool AllowsSecond { get; }
-
-    public MemberFileOption Second
-    {
-        get => _second;
-        set => SetField(ref _second, value ?? MemberFileOption.None);
-    }
-
-    /// <summary>選んだファイル（「選ばない」を除き、同じ物は1つにまとめる）。0件なら記録を空に戻す。</summary>
-    public IReadOnlyList<MemberFileOption> Picked => new[] { Selected, AllowsSecond ? Second : MemberFileOption.None }
+    public IReadOnlyList<MemberFileOption> Picked => Slots
+        .Select(slot => slot.Selected)
         .Where(option => !option.IsNone)
         .DistinctBy(option => (option.FileHash?.ToUpperInvariant(), option.Package))
         .ToList();
 
-    /// <summary>記録する行。選ばなければファイルの欄は空のまま。</summary>
-    public ModificationMember ToMember(DateTimeOffset addedAt) => new()
+    /// <summary>記録する行（欄の順）。選ばなければファイルの欄が空の1行。</summary>
+    public IReadOnlyList<ModificationMember> ToMembers(DateTimeOffset addedAt)
     {
-        ItemId = Item.Id,
-        VariationId = Selected.VariationId,
-        FileHash = Selected.FileHash,
-        Package = Selected.Package,
-        AddedAt = addedAt,
-    };
+        var picked = Picked;
+        return picked.Count == 0
+            ? [new ModificationMember { ItemId = Item.Id, AddedAt = addedAt }]
+            : picked.Select(option => new ModificationMember
+            {
+                ItemId = Item.Id,
+                VariationId = option.VariationId,
+                FileHash = option.FileHash,
+                Package = option.Package,
+                AddedAt = addedAt,
+            }).ToList();
+    }
+}
+
+/// <summary>選ぶ欄1つ。並べる物は商品の選べる物と同じで、ほかの欄で選んだ物は押せない印を付ける。</summary>
+public sealed class MemberFileSlot : ViewModelBase
+{
+    private readonly MemberFileChoice _owner;
+    private MemberFileSlotEntry _selectedEntry;
+    private bool _canRemove;
+
+    internal MemberFileSlot(MemberFileChoice owner, MemberFileOption selected)
+    {
+        _owner = owner;
+
+        // 並べる物は欄ごとに1回だけ作り、差し替えない：一覧を差し替えると、ComboBox が選びを一度 null に書き戻して、
+        // ほかの欄を変えただけで選びが消える
+        Entries = owner.Options.Select(option => new MemberFileSlotEntry(option)).ToList();
+        _selectedEntry = Entries.FirstOrDefault(entry => ReferenceEquals(entry.Option, selected))
+            ?? Entries.FirstOrDefault(entry => entry.Option.IsNone)
+            ?? Entries[0];
+    }
+
+    public IReadOnlyList<MemberFileSlotEntry> Entries { get; }
+
+    /// <summary>
+    /// 欄で選んでいる物（ComboBox に結ぶ）。null は受けない（並べる物の出し入れの途中で ComboBox が書く値）。
+    /// ほかの欄で選んでいる物も受けない（押せない印をくぐった書き込み）
+    /// </summary>
+    public MemberFileSlotEntry? SelectedEntry
+    {
+        get => _selectedEntry;
+        set
+        {
+            if (value is null || ReferenceEquals(value, _selectedEntry) || _owner.IsTakenByOther(this, value.Option))
+            {
+                OnPropertyChanged();
+                return;
+            }
+
+            _selectedEntry = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Selected));
+            _owner.Refresh();
+        }
+    }
+
+    public MemberFileOption Selected
+    {
+        get => _selectedEntry.Option;
+        set => SelectedEntry = Entries.FirstOrDefault(entry => ReferenceEquals(entry.Option, value ?? MemberFileOption.None))
+            ?? Entries.FirstOrDefault(entry => entry.Option.IsNone);
+    }
+
+    /// <summary>外すボタンを出すか（欄が2つ以上のとき）。</summary>
+    public bool CanRemove
+    {
+        get => _canRemove;
+        internal set => SetField(ref _canRemove, value);
+    }
+
+    public MemberFileChoice Owner => _owner;
+
+    internal void RefreshTaken()
+    {
+        foreach (var entry in Entries)
+        {
+            entry.IsSelectable = !_owner.IsTakenByOther(this, entry.Option);
+        }
+    }
+}
+
+/// <summary>欄に並べる1行。ほかの欄で選んだ物は押せない。</summary>
+public sealed class MemberFileSlotEntry(MemberFileOption option) : ViewModelBase
+{
+    private bool _isSelectable = true;
+
+    public MemberFileOption Option { get; } = option;
+
+    public string Text => Option.Text;
+
+    public bool IsSelectable
+    {
+        get => _isSelectable;
+        internal set => SetField(ref _isSelectable, value);
+    }
 }
 
 /// <summary>
@@ -263,10 +418,13 @@ public sealed class MemberFilePickViewModel
     /// <summary>行ごとに商品名を出すか。1件だけなら窓の見出しに名前があるので出さない。</summary>
     public bool ShowsNames { get; }
 
-    /// <summary>この商品の記録する行。欄が無い商品（選べるファイルが無い）は、ファイルの欄が空の行。</summary>
-    public ModificationMember MemberFor(string itemId, DateTimeOffset addedAt)
-        => Choices.FirstOrDefault(choice => choice.Item.Id == itemId)?.ToMember(addedAt)
-            ?? new ModificationMember { ItemId = itemId, AddedAt = addedAt };
+    /// <summary>
+    /// この商品の記録する行（選んだファイルの数だけ、欄の順）。欄が無い商品（選べるファイルが無い）と、選ばなかった商品は、
+    /// ファイルの欄が空の1行
+    /// </summary>
+    public IReadOnlyList<ModificationMember> MembersFor(string itemId, DateTimeOffset addedAt)
+        => Choices.FirstOrDefault(choice => choice.Item.Id == itemId)?.ToMembers(addedAt)
+            ?? [new ModificationMember { ItemId = itemId, AddedAt = addedAt }];
 
     /// <summary>
     /// 窓を出す代わりに答える口。**アプリでは null のまま**（窓を出す）。試験と ViewShot が入れる

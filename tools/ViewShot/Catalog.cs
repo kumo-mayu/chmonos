@@ -38,7 +38,7 @@ internal static class Catalog
         ("07-shops", "ショップ", ["shops-", "shop-", "empty-shops"]),
         ("08-folder", "フォルダビュー", ["folder-", "empty-folder"]),
         ("09-avatars", "アバター", ["avatars-", "suggest-avatar-", "empty-avatars"]),
-        ("10-modifications", "改変", ["modification-", "hub-", "pick-member-", "pick-modification-", "suggest-modification-", "empty-hub-"]),
+        ("10-modifications", "改変", ["modification-", "hub-", "pick-member-", "repick-member-", "pick-modification-", "suggest-modification-", "empty-hub-"]),
         ("11-tags", "タグの管理", ["tag-manage-", "empty-tag-manage"]),
         ("12-attributes", "属性の管理", ["attribute-manage-", "empty-attribute-manage"]),
         ("13-inbox", "通知", ["inbox-", "empty-inbox"]),

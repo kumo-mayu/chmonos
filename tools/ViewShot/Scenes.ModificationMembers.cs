@@ -1,3 +1,4 @@
+using System.Windows.Controls;
 using Chmonos.App.ViewModels;
 using Chmonos.App.Views;
 using Chmonos.Core.Models;
@@ -46,21 +47,21 @@ internal static partial class Scenes
             Height = null,
         },
 
-        new Scene("modification-member-repick", "改変の詳細：使ったものの行の「選び直す…」と、新しい版の行の「新しい版を選ぶ…」（カード）", async context =>
+        new Scene("modification-member-repick", "改変の詳細：選び直しは「Unity ▾」の中（字の隣のボタンは無い）・新しい版の行の「新しい版を選ぶ…」・外した行にも「Unity ▾」（カード）", async context =>
             await RepickDetailShotAsync(context, list: false))
         {
             Width = 1280,
             Height = 1500,
         },
 
-        new Scene("modification-member-repick-list", "改変の詳細：使ったものの行の「選び直す…」（リスト）", async context =>
+        new Scene("modification-member-repick-list", "改変の詳細：選び直しは「Unity ▾」の中・外した行にも「Unity ▾」（リスト。操作の列の幅に収まるか）", async context =>
             await RepickDetailShotAsync(context, list: true))
         {
             Width = 1280,
             Height = 1500,
         },
 
-        new Scene("repick-member-files-dialog", "使ったファイルを選び直す窓：記録した版の zip が手元に無い（一覧の上の1行・今の記録のまま・2つ目の欄）", context =>
+        new Scene("repick-member-files-dialog", "使ったファイルを選び直す窓：記録した版の zip が手元に無い（一覧の上の1行・今の記録のまま・欄を1つ足して選んだ所）", context =>
         {
             var item = TwoPackageItem("9900401", "作り物の衣装セット");
             var member = new ModificationMember
@@ -70,6 +71,34 @@ internal static partial class Scenes
                 Package = "Costume/Costume_Body.unitypackage",
             };
             var model = MemberFilePickViewModel.ForRepick(member, item.DisplayName, item);
+            var choice = model.Choices[0];
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Label == "Costume_Body.unitypackage");
+            var window = new PickMemberFilesDialog(model, MemberFileRepick.Title, $"「{item.DisplayName}」で使ったファイルを選びます。", repick: true);
+            return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
+        // ユーザ指示 2026-11-12「二つまでしか選べないのは変」：欄を選べる物の数まで足した所。それ以上は「＋ ファイルを追加」が押せない
+        new Scene("repick-member-files-dialog-full", "使ったファイルを選び直す窓：欄を選べる物の数（3つ）まで足した所（「＋ ファイルを追加」は押せない）", context =>
+        {
+            var item = FileItem("9900402", "作り物の衣装セット",
+                Fake.FileRecord(@"D:\作り物\costume_full_v1.2.zip") with
+                {
+                    Contents = ["Costume/Costume_Dependency.unitypackage", "Costume/Costume_Body.unitypackage", "Costume/Costume_Option.unitypackage"],
+                });
+            var member = new ModificationMember
+            {
+                ItemId = item.Id,
+                FileHash = item.Local.LocalFiles[0].Hash,
+                Package = "Costume/Costume_Dependency.unitypackage",
+            };
+            var model = MemberFilePickViewModel.ForRepick(member, item.DisplayName, item);
+            var choice = model.Choices[0];
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Label == "Costume_Body.unitypackage");
+            choice.AddSlot()!.Selected = choice.Options.Single(option => option.Label == "Costume_Option.unitypackage");
             var window = new PickMemberFilesDialog(model, MemberFileRepick.Title, $"「{item.DisplayName}」で使ったファイルを選びます。", repick: true);
             return Task.FromResult(new Shot(SceneContext.Unwrap(window)));
         })
@@ -233,6 +262,12 @@ internal static partial class Scenes
                 ContentUpdate = new ContentUpdate { FoundAt = DateTimeOffset.Now.AddDays(-1), FilesBefore = [oldZip.Hash] },
             },
         });
+
+        // 外した行も選び直せるので「Unity ▾」を出す。「戻す」「削除」と並んで操作の段・列に収まるかを見る
+        var hair = await context.Fake.ItemAsync("9900213", "作り物の髪型", record => record with
+        {
+            Local = record.Local with { LocalFiles = [Fake.FileRecord(Fake.Zip(@"ライブラリ\hair_v1.zip", "hair.unitypackage"))] },
+        });
         await context.Seed.Avatars.SaveAsync(new AvatarRegistry
         {
             Entries = [new AvatarRegistryEntry { ItemId = avatar.Id, DisplayName = "ミナト", BoothName = avatar.Booth.Name }],
@@ -251,6 +286,7 @@ internal static partial class Scenes
             [
                 new ModificationMember { ItemId = shader.Id, AddedAt = created },
                 new ModificationMember { ItemId = costume.Id, FileHash = oldZip.Hash, Package = "costume.unitypackage", AddedAt = created },
+                new ModificationMember { ItemId = hair.Id, AddedAt = created.AddMinutes(1), Detached = true },
             ],
         });
 
@@ -264,10 +300,23 @@ internal static partial class Scenes
 
         await UntilModificationShownAsync(context, root);
         var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
-        await SceneContext.UntilAsync(() => detail.Members.Count == 2, "使ったものが並ぶ");
+        await SceneContext.UntilAsync(() => detail.Members.Count == 3, "使ったものが並ぶ");
         if (list)
         {
             detail.ShowListCommand.Execute(null);
+        }
+
+        await context.SettleAsync();
+
+        // 外した行（3つ目）の「Unity ▾」を写すため、カードは下の端まで、リストは操作の列（右の端）まで送る
+        var view = Look.View<ModificationView>(root)!;
+        if (list)
+        {
+            Look.All<ScrollViewer>(Look.Named<ListView>(view, "MemberList")!).First().ScrollToRightEnd();
+        }
+        else
+        {
+            Look.Named<ScrollViewer>(view, "Body")!.ScrollToEnd();
         }
 
         await context.SettleAsync();

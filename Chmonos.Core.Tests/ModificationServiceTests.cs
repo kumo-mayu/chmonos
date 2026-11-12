@@ -528,6 +528,26 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task 選び直しで選ぶ数に上限は無く_渡した順にその行の場所へ並ぶ()
+    {
+        // ユーザ指示 2026-11-12「二つまでしか選べないのは変」。画面の欄は選べる物の数まで足せるので、記録の側は数を限らない
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("前"));
+        await _service.AddMemberAsync(id, Member("クラゲ", "OLD"));
+        await _service.AddMemberAsync(id, Member("後"));
+        var before = await MemberAtAsync(id, 1);
+
+        var packages = new[] { "New/a.unitypackage", "New/b.unitypackage", "New/c.unitypackage", "Other/d.unitypackage" };
+        var result = await _service.ChangeMemberFilesAsync(id, before,
+            packages.Select(package => new ModificationMemberFile(package.StartsWith("New/", StringComparison.Ordinal) ? "NEW" : "OTHER", package, null)).ToList());
+
+        var members = (await _service.LoadAsync(id))!.Members;
+        Assert.Equal(MemberFilesChange.Changed, result);
+        Assert.Equal(["前", "クラゲ", "クラゲ", "クラゲ", "クラゲ", "後"], members.Select(member => member.ItemId));
+        Assert.Equal(packages, members.Skip(1).Take(4).Select(member => member.Package));
+    }
+
+    [Fact]
     public async Task ほかで消された行には選び直しを書かない()
     {
         // 窓を開いている間に別の画面で削除された行を、選んだ物で生き返らせない

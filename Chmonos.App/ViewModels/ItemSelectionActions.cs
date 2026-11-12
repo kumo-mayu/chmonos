@@ -283,9 +283,11 @@ internal static class ItemSelectionActions
         {
             var present = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
             var now = DateTimeOffset.Now;
-            var members = items.Where(item => present.Add(item.Id)).Select(item => files.MemberFor(item.Id, now)).ToList();
-            var skipped = items.Count - members.Count;
+            var added = items.Where(item => present.Add(item.Id)).ToList();
+            var skipped = items.Count - added.Count;
 
+            // 欄を足して使ったファイルを2つ以上選んだ商品は、その数だけ行が入る。知らせの件数は商品の数で言う
+            var members = added.SelectMany(item => files.MembersFor(item.Id, now)).ToList();
             if (members.Count > 0 && await SaveMembersAsync(services, record, members) is { } problem)
             {
                 lines.Add($"「{record.Name}」に追加できませんでした。");
@@ -293,13 +295,13 @@ internal static class ItemSelectionActions
             }
 
             changed |= members.Count > 0;
-            lines.Add((items.Count, members.Count) switch
+            lines.Add((items.Count, added.Count) switch
             {
                 (1, 1) => $"「{record.Name}」に追加しました。",
                 (1, _) => $"「{record.Name}」には既に入っています。",
                 (_, 0) => $"「{record.Name}」には {skipped} 件とも既に入っています。",
-                _ when skipped > 0 => $"「{record.Name}」に {members.Count} 件を追加しました。{skipped} 件は既に入っています。",
-                _ => $"「{record.Name}」に {members.Count} 件を追加しました。",
+                _ when skipped > 0 => $"「{record.Name}」に {added.Count} 件を追加しました。{skipped} 件は既に入っています。",
+                _ => $"「{record.Name}」に {added.Count} 件を追加しました。",
             });
         }
 

@@ -22,20 +22,42 @@
                                        Margin="0,0,0,4"
                                        Visibility="{Binding DataContext.ShowsNames, RelativeSource={RelativeSource AncestorType=UserControl},
                                                     Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=TwoWay}"
-                                      DisplayMemberPath="Text"
-                                      AutomationProperties.AutomationId="MemberFilePick"
-                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイル}" />
-                            <!-- 選び直しの窓だけ：同じ商品から2つ入れたとき（依存物と本体）に、2つ目を選ぶと行を2つに分けて記録する -->
-                            <StackPanel Margin="0,10,0,0"
-                                        Visibility="{Binding AllowsSecond, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <TextBlock Text="同じ商品から2つ入れたときは、2つ目も選びます。" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Second, Mode=TwoWay}"
-                                          DisplayMemberPath="Text"
-                                          AutomationProperties.AutomationId="MemberFilePickSecond"
-                                          AutomationProperties.Name="{Binding Name, StringFormat={}{0}の2つ目の使ったファイル}" />
-                            </StackPanel>
+                            <!--
+                                欄は人が足したり削除したりできる（ユーザ指示 2026-11-12「二つまでしか選べないのは変」）。1つの欄が記録の1行になる。
+                                ほかの欄で選んだ物は押せない（同じファイルの行が2つになると見分けられない）
+                            -->
+                            <ItemsControl ItemsSource="{Binding Slots}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:MemberFileSlot}">
+                                        <DockPanel Margin="0,0,0,6">
+                                            <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                    ToolTip="この欄を削除します。"
+                                                    AutomationProperties.AutomationId="MemberFilePickRemove"
+                                                    AutomationProperties.Name="{Binding Owner.Name, StringFormat={}{0}の使ったファイルの欄を削除}"
+                                                    Visibility="{Binding CanRemove, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    Command="{Binding Owner.RemoveSlotCommand}" CommandParameter="{Binding}" />
+                                            <ComboBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}"
+                                                      DisplayMemberPath="Text"
+                                                      AutomationProperties.AutomationId="MemberFilePick"
+                                                      AutomationProperties.Name="{Binding Owner.Name, StringFormat={}{0}の使ったファイル}">
+                                                <ComboBox.ItemContainerStyle>
+                                                    <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                                        <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+                                                    </Style>
+                                                </ComboBox.ItemContainerStyle>
+                                            </ComboBox>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- 選べる物が2つ以上のときだけ。選べる物の数まで足せる -->
+                            <Button Content="＋ ファイルを追加" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
+                                    ToolTip="同じ商品から2つ以上入れたときに、欄を追加します。"
+                                    AutomationProperties.AutomationId="MemberFilePickAdd"
+                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったファイルの欄を追加}"
+                                    Visibility="{Binding AllowsMore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                    IsEnabled="{Binding CanAddSlot}"
+                                    Command="{Binding AddSlotCommand}" />
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
