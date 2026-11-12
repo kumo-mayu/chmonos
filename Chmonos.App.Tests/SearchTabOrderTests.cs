@@ -61,9 +61,9 @@ public class SearchTabOrderTests
 
         // 手でつないだ道：条件をクリア → Tab → つまみ → Tab → 条件を追加（既定の並びに条件があるので、条件をクリアは押せる）
         Assert.True(Find(view, "SearchClearFilters").IsEnabled);
-        PressTab(view, Find(view, "SearchClearFilters"));
+        PressTab(view, Find(view, "SearchClearFilters"), SearchView.TabStop.ClearFilters);
         Assert.Equal("SearchToggleFilterPanel", Id(Keyboard.FocusedElement));
-        PressTab(view, Find(view, "SearchToggleFilterPanel"));
+        PressTab(view, Find(view, "SearchToggleFilterPanel"), SearchView.TabStop.Toggle);
         Assert.Equal("SearchAddModule", Id(Keyboard.FocusedElement));
 
         // 結果の後ろへは回らない（前は結果のカードの後ろで止まっていた）
@@ -105,14 +105,17 @@ public class SearchTabOrderTests
         return stops;
     }
 
-    /// <summary>その部品で Tab のキーを押したことにする（手でつないだ道は PreviewKeyDown で受けるので、MoveFocus では通らない）。</summary>
-    private static void PressTab(FrameworkElement view, FrameworkElement element)
+    /// <summary>
+    /// その部品で Tab のキーを押したことにする（手でつないだ道は PreviewKeyDown で受けるので、MoveFocus では通らない）。
+    /// キーの知らせは送らず、画面が受けた後の処理を修飾キー無しで直に呼ぶ。知らせを送ると、画面は修飾キーを実キーボードから
+    /// 読むので、試験の最中に Alt などが押されていると手でつないだ道を通らずに落ちる（ItemDescriptionTabTests と同じ。2026-11-12）
+    /// </summary>
+    private static void PressTab(SearchView view, FrameworkElement element, SearchView.TabStop from)
     {
         // フォーカスを置けたかを先に見る（外部の点検 2026-10-07）。試験の窓が手前に無い環境では置けず、
         // Tab の行き先の違いとして落ちていた。置けなければ、環境のせいだと分かる文で落とす
         Assert.True(element.Focus(), $"{Id(element)} にフォーカスを置けませんでした（試験の窓が手前に無い環境）");
-        var source = PresentationSource.FromVisual(element)!;
-        element.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+        Assert.True(view.MoveFilterToggleTab(from, ModifierKeys.None), $"{Id(element)} からの Tab を手でつないだ道が受けませんでした");
         Settle(view);
     }
 

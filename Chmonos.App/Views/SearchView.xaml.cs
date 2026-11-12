@@ -331,22 +331,7 @@ public partial class SearchView : UserControl
     {
         void Hook(UIElement element, TabStop from) => element.PreviewKeyDown += (_, e) =>
         {
-            if (e.Key != Key.Tab || (Keyboard.Modifiers & ~ModifierKeys.Shift) != ModifierKeys.None || Model is not { } model)
-            {
-                return;
-            }
-
-            var backward = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
-            var target = FilterToggleTabTarget(from, backward, model.IsFilterPanelCollapsed, ClearFiltersButton.IsEnabled);
-            UIElement? to = target switch
-            {
-                TabStop.FilterMenu => FilterMenuButton,
-                TabStop.ClearFilters => ClearFiltersButton,
-                TabStop.Toggle => FilterPanelToggle,
-                TabStop.AddModule => AddModuleMenuItem,
-                _ => null,
-            };
-            if (to is not null && to.Focus())
+            if (e.Key == Key.Tab && MoveFilterToggleTab(from, Keyboard.Modifiers))
             {
                 e.Handled = true;
             }
@@ -356,5 +341,30 @@ public partial class SearchView : UserControl
         Hook(ClearFiltersButton, TabStop.ClearFilters);
         Hook(FilterPanelToggle, TabStop.Toggle);
         Hook(AddModuleMenuItem, TabStop.AddModule);
+    }
+
+    /// <summary>
+    /// 絞り込みのつまみの前後で Tab を押したときに手で移す。移したら true（WPF の既定の「次へ」に任せないとき）。
+    /// 修飾キーを引数で受けるのは、試験が実キーボードの状態に左右されないため：<see cref="Keyboard.Modifiers"/> は
+    /// その時に実際に押されているキーを読むので、試験の最中に Alt などが押されていると手でつないだ道を通らない（ItemView.MoveDescriptionTab と同じ。2026-11-12）
+    /// </summary>
+    internal bool MoveFilterToggleTab(TabStop from, ModifierKeys modifiers)
+    {
+        if ((modifiers & ~ModifierKeys.Shift) != ModifierKeys.None || Model is not { } model)
+        {
+            return false;
+        }
+
+        var backward = (modifiers & ModifierKeys.Shift) != 0;
+        var target = FilterToggleTabTarget(from, backward, model.IsFilterPanelCollapsed, ClearFiltersButton.IsEnabled);
+        UIElement? to = target switch
+        {
+            TabStop.FilterMenu => FilterMenuButton,
+            TabStop.ClearFilters => ClearFiltersButton,
+            TabStop.Toggle => FilterPanelToggle,
+            TabStop.AddModule => AddModuleMenuItem,
+            _ => null,
+        };
+        return to is not null && to.Focus();
     }
 }
