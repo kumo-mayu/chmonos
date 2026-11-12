@@ -19,9 +19,9 @@ namespace Chmonos.App.Tests;
 /// 前は節の本文から Tab を押すと、下の見出しを飛ばして欄の頭の「すべて折りたたむ」へ上り、もう1回で右の列の頭の星へ上った（先頭まで流れた）。
 /// 欄の中は見た目の上から下の順にし、欄の最後の本文からは今までどおりページの次の止まり先（右の列の頭の星）へ移る。
 ///
-/// 実際のキーは押さず、画面に出さない窓に商品ページを載せ、止まっている所に Tab の PreviewKeyDown を送る。
+/// 実際のキーは押さず、画面に出さない窓に商品ページを載せ、止まっている所で画面の Tab の処理（修飾キー無し）を呼ぶ。
 /// 手でつないだ道（<see cref="DescriptionTabs"/>）が受けなければ、WPF の「次へ進む」（Tab と同じ道）で進める（SearchTabOrderTests と同じ窓の作り）。
-/// Shift+Tab はキーの修飾を作れないので、行き先の決め方（<see cref="DescriptionTabs.Target"/>）を直に呼んで確かめる
+/// Shift+Tab は行き先の決め方（<see cref="DescriptionTabs.Target"/>）を直に呼んで確かめる
 /// </summary>
 public class ItemDescriptionTabTests
 {
@@ -115,15 +115,16 @@ public class ItemDescriptionTabTests
         return item with { Booth = item.Booth with { Description = string.Join('\n', Enumerable.Range(1, 60).Select(i => $"説明の行 {i}")) } };
     }
 
-    /// <summary>その部品に止まって Tab を押したことにし、移った先を返す。手でつないだ道が受けなければ WPF の既定の「次へ」で進める。</summary>
-    private static IInputElement? PressTab(FrameworkElement view, ScrollViewer body, UIElement element)
+    /// <summary>
+    /// その部品に止まって Tab を押したことにし、移った先を返す。手でつないだ道が受けなければ WPF の既定の「次へ」で進める。
+    /// キーの知らせ（PreviewKeyDown）は送らず、画面が受けた後の処理を修飾キー無しで直に呼ぶ。知らせを送ると、画面は修飾キーを
+    /// 実キーボードから読むので、試験の最中に Alt などが押されていると別の道へ進んで落ちた（2026-11-12。負荷を掛けて回すと1〜2割）
+    /// </summary>
+    private static IInputElement? PressTab(ItemView view, ScrollViewer body, UIElement element)
     {
         Assert.True(element.Focus(), $"{Id(element)} にフォーカスを置けませんでした（試験の窓が手前に無い環境）");
         Settle(view);
-        var source = PresentationSource.FromVisual(element)!;
-        var args = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
-        element.RaiseEvent(args);
-        if (!args.Handled)
+        if (!view.MoveDescriptionTab(ModifierKeys.None))
         {
             element.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
         }

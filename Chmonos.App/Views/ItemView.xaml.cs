@@ -236,20 +236,33 @@ public partial class ItemView : UserControl
     /// <summary>説明の欄の中の Tab を、見た目の上から下の順にする（計画 37。決め方は <see cref="DescriptionTabs"/>）。</summary>
     private void OnDescriptionPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        var modifiers = System.Windows.Input.Keyboard.Modifiers;
-        if (e.Handled || e.Key != System.Windows.Input.Key.Tab
-            || modifiers is not (System.Windows.Input.ModifierKeys.None or System.Windows.Input.ModifierKeys.Shift))
+        if (!e.Handled && e.Key == System.Windows.Input.Key.Tab && MoveDescriptionTab(System.Windows.Input.Keyboard.Modifiers))
         {
-            return;
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 説明の欄で Tab を押したときに手で移す。移したら true（WPF の既定の「次へ」に任せないとき）。
+    /// 修飾キーを引数で受けるのは、試験が実キーボードの状態に左右されないため：<see cref="System.Windows.Input.Keyboard.Modifiers"/> は
+    /// その時に実際に押されているキーを読むので、試験の最中に人や別の作業が Alt・Shift を押していると、Tab が別の道へ進んで落ちた（2026-11-12）
+    /// </summary>
+    internal bool MoveDescriptionTab(System.Windows.Input.ModifierKeys modifiers)
+    {
+        if (modifiers is not (System.Windows.Input.ModifierKeys.None or System.Windows.Input.ModifierKeys.Shift))
+        {
+            return false;
         }
 
         var focused = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
         var backward = modifiers == System.Windows.Input.ModifierKeys.Shift;
-        if (DescriptionTabs.Target(DescriptionExpander, ToggleAllSections, SectionList, focused, backward) is { } target)
+        if (DescriptionTabs.Target(DescriptionExpander, ToggleAllSections, SectionList, focused, backward) is not { } target)
         {
-            target.Focus();
-            e.Handled = true;
+            return false;
         }
+
+        target.Focus();
+        return true;
     }
 
     // ---- BOOTH で変わった所（メモ17） ----
