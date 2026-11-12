@@ -18,6 +18,21 @@ public interface ICardClickSelectionHost
     /// 次の Shift+クリックの起点にする（Explorer で最後に押した物が起点になるのと同じ）
     /// </summary>
     void NoteSelectionAnchor(ItemCardViewModel card);
+
+    /// <summary>
+    /// 今の並び（絞り込みの結果の全部。仮想化で作られていない物も）を全部選ぶ。帯の「すべて選択」と Ctrl+A の両方がここを通る
+    /// （ユーザ判断 2026-11-12「Ctrl-aは、入力欄以外では全選択としよう」）
+    /// </summary>
+    void SelectAllShown();
+
+    /// <summary>今の並びの中で、選んだ物を外し、選んでいない物を選ぶ（Ctrl+Shift+I。ユーザ判断 2026-11-12）</summary>
+    void InvertSelection();
+
+    /// <summary>選択を全部外す（隠れて選ばれている物も）。帯の「選択を解除」・Esc・Ctrl+Shift+A</summary>
+    void ClearSelection();
+
+    /// <summary>1件でも選んでいるか（Ctrl+Shift+A を横取りしてよいかの判断。Esc と同じく、選んでいなければ譲る）</summary>
+    bool HasSelection { get; }
 }
 
 /// <summary>
@@ -91,6 +106,40 @@ internal sealed class CardClickSelection
             }
         });
         return true;
+    }
+
+    /// <summary>
+    /// 並びを全部選ぶ（帯の「すべて選択」・Ctrl+A）。
+    /// 起点は動かさない（Explorer の Ctrl+A も焦点の1件を動かさない。続く Shift+クリックは前の起点から測る）。
+    /// 絞り込みで隠れて選ばれている物には触らない（前からの「すべて選択」と同じ。外すのは「選択を解除」）
+    /// </summary>
+    public static void SelectAll(IReadOnlyList<ItemCardViewModel> order, Action<Action> together) => together(() =>
+    {
+        foreach (var card in order)
+        {
+            card.IsSelected = true;
+        }
+    });
+
+    /// <summary>
+    /// 並びの中の選び方を反転する（Ctrl+Shift+I）。範囲と隠れた物の扱いは <see cref="SelectAll"/> と同じ。
+    /// 起点も動かさないが、反転で1件も選ばれなくなったら忘れる（「選択を解除」の後と同じく、次の Shift は押した1件から）
+    /// </summary>
+    /// <param name="all">選んでいる物を探す全部（隠れた物も。1件も残らないかを見るため）</param>
+    public void Invert(IReadOnlyList<ItemCardViewModel> order, IEnumerable<ItemCardViewModel> all, Action<Action> together)
+    {
+        together(() =>
+        {
+            foreach (var card in order)
+            {
+                card.IsSelected = !card.IsSelected;
+            }
+        });
+
+        if (!all.Any(card => card.IsSelected))
+        {
+            _anchor = null;
+        }
     }
 
     /// <summary>

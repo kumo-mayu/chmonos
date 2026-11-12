@@ -358,13 +358,15 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     private bool _isSendingToUnity;
     private string _unityQueueText = string.Empty;
 
-    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(() => ChangeSelectionTogether(() =>
-    {
-        foreach (var card in _listItems.OfType<ItemCardViewModel>())
-        {
-            card.IsSelected = true;
-        }
-    }));
+    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(SelectAllShown);
+
+    /// <summary>右の欄の商品を全部選ぶ（帯の「すべて選択」・Ctrl+A。フォルダは選べないので飛ばす）</summary>
+    public void SelectAllShown() => CardClickSelection.SelectAll(ShownCards(), ChangeSelectionTogether);
+
+    /// <summary>右の欄の商品の選び方を反転する（Ctrl+Shift+I。<see cref="CardClickSelection.Invert"/>）</summary>
+    public void InvertSelection() => _clickSelection.Invert(ShownCards(), _cards.Values, ChangeSelectionTogether);
+
+    private List<ItemCardViewModel> ShownCards() => _listItems.OfType<ItemCardViewModel>().ToList();
 
     public RelayCommand ClearSelectionCommand => _clearSelection ??= new RelayCommand(ClearSelection);
 
@@ -475,7 +477,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     /// <summary>Ctrl・Shift+クリックで選ぶ（検索画面と同じ）。範囲は右の欄の並びの商品だけ（フォルダは選べないので飛ばす）</summary>
     public bool SelectByClick(ItemCardViewModel card, bool control, bool shift)
-        => _clickSelection.Click(card, control, shift, _listItems.OfType<ItemCardViewModel>().ToList(), _cards.Values, ChangeSelectionTogether);
+        => _clickSelection.Click(card, control, shift, ShownCards(), _cards.Values, ChangeSelectionTogether);
 
     public void NoteSelectionAnchor(ItemCardViewModel card) => _clickSelection.NoteAnchor(card);
 

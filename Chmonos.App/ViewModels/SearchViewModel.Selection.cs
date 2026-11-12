@@ -182,14 +182,11 @@ public sealed partial class SearchViewModel
         RelayCommand.RaiseCanExecuteChanged();
     }
 
-    /// <summary>今の絞り込み結果を全部選ぶ。画面に出ていないものは選ばない。</summary>
-    private void SelectAllMatches() => ChangeSelectionTogether(() =>
-    {
-        foreach (var card in _matches)
-        {
-            card.IsSelected = true;
-        }
-    });
+    /// <summary>今の絞り込み結果を全部選ぶ（帯の「すべて選択」・Ctrl+A）。画面に出ていないものは選ばない。</summary>
+    public void SelectAllShown() => CardClickSelection.SelectAll(_matches, ChangeSelectionTogether);
+
+    /// <summary>今の絞り込み結果の中で選び方を反転する（Ctrl+Shift+I。<see cref="CardClickSelection.Invert"/>）</summary>
+    public void InvertSelection() => _clickSelection.Invert(_matches, _cards.Values, ChangeSelectionTogether);
 
     public void ClearSelection() => ChangeSelectionTogether(() =>
     {

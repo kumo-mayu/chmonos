@@ -702,10 +702,12 @@
                     <Button Content="すべて選択" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.SelectAll"
                             Command="{Binding SelectAllCommand}"
-                            ToolTip="今表示されている商品をすべて選びます。" />
+                            ToolTip="今表示されている商品をすべて選びます（Ctrl + A）" />
+                    <!-- 反転（Ctrl+Shift+I）はボタンを足さずキーだけ（ユーザ判断 2026-11-12）。帯をこれ以上長くしない -->
                     <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
                             AutomationProperties.AutomationId="SelectionBar.Clear"
-                            Command="{Binding ClearSelectionCommand}" />
+                            Command="{Binding ClearSelectionCommand}"
+                            ToolTip="選択をすべて解除します（Esc / Ctrl + Shift + A）" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
                     <Button Content="お気に入りに追加" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToFavorites"

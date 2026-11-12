@@ -746,13 +746,13 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     private RelayCommand? _stopUnity;
 
     /// <summary>見えている分（「所持しているものだけ」で絞った後）を全て選ぶ（B8：見えている分に効く）。</summary>
-    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(() => ChangeSelectionTogether(() =>
-    {
-        foreach (var card in _matches)
-        {
-            card.IsSelected = true;
-        }
-    }));
+    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(SelectAllShown);
+
+    /// <summary>見えている分を全部選ぶ（帯の「すべて選択」・Ctrl+A）</summary>
+    public void SelectAllShown() => CardClickSelection.SelectAll(_matches, ChangeSelectionTogether);
+
+    /// <summary>見えている分の中で選び方を反転する（Ctrl+Shift+I。<see cref="CardClickSelection.Invert"/>）</summary>
+    public void InvertSelection() => _clickSelection.Invert(_matches, _all, ChangeSelectionTogether);
 
     public RelayCommand ClearSelectionCommand => _clearSelection ??= new RelayCommand(ClearSelection);
 

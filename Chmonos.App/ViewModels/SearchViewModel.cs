@@ -114,7 +114,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         };
         global::Chmonos.App.Services.CardMetrics.Changed += RelayoutForCardSize;
         ClearFiltersCommand = new RelayCommand(() => ClearFiltersKeepingHistoryAsync().Forget());
-        SelectAllCommand = new RelayCommand(SelectAllMatches);
+        SelectAllCommand = new RelayCommand(SelectAllShown);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
         AddSelectionToFavoritesCommand = new RelayCommand(() => AddSelectionToFavoritesAsync().Forget(), () => SelectedCount > 0);

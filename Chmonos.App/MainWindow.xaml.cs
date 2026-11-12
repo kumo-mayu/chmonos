@@ -479,6 +479,26 @@ public partial class MainWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// 検索・フォルダの右側・ショップの Ctrl+A（全選択）・Ctrl+Shift+A（全解除）・Ctrl+Shift+I（反転）（ユーザ判断 2026-11-12）。
+    /// 割り当て（TryShortcut）の後に見るので、使う人が同じキーを設定で割り当てたらそちらが勝つ。入力欄・選べる文の中では文字の操作に譲る
+    /// </summary>
+    private static bool TrySelectionKey(MainViewModel main, System.Windows.Input.KeyEventArgs e)
+    {
+        var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+        var action = ViewModels.SelectionKeys.Classify(key, System.Windows.Input.Keyboard.Modifiers);
+        if (action == ViewModels.SelectionKey.None
+            || ViewModels.SelectionKeys.IsInTextInput(System.Windows.Input.Keyboard.FocusedElement as DependencyObject)
+            || ViewModels.SelectionKeys.HostOf(main.CurrentViewModel) is not { } host
+            || !ViewModels.SelectionKeys.Run(action, host))
+        {
+            return false;
+        }
+
+        e.Handled = true;
+        return true;
+    }
+
     private void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (DataContext is MainViewModel shortcutMain && TryShortcut(shortcutMain, e))
@@ -492,6 +512,11 @@ public partial class MainWindow : Window
         }
 
         if (DataContext is MainViewModel selecting && TryClearSelection(selecting, e))
+        {
+            return;
+        }
+
+        if (DataContext is MainViewModel selectingByKey && TrySelectionKey(selectingByKey, e))
         {
             return;
         }
