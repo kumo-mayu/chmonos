@@ -173,19 +173,59 @@ public sealed partial class SettingsViewModel
         }
 
         LoadApiBlocked(list);
-        var rows = (list.Clients ?? []).Where(client => client is not null && !string.IsNullOrEmpty(client.Id)).ToList();
-        if (rows.Count == ApiClients.Count && rows.Zip(ApiClients).All(pair => pair.Second.Matches(pair.First)))
+
+        // 項目は API の索引と同じ検証を通した物を並べる（手で書き換えた合わない宣言はメニューに出ないので、許した項目としても見せない）
+        var rows = (list.Clients ?? [])
+            .Where(client => client is not null && !string.IsNullOrEmpty(client.Id))
+            .Select(client => (Record: client, Menu: Chmonos.Api.PluginMenus.FromRecords(client.Menu), Pending: (IsApiMenuPendingForShot ?? _services.Api.IsMenuPending)(client.Id)))
+            .ToList();
+        if (rows.Count == ApiClients.Count && rows.Zip(ApiClients).All(pair => pair.Second.Matches(pair.First.Record, pair.First.Menu, pair.First.Pending)))
         {
             return;
         }
 
         ApiClients.Clear();
-        foreach (var client in rows)
+        foreach (var (record, menu, pending) in rows)
         {
-            ApiClients.Add(new ApiClientRow(client, ChangeApiClientScope, RevokeApiClient));
+            ApiClients.Add(new ApiClientRow(record, ChangeApiClientScope, RevokeApiClient)
+            {
+                Menu = new ApiClientMenu(record.Id, menu, pending, _expandedApiMenus, () => RemoveApiClientMenuAsync(record.Id).Forget()),
+            });
         }
 
         OnPropertyChanged(nameof(HasApiClients));
+    }
+
+    /// <summary>
+    /// 項目の一覧を開いているソフト（ID）。行は使った日時を書くたび（10分おき）にも作り直すので、開閉は行の外に持つ
+    /// （作り直しで畳まれると、見ている途中に閉じる）。画面を開き直したら畳む（32個まで並ぶので、既定は畳む）
+    /// </summary>
+    private readonly HashSet<string> _expandedApiMenus = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 聞き直しを待っているかの差し替え（撮る台。台は通信を塞ぐので API を動かせず、「待っています」の姿を作れない）。null なら動いている API に聞く
+    /// </summary>
+    internal Func<string, bool>? IsApiMenuPendingForShot { get; set; }
+
+    /// <summary>
+    /// 項目だけを外す（宣言を空にする。ソフトのトークン・書き込みの種類は残す）。確かめの窓は出さない：
+    /// ソフトが次に宣言を送れば、また許しの窓で聞く（取り返しがつく）。消えるだけの変更なので、ソフトの宣言と同じく聞かずに効かせる
+    /// </summary>
+    private async Task RemoveApiClientMenuAsync(string clientId)
+    {
+        _expandedApiMenus.Remove(clientId);
+
+        // 欄ごと書かない（空の配列にしない）。宣言の無いソフトと同じ形にする（ApiClientBook.SetMenuAsync と同じ）
+        var saved = await SaveApiClientsAsync(list => list with
+        {
+            Clients = list.Clients.Select(client => client.Id != clientId ? client : client with { Menu = null }).ToList(),
+        });
+
+        // 書いた後の値で出し直す（API が止まっていると、読み直しの知らせが来ない）
+        if (saved)
+        {
+            LoadApiClients();
+        }
     }
 
     private void OnApiClientsChanged() => RunOnUiThread(LoadApiClients);
@@ -325,7 +365,13 @@ public sealed partial class SettingsViewModel
         return true;
     }
 
-    private void OnApiStateChanged() => RunOnUiThread(() => OnPropertyChanged(nameof(ApiStatusText)));
+    private void OnApiStateChanged() => RunOnUiThread(() =>
+    {
+        OnPropertyChanged(nameof(ApiStatusText));
+
+        // 止めると聞いている列も捨てるので、「許可を待っています」を出し直す（中身が同じなら作り直さない）
+        LoadApiClients();
+    });
 
     /// <summary>API が動いているか（1行）。始められなかったときは、次にすることを言う。</summary>
     public string ApiStatusText => _services.Api.State switch
@@ -472,10 +518,81 @@ public sealed class ApiClientRow
 
     public RelayCommand RevokeCommand { get; }
 
-    /// <summary>同じ記録を映しているか（作り直すかを決める）。</summary>
-    internal bool Matches(ApiClientRecord record) => _record == record
-        || (_record.Id == record.Id && _record.Name == record.Name && _record.ExePath == record.ExePath && _record.Origin == record.Origin
-            && _record.LastUsedAt == record.LastUsedAt && (_record.Scopes ?? []).SequenceEqual(record.Scopes ?? []));
+    /// <summary>許した項目と、聞き直しを待っているか（plan 44 の②）。</summary>
+    public ApiClientMenu Menu { get; init; } = ApiClientMenu.None;
+
+    /// <summary>同じ記録・同じ項目・同じ聞き直しの状態を映しているか（作り直すかを決める）。</summary>
+    internal bool Matches(ApiClientRecord record, IReadOnlyList<Chmonos.Query.PluginMenuItemRef> menu, bool pending)
+        => Menu.IsPending == pending && Chmonos.Api.PluginMenus.Same(Menu.Items, menu)
+            && (_record == record
+                || (_record.Id == record.Id && _record.Name == record.Name && _record.ExePath == record.ExePath && _record.Origin == record.Origin
+                    && _record.LastUsedAt == record.LastUsedAt && (_record.Scopes ?? []).SequenceEqual(record.Scopes ?? [])));
+}
+
+/// <summary>
+/// つないでいるソフトが許された、メニューに足す項目（plan 44 の②・docs/spec/plugins-menu.md）。許し直しの窓と同じ行の形で並べ
+/// （名前は下の段なら「親 ▸ 子」・表示する場所・渡す情報）、32個まであるので畳む。聞き直しを待っていれば、そう言う
+/// </summary>
+public sealed class ApiClientMenu
+{
+    private readonly string _clientId;
+    private readonly ISet<string> _expanded;
+
+    public ApiClientMenu(string clientId, IReadOnlyList<Chmonos.Query.PluginMenuItemRef> items, bool pending, ISet<string> expanded, Action remove)
+    {
+        _clientId = clientId;
+        _expanded = expanded;
+        Items = items;
+        IsPending = pending;
+
+        // 押せる項目ごとに1行（子を持つ項目は段を開くだけなので行にしない。許し直しの窓の「追加する項目」と同じ数え方）
+        Lines = Chmonos.Api.PluginMenus.Diff([], items).Added.Select(line => PluginMenuApprovalViewModel.Line(line, withNeeds: true)).ToList();
+        RemoveCommand = new RelayCommand(remove);
+    }
+
+    /// <summary>宣言の無いソフト（何も出さない）。</summary>
+    public static ApiClientMenu None { get; } = new(string.Empty, [], false, new HashSet<string>(), () => { });
+
+    internal IReadOnlyList<Chmonos.Query.PluginMenuItemRef> Items { get; }
+
+    public IReadOnlyList<PluginMenuApprovalLine> Lines { get; }
+
+    public bool HasItems => Lines.Count > 0;
+
+    public string Title => $"メニューの項目（{Lines.Count}）";
+
+    /// <summary>項目の宣言を人に聞いている（窓を出す前の列にある・窓を出している）。</summary>
+    public bool IsPending { get; }
+
+    /// <summary>
+    /// 聞き直しを待っている知らせ。前に許した項目があれば、許すまでは今の項目のまま出すことも言う
+    /// （一覧が古いのか新しいのかを取り違えないように）
+    /// </summary>
+    public string PendingText => !IsPending
+        ? string.Empty
+        : HasItems ? "項目の変更の許可を待っています。許可するまでは今の項目のままです。" : "メニューの項目の許可を待っています。";
+
+    public bool IsVisible => HasItems || IsPending;
+
+    /// <summary>開いているか（行を作り直しても保つ。<see cref="SettingsViewModel"/> の集合に持つ）。</summary>
+    public bool IsExpanded
+    {
+        get => _expanded.Contains(_clientId);
+        set
+        {
+            if (value)
+            {
+                _expanded.Add(_clientId);
+            }
+            else
+            {
+                _expanded.Remove(_clientId);
+            }
+        }
+    }
+
+    /// <summary>項目だけを外す（トークンと書き込みの種類は残す）。</summary>
+    public RelayCommand RemoveCommand { get; }
 }
 
 /// <summary>止めているソフトの1行（名前・exe かオリジン・止めた日時・止めを外す）。</summary>

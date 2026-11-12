@@ -17,10 +17,12 @@ public sealed class ApiServer : IAsyncDisposable
     private readonly StoreSync _sync;
     private readonly AppPaths _paths;
     private readonly string _token;
+    private readonly ApiClientRequests _requests;
 
     private ApiServer(WebApplication app, ApiState state, StoreSync sync, AppPaths paths, int port, string token)
     {
         _app = app;
+        _requests = app.Services.GetRequiredService<ApiClientRequests>();
         _state = state;
         _sync = sync;
         _paths = paths;
@@ -104,11 +106,27 @@ public sealed class ApiServer : IAsyncDisposable
     public void ReloadClients() => _state.Clients.Reload();
 
     /// <summary>許したソフトの一覧を読み直した（許した・使った日時を書いた・設定で変えた）。裏のスレッドから来る。</summary>
+    /// <remarks>
+    /// 項目の宣言の聞き直しが始まった・終わった（<see cref="IsMenuPending"/> が変わり得る）ときも知らせる。
+    /// 拒否・窓を閉じたで終わったときは控えを書かないので、読み直しの知らせだけでは設定の「許可を待っています」が残る
+    /// </remarks>
     public event Action? ClientsChanged
     {
-        add => _state.Clients.Changed += value;
-        remove => _state.Clients.Changed -= value;
+        add
+        {
+            _state.Clients.Changed += value;
+            _requests.MenusChanged += value;
+        }
+
+        remove
+        {
+            _state.Clients.Changed -= value;
+            _requests.MenusChanged -= value;
+        }
     }
+
+    /// <summary>このソフトの項目の宣言を人に聞いている（窓を出す前の列にある・窓を出している）か。設定の「つないでいるソフト」に出す。</summary>
+    public bool IsMenuPending(string clientId) => _requests.MenuStateOf(clientId).State == ApiClientRequests.Pending;
 
     /// <summary>待ち受けを止め、<c>api.json</c> を「止まった」にする（トークンは残す。次に始めたときも同じトークンで使えるように）。</summary>
     public async ValueTask DisposeAsync()

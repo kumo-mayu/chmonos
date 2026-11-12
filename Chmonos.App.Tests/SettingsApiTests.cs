@@ -318,6 +318,108 @@ public sealed class SettingsApiTests
         settings.OnLeaving();
     });
 
+    /// <summary>作り物の宣言：押せる項目1つと、子を2つ持つ親（plan 44 の②）。</summary>
+    private static IReadOnlyList<PluginMenuItemRecord> FakeMenu() =>
+    [
+        new PluginMenuItemRecord { Id = "open", Label = "開く_1", Where = ["item"], Needs = ["files"] },
+        new PluginMenuItemRecord
+        {
+            Id = "parent", Label = "作り物の親",
+            Children =
+            [
+                new PluginMenuItemRecord { Id = "c1", Label = "子1", Where = ["item", "selection"], Needs = ["name", "tags"] },
+                new PluginMenuItemRecord { Id = "c2", Label = "子2", Where = ["selection"] },
+            ],
+        },
+    ];
+
+    [Fact]
+    public Task 許したメニューの項目は_押せる項目ごとに窓と同じ形で並べ_既定は畳み_作り直しても開いたまま() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具") with { Menu = FakeMenu() }, FakeClient("b2", "別の作り物")],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        var menu = settings.ApiClients.First().Menu;
+        Assert.True(menu.IsVisible);
+        Assert.False(menu.IsExpanded);
+        Assert.Equal("メニューの項目（3）", menu.Title);
+
+        // 子を持つ親は行にしない。下の段は「親 ▸ 子」、商品ID はいつも渡すので書く。「_」はそのまま（TextBlock に置く）
+        Assert.Equal(
+            [
+                ("開く_1", "表示する場所：商品の右クリック　渡す情報：商品ID・ファイルの場所"),
+                ("作り物の親 ▸ 子1", "表示する場所：商品の右クリック・複数選択の帯　渡す情報：商品ID・名前・タグ"),
+                ("作り物の親 ▸ 子2", "表示する場所：複数選択の帯　渡す情報：商品ID"),
+            ],
+            menu.Lines.Select(line => (line.Label, line.Detail)));
+        Assert.False(menu.IsPending);
+        Assert.Equal(string.Empty, menu.PendingText);
+
+        // 宣言の無いソフトは何も出さない
+        Assert.False(settings.ApiClients.Last().Menu.IsVisible);
+
+        // 使った日時を書いて行を作り直しても、開いたまま
+        menu.IsExpanded = true;
+        await app.Services.Store.ApiClients.UpdateAsync(list => list with
+        {
+            Clients = list.Clients.Select(client => client with { LastUsedAt = DateTimeOffset.Now }).ToList(),
+        });
+        settings.LoadApiClients();
+        Assert.NotSame(menu, settings.ApiClients.First().Menu);
+        Assert.True(settings.ApiClients.First().Menu.IsExpanded);
+        Assert.False(settings.ApiClients.Last().Menu.IsExpanded);
+
+        // 画面を開き直したら畳む
+        settings.OnLeaving();
+        var reopened = new SettingsViewModel(app.Services, main);
+        Assert.False(reopened.ApiClients.First().Menu.IsExpanded);
+        reopened.OnLeaving();
+    });
+
+    [Fact]
+    public Task 控えの合わない宣言は_許した項目として並べない() => TestApp.Run(async app =>
+    {
+        // 手で書き換えた控え（知らない出す場所）。メニューに出ないので、設定でも見せない
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具") with { Menu = [new PluginMenuItemRecord { Id = "x", Label = "作り物", Where = ["modification"] }] }],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        Assert.False(settings.ApiClients.Single().Menu.IsVisible);
+        settings.OnLeaving();
+    });
+
+    [Fact]
+    public Task メニューから外すと_項目だけを控えから消し_トークンと権限は残す() => TestApp.Run(async app =>
+    {
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具", ApiScopes.Marks) with { Menu = FakeMenu() }, FakeClient("b2", "別の作り物") with { Menu = FakeMenu() }],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        settings.ApiClients.First().Menu.IsExpanded = true;
+
+        settings.ApiClients.First().Menu.RemoveCommand.Execute(null);
+        await app.SettleAsync();
+
+        var saved = app.Services.Store.ApiClients.Load().Clients;
+        var removed = saved.Single(client => client.Id == "a1");
+        Assert.Null(removed.Menu);
+        Assert.Equal([ApiScopes.Marks], removed.Scopes);
+        Assert.Equal(new string('0', 63) + "1", removed.TokenHash);
+        Assert.Equal(2, saved.Single(client => client.Id == "b2").Menu!.Count);
+        Assert.False(settings.ApiClients.First().Menu.IsVisible);
+        Assert.True(settings.ApiClients.Last().Menu.IsVisible);
+        settings.OnLeaving();
+    });
+
     [Fact]
     public Task つないでいるソフトの取り消しは_確かめてから控えから消す() => TestApp.Run(async app =>
     {

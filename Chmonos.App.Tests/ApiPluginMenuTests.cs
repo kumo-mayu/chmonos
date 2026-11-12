@@ -34,7 +34,7 @@ public sealed class ApiPluginMenuTests
     }
 
     /// <summary>作り物の商品を並べ、項目を宣言済みのソフトを控えに書いて、API を始める。</summary>
-    private static async Task<(MainViewModel Main, HttpClient Client)> StartAsync(TestApp app, string name = "作り物_道具")
+    private static async Task<(MainViewModel Main, HttpClient Client)> StartAsync(TestApp app, string name = "作り物_道具", IApiClientApprovals? approvals = null)
     {
         for (var index = 1; index <= 3; index++)
         {
@@ -42,6 +42,9 @@ public sealed class ApiPluginMenuTests
             var item = Make.Item($"96007{index:00}", $"作り物の商品{index}");
             await app.AddItemAsync(index == 1 ? item.WithFiles() : item);
         }
+
+        // 許しの口は API を作る前に差し込む（アプリを始めると API の係が作られる）
+        app.Services.ApprovalsForTest = approvals;
 
         JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
         {
@@ -70,9 +73,9 @@ public sealed class ApiPluginMenuTests
         return (main, client);
     }
 
-    private static async Task Run(Func<TestApp, MainViewModel, HttpClient, Task> body, string name = "作り物_道具") => await TestApp.Run(async app =>
+    private static async Task Run(Func<TestApp, MainViewModel, HttpClient, Task> body, string name = "作り物_道具", IApiClientApprovals? approvals = null) => await TestApp.Run(async app =>
     {
-        var (main, client) = await StartAsync(app, name);
+        var (main, client) = await StartAsync(app, name, approvals);
         try
         {
             await body(app, main, client);
@@ -219,6 +222,121 @@ public sealed class ApiPluginMenuTests
         var buttons = Descendants(bar).OfType<Button>().Where(button => AutomationProperties.GetAutomationId(button) == "SelectionBar.Plugins").ToList();
         Assert.Single(buttons);
         await Task.CompletedTask;
+    });
+
+    /// <summary>項目の宣言の許しを、試験が答えるまで待たせる口（「聞いている間」を作る）。</summary>
+    private sealed class HeldApprovals : IApiClientApprovals
+    {
+        private readonly System.Threading.Channels.Channel<TaskCompletionSource<ApiClientDecision>> _asked
+            = System.Threading.Channels.Channel.CreateUnbounded<TaskCompletionSource<ApiClientDecision>>();
+
+        public bool CanAsk => true;
+
+        public Task<ApiClientDecision> AskAsync(ApiClientRequestInfo request, CancellationToken cancellationToken)
+            => Task.FromResult(ApiClientDecision.Dismissed);
+
+        public async Task<ApiClientDecision> AskMenuAsync(PluginMenuRequestInfo request, CancellationToken cancellationToken)
+        {
+            var decision = new TaskCompletionSource<ApiClientDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
+            await _asked.Writer.WriteAsync(decision, cancellationToken);
+            return await decision.Task.WaitAsync(cancellationToken);
+        }
+
+        public async Task<TaskCompletionSource<ApiClientDecision>> NextAsync()
+            => await _asked.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    private static Task<HttpResponseMessage> PutMenuAsync(HttpClient client, object items)
+        => client.PutAsync("/v1/plugin/menu", new StringContent(JsonSerializer.Serialize(new { items }), Encoding.UTF8, "application/json"));
+
+    private static async Task UntilAsync(TestApp app, Func<bool> done)
+    {
+        for (var tries = 0; tries < 100 && !done(); tries++)
+        {
+            await Task.Delay(50);
+            await app.SettleAsync();
+        }
+
+        Assert.True(done());
+    }
+
+    [Fact]
+    public Task 設定のつないでいるソフトは_聞き直しを待つ間そう言い_許せば新しい項目を並べ_拒否なら前のまま() => TestApp.Run(async app =>
+    {
+        var approvals = new HeldApprovals();
+        var (main, client) = await StartAsync(app, approvals: approvals);
+        try
+        {
+            var settings = new SettingsViewModel(app.Services, main);
+            Assert.Equal(2, settings.ApiClients.Single().Menu.Lines.Count);
+            Assert.False(settings.ApiClients.Single().Menu.IsPending);
+
+            // 1つ足す宣言：聞いている間は「待っています」と、前の項目のまま並べる
+            var added = new object[]
+            {
+                new { id = "send", label = "送る_1", where = new[] { "item", "selection" }, needs = new[] { "name" } },
+                new { id = "owned-only", label = "持っている物だけ", where = new[] { "item" }, when = new { owned = true } },
+                new { id = "new", label = "作り物の新しい項目", where = new[] { "item" } },
+            };
+            Assert.Equal(HttpStatusCode.Accepted, (await PutMenuAsync(client, added)).StatusCode);
+            var asked = await approvals.NextAsync();
+            await UntilAsync(app, () => settings.ApiClients.Single().Menu.IsPending);
+            Assert.Equal("項目の変更の許可を待っています。許可するまでは今の項目のままです。", settings.ApiClients.Single().Menu.PendingText);
+            Assert.Equal(2, settings.ApiClients.Single().Menu.Lines.Count);
+
+            asked.SetResult(new ApiClientDecision(true, []));
+            await UntilAsync(app, () => !settings.ApiClients.Single().Menu.IsPending);
+            await UntilAsync(app, () => settings.ApiClients.Single().Menu.Lines.Count == 3);
+
+            // 拒否（控えを書かない終わり方）でも「待っています」は消え、許した項目のまま
+            Assert.Equal(HttpStatusCode.Accepted, (await PutMenuAsync(client, added.Take(1).Append(new { id = "other", label = "作り物の別の項目", where = new[] { "item" } }).ToArray())).StatusCode);
+            asked = await approvals.NextAsync();
+            await UntilAsync(app, () => settings.ApiClients.Single().Menu.IsPending);
+            asked.SetResult(ApiClientDecision.Refusal);
+            await UntilAsync(app, () => !settings.ApiClients.Single().Menu.IsPending);
+            Assert.Equal(3, settings.ApiClients.Single().Menu.Lines.Count);
+            settings.OnLeaving();
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
+    });
+
+    [Fact]
+    public Task 設定でメニューから外すと_トークンは使え_項目は出さず_同じ宣言を送れば聞き直す() => TestApp.Run(async app =>
+    {
+        var approvals = new HeldApprovals();
+        var (main, client) = await StartAsync(app, approvals: approvals);
+        try
+        {
+            await PollAsync(client);
+            var settings = new SettingsViewModel(app.Services, main);
+            settings.ApiClients.Single().Menu.RemoveCommand.Execute(null);
+            await UntilAsync(app, () => !app.Services.PluginMenus.HasItemMenus);
+
+            Assert.False(app.Services.PluginMenus.HasSelectionMenus);
+            Assert.False(settings.ApiClients.Single().Menu.IsVisible);
+
+            // トークンは残る（読み取りも出来事も今までどおり）。宣言は空
+            var menu = JsonDocument.Parse(await client.GetStringAsync("/v1/plugin/menu")).RootElement;
+            Assert.Equal(0, menu.GetProperty("items").GetArrayLength());
+
+            // ソフトが同じ宣言を送り直すと、もう一度聞く（最初の宣言と同じ窓）
+            var again = new object[] { new { id = "send", label = "送る_1", where = new[] { "item", "selection" }, needs = new[] { "name" } } };
+            Assert.Equal(HttpStatusCode.Accepted, (await PutMenuAsync(client, again)).StatusCode);
+            var asked = await approvals.NextAsync();
+            await UntilAsync(app, () => settings.ApiClients.Single().Menu.IsPending);
+            Assert.Equal("メニューの項目の許可を待っています。", settings.ApiClients.Single().Menu.PendingText);
+            asked.SetResult(ApiClientDecision.Dismissed);
+            settings.OnLeaving();
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
     });
 
     private static IEnumerable<System.Windows.DependencyObject> Descendants(System.Windows.DependencyObject root)

@@ -158,9 +158,12 @@
 - チェックを変えたら、その場で書いて効かせる。［取り消す］は確かめの窓（「…もう一度許可を求めて許可されるまでAPIを使えません。元に戻せません。」・既定はキャンセル）の後に消す。
 - 許した・使った日時を書いたと API が知らせたら、一覧を読み直す（中身が同じなら作り直さない）。
 - 許したソフトが無ければ「許可したソフトはありません。ソフトが許可を求めると、確かめる窓が開きます。」
+- **許したメニューの項目**（plan 44 の②・ユーザ判断 2026-11-12「入れる」）：チェックの下に「メニューの項目（{数}）」を畳んで置き（32個まで並ぶので既定は畳む。開閉は行を作り直しても保ち、画面を開き直すと畳む）、押せる項目ごとに許し直しの窓と同じ行（名前は下の段なら「親 ▸ 子」・「表示する場所：…　渡す情報：…」）。並べるのは API の索引と同じ検証を通した宣言（手で書いた合わない宣言は出さない）。
+  - 聞き直しを待っている間（窓を出す前の列にある・出している）は「項目の変更の許可を待っています。許可するまでは今の項目のままです。」、前に許した項目が無ければ「メニューの項目の許可を待っています。」。待っているかは動いている API の列に聞く（`ApiRunner.IsMenuPending`。止まっていれば待っていない）。列に入った・取り下げた・答えが出たときも一覧を出し直す（拒否は控えを書かないので、読み直しの知らせだけでは残る）。
+  - ［メニューから外す］：宣言だけを控えから消す（欄ごと書かない。トークン・書き込みの種類は残す。`UiCommand.ChangeApiClients`）。確かめの窓は出さない：ソフトが次に宣言を送れば、最初の宣言と同じく許しの窓で聞く（取り返しがつく。吹き出し「ソフトが項目を送り直すと、また許可を確認します。」）。起動の時だけ送るソフトなら、起動し直すまで項目は出ない。
 
 ## コード
 
 `Chmonos.Api/ApiClients.cs`（控えの写し・求めの列）・`ApiClientEndpoints.cs`・`ApiConnectionOwners.cs`、`ApiHost.GuardAsync`・`ApiWriter.Guard`、
 `Chmonos.Core/Models/ApiClients.cs`、`Chmonos.App/Services/ApiClientApprovalPrompt.cs`・`Views/ApiClientApprovalDialog.xaml`・`ViewModels/SettingsViewModel.Api.cs`。
-試験 `ApiClientTests`（Api。止めの数え方・上限・0・閉じたとき・重なったときも）・`SettingsApiTests`（App。止めの一覧・外す・上限・窓の答えの分け方）・`BackupArchiveTests`・`SnapshotUpdateTests`。
+試験 `ApiClientTests`（Api。止めの数え方・上限・0・閉じたとき・重なったときも）・`SettingsApiTests`（App。止めの一覧・外す・上限・窓の答えの分け方・許した項目の並び・畳む・メニューから外す）・`ApiPluginMenuTests`（App。待っている間の知らせ・許す・拒否・外した後に送り直す）。撮る場面は ViewShot `settings-api-menu`・`BackupArchiveTests`・`SnapshotUpdateTests`。

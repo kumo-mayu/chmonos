@@ -59,7 +59,7 @@ public sealed class PluginMenuApprovalViewModel
     /// <summary>次の拒否で止まるか（許しの窓と同じく、そのときだけ言う）。</summary>
     public bool LastRefusal { get; }
 
-    private static PluginMenuApprovalLine Line(PluginMenuLine line, bool withNeeds)
+    internal static PluginMenuApprovalLine Line(PluginMenuLine line, bool withNeeds)
     {
         var label = line.Parent is { } parent ? $"{parent} ▸ {line.Label}" : line.Label;
         var where = "表示する場所：" + string.Join("・", line.Where.Select(WhereLabel));

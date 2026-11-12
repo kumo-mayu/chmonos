@@ -1262,6 +1262,41 @@
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
+                                                    <!--
+                                                        許したメニューの項目（plan 44 の②・ユーザ判断 2026-11-12「入れる」）。32個まであるので既定は畳む。
+                                                        行の形は許し直しの窓と同じ。ソフトが付けた名前は TextBlock に置く（見出しやボタンの中身にすると「_」がアクセスキーになる）
+                                                    -->
+                                                    <StackPanel DataContext="{Binding Menu}" Margin="0,4,0,0"
+                                                                Visibility="{Binding IsVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding PendingText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                                                   Foreground="{DynamicResource Warn}"
+                                                                   AutomationProperties.AutomationId="Settings.ApiClientMenuPending"
+                                                                   Visibility="{Binding IsPending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                                                  AutomationProperties.AutomationId="Settings.ApiClientMenu"
+                                                                  AutomationProperties.Name="{Binding Title}"
+                                                                  Visibility="{Binding HasItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <Expander.Header>
+                                                                <TextBlock Text="{Binding Title}" Style="{StaticResource Caption}" />
+                                                            </Expander.Header>
+                                                            <StackPanel Margin="22,4,0,0">
+                                                                <ItemsControl ItemsSource="{Binding Lines}">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate DataType="{x:Type vm:PluginMenuApprovalLine}">
+                                                                            <StackPanel Margin="0,0,0,6">
+                                                                                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" Foreground="{DynamicResource Text}" />
+                                                                                <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                                                                            </StackPanel>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                                <Button Content="メニューから外す" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,2,0,0"
+                                                                        AutomationProperties.AutomationId="Settings.ApiClientMenuRemove"
+                                                                        ToolTip="ソフトが項目を送り直すと、また許可を確認します。"
+                                                                        Command="{Binding RemoveCommand}" />
+                                                            </StackPanel>
+                                                        </Expander>
+                                                    </StackPanel>
                                                 </StackPanel>
                                                 <Button Grid.Column="1" Content="取り消す" Style="{StaticResource DangerButton}" VerticalAlignment="Top" Margin="10,0,0,0"
                                                         AutomationProperties.AutomationId="Settings.ApiClientRevoke"

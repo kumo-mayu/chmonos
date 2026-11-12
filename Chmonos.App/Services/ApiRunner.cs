@@ -59,6 +59,12 @@ public sealed class ApiRunner(DataStore store, ApiWriteHooks? writes = null, Plu
     public void ReloadClients() => _server?.ReloadClients();
 
     /// <summary>
+    /// このソフトの項目の宣言を人に聞いているか（plan 44 の②。設定の「つないでいるソフト」）。
+    /// 聞いている列は動いている API だけが持つので、止まっていれば聞いていない（止めると列も捨てる）
+    /// </summary>
+    public bool IsMenuPending(string clientId) => _server?.IsMenuPending(clientId) == true;
+
+    /// <summary>
     /// 今の設定に合わせる。オフなら止め、オンで止まっていれば始め、ポートが違えば待ち受け直す。
     /// 読み込みに時間がかかる（2万件で数秒）ので、画面のスレッドを塞がないよう裏で回す
     /// </summary>

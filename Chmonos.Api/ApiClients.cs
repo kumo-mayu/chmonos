@@ -545,9 +545,17 @@ internal sealed class ApiClientRequests
             _menus[clientId] = entry;
             _menuStates[clientId] = Pending;
             _queue.Writer.TryWrite(entry);
-            return true;
         }
+
+        MenusChanged?.Invoke();
+        return true;
     }
+
+    /// <summary>
+    /// 宣言の聞き直しが列に入った・取り下げた・答えが出た（<see cref="MenuStateOf"/> の pending が変わり得る）。錠の外・要求か列のスレッドから来る。
+    /// 設定の「つないでいるソフト」が「許可を待っています」を出し直す
+    /// </summary>
+    public event Action? MenusChanged;
 
     /// <summary>
     /// 聞き直しを取り下げる（控えと同じ宣言を送り直した。まだ窓を出していなければ聞かない）。
@@ -564,6 +572,8 @@ internal sealed class ApiClientRequests
 
             _menuStates.Remove(clientId);
         }
+
+        MenusChanged?.Invoke();
     }
 
     /// <summary>このソフトの宣言の状態（pending・denied・approved）と、聞いている宣言。</summary>
@@ -674,6 +684,8 @@ internal sealed class ApiClientRequests
                     _menuStates[entry.ClientId] = state;
                 }
             }
+
+            MenusChanged?.Invoke();
         }
     }
 

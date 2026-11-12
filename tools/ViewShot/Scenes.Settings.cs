@@ -33,6 +33,7 @@ internal static partial class Scenes
         SettingsNotes("settings-notes-before", "設定：操作の知らせが出る前（出る場所は前もって空けてある）", shown: false),
         SettingsNotes("settings-notes-after", "設定：知らせが出た後（欄の下・ボタンの下・見出しの横。ほかの物は動かない）", shown: true),
         SettingsApi(),
+        SettingsApiMenu(),
         SettingsFolderLayouts(),
         SettingsFileOrder(),
     ];
@@ -158,6 +159,61 @@ internal static partial class Scenes
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "許可するオリジン")) };
+        });
+
+    /// <summary>
+    /// 設定の「つないでいるソフト」に、許したメニューの項目（plan 44 の②）。1つ目のソフトは項目を開き、聞き直しも待っている。
+    /// 2つ目は最初の宣言を待っている（項目はまだ無い）。台は API を動かせないので、待っているかは差し替える
+    /// </summary>
+    private static Scene SettingsApiMenu()
+        => new("settings-api-menu", "設定の「API」：つないでいるソフトの許したメニューの項目（開いた形・下の段・「_」入り・聞き直しを待っている2通り）", async context =>
+        {
+            Chmonos.Core.Storage.JsonStore.Write(
+                context.Seed.Paths.ApiClientsFile,
+                new Chmonos.Core.Models.ApiClientList
+                {
+                    Clients =
+                    [
+                        new Chmonos.Core.Models.ApiClientRecord
+                        {
+                            Id = "a1", Name = "作り物の整理ツール", ExePath = @"C:\Tools\SampleOrganizer\SampleOrganizer.exe",
+                            Scopes = [Chmonos.Core.Models.ApiScopes.Marks],
+                            TokenHash = new string('0', 64), GrantedAt = DateTimeOffset.Now.AddDays(-3), LastUsedAt = DateTimeOffset.Now.AddHours(-2),
+                            Menu =
+                            [
+                                new Chmonos.Core.Models.PluginMenuItemRecord { Id = "preview", Label = "プレビューを開く", Where = ["item"], Needs = ["files", "unityPackages"] },
+                                new Chmonos.Core.Models.PluginMenuItemRecord
+                                {
+                                    Id = "export", Label = "書き出す",
+                                    Children =
+                                    [
+                                        new Chmonos.Core.Models.PluginMenuItemRecord { Id = "csv", Label = "CSV_一覧", Where = ["item", "selection"], Needs = ["name", "shop", "category", "tags"] },
+                                        new Chmonos.Core.Models.PluginMenuItemRecord { Id = "json", Label = "JSON", Where = ["selection"] },
+                                    ],
+                                },
+                            ],
+                        },
+                        new Chmonos.Core.Models.ApiClientRecord
+                        {
+                            Id = "b2", Name = "作り物のWebページ", Origin = "http://localhost:5173",
+                            Scopes = [Chmonos.Core.Models.ApiScopes.WatchItemOpened],
+                            TokenHash = new string('1', 64), GrantedAt = DateTimeOffset.Now.AddDays(-1),
+                        },
+                    ],
+                });
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            settings.SectionApiOpen = true;
+            settings.IsApiMenuPendingForShot = _ => true;
+            settings.LoadApiClients();
+            settings.ApiClients[0].Menu.IsExpanded = true;
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<ItemsControl>(Look.Text(root, "作り物の整理ツール")) };
         });
 
     /// <summary>
