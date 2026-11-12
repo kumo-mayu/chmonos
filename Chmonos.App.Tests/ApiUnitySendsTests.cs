@@ -84,7 +84,7 @@ public sealed class ApiUnitySendsTests
                 .Select((package, index) => (package, index))
                 .Where(entry => VpmOverlapping.Contains(entry.package.EntryPath))
                 .Select(entry => new VpmOverlapPackage(entry.index, entry.package,
-                    [new VpmOverlap(new VpmPackage("com.example.shader", "作り物シェーダー", "2.0.1", "com.example.shader", true), 4, null)]))
+                    [new VpmOverlap(new VpmPackage("com.example.shader", "作り物シェーダー", "2.0.1", "com.example.shader", true), 4, "Packages/com.example.shader")]))
                 .ToList());
     }
 

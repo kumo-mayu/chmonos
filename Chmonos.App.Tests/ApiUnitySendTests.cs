@@ -68,7 +68,7 @@ public sealed class ApiUnitySendTests
     }
 
     private static IReadOnlyList<VpmOverlapPackage> ShaderOverlap(IReadOnlyList<UnityPackageEntry> packages)
-        => [new VpmOverlapPackage(0, packages[0], [new VpmOverlap(new VpmPackage("com.example.shader", "作り物シェーダー", "2.0.1", "com.example.shader", true), 12, "Assets/Shader")])];
+        => [new VpmOverlapPackage(0, packages[0], [new VpmOverlap(new VpmPackage("com.example.shader", "作り物シェーダー", "2.0.1", "com.example.shader", true), 12, "Packages/com.example.shader")])];
 
     [Fact]
     public Task 送り先のVPMと重なれば_送らずに409で返し_承知の印があれば送る() => TestApp.Run(async app =>
@@ -82,7 +82,7 @@ public sealed class ApiUnitySendTests
 
         var exception = Assert.Throws<QueryException>(() => sender.Start(item, new UnitySendRequest(null, null, null)));
         Assert.Equal((409, "vpmOverlap"), (exception.Status, exception.Code));
-        Assert.Contains("作り物シェーダー（com.example.shader）と同じファイルが 12 個・場所 Assets/Shader", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("作り物シェーダー（com.example.shader）と同じファイルが 12 個・場所 Packages/com.example.shader", exception.Message, StringComparison.Ordinal);
         Assert.Empty(unity.Sent);
         Assert.Null(sender.Last);
         Assert.Equal([@"C:\作り物\Project"], unity.CheckedProjects);

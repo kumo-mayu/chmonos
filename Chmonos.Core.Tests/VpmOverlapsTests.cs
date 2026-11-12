@@ -25,8 +25,9 @@ public sealed class VpmOverlapsTests
     };
 
     [Fact]
-    public void VPMと同じGUIDのファイルを数え_フォルダの項目は数えず_入る場所の共通の頭を添える()
+    public void VPMと同じGUIDのファイルを数え_フォルダの項目は数えず_プロジェクトの側の場所の共通の頭を添える()
     {
+        // unitypackage の中の置き場（Assets/lilToon）ではなく、Unity の取り込み画面が並べるプロジェクトの今の置き場で言う
         IReadOnlyList<UnityPackageAsset> assets =
         [
             new(Guid(3), "Assets/lilToon/Shader"),
@@ -40,7 +41,29 @@ public sealed class VpmOverlapsTests
         var hit = Assert.Single(found);
         Assert.Equal(0, hit.Index);
         var overlap = Assert.Single(hit.Overlaps);
-        Assert.Equal((Shader, 2, "Assets/lilToon/Shader"), (overlap.Package, overlap.Count, overlap.Root));
+        Assert.Equal((Shader, 2, "Packages/com.example.shader/Shader"), (overlap.Package, overlap.Count, overlap.Root));
+    }
+
+    [Fact]
+    public void VPMの直下とその下のフォルダにまたがれば_VPMのフォルダを場所にする()
+    {
+        // 確かめた形（2026-11-12）：LICENSE と Shader/ の2つが重なり、取り込み画面では Packages > jp.lilxyzw.liltoon の下に並んだ
+        var project = new Dictionary<string, string>(Project, StringComparer.OrdinalIgnoreCase) { [Guid(7)] = "Packages/com.example.shader/LICENSE" };
+        IReadOnlyList<UnityPackageAsset> assets = [new(Guid(7), "Assets/lilToon/LICENSE"), new(Guid(1), "Assets/lilToon/Shader/a.shader")];
+
+        var overlap = Assert.Single(Assert.Single(VpmOverlaps.Find([Entry("outfit")], _ => assets, [Shader], () => project)).Overlaps);
+
+        Assert.Equal((2, "Packages/com.example.shader"), (overlap.Count, overlap.Root));
+    }
+
+    [Fact]
+    public void 重なるファイルが1つなら_プロジェクトでそのファイルのあるフォルダを場所にする()
+    {
+        IReadOnlyList<UnityPackageAsset> assets = [new(Guid(4), "Assets/a.cs")];
+
+        var overlap = Assert.Single(Assert.Single(VpmOverlaps.Find([Entry("outfit")], _ => assets, [Tool], () => Project)).Overlaps);
+
+        Assert.Equal("Packages/com.example.tool/Editor", overlap.Root);
     }
 
     [Fact]
@@ -65,15 +88,15 @@ public sealed class VpmOverlapsTests
     }
 
     [Fact]
-    public void Assetsの直下に散らばるときは_場所を言わない()
+    public void 包みの中でAssetsの直下に散らばっても_VPMごとにプロジェクトの側の場所を言う()
     {
         IReadOnlyList<UnityPackageAsset> assets = [new(Guid(1), "Assets/a.shader"), new(Guid(4), "Assets/Tools/t.cs"), new(Guid(2), "Assets/Other/b.shader")];
 
         var hit = Assert.Single(VpmOverlaps.Find([Entry("outfit")], _ => assets, [Shader, Tool], () => Project));
 
         Assert.Equal(3, hit.Count);
-        Assert.All(hit.Overlaps.Where(overlap => overlap.Package == Shader), overlap => Assert.Null(overlap.Root));
-        Assert.Equal("Assets/Tools", hit.Overlaps.Single(overlap => overlap.Package == Tool).Root);
+        Assert.Equal("Packages/com.example.shader/Shader", hit.Overlaps.Single(overlap => overlap.Package == Shader).Root);
+        Assert.Equal("Packages/com.example.tool/Editor", hit.Overlaps.Single(overlap => overlap.Package == Tool).Root);
 
         // 多い方から並べる
         Assert.Equal([Shader, Tool], hit.Overlaps.Select(overlap => overlap.Package));
@@ -138,7 +161,8 @@ public sealed class VpmOverlapsTests
 
             var hit = Assert.Single(VpmOverlaps.FindInProject(root, [Entry("outfit")], reads));
 
-            Assert.Equal(("作り物シェーダー", 1, "Assets/lilToon/Shader"), (hit.Overlaps[0].Package.Shown, hit.Count, hit.Overlaps[0].Root));
+            // ディスクの区切り（\）ではなく、取り込み画面と同じ / で、.meta を付けずに言う
+            Assert.Equal(("作り物シェーダー", 1, "Packages/com.example.shader/Shader"), (hit.Overlaps[0].Package.Shown, hit.Count, hit.Overlaps[0].Root));
         }
         finally
         {

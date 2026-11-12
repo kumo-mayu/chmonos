@@ -183,11 +183,11 @@ internal sealed class ApiUnitySender(
 
         var lines = found.Select(hit => $"「{hit.Entry.Name}」："
             + string.Join("・", hit.Overlaps.Select(overlap => $"{overlap.Package.Shown}（{overlap.Package.Name}）と同じファイルが {overlap.Count} 個"
-                + (overlap.Root is { } root ? $"・場所 {root}" : string.Empty))));
+                + $"・場所 {overlap.Root}")));
         throw new QueryException(409, "vpmOverlap",
             "送り先のプロジェクトに VPM で入っている物と同じ GUID のファイルがあります。取り込むと VPM のファイルが上書きされます。"
             + string.Join(" ", lines)
-            + " 承知で送るときは allowVpmOverlap を true にしてください。Unity の取り込み画面で、その場所のチェックを外すと避けられます。");
+            + " 承知で送るときは allowVpmOverlap を true にしてください。Unity の取り込み画面には送り先のプロジェクトの置き場で並ぶので、その場所のチェックを外すと避けられます。");
     }
 
     private void ThrowIfBusy()

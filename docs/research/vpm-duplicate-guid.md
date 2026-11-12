@@ -19,7 +19,9 @@
 
 - Unity は unitypackage の中の物を **GUID で今ある物に当て、置き場（pathname）より GUID を優先する**。VPM の物は `Packages/` にあっても書き換えられる。
 - 害が出るのは「同じ GUID・違う中身」＝ **VPM と違う版の lilToon を同梱した unitypackage**。VPM の版とファイルが混ざり、VPM の側は自分の版のままだと思っている（VCC・ALCOM は気付かない [推測]）。
-- 画面を出す取り込み（Chmonos の「Unityへ送る」が開く取り込みの画面）で、この物がどう並ぶか（「変わった物」の印が付くか）は見ていない [要確認]。
+- 画面を出す取り込み（2026-11-12 に確かめた [実測]）：同じプロジェクト（Unity 2022.3.22f1）へ、上の2回目と同じ形の作り物（同じ GUID の3つを `Assets/lilToon/…` の置き場で詰め、中身は VPM の物と1行違う）を、Chmonos の「Unityへ送る」と同じ道（Assets > Import Package > Custom Package...）で渡した。
+  取り込み画面には、重なる物が **unitypackage の中の置き場ではなく、プロジェクトの今の置き場**で並んだ：`Packages` > `jp.lilxyzw.liltoon` > `LICENSE`、`Shader` > `ltspass_bakeramp.shader`・`ltspass_dummy.shader`。どれにも「変わる」の印（↻）が付き、`Assets/lilToon` は出なかった。
+  そこで Chmonos の窓は、外す場所を送り先のプロジェクトの側の置き場（`Packages/jp.lilxyzw.liltoon`）で言う（[unity-vpm.md](../spec/unity-vpm.md)）。重ならない新しいファイルと混ざる包みでの並びは見ていない。
 
 ## 作るとしたら（案）
 

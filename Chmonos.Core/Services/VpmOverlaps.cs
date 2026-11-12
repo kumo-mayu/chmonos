@@ -4,10 +4,12 @@ namespace Chmonos.Core.Services;
 /// <param name="Package">重なる VPM（表示名は <see cref="VpmPackage.Shown"/>）。</param>
 /// <param name="Count">同じ GUID のファイルの数（unitypackage の中のフォルダの項目は数えない）。</param>
 /// <param name="Root">
-/// unitypackage の中で、重なるファイルが入る場所の共通の頭（<c>Assets/lilToon</c>）。
-/// 頭が <c>Assets</c> だけか、共通の頭が無いときは null（「そのフォルダのチェックを外す」と言えない）。
+/// 送り先のプロジェクトで、重なるファイル（同じ GUID の <c>.meta</c> を持つ物）がある場所の共通の頭（<c>Packages/jp.lilxyzw.liltoon</c>）。
+/// 1つだけならそのファイルのあるフォルダ。VPM 1つ分にまとめるので、いつも <c>Packages/&lt;フォルダ&gt;</c> か、その下。
+/// unitypackage の中の置き場（<c>Assets/lilToon</c>）では言わない：Unity の取り込み画面は、重なる物をプロジェクトの今の置き場で並べる
+/// （2026-11-12 に Unity 2022.3.22f1 で確かめた。<c>docs/research/vpm-duplicate-guid.md</c>）。
 /// </param>
-public sealed record VpmOverlap(VpmPackage Package, int Count, string? Root);
+public sealed record VpmOverlap(VpmPackage Package, int Count, string Root);
 
 /// <summary>送る unitypackage 1つと、その中で VPM と重なる物（重なりがある包みだけ並ぶ）。</summary>
 /// <param name="Index">送る列の中の位置。</param>
@@ -78,7 +80,8 @@ public static class VpmOverlaps
                     hits[owner] = paths = [];
                 }
 
-                paths.Add(asset.Path);
+                // 取り込み画面に並ぶのはプロジェクトの側の置き場なので、場所はそちらで言う
+                paths.Add(projectPath);
             }
 
             if (hits.Count > 0)
@@ -86,7 +89,7 @@ public static class VpmOverlaps
                 result.Add(new VpmOverlapPackage(
                     index,
                     package,
-                    hits.Select(pair => new VpmOverlap(pair.Key, pair.Value.Count, CommonRoot(pair.Value)))
+                    hits.Select(pair => new VpmOverlap(pair.Key, pair.Value.Count, CommonRoot(pair.Value) ?? $"Packages/{pair.Key.Folder}"))
                         .OrderByDescending(overlap => overlap.Count)
                         .ThenBy(overlap => overlap.Package.Shown, StringComparer.OrdinalIgnoreCase)
                         .ToList()));
@@ -127,8 +130,9 @@ public static class VpmOverlaps
     }
 
     /// <summary>
-    /// ファイルの入る場所の共通の頭（フォルダの段で比べる）。1つだけならそのファイルのあるフォルダ。
-    /// <c>Assets</c> だけ・共通の頭が無いときは null（「Assets のチェックを外す」は全部を外させる文になる）。
+    /// ファイルのある場所の共通の頭（フォルダの段で比べる）。1つだけならそのファイルのあるフォルダ。
+    /// 2段に満たない（<c>Packages</c> だけ）ときは null：「Packages のチェックを外す」は、重ならない埋め込みの物まで外させる文になる。
+    /// VPM 1つ分のパスは <c>Packages/&lt;フォルダ&gt;/…</c> にそろうので呼び手では起きないが、起きたら VPM のフォルダで言う。
     /// </summary>
     internal static string? CommonRoot(IReadOnlyList<string> paths)
     {

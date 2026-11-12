@@ -99,15 +99,18 @@ internal static class UnityVpmGuard
 
     /// <summary>
     /// 聞く中身。1行目に何がどれだけ重なるか、2行目に何が起きるかと、取り込み画面で何をするか。
-    /// 重なるフォルダがまとまらない（Assets の直下に散らばる）ときは、VPM の名前で外す物を言う。
+    /// 場所は送り先のプロジェクトの側の置き場（<see cref="VpmOverlap.Root"/>。取り込み画面がそこに並べる）。
+    /// 場所が1つなら文の中で言い、2つ以上（VPM が2つ以上重なる）なら1行に1つずつ並べる：
+    /// <c>Packages/jp.lilxyzw.liltoon</c> は27字あり、2つを「と」でつなぐと外す文だけで80字（ui-writing.md）を超える。
+    /// 「Packages」だけを外させる言い方は採らない：同じ包みが自分で Packages/ に入れる物（重なりと数えない物）まで外させる。
     /// </summary>
     internal static ChoiceRequest Question(VpmOverlapPackage hit, int number, int count, bool many)
     {
         var names = string.Join("・", hit.Overlaps.Select(overlap => overlap.Package.Shown));
-        var roots = hit.Overlaps.Select(overlap => overlap.Root).ToList();
-        var uncheck = roots.All(root => root is not null)
-            ? $"Unityの取り込み画面で{string.Join("と", roots.Distinct(StringComparer.OrdinalIgnoreCase).Select(root => $"「{root}」"))}のチェックを外してください。"
-            : $"Unityの取り込み画面で、{names}のファイルのチェックを外してください。";
+        var roots = hit.Overlaps.Select(overlap => overlap.Root).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var uncheck = roots.Count == 1
+            ? $"Unityの取り込み画面で「{roots[0]}」のチェックを外してください。"
+            : "Unityの取り込み画面で、次の場所のチェックを外してください。\n" + string.Join("\n", roots);
         var title = count > 1 ? $"Unityへ送る（{number}/{count}）" : "Unityへ送る";
 
         return new ChoiceRequest(

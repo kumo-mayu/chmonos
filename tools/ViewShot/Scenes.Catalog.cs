@@ -256,10 +256,13 @@ internal static partial class Scenes
     private static IEnumerable<Scene> CatalogDialogs =>
     [
         DialogScene("catalog-dialog-vpm-overlap", "送る前の VPM との重なりの窓：1件を送る（送る・やめる）", _ => Task.FromResult(NewVpmOverlap(
-            1, false, new VpmOverlap(SceneShader, 312, "Assets/作り物トゥーン")))),
+            1, false, new VpmOverlap(SceneShader, 312, "Packages/com.example.toon")))),
 
-        DialogScene("catalog-dialog-vpm-overlap-many", "送る前の VPM との重なりの窓：連続で送る（1/3・送る・これを飛ばす・残りすべてを中止）・場所がまとまらない", _ => Task.FromResult(NewVpmOverlap(
-            3, true, new VpmOverlap(SceneShader, 40, null), new VpmOverlap(new VpmPackage("com.example.tool", "作り物の道具", "1.0.0", "com.example.tool", true), 3, "Assets/Tools")))),
+        // 場所は実物と同じくらいの長さ（27字・25字）にして、1行に1つずつ並べた形の折り返しを見る
+        DialogScene("catalog-dialog-vpm-overlap-many", "送る前の VPM との重なりの窓：連続で送る（1/3・送る・これを飛ばす・残りすべてを中止）・2つの VPM に重なり、場所を1行ずつ並べる", _ => Task.FromResult(NewVpmOverlap(
+            3, true,
+            new VpmOverlap(SceneShader with { Folder = "com.example.toon-shader-x" }, 40, "Packages/com.example.toon-shader-x"),
+            new VpmOverlap(new VpmPackage("com.example.tool", "作り物の道具", "1.0.0", "com.example.avatar-tool-x", true), 3, "Packages/com.example.avatar-tool-x/Runtime")))),
 
         DialogScene("catalog-dialog-choice-two", "2択の窓：2つの選択肢とキャンセル・説明の文あり", _ => Task.FromResult(NewChoice(
             "取り込み方を選ぶ",
