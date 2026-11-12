@@ -101,24 +101,43 @@ public sealed class ApiClientApprovalViewModel : ViewModelBase
     /// Enter・Space は数えない：窓が開くと［拒否］にフォーカスがあるので、別の所へ打っている途中のキーが当たっただけで止まり得る。
     /// Esc・×・Alt+F4 は押していない
     /// </summary>
-    public bool Refused { get; private set; }
+    public bool Refused => _refusal.Refused;
 
-    /// <summary>今の押下がマウスか（押し下げで立て、キーを押したら下ろす。押したまま外へずらして放し、後で Space を押したときに数えないように）。</summary>
-    private bool _pointerPressed;
+    private readonly RefusalClick _refusal = new();
 
     /// <summary>［拒否］の上でマウスのボタンを押し下げた。</summary>
-    public void NotePointerDown() => _pointerPressed = true;
+    public void NotePointerDown() => _refusal.NotePointerDown();
 
     /// <summary>窓でキーが押された（Enter・Space で［拒否］が押されるより先に来る）。</summary>
-    public void NoteKey() => _pointerPressed = false;
+    public void NoteKey() => _refusal.NoteKey();
 
     /// <summary>［拒否］が押された。マウスのクリックなら回数に数える。ソフトへの答えはどちらも denied。</summary>
-    public void Deny() => Refused = _pointerPressed;
+    public void Deny() => _refusal.Deny();
 
     /// <summary>
     /// 窓の結果を答えにする。拒否に数えるのはマウスで［拒否］をクリックしたときだけ（ユーザ判断 2026-11-11）。
     /// 閉じた・Esc は「答えなかった」：止める回数に数えると、後で決めようと閉じただけで止まってしまう
     /// </summary>
-    public ApiClientDecision Decide(bool? dialogResult)
-        => dialogResult == true ? Approve() : Refused ? ApiClientDecision.Refusal : ApiClientDecision.Dismissed;
+    public ApiClientDecision Decide(bool? dialogResult) => _refusal.Decide(dialogResult, Approve);
+}
+
+/// <summary>
+/// 許しの窓の［拒否］を、止めるまでの回数に数えるかの見分け（許しの窓と、項目の宣言の窓で同じ数え方にする。plan 44 の②）。
+/// 数えるのはマウス（タッチもマウスの押下として来る）で［拒否］をクリックしたときだけ（ユーザ判断 2026-11-11）
+/// </summary>
+public sealed class RefusalClick
+{
+    /// <summary>今の押下がマウスか（押し下げで立て、キーを押したら下ろす。押したまま外へずらして放し、後で Space を押したときに数えないように）。</summary>
+    private bool _pointerPressed;
+
+    public bool Refused { get; private set; }
+
+    public void NotePointerDown() => _pointerPressed = true;
+
+    public void NoteKey() => _pointerPressed = false;
+
+    public void Deny() => Refused = _pointerPressed;
+
+    public ApiClientDecision Decide(bool? dialogResult, Func<ApiClientDecision> approve)
+        => dialogResult == true ? approve() : Refused ? ApiClientDecision.Refusal : ApiClientDecision.Dismissed;
 }

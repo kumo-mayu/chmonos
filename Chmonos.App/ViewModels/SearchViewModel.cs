@@ -25,7 +25,7 @@ public sealed class CardRow
 /// 絞り込み（離散値）と文字列検索を分けているのは、
 /// 「なぜこの結果になったか」が分かるようにするため。
 /// </summary>
-public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISelectionScreen, ICardClickSelectionHost
+public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISelectionScreen, ICardClickSelectionHost, IPluginSelectionSource
 {
     /// <summary>カード1枚が占める幅（カードの幅 + 右の間。一覧の右下のスライダーで変わる）。列数の計算に使う。</summary>
     private static double CardSlotWidth => global::Chmonos.App.Services.CardMetrics.SlotWidth;

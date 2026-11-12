@@ -12,7 +12,7 @@ namespace Chmonos.App.ViewModels;
 /// BOOTHのショップにある全商品ではない。取りに行っていないものは存在自体を知らないので、
 /// その旨は画面に書いておく（件数を全商品数と誤解されると数字の意味が変わる）。
 /// </summary>
-public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen, IItemImagesListener, ICardClickSelectionHost
+public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen, IItemImagesListener, ICardClickSelectionHost, IPluginSelectionSource
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -915,6 +915,12 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         // 購読しているソフトへ（plan 44）。ID は流すときに読む
         _services.PluginSelection.Note("shop", () => Services.PluginSelectionBatcher.SelectedIds(_matches, _all));
     }
+
+    /// <summary>帯の「ほかのソフト ▾」が送る選択（plan 44 の②。選択の出来事と同じ並べ方）。</summary>
+    public IReadOnlyList<string> SelectedItemIdsForPlugins() => Services.PluginSelectionBatcher.SelectedIds(_matches, _all);
+
+    /// <summary>ほかのソフトの項目の係（帯の「ほかのソフト ▾」を出すか）。</summary>
+    public Services.PluginMenuService PluginMenus => _services.PluginMenus;
 
     public IReadOnlyList<object> ListItems => _listItems;
 

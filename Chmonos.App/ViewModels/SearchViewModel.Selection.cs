@@ -185,6 +185,12 @@ public sealed partial class SearchViewModel
         _services.PluginSelection.Note("search", () => Services.PluginSelectionBatcher.SelectedIds(_matches, _cards.Values));
     }
 
+    /// <summary>帯の「ほかのソフト ▾」が送る選択（plan 44 の②。選択の出来事と同じ並べ方）。</summary>
+    public IReadOnlyList<string> SelectedItemIdsForPlugins() => Services.PluginSelectionBatcher.SelectedIds(_matches, _cards.Values);
+
+    /// <summary>ほかのソフトの項目の係（帯の「ほかのソフト ▾」を出すか）。</summary>
+    public Services.PluginMenuService PluginMenus => _services.PluginMenus;
+
     /// <summary>今の絞り込み結果を全部選ぶ（帯の「すべて選択」・Ctrl+A）。画面に出ていないものは選ばない。</summary>
     public void SelectAllShown() => CardClickSelection.SelectAll(_matches, ChangeSelectionTogether);
 

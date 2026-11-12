@@ -331,6 +331,24 @@ public sealed class AppServiceContainer : IDisposable
     private Services.PluginSelectionBatcher? _pluginSelection;
 
     /// <summary>
+    /// ほかのソフトが足した項目と、押した後の下の帯（plan 44 の②）。ソフトの結果と項目の変化は裏のスレッドから来るので、
+    /// 画面のスレッドへ渡す（画面の無い試験では、その場で動かす）
+    /// </summary>
+    public Services.PluginMenuService PluginMenus => _pluginMenus ??= new(PluginEvents, action =>
+    {
+        if (System.Windows.Application.Current?.Dispatcher is { HasShutdownStarted: false } dispatcher)
+        {
+            dispatcher.BeginInvoke(action);
+        }
+        else
+        {
+            action();
+        }
+    });
+
+    private Services.PluginMenuService? _pluginMenus;
+
+    /// <summary>
     /// 動いている Chmonos の一覧に、このプロセスの札を書く（docs/spec/running-instances.md）。画面あり・画面無しのどちらも App の起動の同じ所から呼ぶ。
     /// API が待ち受けを始めた・止めた・ポートを変えたら書き直す（待とうとしただけの番号は書かない：始める途中・始められなかったときは null）。
     /// 消すのは呼んだ側（閉じるときに Dispose）。置き場が無ければ（試験・道具で環境変数が無い）書かずに null

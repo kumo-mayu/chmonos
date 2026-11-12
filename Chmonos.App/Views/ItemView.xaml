@@ -126,6 +126,14 @@
                     <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,2,8,2"
                             AutomationProperties.AutomationId="ItemRefresh"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
+                    <!--
+                        ほかのソフトが足した項目（plan 44 の②）。商品ページには全体の右クリックが無い（名前・説明文は字の右クリック）ので、
+                        「開く ▾」と同じ押すと開くボタンにする。足したソフトが無ければ出さない。中身は押すたびに作る（押せるかは今の商品で決まる）
+                    -->
+                    <Button Content="ほかのソフト ▾" Margin="0,2,8,2" Click="OnPluginMenuClick" PreviewKeyDown="OnPluginMenuKeyDown"
+                            AutomationProperties.AutomationId="ItemPluginMenu"
+                            ToolTip="ほかのソフトが追加した操作を選びます。"
+                            Visibility="{Binding PluginMenus.HasItemMenus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
                     <Button Content="編集" AutomationProperties.Name="この商品を編集" Command="{Binding EditCommand}" Margin="0,2,8,2"
                             AutomationProperties.AutomationId="ItemEdit"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />

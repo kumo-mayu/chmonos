@@ -424,7 +424,44 @@ public partial class ItemCardResources : ResourceDictionary
             // 宛先は押した物から引き継ぐ値（自分では持たない）。付け直すときも、外して引き継ぎに戻す（値を書き込むと次のカードでも残る）
             menu.DataContext = null;
             menu.ClearValue(FrameworkElement.DataContextProperty);
+
+            // ほかのソフトの項目（plan 44 の②）は開いた商品で押せるかが決まるので、開くたびに作り直す
+            var card = menu.PlacementTarget is FrameworkElement { DataContext: var context }
+                ? context as ItemCardViewModel ?? (context as IHasItemCard)?.Card
+                : null;
+            PluginMenuItems.AttachTo(menu, PluginMenusOf(menu), card?.Item.Id);
         }
+    }
+
+    /// <summary>ほかのソフトの項目の係（主の窓の画面が持つ。主の窓の外・試験の台では無い）。</summary>
+    internal static Services.PluginMenuService? PluginMenusOf(DependencyObject? _)
+        => (Application.Current?.MainWindow?.DataContext as MainViewModel)?.PluginMenus;
+
+    /// <summary>
+    /// 複数選択の帯の「ほかのソフト ▾」（plan 44 の②）。帯を項目で長くしないよう、いつも1つのボタンに畳み、押すとソフトごとの段を開く。
+    /// 選んだ商品は帯を持つ画面から読む（押した時点の選択）
+    /// </summary>
+    private void OnPluginSelectionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: IPluginSelectionSource source } button || PluginMenusOf(button) is not { } service)
+        {
+            return;
+        }
+
+        var ids = source.SelectedItemIdsForPlugins();
+        var menu = new ContextMenu();
+        foreach (var item in PluginMenuItems.SoftwareItems(service, service.Build(Chmonos.Api.PluginMenus.WhereSelection, ids), Chmonos.Api.PluginMenus.WhereSelection, ids))
+        {
+            menu.Items.Add(item);
+        }
+
+        if (menu.Items.Count == 0)
+        {
+            return;
+        }
+
+        button.ContextMenu = menu;
+        Controls.MenuButton.OpenBelow(button, e);
     }
 
     /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>

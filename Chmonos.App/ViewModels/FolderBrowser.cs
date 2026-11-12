@@ -65,7 +65,7 @@ public sealed class FolderBrowserFolderCard
 /// 文字で探しているときは、**この下の全部**から探す（どこにあったか覚えていないときに探せるように）。
 /// 非表示・R-18 を出さない設定は、検索画面・ショップの画面と同じ決め事で外す。
 /// </summary>
-public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImagesListener, ICardClickSelectionHost
+public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImagesListener, ICardClickSelectionHost, IPluginSelectionSource
 {
     /// <summary>カード1枚ぶんの幅（カード228＋間14）。検索画面と同じ。</summary>
     private static double CardSlotWidth => CardMetrics.SlotWidth;
@@ -538,6 +538,13 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         // 購読しているソフトへ（plan 44）。ID は流すときに読む
         _services.PluginSelection.Note("folder", () => Services.PluginSelectionBatcher.SelectedIds(_listItems.OfType<ItemCardViewModel>(), _cards.Values));
     }
+
+    /// <summary>帯の「ほかのソフト ▾」が送る選択（plan 44 の②。選択の出来事と同じ並べ方）。</summary>
+    public IReadOnlyList<string> SelectedItemIdsForPlugins()
+        => Services.PluginSelectionBatcher.SelectedIds(_listItems.OfType<ItemCardViewModel>(), _cards.Values);
+
+    /// <summary>ほかのソフトの項目の係（帯の「ほかのソフト ▾」を出すか）。</summary>
+    public Services.PluginMenuService PluginMenus => _services.PluginMenus;
 
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----
 

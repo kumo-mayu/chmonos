@@ -161,6 +161,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public ItemRecord Item { get; private set; }
 
+    /// <summary>ほかのソフトの項目の係（上の帯の「ほかのソフト ▾」を出すか。plan 44 の②）。</summary>
+    public Services.PluginMenuService PluginMenus => _services.PluginMenus;
+
     public RelayCommand BackCommand { get; }
 
     /// <summary>戻るの文言。行き先は画面の履歴の直前の画面（U23）。</summary>

@@ -901,6 +901,34 @@
             </Border>
 
             <!--
+                ほかのソフトの項目を押した知らせ（plan 44 の②）。押すのは右クリック・帯のメニューで行を持たないので、非表示の帯と同じ場所に出す。
+                「{名前}に送りました。」の後、ソフトが結果を返したら「{名前}：{結果}」に差し替える。送れなかった・うまくいかなかったは注意の色
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding PluginMenus.HasNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding PluginMenus.DismissNoticeCommand}" AutomationProperties.Name="ほかのソフトの知らせを閉じる"
+                            AutomationProperties.AutomationId="PluginNoticeClose"
+                            ToolTip="この知らせを閉じます。" />
+                    <TextBlock Text="{Binding PluginMenus.NoticeText}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="PluginNoticeText"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding PluginMenus.NoticeText}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PluginMenus.NoticeFailed}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </DockPanel>
+            </Border>
+
+            <!--
                 取り込み元・監視フォルダを外した知らせ（ユーザ判断 2026-09-27・動線の洗い出し B4）。
                 外すのは確かめずに行うので、外した直後にその場で戻せるようにする（非表示の帯と同じ場所・同じ見た目）
             -->

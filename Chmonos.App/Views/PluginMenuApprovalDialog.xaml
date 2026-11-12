@@ -1,0 +1,82 @@
+<Window x:Class="Chmonos.App.Views.PluginMenuApprovalDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+        xmlns:controls="clr-namespace:Chmonos.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:PluginMenuApprovalViewModel}"
+        Title="メニューの項目の許可"
+        Width="520" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Surface}">
+    <!--
+        許したソフトが、右クリックなどに足す項目の宣言を変えたときの窓（plan 44 の②・docs/spec/plugins-menu.md）。
+        許しの窓と同じ作法：頼んでいないのに出る窓なので Enter は「拒否」。止めるまでの回数に数えるのは、マウスで［拒否］をクリックしたときだけ。
+        項目は最大32行並ぶので、並びだけを縦に送る（窓が画面からはみ出さないように）
+    -->
+    <Window.Resources>
+        <DataTemplate x:Key="PluginMenuApprovalLine" DataType="{x:Type vm:PluginMenuApprovalLine}">
+            <StackPanel Margin="0,0,0,7">
+                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Text}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="12,1,0,0" />
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+    <StackPanel Margin="22,20">
+        <TextBlock Text="{Binding Heading}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap"
+                   AutomationProperties.AutomationId="PluginMenuApproval.Heading" />
+        <TextBlock Text="名前と項目はソフトが自分で付けたものです。心当たりが無ければ拒否してください。"
+                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+
+        <TextBlock Text="実行ファイル" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
+        <TextBlock Text="{Binding ExePathText}" Style="{StaticResource Mono}" TextWrapping="Wrap"
+                   Visibility="{Binding HasExePath, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        <TextBlock Text="{Binding ExePathText}" Style="{StaticResource FieldWarning}" TextWrapping="Wrap"
+                   Visibility="{Binding HasExePath, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+        <StackPanel Visibility="{Binding HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="オリジン" Style="{StaticResource SectionLabel}" Margin="0,12,0,4" />
+            <TextBlock Text="{Binding Origin}" Style="{StaticResource Mono}" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0" Focusable="False">
+            <StackPanel>
+                <StackPanel Visibility="{Binding HasAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="追加する項目" Style="{StaticResource SectionLabel}" Margin="0,12,0,4" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Added}" ItemTemplate="{StaticResource PluginMenuApprovalLine}"
+                                                  AutomationProperties.AutomationId="PluginMenuApproval.Added" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding HasChanged, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="変わる項目" Style="{StaticResource SectionLabel}" Margin="0,12,0,4" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Changed}" ItemTemplate="{StaticResource PluginMenuApprovalLine}"
+                                                  AutomationProperties.AutomationId="PluginMenuApproval.Changed" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding HasRemoved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="なくなる項目" Style="{StaticResource SectionLabel}" Margin="0,12,0,4" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Removed}" ItemTemplate="{StaticResource PluginMenuApprovalLine}"
+                                                  AutomationProperties.AutomationId="PluginMenuApproval.Removed" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <TextBlock Text="許可するまでは、前の項目のまま表示します。"
+                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
+                   Visibility="{Binding IsChange, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+        <TextBlock Text="このソフトはあと1回拒否すると、次から窓を開かずに断ります。"
+                   Style="{StaticResource FieldWarning}" TextWrapping="Wrap" Margin="0,12,0,0"
+                   AutomationProperties.AutomationId="PluginMenuApproval.LastRefusal"
+                   Visibility="{Binding LastRefusal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+        <TextBlock Text="許可した後も、設定の「API」で取り消しができます。"
+                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="許可" Style="{StaticResource PrimaryButton}"
+                    AutomationProperties.AutomationId="PluginMenuApproval.Approve" Click="OnApprove" />
+            <Button x:Name="DenyButton" Content="拒否" Margin="8,0,0,0" IsDefault="True"
+                    AutomationProperties.AutomationId="PluginMenuApproval.Deny" Click="OnDeny" PreviewMouseLeftButtonDown="OnDenyPointerDown" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -265,6 +265,43 @@ public partial class ItemView : UserControl
         return true;
     }
 
+    // ---- ほかのソフトの項目（plan 44 の②） ----
+
+    /// <summary>上の帯の「ほかのソフト ▾」：この商品で押せるかを今決めて、ソフトごとの段を開く。</summary>
+    private void OnPluginMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: ItemViewModel model } button)
+        {
+            return;
+        }
+
+        string[] ids = [model.Item.Id];
+        var menu = new ContextMenu();
+        foreach (var item in PluginMenuItems.SoftwareItems(
+            model.PluginMenus, model.PluginMenus.Build(Chmonos.Api.PluginMenus.WhereItem, ids), Chmonos.Api.PluginMenus.WhereItem, ids))
+        {
+            menu.Items.Add(item);
+        }
+
+        if (menu.Items.Count == 0)
+        {
+            return;
+        }
+
+        button.ContextMenu = menu;
+        MenuButton.OpenBelow(button, e);
+    }
+
+    /// <summary>↓・Alt+↓ でも開く（「開く ▾」と同じ）。</summary>
+    private void OnPluginMenuKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (MenuButton.OpensMenu(e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key, System.Windows.Input.Keyboard.Modifiers))
+        {
+            OnPluginMenuClick(sender, e);
+            e.Handled = true;
+        }
+    }
+
     // ---- BOOTH で変わった所（メモ17） ----
 
     /// <summary>上の帯の「ほか n 件」：入り切らなかった分も含めて、変わった所を全部並べる。</summary>

@@ -32,6 +32,37 @@ internal sealed class ApiClientApprovalPrompt(Func<Window?> mainWindow) : IApiCl
         }
     }
 
+    /// <summary>項目の宣言が変わった：足す・変わる・消える項目を並べて聞く（plan 44 の②。答え方は許しの窓と同じ）。</summary>
+    public Task<ApiClientDecision> AskMenuAsync(PluginMenuRequestInfo request, CancellationToken cancellationToken)
+    {
+        if (Application.Current?.Dispatcher is not { } dispatcher || dispatcher.HasShutdownStarted)
+        {
+            return Task.FromResult(ApiClientDecision.Dismissed);
+        }
+
+        return dispatcher.InvokeAsync(() =>
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return ApiClientDecision.Dismissed;
+            }
+
+            var model = new PluginMenuApprovalViewModel(request);
+            var dialog = new PluginMenuApprovalDialog(model, mainWindow());
+
+            // API が止まったら窓を閉じる。人が決めていないので、拒否には数えない
+            using var registration = cancellationToken.Register(() => dispatcher.BeginInvoke(() =>
+            {
+                if (dialog.IsVisible)
+                {
+                    dialog.DialogResult = false;
+                }
+            }));
+            var shown = dialog.ShowDialog();
+            return cancellationToken.IsCancellationRequested ? ApiClientDecision.Dismissed : model.Decide(shown);
+        }).Task;
+    }
+
     public Task<ApiClientDecision> AskAsync(ApiClientRequestInfo request, CancellationToken cancellationToken)
     {
         if (Application.Current?.Dispatcher is not { } dispatcher || dispatcher.HasShutdownStarted)
