@@ -18,6 +18,23 @@
         "addedAt": "2026-09-01T12:00:00+09:00"
       }
     ],
-    "images": []
+    "images": [],
+    "vpmSnapshots": [
+      {
+        "at": "2026-09-01T12:00:00+09:00",
+        "packages": [
+          {
+            "name": "com.example.shader",
+            "displayName": "作り物トゥーン",
+            "version": "2.3.2"
+          },
+          {
+            "name": "com.example.tool",
+            "displayName": null,
+            "version": null
+          }
+        ]
+      }
+    ]
   }
 ]

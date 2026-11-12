@@ -3,7 +3,7 @@
 > **要点**：Unity プロジェクトに VPM（VCC・ALCOM）で入っているパッケージを**読むだけで控え**、同じ GUID の物を unitypackage で送る前に窓で言う（入れる・消す・版を変えるはしない。plan 40・ユーザ判断 2026-11-11「作りましょう」）。
 > きっかけは、VPM で入っている物と同じ GUID・違う中身の物を unitypackage で取り込むと、Unity が `Assets/` に作らず `Packages/` の中の VPM のファイルを黙って上書きすること（[実測]・`docs/research/vpm-duplicate-guid.md`）。
 >
-> **コード**：`Core/Services/VpmPackages.cs`（読む）・`VpmHistory.cs`（履歴）・`VpmOverlaps.cs`（照らす）・`UnityProjectScan.Vpm`・`Storage/UnityScanStore`（控え）、`App/Services/UnityVpmGuard.cs`（聞く）・`UnityImportQueue`・`ApiUnitySender`（409）・`ViewModels/ModificationHubRows.cs`（`HubProjectDetail.VpmText`）・`HubVpmRows.cs`（行）
+> **コード**：`Core/Services/VpmPackages.cs`（読む）・`VpmHistory.cs`（履歴）・`VpmOverlaps.cs`（照らす）・`UnityProjectScan.Vpm`・`Storage/UnityScanStore`（控え）、`App/Services/UnityVpmGuard.cs`（聞く）・`UnityImportQueue`・`ApiUnitySender`（409）・`ViewModels/ModificationHubRows.cs`（`HubProjectDetail.VpmText`）・`HubVpmRows.cs`（行）・`ModificationVpmRows.cs`（改変の詳細の「記録した時のVPM」）
 >
 > 送る前の決め事（Unity への受け渡しの全体）は [unity.md](unity.md)、改変の画面は [modifications.md](modifications.md)。
 
@@ -39,7 +39,28 @@
 - 前の控えが在るのに読めない（IO の失敗）ときは控えを書かない（書くと履歴が消える）。壊れた控え・別のプロジェクトの控え（名前がぶつかった）は新しく始める。
 - 場所の付け替え（`CopyTo`）は履歴もそのまま写し、行は足さない。
 - **控えのうち履歴だけは調べ直しても作れない**。そのため `unityscans/` はバックアップに入れる（ユーザ判断 2026-11-12「入れましょう」。前は「消しても調べ直すだけ」として外していた）。
-- 次に使う所：`VpmHistories.StateAt`・`VersionsAt`（ある時に入っていた VPM と版）。改変ごとに使った物を記録した時の版を引くのに使える。
+- 次に使う所：`VpmHistories.StateAt`・`VersionsAt`（ある時に入っていた VPM と版）。控えの無い改変の「記録した時のVPM」を補うのに使う（下の節）。
+
+## 改変に控える（`vpmSnapshots`。ユーザ判断 2026-11-12「控えられるようにしておきましょう」）
+
+- **使ったものを記録した時に、紐付けたプロジェクトの VPM をその場で読んで改変に控える**（`ModificationService.UpdateRecordingVpmAsync`）。入口は使ったものを書く4つ：
+  足す（`AddModificationMember`・`AddModificationMembers`。名前で足す・商品ページ・右クリック・まとめて・改変に追加して送る・API）、送る時に使ったファイルを記録する（`RecordModificationMemberFiles`）、選び直す（`ChangeModificationMemberFiles`）。
+  外す・戻す・削除・並べ替え・紐付けでは控えない（使ったものの記録ではない）。書き込みが使ったものを変えなかった（同じファイルを選び直した・行が無かった）ときも控えない。
+- 読むのは錠の外で先に（外れたドライブで同じ改変のほかの書き込みを待たせない）。錠の中では紐付け先が読んだ場所のままのときだけ控える。
+  **その場で読めなければ調べた控えの `vpm`、それも無ければ控えない**（読めた分だけの欠けた姿は控えない：後で比べると外した物と取り違える）。プロジェクトを紐付けていなければ控えない。
+- 履歴から引かずにその場で読むのは、履歴の日時が「Chmonos が次に調べて気付いた時」で、版を入れ替えてから調べるまでの間に記録すると前の版を返すため（前の担当の助言）。
+- 形：改変に `vpmSnapshots: [{ at, packages: [{ name, displayName?, version? }] }]`（古い順。読めない表示名・版は書かない）。**単位は改変に日時付きの写しの一覧**で、最後の写しと名前＋版が同じなら足さない（表示名だけの違いも足さない）。A→B→A と戻したのは足す。
+  - 改変に1つで上書きしないのは、版を入れ替えながら作った改変で前の版が消え、壊れた原因を探せなくなるから。行ごとに持たないのは、同じ十数行が使ったものの数だけ並ぶから。
+  - `at` は「この中身を最初に控えた時」。同じ中身の記録が続いても動かさない。使ったものの行の `addedAt` とは結び付けない（送る時の記録・選び直しは `addedAt` を元のまま残す）。
+  - **形式の版は上げない**（省略できる欄を足しただけ。data-format.md）。欄が無い・`null` の写し・`packages: null`・名前の無い行は「控えなし／空」として読む。古いバージョンで改変を書くとこの欄は消える。
+  - 複製は写しも写す（写した使ったものを記録した時の姿）。紐付け先を替えた・外した後も写しは残す（過去の事実）。そのとき画面の「今は」は新しい紐付け先と比べる。
+- **画面**：改変の詳細の右の列、Unityプロジェクトの下に「記録した時のVPM」。最後の写しを1つ1行「表示名 版」で、右上に薄く「{日付}から」（吹き出し「この内容で記録し始めた日です。」）。前の写しは画面に出さない（API で読める）。
+  今（改変の画面のプロジェクトの欄と同じ、調べた控えの `vpm`）と違う物は行の右に警告の色で「今は 2.3.3」「今は入っていません」、記録の後に入った物は末尾に「記録の後に入りました」。版の読めない物は違うと言わない。控えが無ければ比べない。
+  写しが空なら「記録した時は、VPMが入っていませんでした。」。プロジェクトも写しも無い改変では欄を出さない（`RecordedVpmView`・試験 `ModificationRecordedVpmTests`）。
+- **控えの無い改変の補い**：控えには書かず（推定した値を入れない）、履歴から最後に使ったもの（外した行を除く）を足した時の姿を `VersionsAt` で引いて、「Chmonosが見つけたVPMの記録から、{日付}ごろの内容を表示しています。」と断って出す。
+  引けない（履歴がその時より後から始まる）なら出さず「使ったものを記録すると、その時のVPMも残します。」。「入っていなかった」と「分からない」を見分けられないため。
+- API：改変を読む答え（`GET /v1/modifications`・`/{id}`・`/v1/items/{id}/modifications`・書き込みの答え）に `vpmSnapshots: [{ at, packages: [{ name, displayName, version }] }]`（全部の写し。無ければ空。補いは返さない）。
+- 場面 `modification-recorded-vpm`・`modification-recorded-vpm-history`。試験 `ModificationVpmSnapshotTests`（入口ごと・読めない時・同じ中身・JSON の形・欠けた欄）。
 
 ## 見せる所
 

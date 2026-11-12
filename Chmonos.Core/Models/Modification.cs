@@ -100,6 +100,53 @@ public sealed record ModificationImage
 }
 
 /// <summary>
+/// 使ったものを記録した時の VPM の写し1つ（<see cref="ModificationRecord.VpmSnapshots"/>）。
+/// </summary>
+public sealed record ModificationVpmSnapshot
+{
+    /// <summary>
+    /// この中身を最初に控えた時（使ったものを記録した時）。同じ中身の記録が続いても足さないので、「この時から、次の写しまでの記録はこの姿」と読む。
+    /// 使ったものの行の <c>addedAt</c> とは結び付けない：選び直し・送る時の記録は行の <c>addedAt</c> を元のまま残す。
+    /// </summary>
+    public DateTimeOffset At { get; init; }
+
+    /// <summary>入っていた VPM。名前の順。</summary>
+    public IReadOnlyList<ModificationVpmPackage?>? Packages { get; init; } = [];
+
+    /// <summary>欠けた行を除いた <see cref="Packages"/>。</summary>
+    [JsonIgnore]
+    public IReadOnlyList<ModificationVpmPackage> Items => [.. (Packages ?? []).OfType<ModificationVpmPackage>().Where(package => !string.IsNullOrWhiteSpace(package.Name))];
+
+    internal ModificationVpmSnapshot Cleaned() => this with { Packages = Items };
+
+    /// <summary>
+    /// 同じ中身か（名前と版だけを見る。表示名の違いは見ない：表示名だけ変わった姿を別の写しにしても、原因探しの役に立たない）。
+    /// </summary>
+    public bool SameContent(IReadOnlyList<ModificationVpmPackage> other)
+    {
+        static string Key(IEnumerable<ModificationVpmPackage> packages)
+            => string.Join('\n', packages
+                .Select(package => $"{package.Name.ToLowerInvariant()}\t{package.Version}")
+                .Order(StringComparer.Ordinal));
+        return Key(Items) == Key(other);
+    }
+}
+
+/// <summary>写しの中の VPM 1つ。読んだ時の名前・表示名・版だけを持つ（フォルダや manifest の印は、記録の後で版を比べるのに要らない）。</summary>
+/// <param name="Name">パッケージの名前（<c>jp.lilxyzw.liltoon</c>）。</param>
+/// <param name="DisplayName">表示名。読めなければ書かない。</param>
+/// <param name="Version">版。読めなければ書かない。</param>
+public sealed record ModificationVpmPackage(
+    string Name,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DisplayName,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Version)
+{
+    /// <summary>人に見せる名前（表示名、無ければ名前）。</summary>
+    [JsonIgnore]
+    public string Shown => string.IsNullOrWhiteSpace(DisplayName) ? Name : DisplayName;
+}
+
+/// <summary>
 /// 改変1件。**アバター1体＋名前**で1つ（1体に複数持てる）。
 ///
 /// 「Wendyの普段着」「Wendyの制服」が別の改変になる。
@@ -155,6 +202,21 @@ public sealed record ModificationRecord
 
     /// <summary>使ったもの。**並びが導入の順。**外した行（<see cref="ModificationMember.Detached"/>）も並びの中に残す。</summary>
     public IReadOnlyList<ModificationMember> Members { get; init; } = [];
+
+    /// <summary>
+    /// 使ったものを記録した時の、紐付けたプロジェクトの VPM（ユーザ判断 2026-11-12「控えられるようにしておきましょう」）。古い順。
+    /// 記録するたびにその場で読み、**最後の写しと同じ中身なら足さない**（同じ姿が記録の数だけ並ぶと読めない）。
+    /// 改変に1つで上書きしないのは、版を入れ替えながら作った改変で前の版が消え、壊れた原因を探せなくなるから。
+    /// 行ごとに持たないのは、同じ十数行が使ったものの数だけ並ぶから。
+    /// **欠けていれば控えなし**（この欄を足す前の改変・プロジェクトを紐付けずに記録した改変）。省略できる欄を足しただけなので形式の版は上げない。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ModificationVpmSnapshot?>? VpmSnapshots { get; init; }
+
+    /// <summary>手で直した控えの欠けた行・欠けた配列を除いた <see cref="VpmSnapshots"/>（欠けた配列は空として受ける決まり）。</summary>
+    [JsonIgnore]
+    public IReadOnlyList<ModificationVpmSnapshot> RecordedVpm
+        => [.. (VpmSnapshots ?? []).OfType<ModificationVpmSnapshot>().Select(snapshot => snapshot.Cleaned()).OrderBy(snapshot => snapshot.At)];
 
     /// <summary>
     /// 今使っているもの（外した行を除く）。使った数・送る・絞り込み・「この商品を使った改変」はこちらで見る。

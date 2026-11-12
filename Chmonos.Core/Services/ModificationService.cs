@@ -222,6 +222,9 @@ public sealed class ModificationService : IModificationService
             UnityProject = source.UnityProject,
             Memo = source.Memo,
             Members = [.. source.Members.Where(member => !member.Detached)],
+
+            // 写した使ったものを記録した時の姿なので、一緒に写す（写さないと、複製の側では同じ行の当時の版が分からなくなる）
+            VpmSnapshots = source.VpmSnapshots,
         };
 
         await _store.Modifications.SaveAsync(record, cancellationToken);
@@ -346,7 +349,7 @@ public sealed class ModificationService : IModificationService
         string id,
         ModificationMember member,
         CancellationToken cancellationToken = default)
-        => UpdateAsync(
+        => UpdateRecordingVpmAsync(
             id,
             // **末尾に付ける。**並びが導入の順なので、後から来たものは後ろ
             record => record with { Members = [.. record.Members, member with { AddedAt = DateTimeOffset.Now }] },
@@ -359,7 +362,7 @@ public sealed class ModificationService : IModificationService
     {
         // 行の身元に足した日時を使う（IsSame）ので、同じ瞬間に足した行どうしもずらして見分けられるようにする
         var now = DateTimeOffset.Now;
-        return UpdateAsync(
+        return UpdateRecordingVpmAsync(
             id,
             record => record with { Members = [.. record.Members, .. members.Select((member, index) => member with { AddedAt = now.AddTicks(index) })] },
             cancellationToken);
@@ -451,7 +454,7 @@ public sealed class ModificationService : IModificationService
         }
 
         var replaced = false;
-        var saved = await UpdateAsync(
+        var saved = await UpdateRecordingVpmAsync(
             id,
             record =>
             {
@@ -489,7 +492,7 @@ public sealed class ModificationService : IModificationService
         CancellationToken cancellationToken = default)
     {
         var outcome = MemberFilesChange.RowMissing;
-        var saved = await UpdateAsync(
+        var saved = await UpdateRecordingVpmAsync(
             id,
             record =>
             {
@@ -689,6 +692,72 @@ public sealed class ModificationService : IModificationService
             id,
             record => update(record) with { UpdatedAt = DateTimeOffset.Now },
             cancellationToken);
+
+    /// <summary>
+    /// 使ったものを記録する書き込み（足す・送る時の記録・選び直す）。使ったものが変わったら、紐付けたプロジェクトの VPM をその改変に控える
+    /// （ユーザ判断 2026-11-12。<c>docs/spec/unity-vpm.md</c>「改変に控える」）。
+    ///
+    /// VPM は**錠の外で先に読む**：外れたドライブのプロジェクトを読む間、同じ改変のほかの書き込みを待たせないため。
+    /// 錠の中では、紐付け先が読んだ場所のままのときだけ控える（読んでいる間に紐付け直されたら、別のプロジェクトの姿になる）。
+    /// 履歴（<see cref="VpmHistories"/>）から引かずにその場で読むのは、履歴の日時が「Chmonos が次に調べて気付いた時」で、
+    /// 版を入れ替えてから次に調べるまでの間に記録すると前の版を返すから。
+    /// </summary>
+    private async Task<bool> UpdateRecordingVpmAsync(
+        string id,
+        Func<ModificationRecord, ModificationRecord> update,
+        CancellationToken cancellationToken)
+    {
+        var (project, packages) = await ReadVpmAsync(id, cancellationToken);
+        return await UpdateAsync(
+            id,
+            record =>
+            {
+                var updated = update(record);
+                if (packages is null || !SamePath(record.UnityProject, project) || updated.Members.SequenceEqual(record.Members))
+                {
+                    return updated;
+                }
+
+                return WithVpm(updated, packages, DateTimeOffset.Now);
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// 写しを末尾に足す。最後の写しと同じ中身なら足さない（同じ姿が記録の数だけ並ぶと、変わった所が読めない）。
+    /// 前の写しと比べるのは最後の1つだけ：A→B→A と戻したのも、戻した事として残す。
+    /// </summary>
+    internal static ModificationRecord WithVpm(ModificationRecord record, IReadOnlyList<ModificationVpmPackage> packages, DateTimeOffset at)
+    {
+        var snapshots = record.RecordedVpm;
+        if (snapshots.Count > 0 && snapshots[^1].SameContent(packages))
+        {
+            return record;
+        }
+
+        return record with { VpmSnapshots = [.. snapshots, new ModificationVpmSnapshot { At = at, Packages = [.. packages] }] };
+    }
+
+    /// <summary>
+    /// 改変の紐付け先と、その今の VPM。紐付けていなければ両方 null。
+    /// その場で読めなければ（ドライブが外れた・VCC が書いている最中）調べた控えの <c>vpm</c>、それも無ければ控えない（null）。
+    /// 読めた分だけで控えないのは、欠けた姿を「その時の VPM」と残すと、後で比べた時に外した物と取り違えるから。
+    /// </summary>
+    private async Task<(string? Project, IReadOnlyList<ModificationVpmPackage>? Packages)> ReadVpmAsync(string id, CancellationToken cancellationToken)
+    {
+        if (await _store.Modifications.LoadAsync(id, cancellationToken) is not { UnityProject: { Length: > 0 } project })
+        {
+            return (null, null);
+        }
+
+        var packages = await Task.Run(
+            () => VpmPackages.TryRead(project) ?? new UnityScanStore(_store.Paths).Load(project)?.Vpm,
+            cancellationToken);
+        return (project, packages?
+            .Select(package => new ModificationVpmPackage(package.Name, package.DisplayName, package.Version))
+            .OrderBy(package => package.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList());
+    }
 
     /// <summary>
     /// アバターを登録簿に入れる。既にあれば何もしない。

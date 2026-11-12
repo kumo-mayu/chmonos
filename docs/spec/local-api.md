@@ -181,6 +181,7 @@
 ## blueprint ID は読む答えに残す（ユーザ判断 2026-11-02）
 
 `GET /v1/modifications`・`/{id}`・`/v1/items/{id}/modifications` と改変の書き込みの答えは `blueprintId` の値を返す（トークンが要る）。他人に知られるのがリスクだという話を受けて外す案も見たが、同じ Windows ユーザーで動く道具は保存先の JSON を直に読めるので、API から外しても守りにならない。
+同じ答えに、使ったものを記録した時の VPM の写し `vpmSnapshots: [{ at, packages: [{ name, displayName, version }] }]`（古い順・無ければ空）も返す（2026-11-12・[unity-vpm.md](unity-vpm.md)「改変に控える」）。
 
 ## 未決
 

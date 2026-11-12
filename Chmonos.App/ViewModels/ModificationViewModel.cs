@@ -1270,6 +1270,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <remarks>在るかは読み込むときに画面のスレッドの外で確かめて覚える（技術的負債 4-2）。前は画面が読むたびにディスクを見ていた。</remarks>
     public bool ProjectMissing { get; private set; }
 
+    /// <summary>「記録した時のVPM」の欄（docs/spec/unity-vpm.md「改変に控える」）。読み込むたびに組み直す。</summary>
+    public RecordedVpmView RecordedVpm { get; private set; } = RecordedVpmView.Hidden;
+
     public string ProjectEmptyText =>
         "Unityプロジェクトを紐付けると、ここから開けます。作業中のプロジェクトがあれば下に表示されます。";
 
@@ -1442,12 +1445,17 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await LoadProjectsAsync();
         ProjectMissing = HasProject && !await Core.Services.DiskCheck.FolderExistsAsync(Record.UnityProject);
 
+        // 今の VPM は改変の画面のプロジェクトの欄と同じ控えから取る（2つの画面で食い違わない。Packages を開くたびに数えない）
+        var record = Record;
+        var scan = record.UnityProject is { Length: > 0 } project ? await Task.Run(() => _services.UnityScans.Load(project)) : null;
+        RecordedVpm = RecordedVpmView.Build(record, scan?.Vpm, scan?.VpmHistory);
+
         foreach (var name in new[]
         {
             nameof(Record), nameof(AvatarText), nameof(AvatarIcon), nameof(HasMembers), nameof(HasImages),
             nameof(CreatedText), nameof(UpdatedText), nameof(NameChanged), nameof(MemoChanged),
             nameof(HasProject), nameof(ProjectName), nameof(ProjectPath), nameof(ProjectMissing),
-            nameof(HasProjectCandidates),
+            nameof(HasProjectCandidates), nameof(RecordedVpm),
         })
         {
             OnPropertyChanged(name);

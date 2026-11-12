@@ -89,7 +89,14 @@ public sealed record ModificationRef(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<ModificationMemberRef> Members,
-    IReadOnlyList<ModificationImageRef> Images);
+    IReadOnlyList<ModificationImageRef> Images,
+    IReadOnlyList<ModificationVpmSnapshotRef> VpmSnapshots);
+
+/// <summary>使ったものを記録した時の、紐付けたプロジェクトの VPM の写し（古い順。同じ中身は続けて並ばない。<c>docs/spec/unity-vpm.md</c>）。</summary>
+/// <param name="At">この中身を最初に控えた時。次の写しまでの記録はこの姿。</param>
+public sealed record ModificationVpmSnapshotRef(DateTimeOffset At, IReadOnlyList<ModificationVpmPackageRef> Packages);
+
+public sealed record ModificationVpmPackageRef(string Name, string? DisplayName, string? Version);
 
 public sealed record UnityProjectRef(string Path, IReadOnlyList<string> Modifications);
 
@@ -427,7 +434,10 @@ public static class Catalogs
                 .Where(member => includeDetached || !member.Detached)
                 .Select(member => new ModificationMemberRef(member.ItemId, member.VariationId, member.FileHash, member.Package, member.AddedAt, includeDetached ? member.Detached : null))
                 .ToList(),
-            record.Images.Select(image => new ModificationImageRef(image.FileName, Path.Combine(directory, image.FileName), image.Caption, image.AddedAt)).ToList());
+            record.Images.Select(image => new ModificationImageRef(image.FileName, Path.Combine(directory, image.FileName), image.Caption, image.AddedAt)).ToList(),
+            record.RecordedVpm
+                .Select(snapshot => new ModificationVpmSnapshotRef(snapshot.At, snapshot.Items.Select(package => new ModificationVpmPackageRef(package.Name, package.DisplayName, package.Version)).ToList()))
+                .ToList());
     }
 
     public static IReadOnlyList<UnityProjectRef> UnityProjects(QuerySnapshot snapshot)

@@ -19,7 +19,101 @@ internal static partial class Scenes
         ProjectRelocateScene("hub-project-missing", "改変の画面（プロジェクトの見方）：フォルダが見つからないプロジェクトの行と、それを選んだ右の欄", 1280),
         ProjectRelocateScene("hub-project-missing-narrow", "改変の画面（プロジェクトの見方）：フォルダが見つからないプロジェクトの行・窓の最小の幅", 900),
         ProjectVpmScene(),
+        RecordedVpmScene("modification-recorded-vpm", "改変の詳細：記録した時のVPM（今と違う版・外した物・記録の後に入った物を目立たせる）", snapshot: true),
+        RecordedVpmScene("modification-recorded-vpm-history", "改変の詳細：記録した時のVPM（控えの無い改変を、見つけたVPMの記録から補って出す）", snapshot: false),
     ];
+
+    /// <summary>
+    /// 改変の詳細の「記録した時のVPM」（ユーザ判断 2026-11-12）。プロジェクトのフォルダは右の欄の VPM の場面と同じ作り物の今の姿。
+    /// 控えた写しは、シェーダーが 2.3.2・外した道具が入っていた・フレームワークがまだ無かった頃の姿にして、今との違いを3通り出す。
+    /// 写しの無い方は、履歴（<see cref="SeedVpmHistory"/>）から最後に使ったものを足した日の姿を引く
+    /// </summary>
+    private static Scene RecordedVpmScene(string name, string title, bool snapshot)
+        => new(name, title, async context =>
+        {
+            var project = Fake.Folder(@"ユニティ\MinatoSummer");
+            var packages = Path.Combine(project, "Packages");
+            Directory.CreateDirectory(packages);
+            File.WriteAllText(Path.Combine(packages, "vpm-manifest.json"), """
+                { "dependencies": { "com.example.avatars": { "version": "3.10.4" }, "com.example.shader": { "version": "2.3.3" }, "com.example.missing": { "version": "1.0.0" } },
+                  "locked": { "com.example.framework": { "version": "1.13.1" } } }
+                """);
+            foreach (var (folder, display, version) in new[]
+                     {
+                         ("com.example.avatars", "作り物 SDK - Avatars", "3.10.4"),
+                         ("com.example.shader", "作り物トゥーン", "2.3.3"),
+                         ("com.example.framework", "作り物フレームワーク", "1.13.1"),
+                     })
+            {
+                Directory.CreateDirectory(Path.Combine(packages, folder));
+                File.WriteAllText(Path.Combine(packages, folder, "package.json"),
+                    $$"""{ "name": "{{folder}}", "displayName": "{{display}}", "version": "{{version}}" }""");
+            }
+
+            var normalized = Chmonos.Core.Services.UnityProjectPath.Normalize(project)!;
+            new Chmonos.Core.Storage.UnityScanStore(Chmonos.Core.Storage.AppPaths.Default).Save(
+                normalized, Chmonos.Core.Services.UnityProjectScan.Empty with { Vpm = Chmonos.Core.Services.VpmPackages.Read(project) });
+            SeedVpmHistory(normalized);
+
+            var avatar = await context.Fake.ItemAsync("9900201", "作り物のアバター「ミナト」");
+            var costume = await context.Fake.ItemAsync("9900212", "作り物の衣装セット");
+            await context.Seed.Avatars.SaveAsync(new AvatarRegistry
+            {
+                Entries = [new AvatarRegistryEntry { ItemId = avatar.Id, DisplayName = "ミナト", BoothName = avatar.Booth.Name }],
+            });
+
+            var created = new DateTimeOffset(2026, 9, 25, 21, 0, 0, TimeSpan.FromHours(9));
+            var id = ModificationId.For(avatar.Id, "夏の普段着", created);
+            await context.Seed.Modifications.SaveAsync(new ModificationRecord
+            {
+                Id = id,
+                AvatarItemId = avatar.Id,
+                Name = "夏の普段着",
+                CreatedAt = created,
+                UpdatedAt = created,
+                UnityProject = normalized,
+                Members = [new ModificationMember { ItemId = costume.Id, AddedAt = created }],
+                VpmSnapshots = snapshot
+                    ?
+                    [
+                        new ModificationVpmSnapshot
+                        {
+                            At = created,
+                            Packages =
+                            [
+                                new ModificationVpmPackage("com.example.avatars", "作り物 SDK - Avatars", "3.10.4"),
+                                new ModificationVpmPackage("com.example.missing", null, "1.0.0"),
+                                new ModificationVpmPackage("com.example.oldtool", "外した作り物の道具", "1.4.0"),
+                                new ModificationVpmPackage("com.example.shader", "作り物トゥーン", "2.3.2"),
+                            ],
+                        },
+                    ]
+                    : null,
+            });
+
+            var main = await context.StartAsync();
+
+            // 紐付ける先の候補にこの PC の Hub の一覧が写らないように、空の作り物にする
+            UseTools(context, ToolCombinations[1].Tools, []);
+            main.ShowModifications(ModificationHubLevel.Modification, new ModificationHubSelection(ModificationHubSelectionKind.Modification, id));
+            await UntilHubLoadedAsync(main);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await UntilModificationShownAsync(context, root);
+            var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
+            await SceneContext.UntilAsync(() => detail.RecordedVpm.HasRows, "記録した時のVPMが出る");
+
+            // 右の列の下の方にあるので、欄が見える所まで送る
+            Look.Named<ScrollViewer>(Look.View<ModificationView>(root)!, "Body")!.ScrollToEnd();
+            await context.SettleAsync();
+            Console.WriteLine($"  記録した時のVPM：{detail.RecordedVpm.Rows.Count} 行・違う物 {detail.RecordedVpm.Rows.Count(row => row.Differs)} 行");
+            return new Shot(root);
+        })
+        {
+            Width = 1280,
+            Height = 1100,
+        };
 
     /// <summary>
     /// 右の欄の「VPM」の行（plan 40）。作り物のプロジェクトのフォルダに manifest と package.json を置き、調べた控えも先に書く

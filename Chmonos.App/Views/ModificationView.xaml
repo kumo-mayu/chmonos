@@ -829,6 +829,44 @@
                         </StackPanel>
                     </Border>
 
+                    <!--
+                        記録した時のVPM（ユーザ判断 2026-11-12）。使ったものを記録した時に読んだ VPM と、今の違い。
+                        壊れた原因を探すときに、記録の後に版が変わった物を目立たせる（docs/spec/unity-vpm.md「改変に控える」）
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18"
+                            DataContext="{Binding RecordedVpm}"
+                            Visibility="{Binding IsVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="記録した時のVPM" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SinceText}" Style="{StaticResource Caption}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           ToolTip="この内容で記録し始めた日です。"
+                                           Visibility="{Binding HasSince, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </Grid>
+                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                       Visibility="{Binding HasCaption, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       Visibility="{Binding HasEmptyText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <ItemsControl ItemsSource="{Binding Rows}" Focusable="False"
+                                          Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:RecordedVpmRow}">
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Text}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding NowText}" FontSize="12" FontWeight="SemiBold" Margin="10,0,0,0"
+                                                       Foreground="{DynamicResource Warn}"
+                                                       Visibility="{Binding Differs, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <StackPanel>
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />

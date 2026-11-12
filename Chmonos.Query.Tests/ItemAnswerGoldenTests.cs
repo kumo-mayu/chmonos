@@ -154,6 +154,16 @@ public sealed class ItemAnswerGoldenTests : IDisposable
                 new ModificationMember { ItemId = "9800001", VariationId = 11, AddedAt = Jst(2026, 9, 1) },
                 new ModificationMember { ItemId = "7000001", AddedAt = Jst(2026, 9, 1), Detached = true },
             ],
+
+            // 記録した時の VPM（2026-11-12）。表示名・版の読めない物は API でも null で返す
+            VpmSnapshots =
+            [
+                new ModificationVpmSnapshot
+                {
+                    At = Jst(2026, 9, 1),
+                    Packages = [new ModificationVpmPackage("com.example.shader", "作り物トゥーン", "2.3.2"), new ModificationVpmPackage("com.example.tool", null, null)],
+                },
+            ],
         });
 
         await store.VideoTitles.SaveAsync([new VideoTitleRecord { VideoId = "AAAAAAAAAAA", Title = "作り物の紹介動画", FetchedAt = Jst(2026, 10, 1) }]);
