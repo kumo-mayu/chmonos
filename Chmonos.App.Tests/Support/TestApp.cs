@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using Chmonos.App.Services;
 using Chmonos.App.ViewModels;
@@ -289,7 +290,10 @@ internal sealed class TestApp
     /// 試験の中身を、画面のスレッドで、作りたてのアプリ1つに対して走らせる。
     /// 中身が通った後にログの「失敗」も見る（中身が落ちたときは、そちらの失敗をそのまま出す）
     /// </summary>
-    public static Task Run(Func<TestApp, Task> body) => UiThread.Run(async () =>
+    public static Task Run(
+        Func<TestApp, Task> body,
+        [CallerMemberName] string test = "",
+        [CallerFilePath] string file = "") => UiThread.Run(async () =>
     {
         var app = new TestApp(NewRoot());
 
@@ -363,14 +367,16 @@ internal sealed class TestApp
             await UiThread.Settle();
             if (!app.AllowLoggedFailures && app.LoggedFailures() is { Count: > 0 } failures)
             {
-                Assert.Fail("ログに失敗が残りました：\n" + string.Join("\n", failures));
+                // 見捨てた仕事が後で落ちると、この試験のログに混ざり得るので、その印を添える
+                var abandoned = UiThread.Abandoned.Note is { } note ? "\n" + note : "";
+                Assert.Fail("ログに失敗が残りました：\n" + string.Join("\n", failures) + abandoned);
             }
 
             passed = true;
         }
         finally
         {
-            await app.StopAsync(passed);
+            await app.StopAsync(passed, $"{Path.GetFileNameWithoutExtension(file)}.{test}");
         }
     });
 
@@ -466,7 +472,7 @@ internal sealed class TestApp
         return new SearchBridge(new JapaneseDictionary(dictionary.FullName, cache));
     });
 
-    private async Task StopAsync(bool passed)
+    private async Task StopAsync(bool passed, string test)
     {
         try
         {
@@ -475,13 +481,23 @@ internal sealed class TestApp
                 main.StopBackgroundWork();
                 await main.FlushPendingWritesAsync();
             }
+        }
+        catch (TimeoutException) when (!passed)
+        {
+            // 中身が落ちた試験では、そちらの失敗をそのまま出す（後始末の待ちの失敗で上書きしない）
+        }
 
+        try
+        {
             // 止めた・書き切ったことで投げられた分も済ませてから、通信の出口と錠を放す
             await UiThread.Settle();
         }
         catch (TimeoutException) when (!passed)
         {
-            // 中身が落ちた試験では、そちらの失敗をそのまま出す（後始末の待ちの失敗で上書きしない）
+            // 落ちた試験が裏の仕事を止めたまま終わると、その仕事はもう済まない。待ち続けると後の試験が全部
+            // 起動と後片付けで10秒ずつ待って落ち、一式が何時間も止まった（2026-11-11・11-12）。
+            // 残りを見捨てて後の試験に待たせない。この試験自体はもう落ちているので、失敗は隠れない
+            UiThread.AbandonPending(test);
         }
         finally
         {

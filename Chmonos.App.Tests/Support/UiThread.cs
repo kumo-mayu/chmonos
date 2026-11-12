@@ -74,6 +74,9 @@ internal static class UiThread
             Stray.Clear();
         }
 
+        // 自分の仕事がまだ無いうちに、前に見捨てた仕事のうち終わった分を控えから外す（画面のスレッドで触る）
+        await dispatcher.InvokeAsync(() => Abandoned.Reconcile(FireAndForget.Pending));
+
         var running = await dispatcher.InvokeAsync(body);
         if (await Task.WhenAny(running, Task.Delay(Limit)) != running)
         {
@@ -108,20 +111,37 @@ internal static class UiThread
     ///
     /// 仕事が済んだ後、結果を画面のスレッドへ運ぶ分（<c>BeginInvoke</c>）が列に残っていることがあるので、
     /// 列が空くまで待ってから、その間に新しく投げられていないかをもう一度見る。
-    /// **待ってから書く物（0.5秒後に書く検索の条件など）は数に入らない**——それを確かめる試験は、条件を名指しして <see cref="Until"/> で待つ
+    /// **待ってから書く物（0.5秒後に書く検索の条件など）は数に入らない**——それを確かめる試験は、条件を名指しして <see cref="Until"/> で待つ。
+    /// 前に落ちた試験が残して見捨てた仕事（<see cref="Abandoned"/>）は待たない
     /// </summary>
     public static async Task Settle()
     {
         while (true)
         {
-            await Until(() => FireAndForget.Pending == 0, "投げっぱなしの仕事が済む");
+            await Until(() => Abandoned.Settled(FireAndForget.Pending), SettleWhat());
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-            if (FireAndForget.Pending == 0)
+            if (Abandoned.Settled(FireAndForget.Pending))
             {
                 return;
             }
         }
     }
+
+    /// <summary>
+    /// 落ちた試験が残した、待たないことにした仕事（<see cref="AbandonedWork"/> に理由）。
+    /// 試験は並べて走らせず、触るのは画面のスレッドだけなので、錠は要らない
+    /// </summary>
+    internal static readonly AbandonedWork Abandoned = new();
+
+    /// <summary>待っても済まなかったときの文。前の試験が仕事を残していれば、それを添える（原因がこの試験に無いことが多い）。</summary>
+    private static string SettleWhat() =>
+        Abandoned.Note is { } note ? $"投げっぱなしの仕事が済む（{note}）" : "投げっぱなしの仕事が済む";
+
+    /// <summary>
+    /// 落ちた試験の後片付けで <see cref="Settle"/> が時間切れになったとき、残った仕事を見捨てて、後の試験に待たせない。
+    /// 通った試験には使わない（通った試験が仕事を残したら、今まで通り待って落とす）
+    /// </summary>
+    internal static void AbandonPending(string test) => Abandoned.Abandon(FireAndForget.Pending, test, DateTime.Now);
 
     /// <summary>
     /// 名指しした条件が成り立つまで待つ。画面のスレッドを空けながら回る。
