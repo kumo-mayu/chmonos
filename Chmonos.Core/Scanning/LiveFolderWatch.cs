@@ -201,7 +201,10 @@ public sealed class LiveFolderWatch : IDisposable
     /// **画面のスレッドで待たない**：フォルダを開いて見張りを張るのは裏で行う（届かない共有・外れたドライブでは、張るだけで十数秒かかることがある）。
     /// 張り直し（見張っている間に監視フォルダを足し引きした）では、見張り始めの控えと、取り込み中で預けていた物を引き継ぐ
     /// （捨てると、預けた物・書いている途中だった物が新しい控えに入り、「現れた物」でなくなって自動の取り込みから黙って落ちる）。
-    /// 控えを取り直すのは、前の見張りの範囲（控えを取り終えたフォルダとその中）に入っていなかったフォルダの分だけ
+    /// 控えを取り直すのは、前の見張りの範囲（控えを取り終えたフォルダとその中）に入っていなかったフォルダの分だけ。
+    /// 張り直したら、控えを取り終えた後に1回探し直す（取り込み中なら終わってから）。前の見張りが静けさ・書き終わりの確かめ・確かめ直しを
+    /// 待っていた物や、画面へ預けて捨てられた結果は、止めると失われ、新しい見張りは次の出来事まで探さないため（ユーザ判断 2026-11-13「A」）。
+    /// 最初に張るときは探さない（起動時の確かめと重ねない）
     /// </summary>
     public void Start(IReadOnlyList<string> folders)
     {
@@ -212,7 +215,8 @@ public sealed class LiveFolderWatch : IDisposable
             _session = null;
         }
 
-        var carryDeferred = previous?.End() ?? false;
+        previous?.End();
+        var rescan = previous is not null;
         var unique = folders.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         long generation;
         List<string> fresh;
@@ -246,7 +250,7 @@ public sealed class LiveFolderWatch : IDisposable
             return;
         }
 
-        var session = new Session(this, unique, fresh, covered, generation, carryDeferred);
+        var session = new Session(this, unique, fresh, covered, generation, rescan);
         lock (_lock)
         {
             _session = session;
@@ -332,7 +336,7 @@ public sealed class LiveFolderWatch : IDisposable
     }
 
     /// <summary>
-    /// 渡した物を呼び手が受け取れなかった（取り込みが始まっていた・前の見張りの物だった）。取り込み中なら次の <see cref="Kick"/> で、
+    /// 渡した物を呼び手が受け取れなかった（取り込みが始まっていた・自動の取り込みを積めなかった）。取り込み中なら次の <see cref="Kick"/> で、
     /// 中でなければすぐ探し直す
     /// </summary>
     public void Defer()
@@ -400,8 +404,8 @@ public sealed class LiveFolderWatch : IDisposable
     /// <param name="fresh">見張り始めの控えをまだ取っていないフォルダ（初めて張る・張り直しで足した）。</param>
     /// <param name="covered">前の見張りから引き継いだ範囲（控えを取り終えた所）。足したフォルダの控えから、この中の物は除く。</param>
     /// <param name="generation">この見張りの世代（控えを足す時と、渡した物を画面が受け取る時に照らす）。</param>
-    /// <param name="carryDeferred">前の見張りが取り込み中で預けていた物があるか。</param>
-    private sealed class Session(LiveFolderWatch owner, List<string> folders, List<string> fresh, List<string> covered, long generation, bool carryDeferred)
+    /// <param name="rescan">張り直しか（控えを取った後に1回探し直す。取り込み中なら終わってから）。</param>
+    private sealed class Session(LiveFolderWatch owner, List<string> folders, List<string> fresh, List<string> covered, long generation, bool rescan)
     {
         public long Generation => generation;
 
@@ -426,8 +430,8 @@ public sealed class LiveFolderWatch : IDisposable
 
         public void Begin() => Loop = Task.Run(() => RunAsync(_cancel.Token));
 
-        /// <summary>止める。預けていた物があったかを返す（張り直しで引き継ぐ）。</summary>
-        public bool End()
+        /// <summary>止める。預けていた物は引き継がない（張り直した見張りが、いつも1回探し直す）。</summary>
+        public void End()
         {
             _cancel.Cancel();
             lock (_gate)
@@ -439,7 +443,6 @@ public sealed class LiveFolderWatch : IDisposable
 
                 _events.Clear();
                 _broken.Clear();
-                return _deferred;
             }
         }
 
@@ -693,8 +696,9 @@ public sealed class LiveFolderWatch : IDisposable
         {
             try
             {
-                // 前の見張りが取り込み中で預けていた物は、引き継いで終わりを待つ（終わっていれば、控えを取った後に探す。MarkDeferred が見直す）
-                if (carryDeferred)
+                // 張り直したら1回探し直す（前の見張りが預けていた物・確かめを待っていた物を拾う。Start の説明）。
+                // 取り込み中なら終わりを待つ。探すのは控えを取った後（印と頼みはここで付けても、回りが待ち始めるのは控えの後）
+                if (rescan)
                 {
                     MarkDeferred();
                 }

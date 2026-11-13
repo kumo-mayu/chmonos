@@ -569,6 +569,95 @@ public class LiveFolderWatchTests
         Assert.False(Assert.Single(await NextFoundAsync(1)).Arrived);
     }
 
+    private const string Other2 = @"D:\作り物\監視2";
+
+    /// <summary>
+    /// 張り直したら控えの後に1回探し直す（ユーザ判断 2026-11-13「A」）。前の見張りが静けさを待っていた出来事は、止めると失われる。
+    /// 前から在った物は前からの物のまま
+    /// </summary>
+    [Fact]
+    public async Task 静けさを待つ間に張り直しても_張り直した後に渡す()
+    {
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [@"D:\作り物\監視\前から.zip"];
+        using var watch = CreateScoped(() => current, asked);
+        watch.Start([Folder]);
+        await watch.BaselineTaken;
+
+        current = [@"D:\作り物\監視\前から.zip", @"D:\作り物\監視\衣装.zip"];
+        _hub.Single(Folder).Fire(@"D:\作り物\監視\衣装.zip");
+        Assert.True(await _delays.WaitPendingAsync(Timing.Quiet));
+
+        watch.Start([Folder, Other2]);
+        await watch.BaselineTaken;
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+
+        var found = await NextFoundAsync(1);
+        Assert.True(found.Single(file => file.Path.EndsWith("衣装.zip", StringComparison.Ordinal)).Arrived);
+        Assert.False(found.Single(file => file.Path.EndsWith("前から.zip", StringComparison.Ordinal)).Arrived);
+    }
+
+    [Fact]
+    public async Task 書き終わりの確かめの途中で張り直しても_張り直した後に渡す()
+    {
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [];
+        using var watch = CreateScoped(() => current, asked);
+        watch.Start([Folder]);
+        await watch.BaselineTaken;
+
+        current = [@"D:\作り物\監視\衣装.zip"];
+        _hub.Single(Folder).Fire(@"D:\作り物\監視\衣装.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+        Assert.True(await _delays.WaitPendingAsync(Timing.Settle));
+
+        watch.Start([Folder, Other2]);
+        await watch.BaselineTaken;
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+
+        Assert.True(Assert.Single(await NextFoundAsync(1)).Arrived);
+    }
+
+    /// <summary>書いている途中で確かめ直しを待っていた物も、張り直した後に拾う（出来事が来ない書き方がある）。</summary>
+    [Fact]
+    public async Task 確かめ直しを待つ間に張り直しても_張り直した後に渡す()
+    {
+        const string Path1 = @"D:\作り物\監視\衣装.zip";
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [];
+        using var watch = CreateScoped(() => current, asked);
+        watch.Start([Folder]);
+        await watch.BaselineTaken;
+
+        // 1回目は2回見た大きさが違う（書いている途中）。その後は落ち着いている
+        _probe.Sequence(Path1, new FileSettle(1, Day, true), new FileSettle(2, Day, true));
+        current = [Path1];
+        _hub.Single(Folder).Fire(Path1);
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+        Assert.Empty(await NextFoundAsync(1));
+        Assert.True(await _delays.WaitPendingAsync(Timing.Quiet));
+
+        watch.Start([Folder, Other2]);
+        await watch.BaselineTaken;
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+
+        Assert.True(Assert.Single(await NextFoundAsync(2)).Arrived);
+    }
+
+    /// <summary>最初に張るときは探し直さない（起動時の確かめと重ねない）。</summary>
+    [Fact]
+    public async Task 最初に張るときは_控えの後に探し直さない()
+    {
+        using var watch = await StartAsync([@"D:\作り物\監視\前から.zip"]);
+
+        Assert.False(await _delays.WaitPendingAsync(Timing.Quiet, TimeSpan.FromMilliseconds(300)));
+        Assert.Equal(1, _findCalls);
+    }
+
     /// <summary>
     /// 見張りが「取り込み中」と読んだ直後、預ける前に取り込みが終わると、終わりの知らせは預けた印の無いうちに来て何もしない。
     /// 預けた後に見直して、終わっていれば探し直す（次の出来事まで放っておかない。W7）

@@ -407,6 +407,46 @@ public class LiveWatchNoticeTests
         await app.SettleAsync();
     });
 
+    /// <summary>
+    /// 前の見張りの結果が空で捨てられても、張り直した見張りが控えの後に1回探し直すので、その間に置かれた物を知らせる
+    /// （出来事の来なかった物も拾う。ユーザ判断 2026-11-13「A」）
+    /// </summary>
+    [Fact]
+    public Task 前の見張りの空の結果を捨てても_張り直した見張りが探し直して知らせる() => TestApp.Run(async app =>
+    {
+        var watched = await WatchAsync(app, live: true);
+        var main = await app.StartAsync();
+        await BaselineAsync(main);
+        var live = main.LiveWatch!;
+
+        var forward = live.Found!;
+        LiveWatchBatch? held = null;
+        live.Found = batch =>
+        {
+            if (Interlocked.CompareExchange(ref held, batch, null) is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            return forward(batch);
+        };
+
+        app.FolderEvents.Fire(watched, Path.Combine(watched, "keep.txt"));
+        await UiThread.Until(() => Volatile.Read(ref held) is not null, "前の見張りが空の結果を渡す");
+        Assert.Empty(held!);
+
+        // 出来事の届かないまま置かれた物
+        var added = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var other = Path.GetDirectoryName(app.NewFile(@"other\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched, other] });
+        await UiThread.Until(() => live.Folders.Count == 2, "張り直す");
+        await forward(held!);
+
+        await UiThread.Until(() => main.HasLiveWatchNotice, "張り直した見張りが探し直して帯を出す");
+        Assert.Equal([added], main.WatchedNewFiles);
+        await app.SettleAsync();
+    });
+
     [Fact]
     public Task 閉じるときに見張りを止める() => TestApp.Run(async app =>
     {
