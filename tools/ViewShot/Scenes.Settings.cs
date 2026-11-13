@@ -318,11 +318,11 @@ internal static partial class Scenes
         };
 
     /// <summary>
-    /// 取り込み元と監視対象に、1行に収まらない長いパスと短いパスを並べる（公開前の点検 2026-10-01）。
+    /// 取り込み元と監視フォルダに、1行に収まらない長いパスと短いパスを並べる（公開前の点検 2026-10-01）。
     /// 長いパスは間が省かれ、最後のフォルダ名が見えること。どれも作り物の場所なので「見つかりません」が付く
     /// </summary>
     private static Scene SettingsLongPaths()
-        => new("settings-long-paths", "設定の取り込み元・監視対象：長いパス（間を省いて最後のフォルダ名を残す）と短いパス", async context =>
+        => new("settings-long-paths", "設定の取り込み元・監視フォルダ：長いパス（間を省いて最後のフォルダ名を残す）と短いパス", async context =>
         {
             string[] folders =
             [
@@ -338,7 +338,7 @@ internal static partial class Scenes
             await SceneContext.UntilAsync(() => !settings.IsLoading && settings.Folders.Count == 2, "設定を読み終わる");
             await context.SettleAsync();
 
-            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象フォルダ")) };
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視フォルダ")) };
         });
 
     /// <summary>

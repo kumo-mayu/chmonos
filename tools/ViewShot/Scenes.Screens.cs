@@ -320,7 +320,7 @@ internal static partial class Scenes
         }),
     ];
 
-    /// <summary>探した結果の欄を窓の上の方へ送って、欄を切り出す（欄は監視対象の下にあり、高さ800では下が窓の外に出る）。</summary>
+    /// <summary>探した結果の欄を窓の上の方へ送って、欄を切り出す（欄は監視フォルダの下にあり、高さ800では下が窓の外に出る）。</summary>
     private static async Task<Shot> ResultCardShotAsync(SceneContext context, System.Windows.FrameworkElement root)
     {
         if (Look.Named<Border>(root, "MissingResultCard") is { IsVisible: true } card)
@@ -330,7 +330,7 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.Named<Border>(root, "MissingResultCard") };
         }
 
-        return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象")) };
+        return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視フォルダ")) };
     }
 
     private static IEnumerable<Scene> Item =>

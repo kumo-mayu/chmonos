@@ -234,7 +234,7 @@ public sealed record AppSettings
     public IReadOnlyList<string> ImportFolders { get; init; } = [];
 
     /// <summary>
-    /// 監視対象フォルダ。起動時に、この中に新しいファイルが無いかを見る。
+    /// 監視フォルダ。起動時に、この中に新しいファイルが無いかを見る。
     ///
     /// <see cref="ImportFolders"/> とは意味が違うので別に持つ。
     /// あちらは「ここから取り込んだことがある」という履歴で、欠落復旧の再スキャン範囲。

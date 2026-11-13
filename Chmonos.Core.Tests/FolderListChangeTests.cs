@@ -5,7 +5,7 @@ using Xunit;
 namespace Chmonos.Core.Tests;
 
 /// <summary>
-/// 取り込み元と監視対象の足し引き。画面の写しで丸ごと書くと、別の所が足した物を消していた（技術的負債 1-1 の再発）。
+/// 取り込み元と監視フォルダの足し引き。画面の写しで丸ごと書くと、別の所が足した物を消していた（技術的負債 1-1 の再発）。
 /// </summary>
 public class FolderListChangeTests
 {
@@ -41,7 +41,7 @@ public class FolderListChangeTests
         Assert.Equal([@"D:\a", @"D:\c"], changed.ImportFolders);
     }
 
-    /// <summary>取り込み元の足し引きは監視対象に触らない（逆も）。</summary>
+    /// <summary>取り込み元の足し引きは監視フォルダに触らない（逆も）。</summary>
     [Fact]
     public void ListsDoNotTouchEachOther()
     {

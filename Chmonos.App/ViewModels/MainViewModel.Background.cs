@@ -91,7 +91,7 @@ public sealed partial class MainViewModel
     private CancellationTokenSource? _watch;
 
     /// <summary>
-    /// 監視対象フォルダに新しいファイルが無いかを、起動時に見る。
+    /// 監視フォルダに新しいファイルが無いかを、起動時に見る。
     ///
     /// **走査してよいのは、ユーザが「ここを見ておいて」と指示したフォルダだけ。**
     /// 監視に入っていないフォルダは今まで通り、押されるまで見に行かない。
@@ -240,14 +240,14 @@ public sealed partial class MainViewModel
 
     private static string FolderName(string path) => Core.Models.DisplayText.FolderName(path);
 
-    /// <summary>監視対象で見つかった、まだ見ていないファイル。</summary>
+    /// <summary>監視フォルダで見つかった、まだ見ていないファイル。</summary>
     public IReadOnlyList<string> WatchedNewFiles { get; private set; } = [];
 
     public int WatchedNewCount => WatchedNewFiles.Count;
 
     public bool HasWatchedNew => WatchedNewCount > 0;
 
-    public string WatchedNewText => $"監視対象に新しいファイルが {WatchedNewCount} 件あります。";
+    public string WatchedNewText => $"監視フォルダに新しいファイルが {WatchedNewCount} 件あります。";
 
     /// <summary>見つかったぶんを取り込み対象に積む。押されて初めて通信が始まる。</summary>
     /// <summary>

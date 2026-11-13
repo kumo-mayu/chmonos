@@ -6,7 +6,7 @@ using Xunit;
 namespace Chmonos.Core.Tests;
 
 /// <summary>
-/// 監視対象フォルダに新しいファイルが増えていないかを見る経路。
+/// 監視フォルダに新しいファイルが増えていないかを見る経路。
 /// 起動時に走らせるので、ハッシュまで計算しないことが要件のうち。
 /// </summary>
 public class FolderWatchTests : IDisposable

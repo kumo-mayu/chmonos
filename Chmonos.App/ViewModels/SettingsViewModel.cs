@@ -450,7 +450,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         => ShortcutRows.Aggregate(new ShortcutSettings(), (settings, row) => Services.Shortcuts.With(settings, row.Action, row.Gesture));
 
     /// <summary>
-    /// 監視対象フォルダ。取り込み元（履歴）とは意味が違うので別に並べる。
+    /// 監視フォルダ。取り込み元（履歴）とは意味が違うので別に並べる。
     /// あちらは「ここから取り込んだことがある」、こちらは「ここを見ておいて」。
     /// </summary>
     public ObservableCollection<ImportFolderRow> Watched { get; } = [];

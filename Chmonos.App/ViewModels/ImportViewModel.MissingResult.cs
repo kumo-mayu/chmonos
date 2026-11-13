@@ -337,8 +337,8 @@ public sealed partial class ImportViewModel
     /// <summary>
     /// 1行目の要約の下に出す、探せなかった場所・読めなかった物の文（どれも句点で終わる）。
     /// **ここは何が起きたかだけを言い、直し方は言わない**（ユーザ 2026-10-06「ここでは監視フォルダ「...」は見つからなかったため
-    /// 確認できませんでした。ということを出して直し方は監視対象の方に書くべきだろう」）。監視フォルダが見つからないときの直し方は、
-    /// 監視対象の欄の注意（「監視フォルダ「…」が見つかりません。名前を変えたか移したなら…」）が言う
+    /// 確認できませんでした。ということを出して直し方は監視フォルダの方に書くべきだろう」）。監視フォルダが見つからないときの直し方は、
+    /// 監視フォルダの欄の注意（「監視フォルダ「…」が見つかりません。名前を変えたか移したなら…」）が言う
     /// </summary>
     internal static IEnumerable<string> MissingSearchNoteLines(MissingFileSearchResult result, IReadOnlyList<string> watchedFolders)
     {

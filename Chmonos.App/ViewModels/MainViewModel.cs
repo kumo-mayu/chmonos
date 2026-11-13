@@ -1087,7 +1087,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public void ShowImport()
     {
-        // 設定画面で「起動時に取り込む」を変えて戻ってきたときに、監視対象の説明を合わせる（U7）
+        // 設定画面で「起動時に取り込む」を変えて戻ってきたときに、監視フォルダの説明を合わせる（U7）
         Import.NoteShown();
         CurrentViewModel = Import;
     }

@@ -24,7 +24,7 @@ public sealed class WatchedFolderMissingTests
         await UiThread.Until(() => main.Import.MissingSearchNotes.Contains("確認できませんでした", StringComparison.Ordinal), "探した結果が出る");
 
         Assert.Equal("1 件を探しましたが、見つかりませんでした。", main.Import.MissingSearchText);
-        // 結果の欄は何が起きたかだけ（どの監視フォルダか）。直し方は監視対象の欄の注意が言う（ユーザ 2026-10-06）
+        // 結果の欄は何が起きたかだけ（どの監視フォルダか）。直し方は監視フォルダの欄の注意が言う（ユーザ 2026-10-06）
         Assert.Equal("監視フォルダ「名前を変える前」は見つからなかったため確認できませんでした。", main.Import.MissingSearchNotes);
     });
 

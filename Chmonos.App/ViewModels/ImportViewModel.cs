@@ -494,12 +494,12 @@ public sealed partial class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 起動したときに監視フォルダの新着を自動で取り込むか（#38 の設定）。監視対象の説明を出し分ける（U7）。
+    /// 起動したときに監視フォルダの新着を自動で取り込むか（#38 の設定）。監視フォルダの説明を出し分ける（U7）。
     /// 以前は設定に関係なく「見つけても勝手には取り込みません」と出していて、入にした人には嘘になっていた。
     /// </summary>
     public bool ImportsOnLaunch => _services.Settings.StartImportOnLaunch;
 
-    /// <summary>監視対象の説明の「設定」から、設定画面へ移る。</summary>
+    /// <summary>監視フォルダの説明の「設定」から、設定画面へ移る。</summary>
     public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
 
     /// <summary>
@@ -935,7 +935,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 「フォルダを足す」で選んだときは false——続けて他も足してから始めたいことがある。
     /// </param>
     /// <param name="offerWatch">
-    /// フォルダを足したら監視対象に入れるか聞くか。フォルダビューの「このフォルダのアイテムを取り込む」では聞かない
+    /// フォルダを足したら監視フォルダにするか聞くか。フォルダビューの「このフォルダのアイテムを取り込む」では聞かない
     /// （監視は隣の切り替えで決めるので、同じことを2か所で聞かない）。
     /// </param>
     /// <param name="askAboutUnpacked">
@@ -1007,7 +1007,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 足したフォルダを監視対象に入れるか聞く。
+    /// 足したフォルダを監視フォルダにするか聞く。
     ///
     /// 聞くのは<b>フォルダのときだけ</b>。ファイル1件を落としたのは
     /// 「これを取り込んで」であって「ここを見ておいて」ではない。
@@ -1015,7 +1015,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 複数まとめて聞くのは、5つ落として5回聞かれると読まずに押されるため。
     /// </summary>
     /// <summary>
-    /// 「監視対象に入れますか」の窓の、入れると何が起きるか。開いている間の監視（plan 49）を入れていると、
+    /// 「監視フォルダにしますか」の窓の、入れると何が起きるか。開いている間の監視（plan 49）を入れていると、
     /// 「次に開いたときに」「件数を表示するだけ」は合わなくなるので、設定で言い分ける
     /// </summary>
     internal static string WatchOfferDetail(Core.Models.AppSettings settings) => settings switch
@@ -1030,8 +1030,8 @@ public sealed partial class ImportViewModel : ViewModelBase
         var names = string.Join("\n", folders.Select(folder => "・" + folder));
 
         var answer = Services.Notice.Show(
-            $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n" + WatchOfferDetail(_services.Settings),
-            "監視対象に入れますか",
+            $"次のフォルダを監視フォルダにしますか。\n\n{names}\n\n" + WatchOfferDetail(_services.Settings),
+            "監視フォルダにしますか",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.No);
@@ -1050,7 +1050,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// <summary>起動時に見つかった新しいファイルを出すために見る。</summary>
     public MainViewModel Main => _main;
 
-    /// <summary>監視対象。取り込み対象（今回積んだもの）とは別で、起動をまたいで残る。</summary>
+    /// <summary>監視フォルダ。取り込み対象（今回積んだもの）とは別で、起動をまたいで残る。</summary>
     public ObservableCollection<string> Watched { get; } = [];
 
     public bool HasWatched => Watched.Count > 0;
@@ -1072,7 +1072,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 監視対象の新しいファイルを、今すぐ取り込む（ユーザ指示 2026-11-03）。前は起動のときに見つけた分しか取り込めず、
+    /// 監視フォルダの新しいファイルを、今すぐ取り込む（ユーザ指示 2026-11-03）。前は起動のときに見つけた分しか取り込めず、
     /// 開いたまま監視フォルダにファイルを置いても、起動し直すか、フォルダを落とし直すしかなかった。
     /// 対象は起動時の自動の取り込みと同じ「まだ取り込んでいないファイル」だけ（フォルダ丸ごとを舐め直さない・G1）。
     /// 「知らせなくてよい」と言った顔ぶれも、押したなら取り込む
@@ -1091,7 +1091,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         _isCheckingWatched = true;
         RelayCommand.RaiseCanExecuteChanged();
-        WatchImportText = "監視対象を調べています…";
+        WatchImportText = "監視フォルダを調べています…";
         try
         {
             var result = await Task.Run(() => _services.Watch.FindNewAsync(folders));
@@ -1113,7 +1113,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            WatchImportText = "監視対象を読めませんでした。フォルダのある場所を確かめてください。";
+            WatchImportText = "監視フォルダを読めませんでした。フォルダのある場所を確かめてください。";
             return 0;
         }
         finally
@@ -1135,7 +1135,7 @@ public sealed partial class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 監視対象に足す・外す。取り込み画面とフォルダビューの両方がここを通る（ユーザ指摘 2026-09-14：フォルダビューで足せるのに外せなかった）。
+    /// 監視フォルダに足す・外す。取り込み画面とフォルダビューの両方がここを通る（ユーザ指摘 2026-09-14：フォルダビューで足せるのに外せなかった）。
     ///
     /// **この画面の一覧（写し）を丸ごと書かない。**錠の中で、今の設定に1件だけ足し引きする。前は写しを丸ごと書いていたので、
     /// フォルダビューが別に足した物を、ここで何かを外した瞬間に消していた（技術的負債 1-1 の取り込み元と同じ事故）

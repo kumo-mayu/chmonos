@@ -132,7 +132,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     private bool _isWatched;
 
-    /// <summary>監視対象か。切り替えたらその場で書き換える（右を作り直すと、探していた語や見ていた所が戻る）。</summary>
+    /// <summary>監視フォルダか。切り替えたらその場で書き換える（右を作り直すと、探していた語や見ていた所が戻る）。</summary>
     public bool IsWatched
     {
         get => _isWatched;
@@ -151,7 +151,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     public string WatchStateText => IsWatched ? "監視中" : "監視していません";
 
-    public string WatchButtonText => IsWatched ? "監視をやめる" : "監視対象にする";
+    public string WatchButtonText => IsWatched ? "監視をやめる" : "監視フォルダにする";
 
     public string CountText => Unresolved.Count > 0 && FolderViewModel.ShowsUnresolvedNow
         ? $"この下に 商品 {ItemCount} 件・未確定 {Unresolved.Count} 件"

@@ -4,7 +4,7 @@ using Chmonos.App.Tests.Support;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 取り込み画面の監視対象の「新しいファイルを取り込む」（ユーザ指示 2026-11-03）。
+/// 取り込み画面の監視フォルダの「新しいファイルを取り込む」（ユーザ指示 2026-11-03）。
 /// 前は起動のときに見つけた分しか取り込めず、開いたまま監視フォルダに置いた物は起動し直すしかなかった。
 /// </summary>
 public class ImportWatchedNowTests

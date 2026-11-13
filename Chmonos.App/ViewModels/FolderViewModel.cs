@@ -1512,7 +1512,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         _main.NoteImportQueued(started: true);
     }
 
-    /// <summary>監視対象に足す・外す。取り込み画面の一覧と同じ所を通す（別々に書くと、片方の写しがもう片方の変更を消す）。</summary>
+    /// <summary>監視フォルダに足す・外す。取り込み画面の一覧と同じ所を通す（別々に書くと、片方の写しがもう片方の変更を消す）。</summary>
     private async Task ToggleWatchAsync(FolderViewDetail? detail)
     {
         if (detail is null)

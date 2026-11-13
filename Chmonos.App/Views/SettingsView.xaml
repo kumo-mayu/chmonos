@@ -546,12 +546,12 @@
                             </Grid>
 
                     <!--
-                        監視対象。取り込み元（履歴）とは意味が違うので小見出しで分ける。
+                        監視フォルダ。取り込み元（履歴）とは意味が違うので小見出しで分ける。
                         足すのは取り込み画面でフォルダを選んだ／落としたとき。
                     -->
                     <StackPanel Margin="0,14,0,0"
                                 Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="監視対象フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
+                        <TextBlock Text="監視フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                        Text="起動したときに、この中に新しいファイルが増えていないかを確認します。" />
 

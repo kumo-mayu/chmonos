@@ -3,7 +3,7 @@ using Chmonos.Core.Models;
 namespace Chmonos.Core.Services;
 
 /// <summary>
-/// 設定の取り込み元（<see cref="AppSettings.ImportFolders"/>）と監視対象（<see cref="AppSettings.WatchedFolders"/>）を、
+/// 設定の取り込み元（<see cref="AppSettings.ImportFolders"/>）と監視フォルダ（<see cref="AppSettings.WatchedFolders"/>）を、
 /// **1件ずつ足し引きする**変え方。<c>UiCommand.ChangeSettings</c> に渡し、錠の中で今の設定に当てる。
 ///
 /// 画面が持つ一覧の写しで丸ごと書かないためにここへ集めた（技術的負債 1-1 の再発）。
@@ -20,7 +20,7 @@ public static class FolderListChange
     public static AppSettings RemoveImportFolder(AppSettings settings, string path)
         => settings with { ImportFolders = Removed(settings.ImportFolders, path) };
 
-    /// <summary>監視対象に足す・外す。</summary>
+    /// <summary>監視フォルダに足す・外す。</summary>
     public static AppSettings SetWatched(AppSettings settings, string path, bool watch)
         => settings with
         {

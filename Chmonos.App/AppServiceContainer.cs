@@ -544,7 +544,7 @@ public sealed class AppServiceContainer : IDisposable
     /// <summary>持っていないアバターの1枚目を取って置く（U18）。起動時の裏の取得で、⑤の後に回す。</summary>
     public AvatarImageSync AvatarImages { get; }
 
-    /// <summary>監視対象フォルダに新しいファイルが無いかを見る。起動時に走らせてよい唯一の走査。</summary>
+    /// <summary>監視フォルダに新しいファイルが無いかを見る。起動時に走らせてよい唯一の走査。</summary>
     public FolderWatch Watch { get; }
 
     /// <summary>打った語から同じものの別表記を作る。通信はしない（同梱の辞書だけ）。</summary>
