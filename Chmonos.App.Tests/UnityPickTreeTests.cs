@@ -77,12 +77,14 @@ public class UnityPickTreeTests
     }
 
     [Fact]
-    public void Build_SplitsImagesAndPackagesIntoSections_OnlyWhenBothExist()
+    public void Build_PutsPackagesInTheirOwnSection_AndImagesWithoutASectionRow()
     {
+        // 画像の側に節の行は置かない（ユーザ判断 2026-11-13「1-b」）。unitypackage だけを節に分ける
         var both = UnityPickTree.Build([Same("Assets/X/a.png"), Same("Assets/Y/b.png")], [Package("Avatar_Body", @"C:\dl\body.zip")]);
-        Assert.Equal(["画像", "unitypackage"], both.Select(row => row.Name));
-        Assert.All(both, row => Assert.Equal(UnityPickRowKind.Section, row.Kind));
+        Assert.Equal([UnityPickRowKind.Folder, UnityPickRowKind.Section], both.Select(row => row.Kind));
+        Assert.Equal("Assets", both[0].Name);
         Assert.Equal(2, both[0].Count);
+        Assert.Equal("unitypackage", both[1].Name);
         var package = Assert.Single(both[1].Children);
         Assert.Equal("Avatar_Body", package.Name);
         Assert.Equal("body.zip", package.Tag);

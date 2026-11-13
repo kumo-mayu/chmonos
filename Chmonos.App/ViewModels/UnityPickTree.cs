@@ -6,7 +6,7 @@ namespace Chmonos.App.ViewModels;
 /// <summary>木の行の種類。</summary>
 public enum UnityPickRowKind
 {
-    /// <summary>節の見出し（画像・unitypackage。両方あるときだけ）。</summary>
+    /// <summary>節の見出し（unitypackage。画像と両方あるときだけ。画像の側には置かない）。</summary>
     Section,
 
     /// <summary>Unity の中のフォルダ。</summary>
@@ -138,12 +138,12 @@ public static class UnityPickTree
         }
         else
         {
-            // 両方あるときだけ節に分ける。unitypackage は Unity の中のフォルダではないので、画像の木に混ぜると入り先のフォルダに見える
-            var imageSection = new UnityPickRow { Kind = UnityPickRowKind.Section, Name = "画像" };
-            imageSection.Children.AddRange(imageRoots);
+            // 両方あるときは unitypackage だけを節に分ける。unitypackage は Unity の中のフォルダではないので、画像の木に混ぜると入り先の
+            // フォルダに見える。画像の側には節の行を置かない（ユーザ判断 2026-11-13「1-b」：節の行と1段の字下げが増え、
+            // 候補が9件の形で前の9行が17行になった。画像は Assets/… のフォルダの行で始まるので、節が無くても画像と分かる）
             var packageSection = new UnityPickRow { Kind = UnityPickRowKind.Section, Name = "unitypackage" };
             packageSection.Children.AddRange(packageLeaves);
-            roots = [imageSection, packageSection];
+            roots = [.. imageRoots, packageSection];
         }
 
         foreach (var root in roots)
