@@ -120,15 +120,43 @@ public sealed class FilePoolGroupRow : ViewModelBase
         PackagesText = PackagesTextOf(group.PackageNames);
         foreach (var file in files)
         {
-            file.PropertyChanged += (_, args) =>
+            // 見出しの印は、中の行を毎回見ずに、数を足し引きして持つ（get のたびに組の中を見ると、まとめて変えるとき行数の2乗になる。
+            // 測った値 2026-11-13：5000個で1.0〜1.8秒）。チェックできるかは行の作りで決まり変わらないので、数えるのは作ったときの1回だけ
+            if (file.CanCheck)
             {
-                if (args.PropertyName == nameof(FilePoolFileRow.IsChecked))
+                _checkableCount++;
+            }
+
+            if (file.IsChecked)
+            {
+                _checkedCount++;
+            }
+
+            file.PropertyChanged += (sender, args) =>
+            {
+                if (args.PropertyName == nameof(FilePoolFileRow.IsChecked) && sender is FilePoolFileRow row)
                 {
-                    OnPropertyChanged(nameof(IsChecked));
+                    _checkedCount += row.IsChecked ? 1 : -1;
+                    if (!row.InBulk)
+                    {
+                        OnPropertyChanged(nameof(IsChecked));
+                    }
                 }
             };
         }
     }
+
+    private int _checkableCount;
+    private int _checkedCount;
+
+    /// <summary>
+    /// 組のチェックでまとめて変え終わった：窓の側（付ける数・ボタン）に1回だけ知らせる合図。
+    /// 行ごとの知らせは止めてあるので、行の数だけ数え直さずに済む
+    /// </summary>
+    internal event Action? BulkChecked;
+
+    /// <summary>まとめて変えた後に、組の印だけを1回知らせる（「選択を解除」が行を直に変えた後に使う）。</summary>
+    internal void RaiseCheckedChanged() => OnPropertyChanged(nameof(IsChecked));
 
     /// <summary>組の名前。開閉を覚える鍵にも使う。</summary>
     public string Name { get; }
@@ -160,13 +188,12 @@ public sealed class FilePoolGroupRow : ViewModelBase
     {
         get
         {
-            var checkable = Files.Where(file => file.CanCheck).ToList();
-            if (checkable.Count == 0 || checkable.All(file => !file.IsChecked))
+            if (_checkableCount == 0 || _checkedCount == 0)
             {
                 return false;
             }
 
-            return checkable.All(file => file.IsChecked) ? true : null;
+            return _checkedCount == _checkableCount ? true : null;
         }
         set
         {
@@ -174,10 +201,11 @@ public sealed class FilePoolGroupRow : ViewModelBase
             var check = value ?? true;
             foreach (var file in Files.Where(file => file.CanCheck))
             {
-                file.IsChecked = check;
+                file.SetCheckedInBulk(check);
             }
 
             OnPropertyChanged();
+            BulkChecked?.Invoke();
         }
     }
 
@@ -235,6 +263,22 @@ public sealed class FilePoolFileRow : ViewModelBase
     {
         get => _isChecked;
         set => SetField(ref _isChecked, value && CanCheck);
+    }
+
+    /// <summary>まとめて変えている最中か。組と画面の側は、この間は行ごとの数え直し・知らせをせず、終わってから1回だけ知らせる。</summary>
+    internal bool InBulk { get; private set; }
+
+    internal void SetCheckedInBulk(bool value)
+    {
+        InBulk = true;
+        try
+        {
+            IsChecked = value;
+        }
+        finally
+        {
+            InBulk = false;
+        }
     }
 
     public string CheckName => $"{FileName}を選ぶ";
