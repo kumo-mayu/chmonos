@@ -89,7 +89,7 @@
 | 名前 | 中身（API） |
 |---|---|
 | `chmonos_status` | つないでいる保存先・ほかの札・名乗る名前（API に問い合わせない。許しを求めない） |
-| `search_items` | 探す（`POST /v1/search`。`query` は検索欄と同じ文字列、`where` は式、`sort`・`has_unity_package`・`limit` 1〜50 既定20・`cursor`） |
+| `search_items` | 探す（`POST /v1/search`。`query` は検索欄と同じ文字列、`where` は式、`sort`・`has_unity_package`・`limit` 1〜30 既定20。上限は要約が 8,000字に収まる件数。ユーザ判断 2026-11-13・`cursor`） |
 | `get_search_conditions` | 条件の種類（`/v1/search/conditions`）と式の書き方の短い説明 |
 | `get_item` | 商品1件（`include`：avatarLinks・allFiles・contents・meta） |
 | `get_item_description` | 説明文を見出しごとの素の文で（`offset`・`max_chars` 500〜6000 既定3000。HTML は返さない） |
@@ -114,7 +114,7 @@
 - `get_item_description` の `max_chars` は本文の字数の上限で、JSON にして上限を超えるなら本文を更に短くする。`nextOffset` は実際に返した本文の長さから出し、絵文字の組の途中では切らない。
 - 絵の場所（`thumbnail`・`imagePath`・`images`）と説明文の `html` は落とす。
 - 改変の `blueprintId` も落とす（［決定］ユーザ判断 2026-11-13「今のまま安全側でOK」）。API が返すのは「同じ PC の道具には隠しても守りにならない」から（[local-api.md](local-api.md)・2026-11-02）で、AI に渡すと AI の提供元へ出る。答えの JSON は日本語を `\uXXXX` に逃がさない（字数が6倍になる）。全角空白（U+3000）と絵文字も素のまま返す：`UnsafeRelaxedJsonEscaping` でもこの2つは逃げるので、引用符・`\`・制御文字だけを逃がす自前の `PlainJsonEncoder` を使う（答えは HTML に埋めず AI が読むだけなので `<` `&` も逃がさない）。`get_item_description` の本文の改行は `\n` にそろえる（BOOTH の本文の `\r\n` と、組み立てで足す改行が混ざるため）。
-- 検索は API の続きの印を使い、長すぎれば `limit` を半分にして引き直す（通訳の側で切ると続きの印と合わない）。最上位の `items` には入れ子の一覧の上限（30件）を掛けず、1件ずつ削る（掛けると `limit` 31〜50 で切った分を続きで取れない。点検 M4）。1件でも長ければその1件だけを縮め、件数と `nextCursor` は API の物のまま返す（一覧の道具も同じ）。
+- 検索は API の続きの印を使い、長すぎれば `limit` を半分にして引き直す（通訳の側で切ると続きの印と合わない）。最上位の `items` には入れ子の一覧の上限（30件）を掛けず、1件ずつ削る（掛けると、上限が50だった時に `limit` 31〜50 で切った分を続きで取れなかった。点検 M4）。1件でも長ければその1件だけを縮め、件数と `nextCursor` は API の物のまま返す（一覧の道具も同じ）。
 - 続きの印の無い一覧は通訳が `offset`・`limit`（既定30・100まで）で区切り、`total`・`nextOffset` を返す。上限を超えれば件数を減らす。
 
 ## 配る大きさ

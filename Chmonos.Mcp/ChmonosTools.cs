@@ -33,7 +33,7 @@ internal static class ChmonosTools
                 "where": { "type": "object", "description": "検索の式（POST /v1/search の where と同じ形）。query と両方渡すと AND" },
                 "sort": { "type": "string", "description": "並べ方。欄:向き をカンマで並べる（欄は id・name・publishedAt・acquiredAt・wishCount・paid・fetchedAt、向きは asc・desc）。例：\"acquiredAt:desc\"" },
                 "has_unity_package": { "type": "boolean", "description": "unitypackage を持つ商品だけ（true）・持たない商品だけ（false）" },
-                "limit": { "type": "integer", "minimum": 1, "maximum": 50, "description": "返す件数（既定 20）" },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 30, "description": "返す件数（既定 20）" },
                 "cursor": { "type": "string", "description": "前の答えの nextCursor（続きを引く）" }
             } }
             """, null, SearchAsync),
@@ -206,7 +206,7 @@ internal static class ChmonosTools
 
         // 商品そのものは API の includeHidden・includeAdult で絞れるが、表示する商品の avatarIds に隠したアバターの ID が残るので、ID の一覧も要る
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var limit = args.Int("limit", 20, 1, 50);
+        var limit = args.Int("limit", 20, 1, AnswerShaper.SearchMaxLimit);
         while (true)
         {
             var body = new JsonObject
@@ -229,7 +229,7 @@ internal static class ChmonosTools
                 ["nextCursor"] = page?["nextCursor"]?.DeepClone(),
 
                 // 1件ずつ削る。配列ごと Slim に渡すと、入れ子の一覧の上限（30件）で最上位も切り、
-                // limit 31〜50 で API が進めた続きの印と食い違って、切った分を続きで取れなくなる（2026-11-13 の点検 M4）
+                // API が進めた続きの印と食い違って、切った分を続きで取れなくなる（2026-11-13 の点検 M4。上限が50だった時に limit 31〜50 で起きた）
                 ["items"] = new JsonArray(items.Select(item => AnswerShaper.Slim(item)).ToArray()),
             };
             if (omitted > 0)

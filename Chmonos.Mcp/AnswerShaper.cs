@@ -164,6 +164,13 @@ internal static class AnswerShaper
     public const int ListDefaultLimit = 30;
 
     /// <summary>
+    /// <c>search_items</c> の1回の件数の上限。検索の要約は1件およそ200字あり、8,000字に収まるのは30件ほど（ユーザ判断 2026-11-13）。
+    /// 前は50で、本物の要約では収まらず件数を半分にして引き直し、ほぼ25件で返っていた（50と頼んで25件が来るのは AI に分かりにくい）。
+    /// ツールの説明（<c>ChmonosTools</c> の入力の形）の maximum も同じ値にそろえる
+    /// </summary>
+    public const int SearchMaxLimit = 30;
+
+    /// <summary>
     /// 1件にしても上限を超える一覧の答えで、その1件だけを縮める。続きの印（<c>nextCursor</c>・<c>nextOffset</c>）と件数の欄は削らない
     /// （封筒ごと <see cref="Fit"/> に通すと、長い続きの印が切られて続きを引けなくなる）。
     /// 1件に使える字数は、上限から封筒の長さを引いた残り（1件の分だけ縮めて上限ぎりぎりにすると、封筒を足して超える）

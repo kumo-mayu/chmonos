@@ -186,13 +186,13 @@ public sealed class AbnormalApiReplyTests
         for (var round = 0; round == 0 || next is not null; round++)
         {
             Assert.True(round < 10, "続きが終わらない");
-            var result = await McpHarness.CallAsync(client, "search_items", new { limit = 50, cursor = next });
+            var result = await McpHarness.CallAsync(client, "search_items", new { limit = AnswerShaper.SearchMaxLimit, cursor = next });
             Assert.False(result.IsError, result.Text);
             var page = JsonNode.Parse(result.Text)!;
             var items = page["items"]!.AsArray();
             Assert.All(items, item => Assert.IsType<JsonObject>(item));
             Assert.Equal(items.Count, page["returned"]!.GetValue<int>());
-            Assert.Equal(Math.Min(50, all.Count - seen.Count), items.Count);
+            Assert.Equal(Math.Min(AnswerShaper.SearchMaxLimit, all.Count - seen.Count), items.Count);
             seen.AddRange(items.Select(item => item!["id"]!.GetValue<string>()));
             next = page["nextCursor"]?.GetValue<string>();
         }

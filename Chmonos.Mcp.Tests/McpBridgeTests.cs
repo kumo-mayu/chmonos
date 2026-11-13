@@ -246,18 +246,20 @@ public sealed class McpBridgeTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(31, true)]
-    [InlineData(50, false)]
-    public async Task 検索は30件を超えるlimitでも_続きの印を辿って全件を1度ずつ取れる(int limit, bool fitsAtOnce)
+    [InlineData(0, true)]
+    [InlineData(200, false)]
+    public async Task 検索は上限の30件でも_続きの印を辿って全件を1度ずつ取れる(int padding, bool fitsAtOnce)
     {
-        // 名前を短くして、31件なら 8,000字に収まるようにする（収まらないと件数を減らして引き直す道に入り、30件で切る誤りが出ない）。
-        // 要約は1件およそ200字あり、50件は収まらないので、そちらは件数を半分にして引き直す道でも漏れないことを見る
+        // limit の上限は30（ユーザ判断 2026-11-13。前の50は本物の要約では収まらず、ほぼ25件に減って返っていた）。
+        // 名前が短ければ30件が1回で収まり、最上位の一覧を切らずに返すこと（2026-11-13 の点検 M4）を見る。
+        // 名前を長くすると30件が収まらないので、件数を半分にして引き直す道でも漏れないことを見る
+        const int limit = AnswerShaper.SearchMaxLimit;
         const int added = 70;
         var (storeRoot, port) = await _harness.StartApiAsync("store-a", fill: store =>
         {
             for (var i = 0; i < added; i++)
             {
-                store.Items.SaveAsync(new Core.Models.ItemRecord { Id = (9710000 + i).ToString(), Booth = new Core.Models.BoothBlock { Name = "作" + i } })
+                store.Items.SaveAsync(new Core.Models.ItemRecord { Id = (9710000 + i).ToString(), Booth = new Core.Models.BoothBlock { Name = "作" + i + new string('名', padding) } })
                     .GetAwaiter().GetResult();
             }
         });
@@ -278,7 +280,7 @@ public sealed class McpBridgeTests : IAsyncLifetime
             Assert.Equal(items.Count, page["returned"]!.GetValue<int>());
             if (round == 0 && fitsAtOnce)
             {
-                Assert.True(items.Count > 30, $"1回目は {items.Count} 件（30件を超えて返す道を確かめられていない）");
+                Assert.True(items.Count == limit, $"1回目は {items.Count} 件（上限の件数を1回で返す道を確かめられていない）");
             }
 
             seen.AddRange(items.Select(item => item!["id"]!.GetValue<string>()));
@@ -351,7 +353,7 @@ public sealed class McpBridgeTests : IAsyncLifetime
 
         (isError, text) = await McpHarness.CallAsync(client, "search_items", new { limit = 999 });
         Assert.True(isError);
-        Assert.Contains("1〜50", text);
+        Assert.Contains("1〜30", text);
 
         // 通訳は動き続ける
         (isError, _) = await McpHarness.CallAsync(client, "get_search_conditions");
