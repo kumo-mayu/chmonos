@@ -31,7 +31,7 @@ public sealed class NotificationArchiveIndex
 
     public string Month { get; }
 
-    /// <summary>読めた知らせ（同じ ID は1件）を新しい順に。</summary>
+    /// <summary>読めた知らせ（同じ ID・同じ作った日時は1件）を新しい順に。</summary>
     public IReadOnlyList<NotificationArchiveEntry> Newest { get; }
 
     /// <summary>
@@ -84,7 +84,8 @@ public sealed partial class NotificationArchive
     /// 月の目録を作る（保管した通知を読む画面。ユーザ案 2026-11-10）。月を1回前から流し、知らせごとに位置・ID・題・最後に変わった日時だけを控える。
     ///
     /// - **並びは最後に変わった日時の新しい順**（今の通知の並び・行に出す「何日前」と同じ鍵）。同じ日時はファイルの後ろ（後から保管した物）を先に。
-    /// - **同じ ID は前の物を残す**（<see cref="ReadAsync"/> と同じ。足す途中で落ちてもう一度足された写しは中身が同じ）。
+    /// - **同じ ID・同じ作った日時は前の物を残す**（<see cref="ReadAsync"/> と同じ。足す途中で落ちてもう一度足された写しは中身が同じ）。
+    ///   同じ ID でも作った日時が違えば別の知らせ（同じ商品の別の機会の更新）として両方並べる。
     /// - 読めない行・壊れたかたまりは <see cref="ReadAsync"/> と同じく飛ばして数える。
     /// </summary>
     public async Task<NotificationArchiveIndex> IndexAsync(string month, CancellationToken cancellationToken = default)
@@ -117,7 +118,8 @@ public sealed partial class NotificationArchive
         string path, bool precise, ArchiveLineScan scan, CancellationToken cancellationToken)
     {
         var entries = new List<NotificationArchiveEntry>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        // ReadAsync と同じ鍵（ID と作った日時）。商品の更新の知らせは別の機会でも同じ ID なので、ID だけだと2件目から目録に入らない
+        var seen = new HashSet<(string Id, DateTimeOffset CreatedAt)>();
         var unreadable = 0;
         var ordinal = -1;
         await foreach (var (line, version) in RecordLinesAsync(path, precise, scan, cancellationToken))
@@ -129,7 +131,7 @@ public sealed partial class NotificationArchive
                 continue;
             }
 
-            if (seen.Add(head.Id))
+            if (seen.Add((head.Id, head.CreatedAt)))
             {
                 entries.Add(new NotificationArchiveEntry(ordinal, head.Id, head.Title, head.UpdatedAt ?? head.CreatedAt));
             }

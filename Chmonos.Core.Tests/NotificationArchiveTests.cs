@@ -182,6 +182,22 @@ public sealed class NotificationArchiveTests : IDisposable
         Assert.Single((await Archive.ReadAsync("2026-11")).Records);
     }
 
+    /// <summary>
+    /// 同じ商品の別の機会の更新は、同じ ID・別の作った日時で控えに入る。どちらも読める。
+    /// 片方の書き直しの写しは1件にまとめる（2026-11-13 の点検 件7）。商品で絞っても同じ。
+    /// </summary>
+    [Fact]
+    public async Task 同じIDで作った日時の違う知らせは_両方読める()
+    {
+        var first = Record("item-updated:9900501", At(2026, 11, 1), itemId: "9900501") with { Detail = "1回目の更新" };
+        var second = Record("item-updated:9900501", At(2026, 11, 3), itemId: "9900501") with { Detail = "2回目の更新" };
+        await Archive.AppendAsync([first]);
+        await Archive.AppendAsync([first, second]);
+
+        Assert.Equal(["1回目の更新", "2回目の更新"], (await Archive.ReadAsync("2026-11")).Records.Select(record => record.Detail));
+        Assert.Equal(["1回目の更新", "2回目の更新"], (await Archive.ReadAsync("2026-11", "9900501")).Records.Select(record => record.Detail));
+    }
+
     /// <summary>読めない行（新しい版・知らない種類・壊れた行）は飛ばして数える。1行のために月ごと読めなくしない。</summary>
     [Fact]
     public async Task 読めない行は飛ばして数える()
