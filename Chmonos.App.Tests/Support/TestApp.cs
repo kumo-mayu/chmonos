@@ -55,6 +55,15 @@ internal sealed class TestApp
             OpenUnityEditors = () => OpenEditors,
         };
 
+        // 開いている間の監視（plan 49）：本物の Windows の見張りを張らず、待ちもしない（出来事は試験が FolderEvents で起こす）。
+        // 書き終わったかは本物で見る（試験のファイルは書き終えて閉じてあるので、答えは決まっている）
+        Services.CreateLiveFolderWatch = watch => new Chmonos.Core.Scanning.LiveFolderWatch(
+            FolderEvents.Create,
+            watch.FindNewAsync,
+            new Chmonos.Core.Scanning.FileSettleProbe(),
+            (_, token) => token.IsCancellationRequested ? Task.FromCanceled(token) : Task.CompletedTask,
+            _ => true);
+
         // 幅・高さを書くまでの 0.4 秒を、試験では待たない（変える試験が1件ごとに 0.4 秒延びていた）
         Services.PaneWidths.SaveDelay = TimeSpan.Zero;
 
@@ -89,6 +98,9 @@ internal sealed class TestApp
     public AppServiceContainer Services { get; }
 
     public DataStore Store => Services.Store;
+
+    /// <summary>開いている間の監視の作り物の見張り（plan 49）。</summary>
+    public FakeFolderEventsHub FolderEvents { get; } = new();
 
     /// <summary>作り物の BOOTH。何も教えなければ、どの問い合わせにも「無い」（404）と答える。</summary>
     public FakeBooth Booth { get; }

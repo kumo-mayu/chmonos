@@ -833,6 +833,28 @@
             </Border>
 
             <!--
+                開いている間に監視フォルダで見つけた新しいファイル（plan 49・ユーザ判断 2026-11-13「オンの時は既定で帯を出し」）。
+                設定「開いている間も…探す」が入のときだけ出る。［取り込む］は取り込み画面の「新しいファイルを取り込む」と同じ（画面は移さず、取り込みの帯に替わる）。
+                × は「知らせなくてよい」と同じ（同じファイルの間は出さない）。取り込みの帯と同じ場所・同じ見た目
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasLiveWatchNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissLiveWatchedCommand}" AutomationProperties.Name="新しいファイルの知らせを閉じる"
+                            AutomationProperties.AutomationId="LiveWatchNoticeClose"
+                            ToolTip="同じファイルのままなら、もう表示しません。" />
+                    <Button DockPanel.Dock="Right" Content="取り込む" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding TakeLiveWatchedCommand}" AutomationProperties.AutomationId="LiveWatchNoticeTake"
+                            ToolTip="監視フォルダの新しいファイルを取り込みます。" />
+                    <TextBlock Text="{Binding LiveWatchNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="LiveWatchNoticeText"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                </DockPanel>
+            </Border>
+
+            <!--
                 落とした物・フォルダビューから始めた取り込みの知らせ（点検 2026-09-23・動線の点検 A2・A3）。
                 前は取り込み画面へ移り、見ていた画面が勝手に替わった。画面は移さず、進み具合と入口をここに出す（登録の帯と同じ場所・同じ見た目）
             -->

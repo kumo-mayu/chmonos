@@ -477,6 +477,20 @@
                                       IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
                                       ToolTip="前回の続きは、下の帯の「続きから進む」と同じものです。" />
 
+                            <!--
+                                開いている間も監視フォルダを見張る（plan 49・ユーザ判断 2026-11-13「常時監視自体にオンオフをつけて、そのうえでオンの時は既定で帯を出し、
+                                設定から自動取り込みを許可できるようにしよう」）。既定は切。子の「そのまま取り込む」は親に従うので下げ、親が切れている間は押せない（値は残す）
+                            -->
+                            <CheckBox Content="開いている間も、監視フォルダに置かれたファイルを探す" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.WatchFoldersWhileOpen"
+                                      IsChecked="{Binding WatchFoldersWhileOpen, Mode=TwoWay}"
+                                      ToolTip="新しいファイルを見つけたら、画面の下に件数を表示します。" />
+                            <CheckBox Content="見つけたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}" Margin="26,0,0,10"
+                                      AutomationProperties.AutomationId="Settings.AutoImportWatchedFiles"
+                                      IsEnabled="{Binding WatchFoldersWhileOpen}"
+                                      IsChecked="{Binding AutoImportWatchedFiles, Mode=TwoWay}"
+                                      ToolTip="取り込みの最中に見つけた分は、終わってから取り込みます。" />
+
                             <!-- 取り込みの自動開始（#38）。既定はユーザ判断：落としたら入、起動時は切 -->
                             <CheckBox Content="ファイルやフォルダをドロップしたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding StartImportOnDrop, Mode=TwoWay}"

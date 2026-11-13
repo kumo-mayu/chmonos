@@ -133,6 +133,8 @@ public sealed partial class SettingsViewModel
         _avatarDetectRecheckDays = settings.AvatarDetectRecheckDays;
         _startImportOnDrop = settings.StartImportOnDrop;
         _startImportOnLaunch = settings.StartImportOnLaunch;
+        _watchFoldersWhileOpen = settings.WatchFoldersWhileOpen;
+        _autoImportWatchedFiles = settings.AutoImportWatchedFiles;
         _projectManager = settings.ProjectManager;
     }
 }

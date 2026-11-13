@@ -180,6 +180,7 @@ stateDiagram-v2
 | 通知の整理・ページの作りの確認・手で直した JSON の確認 | 行かない | 切れない（`MainViewModel.RunLocalChecksAsync`） |
 | ③検出し直し（知らないアバターだけ問い合わせる）・⑤残りの画像・持っていないアバターの画像・⑦期限の来た商品 | 行く | `ResumeFetchInBackground`（設定「起動したとき、裏で取得を始める」） |
 | 監視の新着と前回の続きの取り込み | 行く（①②） | `StartImportOnLaunch`。切なら件数の帯だけ |
+| 開いている間の監視フォルダの見張り（窓の後・開いている間ずっと） | 行かない（自動の取り込みを入れたときだけ①②。人が始めた取り込みと同じ道） | `WatchFoldersWhileOpen`（既定は切）・`AutoImportWatchedFiles`（既定は切。切なら件数の帯だけ）。`docs/spec/folder-watch.md` |
 
 ## 用語（画面 ↔ コード）
 

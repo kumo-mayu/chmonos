@@ -59,6 +59,7 @@
 | [headless.md](spec/headless.md) | 画面を出さずに動かす（--headless）：起動の守り・通知領域のアイコン・窓を開く／閉じる／終える・画面に依存しない係 |
 | [architecture.md](spec/architecture.md) | `UiCommand` を通す物、持ち主を宣言した書き込み、スレッドとディスク、画面の履歴、partial の分け方、試験 |
 | [import.md](spec/import.md) | 取り込みの周回と梯子、積む・取り消す・中断、未確定の一覧の合わせ方、⑦ 取り直し |
+| [folder-watch.md](spec/folder-watch.md) | 開いている間の監視フォルダの見張り：設定の入り切り、下の帯と自動の取り込み、新しいかの判定・書き終わりの待ち方、取り込み中の後回し、あふれ・張り直し、当てにならない場所 |
 | [missing-search.md](spec/missing-search.md) | 取り込み画面の「見つからないファイルを探す」：探す範囲の窓、結び直し・日時の書き方、登録したフォルダの候補と差し替え |
 | [background-and-network.md](spec/background-and-network.md) | BOOTH への通信の決め事、優先度、起動時の裏の作業、失敗の書き残し（`logs/app.log`） |
 | [id-resolution.md](spec/id-resolution.md) | 商品IDの手掛かり、ファイル名からの自動検索、未確定の画面、「この商品から外す」 |

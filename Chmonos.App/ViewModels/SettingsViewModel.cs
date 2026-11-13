@@ -380,6 +380,27 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _startImportOnLaunch, value)) { Save(); } }
     }
 
+    private bool _watchFoldersWhileOpen;
+
+    /// <summary>
+    /// 開いている間も監視フォルダを見張る（plan 49・ユーザ判断 2026-11-13）。保存したらその場で効く（主画面が設定の変化を聞いて張る・止める）。
+    /// 子の「そのまま取り込む」は親が入のときだけ押せる（値は残す）
+    /// </summary>
+    public bool WatchFoldersWhileOpen
+    {
+        get => _watchFoldersWhileOpen;
+        set { if (SetField(ref _watchFoldersWhileOpen, value)) { Save(); } }
+    }
+
+    private bool _autoImportWatchedFiles;
+
+    /// <summary>開いている間に見つけた新しいファイルを、帯で知らせずにそのまま取り込む（同じユーザ判断。既定は切）。</summary>
+    public bool AutoImportWatchedFiles
+    {
+        get => _autoImportWatchedFiles;
+        set { if (SetField(ref _autoImportWatchedFiles, value)) { Save(); } }
+    }
+
     /// <summary>ショートカットの割り当て（#43）。1操作1行。</summary>
     public ObservableCollection<ShortcutRow> ShortcutRows { get; } = [];
 
@@ -1772,6 +1793,8 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             Shortcuts = shortcuts,
             StartImportOnDrop = StartImportOnDrop,
             StartImportOnLaunch = StartImportOnLaunch,
+            WatchFoldersWhileOpen = WatchFoldersWhileOpen,
+            AutoImportWatchedFiles = AutoImportWatchedFiles,
             ProjectManager = ProjectManager,
         }), then).Forget();
     }

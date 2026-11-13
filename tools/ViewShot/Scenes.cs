@@ -24,6 +24,7 @@ internal static partial class Scenes
         EditDescription(),
         .. Nav,
         .. Bands,
+        .. LiveWatchScenes,
         .. Modifications,
         .. ModificationMembers,
         .. ManageMemo32Scenes,

@@ -1014,14 +1014,23 @@ public sealed partial class ImportViewModel : ViewModelBase
     ///
     /// 複数まとめて聞くのは、5つ落として5回聞かれると読まずに押されるため。
     /// </summary>
+    /// <summary>
+    /// 「監視対象に入れますか」の窓の、入れると何が起きるか。開いている間の監視（plan 49）を入れていると、
+    /// 「次に開いたときに」「件数を表示するだけ」は合わなくなるので、設定で言い分ける
+    /// </summary>
+    internal static string WatchOfferDetail(Core.Models.AppSettings settings) => settings switch
+    {
+        { WatchFoldersWhileOpen: true, AutoImportWatchedFiles: true } => "入れておくと、新しいファイルが置かれたときに取り込みます。",
+        { WatchFoldersWhileOpen: true } => "入れておくと、新しいファイルが置かれたときに件数を表示します。\n見つかっても勝手には取り込みません。",
+        _ => "入れておくと、次に開いたときに新しいファイルが増えていないかを見ます。\n見つかっても勝手には取り込まず、件数を表示するだけです。",
+    };
+
     private async Task OfferToWatchAsync(IReadOnlyList<string> folders)
     {
         var names = string.Join("\n", folders.Select(folder => "・" + folder));
 
         var answer = Services.Notice.Show(
-            $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n"
-            + "入れておくと、次に開いたときに新しいファイルが増えていないかを見ます。\n"
-            + "見つかっても勝手には取り込まず、件数を表示するだけです。",
+            $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n" + WatchOfferDetail(_services.Settings),
             "監視対象に入れますか",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question,
@@ -1069,17 +1078,23 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 「知らせなくてよい」と言った顔ぶれも、押したなら取り込む
     /// </summary>
     public RelayCommand ImportWatchedCommand => _importWatched ??= new RelayCommand(
-        () => ImportWatchedAsync().Forget(),
+        () => ImportWatchedAsync(Watched.ToList()).Forget(),
         () => Watched.Count > 0 && !_isCheckingWatched && !IsRemovingUnpacked);
 
-    private async Task ImportWatchedAsync()
+    /// <summary>
+    /// 下の帯の［取り込む］（開いている間の監視・plan 49）。この画面のボタンと同じ道で、今の新着を探し直して取り込む
+    /// （帯に出した一覧を使い回さない。出した後に取り込まれた・消えた物がある）。積んだ件数を返す
+    /// </summary>
+    internal Task<int> ImportWatchedNowAsync() => ImportWatchedAsync(_services.Settings.WatchedFolders);
+
+    private async Task<int> ImportWatchedAsync(IReadOnlyList<string> folders)
     {
         _isCheckingWatched = true;
         RelayCommand.RaiseCanExecuteChanged();
         WatchImportText = "監視対象を調べています…";
         try
         {
-            var result = await Task.Run(() => _services.Watch.FindNewAsync(Watched.ToList()));
+            var result = await Task.Run(() => _services.Watch.FindNewAsync(folders));
             _main.ForgetWatchedNew();
 
             if (result.NewFiles.Count == 0)
@@ -1087,17 +1102,19 @@ public sealed partial class ImportViewModel : ViewModelBase
                 WatchImportText = result.MissingFolders.Count > 0
                     ? $"新しいファイルはありません。{MainViewModel.WatchedMissingSummary(result.MissingFolders)}"
                     : "新しいファイルはありません。";
-                return;
+                return 0;
             }
 
             WatchImportText = $"新しいファイル {result.NewFiles.Count} 件を取り込みます。";
 
             // 押した操作なので、展開先のファイルがあれば尋ねる。監視フォルダの中なので「監視しますか」は聞かない
             AddDroppedPaths(result.NewFiles, startImmediately: true, offerWatch: false);
+            return result.NewFiles.Count;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             WatchImportText = "監視対象を読めませんでした。フォルダのある場所を確かめてください。";
+            return 0;
         }
         finally
         {

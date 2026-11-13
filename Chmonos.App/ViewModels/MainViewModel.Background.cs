@@ -85,6 +85,7 @@ public sealed partial class MainViewModel
     {
         _services.Startup.Stop();
         _watch?.Cancel();
+        StopLiveWatch();
     }
 
     private CancellationTokenSource? _watch;
@@ -168,6 +169,7 @@ public sealed partial class MainViewModel
                     OnPropertyChanged(nameof(WatchedNewCount));
                     OnPropertyChanged(nameof(HasWatchedNew));
                     OnPropertyChanged(nameof(WatchedNewText));
+                    OnPropertyChanged(nameof(HasLiveWatchNotice));
                 });
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -200,6 +202,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(WatchedNewCount));
         OnPropertyChanged(nameof(HasWatchedNew));
         OnPropertyChanged(nameof(WatchedNewText));
+        OnPropertyChanged(nameof(HasLiveWatchNotice));
 
         SaveUiStateAsync(state => state with { DismissedWatchNew = digest }).Forget();
     }
@@ -257,6 +260,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(WatchedNewCount));
         OnPropertyChanged(nameof(HasWatchedNew));
         OnPropertyChanged(nameof(WatchedNewText));
+        OnPropertyChanged(nameof(HasLiveWatchNotice));
     }
 
     public void TakeWatchedNew()
@@ -271,6 +275,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(WatchedNewCount));
         OnPropertyChanged(nameof(HasWatchedNew));
         OnPropertyChanged(nameof(WatchedNewText));
+        OnPropertyChanged(nameof(HasLiveWatchNotice));
 
         Import.AddDroppedPaths(files);
         ShowImport();

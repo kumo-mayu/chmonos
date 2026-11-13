@@ -266,6 +266,19 @@ public sealed record AppSettings
     /// </summary>
     public bool StartImportOnLaunch { get; init; }
 
+    /// <summary>
+    /// アプリを開いている間も監視フォルダを見張り、新しいファイルが置かれたら下の帯で知らせるか（plan 49・ユーザ判断 2026-11-13
+    /// 「常時監視自体にオンオフをつけて、そのうえでオンの時は既定で帯を出し、設定から自動取り込みを許可できるようにしよう」）。
+    /// **既定は切**：切なら前と全く同じ（新着を見るのは起動時と「新しいファイルを取り込む」を押したときだけ）。<c>docs/spec/folder-watch.md</c>
+    /// </summary>
+    public bool WatchFoldersWhileOpen { get; init; }
+
+    /// <summary>
+    /// 開いている間に見つけた新しいファイルを、帯で知らせる代わりにそのまま取り込むか（同じユーザ判断）。**既定は切**。
+    /// <see cref="WatchFoldersWhileOpen"/> が入のときだけ効く（切なら値は残すが使わない）。取り込みは人が始めた取り込みと同じ道・同じ優先度
+    /// </summary>
+    public bool AutoImportWatchedFiles { get; init; }
+
     // --- 更新 ---
 
     /// <summary>商品情報の更新間隔（日）。</summary>
