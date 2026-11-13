@@ -295,4 +295,96 @@ public class AvatarsConversionTests
         Assert.True(restored.IsConversionMode);
         Assert.Equal("9900862", restored.SelectedConversion!.ItemId);
     });
+
+    /// <summary>
+    /// 保存に失敗したら次の商品へ進まない（件16）。進むと、失敗の知らせを置いた商品から離れ、
+    /// 決めていないのに決めたように見える。書き込みだけを止める（読むのは通る）ので、画面の読み直しも通る。
+    /// </summary>
+    [Fact]
+    public Task 保存に失敗したら_次の商品へ進まず_失敗を言い_直ったらそのまま決められる() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        Assert.Equal("9900861", avatars.SelectedConversion!.ItemId);
+
+        using (new System.IO.FileStream(app.Services.Paths.ItemFile("9900861"), System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+        {
+            avatars.DecideSuggestedCommand.Execute(null);
+            await UiThread.Until(() => avatars.ConversionEditor.Notice.HasText, "失敗が欄の下に出る");
+        }
+
+        await app.SettleAsync();
+        Assert.True(avatars.ConversionEditor.Notice.IsWarning);
+        Assert.Equal("9900861", avatars.SelectedConversion!.ItemId);
+        Assert.Equal("決めていない", Row(avatars, "9900861").Group);
+        Assert.False((await app.Store.Items.LoadAsync("9900861"))!.Local.Conversion!.Targets.Single().Confirmed);
+
+        // 書き込みが通るようになれば、同じ商品でそのまま決められ、次へ進む
+        avatars.DecideSuggestedCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal("決めた", Row(avatars, "9900861").Group);
+        Assert.Equal("9900864", avatars.SelectedConversion!.ItemId);
+    });
+
+    [Fact]
+    public Task プロファイルではないにするの保存に失敗したら_次の商品へ進まない() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        avatars.SelectedConversion = Row(avatars, "9900864");
+
+        using (new System.IO.FileStream(app.Services.Paths.ItemFile("9900864"), System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+        {
+            avatars.MarkNotProfileCommand.Execute(null);
+            await UiThread.Until(() => avatars.ConversionEditor.Notice.HasText, "失敗が欄の下に出る");
+        }
+
+        await app.SettleAsync();
+        Assert.Equal("9900864", avatars.SelectedConversion!.ItemId);
+        Assert.Equal("決めていない", Row(avatars, "9900864").Group);
+    });
+
+    /// <summary>保存を待つ間に人が別の商品を選んでいたら、書き終えても次へ動かさない（人の選びを尊重する）。</summary>
+    [Fact]
+    public Task 保存を待つ間に別の商品を選び直したら_書き終えても動かさない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        Assert.Equal("9900861", avatars.SelectedConversion!.ItemId);
+        var other = Row(avatars, "9900862");
+
+        // 書いた直後（置き場の Written）に、人が別の商品を選んだ状態にする。画面の更新は画面のスレッドへ回す
+        void Reselect(string id)
+        {
+            if (id == "9900861")
+            {
+                // 書き終えの続きより前に必ず選び直す（後から回すと順が入れ替わり、守りが無くても通ってしまう）
+                var dispatcher = System.Windows.Application.Current.Dispatcher;
+                if (dispatcher.CheckAccess())
+                {
+                    avatars.SelectedConversion = other;
+                }
+                else
+                {
+                    dispatcher.Invoke(() => avatars.SelectedConversion = other);
+                }
+            }
+        }
+
+        app.Store.Items.Written += Reselect;
+        try
+        {
+            avatars.DecideSuggestedCommand.Execute(null);
+            await UiThread.Until(() => Row(avatars, "9900861").Group == "決めた", "決めた群へ移る");
+            await app.SettleAsync();
+        }
+        finally
+        {
+            app.Store.Items.Written -= Reselect;
+        }
+
+        Assert.Equal("9900862", avatars.SelectedConversion!.ItemId);
+    });
 }

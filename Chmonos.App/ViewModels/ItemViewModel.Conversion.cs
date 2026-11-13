@@ -12,7 +12,7 @@ public partial class ItemViewModel
 
     public ItemConversionEditor Conversion => _conversion ??= new ItemConversionEditor(
         _services,
-        command => RunItemCommandAsync(command, Conversion.Notice),
+        command => RunItemCommandCoreAsync(command, Conversion.Notice),
         () => IsEditLocked,
         ItemConversionEditor.IconsFrom(_services, _main));
 

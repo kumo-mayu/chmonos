@@ -143,46 +143,67 @@ public sealed partial class AvatarsViewModel
 
     private async Task DecideSuggestedAsync()
     {
-        if (ConversionEditor.UnconfirmedTargets is { Count: > 0 } shown)
+        var deciding = SelectedConversion?.ItemId;
+        if (ConversionEditor.UnconfirmedTargets is { Count: > 0 } shown
+            && !await ConversionEditor.ChangeAsync(ConversionEdits.ConfirmMany(shown)))
         {
-            await ConversionEditor.ChangeAsync(ConversionEdits.ConfirmMany(shown));
+            return;
         }
 
-        SelectNextUndecided();
+        SelectNextIfStillOn(deciding);
     }
 
     private async Task MarkNotProfileAsync()
     {
-        await ConversionEditor.ChangeAsync(ConversionEdits.SetMode(ConversionMode.NotProfile));
-        SelectNextUndecided();
+        var deciding = SelectedConversion?.ItemId;
+        if (await ConversionEditor.ChangeAsync(ConversionEdits.SetMode(ConversionMode.NotProfile)))
+        {
+            SelectNextIfStillOn(deciding);
+        }
+    }
+
+    /// <summary>
+    /// 書き終えた後に次へ進む。保存を待つ間に人が別の商品を選び直していたら、その選びを尊重して動かさない
+    /// （決めた商品とは別の商品から「次」へ飛ぶと、見ていた商品を勝手に離れる）。失敗したときは呼ばない（同じ商品に留まり、失敗の知らせを読める）。
+    /// </summary>
+    private void SelectNextIfStillOn(string? decidedItemId)
+    {
+        if (SelectedConversion?.ItemId == decidedItemId)
+        {
+            SelectNextUndecided();
+        }
     }
 
     /// <summary>
     /// 欄の書き込み。命令を通し、書いた後の記録を読み直して、右の欄・一覧の行・検索の写しを直す
     /// （検索の写しへ知らせないと、衣装の商品ページの「変換経由」が全件の読み直しまで変わらない）。
     /// </summary>
-    private async Task RunConversionCommandAsync(UiCommand command)
+    private async Task<bool> RunConversionCommandAsync(UiCommand command)
     {
         if (command is not UiCommand.ChangeConversion change)
         {
-            return;
+            return false;
         }
 
+        var saved = true;
         try
         {
             var result = await _services.Commands.ExecuteAsync(command);
             if (result is CommandResult.Failed failed)
             {
                 ConversionEditor.Notice.Warn(failed.Message);
+                saved = false;
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            saved = false;
             Core.Diagnostics.AppLog.Error("変換扱いの保存", exception);
             ConversionEditor.Notice.Warn($"保存できませんでした。{FailureText.Cause(exception)}");
         }
 
         await AfterConversionWriteAsync([change.ItemId]);
+        return saved;
     }
 
     /// <summary>書いた商品を読み直し、検索の写し・一覧の行・右の欄を今の値に合わせる。</summary>

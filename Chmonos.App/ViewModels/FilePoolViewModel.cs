@@ -656,8 +656,28 @@ public sealed class FilePoolViewModel : ViewModelBase
         {
             foreach (var file in files)
             {
-                var result = await _services.Commands.ExecuteAsync(
-                    new UiCommand.AttachRecordedFile(target.Id, file.Hash, file.SourceItemId!, OtherHolders: OtherHolders.Share));
+                CommandResult result;
+                try
+                {
+                    result = await _services.Commands.ExecuteAsync(
+                        new UiCommand.AttachRecordedFile(target.Id, file.Hash, file.SourceItemId!, OtherHolders: OtherHolders.Share));
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げる。入口は Forget() でログに残すだけなので、
+                    // ここで受けないと、付けた物の結果も主画面への知らせも読み直しも飛ばされる。
+                    // 保存先が使えない状態なので、残りは試さずに止める（同じ失敗を件数分重ねない）
+                    Core.Diagnostics.AppLog.Error("ファイルの割り振りの保存", exception);
+                    failures.Add($"「{file.FileName}」を付けられませんでした。{FailureText.Cause(exception)}");
+                    var rest = files.Count - attached - failures.Count;
+                    if (rest > 0)
+                    {
+                        failures.Add($"残りの {rest} 個は付けていません。");
+                    }
+
+                    break;
+                }
+
                 if (result is CommandResult.FileAttached { Outcome: { } outcome })
                 {
                     if (outcome.Result is FileAttachResult.Attached or FileAttachResult.AlreadyAttached)
@@ -739,6 +759,12 @@ public sealed class FilePoolViewModel : ViewModelBase
             ResultText = result is CommandResult.FileDetached
                 ? $"「{file.FileName}」を「{file.ItemName}」から外しました。"
                 : result is CommandResult.Failed failed ? failed.Message : $"「{file.FileName}」を外せませんでした。";
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // 付けるときと同じ：受けないと、結果も主画面への知らせも読み直しも飛ばされる（書けていても画面を今の保存に合わせる）
+            Core.Diagnostics.AppLog.Error("ファイルの割り振りの保存", exception);
+            ResultText = $"「{file.FileName}」を外せませんでした。{FailureText.Cause(exception)}";
         }
         finally
         {

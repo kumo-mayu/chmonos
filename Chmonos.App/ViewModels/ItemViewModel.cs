@@ -1398,18 +1398,25 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 失敗は、その欄の下へ出す。呼び手が渡さなければ対応アバターの欄（呼び手の大半）
     /// </summary>
     private async Task RunItemCommandAsync(UiCommand command, AreaNotice? notice = null)
+        => await RunItemCommandCoreAsync(command, notice);
+
+    /// <summary><see cref="RunItemCommandAsync"/> の本体。書けたら true、失敗（知らせは出し済み）なら false（成否で次へ進むかを決める呼び手のため）。</summary>
+    private async Task<bool> RunItemCommandCoreAsync(UiCommand command, AreaNotice? notice = null)
     {
         var failureNotice = notice ?? AvatarsNotice;
+        var saved = true;
         try
         {
             var result = await _services.Commands.ExecuteAsync(command);
             if (result is CommandResult.Failed failed)
             {
                 failureNotice.Warn(failed.Message);
+                saved = false;
             }
         }
         catch (Exception exception)
         {
+            saved = false;
             // 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
             // 対応アバターを消した・足したのに何も起きなかったように見えた（b94dd15 と同じ直し）。
             // 書けなくても下で読み直す：見た目を保存した値に合わせる
@@ -1426,6 +1433,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             // 検索の一覧は読み込んだ写しを持っている。知らせないと、戻っても対応アバターの絞り込みに出ない（メモの保存と同じ）
             _main.Search.NoteItemChanged(reloaded);
         }
+
+        return saved;
     }
 
     /// <summary>
