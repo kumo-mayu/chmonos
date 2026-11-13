@@ -131,9 +131,27 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
     /// <summary>今の控えの、この ID のソフト（取り消されていれば null）。出来事を積むたびに今の許しを見るため。</summary>
     public ApiClientRecord? ById(string clientId) => _index.All.FirstOrDefault(client => client.Id == clientId);
 
-    /// <summary>読み直す。読めなければ（手で壊した JSON）誰のトークンも通さない（空として扱い、ログに残す）。</summary>
+    /// <summary>読み直しに振る通番（読み始める前に取る）。</summary>
+    private long _reloads;
+
+    /// <summary>今の索引を作った読み直しの通番（<see cref="_publishLock"/> の中で読み書きする）。</summary>
+    private long _published;
+
+    private readonly object _publishLock = new();
+
+    /// <summary>読み終えてから索引を出す前に呼ぶ（試験が、2本の読み直しの終わる順を決めるため）。</summary>
+    internal Action? AfterLoadForTest { get; set; }
+
+    /// <summary>
+    /// 読み直す。読めなければ（手で壊した JSON）誰のトークンも通さない（空として扱い、ログに残す）。
+    /// 見張り・設定の画面・自分の書き込みから同時に来るので、後に読み始めた方が先に出していたら、古い方は出さずに捨てる
+    /// （捨てないと、取り消す前の一覧を読んだ方が後から索引を出し、取り消したトークンが次の読み直しまで効く）。
+    /// 全体を錠で1本にしないのは、ファイルを読む間、画面のスレッドから来た読み直しを待たせないため。
+    /// 書いた側は書き終えてから読み直すので、いちばん後に読み始めた物がいつも書いた後の値を持ち、捨てられない
+    /// </summary>
     public void Reload()
     {
+        var generation = Interlocked.Increment(ref _reloads);
         ApiClientList list;
         try
         {
@@ -145,11 +163,22 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
             list = new ApiClientList();
         }
 
+        AfterLoadForTest?.Invoke();
+
         var clients = (list.Clients ?? [])
             .Where(client => client is not null && !string.IsNullOrEmpty(client.TokenHash) && !string.IsNullOrEmpty(client.Id))
             // 知らない種類（新しい版が足した物）は、この版では許していない物として扱う
             .Select(client => client with { Scopes = (client.Scopes ?? []).Where(ApiScopes.IsKnown).Distinct(StringComparer.Ordinal).ToList() })
             .ToList();
+
+        // 同じ ID の行が2つある（手で書いた控え）：出来事の列・項目の宣言は ID で引くので、片方を残すと、残らなかった方のトークンの持ち主へ
+        // 他方の列が渡り得る。どちらが本物かは控えから決められないので、両方とも通さない（許しを広げない側へ倒す。ファイルは書き換えない）
+        var duplicated = clients.GroupBy(client => client.Id, StringComparer.Ordinal).Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet(StringComparer.Ordinal);
+        if (duplicated.Count > 0)
+        {
+            Core.Diagnostics.AppLog.Note("外から使う API", $"許したソフトの一覧に同じ ID の行が{duplicated.Count}組あるので、その行のトークンは通さない");
+            clients = clients.Where(client => !duplicated.Contains(client.Id)).ToList();
+        }
         var byHash = new Dictionary<string, ApiClientRecord>(StringComparer.Ordinal);
         foreach (var client in clients)
         {
@@ -164,7 +193,18 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
             menus.TryAdd(client.Id, PluginMenus.FromRecords(client.Menu));
         }
 
-        _index = new Index(byHash, clients, refusals, Math.Max(0, list.RefusalLimit), menus);
+        lock (_publishLock)
+        {
+            if (generation < _published)
+            {
+                return;
+            }
+
+            _published = generation;
+            _index = new Index(byHash, clients, refusals, Math.Max(0, list.RefusalLimit), menus);
+        }
+
+        // 知らせは錠の外で（受け手は画面のスレッドへ渡して待つことがあり、画面のスレッドから来た読み直しと待ち合う）
         Changed?.Invoke();
     }
 
