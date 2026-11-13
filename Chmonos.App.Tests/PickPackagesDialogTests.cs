@@ -83,6 +83,26 @@ public sealed class PickPackagesDialogTests : IDisposable
         Assert.Equal(expected, section.Groups.SelectMany(group => group.Rows).Select(row => row.Package.Name));
     }
 
+    [Fact]
+    public void 一件だけの塊は畳まず_行に塊の名前を添え_二件以上の塊は見出しに出す()
+    {
+        // ユーザ判断 2026-11-13：zip の中に unitypackage が1つだけなら、畳まずに直接選べるようにする
+        var one = ItemWith("9900806", "衣装A", "Body.unitypackage");
+        var two = ItemWith("9900806", "衣装B", "Hair.unitypackage", "Extra/Shoes.unitypackage");
+        var item = one with { Local = one.Local with { LocalFolders = [.. one.Local.LocalFolders, .. two.Local.LocalFolders] } };
+
+        var section = PackageChoiceSection.Build(item, FileSort.Default)!;
+
+        var single = section.Groups[0];
+        Assert.True(single.IsSingle);
+        Assert.Equal("フォルダ：衣装A", Assert.Single(single.Rows).GroupLabel);
+        Assert.True(single.Rows[0].HasGroupLabel);
+
+        var pair = section.Groups[1];
+        Assert.False(pair.IsSingle);
+        Assert.All(pair.Rows, row => Assert.False(row.HasGroupLabel));
+    }
+
     private static IEnumerable<PackageChoiceRow> Rows(PickPackagesDialogViewModel model)
         => model.Sections.SelectMany(section => section.Groups).SelectMany(group => group.Rows);
 

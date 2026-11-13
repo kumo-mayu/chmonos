@@ -362,6 +362,18 @@ internal static partial class Scenes
             return Task.FromResult<Window>(new PickPackagesDialog(model));
         }),
 
+        DialogScene("catalog-dialog-pick-packages-single-zip", "送る unitypackage を選ぶ窓：1つだけ入った zip は畳まず直に並び、2つ入った zip は見出しで畳める", _ =>
+        {
+            var item = FileItem("9900404", "作り物の衣装セット", Fake.FileRecord(
+                Fake.Zip(@"ライブラリ\pick_single.zip", "Costume_Body.unitypackage")));
+            var two = Fake.FileRecord(Fake.Zip(@"ライブラリ\pick_pair.zip", "Hair/Hair_A.unitypackage", "Hair/Hair_B.unitypackage"));
+            item = item with { Local = item.Local with { LocalFiles = [.. item.Local.LocalFiles, two] } };
+            var section = PackageChoiceSection.Build(item, Chmonos.Core.Models.FileSort.Default)
+                ?? throw new InvalidOperationException("作り物の商品から選ぶ欄が作れませんでした。");
+            var model = new PickPackagesDialogViewModel("Unityへ送る", "Unityへ送るunitypackageを選んでください。", [section], othersCount: 0, records: false);
+            return Task.FromResult<Window>(new PickPackagesDialog(model));
+        }),
+
         DialogScene("catalog-dialog-pick-packages-filtered", "送る unitypackage を選ぶ窓：6つある商品を「body」で探して2つ選んだ所（複数選択の順に聞く形・飛ばすボタンあり）", _ =>
         {
             var item = FileItem("9900402", "作り物の着せ替えセット", Fake.FileRecord(

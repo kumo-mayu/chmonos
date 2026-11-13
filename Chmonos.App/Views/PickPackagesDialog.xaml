@@ -103,8 +103,10 @@
                                         <DataTemplate DataType="{x:Type vm:PackageChoiceGroup}">
                                             <StackPanel Margin="0,1"
                                                         Visibility="{Binding IsVisible, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <!-- 1件だけの塊は見出しを出さず、行を直に見せる（IsSingle。塊の名前は行の下に添える） -->
                                                 <ToggleButton Style="{StaticResource GroupHeader}"
                                                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                              Visibility="{Binding IsSingle, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                                                               AutomationProperties.Name="{Binding Label}">
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}"
@@ -114,8 +116,20 @@
                                                                    TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}" />
                                                     </DockPanel>
                                                 </ToggleButton>
-                                                <controls:ContentItemsControl ItemsSource="{Binding Rows}" Margin="20,1,0,3"
-                                                              Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <!-- 1件だけの塊は、見出しの畳む印の位置（左 2）から始める。畳めないので常に見せる -->
+                                                <controls:ContentItemsControl ItemsSource="{Binding Rows}">
+                                                    <controls:ContentItemsControl.Style>
+                                                        <Style TargetType="controls:ContentItemsControl">
+                                                            <Setter Property="Margin" Value="20,1,0,3" />
+                                                            <Setter Property="Visibility" Value="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSingle}" Value="True">
+                                                                    <Setter Property="Margin" Value="2,0,0,1" />
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </controls:ContentItemsControl.Style>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate DataType="{x:Type vm:PackageChoiceRow}">
                                                             <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,3"
@@ -127,6 +141,9 @@
                                                                                Foreground="{DynamicResource Text}"
                                                                                TextTrimming="CharacterEllipsis" MaxWidth="420"
                                                                                ToolTip="{Binding Name}" />
+                                                                    <TextBlock Text="{Binding GroupLabel}" Style="{StaticResource Caption}"
+                                                                               TextTrimming="CharacterEllipsis" MaxWidth="420" ToolTip="{Binding GroupLabel}"
+                                                                               Visibility="{Binding HasGroupLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <TextBlock Text="{Binding FolderText}" Style="{StaticResource Caption}"
                                                                                TextTrimming="CharacterEllipsis" MaxWidth="420"
                                                                                Visibility="{Binding HasFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

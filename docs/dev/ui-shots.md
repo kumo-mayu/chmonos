@@ -153,7 +153,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 送る前の VPM との重なりの窓（1件・連続で2つの VPM に重なり場所を1行ずつ並べる。plan 40） | `catalog-dialog-vpm-overlap`・`-many` |
 | 改変：窓（使ったものを足す・改変に追加・探す・絵） | `pick-member-files-dialog`・`pick-modification-*-dialog` |
 | 改変：使ったファイルを選び直す窓（欄を足した・上限まで足した）と、詳細の「Unity ▾」（外した行を含む・カード・リスト） | `repick-member-files-dialog`・`repick-member-files-dialog-full`・`modification-member-repick`・`modification-member-repick-list` |
-| 送る unitypackage を選ぶ窓（改変・カードの右クリック・複数選択） | `catalog-dialog-pick-packages`・`-filtered`（探して選んだ・飛ばすボタン）・`-none`（0件で送るが押せない） |
+| 送る unitypackage を選ぶ窓（改変・カードの右クリック・複数選択） | `catalog-dialog-pick-packages`・`-filtered`（探して選んだ・飛ばすボタン）・`-none`（0件で送るが押せない）・`-single-zip`（1つだけ入った zip は畳まず直に並ぶ） |
 | コピーした商品をまとめて登録する窓（計画 26） | `catalog-dialog-register-pasted`（ライブラリにある行・外した行・長い名前）・`-all-known`（すべてある・登録が押せない） |
 | ファイルの割り振り（サブ画面・計画 30） | `file-pool`（付ける先を選び組を広げてチェック・左は一部を畳む）・`-set-selected`（付いているファイルと「外す」・消えた商品の1行・押せない行）・`-nothing-shown`（絞りで何も出ない・左をすべて畳む）・`-filtered`／`-filtered-none`（左右の探す欄）・`-many`（40件・絵と頭文字・左は見えている行だけ作る）・`-wide-left`（境目で変えた比率で開き直す）・`-drag-left-min`／`-drag-right-min`（境目をドラッグして左右の最小で止まる）・`-after-changes`（表示した後の付け外しと読み直し） |
 

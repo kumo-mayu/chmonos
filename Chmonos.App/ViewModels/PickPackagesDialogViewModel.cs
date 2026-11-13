@@ -23,6 +23,14 @@ public sealed class PackageChoiceRow : ViewModelBase
 
     public string FolderText => HasFolder ? $"{(Package.InFolder ? "フォルダ" : "zip")}の中の {Package.Folder}" : string.Empty;
 
+    /// <summary>
+    /// 塊に1件だけのとき、見出しの代わりに行に添える塊の名前（「zip：衣装A.zip」）。2件以上の塊の行では空（見出しに出ている）。
+    /// 見出しを出さないので、どの zip の物かをここで言う
+    /// </summary>
+    public string GroupLabel { get; internal set; } = string.Empty;
+
+    public bool HasGroupLabel => GroupLabel.Length > 0;
+
     public bool IsChecked
     {
         get => _isChecked;
@@ -71,6 +79,12 @@ public sealed class PackageChoiceGroup : ViewModelBase
     }
 
     public string ExpandGlyph => IsExpanded ? "▾" : "▸";
+
+    /// <summary>
+    /// 1件だけの塊は畳まず、見出しを出さずに行を直に見せる（ユーザ判断 2026-11-13「zipの中に一つのunitypackageしか入ってなかったら
+    /// 折り畳みにせずに直接選択できるようにして良いと思う」）。1件を畳んでも見渡せる物は増えず、見出しの行と押す手間だけが増える
+    /// </summary>
+    public bool IsSingle => Rows.Count == 1;
 
     /// <summary>畳んでいても、中で何件選んでいるかが分かるように。</summary>
     public string CountText => Rows.Count(row => row.IsChecked) is var picked and > 0
@@ -185,13 +199,20 @@ public sealed class PackageChoiceSection : ViewModelBase
             Groups = candidates
                 .GroupBy(candidate => candidate.Key, StringComparer.OrdinalIgnoreCase)
                 .OrderBy(group => group.First().Order)
-                .Select(group => new PackageChoiceGroup
-                {
-                    Label = group.First().Label,
-                    Rows = group.Select(candidate => candidate.Row).ToList(),
-                })
+                .Select(group => Group(group.First().Label, group.Select(candidate => candidate.Row).ToList()))
                 .ToList(),
         };
+    }
+
+    private static PackageChoiceGroup Group(string label, IReadOnlyList<PackageChoiceRow> rows)
+    {
+        var group = new PackageChoiceGroup { Label = label, Rows = rows };
+        if (group.IsSingle)
+        {
+            rows[0].GroupLabel = label;
+        }
+
+        return group;
     }
 }
 
