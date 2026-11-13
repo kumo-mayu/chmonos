@@ -107,15 +107,28 @@ public sealed partial class StartupWork
         }
     }
 
+    /// <summary>
+    /// 試験の差し込み口：始めると決めて記録した後、走らせる前に呼ぶ。ここで2本目の呼び出しを挟んで、二重に始めないことを確かめる。
+    /// </summary>
+    internal Action? PrefetchReservedForTest;
+
     /// <summary>設定が入っていて、起動したときの取得が済み、この起動で走らせてよければ始める。走っていれば何もしない。</summary>
-    private void StartPrefetch()
+    internal void StartPrefetch()
     {
         if (!services.Settings.PrefetchCandidateSearch || !_startupFetchDone || !_prefetchArmed)
         {
             return;
         }
 
-        CancellationToken token;
+        var progress = new SyncProgress<(int Done, int Total)>(
+            report => Progress?.Invoke("未確定の候補を検索中", report.Done, report.Total));
+
+        // **走っているかを見てから、取り消し元と走る物を記録するまでを1つの錠の中で行う。**
+        // 呼び手は設定の変更・起動の⑦の終わり・取り込みの終わり（裏のスレッドからも来る）と複数あり、前は見るのと記録するのが
+        // 別の錠だったので、2つの呼び出しが両方「走っていない」を通って先回りが2本走り、止める取り消し元も片方しか残らなかった。
+        // 錠の中では走らせない（作るだけ）。走らせるのは錠を出てから：本体の続きが錠を待つ形を作らないため
+        Task<Task> cold;
+        Task run;
         lock (_prefetchSync)
         {
             if (_prefetchRun is { IsCompleted: false })
@@ -124,40 +137,43 @@ public sealed partial class StartupWork
             }
 
             _prefetchStop = new CancellationTokenSource();
-            token = _prefetchStop.Token;
-        }
-
-        var progress = new SyncProgress<(int Done, int Total)>(
-            report => Progress?.Invoke("未確定の候補を検索中", report.Done, report.Total));
-
-        var run = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await Prefetch.RunAsync(progress, token);
-                Core.Services.UiTrace.Write("先回り", $"未確定の自動検索の先回り：{result.End}・控えた {result.Searched} 件");
-            }
-            catch (OperationCanceledException)
-            {
-                // 設定を切った・閉じた
-            }
-            catch (Exception exception)
-            {
-                Core.Diagnostics.AppLog.Error("未確定の自動検索の先回り", exception);
-            }
-            finally
-            {
-                StageEnded?.Invoke();
-                WorkEnded?.Invoke();
-            }
-        }, token);
-
-        lock (_prefetchSync)
-        {
+            var token = _prefetchStop.Token;
+            cold = new Task<Task>(() => RunPrefetchAsync(progress, token));
+            run = cold.Unwrap();
             _prefetchRun = run;
         }
 
+        PrefetchReservedForTest?.Invoke();
+        cold.Start(TaskScheduler.Default);
         run.Forget();
+    }
+
+    private async Task RunPrefetchAsync(IProgress<(int Done, int Total)> progress, CancellationToken token)
+    {
+        // 走らせる前に止められた（記録の後・走らせる前に設定を切った・閉じた）。前の Task.Run(…, token) と同じく何もしない
+        if (token.IsCancellationRequested)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await Prefetch.RunAsync(progress, token);
+            Core.Services.UiTrace.Write("先回り", $"未確定の自動検索の先回り：{result.End}・控えた {result.Searched} 件");
+        }
+        catch (OperationCanceledException)
+        {
+            // 設定を切った・閉じた
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("未確定の自動検索の先回り", exception);
+        }
+        finally
+        {
+            StageEnded?.Invoke();
+            WorkEnded?.Invoke();
+        }
     }
 
     private void StopPrefetch()

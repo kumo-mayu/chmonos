@@ -147,6 +147,37 @@ public class ResolvePrefetchTests
         Assert.Equal(asked, app.Booth.SearchCount);
     });
 
+    /// <summary>
+    /// 始める呼び出しが重なっても1本だけ走る（2026-11-13 の Codex の点検の件2）。呼び手は設定の変更・⑦の終わり・取り込みの終わり
+    /// （裏のスレッド）と複数ある。始めると決めてから走らせるまでの間（差し込み口）に、別のスレッドから2本目を呼んで順番を決める
+    /// </summary>
+    [Fact]
+    public Task 先回りを始める呼び出しが重なっても_1本だけ走る() => TestApp.Run(async app =>
+    {
+        var path = app.NewFile(@"dl\SampleHat.zip");
+        await app.Store.Unresolved.SaveAsync([Unresolved(path)]);
+        app.Booth.SearchFinds(FileNameQuery.ToSearchQuery(path));
+        await app.StartAsync();
+
+        var startup = app.Services.Startup;
+        var reserved = 0;
+        startup.PrefetchReservedForTest = () =>
+        {
+            if (Interlocked.Increment(ref reserved) == 1)
+            {
+                Task.Run(startup.StartPrefetch).Wait(TimeSpan.FromSeconds(5));
+            }
+        };
+
+        await app.ChangeSettingsAsync(settings => settings with { PrefetchCandidateSearch = true });
+        var running = Assert.IsAssignableFrom<Task>(startup.PrefetchRunning);
+        await running.WaitAsync(TimeSpan.FromSeconds(30));
+        await app.SettleAsync();
+
+        Assert.Equal(1, Volatile.Read(ref reserved));
+        Assert.NotNull(app.Services.CandidateSearches.Find(path));
+    });
+
     [Fact]
     public Task 起動したときは裏の取得の後に始める() => TestApp.Run(async app =>
     {

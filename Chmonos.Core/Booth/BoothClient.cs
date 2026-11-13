@@ -897,10 +897,13 @@ public sealed class BoothClient : IBoothClient
         {
             turn = await WaitForTurnAsync(target, attempt, cancellationToken);
 
-            // **⑧（未確定の自動検索の先回り）は、間隔を待ち終えたときに誰かが並んでいれば譲る**（ユーザ判断 2026-11-11）。
+            // **⑧（未確定の自動検索の先回り）は、間隔を待ち終えたときに誰かが並んでいれば譲る**（ユーザ判断 2026-11-11。「誰か」は⑦以上の待ち手）。
             // 門は間隔を待つ間も持つので、門が空いているときに⑧が入ると、待っている1.5秒の間に押された操作が⑧の1本の後ろになる。
-            // 送る前なので、譲っても最後の問い合わせの時刻は動かない（次の人は待たずに出られる）
-            while (hold is null && CurrentPriority == BoothPriority.Prefetch && _gate.WaitingCount > 0)
+            // 送る前なので、譲っても最後の問い合わせの時刻は動かない（次の人は待たずに出られる）。
+            // **譲るのは自分より急ぐ待ち手だけ**：判断の意図は「人の操作などを⑧の後ろにしない」こと。前は並んでいる数だけを見たので、
+            // ⑧が2本並ぶと（先回りが二重に始まったときなど）互いに譲り合い、どちらも送らないまま並び直しを繰り返した。
+            // ⑧どうしは同じ段の着いた順（PriorityGate）でよい
+            while (hold is null && CurrentPriority == BoothPriority.Prefetch && _gate.HasWaitingAbove(BoothPriority.Prefetch))
             {
                 turn?.Dispose();
                 turn = null;

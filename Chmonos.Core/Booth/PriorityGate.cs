@@ -35,6 +35,33 @@ public sealed class PriorityGate
     }
 
     /// <summary>
+    /// <paramref name="priority"/> より急ぐ（値の小さい）待ち手が、まだ待っているか。門を譲るかの判断に使う。
+    /// **同じ段・下の段は数えない**：数えると、同じ段どうしが譲り合って、どちらも送らないまま並び直しを繰り返す。
+    /// 中断された待ち手は数えない（譲っても通る人が居ない）。
+    /// </summary>
+    public bool HasWaitingAbove(BoothPriority priority)
+    {
+        lock (_sync)
+        {
+            foreach (var (key, queue) in _waiting)
+            {
+                // 並びは値の小さい順なので、自分の段に着いたらそこから先は見ない
+                if (key >= (int)priority)
+                {
+                    return false;
+                }
+
+                if (queue.Any(waiter => !waiter.Task.IsCompleted))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 今すぐ通れるか。通れなければ順番待ちに入る。
     ///
     /// 中断の登録を**並ぶ前に**済ませているのは、並んでから登録すると

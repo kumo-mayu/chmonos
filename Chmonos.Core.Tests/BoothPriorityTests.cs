@@ -299,6 +299,63 @@ public class BoothPriorityTests
         Assert.Equal(expected.Select(BoothClient.ItemJsonUrl), handler.Requests);
     }
 
+    /// <summary>
+    /// ⑧どうしは譲り合わない（2026-11-13 の Codex の点検の件2）。前は並んでいる数だけを見たので、⑧が2本並ぶと互いに譲って
+    /// 並び直しを繰り返し、どちらも送らなかった。譲るのは自分より急ぐ待ち手だけで、⑧どうしは着いた順に出る。
+    /// 譲り合いが起きると間隔の待ちが繰り返し呼ばれるので、待ちの回数が上限を超えたら止めて落とす（実時間の締め切りに頼らない）
+    /// </summary>
+    [Fact]
+    public async Task 先回りどうしは譲り合わずに着いた順に出る()
+    {
+        var handler = new RecordingHandler();
+        var waiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var go = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var spinning = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blocking = false;
+        var waits = 0;
+        var settings = new AppSettings { FetchIntervalMs = 1500 };
+        var client = new BoothClient(
+            new HttpClient(handler),
+            () => settings,
+            async (_, token) =>
+            {
+                if (!Volatile.Read(ref blocking))
+                {
+                    return;
+                }
+
+                // 2本を送るのに要る待ちは数回。100回は、譲り合いを繰り返しているとしか読めない数
+                if (Interlocked.Increment(ref waits) > 100)
+                {
+                    spinning.TrySetResult();
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+
+                waiting.TrySetResult();
+                await go.Task.WaitAsync(token);
+            },
+            machineGate: null,
+            new StoppedClock());
+
+        await Start(client, BoothPriority.Metadata, "1").WaitAsync(TimeSpan.FromSeconds(5));
+
+        Volatile.Write(ref blocking, true);
+        var first = Start(client, BoothPriority.Prefetch, "2");
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // 1本目の⑧が門を持って間隔を待っている間に、2本目の⑧が並ぶ
+        var second = Start(client, BoothPriority.Prefetch, "3");
+        await WaitUntilQueued(client, 1);
+
+        go.TrySetResult();
+        var both = Task.WhenAll(first, second);
+        await Task.WhenAny(both, spinning.Task).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.False(spinning.Task.IsCompleted, $"⑧どうしが譲り合って進まない（待ち {Volatile.Read(ref waits)} 回）");
+        await both;
+        Assert.Equal(new[] { "1", "2", "3" }.Select(BoothClient.ItemJsonUrl), handler.Requests);
+    }
+
     /// <summary>進まない時計。間隔は毎回まるごと残っているので、待ちを差し替えた所でだけ進む（実時間に左右されない）</summary>
     private sealed class StoppedClock : TimeProvider
     {
