@@ -245,6 +245,52 @@ public sealed class McpBridgeTests : IAsyncLifetime
         Assert.Contains("R-18", text);
     }
 
+    [Theory]
+    [InlineData(31, true)]
+    [InlineData(50, false)]
+    public async Task 検索は30件を超えるlimitでも_続きの印を辿って全件を1度ずつ取れる(int limit, bool fitsAtOnce)
+    {
+        // 名前を短くして、31件なら 8,000字に収まるようにする（収まらないと件数を減らして引き直す道に入り、30件で切る誤りが出ない）。
+        // 要約は1件およそ200字あり、50件は収まらないので、そちらは件数を半分にして引き直す道でも漏れないことを見る
+        const int added = 70;
+        var (storeRoot, port) = await _harness.StartApiAsync("store-a", fill: store =>
+        {
+            for (var i = 0; i < added; i++)
+            {
+                store.Items.SaveAsync(new Core.Models.ItemRecord { Id = (9710000 + i).ToString(), Booth = new Core.Models.BoothBlock { Name = "作" + i } })
+                    .GetAwaiter().GetResult();
+            }
+        });
+        _harness.Announce(storeRoot, port, 101);
+        var client = await _harness.ConnectAsync(_harness.Options());
+        _ = _harness.Approvals.ApproveNextAsync();
+
+        var seen = new List<string>();
+        string? cursor = null;
+        var first = true;
+        for (var round = 0; round < 20 && (first || cursor is not null); round++, first = false)
+        {
+            var (isError, text) = await McpHarness.CallAsync(client, "search_items", new { sort = "id:asc", limit, cursor });
+            Assert.False(isError, text);
+            var page = Parse(text);
+            var items = page["items"]!.AsArray();
+            Assert.All(items, item => Assert.IsType<JsonObject>(item));
+            Assert.Equal(items.Count, page["returned"]!.GetValue<int>());
+            if (round == 0 && fitsAtOnce)
+            {
+                Assert.True(items.Count > 30, $"1回目は {items.Count} 件（30件を超えて返す道を確かめられていない）");
+            }
+
+            seen.AddRange(items.Select(item => item!["id"]!.GetValue<string>()));
+            cursor = page["nextCursor"]?.GetValue<string>();
+        }
+
+        // 見せてよい物は、足した70件と、台が最初に入れる帽子と R-18 の服（非表示の靴は出ない）
+        var expected = Enumerable.Range(0, added).Select(i => (9710000 + i).ToString()).Append("9700001").Append("9700003").Order(StringComparer.Ordinal).ToList();
+        Assert.Equal(expected, seen.Order(StringComparer.Ordinal).ToList());
+        Assert.Null(cursor);
+    }
+
     [Fact]
     public async Task 説明文は全角空白と絵文字を逃がさず_改行は_nにそろえて渡す()
     {

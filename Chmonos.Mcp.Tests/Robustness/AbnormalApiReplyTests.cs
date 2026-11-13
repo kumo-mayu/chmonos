@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -88,6 +90,77 @@ public sealed class AbnormalApiReplyTests
         broken = false;
         Assert.False((await McpHarness.CallAsync(client, "get_item", new { id = "synthetic" })).IsError);
         Assert.False((await McpHarness.CallAsync(client, "chmonos_status")).IsError);
+    }
+
+    [Fact]
+    public async Task 制御文字の多い説明文も_JSONにした後で8000字以内に収める()
+    {
+        // 制御文字は JSON で \uXXXX の6字になるので、本文6,000字が JSON では3万字を超える。区切り目の両側に絵文字を置き、組の途中で切らないことも見る
+        var summary = new string('\u0001', 6000) + string.Concat(Enumerable.Repeat("🐾", 3000)) + "終わり";
+        await using var h = new McpHarness();
+        await using var app = await StartAsync(h, async context =>
+        {
+            object answer = context.Request.Path.Value switch
+            {
+                "/v1/display-settings" => new { showAdult = true },
+                "/v1/items/synthetic/description" => new { summary, sections = Array.Empty<object>() },
+                _ => new { id = "synthetic", name = "safe", isHidden = false, isAdult = false },
+            };
+            await context.Response.WriteAsJsonAsync(answer);
+        });
+        var client = await h.ConnectAsync(h.Options());
+
+        var whole = new StringBuilder();
+        int? offset = 0;
+        for (var round = 0; offset is not null; round++)
+        {
+            Assert.True(round < 100, "続きが終わらない");
+            var result = await McpHarness.CallAsync(client, "get_item_description", new { id = "synthetic", max_chars = 6000, offset });
+            Assert.False(result.IsError, result.Text);
+            Assert.True(result.Text.Length <= AnswerShaper.MaxAnswerChars, $"JSON の答えは {result.Text.Length} 字（上限8000字）");
+            var answer = JsonNode.Parse(result.Text)!;
+            var text = answer["text"]!.GetValue<string>();
+            Assert.Equal(offset, answer["offset"]!.GetValue<int>());
+            var next = answer["nextOffset"]?.GetValue<int>();
+            Assert.Equal(next ?? answer["totalChars"]!.GetValue<int>(), offset + text.Length);
+            Assert.True(text.Length > 0);
+            Assert.False(char.IsHighSurrogate(text[^1]), "絵文字の組の途中で切った");
+            whole.Append(text);
+            offset = next;
+        }
+
+        Assert.Equal(summary, whole.ToString());
+    }
+
+    [Fact]
+    public void 横に広いAPIの答えも_秘密を落として8000字以内に収める()
+    {
+        var node = new JsonObject { ["blueprintId"] = "SECRET_BLUEPRINT_SYNTHETIC" };
+        for (var i = 0; i < 1000; i++)
+        {
+            node["field" + i] = new string('x', 100);
+        }
+
+        var text = AnswerShaper.Fit(node);
+        Assert.DoesNotContain("SECRET_BLUEPRINT_SYNTHETIC", text);
+        Assert.NotNull(JsonNode.Parse(text));
+        Assert.True(text.Length <= AnswerShaper.MaxAnswerChars, $"JSON の答えは {text.Length} 字（上限8000字）");
+    }
+
+    [Fact]
+    public void 一覧の1件だけを縮めても_続きの印は切らず_封筒ごと8000字以内に収める()
+    {
+        var cursor = new string('c', 500);
+        var item = new JsonObject();
+        for (var i = 0; i < 300; i++)
+        {
+            item["field" + i] = new string('y', 25);
+        }
+
+        var answer = new JsonObject { ["total"] = 3, ["returned"] = 1, ["nextCursor"] = cursor, ["items"] = new JsonArray(item) };
+        var text = AnswerShaper.FitSingle(answer);
+        Assert.True(text.Length <= AnswerShaper.MaxAnswerChars, $"JSON の答えは {text.Length} 字（上限8000字）");
+        Assert.Equal(cursor, JsonNode.Parse(text)!["nextCursor"]!.GetValue<string>());
     }
 
     [Fact]

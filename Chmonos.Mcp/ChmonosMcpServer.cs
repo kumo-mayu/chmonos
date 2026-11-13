@@ -63,7 +63,8 @@ internal static class ChmonosMcpServer
                         var arguments = request.Params?.Arguments is { } values
                             ? values.ToDictionary(pair => pair.Key, pair => pair.Value)
                             : null;
-                        var text = await tool.Run(new ToolCall(bridge, new ToolArgs(arguments), cancellationToken));
+                        // 道具ごとに上限へ収めるが、収め損ねた答えも上限を超えて AI の文脈を食わないよう、出口で JSON の長さを確かめる（点検 M3）
+                        var text = AnswerShaper.Guard(await tool.Run(new ToolCall(bridge, new ToolArgs(arguments), cancellationToken)));
                         return new CallToolResult { Content = [new TextContentBlock { Text = text }] };
                     }
                     catch (ToolProblemException problem)
