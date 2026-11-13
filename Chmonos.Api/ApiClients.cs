@@ -302,18 +302,40 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
 
     /// <summary>
     /// 許したソフトを控えに足す（前に許した同じソフトの行は置き換える：トークンを失くして求め直したときに、古い行が溜まらないように）。
-    /// API が自分の控えとして書く（api.json と同じ。人の操作は窓で済んでいる）。同じ入れ物の錠の中で今の値に当てる
+    /// API が自分の控えとして書く（api.json と同じ。人の操作は窓で済んでいる）。同じ入れ物の錠の中で今の値に当てる。
+    /// 置き換えるのは、今の同じソフトの行が、窓を出した時の <paramref name="replaces"/>（無ければ null）のままのときだけ。
+    /// 違えば（許した後に取り消された・別の求めで許し直された）書かずに false：古い許しの結果を後から受け取って、新しい許しや取り消しを上書きさせない
     /// </summary>
-    public async Task AddAsync(ApiClientRecord record, CancellationToken cancellationToken)
+    public async Task<bool> AddAsync(ApiClientRecord record, string? replaces, CancellationToken cancellationToken)
     {
-        await store().ApiClients.UpdateAsync(
-            list => list with
+        var added = await store().ApiClients.TryUpdateAsync(
+            list =>
             {
-                Clients = [.. (list.Clients ?? []).Where(client => !client.IsSame(record.Name, record.ExePath, record.Origin)), record],
+                var clients = list.Clients ?? [];
+                if (SameRowId(clients, record.Name, record.ExePath, record.Origin) != replaces)
+                {
+                    return null;
+                }
+
+                return list with
+                {
+                    Clients = [.. clients.Where(client => client is null || !client.IsSame(record.Name, record.ExePath, record.Origin)), record],
+                };
             },
             cancellationToken);
-        Reload();
+        if (added)
+        {
+            Reload();
+        }
+
+        return added;
     }
+
+    /// <summary>今の索引で、同じソフト（名前・exe・オリジンが同じ）の行の ID（無ければ null）。許した時の行を控えておくため。</summary>
+    public string? SameRowId(string name, string? exePath, string? origin) => SameRowId(_index.All, name, exePath, origin);
+
+    private static string? SameRowId(IEnumerable<ApiClientRecord?> clients, string name, string? exePath, string? origin)
+        => clients.FirstOrDefault(client => client is not null && !string.IsNullOrEmpty(client.Id) && client.IsSame(name, exePath, origin))?.Id;
 
     /// <summary>
     /// 使った印。前に書いてから <see cref="TouchInterval"/> 経っていれば、最後に使った日時を書く。書けなくても答えは止めない（ログに残す）
@@ -418,6 +440,9 @@ internal sealed class ApiClientRequests
 
         public string? ClientId { get; set; }
 
+        /// <summary>窓を出した時の、同じソフトの行の ID（無ければ null）。受け取るときに今の行と照らす。</summary>
+        public string? ReplacesWhenAsked { get; set; }
+
         /// <summary>決まったら終わる（結果を待っている問い合わせを起こす）。</summary>
         public TaskCompletionSource Decided { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
@@ -494,6 +519,12 @@ internal sealed class ApiClientRequests
         string? token = null;
         lock (_lock)
         {
+            // 待っている間に、同じソフトの後の答えで失効した（ExpireOlder）
+            if (!_byId.ContainsKey(entry.Id))
+            {
+                return null;
+            }
+
             if (entry.State != Approved)
             {
                 return new ClientResultAnswer(entry.State, null, entry.State == Delivered ? entry.ClientId : null, entry.State == Delivered ? entry.Scopes : null);
@@ -515,9 +546,10 @@ internal sealed class ApiClientRequests
             TokenHash = ApiClientBook.HashOf(token),
             GrantedAt = _clock(),
         };
+        bool added;
         try
         {
-            await _book.AddAsync(record, CancellationToken.None);
+            added = await _book.AddAsync(record, entry.ReplacesWhenAsked, CancellationToken.None);
         }
         catch
         {
@@ -531,8 +563,36 @@ internal sealed class ApiClientRequests
             throw;
         }
 
+        if (!added)
+        {
+            // 許した後に、同じソフトの行が取り消された・別の求めで許し直された。この許しは古いので捨てる（期限切れと同じ答え）
+            lock (_lock)
+            {
+                _byId.Remove(entry.Id);
+            }
+
+            Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{record.Name}」の前の許しを、後の取り消し・許し直しがあったので渡さなかった");
+            return null;
+        }
+
         Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{record.Name}」を許した（許したこと：{(record.Scopes.Count == 0 ? "読み取りだけ" : string.Join("・", record.Scopes))}）");
         return new ClientResultAnswer(Approved, token, record.Id, record.Scopes);
+    }
+
+    /// <summary>
+    /// 人が同じソフトの新しい求めに［許可］か［拒否］で答えた：前に許してまだ受け取られていない求めを捨てる（錠の中で呼ぶ）。
+    /// 残すと、後から受け取った古い許しが、新しい許し（選び直した種類）や拒否を上書きする。人の後の答えを勝たせる。
+    /// 答えずに閉じた（Dismissed）は人が決めていないので、前の許しを残す
+    /// </summary>
+    private void ExpireOlder(Entry decided)
+    {
+        foreach (var id in _byId.Values
+                     .Where(entry => !ReferenceEquals(entry, decided) && entry.State == Approved && SameSoftware(entry.Info, decided.Info))
+                     .Select(entry => entry.Id)
+                     .ToList())
+        {
+            _byId.Remove(id);
+        }
     }
 
     /// <summary>決まってから長く取りに来ない物を捨てる（錠の中で呼ぶ）。</summary>
@@ -754,6 +814,14 @@ internal sealed class ApiClientRequests
                 // 窓を出す直前の回数で「あと1回」を言い直す（列に入れた時の数は、前の窓の拒否より古いことがある）
                 var blocked = _book.IsBlocked(info.Name, info.ExePath, info.Origin);
                 info = info with { RefusalsLeft = _book.RefusalsLeft(info.Name, info.ExePath, info.Origin) };
+
+                // 窓を出す前の行を控える（答えた後に控えると、答えてすぐの取り消しが答えより先に読まれ、取り消した後の「行なし」を
+                // 置き換えてよい行と取り違える）。窓を出している間に取り消されたら、許しても渡さない（人が後でした取り消しを勝たせる）
+                lock (_lock)
+                {
+                    entry.ReplacesWhenAsked = _book.SameRowId(info.Name, info.ExePath, info.Origin);
+                }
+
                 ApiClientDecision decision;
                 try
                 {
@@ -783,6 +851,10 @@ internal sealed class ApiClientRequests
                         ? ApiScopes.All.Where(scope => decision.Scopes.Contains(scope) && entry.Info.Scopes.Contains(scope)).ToList()
                         : [];
                     entry.DecidedAt = _clock();
+                    if (decision.Approved || decision.Refused)
+                    {
+                        ExpireOlder(entry);
+                    }
                 }
 
                 if (!decision.Approved)

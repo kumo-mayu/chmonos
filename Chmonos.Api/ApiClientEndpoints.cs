@@ -97,7 +97,7 @@ internal static class ApiClientEndpoints
 
             var wait = TimeSpan.FromSeconds(Math.Clamp(body.Wait ?? 0, 0, MaxWaitSeconds));
             var answer = await requests.CollectAsync(body.RequestId, wait, context.RequestAborted)
-                ?? throw QueryException.NotFound("requestNotFound", "この requestId の求めはありません。時間が経ったか、Chmonos が起動し直しました。もう一度求めてください。");
+                ?? throw QueryException.NotFound("requestNotFound", "この requestId の求めはありません。時間が経ったか、後の許可・取り消しで無効になったか、Chmonos が起動し直しました。もう一度求めてください。");
 
             // トークンが入る答えは、間に入る物に残させない
             NoStore(context);
