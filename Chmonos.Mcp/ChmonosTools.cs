@@ -315,7 +315,8 @@ internal static class ChmonosTools
             text.AppendLine(section?["text"]?.GetValue<string>()?.Trim()).AppendLine();
         }
 
-        var whole = text.ToString().TrimEnd();
+        // AppendLine は Windows で \r\n を足し、BOOTH の本文にも \r\n が混ざる。AI には \n だけを渡す（字数の数えも offset もこの後の文字列で行う）
+        var whole = text.ToString().Replace("\r\n", "\n").Replace('\r', '\n').TrimEnd();
         var start = Math.Min(offset, whole.Length);
         var slice = whole.Substring(start, Math.Min(max, whole.Length - start));
         var answer = new JsonObject

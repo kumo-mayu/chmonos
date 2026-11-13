@@ -246,6 +246,31 @@ public sealed class McpBridgeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task 説明文は全角空白と絵文字を逃がさず_改行は_nにそろえて渡す()
+    {
+        var (storeRoot, port) = await _harness.StartApiAsync("store-a", fill: store =>
+            store.Items.SaveAsync(new Core.Models.ItemRecord
+            {
+                Id = "9700001",
+                Booth = new Core.Models.BoothBlock { Name = "作り物の帽子", Description = "一行目　全角🐾\r\n二行目\r三行目\n四行目" },
+            }).GetAwaiter().GetResult());
+        _harness.Announce(storeRoot, port, 101);
+        var client = await _harness.ConnectAsync(_harness.Options());
+        _ = _harness.Approvals.ApproveNextAsync();
+
+        var (isError, text) = await McpHarness.CallAsync(client, "get_item_description", new { id = "9700001" });
+
+        Assert.False(isError, text);
+        Assert.DoesNotContain("\\u3000", text);
+        Assert.DoesNotContain("\\uD83D", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\\r", text);
+        var body = Parse(text)["text"]!.GetValue<string>();
+        Assert.DoesNotContain('\r', body);
+        Assert.Contains("一行目　全角🐾\n二行目\n三行目\n四行目", body);
+        Assert.Equal(body.Length, Parse(text)["totalChars"]!.GetValue<int>());
+    }
+
+    [Fact]
     public async Task R18を表示する設定なら_R18は渡し_非表示は渡さない()
     {
         var (storeRoot, port) = await _harness.StartApiAsync("store-a", showAdult: true);

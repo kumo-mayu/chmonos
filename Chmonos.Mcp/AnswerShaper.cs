@@ -10,11 +10,12 @@ internal static class AnswerShaper
 {
     /// <summary>
     /// 答えの JSON の書き方。日本語を <c>\uXXXX</c> にしない（既定の書き方は ASCII の外を全部逃がすので、AI が読むと字数が6倍になり、読みにくい）。
-    /// 答えは MCP の文字の答えの中身で、HTML に埋めないので、逃がさなくてよい
+    /// 答えは MCP の文字の答えの中身で、HTML に埋めないので、逃がさなくてよい。
+    /// 全角空白・絵文字は <c>UnsafeRelaxedJsonEscaping</c> でも逃げるので、自前の <see cref="PlainJsonEncoder"/> を使う
     /// </summary>
     public static readonly System.Text.Json.JsonSerializerOptions Json = new()
     {
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Encoder = PlainJsonEncoder.Instance,
     };
 
     /// <summary>
