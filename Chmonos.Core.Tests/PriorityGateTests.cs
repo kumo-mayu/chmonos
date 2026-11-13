@@ -135,6 +135,37 @@ public class PriorityGateTests
     }
 
     /// <summary>
+    /// 譲るかの判断（⑧の先回り）は、自分より急ぐ待ち手だけを数える。同じ段・下の段・中断された待ち手は数えない
+    /// （数えると⑧どうしが譲り合って進まない。2026-11-13 の Codex の点検の件2）。
+    /// </summary>
+    [Fact]
+    public async Task HasWaitingAboveCountsOnlyLiveWaitersThatAreMoreUrgent()
+    {
+        var gate = new PriorityGate();
+        var order = new List<string>();
+        await gate.EnterAsync(BoothPriority.Prefetch);
+
+        var same = Queue(gate, BoothPriority.Prefetch, "same", order);
+        await WaitUntilQueued(gate, 1);
+        Assert.False(gate.HasWaitingAbove(BoothPriority.Prefetch));
+
+        using var stop = new CancellationTokenSource();
+        var canceled = Queue(gate, BoothPriority.User, "canceled", order, stop.Token);
+        await WaitUntilQueued(gate, 2);
+        Assert.True(gate.HasWaitingAbove(BoothPriority.Prefetch));
+        Assert.False(gate.HasWaitingAbove(BoothPriority.User));
+
+        stop.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => canceled.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(gate.HasWaitingAbove(BoothPriority.Prefetch));
+
+        gate.Release();
+        await same.WaitAsync(TimeSpan.FromSeconds(5));
+        gate.Release();
+        Assert.Equal(["same"], order);
+    }
+
+    /// <summary>
     /// 全員が並び終えるまで待つ。
     /// 並ぶ前に解放すると、何番目が通ったのかが実行の速さで変わってしまう。
     /// </summary>
