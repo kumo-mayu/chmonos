@@ -175,6 +175,7 @@ public sealed partial class MainViewModel
             return;
         }
 
+        Core.Services.UiTrace.Write("監視", $"帯に出した：{paths.Count} 件");
         HookLiveNotice();
         WatchedNewFiles = paths;
         OnPropertyChanged(nameof(WatchedNewCount));

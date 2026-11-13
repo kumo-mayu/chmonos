@@ -425,6 +425,8 @@ public sealed class LiveFolderWatch : IDisposable
                 return;
             }
 
+            // 足跡は置いてから帯までの内訳を見るため（plan 50）。ファイルの名前は書かない（利用者のファイル名をログに残さない）
+            Services.UiTrace.Write("監視", "出来事を受けた");
             Nudge();
         }
 
@@ -571,6 +573,7 @@ public sealed class LiveFolderWatch : IDisposable
                         await owner._delay(owner._timing.Quiet, token).ConfigureAwait(false);
                     }
                     while (seen != Volatile.Read(ref _generation));
+                    Services.UiTrace.Write("監視", "静けさが終わった");
 
                     // 待つ間に溜まった頼みは、これから探す1回に含まれる
                     while (_signal.CurrentCount > 0 && _signal.Wait(0))
@@ -646,7 +649,9 @@ public sealed class LiveFolderWatch : IDisposable
                 return;
             }
 
+            var findWatch = System.Diagnostics.Stopwatch.StartNew();
             var result = await owner._findNew(folders, token).ConfigureAwait(false);
+            Services.UiTrace.Write("監視", $"新着を探した：{result.NewFiles.Count} 件（{findWatch.ElapsedMilliseconds} ms）");
             var first = result.NewFiles.Select(path => (Path: path, Settle: owner._probe.Probe(path))).ToList();
             if (first.Count == 0)
             {
@@ -678,6 +683,7 @@ public sealed class LiveFolderWatch : IDisposable
                 }
             }
 
+            Services.UiTrace.Write("監視", $"書き終わりを確かめた：落ち着いた {settled.Count} 件・途中 {unsettled} 件");
             if (unsettled > 0 && _settleRetries < owner._timing.MaxSettleRetries)
             {
                 // 書いている途中の物は、出来事が来なくても（一覧の大きさが閉じるまで変わらない書き方がある）確かめ直す
