@@ -318,6 +318,27 @@ public sealed class SettingsApiTests
         settings.OnLeaving();
     });
 
+    [Fact]
+    public Task 手で権限をnullにしたソフトも_チェックで書き換えて保存する() => TestApp.Run(async app =>
+    {
+        // 手で直した api-clients.json の "scopes": null は空として受ける（CLAUDE.md「欠けた配列は空」）。
+        // 書き換えは client.Scopes を ?. なしで読むので、読むときの EmptyForNull（JsonStore）が外れると黙って保存されなくなる
+        // （Codex の点検 2026-11-13 の件11。コードだけを読むと起きるように見えた）
+        // 書き出しは null の欄を省くので、手で書いた形を文字のまま置く
+        File.WriteAllText(app.Services.Paths.ApiClientsFile, """
+            { "clients": [ { "id": "a1", "name": "作り物の道具", "exePath": "C:\\作り物\\道具.exe", "scopes": null,
+              "tokenHash": "0000000000000000000000000000000000000000000000000000000000000001", "grantedAt": "2026-11-11T09:00:00+09:00" } ] }
+            """);
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+
+        settings.ApiClients.Single().Scopes.Single(choice => choice.Scope == ApiScopes.Tags).IsChecked = true;
+        await app.SettleAsync();
+
+        Assert.Equal([ApiScopes.Tags], app.Services.Store.ApiClients.Load().Clients.Single().Scopes);
+        settings.OnLeaving();
+    });
+
     /// <summary>作り物の宣言：押せる項目1つと、子を2つ持つ親（plan 44 の②）。</summary>
     private static IReadOnlyList<PluginMenuItemRecord> FakeMenu() =>
     [
