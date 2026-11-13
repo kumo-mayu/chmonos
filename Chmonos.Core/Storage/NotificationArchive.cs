@@ -174,8 +174,10 @@ public sealed partial class NotificationArchive
         var records = new List<NotificationRecord>();
 
         // 同じ知らせが2回あれば1件にする（足す途中で落ちると、保管庫と通知の両方に残り、次にまた足される）。
-        // 鍵は知らせの ID：前は行の全文を溜めていて、50MB の月を読むと、絞って0件のときでも作業セットが 555MB になった（2026-11-10 に測った）
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        // 鍵は知らせの ID と作った日時：前は行の全文を溜めていて、50MB の月を読むと、絞って0件のときでも作業セットが 555MB になった（2026-11-10 に測った）。
+        // ID だけにしないのは、商品の更新の知らせが商品ごとに同じ ID（item-updated:{ID}）で、既読の後の更新を同じ ID の別の知らせとして足すから（2026-11-13 の点検 件7）。
+        // 書き直しの写しは同じ記録なので作った日時も同じ。別の機会の更新は作った日時が違うので両方残る
+        var seen = new HashSet<(string Id, DateTimeOffset CreatedAt)>();
         var unreadable = 0;
 
         await foreach (var (line, version) in RecordLinesAsync(path, precise, scan, cancellationToken))
@@ -198,7 +200,7 @@ public sealed partial class NotificationArchive
                 continue;
             }
 
-            if (!seen.Add(record.Id))
+            if (!seen.Add((record.Id, record.CreatedAt)))
             {
                 continue;
             }

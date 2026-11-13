@@ -116,6 +116,24 @@ public sealed class NotificationArchivePagesTests : IDisposable
         Assert.All(index.Newest.Where(entry => entry.Id != "r5"), entry => Assert.InRange(entry.Ordinal, 0, 4));
     }
 
+    /// <summary>
+    /// 同じ商品の別の機会の更新は、同じ ID（item-updated:{ID}）・別の作った日時で控えに入る。両方を目録に並べて中身も読める。
+    /// 片方が2回書かれていても（足す途中で落ちた）3件にしない（2026-11-13 の点検 件7）。
+    /// </summary>
+    [Fact]
+    public async Task 同じIDで作った日時の違う知らせは_両方を目録に並べて中身も読める()
+    {
+        var first = Record("item-updated:9900501", At(1)) with { Detail = "1回目の更新" };
+        var second = Record("item-updated:9900501", At(3)) with { Detail = "2回目の更新" };
+        await _archive.AppendAsync([first]);
+        await _archive.AppendAsync([first, second]);
+
+        var index = await _archive.IndexAsync("2026-10");
+        var records = await _archive.ReadEntriesAsync(index, index.Newest);
+
+        Assert.Equal(["2回目の更新", "1回目の更新"], records.Select(record => record.Detail));
+    }
+
     [Theory]
     [InlineData("content")]
     [InlineData("header")]
