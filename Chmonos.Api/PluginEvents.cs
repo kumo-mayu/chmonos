@@ -3,6 +3,18 @@ using Chmonos.Query;
 
 namespace Chmonos.Api;
 
+/// <summary>購読の置き換えの結果（<see cref="PluginEventHub.Subscribe"/>）。</summary>
+internal enum PluginSubscribeResult
+{
+    Ok,
+
+    /// <summary>今の控えにこのソフトが無い（取り消された・求め直して ID が変わった）。</summary>
+    Gone,
+
+    /// <summary>今の控えで許していない種類を求めた。</summary>
+    NotGranted,
+}
+
 /// <summary>右クリックなどに出すソフト1つ（「ほかのソフト ▸ {名前} ▸ …」の {名前} の段）。</summary>
 public sealed record PluginMenuSoftware(string ClientId, string Name, PluginMenuReason Reason, IReadOnlyList<PluginMenuEntry> Items);
 
@@ -66,6 +78,12 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
 
         public long LastSeq { get; set; }
 
+        /// <summary>
+        /// あふれで捨てていない、いちばん古い通番（<c>dropped</c> を数える起点）。列の頭から数えないのは、許しを外した種類を列から除くと
+        /// 頭が飛び、除いた分まで「あふれで捨てた」に数えてしまうため（外した種類の数をソフトへ漏らさない）
+        /// </summary>
+        public long FirstKept { get; set; } = 1;
+
         /// <summary>積んだら終わる（待っている問い合わせを起こす）。画面のスレッドで積むので、続きは別のスレッドで走らせる。</summary>
         public TaskCompletionSource Signal { get; set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -121,15 +139,18 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
             {
                 subscriber.LastSeq++;
                 subscriber.Events.Enqueue(create(subscriber.LastSeq, at));
-
-                // あふれたら古い方から捨てる。捨てた数は、取りに来たときに通番の飛びから数える（dropped）
-                while (subscriber.Events.Count > Capacity)
-                {
-                    subscriber.Events.Dequeue();
-                }
-
+                Trim(subscriber);
                 Wake(subscriber);
             }
+        }
+    }
+
+    /// <summary>あふれたら古い方から捨てる（錠の中で呼ぶ）。捨てた数は、取りに来たときに通番の飛びから数える（dropped）。</summary>
+    private static void Trim(Subscriber subscriber)
+    {
+        while (subscriber.Events.Count > Capacity)
+        {
+            subscriber.FirstKept = subscriber.Events.Dequeue().Seq + 1;
         }
     }
 
@@ -141,16 +162,35 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
         signal.TrySetResult();
     }
 
-    /// <summary>購読を丸ごと置き換え、今の最後の通番を返す。許しの確かめは呼ぶ側（入口）で済ませる。</summary>
-    internal long Subscribe(string clientId, IReadOnlyCollection<string> kinds)
+    /// <summary>入口が錠を取る前に呼ぶ（試験が、本文を待つ間の取り消し・許しの変更を差し込むため）。</summary>
+    internal Action? BeforeSubscribeForTest { get; set; }
+
+    /// <summary>
+    /// 購読を丸ごと置き換え、今の最後の通番を返す。入口の確かめ（要求の初めの控え）に加えて、錠の中で今の控えの許しを照らす：
+    /// 入口は本文を待つ間に古い控えを持ったままになり、その間に取り消し・チェックを外した後でも購読できていた（読み直しの知らせは
+    /// 同じ錠の中で購読を外すので、錠の中で今の控えを見れば、どちらが先でも外した種類は残らない）。
+    /// 取り消されていれば <see cref="PluginSubscribeResult.Gone"/>、外された種類があれば <see cref="PluginSubscribeResult.NotGranted"/> で、購読は変えない
+    /// </summary>
+    internal (PluginSubscribeResult Result, long Last) Subscribe(string clientId, IReadOnlyCollection<string> kinds)
     {
+        BeforeSubscribeForTest?.Invoke();
         lock (_lock)
         {
+            if (_book?.ById(clientId) is not { } client)
+            {
+                return (PluginSubscribeResult.Gone, 0);
+            }
+
+            if (kinds.Any(kind => !client.Scopes.Contains(ApiScopes.WatchOf(kind), StringComparer.Ordinal)))
+            {
+                return (PluginSubscribeResult.NotGranted, 0);
+            }
+
             var subscriber = SubscriberOf(clientId);
             subscriber.Kinds.Clear();
             subscriber.Kinds.UnionWith(kinds);
             RecomputeWatched();
-            return subscriber.LastSeq;
+            return (PluginSubscribeResult.Ok, subscriber.LastSeq);
         }
     }
 
@@ -240,9 +280,8 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
         var from = reset ? 0 : after;
         var events = subscriber.Events.Where(item => item.Seq > from).ToList();
 
-        // 残っているいちばん古い通番より前を求められたら、その間は捨てた物（あふれ）
-        var oldest = subscriber.Events.Count > 0 ? subscriber.Events.Peek().Seq : subscriber.LastSeq + 1;
-        var dropped = Math.Max(0, oldest - from - 1);
+        // あふれで捨てていないいちばん古い通番より前を求められたら、その間は捨てた物（あふれ）
+        var dropped = Math.Max(0, subscriber.FirstKept - from - 1);
         return new PluginEventsAnswer(Epoch, events.Count > 0 ? events[^1].Seq : from, reset, dropped, events);
     }
 
@@ -426,10 +465,7 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
             var subscriber = SubscriberOf(clientId);
             seq = ++subscriber.LastSeq;
             subscriber.Events.Enqueue(new PluginEvent(seq, Epoch, Menu, at, null, null, null, pressed));
-            while (subscriber.Events.Count > Capacity)
-            {
-                subscriber.Events.Dequeue();
-            }
+            Trim(subscriber);
 
             subscriber.Sends.AddFirst((seq, at));
             while (subscriber.Sends.Count > KeepSends)
@@ -522,7 +558,25 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
                     continue;
                 }
 
-                subscriber.Kinds.RemoveWhere(kind => !client.Scopes.Contains(ApiScopes.WatchOf(kind)));
+                var removed = subscriber.Kinds.Where(kind => !client.Scopes.Contains(ApiScopes.WatchOf(kind))).ToList();
+                if (removed.Count == 0)
+                {
+                    continue;
+                }
+
+                subscriber.Kinds.ExceptWith(removed);
+
+                // 外す前に積んで、まだ取りに来ていない分も渡さない（人が外したら、その場で止まる。返す時に絞るだけだと、
+                // 許し直した時に古い出来事が戻る）。項目を押した出来事（menu）は見張りの許しと別なので残す
+                var kept = subscriber.Events.Where(item => !removed.Contains(item.Kind, StringComparer.Ordinal)).ToList();
+                if (kept.Count != subscriber.Events.Count)
+                {
+                    subscriber.Events.Clear();
+                    foreach (var item in kept)
+                    {
+                        subscriber.Events.Enqueue(item);
+                    }
+                }
             }
 
             RecomputeWatched();

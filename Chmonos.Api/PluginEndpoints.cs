@@ -66,7 +66,18 @@ internal static class PluginEndpoints
                 kinds.Add(kind);
             }
 
-            var last = hub.Subscribe(client.Id, kinds);
+            var (result, last) = hub.Subscribe(client.Id, kinds);
+            switch (result)
+            {
+                case PluginSubscribeResult.Gone:
+                    // 本文を待つ間に取り消された：次の要求と同じ答え（トークンがもう通らない）
+                    throw new QueryException(401, "unauthorized", "トークンが違います。保存先の api.json の token か、許可を求めて受け取ったトークンを Authorization: Bearer で送ってください。");
+                case PluginSubscribeResult.NotGranted:
+                    // 本文を待つ間に許しが外された：上の確かめと同じ答え
+                    throw new QueryException(403, "scopeNotGranted",
+                        "このソフトには、求めた種類を見ることが許されていません。もう一度許可を求めるか、Chmonos の設定の「API」の「つないでいるソフト」で許してください。");
+            }
+
             Core.Diagnostics.AppLog.Note(
                 "外から使う API", $"ソフト「{client.Name}」が購読した（{(kinds.Count == 0 ? "なし" : string.Join("・", PluginEventHub.Kinds.Where(kinds.Contains)))}）");
             NoStore(context);

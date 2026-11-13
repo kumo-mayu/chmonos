@@ -6,6 +6,48 @@ namespace Chmonos.Api.Tests.Robustness;
 /// <summary>出来事の列を、許したソフトにだけ、許した種類だけ渡すこと（偽った続き・多数の長い待ちの取り消し・結果を受ける通番の上限）。</summary>
 public sealed class EventAuthorizationTests : LocalApiFixture
 {
+    [Fact]
+    public async Task 許可を外した種類は_未受信の出来事も返さない()
+    {
+        await Subscribe();
+        Hub.PublishItemOpened("9600901");
+        Hub.PublishSelection("search", ["9600901"]);
+        await ReplaceClients(Record("a", TokenA) with { Scopes = [ApiScopes.WatchSelectionChanged] }, Record("b", TokenB));
+        Assert.DoesNotContain("itemOpened", Hub.KindsOf("a"));
+        var answer = await GetJson("/v1/plugin/events?after=0&wait=0");
+        Assert.DoesNotContain(answer.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "itemOpened");
+        Assert.Contains(answer.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "selectionChanged");
+
+        // 除いた分を「あふれで捨てた」に数えない（外した種類が何件あったかを漏らさない）
+        Assert.Equal(0, answer.GetProperty("dropped").GetInt64());
+
+        // 許し直して購読し直しても、外す前の出来事は戻らない
+        await ReplaceClients(Record("a", TokenA), Record("b", TokenB));
+        await Subscribe();
+        var again = await GetJson("/v1/plugin/events?after=0&wait=0");
+        Assert.DoesNotContain(again.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "itemOpened");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task 購読の本文を待つ間に許しを外しても_外した種類を購読できない(bool revoke)
+    {
+        // 入口が要求の初めの控えを持ったまま本文を読み終えた所で、設定の画面が許しを外す（取り消す）。順番は差し込み口で決める
+        Hub.BeforeSubscribeForTest = () =>
+        {
+            Hub.BeforeSubscribeForTest = null;
+            var clients = revoke ? new[] { Record("b", TokenB) } : [Record("a", TokenA) with { Scopes = [ApiScopes.WatchSelectionChanged] }, Record("b", TokenB)];
+            ReplaceClients(clients).GetAwaiter().GetResult();
+        };
+
+        using var request = Request(HttpMethod.Put, "/v1/plugin/subscriptions", """{"kinds":["itemOpened","selectionChanged"]}""");
+        using var response = await Client.SendAsync(request);
+        Assert.Equal(revoke ? HttpStatusCode.Unauthorized : HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(Hub.KindsOf("a"));
+        Assert.False(Hub.Watches("itemOpened"));
+    }
+
     [Theory]
     [InlineData("-9223372036854775808", "wrong-epoch")]
     [InlineData("9223372036854775807", "")]
