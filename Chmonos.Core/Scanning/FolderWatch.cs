@@ -14,6 +14,9 @@ namespace Chmonos.Core.Scanning;
 /// 走査は手元のディスクを読むだけだが、取り込みはBOOTHへの通信で、
 /// 1件あたり十数秒かかる。起動した瞬間に黙って始めると、
 /// ユーザがこれからやろうとしていた操作と行列を取り合う。
+///
+/// 開いている間の見張り（<see cref="LiveFolderWatch"/>・plan 49）も、新しいかの判定はこれを使う（出来事の中身は信じない）。
+/// 自動で取り込むのは、使う人が設定で入れたときだけ（既定は帯で知らせて押させる）。
 /// </summary>
 public sealed class FolderWatch
 {

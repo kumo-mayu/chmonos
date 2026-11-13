@@ -207,6 +207,17 @@ public sealed class AppServiceContainer : IDisposable
     internal Func<Services.UnityTools> DetectUnityTools { get; set; } = Services.UnityTools.Detect;
 
     /// <summary>
+    /// 開いている間に監視フォルダを見張る部品を作る（plan 49）。本物は Windows の見張りと実時間の待ち。
+    /// 試験は作り物の出来事と手で進める待ちに差し替える（実際のファイルの出来事・時計に結果を左右させない）
+    /// </summary>
+    internal Func<FolderWatch, LiveFolderWatch> CreateLiveFolderWatch { get; set; } = watch => new LiveFolderWatch(
+        FileSystemFolderEvents.TryCreate,
+        watch.FindNewAsync,
+        new FileSettleProbe(),
+        (span, token) => Task.Delay(span, token),
+        folder => new FilePresenceProbe().OfFolder(folder) == FilePresence.Present);
+
+    /// <summary>
     /// 同梱の <c>assets</c> に無い物を調べる。実行ファイルの隣を見るので、試験は決まった答えに差し替える
     /// （主の窓の帯が、これで出る）
     /// </summary>

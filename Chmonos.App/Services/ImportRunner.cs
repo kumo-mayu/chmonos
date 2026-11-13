@@ -59,6 +59,12 @@ public sealed class ImportRunner(AppServiceContainer services)
     /// <summary>走っている取り込み（無ければ null）。</summary>
     public ImportWorkSet? Running => _work;
 
+    /// <summary>
+    /// 走っているか、立ち上げの途中か。開いている間の監視（plan 49）が、見つけた物を今の取り込みに黙って混ぜないために見る
+    /// （<see cref="Running"/> は立ち上げの途中は null なので、それだけでは足りない）
+    /// </summary>
+    public bool IsBusy => _work is not null || _starting;
+
     /// <summary>始まった（作業集合ができた）。この後に進み具合が来る。</summary>
     public event Action<ImportWorkSet>? Started;
 
@@ -250,6 +256,10 @@ public sealed class ImportRunner(AppServiceContainer services)
             _cancellation?.Dispose();
             _cancellation = null;
             _work = null;
+
+            // 終わりを知らせる前に「立ち上げの途中」も下ろす。下ろさないと、終わりを聞いて次を始めようとする側（開いている間の監視・plan 49）が
+            // まだ走っていると見て、また待ってしまう（呼び手の StartOrStackAsync も抜けるときに下ろすが、それは知らせの後）
+            _starting = false;
             services.Api.NoteBusy("import", null);
             PublishFinished(finished);
             Finished?.Invoke();

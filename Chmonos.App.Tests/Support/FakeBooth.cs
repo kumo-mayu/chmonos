@@ -13,7 +13,20 @@ internal sealed class FakeBooth : HttpMessageHandler
 {
     private readonly object _gate = new();
     private readonly List<string> _requests = [];
+    private readonly List<(string Url, Chmonos.Core.Booth.BoothPriority Priority)> _priorities = [];
     private readonly Dictionary<string, string> _itemJson = new(StringComparer.Ordinal);
+
+    /// <summary>来た問い合わせと、そのときの優先度（梯子の段）。取り込みの道が同じ段で問い合わせるかを確かめる（plan 49）。</summary>
+    public IReadOnlyList<(string Url, Chmonos.Core.Booth.BoothPriority Priority)> RequestPriorities
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _priorities];
+            }
+        }
+    }
 
     /// <summary>来た問い合わせの URL（来た順）。</summary>
     public IReadOnlyList<string> Requests
@@ -133,6 +146,7 @@ internal sealed class FakeBooth : HttpMessageHandler
         {
             var url = request.RequestUri!.ToString();
             _requests.Add(url);
+            _priorities.Add((url, Chmonos.Core.Booth.BoothClient.CurrentPriority));
             waiting = _holdOnly is null || _holdOnly(url) ? _held?.Task : null;
         }
 
