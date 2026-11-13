@@ -39,12 +39,11 @@ public static class JsonStore
     /// </summary>
     public static T? Read<T>(string path) where T : class
     {
-        if (!File.Exists(path))
+        using var stream = OpenSettled(path);
+        if (stream is null)
         {
             return null;
         }
-
-        using var stream = OpenShared(path);
 
         // 配列は版の欄を持てない（1 とみなす）。数十MBになる未確定の一覧を丸ごとメモリに読まないよう、そのまま流して読む
         if (!StoreFormat.CarriesVersion(typeof(T)))
@@ -59,12 +58,11 @@ public static class JsonStore
 
     public static async Task<T?> ReadAsync<T>(string path, CancellationToken cancellationToken = default) where T : class
     {
-        if (!File.Exists(path))
+        await using var stream = await OpenSettledAsync(path, cancellationToken);
+        if (stream is null)
         {
             return null;
         }
-
-        await using var stream = OpenShared(path);
         if (!StoreFormat.CarriesVersion(typeof(T)))
         {
             return await JsonSerializer.DeserializeAsync<T>(stream, Options, cancellationToken);
@@ -126,15 +124,15 @@ public static class JsonStore
     /// </summary>
     public static bool ArrayHasItems(string path)
     {
-        if (!File.Exists(path))
-        {
-            return false;
-        }
-
         var head = new byte[4096];
         int length;
-        using (var stream = OpenShared(path))
+        using (var stream = OpenSettled(path))
         {
+            if (stream is null)
+            {
+                return false;
+            }
+
             length = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
         }
 
@@ -331,10 +329,100 @@ public static class JsonStore
     public static FileStream OpenShared(string path)
         => new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
+    /// <summary>
+    /// 読むために開く。無ければ null。**置き換えの最中の一瞬に当たったら、少し待って開き直す。**
+    ///
+    /// 原子的な改名（<see cref="AtomicReplace"/>）でも、PC が重いと読み手から本体が一瞬「無い」（Win32 2）か
+    /// 「消された物」（アクセス拒否・NTSTATUS 0xC0000123）に見えることがある（2026-11-13 に実測：CPU を回し続ける 16 本の中で
+    /// 8 本同時に置き換えと開くをぶつけると、30 秒で数回、見えない間は 2〜24ms。負荷が無いと 70 万回開いて0回）。
+    /// 前はそのまま「無い」として null を返すか例外を投げ、裏の書き込みと画面の読み直しが重なると商品1件を取りこぼしえた
+    /// （まれに落ちた置き換えの試験の原因。ユーザ判断 2026-11-13「Aで直してしまってください」）。
+    ///
+    /// - 在ると見えたのに開けない（無い・アクセス拒否・共有違反・ロック違反）：待って開き直す。最後まで開けなければ、無いなら null、ほかは投げる
+    /// - 在ると見えない：**このプロセスで同じファイルを書いている最中だけ**待って見直す（書き終われば新しい中身が読める）。
+    ///   書いていなければ待たない——最初から無いファイルを読む呼び出しは多く、毎回待つと遅くなる。
+    ///   同じ保存先を書くのはこのアプリだけ（保存先ごとの app.lock）なので、ほかのプロセスの書き込みは数えなくてよい
+    /// </summary>
+    internal static FileStream? OpenSettled(string path)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var last = attempt >= SettleWaitsMs.Length;
+            switch (TryOpenOnce(path, last))
+            {
+                case { Stream: { } stream }:
+                    return stream;
+                case { Missing: true } when last || !WritingNow(path):
+                    return null;
+            }
+
+            Thread.Sleep(SettleWaitsMs[attempt]);
+        }
+    }
+
+    /// <inheritdoc cref="OpenSettled"/>
+    internal static async Task<FileStream?> OpenSettledAsync(string path, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var last = attempt >= SettleWaitsMs.Length;
+            switch (TryOpenOnce(path, last))
+            {
+                case { Stream: { } stream }:
+                    return stream;
+                case { Missing: true } when last || !WritingNow(path):
+                    return null;
+            }
+
+            await Task.Delay(SettleWaitsMs[attempt], cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// 開き直す前に待つ時間（ms）。合わせて 75ms で、実測の見えない間（最長 24ms）の3倍ある。
+    /// 待つのは置き換えの最中に当たった時だけなので、ふつうの読みは遅くならない
+    /// </summary>
+    private static readonly int[] SettleWaitsMs = [5, 10, 20, 40];
+
+    /// <summary>1回だけ開いてみる。在ると見えて開けなかった一時的な失敗は、最後の回でなければ飲んで「もう一度」を返す。</summary>
+    private static (FileStream? Stream, bool Missing) TryOpenOnce(string path, bool last)
+    {
+        if (!File.Exists(path))
+        {
+            return (null, true);
+        }
+
+        try
+        {
+            return ((s_openForTest.Value ?? OpenShared)(path), false);
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            // 在ると見た後に無くなった：置き換えの一瞬かもしれないので、最後の回でなければ書き込みの有無に関わらず開き直す。
+            // 最後の回なら、本当に消えた物として「無い」を返す（前は例外のまま投げていた）
+            return (null, last);
+        }
+        catch (Exception exception) when (!last && IsMomentary(exception))
+        {
+            return (null, false);
+        }
+    }
+
+    /// <summary>置き換えの最中の一瞬に見える失敗：アクセス拒否（消された物）・共有違反（32）・ロック違反（33）。</summary>
+    private static bool IsMomentary(Exception exception)
+        => exception is UnauthorizedAccessException
+           || (exception is IOException io and not FileNotFoundException and not DirectoryNotFoundException && (io.HResult & 0xFFFF) is 32 or 33);
+
+    /// <summary>このプロセスで、そのファイルを書いている・書くのを待っている人がいるか（ファイルごとの錠を持つ・待つ人の数）。</summary>
+    private static bool WritingNow(string path) => s_gates.UsersOf(Path.GetFullPath(path)) > 0;
+
+    /// <summary>試験だけが開き方を差し替える（置き換えの最中の失敗は実のディスクでは狙って起こせない）。差し替えはその試験の流れの中だけに効く。</summary>
+    internal static readonly AsyncLocal<Func<string, FileStream>?> s_openForTest = new();
+
     /// <summary>テキストを読む（説明HTMLなど）。開き方は <see cref="OpenShared"/> と同じ理由で揃える。</summary>
     public static string ReadText(string path)
     {
-        using var stream = OpenShared(path);
+        using var stream = OpenSettled(path) ?? throw new FileNotFoundException("ファイルがありません。", path);
         using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return reader.ReadToEnd();
     }
@@ -342,7 +430,7 @@ public static class JsonStore
     /// <inheritdoc cref="ReadText"/>
     public static async Task<string> ReadTextAsync(string path, CancellationToken cancellationToken = default)
     {
-        await using var stream = OpenShared(path);
+        await using var stream = await OpenSettledAsync(path, cancellationToken) ?? throw new FileNotFoundException("ファイルがありません。", path);
         using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return await reader.ReadToEndAsync(cancellationToken);
     }

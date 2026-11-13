@@ -334,6 +334,83 @@ public class JsonStoreTests : IDisposable
         Assert.Equal([300], JsonStore.Read<List<int>>(FilePath)!);
     }
 
+    /// <summary>
+    /// 置き換えの最中の一瞬に、読み手から本体が「消された物」（アクセス拒否）や「無い」に見えることがある（2026-11-13 に負荷の中で実測。2〜24ms）。
+    /// 少し待って開き直す（ユーザ判断 2026-11-13）。実のディスクでは狙って起こせないので、開き方を差し替えて失敗を作る
+    /// </summary>
+    [Fact]
+    public async Task 開くのが一瞬拒否されても_待って開き直して読める()
+    {
+        Directory.CreateDirectory(_directory);
+        JsonStore.Write(FilePath, new List<int> { 7 });
+        var opens = 0;
+        JsonStore.s_openForTest.Value = path =>
+        {
+            if (++opens <= 2)
+            {
+                throw new UnauthorizedAccessException("作り物：消された物");
+            }
+
+            return JsonStore.OpenShared(path);
+        };
+
+        Assert.Equal([7], JsonStore.Read<List<int>>(FilePath)!);
+        Assert.Equal(3, opens);
+
+        opens = 0;
+        Assert.Equal([7], (await JsonStore.ReadAsync<List<int>>(FilePath))!);
+        Assert.Equal(3, opens);
+    }
+
+    [Fact]
+    public void 在ると見た後に無くなり_待っても無ければ無いとして返す()
+    {
+        Directory.CreateDirectory(_directory);
+        JsonStore.Write(FilePath, new List<int> { 7 });
+        var opens = 0;
+        JsonStore.s_openForTest.Value = path =>
+        {
+            opens++;
+            throw new FileNotFoundException("作り物：無い", path);
+        };
+
+        Assert.Null(JsonStore.Read<List<int>>(FilePath));
+        Assert.Equal(5, opens);
+    }
+
+    [Fact]
+    public void 開けないままなら_待った後に投げる()
+    {
+        Directory.CreateDirectory(_directory);
+        JsonStore.Write(FilePath, new List<int> { 7 });
+        var opens = 0;
+        JsonStore.s_openForTest.Value = _ =>
+        {
+            opens++;
+            throw new UnauthorizedAccessException("作り物：拒否");
+        };
+
+        Assert.Throws<UnauthorizedAccessException>(() => JsonStore.Read<List<int>>(FilePath));
+        Assert.Equal(5, opens);
+    }
+
+    [Fact]
+    public void 壊れた中身は_開き直さずに投げる()
+    {
+        // 開き直すのは開く所の一時的な失敗だけ。読めた後の失敗（壊れた JSON）は今までどおりすぐ投げる
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, "[1, 2");
+        var opens = 0;
+        JsonStore.s_openForTest.Value = path =>
+        {
+            opens++;
+            return JsonStore.OpenShared(path);
+        };
+
+        Assert.ThrowsAny<JsonException>(() => JsonStore.Read<List<int>>(FilePath));
+        Assert.Equal(1, opens);
+    }
+
     /// <summary>それ以外の失敗は今までどおり投げる（据え直しで隠さない）。</summary>
     [Fact]
     public void OtherReplaceFailuresStillThrow()
