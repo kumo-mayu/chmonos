@@ -342,13 +342,21 @@ public class SearchUnityContentsTests
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "はじめの確認が終わる");
 
+        // 条件を足した時に裏で始まる確かめ（RefreshOpenProjectsAsync().Forget()）を終わらせてから差し替える。
+        // 文は前からの空の一覧でも出るので、文だけ待つと確かめが残り、差し替えた下の作り物を呼びうる。
+        // それと試験が始めた1回が続けて入ると、数が 1 を飛ばして 2 になり、「1回目が始まる」が成り立たず時間切れで落ちていた
+        // （2026-11-13 の Codex の点検 F1。一式をまとめて走らせて重い時だけ）
+        await app.SettleAsync();
+
         // 1回目は遅れて「Unity は開いていない」と答え、2回目はすぐ「開いている」と答える
         using var late = new Gate();
+        var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
         app.Services.OpenUnityEditors = () =>
         {
             if (Interlocked.Increment(ref calls) == 1)
             {
+                firstEntered.TrySetResult();
                 late.Wait();
                 return [];
             }
@@ -357,7 +365,9 @@ public class SearchUnityContentsTests
         };
 
         search.NoteOpenProjectsMaybeChanged();
-        await UiThread.Until(() => Volatile.Read(ref calls) == 1, "1回目が始まる");
+
+        // 数がちょうど1の瞬間を見るのでなく、1回目に入った合図を待つ（見逃しても合図は残る）
+        await UiThread.Until(() => firstEntered.Task.IsCompleted, "1回目が始まる");
         search.NoteOpenProjectsMaybeChanged();
         await UiThread.Until(() => Shown(search) is ["9900002"], "2回目の結果で絞る");
 
