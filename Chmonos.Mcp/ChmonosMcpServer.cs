@@ -88,6 +88,10 @@ internal static class ChmonosMcpServer
         return McpServer.Create(transport, options);
     }
 
+    /// <summary>
+    /// 誤りの答え。API の断りの文（problem+json の detail）は相手の書いたままで長さの決まりが無いので、誤りの道も上限で切る
+    /// （素の文で JSON ではないので、途中で切っても壊れない。点検 M3 の共通の出口を誤りにも当てる）
+    /// </summary>
     private static CallToolResult Error(string message)
-        => new() { IsError = true, Content = [new TextContentBlock { Text = message }] };
+        => new() { IsError = true, Content = [new TextContentBlock { Text = AnswerShaper.Cut(message, AnswerShaper.MaxAnswerChars - 40) }] };
 }

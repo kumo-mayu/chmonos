@@ -148,6 +148,75 @@ public sealed class AbnormalApiReplyTests
     }
 
     [Fact]
+    public async Task 小さい商品なら検索のlimit50を1回で返し_続きの印を辿って全件を取れる()
+    {
+        // 本物の API の要約は1件約200字で、31件で約7,000字と上限に近い（McpBridgeTests の試験）。要約の欄が増えても
+        // 30件を超えて返す道を確かめられるよう、ID だけの商品を返す作り物でも見る
+        var all = Enumerable.Range(0, 120).Select(i => "s" + i).ToList();
+        await using var h = new McpHarness();
+        await using var app = await StartAsync(h, async context =>
+        {
+            if (context.Request.Path == "/v1/display-settings")
+            {
+                await context.Response.WriteAsJsonAsync(new { showAdult = true });
+                return;
+            }
+
+            var body = (await JsonNode.ParseAsync(context.Request.Body))!;
+            if (body["includeHidden"]?.GetValue<bool>() == true)
+            {
+                await context.Response.WriteAsJsonAsync(new { items = Array.Empty<object>(), total = 0, nextCursor = (string?)null });
+                return;
+            }
+
+            var start = body["cursor"]?.GetValue<string>() is { } cursor ? int.Parse(cursor) : 0;
+            var limit = body["limit"]!.GetValue<int>();
+            var end = Math.Min(all.Count, start + limit);
+            await context.Response.WriteAsJsonAsync(new
+            {
+                items = all.Skip(start).Take(end - start).Select(id => new { id }).ToArray(),
+                total = all.Count,
+                nextCursor = end < all.Count ? end.ToString() : null,
+            });
+        });
+        var client = await h.ConnectAsync(h.Options());
+
+        var seen = new List<string>();
+        string? next = null;
+        for (var round = 0; round == 0 || next is not null; round++)
+        {
+            Assert.True(round < 10, "続きが終わらない");
+            var result = await McpHarness.CallAsync(client, "search_items", new { limit = 50, cursor = next });
+            Assert.False(result.IsError, result.Text);
+            var page = JsonNode.Parse(result.Text)!;
+            var items = page["items"]!.AsArray();
+            Assert.All(items, item => Assert.IsType<JsonObject>(item));
+            Assert.Equal(items.Count, page["returned"]!.GetValue<int>());
+            Assert.Equal(Math.Min(50, all.Count - seen.Count), items.Count);
+            seen.AddRange(items.Select(item => item!["id"]!.GetValue<string>()));
+            next = page["nextCursor"]?.GetValue<string>();
+        }
+
+        Assert.Equal(all, seen);
+    }
+
+    [Fact]
+    public async Task APIの断りの文が長くても_誤りの答えは8000字以内に収める()
+    {
+        await using var h = new McpHarness();
+        await using var app = await StartAsync(h, async context =>
+        {
+            context.Response.StatusCode = 400;
+            await context.Response.WriteAsJsonAsync(new { code = "synthetic", detail = new string('長', 20000) });
+        });
+        var client = await h.ConnectAsync(h.Options());
+        var result = await McpHarness.CallAsync(client, "get_search_conditions");
+        Assert.True(result.IsError);
+        Assert.Contains("断りました", result.Text);
+        Assert.True(result.Text.Length <= AnswerShaper.MaxAnswerChars, $"誤りの答えは {result.Text.Length} 字（上限8000字）");
+    }
+
+    [Fact]
     public void 一覧の1件だけを縮めても_続きの印は切らず_封筒ごと8000字以内に収める()
     {
         var cursor = new string('c', 500);
