@@ -55,13 +55,7 @@ public static class LocalReferences
             LocalReferenceKind.BaseName,
             LocalField.AvatarBases,
             local => local.AvatarBases.Select(link => link.BaseName),
-            (local, map) => local with
-            {
-                AvatarBases = [.. local.AvatarBases
-                    .Select(link => map(link.BaseName) is { } name ? link with { BaseName = name } : null)
-                    .OfType<AvatarBaseLink>()
-                    .DistinctBy(link => link.BaseName, StringComparer.CurrentCultureIgnoreCase)],
-            }),
+            (local, map) => local with { AvatarBases = MapBaseLinks(local.AvatarBases, map) }),
         new(
             "VariationTargets[].Avatars",
             LocalReferenceKind.ItemId,
@@ -291,6 +285,42 @@ public static class LocalReferences
         => [.. (values ?? []).Select(map).OfType<string>().Distinct(StringComparer.CurrentCultureIgnoreCase)];
 
     private static List<string>? NullIfEmpty(List<string> values) => values.Count == 0 ? null : values;
+
+    /// <summary>
+    /// 対応素体の名前を書き換え、統合で同じ名前が2つになったら1行に畳む。
+    /// 前は配列の先頭を残していて、検出で付いた行が人の確かめた行を消したり、外した印が検出の行に移ったりした
+    /// （Codex の点検 2026-11-13 の件1と同じ取りこぼし。ユーザ判断「その形で進めましょう」）。
+    /// 残す行は変換の行（<see cref="ConversionTarget.Fold"/>）と同じ決め方：確かめた行＞外した行＞検出の行、同じなら統合先の行
+    /// （書き換えで名前が変わらなかった行）、それでも並ぶなら前の行。残した行は重なった行のうち一番前の位置に置く。
+    /// </summary>
+    private static List<AvatarBaseLink> MapBaseLinks(IReadOnlyList<AvatarBaseLink> links, Func<string, string?> map)
+    {
+        var groups = new List<List<(AvatarBaseLink Link, bool Moved)>>();
+        foreach (var link in links)
+        {
+            if (map(link.BaseName) is not { } name)
+            {
+                continue;
+            }
+
+            var row = (Link: link with { BaseName = name }, Moved: !string.Equals(name, link.BaseName, StringComparison.Ordinal));
+            var group = groups.FirstOrDefault(kept => string.Equals(kept[0].Link.BaseName, name, StringComparison.CurrentCultureIgnoreCase));
+            if (group is null)
+            {
+                groups.Add([row]);
+            }
+            else
+            {
+                group.Add(row);
+            }
+        }
+
+        // OrderBy は安定なので、順位と統合先かが並んだら前の行が残る
+        return [.. groups.Select(group => group
+            .OrderBy(row => row.Link.Rejected ? 1 : row.Link.Confirmed ? 0 : 2)
+            .ThenBy(row => row.Moved)
+            .First().Link)];
+    }
 
     /// <summary>
     /// 向き先が全部消えた行は落とす（空の行は持たない）。外した記録が残る行は、人が決めた行として残す（検出の行に勝つ）。

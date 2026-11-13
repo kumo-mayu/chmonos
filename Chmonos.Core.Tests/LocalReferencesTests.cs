@@ -116,6 +116,44 @@ public sealed class LocalReferencesTests
         Assert.Equal(["素体A"], deleted.ContentUpdate!.ForBases);
     }
 
+    /// <summary>
+    /// 素体の統合で対応素体の欄に同じ名前が2つできたら、配列の順でなく人の決定で1行を残す（Codex の点検 2026-11-13 の件1と同じ取りこぼし）。
+    /// 確かめた行＞外した行＞検出の行。同じ順位なら統合先の行。
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MergingBasesKeepsTheHumanDecisionInTheBaseList(bool mergedFirst)
+    {
+        AvatarBaseLink Merged(AvatarBaseLink link) => link with { BaseName = "素体A" };
+        AvatarBaseLink[] Order(AvatarBaseLink a, AvatarBaseLink b) => mergedFirst ? [Merged(a), b] : [b, Merged(a)];
+        AvatarBaseLink Fold(AvatarBaseLink fromA, AvatarBaseLink atB)
+        {
+            var local = new LocalBlock { AvatarBases = [.. Order(fromA, atB), new AvatarBaseLink { BaseName = "素体C" }] };
+            var merged = LocalReferences.Rewrite(local, LocalReferenceKind.BaseName, LocalReferences.SameBaseName("素体A"), "素体B")!;
+            Assert.Equal(["素体B", "素体C"], merged.AvatarBases.Select(link => link.BaseName));
+            return merged.AvatarBases[0];
+        }
+
+        var detected = new AvatarBaseLink { BaseName = "x", Source = AvatarLinkSource.SupportSection };
+        var confirmed = new AvatarBaseLink { BaseName = "x", Source = AvatarLinkSource.Manual, Confirmed = true };
+        var rejected = new AvatarBaseLink { BaseName = "x", Source = AvatarLinkSource.Manual, Confirmed = true, Rejected = true };
+
+        // 確かめた行は、検出の行にも外した印にも消されない（どちらの側にあっても）
+        Assert.True(Fold(detected, confirmed with { BaseName = "素体B" }) is { Confirmed: true, Rejected: false });
+        Assert.True(Fold(confirmed, detected with { BaseName = "素体B" }) is { Confirmed: true, Rejected: false });
+        Assert.True(Fold(rejected, confirmed with { BaseName = "素体B" }) is { Rejected: false });
+        Assert.True(Fold(confirmed, rejected with { BaseName = "素体B" }) is { Rejected: false });
+
+        // 外した印は、検出の行に勝つ（外した物が次の検出で戻らないように）
+        Assert.True(Fold(detected, rejected with { BaseName = "素体B" }).Rejected);
+        Assert.True(Fold(rejected, detected with { BaseName = "素体B" }).Rejected);
+
+        // 同じ順位なら統合先の行（ここでは出所で見分ける）
+        var targetRow = Fold(detected with { Source = AvatarLinkSource.SupportSection }, detected with { BaseName = "素体B", Source = AvatarLinkSource.Manual });
+        Assert.Equal(AvatarLinkSource.Manual, targetRow.Source);
+    }
+
     /// <summary>改名で同じ物が2つになったら1つに畳む（素体の統合）。どの行を残すかの決まりは下の Merging… の試験。</summary>
     [Fact]
     public void MergingTwoBasesFoldsTheDuplicates()
