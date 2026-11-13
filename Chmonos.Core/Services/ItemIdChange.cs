@@ -449,7 +449,8 @@ public static class ItemIdChange
 
     /// <summary>
     /// 変換扱いを合わせる。扱い（自動・プロファイル・扱わない）は、移した先が決めていればそちら、自動のままなら移す元の物。
-    /// つなぎ先は移した先の行を先に、移す元の行のうち同じ行（<see cref="ConversionTarget.SameRow"/>）が無い物を足す（同じ行は移した先の確認・外した印を残す）。
+    /// つなぎ先は移した先の行を先に、移す元の行のうち同じ行（<see cref="ConversionTarget.SameRow"/>）が無い物を足す。同じ行は <see cref="ConversionTarget.Fold"/> で畳む（選んだ行＞外した行＞推した行、同じ順位なら移した先の行。
+    /// 前は移した先の行がいつも勝ち、移した先の推した行が、移す元で人が選んだ行を消していた。Codex の点検 2026-11-13 件1）。
     /// 移す元が自分自身をつなぎ先にしていた行（カテゴリが「3Dキャラクター」の商品の推し方）は、移した先を指すように直す
     /// </summary>
     private static ConversionSetting? MergeConversion(ConversionSetting? source, ConversionSetting? target, string fromId, string toId)
@@ -460,16 +461,9 @@ public static class ItemIdChange
         }
 
         var moved = source.Targets
-            .Select(row => string.Equals(row.AvatarItemId, fromId, StringComparison.Ordinal) ? row with { AvatarItemId = toId } : row)
-            .ToList();
-        var rows = (target?.Targets ?? []).ToList();
-        foreach (var row in moved)
-        {
-            if (!rows.Any(kept => ConversionTarget.SameRow(kept, row)))
-            {
-                rows.Add(row);
-            }
-        }
+            .Select(row => string.Equals(row.AvatarItemId, fromId, StringComparison.Ordinal) ? row with { AvatarItemId = toId } : row);
+        var rows = ConversionTarget.Fold(
+            (target?.Targets ?? []).Select(row => (row, Moved: false)).Concat(moved.Select(row => (row, Moved: true))));
 
         var merged = new ConversionSetting
         {
