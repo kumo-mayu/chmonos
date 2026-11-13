@@ -254,7 +254,9 @@ public class LiveWatchNoticeTests
 
         await app.ChangeSettingsAsync(settings => settings with { WatchFoldersWhileOpen = true });
         await UiThread.Until(() => main.LiveWatch is { IsRunning: true }, "また張る");
-        Assert.Equal(2, app.FolderEvents.All.Count);
+
+        // IsRunning は Start の中ですぐ立つが、見張りを張るのは裏（ArmAll は Task.Run）。混んでいると張る前に数えて落ちたので、張るまで待つ
+        await UiThread.Until(() => app.FolderEvents.All.Count == 2, "見張りを張り直す");
     });
 
     [Fact]
@@ -268,7 +270,9 @@ public class LiveWatchNoticeTests
         await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [.. settings.WatchedFolders, other] });
 
         await UiThread.Until(() => main.LiveWatch!.Folders.Count == 2, "足したフォルダも見張る");
-        Assert.Equal(3, app.FolderEvents.All.Count);
+
+        // Folders は Start の中ですぐ替わるが、見張りを張るのは裏（ArmAll は Task.Run）。張るまで待ってから数える
+        await UiThread.Until(() => app.FolderEvents.All.Count == 3, "足したフォルダの見張りを張る");
         Assert.Equal(2, app.FolderEvents.All.Count(events => !events.Disposed));
     });
 
