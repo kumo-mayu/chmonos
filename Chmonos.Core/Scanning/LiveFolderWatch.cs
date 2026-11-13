@@ -4,11 +4,11 @@ namespace Chmonos.Core.Scanning;
 /// <param name="Arrived">見張り始めた後に現れた（か、中身が変わった）物か。見張り始める前から在った新着は false。</param>
 public sealed record LiveWatchFile(string Path, string Fingerprint, bool Arrived);
 
-/// <summary>待ち時間（plan 49）。数字の根拠は各欄に書く。試験は待ちそのものを差し替える。</summary>
+/// <summary>待ち時間（plan 49）。数字の根拠は各欄に書く。試験は待ちと時計を差し替える。</summary>
 public sealed record LiveFolderWatchTiming
 {
     /// <summary>
-    /// 最後の出来事からこれだけ静かになったら探す。続けて置かれた物（エクスプローラのコピー・zip の展開で数百の出来事が続く）を1回にまとめる。
+    /// 最後の出来事からこれだけ静かになったら探す（最後の出来事の時刻から数える。待ち始めからではない）。続けて置かれた物（エクスプローラのコピー・zip の展開で数百の出来事が続く）を1回にまとめる。
     /// 5秒：コピーの途中はファイルごとに出来事が来るので数秒の静けさはまず無く、ダウンロードは出来上がった後に Zone.Identifier を付け足す
     /// （その書き込みも同じ静けさの中に収まる）。知らせが5秒遅れても、取り込みは1件に1.5秒以上かかるので気にならない
     /// </summary>
@@ -38,7 +38,7 @@ public sealed record LiveFolderWatchTiming
 ///
 /// - **出来事は「探し直すきっかけ」だけ。**新しいかは起動時と同じ <see cref="FolderWatch.FindNewAsync"/> で決め直す
 ///   （走査の控え・外した物・まだ取り込んでいない物。<c>docs/spec/import.md</c>）。あふれ・取りこぼしがあっても、次の探し直しで拾える。
-/// - 続けて来た出来事は、静けさ（<see cref="LiveFolderWatchTiming.Quiet"/>）を待って1回にまとめる。
+/// - 続けて来た出来事は、最後の出来事から静けさ（<see cref="LiveFolderWatchTiming.Quiet"/>）がたつのを待って1回にまとめる。
 /// - 書いている途中の物（ダウンロードの途中・大きさが動く・掴まれている）は渡さず、後で確かめ直す。
 /// - <see cref="IsBusy"/>（取り込み中）の間は渡さず、<see cref="Kick"/> で探し直す（今の取り込みに黙って混ぜない）。
 /// - あふれたら探し直し、壊れたら張り直す（<see cref="LiveFolderWatchTiming.Rearm"/> ごと）。張り直せたら探し直す。
@@ -51,6 +51,7 @@ public sealed class LiveFolderWatch : IDisposable
     private readonly Func<IReadOnlyList<string>, CancellationToken, Task<WatchResult>> _findNew;
     private readonly IFileSettleProbe _probe;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
+    private readonly TimeProvider _clock;
     private readonly Func<string, bool> _folderPresent;
     private readonly LiveFolderWatchTiming _timing;
     private readonly object _lock = new();
@@ -61,12 +62,17 @@ public sealed class LiveFolderWatch : IDisposable
     /// <param name="findNew">新着を探す（<see cref="FolderWatch.FindNewAsync"/>）。</param>
     /// <param name="probe">書き終わったかを見る。</param>
     /// <param name="delay">待つ。試験は手で進める物に差し替える。</param>
+    /// <param name="clock">
+    /// 最後の出来事からの時間を測る時計。待ちと同じ時間で進む物を渡す（待ちだけ作り物にして時計を本物にすると、静けさの残りが減らず空回りする）。
+    /// 省ける引数にしないのは、その食い違いを組み立ての時点で止めるため
+    /// </param>
     /// <param name="folderPresent">張り直す前に、フォルダが在るかを見る。</param>
     public LiveFolderWatch(
         Func<string, IFolderEvents?> watchFolder,
         Func<IReadOnlyList<string>, CancellationToken, Task<WatchResult>> findNew,
         IFileSettleProbe probe,
         Func<TimeSpan, CancellationToken, Task> delay,
+        TimeProvider clock,
         Func<string, bool> folderPresent,
         LiveFolderWatchTiming? timing = null)
     {
@@ -74,6 +80,7 @@ public sealed class LiveFolderWatch : IDisposable
         _findNew = findNew;
         _probe = probe;
         _delay = delay;
+        _clock = clock;
         _folderPresent = folderPresent;
         _timing = timing ?? new LiveFolderWatchTiming();
     }
@@ -292,7 +299,8 @@ public sealed class LiveFolderWatch : IDisposable
         private readonly object _gate = new();
         private readonly Dictionary<string, IFolderEvents> _events = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _broken = new(StringComparer.OrdinalIgnoreCase);
-        private int _generation;
+        /// <summary>最後に探し直しを頼まれた時刻（<see cref="TimeProvider.GetTimestamp"/>）。静けさはここから数える。</summary>
+        private long _lastNudge;
         private bool _deferred;
         private int _settleRetries;
         private Task? _rearm;
@@ -461,10 +469,28 @@ public sealed class LiveFolderWatch : IDisposable
             Nudge();
         }
 
-        /// <summary>探し直しを頼む。静けさの待ちの中で来たら、待ちを延ばす（世代が変わる）。</summary>
+        /// <summary>
+        /// 探し直しを頼む。時刻を打ってから起こす（起きた回りが、この頼みの時刻を読めるように）。
+        /// 静けさの待ちの中で来たら、この時刻から静けさの分まで待ちが延びる。
+        /// 出来事のほか、書き終わりの確かめ直し・取り込みの後・張り直しの後もここを通る（確かめ直しも静けさを空けて回す。
+        /// <see cref="LiveFolderWatchTiming.MaxSettleRetries"/> の「5秒ごと」はこれが前提）
+        /// </summary>
         private void Nudge()
         {
-            Interlocked.Increment(ref _generation);
+            // 複数のスレッド（見張りの出来事・張り直し・画面）から来るので、時刻を後ろへ戻さない
+            var now = owner._clock.GetTimestamp();
+            var seen = Volatile.Read(ref _lastNudge);
+            while (now > seen)
+            {
+                var previous = Interlocked.CompareExchange(ref _lastNudge, now, seen);
+                if (previous == seen)
+                {
+                    break;
+                }
+
+                seen = previous;
+            }
+
             try
             {
                 _signal.Release();
@@ -565,14 +591,21 @@ public sealed class LiveFolderWatch : IDisposable
                 {
                     await _signal.WaitAsync(token).ConfigureAwait(false);
 
-                    // 静けさを待つ。待つ間に出来事が来たら（世代が変わったら）待ち直す
-                    int seen;
-                    do
+                    // 最後の頼みから静けさがたつまで待つ。待つ間に出来事が来たら、その出来事からの残りだけ待ち直す。
+                    // 「待ち始めから静けさの分」を数え直す形にしない：1つのファイルのコピーでも、作成・書き込み・変更の出来事が
+                    // 同じ瞬間に続けて来るので、1つ目で起きた後に届いた残りが待ちを丸ごと延ばし、静けさが実際は倍の10秒になっていた
+                    // （plan 50。実機の足跡で、1つ置いて出来事3つ→静けさの終わりまで +10.3s、5つ置いて出来事11→+10.0s）
+                    while (true)
                     {
-                        seen = Volatile.Read(ref _generation);
-                        await owner._delay(owner._timing.Quiet, token).ConfigureAwait(false);
+                        var remaining = owner._timing.Quiet - owner._clock.GetElapsedTime(Volatile.Read(ref _lastNudge));
+                        if (remaining <= TimeSpan.Zero)
+                        {
+                            break;
+                        }
+
+                        await owner._delay(remaining, token).ConfigureAwait(false);
                     }
-                    while (seen != Volatile.Read(ref _generation));
+
                     Services.UiTrace.Write("監視", "静けさが終わった");
 
                     // 待つ間に溜まった頼みは、これから探す1回に含まれる
