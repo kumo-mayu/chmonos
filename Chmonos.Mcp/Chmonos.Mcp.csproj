@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AI（MCP の使い手）から Chmonos に問い合わせる通訳（docs/spec/mcp.md）。Chmonos.exe に mcp の引数を付けて起動すると、画面を出さずに stdio で動く。
+    通訳は今のローカル HTTP API（Chmonos.Api）に話すだけで、保存先を直に読まない・書かない（API の守りがそのまま効く）。
+    別のライブラリにしたのは、MCP の部品を Core と API に入れないため（MCP の規格が変わっても、直すのはここだけ）
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Chmonos.Mcp</AssemblyName>
+    <RootNamespace>Chmonos.Mcp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 動いている Chmonos の一覧（RunningInstances）を読むためだけ。保存先の読み書きの部品は使わない -->
+    <ProjectReference Include="..\Chmonos.Core\Chmonos.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      MCP の公式 C# SDK。Core の方だけを使う（低い層の McpServer と stdio の運び）。上の ModelContextProtocol は
+      DI と Hosting の付け足しで、1本の通訳には要らない（引き連れる物を減らす。2026-11-13 の安定版）
+    -->
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Chmonos.Mcp.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -53,7 +53,7 @@ App・Core を触ると `.claude/rules/` の画面と文言の決め事・前提
 
 ## 確かめ方
 
-- `dotnet build`・`dotnet test`（9つの一式。画面の側は頭文字で3つに分けてある。出力の絞り方は `.claude/wrap-up.md`）。途中は関係する試験だけでよい（`--filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
+- `dotnet build`・`dotnet test`（10の一式。画面の側は頭文字で3つに分けてある。出力の絞り方は `.claude/wrap-up.md`）。途中は関係する試験だけでよい（`--filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
   重くなったときの目安と直し方は `docs/dev/app-tests.md`「重くしない」
 - 通信する試験を既定の一式に入れない（BOOTH へ実際に問い合わせる確かめは `experiments/`）。時計や実マシンの状態（Unity が動いているか）に結果が左右される試験も書かない
 - 計算で決まる物（文言・出し分け・一覧に何が並ぶか・押したら何が書かれるか）は試験（`docs/dev/app-tests.md`）で確かめ、起動して撮らない。画面で見るのは配置・色・折り返し・手触りだけ

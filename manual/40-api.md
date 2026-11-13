@@ -392,6 +392,55 @@ while ($true) {
 - 改変を消す・名前を変える、対応アバターをまとめて確認済みにする、といった操作は、Chmonos の画面で行ってください。
 - 許可した Web ページからも変えられます。
 
+## AI から使う（MCP）（次のバージョンから）
+
+Claude Code や Claude Desktop など、MCP に対応した AI のアプリに Chmonos を登録すると、AI が手元の商品を探したり、対応アバターや unitypackage の中身を調べたりできます。登録するのは Chmonos.exe に `--mcp` を付けたコマンドです。
+
+- 読むだけです。AI が Chmonos のデータを変えることはありません。BOOTH にも問い合わせません。
+- 先に Chmonos を起動し、設定の「API」で「APIを使う」をオンにしておきます。`--mcp` で起動した Chmonos.exe はウィンドウを開かず、動いている Chmonos に問い合わせます。
+- はじめて使うと、Chmonos に「APIの利用の許可」の窓が開きます。［許可］を押すと、次からは聞かれません。窓の名前には「Claude Code（MCP）」のように AI のアプリの名前が出ます。exe の欄には Chmonos.exe と出ます。
+- AI のアプリは［許可］を25秒待ちます。間に合わなかったときは、［許可］を押してから、AI にもう一度頼んでください。
+- 許可は、設定の「API」の「つないでいるソフト」で取り消せます。受け取ったトークンは `%LOCALAPPDATA%\Chmonos.Shared\mcp-tokens.json` に置きます。
+- 非表示にした商品は AI にも見せません。設定で R-18 を表示しないことにしているときは、R-18 の商品も見せません。
+- AI に渡した商品の情報の扱いは、[使う前に](#使う前に) と同じです。
+
+### Claude Code に登録する
+
+PowerShell などで次を実行します。`C:\Tools\Chmonos\Chmonos.exe` は、Chmonos.exe を置いた場所に替えてください。
+
+```powershell
+claude mcp add --scope user chmonos -- C:\Tools\Chmonos\Chmonos.exe --mcp
+```
+
+- `--` より後ろが、Claude Code が起動するコマンドです。
+- `--scope user` を付けると、どのプロジェクトでも使えます。付けないと、今のプロジェクトでだけ使えます。
+- 登録できたかは、Claude Code で `/mcp` と打つと分かります。
+
+### Claude Desktop に登録する
+
+`%APPDATA%\Claude\claude_desktop_config.json` に次を書き、Claude Desktop を起動し直します。パスの `\` は `\\` と2つ重ねて書きます。
+
+```json
+{
+  "mcpServers": {
+    "chmonos": {
+      "command": "C:\\Tools\\Chmonos\\Chmonos.exe",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+### Chmonos を2つ以上動かしているとき
+
+どのデータを使うかを、`--mcp` の後ろに `--store <データの保存先>` で選びます。
+
+```powershell
+claude mcp add --scope user chmonos -- C:\Tools\Chmonos\Chmonos.exe --mcp --store D:\Chmonos
+```
+
+Claude Desktop では `"args": ["--mcp", "--store", "D:\\Chmonos"]` と書きます。
+
 ## 困ったとき
 
 | 出たこと | すること |
@@ -409,5 +458,7 @@ while ($true) {
 | `503`（`storeBusy`） | データの保存先を移している途中です。少し待ってから送ってください。 |
 | `403`（`originNotAllowed`） | そのページのオリジンを設定の「API」の「許可するオリジン」に追加してください。 |
 | `503`（`storeFormatTooNew`） | 新しいバージョンの Chmonos で使ったデータです。Chmonos を新しくしてください。 |
+| AI が「Chmonos が動いていません」と答える（次のバージョンから） | Chmonos を起動して、設定の「API」で「APIを使う」をオンにしてください。 |
+| AI が「Chmonos が 2 つ動いています」と答える（次のバージョンから） | 登録したコマンドに `--store <データの保存先>` を足してください（[Chmonos を2つ以上動かしているとき](#chmonos-を2つ以上動かしているとき)）。 |
 
 誤りの答えは `application/problem+json` で、`code` に決まった名前が入ります。

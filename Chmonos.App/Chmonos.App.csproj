@@ -18,6 +18,8 @@
       ASP.NET Core のランタイムも exe に入る（前は別の Chmonos.Api.exe が自分の分を持っていた）
     -->
     <ProjectReference Include="..\Chmonos.Api\Chmonos.Api.csproj" />
+    <!-- AI（MCP の使い手）への通訳。Chmonos.exe に mcp の引数を付けると画面を出さずにこれだけ動く（Program.cs・docs/spec/mcp.md） -->
+    <ProjectReference Include="..\Chmonos.Mcp\Chmonos.Mcp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,6 +48,8 @@
     <UseWPF>true</UseWPF>
     <!-- モニターごとの拡大率を宣言する（中身の理由は app.manifest）。1ファイルの publish でも exe に埋め込まれる -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 入口は Program（mcp の引数で WPF より先に通訳へ分かれる）。App.xaml から作られる App.Main はそこから呼ぶ -->
+    <StartupObject>Chmonos.App.Program</StartupObject>
   </PropertyGroup>
 
   <!--
