@@ -38,6 +38,26 @@ public sealed class StoredClientValidationTests : LocalApiFixture
         Assert.Null(State.Clients.ById("a"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task 控えの未知の条件は_無条件の許可へ変わらない(bool writeBack)
+    {
+        var document = JsonNode.Parse(await File.ReadAllTextAsync(Store.Paths.ApiClientsFile))!;
+        document["clients"]![0]!["menu"]![0]!["when"] = JsonNode.Parse("""{"futureRestriction":true}""");
+        await File.WriteAllTextAsync(Store.Paths.ApiClientsFile, document.ToJsonString());
+        if (writeBack)
+        {
+            // 使った日時・宣言・設定の画面の書き込みは型を通して書き戻す。そこで知らない条件が消えると、次の読み直しで無条件になる
+            await Store.ApiClients.UpdateAsync(list => list with { RefusalLimit = list.RefusalLimit + 1 });
+            Assert.Contains("futureRestriction", await File.ReadAllTextAsync(Store.Paths.ApiClientsFile), StringComparison.Ordinal);
+        }
+
+        State.Clients.Reload();
+        Assert.Empty((await GetJson("/v1/plugin/menu")).GetProperty("items").EnumerateArray());
+        Assert.DoesNotContain(Hub.MenusFor("item", ["9600901"]), software => software.ClientId == "a");
+    }
+
     [Fact]
     public async Task 控えの重複ソフトIDは_例外を出さず隔離する()
     {
