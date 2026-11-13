@@ -617,6 +617,64 @@ public sealed class ApiClientTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(With(HttpMethod.Get, $"/v1/items/{ItemId}", renewed))).StatusCode);
     }
 
+    /// <summary>結果を取りに行き、もう無い求め（期限切れ・失効）として 404 で断られることを確かめる。</summary>
+    private async Task AssertResultGoneAsync(string requestId)
+    {
+        var response = await _client.PostAsync("/v1/clients/request/result", Json(JsonSerializer.Serialize(new { requestId, wait = 0 })));
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("requestNotFound", await CodeOf(response));
+    }
+
+    [Fact]
+    public async Task 受け取っていない前の許しは_同じソフトを後で許すと失効し_後の行を置き換えない()
+    {
+        await StartAsync();
+
+        // 前の求めを許したが、ソフトは受け取らずに求め直した（受け取っていない許しと、新しい求めが並ぶ）
+        var stale = await RequestIdAsync("作り物の道具", "marks", "tags");
+        (await _approvals.NextAsync()).Answer(new ApiClientDecision(true, [ApiScopes.Marks, ApiScopes.Tags]));
+        var renewed = await RequestIdAsync("作り物の道具", "marks");
+        (await _approvals.NextAsync()).Answer(new ApiClientDecision(true, []));
+        var token = (await ResultAsync(renewed)).GetProperty("token").GetString()!;
+
+        await AssertResultGoneAsync(stale);
+        var saved = Assert.Single(_store.ApiClients.Load().Clients);
+        Assert.Empty(saved.Scopes);
+        Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(With(HttpMethod.Get, "/v1/clients/me", token))).StatusCode);
+    }
+
+    [Fact]
+    public async Task 受け取っていない前の許しは_後で許した行を取り消した後に受け取っても_トークンを出さない()
+    {
+        await StartAsync();
+        var stale = await RequestIdAsync("作り物の道具", "marks");
+        (await _approvals.NextAsync()).Answer(new ApiClientDecision(true, [ApiScopes.Marks]));
+        await GrantAsync("作り物の道具", ["marks"], []);
+
+        // 設定の画面の取り消しと同じ書き方
+        await _store.ApiClients.UpdateAsync(list => list with { Clients = [] });
+        _state.Clients.Reload();
+
+        await AssertResultGoneAsync(stale);
+        Assert.Empty(_store.ApiClients.Load().Clients);
+    }
+
+    [Fact]
+    public async Task 許した後に前からの行を取り消すと_受け取っていない許しは失効する()
+    {
+        await StartAsync();
+        await GrantAsync("作り物の道具", [], []);
+
+        // 求め直しを許した後、受け取る前に人が設定で前の行を取り消した（人の後の操作を勝たせる）
+        var pending = await RequestIdAsync("作り物の道具", "marks");
+        (await _approvals.NextAsync()).Answer(new ApiClientDecision(true, [ApiScopes.Marks]));
+        await _store.ApiClients.UpdateAsync(list => list with { Clients = [] });
+        _state.Clients.Reload();
+
+        await AssertResultGoneAsync(pending);
+        Assert.Empty(_store.ApiClients.Load().Clients);
+    }
+
     [Fact]
     public async Task 人が求められていない種類を返しても_許さない()
     {

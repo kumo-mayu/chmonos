@@ -142,6 +142,13 @@ public sealed record PluginMenuWhen
 
     /// <summary>カテゴリの名前（画面と同じ実質の1つ）。</summary>
     public string? Category { get; init; }
+
+    /// <summary>
+    /// この版が知らない条件（手で書いた・新しい版が足した物）。型に読む所で捨てると条件が消え、無条件に押せる項目になる（許しを広げる）。
+    /// 残しておけば、API が宣言を読み直すときの検証（入口と同じ）が知らない条件として断り、その宣言を出さない。書き戻しても消えない
+    /// </summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; init; }
 }
 
 /// <summary>
