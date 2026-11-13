@@ -86,6 +86,10 @@ public static class McpProgram
     {
         // ほかの部品がうっかり Console.Out に書いても、MCP の通信（生の stdout の流れ）に混ざらないよう stderr へ向ける。
         // SDK の stdio の運びは Console.Out ではなく生の流れを開く（確かめは docs/spec/mcp.md「stdout」）
+        // stderr のログを UTF-8 で書く。既定は日本語の Windows のコードページ（Shift_JIS）で、MCP の使い手（Claude Code のログなど）は
+        // UTF-8 として読むので字化けした（2026-11-13 に実機でつないで確かめた）。BOM は付けない（ログの頭に余計な字が入る）。
+        // Console.OutputEncoding は変えない：コンソールの無い起動（使い手がパイプでつなぐ）では当てにならない
+        Console.SetError(new StreamWriter(Console.OpenStandardError(), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { AutoFlush = true });
         Console.SetOut(Console.Error);
 
         try
