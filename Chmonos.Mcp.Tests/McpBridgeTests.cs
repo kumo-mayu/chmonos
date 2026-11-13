@@ -408,6 +408,99 @@ public sealed class McpBridgeTests : IAsyncLifetime
         Assert.Equal(1, Parse(text)["total"]!.GetValue<int>());
     }
 
+    /// <summary>
+    /// 隠したアバター（9700002 は非表示・9700003 は R-18）を、表示する商品・改変・共通素体から指す保存先。
+    /// 見せてよいアバター 9700001 も並べて、落としすぎ（行ごと消える）も見る
+    /// </summary>
+    private static void FillHiddenAvatarRefs(Core.Storage.DataStore store)
+    {
+        Core.Storage.JsonStore.Write(store.Paths.AvatarRegistryFile, new Core.Models.AvatarRegistry
+        {
+            Entries =
+            [
+                new Core.Models.AvatarRegistryEntry { ItemId = "9700001", BoothName = "作り物の帽子", BaseName = "作り物の素体" },
+                new Core.Models.AvatarRegistryEntry { ItemId = "9700002", BoothName = "作り物の隠した靴", BaseName = "作り物の素体" },
+                new Core.Models.AvatarRegistryEntry { ItemId = "9700003", BoothName = "作り物の大人の服", BaseName = "作り物の大人の素体" },
+            ],
+            BaseGroups =
+            [
+                new Core.Models.AvatarBaseGroup { Name = "作り物の素体", ItemId = "9700002" },
+                new Core.Models.AvatarBaseGroup { Name = "作り物の大人の素体" },
+            ],
+        });
+        store.Items.SaveAsync(new Core.Models.ItemRecord
+        {
+            Id = "9700004",
+            Booth = new Core.Models.BoothBlock { Name = "作り物の対応服" },
+            Local = new Core.Models.LocalBlock
+            {
+                Avatars =
+                [
+                    new Core.Models.AvatarLink { AvatarItemId = "9700001", Confirmed = true },
+                    new Core.Models.AvatarLink { AvatarItemId = "9700002", Confirmed = true },
+                ],
+            },
+        }).GetAwaiter().GetResult();
+        store.Modifications.SaveAsync(new Core.Models.ModificationRecord { Id = "mod-0001", AvatarItemId = "9700001", Name = "作り物の改変" }).GetAwaiter().GetResult();
+        store.Modifications.SaveAsync(new Core.Models.ModificationRecord { Id = "mod-0002", AvatarItemId = "9700002", Name = "作り物の隠した改変" }).GetAwaiter().GetResult();
+    }
+
+    [Fact]
+    public async Task 表示する商品と改変と共通素体から_隠したアバターの参照を落とし_落とした数を添える()
+    {
+        var (storeRoot, port) = await _harness.StartApiAsync("store-a", showAdult: false, fill: FillHiddenAvatarRefs);
+        _harness.Announce(storeRoot, port, 101);
+        var client = await _harness.ConnectAsync(_harness.Options());
+        _ = _harness.Approvals.ApproveNextAsync();
+
+        void AssertNoHidden(string text)
+        {
+            Assert.DoesNotContain("9700002", text);
+            Assert.DoesNotContain("隠した", text);
+            Assert.DoesNotContain("9700003", text);
+            Assert.DoesNotContain("大人", text);
+        }
+
+        // 検索の要約の avatarIds（ID の文字列の配列）
+        var (isError, text) = await McpHarness.CallAsync(client, "search_items", new { query = "対応服" });
+        Assert.False(isError, text);
+        AssertNoHidden(text);
+        var item = Parse(text)["items"]!.AsArray().Single()!;
+        Assert.Equal(["9700001"], item["avatarIds"]!.AsArray().Select(id => id!.GetValue<string>()));
+        Assert.Equal(1, Parse(text)["omittedByDisplaySettings"]!.GetValue<int>());
+
+        // 商品1件の compatibleAvatars と avatarLinks.avatars（ID と名前の組）
+        (isError, text) = await McpHarness.CallAsync(client, "get_item", new { id = "9700004", include = new[] { "avatarLinks" } });
+        Assert.False(isError, text);
+        AssertNoHidden(text);
+        var detail = Parse(text);
+        Assert.Equal(["9700001"], detail["compatibleAvatars"]!.AsArray().Select(avatar => avatar!["avatarId"]!.GetValue<string>()));
+        Assert.Equal(["9700001"], detail["avatarLinks"]!["avatars"]!.AsArray().Select(avatar => avatar!["avatarId"]!.GetValue<string>()));
+        Assert.Equal(2, detail["omittedByDisplaySettings"]!.GetValue<int>());
+
+        // 改変の avatarId・avatarName：一覧は行ごと、1件は断る
+        (isError, text) = await McpHarness.CallAsync(client, "list_modifications");
+        Assert.False(isError, text);
+        AssertNoHidden(text);
+        Assert.Equal(["mod-0001"], Parse(text)["items"]!.AsArray().Select(modification => modification!["id"]!.GetValue<string>()));
+        Assert.Equal(1, Parse(text)["omittedByDisplaySettings"]!.GetValue<int>());
+        (isError, text) = await McpHarness.CallAsync(client, "list_modifications", new { id = "mod-0002" });
+        Assert.True(isError);
+        Assert.Contains("隠している", text);
+        Assert.DoesNotContain("9700002", text);
+
+        // 共通素体の members と itemId：見せてよい仲間が残る素体は参照だけ、残らない素体は行ごと
+        (isError, text) = await McpHarness.CallAsync(client, "list_avatar_bases");
+        Assert.False(isError, text);
+        AssertNoHidden(text);
+        var bases = Parse(text);
+        var entry = bases["items"]!.AsArray().Single()!;
+        Assert.Equal("作り物の素体", entry["name"]!.GetValue<string>());
+        Assert.Equal(["9700001"], entry["members"]!.AsArray().Select(id => id!.GetValue<string>()));
+        Assert.Null(entry["itemId"]);
+        Assert.Equal(3, bases["omittedByDisplaySettings"]!.GetValue<int>());
+    }
+
     [Fact]
     public async Task 状況の道具は_Chmonosに問い合わせずに_つないでいる先とほかの札を返す()
     {
