@@ -45,7 +45,8 @@
 - 流れは [api-clients.md](api-clients.md) のとおり。名乗る名前は MCP の initialize の `clientInfo`（`title`、無ければ `name`）に「（MCP）」を添えた物（例「claude-code（MCP）」）。
   制御文字・向きを変える字を除き、64字に切り詰める（API の `invalidName` に当たらない）。空なら「AIの道具（MCP）」。書き込みの種類は求めない（今は空）。
   許しの窓の exe の欄には `Chmonos.exe` が出る（API に接続を開くのは通訳のプロセス）。
-- **待つ秒数：25秒**（`McpOptions.DefaultApprovalWait`）。API の `wait` は30秒まで。Claude Code の道具の時間切れは既定でずっと長いが、ほかの使い手は60秒前後で切る物があるので、その半分より短くした。
+- **待つ秒数：25秒**（`McpOptions.DefaultApprovalWait`）。API の `wait` は30秒までなのでその中に収め、少し短くした（プラグインの見本と同じ）。Claude Code の道具の時間切れは既定で約28時間（[公式] https://code.claude.com/docs/en/mcp ）で、当たらない。
+  ほかの使い手の時間切れは確かめていない。並んで呼ばれた道具は、錠が空いた後は待たずに1回だけ見る（待ちを重ねない）。
   待ちきれなければ「Chmonos に許可の窓を出しました。Chmonos の窓で［許可］を押してから、もう一度試してください。」。求めの `requestId` は保存先ごとに覚えておき、次の呼び出しで同じ求めの続きを待つ（求め直すと窓が重なる）。
   求めが消えていた（404。Chmonos の起動し直し・10分取りに来なかった）ら、その呼び出しの中で1回だけ求め直す。
 - 断りはそれぞれの文：拒否（`denied`）・窓を出せない（503 `approvalUnavailable`：「Chmonos の画面を開いてから」）・止められている（403 `requestBlocked`：設定の「止めているソフト」で外す）・429。
@@ -99,7 +100,8 @@
 
 - 1つの答えは **8,000字まで**（`AnswerShaper.MaxAnswerChars`）。Claude Code は道具の答えが1万トークンを超えると警告を出す（[公式] https://code.claude.com/docs/en/mcp 。既定の上限は2万5千トークン）。日本語は1字が1トークン近いので、字数で8千に抑える。
 - 文字列は1つ300字まで（末尾に「…（N字のうち先頭M字）」）。入れ子の一覧は30件まで（「…ほか N 件（省きました）」）。それでも長ければ 10件・5件／120字…と段々に短くする（いつも JSON として読める形）。
-- 絵の場所（`thumbnail`・`imagePath`・`images`）と説明文の `html` は落とす。答えの JSON は日本語を `\uXXXX` に逃がさない（字数が6倍になる）。
+- 絵の場所（`thumbnail`・`imagePath`・`images`）と説明文の `html` は落とす。
+- 改変の `blueprintId` も落とす（担当の判断・安全側）。API が返すのは「同じ PC の道具には隠しても守りにならない」から（[local-api.md](local-api.md)・2026-11-02）で、AI に渡すと AI の提供元へ出る。[要確認] AI にも渡すかはユーザに聞く。答えの JSON は日本語を `\uXXXX` に逃がさない（字数が6倍になる）。
 - 検索は API の続きの印を使い、長すぎれば `limit` を半分にして引き直す（通訳の側で切ると続きの印と合わない）。
 - 続きの印の無い一覧は通訳が `offset`・`limit`（既定30・100まで）で区切り、`total`・`nextOffset` を返す。上限を超えれば件数を減らす。
 

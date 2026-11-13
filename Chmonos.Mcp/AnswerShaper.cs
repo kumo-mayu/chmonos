@@ -30,9 +30,11 @@ internal static class AnswerShaper
     public const int MaxNestedItems = 30;
 
     /// <summary>
-    /// AI に要らない欄。絵の場所（AI は手元の絵を開けず、場所だけで文脈を食う）と、説明文の HTML（同じ中身の素の文を別に返す）
+    /// AI に渡さない欄。絵の場所（AI は手元の絵を開けず、場所だけで文脈を食う）と、説明文の HTML（同じ中身の素の文を別に返す）。
+    /// 改変の blueprint ID も落とす：API が返すのは「同じ PC の道具には隠しても守りにならない」から（local-api.md・2026-11-02）で、
+    /// AI に渡すと AI の提供元へ出ていく。それは別の話なので、使う人が決めるまで安全側に倒す（docs/spec/mcp.md）
     /// </summary>
-    private static readonly HashSet<string> Dropped = new(StringComparer.Ordinal) { "thumbnail", "imagePath", "images", "html" };
+    private static readonly HashSet<string> Dropped = new(StringComparer.Ordinal) { "thumbnail", "imagePath", "images", "html", "blueprintId" };
 
     /// <summary>削った写しを作る（元は変えない）。</summary>
     public static JsonNode? Slim(JsonNode? node, int nestedItems = MaxNestedItems, int stringChars = MaxStringChars)

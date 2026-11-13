@@ -25,8 +25,8 @@ internal sealed record ApiAnswer(JsonNode? Body, string? Problem, RunningInstanc
 internal sealed class ChmonosBridge : IDisposable
 {
     /// <summary>
-    /// 1回の問い合わせの時間切れ。許しの結果を待つ（<see cref="McpOptions.ApprovalWait"/>・30秒まで）より長く、
-    /// 使い手の道具の時間切れ（Claude Desktop などで60秒前後）より短く
+    /// 1回の問い合わせの時間切れ。許しの結果を待つ長さ（API の <c>wait</c> は30秒まで）に、答えを作る間の余裕を足した長さ。
+    /// 手元の API が答えないまま道具の答えを止め続けないように
     /// </summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(45);
 
@@ -205,7 +205,14 @@ internal sealed class ChmonosBridge : IDisposable
     /// </summary>
     private async Task<(string? Token, string? Problem)> TokenAsync(RunningInstanceRecord instance, Uri baseUri, CancellationToken cancellationToken)
     {
-        await _approval.WaitAsync(cancellationToken);
+        // 先の呼び出しが［許可］を待っている間に並んだ呼び出しは、錠が空いた後は待たずに1回だけ見る
+        // （待ちを重ねると、先の待ちと合わせて「一定時間」の倍を待たせる）
+        var queued = !_approval.Wait(0, CancellationToken.None);
+        if (queued)
+        {
+            await _approval.WaitAsync(cancellationToken);
+        }
+
         try
         {
             if (_tokens.Get(instance.StoreRoot, ClientName) is { } saved)
@@ -229,7 +236,7 @@ internal sealed class ChmonosBridge : IDisposable
                     McpLog.Write(_log, "Chmonos に許しを求めた", message: ClientName);
                 }
 
-                var wait = (int)Math.Clamp(_options.ApprovalWait.TotalSeconds, 0, 30);
+                var wait = queued ? 0 : (int)Math.Clamp(_options.ApprovalWait.TotalSeconds, 0, 30);
                 var payload = new JsonObject { ["requestId"] = requestId, ["wait"] = wait };
                 using var response = await SendRawAsync(HttpMethod.Post, new Uri(baseUri, "/v1/clients/request/result"), payload, null, cancellationToken);
                 var text = await response.Content.ReadAsStringAsync(cancellationToken);

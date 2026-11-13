@@ -287,6 +287,102 @@ public sealed class McpBridgeTests : IAsyncLifetime
         Assert.False(isError);
     }
 
+    /// <summary>R-18 を隠す保存先に、アバター・改変・通知を足す（隠した商品を指す行も入れる）。</summary>
+    private static void FillCatalogs(Core.Storage.DataStore store)
+    {
+        Core.Storage.JsonStore.Write(store.Paths.AvatarRegistryFile, new Core.Models.AvatarRegistry
+        {
+            Entries =
+            [
+                new Core.Models.AvatarRegistryEntry { ItemId = "9700001", BoothName = "作り物の帽子" },
+                new Core.Models.AvatarRegistryEntry { ItemId = "9700002", BoothName = "作り物の隠した靴" },
+            ],
+        });
+        store.Modifications.SaveAsync(new Core.Models.ModificationRecord
+        {
+            Id = "mod-0001", AvatarItemId = "9700001", Name = "作り物の改変", BlueprintId = "avtr_00000000-0000-0000-0000-000000000001",
+        }).GetAwaiter().GetResult();
+        var now = new DateTimeOffset(2026, 11, 13, 9, 0, 0, TimeSpan.FromHours(9));
+        Core.Storage.JsonStore.Write(store.Paths.NotificationsFile, new List<Core.Models.NotificationRecord>
+        {
+            new() { Id = "n-1", Kind = Core.Models.NotificationKind.ItemUpdated, ItemId = "9700001", Title = "作り物の帽子", Detail = "作り物の変化", CreatedAt = now },
+            new() { Id = "n-2", Kind = Core.Models.NotificationKind.ItemUpdated, ItemId = "9700002", Title = "作り物の隠した靴", Detail = "作り物の変化", CreatedAt = now },
+        });
+    }
+
+    public static TheoryData<string, object> EveryTool => new()
+    {
+        { "chmonos_status", new { } },
+        { "search_items", new { query = "作り物" } },
+        { "get_search_conditions", new { } },
+        { "get_item", new { id = "9700001", include = new[] { "avatarLinks", "allFiles", "contents", "meta" } } },
+        { "get_item_description", new { id = "9700001" } },
+        { "list_avatars", new { } },
+        { "get_avatar", new { id = "9700001" } },
+        { "list_avatar_bases", new { } },
+        { "lookup_file", new { path = @"D:\作り物\無いファイル.zip" } },
+        { "list_unitypackages", new { } },
+        { "find_unitypackage_assets", new { item_id = "9700001" } },
+        { "find_unitypackage_assets", new { guids = new[] { "0123456789abcdef0123456789abcdef" } } },
+        { "list_modifications", new { } },
+        { "list_modifications", new { id = "mod-0001" } },
+        { "get_unity_scans", new { } },
+        { "list_notifications", new { } },
+        { "list_classifications", new { kind = "user_tags" } },
+        { "list_classifications", new { kind = "attributes" } },
+        { "list_classifications", new { kind = "categories" } },
+        { "list_classifications", new { kind = "booth_tags" } },
+        { "list_classifications", new { kind = "shops", query = "作り物" } },
+    };
+
+    [Theory]
+    [MemberData(nameof(EveryTool))]
+    public async Task どの道具も_表示の設定で隠す保存先で答えを返す(string tool, object args)
+    {
+        var (storeRoot, port) = await _harness.StartApiAsync("store-a", showAdult: false, fill: FillCatalogs);
+        _harness.Announce(storeRoot, port, 101);
+        var client = await _harness.ConnectAsync(_harness.Options());
+        _ = _harness.Approvals.ApproveNextAsync();
+
+        var (isError, text) = await McpHarness.CallAsync(client, tool, args);
+
+        Assert.False(isError, text);
+        Assert.NotNull(JsonNode.Parse(text));
+        Assert.True(text.Length <= AnswerShaper.MaxAnswerChars);
+        Assert.DoesNotContain("avtr_", text);
+    }
+
+    [Fact]
+    public async Task 隠した商品を指す行は一覧から落とし_落とした数を添える()
+    {
+        var (storeRoot, port) = await _harness.StartApiAsync("store-a", showAdult: false, fill: FillCatalogs);
+        _harness.Announce(storeRoot, port, 101);
+        var client = await _harness.ConnectAsync(_harness.Options());
+        _ = _harness.Approvals.ApproveNextAsync();
+
+        var (_, text) = await McpHarness.CallAsync(client, "list_notifications");
+        var answer = Parse(text);
+        Assert.Equal(["n-1"], answer["items"]!.AsArray().Select(item => item!["id"]!.GetValue<string>()));
+        Assert.Equal(1, answer["omittedByDisplaySettings"]!.GetValue<int>());
+
+        (_, text) = await McpHarness.CallAsync(client, "list_avatars");
+        answer = Parse(text);
+        Assert.Equal(["9700001"], answer["items"]!.AsArray().Select(item => item!["id"]!.GetValue<string>()));
+        Assert.Equal(1, answer["omittedByDisplaySettings"]!.GetValue<int>());
+
+        var (isError, refusal) = await McpHarness.CallAsync(client, "get_avatar", new { id = "9700002" });
+        Assert.True(isError);
+        Assert.Contains("隠している", refusal);
+
+        // 一覧の絞り込みは答えの欄の名前に当てる（外れると誤りにならずに0件になる）
+        (_, text) = await McpHarness.CallAsync(client, "list_avatars", new { query = "帽子" });
+        Assert.Equal(1, Parse(text)["total"]!.GetValue<int>());
+        (_, text) = await McpHarness.CallAsync(client, "list_classifications", new { kind = "shops", query = "存在しない名前" });
+        Assert.Equal(0, Parse(text)["total"]!.GetValue<int>());
+        (_, text) = await McpHarness.CallAsync(client, "list_modifications", new { avatar = "9700001", query = "改変" });
+        Assert.Equal(1, Parse(text)["total"]!.GetValue<int>());
+    }
+
     [Fact]
     public async Task 状況の道具は_Chmonosに問い合わせずに_つないでいる先とほかの札を返す()
     {

@@ -28,9 +28,9 @@ public sealed record McpOptions(
     public const string TokenFileName = "mcp-tokens.json";
 
     /// <summary>
-    /// 1回の呼び出しで［許可］を待つ既定の長さ。API の <c>wait</c> は30秒まで（docs/spec/api-clients.md）。
-    /// MCP の使い手は道具の答えを長く待たせると時間切れにする物がある（Claude Desktop などは60秒前後）ので、
-    /// その半分より短い25秒にし、待ちきれなければ「押してからもう一度」と返す（同じ求めを覚えておき、次の呼び出しで続きを待つ）
+    /// 1回の呼び出しで［許可］を待つ既定の長さ。API の <c>wait</c> は30秒まで（docs/spec/api-clients.md）なので、その中に収め、
+    /// 道具の時間切れを決めていない使い手でも1回の呼び出しが長く止まらないよう、少し短い25秒にした（プラグインの見本と同じ）。
+    /// 待ちきれなければ「押してからもう一度」と返す（同じ求めを覚えておき、次の呼び出しで続きを待つ）
     /// </summary>
     public static readonly TimeSpan DefaultApprovalWait = TimeSpan.FromSeconds(25);
 
