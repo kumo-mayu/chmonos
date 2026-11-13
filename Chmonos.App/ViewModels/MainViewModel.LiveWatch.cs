@@ -124,10 +124,22 @@ public sealed partial class MainViewModel
         return live;
     }
 
-    private void OnLiveFound(LiveFolderWatch live, IReadOnlyList<LiveWatchFile> files)
+    private void OnLiveFound(LiveFolderWatch live, LiveWatchBatch files)
     {
         if (!ReferenceEquals(live, _live) || !live.IsRunning || !_services.Settings.WatchFoldersWhileOpen)
         {
+            return;
+        }
+
+        // 画面のスレッドへ預けた間に監視フォルダを足し引きして張り直していた。前の見張りの物は外したフォルダの物を含みうるので使わない（W4）。
+        // 残したフォルダの物も含みうるが、張り直した見張りは出来事が来るまで探さないので、探し直しを頼む
+        if (!live.IsCurrent(files))
+        {
+            if (files.Count > 0)
+            {
+                live.Defer();
+            }
+
             return;
         }
 
