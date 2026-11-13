@@ -416,11 +416,14 @@ public class AvatarsConversionTests
             },
         });
 
+        // まだ何も選んでいない（変換の見方に切り替える前）うちに、一覧を作る裏で読んである
         var avatars = await OpenAsync(app);
+        Assert.Null(avatars.SelectedConversion);
+        Assert.True(app.Services.Conversion.FbxLoads >= 1, "一覧を作る裏で先に読む");
+
         avatars.ShowConversionModeCommand.Execute(null);
         await app.SettleAsync();
         var loads = app.Services.Conversion.FbxLoads;
-        Assert.True(loads >= 1, "一覧を作る裏で先に読む");
 
         avatars.SelectedConversion = Row(avatars, "9900862");
         avatars.SelectedConversion = Row(avatars, "9900864");
