@@ -80,22 +80,38 @@ internal static class AnswerShaper
         => text.Length <= chars ? text : text[..chars] + $"…（{text.Length}字のうち先頭{chars}字）";
 
     /// <summary>
-    /// 1つの物（商品の詳細など）を上限に収める。入れ子の一覧を段々に短くし、それでも長ければ文字列も短くする。
-    /// どの段でも JSON として読める形を保つ（途中で切った文字列を返さない）
+    /// 1つの物（商品の詳細など）を <paramref name="budget"/> 字に収める。入れ子の一覧を段々に短くし、それでも長ければ文字列も短くする。
+    /// どの段でも JSON として読める形を保つ（途中で切った文字列を返さない）。
+    /// 一番短い段でも収まらない（欄が数百ある横に広い答えなど。2026-11-13 の点検 M3）ときは、中身を写さない省略の答えにする。
+    /// 隠す決まり（<see cref="Dropped"/>・呼び手の <c>Visibility.Scrub</c>）は削る前に当たり、省略の答えは元の欄名も値も持たないので、隠した物は出ない
     /// </summary>
-    public static string Fit(JsonNode? node)
+    public static string Fit(JsonNode? node, int budget = MaxAnswerChars)
     {
-        foreach (var (nested, chars) in new[] { (MaxNestedItems, MaxStringChars), (10, MaxStringChars), (5, 120), (3, 60) })
+        foreach (var (nested, chars) in new[] { (MaxNestedItems, MaxStringChars), (10, MaxStringChars), (5, 120), (3, 60), (1, 40) })
         {
             var text = Slim(node, nested, chars)?.ToJsonString(AnswerShaper.Json) ?? "null";
-            if (text.Length <= MaxAnswerChars)
+            if (text.Length <= budget)
             {
                 return text;
             }
         }
 
-        return Slim(node, 1, 40)?.ToJsonString(AnswerShaper.Json) ?? "null";
+        return Omitted();
     }
+
+    /// <summary>
+    /// 道具の答えの共通の出口（<see cref="ChmonosMcpServer"/>）。各道具は自分で上限に収めるが、収め損ねた答えも AI に渡さない最後の網。
+    /// 文字列を途中で切ると JSON が壊れ、続きの印も合わなくなるので、切らずに省略の答えに置き換える
+    /// </summary>
+    public static string Guard(string text) => text.Length <= MaxAnswerChars ? text : Omitted();
+
+    /// <summary>上限に収まらない答えの代わり。元の答えの欄も値も写さない（何が入っていても短く、隠す物を漏らさない）。</summary>
+    public static string Omitted()
+        => new JsonObject
+        {
+            ["omitted"] = true,
+            ["message"] = $"答えが長すぎて上限（{MaxAnswerChars}字）に収まらないので省きました。条件で絞るか、件数（limit）を減らして引き直してください。",
+        }.ToJsonString(AnswerShaper.Json);
 
     /// <summary>
     /// 続きの印の無い一覧（アバター・unitypackage・改変・通知…）を、通訳の側で offset と limit で区切る。
@@ -139,11 +155,18 @@ internal static class AnswerShaper
     /// </summary>
     public const int ListDefaultLimit = 30;
 
-    private static string FitSingle(JsonObject answer)
+    /// <summary>
+    /// 1件にしても上限を超える一覧の答えで、その1件だけを縮める。続きの印（<c>nextCursor</c>・<c>nextOffset</c>）と件数の欄は削らない
+    /// （封筒ごと <see cref="Fit"/> に通すと、長い続きの印が切られて続きを引けなくなる）。
+    /// 1件に使える字数は、上限から封筒の長さを引いた残り（1件の分だけ縮めて上限ぎりぎりにすると、封筒を足して超える）
+    /// </summary>
+    public static string FitSingle(JsonObject answer)
     {
         var items = answer["items"]!.AsArray();
-        var only = items.Count > 0 ? items[0] : null;
-        answer["items"] = new JsonArray(JsonNode.Parse(Fit(only)));
+        var only = items.Count > 0 ? items[0]?.DeepClone() : null;
+        answer["items"] = new JsonArray();
+        var envelope = answer.ToJsonString(AnswerShaper.Json).Length;
+        answer["items"] = new JsonArray(JsonNode.Parse(Fit(only, Math.Max(0, MaxAnswerChars - envelope))));
         return answer.ToJsonString(AnswerShaper.Json);
     }
 }

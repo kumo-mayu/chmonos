@@ -227,7 +227,10 @@ internal static class ChmonosTools
                 ["total"] = page?["total"]?.DeepClone(),
                 ["returned"] = items.Count,
                 ["nextCursor"] = page?["nextCursor"]?.DeepClone(),
-                ["items"] = AnswerShaper.Slim(items),
+
+                // 1件ずつ削る。配列ごと Slim に渡すと、入れ子の一覧の上限（30件）で最上位も切り、
+                // limit 31〜50 で API が進めた続きの印と食い違って、切った分を続きで取れなくなる（2026-11-13 の点検 M4）
+                ["items"] = new JsonArray(items.Select(item => AnswerShaper.Slim(item)).ToArray()),
             };
             if (omitted > 0)
             {
@@ -236,10 +239,11 @@ internal static class ChmonosTools
 
             var text = answer.ToJsonString(AnswerShaper.Json);
 
-            // 長すぎれば件数を減らして引き直す（通訳の側で切ると、API の続きの印と合わなくなる）
+            // 長すぎれば件数を減らして引き直す（通訳の側で切ると、API の続きの印と合わなくなる）。
+            // 1件でも長ければその1件だけを縮め、続きの印は API の物をそのまま返す
             if (text.Length <= AnswerShaper.MaxAnswerChars || limit == 1)
             {
-                return text.Length <= AnswerShaper.MaxAnswerChars ? text : AnswerShaper.Fit(answer);
+                return text.Length <= AnswerShaper.MaxAnswerChars ? text : AnswerShaper.FitSingle(answer);
             }
 
             limit = Math.Max(1, limit / 2);
@@ -334,17 +338,44 @@ internal static class ChmonosTools
         // AppendLine は Windows で \r\n を足し、BOOTH の本文にも \r\n が混ざる。AI には \n だけを渡す（字数の数えも offset もこの後の文字列で行う）
         var whole = text.ToString().Replace("\r\n", "\n").Replace('\r', '\n').TrimEnd();
         var start = Math.Min(offset, whole.Length);
-        var slice = whole.Substring(start, Math.Min(max, whole.Length - start));
-        var answer = new JsonObject
+        var name = item?["name"] is JsonValue value && value.TryGetValue<string>(out var full) ? AnswerShaper.Cut(full, AnswerShaper.MaxStringChars) : null;
+
+        // max_chars は本文の字数だが、制御文字は JSON で \uXXXX の6字になり、6,000字の本文が3万字を超えた（2026-11-13 の点検 M3）。
+        // JSON にした後の長さで上限に収まる一番長い区切りを二分で探し、nextOffset は実際に返した本文の長さから出す
+        string Answer(int length)
+            => new JsonObject
+            {
+                ["id"] = id,
+                ["name"] = name,
+                ["totalChars"] = whole.Length,
+                ["offset"] = start,
+                ["nextOffset"] = start + length < whole.Length ? start + length : null,
+                ["text"] = whole.Substring(start, length),
+            }.ToJsonString(AnswerShaper.Json);
+
+        var low = 0;
+        var high = Math.Min(max, whole.Length - start);
+        while (low < high)
         {
-            ["id"] = id,
-            ["name"] = item?["name"]?.DeepClone(),
-            ["totalChars"] = whole.Length,
-            ["offset"] = start,
-            ["nextOffset"] = start + slice.Length < whole.Length ? start + slice.Length : null,
-            ["text"] = slice,
-        };
-        return answer.ToJsonString(AnswerShaper.Json);
+            var middle = low + ((high - low + 1) / 2);
+            if (Answer(middle).Length <= AnswerShaper.MaxAnswerChars)
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        // 絵文字などの組の途中で切らない（切った半分は読めず、続きの頭も壊れる）。1字だけの組の前半なら進めないより含めて返す
+        var take = low;
+        if (take > 1 && char.IsHighSurrogate(whole[start + take - 1]))
+        {
+            take--;
+        }
+
+        return Answer(take);
     }
 
     private static bool Contains(JsonNode? node, string? query, params string[] keys)
