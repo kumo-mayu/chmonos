@@ -56,13 +56,19 @@ internal sealed class TestApp
         };
 
         // 開いている間の監視（plan 49）：本物の Windows の見張りを張らず、待ちもしない（出来事は試験が FolderEvents で起こす）。
+        // 待ちはすぐ終わり、その分だけ作り物の時計を進める（時計だけ本物にすると、静けさの残りが減らず実時間で5秒空回りする）。
         // 書き終わったかは本物で見る（試験のファイルは書き終えて閉じてあるので、答えは決まっている）
-        Services.CreateLiveFolderWatch = watch => new Chmonos.Core.Scanning.LiveFolderWatch(
-            FolderEvents.Create,
-            watch.FindNewAsync,
-            new Chmonos.Core.Scanning.FileSettleProbe(),
-            (_, token) => token.IsCancellationRequested ? Task.FromCanceled(token) : Task.CompletedTask,
-            _ => true);
+        Services.CreateLiveFolderWatch = watch =>
+        {
+            var time = new InstantTime();
+            return new Chmonos.Core.Scanning.LiveFolderWatch(
+                FolderEvents.Create,
+                watch.FindNewAsync,
+                new Chmonos.Core.Scanning.FileSettleProbe(),
+                time.Delay,
+                time,
+                _ => true);
+        };
 
         // 幅・高さを書くまでの 0.4 秒を、試験では待たない（変える試験が1件ごとに 0.4 秒延びていた）
         Services.PaneWidths.SaveDelay = TimeSpan.Zero;

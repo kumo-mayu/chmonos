@@ -22,17 +22,22 @@ public class LiveFolderWatchTests
     private IReadOnlyList<string> _newFiles = [];
     private int _findCalls;
 
+    /// <summary>新着を探した時刻（作り物の時計）。探す回りは1本なので、増えるのは1つのスレッドから。</summary>
+    private readonly List<long> _findAt = [];
+
     private LiveFolderWatch Create(Func<string, bool>? folderPresent = null)
     {
         var watch = new LiveFolderWatch(
             _hub.Create,
             (_, _) =>
             {
+                _findAt.Add(_delays.GetTimestamp());
                 Interlocked.Increment(ref _findCalls);
                 return Task.FromResult(new WatchResult { Folders = [Folder], NewFiles = _newFiles });
             },
             _probe,
             _delays.Delay,
+            _delays,
             folderPresent ?? (_ => true),
             Timing);
         watch.Found = files =>
@@ -109,10 +114,13 @@ public class LiveFolderWatchTests
 
         events.Fire(@"D:\作り物\監視\1.zip");
         Assert.True(await _delays.WaitPendingAsync(Timing.Quiet));
+        _delays.Advance(TimeSpan.FromSeconds(3));
         events.Fire(@"D:\作り物\監視\2.zip");
         events.Fire(@"D:\作り物\監視\2.zip");
         await _delays.ReleaseAsync(Timing.Quiet);
-        await _delays.ReleaseAsync(Timing.Quiet);
+
+        // 後の出来事（3秒後）から静けさの分までの残り
+        await _delays.ReleaseAsync(TimeSpan.FromSeconds(3));
         await _delays.ReleaseAsync(Timing.Settle);
 
         var found = await NextFoundAsync(1);
@@ -122,6 +130,86 @@ public class LiveFolderWatchTests
         Assert.False(await _delays.WaitPendingAsync(Timing.Quiet, TimeSpan.FromMilliseconds(300)));
         Assert.Equal(2, _findCalls);
         Assert.Single(Found());
+    }
+
+    /// <summary>
+    /// 1つのファイルのコピーでも、作成・書き込み・変更の出来事が同じ瞬間に続けて来る。1つ目で静けさの待ちに入った後に残りが届いても、
+    /// 静けさは最後の出来事から5秒の1回分で終わる（plan 50：待ちを丸ごとやり直していて、実機で静けさが10秒になっていた）
+    /// </summary>
+    [Fact]
+    public async Task 同じ瞬間に出来事が3つ来ても_静けさは1回分で終わる()
+    {
+        using var watch = await StartAsync();
+        var events = _hub.Single(Folder);
+        var path = @"D:\作り物\監視\衣装.zip";
+        _newFiles = [path];
+        var start = _delays.GetTimestamp();
+
+        // 実機の順：1つ目で回りが起きて待ちに入った後に、同じ瞬間の残り2つが届く
+        events.Fire(path);
+        Assert.True(await _delays.WaitPendingAsync(Timing.Quiet));
+        events.Fire(path);
+        events.Fire(path);
+        await _delays.ReleaseAsync(Timing.Quiet);
+
+        await Until(() => _findCalls == 2, "新着を探す");
+        Assert.Equal(Timing.Quiet, _delays.GetElapsedTime(start, _findAt[^1]));
+        await _delays.ReleaseAsync(Timing.Settle);
+        Assert.Equal([path], (await NextFoundAsync(1)).Select(file => file.Path));
+    }
+
+    /// <summary>静けさの待ちの途中（3秒後）に出来事が来たら、その出来事から静けさの分まで延びる（合計8秒）。</summary>
+    [Fact]
+    public async Task 待つ間に出来事が来たら_その出来事から静けさの分まで延びる()
+    {
+        using var watch = await StartAsync();
+        var events = _hub.Single(Folder);
+        _newFiles = [@"D:\作り物\監視\衣装.zip"];
+        var start = _delays.GetTimestamp();
+
+        events.Fire(@"D:\作り物\監視\衣装.zip");
+        Assert.True(await _delays.WaitPendingAsync(Timing.Quiet));
+        _delays.Advance(TimeSpan.FromSeconds(3));
+        events.Fire(@"D:\作り物\監視\衣装.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+
+        // 5秒たっても、後の出来事からはまだ2秒。探さない
+        Assert.Equal(1, _findCalls);
+        await _delays.ReleaseAsync(TimeSpan.FromSeconds(3));
+
+        await Until(() => _findCalls == 2, "新着を探す");
+        Assert.Equal(TimeSpan.FromSeconds(8), _delays.GetElapsedTime(start, _findAt[^1]));
+    }
+
+    /// <summary>出来事が静けさより短い間をあけて続く間は、探さない（コピー・展開の途中で中途半端な一覧を出さない）。</summary>
+    [Fact]
+    public async Task 出来事が続く間は_静けさを終えない()
+    {
+        using var watch = await StartAsync();
+        var events = _hub.Single(Folder);
+        _newFiles = [@"D:\作り物\監視\衣装.zip"];
+
+        events.Fire(@"D:\作り物\監視\衣装.zip");
+        Assert.True(await _delays.WaitPendingAsync(Timing.Quiet));
+        _delays.Advance(TimeSpan.FromSeconds(4));
+        events.Fire(@"D:\作り物\監視\衣装.zip");
+
+        // 5秒の待ちが終わった時点（後の出来事から1秒）：残り4秒
+        await _delays.ReleaseAsync(Timing.Quiet);
+        Assert.True(await _delays.WaitPendingAsync(TimeSpan.FromSeconds(4)));
+        _delays.Advance(TimeSpan.FromSeconds(3));
+        events.Fire(@"D:\作り物\監視\衣装.zip");
+
+        // 4秒の待ちが終わった時点（後の出来事から1秒）：また残り4秒
+        await _delays.ReleaseAsync(TimeSpan.FromSeconds(4));
+        Assert.True(await _delays.WaitPendingAsync(TimeSpan.FromSeconds(4)));
+        Assert.Equal(1, _findCalls);
+
+        // 静かになったら1回だけ探す
+        await _delays.ReleaseAsync(TimeSpan.FromSeconds(4));
+        await _delays.ReleaseAsync(Timing.Settle);
+        Assert.Single(await NextFoundAsync(1));
+        Assert.Equal(2, _findCalls);
     }
 
     [Fact]
@@ -265,6 +353,7 @@ public class LiveFolderWatchTests
             (_, _) => Task.FromResult(new WatchResult { Folders = [Folder], NewFiles = [] }),
             _probe,
             _delays.Delay,
+            _delays,
             _ => true,
             Timing);
 
@@ -304,6 +393,7 @@ public class LiveFolderWatchTests
             },
             _probe,
             _delays.Delay,
+            _delays,
             _ => true,
             Timing);
         watch.Found = files =>
@@ -418,7 +508,7 @@ public class LiveFolderWatchTests
             await store.Excluded.SaveAsync(excludedList);
 
             var hub = new FakeEventsHub();
-            using var watch = new LiveFolderWatch(hub.Create, folderWatch.FindNewAsync, new FileSettleProbe(), _delays.Delay, _ => true, Timing);
+            using var watch = new LiveFolderWatch(hub.Create, folderWatch.FindNewAsync, new FileSettleProbe(), _delays.Delay, _delays, _ => true, Timing);
             var found = new List<IReadOnlyList<LiveWatchFile>>();
             watch.Found = files =>
             {
@@ -509,11 +599,35 @@ public class LiveFolderWatchTests
         await store.ScanCache.SaveAsync(cache);
     }
 
-    /// <summary>手で進める待ち。待ちが来たかを見て、1つずつ終わらせる。</summary>
-    internal sealed class ManualDelays
+    /// <summary>
+    /// 手で進める待ちと時計。待ちが来たかを見て、1つずつ終わらせる。終わらせると、時計をその待ちの期限まで進める
+    /// （足し算にしない：待つ間に <see cref="Advance"/> で進めた分を二重に数えない）。
+    /// 刻みは1秒あたり <see cref="TimeSpan.TicksPerSecond"/>（残りの待ちが端数にならず、長さで見分けられる）
+    /// </summary>
+    internal sealed class ManualDelays : TimeProvider
     {
         private readonly object _lock = new();
-        private readonly List<(TimeSpan Span, TaskCompletionSource Done)> _pending = [];
+        private readonly List<(TimeSpan Span, long Due, TaskCompletionSource Done)> _pending = [];
+        private long _now;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp()
+        {
+            lock (_lock)
+            {
+                return _now;
+            }
+        }
+
+        /// <summary>待ちを終わらせずに時計だけ進める（待つ間に、少し後で出来事が来たことにする）。</summary>
+        public void Advance(TimeSpan span)
+        {
+            lock (_lock)
+            {
+                _now += span.Ticks;
+            }
+        }
 
         public Task Delay(TimeSpan span, CancellationToken token)
         {
@@ -521,7 +635,7 @@ public class LiveFolderWatchTests
             token.Register(() => done.TrySetCanceled(token));
             lock (_lock)
             {
-                _pending.Add((span, done));
+                _pending.Add((span, _now + span.Ticks, done));
             }
 
             return done.Task;
@@ -556,6 +670,7 @@ public class LiveFolderWatchTests
                 var index = _pending.FindIndex(entry => entry.Span == span && !entry.Done.Task.IsCompleted);
                 var entry = _pending[index];
                 _pending.RemoveAt(index);
+                _now = Math.Max(_now, entry.Due);
                 entry.Done.TrySetResult();
             }
         }
