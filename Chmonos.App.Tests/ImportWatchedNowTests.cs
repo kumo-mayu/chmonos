@@ -60,6 +60,35 @@ public class ImportWatchedNowTests
         await app.SettleAsync();
     });
 
+    /// <summary>
+    /// 書き込み途中（コピー・ダウンロードの途中）の物は今回は飛ばす（ユーザ判断 2026-11-13）。
+    /// 前は渡していて、開けずにその1件の取り込みが失敗した。開いている間の監視は切のまま（張っていなくても確かめる）
+    /// </summary>
+    [Fact]
+    public Task 書き込み途中の物は渡さず_そう言う() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        var writing = Path.Combine(watched, "costume.zip");
+        using (var stream = new FileStream(writing, FileMode.Create, FileAccess.Write, FileShare.Read))
+        {
+            stream.Write([1, 2, 3, 4]);
+            stream.Flush();
+
+            main.Import.ImportWatchedCommand.Execute(null);
+
+            await UiThread.Until(() => main.Import.WatchImportText == "新しいファイルはまだ書き込み中です。", "飛ばしたと言う");
+            Assert.DoesNotContain(writing, main.Import.Folders);
+            Assert.False(main.Import.IsRunning);
+        }
+
+        // 書き終われば、次に押したときに取り込む
+        main.Import.ImportWatchedCommand.Execute(null);
+        await UiThread.Until(() => main.Import.WatchImportText == "新しいファイル 1 件を取り込みます。", "書き終わった物は取り込む");
+        await app.SettleAsync();
+    });
+
     [Fact]
     public Task 監視していなければ押せない() => TestApp.Run(async app =>
     {

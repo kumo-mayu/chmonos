@@ -211,13 +211,10 @@ public sealed partial class MainViewModel
     {
         SetLiveNotice(false);
 
-        // 押した時に探し直した物にも、見張りが帯を出す前と同じ書き終わりの確かめを掛ける（W1）。
+        // 押した時に探し直した物にも、見張りが帯を出す前と同じ書き終わりの確かめを掛ける（W1。取り込み画面のボタンと同じ道の中で掛ける）。
         // 途中の物は渡さずに残す。書いている間と書き終わりに出来事が来るので、見張りがいつもの道（静けさ・書き終わりの確かめ・取り込み中なら預ける）で拾い直す。
         // ここで探し直しを頼まない：積んだ取り込みが始まる前に探し直すと、今積んだ物でまた帯を出しうる
-        Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>>? keepSettled = _live is { IsRunning: true } live
-            ? paths => live.SettledAsync(paths)
-            : null;
-        var queued = await Import.ImportWatchedNowAsync(keepSettled);
+        var queued = await Import.ImportWatchedNowAsync();
         if (queued > 0)
         {
             NoteImportQueued(started: true);

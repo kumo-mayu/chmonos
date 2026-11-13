@@ -1118,16 +1118,19 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 下の帯の［取り込む］（開いている間の監視・plan 49）。この画面のボタンと同じ道で、今の新着を探し直して取り込む
     /// （帯に出した一覧を使い回さない。出した後に取り込まれた・消えた物がある）。積んだ件数を返す
     /// </summary>
-    /// <param name="keepSettled">
-    /// 探し直した新着から、書き終わった物だけを残す（開いている間の見張りの確かめ。W1）。帯は書き終わった物で出すが、押した時に探し直すので、
-    /// 帯を出した後に置かれ始めた物（コピーの途中）も並ぶ
-    /// </param>
-    internal Task<int> ImportWatchedNowAsync(Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>>? keepSettled = null)
-        => ImportWatchedAsync(_services.Settings.WatchedFolders, keepSettled);
+    internal Task<int> ImportWatchedNowAsync() => ImportWatchedAsync(_services.Settings.WatchedFolders);
 
-    private async Task<int> ImportWatchedAsync(
-        IReadOnlyList<string> folders,
-        Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>>? keepSettled = null)
+    /// <summary>
+    /// 探し直した新着から、書き終わった物だけを残す（見張りが帯を出す前と同じ確かめ：2秒空けて2回見る）。
+    /// 押した時に探し直すので、コピー・ダウンロードの途中の物も並ぶ。渡すと開けずにその1件が失敗し、やり直しになる
+    /// （Codex の点検 2026-11-13 の W1。帯の［取り込む］に加え、このボタンにも掛ける：ユーザ判断 2026-11-13「おすすめの形で進めて良い」）。
+    /// 途中の物は今回は飛ばす。開いている間の監視が入なら、書き終わりに見張りが拾い直す。切なら次に押したときか次の起動で新着として出る。
+    /// 見張りを張っていなくても同じ確かめを使う（張らずに作るだけ。見張りの部品が確かめの待ち方と時計を持つ）
+    /// </summary>
+    private Task<IReadOnlyList<string>> KeepSettledAsync(IReadOnlyList<string> paths)
+        => (_main.LiveWatch is { IsRunning: true } live ? live : _services.CreateLiveFolderWatch(_services.Watch)).SettledAsync(paths);
+
+    private async Task<int> ImportWatchedAsync(IReadOnlyList<string> folders)
     {
         _isCheckingWatched = true;
         RelayCommand.RaiseCanExecuteChanged();
@@ -1145,7 +1148,7 @@ public sealed partial class ImportViewModel : ViewModelBase
                 return 0;
             }
 
-            var take = keepSettled is null ? result.NewFiles : await keepSettled(result.NewFiles);
+            var take = await KeepSettledAsync(result.NewFiles);
             if (take.Count == 0)
             {
                 WatchImportText = "新しいファイルはまだ書き込み中です。";
