@@ -36,6 +36,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Chmonos.Api.Tests" />
+    <!-- MCP の通訳の試験が、一時フォルダの保存先で API を 127.0.0.1 に立てる（ApiHost.BuildAsync。Api.Tests と同じ組み方） -->
+    <InternalsVisibleTo Include="Chmonos.Mcp.Tests" />
   </ItemGroup>
 
   <ItemGroup>

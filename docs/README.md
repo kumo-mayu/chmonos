@@ -13,6 +13,7 @@
 | `Chmonos.Query/` | 外から使う API の中身（読むだけの問い合わせ層。HTTP を持たない）：保存先の写し・答えの形・検索の式・選択肢の件数・読み直し（`docs/spec/local-api.md`） |
 | `Chmonos.Api/` | 外から使う API の実行ファイル（`Chmonos.Api.exe`。HTTP の口と守り・同期）。配る形は `Properties/PublishProfiles/win-x64.pubxml` |
 | `Chmonos.Query.Tests/`・`Chmonos.Api.Tests/` | 問い合わせ層の試験（答えの見本 `Golden/`）と、API を本当に待ち受けさせて叩く試験 |
+| `Chmonos.Mcp/`・`Chmonos.Mcp.Tests/` | AI（MCP の使い手）からローカル API への通訳（`Chmonos.exe --mcp`。stdio・読むだけの道具・許し・答えの切り詰め）と、その試験（一時フォルダの保存先で API を立て、公式の MCP の使い手でつなぐ）。[mcp.md](spec/mcp.md) |
 | `BoothZipInspector/`・`BoothIdResolver/`（と `.Tests`） | zip の手掛かり読み・商品IDの特定のライブラリ（本体が使う） |
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
@@ -53,6 +54,7 @@
 | [api-clients.md](spec/api-clients.md) | 外から使う API のソフトごとの許し：許しを求める流れ・窓・書き込みの種類・ハッシュの控え（`api-clients.json`）・設定の「つないでいるソフト」・古い `api.json` のトークンの扱い |
 | [plugins.md](spec/plugins.md) | [採用]・①②とも実装 許したソフトが右クリックなどに項目を宣言して足し、押されたら宣言した情報を詰めて知らせる・画面の操作の購読。届け方はソフトが取りに来る（長く待つ GET）。v1.3.0 に入れる見込み |
 | [plugins-menu.md](spec/plugins-menu.md) | プラグインの②：項目の宣言（`PUT /v1/plugin/menu` の検証・控え・変わったら聞き直す窓）・画面の「ほかのソフト」（出す所・押せない理由・応答していない）・押したときの `menu` の出来事・結果を返す口・決めた数 |
+| [mcp.md](spec/mcp.md) | AI から使う：`Chmonos.exe --mcp` が MCP のサーバ（stdio）として API に通訳する。起動の分かれ方・探す・許し・トークンの控え・表示の設定・道具15個・答えの上限・退けた案 |
 | [running-instances.md](spec/running-instances.md) | 動いている Chmonos の一覧：保存先によらない置き場に1本ごとの札（保存先・ポート・api.json の場所・exe）。トークンは書かない・落ちた残りの片付け・読む側の手引き |
 | [headless.md](spec/headless.md) | 画面を出さずに動かす（--headless）：起動の守り・通知領域のアイコン・窓を開く／閉じる／終える・画面に依存しない係 |
 | [architecture.md](spec/architecture.md) | `UiCommand` を通す物、持ち主を宣言した書き込み、スレッドとディスク、画面の履歴、partial の分け方、試験 |
