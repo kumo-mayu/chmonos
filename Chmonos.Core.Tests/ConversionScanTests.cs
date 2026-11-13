@@ -274,4 +274,96 @@ public sealed class ConversionScanTests : IDisposable
         _packages.Add(profileHash, "Other.unitypackage", [new UnityPackageAsset("00000000000000000000000000000077", "Assets/Other.txt")]);
         Assert.NotNull(_packages.LoadProfiles(profileHash));
     }
+
+    private const string AvatarHashA = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD";
+    private const string AvatarHashB = "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE";
+
+    private static ItemRecord AvatarItem(string id, params LocalFileRecord[] files)
+        => new() { Id = id, Local = new LocalBlock { LocalFiles = [.. files] } };
+
+    private static LocalFileRecord AvatarFile(string hash, bool detached = false) => new()
+    {
+        Hash = hash,
+        Paths = [@"D:\fake\avatar.zip"],
+        SizeBytes = 1,
+        Detached = detached,
+        UnityPackages = [new UnityPackageSummary { Entry = "Avatar.unitypackage", Roots = ["Assets/Fake"] }],
+    };
+
+    private static AvatarRegistry Registry(params string[] ids)
+        => new() { Entries = [.. ids.Select(id => new AvatarRegistryEntry { ItemId = id, DisplayName = "作り物" + id, Category = "3Dキャラクター" })] };
+
+    // FBX の索引は、選ぶたびに全部のアバターの控えを読み直していた（2026-11-13 の Codex の点検の件3）。控えが変わるまで読み直さない
+    [Fact]
+    public void FBXの索引は_二度目は控えを読み直さない()
+    {
+        _packages.Add(AvatarHashA, "Avatar.unitypackage", [new UnityPackageAsset("00000000000000000000000000000009", "Assets/Fake/A/A.fbx")]);
+        var items = new Dictionary<string, ItemRecord> { ["9400101"] = AvatarItem("9400101", AvatarFile(AvatarHashA)) };
+        var scan = new ConversionScan(_store, _packages);
+
+        var first = scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault);
+        var second = scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault);
+
+        Assert.Equal("9400101", first["Assets/Fake/A/A.fbx"]);
+        Assert.Equal(first, second);
+        Assert.Equal(1, scan.FbxLoads);
+    }
+
+    [Fact]
+    public void FBXの索引は_アバターとして扱う行が変われば作り直す()
+    {
+        _packages.Add(AvatarHashA, "Avatar.unitypackage", [new UnityPackageAsset("00000000000000000000000000000009", "Assets/Fake/A/A.fbx")]);
+        var items = new Dictionary<string, ItemRecord> { ["9400101"] = AvatarItem("9400101", AvatarFile(AvatarHashA)) };
+        var scan = new ConversionScan(_store, _packages);
+        Assert.Single(scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault));
+
+        // アバターから外した（登録簿から消えた・アバターでないと決めた）
+        Assert.Empty(scan.FbxIndex(Registry(), items.GetValueOrDefault));
+        var notAvatar = new AvatarRegistry { Entries = [Registry("9400101").Entries[0] with { AvatarOverride = false }] };
+        Assert.Empty(scan.FbxIndex(notAvatar, items.GetValueOrDefault));
+
+        // 戻せば、また出る
+        Assert.Single(scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault));
+    }
+
+    [Fact]
+    public void FBXの索引は_アバターの手元のファイルが変われば作り直す()
+    {
+        _packages.Add(AvatarHashA, "Avatar.unitypackage", [new UnityPackageAsset("00000000000000000000000000000009", "Assets/Fake/A/A.fbx")]);
+        _packages.Add(AvatarHashB, "Avatar.unitypackage", [new UnityPackageAsset("0000000000000000000000000000000a", "Assets/Fake/B/B.fbx")]);
+        var items = new Dictionary<string, ItemRecord> { ["9400101"] = AvatarItem("9400101", AvatarFile(AvatarHashA)) };
+        var scan = new ConversionScan(_store, _packages);
+        Assert.Equal(["Assets/Fake/A/A.fbx"], scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault).Keys);
+
+        // 新しい版のファイルを付けた
+        items["9400101"] = AvatarItem("9400101", AvatarFile(AvatarHashA), AvatarFile(AvatarHashB));
+        Assert.Equal(2, scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault).Count);
+
+        // 古い方を外した（手元から消えた）
+        items["9400101"] = AvatarItem("9400101", AvatarFile(AvatarHashA, detached: true), AvatarFile(AvatarHashB));
+        Assert.Equal(["Assets/Fake/B/B.fbx"], scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault).Keys);
+    }
+
+    [Fact]
+    public void FBXの索引は_中身の控えが書き直されれば作り直す()
+    {
+        var items = new Dictionary<string, ItemRecord> { ["9400101"] = AvatarItem("9400101", AvatarFile(AvatarHashA)) };
+        var scan = new ConversionScan(_store, _packages);
+
+        // 控えがまだ無い（取り込みの裏が読む前）
+        Assert.Empty(scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault));
+
+        // 取り込みの裏が控えを書いた（別の置き場の口から）
+        new UnityPackagePathStore(new AppPaths(_root)).Add(AvatarHashA, "Avatar.unitypackage",
+            [new UnityPackageAsset("00000000000000000000000000000009", "Assets/Fake/A/A.fbx")]);
+        Assert.Equal(["Assets/Fake/A/A.fbx"], scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault).Keys);
+
+        // 包みが足された（中身の一覧が伸びる）
+        _packages.Add(AvatarHashA, "Second.unitypackage", [new UnityPackageAsset("0000000000000000000000000000000b", "Assets/Fake/A2/A2.fbx")]);
+        Assert.Equal(2, scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault).Count);
+
+        // 控えが消された（読めない控えは無いのと同じ）
+        File.Delete(new AppPaths(_root).UnityPackageFile(AvatarHashA));
+        Assert.Empty(scan.FbxIndex(Registry("9400101"), items.GetValueOrDefault));
+    }
 }

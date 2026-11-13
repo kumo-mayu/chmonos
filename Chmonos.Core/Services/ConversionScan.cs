@@ -80,6 +80,13 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
     /// FBX の場所 → それを中身に持つアバターの商品 ID（手掛かり (b) の照らし先）。アバターとして扱う登録簿の行のうち、
     /// 手元に商品があり、中身の控えがある物だけ（持っていないアバターは FBX の場所が分からない）。
     /// </summary>
+    /// <remarks>
+    /// アバターの管理の「変換」で商品を選ぶたびに画面のスレッドで呼ばれる（推した理由の (b)）。重いのは控えを読む所だけ
+    /// （作り物で測って、アバター100体・1つに2000個で1回約100ms、5000個で250〜500ms。2026-11-13 の Codex の点検の件3）なので、
+    /// 控えから抜いた FBX の場所だけを zip のハッシュごとに覚えて使い回す（<see cref="FbxPathsOf"/>）。
+    /// 登録簿と商品の手元のファイルは、毎回渡された物を歩き直す（メモリの上で軽い）。こうすると、アバターとして扱う行・
+    /// 付けた・外したファイルが変わっても、知らせを待たずに次の呼び出しで必ず効く
+    /// </remarks>
     public IReadOnlyDictionary<string, string> FbxIndex(AvatarRegistry registry, Func<string, ItemRecord?> findItem)
     {
         var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -92,22 +99,74 @@ public sealed class ConversionScan(DataStore store, UnityPackagePathStore packag
 
             foreach (var file in avatarItem.Local.LocalFiles.Where(file => !file.Detached && file.UnityPackages is { Count: > 0 }))
             {
-                if (packages.Load(file.Hash) is not { } stored)
+                foreach (var fbx in FbxPathsOf(file.Hash))
                 {
-                    continue;
-                }
-
-                foreach (var asset in stored.Values.SelectMany(assets => assets))
-                {
-                    if (asset.Path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        index.TryAdd(asset.Path.Replace('\\', '/'), entry.ItemId);
-                    }
+                    index.TryAdd(fbx, entry.ItemId);
                 }
             }
         }
 
         return index;
+    }
+
+    /// <summary>zip のハッシュ → (控えのファイルの印, 中の FBX の場所)。見回り（裏）と画面の両方から来るので、並んで読めるようにする。</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (FileStamp Stamp, string[] Fbx)> _fbxByHash
+        = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary><see cref="FbxPathsOf"/> が控えを実際に読んだ回数（使い回しが効いているかを試験で見る）。</summary>
+    internal int FbxLoads => _fbxLoads;
+
+    private int _fbxLoads;
+
+    /// <summary>
+    /// 1つの控えの中の FBX の場所（区切りは「/」）。控えのファイルの更新時刻と大きさが前と同じなら、前に抜いた物を返す。
+    /// </summary>
+    /// <remarks>
+    /// 鍵はハッシュでも、中身は変わり得る：包みを1つずつ足して作られる（<see cref="UnityPackagePathStore.Add"/>）・後で丸ごと書き直される・
+    /// 読めない控えが書き直される。書き手は別の置き場の口（別のインスタンス）や手での直しにもいるので、書いた側からの知らせでは拾い切れない。
+    /// そこで登録簿の写し（App の StoreFileCache）と同じく、ファイルの印で見分ける。書き込みは一時ファイルからの置き換えなので、書けば時刻が変わる。
+    /// 印は読む前に取る：見てから読むまでの間に書かれても、新しい中身を古い印で覚えるだけで、次に読み直す（古い中身を残し続けない）。
+    /// 無い・読めない控えも空として印付きで覚え、作られたら読む
+    /// </remarks>
+    private string[] FbxPathsOf(string hash)
+    {
+        if (!StoreIds.IsPackageHash(hash))
+        {
+            return [];
+        }
+
+        var stamp = FileStamp.Of(packages.PathOf(hash));
+        if (_fbxByHash.TryGetValue(hash, out var known) && known.Stamp == stamp)
+        {
+            return known.Fbx;
+        }
+
+        string[] fbx = [];
+        if (stamp.Exists)
+        {
+            Interlocked.Increment(ref _fbxLoads);
+            fbx = packages.Load(hash) is { } stored
+                ? stored.Values
+                    .SelectMany(assets => assets)
+                    .Where(asset => asset.Path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
+                    .Select(asset => asset.Path.Replace('\\', '/'))
+                    .ToArray()
+                : [];
+        }
+
+        _fbxByHash[hash] = (stamp, fbx);
+        return fbx;
+    }
+
+    private readonly record struct FileStamp(DateTime WrittenAt, long Length)
+    {
+        public bool Exists => Length >= 0;
+
+        public static FileStamp Of(string path)
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? new FileStamp(info.LastWriteTimeUtc, info.Length) : new FileStamp(DateTime.MinValue, -1);
+        }
     }
 
     /// <summary>この商品のプロファイル（slug）ごとに、FBX の場所が中身にあるアバター（手掛かり (b)）。控えた欄だけを見る（zip は開かない）。</summary>

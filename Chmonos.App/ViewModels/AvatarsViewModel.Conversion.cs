@@ -340,11 +340,34 @@ public sealed partial class AvatarsViewModel
     {
         var build = ++_conversionBuild;
         var items = _main.Search.SnapshotItems();
-        Task.Run(() => items
-                .Where(item => item.Local.Conversion is not null || ConversionScan.MayHoldProfiles(item))
-                .Select(item => (Item: item, Profiles: ProfilesOf(item)))
-                .Where(pair => pair.Profiles.Count > 0 || pair.Item.Local.Conversion is not null)
-                .ToList())
+        var registry = _services.CachedAvatars.Load();
+        Task.Run(() =>
+            {
+                var rows = items
+                    .Where(item => item.Local.Conversion is not null || ConversionScan.MayHoldProfiles(item))
+                    .Select(item => (Item: item, Profiles: ProfilesOf(item)))
+                    .Where(pair => pair.Profiles.Count > 0 || pair.Item.Local.Conversion is not null)
+                    .ToList();
+
+                // 右の欄の推した理由が使う FBX の索引の元（アバターの中身の控え）を、ここで先に読んで覚えさせる。
+                // 選んだときに画面のスレッドで初めて読むと、アバター100体で100ms を超えて固まる（2026-11-13 の Codex の点検の件3）。
+                // 一覧があるときだけ（無ければ右の欄は開かない）。同じ ID が2件あっても投げないよう、先の1件を使う（見回りと同じ）
+                // 先読みは早めるためだけなので、しくじっても一覧は出す（選んだときに読み直す）
+                if (rows.Count > 0)
+                {
+                    try
+                    {
+                        var byId = items.GroupBy(item => item.Id, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+                        _services.Conversion.FbxIndex(registry, id => byId.GetValueOrDefault(id));
+                    }
+                    catch (Exception exception)
+                    {
+                        Core.Diagnostics.AppLog.Error("変換の FBX の索引を先に読む", exception);
+                    }
+                }
+
+                return rows;
+            })
             .ContinueWith(
                 task =>
                 {

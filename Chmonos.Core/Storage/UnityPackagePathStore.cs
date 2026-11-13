@@ -72,6 +72,9 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         }
     }
 
+    /// <summary>控えのファイルの場所（呼び手が更新時刻を見て、読み直すかを決めるため。<see cref="ConversionScan"/> の FBX の索引）。ハッシュの形でなければ投げる。</summary>
+    public string PathOf(string hash) => paths.UnityPackageFile(hash);
+
     /// <summary>読めなければ null（無い・壊れている・新しすぎる）。</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>? Load(string hash)
     {
