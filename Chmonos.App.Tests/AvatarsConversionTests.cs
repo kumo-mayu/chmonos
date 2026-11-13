@@ -387,4 +387,45 @@ public class AvatarsConversionTests
 
         Assert.Equal("9900862", avatars.SelectedConversion!.ItemId);
     });
+
+    /// <summary>
+    /// 推した理由の FBX の索引は、選ぶたびに全部のアバターの中身の控えを画面のスレッドで読み直していた（2026-11-13 の Codex の点検の件3）。
+    /// 一覧を作る裏で1回読み、選び直しでは読まない。
+    /// </summary>
+    [Fact]
+    public Task 選び直しても_アバターの中身の控えを読み直さない() => TestApp.Run(async app =>
+    {
+        const string avatarHash = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        new UnityPackagePathStore(app.Services.Paths).Add(avatarHash, "Avatar.unitypackage",
+            [new UnityPackageAsset("00000000000000000000000000000009", "Assets/Fake/Aoi/Aoi.fbx")]);
+        var avatar = Make.Item("9800401", "作り物のアバター「アオイ」");
+        await app.AddItemAsync(avatar with
+        {
+            Local = avatar.Local with
+            {
+                LocalFiles =
+                [
+                    new LocalFileRecord
+                    {
+                        Hash = avatarHash,
+                        Paths = [@"D:\fake\9800401.zip"],
+                        SizeBytes = 1,
+                        UnityPackages = [new UnityPackageSummary { Entry = "Avatar.unitypackage", Roots = ["Assets/Fake"] }],
+                    },
+                ],
+            },
+        });
+
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        await app.SettleAsync();
+        var loads = app.Services.Conversion.FbxLoads;
+        Assert.True(loads >= 1, "一覧を作る裏で先に読む");
+
+        avatars.SelectedConversion = Row(avatars, "9900862");
+        avatars.SelectedConversion = Row(avatars, "9900864");
+        avatars.SelectedConversion = Row(avatars, "9900861");
+
+        Assert.Equal(loads, app.Services.Conversion.FbxLoads);
+    });
 }
