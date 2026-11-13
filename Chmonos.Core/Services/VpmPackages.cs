@@ -89,22 +89,25 @@ public static class VpmPackages
 
         var manifestPath = Path.Combine(packages, "vpm-manifest.json");
         var manifest = ReadText(manifestPath);
+        var entries = manifest is null ? null : ParseManifest(manifest);
 
-        // VCC が書いている最中などで在るのに読めないと、manifest にだけある物が「消えた」と見える
-        complete &= manifest is not null || !File.Exists(manifestPath);
-        return (Parse(manifest, folders), complete);
+        // VCC が書いている最中などで在るのに読めない・途中で切れている・ルートの形が違うと、manifest にだけある物が「消えた」と見える。
+        // 読めた文字だけで完全とすると、壊れた manifest を「全部外した」と履歴に書き、改変の控えも空にする（2026-11-13 の点検 件5）
+        complete &= manifest is null ? !File.Exists(manifestPath) : entries is not null;
+        return (Build(entries ?? [], folders), complete);
     }
 
     /// <summary>
     /// 読んだ中身から組む（ディスクを見ない。試験はここを使う）。
     /// <paramref name="folders"/> は <c>Packages/</c> の下のフォルダの名前と、その <c>package.json</c> の中身（無ければ null）。
     /// <c>package.json</c> を持たないフォルダはパッケージではない（Unity も読まない）ので並べない。
-    /// 壊れた JSON・欠けた欄は無いのと同じに扱う。並びは見せる名前の順。
+    /// 壊れた JSON・欠けた欄は無いのと同じに扱う（読めた分だけ返す。壊れたことを知りたいときは <see cref="TryRead"/>）。並びは見せる名前の順。
     /// </summary>
     public static IReadOnlyList<VpmPackage> Parse(string? manifestJson, IReadOnlyList<(string Folder, string? PackageJson)> folders)
-    {
-        var manifest = ParseManifest(manifestJson);
+        => Build((manifestJson is null ? null : ParseManifest(manifestJson)) ?? [], folders);
 
+    private static IReadOnlyList<VpmPackage> Build(IReadOnlyList<(string Name, string? Version)> manifest, IReadOnlyList<(string Folder, string? PackageJson)> folders)
+    {
         // フォルダの名前はふつうパッケージの名前と同じだが、手で置いた物は違うことがある。package.json の名前を正とする
         var onDisk = new Dictionary<string, (string Folder, string? DisplayName, string? Version)>(StringComparer.OrdinalIgnoreCase);
         foreach (var (folder, packageJson) in folders)
@@ -132,22 +135,21 @@ public static class VpmPackages
             .ToList();
     }
 
-    /// <summary>manifest の名前と版（<c>locked</c> の版が先。無ければ <c>dependencies</c> の版）。読めなければ空。</summary>
-    private static IReadOnlyList<(string Name, string? Version)> ParseManifest(string? json)
+    /// <summary>
+    /// manifest の名前と版（<c>locked</c> の版が先。無ければ <c>dependencies</c> の版）。
+    /// **壊れた JSON・ルートがオブジェクトでない物は null**：読めた空の一覧と分け、<see cref="TryRead"/> を null にするため。
+    /// 欄が無い・欄の形が違うのは null にしない（書かれていないのと同じに読み、版の読めない物は版を null にする）。
+    /// </summary>
+    private static IReadOnlyList<(string Name, string? Version)>? ParseManifest(string json)
     {
         var versions = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var order = new List<string>();
-        if (json is null)
-        {
-            return [];
-        }
-
         try
         {
             using var document = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
             if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
-                return [];
+                return null;
             }
 
             // dependencies を先に並べ、locked で版を上書きする（locked が実際に解決した版）
@@ -180,7 +182,7 @@ public static class VpmPackages
         }
         catch (JsonException)
         {
-            return [];
+            return null;
         }
 
         return order.Select(name => (name, versions[name])).ToList();
