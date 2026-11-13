@@ -76,7 +76,12 @@ internal sealed class McpHarness : IAsyncDisposable
         var toServer = new Pipe();
         var toClient = new Pipe();
         var cancel = new CancellationTokenSource();
-        var bridge = new ChmonosBridge(options, Log, isAlive: (processId, _) => !dead.Contains(processId));
+        // 札には作り物の番号を書き、API は試験のプロセスの中で待ち受ける。ポートの持ち主は本物の TCP の表で読み、試験のプロセスならどの札の本人とも見る
+        var bridge = new ChmonosBridge(
+            options,
+            Log,
+            isAlive: (processId, _) => !dead.Contains(processId),
+            listensAs: (port, _) => PortOwner.OwnerOf(port) is { } owner ? owner == Environment.ProcessId : null);
         var server = Task.Run(async () =>
         {
             using (bridge)

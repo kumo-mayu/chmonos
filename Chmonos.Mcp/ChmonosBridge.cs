@@ -42,10 +42,29 @@ internal sealed class ChmonosBridge : IDisposable
     /// <summary>答えを待っている許しの求め（保存先ごと）。次の呼び出しで同じ求めの続きを待つ（求め直すと窓が重なって出る）。</summary>
     private readonly Dictionary<string, string> _pending = new(StringComparer.OrdinalIgnoreCase);
 
-    public ChmonosBridge(McpOptions options, TextWriter log, Func<int, DateTimeOffset?, bool?>? isAlive = null, Func<DateTimeOffset>? clock = null)
+    private const string ForeignListener =
+        "Chmonos の札が指すポートで、Chmonos ではない別のプログラムが待ち受けていたので、許可のトークンを送らずに止めました。"
+        + "Chmonos を起動し直す（または設定の「API」をいったんオフにしてオンに戻す）と札が新しくなります。それからもう一度試してください。";
+
+    private const string ListenerUnknown =
+        "Chmonos の札が指すポートを、どのプログラムが使っているか確かめられなかったので、許可のトークンを送らずに止めました。もう一度試してください。";
+
+    /// <summary>
+    /// 札のポート（第1引数）で待ち受けているのが札の PID（第2引数）のプロセスか。true＝本人、false＝別のプロセス、null＝誰も待ち受けていない。
+    /// 試験で差し替える（試験の API は試験のプロセスの中で待ち受け、札には作り物の番号を書く）
+    /// </summary>
+    private readonly Func<int, int, bool?> _listensAs;
+
+    public ChmonosBridge(
+        McpOptions options,
+        TextWriter log,
+        Func<int, DateTimeOffset?, bool?>? isAlive = null,
+        Func<DateTimeOffset>? clock = null,
+        Func<int, int, bool?>? listensAs = null)
     {
         _options = options;
         _log = log;
+        _listensAs = listensAs ?? ((port, processId) => PortOwner.OwnerOf(port) is { } owner ? owner == processId : null);
         Finder = new InstanceFinder(options.RunningDirectory, options.Store, isAlive);
         _tokens = new TokenStore(options.TokenFile);
         Clock = clock ?? (() => DateTimeOffset.Now);
@@ -104,6 +123,34 @@ internal sealed class ChmonosBridge : IDisposable
             return ApiAnswer.Fail(((FindResult.Problem)find).Message);
         }
 
+        // 札の PID と開始時刻が合っていても、ポートは別のプロセスが使っているかもしれない（点検 M5）。
+        // トークンも許しの求め（名乗り）も、ポートの持ち主が札の本人と分かってから送る。
+        // 別のプロセスなら、Chmonos がポートを変えて札を書き直した直後かもしれないので、札を1度だけ読み直す
+        var check = CheckListener(found);
+        if (check == Listener.Foreign)
+        {
+            McpLog.Write(_log, "札のポートで別のプロセスが待ち受けていたので、札を読み直す");
+            find = Finder.Find();
+            if (find is not FindResult.Found again)
+            {
+                return ApiAnswer.Fail(((FindResult.Problem)find).Message);
+            }
+
+            found = again;
+            check = CheckListener(found);
+        }
+
+        switch (check)
+        {
+            case Listener.Foreign:
+                return ApiAnswer.Fail(ForeignListener, found.Instance);
+            case Listener.Unknown:
+                return ApiAnswer.Fail(ListenerUnknown, found.Instance);
+            case Listener.Nobody:
+                // 前はつなぎに行って断られていた所。同じ文で返す
+                return ApiAnswer.Fail(Disconnected, found.Instance);
+        }
+
         var (instance, port) = (found.Instance, found.Port);
         var baseUri = new Uri($"http://127.0.0.1:{port}");
         try
@@ -146,6 +193,32 @@ internal sealed class ChmonosBridge : IDisposable
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return ApiAnswer.Fail("Chmonos の API が時間内に答えませんでした。少し待ってから、もう一度試してください。", instance);
+        }
+    }
+
+    private enum Listener
+    {
+        Owner,
+        Foreign,
+        Nobody,
+        Unknown,
+    }
+
+    private Listener CheckListener(FindResult.Found found)
+    {
+        try
+        {
+            return _listensAs(found.Port, found.Instance.ProcessId) switch
+            {
+                true => Listener.Owner,
+                false => Listener.Foreign,
+                null => Listener.Nobody,
+            };
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            McpLog.Write(_log, "ポートの持ち主を読めない", exception);
+            return Listener.Unknown;
         }
     }
 
