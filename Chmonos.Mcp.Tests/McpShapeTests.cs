@@ -7,6 +7,28 @@ namespace Chmonos.Mcp.Tests;
 /// <summary>答えの切り詰め・名乗る名前・引数の読み方・stdout に MCP の通信だけが流れること。</summary>
 public sealed class McpShapeTests
 {
+    /// <summary>
+    /// 省いたときの引き直し方は道具ごと（ユーザ判断 2026-11-13）。前はどの道具でも「件数（limit）を減らして」と言い、
+    /// limit の無い道具で AI が無い引数を付けて呼び直しかねなかった
+    /// </summary>
+    [Fact]
+    public void 省いた答えは_渡された引き直し方だけを言い_limitを勧めない()
+    {
+        var wide = new JsonObject();
+        for (var i = 0; i < 1000; i++)
+        {
+            wide[$"field{i}"] = new string('x', 100);
+        }
+
+        var hinted = JsonNode.Parse(AnswerShaper.Fit(wide, retryHint: AnswerShaper.ItemRetryHint))!;
+        var plain = JsonNode.Parse(AnswerShaper.Fit(wide))!;
+
+        Assert.True(hinted["omitted"]!.GetValue<bool>());
+        Assert.EndsWith(AnswerShaper.ItemRetryHint, hinted["message"]!.GetValue<string>());
+        Assert.EndsWith("省きました。", plain["message"]!.GetValue<string>());
+        Assert.DoesNotContain("limit", plain["message"]!.GetValue<string>());
+    }
+
     [Fact]
     public void 長い文字列と入れ子の一覧を切り詰め_絵の場所とHTMLは落とす()
     {

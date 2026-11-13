@@ -85,7 +85,8 @@ internal static class AnswerShaper
     /// 一番短い段でも収まらない（欄が数百ある横に広い答えなど。2026-11-13 の点検 M3）ときは、中身を写さない省略の答えにする。
     /// 隠す決まり（<see cref="Dropped"/>・呼び手の <c>Visibility.Scrub</c>）は削る前に当たり、省略の答えは元の欄名も値も持たないので、隠した物は出ない
     /// </summary>
-    public static string Fit(JsonNode? node, int budget = MaxAnswerChars)
+    /// <param name="retryHint">省いたときに、どう引き直せば収まるか（道具ごとに違う。無ければ言わない）。</param>
+    public static string Fit(JsonNode? node, int budget = MaxAnswerChars, string? retryHint = null)
     {
         foreach (var (nested, chars) in new[] { (MaxNestedItems, MaxStringChars), (10, MaxStringChars), (5, 120), (3, 60), (1, 40) })
         {
@@ -96,7 +97,7 @@ internal static class AnswerShaper
             }
         }
 
-        return Omitted();
+        return Omitted(retryHint);
     }
 
     /// <summary>
@@ -105,13 +106,20 @@ internal static class AnswerShaper
     /// </summary>
     public static string Guard(string text) => text.Length <= MaxAnswerChars ? text : Omitted();
 
-    /// <summary>上限に収まらない答えの代わり。元の答えの欄も値も写さない（何が入っていても短く、隠す物を漏らさない）。</summary>
-    public static string Omitted()
+    /// <summary>
+    /// 上限に収まらない答えの代わり。元の答えの欄も値も写さない（何が入っていても短く、隠す物を漏らさない）。
+    /// 引き直し方は道具ごとに渡す（ユーザ判断 2026-11-13）。前はどの道具でも「件数（limit）を減らして」と言い、limit の無い道具（商品1件など）で
+    /// AI が無い引数を付けて呼び直しかねなかった。一覧はここへ来る前に件数を1件まで減らしているので、limit を減らしても収まらない
+    /// </summary>
+    public static string Omitted(string? retryHint = null)
         => new JsonObject
         {
             ["omitted"] = true,
-            ["message"] = $"答えが長すぎて上限（{MaxAnswerChars}字）に収まらないので省きました。条件で絞るか、件数（limit）を減らして引き直してください。",
+            ["message"] = $"答えが長すぎて上限（{MaxAnswerChars}字）に収まらないので省きました。{retryHint}",
         }.ToJsonString(AnswerShaper.Json);
+
+    /// <summary><c>get_item</c> で省いたときの引き直し方（include で足した欄が長さの元になる）。</summary>
+    public const string ItemRetryHint = "include で足す欄を減らすか、外して引き直してください。";
 
     /// <summary>
     /// 続きの印の無い一覧（アバター・unitypackage・改変・通知…）を、通訳の側で offset と limit で区切る。

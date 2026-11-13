@@ -308,7 +308,8 @@ internal static class ChmonosTools
             obj["omittedByDisplaySettings"] = omitted;
         }
 
-        return AnswerShaper.Fit(item);
+        // 欄を足していなければ、減らせる物が無いので引き直し方は言わない
+        return AnswerShaper.Fit(item, retryHint: include.Count > 0 ? AnswerShaper.ItemRetryHint : null);
     }
 
     private static async Task<string> DescriptionAsync(ToolCall call)
