@@ -251,7 +251,14 @@ public sealed class FilePoolViewModel : ViewModelBase
 
     public bool HasRemoved => RemovedText.Length > 0;
 
-    public int CheckedCount => Groups.SelectMany(group => group.Files).Count(file => file.IsChecked);
+    /// <summary>
+    /// 見えている行のうちチェックが入っている数。全件を数えずに持つ（結び付きが行ごとに4回読むので、数えると
+    /// まとめて変える数×全行になる。測った値 2026-11-13：5000個で1.0〜1.8秒）。足し引きは <see cref="OnFileRowChanged"/>、
+    /// 組み直しのときは作り直した行から数え直す。<c>_checked</c> は見えない行（絞りで隠れた物）の分も覚えるので、この数には使えない
+    /// </summary>
+    public int CheckedCount => _checkedVisible;
+
+    private int _checkedVisible;
 
     public bool CanAttach => !_isBusy && SelectedItem is not null && CheckedCount > 0;
 
@@ -533,8 +540,12 @@ public sealed class FilePoolViewModel : ViewModelBase
             }
 
             matched += rows.Count;
-            Groups.Add(new FilePoolGroupRow(group, rows, _expanded.Contains(groupName)));
+            var groupRow = new FilePoolGroupRow(group, rows, _expanded.Contains(groupName));
+            groupRow.BulkChecked += OnCheckedChanged;
+            Groups.Add(groupRow);
         }
+
+        _checkedVisible = Groups.Sum(group => group.Files.Count(file => file.IsChecked));
 
         PoolCountText = matched == pool.Count ? $"{pool.Count} 個" : $"{pool.Count} 個のうち {matched} 個を表示";
         EmptyText = pool.Count == 0 ? "選んだ商品に付いているファイルはありません。"
@@ -560,7 +571,11 @@ public sealed class FilePoolViewModel : ViewModelBase
                 _checked.Remove(row.Hash);
             }
 
-            OnCheckedChanged();
+            _checkedVisible += row.IsChecked ? 1 : -1;
+            if (!row.InBulk)
+            {
+                OnCheckedChanged();
+            }
         }
     }
 
@@ -595,12 +610,19 @@ public sealed class FilePoolViewModel : ViewModelBase
 
     private void ClearChecks()
     {
+        // 行ごとに知らせると全件の数え直しが行の数だけ起きる。数は行ごとに足し引きし、知らせは最後に1回
         foreach (var file in Groups.SelectMany(group => group.Files))
         {
-            file.IsChecked = false;
+            file.SetCheckedInBulk(false);
         }
 
         _checked.Clear();
+        foreach (var group in Groups)
+        {
+            group.RaiseCheckedChanged();
+        }
+
+        OnCheckedChanged();
     }
 
     /// <summary>

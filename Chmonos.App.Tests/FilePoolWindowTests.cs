@@ -144,6 +144,57 @@ public class FilePoolWindowTests
     });
 
     [Fact]
+    public Task 組のチェックと選択の解除は_行の数だけ知らせず1回で済み_数は絞りや組み直しの後も合う() => TestApp.Run(async app =>
+    {
+        const int Count = 40;
+        var files = Enumerable.Range(1, Count).Select(i => Make.File($@"D:\files\SampleShop_Part{i:D5}.zip")).ToArray();
+        await app.AddItemAsync(Make.Item(SetId, "作り物のセット").WithFiles(files));
+        await app.AddItemAsync(Make.Item(PartBId, "作り物の空").WithFiles());
+        var main = await app.StartAsync();
+        var pool = await OpenAsync(app, main, SetId, PartBId);
+        pool.SelectItem(Row(pool, PartBId));
+        await app.SettleAsync();
+
+        var group = Assert.Single(pool.Groups);
+        var poolNotices = new Dictionary<string, int>();
+        pool.PropertyChanged += (_, args) => poolNotices[args.PropertyName!] = poolNotices.GetValueOrDefault(args.PropertyName!) + 1;
+        var groupNotices = 0;
+        group.PropertyChanged += (_, args) => groupNotices += args.PropertyName == nameof(FilePoolGroupRow.IsChecked) ? 1 : 0;
+
+        group.IsChecked = true;
+        Assert.Equal(Count, pool.CheckedCount);
+        Assert.Equal($"{Count} 個を付ける", pool.AttachText);
+        Assert.True(pool.CanAttach);
+        Assert.True(group.IsChecked);
+        Assert.Equal(1, poolNotices["CheckedCount"]);
+        Assert.Equal(1, poolNotices["AttachText"]);
+        Assert.Equal(1, poolNotices["AttachHint"]);
+        Assert.Equal(1, poolNotices["CanAttach"]);
+        Assert.Equal(1, groupNotices);
+
+        // 1つずつ外すと、数も組の印も今までどおり行ごとに変わる
+        group.Files[0].IsChecked = false;
+        Assert.Equal(Count - 1, pool.CheckedCount);
+        Assert.Null(group.IsChecked);
+
+        // 絞りで隠れて組み直しても、隠れた行の分は数に入らず、戻せば数が合う
+        pool.FileFilterText = "Part00002";
+        Assert.Equal(1, pool.CheckedCount);
+        pool.FileFilterText = string.Empty;
+        Assert.Equal(Count - 1, pool.CheckedCount);
+        Assert.Null(pool.Groups[0].IsChecked);
+
+        poolNotices.Clear();
+        pool.ClearChecksCommand.Execute(null);
+        Assert.Equal(0, pool.CheckedCount);
+        Assert.Equal("付ける", pool.AttachText);
+        Assert.False(pool.CanAttach);
+        Assert.False(pool.Groups[0].IsChecked);
+        Assert.Equal(1, poolNotices["CheckedCount"]);
+        Assert.Equal(1, poolNotices["AttachHint"]);
+    });
+
+    [Fact]
     public Task 中のunitypackageが4つ以上なら3つまで書き残りは数で言う()
     {
         Assert.Equal("unitypackage：A、B、C ほか 2 個", FilePoolGroupRow.PackagesTextOf(["A", "B", "C", "D", "E"]));
