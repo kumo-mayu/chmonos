@@ -34,7 +34,9 @@ public sealed class FileSystemFolderEvents : IFolderEvents
 {
     /// <summary>
     /// 見張りの受け皿の大きさ。既定の 8KB は、zip を展開したフォルダを置くような一度に数百の出来事で溢れる。
-    /// 64KB は Windows が許す上限で（それより大きくしても効かない・公式の文書）、溢れても探し直すので正しさは変わらない
+    /// 64KB は許される上限（「4 KB or larger, but it must not exceed 64 KB」。受け皿はページに出せないメモリから取る。
+    /// https://learn.microsoft.com/dotnet/api/system.io.filesystemwatcher.internalbuffersize ）。溢れても探し直すので正しさは変わらない。
+    /// フォルダを切り取って貼ると、中身ではなくフォルダの改名だけが届く（同じ文書の FileSystemWatcher の注意）が、探し直しが中を走査するので拾える
     /// </summary>
     private const int BufferBytes = 64 * 1024;
 

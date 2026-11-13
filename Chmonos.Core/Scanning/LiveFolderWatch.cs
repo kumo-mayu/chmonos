@@ -159,16 +159,41 @@ public sealed class LiveFolderWatch : IDisposable
         }
     }
 
-    /// <summary>見張り始める（見張っていれば止めて張り直す）。フォルダが無ければ止めるだけ。</summary>
+    /// <summary>
+    /// 見張り始める（見張っていれば張り直す）。フォルダが無ければ止めるだけ。
+    /// **画面のスレッドで待たない**：フォルダを開いて見張りを張るのは裏で行う（届かない共有・外れたドライブでは、張るだけで十数秒かかることがある）。
+    /// 張り直し（見張っている間に監視フォルダを足し引きした）では、見張り始めの控えと、取り込み中で預けていた物を引き継ぐ
+    /// （捨てると、預けた物・書いている途中だった物が新しい控えに入り、「現れた物」でなくなって自動の取り込みから黙って落ちる）。
+    /// 控えを取り直すのは新しく足したフォルダの分だけ
+    /// </summary>
     public void Start(IReadOnlyList<string> folders)
     {
-        Stop();
+        Session? previous;
+        lock (_lock)
+        {
+            previous = _session;
+            _session = null;
+        }
+
+        var carryDeferred = previous?.End() ?? false;
+        if (previous is null)
+        {
+            ForgetBaseline();
+        }
+
         if (folders.Count == 0)
         {
             return;
         }
 
-        var session = new Session(this, folders.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        var unique = folders.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        List<string> fresh;
+        lock (_baselineLock)
+        {
+            fresh = unique.Where(folder => !_baselineFolders.Contains(folder)).ToList();
+        }
+
+        var session = new Session(this, unique, fresh, carryDeferred);
         lock (_lock)
         {
             _session = session;
@@ -177,7 +202,7 @@ public sealed class LiveFolderWatch : IDisposable
         session.Begin();
     }
 
-    /// <summary>見張りを止める。止めた後に届く出来事は捨てる（見張りごとの中断の印で見分ける）。</summary>
+    /// <summary>見張りを止める。止めた後に届く出来事は捨てる（見張りごとの中断の印で見分ける）。次に始めるときは控えを取り直す。</summary>
     public void Stop()
     {
         Session? session;
@@ -188,6 +213,41 @@ public sealed class LiveFolderWatch : IDisposable
         }
 
         session?.End();
+        ForgetBaseline();
+    }
+
+    private readonly object _baselineLock = new();
+
+    /// <summary>見張り始めたときに在った新着の指紋。張り直しをまたいで持つ。</summary>
+    private readonly HashSet<string> _baseline = new(StringComparer.Ordinal);
+
+    /// <summary>控えを取ったフォルダ。</summary>
+    private readonly HashSet<string> _baselineFolders = new(StringComparer.OrdinalIgnoreCase);
+
+    private void ForgetBaseline()
+    {
+        lock (_baselineLock)
+        {
+            _baseline.Clear();
+            _baselineFolders.Clear();
+        }
+    }
+
+    private void AddBaseline(IEnumerable<string> folders, IEnumerable<string> fingerprints)
+    {
+        lock (_baselineLock)
+        {
+            _baselineFolders.UnionWith(folders);
+            _baseline.UnionWith(fingerprints);
+        }
+    }
+
+    private bool InBaseline(string fingerprint)
+    {
+        lock (_baselineLock)
+        {
+            return _baseline.Contains(fingerprint);
+        }
     }
 
     /// <summary>
@@ -223,14 +283,15 @@ public sealed class LiveFolderWatch : IDisposable
         => $"{path.ToUpperInvariant()}|{settle.SizeBytes}|{settle.ModifiedAtUtc.Ticks}";
 
     /// <summary>1回の見張り（Start から Stop まで）。止めたら捨て、次は作り直す。</summary>
-    private sealed class Session(LiveFolderWatch owner, List<string> folders)
+    /// <param name="fresh">見張り始めの控えをまだ取っていないフォルダ（初めて張る・張り直しで足した）。</param>
+    /// <param name="carryDeferred">前の見張りが取り込み中で預けていた物があるか。</param>
+    private sealed class Session(LiveFolderWatch owner, List<string> folders, List<string> fresh, bool carryDeferred)
     {
         private readonly CancellationTokenSource _cancel = new();
         private readonly SemaphoreSlim _signal = new(0);
         private readonly object _gate = new();
         private readonly Dictionary<string, IFolderEvents> _events = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _broken = new(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _baseline = new(StringComparer.Ordinal);
         private int _generation;
         private bool _deferred;
         private int _settleRetries;
@@ -244,17 +305,10 @@ public sealed class LiveFolderWatch : IDisposable
 
         public Task BaselineTaken => _baselineTaken.Task;
 
-        public void Begin()
-        {
-            foreach (var folder in folders)
-            {
-                Arm(folder);
-            }
+        public void Begin() => Loop = Task.Run(() => RunAsync(_cancel.Token));
 
-            Loop = Task.Run(() => RunAsync(_cancel.Token));
-        }
-
-        public void End()
+        /// <summary>止める。預けていた物があったかを返す（張り直しで引き継ぐ）。</summary>
+        public bool End()
         {
             _cancel.Cancel();
             lock (_gate)
@@ -266,6 +320,28 @@ public sealed class LiveFolderWatch : IDisposable
 
                 _events.Clear();
                 _broken.Clear();
+                return _deferred;
+            }
+        }
+
+        /// <summary>見張りを張る（裏で）。在るかは打ち切り付きで先に見る（届かない共有で見張りを作ると長く止まる）。無ければ張り直しを待つ。</summary>
+        private void ArmAll(CancellationToken token)
+        {
+            foreach (var folder in folders)
+            {
+                token.ThrowIfCancellationRequested();
+                if (owner._folderPresent(folder))
+                {
+                    Arm(folder);
+                }
+                else
+                {
+                    lock (_gate)
+                    {
+                        _broken.Add(folder);
+                        EnsureRearm();
+                    }
+                }
             }
         }
 
@@ -467,6 +543,20 @@ public sealed class LiveFolderWatch : IDisposable
         {
             try
             {
+                // 前の見張りが取り込み中で預けていた物は、引き継いで終わりを待つ（終わっていれば、控えを取った後に探す）
+                if (carryDeferred)
+                {
+                    if (owner.IsBusy())
+                    {
+                        MarkDeferred();
+                    }
+                    else
+                    {
+                        Nudge();
+                    }
+                }
+
+                ArmAll(token);
                 await TakeBaselineAsync(token).ConfigureAwait(false);
 
                 while (true)
@@ -507,6 +597,7 @@ public sealed class LiveFolderWatch : IDisposable
             }
             finally
             {
+                _baselineTaken.TrySetResult();
                 _signal.Dispose();
             }
         }
@@ -520,14 +611,22 @@ public sealed class LiveFolderWatch : IDisposable
         {
             try
             {
-                var result = await owner._findNew(folders, token).ConfigureAwait(false);
+                if (fresh.Count == 0)
+                {
+                    return;
+                }
+
+                var result = await owner._findNew(fresh, token).ConfigureAwait(false);
+                var fingerprints = new List<string>();
                 foreach (var path in result.NewFiles)
                 {
                     if (owner._probe.Probe(path) is { } settle)
                     {
-                        _baseline.Add(FingerprintOf(path, settle));
+                        fingerprints.Add(FingerprintOf(path, settle));
                     }
                 }
+
+                owner.AddBaseline(fresh, fingerprints);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -571,7 +670,7 @@ public sealed class LiveFolderWatch : IDisposable
                 if (before is { } b && b.SizeBytes == after.Value.SizeBytes && b.ModifiedAtUtc == after.Value.ModifiedAtUtc && after.Value.Ready)
                 {
                     var fingerprint = FingerprintOf(path, after.Value);
-                    settled.Add(new LiveWatchFile(path, fingerprint, Arrived: !_baseline.Contains(fingerprint)));
+                    settled.Add(new LiveWatchFile(path, fingerprint, Arrived: !owner.InBaseline(fingerprint)));
                 }
                 else
                 {

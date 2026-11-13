@@ -216,13 +216,14 @@ public class LiveFolderWatchTests
     [Fact]
     public async Task 壊れたら張り直し_張り直せたら探し直す()
     {
-        var present = false;
+        var present = true;
         _newFiles = [];
         var watch = Create(_ => present);
         watch.Start([Folder]);
         await watch.BaselineTaken;
         var first = _hub.Single(Folder);
 
+        present = false;
         first.Fail(FolderEventsFailure.Broken);
         Assert.True(first.Disposed);
         await _delays.ReleaseAsync(Timing.Quiet);
@@ -244,6 +245,104 @@ public class LiveFolderWatchTests
         // 壊れたときの探し直し（まだ何も無い）が先に渡っている
         Assert.Empty(Found()[0]);
         watch.Dispose();
+    }
+
+    /// <summary>
+    /// 見張りを張るのは裏で行う。届かない共有では見張りを作るだけで長く止まるので、呼び手（画面のスレッド・設定の保存）を待たせない
+    /// </summary>
+    [Fact]
+    public async Task 見張りを作るのが止まっても_始める呼び出しは待たない()
+    {
+        using var release = new ManualResetEventSlim(false);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var watch = new LiveFolderWatch(
+            folder =>
+            {
+                entered.TrySetResult();
+                release.Wait(TimeSpan.FromSeconds(10));
+                return _hub.Create(folder);
+            },
+            (_, _) => Task.FromResult(new WatchResult { Folders = [Folder], NewFiles = [] }),
+            _probe,
+            _delays.Delay,
+            _ => true,
+            Timing);
+
+        watch.Start([Folder]);
+
+        // 戻った時点で、見張りを作る関数はまだ裏で止まっている
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Empty(_hub.Of(Folder));
+        release.Set();
+        await watch.BaselineTaken.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Single(_hub.Of(Folder));
+    }
+
+    /// <summary>
+    /// 見張っている間に監視フォルダを足すと張り直す。取り込み中で預けていた物と見張り始めの控えは引き継ぐ
+    /// （捨てると、預けた物が新しい控えに入り「現れた物」でなくなって、自動の取り込みから黙って落ちる）。控えを取るのは足したフォルダの分だけ
+    /// </summary>
+    [Fact]
+    public async Task 張り直しても_預けた物と控えを引き継ぐ()
+    {
+        const string Other = @"D:\作り物\監視2";
+        var busy = false;
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [@"D:\作り物\監視\前から.zip"];
+        using var watch = new LiveFolderWatch(
+            _hub.Create,
+            (folders, _) =>
+            {
+                lock (asked)
+                {
+                    asked.Add([.. folders]);
+                }
+
+                // 頼まれたフォルダの中の物だけ返す（控えを足したフォルダの分だけ取るかを見るため）
+                var inside = current.Where(path => folders.Any(folder => path.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))).ToList();
+                return Task.FromResult(new WatchResult { Folders = folders, NewFiles = inside });
+            },
+            _probe,
+            _delays.Delay,
+            _ => true,
+            Timing);
+        watch.Found = files =>
+        {
+            lock (_foundLock)
+            {
+                _found.Add(files);
+            }
+
+            return Task.CompletedTask;
+        };
+        watch.IsBusy = () => busy;
+        watch.Start([Folder]);
+        await watch.BaselineTaken;
+
+        // 取り込み中に置かれた物を預ける
+        busy = true;
+        current = [@"D:\作り物\監視\前から.zip", @"D:\作り物\監視\取り込み中に置いた.zip"];
+        _hub.Single(Folder).Fire(@"D:\作り物\監視\取り込み中に置いた.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await Until(() => watch.IsDeferred, "預ける");
+
+        // 監視フォルダを足して張り直す
+        watch.Start([Folder, Other]);
+        await watch.BaselineTaken;
+        Assert.True(watch.IsDeferred);
+        lock (asked)
+        {
+            Assert.Equal([Other], asked[^1]);
+        }
+
+        busy = false;
+        watch.Kick();
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+
+        var found = await NextFoundAsync(1);
+        Assert.True(found.Single(file => file.Path.EndsWith("取り込み中に置いた.zip", StringComparison.Ordinal)).Arrived);
+        Assert.False(found.Single(file => file.Path.EndsWith("前から.zip", StringComparison.Ordinal)).Arrived);
     }
 
     [Fact]

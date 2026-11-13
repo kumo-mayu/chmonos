@@ -63,7 +63,10 @@ public sealed class ImportRunner(AppServiceContainer services)
     /// 走っているか、立ち上げの途中か。開いている間の監視（plan 49）が、見つけた物を今の取り込みに黙って混ぜないために見る
     /// （<see cref="Running"/> は立ち上げの途中は null なので、それだけでは足りない）
     /// </summary>
-    public bool IsBusy => _work is not null || _starting;
+    public bool IsBusy => _work is not null || (_starting && !_finishing);
+
+    /// <summary>走り終えて終わりを知らせている最中（<see cref="IsBusy"/> を下ろす。次の回を始めるときと、呼び手が抜けるときに下ろす）。</summary>
+    private bool _finishing;
 
     /// <summary>始まった（作業集合ができた）。この後に進み具合が来る。</summary>
     public event Action<ImportWorkSet>? Started;
@@ -164,6 +167,7 @@ public sealed class ImportRunner(AppServiceContainer services)
         }
 
         _starting = true;
+        _finishing = false;
         try
         {
             await RunAsync(request);
@@ -171,6 +175,7 @@ public sealed class ImportRunner(AppServiceContainer services)
         finally
         {
             _starting = false;
+            _finishing = false;
         }
 
         return null;
@@ -257,9 +262,10 @@ public sealed class ImportRunner(AppServiceContainer services)
             _cancellation = null;
             _work = null;
 
-            // 終わりを知らせる前に「立ち上げの途中」も下ろす。下ろさないと、終わりを聞いて次を始めようとする側（開いている間の監視・plan 49）が
-            // まだ走っていると見て、また待ってしまう（呼び手の StartOrStackAsync も抜けるときに下ろすが、それは知らせの後）
-            _starting = false;
+            // 終わりを知らせる前に「終わった」を立てる（IsBusy が見る）。立てないと、終わりを聞いて探し直す側（開いている間の監視・plan 49）が
+            // 「立ち上げの途中」（_starting。呼び手の StartOrStackAsync が抜けるときに下ろすが、それは知らせの後）を見て、まだ走っていると待ってしまう。
+            // _starting そのものは下ろさない：知らせを聞いた側が同期で次を始めると、外側の finally が新しい回の _starting を下ろし、2本目を止める守りが外れる
+            _finishing = true;
             services.Api.NoteBusy("import", null);
             PublishFinished(finished);
             Finished?.Invoke();
