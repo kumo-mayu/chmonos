@@ -522,6 +522,104 @@ public class FilePoolWindowTests
         Assert.Empty((await LocalOfAsync(app, PartBId)).LocalFiles);
     });
 
+
+
+    /// <summary>
+    /// 書き込みだけを止める（読むのは通る）。読み直しまで巻き込まないので、失敗の後の画面の読み直しも確かめられる。
+    /// </summary>
+    private static FileStream BlockWrites(TestApp app, string itemId)
+        => new(app.Services.Paths.ItemFile(itemId), FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    /// <summary>
+    /// 2件目の保存が失敗しても、1件目の結果を言い・主画面へ伝え・読み直す（件15）。
+    /// 1件目を書いた直後（置き場の Written）に付ける先の書き込みを止めると、2件目の命令だけが例外になる。
+    /// </summary>
+    [Fact]
+    public Task 付ける途中で保存が例外になっても_付けた分を言い_主画面へ伝えて読み直す() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        pool.SelectItem(Row(pool, PartBId));
+        var rows = Shown(pool).ToList();
+        Assert.Equal(2, rows.Count);
+        rows.ForEach(file => file.IsChecked = true);
+
+        FileStream? held = null;
+        void BlockAfterFirst(string id) => held ??= id == PartBId ? BlockWrites(app, PartBId) : null;
+        app.Store.Items.Written += BlockAfterFirst;
+        try
+        {
+            await pool.AttachAsync();
+        }
+        finally
+        {
+            app.Store.Items.Written -= BlockAfterFirst;
+            held?.Dispose();
+        }
+
+        await app.SettleAsync();
+        var saved = (await LocalOfAsync(app, PartBId)).OwnedFiles.Select(file => file.Hash).ToList();
+        var done = Assert.Single(rows, file => saved.Contains(file.Hash));
+        var failed = Assert.Single(rows, file => !saved.Contains(file.Hash));
+        var lines = pool.ResultText.Split('\n');
+        Assert.Equal("1 個のファイルを「作り物のスカート」に付けました。", lines[0]);
+        Assert.StartsWith($"「{failed.FileName}」を付けられませんでした。", lines[1]);
+        Assert.DoesNotContain("Exception", pool.ResultText);
+
+        // 付けた1件は主画面の写しにも映り、画面は読み直されて保存と合っている。付けられなかった方のチェックは残る
+        await UiThread.Until(
+            () => main.Search.FindItem(PartBId)!.Local.OwnedFiles.Any(file => file.Hash == done.Hash),
+            "検索の写しに付けた分が映る");
+        Assert.Equal([done.FileName], Row(pool, PartBId).Files.Select(file => file.FileName));
+        Assert.True(Shown(pool).Single(file => file.Hash == failed.Hash).IsChecked);
+        Assert.True(pool.CanAttach);
+    });
+
+    [Fact]
+    public Task 付ける最初の1件で保存が例外になっても_失敗を言い_押せないままにならない() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        pool.SelectItem(Row(pool, PartBId));
+        Shown(pool).Single(file => file.FileName == "SampleShop_Skirt.zip").IsChecked = true;
+
+        using (BlockWrites(app, PartBId))
+        {
+            await pool.AttachAsync();
+        }
+
+        Assert.StartsWith("「SampleShop_Skirt.zip」を付けられませんでした。", pool.ResultText);
+        Assert.Empty((await LocalOfAsync(app, PartBId)).OwnedFiles);
+
+        // 書き込みが通るようになれば、そのまま付け直せる
+        Assert.True(pool.CanAttach);
+        await pool.AttachAsync();
+        Assert.Equal("1 個のファイルを「作り物のスカート」に付けました。", pool.ResultText);
+    });
+
+    [Fact]
+    public Task 外す保存が例外になっても_失敗を言い_画面を読み直す() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var main = await StartWithSetAsync(app);
+        var pool = await OpenAsync(app, main);
+        pool.SelectItem(Row(pool, PartAId));
+        var top = Assert.Single(Row(pool, PartAId).Files);
+
+        using (BlockWrites(app, PartAId))
+        {
+            await pool.DetachAsync(top);
+        }
+
+        Assert.StartsWith("「SampleShop_Top.zip」を外せませんでした。", pool.ResultText);
+        Assert.Single(Row(pool, PartAId).Files);
+
+        await pool.DetachAsync(Assert.Single(Row(pool, PartAId).Files));
+        Assert.Equal("「SampleShop_Top.zip」を「作り物の上着」から外しました。", pool.ResultText);
+    });
+
     // ---- 外す ----
 
     [Fact]
