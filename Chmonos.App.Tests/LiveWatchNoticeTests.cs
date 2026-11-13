@@ -2,6 +2,7 @@ using System.IO;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Booth;
+using Chmonos.Core.Scanning;
 
 namespace Chmonos.App.Tests;
 
@@ -274,6 +275,52 @@ public class LiveWatchNoticeTests
         // Folders は Start の中ですぐ替わるが、見張りを張るのは裏（ArmAll は Task.Run）。張るまで待ってから数える
         await UiThread.Until(() => app.FolderEvents.All.Count == 3, "足したフォルダの見張りを張る");
         Assert.Equal(2, app.FolderEvents.All.Count(events => !events.Disposed));
+    });
+
+    /// <summary>
+    /// 見張りが見つけた物は画面のスレッドへ預けてから処理する。預けた間に監視フォルダを外して張り直したら、前の見張りの物（外したフォルダの物を含む）は使わず、
+    /// 今の見張りで探し直して、残したフォルダの物だけ知らせる（W4）
+    /// </summary>
+    [Fact]
+    public Task 張り直す前の見張りの物は使わず_残したフォルダの物だけ知らせる() => TestApp.Run(async app =>
+    {
+        var removed = Path.GetDirectoryName(app.NewFile(@"removed\keep.txt"))!;
+        var kept = Path.GetDirectoryName(app.NewFile(@"kept\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with
+        {
+            WatchedFolders = [removed, kept],
+            WatchFoldersWhileOpen = true,
+        });
+        var main = await app.StartAsync();
+        await BaselineAsync(main);
+        var live = main.LiveWatch!;
+
+        // 前の見張りが渡した物を預けたまま止めておき、張り直した後に届ける（BeginInvoke で後回しになったのと同じ）
+        var forward = live.Found!;
+        LiveWatchBatch? held = null;
+        live.Found = batch =>
+        {
+            if (batch.Count > 0 && Interlocked.CompareExchange(ref held, batch, null) is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            return forward(batch);
+        };
+
+        var gone = app.NewFile(@"removed\costume.zip", [1, 2, 3, 4]);
+        var stay = app.NewFile(@"kept\shoes.zip", [5, 6, 7]);
+        app.FolderEvents.Fire(removed, gone);
+        await UiThread.Until(() => Volatile.Read(ref held) is not null, "前の見張りが見つける");
+        Assert.Equal(2, held!.Count);
+
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [kept] });
+        await UiThread.Until(() => live.Folders.Count == 1, "張り直す");
+        await forward(held);
+
+        await UiThread.Until(() => main.HasLiveWatchNotice, "残したフォルダの物で帯が出る");
+        Assert.Equal([stay], main.WatchedNewFiles);
+        await app.SettleAsync();
     });
 
     [Fact]

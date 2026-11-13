@@ -435,6 +435,192 @@ public class LiveFolderWatchTests
         Assert.False(found.Single(file => file.Path.EndsWith("前から.zip", StringComparison.Ordinal)).Arrived);
     }
 
+    private const string Child = @"D:\作り物\監視\子";
+
+    /// <summary>頼まれたフォルダの中の物だけ返す見張り（控えをどのフォルダの分だけ取るかを見る）。</summary>
+    private LiveFolderWatch CreateScoped(Func<IReadOnlyList<string>> current, List<IReadOnlyList<string>> asked)
+    {
+        var watch = new LiveFolderWatch(
+            _hub.Create,
+            (folders, _) =>
+            {
+                lock (asked)
+                {
+                    asked.Add([.. folders]);
+                }
+
+                var inside = current().Where(path => folders.Any(folder => path.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))).ToList();
+                return Task.FromResult(new WatchResult { Folders = folders, NewFiles = inside });
+            },
+            _probe,
+            _delays.Delay,
+            _delays,
+            _ => true,
+            Timing);
+        watch.Found = files =>
+        {
+            lock (_foundLock)
+            {
+                _found.Add(files);
+            }
+
+            return Task.CompletedTask;
+        };
+        return watch;
+    }
+
+    /// <summary>
+    /// 親を見張っている間に子を足しても、子はもう範囲の中なので控えを取り直さない。取り直すと、取り込み中で預けていた子の中の新着が
+    /// 控えに入り「前からあった物」になって、自動の取り込みから黙って落ちる（W6）
+    /// </summary>
+    [Fact]
+    public async Task 親を見張っている間に子を足しても_預けた物は現れた物のまま()
+    {
+        var busy = false;
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [@"D:\作り物\監視\前から.zip"];
+        using var watch = CreateScoped(() => current, asked);
+        watch.IsBusy = () => busy;
+        watch.Start([Folder]);
+        await watch.BaselineTaken;
+
+        busy = true;
+        current = [@"D:\作り物\監視\前から.zip", @"D:\作り物\監視\子\取り込み中に置いた.zip"];
+        _hub.Single(Folder).Fire(@"D:\作り物\監視\子\取り込み中に置いた.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await Until(() => watch.IsDeferred, "預ける");
+
+        watch.Start([Folder, Child]);
+        await watch.BaselineTaken;
+        lock (asked)
+        {
+            Assert.Single(asked);
+        }
+
+        busy = false;
+        watch.Kick();
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+
+        var found = await NextFoundAsync(1);
+        Assert.True(found.Single(file => file.Path.EndsWith("取り込み中に置いた.zip", StringComparison.Ordinal)).Arrived);
+        Assert.False(found.Single(file => file.Path.EndsWith("前から.zip", StringComparison.Ordinal)).Arrived);
+    }
+
+    /// <summary>逆の向き：子を見張っている間に親を足すと、親の控えは取るが、子の中は前の見張りの控えのまま（預けた物を前からの物にしない）。</summary>
+    [Fact]
+    public async Task 子を見張っている間に親を足しても_子の中の預けた物は現れた物のまま()
+    {
+        var busy = false;
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [@"D:\作り物\監視\親の前から.zip"];
+        using var watch = CreateScoped(() => current, asked);
+        watch.IsBusy = () => busy;
+        watch.Start([Child]);
+        await watch.BaselineTaken;
+
+        busy = true;
+        current = [@"D:\作り物\監視\親の前から.zip", @"D:\作り物\監視\子\取り込み中に置いた.zip"];
+        _hub.Single(Child).Fire(@"D:\作り物\監視\子\取り込み中に置いた.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await Until(() => watch.IsDeferred, "預ける");
+
+        watch.Start([Child, Folder]);
+        await watch.BaselineTaken;
+        lock (asked)
+        {
+            Assert.Equal([Folder], asked[^1]);
+        }
+
+        busy = false;
+        watch.Kick();
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+
+        var found = await NextFoundAsync(1);
+        Assert.True(found.Single(file => file.Path.EndsWith("取り込み中に置いた.zip", StringComparison.Ordinal)).Arrived);
+        Assert.False(found.Single(file => file.Path.EndsWith("親の前から.zip", StringComparison.Ordinal)).Arrived);
+    }
+
+    /// <summary>外した親は範囲に残さない。後で子だけを足したら控えを取る（子に前から在った物を「現れた物」にしない）。</summary>
+    [Fact]
+    public async Task 外した親の中の子を後で足すと_控えを取り直す()
+    {
+        const string Other = @"D:\作り物\監視2";
+        var asked = new List<IReadOnlyList<string>>();
+        IReadOnlyList<string> current = [];
+        using var watch = CreateScoped(() => current, asked);
+        watch.Start([Folder]);
+        await watch.BaselineTaken;
+        watch.Start([Other]);
+        await watch.BaselineTaken;
+
+        current = [@"D:\作り物\監視\子\外している間に置いた.zip"];
+        watch.Start([Other, Child]);
+        await watch.BaselineTaken;
+        lock (asked)
+        {
+            Assert.Equal([Child], asked[^1]);
+        }
+
+        _hub.Single(Child).Fire(@"D:\作り物\監視\子\外している間に置いた.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+        Assert.False(Assert.Single(await NextFoundAsync(1)).Arrived);
+    }
+
+    /// <summary>
+    /// 見張りが「取り込み中」と読んだ直後、預ける前に取り込みが終わると、終わりの知らせは預けた印の無いうちに来て何もしない。
+    /// 預けた後に見直して、終わっていれば探し直す（次の出来事まで放っておかない。W7）
+    /// </summary>
+    [Fact]
+    public async Task 取り込み中と読んだ直後に終わっても_預けたまま放っておかない()
+    {
+        using var watch = await StartAsync();
+        var finishOnNextRead = 0;
+        watch.IsBusy = () =>
+        {
+            if (Interlocked.Exchange(ref finishOnNextRead, 0) == 0)
+            {
+                return false;
+            }
+
+            // 「中」と答える呼び出しの間に、取り込みが終わって知らせが来た
+            watch.Kick();
+            return true;
+        };
+        _newFiles = [@"D:\作り物\監視\衣装.zip"];
+
+        Interlocked.Exchange(ref finishOnNextRead, 1);
+        _hub.Single(Folder).Fire(@"D:\作り物\監視\衣装.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+
+        // 出来事をもう起こさなくても探し直す
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+        Assert.Single(await NextFoundAsync(1));
+        Assert.False(watch.IsDeferred);
+    }
+
+    /// <summary>張り直す・止めると、前の見張りが渡した物は今の物でない（画面が預けた後に受け取るときに照らす。W4）。</summary>
+    [Fact]
+    public async Task 張り直した後は_前の見張りが渡した物を今の物と見ない()
+    {
+        using var watch = await StartAsync();
+        _newFiles = [@"D:\作り物\監視\衣装.zip"];
+        _hub.Single(Folder).Fire(@"D:\作り物\監視\衣装.zip");
+        await _delays.ReleaseAsync(Timing.Quiet);
+        await _delays.ReleaseAsync(Timing.Settle);
+        var old = Assert.IsType<LiveWatchBatch>(await NextFoundAsync(1));
+        Assert.True(watch.IsCurrent(old));
+
+        watch.Start([Folder, @"D:\作り物\監視2"]);
+        Assert.False(watch.IsCurrent(old));
+
+        watch.Stop();
+        Assert.False(watch.IsCurrent(old));
+    }
+
     [Fact]
     public async Task 止めたら見張りを外し_後から来た出来事を捨てる()
     {

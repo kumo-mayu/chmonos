@@ -4,6 +4,24 @@ namespace Chmonos.Core.Scanning;
 /// <param name="Arrived">見張り始めた後に現れた（か、中身が変わった）物か。見張り始める前から在った新着は false。</param>
 public sealed record LiveWatchFile(string Path, string Fingerprint, bool Arrived);
 
+/// <summary>
+/// 1回の探し直しで渡す新着（全部）と、それを見つけた見張りの世代。
+/// 呼び手は画面のスレッドへ預けてから処理するので、その間に張り直すと古い見張りの結果が後から届く。
+/// 受け取る時に <see cref="LiveFolderWatch.IsCurrent"/> で照らす（外したフォルダの物で帯・自動の取り込みを始めない。W4）
+/// </summary>
+public sealed class LiveWatchBatch(IReadOnlyList<LiveWatchFile> files, long generation) : IReadOnlyList<LiveWatchFile>
+{
+    public long Generation { get; } = generation;
+
+    public int Count => files.Count;
+
+    public LiveWatchFile this[int index] => files[index];
+
+    public IEnumerator<LiveWatchFile> GetEnumerator() => files.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
 /// <summary>待ち時間（plan 49）。数字の根拠は各欄に書く。試験は待ちと時計を差し替える。</summary>
 public sealed record LiveFolderWatchTiming
 {
@@ -86,7 +104,19 @@ public sealed class LiveFolderWatch : IDisposable
     }
 
     /// <summary>書き終わった新着（新着の全部。書いている途中の物は入らない）。裏のスレッドから来る。</summary>
-    public Func<IReadOnlyList<LiveWatchFile>, Task>? Found { get; set; }
+    public Func<LiveWatchBatch, Task>? Found { get; set; }
+
+    /// <summary>
+    /// 渡した物が今の見張りの物か（張り直す・止めると、前の見張りの物は今の物でない）。
+    /// 画面のスレッドで照らす：張り直し・止めるも画面のスレッドから来るので、照らした後に見張りが替わることは無い
+    /// </summary>
+    public bool IsCurrent(LiveWatchBatch batch)
+    {
+        lock (_lock)
+        {
+            return _session is { } session && session.Generation == batch.Generation;
+        }
+    }
 
     /// <summary>取り込み中か。中なら渡さずに待ち、<see cref="Kick"/> で探し直す。</summary>
     public Func<bool> IsBusy { get; set; } = () => false;
@@ -171,7 +201,7 @@ public sealed class LiveFolderWatch : IDisposable
     /// **画面のスレッドで待たない**：フォルダを開いて見張りを張るのは裏で行う（届かない共有・外れたドライブでは、張るだけで十数秒かかることがある）。
     /// 張り直し（見張っている間に監視フォルダを足し引きした）では、見張り始めの控えと、取り込み中で預けていた物を引き継ぐ
     /// （捨てると、預けた物・書いている途中だった物が新しい控えに入り、「現れた物」でなくなって自動の取り込みから黙って落ちる）。
-    /// 控えを取り直すのは新しく足したフォルダの分だけ
+    /// 控えを取り直すのは、前の見張りの範囲（控えを取り終えたフォルダとその中）に入っていなかったフォルダの分だけ
     /// </summary>
     public void Start(IReadOnlyList<string> folders)
     {
@@ -183,24 +213,40 @@ public sealed class LiveFolderWatch : IDisposable
         }
 
         var carryDeferred = previous?.End() ?? false;
-        if (previous is null)
+        var unique = folders.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        long generation;
+        List<string> fresh;
+        List<string> covered;
+        lock (_baselineLock)
         {
-            ForgetBaseline();
+            // 世代を進めるのは控えと同じ錠の中：止めた見張りの遅れた控えが、ここより後に混ざらないように（W5）
+            generation = ++_generation;
+            if (previous is null)
+            {
+                _baseline.Clear();
+                _baselineFolders.Clear();
+            }
+
+            // 親を見張っている間に足した子は、もう範囲の中（控えも取ってある）。完全一致で決めると子を新しく扱い、
+            // 取り込み中で預けていた子の中の新着を控えに入れて「前からあった物」にしてしまう（W6）
+            var before = _baselineFolders.ToList();
+            fresh = unique.Where(folder => !before.Any(done => Covers(done, folder))).ToList();
+
+            // 範囲は今も見張っている所だけ残す。外した親を残すと、後で足した子の前からの物まで範囲の中と見て「現れた物」にしてしまう
+            covered = [
+                .. before.Where(done => unique.Any(folder => Covers(folder, done))),
+                .. unique.Where(folder => !fresh.Contains(folder, StringComparer.OrdinalIgnoreCase) && !before.Contains(folder, StringComparer.OrdinalIgnoreCase)),
+            ];
+            _baselineFolders.Clear();
+            _baselineFolders.UnionWith(covered);
         }
 
-        if (folders.Count == 0)
+        if (unique.Count == 0)
         {
             return;
         }
 
-        var unique = folders.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        List<string> fresh;
-        lock (_baselineLock)
-        {
-            fresh = unique.Where(folder => !_baselineFolders.Contains(folder)).ToList();
-        }
-
-        var session = new Session(this, unique, fresh, carryDeferred);
+        var session = new Session(this, unique, fresh, covered, generation, carryDeferred);
         lock (_lock)
         {
             _session = session;
@@ -220,7 +266,12 @@ public sealed class LiveFolderWatch : IDisposable
         }
 
         session?.End();
-        ForgetBaseline();
+        lock (_baselineLock)
+        {
+            ++_generation;
+            _baseline.Clear();
+            _baselineFolders.Clear();
+        }
     }
 
     private readonly object _baselineLock = new();
@@ -228,22 +279,30 @@ public sealed class LiveFolderWatch : IDisposable
     /// <summary>見張り始めたときに在った新着の指紋。張り直しをまたいで持つ。</summary>
     private readonly HashSet<string> _baseline = new(StringComparer.Ordinal);
 
-    /// <summary>控えを取ったフォルダ。</summary>
+    /// <summary>控えを取り終えたフォルダ（今の見張りの範囲。中の子も含む）。</summary>
     private readonly HashSet<string> _baselineFolders = new(StringComparer.OrdinalIgnoreCase);
 
-    private void ForgetBaseline()
-    {
-        lock (_baselineLock)
-        {
-            _baseline.Clear();
-            _baselineFolders.Clear();
-        }
-    }
+    /// <summary>見張りの世代。始める・止めるたびに進む（_baselineLock の中で読み書きする）。</summary>
+    private long _generation;
 
-    private void AddBaseline(IEnumerable<string> folders, IEnumerable<string> fingerprints)
+    /// <summary>そのフォルダか、その中か（見張りも走査も中のフォルダまで見る）。</summary>
+    private static bool Covers(string folder, string path)
+        => Services.PathText.Same(folder, path) || Storage.StoreIds.IsInside(path, folder);
+
+    /// <summary>
+    /// 控えを足す。止めた・張り直した前の見張りの読み取りが遅れて終わった物は捨てる
+    /// （所有者共通の控えに混ざると、張り直した見張りの新着が「前からあった物」になって自動の取り込みから落ちる。W5）。
+    /// 捨てても、張り直した見張りはそのフォルダを控えを取っていない物として取り直す
+    /// </summary>
+    private void AddBaseline(long generation, IEnumerable<string> folders, IEnumerable<string> fingerprints)
     {
         lock (_baselineLock)
         {
+            if (generation != _generation)
+            {
+                return;
+            }
+
             _baselineFolders.UnionWith(folders);
             _baseline.UnionWith(fingerprints);
         }
@@ -272,7 +331,10 @@ public sealed class LiveFolderWatch : IDisposable
         session?.KickIfDeferred();
     }
 
-    /// <summary>渡した物を呼び手が受け取れなかった（取り込みが始まっていた）。次の <see cref="Kick"/> で探し直す。</summary>
+    /// <summary>
+    /// 渡した物を呼び手が受け取れなかった（取り込みが始まっていた・前の見張りの物だった）。取り込み中なら次の <see cref="Kick"/> で、
+    /// 中でなければすぐ探し直す
+    /// </summary>
     public void Defer()
     {
         Session? session;
@@ -291,9 +353,13 @@ public sealed class LiveFolderWatch : IDisposable
 
     /// <summary>1回の見張り（Start から Stop まで）。止めたら捨て、次は作り直す。</summary>
     /// <param name="fresh">見張り始めの控えをまだ取っていないフォルダ（初めて張る・張り直しで足した）。</param>
+    /// <param name="covered">前の見張りから引き継いだ範囲（控えを取り終えた所）。足したフォルダの控えから、この中の物は除く。</param>
+    /// <param name="generation">この見張りの世代（控えを足す時と、渡した物を画面が受け取る時に照らす）。</param>
     /// <param name="carryDeferred">前の見張りが取り込み中で預けていた物があるか。</param>
-    private sealed class Session(LiveFolderWatch owner, List<string> folders, List<string> fresh, bool carryDeferred)
+    private sealed class Session(LiveFolderWatch owner, List<string> folders, List<string> fresh, List<string> covered, long generation, bool carryDeferred)
     {
+        public long Generation => generation;
+
         private readonly CancellationTokenSource _cancel = new();
         private readonly SemaphoreSlim _signal = new(0);
         private readonly object _gate = new();
@@ -383,11 +449,22 @@ public sealed class LiveFolderWatch : IDisposable
             }
         }
 
+        /// <summary>
+        /// 取り込み中なので預ける。印を立てた後に取り込み中かを見直し、終わっていれば探し直しを予約する。
+        /// 「取り込み中」と読んでから印を立てるまでに取り込みが終わると、終わりの知らせ（<see cref="Kick"/>）は印の無いうちに来て何もせず、
+        /// 次の出来事まで放っておかれる（W7）。取り込みは「終わった」を立ててから知らせるので、見直して中なら知らせはこの後に来る。
+        /// 知らせと見直しの両方が来ても、印を下ろす方が1つなので探し直しは1回
+        /// </summary>
         public void MarkDeferred()
         {
             lock (_gate)
             {
                 _deferred = true;
+            }
+
+            if (!owner.IsBusy())
+            {
+                KickIfDeferred();
             }
         }
 
@@ -571,17 +648,10 @@ public sealed class LiveFolderWatch : IDisposable
         {
             try
             {
-                // 前の見張りが取り込み中で預けていた物は、引き継いで終わりを待つ（終わっていれば、控えを取った後に探す）
+                // 前の見張りが取り込み中で預けていた物は、引き継いで終わりを待つ（終わっていれば、控えを取った後に探す。MarkDeferred が見直す）
                 if (carryDeferred)
                 {
-                    if (owner.IsBusy())
-                    {
-                        MarkDeferred();
-                    }
-                    else
-                    {
-                        Nudge();
-                    }
+                    MarkDeferred();
                 }
 
                 ArmAll(token);
@@ -656,13 +726,19 @@ public sealed class LiveFolderWatch : IDisposable
                 var fingerprints = new List<string>();
                 foreach (var path in result.NewFiles)
                 {
+                    // 子を見張っている間に親を足した：子の中は前の見張りの控えのまま（預けていた新着を「前からあった物」にしない。W6 の逆の向き）
+                    if (covered.Any(done => Covers(done, path)))
+                    {
+                        continue;
+                    }
+
                     if (owner._probe.Probe(path) is { } settle)
                     {
                         fingerprints.Add(FingerprintOf(path, settle));
                     }
                 }
 
-                owner.AddBaseline(fresh, fingerprints);
+                owner.AddBaseline(generation, fresh, fingerprints);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -744,7 +820,7 @@ public sealed class LiveFolderWatch : IDisposable
                 return;
             }
 
-            await found(files).ConfigureAwait(false);
+            await found(new LiveWatchBatch(files, generation)).ConfigureAwait(false);
         }
     }
 }
