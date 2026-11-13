@@ -62,6 +62,7 @@ internal static partial class Scenes
         .. Inbox,
         .. InboxPictureScenes,
         .. Dialogs,
+        .. UnityPick,
         .. ChangeIdScenes,
         .. Settings,
         .. FirstRun,

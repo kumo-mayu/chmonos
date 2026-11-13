@@ -1,0 +1,93 @@
+<Window x:Class="Chmonos.App.Views.UnityPickDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:UnityPickDialogViewModel}"
+        Title="{Binding Title}"
+        Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        AutomationProperties.AutomationId="UnityPickDialog"
+        Background="{DynamicResource Surface}">
+    <!--
+        「Unityで選択」で見つかった画像と unitypackage を、Unity の中のフォルダの木で選ぶ（ユーザ判断 2026-11-13）。
+        木は字下げした平らな一覧（フォルダビューの木と同じ作り）。選べるのは葉だけで、フォルダの行では「これを選択」が押せない。
+        作法は ui-dialogs.md：Enter で決める（葉のとき）・Esc とキャンセル（右端）でやめる
+    -->
+    <Window.Resources>
+        <Style x:Key="PickRow" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+            <!-- 付けないと行の型の名前が読まれる。葉は見つかり方まで、フォルダは件数まで -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="UnityPickRow" />
+            <Setter Property="ToolTip" Value="{Binding ToolTip}" />
+            <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick" />
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="18">
+        <TextBlock Text="{x:Static vm:UnityPickDialogViewModel.Message}" TextWrapping="Wrap" />
+
+        <ListBox x:Name="List" Margin="0,10,0,12" MinHeight="90" MaxHeight="420"
+                 ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                 ItemContainerStyle="{StaticResource PickRow}"
+                 HorizontalContentAlignment="Stretch"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                 VirtualizingPanel.ScrollUnit="Pixel"
+                 AutomationProperties.Name="{x:Static vm:UnityPickDialogViewModel.Message}"
+                 PreviewKeyDown="OnListKeyDown">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:UnityPickRow}">
+                    <DockPanel Margin="{Binding Indent}" MinHeight="22">
+                        <Button x:Name="Toggle" DockPanel.Dock="Left" Style="{StaticResource FolderGlyph}"
+                                AutomationProperties.AutomationId="UnityPickToggle" AutomationProperties.Name="{Binding ToggleName}"
+                                Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}" />
+
+                        <!-- 葉には三角を置かず、同じ幅を空ける（見えない三角を残すと、読み上げに「〜を開く」のボタンが出る） -->
+                        <FrameworkElement x:Name="LeafSpace" DockPanel.Dock="Left" Width="18" Visibility="Collapsed" />
+
+                        <!-- フォルダ・節の件数は右端（フォルダビューの木と同じ置き方） -->
+                        <TextBlock x:Name="RowCount" DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
+                                   VerticalAlignment="Center" Margin="8,0,4,0" />
+
+                        <!-- フォルダの印（フォルダビューの木と同じ形を小さく）。葉と節には出さない -->
+                        <Path x:Name="FolderMark" DockPanel.Dock="Left" Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z"
+                              Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2" Stretch="Uniform"
+                              Width="14" Height="12" Margin="2,0,6,0" VerticalAlignment="Center" Visibility="Collapsed" />
+
+                        <!-- 葉の見つかり方は名前の右に小さく（同じ画像・名前が同じ）。unitypackage は入っている zip の名前 -->
+                        <TextBlock x:Name="RowTag" DockPanel.Dock="Right" Text="{Binding Tag}" Style="{StaticResource Caption}"
+                                   VerticalAlignment="Center" Margin="10,0,4,0" MaxWidth="200" TextTrimming="CharacterEllipsis" />
+
+                        <TextBlock x:Name="RowName" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:UnityPickRowKind.Folder}">
+                            <Setter TargetName="FolderMark" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:UnityPickRowKind.Section}">
+                            <Setter TargetName="RowName" Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsLeaf}" Value="True">
+                            <Setter TargetName="Toggle" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="LeafSpace" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="RowCount" Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding HasTag}" Value="False">
+                            <Setter TargetName="RowTag" Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="{x:Static vm:UnityPickDialogViewModel.OkText}" IsDefault="True" Padding="12,3,12,3"
+                    IsEnabled="{Binding CanPick}" AutomationProperties.AutomationId="UnityPickOk" Click="OnOk" />
+            <Button Content="キャンセル" IsCancel="True" Margin="8,0,0,0" Padding="12,3,12,3" />
+        </StackPanel>
+    </StackPanel>
+</Window>

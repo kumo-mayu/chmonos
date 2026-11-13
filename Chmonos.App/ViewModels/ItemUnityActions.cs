@@ -448,6 +448,17 @@ internal static class ItemUnityActions
         {
             package = packages[0];
         }
+        else if (!UnityPickTree.IsFlat(images.Count, packages.Count))
+        {
+            // 候補が多いときは Unity の中のフォルダの木で選ばせる（ユーザ判断 2026-11-13。平らに並べると何十行になった）
+            if (UnityPickDialogViewModel.Ask(title, images, packages) is not { } row)
+            {
+                return;
+            }
+
+            image = row.Image;
+            package = row.Package;
+        }
         else
         {
             var picked = ListChoice.Ask(
