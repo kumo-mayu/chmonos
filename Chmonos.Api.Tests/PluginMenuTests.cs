@@ -366,9 +366,9 @@ public sealed class PluginMenuTests : IAsyncLifetime
     [InlineData("owned", false, WithPackage, PluginMenuBlock.Owned)]
     [InlineData("hasAvatar", true, WithPackage, PluginMenuBlock.NoAvatar)]
     [InlineData("hasUnityPackage", false, WithPackage, PluginMenuBlock.HasUnityPackage)]
-    public void 条件ごとに理由を分ける(string key, bool value, string itemId, PluginMenuBlock expected)
+    public async Task 条件ごとに理由を分ける(string key, bool value, string itemId, PluginMenuBlock expected)
     {
-        var snapshot = QuerySnapshot.LoadAsync(_store).GetAwaiter().GetResult();
+        var snapshot = await QuerySnapshot.LoadAsync(_store);
         var when = key switch
         {
             "owned" => new PluginMenuWhenRef(null, value, null, null),
