@@ -558,7 +558,9 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
                     continue;
                 }
 
-                var removed = subscriber.Kinds.Where(kind => !client.Scopes.Contains(ApiScopes.WatchOf(kind))).ToList();
+                // 外れた種類は、今購読している種類からではなく、見張りの種類すべてから今の権限で決める：購読を止めて（kinds: []）から
+                // 権限を外すと、購読中の種類には現れないまま、止める前に積んだ出来事が列に残って取れていた（Codex の点検 2026-11-13 の A2）
+                var removed = Kinds.Where(kind => !client.Scopes.Contains(ApiScopes.WatchOf(kind))).ToList();
                 if (removed.Count == 0)
                 {
                     continue;
@@ -567,7 +569,7 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
                 subscriber.Kinds.ExceptWith(removed);
 
                 // 外す前に積んで、まだ取りに来ていない分も渡さない（人が外したら、その場で止まる。返す時に絞るだけだと、
-                // 許し直した時に古い出来事が戻る）。項目を押した出来事（menu）は見張りの許しと別なので残す
+                // 許し直した時に古い出来事が戻る）。項目を押した出来事（menu）は見張りの種類に無いので残る
                 var kept = subscriber.Events.Where(item => !removed.Contains(item.Kind, StringComparer.Ordinal)).ToList();
                 if (kept.Count != subscriber.Events.Count)
                 {

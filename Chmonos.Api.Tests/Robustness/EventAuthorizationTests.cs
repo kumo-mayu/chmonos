@@ -28,6 +28,34 @@ public sealed class EventAuthorizationTests : LocalApiFixture
         Assert.DoesNotContain(again.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "itemOpened");
     }
 
+    [Fact]
+    public async Task 購読を止めてから許可を外しても_止める前に積んだ出来事は返さない()
+    {
+        await GetJson("/v1/plugin/events?wait=0");
+        await Subscribe();
+        Hub.PublishItemOpened("9600901");
+        Assert.True((await Hub.SendMenuAsync("a", "preview", "item", ["9600901"])).Sent);
+
+        using (var stop = await Client.SendAsync(Request(HttpMethod.Put, "/v1/plugin/subscriptions", """{"kinds":[]}""")))
+        {
+            Assert.Equal(HttpStatusCode.OK, stop.StatusCode);
+        }
+
+        await ReplaceClients(Record("a", TokenA) with { Scopes = [ApiScopes.WatchSelectionChanged] }, Record("b", TokenB));
+        var answer = await GetJson("/v1/plugin/events?after=0&wait=0");
+        Assert.DoesNotContain(answer.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "itemOpened");
+        Assert.Equal(0, answer.GetProperty("dropped").GetInt64());
+
+        // 項目を押した出来事は見張りの許しと別なので残る
+        Assert.Contains(answer.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "menu");
+
+        // 許し直して購読し直しても、外す前の出来事は戻らない
+        await ReplaceClients(Record("a", TokenA), Record("b", TokenB));
+        await Subscribe();
+        var again = await GetJson("/v1/plugin/events?after=0&wait=0");
+        Assert.DoesNotContain(again.GetProperty("events").EnumerateArray(), entry => entry.GetProperty("kind").GetString() == "itemOpened");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

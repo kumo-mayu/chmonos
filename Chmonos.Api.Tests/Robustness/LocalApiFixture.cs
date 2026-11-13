@@ -103,8 +103,12 @@ public abstract class LocalApiFixture : IAsyncLifetime
         private readonly System.Threading.Channels.Channel<TaskCompletionSource<ApiClientDecision>> _asked =
             System.Threading.Channels.Channel.CreateUnbounded<TaskCompletionSource<ApiClientDecision>>();
         public bool CanAsk => true;
+
+        /// <summary>許しを求められた時の答え（窓を出している間の人の操作も、ここで差し込む）。既定は答えずに閉じた。</summary>
+        public Func<ApiClientRequestInfo, Task<ApiClientDecision>>? AnswerClient { get; set; }
+
         public Task<ApiClientDecision> AskAsync(ApiClientRequestInfo request, CancellationToken cancellationToken)
-            => Task.FromResult(ApiClientDecision.Dismissed);
+            => AnswerClient?.Invoke(request) ?? Task.FromResult(ApiClientDecision.Dismissed);
         public async Task<ApiClientDecision> AskMenuAsync(PluginMenuRequestInfo request, CancellationToken cancellationToken)
         {
             var decision = new TaskCompletionSource<ApiClientDecision>(TaskCreationOptions.RunContinuationsAsynchronously);

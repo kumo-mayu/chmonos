@@ -17,6 +17,9 @@ namespace Chmonos.Api;
 /// <param name="RefusalsLeft">あと何回拒否したら止めるか（上限が0で数えないときは null）。窓が「あと1回」を言うため。</param>
 public sealed record ApiClientRequestInfo(string Name, string? ExePath, string? Origin, IReadOnlyList<string> Scopes, bool Replaces, int? RefusalsLeft = null);
 
+/// <summary>同じソフトの行の ID と、その時の権限（<see cref="ApiScopes.All"/> の順に「,」でつないだ物）。古い許しを見分けるために照らす。</summary>
+public sealed record ApiClientRowStamp(string Id, string Scopes);
+
 /// <summary>
 /// 人の答え。許したときの <see cref="Scopes"/> は、人が選んだ書き込みの種類（求められた物のうち、窓で外さなかった物）。
 /// 許さなかった答えは2つに分ける：人が［拒否］をマウスでクリックした（<see cref="Refused"/>。止めるまでの回数に数える）と、
@@ -304,15 +307,16 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
     /// 許したソフトを控えに足す（前に許した同じソフトの行は置き換える：トークンを失くして求め直したときに、古い行が溜まらないように）。
     /// API が自分の控えとして書く（api.json と同じ。人の操作は窓で済んでいる）。同じ入れ物の錠の中で今の値に当てる。
     /// 置き換えるのは、今の同じソフトの行が、窓を出した時の <paramref name="replaces"/>（無ければ null）のままのときだけ。
-    /// 違えば（許した後に取り消された・別の求めで許し直された）書かずに false：古い許しの結果を後から受け取って、新しい許しや取り消しを上書きさせない
+    /// 違えば（許した後に取り消された・別の求めで許し直された・設定で権限を変えた）書かずに false：古い許しの結果を後から受け取って、
+    /// 新しい許しや取り消し、人が外した権限を上書きさせない
     /// </summary>
-    public async Task<bool> AddAsync(ApiClientRecord record, string? replaces, CancellationToken cancellationToken)
+    public async Task<bool> AddAsync(ApiClientRecord record, ApiClientRowStamp? replaces, CancellationToken cancellationToken)
     {
         var added = await store().ApiClients.TryUpdateAsync(
             list =>
             {
                 var clients = list.Clients ?? [];
-                if (SameRowId(clients, record.Name, record.ExePath, record.Origin) != replaces)
+                if (!Equals(SameRow(clients, record.Name, record.ExePath, record.Origin), replaces))
                 {
                     return null;
                 }
@@ -331,11 +335,19 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
         return added;
     }
 
-    /// <summary>今の索引で、同じソフト（名前・exe・オリジンが同じ）の行の ID（無ければ null）。許した時の行を控えておくため。</summary>
-    public string? SameRowId(string name, string? exePath, string? origin) => SameRowId(_index.All, name, exePath, origin);
+    /// <summary>今の索引で、同じソフト（名前・exe・オリジンが同じ）の行の ID と権限（無ければ null）。許した時の行を控えておくため。</summary>
+    public ApiClientRowStamp? SameRow(string name, string? exePath, string? origin) => SameRow(_index.All, name, exePath, origin);
 
-    private static string? SameRowId(IEnumerable<ApiClientRecord?> clients, string name, string? exePath, string? origin)
-        => clients.FirstOrDefault(client => client is not null && !string.IsNullOrEmpty(client.Id) && client.IsSame(name, exePath, origin))?.Id;
+    /// <summary>
+    /// 同じソフトの行を ID と権限で表す。ID だけで照らすと、設定の画面がチェックを外しても行の ID は変わらない（Scopes だけ書き換える）ので、
+    /// 外す前に許した結果を後から受け取ると、外した権限が戻っていた（Codex の点検 2026-11-13 の A1）。権限は索引と同じく知っている物だけを
+    /// 決まった順にそろえる（控えは索引から、照らす相手は生の控えから取るので、形をそろえないと毎回食い違う）。
+    /// 最後に使った日時・項目の宣言の書き込みは権限を変えないので、古い許しを失効させない
+    /// </summary>
+    private static ApiClientRowStamp? SameRow(IEnumerable<ApiClientRecord?> clients, string name, string? exePath, string? origin)
+        => clients.FirstOrDefault(client => client is not null && !string.IsNullOrEmpty(client.Id) && client.IsSame(name, exePath, origin)) is { } row
+            ? new ApiClientRowStamp(row.Id, string.Join(",", ApiScopes.All.Where(scope => (row.Scopes ?? []).Contains(scope, StringComparer.Ordinal))))
+            : null;
 
     /// <summary>
     /// 使った印。前に書いてから <see cref="TouchInterval"/> 経っていれば、最後に使った日時を書く。書けなくても答えは止めない（ログに残す）
@@ -440,8 +452,8 @@ internal sealed class ApiClientRequests
 
         public string? ClientId { get; set; }
 
-        /// <summary>窓を出した時の、同じソフトの行の ID（無ければ null）。受け取るときに今の行と照らす。</summary>
-        public string? ReplacesWhenAsked { get; set; }
+        /// <summary>窓を出した時の、同じソフトの行の ID と権限（無ければ null）。受け取るときに今の行と照らす。</summary>
+        public ApiClientRowStamp? ReplacesWhenAsked { get; set; }
 
         /// <summary>決まったら終わる（結果を待っている問い合わせを起こす）。</summary>
         public TaskCompletionSource Decided { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -565,13 +577,13 @@ internal sealed class ApiClientRequests
 
         if (!added)
         {
-            // 許した後に、同じソフトの行が取り消された・別の求めで許し直された。この許しは古いので捨てる（期限切れと同じ答え）
+            // 窓を出した後に、同じソフトの行が取り消された・別の求めで許し直された・設定で権限を変えた。この許しは古いので捨てる（期限切れと同じ答え）
             lock (_lock)
             {
                 _byId.Remove(entry.Id);
             }
 
-            Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{record.Name}」の前の許しを、後の取り消し・許し直しがあったので渡さなかった");
+            Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{record.Name}」の前の許しを、後の取り消し・許し直し・権限の変更があったので渡さなかった");
             return null;
         }
 
@@ -819,7 +831,7 @@ internal sealed class ApiClientRequests
                 // 置き換えてよい行と取り違える）。窓を出している間に取り消されたら、許しても渡さない（人が後でした取り消しを勝たせる）
                 lock (_lock)
                 {
-                    entry.ReplacesWhenAsked = _book.SameRowId(info.Name, info.ExePath, info.Origin);
+                    entry.ReplacesWhenAsked = _book.SameRow(info.Name, info.ExePath, info.Origin);
                 }
 
                 ApiClientDecision decision;
