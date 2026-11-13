@@ -73,6 +73,47 @@ public sealed class McpShapeTests
         Assert.NotNull(JsonNode.Parse(text));
     }
 
+    [Fact]
+    public void 全角空白と絵文字は逃がさず_引用符とバックスラッシュと制御文字は逃がして_JSONとして読み直せる()
+    {
+        var original = "全角　空白と絵文字🐾と\"引用符\"と\\と\u0001と<b>&'";
+        var text = new JsonObject { ["text"] = original }.ToJsonString(AnswerShaper.Json);
+
+        Assert.DoesNotContain("\\u3000", text);
+        Assert.DoesNotContain("\\uD83D", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("　", text);
+        Assert.Contains("🐾", text);
+        Assert.Contains("\\u0001", text);
+        Assert.Equal(original, JsonNode.Parse(text)!["text"]!.GetValue<string>());
+
+        // 対にならないサロゲートは、書き手が置き換え文字にする。壊れた JSON にも例外にもならない
+        var lone = new JsonObject { ["t"] = "a\uD83Db" }.ToJsonString(AnswerShaper.Json);
+        Assert.NotNull(JsonNode.Parse(lone));
+    }
+
+    [Fact]
+    public void 逃がさなくなった字数で_上限の判定と切り詰めは狂わない()
+    {
+        // 全角空白と絵文字ばかり。逃がしていれば1字が6〜12字になって上限を超えていた
+        var items = Enumerable.Range(0, 100)
+            .Select(i => (JsonNode?)new JsonObject { ["id"] = i.ToString(), ["name"] = string.Concat(Enumerable.Repeat("　🐾", 80)) })
+            .ToList();
+
+        var raw = AnswerShaper.Page(items, offset: 0, limit: 100);
+
+        Assert.True(raw.Length <= AnswerShaper.MaxAnswerChars);
+        Assert.DoesNotContain("\\u", raw);
+        var page = JsonNode.Parse(raw)!;
+        // 逃がしたときの6字より多く載る（件数は字数で決まる）
+        Assert.True(page["returned"]!.GetValue<int>() >= 20);
+
+        // 切り詰めは文字列の字数（UTF-16）で行い、結果は JSON のまま
+        var cut = AnswerShaper.Fit(new JsonObject { ["memo"] = new string('　', 1000) });
+        Assert.True(cut.Length <= AnswerShaper.MaxAnswerChars);
+        Assert.Contains("先頭" + AnswerShaper.MaxStringChars + "字", cut);
+        Assert.NotNull(JsonNode.Parse(cut));
+    }
+
     [Theory]
     [InlineData(null, "claude-code", "claude-code（MCP）")]
     [InlineData("Claude Code", "claude-code", "Claude Code（MCP）")]

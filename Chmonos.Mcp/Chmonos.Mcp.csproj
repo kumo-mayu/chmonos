@@ -11,6 +11,8 @@
     <Nullable>enable</Nullable>
     <AssemblyName>Chmonos.Mcp</AssemblyName>
     <RootNamespace>Chmonos.Mcp</RootNamespace>
+    <!-- JavaScriptEncoder の継承（PlainJsonEncoder）が pointer の引数を要る -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
