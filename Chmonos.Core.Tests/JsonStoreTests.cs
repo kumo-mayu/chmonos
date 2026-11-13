@@ -282,40 +282,55 @@ public class JsonStoreTests : IDisposable
         Directory.CreateDirectory(_directory);
         JsonStore.Write(FilePath, new List<int> { 0 });
         var done = 0;
+        var round = 0;
+        var reads = 0;
         var failures = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        // まれに1回だけ落ち、何が起きたか残っていなかった（2026-11-13 の Codex の点検 F2）。落ちたら切り分けられるように、
+        // 読み手の失敗は書いていた回・種類・HResult まで、置き換えが今までの道（File.Replace）へ移った回は理由と Win32 の番号まで残す。
+        // 移った回は同じプロセスのほかの試験の分も混ざるので、数えて失敗にはせず、落ちた時の文に添えるだけにする
+        var fellBack = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        void OnFellBack(string reason, int error) => fellBack.Enqueue($"{reason}（Win32 {error}・書いていた回 {Volatile.Read(ref round)}）");
+        AtomicReplace.FellBack += OnFellBack;
 
         var readers = Enumerable.Range(0, 2).Select(_ => Task.Run(() =>
         {
             while (Volatile.Read(ref done) == 0)
             {
+                Interlocked.Increment(ref reads);
                 try
                 {
-                    if (JsonStore.Read<List<int>>(FilePath) is not [_])
+                    var read = JsonStore.Read<List<int>>(FilePath);
+                    if (read is not [_])
                     {
-                        failures.Enqueue("無い・中身が違う");
+                        failures.Enqueue($"回 {Volatile.Read(ref round)}：{(read is null ? "無い" : $"中身が違う（{read.Count} 個）")}");
                     }
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
-                    failures.Enqueue(exception.GetType().Name);
+                    failures.Enqueue($"回 {Volatile.Read(ref round)}：{exception.GetType().Name}（HResult 0x{exception.HResult:X8}）{exception.Message}");
                 }
             }
         })).ToList();
 
         try
         {
-            for (var round = 1; round <= 300; round++)
+            for (var next = 1; next <= 300; next++)
             {
-                await JsonStore.WriteAsync(FilePath, new List<int> { round });
+                Volatile.Write(ref round, next);
+                await JsonStore.WriteAsync(FilePath, new List<int> { next });
             }
         }
         finally
         {
             Volatile.Write(ref done, 1);
             await Task.WhenAll(readers);
+            AtomicReplace.FellBack -= OnFellBack;
         }
 
-        Assert.Empty(failures);
+        Assert.True(failures.IsEmpty,
+            $"読み手の失敗 {failures.Count} 回（読んだ回数 {reads}）：{string.Join(" / ", failures.Take(10))}" +
+            $"｜今までの置き換えへ移った {fellBack.Count} 回：{string.Join(" / ", fellBack.Take(10))}");
         Assert.Equal([300], JsonStore.Read<List<int>>(FilePath)!);
     }
 

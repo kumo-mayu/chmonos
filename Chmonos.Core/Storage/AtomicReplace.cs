@@ -43,6 +43,7 @@ internal static class AtomicReplace
         using var handle = CreateFileW(temporaryPath, Delete | GenericRead, ShareAll, IntPtr.Zero, OpenExisting, 0, IntPtr.Zero);
         if (handle.IsInvalid)
         {
+            FellBack?.Invoke("一時ファイルを開けない", Marshal.GetLastWin32Error());
             return false;
         }
 
@@ -69,8 +70,16 @@ internal static class AtomicReplace
                 : new IOException(new Win32Exception(error).Message, unchecked((int)0x80070000) | error);
         }
 
+        FellBack?.Invoke("改名できない", error);
         return false;
     }
+
+    /// <summary>
+    /// 対応する Windows の上で、今までの置き換え（<c>File.Replace</c>。本体が一瞬「無い」に見える）へ移った時に、理由と Win32 のエラー番号を知らせる。
+    /// 試験が、読み手の失敗がこの道を通った物かを切り分けるためだけに使う（2026-11-13 の Codex の点検 F2：まれに落ちた置き換えの試験の原因が、
+    /// 製品の道か試験の作りかを決めきれなかった）。製品の動きは変えない
+    /// </summary>
+    internal static event Action<string, int>? FellBack;
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern SafeFileHandle CreateFileW(
