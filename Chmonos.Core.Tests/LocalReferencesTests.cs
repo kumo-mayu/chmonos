@@ -270,6 +270,33 @@ public sealed class LocalReferencesTests
             row => Assert.True(row is { BaseName: "素体B", Forward: true, Reverse: false, Confirmed: true }));
     }
 
+    /// <summary>
+    /// 商品をまとめるとき、移した先で外した行と、移す元で選んだ同じ行が重なれば、選んだ行が勝つ（素体の統合と同じ決まり）。
+    /// 前は移した先の外した印が残り、移す元で選んだ行が消えていた。
+    /// </summary>
+    [Fact]
+    public void MergingTwoItemsKeepsTheSourceChosenRowOverTheTargetRejectedOne()
+    {
+        var target = new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets = [new ConversionTarget { BaseName = "素体A", Slug = "a", Forward = true, Confirmed = true, Rejected = true }],
+            },
+        };
+        var source = new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets = [new ConversionTarget { BaseName = "素体A", Slug = "a", Reverse = true, Confirmed = true }],
+            },
+        };
+
+        var kept = Assert.Single(ItemIdChange.Merge(source, target, new HashSet<int>(), "9900001", "9900002").Conversion!.Targets);
+
+        Assert.True(kept is { Confirmed: true, Rejected: false, Forward: false, Reverse: true });
+    }
+
     private static ConversionTarget Row(LocalReferenceKind kind, string value)
         => kind == LocalReferenceKind.BaseName ? new ConversionTarget { BaseName = value } : new ConversionTarget { AvatarItemId = value };
 
