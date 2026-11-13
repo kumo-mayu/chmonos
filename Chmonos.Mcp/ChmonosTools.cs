@@ -204,7 +204,8 @@ internal static class ChmonosTools
             ({ } text, { } tree) => new JsonObject { ["and"] = new JsonArray(new JsonObject { ["text"] = text }, tree) },
         };
 
-        var showAdult = await Visibility.ShowAdultAsync(call.Bridge, call.CancellationToken);
+        // 商品そのものは API の includeHidden・includeAdult で絞れるが、表示する商品の avatarIds に隠したアバターの ID が残るので、ID の一覧も要る
+        var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
         var limit = args.Int("limit", 20, 1, 50);
         while (true)
         {
@@ -212,7 +213,7 @@ internal static class ChmonosTools
             {
                 ["where"] = expression?.DeepClone(),
                 ["includeHidden"] = false,
-                ["includeAdult"] = showAdult,
+                ["includeAdult"] = visibility.ShowAdult,
                 ["hasUnityPackage"] = args.Bool("has_unity_package"),
                 ["sort"] = Sort(args.String("sort")),
                 ["cursor"] = args.String("cursor"),
@@ -220,6 +221,7 @@ internal static class ChmonosTools
             };
             var page = await Tool.CallAsync(call.Bridge.PostAsync("/v1/search", body, call.CancellationToken));
             var items = page?["items"]?.AsArray() ?? [];
+            var omitted = visibility.Scrub(items);
             var answer = new JsonObject
             {
                 ["total"] = page?["total"]?.DeepClone(),
@@ -227,6 +229,11 @@ internal static class ChmonosTools
                 ["nextCursor"] = page?["nextCursor"]?.DeepClone(),
                 ["items"] = AnswerShaper.Slim(items),
             };
+            if (omitted > 0)
+            {
+                answer["omittedByDisplaySettings"] = omitted;
+            }
+
             var text = answer.ToJsonString(AnswerShaper.Json);
 
             // 長すぎれば件数を減らして引き直す（通訳の側で切ると、API の続きの印と合わなくなる）
@@ -288,6 +295,15 @@ internal static class ChmonosTools
         var id = call.Args.String("id") ?? throw new ToolArgumentException("id を渡してください。");
         var include = call.Args.Strings("include");
         var item = await VisibleItemAsync(call, id, include.Count == 0 ? null : string.Join(',', include));
+
+        // 見せてよい商品でも、対応アバター（compatibleAvatars・avatarLinks.avatars）に隠したアバターの ID と名前が並ぶ
+        var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
+        var omitted = visibility.Scrub(item);
+        if (item is JsonObject obj && omitted > 0)
+        {
+            obj["omittedByDisplaySettings"] = omitted;
+        }
+
         return AnswerShaper.Fit(item);
     }
 
@@ -354,7 +370,7 @@ internal static class ChmonosTools
     {
         var avatars = await Tool.CallAsync(call.Bridge.GetAsync("/v1/avatars", call.CancellationToken)) as JsonArray ?? [];
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var omitted = visibility.Remove(avatars, "id");
+        var omitted = visibility.RemoveRows(avatars, "id");
         var query = call.Args.String("query");
         var ownedOnly = call.Args.Bool("owned_only") == true;
         return Page(call, avatars.Where(avatar =>
@@ -375,8 +391,35 @@ internal static class ChmonosTools
     private static async Task<string> AvatarBasesAsync(ToolCall call)
     {
         var bases = await Tool.CallAsync(call.Bridge.GetAsync("/v1/avatar-bases", call.CancellationToken)) as JsonArray ?? [];
+        var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
+
+        // 素体は商品でなく、名前でまとめた物なので、参照（members・itemId）だけを消して行は残す（見せてよい仲間の手がかりを残す）。
+        // ただし見せてよい仲間が1体も残らず、何かを隠したなら行ごと落とす：素体の名前は隠したアバターの名前と同じことが多い
+        var omitted = 0;
+        for (var i = bases.Count - 1; i >= 0; i--)
+        {
+            if (bases[i] is not JsonObject entry)
+            {
+                continue;
+            }
+
+            var removed = visibility.Scrub(entry);
+            if (visibility.IsHidden(entry["itemId"]))
+            {
+                entry["itemId"] = null;
+                removed++;
+            }
+
+            if (removed > 0 && entry["members"] is not JsonArray { Count: > 0 })
+            {
+                bases.RemoveAt(i);
+            }
+
+            omitted += removed;
+        }
+
         var query = call.Args.String("query");
-        return Page(call, bases.Where(entry => Contains(entry, query, "name", "aliases")), 0);
+        return Page(call, bases.Where(entry => Contains(entry, query, "name", "aliases")), omitted);
     }
 
     private static async Task<string> LookupFileAsync(ToolCall call)
@@ -391,7 +434,7 @@ internal static class ChmonosTools
         var query = path is not null ? "path=" + Uri.EscapeDataString(path) : "hash=" + Uri.EscapeDataString(hash!);
         var owners = await Tool.CallAsync(call.Bridge.GetAsync("/v1/files/lookup?" + query, call.CancellationToken)) as JsonArray ?? [];
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var omitted = visibility.Remove(owners, "itemId");
+        var omitted = visibility.Scrub(owners);
         return Page(call, owners, omitted);
     }
 
@@ -401,7 +444,7 @@ internal static class ChmonosTools
         var path = "/v1/unitypackages" + (avatar is null ? string.Empty : "?avatar=" + Uri.EscapeDataString(avatar));
         var packages = await Tool.CallAsync(call.Bridge.GetAsync(path, call.CancellationToken)) as JsonArray ?? [];
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var omitted = visibility.Remove(packages, "itemId");
+        var omitted = visibility.Scrub(packages);
         var query = call.Args.String("query");
         return Page(call, packages.Where(package => Contains(package, query, "itemName", "entry", "container")), omitted);
     }
@@ -442,7 +485,7 @@ internal static class ChmonosTools
         var body = new JsonObject { ["guids"] = new JsonArray(guids.Select(guid => (JsonNode?)JsonValue.Create(guid)).ToArray()) };
         var found = await Tool.CallAsync(call.Bridge.PostAsync("/v1/unitypackages/lookup", body, call.CancellationToken));
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var omitted = visibility.Remove(found?["found"], "itemId");
+        var omitted = visibility.Scrub(found?["found"]);
         if (found is JsonObject obj && omitted > 0)
         {
             obj["omittedByDisplaySettings"] = omitted;
@@ -457,7 +500,13 @@ internal static class ChmonosTools
         if (call.Args.String("id") is { } id)
         {
             var modification = await Tool.CallAsync(call.Bridge.GetAsync("/v1/modifications/" + Uri.EscapeDataString(id), call.CancellationToken));
-            var hidden = visibility.Remove(modification, "itemId");
+            // 改変はアバターに商品を組み合わせた記録で、名前もアバターの名前を含むことが多い。アバターの欄だけ消しても残るので断る
+            if (visibility.IsHidden(modification?["avatarId"]))
+            {
+                throw new ToolProblemException("この改変のアバターは、Chmonos の表示の設定で隠している商品なので答えません。");
+            }
+
+            var hidden = visibility.Scrub(modification);
             if (modification is JsonObject obj && hidden > 0)
             {
                 obj["omittedByDisplaySettings"] = hidden;
@@ -467,7 +516,8 @@ internal static class ChmonosTools
         }
 
         var all = await Tool.CallAsync(call.Bridge.GetAsync("/v1/modifications", call.CancellationToken)) as JsonArray ?? [];
-        var omitted = visibility.Remove(all, "itemId");
+        // アバターを隠した改変は行ごと（avatarId）、使った物は1つずつ（members の itemId）落とす
+        var omitted = visibility.Scrub(all);
         var avatar = call.Args.String("avatar");
         var query = call.Args.String("query");
         return Page(call, all.Where(modification =>
@@ -481,7 +531,7 @@ internal static class ChmonosTools
         var path = "/v1/unity-scans" + (project is null ? string.Empty : "?project=" + Uri.EscapeDataString(project));
         var scans = await Tool.CallAsync(call.Bridge.GetAsync(path, call.CancellationToken)) as JsonArray ?? [];
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var omitted = visibility.Remove(scans, "itemId");
+        var omitted = visibility.Scrub(scans);
         return Page(call, scans, omitted);
     }
 
@@ -489,7 +539,7 @@ internal static class ChmonosTools
     {
         var notifications = await Tool.CallAsync(call.Bridge.GetAsync("/v1/notifications", call.CancellationToken)) as JsonArray ?? [];
         var visibility = await Visibility.LoadAsync(call.Bridge, call.CancellationToken);
-        var omitted = visibility.Remove(notifications, "itemId");
+        var omitted = visibility.Scrub(notifications);
         var unreadOnly = call.Args.Bool("unread_only") == true;
         var list = notifications
             .Where(notification => !unreadOnly || notification?["isRead"]?.GetValue<bool>() == false)
