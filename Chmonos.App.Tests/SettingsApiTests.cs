@@ -196,6 +196,44 @@ public sealed class SettingsApiTests
         }
     });
 
+    /// <summary>
+    /// 起動したときに待ち受けられず、後で設定の画面を開いてポートを変えた場合（2026-11-13 に実機で見つけた形。plan 48）。
+    /// 上の試験は画面でオンにして失敗させるので、この道を通っていなかった
+    /// </summary>
+    [Fact]
+    public Task 起動のときに待ち受けられなくても_設定の画面でポートを変えれば待ち受け直す() => TestApp.Run(async app =>
+    {
+        app.AllowLoggedFailures = true;
+        var busy = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        busy.Start();
+        var taken = ((System.Net.IPEndPoint)busy.LocalEndpoint).Port;
+        JsonStore.Write(app.Services.Paths.ApiSettingsFile, new ApiSettings { Enabled = true, Port = taken });
+        var main = await app.StartAsync();
+        SettingsViewModel? settings = null;
+        try
+        {
+            // 起動したときと同じく、画面を開く前に設定どおりに始めようとする
+            await app.Services.Api.ApplyAsync();
+            Assert.Equal(Services.ApiRunState.Failed, app.Services.Api.State);
+
+            settings = new SettingsViewModel(app.Services, main);
+            Assert.Equal(
+                $"ポート {taken} で待ち受けられませんでした。ほかのアプリが使っているときは、ポートを変えてください。",
+                settings.ApiStatusText);
+
+            var free = FreePort();
+            settings.ApiPort = free;
+            await UiThread.Until(() => app.Services.Api.State == Services.ApiRunState.Running, "変えたポートで待ち受ける");
+            Assert.Equal($"ポート {free} で動いています。", settings.ApiStatusText);
+        }
+        finally
+        {
+            busy.Stop();
+            await app.Services.Api.StopAsync();
+            settings?.OnLeaving();
+        }
+    });
+
     [Fact]
     public Task 画面を出さない起動の自動の取り込みは_APIの設定へ保存し_ほかの欄は残す() => TestApp.Run(async app =>
     {
