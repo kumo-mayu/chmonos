@@ -101,13 +101,24 @@ public sealed class FolderScanner
 
     /// <param name="temporaryArea">一時展開の置き場（試験が差し替える。本物は %TEMP% の下で、試験から作り物を置けないため）。</param>
     internal ScanResult Scan(string rootFolder, string temporaryArea, CancellationToken cancellationToken = default)
+        => Scan(rootFolder, temporaryArea, excludedFolder: null, cancellationToken);
+
+    /// <summary>
+    /// <paramref name="excludedFolder"/> の中へは降りずに走査する。監視フォルダの新着（<see cref="FolderWatch"/>）が保存先を除くのに使う：
+    /// 保存先が監視フォルダの中にあると、アプリが保存した商品の画像まで新着に並び、自動の取り込みに渡っていた（W2）
+    /// </summary>
+    public ScanResult ScanExcluding(string rootFolder, string? excludedFolder, CancellationToken cancellationToken = default)
+        => Scan(rootFolder, Services.TemporaryUnpacker.TemporaryArea, excludedFolder, cancellationToken);
+
+    internal ScanResult Scan(string rootFolder, string temporaryArea, string? excludedFolder, CancellationToken cancellationToken)
     {
         // ファイルが直接指定されたら、そのファイルだけを対象にする。
         // 親フォルダへ広げると、ダウンロードフォルダの1件を落としただけで
         // フォルダ全体が取り込み対象になってしまう。
         // 一時展開（#56）の中は取り込まない。閉じると消えるので、紐付けても「見つからない」になるだけ
         var areaPrefix = FolderPrefix(temporaryArea);
-        if (IsTemporaryArea(rootFolder, areaPrefix))
+        var excludedPrefix = excludedFolder is { Length: > 0 } ? FolderPrefix(excludedFolder) : null;
+        if (IsTemporaryArea(rootFolder, areaPrefix) || IsTemporaryArea(rootFolder, excludedPrefix))
         {
             return new ScanResult();
         }
@@ -124,7 +135,7 @@ public sealed class FolderScanner
             return new ScanResult();
         }
 
-        return ScanTree(rootFolder, areaPrefix, cancellationToken);
+        return ScanTree(rootFolder, areaPrefix, excludedPrefix, cancellationToken);
     }
 
     /// <summary>そのフォルダが一時展開の置き場そのものか、その中か。<paramref name="areaPrefix"/> は <see cref="FolderPrefix"/> の形（走査の間に1回だけ作る）。</summary>
@@ -169,7 +180,7 @@ public sealed class FolderScanner
     /// 入れ子の展開先・展開先の中の数え方を、前の <c>FileSystemEnumerable</c> の再帰と揃えてある。
     /// 大きさと日時は列挙で取れた物を使う（前は1件ずつ <see cref="FileInfo"/> で問い直していた）。
     /// </summary>
-    private static ScanResult ScanTree(string rootFolder, string? areaPrefix, CancellationToken cancellationToken)
+    private static ScanResult ScanTree(string rootFolder, string? areaPrefix, string? excludedPrefix, CancellationToken cancellationToken)
     {
         var files = new List<ScannedFile>();
         var unpacked = new List<UnpackedTally>();
@@ -215,7 +226,8 @@ public sealed class FolderScanner
                 {
                     // 一時展開の置き場は降りない。根だけを見ていたので、取り込み元に %TEMP% そのものを選ぶと、
                     // 閉じると消える展開物まで取り込んでいた（file-lifecycle.md 気になった所19）
-                    if (IsTemporaryArea(entry.Path, areaPrefix))
+                    // 除く場所（保存先）も同じ形で見る（頭が区切りで終わるので、隣の似た名前のフォルダは除かない）
+                    if (IsTemporaryArea(entry.Path, areaPrefix) || IsTemporaryArea(entry.Path, excludedPrefix))
                     {
                         continue;
                     }
