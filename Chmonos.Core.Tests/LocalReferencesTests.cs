@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 using Xunit;
 
 namespace Chmonos.Core.Tests;
@@ -115,7 +116,7 @@ public sealed class LocalReferencesTests
         Assert.Equal(["素体A"], deleted.ContentUpdate!.ForBases);
     }
 
-    /// <summary>改名で同じ物が2つになったら1つに畳む（素体の統合）。</summary>
+    /// <summary>改名で同じ物が2つになったら1つに畳む（素体の統合）。どの行を残すかの決まりは下の Merging… の試験。</summary>
     [Fact]
     public void MergingTwoBasesFoldsTheDuplicates()
     {
@@ -137,6 +138,152 @@ public sealed class LocalReferencesTests
         Assert.Equal(["素体B"], merged.VariationTargets[0].Bases);
         Assert.True(Assert.Single(merged.Conversion!.Targets).Confirmed);
     }
+
+    /// <summary>
+    /// 「A を外す→B を選ぶ」の後に A を B へ統合すると、後から選んだ B の行が残る（Codex の点検 2026-11-13 件1）。
+    /// <see cref="ConversionEdits.Choose"/> は外した行を残して選んだ行を末尾へ足すので、外した行が先に並ぶ。前は先頭を残し、選んだ行が消えて外した印が残った。
+    /// 素体の統合と商品 ID のまとめ（ほかの商品が指す ID の書き換え）の両方で見る。
+    /// </summary>
+    [Theory]
+    [InlineData(LocalReferenceKind.BaseName)]
+    [InlineData(LocalReferenceKind.ItemId)]
+    public void MergingKeepsTheChosenRowOverTheRejectedOneBeforeIt(LocalReferenceKind kind)
+    {
+        var (a, b) = kind == LocalReferenceKind.BaseName ? ("素体A", "素体B") : ("9900001", "9900002");
+        var rowA = Row(kind, a) with { Slug = "x", Forward = true };
+        var setting = ConversionEdits.Reject(rowA)(new ConversionSetting { Targets = [rowA] });
+        setting = Choose(kind, b, reverse: true)(setting);
+        Assert.True(setting!.Targets[0].Rejected); // 筋書きのとおり外した行が先
+
+        var merged = Merge(new LocalBlock { Conversion = setting }, kind, a, b);
+
+        var kept = Assert.Single(merged.Conversion!.Targets);
+        Assert.True(kept is { Confirmed: true, Rejected: false, Forward: false, Reverse: true });
+        Assert.Equal(b, kind == LocalReferenceKind.BaseName ? kept.BaseName : kept.AvatarItemId);
+    }
+
+    /// <summary>逆の順（選んだ行が統合元で、外した行が統合先）でも、選んだ行が勝つ。人が選んだ物を外した印で消さない。</summary>
+    [Theory]
+    [InlineData(LocalReferenceKind.BaseName)]
+    [InlineData(LocalReferenceKind.ItemId)]
+    public void MergingKeepsTheChosenRowEvenWhenTheTargetRowWasRejected(LocalReferenceKind kind)
+    {
+        var (a, b) = kind == LocalReferenceKind.BaseName ? ("素体A", "素体B") : ("9900001", "9900002");
+        var local = new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets =
+                [
+                    Row(kind, b) with { Slug = "x", Forward = true, Confirmed = true, Rejected = true },
+                    Row(kind, a) with { Slug = "x", Reverse = true, Confirmed = true },
+                ],
+            },
+        };
+
+        var kept = Assert.Single(Merge(local, kind, a, b).Conversion!.Targets);
+
+        Assert.True(kept is { Confirmed: true, Rejected: false, Forward: false, Reverse: true });
+    }
+
+    /// <summary>外した行は推した行（確認待ち）に勝つ。どちらが先に並んでいても同じ。</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void MergingKeepsTheRejectedRowOverAnEstimate(bool rejectedFirst)
+    {
+        ConversionTarget estimate = new() { BaseName = "素体A", Slug = "x", Forward = true };
+        ConversionTarget rejected = new() { BaseName = "素体B", Slug = "x", Forward = true, Confirmed = true, Rejected = true };
+        var local = new LocalBlock
+        {
+            Conversion = new ConversionSetting { Targets = rejectedFirst ? [rejected, estimate] : [estimate, rejected] },
+        };
+
+        var kept = Assert.Single(Merge(local, LocalReferenceKind.BaseName, "素体A", "素体B").Conversion!.Targets);
+
+        Assert.True(kept.Rejected);
+    }
+
+    /// <summary>
+    /// 両方とも人が選んだ行で向きが食い違うなら、統合先の行をそのまま残す（向きを足し合わせない）。
+    /// 残した行は重なった行の一番前の位置に置き、ほかの行の並びは動かさない。
+    /// </summary>
+    [Fact]
+    public void MergingTwoChosenRowsKeepsTheTargetRowAtTheFirstPosition()
+    {
+        var local = new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets =
+                [
+                    new ConversionTarget { BaseName = "素体A", Slug = "x", Forward = true, Confirmed = true },
+                    new ConversionTarget { BaseName = "素体C", Slug = "y", Forward = true },
+                    new ConversionTarget { BaseName = "素体B", Slug = "x", Reverse = true, Confirmed = true },
+                ],
+            },
+        };
+
+        var targets = Merge(local, LocalReferenceKind.BaseName, "素体A", "素体B").Conversion!.Targets;
+
+        Assert.Collection(
+            targets,
+            row => Assert.True(row is { BaseName: "素体B", Forward: false, Reverse: true, Confirmed: true }),
+            row => Assert.Equal("素体C", row.BaseName));
+    }
+
+    /// <summary>
+    /// 商品をまとめるとき、移した先の推した行（確認待ち）は、移す元で人が選んだ同じ行に負ける。前は移した先の行がいつも勝っていた。
+    /// 同じ順位（どちらも選んだ行）なら移した先の行を残す。
+    /// </summary>
+    [Fact]
+    public void MergingTwoItemsKeepsTheChosenRowFromEitherSide()
+    {
+        var target = new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets =
+                [
+                    new ConversionTarget { BaseName = "素体A", Slug = "a", Forward = true },
+                    new ConversionTarget { BaseName = "素体B", Slug = "b", Forward = true, Confirmed = true },
+                ],
+            },
+        };
+        var source = new LocalBlock
+        {
+            Conversion = new ConversionSetting
+            {
+                Targets =
+                [
+                    new ConversionTarget { BaseName = "素体A", Slug = "a", Reverse = true, Confirmed = true },
+                    new ConversionTarget { BaseName = "素体B", Slug = "b", Reverse = true, Confirmed = true },
+                ],
+            },
+        };
+
+        var merged = ItemIdChange.Merge(source, target, new HashSet<int>(), "9900001", "9900002");
+
+        Assert.Collection(
+            merged.Conversion!.Targets,
+            row => Assert.True(row is { BaseName: "素体A", Forward: false, Reverse: true, Confirmed: true }),
+            row => Assert.True(row is { BaseName: "素体B", Forward: true, Reverse: false, Confirmed: true }));
+    }
+
+    private static ConversionTarget Row(LocalReferenceKind kind, string value)
+        => kind == LocalReferenceKind.BaseName ? new ConversionTarget { BaseName = value } : new ConversionTarget { AvatarItemId = value };
+
+    private static Func<ConversionSetting?, ConversionSetting?> Choose(LocalReferenceKind kind, string value, bool reverse)
+        => kind == LocalReferenceKind.BaseName
+            ? ConversionEdits.Choose("x", forward: !reverse, reverse: reverse, avatarItemId: null, baseName: value)
+            : ConversionEdits.Choose("x", forward: !reverse, reverse: reverse, avatarItemId: value, baseName: null);
+
+    private static LocalBlock Merge(LocalBlock local, LocalReferenceKind kind, string from, string to)
+        => LocalReferences.Rewrite(
+            local,
+            kind,
+            kind == LocalReferenceKind.BaseName ? LocalReferences.SameBaseName(from) : LocalReferences.SameItemId(from),
+            to)!;
 
     /// <summary>表のどの欄にも同じ名前・ID が入った <c>local</c>。</summary>
     private static LocalBlock Everything(string itemId, string baseName)

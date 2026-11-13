@@ -131,7 +131,7 @@ public static class LocalReferences
                 DetectedVariationTargets = MapTargets(local.DetectedVariationTargets, target => target with { RejectedBases = NullIfEmpty(MapNames(target.RejectedBases, map)) }),
             }),
 
-        // つなぎ先が消えた行は消す（つなぎ先の無い行は持たない）。改名で同じ行が2つになったら前の方を残す
+        // つなぎ先が消えた行は消す（つなぎ先の無い行は持たない）。統合で同じ行が2つになったら、人の決定を順位で選んで1行に畳む（ConversionTarget.Fold）
         new(
             "Conversion.Targets[].AvatarItemId",
             LocalReferenceKind.ItemId,
@@ -305,16 +305,12 @@ public static class LocalReferences
             return null;
         }
 
-        var targets = new List<ConversionTarget>();
-        foreach (var target in setting.Targets.Select(change).OfType<ConversionTarget>())
-        {
-            if (!targets.Any(kept => ConversionTarget.SameRow(kept, target)))
-            {
-                targets.Add(target);
-            }
-        }
-
-        var result = setting with { Targets = targets };
+        // 重なった行は配列の順でなく決めた順位で畳む（ConversionTarget.Fold）。書き換えで値が変わらなかった行が統合先の行
+        var mapped = setting.Targets
+            .Select(target => (Before: target, After: change(target)))
+            .Where(pair => pair.After is not null)
+            .Select(pair => (Row: pair.After!, Moved: pair.After != pair.Before));
+        var result = setting with { Targets = ConversionTarget.Fold(mapped) };
         return result.IsDefault ? null : result;
     }
 
