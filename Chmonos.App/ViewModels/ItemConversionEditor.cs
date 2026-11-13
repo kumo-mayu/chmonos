@@ -13,7 +13,7 @@ namespace Chmonos.App.ViewModels;
 public sealed class ItemConversionEditor : ViewModelBase
 {
     private readonly AppServiceContainer _services;
-    private readonly Func<UiCommand, Task> _run;
+    private readonly Func<UiCommand, Task<bool>> _run;
     private readonly Func<bool> _isLocked;
     private readonly Func<string, System.Windows.Media.ImageSource?>? _iconOf;
 
@@ -26,7 +26,7 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// <param name="iconOf">商品 ID から、その商品の1枚目の絵（つなぎ先の札に乗せたときに出す。読むのは乗せたときだけ）。</param>
     public ItemConversionEditor(
         AppServiceContainer services,
-        Func<UiCommand, Task> run,
+        Func<UiCommand, Task<bool>> run,
         Func<bool> isLocked,
         Func<string, System.Windows.Media.ImageSource?>? iconOf = null,
         Func<string, ItemRecord?>? findItem = null)
@@ -114,9 +114,12 @@ public sealed class ItemConversionEditor : ViewModelBase
 
     private string? ItemId => _item?.Id;
 
-    /// <summary>変え方を、今の商品の変換扱いに当てる命令として通す。</summary>
-    public Task ChangeAsync(Func<ConversionSetting?, ConversionSetting?> change)
-        => ItemId is { } id ? _run(new UiCommand.ChangeConversion(id, change)) : Task.CompletedTask;
+    /// <summary>
+    /// 変え方を、今の商品の変換扱いに当てる命令として通す。書けたら true、保存に失敗したら false
+    /// （呼び手が「次の商品へ進む」かを決めるため。失敗の知らせは <see cref="Notice"/> に出し済み）。見せている商品が無ければ書く物が無いので true。
+    /// </summary>
+    public Task<bool> ChangeAsync(Func<ConversionSetting?, ConversionSetting?> change)
+        => ItemId is { } id ? _run(new UiCommand.ChangeConversion(id, change)) : Task.FromResult(true);
 
     /// <summary>見せる商品を替える（書いた後の読み直し・一覧で選び直したとき）。登録簿は読むだけなので直に読む。</summary>
     public void Show(ItemRecord? item, AvatarRegistry? registry = null, IReadOnlyDictionary<string, string>? names = null)
@@ -383,7 +386,7 @@ public sealed class ItemConversionEditor : ViewModelBase
     };
 
     /// <summary>選ぶ欄で決めたつなぎ先を書く。候補に無い名前は何もしない（候補から選ぶ欄）。</summary>
-    private Task ChooseAsync(ProfileSlug profile, string? text)
+    private Task<bool> ChooseAsync(ProfileSlug profile, string? text)
     {
         var trimmed = text?.Trim() ?? string.Empty;
         if (_basesBySuggestion.TryGetValue(trimmed, out var baseName))
@@ -393,7 +396,7 @@ public sealed class ItemConversionEditor : ViewModelBase
 
         return FindAvatarByName(trimmed) is { } avatar
             ? ChangeAsync(ConversionEdits.Choose(profile.Slug, profile.Forward, profile.Reverse, avatar.ItemId, null))
-            : Task.CompletedTask;
+            : Task.FromResult(true);
     }
 
     /// <summary>候補に出した名前（同じ名前ならショップ名付き）と、正式名のどちらでも引けるようにする（対応アバターを足す欄と同じ引き方）。</summary>
