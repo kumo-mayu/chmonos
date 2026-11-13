@@ -152,7 +152,7 @@ public sealed partial class MainViewModel
 
         if (_services.Settings.AutoImportWatchedFiles)
         {
-            StartLiveAutoImport(files);
+            StartLiveAutoImportAsync(live, files).Forget();
             return;
         }
 
@@ -163,20 +163,36 @@ public sealed partial class MainViewModel
     /// 見張り始めた後に現れた物だけを、自動で取り込む。前から置いてあって取り込まずにいた物（「知らせなくてよい」にした物を含む）は、
     /// 関係の無いファイルが1つ置かれたのをきっかけに取り込まない——それは起動時の確かめと「新しいファイルを取り込む」で今までどおり扱う
     /// </summary>
-    private void StartLiveAutoImport(IReadOnlyList<LiveWatchFile> files)
+    private async Task StartLiveAutoImportAsync(LiveFolderWatch live, IReadOnlyList<LiveWatchFile> files)
     {
         var take = files
-            .Where(file => file.Arrived && _liveAutoTaken.Add(file.Fingerprint))
-            .Select(file => file.Path)
+            .Where(file => file.Arrived && !_liveAutoTaken.Contains(file.Fingerprint))
             .ToList();
         if (take.Count == 0)
         {
             return;
         }
 
-        // 落としたときと同じ取り込みの道（優先度も同じ）。押してもいないので展開先は窓で尋ねず、「監視しますか」も聞かない（起動時の自動の取り込みと同じ・G2）
-        Import.AddDroppedPaths(take, startImmediately: true, offerWatch: false, askAboutUnpacked: false);
-        NoteImportQueued(started: true);
+        // 落としたときと同じ取り込みの道（優先度も同じ）。押してもいないので展開先は窓で尋ねず、「監視しますか」も聞かない（起動時の自動の取り込みと同じ・G2）。
+        // 在るかを見る間に人が取り込みを始めていたら積まない（W3）
+        var started = await Import.StartWatchedAutoAsync(
+            take.Select(file => file.Path).ToList(),
+            () => NoteImportQueued(started: true));
+        if (!started)
+        {
+            // 「2度は自動で始めない」の指紋には入れない（入れると、終わってから探し直しても始めない）。終わってから探し直す
+            if (ReferenceEquals(live, _live))
+            {
+                live.Defer();
+            }
+
+            return;
+        }
+
+        foreach (var file in take)
+        {
+            _liveAutoTaken.Add(file.Fingerprint);
+        }
     }
 
     internal void ShowLiveNotice(IReadOnlyList<string> paths)
@@ -199,7 +215,14 @@ public sealed partial class MainViewModel
     private async Task TakeLiveWatchedAsync()
     {
         SetLiveNotice(false);
-        var queued = await Import.ImportWatchedNowAsync();
+
+        // 押した時に探し直した物にも、見張りが帯を出す前と同じ書き終わりの確かめを掛ける（W1）。
+        // 途中の物は渡さずに残す。書いている間と書き終わりに出来事が来るので、見張りがいつもの道（静けさ・書き終わりの確かめ・取り込み中なら預ける）で拾い直す。
+        // ここで探し直しを頼まない：積んだ取り込みが始まる前に探し直すと、今積んだ物でまた帯を出しうる
+        Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>>? keepSettled = _live is { IsRunning: true } live
+            ? paths => live.SettledAsync(paths)
+            : null;
+        var queued = await Import.ImportWatchedNowAsync(keepSettled);
         if (queued > 0)
         {
             NoteImportQueued(started: true);

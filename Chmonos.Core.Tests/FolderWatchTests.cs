@@ -78,6 +78,31 @@ public class FolderWatchTests : IDisposable
         Assert.Single(result.NewFiles);
     }
 
+    /// <summary>
+    /// 保存先が監視フォルダの中にあっても、保存先の中（アプリが保存した商品の画像）は新着に数えない（W2）。
+    /// 名前が保存先の頭と同じ隣のフォルダは除かない
+    /// </summary>
+    [Fact]
+    public async Task 監視フォルダの中の保存先は新着に数えない()
+    {
+        var store = new AppPaths(Path.Combine(_watched, "library"));
+        store.EnsureCreated();
+        var watch = new FolderWatch(new DataStore(store));
+        var saved = Path.Combine(store.Root, "images", "1234", "1.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(saved)!);
+        File.WriteAllBytes(saved, [1, 2, 3]);
+        var neighbour = Path.Combine(_watched, "library2", "衣装.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(neighbour)!);
+        File.WriteAllBytes(neighbour, [4, 5, 6]);
+        var placed = WriteFile("衣装_1.00.zip");
+
+        var result = await watch.FindNewAsync([_watched]);
+
+        Assert.Equal(
+            new[] { placed, neighbour }.Order(StringComparer.Ordinal),
+            result.NewFiles.Order(StringComparer.Ordinal));
+    }
+
     [Fact]
     public async Task FindsAFileThatWasNeverScanned()
     {

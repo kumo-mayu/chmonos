@@ -974,22 +974,7 @@ public sealed partial class ImportViewModel : ViewModelBase
             return;
         }
 
-        foreach (var (path, isFolder, isFile) in kinds)
-        {
-            if ((isFolder || isFile) && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
-            {
-                Folders.Add(path);
-
-                // 画面の一覧ではなく今の設定で見る（設定画面で足した監視を、まだこの画面が知らないことがある）
-                if (isFolder && !_services.Settings.WatchedFolders.Any(watched => Core.Services.PathText.Same(watched, path)))
-                {
-                    addedFolders.Add(path);
-                }
-            }
-        }
-
-        OnPropertyChanged(nameof(HasFolders));
-        RelayCommand.RaiseCanExecuteChanged();
+        AddToFolders(kinds, addedFolders);
 
         if (offerWatch && addedFolders.Count > 0)
         {
@@ -1004,6 +989,54 @@ public sealed partial class ImportViewModel : ViewModelBase
         {
             StartOrStackAsync(askAboutUnpacked, dropped).Forget();
         }
+    }
+
+    private void AddToFolders(IEnumerable<(string Path, bool IsFolder, bool IsFile)> kinds, List<string>? addedFolders)
+    {
+        foreach (var (path, isFolder, isFile) in kinds)
+        {
+            if ((isFolder || isFile) && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                Folders.Add(path);
+
+                // 画面の一覧ではなく今の設定で見る（設定画面で足した監視を、まだこの画面が知らないことがある）
+                if (isFolder && !_services.Settings.WatchedFolders.Any(watched => Core.Services.PathText.Same(watched, path)))
+                {
+                    addedFolders?.Add(path);
+                }
+            }
+        }
+
+        OnPropertyChanged(nameof(HasFolders));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 開いている間の監視の自動の取り込み（plan 49）。落としたときと同じ取り込みの道だが、**取り込み中なら積まずに false を返す**
+    /// （取り込み中の物は終わってから別に取り込む決め事。folder-watch.md）。見張りの結果を受けた時に取り込み中でなくても、
+    /// 在るかを見る間（外付け・共有では数秒）に人が取り込みを始めることがあり、そのまま積むと今の取り込みに黙って混ざる（W3）。
+    /// 一覧にも足さない（始めない物が取り込み対象に残る）。始める直前に <paramref name="starting"/> を呼ぶ（帯を始まりより先に出す）
+    /// </summary>
+    /// <returns>始めたか。在る物が無い・取り込み中なら false。</returns>
+    internal async Task<bool> StartWatchedAutoAsync(IReadOnlyList<string> paths, Action starting)
+    {
+        var kinds = await Task.Run(() => paths
+            .Select(path => (Path: path, IsFolder: Core.Services.DiskCheck.FolderExists(path), IsFile: Core.Services.DiskCheck.FileExists(path)))
+            .Where(kind => kind.IsFolder || kind.IsFile)
+            .ToList());
+
+        // 見終わった後の確かめから始めるまでの間は待たない（画面のスレッドで続けて行うので、間に人の取り込みは入らない）
+        if (kinds.Count == 0 || !_services.Imports.CanStartNow)
+        {
+            return false;
+        }
+
+        AddToFolders(kinds, addedFolders: null);
+        starting();
+        var targets = kinds.Select(kind => kind.Path).ToList();
+
+        // 押していないので展開先のファイルは窓で尋ねない（G2）
+        return _services.Imports.StartIfIdle(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask: false), targets));
     }
 
     /// <summary>
@@ -1085,9 +1118,16 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 下の帯の［取り込む］（開いている間の監視・plan 49）。この画面のボタンと同じ道で、今の新着を探し直して取り込む
     /// （帯に出した一覧を使い回さない。出した後に取り込まれた・消えた物がある）。積んだ件数を返す
     /// </summary>
-    internal Task<int> ImportWatchedNowAsync() => ImportWatchedAsync(_services.Settings.WatchedFolders);
+    /// <param name="keepSettled">
+    /// 探し直した新着から、書き終わった物だけを残す（開いている間の見張りの確かめ。W1）。帯は書き終わった物で出すが、押した時に探し直すので、
+    /// 帯を出した後に置かれ始めた物（コピーの途中）も並ぶ
+    /// </param>
+    internal Task<int> ImportWatchedNowAsync(Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>>? keepSettled = null)
+        => ImportWatchedAsync(_services.Settings.WatchedFolders, keepSettled);
 
-    private async Task<int> ImportWatchedAsync(IReadOnlyList<string> folders)
+    private async Task<int> ImportWatchedAsync(
+        IReadOnlyList<string> folders,
+        Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>>? keepSettled = null)
     {
         _isCheckingWatched = true;
         RelayCommand.RaiseCanExecuteChanged();
@@ -1105,11 +1145,18 @@ public sealed partial class ImportViewModel : ViewModelBase
                 return 0;
             }
 
-            WatchImportText = $"新しいファイル {result.NewFiles.Count} 件を取り込みます。";
+            var take = keepSettled is null ? result.NewFiles : await keepSettled(result.NewFiles);
+            if (take.Count == 0)
+            {
+                WatchImportText = "新しいファイルはまだ書き込み中です。";
+                return 0;
+            }
+
+            WatchImportText = $"新しいファイル {take.Count} 件を取り込みます。";
 
             // 押した操作なので、展開先のファイルがあれば尋ねる。監視フォルダの中なので「監視しますか」は聞かない
-            AddDroppedPaths(result.NewFiles, startImmediately: true, offerWatch: false);
-            return result.NewFiles.Count;
+            AddDroppedPaths(take, startImmediately: true, offerWatch: false);
+            return take.Count;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

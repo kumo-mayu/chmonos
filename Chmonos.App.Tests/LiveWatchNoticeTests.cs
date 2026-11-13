@@ -102,6 +102,34 @@ public class LiveWatchNoticeTests
         await app.SettleAsync();
     });
 
+    /// <summary>
+    /// 帯の［取り込む］は押した時に探し直すが、帯を出した後に置かれ始めた物（コピーの途中で掴まれている）は渡さない。
+    /// 見張りが帯を出す前と同じ書き終わりの確かめを掛ける（W1）
+    /// </summary>
+    [Fact]
+    public Task 帯の取り込むで_帯を出した後に書き込み中の物は渡さない() => TestApp.Run(async app =>
+    {
+        var watched = await WatchAsync(app, live: true);
+        var main = await app.StartAsync();
+        await BaselineAsync(main);
+        IReadOnlyList<string>? started = null;
+        app.Services.Imports.Started += work => started ??= work.Accepted;
+
+        var added = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        app.FolderEvents.Fire(watched, added);
+        await UiThread.Until(() => main.HasLiveWatchNotice, "帯が出る");
+
+        var copying = app.NewFile(@"watched\copying.zip", [5, 6, 7]);
+        using (new FileStream(copying, FileMode.Open, FileAccess.Write, FileShare.Read))
+        {
+            main.TakeLiveWatchedCommand.Execute(null);
+            await UiThread.Until(() => started is not null, "取り込みが始まる");
+        }
+
+        Assert.Equal([added], started!);
+        await app.SettleAsync();
+    });
+
     /// <summary>× は「知らせなくてよい」と同じ。同じ顔ぶれのままなら、関係の無い出来事で探し直しても出し直さない。</summary>
     [Fact]
     public Task 帯を閉じた顔ぶれは_探し直しても出し直さない() => TestApp.Run(async app =>
@@ -210,6 +238,62 @@ public class LiveWatchNoticeTests
 
         await UiThread.Until(() => starts.Count == 2, "終わってから次の取り込みが始まる");
         Assert.Equal([Path.Combine(watched, "costume.zip")], starts[1]);
+        await UiThread.Until(() => app.Services.Imports.Running is null, "取り込みが終わる");
+        await app.SettleAsync();
+    });
+
+    /// <summary>
+    /// 見張りの結果を受けた時は取り込み中でなくても、在るかを見る間に人が取り込みを始めたら、自動の取り込みはそこへ積まない（W3）。
+    /// 2度は始めない印も付けずに預け、終わってから別に取り込む
+    /// </summary>
+    [Fact]
+    public Task 自動の取り込みの準備中に人が取り込みを始めても_そこへ混ぜない() => TestApp.Run(async app =>
+    {
+        app.Booth.HasItem(ItemId, "作り物の衣装");
+        var watched = await WatchAsync(app, live: true, auto: true);
+        var main = await app.StartAsync();
+        await BaselineAsync(main);
+        var live = main.LiveWatch!;
+        var starts = new List<IReadOnlyList<string>>();
+        app.Services.Imports.Started += work => starts.Add([.. work.Accepted]);
+
+        // 見張りの結果を一度止めておき、画面のスレッドから届ける（届けた直後に人の取り込みを始めるため）
+        var forward = live.Found!;
+        LiveWatchBatch? held = null;
+        live.Found = batch =>
+        {
+            if (batch.Count > 0 && Interlocked.CompareExchange(ref held, batch, null) is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            return forward(batch);
+        };
+
+        var added = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        app.FolderEvents.Fire(watched, added);
+        await UiThread.Until(() => Volatile.Read(ref held) is not null, "見張りが見つける");
+
+        var first = PutDownloaded(app, @"other\first.zip", ItemId);
+        app.Booth.Hold();
+        try
+        {
+            // 受け取った時は取り込み中でない。在るかを見ている間（裏で待つ）に、人の取り込みが始まる
+            var delivered = forward(held!);
+            app.Services.Imports.StartOrStackAsync(new Chmonos.App.Services.ImportRequest(() => [first], [first])).Forget();
+            await delivered;
+
+            await UiThread.Until(() => live.IsDeferred, "見つけた物を終わるまで預ける");
+            await UiThread.Until(() => starts.Count == 1, "人の取り込みが始まる");
+            Assert.Equal([first], starts[0]);
+        }
+        finally
+        {
+            app.Booth.Release();
+        }
+
+        await UiThread.Until(() => starts.Count == 2, "終わってから自動の取り込みが始まる");
+        Assert.Equal([added], starts[1]);
         await UiThread.Until(() => app.Services.Imports.Running is null, "取り込みが終わる");
         await app.SettleAsync();
     });

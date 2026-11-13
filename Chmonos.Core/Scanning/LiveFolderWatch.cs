@@ -348,6 +348,51 @@ public sealed class LiveFolderWatch : IDisposable
 
     public void Dispose() => Stop();
 
+    /// <summary>
+    /// 書き終わった物だけを返す（見張りが渡す前と同じ確かめ：大きさと更新日時を <see cref="LiveFolderWatchTiming.Settle"/> を空けて2回見る）。
+    /// 帯の［取り込む］は押した時に探し直すので、帯を出した後に置かれ始めた物（コピーの途中）が混ざる。それを取り込みに渡さない（W1）。
+    /// 途中の物・消えた物は返さない
+    /// </summary>
+    public async Task<IReadOnlyList<string>> SettledAsync(IReadOnlyList<string> paths, CancellationToken token = default)
+    {
+        if (paths.Count == 0)
+        {
+            return [];
+        }
+
+        var (settled, _) = await SplitSettledAsync(paths, token).ConfigureAwait(false);
+        return [.. settled.Select(file => file.Path)];
+    }
+
+    /// <summary>書き終わった物と、書いている途中の物の数に分ける（消えた物はどちらにも入れない）。</summary>
+    private async Task<(List<(string Path, FileSettle Settle)> Settled, int Unsettled)> SplitSettledAsync(IReadOnlyList<string> paths, CancellationToken token)
+    {
+        var first = paths.Select(path => (Path: path, Settle: _probe.Probe(path))).ToList();
+        await _delay(_timing.Settle, token).ConfigureAwait(false);
+
+        var settled = new List<(string Path, FileSettle Settle)>();
+        var unsettled = 0;
+        foreach (var (path, before) in first)
+        {
+            var after = _probe.Probe(path);
+            if (after is null)
+            {
+                continue;
+            }
+
+            if (before is { } b && b.SizeBytes == after.Value.SizeBytes && b.ModifiedAtUtc == after.Value.ModifiedAtUtc && after.Value.Ready)
+            {
+                settled.Add((path, after.Value));
+            }
+            else
+            {
+                unsettled++;
+            }
+        }
+
+        return (settled, unsettled);
+    }
+
     internal static string FingerprintOf(string path, FileSettle settle)
         => $"{path.ToUpperInvariant()}|{settle.SizeBytes}|{settle.ModifiedAtUtc.Ticks}";
 
@@ -761,35 +806,19 @@ public sealed class LiveFolderWatch : IDisposable
             var findWatch = System.Diagnostics.Stopwatch.StartNew();
             var result = await owner._findNew(folders, token).ConfigureAwait(false);
             Services.UiTrace.Write("監視", $"新着を探した：{result.NewFiles.Count} 件（{findWatch.ElapsedMilliseconds} ms）");
-            var first = result.NewFiles.Select(path => (Path: path, Settle: owner._probe.Probe(path))).ToList();
-            if (first.Count == 0)
+            if (result.NewFiles.Count == 0)
             {
                 _settleRetries = 0;
                 await DeliverAsync([]).ConfigureAwait(false);
                 return;
             }
 
-            await owner._delay(owner._timing.Settle, token).ConfigureAwait(false);
-
+            var (done, unsettled) = await owner.SplitSettledAsync(result.NewFiles, token).ConfigureAwait(false);
             var settled = new List<LiveWatchFile>();
-            var unsettled = 0;
-            foreach (var (path, before) in first)
+            foreach (var (path, settle) in done)
             {
-                var after = owner._probe.Probe(path);
-                if (after is null)
-                {
-                    continue;
-                }
-
-                if (before is { } b && b.SizeBytes == after.Value.SizeBytes && b.ModifiedAtUtc == after.Value.ModifiedAtUtc && after.Value.Ready)
-                {
-                    var fingerprint = FingerprintOf(path, after.Value);
-                    settled.Add(new LiveWatchFile(path, fingerprint, Arrived: !owner.InBaseline(fingerprint)));
-                }
-                else
-                {
-                    unsettled++;
-                }
+                var fingerprint = FingerprintOf(path, settle);
+                settled.Add(new LiveWatchFile(path, fingerprint, Arrived: !owner.InBaseline(fingerprint)));
             }
 
             Services.UiTrace.Write("監視", $"書き終わりを確かめた：落ち着いた {settled.Count} 件・途中 {unsettled} 件");

@@ -144,6 +144,28 @@ public sealed class ImportRunner(AppServiceContainer services)
     public void Cancel() => _cancellation?.Cancel();
 
     /// <summary>
+    /// 走っておらず、立ち上げの途中でも終わりを知らせている最中でもない（<see cref="StartIfIdle"/> が始める）。
+    /// 終わりを知らせている最中を外すのは、その間の頼みは立ち上げの途中の物として預かられ、次の取り込みまで走らないため
+    /// </summary>
+    public bool CanStartNow => _work is null && !_starting;
+
+    /// <summary>
+    /// 走っていなければ始める（終わるのは待たない）。走っていれば**積まずに** false（自動の取り込みを、人が始めた今の取り込みに黙って混ぜない。
+    /// 開いている間の監視・W3）。確かめと始めるのを同じ呼び出しで行う：<see cref="StartOrStackAsync"/> は最初の待ちの前に立ち上げの印を立てるので、
+    /// 戻った後に来た頼みは「立ち上げの途中」を見る
+    /// </summary>
+    public bool StartIfIdle(ImportRequest request)
+    {
+        if (!CanStartNow)
+        {
+            return false;
+        }
+
+        StartOrStackAsync(request).Forget();
+        return true;
+    }
+
+    /// <summary>
     /// 走っていなければ始めて、終わるまで待つ。走っていれば今の取り込みに積み、積んだ数を返す。
     /// 立ち上げの途中なら、立ち上がった所で積むよう預かり、null を返す（走らせた側が積む）。
     /// </summary>

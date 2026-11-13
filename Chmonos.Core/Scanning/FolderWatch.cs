@@ -83,7 +83,9 @@ public sealed class FolderWatch
 
             seenFolders.Add(folder);
 
-            var result = _scanner.Scan(folder, cancellationToken);
+            // 保存先の中へは降りない。保存先が監視フォルダの中にあると、アプリが保存した商品の画像まで新着に数え、
+            // 起動時の知らせ・取り込み画面の件数・開いている間の自動の取り込みに出していた（W2）
+            var result = _scanner.ScanExcluding(folder, _store.Paths.Root, cancellationToken);
             foreach (var file in result.Files)
             {
                 // 外したパスでも、控えと大きさ・更新日時が合わなければ（落とし直した更新版）新しいと数える。
