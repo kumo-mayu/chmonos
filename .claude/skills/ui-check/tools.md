@@ -9,6 +9,8 @@
 | `ui-ops.ps1` | よく使う操作（商品を開く・取り込む・色・条件）・連続で撮る | ui-kit の後 |
 | `fixtures.ps1` | 作り物のファイル（アプリを相手にしない。これだけで読める） | どこでも |
 | `sandbox-recipes.ps1` | 写しの台本（`New-ChmonosSandbox -Recipe` が読む。直には読まない） | — |
+| `ui-popups.ps1` | 台で描けない物を撮る（窓の大きさ・吹き出し・メニュー・プルダウン・乗せた色）。画面から切り取る | ui-kit の後 |
+| `popups-tour.ps1` | 画面ごとに吹き出し・メニュー・プルダウン・窓を通しで撮り、一覧のページを作る（呼び方は台本の頭。マウスが動く） | 直に呼ぶ |
 | `unity-kit.ps1` | Unity の窓（[pitfalls.md](pitfalls.md)） | ui-kit の後 |
 | `../perf-measure/scripts/perf-kit.ps1` | 固まり・メモリ・絵の比べ（`perf-measure` スキル） | ui-kit の後 |
 
@@ -107,6 +109,16 @@
 | `Invoke-ChmonosMenuItem -Like 'Unityへ送る*' -UserWasTold` | メニューの項目を実クリック（ID のある項目は `Invoke-ChmonosMenuById` で足りる） |
 | `Select-ChmonosSuggestion -Id SearchModule.Category.Input -Text '3D' [-Pick '3D衣装'] -UserWasTold`（ui-ops） | 候補付きの入力欄に字を入れ、候補を実クリックで決める（候補の行は UI Automation では決まらない） |
 | `Show-ChmonosFront` | 前面に出す |
+
+## 台で描けない物を撮る（ui-popups。並行 ×・マウスを動かす物は使う前にユーザへ告げる）
+
+| 関数 | 何をするか | 並行 |
+|---|---|---|
+| `Set-ChmonosWindowSize -Width w -Height h` | 主の窓の外側の大きさを決める（最大化は戻す）。台の `--size` は中身の大きさなので、同じ中身なら高さに題の帯の分を足す | ○ |
+| `Save-ChmonosScreenArea -Name x [-Margin 40]` | 画面から窓の四角を切り取る（吹き出し・メニューも写る）。アプリが前面に無ければ撮らない | × |
+| `Show-ChmonosHover -Element $el -UserWasTold [-WaitMs 1200]` | 要素の上にマウスを置いて待つ（吹き出し・乗せた色）。上に別の窓があれば乗せない | × |
+| `Clear-ChmonosHover` | マウスを窓の外へ逃がす | × |
+| `Open-ChmonosDropDown -Element $el [-Close]` | プルダウンを UI Automation で開く・閉じる（前面に出す） | × |
 
 ## 作り物のファイル（fixtures）
 
