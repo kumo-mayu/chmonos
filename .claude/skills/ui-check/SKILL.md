@@ -30,6 +30,9 @@ dotnet run --project tools/ViewShot -- diff $env:TEMP\chmonos-shots\before $env:
 - **全部をまとめて見て回る・人に渡す**：`dotnet run --project tools/ViewShot -- catalog [--out <空のフォルダ>] [--only 名前の頭,…]`。
   全場面を明・暗（一部は幅 900 も）で撮り、画面ごとのフォルダ・`index.html`（縮小・押すと原寸・明暗の切り替え・名前で絞る）・`summary.txt` を作って zip にする。
   失敗しても止めずに索引へ印を付け、最後に枚数・時間の内訳・失敗・zip の大きさを出す（2026-10-05 夜：329場面・718枚・12本ずつで約3分・zip 約89MB）。どの画面のどの状態をどの場面が撮るかは `docs/dev/ui-shots.md`
+- **実際に使う姿で全体を見る（配る前など）**：`dotnet run --project tools/ViewShot -- tour`。窓の大きさ5つ×明暗×データの量（空・24件・277件）×流した位置で窓全体を撮り、
+  画面ごとに横に並べた索引を作る（写し `showcase`・`tour-dense` が要る。[sandboxes.md](sandboxes.md)）。場面と軸は `docs/dev/ui-shots.md`「通しで見る」。
+  台で描けない吹き出し・メニュー・プルダウンを画面ごとに通しで撮るのは `scripts/popups-tour.ps1`（起動したアプリで。マウスが動く）
 - **画面を1つ直したら、全部を撮り直さない**：`catalog --changed --from <前の回の置き場>`。触ったファイルに関わる画面の場面だけ撮り、残りは前の回の画像を写して索引を作り直す。
   選ばれる場面は `--changed --dry` で出る。前の回と比べるのは `diff <前の回の置き場> <今回の置き場>`（画面ごとのフォルダごと比べる）
 - 画像は既定で `%TEMP%\chmonos-shots\view\<場面>-<light|dark>[-w幅][-s倍率][-z大きさ].png`。結果の行にパスが出るので Read で見る

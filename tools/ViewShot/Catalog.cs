@@ -52,7 +52,13 @@ internal static class Catalog
     /// <summary>
     /// 撮らない場面：重さを測るための場面（見た目は同じ画面のほかの場面で撮っている。2000件・300件を組むので1つで数十秒かかる）
     /// </summary>
-    private static readonly string[] Skipped = ["perf-", "card-info-perf", "drag-edge-scroll-measure", "shop-300"];
+    private static readonly string[] Skipped = ["perf-", "card-info-perf", "drag-edge-scroll-measure", "shop-300", TourPrefix];
+
+    /// <summary>
+    /// 通しの場面（<c>Scenes.Tour.cs</c>）の名前の頭。状態の網羅（この catalog）には入れず、<c>ViewShot tour</c> で大きさ・量を組んで撮る
+    /// （1場面を窓の大きさ5つ×明暗で描くので、ここに混ぜると時間と枚数が数倍になる）
+    /// </summary>
+    internal const string TourPrefix = "tour-";
 
     /// <summary>
     /// 窓の最小の幅（900）でも撮る場面。主な画面の代表と、空の表示（空の文は狭い幅ではみ出したことがある。2026-10-02 メモ6-④）。
@@ -67,7 +73,7 @@ internal static class Catalog
 
     private const double NarrowWidth = 900;
 
-    private sealed record SceneResult(Scene Scene, string Folder, IReadOnlyList<string> Images, IReadOnlyList<string> Warnings, IReadOnlyList<string> Notes, string? Error, TimeSpan Elapsed)
+    internal sealed record SceneResult(Scene Scene, string Folder, IReadOnlyList<string> Images, IReadOnlyList<string> Warnings, IReadOnlyList<string> Notes, string? Error, TimeSpan Elapsed)
     {
         /// <summary>撮り直さず、前の回（<c>--from</c>）の画像を写した</summary>
         public bool Reused { get; init; }
@@ -296,7 +302,7 @@ internal static class Catalog
     /// 場面の時間の多くは描画が止まるのを待つ間で CPU は空くので、論理数の近くまで伸びる。16 本では1場面ずつが遅くなり（合計 2061→2608 秒）、
     /// 流す位置が決まりきらずに絵が変わる場面が出た（tag-manage-cards の送りの棒）ので、PC をほかの作業にも残す 3/4 にした
     /// </summary>
-    private static int DefaultJobs => Math.Max(2, Environment.ProcessorCount * 3 / 4);
+    internal static int DefaultJobs => Math.Max(2, Environment.ProcessorCount * 3 / 4);
 
     /// <summary>前の回の時間が無いときの重さの見当。重い場面を先に始め、最後に1本だけ残るのを避ける</summary>
     private static long HeavyGuess(Scene scene) => scene.Name.StartsWith("card-info", StringComparison.Ordinal) ? 30_000 : 5_000;
@@ -304,10 +310,12 @@ internal static class Catalog
     private static string FolderOf(string name)
         => Groups.First(group => group.Prefixes.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal))).Folder;
 
-    private static SceneResult Shoot(string self, Scene scene, string outDir, TimeSpan timeout, string? quiet)
+    /// <param name="folder">置くフォルダ（無ければ画面ごとの分け方）。</param>
+    /// <param name="extra">子へ足して渡す引数（<c>ViewShot tour</c> の大きさと表示の大きさ）。渡したときは幅 900 の撮り足しをしない</param>
+    internal static SceneResult Shoot(string self, Scene scene, string outDir, TimeSpan timeout, string? quiet, string? folder = null, IReadOnlyList<string>? extra = null)
     {
         var clock = Stopwatch.StartNew();
-        var folder = FolderOf(scene.Name);
+        folder ??= FolderOf(scene.Name);
         var start = new ProcessStartInfo(self)
         {
             RedirectStandardOutput = true,
@@ -328,7 +336,12 @@ internal static class Catalog
             start.ArgumentList.Add(quiet);
         }
 
-        if (NarrowToo.Contains(scene.Name) || (scene.Name.StartsWith("empty-", StringComparison.Ordinal) && scene.Width is not null))
+        foreach (var argument in extra ?? [])
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        if (extra is null && (NarrowToo.Contains(scene.Name) || (scene.Name.StartsWith("empty-", StringComparison.Ordinal) && scene.Width is not null)))
         {
             start.ArgumentList.Add("--width");
             start.ArgumentList.Add(string.Create(CultureInfo.InvariantCulture, $"{scene.Width ?? 1280},{NarrowWidth}"));

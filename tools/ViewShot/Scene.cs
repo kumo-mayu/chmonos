@@ -40,6 +40,11 @@ internal sealed record Shot(FrameworkElement Root)
     /// 色・幅・倍率の組み合わせは回せない（場面を組んだときの1つだけ）
     /// </summary>
     public System.Windows.Media.Imaging.BitmapSource? Still { get; init; }
+
+    /// <summary>
+    /// 大きさと色を替えるたびに、描く前に呼ぶ（流す位置を決めるなど）。並びが変わると流せる長さも変わるので、場面を組んだときに1回では足りない
+    /// </summary>
+    public Func<Task>? Arrange { get; init; }
 }
 
 /// <summary>1回の実行で描く組み合わせ。</summary>
@@ -54,6 +59,9 @@ internal sealed record ShotOptions
     public double? Width { get; init; }
 
     public double? Height { get; init; }
+
+    /// <summary>幅と高さの組（<c>--size 900x600,1440x900</c>）。在れば <see cref="Widths"/> と <see cref="Height"/> より優先する。ファイル名に <c>-w幅-h高さ</c> が付く</summary>
+    public IReadOnlyList<Size> Sizes { get; init; } = [];
 
     /// <summary>表示の倍率（Windows の拡大率に当たる。1 = 100%）。</summary>
     public IReadOnlyList<double> Scales { get; init; } = [1.0];

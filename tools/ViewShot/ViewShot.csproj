@@ -15,6 +15,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      ペンとタッチの仕組み（WISP）を切る。台は入力を使わない。並べて走らせると、終わるとき（Dispatcher の後片付けでマウスの捕まえを放す所）に
+      WPF がタブレットの一覧を数え直してペンの係のスレッドを待ち、そのまま止まった（2026-11-14・tour-few-search-filters。画像は全部書けた後。dotnet-dump で確かめた）
+    -->
+    <RuntimeHostConfigurationOption Include="Switch.System.Windows.Input.Stylus.DisableStylusAndTouchSupport" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Chmonos.App\Chmonos.App.csproj" />
   </ItemGroup>
 

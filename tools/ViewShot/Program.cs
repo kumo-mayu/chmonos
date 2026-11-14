@@ -15,7 +15,7 @@ namespace ViewShot;
 ///
 /// <code>
 /// ViewShot list
-/// ViewShot shot &lt;場面&gt;[,&lt;場面&gt;…] | --all  [--theme light|dark|both] [--width 900,1280] [--height 800]
+/// ViewShot shot &lt;場面&gt;[,&lt;場面&gt;…] | --all  [--theme light|dark|both] [--width 900,1280] [--height 800] [--size 900x600,1440x900]
 ///                                          [--scale 1,1.5] [--zoom 125] [--crop x,y,幅,高さ] [--full] [--out フォルダ] [--jobs 3]
 /// ViewShot diff &lt;前.png&gt; &lt;後.png&gt; [--out 並べた画像.png] [--tolerance 0]
 /// ViewShot diff &lt;前のフォルダ&gt; &lt;後のフォルダ&gt;
@@ -42,6 +42,7 @@ internal static class Program
                 "tabs" => ShotCommand(args[1..], tabs: true),
                 "diff" => DiffCommand(args[1..]),
                 "catalog" => Catalog.Run(args[1..]),
+                "tour" => Tour.Run(args[1..]),
                 _ => Usage(),
             };
         }
@@ -59,7 +60,7 @@ internal static class Program
             窓を出さずに、画面や部品を PNG に描く。
 
               ViewShot list
-              ViewShot shot <場面>[,<場面>…] | --all [--theme light|dark|both] [--width 900,1280] [--height 800]
+              ViewShot shot <場面>[,<場面>…] | --all [--theme light|dark|both] [--width 900,1280] [--height 800] [--size 900x600,1440x900]
                             [--scale 1,1.5] [--zoom 125] [--crop x,y,幅,高さ] [--full] [--out フォルダ] [--jobs 3]
               ViewShot diff <前.png> <後.png> [--out 並べた画像.png] [--tolerance 0]
               ViewShot diff <前のフォルダ> <後のフォルダ>
@@ -69,6 +70,8 @@ internal static class Program
               ViewShot catalog [--out 空のフォルダ] [--zip 置き場.zip] [--only 名前の頭,…] [--changed [基準]] [--from 前の回の置き場]
                                [--dry] [--jobs 論理数の3/4] [--timeout 240] [--quiet 400]
                                          全場面を明・暗で撮り、画面ごとのフォルダと index.html を作って zip にする（docs/dev/ui-shots.md）
+              ViewShot tour [--out 空のフォルダ] [--sizes 900x600,…] [--zooms 125,150] [--only 名前の頭,…] [--jobs n]
+                                         通しの場面（tour-*）を窓の大きさ×明暗×データの量で撮り、横に並べて比べる索引を作る（docs/dev/ui-shots.md「通しで見る」）
 
             画像は既定で %TEMP%\chmonos-shots\view\ に置く（リポジトリの外）。
             """);
@@ -97,6 +100,7 @@ internal static class Program
         var themes = new List<ColorThemeMode> { ColorThemeMode.Light };
         var widths = new List<double>();
         double? height = null;
+        var sizes = new List<Size>();
         var scales = new List<double> { 1.0 };
         var zoom = DisplayZoom.DefaultPercent;
         Rect? crop = null;
@@ -127,6 +131,16 @@ internal static class Program
                     break;
                 case "--width":
                     widths = Numbers(Next());
+                    break;
+                case "--size":
+                    // 幅と高さの組（900x600,1440x900）。実際の窓は幅と高さが一緒に変わるので、通しの場面は組で撮る
+                    sizes = [.. Next().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(pair =>
+                    {
+                        var parts = pair.Split('x');
+                        return parts.Length == 2
+                            ? new Size(double.Parse(parts[0], CultureInfo.InvariantCulture), double.Parse(parts[1], CultureInfo.InvariantCulture))
+                            : throw new ArgumentException($"--size は 幅x高さ をコンマで並べる（{pair}）。");
+                    })];
                     break;
                 case "--height":
                     height = Numbers(Next())[0];
@@ -179,6 +193,7 @@ internal static class Program
             Widths = widths,
             Width = widths.Count > 0 ? widths[0] : null,
             Height = height,
+            Sizes = sizes,
             Scales = scales,
             ZoomPercent = zoom,
             Crop = crop,
@@ -405,14 +420,17 @@ internal static class Program
         }
 
         var built = clock.Elapsed;
-        var widths = options.Widths.Count > 0 ? options.Widths.Cast<double?>().ToList() : [null];
+        // 描く大きさの並び。--size があれば幅と高さの組、無ければ幅の並びと1つの高さ
+        var frames = options.Sizes.Count > 0
+            ? options.Sizes.Select(size => ((double?)size.Width, (double?)size.Height, true)).ToList()
+            : (options.Widths.Count > 0 ? options.Widths.Cast<double?>().ToList() : [null]).Select(width => (width, options.Height, false)).ToList();
 
         foreach (var scale in options.Scales)
         {
             stage.SetScale(scale);
-            foreach (var width in widths)
+            foreach (var (width, height, paired) in frames)
             {
-                stage.Resize(width ?? scene.Width, options.Height ?? scene.Height);
+                stage.Resize(width ?? scene.Width, height ?? scene.Height);
                 foreach (var theme in options.Themes)
                 {
                     var lap = Stopwatch.StartNew();
@@ -431,6 +449,13 @@ internal static class Program
                         settled = await stage.SettleAsync();
                     }
 
+                    // 場面が大きさ・色ごとに整える物（流す位置など。並びが変わると流せる長さも変わるので、描くたびに当て直す）
+                    if (shot.Arrange is { } arrange)
+                    {
+                        await arrange();
+                        settled = await stage.SettleAsync() && settled;
+                    }
+
                     var image = stage.Render();
                     var region = options.Crop is { } box
                         ? stage.ToPixels(box)
@@ -445,6 +470,7 @@ internal static class Program
                     var name = scene.Name
                         + (theme == ColorThemeMode.Dark ? "-dark" : "-light")
                         + (width is { } given ? $"-w{given:0}" : string.Empty)
+                        + (paired && height is { } tall ? $"-h{tall:0}" : string.Empty)
                         + (Math.Abs(scale - 1.0) > 0.001 ? $"-s{scale * 100:0}" : string.Empty)
                         + (options.ZoomPercent != DisplayZoom.DefaultPercent ? $"-z{options.ZoomPercent}" : string.Empty)
                         + ".png";
