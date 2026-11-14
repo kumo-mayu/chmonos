@@ -39,6 +39,7 @@ using SixLabors.ImageSharp.Processing;
 //   showcase <一覧の JSON> <画像のフォルダ>
 //                                      BOOTH のページ用の画面に写す、架空の商品の写しを組む（tools/SandboxGen/showcase.json）。
 //                                      商品・対応アバター・購入記録・タグ・属性・手元の zip・未確定・改変・通知まで入れる
+//                                      通しで見る「多い」写しは、tools/SandboxGen/tour-dense.mjs で一覧を作って同じ手順で組む
 
 Console.OutputEncoding = Encoding.UTF8;
 if (args.Length < 2)
@@ -598,6 +599,8 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
         => element.TryGetProperty(name, out var value) ? value.EnumerateArray().Select(item => item.GetString()!).ToList() : [];
 
     var now = DateTimeOffset.Now;
+    // 絵の大きさ。BOOTH のページ用は 2 倍で撮るので 1024。数百件の写し（tour-dense.mjs）は場面ごとに写すので、軽くするため 512
+    var imageSize = catalog.TryGetProperty("imageSize", out var sizeValue) ? sizeValue.GetInt32() : 1024;
     // 手元の zip の置き場。画面にパスが写るので、BOOTH のページ用には短い場所（D:BOOTH など）を渡す（ユーザ判断 2026-10-07）。
     // 渡さなければ作り物の置き場。作り直すときに消すのは、この手順が作った印のある場所だけ
     var fixtures = Path.GetFullPath(filesRoot ?? Path.Combine(local, "Chmonos-fixtures", Path.GetFileName(root), "BOOTH"));
@@ -630,6 +633,8 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
         // 画像は「image」が1枚目、「images」が2枚目から。カードはマウスの位置で絵が替わるので、1枚だけだと動きが伝わらない
         var imageFiles = new[] { Text(entry, "image") }.Concat(List(entry, "images")).ToList();
         var imageUrls = imageFiles.Select((_, n) => $"https://example.invalid/showcase/{id}/{n}.jpg").ToList();
+        // 色相をずらす（通しで見る「多い」写しは、アバターの写真3枚を使い回すので、同じ絵が並ばないように）
+        var hue = entry.TryGetProperty("hue", out var h) ? h.GetInt32() : 0;
 
         // バリエーションは対応アバターごと（BOOTH でよくある並べ方）。アバター本体と、対応の無い物は「通常版」1つ
         var variations = supports.Count > 0
@@ -695,15 +700,27 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
         Directory.CreateDirectory(dir);
         for (var n = 0; n < imageFiles.Count; n++)
         {
-            SaveShowcaseImage(Path.Combine(imagesDir, imageFiles[n]), Path.Combine(dir, ImagePipeline.FileNameFor(imageUrls[n])), 1024);
+            SaveShowcaseImage(Path.Combine(imagesDir, imageFiles[n]), Path.Combine(dir, ImagePipeline.FileNameFor(imageUrls[n])), imageSize, hue);
         }
 
         // 手元の zip。中に unitypackage を置くと、商品ページに「Unity ▾」が出る（中身は作り物なので送れない）
         if (Text(entry, "file") is { Length: > 0 } fileName)
         {
-            var zip = Path.Combine(fixtures, Text(entry, "folder"), fileName);
+            // 入れ子のフォルダ（「未整理/2025」）を「\」にそろえる。取り込みは「\」で控えるので、混ざると照らし合わせで外れる
+            var zip = Path.GetFullPath(Path.Combine(fixtures, Text(entry, "folder"), fileName));
             WriteShowcaseZip(zip, name, Text(entry, "unitypackage"), shop.Subdomain, Path.Combine(imagesDir, Text(entry, "image")));
             files[zip] = id;
+        }
+
+        // 版違い・色違いの zip を何本も持つ商品（通しで見る「多い」写し。商品ページのファイルの欄の伸び方を見る）
+        if (entry.TryGetProperty("extraFiles", out var extraFiles))
+        {
+            foreach (var extraFile in extraFiles.EnumerateArray())
+            {
+                var zip = Path.GetFullPath(Path.Combine(fixtures, Text(entry, "folder"), Text(extraFile, "file")));
+                WriteShowcaseZip(zip, name, Text(extraFile, "unitypackage"), shop.Subdomain, Path.Combine(imagesDir, Text(entry, "image")));
+                files[zip] = id;
+            }
         }
     }
 
@@ -818,13 +835,17 @@ async Task<int> ShowcaseAsync(string catalogPath, string imagesDir, string? file
 }
 
 // 写真を正方形に切り抜いて、長辺 size の WebP にする（カードの絵は正方形で並ぶので、真ん中を使う）
-static void SaveShowcaseImage(string source, string destination, int size)
+static void SaveShowcaseImage(string source, string destination, int size, int hue = 0)
 {
     using var image = Image.Load<Rgba32>(source);
     var side = Math.Min(image.Width, image.Height);
     image.Mutate(context => context
         .Crop(new Rectangle((image.Width - side) / 2, (image.Height - side) / 2, side, side))
         .Resize(size, size));
+    if (hue != 0)
+    {
+        image.Mutate(context => context.Hue(hue));
+    }
     image.Save(destination, new WebpEncoder { Quality = 85 });
 }
 
