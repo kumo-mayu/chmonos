@@ -33,6 +33,7 @@
   [app-tests.md](dev/app-tests.md)：画面の側の試験の書き方・何を試験で確かめて何を画面で見るか・試験を重くしない書き方（本体の試験も）と重い試験の探し方）。書く前に読む。
   [file-lifecycle.md](dev/file-lifecycle.md) は手元のファイルが取り込み・未確定・外す・見つからない・移動・一時展開でどう記録され変わるかの地図（2026-10-05 にコードから。気になった所の一覧つき）。
   [ui-shots.md](dev/ui-shots.md) は画面の静止画の網羅の表（画面・状態 → 描画台の場面名・描けない物）と、全部を撮って索引付きの zip にまとめる `ViewShot catalog` の使い方。
+  [ui-paths/](dev/ui-paths/README.md) は画面ごとの操作の経路（目的ごとの手順・手数・画面の間の行き来・部品の一覧。2026-11-15 にコードから。頻度はユーザが付ける）。
   [release-handoff-2026-10-07.md](dev/release-handoff-2026-10-07.md) は公開の準備への申し送り（配る形・コード署名・データの置き場の説明・実機で確かめた動き・配ってはいけない物）。
   [build.md](dev/build.md) はビルドとテスト、配る物（実行ファイル1つ＋`assets`）の組み方（2026-10-07 に直下の README から移した。直下の README は使う人向け）。
   [signing.md](dev/signing.md) はコード署名をしない判断（2026-10-07）と、配る zip の手順（tag から GitHub Actions で1回だけ組む）。SignPath の調べも残してある。
