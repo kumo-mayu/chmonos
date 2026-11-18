@@ -165,7 +165,7 @@ flowchart LR
 | 入れた順／逆の順 | 同上 | 押す | 見せる順だけ替える | 同上 | MemberOrder.Insert・MemberOrder.Reverse・ModificationView.xaml:179・187 |
 | 使ったものを順にUnityへ送る | 同上 | 押す | 入れた順に1件ずつ取り込み画面を出す | いつも | ModificationView.xaml:200 |
 | 中止 | 使ったものの見出しの下 | 押す | 送るのをやめる | 送っている間 | ModificationView.xaml:209 |
-| 使ったもののカード・名前 | 改変の左の列 | 押す・中クリック・右クリック | 商品ページ・BOOTH・検索と同じメニュー | いつも | ModificationMemberLink・ModificationView.xaml:240・423 |
+| 使ったもののカード・名前 | 改変の左の列 | 押す・中クリック（リスト表示の名前と絵。BOOTH に無い商品は何もしない）・右クリック | 商品ページ・BOOTH・検索と同じメニュー | いつも | ModificationMemberLink・ModificationView.xaml:240・423 |
 | 移動 ▾（カードは前へ移動・後ろへ移動、リストは上へ移動・下へ移動） | 改変の左の列 | 押す | 入れた順を動かす（端では押せない方が灰色） | 使ったものがある時 | ModificationMemberMoveMenu・MemberMoveBack・MemberMoveForward |
 | Unity ▾（Unityへ送る・Unityで選択・使ったファイルを選び直す…） | 改変の左の列 | 押す | 送る・示す・選び直す（外した行は選び直しだけ） | いつも | ModificationMemberUnityMenu.*・ModificationView.xaml:315-328・490-503 |
 | 外す／戻す／削除（使ったもの） | 改変の左の列 | 押す | 外す（戻せる）／戻す／窓で確かめて消す | 外すは使っている行、戻す・削除は外した行 | ModificationMemberRemove・ModificationMemberRestore・ModificationMemberDelete・ModificationView.xaml:332-345・507-519 |

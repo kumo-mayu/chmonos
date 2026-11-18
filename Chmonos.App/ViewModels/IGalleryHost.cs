@@ -14,4 +14,16 @@ public interface IGalleryHost
     int HoverDelayMs { get; }
 
     void HoverImage(GalleryImage image);
+
+    /// <summary>
+    /// 小さな絵の並びを畳んでいるか。畳んだかは次に起動した時まで覚える（ユーザ判断 2026-11-19・open.md 61）。
+    /// 商品ページ・編集・改変で1つ（画面ごとに分けない。数十枚の商品で畳みたい理由は、どの画面でも同じ）。
+    /// ui-state.json の collapsedPanes に <see cref="GalleryFoldKey.Tiles"/> で載る（左の一覧の畳みと同じ欄）
+    /// </summary>
+    bool GalleryTilesFolded { get; set; }
+}
+
+public static class GalleryFoldKey
+{
+    public const string Tiles = "gallery.tiles";
 }

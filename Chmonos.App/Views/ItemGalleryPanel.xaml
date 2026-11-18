@@ -205,12 +205,16 @@
                                 畳んだかは部品が覚える（商品を替えても、開いている間は畳んだまま。起動をまたいでは覚えない）。
                                 画像が無い時は畳む意味が無いので出さない。畳んでも、大きな絵の左右の矢印と右クリックで送り・追加はできる
                             -->
-                            <Button x:Name="TilesToggle" Content="小さな絵を折りたたむ" Click="OnToggleTiles"
+                            <Button x:Name="TilesToggle" Click="OnToggleTiles"
                                     HorizontalAlignment="Left" FontSize="11.5" Margin="12,6,12,0"
                                     AutomationProperties.AutomationId="GalleryTilesToggle">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource HyperlinkButton}">
+                                        <Setter Property="Content" Value="小さな絵を折りたたむ" />
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding GalleryTilesFolded}" Value="True">
+                                                <Setter Property="Content" Value="小さな絵を広げる" />
+                                            </DataTrigger>
                                             <!-- 並びの末尾の「足す」枠も数に入る。0 は絵の無い持ち主、1 は「足す」枠だけ -->
                                             <DataTrigger Binding="{Binding GalleryTiles.Count}" Value="0">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -248,7 +252,6 @@
                                             -->
                                             <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
                                                     Background="{DynamicResource ThumbBack}" Cursor="Hand"
-                                                    Visibility="{Binding IsImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                     MouseEnter="OnThumbnailMouseEnter"
                                                     MouseLeave="OnThumbnailMouseLeave"
                                                     AutomationProperties.AutomationId="GalleryTile" AutomationProperties.Name="{Binding ShowName}"
@@ -260,6 +263,13 @@
                                                         <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
                                                         <Setter Property="Opacity" Value="0.72" />
                                                         <Style.Triggers>
+                                                            <!-- 「足す」枠は絵ではない。畳んだ間は絵だけを隠し、「＋」は残す（ユーザ判断 2026-11-19・open.md 61） -->
+                                                            <DataTrigger Binding="{Binding IsImage}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding DataContext.GalleryTilesFolded, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
                                                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                                 <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
                                                                 <Setter Property="Opacity" Value="1" />

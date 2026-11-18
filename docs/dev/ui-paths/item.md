@@ -148,7 +148,7 @@ flowchart LR
 | 「この画像を削除」 | 大きな絵の右クリック | クリック → 確認 | 画像を消す | いつも | —・ItemGalleryPanel.xaml:138 |
 | 「画像を追加…」 | 大きな絵の右クリック | クリック → 窓 | 画像を足す | いつも | —・ItemGalleryPanel.xaml:143 |
 | 「‹」「›」 | 大きな絵の左右 | クリック | 前・次の画像 | 前・次がある時 | GalleryPrevious／GalleryNext・ItemGalleryPanel.xaml:187,194 |
-| 「＋」 | 小さな絵の並びの末尾 | クリック → 窓 | 画像を足す | いつも | GalleryAdd・ItemGalleryPanel.xaml:214 |
+| 「＋」 | 小さな絵の並びの末尾 | クリック → 窓 | 画像を足す | いつも（小さな絵を畳んでも残る） | GalleryAdd・ItemGalleryPanel.xaml:214 |
 | 小さな絵 | 左の列 | クリック | その画像を大きく | 画像がある時 | GalleryTile・ItemGalleryPanel.xaml:232 |
 | 「削除」 | 大きな絵の下 | クリック → 確認 | 画像を消す | 画像がある時 | GalleryRemoveImage・ItemGalleryPanel.xaml:303 |
 | 「画像取得を優先」 | ギャラリーの下 | クリック | この商品の画像を先に取る | 取れていない画像がある時 | GalleryFetchImages・ItemGalleryPanel.xaml:325 |

@@ -406,6 +406,30 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public RelayCommand OpenItemCommand { get; }
 
     /// <summary>
+    /// 使ったものの名前の中クリック：BOOTH のページをブラウザで開く（open.md 136・ユーザ判断 2026-11-19。
+    /// 左クリックはアプリの商品ページ）。BOOTH に行き先の無い物（BOOTH に無い商品・番号でない ID）は押せない扱いにする。
+    /// 手元に無い行（<see cref="ModificationMemberRowViewModel.Card"/> が無い）も、記録の商品 ID が番号なら開ける
+    /// </summary>
+    public RelayCommand OpenMemberBoothCommand => _openMemberBooth ??= new RelayCommand(
+        parameter =>
+        {
+            if (MemberBoothPage(parameter) is { } url)
+            {
+                Shell.OpenUrl(url);
+            }
+        },
+        parameter => MemberBoothPage(parameter) is not null);
+
+    private RelayCommand? _openMemberBooth;
+
+    private static string? MemberBoothPage(object? parameter) => parameter switch
+    {
+        ModificationMemberRowViewModel { Card: { } card } => Core.Booth.BoothLinks.ItemPage(card.Item),
+        ModificationMemberRowViewModel row => Core.Booth.BoothLinks.ItemPage(row.Member.ItemId),
+        _ => null,
+    };
+
+    /// <summary>
     /// 着せているアバターを、アバターの管理で開く（動線の点検 D6）。同じアバターのほかの改変を見に行くのに、
     /// ナビからアバターを選び直していた
     /// </summary>
@@ -963,6 +987,20 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>サムネイル一覧。末尾に「＋」（足す枠）を混ぜる（商品のギャラリーと同じ並べ方）。</summary>
     public ObservableCollection<GalleryImage> GalleryTiles { get; } = [];
+
+    /// <summary>小さな絵の並びを畳んでいるか（<see cref="IGalleryHost"/>。次に起動した時まで覚える）。</summary>
+    public bool GalleryTilesFolded
+    {
+        get => _services.PaneWidths.IsCollapsed(GalleryFoldKey.Tiles);
+        set
+        {
+            if (GalleryTilesFolded != value)
+            {
+                _services.PaneWidths.SetCollapsed(GalleryFoldKey.Tiles, value);
+                OnPropertyChanged();
+            }
+        }
+    }
 
     public RelayCommand PreviousImageCommand { get; }
 
