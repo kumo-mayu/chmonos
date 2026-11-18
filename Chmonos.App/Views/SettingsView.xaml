@@ -945,120 +945,58 @@
                             </StackPanel>
 
                             <!--
-                                除外は溜まる一方で上限が無い。1件ごとに行を作って並べていた頃は、5,000 件で設定を開くたびに
-                                7 秒余り止まった（docs/research/large-files-2026-09-30.md）。
-                                閉じている間は件数だけ（行は ViewModel が開いたときだけ作る）。開いた一覧は高さを決めて中だけを流し、
-                                見える分だけ行の部品を作る——高さを決めないと、外の流す枠の中では全行を作ってしまい仮想化が効かない。
-                                0 件のときは開く物が無いので、三角を出さずに前と同じ1行にする
+                                除外したファイルと商品から外したファイル（open.md 171・ユーザ判断 2026-11-19）。どちらも除外の一覧の共通部品
+                                （Controls/ExclusionList）で、三角で畳み、既定は閉じ、見出しに件数を出す。新しい順・探す欄・行のチェック・行ごとの解除・
+                                下の「選んだ n 件の…」は部品が持つ。
+                                除外は溜まる一方で上限が無い。1件ごとに行を作って並べていた頃は、5,000 件で設定を開くたびに 7 秒余り止まった
+                                （docs/research/large-files-2026-09-30.md）。閉じている間は件数だけ（行は開いたときだけ作る）。
+                                開いた一覧は高さを決めて中だけを流す——外の流す枠の中で高さを決めないと全行を作ってしまい仮想化が効かない。
+                                0 件のときは開く物が無いので、三角を出さずに1行にする
                             -->
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,8"
-                                        Visibility="{Binding HasExcluded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                        Visibility="{Binding ExcludedList.HasAny, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="管理対象から除外したファイル" Style="{StaticResource RowLabel}" Width="220" />
-                                <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Mono}" FontSize="12"
+                                <TextBlock Text="{Binding ExcludedList.CountText}" Style="{StaticResource Mono}" FontSize="12"
                                            VerticalAlignment="Center" />
                             </StackPanel>
                             <Expander Style="{StaticResource TriangleExpander}" Margin="0,6,0,0"
                                       IsExpanded="{Binding IsExcludedExpanded, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ExcludedExpander"
                                       AutomationProperties.Name="管理対象から除外したファイル"
-                                      Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                      Visibility="{Binding ExcludedList.HasAny, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <Expander.Header>
                                     <!-- 件数の位置を上の「非表示にした商品」と揃える（三角と間の 30 を見出しの幅から引く） -->
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="管理対象から除外したファイル" Style="{StaticResource RowLabel}" Width="190" />
-                                        <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Mono}" FontSize="12"
+                                        <TextBlock Text="{Binding ExcludedList.CountText}" Style="{StaticResource Mono}" FontSize="12"
                                                    VerticalAlignment="Center" />
-                                        <TextBlock Style="{StaticResource FieldNotice}" Margin="16,0,0,0" VerticalAlignment="Center"
-                                                   MaxWidth="420"
-                                                   AutomationProperties.AutomationId="Settings.ExcludedNote"
-                                                   Text="{Binding ExcludedNote}" />
                                     </StackPanel>
                                 </Expander.Header>
-                            <Border Margin="0,8,0,0" Padding="10,8,4,8" CornerRadius="6"
-                                    BorderBrush="{DynamicResource Border}" BorderThickness="1">
-                            <controls:ContentItemsControl ItemsSource="{Binding Excluded}" MaxHeight="360"
-                                          AutomationProperties.AutomationId="Settings.ExcludedList"
-                                          AutomationProperties.Name="管理対象から除外したファイル"
-                                          controls:ArrowGroup.IsEnabled="True"
-                                          VirtualizingPanel.IsVirtualizing="True"
-                                          VirtualizingPanel.VirtualizationMode="Recycling"
-                                          VirtualizingPanel.ScrollUnit="Pixel"
-                                          ScrollViewer.CanContentScroll="True">
-                                <ItemsControl.Template>
-                                    <ControlTemplate TargetType="ItemsControl">
-                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                                      CanContentScroll="True" Focusable="False">
-                                            <ItemsPresenter />
-                                        </ScrollViewer>
-                                    </ControlTemplate>
-                                </ItemsControl.Template>
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <VirtualizingStackPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:RestorableRow}">
-                                        <Border Style="{StaticResource ButtonListRow}">
-                                        <Grid>
-                                            <StackPanel Margin="0,0,90,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Mono}" FontSize="11.5"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}"
-                                                                               Visibility="{Binding SubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                            </StackPanel>
-                                            <Button Content="解除" Style="{StaticResource SmallButton}"
-                                                    AutomationProperties.AutomationId="Settings.ExcludedRestore"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の除外を解除}"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                    Command="{Binding RestoreCommand}"
-                                                    ToolTip="次の取り込みで、また未確定として出てきます。" />
-                                        </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </controls:ContentItemsControl>
-                            </Border>
+                                <controls:ExclusionList Margin="0,8,0,0" DataContext="{Binding ExcludedList}" ListMaxHeight="360"
+                                                        ListName="管理対象から除外したファイル"
+                                                        AutomationProperties.AutomationId="Settings.ExcludedList" />
                             </Expander>
 
                             <!--
-                                商品ページで「この商品から外す」を押したもの。
-                                記録が見えないと、なぜその商品へ紐付かないのかを探す場所が無くなる。
-                                除外と違い、外したのはその商品への紐付けだけで、ファイルは管理下に残る。
+                                商品ページで「この商品から外す」を押したもの。記録が見えないと、なぜその商品へ紐付かないのかを探す場所が無くなる。
+                                除外と違い、外したのはその商品への紐付けだけで、ファイルは管理下に残る。外した日時は持たないので、商品名の順
                             -->
-                            <StackPanel Orientation="Horizontal" Margin="0,14,0,8"
-                                        Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <TextBlock Text="商品から外したファイル" Style="{StaticResource RowLabel}" Width="220" />
-                                <TextBlock Text="{Binding DetachedText}" Style="{StaticResource Mono}" FontSize="12"
-                                           VerticalAlignment="Center" />
-                                <TextBlock Style="{StaticResource FieldNotice}" Margin="16,0,0,0" VerticalAlignment="Center"
-                                           MaxWidth="420"
-                                           AutomationProperties.AutomationId="Settings.DetachedNote"
-                                           Text="{Binding DetachedNote}" />
-                            </StackPanel>
-                            <controls:ContentItemsControl ItemsSource="{Binding Detached}" controls:ArrowGroup.IsEnabled="True"
-                                          Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:RestorableRow}">
-                                        <Border Style="{StaticResource ButtonListRow}">
-                                        <Grid>
-                                            <StackPanel Margin="0,0,90,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Mono}" FontSize="11.5"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}"
-                                                                               Visibility="{Binding SubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                            </StackPanel>
-                                            <Button Content="戻す" Style="{StaticResource SmallButton}"
-                                                    AutomationProperties.AutomationId="Settings.DetachedRestore"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の紐付けを戻す}"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                    Command="{Binding RestoreCommand}"
-                                                    ToolTip="次の取り込みで、読み取った情報が指す商品にまた紐付きます。" />
-                                        </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </controls:ContentItemsControl>
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,10,0,0"
+                                      IsExpanded="{Binding IsDetachedExpanded, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.DetachedExpander"
+                                      AutomationProperties.Name="商品から外したファイル"
+                                      Visibility="{Binding DetachedList.HasAny, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="商品から外したファイル" Style="{StaticResource RowLabel}" Width="190" />
+                                        <TextBlock Text="{Binding DetachedList.CountText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <controls:ExclusionList Margin="0,8,0,0" DataContext="{Binding DetachedList}" ListMaxHeight="360"
+                                                        ListName="商品から外したファイル"
+                                                        AutomationProperties.AutomationId="Settings.DetachedList" />
+                            </Expander>
                         </StackPanel>
                     </Expander>
                 </Border>

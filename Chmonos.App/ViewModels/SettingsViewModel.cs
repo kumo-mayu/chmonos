@@ -459,44 +459,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
 
 
-    /// <summary>
-    /// 除外したファイルの行。**欄を開いている間だけ作る**（閉じている間は空）。
-    /// 除外は溜まる一方で上限が無く、1件ごとに行を作って仮想化しない一覧に並べていた頃は、
-    /// 5,000 件で設定を開くたびに 7 秒余り止まり、メモリが 450MB を超えた（`docs/research/large-files-2026-09-30.md`）。
-    /// 閉じている間は件数だけ出せば足りる。開いた一覧は見える分だけ行の部品を作る（View の側で仮想化）。
-    /// </summary>
-    public RangeObservableCollection<RestorableRow> Excluded { get; } = new();
-
-    /// <summary>読んだ除外の記録（新しい順）。件数と、開いたときの行の元。</summary>
-    private IReadOnlyList<Core.Services.ExcludedFile> _excludedFiles = [];
-
-    /// <summary>
-    /// 除外したファイルの欄を開いているか。既定は閉じる（開くまで行を作らない）。
-    /// ほかの畳む欄と同じく、アプリを閉じるまで覚える（`docs/spec/ui-rules.md`。設定画面は開くたびに作り直される）。
-    /// </summary>
-    public bool IsExcludedExpanded
-    {
-        get => s_excludedExpanded;
-        set
-        {
-            if (s_excludedExpanded == value)
-            {
-                return;
-            }
-
-            s_excludedExpanded = value;
-            OnPropertyChanged(nameof(IsExcludedExpanded));
-            SyncExcludedRows();
-        }
-    }
-
-    private static bool s_excludedExpanded;
-
-    /// <summary>
-    /// 商品ページで「この商品から外す」を押したファイル。
-    /// 外した記録が見えないと、なぜその商品へ紐付かないのかを探す場所が無くなる。
-    /// </summary>
-    public ObservableCollection<RestorableRow> Detached { get; } = [];
 
     public bool IsLoading
     {
@@ -559,22 +521,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     }
 
     private string _hiddenNote = string.Empty;
-
-    public string ExcludedNote
-    {
-        get => _excludedNote;
-        private set => SetField(ref _excludedNote, value);
-    }
-
-    private string _excludedNote = string.Empty;
-
-    public string DetachedNote
-    {
-        get => _detachedNote;
-        private set => SetField(ref _detachedNote, value);
-    }
-
-    private string _detachedNote = string.Empty;
 
     private string? _exportedZip;
 
@@ -1488,64 +1434,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasHidden => HiddenItems.Count > 0;
 
-    public bool HasExcluded => _excludedFiles.Count > 0;
-
     public string HiddenText => $"{HiddenItems.Count} 件";
-
-    // 行ではなく記録で数える（閉じている間は行が無い）
-    public string ExcludedText => $"{_excludedFiles.Count} 件";
-
-    /// <summary>
-    /// 除外の行を、開閉と読んだ記録に合わせる。閉じたら捨て、開いていれば記録の並びに寄せる。
-    /// 読み直し（除外を解除した後など）で残った行は使い回し、差分だけ抜き差しする——
-    /// まとめて差し替えると、一覧の流した位置が先頭へ戻り、解除した近くを見失う。
-    /// 初めて開くときは1回の知らせでまとめて入れる（1件ずつ足すと件数ぶん知らせが飛ぶ）。
-    /// </summary>
-    private void SyncExcludedRows()
-    {
-        if (!IsExcludedExpanded)
-        {
-            if (Excluded.Count > 0)
-            {
-                Excluded.ReplaceAll([]);
-            }
-
-            return;
-        }
-
-        if (Excluded.Count == 0)
-        {
-            Excluded.ReplaceAll(_excludedFiles.Select(MakeExcludedRow));
-            return;
-        }
-
-        var existing = new Dictionary<string, RestorableRow>(StringComparer.Ordinal);
-        foreach (var row in Excluded)
-        {
-            existing.TryAdd(row.Key, row);
-        }
-
-        var target = _excludedFiles
-            .Select(file => existing.Remove(file.Hash, out var kept) ? kept : MakeExcludedRow(file))
-            .ToList();
-        CollectionSync.Apply(Excluded, target);
-    }
-
-    private RestorableRow MakeExcludedRow(Core.Services.ExcludedFile file)
-    {
-        var hash = file.Hash;
-        return new RestorableRow
-        {
-            Key = file.Hash,
-            Label = file.Path,
-            SubText = file.Reason ?? string.Empty,
-            RestoreCommand = new RelayCommand(() => RestoreAsync(hash).Forget()),
-        };
-    }
-
-    public bool HasDetached => Detached.Count > 0;
-
-    public string DetachedText => $"{Detached.Count} 件";
 
     private async Task OpenHiddenAsync(string itemId)
     {
@@ -1627,30 +1516,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 HiddenItems.Add(MakeHiddenRow(item.ItemId, item.Name));
             }
 
-            _excludedFiles = excluded;
-            SyncExcludedRows();
-
-            Detached.Clear();
-            foreach (var record in detached)
-            {
-                var hash = record.Hash;
-                var itemId = record.ItemId;
-                Detached.Add(new RestorableRow
-                {
-                    Key = hash + ":" + itemId,
-                    Label = record.Path,
-                    SubText = $"「{record.ItemName}」から外しました",
-                    RestoreCommand = new RelayCommand(() => ForgetDetachedAsync(hash, itemId).Forget()),
-                });
-            }
+            ExcludedList.SetEntries(ExcludedEntries(excluded));
+            DetachedList.SetEntries(DetachedEntries(detached));
 
             IsLoading = false;
 
             foreach (var name in new[]
             {
                 nameof(RootPath), nameof(ImageUsageText), nameof(ItemUsageText),
-                nameof(HasHidden), nameof(HasExcluded), nameof(HiddenText), nameof(ExcludedText),
-                nameof(HasDetached), nameof(DetachedText),
+                nameof(HasHidden), nameof(HiddenText),
             })
             {
                 OnPropertyChanged(name);
@@ -2122,43 +1996,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         HiddenNote = "非表示を解除しました。検索に戻ります。";
         await LoadAsync();
         _main.Search.ReloadAsync().Forget();
-    }
-
-    /// <summary>
-    /// 外した記録を捨てる。外したのが間違いだったときの戻し方。
-    /// 次の取り込みで、手掛かりがその商品を指すならまた紐付く。
-    /// </summary>
-    private async Task ForgetDetachedAsync(string hash, string itemId)
-    {
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetDetached(hash, itemId));
-        DetachedNote = "外した記録を消しました。次の取り込みで、読み取った情報が指すならまたその商品に紐付きます。";
-        await LoadAsync();
-    }
-
-    /// <summary>
-    /// 除外を解除した結果の1行。解除するとその場で未確定に戻す（ユーザ判断 2026-10-05）ので、前の「次の取り込みで出てきます」は言わない。
-    /// 戻せなかったときは、どこにも出ない理由を言う。
-    /// </summary>
-    internal static string RestoredNote(Core.Commands.CommandResult result)
-        => result is Core.Commands.CommandResult.ExclusionLifted { Outcome: var outcome }
-            ? outcome switch
-            {
-                Core.Services.ExclusionLiftOutcome.BackInUnresolved => "除外を解除しました。未確定の一覧に戻しました。",
-                Core.Services.ExclusionLiftOutcome.FileNotFound =>
-                    "除外を解除しました。元の場所にファイルが見つからないので、未確定には戻していません。",
-                Core.Services.ExclusionLiftOutcome.OwnedByItem => "除外を解除しました。同じファイルが商品に登録されています。",
-                _ => "除外を解除しました。",
-            }
-            : "除外を解除できませんでした。";
-
-    private async Task RestoreAsync(string hash)
-    {
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RestoreExcluded(hash));
-        ExcludedNote = RestoredNote(result);
-        await LoadAsync();
-
-        // 未確定に戻したので、ナビの件数も合わせる
-        _main.RefreshBadges();
     }
 
     /// <summary>

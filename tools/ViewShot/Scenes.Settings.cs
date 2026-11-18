@@ -339,7 +339,7 @@ internal static partial class Scenes
             settings.IsExcludedExpanded = true;
             var root = context.MainWindow();
             await context.PresentAsync(root);
-            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.ExcludedText == "3 件", "設定を読み終わる");
+            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.ExcludedList.CountText == "3 件", "設定を読み終わる");
 
             if (shown)
             {
@@ -351,10 +351,10 @@ internal static partial class Scenes
                 settings.ResetPaneWidthsCommand.Execute(null);
                 settings.AssignShortcut(settings.ShortcutRows[0], "Ctrl+Shift+F9");
                 settings.AssignShortcut(settings.ShortcutRows[1], "Ctrl+Shift+F9");
-                settings.Excluded[0].RestoreCommand!.Execute(null);
+                settings.ExcludedList.Rows[0].LiftCommand.Execute(null);
                 main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
                 main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
-                await SceneContext.UntilAsync(() => settings.ExcludedText == "2 件", "除外が1件減る");
+                await SceneContext.UntilAsync(() => settings.ExcludedList.CountText == "2 件", "除外が1件減る");
             }
 
             await context.SettleAsync();
@@ -438,7 +438,7 @@ internal static partial class Scenes
             var root = context.MainWindow();
             await context.PresentAsync(root);
             await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
-            await SceneContext.UntilAsync(() => settings.ExcludedText == $"{count} 件", "除外の件数が出る");
+            await SceneContext.UntilAsync(() => settings.ExcludedList.CountText == $"{count} 件", "除外の件数が出る");
             await context.SettleAsync();
 
             return open

@@ -138,11 +138,14 @@ public abstract record UiCommand
 
     public record UnhideItem(string ItemId) : UiCommand;
 
-    /// <summary>「この商品のものではない」と外した記録を捨てる。</summary>
-    public record ForgetDetached(string Hash, string ItemId) : UiCommand;
+    /// <summary>「この商品のものではない」と外した記録を捨てる。まとめて渡せる（1つの商品は1回だけ書く）。</summary>
+    public record ForgetDetached(IReadOnlyList<Services.DetachedKey> Records) : UiCommand;
 
-    /// <summary>管理から外したファイルを戻す（元の場所に在れば、その場で未確定に戻す。結果は CommandResult.ExclusionLifted）。</summary>
-    public record RestoreExcluded(string Hash) : UiCommand;
+    /// <summary>
+    /// 管理から外したファイルを戻す（元の場所に在れば、その場で未確定に戻す。結果は CommandResult.ExclusionLifted）。
+    /// まとめて渡せる：数千件でも除外と未確定の記録はそれぞれ1回だけ書く（open.md 132・171）
+    /// </summary>
+    public record RestoreExcluded(IReadOnlyList<string> Hashes) : UiCommand;
 
     /// <summary>既にどこかの商品が持っているファイルを、未確定の一覧から取り除く（結果は取り除いた数）。</summary>
     public record ReconcileUnresolved() : UiCommand;
@@ -730,8 +733,8 @@ public abstract record CommandResult
     /// </summary>
     public record FilesExcluded(IReadOnlyList<string> AddedHashes) : CommandResult;
 
-    /// <summary>除外を解除した。未確定に戻したか（戻せなかった理由）を持つ。</summary>
-    public record ExclusionLifted(Services.ExclusionLiftOutcome Outcome) : CommandResult;
+    /// <summary>除外を解除した。ハッシュごとに、未確定に戻したか（戻せなかった理由）を持つ。</summary>
+    public record ExclusionLifted(IReadOnlyDictionary<string, Services.ExclusionLiftOutcome> Outcomes) : CommandResult;
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 
