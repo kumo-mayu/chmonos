@@ -62,6 +62,7 @@ internal static partial class Scenes
         .. ShopPerfScenes,
         .. ImportMissingPerfScenes,
         .. FolderTree,
+        .. RightPaneItemScenes,
         .. Inbox,
         .. InboxPictureScenes,
         .. Dialogs,

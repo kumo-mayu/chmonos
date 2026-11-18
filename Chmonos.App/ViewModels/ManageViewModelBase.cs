@@ -39,7 +39,8 @@ public abstract class ManageMasterRow : ReorderableRow
 /// </summary>
 /// <typeparam name="TRow">左の一覧の行。</typeparam>
 /// <typeparam name="TOrphan">一覧に無いのに商品が参照している名前の行。</typeparam>
-public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendingWrites, IItemCardHost, IItemImagesListener
+public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendingWrites, IItemCardHost, IItemImagesListener,
+    IEmbeddedItemPageHost, IRightPaneItemHost
     where TRow : ManageMasterRow
 {
     private readonly AppServiceContainer _services;
@@ -56,17 +57,33 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     /// <param name="itemViewKey">カードかリストかを覚える鍵（<see cref="ManageItemView"/>）。</param>
     /// <param name="listPaneKey">左の一覧の幅を覚える鍵（<see cref="PaneColumn"/>）。</param>
     /// <param name="sort">開いたときの並べ方（`ui-state.json` から各画面が読む。知らない値のときの既定が画面で違う）。</param>
+    /// <param name="rightItemId">戻るで開き直す時、右の欄に重ねていた商品（open.md 95 行）。最初の読み込みの後に重ね直す。</param>
     /// <remarks>
     /// 読み込み（<see cref="ReloadAsync"/>）と段の組み直しは、ここでは始めない。派生の本体で作る物（タグの小分類のメモの待ち）が
     /// まだ無いうちに、最初の await までが同期で走ってしまう。派生のコンストラクタの最後で始める
     /// </remarks>
-    protected ManageViewModelBase(AppServiceContainer services, MainViewModel main, string itemViewKey, string listPaneKey, TagSortMode sort)
+    protected ManageViewModelBase(
+        AppServiceContainer services, MainViewModel main, string itemViewKey, string listPaneKey, TagSortMode sort, string? rightItemId)
     {
         _services = services;
         _main = main;
         _itemViewKey = itemViewKey;
         _listPaneKey = listPaneKey;
         _sort = sort;
+        _openRightWith = rightItemId;
+
+        // 右の商品の行・カードから開いた商品ページは、右の欄の中に重ねる（open.md 95 行・ユーザ判断 2026-11-18・11-19）。
+        // 左の幅は画面ごとの鍵で覚える（フォルダ・改変の右に組み込む商品ページと混ざらないように）
+        RightItem = new RightPaneItemPage(main, this, item => new ItemViewModel(item, _services, _main, _main.Thumbnails)
+        {
+            IsEmbedded = true,
+            EmbeddedPaneKey = itemViewKey + ".item.left",
+        });
+        RightItem.Changed += () => OnPropertyChanged(nameof(DetailWidthWanted));
+
+        // 重ねたページで外す・取り直すと、この商品の付いた名前や件数が変わる（右の一覧に消えた商品が残る）ので読み直す。
+        // 読み直しは同じ名前を選び直すので、重ねたページは閉じない（閉じるのは名前が替わった時だけ・Selected）
+        RightItem.ItemReplaced += () => ReloadAsync().Forget();
 
         AddCommand = new RelayCommand(() => AddAsync(FilterText).Forget());
         SubmitFilterCommand = new RelayCommand(() => SubmitFilterAsync().Forget());
@@ -439,6 +456,13 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
                 return;
             }
 
+            // 左で別の物を選んだら、右に重ねた商品ページは役目を終える（戻る先の一覧が替わった）。
+            // 読み直しで同じ名前の新しい行へ選び直すだけなら閉じない（重ねたページでの書き込みのたびに閉じてしまう）
+            if (!string.Equals(_selected?.Name, value?.Name, StringComparison.CurrentCultureIgnoreCase))
+            {
+                RightItem.Close();
+            }
+
             // 待っているメモは、移る前に今の対象へ書き切る。移ってからだと、移った先の欄の文と名前で書いてしまう
             FlushMemos();
 
@@ -587,7 +611,8 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     protected virtual void FlushMemos() => MemoSaver.Flush();
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public virtual Task FlushPendingWritesAsync() => MemoSaver.FlushAsync();
+    public virtual Task FlushPendingWritesAsync()
+        => Task.WhenAll(MemoSaver.FlushAsync(), RightItem.Page?.FlushPendingWritesAsync() ?? Task.CompletedTask);
 
     /// <summary>打った時点の行へ書く（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
     private async Task SaveMemoAsync(TRow row, string memo)
@@ -639,7 +664,34 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
         OnPropertyChanged(nameof(HasOrphans));
 
         Selected = AllRows.FirstOrDefault(row => row.Name == (keep ?? LastSelectedName)) ?? VisibleRows.FirstOrDefault();
+
+        // 戻るで開き直した時は、重ねていた商品ページを重ね直す（最初の読み込みの1回だけ）。商品が消えていれば重ねない
+        if (_openRightWith is { } rightItemId)
+        {
+            _openRightWith = null;
+            if (Selected is not null && _main.Search.FindItem(rightItemId) is { } rightItem)
+            {
+                RightItem.Open(rightItem);
+            }
+        }
     }
+
+    /// <summary>戻るで開き直した時に重ね直す商品（<see cref="ShowLoaded"/> で1回だけ使う）。</summary>
+    private string? _openRightWith;
+
+    // ---- 右の欄に重ねる商品ページ（open.md 95 行） ----
+
+    /// <summary>右の商品の行・カードから開いた商品ページ。左の選びはそのままで、「← 一覧に戻る」（Alt+← も）で一覧へ戻る。</summary>
+    public RightPaneItemPage RightItem { get; }
+
+    /// <summary>
+    /// 重ねた商品ページが求める右の幅。左の一覧はこの幅を残すまで縮む（フォルダ・改変の画面と同じ計算）。
+    /// 重ねていない時は右の欄の最小で足りる
+    /// </summary>
+    public double DetailWidthWanted => RightItem.Page is { } page ? ModificationHubViewModel.WidthWanted(page.BodyMinWidth) : 0;
+
+    /// <summary>落とした・貼った画像と、画像が届いた知らせの宛先（重ねたページも商品ページとして受ける・ユーザ判断 2026-11-19）。</summary>
+    ItemViewModel? IEmbeddedItemPageHost.EmbeddedItemPage => RightItem.Page;
 
     /// <summary>
     /// 左の一覧を絞る。名前以外で当たった行には、何で当たったかを名前の下に出す（<see cref="ReorderableRow.MatchReason"/>）。
@@ -862,7 +914,8 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
         };
 
         _itemRows.Add(entry);
-        entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
+        // 右の欄の中に重ねる（左の選びと、この一覧の流した位置を残す・open.md 95 行）
+        entry.OpenCommand = new RelayCommand(() => RightItem.Open(item));
         return entry;
     }
 
@@ -872,6 +925,9 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
 
     void IItemImagesListener.NoteItemImagesSaved(string itemId)
     {
+        // 重ねた商品ページは主画面から見えない（今の画面はこちら）ので、自分が渡す。行が無くても渡す
+        RightItem.Page?.NoteImagesSaved(itemId);
+
         var rows = _itemRows.Find(itemId);
         if (rows.Count == 0)
         {
@@ -895,7 +951,8 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     // 中の商品のカードは、枠の Tag にこの画面が入る。受け先が無いと、右クリックのメニューは出るのに押しても何も起きなかった。
     // 中身は検索画面の物をそのまま借りる（ショップ・フォルダビュー・改変と同じ形）
 
-    public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+    /// <summary>右の欄の中に重ねる（左の選びと、この一覧の流した位置を残す・open.md 95 行）。</summary>
+    public void OpenItem(ItemCardViewModel card) => RightItem.Open(card.Item);
 
     public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
 

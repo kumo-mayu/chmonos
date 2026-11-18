@@ -487,8 +487,9 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
 
     private bool _isBusy;
 
-    public TagManageViewModel(AppServiceContainer services, MainViewModel main)
-        : base(services, main, "tag", "tags.list", ParseSort(services.UiState.TagSort, TagSortMode.Name))
+    /// <param name="rightItemId">戻るで開き直す時、右の欄に重ねていた商品（open.md 95 行）。</param>
+    public TagManageViewModel(AppServiceContainer services, MainViewModel main, string? rightItemId = null)
+        : base(services, main, "tag", "tags.list", ParseSort(services.UiState.TagSort, TagSortMode.Name), rightItemId)
     {
         _services = services;
         _main = main;
@@ -510,7 +511,7 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
     private readonly Debounced _saveSubMemo;
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public override Task FlushPendingWritesAsync() => Task.WhenAll(MemoSaver.FlushAsync(), _saveSubMemo.RunNowAsync());
+    public override Task FlushPendingWritesAsync() => Task.WhenAll(base.FlushPendingWritesAsync(), _saveSubMemo.RunNowAsync());
 
     protected override string KindName => "大分類";
 

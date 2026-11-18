@@ -58,8 +58,9 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
 
-    public AttributeManageViewModel(AppServiceContainer services, MainViewModel main)
-        : base(services, main, "attribute", "attributes.list", ParseSort(services.UiState.AttributeSort, TagSortMode.Manual))
+    /// <param name="rightItemId">戻るで開き直す時、右の欄に重ねていた商品（open.md 95 行）。</param>
+    public AttributeManageViewModel(AppServiceContainer services, MainViewModel main, string? rightItemId = null)
+        : base(services, main, "attribute", "attributes.list", ParseSort(services.UiState.AttributeSort, TagSortMode.Manual), rightItemId)
     {
         _services = services;
         _main = main;
