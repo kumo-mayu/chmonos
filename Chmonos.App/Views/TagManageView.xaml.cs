@@ -16,6 +16,8 @@ public partial class TagManageView : UserControl
     {
         InitializeComponent();
 
+        ManageRowInput.Hook(this, () => Model?.AttachSizeWatch(), () => Model?.DetachSizeWatch(), row => Model?.OpenBooth(row.Card));
+
         _reorder = new RowReorder(this, Rows);
         _reorder.Dropped += (moved, target, after) =>
         {

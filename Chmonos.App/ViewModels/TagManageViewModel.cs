@@ -216,7 +216,7 @@ public sealed class TagSubFootLine(TagSubRow sub)
 /// 小分類の中に入っている商品1件（ユーザ指示 2026-09-18）。
 /// 改変の一覧と同じ形（絵・名前）で出し、押すと商品ページへ。
 /// </summary>
-public sealed class TagItemRow : ViewModelBase
+public sealed class TagItemRow : ViewModelBase, IHasItemCard
 {
     public required string ItemId { get; init; }
 

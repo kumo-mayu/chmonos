@@ -215,6 +215,42 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
         }
     }
 
+    /// <summary>
+    /// 大きさのつまみ（カードの大きさ・リストの行の高さ）の変化を聞き始める。画面を出している間だけ聞く（<see cref="DetachSizeWatch"/>）。
+    /// 段の数は「幅 ÷ 1つの幅」で決まるので、つまみで1つの幅が変わったら切り直す。聞かないと、大きいカードで開いて段が1枚になった後に
+    /// カードを小さくしても1列のまま残る（ユーザ報告 2026-11-18）。検索・ショップ・フォルダは <c>CardMetrics.Changed</c> を聞いて割り直している
+    /// </summary>
+    public void AttachSizeWatch()
+    {
+        DetachSizeWatch();
+        Services.CardMetrics.Changed += OnItemSlotChanged;
+        ItemViewSize.Current.PropertyChanged += OnListSizeChanged;
+    }
+
+    /// <summary>画面を離れるとき。静的な知らせの先にこの画面が残らないように外す。</summary>
+    public void DetachSizeWatch()
+    {
+        Services.CardMetrics.Changed -= OnItemSlotChanged;
+        ItemViewSize.Current.PropertyChanged -= OnListSizeChanged;
+    }
+
+    private void OnItemSlotChanged()
+    {
+        // まだ幅を測っていないときは段に切れない（測れたら SetItemsWidth が切る）
+        if (ItemsWidth > 0)
+        {
+            RequestLines();
+        }
+    }
+
+    private void OnListSizeChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ItemViewSize.ListRowHeight) && ItemsWidth > 0)
+        {
+            RequestLines();
+        }
+    }
+
     // ---- 並べ方 ----
 
     /// <summary>`ui-state.json` の値を並べ方に読む。知らない値は画面ごとの既定（タグは名前順、属性は手で並べた順）。</summary>
