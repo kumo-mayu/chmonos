@@ -362,10 +362,13 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
     public bool HasUpdatedShops { get; private set; }
 
     /// <summary>
-    /// 今の探す対象を、対象のボタンそのものに書く（ユーザ指示 2026-09-16「対象がどちらかが常にわかるようにする必要がある」）。
-    /// メニューを開かないと分からない形だと、メモで探しているつもりで名前だけを探していても気付けない。
+    /// 対象のメニューの読み上げの名前に、今の対象を入れる（ユーザ指示 2026-09-16「対象がどちらかが常にわかるようにする必要がある」）。
+    /// 見える所は <see cref="TargetsNote"/>。メニューを開かないと分からない形だと、メモで探しているつもりで名前だけを探していても気付けない。
     /// </summary>
-    public string TargetsText => $"対象：{TargetNames} ▾";
+    public string TargetsText => $"対象：{TargetNames}";
+
+    /// <summary>「対象 ▾」の横に小さく添える、今の対象（ユーザ判断 2026-11-19・案C。メニューを開かなくても読める）。</summary>
+    public string TargetsNote => TargetNames;
 
     /// <summary>探す欄の透かし（打つ前にも、何で探すかが読める）。</summary>
     public string SearchPlaceholder => $"{TargetNames}から探す";
@@ -388,6 +391,7 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
         OnPropertyChanged(nameof(SearchNames));
         OnPropertyChanged(nameof(SearchMemos));
         OnPropertyChanged(nameof(TargetsText));
+        OnPropertyChanged(nameof(TargetsNote));
         OnPropertyChanged(nameof(SearchPlaceholder));
     }
 
