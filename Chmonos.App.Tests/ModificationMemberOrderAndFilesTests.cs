@@ -152,6 +152,48 @@ public class ModificationMemberOrderAndFilesTests
         Assert.Equal([Costume, Hair, Shader], detail.Members.Select(row => row.Member.ItemId));
     });
 
+    /// <summary>「移動 ▾」（feedback 2026-11-18）の項目は命令の可否で灰色になる。端の行では動けない方だけ押せない</summary>
+    [Fact]
+    public Task 移動のメニューは_端の行では動けない方だけ押せない() => TestApp.Run(async app =>
+    {
+        var (_, detail) = await OpenAsync(app,
+            Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"), Make.Item(Hair, "作り物の髪"));
+
+        var (first, middle, last) = (detail.Members[0], detail.Members[1], detail.Members[2]);
+        Assert.False(detail.MoveMemberBackCommand.CanExecute(first));
+        Assert.True(detail.MoveMemberForwardCommand.CanExecute(first));
+        Assert.True(detail.MoveMemberBackCommand.CanExecute(middle));
+        Assert.True(detail.MoveMemberForwardCommand.CanExecute(middle));
+        Assert.True(detail.MoveMemberBackCommand.CanExecute(last));
+        Assert.False(detail.MoveMemberForwardCommand.CanExecute(last));
+        Assert.False(detail.MoveMemberBackCommand.CanExecute(null));
+    });
+
+    /// <summary>使ったものの欄の畳み方（feedback 2026-11-18）は、開き直した改変でも続く（アプリを閉じるまで覚える）</summary>
+    [Fact]
+    public Task 使ったものを畳むと_開き直した改変でも畳んだまま() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app, Make.Item(Shader, "作り物のシェーダー"));
+        try
+        {
+            Assert.True(detail.IsMembersExpanded);
+            detail.IsMembersExpanded = false;
+            detail.IsFoundInProjectExpanded = false;
+
+            var again = Reopen(app, main, detail);
+            Assert.False(again.IsMembersExpanded);
+            Assert.False(again.IsFoundInProjectExpanded);
+            Assert.False(again.HasFoundInProject);
+            Assert.Equal("見つかった商品 0 件", again.FoundInProjectTitle);
+        }
+        finally
+        {
+            // 覚えるのは1つの値なので、次の試験へ持ち越さない
+            detail.IsMembersExpanded = true;
+            detail.IsFoundInProjectExpanded = true;
+        }
+    });
+
     // ---- メモ26-② 手で足すときに使ったファイルを選ぶ ----
 
     [Fact]

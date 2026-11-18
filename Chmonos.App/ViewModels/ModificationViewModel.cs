@@ -302,6 +302,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             parameter => SelectMemberInUnityAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         FindInProjectCommand = new RelayCommand(() => FindInProjectAsync().Forget(), () => HasProject && !IsFindingInProject);
+        FoundInProject.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasFoundInProject));
+            OnPropertyChanged(nameof(FoundInProjectTitle));
+        };
         AddCandidateCommand = new RelayCommand(
             parameter => AddCandidateAsync(parameter as ProjectCandidateRowViewModel).Forget(),
             parameter => parameter is ProjectCandidateRowViewModel);
@@ -468,6 +473,45 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     }
 
     public bool HasProjectFindText => ProjectFindText.Length > 0;
+
+    public bool HasFoundInProject => FoundInProject.Count > 0;
+
+    /// <summary>見つかった商品の畳める見出し。畳んでも何件あるかが分かるように数を添える</summary>
+    public string FoundInProjectTitle => $"見つかった商品 {FoundInProject.Count} 件";
+
+    // ---- 畳み方（feedback 2026-11-18：使ったものと、プロジェクトから探した結果は件数が多くなり得るので畳めるように） ----
+    // 畳み方はアプリを閉じるまで覚える（ui-rules.md「画面の中の畳み方」）。改変を開き直すたびに開いて戻らないよう、画面ごとではなく1つに持つ
+
+    private static bool s_membersExpanded = true;
+    private static bool s_foundInProjectExpanded = true;
+
+    /// <summary>「使ったもの」の欄を開いているか。</summary>
+    public bool IsMembersExpanded
+    {
+        get => s_membersExpanded;
+        set
+        {
+            if (s_membersExpanded != value)
+            {
+                s_membersExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>プロジェクトの中から探した結果の一覧を開いているか。</summary>
+    public bool IsFoundInProjectExpanded
+    {
+        get => s_foundInProjectExpanded;
+        set
+        {
+            if (s_foundInProjectExpanded != value)
+            {
+                s_foundInProjectExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     /// <summary>
     /// 紐付けたプロジェクトの <c>Assets/</c> と <c>Packages/</c> を見て、手元のどの商品が入っているかを出す（#72・ユーザ案）。
@@ -895,7 +939,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// **次にやることを書く。**空欄だけだと、どうやって足すのか分からない。
     /// </summary>
     public string MembersEmptyText =>
-        "まだ追加していません。下の欄から探して追加するか、商品ページの「改変に追加して送る」でUnityへ送ると自動で入ります。";
+        "まだ追加していません。上の「使ったものを追加」で探して追加するか、商品ページの「改変に追加して送る」でUnityへ送ると自動で入ります。";
 
     public ObservableCollection<ModificationImageViewModel> Images { get; } = [];
 

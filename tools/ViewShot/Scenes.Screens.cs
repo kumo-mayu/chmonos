@@ -833,7 +833,12 @@ internal static partial class Scenes
 
             Backdoor.ShowProjectFindText(detail, $"このプロジェクトに入っている手元の商品が {rows.Count} 件ありました。この改変に使ったものなら「追加」を押してください。");
             await context.SettleAsync();
-            Look.Named<ScrollViewer>(Look.View<ModificationView>(root)!, "Body")!.ScrollToEnd();
+            // 見つかった商品は「使ったものを追加」の欄（写真の下・使ったものの上。feedback 2026-11-18）にあるので、末尾ではなく
+            // 「見つかった商品 n 件」の見出しを上端へ送る
+            var body = Look.Named<ScrollViewer>(Look.View<ModificationView>(root)!, "Body")!;
+            var foundToggle = Look.All<Chmonos.App.Controls.ExpandToggle>(body)
+                .Single(toggle => System.Windows.Automation.AutomationProperties.GetAutomationId(toggle) == "ModificationFoundToggle");
+            body.ScrollToVerticalOffset(body.VerticalOffset + foundToggle.TranslatePoint(new System.Windows.Point(0, 0), body).Y - 120);
             await context.SettleAsync();
             return new Shot(root) { Focus = () => Look.View<ModificationView>(root), FocusMargin = 0 };
         })
