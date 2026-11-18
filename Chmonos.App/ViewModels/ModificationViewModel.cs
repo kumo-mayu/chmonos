@@ -1701,17 +1701,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     private async Task DeleteAsync()
     {
-        var images = Record.Images.Count;
-        var answer = Services.Notice.Show(
-            $"改変「{Record.Name}」を削除します。\n\n"
-            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
-            + "元には戻せません。使った商品そのものは消えません。",
-            "改変を削除",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Cancel);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
+        if (!ConfirmDelete(Record))
         {
             return;
         }
@@ -1724,6 +1714,23 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         Deleted?.Invoke();
+    }
+
+    /// <summary>
+    /// 消す前の確認。右の帯の「削除」と、改変の画面の左の行の右クリックの「削除…」で同じ文にする
+    /// </summary>
+    internal static bool ConfirmDelete(ModificationRecord record)
+    {
+        var images = record.Images.Count;
+        var answer = Services.Notice.Show(
+            $"改変「{record.Name}」を削除します。\n\n"
+            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
+            + "元には戻せません。使った商品そのものは消えません。",
+            "改変を削除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+        return answer == System.Windows.MessageBoxResult.OK;
     }
 
     // ---- 構成物 ----

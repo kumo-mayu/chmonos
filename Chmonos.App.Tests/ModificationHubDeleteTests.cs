@@ -55,4 +55,39 @@ public class ModificationHubDeleteTests
 
         Assert.Equal(["残す改変"], Names(hub));
     });
+
+    [Fact]
+    public Task 行の右クリックの削除は_確認してから消し_開いていた右を閉じる() => TestApp.Run(async app =>
+    {
+        var (hub, _, doomed) = await OpenAsync(app);
+        hub.ShowModificationCommand.Execute(doomed);
+
+        var asked = new List<string>();
+        app.Answer = request =>
+        {
+            asked.Add(request.Text);
+            return MessageBoxResult.OK;
+        };
+        hub.DeleteModificationCommand.Execute(hub.Groups.OfType<HubModificationRow>().Single(row => row.Name == "消す改変"));
+        await UiThread.Until(() => Names(hub).Count == 1, "消した改変が左から消える");
+
+        Assert.Contains("改変「消す改変」を削除します。", Assert.Single(asked));
+        Assert.Null(hub.Detail);
+        Assert.Equal("改変「消す改変」を消しました。", hub.Status);
+        Assert.Null(await app.Services.Modifications.LoadAsync(doomed.Id));
+    });
+
+    [Fact]
+    public Task 行の右クリックの削除を取り消すと_何も消さない() => TestApp.Run(async app =>
+    {
+        var (hub, kept, _) = await OpenAsync(app);
+        hub.ShowModificationCommand.Execute(kept);
+
+        // 既定の答えは「キャンセル」
+        await hub.DeleteModificationAsync(kept.Id);
+
+        Assert.Equal(2, Names(hub).Count);
+        Assert.IsType<ModificationViewModel>(hub.Detail);
+        Assert.NotNull(await app.Services.Modifications.LoadAsync(kept.Id));
+    });
 }

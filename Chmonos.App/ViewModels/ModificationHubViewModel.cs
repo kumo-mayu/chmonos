@@ -104,6 +104,13 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 }
             },
             _ => !_duplicating);
+        DeleteModificationCommand = new RelayCommand(parameter =>
+        {
+            if (RecordOf(parameter) is { } record)
+            {
+                DeleteModificationAsync(record.Id).Forget();
+            }
+        });
         ShowAvatarCommand = new RelayCommand(parameter =>
         {
             if (AvatarIdOf(parameter) is { } id)
@@ -463,6 +470,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     /// <summary>左の一覧の改変の行の右クリック「複製」。引数は行か改変</summary>
     public RelayCommand DuplicateModificationCommand { get; }
+
+    /// <summary>左の改変の行の右クリックの「削除…」（feedback 2026-11-18）。右の帯の「削除」と同じ確認と道</summary>
+    public RelayCommand DeleteModificationCommand { get; }
 
     public RelayCommand ShowAvatarCommand { get; }
 
@@ -963,6 +973,38 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         {
             ShowModification(created.Record, focusName: true);
         }
+    }
+
+    public async Task DeleteModificationAsync(string id)
+    {
+        // 行が持つ記録は一覧を組んだ時の物なので、確認に書く写真の枚数は今の記録から数える
+        if (await _services.Modifications.LoadAsync(id) is not { } record)
+        {
+            Status = "対象の改変が見つかりませんでした。";
+            await RefreshRecordsAsync();
+            return;
+        }
+
+        if (!ModificationViewModel.ConfirmDelete(record))
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteModification(id));
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        // 消した改変を右に開いていれば閉じる（開いたままだと、消えた改変に書き込める）
+        if (Detail is ModificationViewModel open && open.Record.Id == id)
+        {
+            Detail = null;
+        }
+
+        Status = $"改変「{record.Name}」を消しました。";
+        await RefreshRecordsAsync();
     }
 
     private async Task OpenItemPageAsync(string? itemId)

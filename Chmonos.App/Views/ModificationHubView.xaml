@@ -205,13 +205,17 @@
         <DataTemplate x:Key="HubModHeader" DataType="{x:Type vm:HubModificationRow}">
             <Border Style="{StaticResource HubPressableRow}"
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
-            <!-- 右クリック（メモ44 2026-10-05）。項目は「複製」だけで、いつでも押せる（元が無いときは失敗の文を出す） -->
+            <!-- 右クリック（メモ44 2026-10-05）。いつでも押せる（元が無いときは失敗の文を出す）。削除は確認の窓を出す（feedback 2026-11-18） -->
             <Border.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="複製" AutomationProperties.AutomationId="ModificationRowMenu.Duplicate"
                               Command="{Binding PlacementTarget.Tag.DuplicateModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding}"
                               ToolTip="使ったものとメモが同じ、新しい改変を作ります。" />
+                    <Separator />
+                    <MenuItem Header="削除…" AutomationProperties.AutomationId="ModificationRowMenu.Delete"
+                              Command="{Binding PlacementTarget.Tag.DeleteModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="{Binding}" />
                 </ContextMenu>
             </Border.ContextMenu>
             <Border.InputBindings>
