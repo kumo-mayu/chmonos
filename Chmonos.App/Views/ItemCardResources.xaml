@@ -35,6 +35,11 @@
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=CopyLink}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=CopyLink}"
                   Command="{Binding PlacementTarget.Tag.MenuCommands.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <!-- 統合先の指定や人への連絡でIDを手で書き写さずに取り出せる（商品ページの「IDをコピー」と同じ物。ユーザ指示 2026-11-15） -->
+        <MenuItem Header="IDをコピー" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.CopyId"
+                  IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=CopyId}"
+                  ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=CopyId}"
+                  Command="{Binding PlacementTarget.Tag.MenuCommands.CopyIdCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <Separator />
         <!--
             選んでいる最中はカードを押すと選択の切り替えになるので、商品ページへの出口（カードの「中を見る」）をここにも置く。
@@ -76,7 +81,7 @@
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=AddToModification}"
                   Command="{Binding PlacementTarget.Tag.MenuCommands.CardAddToModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <Separator />
-        <MenuItem Header="更新の通知を開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
+        <MenuItem Header="更新通知を開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=ShowUpdate}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=ShowUpdate}" />
         <!--
@@ -611,7 +616,7 @@
     <!-- カード／リストの切り替えの1区画（置き場所は下の ItemViewModeSwitch） -->
     <Style x:Key="ItemViewModeSegment" TargetType="RadioButton">
         <Setter Property="Height" Value="28" />
-        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Padding" Value="8,0" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource Text}" />
         <Setter Property="Cursor" Value="Hand" />
@@ -728,7 +733,7 @@
                             AutomationProperties.AutomationId="SelectionBar.AddToModification"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
-                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
+                    <Button Content="全てUnityへ送る…" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
                             AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />

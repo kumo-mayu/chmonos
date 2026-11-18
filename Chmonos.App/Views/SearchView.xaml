@@ -472,17 +472,17 @@
                             </MenuItem>
                         </Menu>
                         <!--
-                            保存した条件（ユーザ判断 2026-10-05・メモ36。案A3の節をやめ、「条件を追加」の隣のボタンから開く一覧にした）。
+                            保存した検索（ユーザ判断 2026-10-05・メモ36。案A3の節をやめ、「条件を追加」の隣のボタンから開く一覧にした）。
                             行を押すと今の検索を置き換えて閉じる。今の検索と同じ行は地の色と ✓、ボタンの末尾にも点を出す（閉じていても分かる）。
                             行の「…」と右クリックに条件を上書き・名前の変更・移動・削除。6件目からは探す欄を出し、5件ぶんの高さで中だけを流す。
                             キーボード：ボタンは Tab で止まり Enter・Space・↓ で開く。開くと先頭の行（無ければ「今の検索を保存」）に止まり、
                             条件の並びと同じ FrameList で ↑↓ が行を移り、Enter が呼び出す（FocusFrame.Command）。Esc で閉じてボタンへ戻る
                         -->
                         <ToggleButton x:Name="SavedSearchesButton" Margin="4,0,0,0" Height="30" Padding="10,0" Cursor="Hand"
-                                      AutomationProperties.AutomationId="SavedSearchesButton" AutomationProperties.Name="保存した条件"
+                                      AutomationProperties.AutomationId="SavedSearchesButton" AutomationProperties.Name="保存した検索"
                                       AutomationProperties.HelpText="{Binding CurrentSavedName}"
                                       PreviewKeyDown="OnSavedButtonKeyDown"
-                                      ToolTip="保存した条件を開いて、今の検索を置き換えます。">
+                                      ToolTip="保存した検索を開いて、今の検索を置き換えます。">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Template">
@@ -491,7 +491,7 @@
                                                 <Border x:Name="Face" Background="Transparent" CornerRadius="5" Padding="{TemplateBinding Padding}"
                                                         BorderBrush="Transparent" BorderThickness="1">
                                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="保存した条件 ▾" FontSize="12.5" Foreground="{DynamicResource Accent}" />
+                                                        <TextBlock Text="保存した検索 ▾" FontSize="12.5" Foreground="{DynamicResource Accent}" />
                                                         <Ellipse Width="6" Height="6" Margin="5,0,0,0" Fill="{DynamicResource Accent}" VerticalAlignment="Center"
                                                                  Visibility="{Binding ShowsCurrentSaved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     </StackPanel>
@@ -531,7 +531,7 @@
                                 </Border.Effect>
                                 <StackPanel>
                                     <DockPanel>
-                                        <TextBlock DockPanel.Dock="Left" Text="保存した条件" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center" />
+                                        <TextBlock DockPanel.Dock="Left" Text="保存した検索" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center" />
                                         <TextBlock DockPanel.Dock="Left" Text="{Binding SavedCountText}" Style="{StaticResource Caption}" Margin="6,0,0,0" VerticalAlignment="Center" />
                                         <Button x:Name="SaveCurrentSearchButton" DockPanel.Dock="Right" Content="＋ 今の検索を保存" Command="{Binding SaveCurrentSearchCommand}"
                                                 Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}"
@@ -1670,6 +1670,12 @@
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.MoveUp'}" />
                                                     <MenuItem Header="下へ移動" AutomationProperties.Name="下へ移動" Command="{Binding MoveDownCommand}"
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.MoveDown'}" />
+                                                    <!-- 1つずつの移動とは区切って置く（ユーザ判断 2026-11-17）。押したときに並べ替える範囲が条件の全部だから -->
+                                                    <Separator />
+                                                    <MenuItem Header="同じ種類の条件を隣に並べる" AutomationProperties.Name="同じ種類の条件を隣に並べる"
+                                                              Command="{Binding GroupKindsCommand}"
+                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.GroupKinds'}"
+                                                              controls:MenuTips.Disabled="同じ種類の条件はもう隣に並んでいます。" />
                                                     <Separator />
                                                     <MenuItem Header="この条件を外す" AutomationProperties.Name="この条件を外す" Command="{Binding RemoveCommand}"
                                                               AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Menu.Remove'}" />
@@ -1857,7 +1863,7 @@
               </DockPanel>
             </Border>
 
-            <Border DockPanel.Dock="Top" Height="78" Background="{DynamicResource Surface}"
+            <Border DockPanel.Dock="Top" MinHeight="78" Background="{DynamicResource Surface}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
                 <StackPanel Margin="18,9,18,0">
                   <!--
@@ -1901,18 +1907,9 @@
                                     Visibility="{Binding HasQueryText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <TextBlock Text="{Binding QueryPlaceholder}" IsHitTestVisible="False"
                                        Foreground="{DynamicResource TextFaint}" FontSize="13"
-                                       VerticalAlignment="Center" Margin="12,0,0,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding QueryText}" Value="">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       Visibility="{Binding Text.IsEmpty, ElementName=QueryBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!-- 透かしは欄そのものの文字で出し入れする。QueryText は 200ms 遅れて入る（打つたびに絞り直さないため）ので、それで決めると打った文字と少しの間重なった（改変のハブと同じ直し方） -->
                         </Grid>
                     </Border>
 
@@ -2072,15 +2069,15 @@
                     -->
                     <!-- 絞り込み欄を開いた幅 900px の窓では、送った先の1行にも入り切らない。表示順と切り替えの間でも折り返す -->
                     <WrapPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,8,2">
-                        <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,6,2">
+                        <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,5,0" />
                         <!--
                             押すとメニューが開くボタン（ユーザ判断 2026-10-06：「属性」の中に大量の属性が入っている形）。
                             プルダウンは子の一覧を持てないので、「属性 ▸」の子に属性を入れるためにメニューにした。閉じた姿はプルダウンと同じ顔（DropDownButton）。
                             メニューの並びと区切りは SearchViewModel.SortMenu。属性が多くても、下の段は画面の高さで止まって中が流れる（メニューの型の MenuScrollViewer）
                         -->
                         <Button Style="{StaticResource DropDownButton}" Content="{Binding SortField.Label}"
-                                Width="150" Height="28" FontSize="12"
+                                Width="92" Height="28" FontSize="12"
                                 Click="OnSortFieldMenuClick" PreviewKeyDown="OnSortFieldMenuKeyDown"
                                 AutomationProperties.AutomationId="SearchSortField"
                                 AutomationProperties.Name="{Binding SortField.Label, StringFormat='並べ替えに使う項目、{0}'}">
@@ -2132,16 +2129,16 @@
                             </Button.ContextMenu>
                         </Button>
                     </StackPanel>
-                        <Grid Margin="0,2,16,2" VerticalAlignment="Center">
+                        <Grid Margin="0,2,10,2" VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <RadioButton Grid.Column="0" GroupName="SearchSortOrder" Style="{StaticResource SegmentFirst}"
-                                         Content="{Binding DescendingLabel}" MinWidth="82"
+                                         Content="{Binding DescendingLabel}" MinWidth="0"
                                          IsChecked="{Binding SortsDescending, Mode=TwoWay}" AutomationProperties.AutomationId="SearchSortDescending" />
                             <RadioButton Grid.Column="1" GroupName="SearchSortOrder" Style="{StaticResource SegmentLast}"
-                                         Content="{Binding AscendingLabel}" MinWidth="82"
+                                         Content="{Binding AscendingLabel}" MinWidth="0"
                                          IsChecked="{Binding SortsAscending, Mode=TwoWay}" AutomationProperties.AutomationId="SearchSortAscending" />
                         </Grid>
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
@@ -2218,7 +2215,22 @@
                         絞り込んで0件なのか、そもそも何も入っていないのかで、次にやることが違う。
                         「取り込んでください」は、条件で絞った結果が0件のときには的外れになる。
                     -->
-                    <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource EmptyNote}" Margin="0,6,0,0" />
+                    <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource EmptyNote}" Margin="0,6,0,0"
+                               Visibility="{Binding ShowsEmptyClear, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <!--
+                        文の頭の「条件をクリア」をボタンにする（ユーザ判断 2026-11-17）。左の欄を畳んでいても押せる。
+                        続きの文は EmptyNote と同じ見た目で、ボタンの右に1行で並べる
+                    -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0"
+                                Visibility="{Binding ShowsEmptyClear, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Button Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
+                                Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}"
+                                FontSize="12" VerticalAlignment="Center" Padding="4,2"
+                                AutomationProperties.AutomationId="SearchEmptyClearFilters"
+                                AutomationProperties.Name="条件をクリア"
+                                ToolTip="入力と条件の値をクリアします。前の条件は検索の履歴から戻せます。" />
+                        <TextBlock Text="{Binding EmptyClearTail}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <!-- 0件でも自動では広げない（ユーザ判断 2026-09-16）。広げるかはここで選ばせる -->
                     <Button Content="別表記でも検索する" Style="{StaticResource SmallButton}" HorizontalAlignment="Center"
                             Margin="0,10,0,0" Command="{Binding WidenCommand}"

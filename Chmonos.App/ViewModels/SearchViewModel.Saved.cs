@@ -6,7 +6,7 @@ using Chmonos.Core.Services;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>
-/// 検索画面：保存した検索（ユーザ判断 2026-10-03）。画面での呼び名は「保存した条件」（2026-10-05・メモ36）。
+/// 検索画面：保存した検索（ユーザ判断 2026-10-03）。画面の呼び名も「保存した検索」（2026-11-17 のユーザ判断。前は「保存した条件」）。
 ///
 /// 今の検索の打った文字・条件・表示順・カードかリストかを名前を付けて残し、呼び出すと今の検索を**置き換える**。
 /// 置き場は「条件を追加」の隣のボタンから開く一覧（2026-10-04 の畳める節から変えた）。並びは人が決め、履歴のように古い物から押し出さない。
@@ -170,8 +170,8 @@ public sealed partial class SearchViewModel
     public async Task DeleteSavedAsync(string name)
     {
         var answer = Services.Notice.Show(
-            $"保存した条件「{name}」を削除します。\n削除すると元に戻せません。",
-            "保存した条件を削除",
+            $"保存した検索「{name}」を削除します。\n削除すると元に戻せません。",
+            "保存した検索を削除",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question,
             MessageBoxResult.Cancel);
@@ -196,7 +196,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public event Action<string>? SavedRowFocusRequested;
 
-    /// <summary>保存した条件を呼び出した（画面が一覧を閉じる）。</summary>
+    /// <summary>保存した検索を呼び出した（画面が一覧を閉じる）。</summary>
     public event Action? SavedApplied;
 
     private async Task ChangeSavedAsync(
@@ -233,7 +233,7 @@ public sealed partial class SearchViewModel
         {
             Services.Notice.Show(
                 $"表示順「{entry.Sort}」は今は選べないため、{DefaultSort.Label}で並べています。",
-                "保存した条件",
+                "保存した検索",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -314,7 +314,7 @@ public sealed partial class SearchViewModel
     internal void RenameSavedFromMenu(string name) => AskRenameSaved(name);
 }
 
-/// <summary>保存した条件の一覧の1行。</summary>
+/// <summary>保存した検索の一覧の1行。</summary>
 public sealed class SavedSearchRow : ViewModelBase
 {
     private bool _isCurrent;

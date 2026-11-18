@@ -32,7 +32,7 @@ public class CardMenuOrderTests
 
         Assert.Equal(
             [
-                "CardMenu.OpenBooth", "CardMenu.CopyLink",
+                "CardMenu.OpenBooth", "CardMenu.CopyLink", "CardMenu.CopyId",
                 Separator,
                 "CardMenu.OpenItem", "CardMenu.OpenShop", "CardMenu.Edit",
                 Separator,

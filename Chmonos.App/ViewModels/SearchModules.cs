@@ -330,6 +330,9 @@ public abstract class SearchModule : ReorderableRow
 
     public RelayCommand? MoveDownCommand { get; set; }
 
+    /// <summary>条件のメニューの「同じ種類の条件を隣に並べる」（ユーザ判断 2026-11-17。見出しのメニューと同じ命令を、枠の右クリックにも置く）。検索側が入れる。</summary>
+    public RelayCommand? GroupKindsCommand { get; set; }
+
     /// <summary>条件が変わった（検索側が絞り直して、状態を書く）。</summary>
     public event Action? Changed;
 

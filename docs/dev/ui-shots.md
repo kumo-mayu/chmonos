@@ -49,7 +49,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | フォーカスの枠 | `search-sort-shop-focus`・`search-sort-name-focus` |
 | 選んだ（下の帯） | `search-selected-updated`・`search-selected-quiet` |
 | 札「更新あり」・壊れたzip・見つかりません・BOOTHに無い | `search-updated`・`search-broken-zip`・`search-missing-file`・`search-not-on-booth` |
-| 保存した条件（0・3・12件・閉じた姿） | `search-saved-none`・`search-saved-some`・`search-saved-many`・`search-saved-closed` |
+| 保存した検索（0・3・12件・閉じた姿） | `search-saved-none`・`search-saved-some`・`search-saved-many`・`search-saved-closed` |
 | カレンダー（日付の条件） | `calendar` |
 | 読み込み中（最初の1コマ。明るい色だけ） | `catalog-search-first-frame` |
 | 「条件を追加」のメニュー（見出しの一覧と見出しごとの下の段） | `search-add-menu`（ポップアップの中身を外して横に並べる・2026-10-06） |

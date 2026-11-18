@@ -71,6 +71,10 @@ public sealed class ItemCardViewModel : ViewModelBase
         ? "BOOTHに無い商品なので開けません。"
         : "BOOTHの商品ページをブラウザで開きます。アプリの外へ出ます。";
 
+    public string CopyIdTip => Item.IsLocalOnly
+        ? "仮のIDをクリップボードへコピーします。"
+        : "商品IDをクリップボードへコピーします。";
+
     public string CopyLinkTip => Item.IsLocalOnly
         ? "BOOTHに無い商品なので、リンクがありません。"
         : "BOOTHの商品ページのリンクをコピーします。";

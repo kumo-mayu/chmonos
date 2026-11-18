@@ -103,7 +103,7 @@ internal static class CardMenuState
         return key switch
         {
             // 商品の JSON が要る
-            "Favorite" or "OpenItem" or "Edit" or "AddToModification" or "Hide" => card is not null,
+            "Favorite" or "OpenItem" or "Edit" or "AddToModification" or "Hide" or "CopyId" => card is not null,
             "OpenBooth" or "CopyLink" => card is { HasBoothPage: true },
             "OpenShop" => card is { HasShop: true },
             // 手元のファイルが要る。全部見つからない商品は、どれも押せない（押しても「無い」と言うだけ。メモ65-①）
@@ -141,6 +141,7 @@ internal static class CardMenuState
             {
                 "OpenBooth" => card!.OpenBoothTip,
                 "CopyLink" => card!.CopyLinkTip,
+                "CopyId" => card!.CopyIdTip,
                 "OpenShop" => card!.OpenShopTip,
                 "Reveal" => "手元のファイルの場所を開きます。2つ以上あれば、どれを開くか選べます。",
                 "Unpack" => "zipを一時フォルダに展開して開きます。展開したものはアプリを閉じると消えます。",

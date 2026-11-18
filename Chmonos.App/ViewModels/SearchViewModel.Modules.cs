@@ -127,6 +127,7 @@ public sealed partial class SearchViewModel
         // 畳んだ・開いたは結果を変えないので、絞り直さずに状態だけ書く
         module.ViewChanged += SaveModulesLater;
         module.RemoveCommand = new RelayCommand(() => RemoveModule(module));
+        module.GroupKindsCommand = GroupModulesCommand;
         module.MoveUpCommand = new RelayCommand(() => MoveModuleBy(module, -1), () => Modules.IndexOf(module) > 0);
         module.MoveDownCommand = new RelayCommand(
             () => MoveModuleBy(module, +1),

@@ -499,6 +499,8 @@ public sealed partial class SearchViewModel
         {
             _openUnityEmptyHint = OpenUnityEmptyHint();
             OnPropertyChanged(nameof(EmptyHint));
+            OnPropertyChanged(nameof(EmptyClearTail));
+            OnPropertyChanged(nameof(ShowsEmptyClear));
         }
 
         foreach (var module in ProjectContentsModules())

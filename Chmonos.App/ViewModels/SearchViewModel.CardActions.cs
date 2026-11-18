@@ -20,6 +20,9 @@ public sealed partial class SearchViewModel
     /// <summary>商品ページのURLをコピーする。人に教えるときに要る。</summary>
     public RelayCommand CopyLinkCommand { get; }
 
+    /// <summary>右クリックの「IDをコピー」（ユーザ指示 2026-11-15）。商品ページの CopyId と同じく、IDそのものだけを写す。</summary>
+    public RelayCommand CopyIdCommand { get; }
+
     public RelayCommand EditItemCommand { get; }
 
     public RelayCommand RevealCommand { get; }
@@ -89,6 +92,16 @@ public sealed partial class SearchViewModel
 
         // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
         Services.ClipboardText.TrySet(url);
+    }
+
+    /// <summary>商品IDそのものだけをクリップボードへ。「ID 12345」ごと写しても貼れない。BOOTHに無い商品は仮のIDを写す（商品ページと同じ）。</summary>
+    private static void CopyId(ItemCardViewModel? card)
+    {
+        if (card is not null)
+        {
+            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+            Services.ClipboardText.TrySet(card.Item.Id);
+        }
     }
 
     /// <summary>ショップはアプリ内の画面へ送る（外のBOOTHではなく、手持ちが見える方）。</summary>

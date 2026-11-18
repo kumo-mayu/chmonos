@@ -12,7 +12,7 @@ public class CardMenuStateTests
 {
     private static readonly string[] NeedFiles = ["Reveal", "Unpack", "SendToUnity", "SendToUnityWithRecord", "SelectInUnity"];
 
-    private static readonly string[] NeedJson = ["Favorite", "OpenItem", "Edit", "AddToModification", "Hide", "OpenBooth", "OpenShop", "CopyLink"];
+    private static readonly string[] NeedJson = ["Favorite", "OpenItem", "Edit", "AddToModification", "Hide", "OpenBooth", "OpenShop", "CopyLink", "CopyId"];
 
     private sealed class Row(ItemCardViewModel? card) : IHasItemCard
     {

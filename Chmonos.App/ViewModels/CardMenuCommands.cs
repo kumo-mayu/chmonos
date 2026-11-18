@@ -15,6 +15,8 @@ public sealed record CardMenuCommands
 
     public required RelayCommand CopyLinkCommand { get; init; }
 
+    public required RelayCommand CopyIdCommand { get; init; }
+
     public required RelayCommand OpenShopCommand { get; init; }
 
     public required RelayCommand EditItemCommand { get; init; }
@@ -40,6 +42,7 @@ public sealed record CardMenuCommands
     {
         OpenBoothCommand = search.OpenBoothCommand,
         CopyLinkCommand = search.CopyLinkCommand,
+        CopyIdCommand = search.CopyIdCommand,
         OpenShopCommand = search.OpenShopCommand,
         EditItemCommand = search.EditItemCommand,
         CardAddToModificationCommand = search.CardAddToModificationCommand,
