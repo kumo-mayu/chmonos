@@ -6,18 +6,18 @@ using Chmonos.App.Services;
 namespace Chmonos.App.Views;
 
 /// <summary>
-/// ほかのソフトが足した項目を、メニューの項目にする（plan 44 の②）。本物の項目と取り違えないよう、全部を
-/// 「ほかのソフト ▸ {ソフトの名前} ▸ …」の下にまとめる（名前はソフトが付けた物で、本人の確かめにならない）。
+/// プラグインが足した項目を、メニューの項目にする（plan 44 の②）。本物の項目と取り違えないよう、全部を
+/// 「プラグイン ▸ {ソフトの名前} ▸ …」の下にまとめる（名前はソフトが付けた物で、本人の確かめにならない）。
 /// 押せない項目も出して吹き出しで理由を言う（右クリックの決まり）。子が全部押せない親は押せなくして、最初の子の理由を言う
 /// </summary>
 internal static class PluginMenuItems
 {
-    public const string RootHeader = "ほかのソフト";
+    public const string RootHeader = "プラグイン";
 
     /// <summary>カードの右クリックに足した物の印（開くたびに外して作り直す）。</summary>
     private const string AddedTag = "PluginMenu.Added";
 
-    /// <summary>ソフトごとの段（「ほかのソフト ▾」のボタンから開くメニューの中身）。</summary>
+    /// <summary>ソフトごとの段（「プラグイン ▾」のボタンから開くメニューの中身）。</summary>
     public static List<MenuItem> SoftwareItems(PluginMenuService service, IReadOnlyList<PluginMenuSoftware> softwares, string where, IReadOnlyList<string> itemIds)
         => softwares.Select(software =>
         {
@@ -30,7 +30,7 @@ internal static class PluginMenuItems
             return item;
         }).ToList();
 
-    /// <summary>「ほかのソフト ▸」の1項目（出すソフトが無ければ null：項目ごと出さない）。</summary>
+    /// <summary>「プラグイン ▸」の1項目（出すソフトが無ければ null：項目ごと出さない）。</summary>
     public static MenuItem? Root(PluginMenuService service, IReadOnlyList<PluginMenuSoftware> softwares, string where, IReadOnlyList<string> itemIds)
     {
         if (softwares.Count == 0)
@@ -55,7 +55,7 @@ internal static class PluginMenuItems
     }
 
     /// <summary>
-    /// カードの右クリックの末尾に、区切りと「ほかのソフト ▸」を足す（無ければ足さない。区切りも一緒に出し入れし、区切りが端に残らない）。
+    /// カードの右クリックの末尾に、区切りと「プラグイン ▸」を足す（無ければ足さない。区切りも一緒に出し入れし、区切りが端に残らない）。
     /// 項目は XAML に置かない：カードのメニューは全カードで1つを使い回し、ソフトの有無と押せるかは開いた商品で決まる
     /// </summary>
     public static void AttachTo(ContextMenu menu, PluginMenuService? service, string? itemId)
@@ -81,7 +81,7 @@ internal static class PluginMenuItems
     }
 
     /// <summary>
-    /// 「ほかのソフト ▾」のボタンの下に、その時の中身でメニューを開く。閉じたらボタンから外す：残すと、ボタンの右クリックで
+    /// 「プラグイン ▾」のボタンの下に、その時の中身でメニューを開く。閉じたらボタンから外す：残すと、ボタンの右クリックで
     /// 前に作ったメニュー（前の選択・前の商品）が開き、古い物を送ってしまう
     /// </summary>
     public static void OpenOnce(Button button, ContextMenu menu, System.Windows.RoutedEventArgs e)

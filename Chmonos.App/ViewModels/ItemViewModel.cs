@@ -164,7 +164,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public ItemRecord Item { get; private set; }
 
-    /// <summary>ほかのソフトの項目の係（上の帯の「ほかのソフト ▾」を出すか。plan 44 の②）。</summary>
+    /// <summary>プラグインの項目の係（上の帯の「プラグイン ▾」を出すか。plan 44 の②）。</summary>
     public Services.PluginMenuService PluginMenus => _services.PluginMenus;
 
     public RelayCommand BackCommand { get; }

@@ -923,7 +923,7 @@
             </Border>
 
             <!--
-                ほかのソフトの項目を押した知らせ（plan 44 の②）。押すのは右クリック・帯のメニューで行を持たないので、非表示の帯と同じ場所に出す。
+                プラグインの項目を押した知らせ（plan 44 の②）。押すのは右クリック・帯のメニューで行を持たないので、非表示の帯と同じ場所に出す。
                 「{名前}に送りました。」の後、ソフトが結果を返したら「{名前}：{結果}」に差し替える。送れなかった・うまくいかなかったは注意の色
             -->
             <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
@@ -931,7 +931,7 @@
                     Visibility="{Binding PluginMenus.HasNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
-                            Command="{Binding PluginMenus.DismissNoticeCommand}" AutomationProperties.Name="ほかのソフトの知らせを閉じる"
+                            Command="{Binding PluginMenus.DismissNoticeCommand}" AutomationProperties.Name="プラグインの知らせを閉じる"
                             AutomationProperties.AutomationId="PluginNoticeClose"
                             ToolTip="この知らせを閉じます。" />
                     <TextBlock Text="{Binding PluginMenus.NoticeText}" VerticalAlignment="Center"

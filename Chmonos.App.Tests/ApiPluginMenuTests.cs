@@ -16,7 +16,7 @@ using Chmonos.Core.Storage;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// ほかのソフトの項目を画面に出す（plan 44 の②・docs/spec/plugins-menu.md）：メニューの組み立て（押せない理由・「ほかのソフト」を出さない時・
+/// プラグインの項目を画面に出す（plan 44 の②・docs/spec/plugins-menu.md）：メニューの組み立て（押せない理由・「プラグイン」を出さない時・
 /// 区切りの出し入れ・「_」）、押したら列に積んで帯で「送りました」、結果で帯の文を差し替える（古い結果では上書きしない）、
 /// 複数選択の帯のボタンは1つ、許し直しの窓の行と拒否の数え方。本物の API を同じプロセスで動かす。名前・ID は作り物
 /// </summary>
@@ -193,7 +193,7 @@ public sealed class ApiPluginMenuTests
     });
 
     [Fact]
-    public Task 取り消したら_ほかのソフト自体を出さない() => Run(async (app, main, client) =>
+    public Task 取り消したら_プラグイン自体を出さない() => Run(async (app, main, client) =>
     {
         var menus = app.Services.PluginMenus;
         await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeApiClients(list => list with { Clients = [] }));
@@ -216,7 +216,7 @@ public sealed class ApiPluginMenuTests
         Assert.Equal([cards[0].Item.Id, cards[2].Item.Id], search.SelectedItemIdsForPlugins());
         Assert.Same(app.Services.PluginMenus, search.PluginMenus);
 
-        // 帯に置く「ほかのソフト」のボタンは、項目がいくつあっても1つ（帯を長くしない）
+        // 帯に置く「プラグイン」のボタンは、項目がいくつあっても1つ（帯を長くしない）
         var template = (System.Windows.DataTemplate)new ItemCardResources()["ItemSelectionBar"];
         var bar = (System.Windows.FrameworkElement)template.LoadContent();
         var buttons = Descendants(bar).OfType<Button>().Where(button => AutomationProperties.GetAutomationId(button) == "SelectionBar.Plugins").ToList();

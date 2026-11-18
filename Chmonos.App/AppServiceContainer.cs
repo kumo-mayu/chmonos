@@ -348,7 +348,7 @@ public sealed class AppServiceContainer : IDisposable
     private Services.PluginSelectionBatcher? _pluginSelection;
 
     /// <summary>
-    /// ほかのソフトが足した項目と、押した後の下の帯（plan 44 の②）。ソフトの結果と項目の変化は裏のスレッドから来るので、
+    /// プラグインが足した項目と、押した後の下の帯（plan 44 の②）。ソフトの結果と項目の変化は裏のスレッドから来るので、
     /// 画面のスレッドへ渡す（画面の無い試験では、その場で動かす）
     /// </summary>
     public Services.PluginMenuService PluginMenus => _pluginMenus ??= new(PluginEvents, action =>
