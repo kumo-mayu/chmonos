@@ -71,6 +71,15 @@ public class StatsPeriodsTests
     }
 
     [Fact]
+    public void 開始と終了の片方を選んでいない時の札は_開いた端を空けて出し_落ちない()
+    {
+        // 終了を外すと終わりは DateOnly.MaxValue になる。開始が月初だと月まるごとかを見る月末の計算が範囲を越えていた（Codex の点検 2026-11-19）
+        Assert.Equal("2025/03/01〜", StatsPeriods.Label(StatsPeriods.Between(new(2025, 3, 1), DateOnly.MaxValue)));
+        Assert.Equal("〜2025/03/31", StatsPeriods.Label(StatsPeriods.Between(DateOnly.MinValue, new(2025, 3, 31))));
+        Assert.Equal("全期間", StatsPeriods.Label(StatsPeriods.Between(DateOnly.MinValue, DateOnly.MaxValue)));
+    }
+
+    [Fact]
     public void 二十四ヶ月までは月で_それより長いと年で並べる()
     {
         Assert.True(StatsPeriods.ByMonth(StatsPeriods.LastMonths(Today, 24)));

@@ -55,7 +55,8 @@ public static class StatsPeriods
 
     private static DateOnly MonthStart(DateOnly date) => new(date.Year, date.Month, 1);
 
-    private static DateOnly MonthEnd(DateOnly date) => MonthStart(date).AddMonths(1).AddDays(-1);
+    // 翌月の1日から1日戻すと、9999年12月（開いた端に使う DateOnly.MaxValue）で範囲を越えて例外になる
+    private static DateOnly MonthEnd(DateOnly date) => new(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month));
 
     /// <summary>
     /// 今月までの <paramref name="months"/> ヶ月（月初から月末まで）。
@@ -82,6 +83,15 @@ public static class StatsPeriods
     public static string Label(StatsDateRange range)
     {
         var (from, to) = (range.From, range.To);
+
+        // 「開始と終了を選ぶ」で片方を選んでいない端は、最小・最大の日付で開けてある。0001年・9999年は見せない
+        if (from == DateOnly.MinValue || to == DateOnly.MaxValue)
+        {
+            return from == DateOnly.MinValue && to == DateOnly.MaxValue ? "全期間"
+                : from == DateOnly.MinValue ? $"〜{to:yyyy/MM/dd}"
+                : $"{from:yyyy/MM/dd}〜";
+        }
+
         if (from.Day == 1 && to == MonthEnd(to))
         {
             if (from.Month == 1 && to.Month == 12 && from.Year == to.Year)
