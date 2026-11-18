@@ -24,6 +24,9 @@ public sealed class FolderClearFieldTests
         Assert.True(folders.HasFilter);
         Assert.Empty(folders.Rows);
 
+        // 欄の語は「探す」に揃える（open.md 94 行）。文字で当たらない時は、言葉を変える事を言う
+        Assert.Equal("当てはまるものがありません。探す言葉を変えてみてください。", folders.EmptyText);
+
         folders.ClearFilterCommand.Execute(null);
 
         Assert.Equal(string.Empty, folders.Filter);

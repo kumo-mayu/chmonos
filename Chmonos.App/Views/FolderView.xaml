@@ -254,8 +254,8 @@
                         <!-- 右は × のぶん空ける（打った文字が × の下に潜らないように。未確定の探す欄と同じ 26） -->
                         <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged, Delay=250}" Height="30"
                                  VerticalContentAlignment="Center" Padding="7,0,26,0" AutomationProperties.AutomationId="FolderTreeFilter"
-                                 AutomationProperties.Name="ファイル名・商品名・フォルダ名で絞り込む" />
-                        <TextBlock Text="ファイル名・商品名・フォルダ名で絞り込む" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
+                                 AutomationProperties.Name="ファイル名・商品名・フォルダ名で探す" />
+                        <TextBlock Text="ファイル名・商品名・フォルダ名で探す" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                         <!-- 打った文字を消す（検索画面と同じ ×。open.md 89 行：消せる事が分かるように） -->
                         <Button HorizontalAlignment="Right" Margin="0,0,6,0"

@@ -664,9 +664,12 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     /// <summary>空のときに次にやることを書く。</summary>
     public string EmptyText => _loadFailure ?? (_isLoading
         ? "読み込んでいます…"
-        : IsFiltering
-            ? "当てはまるものがありません。絞り込みを変えてみてください。"
-            : "まだ手元のファイルがありません。「取り込み」でフォルダを選ぶと、ここに置き場所ごとに並びます。");
+        : Filter.Trim().Length > 0
+            ? "当てはまるものがありません。探す言葉を変えてみてください。"
+            : IsFiltering
+                // 文字は無く、「管理対象」「未確定」の片方だけを出している。言葉を変えても出ないので、切り替えの方を言う
+                ? "表示するファイルがありません。「管理対象」か「未確定」をオンにしてみてください。"
+                :"まだ手元のファイルがありません。「取り込み」でフォルダを選ぶと、ここに置き場所ごとに並びます。");
 
     // ---- 操作 ----
 
