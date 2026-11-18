@@ -172,7 +172,7 @@
                         キーボードでは隣の絵のボタンが同じ動きをするので、Tab の止まり先を増やさない
                     -->
                     <controls:SelectableLink AutomationProperties.AutomationId="ModificationsMemberLink" AutomationProperties.Name="{Binding Name}"
-                                             Style="{StaticResource SelectableBody}" FontSize="12" Foreground="{DynamicResource Text}" MaxHeight="21" Margin="-2,0,0,0"
+                                             Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="12" Foreground="{DynamicResource Text}" MaxHeight="21" Margin="-2,0,0,0"
                                              ToolTip="{Binding Name}"
                                              Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                              CommandParameter="{Binding}"

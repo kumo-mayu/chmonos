@@ -425,7 +425,7 @@ public partial class ItemCardResources : ResourceDictionary
             menu.DataContext = null;
             menu.ClearValue(FrameworkElement.DataContextProperty);
 
-            // ほかのソフトの項目（plan 44 の②）は開いた商品で押せるかが決まるので、開くたびに作り直す
+            // プラグインの項目（plan 44 の②）は開いた商品で押せるかが決まるので、開くたびに作り直す
             var card = menu.PlacementTarget is FrameworkElement { DataContext: var context }
                 ? context as ItemCardViewModel ?? (context as IHasItemCard)?.Card
                 : null;
@@ -434,14 +434,14 @@ public partial class ItemCardResources : ResourceDictionary
     }
 
     /// <summary>
-    /// ほかのソフトの項目の係（カードを置いた窓の主画面が持つ。主の窓の外・試験の台では無い）。
+    /// プラグインの項目の係（カードを置いた窓の主画面が持つ。主の窓の外・試験の台では無い）。
     /// <c>Application.MainWindow</c> は使わない：最初に作った窓（保存先の確かめ・既に起動している、の窓）を指すことがある
     /// </summary>
     internal static Services.PluginMenuService? PluginMenusOf(DependencyObject? target)
         => target is null ? null : (Window.GetWindow(target)?.DataContext as MainViewModel)?.PluginMenus;
 
     /// <summary>
-    /// 複数選択の帯の「ほかのソフト ▾」（plan 44 の②）。帯を項目で長くしないよう、いつも1つのボタンに畳み、押すとソフトごとの段を開く。
+    /// 複数選択の帯の「プラグイン ▾」（plan 44 の②）。帯を項目で長くしないよう、いつも1つのボタンに畳み、押すとソフトごとの段を開く。
     /// 選んだ商品は帯を持つ画面から読む（押した時点の選択）
     /// </summary>
     private void OnPluginSelectionClick(object sender, RoutedEventArgs e)

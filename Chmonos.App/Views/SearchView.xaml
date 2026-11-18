@@ -136,8 +136,8 @@
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
                     <Setter Property="Content" Value="{StaticResource IconChevronDown}" />
-                    <Setter Property="ToolTip" Value="この条件を開く" />
-                    <Setter Property="AutomationProperties.Name" Value="{Binding SpokenLabel, StringFormat={}{0}の条件を開く}" />
+                    <Setter Property="ToolTip" Value="この条件を広げる" />
+                    <Setter Property="AutomationProperties.Name" Value="{Binding SpokenLabel, StringFormat={}{0}の条件を広げる}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>

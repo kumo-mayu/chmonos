@@ -108,7 +108,7 @@ public class SmallTextTests
         Assert.Equal("a.zip", ModificationRowBuilder.FileTextOf(pickedFile, item));
         // 名前を引けないとき（手元の一覧に無い）は、記録があることだけ言う。送ったか選んだかは言い分けない
         Assert.Equal("使ったファイルの記録あり", ModificationRowBuilder.FileTextOf(sentWithoutName, item));
-        Assert.Equal("どのファイルを使ったかは分かりません", ModificationRowBuilder.FileTextOf(byHand, item));
+        Assert.Equal("使用ファイル未選択", ModificationRowBuilder.FileTextOf(byHand, item));
     }
 
     [Fact]

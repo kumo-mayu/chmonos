@@ -4,8 +4,8 @@ using Chmonos.App.ViewModels;
 namespace ViewShot;
 
 /// <summary>
-/// ほかのソフトが足した項目（plan 44 の②・docs/spec/plugins-menu.md）：許し直しの窓・複数選択の帯の「ほかのソフト ▾」・押した後の下の帯・
-/// 商品ページの「ほかのソフト ▾」。右クリックのメニューそのものは台で描けないので、中身は試験（ApiPluginMenuTests）で見る。名前・ID は作り物
+/// プラグインが足した項目（plan 44 の②・docs/spec/plugins-menu.md）：許し直しの窓・複数選択の帯の「プラグイン ▾」・押した後の下の帯・
+/// 商品ページの「プラグイン ▾」。右クリックのメニューそのものは台で描けないので、中身は試験（ApiPluginMenuTests）で見る。名前・ID は作り物
 /// </summary>
 internal static partial class Scenes
 {
@@ -45,7 +45,7 @@ internal static partial class Scenes
             Height = null,
         },
 
-        new Scene("plugin-selection-bar", "複数選択の帯：「ほかのソフト ▾」が1つ・下の帯に「送りました」", async context =>
+        new Scene("plugin-selection-bar", "複数選択の帯：「プラグイン ▾」が1つ・下の帯に「送りました」", async context =>
         {
             await SeedLibraryAsync(context, count: 4);
             var main = await context.StartAsync();
@@ -74,7 +74,7 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("plugin-item-page", "商品ページの上の帯：「ほかのソフト ▾」", async context =>
+        new Scene("plugin-item-page", "商品ページの上の帯：「プラグイン ▾」", async context =>
         {
             await SeedLibraryAsync(context, count: 1);
             var main = await context.StartAsync();

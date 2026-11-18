@@ -64,7 +64,7 @@
                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
                    Visibility="{Binding IsChange, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-        <TextBlock Text="このソフトはあと1回拒否すると、次から窓を開かずに断ります。"
+        <TextBlock Text="このソフトはあと1回拒否すると、次からウィンドウを開かずに断ります。"
                    Style="{StaticResource FieldWarning}" TextWrapping="Wrap" Margin="0,12,0,0"
                    AutomationProperties.AutomationId="PluginMenuApproval.LastRefusal"
                    Visibility="{Binding LastRefusal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

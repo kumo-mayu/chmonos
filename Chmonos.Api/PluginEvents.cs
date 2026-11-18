@@ -15,7 +15,7 @@ internal enum PluginSubscribeResult
     NotGranted,
 }
 
-/// <summary>右クリックなどに出すソフト1つ（「ほかのソフト ▸ {名前} ▸ …」の {名前} の段）。</summary>
+/// <summary>右クリックなどに出すソフト1つ（「プラグイン ▸ {名前} ▸ …」の {名前} の段）。</summary>
 public sealed record PluginMenuSoftware(string ClientId, string Name, PluginMenuReason Reason, IReadOnlyList<PluginMenuEntry> Items);
 
 /// <summary>出す項目1つ（子を持てば下の段を開くだけ）。</summary>
@@ -355,7 +355,7 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
 
     /// <summary>
     /// <paramref name="where"/> に出す項目を、ソフトごとに押せるかと理由を添えて並べる（許した順）。
-    /// 止めた（拒否が続いた）ソフトと、項目の無いソフトは入れない。API が止まっている・写しをまだ読んでいなければ空（「ほかのソフト」を出さない）
+    /// 止めた（拒否が続いた）ソフトと、項目の無いソフトは入れない。API が止まっている・写しをまだ読んでいなければ空（「プラグイン」を出さない）
     /// </summary>
     public IReadOnlyList<PluginMenuSoftware> MenusFor(string where, IReadOnlyList<string> itemIds)
     {
@@ -588,7 +588,7 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
     }
 
     /// <summary>
-    /// 出す項目が変わったかもしれない（許しの控えを読み直した・API が始まった・止まった）。画面は「ほかのソフト」を出すかを見直す。
+    /// 出す項目が変わったかもしれない（許しの控えを読み直した・API が始まった・止まった）。画面は「プラグイン」を出すかを見直す。
     /// 裏のスレッドから来る
     /// </summary>
     public event Action? MenusChanged;

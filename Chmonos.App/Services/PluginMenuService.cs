@@ -4,7 +4,7 @@ using Chmonos.App.ViewModels;
 namespace Chmonos.App.Services;
 
 /// <summary>
-/// ほかのソフトが足した項目（plan 44 の②・docs/spec/plugins-menu.md）を画面に出す係と、押した後の下の帯。
+/// プラグインが足した項目（plan 44 の②・docs/spec/plugins-menu.md）を画面に出す係と、押した後の下の帯。
 /// 何を出すか・押せるかは列（<see cref="PluginEventHub"/>）が決め、ここは文と帯を持つ。帯は主の窓が1本だけ出す
 /// （押した所が右クリックで、知らせる行を持たないため。非表示の帯と同じ置き場）
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class PluginMenuService : ViewModelBase
     private bool _hasItemMenus;
     private bool _hasSelectionMenus;
 
-    /// <summary>商品の右クリック・商品ページに出す項目があるか（無ければ「ほかのソフト」自体を出さない）。</summary>
+    /// <summary>商品の右クリック・商品ページに出す項目があるか（無ければ「プラグイン」自体を出さない）。</summary>
     public bool HasItemMenus
     {
         get => _hasItemMenus;
@@ -112,7 +112,7 @@ public sealed class PluginMenuService : ViewModelBase
     }
 
     /// <summary>
-    /// 撮る道具（ViewShot）が、API を動かさずに「ほかのソフト」のボタンと帯を出す。API が始まると <see cref="Refresh"/> で本当の値に戻る
+    /// 撮る道具（ViewShot）が、API を動かさずに「プラグイン」のボタンと帯を出す。API が始まると <see cref="Refresh"/> で本当の値に戻る
     /// </summary>
     internal void Preview(bool hasItemMenus, bool hasSelectionMenus, string? notice = null, bool failed = false)
     {

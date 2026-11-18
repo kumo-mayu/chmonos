@@ -547,11 +547,11 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         _services.PluginSelection.Note("folder", () => Services.PluginSelectionBatcher.SelectedIds(_listItems.OfType<ItemCardViewModel>(), _cards.Values));
     }
 
-    /// <summary>帯の「ほかのソフト ▾」が送る選択（plan 44 の②。選択の出来事と同じ並べ方）。</summary>
+    /// <summary>帯の「プラグイン ▾」が送る選択（plan 44 の②。選択の出来事と同じ並べ方）。</summary>
     public IReadOnlyList<string> SelectedItemIdsForPlugins()
         => Services.PluginSelectionBatcher.SelectedIds(_listItems.OfType<ItemCardViewModel>(), _cards.Values);
 
-    /// <summary>ほかのソフトの項目の係（帯の「ほかのソフト ▾」を出すか）。</summary>
+    /// <summary>プラグインの項目の係（帯の「プラグイン ▾」を出すか）。</summary>
     public Services.PluginMenuService PluginMenus => _services.PluginMenus;
 
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----

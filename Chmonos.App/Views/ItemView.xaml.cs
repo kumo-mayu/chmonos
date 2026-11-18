@@ -265,9 +265,9 @@ public partial class ItemView : UserControl
         return true;
     }
 
-    // ---- ほかのソフトの項目（plan 44 の②） ----
+    // ---- プラグインの項目（plan 44 の②） ----
 
-    /// <summary>上の帯の「ほかのソフト ▾」：この商品で押せるかを今決めて、ソフトごとの段を開く。</summary>
+    /// <summary>上の帯の「プラグイン ▾」：この商品で押せるかを今決めて、ソフトごとの段を開く。</summary>
     private void OnPluginMenuClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: ItemViewModel model } button)

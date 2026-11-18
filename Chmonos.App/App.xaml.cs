@@ -362,7 +362,7 @@ public partial class App : Application
         {
             Core.Diagnostics.AppLog.Error("通知領域から窓を開く", exception);
             Services.Notice.Show(
-                "窓を開けませんでした。\n\n" + Core.Services.FailureText.Cause(exception) + "\n\n"
+                "ウィンドウを開けませんでした。\n\n" + Core.Services.FailureText.Cause(exception) + "\n\n"
                 + "詳しい記録は保存先のlogs\\app.logに残しました。",
                 "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
             _main = null;

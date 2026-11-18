@@ -64,7 +64,7 @@ public class SearchModuleMenuTests
 
         Assert.Equal("折りたたむ", module.CollapseMenuText);
         module.ToggleCollapseCommand.Execute(null);
-        Assert.Equal("開く", module.CollapseMenuText);
+        Assert.Equal("広げる", module.CollapseMenuText);
     });
 
     [Fact]

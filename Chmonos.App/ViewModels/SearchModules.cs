@@ -323,7 +323,7 @@ public abstract class SearchModule : ReorderableRow
     public virtual string ExcludedHint => "当てはまる商品を除いています。押すと除くのをやめます。";
 
     /// <summary>条件のメニューの「折りたたむ」の行。畳んでいれば「開く」。</summary>
-    public string CollapseMenuText => _isCollapsed ? "開く" : "折りたたむ";
+    public string CollapseMenuText => _isCollapsed ? "広げる" : "折りたたむ";
 
     /// <summary>条件のメニューの「上へ移動」「下へ移動」（D9。前はドラッグでしか並べ替えられず、キーボードから届かなかった）。検索側が入れる。</summary>
     public RelayCommand? MoveUpCommand { get; set; }
