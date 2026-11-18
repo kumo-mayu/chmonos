@@ -204,7 +204,7 @@
 
                     <!-- 月別の支出 -->
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20,18">
-                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="支出の推移">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[chart], Mode=TwoWay}" AutomationProperties.Name="支出の推移">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="支出の推移" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -310,7 +310,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="アバター別の所持数">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[avatars], Mode=TwoWay}" AutomationProperties.Name="アバター別の所持数">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="アバター別の所持数" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -338,7 +338,7 @@
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="よく買っているショップ">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[shops], Mode=TwoWay}" AutomationProperties.Name="よく買っているショップ">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="よく買っているショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -374,7 +374,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="ディスク使用量の内訳">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[disk], Mode=TwoWay}" AutomationProperties.Name="ディスク使用量の内訳">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="ディスク使用量の内訳" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -471,7 +471,7 @@
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="未処理">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[backlog], Mode=TwoWay}" AutomationProperties.Name="未処理">
                                 <Expander.Header>
                                     <TextBlock Text="未処理" Style="{StaticResource PanelTitle}" />
                                 </Expander.Header>
@@ -539,7 +539,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="価格帯">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[prices], Mode=TwoWay}" AutomationProperties.Name="価格帯">
                                 <Expander.Header>
                                     <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" />
                                 </Expander.Header>
@@ -562,7 +562,7 @@
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="買った時からの価格の動き">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[priceChanges], Mode=TwoWay}" AutomationProperties.Name="買った時からの価格の動き">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="買った時からの価格の動き" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -629,7 +629,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="カテゴリ">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[categories], Mode=TwoWay}" AutomationProperties.Name="カテゴリ">
                                 <Expander.Header>
                                     <TextBlock Text="カテゴリ" Style="{StaticResource PanelTitle}" />
                                 </Expander.Header>
@@ -643,7 +643,7 @@
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="ユーザータグ">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[userTags], Mode=TwoWay}" AutomationProperties.Name="ユーザータグ">
                                 <Expander.Header>
                                     <TextBlock Text="ユーザータグ" Style="{StaticResource PanelTitle}" />
                                 </Expander.Header>
@@ -667,7 +667,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="点数の多いショップ">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[shopsByCount], Mode=TwoWay}" AutomationProperties.Name="点数の多いショップ">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="点数の多いショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -689,7 +689,7 @@
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="容量の大きい商品">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[heavyItems], Mode=TwoWay}" AutomationProperties.Name="容量の大きい商品">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="容量の大きい商品" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -707,7 +707,7 @@
 
                     <!-- 属性 -->
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20,18">
-                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="属性">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[attributes], Mode=TwoWay}" AutomationProperties.Name="属性">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="属性" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -761,7 +761,7 @@
                                            Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                                 <!-- 既定は畳む（ユーザ指示 2026-11-18）。属性の分布の下の補足で、見に行く人だけが開く -->
-                                <Expander Style="{StaticResource TriangleExpander}" IsExpanded="False" Margin="0,14,0,0"
+                                <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[correlations], Mode=TwoWay}" Margin="0,14,0,0"
                                           AutomationProperties.AutomationId="StatsCorrelationsExpander" AutomationProperties.Name="軸どうしの関係">
                                 <Expander.Header>
                                     <TextBlock Text="軸どうしの関係" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
@@ -794,7 +794,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="所有アバターに着られるもの">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[wearables], Mode=TwoWay}" AutomationProperties.Name="所有アバターに着られるもの">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="所有アバターに着られるもの" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
@@ -814,7 +814,7 @@
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="手元の状態">
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[state], Mode=TwoWay}" AutomationProperties.Name="手元の状態">
                                 <Expander.Header>
                                     <TextBlock Text="手元の状態" Style="{StaticResource PanelTitle}" />
                                 </Expander.Header>

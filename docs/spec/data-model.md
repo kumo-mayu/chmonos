@@ -19,7 +19,7 @@
 | `items/_broken/{id}-{日時}.json` | 読めなかった商品の記録をよけた物（消さない。バックアップに入れる。手で救ったら消してよい） | 通知の「1つ前の版に戻す」「BOOTHから作り直す」 |
 | `images/{id}/{URLのハッシュ}.webp` | 画像（長辺384・WebP）。`{ハッシュ}.missing` は404で取れなかった印 | 画像の取得 |
 | `settings.json` | 設定（設定画面で選ぶ物） | `UiCommand.ChangeSettings` だけ |
-| `ui-state.json` | 画面が覚えている状態（ナビ・絞り込み欄・左の一覧の畳み方 `collapsedPanes`・積んだ条件・窓の位置・画面の幅 `paneWidths`） | `UiCommand.ChangeUiState` だけ |
+| `ui-state.json` | 画面が覚えている状態（ナビ・絞り込み欄・左の一覧の畳み方 `collapsedPanes`・統計の欄の開き方 `statsPanelsOpen`・積んだ条件・窓の位置・画面の幅 `paneWidths`） | `UiCommand.ChangeUiState` だけ |
 | `format.json` | この保存先を最後に使った形式の版（[data-format.md](data-format.md)） | 起動のとき（`StoreFormat.MarkCurrent`） |
 | `update-check.json` | 新しい版の確認の記録（最後に確かめた日時・最新の版・閉じた版） | `MainViewModel.CheckForUpdatesAsync` |
 | `format-backups/` | 形式を上げる前の JSON の控え。書き出しには入れない | 起動のとき・`UiCommand.DeleteFormatBackups` |

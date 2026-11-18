@@ -102,6 +102,19 @@ public sealed class BacklogRowViewModel
     public required string Severity { get; init; }
 }
 
+/// <summary>
+/// 統計の欄を開いているか。画面は <c>Panels[shops]</c> のように欄の鍵で結ぶ（open.md 110）。
+/// 覚えるのは起動の間ずっと居る <see cref="Services.StatsPanels"/>。ここは画面との橋渡しだけ
+/// </summary>
+public sealed class StatsPanelsViewModel(Services.StatsPanels memory)
+{
+    public bool this[string key]
+    {
+        get => memory.IsOpen(key);
+        set => memory.SetOpen(key, value);
+    }
+}
+
 /// <summary>集計期間の選び方。</summary>
 public sealed class StatsRangeOption
 {
@@ -138,9 +151,13 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         _services = services;
         _main = main;
         _range = Ranges[0];
+        Panels = new StatsPanelsViewModel(services.StatsPanels);
 
         LoadAsync().Forget();
     }
+
+    /// <summary>欄を開いているか（次の起動まで覚える）。</summary>
+    public StatsPanelsViewModel Panels { get; }
 
     public void OnLeaving() => _leaving.Cancel();
 

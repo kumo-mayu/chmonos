@@ -89,6 +89,13 @@ public sealed record UiState
     public IReadOnlyList<string>? CollapsedPanes { get; init; }
 
     /// <summary>
+    /// 統計の欄を開いているか（鍵は欄の名前 <c>"chart"</c>・<c>"shops"</c> など。ユーザ判断 2026-11-19・open.md 110）。
+    /// 人が開いた・畳んだ欄だけを持ち、無い欄は既定（「軸どうしの関係」だけ畳み、ほかは開く）。
+    /// <see cref="CollapsedPanes"/> と違い、開いたことも持つ：既定で畳む欄があるので、畳んだ鍵の一覧では「人が開いた」を表せない。null は空
+    /// </summary>
+    public IReadOnlyDictionary<string, bool>? StatsPanelsOpen { get; init; }
+
+    /// <summary>
     /// 商品をカードではなくリストで出している画面（<c>"search"</c>・<c>"folder"</c>）。無ければカード（ユーザ指示 2026-09-14）。
     /// リストの列の幅は <see cref="PaneWidths"/> に <c>"search.col.name"</c> のような鍵で入る。
     /// </summary>

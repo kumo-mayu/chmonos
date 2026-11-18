@@ -190,6 +190,9 @@ public sealed class AppServiceContainer : IDisposable
 
             // ドラッグで変えた画面の幅（ユーザ判断 2026-09-14）。書くのは UiCommand.ChangeUiState
             PaneWidths = new Services.PaneWidths(SettingsStore, Commands);
+
+            // 統計の欄を開いているか（ユーザ判断 2026-11-19・open.md 110）。書くのは UiCommand.ChangeUiState
+            StatsPanels = new Services.StatsPanels(SettingsStore, Commands);
         }
         catch
         {
@@ -267,6 +270,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>ドラッグで変えられる画面の幅。</summary>
     public Services.PaneWidths PaneWidths { get; }
+
+    /// <summary>統計の欄を開いているか（次の起動まで覚える）。</summary>
+    public Services.StatsPanels StatsPanels { get; }
 
     /// <summary>YouTube の動画のタイトル（商品ページの動画の欄）。</summary>
     public Services.YouTubeInfo YouTube { get; }

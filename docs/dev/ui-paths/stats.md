@@ -75,6 +75,7 @@ flowchart LR
 |---|---|---|---|---|---|
 | 統計 | ナビ | クリック | 統計の画面を開く（開いている時は何もしない） | いつも | Nav.Stats・MainWindow.xaml:499・MainViewModel.cs:109 |
 | 期間の欄「直近 12 ヶ月」（直近 24 ヶ月／全期間・年別） | 上の帯の右端 | 選ぶ | 「支出の推移」だけを作り直す。開き直すと「直近 12 ヶ月」に戻る | 集計できる商品がある時 | 名前「集計する期間」（ID 無し）・StatsView.xaml:118・StatsViewModel.cs:147 |
+| 各欄の見出しの左の三角 | 各カード | クリック | 欄を畳む・開く。欄ごとに次の起動まで覚える（「軸どうしの関係」だけ初めは畳む） | いつも | 名前は欄の見出し・StatsView.xaml・Services/StatsPanels.cs |
 | 「支出の推移」の棒 | 上の方のカード | 乗せる | 吹き出し「（年月）：¥額／n 件」 | 期間に月がある時 | （ID 無し）・StatsView.xaml:248・StatsViewModel.cs:33 |
 | 「よく買っているショップ」の行 | 上の方のカード | クリック | そのショップの画面を開く。吹き出し「このショップの画面を開きます。」 | 上位8件 | StatsShopRow・StatsView.xaml:338・StatsViewModel.cs:550 |
 | 「ディスク使用量の内訳」の行 | 上の方のカード | クリック | 検索の条件を消し、そのカテゴリだけで検索の画面を開く。吹き出し「このカテゴリの商品を検索画面で開きます。」 | 上位8件 | StatsCategoryRow・StatsView.xaml:369・StatsViewModel.cs:566・SearchViewModel.ShowOnly.cs:88 |
