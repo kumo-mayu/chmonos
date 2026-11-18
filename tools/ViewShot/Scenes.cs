@@ -48,6 +48,7 @@ internal static partial class Scenes
         .. CardLists,
         .. CardInfo,
         .. CardBadges,
+        .. CardLongTagScenes,
         .. AvatarConfirmScenes,
         .. AvatarViaBaseScenes,
         .. AvatarViaConversionScenes,

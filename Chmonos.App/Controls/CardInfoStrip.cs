@@ -102,9 +102,26 @@ public sealed class CardInfoStrip : FrameworkElement
 
         // 1段目：ユーザータグ（丸い札）と残りの数
         // 札の数はここで、カードの幅に入るだけ決める（メモ37-③。前は2枚・幅200未満は1枚の決め打ちだった）。高さは変えない
-        var tagTexts = info.Tags.Select(tag => Text(tag, 10, Get(TagTextProperty), TagTextMax, dpi)).ToList();
-        var tagCount = FitCount(tagTexts.Select(text => ChipWidth(text, 7)).ToList(), info.TagTotal, width, ChipGap,
-            hidden => ChipWidth(Text($"+{hidden}", 10, Get(MoreTextProperty), double.PositiveInfinity, dpi), 6));
+        // 枚数は字の上限 TagTextMax で切った幅で決め（狭いカードは今までと同じ「+n」へ回る）、決めた後で段に余った幅を
+        // 切れていた札へ分ける（Grow）。上限だけの決め打ちだと、小分類までの長い札が、カードを大きくしても「…」で切れたまま（メモ166）
+        var tagNatural = info.Tags.Select(tag => Text(tag, 10, Get(TagTextProperty), double.PositiveInfinity, dpi)).ToList();
+        var tagTexts = tagNatural.Select((natural, index) => natural.Width <= TagTextMax
+            ? natural
+            : Text(info.Tags[index], 10, Get(TagTextProperty), TagTextMax, dpi)).ToList();
+        Func<int, double> moreWidth = hidden => ChipWidth(Text($"+{hidden}", 10, Get(MoreTextProperty), double.PositiveInfinity, dpi), 6);
+        var tagCount = FitCount(tagTexts.Select(text => ChipWidth(text, 7)).ToList(), info.TagTotal, width, ChipGap, moreWidth);
+        var tagSpare = width - ChipsUsed(tagTexts.Take(tagCount).Select(text => ChipWidth(text, 7)).ToList(), ChipGap)
+            - (info.TagTotal > tagCount ? ChipGap + moreWidth(info.TagTotal - tagCount) : 0);
+        var tagGrown = Grow(tagTexts.Take(tagCount).Select(text => ChipWidth(text, 7)).ToList(),
+            tagNatural.Take(tagCount).Select(text => ChipWidth(text, 7)).ToList(), tagSpare);
+        for (var i = 0; i < tagCount; i++)
+        {
+            if (tagGrown[i] > ChipWidth(tagTexts[i], 7))
+            {
+                tagTexts[i] = Text(info.Tags[i], 10, Get(TagTextProperty), tagGrown[i] - 14, dpi);
+            }
+        }
+
         var x = 0.0;
         for (var i = 0; i < tagCount; i++)
         {
@@ -119,15 +136,36 @@ public sealed class CardInfoStrip : FrameworkElement
         }
 
         // 2段目：属性（線だけの角の丸い札。名前は薄く、値は太く）。右下の星の上に掛からない幅まで。入らない分は出さない（全部は乗せたときの重ねで見える）
-        var attributeTexts = info.Attributes.Select(chip =>
+        FormattedText AttributeText(CardAttributeChip chip, double maxWidth)
         {
-            var text = Text($"{chip.Name} {chip.ValueText}", 10, Get(AttributeNameProperty), AttributeTextMax, dpi);
+            var text = Text($"{chip.Name} {chip.ValueText}", 10, Get(AttributeNameProperty), maxWidth, dpi);
             var nameLength = chip.Name.Length + 1;
             text.SetForegroundBrush(Get(AttributeValueProperty), nameLength, chip.ValueText.Length);
             text.SetFontWeight(FontWeights.Bold, nameLength, chip.ValueText.Length);
             return text;
-        }).ToList();
-        var attributeCount = !info.ShowAttributes ? 0 : FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, width - StarInset, ChipGap, null);
+        }
+
+        // 属性の札も、枚数は上限 AttributeTextMax で決めてから、余った幅を切れていた札へ分ける（タグの札と同じ）
+        var attributeNatural = info.Attributes.Select(chip => AttributeText(chip, double.PositiveInfinity)).ToList();
+        var attributeTexts = attributeNatural.Select((natural, index) => natural.Width <= AttributeTextMax
+            ? natural
+            : AttributeText(info.Attributes[index], AttributeTextMax)).ToList();
+        var attributeRoom = width - StarInset;
+        var attributeCount = !info.ShowAttributes ? 0 : FitCount(attributeTexts.Select(text => ChipWidth(text, 5)).ToList(), attributeTexts.Count, attributeRoom, ChipGap, null);
+        if (attributeCount > 0)
+        {
+            var attributeGrown = Grow(attributeTexts.Take(attributeCount).Select(text => ChipWidth(text, 5)).ToList(),
+                attributeNatural.Take(attributeCount).Select(text => ChipWidth(text, 5)).ToList(),
+                attributeRoom - ChipsUsed(attributeTexts.Take(attributeCount).Select(text => ChipWidth(text, 5)).ToList(), ChipGap));
+            for (var i = 0; i < attributeCount; i++)
+            {
+                if (attributeGrown[i] > ChipWidth(attributeTexts[i], 5))
+                {
+                    attributeTexts[i] = AttributeText(info.Attributes[i], attributeGrown[i] - 10);
+                }
+            }
+        }
+
         x = 0;
         for (var i = 0; i < attributeCount; i++)
         {
@@ -181,6 +219,37 @@ public sealed class CardInfoStrip : FrameworkElement
         }
 
         return Math.Min(1, widths.Count);
+    }
+
+    /// <summary>札を並べた幅（札どうしの間を含む）。</summary>
+    internal static double ChipsUsed(IReadOnlyList<double> widths, double gap)
+        => widths.Count == 0 ? 0 : widths.Sum() + gap * (widths.Count - 1);
+
+    /// <summary>
+    /// 段に余った幅 <paramref name="spare"/> を、字が切れている札へ左から順に分ける。札は元の字の長さ（<paramref name="natural"/>）より長くしない。
+    /// 札の枚数は変えない：枚数は上限で切った幅で先に決めてあり、狭いカードは今までと同じに「+n」へ回る。
+    /// 幅のあるカードでだけ、切れていた長い札（小分類までのユーザータグ）がそのまま出る
+    /// </summary>
+    /// <param name="widths">今の札の幅（上限で切った幅）。</param>
+    /// <param name="natural">切らずに出したときの札の幅。</param>
+    /// <returns>分けた後の札の幅。</returns>
+    internal static IReadOnlyList<double> Grow(IReadOnlyList<double> widths, IReadOnlyList<double> natural, double spare)
+    {
+        var result = widths.ToArray();
+        for (var i = 0; i < result.Length && spare > 0; i++)
+        {
+            var need = natural[i] - result[i];
+            if (need <= 0)
+            {
+                continue;
+            }
+
+            var give = Math.Min(need, spare);
+            result[i] += give;
+            spare -= give;
+        }
+
+        return result;
     }
 
     /// <summary>札を1枚描き、次の札の左端を返す。</summary>
