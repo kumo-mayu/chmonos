@@ -81,6 +81,26 @@ public sealed class StaleTemporaryFileTests : IDisposable
         Assert.True(File.Exists(someoneElses));
     }
 
+    /// <summary>
+    /// 本体の JSON が無い一時ファイルは、置き換えの途中で据え直せず中身がそこにしか無い物かもしれないので、古くても残す。
+    /// 本体があれば書きかけなので消す（Codex の点検 2026-11-19）
+    /// </summary>
+    [Fact]
+    public void KeepsAnOldJsonTemporaryWhoseFileIsGone()
+    {
+        var stranded = Path.Combine(_dir, "settings.json.1a2b-5.tmp");
+        var leftover = Path.Combine(_dir, "1.json.1a2b-6.tmp");
+        File.WriteAllText(stranded, "{}");
+        File.WriteAllText(leftover, "{}");
+        File.WriteAllText(Path.Combine(_dir, "1.json"), "{}");
+        File.SetLastWriteTimeUtc(stranded, DateTime.UtcNow.AddHours(-1));
+        File.SetLastWriteTimeUtc(leftover, DateTime.UtcNow.AddHours(-1));
+
+        Assert.Equal(1, JsonStore.DeleteStaleTemporaryFiles(_dir));
+        Assert.True(File.Exists(stranded));
+        Assert.False(File.Exists(leftover));
+    }
+
     [Fact]
     public void IgnoresAMissingFolder()
     {
