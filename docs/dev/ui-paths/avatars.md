@@ -130,7 +130,7 @@ flowchart LR
 | 名前・ID・呼び方で探す | 左の一覧の上 | 打つ | 名前・商品ID・正式名・呼び方で絞る | アバターの時 | AvatarsView.xaml:426 |
 | 追加する共通素体の名前／追加 | 左の一覧の上 | 打つ・押す・Enter | 共通素体を作る（消した名前なら戻す） | 共通素体の時 | AvatarBaseAddInput・AvatarBaseAdd・AvatarsView.xaml:441-449 |
 | 大きさのつまみ | 左の一覧の右下 | ドラッグ | カード・行の大きさ | アバターの時 | AvatarsView.xaml:463 |
-| アバターの一覧の行・カード | 左の一覧 | 押す・Enter | 右に詳細 | アバターの時 | AvatarRow・AvatarsView.xaml:30・480 |
+| アバターの一覧の行・カード | 左の一覧 | 押す・Enter・中クリック | 右に詳細（中クリックは BOOTH の商品ページ） | アバターの時 | AvatarRow・AvatarsView.xaml:30・480 |
 | まとまりの見出しの三角 | 左の一覧 | 押す | 畳む・広げる | アバター・変換の時 | AvatarsView.xaml:508・561 |
 | 行・カードの右クリック（商品ページを開く・ショップを開く・編集画面を開く・選ぶ・お気に入り・改変に追加…・更新通知を開く・既読にする・開く ▸・Unity ▸・BOOTHで開く・リンクをコピー・非表示にする ほか） | 右クリック | 押す | 検索のカードと同じ。「改変に追加…」は押した1件だけ。「選ぶ」は押せない [推測] | アバターの時。手元に無いアバターでは多くが押せない [推測] | CardMenu.*・ItemCardResources.xaml:40-110 |
 | 共通素体の行 | 左の一覧 | 押す | 右に素体の詳細 | 共通素体の時 | AvatarBaseRow・AvatarsView.xaml:54 |
@@ -139,7 +139,7 @@ flowchart LR
 | 名前を変更（アバター） | 右の欄 | 押す | 名前の欄に替わる | アバターを選んだ時 | AvatarRename・AvatarsView.xaml:639 |
 | BOOTHの名前に戻す | 右の欄 | 押す | 手で付けた名前を消す | 手で名前を付けた時 | AvatarsView.xaml:643 |
 | 名前の欄／変更／キャンセル（アバター） | 右の欄 | 打つ・押す・Enter・Esc | 名前を変える・やめる | 名前を変更を押した後 | AvatarNameInput・AvatarRenameCommit・AvatarsView.xaml:650-664 |
-| 商品IDの字 | 右の欄 | 押す | ID をコピー | アバターを選んだ時 | AvatarIdCopy・AvatarsView.xaml:676 |
+| 商品IDの字 | 右の欄 | 押す・中クリック | ID をコピー（中クリックは BOOTH の商品ページ） | アバターを選んだ時 | AvatarIdCopy・AvatarsView.xaml:676 |
 | 商品情報を取り直す | 右の欄 | 押す | BOOTH から取り直す（ファイルは落とさない） | アバターを選んだ時 | AvatarsView.xaml:687 |
 | 呼ばれていた名前の札 | 右の欄 | 押す | 名前の欄に入れる | 名前が要るアバターで候補がある時 | AvatarsView.xaml:716 |
 | 対応商品を検索で開く | 右の欄 | 押す | 検索へ（素体経由も含む） | アバターを選んだ時 | AvatarsView.xaml:732 |

@@ -25,6 +25,9 @@
         <Style x:Key="AvatarRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
             <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+            <!-- 中クリックで BOOTH の商品ページ（検索のカード・管理の一覧の行と同じ近道・open.md 136）。ID の無い行では何も開かない -->
+            <Setter Property="controls:MiddleClick.Command" Value="{Binding DataContext.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+            <Setter Property="controls:MiddleClick.CommandParameter" Value="{Binding}" />
             <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。アバターの名前を読ませる -->
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarRow" />
@@ -692,7 +695,7 @@
                                                 色も商品ページに揃える（前の TextFaint より1段濃い TextMuted。押せる物を薄すぎる色で出さない）
                                             -->
                                             <TextBlock Style="{StaticResource Mono}" FontSize="11.5" ToolTip="{Binding IdCopyTip}">
-                                                <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                                <Hyperlink Command="{Binding CopyIdCommand}" controls:MiddleClick.Command="{Binding OpenBoothCommand}" TextDecorations="{x:Null}"
                                                            AutomationProperties.AutomationId="AvatarIdCopy"
                                                            Foreground="{DynamicResource TextMuted}">
                                                     <Run Text="{Binding SelectedIdText, Mode=OneWay}" />

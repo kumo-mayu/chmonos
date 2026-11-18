@@ -26,6 +26,16 @@ public partial class ItemCompactBar : UserControl
         nameof(ShopCommand), typeof(ICommand), typeof(ItemCompactBar),
         new PropertyMetadata(null, (sender, _) => ((ItemCompactBar)sender).HasShopCommand = ((ItemCompactBar)sender).ShopCommand is not null));
 
+    /// <summary>ショップ名を中クリックしたときの命令（BOOTH のショップのページ。頭の段のショップ名と同じ・open.md 136）。</summary>
+    public static readonly DependencyProperty ShopBoothCommandProperty = DependencyProperty.Register(
+        nameof(ShopBoothCommand), typeof(ICommand), typeof(ItemCompactBar));
+
+    public ICommand? ShopBoothCommand
+    {
+        get => (ICommand?)GetValue(ShopBoothCommandProperty);
+        set => SetValue(ShopBoothCommandProperty, value);
+    }
+
     private static readonly DependencyPropertyKey HasShopCommandKey = DependencyProperty.RegisterReadOnly(
         nameof(HasShopCommand), typeof(bool), typeof(ItemCompactBar), new PropertyMetadata(false));
 

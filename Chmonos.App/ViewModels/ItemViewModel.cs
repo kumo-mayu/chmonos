@@ -175,6 +175,16 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public RelayCommand OpenShopCommand { get; }
 
     /// <summary>
+    /// ショップ名の中クリック：BOOTH のショップのページをブラウザで開く（open.md 136）。左クリックはアプリのショップの画面。
+    /// 手元だけのショップには BOOTH のページが無いので押せない（中クリックしても何も起きない）
+    /// </summary>
+    public RelayCommand OpenShopInBoothCommand => _openShopInBooth ??= new RelayCommand(
+        () => Services.Shell.OpenUrl(BoothLinks.ShopPage(Item)),
+        () => BoothLinks.ShopPage(Item) is not null);
+
+    private RelayCommand? _openShopInBooth;
+
+    /// <summary>
     /// この商品を今すぐ取り直す。
     ///
     /// 普段は次回取得予定を待つが、外部で更新を知ったときに待てないことがある。

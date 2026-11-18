@@ -67,6 +67,22 @@ public static class BoothLinks
     }
 
     /// <summary>
+    /// この商品のショップの BOOTH のページ。手元だけのショップ（<c>local-</c>）と、ショップの無い商品は null。
+    /// URL は鍵を出した側（人が入れたショップが先。<see cref="ItemRecord.ShopSubdomain"/> と同じ順）から取る。
+    /// 順を変えると、人が直したショップの名前を押して、取れた側の別の店を開く
+    /// </summary>
+    public static string? ShopPage(ItemRecord item)
+    {
+        if (item.ShopSubdomain is not { Length: > 0 } subdomain || LocalShopKey.IsLocal(subdomain))
+        {
+            return null;
+        }
+
+        var known = item.Local.Shop is { } local ? local.Url : item.Booth.Shop?.Url;
+        return ShopPage(subdomain, known);
+    }
+
+    /// <summary>
     /// BOOTH のページ（<c>booth.pm</c>・<c>*.booth.pm</c> の http/https）か。説明文のリンクの右クリックで、
     /// 「BOOTHで開く」と「ブラウザで開く」を言い分ける（計画 29）。開いてよいかの判断ではない（それは <c>Shell.OpenUrl</c>）。
     /// </summary>
