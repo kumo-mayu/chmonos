@@ -130,7 +130,7 @@ flowchart LR
 | 履歴の ‹ › | 押す | 履歴を横に送る（「前の履歴へ送ります。ホイールでも送れます。」／「続きの履歴へ送ります。…」） | その側に続きがある時だけ | SV:1850付近・SearchView.xaml.cs |
 | 履歴の帯の上 | ホイール | 履歴を横に送る | 履歴がある時 | SearchView.xaml.cs |
 
-履歴が積まれるのは「商品を開いた時」「条件をクリアの前」「他画面から絞って来た時」（VM/SearchViewModel.cs:233・ShowOnly.cs:136）。保存した検索の呼び出しでは積まない（docs/spec/search-saved.md）。
+履歴が積まれるのは「商品を開いた時」「条件をクリアの前」「他画面から絞って来た時」（VM/SearchViewModel.cs:238・ShowOnly.cs の RecordBeforeShowOnly と ClearFiltersKeepingHistoryAsync。同じ条件・何も絞っていない時は積まない）。保存した検索の呼び出しでは積まない（docs/spec/search-saved.md）。
 
 ### 並びの帯
 
