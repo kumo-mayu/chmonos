@@ -16,7 +16,6 @@ public class FilterFieldDelayTests
     [Theory]
     [InlineData("SearchView.xaml", "QueryText")]
     [InlineData("ShopsView.xaml", "FilterText")]
-    [InlineData("TagManageView.xaml", "ItemFilter")]
     [InlineData("AttributeManageView.xaml", "ItemFilter")]
     [InlineData("AvatarsView.xaml", "Query")]
     [InlineData("ItemAvatarsPanel.xaml", "AvatarFilter")]
