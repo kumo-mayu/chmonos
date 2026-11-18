@@ -680,8 +680,8 @@ public sealed class InboxViewModel : ViewModelBase
             var colon = first?.IndexOf('：') ?? -1;
             if (first is not null && colon > 1)
             {
-                // 「items/」のようなフォルダはそのまま開く。パスの区切りは / のまま渡して良い（Windows が受ける）
-                return Path.Combine(storePath, first[1..colon].Replace('/', Path.DirectorySeparatorChar));
+                // 「items/」のようなフォルダはそのまま開く。末尾の区切りは落とす（付いたままだと、開く先の照らし合わせで別の物に見える）
+                return Path.Combine(storePath, first[1..colon].TrimEnd('/').Replace('/', Path.DirectorySeparatorChar));
             }
 
             return storePath;
