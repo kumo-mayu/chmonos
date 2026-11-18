@@ -17,7 +17,6 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- 検索のカードと同じ1枚（ItemViewModel.ThumbnailTile）。画像の無い商品は空の枠（星と名前の位置を商品で変えない） -->
@@ -52,34 +51,33 @@
                         </TextBlock.Style>
                     </TextBlock>
                 </Button>
-                <!-- 字の大きさはショップの1行の見出しの名前と揃える -->
-                <TextBlock Text="{Binding ItemName}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" ToolTip="{Binding ItemName}" />
+                <!-- 字の大きさはショップの1行の見出しの名前と揃える。
+                     ショップ名は商品名のすぐ隣（ユーザ指示 2026-11-18）。商品名が長いときは商品名の方を「…」で縮め、ショップ名は幅の半分まで残す。
+                     商品ページでは頭の段と同じく押すとショップの画面へ（ShopCommand）。編集の画面の頭の段はただの字なので、ここも字だけ -->
+                <controls:TrailingFollowPanel Gap="14">
+                    <TextBlock Text="{Binding ItemName}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding ItemName}" />
+                    <Button Command="{Binding ShopCommand}" Cursor="Hand" VerticalAlignment="Center" Height="Auto"
+                            ToolTip="このショップの商品を見る"
+                            AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShopLink}"
+                            AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
+                            Visibility="{Binding HasShopCommand, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <TextBlock Text="{Binding ShopName}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource Accent}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <TextBlock Text="{Binding ShopName}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource Accent}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShopName}"
+                               AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShop}"
+                               Visibility="{Binding HasShopCommand, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                </controls:TrailingFollowPanel>
             </DockPanel>
-
-            <!--
-                ショップ名は右の端。商品名が長くても消えないよう、幅に上限を付けて「…」で切る。
-                商品ページでは頭の段と同じく押すとショップの画面へ（ShopCommand）。編集の画面の頭の段はただの字なので、ここも字だけ
-            -->
-            <Button Grid.Column="2" Command="{Binding ShopCommand}" Cursor="Hand" VerticalAlignment="Center" MaxWidth="260" Height="Auto"
-                    ToolTip="このショップの商品を見る"
-                    AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShopLink}"
-                    AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
-                    Visibility="{Binding HasShopCommand, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="Transparent">
-                            <ContentPresenter />
-                        </Border>
-                    </ControlTemplate>
-                </Button.Template>
-                <TextBlock Text="{Binding ShopName}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource Accent}"
-                           TextTrimming="CharacterEllipsis" />
-            </Button>
-            <TextBlock Grid.Column="2" Text="{Binding ShopName}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource Accent}"
-                       VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShopName}"
-                       AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShop}"
-                       Visibility="{Binding HasShopCommand, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
         </Grid>
     </Border>
 </UserControl>

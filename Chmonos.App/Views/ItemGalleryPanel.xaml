@@ -97,6 +97,7 @@
 
                                         <!--
                                             サムネイルの指名と役割は商品の画像だけ（改変の写真には無い・ShowsImageRoles）。
+                                            役割の項目は改変では隠す（見出しが空の灰色の行になっていた。ユーザ指摘 2026-11-18）。
                                             指名する／外すは、今の画像の指名の有無でどちらか一方だけ押せる
                                         -->
                                         <MenuItem Header="この画像をサムネイルにする" Command="{Binding PinThumbnailCommand}"
@@ -120,8 +121,7 @@
                                             一覧のサムネイルがその役割の画像に切り替わる
                                         -->
                                         <MenuItem Header="{Binding CurrentRoleHeader}"
-                                                  IsEnabled="{Binding ShowsImageRoles}"
-                                                  controls:MenuTips.Disabled="改変の写真には使えません">
+                                                  Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <MenuItem Header="BOOTH" IsCheckable="True"
                                                       IsChecked="{Binding CurrentIsRoleBooth, Mode=OneWay}"
                                                       Command="{Binding SetRoleBoothCommand}" />
@@ -200,7 +200,29 @@
                             </Grid>
 
                             <!-- 小さな絵の並びは Tab で1回だけ入り、中は矢印で移る（ArrowGroup。末尾の「足す」枠は別に止まる） -->
-                            <controls:ContentItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10" controls:ArrowGroup.IsEnabled="True">
+                            <!--
+                                小さな絵の並びを畳む（ユーザ指示 2026-11-18：数十枚の商品では並びが縦に伸びて画面を取る）。
+                                畳んだかは部品が覚える（商品を替えても、開いている間は畳んだまま。起動をまたいでは覚えない）。
+                                画像が無い時は畳む意味が無いので出さない。畳んでも、大きな絵の左右の矢印と右クリックで送り・追加はできる
+                            -->
+                            <Button x:Name="TilesToggle" Content="小さな絵を折りたたむ" Click="OnToggleTiles"
+                                    HorizontalAlignment="Left" FontSize="11.5" Margin="12,6,12,0"
+                                    AutomationProperties.AutomationId="GalleryTilesToggle">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource HyperlinkButton}">
+                                        <Style.Triggers>
+                                            <!-- 並びの末尾の「足す」枠も数に入る。0 は絵の無い持ち主、1 は「足す」枠だけ -->
+                                            <DataTrigger Binding="{Binding GalleryTiles.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding GalleryTiles.Count}" Value="1">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <controls:ContentItemsControl x:Name="Tiles" ItemsSource="{Binding GalleryTiles}" Margin="10" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />
