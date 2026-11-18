@@ -171,7 +171,7 @@
                             <CheckBox Content="確認していない変換も含める" Style="{StaticResource SettingCheck}" Margin="26,0,0,10"
                                       IsChecked="{Binding IncludeUnconfirmedConversion, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.IncludeUnconfirmedConversion"
-                                      ToolTip="自動で推したプロファイルのつなぎ先も、変換経由に使います。" />
+                                      ToolTip="自動で見つけたプロファイルのつなぎ先も、変換経由に使います。" />
                             <!-- 持っていないバリエーションの分の見分け（ユーザ判断 2026-11-07・既定はオン）。切ると編集の画面で決めた対応だけで見分ける -->
                             <CheckBox Content="持っていないバリエーションの分を、名前からも見分ける" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding UseDetectedVariationTargets, Mode=TwoWay}"
