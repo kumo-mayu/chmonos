@@ -200,6 +200,44 @@ public class ArrowGroupTests
         Assert.True(ArrowGroup.MembersOf(host.List).Count < 200);
     });
 
+    [Fact]
+    public Task 行を片付ける途中で一覧にフォーカスが入っても_例外にならない() => UiThread.Run(() =>
+    {
+        // フォルダの画面の右の欄で、フォルダの絵を押すと出た例外（open.md 88行）。行を片付ける途中、フォーカスのあった行が外れると
+        // ListBoxItem が一覧へフォーカスを移し、並びがその場で板の子を数える。片付け済みの子は null になっていて、IndexFromContainer が投げた。
+        // 窓口はフォーカスを取れないので、行が外れた時に一覧へフォーカスが入った事を、同じ知らせを一覧に送って作る
+        using var host = Host.Probe(rows: 5);
+        Assert.True(ArrowGroup.MembersOf(host.List).Count > 1);
+
+        ((ListBox)host.List).ItemsSource = new List<string> { "a" };
+        host.Layout();
+
+        Assert.Single(ArrowGroup.MembersOf(host.List));
+    });
+
+    /// <summary>行が外れた時に、一覧へフォーカスが入った知らせを送る行（ListBoxItem が自分の外れる時に一覧へフォーカスを移す形）。</summary>
+    private sealed class ProbeList : ListBox
+    {
+        protected override DependencyObject GetContainerForItemOverride() => new ProbeItem(this);
+
+        protected override bool IsItemItsOwnContainerOverride(object item) => item is ProbeItem;
+    }
+
+    private sealed class ProbeItem(ListBox owner) : ListBoxItem
+    {
+        protected override void OnVisualParentChanged(DependencyObject oldParent)
+        {
+            base.OnVisualParentChanged(oldParent);
+            if (System.Windows.Media.VisualTreeHelper.GetParent(this) is null && oldParent is not null)
+            {
+                owner.RaiseEvent(new KeyboardFocusChangedEventArgs(Keyboard.PrimaryDevice, 0, this, owner)
+                {
+                    RoutedEvent = Keyboard.GotKeyboardFocusEvent,
+                });
+            }
+        }
+    }
+
     /// <summary>決め打ちの大きさの一覧を出さない窓口（親がメッセージ専用）に載せた台。</summary>
     private sealed class Host : IDisposable
     {
@@ -283,6 +321,18 @@ public class ArrowGroupTests
             VirtualizingPanel.SetScrollUnit(list, ScrollUnit.Pixel);
             var host = new Host(list) { Scroll = ContentItemsControl.FindScrollViewer(list) };
             return host;
+        }
+
+        /// <summary>行が外れる時に一覧へフォーカスの知らせを送る、見える分だけ作る ListBox。</summary>
+        public static Host Probe(int rows)
+        {
+            var list = new ProbeList
+            {
+                Width = 300,
+                Height = RowHeight * 10,
+                ItemsSource = Enumerable.Range(0, rows).Select(index => index.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList(),
+            };
+            return new Host(list);
         }
 
         public void Layout()
