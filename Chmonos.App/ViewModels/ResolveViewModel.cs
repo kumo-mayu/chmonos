@@ -944,7 +944,15 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var startedWith = Selected;
 
         IsBusy = true;
-        NotOnBoothItemId = null;
+
+        // BOOTHで非公開と分かっている同じIDを聞き直す間は、名前と画像の枠を消さずに答えを待つ（ユーザ 2026-11-18：
+        // 候補の「これで確認」で背の高い枠が一度消えてまた出るので、下の候補の欄が上がって下がり、画面が縦に揺れた）。
+        // 答えが来たら下で決め直す。別のIDなら今までどおりすぐ消す（欄の文字と違う枠を残さない）
+        if (NotOnBoothItemId != trimmed)
+        {
+            NotOnBoothItemId = null;
+        }
+
         StatusText = "商品情報を取得しています…";
         try
         {
@@ -959,6 +967,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             if (result is CommandResult.PreviewLoaded loaded)
             {
                 Preview = loaded.Preview;
+                NotOnBoothItemId = null;
                 StatusText = string.Empty;
 
                 // 取り込みのときは「無い」と答えられたIDが、聞き直すと公開されていた（ユーザ判断 2026-10-06）。
@@ -984,7 +993,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             }
             else if (result is CommandResult.Failed failed)
             {
+                // 届かなかったときは今の答えが無いので、そのIDのまま登録する形は引っ込める（前と同じ）
                 Preview = null;
+                NotOnBoothItemId = null;
                 StatusText = failed.Message;
             }
         }
