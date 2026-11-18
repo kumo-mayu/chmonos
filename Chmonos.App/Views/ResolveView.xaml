@@ -243,7 +243,8 @@
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
                     Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Visibility="{Binding ListPane.IsCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
+                    <!-- 右の余白は 20（ユーザ判断 2026-11-19・open.md 51）。境の線に半分はみ出す畳むつまみ（幅 26）が探す欄に付いて見えないように空ける -->
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="12,8,20,8">
                       <StackPanel>
                         <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->
                         <Grid Margin="0,0,0,8">
