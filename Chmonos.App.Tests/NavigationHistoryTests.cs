@@ -66,7 +66,7 @@ public class NavigationHistoryTests
         main.ShowStatsCommand.Execute(null);
         Assert.IsType<StatsViewModel>(main.CurrentViewModel);
         Assert.Equal("← 検索に戻る", main.BackButtonText);
-        Assert.Equal("「検索」へ戻る（Alt+←）", main.BackTip);
+        Assert.Equal("「検索」へ戻る（Alt + 左矢印）", main.BackTip);
 
         main.ShowSettingsCommand.Execute(null);
         Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
@@ -75,11 +75,28 @@ public class NavigationHistoryTests
         main.GoBack();
         Assert.IsType<StatsViewModel>(main.CurrentViewModel);
         Assert.Equal("← 検索に戻る", main.BackButtonText);
-        Assert.Equal("「設定」へ進む（Alt+→）", main.ForwardTip);
+        Assert.Equal("「設定」へ進む（Alt + 右矢印）", main.ForwardTip);
 
         main.GoBack();
         Assert.IsType<SearchViewModel>(main.CurrentViewModel);
         Assert.False(main.CanGoBack);
+    });
+
+    [Fact]
+    public Task 戻る進むの吹き出しは_設定で変えたキーに追い_外したらキーを出さない() => TestApp.Run(async app =>
+    {
+        var main = await StartWithItemAsync(app);
+        main.ShowStatsCommand.Execute(null);
+
+        await app.ChangeSettingsAsync(settings => settings with
+        {
+            Shortcuts = settings.Shortcuts with { Back = "Ctrl+Shift+B", Forward = string.Empty },
+        });
+        main.GoBack();
+
+        Assert.Equal("「統計」へ進む", main.ForwardTip);
+        main.ShowStatsCommand.Execute(null);
+        Assert.Equal("「検索」へ戻る（Ctrl + Shift + B）", main.BackTip);
     });
 
     [Fact]

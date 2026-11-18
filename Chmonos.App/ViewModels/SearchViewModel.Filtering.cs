@@ -123,6 +123,8 @@ public sealed partial class SearchViewModel
         OnPropertyChanged(nameof(ActiveFilterCount));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(EmptyHint));
+        OnPropertyChanged(nameof(EmptyClearTail));
+        OnPropertyChanged(nameof(ShowsEmptyClear));
 
         // 条件・文字・表示順が変わると、今の検索と同じ保存した検索も変わる
         RefreshSavedCurrent();
@@ -219,6 +221,8 @@ public sealed partial class SearchViewModel
                 OnPropertyChanged(nameof(WidenedText));
                 OnPropertyChanged(nameof(HasWidened));
                 OnPropertyChanged(nameof(EmptyHint));
+                OnPropertyChanged(nameof(EmptyClearTail));
+                OnPropertyChanged(nameof(ShowsEmptyClear));
             });
         }).Forget();
     }
@@ -313,8 +317,21 @@ public sealed partial class SearchViewModel
         : _openUnityEmptyHint is { } openUnity
             ? openUnity
         : HasActiveFilters || _queryText.Trim().Length > 0
-            ? "「条件をクリア」で全件に戻ります"
+            ? ClearHintHead + "で全件に戻ります"
             : "「取り込み」からフォルダを読み込んでください";
+
+    private const string ClearHintHead = "「条件をクリア」";
+
+    /// <summary>
+    /// 0件の文が「条件をクリア」で始まるとき、その後ろの文（「で全件に戻ります」）。null なら文は普通の1文のまま。
+    /// 画面は頭の「条件をクリア」をボタンにして続きを並べる（ユーザ判断 2026-11-17）。
+    /// 左の欄を畳んでいても押せる（前は欄の中のボタンまで開く必要があった）
+    /// </summary>
+    public string? EmptyClearTail => EmptyHint.StartsWith(ClearHintHead, StringComparison.Ordinal)
+        ? EmptyHint[ClearHintHead.Length..]
+        : null;
+
+    public bool ShowsEmptyClear => EmptyClearTail is not null;
 
     /// <summary>
     /// 絞り込み結果を、現在の列数で行に切り直す。

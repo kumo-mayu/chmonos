@@ -64,6 +64,21 @@ public class CardInfoTests
     }
 
     [Fact]
+    public void 段に余った幅は_切れていた札へ左から分け_元の長さより伸ばさない()
+    {
+        // 上限で切った幅 [90, 50, 90]・元の長さ [200, 50, 120]。余り 100 は、切れていた1枚目に先に渡る（110 要る所を 100 で止まる）
+        Assert.Equal([190d, 50d, 90d], Chmonos.App.Controls.CardInfoStrip.Grow([90, 50, 90], [200, 50, 120], 100));
+        // 余りが多ければ、元の長さまでで止まる。残りは次の切れていた札へ
+        Assert.Equal([200d, 50d, 120d], Chmonos.App.Controls.CardInfoStrip.Grow([90, 50, 90], [200, 50, 120], 500));
+        // 余りが無い（狭いカード）なら今のまま
+        Assert.Equal([90d, 50d, 90d], Chmonos.App.Controls.CardInfoStrip.Grow([90, 50, 90], [200, 50, 120], 0));
+        Assert.Equal([90d, 50d, 90d], Chmonos.App.Controls.CardInfoStrip.Grow([90, 50, 90], [200, 50, 120], -8));
+        // 並べた幅は札の間を含む
+        Assert.Equal(198d, Chmonos.App.Controls.CardInfoStrip.ChipsUsed([90, 50, 50], 4));
+        Assert.Equal(0d, Chmonos.App.Controls.CardInfoStrip.ChipsUsed([], 4));
+    }
+
+    [Fact]
     public void 札の枚数はカードの幅に入るだけで_入らない分は残りの数の札のぶんを空ける()
     {
         // 札の幅 50・間 4・「+n」の札 20。幅 200 なら 3枚（158）＋「+n」（182）まで。4枚は 212 で超える

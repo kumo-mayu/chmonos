@@ -59,9 +59,19 @@ public sealed partial class MainViewModel
     public string BackButtonText => _history.Count > 0 ? $"← {_history[^1].Label}に戻る" : "← 検索に戻る";
 
     /// <summary>左上の戻る・進む（ブラウザと同じ形）。名前は出せないので、行き先はツールチップで言う。</summary>
-    public string BackTip => _history.Count > 0 ? $"「{_history[^1].Label}」へ戻る（Alt+←）" : "戻る先がありません";
+    public string BackTip => _history.Count > 0 ? WithKey($"「{_history[^1].Label}」へ戻る", ShortcutAction.Back) : "戻る先がありません";
 
-    public string ForwardTip => _forward.Count > 0 ? $"「{_forward[^1].Label}」へ進む（Alt+→）" : "進む先がありません";
+    public string ForwardTip => _forward.Count > 0 ? WithKey($"「{_forward[^1].Label}」へ進む", ShortcutAction.Forward) : "進む先がありません";
+
+    /// <summary>
+    /// 吹き出しの文の後ろに、今の割り当てのキーを付ける（ユーザ判断 2026-11-17。設定で変えたキーに追従する）。
+    /// 割り当てが無ければ付けない。設定の画面を出て戻る・進むが動くと、このときに読み直す
+    /// </summary>
+    private string WithKey(string text, ShortcutAction action)
+    {
+        var gesture = Chmonos.App.Services.Shortcuts.GestureOf(Shortcuts, action);
+        return Chmonos.App.Services.Shortcuts.Parse(gesture) is null ? text : $"{text}（{Chmonos.App.Services.Shortcuts.Display(gesture)}）";
+    }
 
     /// <summary>
     /// <see cref="LeaveEdit"/> で戻る先の名前（編集の中で移った分は飛ばす）。

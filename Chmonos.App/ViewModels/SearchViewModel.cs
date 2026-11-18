@@ -131,6 +131,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         CopyLinkCommand = new RelayCommand(
             parameter => CopyLink(AsCard(parameter)),
             parameter => AsCard(parameter) is { HasBoothPage: true });
+        CopyIdCommand = new RelayCommand(
+            parameter => CopyId(AsCard(parameter)),
+            parameter => AsCard(parameter) is not null);
         EditItemCommand = new RelayCommand(parameter => EditItemAsync(AsCard(parameter)).Forget());
         RevealCommand = new RelayCommand(parameter => Reveal(AsCard(parameter)));
         CardUnpackCommand = new RelayCommand(parameter =>
