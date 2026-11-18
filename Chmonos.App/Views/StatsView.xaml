@@ -8,6 +8,11 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:StatsViewModel}">
     <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む三角はほかの欄と同じ物（統計の各欄を畳めるようにした。ユーザ指示 2026-11-18） -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
 
         <!-- 棒そのものを押せるようにする。行の見た目は中身に任せ、枠は出さない -->
         <Style x:Key="RowButton" TargetType="Button">
@@ -96,6 +101,7 @@
                 </StackPanel>
             </Grid>
         </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{DynamicResource Bg}">
@@ -165,7 +171,7 @@
                         <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15"
                                 Visibility="{Binding HasGiven, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <StackPanel>
-                                <TextBlock Text="贈答に使った額" Style="{StaticResource SectionLabel}" />
+                                <TextBlock Text="ギフトした額" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="{Binding GivenText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding GivenSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
@@ -198,98 +204,102 @@
 
                     <!-- 月別の支出 -->
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20,18">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="支出の推移" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                <TextBlock Text="入手日で数えます。ギフトは含みません。" Style="{StaticResource Caption}"
-                                           Margin="10,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="支出の推移">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="支出の推移" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                    <TextBlock Text="入手日で数えます。ギフトは含みません。" Style="{StaticResource Caption}"
+                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
 
-                            <TextBlock Text="{Binding ChartNote}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="0,6,0,0"
-                                       Visibility="{Binding HasChartNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <TextBlock Text="{Binding ChartNote}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Visibility="{Binding HasChartNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <Grid Margin="0,14,0,0"
-                                  Visibility="{Binding HasChart, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                                <Grid Margin="0,14,0,0"
+                                      Visibility="{Binding HasChart, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <!-- 縦軸。目盛りは棒の帯（上14px・下32px〔月18＋年14〕を除いた140px）に合わせる -->
-                                <Grid Grid.Column="0" Width="52" Height="140" Margin="0,14,0,32">
-                                    <TextBlock Text="{Binding AxisTopText}" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
-                                               VerticalAlignment="Top" Margin="0,-7,8,0" />
-                                    <TextBlock Text="{Binding AxisMidText}" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
-                                               VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBlock Text="¥0" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
-                                               VerticalAlignment="Bottom" Margin="0,0,8,-7" />
-                                </Grid>
-
-                                <Grid Grid.Column="1">
-                                    <!-- 目盛り線。棒と同じ帯にだけ重ねる -->
-                                    <Grid Margin="0,14,0,32">
-                                        <Border Height="1" VerticalAlignment="Top" Background="{DynamicResource Divider}" />
-                                        <Border Height="1" VerticalAlignment="Center" Background="{DynamicResource Divider}" />
-                                        <Border Height="1" VerticalAlignment="Bottom" Background="{DynamicResource Border}" />
+                                    <!-- 縦軸。目盛りは棒の帯（上14px・下32px〔月18＋年14〕を除いた140px）に合わせる -->
+                                    <Grid Grid.Column="0" Width="52" Height="140" Margin="0,14,0,32">
+                                        <TextBlock Text="{Binding AxisTopText}" Style="{StaticResource Mono}" FontSize="10.5"
+                                                   Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
+                                                   VerticalAlignment="Top" Margin="0,-7,8,0" />
+                                        <TextBlock Text="{Binding AxisMidText}" Style="{StaticResource Mono}" FontSize="10.5"
+                                                   Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="¥0" Style="{StaticResource Mono}" FontSize="10.5"
+                                                   Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
+                                                   VerticalAlignment="Bottom" Margin="0,0,8,-7" />
                                     </Grid>
 
-                                    <controls:ContentItemsControl ItemsSource="{Binding Chart}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <UniformGrid Rows="1" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpendBarViewModel}">
-                                                <DockPanel ToolTip="{Binding Tooltip}">
-                                                    <!--
-                                                        月の下に年（左端と1月だけ。点検 2026-09-23：「09」だけでは年が分からなかった）。
-                                                        年の無い棒も同じ高さを取り、棒の下端を揃える。年は隣の棒の下まではみ出してよい
-                                                    -->
-                                                    <Canvas DockPanel.Dock="Bottom" Height="14" ClipToBounds="False">
-                                                        <TextBlock Text="{Binding YearLabel}" Style="{StaticResource Mono}" FontSize="10"
-                                                                   Foreground="{DynamicResource TextMuted}" Canvas.Left="2" />
-                                                    </Canvas>
-                                                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Label}" Height="18"
-                                                               Style="{StaticResource Mono}" FontSize="10.5"
-                                                               Foreground="{DynamicResource TextFaint}"
-                                                               HorizontalAlignment="Center" Margin="0,4,0,0" />
-                                                    <Grid Height="154">
-                                                        <StackPanel VerticalAlignment="Bottom" Margin="4,0">
-                                                            <TextBlock Text="{Binding ValueLabel}" Height="14"
-                                                                       FontSize="10.5"
-                                                                       HorizontalAlignment="Center">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Mono}">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsPeak}" Value="True">
-                                                                                <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-                                                            <!--
-                                                                幅が広い画面で、区切りが少ないときに棒が板のように
-                                                                なってしまうので上限を置く。
-                                                            -->
-                                                            <Border Height="{Binding BarHeight}" CornerRadius="4,4,0,0"
-                                                                    MaxWidth="72"
-                                                                    Background="{DynamicResource Accent}" />
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </DockPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </controls:ContentItemsControl>
+                                    <Grid Grid.Column="1">
+                                        <!-- 目盛り線。棒と同じ帯にだけ重ねる -->
+                                        <Grid Margin="0,14,0,32">
+                                            <Border Height="1" VerticalAlignment="Top" Background="{DynamicResource Divider}" />
+                                            <Border Height="1" VerticalAlignment="Center" Background="{DynamicResource Divider}" />
+                                            <Border Height="1" VerticalAlignment="Bottom" Background="{DynamicResource Border}" />
+                                        </Grid>
+
+                                        <controls:ContentItemsControl ItemsSource="{Binding Chart}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <UniformGrid Rows="1" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:SpendBarViewModel}">
+                                                    <DockPanel ToolTip="{Binding Tooltip}">
+                                                        <!--
+                                                            月の下に年（左端と1月だけ。点検 2026-09-23：「09」だけでは年が分からなかった）。
+                                                            年の無い棒も同じ高さを取り、棒の下端を揃える。年は隣の棒の下まではみ出してよい
+                                                        -->
+                                                        <Canvas DockPanel.Dock="Bottom" Height="14" ClipToBounds="False">
+                                                            <TextBlock Text="{Binding YearLabel}" Style="{StaticResource Mono}" FontSize="10"
+                                                                       Foreground="{DynamicResource TextMuted}" Canvas.Left="2" />
+                                                        </Canvas>
+                                                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Label}" Height="18"
+                                                                   Style="{StaticResource Mono}" FontSize="10.5"
+                                                                   Foreground="{DynamicResource TextFaint}"
+                                                                   HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                                        <Grid Height="154">
+                                                            <StackPanel VerticalAlignment="Bottom" Margin="4,0">
+                                                                <TextBlock Text="{Binding ValueLabel}" Height="14"
+                                                                           FontSize="10.5"
+                                                                           HorizontalAlignment="Center">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Mono}">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsPeak}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <!--
+                                                                    幅が広い画面で、区切りが少ないときに棒が板のように
+                                                                    なってしまうので上限を置く。
+                                                                -->
+                                                                <Border Height="{Binding BarHeight}" CornerRadius="4,4,0,0"
+                                                                        MaxWidth="72"
+                                                                        Background="{DynamicResource Accent}" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
+                                    </Grid>
                                 </Grid>
-                            </Grid>
-                        </StackPanel>
+                            </StackPanel>
+                        </Expander>
                     </Border>
 
                     <!-- アバター別 / ショップ別 -->
@@ -300,51 +310,59 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <DockPanel>
-                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
-                                    <TextBlock Text="アバター別の所持数" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="素体経由を含む" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="アバター別の所持数">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="アバター別の所持数" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="素体経由を含む" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <DockPanel>
 
-                                <!-- 棒と空表示を同じ場所に重ねる。DockPanelに直に並べると横に割れる -->
-                                <Grid>
-                                    <controls:ContentItemsControl ItemsSource="{Binding Avatars}" Margin="0,14,0,0"
-                                                  VerticalAlignment="Top"
-                                                  ItemTemplate="{StaticResource BarRow}"
-                                                  Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <!-- 棒と空表示を同じ場所に重ねる。DockPanelに直に並べると横に割れる -->
+                                    <Grid>
+                                        <controls:ContentItemsControl ItemsSource="{Binding Avatars}" Margin="0,14,0,0"
+                                                      VerticalAlignment="Top"
+                                                      ItemTemplate="{StaticResource BarRow}"
+                                                      Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                    <!-- 紐付けが無いうちは0の棒を並べても読めないので、次にやることだけ出す -->
-                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource Caption}" MaxWidth="360"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
-                                               Text="対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。"
-                                               Visibility="{Binding HasAvatars, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                </Grid>
-                            </DockPanel>
+                                        <!-- 紐付けが無いうちは0の棒を並べても読めないので、次にやることだけ出す -->
+                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource Caption}" MaxWidth="360"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                                                   Text="対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。"
+                                                   Visibility="{Binding HasAvatars, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                    </Grid>
+                                </DockPanel>
+                            </Expander>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="よく買っているショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="支出順・上位8件" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="よく買っているショップ">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="よく買っているショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="支出順・上位8件" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <StackPanel>
 
-                                <controls:ContentItemsControl ItemsSource="{Binding Shops}" Margin="0,14,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
-                                            <!-- 中身が行そのもの（絵と文字の並び）なので、名前を付けないと行の型の名前が読まれる -->
-                                            <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
-                                                    AutomationProperties.AutomationId="StatsShopRow"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}"
-                                                    ToolTip="{Binding Tooltip}"
-                                                    ContentTemplate="{StaticResource BarRow}"
-                                                    Content="{Binding}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </controls:ContentItemsControl>
-                            </StackPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding Shops}" Margin="0,14,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
+                                                <!-- 中身が行そのもの（絵と文字の並び）なので、名前を付けないと行の型の名前が読まれる -->
+                                                <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
+                                                        AutomationProperties.AutomationId="StatsShopRow"
+                                                        AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}"
+                                                        ToolTip="{Binding Tooltip}"
+                                                        ContentTemplate="{StaticResource BarRow}"
+                                                        Content="{Binding}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+                                </StackPanel>
+                            </Expander>
                         </Border>
                     </Grid>
 
@@ -356,150 +374,158 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="20,18">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ディスク使用量の内訳" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="実際にドライブを占有している量" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-
-                                <controls:ContentItemsControl ItemsSource="{Binding Categories}" Margin="0,14,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
-                                            <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
-                                                    AutomationProperties.AutomationId="StatsCategoryRow"
-                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}を検索で開く}"
-                                                    ToolTip="{Binding Tooltip}"
-                                                    ContentTemplate="{StaticResource BarRow}"
-                                                    Content="{Binding}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </controls:ContentItemsControl>
-
-                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
-                                        BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,6,0,0"
-                                        Visibility="{Binding SizeSubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}">
-                                    <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap">
-                                        <Run Text="{Binding SizeSubText, Mode=OneWay}" />
-                                        <Run Text="。同じ中身のファイルを2箇所以上に置いている分です。" />
-                                    </TextBlock>
-                                </Border>
-
-                                <!--
-                                    空けられる場所
-
-                                    **合計だけでは触る場所が分からない。**上の「うち重複コピー」は
-                                    量しか言えず、しかも1商品の中しか見ていないので
-                                    商品またぎを取り逃していた。組ごとに、場所と空く量を出す。
-
-                                    **無いことも言う。**黙って消すと、調べた結果ゼロなのか
-                                    機能が無いのか分からない
-                                -->
-                                <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
-                                        Padding="0,12,0,0" Margin="0,14,0,0">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="空けられる場所" Style="{StaticResource PanelTitle}"
-                                                       VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding DuplicateSummary}" Style="{StaticResource Caption}"
-                                                       Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                        </StackPanel>
-
-                                        <controls:ContentItemsControl ItemsSource="{Binding Duplicates}" Margin="0,10,0,0"
-                                                      Visibility="{Binding HasDuplicates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate DataType="{x:Type vm:DuplicateRowViewModel}">
-                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
-                                                            BorderThickness="1" CornerRadius="6"
-                                                            Padding="11,9" Margin="0,0,0,7">
-                                                        <StackPanel>
-                                                            <Grid>
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="*" />
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12.5"
-                                                                           TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
-                                                                <TextBlock Grid.Column="1" Text="{Binding ReclaimText}"
-                                                                           Style="{StaticResource Mono}" FontSize="11"
-                                                                           VerticalAlignment="Center" />
-                                                            </Grid>
-                                                            <TextBlock Text="{Binding KindText}" Style="{StaticResource Caption}"
-                                                                       Margin="0,4,0,0" TextWrapping="Wrap" />
-                                                            <TextBlock Text="{Binding ItemsText}" Style="{StaticResource Caption}"
-                                                                       Margin="0,2,0,0" TextWrapping="Wrap" />
-                                                            <!-- 消す前に場所が見えていること -->
-                                                            <controls:ContentItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
-                                                                <ItemsControl.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <TextBlock Text="{Binding}" Style="{StaticResource Mono}"
-                                                                                   FontSize="10.5" Margin="0,1,0,0"
-                                                                                   TextTrimming="CharacterEllipsis" />
-                                                                    </DataTemplate>
-                                                                </ItemsControl.ItemTemplate>
-                                                            </controls:ContentItemsControl>
-                                                        </StackPanel>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </controls:ContentItemsControl>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="ディスク使用量の内訳">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="ディスク使用量の内訳" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="実際にドライブを占有している量" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
                                     </StackPanel>
-                                </Border>
-                            </StackPanel>
+                                </Expander.Header>
+                                <StackPanel>
+
+                                    <controls:ContentItemsControl ItemsSource="{Binding Categories}" Margin="0,14,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
+                                                <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
+                                                        AutomationProperties.AutomationId="StatsCategoryRow"
+                                                        AutomationProperties.Name="{Binding Label, StringFormat={}{0}を検索で開く}"
+                                                        ToolTip="{Binding Tooltip}"
+                                                        ContentTemplate="{StaticResource BarRow}"
+                                                        Content="{Binding}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+
+                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
+                                            BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,6,0,0"
+                                            Visibility="{Binding SizeSubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}">
+                                        <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap">
+                                            <Run Text="{Binding SizeSubText, Mode=OneWay}" />
+                                            <Run Text="。同じ中身のファイルを2箇所以上に置いている分です。" />
+                                        </TextBlock>
+                                    </Border>
+
+                                    <!--
+                                        空けられる場所
+
+                                        **合計だけでは触る場所が分からない。**上の「うち重複コピー」は
+                                        量しか言えず、しかも1商品の中しか見ていないので
+                                        商品またぎを取り逃していた。組ごとに、場所と空く量を出す。
+
+                                        **無いことも言う。**黙って消すと、調べた結果ゼロなのか
+                                        機能が無いのか分からない
+                                    -->
+                                    <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
+                                            Padding="0,12,0,0" Margin="0,14,0,0">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="空けられる場所" Style="{StaticResource PanelTitle}"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding DuplicateSummary}" Style="{StaticResource Caption}"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            </StackPanel>
+
+                                            <controls:ContentItemsControl ItemsSource="{Binding Duplicates}" Margin="0,10,0,0"
+                                                          Visibility="{Binding HasDuplicates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:DuplicateRowViewModel}">
+                                                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
+                                                                BorderThickness="1" CornerRadius="6"
+                                                                Padding="11,9" Margin="0,0,0,7">
+                                                            <StackPanel>
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12.5"
+                                                                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                                                    <TextBlock Grid.Column="1" Text="{Binding ReclaimText}"
+                                                                               Style="{StaticResource Mono}" FontSize="11"
+                                                                               VerticalAlignment="Center" />
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding KindText}" Style="{StaticResource Caption}"
+                                                                           Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding ItemsText}" Style="{StaticResource Caption}"
+                                                                           Margin="0,2,0,0" TextWrapping="Wrap" />
+                                                                <!-- 消す前に場所が見えていること -->
+                                                                <controls:ContentItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}"
+                                                                                       FontSize="10.5" Margin="0,1,0,0"
+                                                                                       TextTrimming="CharacterEllipsis" />
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </controls:ContentItemsControl>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </controls:ContentItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Expander>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Padding="20,18">
-                            <StackPanel>
-                                <TextBlock Text="未処理" Style="{StaticResource PanelTitle}" />
-                                <TextBlock Text="所持していないものも含めた、手を付ける必要があるものの数です。"
-                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="未処理">
+                                <Expander.Header>
+                                    <TextBlock Text="未処理" Style="{StaticResource PanelTitle}" />
+                                </Expander.Header>
+                                <StackPanel>
+                                    <TextBlock Text="所持していないものも含めた、手を付ける必要があるものの数です。"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
 
-                                <controls:ContentItemsControl ItemsSource="{Binding Backlog}" Margin="0,12,0,0"
-                                              Visibility="{Binding HasBacklog, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:BacklogRowViewModel}">
-                                            <Button AutomationProperties.AutomationId="StatsBacklogRow" AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}" Style="{StaticResource RowButton}" Command="{Binding OpenCommand}" Margin="0,0,0,8">
-                                                <Border BorderThickness="1" CornerRadius="6" Padding="12,10">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{DynamicResource Surface}" />
-                                                            <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Severity}" Value="Warn">
-                                                                    <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
-                                                                    <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding Severity}" Value="Bad">
-                                                                    <Setter Property="Background" Value="{DynamicResource BadSoft}" />
-                                                                    <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
+                                    <controls:ContentItemsControl ItemsSource="{Binding Backlog}" Margin="0,12,0,0"
+                                                  Visibility="{Binding HasBacklog, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:BacklogRowViewModel}">
+                                                <Button AutomationProperties.AutomationId="StatsBacklogRow" AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}" Style="{StaticResource RowButton}" Command="{Binding OpenCommand}" Margin="0,0,0,8">
+                                                    <Border BorderThickness="1" CornerRadius="6" Padding="12,10">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="{DynamicResource Surface}" />
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Warn">
+                                                                        <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Bad">
+                                                                        <Setter Property="Background" Value="{DynamicResource BadSoft}" />
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
 
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="52" />
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="52" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
 
-                                                        <TextBlock Grid.Column="0" Text="{Binding Count}" Style="{StaticResource Mono}"
-                                                                   FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5"
-                                                                   Foreground="{DynamicResource TextBody}" VerticalAlignment="Center" />
-                                                        <TextBlock Grid.Column="2" Text="→" Foreground="{DynamicResource TextFaint}"
-                                                                   VerticalAlignment="Center" />
-                                                    </Grid>
-                                                </Border>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </controls:ContentItemsControl>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Count}" Style="{StaticResource Mono}"
+                                                                       FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5"
+                                                                       Foreground="{DynamicResource TextBody}" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="2" Text="→" Foreground="{DynamicResource TextFaint}"
+                                                                       VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
 
-                                <TextBlock Text="残っている作業はありません。" Style="{StaticResource Caption}" Margin="0,14,0,0"
-                                           Visibility="{Binding HasBacklog, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            </StackPanel>
+                                    <TextBlock Text="残っている作業はありません。" Style="{StaticResource Caption}" Margin="0,14,0,0"
+                                               Visibility="{Binding HasBacklog, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                            </Expander>
                         </Border>
                     </Grid>
 
@@ -513,77 +539,85 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <StackPanel>
-                                <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" />
-                                <controls:ContentItemsControl ItemsSource="{Binding PriceBuckets}" Margin="0,14,0,0"
-                                              ItemTemplate="{StaticResource BarRow}" />
-                                <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
-                                <Grid Margin="0,0,0,6">
-                                    <TextBlock Text="無料で手に入れたもの" Style="{StaticResource Caption}" />
-                                    <TextBlock Text="{Binding FreeText}" Style="{StaticResource Mono}" FontSize="12"
-                                               HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid>
-                                    <TextBlock Text="ギフトで貰ったもの" Style="{StaticResource Caption}" />
-                                    <TextBlock Text="{Binding GiftText}" Style="{StaticResource Mono}" FontSize="12"
-                                               HorizontalAlignment="Right" />
-                                </Grid>
-                            </StackPanel>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="価格帯">
+                                <Expander.Header>
+                                    <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" />
+                                </Expander.Header>
+                                <StackPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding PriceBuckets}" Margin="0,14,0,0"
+                                                  ItemTemplate="{StaticResource BarRow}" />
+                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="無料で手に入れたもの" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{Binding FreeText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="ギフトで貰ったもの" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{Binding GiftText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </Grid>
+                                </StackPanel>
+                            </Expander>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="買った時からの価格の動き" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="BOOTHに残っているものだけ" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="買った時からの価格の動き">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="買った時からの価格の動き" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="BOOTHに残っているものだけ" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <StackPanel>
+
+                                    <controls:ContentItemsControl ItemsSource="{Binding PriceChanges}" Margin="0,12,0,0"
+                                                  Visibility="{Binding HasPriceChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:PriceChangeRowViewModel}">
+                                                <Button AutomationProperties.AutomationId="StatsPriceChangeRow" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}" Style="{StaticResource RowButton}" Command="{Binding OpenCommand}">
+                                                    <Grid Margin="0,0,0,7">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                                   Margin="0,0,10,0" />
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding PaidText}" Style="{StaticResource Mono}"
+                                                                       FontSize="11" Foreground="{DynamicResource TextFaint}" />
+                                                            <TextBlock Text="→" Margin="5,0" Foreground="{DynamicResource TextFaint}"
+                                                                       FontSize="11" />
+                                                            <TextBlock Text="{Binding CurrentText}" Style="{StaticResource Mono}"
+                                                                       FontSize="11" />
+                                                            <TextBlock Text="{Binding DiffText}" FontSize="11" Margin="8,0,0,0"
+                                                                       MinWidth="62" TextAlignment="Right"
+                                                                       FontFamily="Consolas, Yu Gothic UI">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Good}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </controls:ContentItemsControl>
+
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
+                                               Text="買った時と今で価格が変わった商品はありません。"
+                                               Visibility="{Binding HasPriceChanges, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
-
-                                <controls:ContentItemsControl ItemsSource="{Binding PriceChanges}" Margin="0,12,0,0"
-                                              Visibility="{Binding HasPriceChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:PriceChangeRowViewModel}">
-                                            <Button AutomationProperties.AutomationId="StatsPriceChangeRow" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}" Style="{StaticResource RowButton}" Command="{Binding OpenCommand}">
-                                                <Grid Margin="0,0,0,7">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12"
-                                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                                               Margin="0,0,10,0" />
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding PaidText}" Style="{StaticResource Mono}"
-                                                                   FontSize="11" Foreground="{DynamicResource TextFaint}" />
-                                                        <TextBlock Text="→" Margin="5,0" Foreground="{DynamicResource TextFaint}"
-                                                                   FontSize="11" />
-                                                        <TextBlock Text="{Binding CurrentText}" Style="{StaticResource Mono}"
-                                                                   FontSize="11" />
-                                                        <TextBlock Text="{Binding DiffText}" FontSize="11" Margin="8,0,0,0"
-                                                                   MinWidth="62" TextAlignment="Right"
-                                                                   FontFamily="Consolas, Yu Gothic UI">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource Good}" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </controls:ContentItemsControl>
-
-                                <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
-                                           Text="買った時と今で価格が変わった商品はありません。"
-                                           Visibility="{Binding HasPriceChanges, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            </StackPanel>
+                            </Expander>
                         </Border>
                     </Grid>
 
@@ -595,25 +629,33 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <StackPanel>
-                                <TextBlock Text="カテゴリ" Style="{StaticResource PanelTitle}" />
-                                <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
-                                <controls:ContentItemsControl ItemsSource="{Binding CategorySpend}" ItemTemplate="{StaticResource BarRow}" />
-                                <TextBlock Text="点数" Style="{StaticResource SectionLabel}" Margin="0,10,0,8" />
-                                <controls:ContentItemsControl ItemsSource="{Binding CategoryCounts}" ItemTemplate="{StaticResource BarRow}" />
-                            </StackPanel>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="カテゴリ">
+                                <Expander.Header>
+                                    <TextBlock Text="カテゴリ" Style="{StaticResource PanelTitle}" />
+                                </Expander.Header>
+                                <StackPanel>
+                                    <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding CategorySpend}" ItemTemplate="{StaticResource BarRow}" />
+                                    <TextBlock Text="商品数" Style="{StaticResource SectionLabel}" Margin="0,10,0,8" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding CategoryCounts}" ItemTemplate="{StaticResource BarRow}" />
+                                </StackPanel>
+                            </Expander>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <StackPanel>
-                                <TextBlock Text="ユーザータグ" Style="{StaticResource PanelTitle}" />
-                                <TextBlock Text="{Binding UserTagSpendNote}" Style="{StaticResource Caption}"
-                                           Margin="0,5,0,0" TextWrapping="Wrap" />
-                                <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
-                                <controls:ContentItemsControl ItemsSource="{Binding UserTagSpend}" ItemTemplate="{StaticResource BarRow}" />
-                                <TextBlock Text="点数" Style="{StaticResource SectionLabel}" Margin="0,10,0,8" />
-                                <controls:ContentItemsControl ItemsSource="{Binding UserTagCounts}" ItemTemplate="{StaticResource BarRow}" />
-                            </StackPanel>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="ユーザータグ">
+                                <Expander.Header>
+                                    <TextBlock Text="ユーザータグ" Style="{StaticResource PanelTitle}" />
+                                </Expander.Header>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding UserTagSpendNote}" Style="{StaticResource Caption}"
+                                               Margin="0,5,0,0" TextWrapping="Wrap" />
+                                    <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding UserTagSpend}" ItemTemplate="{StaticResource BarRow}" />
+                                    <TextBlock Text="商品数" Style="{StaticResource SectionLabel}" Margin="0,10,0,8" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding UserTagCounts}" ItemTemplate="{StaticResource BarRow}" />
+                                </StackPanel>
+                            </Expander>
                         </Border>
                     </Grid>
 
@@ -625,103 +667,123 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="点数の多いショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="支出順とは顔ぶれが変わる" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="点数の多いショップ">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="点数の多いショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="支出順とは顔ぶれが変わる" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <StackPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding ShopsByCount}" Margin="0,12,0,0"
+                                                  ItemTemplate="{StaticResource BarRow}" />
+                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
+                                    <Grid>
+                                        <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </Grid>
                                 </StackPanel>
-                                <controls:ContentItemsControl ItemsSource="{Binding ShopsByCount}" Margin="0,12,0,0"
-                                              ItemTemplate="{StaticResource BarRow}" />
-                                <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
-                                <Grid>
-                                    <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
-                                    <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
-                                               HorizontalAlignment="Right" />
-                                </Grid>
-                            </StackPanel>
+                            </Expander>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="容量の大きい商品" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="実際にドライブを占有している量" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="容量の大きい商品">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="容量の大きい商品" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="実際にドライブを占有している量" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <StackPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding HeavyItems}" Margin="0,12,0,0"
+                                                  ItemTemplate="{StaticResource BarRow}" />
                                 </StackPanel>
-                                <controls:ContentItemsControl ItemsSource="{Binding HeavyItems}" Margin="0,12,0,0"
-                                              ItemTemplate="{StaticResource BarRow}" />
-                            </StackPanel>
+                            </Expander>
                         </Border>
                     </Grid>
 
                     <!-- 属性 -->
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20,18">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="属性" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                <TextBlock Text="評価した商品だけを数え、未評価は除きます。"
-                                           Style="{StaticResource Caption}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="属性">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="属性" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                    <TextBlock Text="評価した商品だけを数え、未評価は除きます。"
+                                               Style="{StaticResource Caption}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+
+                                <controls:ContentItemsControl ItemsSource="{Binding AttributeDistributions}" Margin="0,14,0,0"
+                                              Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:AttributeDistributionRowViewModel}">
+                                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                                                    Padding="14,11" Margin="0,0,12,12" Width="248">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" />
+                                                    <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}"
+                                                               Margin="0,3,0,8" />
+                                                    <controls:ContentItemsControl ItemsSource="{Binding BarHeights}" Height="56">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <UniformGrid Rows="1" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Height="{Binding}" CornerRadius="3,3,0,0" MaxWidth="34"
+                                                                        Margin="3,0" VerticalAlignment="Bottom"
+                                                                        Background="{DynamicResource Accent}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </controls:ContentItemsControl>
+                                                    <Grid Margin="0,4,0,0">
+                                                        <TextBlock Text="0" Style="{StaticResource Caption}" HorizontalAlignment="Left" />
+                                                        <TextBlock Text="100" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
+
+                                <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                           Text="まだ属性を付けた商品がありません。編集画面から付けられます。"
+                                           Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                                <!-- 既定は畳む（ユーザ指示 2026-11-18）。属性の分布の下の補足で、見に行く人だけが開く -->
+                                <Expander Style="{StaticResource TriangleExpander}" IsExpanded="False" Margin="0,14,0,0"
+                                          AutomationProperties.AutomationId="StatsCorrelationsExpander" AutomationProperties.Name="軸どうしの関係">
+                                <Expander.Header>
+                                    <TextBlock Text="軸どうしの関係" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                                </Expander.Header>
+                                <StackPanel Margin="0,4,0,0">
+                                <!--
+                                    数字の意味を見出しの下に書く（点検 2026-09-23：「+0.31（25件）」だけでは何の数か読めなかった）。
+                                    中身はピアソンの相関係数（StatsExtras.Correlations）。読み方だけを言い、強弱の境目の数は決めない
+                                    （目安の数には根拠が要り、件数でも変わる）
+                                -->
+                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="2つの値が一緒に動くかを −1〜+1 で表します。＋は片方が高いほどもう片方も高く、−はその逆です。（ ）は両方を評価した商品の数です。"
+                                           Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <controls:ContentItemsControl ItemsSource="{Binding AttributeCorrelations}" ItemTemplate="{StaticResource BarRow}"
+                                              Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <!-- 出せない理由をその場に書く。空欄のまま置かない -->
+                                <TextBlock Text="{Binding CorrelationNote}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                           Visibility="{Binding HasCorrelations, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                                </Expander>
                             </StackPanel>
-
-                            <controls:ContentItemsControl ItemsSource="{Binding AttributeDistributions}" Margin="0,14,0,0"
-                                          Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:AttributeDistributionRowViewModel}">
-                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                                                Padding="14,11" Margin="0,0,12,12" Width="248">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" />
-                                                <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}"
-                                                           Margin="0,3,0,8" />
-                                                <controls:ContentItemsControl ItemsSource="{Binding BarHeights}" Height="56">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <UniformGrid Rows="1" />
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Border Height="{Binding}" CornerRadius="3,3,0,0" MaxWidth="34"
-                                                                    Margin="3,0" VerticalAlignment="Bottom"
-                                                                    Background="{DynamicResource Accent}" />
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </controls:ContentItemsControl>
-                                                <Grid Margin="0,4,0,0">
-                                                    <TextBlock Text="0" Style="{StaticResource Caption}" HorizontalAlignment="Left" />
-                                                    <TextBlock Text="100" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
-                                                </Grid>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </controls:ContentItemsControl>
-
-                            <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                       Text="まだ属性を付けた商品がありません。編集画面から付けられます。"
-                                       Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-
-                            <TextBlock Text="軸どうしの関係" Style="{StaticResource SectionLabel}" Margin="0,14,0,4" />
-                            <!--
-                                数字の意味を見出しの下に書く（点検 2026-09-23：「+0.31（25件）」だけでは何の数か読めなかった）。
-                                中身はピアソンの相関係数（StatsExtras.Correlations）。読み方だけを言い、強弱の境目の数は決めない
-                                （目安の数には根拠が要り、件数でも変わる）
-                            -->
-                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                       Text="2つの値が一緒に動くかを −1〜+1 で表します。＋は片方が高いほどもう片方も高く、−はその逆です。（ ）は両方を評価した商品の数です。"
-                                       Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <controls:ContentItemsControl ItemsSource="{Binding AttributeCorrelations}" ItemTemplate="{StaticResource BarRow}"
-                                          Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <!-- 出せない理由をその場に書く。空欄のまま置かない -->
-                            <TextBlock Text="{Binding CorrelationNote}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       Visibility="{Binding HasCorrelations, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                        </StackPanel>
+                        </Expander>
                     </Border>
 
                     <!-- アバターと、手元の状態 -->
@@ -732,61 +794,69 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="所有アバターに着られるもの" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                    <TextBlock Text="素体経由は推定" Style="{StaticResource Caption}"
-                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="所有アバターに着られるもの">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="所有アバターに着られるもの" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="素体経由は推定" Style="{StaticResource Caption}"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <StackPanel>
+                                    <controls:ContentItemsControl ItemsSource="{Binding Wearables}" Margin="0,12,0,0"
+                                                  ItemTemplate="{StaticResource BarRow}"
+                                                  Visibility="{Binding HasWearables, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                               Text="所有しているアバターがまだ分かっていません。アバターの管理から検出できます。"
+                                               Visibility="{Binding HasWearables, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
-                                <controls:ContentItemsControl ItemsSource="{Binding Wearables}" Margin="0,12,0,0"
-                                              ItemTemplate="{StaticResource BarRow}"
-                                              Visibility="{Binding HasWearables, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                           Text="所有しているアバターがまだ分かっていません。アバターの管理から検出できます。"
-                                           Visibility="{Binding HasWearables, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            </StackPanel>
+                            </Expander>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <StackPanel>
-                                <TextBlock Text="手元の状態" Style="{StaticResource PanelTitle}" />
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" AutomationProperties.Name="手元の状態">
+                                <Expander.Header>
+                                    <TextBlock Text="手元の状態" Style="{StaticResource PanelTitle}" />
+                                </Expander.Header>
+                                <StackPanel>
 
-                                <Grid Margin="0,14,0,8">
-                                    <TextBlock Text="買ったまま仕分けていないもの" Style="{StaticResource Caption}" />
-                                    <TextBlock Text="{Binding UnsortedText}" Style="{StaticResource Mono}" FontSize="12"
-                                               HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,0,0,8">
-                                    <TextBlock Text="非表示にしているもの" Style="{StaticResource Caption}" />
-                                    <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" FontSize="12"
-                                               HorizontalAlignment="Right" />
-                                </Grid>
+                                    <Grid Margin="0,14,0,8">
+                                        <TextBlock Text="買ったまま仕分けていないもの" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{Binding UnsortedText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="非表示にしているもの" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </Grid>
 
-                                <Border Height="1" Background="{DynamicResource Divider}" Margin="0,4,0,10" />
+                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,4,0,10" />
 
-                                <TextBlock Text="もう買えないもの" Style="{StaticResource SectionLabel}" />
-                                <TextBlock Text="{Binding EndOfSaleText}" Style="{StaticResource Mono}" FontSize="12"
-                                           Margin="0,6,0,0" TextWrapping="Wrap" />
-                                <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                           Text="手元にしか無いものです。バックアップをおすすめします。" />
-
-                                <!--
-                                    販売終了とは別の行にする。金額の意味が違う——
-                                    あちらはBOOTHの価格を観測できていた商品で、
-                                    こちらは自分で入れた額しか無い商品。
-                                -->
-                                <StackPanel Margin="0,10,0,0"
-                                            Visibility="{Binding HasLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="BOOTHに無い商品として登録したもの" Style="{StaticResource SectionLabel}" />
-                                    <TextBlock Text="{Binding LocalOnlyText}" Style="{StaticResource Mono}" FontSize="12"
+                                    <TextBlock Text="もう買えないもの" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding EndOfSaleText}" Style="{StaticResource Mono}" FontSize="12"
                                                Margin="0,6,0,0" TextWrapping="Wrap" />
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                               Text="金額は自分で入れた額です。上の額とは別に数えています。" />
-                                </StackPanel>
+                                               Text="手元にしか無いものです。" />
 
-                                <TextBlock Text="スキ数の分布" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
-                                <controls:ContentItemsControl ItemsSource="{Binding WishBuckets}" ItemTemplate="{StaticResource BarRow}" />
-                            </StackPanel>
+                                    <!--
+                                        販売終了とは別の行にする。金額の意味が違う——
+                                        あちらはBOOTHの価格を観測できていた商品で、
+                                        こちらは自分で入れた額しか無い商品。
+                                    -->
+                                    <StackPanel Margin="0,10,0,0"
+                                                Visibility="{Binding HasLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="BOOTHに無い商品として登録したもの" Style="{StaticResource SectionLabel}" />
+                                        <TextBlock Text="{Binding LocalOnlyText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   Margin="0,6,0,0" TextWrapping="Wrap" />
+                                        <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="金額は自分で入れた額です。上の額とは別に数えています。" />
+                                    </StackPanel>
+
+                                    <TextBlock Text="スキ数の分布" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
+                                    <controls:ContentItemsControl ItemsSource="{Binding WishBuckets}" ItemTemplate="{StaticResource BarRow}" />
+                                </StackPanel>
+                            </Expander>
                         </Border>
                     </Grid>
                 </StackPanel>
