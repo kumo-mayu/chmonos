@@ -237,18 +237,28 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 選んだitemを編集画面のキューに積んで送る。
-    /// 絞り込んでから選ぶ流れになるので、並び順はそのまま渡す。
-    /// </summary>
-    /// <summary>
-    /// 「まとめて編集する」で送った商品。読み直し・保存の知らせでカードが替わっても、この中で選んでいた物は選んだままにする。
-    /// それ以外の読み直しは今までどおり選択を外す（取り込みの後などは、選んだ時と並びが違う）
+    /// 「まとめて編集する」で送り、まだ検索へ戻っていない商品。編集の間の読み直し・保存の知らせでカードが替わっても、
+    /// この中で選んでいた物は選んだままにする。検索へ戻ったら捨てる（<see cref="NoteShown"/>）——その後の読み直し
+    /// （取り込みの後など）は今までどおり選択を外す。捨てる時は入れ物ごと差し替える（読み直しが読み始めに掴んだ組を変えない）
     /// </summary>
     private HashSet<string> _sentToEdit = new(StringComparer.Ordinal);
 
     /// <summary>読み直し・作り直しの後も選んだままにするか。今選んでいて、編集へ送った商品だけ。</summary>
-    private bool KeepsSelection(ItemCardViewModel? card) => card is { IsSelected: true } && _sentToEdit.Contains(card.Item.Id);
+    private static bool KeepsSelection(ItemCardViewModel? card, HashSet<string> sent) => card is { IsSelected: true } && sent.Contains(card.Item.Id);
 
+    /// <summary>検索が今の画面になった（主画面が呼ぶ）。編集へ送った組は役目を終える。</summary>
+    public void NoteShown()
+    {
+        if (_sentToEdit.Count > 0)
+        {
+            _sentToEdit = new(StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// 選んだitemを編集画面のキューに積んで送る。
+    /// 絞り込んでから選ぶ流れになるので、並び順はそのまま渡す。
+    /// </summary>
     private void SendSelectionToEdit()
     {
         var ids = _matches

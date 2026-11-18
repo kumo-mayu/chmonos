@@ -208,7 +208,7 @@ public sealed partial class SearchViewModel
         }
 
         var card = ToCard(item);
-        var keepSelected = KeepsSelection(old);
+        var keepSelected = KeepsSelection(old, _sentToEdit);
         card.IsSelected = keepSelected;
         card.SelectionChanged += OnCardSelectionChanged;
         _cards[item.Id] = card;

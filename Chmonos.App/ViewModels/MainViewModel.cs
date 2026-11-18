@@ -731,6 +731,8 @@ public sealed partial class MainViewModel : ViewModelBase
                 // 編集画面で30件送った後、何もしなければ440MBを握ったままだった
                 Services.MemoryTrim.Request();
 
+                (value as SearchViewModel)?.NoteShown();
+
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsImportActive));
                 OnPropertyChanged(nameof(IsEditActive));

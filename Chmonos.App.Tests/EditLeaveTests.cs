@@ -50,6 +50,21 @@ public class EditLeaveTests
     });
 
     [Fact]
+    public Task 編集から戻った後の別の読み直しでは_今までどおり選択を外す() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenFromSearchSelectionAsync(app);
+        edit.FinishCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(2, main.Search.SelectedCount);
+
+        // 戻った後の読み直し（取り込みの後など）は、選んだ時と並びが違い得るので外す
+        await main.Search.ReloadAsync();
+        await app.SettleAsync();
+
+        Assert.Equal(0, main.Search.SelectedCount);
+    });
+
+    [Fact]
     public Task 保存していない入力を持って編集の外へ出ると_控えた事を知らせ_続きを編集で書きかけの商品だけを開く() => TestApp.Run(async app =>
     {
         var (main, edit) = await OpenFromSearchSelectionAsync(app);

@@ -475,6 +475,10 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     {
         IsLoading = true;
 
+        // 「まとめて編集する」で送った分は選んだままにする。読み始めた時点の組で決める（ナビで検索へ戻った時の読み直しは、
+        // 戻った後に済むことがあり、その時には組を捨てている）
+        var keepSelected = _sentToEdit;
+
         // 読む前に覚え始める（読んだ後に始めると、読んでから覚え始めるまでの間の保存を取りこぼす）
         _notedSinceLoad = new Dictionary<string, ItemRecord>(StringComparer.Ordinal);
         try
@@ -596,7 +600,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                         && !(imagesChanged && pendingImage))
                     {
                         kept.SelectionChanged -= OnCardSelectionChanged;
-                        kept.IsSelected = KeepsSelection(kept);
+                        kept.IsSelected = KeepsSelection(kept, keepSelected);
                         kept.SelectionChanged += OnCardSelectionChanged;
                         if (imagesChanged)
                         {
@@ -614,7 +618,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                     }
 
                     var card = ToCard(item, pendingImage);
-                    card.IsSelected = KeepsSelection(kept);
+                    card.IsSelected = KeepsSelection(kept, keepSelected);
                     card.SelectionChanged += OnCardSelectionChanged;
                     _cards[item.Id] = card;
                 }
