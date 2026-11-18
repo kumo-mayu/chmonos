@@ -94,7 +94,7 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
         VariationText = VariationText,
         Card = Card,
 
-        // 写し漏らすと、逆の順にした途端に新しい版の札と「新しい版を選ぶ…」が消えた
+        // 写し漏らすと、逆の順にした途端に新しい版の札と「更新 ▾」が消えた
         IsBehind = IsBehind,
         Reversed = reversed,
     };
@@ -267,12 +267,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         DeleteMemberCommand = new RelayCommand(
             parameter => DeleteMemberAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
+        // 端では押せない：「移動 ▾」のメニューの項目は命令の可否で灰色になる（押せるのに何も起きない項目を出さない）
         MoveMemberBackCommand = new RelayCommand(
             parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: true).Forget(),
-            parameter => parameter is ModificationMemberRowViewModel);
+            parameter => parameter is ModificationMemberRowViewModel { CanMoveBack: true });
         MoveMemberForwardCommand = new RelayCommand(
             parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: false).Forget(),
-            parameter => parameter is ModificationMemberRowViewModel);
+            parameter => parameter is ModificationMemberRowViewModel { CanMoveForward: true });
         OpenItemCommand = new RelayCommand(
             parameter => OpenItemAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
@@ -1794,29 +1795,49 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// 記録した使ったファイルを選び直す（ユーザ指示 2026-11-11：版を人が変えられない）。外した行も選び直せる（外した印は保つ）
     /// </summary>
     public RelayCommand RepickMemberFilesCommand => _repickMemberFiles ??= new RelayCommand(
-        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel, preferNewVersion: false).Forget(),
+        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel).Forget(),
         parameter => parameter is ModificationMemberRowViewModel);
 
     private RelayCommand? _repickMemberFiles;
 
     /// <summary>
-    /// 新しい版の札の行で、新しい版のファイルを選んだ状態で選び直しの窓を開く（docs/spec/used-updates.md）。
-    /// 「確認した」は今の版のまま使うとき、こちらは新しい版に替えたとき
+    /// 新しい版の札の行の「更新 ▾」の「新しい版を送る…」（<see cref="MemberNewVersionSend"/>・docs/spec/used-updates.md）。
+    /// 「新しい版を確認した」は今の版のまま使うとき、こちらは新しい版に替えたとき。送って入った時だけ記録を替える
     /// </summary>
-    public RelayCommand PickNewVersionCommand => _pickNewVersion ??= new RelayCommand(
-        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel, preferNewVersion: true).Forget(),
-        parameter => parameter is ModificationMemberRowViewModel { IsBehind: true });
+    public RelayCommand SendNewVersionCommand => _sendNewVersion ??= new RelayCommand(
+        parameter => SendNewVersionAsync(parameter as ModificationMemberRowViewModel).Forget(),
+        parameter => parameter is ModificationMemberRowViewModel { IsBehind: true } && !IsSendingToUnity);
 
-    private RelayCommand? _pickNewVersion;
+    private RelayCommand? _sendNewVersion;
 
-    private async Task RepickMemberFilesAsync(ModificationMemberRowViewModel? row, bool preferNewVersion)
+    internal async Task SendNewVersionAsync(ModificationMemberRowViewModel? row)
     {
         if (row is null)
         {
             return;
         }
 
-        var (text, failed) = await MemberFileRepick.RunAsync(_services, Record.Id, row.Member, row.Name, preferNewVersion);
+        var progress = new Progress<UnityQueueProgress>(report => UnityQueueText = report.Text);
+        var (text, failed) = await MemberNewVersionSend.RunAsync(
+            _services, Record, row.Member, row.Name, progress, value => IsSendingToUnity = value, _main.Search.NoteItemChanged);
+        UnityQueueText = string.Empty;
+        if (text is null)
+        {
+            return;
+        }
+
+        MembersNotice.Set(text, failed);
+        await ReloadAsync();
+    }
+
+    private async Task RepickMemberFilesAsync(ModificationMemberRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var (text, failed) = await MemberFileRepick.RunAsync(_services, Record.Id, row.Member, row.Name);
         if (text is null)
         {
             return;

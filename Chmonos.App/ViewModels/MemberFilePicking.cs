@@ -347,7 +347,7 @@ public sealed class MemberFilePickViewModel
     /// </summary>
     /// <param name="item">手元の商品。無ければ null（選べるのは「選ばない」と「今の記録のまま」だけ）。</param>
     /// <param name="preferNewVersion">
-    /// 使ったものの更新の促し（used-updates）の「新しい版を選ぶ…」から開くとき。新しい版のファイル（控えの後に持った物）から
+    /// 使ったものの更新の促し（used-updates）の「新しい版を送る…」で使うとき（<see cref="MemberNewVersionSend"/>）。新しい版のファイル（控えの後に持った物）から
     /// 1つに決まるときだけそれを選んで開く。決まらなければ今の記録のまま開く（推定で入れない）
     /// </param>
     public static MemberFilePickViewModel ForRepick(ModificationMember member, string name, ItemRecord? item, bool preferNewVersion = false)
@@ -458,11 +458,10 @@ public static class MemberFileRepick
         AppServiceContainer services,
         string modificationId,
         ModificationMember member,
-        string name,
-        bool preferNewVersion = false)
+        string name)
     {
         var item = await services.Store.Items.LoadAsync(member.ItemId);
-        var model = MemberFilePickViewModel.ForRepick(member, name, item, preferNewVersion);
+        var model = MemberFilePickViewModel.ForRepick(member, name, item);
         var choice = model.Choices[0];
         if (choice.Options.Count <= 1)
         {
