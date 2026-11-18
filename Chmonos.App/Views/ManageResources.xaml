@@ -242,6 +242,18 @@
     </Style>
 
     <!--
+        属性の値の小さな円グラフ（open.md 164）。地の円の上に、12時から時計回りに値の分だけ塗る（形は Controls/PieShape）。
+        0 % は塗りが無く地の円だけ、100 % は塗りつぶしの丸。字の札と同じ色の組（AccentSoft の地・Accent の塗り）
+    -->
+    <DataTemplate x:Key="ValuePie" DataType="{x:Type vm:TagItemRow}">
+        <Grid Width="14" Height="14" ToolTip="{Binding ValueText}" Background="Transparent"
+              AutomationProperties.Name="{Binding ValueText}">
+            <Ellipse Fill="{DynamicResource AccentSoft}" Stroke="{DynamicResource AccentBorder}" StrokeThickness="1" />
+            <Path Data="{Binding PieGeometry}" Fill="{DynamicResource Accent}" />
+        </Grid>
+    </DataTemplate>
+
+    <!--
         中に入っている商品1件（小分類の中・属性を持つ商品）。押すと商品ページへ（改変の一覧と同じ）。
         大きな絵は左に出す（ユーザ指摘 2026-09-19：右に出すと、小さな絵に乗せたマウスから行の幅ぶん離れて遠い）。
         属性では値の札を名前の右に出す（どのくらいと評価したかが、並びの理由なので）
@@ -292,9 +304,13 @@
                     <Border Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center"
                             Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                             BorderThickness="1" CornerRadius="4" Padding="5,0"
-                            Visibility="{Binding HasValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            Visibility="{Binding ShowsValueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="10.5" />
                     </Border>
+                    <!-- 値を円グラフで見せるとき（属性の管理の「数値｜グラフ」・open.md 164）。字は吹き出しと読み上げに残す -->
+                    <ContentControl Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" Focusable="False"
+                                    Content="{Binding}" ContentTemplate="{StaticResource ValuePie}"
+                                    Visibility="{Binding ShowsPie, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </Grid>
             </StackPanel>
         </Button>

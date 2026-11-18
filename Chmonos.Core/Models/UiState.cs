@@ -39,6 +39,11 @@ public sealed record UiState
     public bool AttributeItemsVertical { get; init; }
 
     /// <summary>
+    /// 属性の管理で、商品ごとの値を小さな円グラフで見せるか（ユーザ判断 2026-11-19・open.md 164）。false なら「85 %」の字（前からの見え方）
+    /// </summary>
+    public bool AttributeValuesAsPie { get; init; }
+
+    /// <summary>
     /// 検索の絞り込みパネルを畳んでいるか。
     ///
     /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。
