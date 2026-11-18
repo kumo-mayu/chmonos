@@ -536,13 +536,24 @@
                     **何を読んだかを確かめるための一覧で、対象ではない。**
                     前は履歴がそのまま「取り込み対象」に積まれていたので、1本落としたつもりでも
                     過去に指したフォルダ全部が走っていた。ここから1件ずつ対象に積む。
-                    ファイルも残す（何を読んだかは確かめたい）が、監視の対象にはしない
+                    ファイルも残す（何を読んだかは確かめたい）が、監視の対象にはしない。
+                    三角で畳める（ユーザ判断 2026-11-18。既定は閉じる。開閉は設定の画面の同じ一覧と共有する・ImportFolderHistoryFold）。
+                    履歴が長いと、下の進み具合と結果が画面の外になる。畳んでも件数は見出しに残す
                 -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                    <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsHistoryExpanded, Mode=TwoWay}"
+                              AutomationProperties.AutomationId="ImportHistoryExpander"
+                              AutomationProperties.Name="取り込み元の履歴" Padding="18,13">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding History.Count, StringFormat={}{0} 件}" Style="{StaticResource Mono}" FontSize="11"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Expander.Header>
+                    <!-- 一覧の行は枠の端まで線を引くので、Expander の余白（見出しの三角を枠の内へ寄せる分）を打ち消す --><StackPanel Margin="-18,0,-18,-13">
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,0,18,13">
                             <StackPanel>
-                                <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" />
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
                                            Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に追加」を押すと、取り込み対象に追加されます。" />
                             </StackPanel>
@@ -614,6 +625,7 @@
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
                     </StackPanel>
+                    </Expander>
                 </Border>
 
                 <!-- 進捗 -->

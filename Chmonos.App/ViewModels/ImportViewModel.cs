@@ -111,6 +111,23 @@ public sealed partial class ImportViewModel : ViewModelBase
 
     public string HistoryEmptyText => "まだ何も取り込んでいません。取り込んだフォルダとファイルがここに残ります。";
 
+    /// <summary>
+    /// 履歴の一覧を開いているか（ユーザ判断 2026-11-18：折り畳めるように。既定は閉じる）。
+    /// 履歴が長いと「開始」の後の進み具合と結果が画面の外になる。値は設定の画面の同じ一覧と共有する（<see cref="ImportFolderHistoryFold"/>）
+    /// </summary>
+    public bool IsHistoryExpanded
+    {
+        get => ImportFolderHistoryFold.IsExpanded;
+        set
+        {
+            if (ImportFolderHistoryFold.IsExpanded != value)
+            {
+                ImportFolderHistoryFold.IsExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     private RelayCommand? _takeFromHistory;
     private RelayCommand? _forgetHistory;
 
@@ -629,6 +646,9 @@ public sealed partial class ImportViewModel : ViewModelBase
     public void NoteShown()
     {
         OnPropertyChanged(nameof(ImportsOnLaunch));
+
+        // 設定の画面で履歴の一覧を開け閉めして戻ってきたとき、同じ値に合わせる（この画面はアプリの間1つを持ち回す）
+        OnPropertyChanged(nameof(IsHistoryExpanded));
 
         // 設定画面で取り込み元や監視を足し引きして戻ってきたときに、一覧を今の設定に合わせる
         SyncFolderLists();
