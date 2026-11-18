@@ -152,6 +152,8 @@ public sealed class StoreLinkTests : IDisposable
         var insideTmp = Path.Combine(Source, "items", "old.json.1a-3.tmp");
         File.WriteAllText(outsideTmp, "外の書きかけ");
         File.WriteAllText(insideTmp, "中の書きかけ");
+        // 本体の JSON が無い一時ファイルは中身がそこにしか無いかもしれないので残す（46470fd8）。ここで見たいのは繋ぎ先を辿らない事なので、本体を置いて消える側にする
+        File.WriteAllText(Path.Combine(Source, "items", "old.json"), "{}");
         var old = DateTime.UtcNow.AddHours(-1);
         File.SetLastWriteTimeUtc(outsideTmp, old);
         File.SetLastWriteTimeUtc(insideTmp, old);
