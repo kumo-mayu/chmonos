@@ -200,17 +200,28 @@ public sealed class PendingOperationRunner
                      .Where(entry => onlyId is null || string.Equals(entry.Id, onlyId, StringComparison.Ordinal))
                      .OrderBy(entry => entry.StartedAt))
         {
+            // 当てる間は自分も印を付ける。起動時の続きと通知の「今すぐ続ける」が同じ記録を同時に当てると、
+            // ID の付け替えや改名を2回当てる（2回目は指紋が合わず「内容が変わっていた」と知らせてしまう）
             lock (_running)
             {
-                if (_running.Contains(operation.Id))
+                if (!_running.Add(operation.Id))
                 {
                     continue;
                 }
             }
 
-            handled++;
             try
             {
+                // 読んだ後に、もう片方の続きが当て終えていれば当て直さない（読んだ写しは古い）。
+                // 終えた印だけ付いて消せなかった行は、次の起動の続きが消す
+                var fresh = (await _journal.LoadAsync(cancellationToken))
+                    .FirstOrDefault(entry => string.Equals(entry.Id, operation.Id, StringComparison.Ordinal));
+                if (fresh is null || fresh.FinishedAt != operation.FinishedAt)
+                {
+                    continue;
+                }
+
+                handled++;
                 // 終えた印のある行は、前の起動で済んだ（または当てずにやめた）のに消せなかった物。**当て直さずに消すだけ。**
                 // 指紋だけでは「済んだ後に同じ物を作り直した」と見分けられず、作り直した参照・名前に当たっていた（L110）
                 if (operation.FinishedAt is null && !await ResumeOneAsync(operation, cancellationToken))
@@ -240,6 +251,13 @@ public sealed class PendingOperationRunner
             {
                 AppLog.Error($"やりかけの操作の続き（{operation.Kind}）", exception);
                 await NotifyAsync(operation, FailedDetail, cancellationToken);
+            }
+            finally
+            {
+                lock (_running)
+                {
+                    _running.Remove(operation.Id);
+                }
             }
         }
 

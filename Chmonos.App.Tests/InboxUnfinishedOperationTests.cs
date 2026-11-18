@@ -144,4 +144,25 @@ public class InboxUnfinishedOperationTests
         Assert.Equal("続きはもう済んでいました。", inbox.ListNotice.Text);
         Assert.True(Assert.Single(app.Store.Notifications.Load()).IsResolved);
     });
+
+    /// <summary>
+    /// 起動時の続きが同じ記録を当てている間に押すと、続ける側は飛ばして0件を返し、知らせは解消されずに残る。
+    /// それを「もう済んでいました」と言うと、まだ当てている最中の操作を済んだと言ってしまう
+    /// </summary>
+    [Fact]
+    public void 起動時の続きが当てている間は進めている最中と言う()
+    {
+        var open = new Chmonos.Core.Models.NotificationRecord
+        {
+            Id = "pending-op:x",
+            Kind = Chmonos.Core.Models.NotificationKind.UnfinishedOperation,
+            Title = "t",
+            Detail = "d",
+            CreatedAt = DateTimeOffset.UnixEpoch,
+        };
+
+        Assert.Equal("今、続きを進めています。少し待ってから見てください。", ViewModels.InboxViewModel.ResumeOutcomeText(true, open));
+        Assert.Equal("続きはもう済んでいました。", ViewModels.InboxViewModel.ResumeOutcomeText(true, open with { IsResolved = true }));
+        Assert.Equal("続きはもう済んでいました。", ViewModels.InboxViewModel.ResumeOutcomeText(true, null));
+    }
 }

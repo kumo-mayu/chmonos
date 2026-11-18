@@ -332,6 +332,29 @@ public sealed class PendingOperationTests : IDisposable
         Assert.Empty(Records());
     }
 
+    /// <summary>
+    /// 起動時の続きと通知の「今すぐ続ける」が同じ記録を同時に当てない。2回目が当たると、移す先が1回目で変わっているので
+    /// 「内容が変わっていた」と知らせ、済んだ操作を止まったように見せていた（advisor の点検）
+    /// </summary>
+    [Fact]
+    public async Task 同じ記録を同時に続けても1回だけ当てる()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ" }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock()));
+        await CrashAfterWritingTargetAsync();
+        var runner = Runner();
+
+        var counts = await Task.WhenAll(
+            Task.Run(() => runner.ResumeAsync()),
+            Task.Run(() => runner.ResumeAsync()),
+            Task.Run(() => runner.ResumeAsync()));
+
+        Assert.Equal(1, counts.Sum());
+        Assert.Empty(Records());
+        Assert.DoesNotContain(_store.Notifications.Load(), notice => notice.Detail == PendingOperationRunner.ChangedDetail);
+        Assert.Null(await _store.Items.LoadAsync(FromId));
+    }
+
     /// <summary>移す先へ何も書く前（指紋も書く前）に止まった物は、元のままなので記録を消すだけ。BOOTHへも行かない。</summary>
     [Fact]
     public async Task IDの変更_書き始める前に止まっていれば_元のまま記録を消す()

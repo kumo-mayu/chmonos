@@ -1012,7 +1012,10 @@ public sealed class InboxViewModel : ViewModelBase
     {
         if (nothingLeft)
         {
-            return "続きはもう済んでいました。";
+            // 記録がもう無ければ、続ける側が知らせを解消済みにしている。解消されずに残るのは、起動時の続きが今その記録を当てている間
+            return after is { IsResolved: false, Retry: null }
+                ? "今、続きを進めています。少し待ってから見てください。"
+                : "続きはもう済んでいました。";
         }
 
         return after switch
@@ -1037,6 +1040,13 @@ public sealed class InboxViewModel : ViewModelBase
                 if (item is null)
                 {
                     row.ActionNotice.Warn("元の商品がもう無いので、操作し直せません。");
+                    return;
+                }
+
+                // 商品ページの「IDを変える」と同じく、取り込みの検出を待つ間は開かない（検出の書き込みと取り合う・U8）
+                if (_main.IsAwaitingDetection(fromId))
+                {
+                    row.ActionNotice.Warn("取り込みの途中なので、終わってから押してください。");
                     return;
                 }
 
