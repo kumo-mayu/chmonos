@@ -259,7 +259,7 @@
                     木のファイルの行を、ファイル名で出すか商品名で出すかの切り替え（ユーザ判断 2026-10-01）。右の一覧のカード／リストと同じ繋がったボタンで、
                     画面の名前の行の右に置く（絞り込みの欄の下に足すと、木が下がる）。名前の行の高さに収めるため、切り替えだけ少し低くする
                 -->
-                <DockPanel DockPanel.Dock="Top" Margin="14,16,14,0">
+                <DockPanel DockPanel.Dock="Top" Margin="14,16,20,0">
                     <!-- 上下を負の余白で名前の行の高さに収め、下の絞り込みの欄と木を1画素も動かさない -->
                     <Border DockPanel.Dock="Right" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
                             BorderThickness="1" CornerRadius="6" IsEnabled="{Binding CanChooseRowNames}" Margin="0,-4,0,-4" VerticalAlignment="Center">
@@ -292,7 +292,7 @@
                     </Border>
                     <TextBlock Text="フォルダ" FontWeight="Bold" VerticalAlignment="Center" />
                 </DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="14,10,14,8">
+                <StackPanel DockPanel.Dock="Top" Margin="14,10,20,8">
                     <Grid>
                         <!-- 右は × のぶん空ける（打った文字が × の下に潜らないように。未確定の探す欄と同じ 26） -->
                         <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged, Delay=250}" Height="30"
