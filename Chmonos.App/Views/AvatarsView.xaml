@@ -296,7 +296,11 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="{Binding DetectButtonText}" Style="{StaticResource PrimaryButton}"
+                    <!--
+                        普通のボタンの見た目にする（2026-11-18 のメモ・ユーザ判断）。検出は取り込み・未確定の登録・起動時の間隔で自動で走るので、
+                        この画面の主の操作ではない。青にすると押すべき物に見える
+                    -->
+                    <Button Content="{Binding DetectButtonText}"
                             Command="{Binding DetectCommand}"
                             ToolTip="{Binding DetectHint}" ToolTipService.ShowOnDisabled="True" />
                 </StackPanel>

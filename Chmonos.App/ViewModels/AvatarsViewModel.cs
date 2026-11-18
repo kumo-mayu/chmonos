@@ -759,7 +759,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// </summary>
     public string DetectHint => !IsDetecting && _main.IsLongJobRunning
         ? _main.LongJobBlockedNote
-        : "説明文などから読み取ります。カテゴリ不明の商品はBOOTHに問い合わせます。";
+        : "取り込むたびに自動で読み取るので、ふつうは押さなくてかまいません。";
 
     public string Status
     {
