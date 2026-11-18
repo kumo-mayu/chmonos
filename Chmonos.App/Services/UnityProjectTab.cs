@@ -226,7 +226,7 @@ public static class UnityProjectTab
 
         if (main == IntPtr.Zero)
         {
-            return new("Unityの窓が見つかりませんでした。", string.Empty);
+            return new("Unityのウィンドウが見つかりませんでした。", string.Empty);
         }
 
         if (UnityImportQueue.FindMenuCommand(main, UnityHandoff.FindMenuPath) is not { } findCommand)

@@ -68,11 +68,11 @@ public class UnityQueueTextTests
     [Fact]
     public void 失敗したら_数と1件目の理由を言う()
         => Assert.Equal(
-            "1 件をUnityへ順に送りました。2 件は送れませんでした（Unityの窓が見つかりませんでした）。",
+            "1 件をUnityへ順に送りました。2 件は送れませんでした（Unityのウィンドウが見つかりませんでした）。",
             UnityQueueOutcome.Describe(
             [
                 Sent("a"),
-                NotSent("b", "Unityの窓が見つかりませんでした"),
+                NotSent("b", "Unityのウィンドウが見つかりませんでした"),
                 NotSent("c", "別の理由"),
             ]));
 
@@ -82,11 +82,11 @@ public class UnityQueueTextTests
         // 全部が「人が止めた」のときだけ、止めた言い方にする。1つでも失敗があれば、失敗を隠さない
         var text = UnityQueueOutcome.Describe(
         [
-            NotSent("a", "Unityの窓が見つかりませんでした"),
+            NotSent("a", "Unityのウィンドウが見つかりませんでした"),
             NotSent("b", UnityImportQueue.StoppedMessage),
         ]);
 
-        Assert.Equal("0 件をUnityへ順に送りました。2 件は送れませんでした（Unityの窓が見つかりませんでした）。", text);
+        Assert.Equal("0 件をUnityへ順に送りました。2 件は送れませんでした（Unityのウィンドウが見つかりませんでした）。", text);
     }
 
     [Fact]

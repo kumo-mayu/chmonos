@@ -430,7 +430,7 @@
                                       AutomationProperties.AutomationId="Settings.QuietUnitySend"
                                       IsChecked="{Binding QuietUnitySend, Mode=TwoWay}" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="20,2,0,0"
-                                       Text="送れなかったときと、別のプロジェクトへ送るときは、窓で知らせます。" />
+                                       Text="送れなかったときと、別のプロジェクトへ送るときは、ウィンドウで知らせます。" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="改変" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--
@@ -1271,7 +1271,7 @@
                                        Text="APIの利用を許可したソフトです。データの読み取りはどのソフトもできます。チェックした変更と知らせる操作だけを許可します。" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        AutomationProperties.AutomationId="Settings.ApiClientsEmpty"
-                                       Text="許可したソフトはありません。ソフトが許可を求めると、確かめる窓が開きます。"
+                                       Text="許可したソフトはありません。ソフトが許可を求めると、確かめるウィンドウが開きます。"
                                        Visibility="{Binding HasApiClients, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                             <ItemsControl ItemsSource="{Binding ApiClients}" Margin="0,0,0,6">
                                 <ItemsControl.ItemTemplate>
@@ -1394,7 +1394,7 @@
                             -->
                             <TextBlock Text="止めているソフト" Style="{StaticResource SubTitle}" Margin="0,10,0,4" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                       Text="拒否が続いたソフトです。止めている間は、窓を開かずに断ります。" />
+                                       Text="拒否が続いたソフトです。止めている間は、ウィンドウを開かずに断ります。" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="止めるまでの拒否の回数" Style="{StaticResource RowLabel}" Width="220" />
                                 <TextBox Style="{StaticResource NumberBox}"
@@ -1427,7 +1427,7 @@
                                                 <Button Grid.Column="1" Content="止めを外す" Style="{StaticResource SmallButton}" VerticalAlignment="Top" Margin="10,0,0,0"
                                                         AutomationProperties.AutomationId="Settings.ApiUnblock"
                                                         AutomationProperties.Name="{Binding Name, StringFormat={}{0}の止めを外す}"
-                                                        ToolTip="次に求められたとき、また確かめる窓を開きます。"
+                                                        ToolTip="次に求められたとき、また確かめるウィンドウを開きます。"
                                                         Command="{Binding UnblockCommand}" />
                                             </Grid>
                                         </Border>
