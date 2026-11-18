@@ -639,6 +639,9 @@ public sealed partial class MainViewModel : ViewModelBase
         // フォルダビューも同じ。取り込みや未確定の片付けを別の画面でした後に、木を読み直す
         (CurrentViewModel as FolderViewModel)?.NoteWindowActivated();
 
+        // 取り込み画面は、外で監視フォルダにファイルを置いて戻ってきた分を数え直す（ユーザ 2026-11-06）
+        (CurrentViewModel as ImportViewModel)?.NoteWindowActivated();
+
         // 開いたまま日をまたいだら、「最近」の今日・何日を数え直す
         (CurrentViewModel as SearchViewModel)?.NoteMaybeNewDay();
 

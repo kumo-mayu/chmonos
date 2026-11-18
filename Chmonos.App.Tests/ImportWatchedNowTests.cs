@@ -22,6 +22,54 @@ public class ImportWatchedNowTests
         Assert.True(main.Import.ImportWatchedCommand.CanExecute(null));
     });
 
+    /// <summary>
+    /// 押す前から件数を出す（ユーザ 2026-11-06：前は押して初めて出た）。画面を開いたときと、この画面のまま窓が前に戻ったときに数える。
+    /// 数えるだけで取り込まない・BOOTH へは聞かない
+    /// </summary>
+    [Fact]
+    public Task 取り込み画面を開くと_新しいファイルを数えて出し_取り込みはしない() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        var added = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var asked = app.Booth.Requests.Count;
+
+        main.ShowImport();
+
+        await UiThread.Until(() => main.Import.WatchImportText == "新しいファイルが 1 件あります。", "数えて出す");
+        await app.SettleAsync();
+        Assert.DoesNotContain(added, main.Import.Folders);
+        Assert.False(main.Import.IsRunning);
+        Assert.Equal(asked, app.Booth.Requests.Count);
+    });
+
+    [Fact]
+    public Task 取り込み画面のまま窓が前に戻ると_数え直し_ほかの画面では数えない() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        main.ShowImport();
+        await UiThread.Until(() => main.Import.WatchImportText == "新しいファイルはありません。", "開いたときに数える");
+
+        // ほかの画面にいる間に置いて戻っても、取り込み画面でなければ数えない
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+        app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        main.NoteWindowActivated();
+        await app.SettleAsync();
+        Assert.Equal("新しいファイルはありません。", main.Import.WatchImportText);
+
+        main.ShowImport();
+        await UiThread.Until(() => main.Import.WatchImportText == "新しいファイルが 1 件あります。", "開き直すと数える");
+
+        // 取り込み画面のまま外で置いて戻ってきた
+        app.NewFile(@"watched\hair.zip", [5, 6, 7, 8]);
+        main.NoteWindowActivated();
+        await UiThread.Until(() => main.Import.WatchImportText == "新しいファイルが 2 件あります。", "戻ったら数え直す");
+    });
+
     [Fact]
     public Task 開いた後に置いたファイルを_取り込みに積んで始める() => TestApp.Run(async app =>
     {

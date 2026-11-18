@@ -652,7 +652,13 @@ public sealed partial class ImportViewModel : ViewModelBase
 
         // 設定画面で取り込み元や監視を足し引きして戻ってきたときに、一覧を今の設定に合わせる
         SyncFolderLists();
+
+        // 新しいファイルの数を、押す前から出しておく（一覧を合わせた後に数える）
+        CountWatchedNewAsync().Forget();
     }
+
+    /// <summary>この画面のまま窓が前に戻ったとき。外でファイルを置いて戻ってきた分を数え直す。</summary>
+    public void NoteWindowActivated() => CountWatchedNewAsync().Forget();
 
     /// <summary>
     /// 履歴と監視の一覧を、今の設定から並べ直す。
@@ -1150,8 +1156,56 @@ public sealed partial class ImportViewModel : ViewModelBase
     private Task<IReadOnlyList<string>> KeepSettledAsync(IReadOnlyList<string> paths)
         => (_main.LiveWatch is { IsRunning: true } live ? live : _services.CreateLiveFolderWatch(_services.Watch)).SettledAsync(paths);
 
+    private bool _isCountingWatched;
+
+    /// <summary>押した結果を書くたびに進める。数え終わる前に押されていたら、数えた古い文で押した結果を上書きしない</summary>
+    private int _watchTextVersion;
+
+    /// <summary>
+    /// 監視フォルダの新しいファイルを数えて、ボタンの横に出す（取り込みはしない）。画面を開いたときと、この画面のまま窓が前に戻ったときに呼ぶ
+    /// （ユーザ 2026-11-06：前は押して初めて件数が出た）。数えるのはボタンと同じ探し方（手元のフォルダだけ。BOOTH へは聞かない）なので、
+    /// 押したときに取り込む物と数が食い違わない。フォルダを読んで記録と照らすので重いことがあり、裏で数えて画面を止めない。
+    /// 押した取り込みと重ならないように、探している・取り込んでいる間は数えない
+    /// </summary>
+    internal async Task CountWatchedNewAsync()
+    {
+        if (_isCheckingWatched || _isCountingWatched || IsRunning || Watched.Count == 0)
+        {
+            return;
+        }
+
+        _isCountingWatched = true;
+        var version = _watchTextVersion;
+        var folders = Watched.ToList();
+        try
+        {
+            var result = await Task.Run(() => _services.Watch.FindNewAsync(folders));
+
+            // 数えている間に押した・取り込みが始まった・ほかの画面へ移ったなら、古い数を出さない
+            if (version != _watchTextVersion || _isCheckingWatched || IsRunning || !ReferenceEquals(_main.CurrentViewModel, this))
+            {
+                return;
+            }
+
+            WatchImportText = result.NewFiles.Count > 0
+                ? $"新しいファイルが {result.NewFiles.Count} 件あります。"
+                : result.MissingFolders.Count > 0
+                    ? $"新しいファイルはありません。{MainViewModel.WatchedMissingSummary(result.MissingFolders)}"
+                    : "新しいファイルはありません。";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 数えるのは押す前の目安なので、読めなくても黙る。押したときに読めない旨を言う
+        }
+        finally
+        {
+            _isCountingWatched = false;
+        }
+    }
+
     private async Task<int> ImportWatchedAsync(IReadOnlyList<string> folders)
     {
+        _watchTextVersion++;
         _isCheckingWatched = true;
         RelayCommand.RaiseCanExecuteChanged();
         WatchImportText = "監視フォルダを調べています…";
