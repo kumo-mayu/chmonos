@@ -275,7 +275,7 @@ public class ModificationMemberRepickTests
 
         Assert.False(Assert.Single(members).HasFile);
         Assert.Equal("「作り物の衣装」の使ったファイルの記録を削除しました。", detail.MembersNotice.Text);
-        Assert.Equal("どのファイルを使ったかは分かりません", detail.Members[0].SourceText);
+        Assert.Equal("使用ファイル未選択", detail.Members[0].SourceText);
     });
 
     [Fact]

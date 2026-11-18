@@ -226,7 +226,7 @@ public class ModificationMemberOrderAndFilesTests
         var member = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!.Members.Single();
         Assert.Null(member.FileHash);
         Assert.Null(member.Package);
-        Assert.Equal("どのファイルを使ったかは分かりません", detail.Members.Single().SourceText);
+        Assert.Equal("使用ファイル未選択", detail.Members.Single().SourceText);
     });
 
     [Fact]

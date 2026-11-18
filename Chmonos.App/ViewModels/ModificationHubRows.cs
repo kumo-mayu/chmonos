@@ -623,7 +623,7 @@ internal sealed class ModificationRowBuilder(
         }
 
         return member.FileHash is null
-            ? "どのファイルを使ったかは分かりません"
+            ? "使用ファイル未選択"
             : zipName ?? "使ったファイルの記録あり";
     }
 
