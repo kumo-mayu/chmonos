@@ -81,7 +81,7 @@
                                        AutomationProperties.AutomationId="ImportWatchedNewText" />
                             <TextBlock Text="押すまで取り込みは始まりません。" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                         </StackPanel>
-                        <Button DockPanel.Dock="Right" Content="取り込み対象に入れる" Style="{StaticResource PrimaryButton}"
+                        <Button DockPanel.Dock="Right" Content="取り込み対象に追加" Style="{StaticResource PrimaryButton}"
                                 AutomationProperties.AutomationId="ImportTakeWatchedNew"
                                 VerticalAlignment="Center" Command="{Binding TakeWatchedNewCommand}" />
                         <!--
@@ -544,7 +544,7 @@
                             <StackPanel>
                                 <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" />
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に追加」を押すと、今回の取り込み対象に入ります。" />
+                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に追加」を押すと、取り込み対象に追加されます。" />
                             </StackPanel>
                         </Border>
 
@@ -586,7 +586,7 @@
                                                     AutomationProperties.AutomationId="ImportHistoryTake"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を対象に追加}"
                                                     FontSize="12"
-                                                    ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
+                                                    ToolTip="取り込み対象に追加します。押しただけでは取り込みは始まりません。"
                                                     Command="{Binding DataContext.TakeFromHistoryCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
