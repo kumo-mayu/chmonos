@@ -18,6 +18,8 @@ internal static partial class Scenes
         SettingsExcluded("settings-excluded-many", "設定の全体：除外したファイルが 5,000 件・欄は閉じた形", count: 5000, open: false),
         SettingsExcluded("settings-excluded-few-open", "設定の「隠したもの」：除外したファイルが 3 件・欄を開いた形", count: 3, open: true),
         SettingsExcluded("settings-excluded-many-open", "設定の「隠したもの」：除外したファイルが 5,000 件・欄を開いた形（一覧の中だけが流れる）", count: 5000, open: true),
+        ResolveExclusionDialog("resolve-exclusion-dialog", "未確定の「除外の解除…」の窓：除外が 5,000 件・2件を選んだ形（一覧の中だけが流れる）", query: null),
+        ResolveExclusionDialog("resolve-exclusion-dialog-search", "未確定の「除外の解除…」の窓：探す欄に入れて絞った形", query: "0001"),
         SettingsLongPaths(),
         SettingsSortDividers("settings-sort-dividers-on", "設定の「一覧と検索」：区切りの設定が入（入手日の子のチェックは押せる）", parent: true),
         SettingsSortDividers("settings-sort-dividers-off", "設定の「一覧と検索」：区切りの設定が切（入手日の子のチェックは押せず薄い）", parent: false),
@@ -448,6 +450,28 @@ internal static partial class Scenes
         {
             Height = open ? 800 : SettingsHeight,
         };
+
+    /// <summary>未確定の「除外の解除…」の窓（open.md 132）。中身は設定の欄と同じ部品なので、窓の大きさの中で一覧が伸びるかを見る。</summary>
+    private static Scene ResolveExclusionDialog(string name, string title, string? query)
+        => DialogScene(name, title, async context =>
+        {
+            await SeedExcludedAsync(context, 5000);
+            await context.StartAsync();
+            var list = ExclusionLifting.ForExcluded(context.Services, () => Task.CompletedTask);
+            list.SetEntries(ExclusionLifting.Entries(await context.Services.SettingsStore.LoadExcludedAsync()));
+            list.IsActive = true;
+            if (query is not null)
+            {
+                list.Query = query;
+            }
+            else
+            {
+                list.SetChecked(list.Rows[0].Key, true);
+                list.SetChecked(list.Rows[2].Key, true);
+            }
+
+            return new ExclusionListDialog(list);
+        }) with { Width = 720, Height = 560 };
 
     /// <summary>
     /// 作り物の除外の記録を書く。新しい物ほど後ろ（除外した順に足される記録と同じ）。

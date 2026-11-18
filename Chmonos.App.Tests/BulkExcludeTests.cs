@@ -24,9 +24,24 @@ public class BulkExcludeTests
         FirstSeenAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
     };
 
+    /// <summary>今のファイルの中身どおりのハッシュ・大きさ・日時で作る未確定の記録。</summary>
+    private static UnresolvedFile AsIs(string path)
+    {
+        var info = new System.IO.FileInfo(path);
+        return new UnresolvedFile
+        {
+            Hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.IO.File.ReadAllBytes(path))),
+            Paths = [path],
+            SizeBytes = info.Length,
+            ModifiedAtUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+            FirstSeenAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+    }
+
     private static async Task<(MainViewModel Main, ResolveViewModel Resolve)> OpenResolveAsync(TestApp app, params string[] names)
     {
-        await app.Store.Unresolved.SaveAsync([.. names.Select(name => Unresolved(app.NewFile(name)))]);
+        // 中身と記録のハッシュを本物に合わせる。除外の解除は今のファイルを読み直し、中身が変わった物は未確定へ戻さない
+        await app.Store.Unresolved.SaveAsync([.. names.Select(name => AsIs(app.NewFile(name, System.Text.Encoding.UTF8.GetBytes(name))))]);
         var main = await app.StartAsync();
         main.ShowResolveCommand.Execute(null);
         await app.SettleAsync();
@@ -104,17 +119,27 @@ public class BulkExcludeTests
         Assert.Equal(["first.zip", "second.zip", "third.zip"], Names(app.Store.Excluded.Load()));
         Assert.Equal(["fourth.zip"], Names(app.Store.Unresolved.Load()));
         Assert.Equal("fourth.zip", Assert.Single(resolve.Files).FileName);
-        Assert.Equal("外した 3 件を戻す", resolve.UndoExcludeText);
+        Assert.True(resolve.HasExcluded);
         await UiThread.Until(() => main.UnresolvedCount == 1, "除外したらナビの未確定の数が減る");
 
-        resolve.UndoExcludeCommand.Execute(null);
+        // 「除外の解除…」の窓で、見えている3件を全部選んでまとめて解除する（open.md 132）
+        var excludedBefore = app.Store.Excluded.WriteCount;
+        app.InExclusionDialog = async list =>
+        {
+            Assert.Equal(3, list.Rows.Count);
+            list.SelectAllCommand.Execute(null);
+            await list.LiftAsync(list.CheckedVisibleKeys());
+        };
+        resolve.OpenExclusionsCommand.Execute(null);
         await app.SettleAsync();
 
+        Assert.Single(app.ExclusionDialogs);
+        Assert.Equal(excludedBefore + 2, app.Store.Excluded.WriteCount);
         Assert.Empty(app.Store.Excluded.Load());
         Assert.Equal(["first.zip", "fourth.zip", "second.zip", "third.zip"], Names(app.Store.Unresolved.Load()));
-        Assert.False(resolve.HasUndoExclude);
+        await UiThread.Until(() => !resolve.HasExcluded, "除外が無くなれば「除外の解除…」は消える");
         Assert.Equal(4, resolve.Files.Count);
-        Assert.Equal("3 件を未確定に戻しました。", resolve.ListNoticeText);
+        Assert.Equal("3 件の除外を解除しました。3 件を未確定の一覧に戻しました。", resolve.ListNoticeText);
 
         // 戻したときもナビの数を合わせる。前は一覧だけ読み直し、次に画面を移るまで減ったままの数が残っていた
         await UiThread.Until(() => main.UnresolvedCount == 4, "戻したらナビの未確定の数も戻る");
@@ -139,30 +164,57 @@ public class BulkExcludeTests
     });
 
     /// <summary>
-    /// 「戻す」は今回足した除外だけを消す。前から除外していた物の記録（日時・理由）は残る（2026-10-05・file-lifecycle.md「気になった所」18）。
-    /// 画面が除外の結果で受けたハッシュを、戻すときに渡しているかを見る。
+    /// 「除外の解除…」は直前に外した物だけでなく、前から除外していた物も並べる（open.md 132：前は直前の物しか戻せなかった）。
+    /// 選んだ物だけを解除し、選ばなかった物の記録（日時・理由）は残る。
     /// </summary>
     [Fact]
-    public Task 戻すと_前から除外していた物の記録は残る() => TestApp.Run(async app =>
+    public Task 除外の解除は前から除外していた物も並べ_選んだ物だけを解除する() => TestApp.Run(async app =>
     {
         var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
         var before = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
         var old = app.Store.Unresolved.Load().Single(file => file.Paths[0].EndsWith("first.zip", StringComparison.Ordinal));
         await app.Store.Excluded.SaveAsync([new ExcludedEntry { Hash = old.Hash, Paths = old.Paths, ExcludedAt = before, Reason = "前に外した" }]);
-        foreach (var row in resolve.Files.Where(row => row.FileName != "third.zip"))
-        {
-            row.IsSelected = true;
-        }
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "second.zip");
 
         app.Answer = _ => MessageBoxResult.OK;
         resolve.ExcludeCommand.Execute(null);
         await app.SettleAsync();
-        resolve.UndoExcludeCommand.Execute(null);
+
+        app.InExclusionDialog = async list =>
+        {
+            // 新しく除外した物が上
+            Assert.Equal(["second.zip", "first.zip"], list.Rows.Select(row => System.IO.Path.GetFileName(row.Path)));
+            list.SetChecked(list.Rows[0].Key, true);
+            await list.LiftAsync(list.CheckedVisibleKeys());
+        };
+        resolve.OpenExclusionsCommand.Execute(null);
         await app.SettleAsync();
 
         var kept = Assert.Single(app.Store.Excluded.Load());
         Assert.Equal(old.Hash, kept.Hash);
         Assert.Equal("前に外した", kept.Reason);
         Assert.Equal(before, kept.ExcludedAt);
+        Assert.Contains("second.zip", Names(app.Store.Unresolved.Load()));
+        Assert.True(resolve.HasExcluded);
+    });
+
+    [Fact]
+    public Task 何も解除せずに閉じれば_何も書かない() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        app.Answer = _ => MessageBoxResult.OK;
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+        var excludedWrites = app.Store.Excluded.WriteCount;
+        var unresolvedWrites = app.Store.Unresolved.WriteCount;
+
+        resolve.OpenExclusionsCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Single(app.ExclusionDialogs);
+        Assert.Equal(excludedWrites, app.Store.Excluded.WriteCount);
+        Assert.Equal(unresolvedWrites, app.Store.Unresolved.WriteCount);
+        Assert.True(resolve.HasExcluded);
     });
 }
