@@ -193,8 +193,12 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>
     /// 一覧の札。取り込んだときに手掛かりから見つかった商品IDの数で、右の「自動検索」の候補は数えない。
     /// 0件も同じ形で出す（前は「手掛かりなし」「候補 n 件（曖昧）」と言い方が分かれていて、何の数か読めなかった・ユーザ指示 2026-09-17）。
+    /// ファイル名と同じ行に置くので短くし、何の数かは吹き出しで言う（ユーザ判断 2026-11-18。前は「自動候補:n 件」）
     /// </summary>
-    public string CandidateText => $"自動候補:{CandidateCount} 件";
+    public string CandidateText => $"候補 {CandidateCount} 件";
+
+    /// <summary>札「候補 n 件」の吹き出し。</summary>
+    public string CandidateTip => $"取り込んだ時に見つかった商品 {CandidateCount} 件";
 
     /// <summary>
     /// 札「自動候補」を出すか。BOOTHで非公開と分かっている行は、代わりに札「BOOTHで非公開」を出す

@@ -466,7 +466,7 @@ public class ImportAndResolveFlowTests
         var plain = resolve.Files.Single(row => row.FileName == "作り物の手掛かり付き.zip");
         Assert.False(plain.IsNotOnBooth);
         Assert.True(plain.ShowsCandidateCount);
-        Assert.Equal("自動候補:1 件", plain.CandidateText);
+        Assert.Equal("候補 1 件", plain.CandidateText);
     });
 
     [Fact]
