@@ -211,7 +211,7 @@
                                 <TextBlock Text="{Binding OwnedText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding OwnedSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                <TextBlock Text="{Binding PeriodOwnedText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                <TextBlock Text="{Binding PeriodOwnedText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
                                            Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
@@ -222,7 +222,7 @@
                                 <TextBlock Text="{Binding SpentText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding SpentSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                <TextBlock Text="{Binding PeriodSpentText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                <TextBlock Text="{Binding PeriodSpentText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
                                            Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
@@ -239,7 +239,7 @@
                                 <TextBlock Text="{Binding GivenText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding GivenSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                <TextBlock Text="{Binding PeriodGivenText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                <TextBlock Text="{Binding PeriodGivenText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
                                            Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
@@ -259,7 +259,7 @@
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <!-- ほかのタイルの補足の行（空でも1行ぶん）と高さをそろえ、期間の値の行の位置を並べる -->
                                 <TextBlock Text=" " Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                <TextBlock Text="{Binding PeriodShopCountText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                <TextBlock Text="{Binding PeriodShopCountText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
                                            Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
@@ -419,19 +419,6 @@
                             並べる物を見出しの右で選ぶ。スキ数は、そのショップの所持している商品のスキ数の合計
                         -->
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Grid>
-                            <!-- 見出しは開け閉めのボタンの中なので、選ぶボタンは横に重ねて置く（属性の区切りの幅と同じ） -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="1">
-                                <RadioButton Content="金額" GroupName="StatsShopOrder" Style="{StaticResource SegmentFirst}"
-                                             IsChecked="{Binding ShopOrderSpent, Mode=TwoWay}" ToolTip="払った額の多い順に並べます。"
-                                             AutomationProperties.AutomationId="StatsShopOrderSpent" AutomationProperties.Name="ショップを金額で並べる" />
-                                <RadioButton Content="商品数" GroupName="StatsShopOrder" Style="{StaticResource SegmentMiddle}"
-                                             IsChecked="{Binding ShopOrderCount, Mode=TwoWay}" ToolTip="持っている商品の多い順に並べます。"
-                                             AutomationProperties.AutomationId="StatsShopOrderCount" AutomationProperties.Name="ショップを商品数で並べる" />
-                                <RadioButton Content="スキ数" GroupName="StatsShopOrder" Style="{StaticResource SegmentLast}"
-                                             IsChecked="{Binding ShopOrderWish, Mode=TwoWay}" ToolTip="持っている商品のスキ数の合計で並べます。"
-                                             AutomationProperties.AutomationId="StatsShopOrderWish" AutomationProperties.Name="ショップをスキ数で並べる" />
-                            </StackPanel>
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[shops], Mode=TwoWay}" AutomationProperties.Name="ショップ">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
@@ -442,8 +429,20 @@
                                     </StackPanel>
                                 </Expander.Header>
                                 <StackPanel>
+                                    <!-- 見出しの右に重ねると、幅の狭い時に期間の札（長いと日付2つ）の上に被るので、中身の頭に置く -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                        <RadioButton Content="金額" GroupName="StatsShopOrder" Style="{StaticResource SegmentFirst}"
+                                                     IsChecked="{Binding ShopOrderSpent, Mode=TwoWay}" ToolTip="払った額の多い順に並べます。"
+                                                     AutomationProperties.AutomationId="StatsShopOrderSpent" AutomationProperties.Name="ショップを金額で並べる" />
+                                        <RadioButton Content="商品数" GroupName="StatsShopOrder" Style="{StaticResource SegmentMiddle}"
+                                                     IsChecked="{Binding ShopOrderCount, Mode=TwoWay}" ToolTip="持っている商品の多い順に並べます。"
+                                                     AutomationProperties.AutomationId="StatsShopOrderCount" AutomationProperties.Name="ショップを商品数で並べる" />
+                                        <RadioButton Content="スキ数" GroupName="StatsShopOrder" Style="{StaticResource SegmentLast}"
+                                                     IsChecked="{Binding ShopOrderWish, Mode=TwoWay}" ToolTip="持っている商品のスキ数の合計で並べます。"
+                                                     AutomationProperties.AutomationId="StatsShopOrderWish" AutomationProperties.Name="ショップをスキ数で並べる" />
+                                    </StackPanel>
 
-                                    <controls:ContentItemsControl ItemsSource="{Binding Shops}" Margin="0,14,0,0">
+                                    <controls:ContentItemsControl ItemsSource="{Binding Shops}" Margin="0,10,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
                                                 <!-- 中身が行そのもの（絵と文字の並び）なので、名前を付けないと行の型の名前が読まれる -->
@@ -457,14 +456,14 @@
                                         </ItemsControl.ItemTemplate>
                                     </controls:ContentItemsControl>
                                     <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
-                                    <Grid>
-                                        <TextBlock Text="全期間でまた買っているか" Style="{StaticResource Caption}" />
-                                        <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
-                                                   HorizontalAlignment="Right" />
-                                    </Grid>
+                                    <!-- 幅の狭い時に重ならないよう、値を右に取ってから残りに見出しを折り返す -->
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   Margin="10,0,0,0" />
+                                        <TextBlock Text="全期間でまた買っているか" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                                    </DockPanel>
                                 </StackPanel>
                             </Expander>
-                            </Grid>
                         </Border>
                     </Grid>
 

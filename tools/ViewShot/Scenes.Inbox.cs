@@ -485,16 +485,16 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("stats-period-custom", "統計：期間「開始と終了を選ぶ」（日の欄2つ）", async context =>
+        new Scene("stats-period-custom", "統計：期間「開始と終了を選ぶ」（日の欄2つ・月の途中の日で、札がいちばん長い形）", async context =>
         {
             var (main, root) = await OpenLibraryAsync(context);
             main.ShowStatsCommand.Execute(null);
             var stats = context.Screen<StatsViewModel>();
             await SceneContext.UntilAsync(() => !stats.IsLoading, "統計の集計");
             stats.Range = StatsViewModel.Ranges.Single(option => option.Kind == StatsRangeKind.Custom);
-            stats.CustomFrom = new DateTime(2026, 8, 1);
-            stats.CustomTo = new DateTime(2026, 9, 30);
-            await SceneContext.UntilAsync(() => stats.PeriodText == "2026年8月〜2026年9月" && stats.Shops.Count > 0, "選んだ期間の集計");
+            stats.CustomFrom = new DateTime(2026, 8, 5);
+            stats.CustomTo = new DateTime(2026, 9, 20);
+            await SceneContext.UntilAsync(() => stats.PeriodText == "2026/08/05〜2026/09/20" && stats.Shops.Count > 0, "選んだ期間の集計");
             await context.SettleAsync();
             return new Shot(root);
         }),
