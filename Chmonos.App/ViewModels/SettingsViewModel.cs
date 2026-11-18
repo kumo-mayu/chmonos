@@ -1774,6 +1774,13 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        // 右クリックの「既定に戻す」の最中は、その1項目だけを書く（SettingsViewModel.Defaults.cs）
+        if (_saveOnly is { } only)
+        {
+            ThenAsync(SaveAsync(only), then).Forget();
+            return;
+        }
+
         // 画面が持つ項目だけを、ディスクの今の設定に当てる。画面を開いた後に別の所が書いた項目（画面の状態・監視など）を消さない。
         // 組み合わせは画面のスレッドでここで写しておく（当てるのは錠の中で、別のスレッドのことがある）
         var shortcuts = BuildShortcuts();
