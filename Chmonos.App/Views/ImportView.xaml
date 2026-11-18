@@ -833,7 +833,7 @@
                         Visibility="{Binding HasUnpackedFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <StackPanel>
                         <TextBlock Text="展開先とみなしたフォルダ" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="アーカイブを展開したものなので取り込んでいません。アーカイブを残すなら削除して容量を戻せます。"
+                        <TextBlock Text="zipなどの圧縮ファイルを展開したものなので取り込んでいません。圧縮ファイルを残すなら、削除して容量を戻せます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,12" />
                         <controls:ContentItemsControl ItemsSource="{Binding UnpackedFolders}">
                             <ItemsControl.ItemTemplate>

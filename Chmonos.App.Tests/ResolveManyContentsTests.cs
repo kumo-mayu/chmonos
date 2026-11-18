@@ -61,7 +61,7 @@ public class ResolveManyContentsTests
         var stopwatch = Stopwatch.StartNew();
         resolve.Selected = Assert.Single(resolve.Files);
         Assert.Equal(ContentCount, resolve.SelectedContents.Count);
-        Assert.Equal($"アーカイブの中身 {ContentCount} 件", resolve.ContentsSummary);
+        Assert.Equal($"zipの中身 {ContentCount} 件", resolve.ContentsSummary);
 
         // 組み立てて並べる（窓の高さは、中身の枠の最大の高さ 150 より十分大きい）
         view.Measure(new Size(1200, 900));

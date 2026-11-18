@@ -119,7 +119,7 @@ public sealed class UnpackedFolderRemover
 
         if (!File.Exists(folder.ArchivePath))
         {
-            return "展開元のアーカイブが見つかりません。中身を復元できなくなるため削除しません。";
+            return "展開元の圧縮ファイルが見つかりません。中身を復元できなくなるため削除しません。";
         }
 
         var folderParent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(folder.Path));
@@ -128,7 +128,7 @@ public sealed class UnpackedFolderRemover
             || archiveParent is null
             || !string.Equals(folderParent, archiveParent, StringComparison.OrdinalIgnoreCase))
         {
-            return "展開元のアーカイブが同じ場所にありません。対応を確認できないため削除しません。";
+            return "展開元の圧縮ファイルが同じ場所にありません。対応を確認できないため削除しません。";
         }
 
         // 検出時と同じ判定をやり直す。フォルダ名かアーカイブ名が変わっていれば対応が崩れている

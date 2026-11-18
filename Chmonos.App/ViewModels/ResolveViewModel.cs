@@ -497,7 +497,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public bool HasContents => SelectedContents.Count > 0;
 
-    public string ContentsSummary => $"アーカイブの中身 {SelectedContents.Count} 件";
+    public string ContentsSummary => $"zipの中身 {SelectedContents.Count} 件";
 
     public string? ZoneText => Selected?.File.ZoneHostUrl;
 
