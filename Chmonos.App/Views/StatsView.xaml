@@ -337,12 +337,29 @@
                             </Expander>
                         </Border>
 
+                        <!--
+                            ショップ（open.md 107・ユーザ判断 2026-11-19）。前の「よく買っているショップ」（支出順）と「点数の多いショップ」（商品数順）を1つにし、
+                            並べる物を見出しの右で選ぶ。スキ数は、そのショップの所持している商品のスキ数の合計
+                        -->
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[shops], Mode=TwoWay}" AutomationProperties.Name="よく買っているショップ">
+                            <Grid>
+                            <!-- 見出しは開け閉めのボタンの中なので、選ぶボタンは横に重ねて置く（属性の区切りの幅と同じ） -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="1">
+                                <RadioButton Content="金額" GroupName="StatsShopOrder" Style="{StaticResource SegmentFirst}"
+                                             IsChecked="{Binding ShopOrderSpent, Mode=TwoWay}" ToolTip="払った額の多い順に並べます。"
+                                             AutomationProperties.AutomationId="StatsShopOrderSpent" AutomationProperties.Name="ショップを金額で並べる" />
+                                <RadioButton Content="商品数" GroupName="StatsShopOrder" Style="{StaticResource SegmentMiddle}"
+                                             IsChecked="{Binding ShopOrderCount, Mode=TwoWay}" ToolTip="持っている商品の多い順に並べます。"
+                                             AutomationProperties.AutomationId="StatsShopOrderCount" AutomationProperties.Name="ショップを商品数で並べる" />
+                                <RadioButton Content="スキ数" GroupName="StatsShopOrder" Style="{StaticResource SegmentLast}"
+                                             IsChecked="{Binding ShopOrderWish, Mode=TwoWay}" ToolTip="持っている商品のスキ数の合計で並べます。"
+                                             AutomationProperties.AutomationId="StatsShopOrderWish" AutomationProperties.Name="ショップをスキ数で並べる" />
+                            </StackPanel>
+                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[shops], Mode=TwoWay}" AutomationProperties.Name="ショップ">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="よく買っているショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                        <TextBlock Text="支出順・上位8件" Style="{StaticResource Caption}"
+                                        <TextBlock Text="ショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="上位10件" Style="{StaticResource Caption}"
                                                    Margin="10,0,0,0" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Expander.Header>
@@ -361,8 +378,15 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </controls:ContentItemsControl>
+                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
+                                    <Grid>
+                                        <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </Grid>
                                 </StackPanel>
                             </Expander>
+                            </Grid>
                         </Border>
                     </Grid>
 
@@ -659,36 +683,9 @@
                         </Border>
                     </Grid>
 
-                    <!-- ショップと容量 -->
+                    <!-- 容量（隣にあった「点数の多いショップ」は上の「ショップ」へまとめた・open.md 107） -->
                     <Grid Margin="0,16,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[shopsByCount], Mode=TwoWay}" AutomationProperties.Name="点数の多いショップ">
-                                <Expander.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="点数の多いショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                        <TextBlock Text="支出順とは顔ぶれが変わる" Style="{StaticResource Caption}"
-                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Expander.Header>
-                                <StackPanel>
-                                    <controls:ContentItemsControl ItemsSource="{Binding ShopsByCount}" Margin="0,12,0,0"
-                                                  ItemTemplate="{StaticResource BarRow}" />
-                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
-                                    <Grid>
-                                        <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
-                                        <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
-                                                   HorizontalAlignment="Right" />
-                                    </Grid>
-                                </StackPanel>
-                            </Expander>
-                        </Border>
-
-                        <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
+                        <Border Style="{StaticResource Card}" Padding="20,18">
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[heavyItems], Mode=TwoWay}" AutomationProperties.Name="容量の大きい商品">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">

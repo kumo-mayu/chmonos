@@ -217,7 +217,7 @@ public class StatsExtrasTests
 
         Assert.Equal(1, snapshot.ShopsBoughtOnce);
         Assert.Equal(1, snapshot.ShopsBoughtMany);
-        Assert.Equal("b", snapshot.ShopsByCount[0].Key);
+        Assert.Equal("b", StatsExtras.SortShops(snapshot.Shops, StatsShopOrder.Count).First().Key);
     }
 
     [Fact]

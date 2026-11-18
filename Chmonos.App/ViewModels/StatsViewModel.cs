@@ -221,7 +221,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public ObservableCollection<StatsRowViewModel> UserTagCounts { get; } = [];
 
-    public ObservableCollection<StatsRowViewModel> ShopsByCount { get; } = [];
 
     public ObservableCollection<StatsRowViewModel> HeavyItems { get; } = [];
 
@@ -555,21 +554,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             });
         }
 
-        Shops.Clear();
-        var shopMax = _snapshot.Shops.Count == 0 ? 0 : _snapshot.Shops.Max(bar => bar.SpentYen);
-        foreach (var bar in _snapshot.Shops.Take(8))
-        {
-            var subdomain = bar.Key;
-            Shops.Add(new StatsRowViewModel
-            {
-                Label = bar.Label,
-                ValueText = $"¥{bar.SpentYen:N0}",
-                SubText = $"{bar.ItemCount} 件",
-                Ratio = shopMax == 0 ? 0 : bar.SpentYen / (double)shopMax,
-                OpenCommand = new RelayCommand(() => _main.ShowShopAsync(subdomain).Forget()),
-                Tooltip = "このショップの画面を開きます。",
-            });
-        }
+        RebuildShops();
 
         Categories.Clear();
         var categoryMax = _snapshot.Categories.Count == 0 ? 0 : _snapshot.Categories.Max(bar => bar.Bytes);
@@ -608,7 +593,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         Fill(UserTagSpend, _snapshot.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
         Fill(CategoryCounts, _snapshot.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(UserTagCounts, _snapshot.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(ShopsByCount, _snapshot.ShopsByCount.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, Core.Models.DisplayText.Size(b.Bytes))));
 
         // 素体経由は推定なので、直接対応と分けたまま出す
@@ -676,6 +660,86 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         if (await _services.Store.Items.LoadAsync(itemId) is { } item)
         {
             _main.ShowItem(item);
+        }
+    }
+
+    /// <summary>
+    /// ショップの欄に出す上位の数。前は支出順8・商品数順10の2つの欄で、1つにまとめたので多い方にそろえた（open.md 107）。
+    /// 全部は出さない：ショップの数だけ縦に伸び、全部を見るならナビの「ショップ」がある
+    /// </summary>
+    public const int ShopRows = 10;
+
+    public bool ShopOrderSpent
+    {
+        get => _services.StatsPanels.ShopOrder == StatsShopOrder.Spent;
+        set => SetShopOrder(value, StatsShopOrder.Spent);
+    }
+
+    public bool ShopOrderCount
+    {
+        get => _services.StatsPanels.ShopOrder == StatsShopOrder.Count;
+        set => SetShopOrder(value, StatsShopOrder.Count);
+    }
+
+    public bool ShopOrderWish
+    {
+        get => _services.StatsPanels.ShopOrder == StatsShopOrder.Wish;
+        set => SetShopOrder(value, StatsShopOrder.Wish);
+    }
+
+    private void SetShopOrder(bool chosen, StatsShopOrder order)
+    {
+        if (!chosen || _services.StatsPanels.ShopOrder == order)
+        {
+            return;
+        }
+
+        _services.StatsPanels.ShopOrder = order;
+        RebuildShops();
+        OnPropertyChanged(nameof(ShopOrderSpent));
+        OnPropertyChanged(nameof(ShopOrderCount));
+        OnPropertyChanged(nameof(ShopOrderWish));
+    }
+
+    /// <summary>
+    /// ショップの欄（open.md 107）。選んだ物の順に上位 <see cref="ShopRows"/> 件。右端は選んだ値、その後ろにほかの1つを小さく添える。
+    /// 行はどれもショップの画面へ
+    /// </summary>
+    private void RebuildShops()
+    {
+        Shops.Clear();
+        if (_snapshot is null)
+        {
+            return;
+        }
+
+        var order = _services.StatsPanels.ShopOrder;
+        long ValueOf(StatsSpendBar bar) => order switch
+        {
+            StatsShopOrder.Count => bar.ItemCount,
+            StatsShopOrder.Wish => bar.WishCount,
+            _ => bar.SpentYen,
+        };
+
+        var rows = StatsExtras.SortShops(_snapshot.Shops, order).Take(ShopRows).ToList();
+        var max = rows.Count == 0 ? 0 : rows.Max(ValueOf);
+        foreach (var bar in rows)
+        {
+            var subdomain = bar.Key;
+            Shops.Add(new StatsRowViewModel
+            {
+                Label = bar.Label,
+                ValueText = order switch
+                {
+                    StatsShopOrder.Count => $"{bar.ItemCount:N0} 件",
+                    StatsShopOrder.Wish => $"スキ {bar.WishCount:N0}",
+                    _ => $"¥{bar.SpentYen:N0}",
+                },
+                SubText = order == StatsShopOrder.Spent ? $"{bar.ItemCount} 件" : $"¥{bar.SpentYen:N0}",
+                Ratio = max == 0 ? 0 : ValueOf(bar) / (double)max,
+                OpenCommand = new RelayCommand(() => _main.ShowShopAsync(subdomain).Forget()),
+                Tooltip = "このショップの画面を開きます。",
+            });
         }
     }
 

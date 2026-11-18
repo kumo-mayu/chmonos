@@ -24,6 +24,9 @@ public sealed class StatsPanels(SettingsService settings, CommandHandler command
     /// </summary>
     public int AttributeBarWidth { get; set; } = 20;
 
+    /// <summary>ショップの欄で並べる物（open.md 107）。区切りの幅と同じく、アプリを閉じるまで覚える。既定は前の「よく買っているショップ」と同じ金額</summary>
+    public StatsShopOrder ShopOrder { get; set; } = StatsShopOrder.Spent;
+
     /// <summary>人が決めていなければ既定（「軸どうしの関係」だけ畳み、ほかは開く）。</summary>
     public static bool DefaultOpen(string key) => key != Correlations;
 

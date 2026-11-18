@@ -57,7 +57,6 @@ public static class StatsExtras
                 .ToList(),
             ShopsBoughtOnce = ShopCounts(owned).Count(pair => pair.Value == 1),
             ShopsBoughtMany = ShopCounts(owned).Count(pair => pair.Value > 1),
-            ShopsByCount = ShopsByCount(owned),
             AttributeDistributions = Distributions(owned),
             AttributeCorrelations = Correlations(owned),
             CorrelationMinimum = CorrelationMinimum,
@@ -174,8 +173,12 @@ public static class StatsExtras
         return counts;
     }
 
-    private static List<StatsSpendBar> ShopsByCount(IReadOnlyList<ItemRecord> owned)
-        => owned
+    /// <summary>
+    /// ショップごとの支出・商品数・スキ数の合計（支出の多い順）。統計の「ショップ」の欄の元（open.md 107）。
+    /// 並べ替えは <see cref="SortShops"/>。名前は最初に見た商品のショップ名（無ければサブドメイン）
+    /// </summary>
+    public static List<StatsSpendBar> ShopBars(IEnumerable<ItemRecord> owned)
+        => SortShops(owned
             .Where(item => item.ShopSubdomain is not null)
             .GroupBy(item => item.ShopSubdomain!, StringComparer.OrdinalIgnoreCase)
             .Select(group => new StatsSpendBar
@@ -184,11 +187,25 @@ public static class StatsExtras
                 Label = group.First().ShopName ?? group.Key,
                 SpentYen = group.Sum(item => SpentOf(item)),
                 ItemCount = group.Count(),
-            })
-            .OrderByDescending(bar => bar.ItemCount)
-            .ThenByDescending(bar => bar.SpentYen)
-            .Take(10)
+                WishCount = group.Sum(item => (long)item.Booth.WishListsCount),
+            }), StatsShopOrder.Spent)
             .ToList();
+
+    /// <summary>
+    /// ショップの欄の並べ替え（金額・商品数・スキ数。open.md 107）。
+    /// 同じ値なら、ほかの2つの順（金額→商品数→スキ数）、それも同じなら名前の順にする：開くたびに並びが揺れないように
+    /// </summary>
+    public static IEnumerable<StatsSpendBar> SortShops(IEnumerable<StatsSpendBar> shops, StatsShopOrder order)
+    {
+        var sorted = order switch
+        {
+            StatsShopOrder.Count => shops.OrderByDescending(bar => bar.ItemCount).ThenByDescending(bar => bar.SpentYen).ThenByDescending(bar => bar.WishCount),
+            StatsShopOrder.Wish => shops.OrderByDescending(bar => bar.WishCount).ThenByDescending(bar => bar.SpentYen).ThenByDescending(bar => bar.ItemCount),
+            _ => shops.OrderByDescending(bar => bar.SpentYen).ThenByDescending(bar => bar.ItemCount).ThenByDescending(bar => bar.WishCount),
+        };
+
+        return sorted.ThenBy(bar => bar.Label, StringComparer.CurrentCulture).ThenBy(bar => bar.Key, StringComparer.Ordinal);
+    }
 
     private static List<StatsSpendBar> SpendBy(IReadOnlyList<ItemRecord> owned, Func<ItemRecord, string> key)
         => owned

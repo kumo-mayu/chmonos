@@ -28,6 +28,25 @@ public sealed record StatsSpendBar
     public required long SpentYen { get; init; }
 
     public required int ItemCount { get; init; }
+
+    /// <summary>
+    /// 所持している商品の BOOTH のスキ数の合計（ショップの欄の「スキ数」。ユーザ判断 2026-11-19・open.md 107）。
+    /// ショップそのもののフォロー数ではない。数えるのは統計の対象（所持している商品）だけ
+    /// </summary>
+    public long WishCount { get; init; }
+}
+
+/// <summary>統計の「ショップ」の欄で並べる物（open.md 107）。</summary>
+public enum StatsShopOrder
+{
+    /// <summary>払った額（自分用）。</summary>
+    Spent,
+
+    /// <summary>所持している商品の数。</summary>
+    Count,
+
+    /// <summary>所持している商品のスキ数の合計。</summary>
+    Wish,
 }
 
 /// <summary>容量で並べる棒1本（カテゴリ）。</summary>
@@ -277,8 +296,6 @@ public sealed record StatsSnapshot
 
     public int ShopsBoughtMany { get; init; }
 
-    /// <summary>点数の多いショップ（支出順とは顔ぶれが変わる）。</summary>
-    public IReadOnlyList<StatsSpendBar> ShopsByCount { get; init; } = [];
 
     /// <summary>カテゴリ・userTagの点数構成。</summary>
     public IReadOnlyList<StatsCountBar> CategoryCounts { get; init; } = [];
@@ -501,17 +518,7 @@ public sealed class StatsService : IStatsService
             UndatedSpentYen = undatedSpent,
             UndatedCount = undated,
             FallbackDatedCount = fallbackDated,
-            Shops = shops
-                .OrderByDescending(pair => pair.Value.Spent)
-                .ThenByDescending(pair => pair.Value.Count)
-                .Select(pair => new StatsSpendBar
-                {
-                    Key = pair.Key,
-                    Label = pair.Value.Name,
-                    SpentYen = pair.Value.Spent,
-                    ItemCount = pair.Value.Count,
-                })
-                .ToList(),
+            Shops = StatsExtras.ShopBars(owned),
             Categories = categories
                 .Select(pair => (pair.Key, Bytes: LibrarySizes.OnDisk(pair.Value), pair.Value.Count))
                 .OrderByDescending(pair => pair.Bytes)

@@ -112,7 +112,7 @@ BOOTHで開く・リンクをコピー・IDをコピー ／ 商品ページを�
 - **付け残しを埋めた**（2026-09-30。画面の確かめで見つかった分）：
   - 左の一覧の行（選ぶ一覧）に行の名前と ID：フォルダの木 `FolderTreeRow`・タグの大分類 `TagTopRow`・属性 `AttributeRow`・アバター `AvatarRow`・共通素体 `AvatarBaseRow`・
     改変の詳細の「使ったもの」のリスト `ModificationMemberRow`。どれも型の名前（`…FolderViewRow` など）で読まれていた。
-  - 統計の「よく買っているショップ」「ディスク使用量の内訳」の行：`StatsShopRow`「（ショップ名）を開く」・`StatsCategoryRow`「（カテゴリ名）を検索で開く」。
+  - 統計の「ショップ」「ディスク使用量の内訳」の行：`StatsShopRow`「（ショップ名）を開く」・`StatsCategoryRow`「（カテゴリ名）を検索で開く」。
   - ショップの星：`ShopFavorite`（ショップ画面）・`ShopCardFavorite`（一覧のカード）。名前は「（ショップ名）をお気に入りのショップにする／から外す」。
   - 商品ページ：ショップ名のリンク `ItemShopLink`「（ショップ名）の商品を見る」（前は空白1文字）。ID のリンク `ItemIdCopy`（名前は「ID 1234567」。確かめの道具が今の商品を読む場所）。
   - ナビのボタン `Nav.<画面>`（`Nav.Search`・`Nav.Settings`…。戻る・進む・開閉は `Nav.Back`・`Nav.Forward`・`Nav.Toggle`）、

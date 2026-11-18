@@ -459,7 +459,7 @@ internal static partial class Scenes
         }),
 
         // 行の名前と ID を付けたときに、木（peers）と見た目の前後を比べるために足した（2026-09-30）
-        new Scene("stats", "統計：作り物の商品8件（よく買っているショップ・ディスク使用量の内訳の行）", async context =>
+        new Scene("stats", "統計：作り物の商品8件（ショップ・ディスク使用量の内訳の行）", async context =>
         {
             var (main, root) = await OpenLibraryAsync(context);
             main.ShowStatsCommand.Execute(null);
