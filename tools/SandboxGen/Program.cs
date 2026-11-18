@@ -36,6 +36,9 @@ using SixLabors.ImageSharp.Processing;
 //   changes                            商品ページの変化の知らせ（変わった行・名前・価格・販売終了）を、商品7件に作る
 //                                      （アプリの取り直し＝ItemService.RefreshAsync に、台本どおりの JSON と HTML を返して作る）
 //   show                               今の数を出す（商品・未確定・取り込み元）
+//   exceptions <作り物のフォルダ> <無い文字> <表で読み替える文字> <番号で読み替える文字>
+//                                      画面で確かめる例外の状態（無いドライブ・見つからない・壊れた zip・外した・古い版・非公開など）を、
+//                                      今ある写しに足すだけで作る（ExceptionFixtures.cs。ファイルは exception-fixtures.ps1 が先に置く）
 //   showcase <一覧の JSON> <画像のフォルダ>
 //                                      BOOTH のページ用の画面に写す、架空の商品の写しを組む（tools/SandboxGen/showcase.json）。
 //                                      商品・対応アバター・購入記録・タグ・属性・手元の zip・未確定・改変・通知まで入れる
@@ -103,6 +106,7 @@ var code = step switch
     "changes" => await ChangesAsync(),
     "showcase" => await ShowcaseAsync(rest[0], rest[1], rest.Length > 2 ? rest[2] : null),
     "show" => await ShowAsync(),
+    "exceptions" => await ExceptionFixtures.RunAsync(store, rest),
     _ => Unknown(step),
 };
 

@@ -9,6 +9,7 @@
 | `ui-ops.ps1` | よく使う操作（商品を開く・取り込む・色・条件）・連続で撮る | ui-kit の後 |
 | `fixtures.ps1` | 作り物のファイル（アプリを相手にしない。これだけで読める） | どこでも |
 | `sandbox-recipes.ps1` | 写しの台本（`New-ChmonosSandbox -Recipe` が読む。直には読まない） | — |
+| `exception-fixtures.ps1` | 今ある写しに、画面で確かめる例外の状態（無いドライブ・文字の読み替え・見つからない・壊れたzip・外した・古い版・確かめられない・非公開・販売終了・未確定の束や札）を足すだけで作る。`Add-ChmonosExceptionFixtures -Store <写し> [-Set <組>] [-OfflineLetter Q -TableLetter R -SerialLetter S]`（中身は `tools/SandboxGen/ExceptionFixtures.cs`。アプリを閉じてから） | 直に呼ぶ |
 | `ui-popups.ps1` | 台で描けない物を撮る（窓の大きさ・吹き出し・メニュー・プルダウン・乗せた色）。画面から切り取る | ui-kit の後 |
 | `popups-tour.ps1` | 画面ごとに吹き出し・メニュー・プルダウン・窓を通しで撮り、一覧のページを作る（呼び方は台本の頭。マウスが動く） | 直に呼ぶ |
 | `unity-kit.ps1` | Unity の窓（[pitfalls.md](pitfalls.md)） | ui-kit の後 |
