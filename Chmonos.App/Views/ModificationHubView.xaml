@@ -915,12 +915,13 @@
                         一覧を狭めると探す欄が数文字まで縮むので、入り切らなければボタンを次の行の右へ送る
                     -->
                     <controls:SplitRowPanel Margin="0,12,0,0" Gap="6" MinLeftWidth="220">
+                        <!-- 透かしは欄そのものの文字で出し分ける。Query は Delay=200 の後に変わるので、それで決めると打ってから 200ms 透かしが文字に重なる -->
                         <Grid>
-                            <TextBox Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
+                            <TextBox x:Name="HubQueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
                                      VerticalContentAlignment="Center" Padding="7,0"
                                      AutomationProperties.Name="{Binding QueryPlaceholder}" />
                             <TextBlock Text="{Binding QueryPlaceholder}" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                       Visibility="{Binding Text.IsEmpty, ElementName=HubQueryBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Grid>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="すべて畳む" Style="{StaticResource SmallButton}" Height="30"

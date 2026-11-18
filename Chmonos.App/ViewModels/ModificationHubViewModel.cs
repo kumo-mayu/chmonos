@@ -181,14 +181,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         set
         {
             if (SetField(ref _query, value))
-            {
-                OnPropertyChanged(nameof(HasQuery));
                 Rebuild();
-            }
         }
     }
-
-    public bool HasQuery => Query.Length > 0;
 
     private bool _onlyBehind;
 
