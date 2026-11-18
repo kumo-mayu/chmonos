@@ -1374,7 +1374,22 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// </summary>
     private void Cancel()
     {
-        var created = _services.Store.ImportState.Load().CreatedItems?.Count ?? 0;
+        // 記録の数を見るのは、今の回が商品を作った後だけ（作業集合の数はこの回の分）。前の回を「中断する」で止めた記録は、
+        // 今の回が記録を空にし直すまで残るので、始めた直後に押すと前の回の商品を消す相手に数えてしまう
+        var created = 0;
+        if (_shownWork is { AddedCount: > 0 })
+        {
+            try
+            {
+                created = _services.Store.ImportState.Load().CreatedItems?.Count ?? 0;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                // 読めなくても中断は効かせる（消す方は聞かない）
+                Core.Diagnostics.AppLog.Error("中断の窓で取り込みの記録を読む", exception);
+            }
+        }
+
         if (created > 0)
         {
             var answer = ChoiceQuestion.Ask(CancelQuestion(created));
@@ -1396,7 +1411,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         "取り込みを中断",
         "取り込みを中断します。",
         "「中断する」\n取り込めた商品はそのまま残ります。\n\n"
-        + $"「中断して {created} 件を削除する」\n"
+        + $"「中断して、この取り込みで新しく登録した {created} 件を削除する」\n"
         + "この取り込みで新しく登録した商品を、説明と画像も含めて削除します。元に戻せません。\n"
         + "名前やメモを入れた商品は残します。ファイルは削除しません。",
         "中断する",

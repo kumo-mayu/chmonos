@@ -76,6 +76,28 @@ public class ImportCancelDeleteTests
         Assert.NotNull(await app.Store.Items.LoadAsync(Created));
     });
 
+    /// <summary>
+    /// 最後の段（画像・検出）まで通った商品も「人の手が入っていない」と見る。取り込みが書く欄を人の手と見ると、
+    /// 消す相手が全部「残した」になり、窓の削除が何も消さない
+    /// </summary>
+    [Fact]
+    public Task 最後まで取り込んだ商品は人の手が入っていないと見る() => TestApp.Run(async app =>
+    {
+        app.Booth.HasItem(Created, "作り物の衣装", images: 2);
+        var created = PutDownloaded(app, @"dl\a.zip", Created, 5);
+        var main = await app.StartAsync();
+
+        main.Import.Folders.Add(created);
+        main.Import.StartCommand.Execute(null);
+        await UiThread.Until(() => !main.Import.IsRunning, "取り込みが終わる");
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync(Created);
+        Assert.NotNull(item);
+        Assert.NotEmpty(item.Local.LocalFiles);
+        Assert.False(Core.Services.ImportedItemRemoval.HasHumanInput(item.Local));
+    });
+
     [Fact]
     public Task まだ何も登録していなければ聞かずに止める() => TestApp.Run(async app =>
     {

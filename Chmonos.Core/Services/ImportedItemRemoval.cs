@@ -67,10 +67,11 @@ public sealed class ImportedItemRemoval(DataStore store)
     }
 
     /// <summary>
-    /// 人が手を入れたか。取り込みが作る商品は、ファイル・通知の既定・取得の記録しか持たない（<c>ImportPipeline.Fetch</c>）。
-    /// 人が決める欄（<see cref="LocalOwners.EditScreen"/> と画像・お気に入り・変換扱い・登録したフォルダ）のどれかが入っていれば残す。
-    /// 購入の記録は購入履歴の取り込みでも入るが、消すと取り直すまで戻らないので残す側に倒す。
-    /// 対応アバター（検出が書く）と通知の設定（既定のまま作る）は見ない
+    /// 人が手を入れたか。人が決める欄（<see cref="LocalOwners.EditScreen"/>・画像・お気に入り）のどれかが入っていれば残す。
+    /// 取り込みと見回りが自分で書く欄は、自動で書いた値なら見ない——見ると取り込んだ商品が全部「残した」になり、何も消えない：
+    /// ファイルとフォルダ（<see cref="LocalOwners.Import"/>）、検出した対応アバター・素体（<see cref="LocalOwners.Detection"/>。
+    /// 検出も「確かめ済み」を付けるので、人の操作が付ける Manual と違うと言った行だけ見る）、変換扱いの推した値（<c>ConversionScan</c>。人が決めた形・確かめた行だけ見る）、
+    /// 取得の記録と中身の更新の控え。手で付けたファイルとフォルダは取り込みの物と見分けられないので見ない
     /// </summary>
     public static bool HasHumanInput(LocalBlock local)
         => !string.IsNullOrEmpty(local.DisplayName)
@@ -83,10 +84,13 @@ public sealed class ImportedItemRemoval(DataStore store)
             || local.Attributes?.Count > 0
             || !string.IsNullOrEmpty(local.Memo)
             || local.VariationTargets?.Count > 0
-            || local.Conversion is not null
             || local.Purchases?.Count > 0
-            || local.LocalFolders?.Count > 0
             || local.AcquiredAt is not null
+            || !local.NotifyOnUpdate
             || local.IsHidden
-            || local.IsFavorite;
+            || local.IsFavorite
+            || local.Avatars?.Any(link => link.Source == AvatarLinkSource.Manual || link.Rejected) == true
+            || local.AvatarBases?.Any(link => link.Source == AvatarLinkSource.Manual || link.Rejected) == true
+            || local.Conversion is { } conversion
+                && (conversion.Mode != ConversionMode.Auto || conversion.Targets.Any(target => target.Confirmed || target.Rejected));
 }
