@@ -177,11 +177,18 @@
                         <ColumnDefinition Width="*" MinWidth="160" MaxWidth="320" />
                         <ColumnDefinition Width="0" />
                     </Grid.ColumnDefinitions>
+                    <!-- 右は × のぶん空ける（打った文字が × の下に潜らないように。未確定の探す欄と同じ 26） -->
                     <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
-                             VerticalContentAlignment="Center" Padding="7,0"
+                             VerticalContentAlignment="Center" Padding="7,0,26,0" AutomationProperties.AutomationId="FolderQuery"
                              AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
                     <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <!-- 打った文字を消す（検索画面と同じ ×。open.md 89 行） -->
+                    <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                            Style="{StaticResource ClearFieldButton}" Command="{Binding ClearQueryCommand}"
+                            ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                            AutomationProperties.AutomationId="FolderClearQuery"
+                            Visibility="{Binding HasQuery, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </Grid>
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
                                 VerticalAlignment="Center" Margin="0,0,8,0" />

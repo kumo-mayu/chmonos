@@ -545,6 +545,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     public bool HasFilter => Filter.Length > 0;
 
+    /// <summary>欄の × で打った文字を消す（open.md 89 行）。「商品を表示する」などの切り替えは残す。</summary>
+    public RelayCommand ClearFilterCommand => _clearFilter ??= new RelayCommand(() => Filter = string.Empty);
+
+    private RelayCommand? _clearFilter;
+
     /// <summary>
     /// 木に商品（管理しているファイル・未確定のファイル）を出すか（ユーザ指示 2026-09-14）。切ると純粋なフォルダの木になる。
     /// 商品は右の一覧で見られるので、木はフォルダだけで辿りたいときがある

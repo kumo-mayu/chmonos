@@ -196,6 +196,11 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     public bool HasQuery => Query.Length > 0;
 
+    /// <summary>欄の × で打った文字を消す（open.md 89 行）。</summary>
+    public RelayCommand ClearQueryCommand => _clearQuery ??= new RelayCommand(() => Query = string.Empty);
+
+    private RelayCommand? _clearQuery;
+
     public ObservableCollection<FolderBrowserRow> Rows { get; } = [];
 
     // ---- カードかリストか（ユーザ指示 2026-09-14。検索画面と同じ作り。どちらで出すかはフォルダビューとして覚える） ----

@@ -251,11 +251,18 @@
                 </DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="14,10,14,8">
                     <Grid>
+                        <!-- 右は × のぶん空ける（打った文字が × の下に潜らないように。未確定の探す欄と同じ 26） -->
                         <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged, Delay=250}" Height="30"
-                                 VerticalContentAlignment="Center" Padding="7,0"
+                                 VerticalContentAlignment="Center" Padding="7,0,26,0" AutomationProperties.AutomationId="FolderTreeFilter"
                                  AutomationProperties.Name="ファイル名・商品名・フォルダ名で絞り込む" />
                         <TextBlock Text="ファイル名・商品名・フォルダ名で絞り込む" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                        <!-- 打った文字を消す（検索画面と同じ ×。open.md 89 行：消せる事が分かるように） -->
+                        <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                                Style="{StaticResource ClearFieldButton}" Command="{Binding ClearFilterCommand}"
+                                ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                                AutomationProperties.AutomationId="FolderTreeClearFilter"
+                                Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </Grid>
                     <!--
                         木に商品（ファイル）を出すかの切り替え（ユーザ指示 2026-09-14）。切ると純粋なフォルダの木になる。
