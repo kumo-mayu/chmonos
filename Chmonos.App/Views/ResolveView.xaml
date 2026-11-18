@@ -971,8 +971,13 @@
                             <controls:ContentItemsControl ItemsSource="{Binding Candidates}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
+                                        <!--
+                                            行の中クリックで BOOTH の商品ページを開く（open.md 136・ユーザ判断 2026-11-19）。カードの中クリックと同じ「外へ」の近道。
+                                            BOOTHに無い商品（仮のID）は命令が無いので、何もせず親へ流す。地を塗らないと字の間の空きで受けない
+                                        -->
                                         <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                                                Padding="12,10" Margin="0,0,0,7">
+                                                Padding="12,10" Margin="0,0,0,7" Background="Transparent"
+                                                controls:MiddleClick.Command="{Binding OpenBoothCommand}">
                                             <Grid>
                                                 <StackPanel Margin="0,0,200,0">
                                                     <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap"

@@ -395,7 +395,7 @@ public sealed partial class ResolveViewModel
     });
 
     /// <summary>候補にBOOTHを開くコマンドを付ける。候補を出す以上、確かめる手段が要る。</summary>
-    private static CandidateRow WithBooth(CandidateRow row)
+    internal static CandidateRow WithBooth(CandidateRow row)
     {
         if (!row.HasBoothPage)
         {

@@ -125,6 +125,7 @@ flowchart LR
 | 候補（三角） | 候補の欄の見出しの左 | クリック | 候補の欄を開く・畳む（アプリを閉じるまで覚える・2026-11-18） | いつも | ResolveCandidatesExpander |
 | ブラウザで検索 | 候補の欄 | クリック | ファイル名でBOOTHをブラウザで検索 | 選んだ時 | ResolveSearchInBrowser・ResolveView.xaml:912 |
 | BOOTHで開く | 候補の行 | クリック | 候補の商品ページをブラウザで | BOOTHの商品の候補 | ResolveCandidateOpenBooth・ResolveView.xaml:955 |
+| 候補の行 | 候補の欄 | 中クリック | 候補の商品ページをブラウザで（「BOOTHで開く」と同じ。BOOTHに無い商品は何もしない。2026-11-19） | BOOTHの商品の候補 | `MiddleClick.Command`・ResolveView.xaml の候補の Border |
 | これで確認 | 候補の行 | クリック | 欄に入れて確かめ、決める欄まで送る | 候補がある時 | ResolveCandidateUse・ResolveView.xaml:961 |
 | 名前（BOOTHに無い商品） | その他の欄 | 打つ | 登録する名前 | 選んだ時 | ResolveLocalName・ResolveView.xaml:1013 |
 | （手元の記録にあった名前のボタン） | その他の欄 | クリック | 名前の欄に入れる | 記録に名前がある時 | —・ResolveView.xaml:1027 |
