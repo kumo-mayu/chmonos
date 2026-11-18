@@ -132,7 +132,7 @@ public sealed class UnresolvedRow : ViewModelBase
 
     /// <summary>
     /// 元のzipの行が今の未確定の一覧にあるか。画面の側が一覧の増減のたびに引き直す（行は一覧を知らない）。
-    /// 一覧に無いと「元zipとして扱う」を押しても選ぶ先が無い。
+    /// 一覧に無いと「元zipで登録」を押しても選ぶ先が無い。
     /// </summary>
     public bool IsOriginZipListed
     {
@@ -146,7 +146,7 @@ public sealed class UnresolvedRow : ViewModelBase
         }
     }
 
-    /// <summary>左の一覧の「元zipとして扱う」を出すか。元のzipがディスクにあり、かつ未確定の一覧にもある。</summary>
+    /// <summary>左の一覧の「元zipで登録」を出すか。元のzipがディスクにあり、かつ未確定の一覧にもある。</summary>
     public bool CanTreatAsOriginZip => HasOriginZip && _isOriginZipListed;
 
     /// <summary>zipを展開した中身（zip自身ではない）か。束にならず1行で出るときに「展開元」を添える。</summary>
@@ -193,8 +193,12 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>
     /// 一覧の札。取り込んだときに手掛かりから見つかった商品IDの数で、右の「自動検索」の候補は数えない。
     /// 0件も同じ形で出す（前は「手掛かりなし」「候補 n 件（曖昧）」と言い方が分かれていて、何の数か読めなかった・ユーザ指示 2026-09-17）。
+    /// ファイル名と同じ行に置くので短くし、何の数かは吹き出しで言う（ユーザ判断 2026-11-18。前は「自動候補:n 件」）
     /// </summary>
-    public string CandidateText => $"自動候補:{CandidateCount} 件";
+    public string CandidateText => $"候補 {CandidateCount} 件";
+
+    /// <summary>札「候補 n 件」の吹き出し。</summary>
+    public string CandidateTip => $"取り込んだ時に見つかった商品 {CandidateCount} 件";
 
     /// <summary>
     /// 札「自動候補」を出すか。BOOTHで非公開と分かっている行は、代わりに札「BOOTHで非公開」を出す

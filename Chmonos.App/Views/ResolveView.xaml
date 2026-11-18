@@ -145,10 +145,10 @@
                     <TextBlock Text="{Binding SettledText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" Margin="0,0,10,0" />
                     <!-- 正しく結び付いたかを、その場で商品ページで確かめる（動線の点検 D3） -->
-                    <Button Content="最後に確定した商品を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                    <Button Content="最後に登録した商品を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                             VerticalAlignment="Center" Command="{Binding OpenLastSettledCommand}"
-                            ToolTip="最後に確定した商品のページを開きます。" />
-                    <Button Content="確定したものを編集する" Style="{StaticResource PrimaryButton}"
+                            ToolTip="最後に登録した商品のページを開きます。" />
+                    <Button Content="登録したものを編集する" Style="{StaticResource PrimaryButton}"
                             Command="{Binding SendSettledToEditCommand}" />
                 </StackPanel>
                 </StackPanel>
@@ -202,7 +202,7 @@
                 <Button Content="{Binding UndoExcludeText}" Style="{StaticResource SmallButton}" Margin="0,0,8,0" VerticalAlignment="Center"
                         Command="{Binding UndoExcludeCommand}"
                         Visibility="{Binding HasUndoExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Button Content="確定したものを編集する" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                <Button Content="登録したものを編集する" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
                         Command="{Binding SendSettledToEditCommand}"
                         Visibility="{Binding HasSettled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Button Content="取り込みを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
@@ -274,7 +274,7 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- 束の見出しの中のボタン（まとめて扱う・元zipとして扱う・このフォルダを選択）は、素の ListBox だと束が開いている間は読み上げ・自動操作に出ない（GroupedListBox） -->
+                    <!-- 束の見出しの中のボタン（まとめて扱う・元zipで登録・このフォルダを選択）は、素の ListBox だと束が開いている間は読み上げ・自動操作に出ない（GroupedListBox） -->
                     <controls:GroupedListBox x:Name="FilesList" ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                              PreviewMouseRightButtonDown="OnFileRowRightClick"
                              BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
@@ -343,7 +343,10 @@
                                                         <Expander.Header>
                                                             <!-- 見出しは中身に合わせて縮まないので、束の幅（左の列の幅）から開け閉めの印の分を引いた幅にする。前は270で固定で、列を広げても長いパスが切れたままだった（ユーザ指示 2026-09-17） -->
                                                             <!-- 上下の 7 は、三角の型にする前（既定の型は見出しの押す所に 1px の外の余白を持っていた）と同じ高さにするため（点検 2026-09-30 の D） -->
-                                                            <StackPanel Margin="2,7,0,7" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=GroupItem}, Converter={x:Static vm:SubtractConverter.Instance}, ConverterParameter=40}">
+                                                            <!-- zipから展開した中身の束は、文字の所を押すと開いて「元zipで登録」か「まとめて扱う」を効かせる。三角は開け閉めだけ（ユーザ判断 2026-11-18・OnGroupHeaderPreviewMouseDown） -->
+                                                            <StackPanel PreviewMouseLeftButtonDown="OnGroupHeaderPreviewMouseDown"
+                                                                        Background="Transparent"
+                                                                        Margin="2,7,0,7" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=GroupItem}, Converter={x:Static vm:SubtractConverter.Instance}, ConverterParameter=40}">
                                                                 <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
                                                                            ToolTip="{Binding Name}">
                                                                     <TextBlock.Style>
@@ -362,7 +365,7 @@
                                                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
                                                                             VerticalAlignment="Center"
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="zipの中身" FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                                        <TextBlock Text="zipから展開" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                                     </Border>
                                                                     <!-- 展開元のzipが無いフォルダ。畳んでいても分かるように見出しに出す -->
                                                                     <Border Style="{StaticResource BadgeWarn}" Margin="0,0,7,0"
@@ -383,10 +386,10 @@
                                                                             CommandParameter="{Binding Name}"
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <!-- 元のzipが残っているなら、中身は外してzipで登録すればよい（ユーザ判断 2026-09-17） -->
-                                                                    <Button Content="元zipとして扱う" Style="{StaticResource SmallButton}"
+                                                                    <Button Content="元zipで登録" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="6,0,0,0"
                                                                             AutomationProperties.AutomationId="ResolveGroupTreatAsOriginZip"
-                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}を元zipとして扱う}"
+                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}を元zipで登録}"
                                                                             Command="{Binding DataContext.TreatAsOriginZipCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
@@ -449,15 +452,37 @@
                                     <StackPanel Grid.Column="1">
                                         <!--
                                             上に確かな情報（ファイル名と大きさ・展開元）、その下に候補と操作（札・ボタン）（ユーザ指示 2026-09-17）。
-                                            大きさは最長でも「1023.9 MB」で幅が小さいので名前の右に置く。札まで横に並べると、真ん中くらいの長さの名前でも切れる
+                                            大きさは最長でも「1023.9 MB」で幅が小さいので名前の右に置く。
+                                            候補の数と非公開の札は短くして名前と大きさの間に置き、名前は「…」で切って吹き出しで全部を読ませる（ユーザ判断 2026-11-18。
+                                            前は長い札で名前が切れるので2行目に置いていた）。登録の列・検索中・壊れたzip・展開の札は2行目のまま
                                         -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
+                                            <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}"
+                                                       VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
+                                                <Border Style="{StaticResource BadgeWarn}" Margin="6,0,0,0" ToolTip="{Binding CandidateTip}"
+                                                        Visibility="{Binding ShowsCandidateCount, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}"
+                                                               AutomationProperties.AutomationId="ResolveRowCandidateCount" />
+                                                </Border>
+                                                <!--
+                                                    取り込みが BOOTH に聞いて「無い」と答えられた行（ユーザ判断 2026-10-06）。候補の数の代わりに出す
+                                                    （候補は読み取れたIDの1件で、それが非公開。選ぶと、そのIDのまま登録する形が初めから出ている）
+                                                -->
+                                                <Border Style="{StaticResource BadgeWarn}" Margin="6,0,0,0"
+                                                        ToolTip="読み取れた商品IDが、BOOTHで見つかりませんでした。"
+                                                        Visibility="{Binding IsNotOnBooth, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="非公開" FontSize="10" Foreground="{DynamicResource Warn}"
+                                                               AutomationProperties.AutomationId="ResolveRowNotOnBooth" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
                                                        Margin="8,0,4,0" VerticalAlignment="Center" />
                                         </Grid>
                                         <!--
@@ -532,22 +557,6 @@
                                                 <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}"
                                                            AutomationProperties.AutomationId="ResolveRowBrokenZip" />
                                             </Border>
-                                            <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
-                                            <Border Style="{StaticResource BadgeWarn}" Margin="0,0,5,0"
-                                                    Visibility="{Binding ShowsCandidateCount, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}"
-                                                           AutomationProperties.AutomationId="ResolveRowCandidateCount" />
-                                            </Border>
-                                            <!--
-                                                取り込みが BOOTH に聞いて「無い」と答えられた行（ユーザ判断 2026-10-06）。「自動候補」の代わりに出す
-                                                （候補は読み取れたIDの1件で、それが非公開。選ぶと、そのIDのまま登録する形が初めから出ている）
-                                            -->
-                                            <Border Style="{StaticResource BadgeWarn}" Margin="0,0,5,0"
-                                                    ToolTip="読み取れた商品IDが、BOOTHで見つかりませんでした。"
-                                                    Visibility="{Binding IsNotOnBooth, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="BOOTHで非公開" FontSize="10" Foreground="{DynamicResource Warn}"
-                                                           AutomationProperties.AutomationId="ResolveRowNotOnBooth" />
-                                            </Border>
                                             <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
                                             <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource BorderStrong}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
@@ -556,12 +565,12 @@
                                                            AutomationProperties.AutomationId="ResolveRowExpanded" />
                                             </Border>
                                         </WrapPanel>
-                                        <!-- 1行で出ている中身にも「元zipとして扱う」（束の見出しと同じ動き） -->
-                                        <Button Content="元zipとして扱う" HorizontalAlignment="Left" Height="23" FontSize="10.5" Margin="0,4,0,0"
+                                        <!-- 1行で出ている中身にも「元zipで登録」（束の見出しと同じ動き） -->
+                                        <Button Content="元zipで登録" HorizontalAlignment="Left" Height="23" FontSize="10.5" Margin="0,4,0,0"
                                                 Command="{Binding DataContext.TreatAsOriginZipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
                                                 AutomationProperties.AutomationId="ResolveRowTreatAsOriginZip"
-                                                AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を元zipとして扱う}"
+                                                AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を元zipで登録}"
                                                 ToolTip="元のzipを選びます。zipを登録すると、中身は一覧から消えます。">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
@@ -609,9 +618,9 @@
                                    TextTrimming="CharacterEllipsis" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center"
                                    AutomationProperties.AutomationId="ResolveTargetText" />
                     </DockPanel>
-                    <!-- 元zipとして扱うは、押すと一覧の zip の行へ選び替わる。対象の切り替え（この行の中の対）と性質が違うので右端に離す（ユーザ判断 2026-10-03） -->
+                    <!-- 元zipで登録は、押すと一覧の zip の行へ選び替わる。対象の切り替え（この行の中の対）と性質が違うので右端に離す（ユーザ判断 2026-10-03） -->
                     <DockPanel Grid.Row="1" VerticalAlignment="Center" LastChildFill="True">
-                        <Button DockPanel.Dock="Right" Content="元zipとして扱う" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                        <Button DockPanel.Dock="Right" Content="元zipで登録" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                 AutomationProperties.AutomationId="ResolveTargetOriginZip"
                                 ToolTip="一覧の元のzipを選びます。zipを登録すると、中身は一覧から消えます。"
                                 Command="{Binding UseOriginZipCommand}"
@@ -669,7 +678,7 @@
                         <StackPanel>
                             <!--
                                 自動検索はここには置かない（ユーザ判断 2026-10-02「わかっていることからは消してよいでしょう」）。
-                                「商品IDを決める」と「候補」の見出しに置いてあり、3つ並ぶと多かった
+                                「商品IDで登録」と「候補」の見出しに置いてあり、3つ並ぶと多かった
                             -->
                             <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
 
@@ -761,24 +770,17 @@
                     </Border>
 
                     <!--
-                        並びは「分かっていること → 商品IDを決める → 候補 → その他」（ユーザ指示 2026-09-17）。
+                        並びは「分かっていること → 商品IDで登録 → 候補 → その他」（ユーザ指示 2026-09-17）。
                         前は候補が決める欄より上にあり、決める道が「確定」「管理対象から除外する」「BOOTHに無い商品」と1枚の中に混ざっていた
                     -->
                     <!-- 決定 -->
                     <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <!--
-                                自動検索はここと候補の欄にも置く（ユーザ指示 2026-10-02：「商品IDを決める」と候補に重なってあってよい）。
-                                IDを決めようとしてここまで来た人が、上の「分かっていること」へ戻らずに押せるように。動きは見出しの横の物と同じ。
-                                控え（先回り・前の再検索）があれば名前は「再検索」（ユーザ判断 2026-11-11。押すと引き直して控えを置き換える）
+                                自動検索のボタンは候補の欄の見出しだけに置く（ユーザ判断 2026-11-18。2026-10-02 の「商品IDで登録と候補に重なってあってよい」を改めた。
+                                すぐ下の候補の欄にあるので押す口は無くならない）
                             -->
-                            <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
-                                <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}"
-                                        AutomationProperties.AutomationId="ResolveProposeInDecision"
-                                        ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
-                                        Command="{Binding ProposeCommand}" />
-                            </controls:SplitRowPanel>
+                            <TextBlock Text="商品IDで登録" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" />
                             <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをドロップしてください。下に表示された商品を確かめてから登録します。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
@@ -901,21 +903,49 @@
 
                     <!-- 候補 -->
                     <Border Style="{StaticResource Card}" x:Name="CandidatesCard" Margin="0,14,0,0" Padding="18,16">
+                        <!--
+                            候補の欄は三角で畳める（ユーザ判断 2026-11-18：候補の数だけ縦に伸び、下の「その他」が遠くなる）。
+                            三角と見出しだけの Expander を見出しの行の左に置き、中身は下で IsCandidatesExpanded で出し分ける。
+                            ボタンは畳んでも押せるように見出しの行の右に置く（Expander の見出しの中に置くと開け閉めのボタンの中にボタンが入り、
+                            見出しの上に重ねると狭い窓でボタンが見出しに乗る。ユーザ 2026-10-02 メモ12）。畳んだまま自動検索を押すと開く
+                        -->
                         <StackPanel>
-                            <controls:SplitRowPanel Margin="0,0,0,10" Gap="10" MinLeftWidth="1000">
-                                <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <WrapPanel>
-                                    <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
-                                            AutomationProperties.AutomationId="ResolveProposeInCandidates"
-                                            ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
-                                            Command="{Binding ProposeCommand}" />
-                                    <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}"
-                                            AutomationProperties.AutomationId="ResolveSearchInBrowser"
-                                            ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
-                                            Command="{Binding OpenBoothCommand}" />
-                                </WrapPanel>
-                            </controls:SplitRowPanel>
-
+                        <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsCandidatesExpanded, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  AutomationProperties.Name="候補" AutomationProperties.AutomationId="ResolveCandidatesExpander">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Height="24">
+                                    <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                    <!-- 畳んでいても中に何件あるか分かるように。0件は出さない -->
+                                    <TextBlock Text="{Binding Candidates.Count, StringFormat={}{0} 件}" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Candidates.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Expander.Header>
+                        </Expander>
+                        <WrapPanel>
+                            <!-- 控え（先回り・前の再検索）があれば名前は「再検索」（ユーザ判断 2026-11-11。押すと引き直して控えを置き換える） -->
+                            <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
+                                    AutomationProperties.AutomationId="ResolveProposeInCandidates"
+                                    ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
+                                    Command="{Binding ProposeCommand}" />
+                            <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}"
+                                    AutomationProperties.AutomationId="ResolveSearchInBrowser"
+                                    ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
+                                    Command="{Binding OpenBoothCommand}" />
+                        </WrapPanel>
+                        </controls:SplitRowPanel>
+                        <StackPanel Margin="0,10,0,0" AutomationProperties.AutomationId="ResolveCandidatesBody"
+                                    Visibility="{Binding IsCandidatesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding SearchTargetText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,0,0,10" />
 
@@ -988,6 +1018,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                        </StackPanel>
                         </StackPanel>
                     </Border>
 

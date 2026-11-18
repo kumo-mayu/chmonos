@@ -147,7 +147,7 @@ internal sealed class Fake(DataStore store)
             ZoneReferrerUrl = originZip,
             ArchiveBroken = broken,
 
-            // 取り込みが BOOTH に聞いて「無い」と答えられた商品ID（札「BOOTHで非公開」・選ぶと初めからそのIDのまま登録する形）
+            // 取り込みが BOOTH に聞いて「無い」と答えられた商品ID（札「非公開」・選ぶと初めからそのIDのまま登録する形）
             NotOnBooth = notOnBooth is null ? null : new BoothNotFoundNote { ItemId = notOnBooth, CheckedAt = Day },
         };
 

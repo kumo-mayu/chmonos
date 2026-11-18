@@ -86,7 +86,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
     public MainViewModel Main => _main;
-    /// <summary>確定して、まだ編集へ送っていない商品のID。画面を離れても残るよう主画面が持つ。</summary>
+    /// <summary>登録して、まだ編集へ送っていない商品のID。画面を離れても残るよう主画面が持つ。</summary>
     private List<string> _settledItemIds => _main.ResolveSettledItemIds;
 
     private UnresolvedRow? _selected;
@@ -145,6 +145,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
         SelectGroupCommand = new RelayCommand(SelectGroup, parameter => parameter is string);
+        ActivateGroupCommand = new RelayCommand(ActivateGroup, parameter => parameter is string);
         // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
@@ -164,6 +165,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     /// <summary>元zipの束をまとめて1つの対象にする。</summary>
     public RelayCommand SelectGroupCommand { get; }
+
+    /// <summary>zipから展開した中身の束の見出しを押したとき。元zipで登録か、まとめて扱うの先に当たる方を効かせる。</summary>
+    public RelayCommand ActivateGroupCommand { get; }
 
     /// <summary>「取り込み中に n 件増えました」を押したときの読み直し。</summary>
     public RelayCommand ReloadCommand { get; }
@@ -297,7 +301,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public RelayCommand SendSettledToEditCommand { get; }
 
     /// <summary>
-    /// 最後に確定した商品を開く（動線の点検 D3）。以前は編集へ送るしかなく、正しく結び付いたかを
+    /// 最後に登録した商品を開く（動線の点検 D3）。以前は編集へ送るしかなく、正しく結び付いたかを
     /// 商品ページでその場で確かめられなかった
     /// </summary>
     public RelayCommand OpenLastSettledCommand { get; }
@@ -487,7 +491,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public bool HasSettled => _settledItemIds.Count > 0;
 
-    public string SettledText => $"確定して、まだ編集へ送っていない商品 {_settledItemIds.Count} 件";
+    public string SettledText => $"登録して、まだ編集へ送っていない商品 {_settledItemIds.Count} 件";
 
     // --- 選択中ファイルの手掛かり ---
 
@@ -497,7 +501,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public bool HasContents => SelectedContents.Count > 0;
 
-    public string ContentsSummary => $"アーカイブの中身 {SelectedContents.Count} 件";
+    public string ContentsSummary => $"zipの中身 {SelectedContents.Count} 件";
 
     public string? ZoneText => Selected?.File.ZoneHostUrl;
 
@@ -537,7 +541,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             return;
         }
 
-        // 押した帯の中で答える（前は「商品IDを決める」の欄へ画面を送っていた。押した所から離れた所へ飛ぶ作りはやめた。メモ22）
+        // 押した帯の中で答える（前は「商品IDで登録」の欄へ画面を送っていた。押した所から離れた所へ飛ぶ作りはやめた。メモ22）
         OriginZipNote = OriginZipUnlistedText(origin.ArchiveName);
     }
 
@@ -634,7 +638,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             }
             else if (healed > 0)
             {
-                StatusText = $"既に確定済みだった {healed} 件を一覧から外しました。";
+                StatusText = $"既に登録済みだった {healed} 件を一覧から外しました。";
             }
 
             OnPropertyChanged(nameof(HasStatus));
@@ -824,7 +828,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             FilesView.Refresh();
         }
 
-        // 行を選び直したら、束ではなくその1件を扱う。束は見出しのボタンからだけ立つ
+        // 前の行の束はいったん外す。下の ApplyZipUnit が、選んだ行の zip やフォルダの単位で束を立て直す
         ActiveGroup = null;
 
         // 取り込みが BOOTH に聞いて「無い」と答えられた行は、初めからそのIDを欄に入れ、そのIDのまま登録する形を出す
@@ -889,8 +893,14 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OnPropertyChanged(nameof(HasSelectedOrigin));
         OnPropertyChanged(nameof(CanUseOriginZip));
 
-        // 選び直したら「このファイルだけを扱う」は切り、zipの単位を決め直す
-        _singleFileOnly = false;
+        // 「このファイルだけ」は束ごとに覚え、同じ束の中で選び直しても保つ。別の束や束でない行へ移ったら切る
+        // （ユーザ判断 2026-11-18：前は選び直すたびに束へ戻り、同じzipの中身を1件ずつ別の商品にするたびに押し直していた）
+        _singleFileOnly = KeepsSingleFile(Selected);
+        if (!_singleFileOnly)
+        {
+            _singleFileGroupKey = null;
+        }
+
         OnPropertyChanged(nameof(SingleFileOnly));
         ApplyZipUnit();
         OnPropertyChanged(nameof(HasStatus));
@@ -934,7 +944,15 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var startedWith = Selected;
 
         IsBusy = true;
-        NotOnBoothItemId = null;
+
+        // BOOTHで非公開と分かっている同じIDを聞き直す間は、名前と画像の枠を消さずに答えを待つ（ユーザ 2026-11-18：
+        // 候補の「これで確認」で背の高い枠が一度消えてまた出るので、下の候補の欄が上がって下がり、画面が縦に揺れた）。
+        // 答えが来たら下で決め直す。別のIDなら今までどおりすぐ消す（欄の文字と違う枠を残さない）
+        if (NotOnBoothItemId != trimmed)
+        {
+            NotOnBoothItemId = null;
+        }
+
         StatusText = "商品情報を取得しています…";
         try
         {
@@ -949,6 +967,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             if (result is CommandResult.PreviewLoaded loaded)
             {
                 Preview = loaded.Preview;
+                NotOnBoothItemId = null;
                 StatusText = string.Empty;
 
                 // 取り込みのときは「無い」と答えられたIDが、聞き直すと公開されていた（ユーザ判断 2026-10-06）。
@@ -974,7 +993,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             }
             else if (result is CommandResult.Failed failed)
             {
+                // 届かなかったときは今の答えが無いので、そのIDのまま登録する形は引っ込める（前と同じ）
                 Preview = null;
+                NotOnBoothItemId = null;
                 StatusText = failed.Message;
             }
         }

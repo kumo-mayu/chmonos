@@ -130,6 +130,24 @@ public class ImportRowButtonTests
         return $@"{letter}:\";
     }
 
+    /// <summary>
+    /// 監視の欄の「新しいファイルを取り込む」と「見つからないファイルを探す…」は横に並べ（ユーザ判断 2026-11-18）、
+    /// 結果の文はボタンの下に1行ずつ置く。前は結果の文をボタンの右に置くため1つずつ縦に並べていた
+    /// </summary>
+    [Fact]
+    public void 監視の欄の2つのボタンは同じ行に並び_結果の文はその下()
+    {
+        var document = XDocument.Load(Path.Combine(ViewsFolder(), "ImportView.xaml"));
+        XElement ById(string id) => Assert.Single(document.Descendants(), e => Id(e) == id);
+
+        var row = ById("ImportWatchedNow").Parent!;
+        Assert.Equal("WrapPanel", row.Name.LocalName);
+        Assert.Same(row, ById("ImportFindMissingFiles").Parent);
+        Assert.Same(row.Parent, ById("ImportWatchedNowText").Parent);
+        Assert.Same(row.Parent, ById("ImportMissingSearchText").Parent);
+        Assert.True(row.IsBefore(ById("ImportWatchedNowText")));
+    }
+
     private static string? Attr(XElement element, string name)
         => (string?)element.Attributes().FirstOrDefault(a => a.Name.LocalName == name);
 

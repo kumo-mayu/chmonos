@@ -81,7 +81,7 @@
                                        AutomationProperties.AutomationId="ImportWatchedNewText" />
                             <TextBlock Text="押すまで取り込みは始まりません。" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                         </StackPanel>
-                        <Button DockPanel.Dock="Right" Content="取り込み対象に入れる" Style="{StaticResource PrimaryButton}"
+                        <Button DockPanel.Dock="Right" Content="取り込み対象に追加" Style="{StaticResource PrimaryButton}"
                                 AutomationProperties.AutomationId="ImportTakeWatchedNew"
                                 VerticalAlignment="Center" Command="{Binding TakeWatchedNewCommand}" />
                         <!--
@@ -247,29 +247,49 @@
                                     監視フォルダの新しいファイルを今すぐ取り込む（ユーザ指示 2026-11-03）。前は起動のときに見つけた分しか取り込めなかった。
                                     対象は起動時の自動の取り込みと同じ「まだ取り込んでいないファイル」だけ。結果は隣の1行で言う
                                 -->
-                                <DockPanel LastChildFill="False" Margin="0,10,0,0">
-                                    <Button DockPanel.Dock="Left" Content="新しいファイルを取り込む"
+                                <!--
+                                    2つのボタンは横に並べる（ユーザ判断 2026-11-18。前は結果の1行をボタンの右に置くため1つずつ縦に並べていた）。
+                                    結果の文はボタンの下に1行ずつ置き、文があるときだけ出す。狭い窓では2つ目のボタンが次の行へ送られる
+                                -->
+                                <WrapPanel Margin="0,10,0,0">
+                                    <Button Content="新しいファイルを取り込む" Margin="0,0,8,0"
                                             AutomationProperties.AutomationId="ImportWatchedNow"
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding ImportWatchedCommand}"
                                             ToolTip="監視しているフォルダから、まだ取り込んでいないファイルを探して取り込みます。" />
-                                    <TextBlock DockPanel.Dock="Left" Text="{Binding WatchImportText}"
-                                               AutomationProperties.AutomationId="ImportWatchedNowText"
-                                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                </DockPanel>
-                                <DockPanel LastChildFill="False" Margin="0,8,0,0">
                                     <!-- 押すと探す場所を選ぶ窓が開くので「…」を付ける（D10・点検 11-A） -->
-                                    <Button DockPanel.Dock="Left" Content="見つからないファイルを探す…"
+                                    <Button Content="見つからないファイルを探す…"
                                             AutomationProperties.AutomationId="ImportFindMissingFiles"
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding FindMissingFilesCommand}"
                                             ToolTip="探すフォルダを選んで紐付け直します。ファイルは動かしません。" />
-                                    <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
-                                               AutomationProperties.AutomationId="ImportMissingSearchText"
-                                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                </DockPanel>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding WatchImportText}"
+                                           AutomationProperties.AutomationId="ImportWatchedNowText"
+                                           Margin="0,6,0,0" TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding WatchImportText}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding MissingSearchText}"
+                                           AutomationProperties.AutomationId="ImportMissingSearchText"
+                                           Margin="0,6,0,0" TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding MissingSearchText}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </StackPanel>
                         </Border>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,12,18,14"
@@ -536,15 +556,26 @@
                     **何を読んだかを確かめるための一覧で、対象ではない。**
                     前は履歴がそのまま「取り込み対象」に積まれていたので、1本落としたつもりでも
                     過去に指したフォルダ全部が走っていた。ここから1件ずつ対象に積む。
-                    ファイルも残す（何を読んだかは確かめたい）が、監視の対象にはしない
+                    ファイルも残す（何を読んだかは確かめたい）が、監視の対象にはしない。
+                    三角で畳める（ユーザ判断 2026-11-18。既定は閉じる。開閉は設定の画面の同じ一覧と共有する・ImportFolderHistoryFold）。
+                    履歴が長いと、下の進み具合と結果が画面の外になる。畳んでも件数は見出しに残す
                 -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                    <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsHistoryExpanded, Mode=TwoWay}"
+                              AutomationProperties.AutomationId="ImportHistoryExpander"
+                              AutomationProperties.Name="取り込み元の履歴" Padding="18,13">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding History.Count, StringFormat={}{0} 件}" Style="{StaticResource Mono}" FontSize="11"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Expander.Header>
+                    <!-- 一覧の行は枠の端まで線を引くので、Expander の余白（見出しの三角を枠の内へ寄せる分）を打ち消す --><StackPanel Margin="-18,0,-18,-13">
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,0,18,13">
                             <StackPanel>
-                                <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" />
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に追加」を押すと、今回の取り込み対象に入ります。" />
+                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に追加」を押すと、取り込み対象に追加されます。" />
                             </StackPanel>
                         </Border>
 
@@ -586,7 +617,7 @@
                                                     AutomationProperties.AutomationId="ImportHistoryTake"
                                                     AutomationProperties.Name="{Binding StringFormat={}{0}を対象に追加}"
                                                     FontSize="12"
-                                                    ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
+                                                    ToolTip="取り込み対象に追加します。押しただけでは取り込みは始まりません。"
                                                     Command="{Binding DataContext.TakeFromHistoryCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
@@ -614,6 +645,7 @@
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
                     </StackPanel>
+                    </Expander>
                 </Border>
 
                 <!-- 進捗 -->
@@ -833,7 +865,7 @@
                         Visibility="{Binding HasUnpackedFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <StackPanel>
                         <TextBlock Text="展開先とみなしたフォルダ" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="アーカイブを展開したものなので取り込んでいません。アーカイブを残すなら削除して容量を戻せます。"
+                        <TextBlock Text="zipなどの圧縮ファイルを展開したものなので取り込んでいません。圧縮ファイルを残すなら、削除して容量を戻せます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,12" />
                         <controls:ContentItemsControl ItemsSource="{Binding UnpackedFolders}">
                             <ItemsControl.ItemTemplate>

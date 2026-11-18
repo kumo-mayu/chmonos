@@ -12,7 +12,7 @@ namespace Chmonos.App.Tests;
 
 /// <summary>
 /// 未確定で選んだ物（「このフォルダを選択」・チェック）を、まとめて1つの「BOOTHに無い商品」として登録する（ユーザ指示 2026-10-02：
-/// 「このフォルダを選択で選んでも仮IDをまとめて登録できない」）。あわせて、自動検索のボタンを「商品IDを決める」と「候補」にも置いたこと。
+/// 「このフォルダを選択で選んでも仮IDをまとめて登録できない」）。あわせて、自動検索のボタンを「商品IDで登録」と「候補」にも置いたこと。
 /// </summary>
 public class ResolveLocalCheckedTests
 {
@@ -175,10 +175,10 @@ public class ResolveLocalCheckedTests
         await UiThread.Until(() => main.UnresolvedCount == 0, "ナビの未確定の数が合う");
     });
 
-    // ---- 自動検索のボタン（ユーザ指示 2026-10-02：「商品IDを決める」と候補にも重なってあってよい）----
+    // ---- 自動検索のボタン（ユーザ指示 2026-10-02：「商品IDで登録」と候補にも重なってあってよい）----
 
     [Fact]
-    public void 自動検索のボタンは_商品IDを決める_候補の2か所にあり_分かっていることには無い()
+    public void 自動検索のボタンは_候補の見出しの1か所だけにあり_商品IDで登録と分かっていることには無い()
     {
         // 置き場所は XAML の作りで決まる。部品を組んで測るにはアプリの見た目の資源が要るので、原文を読む（ItemPageTagsTests と同じ）。見た目は ViewShot の絵で見る
         var xaml = XDocument.Load(ResolveViewPath());
@@ -187,18 +187,17 @@ public class ResolveLocalCheckedTests
         var propose = xaml.Descendants()
             .Where(element => element.Name.LocalName == "Button" && (string?)element.Attribute("Command") == "{Binding ProposeCommand}")
             .ToList();
-        Assert.Equal(2, propose.Count);
-        // 名前は控えがあれば「再検索」に変わる（ユーザ判断 2026-11-11）ので、2つとも同じ名前の口を見る
+        // 「商品IDで登録」の見出しの横の物は消した（ユーザ判断 2026-11-18。2026-10-02 の「重なってあってよい」を改めた）
+        var only = Assert.Single(propose);
+        // 名前は控えがあれば「再検索」に変わる（ユーザ判断 2026-11-11）ので、同じ名前の口を見る
         Assert.All(propose, button => Assert.Equal("{Binding ProposeButtonText}", (string?)button.Attribute("Content")));
 
         string? CardOf(XElement button) => button.Ancestors()
             .Select(ancestor => (string?)ancestor.Attribute(x + "Name"))
             .FirstOrDefault(name => name is "DecisionCard" or "CandidatesCard");
 
-        Assert.Contains("DecisionCard", propose.Select(CardOf));
-        Assert.Contains("CandidatesCard", propose.Select(CardOf));
-        // 分かっていることの見出しの横からは外した（ユーザ判断 2026-10-02）
-        Assert.All(propose, button => Assert.NotNull(CardOf(button)));
+        Assert.Equal("CandidatesCard", CardOf(only));
+        // 分かっていることの見出しの横からは前に外した（ユーザ判断 2026-10-02）
     }
 
     [Fact]
@@ -207,7 +206,7 @@ public class ResolveLocalCheckedTests
         // 前は見出しとボタンを1つの Grid に重ねて右寄せしていて、狭い窓でボタンが見出しの上に乗った（ユーザ 2026-10-02 メモ12）。
         // 送るかどうかは幅で決まるので絵（ViewShot の resolve-unpacked-folder・幅700/900）で見る。ここでは重ねる作りに戻っていないことを見る
         var xaml = XDocument.Load(ResolveViewPath());
-        string[] ids = ["ResolveProposeInDecision", "ResolveProposeInCandidates", "ResolveCopyFileName", "ResolveReveal", "ResolveSearchInBrowser"];
+        string[] ids = ["ResolveProposeInCandidates", "ResolveCopyFileName", "ResolveReveal", "ResolveSearchInBrowser"];
         foreach (var id in ids)
         {
             var button = Assert.Single(xaml.Descendants(), element => (string?)element.Attribute("AutomationProperties.AutomationId") == id);
@@ -232,6 +231,32 @@ public class ResolveLocalCheckedTests
 
         Assert.True(app.Booth.Requests.Count > asked);
         Assert.True(resolve.HasSearched);
+    });
+
+    [Fact]
+    public Task 候補の欄を畳んだまま自動検索を押すと開き_開閉は画面を開き直しても覚えている() => TestApp.Run(async app =>
+    {
+        var (main, resolve) = await OpenResolveAsync(app, @"a\作り物の衣装.zip");
+        try
+        {
+            // 畳んだ状態は画面を作り直しても残る（アプリを閉じるまで。ユーザ判断 2026-11-18）
+            resolve.IsCandidatesExpanded = false;
+            main.ShowResolveCommand.Execute(null);
+            await app.SettleAsync();
+            var reopened = Assert.IsType<ResolveViewModel>(main.CurrentViewModel);
+            Assert.False(reopened.IsCandidatesExpanded);
+
+            // 畳んだままだと、押した結果が見えない
+            reopened.Selected = reopened.Files.First();
+            reopened.ProposeCommand.Execute(null);
+            await app.SettleAsync();
+            Assert.True(reopened.IsCandidatesExpanded);
+        }
+        finally
+        {
+            // 覚える値はプロセスで1つ。ほかの試験へ持ち越さない
+            resolve.IsCandidatesExpanded = true;
+        }
     });
 
     private static string ResolveViewPath([CallerFilePath] string here = "")

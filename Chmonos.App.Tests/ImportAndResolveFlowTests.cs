@@ -466,7 +466,7 @@ public class ImportAndResolveFlowTests
         var plain = resolve.Files.Single(row => row.FileName == "作り物の手掛かり付き.zip");
         Assert.False(plain.IsNotOnBooth);
         Assert.True(plain.ShowsCandidateCount);
-        Assert.Equal("自動候補:1 件", plain.CandidateText);
+        Assert.Equal("候補 1 件", plain.CandidateText);
     });
 
     [Fact]
@@ -533,6 +533,40 @@ public class ImportAndResolveFlowTests
         // 記録の日時は聞き直した時に新しくなる
         var row = app.Store.Unresolved.Load().Single(file => file.NotOnBooth is not null);
         Assert.True(row.NotOnBooth!.CheckedAt > new DateTimeOffset(2026, 9, 2, 0, 0, 0, TimeSpan.Zero));
+    });
+
+    [Fact]
+    public Task 非公開の候補をこれで確認で聞き直す間も_名前と画像の枠を消さず_登録は押せない() => TestApp.Run(async app =>
+    {
+        // 前は答えを待つ間に背の高い枠が消えてまた出て、下の候補の欄が上がって下がり、画面が縦に揺れた（ユーザ 2026-11-18）
+        var (_, resolve) = await OpenResolveWithNotOnBoothAsync(app);
+        var candidate = resolve.Candidates.Single(row => row.ItemId == FromFileMissing);
+        var hidden = 0;
+        resolve.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ResolveViewModel.IsUnpublishedForm) && !resolve.IsUnpublishedForm)
+            {
+                hidden++;
+            }
+        };
+
+        app.Booth.Hold();
+        try
+        {
+            resolve.UseCandidateCommand.Execute(candidate);
+            await UiThread.Until(() => app.Booth.Requests.Count > 0, "聞き直しが BOOTH に届く");
+
+            Assert.True(resolve.IsUnpublishedForm);
+            Assert.False(resolve.AssignCommand.CanExecute(null));
+        }
+        finally
+        {
+            app.Booth.Release();
+        }
+
+        await app.SettleAsync();
+        Assert.True(resolve.IsUnpublishedForm);
+        Assert.Equal(0, hidden);
     });
 
     [Fact]
@@ -917,7 +951,7 @@ public class ImportAndResolveFlowTests
         // 先に商品IDを確かめていないと、登録せずに押したボタンの横で確かめる欄へ案内する（画面は送らない）
         resolve.RegisterFolderOfCommand.Execute(row.GroupKey);
         await app.SettleAsync();
-        Assert.Equal("先に「商品IDを決める」で商品IDを確認してください。", resolve.FolderStatusText);
+        Assert.Equal("先に「商品IDで登録」で商品IDを確認してください。", resolve.FolderStatusText);
         Assert.Empty(app.Notices);
 
         await PreviewAsync(app, resolve, "1000001");

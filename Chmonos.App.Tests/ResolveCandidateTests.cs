@@ -54,7 +54,7 @@ public class ResolveCandidateTests
 
         Assert.Equal(0, row.CandidateCount);
         Assert.False(row.HasCandidates);
-        Assert.Equal("自動候補:0 件", row.CandidateText);
+        Assert.Equal("候補 0 件", row.CandidateText);
     }
 
     [Fact]
@@ -65,7 +65,8 @@ public class ResolveCandidateTests
 
         Assert.Equal(1, row.CandidateCount);
         Assert.True(row.HasCandidates);
-        Assert.Equal("自動候補:1 件", row.CandidateText);
+        Assert.Equal("候補 1 件", row.CandidateText);
+        Assert.Equal("取り込んだ時に見つかった商品 1 件", row.CandidateTip);
     }
 
     [Fact]
@@ -75,7 +76,7 @@ public class ResolveCandidateTests
             @"D:\files\sample.zip", samePath: ["1000001", "1000002"], candidates: ["1000002", "1000003"]));
 
         Assert.Equal(3, row.CandidateCount);
-        Assert.Equal("自動候補:3 件", row.CandidateText);
+        Assert.Equal("候補 3 件", row.CandidateText);
     }
 
     [Fact]
@@ -206,10 +207,10 @@ public class ResolveCandidateTests
         var resolve = await OpenResolveAsync(
             app, Unresolved(withCandidate, samePath: ["1000001"]), Unresolved(without, broken: true));
 
-        Assert.Equal("自動候補:1 件", resolve.Files.Single(row => row.FileName == "with.zip").CandidateText);
+        Assert.Equal("候補 1 件", resolve.Files.Single(row => row.FileName == "with.zip").CandidateText);
 
         var plain = resolve.Files.Single(row => row.FileName == "without.zip");
-        Assert.Equal("自動候補:0 件", plain.CandidateText);
+        Assert.Equal("候補 0 件", plain.CandidateText);
         Assert.True(plain.IsBrokenArchive);
     });
 }

@@ -33,6 +33,39 @@ public class ImportScreenTests
         Assert.Contains(file, main.Import.History);
     });
 
+    // ---- 取り込み元の履歴の畳み ----
+
+    /// <summary>
+    /// 履歴の一覧は既定で閉じ、開閉は設定の画面の同じ一覧と1つの値（ImportFolderHistoryFold）を使う（ユーザ判断 2026-11-18）。
+    /// 取り込み画面はアプリの間1つを持ち回すので、ほかで変えた値は出し直すときに映す
+    /// </summary>
+    [Fact]
+    public Task 取り込み元の履歴は既定で閉じ_開閉はほかの画面と同じ値を使い_出し直すと映す() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        try
+        {
+            Assert.False(main.Import.IsHistoryExpanded);
+
+            main.Import.IsHistoryExpanded = true;
+            Assert.True(ImportFolderHistoryFold.IsExpanded);
+
+            // 設定の画面で閉じた形（同じ値を書く）。戻って出し直すと、取り込み画面も閉じる
+            ImportFolderHistoryFold.IsExpanded = false;
+            var raised = false;
+            main.Import.PropertyChanged += (_, e) => raised |= e.PropertyName == nameof(ImportViewModel.IsHistoryExpanded);
+            main.ShowImport();
+            await app.SettleAsync();
+            Assert.True(raised);
+            Assert.False(main.Import.IsHistoryExpanded);
+        }
+        finally
+        {
+            // 値はプロセスで1つ。ほかの試験へ持ち越さない
+            ImportFolderHistoryFold.IsExpanded = false;
+        }
+    });
+
     // ---- 対応アバターの検出の結果 ----
 
     [Fact]

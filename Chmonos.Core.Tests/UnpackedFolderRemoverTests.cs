@@ -164,7 +164,7 @@ public class UnpackedFolderRemoverTests : IDisposable
         var results = await Recording(deleted).RemoveAsync([folder]);
 
         Assert.False(results[0].Removed);
-        Assert.Contains("アーカイブが見つかりません", results[0].Reason);
+        Assert.Contains("圧縮ファイルが見つかりません", results[0].Reason);
         Assert.Empty(deleted);
         Assert.True(Directory.Exists(folder.Path));
     }

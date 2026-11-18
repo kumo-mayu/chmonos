@@ -92,16 +92,67 @@ public class ResolveTargetTests
         Assert.True(resolve.IsUnitTarget);
         Assert.False(resolve.IsSingleRowTarget);
 
-        // 帯の「このファイルだけ」（前は「商品IDを決める」の下のチェックボックス）
+        // 帯の「このファイルだけ」（前は「商品IDで登録」の下のチェックボックス）
         resolve.IsUnitTarget = false;
         Assert.True(resolve.SingleFileOnly);
         Assert.Equal("costume.psd", resolve.TargetText);
         Assert.True(resolve.HasUnitChoice);
 
-        // 選び直すと束に戻る（前と同じ）
+        // 同じ束の別の行を選び直しても「このファイルだけ」を保つ（ユーザ判断 2026-11-18。前は選び直すと束に戻った）
         resolve.Selected = Row(resolve, "readme.txt");
+        Assert.True(resolve.SingleFileOnly);
+        Assert.Equal("readme.txt", resolve.TargetText);
+
+        // 別の束（束でない行）へ移ると切れ、戻っても束から始まる
+        resolve.Selected = Row(resolve, "shoes.zip");
+        Assert.False(resolve.SingleFileOnly);
+        resolve.Selected = Row(resolve, "costume.psd");
         Assert.True(resolve.IsUnitTarget);
         Assert.Equal("元zip「costume_set.zip」の中身 3 件", resolve.TargetText);
+    });
+
+    [Fact]
+    public Task このファイルだけの後に_まとめて扱うを押すと_束に戻る() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenBundleAsync(app);
+        resolve.Selected = Row(resolve, "costume.psd");
+        resolve.IsUnitTarget = false;
+        var key = Row(resolve, "costume.psd").GroupKey;
+
+        // 代表の行が今選んでいる行と同じでも、帯と対象を束に揃える
+        resolve.SelectGroupCommand.Execute(key);
+
+        Assert.False(resolve.SingleFileOnly);
+        Assert.True(resolve.IsUnitTarget);
+        Assert.Equal("元zip「costume_set.zip」の中身 3 件", resolve.TargetText);
+
+        // 束を選んだ後は、同じ束の行を選び直しても束のまま
+        resolve.Selected = Row(resolve, "readme.txt");
+        Assert.True(resolve.IsUnitTarget);
+    });
+
+    [Fact]
+    public Task 束の見出しを押すと_元のzipが一覧にあればzipの行を選び_無ければ束を対象にする() => TestApp.Run(async app =>
+    {
+        // 元のzipが一覧にある束（zip もディスクにある）と、zip を消した束
+        var listedZip = app.NewFile(@"dl\costume_set.zip");
+        var goneZip = Path.Combine(app.Root, "files", "dl", "hair_set.zip");
+        var (_, resolve) = await OpenAsync(app,
+            Unresolved(listedZip),
+            Unresolved(app.NewFile(@"unpacked\costume_set\costume.unitypackage"), listedZip),
+            Unresolved(app.NewFile(@"unpacked\costume_set\costume.psd"), listedZip),
+            Unresolved(app.NewFile(@"unpacked\hair_set\hair.unitypackage"), goneZip),
+            Unresolved(app.NewFile(@"unpacked\hair_set\hair.psd"), goneZip));
+
+        // 元zipで登録が先：zipの行を選ぶ（後のまとめて扱うは効かせない。効かせると中身の行を選び直してzipの選択が消える）
+        resolve.ActivateGroupCommand.Execute(Row(resolve, "costume.psd").GroupKey);
+        Assert.Equal("costume_set.zip", resolve.Selected?.FileName);
+        Assert.Equal("costume_set.zip", resolve.TargetText);
+
+        // 元のzipが一覧に無い束は、まとめて扱う（束が対象）
+        resolve.ActivateGroupCommand.Execute(Row(resolve, "hair.psd").GroupKey);
+        Assert.True(resolve.HasActiveGroup);
+        Assert.Equal("元zip「hair_set.zip」の中身 2 件", resolve.TargetText);
     });
 
     [Fact]
@@ -124,7 +175,7 @@ public class ResolveTargetTests
     });
 
     [Fact]
-    public Task 元のzipが残る中身は_帯の右端に元zipとして扱うを出し_未確定にあれば登録を止めて理由を帯に出す() => TestApp.Run(async app =>
+    public Task 元のzipが残る中身は_帯の右端に元zipで登録を出し_未確定にあれば登録を止めて理由を帯に出す() => TestApp.Run(async app =>
     {
         var zip = app.NewFile(@"dl\costume_set.zip");
         var (_, resolve) = await OpenAsync(app,
@@ -135,7 +186,7 @@ public class ResolveTargetTests
         resolve.Selected = Row(resolve, "costume.psd");
         await PreviewAsync(app, resolve, "1000001");
 
-        // 左の一覧の「元zipとして扱う」も、元のzipが一覧にあるときだけ出す
+        // 左の一覧の「元zipで登録」も、元のzipが一覧にあるときだけ出す
         Assert.True(Row(resolve, "costume.psd").CanTreatAsOriginZip);
         Assert.True(resolve.HasOriginZipChoice);
         Assert.True(resolve.IsTargetBlocked);
@@ -150,14 +201,14 @@ public class ResolveTargetTests
         Assert.Equal(string.Empty, resolve.BandNoticeText);
         Assert.True(resolve.AssignCommand.CanExecute(null));
 
-        // 元zipとして扱うと、一覧のzipの行を選ぶ（右の欄の対象がzipになる）
+        // 元zipで登録と、一覧のzipの行を選ぶ（右の欄の対象がzipになる）
         resolve.UseOriginZipCommand.Execute(null);
         Assert.Equal("costume_set.zip", resolve.Selected?.FileName);
         Assert.Equal("costume_set.zip", resolve.TargetText);
     });
 
     [Fact]
-    public Task 元のzipが一覧に無いのに元zipとして扱うを押すと_押した帯の中で答え_画面を送らない() => TestApp.Run(async app =>
+    public Task 元のzipが一覧に無いのに元zipで登録を押すと_押した帯の中で答え_画面を送らない() => TestApp.Run(async app =>
     {
         // zip はディスクにあるが未確定に無い（取り込んでいない）
         var zip = app.NewFile(@"dl\costume_set.zip");

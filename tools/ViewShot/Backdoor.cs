@@ -127,7 +127,7 @@ internal static class Backdoor
     }
 
     /// <summary>
-    /// 未確定の「商品IDを決める」の欄で登録している最中の帯。実際に登録するには BOOTH の返事を止める作り物が要るので、控えを直に入れる。
+    /// 未確定の「商品IDで登録」の欄で登録している最中の帯。実際に登録するには BOOTH の返事を止める作り物が要るので、控えを直に入れる。
     /// <paramref name="left"/> は BOOTH への問い合わせの残り（目安の時間は本体が間隔から出す）。
     /// </summary>
     public static void ShowRegisteringInDecision(ResolveViewModel resolve, int done, int total, int? left)

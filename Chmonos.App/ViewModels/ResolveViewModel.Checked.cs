@@ -164,9 +164,37 @@ public sealed partial class ResolveViewModel
         }
 
         // 行を選ぶと束は外れるので、先に代表の行を選んでから束を立てる。
-        // 代表の行は手掛かりの表示と検索の対象に使う（検索は元zipの名前で引くので、どの行でも同じ）
+        // 代表の行は手掛かりの表示と検索の対象に使う（検索は元zipの名前で引くので、どの行でも同じ）。
+        // 「このファイルだけ」は同じ束の中で保つので、束を選んだときは下ろしてから選ぶ（選んでいる行が代表と同じでも下ろす）
+        DropSingleFile();
         Selected = first;
         ActiveGroup = key;
+        ApplyZipUnit();
+    }
+
+    /// <summary>
+    /// zipから展開した中身の束の見出し（三角の右の文字の所）を押したとき（ユーザ判断 2026-11-18）。
+    /// 元のzipが一覧にあれば「元zipで登録」（zipの行を選ぶ）、無ければ「まとめて扱う」（束を対象にする）の、先に当たる方だけを効かせる。
+    /// 2つを続けて効かせると、後の「まとめて扱う」が中身の行を選び直し、zipの行の選択が消える。束を開くのは画面の側
+    /// </summary>
+    /// <param name="parameter">束の鍵（zipの名前）。</param>
+    private void ActivateGroup(object? parameter)
+    {
+        if (parameter is not string key)
+        {
+            return;
+        }
+
+        var toOrigin = Files.Any(row => row.CanTreatAsOriginZip
+            && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase));
+        if (toOrigin)
+        {
+            TreatAsOriginZip(key);
+        }
+        else
+        {
+            SelectGroup(key);
+        }
     }
 
     /// <summary>見えている行だけを選ぶ。探して絞っているときに、見えない行までまとめて外したり確定したりしないため。</summary>
@@ -187,7 +215,7 @@ public sealed partial class ResolveViewModel
     });
 
     /// <summary>
-    /// 元のzipが残っている中身を「元zipとして扱う」：元のzipの行を選ぶ。そのままzipで登録すれば、中身は一覧から消える。
+    /// 元のzipが残っている中身を「元zipで登録」：元のzipの行を選ぶ。そのままzipで登録すれば、中身は一覧から消える。
     /// 前は中身を管理対象から除外していたが、外した記録は残り続けるので、後でzipを消しても中身が戻らなかった
     /// （ユーザ判断 2026-09-17：登録済みのzipの中身は出さないだけにする、と揃えた）。
     /// </summary>

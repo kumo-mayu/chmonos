@@ -69,8 +69,8 @@ public sealed partial class ResolveViewModel
 
         if (!HasPreview)
         {
-            // 押したボタンの横で言う（前は「商品IDを決める」の欄へ画面を送っていた。押した所から飛ぶ作りはやめた。メモ22）
-            FolderStatusText = "先に「商品IDを決める」で商品IDを確認してください。";
+            // 押したボタンの横で言う（前は「商品IDで登録」の欄へ画面を送っていた。押した所から飛ぶ作りはやめた。メモ22）
+            FolderStatusText = "先に「商品IDで登録」で商品IDを確認してください。";
             return;
         }
 

@@ -347,7 +347,7 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("resolve-not-on-booth", "未確定：取り込みが BOOTH から「無い」と言われた行を選んだとき（左の札「BOOTHで非公開」・初めから欄にID・説明・名前・画像の枠・このIDで登録。ユーザ 2026-10-06）", async context =>
+        new Scene("resolve-not-on-booth", "未確定：取り込みが BOOTH から「無い」と言われた行を選んだとき（左の札「非公開」・初めから欄にID・説明・名前・画像の枠・このIDで登録。ユーザ 2026-10-06）", async context =>
         {
             // 取り込みが残した答え（notOnBooth）を持つ行。選ぶだけで形が出る（BOOTHへは聞かない）
             await context.Seed.Unresolved.SaveAsync(
@@ -411,7 +411,7 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("resolve-target-origin-unlisted", "未確定：元zipはディスクにあるが未確定の一覧に無い中身（束 3 件）。左の見出し・1行にも帯にも「元zipとして扱う」を出さず、帯は文だけ（ふつうの色）", async context =>
+        new Scene("resolve-target-origin-unlisted", "未確定：元zipはディスクにあるが未確定の一覧に無い中身（束 3 件）。左の見出し・1行にも帯にも「元zipで登録」を出さず、帯は文だけ（ふつうの色）", async context =>
         {
             var zip = Fake.Zip(@"ダウンロード\costume_set_v2.zip", "costume.unitypackage", "costume_4k.psd", "readme.txt");
             await context.Seed.Unresolved.SaveAsync(

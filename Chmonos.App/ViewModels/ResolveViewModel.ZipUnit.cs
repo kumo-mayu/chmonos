@@ -10,7 +10,7 @@ namespace Chmonos.App.ViewModels;
 ///   zipを消せば、中身は「zipが無い中身」として戻ってくるので、後から紐付け直せる。記録には何も書かず、開くたびに決める
 /// - 元のzipが未確定にある：中身の確定・BOOTHに無い商品としての登録は押せず、「元zipで登録」へ案内する（フォルダのまま登録はできる）
 /// - 元のzipが一覧に無い（消した・取り込んでいない）：同じzipの中身全件を1つの単位にする
-/// - 例外（1つのzipに複数の商品が入っているなど）のために「このファイルだけを扱う」。選び直すと切れる
+/// - 例外（1つのzipに複数の商品が入っているなど）のために「このファイルだけを扱う」。同じ束の中で選び直しても保ち、別の束へ移ると切れる（ユーザ判断 2026-11-18）
 /// - zipが無いフォルダのファイルも同じく、同じフォルダのファイル全件を単位にする
 /// 単位は確定・BOOTHに無い商品としての登録・管理対象から除外するのどれにも効く（ユーザ判断 2026-09-17）。
 /// </summary>
@@ -201,6 +201,9 @@ public sealed partial class ResolveViewModel
 
     private bool _singleFileOnly;
 
+    /// <summary>「このファイルだけ」を選んだ束の鍵。同じ束の別の行を選んでも「このファイルだけ」を保つために覚える。</summary>
+    private string? _singleFileGroupKey;
+
     /// <summary>「このファイルだけを扱う」。zipやフォルダの単位にせず、選んだ1件だけを登録・管理対象から除外するの対象にする。</summary>
     public bool SingleFileOnly
     {
@@ -209,8 +212,29 @@ public sealed partial class ResolveViewModel
         {
             if (SetField(ref _singleFileOnly, value))
             {
+                _singleFileGroupKey = value && CanChooseSingleFile ? Selected!.GroupKey : null;
                 ApplyZipUnit();
             }
+        }
+    }
+
+    /// <summary>選び直した行で「このファイルだけ」を保つか。前に「このファイルだけ」にした束と同じ束の行なら保つ。</summary>
+    private bool KeepsSingleFile(UnresolvedRow? row)
+        => _singleFileGroupKey is { } key
+           && row is { IsExpandedContent: true } or { IsArchiveContent: true }
+           && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 束を明示して選んだとき（「まとめて扱う」・束の見出し）は「このファイルだけ」を下ろす。
+    /// 下ろさないと、帯は「このファイルだけ」なのに対象は束、という食い違いが残る。
+    /// </summary>
+    private void DropSingleFile()
+    {
+        _singleFileGroupKey = null;
+        if (_singleFileOnly)
+        {
+            _singleFileOnly = false;
+            OnPropertyChanged(nameof(SingleFileOnly));
         }
     }
 
@@ -240,7 +264,7 @@ public sealed partial class ResolveViewModel
     public bool IsBlockedByListedZip => Selected is { IsExpandedContent: true } row && !SingleFileOnly && IsZipListed(row);
 
     /// <summary>帯の3行目に出す、登録できない理由と次の一手。切り替えは同じ帯にある。</summary>
-    public string BlockedByZipText => "元のzipが未確定にあります。元zipとして扱うか、このファイルだけにしてください。";
+    public string BlockedByZipText => "元のzipが未確定にあります。元zipで登録するか、このファイルだけにしてください。";
 
     /// <summary>
     /// 選んだ行とトグルから、登録の単位を決め直す。元のzipが一覧に無い中身なら同じzipの中身全件を束として立てる。
