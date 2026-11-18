@@ -18,6 +18,8 @@ internal static partial class Scenes
         SettingsExcluded("settings-excluded-many", "設定の全体：除外したファイルが 5,000 件・欄は閉じた形", count: 5000, open: false),
         SettingsExcluded("settings-excluded-few-open", "設定の「隠したもの」：除外したファイルが 3 件・欄を開いた形", count: 3, open: true),
         SettingsExcluded("settings-excluded-many-open", "設定の「隠したもの」：除外したファイルが 5,000 件・欄を開いた形（一覧の中だけが流れる）", count: 5000, open: true),
+        ResolveExclusionDialog("resolve-exclusion-dialog", "未確定の「除外の解除…」の窓：除外が 5,000 件・2件を選んだ形（一覧の中だけが流れる）", query: null),
+        ResolveExclusionDialog("resolve-exclusion-dialog-search", "未確定の「除外の解除…」の窓：探す欄に入れて絞った形", query: "0001"),
         SettingsLongPaths(),
         SettingsSortDividers("settings-sort-dividers-on", "設定の「一覧と検索」：区切りの設定が入（入手日の子のチェックは押せる）", parent: true),
         SettingsSortDividers("settings-sort-dividers-off", "設定の「一覧と検索」：区切りの設定が切（入手日の子のチェックは押せず薄い）", parent: false),
@@ -36,6 +38,8 @@ internal static partial class Scenes
         SettingsApiMenu(),
         SettingsFolderLayouts(),
         SettingsFileOrder(),
+        SettingsUnityNotice("settings-unity-notice-on", "設定の「操作」の Unity：確認を切り、結果をWindowsの通知で知らせる形", notify: true),
+        SettingsUnityNotice("settings-unity-notice-off", "設定の「操作」の Unity：結果を知らせない形（知らせ方は押せず薄い・値は残る）", notify: false),
         SettingsHiddenItems("settings-hidden-cards", "設定の「隠したもの」：非表示にした商品を検索と同じカードで出した形（右下に大きさのつまみ）", list: false),
         SettingsHiddenItems("settings-hidden-list", "設定の「隠したもの」：非表示にした商品をリストで出した形", list: true),
         SettingsSection("settings-display-groups", "設定の「表示」：共通（色・大きさ・幅 ─ R-18・消えた画像）と、小見出し「対応アバター」", "表示"),
@@ -86,6 +90,21 @@ internal static partial class Scenes
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "隠したもの")) };
+        });
+
+    /// <summary>設定の「操作」の Unity：確認・結果を知らせる（親）・知らせ方（子の繋がったボタン）。親が切れている間は子が薄い（open.md 167）</summary>
+    private static Scene SettingsUnityNotice(string name, string description, bool notify)
+        => new(name, description, async context =>
+        {
+            var main = await context.StartAsync(settings => settings with { NotifyUnitySendResult = notify, UnitySendResultToast = true, ConfirmUnitySend = false });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "Unityへ送った結果を知らせる")) };
         });
 
     /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウンと向きの繋がったボタン（2026-11-11）。「バージョンを考えた名前順」の降順を選んだ形</summary>
@@ -322,7 +341,7 @@ internal static partial class Scenes
             settings.IsExcludedExpanded = true;
             var root = context.MainWindow();
             await context.PresentAsync(root);
-            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.ExcludedText == "3 件", "設定を読み終わる");
+            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.ExcludedList.CountText == "3 件", "設定を読み終わる");
 
             if (shown)
             {
@@ -334,10 +353,10 @@ internal static partial class Scenes
                 settings.ResetPaneWidthsCommand.Execute(null);
                 settings.AssignShortcut(settings.ShortcutRows[0], "Ctrl+Shift+F9");
                 settings.AssignShortcut(settings.ShortcutRows[1], "Ctrl+Shift+F9");
-                settings.Excluded[0].RestoreCommand!.Execute(null);
+                settings.ExcludedList.Rows[0].LiftCommand.Execute(null);
                 main.BeginStoreJob(StoreJobKind.Export, "バックアップを書き出しています…");
                 main.EndStoreJob(new StoreJobOutcome("バックアップに 5,678 ファイル（1.2 GB）を書き出しました。", @"D:\作り物\Chmonos-backup-20261001-1200.zip"));
-                await SceneContext.UntilAsync(() => settings.ExcludedText == "2 件", "除外が1件減る");
+                await SceneContext.UntilAsync(() => settings.ExcludedList.CountText == "2 件", "除外が1件減る");
             }
 
             await context.SettleAsync();
@@ -421,7 +440,7 @@ internal static partial class Scenes
             var root = context.MainWindow();
             await context.PresentAsync(root);
             await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
-            await SceneContext.UntilAsync(() => settings.ExcludedText == $"{count} 件", "除外の件数が出る");
+            await SceneContext.UntilAsync(() => settings.ExcludedList.CountText == $"{count} 件", "除外の件数が出る");
             await context.SettleAsync();
 
             return open
@@ -431,6 +450,28 @@ internal static partial class Scenes
         {
             Height = open ? 800 : SettingsHeight,
         };
+
+    /// <summary>未確定の「除外の解除…」の窓（open.md 132）。中身は設定の欄と同じ部品なので、窓の大きさの中で一覧が伸びるかを見る。</summary>
+    private static Scene ResolveExclusionDialog(string name, string title, string? query)
+        => DialogScene(name, title, async context =>
+        {
+            await SeedExcludedAsync(context, 5000);
+            await context.StartAsync();
+            var list = ExclusionLifting.ForExcluded(context.Services, () => Task.CompletedTask);
+            list.SetEntries(ExclusionLifting.Entries(await context.Services.SettingsStore.LoadExcludedAsync()));
+            list.IsActive = true;
+            if (query is not null)
+            {
+                list.Query = query;
+            }
+            else
+            {
+                list.SetChecked(list.Rows[0].Key, true);
+                list.SetChecked(list.Rows[2].Key, true);
+            }
+
+            return new ExclusionListDialog(list);
+        }) with { Width = 720, Height = 560 };
 
     /// <summary>
     /// 作り物の除外の記録を書く。新しい物ほど後ろ（除外した順に足される記録と同じ）。

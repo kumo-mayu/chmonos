@@ -309,13 +309,13 @@ public sealed class CommandHandler
 
             case UiCommand.ForgetDetached forget:
                 await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
-                    .ForgetDetachedAsync(forget.Hash, forget.ItemId, cancellationToken);
+                    .ForgetDetachedAsync(forget.Records, cancellationToken);
                 return new CommandResult.Done();
 
             case UiCommand.RestoreExcluded restore:
                 return new CommandResult.ExclusionLifted(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
-                        .RestoreExcludedAsync(restore.Hash, cancellationToken));
+                        .RestoreExcludedAsync(restore.Hashes, cancellationToken));
 
             // ---- BOOTH への問い合わせ。入口の「人が押した」優先度のままだと、開いただけで取る物まで取り込みより先に出るので、
             //      人が押していない物は梯子の段に下げる（内側の指定が勝つ） ----

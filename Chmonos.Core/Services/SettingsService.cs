@@ -95,10 +95,23 @@ public interface ISettingsService
     /// <summary>除外を解除し、ファイルが元の場所に在れば、その場で未確定に戻す。</summary>
     Task<ExclusionLiftOutcome> RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// まとめて解除する（除外の一覧の「選んだ n 件の除外を解除」）。数千件でも、除外と未確定の記録はそれぞれ1回だけ書く。
+    /// 結果はハッシュごと（大文字小文字は区別しない）。
+    /// </summary>
+    Task<IReadOnlyDictionary<string, ExclusionLiftOutcome>> RestoreExcludedAsync(
+        IReadOnlyCollection<string> hashes, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<DetachedRecord>> LoadDetachedAsync(CancellationToken cancellationToken = default);
 
     Task ForgetDetachedAsync(string hash, string itemId, CancellationToken cancellationToken = default);
+
+    /// <summary>まとめて捨てる。商品ごとにまとめ、1つの商品は1回だけ書く。</summary>
+    Task ForgetDetachedAsync(IReadOnlyCollection<DetachedKey> records, CancellationToken cancellationToken = default);
 }
+
+/// <summary>外した記録の1件を指す（どの商品の、どの中身か）。</summary>
+public sealed record DetachedKey(string Hash, string ItemId);
 
 /// <summary>
 /// 設定の保存と、設定画面に出す集計。
@@ -317,53 +330,99 @@ public sealed class SettingsService : ISettingsService
     /// ここで解除しないと、一度除外したファイルは二度と現れない。
     /// </summary>
     public async Task<ExclusionLiftOutcome> RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default)
+        => (await RestoreExcludedAsync([hash], cancellationToken)).TryGetValue(hash, out var outcome)
+            ? outcome
+            : ExclusionLiftOutcome.NotExcluded;
+
+    /// <summary>
+    /// 1件の解除と同じ道で、まとめて解除する（open.md 132・171）。1件ずつ呼ぶと、1件ごとに除外の記録を書き・全商品を読み・
+    /// 走査の控えを読み・未確定の記録を書くので、数千件では読み書きが件数倍になる。ここでは記録ごとに1回ずつにする。
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, ExclusionLiftOutcome>> RestoreExcludedAsync(
+        IReadOnlyCollection<string> hashes, CancellationToken cancellationToken = default)
     {
-        bool Same(string other) => string.Equals(other, hash, StringComparison.OrdinalIgnoreCase);
+        var wanted = new HashSet<string>(hashes, StringComparer.OrdinalIgnoreCase);
+        var outcomes = new Dictionary<string, ExclusionLiftOutcome>(StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count == 0)
+        {
+            return outcomes;
+        }
 
         // 取り込みも同じファイルへ書くので、読み直してから消す（`docs/spec/data-model.md`）。
         // 錠の外で読むと、解除の最中に取り込みが足した除外が消える
-        ExcludedEntry? lifted = null;
+        var lifted = new List<ExcludedEntry>();
         await _store.Excluded.TryUpdateAsync(
             entries =>
             {
-                lifted = entries.FirstOrDefault(entry => Same(entry.Hash));
-                return entries.RemoveAll(entry => Same(entry.Hash)) > 0 ? entries : null;
+                lifted.Clear();
+                lifted.AddRange(entries.Where(entry => wanted.Contains(entry.Hash)).DistinctBy(entry => entry.Hash, StringComparer.OrdinalIgnoreCase));
+                return entries.RemoveAll(entry => wanted.Contains(entry.Hash)) > 0 ? entries : null;
             },
             cancellationToken);
-        if (lifted is null)
+        foreach (var hash in wanted)
         {
-            return ExclusionLiftOutcome.NotExcluded;
+            outcomes[hash] = ExclusionLiftOutcome.NotExcluded;
+        }
+
+        if (lifted.Count == 0)
+        {
+            return outcomes;
         }
 
         // **その場で未確定に戻す**（ユーザ判断 2026-10-05・file-lifecycle.md「気になった所」10）。前は記録を消すだけで、
         // その取り込み元を取り込み直すまでどこにも出なかった（走査の控えに載っているので、監視の新着にも数えない）。
-        // 画面の「次の取り込みでまた未確定として出てきます」は、対象に積んだときにしか正しくなかった。
         // 商品が同じ中身を持つなら行き先は決まっているので出さない（未確定を開いたときの均しと同じ見方）
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        if (loaded.Items.Any(item => item.Local.AttachedFiles.Any(file => Same(file.Hash))))
-        {
-            return ExclusionLiftOutcome.OwnedByItem;
-        }
+        var owned = new HashSet<string>(
+            loaded.Items.SelectMany(item => item.Local.AttachedFiles.Select(file => file.Hash)),
+            StringComparer.OrdinalIgnoreCase);
 
-        var entry = await Task.Run(() => ToUnresolvedAsync(lifted, cancellationToken), cancellationToken);
-        if (entry is null)
-        {
-            return ExclusionLiftOutcome.FileNotFound;
-        }
-
-        await _store.Unresolved.TryUpdateAsync(
-            current =>
+        var back = await Task.Run(
+            async () =>
             {
-                if (current.Any(file => Same(file.Hash)))
+                // 控えはパスで引く（1件ずつ全行をなめると、控え数万 × 解除数千で遅い）
+                var cache = _store.ScanCache.Load().ToLookup(row => row.Path, StringComparer.OrdinalIgnoreCase);
+                var made = new List<UnresolvedFile>();
+                foreach (var entry in lifted)
                 {
-                    return null;
+                    if (owned.Contains(entry.Hash))
+                    {
+                        outcomes[entry.Hash] = ExclusionLiftOutcome.OwnedByItem;
+                        continue;
+                    }
+
+                    var file = await ToUnresolvedAsync(entry, cache, cancellationToken);
+                    outcomes[entry.Hash] = file is null ? ExclusionLiftOutcome.FileNotFound : ExclusionLiftOutcome.BackInUnresolved;
+                    if (file is not null)
+                    {
+                        made.Add(file);
+                    }
                 }
 
-                current.Add(entry);
-                return current;
+                return made;
             },
             cancellationToken);
-        return ExclusionLiftOutcome.BackInUnresolved;
+
+        if (back.Count > 0)
+        {
+            // 元から未確定に在った物は重ねない（その物も「未確定に戻した」と数える）
+            await _store.Unresolved.TryUpdateAsync(
+                current =>
+                {
+                    var present = new HashSet<string>(current.Select(file => file.Hash), StringComparer.OrdinalIgnoreCase);
+                    var added = false;
+                    foreach (var file in back.Where(file => present.Add(file.Hash)))
+                    {
+                        current.Add(file);
+                        added = true;
+                    }
+
+                    return added ? current : null;
+                },
+                cancellationToken);
+        }
+
+        return outcomes;
     }
 
     /// <summary>
@@ -371,9 +430,9 @@ public sealed class SettingsService : ISettingsService
     /// （大きさ・日時・ダウンロード元の記録・zip の中身と開けたか）。候補は走査の控えの手掛かり（控えの3点が合うときだけ）。
     /// **同じ場所でも中身が変わっていれば戻さない**：控えの3点が合わなければハッシュを取り直して確かめる（人の1回の操作で、その1本だけ）。
     /// </summary>
-    private async Task<UnresolvedFile?> ToUnresolvedAsync(ExcludedEntry lifted, CancellationToken cancellationToken)
+    private static async Task<UnresolvedFile?> ToUnresolvedAsync(
+        ExcludedEntry lifted, ILookup<string, ScanCacheEntry> cache, CancellationToken cancellationToken)
     {
-        var cache = _store.ScanCache.Load();
         var alive = new List<string>();
         IReadOnlyList<string> clues = [];
         foreach (var path in lifted.Paths)
@@ -393,7 +452,7 @@ public sealed class SettingsService : ISettingsService
             }
 
             var modified = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero);
-            var cached = cache.FirstOrDefault(row =>
+            var cached = cache[path].FirstOrDefault(row =>
                 string.Equals(row.Path, path, StringComparison.OrdinalIgnoreCase)
                 && row.SizeBytes == info.Length
                 && row.ModifiedAtUtc == modified);
@@ -501,23 +560,32 @@ public sealed class SettingsService : ISettingsService
     /// 外した記録を捨てる（商品のJSONから、印の付いた行ごと消す）。
     /// 次の取り込みで、手掛かりが指すならまたその商品へ紐付く。
     /// </summary>
-    public async Task ForgetDetachedAsync(
+    public Task ForgetDetachedAsync(
         string hash,
         string itemId,
         CancellationToken cancellationToken = default)
+        => ForgetDetachedAsync([new DetachedKey(hash, itemId)], cancellationToken);
+
+    /// <summary>まとめて捨てる（除外の一覧の「選んだ n 件の外した記録を捨てる」）。1つの商品は、何件捨てても1回だけ書く。</summary>
+    public async Task ForgetDetachedAsync(IReadOnlyCollection<DetachedKey> records, CancellationToken cancellationToken = default)
     {
-        // 商品の錠の中で今の一覧から消す（2026-10-05・file-lifecycle.md「気になった所」3）。前は錠の外で読んだ写しで
-        // localFiles ごと書いていたので、読んでから書くまでに取り込みが足したファイル・付けた日時が消え得た
-        await _store.Items.ChangeLocalAsync(
-            itemId,
-            current =>
-            {
-                var files = current.LocalFiles
-                    .Where(file => !(file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
-                    .ToList();
-                return files.Count == current.LocalFiles.Count ? null : current with { LocalFiles = files };
-            },
-            [LocalField.LocalFiles],
-            cancellationToken);
+        foreach (var group in records.GroupBy(record => record.ItemId, StringComparer.Ordinal))
+        {
+            var hashes = new HashSet<string>(group.Select(record => record.Hash), StringComparer.OrdinalIgnoreCase);
+
+            // 商品の錠の中で今の一覧から消す（2026-10-05・file-lifecycle.md「気になった所」3）。前は錠の外で読んだ写しで
+            // localFiles ごと書いていたので、読んでから書くまでに取り込みが足したファイル・付けた日時が消え得た
+            await _store.Items.ChangeLocalAsync(
+                group.Key,
+                current =>
+                {
+                    var files = current.LocalFiles
+                        .Where(file => !(file.Detached && hashes.Contains(file.Hash)))
+                        .ToList();
+                    return files.Count == current.LocalFiles.Count ? null : current with { LocalFiles = files };
+                },
+                [LocalField.LocalFiles],
+                cancellationToken);
+        }
     }
 }

@@ -152,7 +152,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
         TreatAsOriginZipCommand = new RelayCommand(TreatAsOriginZip, parameter => parameter is not null);
-        UndoExcludeCommand = new RelayCommand(() => UndoExcludeAsync().Forget(), () => HasUndoExclude && !IsBusy);
+        OpenExclusionsCommand = new RelayCommand(() => OpenExclusionsAsync().Forget(), () => HasExcluded && !IsBusy);
         RevealCommand = new RelayCommand(RevealSelected, () => HasSelection);
         CopyFileNameCommand = new RelayCommand(CopyFileName, () => HasSelection);
         OpenImportCommand = new RelayCommand(_main.ShowImport);
@@ -180,7 +180,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public RelayCommand TreatAsOriginZipCommand { get; }
 
-    public RelayCommand UndoExcludeCommand { get; }
+    /// <summary>「除外の解除…」（open.md 132）。</summary>
+    public RelayCommand OpenExclusionsCommand { get; }
 
     public RelayCommand RevealCommand { get; }
 
@@ -686,6 +687,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     private void ApplyReload(ReloadedRows reloaded)
     {
+        // 「除外の解除…」を出すかは除外の件数で決める。一覧を読むたびに合わせる（ほかの画面・取り込みで除外が増減する）
+        RefreshExcludedCountAsync().Forget();
+
         // 見分けと zip の有無の控えは、この後の操作（元zipで登録した後に中身を外すなど）でも使う
         _judgements.Clear();
         foreach (var (key, value) in reloaded.Judgements)
@@ -884,6 +888,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OnPropertyChanged(nameof(RegisterTargetSummary));
         OnPropertyChanged(nameof(CanRegisterFolder));
         OnPropertyChanged(nameof(SelectedPaths));
+        RefreshSelectedPresenceAsync().Forget();
         OnPropertyChanged(nameof(SelectedContents));
         OnPropertyChanged(nameof(HasContents));
         OnPropertyChanged(nameof(ContentsSummary));
@@ -1270,9 +1275,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         try
         {
             var reason = targets.Count == 1 ? "未確定画面から除外" : "未確定画面から元zipごと除外";
-            var excluded = await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
+            await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
 
-            RememberExcluded(targets, excluded);
+            RefreshExcludedCountAsync().Forget();
             if (targets.Count == 1)
             {
                 AfterSettled(registered: false);

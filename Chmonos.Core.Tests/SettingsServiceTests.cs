@@ -194,6 +194,75 @@ public class SettingsServiceTests : IDisposable
     }
 
     /// <summary>
+    /// 除外の一覧の「選んだ n 件の除外を解除」（open.md 132・171）。数千件でも除外と未確定の記録はそれぞれ1回だけ書き、
+    /// 選んでいない記録は残し、元から未確定に在った物は重ねず、訳ごとに結果を返す。
+    /// </summary>
+    [Fact]
+    public async Task まとめて解除すると_記録はそれぞれ1回だけ書き_選んでいない物は残り_未確定は重ならない()
+    {
+        var dir = Path.Combine(_root, "files");
+        Directory.CreateDirectory(dir);
+        var entries = new List<ExcludedEntry>();
+        var hashes = new List<string>();
+        for (var i = 0; i < 40; i++)
+        {
+            var path = Path.Combine(dir, $"作り物{i}.psd");
+            await File.WriteAllTextAsync(path, $"中身{i}");
+            var hash = await Scanning.FileHasher.ComputeSha256Async(path);
+            hashes.Add(hash);
+            entries.Add(new ExcludedEntry { Hash = hash, Paths = [path], ExcludedAt = DateTimeOffset.Now });
+        }
+
+        File.Delete(Path.Combine(dir, "作り物1.psd"));
+        await _store.Excluded.SaveAsync(entries);
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9900142",
+            Booth = new BoothBlock { Name = "作り物", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = hashes[2], Paths = ["z.psd"], SizeBytes = 1 }] },
+        });
+        // 元から未確定に在る物（別の画面で先に戻した）
+        await _store.Unresolved.SaveAsync([new UnresolvedFile { Hash = hashes[3], Paths = ["前から.psd"], SizeBytes = 1, ModifiedAtUtc = DateTimeOffset.Now, FirstSeenAt = DateTimeOffset.Now }]);
+
+        var chosen = hashes.Take(30).Append("FFFF").ToList();
+        var excludedBefore = _store.Excluded.WriteCount;
+        var unresolvedBefore = _store.Unresolved.WriteCount;
+
+        var outcomes = await _service.RestoreExcludedAsync(chosen);
+
+        // WriteCount は1回の書き込みで 2 進む（書いている間を奇数で示す作り）
+        Assert.Equal(excludedBefore + 2, _store.Excluded.WriteCount);
+        Assert.Equal(unresolvedBefore + 2, _store.Unresolved.WriteCount);
+        Assert.Equal(hashes.Skip(30), _store.Excluded.Load().Select(entry => entry.Hash));
+        Assert.Equal(ExclusionLiftOutcome.FileNotFound, outcomes[hashes[1]]);
+        Assert.Equal(ExclusionLiftOutcome.OwnedByItem, outcomes[hashes[2]]);
+        Assert.Equal(ExclusionLiftOutcome.BackInUnresolved, outcomes[hashes[3]]);
+        Assert.Equal(ExclusionLiftOutcome.NotExcluded, outcomes["FFFF"]);
+        Assert.Equal(28, outcomes.Values.Count(outcome => outcome == ExclusionLiftOutcome.BackInUnresolved));
+
+        var unresolved = _store.Unresolved.Load();
+        Assert.Equal(28, unresolved.Count);
+        Assert.Equal(["前から.psd"], unresolved.Single(file => file.Hash == hashes[3]).Paths);
+    }
+
+    /// <summary>まとめて捨てても、選んでいない外した記録は残る（大文字小文字の違うハッシュも同じ物として捨てる）。</summary>
+    [Fact]
+    public async Task 外した記録をまとめて捨てると_選んだ物だけが消え_選んでいない物は残る()
+    {
+        LocalFileRecord Detached(string hash) => new() { Hash = hash, Paths = [hash + ".zip"], SizeBytes = 1, Detached = true };
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9900143",
+            Booth = new BoothBlock { Name = "作り物", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock { LocalFiles = [Detached("AAAA"), Detached("BBBB"), Detached("CCCC")] },
+        });
+
+        await _service.ForgetDetachedAsync([new DetachedKey("AAAA", "9900143"), new DetachedKey("bbbb", "9900143")]);
+
+        Assert.Equal(["CCCC"], (await _store.Items.LoadAsync("9900143"))!.Local.LocalFiles.Select(file => file.Hash));
+    }
+
+    /// <summary>
     /// 設定の画面は新しい順に並べる。同じ日時（まとめて除外した物）は、記録の後ろ（後から足した物）を上にして、
     /// 読み直すたびに上下が入れ替わらないようにする。
     /// </summary>

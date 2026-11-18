@@ -106,60 +106,67 @@ public sealed partial class ResolveViewModel
         }
     }
 
-    // ---- 外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった） ----
+    // ---- 除外の解除（open.md 132・ユーザ判断 2026-11-19） ----
+    // 前は外した直後だけ「外した n 件を戻す」を出していた（ユーザ判断 2026-09-17）。直前の物しか戻せず、前に外した物は設定の奥まで
+    // 行かないと戻せなかったので、除外が1件でもあれば「除外の解除…」を出し、設定と同じ除外の一覧（新しい順・探す・選んでまとめて解除）を窓に出す
 
-    private List<Core.Models.UnresolvedFile> _lastExcluded = [];
+    private int _excludedCount;
+    private int _excludedCountTicket;
 
-    public bool HasUndoExclude => _lastExcluded.Count > 0;
-
-    public string UndoExcludeText => $"外した {_lastExcluded.Count} 件を戻す";
+    /// <summary>除外の記録の件数（「除外の解除…」を出すか）。一覧を読むたびと、除外した後に読み直す。</summary>
+    public bool HasExcluded => _excludedCount > 0;
 
     /// <summary>
-    /// フォルダビューに組み込んだときは上の帯が隠れるので、「戻す」と出していない件数を右側の上に出す
+    /// フォルダビューに組み込んだときは上の帯が隠れるので、「除外の解除…」を右側の上に出す
     /// （ユーザ判断 2026-09-17：組み込んだ側では外した直後に戻せず、減った理由も見えなかった）。
     /// </summary>
-    public bool ShowsInlineUndo => IsEmbedded && HasUndoExclude;
+    public bool ShowsInlineExclusions => IsEmbedded && HasExcluded;
 
     public bool ShowsInlineHidden => IsEmbedded && HasHiddenByRegisteredZip;
 
-    /// <summary>今回除外の記録に足したハッシュ。戻すときはこれだけを除外から消す（前から除外していた物の記録を残す。2026-10-05）。</summary>
-    private IReadOnlyCollection<string> _lastExcludedHashes = [];
-
-    /// <summary>外した直後に呼ぶ。次に外すまで、上の帯に「戻す」を出す。</summary>
-    private void RememberExcluded(IEnumerable<UnresolvedRow> rows, Core.Commands.CommandResult excluded)
+    /// <summary>除外の件数を読み直す。記録は上限なく溜まるので画面のスレッドの外で読む（LoadExcludedAsync）。古い答えは捨てる。</summary>
+    private async Task RefreshExcludedCountAsync()
     {
-        _lastExcluded = rows.Select(row => row.File).ToList();
-        _lastExcludedHashes = excluded is Core.Commands.CommandResult.FilesExcluded { AddedHashes: var added } ? added : [];
-        OnPropertyChanged(nameof(HasUndoExclude));
-        OnPropertyChanged(nameof(UndoExcludeText));
-        OnPropertyChanged(nameof(ShowsInlineUndo));
-        RelayCommand.RaiseCanExecuteChanged();
-    }
-
-    private async Task UndoExcludeAsync()
-    {
-        if (_lastExcluded.Count == 0)
+        var ticket = ++_excludedCountTicket;
+        var count = (await _services.SettingsStore.LoadExcludedAsync()).Count;
+        if (ticket != _excludedCountTicket)
         {
             return;
         }
 
-        var files = _lastExcluded;
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UndoExclude(files, _lastExcludedHashes));
-        _lastExcluded = [];
-        _lastExcludedHashes = [];
-        OnPropertyChanged(nameof(HasUndoExclude));
-        OnPropertyChanged(nameof(UndoExcludeText));
-        OnPropertyChanged(nameof(ShowsInlineUndo));
+        _excludedCount = count;
+        OnPropertyChanged(nameof(HasExcluded));
+        OnPropertyChanged(nameof(ShowsInlineExclusions));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
-        await ReloadRowsAsync();
+    /// <summary>
+    /// 「除外の解除…」。窓の中で解除するたびに除外の一覧を読み直し、閉じたら未確定の一覧とナビの件数を合わせる
+    /// （窓の中で解除した物は、その場で未確定の記録に戻っている）。
+    /// </summary>
+    private async Task OpenExclusionsAsync()
+    {
+        var lifted = false;
+        ExclusionListViewModel? list = null;
+        list = ExclusionLifting.ForExcluded(_services, async () =>
+        {
+            lifted = true;
+            list!.SetEntries(ExclusionLifting.Entries(await _services.SettingsStore.LoadExcludedAsync()));
+        });
+        list.SetEntries(ExclusionLifting.Entries(await _services.SettingsStore.LoadExcludedAsync()));
 
-        // 除外したときと同じく、ナビの件数も合わせる。一覧だけ読み直すと、次に画面を移るまで減ったままの数が残っていた
-        _main.RefreshBadges();
+        await ExclusionDialog.ShowAsync(list);
 
-        var first = files[0].Hash;
-        Selected = Files.FirstOrDefault(row => string.Equals(row.File.Hash, first, StringComparison.OrdinalIgnoreCase)) ?? Selected;
-        // 「戻す」は一覧の見出しの近くにあるので、結果もそこに出す
-        ListNoticeText = $"{files.Count} 件を未確定に戻しました。";
+        if (lifted)
+        {
+            await ReloadRowsAsync();
+            _main.RefreshBadges();
+            ListNoticeText = list.Note;
+        }
+        else
+        {
+            await RefreshExcludedCountAsync();
+        }
     }
 
     /// <summary>選んだファイルの場所をエクスプローラで開く（画面をまたいで同じ開き方）。</summary>

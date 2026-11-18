@@ -188,6 +188,12 @@ internal sealed class TestApp
     /// <summary>出すはずだった、既定に戻す窓（窓は出ない）。</summary>
     public List<ResetSettingsDialogViewModel> ResetSettingsDialogs { get; } = [];
 
+    /// <summary>未確定の「除外の解除…」の窓の中での操作（窓は出ない）。既定は何もせずに閉じる。</summary>
+    public Func<ExclusionListViewModel, Task> InExclusionDialog { get; set; } = _ => Task.CompletedTask;
+
+    /// <summary>出すはずだった、除外の解除の窓。</summary>
+    public List<ExclusionListViewModel> ExclusionDialogs { get; } = [];
+
     /// <summary>出すはずだったサブ画面（ファイルの割り振り）の窓。窓は作らず、前に出した回数と閉じるを控える。</summary>
     public List<FakeSubWindow> SubWindows { get; } = [];
 
@@ -351,6 +357,11 @@ internal sealed class TestApp
             {
                 app.SearchScopes.Add(model);
                 return app.PickSearchScope(model);
+            };
+            ExclusionDialog.Intercept = model =>
+            {
+                app.ExclusionDialogs.Add(model);
+                return app.InExclusionDialog(model);
             };
             ResetSettingsDialogViewModel.Intercept = model =>
             {
@@ -543,6 +554,7 @@ internal sealed class TestApp
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
             ChoiceQuestion.Intercept = null;
             ResetSettingsDialogViewModel.Intercept = null;
+            ExclusionDialog.Intercept = null;
 
             // 開いたままのサブ画面は閉じる（置き場の知らせを外す。次の試験へ持ち越さない）
             foreach (var window in SubWindows.Where(window => !window.IsClosed))

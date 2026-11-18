@@ -74,7 +74,7 @@ public class ResolveActionTests
     });
 
     [Fact]
-    public Task 除外を進めると_一覧から外れて次の1件へ移り_戻す手立てが出る() => TestApp.Run(async app =>
+    public Task 除外を進めると_一覧から外れて次の1件へ移り_除外の解除が出る() => TestApp.Run(async app =>
     {
         var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip");
         resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
@@ -86,7 +86,7 @@ public class ResolveActionTests
         Assert.Equal("second.zip", Assert.Single(resolve.Files).FileName);
         Assert.Equal("second.zip", resolve.Selected!.FileName);
         Assert.Equal("未確定 1 件", resolve.RemainingText);
-        Assert.True(resolve.HasUndoExclude);
+        await UiThread.Until(() => resolve.HasExcluded, "除外したら「除外の解除…」が出る");
 
         // 保存先にも書かれている（未確定から消え、除外の一覧に入る）
         Assert.Single(app.Store.Excluded.Load());

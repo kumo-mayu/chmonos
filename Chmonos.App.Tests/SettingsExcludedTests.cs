@@ -68,9 +68,9 @@ public class SettingsExcludedTests
             Entry("CCCC", @"D:\作り物\c.zip", 2));
 
         Assert.False(settings.IsExcludedExpanded);
-        Assert.True(settings.HasExcluded);
-        Assert.Equal("3 件", settings.ExcludedText);
-        Assert.Empty(settings.Excluded);
+        Assert.True(settings.ExcludedList.HasAny);
+        Assert.Equal("3 件", settings.ExcludedList.CountText);
+        Assert.Empty(settings.ExcludedList.Rows);
     }));
 
     [Fact]
@@ -78,9 +78,9 @@ public class SettingsExcludedTests
     {
         var settings = await OpenSettingsAsync(app);
 
-        Assert.False(settings.HasExcluded);
-        Assert.Equal("0 件", settings.ExcludedText);
-        Assert.Empty(settings.Excluded);
+        Assert.False(settings.ExcludedList.HasAny);
+        Assert.Equal("0 件", settings.ExcludedList.CountText);
+        Assert.Empty(settings.ExcludedList.Rows);
     }));
 
     [Fact]
@@ -94,9 +94,9 @@ public class SettingsExcludedTests
 
         settings.IsExcludedExpanded = true;
 
-        Assert.Equal([@"D:\作り物\new.zip", @"D:\作り物\mid.zip", @"D:\作り物\old.zip"], settings.Excluded.Select(row => row.Label));
-        Assert.Equal("BOOTHの商品ではない", settings.Excluded[2].SubText);
-        Assert.All(settings.Excluded, row => Assert.NotNull(row.RestoreCommand));
+        Assert.Equal([@"D:\作り物\new.zip", @"D:\作り物\mid.zip", @"D:\作り物\old.zip"], settings.ExcludedList.Rows.Select(row => row.Path));
+        Assert.Equal("BOOTHの商品ではない", settings.ExcludedList.Rows[2].SubText);
+        Assert.All(settings.ExcludedList.Rows, row => Assert.NotNull(row.LiftCommand));
     }));
 
     [Fact]
@@ -105,12 +105,12 @@ public class SettingsExcludedTests
         var settings = await OpenSettingsAsync(app, Entry("AAAA", @"D:\作り物\a.zip", 0));
 
         settings.IsExcludedExpanded = true;
-        Assert.Single(settings.Excluded);
+        Assert.Single(settings.ExcludedList.Rows);
 
         settings.IsExcludedExpanded = false;
 
-        Assert.Empty(settings.Excluded);
-        Assert.Equal("1 件", settings.ExcludedText);
+        Assert.Empty(settings.ExcludedList.Rows);
+        Assert.Equal("1 件", settings.ExcludedList.CountText);
     }));
 
     [Fact]
@@ -123,7 +123,7 @@ public class SettingsExcludedTests
         var reopened = await ReopenAsync(app);
 
         Assert.True(reopened.IsExcludedExpanded);
-        Assert.Equal(["BBBB", "AAAA"], reopened.Excluded.Select(row => row.Key));
+        Assert.Equal(["BBBB", "AAAA"], reopened.ExcludedList.Rows.Select(row => row.Key));
     }));
 
     [Fact]
@@ -135,20 +135,20 @@ public class SettingsExcludedTests
             Entry("BBBB", @"D:\作り物\b.zip", 1),
             Entry("CCCC", @"D:\作り物\c.zip", 2));
         settings.IsExcludedExpanded = true;
-        var kept = settings.Excluded.Where(row => row.Key != "BBBB").ToList();
+        var kept = settings.ExcludedList.Rows.Where(row => row.Key != "BBBB").ToList();
 
-        settings.Excluded.Single(row => row.Key == "BBBB").RestoreCommand!.Execute(null);
+        settings.ExcludedList.Rows.Single(row => row.Key == "BBBB").LiftCommand.Execute(null);
         await app.SettleAsync();
-        await UiThread.Until(() => settings.Excluded.Count == 2, "解除した行が消える");
+        await UiThread.Until(() => settings.ExcludedList.Rows.Count == 2, "解除した行が消える");
 
-        Assert.Equal("除外を解除しました。元の場所にファイルが見つからないので、未確定には戻していません。", settings.ExcludedNote);
+        Assert.Equal("除外を解除しました。元の場所にファイルが見つからないので、未確定には戻していません。", settings.ExcludedList.Note);
         Assert.False(settings.HasStatus);
-        Assert.Equal("2 件", settings.ExcludedText);
-        Assert.Equal(["CCCC", "AAAA"], settings.Excluded.Select(row => row.Key));
+        Assert.Equal("2 件", settings.ExcludedList.CountText);
+        Assert.Equal(["CCCC", "AAAA"], settings.ExcludedList.Rows.Select(row => row.Key));
 
         // 残った行は作り直さない（一覧の流した位置と、見えている行の部品を保つ）
-        Assert.Same(kept[0], settings.Excluded[0]);
-        Assert.Same(kept[1], settings.Excluded[1]);
+        Assert.Same(kept[0], settings.ExcludedList.Rows[0]);
+        Assert.Same(kept[1], settings.ExcludedList.Rows[1]);
         Assert.Equal(["AAAA", "CCCC"], app.Services.Store.Excluded.Load().Select(entry => entry.Hash).Order(StringComparer.Ordinal));
     }));
 
@@ -165,11 +165,11 @@ public class SettingsExcludedTests
         await UiThread.Until(() => s_main!.UnresolvedCount == 0, "始めは未確定が無い");
         settings.IsExcludedExpanded = true;
 
-        settings.Excluded.Single().RestoreCommand!.Execute(null);
+        settings.ExcludedList.Rows.Single().LiftCommand.Execute(null);
         await app.SettleAsync();
-        await UiThread.Until(() => settings.Excluded.Count == 0, "解除した行が消える");
+        await UiThread.Until(() => settings.ExcludedList.Rows.Count == 0, "解除した行が消える");
 
-        Assert.Equal("除外を解除しました。未確定の一覧に戻しました。", settings.ExcludedNote);
+        Assert.Equal("除外を解除しました。未確定の一覧に戻しました。", settings.ExcludedList.Note);
         Assert.Equal(hash, Assert.Single(app.Services.Store.Unresolved.Load()).Hash);
         await UiThread.Until(() => s_main!.UnresolvedCount == 1, "ナビの未確定の数が増える");
     }));

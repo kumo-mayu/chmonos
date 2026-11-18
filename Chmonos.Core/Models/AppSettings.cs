@@ -184,8 +184,43 @@ public sealed record AppSettings
     /// 何度も送る人には、毎回の確認と、Unity の手前へ主の窓が戻ってくる結果の窓が邪魔になる。
     /// 送れなかったときと、別のプロジェクトへ送る・飛ばす物があるときの確認は、オンでも窓で出す（読まずに進むと困る物）。
     /// 既定は今までどおり窓
+    /// **2026-11-19 から書かない古い欄**：1つのチェックが「確認しない」と「結果は Windows の通知」の2つを決めていたのを、下の3つに分けた（open.md 167）。
+    /// 下の欄が無い（null）間だけ、ここから読み替える（入れていた人は「確認しない」「Windowsの通知」のまま。使う人の今の動きを変えない）。
+    /// 消さないのは、前の版の settings.json を読むためと、前の版に戻したときに前の動きのまま残すため（欄を足すだけなので形式の版は上げない。data-format.md）
     /// </summary>
     public bool QuietUnitySend { get; init; }
+
+    /// <summary>
+    /// Unity へ送った結果（送れた・止めた）を知らせるか（親。ユーザ判断 2026-11-19・open.md 167）。null は前の版の設定で、知らせる。
+    /// 切っても、送れなかった・別のプロジェクトへ送る・飛ばす物があるときはウィンドウで言う（読まずに進むと困る物）。
+    /// 読むときは <see cref="NotifiesUnitySendResult"/>
+    /// </summary>
+    public bool? NotifyUnitySendResult { get; init; }
+
+    /// <summary>
+    /// 知らせ方を Windows の通知にするか（偽ならウィンドウ）。親が切れている間も値は残す。null は前の版の設定で、<see cref="QuietUnitySend"/> から読み替える。
+    /// 列挙にしないのは、保存する列挙に値を足すと前の版がファイルごと読めなくなるため（data-format.md「形式を上げる変更」）。
+    /// 読むときは <see cref="UnitySendResultByToast"/>
+    /// </summary>
+    public bool? UnitySendResultToast { get; init; }
+
+    /// <summary>
+    /// Unity へ送る前に「送ります」の確認を出すか（ユーザ判断 2026-11-19「送る前に確認するを別のチェックに分ける」）。
+    /// null は前の版の設定で、<see cref="QuietUnitySend"/> の逆。読むときは <see cref="ConfirmsUnitySend"/>
+    /// </summary>
+    public bool? ConfirmUnitySend { get; init; }
+
+    /// <summary>送った結果を知らせるか（前の版の設定は知らせる）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool NotifiesUnitySendResult => NotifyUnitySendResult ?? true;
+
+    /// <summary>結果を Windows の通知で言うか（前の版の設定は <see cref="QuietUnitySend"/> のまま）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool UnitySendResultByToast => UnitySendResultToast ?? QuietUnitySend;
+
+    /// <summary>送る前に確認するか（前の版の設定は <see cref="QuietUnitySend"/> の逆）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool ConfirmsUnitySend => ConfirmUnitySend ?? !QuietUnitySend;
 
     /// <summary>
     /// サムネイルにどの役割の画像を出すか。

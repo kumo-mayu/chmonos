@@ -114,6 +114,36 @@ public sealed class MiddleClickTests
     });
 
     [Fact]
+    public Task 未確定の候補の行は_中クリックでBOOTHの商品ページを開き_仮IDの候補は親へ流す() => UiThread.Run(() =>
+    {
+        // 行の Border に付ける命令は「BOOTHで開く」と同じ物（ResolveView.xaml の候補の行。open.md 136・ユーザ判断 2026-11-19）
+        var started = new List<ProcessStartInfo>();
+        Shell.StartOverride.Value = started.Add;
+        try
+        {
+            var booth = ResolveViewModel.WithBooth(new CandidateRow { ItemId = "9900001", Title = "作り物", Source = "検索" });
+            var local = ResolveViewModel.WithBooth(new CandidateRow { ItemId = "local-0123abcd", Title = "作り物", Source = "検索" });
+            var boothRow = new Border();
+            MiddleClick.SetCommand(boothRow, booth.OpenBoothCommand);
+            var localRow = new Border();
+            MiddleClick.SetCommand(localRow, local.OpenBoothCommand);
+
+            var onBooth = Press(MouseButton.Middle);
+            boothRow.RaiseEvent(onBooth);
+            var onLocal = Press(MouseButton.Middle);
+            localRow.RaiseEvent(onLocal);
+
+            Assert.Equal([Core.Booth.BoothLinks.ItemPage("9900001")], started.Select(info => info.FileName));
+            Assert.True(onBooth.Handled);
+            Assert.False(onLocal.Handled);
+        }
+        finally
+        {
+            Shell.StartOverride.Value = null;
+        }
+    });
+
+    [Fact]
     public Task なぞれるショップ名は_中クリックでBOOTHの命令を呼ぶ() => UiThread.Run(() =>
     {
         var shopScreen = 0;
