@@ -61,6 +61,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         // 過去に指したフォルダ全部が走り、起動時の自動取り込みは説明と逆に履歴を全部舐めていた（G1）。
         // 履歴は別の一覧として出し、そこから1件ずつ対象に積む
         Folders.CollectionChanged += (_, _) => QueuePlaceCheck();
+        Folders.CollectionChanged += OnFoldersChanged;
         History.CollectionChanged += (_, _) => QueuePlaceCheck();
         Watched.CollectionChanged += (_, _) => QueuePlaceCheck();
         SyncFolderLists();
@@ -267,6 +268,54 @@ public sealed partial class ImportViewModel : ViewModelBase
     public bool HasFolders => Folders.Count > 0;
 
     /// <summary>
+    /// 取り込み対象に積んだが、まだ一度も取り込みを始めていない物（open 122・ユーザ判断 2026-11-19）。
+    /// 取り込み対象の一覧は取り込みが終わっても残るので、一覧の有無では「始めていない」が決まらない。積んだ時に入れ、始めると頼んだ時に外す。
+    /// 取り込み対象と同じく起動をまたがない（対象は次の起動で空から始まる・G3）。比べ方は対象の一覧と同じく大文字と小文字を区別しない
+    /// </summary>
+    private readonly HashSet<string> _notStarted = new(StringComparer.OrdinalIgnoreCase);
+
+    private void OnFoldersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
+            _notStarted.Clear();
+        }
+
+        foreach (var removed in e.OldItems?.OfType<string>() ?? [])
+        {
+            _notStarted.Remove(removed);
+        }
+
+        foreach (var added in e.NewItems?.OfType<string>() ?? [])
+        {
+            _notStarted.Add(added);
+        }
+
+        RaiseNotStarted();
+    }
+
+    private void RaiseNotStarted()
+    {
+        OnPropertyChanged(nameof(NotStartedCount));
+        OnPropertyChanged(nameof(ShowsNotStarted));
+        OnPropertyChanged(nameof(NotStartedText));
+    }
+
+    public int NotStartedCount => _notStarted.Count;
+
+    /// <summary>取り込み中は出さない（走っている間は「今の取り込みに追加」で積む。帯が二重の案内になる）。</summary>
+    public bool ShowsNotStarted => NotStartedCount > 0 && !IsRunning;
+
+    public string NotStartedText => $"まだ始めていない対象が {NotStartedCount} 件あります。";
+
+    private RelayCommand? _startNotStarted;
+
+    /// <summary>帯の［開始］。始めていない物だけを取り込む（一覧全部で始めると、前に取り込んだ物までもう一度読む）。</summary>
+    public RelayCommand StartNotStartedCommand => _startNotStarted ??= new RelayCommand(
+        () => StartOrStackAsync(only: Folders.Where(_notStarted.Contains).ToList()).Forget(),
+        () => NotStartedCount > 0 && !IsRunning && !IsRemovingUnpacked);
+
+    /// <summary>
     /// 対象が空のときに出す文。**次にやることを書く。**
     ///
     /// ボタンは既に押せない状態になっているが、それだけだと
@@ -304,6 +353,7 @@ public sealed partial class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
                 OnPropertyChanged(nameof(HasBrokenOnItemsResult));
+                OnPropertyChanged(nameof(ShowsNotStarted));
                 NoteBusyChanged();
             }
         }
@@ -1526,6 +1576,11 @@ public sealed partial class ImportViewModel : ViewModelBase
     private async Task StartOrStackAsync(bool ask = true, IReadOnlyList<string>? only = null)
     {
         var targets = only?.ToList() ?? Folders.ToList();
+
+        // 始めると頼んだ時点で「まだ始めていない」から外す。展開フォルダの問いでやめても、人が始めると決めて押した物なので帯に戻さない
+        _notStarted.ExceptWith(targets);
+        RaiseNotStarted();
+
         var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), targets));
         if (added is { } count)
         {

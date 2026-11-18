@@ -117,6 +117,24 @@
                             <TextBlock Text="取り込み対象" FontWeight="Bold" FontSize="13" />
                         </Border>
 
+                        <!--
+                            積んだまま始めていない対象（open 122・ユーザ判断 2026-11-19）。ほかの画面で対象に入れて移ってくると、
+                            始まっていないことに気付けなかった。窓は出さず、対象の欄の上に数と［開始］を出す
+                        -->
+                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1"
+                                Padding="18,10"
+                                Visibility="{Binding ShowsNotStarted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="開始" Style="{StaticResource PrimaryButton}" Margin="12,0,0,0"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="ImportStartNotStarted"
+                                        Command="{Binding StartNotStartedCommand}" />
+                                <TextBlock Text="{Binding NotStartedText}" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"
+                                           VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="ImportNotStartedText" />
+                            </DockPanel>
+                        </Border>
+
                         <!-- ボタンは押せない状態になっているが、何を入れれば埋まるかは別に書く -->
                         <TextBlock Text="{Binding FoldersEmptyText}" Style="{StaticResource Caption}"
                                    TextWrapping="Wrap" Margin="18,12,18,0"
