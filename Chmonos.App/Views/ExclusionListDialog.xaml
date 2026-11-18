@@ -14,7 +14,7 @@
         <TextBlock DockPanel.Dock="Top" Text="除外の解除" FontWeight="Bold" FontSize="14" />
         <TextBlock DockPanel.Dock="Top" Text="解除すると、未確定の一覧に戻ります。新しく除外したファイルが上です。"
                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,7,0,14" />
-        <Button DockPanel.Dock="Bottom" Content="閉じる" HorizontalAlignment="Right" Margin="0,14,0,0" IsCancel="True" IsDefault="True"
+        <Button DockPanel.Dock="Bottom" Content="閉じる" HorizontalAlignment="Right" Margin="0,14,0,0" IsCancel="True"
                 AutomationProperties.AutomationId="ExclusionDialog.Close" Click="OnClose" />
         <controls:ExclusionList x:Name="List" ListName="管理対象から除外したファイル"
                                 AutomationProperties.AutomationId="ExclusionDialog.List" />

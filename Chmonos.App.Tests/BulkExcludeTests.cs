@@ -119,7 +119,7 @@ public class BulkExcludeTests
         Assert.Equal(["first.zip", "second.zip", "third.zip"], Names(app.Store.Excluded.Load()));
         Assert.Equal(["fourth.zip"], Names(app.Store.Unresolved.Load()));
         Assert.Equal("fourth.zip", Assert.Single(resolve.Files).FileName);
-        Assert.True(resolve.HasExcluded);
+        await UiThread.Until(() => resolve.HasExcluded, "除外が残れば「除外の解除…」が出る");
         await UiThread.Until(() => main.UnresolvedCount == 1, "除外したらナビの未確定の数が減る");
 
         // 「除外の解除…」の窓で、見えている3件を全部選んでまとめて解除する（open.md 132）
@@ -195,7 +195,7 @@ public class BulkExcludeTests
         Assert.Equal("前に外した", kept.Reason);
         Assert.Equal(before, kept.ExcludedAt);
         Assert.Contains("second.zip", Names(app.Store.Unresolved.Load()));
-        Assert.True(resolve.HasExcluded);
+        await UiThread.Until(() => resolve.HasExcluded, "除外が残れば「除外の解除…」が出る");
     });
 
     [Fact]
@@ -215,6 +215,6 @@ public class BulkExcludeTests
         Assert.Single(app.ExclusionDialogs);
         Assert.Equal(excludedWrites, app.Store.Excluded.WriteCount);
         Assert.Equal(unresolvedWrites, app.Store.Unresolved.WriteCount);
-        Assert.True(resolve.HasExcluded);
+        await UiThread.Until(() => resolve.HasExcluded, "除外が残れば「除外の解除…」が出る");
     });
 }
