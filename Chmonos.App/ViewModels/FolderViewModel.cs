@@ -391,7 +391,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     private PaneColumn? _listPane;
 
     /// <summary>左の木の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "folder.list");
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "folder.list", remembersCollapse: true);
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
 

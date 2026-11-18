@@ -118,6 +118,7 @@ flowchart LR
 | 右クリック「検索で開く」 | 右クリック | クリック | 検索画面へ | 使われている時に押せる | `TagTopMenu.ShowItems` `TagManageView.xaml:267` |
 | 右クリック「この大分類を削除」 | 右クリック | クリック | 確認して削除 | いつも | `TagTopMenu.Delete` `TagManageView.xaml:272` |
 | 境目 | 左右の間 | ドラッグ・ダブルクリック | 左の欄の幅を変える・戻す | いつも | — `TagManageView.xaml:172` |
+| 左の一覧を畳むつまみ（‹ ›） | 境の線の右上 | クリック | 左の一覧を畳む（縦の見出しの帯だけ）・広げる。畳んだかは次の起動にも残る（次のバージョンから） | いつも | TagManageView.xaml・PaneCollapseToggle |
 | 一覧に追加 | 注意の欄 | クリック | 名前を一覧に足す | 一覧に無い名前がある時 | `TagOrphanAdd` `TagManageView.xaml:412` |
 | 外す | 注意の欄 | クリック | 確認して商品から外す | 同上 | `TagOrphanRemove` `TagManageView.xaml:414` |
 | 既にある大分類へ統合する（欄） | 注意の欄 | 打つ・選ぶ | 確認してまとめる | 同上 | `TagOrphanMerge` `TagManageView.xaml:418` |

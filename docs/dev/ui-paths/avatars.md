@@ -122,6 +122,7 @@ flowchart LR
 | 絞り込みを消す | 左の一覧（0件の時） | 押す | 探す欄を空に | 探して0件の時 | AvatarsView.xaml:318 |
 | 取り込みを開く | 左の一覧（空の時） | 押す | 取り込みの画面へ | 商品が0件の時 | AvatarsView.xaml:329 |
 | 左右の境目 | 境目 | ドラッグ | 左の幅を替える | いつも | AvatarsView.xaml:343 |
+| 左の一覧を畳むつまみ（‹ ›） | 境の線の右上 | クリック | 左の一覧を畳む（縦の見出しの帯だけ）・広げる。畳んだかは次の起動にも残る（次のバージョンから） | いつも | AvatarsView.xaml・PaneCollapseToggle |
 | アバター（n） | 切り替え | 押す | アバターの見方へ | いつも | AvatarsView.xaml:355 |
 | 共通素体（n） | 切り替え | 押す | 共通素体の見方へ | いつも | AvatarsView.xaml:369 |
 | 変換（n） | 切り替え | 押す | 変換の見方へ | いつも | AvatarsConversionMode・AvatarsView.xaml:384 |

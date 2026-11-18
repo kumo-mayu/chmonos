@@ -110,6 +110,7 @@ flowchart LR
 | 右クリック「検索で開く」 | 右クリック | クリック | 検索画面へ | 評価がある時に押せる | `AttributeMenu.ShowItems` `AttributeManageView.xaml:139` |
 | 右クリック「この属性を削除」 | 右クリック | クリック | 確認して削除 | いつも | `AttributeMenu.Delete` `AttributeManageView.xaml:144` |
 | 境目 | 左右の間 | ドラッグ・ダブルクリック | 左の欄の幅を変える・戻す | いつも | — `AttributeManageView.xaml:57` |
+| 左の一覧を畳むつまみ（‹ ›） | 境の線の右上 | クリック | 左の一覧を畳む（縦の見出しの帯だけ）・広げる。畳んだかは次の起動にも残る（次のバージョンから） | いつも | AttributeManageView.xaml・PaneCollapseToggle |
 | 一覧に追加 | 注意の欄 | クリック | 名前を一覧に足す | 一覧に無い名前がある時 | `AttributeOrphanAdd` `AttributeManageView.xaml:256` |
 | 外す | 注意の欄 | クリック | 確認して商品から外す | 同上 | `AttributeOrphanRemove` `AttributeManageView.xaml:258` |
 | 既にある属性へ統合する（欄） | 注意の欄 | 打つ・選ぶ | 統合の窓 → 確認してまとめる | 同上 | `AttributeOrphanMerge` `AttributeManageView.xaml:262` |

@@ -82,6 +82,13 @@ public sealed record UiState
     public IReadOnlyDictionary<string, double> PaneWidths { get; init; } = new Dictionary<string, double>();
 
     /// <summary>
+    /// 左の一覧を畳んでいる画面の場所（鍵は <see cref="PaneWidths"/> と同じ <c>"folder.list"</c> など。ユーザ指摘 2026-11-18・open.md 51）。
+    /// 検索の絞り込み（<see cref="FilterPanelCollapsed"/>）と同じく、画面ごとに覚えて次の起動にも引き継ぐ。
+    /// 畳んでも <see cref="PaneWidths"/> の幅は消さない（広げると、ドラッグで決めた幅に戻る）。null は空（どこも畳んでいない）
+    /// </summary>
+    public IReadOnlyList<string>? CollapsedPanes { get; init; }
+
+    /// <summary>
     /// 商品をカードではなくリストで出している画面（<c>"search"</c>・<c>"folder"</c>）。無ければカード（ユーザ指示 2026-09-14）。
     /// リストの列の幅は <see cref="PaneWidths"/> に <c>"search.col.name"</c> のような鍵で入る。
     /// </summary>

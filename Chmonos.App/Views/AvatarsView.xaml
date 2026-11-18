@@ -363,11 +363,15 @@
 
                 <!-- 左の一覧の幅を変える境目（ユーザ判断 2026-09-14） -->
                 <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="2"
-                                       ResetCommand="{Binding ListPane.ResetCommand}" />
+                                       ResetCommand="{Binding ListPane.ResetCommand}"
+                                       Visibility="{Binding ListPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!-- 左の一覧を畳む・広げるつまみ（open.md 51。検索の絞り込みと同じ）。畳んでいる間は境目を出さない -->
+                <controls:PaneCollapseToggle Grid.Column="0" Pane="{Binding ListPane}" Label="アバター" AutomationKey="AvatarsToggleList" />
 
                 <!-- 左：アバターの一覧。所有しているものを先に出す -->
                 <Border Grid.Column="0" Background="{DynamicResource Surface}"
-                        BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+                        BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+                        Visibility="{Binding ListPane.IsCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                     <DockPanel>
                         <!--
                             見る物の切り替え（U16）。以前は共通素体の管理がどのアバターの詳細の下にも付いて回り、

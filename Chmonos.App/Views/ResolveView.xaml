@@ -235,12 +235,14 @@
             <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="2"
                                    ResetCommand="{Binding ListPane.ResetCommand}"
                                    Visibility="{Binding ListPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            <!-- 左の一覧を畳む・広げるつまみ（open.md 51。検索の絞り込みと同じ）。組み込んだとき（一覧を出さない）は出ない -->
+            <controls:PaneCollapseToggle Grid.Column="0" Pane="{Binding ListPane}" Label="未確定" AutomationKey="ResolveToggleList" />
 
-            <!-- 左：未確定の一覧（フォルダごとにまとめる） -->
+            <!-- 左：未確定の一覧（フォルダごとにまとめる）。畳んだかは中の DockPanel で隠す（外の Border は組み込んだときに隠す） -->
             <Border Grid.Column="0" Background="{DynamicResource Surface}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
                     Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <DockPanel>
+                <DockPanel Visibility="{Binding ListPane.IsCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                     <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
                       <StackPanel>
                         <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->

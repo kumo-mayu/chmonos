@@ -847,11 +847,15 @@
 
         <!-- 左の一覧の幅を変える境目（ユーザ判断 2026-09-14） -->
         <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="2"
-                               ResetCommand="{Binding ListPane.ResetCommand}" />
+                               ResetCommand="{Binding ListPane.ResetCommand}"
+                               Visibility="{Binding ListPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        <!-- 左の一覧を畳む・広げるつまみ（open.md 51。検索の絞り込みと同じ）。畳んでいる間は境目を出さない -->
+        <controls:PaneCollapseToggle Grid.Column="0" Pane="{Binding ListPane}" Label="改変" AutomationKey="ModificationsToggleList" />
 
         <!-- 左：見方の切り替え・探す・一覧 -->
         <Border Grid.Column="0" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
-                BorderThickness="0,0,1,0">
+                BorderThickness="0,0,1,0"
+                Visibility="{Binding ListPane.IsCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
             <DockPanel>
                 <!-- 今どの画面にいるかを、ほかの画面の上の帯と同じく太字の名前で出す（ユーザ指示 2026-09-14） -->
                 <TextBlock DockPanel.Dock="Top" Text="改変" FontWeight="Bold" Margin="16,16,16,0" />

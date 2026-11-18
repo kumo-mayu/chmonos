@@ -19,12 +19,27 @@ public sealed class PaneColumn : ViewModelBase
     private bool _isCollapsed;
     private RelayCommand? _resetCommand;
 
+    /// <summary>
+    /// 左の一覧を畳んだときの幅。開くつまみと縦書きの見出しが通る分（検索の絞り込みの畳んだ幅と同じ）。
+    /// </summary>
+    public const double StripWidth = 34;
+
+    private readonly bool _remembersCollapse;
+    private readonly GridLength? _fixed;
+    private RelayCommand? _toggleCollapseCommand;
+
     /// <param name="followsResetAll">開きっぱなしの画面だけ true（設定画面の「全部戻す」をその場で映す）。</param>
-    public PaneColumn(PaneWidths widths, string key, double collapsedWidth = 0, bool followsResetAll = false)
+    /// <param name="remembersCollapse">
+    /// 左の一覧を、つまみ（<see cref="Controls.PaneCollapseToggle"/>）で畳めるようにし、畳んだかを画面ごとに覚える（open.md 51）。
+    /// ナビと検索の絞り込みは前から自分で覚えている（ui-state.json の別の欄）ので false のまま
+    /// </param>
+    public PaneColumn(PaneWidths widths, string key, double collapsedWidth = 0, bool followsResetAll = false, bool remembersCollapse = false)
     {
         _widths = widths;
         _key = key;
-        _collapsedWidth = collapsedWidth;
+        _collapsedWidth = remembersCollapse && collapsedWidth == 0 ? StripWidth : collapsedWidth;
+        _remembersCollapse = remembersCollapse;
+        _isCollapsed = remembersCollapse && widths.IsCollapsed(key);
 
         if (followsResetAll)
         {
@@ -32,8 +47,37 @@ public sealed class PaneColumn : ViewModelBase
         }
     }
 
-    /// <summary>決め打ちの幅（組み込んだとき）。ある間は動かせない。</summary>
-    public GridLength? Fixed { get; init; }
+    /// <summary>
+    /// 決め打ちの幅（組み込んだとき）。ある間は動かせず、畳めもしない。
+    /// 組み込んだ未確定は単独の画面と同じ鍵なので、単独で畳んだ覚えを組み込んだ側へ持ち込まないよう、ここで開いた扱いに戻す
+    /// </summary>
+    public GridLength? Fixed
+    {
+        get => _fixed;
+        init
+        {
+            _fixed = value;
+            if (value is not null)
+            {
+                _isCollapsed = false;
+            }
+        }
+    }
+
+    /// <summary>つまみで畳めるか（覚える列で、決め打ちでないとき）。</summary>
+    public bool CanCollapse => _remembersCollapse && Fixed is null;
+
+    /// <summary>
+    /// つまみ：畳む・広げる。覚えるのは畳んだかだけで、幅（<see cref="Pixels"/>）は畳んでいる間も残す——
+    /// 広げると、ドラッグで決めた幅に戻る（使う人の調整を消さない）
+    /// </summary>
+    public RelayCommand ToggleCollapseCommand => _toggleCollapseCommand ??= new RelayCommand(
+        () =>
+        {
+            IsCollapsed = !IsCollapsed;
+            _widths.SetCollapsed(_key, IsCollapsed);
+        },
+        () => CanCollapse);
 
     public bool IsCollapsed
     {

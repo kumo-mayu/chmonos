@@ -27,7 +27,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "modifications.list");
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "modifications.list", remembersCollapse: true);
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
 

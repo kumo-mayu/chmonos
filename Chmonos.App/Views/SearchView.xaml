@@ -85,44 +85,7 @@
             </Setter>
         </Style>
 
-        <!--
-            つまみに止まった印。つまみの丸い縁（26）に重ねて、選んだ色の丸にする。
-            ほかの小さなボタンの SmallFocusVisual（角の丸い四角）だと、四角の角が丸い縁の外へはみ出す
-        -->
-        <Style x:Key="PanelToggleFocusVisual">
-            <Setter Property="Control.Template">
-                <Setter.Value>
-                    <ControlTemplate>
-                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="1.5" CornerRadius="13" Margin="-1" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="PanelToggle" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Width" Value="24" />
-            <Setter Property="Height" Value="24" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="Transparent" CornerRadius="5">
-                            <Viewbox Width="15" Height="15">
-                                <Canvas Width="24" Height="24">
-                                    <Path Data="{TemplateBinding Content}" Fill="{x:Null}" StrokeThickness="2"
-                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                          Stroke="{DynamicResource TextMuted}" />
-                                </Canvas>
-                            </Viewbox>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- つまみの型（PanelToggle・PanelToggleFocusVisual）は App.xaml。左の一覧を畳むつまみ（PaneCollapseToggle）と共用する -->
         <!-- 条件を畳む・開く山形（ユーザ指示 2026-09-16。条件が増えるとパネルが縦に伸びる） -->
         <PathGeometry x:Key="IconChevronUp" Figures="M7,15 L12,10 L17,15" />
         <PathGeometry x:Key="IconChevronDown" Figures="M7,10 L12,15 L17,10" />

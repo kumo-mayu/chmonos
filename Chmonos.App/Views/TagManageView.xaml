@@ -170,11 +170,15 @@
 
             <!-- 左の一覧の幅を変える境目（ユーザ判断 2026-09-14） -->
             <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="2"
-                                   ResetCommand="{Binding ListPane.ResetCommand}" />
+                                   ResetCommand="{Binding ListPane.ResetCommand}"
+                                   Visibility="{Binding ListPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            <!-- 左の一覧を畳む・広げるつまみ（open.md 51。検索の絞り込みと同じ）。畳んでいる間は境目を出さない -->
+            <controls:PaneCollapseToggle Grid.Column="0" Pane="{Binding ListPane}" Label="大分類" AutomationKey="TagsToggleList" />
 
             <!-- 左：トップレベルの一覧。件数を並べるのは、消す前に影響が見えるように -->
             <Border Grid.Column="0" Background="{DynamicResource Surface}"
-                    BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+                    Visibility="{Binding ListPane.IsCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14" >
                         <TextBlock Text="大分類を検索・追加" Style="{StaticResource Caption}" Margin="2,0,0,4" />
