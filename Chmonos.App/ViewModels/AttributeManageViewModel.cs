@@ -21,7 +21,13 @@ public sealed class AttributeMasterRow : ManageMasterRow
     ///
     /// **並べるだけで、値は保存しない。**触らなかった行は書き出されない。
     /// </summary>
-    public required bool IsDefault { get; init; }
+    public required bool IsDefault
+    {
+        get => _isDefault;
+        set => SetField(ref _isDefault, value);
+    }
+
+    private bool _isDefault;
 }
 
 /// <summary>マスタに無いのにitemが参照している属性。要確認は知らせるだけで、直せるのはここ。</summary>
@@ -393,7 +399,10 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
         ? "最初から並べるのをやめる"
         : "編集画面に最初から並べる";
 
-    protected override void ClearNoticesOfPrevious() => DefaultNotice.Clear();
+    // 切り替えの知らせは名前の知らせ（土台が選び直しで消す）に出すので、この画面だけで消す物は無い
+    protected override void ClearNoticesOfPrevious()
+    {
+    }
 
     protected override void OnSelectionChanged()
     {
@@ -431,9 +440,6 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
     public override string EmptyText => HasFilter
         ? "探している言葉に当てはまる属性がありません。言葉を変えるか、絞り込みを消してください。"
         : "属性はまだありません。上の欄に名前を入れて追加すると、編集画面でその評価を付けられるようになります。";
-
-    /// <summary>「最初から並べる」の切り替えの知らせ。そのボタンの下に出す（ほかの出し先は土台の <see cref="ManageViewModelBase{TRow, TOrphan}.NameNotice"/> など）。</summary>
-    public AreaNotice DefaultNotice { get; } = new();
 
     public override async Task ReloadAsync()
     {
@@ -677,13 +683,29 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
             return;
         }
 
-        var next = !Selected.IsDefault;
-        await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeDefault(Selected.Name, next));
+        var row = Selected;
+        var next = !row.IsDefault;
+
+        // 書くのは attributes.json の IsDefault だけで、商品・件数・ほかの属性は変わらない（AttributeService.SetDefaultAsync）。
+        // 一覧と商品の行を読み直すと、開いている商品の行を全部作り直して絵まで読み直す（ユーザ指摘 2026-11-18）ので、書けた行の値だけ替える
+        var result = await RewriteAsync(new UiCommand.SetAttributeDefault(row.Name, next), "切り替えられませんでした。", NameNotice);
+        if (result is null or CommandResult.Failed)
+        {
+            return;
+        }
+
+        row.IsDefault = next;
+        OnPropertyChanged(nameof(ToggleDefaultText));
+        OnPropertyChanged(nameof(SelectedIsDefault));
+        OnPropertyChanged(nameof(DefaultNote));
+
         var said = next
-            ? $"「{Selected.Name}」を編集画面に最初から並べます。値は動かしたときだけ付きます。"
-            : $"「{Selected.Name}」を最初から並べるのをやめました。付けた評価はそのまま残ります。";
-        await ReloadAsync();
-        DefaultNotice.Show(said);
+            ? $"「{row.Name}」を編集画面に最初から並べます。値は動かしたときだけ付きます。"
+            : $"「{row.Name}」を最初から並べるのをやめました。付けた評価はそのまま残ります。";
+        if (ReferenceEquals(Selected, row))
+        {
+            NameNotice.Show(said);
+        }
     }
 
     private async Task AddOrphanToMasterAsync(OrphanAttributeRow row)

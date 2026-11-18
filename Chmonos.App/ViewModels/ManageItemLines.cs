@@ -29,10 +29,14 @@ public sealed class ManageCardLine : ManageItemLine
 public static class ManageItemLayout
 {
     /// <summary>
-    /// リストの行1つが占める幅（<c>ManageItemTemplate</c>：中身 230 ＋ 押せる枠の余白 4×2 ＋ 右の間 10）。
-    /// 行の幅は決め打ちなので、前の並べ方でも全部の行が同じ幅だった
+    /// リストの行1つが占める幅（<c>ManageItemTemplate</c>：絵 ＋ 絵と字の間 8 ＋ 字の欄 184 ＋ 押せる枠の余白 4×2 ＋ 右の間 10）。
+    /// 絵は一覧の右下のつまみ（<see cref="ItemViewSize.ListIconSize"/>）で変わるので、絵の分だけ伸びる。
+    /// 全部の行が同じ幅（絵 30 のとき 248。前の決め打ちと同じ）
     /// </summary>
-    public const double ListSlotWidth = 248;
+    public static double ListSlotWidth => ListSlotWidthFor(ItemViewSize.Current.ListIconSize);
+
+    /// <summary>絵の一辺が <paramref name="iconSize"/> のときの、リストの行1つの幅。</summary>
+    public static double ListSlotWidthFor(double iconSize) => 218 + iconSize;
 
     /// <summary>
     /// 幅 <paramref name="width"/> に、1つ <paramref name="slot"/> の物がいくつ入るか。

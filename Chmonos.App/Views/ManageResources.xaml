@@ -249,6 +249,8 @@
     <DataTemplate x:Key="ManageItemTemplate" DataType="{x:Type vm:TagItemRow}">
         <!-- 中身が絵と文字の並びなので、ボタンに名前が付かなかった。商品名を名前にする -->
         <Button Style="{StaticResource TagItemLink}" Margin="0,0,10,8"
+                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                ContextMenu="{DynamicResource CardMenu}"
                 AutomationProperties.AutomationId="ManageItemOpen"
                 AutomationProperties.Name="{Binding Name}"
                 Command="{Binding OpenCommand}"
@@ -266,8 +268,8 @@
                     </StackPanel>
                 </ToolTip>
             </Button.ToolTip>
-            <StackPanel Orientation="Horizontal" Width="230">
-                <Border Width="30" Height="30" CornerRadius="4" ClipToBounds="True"
+            <StackPanel Orientation="Horizontal">
+                <Border Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}" Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}" CornerRadius="4" ClipToBounds="True"
                         Background="{DynamicResource SurfaceAlt}">
                     <Grid>
                         <TextBlock Text="{Binding Initial}" FontSize="11"

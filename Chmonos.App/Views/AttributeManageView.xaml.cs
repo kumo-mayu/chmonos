@@ -13,6 +13,8 @@ public partial class AttributeManageView : UserControl
     {
         InitializeComponent();
 
+        ManageRowInput.Hook(this, () => Model?.AttachSizeWatch(), () => Model?.DetachSizeWatch(), row => Model?.OpenBooth(row.Card));
+
         _reorder = new RowReorder(this, () => Model?.Rows ?? Enumerable.Empty<ReorderableRow>());
         _reorder.Dropped += (moved, target, after) =>
         {

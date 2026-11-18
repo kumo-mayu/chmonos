@@ -434,29 +434,22 @@
                         <Border Style="{StaticResource Card}">
                             <StackPanel Margin="20,18">
                                 <Grid>
-                                    <StackPanel Margin="0,0,120,0">
-                                        <TextBlock Text="大分類" Style="{StaticResource SectionLabel}" />
+                                    <!-- 右の 120 は右上の「削除」を避ける分。名前の段だけ空け、下の段は幅いっぱいを使う（小さい窓で「検索で開く」などが切れていた） -->
+                                    <StackPanel>
+                                        <TextBlock Text="大分類" Style="{StaticResource SectionLabel}" Margin="0,0,120,0" />
                                         <!--
                                             名前の変更は名前の横に置く（ユーザ指示 2026-09-19）。専用の段を設けると、
                                             ボタン1つのために説明と区切り線が1段ずつ増えていた。何件が書き換わるかは窓が言う
                                         -->
-                                        <WrapPanel Margin="0,6,0,0">
+                                        <WrapPanel Margin="0,6,120,0">
                                             <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
                                                        TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
                                             <Button Content="名前を変更" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                                                     Command="{Binding RenameTopCommand}"
                                                     ToolTip="名前を変えます。既にある名前を選ぶと統合します。" />
-                                            <!--
-                                                大分類を別の大分類の小分類にする（ユーザ要望 2026-09-29）。小分類を持つ大分類ではできないが、
-                                                ボタンは消さずに押せない形で置き、理由を吹き出しで言う（タグの管理の決め事）
-                                            -->
-                                            <Button Content="別の大分類の小分類にする" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                                                    Margin="6,0,0,0" Command="{Binding NestTopCommand}"
-                                                    IsEnabled="{Binding CanNestTop}"
-                                                    ToolTipService.ShowOnDisabled="True"
-                                                    ToolTip="{Binding NestTopToolTip}" />
                                         </WrapPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                        <!-- 幅が足りないときは「検索で開く」を次の行へ送る（小さい窓で右が切れていた。メモ 2026-11-14） -->
+                                        <WrapPanel Margin="0,5,0,0">
                                             <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"
                                                        VerticalAlignment="Center" />
                                             <!--
@@ -468,7 +461,16 @@
                                                     IsEnabled="{Binding SelectedIsUsed}"
                                                     ToolTipService.ShowOnDisabled="True"
                                                     ToolTip="{Binding ShowItemsToolTip}" />
-                                        </StackPanel>
+                                            <!--
+                                                大分類を別の大分類の小分類にする（ユーザ要望 2026-09-29）。小分類を持つ大分類ではできないが、
+                                                ボタンは消さずに押せない形で置き、理由を吹き出しで言う（タグの管理の決め事）
+                                            -->
+                                            <Button Content="別の大分類の小分類にする" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                                    Margin="6,0,0,0" Command="{Binding NestTopCommand}"
+                                                    IsEnabled="{Binding CanNestTop}"
+                                                    ToolTipService.ShowOnDisabled="True"
+                                                    ToolTip="{Binding NestTopToolTip}" />
+                                        </WrapPanel>
                                         <!-- 名前の変更の結果は名前の近く。1行分の場所は常に取る -->
                                         <TextBlock DataContext="{Binding NameNotice}" Text="{Binding Text}"
                                                    Style="{StaticResource AreaNoticeText}" Margin="0,4,0,0"
@@ -518,113 +520,30 @@
                                            AutomationProperties.AutomationId="TagSubNotice" />
 
                                 <!--
-                                    商品名で探す欄と、小分類を足すボタンは隣り合わせにする
-                                    （ユーザ指摘 2026-09-18：右上に置くと遠い）。足す欄は押したときだけ出す
-                                -->
-                                <!--
-                                    探す欄・丸い＋の塊（左）と「すべて開く」（右）は SplitRowPanel で並べる（ほかの画面の見出しの行と同じ作法）。
+                                    探す欄と小分類を足す口（SearchAddBox）は左、「すべて開く」は右。SplitRowPanel で並べる（ほかの画面の見出しの行と同じ作法）。
                                     幅1280で入り切らず「すべて開く」が切れていた。入り切らないときは次の段へ送る。
-                                    左の塊は、丸い＋が閉じていても開ききった幅（探す欄360＋間10＋丸い＋の約240）を要る幅として持つ——
-                                    丸い＋を開閉するたびに送る・戻すが入れ替わって、下が跳ねないように
+                                    欄は幅 420 まで伸び縮みする（右の札が狭いと縮む）。最低でも200は要る幅として持つ（右の札が狭い900の窓でも欄を切らない）
                                 -->
-                                <controls:SplitRowPanel Margin="0,10,0,0" Gap="12" MinLeftWidth="620">
-                                <StackPanel Orientation="Horizontal" MinWidth="620">
-                                <Grid Width="360">
-                                    <TextBox MaxLength="500" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                             AutomationProperties.Name="この大分類の中を小分類・商品で探す"
-                                             ToolTip="小分類の名前・メモと、商品名・ショップ名・メモでも探します。"
-                                             Padding="9,6" BorderBrush="{DynamicResource BorderStrong}" />
-                                    <TextBlock Text="この大分類の中を小分類・商品で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                               Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
-                                </Grid>
-
+                                <controls:SplitRowPanel Margin="0,10,0,0" Gap="12" MinLeftWidth="200">
                                     <!--
-                                        丸い＋を押すと、そのまま右へ伸びて入力欄になる（ユーザ指示 2026-09-18）。
-                                        隠れていた欄が別の場所に現れるより、押した物が育つ方が繋がりが分かる
+                                        小分類の探す欄と足す口は1本（ユーザ指示 2026-11-18：左の大分類と同じ「検索欄＋追加」）。
+                                        打つと小分類・商品が絞られ、欄の右の「追加」か Enter で、打った名前の小分類を足す。同じ名前なら欄の下に「既にあります」。
+                                        欄の下の1行は部品が常に取る（出入りで下が跳ねない）
                                     -->
-                                    <Border Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="16" Height="32"
-                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
-                                            BorderThickness="1">
-                                        <StackPanel Orientation="Horizontal">
-                                            <ToggleButton AutomationProperties.AutomationId="AddSubToggle" Width="30" Height="30" Cursor="Hand"
-                                                          Focusable="False" IsChecked="{Binding IsAddingSub, Mode=TwoWay}"
-                                                          AutomationProperties.Name="小分類を追加"
-                                                          ToolTipService.InitialShowDelay="250"
-                                                          ToolTip="小分類を追加">
-                                                <ToggleButton.Template>
-                                                    <ControlTemplate TargetType="ToggleButton">
-                                                        <Grid Background="Transparent">
-                                                            <Ellipse x:Name="Ring" Width="26" Height="26"
-                                                                     Fill="{DynamicResource SurfaceAlt}" Stroke="{DynamicResource Border}" />
-                                                            <Path x:Name="Mark" Data="M7,0 L7,14 M0,7 L14,7" Stroke="{DynamicResource Text}"
-                                                                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                                  Width="14" Height="14" Stretch="Fill"
-                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                        </Grid>
-                                                        <ControlTemplate.Triggers>
-                                                            <!-- 開いている間は×（もう一度押すと閉じる、と分かるように） -->
-                                                            <Trigger Property="IsChecked" Value="True">
-                                                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L14,14 M14,0 L0,14" />
-                                                                <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource AccentSoft}" />
-                                                            </Trigger>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </ToggleButton.Template>
-                                            </ToggleButton>
-
-                                            <!--
-                                                丸い枠そのものを入力欄に見せる（四角い欄が中で浮いていた。ユーザ指摘 2026-09-18）。
-                                                伸び縮みは欄の側の Style で持つ。ボタンの側から名前で欄を指すと、開いたまま
-                                                別の画面へ移ったときに合図だけが流れて欄が見つからず、例外で画面の切り替えが止まった（2026-09-19）
-                                            -->
-                                            <!-- 今ある小分類は候補に出さない（メモ25 C。選んでも「既にあります」で断られるだけだった）。ふつうの欄と「追加」 -->
-                                            <TextBox Margin="2,0,0,0" BorderThickness="0" Background="Transparent"
-                                                     Padding="4,0" VerticalContentAlignment="Center" VerticalAlignment="Center"
-                                                     MaxLength="60"
-                                                     Text="{Binding NewSubText, UpdateSourceTrigger=PropertyChanged}"
-                                                     AutomationProperties.Name="小分類の名前"
-                                                     AutomationProperties.AutomationId="TagAddSubInput">
-                                                <TextBox.InputBindings>
-                                                    <KeyBinding Key="Return" Command="{Binding AddSubCommand}" />
-                                                </TextBox.InputBindings>
-                                                <TextBox.Style>
-                                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                                        <Setter Property="Width" Value="0" />
-                                                        <Setter Property="Visibility" Value="Hidden" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsAddingSub}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                                <DataTrigger.EnterActions>
-                                                                    <BeginStoryboard>
-                                                                        <Storyboard>
-                                                                            <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                                                             To="150" Duration="0:0:0.14" />
-                                                                        </Storyboard>
-                                                                    </BeginStoryboard>
-                                                                </DataTrigger.EnterActions>
-                                                                <DataTrigger.ExitActions>
-                                                                    <BeginStoryboard>
-                                                                        <Storyboard>
-                                                                            <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                                                             To="0" Duration="0:0:0.12" />
-                                                                        </Storyboard>
-                                                                    </BeginStoryboard>
-                                                                </DataTrigger.ExitActions>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBox.Style>
-                                            </TextBox>
-                                            <Button Content="追加" Style="{StaticResource SmallButton}" Height="24" Margin="2,0,4,0"
-                                                    Command="{Binding AddSubCommand}"
-                                                    AutomationProperties.AutomationId="TagAddSubButton"
-                                                    Visibility="{Binding IsAddingSub, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
+                                    <!-- 欄の幅は右に残った幅いっぱいで、420 までにする（MaxWidth だけだと Stretch の欄が中央に寄る） -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MaxWidth="420" />
+                                            <ColumnDefinition Width="0" />
+                                        </Grid.ColumnDefinitions>
+                                        <controls:SearchAddBox MinWidth="200" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                                                               Placeholder="小分類・商品を探す、または小分類を追加"
+                                                               NoticeText="{Binding AddSubNotice.Text}" NoticeIsWarning="{Binding AddSubNotice.IsWarning}"
+                                                               AddCommand="{Binding AddSubCommand}" SubmitCommand="{Binding AddSubCommand}"
+                                                               AutomationProperties.Name="この大分類の中を小分類・商品で探す、または小分類を追加"
+                                                               AutomationProperties.AutomationId="TagItemFilterInput"
+                                                               ToolTip="小分類の名前・メモと、商品名・ショップ名・メモでも探します。" />
+                                    </Grid>
 
                                     <!--
                                         小分類をまとめて開く・畳む（ユーザ指示 2026-09-19）。全部開いている間は「すべて畳む」になる。
@@ -635,15 +554,6 @@
                                             Command="{Binding ToggleAllCommand}"
                                             ToolTip="中身のある小分類を、まとめて開くか折りたたみます。" />
                                 </controls:SplitRowPanel>
-
-                                <!--
-                                    小分類を足す欄の下の「既にあります」。丸い欄の左端（検索欄の幅360＋余白10）にそろえる。
-                                    1行分の場所は常に取る（Collapsed にしない）——出入りで下が跳ねる
-                                -->
-                                <TextBlock DataContext="{Binding AddSubNotice}" Text="{Binding Text}"
-                                           Style="{StaticResource AreaNoticeText}" Margin="370,4,0,0"
-                                           AutomationProperties.AutomationId="TagAddSubNotice" />
-
                                 <controls:SearchSyntaxHint Margin="2,2,0,0" />
                                 <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,4,0,0"
                                            Visibility="{Binding HasItemFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

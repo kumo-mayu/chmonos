@@ -158,7 +158,6 @@ public class ManageNoticePlacementTests
         await app.SettleAsync();
         Assert.Equal(string.Empty, attributes.ListNotice.Text);
         Assert.Equal(string.Empty, attributes.NameNotice.Text);
-        Assert.Equal(string.Empty, attributes.DefaultNotice.Text);
 
         attributes.DeleteCommand.Execute(null);
         await UiThread.Until(() => attributes.ListNotice.Text.Length > 0, "削除の結果が出る");
@@ -170,20 +169,28 @@ public class ManageNoticePlacementTests
     });
 
     [Fact]
-    public Task 最初から並べるの切り替えは_そのボタンの下に出る() => TestApp.Run(async app =>
+    public Task 最初から並べるの切り替えは_名前の近くに出て_一覧を読み直さず選んだ行の値だけ替える() => TestApp.Run(async app =>
     {
         var attributes = await OpenAttributesAsync(app);
-        attributes.Selected = attributes.Rows.First(row => row.Name == "作り物の甲");
+        var row = attributes.Rows.First(r => r.Name == "作り物の甲");
+        attributes.Selected = row;
+        Assert.Equal("編集画面に最初から並べる", attributes.ToggleDefaultText);
 
         attributes.ToggleDefaultCommand.Execute(null);
-        await UiThread.Until(() => attributes.DefaultNotice.Text.Length > 0, "切り替えの結果が出る");
+        await UiThread.Until(() => attributes.NameNotice.Text.Length > 0, "切り替えの結果が出る");
 
-        Assert.Equal("「作り物の甲」を編集画面に最初から並べます。値は動かしたときだけ付きます。", attributes.DefaultNotice.Text);
+        Assert.Equal("「作り物の甲」を編集画面に最初から並べます。値は動かしたときだけ付きます。", attributes.NameNotice.Text);
         Assert.Equal(string.Empty, attributes.ListNotice.Text);
 
+        // 商品の一覧を読み直すと行が作り直される（ユーザ指摘 2026-11-18：商品の更新がかかっていた）。同じ行のまま、値とボタンの字だけ替わる
+        Assert.Same(row, attributes.Selected);
+        Assert.True(row.IsDefault);
+        Assert.Equal("最初から並べるのをやめる", attributes.ToggleDefaultText);
+        Assert.True(app.Store.Attributes.Load().Attributes.Single(a => a.Name == "作り物の甲").IsDefault);
+
         // 別の属性へ移ると、前の属性の話なので消える
-        attributes.Selected = attributes.Rows.First(row => row.Name == "作り物の乙");
-        Assert.Equal(string.Empty, attributes.DefaultNotice.Text);
+        attributes.Selected = attributes.Rows.First(r => r.Name == "作り物の乙");
+        Assert.Equal(string.Empty, attributes.NameNotice.Text);
     });
 
     [Fact]
