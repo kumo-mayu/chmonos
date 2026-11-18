@@ -100,7 +100,7 @@ public class AvatarsConversionTests
     });
 
     [Fact]
-    public Task 推した通りに決めると_確認済みで保存し_決めた群へ移って_次の決めていない商品へ進む() => TestApp.Run(async app =>
+    public Task 確認済みにして次へを押すと_確認済みで保存し_決めた群へ移って_次の決めていない商品へ進む() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);
         avatars.ShowConversionModeCommand.Execute(null);
@@ -146,7 +146,7 @@ public class AvatarsConversionTests
         });
         var avatars = await OpenAsync(app);
         avatars.ShowConversionModeCommand.Execute(null);
-        Assert.Equal("推した通りにまとめて決める（3 件）", avatars.BulkText);
+        Assert.Equal("まとめて確認済みにする（3 件）", avatars.BulkText);
 
         ConfirmConversionsDialogViewModel? shown = null;
         ConfirmConversionsDialogViewModel.Intercept = model =>
@@ -170,7 +170,7 @@ public class AvatarsConversionTests
         Assert.True((await app.Store.Items.LoadAsync("9900861"))!.Local.Conversion!.Targets.Single().Confirmed);
         var e = (await app.Store.Items.LoadAsync("9900865"))!.Local.Conversion!.Targets;
         Assert.Equal([true, false], e.Select(target => target.Confirmed));
-        Assert.Equal("推した通りにまとめて決める（1 件）", avatars.BulkText);
+        Assert.Equal("まとめて確認済みにする（1 件）", avatars.BulkText);
     });
 
     [Fact]
@@ -207,7 +207,7 @@ public class AvatarsConversionTests
     }
 
     [Fact]
-    public Task 確認待ちが無い商品では_推した通りに決めて次へは押せない() => TestApp.Run(async app =>
+    public Task 確認待ちが無い商品では_確認済みにして次へは押せない() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);
         avatars.ShowConversionModeCommand.Execute(null);
@@ -220,7 +220,7 @@ public class AvatarsConversionTests
     });
 
     [Fact]
-    public Task 推した理由を行の下に出し_推せなかった行には推していない訳を出す() => TestApp.Run(async app =>
+    public Task 見つけた理由を行の下に出し_見つからなかった行にはその訳を出す() => TestApp.Run(async app =>
     {
         // 商品の対応素体から推したつなぎ先（見回りと同じ推し方で、手掛かりが1つ）
         await SaveProfileAsync(app, "9900866", "作り物のプロファイルF", "fakef", new ConversionSetting
@@ -236,17 +236,17 @@ public class AvatarsConversionTests
         avatars.ShowConversionModeCommand.Execute(null);
 
         avatars.SelectedConversion = Row(avatars, "9900866");
-        Assert.Equal("推した理由：商品の対応素体「作り物の素体」", Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
+        Assert.Equal("見つけた理由：商品の対応素体「作り物の素体」", Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
 
         // 外すと選ぶ欄に戻り、推せる手掛かりはあるが外した、と言う（見回りが推し直さない訳）
         Assert.Single(avatars.ConversionEditor.Rows).RemoveCommand!.Execute(null);
         await app.SettleAsync();
         Assert.Equal(
-            "外したつなぎ先：作り物の素体（共通素体）・推した理由：商品の対応素体「作り物の素体」",
+            "外したつなぎ先：作り物の素体（共通素体）・見つけた理由：商品の対応素体「作り物の素体」",
             Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
 
         avatars.SelectedConversion = Row(avatars, "9900864");
-        Assert.Equal("推していません：推す元になる情報がありません", Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
+        Assert.Equal("つなぎ先は見つかりませんでした：元になる情報がありません", Assert.Single(avatars.ConversionEditor.Rows).ReasonText);
     });
 
     [Fact]

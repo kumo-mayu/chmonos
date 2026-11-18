@@ -196,7 +196,7 @@ flowchart LR
 | 「更新通知」 | 記録していること | チェック | 変更を通知に出す | いつも | ItemNotifyOnUpdate・ItemView.xaml:1057 |
 | 「アバターとして登録」「アバターの管理で開く」「プロファイルを検索で開く」「登録を外す」 | 記録していること | クリック | 登録・画面へ | 登録の状態による | ItemRegisterAvatar／ItemOpenInAvatars／ItemShowProfiles／ItemUnregisterAvatar・AvatarRegistrationPanel.xaml:34-51 |
 | 「自動の判定」「扱う」「扱わない」 | 変換扱い | クリック | 変換の扱い | プロファイルを持つ商品 | ItemConversionMode.Auto／.Profile／.NotProfile・ItemConversionPanel.xaml:35-48 |
-| 向きの字（右クリック「順方向」「逆方向」「両方向」） | 変換扱い | 右クリック | つなぐ向き | つなぎ先がある時 | ItemConversionDirection・ItemConversionPanel.xaml:73-87 |
+| 向きの字（右クリック「順方向」「逆方向」「両方向」「既定に戻す」） | 変換扱い | 右クリック | つなぐ向き | つなぎ先がある時 | ItemConversionDirection・ItemConversionPanel.xaml:73-87 |
 | つなぎ先（右クリック「確認済みにする」「外す」）・✓・× | 変換扱い | クリック・右クリック | 確かめる・外す | つなぎ先がある時 | ItemConversionTarget／ItemConversionConfirm／ItemConversionRemove・ItemConversionPanel.xaml:97-128 |
 | つなぎ先を選ぶ入力欄 | 変換扱い | 打つ → 選ぶ | つなぎ先を決める | つなぎ先が無い時 | ItemConversionChoose・ItemConversionPanel.xaml:134 |
 | 外したつなぎ先の「戻す」 | 変換扱い | クリック | 戻す | 外した物がある時 | ItemConversionRejectedExpander／ItemConversionRestore・ItemConversionPanel.xaml:160,174 |

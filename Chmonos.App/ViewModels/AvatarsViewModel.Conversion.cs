@@ -8,7 +8,7 @@ namespace Chmonos.App.ViewModels;
 /// <summary>
 /// アバターの管理の「変換」（<c>docs/spec/conversion.md</c>「変換扱いの画面」・ユーザ案「未確定のような形で「変換扱い」をリストで積んで順々に設定する」）。
 /// 左にプロファイルを持つ商品の一覧（決めていない物を上に群で分ける）、右に商品ページと同じ「変換扱い」の欄（<see cref="ItemConversionEditor"/>）と、
-/// 「推した通りに決めて次へ」「プロファイルではない」「後で」（ユーザ判断 2026-11-09）。
+/// 「確認済みにして次へ」「プロファイルではない」「後で」（ユーザ判断 2026-11-09）。
 /// 一覧は検索の写し（全商品を読んである）から、プロファイルを持つかもしれない商品だけ控えを読んで作る。
 /// </summary>
 public sealed partial class AvatarsViewModel
@@ -232,14 +232,14 @@ public sealed partial class AvatarsViewModel
         RaiseBulk();
     }
 
-    // ---- 推した通りにまとめて決める（ユーザ判断 2026-11-09「押すと一覧の窓を出して外せる」） ----
+    // ---- まとめて確認済みにする（ユーザ判断 2026-11-09「押すと一覧の窓を出して外せる」） ----
 
     /// <summary>まとめて決められる確認待ちのつなぎ先の数（扱わないにした商品と、人が外した物は数えない）。</summary>
     public int BulkCount => _conversionItems
         .Where(row => row.Group != NotProfileGroup)
         .Sum(row => UnconfirmedOf(row.Item).Count);
 
-    public string BulkText => $"推した通りにまとめて決める（{BulkCount} 件）";
+    public string BulkText => $"まとめて確認済みにする（{BulkCount} 件）";
 
     public RelayCommand BulkConfirmCommand => _bulkConfirmCommand ??= new RelayCommand(
         () => BulkConfirmAsync().Forget(),

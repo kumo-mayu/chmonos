@@ -8,7 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:AvatarsViewModel}">
-    <!-- 変換を見ているときの「推した通りに決めて次へ」。一覧に止まっていても効くよう画面に置く（変換を見ていないときは押せない） -->
+    <!-- 変換を見ているときの「確認済みにして次へ」。一覧に止まっていても効くよう画面に置く（変換を見ていないときは押せない） -->
     <UserControl.InputBindings>
         <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding DecideSuggestedCommand}" />
     </UserControl.InputBindings>
@@ -28,6 +28,16 @@
             <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。アバターの名前を読ませる -->
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarRow" />
+            <Style.Triggers>
+                <!--
+                    リストの時だけ、行の高さを検索のリストと同じスライダーの値にする（ListRowBase と同じ）。
+                    カードの時はカードの大きさで決まるので掛けない。名前・素体・何で当たったかの3段の行は、この下限より伸びる
+                -->
+                <DataTrigger Binding="{Binding DataContext.IsListMode, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="True">
+                    <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <!--
             共通素体の一覧の行の右クリック（メモ9-⑦ 2026-10-02）。右の欄の「削除」と同じ道で、同じ確認の窓
@@ -62,8 +72,13 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 頭に絵を出す（U18）。まだ取れていないアバターは頭文字のまま -->
-                <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" Margin="0,0,10,0"
+                <!--
+                    頭に絵を出す（U18）。まだ取れていないアバターは頭文字のまま。
+                    一辺は一覧の右下のスライダー（全画面で共有）に結ぶ。決め打ちの 30 だと、つまみを動かしてもこの一覧だけ変わらなかった（2026-11-18 のメモ）
+                -->
+                <Border Grid.Column="0" CornerRadius="8" Margin="0,0,10,0" VerticalAlignment="Center"
+                        Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
+                        Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                         Background="{DynamicResource AccentSoft}" ClipToBounds="True">
                     <Grid>
                         <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
@@ -281,7 +296,11 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="{Binding DetectButtonText}" Style="{StaticResource PrimaryButton}"
+                    <!--
+                        普通のボタンの見た目にする（2026-11-18 のメモ・ユーザ判断）。検出は取り込み・未確定の登録・起動時の間隔で自動で走るので、
+                        この画面の主の操作ではない。青にすると押すべき物に見える
+                    -->
+                    <Button Content="{Binding DetectButtonText}"
                             Command="{Binding DetectCommand}"
                             ToolTip="{Binding DetectHint}" ToolTipService.ShowOnDisabled="True" />
                 </StackPanel>
@@ -399,7 +418,7 @@
                         </StackPanel>
 
                         <!--
-                            推した通りにまとめて決める（ユーザ判断 2026-11-09）。押すと対象を全部並べた窓を出し、外したい物はチェックを外せる。
+                            まとめて確認済みにする（ユーザ判断 2026-11-09）。押すと対象を全部並べた窓を出し、外したい物はチェックを外せる。
                             確認待ちが無ければ押せない（数が 0 と出る）
                         -->
                         <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0"
@@ -802,12 +821,9 @@
                                            AutomationProperties.AutomationId="AvatarBaseFieldNote" />
                                 <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                            Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
-                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource AccentText}"
-                                           Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!--
-                                    呼ばれ方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
+                                    呼び方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
                                     消した表記は、商品の対応アバターと同じく末尾に出して1件ずつ戻せるようにする
                                 -->
                                 <Expander Style="{StaticResource TriangleExpander}" Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}"
@@ -1176,7 +1192,7 @@
 
                         <!--
                             変換を見ているときの右の欄（ユーザ判断 2026-11-09：商品ページの「変換扱い」の欄を使い回し、下に決めて次へ進むボタン）。
-                            Ctrl+Enter は「推した通りに決めて次へ」（未確定の「この内容で決める」と同じキー）
+                            Ctrl+Enter は「確認済みにして次へ」（未確定の「この内容で決める」と同じキー）
                         -->
                         <Border Style="{StaticResource Card}" Padding="22,18"
                                 Visibility="{Binding ShowsConversionDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -1212,7 +1228,7 @@
                                 <views:ItemConversionPanel DataContext="{Binding ConversionEditor}" />
                                 <WrapPanel Margin="0,16,0,0">
                                     <!-- 確認待ちが無いと押せない（ユーザ判断 2026-11-09）。押せない理由を吹き出しで言う -->
-                                    <Button Content="推した通りに決めて次へ" Margin="0,0,8,6"
+                                    <Button Content="確認済みにして次へ" Margin="0,0,8,6"
                                             Command="{Binding DecideSuggestedCommand}"
                                             AutomationProperties.AutomationId="AvatarsConversionDecide"
                                             ToolTipService.ShowOnDisabled="True">
