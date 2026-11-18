@@ -1344,7 +1344,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// <summary>戻るで開き直した時に重ね直す商品（最初の読み込みで左の選びが決まった後に1回だけ使う）。</summary>
     private string? _openRightWith;
 
-    /// <summary>重ねていた商品を重ね直す。商品が消えていれば重ねない。</summary>
+    /// <summary>
+    /// 重ねていた商品を重ね直す。商品が消えていれば重ねない。
+    /// 重ねるのは選んでいた物そのものの商品ページなので、戻した左の選びが別の物（消えて先頭に落ちた等）なら重ねない
+    /// </summary>
     private void ReopenRightItem()
     {
         if (_openRightWith is not { } itemId)
@@ -1353,7 +1356,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         }
 
         _openRightWith = null;
-        if (_main.Search.FindItem(itemId) is { } item)
+        var selectedId = IsConversionMode ? SelectedConversion?.ItemId : Selected?.ItemId;
+        if (selectedId == itemId && _main.Search.FindItem(itemId) is { } item)
         {
             OpenItemInRightPane(item);
         }

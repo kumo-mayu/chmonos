@@ -119,8 +119,9 @@ public sealed partial class AvatarsViewModel
         {
             if (SelectedConversion?.Item is { } item)
             {
-                // 右の欄の中に重ねる（左の選びを残す・open.md 95 行）
-                OpenItemInRightPane(item);
+                // 右の欄の中に重ねる（左の選びを残す・open.md 95 行）。行は作った時の商品を持つので、
+                // 重ねたページで書いた後に開き直しても古くならないよう検索の写しから引き直す
+                OpenItemInRightPane(_main.Search.FindItem(item.Id) ?? item);
             }
         },
         () => SelectedConversion is not null);

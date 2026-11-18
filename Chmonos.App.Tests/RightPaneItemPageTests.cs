@@ -332,7 +332,8 @@ public class RightPaneItemPageTests
 
     private static async Task<(MainViewModel Main, TagManageViewModel Tags)> OpenTagsAsync(TestApp app)
     {
-        var item = Make.Item("1000001", "作り物の衣装");
+        // ファイルを1つ持たせる（重ねたページでファイルを外して商品が消える試験に使う）
+        var item = Make.Item("1000001", "作り物の衣装").WithFiles(Make.File(app.NewFile(@"shop\作り物の衣装.zip")));
         await app.AddItemAsync(item with { Local = item.Local with { UserTags = [new UserTagAssignment { Top = "作り物の甲" }] } });
         await app.Store.UserTags.SaveAsync(TwoTops());
         var main = await app.StartAsync();
@@ -383,6 +384,41 @@ public class RightPaneItemPageTests
         await UiThread.Until(() => reopened.RightItem.IsOpen, "戻ると商品ページを重ね直す");
         Assert.Equal("1000001", reopened.RightItem.Page!.Item.Id);
         Assert.Equal("作り物の甲", reopened.Selected?.Name);
+    });
+
+    [Fact]
+    public Task タグの管理は_重ねたページで書いてから同じカードで開き直しても_書いた後の商品で開く() => TestApp.Run(async app =>
+    {
+        var (main, tags) = await OpenTagsAsync(app);
+        // 画面のカードは作った時の商品を持ったまま残る（閉じても画面を作り直さない）
+        var card = main.Search.CardFor("1000001")!;
+        tags.OpenItem(card);
+        tags.RightItem.Page!.ToggleFavoriteCommand.Execute(null);
+        await UiThread.Until(() => main.Search.FindItem("1000001")?.Local.IsFavorite == true, "お気に入りが書かれる");
+        tags.RightItem.BackCommand.Execute(null);
+
+        tags.OpenItem(card);
+
+        Assert.True(tags.RightItem.Page!.IsFavorite);
+    });
+
+    [Fact]
+    public Task タグの管理は_重ねたページでファイルを外して商品が消えたら_読み直して件数から外す() => TestApp.Run(async app =>
+    {
+        var (main, tags) = await OpenTagsAsync(app);
+        Assert.Equal(1, tags.Selected!.ItemCount);
+        tags.OpenItem(main.Search.CardFor("1000001")!);
+        var page = tags.RightItem.Page!;
+
+        // 商品ページの「ファイルを外す」が済んだ後と同じ形：最後のファイルを外して商品を消し、ページは持ち主へ差し替えを頼む
+        var hash = page.Item.Local.OwnedFiles.Single().Hash;
+        await app.Services.Commands.ExecuteAsync(new UiCommand.DetachFile("1000001", hash, DeleteItemWhenEmpty: true));
+        await main.ReloadLibraryAsync();
+        page.Replaced!(null);
+
+        await UiThread.Until(() => tags.Selected?.ItemCount == 0, "読み直して、消えた商品を件数から外す");
+        Assert.False(tags.RightItem.IsOpen);
+        Assert.Equal("作り物の甲", tags.Selected!.Name);
     });
 
     [Fact]

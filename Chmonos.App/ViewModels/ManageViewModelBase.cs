@@ -915,7 +915,7 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
 
         _itemRows.Add(entry);
         // 右の欄の中に重ねる（左の選びと、この一覧の流した位置を残す・open.md 95 行）
-        entry.OpenCommand = new RelayCommand(() => RightItem.Open(item));
+        entry.OpenCommand = new RelayCommand(() => OpenInRightPane(item));
         return entry;
     }
 
@@ -952,7 +952,13 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     // 中身は検索画面の物をそのまま借りる（ショップ・フォルダビュー・改変と同じ形）
 
     /// <summary>右の欄の中に重ねる（左の選びと、この一覧の流した位置を残す・open.md 95 行）。</summary>
-    public void OpenItem(ItemCardViewModel card) => RightItem.Open(card.Item);
+    public void OpenItem(ItemCardViewModel card) => OpenInRightPane(card.Item);
+
+    /// <summary>
+    /// 右の欄に重ねる。行とカードは作った時の商品を持っていて、重ねたページを閉じても画面は作り直さないので、
+    /// 重ねたページで書いた後に同じ行から開き直すと古い商品で開いてしまう。検索の写し（書き込みのたびに差し替わる）から引き直す
+    /// </summary>
+    private void OpenInRightPane(ItemRecord item) => RightItem.Open(_main.Search.FindItem(item.Id) ?? item);
 
     public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
 
