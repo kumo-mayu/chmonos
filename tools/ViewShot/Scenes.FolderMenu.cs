@@ -31,7 +31,7 @@ internal static partial class Scenes
             var treeItem = Look.All<ListBoxItem>(root).First(box => ReferenceEquals(box.DataContext, top));
             var treeMenu = await FolderMenuOfAsync(context, treeItem);
             ExpectFolderMenu(treeMenu, "木の行",
-                ["折りたたむ", "下の階層まで開く", "下の階層まで折りたたむ", "このフォルダの商品を検索で開く", "エクスプローラで開く", "このフォルダの商品を取り込む", "監視フォルダにする"]);
+                ["折りたたむ", "下の階層まで広げる", "下の階層まで折りたたむ", "このフォルダの商品を検索で開く", "エクスプローラで開く", "このフォルダの商品を取り込む", "監視フォルダにする"]);
             if (!ReferenceEquals(FolderMenuItem(treeMenu, "FolderMenu.Toggle").Command, folders.ToggleCommand)
                 || !ReferenceEquals(FolderMenuItem(treeMenu, "FolderMenu.Watch").Command, folders.ToggleWatchCommand))
             {

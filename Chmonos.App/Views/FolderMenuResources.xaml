@@ -48,7 +48,7 @@
                 </MultiBinding>
             </controls:MenuTips.Disabled>
         </MenuItem>
-        <MenuItem Header="下の階層まで開く" AutomationProperties.AutomationId="FolderMenu.ExpandAll"
+        <MenuItem Header="下の階層まで広げる" AutomationProperties.AutomationId="FolderMenu.ExpandAll"
                   Command="{Binding PlacementTarget.Tag.FolderMenu.ExpandAllCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
             <MenuItem.Visibility>
                 <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="TreeOnly">

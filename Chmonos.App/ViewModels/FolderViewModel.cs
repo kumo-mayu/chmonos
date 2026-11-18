@@ -704,7 +704,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     public RelayCommand OpenUnresolvedCommand { get; }
 
-    /// <summary>木の行の右クリック「下の階層まで開く」。その行の下のフォルダを全部開く。</summary>
+    /// <summary>木の行の右クリック「下の階層まで広げる」。その行の下のフォルダを全部開く。</summary>
     public RelayCommand ExpandAllCommand { get; }
 
     /// <summary>木の行の右クリック「下の階層まで折りたたむ」。その行と下のフォルダを全部畳む（次に開いた時も畳んだまま）。</summary>
@@ -738,7 +738,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         return key switch
         {
             "TreeOnly" => row is { IsFolderLike: true },
-            "Header.Toggle" => row is { IsExpanded: true } ? "折りたたむ" : "開く",
+            "Header.Toggle" => row is { IsExpanded: true } ? "折りたたむ" : "広げる",
             "CanToggle" => row is { IsFolderLike: true, CanExpand: true } && !IsFiltering,
             "Tip.Toggle" => row is { IsFolderLike: true } && IsFiltering
                 ? Filter.Trim().Length > 0

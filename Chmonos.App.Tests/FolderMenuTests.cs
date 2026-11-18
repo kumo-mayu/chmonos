@@ -51,7 +51,7 @@ public sealed class FolderMenuTests
     });
 
     [Fact]
-    public Task 下の階層まで開くと_下のフォルダが全部開き_折りたたむと畳んで覚える() => TestApp.Run(async app =>
+    public Task 下の階層まで広げると_下のフォルダが全部開き_折りたたむと畳んで覚える() => TestApp.Run(async app =>
     {
         var (_, folders) = await OpenAsync(app);
         var root = Root(folders);
@@ -126,6 +126,23 @@ public sealed class FolderMenuTests
         await app.SettleAsync();
         Assert.True(shown.IsWatched);
         _ = main;
+    });
+
+    [Fact]
+    public Task 木のどのフォルダの行も_右クリックの宛先は選んだ時の右の頭と同じ() => TestApp.Run(async app =>
+    {
+        var (_, folders) = await OpenAsync(app);
+        folders.ExpandAllCommand.Execute(Root(folders));
+
+        // ドライブ・根・フォルダの行。右の頭のボタンと場所・押せるかがずれると、右クリックだけ別の場所を取り込む
+        foreach (var row in folders.Rows.Where(candidate => candidate.IsFolderLike).ToList())
+        {
+            folders.Selected = row;
+            Assert.Equal(FolderTarget.Of(folders.Detail), FolderTarget.Of(row));
+            Assert.False(row.IsItemFile);
+        }
+
+        Assert.Contains(folders.Rows, row => row.Kind == FolderViewRowKind.Volume);
     });
 
     [Fact]
