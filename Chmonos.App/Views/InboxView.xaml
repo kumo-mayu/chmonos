@@ -207,7 +207,7 @@
                                         AutomationProperties.AutomationId="InboxRowAction"
                                         Margin="8,0,0,0" Command="{Binding ActionCommand}"
                                         ToolTip="{Binding ActionTip}"
-                                        Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        Visibility="{Binding ShowsActionOnHover, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <!-- 手で直す物（食い違ったJSON・読めない商品の記録）の場所を開く。直し方は人が決める（ユーザ指示 2026-11-18） -->
                                 <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                         AutomationProperties.AutomationId="InboxRowReveal"
@@ -215,6 +215,12 @@
                                         ToolTip="そのJSONのある場所を開きます。"
                                         Visibility="{Binding HasReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
+                                <!-- 乗せなくても出す行のボタン（「zipで登録し直す」。ユーザ判断 2026-11-19）。乗せた時の並びの後ろに続く -->
+                                <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="InboxRowAction"
+                                        Margin="8,0,0,0" Command="{Binding ActionCommand}" VerticalAlignment="Center"
+                                        ToolTip="{Binding ActionTip}"
+                                        Visibility="{Binding ShowsActionAlways, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <!--
                                     押した行のボタンの途中経過と失敗。ボタンは指した間だけ出るので、離れても読めるよう外に置く。
                                     同じ段なので行の高さは変わらない。長い文は1行で切り、全部は吹き出しで読む

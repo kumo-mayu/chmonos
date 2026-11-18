@@ -200,6 +200,67 @@ public class FolderRegistrationTests : IDisposable
         Assert.True(File.Exists(archive));
     }
 
+    /// <summary>
+    /// 登録し直すと、フォルダの中の包みを指していた改変の行が zip の中の同じ包みへ付け替わる（ユーザ判断 2026-11-19・open 144・150）。
+    /// 付け替えないとフォルダが外れた後は「商品の送れる物全部」に落ち、どの包みを使ったかが効かなくなる。
+    /// ほかの商品の行・ほかの改変の名前とメモ・決まらない行には触らない
+    /// </summary>
+    [Fact]
+    public async Task RelinksModificationMembersFromTheFolderToTheArchive()
+    {
+        var itemId = await SaveItemAsync();
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+        var archive = folder + ".zip";
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, archive);
+        var hash = await Scanning.FileHasher.ComputeSha256Async(archive);
+
+        var added = DateTimeOffset.Parse("2026-10-01T00:00:00+09:00");
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-0000b001",
+            AvatarItemId = "9900001",
+            Name = "普段着",
+            Memo = "残すメモ",
+            Members =
+            [
+                new ModificationMember { ItemId = itemId, Package = "rurune/rurune.unitypackage", AddedAt = added },
+                // フォルダに無い場所の行（数えた後に消えた物）は、このフォルダの行ではないので触らない
+                new ModificationMember { ItemId = itemId, Package = "rurune/無い.unitypackage", AddedAt = added },
+                new ModificationMember { ItemId = "9900002", Package = "rurune/rurune.unitypackage", AddedAt = added },
+            ],
+        });
+
+        var outcome = await _service.SwapFolderForArchiveAsync(itemId, folder);
+
+        Assert.Equal(ArchiveSwapResult.Registered, outcome.Result);
+        Assert.Equal(new FolderMemberRelink.Counts(1, 0), outcome.Members);
+        var after = (await _store.Modifications.LoadAllAsync()).Modifications.Single();
+        Assert.Equal("残すメモ", after.Memo);
+        Assert.Equal(hash, after.Members[0].FileHash);
+        Assert.Equal("rurune/rurune.unitypackage", after.Members[0].Package);
+        Assert.Equal(added, after.Members[0].AddedAt);
+        Assert.Null(after.Members[1].FileHash);
+        Assert.Null(after.Members[2].FileHash);
+
+        // 付け替えた行は、フォルダを外した後も zip の中の記録した包みを送る（全部に落ちない）
+        var item = await _store.Items.LoadAsync(itemId);
+        var place = Assert.Single(ModificationSendPlan.PlacesFor(item!, after.Members[0]));
+        Assert.Equal(archive, place.Entry.ZipPath);
+        Assert.Equal("rurune/rurune.unitypackage", place.Entry.EntryPath);
+    }
+
+    /// <summary>zip の中の場所は、頭にフォルダ名が足される・段が変わることがある。1つに決まる時だけ付け替え、決まらない行は残して数える。</summary>
+    [Fact]
+    public void MatchesByTrailingPathThenByFileNameAndRefusesAmbiguity()
+    {
+        Assert.Equal("top/a/x.unitypackage", FolderMemberRelink.Match("a/x.unitypackage", ["top/a/x.unitypackage", "top/b/y.unitypackage"]));
+        Assert.Equal("other/x.unitypackage", FolderMemberRelink.Match("a/x.unitypackage", ["other/x.unitypackage"]));
+        Assert.Null(FolderMemberRelink.Match("x.unitypackage", ["a/x.unitypackage", "b/x.unitypackage"]));
+        Assert.Null(FolderMemberRelink.Match("a/x.unitypackage", ["a/xx.unitypackage"]));
+        Assert.Null(FolderMemberRelink.Match("a/x.unitypackage", []));
+    }
+
     /// <summary>zipが隣に無ければ、登録はそのままにして知らせる（外付けを外している場合など）。</summary>
     [Fact]
     public async Task KeepsTheFolderWhenThereIsNoArchive()

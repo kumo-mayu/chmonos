@@ -58,6 +58,12 @@ public sealed record ArchiveSwapOutcome(ArchiveSwapResult Result, string? Archiv
 {
     /// <summary><see cref="ArchiveSwapResult.OwnedElsewhere"/> のときの持ち主。ほかの結果では空。</summary>
     public IReadOnlyList<ArchiveHolder> Holders { get; init; } = [];
+
+    /// <summary>
+    /// 改変の使ったもののうち、外したフォルダの包みを指していた行を zip の中の包みへ付け替えた数と、決まらずに残した数
+    /// （<see cref="FolderMemberRelink"/>。登録し直したときだけ数える）。
+    /// </summary>
+    public FolderMemberRelink.Counts Members { get; init; }
 }
 
 /// <summary>zip を持っているほかの商品。</summary>
