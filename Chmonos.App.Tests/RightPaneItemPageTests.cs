@@ -114,6 +114,28 @@ public class RightPaneItemPageTests
     });
 
     [Fact]
+    public Task 重ねたページで2つのうち1つのファイルを外すと_重ね直したページは外した後の商品で開く() => TestApp.Run(async app =>
+    {
+        var (_, folders, detail) = await OpenFolderAsync(app);
+        var card = detail.ListItems.OfType<ItemCardViewModel>().First();
+        var second = app.NewFile(@"shop作り物_2本目.zip");
+        await app.Services.Commands.ExecuteAsync(new UiCommand.AttachFile(card.Item.Id, second));
+        detail.OpenItem(card);
+        var page = folders.RightItem.Page!;
+
+        // 商品ページの「ファイルを外す」が残りのある時にする事と同じ：外して、記録を読み直して差し替えを頼む（ReloadLibraryAsync は呼ばない）
+        var hash = (await app.Store.Items.LoadAsync(card.Item.Id))!.Local.OwnedFiles.First().Hash;
+        await app.Services.Commands.ExecuteAsync(new UiCommand.DetachFile(card.Item.Id, hash));
+        page.Replaced!(await app.Store.Items.LoadAsync(card.Item.Id));
+        await app.SettleAsync();
+
+        // 数だけだと、付ける前の古い写しで開いても1本に見える。外したファイルが持ち物に残っていない事で見る
+        var owned = folders.RightItem.Page!.Item.Local.OwnedFiles.Where(file => !file.Detached).ToList();
+        Assert.Single(owned);
+        Assert.NotEqual(hash, owned[0].Hash);
+    });
+
+    [Fact]
     public Task 外した後の読み直しを待つ間に別の商品を重ねたら_読み直しの後も前の商品へ戻さない() => TestApp.Run(async app =>
     {
         var (_, folders, detail) = await OpenFolderAsync(app);

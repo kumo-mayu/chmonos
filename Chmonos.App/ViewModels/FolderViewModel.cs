@@ -522,7 +522,6 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         var page = RightItem.Page;
         var detail = Detail;
         var key = Selected?.Key;
-        var rightItemId = page?.Item.Id;
         await LoadAsync();
 
         // 読み直しを待つ間に人が動かした物は上書きしない（Codex の点検 2026-11-19）。
@@ -536,10 +535,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
         var reopen = page is not null && ReferenceEquals(RightItem.Page, page);
         ShowDetail(row);
-        if (reopen && rightItemId is not null
-            && _main.Search.SnapshotItems().FirstOrDefault(item => item.Id == rightItemId) is { } rightItem)
+        // 重ね直すのは、ページが差し替えで受け取った新しい記録。検索の写しは、商品が消えた・隠れた時にしか読み直されないので、
+        // ファイルを1本外しただけ・取り直しの時は外す前の商品のままで、それで開くと外したファイルがまた見えていた
+        if (reopen && page is not null)
         {
-            RightItem.Open(rightItem);
+            RightItem.Open(page.Item);
         }
     }
 
