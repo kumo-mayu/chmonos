@@ -94,7 +94,7 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
         VariationText = VariationText,
         Card = Card,
 
-        // 写し漏らすと、逆の順にした途端に新しい版の札と「新しい版を選ぶ…」が消えた
+        // 写し漏らすと、逆の順にした途端に新しい版の札と「更新 ▾」が消えた
         IsBehind = IsBehind,
         Reversed = reversed,
     };
@@ -267,12 +267,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         DeleteMemberCommand = new RelayCommand(
             parameter => DeleteMemberAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
+        // 端では押せない：「移動 ▾」のメニューの項目は命令の可否で灰色になる（押せるのに何も起きない項目を出さない）
         MoveMemberBackCommand = new RelayCommand(
             parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: true).Forget(),
-            parameter => parameter is ModificationMemberRowViewModel);
+            parameter => parameter is ModificationMemberRowViewModel { CanMoveBack: true });
         MoveMemberForwardCommand = new RelayCommand(
             parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: false).Forget(),
-            parameter => parameter is ModificationMemberRowViewModel);
+            parameter => parameter is ModificationMemberRowViewModel { CanMoveForward: true });
         OpenItemCommand = new RelayCommand(
             parameter => OpenItemAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
@@ -301,6 +302,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             parameter => SelectMemberInUnityAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         FindInProjectCommand = new RelayCommand(() => FindInProjectAsync().Forget(), () => HasProject && !IsFindingInProject);
+        FoundInProject.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasFoundInProject));
+            OnPropertyChanged(nameof(FoundInProjectTitle));
+        };
         AddCandidateCommand = new RelayCommand(
             parameter => AddCandidateAsync(parameter as ProjectCandidateRowViewModel).Forget(),
             parameter => parameter is ProjectCandidateRowViewModel);
@@ -370,9 +376,6 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>「複製」を押した。複製は左の一覧と右の開き方に関わるので、作るのは改変の画面（<see cref="ModificationHubViewModel"/>）で、ここは頼むだけ</summary>
     public event Action<string>? DuplicateRequested;
-
-    /// <summary>複製の直後に開いたとき true。名前の欄へフォーカスを置く（名前を変えるのが次の一手）。画面が読んだら下ろす</summary>
-    public bool WantsNameFocus { get; set; }
 
     /// <summary>記録を読み直した（名前・メモ・使ったもの・紐付けが変わったかもしれない）。組み込んだ側が左の一覧を合わせる。</summary>
     public event Action? Changed;
@@ -470,6 +473,45 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     }
 
     public bool HasProjectFindText => ProjectFindText.Length > 0;
+
+    public bool HasFoundInProject => FoundInProject.Count > 0;
+
+    /// <summary>見つかった商品の畳める見出し。畳んでも何件あるかが分かるように数を添える</summary>
+    public string FoundInProjectTitle => $"見つかった商品 {FoundInProject.Count} 件";
+
+    // ---- 畳み方（feedback 2026-11-18：使ったものと、プロジェクトから探した結果は件数が多くなり得るので畳めるように） ----
+    // 畳み方はアプリを閉じるまで覚える（ui-rules.md「画面の中の畳み方」）。改変を開き直すたびに開いて戻らないよう、画面ごとではなく1つに持つ
+
+    private static bool s_membersExpanded = true;
+    private static bool s_foundInProjectExpanded = true;
+
+    /// <summary>「使ったもの」の欄を開いているか。</summary>
+    public bool IsMembersExpanded
+    {
+        get => s_membersExpanded;
+        set
+        {
+            if (s_membersExpanded != value)
+            {
+                s_membersExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>プロジェクトの中から探した結果の一覧を開いているか。</summary>
+    public bool IsFoundInProjectExpanded
+    {
+        get => s_foundInProjectExpanded;
+        set
+        {
+            if (s_foundInProjectExpanded != value)
+            {
+                s_foundInProjectExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     /// <summary>
     /// 紐付けたプロジェクトの <c>Assets/</c> と <c>Packages/</c> を見て、手元のどの商品が入っているかを出す（#72・ユーザ案）。
@@ -897,7 +939,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// **次にやることを書く。**空欄だけだと、どうやって足すのか分からない。
     /// </summary>
     public string MembersEmptyText =>
-        "まだ追加していません。下の欄から探して追加するか、商品ページの「改変に追加して送る」でUnityへ送ると自動で入ります。";
+        "まだ追加していません。上の「使ったものを追加」で探して追加するか、商品ページの「改変に追加して送る」でUnityへ送ると自動で入ります。";
 
     public ObservableCollection<ModificationImageViewModel> Images { get; } = [];
 
@@ -1701,17 +1743,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     private async Task DeleteAsync()
     {
-        var images = Record.Images.Count;
-        var answer = Services.Notice.Show(
-            $"改変「{Record.Name}」を削除します。\n\n"
-            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
-            + "元には戻せません。使った商品そのものは消えません。",
-            "改変を削除",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Cancel);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
+        if (!ConfirmDelete(Record))
         {
             return;
         }
@@ -1724,6 +1756,23 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         Deleted?.Invoke();
+    }
+
+    /// <summary>
+    /// 消す前の確認。右の帯の「削除」と、改変の画面の左の行の右クリックの「削除…」で同じ文にする
+    /// </summary>
+    internal static bool ConfirmDelete(ModificationRecord record)
+    {
+        var images = record.Images.Count;
+        var answer = Services.Notice.Show(
+            $"改変「{record.Name}」を削除します。\n\n"
+            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
+            + "元には戻せません。使った商品そのものは消えません。",
+            "改変を削除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+        return answer == System.Windows.MessageBoxResult.OK;
     }
 
     // ---- 構成物 ----
@@ -1787,29 +1836,49 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// 記録した使ったファイルを選び直す（ユーザ指示 2026-11-11：版を人が変えられない）。外した行も選び直せる（外した印は保つ）
     /// </summary>
     public RelayCommand RepickMemberFilesCommand => _repickMemberFiles ??= new RelayCommand(
-        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel, preferNewVersion: false).Forget(),
+        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel).Forget(),
         parameter => parameter is ModificationMemberRowViewModel);
 
     private RelayCommand? _repickMemberFiles;
 
     /// <summary>
-    /// 新しい版の札の行で、新しい版のファイルを選んだ状態で選び直しの窓を開く（docs/spec/used-updates.md）。
-    /// 「確認した」は今の版のまま使うとき、こちらは新しい版に替えたとき
+    /// 新しい版の札の行の「更新 ▾」の「新しい版を送る…」（<see cref="MemberNewVersionSend"/>・docs/spec/used-updates.md）。
+    /// 「新しい版を確認した」は今の版のまま使うとき、こちらは新しい版に替えたとき。送って入った時だけ記録を替える
     /// </summary>
-    public RelayCommand PickNewVersionCommand => _pickNewVersion ??= new RelayCommand(
-        parameter => RepickMemberFilesAsync(parameter as ModificationMemberRowViewModel, preferNewVersion: true).Forget(),
-        parameter => parameter is ModificationMemberRowViewModel { IsBehind: true });
+    public RelayCommand SendNewVersionCommand => _sendNewVersion ??= new RelayCommand(
+        parameter => SendNewVersionAsync(parameter as ModificationMemberRowViewModel).Forget(),
+        parameter => parameter is ModificationMemberRowViewModel { IsBehind: true } && !IsSendingToUnity);
 
-    private RelayCommand? _pickNewVersion;
+    private RelayCommand? _sendNewVersion;
 
-    private async Task RepickMemberFilesAsync(ModificationMemberRowViewModel? row, bool preferNewVersion)
+    internal async Task SendNewVersionAsync(ModificationMemberRowViewModel? row)
     {
         if (row is null)
         {
             return;
         }
 
-        var (text, failed) = await MemberFileRepick.RunAsync(_services, Record.Id, row.Member, row.Name, preferNewVersion);
+        var progress = new Progress<UnityQueueProgress>(report => UnityQueueText = report.Text);
+        var (text, failed) = await MemberNewVersionSend.RunAsync(
+            _services, Record, row.Member, row.Name, progress, value => IsSendingToUnity = value, _main.Search.NoteItemChanged);
+        UnityQueueText = string.Empty;
+        if (text is null)
+        {
+            return;
+        }
+
+        MembersNotice.Set(text, failed);
+        await ReloadAsync();
+    }
+
+    private async Task RepickMemberFilesAsync(ModificationMemberRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var (text, failed) = await MemberFileRepick.RunAsync(_services, Record.Id, row.Member, row.Name);
         if (text is null)
         {
             return;

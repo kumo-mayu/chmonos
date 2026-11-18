@@ -751,8 +751,8 @@ internal static partial class Scenes
         {
             Height = 1500,
         },
-        new Scene("modification-hub-notice-before", "改変の画面（アバターの見方）：右の「新しい改変」の下に知らせが出る前", context => ModificationHubNoticeAsync(context, show: false)),
-        new Scene("modification-hub-notice-after", "改変の画面（アバターの見方）：右の「新しい改変」の下に知らせが出た後", context => ModificationHubNoticeAsync(context, show: true)),
+        new Scene("modification-hub-notice-before", "改変の画面（アバターの見方）：右の「このアバターの改変」の見出しの下に知らせが出る前（上に「新しい改変…」）", context => ModificationHubNoticeAsync(context, show: false)),
+        new Scene("modification-hub-notice-after", "改変の画面（アバターの見方）：右の「このアバターの改変」の見出しの下に知らせが出た後", context => ModificationHubNoticeAsync(context, show: true)),
 
         // 右の欄の上から下までを1枚で見る（blueprint ID の欄の並び・大きさのスライダーの位置）。窓を縦に長くして描く
         new Scene("modification-selected-tall", "改変の画面：改変を選んだ右の欄の全部（縦に長い窓。blueprint ID の欄・大きさのスライダー）", async context =>
@@ -833,7 +833,12 @@ internal static partial class Scenes
 
             Backdoor.ShowProjectFindText(detail, $"このプロジェクトに入っている手元の商品が {rows.Count} 件ありました。この改変に使ったものなら「追加」を押してください。");
             await context.SettleAsync();
-            Look.Named<ScrollViewer>(Look.View<ModificationView>(root)!, "Body")!.ScrollToEnd();
+            // 見つかった商品は「使ったものを追加」の欄（写真の下・使ったものの上。feedback 2026-11-18）にあるので、末尾ではなく
+            // 「見つかった商品 n 件」の見出しを上端へ送る
+            var body = Look.Named<ScrollViewer>(Look.View<ModificationView>(root)!, "Body")!;
+            var foundToggle = Look.All<Chmonos.App.Controls.ExpandToggle>(body)
+                .Single(toggle => System.Windows.Automation.AutomationProperties.GetAutomationId(toggle) == "ModificationFoundToggle");
+            body.ScrollToVerticalOffset(body.VerticalOffset + foundToggle.TranslatePoint(new System.Windows.Point(0, 0), body).Y - 120);
             await context.SettleAsync();
             return new Shot(root) { Focus = () => Look.View<ModificationView>(root), FocusMargin = 0 };
         })
@@ -958,7 +963,8 @@ internal static partial class Scenes
 
         if (show)
         {
-            hub.StartCreateCommand.Execute("9900201");
+            // 作るときの失敗だけがここに出る（名前は窓で聞くので、前の「名前を入れて…」の案内は無くなった）
+            ((HubAvatarDetail)hub.Detail!).Notice.Set("名前を入れてください。", true);
             await context.SettleAsync();
         }
 

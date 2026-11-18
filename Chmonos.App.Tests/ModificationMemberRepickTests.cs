@@ -87,7 +87,7 @@ public class ModificationMemberRepickTests
     }
 
     [Fact]
-    public void 新しい版を選ぶから開くと_新しい版の同じ名前のunitypackageを選ぶ()
+    public void 新しい版を送るで選ぶ時は_新しい版の同じ名前のunitypackageを選ぶ()
     {
         var member = Recorded(OldZip, "v1/Costume.unitypackage");
         var item = Costumes(Zip(OldZip, "v1"), Zip(NewZip, "v2"));

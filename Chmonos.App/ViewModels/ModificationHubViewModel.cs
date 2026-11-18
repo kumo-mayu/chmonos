@@ -41,6 +41,28 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     private UnityTools _tools = UnityTools.Unknown;
 
     private IReadOnlyList<ModificationRecord> _records = [];
+
+    /// <summary>
+    /// 記録を読み始めた順の番号（<see cref="_recordsReadStarted"/>）と、一覧に使っている読みの番号。
+    /// 窓が手前に戻った時の読み直しは Hub・VCC の一覧を待つので遅く、削除の確認の窓を閉じた時にも走る。
+    /// 削除の後の読み直しが先に終わり、削除の前に読み始めた遅い方が後から古い記録で上書きして、消した改変が左に残った（feedback 2026-11-18）。
+    /// 後から読み始めた物を勝たせる
+    /// </summary>
+    private int _recordsReadStarted;
+    private int _recordsReadApplied;
+
+    private bool TryApplyRecords(int ticket, IReadOnlyList<ModificationRecord> records)
+    {
+        if (ticket < _recordsReadApplied)
+        {
+            return false;
+        }
+
+        _recordsReadApplied = ticket;
+        _records = records;
+        return true;
+    }
+
     private IReadOnlyList<UnityProjectCandidate> _projects = [];
     private Dictionary<string, AvatarSummary> _avatars = new(StringComparer.Ordinal);
     private Dictionary<string, ItemRecord> _items = new(StringComparer.Ordinal);
@@ -82,6 +104,13 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 }
             },
             _ => !_duplicating);
+        DeleteModificationCommand = new RelayCommand(parameter =>
+        {
+            if (RecordOf(parameter) is { } record)
+            {
+                DeleteModificationAsync(record.Id).Forget();
+            }
+        });
         ShowAvatarCommand = new RelayCommand(parameter =>
         {
             if (AvatarIdOf(parameter) is { } id)
@@ -102,17 +131,15 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 _main.ShowAvatar(id);
             }
         });
-        StartCreateCommand = new RelayCommand(parameter =>
-        {
-            if (AvatarIdOf(parameter) is { } id)
-            {
-                ShowAvatar(id);
-                ShowNotice($"avatar:{id}", "名前を入れて、「改変を作る」を押してください。");
-            }
-        });
         CreateModificationCommand = new RelayCommand(
-            () => CreateModificationAsync().Forget(),
-            () => !_creatingModification && Detail is HubAvatarDetail avatar && avatar.NameInput.Trim().Length > 0);
+            parameter =>
+            {
+                if (AvatarIdOf(parameter) is { } id)
+                {
+                    CreateModificationAsync(id).Forget();
+                }
+            },
+            _ => !_creatingModification);
         OpenItemPageCommand = new RelayCommand(parameter => OpenItemPageAsync(parameter as string).Forget());
 
         LoadAsync().Forget();
@@ -181,14 +208,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         set
         {
             if (SetField(ref _query, value))
-            {
-                OnPropertyChanged(nameof(HasQuery));
                 Rebuild();
-            }
         }
     }
-
-    public bool HasQuery => Query.Length > 0;
 
     private bool _onlyBehind;
 
@@ -447,6 +469,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// <summary>左の一覧の改変の行の右クリック「複製」。引数は行か改変</summary>
     public RelayCommand DuplicateModificationCommand { get; }
 
+    /// <summary>左の改変の行の右クリックの「削除…」（feedback 2026-11-18）。右の帯の「削除」と同じ確認と道</summary>
+    public RelayCommand DeleteModificationCommand { get; }
+
     public RelayCommand ShowAvatarCommand { get; }
 
     public RelayCommand ShowMemberCommand { get; }
@@ -459,9 +484,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     public RelayCommand OpenAvatarManageCommand { get; }
 
-    /// <summary>アバターの行の「改変を作る」。右にそのアバターを出し、名前を入れてもらう。</summary>
-    public RelayCommand StartCreateCommand { get; }
-
+    /// <summary>アバターの見出しの「改変を作る…」と、右のアバターの「新しい改変…」。右にそのアバターを出し、名前を窓で聞いて作る。引数はアバターの ID。</summary>
     public RelayCommand CreateModificationCommand { get; }
 
     public RelayCommand OpenItemPageCommand { get; }
@@ -500,6 +523,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         _isLoading = true;
         OnPropertyChanged(nameof(EmptyText));
 
+        var ticket = ++_recordsReadStarted;
         var modifications = _services.Modifications.LoadAllAsync(token);
         var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
         var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
@@ -522,7 +546,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
-        _records = modifications.Result.Modifications;
+        TryApplyRecords(ticket, modifications.Result.Modifications);
         _projects = await WithLinkedProjectsAsync(projects.Result);
 
         // 使ったものの行の絵の場所は、行を組む前に裏でまとめて引く（行を組むのは画面のスレッドで、検索の1文字ごとにも組み直す）
@@ -577,8 +601,13 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     private async Task RefreshRecordsAsync()
     {
+        var ticket = ++_recordsReadStarted;
         var loaded = await _services.Modifications.LoadAllAsync();
-        _records = loaded.Modifications;
+        if (!TryApplyRecords(ticket, loaded.Modifications))
+        {
+            return;
+        }
+
         _projects = await WithLinkedProjectsAsync(_projects.Where(candidate => candidate.Source != UnityProjectSource.None).ToList());
         Rebuild();
     }
@@ -610,6 +639,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         var token = _leaving.Token;
         try
         {
+            var ticket = ++_recordsReadStarted;
             var modifications = _services.Modifications.LoadAllAsync(token);
             var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
             var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
@@ -617,7 +647,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             await Task.WhenAll(modifications, avatars, projects, tools);
             token.ThrowIfCancellationRequested();
 
-            _records = modifications.Result.Modifications;
+            // 遅れて終わった時は、記録だけ後の読みのままにする（アバター・プロジェクト・ツールは使う）
+            TryApplyRecords(ticket, modifications.Result.Modifications);
             _avatars = avatars.Result
                 .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
@@ -703,9 +734,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         };
     }
 
-    private void ShowModification(ModificationRecord record, bool focusName = false)
+    private void ShowModification(ModificationRecord record)
     {
-        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true, WantsNameFocus = focusName };
+        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true };
         modification.DuplicateRequested += id => DuplicateModificationAsync(id).Forget();
 
         // 開いた直後の読み込みでも Changed が来る。そのときは一覧を組み直さない（開くたびに一覧が動かないように）
@@ -830,20 +861,24 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     private bool _creatingModification;
 
-    private async Task CreateModificationAsync()
+    /// <summary>
+    /// 名前を窓で聞いて改変を作り、右に開く（feedback 2026-11-18・ユーザ判断）。
+    /// アバターの見出しの「改変を作る…」と、右のアバターの「新しい改変…」の、どちらからもここへ来る
+    /// </summary>
+    public async Task CreateModificationAsync(string avatarItemId)
     {
-        if (_creatingModification || Detail is not HubAvatarDetail avatar)
+        if (_creatingModification)
         {
             return;
         }
 
-        // **作っている間は押せない**（外部の点検 2026-10-06）。同じ名前の確かめと保存を待つ間に2回目が入ると、
-        // 両方が「まだ無い」と判断して、同じアバター・同じ名前の改変が2つできた。印は最初の待ちより前に立てる
+        // **作っている間は押せない**（外部の点検 2026-10-06）。保存を待つ間に2回目が入ると、
+        // 同じアバター・同じ名前の改変が2つできた。印は窓を出す前（最初の待ちより前）に立てる
         _creatingModification = true;
         RelayCommand.RaiseCanExecuteChanged();
         try
         {
-            await CreateModificationCoreAsync(avatar);
+            await CreateModificationCoreAsync(avatarItemId);
         }
         finally
         {
@@ -852,36 +887,25 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         }
     }
 
-    private async Task CreateModificationCoreAsync(HubAvatarDetail avatar)
+    private async Task CreateModificationCoreAsync(string avatarItemId)
     {
+        // どのアバターの改変かが右に見えている所で聞く（見出しから来たときは右がまだ別の物のことがある）
+        if (Detail is not HubAvatarDetail { AvatarItemId: var shown } || shown != avatarItemId)
+        {
+            ShowAvatar(avatarItemId);
+        }
 
-        var name = avatar.NameInput.Trim();
-        if (name.Length == 0)
+        var model = new ModificationNameDialogViewModel(
+            ModificationNameDialogViewModel.Purpose.Create, AvatarNameOf(avatarItemId), string.Empty, await TakenNamesAsync(avatarItemId));
+        if (!ModificationNameDialogViewModel.Ask(model))
         {
             return;
         }
 
-        // **同じ名前を許すが、黙って2つ並べない**（アバターの管理と同じ）
-        if (await _services.Modifications.HasSameNameAsync(avatar.AvatarItemId, name))
-        {
-            var answer = Services.Notice.Show(
-                $"「{name}」という改変が既にあります。\n\n"
-                + "同じ名前でも作れます。一覧では作った日付で見分けられます。",
-                "同じ名前の改変があります",
-                System.Windows.MessageBoxButton.OKCancel,
-                System.Windows.MessageBoxImage.Question,
-                System.Windows.MessageBoxResult.Cancel);
-
-            if (answer != System.Windows.MessageBoxResult.OK)
-            {
-                return;
-            }
-        }
-
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.CreateModification(avatar.AvatarItemId, name));
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.CreateModification(avatarItemId, model.Name.Trim()));
         if (result is CommandResult.Failed failed)
         {
-            ShowNotice($"avatar:{avatar.AvatarItemId}", failed.Message, warning: true);
+            ShowNotice($"avatar:{avatarItemId}", failed.Message, warning: true);
             return;
         }
 
@@ -896,14 +920,21 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     }
 
     /// <summary>
-    /// 複製して、できた改変を右に開き、名前の欄へフォーカスを置く（名前を変えるのが次の一手）。
+    /// 窓の「同じ名前の改変が既にあります。」に使う、そのアバターの改変の名前。
+    /// 左の一覧の控えは裏で読み直す途中のことがあるので、今の記録から読む
+    /// </summary>
+    private async Task<IReadOnlyList<string>> TakenNamesAsync(string avatarItemId)
+        => [.. (await _services.Modifications.LoadForAvatarAsync(avatarItemId)).Select(record => record.Name)];
+
+    /// <summary>
+    /// 名前を窓で聞いて複製し、できた改変を右に開く。窓には元の名前を入れて全部選んだ状態で開く（ユーザ判断 2026-11-18）。
     /// 行の右クリックと詳細の帯のボタンの、どちらからもここへ来る
     /// </summary>
     public async Task DuplicateModificationAsync(string id)
     {
         // **複製している間は次の複製を受けない**（外部の点検 2026-10-06。「改変を作る」と同じ）。
-        // 保存を待つ間に2回目が入ると、同じ元から複製が2つでき、同じ「コピー」の名前を選ぶこともあった。
-        // 一覧の右クリックも詳細のボタンもここへ来るので、印はここ1か所で立てる
+        // 保存を待つ間に2回目が入ると、同じ元から複製が2つできた。
+        // 一覧の右クリックも詳細のボタンもここへ来るので、印はここ1か所で、窓を出す前に立てる
         if (_duplicating)
         {
             return;
@@ -926,7 +957,22 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     private async Task DuplicateModificationCoreAsync(string id)
     {
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DuplicateModification(id));
+        // 窓に入れる名前は今の記録から（行が持つ記録は一覧を組んだ時の物で、名前を変えた後のことがある）
+        if (await _services.Modifications.LoadAsync(id) is not { } source)
+        {
+            Status = "対象の改変が見つかりませんでした。";
+            await RefreshRecordsAsync();
+            return;
+        }
+
+        var model = new ModificationNameDialogViewModel(
+            ModificationNameDialogViewModel.Purpose.Duplicate, AvatarNameOf(source.AvatarItemId), source.Name, await TakenNamesAsync(source.AvatarItemId));
+        if (!ModificationNameDialogViewModel.Ask(model))
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DuplicateModification(id, model.Name.Trim()));
         if (result is CommandResult.Failed failed)
         {
             Status = failed.Message;
@@ -936,8 +982,40 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         await RefreshRecordsAsync();
         if (result is CommandResult.ModificationCreated created)
         {
-            ShowModification(created.Record, focusName: true);
+            ShowModification(created.Record);
         }
+    }
+
+    public async Task DeleteModificationAsync(string id)
+    {
+        // 行が持つ記録は一覧を組んだ時の物なので、確認に書く写真の枚数は今の記録から数える
+        if (await _services.Modifications.LoadAsync(id) is not { } record)
+        {
+            Status = "対象の改変が見つかりませんでした。";
+            await RefreshRecordsAsync();
+            return;
+        }
+
+        if (!ModificationViewModel.ConfirmDelete(record))
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteModification(id));
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        // 消した改変を右に開いていれば閉じる（開いたままだと、消えた改変に書き込める）
+        if (Detail is ModificationViewModel open && open.Record.Id == id)
+        {
+            Detail = null;
+        }
+
+        Status = $"改変「{record.Name}」を消しました。";
+        await RefreshRecordsAsync();
     }
 
     private async Task OpenItemPageAsync(string? itemId)

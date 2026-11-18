@@ -218,6 +218,12 @@ internal sealed class TestApp
     /// <summary>出すはずだった「IDを変える」の窓。</summary>
     public List<ChangeItemIdDialogViewModel> ChangeIdDialogs { get; } = [];
 
+    /// <summary>改変を作る・複製するときの名前の窓への答え（窓は出ない）。名前は窓の Name を書き換えて決める。既定は「キャンセル」。</summary>
+    public Func<ModificationNameDialogViewModel, bool> NameModification { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、改変の名前の窓。</summary>
+    public List<ModificationNameDialogViewModel> ModificationNameDialogs { get; } = [];
+
     /// <summary>選ぶ窓（<see cref="ChoiceQuestion"/>）への答え（窓は出ない）。既定はキャンセル——答えを決めていない問いで、書き換えが黙って走らないように</summary>
     public Func<ChoiceRequest, Views.ChoiceDialogResult> Choose { get; set; } = _ => Views.ChoiceDialogResult.Cancel;
 
@@ -368,6 +374,11 @@ internal sealed class TestApp
             {
                 app.ChangeIdDialogs.Add(model);
                 return app.AnswerChangeId(model);
+            };
+            ModificationNameDialogViewModel.Intercept = model =>
+            {
+                app.ModificationNameDialogs.Add(model);
+                return app.NameModification(model);
             };
 
             // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
@@ -527,6 +538,7 @@ internal sealed class TestApp
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;
+            ModificationNameDialogViewModel.Intercept = null;
             // Run で差し替えた口は全部ここで戻す（点検24：この2つだけ戻しておらず、TestApp を使わない試験が
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
             ChoiceQuestion.Intercept = null;

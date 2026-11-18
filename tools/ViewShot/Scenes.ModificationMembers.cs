@@ -47,14 +47,14 @@ internal static partial class Scenes
             Height = null,
         },
 
-        new Scene("modification-member-repick", "改変の詳細：選び直しは「Unity ▾」の中（字の隣のボタンは無い）・新しい版の行の「新しい版を選ぶ…」・外した行にも「Unity ▾」（カード）", async context =>
+        new Scene("modification-member-repick", "改変の詳細：選び直しは「Unity ▾」の中（字の隣のボタンは無い）・操作は「移動 ▾」「Unity ▾」「更新 ▾」「外す」の1行・外した行にも「Unity ▾」（カード）", async context =>
             await RepickDetailShotAsync(context, list: false))
         {
             Width = 1280,
             Height = 1500,
         },
 
-        new Scene("modification-member-repick-list", "改変の詳細：選び直しは「Unity ▾」の中・外した行にも「Unity ▾」（リスト。操作の列の幅に収まるか）", async context =>
+        new Scene("modification-member-repick-list", "改変の詳細：選び直しは「Unity ▾」の中・新しい版の札と「更新 ▾」・外した行にも「Unity ▾」（リスト。操作の列の幅に収まるか）", async context =>
             await RepickDetailShotAsync(context, list: true))
         {
             Width = 1280,
@@ -240,7 +240,7 @@ internal static partial class Scenes
     };
 
     /// <summary>
-    /// 選び直しの入口（ユーザ指示 2026-11-11）。衣装は古い版の zip を記録していて、新しい版の zip が手元に来ている（新しい版の札と「新しい版を選ぶ…」が出る）
+    /// 選び直しの入口（ユーザ指示 2026-11-11）。衣装は古い版の zip を記録していて、新しい版の zip が手元に来ている（新しい版の札と「更新 ▾」が出る）
     /// </summary>
     private static async Task<Shot> RepickDetailShotAsync(SceneContext context, bool list)
     {

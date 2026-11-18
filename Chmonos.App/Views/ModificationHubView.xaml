@@ -205,13 +205,17 @@
         <DataTemplate x:Key="HubModHeader" DataType="{x:Type vm:HubModificationRow}">
             <Border Style="{StaticResource HubPressableRow}"
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
-            <!-- 右クリック（メモ44 2026-10-05）。項目は「複製」だけで、いつでも押せる（元が無いときは失敗の文を出す） -->
+            <!-- 右クリック（メモ44 2026-10-05）。いつでも押せる（元が無いときは失敗の文を出す）。削除は確認の窓を出す（feedback 2026-11-18） -->
             <Border.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="複製" AutomationProperties.AutomationId="ModificationRowMenu.Duplicate"
+                    <MenuItem Header="複製…" AutomationProperties.AutomationId="ModificationRowMenu.Duplicate"
                               Command="{Binding PlacementTarget.Tag.DuplicateModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding}"
                               ToolTip="使ったものとメモが同じ、新しい改変を作ります。" />
+                    <Separator />
+                    <MenuItem Header="削除…" AutomationProperties.AutomationId="ModificationRowMenu.Delete" Style="{StaticResource DangerMenuItem}"
+                              Command="{Binding PlacementTarget.Tag.DeleteModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="{Binding}" />
                 </ContextMenu>
             </Border.ContextMenu>
             <Border.InputBindings>
@@ -310,8 +314,18 @@
                     右クリック（ユーザ判断 2026-11-10）：見つかるプロジェクトでも場所を付け替えられる（同じ名前で残った古いフォルダを片付ける前など）。
                     紐付けていない改変の見出しには付け替える先が無いので、メニューを開かない（空のメニューを出さない）
                 -->
+                <!-- 「Unityを開く」「エクスプローラで開く」も置く（feedback 2026-11-18）。見つからないフォルダでは押せない（ボタンと同じ） -->
                 <Border.ContextMenu>
                     <ContextMenu>
+                        <MenuItem Header="Unityを開く" AutomationProperties.AutomationId="ProjectRowMenu.OpenUnity"
+                                  IsEnabled="{Binding CanOpen}"
+                                  Command="{Binding PlacementTarget.Tag.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Path}" />
+                        <MenuItem Header="エクスプローラで開く" AutomationProperties.AutomationId="ProjectRowMenu.OpenFolder"
+                                  IsEnabled="{Binding CanOpen}"
+                                  Command="{Binding PlacementTarget.Tag.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Path}" />
+                        <Separator />
                         <MenuItem Header="場所を付け替える…" AutomationProperties.AutomationId="ProjectRowMenu.Relocate"
                                   Command="{Binding PlacementTarget.Tag.RelocateProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding Path}"
@@ -438,8 +452,8 @@
                         </Border>
                     </Button>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button AutomationProperties.AutomationId="ModificationsAvatarCreate" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の改変を作る}" Content="改変を作る" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                Command="{Binding DataContext.StartCreateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        <Button AutomationProperties.AutomationId="ModificationsAvatarCreate" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の改変を作る}" Content="改変を作る…" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                Command="{Binding DataContext.CreateModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding AvatarItemId}" />
                         <Button AutomationProperties.AutomationId="ModificationsAvatarManage" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のアバターの管理へ}" Content="アバターの管理へ" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                 Command="{Binding DataContext.OpenAvatarManageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -699,24 +713,21 @@
 
                     <Border Style="{StaticResource Card}" Margin="0,20,0,0" Padding="18,16">
                         <StackPanel>
-                            <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
-                            <TextBlock Text="まだありません。下で名前を付けて作れます。" Style="{StaticResource Caption}"
-                                       Visibility="{Binding HasModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            <controls:ContentItemsControl ItemsSource="{Binding Modifications}" />
-
-                            <Border Height="1" Background="{DynamicResource Border}" Margin="0,12" />
-                            <TextBlock Text="新しい改変" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
-                            <DockPanel>
-                                <Button AutomationProperties.AutomationId="ModificationsDetailCreate" DockPanel.Dock="Right" Content="改変を作る" Style="{StaticResource PrimaryButton}"
-                                        Margin="8,0,0,0"
-                                        Command="{Binding DataContext.CreateModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                <TextBox Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}" Height="30"
-                                             AutomationProperties.Name="新しい改変の名前"
-                                         VerticalContentAlignment="Center" Padding="7,0" />
+                            <!--
+                                「新しい改変…」は枠の上に置き、名前は窓で聞く（feedback 2026-11-18・ユーザ判断）。
+                                前は一覧の下に名前の欄があり、改変が多いと流した先になり、欄の Enter でも作れなかった
+                            -->
+                            <DockPanel Margin="0,0,0,8">
+                                <Button AutomationProperties.AutomationId="ModificationsDetailCreate" DockPanel.Dock="Right" Content="新しい改変…" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding DataContext.CreateModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding AvatarItemId}"
+                                        ToolTip="「普段着」「制服」のように、着せ替え1つにつき1つ作ります。" />
+                                <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
                             </DockPanel>
                             <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" />
-                            <TextBlock Text="「普段着」「制服」のように、着せ替え1つにつき1つ作ります。同じアバターに何個でも作れます。"
-                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <TextBlock Text="まだありません。「新しい改変…」で作れます。" Style="{StaticResource Caption}"
+                                       Visibility="{Binding HasModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                            <controls:ContentItemsControl ItemsSource="{Binding Modifications}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -915,12 +926,13 @@
                         一覧を狭めると探す欄が数文字まで縮むので、入り切らなければボタンを次の行の右へ送る
                     -->
                     <controls:SplitRowPanel Margin="0,12,0,0" Gap="6" MinLeftWidth="220">
+                        <!-- 透かしは欄そのものの文字で出し分ける。Query は Delay=200 の後に変わるので、それで決めると打ってから 200ms 透かしが文字に重なる -->
                         <Grid>
-                            <TextBox Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
+                            <TextBox x:Name="HubQueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
                                      VerticalContentAlignment="Center" Padding="7,0"
                                      AutomationProperties.Name="{Binding QueryPlaceholder}" />
                             <TextBlock Text="{Binding QueryPlaceholder}" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                       Visibility="{Binding Text.IsEmpty, ElementName=HubQueryBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Grid>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="すべて畳む" Style="{StaticResource SmallButton}" Height="30"
