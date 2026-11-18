@@ -115,7 +115,7 @@
                                         <Separator />
                                         <MenuItem Header="外す" Command="{Binding RemoveCommand}" Style="{StaticResource DangerMenuItem}"
                                                   AutomationProperties.AutomationId="ItemConversionMenu.Remove"
-                                                  ToolTip="次に自動で推すときも、このつなぎ先は使いません。" />
+                                                  ToolTip="次に自動で探すときも、このつなぎ先は使いません。" />
                                     </ContextMenu>
                                 </Border.ContextMenu>
                                 <StackPanel Orientation="Horizontal">
@@ -134,7 +134,7 @@
                                             Command="{Binding RemoveCommand}"
                                             AutomationProperties.AutomationId="ItemConversionRemove"
                                             AutomationProperties.Name="{Binding TargetText, StringFormat={}{0}を外す}"
-                                            ToolTip="外します。次に自動で推すときも使いません。" Style="{StaticResource RejectMarkButton}" />
+                                            ToolTip="外します。次に自動で探すときも使いません。" Style="{StaticResource RejectMarkButton}" />
                                 </StackPanel>
                             </Border>
                             <controls:SuggestBox Width="220"

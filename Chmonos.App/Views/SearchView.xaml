@@ -1045,7 +1045,7 @@
                                         <CheckBox IsChecked="{Binding IncludeUnconfirmed, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeUnconfirmed'}"
                                                   AutomationProperties.Name="確認待ちも含める"
-                                                  ToolTip="自動で推して、まだ確認していないつなぎ先も含めます。">
+                                                  ToolTip="自動で見つけた、まだ確認していないつなぎ先も含めます。">
                                             <TextBlock Text="確認待ちも含める" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <!-- 片方の欄だけ入れたときに効く（ユーザ判断 2026-11-09・既定は切）。効かない間は押せなくし、場所は残す -->

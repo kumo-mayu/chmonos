@@ -93,7 +93,7 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// <summary>つなぎ先の決まっていないプロファイルの数。</summary>
     public int UnsetCount => Rows.Count(row => !row.HasTarget);
 
-    /// <summary>今見せている確認待ちのつなぎ先（「推した通りに決める」が名指しする行。見せた物だけを確かめる）。</summary>
+    /// <summary>今見せている確認待ちのつなぎ先（「確認済みにして次へ」が名指しする行。見せた物だけを確かめる）。</summary>
     public IReadOnlyList<ConversionTarget> UnconfirmedTargets { get; private set; } = [];
 
     /// <summary>人が外したつなぎ先（畳んだ「外したつなぎ先」の一覧。行ごとに「戻す」）。</summary>
@@ -181,7 +181,7 @@ public sealed class ItemConversionEditor : ViewModelBase
                 && suggestions.TryGetValue(slug, out var suggestion)
                 && suggestion.Target is { } suggested
                 && ConversionTarget.SameRow(suggested, target)
-                    ? "推した理由：" + CluesText(suggestion.Clues, names)
+                    ? "見つけた理由：" + CluesText(suggestion.Clues, names)
                     : string.Empty;
 
         // つなぎ先の無い行の訳。推せる手掛かりがあっても、人が外した物なら外したと言う（見回りが推さないのはそのため）。
@@ -195,18 +195,18 @@ public sealed class ItemConversionEditor : ViewModelBase
 
             if (suggestion.Conflicting)
             {
-                return "推していません：読み取った情報が食い違います・" + CluesText(suggestion.Clues, names);
+                return "つなぎ先は見つかりませんでした：読み取った情報が食い違います・" + CluesText(suggestion.Clues, names);
             }
 
             if (suggestion.Target is not { } suggested)
             {
-                return "推していません：推す元になる情報がありません";
+                return "つなぎ先は見つかりませんでした：元になる情報がありません";
             }
 
             var rejected = (setting?.Targets ?? []).Any(target => target.Rejected && ConversionTarget.SameRow(target, suggested));
             return rejected
-                ? $"外したつなぎ先：{TargetName(suggested)}・推した理由：{CluesText(suggestion.Clues, names)}"
-                : $"推せるつなぎ先：{TargetName(suggested)}・理由：{CluesText(suggestion.Clues, names)}";
+                ? $"外したつなぎ先：{TargetName(suggested)}・見つけた理由：{CluesText(suggestion.Clues, names)}"
+                : $"見つけたつなぎ先：{TargetName(suggested)}・理由：{CluesText(suggestion.Clues, names)}";
         }
 
         // 人が外したつなぎ先は出さない（そのプロファイルは選ぶ欄に戻る）。行は保存に残り、見回りが同じ物を推すのを止める
@@ -353,7 +353,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         TargetText = name,
         ReasonText = reason,
         IconFactory = iconFactory,
-        TooltipText = target.Confirmed ? name : $"{name}：推した値です。確認すると変換経由に使います。",
+        TooltipText = target.Confirmed ? name : $"{name}：自動で見つけたつなぎ先です。確認すると変換経由に使います。",
         HasTarget = true,
         IsUnconfirmed = !target.Confirmed,
         ConfirmCommand = new RelayCommand(
@@ -453,7 +453,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         OnPropertyChanged(nameof(RejectedHeader));
         RaiseMode();
 
-        // 持ち主のボタン（推した通りに決めて次へ）が、確認待ちの有無で押せるかを変えるため
+        // 持ち主のボタン（確認済みにして次へ）が、確認待ちの有無で押せるかを変えるため
         RelayCommand.RaiseCanExecuteChanged();
     }
 }
