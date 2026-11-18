@@ -35,6 +35,9 @@ using SixLabors.ImageSharp.Processing;
 //   manage                             管理の画面の台にする（タグ・属性・知らせ・改変を、今ある商品に大量に入れる）
 //   changes                            商品ページの変化の知らせ（変わった行・名前・価格・販売終了）を、商品7件に作る
 //                                      （アプリの取り直し＝ItemService.RefreshAsync に、台本どおりの JSON と HTML を返して作る）
+//   attributes [属性の数=6] [付ける割合%=70]
+//                                      属性を作り、属性の値がまだ無い商品にだけ値（0〜100）を付ける（統計の画面を見るため）。
+//                                      既にある属性・値は変えない。例: SandboxGen <保存先> attributes 6 70
 //   show                               今の数を出す（商品・未確定・取り込み元）
 //   exceptions <作り物のフォルダ> <無い文字> <表で読み替える文字> <番号で読み替える文字>
 //                                      画面で確かめる例外の状態（無いドライブ・見つからない・壊れた zip・外した・古い版・非公開など）を、
@@ -103,6 +106,7 @@ var code = step switch
     "attach" => await AttachAsync(rest[0], int.Parse(rest[1])),
     "settings" => await ChangeSettingsAsync(rest),
     "manage" => await FillManageAsync(),
+    "attributes" => await FillAttributesAsync(rest.Length > 0 ? int.Parse(rest[0]) : 6, rest.Length > 1 ? int.Parse(rest[1]) : 70),
     "changes" => await ChangesAsync(),
     "showcase" => await ShowcaseAsync(rest[0], rest[1], rest.Length > 2 ? rest[2] : null),
     "show" => await ShowAsync(),
@@ -390,6 +394,39 @@ async Task<int> ChangeSettingsAsync(string[] pairs)
         Console.WriteLine($"設定: {key} = {value}");
     }
 
+    return 0;
+}
+
+// 統計の画面を見るために、ユーザのデータの写しへ属性を適当に付ける（ユーザ指示 2026-11-18）。
+// manage はタグ・知らせ・改変まで大量に入れ、マスタも丸ごと書き換えるので、普段のデータの写しには使えない。
+// 使う人が付けた値を消さないよう、値がまだ無い商品にだけ付ける。種を固定し、同じ写しなら同じ値になる
+async Task<int> FillAttributesAsync(int count, int percent)
+{
+    var rng = new Random(20261118);
+    string[] pool = ["かわいい", "かっこいい", "よく使う", "軽さ", "質感", "色味", "揺れもの", "改変のしやすさ", "説明の丁寧さ", "値段の満足"];
+    var names = pool.Take(Math.Clamp(count, 1, pool.Length)).ToArray();
+
+    foreach (var name in names)
+    {
+        await RunAsync(new UiCommand.AddAttribute(name));
+    }
+
+    var items = (await store.Items.LoadAllAsync()).Items.OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
+    var filled = 0;
+    foreach (var item in items.Where(item => item.Local.Attributes is not { Count: > 0 }))
+    {
+        // 属性ごとに付けるかを割合で決める。全部に付けると「未評価」の数が統計に出ず、見る物が減る
+        var values = names.Where(_ => rng.Next(100) < percent).ToDictionary(name => name, _ => rng.Next(0, 101));
+        if (values.Count == 0)
+        {
+            continue;
+        }
+
+        await store.Items.ChangeLocalAsync(item.Id, local => local with { Attributes = values }, [LocalField.Attributes]);
+        filled++;
+    }
+
+    Console.WriteLine($"属性 {names.Length} 個・値を付けた商品 {filled}/{items.Count} 件");
     return 0;
 }
 
