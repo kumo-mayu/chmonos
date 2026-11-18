@@ -87,10 +87,11 @@
                                                   AutomationProperties.AutomationId="ItemConversionDirection.Both" />
                                         <!--
                                             人が変えた向きを消して、中のファイルの名前どおりに戻す口（2026-11-18 のメモ）。
-                                            既定と同じ時は押しても何も変わらないので出さない
+                                            既定と同じ時は押しても何も変わらないので出さない。人の指定を消す操作なので赤（V4）
                                         -->
                                         <Separator Visibility="{Binding IsDirectionChanged, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <MenuItem Header="既定に戻す" Command="{Binding SetDirectionCommand}" CommandParameter="{Binding FileDirection}"
+                                                  Style="{StaticResource DangerMenuItem}"
                                                   ToolTip="中のファイルの名前どおりの向きに戻します。"
                                                   Visibility="{Binding IsDirectionChanged, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                   AutomationProperties.AutomationId="ItemConversionDirection.Reset" />
