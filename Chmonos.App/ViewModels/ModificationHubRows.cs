@@ -464,21 +464,6 @@ public sealed class HubAvatarDetail : ViewModelBase, IHubNoticeTarget
     public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
 
     public bool HasModifications => Modifications.Count > 0;
-
-    private string _nameInput = string.Empty;
-
-    /// <summary>新しく作る改変の名前。</summary>
-    public string NameInput
-    {
-        get => _nameInput;
-        set
-        {
-            if (SetField(ref _nameInput, value))
-            {
-                RelayCommand.RaiseCanExecuteChanged();
-            }
-        }
-    }
 }
 
 /// <summary>

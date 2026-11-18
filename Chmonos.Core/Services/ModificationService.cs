@@ -21,8 +21,8 @@ public interface IModificationService
         string name,
         CancellationToken cancellationToken = default);
 
-    /// <summary>複製を作って返す。元が無ければ null。</summary>
-    Task<ModificationRecord?> DuplicateAsync(string id, CancellationToken cancellationToken = default);
+    /// <summary>複製を作って返す。元が無ければ null。<paramref name="name"/> が空なら名前は <c>DuplicateName</c> で決める。</summary>
+    Task<ModificationRecord?> DuplicateAsync(string id, string? name = null, CancellationToken cancellationToken = default);
 
     /// <summary>消す。**貼った画像も一緒に消える。**聞くのは呼ぶ側。</summary>
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default);
@@ -200,7 +200,7 @@ public sealed class ModificationService : IModificationService
     /// （写すと2つの改変から同じアップロードへ着替えることになる）・写真（組み合わせた結果の姿なので、新しい改変には合わない）。
     /// 元が無ければ null。
     /// </summary>
-    public async Task<ModificationRecord?> DuplicateAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<ModificationRecord?> DuplicateAsync(string id, string? name = null, CancellationToken cancellationToken = default)
     {
         var source = await _store.Modifications.LoadAsync(id, cancellationToken);
         if (source is null)
@@ -208,8 +208,14 @@ public sealed class ModificationService : IModificationService
             return null;
         }
 
-        var existing = await LoadForAvatarAsync(source.AvatarItemId, cancellationToken);
-        var name = DuplicateName(source.Name, existing.Select(record => record.Name));
+        // 人が窓で付けた名前はそのまま使う（同じ名前でも許す。作るときと同じ）
+        if (name?.Trim() is not { Length: > 0 } given)
+        {
+            var existing = await LoadForAvatarAsync(source.AvatarItemId, cancellationToken);
+            given = DuplicateName(source.Name, existing.Select(record => record.Name));
+        }
+
+        name = given;
 
         var now = DateTimeOffset.Now;
         var record = new ModificationRecord

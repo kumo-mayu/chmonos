@@ -841,7 +841,13 @@ public sealed class CommandHandler
                     return MissingService("改変の編集");
                 }
 
-                return await _modifications.DuplicateAsync(duplicateMod.Id, cancellationToken) is { } duplicated
+                // 窓で名前を消して確定したときは、黙って「〇〇のコピー」にせず言う（作るときと同じ文）
+                if (duplicateMod.Name is { } duplicateName && duplicateName.Trim().Length == 0)
+                {
+                    return new CommandResult.Failed("名前を入れてください。");
+                }
+
+                return await _modifications.DuplicateAsync(duplicateMod.Id, duplicateMod.Name, cancellationToken) is { } duplicated
                     ? new CommandResult.ModificationCreated(duplicated)
                     : new CommandResult.Failed("対象の改変が見つかりませんでした。");
 

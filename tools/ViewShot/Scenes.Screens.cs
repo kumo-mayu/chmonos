@@ -751,8 +751,8 @@ internal static partial class Scenes
         {
             Height = 1500,
         },
-        new Scene("modification-hub-notice-before", "改変の画面（アバターの見方）：右の「新しい改変」の下に知らせが出る前", context => ModificationHubNoticeAsync(context, show: false)),
-        new Scene("modification-hub-notice-after", "改変の画面（アバターの見方）：右の「新しい改変」の下に知らせが出た後", context => ModificationHubNoticeAsync(context, show: true)),
+        new Scene("modification-hub-notice-before", "改変の画面（アバターの見方）：右の「このアバターの改変」の見出しの下に知らせが出る前（上に「新しい改変…」）", context => ModificationHubNoticeAsync(context, show: false)),
+        new Scene("modification-hub-notice-after", "改変の画面（アバターの見方）：右の「このアバターの改変」の見出しの下に知らせが出た後", context => ModificationHubNoticeAsync(context, show: true)),
 
         // 右の欄の上から下までを1枚で見る（blueprint ID の欄の並び・大きさのスライダーの位置）。窓を縦に長くして描く
         new Scene("modification-selected-tall", "改変の画面：改変を選んだ右の欄の全部（縦に長い窓。blueprint ID の欄・大きさのスライダー）", async context =>
@@ -958,7 +958,8 @@ internal static partial class Scenes
 
         if (show)
         {
-            hub.StartCreateCommand.Execute("9900201");
+            // 作るときの失敗だけがここに出る（名前は窓で聞くので、前の「名前を入れて…」の案内は無くなった）
+            ((HubAvatarDetail)hub.Detail!).Notice.Set("名前を入れてください。", true);
             await context.SettleAsync();
         }
 

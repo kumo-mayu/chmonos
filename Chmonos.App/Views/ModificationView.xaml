@@ -96,7 +96,7 @@
                     <StackPanel Orientation="Horizontal"
                                 Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <!-- 複製（メモ44 2026-10-05）。左の一覧の右クリックと同じ道。削除の左 -->
-                        <Button Content="複製" AutomationProperties.AutomationId="ModificationDuplicate"
+                        <Button Content="複製…" AutomationProperties.AutomationId="ModificationDuplicate"
                                 Command="{Binding DuplicateCommand}" Margin="0,0,8,0"
                                 ToolTip="使ったものとメモが同じ、新しい改変を作ります。" />
                         <Button Content="削除" AutomationProperties.Name="この改変を削除" Style="{StaticResource DangerButton}"

@@ -751,6 +751,24 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task 複製の名前を渡せばその名前で作り_同じ名前でも作る()
+    {
+        var id = await NewAsync();
+        var source = (await _service.LoadAsync(id))!;
+
+        var named = (await _service.DuplicateAsync(id, "  冬の改変 "))!;
+        Assert.Equal("冬の改変", named.Name);
+
+        // 窓の初めの値は元の名前なので、そのまま確定すると同じ名前になる。同じ名前は許す（作るときと同じ）
+        var same = (await _service.DuplicateAsync(id, source.Name))!;
+        Assert.Equal(source.Name, same.Name);
+        Assert.NotEqual(id, same.Id);
+
+        // 空なら Core が「〇〇のコピー」を決める
+        Assert.StartsWith($"{source.Name}のコピー", (await _service.DuplicateAsync(id, " "))!.Name, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task 元が無ければ複製しない()
         => Assert.Null(await _service.DuplicateAsync("mod-00000000"));
 

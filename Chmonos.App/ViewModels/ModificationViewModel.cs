@@ -372,9 +372,6 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>「複製」を押した。複製は左の一覧と右の開き方に関わるので、作るのは改変の画面（<see cref="ModificationHubViewModel"/>）で、ここは頼むだけ</summary>
     public event Action<string>? DuplicateRequested;
 
-    /// <summary>複製の直後に開いたとき true。名前の欄へフォーカスを置く（名前を変えるのが次の一手）。画面が読んだら下ろす</summary>
-    public bool WantsNameFocus { get; set; }
-
     /// <summary>記録を読み直した（名前・メモ・使ったもの・紐付けが変わったかもしれない）。組み込んだ側が左の一覧を合わせる。</summary>
     public event Action? Changed;
 

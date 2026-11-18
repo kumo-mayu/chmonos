@@ -348,8 +348,11 @@ public abstract record UiCommand
     /// <summary>改変を作る。アバターが登録簿に無ければその場で足す</summary>
     public record CreateModification(string AvatarItemId, string Name) : UiCommand;
 
-    /// <summary>改変を複製する。外した行・blueprint ID・写真は写さない</summary>
-    public record DuplicateModification(string Id) : UiCommand;
+    /// <summary>
+    /// 改変を複製する。外した行・blueprint ID・写真は写さない。
+    /// 名前は画面の窓で聞いた物（feedback 2026-11-18）。null なら「〇〇のコピー」を Core が決める（外から使う道と前の呼び方のため）
+    /// </summary>
+    public record DuplicateModification(string Id, string? Name = null) : UiCommand;
 
     /// <summary>改変を消す。**貼った画像も一緒に消える**。聞くのは画面側</summary>
     public record DeleteModification(string Id) : UiCommand;
