@@ -96,7 +96,7 @@ public class LongJobTests
         main.ShowAvatars();
         var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
         Assert.True(avatars.DetectCommand.CanExecute(null));
-        Assert.Equal("取り込むたびに自動で読み取るので、ふつうは押さなくてかまいません。", avatars.DetectHint);
+        Assert.Equal("ふつうは押さなくてかまいません。取り込むたびに自動で読み取ります。", avatars.DetectHint);
 
         Task export;
         using (await StoreWriteGate.HoldAsync())

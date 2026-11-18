@@ -759,7 +759,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// </summary>
     public string DetectHint => !IsDetecting && _main.IsLongJobRunning
         ? _main.LongJobBlockedNote
-        : "取り込むたびに自動で読み取るので、ふつうは押さなくてかまいません。";
+        : "ふつうは押さなくてかまいません。取り込むたびに自動で読み取ります。";
 
     public string Status
     {
