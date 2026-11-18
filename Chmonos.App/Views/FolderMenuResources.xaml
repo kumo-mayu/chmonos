@@ -1,0 +1,156 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+                    xmlns:controls="clr-namespace:Chmonos.App.Controls">
+    <!--
+        フォルダの右クリック（open.md 90・92 行。ユーザのメモ 2026-11-18）。左の木のフォルダ・根・ドライブの行、右の子フォルダのカード、
+        リストのフォルダの行で同じ物を出す。前は右の頭のボタンだけで、フォルダへの操作は「行を押す → 右の頭へ」の往復だった。
+        開閉の項目は木の行だけ（カードとリストの行には開閉が無い）。
+        命令は右クリックした物の Tag（木は FolderViewModel、右は FolderViewDetail）の FolderMenu（＝フォルダの画面）から引く。
+        どちらも同じ名前の入口を持つので、メニューは1つで済む（CardMenu の MenuCommands と同じ作り）
+    -->
+    <ContextMenu x:Key="FolderMenu" AutomationProperties.AutomationId="FolderMenu">
+        <ContextMenu.Resources>
+            <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                <Setter Property="CommandParameter" Value="{Binding}" />
+                <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            </Style>
+        </ContextMenu.Resources>
+
+        <MenuItem AutomationProperties.AutomationId="FolderMenu.Toggle"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.ToggleCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Header>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Header.Toggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.Header>
+            <MenuItem.Visibility>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="TreeOnly">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.Visibility>
+            <MenuItem.IsEnabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="CanToggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.IsEnabled>
+            <controls:MenuTips.Disabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Tip.Toggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </controls:MenuTips.Disabled>
+        </MenuItem>
+        <MenuItem Header="下の階層まで開く" AutomationProperties.AutomationId="FolderMenu.ExpandAll"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.ExpandAllCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Visibility>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="TreeOnly">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.Visibility>
+            <MenuItem.IsEnabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="CanToggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.IsEnabled>
+            <controls:MenuTips.Disabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Tip.Toggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </controls:MenuTips.Disabled>
+        </MenuItem>
+        <MenuItem Header="下の階層まで折りたたむ" AutomationProperties.AutomationId="FolderMenu.CollapseAll"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.CollapseAllCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Visibility>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="TreeOnly">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.Visibility>
+            <MenuItem.IsEnabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="CanToggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.IsEnabled>
+            <controls:MenuTips.Disabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Tip.Toggle">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </controls:MenuTips.Disabled>
+        </MenuItem>
+        <Separator>
+            <Separator.Visibility>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="TreeOnly">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </Separator.Visibility>
+        </Separator>
+
+        <MenuItem Header="このフォルダの商品を検索で開く" AutomationProperties.AutomationId="FolderMenu.SearchHere"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.SearchHereCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <MenuItem Header="エクスプローラで開く" AutomationProperties.AutomationId="FolderMenu.Reveal"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.RevealCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.IsEnabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Online">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.IsEnabled>
+            <controls:MenuTips.Disabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Tip.Online">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </controls:MenuTips.Disabled>
+        </MenuItem>
+        <MenuItem Header="このフォルダの商品を取り込む" AutomationProperties.AutomationId="FolderMenu.Import"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.ImportHereCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.IsEnabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Online">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.IsEnabled>
+            <controls:MenuTips.Disabled>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Tip.Online">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </controls:MenuTips.Disabled>
+        </MenuItem>
+        <MenuItem AutomationProperties.AutomationId="FolderMenu.Watch"
+                  Command="{Binding PlacementTarget.Tag.FolderMenu.ToggleWatchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Header>
+                <MultiBinding Converter="{x:Static vm:FolderMenuConverter.Instance}" ConverterParameter="Header.Watch">
+                    <Binding />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                    <Binding Path="PlacementTarget.Tag.FolderMenu.FolderMenuVersion" RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                </MultiBinding>
+            </MenuItem.Header>
+        </MenuItem>
+    </ContextMenu>
+</ResourceDictionary>

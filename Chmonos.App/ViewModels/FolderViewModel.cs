@@ -411,28 +411,36 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         ToggleCommand = new RelayCommand(parameter => Toggle(parameter as FolderViewRow));
         ShowOtherCommand = new RelayCommand(parameter => ShowOther(parameter as FolderViewRow));
         RevealExtractedCommand = new RelayCommand(parameter => ExplorerReveal.RevealAsync((parameter as FolderViewRow)?.Entry?.ExtractedFolder).Forget());
+        // フォルダへの操作は、右の頭のボタン（詳細）と、フォルダの右クリック（木の行・子フォルダのカード・リストの行。open.md 90・92 行）の
+        // どちらからも来る。どれも同じ場所（node.Path）を指すので、同じ結果になる
         SearchHereCommand = new RelayCommand(parameter =>
         {
-            if (parameter is FolderViewDetail detail)
+            if (FolderTarget.Of(parameter) is { } target)
             {
                 // 検索のフォルダの条件も同じ読み替えを通すので、今の場所のまま渡す
-                _main.ShowItemsInFolder(detail.Path);
+                _main.ShowItemsInFolder(target.Path);
             }
         });
-        // 右のフォルダの詳細からはその場所を開く。木の行（商品のファイル）の右クリックからは、
+        // フォルダからはその場所を開く。木の行（商品のファイル）の右クリックからは、
         // カードと同じ「エクスプローラで開く」（手元のファイルが2つ以上あれば選ばせる。M3）
         RevealCommand = new RelayCommand(parameter =>
         {
-            if (parameter is FolderViewDetail detail)
+            if (FolderTarget.Of(parameter) is { } target)
             {
-                ExplorerReveal.RevealAsync(detail.Path).Forget();
+                if (!target.IsOffline)
+                {
+                    ExplorerReveal.RevealAsync(target.Path).Forget();
+                }
+
                 return;
             }
 
             _main.Search.RevealCommand.Execute(parameter);
         });
-        ImportHereCommand = new RelayCommand(parameter => ImportHere(parameter as FolderViewDetail));
-        ToggleWatchCommand = new RelayCommand(parameter => ToggleWatchAsync(parameter as FolderViewDetail).Forget());
+        ImportHereCommand = new RelayCommand(parameter => ImportHere(FolderTarget.Of(parameter)));
+        ToggleWatchCommand = new RelayCommand(parameter => ToggleWatchAsync(FolderTarget.Of(parameter)).Forget());
+        ExpandAllCommand = new RelayCommand(parameter => SetExpandedBelow(parameter as FolderViewRow, expanded: true));
+        CollapseAllCommand = new RelayCommand(parameter => SetExpandedBelow(parameter as FolderViewRow, expanded: false));
         ExcludeUnresolvedCommand = new RelayCommand(parameter => ExcludeUnresolvedAsync(parameter as FolderViewDetail).Forget());
         OpenUnresolvedCommand = new RelayCommand(parameter =>
         {
@@ -692,6 +700,56 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     public RelayCommand ExcludeUnresolvedCommand { get; }
 
     public RelayCommand OpenUnresolvedCommand { get; }
+
+    /// <summary>木の行の右クリック「下の階層まで開く」。その行の下のフォルダを全部開く。</summary>
+    public RelayCommand ExpandAllCommand { get; }
+
+    /// <summary>木の行の右クリック「下の階層まで折りたたむ」。その行と下のフォルダを全部畳む（次に開いた時も畳んだまま）。</summary>
+    public RelayCommand CollapseAllCommand { get; }
+
+    // ---- フォルダの右クリック（open.md 90・92 行） ----
+
+    /// <summary>
+    /// フォルダの右クリックが命令を引く入口。木の行の Tag はこの画面、右の一覧の Tag は詳細（<see cref="FolderViewDetail.FolderMenu"/>）で、
+    /// どちらにも同じ名前の入口を置くと、メニューは1つで済む（カードの右クリックの MenuCommands と同じ作り）
+    /// </summary>
+    public FolderViewModel FolderMenu => this;
+
+    private int _folderMenuVersion;
+
+    /// <summary>監視・開閉が変わった回数。メニューは1つを使い回すので、これが変わった時に見出しを読み直させる（<see cref="FolderMenuConverter"/>）。</summary>
+    public int FolderMenuVersion
+    {
+        get => _folderMenuVersion;
+        private set => SetField(ref _folderMenuVersion, value);
+    }
+
+    /// <summary>
+    /// フォルダの右クリックの項目の見出し・押せるか・吹き出し・出すか。<paramref name="target"/> は右クリックした行・カード。
+    /// 押せない時は理由を吹き出しに出す（押せない理由が分からないと、壊れて見える）
+    /// </summary>
+    internal object? FolderMenuValue(string key, object? target)
+    {
+        var folder = FolderTarget.Of(target);
+        var row = target as FolderViewRow;
+        return key switch
+        {
+            "TreeOnly" => row is { IsFolderLike: true },
+            "Header.Toggle" => row is { IsExpanded: true } ? "折りたたむ" : "開く",
+            "CanToggle" => row is { IsFolderLike: true, CanExpand: true } && !IsFiltering,
+            "Tip.Toggle" => row is { IsFolderLike: true } && IsFiltering
+                ? Filter.Trim().Length > 0
+                    ? "探す欄の文字を消すと、開閉できます。"
+                    : "「管理対象」と「未確定」を両方オンにすると、開閉できます。"
+                : null,
+            "Online" => folder is { IsOffline: false },
+            "Tip.Online" => folder is { IsOffline: true } ? "取り外しているか、見つからないフォルダです。" : null,
+            "Header.Watch" => folder is { } watched && IsWatched(watched.Path) ? "監視をやめる" : "監視フォルダにする",
+            _ => null,
+        };
+    }
+
+    private bool IsWatched(string path) => _services.Settings.WatchedFolders.Contains(path, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>窓が手前に戻ったとき。取り込み・未確定の片付けを別の画面でした後に、木を読み直す。右に出している物は作り直さない。</summary>
     public void NoteWindowActivated() => LoadAsync().Forget();
@@ -1111,6 +1169,9 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+
+        // 探す欄・切り替えで、右クリックの開閉の項目が押せるかが変わる
+        FolderMenuVersion++;
     }
 
     /// <returns>何か出したか（絞り込みで空になったフォルダは出さない）。</returns>
@@ -1125,12 +1186,13 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         string subText = "")
     {
         // 1本道の段は1行に畳む（今の FolderTree と同じ）。畳んだ段は名前に「 › 」で残すので、経路は消えない
+        // 畳み方は開閉の鍵（右クリックの「下の階層まで…」）と同じ ChainEnd に揃える。ずれると、まとめて開いた鍵が行の鍵と合わない
         var name = label;
-        while (node.Entries.Count == 0 && node.Children.Count == 1)
+        var end = ChainEnd(node);
+        while (!ReferenceEquals(node, end))
         {
-            var only = node.OrderedChildren[0];
-            name = $"{name} › {only.Name}";
-            node = only;
+            node = node.OrderedChildren[0];
+            name = $"{name} › {node.Name}";
         }
 
         var key = $"{kind}:{node.Path}";
@@ -1361,10 +1423,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     /// </summary>
     private static FolderBrowserFolderCard FolderCard(FolderViewNode node, string label, FolderViewRowKind kind, bool offline, string subText = "")
     {
-        while (node.Entries.Count == 0 && node.Children.Count == 1)
-        {
-            node = node.OrderedChildren[0];
-        }
+        node = ChainEnd(node);
 
         return new FolderBrowserFolderCard
         {
@@ -1509,39 +1568,140 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     /// 前は取り込み画面へ移り、フォルダを見ていた所を失った）。
     /// 監視に入れるかは隣の切り替えで決めるので、ここでは聞かない
     /// </summary>
-    private void ImportHere(FolderViewDetail? detail)
+    private void ImportHere(FolderTarget? target)
     {
-        if (detail is null || detail.IsOffline)
+        if (target is null || target.IsOffline)
         {
             return;
         }
 
-        _main.Import.AddDroppedPaths([detail.Path], startImmediately: true, offerWatch: false);
+        _main.Import.AddDroppedPaths([target.Path], startImmediately: true, offerWatch: false);
         _main.NoteImportQueued(started: true);
     }
 
-    /// <summary>監視フォルダに足す・外す。取り込み画面の一覧と同じ所を通す（別々に書くと、片方の写しがもう片方の変更を消す）。</summary>
-    private async Task ToggleWatchAsync(FolderViewDetail? detail)
+    /// <summary>
+    /// 監視フォルダに足す・外す。取り込み画面の一覧と同じ所を通す（別々に書くと、片方の写しがもう片方の変更を消す）。
+    /// 右クリックから切り替えたフォルダが右に出ていれば、右の頭の「監視：」も合わせる
+    /// </summary>
+    private async Task ToggleWatchAsync(FolderTarget? target)
     {
-        if (detail is null)
+        if (target is null)
         {
             return;
         }
 
-        var watch = !detail.IsWatched;
-        await _main.Import.SetWatchedAsync(detail.Path, watch);
-        detail.IsWatched = watch;
+        var shown = Detail as FolderViewDetail;
+        var onRight = shown is not null && string.Equals(shown.Path, target.Path, StringComparison.OrdinalIgnoreCase);
+        var watch = onRight ? !shown!.IsWatched : !IsWatched(target.Path);
+        await _main.Import.SetWatchedAsync(target.Path, watch);
+        FolderMenuVersion++;
 
         // 監視に入れたときは何も出さない。同じ行の「監視：監視中」が答えで、起動時に見ることはボタンの吹き出しにある
         // （2026-10-04：下の帯に長い文を出していた）。やめたときだけ、消えたと誤解しやすい「取り込んだもの」の行方を、ボタンのすぐ下に出す
-        if (watch)
+        if (onRight && ReferenceEquals(Detail, shown))
         {
-            detail.WatchNote.Clear();
+            shown!.IsWatched = watch;
+            if (watch)
+            {
+                shown.WatchNote.Clear();
+            }
+            else
+            {
+                shown.WatchNote.Show("監視をやめました。取り込んだものはそのまま残ります。");
+            }
         }
-        else
+        else if (!watch)
         {
-            detail.WatchNote.Show("監視をやめました。取り込んだものはそのまま残ります。");
+            // 右に出ていないフォルダを右クリックでやめた。ボタンの下が無いので、左の下の1行で同じ事を言う
+            Status = $"「{LeafName(target.Path)}」の監視をやめました。取り込んだものはそのまま残ります。";
         }
+    }
+
+    /// <summary>その行の下のフォルダを全部開く・畳む（右クリックの「下の階層まで…」）。開いた・畳んだは三角と同じくアプリを閉じるまで覚える。</summary>
+    private void SetExpandedBelow(FolderViewRow? row, bool expanded)
+    {
+        if (row is not { IsFolderLike: true, CanExpand: true } || IsFiltering)
+        {
+            return;
+        }
+
+        foreach (var key in FolderKeysBelow(row))
+        {
+            if (expanded)
+            {
+                s_collapsed.Remove(key);
+                s_expanded.Add(key);
+            }
+            else
+            {
+                s_expanded.Remove(key);
+                s_collapsed.Add(key);
+            }
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>
+    /// 行とその下の全部のフォルダの、開閉を覚える鍵。木と同じく1本道の段は畳んだ先で鍵を作る（<see cref="ChainEnd"/>）。
+    /// 作っていない行（畳んだ中・見えていない所）の鍵も含める——仮想化しているので、作る行は見える分だけ
+    /// </summary>
+    private IEnumerable<string> FolderKeysBelow(FolderViewRow row)
+    {
+        yield return row.Key;
+        if (row.Kind == FolderViewRowKind.Volume)
+        {
+            var volume = _volumes.FirstOrDefault(candidate => string.Equals(candidate.Volume, row.Path, StringComparison.OrdinalIgnoreCase));
+            foreach (var root in volume?.Roots ?? [])
+            {
+                foreach (var key in KeysOf(root.Node, FolderViewRowKind.Root))
+                {
+                    yield return key;
+                }
+            }
+
+            yield break;
+        }
+
+        if (row.Node is not { } node)
+        {
+            yield break;
+        }
+
+        foreach (var child in node.OrderedChildren)
+        {
+            foreach (var key in KeysOf(child, FolderViewRowKind.Folder))
+            {
+                yield return key;
+            }
+        }
+    }
+
+    private static IEnumerable<string> KeysOf(FolderViewNode node, FolderViewRowKind kind)
+    {
+        var stack = new Stack<(FolderViewNode Node, FolderViewRowKind Kind)>();
+        stack.Push((node, kind));
+        while (stack.Count > 0)
+        {
+            var (current, currentKind) = stack.Pop();
+            var end = ChainEnd(current);
+            yield return $"{currentKind}:{end.Path}";
+            foreach (var child in end.OrderedChildren)
+            {
+                stack.Push((child, FolderViewRowKind.Folder));
+            }
+        }
+    }
+
+    /// <summary>1本道の段（ファイルが無く子が1つだけ）を畳んだ先。木の行・子フォルダのカード・開閉の鍵で同じ決め方にする。</summary>
+    private static FolderViewNode ChainEnd(FolderViewNode node)
+    {
+        while (node.Entries.Count == 0 && node.Children.Count == 1)
+        {
+            node = node.OrderedChildren[0];
+        }
+
+        return node;
     }
 
     /// <summary>その下の未確定を全部（子のフォルダも含む）管理対象から除外する（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>

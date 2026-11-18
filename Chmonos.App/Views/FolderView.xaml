@@ -18,6 +18,8 @@
         <ResourceDictionary.MergedDictionaries>
             <views:ItemCardResources />
             <ResourceDictionary Source="ManageResources.xaml" />
+            <!-- フォルダ・根・ドライブの行の右クリック（open.md 90 行） -->
+            <ResourceDictionary Source="FolderMenuResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
         <!-- 畳む印（FolderGlyph）は「Unityで選択」の木と共用なので App.xaml にある -->
 
@@ -39,9 +41,10 @@
         <!-- ===== 左の一覧の行。種類ごとに要る部品だけ組む（技術的負債 4-4・FolderRowTemplateSelector） ===== -->
 
         <!--
-            木の行のうち、商品のファイル（とフォルダごと登録した商品）にだけカードと同じ右クリックを付ける
+            木の行のうち、商品のファイル（とフォルダごと登録した商品）にはカードと同じ右クリックを付ける
             （ユーザ指示 2026-09-20・M3：カードと同じ癖で右クリックしても何も出なかった）。
-            フォルダと未確定の行には商品が無いので、メニューの項目は押せない（理由はツールチップに出る）
+            フォルダ・根・ドライブの行にはフォルダの右クリック（開閉・検索で開く・エクスプローラ・取り込む・監視。open.md 90 行）。
+            未確定の行には何も出さない
         -->
         <Style x:Key="FolderTreeRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
@@ -51,6 +54,9 @@
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsItemFile}" Value="True">
                     <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFolderLike}" Value="True">
+                    <Setter Property="ContextMenu" Value="{StaticResource FolderMenu}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>

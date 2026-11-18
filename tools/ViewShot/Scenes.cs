@@ -30,6 +30,7 @@ internal static partial class Scenes
         .. ManageMemo32Scenes,
         .. AvatarSuggestScenes,
         .. ManageRowMenuScenes,
+        .. FolderMenuScenes,
         .. ModificationDuplicateScenes,
         .. ProjectRelocateScenes,
         .. DragEdgeScrollScenes,

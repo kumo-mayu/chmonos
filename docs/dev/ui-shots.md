@@ -166,7 +166,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 小分類（列・1列・足す欄） | `tag-manage-cards-subs-columns`・`tag-manage-list-subs-column`・`tag-manage-sub-add-open`・`tag-manage-sub-existing` |
 | 打った（新しい名前・今ある名前・理由・商品の語） | `tag-manage-typed-*`・`tag-manage-match-reason`・`attribute-manage-typed-*`・`attribute-manage-search-items` |
 | 手動の並べ替え・知らせ | `tag-manage-manual`・`tag-manage-notices`・`attribute-manage-notices` |
-| 行の右クリック（中身を外して描いた） | `tag-manage-row-menu`・`attribute-manage-row-menu` |
+| 行の右クリック（中身を外して描いた） | `tag-manage-row-menu`・`attribute-manage-row-menu`・`folder-menu`（フォルダの木の行・子フォルダのカード・リストの行。項目と命令を調べる） |
 | 窓：名前を変える（入力前・統合）・小分類の移動（選ぶ前・後）・属性の統合（ぶつかる・ぶつからない） | `catalog-dialog-rename-tag(-merge)`・`catalog-dialog-move-sub(-none)`・`catalog-dialog-merge-attribute(-plain)` |
 
 ## 通知（13-inbox）・統計（14-stats）・設定（15-settings）

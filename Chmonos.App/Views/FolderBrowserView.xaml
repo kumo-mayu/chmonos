@@ -16,6 +16,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <views:ItemCardResources />
+                <!-- 子フォルダのカードとリストのフォルダの行の右クリック（open.md 92 行。リストの行は ItemListRowStyle が名前で引く） -->
+                <ResourceDictionary Source="FolderMenuResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- 商品：検索画面と同じカード（リンク・右クリック・中クリック・星・なぞる絵も同じ） -->
@@ -29,7 +31,9 @@
                         FocusVisualStyle="{StaticResource CardFocusVisual}" AutomationProperties.AutomationId="FolderCard"
                         AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Path}"
                         Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}">
+                        CommandParameter="{Binding}"
+                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        ContextMenu="{StaticResource FolderMenu}">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Face" Style="{StaticResource Card}" ClipToBounds="True">
