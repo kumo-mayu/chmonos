@@ -36,7 +36,8 @@ public enum ModificationHubSelectionKind
 /// <summary>右側に何を出していたか。戻るで戻ったときに同じものを出し直すために履歴へ預ける。</summary>
 /// <param name="Key">プロジェクトならパス、アバターなら商品ID、改変と使ったものなら改変のID。</param>
 /// <param name="Index">使ったものの位置（並びが導入の順なので位置で指す）。</param>
-public sealed record ModificationHubSelection(ModificationHubSelectionKind Kind, string Key, int Index = 0);
+/// <param name="RightItemId">右の欄の中から開いて重ねていた商品（open.md 95 行）。戻った時に重ね直す。</param>
+public sealed record ModificationHubSelection(ModificationHubSelectionKind Kind, string Key, int Index = 0, string? RightItemId = null);
 
 /// <summary>
 /// 畳んだ・開いたの状態。画面は開くたびに作り直すので、アプリを閉じるまでここに持つ（アバターの管理の見出しと同じ扱い）。

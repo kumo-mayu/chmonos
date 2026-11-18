@@ -143,6 +143,21 @@ public sealed record AppSettings
     public int ListRowHeight { get; init; } = 52;
 
     /// <summary>
+    /// カードの大きさ・リストの行の高さを画面ごとに覚えるか（ユーザ指示 2026-11-18「デフォは独立」）。
+    /// 切ると <see cref="CardWidth"/>・<see cref="ListRowHeight"/> の1つの値をすべての画面で使う（2026-09-29 からの形）。
+    /// 欠けていれば入（既定）。古い版がこのファイルを書くと欄は消えるが、既定に戻るだけで大きさは失わない
+    /// </summary>
+    public bool ItemViewSizePerScreen { get; init; } = true;
+
+    /// <summary>
+    /// 画面ごとの大きさ（<see cref="ItemViewSizePerScreen"/> が入のとき）。鍵は画面の名前（<c>"search"</c>・<c>"folder"</c> など。
+    /// カードかリストかを覚える鍵と同じ・App の <c>ItemViewSize.ScreenKeyOf</c>）。**無い画面は <see cref="CardWidth"/>・<see cref="ListRowHeight"/> で開く**——
+    /// 画面ごとに切り替えた時は、ここを空にして今の1つの値を全部の画面の最初の値にする（ユーザ判断 2026-11-19。消すのは
+    /// 切り替えた時だけ）。<c>null</c> は空。設定の画面の「すべて元の幅に戻す」では消さない（大きさは幅ではない）
+    /// </summary>
+    public IReadOnlyDictionary<string, ItemViewSizeEntry>? ItemViewSizes { get; init; }
+
+    /// <summary>
     /// 表示の大きさ（%）。アプリ全体（主の窓・小窓・メニュー・吹き出し）を大きく・小さくする（ユーザ指示 2026-09-29）。
     /// 設定画面と Ctrl＋＋／Ctrl＋－／Ctrl＋0 で変える。段は <see cref="DisplayZoom.Steps"/>。
     /// 段にない値（手で書き換えた JSON）は、使う側が <see cref="DisplayZoom.Normalize"/> で近い段に丸めて読む
@@ -597,6 +612,14 @@ public sealed record ShortcutSettings
 /// 前は WPF の DIP で持っていたが、モニターごとの拡大率（Per-Monitor V2）では DIP の座標がモニターの間で重なり、
 /// 拡大率の違うモニターで閉じると別の場所・別の大きさで開いた。
 /// </summary>
+/// <summary>1つの画面のカードの幅とリストの行の高さ（DIP。<see cref="AppSettings.ItemViewSizes"/>）。範囲の外の値は使う側が収めて読む</summary>
+public sealed record ItemViewSizeEntry
+{
+    public int CardWidth { get; init; } = 228;
+
+    public int ListRowHeight { get; init; } = 52;
+}
+
 public sealed record WindowPlacement
 {
     public double Left { get; init; }

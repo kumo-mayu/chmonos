@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+                    xmlns:views="clr-namespace:Chmonos.App.Views">
+    <!--
+        右の欄から開いた商品ページ（open.md 95 行・ユーザ判断 2026-11-18・11-19）。フォルダ・改変の画面が右の欄に重ねる。
+        頭の「← 一覧に戻る」で前の右の中身へ戻る。前の中身は隠しているだけなので、流した位置もそのまま。
+        組み込んだ商品ページは自分の戻るを隠す（IsEmbedded）ので、戻る口はこの帯だけになる
+    -->
+    <DataTemplate DataType="{x:Type vm:RightPaneItemPage}">
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+                <Button Content="← 一覧に戻る" Command="{Binding BackCommand}" HorizontalAlignment="Left" Margin="20,4"
+                        BorderThickness="0" Background="Transparent"
+                        AutomationProperties.AutomationId="RightPaneBack"
+                        ToolTip="右の欄を、商品を開く前の一覧に戻します。" />
+            </Border>
+            <ContentControl Content="{Binding Page}" Focusable="False">
+                <ContentControl.Resources>
+                    <DataTemplate DataType="{x:Type vm:ItemViewModel}">
+                        <views:ItemView />
+                    </DataTemplate>
+                </ContentControl.Resources>
+            </ContentControl>
+        </DockPanel>
+    </DataTemplate>
+</ResourceDictionary>

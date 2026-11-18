@@ -18,6 +18,7 @@
         <!-- 畳む印の三角（TriangleExpander）を使う。ほかの画面と同じ物 -->
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="ManageResources.xaml" />
+            <ResourceDictionary Source="RightPaneItemResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
         <!--
             見方の切り替え（ユーザ指示 2026-09-13：「繋がった一つの四角で3つに分かれていて、それぞれの領域を押すとそれが選択される」）。
@@ -1051,7 +1052,23 @@
         </Border>
 
         <!-- 右：押したもののビュー -->
-        <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False" />
+        <!--
+            右の中から開いた商品ページは上に重ね、前の中身は隠すだけ（open.md 95 行。フォルダの画面と同じ）。
+            Collapsed でなく Hidden にするのは、大きさを保ったまま残し、戻った時に流した位置を切り詰めないため
+        -->
+        <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False">
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding RightItem.IsOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Hidden" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
+        <ContentControl Grid.Column="1" Content="{Binding RightItem}" Focusable="False"
+                        Visibility="{Binding RightItem.IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         <TextBlock Grid.Column="1" Text="左の一覧から、プロジェクト・アバター・改変・使ったものを押すと、ここに表示されます。"
                    Style="{StaticResource EmptyNote}" VerticalAlignment="Center" Margin="24,0"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />

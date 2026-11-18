@@ -130,7 +130,7 @@ flowchart LR
 | 履歴の ‹ › | 押す | 履歴を横に送る（「前の履歴へ送ります。ホイールでも送れます。」／「続きの履歴へ送ります。…」） | その側に続きがある時だけ | SV:1850付近・SearchView.xaml.cs |
 | 履歴の帯の上 | ホイール | 履歴を横に送る | 履歴がある時 | SearchView.xaml.cs |
 
-履歴が積まれるのは「商品を開いた時」「条件をクリアの前」「他画面から絞って来た時」（VM/SearchViewModel.cs:233・ShowOnly.cs:136）。保存した検索の呼び出しでは積まない（docs/spec/search-saved.md）。
+履歴が積まれるのは「商品を開いた時」「条件をクリアの前」「他画面から絞って来た時」（VM/SearchViewModel.cs:238・ShowOnly.cs の RecordBeforeShowOnly と ClearFiltersKeepingHistoryAsync。同じ条件・何も絞っていない時は積まない）。保存した検索の呼び出しでは積まない（docs/spec/search-saved.md）。
 
 ### 並びの帯
 
@@ -143,7 +143,7 @@ flowchart LR
 | 「表示順」のボタン（今の項目名） | 押す／Enter・Space・↓ | 項目のメニューが開き、今の項目に止まる。「属性 ▸」は → で子。選ぶと並べ替え、次の起動へ引き継ぐ（UiCommand.ChangeUiState で searchSort を保存） | いつも。選べない項目は押せず吹き出し | SearchSortField・SV:2076・SearchView.Sort.cs |
 | 向きの2つ（「新しい順」「古い順」など。文言は項目で変わる） | 押す | 昇降を替える（同上で保存） | いつも | SearchSortDescending／SearchSortAscending・SV:2100付近 |
 | カード／リストの切替（吹き出し「絵の大きなカードで並べます」／「1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます」） | 押す | 一覧の形を替える。画面ごとに覚える（ui-state の itemListScreens） | いつも | ItemViewMode.Cards／ItemViewMode.List・SV:2120付近 |
-| 右下の大きさのスライダー（「カードの大きさ」／「行の高さ」） | ドラッグ | カードの大きさ・リストの行の高さを替える（全画面で1つの値） | いつも（形で名前が替わる） | ItemCardSize／ItemListRowHeight・SV:2154・ICR:800 |
+| 右下の大きさのスライダー（「カードの大きさ」／「行の高さ」） | ドラッグ | カードの大きさ・リストの行の高さを替える（画面ごとに覚える。設定で全画面で1つにもできる） | いつも（形で名前が替わる） | ItemCardSize／ItemListRowHeight・SV:2154・ICR:800 |
 | 「取り込み中に n 件増えました。押すと一覧に反映します。」 | 押す | 取り込みで増えた商品を一覧に入れる | 取り込み中に増えた分がある時 | SearchApplyPending・SV:2168 |
 
 ### 絞り込みの欄
@@ -220,7 +220,7 @@ flowchart LR
 | 帯「改変に追加…」 | 押す | 窓で改変を選び、選んだ商品を足す | 同上 | 同上 |
 | 帯「全てUnityへ送る…」 | 押す | unitypackage を選ばせて順に Unity へ送る | 送信中は押せない | 同上 |
 | 帯「ファイルを割り振る」 | 押す | 選んだ商品の間でファイルを割り振る画面へ [推測] | 1件では押せず「2件以上の商品を選ぶと使えます。」 | 同上 |
-| 帯「まとめて編集する」（主ボタン） | 押す | 選んだ商品を編集画面へ送る | 同上 | 同上 |
+| 帯「まとめて編集する」（主ボタン） | 押す | 選んだ商品を編集画面へ送る（選択は解除しない。編集の「検索に戻る」で戻ると残っている） | 同上 | 同上 |
 | 帯「既読にする」 | 押す | 選んだ商品の未読の更新を既読に（UiCommand.MarkNotificationsRead） | 選んだ物に未読の更新がある時 | 同上 |
 | 帯「プラグイン ▾」 | 押す | 追加したソフトの項目 | 追加したソフトがある時 | 同上 |
 | 帯「中止」（吹き出し「送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。」） | 押す | Unity への送信を止める | 送信中 | SelectionBarUnityStop |

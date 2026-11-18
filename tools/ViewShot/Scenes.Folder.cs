@@ -19,7 +19,25 @@ internal static partial class Scenes
         // 監視をやめたときの知らせ（2026-10-04 担当NA）。出る前と出た後で、下の未確定の枠が動かないことを見る
         new Scene("folder-notice-off", "フォルダビュー：監視の行の下の知らせが出ていない右の欄", context => FolderNoticeAsync(context, show: false)),
         new Scene("folder-notice-on", "フォルダビュー：監視をやめた知らせが出た右の欄", context => FolderNoticeAsync(context, show: true)),
+
+        // 右の一覧から開いた商品ページを右の欄に重ねた所（open.md 95 行・2026-11-19）。頭の「← 一覧に戻る」と、狭い右の欄での商品ページの形を見る。
+        // 狭い形は --width で窓を縮めて撮る
+        new Scene("folder-right-item", "フォルダビュー：右の一覧から開いた商品ページを右の欄に重ねた所", FolderRightItemAsync),
     ];
+
+    private static async Task<Shot> FolderRightItemAsync(SceneContext context)
+    {
+        var shot = await FolderTreeAsync(context, itemNames: false);
+        var folders = context.Screen<FolderViewModel>();
+        if (folders.Detail is FolderViewDetail detail)
+        {
+            detail.OpenItem(detail.ListItems.OfType<ItemCardViewModel>().First());
+            await SceneContext.UntilAsync(() => Look.View<ItemView>(shot.Root) is not null, "右に商品ページが出る");
+            await context.SettleAsync();
+        }
+
+        return shot;
+    }
 
     private static async Task<Shot> FolderNoticeAsync(SceneContext context, bool show)
     {

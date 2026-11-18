@@ -237,6 +237,25 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// 「まとめて編集する」で送り、まだ検索へ戻っていない商品。編集の間の読み直し・保存の知らせでカードが替わっても、
+    /// この中で選んでいた物は選んだままにする。検索へ戻ったら捨てる（<see cref="NoteShown"/>）——その後の読み直し
+    /// （取り込みの後など）は今までどおり選択を外す。捨てる時は入れ物ごと差し替える（読み直しが読み始めに掴んだ組を変えない）
+    /// </summary>
+    private HashSet<string> _sentToEdit = new(StringComparer.Ordinal);
+
+    /// <summary>読み直し・作り直しの後も選んだままにするか。今選んでいて、編集へ送った商品だけ。</summary>
+    private static bool KeepsSelection(ItemCardViewModel? card, HashSet<string> sent) => card is { IsSelected: true } && sent.Contains(card.Item.Id);
+
+    /// <summary>検索が今の画面になった（主画面が呼ぶ）。編集へ送った組は役目を終える。</summary>
+    public void NoteShown()
+    {
+        if (_sentToEdit.Count > 0)
+        {
+            _sentToEdit = new(StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
     /// 選んだitemを編集画面のキューに積んで送る。
     /// 絞り込んでから選ぶ流れになるので、並び順はそのまま渡す。
     /// </summary>
@@ -258,7 +277,10 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        ClearSelection();
+        // 選んでいた物は解除しない（ユーザ判断 2026-11-19）。編集から戻った時に、同じ組へ続けて別の操作
+        // （まとめてタグを付ける・割り振る）をしたり、選び直して足したりできるように。
+        // 検索の画面は1つを持ち回すが、編集を終えると一覧を読み直し、保存した商品はカードを作り直すので、その2つで外さないよう覚える
+        _sentToEdit = ids.ToHashSet(StringComparer.Ordinal);
         _main.ShowEditAsync(ids).Forget();
     }
 

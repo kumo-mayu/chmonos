@@ -87,7 +87,11 @@ public sealed partial class MainViewModel : ViewModelBase
         };
 
         // 書きかけが増えたり消えたりすると「未:」の数も変わる（未から編へ移るので）
-        Drafts.PropertyChanged += (_, _) => OnPropertyChanged(nameof(NeedsEditBadgeCount));
+        Drafts.PropertyChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(NeedsEditBadgeCount));
+            NoteDraftsChanged();
+        };
 
         // ナビは**今いる画面を押しても何もしない**（2026-09-20）。
         // 検索と取り込み以外は押すたびに画面を作り直すので、履歴に積むかどうかの判定（同じ参照か）を
@@ -603,9 +607,13 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <summary>
     /// いま開いている商品の操作の持ち主。商品ページならその画面、編集画面なら今の商品の分
     /// （ユーザ判断：画像の追加などの編集は両方で同等にする。落とす・貼る・画像が届いた知らせもこれに向ける）。
+    /// フォルダ・改変の画面の右の欄に組み込んだ商品ページも含める（ユーザ判断 2026-11-19・open.md 95 行：
+    /// 組み込んだページでも、落とした・貼った画像を商品の画像として受ける。前は既定の規則に回っていた）
     /// </summary>
     public ItemViewModel? CurrentItemPage
-        => CurrentViewModel as ItemViewModel ?? (CurrentViewModel as EditViewModel)?.ItemPage;
+        => CurrentViewModel as ItemViewModel
+            ?? (CurrentViewModel as EditViewModel)?.ItemPage
+            ?? (CurrentViewModel as IEmbeddedItemPageHost)?.EmbeddedItemPage;
 
     /// <summary>
     /// 未確定から登録した後の対応アバターの判定が終わった（UIスレッド）。検索の写しは黙って読み直し、開いている商品ページ
@@ -688,9 +696,16 @@ public sealed partial class MainViewModel : ViewModelBase
             }
 
             // 編集画面を離れるときは、今の商品の入力を書きかけとして控える（別の画面へ移っても消さない・ユーザ判断）
+            var leftEditWithDraft = false;
             if (_currentViewModel is EditViewModel leavingEdit && !ReferenceEquals(leavingEdit, value))
             {
                 leavingEdit.CaptureDraft();
+                leftEditWithDraft = leavingEdit.KeptDraftHere;
+            }
+
+            if (!ReferenceEquals(_currentViewModel, value))
+            {
+                NoteScreenChangeForDrafts(leftEditWithDraft, value);
             }
 
             // 離れるときは、待っている自動保存を今書く（I10：打ち終えてすぐ移ると 0.8 秒の待ちごと捨てられていた）。
@@ -714,11 +729,20 @@ public sealed partial class MainViewModel : ViewModelBase
                 ReloadLibraryAsync().Forget();
             }
 
+            // カードの大きさ・行の高さは画面ごとに覚える（ユーザ指示 2026-11-18）。新しい画面が組まれる前に当て、
+            // 前の画面の大きさで1回組んでから組み直す無駄とちらつきを避ける
+            if (!ReferenceEquals(_currentViewModel, value))
+            {
+                ItemViewSize.Current.UseScreen(value);
+            }
+
             if (SetField(ref _currentViewModel, value))
             {
                 // 画面を移るのは手が止まる所。前の画面が作ったものをここで返させる（#71）。
                 // 編集画面で30件送った後、何もしなければ440MBを握ったままだった
                 Services.MemoryTrim.Request();
+
+                (value as SearchViewModel)?.NoteShown();
 
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsImportActive));
@@ -1017,6 +1041,14 @@ public sealed partial class MainViewModel : ViewModelBase
                 // どの画面でも直前の画面へ（U23）。編集画面も同じ（ユーザ判断 2026-09-12）——
                 // 以前は編集画面だけ「前の1件へ」にしていたが、入力欄にいると効かず、他の画面と食い違っていた。
                 // 前の1件へは「← 前へ」ボタンか Ctrl+P（Previous）で行く。離れるときに書きかけは控えるので、戻っても入力は消えない
+                // 右の欄に重ねた商品ページは、画面の履歴より先に閉じる（ユーザ判断 2026-11-19・open.md 95 行：Alt+← も「← 一覧に戻る」と同じ）。
+                // 重ねたのは画面を移っていないので履歴に積んでいない。1段だけなので、閉じた後の戻るは画面の履歴へ回る。
+                // 左上の「←」は行き先の画面を名乗るので、今までどおり画面の履歴だけを辿る
+                if (CurrentViewModel is IRightPaneItemHost host && host.RightItem.Close())
+                {
+                    return true;
+                }
+
                 if (!CanGoBack)
                 {
                     return false;

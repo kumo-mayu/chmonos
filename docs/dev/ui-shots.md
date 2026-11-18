@@ -112,6 +112,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 長い説明の欄 | `edit-description` |
 | 編集する物が無い（空） | `catalog-edit-empty` |
 | 未編集の商品3件で開いた所（上の並び・右の欄） | `catalog-edit-start` |
+| 商品ページから入った所（上の帯の右端「〇〇に戻る」・長い商品名） | `catalog-edit-from-item` |
 
 ## 取り込み（05-import）・未確定（06-resolve）
 
@@ -134,7 +135,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | ショップ一覧：空・2店・更新あり・更新ありだけ | `empty-shops`（900）・`shops-cards`（900）・`shops-cards-updated`・`shops-cards-updated-only` |
 | ショップの中：一番上・半分・流れ去った後・一番下（カード・リスト） | `shop-header`（900）・`shop-scroll-*`・`shop-list-*` |
 | ショップの中：メモ無し・長いメモ・切り替え・フォーカス | `shop-compact-memo-none`・`shop-compact-memo-long`・`shop-switch-keeps`・`shop-focus-reveal` |
-| フォルダ：空・木（ファイル名・商品名）・選んだ・知らせ | `empty-folder`（900）・`folder-tree-filenames`・`folder-tree-itemnames`・`folder-cards`（900）・`folder-notice-off`・`folder-notice-on`・`folder-tree-badges`（ファイルの行の右端の札。900） |
+| フォルダ：空・木（ファイル名・商品名）・選んだ・知らせ・右に重ねた商品ページ | `empty-folder`（900）・`folder-tree-filenames`・`folder-tree-itemnames`・`folder-cards`（900）・`folder-notice-off`・`folder-notice-on`・`folder-tree-badges`（ファイルの行の右端の札。900）・`folder-right-item`（右のカードから開いた商品ページ。1000 で狭い形） |
 
 ## アバター（09-avatars）・改変（10-modifications）
 
@@ -188,7 +189,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | ナビ：低い窓・畳む・送る・フォーカス | `nav-low-*`・`nav-focus` |
 | ナビ：数の札（未確定・未編集・通知） | `catalog-nav-badges` |
 | 下の帯：同梱の辞書などが無い・一時展開・バックアップ（中・数える・済み・失敗）・戻す・落とした URL の登録（1件・まとめて） | `band-unpacking(-two)`・`band-registering-dropped`・`band-registering-batch`・`band-missing-assets`・`band-backup-*`・`band-restore-running` |
-| 主の窓の知らせの帯（隠した・離れたページの操作・取り込みを始められない・監視をやめた） | `catalog-notice-hidden`・`catalog-notice-changed-away`・`catalog-notice-import-not-started`・`catalog-notice-folder-removed` |
+| 主の窓の知らせの帯（隠した・離れたページの操作・取り込みを始められない・監視をやめた・編集の書きかけを控えた） | `catalog-notice-hidden`・`catalog-notice-changed-away`・`catalog-notice-import-not-started`・`catalog-notice-folder-removed`・`catalog-notice-draft` |
 | 知らせの窓（OK/キャンセル・はい/いいえ・エラー） | `notice-okcancel-long`・`notice-yesno-warning`・`notice-error-short` |
 | 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three` |
 | 検索の保存・名前を変える（今ある名前） | `catalog-dialog-saved-search-save`・`-taken`・`-rename` |

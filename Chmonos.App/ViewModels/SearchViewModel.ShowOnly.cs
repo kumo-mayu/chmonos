@@ -17,6 +17,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowOnly(string top, string? sub = null)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         var row = EnsureModule<UserTagModule>(SearchModuleKind.UserTag).AddTop(top, notify: false);
         if (sub is not null)
@@ -32,6 +33,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowOnlyAttribute(string name)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         EnsureModule<AttributeModule>(SearchModuleKind.Attribute).AddRow(name, notify: false);
         FinishShowOnly();
@@ -43,6 +45,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowOnlyAvatar(string avatarItemId, string displayName, bool includeViaBase = true)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         var module = EnsureModule<ListModule>(SearchModuleKind.Avatar);
         module.AddKey(AvatarKey + avatarItemId, notify: false, text: AvatarSuggestionText.Format(displayName, avatarItemId));
@@ -57,6 +60,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowProfilesOf(string avatarItemId, string displayName)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         var module = EnsureModule<ProfileModule>(SearchModuleKind.Profile);
         var text = AvatarSuggestionText.Format(displayName, avatarItemId);
@@ -68,6 +72,7 @@ public sealed partial class SearchViewModel
     /// <summary>このショップの商品だけで絞り込む。ショップ画面からの導線（#55）。</summary>
     public void ShowOnlyShop(string shopKey, string shopName)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         EnsureModule<ListModule>(SearchModuleKind.Shop).AddKey(shopKey, notify: false, text: $"{shopName}（{shopKey}）");
         FinishShowOnly();
@@ -79,6 +84,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowOnlyFolder(string path)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         EnsureModule<ListModule>(SearchModuleKind.Path).AddKey(path, notify: false, text: path);
         FinishShowOnly();
@@ -87,6 +93,7 @@ public sealed partial class SearchViewModel
     /// <summary>このカテゴリだけで絞り込む。統計の容量内訳から中身を見に来る導線。</summary>
     public void ShowOnlyCategory(string category)
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         EnsureModule<ListModule>(SearchModuleKind.Category).AddKey(category, notify: false, text: category);
         FinishShowOnly();
@@ -99,6 +106,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowOnlyBrokenZip()
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         EnsureModule<ChoiceModule>(SearchModuleKind.BrokenZip).Select(BrokenZipKey);
         FinishShowOnly();
@@ -110,6 +118,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowRecentlyAddedFirst()
     {
+        RecordBeforeShowOnly();
         ClearFilters(apply: false);
         _sortField = SortFields.FirstOrDefault(field => field.Kind == SortKind.RecentlyAdded) ?? _sortField;
         _sort = _sortField.ToOption(descending: true);
@@ -117,6 +126,16 @@ public sealed partial class SearchViewModel
         OnPropertyChanged(nameof(SortField));
         ApplyFilters();
     }
+
+    /// <summary>
+    /// 入れ替える前の条件を検索の履歴に積む（ユーザ判断 2026-11-18）。
+    ///
+    /// 入口はどれも今の条件を全部戻してから絞るので、よその画面から来ると、それまで組んでいた条件が欄から消える。
+    /// 戻る（Alt+←）の控え（<see cref="CaptureFilters"/>）は戻った時にしか効かず、検索の画面に居たまま前の条件へ戻る手が無かった。
+    /// 同じ条件は積まない・何も絞っていなければ積まない決まりは <see cref="RecordHistoryAsync"/> のまま。
+    /// 条件は呼んだ時点で写す（最初の待ちより前に <see cref="CurrentSearch"/> を作る）ので、書き込みを待たずに入れ替えてよい
+    /// </summary>
+    private void RecordBeforeShowOnly() => RecordHistoryAsync().Forget();
 
     private void FinishShowOnly()
     {
@@ -189,9 +208,16 @@ public sealed partial class SearchViewModel
         }
 
         var card = ToCard(item);
+        var keepSelected = KeepsSelection(old, _sentToEdit);
+        card.IsSelected = keepSelected;
         card.SelectionChanged += OnCardSelectionChanged;
         _cards[item.Id] = card;
         ApplyUpdate(card);
+        if (keepSelected)
+        {
+            // 新しいカードにも「選んでいる最中」を知らせる（帯の件数は変わらないが、カードの押し方が選択の切り替えになる）
+            OnCardSelectionChanged();
+        }
 
         ApplyFilters();
         OnPropertyChanged(nameof(NeedsEditCount));

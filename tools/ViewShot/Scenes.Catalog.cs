@@ -603,6 +603,36 @@ internal static partial class Scenes
             (main, _) => main.NoteImportNotStarted("ほかの長い作業（対応アバターの検出）が終わってから取り込みます。")),
         CatalogNoticeScene("catalog-notice-folder-removed", "知らせの帯：監視をやめた（元に戻す）",
             (main, _) => main.NoteFolderRemoved(@"「D:\作り物\ダウンロード」の監視をやめました。", "元に戻す", () => Task.CompletedTask)),
+
+        new Scene("catalog-notice-draft", "知らせの帯：保存していない入力を持って編集の外へ出た（続きを編集）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => main.Search.TotalCount == 3, "商品を読み終える");
+            await main.ShowEditAsync(["9900301"]);
+            await context.SettleAsync();
+            ((EditViewModel)main.CurrentViewModel!).Memo = "あとで決める";
+            main.ShowSearch();
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("catalog-edit-from-item", "編集：商品ページから入った所（上の帯の右端が「〇〇に戻る」・長い商品名）", async context =>
+        {
+            // 2件目は長い名前の作り物（SeedLibraryAsync の並び）
+            await SeedLibraryAsync(context, count: 2);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => main.Search.TotalCount == 2, "商品を読み終える");
+            main.ShowItem(main.Search.FindItem("9900302")!);
+            await context.SettleAsync();
+            main.CurrentItemPage!.EditCommand.Execute(null);
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
     ];
 
     private static Scene CatalogNoticeScene(string name, string title, Action<MainViewModel, ItemRecord> note)

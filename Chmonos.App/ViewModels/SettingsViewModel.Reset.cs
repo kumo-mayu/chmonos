@@ -73,8 +73,7 @@ public sealed partial class SettingsViewModel
 
             AppZoom.Current.Percent = defaults.DisplayZoomPercent;
             AppTheme.Current.Mode = defaults.ColorTheme;
-            ItemViewSize.Current.CardWidth = defaults.CardWidth;
-            ItemViewSize.Current.ListRowHeight = defaults.ListRowHeight;
+            ItemViewSize.Current.ResetToDefaults(defaults);
             _services.PaneWidths.ResetAll();
             PaneWidthNote = string.Empty;
         }

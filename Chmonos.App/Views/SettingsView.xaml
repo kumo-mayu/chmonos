@@ -208,6 +208,11 @@
 
                             <CheckBox Content="一覧のカードに小分類のタグも表示" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
+                            <!-- 画面ごとに覚えるか（ユーザ指示 2026-11-18。既定は入）。値と書き込みは ItemViewSize が持つので、この画面の ViewModel は通さない -->
+                            <CheckBox Content="カードの大きさと行の高さを画面ごとに変える" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.ItemViewSizePerScreen"
+                                      ToolTip="切ると、どの画面で変えても、すべての画面が同じ大きさになります。"
+                                      IsChecked="{Binding PerScreen, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}" />
                             <!--
                                 カードに属性の札の段を出すか（ユーザ判断 2026-10-06）。既定は出さず、切るとカードの縦幅も縮む。
                                 リストの「属性」の列と、乗せたときの重ねは消さない。下の「カードに表示する属性」は、出すときだけ押せる
