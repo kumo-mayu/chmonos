@@ -807,7 +807,7 @@
                                            Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!--
-                                    呼ばれ方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
+                                    呼び方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
                                     消した表記は、商品の対応アバターと同じく末尾に出して1件ずつ戻せるようにする
                                 -->
                                 <Expander Style="{StaticResource TriangleExpander}" Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}"

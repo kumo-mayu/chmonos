@@ -2,7 +2,7 @@ using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
-/// <summary>アバターの管理：右の詳細の見直し（ユーザ指示 2026-09-17）。所有・共通素体・呼ばれ方・アバターかどうか。</summary>
+/// <summary>アバターの管理：右の詳細の見直し（ユーザ指示 2026-09-17）。所有・共通素体・呼び方・アバターかどうか。</summary>
 public sealed partial class AvatarsViewModel
 {
     // ---- 所有 ----
@@ -32,14 +32,14 @@ public sealed partial class AvatarsViewModel
 
     public bool HasNewBaseHint => NewBaseHint.Length > 0;
 
-    // ---- 呼ばれ方 ----
+    // ---- 呼び方 ----
 
     /// <summary>畳んだ見出し。件数を添える。</summary>
-    public string AliasesTitle => $"呼ばれ方（{Aliases.Count}）";
+    public string AliasesTitle => $"呼び方（{Aliases.Count}）";
 
     private static bool _aliasesExpanded;
 
-    /// <summary>呼ばれ方を開いているか。アプリを閉じるまでアバターをまたいで覚える（普段は畳む）。</summary>
+    /// <summary>呼び方を開いているか。アプリを閉じるまでアバターをまたいで覚える（普段は畳む）。</summary>
     public bool IsAliasesExpanded
     {
         get => _aliasesExpanded;

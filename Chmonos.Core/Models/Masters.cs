@@ -281,3 +281,15 @@ public sealed record AvatarAlias
     /// </summary>
     public bool Rejected { get; init; }
 }
+
+/// <summary>呼び方の一覧の読み方。</summary>
+public static class AvatarAliasList
+{
+    /// <summary>
+    /// 人が消していない呼び方の字。**呼び方を照らす所・並べる所はすべてここを通す**
+    /// （ユーザ判断 2026-11-18：消した呼び方は、探す欄・候補・未確定・変換・更新の見分けでも使わない。
+    /// 前は検出と検索の記法だけが印を見ていて、ほかの所では消した呼び方でも当たった）。
+    /// </summary>
+    public static IEnumerable<string> LiveTexts(this IEnumerable<AvatarAlias> aliases)
+        => aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text);
+}
