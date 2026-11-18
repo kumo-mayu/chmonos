@@ -29,6 +29,9 @@ internal static partial class Scenes
             var main = await context.StartAsync(settings => settings with { WatchedFolders = folders });
             main.ShowImportCommand.Execute(null);
             var import = context.Screen<ImportViewModel>();
+
+            // 履歴の一覧は既定で閉じる（2026-11-18）。この場面は行を見るので開く
+            import.IsHistoryExpanded = true;
             foreach (var folder in folders)
             {
                 import.Folders.Add(folder);
