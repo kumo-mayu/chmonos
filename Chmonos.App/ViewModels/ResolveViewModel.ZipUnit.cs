@@ -240,7 +240,7 @@ public sealed partial class ResolveViewModel
     public bool IsBlockedByListedZip => Selected is { IsExpandedContent: true } row && !SingleFileOnly && IsZipListed(row);
 
     /// <summary>帯の3行目に出す、登録できない理由と次の一手。切り替えは同じ帯にある。</summary>
-    public string BlockedByZipText => "元のzipが未確定にあります。元zipとして扱うか、このファイルだけにしてください。";
+    public string BlockedByZipText => "元のzipが未確定にあります。元zipで登録するか、このファイルだけにしてください。";
 
     /// <summary>
     /// 選んだ行とトグルから、登録の単位を決め直す。元のzipが一覧に無い中身なら同じzipの中身全件を束として立てる。

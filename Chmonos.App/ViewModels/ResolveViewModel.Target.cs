@@ -55,7 +55,7 @@ public sealed partial class ResolveViewModel
     }
 
     /// <summary>
-    /// 元のzipが今もディスクにあり、未確定の一覧にも載っている中身を選んでいる。帯の右端の「元zipとして扱う」を出す。
+    /// 元のzipが今もディスクにあり、未確定の一覧にも載っている中身を選んでいる。帯の右端の「元zipで登録」を出す。
     /// 一覧に無いと押しても選ぶ先が無いので、ボタンは出さず帯の文で言う（<see cref="IsOriginZipUnlisted"/>。ユーザ 2026-10-04 メモ30）。
     /// </summary>
     public bool HasOriginZipChoice => !HasChecked && Selected is { HasOriginZip: true, IsExpandedContent: true } row && IsZipListed(row);
@@ -119,7 +119,7 @@ public sealed partial class ResolveViewModel
 
     private string _originZipNote = string.Empty;
 
-    /// <summary>「元zipとして扱う」を押したのに、元のzipが一覧に無かったときの一言。押した帯の中に出す。</summary>
+    /// <summary>「元zipで登録」を押したのに、元のzipが一覧に無かったときの一言。押した帯の中に出す。</summary>
     private string OriginZipNote
     {
         get => _originZipNote;
@@ -134,7 +134,7 @@ public sealed partial class ResolveViewModel
 
     /// <summary>
     /// 帯の3行目。高さを一定に保つため、出す物が無くても1行分を取っておき、ここに1つだけ出す。
-    /// 押した「元zipとして扱う」の答え、次に登録できない理由、組み込んだとき（上の帯が無い）の一覧の結果の順。
+    /// 押した「元zipで登録」の答え、次に登録できない理由、組み込んだとき（上の帯が無い）の一覧の結果の順。
     /// </summary>
     public string BandNoticeText => OriginZipNote.Length > 0
         ? OriginZipNote

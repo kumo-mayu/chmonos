@@ -15,7 +15,7 @@ public sealed partial class ResolveViewModel
     {
         None,
 
-        /// <summary>「商品IDを決める」の欄（このIDで確定・まとめて確定・見つからないIDのまま登録）。</summary>
+        /// <summary>「商品IDで登録」の欄（このIDで確定・まとめて確定・見つからないIDのまま登録）。</summary>
         Decision,
 
         /// <summary>「その他」の「BOOTHに無い商品として登録する」。</summary>
@@ -33,7 +33,7 @@ public sealed partial class ResolveViewModel
     private int _registeringTotal;
 
     /// <summary>
-    /// 「商品IDを決める」の欄の帯。その場で済ませる登録（持っている商品へ足す・見つからないIDのまま）と、
+    /// 「商品IDで登録」の欄の帯。その場で済ませる登録（持っている商品へ足す・見つからないIDのまま）と、
     /// 列で走っている「このIDで登録」（選んだ行の分だけ。メモ60）の両方をここに出す。
     /// </summary>
     public bool IsRegisteringInDecision => _registeringArea == RegisteringArea.Decision || IsQueueRunningShown;

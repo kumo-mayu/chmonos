@@ -917,7 +917,7 @@ public class ImportAndResolveFlowTests
         // 先に商品IDを確かめていないと、登録せずに押したボタンの横で確かめる欄へ案内する（画面は送らない）
         resolve.RegisterFolderOfCommand.Execute(row.GroupKey);
         await app.SettleAsync();
-        Assert.Equal("先に「商品IDを決める」で商品IDを確認してください。", resolve.FolderStatusText);
+        Assert.Equal("先に「商品IDで登録」で商品IDを確認してください。", resolve.FolderStatusText);
         Assert.Empty(app.Notices);
 
         await PreviewAsync(app, resolve, "1000001");

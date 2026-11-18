@@ -86,7 +86,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
     public MainViewModel Main => _main;
-    /// <summary>確定して、まだ編集へ送っていない商品のID。画面を離れても残るよう主画面が持つ。</summary>
+    /// <summary>登録して、まだ編集へ送っていない商品のID。画面を離れても残るよう主画面が持つ。</summary>
     private List<string> _settledItemIds => _main.ResolveSettledItemIds;
 
     private UnresolvedRow? _selected;
@@ -297,7 +297,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public RelayCommand SendSettledToEditCommand { get; }
 
     /// <summary>
-    /// 最後に確定した商品を開く（動線の点検 D3）。以前は編集へ送るしかなく、正しく結び付いたかを
+    /// 最後に登録した商品を開く（動線の点検 D3）。以前は編集へ送るしかなく、正しく結び付いたかを
     /// 商品ページでその場で確かめられなかった
     /// </summary>
     public RelayCommand OpenLastSettledCommand { get; }
@@ -487,7 +487,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public bool HasSettled => _settledItemIds.Count > 0;
 
-    public string SettledText => $"確定して、まだ編集へ送っていない商品 {_settledItemIds.Count} 件";
+    public string SettledText => $"登録して、まだ編集へ送っていない商品 {_settledItemIds.Count} 件";
 
     // --- 選択中ファイルの手掛かり ---
 
@@ -537,7 +537,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             return;
         }
 
-        // 押した帯の中で答える（前は「商品IDを決める」の欄へ画面を送っていた。押した所から離れた所へ飛ぶ作りはやめた。メモ22）
+        // 押した帯の中で答える（前は「商品IDで登録」の欄へ画面を送っていた。押した所から離れた所へ飛ぶ作りはやめた。メモ22）
         OriginZipNote = OriginZipUnlistedText(origin.ArchiveName);
     }
 
@@ -634,7 +634,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             }
             else if (healed > 0)
             {
-                StatusText = $"既に確定済みだった {healed} 件を一覧から外しました。";
+                StatusText = $"既に登録済みだった {healed} 件を一覧から外しました。";
             }
 
             OnPropertyChanged(nameof(HasStatus));

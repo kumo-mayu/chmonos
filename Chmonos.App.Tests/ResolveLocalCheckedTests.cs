@@ -12,7 +12,7 @@ namespace Chmonos.App.Tests;
 
 /// <summary>
 /// 未確定で選んだ物（「このフォルダを選択」・チェック）を、まとめて1つの「BOOTHに無い商品」として登録する（ユーザ指示 2026-10-02：
-/// 「このフォルダを選択で選んでも仮IDをまとめて登録できない」）。あわせて、自動検索のボタンを「商品IDを決める」と「候補」にも置いたこと。
+/// 「このフォルダを選択で選んでも仮IDをまとめて登録できない」）。あわせて、自動検索のボタンを「商品IDで登録」と「候補」にも置いたこと。
 /// </summary>
 public class ResolveLocalCheckedTests
 {
@@ -175,10 +175,10 @@ public class ResolveLocalCheckedTests
         await UiThread.Until(() => main.UnresolvedCount == 0, "ナビの未確定の数が合う");
     });
 
-    // ---- 自動検索のボタン（ユーザ指示 2026-10-02：「商品IDを決める」と候補にも重なってあってよい）----
+    // ---- 自動検索のボタン（ユーザ指示 2026-10-02：「商品IDで登録」と候補にも重なってあってよい）----
 
     [Fact]
-    public void 自動検索のボタンは_商品IDを決める_候補の2か所にあり_分かっていることには無い()
+    public void 自動検索のボタンは_商品IDで登録_候補の2か所にあり_分かっていることには無い()
     {
         // 置き場所は XAML の作りで決まる。部品を組んで測るにはアプリの見た目の資源が要るので、原文を読む（ItemPageTagsTests と同じ）。見た目は ViewShot の絵で見る
         var xaml = XDocument.Load(ResolveViewPath());

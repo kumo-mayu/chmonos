@@ -24,7 +24,7 @@ public sealed partial class MainViewModel
 
     /// <summary>
     /// 確定・登録した商品を控え（まとめて編集へ送る分）に足し、その商品だけを読んで検索の写しに足す。
-    /// 未確定の画面を離れた後に済んだ登録も、戻ったときに「確定して、まだ編集へ送っていない商品」に入っているように主画面で行う。
+    /// 未確定の画面を離れた後に済んだ登録も、戻ったときに「登録して、まだ編集へ送っていない商品」に入っているように主画面で行う。
     /// </summary>
     public async Task NoteResolveSettledAsync(string itemId)
     {

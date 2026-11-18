@@ -125,7 +125,7 @@ public partial class ResolveView : UserControl
         }
     }
 
-    /// <summary>「商品IDを決める」の欄を画面に入れる。候補は欄より下にあり、押した結果が見えなかった（ユーザ判断 2026-09-17）。</summary>
+    /// <summary>「商品IDで登録」の欄を画面に入れる。候補は欄より下にあり、押した結果が見えなかった（ユーザ判断 2026-09-17）。</summary>
     private void OnDecisionFocusRequested() => DecisionCard.BringIntoView();
 
     /// <summary>「候補」の欄を画面に入れる。自動検索のボタンは上にあり、進み具合と結果は下の候補の欄に出る（ユーザ指示 2026-09-29）。</summary>
