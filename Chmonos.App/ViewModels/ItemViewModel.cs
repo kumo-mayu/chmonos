@@ -250,7 +250,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>画像の追加・動かす・サムネイル・削除の結果（ギャラリーの下）。</summary>
     public AreaNotice GalleryNotice { get; } = new();
 
-    /// <summary>「検索から除く」の保存の失敗（そのチェックの下）。</summary>
+    /// <summary>「非表示」の保存の失敗（そのチェックの下）。</summary>
     public AreaNotice VisibilityNotice { get; } = new();
 
     /// <summary>変わったところの帯の「既読にする」の失敗（帯の下）。</summary>
@@ -1305,7 +1305,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     private async Task ToggleNotifyAsync()
     {
-        // 「検索から除く」と同じ：反転の値は保存し終えた後の Item から作るので、保存中の2回目は受けず、見た目だけ今の値に戻す
+        // 「非表示」と同じ：反転の値は保存し終えた後の Item から作るので、保存中の2回目は受けず、見た目だけ今の値に戻す
         if (_isTogglingNotify)
         {
             OnPropertyChanged(nameof(NotifyOnUpdate));
@@ -1335,7 +1335,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     private RelayCommand? _toggleHidden;
 
     /// <summary>
-    /// 「検索から除く」のチェックで、非表示にする・解除する（ユーザ判断 2026-09-27・動線の洗い出し C5、
+    /// 「非表示」のチェックで、非表示にする・解除する（ユーザ判断 2026-09-27・動線の洗い出し C5、
     /// チェック1つにしたのは 2026-09-28）。
     /// 状態のすぐ横で戻せるので、カードの右クリックのような「元に戻す」の帯は出さない
     /// </summary>
