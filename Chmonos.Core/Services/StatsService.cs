@@ -122,6 +122,21 @@ public sealed record StatsAttributeDistribution
 
     /// <summary>0-19 / 20-39 / 40-59 / 60-79 / 80-100 の5区切り。</summary>
     public required IReadOnlyList<int> Buckets { get; init; }
+
+    /// <summary>
+    /// 値ごとの件数（値の小さい順）。画面で分け方（幅）を変えるたびに読み直さずに束ね直すため（open.md 112・<see cref="StatsExtras.AttributeBars"/>）。
+    /// </summary>
+    public IReadOnlyList<(int Value, int Count)> ValueCounts { get; init; } = [];
+}
+
+/// <summary>属性の分布の棒1本。値の範囲（両端を含む）と件数。値ごとに1本のときは <see cref="From"/> と <see cref="To"/> が同じ。</summary>
+public sealed record StatsAttributeBar
+{
+    public required int From { get; init; }
+
+    public required int To { get; init; }
+
+    public required int Count { get; init; }
 }
 
 /// <summary>属性2軸の相関。</summary>

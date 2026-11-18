@@ -707,6 +707,24 @@
 
                     <!-- 属性 -->
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20,18">
+                        <Grid>
+                        <!--
+                            区切りの幅（open.md 112・ユーザ判断 2026-11-19）。見出しの横に重ねて置く：見出しは開け閉めのボタンの中なので、
+                            中にボタンを入れると押し分けられない。全部の属性に同じ幅を当てる
+                        -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="1"
+                                    Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="区切りの幅：" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <RadioButton Content="5" GroupName="StatsAttributeWidth" Style="{StaticResource SegmentFirst}"
+                                         IsChecked="{Binding AttributeWidth5, Mode=TwoWay}" ToolTip="値を5ずつ区切って数えます。"
+                                         AutomationProperties.AutomationId="StatsAttributeWidth5" AutomationProperties.Name="区切りの幅 5" />
+                            <RadioButton Content="10" GroupName="StatsAttributeWidth" Style="{StaticResource SegmentMiddle}"
+                                         IsChecked="{Binding AttributeWidth10, Mode=TwoWay}" ToolTip="値を10ずつ区切って数えます。"
+                                         AutomationProperties.AutomationId="StatsAttributeWidth10" AutomationProperties.Name="区切りの幅 10" />
+                            <RadioButton Content="20" GroupName="StatsAttributeWidth" Style="{StaticResource SegmentLast}"
+                                         IsChecked="{Binding AttributeWidth20, Mode=TwoWay}" ToolTip="値を20ずつ区切って数えます。"
+                                         AutomationProperties.AutomationId="StatsAttributeWidth20" AutomationProperties.Name="区切りの幅 20" />
+                        </StackPanel>
                         <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[attributes], Mode=TwoWay}" AutomationProperties.Name="属性">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
@@ -732,21 +750,31 @@
                                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" />
                                                     <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}"
                                                                Margin="0,3,0,8" />
-                                                    <controls:ContentItemsControl ItemsSource="{Binding BarHeights}" Height="56">
+                                                    <controls:ContentItemsControl ItemsSource="{Binding Bars}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
                                                                 <UniformGrid Rows="1" />
                                                             </ItemsPanelTemplate>
                                                         </ItemsControl.ItemsPanel>
                                                         <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Border Height="{Binding}" CornerRadius="3,3,0,0" MaxWidth="34"
-                                                                        Margin="3,0" VerticalAlignment="Bottom"
-                                                                        Background="{DynamicResource Accent}" />
+                                                            <DataTemplate DataType="{x:Type vm:AttributeBarViewModel}">
+                                                                <!-- 地を透明で塗り、棒の低い所でも吹き出しが出るようにする -->
+                                                                <StackPanel Background="Transparent" ToolTip="{Binding Tooltip}">
+                                                                    <Grid Height="56">
+                                                                        <Border Height="{Binding Height}" CornerRadius="2,2,0,0" MaxWidth="34"
+                                                                                Margin="1,0" VerticalAlignment="Bottom"
+                                                                                Background="{DynamicResource Accent}" />
+                                                                    </Grid>
+                                                                    <!-- 値ごとに1本のときだけ、棒の下に値を出す -->
+                                                                    <TextBlock Text="{Binding ValueLabel}" Style="{StaticResource Caption}" FontSize="10"
+                                                                               HorizontalAlignment="Center" Margin="0,3,0,0"
+                                                                               Visibility="{Binding ValueLabel, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                                </StackPanel>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </controls:ContentItemsControl>
-                                                    <Grid Margin="0,4,0,0">
+                                                    <Grid Margin="0,4,0,0"
+                                                          Visibility="{Binding IsByValue, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="0" Style="{StaticResource Caption}" HorizontalAlignment="Left" />
                                                         <TextBlock Text="100" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                                                     </Grid>
@@ -784,6 +812,7 @@
                                 </Expander>
                             </StackPanel>
                         </Expander>
+                        </Grid>
                     </Border>
 
                     <!-- アバターと、手元の状態 -->

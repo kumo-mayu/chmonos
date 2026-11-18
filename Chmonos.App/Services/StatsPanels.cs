@@ -18,6 +18,12 @@ public sealed class StatsPanels(SettingsService settings, CommandHandler command
     private readonly object _gate = new();
     private Dictionary<string, bool>? _open;
 
+    /// <summary>
+    /// 属性の分布の区切りの幅（open.md 112）。アプリを閉じるまで覚える（ファイルには書かない。頼まれたのは選べることまで）。
+    /// 既定は前の決め打ちと同じ 20（5区切り）
+    /// </summary>
+    public int AttributeBarWidth { get; set; } = 20;
+
     /// <summary>人が決めていなければ既定（「軸どうしの関係」だけ畳み、ほかは開く）。</summary>
     public static bool DefaultOpen(string key) => key != Correlations;
 

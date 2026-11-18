@@ -630,20 +630,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             });
         }
 
-        AttributeDistributions.Clear();
-        foreach (var distribution in _snapshot.AttributeDistributions)
-        {
-            var peak = distribution.Buckets.Count == 0 ? 0 : distribution.Buckets.Max();
-            AttributeDistributions.Add(new AttributeDistributionRowViewModel
-            {
-                Name = distribution.Name,
-                SummaryText = $"{distribution.Rated} 件を評価済み・平均 {distribution.Average:0.#}%",
-                Counts = distribution.Buckets,
-                BarHeights = distribution.Buckets
-                    .Select(count => peak == 0 ? 0 : count / (double)peak * AttributeDistributionRowViewModel.ChartHeight)
-                    .ToList(),
-            });
-        }
+        RebuildAttributeDistributions();
 
         Fill(AttributeCorrelations, _snapshot.AttributeCorrelations.Select(c =>
             ($"{c.A} × {c.B}", (long)Math.Abs(Math.Round(c.R * 100)), $"{c.R:+0.00;-0.00;0.00}（{c.Count} 件）")));
@@ -689,6 +676,61 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         if (await _services.Store.Items.LoadAsync(itemId) is { } item)
         {
             _main.ShowItem(item);
+        }
+    }
+
+    /// <summary>
+    /// 属性の分布の区切りの幅（5・10・20。open.md 112）。全部の属性に同じ幅を当てる。
+    /// アプリを閉じるまで覚える（統計は開くたびに作り直すので、起動の間ずっと居る <see cref="Services.StatsPanels"/> に持つ）
+    /// </summary>
+    private int AttributeBarWidthCore
+    {
+        get => _services.StatsPanels.AttributeBarWidth;
+        set => _services.StatsPanels.AttributeBarWidth = value;
+    }
+
+    public bool AttributeWidth5
+    {
+        get => AttributeBarWidthCore == 5;
+        set => SetAttributeBarWidth(value, 5);
+    }
+
+    public bool AttributeWidth10
+    {
+        get => AttributeBarWidthCore == 10;
+        set => SetAttributeBarWidth(value, 10);
+    }
+
+    public bool AttributeWidth20
+    {
+        get => AttributeBarWidthCore == 20;
+        set => SetAttributeBarWidth(value, 20);
+    }
+
+    public int AttributeBarWidth => AttributeBarWidthCore;
+
+    private void SetAttributeBarWidth(bool chosen, int width)
+    {
+        // 選ばれた側だけを見る（つながったボタンは外れた側にも false が来る）
+        if (!chosen || AttributeBarWidthCore == width)
+        {
+            return;
+        }
+
+        AttributeBarWidthCore = width;
+        RebuildAttributeDistributions();
+        OnPropertyChanged(nameof(AttributeWidth5));
+        OnPropertyChanged(nameof(AttributeWidth10));
+        OnPropertyChanged(nameof(AttributeWidth20));
+        OnPropertyChanged(nameof(AttributeBarWidth));
+    }
+
+    private void RebuildAttributeDistributions()
+    {
+        AttributeDistributions.Clear();
+        foreach (var distribution in _snapshot?.AttributeDistributions ?? [])
+        {
+            AttributeDistributions.Add(new AttributeDistributionRowViewModel(distribution, AttributeBarWidthCore));
         }
     }
 
@@ -848,18 +890,51 @@ public sealed class PriceChangeRowViewModel
     public RelayCommand? OpenCommand { get; init; }
 }
 
-/// <summary>属性1軸の分布1行。0-19 / 20-39 / … の5区切り。</summary>
+/// <summary>属性の分布の棒1本。</summary>
+public sealed class AttributeBarViewModel
+{
+    /// <summary>描画領域（<see cref="AttributeDistributionRowViewModel.ChartHeight"/>）に対する実寸。</summary>
+    public required double Height { get; init; }
+
+    /// <summary>棒の下に出す値。値ごとに1本のときだけ入れる（区切りのときは下の「0」「100」で読む）。</summary>
+    public string ValueLabel { get; init; } = string.Empty;
+
+    public required string Tooltip { get; init; }
+}
+
+/// <summary>属性1軸の分布1行。分け方（幅）は統計の画面で選ぶ（open.md 112）。</summary>
 public sealed class AttributeDistributionRowViewModel
 {
-    public required string Name { get; init; }
+    public AttributeDistributionRowViewModel(StatsAttributeDistribution distribution, int width)
+    {
+        Name = distribution.Name;
+        SummaryText = $"{distribution.Rated} 件を評価済み・平均 {distribution.Average:0.#}%";
 
-    public required string SummaryText { get; init; }
+        var bars = StatsExtras.AttributeBars(distribution, width);
+        IsByValue = bars.All(bar => bar.From == bar.To);
+        var peak = bars.Count == 0 ? 0 : bars.Max(bar => bar.Count);
+        Bars = bars
+            .Select(bar => new AttributeBarViewModel
+            {
+                Height = peak == 0 ? 0 : bar.Count / (double)peak * ChartHeight,
+                ValueLabel = IsByValue ? $"{bar.From}" : string.Empty,
+                Tooltip = bar.From == bar.To ? $"{bar.From}%：{bar.Count} 件" : $"{bar.From}〜{bar.To}%：{bar.Count} 件",
+            })
+            .ToList();
+        Counts = bars.Select(bar => bar.Count).ToList();
+    }
 
-    /// <summary>区切りごとの高さ（描画領域に対する実寸）。</summary>
-    public required IReadOnlyList<double> BarHeights { get; init; }
+    public string Name { get; }
 
-    public required IReadOnlyList<int> Counts { get; init; }
+    public string SummaryText { get; }
 
-    /// <summary>グラフの高さ。区切りが5つなので低めで足りる。</summary>
+    public IReadOnlyList<AttributeBarViewModel> Bars { get; }
+
+    public IReadOnlyList<int> Counts { get; }
+
+    /// <summary>付いた値ごとに1本か。下の「0」「100」の字は区切りのときだけ出す（値ごとのときは棒の下に値が出る）。</summary>
+    public bool IsByValue { get; }
+
+    /// <summary>グラフの高さ。属性ごとの小さな札に並べるので低めで足りる。</summary>
     public const double ChartHeight = 56;
 }

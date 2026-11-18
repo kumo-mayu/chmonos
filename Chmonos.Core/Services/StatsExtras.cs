@@ -375,10 +375,53 @@ public static class StatsExtras
                 Rated = values.Count,
                 Average = values.Average(),
                 Buckets = buckets,
+                ValueCounts = values
+                    .GroupBy(value => value)
+                    .OrderBy(group => group.Key)
+                    .Select(group => (group.Key, group.Count()))
+                    .ToList(),
             });
         }
 
         return result.OrderByDescending(entry => entry.Rated).ToList();
+    }
+
+    /// <summary>属性の分布で選べる幅（open.md 112・ユーザ判断 2026-11-19）。20 は前の決め打ちの5区切り。</summary>
+    public static IReadOnlyList<int> AttributeBarWidths { get; } = [5, 10, 20];
+
+    /// <summary>
+    /// 属性1つの分布を、幅 <paramref name="width"/> ごとの棒にする（0〜100。100 は最後の棒に入れる）。
+    ///
+    /// 付いた値の種類が区切りの数以下なら、値ごとに1本にする（ユーザ判断 2026-11-19）。
+    /// 0・25・50… のように飛び飛びに付ける人では、束ねると別の値が1本に混ざり（25 と 30 が同じ棒）、
+    /// 値ごとに出しても棒の数は区切りより増えないので、束ねる理由が無い
+    /// </summary>
+    public static IReadOnlyList<StatsAttributeBar> AttributeBars(StatsAttributeDistribution distribution, int width)
+    {
+        width = Math.Clamp(width, 1, 100);
+        var bins = (100 + width - 1) / width;
+
+        if (distribution.ValueCounts.Count <= bins)
+        {
+            return distribution.ValueCounts
+                .Select(entry => new StatsAttributeBar { From = entry.Value, To = entry.Value, Count = entry.Count })
+                .ToList();
+        }
+
+        var counts = new int[bins];
+        foreach (var (value, count) in distribution.ValueCounts)
+        {
+            counts[Math.Clamp(value / width, 0, bins - 1)] += count;
+        }
+
+        return counts
+            .Select((count, index) => new StatsAttributeBar
+            {
+                From = index * width,
+                To = index == bins - 1 ? 100 : (index + 1) * width - 1,
+                Count = count,
+            })
+            .ToList();
     }
 
     /// <summary>
