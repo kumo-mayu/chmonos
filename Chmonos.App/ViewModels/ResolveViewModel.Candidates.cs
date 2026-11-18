@@ -234,6 +234,8 @@ public sealed partial class ResolveViewModel
             return;
         }
 
+        // 畳んだままだと、押した後の進み具合も結果も見えず、何も起きなかったように見える
+        IsCandidatesExpanded = true;
         CandidatesFocusRequested?.Invoke();
 
         // 検索は分単位かかり、その間も左の一覧は選び直せる。結果は始めた対象の分として覚え、
@@ -416,6 +418,26 @@ public sealed partial class ResolveViewModel
     /// 進み具合と結果は決める欄より下の候補の欄に出るので、送らないと押しても何も起きないように見える（ユーザ指示 2026-09-29）。
     /// </summary>
     public event Action? CandidatesFocusRequested;
+
+    /// <summary>
+    /// 候補の欄を開いているか（ユーザ判断 2026-11-18：候補の数だけ縦に伸び、下の「その他」が遠くなる）。
+    /// 既定は開く。画面は開くたびに作り直されるので、アプリを閉じるまでの間は static で覚え、戻っても畳んだままにする。
+    /// 設定には書かない（閉じても覚えるかはユーザに聞いていない）
+    /// </summary>
+    private static bool s_candidatesExpanded = true;
+
+    public bool IsCandidatesExpanded
+    {
+        get => s_candidatesExpanded;
+        set
+        {
+            if (s_candidatesExpanded != value)
+            {
+                s_candidatesExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     private async Task UseCandidateAsync(object? parameter)
     {

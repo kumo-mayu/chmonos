@@ -777,17 +777,10 @@
                     <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <!--
-                                自動検索はここと候補の欄にも置く（ユーザ指示 2026-10-02：「商品IDで登録」と候補に重なってあってよい）。
-                                IDを決めようとしてここまで来た人が、上の「分かっていること」へ戻らずに押せるように。動きは見出しの横の物と同じ。
-                                控え（先回り・前の再検索）があれば名前は「再検索」（ユーザ判断 2026-11-11。押すと引き直して控えを置き換える）
+                                自動検索のボタンは候補の欄の見出しだけに置く（ユーザ判断 2026-11-18。2026-10-02 の「商品IDで登録と候補に重なってあってよい」を改めた。
+                                すぐ下の候補の欄にあるので押す口は無くならない）
                             -->
-                            <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
-                                <TextBlock Text="商品IDで登録" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}"
-                                        AutomationProperties.AutomationId="ResolveProposeInDecision"
-                                        ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
-                                        Command="{Binding ProposeCommand}" />
-                            </controls:SplitRowPanel>
+                            <TextBlock Text="商品IDで登録" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" />
                             <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをドロップしてください。下に表示された商品を確かめてから登録します。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
@@ -910,21 +903,49 @@
 
                     <!-- 候補 -->
                     <Border Style="{StaticResource Card}" x:Name="CandidatesCard" Margin="0,14,0,0" Padding="18,16">
+                        <!--
+                            候補の欄は三角で畳める（ユーザ判断 2026-11-18：候補の数だけ縦に伸び、下の「その他」が遠くなる）。
+                            三角と見出しだけの Expander を見出しの行の左に置き、中身は下で IsCandidatesExpanded で出し分ける。
+                            ボタンは畳んでも押せるように見出しの行の右に置く（Expander の見出しの中に置くと開け閉めのボタンの中にボタンが入り、
+                            見出しの上に重ねると狭い窓でボタンが見出しに乗る。ユーザ 2026-10-02 メモ12）。畳んだまま自動検索を押すと開く
+                        -->
                         <StackPanel>
-                            <controls:SplitRowPanel Margin="0,0,0,10" Gap="10" MinLeftWidth="1000">
-                                <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <WrapPanel>
-                                    <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
-                                            AutomationProperties.AutomationId="ResolveProposeInCandidates"
-                                            ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
-                                            Command="{Binding ProposeCommand}" />
-                                    <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}"
-                                            AutomationProperties.AutomationId="ResolveSearchInBrowser"
-                                            ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
-                                            Command="{Binding OpenBoothCommand}" />
-                                </WrapPanel>
-                            </controls:SplitRowPanel>
-
+                        <controls:SplitRowPanel Gap="10" MinLeftWidth="1000">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsCandidatesExpanded, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  AutomationProperties.Name="候補" AutomationProperties.AutomationId="ResolveCandidatesExpander">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Height="24">
+                                    <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                    <!-- 畳んでいても中に何件あるか分かるように。0件は出さない -->
+                                    <TextBlock Text="{Binding Candidates.Count, StringFormat={}{0} 件}" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Candidates.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Expander.Header>
+                        </Expander>
+                        <WrapPanel>
+                            <!-- 控え（先回り・前の再検索）があれば名前は「再検索」（ユーザ判断 2026-11-11。押すと引き直して控えを置き換える） -->
+                            <Button Content="{Binding ProposeButtonText}" Style="{StaticResource SmallButton}" Margin="0,0,7,0"
+                                    AutomationProperties.AutomationId="ResolveProposeInCandidates"
+                                    ToolTip="{Binding ProposeHint}" ToolTipService.ShowOnDisabled="True"
+                                    Command="{Binding ProposeCommand}" />
+                            <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}"
+                                    AutomationProperties.AutomationId="ResolveSearchInBrowser"
+                                    ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
+                                    Command="{Binding OpenBoothCommand}" />
+                        </WrapPanel>
+                        </controls:SplitRowPanel>
+                        <StackPanel Margin="0,10,0,0" AutomationProperties.AutomationId="ResolveCandidatesBody"
+                                    Visibility="{Binding IsCandidatesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding SearchTargetText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,0,0,10" />
 
@@ -997,6 +1018,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                        </StackPanel>
                         </StackPanel>
                     </Border>
 
