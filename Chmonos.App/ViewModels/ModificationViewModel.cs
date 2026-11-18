@@ -329,6 +329,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     public bool IsEmbedded { get; init; }
 
+    /// <summary>
+    /// 使ったものの商品ページを開く先（改変の画面に組み込んだ時、持ち主が右の欄の中に重ねる・open.md 95 行）。
+    /// null（単独の画面）なら主の窓ごと開く
+    /// </summary>
+    public Action<ItemRecord>? OpenItemInPane { get; init; }
+
     /// <summary>戻るを出すか（V2）。組み込みのときと、戻る先が無いときは出さない。</summary>
     public bool ShowsBack => !IsEmbedded && _main.CanGoBack;
 
@@ -905,7 +911,20 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     }
 
     // カードの操作は検索と同じ（フォルダビューと同じく検索の画面の操作を借りる）
-    public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+    public void OpenItem(ItemCardViewModel card) => OpenItemPage(card.Item);
+
+    /// <summary>改変の画面に組み込んだ時は右の欄の中に重ね（<see cref="OpenItemInPane"/>）、単独の画面では主の窓ごと開く。</summary>
+    private void OpenItemPage(ItemRecord item)
+    {
+        if (OpenItemInPane is { } open)
+        {
+            open(item);
+        }
+        else
+        {
+            _main.ShowItem(item);
+        }
+    }
 
     /// <summary>裏の取得がこの商品の画像を置いた。使ったものの行のカードを描き直す（作ったときに一度だけ絵を探すので）。</summary>
     void IItemImagesListener.NoteItemImagesSaved(string itemId)
@@ -1979,7 +1998,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         if (await _services.Store.Items.LoadAsync(row.Member.ItemId) is { } item)
         {
-            _main.ShowItem(item);
+            OpenItemPage(item);
             return;
         }
 

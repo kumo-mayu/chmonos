@@ -97,8 +97,8 @@ flowchart LR
   Hub -->|"使ったものの行"| RItem["右の商品ページ"]
   Hub -->|"「アバターの管理へ」"| Av["アバターの管理"]
   RMod -->|"「アバター」の名前"| Av
-  RMod -->|"使ったもののカード・名前"| Item["商品ページ"]
-  Hub -->|"右の「商品ページを開く」"| Item
+  RMod -->|"使ったもののカード・名前（右の改変なら右の欄に重ねる）"| Item["商品ページ"]
+  Hub -->|"右の「商品ページを開く」（右の欄に重ねる）"| Item
   Av -->|"「このアバターの改変」の行"| Solo["単独の改変"]
   Item -->|"「この商品を使った改変」"| Solo
   Solo -->|"「←」・Alt+←"| Av
@@ -149,11 +149,12 @@ flowchart LR
 | 使ったものの行の右クリック「使ったファイルを選び直す…」 | 右クリック | 押す | ファイルを選ぶ窓 | 同上 | ModificationsMemberMenu.Repick・Hub:116 |
 | 右のプロジェクトの「VPM」の三角・「外したもの」 | 右 | 押す | 前の版・外した物を広げる | プロジェクトを押した時 | ModificationsDetailVpm・Hub:578・613 |
 | Unityを開く／エクスプローラで開く／場所を付け替える…（右のプロジェクト） | 右 | 押す | 開く・付け替える | プロジェクトを押した時。見つからないと前の2つは押せず、3つ目が出る | ModificationsDetailOpenUnity・ModificationsDetailOpenFolder・ModificationsDetailRelocate・Hub:627-636 |
-| アバターの管理へ／商品ページを開く（右のアバター） | 右 | 押す | アバターの管理へ／商品ページへ | アバターを押した時（商品ページは手元にある時） | ModificationsDetailAvatarManage・ModificationsDetailOpenItemPage・Hub:690・694 |
+| アバターの管理へ／商品ページを開く（右のアバター） | 右 | 押す | アバターの管理へ／商品ページを右の欄に重ねる | アバターを押した時（商品ページは手元にある時） | ModificationsDetailAvatarManage・ModificationsDetailOpenItemPage・Hub:690・694 |
 | 新しい改変…（右のアバターの「このアバターの改変」の上） | 右 | 押す | 名前を窓で聞いて作り、右に開く（窓の欄で Enter） | アバターを押した時 | ModificationsDetailCreate・ModificationNameDialog |
 | Unityで選択（右の商品の帯） | 右 | 押す | 場所を示す | 手元にある使ったものを押した時 | ModificationsItemSelectInUnity・Hub:738 |
 | この商品を使った改変（n） | 右 | 押す | 広げる | 同上 | Hub:751 |
-| 商品ページを開く／Unityで選択（手元に無い商品） | 右 | 押す | 商品ページへ／場所を示す | 手元に無い使ったものを押した時 | ModificationsMissingOpenItemPage・ModificationsMissingSelectInUnity・Hub:786・789 |
+| 商品ページを開く／Unityで選択（手元に無い商品） | 右 | 押す | 商品ページを右の欄に重ねる／場所を示す | 手元に無い使ったものを押した時 | ModificationsMissingOpenItemPage・ModificationsMissingSelectInUnity・Hub:786・789 |
+| ← 一覧に戻る | 右の頭（商品ページを重ねた時） | 押す（Alt+← も） | 重ねる前の右の中身に戻す | 右の中から商品ページを開いた時 | RightPaneBack・RightPaneItemResources.xaml |
 | ←（元の画面の名前） | 改変の上の帯 | 押す | 前の画面へ | 単独の改変だけ | ModificationView.xaml:69 |
 | 複製… | 改変の上の帯 | 押す | 元の名前を入れた窓で名前を聞き、写した改変を作って右に開く | 右の改変だけ | ModificationDuplicate |
 | 削除（改変） | 改変の上の帯 | 押す | 窓で確かめて消す（写真も消える） | 右の改変だけ | ModificationView.xaml:102 |
@@ -165,7 +166,7 @@ flowchart LR
 | 入れた順／逆の順 | 同上 | 押す | 見せる順だけ替える | 同上 | MemberOrder.Insert・MemberOrder.Reverse・ModificationView.xaml:179・187 |
 | 使ったものを順にUnityへ送る | 同上 | 押す | 入れた順に1件ずつ取り込み画面を出す | いつも | ModificationView.xaml:200 |
 | 中止 | 使ったものの見出しの下 | 押す | 送るのをやめる | 送っている間 | ModificationView.xaml:209 |
-| 使ったもののカード・名前 | 改変の左の列 | 押す・中クリック・右クリック | 商品ページ・BOOTH・検索と同じメニュー | いつも | ModificationMemberLink・ModificationView.xaml:240・423 |
+| 使ったもののカード・名前 | 改変の左の列 | 押す・中クリック・右クリック | 商品ページ（右の改変では右の欄に重ねる）・BOOTH・検索と同じメニュー | いつも | ModificationMemberLink・ModificationView.xaml:240・423 |
 | 移動 ▾（カードは前へ移動・後ろへ移動、リストは上へ移動・下へ移動） | 改変の左の列 | 押す | 入れた順を動かす（端では押せない方が灰色） | 使ったものがある時 | ModificationMemberMoveMenu・MemberMoveBack・MemberMoveForward |
 | Unity ▾（Unityへ送る・Unityで選択・使ったファイルを選び直す…） | 改変の左の列 | 押す | 送る・示す・選び直す（外した行は選び直しだけ） | いつも | ModificationMemberUnityMenu.*・ModificationView.xaml:315-328・490-503 |
 | 外す／戻す／削除（使ったもの） | 改変の左の列 | 押す | 外す（戻せる）／戻す／窓で確かめて消す | 外すは使っている行、戻す・削除は外した行 | ModificationMemberRemove・ModificationMemberRestore・ModificationMemberDelete・ModificationView.xaml:332-345・507-519 |

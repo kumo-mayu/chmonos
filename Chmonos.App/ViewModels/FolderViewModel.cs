@@ -157,7 +157,8 @@ internal sealed class FolderViewVolume
 /// 選んでいた行を指す控え（戻るで戻ったときに選び直す）。
 /// 同じファイルを2つの商品が持つと、場所の鍵が同じ行が商品ごとに並ぶので、鍵だけでは1つ目の行に戻ってしまう。商品も合わせて持つ。
 /// </summary>
-public sealed record FolderRowRef(string Key, string? ItemId);
+/// <param name="RightItemId">右の一覧から右の欄に重ねていた商品（open.md 95 行）。戻った時に重ね直す。</param>
+public sealed record FolderRowRef(string Key, string? ItemId, string? RightItemId = null);
 
 /// <summary>左の一覧の1行。**見えている行だけを平らに並べる**（1つのフォルダに1000本あっても、仮想化した一覧で重くしない）。</summary>
 public sealed class FolderViewRow : ViewModelBase, IHasItemCard
@@ -373,7 +374,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 /// 未確定のファイルは未確定の画面の右側を、そのまま組み込む。根の決め方は <see cref="FolderViewRoots"/>。
 /// **木は保存した記録のパスから組み、ディスクを読み回らない**（取り外したドライブも最後に分かっていた形で出す）。
 /// </summary>
-public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites, ILeavingScreen, IItemImagesListener, IEmbeddedItemPageHost
+public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites, ILeavingScreen, IItemImagesListener, IEmbeddedItemPageHost, IRightPaneItemHost
 {
     // 開いた・畳んだはアプリを閉じるまで覚える（改変の画面と同じ・ユーザ判断）
     private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
@@ -410,6 +411,10 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         _main = main;
         _thumbnails = thumbnails;
         _pendingSelect = select;
+
+        // 右の一覧から開いた商品ページは右の欄の中に重ねる（open.md 95 行）。左の幅は木から開いた商品ページと同じ鍵で覚える
+        RightItem = new RightPaneItemPage(main, this, item => new ItemViewModel(item, _services, _main, _thumbnails) { IsEmbedded = true });
+        RightItem.Changed += () => OnPropertyChanged(nameof(DetailWidthWanted));
 
         ToggleCommand = new RelayCommand(parameter => Toggle(parameter as FolderViewRow));
         ShowOtherCommand = new RelayCommand(parameter => ShowOther(parameter as FolderViewRow));
@@ -484,23 +489,32 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     private bool _replacingRows;
 
     /// <summary>戻るで戻ったときに、同じ行を選び直すための控え（場所と商品の組）。</summary>
-    public FolderRowRef? SelectedRef => _selected is null ? null : new FolderRowRef(_selected.Key, _selected.Entry?.Item?.Id);
+    public FolderRowRef? SelectedRef => _selected is null ? null : new FolderRowRef(_selected.Key, _selected.Entry?.Item?.Id, RightItem.Page?.Item.Id);
 
     /// <summary>
     /// 右に組み込んだ物（商品ページなど）の待っている保存も拾う。
     /// 組み込んだときは今の画面がこちらなので、主画面から商品ページを直に探しても当たらない。
     /// </summary>
     public Task FlushPendingWritesAsync()
-        => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
+        => Task.WhenAll(
+            (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask,
+            RightItem.Page?.FlushPendingWritesAsync() ?? Task.CompletedTask);
 
     /// <summary>
     /// 画像が届いた知らせを右に組み込んだ物へ渡す。組み込んだ商品ページは主画面から見えない（今の画面はこちら）ので、
     /// 自分が渡さないと、取得の最中に開いた商品の絵が空のまま残る
     /// </summary>
-    ItemViewModel? IEmbeddedItemPageHost.EmbeddedItemPage => Detail as ItemViewModel;
+    ItemViewModel? IEmbeddedItemPageHost.EmbeddedItemPage => RightItem.Page ?? Detail as ItemViewModel;
+
+    /// <summary>右の一覧から開いた商品ページ（右の欄に重ねる・open.md 95 行）。</summary>
+    public RightPaneItemPage RightItem { get; }
+
+    /// <summary>右の一覧のカード・行から商品を開く（右クリックの「商品ページを開く」も）。左の木の選びは変えない。</summary>
+    internal void OpenItemInRightPane(ItemRecord item) => RightItem.Open(item);
 
     void IItemImagesListener.NoteItemImagesSaved(string itemId)
     {
+        RightItem.Page?.NoteImagesSaved(itemId);
         switch (Detail)
         {
             case ItemViewModel page:
@@ -520,6 +534,9 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             var leaving = _detail as ResolveViewModel;
             if (SetField(ref _detail, value))
             {
+                // 左で別の物を選んだら、右に重ねた商品ページは役目を終える（戻る先の一覧が替わった）
+                RightItem.Close();
+
                 // 右に組み込んだ未確定を別の物に差し替えたら、未確定の画面を離れたのと同じ後始末をさせる
                 // （読み込みの取り消しと、登録した商品を検索へ反映する読み直し）。フォルダビューを離れるときの OnLeaving は
                 // 今の右側にしか届かないので、先に差し替えた未確定で登録した商品（仮IDを含む）が検索に出なかった
@@ -537,7 +554,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     /// 幅 1280 の窓でも木を縮めず、商品ページが横に送られていた（2026-10-04 に絵で確かめた）。改変の画面と同じ計算
     /// （<see cref="ModificationHubViewModel.DetailWidthWanted"/>）。ほかの物は右の欄の最小で足りる
     /// </summary>
-    public double DetailWidthWanted => Detail is ItemViewModel page ? ModificationHubViewModel.WidthWanted(page.BodyMinWidth) : 0;
+    public double DetailWidthWanted => (RightItem.Page ?? Detail as ItemViewModel) is { } page ?ModificationHubViewModel.WidthWanted(page.BodyMinWidth) : 0;
 
     // ---- 絞り込み（ユーザ判断：木全体を名前で絞る＋商品を出すか・管理対象・未確定の切り替え） ----
 
@@ -865,6 +882,14 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             // 作り直したときの選び直し（Rebuild）と同じく、場所と商品の組で探す。その商品の行が無くなっていれば場所だけで
             Selected = Rows.FirstOrDefault(row => row.Key == key && row.Entry?.Item?.Id == pending.ItemId)
                 ?? Rows.FirstOrDefault(row => row.Key == key);
+
+            // 右の一覧から商品ページを重ねていたなら重ね直す（「← 一覧に戻る」で、同じフォルダの一覧へ戻れるように）。
+            // 一覧はこの画面と一緒に作り直したので、流した位置は一番上からになる。商品が消えていれば重ねない
+            if (pending.RightItemId is { } rightItemId && Detail is FolderViewDetail
+                && items.FirstOrDefault(item => item.Id == rightItemId) is { } rightItem)
+            {
+                RightItem.Open(rightItem);
+            }
         }
         else
         {

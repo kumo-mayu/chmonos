@@ -556,7 +556,8 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
 
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----
 
-    public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+    /// <summary>右の欄の中で開く（左の木の選びと、この一覧の流した位置を残す・open.md 95 行）。</summary>
+    public void OpenItem(ItemCardViewModel card) => Owner.OpenItemInRightPane(card.Item);
 
     /// <summary>裏の取得がこの商品の画像を置いた。作ってあるカードだけ描き直す（まだ作っていないカードは作るときに絵を探す）。</summary>
     void IItemImagesListener.NoteItemImagesSaved(string itemId)

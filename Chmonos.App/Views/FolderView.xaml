@@ -20,6 +20,7 @@
             <ResourceDictionary Source="ManageResources.xaml" />
             <!-- フォルダ・根・ドライブの行の右クリック（open.md 90 行） -->
             <ResourceDictionary Source="FolderMenuResources.xaml" />
+            <ResourceDictionary Source="RightPaneItemResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
         <!-- 畳む印（FolderGlyph）は「Unityで選択」の木と共用なので App.xaml にある -->
 
@@ -351,7 +352,23 @@
         </Border>
 
         <!-- 右：選んだ物の詳細 -->
-        <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False" />
+        <!--
+            右の一覧から開いた商品ページは上に重ね、一覧は隠すだけ（open.md 95 行）。Collapsed でなく Hidden にするのは、
+            大きさを保ったまま残し、一覧の幅の知らせ（0 幅で1列に割り直す）と流した位置の切り詰めを起こさないため
+        -->
+        <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False">
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding RightItem.IsOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Hidden" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
+        <ContentControl Grid.Column="1" Content="{Binding RightItem}" Focusable="False"
+                        Visibility="{Binding RightItem.IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         <TextBlock Grid.Column="1" Text="左の木から、フォルダかファイルを選ぶと、ここに表示されます。"
                    Style="{StaticResource EmptyNote}" VerticalAlignment="Center" Margin="24,0"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />

@@ -83,6 +83,14 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         _level = level ?? s_lastLevel;
         _pendingSelection = selection;
 
+        // 左の幅は、左の「使ったもの」から開く商品ページと同じ鍵で覚える（同じ右の欄の中の商品ページ）
+        RightItem = new RightPaneItemPage(main, this, item => new ItemViewModel(item, _services, _main, _thumbnails)
+        {
+            IsEmbedded = true,
+            EmbeddedPaneKey = "modifications.item.left",
+        });
+        RightItem.Changed += () => OnPropertyChanged(nameof(DetailWidthWanted));
+
         OpenVccCommand = new RelayCommand(OpenVcc);
         OpenAlcomCommand = new RelayCommand(OpenAlcom);
         OpenProjectCommand = new RelayCommand(parameter => OpenProjectAsync(PathOf(parameter)).Forget());
@@ -281,7 +289,18 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     /// <summary>右に組み込んだ物（改変の画面・商品ページ）の待っている保存も拾う。</summary>
     public Task FlushPendingWritesAsync()
-        => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
+        => Task.WhenAll(
+            (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask,
+            RightItem.Page?.FlushPendingWritesAsync() ?? Task.CompletedTask);
+
+    /// <summary>
+    /// 右の欄の中から開いた商品ページ（右に重ねる・open.md 95 行）。改変の使ったもの・アバター・手元に無い使ったものの
+    /// 「商品ページを開く」から。左の「使ったもの」の行から開く商品ページ（<see cref="HubItemDetail"/>）とは別で、こちらは一覧へ戻れる
+    /// </summary>
+    public RightPaneItemPage RightItem { get; }
+
+    /// <summary>右の欄の中で商品ページを開く。左の選びと右の中身は残す。</summary>
+    internal void OpenItemInRightPane(ItemRecord item) => RightItem.Open(item);
 
     /// <summary>
     /// 離れたら読み込み（開いたとき・窓が手前に戻ったとき）を取り消す（既知 P8）。
@@ -305,6 +324,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         {
             if (SetField(ref _detail, value))
             {
+                // 左で別の物を選んだら、右に重ねた商品ページは役目を終える（戻る先の中身が替わった）
+                RightItem.Close();
                 OnPropertyChanged(nameof(HasDetail));
                 OnPropertyChanged(nameof(DetailWidthWanted));
                 RelayCommand.RaiseCanExecuteChanged();
@@ -373,7 +394,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// 幅 1280 の窓でも一覧を縮めず、詳細が横に送られて右の列が切れていた（2026-10-03）。
     /// 一覧はこの幅を残すまで縮む（それでも足りない窓では、詳細が自分で横に送る）。ほかの物は右の欄の最小で足りる
     /// </summary>
-    public double DetailWidthWanted => Detail switch
+    public double DetailWidthWanted => RightItem.Page is { } overlay ? WidthWanted(overlay.BodyMinWidth) : Detail switch
     {
         ModificationViewModel modification => WidthWanted(modification.BodyMinWidth),
 
@@ -386,14 +407,14 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     internal static double WidthWanted(double bodyMinWidth) => bodyMinWidth + System.Windows.SystemParameters.VerticalScrollBarWidth;
 
     /// <summary>右側に出しているものを、開き直せる形で。</summary>
-    public ModificationHubSelection? Selection => Detail switch
+    public ModificationHubSelection? Selection => (Detail switch
     {
-        HubProjectDetail project => new(ModificationHubSelectionKind.Project, project.Path),
-        HubAvatarDetail avatar => new(ModificationHubSelectionKind.Avatar, avatar.AvatarItemId),
-        ModificationViewModel modification => new(ModificationHubSelectionKind.Modification, modification.Record.Id),
-        HubItemDetail item => new(ModificationHubSelectionKind.Member, item.Row.Record.Id, item.Row.Index),
+        HubProjectDetail project => new ModificationHubSelection(ModificationHubSelectionKind.Project, project.Path),
+        HubAvatarDetail avatar => new ModificationHubSelection(ModificationHubSelectionKind.Avatar, avatar.AvatarItemId),
+        ModificationViewModel modification => new ModificationHubSelection(ModificationHubSelectionKind.Modification, modification.Record.Id),
+        HubItemDetail item => new ModificationHubSelection(ModificationHubSelectionKind.Member, item.Row.Record.Id, item.Row.Index),
         _ => null,
-    };
+    }) is { } selection ? selection with { RightItemId = RightItem.Page?.Item.Id } : null;
 
     public string Status
     {
@@ -707,6 +728,12 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
                 break;
         }
+
+        // 右の中から商品ページを重ねていたなら重ね直す（「← 一覧に戻る」で同じ右の中身へ戻れるように）。商品が消えていれば重ねない
+        if (selection.RightItemId is { } rightItemId && Detail is not null)
+        {
+            OpenItemPageAsync(rightItemId).Forget();
+        }
     }
 
     private ModificationRecord? FindRecord(string id)
@@ -736,7 +763,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     private void ShowModification(ModificationRecord record)
     {
-        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true };
+        var modification = new ModificationViewModel(record, _services, _main, _thumbnails) { IsEmbedded = true, OpenItemInPane = OpenItemInRightPane };
         modification.DuplicateRequested += id => DuplicateModificationAsync(id).Forget();
 
         // 開いた直後の読み込みでも Changed が来る。そのときは一覧を組み直さない（開くたびに一覧が動かないように）
@@ -1027,7 +1054,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
         if ((_items.GetValueOrDefault(itemId) ?? await _services.Store.Items.LoadAsync(itemId)) is { } item)
         {
-            _main.ShowItem(item);
+            // 右の欄の中で開く（左の選びと右の中身を残す・open.md 95 行）
+            RightItem.Open(item);
         }
     }
 

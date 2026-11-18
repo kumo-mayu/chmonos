@@ -607,9 +607,13 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <summary>
     /// いま開いている商品の操作の持ち主。商品ページならその画面、編集画面なら今の商品の分
     /// （ユーザ判断：画像の追加などの編集は両方で同等にする。落とす・貼る・画像が届いた知らせもこれに向ける）。
+    /// フォルダ・改変の画面の右の欄に組み込んだ商品ページも含める（ユーザ判断 2026-11-19・open.md 95 行：
+    /// 組み込んだページでも、落とした・貼った画像を商品の画像として受ける。前は既定の規則に回っていた）
     /// </summary>
     public ItemViewModel? CurrentItemPage
-        => CurrentViewModel as ItemViewModel ?? (CurrentViewModel as EditViewModel)?.ItemPage;
+        => CurrentViewModel as ItemViewModel
+            ?? (CurrentViewModel as EditViewModel)?.ItemPage
+            ?? (CurrentViewModel as IEmbeddedItemPageHost)?.EmbeddedItemPage;
 
     /// <summary>
     /// 未確定から登録した後の対応アバターの判定が終わった（UIスレッド）。検索の写しは黙って読み直し、開いている商品ページ
@@ -1037,6 +1041,14 @@ public sealed partial class MainViewModel : ViewModelBase
                 // どの画面でも直前の画面へ（U23）。編集画面も同じ（ユーザ判断 2026-09-12）——
                 // 以前は編集画面だけ「前の1件へ」にしていたが、入力欄にいると効かず、他の画面と食い違っていた。
                 // 前の1件へは「← 前へ」ボタンか Ctrl+P（Previous）で行く。離れるときに書きかけは控えるので、戻っても入力は消えない
+                // 右の欄に重ねた商品ページは、画面の履歴より先に閉じる（ユーザ判断 2026-11-19・open.md 95 行：Alt+← も「← 一覧に戻る」と同じ）。
+                // 重ねたのは画面を移っていないので履歴に積んでいない。1段だけなので、閉じた後の戻るは画面の履歴へ回る。
+                // 左上の「←」は行き先の画面を名乗るので、今までどおり画面の履歴だけを辿る
+                if (CurrentViewModel is IRightPaneItemHost host && host.RightItem.Close())
+                {
+                    return true;
+                }
+
                 if (!CanGoBack)
                 {
                     return false;

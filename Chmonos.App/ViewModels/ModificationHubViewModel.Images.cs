@@ -1,16 +1,18 @@
 namespace Chmonos.App.ViewModels;
 
 /// <summary>改変の画面：裏の取得が置いた画像を、右に組み込んだ物へ渡す（洗い出し 6）</summary>
-public sealed partial class ModificationHubViewModel : IItemImagesListener, IEmbeddedItemPageHost
+public sealed partial class ModificationHubViewModel : IItemImagesListener, IEmbeddedItemPageHost, IRightPaneItemHost
 {
     /// <summary>
     /// 組み込んだ商品ページ・改変の画面は主画面から見えない（今の画面はこちら）ので、自分が渡す。
-    /// 渡さないと、取得の最中に開いた商品の絵が空のまま残る
+    /// 渡さないと、取得の最中に開いた商品の絵が空のまま残る。右の中から重ねた商品ページが見えている時は、そちらが宛先
     /// </summary>
-    ItemViewModel? IEmbeddedItemPageHost.EmbeddedItemPage => Detail is HubItemDetail { Page: { } page } ? page : null;
+    ItemViewModel? IEmbeddedItemPageHost.EmbeddedItemPage
+        => RightItem.Page ?? (Detail is HubItemDetail { Page: { } page } ? page : null);
 
     void IItemImagesListener.NoteItemImagesSaved(string itemId)
     {
+        RightItem.Page?.NoteImagesSaved(itemId);
         switch (Detail)
         {
             case HubItemDetail { Page: { } page }:
