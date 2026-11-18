@@ -125,6 +125,48 @@ public partial class ResolveView : UserControl
         }
     }
 
+    /// <summary>
+    /// zipから展開した中身の束の見出しの文字の所を押したとき（ユーザ判断 2026-11-18）。束を開き、「元zipで登録」か「まとめて扱う」を効かせる。
+    /// 三角の所は見出しの型の外（この入れ物に入らない）なので、今までどおり開け閉めだけ。見出しの中のボタンはそのボタンに任せる。
+    /// 押し下げで受けて止めるのは、止めないと見出しの開け閉めのボタンが押し上げで束を閉じてしまうため
+    /// </summary>
+    private void OnGroupHeaderPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement header
+            || header.DataContext is not System.Windows.Data.CollectionViewGroup group
+            || group.Items.Count == 0
+            || group.Items[0] is not UnresolvedRow { HasOrigin: true })
+        {
+            return;
+        }
+
+        for (var node = e.OriginalSource as DependencyObject; node is not null && !ReferenceEquals(node, header); node = ParentOf(node))
+        {
+            if (node is System.Windows.Controls.Primitives.ButtonBase)
+            {
+                return;
+            }
+        }
+
+        e.Handled = true;
+        for (DependencyObject? node = header; node is not null; node = ParentOf(node))
+        {
+            if (node is Expander expander)
+            {
+                expander.IsExpanded = true;
+                break;
+            }
+        }
+
+        _model?.ActivateGroupCommand.Execute(group.Name);
+    }
+
+    /// <summary>文字の一部（Run）は見た目の木に居ないので、そのときは論理の木で親をたどる。</summary>
+    private static DependencyObject? ParentOf(DependencyObject node)
+        => node is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D
+            ? System.Windows.Media.VisualTreeHelper.GetParent(node)
+            : LogicalTreeHelper.GetParent(node);
+
     /// <summary>「商品IDで登録」の欄を画面に入れる。候補は欄より下にあり、押した結果が見えなかった（ユーザ判断 2026-09-17）。</summary>
     private void OnDecisionFocusRequested() => DecisionCard.BringIntoView();
 

@@ -145,6 +145,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
         SelectGroupCommand = new RelayCommand(SelectGroup, parameter => parameter is string);
+        ActivateGroupCommand = new RelayCommand(ActivateGroup, parameter => parameter is string);
         // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
@@ -164,6 +165,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     /// <summary>元zipの束をまとめて1つの対象にする。</summary>
     public RelayCommand SelectGroupCommand { get; }
+
+    /// <summary>zipから展開した中身の束の見出しを押したとき。元zipで登録か、まとめて扱うの先に当たる方を効かせる。</summary>
+    public RelayCommand ActivateGroupCommand { get; }
 
     /// <summary>「取り込み中に n 件増えました」を押したときの読み直し。</summary>
     public RelayCommand ReloadCommand { get; }
@@ -824,7 +828,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             FilesView.Refresh();
         }
 
-        // 行を選び直したら、束ではなくその1件を扱う。束は見出しのボタンからだけ立つ
+        // 前の行の束はいったん外す。下の ApplyZipUnit が、選んだ行の zip やフォルダの単位で束を立て直す
         ActiveGroup = null;
 
         // 取り込みが BOOTH に聞いて「無い」と答えられた行は、初めからそのIDを欄に入れ、そのIDのまま登録する形を出す
@@ -889,8 +893,14 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OnPropertyChanged(nameof(HasSelectedOrigin));
         OnPropertyChanged(nameof(CanUseOriginZip));
 
-        // 選び直したら「このファイルだけを扱う」は切り、zipの単位を決め直す
-        _singleFileOnly = false;
+        // 「このファイルだけ」は束ごとに覚え、同じ束の中で選び直しても保つ。別の束や束でない行へ移ったら切る
+        // （ユーザ判断 2026-11-18：前は選び直すたびに束へ戻り、同じzipの中身を1件ずつ別の商品にするたびに押し直していた）
+        _singleFileOnly = KeepsSingleFile(Selected);
+        if (!_singleFileOnly)
+        {
+            _singleFileGroupKey = null;
+        }
+
         OnPropertyChanged(nameof(SingleFileOnly));
         ApplyZipUnit();
         OnPropertyChanged(nameof(HasStatus));

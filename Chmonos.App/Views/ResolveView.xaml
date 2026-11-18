@@ -343,7 +343,10 @@
                                                         <Expander.Header>
                                                             <!-- 見出しは中身に合わせて縮まないので、束の幅（左の列の幅）から開け閉めの印の分を引いた幅にする。前は270で固定で、列を広げても長いパスが切れたままだった（ユーザ指示 2026-09-17） -->
                                                             <!-- 上下の 7 は、三角の型にする前（既定の型は見出しの押す所に 1px の外の余白を持っていた）と同じ高さにするため（点検 2026-09-30 の D） -->
-                                                            <StackPanel Margin="2,7,0,7" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=GroupItem}, Converter={x:Static vm:SubtractConverter.Instance}, ConverterParameter=40}">
+                                                            <!-- zipから展開した中身の束は、文字の所を押すと開いて「元zipで登録」か「まとめて扱う」を効かせる。三角は開け閉めだけ（ユーザ判断 2026-11-18・OnGroupHeaderPreviewMouseDown） -->
+                                                            <StackPanel PreviewMouseLeftButtonDown="OnGroupHeaderPreviewMouseDown"
+                                                                        Background="Transparent"
+                                                                        Margin="2,7,0,7" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=GroupItem}, Converter={x:Static vm:SubtractConverter.Instance}, ConverterParameter=40}">
                                                                 <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
                                                                            ToolTip="{Binding Name}">
                                                                     <TextBlock.Style>
