@@ -162,7 +162,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 状態 | 場面 |
 |---|---|
 | 空 | `empty-tag-manage`・`empty-attribute-manage`（900） |
-| 選んだ（カード・リスト） | `tag-manage-cards`（900）・`tag-manage-list`・`attribute-manage-cards`（900）・`attribute-manage-list` |
+| 選んだ（カード・リスト） | `tag-manage-cards`（900）・`tag-manage-list`・`attribute-manage-cards`（900）・`attribute-manage-list`・値をグラフで `attribute-manage-pie-list`・`attribute-manage-pie-cards` |
 | 小分類（列・1列・足す欄） | `tag-manage-cards-subs-columns`・`tag-manage-list-subs-column`・`tag-manage-sub-add-open`・`tag-manage-sub-existing` |
 | 打った（新しい名前・今ある名前・理由・商品の語） | `tag-manage-typed-*`・`tag-manage-match-reason`・`attribute-manage-typed-*`・`attribute-manage-search-items` |
 | 手動の並べ替え・知らせ | `tag-manage-manual`・`tag-manage-notices`・`attribute-manage-notices` |
@@ -174,7 +174,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 状態 | 場面 |
 |---|---|
 | 通知：空・束と行・読めない商品・知らせ・行の差分・指して開く | `empty-inbox`（900）・`inbox-rows`（900）・`inbox-unreadable`・`inbox-notices(-none)`・`inbox-lines`・`inbox-target` |
-| 統計：空・8件 | `empty-stats`（900）・`stats`（900） |
+| 統計：空・8件 | `empty-stats`（900）・`stats`（900）・期間を選んだ所 `stats-period`・`stats-period-custom` |
 | 統計：60件・12店 | `catalog-stats-many` |
 | 設定：全体（除外 0・3・5000件）・欄を開いた形 | `settings-excluded-*` |
 | 設定：長いパス・区切り・保存先の作業中・書き出し・既定に戻す・知らせ | `settings-long-paths`（900）・`settings-sort-dividers-*`・`settings-store-blocked`・`settings-backup-exported`・`settings-reset-all(-done)`・`settings-notes-*` |

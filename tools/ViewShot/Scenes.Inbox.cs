@@ -471,5 +471,33 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 期間を選んだ所（open.md 104）：上の帯の年の欄・タイルの2行目・期間で変わる欄の見出しの札。作り物の日付（2026-09-01）の年を選ぶ
+        new Scene("stats-period", "統計：期間「年を選ぶ」で2026年（年の欄・タイルの期間の値・欄の見出しの期間の札）", async context =>
+        {
+            var (main, root) = await OpenLibraryAsync(context);
+            main.ShowStatsCommand.Execute(null);
+            var stats = context.Screen<StatsViewModel>();
+            await SceneContext.UntilAsync(() => !stats.IsLoading, "統計の集計");
+            stats.Range = StatsViewModel.Ranges.Single(option => option.Kind == StatsRangeKind.PickYear);
+            stats.SelectedYear = 2026;
+            await SceneContext.UntilAsync(() => stats.PeriodText == "2026年" && stats.Shops.Count > 0, "選んだ年の集計");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("stats-period-custom", "統計：期間「開始と終了を選ぶ」（日の欄2つ）", async context =>
+        {
+            var (main, root) = await OpenLibraryAsync(context);
+            main.ShowStatsCommand.Execute(null);
+            var stats = context.Screen<StatsViewModel>();
+            await SceneContext.UntilAsync(() => !stats.IsLoading, "統計の集計");
+            stats.Range = StatsViewModel.Ranges.Single(option => option.Kind == StatsRangeKind.Custom);
+            stats.CustomFrom = new DateTime(2026, 8, 1);
+            stats.CustomTo = new DateTime(2026, 9, 30);
+            await SceneContext.UntilAsync(() => stats.PeriodText == "2026年8月〜2026年9月" && stats.Shops.Count > 0, "選んだ期間の集計");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
     ];
 }

@@ -257,6 +257,8 @@
                                 <TextBlock Text="ショップ数" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="{Binding ShopCountText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
+                                <!-- ほかのタイルの補足の行（空でも1行ぶん）と高さをそろえ、期間の値の行の位置を並べる -->
+                                <TextBlock Text=" " Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                 <TextBlock Text="{Binding PeriodShopCountText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
                                            Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
