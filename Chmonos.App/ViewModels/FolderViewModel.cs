@@ -245,6 +245,9 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 
     public Thickness Indent => new(Depth * 16, 0, 0, 0);
 
+    /// <summary>字下げの縦線の形（open.md 99 行）。並べ終えた行の並びから決まるので、作った後に <see cref="FolderViewModel"/> が入れる。</summary>
+    public Chmonos.App.Controls.IndentGuideShape Guides { get; set; } = Chmonos.App.Controls.IndentGuideShape.None;
+
     /// <summary>取り外したドライブ・見つからないファイル。灰色で残す（木から消すと、持っていることを忘れる）。</summary>
     public bool IsDim { get; init; }
 
@@ -1144,6 +1147,13 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             {
                 rows.AddRange(children);
             }
+        }
+
+        // 字下げの縦線は、今見えている並びから決める（畳んだ・探して外した行があっても、見えている線と食い違わない）
+        var guides = Chmonos.App.Controls.IndentGuideShape.Compute(rows.Select(row => row.Depth).ToList());
+        for (var i = 0; i < rows.Count; i++)
+        {
+            rows[i].Guides = guides[i];
         }
 
         // まとめて差し替える（1行ずつ足すと、1000行で1000回の知らせになる）

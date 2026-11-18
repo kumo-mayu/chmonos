@@ -82,32 +82,36 @@
 
         <!-- フォルダ・根・ボリューム：開け閉めの三角・数・未確定の札・入れ物の印 -->
         <DataTemplate x:Key="FolderRowTemplate" DataType="{x:Type vm:FolderViewRow}">
-            <DockPanel Margin="{Binding Indent}" MinHeight="26">
-                <Button AutomationProperties.AutomationId="FolderRowToggle" AutomationProperties.Name="{Binding ToggleName}" DockPanel.Dock="Left" Style="{StaticResource FolderGlyph}" Content="{Binding Glyph}"
-                        Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                        CommandParameter="{Binding}" />
+            <Grid>
+                <!-- 字下げの縦線（open.md 99 行）。行の枠と内側の余白（上下 2）まで伸ばし、上下の行の線とつなげる -->
+                <controls:IndentGuides Shape="{Binding Guides}" Stroke="{DynamicResource Border}" Margin="0,-2" />
+                <DockPanel Margin="{Binding Indent}" MinHeight="26">
+                    <Button AutomationProperties.AutomationId="FolderRowToggle" AutomationProperties.Name="{Binding ToggleName}" DockPanel.Dock="Left" Style="{StaticResource FolderGlyph}" Content="{Binding Glyph}"
+                            Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                            CommandParameter="{Binding}" />
 
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,2,0">
-                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
-                            CornerRadius="8" Padding="6,0" Margin="0,0,6,0" ToolTip="{Binding UnresolvedBadgeTip}"
-                            Visibility="{Binding HasUnresolvedBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="{Binding UnresolvedBadgeText}" FontSize="10" Foreground="{DynamicResource Warn}" />
-                    </Border>
-                    <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
-                </StackPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,2,0">
+                        <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
+                                CornerRadius="8" Padding="6,0" Margin="0,0,6,0" ToolTip="{Binding UnresolvedBadgeTip}"
+                                Visibility="{Binding HasUnresolvedBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding UnresolvedBadgeText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                        </Border>
+                        <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                    </StackPanel>
 
-                <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top">
-                    <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.3"
-                          Stretch="Uniform" Width="17" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Grid>
+                    <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top">
+                        <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.3"
+                              Stretch="Uniform" Width="17" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
 
-                <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
-                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
-                    <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                </StackPanel>
-            </DockPanel>
+                    <StackPanel Style="{StaticResource FolderRowText}">
+                        <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
         </DataTemplate>
 
         <!--
@@ -148,72 +152,80 @@
 
         <!-- 管理しているファイル・フォルダごと登録した商品：商品の絵 -->
         <DataTemplate x:Key="ItemFileRowTemplate" DataType="{x:Type vm:FolderViewRow}">
-            <DockPanel Margin="{Binding Indent}" MinHeight="26">
-                <!-- 三角の幅だけ空ける（フォルダの行と絵の位置を揃える。ファイルは開け閉めしない） -->
-                <FrameworkElement DockPanel.Dock="Left" Width="18" />
+            <Grid>
+                <!-- 字下げの縦線（open.md 99 行）。行の枠と内側の余白（上下 2）まで伸ばし、上下の行の線とつなげる -->
+                <controls:IndentGuides Shape="{Binding Guides}" Stroke="{DynamicResource Border}" Margin="0,-2" />
+                <DockPanel Margin="{Binding Indent}" MinHeight="26">
+                    <!-- 三角の幅だけ空ける（フォルダの行と絵の位置を揃える。ファイルは開け閉めしない） -->
+                    <FrameworkElement DockPanel.Dock="Left" Width="18" />
 
-                <!-- 右端の札（見つからない・ほかの場所）。フォルダの行の数の札と同じ列 -->
-                <ContentControl DockPanel.Dock="Right" Margin="6,0,2,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileBadges}" Focusable="False" />
+                    <!-- 右端の札（見つからない・ほかの場所）。フォルダの行の数の札と同じ列 -->
+                    <ContentControl DockPanel.Dock="Right" Margin="6,0,2,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileBadges}" Focusable="False" />
 
-                <!--
-                    商品の絵。乗せると大きめの絵と商品名を出す（ユーザ指摘 2026-09-14：フォルダビューの商品の絵にホバーが無い。
-                    改変の画面の使ったものの行と同じ出し方・180px）
-                -->
-                <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
-                        CornerRadius="4" Background="{DynamicResource SurfaceAlt}" ClipToBounds="True"
-                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
-                    <Grid>
-                        <TextBlock Text="{Binding Initial}" FontSize="10" Foreground="{DynamicResource TextMuted}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
-                    </Grid>
-                    <Border.ToolTip>
-                        <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
-                            <StackPanel Width="180">
-                                <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
-                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
-                                </Border>
-                                <TextBlock Text="{Binding ItemName}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                           Foreground="{DynamicResource Text}" />
-                            </StackPanel>
-                        </ToolTip>
-                    </Border.ToolTip>
-                </Border>
+                    <!--
+                        商品の絵。乗せると大きめの絵と商品名を出す（ユーザ指摘 2026-09-14：フォルダビューの商品の絵にホバーが無い。
+                        改変の画面の使ったものの行と同じ出し方・180px）
+                    -->
+                    <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
+                            CornerRadius="4" Background="{DynamicResource SurfaceAlt}" ClipToBounds="True"
+                            ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" FontSize="10" Foreground="{DynamicResource TextMuted}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                        </Grid>
+                        <Border.ToolTip>
+                            <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
+                                <StackPanel Width="180">
+                                    <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
+                                            Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                    </Border>
+                                    <TextBlock Text="{Binding ItemName}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource Text}" />
+                                </StackPanel>
+                            </ToolTip>
+                        </Border.ToolTip>
+                    </Border>
 
-                <!-- 名前は切り替えで商品名になる（Title）。そのときは2行目に元のファイル名（SubText） -->
-                <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="{DynamicResource Text}"
-                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
-                    <TextBlock Text="{Binding SubText}" Style="{StaticResource FolderRowSubText}" TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileNotes}" Focusable="False" />
-                </StackPanel>
-            </DockPanel>
+                    <!-- 名前は切り替えで商品名になる（Title）。そのときは2行目に元のファイル名（SubText） -->
+                    <StackPanel Style="{StaticResource FolderRowText}">
+                        <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="{DynamicResource Text}"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        <TextBlock Text="{Binding SubText}" Style="{StaticResource FolderRowSubText}" TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileNotes}" Focusable="False" />
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
         </DataTemplate>
 
         <!-- 未確定のファイル：「?」の印 -->
         <DataTemplate x:Key="UnresolvedRowTemplate" DataType="{x:Type vm:FolderViewRow}">
-            <DockPanel Margin="{Binding Indent}" MinHeight="26">
-                <FrameworkElement DockPanel.Dock="Left" Width="18" />
+            <Grid>
+                <!-- 字下げの縦線（open.md 99 行）。行の枠と内側の余白（上下 2）まで伸ばし、上下の行の線とつなげる -->
+                <controls:IndentGuides Shape="{Binding Guides}" Stroke="{DynamicResource Border}" Margin="0,-2" />
+                <DockPanel Margin="{Binding Indent}" MinHeight="26">
+                    <FrameworkElement DockPanel.Dock="Left" Width="18" />
 
-                <!-- 右端の札（見つからない・ほかの場所）。フォルダの行の数の札と同じ列 -->
-                <ContentControl DockPanel.Dock="Right" Margin="6,0,2,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileBadges}" Focusable="False" />
+                    <!-- 右端の札（見つからない・ほかの場所）。フォルダの行の数の札と同じ列 -->
+                    <ContentControl DockPanel.Dock="Right" Margin="6,0,2,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileBadges}" Focusable="False" />
 
-                <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
-                        CornerRadius="4" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1">
-                    <TextBlock Text="?" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Warn}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
+                    <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
+                            CornerRadius="4" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1">
+                        <TextBlock Text="?" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Warn}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
 
-                <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
-                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
-                    <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileNotes}" Focusable="False" />
-                </StackPanel>
-            </DockPanel>
+                    <StackPanel Style="{StaticResource FolderRowText}">
+                        <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileNotes}" Focusable="False" />
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
         </DataTemplate>
 
         <views:FolderRowTemplateSelector x:Key="FolderRowSelector"
