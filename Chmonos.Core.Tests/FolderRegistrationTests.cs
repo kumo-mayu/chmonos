@@ -250,6 +250,94 @@ public class FolderRegistrationTests : IDisposable
         Assert.Equal("rurune/rurune.unitypackage", place.Entry.EntryPath);
     }
 
+    /// <summary>
+    /// zip が既に付いていてフォルダの登録だけ外す枝でも付け替える。zip の中に同じ名前が2つあって決まらない行は残し、数に入れる
+    /// </summary>
+    [Fact]
+    public async Task RelinksOnTheAlreadyRegisteredBranchAndCountsAmbiguousRows()
+    {
+        var itemId = await SaveItemAsync();
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+        var archive = folder + ".zip";
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, archive);
+        await _store.Items.ChangeLocalAsync(
+            itemId,
+            local => local with
+            {
+                LocalFiles =
+                [
+                    new LocalFileRecord
+                    {
+                        Hash = "ABCD",
+                        Paths = [archive],
+                        SizeBytes = 10,
+                        Contents = ["rurune/rurune.unitypackage", "a/dup.unitypackage", "b/dup.unitypackage"],
+                    },
+                ],
+                LocalFolders = [.. local.LocalFolders.Select(registered => registered with { UnityPackages = ["rurune/rurune.unitypackage", "dup.unitypackage"] })],
+            },
+            LocalOwners.Import);
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-0000b002",
+            AvatarItemId = "9900001",
+            Name = "普段着",
+            Members =
+            [
+                new ModificationMember { ItemId = itemId, Package = "rurune/rurune.unitypackage" },
+                new ModificationMember { ItemId = itemId, Package = "dup.unitypackage" },
+            ],
+        });
+
+        var outcome = await _service.SwapFolderForArchiveAsync(itemId, folder);
+
+        Assert.Equal(ArchiveSwapResult.AlreadyRegistered, outcome.Result);
+        Assert.Equal(new FolderMemberRelink.Counts(1, 1), outcome.Members);
+        var members = (await _store.Modifications.LoadAllAsync()).Modifications.Single().Members;
+        Assert.Equal("ABCD", members[0].FileHash);
+        Assert.Null(members[1].FileHash);
+        Assert.Equal("dup.unitypackage", members[1].Package);
+    }
+
+    /// <summary>
+    /// 改変を書けずに止まったら、フォルダの登録は外さない（押し直せば付け替わる）。前は外した後で付け替えていたので、
+    /// 止まるとフォルダの包みの一覧が無くなり、二度と付け替えられなかった
+    /// </summary>
+    [Fact]
+    public async Task KeepsTheFolderWhenTheModificationCannotBeWritten()
+    {
+        var itemId = await SaveItemAsync();
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, folder + ".zip");
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-0000b003",
+            AvatarItemId = "9900001",
+            Name = "普段着",
+            Members = [new ModificationMember { ItemId = itemId, Package = "rurune/rurune.unitypackage" }],
+        });
+        var file = new AppPaths(_library).ModificationFile("mod-0000b003");
+        File.SetAttributes(file, FileAttributes.ReadOnly);
+        try
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() => _service.SwapFolderForArchiveAsync(itemId, folder));
+        }
+        finally
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        var item = await _store.Items.LoadAsync(itemId);
+        Assert.Single(item!.Local.LocalFolders);
+        Assert.Empty(item.Local.LocalFiles);
+
+        // 押し直せば付け替わる
+        var outcome = await _service.SwapFolderForArchiveAsync(itemId, folder);
+        Assert.Equal(new FolderMemberRelink.Counts(1, 0), outcome.Members);
+    }
+
     /// <summary>zip の中の場所は、頭にフォルダ名が足される・段が変わることがある。1つに決まる時だけ付け替え、決まらない行は残して数える。</summary>
     [Fact]
     public void MatchesByTrailingPathThenByFileNameAndRefusesAmbiguity()

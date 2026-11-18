@@ -15,7 +15,27 @@ internal static class ArchiveSwapFlow
     /// <param name="Text">言う文。やめた時は空。</param>
     /// <param name="TakenFrom">付け直した・両方に付けた相手の商品（検索の写しに知らせる）。</param>
     /// <param name="OpenItemId">「その商品を開く」を選んだ時の行き先。</param>
-    public sealed record Result(bool Done, string Text, IReadOnlyList<ArchiveHolder> TakenFrom, string? OpenItemId);
+    public sealed record Result(bool Done, string Text, IReadOnlyList<ArchiveHolder> TakenFrom, string? OpenItemId)
+    {
+        /// <summary>改変の記録を付け替えた数（0 でなければ、開いている改変の画面を読み直させる）。</summary>
+        public int Relinked { get; init; }
+    }
+
+    /// <summary>
+    /// 改変の記録を付け替えたら、開いている改変の画面（一覧と、右に組み込んだ・単独の詳細）を読み直させる。
+    /// 改変の画面は行を中身（商品・足した日時・ファイル）で指すので、古い行のまま外す・並べ替えると「行が見つからない」になる。
+    /// 外から使う API で改変が書き換わった時と同じ道（<c>MainViewModel.NoteApiWrite</c> の改変の枝）
+    /// </summary>
+    public static void NoteRelinked(MainViewModel main, Result result)
+    {
+        if (result.Relinked == 0)
+        {
+            return;
+        }
+
+        (main.CurrentViewModel as ModificationHubViewModel)?.NoteWindowActivated();
+        main.CurrentModification?.NoteChangedOutsideAsync().Forget();
+    }
 
     private const string Title = "zipで登録し直す";
 
@@ -81,13 +101,13 @@ internal static class ArchiveSwapFlow
                 true,
                 $"「{swapped.ArchiveName}」で登録し直しました。展開したフォルダのファイルは削除していません。" + MembersText(swapped.Members),
                 takenFrom,
-                null),
+                null) { Relinked = swapped.Members.Relinked },
             ArchiveSwapResult.AlreadyRegistered => new Result(
                 true,
                 $"「{swapped.ArchiveName}」は登録済みなので、展開したフォルダの登録だけ外しました。ファイルは削除していません。"
                     + MembersText(swapped.Members),
                 takenFrom,
-                null),
+                null) { Relinked = swapped.Members.Relinked },
             ArchiveSwapResult.ArchiveMissing => new Result(
                 false,
                 "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。登録はそのままにしてあります。",

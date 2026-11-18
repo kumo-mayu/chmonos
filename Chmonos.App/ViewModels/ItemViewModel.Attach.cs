@@ -10,7 +10,7 @@ namespace Chmonos.App.ViewModels;
 ///
 /// 作者が前の商品を消して同じ物を新しいIDで出し直すと、ファイルの手掛かり（Zone.Identifier・ファイル名）は古いIDを指したままで、
 /// 取り込むと古い商品の方へ行くか未確定に出る。商品ページからファイルを直にその商品へ紐付ける道が無かった。
-/// 事情（除外・ほかの持ち主）は通知の「zipで登録し直す」と同じに聞く（`InboxViewModel.SwapFolderForArchiveAsync`）。
+/// 事情（除外・ほかの持ち主）は通知と商品ページの「zipで登録し直す」と同じに聞く（`ArchiveSwapFlow`）。
 /// </summary>
 public sealed partial class ItemViewModel
 {
@@ -320,6 +320,7 @@ public sealed partial class ItemViewModel
         await AfterAttachAsync(result.TakenFrom);
         BuildLocalFolders();
         OnPropertyChanged(nameof(LocalFolders));
+        ArchiveSwapFlow.NoteRelinked(_main, result);
     }
 
     private void RebuildLocalFilesInPlace(ItemRecord reloaded)

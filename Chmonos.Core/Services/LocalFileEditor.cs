@@ -243,16 +243,16 @@ internal sealed class LocalFileEditor(DataStore store)
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
         var (folderPackages, otherFolderPackages) = FolderPackagesOf(item.Local.LocalFolders, normalized);
 
+        // 改変の付け替えは、フォルダの登録を外す**前**に行う。外した後で付け替えが止まる（書けない・落ちる）と、
+        // 押し直してもフォルダの包みの一覧が残っておらず、二度と付け替わらない。先に付け替えておけば、止まっても押し直しで済む
         if (already)
         {
             // zipは既に付いている。あとはフォルダの登録を外すだけ
-            await UnregisterFolderAsync(itemId, folderPath, cancellationToken);
             var owned = item.Local.OwnedFiles.First(file => file.Paths.Any(
                 path => string.Equals(path, archivePath, StringComparison.OrdinalIgnoreCase)));
-            return new ArchiveSwapOutcome(ArchiveSwapResult.AlreadyRegistered, name)
-            {
-                Members = await RelinkFolderMembersAsync(itemId, folderPackages, otherFolderPackages, owned, cancellationToken),
-            };
+            var relinked = await RelinkFolderMembersAsync(itemId, folderPackages, otherFolderPackages, owned, cancellationToken);
+            await UnregisterFolderAsync(itemId, folderPath, cancellationToken);
+            return new ArchiveSwapOutcome(ArchiveSwapResult.AlreadyRegistered, name) { Members = relinked };
         }
 
         if (await ReadHandFileAsync(archivePath, cancellationToken) is not { } record)
@@ -268,6 +268,9 @@ internal sealed class LocalFileEditor(DataStore store)
             case { Holders: { Count: > 0 } holders }:
                 return new ArchiveSwapOutcome(ArchiveSwapResult.OwnedElsewhere, name) { Holders = holders };
         }
+
+        // 付け替えは上と同じ理由で、商品を書く前に（除外・ほかの持ち主で何も書かずに返す時は、改変にも触らない）
+        var members = await RelinkFolderMembersAsync(itemId, folderPackages, otherFolderPackages, record, cancellationToken);
 
         // ファイルとフォルダを1回で、商品の錠の中で今の値に当てて書く。2回に分けると、間に人が触った入力が消える。
         // 上で読んだ写しは使わない（2026-10-05・file-lifecycle.md「気になった所」3）：zip のハッシュに数秒〜かかる間に
@@ -293,10 +296,7 @@ internal sealed class LocalFileEditor(DataStore store)
         await AfterHandAttachAsync(itemId, hash, liftExclusion, otherHolders, cancellationToken);
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
 
-        return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name)
-        {
-            Members = await RelinkFolderMembersAsync(itemId, folderPackages, otherFolderPackages, record, cancellationToken),
-        };
+        return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name) { Members = members };
     }
 
     /// <summary>外すフォルダの包みの場所と、残るほかのフォルダの包みの場所（<see cref="FolderMemberRelink.Targets"/>）。</summary>

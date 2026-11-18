@@ -1024,6 +1024,7 @@ public sealed class InboxViewModel : ViewModelBase
             await NoteItemChangedAsync(holder.ItemId);
         }
 
+        ArchiveSwapFlow.NoteRelinked(_main, result);
         await ReloadAsync();
     }
 

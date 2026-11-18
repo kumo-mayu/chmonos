@@ -16,7 +16,7 @@
 
 ## 付けるとき
 
-- 命令は `UiCommand.AttachFile`（商品ページの［追加…］・落とす）と `UiCommand.SwapFolderForArchive`（通知の「zipで登録し直す」）。ほかの商品の扱いは `OtherHolders` の1つの値で渡す（2つの真偽にすると「付け直す」と「残す」を両方立てられる）。
+- 命令は `UiCommand.AttachFile`（商品ページの［追加…］・落とす）と `UiCommand.SwapFolderForArchive`（通知と商品ページの黄色の枠の「zipで登録し直す」）。ほかの商品の扱いは `OtherHolders` の1つの値で渡す（2つの真偽にすると「付け直す」と「残す」を両方立てられる）。
   - `Ask`（既定）：ほかの商品が持てば何も書かずに `OwnedElsewhere` と持ち主を返す。画面が窓で聞いて、答えを決めて呼び直す。
   - `TakeOver`：持ち主の全員に外した印を付け、この商品に付ける（「この商品に付け直す」）。
   - `Share`：持ち主の記録に触れず、この商品にも付ける（「両方に付ける」）。
