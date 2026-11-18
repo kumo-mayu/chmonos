@@ -67,6 +67,9 @@ public sealed class CommandHandler
     /// <summary>読めない商品の記録を控えに戻す・BOOTH から作り直す（通知の行のボタン）。</summary>
     private readonly BrokenItemRepair? _brokenItems;
 
+    /// <summary>中断した取り込みが作った商品を消す（中断の窓）。</summary>
+    private readonly ImportedItemRemoval? _importedItems;
+
     private readonly string? _storeRoot;
 
     /// <summary>見つからない記録をまとめて消す部品。無ければ「この機能は使えません」と返す。</summary>
@@ -113,9 +116,11 @@ public sealed class CommandHandler
         VolumeTable? volumes = null,
         Storage.JsonFileStore<ImportState>? importState = null,
         BrokenItemRepair? brokenItems = null,
-        string? storeRoot = null)
+        string? storeRoot = null,
+        ImportedItemRemoval? importedItems = null)
     {
         _storeRoot = storeRoot;
+        _importedItems = importedItems;
         _brokenItems = brokenItems;
         _volumes = volumes;
         _importState = importState;
@@ -1350,6 +1355,14 @@ public sealed class CommandHandler
 
                 return new CommandResult.VolumesObserved(
                     await _volumes.ObserveAsync(observe.RecordedPaths, cancellationToken));
+
+            case UiCommand.DeleteImportedItems:
+                if (_importedItems is null)
+                {
+                    return MissingService("取り込みが作った商品の削除");
+                }
+
+                return new CommandResult.ImportedItemsDeleted(await _importedItems.RemoveAsync(cancellationToken));
 
             case UiCommand.DiscardInterruptedImport:
                 if (_importState is null)

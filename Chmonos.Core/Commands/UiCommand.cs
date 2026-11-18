@@ -630,6 +630,12 @@ public abstract record UiCommand
     public record DetectUnreadableItems : UiCommand;
 
     /// <summary>
+    /// 中断した取り込みが新しく作った商品を消す（中断の窓の「中断して、この取り込みで新しく登録した n 件を削除する」・open 119）。
+    /// 人が手を入れた商品は残す。ディスクのファイルには触らない。取り込みが止まってから送る。結果は <see cref="CommandResult.ImportedItemsDeleted"/>
+    /// </summary>
+    public record DeleteImportedItems : UiCommand;
+
+    /// <summary>
     /// 前の起動で途中で止まった操作（IDの変更・タグや属性の名前の変更）の続きを済ませる（pending-operations.json。ユーザ判断 2026-10-06「A」）。
     /// 起動したときに主画面が1回送る。通知の「今すぐ続ける」は <paramref name="OperationId"/> でその1件だけを送る（ユーザ判断 2026-11-18・open 145）。
     /// BOOTHへは問い合わせない。結果は扱った記録の件数
@@ -758,6 +764,9 @@ public abstract record CommandResult
 
     /// <summary>済んだ。数を持つ（書き換えた商品の数・取り除いた数など）。</summary>
     public record Counted(int Count) : CommandResult;
+
+    /// <summary>取り込みが作った商品を消した。消した数と、人が手を入れていたので残した数。</summary>
+    public record ImportedItemsDeleted(Services.ImportedItemsRemoved Result) : CommandResult;
 
     /// <summary>共通素体を手で足した。足したか・戻したか・もうあったかを持つ。</summary>
     public record BaseAdded(Services.AvatarBaseAddOutcome Outcome) : CommandResult;

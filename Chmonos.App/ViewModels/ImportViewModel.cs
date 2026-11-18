@@ -1367,7 +1367,75 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
     }
 
-    private void Cancel() => _services.Imports.Cancel();
+    /// <summary>
+    /// 中断。この取り込みが新しく作った商品があるときだけ、それを消すかも聞く（open 119・ユーザ判断 2026-11-19）。
+    /// 無ければ今までどおり聞かずに止める（止めたいときに窓を挟まない）。消すのは止まり切ってから（<see cref="OnImportFinished"/>）——
+    /// 走っている間に消すと、後の段（説明・画像・検出）がまた書くことがある
+    /// </summary>
+    private void Cancel()
+    {
+        var created = _services.Store.ImportState.Load().CreatedItems?.Count ?? 0;
+        if (created > 0)
+        {
+            var answer = ChoiceQuestion.Ask(CancelQuestion(created));
+            if (answer is not (Views.ChoiceDialogResult.First or Views.ChoiceDialogResult.Second))
+            {
+                return;
+            }
+
+            _deleteCreatedAfterStop = answer == Views.ChoiceDialogResult.Second;
+        }
+
+        _services.Imports.Cancel();
+    }
+
+    /// <summary>止まり切ったら、この取り込みが作った商品を消す（中断の窓で選んだとき）。</summary>
+    private bool _deleteCreatedAfterStop;
+
+    internal static ChoiceRequest CancelQuestion(int created) => new(
+        "取り込みを中断",
+        "取り込みを中断します。",
+        "「中断する」\n取り込めた商品はそのまま残ります。\n\n"
+        + $"「中断して {created} 件を削除する」\n"
+        + "この取り込みで新しく登録した商品を、説明と画像も含めて削除します。元に戻せません。\n"
+        + "名前やメモを入れた商品は残します。ファイルは削除しません。",
+        "中断する",
+        $"中断して、この取り込みで新しく登録した {created} 件を削除する");
+
+    /// <summary>中断の窓で「削除する」を選んだ後、止まり切ってから消す。結果は「開始」の下に出す。</summary>
+    private async Task DeleteCreatedAsync()
+    {
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DeleteImportedItems());
+            if (result is Core.Commands.CommandResult.Failed failed)
+            {
+                StackNotice = failed.Message;
+                return;
+            }
+
+            if (result is Core.Commands.CommandResult.ImportedItemsDeleted { Result: var removed })
+            {
+                StackNotice = DeletedText(removed);
+            }
+
+            // 消えた商品が検索と件数に残らないよう読み直す
+            await _main.ReloadLibraryAsync();
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("中断した取り込みが作った商品の削除", exception);
+            StackNotice = $"削除できませんでした。{Core.Services.FailureText.Cause(exception)}";
+        }
+    }
+
+    internal static string DeletedText(Core.Services.ImportedItemsRemoved removed) => removed switch
+    {
+        // 止める前に取り込みが最後まで終わっていると、記録はもう空
+        { Deleted: 0, Kept: 0 } => "削除する商品はありませんでした。",
+        { Kept: 0 } => $"この取り込みで登録した {removed.Deleted} 件を削除しました。",
+        _ => $"この取り込みで登録した {removed.Deleted} 件を削除しました。名前やメモが入っていた {removed.Kept} 件は残しました。",
+    };
 
     private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
@@ -1620,6 +1688,10 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
 
         _shownWork = work;
+
+        // 中断の窓で「削除する」を選んだのに、押す前に取り込みが終わっていた（止まり切った知らせが来ない）。
+        // 持ち越すと次の取り込みが終わった時に、その回の商品を消してしまう
+        _deleteCreatedAfterStop = false;
         StackNotice = null;
 
         // 走らせ直したので、前回の中断はもう伝えることが無い
@@ -1743,6 +1815,12 @@ public sealed partial class ImportViewModel : ViewModelBase
         ClearEstimate();
         IsRunning = false;
         _main.BoothActivity.EndWork(WorkSource.Import);
+
+        if (_deleteCreatedAfterStop)
+        {
+            _deleteCreatedAfterStop = false;
+            DeleteCreatedAsync().Forget();
+        }
     }
 
     /// <summary>

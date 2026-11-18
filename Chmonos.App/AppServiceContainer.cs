@@ -173,7 +173,8 @@ public sealed class AppServiceContainer : IDisposable
                 Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin, UnpackedFolderRemover.RegisteredFoldersIn(Store)), Resolver, Notifications, UserTags, Attributes,
                 Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles, Store.ShopNotes,
                 new MissingFileFinder(Store, Volumes), Volumes, Store.ImportState, new BrokenItemRepair(Store, Items, Notifications),
-                storeRoot: Paths.Root)
+                storeRoot: Paths.Root,
+                importedItems: new ImportedItemRemoval(Store))
             {
                 RegistrationQueue = Store.RegistrationQueue,
                 CandidateSearches = CandidateSearches,

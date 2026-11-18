@@ -72,6 +72,15 @@ public sealed record ImportState
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool Scanning { get; init; }
 
+    /// <summary>
+    /// この取り込みが新しく作った商品の ID（作った順・open 119・ユーザ判断 2026-11-19）。
+    /// 中断の窓の「中断して、この取り込みで新しく登録した n 件を削除する」が、消す相手をこれで決める（推し量らない）。
+    /// 「追加」の足跡の時刻で拾うと、同じ時間に人が登録した商品まで拾う。既にある商品にファイルを足した分は入れない。
+    /// 取り込みを始めるたびに空から（「続きから進む」も新しい回）。起きたことの記録なので書き出す。無ければ書かない
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? CreatedItems { get; init; }
+
     /// <summary>①か、その手前の走査が途中で止まったままか（最後まで走っていれば 0 / 0 で書く）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool WasInterrupted => (Total > 0 && Done < Total) || Scanning;

@@ -628,6 +628,13 @@ public sealed partial class ImportPipeline : IImportPipeline
 
         public void NoteFetched() => FetchedTotal++;
 
+        private readonly List<string> _created = [];
+
+        /// <summary>この取り込みが新しく作った商品（作った順。既にある商品にファイルを足した分は入れない・open 119）。</summary>
+        public IReadOnlyList<string>? Created => _created.Count == 0 ? null : _created.ToList();
+
+        public void NoteCreated(string itemId) => _created.Add(itemId);
+
         /// <summary>BOOTH の不調で①が取れなかった商品（前の回から引き継いだ分を含む・#10）。</summary>
         private readonly Dictionary<string, UnfetchedItem> _unfetched = new(StringComparer.Ordinal);
 
