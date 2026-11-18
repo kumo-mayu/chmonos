@@ -1348,7 +1348,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                     nameof(HasManualName), nameof(ResetNameTip),
                     nameof(SelectedCategoryText), nameof(SelectedCountText), nameof(Aliases),
                     nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText), nameof(CanOpenItem),
-                    nameof(SelectedCheckedText), nameof(SelectedBaseNote), nameof(HasSelectedBaseNote),
+                    nameof(SelectedCheckedText),
                     nameof(SelectedInferredBaseText), nameof(HasSelectedInferredBase),
                     nameof(SelectedBoothName), nameof(HasSelectedBoothName),
                     nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),
@@ -1552,52 +1552,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     // ── 共通素体の欄（U19）──
 
+    // 欄の下に「同じ素体のほかのアバター（名前…）」の文を出していたが、仲間が多いと数行に伸びるので消した（2026-11-18 のメモ・ユーザ判断）。
+    // 仲間の一覧は切り替え「共通素体」の素体の詳細にある
     public bool HasBaseInput => BaseInput.Trim().Length > 0;
-
-    /// <summary>素体を指定したときに何が起きるかをその場に書く。推定が広がる操作なので。</summary>
-    public string SelectedBaseNote
-    {
-        get
-        {
-            if (Selected?.Summary.Entry.BaseName is not { } name)
-            {
-                return string.Empty;
-            }
-
-            var group = Bases.FirstOrDefault(row =>
-                string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase));
-
-            if (group is null)
-            {
-                return string.Empty;
-            }
-
-            if (!group.InferClothing)
-            {
-                return $"「{name}」は衣装の互換を広げない設定です。他のアバター向けの衣装は、素体経由として出ません。";
-            }
-
-            // 数ではなく名前で並べる（U19）。「他の 3 体」ではどのアバターか分からず、入れてよいかを判断できない
-            var siblings = _all
-                .Where(row => row.ItemId != Selected.ItemId
-                    && AvatarBaseNames.Same(row.Summary.Entry.BaseName, name))
-                .Select(row => row.Name)
-                .ToList();
-
-            if (siblings.Count == 0)
-            {
-                return $"「{name}」に属しているのはこのアバターだけです。";
-            }
-
-            // 多いと1行が長くなりすぎるので8体まで。残りは数で添える
-            const int shown = 8;
-            var names = string.Join("・", siblings.Take(shown));
-            var rest = siblings.Count > shown ? $" ほか {siblings.Count - shown} 体" : string.Empty;
-            return $"「{name}」の他のアバター（{names}{rest}）向けの衣装も、素体経由として一緒に表示されます。";
-        }
-    }
-
-    public bool HasSelectedBaseNote => SelectedBaseNote.Length > 0;
 
     /// <summary>
     /// 照合に使っている別名。**消したものは出さない。**

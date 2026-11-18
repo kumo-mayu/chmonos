@@ -817,9 +817,6 @@
                                            AutomationProperties.AutomationId="AvatarBaseFieldNote" />
                                 <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                            Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
-                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource AccentText}"
-                                           Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!--
                                     呼び方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
