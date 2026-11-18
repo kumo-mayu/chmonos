@@ -923,6 +923,27 @@
             </Border>
 
             <!--
+                保存していない入力を持って編集画面を離れた知らせ（ユーザ判断 2026-11-18）。離れるたびに窓で聞くと、行き来しながら埋める使い方で
+                毎回窓が出るので、窓は足さずに控えた事だけをここで言う（非表示の帯と同じ場所・同じ見た目）。編集へ入るか閉じるまで残す
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasDraftNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissDraftNoticeCommand}" AutomationProperties.Name="編集途中の知らせを閉じる"
+                            AutomationProperties.AutomationId="DraftNoticeClose"
+                            ToolTip="この知らせを閉じます。控えた入力は残ります。" />
+                    <Button DockPanel.Dock="Right" Content="続きを編集" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding OpenDraftsFromNoticeCommand}" AutomationProperties.AutomationId="DraftNoticeOpen"
+                            ToolTip="控えた商品だけを、編集画面で開きます。" />
+                    <TextBlock Text="{Binding DraftNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="DraftNoticeText"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding DraftNoticeText}" />
+                </DockPanel>
+            </Border>
+
+            <!--
                 プラグインの項目を押した知らせ（plan 44 の②）。押すのは右クリック・帯のメニューで行を持たないので、非表示の帯と同じ場所に出す。
                 「{名前}に送りました。」の後、ソフトが結果を返したら「{名前}：{結果}」に差し替える。送れなかった・うまくいかなかったは注意の色
             -->

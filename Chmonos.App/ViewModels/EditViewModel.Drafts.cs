@@ -53,7 +53,14 @@ public sealed partial class EditViewModel
         }
 
         _main.Drafts.Put(_item.Id, draft);
+        KeptDraftHere = true;
     }
+
+    /// <summary>
+    /// この編集画面を開いている間に、どれかの商品を書きかけとして控えたか。
+    /// 編集の外へ出た時の知らせは、出る時の商品が手付かずでも、途中で「スキップ」した商品の入力を控えていれば出す
+    /// </summary>
+    public bool KeptDraftHere { get; private set; }
 
     /// <summary>「編集途中 n件」のボタン。書きかけの置き場そのもの。</summary>
     public EditDraftStore Drafts => _main.Drafts;

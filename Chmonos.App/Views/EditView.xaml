@@ -352,7 +352,18 @@
                     <!-- 「前へ」「スキップ」は右の入力欄の上と下へ移した（ユーザ指示）。入力しながら押す物なので入力欄の側に置く -->
                     <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAndNextCommand}" />
                     <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
-                    <Button Content="終える" Command="{Binding FinishCommand}" />
+                    <!--
+                        行き先を名乗る（ユーザ判断 2026-11-18）。前は「終える」で、まとめて編集から入ると、1手で検索へ戻れる事が分からず
+                        履歴を n 回辿っていた。商品ページから来ると商品名が入るので、長い名前は名前だけを切り（「に戻る」は残す。
+                        切れると何のボタンか分からない）、吹き出しで全部見せる
+                    -->
+                    <Button Command="{Binding FinishCommand}" AutomationProperties.AutomationId="EditFinish"
+                            AutomationProperties.Name="{Binding FinishButtonText}" ToolTip="{Binding FinishButtonText}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding FinishTargetName}" MaxWidth="200" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="に戻る" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

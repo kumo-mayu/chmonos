@@ -208,9 +208,16 @@ public sealed partial class SearchViewModel
         }
 
         var card = ToCard(item);
+        var keepSelected = KeepsSelection(old);
+        card.IsSelected = keepSelected;
         card.SelectionChanged += OnCardSelectionChanged;
         _cards[item.Id] = card;
         ApplyUpdate(card);
+        if (keepSelected)
+        {
+            // 新しいカードにも「選んでいる最中」を知らせる（帯の件数は変わらないが、カードの押し方が選択の切り替えになる）
+            OnCardSelectionChanged();
+        }
 
         ApplyFilters();
         OnPropertyChanged(nameof(NeedsEditCount));

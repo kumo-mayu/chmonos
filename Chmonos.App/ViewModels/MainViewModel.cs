@@ -87,7 +87,11 @@ public sealed partial class MainViewModel : ViewModelBase
         };
 
         // 書きかけが増えたり消えたりすると「未:」の数も変わる（未から編へ移るので）
-        Drafts.PropertyChanged += (_, _) => OnPropertyChanged(nameof(NeedsEditBadgeCount));
+        Drafts.PropertyChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(NeedsEditBadgeCount));
+            NoteDraftsChanged();
+        };
 
         // ナビは**今いる画面を押しても何もしない**（2026-09-20）。
         // 検索と取り込み以外は押すたびに画面を作り直すので、履歴に積むかどうかの判定（同じ参照か）を
@@ -688,9 +692,16 @@ public sealed partial class MainViewModel : ViewModelBase
             }
 
             // 編集画面を離れるときは、今の商品の入力を書きかけとして控える（別の画面へ移っても消さない・ユーザ判断）
+            var leftEditWithDraft = false;
             if (_currentViewModel is EditViewModel leavingEdit && !ReferenceEquals(leavingEdit, value))
             {
                 leavingEdit.CaptureDraft();
+                leftEditWithDraft = leavingEdit.KeptDraftHere;
+            }
+
+            if (!ReferenceEquals(_currentViewModel, value))
+            {
+                NoteScreenChangeForDrafts(leftEditWithDraft, value);
             }
 
             // 離れるときは、待っている自動保存を今書く（I10：打ち終えてすぐ移ると 0.8 秒の待ちごと捨てられていた）。

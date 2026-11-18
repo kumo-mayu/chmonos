@@ -240,6 +240,15 @@ public sealed partial class SearchViewModel
     /// 選んだitemを編集画面のキューに積んで送る。
     /// 絞り込んでから選ぶ流れになるので、並び順はそのまま渡す。
     /// </summary>
+    /// <summary>
+    /// 「まとめて編集する」で送った商品。読み直し・保存の知らせでカードが替わっても、この中で選んでいた物は選んだままにする。
+    /// それ以外の読み直しは今までどおり選択を外す（取り込みの後などは、選んだ時と並びが違う）
+    /// </summary>
+    private HashSet<string> _sentToEdit = new(StringComparer.Ordinal);
+
+    /// <summary>読み直し・作り直しの後も選んだままにするか。今選んでいて、編集へ送った商品だけ。</summary>
+    private bool KeepsSelection(ItemCardViewModel? card) => card is { IsSelected: true } && _sentToEdit.Contains(card.Item.Id);
+
     private void SendSelectionToEdit()
     {
         var ids = _matches
@@ -258,7 +267,10 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        ClearSelection();
+        // 選んでいた物は解除しない（ユーザ判断 2026-11-19）。編集から戻った時に、同じ組へ続けて別の操作
+        // （まとめてタグを付ける・割り振る）をしたり、選び直して足したりできるように。
+        // 検索の画面は1つを持ち回すが、編集を終えると一覧を読み直し、保存した商品はカードを作り直すので、その2つで外さないよう覚える
+        _sentToEdit = ids.ToHashSet(StringComparer.Ordinal);
         _main.ShowEditAsync(ids).Forget();
     }
 
