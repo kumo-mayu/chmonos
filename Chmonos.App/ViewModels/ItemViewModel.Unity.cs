@@ -151,7 +151,7 @@ public sealed partial class ItemViewModel
     public bool HasUsedInModifications => UsedInModifications.Count > 0;
 
     public string UsedInModificationsEmptyText =>
-        "まだどの改変にも入っていません。下の「改変に追加」で残せます。";
+        "まだどの改変にも入っていません。上の「改変に追加」で残せます。";
 
     /// <summary>改変の詳細へ。戻るとこの商品へ帰る（見比べに戻ってくる。画面の履歴・U23）。</summary>
     private void OpenModification(UsedInModificationRowViewModel? row)

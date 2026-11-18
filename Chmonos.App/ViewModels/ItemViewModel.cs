@@ -123,7 +123,10 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
                 }
             },
             parameter => parameter is SectionRow);
-        ToggleAllSectionsCommand = new RelayCommand(ToggleAllSections, () => Sections.Count > 0);
+        CopySectionCommand = new RelayCommand(
+            parameter => CopySection(parameter as SectionRow),
+            parameter => parameter is SectionRow { IsRemoved: false });
+        ToggleAllSectionsCommand = new RelayCommand(ToggleAllSections,() => Sections.Count > 0);
         SetRoleBoothCommand = new RelayCommand(
             () => SetRoleAsync(Core.Models.ImageRole.Booth).Forget(),
             () => CurrentImage is { IsImage: true } && !IsEditLocked);
@@ -1116,6 +1119,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>見出しを押して1つだけ畳む／開く。</summary>
     public RelayCommand ToggleSectionCommand { get; }
 
+    /// <summary>見出しの右クリック「段落をコピー」。見出しの文字と本文を改行でつないで写す（ユーザ指示 2026-11-18）。</summary>
+    public RelayCommand CopySectionCommand { get; }
+
     public string ToggleAllSectionsText => Sections.Any(section => section.IsOpen)
         ? "すべて折りたたむ"
         : "すべて広げる";
@@ -1488,6 +1494,19 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         UnityRecordNotice = path is not null && _services.CopyText(path)
             ? "パスをコピーしました。"
             : "コピーできませんでした。もう一度押してください。";
+    }
+
+    /// <summary>見出しと本文を改行でつないだ、段落の写し。本文の無い見出しは見出しだけ。</summary>
+    internal static string SectionCopyText(SectionRow row)
+        => row.Text.Length > 0 ? $"{row.Heading}\n{row.Text}" : row.Heading;
+
+    private void CopySection(SectionRow? row)
+    {
+        if (row is not null && !Services.ClipboardText.TrySet(SectionCopyText(row)))
+        {
+            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+            IdNotice.Warn("コピーできませんでした。もう一度押してください。");
+        }
     }
 
     private void CopyId()

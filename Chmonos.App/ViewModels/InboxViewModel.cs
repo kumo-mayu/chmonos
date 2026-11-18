@@ -124,7 +124,7 @@ public sealed class NotificationRow : ViewModelBase
     public string ActionTip { get; init; } = string.Empty;
 
     /// <summary>
-    /// 行のボタン（zipで登録しなおす・商品情報を取り直す）の途中経過と失敗。押した行の近くに出す（2026-10-03 のユーザの方針）。
+    /// 行のボタン（zipで登録し直す・商品情報を取り直す）の途中経過と失敗。押した行の近くに出す（2026-10-03 のユーザの方針）。
     /// 終わると一覧を読み直して行を作り直すので、入れ物は知らせのID単位で持ち主（<see cref="InboxViewModel"/>）が渡す
     /// </summary>
     public AreaNotice ActionNotice { get; init; } = new();
@@ -132,6 +132,16 @@ public sealed class NotificationRow : ViewModelBase
     public bool HasAction => ActionText.Length > 0;
 
     public RelayCommand? ActionCommand { get; set; }
+
+    /// <summary>
+    /// 手で直す物（食い違ったJSON・読めない商品の記録）の場所。押すとエクスプローラで開く（ユーザ指示 2026-11-18）。
+    /// 直し方は人が決める（こちらから書き換えない）ので、直す道の代わりにファイルへの道を足す。無ければ空
+    /// </summary>
+    public string RevealPath { get; init; } = string.Empty;
+
+    public bool HasReveal => RevealPath.Length > 0;
+
+    public RelayCommand? RevealCommand { get; set; }
 
     /// <summary>
     /// 受信箱なので、いつ起きたかは「どれくらい前か」で読む（ユーザ指示 2026-09-18）。重ねた知らせは最後に変わった日時で言う。
@@ -262,7 +272,7 @@ public sealed class NotificationGroup : ViewModelBase
 
     public string TargetText => $"この商品 {TargetCount}";
 
-    public string TargetToolTip => $"開いた商品の通知が、この束に {TargetCount} 件あります。";
+    public string TargetToolTip => $"開いた商品の通知が、この種類に {TargetCount} 件あります。";
 
     public string StrongText => $"重要 {StrongCount}";
 
@@ -432,6 +442,12 @@ public sealed class InboxViewModel : ViewModelBase
     public string HeaderText => UnreadCount > 0
         ? $"未読 {UnreadCount} 件 / 全 {TotalCount} 件"
         : $"全 {TotalCount} 件・未読なし";
+
+    /// <summary>
+    /// 上の帯の一言。既読にしても消えないのは、全件が「通知に残す件数」を超えるまで（超えると既読・解消済みの古い方から保管庫へ移す。
+    /// 未読は移さない。<c>NotificationService.PruneAsync</c>）。件数は設定の値を出す
+    /// </summary>
+    public string RetentionText => $"既読の通知は、{_services.Settings.NotificationRetentionCount} 件を超えると古い方から「保管した通知」へ移ります";
 
     public bool IsEmpty => Groups.Count == 0;
 
@@ -629,13 +645,58 @@ public sealed class InboxViewModel : ViewModelBase
             ActionTip = ActionTip(record, _restorable),
             ActionNotice = RowNoticeFor(record.Id),
             Picture = PictureOf(record),
+            RevealPath = RevealTarget(record, _services.Store.Paths.Root),
         };
 
         row.ReadChanged += OnRowReadChanged;
         row.OpenItemCommand = new RelayCommand(() => OpenItemAsync(row.ItemId).Forget(), () => row.HasItem);
         row.ActionCommand = new RelayCommand(() => ActAsync(row).Forget(), () => row.HasAction);
+        row.RevealCommand = new RelayCommand(() => RevealAsync(row).Forget(), () => row.HasReveal);
 
         return row;
+    }
+
+    /// <summary>
+    /// 手で直す必要がある物の場所（保存先の中）。食い違ったJSONは知らせの本文の最初に挙げたファイル（複数あっても1つ。
+    /// 同じ保存先のフォルダなので、開いた先で並びのファイルも見える）、読めない商品の記録はその商品のJSON。
+    /// 解消済みの行・ほかの種類は空（開く先が無い）。控え（items/.prev）とよけた先（items/_broken）は同じ items の中
+    /// </summary>
+    internal static string RevealTarget(NotificationRecord record, string storePath)
+    {
+        if (record.IsResolved)
+        {
+            return string.Empty;
+        }
+
+        if (record.Kind == NotificationKind.UnreadableItem)
+        {
+            return Path.Combine(storePath, "items", $"{UnreadableItemId(record)}.json");
+        }
+
+        if (record.Kind == NotificationKind.HandEditMismatch)
+        {
+            // 本文の行は「・{ファイル}：{食い違い}」（HandEditCheck を書き出す NotificationService）
+            var first = record.Detail.Split('\n').FirstOrDefault(line => line.StartsWith('・'));
+            var colon = first?.IndexOf('：') ?? -1;
+            if (first is not null && colon > 1)
+            {
+                // 「items/」のようなフォルダはそのまま開く。パスの区切りは / のまま渡して良い（Windows が受ける）
+                return Path.Combine(storePath, first[1..colon].Replace('/', Path.DirectorySeparatorChar));
+            }
+
+            return storePath;
+        }
+
+        return string.Empty;
+    }
+
+    private static async Task RevealAsync(NotificationRow row)
+    {
+        // 開く先（ファイル・フォルダ）が無ければ親を、親も無ければ false（Shell.TryRevealAsync）
+        if (!await Chmonos.App.Services.Shell.TryRevealAsync(row.RevealPath))
+        {
+            row.ActionNotice.Warn("開く場所が見つかりませんでした。");
+        }
     }
 
     /// <summary>
@@ -705,7 +766,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanTag => "タグの管理を開く",
         // 「展開フォルダの登録を外す」では押すまで何が起きるか想像が付かなかった（ユーザ指摘 2026-09-18）。
         // 押した後どうなるか（zipの方でこの商品を数える）を名乗る
-        NotificationKind.ArchiveFoundForFolder => "zipで登録しなおす",
+        NotificationKind.ArchiveFoundForFolder => "zipで登録し直す",
         NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
             or NotificationKind.VariationBackOnBooth => "商品情報を取り直す",
         _ => string.Empty,
@@ -853,7 +914,7 @@ public sealed class InboxViewModel : ViewModelBase
                     {
                         // 受けないと「zipを読んで登録しています…」のまま残り、止まったように見えた
                         Core.Diagnostics.AppLog.Error("通知からのzipでの登録しなおし", exception);
-                        row.ActionNotice.Warn($"登録しなおせませんでした。{Core.Services.FailureText.Cause(exception)}");
+                        row.ActionNotice.Warn($"登録し直せませんでした。{Core.Services.FailureText.Cause(exception)}");
                     }
                     finally
                     {
@@ -1008,7 +1069,7 @@ public sealed class InboxViewModel : ViewModelBase
         }
         else
         {
-            rowNotice.Warn("登録しなおせませんでした。");
+            rowNotice.Warn("登録し直せませんでした。");
         }
 
         await NoteItemChangedAsync(itemId);
@@ -1022,7 +1083,7 @@ public sealed class InboxViewModel : ViewModelBase
         await ReloadAsync();
     }
 
-    /// <summary>「商品情報を取り直す」か「zipで登録しなおす」が走っているか。どちらも数秒かかるので、終わるまで次を受けない</summary>
+    /// <summary>「商品情報を取り直す」か「zipで登録し直す」が走っているか。どちらも数秒かかるので、終わるまで次を受けない</summary>
     private bool _isRefreshing;
 
     /// <summary>
