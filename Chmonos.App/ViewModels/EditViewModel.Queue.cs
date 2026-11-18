@@ -48,6 +48,40 @@ public sealed partial class EditViewModel
         }
     }
 
+    /// <summary>
+    /// ユーザータグ・属性の欄を開いているか（ユーザ指示 2026-11-18：既定は開いた折りたたみ）。
+    /// 畳んだかを次の商品・次の起動まで覚えるかは未決。いまは購入の欄と同じく、アプリを閉じるまで持つ
+    /// </summary>
+    private static bool s_isTagsExpanded = true;
+
+    private static bool s_isAttributesExpanded = true;
+
+    public bool IsTagsExpanded
+    {
+        get => s_isTagsExpanded;
+        set
+        {
+            if (s_isTagsExpanded != value)
+            {
+                s_isTagsExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool IsAttributesExpanded
+    {
+        get => s_isAttributesExpanded;
+        set
+        {
+            if (s_isAttributesExpanded != value)
+            {
+                s_isAttributesExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     /// <summary>見出しに添える種類の数。畳んでいても何件あるかは分かるように。</summary>
     public string PurchasesCountText => Variations.Count > 0 ? $"（{Variations.Count} 件）" : string.Empty;
 

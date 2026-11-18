@@ -683,12 +683,8 @@
                     <controls:DeferredSection DataContext="{Binding ItemPage}">
                         <views:ItemFilesPanel />
                     </controls:DeferredSection>
-                    <!-- 説明文に載っている YouTube の動画。商品ページと同じ部品（ユーザ判断 2026-09-29） -->
-                    <controls:DeferredSection DataContext="{Binding ItemPage}">
-                        <views:ItemVideosPanel />
-                    </controls:DeferredSection>
 
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="商品説明" FontWeight="Bold" Margin="0,0,0,10" />
                             <!-- 高さの上限は人が変えられる（ユーザ指摘 2026-10-02 メモ4）。下の縁のつまみで変え、ダブルクリックで既定の 360 に戻す -->
@@ -704,6 +700,11 @@
                                                  AutomationProperties.Name="商品説明の高さ" />
                         </StackPanel>
                     </Border>
+                    <!-- 説明文に載っている YouTube の動画。商品ページと同じ部品（ユーザ判断 2026-09-29）。
+                         一番下に置く（商品ページの左の列と同じ並び。ユーザ判断 2026-11-18） -->
+                    <controls:DeferredSection DataContext="{Binding ItemPage}" Margin="0,0,0,20">
+                        <views:ItemVideosPanel />
+                    </controls:DeferredSection>
                 </StackPanel>
             </controls:InsetScrollViewer>
 
@@ -728,7 +729,26 @@
                         </StackPanel>
 
                         <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
-                        <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" />
+                        <!-- 既定は開いた折りたたみ（ユーザ指示 2026-11-18）。畳んでも何個付いているかは見出しで分かる -->
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsTagsExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="EditTagsExpander" AutomationProperties.Name="ユーザータグ">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Tags.Count, StringFormat=（{0} 件）}" FontSize="13" Foreground="{DynamicResource TextFaint}" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Tags.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel>
                         <TextBlock Text="入力すると候補が表示されます。候補に無い語はそのまま新しいユーザータグとして追加されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
@@ -804,11 +824,31 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
+                        </StackPanel>
+                        </Expander>
 
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,16" />
 
-                        <!-- 属性：評価したものだけを積む。未評価は行が無いことで表す -->
-                        <TextBlock Text="属性" FontWeight="Bold" FontSize="13" />
+                        <!-- 属性：評価したものだけを積む。未評価は行が無いことで表す。ユーザータグと同じく既定は開いた折りたたみ -->
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsAttributesExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="EditAttributesExpander" AutomationProperties.Name="属性">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="属性" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Attributes.Count, StringFormat=（{0} 件）}" FontSize="13" Foreground="{DynamicResource TextFaint}" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Attributes.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel>
                         <TextBlock Text="追加した属性だけが評価済みになります。追加していないものは「未評価」で、0%とは区別されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
@@ -859,6 +899,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
+                        </StackPanel>
+                        </Expander>
 
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,16" />
 
